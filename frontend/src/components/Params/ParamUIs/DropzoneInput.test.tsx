@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { uploadBinary } from "openapi/http";
+import { updateArtifacts, uploadBinary } from "openapi/http";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -8,7 +8,6 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { parseDropzoneValue, serializeDropzoneValue } from "utils/dropzone";
-import { route_update_artifacts } from "utils/generatedEndpoints";
 import { ArtifactTypeEnum, createContentRef } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DropzoneInput } from "./DropzoneInput";
@@ -19,6 +18,7 @@ const { uploadBinaryMock, routeUpdateArtifactsMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("openapi/http", () => ({
+  updateArtifacts: routeUpdateArtifactsMock,
   uploadBinary: uploadBinaryMock,
 }));
 
@@ -27,14 +27,6 @@ vi.mock("openapi/http/result", () => ({
     return promise;
   },
 }));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_update_artifacts: routeUpdateArtifactsMock,
-  };
-});
 
 type RenderedDropzoneInput = {
   host: HTMLDivElement;
@@ -108,7 +100,7 @@ describe("DropzoneInput attachment display", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_update_artifacts).mockResolvedValue({
+    vi.mocked(updateArtifacts).mockResolvedValue({
       data: [],
       status: 200,
       hasResponse: true,
@@ -137,12 +129,11 @@ describe("DropzoneInput attachment display", () => {
 
       await vi.waitFor(() => {
         expect(uploadBinary).toHaveBeenCalledTimes(1);
-        expect(route_update_artifacts).toHaveBeenCalledTimes(1);
+        expect(updateArtifacts).toHaveBeenCalledTimes(1);
       });
 
-      const updateRequest = vi.mocked(route_update_artifacts).mock
-        .calls[0]?.[0];
-      const uploadedArtifact = updateRequest?.artifacts?.[0];
+      const updateRequest = vi.mocked(updateArtifacts).mock.calls[0]?.[0];
+      const uploadedArtifact = updateRequest?.body?.artifacts?.[0];
       const serializedValue =
         host.querySelector('[data-testid="dropzone-value"]')?.textContent ?? "";
       const parsedValue = parseDropzoneValue(serializedValue);
@@ -155,15 +146,17 @@ describe("DropzoneInput attachment display", () => {
           sha256: null,
         }),
       );
-      expect(route_update_artifacts).toHaveBeenCalledWith({
-        artifacts: [
-          {
-            type: ArtifactTypeEnum.File,
-            id: uploadedArtifact?.id,
-            value: uploadedArtifact?.value,
-          },
-        ],
-        uploadScope: "generic",
+      expect(updateArtifacts).toHaveBeenCalledWith({
+        body: {
+          artifacts: [
+            {
+              type: ArtifactTypeEnum.File,
+              id: uploadedArtifact?.id,
+              value: uploadedArtifact?.value,
+            },
+          ],
+          uploadScope: "generic",
+        },
       });
       expect(host.textContent).toContain("photo.png");
       expect(parsedValue?.attachments[0]?.kind).toBe("file");

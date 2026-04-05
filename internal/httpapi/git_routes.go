@@ -40,11 +40,52 @@ func RegisterGitRoutes(router chi.Router, deps GitRouteDependencies) error {
 		return fmt.Errorf("git service is required in ide mode")
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetGitStatus, getGitStatusHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetGitDiff, getGitDiffHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetGitLog, getGitLogHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetGitCommitDetails, getGitCommitDetailsHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetGitCommitFileDiff, getGitCommitFileDiffHandler(deps))
+	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
+	registerOpenAPIPostNoRequest[gitread.StatusResponse](
+		ideRouter,
+		"getGitStatus",
+		RouteGetGitStatus,
+		getGitStatusHandler(deps),
+		withOpenAPITags("Git"),
+		withOpenAPISummary("Get the current git status for the workspace repository."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[gitread.DiffRequest, gitread.DiffResponse](
+		ideRouter,
+		"getGitDiff",
+		RouteGetGitDiff,
+		getGitDiffHandler(deps),
+		withOpenAPITags("Git"),
+		withOpenAPISummary("Get a git diff for a single file."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[gitread.LogRequest, gitread.LogResponse](
+		ideRouter,
+		"getGitLog",
+		RouteGetGitLog,
+		getGitLogHandler(deps),
+		withOpenAPITags("Git"),
+		withOpenAPISummary("Get paginated git history for the workspace repository."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[gitread.CommitDetailsRequest, gitread.CommitDetailsResponse](
+		ideRouter,
+		"getGitCommitDetails",
+		RouteGetGitCommitDetails,
+		getGitCommitDetailsHandler(deps),
+		withOpenAPITags("Git"),
+		withOpenAPISummary("Get the metadata and changed files for a commit."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[gitread.CommitFileDiffRequest, gitread.CommitFileDiffResponse](
+		ideRouter,
+		"getGitCommitFileDiff",
+		RouteGetGitCommitFileDiff,
+		getGitCommitFileDiffHandler(deps),
+		withOpenAPITags("Git"),
+		withOpenAPISummary("Get the diff for a single file within a commit."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

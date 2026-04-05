@@ -11,13 +11,17 @@ import (
 	"setta/internal/agenticsummarycache"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/appgenskills"
+	"setta/internal/artifacts"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/chatattachments"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/detachedruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/filebrowser"
+	"setta/internal/gitread"
 	"setta/internal/launcher"
 	"setta/internal/llmconfig"
 	"setta/internal/lspcompletion"
@@ -31,8 +35,10 @@ import (
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
+	"setta/internal/runchains"
 	"setta/internal/runs"
 	"setta/internal/settingsstate"
+	"setta/internal/statemachineruns"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/workspacelaunch"
@@ -45,6 +51,9 @@ type frontendHTTPOpenAPIExternalAgentChecker struct{}
 type frontendHTTPOpenAPIProjectShellService struct{}
 type frontendHTTPOpenAPIProjectNotificationService struct{}
 type frontendHTTPOpenAPILSPAdminService struct{}
+type frontendHTTPOpenAPIGitService struct{}
+type frontendHTTPOpenAPIArtifactService struct{}
+type frontendHTTPOpenAPIShareArtifactService struct{}
 
 func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
 	return string(config.ModeIDE)
@@ -122,6 +131,78 @@ func (frontendHTTPOpenAPIFileBrowserService) Transfer(context.Context, filebrows
 
 func (frontendHTTPOpenAPIFileBrowserService) Download(context.Context, string) (filebrowser.DownloadResult, error) {
 	return filebrowser.DownloadResult{}, nil
+}
+
+func (frontendHTTPOpenAPIArtifactService) ImportFiles(context.Context, artifacts.ImportFilesRequest) ([]artifacts.ImportFilesResponseItem, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIArtifactService) LoadCachedImages(context.Context, artifacts.LoadCachedPathsRequest) ([]*artifacts.ImageArtifact, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIArtifactService) LoadCachedChartData(context.Context, artifacts.LoadCachedPathsRequest) ([]*artifacts.ChartDataArtifact, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIArtifactService) LoadCachedBrushStrokes(context.Context, artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIArtifactService) LoadCachedDrawAreaLayerItemTransforms(context.Context, artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIArtifactService) Update(context.Context, artifacts.UpdateRequest) ([]artifacts.ArtifactSaveResult, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIArtifactService) Delete(context.Context, artifacts.DeleteRequest) ([]string, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIShareArtifactService) LoadCachedImages(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.ImageArtifact, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIShareArtifactService) LoadCachedChartData(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.ChartDataArtifact, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIShareArtifactService) LoadCachedBrushStrokes(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIShareArtifactService) LoadCachedDrawAreaLayerItemTransforms(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIShareArtifactService) Update(context.Context, string, artifacts.UpdateRequest) ([]artifacts.ArtifactSaveResult, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIShareArtifactService) Delete(context.Context, string, artifacts.DeleteRequest) ([]string, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIGitService) Status(context.Context) (gitread.StatusResponse, error) {
+	return gitread.StatusResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIGitService) Diff(context.Context, gitread.DiffRequest) (gitread.DiffResponse, error) {
+	return gitread.DiffResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIGitService) Log(context.Context, gitread.LogRequest) (gitread.LogResponse, error) {
+	return gitread.LogResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIGitService) CommitDetails(context.Context, gitread.CommitDetailsRequest) (gitread.CommitDetailsResponse, error) {
+	return gitread.CommitDetailsResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIGitService) CommitFileDiff(context.Context, gitread.CommitFileDiffRequest) (gitread.CommitFileDiffResponse, error) {
+	return gitread.CommitFileDiffResponse{}, nil
 }
 
 func (frontendHTTPOpenAPIPluginService) ResolveAssetPath(string, string) (string, error) {
@@ -397,6 +478,61 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		LLMConfigPath: "/setta-files/llm_config.json",
 	}); err != nil {
 		return nil, fmt.Errorf("register mcp routes: %w", err)
+	}
+	if err := RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		ProjectState: &projectstate.Runtime{},
+	}); err != nil {
+		return nil, fmt.Errorf("register app definition routes: %w", err)
+	}
+	if err := RegisterAppGenSkillRoutes(router, AppGenSkillRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    &appgenskills.Service{},
+	}); err != nil {
+		return nil, fmt.Errorf("register app gen skill routes: %w", err)
+	}
+	if err := RegisterArtifactRoutes(router, ArtifactRouteDependencies{
+		ModePolicy:     modes.NewPolicy(config.ModeIDE),
+		Artifacts:      frontendHTTPOpenAPIArtifactService{},
+		ShareArtifacts: frontendHTTPOpenAPIShareArtifactService{},
+	}); err != nil {
+		return nil, fmt.Errorf("register artifact routes: %w", err)
+	}
+	if err := RegisterGitRoutes(router, GitRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Git:        frontendHTTPOpenAPIGitService{},
+	}); err != nil {
+		return nil, fmt.Errorf("register git routes: %w", err)
+	}
+	if err := RegisterListenerRoutes(router, ListenerRouteDependencies{
+		ModePolicy:          modes.NewPolicy(config.ModeIDE),
+		ProjectState:        &projectstate.Runtime{},
+		ListenerBroadcaster: &realtime.ListenerBroadcaster{},
+	}); err != nil {
+		return nil, fmt.Errorf("register listener routes: %w", err)
+	}
+	if err := RegisterAgentRunRoutes(router, AgentRunRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Profiles:   &agentprofiles.Store{},
+		Runs:       &agentruns.RunStore{},
+		Managed:    &agentruns.Runtime{},
+		Chains:     &runchains.Runtime{},
+	}); err != nil {
+		return nil, fmt.Errorf("register agent run routes: %w", err)
+	}
+	if err := RegisterDetachedRunRoutes(router, DetachedRunRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Planner:      &runs.Planner{},
+		Runs:         &detachedruns.Manager{},
+		ProjectState: &projectstate.Runtime{},
+	}); err != nil {
+		return nil, fmt.Errorf("register detached run routes: %w", err)
+	}
+	if err := RegisterStateMachineRunRoutes(router, StateMachineRunRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Runtime:    &statemachineruns.Runtime{},
+	}); err != nil {
+		return nil, fmt.Errorf("register state machine routes: %w", err)
 	}
 	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),

@@ -26,17 +26,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   routeGetAuthRefreshStatusMock,
+  getAgentRunsMock,
+  getListenerCoverageMock,
   getLatestLspDiagnosticsMock,
   uploadBinaryMock,
 } = vi.hoisted(() => ({
   routeGetAuthRefreshStatusMock: vi.fn(),
+  getAgentRunsMock: vi.fn(),
+  getListenerCoverageMock: vi.fn(),
   getLatestLspDiagnosticsMock: vi.fn(),
   uploadBinaryMock: vi.fn(),
 }));
 
 vi.mock("openapi/http", () => ({
   getAuthRefreshStatus: routeGetAuthRefreshStatusMock,
+  getAgentRuns: getAgentRunsMock,
   getLatestLspDiagnostics: getLatestLspDiagnosticsMock,
+  getListenerCoverage: getListenerCoverageMock,
   uploadBinary: uploadBinaryMock,
 }));
 
@@ -47,8 +53,6 @@ vi.mock("openapi/http/result", () => ({
 }));
 
 vi.mock("utils/generatedEndpoints", () => ({
-  route_get_agent_runs: vi.fn(),
-  route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
 }));
 
@@ -208,22 +212,19 @@ describe("openWebSocket", () => {
     (globalThis as unknown as { window?: typeof globalThis }).window =
       globalThis;
     globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    const { route_get_agent_runs } = await import("utils/generatedEndpoints");
-    const { route_get_listener_coverage } = await import(
-      "utils/generatedEndpoints"
-    );
+    const { getAgentRuns, getAuthRefreshStatus, getListenerCoverage } =
+      await import("openapi/http");
     vi.mocked(getAuthRefreshStatus).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-    vi.mocked(route_get_agent_runs).mockResolvedValue({
+    vi.mocked(getAgentRuns).mockResolvedValue({
       status: 200,
       data: [],
       hasResponse: true,
     });
-    vi.mocked(route_get_listener_coverage).mockResolvedValue({
+    vi.mocked(getListenerCoverage).mockResolvedValue({
       status: 404,
       data: null,
       hasResponse: true,

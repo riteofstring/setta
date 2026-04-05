@@ -1,7 +1,6 @@
-import { getLlmChat, getLlmResponse } from "openapi/http";
+import { getAgentRuns, getLlmChat, getLlmResponse } from "openapi/http";
 import { resetProjectStores } from "state/utils";
 import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
-import { route_get_agent_runs } from "utils/generatedEndpoints";
 import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
@@ -24,6 +23,7 @@ vi.mock("openapi/http", async () => {
     await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
+    getAgentRuns: vi.fn(),
     getLlmChat: vi.fn(),
     getLlmResponse: vi.fn(),
   };
@@ -35,21 +35,11 @@ vi.mock("openapi/http/result", () => ({
   },
 }));
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_get_agent_runs: vi.fn(),
-  };
-});
-
 vi.mock("state/actions/frontendWebsocketAffinity", () => ({
   waitForFrontendAffinityToken: vi.fn(async () => "frontend-test-id"),
 }));
 
-const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
+const mockedRouteGetAgentRuns = vi.mocked(getAgentRuns);
 const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
 const mockedRouteGetLLMResponse = vi.mocked(getLlmResponse);
 

@@ -24,6 +24,7 @@ import {
   updatePromptTemplate as apiUpdatePromptTemplate,
   updateTranscriptionProfile as apiUpdateTranscriptionProfile,
   getAgentProfiles,
+  getAgentRuns,
   getEngineConfigs,
   getExternalAgentConfigs,
   getExternalAgentHealth,
@@ -100,10 +101,7 @@ import {
 } from "state/utils/chatAppGeneration";
 import { C } from "utils/c";
 import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
-import {
-  route_get_agent_runs,
-  route_set_chat_section_chat_id,
-} from "utils/generatedEndpoints";
+import { route_set_chat_section_chat_id } from "utils/generatedEndpoints";
 import {
   AgentProfile,
   AgentRun,
@@ -1111,7 +1109,7 @@ export async function loadAgentRuns() {
     });
   }
   agentRunsLoadPromise = (async () => {
-    const res = await route_get_agent_runs();
+    const res = await callOpenAPI(getAgentRuns());
     if (res200(res)) {
       receiveAgentRunsUpdate(res.data);
     } else {

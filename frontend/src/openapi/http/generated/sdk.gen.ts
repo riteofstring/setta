@@ -17,6 +17,9 @@ import type {
   ApplyPluginLockfileData,
   ApplyPluginLockfileErrors,
   ApplyPluginLockfileResponses,
+  CancelRunData,
+  CancelRunErrors,
+  CancelRunResponses,
   CancelTranscriptionSessionData,
   CancelTranscriptionSessionErrors,
   CancelTranscriptionSessionResponses,
@@ -59,6 +62,9 @@ import type {
   DeleteAgentProfileData,
   DeleteAgentProfileErrors,
   DeleteAgentProfileResponses,
+  DeleteArtifactsData,
+  DeleteArtifactsErrors,
+  DeleteArtifactsResponses,
   DeleteEngineConfigData,
   DeleteEngineConfigErrors,
   DeleteEngineConfigResponses,
@@ -98,6 +104,9 @@ import type {
   EnablePluginData,
   EnablePluginErrors,
   EnablePluginResponses,
+  ForceRefreshListenerData,
+  ForceRefreshListenerErrors,
+  ForceRefreshListenerResponses,
   GenCodePrefixCompletionData,
   GenCodePrefixCompletionErrors,
   GenCodePrefixCompletionResponses,
@@ -110,12 +119,24 @@ import type {
   GetAgentProfilesData,
   GetAgentProfilesErrors,
   GetAgentProfilesResponses,
+  GetAgentRunData,
+  GetAgentRunErrors,
+  GetAgentRunResponses,
+  GetAgentRunsData,
+  GetAgentRunsErrors,
+  GetAgentRunsResponses,
   GetAgenticSummaryCacheStatusData,
   GetAgenticSummaryCacheStatusErrors,
   GetAgenticSummaryCacheStatusResponses,
   GetAiFollowSnapshotData,
   GetAiFollowSnapshotErrors,
   GetAiFollowSnapshotResponses,
+  GetAppCatalogData,
+  GetAppCatalogErrors,
+  GetAppCatalogResponses,
+  GetAppDefinitionData,
+  GetAppDefinitionErrors,
+  GetAppDefinitionResponses,
   GetAppDeploymentCurrentSessionData,
   GetAppDeploymentCurrentSessionErrors,
   GetAppDeploymentCurrentSessionResponses,
@@ -128,6 +149,12 @@ import type {
   GetAppDeploymentStateData,
   GetAppDeploymentStateErrors,
   GetAppDeploymentStateResponses,
+  GetAppGenSkillContentData,
+  GetAppGenSkillContentErrors,
+  GetAppGenSkillContentResponses,
+  GetAppGenSkillsData,
+  GetAppGenSkillsErrors,
+  GetAppGenSkillsResponses,
   GetAttachmentDownloadUrlData,
   GetAttachmentDownloadUrlErrors,
   GetAttachmentDownloadUrlResponses,
@@ -173,6 +200,21 @@ import type {
   GetFolderContentsData,
   GetFolderContentsErrors,
   GetFolderContentsResponses,
+  GetGitCommitDetailsData,
+  GetGitCommitDetailsErrors,
+  GetGitCommitDetailsResponses,
+  GetGitCommitFileDiffData,
+  GetGitCommitFileDiffErrors,
+  GetGitCommitFileDiffResponses,
+  GetGitDiffData,
+  GetGitDiffErrors,
+  GetGitDiffResponses,
+  GetGitLogData,
+  GetGitLogErrors,
+  GetGitLogResponses,
+  GetGitStatusData,
+  GetGitStatusErrors,
+  GetGitStatusResponses,
   GetLatestLspDiagnosticsData,
   GetLatestLspDiagnosticsErrors,
   GetLatestLspDiagnosticsResponses,
@@ -185,6 +227,9 @@ import type {
   GetLauncherStatusData,
   GetLauncherStatusErrors,
   GetLauncherStatusResponses,
+  GetListenerCoverageData,
+  GetListenerCoverageErrors,
+  GetListenerCoverageResponses,
   GetLlmApiKeysData,
   GetLlmApiKeysErrors,
   GetLlmApiKeysResponses,
@@ -212,6 +257,12 @@ import type {
   GetPromptTemplatesData,
   GetPromptTemplatesErrors,
   GetPromptTemplatesResponses,
+  GetRunStatusData,
+  GetRunStatusErrors,
+  GetRunStatusResponses,
+  GetRunnerSummaryData,
+  GetRunnerSummaryErrors,
+  GetRunnerSummaryResponses,
   GetRuntimeInfoData,
   GetRuntimeInfoErrors,
   GetRuntimeInfoResponses,
@@ -233,12 +284,18 @@ import type {
   GetShareDeploymentStateData,
   GetShareDeploymentStateErrors,
   GetShareDeploymentStateResponses,
+  GetStateMachineRunData,
+  GetStateMachineRunErrors,
+  GetStateMachineRunResponses,
   GetTranscriptionProfilesData,
   GetTranscriptionProfilesErrors,
   GetTranscriptionProfilesResponses,
   GetWorkspacePythonSignalData,
   GetWorkspacePythonSignalErrors,
   GetWorkspacePythonSignalResponses,
+  ImportFilesToArtifactsData,
+  ImportFilesToArtifactsErrors,
+  ImportFilesToArtifactsResponses,
   InstallPluginData,
   InstallPluginErrors,
   InstallPluginResponses,
@@ -269,6 +326,18 @@ import type {
   LoadAllProjectMetadataData,
   LoadAllProjectMetadataErrors,
   LoadAllProjectMetadataResponses,
+  LoadCachedBrushStrokesData,
+  LoadCachedBrushStrokesErrors,
+  LoadCachedBrushStrokesResponses,
+  LoadCachedChartDataData,
+  LoadCachedChartDataErrors,
+  LoadCachedChartDataResponses,
+  LoadCachedDrawAreaLayerItemTransformData,
+  LoadCachedDrawAreaLayerItemTransformErrors,
+  LoadCachedDrawAreaLayerItemTransformResponses,
+  LoadCachedImageArtifactsData,
+  LoadCachedImageArtifactsErrors,
+  LoadCachedImageArtifactsResponses,
   LoadProjectConfigData,
   LoadProjectConfigErrors,
   LoadProjectConfigResponses,
@@ -302,6 +371,9 @@ import type {
   RescanPluginsData,
   RescanPluginsErrors,
   RescanPluginsResponses,
+  ResetStateMachineData,
+  ResetStateMachineErrors,
+  ResetStateMachineResponses,
   RespondExternalAgentApprovalData,
   RespondExternalAgentApprovalErrors,
   RespondExternalAgentApprovalResponses,
@@ -323,6 +395,9 @@ import type {
   RunCodeData,
   RunCodeErrors,
   RunCodeResponses,
+  RunDetachedData,
+  RunDetachedErrors,
+  RunDetachedResponses,
   SaveAsNewProjectConfigData,
   SaveAsNewProjectConfigErrors,
   SaveAsNewProjectConfigResponses,
@@ -335,6 +410,9 @@ import type {
   SdkRuntimeHandshakeData,
   SdkRuntimeHandshakeErrors,
   SdkRuntimeHandshakeResponses,
+  SetAppDefinitionData,
+  SetAppDefinitionErrors,
+  SetAppDefinitionResponses,
   SetAsDefaultProjectData,
   SetAsDefaultProjectErrors,
   SetAsDefaultProjectResponses,
@@ -356,15 +434,33 @@ import type {
   SetupLauncherData,
   SetupLauncherErrors,
   SetupLauncherResponses,
+  StartAgentRunData,
+  StartAgentRunErrors,
+  StartAgentRunResponses,
+  StartRunChainData,
+  StartRunChainErrors,
+  StartRunChainResponses,
+  StartStateMachineRunData,
+  StartStateMachineRunErrors,
+  StartStateMachineRunResponses,
   StartTranscriptionSessionData,
   StartTranscriptionSessionErrors,
   StartTranscriptionSessionResponses,
+  StopAgentRunData,
+  StopAgentRunErrors,
+  StopAgentRunResponses,
   StopExternalAgentRunData,
   StopExternalAgentRunErrors,
   StopExternalAgentRunResponses,
   StopLlmChatData,
   StopLlmChatErrors,
   StopLlmChatResponses,
+  StopRunChainData,
+  StopRunChainErrors,
+  StopRunChainResponses,
+  StopStateMachineRunData,
+  StopStateMachineRunErrors,
+  StopStateMachineRunResponses,
   StopTranscriptionSessionData,
   StopTranscriptionSessionErrors,
   StopTranscriptionSessionResponses,
@@ -383,6 +479,9 @@ import type {
   UpdateAgentProfileData,
   UpdateAgentProfileErrors,
   UpdateAgentProfileResponses,
+  UpdateArtifactsData,
+  UpdateArtifactsErrors,
+  UpdateArtifactsResponses,
   UpdateEngineConfigData,
   UpdateEngineConfigErrors,
   UpdateEngineConfigResponses,
@@ -404,6 +503,12 @@ import type {
   UploadBinaryData,
   UploadBinaryErrors,
   UploadBinaryResponses,
+  UpsertAppGenCustomSkillData,
+  UpsertAppGenCustomSkillErrors,
+  UpsertAppGenCustomSkillResponses,
+  ValidateAppDefinitionData,
+  ValidateAppDefinitionErrors,
+  ValidateAppDefinitionResponses,
   WriteFileBrowserFileContentData,
   WriteFileBrowserFileContentErrors,
   WriteFileBrowserFileContentResponses,
@@ -680,6 +785,26 @@ export const downloadBinary = <ThrowOnError extends boolean = false>(
   >({
     url: "/binary/{contentId}",
     ...options,
+  });
+};
+
+/**
+ * Cancel a detached run.
+ */
+export const cancelRun = <ThrowOnError extends boolean = false>(
+  options: Options<CancelRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CancelRunResponses,
+    CancelRunErrors,
+    ThrowOnError
+  >({
+    url: "/cancelRun",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
@@ -970,6 +1095,26 @@ export const deleteAgentProfile = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Delete artifact payloads.
+ */
+export const deleteArtifacts = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteArtifactsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteArtifactsResponses,
+    DeleteArtifactsErrors,
+    ThrowOnError
+  >({
+    url: "/deleteArtifacts",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Delete an execution engine configuration.
  */
 export const deleteEngineConfig = <ThrowOnError extends boolean = false>(
@@ -1148,6 +1293,26 @@ export const downloadFileBrowserEntry = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Force a listener refresh broadcast for a project.
+ */
+export const forceRefreshListener = <ThrowOnError extends boolean = false>(
+  options: Options<ForceRefreshListenerData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ForceRefreshListenerResponses,
+    ForceRefreshListenerErrors,
+    ThrowOnError
+  >({
+    url: "/forceRefreshListener",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Resolve completions for generated-code prefix text.
  */
 export const genCodePrefixCompletion = <ThrowOnError extends boolean = false>(
@@ -1244,6 +1409,42 @@ export const getAgentProfiles = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Load a single managed agent or run-chain run by ID.
+ */
+export const getAgentRun = <ThrowOnError extends boolean = false>(
+  options: Options<GetAgentRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAgentRunResponses,
+    GetAgentRunErrors,
+    ThrowOnError
+  >({
+    url: "/getAgentRun",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List the managed agent and run-chain runs known to the IDE runtime.
+ */
+export const getAgentRuns = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAgentRunsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetAgentRunsResponses,
+    GetAgentRunsErrors,
+    ThrowOnError
+  >({
+    url: "/getAgentRuns",
+    ...options,
+  });
+};
+
+/**
  * Get the cache status for a chat section summary.
  */
 export const getAgenticSummaryCacheStatus = <
@@ -1262,6 +1463,78 @@ export const getAgenticSummaryCacheStatus = <
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Get the built-in standalone app component catalog.
+ */
+export const getAppCatalog = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAppCatalogData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetAppCatalogResponses,
+    GetAppCatalogErrors,
+    ThrowOnError
+  >({
+    url: "/getAppCatalog",
+    ...options,
+  });
+};
+
+/**
+ * Load the current app definition and resolved app spec.
+ */
+export const getAppDefinition = <ThrowOnError extends boolean = false>(
+  options: Options<GetAppDefinitionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAppDefinitionResponses,
+    GetAppDefinitionErrors,
+    ThrowOnError
+  >({
+    url: "/getAppDefinition",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read the content for a single app-generation skill.
+ */
+export const getAppGenSkillContent = <ThrowOnError extends boolean = false>(
+  options: Options<GetAppGenSkillContentData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAppGenSkillContentResponses,
+    GetAppGenSkillContentErrors,
+    ThrowOnError
+  >({
+    url: "/getAppGenSkillContent",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List available app-generation skills and custom-skill creation metadata.
+ */
+export const getAppGenSkills = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAppGenSkillsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetAppGenSkillsResponses,
+    GetAppGenSkillsErrors,
+    ThrowOnError
+  >({
+    url: "/getAppGenSkills",
+    ...options,
   });
 };
 
@@ -1572,6 +1845,26 @@ export const getLatestLspDiagnostics = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Get listener dependency coverage for a project.
+ */
+export const getListenerCoverage = <ThrowOnError extends boolean = false>(
+  options: Options<GetListenerCoverageData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetListenerCoverageResponses,
+    GetListenerCoverageErrors,
+    ThrowOnError
+  >({
+    url: "/getListenerCoverage",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * List persisted notifications for a project config.
  */
 export const getNotifications = <ThrowOnError extends boolean = false>(
@@ -1628,6 +1921,66 @@ export const getPromptTemplates = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Get the latest detached-run status.
+ */
+export const getRunStatus = <ThrowOnError extends boolean = false>(
+  options: Options<GetRunStatusData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetRunStatusResponses,
+    GetRunStatusErrors,
+    ThrowOnError
+  >({
+    url: "/getRunStatus",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the runner summary snapshot for a project.
+ */
+export const getRunnerSummary = <ThrowOnError extends boolean = false>(
+  options: Options<GetRunnerSummaryData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetRunnerSummaryResponses,
+    GetRunnerSummaryErrors,
+    ThrowOnError
+  >({
+    url: "/getRunnerSummary",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the latest state-machine run.
+ */
+export const getStateMachineRun = <ThrowOnError extends boolean = false>(
+  options: Options<GetStateMachineRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetStateMachineRunResponses,
+    GetStateMachineRunErrors,
+    ThrowOnError
+  >({
+    url: "/getStateMachineRun",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * List configured transcription profiles.
  */
 export const getTranscriptionProfiles = <ThrowOnError extends boolean = false>(
@@ -1655,6 +2008,122 @@ export const getWorkspacePythonSignal = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/getWorkspacePythonSignal",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the metadata and changed files for a commit.
+ */
+export const getGitCommitDetails = <ThrowOnError extends boolean = false>(
+  options: Options<GetGitCommitDetailsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetGitCommitDetailsResponses,
+    GetGitCommitDetailsErrors,
+    ThrowOnError
+  >({
+    url: "/git/commitDetails",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the diff for a single file within a commit.
+ */
+export const getGitCommitFileDiff = <ThrowOnError extends boolean = false>(
+  options: Options<GetGitCommitFileDiffData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetGitCommitFileDiffResponses,
+    GetGitCommitFileDiffErrors,
+    ThrowOnError
+  >({
+    url: "/git/commitFileDiff",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get a git diff for a single file.
+ */
+export const getGitDiff = <ThrowOnError extends boolean = false>(
+  options: Options<GetGitDiffData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetGitDiffResponses,
+    GetGitDiffErrors,
+    ThrowOnError
+  >({
+    url: "/git/diff",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get paginated git history for the workspace repository.
+ */
+export const getGitLog = <ThrowOnError extends boolean = false>(
+  options: Options<GetGitLogData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetGitLogResponses,
+    GetGitLogErrors,
+    ThrowOnError
+  >({
+    url: "/git/log",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the current git status for the workspace repository.
+ */
+export const getGitStatus = <ThrowOnError extends boolean = false>(
+  options?: Options<GetGitStatusData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GetGitStatusResponses,
+    GetGitStatusErrors,
+    ThrowOnError
+  >({
+    url: "/git/status",
+    ...options,
+  });
+};
+
+/**
+ * Import local files into the artifact store.
+ */
+export const importFilesToArtifacts = <ThrowOnError extends boolean = false>(
+  options: Options<ImportFilesToArtifactsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ImportFilesToArtifactsResponses,
+    ImportFilesToArtifactsErrors,
+    ThrowOnError
+  >({
+    url: "/importFilesToArtifacts",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1862,6 +2331,88 @@ export const loadAllProjectMetadata = <ThrowOnError extends boolean = false>(
   >({
     url: "/loadAllProjectMetadata",
     ...options,
+  });
+};
+
+/**
+ * Load cached draw brush-stroke artifacts by path.
+ */
+export const loadCachedBrushStrokes = <ThrowOnError extends boolean = false>(
+  options: Options<LoadCachedBrushStrokesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    LoadCachedBrushStrokesResponses,
+    LoadCachedBrushStrokesErrors,
+    ThrowOnError
+  >({
+    url: "/loadCachedBrushStrokes",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Load cached chart-data artifacts by path.
+ */
+export const loadCachedChartData = <ThrowOnError extends boolean = false>(
+  options: Options<LoadCachedChartDataData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    LoadCachedChartDataResponses,
+    LoadCachedChartDataErrors,
+    ThrowOnError
+  >({
+    url: "/loadCachedChartData",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Load cached image artifacts by path.
+ */
+export const loadCachedImageArtifacts = <ThrowOnError extends boolean = false>(
+  options: Options<LoadCachedImageArtifactsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    LoadCachedImageArtifactsResponses,
+    LoadCachedImageArtifactsErrors,
+    ThrowOnError
+  >({
+    url: "/loadCachedImageArtifacts",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Load cached draw-area layer transforms by path.
+ */
+export const loadCachedDrawAreaLayerItemTransform = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<LoadCachedDrawAreaLayerItemTransformData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    LoadCachedDrawAreaLayerItemTransformResponses,
+    LoadCachedDrawAreaLayerItemTransformErrors,
+    ThrowOnError
+  >({
+    url: "/loadDrawAreaLayerItemTransform",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
@@ -2290,6 +2841,26 @@ export const repairLauncher = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Reset the active state-machine run.
+ */
+export const resetStateMachine = <ThrowOnError extends boolean = false>(
+  options: Options<ResetStateMachineData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ResetStateMachineResponses,
+    ResetStateMachineErrors,
+    ThrowOnError
+  >({
+    url: "/resetStateMachine",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Submit an approval decision for an external agent run.
  */
 export const respondExternalAgentApproval = <
@@ -2383,6 +2954,26 @@ export const runCode = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/runCode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Start a detached run for a project entrypoint.
+ */
+export const runDetached = <ThrowOnError extends boolean = false>(
+  options: Options<RunDetachedData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RunDetachedResponses,
+    RunDetachedErrors,
+    ThrowOnError
+  >({
+    url: "/runDetached",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2496,6 +3087,26 @@ export const getServerMode = <ThrowOnError extends boolean = false>(
   >({
     url: "/serverMode",
     ...options,
+  });
+};
+
+/**
+ * Persist a standalone app definition.
+ */
+export const setAppDefinition = <ThrowOnError extends boolean = false>(
+  options: Options<SetAppDefinitionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetAppDefinitionResponses,
+    SetAppDefinitionErrors,
+    ThrowOnError
+  >({
+    url: "/setAppDefinition",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
@@ -2746,6 +3357,66 @@ export const getShareDeploymentState = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Start a managed agent run from an agent profile.
+ */
+export const startAgentRun = <ThrowOnError extends boolean = false>(
+  options: Options<StartAgentRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StartAgentRunResponses,
+    StartAgentRunErrors,
+    ThrowOnError
+  >({
+    url: "/startAgentRun",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Start a run chain.
+ */
+export const startRunChain = <ThrowOnError extends boolean = false>(
+  options: Options<StartRunChainData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StartRunChainResponses,
+    StartRunChainErrors,
+    ThrowOnError
+  >({
+    url: "/startRunChain",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Start a state-machine run.
+ */
+export const startStateMachineRun = <ThrowOnError extends boolean = false>(
+  options: Options<StartStateMachineRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StartStateMachineRunResponses,
+    StartStateMachineRunErrors,
+    ThrowOnError
+  >({
+    url: "/startStateMachineRun",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Start a transcription session for the current authenticated scope.
  */
 export const startTranscriptionSession = <ThrowOnError extends boolean = false>(
@@ -2757,6 +3428,26 @@ export const startTranscriptionSession = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/startTranscriptionSession",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Stop a managed agent run.
+ */
+export const stopAgentRun = <ThrowOnError extends boolean = false>(
+  options: Options<StopAgentRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StopAgentRunResponses,
+    StopAgentRunErrors,
+    ThrowOnError
+  >({
+    url: "/stopAgentRun",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2797,6 +3488,46 @@ export const stopLlmChat = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/stopLLMChat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Stop a run chain.
+ */
+export const stopRunChain = <ThrowOnError extends boolean = false>(
+  options: Options<StopRunChainData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StopRunChainResponses,
+    StopRunChainErrors,
+    ThrowOnError
+  >({
+    url: "/stopRunChain",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Stop the active state-machine run.
+ */
+export const stopStateMachineRun = <ThrowOnError extends boolean = false>(
+  options: Options<StopStateMachineRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StopStateMachineRunResponses,
+    StopStateMachineRunErrors,
+    ThrowOnError
+  >({
+    url: "/stopStateMachineRun",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2906,6 +3637,26 @@ export const updateAgentProfile = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Create or update artifact payloads.
+ */
+export const updateArtifacts = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateArtifactsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateArtifactsResponses,
+    UpdateArtifactsErrors,
+    ThrowOnError
+  >({
+    url: "/updateArtifacts",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Update an existing execution engine configuration.
  */
 export const updateEngineConfig = <ThrowOnError extends boolean = false>(
@@ -2999,6 +3750,46 @@ export const updateTranscriptionProfile = <
     ThrowOnError
   >({
     url: "/updateTranscriptionProfile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Create or update a custom app-generation skill.
+ */
+export const upsertAppGenCustomSkill = <ThrowOnError extends boolean = false>(
+  options: Options<UpsertAppGenCustomSkillData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpsertAppGenCustomSkillResponses,
+    UpsertAppGenCustomSkillErrors,
+    ThrowOnError
+  >({
+    url: "/upsertAppGenCustomSkill",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Validate an app definition payload against the current catalog.
+ */
+export const validateAppDefinition = <ThrowOnError extends boolean = false>(
+  options: Options<ValidateAppDefinitionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ValidateAppDefinitionResponses,
+    ValidateAppDefinitionErrors,
+    ThrowOnError
+  >({
+    url: "/validateAppDefinition",
     ...options,
     headers: {
       "Content-Type": "application/json",

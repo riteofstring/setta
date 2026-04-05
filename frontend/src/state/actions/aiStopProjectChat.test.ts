@@ -1,11 +1,11 @@
 import {
+  getAgentRuns,
   getExternalAgentChat,
   getLlmChat,
   stopExternalAgentRun,
   stopLlmChat,
 } from "openapi/http";
 import { resetProjectStores } from "state/utils";
-import { route_get_agent_runs } from "utils/generatedEndpoints";
 import {
   NotificationTypeEnum,
   RunStatusEnum,
@@ -32,6 +32,7 @@ vi.mock("openapi/http", async () => {
     await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
+    getAgentRuns: vi.fn(),
     getExternalAgentChat: vi.fn(),
     getLlmChat: vi.fn(),
     stopExternalAgentRun: vi.fn(),
@@ -45,23 +46,13 @@ vi.mock("openapi/http/result", () => ({
   },
 }));
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_get_agent_runs: vi.fn(),
-  };
-});
-
 vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
+const mockedRouteGetAgentRuns = vi.mocked(getAgentRuns);
 const mockedRouteGetExternalAgentChat = vi.mocked(getExternalAgentChat);
 const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
-const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
 const mockedRouteStopExternalAgentRun = vi.mocked(stopExternalAgentRun);
 const mockedRouteStopLlmChat = vi.mocked(stopLlmChat);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);

@@ -61,7 +61,16 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 		return fmt.Errorf("artifact service is required in ide mode")
 	}
 	ideGuard := RequireFullIDERuntime(deps.ModePolicy)
-	router.With(ideGuard).Post(RouteImportFilesToArtifacts, importFilesToArtifactsHandler(deps))
+	ideRouter := router.With(ideGuard)
+	registerOpenAPIPost[artifacts.ImportFilesRequest, []artifacts.ImportFilesResponseItem](
+		ideRouter,
+		"importFilesToArtifacts",
+		RouteImportFilesToArtifacts,
+		importFilesToArtifactsHandler(deps),
+		withOpenAPITags("Artifacts"),
+		withOpenAPISummary("Import local files into the artifact store."),
+		withOpenAPIModeRequirement("full-ide"),
+	)
 
 	if deps.ModePolicy.IsDeployment() {
 		if deps.ShareSessions == nil {
@@ -74,21 +83,118 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
-		router.With(shareGuard).Post(RouteLoadCachedImageArtifacts, loadCachedImageArtifactsShareHandler(deps))
-		router.With(shareGuard).Post(RouteLoadCachedChartData, loadCachedChartDataShareHandler(deps))
-		router.With(shareGuard).Post(RouteLoadCachedBrushStrokes, loadCachedBrushStrokesShareHandler(deps))
-		router.With(shareGuard).Post(RouteLoadCachedDrawAreaLayerItemTransform, loadCachedDrawAreaLayerItemTransformShareHandler(deps))
-		router.With(shareGuard).Post(RouteUpdateArtifacts, updateArtifactsShareHandler(deps))
-		router.With(shareGuard).Post(RouteDeleteArtifacts, deleteArtifactsShareHandler(deps))
+		shareRouter := router.With(shareGuard)
+		registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.ImageArtifact](
+			shareRouter,
+			"loadCachedImageArtifacts",
+			RouteLoadCachedImageArtifacts,
+			loadCachedImageArtifactsShareHandler(deps),
+			withOpenAPITags("Artifacts"),
+			withOpenAPISummary("Load cached image artifacts by path."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.ChartDataArtifact](
+			shareRouter,
+			"loadCachedChartData",
+			RouteLoadCachedChartData,
+			loadCachedChartDataShareHandler(deps),
+			withOpenAPITags("Artifacts"),
+			withOpenAPISummary("Load cached chart-data artifacts by path."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.JSONArtifact](
+			shareRouter,
+			"loadCachedBrushStrokes",
+			RouteLoadCachedBrushStrokes,
+			loadCachedBrushStrokesShareHandler(deps),
+			withOpenAPITags("Artifacts"),
+			withOpenAPISummary("Load cached draw brush-stroke artifacts by path."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.JSONArtifact](
+			shareRouter,
+			"loadCachedDrawAreaLayerItemTransform",
+			RouteLoadCachedDrawAreaLayerItemTransform,
+			loadCachedDrawAreaLayerItemTransformShareHandler(deps),
+			withOpenAPITags("Artifacts"),
+			withOpenAPISummary("Load cached draw-area layer transforms by path."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[UpdateArtifactsRequest, []artifacts.ArtifactSaveResult](
+			shareRouter,
+			"updateArtifacts",
+			RouteUpdateArtifacts,
+			updateArtifactsShareHandler(deps),
+			withOpenAPITags("Artifacts"),
+			withOpenAPISummary("Create or update artifact payloads."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[artifacts.DeleteRequest, []string](
+			shareRouter,
+			"deleteArtifacts",
+			RouteDeleteArtifacts,
+			deleteArtifactsShareHandler(deps),
+			withOpenAPITags("Artifacts"),
+			withOpenAPISummary("Delete artifact payloads."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
 		return nil
 	}
 
-	router.With(ideGuard).Post(RouteLoadCachedImageArtifacts, loadCachedImageArtifactsHandler(deps))
-	router.With(ideGuard).Post(RouteLoadCachedChartData, loadCachedChartDataHandler(deps))
-	router.With(ideGuard).Post(RouteLoadCachedBrushStrokes, loadCachedBrushStrokesHandler(deps))
-	router.With(ideGuard).Post(RouteLoadCachedDrawAreaLayerItemTransform, loadCachedDrawAreaLayerItemTransformHandler(deps))
-	router.With(ideGuard).Post(RouteUpdateArtifacts, updateArtifactsHandler(deps))
-	router.With(ideGuard).Post(RouteDeleteArtifacts, deleteArtifactsHandler(deps))
+	registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.ImageArtifact](
+		ideRouter,
+		"loadCachedImageArtifacts",
+		RouteLoadCachedImageArtifacts,
+		loadCachedImageArtifactsHandler(deps),
+		withOpenAPITags("Artifacts"),
+		withOpenAPISummary("Load cached image artifacts by path."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.ChartDataArtifact](
+		ideRouter,
+		"loadCachedChartData",
+		RouteLoadCachedChartData,
+		loadCachedChartDataHandler(deps),
+		withOpenAPITags("Artifacts"),
+		withOpenAPISummary("Load cached chart-data artifacts by path."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.JSONArtifact](
+		ideRouter,
+		"loadCachedBrushStrokes",
+		RouteLoadCachedBrushStrokes,
+		loadCachedBrushStrokesHandler(deps),
+		withOpenAPITags("Artifacts"),
+		withOpenAPISummary("Load cached draw brush-stroke artifacts by path."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.JSONArtifact](
+		ideRouter,
+		"loadCachedDrawAreaLayerItemTransform",
+		RouteLoadCachedDrawAreaLayerItemTransform,
+		loadCachedDrawAreaLayerItemTransformHandler(deps),
+		withOpenAPITags("Artifacts"),
+		withOpenAPISummary("Load cached draw-area layer transforms by path."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[UpdateArtifactsRequest, []artifacts.ArtifactSaveResult](
+		ideRouter,
+		"updateArtifacts",
+		RouteUpdateArtifacts,
+		updateArtifactsHandler(deps),
+		withOpenAPITags("Artifacts"),
+		withOpenAPISummary("Create or update artifact payloads."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[artifacts.DeleteRequest, []string](
+		ideRouter,
+		"deleteArtifacts",
+		RouteDeleteArtifacts,
+		deleteArtifactsHandler(deps),
+		withOpenAPITags("Artifacts"),
+		withOpenAPISummary("Delete artifact payloads."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
 	return nil
 }
 

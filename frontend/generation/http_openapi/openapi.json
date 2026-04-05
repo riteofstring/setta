@@ -220,6 +220,332 @@
         "required": ["id", "timestamp", "type"],
         "type": "object"
       },
+      "AppgenskillsGetSkillsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "customSkillCreateRootActionable": {
+            "type": "boolean"
+          },
+          "customSkillCreateRootPath": {
+            "type": ["string", "null"]
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/AppgenskillsSkillEntry"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": [
+          "skills",
+          "customSkillCreateRootPath",
+          "customSkillCreateRootActionable"
+        ],
+        "type": "object"
+      },
+      "AppgenskillsSkillContent": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "originalSizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "skillId": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["skillId", "content", "truncated", "originalSizeBytes"],
+        "type": "object"
+      },
+      "AppgenskillsSkillEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "editabilityReason": {
+            "type": ["string", "null"]
+          },
+          "isEditable": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "rootLabel": {
+            "type": "string"
+          },
+          "rootPath": {
+            "type": "string"
+          },
+          "skillId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "skillId",
+          "name",
+          "rootLabel",
+          "rootPath",
+          "relativePath",
+          "isEditable",
+          "editabilityReason",
+          "description"
+        ],
+        "type": "object"
+      },
+      "AppgenskillsUpsertCustomSkillResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "type": "boolean"
+          },
+          "rootPath": {
+            "type": "string"
+          },
+          "skill": {
+            "$ref": "#/components/schemas/AppgenskillsSkillEntry"
+          },
+          "skillContent": {
+            "$ref": "#/components/schemas/AppgenskillsSkillContent"
+          },
+          "skillDocPath": {
+            "type": "string"
+          },
+          "skillId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "skillId",
+          "created",
+          "rootPath",
+          "skillDocPath",
+          "skill",
+          "skillContent"
+        ],
+        "type": "object"
+      },
+      "AppspecAppCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object"
+          },
+          "themeSchemaVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalogId",
+          "catalogVersion",
+          "appSpecVersion",
+          "themeSchemaVersion",
+          "features"
+        ],
+        "type": "object"
+      },
+      "AppspecAppValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "elementKey": {
+            "type": "string"
+          },
+          "elementType": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "type": "object"
+      },
+      "ArtifactsArtifactSaveResult": {
+        "additionalProperties": false,
+        "properties": {
+          "backupPath": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "type", "status"],
+        "type": "object"
+      },
+      "ArtifactsChartDataArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "additionalProperties": {
+              "items": {},
+              "type": ["array", "null"]
+            },
+            "type": "object"
+          }
+        },
+        "required": ["type", "id", "value"],
+        "type": "object"
+      },
+      "ArtifactsDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactsDeleteRequestItem"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["artifacts"],
+        "type": "object"
+      },
+      "ArtifactsDeleteRequestItem": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "type"],
+        "type": "object"
+      },
+      "ArtifactsImageArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/BinaryContentRef"
+          }
+        },
+        "required": ["type", "id", "value"],
+        "type": "object"
+      },
+      "ArtifactsImportFilesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "uploadScope": {
+            "type": "string"
+          }
+        },
+        "required": ["paths", "uploadScope"],
+        "type": "object"
+      },
+      "ArtifactsImportFilesResponseItem": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["kind", "id", "name", "mimeType", "size"],
+        "type": "object"
+      },
+      "ArtifactsJSONArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": ["type", "id", "value"],
+        "type": "object"
+      },
+      "ArtifactsLoadCachedPathsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["paths"],
+        "type": "object"
+      },
+      "ArtifactsRawArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": ["type", "id", "value"],
+        "type": "object"
+      },
       "BinaryContentRef": {
         "additionalProperties": false,
         "properties": {
@@ -364,6 +690,70 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "DetachedrunsRun": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "createdAtMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "entrySectionId": {
+            "type": ["string", "null"]
+          },
+          "exitCode": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "exitedAtMs": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "pid": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "snapshotPath": {
+            "type": "string"
+          },
+          "startedAtMs": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "status": {
+            "type": "string"
+          },
+          "tags": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "runId",
+          "status",
+          "createdAtMs",
+          "startedAtMs",
+          "exitedAtMs",
+          "exitCode",
+          "pid",
+          "command",
+          "snapshotPath",
+          "projectConfigId",
+          "entrySectionId",
+          "tags"
+        ],
         "type": "object"
       },
       "ExternalagentconfigsClaudeSettingsManaged": {
@@ -690,6 +1080,402 @@
         "required": ["path", "mimeType", "mtimeNs", "size"],
         "type": "object"
       },
+      "GitreadCommit": {
+        "additionalProperties": false,
+        "properties": {
+          "authorEmail": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "authorTimeMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "decorations": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "hash": {
+            "type": "string"
+          },
+          "parents": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash",
+          "parents",
+          "authorName",
+          "authorEmail",
+          "authorTimeMs",
+          "subject",
+          "decorations"
+        ],
+        "type": "object"
+      },
+      "GitreadCommitChangedFile": {
+        "additionalProperties": false,
+        "properties": {
+          "additions": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "deletions": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "oldPath": {
+            "type": ["string", "null"]
+          },
+          "path": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": ["path", "oldPath", "status", "additions", "deletions"],
+        "type": "object"
+      },
+      "GitreadCommitDetailsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "commitHash": {
+            "type": "string"
+          }
+        },
+        "required": ["commitHash"],
+        "type": "object"
+      },
+      "GitreadCommitDetailsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authorEmail": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "authorTimeMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "body": {
+            "type": "string"
+          },
+          "commitHash": {
+            "type": "string"
+          },
+          "committerEmail": {
+            "type": "string"
+          },
+          "committerName": {
+            "type": "string"
+          },
+          "committerTimeMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/GitreadCommitChangedFile"
+            },
+            "type": ["array", "null"]
+          },
+          "isTruncated": {
+            "type": "boolean"
+          },
+          "parents": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "repoRoot": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "repoRoot",
+          "commitHash",
+          "parents",
+          "authorName",
+          "authorEmail",
+          "authorTimeMs",
+          "committerName",
+          "committerEmail",
+          "committerTimeMs",
+          "subject",
+          "body",
+          "files",
+          "isTruncated"
+        ],
+        "type": "object"
+      },
+      "GitreadCommitFileDiffRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "commitHash": {
+            "type": "string"
+          },
+          "oldPath": {
+            "type": ["string", "null"]
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["commitHash", "path", "oldPath"],
+        "type": "object"
+      },
+      "GitreadCommitFileDiffResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "commitHash": {
+            "type": "string"
+          },
+          "diff": {
+            "type": "string"
+          },
+          "isTruncated": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          },
+          "repoRoot": {
+            "type": "string"
+          }
+        },
+        "required": ["repoRoot", "commitHash", "path", "diff", "isTruncated"],
+        "type": "object"
+      },
+      "GitreadDiffRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "oldPath": {
+            "type": ["string", "null"]
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["path", "oldPath", "mode"],
+        "type": "object"
+      },
+      "GitreadDiffResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "diff": {
+            "type": "string"
+          },
+          "isTruncated": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "repoRoot": {
+            "type": "string"
+          }
+        },
+        "required": ["repoRoot", "path", "mode", "diff", "isTruncated"],
+        "type": "object"
+      },
+      "GitreadGitWorktreeEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "branchName": {
+            "type": ["string", "null"]
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "headCommit": {
+            "type": ["string", "null"]
+          },
+          "isCurrent": {
+            "type": "boolean"
+          },
+          "isPrunable": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          },
+          "prunableReason": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "path",
+          "displayName",
+          "branchName",
+          "headCommit",
+          "isCurrent",
+          "isPrunable",
+          "prunableReason"
+        ],
+        "type": "object"
+      },
+      "GitreadLogRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "allRefs": {
+            "type": "boolean"
+          },
+          "offset": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rev": {
+            "type": "string"
+          }
+        },
+        "required": ["rev", "allRefs", "offset", "pageSize"],
+        "type": "object"
+      },
+      "GitreadLogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "commits": {
+            "items": {
+              "$ref": "#/components/schemas/GitreadCommit"
+            },
+            "type": ["array", "null"]
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "headBranch": {
+            "type": ["string", "null"]
+          },
+          "isCapped": {
+            "type": "boolean"
+          },
+          "nextOffset": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "offset": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "repoRoot": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "repoRoot",
+          "headBranch",
+          "commits",
+          "offset",
+          "pageSize",
+          "nextOffset",
+          "hasMore",
+          "isCapped"
+        ],
+        "type": "object"
+      },
+      "GitreadRepoInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "headBranch": {
+            "type": ["string", "null"]
+          },
+          "headCommit": {
+            "type": ["string", "null"]
+          },
+          "isGitRepo": {
+            "type": "boolean"
+          },
+          "repoRoot": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["isGitRepo", "repoRoot", "headBranch", "headCommit"],
+        "type": "object"
+      },
+      "GitreadStatusEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "indexStatus": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "oldPath": {
+            "type": ["string", "null"]
+          },
+          "path": {
+            "type": "string"
+          },
+          "worktreeStatus": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "oldPath",
+          "indexStatus",
+          "worktreeStatus",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "GitreadStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/GitreadStatusEntry"
+            },
+            "type": ["array", "null"]
+          },
+          "isTruncated": {
+            "type": "boolean"
+          },
+          "repo": {
+            "$ref": "#/components/schemas/GitreadRepoInfo"
+          },
+          "worktrees": {
+            "items": {
+              "$ref": "#/components/schemas/GitreadGitWorktreeEntry"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["repo", "entries", "isTruncated", "worktrees"],
+        "type": "object"
+      },
       "HttpapiAgentProfilePayload": {
         "additionalProperties": false,
         "properties": {
@@ -735,6 +1521,89 @@
           "toolAllowlist",
           "memoryScope"
         ],
+        "type": "object"
+      },
+      "HttpapiAppCatalogActionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["name"],
+        "type": "object"
+      },
+      "HttpapiAppCatalogComponentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "type": "boolean"
+          },
+          "props": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HttpapiAppCatalogPropResponse"
+            },
+            "type": "object"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["type", "children"],
+        "type": "object"
+      },
+      "HttpapiAppCatalogPropResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {},
+          "enum": {
+            "items": {},
+            "type": ["array", "null"]
+          },
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "min": {
+            "format": "double",
+            "type": "number"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "responsive": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["type"],
+        "type": "object"
+      },
+      "HttpapiAppCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/HttpapiAppCatalogActionResponse"
+            },
+            "type": ["array", "null"]
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/HttpapiAppCatalogComponentResponse"
+            },
+            "type": ["array", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "version", "components", "actions"],
         "type": "object"
       },
       "HttpapiAppDeploymentSessionResponse": {
@@ -910,6 +1779,16 @@
           }
         },
         "required": ["file"],
+        "type": "object"
+      },
+      "HttpapiCancelRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": ["runId"],
         "type": "object"
       },
       "HttpapiCancelTranscriptionSessionRequest": {
@@ -1530,6 +2409,16 @@
         ],
         "type": "object"
       },
+      "HttpapiForceRefreshProjectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId"],
+        "type": "object"
+      },
       "HttpapiGenCodePrefixCompletionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1584,6 +2473,16 @@
         "required": ["profileId"],
         "type": "object"
       },
+      "HttpapiGetAgentRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": ["runId"],
+        "type": "object"
+      },
       "HttpapiGetAgenticSummaryCacheStatusRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1595,6 +2494,25 @@
           }
         },
         "required": ["projectConfigId", "chatSectionId"],
+        "type": "object"
+      },
+      "HttpapiGetAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "frontendOpId": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "HttpapiGetAppGenSkillContentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "skillId": {
+            "type": "string"
+          }
+        },
+        "required": ["skillId"],
         "type": "object"
       },
       "HttpapiGetAttachmentDownloadURLRequest": {
@@ -1879,6 +2797,39 @@
           }
         },
         "required": ["templateId"],
+        "type": "object"
+      },
+      "HttpapiGetRunStatusRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": ["runId"],
+        "type": "object"
+      },
+      "HttpapiGetRunnerSummaryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId"],
+        "type": "object"
+      },
+      "HttpapiGetStateMachineRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "machineGroupId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "machineGroupId"],
         "type": "object"
       },
       "HttpapiGetWorkspacePythonSignalRequest": {
@@ -2530,6 +3481,16 @@
         "required": ["ok"],
         "type": "object"
       },
+      "HttpapiListenerCoverageRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId"],
+        "type": "object"
+      },
       "HttpapiLoadDeploymentProjectConfigRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2967,6 +3928,19 @@
         ],
         "type": "object"
       },
+      "HttpapiResetStateMachineRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "machineGroupId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "machineGroupId"],
+        "type": "object"
+      },
       "HttpapiRespondExternalAgentApprovalRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3053,6 +4027,60 @@
           "sectionVariantOverrides",
           "paramOverrides"
         ],
+        "type": "object"
+      },
+      "HttpapiRunDetachedRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "entrySectionId": {
+            "type": "string"
+          },
+          "paramOverrides": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "runSnapshotMode": {
+            "type": "string"
+          },
+          "sectionVariantOverrides": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "tags": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "projectConfigId",
+          "entrySectionId",
+          "runSnapshotMode",
+          "sectionVariantOverrides",
+          "paramOverrides",
+          "tags"
+        ],
+        "type": "object"
+      },
+      "HttpapiRunDetachedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": ["runId", "status"],
         "type": "object"
       },
       "HttpapiRuntimeAuth": {
@@ -3170,6 +4198,48 @@
           }
         },
         "required": ["mode"],
+        "type": "object"
+      },
+      "HttpapiSetAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "appSpec": {},
+          "appSpecPath": {
+            "type": "string"
+          },
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "assets": {
+            "items": {},
+            "type": "array"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "dataBindings": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateAppRoute"
+            },
+            "type": "array"
+          },
+          "theme": {
+            "additionalProperties": {},
+            "type": "object"
+          }
+        },
+        "required": ["appSpec"],
         "type": "object"
       },
       "HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest": {
@@ -3342,6 +4412,50 @@
         ],
         "type": "object"
       },
+      "HttpapiStartAgentRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "inputs": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "profileId": {
+            "type": "string"
+          }
+        },
+        "required": ["profileId", "inputs"],
+        "type": "object"
+      },
+      "HttpapiStartRunChainRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "inputs": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/RunchainsSpecInput"
+          }
+        },
+        "required": ["spec", "inputs"],
+        "type": "object"
+      },
+      "HttpapiStartStateMachineRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "machineGroupId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "startSectionId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "machineGroupId"],
+        "type": "object"
+      },
       "HttpapiStartTranscriptionSessionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3370,6 +4484,29 @@
           }
         },
         "required": ["sessionId", "resolvedTransportMode", "chunkMs"],
+        "type": "object"
+      },
+      "HttpapiStateMachineRunControlResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alreadyStopped": {
+            "type": "boolean"
+          },
+          "stoppedRunId": {
+            "type": "string"
+          }
+        },
+        "required": ["alreadyStopped"],
+        "type": "object"
+      },
+      "HttpapiStopAgentRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": ["runId"],
         "type": "object"
       },
       "HttpapiStopExternalAgentRunRequest": {
@@ -3406,6 +4543,29 @@
           }
         },
         "required": ["alreadyStopped", "stoppedRunId", "stoppedMessageId"],
+        "type": "object"
+      },
+      "HttpapiStopRunChainRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": ["runId"],
+        "type": "object"
+      },
+      "HttpapiStopStateMachineRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "machineGroupId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "machineGroupId"],
         "type": "object"
       },
       "HttpapiStopTranscriptionSessionRequest": {
@@ -3520,6 +4680,25 @@
         "required": ["profile"],
         "type": "object"
       },
+      "HttpapiUpdateArtifactsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactsRawArtifact"
+            },
+            "type": ["array", "null"]
+          },
+          "conflictStrategy": {
+            "type": "string"
+          },
+          "uploadScope": {
+            "type": "string"
+          }
+        },
+        "required": ["artifacts", "uploadScope"],
+        "type": "object"
+      },
       "HttpapiUpdateEngineConfigPayload": {
         "additionalProperties": false,
         "properties": {
@@ -3607,6 +4786,61 @@
           }
         },
         "required": ["profile"],
+        "type": "object"
+      },
+      "HttpapiUpsertAppGenCustomSkillRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": ["string", "null"]
+          },
+          "skillId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["skillId", "relativePath", "content"],
+        "type": "object"
+      },
+      "HttpapiValidateAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "appSpec": {},
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "assets": {
+            "items": {},
+            "type": "array"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "dataBindings": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateAppRoute"
+            },
+            "type": "array"
+          },
+          "theme": {
+            "additionalProperties": {},
+            "type": "object"
+          }
+        },
+        "required": ["appSpec"],
         "type": "object"
       },
       "HttpapiWorkspaceLaunchErrorPayload": {
@@ -4668,6 +5902,50 @@
           },
           "theme": {}
         },
+        "type": "object"
+      },
+      "ProjectstateAppDefinitionMutationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "$ref": "#/components/schemas/ProjectstateAppDefinition"
+          },
+          "appSpec": {}
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
+      "ProjectstateAppDefinitionReadResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "$ref": "#/components/schemas/ProjectstateAppDefinition"
+          },
+          "appSpec": {}
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
+      "ProjectstateAppDefinitionValidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/AppspecAppCapabilities"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/AppspecAppValidationIssue"
+            },
+            "type": ["array", "null"]
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AppspecAppValidationIssue"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["errors", "warnings", "capabilities"],
         "type": "object"
       },
       "ProjectstateAppRoute": {
@@ -6164,6 +7442,82 @@
         ],
         "type": "object"
       },
+      "PythonsdkcontractsRunnerSummaryParam": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name"],
+        "type": "object"
+      },
+      "PythonsdkcontractsRunnerSummarySection": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/PythonsdkcontractsRunnerSummaryParam"
+            },
+            "type": ["array", "null"]
+          },
+          "supportsParams": {
+            "type": "boolean"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/PythonsdkcontractsRunnerSummaryVariant"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["id", "name", "supportsParams", "variants", "params"],
+        "type": "object"
+      },
+      "PythonsdkcontractsRunnerSummarySnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "projectConfigId": {
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/PythonsdkcontractsRunnerSummarySection"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["projectConfigId", "sections"],
+        "type": "object"
+      },
+      "PythonsdkcontractsRunnerSummaryVariant": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name"],
+        "type": "object"
+      },
       "PythonsdkcontractsRunningBackendVersionHandshake": {
         "additionalProperties": false,
         "properties": {
@@ -6201,6 +7555,99 @@
           }
         },
         "required": ["projectConfigId", "chatId", "idsByType"],
+        "type": "object"
+      },
+      "RealtimeListenerCoverageDependency": {
+        "additionalProperties": false,
+        "properties": {
+          "codeObjId": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["type", "sectionId"],
+        "type": "object"
+      },
+      "RealtimeListenerCoverageSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/RealtimeListenerCoverageDependency"
+            },
+            "type": ["array", "null"]
+          },
+          "hasRealtimeWildcard": {
+            "type": "boolean"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "dependencies", "hasRealtimeWildcard"],
+        "type": "object"
+      },
+      "RunchainsSpecInput": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/RunchainsStepInput"
+            },
+            "type": ["array", "null"]
+          },
+          "stopOnFailure": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "name", "steps"],
+        "type": "object"
+      },
+      "RunchainsStepInput": {
+        "additionalProperties": false,
+        "properties": {
+          "agentProfileId": {
+            "type": "string"
+          },
+          "engineConfigId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "includePreviousOutputs": {
+            "type": "boolean"
+          },
+          "inputs": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "type": ["array", "null"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name", "engineConfigId"],
         "type": "object"
       },
       "SettingsstateFrontendColorPickerChoice": {
@@ -7304,6 +8751,47 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/cancelRun": {
+      "post": {
+        "operationId": "cancelRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCancelRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetachedrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Cancel a detached run.",
+        "tags": ["Detached Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/cancelTranscriptionSession": {
       "post": {
         "operationId": "cancelTranscriptionSession",
@@ -7881,6 +9369,50 @@
         "x-setta-mode-requirement": "ide"
       }
     },
+    "/deleteArtifacts": {
+      "post": {
+        "operationId": "deleteArtifacts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactsDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete artifact payloads.",
+        "tags": ["Artifacts"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/deleteEngineConfig": {
       "post": {
         "operationId": "deleteEngineConfig",
@@ -8252,6 +9784,47 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/forceRefreshListener": {
+      "post": {
+        "operationId": "forceRefreshListener",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiForceRefreshProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Force a listener refresh broadcast for a project.",
+        "tags": ["Listeners"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/genCodePrefixCompletion": {
       "post": {
         "operationId": "genCodePrefixCompletion",
@@ -8459,6 +10032,81 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/getAgentRun": {
+      "post": {
+        "operationId": "getAgentRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetAgentRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load a single managed agent or run-chain run by ID.",
+        "tags": ["Agent Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getAgentRuns": {
+      "get": {
+        "operationId": "getAgentRuns",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentrunsRun"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the managed agent and run-chain runs known to the IDE runtime.",
+        "tags": ["Agent Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
     "/getAgenticSummaryCacheStatus": {
       "post": {
         "operationId": "getAgenticSummaryCacheStatus",
@@ -8496,6 +10144,149 @@
         },
         "summary": "Get the cache status for a chat section summary.",
         "tags": ["AgenticSummaryCache"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getAppCatalog": {
+      "get": {
+        "operationId": "getAppCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiAppCatalogResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the built-in standalone app component catalog.",
+        "tags": ["App Definition"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/getAppDefinition": {
+      "post": {
+        "operationId": "getAppDefinition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetAppDefinitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectstateAppDefinitionReadResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load the current app definition and resolved app spec.",
+        "tags": ["App Definition"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment"
+      }
+    },
+    "/getAppGenSkillContent": {
+      "post": {
+        "operationId": "getAppGenSkillContent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetAppGenSkillContentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppgenskillsSkillContent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Read the content for a single app-generation skill.",
+        "tags": ["App Generation Skills"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getAppGenSkills": {
+      "get": {
+        "operationId": "getAppGenSkills",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppgenskillsGetSkillsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List available app-generation skills and custom-skill creation metadata.",
+        "tags": ["App Generation Skills"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
       }
@@ -9131,6 +10922,47 @@
         "x-setta-mode-requirement": "not-deployment-and-not-launcher"
       }
     },
+    "/getListenerCoverage": {
+      "post": {
+        "operationId": "getListenerCoverage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiListenerCoverageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeListenerCoverageSnapshot"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get listener dependency coverage for a project.",
+        "tags": ["Listeners"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/getNotifications": {
       "post": {
         "operationId": "getNotifications",
@@ -9250,6 +11082,129 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/getRunStatus": {
+      "post": {
+        "operationId": "getRunStatus",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetRunStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetachedrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the latest detached-run status.",
+        "tags": ["Detached Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getRunnerSummary": {
+      "post": {
+        "operationId": "getRunnerSummary",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetRunnerSummaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PythonsdkcontractsRunnerSummarySnapshot"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the runner summary snapshot for a project.",
+        "tags": ["Detached Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getStateMachineRun": {
+      "post": {
+        "operationId": "getStateMachineRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetStateMachineRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the latest state-machine run.",
+        "tags": ["State Machine Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/getTranscriptionProfiles": {
       "get": {
         "operationId": "getTranscriptionProfiles",
@@ -9322,6 +11277,245 @@
         "tags": ["File Browser"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/git/commitDetails": {
+      "post": {
+        "operationId": "getGitCommitDetails",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitreadCommitDetailsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitreadCommitDetailsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the metadata and changed files for a commit.",
+        "tags": ["Git"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/git/commitFileDiff": {
+      "post": {
+        "operationId": "getGitCommitFileDiff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitreadCommitFileDiffRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitreadCommitFileDiffResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the diff for a single file within a commit.",
+        "tags": ["Git"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/git/diff": {
+      "post": {
+        "operationId": "getGitDiff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitreadDiffRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitreadDiffResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a git diff for a single file.",
+        "tags": ["Git"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/git/log": {
+      "post": {
+        "operationId": "getGitLog",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitreadLogRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitreadLogResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get paginated git history for the workspace repository.",
+        "tags": ["Git"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/git/status": {
+      "post": {
+        "operationId": "getGitStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitreadStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the current git status for the workspace repository.",
+        "tags": ["Git"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/importFilesToArtifacts": {
+      "post": {
+        "operationId": "importFilesToArtifacts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactsImportFilesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactsImportFilesResponseItem"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Import local files into the artifact store.",
+        "tags": ["Artifacts"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "full-ide"
       }
     },
     "/interruptTerminalProcesses": {
@@ -9727,6 +11921,182 @@
         "tags": ["Projects"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/loadCachedBrushStrokes": {
+      "post": {
+        "operationId": "loadCachedBrushStrokes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactsLoadCachedPathsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactsJSONArtifact"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load cached draw brush-stroke artifacts by path.",
+        "tags": ["Artifacts"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/loadCachedChartData": {
+      "post": {
+        "operationId": "loadCachedChartData",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactsLoadCachedPathsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactsChartDataArtifact"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load cached chart-data artifacts by path.",
+        "tags": ["Artifacts"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/loadCachedImageArtifacts": {
+      "post": {
+        "operationId": "loadCachedImageArtifacts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactsLoadCachedPathsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactsImageArtifact"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load cached image artifacts by path.",
+        "tags": ["Artifacts"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/loadDrawAreaLayerItemTransform": {
+      "post": {
+        "operationId": "loadCachedDrawAreaLayerItemTransform",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactsLoadCachedPathsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactsJSONArtifact"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load cached draw-area layer transforms by path.",
+        "tags": ["Artifacts"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     },
     "/loadProjectConfig": {
@@ -10583,6 +12953,47 @@
         "x-setta-mode-requirement": "ide"
       }
     },
+    "/resetStateMachine": {
+      "post": {
+        "operationId": "resetStateMachine",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiResetStateMachineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiStateMachineRunControlResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Reset the active state-machine run.",
+        "tags": ["State Machine Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
     "/respondExternalAgentApproval": {
       "post": {
         "operationId": "respondExternalAgentApproval",
@@ -10774,6 +13185,47 @@
         },
         "summary": "Run code for the requested section or generated entrypoint.",
         "tags": ["Terminal"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/runDetached": {
+      "post": {
+        "operationId": "runDetached",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiRunDetachedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiRunDetachedResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start a detached run for a project entrypoint.",
+        "tags": ["Detached Runs"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
       }
@@ -10989,6 +13441,47 @@
         "summary": "Get the current backend server mode.",
         "tags": ["Runtime"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/setAppDefinition": {
+      "post": {
+        "operationId": "setAppDefinition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiSetAppDefinitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectstateAppDefinitionMutationResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Persist a standalone app definition.",
+        "tags": ["App Definition"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment"
       }
     },
     "/setAsDefaultProject": {
@@ -11524,6 +14017,129 @@
         "x-setta-mode-requirement": "share"
       }
     },
+    "/startAgentRun": {
+      "post": {
+        "operationId": "startAgentRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStartAgentRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start a managed agent run from an agent profile.",
+        "tags": ["Agent Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/startRunChain": {
+      "post": {
+        "operationId": "startRunChain",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStartRunChainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start a run chain.",
+        "tags": ["Agent Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/startStateMachineRun": {
+      "post": {
+        "operationId": "startStateMachineRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStartStateMachineRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start a state-machine run.",
+        "tags": ["State Machine Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
     "/startTranscriptionSession": {
       "post": {
         "operationId": "startTranscriptionSession",
@@ -11563,6 +14179,47 @@
         "tags": ["AI"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/stopAgentRun": {
+      "post": {
+        "operationId": "stopAgentRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStopAgentRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stop a managed agent run.",
+        "tags": ["Agent Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
       }
     },
     "/stopExternalAgentRun": {
@@ -11645,6 +14302,88 @@
         "tags": ["AI"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/stopRunChain": {
+      "post": {
+        "operationId": "stopRunChain",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStopRunChainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stop a run chain.",
+        "tags": ["Agent Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/stopStateMachineRun": {
+      "post": {
+        "operationId": "stopStateMachineRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStopStateMachineRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiStateMachineRunControlResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stop the active state-machine run.",
+        "tags": ["State Machine Runs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
       }
     },
     "/stopTranscriptionSession": {
@@ -11855,6 +14594,50 @@
         "x-setta-mode-requirement": "ide"
       }
     },
+    "/updateArtifacts": {
+      "post": {
+        "operationId": "updateArtifacts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiUpdateArtifactsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactsArtifactSaveResult"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create or update artifact payloads.",
+        "tags": ["Artifacts"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/updateEngineConfig": {
       "post": {
         "operationId": "updateEngineConfig",
@@ -12058,6 +14841,88 @@
         "tags": ["Transcription Profiles"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/upsertAppGenCustomSkill": {
+      "post": {
+        "operationId": "upsertAppGenCustomSkill",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiUpsertAppGenCustomSkillRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppgenskillsUpsertCustomSkillResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create or update a custom app-generation skill.",
+        "tags": ["App Generation Skills"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/validateAppDefinition": {
+      "post": {
+        "operationId": "validateAppDefinition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiValidateAppDefinitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectstateAppDefinitionValidationResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Validate an app definition payload against the current catalog.",
+        "tags": ["App Definition"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment"
       }
     },
     "/writeFileBrowserFileContent": {

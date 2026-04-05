@@ -71,12 +71,61 @@ func RegisterAgentRunRoutes(router chi.Router, deps AgentRunRouteDependencies) e
 		}
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetAgentRuns, getAgentRunsHandler(deps.Runs))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAgentRun, getAgentRunHandler(deps.Runs))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStartAgentRun, startAgentRunHandler(deps.Profiles, deps.Managed))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopAgentRun, stopAgentRunHandler(deps.Managed))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStartRunChain, startRunChainHandler(deps.Chains))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopRunChain, stopRunChainHandler(deps.Chains))
+	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
+	registerOpenAPIGet[[]agentruns.Run](
+		ideRouter,
+		"getAgentRuns",
+		RouteGetAgentRuns,
+		getAgentRunsHandler(deps.Runs),
+		withOpenAPITags("Agent Runs"),
+		withOpenAPISummary("List the managed agent and run-chain runs known to the IDE runtime."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[GetAgentRunRequest, agentruns.Run](
+		ideRouter,
+		"getAgentRun",
+		RouteGetAgentRun,
+		getAgentRunHandler(deps.Runs),
+		withOpenAPITags("Agent Runs"),
+		withOpenAPISummary("Load a single managed agent or run-chain run by ID."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[StartAgentRunRequest, agentruns.Run](
+		ideRouter,
+		"startAgentRun",
+		RouteStartAgentRun,
+		startAgentRunHandler(deps.Profiles, deps.Managed),
+		withOpenAPITags("Agent Runs"),
+		withOpenAPISummary("Start a managed agent run from an agent profile."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[StopAgentRunRequest, agentruns.Run](
+		ideRouter,
+		"stopAgentRun",
+		RouteStopAgentRun,
+		stopAgentRunHandler(deps.Managed),
+		withOpenAPITags("Agent Runs"),
+		withOpenAPISummary("Stop a managed agent run."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[StartRunChainRequest, agentruns.Run](
+		ideRouter,
+		"startRunChain",
+		RouteStartRunChain,
+		startRunChainHandler(deps.Chains),
+		withOpenAPITags("Agent Runs"),
+		withOpenAPISummary("Start a run chain."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[StopRunChainRequest, agentruns.Run](
+		ideRouter,
+		"stopRunChain",
+		RouteStopRunChain,
+		stopRunChainHandler(deps.Chains),
+		withOpenAPITags("Agent Runs"),
+		withOpenAPISummary("Stop a run chain."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

@@ -1,6 +1,5 @@
-import { getLlmChat, getLlmResponse } from "openapi/http";
+import { getAgentRuns, getLlmChat, getLlmResponse } from "openapi/http";
 import { resetProjectStores } from "state/utils";
-import { route_get_agent_runs } from "utils/generatedEndpoints";
 import {
   afterAll,
   afterEach,
@@ -17,6 +16,7 @@ vi.mock("openapi/http", async () => {
     await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
+    getAgentRuns: vi.fn(),
     getLlmChat: vi.fn(),
     getLlmResponse: vi.fn(),
   };
@@ -30,18 +30,7 @@ vi.mock("openapi/http/result", () => ({
 
 const mockedRouteGetLLMResponse = vi.mocked(getLlmResponse);
 const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_get_agent_runs: vi.fn(),
-  };
-});
-
-const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
+const mockedRouteGetAgentRuns = vi.mocked(getAgentRuns);
 
 let submitMessage: typeof import("state/actions/ai").submitMessage;
 let memoryStorage: Storage;

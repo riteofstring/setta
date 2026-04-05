@@ -55,8 +55,24 @@ func RegisterListenerRoutes(router chi.Router, deps ListenerRouteDependencies) e
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		}))
-		protectedRouter.Post(RouteForceRefreshListener, forceRefreshListenerHandler(deps))
-		protectedRouter.Post(RouteGetListenerCoverage, getListenerCoverageHandler(deps))
+		registerOpenAPIPost[ForceRefreshProjectRequest, openAPIJSONNull](
+			protectedRouter,
+			"forceRefreshListener",
+			RouteForceRefreshListener,
+			forceRefreshListenerHandler(deps),
+			withOpenAPITags("Listeners"),
+			withOpenAPISummary("Force a listener refresh broadcast for a project."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[ListenerCoverageRequest, realtime.ListenerCoverageSnapshot](
+			protectedRouter,
+			"getListenerCoverage",
+			RouteGetListenerCoverage,
+			getListenerCoverageHandler(deps),
+			withOpenAPITags("Listeners"),
+			withOpenAPISummary("Get listener dependency coverage for a project."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
 		return nil
 	}
 
@@ -64,8 +80,24 @@ func RegisterListenerRoutes(router chi.Router, deps ListenerRouteDependencies) e
 		return fmt.Errorf("project runtime is required outside deployment mode")
 	}
 	protectedRouter := router.With(RequireIDEMode(deps.ModePolicy))
-	protectedRouter.Post(RouteForceRefreshListener, forceRefreshListenerHandler(deps))
-	protectedRouter.Post(RouteGetListenerCoverage, getListenerCoverageHandler(deps))
+	registerOpenAPIPost[ForceRefreshProjectRequest, openAPIJSONNull](
+		protectedRouter,
+		"forceRefreshListener",
+		RouteForceRefreshListener,
+		forceRefreshListenerHandler(deps),
+		withOpenAPITags("Listeners"),
+		withOpenAPISummary("Force a listener refresh broadcast for a project."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[ListenerCoverageRequest, realtime.ListenerCoverageSnapshot](
+		protectedRouter,
+		"getListenerCoverage",
+		RouteGetListenerCoverage,
+		getListenerCoverageHandler(deps),
+		withOpenAPITags("Listeners"),
+		withOpenAPISummary("Get listener dependency coverage for a project."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
 	return nil
 }
 

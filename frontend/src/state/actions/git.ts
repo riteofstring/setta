@@ -1,3 +1,11 @@
+import {
+  getGitCommitDetails,
+  getGitCommitFileDiff,
+  getGitDiff,
+  getGitLog,
+  getGitStatus,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
@@ -6,13 +14,6 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import {
-  route_get_git_commit_details,
-  route_get_git_commit_file_diff,
-  route_get_git_diff,
-  route_get_git_log,
-  route_get_git_status,
-} from "utils/generatedEndpoints";
 import {
   type CommitDetailsResponse,
   type CommitFileDiffResponse,
@@ -136,7 +137,7 @@ export async function refreshGitStatus(): Promise<void> {
     ...state,
     status: { ...state.status, isLoading: true, error: null },
   }));
-  const res: GitStatusRouteResponse = await route_get_git_status();
+  const res: GitStatusRouteResponse = await callOpenAPI(getGitStatus());
   if (requestId !== statusRequestId) {
     return;
   }
@@ -212,11 +213,15 @@ async function refreshGitDiff({
     });
   }
 
-  const res: GitDiffRouteResponse = await route_get_git_diff({
-    path,
-    oldPath,
-    mode,
-  });
+  const res: GitDiffRouteResponse = await callOpenAPI(
+    getGitDiff({
+      body: {
+        path,
+        oldPath,
+        mode,
+      },
+    }),
+  );
   if (requestId !== diffRequestId) {
     return;
   }
@@ -361,12 +366,16 @@ async function refreshGitGraph({
     });
   }
 
-  const res: GitLogRouteResponse = await route_get_git_log({
-    rev: "HEAD",
-    allRefs,
-    offset: 0,
-    pageSize: DEFAULT_GIT_GRAPH_PAGE_SIZE,
-  });
+  const res: GitLogRouteResponse = await callOpenAPI(
+    getGitLog({
+      body: {
+        rev: "HEAD",
+        allRefs,
+        offset: 0,
+        pageSize: DEFAULT_GIT_GRAPH_PAGE_SIZE,
+      },
+    }),
+  );
   if (requestId !== logRequestId) {
     return;
   }
@@ -482,12 +491,16 @@ export async function loadMoreGitGraphCommits({
     };
   });
 
-  const res: GitLogRouteResponse = await route_get_git_log({
-    rev: "HEAD",
-    allRefs,
-    offset: nextOffset,
-    pageSize,
-  });
+  const res: GitLogRouteResponse = await callOpenAPI(
+    getGitLog({
+      body: {
+        rev: "HEAD",
+        allRefs,
+        offset: nextOffset,
+        pageSize,
+      },
+    }),
+  );
   if (requestId !== logRequestId) {
     return;
   }
@@ -676,8 +689,12 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
     };
   });
 
-  const res: GitCommitDetailsRouteResponse = await route_get_git_commit_details(
-    { commitHash },
+  const res: GitCommitDetailsRouteResponse = await callOpenAPI(
+    getGitCommitDetails({
+      body: {
+        commitHash,
+      },
+    }),
   );
   if (requestId !== commitDetailsRequestId) {
     return;
@@ -767,12 +784,15 @@ export async function selectGitCommitFile({
     };
   });
 
-  const res: GitCommitFileDiffRouteResponse =
-    await route_get_git_commit_file_diff({
-      commitHash,
-      path,
-      oldPath,
-    });
+  const res: GitCommitFileDiffRouteResponse = await callOpenAPI(
+    getGitCommitFileDiff({
+      body: {
+        commitHash,
+        path,
+        oldPath,
+      },
+    }),
+  );
   if (requestId !== commitFileDiffRequestId) {
     return;
   }

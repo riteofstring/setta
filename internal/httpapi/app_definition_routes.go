@@ -85,10 +85,41 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps AppDefinitionRouteDepen
 		return fmt.Errorf("router is required")
 	}
 
-	router.Get(RouteGetAppCatalog, getAppCatalogHandler())
-	router.Post(RouteGetAppDefinition, getAppDefinitionHandler(deps))
-	router.Post(RouteValidateAppDefinition, validateAppDefinitionHandler(deps))
-	router.Post(RouteSetAppDefinition, setAppDefinitionHandler(deps))
+	registerOpenAPIGet[AppCatalogResponse](
+		router,
+		"getAppCatalog",
+		RouteGetAppCatalog,
+		getAppCatalogHandler(),
+		withOpenAPITags("App Definition"),
+		withOpenAPISummary("Get the built-in standalone app component catalog."),
+	)
+	registerOpenAPIPost[GetAppDefinitionRequest, projectstate.AppDefinitionReadResult](
+		router,
+		"getAppDefinition",
+		RouteGetAppDefinition,
+		getAppDefinitionHandler(deps),
+		withOpenAPITags("App Definition"),
+		withOpenAPISummary("Load the current app definition and resolved app spec."),
+		withOpenAPIModeRequirement("not-deployment"),
+	)
+	registerOpenAPIPost[ValidateAppDefinitionRequest, projectstate.AppDefinitionValidationResult](
+		router,
+		"validateAppDefinition",
+		RouteValidateAppDefinition,
+		validateAppDefinitionHandler(deps),
+		withOpenAPITags("App Definition"),
+		withOpenAPISummary("Validate an app definition payload against the current catalog."),
+		withOpenAPIModeRequirement("not-deployment"),
+	)
+	registerOpenAPIPost[SetAppDefinitionRequest, projectstate.AppDefinitionMutationResult](
+		router,
+		"setAppDefinition",
+		RouteSetAppDefinition,
+		setAppDefinitionHandler(deps),
+		withOpenAPITags("App Definition"),
+		withOpenAPISummary("Persist a standalone app definition."),
+		withOpenAPIModeRequirement("not-deployment"),
+	)
 	return nil
 }
 

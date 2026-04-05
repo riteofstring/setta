@@ -14,11 +14,13 @@ import (
 	"setta/internal/agenticsummarycache"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/appgenskills"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/chatattachments"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/detachedruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/launcher"
 	"setta/internal/llmconfig"
@@ -29,7 +31,9 @@ import (
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
+	"setta/internal/runchains"
 	"setta/internal/runs"
+	"setta/internal/statemachineruns"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/workspacelaunch"
@@ -232,6 +236,61 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		LLMConfigPath: "/tmp/llm_config.json",
 	}); err != nil {
 		t.Fatalf("register mcp routes: %v", err)
+	}
+	if err := RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		ProjectState: &projectstate.Runtime{},
+	}); err != nil {
+		t.Fatalf("register app definition routes: %v", err)
+	}
+	if err := RegisterAppGenSkillRoutes(router, AppGenSkillRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    &appgenskills.Service{},
+	}); err != nil {
+		t.Fatalf("register app gen skill routes: %v", err)
+	}
+	if err := RegisterArtifactRoutes(router, ArtifactRouteDependencies{
+		ModePolicy:     modes.NewPolicy(config.ModeIDE),
+		Artifacts:      frontendHTTPOpenAPIArtifactService{},
+		ShareArtifacts: frontendHTTPOpenAPIShareArtifactService{},
+	}); err != nil {
+		t.Fatalf("register artifact routes: %v", err)
+	}
+	if err := RegisterGitRoutes(router, GitRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Git:        frontendHTTPOpenAPIGitService{},
+	}); err != nil {
+		t.Fatalf("register git routes: %v", err)
+	}
+	if err := RegisterListenerRoutes(router, ListenerRouteDependencies{
+		ModePolicy:          modes.NewPolicy(config.ModeIDE),
+		ProjectState:        &projectstate.Runtime{},
+		ListenerBroadcaster: &realtime.ListenerBroadcaster{},
+	}); err != nil {
+		t.Fatalf("register listener routes: %v", err)
+	}
+	if err := RegisterAgentRunRoutes(router, AgentRunRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Profiles:   &agentprofiles.Store{},
+		Runs:       &agentruns.RunStore{},
+		Managed:    &agentruns.Runtime{},
+		Chains:     &runchains.Runtime{},
+	}); err != nil {
+		t.Fatalf("register agent run routes: %v", err)
+	}
+	if err := RegisterDetachedRunRoutes(router, DetachedRunRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Planner:      &runs.Planner{},
+		Runs:         &detachedruns.Manager{},
+		ProjectState: &projectstate.Runtime{},
+	}); err != nil {
+		t.Fatalf("register detached run routes: %v", err)
+	}
+	if err := RegisterStateMachineRunRoutes(router, StateMachineRunRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Runtime:    &statemachineruns.Runtime{},
+	}); err != nil {
+		t.Fatalf("register state machine run routes: %v", err)
 	}
 	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
@@ -532,6 +591,135 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if got := mcpStatus.Extensions["x-setta-mode-requirement"]; got != "full-ide" {
 		t.Fatalf("mcp mode requirement = %#v, want %q", got, "full-ide")
+	}
+
+	getAppCatalog := document.Paths[RouteGetAppCatalog].Get
+	if getAppCatalog == nil {
+		t.Fatalf("expected %s get operation", RouteGetAppCatalog)
+	}
+	if getAppCatalog.OperationID != "getAppCatalog" {
+		t.Fatalf("get app catalog operation id = %q, want %q", getAppCatalog.OperationID, "getAppCatalog")
+	}
+
+	getAppDefinition := document.Paths[RouteGetAppDefinition].Post
+	if getAppDefinition == nil {
+		t.Fatalf("expected %s post operation", RouteGetAppDefinition)
+	}
+	if getAppDefinition.OperationID != "getAppDefinition" {
+		t.Fatalf("get app definition operation id = %q, want %q", getAppDefinition.OperationID, "getAppDefinition")
+	}
+	if got := getAppDefinition.Extensions["x-setta-mode-requirement"]; got != "not-deployment" {
+		t.Fatalf("get app definition mode requirement = %#v, want %q", got, "not-deployment")
+	}
+
+	getAppGenSkills := document.Paths[RouteGetAppGenSkills].Get
+	if getAppGenSkills == nil {
+		t.Fatalf("expected %s get operation", RouteGetAppGenSkills)
+	}
+	if getAppGenSkills.OperationID != "getAppGenSkills" {
+		t.Fatalf("get app gen skills operation id = %q, want %q", getAppGenSkills.OperationID, "getAppGenSkills")
+	}
+	if got := getAppGenSkills.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("get app gen skills mode requirement = %#v, want %q", got, "ide")
+	}
+
+	getGitStatus := document.Paths[RouteGetGitStatus].Post
+	if getGitStatus == nil {
+		t.Fatalf("expected %s post operation", RouteGetGitStatus)
+	}
+	if getGitStatus.OperationID != "getGitStatus" {
+		t.Fatalf("get git status operation id = %q, want %q", getGitStatus.OperationID, "getGitStatus")
+	}
+	if getGitStatus.RequestBody != nil {
+		t.Fatalf("expected getGitStatus request body to be omitted, got %#v", getGitStatus.RequestBody)
+	}
+
+	getListenerCoverage := document.Paths[RouteGetListenerCoverage].Post
+	if getListenerCoverage == nil {
+		t.Fatalf("expected %s post operation", RouteGetListenerCoverage)
+	}
+	if getListenerCoverage.OperationID != "getListenerCoverage" {
+		t.Fatalf("get listener coverage operation id = %q, want %q", getListenerCoverage.OperationID, "getListenerCoverage")
+	}
+	if got := getListenerCoverage.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("get listener coverage mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getAgentRuns := document.Paths[RouteGetAgentRuns].Get
+	if getAgentRuns == nil {
+		t.Fatalf("expected %s get operation", RouteGetAgentRuns)
+	}
+	if getAgentRuns.OperationID != "getAgentRuns" {
+		t.Fatalf("get agent runs operation id = %q, want %q", getAgentRuns.OperationID, "getAgentRuns")
+	}
+	if got := getAgentRuns.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("get agent runs mode requirement = %#v, want %q", got, "ide")
+	}
+
+	importFilesToArtifacts := document.Paths[RouteImportFilesToArtifacts].Post
+	if importFilesToArtifacts == nil {
+		t.Fatalf("expected %s post operation", RouteImportFilesToArtifacts)
+	}
+	if importFilesToArtifacts.OperationID != "importFilesToArtifacts" {
+		t.Fatalf("import files to artifacts operation id = %q, want %q", importFilesToArtifacts.OperationID, "importFilesToArtifacts")
+	}
+	if got := importFilesToArtifacts.Extensions["x-setta-mode-requirement"]; got != "full-ide" {
+		t.Fatalf("import files to artifacts mode requirement = %#v, want %q", got, "full-ide")
+	}
+
+	loadCachedImageArtifacts := document.Paths[RouteLoadCachedImageArtifacts].Post
+	if loadCachedImageArtifacts == nil {
+		t.Fatalf("expected %s post operation", RouteLoadCachedImageArtifacts)
+	}
+	if loadCachedImageArtifacts.OperationID != "loadCachedImageArtifacts" {
+		t.Fatalf("load cached image artifacts operation id = %q, want %q", loadCachedImageArtifacts.OperationID, "loadCachedImageArtifacts")
+	}
+	if got := loadCachedImageArtifacts.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("load cached image artifacts mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	updateArtifacts := document.Paths[RouteUpdateArtifacts].Post
+	if updateArtifacts == nil {
+		t.Fatalf("expected %s post operation", RouteUpdateArtifacts)
+	}
+	if updateArtifacts.OperationID != "updateArtifacts" {
+		t.Fatalf("update artifacts operation id = %q, want %q", updateArtifacts.OperationID, "updateArtifacts")
+	}
+	if got := updateArtifacts.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("update artifacts mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	runDetached := document.Paths[RouteRunDetached].Post
+	if runDetached == nil {
+		t.Fatalf("expected %s post operation", RouteRunDetached)
+	}
+	if runDetached.OperationID != "runDetached" {
+		t.Fatalf("run detached operation id = %q, want %q", runDetached.OperationID, "runDetached")
+	}
+	if got := runDetached.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("run detached mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getRunnerSummary := document.Paths[RouteGetRunnerSummary].Post
+	if getRunnerSummary == nil {
+		t.Fatalf("expected %s post operation", RouteGetRunnerSummary)
+	}
+	if getRunnerSummary.OperationID != "getRunnerSummary" {
+		t.Fatalf("get runner summary operation id = %q, want %q", getRunnerSummary.OperationID, "getRunnerSummary")
+	}
+	if got := getRunnerSummary.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("get runner summary mode requirement = %#v, want %q", got, "ide")
+	}
+
+	getStateMachineRun := document.Paths[RouteGetStateMachineRun].Post
+	if getStateMachineRun == nil {
+		t.Fatalf("expected %s post operation", RouteGetStateMachineRun)
+	}
+	if getStateMachineRun.OperationID != "getStateMachineRun" {
+		t.Fatalf("get state machine run operation id = %q, want %q", getStateMachineRun.OperationID, "getStateMachineRun")
+	}
+	if got := getStateMachineRun.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("get state machine run mode requirement = %#v, want %q", got, "not-launcher")
 	}
 
 	pluginsRuntime := document.Paths[RoutePluginsRuntime].Get

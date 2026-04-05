@@ -1,7 +1,8 @@
+import { forceRefreshListener } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import { route_force_refresh_listener } from "utils/generatedEndpoints";
 
 import { getCurrProjectConfigId } from "./sectionInfos";
 
@@ -16,10 +17,13 @@ export async function triggerListenerForceRefresh(): Promise<boolean> {
     return false;
   }
 
-  const res: ForceRefreshListenerRouteResponse =
-    await route_force_refresh_listener({
-      projectConfigId,
-    });
+  const res: ForceRefreshListenerRouteResponse = await callOpenAPI(
+    forceRefreshListener({
+      body: {
+        projectConfigId,
+      },
+    }),
+  );
 
   if (res200(res)) {
     addTemporaryNotification(

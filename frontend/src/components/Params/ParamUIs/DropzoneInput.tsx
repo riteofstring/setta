@@ -1,4 +1,9 @@
-import { uploadBinary } from "openapi/http";
+import {
+  deleteArtifacts,
+  importFilesToArtifacts,
+  updateArtifacts,
+  uploadBinary,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
   useMemo,
@@ -42,10 +47,7 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  route_delete_artifacts,
-  route_import_files_to_artifacts,
   route_set_param_entered_value,
-  route_update_artifacts,
   route_update_param_impl_config,
 } from "utils/generatedEndpoints";
 import {
@@ -525,12 +527,16 @@ export function DropzoneInput({
     const message = detail ?? "Failed to update attachments.";
     addTemporaryNotification(message, NotificationTypeEnum.warning);
     if (artifactIds.length > 0) {
-      const deleteRes = await route_delete_artifacts({
-        artifacts: artifactIds.map((artifactId) => ({
-          id: artifactId,
-          type: ArtifactTypeEnum.File,
-        })),
-      });
+      const deleteRes = await callOpenAPI(
+        deleteArtifacts({
+          body: {
+            artifacts: artifactIds.map((artifactId) => ({
+              id: artifactId,
+              type: ArtifactTypeEnum.File,
+            })),
+          },
+        }),
+      );
       if (!res200(deleteRes)) {
         const deleteDetail = getErrorDetail(deleteRes.data);
         const deleteMessage =
@@ -712,10 +718,14 @@ export function DropzoneInput({
           value: ref,
         }),
       );
-      const res = await route_update_artifacts({
-        artifacts,
-        uploadScope: "generic",
-      });
+      const res = await callOpenAPI(
+        updateArtifacts({
+          body: {
+            artifacts,
+            uploadScope: "generic",
+          },
+        }),
+      );
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         const message = detail ?? "Failed to upload attachments.";
@@ -828,10 +838,14 @@ export function DropzoneInput({
     const previousValue = value;
     setIsUploading(true);
     try {
-      const res = await route_import_files_to_artifacts({
-        paths: allowedPaths,
-        uploadScope: "generic",
-      });
+      const res = await callOpenAPI(
+        importFilesToArtifacts({
+          body: {
+            paths: allowedPaths,
+            uploadScope: "generic",
+          },
+        }),
+      );
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         const message =
@@ -862,14 +876,18 @@ export function DropzoneInput({
   }
 
   async function deleteFileAttachment(artifactId: string): Promise<boolean> {
-    const res = await route_delete_artifacts({
-      artifacts: [
-        {
-          id: artifactId,
-          type: ArtifactTypeEnum.File,
+    const res = await callOpenAPI(
+      deleteArtifacts({
+        body: {
+          artifacts: [
+            {
+              id: artifactId,
+              type: ArtifactTypeEnum.File,
+            },
+          ],
         },
-      ],
-    });
+      }),
+    );
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
       const message = detail ?? "Failed to delete attachment.";

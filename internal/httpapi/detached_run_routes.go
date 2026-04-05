@@ -10,6 +10,7 @@ import (
 	"setta/internal/detachedruns"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/pythonsdkcontracts"
 	"setta/internal/runs"
 )
 
@@ -65,10 +66,42 @@ func RegisterDetachedRunRoutes(router chi.Router, deps DetachedRunRouteDependenc
 		return fmt.Errorf("project state runtime is required in ide mode")
 	}
 
-	router.Post(RouteRunDetached, runDetachedHandler(deps))
-	router.Post(RouteGetRunStatus, getRunStatusHandler(deps))
-	router.Post(RouteCancelRun, cancelRunHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetRunnerSummary, getRunnerSummaryHandler(deps))
+	registerOpenAPIPost[RunDetachedRequest, RunDetachedResponse](
+		router,
+		"runDetached",
+		RouteRunDetached,
+		runDetachedHandler(deps),
+		withOpenAPITags("Detached Runs"),
+		withOpenAPISummary("Start a detached run for a project entrypoint."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetRunStatusRequest, detachedruns.Run](
+		router,
+		"getRunStatus",
+		RouteGetRunStatus,
+		getRunStatusHandler(deps),
+		withOpenAPITags("Detached Runs"),
+		withOpenAPISummary("Get the latest detached-run status."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[CancelRunRequest, detachedruns.Run](
+		router,
+		"cancelRun",
+		RouteCancelRun,
+		cancelRunHandler(deps),
+		withOpenAPITags("Detached Runs"),
+		withOpenAPISummary("Cancel a detached run."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetRunnerSummaryRequest, pythonsdkcontracts.RunnerSummarySnapshot](
+		router.With(RequireIDEMode(deps.ModePolicy)),
+		"getRunnerSummary",
+		RouteGetRunnerSummary,
+		getRunnerSummaryHandler(deps),
+		withOpenAPITags("Detached Runs"),
+		withOpenAPISummary("Get the runner summary snapshot for a project."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

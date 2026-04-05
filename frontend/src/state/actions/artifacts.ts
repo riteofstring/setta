@@ -1,4 +1,6 @@
 import _ from "lodash";
+import { updateArtifacts as updateArtifactsApi } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   RevisionedArtifacts,
@@ -13,7 +15,6 @@ import {
   removeRevisionEntries,
 } from "state/utils/revisions";
 import { res200 } from "utils/endpointUtils";
-import { route_update_artifacts } from "utils/generatedEndpoints";
 import {
   ArtifactType,
   ArtifactTypeEnum,
@@ -276,11 +277,15 @@ async function flushPendingArtifacts(force = false) {
   }
 
   flushPromise = (async () => {
-    const res = await route_update_artifacts({
-      artifacts: snapshot,
-      conflictStrategy: null,
-      uploadScope: "generic",
-    });
+    const res = await callOpenAPI(
+      updateArtifactsApi({
+        body: {
+          artifacts: snapshot,
+          conflictStrategy: null,
+          uploadScope: "generic",
+        },
+      }),
+    );
     if (res200(res)) {
       clearPendingArtifacts(snapshot);
       if (res.data) {

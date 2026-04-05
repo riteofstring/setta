@@ -1,3 +1,9 @@
+import {
+  resetStateMachine as apiResetStateMachine,
+  startStateMachineRun as apiStartStateMachineRun,
+  stopStateMachineRun as apiStopStateMachineRun,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -5,11 +11,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import {
-  route_reset_state_machine,
-  route_start_state_machine_run,
-  route_stop_state_machine_run,
-} from "utils/generatedEndpoints";
 import {
   NotificationTypeEnum,
   RunStatusEnum,
@@ -277,11 +278,15 @@ export async function startStateMachineRun(
     startSectionId,
     failureMessage: "Failed to start workflow.",
     send: (request) =>
-      route_start_state_machine_run({
-        projectConfigId: request.projectConfigId,
-        machineGroupId: request.machineGroupId,
-        startSectionId: request.startSectionId,
-      }),
+      callOpenAPI(
+        apiStartStateMachineRun({
+          body: {
+            projectConfigId: request.projectConfigId,
+            machineGroupId: request.machineGroupId,
+            startSectionId: request.startSectionId,
+          },
+        }),
+      ),
     onSuccess: receiveAgentRunUpdate,
     skipDirectRefresh: true,
   });
@@ -294,10 +299,14 @@ export async function stopStateMachineRun(
     machineGroupId,
     failureMessage: "Failed to stop workflow.",
     send: (request) =>
-      route_stop_state_machine_run({
-        projectConfigId: request.projectConfigId,
-        machineGroupId: request.machineGroupId,
-      }),
+      callOpenAPI(
+        apiStopStateMachineRun({
+          body: {
+            projectConfigId: request.projectConfigId,
+            machineGroupId: request.machineGroupId,
+          },
+        }),
+      ),
     onSuccess: (data, context) => {
       const stoppedRunId =
         data !== null &&
@@ -323,10 +332,14 @@ export async function resetStateMachineRun(
     machineGroupId,
     failureMessage: "Failed to reset workflow.",
     send: (request) =>
-      route_reset_state_machine({
-        projectConfigId: request.projectConfigId,
-        machineGroupId: request.machineGroupId,
-      }),
+      callOpenAPI(
+        apiResetStateMachine({
+          body: {
+            projectConfigId: request.projectConfigId,
+            machineGroupId: request.machineGroupId,
+          },
+        }),
+      ),
     onSuccess: (data, context) => {
       const stoppedRunId =
         data !== null &&

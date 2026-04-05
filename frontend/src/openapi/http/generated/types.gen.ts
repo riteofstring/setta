@@ -68,6 +68,115 @@ export type AgentrunsRunEvent = {
   type: string;
 };
 
+export type AppgenskillsGetSkillsResponse = {
+  customSkillCreateRootActionable: boolean;
+  customSkillCreateRootPath: string | null;
+  skills: Array<AppgenskillsSkillEntry> | null;
+};
+
+export type AppgenskillsSkillContent = {
+  content: string;
+  originalSizeBytes: number;
+  skillId: string;
+  truncated: boolean;
+};
+
+export type AppgenskillsSkillEntry = {
+  description: string;
+  editabilityReason: string | null;
+  isEditable: boolean;
+  name: string;
+  relativePath: string;
+  rootLabel: string;
+  rootPath: string;
+  skillId: string;
+};
+
+export type AppgenskillsUpsertCustomSkillResponse = {
+  created: boolean;
+  rootPath: string;
+  skill: AppgenskillsSkillEntry;
+  skillContent: AppgenskillsSkillContent;
+  skillDocPath: string;
+  skillId: string;
+};
+
+export type AppspecAppCapabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
+
+export type AppspecAppValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
+};
+
+export type ArtifactsArtifactSaveResult = {
+  backupPath?: string;
+  id: string;
+  message?: string;
+  status: string;
+  type: string;
+};
+
+export type ArtifactsChartDataArtifact = {
+  id: string;
+  type: string;
+  value: {
+    [key: string]: Array<unknown> | null;
+  };
+};
+
+export type ArtifactsDeleteRequest = {
+  artifacts: Array<ArtifactsDeleteRequestItem> | null;
+};
+
+export type ArtifactsDeleteRequestItem = {
+  id: string;
+  type: string;
+};
+
+export type ArtifactsImageArtifact = {
+  id: string;
+  type: string;
+  value: BinaryContentRef;
+};
+
+export type ArtifactsImportFilesRequest = {
+  paths: Array<string> | null;
+  uploadScope: string;
+};
+
+export type ArtifactsImportFilesResponseItem = {
+  id: string;
+  kind: string;
+  mimeType: string;
+  name: string;
+  size: number;
+};
+
+export type ArtifactsJsonArtifact = {
+  id: string;
+  type: string;
+  value: unknown;
+};
+
+export type ArtifactsLoadCachedPathsRequest = {
+  paths: Array<string> | null;
+};
+
+export type ArtifactsRawArtifact = {
+  id: string;
+  type: string;
+  value: unknown;
+};
+
 export type BinaryContentRef = {
   byteLength: number;
   contentId: string;
@@ -112,6 +221,23 @@ export type DeploymentsSharePolicyOverrides = {
   allowRun?: boolean;
   allowVariantChanges?: boolean;
   runSnapshotMode?: string;
+};
+
+export type DetachedrunsRun = {
+  command: string;
+  createdAtMs: number;
+  entrySectionId: string | null;
+  exitCode: number | null;
+  exitedAtMs: number | null;
+  pid: number | null;
+  projectConfigId: string;
+  runId: string;
+  snapshotPath: string;
+  startedAtMs: number | null;
+  status: string;
+  tags: {
+    [key: string]: string;
+  };
 };
 
 export type ExternalagentconfigsClaudeSettingsManaged = {
@@ -220,6 +346,122 @@ export type FilebrowserWriteFileContentResponse = {
   size: number;
 };
 
+export type GitreadCommit = {
+  authorEmail: string;
+  authorName: string;
+  authorTimeMs: number;
+  decorations: Array<string> | null;
+  hash: string;
+  parents: Array<string> | null;
+  subject: string;
+};
+
+export type GitreadCommitChangedFile = {
+  additions: number | null;
+  deletions: number | null;
+  oldPath: string | null;
+  path: string;
+  status: string;
+};
+
+export type GitreadCommitDetailsRequest = {
+  commitHash: string;
+};
+
+export type GitreadCommitDetailsResponse = {
+  authorEmail: string;
+  authorName: string;
+  authorTimeMs: number;
+  body: string;
+  commitHash: string;
+  committerEmail: string;
+  committerName: string;
+  committerTimeMs: number;
+  files: Array<GitreadCommitChangedFile> | null;
+  isTruncated: boolean;
+  parents: Array<string> | null;
+  repoRoot: string;
+  subject: string;
+};
+
+export type GitreadCommitFileDiffRequest = {
+  commitHash: string;
+  oldPath: string | null;
+  path: string;
+};
+
+export type GitreadCommitFileDiffResponse = {
+  commitHash: string;
+  diff: string;
+  isTruncated: boolean;
+  path: string;
+  repoRoot: string;
+};
+
+export type GitreadDiffRequest = {
+  mode: string;
+  oldPath: string | null;
+  path: string;
+};
+
+export type GitreadDiffResponse = {
+  diff: string;
+  isTruncated: boolean;
+  mode: string;
+  path: string;
+  repoRoot: string;
+};
+
+export type GitreadGitWorktreeEntry = {
+  branchName: string | null;
+  displayName: string;
+  headCommit: string | null;
+  isCurrent: boolean;
+  isPrunable: boolean;
+  path: string;
+  prunableReason: string | null;
+};
+
+export type GitreadLogRequest = {
+  allRefs: boolean;
+  offset: number;
+  pageSize: number;
+  rev: string;
+};
+
+export type GitreadLogResponse = {
+  commits: Array<GitreadCommit> | null;
+  hasMore: boolean;
+  headBranch: string | null;
+  isCapped: boolean;
+  nextOffset: number | null;
+  offset: number;
+  pageSize: number;
+  repoRoot: string;
+};
+
+export type GitreadRepoInfo = {
+  headBranch: string | null;
+  headCommit: string | null;
+  isGitRepo: boolean;
+  repoRoot: string | null;
+};
+
+export type GitreadStatusEntry = {
+  indexStatus: string;
+  kind: string;
+  oldPath: string | null;
+  path: string;
+  worktreeStatus: string;
+};
+
+export type GitreadStatusResponse = {
+  entries: Array<GitreadStatusEntry> | null;
+  isTruncated: boolean;
+  repo: GitreadRepoInfo;
+  worktrees: Array<GitreadGitWorktreeEntry> | null;
+};
+
 export type HttpapiAgentProfilePayload = {
   description: string | null;
   enableBackgroundSummaryFill: boolean | null;
@@ -230,6 +472,35 @@ export type HttpapiAgentProfilePayload = {
   name: string | null;
   systemPrompt: string | null;
   toolAllowlist: Array<string> | null;
+};
+
+export type HttpapiAppCatalogActionResponse = {
+  name: string;
+};
+
+export type HttpapiAppCatalogComponentResponse = {
+  children: boolean;
+  props?: {
+    [key: string]: HttpapiAppCatalogPropResponse;
+  };
+  type: string;
+};
+
+export type HttpapiAppCatalogPropResponse = {
+  default?: unknown;
+  enum?: Array<unknown> | null;
+  max?: number;
+  min?: number;
+  required?: boolean;
+  responsive?: boolean;
+  type: string;
+};
+
+export type HttpapiAppCatalogResponse = {
+  actions: Array<HttpapiAppCatalogActionResponse> | null;
+  components: Array<HttpapiAppCatalogComponentResponse> | null;
+  id: string;
+  version: string;
 };
 
 export type HttpapiAppDeploymentSessionResponse = {
@@ -283,6 +554,10 @@ export type HttpapiBackendInitStatusResponse = {
 export type HttpapiBinaryUploadFormRequest = {
   durable?: boolean;
   file: Blob | File;
+};
+
+export type HttpapiCancelRunRequest = {
+  runId: string;
 };
 
 export type HttpapiCancelTranscriptionSessionRequest = {
@@ -485,6 +760,10 @@ export type HttpapiExternalAgentPreflightStatus = {
   workingDir: string | null;
 };
 
+export type HttpapiForceRefreshProjectRequest = {
+  projectConfigId: string;
+};
+
 export type HttpapiGenCodePrefixCompletionRequest = {
   fullText: string;
   position: number;
@@ -505,9 +784,21 @@ export type HttpapiGetAgentProfileRequest = {
   profileId: string;
 };
 
+export type HttpapiGetAgentRunRequest = {
+  runId: string;
+};
+
 export type HttpapiGetAgenticSummaryCacheStatusRequest = {
   chatSectionId: string;
   projectConfigId: string;
+};
+
+export type HttpapiGetAppDefinitionRequest = {
+  frontendOpId?: string;
+};
+
+export type HttpapiGetAppGenSkillContentRequest = {
+  skillId: string;
 };
 
 export type HttpapiGetAttachmentDownloadUrlRequest = {
@@ -605,6 +896,19 @@ export type HttpapiGetNotificationsRequest = {
 
 export type HttpapiGetPromptTemplateRequest = {
   templateId: string;
+};
+
+export type HttpapiGetRunStatusRequest = {
+  runId: string;
+};
+
+export type HttpapiGetRunnerSummaryRequest = {
+  projectConfigId: string;
+};
+
+export type HttpapiGetStateMachineRunRequest = {
+  machineGroupId: string;
+  projectConfigId: string;
 };
 
 export type HttpapiGetWorkspacePythonSignalRequest = {
@@ -814,6 +1118,10 @@ export type HttpapiLauncherUpdateResponse = {
   workspaceBehavior?: string;
 };
 
+export type HttpapiListenerCoverageRequest = {
+  projectConfigId: string;
+};
+
 export type HttpapiLoadDeploymentProjectConfigRequest = {
   projectConfigId: string;
 };
@@ -956,6 +1264,11 @@ export type HttpapiPublishShareDeploymentRequest = {
   sharePolicyOverrides: DeploymentsSharePolicyOverrides;
 };
 
+export type HttpapiResetStateMachineRequest = {
+  machineGroupId: string;
+  projectConfigId: string;
+};
+
 export type HttpapiRespondExternalAgentApprovalRequest = {
   approvalId: string;
   approved: boolean;
@@ -987,6 +1300,26 @@ export type HttpapiRunCodeRequest = {
     [key: string]: string;
   };
   terminalSectionId: string;
+};
+
+export type HttpapiRunDetachedRequest = {
+  entrySectionId: string;
+  paramOverrides: {
+    [key: string]: string;
+  };
+  projectConfigId: string;
+  runSnapshotMode: string;
+  sectionVariantOverrides: {
+    [key: string]: string;
+  };
+  tags: {
+    [key: string]: string;
+  };
+};
+
+export type HttpapiRunDetachedResponse = {
+  runId: string;
+  status: string;
 };
 
 export type HttpapiRuntimeAuth = {
@@ -1029,6 +1362,25 @@ export type HttpapiSaveSettingsRequest = {
 
 export type HttpapiServerModeResponse = {
   mode: "ide" | "share" | "app" | "launcher";
+};
+
+export type HttpapiSetAppDefinitionRequest = {
+  actions?: {
+    [key: string]: unknown;
+  };
+  appSpec: unknown;
+  appSpecPath?: string;
+  appSpecVersion?: string;
+  assets?: Array<unknown>;
+  catalogId?: string;
+  dataBindings?: {
+    [key: string]: unknown;
+  };
+  frontendOpId?: string;
+  routes?: Array<ProjectstateAppRoute>;
+  theme?: {
+    [key: string]: unknown;
+  };
 };
 
 export type HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest = {
@@ -1090,6 +1442,26 @@ export type HttpapiShareDeploymentSessionResponse = {
   shareSessionId: string;
 };
 
+export type HttpapiStartAgentRunRequest = {
+  inputs: {
+    [key: string]: unknown;
+  };
+  profileId: string;
+};
+
+export type HttpapiStartRunChainRequest = {
+  inputs: {
+    [key: string]: unknown;
+  };
+  spec: RunchainsSpecInput;
+};
+
+export type HttpapiStartStateMachineRunRequest = {
+  machineGroupId: string;
+  projectConfigId: string;
+  startSectionId?: string;
+};
+
 export type HttpapiStartTranscriptionSessionRequest = {
   language: string | null;
   transcriptionProfileId: string;
@@ -1099,6 +1471,15 @@ export type HttpapiStartTranscriptionSessionResponse = {
   chunkMs: number;
   resolvedTransportMode: string;
   sessionId: string;
+};
+
+export type HttpapiStateMachineRunControlResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId?: string;
+};
+
+export type HttpapiStopAgentRunRequest = {
+  runId: string;
 };
 
 export type HttpapiStopExternalAgentRunRequest = {
@@ -1113,6 +1494,15 @@ export type HttpapiStopLlmChatResponse = {
   alreadyStopped: boolean;
   stoppedMessageId: string | null;
   stoppedRunId: string | null;
+};
+
+export type HttpapiStopRunChainRequest = {
+  runId: string;
+};
+
+export type HttpapiStopStateMachineRunRequest = {
+  machineGroupId: string;
+  projectConfigId: string;
 };
 
 export type HttpapiStopTranscriptionSessionRequest = {
@@ -1151,6 +1541,12 @@ export type HttpapiUpdateAgentProfileRequest = {
   profile: HttpapiAgentProfilePayload;
 };
 
+export type HttpapiUpdateArtifactsRequest = {
+  artifacts: Array<ArtifactsRawArtifact> | null;
+  conflictStrategy?: string;
+  uploadScope: string;
+};
+
 export type HttpapiUpdateEngineConfigPayload = {
   defaults: AgentrunsEngineConfigDefaults;
   engineType: string | null;
@@ -1180,6 +1576,30 @@ export type HttpapiUpdatePromptTemplateRequest = {
 
 export type HttpapiUpdateTranscriptionProfileRequest = {
   profile: HttpapiTranscriptionProfilePayload;
+};
+
+export type HttpapiUpsertAppGenCustomSkillRequest = {
+  content: string;
+  relativePath: string | null;
+  skillId: string | null;
+};
+
+export type HttpapiValidateAppDefinitionRequest = {
+  actions?: {
+    [key: string]: unknown;
+  };
+  appSpec: unknown;
+  appSpecVersion?: string;
+  assets?: Array<unknown>;
+  catalogId?: string;
+  dataBindings?: {
+    [key: string]: unknown;
+  };
+  frontendOpId?: string;
+  routes?: Array<ProjectstateAppRoute>;
+  theme?: {
+    [key: string]: unknown;
+  };
 };
 
 export type HttpapiWorkspaceLaunchErrorPayload = {
@@ -1512,6 +1932,22 @@ export type ProjectstateAppDefinition = {
   dataBindings?: unknown;
   routes?: Array<ProjectstateAppRoute> | null;
   theme?: unknown;
+};
+
+export type ProjectstateAppDefinitionMutationResult = {
+  appDefinition?: ProjectstateAppDefinition;
+  appSpec: unknown;
+};
+
+export type ProjectstateAppDefinitionReadResult = {
+  appDefinition?: ProjectstateAppDefinition;
+  appSpec: unknown;
+};
+
+export type ProjectstateAppDefinitionValidationResult = {
+  capabilities: AppspecAppCapabilities;
+  errors: Array<AppspecAppValidationIssue> | null;
+  warnings: Array<AppspecAppValidationIssue> | null;
 };
 
 export type ProjectstateAppRoute = {
@@ -1986,6 +2422,31 @@ export type PrompttemplatesTemplate = {
   template: string;
 };
 
+export type PythonsdkcontractsRunnerSummaryParam = {
+  displayName?: string;
+  id: string;
+  name: string;
+};
+
+export type PythonsdkcontractsRunnerSummarySection = {
+  displayName?: string;
+  id: string;
+  name: string;
+  params: Array<PythonsdkcontractsRunnerSummaryParam> | null;
+  supportsParams: boolean;
+  variants: Array<PythonsdkcontractsRunnerSummaryVariant> | null;
+};
+
+export type PythonsdkcontractsRunnerSummarySnapshot = {
+  projectConfigId: string;
+  sections: Array<PythonsdkcontractsRunnerSummarySection> | null;
+};
+
+export type PythonsdkcontractsRunnerSummaryVariant = {
+  id: string;
+  name: string;
+};
+
 export type PythonsdkcontractsRunningBackendVersionHandshake = {
   coreVersion: string;
   sdkContractVersion: number;
@@ -1998,6 +2459,40 @@ export type RealtimeAiFollowToolArgumentsUpdateContent = {
     [key: string]: Array<string> | null;
   };
   projectConfigId: string;
+};
+
+export type RealtimeListenerCoverageDependency = {
+  codeObjId?: string;
+  sectionId: string;
+  type: string;
+};
+
+export type RealtimeListenerCoverageSnapshot = {
+  dependencies: Array<RealtimeListenerCoverageDependency> | null;
+  hasRealtimeWildcard: boolean;
+  projectConfigId: string;
+};
+
+export type RunchainsSpecInput = {
+  id: string;
+  name: string;
+  steps: Array<RunchainsStepInput> | null;
+  stopOnFailure?: boolean;
+};
+
+export type RunchainsStepInput = {
+  agentProfileId?: string;
+  engineConfigId: string;
+  id: string;
+  includePreviousOutputs?: boolean;
+  inputs?: {
+    [key: string]: unknown;
+  };
+  messages?: Array<{
+    [key: string]: unknown;
+  }> | null;
+  name: string;
+  prompt?: string;
 };
 
 export type SettingsstateFrontendColorPickerChoice = {
@@ -2529,6 +3024,31 @@ export type DownloadBinaryResponses = {
 export type DownloadBinaryResponse =
   DownloadBinaryResponses[keyof DownloadBinaryResponses];
 
+export type CancelRunData = {
+  body: HttpapiCancelRunRequest;
+  path?: never;
+  query?: never;
+  url: "/cancelRun";
+};
+
+export type CancelRunErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CancelRunError = CancelRunErrors[keyof CancelRunErrors];
+
+export type CancelRunResponses = {
+  /**
+   * OK
+   */
+  200: DetachedrunsRun;
+};
+
+export type CancelRunResponse = CancelRunResponses[keyof CancelRunResponses];
+
 export type CancelTranscriptionSessionData = {
   body: HttpapiCancelTranscriptionSessionRequest;
   path?: never;
@@ -2905,6 +3425,33 @@ export type DeleteAgentProfileResponses = {
 export type DeleteAgentProfileResponse =
   DeleteAgentProfileResponses[keyof DeleteAgentProfileResponses];
 
+export type DeleteArtifactsData = {
+  body: ArtifactsDeleteRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteArtifacts";
+};
+
+export type DeleteArtifactsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteArtifactsError =
+  DeleteArtifactsErrors[keyof DeleteArtifactsErrors];
+
+export type DeleteArtifactsResponses = {
+  /**
+   * OK
+   */
+  200: Array<string> | null;
+};
+
+export type DeleteArtifactsResponse =
+  DeleteArtifactsResponses[keyof DeleteArtifactsResponses];
+
 export type DeleteEngineConfigData = {
   body: HttpapiDeleteEngineConfigRequest;
   path?: never;
@@ -3150,6 +3697,33 @@ export type DownloadFileBrowserEntryResponses = {
 export type DownloadFileBrowserEntryResponse =
   DownloadFileBrowserEntryResponses[keyof DownloadFileBrowserEntryResponses];
 
+export type ForceRefreshListenerData = {
+  body: HttpapiForceRefreshProjectRequest;
+  path?: never;
+  query?: never;
+  url: "/forceRefreshListener";
+};
+
+export type ForceRefreshListenerErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ForceRefreshListenerError =
+  ForceRefreshListenerErrors[keyof ForceRefreshListenerErrors];
+
+export type ForceRefreshListenerResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ForceRefreshListenerResponse =
+  ForceRefreshListenerResponses[keyof ForceRefreshListenerResponses];
+
 export type GenCodePrefixCompletionData = {
   body: HttpapiGenCodePrefixCompletionRequest;
   path?: never;
@@ -3285,6 +3859,58 @@ export type GetAgentProfilesResponses = {
 export type GetAgentProfilesResponse =
   GetAgentProfilesResponses[keyof GetAgentProfilesResponses];
 
+export type GetAgentRunData = {
+  body: HttpapiGetAgentRunRequest;
+  path?: never;
+  query?: never;
+  url: "/getAgentRun";
+};
+
+export type GetAgentRunErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAgentRunError = GetAgentRunErrors[keyof GetAgentRunErrors];
+
+export type GetAgentRunResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsRun;
+};
+
+export type GetAgentRunResponse =
+  GetAgentRunResponses[keyof GetAgentRunResponses];
+
+export type GetAgentRunsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getAgentRuns";
+};
+
+export type GetAgentRunsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAgentRunsError = GetAgentRunsErrors[keyof GetAgentRunsErrors];
+
+export type GetAgentRunsResponses = {
+  /**
+   * OK
+   */
+  200: Array<AgentrunsRun> | null;
+};
+
+export type GetAgentRunsResponse =
+  GetAgentRunsResponses[keyof GetAgentRunsResponses];
+
 export type GetAgenticSummaryCacheStatusData = {
   body: HttpapiGetAgenticSummaryCacheStatusRequest;
   path?: never;
@@ -3311,6 +3937,113 @@ export type GetAgenticSummaryCacheStatusResponses = {
 
 export type GetAgenticSummaryCacheStatusResponse =
   GetAgenticSummaryCacheStatusResponses[keyof GetAgenticSummaryCacheStatusResponses];
+
+export type GetAppCatalogData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getAppCatalog";
+};
+
+export type GetAppCatalogErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAppCatalogError = GetAppCatalogErrors[keyof GetAppCatalogErrors];
+
+export type GetAppCatalogResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiAppCatalogResponse;
+};
+
+export type GetAppCatalogResponse =
+  GetAppCatalogResponses[keyof GetAppCatalogResponses];
+
+export type GetAppDefinitionData = {
+  body: HttpapiGetAppDefinitionRequest;
+  path?: never;
+  query?: never;
+  url: "/getAppDefinition";
+};
+
+export type GetAppDefinitionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAppDefinitionError =
+  GetAppDefinitionErrors[keyof GetAppDefinitionErrors];
+
+export type GetAppDefinitionResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateAppDefinitionReadResult;
+};
+
+export type GetAppDefinitionResponse =
+  GetAppDefinitionResponses[keyof GetAppDefinitionResponses];
+
+export type GetAppGenSkillContentData = {
+  body: HttpapiGetAppGenSkillContentRequest;
+  path?: never;
+  query?: never;
+  url: "/getAppGenSkillContent";
+};
+
+export type GetAppGenSkillContentErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAppGenSkillContentError =
+  GetAppGenSkillContentErrors[keyof GetAppGenSkillContentErrors];
+
+export type GetAppGenSkillContentResponses = {
+  /**
+   * OK
+   */
+  200: AppgenskillsSkillContent;
+};
+
+export type GetAppGenSkillContentResponse =
+  GetAppGenSkillContentResponses[keyof GetAppGenSkillContentResponses];
+
+export type GetAppGenSkillsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getAppGenSkills";
+};
+
+export type GetAppGenSkillsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAppGenSkillsError =
+  GetAppGenSkillsErrors[keyof GetAppGenSkillsErrors];
+
+export type GetAppGenSkillsResponses = {
+  /**
+   * OK
+   */
+  200: AppgenskillsGetSkillsResponse;
+};
+
+export type GetAppGenSkillsResponse =
+  GetAppGenSkillsResponses[keyof GetAppGenSkillsResponses];
 
 export type GetAttachmentDownloadUrlData = {
   body: HttpapiGetAttachmentDownloadUrlRequest;
@@ -3742,6 +4475,33 @@ export type GetLatestLspDiagnosticsResponses = {
 export type GetLatestLspDiagnosticsResponse =
   GetLatestLspDiagnosticsResponses[keyof GetLatestLspDiagnosticsResponses];
 
+export type GetListenerCoverageData = {
+  body: HttpapiListenerCoverageRequest;
+  path?: never;
+  query?: never;
+  url: "/getListenerCoverage";
+};
+
+export type GetListenerCoverageErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetListenerCoverageError =
+  GetListenerCoverageErrors[keyof GetListenerCoverageErrors];
+
+export type GetListenerCoverageResponses = {
+  /**
+   * OK
+   */
+  200: RealtimeListenerCoverageSnapshot;
+};
+
+export type GetListenerCoverageResponse =
+  GetListenerCoverageResponses[keyof GetListenerCoverageResponses];
+
 export type GetNotificationsData = {
   body: HttpapiGetNotificationsRequest;
   path?: never;
@@ -3823,6 +4583,86 @@ export type GetPromptTemplatesResponses = {
 export type GetPromptTemplatesResponse =
   GetPromptTemplatesResponses[keyof GetPromptTemplatesResponses];
 
+export type GetRunStatusData = {
+  body: HttpapiGetRunStatusRequest;
+  path?: never;
+  query?: never;
+  url: "/getRunStatus";
+};
+
+export type GetRunStatusErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetRunStatusError = GetRunStatusErrors[keyof GetRunStatusErrors];
+
+export type GetRunStatusResponses = {
+  /**
+   * OK
+   */
+  200: DetachedrunsRun;
+};
+
+export type GetRunStatusResponse =
+  GetRunStatusResponses[keyof GetRunStatusResponses];
+
+export type GetRunnerSummaryData = {
+  body: HttpapiGetRunnerSummaryRequest;
+  path?: never;
+  query?: never;
+  url: "/getRunnerSummary";
+};
+
+export type GetRunnerSummaryErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetRunnerSummaryError =
+  GetRunnerSummaryErrors[keyof GetRunnerSummaryErrors];
+
+export type GetRunnerSummaryResponses = {
+  /**
+   * OK
+   */
+  200: PythonsdkcontractsRunnerSummarySnapshot;
+};
+
+export type GetRunnerSummaryResponse =
+  GetRunnerSummaryResponses[keyof GetRunnerSummaryResponses];
+
+export type GetStateMachineRunData = {
+  body: HttpapiGetStateMachineRunRequest;
+  path?: never;
+  query?: never;
+  url: "/getStateMachineRun";
+};
+
+export type GetStateMachineRunErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetStateMachineRunError =
+  GetStateMachineRunErrors[keyof GetStateMachineRunErrors];
+
+export type GetStateMachineRunResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsRun;
+};
+
+export type GetStateMachineRunResponse =
+  GetStateMachineRunResponses[keyof GetStateMachineRunResponses];
+
 export type GetTranscriptionProfilesData = {
   body?: never;
   path?: never;
@@ -3876,6 +4716,163 @@ export type GetWorkspacePythonSignalResponses = {
 
 export type GetWorkspacePythonSignalResponse =
   GetWorkspacePythonSignalResponses[keyof GetWorkspacePythonSignalResponses];
+
+export type GetGitCommitDetailsData = {
+  body: GitreadCommitDetailsRequest;
+  path?: never;
+  query?: never;
+  url: "/git/commitDetails";
+};
+
+export type GetGitCommitDetailsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetGitCommitDetailsError =
+  GetGitCommitDetailsErrors[keyof GetGitCommitDetailsErrors];
+
+export type GetGitCommitDetailsResponses = {
+  /**
+   * OK
+   */
+  200: GitreadCommitDetailsResponse;
+};
+
+export type GetGitCommitDetailsResponse =
+  GetGitCommitDetailsResponses[keyof GetGitCommitDetailsResponses];
+
+export type GetGitCommitFileDiffData = {
+  body: GitreadCommitFileDiffRequest;
+  path?: never;
+  query?: never;
+  url: "/git/commitFileDiff";
+};
+
+export type GetGitCommitFileDiffErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetGitCommitFileDiffError =
+  GetGitCommitFileDiffErrors[keyof GetGitCommitFileDiffErrors];
+
+export type GetGitCommitFileDiffResponses = {
+  /**
+   * OK
+   */
+  200: GitreadCommitFileDiffResponse;
+};
+
+export type GetGitCommitFileDiffResponse =
+  GetGitCommitFileDiffResponses[keyof GetGitCommitFileDiffResponses];
+
+export type GetGitDiffData = {
+  body: GitreadDiffRequest;
+  path?: never;
+  query?: never;
+  url: "/git/diff";
+};
+
+export type GetGitDiffErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetGitDiffError = GetGitDiffErrors[keyof GetGitDiffErrors];
+
+export type GetGitDiffResponses = {
+  /**
+   * OK
+   */
+  200: GitreadDiffResponse;
+};
+
+export type GetGitDiffResponse = GetGitDiffResponses[keyof GetGitDiffResponses];
+
+export type GetGitLogData = {
+  body: GitreadLogRequest;
+  path?: never;
+  query?: never;
+  url: "/git/log";
+};
+
+export type GetGitLogErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetGitLogError = GetGitLogErrors[keyof GetGitLogErrors];
+
+export type GetGitLogResponses = {
+  /**
+   * OK
+   */
+  200: GitreadLogResponse;
+};
+
+export type GetGitLogResponse = GetGitLogResponses[keyof GetGitLogResponses];
+
+export type GetGitStatusData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/git/status";
+};
+
+export type GetGitStatusErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetGitStatusError = GetGitStatusErrors[keyof GetGitStatusErrors];
+
+export type GetGitStatusResponses = {
+  /**
+   * OK
+   */
+  200: GitreadStatusResponse;
+};
+
+export type GetGitStatusResponse =
+  GetGitStatusResponses[keyof GetGitStatusResponses];
+
+export type ImportFilesToArtifactsData = {
+  body: ArtifactsImportFilesRequest;
+  path?: never;
+  query?: never;
+  url: "/importFilesToArtifacts";
+};
+
+export type ImportFilesToArtifactsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ImportFilesToArtifactsError =
+  ImportFilesToArtifactsErrors[keyof ImportFilesToArtifactsErrors];
+
+export type ImportFilesToArtifactsResponses = {
+  /**
+   * OK
+   */
+  200: Array<ArtifactsImportFilesResponseItem> | null;
+};
+
+export type ImportFilesToArtifactsResponse =
+  ImportFilesToArtifactsResponses[keyof ImportFilesToArtifactsResponses];
 
 export type InterruptTerminalProcessesData = {
   body: HttpapiInterruptTerminalProcessesRequest;
@@ -4173,6 +5170,114 @@ export type LoadAllProjectMetadataResponses = {
 
 export type LoadAllProjectMetadataResponse =
   LoadAllProjectMetadataResponses[keyof LoadAllProjectMetadataResponses];
+
+export type LoadCachedBrushStrokesData = {
+  body: ArtifactsLoadCachedPathsRequest;
+  path?: never;
+  query?: never;
+  url: "/loadCachedBrushStrokes";
+};
+
+export type LoadCachedBrushStrokesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type LoadCachedBrushStrokesError =
+  LoadCachedBrushStrokesErrors[keyof LoadCachedBrushStrokesErrors];
+
+export type LoadCachedBrushStrokesResponses = {
+  /**
+   * OK
+   */
+  200: Array<ArtifactsJsonArtifact> | null;
+};
+
+export type LoadCachedBrushStrokesResponse =
+  LoadCachedBrushStrokesResponses[keyof LoadCachedBrushStrokesResponses];
+
+export type LoadCachedChartDataData = {
+  body: ArtifactsLoadCachedPathsRequest;
+  path?: never;
+  query?: never;
+  url: "/loadCachedChartData";
+};
+
+export type LoadCachedChartDataErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type LoadCachedChartDataError =
+  LoadCachedChartDataErrors[keyof LoadCachedChartDataErrors];
+
+export type LoadCachedChartDataResponses = {
+  /**
+   * OK
+   */
+  200: Array<ArtifactsChartDataArtifact> | null;
+};
+
+export type LoadCachedChartDataResponse =
+  LoadCachedChartDataResponses[keyof LoadCachedChartDataResponses];
+
+export type LoadCachedImageArtifactsData = {
+  body: ArtifactsLoadCachedPathsRequest;
+  path?: never;
+  query?: never;
+  url: "/loadCachedImageArtifacts";
+};
+
+export type LoadCachedImageArtifactsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type LoadCachedImageArtifactsError =
+  LoadCachedImageArtifactsErrors[keyof LoadCachedImageArtifactsErrors];
+
+export type LoadCachedImageArtifactsResponses = {
+  /**
+   * OK
+   */
+  200: Array<ArtifactsImageArtifact> | null;
+};
+
+export type LoadCachedImageArtifactsResponse =
+  LoadCachedImageArtifactsResponses[keyof LoadCachedImageArtifactsResponses];
+
+export type LoadCachedDrawAreaLayerItemTransformData = {
+  body: ArtifactsLoadCachedPathsRequest;
+  path?: never;
+  query?: never;
+  url: "/loadDrawAreaLayerItemTransform";
+};
+
+export type LoadCachedDrawAreaLayerItemTransformErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type LoadCachedDrawAreaLayerItemTransformError =
+  LoadCachedDrawAreaLayerItemTransformErrors[keyof LoadCachedDrawAreaLayerItemTransformErrors];
+
+export type LoadCachedDrawAreaLayerItemTransformResponses = {
+  /**
+   * OK
+   */
+  200: Array<ArtifactsJsonArtifact> | null;
+};
+
+export type LoadCachedDrawAreaLayerItemTransformResponse =
+  LoadCachedDrawAreaLayerItemTransformResponses[keyof LoadCachedDrawAreaLayerItemTransformResponses];
 
 export type LoadProjectConfigData = {
   body: HttpapiProjectLoadRequest;
@@ -4760,6 +5865,33 @@ export type RepairLauncherResponses = {
 export type RepairLauncherResponse =
   RepairLauncherResponses[keyof RepairLauncherResponses];
 
+export type ResetStateMachineData = {
+  body: HttpapiResetStateMachineRequest;
+  path?: never;
+  query?: never;
+  url: "/resetStateMachine";
+};
+
+export type ResetStateMachineErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ResetStateMachineError =
+  ResetStateMachineErrors[keyof ResetStateMachineErrors];
+
+export type ResetStateMachineResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiStateMachineRunControlResponse;
+};
+
+export type ResetStateMachineResponse =
+  ResetStateMachineResponses[keyof ResetStateMachineResponses];
+
 export type RespondExternalAgentApprovalData = {
   body: HttpapiRespondExternalAgentApprovalRequest;
   path?: never;
@@ -4892,6 +6024,32 @@ export type RunCodeResponses = {
 };
 
 export type RunCodeResponse = RunCodeResponses[keyof RunCodeResponses];
+
+export type RunDetachedData = {
+  body: HttpapiRunDetachedRequest;
+  path?: never;
+  query?: never;
+  url: "/runDetached";
+};
+
+export type RunDetachedErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RunDetachedError = RunDetachedErrors[keyof RunDetachedErrors];
+
+export type RunDetachedResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiRunDetachedResponse;
+};
+
+export type RunDetachedResponse =
+  RunDetachedResponses[keyof RunDetachedResponses];
 
 export type GetRuntimeInfoData = {
   body?: never;
@@ -5051,6 +6209,33 @@ export type GetServerModeResponses = {
 
 export type GetServerModeResponse =
   GetServerModeResponses[keyof GetServerModeResponses];
+
+export type SetAppDefinitionData = {
+  body: HttpapiSetAppDefinitionRequest;
+  path?: never;
+  query?: never;
+  url: "/setAppDefinition";
+};
+
+export type SetAppDefinitionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetAppDefinitionError =
+  SetAppDefinitionErrors[keyof SetAppDefinitionErrors];
+
+export type SetAppDefinitionResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateAppDefinitionMutationResult;
+};
+
+export type SetAppDefinitionResponse =
+  SetAppDefinitionResponses[keyof SetAppDefinitionResponses];
 
 export type SetAsDefaultProjectData = {
   body: HttpapiSetDefaultProjectConfigRequest;
@@ -5412,6 +6597,85 @@ export type GetShareDeploymentStateResponses = {
 export type GetShareDeploymentStateResponse =
   GetShareDeploymentStateResponses[keyof GetShareDeploymentStateResponses];
 
+export type StartAgentRunData = {
+  body: HttpapiStartAgentRunRequest;
+  path?: never;
+  query?: never;
+  url: "/startAgentRun";
+};
+
+export type StartAgentRunErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StartAgentRunError = StartAgentRunErrors[keyof StartAgentRunErrors];
+
+export type StartAgentRunResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsRun;
+};
+
+export type StartAgentRunResponse =
+  StartAgentRunResponses[keyof StartAgentRunResponses];
+
+export type StartRunChainData = {
+  body: HttpapiStartRunChainRequest;
+  path?: never;
+  query?: never;
+  url: "/startRunChain";
+};
+
+export type StartRunChainErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StartRunChainError = StartRunChainErrors[keyof StartRunChainErrors];
+
+export type StartRunChainResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsRun;
+};
+
+export type StartRunChainResponse =
+  StartRunChainResponses[keyof StartRunChainResponses];
+
+export type StartStateMachineRunData = {
+  body: HttpapiStartStateMachineRunRequest;
+  path?: never;
+  query?: never;
+  url: "/startStateMachineRun";
+};
+
+export type StartStateMachineRunErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StartStateMachineRunError =
+  StartStateMachineRunErrors[keyof StartStateMachineRunErrors];
+
+export type StartStateMachineRunResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsRun;
+};
+
+export type StartStateMachineRunResponse =
+  StartStateMachineRunResponses[keyof StartStateMachineRunResponses];
+
 export type StartTranscriptionSessionData = {
   body: HttpapiStartTranscriptionSessionRequest;
   path?: never;
@@ -5438,6 +6702,32 @@ export type StartTranscriptionSessionResponses = {
 
 export type StartTranscriptionSessionResponse =
   StartTranscriptionSessionResponses[keyof StartTranscriptionSessionResponses];
+
+export type StopAgentRunData = {
+  body: HttpapiStopAgentRunRequest;
+  path?: never;
+  query?: never;
+  url: "/stopAgentRun";
+};
+
+export type StopAgentRunErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StopAgentRunError = StopAgentRunErrors[keyof StopAgentRunErrors];
+
+export type StopAgentRunResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsRun;
+};
+
+export type StopAgentRunResponse =
+  StopAgentRunResponses[keyof StopAgentRunResponses];
 
 export type StopExternalAgentRunData = {
   body: HttpapiStopExternalAgentRunRequest;
@@ -5491,6 +6781,59 @@ export type StopLlmChatResponses = {
 
 export type StopLlmChatResponse =
   StopLlmChatResponses[keyof StopLlmChatResponses];
+
+export type StopRunChainData = {
+  body: HttpapiStopRunChainRequest;
+  path?: never;
+  query?: never;
+  url: "/stopRunChain";
+};
+
+export type StopRunChainErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StopRunChainError = StopRunChainErrors[keyof StopRunChainErrors];
+
+export type StopRunChainResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsRun;
+};
+
+export type StopRunChainResponse =
+  StopRunChainResponses[keyof StopRunChainResponses];
+
+export type StopStateMachineRunData = {
+  body: HttpapiStopStateMachineRunRequest;
+  path?: never;
+  query?: never;
+  url: "/stopStateMachineRun";
+};
+
+export type StopStateMachineRunErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StopStateMachineRunError =
+  StopStateMachineRunErrors[keyof StopStateMachineRunErrors];
+
+export type StopStateMachineRunResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiStateMachineRunControlResponse;
+};
+
+export type StopStateMachineRunResponse =
+  StopStateMachineRunResponses[keyof StopStateMachineRunResponses];
 
 export type StopTranscriptionSessionData = {
   body: HttpapiStopTranscriptionSessionRequest;
@@ -5624,6 +6967,33 @@ export type UpdateAgentProfileResponses = {
 
 export type UpdateAgentProfileResponse =
   UpdateAgentProfileResponses[keyof UpdateAgentProfileResponses];
+
+export type UpdateArtifactsData = {
+  body: HttpapiUpdateArtifactsRequest;
+  path?: never;
+  query?: never;
+  url: "/updateArtifacts";
+};
+
+export type UpdateArtifactsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateArtifactsError =
+  UpdateArtifactsErrors[keyof UpdateArtifactsErrors];
+
+export type UpdateArtifactsResponses = {
+  /**
+   * OK
+   */
+  200: Array<ArtifactsArtifactSaveResult> | null;
+};
+
+export type UpdateArtifactsResponse =
+  UpdateArtifactsResponses[keyof UpdateArtifactsResponses];
 
 export type UpdateEngineConfigData = {
   body: HttpapiUpdateEngineConfigRequest;
@@ -5759,6 +7129,60 @@ export type UpdateTranscriptionProfileResponses = {
 
 export type UpdateTranscriptionProfileResponse =
   UpdateTranscriptionProfileResponses[keyof UpdateTranscriptionProfileResponses];
+
+export type UpsertAppGenCustomSkillData = {
+  body: HttpapiUpsertAppGenCustomSkillRequest;
+  path?: never;
+  query?: never;
+  url: "/upsertAppGenCustomSkill";
+};
+
+export type UpsertAppGenCustomSkillErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpsertAppGenCustomSkillError =
+  UpsertAppGenCustomSkillErrors[keyof UpsertAppGenCustomSkillErrors];
+
+export type UpsertAppGenCustomSkillResponses = {
+  /**
+   * OK
+   */
+  200: AppgenskillsUpsertCustomSkillResponse;
+};
+
+export type UpsertAppGenCustomSkillResponse =
+  UpsertAppGenCustomSkillResponses[keyof UpsertAppGenCustomSkillResponses];
+
+export type ValidateAppDefinitionData = {
+  body: HttpapiValidateAppDefinitionRequest;
+  path?: never;
+  query?: never;
+  url: "/validateAppDefinition";
+};
+
+export type ValidateAppDefinitionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ValidateAppDefinitionError =
+  ValidateAppDefinitionErrors[keyof ValidateAppDefinitionErrors];
+
+export type ValidateAppDefinitionResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateAppDefinitionValidationResult;
+};
+
+export type ValidateAppDefinitionResponse =
+  ValidateAppDefinitionResponses[keyof ValidateAppDefinitionResponses];
 
 export type WriteFileBrowserFileContentData = {
   body: HttpapiWriteFileBrowserFileContentRequest;

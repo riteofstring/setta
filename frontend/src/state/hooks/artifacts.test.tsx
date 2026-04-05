@@ -1,6 +1,10 @@
 /* @vitest-environment jsdom */
 
-import { downloadBinary } from "openapi/http";
+import {
+  downloadBinary,
+  loadCachedChartData,
+  loadCachedImageArtifacts,
+} from "openapi/http";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -29,11 +33,11 @@ import {
   useLoadedChartData,
 } from "./artifacts";
 
-const generatedEndpoints = vi.hoisted(() => ({
-  route_load_cached_brush_strokes: vi.fn(),
-  route_load_cached_chart_data: vi.fn(),
-  route_load_cached_draw_area_layer_item_transform: vi.fn(),
-  route_load_cached_image_artifacts: vi.fn(),
+const openAPIMocks = vi.hoisted(() => ({
+  loadCachedBrushStrokes: vi.fn(),
+  loadCachedChartData: vi.fn(),
+  loadCachedDrawAreaLayerItemTransform: vi.fn(),
+  loadCachedImageArtifacts: vi.fn(),
 }));
 
 const { downloadBinaryMock } = vi.hoisted(() => ({
@@ -42,6 +46,11 @@ const { downloadBinaryMock } = vi.hoisted(() => ({
 
 vi.mock("openapi/http", () => ({
   downloadBinary: downloadBinaryMock,
+  loadCachedBrushStrokes: openAPIMocks.loadCachedBrushStrokes,
+  loadCachedChartData: openAPIMocks.loadCachedChartData,
+  loadCachedDrawAreaLayerItemTransform:
+    openAPIMocks.loadCachedDrawAreaLayerItemTransform,
+  loadCachedImageArtifacts: openAPIMocks.loadCachedImageArtifacts,
 }));
 
 vi.mock("openapi/http/result", () => ({
@@ -49,21 +58,6 @@ vi.mock("openapi/http/result", () => ({
     return promise;
   },
 }));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_load_cached_brush_strokes:
-      generatedEndpoints.route_load_cached_brush_strokes,
-    route_load_cached_chart_data:
-      generatedEndpoints.route_load_cached_chart_data,
-    route_load_cached_draw_area_layer_item_transform:
-      generatedEndpoints.route_load_cached_draw_area_layer_item_transform,
-    route_load_cached_image_artifacts:
-      generatedEndpoints.route_load_cached_image_artifacts,
-  };
-});
 
 vi.mock("components/Section/Layouts/DrawArea/binaryConversion", () => ({
   blobToImageObj: vi.fn(async () => {
@@ -224,10 +218,10 @@ describe("artifact hooks", () => {
     resetProjectStores();
     setProjectStateForArtifacts();
     downloadBinaryMock.mockReset();
-    generatedEndpoints.route_load_cached_brush_strokes.mockReset();
-    generatedEndpoints.route_load_cached_chart_data.mockReset();
-    generatedEndpoints.route_load_cached_draw_area_layer_item_transform.mockReset();
-    generatedEndpoints.route_load_cached_image_artifacts.mockReset();
+    openAPIMocks.loadCachedBrushStrokes.mockReset();
+    openAPIMocks.loadCachedChartData.mockReset();
+    openAPIMocks.loadCachedDrawAreaLayerItemTransform.mockReset();
+    openAPIMocks.loadCachedImageArtifacts.mockReset();
     document.body.innerHTML = "";
   });
 
@@ -236,9 +230,7 @@ describe("artifact hooks", () => {
   });
 
   it("hydrates missing image artifacts through the Go cached-image route", async () => {
-    vi.mocked(
-      generatedEndpoints.route_load_cached_image_artifacts,
-    ).mockResolvedValue({
+    vi.mocked(loadCachedImageArtifacts).mockResolvedValue({
       data: [
         createImageArtifact({
           type: ArtifactTypeEnum.Image,
@@ -260,10 +252,10 @@ describe("artifact hooks", () => {
     try {
       await flushEffects();
 
-      expect(
-        generatedEndpoints.route_load_cached_image_artifacts,
-      ).toHaveBeenCalledWith({
-        paths: [imageArtifactId],
+      expect(loadCachedImageArtifacts).toHaveBeenCalledWith({
+        body: {
+          paths: [imageArtifactId],
+        },
       });
       expect(
         host
@@ -282,9 +274,7 @@ describe("artifact hooks", () => {
   });
 
   it("hydrates missing chart data through the Go cached-chart route", async () => {
-    vi.mocked(
-      generatedEndpoints.route_load_cached_chart_data,
-    ).mockResolvedValue({
+    vi.mocked(loadCachedChartData).mockResolvedValue({
       data: [
         createChartDataArtifact({
           id: chartArtifactId,
@@ -303,10 +293,10 @@ describe("artifact hooks", () => {
     try {
       await flushEffects();
 
-      expect(
-        generatedEndpoints.route_load_cached_chart_data,
-      ).toHaveBeenCalledWith({
-        paths: [chartArtifactId],
+      expect(loadCachedChartData).toHaveBeenCalledWith({
+        body: {
+          paths: [chartArtifactId],
+        },
       });
       expect(
         host

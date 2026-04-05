@@ -1,9 +1,9 @@
-import { resetProjectStores } from "state/utils";
 import {
-  route_reset_state_machine,
-  route_start_state_machine_run,
-  route_stop_state_machine_run,
-} from "utils/generatedEndpoints";
+  resetStateMachine as apiResetStateMachine,
+  startStateMachineRun as apiStartStateMachineRun,
+  stopStateMachineRun as apiStopStateMachineRun,
+} from "openapi/http";
+import { resetProjectStores } from "state/utils";
 import {
   NotificationTypeEnum,
   RunStatusEnum,
@@ -14,17 +14,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadAgentRuns } from "./ai";
 import { addTemporaryNotification } from "./notifications";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_start_state_machine_run: vi.fn(),
-    route_stop_state_machine_run: vi.fn(),
-    route_reset_state_machine: vi.fn(),
-  };
-});
+vi.mock("openapi/http", () => ({
+  resetStateMachine: vi.fn(),
+  startStateMachineRun: vi.fn(),
+  stopStateMachineRun: vi.fn(),
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 vi.mock("./ai", async () => {
   const actual = await vi.importActual<typeof import("./ai")>("./ai");
@@ -38,11 +38,9 @@ vi.mock("./notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
-const mockedRouteStartStateMachineRun = vi.mocked(
-  route_start_state_machine_run,
-);
-const mockedRouteStopStateMachineRun = vi.mocked(route_stop_state_machine_run);
-const mockedRouteResetStateMachine = vi.mocked(route_reset_state_machine);
+const mockedRouteStartStateMachineRun = vi.mocked(apiStartStateMachineRun);
+const mockedRouteStopStateMachineRun = vi.mocked(apiStopStateMachineRun);
+const mockedRouteResetStateMachine = vi.mocked(apiResetStateMachine);
 const mockedLoadAgentRuns = vi.mocked(loadAgentRuns);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
@@ -274,9 +272,11 @@ describe("stateMachineRuns", () => {
 
     expect(started).toBe(true);
     expect(mockedRouteStartStateMachineRun).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      machineGroupId: "workflow-main",
-      startSectionId: "section-start",
+      body: {
+        projectConfigId: "project-1",
+        machineGroupId: "workflow-main",
+        startSectionId: "section-start",
+      },
     });
     expect(
       useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-1"),
@@ -320,8 +320,10 @@ describe("stateMachineRuns", () => {
 
     expect(stopped).toBe(true);
     expect(mockedRouteStopStateMachineRun).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      machineGroupId: "workflow-main",
+      body: {
+        projectConfigId: "project-1",
+        machineGroupId: "workflow-main",
+      },
     });
     const stoppedRun = useAIStore
       .getState()
@@ -378,8 +380,10 @@ describe("stateMachineRuns", () => {
 
     expect(reset).toBe(true);
     expect(mockedRouteResetStateMachine).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      machineGroupId: "workflow-main",
+      body: {
+        projectConfigId: "project-1",
+        machineGroupId: "workflow-main",
+      },
     });
     expect(
       useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-2"),

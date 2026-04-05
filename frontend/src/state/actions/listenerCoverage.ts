@@ -1,10 +1,11 @@
+import { getListenerCoverage } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   NULL_PROJECT_CONFIG_ID,
   useListenerCoverage,
   type ListenerCoverageRecord,
 } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import { route_get_listener_coverage } from "utils/generatedEndpoints";
 import {
   BaseDependencyKeyUnion,
   DependencyKeyTypeEnum,
@@ -75,9 +76,13 @@ export async function fetchListenerCoverageSnapshot(
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  const res: ListenerCoverageRouteResponse = await route_get_listener_coverage({
-    projectConfigId,
-  });
+  const res: ListenerCoverageRouteResponse = await callOpenAPI(
+    getListenerCoverage({
+      body: {
+        projectConfigId,
+      },
+    }),
+  );
   if (!res200(res)) {
     return;
   }

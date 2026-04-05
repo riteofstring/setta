@@ -11,6 +11,8 @@ import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import "katex/dist/katex.min.css";
 import _ from "lodash";
+import { loadCachedImageArtifacts } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -49,7 +51,6 @@ import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_get_password_param_value,
-  route_load_cached_image_artifacts,
   route_set_param_entered_value,
 } from "utils/generatedEndpoints";
 import type {
@@ -2047,8 +2048,13 @@ async function loadCachedImagesById(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedImageArtifactsRouteResponse =
-    await route_load_cached_image_artifacts({ paths });
+  const res: LoadCachedImageArtifactsRouteResponse = await callOpenAPI(
+    loadCachedImageArtifacts({
+      body: {
+        paths,
+      },
+    }),
+  );
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };

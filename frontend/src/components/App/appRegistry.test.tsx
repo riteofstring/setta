@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { loadCachedImageArtifacts } from "openapi/http";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,22 +14,26 @@ import {
   createPolicy,
 } from "utils/generatedTypes";
 
-const generatedEndpoints = vi.hoisted(() => ({
-  route_load_cached_image_artifacts: vi.fn(),
+const openAPIMocks = vi.hoisted(() => ({
+  loadCachedImageArtifacts: vi.fn(),
 }));
 
 const decodeExistingRawImagesMock = vi.hoisted(() => vi.fn());
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_load_cached_image_artifacts:
-      generatedEndpoints.route_load_cached_image_artifacts,
+    loadCachedImageArtifacts: openAPIMocks.loadCachedImageArtifacts,
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 vi.mock("state/hooks/artifacts", async () => {
   const actual = await vi.importActual<typeof import("state/hooks/artifacts")>(
@@ -100,7 +105,7 @@ async function flushEffects(): Promise<void> {
 describe("appRegistry", () => {
   beforeEach(() => {
     resetProjectStores();
-    generatedEndpoints.route_load_cached_image_artifacts.mockReset();
+    openAPIMocks.loadCachedImageArtifacts.mockReset();
     decodeExistingRawImagesMock.mockReset();
     document.body.innerHTML = "";
     (
@@ -129,7 +134,7 @@ describe("appRegistry", () => {
       }),
     });
 
-    generatedEndpoints.route_load_cached_image_artifacts.mockResolvedValue({
+    openAPIMocks.loadCachedImageArtifacts.mockResolvedValue({
       data: [artifact],
       status: 200,
       hasResponse: true,
@@ -152,10 +157,10 @@ describe("appRegistry", () => {
     const { host, root } = await renderRegistryNode();
     await flushEffects();
 
-    expect(
-      generatedEndpoints.route_load_cached_image_artifacts,
-    ).toHaveBeenCalledWith({
-      paths: [artifact.id],
+    expect(loadCachedImageArtifacts).toHaveBeenCalledWith({
+      body: {
+        paths: [artifact.id],
+      },
     });
     expect(useImages.getState().x[artifact.id]).toEqual(artifact);
     const renderedImage = host.querySelector(

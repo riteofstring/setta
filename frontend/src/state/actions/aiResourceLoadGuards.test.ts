@@ -1,10 +1,10 @@
 import {
+  getAgentRuns,
   getLlmApiKeys,
   getLlmConfig,
   type HttpapiLlmapiKeysSnapshot,
 } from "openapi/http";
 import { resetProjectStores } from "state/utils";
-import { route_get_agent_runs } from "utils/generatedEndpoints";
 import { createAgentRun } from "utils/generatedTypes";
 import {
   afterAll,
@@ -21,21 +21,12 @@ import { createJSONStorage } from "zustand/middleware";
 const LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_get_agent_runs: vi.fn(),
-  };
-});
-
 vi.mock("openapi/http", async () => {
   const actual =
     await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
+    getAgentRuns: vi.fn(),
     getLlmApiKeys: vi.fn(),
     getLlmConfig: vi.fn(),
   };
@@ -58,9 +49,9 @@ vi.mock("openapi/http/result", () => ({
   },
 }));
 
+const mockedRouteGetAgentRuns = vi.mocked(getAgentRuns);
 const mockedGetLlmApiKeys = vi.mocked(getLlmApiKeys);
 const mockedGetLlmConfig = vi.mocked(getLlmConfig);
-const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let loadAgentRuns: typeof import("state/actions/ai").loadAgentRuns;
@@ -111,6 +102,28 @@ function mockOpenAPIError(
       headers: { "Content-Type": "application/json" },
     }),
   };
+}
+
+function mockAgentRunsSuccess(
+  data: unknown,
+  status: number = 200,
+): Awaited<ReturnType<typeof getAgentRuns>> {
+  return mockOpenAPISuccess(
+    "http://localhost/agentRuns",
+    data,
+    status,
+  ) as Awaited<ReturnType<typeof getAgentRuns>>;
+}
+
+function mockAgentRunsError(
+  error: unknown,
+  status: number,
+): Awaited<ReturnType<typeof getAgentRuns>> {
+  return mockOpenAPIError(
+    "http://localhost/agentRuns",
+    error,
+    status,
+  ) as Awaited<ReturnType<typeof getAgentRuns>>;
 }
 
 describe("AI resource load guards", () => {
@@ -255,11 +268,7 @@ describe("AI resource load guards", () => {
     mockedRouteGetAgentRuns.mockReset();
     mockedRouteGetAgentRuns.mockImplementation(async () => {
       await requestGate;
-      return {
-        status: 200,
-        hasResponse: true,
-        data: [],
-      };
+      return mockAgentRunsSuccess([]);
     });
 
     const firstLoad = loadAgentRuns();
@@ -277,10 +286,8 @@ describe("AI resource load guards", () => {
 
   it("does not persist native slash metadata from authoritative agent-run loads", async () => {
     mockedRouteGetAgentRuns.mockReset();
-    mockedRouteGetAgentRuns.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: [
+    mockedRouteGetAgentRuns.mockResolvedValue(
+      mockAgentRunsSuccess([
         createAgentRun({
           id: "run-live",
           inputs: {
@@ -293,8 +300,8 @@ describe("AI resource load guards", () => {
             },
           },
         }),
-      ],
-    });
+      ]),
+    );
 
     await loadAgentRuns();
 
@@ -305,11 +312,7 @@ describe("AI resource load guards", () => {
 
   it("keeps the legacy native slash storage key absent when agent-run payloads are empty", async () => {
     mockedRouteGetAgentRuns.mockReset();
-    mockedRouteGetAgentRuns.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: [],
-    });
+    mockedRouteGetAgentRuns.mockResolvedValue(mockAgentRunsSuccess([]));
 
     await loadAgentRuns();
 
@@ -326,17 +329,9 @@ describe("AI resource load guards", () => {
       mockedRouteGetAgentRuns.mockImplementation(async () => {
         callCount += 1;
         if (callCount === 1) {
-          return {
-            status: 500,
-            hasResponse: true,
-            data: { detail: "failed once" },
-          };
+          return mockAgentRunsError({ detail: "failed once" }, 500);
         }
-        return {
-          status: 200,
-          hasResponse: true,
-          data: [],
-        };
+        return mockAgentRunsSuccess([]);
       });
 
       useAIStore.setState({
@@ -371,17 +366,9 @@ describe("AI resource load guards", () => {
       mockedRouteGetAgentRuns.mockImplementation(async () => {
         callCount += 1;
         if (callCount === 1) {
-          return {
-            status: 500,
-            hasResponse: true,
-            data: { detail: "failed after ready" },
-          };
+          return mockAgentRunsError({ detail: "failed after ready" }, 500);
         }
-        return {
-          status: 200,
-          hasResponse: true,
-          data: [],
-        };
+        return mockAgentRunsSuccess([]);
       });
 
       useAIStore.setState({
@@ -414,11 +401,9 @@ describe("AI resource load guards", () => {
     vi.useFakeTimers();
     try {
       mockedRouteGetAgentRuns.mockReset();
-      mockedRouteGetAgentRuns.mockResolvedValue({
-        status: 500,
-        hasResponse: true,
-        data: { detail: "persistent failure" },
-      });
+      mockedRouteGetAgentRuns.mockResolvedValue(
+        mockAgentRunsError({ detail: "persistent failure" }, 500),
+      );
 
       useAIStore.setState({
         agentRunsAuthorityState: "loading",
@@ -455,11 +440,9 @@ describe("AI resource load guards", () => {
         }),
       );
       mockedRouteGetAgentRuns.mockReset();
-      mockedRouteGetAgentRuns.mockResolvedValue({
-        status: 500,
-        hasResponse: true,
-        data: { detail: "persistent failure" },
-      });
+      mockedRouteGetAgentRuns.mockResolvedValue(
+        mockAgentRunsError({ detail: "persistent failure" }, 500),
+      );
 
       await loadAgentRuns();
       await vi.advanceTimersByTimeAsync(4000);

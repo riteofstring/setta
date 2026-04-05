@@ -9,8 +9,11 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import {
+  getAppGenSkillContent,
+  getAppGenSkills,
   getMcpServerRuntimeStatus,
   revealPathInOsFileExplorer,
+  upsertAppGenCustomSkill,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
@@ -39,11 +42,6 @@ import {
   parseAppGenerationMode,
 } from "state/types/appGenerationMode";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import {
-  route_get_app_gen_skill_content,
-  route_get_app_gen_skills,
-  route_upsert_app_gen_custom_skill,
-} from "utils/generatedEndpoints";
 import {
   AppGenerationModeEnum,
   type BaseChatMessageUnion,
@@ -2364,7 +2362,7 @@ export function ProjectChatSkillsMcpViewer({
       setCustomSkillCreateRootPath(null);
       setCustomSkillCreateRootActionable(false);
       try {
-        const res = await route_get_app_gen_skills();
+        const res = await callOpenAPI(getAppGenSkills());
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
           setSkillsError(detail ?? "Failed to load skills.");
@@ -2446,9 +2444,13 @@ export function ProjectChatSkillsMcpViewer({
       skillContentRequestSequence.current = requestSequence;
       setSkillContentLoadStatus("loading");
       setSkillContentLoadError(null);
-      const res = await route_get_app_gen_skill_content({
-        skillId: requestedSkillId,
-      });
+      const res = await callOpenAPI(
+        getAppGenSkillContent({
+          body: {
+            skillId: requestedSkillId,
+          },
+        }),
+      );
       if (
         requestSequence !== skillContentRequestSequence.current ||
         requestedSkillId !== selectedSkillIdRef.current
@@ -3208,11 +3210,15 @@ export function ProjectChatSkillsMcpViewer({
       }
       setCustomSkillCreateInFlight(true);
       const initialContent = `# ${relativePath}\n\nDescribe what this skill helps with.\n`;
-      const res = await route_upsert_app_gen_custom_skill({
-        skillId: null,
-        relativePath,
-        content: initialContent,
-      });
+      const res = await callOpenAPI(
+        upsertAppGenCustomSkill({
+          body: {
+            skillId: null,
+            relativePath,
+            content: initialContent,
+          },
+        }),
+      );
       setCustomSkillCreateInFlight(false);
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
@@ -3257,11 +3263,15 @@ export function ProjectChatSkillsMcpViewer({
         return;
       }
       setCustomSkillSaveInFlight(true);
-      const res = await route_upsert_app_gen_custom_skill({
-        skillId: requestSkillId,
-        relativePath: null,
-        content: nextContent,
-      });
+      const res = await callOpenAPI(
+        upsertAppGenCustomSkill({
+          body: {
+            skillId: requestSkillId,
+            relativePath: null,
+            content: nextContent,
+          },
+        }),
+      );
       setCustomSkillSaveInFlight(false);
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);

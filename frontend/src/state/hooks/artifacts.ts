@@ -1,6 +1,12 @@
 import { blobToImageObj } from "components/Section/Layouts/DrawArea/binaryConversion";
 import _ from "lodash";
-import { downloadBinary } from "openapi/http";
+import {
+  downloadBinary,
+  loadCachedBrushStrokes as loadCachedBrushStrokesApi,
+  loadCachedChartData as loadCachedChartDataApi,
+  loadCachedDrawAreaLayerItemTransform as loadCachedDrawAreaLayerItemTransformApi,
+  loadCachedImageArtifacts,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
@@ -16,12 +22,6 @@ import {
 } from "state/definitions";
 import { bumpRemoteRevisions } from "state/utils/revisions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_load_cached_brush_strokes,
-  route_load_cached_chart_data,
-  route_load_cached_draw_area_layer_item_transform,
-  route_load_cached_image_artifacts,
-} from "utils/generatedEndpoints";
 import {
   ArtifactTypeEnum,
   type ChartDataArtifact,
@@ -48,8 +48,13 @@ async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedImageArtifactsRouteResponse =
-    await route_load_cached_image_artifacts({ paths });
+  const res: LoadCachedImageArtifactsRouteResponse = await callOpenAPI(
+    loadCachedImageArtifacts({
+      body: {
+        paths,
+      },
+    }),
+  );
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
@@ -118,10 +123,13 @@ async function loadCachedChartData(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedChartDataRouteResponse =
-    await route_load_cached_chart_data({
-      paths,
-    });
+  const res: LoadCachedChartDataRouteResponse = await callOpenAPI(
+    loadCachedChartDataApi({
+      body: {
+        paths,
+      },
+    }),
+  );
   if (res200(res)) {
     useChartData.setState((state) => {
       const next = { ...state.x };
@@ -178,8 +186,13 @@ async function loadCachedBrushStrokes(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedBrushStrokesRouteResponse =
-    await route_load_cached_brush_strokes({ paths });
+  const res: LoadCachedBrushStrokesRouteResponse = await callOpenAPI(
+    loadCachedBrushStrokesApi({
+      body: {
+        paths,
+      },
+    }),
+  );
   if (res200(res)) {
     useBrushStrokes.setState((state) => {
       const next = { ...state.x };
@@ -216,7 +229,13 @@ async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
     return;
   }
   const res: LoadCachedDrawAreaLayerItemTransformRouteResponse =
-    await route_load_cached_draw_area_layer_item_transform({ paths });
+    await callOpenAPI(
+      loadCachedDrawAreaLayerItemTransformApi({
+        body: {
+          paths,
+        },
+      }),
+    );
   if (res200(res)) {
     useDrawAreaLayerItemTransform.setState((state) => {
       const next = { ...state.x };

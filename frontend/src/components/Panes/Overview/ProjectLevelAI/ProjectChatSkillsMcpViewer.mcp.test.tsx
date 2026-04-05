@@ -15,7 +15,10 @@ declare global {
 }
 
 const routeMocks = vi.hoisted(() => ({
+  getAppGenSkillContent: vi.fn(),
+  getAppGenSkills: vi.fn(),
   getMcpRuntimeStatus: vi.fn(),
+  upsertAppGenCustomSkill: vi.fn(),
 }));
 
 const mockAIState = vi.hoisted(() => ({
@@ -92,14 +95,11 @@ vi.mock("state/definitions", () => ({
 }));
 
 vi.mock("openapi/http", () => ({
+  getAppGenSkillContent: routeMocks.getAppGenSkillContent,
+  getAppGenSkills: routeMocks.getAppGenSkills,
   getMcpServerRuntimeStatus: routeMocks.getMcpRuntimeStatus,
   revealPathInOsFileExplorer: vi.fn(),
-}));
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_app_gen_skill_content: vi.fn(),
-  route_get_app_gen_skills: vi.fn(),
-  route_upsert_app_gen_custom_skill: vi.fn(),
+  upsertAppGenCustomSkill: routeMocks.upsertAppGenCustomSkill,
 }));
 
 describe("ProjectChatSkillsMcpViewer MCP rendering", () => {

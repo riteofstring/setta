@@ -37,10 +37,34 @@ func RegisterAppGenSkillRoutes(router chi.Router, deps AppGenSkillRouteDependenc
 		return fmt.Errorf("app gen skill service is required in ide mode")
 	}
 
-	protected := router.With(RequireIDEMode(deps.ModePolicy))
-	protected.Get(RouteGetAppGenSkills, getAppGenSkillsHandler(deps.Service))
-	protected.Post(RouteGetAppGenSkillContent, getAppGenSkillContentHandler(deps.Service))
-	protected.Post(RouteUpsertAppGenCustomSkill, upsertAppGenCustomSkillHandler(deps.Service))
+	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
+	registerOpenAPIGet[appgenskills.GetSkillsResponse](
+		ideRouter,
+		"getAppGenSkills",
+		RouteGetAppGenSkills,
+		getAppGenSkillsHandler(deps.Service),
+		withOpenAPITags("App Generation Skills"),
+		withOpenAPISummary("List available app-generation skills and custom-skill creation metadata."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[GetAppGenSkillContentRequest, appgenskills.SkillContent](
+		ideRouter,
+		"getAppGenSkillContent",
+		RouteGetAppGenSkillContent,
+		getAppGenSkillContentHandler(deps.Service),
+		withOpenAPITags("App Generation Skills"),
+		withOpenAPISummary("Read the content for a single app-generation skill."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[UpsertAppGenCustomSkillRequest, appgenskills.UpsertCustomSkillResponse](
+		ideRouter,
+		"upsertAppGenCustomSkill",
+		RouteUpsertAppGenCustomSkill,
+		upsertAppGenCustomSkillHandler(deps.Service),
+		withOpenAPITags("App Generation Skills"),
+		withOpenAPISummary("Create or update a custom app-generation skill."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

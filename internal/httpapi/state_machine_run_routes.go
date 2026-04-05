@@ -67,20 +67,61 @@ func RegisterStateMachineRunRoutes(router chi.Router, deps StateMachineRunRouteD
 	}
 
 	ideGuard := RequireIDEMode(deps.ModePolicy)
-	router.With(ideGuard).Post(RouteStartStateMachineRun, startStateMachineRunHandler(deps.Runtime))
-	router.With(ideGuard).Post(RouteStopStateMachineRun, stopStateMachineRunHandler(deps.Runtime))
-	router.With(ideGuard).Post(RouteResetStateMachine, resetStateMachineHandler(deps.Runtime))
+	ideRouter := router.With(ideGuard)
+	registerOpenAPIPost[StartStateMachineRunRequest, agentruns.Run](
+		ideRouter,
+		"startStateMachineRun",
+		RouteStartStateMachineRun,
+		startStateMachineRunHandler(deps.Runtime),
+		withOpenAPITags("State Machine Runs"),
+		withOpenAPISummary("Start a state-machine run."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[StopStateMachineRunRequest, StateMachineRunControlResponse](
+		ideRouter,
+		"stopStateMachineRun",
+		RouteStopStateMachineRun,
+		stopStateMachineRunHandler(deps.Runtime),
+		withOpenAPITags("State Machine Runs"),
+		withOpenAPISummary("Stop the active state-machine run."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[ResetStateMachineRequest, StateMachineRunControlResponse](
+		ideRouter,
+		"resetStateMachine",
+		RouteResetStateMachine,
+		resetStateMachineHandler(deps.Runtime),
+		withOpenAPITags("State Machine Runs"),
+		withOpenAPISummary("Reset the active state-machine run."),
+		withOpenAPIModeRequirement("ide"),
+	)
 
 	if deps.ModePolicy.IsDeployment() {
 		if deps.Runtime == nil {
 			return nil
 		}
-		router.With(RequireShareSession(modes.Resolver{
-			Policy: deps.ModePolicy,
-			Store:  deps.ShareSessions,
-		})).Post(RouteGetStateMachineRun, getStateMachineRunHandler(deps.Runtime))
+		registerOpenAPIPost[GetStateMachineRunRequest, agentruns.Run](
+			router.With(RequireShareSession(modes.Resolver{
+				Policy: deps.ModePolicy,
+				Store:  deps.ShareSessions,
+			})),
+			"getStateMachineRun",
+			RouteGetStateMachineRun,
+			getStateMachineRunHandler(deps.Runtime),
+			withOpenAPITags("State Machine Runs"),
+			withOpenAPISummary("Get the latest state-machine run."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
 	} else {
-		router.With(ideGuard).Post(RouteGetStateMachineRun, getStateMachineRunHandler(deps.Runtime))
+		registerOpenAPIPost[GetStateMachineRunRequest, agentruns.Run](
+			ideRouter,
+			"getStateMachineRun",
+			RouteGetStateMachineRun,
+			getStateMachineRunHandler(deps.Runtime),
+			withOpenAPITags("State Machine Runs"),
+			withOpenAPISummary("Get the latest state-machine run."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
 	}
 
 	return nil

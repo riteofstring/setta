@@ -74,46 +74,6 @@ export type DeleteAgentProfileRequest = {
   profileId: string;
 };
 
-export type GetAgentRunRequest = {
-  runId: string;
-};
-
-export type StartAgentRunRequest = {
-  profileId: string;
-  inputs: Record<string, unknown>;
-};
-
-export type StopAgentRunRequest = {
-  runId: string;
-};
-
-type StepInput = {
-  id: string;
-  name: string;
-  engineConfigId: string;
-  agentProfileId?: string | null;
-  prompt?: string | null;
-  messages?: Array<Record<string, unknown>>;
-  inputs?: Record<string, unknown>;
-  includePreviousOutputs?: boolean | null;
-};
-
-type SpecInput = {
-  id: string;
-  name: string;
-  steps: Array<StepInput>;
-  stopOnFailure?: boolean | null;
-};
-
-export type StartRunChainRequest = {
-  spec: SpecInput;
-  inputs: Record<string, unknown>;
-};
-
-export type StopRunChainRequest = {
-  runId: string;
-};
-
 export type LLMConfig = {
   id: string;
   model: string;
@@ -128,49 +88,10 @@ export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
   return options as LLMConfig;
 }
 
-export type GetAppDefinitionRequest = {
-  frontendOpId?: string | null;
-};
-
 export type AppRoute = {
   path: string;
   name?: string;
   rootKey?: string;
-};
-
-export type SetAppDefinitionRequest = {
-  frontendOpId?: string | null;
-  appSpec: unknown;
-  appSpecPath?: string | null;
-  appSpecVersion?: string | null;
-  catalogId?: string | null;
-  routes?: Array<AppRoute> | null;
-  dataBindings?: Record<string, unknown> | null;
-  actions?: Record<string, unknown> | null;
-  theme?: Record<string, unknown> | null;
-  assets?: Array<unknown> | null;
-};
-
-export type ValidateAppDefinitionRequest = {
-  frontendOpId?: string | null;
-  appSpec: unknown;
-  appSpecVersion?: string | null;
-  catalogId?: string | null;
-  routes?: Array<AppRoute> | null;
-  dataBindings?: Record<string, unknown> | null;
-  actions?: Record<string, unknown> | null;
-  theme?: Record<string, unknown> | null;
-  assets?: Array<unknown> | null;
-};
-
-export type GetAppGenSkillContentRequest = {
-  skillId: string;
-};
-
-export type UpsertAppGenCustomSkillRequest = {
-  skillId: string | null;
-  relativePath: string | null;
-  content: string;
 };
 
 const SaveConflictStrategyEnum = {
@@ -1011,42 +932,6 @@ export type AppDeploymentStateResponse = {
   appPolicy: Policy;
 };
 
-export type RunDetachedRequest = {
-  projectConfigId: string;
-  entrySectionId: string;
-  runSnapshotMode: RunSnapshotMode;
-  sectionVariantOverrides: Record<string, string>;
-  paramOverrides: Record<string, string>;
-  tags: Record<string, string>;
-};
-
-const DetachedStatusEnum = {
-  queued: "queued",
-  running: "running",
-  exited: "exited",
-  failed: "failed",
-  canceled: "canceled",
-  lost: "lost",
-} as const;
-type DetachedStatus = ObjectValues<typeof DetachedStatusEnum>;
-
-export type RunDetachedResponse = {
-  runId: string;
-  status: DetachedStatus;
-};
-
-export type GetRunStatusRequest = {
-  runId: string;
-};
-
-export type CancelRunRequest = {
-  runId: string;
-};
-
-export type GetRunnerSummaryRequest = {
-  projectConfigId: string;
-};
-
 export const EngineTypeEnum = {
   setta_llm: "setta_llm",
   external_agent: "external_agent",
@@ -1316,14 +1201,6 @@ export function createLauncherStatusResponse(
 ): LauncherStatusResponse {
   return options as LauncherStatusResponse;
 }
-
-export type ForceRefreshProjectRequest = {
-  projectConfigId: string;
-};
-
-export type ListenerCoverageRequest = {
-  projectConfigId: string;
-};
 
 export type LLMAPIKeysSnapshot = {
   apiKeys: Record<string, string>;
@@ -2688,32 +2565,6 @@ export type DeletePromptTemplateRequest = {
   templateId: string;
 };
 
-export type StartStateMachineRunRequest = {
-  projectConfigId: string;
-  machineGroupId: string;
-  startSectionId?: string | null;
-};
-
-export type StopStateMachineRunRequest = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type ResetStateMachineRequest = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type GetStateMachineRunRequest = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type StateMachineRunControlResponse = {
-  alreadyStopped: boolean;
-  stoppedRunId?: string | null;
-};
-
 export type ContentRef = {
   contentId: string;
   byteLength: number;
@@ -3070,21 +2921,6 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
   );
 }
 
-export type DetachedRun = {
-  runId: string;
-  status: DetachedStatus;
-  createdAtMs: number;
-  startedAtMs: number | null;
-  exitedAtMs: number | null;
-  exitCode: number | null;
-  pid: number | null;
-  command: string;
-  snapshotPath: string;
-  projectConfigId: string;
-  entrySectionId: string | null;
-  tags: Record<string, string>;
-};
-
 const LLMTransportEnum = {
   sse: "sse",
   streamable_http: "streamable_http",
@@ -3116,36 +2952,6 @@ export function createAllConfigs(
 ): AllConfigs {
   return options as AllConfigs;
 }
-
-export type AppDefinitionReadResult = {
-  appSpec: unknown;
-  appDefinition?: AppDefinition | null;
-};
-
-type AppValidationIssue = {
-  message: string;
-  elementKey?: string;
-  elementType?: string;
-};
-
-type AppCapabilities = {
-  catalogId: string;
-  catalogVersion: string;
-  appSpecVersion: string;
-  themeSchemaVersion: string;
-  features: Record<string, boolean>;
-};
-
-export type AppDefinitionValidationResult = {
-  errors: Array<AppValidationIssue>;
-  warnings: Array<AppValidationIssue>;
-  capabilities: AppCapabilities;
-};
-
-export type AppDefinitionMutationResult = {
-  appSpec: unknown;
-  appDefinition?: AppDefinition | null;
-};
 
 export type BrowserSavedSearchTypeFilters = {
   image: boolean;
@@ -5639,48 +5445,6 @@ export const ArtifactTypeEnum = {
 } as const;
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
 
-const SaveStatusEnum = {
-  saved: "saved",
-  unchanged: "unchanged",
-  skipped: "skipped",
-  conflict: "conflict",
-} as const;
-type SaveStatus = ObjectValues<typeof SaveStatusEnum>;
-
-export type ImportFilesRequest = {
-  paths: Array<string>;
-  uploadScope: UploadScope;
-};
-
-export type ImportFilesResponseItem = {
-  kind: string;
-  id: string;
-  name: string;
-  mimeType: string;
-  size: number;
-};
-
-export type LoadCachedPathsRequest = {
-  paths: Array<string>;
-};
-
-type DeleteRequestItem = {
-  id: string;
-  type: ArtifactType;
-};
-
-export type DeleteRequest = {
-  artifacts: Array<DeleteRequestItem>;
-};
-
-export type ArtifactSaveResult = {
-  id: string;
-  type: ArtifactType;
-  status: SaveStatus;
-  backupPath?: string | null;
-  message?: string | null;
-};
-
 export type ImageArtifact = {
   type: typeof ArtifactTypeEnum.Image;
   id: string;
@@ -7615,13 +7379,6 @@ export type Commit = {
   decorations: Array<string>;
 };
 
-export type LogRequest = {
-  rev: string;
-  allRefs: boolean;
-  offset: number;
-  pageSize: number;
-};
-
 export type LogResponse = {
   repoRoot: string;
   headBranch: string | null;
@@ -7641,10 +7398,6 @@ export type CommitChangedFile = {
   deletions: number | null;
 };
 
-export type CommitDetailsRequest = {
-  commitHash: string;
-};
-
 export type CommitDetailsResponse = {
   repoRoot: string;
   commitHash: string;
@@ -7659,12 +7412,6 @@ export type CommitDetailsResponse = {
   body: string;
   files: Array<CommitChangedFile>;
   isTruncated: boolean;
-};
-
-export type CommitFileDiffRequest = {
-  commitHash: string;
-  path: string;
-  oldPath: string | null;
 };
 
 export type CommitFileDiffResponse = {
@@ -7713,76 +7460,12 @@ export type StatusResponse = {
   worktrees: Array<GitWorktreeEntry>;
 };
 
-export type DiffRequest = {
-  path: string;
-  oldPath: string | null;
-  mode: DiffMode;
-};
-
 export type DiffResponse = {
   repoRoot: string;
   path: string;
   mode: DiffMode;
   diff: string;
   isTruncated: boolean;
-};
-
-export type SkillContent = {
-  skillId: string;
-  content: string;
-  truncated: boolean;
-  originalSizeBytes: number;
-};
-
-export type SkillEntry = {
-  skillId: string;
-  name: string;
-  rootLabel: string;
-  rootPath: string;
-  relativePath: string;
-  isEditable: boolean;
-  editabilityReason: string | null;
-  description: string;
-};
-
-export type GetSkillsResponse = {
-  skills: Array<SkillEntry>;
-  customSkillCreateRootPath: string | null;
-  customSkillCreateRootActionable: boolean;
-};
-
-type RunnerSummaryVariant = {
-  id: string;
-  name: string;
-};
-
-type RunnerSummaryParam = {
-  id: string;
-  name: string;
-  displayName?: string | null;
-};
-
-type RunnerSummarySection = {
-  id: string;
-  name: string;
-  displayName?: string | null;
-  supportsParams: boolean;
-  variants: Array<RunnerSummaryVariant>;
-  params: Array<RunnerSummaryParam>;
-};
-
-export type RunnerSummarySnapshot = {
-  projectConfigId: string;
-  sections: Array<RunnerSummarySection>;
-};
-
-export type UpsertCustomSkillResponse = {
-  skillId: string;
-  created: boolean;
-  rootPath: string;
-  skillDocPath: string;
-  skill: SkillEntry;
-  skillContent: SkillContent;
 };
 
 type Constants = {
