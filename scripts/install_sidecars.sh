@@ -11,5 +11,5 @@ fi
 echo "Installing external agent sidecar SDK dependencies..."
 (
   cd "${SIDECAR_DIR}"
-  pnpm install --prefer-offline
+  pnpm install --frozen-lockfile --prefer-offline
 )
