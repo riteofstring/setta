@@ -77,7 +77,7 @@ import {
 } from "utils/conversationSearch";
 import {
   EngineTypeEnum,
-  ToolTypeEnum,
+  ExternalAgentToolTypeEnum,
   type EngineConfig,
   type ExternalAgentConfig,
 } from "utils/generatedTypes";
@@ -93,6 +93,9 @@ const THREAD_GROUP_DND_PREFIX = "project-chat-thread-group::";
 const THREAD_SECTION_DROP_TARGET_PREFIX = "project-chat-thread-section-drop::";
 const THREAD_DROP_TARGET_PREFIX = "project-chat-thread-drop::";
 const GROUP_DRAG_RELEASE_THRESHOLD_PX = 4;
+const PROJECT_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
+const PROJECT_CHAT_HISTORY_MISSING_SELECTED_CHAT_POLL_INTERVAL_MS = 1500;
+const PROJECT_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
 
 type ThreadPinDomain = "pinned" | "unpinned";
 const PINNED_THREAD_DOMAIN: ThreadPinDomain = "pinned";
@@ -126,6 +129,27 @@ type ThreadDropTarget = {
   placement: ThreadDropPlacement;
   pinDomain: ThreadPinDomain;
 };
+
+function resolveProjectChatHistoryPollIntervalMs({
+  hasLoadError,
+  hasRunningHistoryEntry,
+  selectedChatMissingFromHistory,
+}: {
+  hasLoadError: boolean;
+  hasRunningHistoryEntry: boolean;
+  selectedChatMissingFromHistory: boolean;
+}): number | null {
+  if (selectedChatMissingFromHistory) {
+    return PROJECT_CHAT_HISTORY_MISSING_SELECTED_CHAT_POLL_INTERVAL_MS;
+  }
+  if (hasRunningHistoryEntry) {
+    return PROJECT_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS;
+  }
+  if (hasLoadError) {
+    return PROJECT_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS;
+  }
+  return null;
+}
 
 export function ProjectChatHistory({
   chatId,
@@ -232,10 +256,8 @@ export function ProjectChatHistory({
   );
 
   useEffect(() => {
-    if (!agentRunsInitialLoadComplete) {
-      void loadAgentRuns();
-    }
-  }, [agentRunsInitialLoadComplete]);
+    void loadAgentRuns();
+  }, []);
 
   useEffect(() => {
     if (!chatId) {
@@ -250,6 +272,68 @@ export function ProjectChatHistory({
       unscopedOnly: true,
     });
   }, [agentRuns, projectConfigId]);
+  const hasRunningHistoryEntry = useMemo(() => {
+    return historyEntries.some((entry) => entry.waitingForResponse);
+  }, [historyEntries]);
+  const selectedChatMissingFromHistory = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return false;
+    }
+    const normalizedChatId = chatId.trim();
+    if (!normalizedChatId) {
+      return false;
+    }
+    return !historyEntries.some((entry) => entry.chatId === normalizedChatId);
+  }, [chatId, historyEntries]);
+  const historyPollIntervalMs = useMemo(() => {
+    return resolveProjectChatHistoryPollIntervalMs({
+      hasLoadError: Boolean(agentRunsLoadError),
+      hasRunningHistoryEntry,
+      selectedChatMissingFromHistory,
+    });
+  }, [
+    agentRunsLoadError,
+    hasRunningHistoryEntry,
+    selectedChatMissingFromHistory,
+  ]);
+  useEffect(() => {
+    if (historyPollIntervalMs === null) {
+      return;
+    }
+    let intervalId: number | null = null;
+    const clearPollingInterval = () => {
+      if (intervalId === null) {
+        return;
+      }
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const startPollingIfVisible = () => {
+      clearPollingInterval();
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      intervalId = window.setInterval(() => {
+        void loadAgentRuns();
+      }, historyPollIntervalMs);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        clearPollingInterval();
+        return;
+      }
+      void loadAgentRuns();
+      startPollingIfVisible();
+    };
+
+    void loadAgentRuns();
+    startPollingIfVisible();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      clearPollingInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [historyPollIntervalMs]);
   const displayEntries = useMemo(() => {
     if (!draftThread || !draftThread.chatId) {
       return historyEntries;
@@ -2488,11 +2572,16 @@ function resolveThreadAgentBadgeLabel({
     if (!externalAgentConfig) {
       return null;
     }
-    if (externalAgentConfig.toolType === ToolTypeEnum.codex) {
+    if (externalAgentConfig.toolType === ExternalAgentToolTypeEnum.codex) {
       return "codex";
     }
-    if (externalAgentConfig.toolType === ToolTypeEnum.claude_code) {
+    if (
+      externalAgentConfig.toolType === ExternalAgentToolTypeEnum.claude_code
+    ) {
       return "claude";
+    }
+    if (externalAgentConfig.toolType === ExternalAgentToolTypeEnum.opencode) {
+      return "opencode";
     }
     return null;
   }
