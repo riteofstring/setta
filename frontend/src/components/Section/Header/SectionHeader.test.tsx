@@ -15,7 +15,7 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
   type Core,
-  type LSPDiagnostic,
+  type SettaLspDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -79,7 +79,7 @@ describe("SectionHeader diagnostics badges", () => {
   const variantId = "variant-1";
   const implId = "impl-1";
 
-  const baseDiagnostic: LSPDiagnostic = {
+  const baseDiagnostic: SettaLspDiagnostic = {
     message: "Bad code",
     severity: 1,
     code: "reportFoo",

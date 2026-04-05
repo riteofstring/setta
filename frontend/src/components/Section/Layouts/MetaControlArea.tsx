@@ -7,15 +7,13 @@ import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrCodeObjVariantIfPresent,
-  getCurrEffectiveCodeObjImplIfPresent,
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  getCurrSectionVariantId,
-  getParamDisplayNameIfPresent,
+  getParamDisplayName,
   getSectionCore,
-  setCodeObjVariantImplValue,
+  setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -24,9 +22,9 @@ import {
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
+import { post } from "utils/endpointUtils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
-  BaseChildlessCodeObjImplUnion,
   BaseCodeObjImplUnion,
   ButtonParamCodeObjImpl,
 } from "utils/generatedTypes";
@@ -41,7 +39,7 @@ import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
-  HTTPRequestMethodEnum,
+  HttpRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
   TimeControlModeEnum,
@@ -50,7 +48,7 @@ import {
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
-import { sendButtonSettaRequest } from "./settaApiAction";
+import { buildSettaApiPayload } from "utils/settaApiPresets";
 
 type ButtonRequestConfig = Pick<
   ButtonParamCodeObjImpl,
@@ -97,38 +95,47 @@ function MetaControlValueArea({
   controlParamId: string;
   showSectionTitle: boolean;
 }) {
-  const metaControlState = useProjectState((x) => {
+  const {
+    codeObjType,
+    baseValue,
+    defaultVal,
+    sectionName,
+    paramDisplayName,
+    buttonConfig,
+    dropzoneMode,
+    dropzoneMaxAttachments,
+    dropzonePlaceholder,
+    timeControlMode,
+    timeDisplayFormat,
+    timeDisplayTransparent,
+    timeDisplayScale,
+    timeDisplayFont,
+    dateDisplayFormat,
+    dateControlMode,
+    dateSelectionMode,
+    dateCalendarWeekStart,
+    dateIncludesTime,
+  } = useProjectState((x) => {
     const sectionName = getSectionCore(x, sectionId).name;
-    const paramDisplayName =
-      getParamDisplayNameIfPresent(x, sectionId, controlParamId) ?? null;
-    const controlImpl = getCurrEffectiveCodeObjImplIfPresent(
+    const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
+    const controlImpl = getCurrEffectiveCodeObjImpl(
       x,
       sectionId,
       controlParamId,
     );
-    if (!controlImpl || !paramDisplayName) {
-      return null;
-    }
     if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
-      const buttonImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+      const buttonImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
         x,
         sectionId,
         controlParamId,
         isButtonParamCodeObjImpl,
       );
-      if (!buttonImpl) {
-        return null;
-      }
       return {
         codeObjType: controlImpl.type,
         baseValue: "",
         defaultVal: "",
         sectionName,
         paramDisplayName,
-        codeObjVariantId:
-          getCurrCodeObjVariantIfPresent(x, sectionId, controlParamId)?.id ??
-          null,
-        sectionVariantId: getCurrSectionVariantId(x, sectionId),
         buttonConfig: {
           actionMode: buttonImpl.actionMode,
           requestMethod: buttonImpl.requestMethod,
@@ -152,15 +159,12 @@ function MetaControlValueArea({
         dateIncludesTime: false,
       };
     }
-    const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       controlParamId,
       isBaseChildlessCodeObjImpl,
     );
-    if (!childlessImpl) {
-      return null;
-    }
     const isDropzone = childlessImpl.type === CodeObjTypeEnum.DropzoneParam;
     const isDateParam = childlessImpl.type === CodeObjTypeEnum.DateParam;
     const isTimeParam = childlessImpl.type === CodeObjTypeEnum.TimeParam;
@@ -170,10 +174,6 @@ function MetaControlValueArea({
       defaultVal: childlessImpl.defaultVal,
       sectionName,
       paramDisplayName,
-      codeObjVariantId:
-        getCurrCodeObjVariantIfPresent(x, sectionId, controlParamId)?.id ??
-        null,
-      sectionVariantId: getCurrSectionVariantId(x, sectionId),
       buttonConfig: null,
       dropzoneMode: isDropzone ? childlessImpl.mode : null,
       dropzoneMaxAttachments: isDropzone
@@ -208,72 +208,34 @@ function MetaControlValueArea({
       dateIncludesTime: isDateParam ? childlessImpl.dateIncludesTime : false,
     };
   }, _.isEqual);
-  const hasMetaControlState = metaControlState !== null;
-  const codeObjType =
-    metaControlState?.codeObjType ?? CodeObjTypeEnum.TextParam;
-  const codeObjVariantId = metaControlState?.codeObjVariantId ?? null;
-  const sectionVariantId = metaControlState?.sectionVariantId ?? null;
-  const baseValue = metaControlState?.baseValue ?? "";
-  const defaultVal = metaControlState?.defaultVal ?? "";
-  const sectionName = metaControlState?.sectionName ?? "";
-  const paramDisplayName = metaControlState?.paramDisplayName ?? "";
-  const buttonConfig = metaControlState?.buttonConfig ?? null;
-  const dropzoneMode = metaControlState?.dropzoneMode ?? null;
-  const dropzoneMaxAttachments =
-    metaControlState?.dropzoneMaxAttachments ?? null;
-  const dropzonePlaceholder = metaControlState?.dropzonePlaceholder ?? null;
-  const timeControlMode =
-    metaControlState?.timeControlMode ?? TimeControlModeEnum.display;
-  const timeDisplayFormat =
-    metaControlState?.timeDisplayFormat ??
-    TimeDisplayFormatEnum.twenty_four_hour;
-  const timeDisplayTransparent =
-    metaControlState?.timeDisplayTransparent ?? false;
-  const timeDisplayScale = metaControlState?.timeDisplayScale ?? 1;
-  const timeDisplayFont =
-    metaControlState?.timeDisplayFont ?? TimeDisplayFontEnum.monospace;
-  const dateDisplayFormat =
-    metaControlState?.dateDisplayFormat ?? DateDisplayFormatEnum.iso;
-  const dateControlMode =
-    metaControlState?.dateControlMode ?? DateControlModeEnum.input;
-  const dateSelectionMode =
-    metaControlState?.dateSelectionMode ?? DateSelectionModeEnum.single;
-  const dateCalendarWeekStart =
-    metaControlState?.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday;
-  const dateIncludesTime = metaControlState?.dateIncludesTime ?? false;
 
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,
     (pendingValue) => {
-      if (
-        !hasMetaControlState ||
-        codeObjType === CodeObjTypeEnum.ButtonParam ||
-        !codeObjVariantId
-      ) {
+      if (codeObjType === CodeObjTypeEnum.ButtonParam) {
         return;
       }
       if (codeObjType === CodeObjTypeEnum.PasswordParam) {
         return;
       }
       useProjectState.setState((state) => {
-        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
+          sectionId,
           controlParamId,
-          codeObjVariantId,
           {
             value: pendingValue,
           },
         );
       });
     },
-    codeObjVariantId,
   );
 
   const handleValueChange: ParamValueChange = (
     nextValue,
     options?: ParamValueChangeOptions,
   ) => {
-    if (!hasMetaControlState || codeObjType === CodeObjTypeEnum.ButtonParam) {
+    if (codeObjType === CodeObjTypeEnum.ButtonParam) {
       return;
     }
     if (nextValue === null) {
@@ -292,32 +254,15 @@ function MetaControlValueArea({
     }
     if (!options?.skipBackendUpdate) {
       if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        if (!sectionVariantId) {
-          return;
-        }
-        debouncedSetPasswordParamValue(
-          sectionId,
-          sectionVariantId,
-          controlParamId,
-          valueStr,
-        );
+        debouncedSetPasswordParamValue(sectionId, controlParamId, valueStr);
       } else {
-        if (!sectionVariantId || !codeObjVariantId) {
-          return;
-        }
-        debouncedSetParamEnteredValue(
-          sectionId,
-          sectionVariantId,
-          controlParamId,
-          codeObjVariantId,
-          valueStr,
-        );
+        debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
       }
     }
   };
 
   function handleAction() {
-    if (!hasMetaControlState || !buttonConfig) {
+    if (!buttonConfig) {
       return;
     }
     if (buttonConfig.actionMode === ButtonActionModeEnum.HTTP_REQUEST) {
@@ -345,7 +290,7 @@ function MetaControlValueArea({
   }
 
   function handleDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
-    if (!hasMetaControlState || attachments.length === 0) {
+    if (attachments.length === 0) {
       return;
     }
     const dependencyKey = {
@@ -397,10 +342,6 @@ function MetaControlValueArea({
     }
   }
 
-  if (!hasMetaControlState) {
-    return null;
-  }
-
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
       {codeObjType === CodeObjTypeEnum.ButtonParam ? (
@@ -447,19 +388,13 @@ function MetaControlValueArea({
 export const MetaControlArea = React.memo(_MetaControlArea);
 
 const debouncedSetParamEnteredValue = _.debounce(
-  (
-    sectionId: string,
-    sectionVariantId: string,
-    paramInfoId: string,
-    codeObjVariantId: string,
-    value: string,
-  ) => {
+  (sectionId: string, paramInfoId: string, value: string) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
+          sectionId,
           paramInfoId,
-          codeObjVariantId,
           {
             value,
           },
@@ -469,7 +404,6 @@ const debouncedSetParamEnteredValue = _.debounce(
         route_set_param_entered_value({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
-          sectionVariantId,
           paramInfoId,
           value,
           frontendOpId,
@@ -480,16 +414,10 @@ const debouncedSetParamEnteredValue = _.debounce(
 );
 
 const debouncedSetPasswordParamValue = _.debounce(
-  (
-    sectionId: string,
-    sectionVariantId: string,
-    paramInfoId: string,
-    value: string,
-  ) => {
+  (sectionId: string, paramInfoId: string, value: string) => {
     route_set_param_entered_value({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
-      sectionVariantId,
       paramInfoId,
       value,
     });
@@ -509,7 +437,7 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
     return;
   }
 
-  const method = config.requestMethod ?? HTTPRequestMethodEnum.POST;
+  const method = config.requestMethod ?? HttpRequestMethodEnum.POST;
   const headerKey = config.requestHeaderKey.trim();
   let headers: HeadersInit | undefined;
   if (headerKey !== "") {
@@ -520,8 +448,8 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
   let body: string | undefined;
   if (
     trimmedBody !== "" &&
-    method !== HTTPRequestMethodEnum.GET &&
-    method !== HTTPRequestMethodEnum.HEAD
+    method !== HttpRequestMethodEnum.GET &&
+    method !== HttpRequestMethodEnum.HEAD
   ) {
     body = config.requestBody;
   }
@@ -531,4 +459,13 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
     headers,
     body,
   });
+}
+
+function sendButtonSettaRequest(config: ButtonRequestConfig) {
+  const route = config.requestUrl.trim();
+  if (route === "") {
+    return;
+  }
+  const payload = buildSettaApiPayload(route, config.requestBody);
+  void post(route, payload);
 }

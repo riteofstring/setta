@@ -8,12 +8,15 @@ import {
   useShareSession,
 } from "state/definitions";
 import { C } from "utils/c";
+import { C_ADDRESSES } from "utils/c_addresses";
+import { replaceAddressParams } from "utils/endpointUtils";
+import { RouteEnum } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   clearPendingSectionTextFocus,
   isPendingSectionTextFocus,
 } from "utils/tabbingLogic";
 import { scrollSensitivityUpdater, terminalTheme } from "./utils";
-import { buildTerminalWebsocketUrl } from "./websocketUrl";
 
 type TerminalSession = {
   ws: WebSocket;
@@ -84,20 +87,21 @@ export function useTerminal({
     });
     const { terminal, ws, fitAddon } = session;
 
-    const syncTerminalSize = () => {
+    // Ensure the terminal matches the DOM size on mount/reattach.
+    requestAnimationFrame(() => {
       fitTerminal({
         container,
         fitAddon,
         terminal,
       });
-      queueTerminalResizeFromCurrentSize(sessionKey, terminal, container);
-    };
-
-    // Ensure the terminal matches the DOM size on mount/reattach.
-    requestAnimationFrame(syncTerminalSize);
+    });
 
     const resizeObserver = new ResizeObserver(() => {
-      syncTerminalSize();
+      fitTerminal({
+        container,
+        fitAddon,
+        terminal,
+      });
     });
     resizeObserver.observe(container);
 
@@ -233,6 +237,7 @@ function acquireTerminalSession({
     }
   }
 
+  const id = createNewId();
   const terminal = new Terminal({
     cursorBlink: true,
     theme: terminalTheme,
@@ -241,11 +246,13 @@ function acquireTerminalSession({
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   terminal.open(container);
-  const wsTerminalAddress = buildTerminalWebsocketUrl({
-    projectConfigId,
-    sectionId,
-    shareSessionId,
-  });
+  const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
+    RouteEnum.TERMINAL,
+    { projectConfigId, sectionId, id },
+  )}`;
+  const wsTerminalAddress = shareSessionId
+    ? `${baseAddress}?shareSessionId=${encodeURIComponent(shareSessionId)}`
+    : baseAddress;
   const ws = new WebSocket(wsTerminalAddress);
 
   const session: TerminalSession = {
@@ -389,27 +396,6 @@ function queueTerminalResize(sessionKey: string, message: string) {
     latest.pendingResizeTimeoutId = null;
     flushTerminalResize(sessionKey);
   }, delay);
-}
-
-function queueTerminalResizeFromCurrentSize(
-  sessionKey: string,
-  terminal: Terminal,
-  container: HTMLDivElement,
-) {
-  if (container.clientWidth < 16 || container.clientHeight < 16) {
-    return;
-  }
-  if (terminal.cols < 1 || terminal.rows < 1) {
-    return;
-  }
-  queueTerminalResize(
-    sessionKey,
-    JSON.stringify({
-      messageType: C.WS_TERMINAL_RESIZE,
-      cols: terminal.cols,
-      rows: terminal.rows,
-    }),
-  );
 }
 
 function flushTerminalResize(sessionKey: string) {
