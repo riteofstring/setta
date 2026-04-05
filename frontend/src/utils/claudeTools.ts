@@ -2,12 +2,13 @@ import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   ToolCall,
+  ToolNameNormalizationConfig,
 } from "utils/generatedTypes";
+import { normalizeGeneratedToolName } from "./bindingRuntime";
 
 export const APPROVAL_TOOL_NAME = "setta.approval";
 export const TODO_TOOL_NAME = "TodoWrite";
 export const QUESTION_TOOL_NAME = "AskUserQuestion";
-const OPENCODE_QUESTION_TOOL_NAME = "question";
 
 export type TodoStatus = "pending" | "in_progress" | "completed";
 
@@ -49,25 +50,12 @@ export type ApprovalPayload = {
 export function normalizeToolName(
   name: string | null | undefined,
 ): string | null {
-  if (!name) {
-    return null;
-  }
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const hasMcpPrefix = trimmed.startsWith("mcp__");
-  let normalized = trimmed;
-  if (hasMcpPrefix) {
-    normalized = trimmed.slice("mcp__".length);
-  }
-  if (
-    !hasMcpPrefix &&
-    normalized.toLowerCase() === OPENCODE_QUESTION_TOOL_NAME
-  ) {
-    return QUESTION_TOOL_NAME;
-  }
-  return normalized;
+  return normalizeGeneratedToolName(
+    name,
+    ToolNameNormalizationConfig.singlePrefix,
+    ToolNameNormalizationConfig.doublePrefix,
+    ToolNameNormalizationConfig.askUserQuestionToolName,
+  );
 }
 
 export function resolveToolCallArguments(

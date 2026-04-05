@@ -25,18 +25,12 @@ import { getOutlineColor } from "./utils";
 
 function _SectionContainer({
   sectionId,
-  isTopLevel = false,
+  isTopLevel,
   dragListeners,
-  forceHideOutline = false,
-  forceTransparentBorder = false,
-  forceHideTopDragHandle = false,
 }: {
   sectionId: string;
-  isTopLevel?: boolean;
+  isTopLevel: boolean;
   dragListeners?: any;
-  forceHideOutline?: boolean;
-  forceTransparentBorder?: boolean;
-  forceHideTopDragHandle?: boolean;
 }) {
   const {
     visibility,
@@ -48,6 +42,7 @@ function _SectionContainer({
     isGenPythonMetadata,
     hasPythonCodegen,
     hasMetadata,
+    sectionTypeName,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     attachedTerminalId,
@@ -119,9 +114,8 @@ function _SectionContainer({
         <>
           {!isGroup && isJoinedAttachedTerminalGroup ? (
             <div
-              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline ${forceHideOutline ? "outline-0" : "outline-4"} ${getOutlineColor(
+              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
                 {
-                  jsonSourceMissing: false,
                   isActiveSection: isJoinedGroupActive,
                   isGlobalVariables: false,
                   isInOtherProjectConfigs,
@@ -134,8 +128,6 @@ function _SectionContainer({
                 sectionId={sectionId}
                 isUserView={isUserView}
                 forceHideOutline={true}
-                forceTransparentBorder={forceTransparentBorder}
-                forceHideTopDragHandle={forceHideTopDragHandle}
                 hideAgenticEdgeHandles={true}
                 omitAgenticHandleScopeClass={true}
                 joinedCorners="code-terminal-parent"
@@ -154,9 +146,6 @@ function _SectionContainer({
                 <SectionContainerCore
                   sectionId={sectionId}
                   isUserView={isUserView}
-                  forceHideOutline={forceHideOutline}
-                  forceTransparentBorder={forceTransparentBorder}
-                  forceHideTopDragHandle={forceHideTopDragHandle}
                 />
               )}
               {isCode ? (
@@ -178,13 +167,6 @@ function _SectionContainer({
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(
-  _SectionContainer,
-  (previousProps, nextProps) =>
-    previousProps.sectionId === nextProps.sectionId &&
-    previousProps.isTopLevel === nextProps.isTopLevel &&
-    previousProps.forceHideOutline === nextProps.forceHideOutline &&
-    previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
-    previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&
-    _.isEqual(previousProps.dragListeners, nextProps.dragListeners),
+export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
+  _.isEqual(p.dragListeners, n.dragListeners),
 );

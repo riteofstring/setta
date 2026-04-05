@@ -2,6 +2,12 @@ import {
   PaneAccordion,
   type PaneAccordionItem,
 } from "components/Panes/Common/PaneAccordion";
+import {
+  getAppDefinition,
+  setAppDefinition,
+  validateAppDefinition,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -11,11 +17,6 @@ import {
   useProjectState,
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import {
-  route_get_app_definition,
-  route_set_app_definition,
-  route_validate_app_definition,
-} from "utils/generatedEndpoints";
 import { type AppDefinition } from "utils/generatedTypes";
 import {
   parseDraftAppAssets,
@@ -300,7 +301,7 @@ export function AppConfigPane() {
       setDraftAssetsError(null);
       setLoading(true);
       setErrorMessage(null);
-      const response = await route_get_app_definition({});
+      const response = await callOpenAPI(getAppDefinition({ body: {} }));
       setLoading(false);
       if (!res200(response)) {
         if (isMounted) {
@@ -424,14 +425,18 @@ export function AppConfigPane() {
       if (withLoading) {
         setLoading(true);
       }
-      const response = await route_set_app_definition({
-        appSpec: nextSpec,
-        appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
-        appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-        catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-        theme: themePayload.value,
-        assets: assetsPayload.value,
-      });
+      const response = await callOpenAPI(
+        setAppDefinition({
+          body: {
+            appSpec: nextSpec,
+            appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
+            appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+            catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+            theme: themePayload.value,
+            assets: assetsPayload.value,
+          },
+        }),
+      );
       if (withLoading) {
         setLoading(false);
       }
@@ -506,13 +511,17 @@ export function AppConfigPane() {
     }
 
     setValidating(true);
-    const response = await route_validate_app_definition({
-      appSpec: specPayload.value,
-      appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-      catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-      theme: themePayload.value,
-      assets: assetsPayload.value,
-    });
+    const response = await callOpenAPI(
+      validateAppDefinition({
+        body: {
+          appSpec: specPayload.value,
+          appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+          catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+          theme: themePayload.value,
+          assets: assetsPayload.value,
+        },
+      }),
+    );
     setValidating(false);
     if (!res200(response)) {
       const detail = getErrorDetail(response.data);

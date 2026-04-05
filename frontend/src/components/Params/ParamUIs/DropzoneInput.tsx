@@ -1,4 +1,11 @@
 import {
+  deleteArtifacts,
+  importFilesToArtifacts,
+  updateArtifacts,
+  uploadBinary,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   useMemo,
   useRef,
   useState,
@@ -11,9 +18,10 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { useShareSession } from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   DropzoneConfigForFrontend,
@@ -33,21 +41,23 @@ import {
   type DropzoneStatelessAttachment,
   type DropzoneStoredAttachment,
 } from "utils/dropzone";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_binary_upload,
-  route_delete_artifacts,
-  route_import_files_to_artifacts,
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
+import {
   route_set_param_entered_value,
-  route_update_artifacts,
   route_update_param_impl_config,
 } from "utils/generatedEndpoints";
 import {
   ArtifactTypeEnum,
   CodeObjTypeEnum,
   DropzoneModeEnum,
+  DropzoneParamCodeObjImpl,
   FileArtifact,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
+  type ContentRef,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
@@ -92,6 +102,7 @@ type DropzoneStatelessDisplayAttachment =
 const DROPZONE_STATEFUL_POLICY = getAttachmentPolicy("dropzone_stateful");
 const DROPZONE_STATELESS_POLICY = getAttachmentPolicy("dropzone_stateless");
 const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 
 function resolveDropzonePolicy(mode: DropzoneModeEnum) {
   if (mode === DropzoneModeEnum.STATELESS) {
@@ -117,7 +128,7 @@ function notifyOversizedFiles(files: File[], limitLabel: string): void {
       ", ",
     )}${suffix}.`;
   }
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyReadFailures(files: File[]): void {
@@ -129,7 +140,7 @@ function notifyReadFailures(files: File[]): void {
     files.length > names.length ? ` +${files.length - names.length} more` : "";
   const noun = files.length === 1 ? "file" : "files";
   const message = `Failed to read ${files.length} ${noun}: ${names.join(", ")}${suffix}.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyUploadFailures(files: File[]): void {
@@ -143,7 +154,7 @@ function notifyUploadFailures(files: File[]): void {
   const message = `Failed to upload ${files.length} ${noun}: ${names.join(
     ", ",
   )}${suffix}.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
@@ -153,7 +164,7 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   const names = files.slice(0, 3).map((file) => file.name);
   if (files.length === 1) {
     const message = `File "${names[0]}" would exceed the ${limitLabel} total payload limit.`;
-    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(message, NotificationTypeEnum.warning);
     return;
   }
   const suffix =
@@ -161,12 +172,12 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   const message = `Skipped ${files.length} files to stay under ${limitLabel} total payload: ${names.join(
     ", ",
   )}${suffix}.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyStatelessTextPayloadLimit(limitLabel: string): void {
   const message = `Dropped text exceeds the ${limitLabel} total payload limit.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyDisallowedMime(files: File[], allowedLabel: string): void {
@@ -178,13 +189,13 @@ function notifyDisallowedMime(files: File[], allowedLabel: string): void {
       ? "A file was skipped due to type restrictions."
       : "Some files were skipped due to type restrictions.";
   const message = `${prefix} ${allowedLabel}`.trim();
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyInvalidStatefulValue(): void {
   const message =
     "Dropzone value is not valid JSON. Clear it before adding attachments.";
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function splitFilesBySize(
@@ -251,7 +262,7 @@ export function DropzoneInputConfigForParam({
     }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"DropzoneParamCodeObj">(
+        setCurrEffectiveCodeObjImplValue<DropzoneParamCodeObjImpl>(
           state,
           sectionId,
           paramInfoId,
@@ -408,6 +419,9 @@ export function DropzoneInput({
   const { isDeploymentMode } = useShareSession((state) => ({
     isDeploymentMode: state.isDeploymentMode,
   }));
+  const sectionVariantId = useProjectState((state) =>
+    sectionId ? getCurrSectionVariantId(state, sectionId) : "",
+  );
   const dropzonePolicy = useMemo(() => resolveDropzonePolicy(mode), [mode]);
 
   const parsedStatefulValue = useMemo(() => {
@@ -501,6 +515,7 @@ export function DropzoneInput({
     const res = await route_set_param_entered_value({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
+      sectionVariantId,
       paramInfoId,
       value: updatedValue,
       frontendOpId: null,
@@ -510,22 +525,23 @@ export function DropzoneInput({
     }
     const detail = getErrorDetail(res.data);
     const message = detail ?? "Failed to update attachments.";
-    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(message, NotificationTypeEnum.warning);
     if (artifactIds.length > 0) {
-      const deleteRes = await route_delete_artifacts({
-        artifacts: artifactIds.map((artifactId) => ({
-          id: artifactId,
-          type: ArtifactTypeEnum.File,
-        })),
-      });
+      const deleteRes = await callOpenAPI(
+        deleteArtifacts({
+          body: {
+            artifacts: artifactIds.map((artifactId) => ({
+              id: artifactId,
+              type: ArtifactTypeEnum.File,
+            })),
+          },
+        }),
+      );
       if (!res200(deleteRes)) {
         const deleteDetail = getErrorDetail(deleteRes.data);
         const deleteMessage =
           deleteDetail ?? "Failed to clean up uploaded attachments.";
-        addTemporaryNotification(
-          deleteMessage,
-          SettaNotificationTypeEnum.warning,
-        );
+        addTemporaryNotification(deleteMessage, NotificationTypeEnum.warning);
       }
     }
     onChange(previousValue, { skipBackendUpdate: true });
@@ -655,11 +671,15 @@ export function DropzoneInput({
       }
       const uploadResults = await Promise.allSettled(
         allowedFiles.map(async (file) => {
-          const form = new FormData();
-          form.append("file", file, file.name);
-          form.append("durable", "false");
-          const res = await route_binary_upload(form);
-          if (!res200(res)) {
+          const res: BinaryUploadRouteResponse = await callOpenAPI(
+            uploadBinary({
+              body: {
+                durable: false,
+                file,
+              },
+            }),
+          );
+          if (!res200(res) || !res.data) {
             throw new Error("Upload failed");
           }
           return { file, ref: res.data };
@@ -698,14 +718,18 @@ export function DropzoneInput({
           value: ref,
         }),
       );
-      const res = await route_update_artifacts({
-        artifacts,
-        uploadScope: "generic",
-      });
+      const res = await callOpenAPI(
+        updateArtifacts({
+          body: {
+            artifacts,
+            uploadScope: "generic",
+          },
+        }),
+      );
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         const message = detail ?? "Failed to upload attachments.";
-        addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+        addTemporaryNotification(message, NotificationTypeEnum.warning);
         return;
       }
       const newAttachments: DropzoneStoredAttachment[] = successfulUploads.map(
@@ -814,15 +838,19 @@ export function DropzoneInput({
     const previousValue = value;
     setIsUploading(true);
     try {
-      const res = await route_import_files_to_artifacts({
-        paths: allowedPaths,
-        uploadScope: "generic",
-      });
+      const res = await callOpenAPI(
+        importFilesToArtifacts({
+          body: {
+            paths: allowedPaths,
+            uploadScope: "generic",
+          },
+        }),
+      );
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         const message =
           detail ?? "Failed to import server files into attachments.";
-        addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+        addTemporaryNotification(message, NotificationTypeEnum.warning);
         return;
       }
       const newAttachments: DropzoneStoredAttachment[] = res.data.map(
@@ -848,18 +876,22 @@ export function DropzoneInput({
   }
 
   async function deleteFileAttachment(artifactId: string): Promise<boolean> {
-    const res = await route_delete_artifacts({
-      artifacts: [
-        {
-          id: artifactId,
-          type: ArtifactTypeEnum.File,
+    const res = await callOpenAPI(
+      deleteArtifacts({
+        body: {
+          artifacts: [
+            {
+              id: artifactId,
+              type: ArtifactTypeEnum.File,
+            },
+          ],
         },
-      ],
-    });
+      }),
+    );
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
       const message = detail ?? "Failed to delete attachment.";
-      addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+      addTemporaryNotification(message, NotificationTypeEnum.warning);
       return false;
     }
     return true;
