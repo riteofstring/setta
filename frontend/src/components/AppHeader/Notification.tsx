@@ -2,12 +2,12 @@ import { getNotificationIcon } from "components/Panes/Overview/NotificationsArea
 import { type CSSProperties, useEffect, useState } from "react";
 import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
 import { useNotifications } from "state/definitions";
-import { SettaNotification } from "utils/generatedTypes";
+import { type Notification as AppNotification } from "utils/generatedTypes";
 
 export function Notification() {
   // State to track the notification to display in the navbar
   const [displayNotification, setDisplayNotification] =
-    useState<SettaNotification | null>(null);
+    useState<AppNotification | null>(null);
 
   // Get the most recent notification from the store
   const latestNotification = useNotifications((state) =>
