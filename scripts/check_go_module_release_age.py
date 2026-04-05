@@ -54,62 +54,92 @@ def parse_published_at(raw_time: str) -> datetime:
     return datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
 
 
-def main() -> int:
-    args = parse_args()
-    if args.days < 0:
-        raise SystemExit("--days must be a non-negative integer")
-
-    repo_root = args.repo_root.resolve()
+def run_go_module_list(repo_root: Path) -> subprocess.CompletedProcess[str]:
     go_script = repo_root / "scripts" / "go.sh"
-    result = subprocess.run(
+    return subprocess.run(
         [str(go_script), "list", "-m", "-json", "all"],
         cwd=repo_root,
         check=False,
         capture_output=True,
         text=True,
     )
+
+
+def selected_release_entry(
+    entry: dict[str, object],
+) -> tuple[str, str, datetime] | None:
+    if entry.get("Main") is True:
+        return None
+
+    module = selected_module(entry)
+    if module is None:
+        return None
+
+    path = module.get("Path")
+    version = module.get("Version")
+    published = module.get("Time")
+    if (
+        not isinstance(path, str)
+        or not isinstance(version, str)
+        or not isinstance(published, str)
+    ):
+        return None
+
+    return path, version, parse_published_at(published)
+
+
+def collect_release_age_failures(
+    payload: str, cutoff: datetime
+) -> tuple[list[tuple[str, str, datetime]], int]:
+    too_new: list[tuple[str, str, datetime]] = []
+    checked_modules = 0
+    for entry in parse_json_stream(payload):
+        release_entry = selected_release_entry(entry)
+        if release_entry is None:
+            continue
+        checked_modules += 1
+        path, version, published_at = release_entry
+        if published_at > cutoff:
+            too_new.append(release_entry)
+
+    return too_new, checked_modules
+
+
+def report_failures(
+    too_new: list[tuple[str, str, datetime]], minimum_age_days: int
+) -> None:
+    print(
+        f"Go module release-age policy failed: {len(too_new)} module(s) are newer than {minimum_age_days} day(s)."
+    )
+    for path, version, published_at in sorted(too_new):
+        print(f"- {path}@{version} published {published_at.isoformat()}")
+
+
+def report_success(checked_modules: int, minimum_age_days: int) -> None:
+    print(
+        f"Go module release-age policy passed: checked {checked_modules} module(s) with minimum age {minimum_age_days} day(s)."
+    )
+
+
+def main() -> int:
+    args = parse_args()
+    if args.days < 0:
+        raise SystemExit("--days must be a non-negative integer")
+
+    repo_root = args.repo_root.resolve()
+    result = run_go_module_list(repo_root)
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         return result.returncode
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
-    too_new: list[tuple[str, str, datetime]] = []
-    checked_modules = 0
-
-    for entry in parse_json_stream(result.stdout):
-        if entry.get("Main") is True:
-            continue
-
-        module = selected_module(entry)
-        if module is None:
-            continue
-
-        path = module.get("Path")
-        version = module.get("Version")
-        published = module.get("Time")
-        if (
-            not isinstance(path, str)
-            or not isinstance(version, str)
-            or not isinstance(published, str)
-        ):
-            continue
-
-        published_at = parse_published_at(published)
-        checked_modules += 1
-        if published_at > cutoff:
-            too_new.append((path, version, published_at))
+    too_new, checked_modules = collect_release_age_failures(result.stdout, cutoff)
 
     if too_new:
-        print(
-            f"Go module release-age policy failed: {len(too_new)} module(s) are newer than {args.days} day(s)."
-        )
-        for path, version, published_at in sorted(too_new):
-            print(f"- {path}@{version} published {published_at.isoformat()}")
+        report_failures(too_new, args.days)
         return 1
 
-    print(
-        f"Go module release-age policy passed: checked {checked_modules} module(s) with minimum age {args.days} day(s)."
-    )
+    report_success(checked_modules, args.days)
     return 0
 
 
