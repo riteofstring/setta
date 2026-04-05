@@ -35,3 +35,92 @@ def test_iter_python_files_skips_virtualenvs_with_custom_names(
 
     assert first_party_file in files
     assert venv_python_file not in files
+
+
+def test_collect_used_keys_treats_direct_generated_import_as_usage(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    target_dir = repo_root / "backend" / "setta" / "types" / "generated"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "go_shared_types.py").write_text(
+        "class LLMConfig:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    wrapper_path = repo_root / "backend" / "setta" / "types" / "llm_config.py"
+    wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+    wrapper_path.write_text(
+        "from setta.types.generated.go_shared_types import LLMConfig\n\n"
+        '__all__ = ["LLMConfig"]\n',
+        encoding="utf-8",
+    )
+
+    module = _load_prune_generated_types_module()
+    definitions, module_local_refs = module.collect_definitions(target_dir, repo_root)
+    module_to_names = {}
+    for definition in definitions:
+        module_to_names.setdefault(definition.module, set()).add(definition.name)
+
+    initial_used_keys = {
+        definition.key
+        for definition in definitions
+        if definition.name in module_local_refs.get(definition.module, set())
+    }
+    used_keys = module.collect_used_keys(
+        repo_root,
+        module_to_names,
+        initial_used_keys=initial_used_keys,
+    )
+
+    assert ("setta.types.generated.go_shared_types", "LLMConfig") in used_keys
+
+
+def test_cleanup_unused_imports_removes_stale_generated_imports(
+    tmp_path: Path,
+) -> None:
+    generated_file = tmp_path / "go_shared_types.py"
+    generated_file.write_text(
+        "from enum import Enum\n"
+        "from datetime import datetime\n"
+        "from typing import Any\n\n"
+        "class Thing:\n"
+        "    value: Any\n",
+        encoding="utf-8",
+    )
+
+    module = _load_prune_generated_types_module()
+    cleaned_files = module.cleanup_unused_imports([generated_file], dry_run=False)
+
+    assert cleaned_files == 1
+    assert generated_file.read_text(encoding="utf-8") == (
+        "from typing import Any\n\n"
+        "class Thing:\n"
+        "    value: Any\n"
+    )
+
+
+def test_cleanup_unused_imports_preserves_future_annotations_import(
+    tmp_path: Path,
+) -> None:
+    generated_file = tmp_path / "go_shared_types.py"
+    generated_file.write_text(
+        "from __future__ import annotations\n"
+        "from typing import Any\n\n"
+        "class Thing:\n"
+        '    value: "Later"\n\n'
+        "Later = Any\n",
+        encoding="utf-8",
+    )
+
+    module = _load_prune_generated_types_module()
+    cleaned_files = module.cleanup_unused_imports([generated_file], dry_run=False)
+
+    assert cleaned_files == 0
+    assert generated_file.read_text(encoding="utf-8") == (
+        "from __future__ import annotations\n"
+        "from typing import Any\n\n"
+        "class Thing:\n"
+        '    value: "Later"\n\n'
+        "Later = Any\n"
+    )
