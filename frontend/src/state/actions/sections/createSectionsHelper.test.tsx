@@ -9,8 +9,8 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
+  NotificationTypeEnum,
   SectionTypeEnum,
-  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTopLevelSectionWithResult } from "./createSections";
@@ -203,7 +203,7 @@ describe("useCreateSectionsList", () => {
     await vi.waitFor(() => {
       expect(addTemporaryNotification).toHaveBeenCalledWith(
         "config failed",
-        SettaNotificationTypeEnum.error,
+        NotificationTypeEnum.error,
       );
     });
   });

@@ -1,4 +1,9 @@
 import _ from "lodash";
+import {
+  getAuthRefreshStatus,
+  type HttpapiAuthRefreshStatusResponse as AuthRefreshStatusResponse,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
@@ -13,6 +18,7 @@ import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
+import { registerRealtimeDependencySenders } from "state/actions/realtimeDependencySend";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
@@ -23,13 +29,16 @@ import {
   useServerMode,
   useShareSession,
 } from "state/definitions";
+import {
+  buildBootstrapPageUrl,
+  buildFrontendWebsocketUrl,
+  getFrontendWebsocketRoute,
+} from "utils/backendOriginTransport";
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
-import { C_ADDRESSES } from "utils/c_addresses";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_binary_upload,
-  route_get_auth_refresh_status,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
@@ -37,26 +46,28 @@ import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
   BinaryDependencyValue,
+  ConnectionTypeEnum,
+  createConnection,
+  createCurrentAddressUpdateMessage,
+  CurrentAddressUpdateMessage,
   DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
-  FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
-  RouteEnum,
+  MessageTypeEnum,
+  NotificationTypeEnum,
+  RealtimeDependencyEventMessage,
+  RealtimeUIChangeMessage,
   SectionDependencyKey,
   SectionParamDependencyKey,
-  SettaNotificationTypeEnum,
   UISettingRevealContent,
-  UISettingRevealContentSchema,
-  WebsocketConnectionTypeEnum,
-  WebsocketMsg,
-  WebsocketMsgRealtimeDependencyEvent,
-  WebsocketMsgRealtimeUIChange,
-  WebsocketMsgTypeForBackendEnum,
-  WebsocketMsgTypeForFrontendEnum,
-  WebsocketMsgUISettingRevealResult,
-  createWebsocketConnectionInfo,
-  createWebsocketMsgCurrentAddressUpdate,
+  UISettingRevealResultMessage,
+  UISettingRevealResultStatus,
+  WebsocketMessageTypeEnum,
+  type ContentRef,
+  type LSPDiagnosticsPayload,
+  type ProjectStateSingleConfigWithCompletedOpIDs,
+  type WebsocketMessageType,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -99,6 +110,7 @@ import {
   resetShareSessionState,
 } from "./share";
 import {
+  parseUISettingRevealContent,
   receiveUISettingReveal,
   type UISettingRevealExecutionContext,
 } from "./uiSettingReveal";
@@ -109,7 +121,8 @@ let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
-const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
+const BOOTSTRAP_URL = buildBootstrapPageUrl();
+const FRONTEND_WEBSOCKET_ROUTE = getFrontendWebsocketRoute();
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
@@ -133,16 +146,28 @@ let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
 let lastRealtimeBinaryOversizeWarningAt = 0;
-type UISettingRevealResultStatusPayload = {
-  settingId: string;
-  status: "revealed" | "failed";
-  errorCode: string | null;
-  errorMessage: string | null;
-};
 type PendingUISettingRevealMessage = {
   content: unknown;
   socketGeneration: number;
 };
+
+type AuthRefreshStatusRouteResponse =
+  ResponseDataAndStatus<AuthRefreshStatusResponse>;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
+type LatestProjectStateRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
+type LatestLSPDiagnosticsRouteResponse =
+  ResponseDataAndStatus<LSPDiagnosticsPayload>;
+type FrontendWebsocketEnvelope = {
+  id?: string | null;
+  messageType: WebsocketMessageType;
+  content: any;
+};
+type FrontendOutboundMessage =
+  | CurrentAddressUpdateMessage
+  | RealtimeUIChangeMessage
+  | RealtimeDependencyEventMessage
+  | UISettingRevealResultMessage;
 
 function beginWebsocketGeneration(): number {
   activeWebsocketGeneration += 1;
@@ -162,14 +187,8 @@ export const openWebSocket = _.debounce(
     if (!isDeploymentMode) {
       stopShareHeartbeat();
     }
-    const route = isDeploymentMode
-      ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
-      : RouteEnum.WEBSOCKET_FRONTEND;
-    const targetUrl = isDeploymentMode
-      ? `${C_ADDRESSES.WEBSOCKET}${route}?shareSessionId=${encodeURIComponent(
-          shareSessionId ?? "",
-        )}`
-      : `${C_ADDRESSES.WEBSOCKET}${route}`;
+    const route = FRONTEND_WEBSOCKET_ROUTE;
+    const targetUrl = buildFrontendWebsocketUrl(shareSessionId);
     if (
       wssReady(wss) &&
       currentRoute === route &&
@@ -198,11 +217,11 @@ export const openWebSocket = _.debounce(
         sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
         addTemporaryNotification("Connected to server");
         addWebsocketConnection(
-          createWebsocketConnectionInfo({
+          createConnection({
             id: "main",
-            connectionType: WebsocketConnectionTypeEnum.SERVER,
+            connectionType: ConnectionTypeEnum.SERVER,
             currentAddress: pathname,
-            shareSessionId,
+            ...(shareSessionId ? { shareSessionId } : {}),
           }),
         );
         wasOpen = true;
@@ -216,16 +235,18 @@ export const openWebSocket = _.debounce(
           const projectConfigId = getCurrProjectConfigId();
           let runImmediateAuthRefresh = true;
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
-            const res = await route_get_latest_project_state({
-              projectConfigId: getCurrProjectConfigId(),
-            });
+            const res: LatestProjectStateRouteResponse =
+              await route_get_latest_project_state({
+                projectConfigId: getCurrProjectConfigId(),
+              });
             if (res200(res)) {
               processProjectStateUpdateFromBackend(res.data);
               void loadAgentRuns();
               await requestAIFollowSnapshot(projectConfigId);
-              const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-                projectConfigId,
-              });
+              const diagnosticsRes: LatestLSPDiagnosticsRouteResponse =
+                await route_get_latest_lsp_diagnostics({
+                  projectConfigId,
+                });
               if (res200(diagnosticsRes)) {
                 processLspDiagnostics(diagnosticsRes.data);
               }
@@ -330,7 +351,9 @@ async function attemptAuthRecovery(pathname: string) {
     return;
   }
   authRecoveryInFlight = true;
-  const res = await route_get_auth_refresh_status();
+  const res: AuthRefreshStatusRouteResponse = await callOpenAPI(
+    getAuthRefreshStatus(),
+  );
   authRecoveryInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
@@ -424,7 +447,9 @@ async function runAuthRefresh() {
     return;
   }
   authRefreshInFlight = true;
-  const res = await route_get_auth_refresh_status();
+  const res: AuthRefreshStatusRouteResponse = await callOpenAPI(
+    getAuthRefreshStatus(),
+  );
   authRefreshInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
@@ -508,70 +533,67 @@ async function handleShareSessionRecovery() {
 }
 
 function receiveMessage(message: string, socketGeneration: number) {
-  const m = JSON.parse(message) as FrontendWebsocketMsgUnion;
+  const m = JSON.parse(message) as FrontendWebsocketEnvelope;
   switch (m.messageType) {
-    case WebsocketMsgTypeForFrontendEnum.FrontendIdentity:
+    case WebsocketMessageTypeEnum.FrontendIdentity:
       setFrontendAffinityToken(
         m.content.frontendAffinityToken,
         socketGeneration,
       );
       return;
-    case WebsocketMsgTypeForFrontendEnum.AllConnections:
+    case WebsocketMessageTypeEnum.AllConnections:
       setWebsocketConnections(m.content);
       return;
-    case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
+    case WebsocketMessageTypeEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
-    case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
+    case WebsocketMessageTypeEnum.LSPDiagnostics:
       return processLspDiagnostics(m.content);
-    case WebsocketMsgTypeForFrontendEnum.NameValidationErrors:
+    case WebsocketMessageTypeEnum.NameValidationErrors:
       return processNameValidationErrors(m.content);
-    case WebsocketMsgTypeForFrontendEnum.Notification:
+    case WebsocketMessageTypeEnum.Notification:
       return addNotificationFromWebsocketMsg(m.content);
-    case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:
+    case WebsocketMessageTypeEnum.ReturnRenameRefactorResults:
       return handleRenameRefactorBroadcast(m.content);
-    case WebsocketMsgTypeForFrontendEnum.TerminalMetadata:
-      // TODO
-      return null;
-    case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
+    case WebsocketMessageTypeEnum.UpdateFrontendProjectState:
       if (useServerMode.getState().mode === "app") {
         return processAppProjectStateUpdateFromBackend(m.content);
       }
       return processProjectStateUpdateFromBackend(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
+    case WebsocketMessageTypeEnum.UpdateSettings:
       return updateSettings(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
+    case WebsocketMessageTypeEnum.AllProjectMetadata:
       return updateAllProjectMetadata(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
+    case WebsocketMessageTypeEnum.UpdateArtifacts:
       return updateArtifacts(m.content);
-    case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
+    case WebsocketMessageTypeEnum.ListenerCoverageSnapshot:
       return applyListenerCoverageSnapshot(m.content);
-    case WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated:
+    case WebsocketMessageTypeEnum.LLMConfigUpdated:
       return receiveLLMConfigUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated:
+    case WebsocketMessageTypeEnum.LLMApiKeysUpdated:
       return receiveLLMApiKeysSnapshotUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.BackendLogEvent:
+    case WebsocketMessageTypeEnum.BackendLogEvent:
       return addBackendLogEvent(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AIFollowToolArgumentsUpdate:
+    case WebsocketMessageTypeEnum.AIFollowToolArgumentsUpdate:
       return receiveAIFollowToolArgumentsUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
+    case WebsocketMessageTypeEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
+    case WebsocketMessageTypeEnum.UISettingReveal:
       enqueueUISettingRevealMessage({
         content: m.content,
         socketGeneration,
       });
       return;
-    case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
+    case WebsocketMessageTypeEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
-    case WebsocketMsgTypeForFrontendEnum.AgentRunUpdated:
+    case WebsocketMessageTypeEnum.AgentRunUpdated:
       return receiveAgentRunUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
+    case WebsocketMessageTypeEnum.PromptTemplatesUpdated:
       return receivePromptTemplatesUpdate(m.content.templates);
-    case WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated:
+    case WebsocketMessageTypeEnum.ExternalAgentConfigsUpdated:
       return receiveExternalAgentConfigsUpdate(m.content.configs);
-    case WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated:
+    case WebsocketMessageTypeEnum.EngineConfigsUpdated:
       return receiveEngineConfigsUpdate(m.content.configs);
-    case WebsocketMsgTypeForFrontendEnum.TranscriptionProfilesUpdated:
+    case WebsocketMessageTypeEnum.TranscriptionProfilesUpdated:
       return receiveTranscriptionProfilesUpdate(m.content.profiles);
     default:
       return m satisfies never;
@@ -595,8 +617,8 @@ async function handleUISettingRevealMessage(
   );
   const requestId = resolveRevealRequestId(content);
   let statuses: UISettingRevealResultStatusPayload[] = [];
-  const parsedRevealContent = UISettingRevealContentSchema.safeParse(content);
-  if (!parsedRevealContent.success) {
+  const revealContent = parseUISettingRevealContent(content);
+  if (revealContent === null) {
     statuses = buildMalformedRevealStatuses(
       content,
       "Invalid UISettingReveal payload.",
@@ -609,7 +631,6 @@ async function handleUISettingRevealMessage(
     });
     return;
   }
-  const revealContent: UISettingRevealContent = parsedRevealContent.data;
   const revealExecutionContext: UISettingRevealExecutionContext = {
     requestId: revealContent.requestId,
     requestedProjectConfigId: revealContent.projectConfigId.trim(),
@@ -659,12 +680,12 @@ function sendUISettingRevealResult({
 }: {
   projectConfigId: string;
   requestId: string;
-  statuses: UISettingRevealResultStatusPayload[];
+  statuses: UISettingRevealResultStatus[];
   socketGeneration: number;
 }): void {
-  const revealResultMessage: WebsocketMsgUISettingRevealResult = {
+  const revealResultMessage: UISettingRevealResultMessage = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.UISettingRevealResult,
+    messageType: MessageTypeEnum.UISettingRevealResult,
     content: {
       projectConfigId,
       requestId,
@@ -712,7 +733,7 @@ function resolveRevealRequestId(content: unknown): string {
 function buildMalformedRevealStatuses(
   content: unknown,
   errorMessage: string,
-): UISettingRevealResultStatusPayload[] {
+): UISettingRevealResultStatus[] {
   const settingIds = extractRevealSettingIds(content);
   return settingIds.map((settingId) => ({
     settingId,
@@ -751,7 +772,7 @@ function resolveAckContextMismatchStatuses({
 }: {
   content: UISettingRevealContent;
   executionContext: UISettingRevealExecutionContext;
-}): UISettingRevealResultStatusPayload[] | null {
+}): UISettingRevealResultStatus[] | null {
   if (!executionContext.isSocketGenerationActive()) {
     return buildExecutionContextMismatchStatuses(
       content.reveals,
@@ -774,7 +795,7 @@ function resolveAckContextMismatchStatuses({
 function buildExecutionContextMismatchStatuses(
   reveals: Array<UISettingRevealContent["reveals"][number]>,
   errorMessage: string,
-): UISettingRevealResultStatusPayload[] {
+): UISettingRevealResultStatus[] {
   return reveals.map((target) => ({
     settingId: target.settingId,
     status: "failed",
@@ -788,9 +809,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function sendCurrentAddress(currentAddress: string) {
-  sendMessage(
-    createWebsocketMsgCurrentAddressUpdate({ content: currentAddress }),
-  );
+  sendMessage(createCurrentAddressUpdateMessage({ content: currentAddress }));
 }
 
 function emitRealtimeDependencyValue(
@@ -808,9 +827,9 @@ function emitRealtimeDependencyValue(
     return;
   }
 
-  const message: WebsocketMsgRealtimeUIChange = {
+  const message: RealtimeUIChangeMessage = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeUIChange,
+    messageType: MessageTypeEnum.RealtimeUIChange,
     content: {
       projectConfigId,
       dependencyKey,
@@ -849,9 +868,9 @@ export function sendRealtimeDependencyEvent(
     payload: event.payload ?? null,
     timestampMs: event.timestampMs ?? Date.now(),
   };
-  const message: WebsocketMsgRealtimeDependencyEvent = {
+  const message: RealtimeDependencyEventMessage = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent,
+    messageType: MessageTypeEnum.RealtimeDependencyEvent,
     content: {
       projectConfigId,
       dependencyEvent,
@@ -944,14 +963,14 @@ export function sendRealtimeSectionBinary(
   );
 }
 
-function sendMessage(message: WebsocketMsg) {
+function sendMessage(message: FrontendOutboundMessage) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
   }
 }
 
 function sendMessageForGeneration(
-  message: WebsocketMsg,
+  message: FrontendOutboundMessage,
   socketGeneration: number,
 ): void {
   if (!isSocketGenerationCurrent(socketGeneration)) {
@@ -964,12 +983,20 @@ function isSocketGenerationCurrent(socketGeneration: number): boolean {
   return activeWebsocketGeneration === socketGeneration;
 }
 
-function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
+function sendBinaryMessage(
+  message: FrontendOutboundMessage,
+  payload: ArrayBuffer,
+) {
   if (wssReady(wss)) {
     const frame = encodeBinaryFrame(message, payload);
     wss.send(frame);
   }
 }
+
+registerRealtimeDependencySenders({
+  sendBinaryMessage,
+  sendMessage,
+});
 
 function maybeWarnRealtimeOversize(message: string) {
   const now = Date.now();
@@ -980,7 +1007,7 @@ function maybeWarnRealtimeOversize(message: string) {
     return;
   }
   lastRealtimeBinaryOversizeWarningAt = now;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 async function uploadRealtimeBinaryPayload(
@@ -991,7 +1018,7 @@ async function uploadRealtimeBinaryPayload(
   const form = new FormData();
   form.append("file", blob, "realtime.bin");
   form.append("durable", "false");
-  const res = await route_binary_upload(form);
+  const res: BinaryUploadRouteResponse = await route_binary_upload(form);
   if (!res200(res)) {
     return null;
   }

@@ -11,12 +11,12 @@ import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import type {
   ButtonActionMode,
   ButtonParamCodeObjImpl,
-  HttpRequestMethod,
+  HTTPRequestMethod,
 } from "utils/generatedTypes";
 import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
-  HttpRequestMethodEnum,
+  HTTPRequestMethodEnum,
 } from "utils/generatedTypes";
 import { formatSettaApiBody, SETTA_API_PRESETS } from "utils/settaApiPresets";
 
@@ -32,14 +32,14 @@ const ACTION_MODE_OPTIONS: Array<ButtonActionMode> = [
   ButtonActionModeEnum.SETTA_API,
 ];
 
-const REQUEST_METHOD_OPTIONS: Array<HttpRequestMethod> = [
-  HttpRequestMethodEnum.GET,
-  HttpRequestMethodEnum.POST,
-  HttpRequestMethodEnum.PUT,
-  HttpRequestMethodEnum.PATCH,
-  HttpRequestMethodEnum.DELETE,
-  HttpRequestMethodEnum.HEAD,
-  HttpRequestMethodEnum.OPTIONS,
+const REQUEST_METHOD_OPTIONS: Array<HTTPRequestMethod> = [
+  HTTPRequestMethodEnum.GET,
+  HTTPRequestMethodEnum.POST,
+  HTTPRequestMethodEnum.PUT,
+  HTTPRequestMethodEnum.PATCH,
+  HTTPRequestMethodEnum.DELETE,
+  HTTPRequestMethodEnum.HEAD,
+  HTTPRequestMethodEnum.OPTIONS,
 ];
 
 const ROW_CLASS_NAME =
@@ -86,7 +86,7 @@ export function ButtonInputConfigForParam({
     }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"ButtonParamCodeObj">(
+        setCurrEffectiveCodeObjImplValue<ButtonParamCodeObjImpl>(
           state,
           sectionId,
           paramInfoId,
@@ -122,7 +122,7 @@ export function ButtonInputConfigForParam({
 
   const actionMode =
     config.actionMode ?? ButtonActionModeEnum.WEBSOCKET_LISTENER;
-  const requestMethod = config.requestMethod ?? HttpRequestMethodEnum.POST;
+  const requestMethod = config.requestMethod ?? HTTPRequestMethodEnum.POST;
   const showRequestFields = actionMode === ButtonActionModeEnum.HTTP_REQUEST;
   const showSettaFields = actionMode === ButtonActionModeEnum.SETTA_API;
   const defaultSettaRoute = SETTA_API_PRESETS[0]?.route ?? "";
@@ -180,7 +180,7 @@ export function ButtonInputConfigForParam({
   }
 
   function onRequestMethodChange(event: ChangeEvent<HTMLSelectElement>) {
-    const nextMethod = event.target.value as HttpRequestMethod;
+    const nextMethod = event.target.value as HTTPRequestMethod;
     updateButtonConfig({ requestMethod: nextMethod });
   }
 

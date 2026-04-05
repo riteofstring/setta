@@ -22,12 +22,11 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   CodeLanguageEnum,
+  LSPDiagnostic,
   SectionTypeEnum,
-  SettaLspDiagnostic,
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
@@ -115,9 +114,12 @@ function _SectionHeader({
     return getCurrEffectiveSectionImpl(x, sectionId).tagColor ?? null;
   });
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
-  const pythonCodegenEnabled = useProjectState((x) =>
-    projectConfigHasPythonCodegen(x.projectConfig),
-  );
+  const showRunControls = useProjectState((state) => {
+    const capabilities = state.sectionCapabilities[sectionId];
+    return Boolean(
+      capabilities?.canRun || capabilities?.canSelectAsEntryCodeBlock,
+    );
+  });
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const selectedSectionIds = useAIFollow(
     (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
@@ -270,15 +272,10 @@ function _SectionHeader({
             <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
           </StandardPopover>
         )}
-        {(sectionTypeName === SectionTypeEnum.Code ||
-          (pythonCodegenEnabled &&
-            sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
+        {showRunControls && (
           <>
             <RunButton sectionId={sectionId} />
-            <ToggleEntryCodeBlockButton
-              sectionId={sectionId}
-              sectionTypeName={sectionTypeName}
-            />
+            <ToggleEntryCodeBlockButton sectionId={sectionId} />
           </>
         )}
         {isBaseCodeSectionType(sectionTypeName) && (
@@ -358,13 +355,13 @@ function DiagnosticsPopover({
   onSetSuppressedCode,
   inlineSuppressionHint,
 }: {
-  diagnostics: Array<SettaLspDiagnostic>;
+  diagnostics: Array<LSPDiagnostic>;
   label: string;
   title: string;
-  suppressedCodes?: Array<NonNullable<SettaLspDiagnostic["code"]>>;
+  suppressedCodes?: Array<NonNullable<LSPDiagnostic["code"]>>;
   isMuted?: boolean;
   onSetSuppressedCode?: (
-    code: NonNullable<SettaLspDiagnostic["code"]>,
+    code: NonNullable<LSPDiagnostic["code"]>,
     suppress: boolean,
   ) => void;
   inlineSuppressionHint?: string | null;
@@ -376,6 +373,7 @@ function DiagnosticsPopover({
     <StandardPopover
       arrowClasses="fill-white/95 stroke-[1px] stroke-slate-200/80 dark:fill-slate-950/90 dark:stroke-slate-700/70"
       contentClasses="z-30 w-[min(16rem,calc(100vw-0.75rem))] rounded-md border border-slate-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-950/90 dark:ring-slate-800/60"
+      repositionOnCanvasTransform
       trigger={
         <button
           className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ring-1 ring-white/70 backdrop-blur-sm transition dark:ring-slate-800/60 ${badgeClassName}`}
@@ -444,7 +442,7 @@ function DiagnosticsPopover({
                           className="ml-auto rounded-full border border-slate-200/80 bg-white/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-slate-600"
                           onClick={() =>
                             void suppressHandler?.(
-                              code as NonNullable<SettaLspDiagnostic["code"]>,
+                              code as NonNullable<LSPDiagnostic["code"]>,
                               true,
                             )
                           }
@@ -497,7 +495,7 @@ function DiagnosticsPopover({
   );
 }
 
-function getBadgeClassName(diagnostics: Array<SettaLspDiagnostic>) {
+function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
   let hasError = false;
   let hasWarning = false;
   for (const diagnostic of diagnostics) {
