@@ -5,8 +5,6 @@ import {
   Renderer,
   VisibilityProvider,
 } from "@json-render/react";
-import { getAttachmentDownloadUrl, runCode } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -16,20 +14,21 @@ import {
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs, useShareSession } from "state/definitions";
-import { resolveAppPolicy } from "utils/deploymentPolicies";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
-import type { AppDefinition, Policy } from "utils/generatedTypes";
 import {
-  resolveMainRunRequest,
-  resolveRunRequest,
-} from "utils/runCapabilities";
+  route_get_attachment_download_url,
+  route_run_code,
+} from "utils/generatedEndpoints";
+import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
+import { RouteEnum } from "utils/generatedTypes";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import "./appMotion.css";
 import { appRegistry } from "./appRegistry";
 import { AppBreakpointProvider } from "./appResponsive";
 import { resolveAppTheme } from "./appTheme";
-import { buildAppBinaryDownloadUrl } from "./appTransport";
+
 type RawUIElement = {
   key: string;
   type: string;
@@ -38,16 +37,19 @@ type RawUIElement = {
   parentKey?: unknown;
   visible?: unknown;
 };
+
 type AppRendererProps = {
   appSpec: unknown | null;
   appDefinition: AppDefinition | null | undefined;
-  appPolicy?: Policy | null;
+  appPolicy?: SharePolicy | null;
   defaultConfigId?: string | null;
   rootKeyOverride?: string | null;
 };
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
+
 function toStringRecord(value: unknown): Record<string, string> | null {
   if (!isRecord(value)) {
     return null;
@@ -61,6 +63,7 @@ function toStringRecord(value: unknown): Record<string, string> | null {
   }
   return output;
 }
+
 function isUIElement(value: unknown): value is RawUIElement {
   if (!value || typeof value !== "object") {
     return false;
@@ -68,15 +71,15 @@ function isUIElement(value: unknown): value is RawUIElement {
   const record = value as Record<string, unknown>;
   return typeof record.key === "string" && typeof record.type === "string";
 }
+
 function normalizeElements(
   root: RawUIElement,
   elements: Record<string, RawUIElement>,
 ): Spec["elements"] {
   const output: Spec["elements"] = {};
-  const stack: Array<{
-    element: RawUIElement;
-    parentKey: string | null;
-  }> = [{ element: root, parentKey: null }];
+  const stack: Array<{ element: RawUIElement; parentKey: string | null }> = [
+    { element: root, parentKey: null },
+  ];
   const visited = new Set<string>();
   while (stack.length > 0) {
     const current = stack.pop();
@@ -117,6 +120,7 @@ function normalizeElements(
   }
   return output;
 }
+
 function normalizeAppSpec(
   spec: unknown,
   rootKeyOverride?: string | null,
@@ -177,6 +181,26 @@ function normalizeAppSpec(
   }
   return null;
 }
+
+function resolvePolicyOverrides(
+  appPolicy: SharePolicy | null | undefined,
+): SharePolicy {
+  if (appPolicy) {
+    return appPolicy;
+  }
+  return {
+    allowParamChanges: true,
+    allowVariantChanges: false,
+    allowLayoutChanges: false,
+    allowRun: true,
+    allowLLM: false,
+    allowExternalLinks: false,
+    allowFileDownloads: false,
+    allowMultipleRuns: true,
+    runSnapshotMode: "ephemeral",
+  };
+}
+
 export function AppRenderer({
   appSpec,
   appDefinition,
@@ -187,7 +211,7 @@ export function AppRenderer({
   const fallbackConfigId = defaultConfigId ?? null;
   const sharePolicy = useShareSession((x) => x.sharePolicy);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
-  const resolvedPolicy = resolveAppPolicy(appPolicy ?? sharePolicy);
+  const resolvedPolicy = resolvePolicyOverrides(appPolicy ?? sharePolicy);
   const resolvedTheme = useMemo(
     () => resolveAppTheme(appDefinition?.theme),
     [appDefinition?.theme],
@@ -202,20 +226,8 @@ export function AppRenderer({
   const [isRunning, setIsRunning] = useState(false);
   const allowMultipleRuns = resolvedPolicy.allowMultipleRuns ?? true;
   const effectiveRunCount = deploymentMode ? sessionRunCount : localRunCount;
-  const loadedDefaultRunRequest = useAppConfigs((state) => {
-    if (!fallbackConfigId) {
-      return null;
-    }
-    const configState = state.configs[fallbackConfigId] ?? null;
-    if (!configState) {
-      return null;
-    }
-    return resolveMainRunRequest(configState);
-  });
   const canRun =
-    resolvedPolicy.allowRun &&
-    (allowMultipleRuns || effectiveRunCount === 0) &&
-    (loadedDefaultRunRequest?.canRun ?? true);
+    resolvedPolicy.allowRun && (allowMultipleRuns || effectiveRunCount === 0);
   const canEditParams = resolvedPolicy.allowParamChanges ?? true;
   const allowExternalLinks = resolvedPolicy.allowExternalLinks ?? false;
   const allowFileDownloads = resolvedPolicy.allowFileDownloads ?? false;
@@ -224,10 +236,8 @@ export function AppRenderer({
     runDisabledReason = "Runs are disabled by policy.";
   } else if (!allowMultipleRuns && effectiveRunCount > 0) {
     runDisabledReason = "This app is limited to one run.";
-  } else if (loadedDefaultRunRequest && !loadedDefaultRunRequest.canRun) {
-    runDisabledReason =
-      loadedDefaultRunRequest.disabledReason ?? "Run is unavailable.";
   }
+
   const handleRun = useCallback(
     async (params?: Record<string, unknown>) => {
       const configId =
@@ -293,35 +303,26 @@ export function AppRenderer({
         return;
       }
       const configState = useAppConfigs.getState().configs[configId] ?? null;
-      if (!configState) {
-        addTemporaryNotification("Failed to load project config.");
-        return;
-      }
-      const requestedSectionId =
+      const sectionId =
         params && typeof params.sectionId === "string"
           ? params.sectionId
           : null;
-      const runRequest = resolveRunRequest(configState, requestedSectionId);
-      if (!runRequest.canRun) {
+      const entryCodeBlockId =
+        configState?.projectConfig.entryCodeBlockId ?? null;
+      if (!sectionId && !entryCodeBlockId) {
         addTemporaryNotification(
-          runRequest.disabledReason ?? "Run is unavailable.",
+          "Missing run target. Set the Run button sectionId (or configure an entry code block).",
         );
         return;
       }
       setIsRunning(true);
       try {
-        const res = await callOpenAPI(
-          runCode({
-            body: {
-              projectConfigId: configId,
-              sectionId: runRequest.executionSectionId,
-              ...(hasSectionVariantOverrides
-                ? { sectionVariantOverrides }
-                : {}),
-              ...(hasParamOverrides ? { paramOverrides } : {}),
-            },
-          } as Parameters<typeof runCode>[0]),
-        );
+        const res = await route_run_code({
+          projectConfigId: configId,
+          sectionId,
+          ...(hasSectionVariantOverrides ? { sectionVariantOverrides } : {}),
+          ...(hasParamOverrides ? { paramOverrides } : {}),
+        });
         if (res200(res)) {
           if (deploymentMode) {
             incrementAppSessionRunCount();
@@ -348,12 +349,14 @@ export function AppRenderer({
       resolvedPolicy.allowVariantChanges,
     ],
   );
+
   const handleReset = useCallback(async () => {
     setLocalRunCount(0);
     if (sharePolicy) {
       await resetAppDeployment();
     }
   }, [sharePolicy]);
+
   const handleDownloadArtifact = useCallback(
     async (
       artifactId?: string | null,
@@ -373,14 +376,10 @@ export function AppRenderer({
         addTemporaryNotification("Missing project config for download.");
         return;
       }
-      const res = await callOpenAPI(
-        getAttachmentDownloadUrl({
-          body: {
-            artifactId,
-            projectConfigId: resolvedConfigId,
-          },
-        } as Parameters<typeof getAttachmentDownloadUrl>[0]),
-      );
+      const res = await route_get_attachment_download_url({
+        artifactId,
+        projectConfigId: resolvedConfigId,
+      });
       if (res200(res) && res.data.url) {
         triggerDownload(res.data.url, filename ?? undefined);
         return;
@@ -389,6 +388,7 @@ export function AppRenderer({
     },
     [allowFileDownloads, fallbackConfigId],
   );
+
   const handleDownloadBinary = useCallback(
     (contentId?: string | null, filename?: string | null) => {
       if (!allowFileDownloads) {
@@ -399,11 +399,19 @@ export function AppRenderer({
         addTemporaryNotification("Missing file content id for download.");
         return;
       }
-      const url = new URL(buildAppBinaryDownloadUrl(contentId, shareSessionId));
+      const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
+        "{contentId}",
+        encodeURIComponent(contentId),
+      );
+      const url = new URL(`${C_ADDRESSES.BACKEND}${endpoint}`);
+      if (shareSessionId) {
+        url.searchParams.set("shareSessionId", shareSessionId);
+      }
       triggerDownload(url.toString(), filename ?? undefined);
     },
     [allowFileDownloads, shareSessionId],
   );
+
   const handleOpenExternalLink = useCallback(
     (url?: string | null) => {
       if (!allowExternalLinks) {
@@ -420,11 +428,13 @@ export function AppRenderer({
     },
     [allowExternalLinks],
   );
+
   const actionDefinitions = useMemo(
     () => normalizeActionDefinitions(appDefinition?.actions),
     [appDefinition?.actions],
   );
   const themeClassName = resolvedTheme.className ?? "";
+
   const actionHandlers = useMemo(() => {
     const handlers: Record<
       string,
@@ -556,6 +566,7 @@ export function AppRenderer({
     handleReset,
     handleRun,
   ]);
+
   if (!spec || !spec.elements[spec.root]) {
     return (
       <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-6 py-10 text-center text-[color:var(--app-muted)] [font-size:var(--app-text-sm)]">
@@ -563,6 +574,7 @@ export function AppRenderer({
       </div>
     );
   }
+
   return (
     <AppRuntimeContext.Provider
       value={{
@@ -602,6 +614,7 @@ export function AppRenderer({
     </AppRuntimeContext.Provider>
   );
 }
+
 function triggerDownload(url: string, filename?: string) {
   if (typeof document === "undefined") {
     return;
