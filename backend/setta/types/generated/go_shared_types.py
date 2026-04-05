@@ -1337,3 +1337,19 @@ class ProjectConfig(SettaSharedTypeModel):
     edges: list[Edge] = Field(default_factory=list)
     agenticEdges: list[AgenticEdge] = Field(default_factory=list)
     stateMachineEdges: list[StateMachineEdge] = Field(default_factory=list)
+
+
+BaseChatMessageUnion = (
+    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
+)
+
+
+LLMStreamingResponseChunk = (
+    MessageStartEvent
+    | MessageDeltaEvent
+    | ToolCallDeltaEvent
+    | ToolResultEvent
+    | ToolArgumentPreviewDeltaEvent
+    | MessageStopEvent
+    | MessageFinalizedEvent
+)

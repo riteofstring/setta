@@ -6,8 +6,13 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
+
+	"github.com/google/jsonschema-go/jsonschema"
+
+	"setta/internal/sharedtypes"
 )
 
 type GeneratedTypes struct {
@@ -18,6 +23,11 @@ type modelSpec struct {
 	Name            string
 	Fields          []fieldSpec
 	ExternalImports map[string]struct{}
+}
+
+type aliasSpec struct {
+	Name     string
+	TypeExpr string
 }
 
 type fieldSpec struct {
@@ -40,16 +50,78 @@ var pythonKeywords = map[string]struct{}{
 	"return": {}, "try": {}, "while": {}, "with": {}, "yield": {},
 }
 
+var (
+	pythonSharedPureAnyOfAliasesOnce sync.Once
+	pythonSharedPureAnyOfAliases     map[string]string
+	pythonSharedPureAnyOfAliasesErr  error
+)
+
 func Build() (GeneratedTypes, error) {
 	ctx, err := buildGenerationContext()
 	if err != nil {
 		return GeneratedTypes{}, err
 	}
 	specs := ctx.ContractSpecs
-	knownContractNames := map[string]struct{}{}
-	for _, spec := range specs {
-		knownContractNames[spec.Name] = struct{}{}
+	aliases := ctx.AliasSpecs
+	knownContractNames := knownContractNameSet(specs, aliases)
+	models, enums, externalImports, typingImports, needsDatetime, needsEnum, needsPydanticField, err := collectRenderedContractSpecs(
+		specs,
+		knownContractNames,
+		ctx.DefaultSourcesByType,
+	)
+	if err != nil {
+		return GeneratedTypes{}, err
 	}
+	applyAliasRenderNeeds(aliases, typingImports, &needsDatetime)
+	models = pruneModelSpecsWithResolvedReferences(models, enums, aliases)
+	models = sortModelSpecsByDependencies(models)
+	return GeneratedTypes{
+		PythonModule: renderGeneratedTypesModule(
+			enums,
+			models,
+			aliases,
+			externalImports,
+			typingImports,
+			needsEnum,
+			needsDatetime,
+			needsPydanticField,
+		),
+	}, nil
+}
+
+func buildModelSpec(
+	spec contractSpec,
+	knownContractNames map[string]struct{},
+) (modelSpec, error) {
+	ctx, err := buildGenerationContext()
+	if err != nil {
+		return modelSpec{}, err
+	}
+	return buildModelSpecWithDefaultSources(spec, knownContractNames, ctx.DefaultSourcesByType)
+}
+
+func knownContractNameSet(specs []contractSpec, aliases []aliasSpec) map[string]struct{} {
+	known := map[string]struct{}{}
+	for _, spec := range specs {
+		if strings.TrimSpace(spec.Name) == "" {
+			continue
+		}
+		known[spec.Name] = struct{}{}
+	}
+	for _, alias := range aliases {
+		if strings.TrimSpace(alias.Name) == "" {
+			continue
+		}
+		known[alias.Name] = struct{}{}
+	}
+	return known
+}
+
+func collectRenderedContractSpecs(
+	specs []contractSpec,
+	knownContractNames map[string]struct{},
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) ([]modelSpec, []contractSpec, map[string]struct{}, map[string]struct{}, bool, bool, bool, error) {
 	models := make([]modelSpec, 0, len(specs))
 	enums := make([]contractSpec, 0, len(specs))
 	externalImports := map[string]struct{}{}
@@ -59,50 +131,123 @@ func Build() (GeneratedTypes, error) {
 	needsPydanticField := false
 
 	for _, spec := range specs {
-		switch spec.Kind {
-		case contractKindEnum:
-			if len(spec.EnumValues) == 0 {
-				return GeneratedTypes{}, fmt.Errorf("python shared types: enum %s has no values", spec.Name)
-			}
-			needsEnum = true
-			enums = append(enums, spec)
-		case contractKindModel:
-			model, err := buildModelSpecWithDefaultSources(
-				spec,
-				knownContractNames,
-				ctx.DefaultSourcesByType,
-			)
-			if err != nil {
-				return GeneratedTypes{}, err
-			}
+		model, isModel, err := renderedModelSpec(spec, knownContractNames, defaultSourcesByType)
+		if err != nil {
+			return nil, nil, nil, nil, false, false, false, err
+		}
+		if isModel {
 			models = append(models, model)
-			for line := range model.ExternalImports {
-				externalImports[line] = struct{}{}
-			}
-			for _, field := range model.Fields {
-				if strings.Contains(field.TypeExpr, "Any") {
-					typingImports["Any"] = struct{}{}
-				}
-				if strings.Contains(field.TypeExpr, "datetime") {
-					needsDatetime = true
-				}
-				if strings.Contains(field.DefaultExpr, "Field(") {
-					needsPydanticField = true
-				}
-			}
-		default:
-			return GeneratedTypes{}, fmt.Errorf(
-				"python shared types: unsupported contract kind %q",
-				spec.Kind,
-			)
+			mergeImportSet(externalImports, model.ExternalImports)
+			recordFieldRenderNeeds(model.Fields, typingImports, &needsDatetime, &needsPydanticField)
+			continue
+		}
+		enumSpec, isEnum, err := renderedEnumSpec(spec)
+		if err != nil {
+			return nil, nil, nil, nil, false, false, false, err
+		}
+		if isEnum {
+			needsEnum = true
+			enums = append(enums, enumSpec)
+			continue
+		}
+		return nil, nil, nil, nil, false, false, false, fmt.Errorf(
+			"python shared types: unsupported contract kind %q",
+			spec.Kind,
+		)
+	}
+	return models, enums, externalImports, typingImports, needsDatetime, needsEnum, needsPydanticField, nil
+}
+
+func renderedEnumSpec(spec contractSpec) (contractSpec, bool, error) {
+	if spec.Kind != contractKindEnum {
+		return contractSpec{}, false, nil
+	}
+	if len(spec.EnumValues) == 0 {
+		return contractSpec{}, false, fmt.Errorf("python shared types: enum %s has no values", spec.Name)
+	}
+	return spec, true, nil
+}
+
+func renderedModelSpec(
+	spec contractSpec,
+	knownContractNames map[string]struct{},
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (modelSpec, bool, error) {
+	if spec.Kind != contractKindModel {
+		return modelSpec{}, false, nil
+	}
+	model, err := buildModelSpecWithDefaultSources(spec, knownContractNames, defaultSourcesByType)
+	if err != nil {
+		return modelSpec{}, false, err
+	}
+	return model, true, nil
+}
+
+func applyAliasRenderNeeds(
+	aliases []aliasSpec,
+	typingImports map[string]struct{},
+	needsDatetime *bool,
+) {
+	for _, alias := range aliases {
+		recordTypeExprRenderNeeds(alias.TypeExpr, typingImports, needsDatetime)
+	}
+}
+
+func recordFieldRenderNeeds(
+	fields []fieldSpec,
+	typingImports map[string]struct{},
+	needsDatetime *bool,
+	needsPydanticField *bool,
+) {
+	for _, field := range fields {
+		recordTypeExprRenderNeeds(field.TypeExpr, typingImports, needsDatetime)
+		if strings.Contains(field.DefaultExpr, "Field(") {
+			*needsPydanticField = true
 		}
 	}
-	models = pruneModelSpecsWithResolvedReferences(models, enums)
-	models = sortModelSpecsByDependencies(models)
+}
 
+func recordTypeExprRenderNeeds(
+	typeExpr string,
+	typingImports map[string]struct{},
+	needsDatetime *bool,
+) {
+	if strings.Contains(typeExpr, "Any") {
+		typingImports["Any"] = struct{}{}
+	}
+	if strings.Contains(typeExpr, "datetime") {
+		*needsDatetime = true
+	}
+}
+
+func renderGeneratedTypesModule(
+	enums []contractSpec,
+	models []modelSpec,
+	aliases []aliasSpec,
+	externalImports map[string]struct{},
+	typingImports map[string]struct{},
+	needsEnum bool,
+	needsDatetime bool,
+	needsPydanticField bool,
+) string {
 	var builder strings.Builder
 	builder.WriteString("# Code generated by ./scripts/go.sh run ./cmd/setta-gen-python-shared-types -out backend/setta/types/generated/go_shared_types.py; DO NOT EDIT.\n")
 	builder.WriteString("\n")
+	writeStandardImports(&builder, typingImports, needsEnum, needsDatetime)
+	writeExternalImports(&builder, externalImports)
+	writePydanticBaseModel(&builder, needsPydanticField)
+	writeEnumSpecs(&builder, enums)
+	writeModelSpecs(&builder, models)
+	writeAliasSpecs(&builder, aliases)
+	return builder.String()
+}
+
+func writeStandardImports(
+	builder *strings.Builder,
+	typingImports map[string]struct{},
+	needsEnum bool,
+	needsDatetime bool,
+) {
 	if needsEnum {
 		builder.WriteString("from enum import Enum\n")
 	}
@@ -117,13 +262,20 @@ func Build() (GeneratedTypes, error) {
 	if needsEnum || needsDatetime || len(typingImports) > 0 {
 		builder.WriteString("\n")
 	}
-	if len(externalImports) > 0 {
-		for _, line := range sortedImportNames(externalImports) {
-			builder.WriteString(line)
-			builder.WriteString("\n")
-		}
+}
+
+func writeExternalImports(builder *strings.Builder, externalImports map[string]struct{}) {
+	if len(externalImports) == 0 {
+		return
+	}
+	for _, line := range sortedImportNames(externalImports) {
+		builder.WriteString(line)
 		builder.WriteString("\n")
 	}
+	builder.WriteString("\n")
+}
+
+func writePydanticBaseModel(builder *strings.Builder, needsPydanticField bool) {
 	builder.WriteString("from pydantic import BaseModel, ConfigDict")
 	if needsPydanticField {
 		builder.WriteString(", Field")
@@ -132,7 +284,9 @@ func Build() (GeneratedTypes, error) {
 	builder.WriteString("\n\n")
 	builder.WriteString("class SettaSharedTypeModel(BaseModel):\n")
 	builder.WriteString("    model_config = ConfigDict(extra=\"forbid\")\n")
+}
 
+func writeEnumSpecs(builder *strings.Builder, enums []contractSpec) {
 	for _, enumSpec := range enums {
 		builder.WriteString("\n\n")
 		builder.WriteString("class ")
@@ -146,7 +300,9 @@ func Build() (GeneratedTypes, error) {
 			builder.WriteString("\n")
 		}
 	}
+}
 
+func writeModelSpecs(builder *strings.Builder, models []modelSpec) {
 	for _, model := range models {
 		builder.WriteString("\n\n")
 		builder.WriteString("class ")
@@ -160,19 +316,16 @@ func Build() (GeneratedTypes, error) {
 			builder.WriteString(renderFieldLine(field))
 		}
 	}
-
-	return GeneratedTypes{PythonModule: builder.String()}, nil
 }
 
-func buildModelSpec(
-	spec contractSpec,
-	knownContractNames map[string]struct{},
-) (modelSpec, error) {
-	ctx, err := buildGenerationContext()
-	if err != nil {
-		return modelSpec{}, err
+func writeAliasSpecs(builder *strings.Builder, aliases []aliasSpec) {
+	for _, alias := range aliases {
+		builder.WriteString("\n\n")
+		builder.WriteString(alias.Name)
+		builder.WriteString(" = ")
+		builder.WriteString(alias.TypeExpr)
+		builder.WriteString("\n")
 	}
-	return buildModelSpecWithDefaultSources(spec, knownContractNames, ctx.DefaultSourcesByType)
 }
 
 func buildModelSpecWithDefaultSources(
@@ -190,72 +343,106 @@ func buildModelSpecWithDefaultSources(
 		ExternalImports: map[string]struct{}{},
 	}
 	for _, field := range visibleFields(modelType) {
-		jsonName, err := fieldJSONName(field)
-		if err != nil {
-			return modelSpec{}, fmt.Errorf(
-				"python shared types: %s.%s: %w",
-				spec.Name,
-				field.Name,
-				err,
-			)
-		}
-		typeSpec, err := pythonTypeExprWithImports(
-			field.Type,
-			strings.TrimSpace(field.Tag.Get("py_type")),
-			knownContractNames,
-		)
-		if err != nil {
-			return modelSpec{}, fmt.Errorf(
-				"python shared types: %s.%s: %w",
-				spec.Name,
-				field.Name,
-				err,
-			)
-		}
-		for line := range typeSpec.Imports {
-			model.ExternalImports[line] = struct{}{}
-		}
-		importTag := strings.TrimSpace(field.Tag.Get("py_import"))
-		if importTag != "" {
-			for _, line := range strings.Split(importTag, "\n") {
-				trimmed := strings.TrimSpace(line)
-				if trimmed == "" {
-					continue
-				}
-				model.ExternalImports[trimmed] = struct{}{}
-			}
-		}
-		defaultExpr, err := pythonDefaultExpr(
-			spec.Type,
+		resolvedField, fieldImports, err := buildModelFieldSpec(
+			spec,
 			field,
-			typeSpec.TypeExpr,
+			knownContractNames,
 			defaultSourcesByType,
 		)
 		if err != nil {
-			return modelSpec{}, fmt.Errorf(
-				"python shared types: %s.%s: %w",
-				spec.Name,
-				field.Name,
-				err,
-			)
+			return modelSpec{}, err
 		}
-		typeExpr := typeSpec.TypeExpr
-		if field.Type.Kind() == reflect.Pointer && !strings.Contains(typeExpr, " | None") {
-			typeExpr += " | None"
-		}
-		if fieldAllowsMissing(field) && defaultExpr == "" {
-			if !strings.Contains(typeExpr, " | None") {
-				typeExpr += " | None"
-			}
-			defaultExpr = "None"
-		}
-		model.Fields = append(model.Fields, fieldSpec{
-			Name:        jsonName,
-			TypeExpr:    typeExpr,
-			DefaultExpr: defaultExpr,
-		})
+		mergeImportSet(model.ExternalImports, fieldImports)
+		model.Fields = append(model.Fields, resolvedField)
 	}
 	return model, nil
+}
+
+func buildModelFieldSpec(
+	spec contractSpec,
+	field reflect.StructField,
+	knownContractNames map[string]struct{},
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (fieldSpec, map[string]struct{}, error) {
+	jsonName, err := fieldJSONName(field)
+	if err != nil {
+		return fieldSpec{}, nil, fmt.Errorf(
+			"python shared types: %s.%s: %w",
+			spec.Name,
+			field.Name,
+			err,
+		)
+	}
+	typeSpec, err := pythonTypeExprWithImports(
+		field.Type,
+		strings.TrimSpace(field.Tag.Get("py_type")),
+		knownContractNames,
+	)
+	if err != nil {
+		return fieldSpec{}, nil, fmt.Errorf(
+			"python shared types: %s.%s: %w",
+			spec.Name,
+			field.Name,
+			err,
+		)
+	}
+
+	fieldImports := map[string]struct{}{}
+	mergeImportSet(fieldImports, typeSpec.Imports)
+	importTag := strings.TrimSpace(field.Tag.Get("py_import"))
+	if importTag != "" {
+		for _, line := range strings.Split(importTag, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" {
+				continue
+			}
+			fieldImports[trimmed] = struct{}{}
+		}
+	}
+
+	defaultExpr, err := pythonDefaultExpr(
+		spec.Type,
+		field,
+		typeSpec.TypeExpr,
+		defaultSourcesByType,
+	)
+	if err != nil {
+		return fieldSpec{}, nil, fmt.Errorf(
+			"python shared types: %s.%s: %w",
+			spec.Name,
+			field.Name,
+			err,
+		)
+	}
+	typeExpr := typeSpec.TypeExpr
+	if field.Type.Kind() == reflect.Pointer && !strings.Contains(typeExpr, " | None") {
+		typeExpr += " | None"
+	}
+	if fieldAllowsMissing(field) && defaultExpr == "" {
+		if !strings.Contains(typeExpr, " | None") {
+			typeExpr += " | None"
+		}
+		defaultExpr = "None"
+	}
+
+	return fieldSpec{
+		Name:        jsonName,
+		TypeExpr:    typeExpr,
+		DefaultExpr: defaultExpr,
+	}, fieldImports, nil
+}
+
+func mergeImportSet(dst map[string]struct{}, src map[string]struct{}) {
+	if dst == nil {
+		return
+	}
+	for line := range src {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		dst[trimmed] = struct{}{}
+	}
 }
 
 func sortModelSpecsByDependencies(models []modelSpec) []modelSpec {
@@ -263,31 +450,9 @@ func sortModelSpecsByDependencies(models []modelSpec) []modelSpec {
 		return models
 	}
 
-	modelNames := make(map[string]struct{}, len(models))
-	originalOrder := make(map[string]int, len(models))
-	for index, model := range models {
-		modelNames[model.Name] = struct{}{}
-		originalOrder[model.Name] = index
-	}
-
-	dependenciesByName := make(map[string]map[string]struct{}, len(models))
-	dependentsByName := make(map[string][]string, len(models))
-	inDegree := make(map[string]int, len(models))
-	for _, model := range models {
-		dependencies := referencedModelNames(model, modelNames)
-		dependenciesByName[model.Name] = dependencies
-		inDegree[model.Name] = len(dependencies)
-		for dependency := range dependencies {
-			dependentsByName[dependency] = append(dependentsByName[dependency], model.Name)
-		}
-	}
-
-	ready := make([]string, 0, len(models))
-	for _, model := range models {
-		if inDegree[model.Name] == 0 {
-			ready = append(ready, model.Name)
-		}
-	}
+	modelNames, originalOrder := indexedModelNames(models)
+	dependentsByName, inDegree := modelDependencyGraph(models, modelNames)
+	ready := readyModelNames(models, inDegree)
 
 	sorted := make([]modelSpec, 0, len(models))
 	seen := make(map[string]struct{}, len(models))
@@ -299,15 +464,7 @@ func sortModelSpecsByDependencies(models []modelSpec) []modelSpec {
 		}
 		seen[name] = struct{}{}
 		sorted = append(sorted, models[originalOrder[name]])
-		for _, dependent := range dependentsByName[name] {
-			inDegree[dependent]--
-			if inDegree[dependent] == 0 {
-				ready = append(ready, dependent)
-			}
-		}
-		sort.SliceStable(ready, func(i int, j int) bool {
-			return originalOrder[ready[i]] < originalOrder[ready[j]]
-		})
+		ready = advanceReadyModelNames(ready, name, dependentsByName, inDegree, originalOrder)
 	}
 
 	if len(sorted) == len(models) {
@@ -323,9 +480,65 @@ func sortModelSpecsByDependencies(models []modelSpec) []modelSpec {
 	return sorted
 }
 
+func indexedModelNames(models []modelSpec) (map[string]struct{}, map[string]int) {
+	modelNames := make(map[string]struct{}, len(models))
+	originalOrder := make(map[string]int, len(models))
+	for index, model := range models {
+		modelNames[model.Name] = struct{}{}
+		originalOrder[model.Name] = index
+	}
+	return modelNames, originalOrder
+}
+
+func modelDependencyGraph(
+	models []modelSpec,
+	modelNames map[string]struct{},
+) (map[string][]string, map[string]int) {
+	dependentsByName := make(map[string][]string, len(models))
+	inDegree := make(map[string]int, len(models))
+	for _, model := range models {
+		dependencies := referencedModelNames(model, modelNames)
+		inDegree[model.Name] = len(dependencies)
+		for dependency := range dependencies {
+			dependentsByName[dependency] = append(dependentsByName[dependency], model.Name)
+		}
+	}
+	return dependentsByName, inDegree
+}
+
+func readyModelNames(models []modelSpec, inDegree map[string]int) []string {
+	ready := make([]string, 0, len(models))
+	for _, model := range models {
+		if inDegree[model.Name] == 0 {
+			ready = append(ready, model.Name)
+		}
+	}
+	return ready
+}
+
+func advanceReadyModelNames(
+	ready []string,
+	name string,
+	dependentsByName map[string][]string,
+	inDegree map[string]int,
+	originalOrder map[string]int,
+) []string {
+	for _, dependent := range dependentsByName[name] {
+		inDegree[dependent]--
+		if inDegree[dependent] == 0 {
+			ready = append(ready, dependent)
+		}
+	}
+	sort.SliceStable(ready, func(i int, j int) bool {
+		return originalOrder[ready[i]] < originalOrder[ready[j]]
+	})
+	return ready
+}
+
 func pruneModelSpecsWithResolvedReferences(
 	models []modelSpec,
 	enums []contractSpec,
+	aliases []aliasSpec,
 ) []modelSpec {
 	if len(models) == 0 {
 		return nil
@@ -339,6 +552,12 @@ func pruneModelSpecsWithResolvedReferences(
 				continue
 			}
 			definedNames[enumSpec.Name] = struct{}{}
+		}
+		for _, alias := range aliases {
+			if strings.TrimSpace(alias.Name) == "" {
+				continue
+			}
+			definedNames[alias.Name] = struct{}{}
 		}
 		for _, model := range current {
 			if strings.TrimSpace(model.Name) == "" {
@@ -506,20 +725,42 @@ func pythonTypeExprWithImports(
 	override string,
 	knownContractNames map[string]struct{},
 ) (pythonTypeSpec, error) {
-	if strings.TrimSpace(override) != "" {
-		return pythonTypeSpec{TypeExpr: strings.TrimSpace(override)}, nil
+	if spec, ok := overridePythonTypeSpec(override); ok {
+		return spec, nil
 	}
+	if spec, ok, err := pythonSpecialTypeSpec(fieldType, knownContractNames); ok || err != nil {
+		return spec, err
+	}
+	if spec, ok := pythonPrimitiveTypeSpec(fieldType); ok {
+		return spec, nil
+	}
+	return pythonCompositeTypeSpec(fieldType, knownContractNames)
+}
+
+func overridePythonTypeSpec(override string) (pythonTypeSpec, bool) {
+	override = strings.TrimSpace(override)
+	if override == "" {
+		return pythonTypeSpec{}, false
+	}
+	return pythonTypeSpec{TypeExpr: override}, true
+}
+
+func pythonSpecialTypeSpec(
+	fieldType reflect.Type,
+	knownContractNames map[string]struct{},
+) (pythonTypeSpec, bool, error) {
 	if fieldType == timeType {
-		return pythonTypeSpec{TypeExpr: "datetime"}, nil
+		return pythonTypeSpec{TypeExpr: "datetime"}, true, nil
 	}
 	if fieldType == rawJSONType {
-		return pythonTypeSpec{TypeExpr: "Any"}, nil
+		return pythonTypeSpec{TypeExpr: "Any"}, true, nil
 	}
+
 	publicTypeName := pythonSharedContractNameForType(fieldType)
 	if modulePath, ok := pythonExternalTypeModules[fieldType.PkgPath()]; ok &&
 		fieldType.Name() != "" {
 		if _, sameModule := knownContractNames[publicTypeName]; sameModule {
-			return pythonTypeSpec{TypeExpr: publicTypeName}, nil
+			return pythonTypeSpec{TypeExpr: publicTypeName}, true, nil
 		}
 		importLine := fmt.Sprintf("from %s import %s", modulePath, publicTypeName)
 		return pythonTypeSpec{
@@ -527,37 +768,50 @@ func pythonTypeExprWithImports(
 			Imports: map[string]struct{}{
 				importLine: {},
 			},
-		}, nil
+		}, true, nil
 	}
+
 	if fieldType.Kind() == reflect.String && fieldType.Name() != "" {
 		spec, ok, err := enumContractSpecIfConvertible(fieldType)
 		if err != nil {
-			return pythonTypeSpec{}, err
+			return pythonTypeSpec{}, false, err
 		}
 		if ok {
-			return pythonTypeSpec{TypeExpr: spec.Name}, nil
+			return pythonTypeSpec{TypeExpr: spec.Name}, true, nil
 		}
 	}
+	return pythonTypeSpec{}, false, nil
+}
+
+func pythonPrimitiveTypeSpec(fieldType reflect.Type) (pythonTypeSpec, bool) {
 	switch fieldType.Kind() {
 	case reflect.String:
-		return pythonTypeSpec{TypeExpr: "str"}, nil
+		return pythonTypeSpec{TypeExpr: "str"}, true
 	case reflect.Bool:
-		return pythonTypeSpec{TypeExpr: "bool"}, nil
+		return pythonTypeSpec{TypeExpr: "bool"}, true
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return pythonTypeSpec{TypeExpr: "int"}, nil
+		return pythonTypeSpec{TypeExpr: "int"}, true
 	case reflect.Float32, reflect.Float64:
-		return pythonTypeSpec{TypeExpr: "float"}, nil
+		return pythonTypeSpec{TypeExpr: "float"}, true
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if fieldType.Kind() == reflect.Uint8 {
-			return pythonTypeSpec{TypeExpr: "bytes"}, nil
+			return pythonTypeSpec{TypeExpr: "bytes"}, true
 		}
-		return pythonTypeSpec{TypeExpr: "int"}, nil
+		return pythonTypeSpec{TypeExpr: "int"}, true
+	case reflect.Interface:
+		return pythonTypeSpec{TypeExpr: "Any"}, true
+	default:
+		return pythonTypeSpec{}, false
+	}
+}
+
+func pythonCompositeTypeSpec(
+	fieldType reflect.Type,
+	knownContractNames map[string]struct{},
+) (pythonTypeSpec, error) {
+	switch fieldType.Kind() {
 	case reflect.Pointer:
-		elemSpec, err := pythonTypeExprWithImports(
-			fieldType.Elem(),
-			"",
-			knownContractNames,
-		)
+		elemSpec, err := pythonTypeExprWithImports(fieldType.Elem(), "", knownContractNames)
 		if err != nil {
 			return pythonTypeSpec{}, err
 		}
@@ -569,11 +823,7 @@ func pythonTypeExprWithImports(
 		if fieldType.Elem().Kind() == reflect.Uint8 {
 			return pythonTypeSpec{TypeExpr: "bytes"}, nil
 		}
-		elemSpec, err := pythonTypeExprWithImports(
-			fieldType.Elem(),
-			"",
-			knownContractNames,
-		)
+		elemSpec, err := pythonTypeExprWithImports(fieldType.Elem(), "", knownContractNames)
 		if err != nil {
 			return pythonTypeSpec{}, err
 		}
@@ -582,11 +832,7 @@ func pythonTypeExprWithImports(
 			Imports:  elemSpec.Imports,
 		}, nil
 	case reflect.Array:
-		elemSpec, err := pythonTypeExprWithImports(
-			fieldType.Elem(),
-			"",
-			knownContractNames,
-		)
+		elemSpec, err := pythonTypeExprWithImports(fieldType.Elem(), "", knownContractNames)
 		if err != nil {
 			return pythonTypeSpec{}, err
 		}
@@ -595,37 +841,23 @@ func pythonTypeExprWithImports(
 			Imports:  elemSpec.Imports,
 		}, nil
 	case reflect.Map:
-		keySpec, err := pythonTypeExprWithImports(
-			fieldType.Key(),
-			"",
-			knownContractNames,
-		)
+		keySpec, err := pythonTypeExprWithImports(fieldType.Key(), "", knownContractNames)
 		if err != nil {
 			return pythonTypeSpec{}, err
 		}
-		valueSpec, err := pythonTypeExprWithImports(
-			fieldType.Elem(),
-			"",
-			knownContractNames,
-		)
+		valueSpec, err := pythonTypeExprWithImports(fieldType.Elem(), "", knownContractNames)
 		if err != nil {
 			return pythonTypeSpec{}, err
 		}
 		imports := map[string]struct{}{}
-		for line := range keySpec.Imports {
-			imports[line] = struct{}{}
-		}
-		for line := range valueSpec.Imports {
-			imports[line] = struct{}{}
-		}
+		mergeImportSet(imports, keySpec.Imports)
+		mergeImportSet(imports, valueSpec.Imports)
 		return pythonTypeSpec{
 			TypeExpr: "dict[" + keySpec.TypeExpr + ", " + valueSpec.TypeExpr + "]",
 			Imports:  imports,
 		}, nil
-	case reflect.Interface:
-		return pythonTypeSpec{TypeExpr: "Any"}, nil
 	case reflect.Struct:
-		return pythonTypeSpec{TypeExpr: publicTypeName}, nil
+		return pythonTypeSpec{TypeExpr: pythonSharedContractNameForType(fieldType)}, nil
 	default:
 		return pythonTypeSpec{}, fmt.Errorf("unsupported type %s", fieldType)
 	}
@@ -671,54 +903,84 @@ func pythonFieldDefaultExprFromValue(value reflect.Value) (string, error) {
 	if !value.IsValid() {
 		return "None", nil
 	}
+	if value.Kind() == reflect.Interface {
+		return pythonInterfaceFieldDefaultExpr(value)
+	}
+	if expr, ok, err := pythonCollectionFieldDefaultExpr(value); ok || err != nil {
+		return expr, err
+	}
+	if expr, ok, err := pythonPointerFieldDefaultExpr(value); ok || err != nil {
+		return expr, err
+	}
+	if expr, ok, err := pythonStructuredFieldDefaultExpr(value); ok || err != nil {
+		return expr, err
+	}
+	return pythonValueExpr(value)
+}
+
+func pythonInterfaceFieldDefaultExpr(value reflect.Value) (string, error) {
+	if value.IsNil() {
+		return "None", nil
+	}
+	return pythonFieldDefaultExprFromValue(value.Elem())
+}
+
+func pythonCollectionFieldDefaultExpr(value reflect.Value) (string, bool, error) {
 	switch value.Kind() {
-	case reflect.Interface:
-		if value.IsNil() {
-			return "None", nil
-		}
-		return pythonFieldDefaultExprFromValue(value.Elem())
 	case reflect.Map:
 		if value.IsNil() || value.Len() == 0 {
-			return "Field(default_factory=dict)", nil
+			return "Field(default_factory=dict)", true, nil
 		}
 		expr, err := pythonValueExpr(value)
 		if err != nil {
-			return "", err
+			return "", true, err
 		}
-		return "Field(default_factory=lambda: " + expr + ")", nil
+		return "Field(default_factory=lambda: " + expr + ")", true, nil
 	case reflect.Slice:
 		if value.Type().Elem().Kind() == reflect.Uint8 {
 			expr, err := pythonValueExpr(value)
 			if err != nil {
-				return "", err
+				return "", true, err
 			}
-			return expr, nil
+			return expr, true, nil
 		}
 		if value.IsNil() || value.Len() == 0 {
-			return "Field(default_factory=list)", nil
+			return "Field(default_factory=list)", true, nil
 		}
 		expr, err := pythonValueExpr(value)
 		if err != nil {
-			return "", err
+			return "", true, err
 		}
-		return "Field(default_factory=lambda: " + expr + ")", nil
-	case reflect.Pointer:
-		if value.IsNil() {
-			return "None", nil
-		}
-		expr, err := pythonValueExpr(value)
-		if err != nil {
-			return "", err
-		}
-		return "Field(default_factory=lambda: " + expr + ")", nil
+		return "Field(default_factory=lambda: " + expr + ")", true, nil
+	default:
+		return "", false, nil
+	}
+}
+
+func pythonPointerFieldDefaultExpr(value reflect.Value) (string, bool, error) {
+	if value.Kind() != reflect.Pointer {
+		return "", false, nil
+	}
+	if value.IsNil() {
+		return "None", true, nil
+	}
+	expr, err := pythonValueExpr(value)
+	if err != nil {
+		return "", true, err
+	}
+	return "Field(default_factory=lambda: " + expr + ")", true, nil
+}
+
+func pythonStructuredFieldDefaultExpr(value reflect.Value) (string, bool, error) {
+	switch value.Kind() {
 	case reflect.Struct, reflect.Array:
 		expr, err := pythonValueExpr(value)
 		if err != nil {
-			return "", err
+			return "", true, err
 		}
-		return "Field(default_factory=lambda: " + expr + ")", nil
+		return "Field(default_factory=lambda: " + expr + ")", true, nil
 	default:
-		return pythonValueExpr(value)
+		return "", false, nil
 	}
 }
 
@@ -744,4 +1006,396 @@ func pythonEnumMemberName(name string) string {
 		return name + "_"
 	}
 	return name
+}
+
+func aliasSpecsFromSharedSchema(sidecar sharedtypes.SemanticSidecar) ([]aliasSpec, error) {
+	aliasExprs, err := pythonSharedPureAnyOfAliasExprs()
+	if err != nil {
+		return nil, err
+	}
+	aliases := make([]aliasSpec, 0, len(sidecar.Contracts))
+	seenNames := map[string]struct{}{}
+	for _, entry := range sidecar.Contracts {
+		name := strings.TrimSpace(entry.Name)
+		if name == "" {
+			continue
+		}
+		if _, duplicate := seenNames[name]; duplicate {
+			continue
+		}
+		typeExpr, ok := aliasExprs[name]
+		if !ok {
+			continue
+		}
+		aliases = append(aliases, aliasSpec{
+			Name:     name,
+			TypeExpr: typeExpr,
+		})
+		seenNames[name] = struct{}{}
+	}
+	return aliases, nil
+}
+
+func pythonSharedTypeHasSchemaAlias(t reflect.Type) (bool, error) {
+	typeExpr, ok, err := pythonSharedPureAnyOfAliasExprForContractName(
+		pythonSharedContractNameForType(t),
+	)
+	if err != nil {
+		return false, err
+	}
+	return ok && strings.TrimSpace(typeExpr) != "", nil
+}
+
+func pythonSharedPureAnyOfAliasExprForContractName(name string) (string, bool, error) {
+	aliasExprs, err := pythonSharedPureAnyOfAliasExprs()
+	if err != nil {
+		return "", false, err
+	}
+	typeExpr, ok := aliasExprs[strings.TrimSpace(name)]
+	return typeExpr, ok, nil
+}
+
+func pythonSharedPureAnyOfAliasExprs() (map[string]string, error) {
+	pythonSharedPureAnyOfAliasesOnce.Do(func() {
+		document, err := sharedtypes.BuildSchemaDocument()
+		if err != nil {
+			pythonSharedPureAnyOfAliasesErr = err
+			return
+		}
+		aliases := map[string]string{}
+		for name, schema := range document.Defs {
+			typeExpr, ok, err := pythonTypeAliasExprForPureAnyOfSchema(schema)
+			if err != nil {
+				pythonSharedPureAnyOfAliasesErr = fmt.Errorf(
+					"python shared types: schema alias %s: %w",
+					name,
+					err,
+				)
+				return
+			}
+			if ok {
+				aliases[strings.TrimSpace(name)] = typeExpr
+			}
+		}
+		pythonSharedPureAnyOfAliases = aliases
+	})
+	if pythonSharedPureAnyOfAliasesErr != nil {
+		return nil, pythonSharedPureAnyOfAliasesErr
+	}
+	return pythonSharedPureAnyOfAliases, nil
+}
+
+func pythonTypeAliasExprForPureAnyOfSchema(schema *jsonschema.Schema) (string, bool, error) {
+	if !schemaIsPureAnyOfAlias(schema) {
+		return "", false, nil
+	}
+	typeExpr, err := pythonUnionExprFromSchemaMembers(schema.AnyOf)
+	if err != nil {
+		return "", false, err
+	}
+	return typeExpr, true, nil
+}
+
+func schemaIsPureAnyOfAlias(schema *jsonschema.Schema) bool {
+	if schema == nil || len(schema.AnyOf) == 0 {
+		return false
+	}
+	return !schemaHasNonAliasFields(schema)
+}
+
+func schemaHasNonAliasFields(schema *jsonschema.Schema) bool {
+	if schema == nil {
+		return false
+	}
+	if schemaHasTopLevelNonAliasFields(schema) {
+		return true
+	}
+	for _, member := range schema.AnyOf {
+		if !schemaAliasMemberSupported(member) {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaHasTopLevelNonAliasFields(schema *jsonschema.Schema) bool {
+	return schemaHasFieldsBeyondAllowance(
+		schema,
+		schemaFieldAllowance{AllowAnyOf: true},
+	)
+}
+
+func schemaAliasMemberSupported(schema *jsonschema.Schema) bool {
+	if schema == nil {
+		return false
+	}
+	switch {
+	case strings.TrimSpace(schema.Ref) != "":
+		return !schemaHasFieldsBeyondRef(schema)
+	case len(schema.AnyOf) > 0:
+		return !schemaHasNonAliasFields(schema)
+	case strings.TrimSpace(schema.Type) != "":
+		return schemaAliasPrimitiveTypeOnly(schema.Type) && !schemaHasFieldsBeyondType(schema)
+	case len(schema.Types) > 0:
+		if schemaHasFieldsBeyondTypes(schema) {
+			return false
+		}
+		for _, schemaType := range schema.Types {
+			if !schemaAliasPrimitiveTypeOnly(schemaType) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func schemaHasFieldsBeyondRef(schema *jsonschema.Schema) bool {
+	return schemaHasFieldsBeyondAllowance(
+		schema,
+		schemaFieldAllowance{AllowRef: true},
+	)
+}
+
+func schemaHasFieldsBeyondType(schema *jsonschema.Schema) bool {
+	return schemaHasFieldsBeyondAllowance(
+		schema,
+		schemaFieldAllowance{AllowType: true},
+	)
+}
+
+func schemaHasFieldsBeyondTypes(schema *jsonschema.Schema) bool {
+	return schemaHasFieldsBeyondAllowance(
+		schema,
+		schemaFieldAllowance{AllowTypes: true},
+	)
+}
+
+type schemaFieldAllowance struct {
+	AllowRef   bool
+	AllowType  bool
+	AllowTypes bool
+	AllowAnyOf bool
+}
+
+func schemaHasFieldsBeyondAllowance(
+	schema *jsonschema.Schema,
+	allowance schemaFieldAllowance,
+) bool {
+	return schemaHasSchemaMetadataFields(schema) ||
+		schemaHasSchemaValidationFields(schema, allowance) ||
+		schemaHasSchemaArrayFields(schema) ||
+		schemaHasSchemaObjectFields(schema) ||
+		schemaHasSchemaLogicFields(schema, allowance.AllowAnyOf) ||
+		schemaHasSchemaConditionalFields(schema) ||
+		schemaHasSchemaOtherFields(schema)
+}
+
+func schemaHasSchemaMetadataFields(schema *jsonschema.Schema) bool {
+	return schemaHasSchemaDocumentFields(schema) ||
+		schemaHasSchemaAnnotationFields(schema)
+}
+
+func schemaHasSchemaDocumentFields(schema *jsonschema.Schema) bool {
+	return strings.TrimSpace(schema.ID) != "" ||
+		strings.TrimSpace(schema.Schema) != "" ||
+		strings.TrimSpace(schema.Comment) != "" ||
+		len(schema.Defs) > 0 ||
+		len(schema.Definitions) > 0 ||
+		len(schema.DependencySchemas) > 0 ||
+		len(schema.DependencyStrings) > 0 ||
+		strings.TrimSpace(schema.Anchor) != "" ||
+		strings.TrimSpace(schema.DynamicAnchor) != "" ||
+		strings.TrimSpace(schema.DynamicRef) != "" ||
+		len(schema.Vocabulary) > 0
+}
+
+func schemaHasSchemaAnnotationFields(schema *jsonschema.Schema) bool {
+	return strings.TrimSpace(schema.Description) != "" ||
+		len(schema.Default) > 0 ||
+		schema.Deprecated ||
+		schema.ReadOnly ||
+		schema.WriteOnly ||
+		len(schema.Examples) > 0
+}
+
+func schemaHasSchemaValidationFields(
+	schema *jsonschema.Schema,
+	allowance schemaFieldAllowance,
+) bool {
+	return schemaHasSchemaTypeSelectionFields(schema, allowance) ||
+		schemaHasSchemaScalarConstraintFields(schema) ||
+		schemaHasSchemaNumericConstraintFields(schema) ||
+		schemaHasSchemaStringConstraintFields(schema)
+}
+
+func schemaHasSchemaTypeSelectionFields(
+	schema *jsonschema.Schema,
+	allowance schemaFieldAllowance,
+) bool {
+	return (!allowance.AllowRef && strings.TrimSpace(schema.Ref) != "") ||
+		(!allowance.AllowType && strings.TrimSpace(schema.Type) != "") ||
+		(!allowance.AllowTypes && len(schema.Types) > 0)
+}
+
+func schemaHasSchemaScalarConstraintFields(schema *jsonschema.Schema) bool {
+	return len(schema.Enum) > 0 || schema.Const != nil
+}
+
+func schemaHasSchemaNumericConstraintFields(schema *jsonschema.Schema) bool {
+	return schema.MultipleOf != nil ||
+		schema.Minimum != nil ||
+		schema.Maximum != nil ||
+		schema.ExclusiveMinimum != nil ||
+		schema.ExclusiveMaximum != nil
+}
+
+func schemaHasSchemaStringConstraintFields(schema *jsonschema.Schema) bool {
+	return schema.MinLength != nil ||
+		schema.MaxLength != nil ||
+		strings.TrimSpace(schema.Pattern) != ""
+}
+
+func schemaHasSchemaArrayFields(schema *jsonschema.Schema) bool {
+	return len(schema.PrefixItems) > 0 ||
+		schema.Items != nil ||
+		len(schema.ItemsArray) > 0 ||
+		schema.MinItems != nil ||
+		schema.MaxItems != nil ||
+		schema.AdditionalItems != nil ||
+		schema.UniqueItems ||
+		schema.Contains != nil ||
+		schema.MinContains != nil ||
+		schema.MaxContains != nil ||
+		schema.UnevaluatedItems != nil
+}
+
+func schemaHasSchemaObjectFields(schema *jsonschema.Schema) bool {
+	return schema.MinProperties != nil ||
+		schema.MaxProperties != nil ||
+		len(schema.Required) > 0 ||
+		len(schema.DependentRequired) > 0 ||
+		len(schema.Properties) > 0 ||
+		len(schema.PatternProperties) > 0 ||
+		schema.AdditionalProperties != nil ||
+		schema.PropertyNames != nil ||
+		schema.UnevaluatedProperties != nil
+}
+
+func schemaHasSchemaLogicFields(schema *jsonschema.Schema, allowAnyOf bool) bool {
+	return len(schema.AllOf) > 0 ||
+		(!allowAnyOf && len(schema.AnyOf) > 0) ||
+		len(schema.OneOf) > 0 ||
+		schema.Not != nil
+}
+
+func schemaHasSchemaConditionalFields(schema *jsonschema.Schema) bool {
+	return schema.If != nil ||
+		schema.Then != nil ||
+		schema.Else != nil ||
+		len(schema.DependentSchemas) > 0
+}
+
+func schemaHasSchemaOtherFields(schema *jsonschema.Schema) bool {
+	return strings.TrimSpace(schema.ContentEncoding) != "" ||
+		strings.TrimSpace(schema.ContentMediaType) != "" ||
+		schema.ContentSchema != nil ||
+		strings.TrimSpace(schema.Format) != "" ||
+		len(schema.Extra) > 0 ||
+		len(schema.PropertyOrder) > 0
+}
+
+func schemaAliasPrimitiveTypeOnly(schemaType string) bool {
+	switch strings.TrimSpace(schemaType) {
+	case "null", "boolean", "integer", "number", "string":
+		return true
+	default:
+		return false
+	}
+}
+
+func pythonUnionExprFromSchemaMembers(members []*jsonschema.Schema) (string, error) {
+	parts := make([]string, 0, len(members))
+	seen := map[string]struct{}{}
+	for _, member := range members {
+		typeExpr, err := pythonTypeExprFromSchemaMember(member)
+		if err != nil {
+			return "", err
+		}
+		typeExpr = strings.TrimSpace(typeExpr)
+		if typeExpr == "" {
+			continue
+		}
+		if _, duplicate := seen[typeExpr]; duplicate {
+			continue
+		}
+		seen[typeExpr] = struct{}{}
+		parts = append(parts, typeExpr)
+	}
+	if len(parts) == 0 {
+		return "", fmt.Errorf("pure anyOf alias has no renderable members")
+	}
+	return strings.Join(parts, " | "), nil
+}
+
+func pythonTypeExprFromSchemaMember(schema *jsonschema.Schema) (string, error) {
+	if schema == nil {
+		return "", fmt.Errorf("schema alias member is nil")
+	}
+	if ref := strings.TrimSpace(schema.Ref); ref != "" {
+		return pythonContractNameFromSchemaRef(ref)
+	}
+	if len(schema.AnyOf) > 0 {
+		return pythonUnionExprFromSchemaMembers(schema.AnyOf)
+	}
+	if schema.Type != "" {
+		return pythonPrimitiveTypeExprForSchemaType(schema.Type)
+	}
+	if len(schema.Types) > 0 {
+		parts := make([]string, 0, len(schema.Types))
+		for _, schemaType := range schema.Types {
+			part, err := pythonPrimitiveTypeExprForSchemaType(schemaType)
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, part)
+		}
+		return strings.Join(parts, " | "), nil
+	}
+	return "", fmt.Errorf("unsupported schema alias member")
+}
+
+func pythonPrimitiveTypeExprForSchemaType(schemaType string) (string, error) {
+	switch strings.TrimSpace(schemaType) {
+	case "null":
+		return "None", nil
+	case "boolean":
+		return "bool", nil
+	case "integer":
+		return "int", nil
+	case "number":
+		return "float", nil
+	case "string":
+		return "str", nil
+	case "array":
+		return "list[Any]", nil
+	case "object":
+		return "dict[str, Any]", nil
+	default:
+		return "", fmt.Errorf("unsupported schema type %q", schemaType)
+	}
+}
+
+func pythonContractNameFromSchemaRef(ref string) (string, error) {
+	const defsPrefix = "#/$defs/"
+	trimmed := strings.TrimSpace(ref)
+	if !strings.HasPrefix(trimmed, defsPrefix) {
+		return "", fmt.Errorf("unsupported schema ref %q", ref)
+	}
+	name := strings.TrimSpace(strings.TrimPrefix(trimmed, defsPrefix))
+	if name == "" {
+		return "", fmt.Errorf("schema ref %q is missing a contract name", ref)
+	}
+	return name, nil
 }

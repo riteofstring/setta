@@ -33,6 +33,7 @@ type contractSpec struct {
 
 type generationContext struct {
 	ContractSpecs        []contractSpec
+	AliasSpecs           []aliasSpec
 	DefaultSourcesByType map[reflect.Type]reflect.Value
 }
 
@@ -63,9 +64,14 @@ func buildGenerationContext() (generationContext, error) {
 	if err != nil {
 		return generationContext{}, err
 	}
+	aliases, err := aliasSpecsFromSharedSchema(sidecar)
+	if err != nil {
+		return generationContext{}, err
+	}
 
 	return generationContext{
 		ContractSpecs:        specs,
+		AliasSpecs:           aliases,
 		DefaultSourcesByType: defaultSources,
 	}, nil
 }
@@ -100,7 +106,10 @@ func contractSpecsFromSidecar(
 			}
 			specs = append(specs, spec)
 		case contractKindModel:
-			spec, ok := modelContractSpecIfConvertible(typ, defaultSourcesByType)
+			spec, ok, err := modelContractSpecIfConvertible(typ, defaultSourcesByType)
+			if err != nil {
+				return nil, err
+			}
 			if !ok {
 				continue
 			}
@@ -276,35 +285,42 @@ func pythonSharedEnumContractSpecs() (map[reflect.Type]contractSpec, error) {
 func modelContractSpecIfConvertible(
 	t reflect.Type,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (contractSpec, bool) {
+) (contractSpec, bool, error) {
 	spec := contractSpec{
 		Name: pythonSharedContractNameForType(t),
 		Kind: contractKindModel,
 		Type: t,
 	}
 	if _, ok := pythonExternalTypeModules[t.PkgPath()]; ok {
-		return contractSpec{}, false
+		return contractSpec{}, false, nil
+	}
+	hasSchemaAlias, err := pythonSharedTypeHasSchemaAlias(t)
+	if err != nil {
+		return contractSpec{}, false, err
+	}
+	if hasSchemaAlias {
+		return contractSpec{}, false, nil
 	}
 	if _, ok := pythonSharedExternalContractNames()[spec.Name]; ok {
-		return contractSpec{}, false
+		return contractSpec{}, false, nil
 	}
 	if modelReferencesExternalPythonModule(t) {
-		return contractSpec{}, false
+		return contractSpec{}, false, nil
 	}
 	if modelReferencesSyntheticUnionType(t) {
-		return contractSpec{}, false
+		return contractSpec{}, false, nil
 	}
 	if modelReferencesExternalSharedContract(t) {
-		return contractSpec{}, false
+		return contractSpec{}, false, nil
 	}
 	if _, err := buildModelSpecWithDefaultSources(
 		spec,
 		map[string]struct{}{spec.Name: {}},
 		defaultSourcesByType,
 	); err != nil {
-		return contractSpec{}, false
+		return contractSpec{}, false, nil
 	}
-	return spec, true
+	return spec, true, nil
 }
 
 func pythonSharedDefaultValueForField(
@@ -396,7 +412,8 @@ func typeUsesSyntheticUnion(t reflect.Type) bool {
 		return false
 	}
 	if _, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.UnionTypesProvider](t); ok {
-		return true
+		hasSchemaAlias, err := pythonSharedTypeHasSchemaAlias(t)
+		return err != nil || !hasSchemaAlias
 	}
 	switch t.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Chan:

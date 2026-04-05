@@ -2,6 +2,7 @@ package pythonsharedtypes
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	binarypayload "setta/internal/binary"
@@ -140,5 +141,28 @@ func TestPythonTypeExprWithImportsSkipsExternalImportWhenTypeIsGeneratedLocally(
 	}
 	if len(spec.Imports) != 0 {
 		t.Fatalf("expected no imports, got %#v", spec.Imports)
+	}
+}
+
+func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
+	t.Helper()
+
+	generated, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	output := generated.PythonModule
+	for _, snippet := range []string{
+		"BaseArtifactUnion = ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
+		"SectionSizeValue = float | SectionSizeMode",
+		"class SectionSize(SettaSharedTypeModel):",
+		"class DependencyEvent(SettaSharedTypeModel):",
+		"dependencyKey: BaseDependencyKeyUnion",
+		"payload: BaseDependencyValueUnion | None = None",
+	} {
+		if !strings.Contains(output, snippet) {
+			t.Fatalf("generated output missing snippet %q", snippet)
+		}
 	}
 }

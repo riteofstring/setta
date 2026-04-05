@@ -3,6 +3,7 @@ from typing import Annotated, Any
 from pydantic import Discriminator, Field, Tag
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
+    BaseChatMessageUnion,
     ChatRole,
     SystemChatMessage,
     ToolChatMessage,
@@ -17,32 +18,7 @@ from setta.types.generated.go_shared_types import (
 from setta.types.generated.go_shared_types import (
     ChatSectionState as GoChatSectionState,
 )
-from setta.types.generated.go_shared_types import (
-    MessageDeltaEvent as GoMessageDeltaEvent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageFinalizedEvent as GoMessageFinalizedEvent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageStartEvent as GoMessageStartEvent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageStopEvent as GoMessageStopEvent,
-)
-from setta.types.generated.go_shared_types import (
-    ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
-)
-from setta.types.generated.go_shared_types import (
-    ToolCallDeltaEvent as GoToolCallDeltaEvent,
-)
-from setta.types.generated.go_shared_types import (
-    ToolResultEvent as GoToolResultEvent,
-)
 from setta.types.id import ID
-
-BaseChatMessageUnion = (
-    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
-)
 
 
 def _chat_role(value: Any) -> str | None:
@@ -76,14 +52,3 @@ class ChatSectionBranch(GoChatSectionBranch):
 class ChatSectionState(GoChatSectionState):
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
-
-
-LLMStreamingResponseChunk = (
-    GoMessageStartEvent
-    | GoMessageDeltaEvent
-    | GoToolCallDeltaEvent
-    | GoToolResultEvent
-    | GoToolArgumentPreviewDeltaEvent
-    | GoMessageStopEvent
-    | GoMessageFinalizedEvent
-)

@@ -15,6 +15,8 @@ func TestBuildPythonClientRendersGoOwnedPayloadContracts(t *testing.T) {
 
 	output := generated.PythonModule
 	for _, snippet := range []string{
+		"from setta.types.generated.go_shared_types import BaseChatMessageUnion",
+		"from setta.types.generated.go_shared_types import LLMStreamingResponseChunk",
 		"class ListenerCreateChatRequestPayload(TypedDict):",
 		"projectConfigId: NotRequired[ID]",
 		"engineConfigId: NotRequired[ID | None]",
