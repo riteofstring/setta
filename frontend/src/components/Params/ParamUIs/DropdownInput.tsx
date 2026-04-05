@@ -12,7 +12,10 @@ import {
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
-import { CodeObjTypeEnum } from "utils/generatedTypes";
+import {
+  type DropdownParamCodeObjImpl,
+  CodeObjTypeEnum,
+} from "utils/generatedTypes";
 
 export function DropdownInputConfigForParam({
   sectionId,
@@ -35,7 +38,7 @@ export function DropdownInputConfigForParam({
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"DropdownParamCodeObj">(
+        setCurrEffectiveCodeObjImplValue<DropdownParamCodeObjImpl>(
           state,
           sectionId,
           paramInfoId,
