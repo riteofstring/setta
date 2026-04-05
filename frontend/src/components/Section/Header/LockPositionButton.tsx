@@ -1,5 +1,7 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import { togglePositionLocks } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -9,9 +11,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_toggle_position_locks } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
-
 type LockPositionButtonRenderState = {
   isGroup: boolean;
   positionAndSizeLocked: boolean;
@@ -19,13 +19,11 @@ type LockPositionButtonRenderState = {
   label: string;
   onClick: () => void;
 };
-
 type LockPositionButtonProps = {
   sectionId: string;
   hasSectionStyleTheme?: boolean;
   render?: (state: LockPositionButtonRenderState) => ReactNode;
 };
-
 export function LockPositionButton({
   sectionId,
   hasSectionStyleTheme = false,
@@ -39,12 +37,10 @@ export function LockPositionButton({
     };
   }, _.isEqual);
   const { canEditLayout } = useShareCapabilities();
-
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
   const label = positionAndSizeLocked
     ? "Unlock position and size"
     : "Lock position and size";
-
   let iconSize = "[&>i]:!scale-[.4]"; // when !isGroup
   if (isGroup) {
     if (positionAndSizeLocked) {
@@ -53,7 +49,6 @@ export function LockPositionButton({
       iconSize = "[&>i]:!scale-50 [&>i]:!-mt-[9px]"; // when isGroup && !positionAndSizeLocked
     }
   }
-
   function onClick() {
     if (!canEditLayout) {
       return;
@@ -66,14 +61,17 @@ export function LockPositionButton({
         });
       },
       send: (frontendOpId) =>
-        route_toggle_position_locks({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionIds: [sectionId],
-          frontendOpId,
-        }),
+        callOpenAPI(
+          togglePositionLocks({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionIds: [sectionId],
+              frontendOpId,
+            },
+          } as Parameters<typeof togglePositionLocks>[0]),
+        ),
     });
   }
-
   if (render) {
     return render({
       isGroup,
@@ -83,7 +81,6 @@ export function LockPositionButton({
       onClick,
     });
   }
-
   let backgroundClassName = "bg-transparent";
   let textClassName = "text-setta-600";
   if (hasSectionStyleTheme) {
@@ -104,7 +101,6 @@ export function LockPositionButton({
   } else if (isGroup) {
     textClassName = "text-setta-400 dark:text-setta-600";
   }
-
   return (
     <button
       className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${
@@ -115,9 +111,7 @@ export function LockPositionButton({
         hasSectionStyleTheme
           ? ""
           : "hover:text-orange-500 dark:hover:text-orange-700"
-      } ${
-        isGroup ? "h-5 w-5" : "h-4 w-4"
-      } ${canEditLayout ? "" : "cursor-not-allowed opacity-50"}`}
+      } ${isGroup ? "h-5 w-5" : "h-4 w-4"} ${canEditLayout ? "" : "cursor-not-allowed opacity-50"}`}
       aria-label={label}
       onClick={onClick}
       disabled={!canEditLayout}
