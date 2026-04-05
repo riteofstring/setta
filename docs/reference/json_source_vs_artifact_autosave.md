@@ -1,7 +1,19 @@
-# JSON sources vs artifacts: why the autosave guard differs
+# JSON sources vs artifacts: why the save path differs
 
-- Backend JSON-source edits are stored in memory first and only written to disk when the project manager's debounced autosave fires, so the watcher must defer reloads during that window to avoid reapplying the stale on-disk snapshot (`backend/setta/project_state/base_project_manager.py:1577`, `backend/setta/project_state/jsonSource/jsonSource.py:95`).
-- Artifact updates are flushed to disk inside `Artifacts.apply_updates` before the call returns, which means the backend never holds a pending in-memory edit after the frontend posts it (`backend/setta/project_state/artifacts.py:498`).
-- Because artifacts land on disk immediately, the watcher can safely reload from the filesystem right away and instead focuses on conflict detection by backing up local copies when hashes do not match (`backend/setta/project_state/artifacts.py:117`, `backend/setta/project_state/artifacts.py:424`).
-- JSON sources own section hierarchies and still rely on the project state's serialized form, so deferring reloads keeps UI edits aligned with the eventual autosave; artifacts are free-standing assets whose only authoritative copy is the file on disk once the update runs.
-- If the artifact flow ever adds a backend-side autosave buffer, it would need a guard similar to the JSON-source path; until then, keeping the implementations separate avoids extra latency for artifact users while preserving protection for JSON-source sections.
+- JSON-source edits update the live Go project-state document first. The source
+  file on disk is only brought back in sync when the app save/autosave path
+  calls `SaveJSONSourceFiles(...)` and then persists the stripped document
+  (`internal/app/app.go`, `internal/projectstate/json_source_save.go`,
+  `internal/projectstate/json_source_persist_cleanup.go`).
+- The JSON-source watch path only reloads variants when the source file itself
+  changes on disk (`internal/app/json_source_watch.go`,
+  `internal/jsonsourcewatch/service.go`), so the filesystem copy is expected to
+  lag behind the in-memory document until that save/autosave flush happens.
+- Artifact updates are different: the artifact routes write through the Go
+  artifact service immediately, so there is no analogous pending in-memory
+  artifact buffer after the request returns (`internal/httpapi/artifact_routes.go`,
+  `internal/artifacts/service.go`).
+- Because artifacts land on disk immediately, the artifact watch/runtime can
+  reload and broadcast `UpdateArtifacts` right away (`internal/app/artifact_watch.go`).
+  JSON-source sections intentionally wait for the save/autosave flush so the
+  file on disk catches up to the in-memory document first.
