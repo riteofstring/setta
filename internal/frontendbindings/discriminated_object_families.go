@@ -15,11 +15,6 @@ type discriminatedObjectFamilyMember struct {
 	TypeExpr string
 }
 
-type discriminatedObjectFamilyDeclarationProperties struct {
-	Base           []TypeProperty
-	ConcreteByType map[reflect.Type][]TypeProperty
-}
-
 var frontendBindingDiscriminatedFamiliesOnce sync.Once
 var frontendBindingDiscriminatedFamiliesCached []frontendbindingmeta.DiscriminatedObjectFamily
 
@@ -88,33 +83,29 @@ func discriminatedObjectFamilyTypeDeclaration(
 	if err != nil {
 		return TypeDeclaration{}, false, err
 	}
-	properties, err := discriminatedObjectFamilyDeclarationPropertiesForMembers(converter, family, members)
+	baseProperties, concreteByType, err := discriminatedObjectFamilyDeclarationPropertiesForMembers(converter, family, members)
 	if err != nil {
 		return TypeDeclaration{}, false, err
 	}
 	if t == family.BaseType {
 		return aliasObjectDeclarationFromProperties(
 			frontendBindingTypeName(family.BaseType),
-			properties.Base,
+			baseProperties,
 			family.BaseExtraLines...,
 		), true, nil
 	}
-	member, ok := discriminatedObjectFamilyMemberForType(members, t)
-	if !ok {
-		return TypeDeclaration{}, false, nil
-	}
-	memberProperties, ok := properties.ConcreteByType[member.Type]
+	memberProperties, ok := concreteByType[t]
 	if !ok {
 		return TypeDeclaration{}, false, fmt.Errorf(
 			"%s family is missing concrete properties for %s",
 			frontendBindingTypeName(family.BaseType),
-			member.Type.String(),
+			t.String(),
 		)
 	}
 	return aliasIntersectionDeclarationFromProperties(
-		frontendBindingTypeName(member.Type),
+		frontendBindingTypeName(t),
 		frontendBindingTypeName(family.BaseType),
-		discriminatedObjectFamilyAliasProperties(properties.Base, memberProperties),
+		discriminatedObjectFamilyAliasProperties(baseProperties, memberProperties),
 	), true, nil
 }
 
@@ -177,10 +168,10 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 	converter *typeConverter,
 	family frontendbindingmeta.DiscriminatedObjectFamily,
 	members []discriminatedObjectFamilyMember,
-) (discriminatedObjectFamilyDeclarationProperties, error) {
+) ([]TypeProperty, map[reflect.Type][]TypeProperty, error) {
 	coreProperties, err := converter.structProperties(family.BaseType, nil, nil, nil)
 	if err != nil {
-		return discriminatedObjectFamilyDeclarationProperties{}, err
+		return nil, nil, err
 	}
 	concreteByType := make(map[reflect.Type][]TypeProperty, len(members))
 	for _, member := range members {
@@ -193,7 +184,7 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 			nil,
 		)
 		if err != nil {
-			return discriminatedObjectFamilyDeclarationProperties{}, err
+			return nil, nil, err
 		}
 		concreteByType[member.Type] = concreteProperties
 	}
@@ -202,10 +193,7 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 		members,
 		concreteByType,
 	)...)
-	return discriminatedObjectFamilyDeclarationProperties{
-		Base:           baseProperties,
-		ConcreteByType: concreteByType,
-	}, nil
+	return baseProperties, concreteByType, nil
 }
 
 func discriminatedObjectFamilyTraitDeclarations(
@@ -329,18 +317,6 @@ func discriminatedObjectFamilyMembers(
 		})
 	}
 	return members, nil
-}
-
-func discriminatedObjectFamilyMemberForType(
-	members []discriminatedObjectFamilyMember,
-	t reflect.Type,
-) (discriminatedObjectFamilyMember, bool) {
-	for _, member := range members {
-		if member.Type == t {
-			return member, true
-		}
-	}
-	return discriminatedObjectFamilyMember{}, false
 }
 
 func discriminatedObjectFamilyMemberStrings(
