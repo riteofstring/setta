@@ -19,6 +19,8 @@ import {
   resolveEffectiveThinking,
   supportsThinkingExecutionControl,
 } from "components/Chat/engineUtils";
+import { getFileBrowserRoot } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   Dispatch,
   memo,
@@ -56,7 +58,6 @@ import {
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import { res200 } from "utils/endpointUtils";
-import { route_get_file_browser_root } from "utils/generatedEndpoints";
 import {
   AgentRun,
   ChatFileAttachment,
@@ -133,7 +134,7 @@ function useWorkspaceRootIdentity(
     setWorkspaceRootIdentity(null);
     let cancelled = false;
     void (async () => {
-      const rootResponse = await route_get_file_browser_root();
+      const rootResponse = await callOpenAPI(getFileBrowserRoot());
       if (cancelled || !res200(rootResponse) || !rootResponse.data) {
         return;
       }

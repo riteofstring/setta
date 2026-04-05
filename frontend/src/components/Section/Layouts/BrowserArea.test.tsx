@@ -1,5 +1,11 @@
 /* @vitest-environment jsdom */
 
+import {
+  getFileBrowserRoot,
+  getFolderContents,
+  type FilebrowserFolderContentItem,
+  type FilebrowserRootResponse,
+} from "openapi/http";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -10,15 +16,9 @@ import {
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
-  route_get_file_browser_root,
-  route_get_folder_contents,
-} from "utils/generatedEndpoints";
-import {
   BrowserAreaViewModeEnum,
   SectionTypeEnum,
-  createFolderContentItem,
   createProjectConfig,
-  createRootResponse,
   type BrowserAreaViewMode,
   type Core,
   type Variant,
@@ -26,19 +26,26 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BrowserArea } from "./BrowserArea";
 
-const generatedEndpoints = vi.hoisted(() => ({
-  route_get_file_browser_root: vi.fn(),
-  route_get_folder_contents: vi.fn(),
+const openAPI = vi.hoisted(() => ({
+  getFileBrowserRoot: vi.fn(),
+  getFolderContents: vi.fn(),
 }));
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_file_browser_root: generatedEndpoints.route_get_file_browser_root,
-    route_get_folder_contents: generatedEndpoints.route_get_folder_contents,
+    getFileBrowserRoot: openAPI.getFileBrowserRoot,
+    getFolderContents: openAPI.getFolderContents,
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 vi.mock("components/Utils/CodeMirror/InlineCodeMirrorInput", async () => {
   const React = await import("react");
@@ -71,7 +78,7 @@ type RenderedBrowserArea = {
 
 function buildFolderContentsResponse(
   folderPath: string,
-  items: ReturnType<typeof createFolderContentItem>[],
+  items: FilebrowserFolderContentItem[],
 ) {
   return {
     data: {
@@ -80,6 +87,28 @@ function buildFolderContentsResponse(
     },
     status: 200,
     hasResponse: true,
+  };
+}
+
+function createFolderContentItem(
+  options: Partial<FilebrowserFolderContentItem> = {},
+): FilebrowserFolderContentItem {
+  return {
+    fullPath: "",
+    name: "",
+    type: "file",
+    ...options,
+  };
+}
+
+function createRootResponse(
+  options: Partial<FilebrowserRootResponse> = {},
+): FilebrowserRootResponse {
+  return {
+    ignorePatterns: [],
+    pathSeparator: "/",
+    rootPath: "",
+    ...options,
   };
 }
 
@@ -188,8 +217,8 @@ describe("BrowserArea list view", () => {
   beforeEach(() => {
     resetProjectStores();
     useBrowserSectionFileBrowserState.getState().reset?.();
-    generatedEndpoints.route_get_file_browser_root.mockReset();
-    generatedEndpoints.route_get_folder_contents.mockReset();
+    openAPI.getFileBrowserRoot.mockReset();
+    openAPI.getFolderContents.mockReset();
     globalThis.ResizeObserver = class {
       observe() {}
       disconnect() {}
@@ -242,7 +271,7 @@ describe("BrowserArea list view", () => {
 
   it("loads the Go root and folder contents into thumbnail view", async () => {
     setBrowserSectionState(BrowserAreaViewModeEnum.thumbnail);
-    vi.mocked(route_get_file_browser_root).mockResolvedValue({
+    vi.mocked(getFileBrowserRoot).mockResolvedValue({
       data: createRootResponse({
         rootPath: "/workspace",
         ignorePatterns: ["node_modules"],
@@ -251,7 +280,7 @@ describe("BrowserArea list view", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_get_folder_contents).mockResolvedValue(
+    vi.mocked(getFolderContents).mockResolvedValue(
       buildFolderContentsResponse("/workspace", [
         createFolderContentItem({
           name: "assets",
@@ -272,13 +301,15 @@ describe("BrowserArea list view", () => {
     try {
       await flushEffects();
 
-      expect(route_get_file_browser_root).toHaveBeenCalledTimes(1);
-      expect(route_get_folder_contents).toHaveBeenCalledWith({
-        baseFolderPath: "/workspace",
-        folderPath: "/workspace",
-        ignorePatterns: ["node_modules"],
-        includeSize: true,
-        missingFolderBehavior: "empty",
+      expect(getFileBrowserRoot).toHaveBeenCalledTimes(1);
+      expect(getFolderContents).toHaveBeenCalledWith({
+        body: {
+          baseFolderPath: "/workspace",
+          folderPath: "/workspace",
+          ignorePatterns: ["node_modules"],
+          includeSize: true,
+          missingFolderBehavior: "empty",
+        },
       });
       expect(host.textContent).toContain("assets");
       expect(host.textContent).toContain("notes.txt");
@@ -292,7 +323,7 @@ describe("BrowserArea list view", () => {
 
   it("loads the Go root and folder contents into list view with outside-workspace access", async () => {
     setBrowserSectionState(BrowserAreaViewModeEnum.list);
-    vi.mocked(route_get_file_browser_root).mockResolvedValue({
+    vi.mocked(getFileBrowserRoot).mockResolvedValue({
       data: createRootResponse({
         rootPath: "/workspace",
         ignorePatterns: ["node_modules"],
@@ -301,7 +332,7 @@ describe("BrowserArea list view", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_get_folder_contents).mockResolvedValue(
+    vi.mocked(getFolderContents).mockResolvedValue(
       buildFolderContentsResponse("/workspace", [
         createFolderContentItem({
           name: "assets",
@@ -316,15 +347,17 @@ describe("BrowserArea list view", () => {
     try {
       await flushEffects();
 
-      expect(route_get_file_browser_root).toHaveBeenCalled();
-      expect(route_get_folder_contents).toHaveBeenCalledWith({
-        folderPath: "/workspace",
-        ignorePatterns: ["node_modules"],
-        maxEntries: 5000,
-        includeMtime: true,
-        includeSettaInitialized: false,
-        allowOutsideWorkspaceRoot: true,
-        missingFolderBehavior: "empty",
+      expect(getFileBrowserRoot).toHaveBeenCalled();
+      expect(getFolderContents).toHaveBeenCalledWith({
+        body: {
+          folderPath: "/workspace",
+          ignorePatterns: ["node_modules"],
+          maxEntries: 5000,
+          includeMtime: true,
+          includeSettaInitialized: false,
+          allowOutsideWorkspaceRoot: true,
+          missingFolderBehavior: "empty",
+        },
       });
       expect(host.textContent).toContain("assets");
     } finally {

@@ -1,17 +1,15 @@
 /* @vitest-environment jsdom */
 
-import { downloadBinary } from "openapi/http";
+import {
+  downloadBinary,
+  getFileBrowserDownloadUrls,
+  getFileBrowserFileContent,
+  type FilebrowserFileBrowserDownloadUrlEntry,
+  type FilebrowserFileContentResponse,
+} from "openapi/http";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import {
-  route_get_file_browser_download_urls,
-  route_get_file_browser_file_content,
-} from "utils/generatedEndpoints";
-import {
-  createFileBrowserDownloadURLEntry,
-  createFileContentResponse,
-} from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FileBrowserUniversalPreview,
@@ -19,35 +17,31 @@ import {
   resolveFileBrowserPreviewKind,
 } from "./FileBrowserUniversalPreview";
 
-const generatedEndpoints = vi.hoisted(() => ({
-  route_get_file_browser_download_urls: vi.fn(),
-  route_get_file_browser_file_content: vi.fn(),
+const openAPI = vi.hoisted(() => ({
+  getFileBrowserDownloadUrls: vi.fn(),
+  getFileBrowserFileContent: vi.fn(),
 }));
 
 const { downloadBinaryMock } = vi.hoisted(() => ({
   downloadBinaryMock: vi.fn(),
 }));
 
-vi.mock("openapi/http", () => ({
-  downloadBinary: downloadBinaryMock,
-}));
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    downloadBinary: downloadBinaryMock,
+    getFileBrowserDownloadUrls: openAPI.getFileBrowserDownloadUrls,
+    getFileBrowserFileContent: openAPI.getFileBrowserFileContent,
+  };
+});
 
 vi.mock("openapi/http/result", () => ({
   callOpenAPI: function <T>(promise: Promise<T>) {
     return promise;
   },
 }));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_get_file_browser_download_urls:
-      generatedEndpoints.route_get_file_browser_download_urls,
-    route_get_file_browser_file_content:
-      generatedEndpoints.route_get_file_browser_file_content,
-  };
-});
 
 type FileBrowserUniversalPreviewProps = Parameters<
   typeof FileBrowserUniversalPreview
@@ -80,11 +74,35 @@ async function flushEffects(): Promise<void> {
 }
 
 beforeEach(() => {
-  generatedEndpoints.route_get_file_browser_download_urls.mockReset();
-  generatedEndpoints.route_get_file_browser_file_content.mockReset();
+  openAPI.getFileBrowserDownloadUrls.mockReset();
+  openAPI.getFileBrowserFileContent.mockReset();
   downloadBinaryMock.mockReset();
   document.body.innerHTML = "";
 });
+
+function createFileContentResponse(
+  options: Partial<FilebrowserFileContentResponse> = {},
+): FilebrowserFileContentResponse {
+  return {
+    contentId: "",
+    mimeType: "",
+    mtimeNs: 0,
+    path: "",
+    size: 0,
+    ...options,
+  };
+}
+
+function createFileBrowserDownloadUrlEntry(
+  options: Partial<FilebrowserFileBrowserDownloadUrlEntry> = {},
+): FilebrowserFileBrowserDownloadUrlEntry {
+  return {
+    expiresAt: 0,
+    path: "",
+    url: "",
+    ...options,
+  };
+}
 
 describe("FileBrowserUniversalPreview kind resolution", () => {
   it("classifies spreadsheet paths as spreadsheet previews", () => {
@@ -157,7 +175,7 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
   });
 
   it("loads text previews through the Go file-content and binary routes", async () => {
-    vi.mocked(route_get_file_browser_file_content).mockResolvedValue({
+    vi.mocked(getFileBrowserFileContent).mockResolvedValue({
       data: createFileContentResponse({
         path: "/workspace/readme.md",
         contentId: "content-1",
@@ -186,9 +204,11 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
     try {
       await flushEffects();
 
-      expect(route_get_file_browser_file_content).toHaveBeenCalledWith({
-        path: "/workspace/readme.md",
-        maxBytes: 1024 * 1024,
+      expect(getFileBrowserFileContent).toHaveBeenCalledWith({
+        body: {
+          path: "/workspace/readme.md",
+          maxBytes: 1024 * 1024,
+        },
       });
       expect(downloadBinary).toHaveBeenCalledWith({
         path: { contentId: "content-1" },
@@ -207,9 +227,9 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
   });
 
   it("loads image previews through the Go download-url route", async () => {
-    vi.mocked(route_get_file_browser_download_urls).mockResolvedValue({
+    vi.mocked(getFileBrowserDownloadUrls).mockResolvedValue({
       data: [
-        createFileBrowserDownloadURLEntry({
+        createFileBrowserDownloadUrlEntry({
           path: "/workspace/photo.png",
           url: "https://example.com/file-browser/photo.png",
           expiresAt: 123,
@@ -231,8 +251,10 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
     try {
       await flushEffects();
 
-      expect(route_get_file_browser_download_urls).toHaveBeenCalledWith({
-        paths: ["/workspace/photo.png"],
+      expect(getFileBrowserDownloadUrls).toHaveBeenCalledWith({
+        body: {
+          paths: ["/workspace/photo.png"],
+        },
       });
       expect(
         host

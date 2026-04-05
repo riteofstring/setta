@@ -17,6 +17,64 @@ export type BinaryContentRef = {
   sha256?: string;
 };
 
+export type FilebrowserFileBrowserDownloadUrlEntry = {
+  expiresAt: number;
+  path: string;
+  url: string;
+};
+
+export type FilebrowserFileContentResponse = {
+  contentId: string;
+  mimeType: string;
+  mtimeNs: number;
+  path: string;
+  size: number;
+};
+
+export type FilebrowserFileStatResponse = {
+  mtimeNs: number;
+  path: string;
+  size: number;
+};
+
+export type FilebrowserFolderContentItem = {
+  fullPath: string;
+  isSettaInitialized?: boolean;
+  mtime?: number;
+  name: string;
+  size?: number;
+  type: string;
+};
+
+export type FilebrowserListFolderResponse = {
+  folderPath: string;
+  items: Array<FilebrowserFolderContentItem> | null;
+};
+
+export type FilebrowserRootResponse = {
+  ignorePatterns: Array<string> | null;
+  pathSeparator: string;
+  rootPath: string;
+};
+
+export type FilebrowserTransferResponse = {
+  destinationPath: string;
+  operation: string;
+  sourcePath: string;
+};
+
+export type FilebrowserWorkspacePythonSignalResponse = {
+  folderPath: string;
+  hasPython: boolean;
+};
+
+export type FilebrowserWriteFileContentResponse = {
+  mimeType: string;
+  mtimeNs: number;
+  path: string;
+  size: number;
+};
+
 export type HttpapiAuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
 };
@@ -37,6 +95,19 @@ export type HttpapiBackendInitStatusResponse = {
 export type HttpapiBinaryUploadFormRequest = {
   durable?: boolean;
   file: Blob | File;
+};
+
+export type HttpapiCheckIfFileExistsRequest = {
+  filepath: string;
+};
+
+export type HttpapiCheckWorkspaceInitializedRequest = {
+  allowOutsideWorkspaceRoot?: boolean;
+  folderPath: string;
+};
+
+export type HttpapiCreateFileRequest = {
+  filepath: string;
 };
 
 export type HttpapiCreateWorkspaceLaunchIntentRequest = {
@@ -68,6 +139,36 @@ export type HttpapiErrorResponse = {
 export type HttpapiGetAgenticSummaryCacheStatusRequest = {
   chatSectionId: string;
   projectConfigId: string;
+};
+
+export type HttpapiGetFileBrowserDownloadUrlsRequest = {
+  paths: Array<string> | null;
+};
+
+export type HttpapiGetFileBrowserFileContentRequest = {
+  maxBytes?: number;
+  path: string;
+};
+
+export type HttpapiGetFileBrowserFileStatRequest = {
+  path: string;
+};
+
+export type HttpapiGetFolderContentsRequest = {
+  allowOutsideWorkspaceRoot?: boolean;
+  baseFolderPath?: string;
+  folderPath: string;
+  ignorePatterns?: Array<string>;
+  includeHidden?: boolean;
+  includeMtime?: boolean;
+  includeSettaInitialized?: boolean;
+  includeSize?: boolean;
+  maxEntries?: number;
+  missingFolderBehavior?: string;
+};
+
+export type HttpapiGetWorkspacePythonSignalRequest = {
+  folderPath: string;
 };
 
 export type HttpapiLaunchRequest = {
@@ -238,9 +339,21 @@ export type HttpapiSettaHomeInfoResponse = {
   settaHome: string;
 };
 
+export type HttpapiTransferFileBrowserEntryRequest = {
+  destinationFolderPath: string;
+  operation: string;
+  sourcePath: string;
+};
+
 export type HttpapiWorkspaceLaunchErrorPayload = {
   code: string;
   message: string;
+};
+
+export type HttpapiWriteFileBrowserFileContentRequest = {
+  contentId: string;
+  expectedMtimeNs?: number;
+  path: string;
 };
 
 export type McpxServerRuntimeStatus = {
@@ -779,6 +892,85 @@ export type DownloadBinaryResponses = {
 export type DownloadBinaryResponse =
   DownloadBinaryResponses[keyof DownloadBinaryResponses];
 
+export type CheckIfFileExistsData = {
+  body: HttpapiCheckIfFileExistsRequest;
+  path?: never;
+  query?: never;
+  url: "/checkIfFileExists";
+};
+
+export type CheckIfFileExistsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CheckIfFileExistsError =
+  CheckIfFileExistsErrors[keyof CheckIfFileExistsErrors];
+
+export type CheckIfFileExistsResponses = {
+  /**
+   * OK
+   */
+  200: boolean;
+};
+
+export type CheckIfFileExistsResponse =
+  CheckIfFileExistsResponses[keyof CheckIfFileExistsResponses];
+
+export type CheckWorkspaceInitializedData = {
+  body: HttpapiCheckWorkspaceInitializedRequest;
+  path?: never;
+  query?: never;
+  url: "/checkWorkspaceInitialized";
+};
+
+export type CheckWorkspaceInitializedErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CheckWorkspaceInitializedError =
+  CheckWorkspaceInitializedErrors[keyof CheckWorkspaceInitializedErrors];
+
+export type CheckWorkspaceInitializedResponses = {
+  /**
+   * OK
+   */
+  200: boolean;
+};
+
+export type CheckWorkspaceInitializedResponse =
+  CheckWorkspaceInitializedResponses[keyof CheckWorkspaceInitializedResponses];
+
+export type CreateFileData = {
+  body: HttpapiCreateFileRequest;
+  path?: never;
+  query?: never;
+  url: "/createFile";
+};
+
+export type CreateFileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateFileError = CreateFileErrors[keyof CreateFileErrors];
+
+export type CreateFileResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type CreateFileResponse = CreateFileResponses[keyof CreateFileResponses];
+
 export type CreateWorkspaceLaunchIntentData = {
   body: HttpapiCreateWorkspaceLaunchIntentRequest;
   path?: never;
@@ -833,6 +1025,35 @@ export type DocstringToMarkdownResponses = {
 export type DocstringToMarkdownResponse =
   DocstringToMarkdownResponses[keyof DocstringToMarkdownResponses];
 
+export type DownloadFileBrowserEntryData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: "/fileBrowser/{token}";
+};
+
+export type DownloadFileBrowserEntryErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DownloadFileBrowserEntryError =
+  DownloadFileBrowserEntryErrors[keyof DownloadFileBrowserEntryErrors];
+
+export type DownloadFileBrowserEntryResponses = {
+  /**
+   * OK
+   */
+  200: Blob | File;
+};
+
+export type DownloadFileBrowserEntryResponse =
+  DownloadFileBrowserEntryResponses[keyof DownloadFileBrowserEntryResponses];
+
 export type GetAgenticSummaryCacheStatusData = {
   body: HttpapiGetAgenticSummaryCacheStatusRequest;
   path?: never;
@@ -859,6 +1080,168 @@ export type GetAgenticSummaryCacheStatusResponses = {
 
 export type GetAgenticSummaryCacheStatusResponse =
   GetAgenticSummaryCacheStatusResponses[keyof GetAgenticSummaryCacheStatusResponses];
+
+export type GetFileBrowserDownloadUrlsData = {
+  body: HttpapiGetFileBrowserDownloadUrlsRequest;
+  path?: never;
+  query?: never;
+  url: "/getFileBrowserDownloadUrls";
+};
+
+export type GetFileBrowserDownloadUrlsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetFileBrowserDownloadUrlsError =
+  GetFileBrowserDownloadUrlsErrors[keyof GetFileBrowserDownloadUrlsErrors];
+
+export type GetFileBrowserDownloadUrlsResponses = {
+  /**
+   * OK
+   */
+  200: Array<FilebrowserFileBrowserDownloadUrlEntry> | null;
+};
+
+export type GetFileBrowserDownloadUrlsResponse =
+  GetFileBrowserDownloadUrlsResponses[keyof GetFileBrowserDownloadUrlsResponses];
+
+export type GetFileBrowserFileContentData = {
+  body: HttpapiGetFileBrowserFileContentRequest;
+  path?: never;
+  query?: never;
+  url: "/getFileBrowserFileContent";
+};
+
+export type GetFileBrowserFileContentErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetFileBrowserFileContentError =
+  GetFileBrowserFileContentErrors[keyof GetFileBrowserFileContentErrors];
+
+export type GetFileBrowserFileContentResponses = {
+  /**
+   * OK
+   */
+  200: FilebrowserFileContentResponse;
+};
+
+export type GetFileBrowserFileContentResponse =
+  GetFileBrowserFileContentResponses[keyof GetFileBrowserFileContentResponses];
+
+export type GetFileBrowserFileStatData = {
+  body: HttpapiGetFileBrowserFileStatRequest;
+  path?: never;
+  query?: never;
+  url: "/getFileBrowserFileStat";
+};
+
+export type GetFileBrowserFileStatErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetFileBrowserFileStatError =
+  GetFileBrowserFileStatErrors[keyof GetFileBrowserFileStatErrors];
+
+export type GetFileBrowserFileStatResponses = {
+  /**
+   * OK
+   */
+  200: FilebrowserFileStatResponse;
+};
+
+export type GetFileBrowserFileStatResponse =
+  GetFileBrowserFileStatResponses[keyof GetFileBrowserFileStatResponses];
+
+export type GetFileBrowserRootData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getFileBrowserRoot";
+};
+
+export type GetFileBrowserRootErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetFileBrowserRootError =
+  GetFileBrowserRootErrors[keyof GetFileBrowserRootErrors];
+
+export type GetFileBrowserRootResponses = {
+  /**
+   * OK
+   */
+  200: FilebrowserRootResponse;
+};
+
+export type GetFileBrowserRootResponse =
+  GetFileBrowserRootResponses[keyof GetFileBrowserRootResponses];
+
+export type GetFolderContentsData = {
+  body: HttpapiGetFolderContentsRequest;
+  path?: never;
+  query?: never;
+  url: "/getFolderContents";
+};
+
+export type GetFolderContentsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetFolderContentsError =
+  GetFolderContentsErrors[keyof GetFolderContentsErrors];
+
+export type GetFolderContentsResponses = {
+  /**
+   * OK
+   */
+  200: FilebrowserListFolderResponse;
+};
+
+export type GetFolderContentsResponse =
+  GetFolderContentsResponses[keyof GetFolderContentsResponses];
+
+export type GetWorkspacePythonSignalData = {
+  body: HttpapiGetWorkspacePythonSignalRequest;
+  path?: never;
+  query?: never;
+  url: "/getWorkspacePythonSignal";
+};
+
+export type GetWorkspacePythonSignalErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetWorkspacePythonSignalError =
+  GetWorkspacePythonSignalErrors[keyof GetWorkspacePythonSignalErrors];
+
+export type GetWorkspacePythonSignalResponses = {
+  /**
+   * OK
+   */
+  200: FilebrowserWorkspacePythonSignalResponse;
+};
+
+export type GetWorkspacePythonSignalResponse =
+  GetWorkspacePythonSignalResponses[keyof GetWorkspacePythonSignalResponses];
 
 export type LaunchWorkspaceData = {
   body: HttpapiLaunchRequest;
@@ -1443,6 +1826,60 @@ export type GetSettaHomeInfoResponses = {
 
 export type GetSettaHomeInfoResponse =
   GetSettaHomeInfoResponses[keyof GetSettaHomeInfoResponses];
+
+export type TransferFileBrowserEntryData = {
+  body: HttpapiTransferFileBrowserEntryRequest;
+  path?: never;
+  query?: never;
+  url: "/transferFileBrowserEntry";
+};
+
+export type TransferFileBrowserEntryErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type TransferFileBrowserEntryError =
+  TransferFileBrowserEntryErrors[keyof TransferFileBrowserEntryErrors];
+
+export type TransferFileBrowserEntryResponses = {
+  /**
+   * OK
+   */
+  200: FilebrowserTransferResponse;
+};
+
+export type TransferFileBrowserEntryResponse =
+  TransferFileBrowserEntryResponses[keyof TransferFileBrowserEntryResponses];
+
+export type WriteFileBrowserFileContentData = {
+  body: HttpapiWriteFileBrowserFileContentRequest;
+  path?: never;
+  query?: never;
+  url: "/writeFileBrowserFileContent";
+};
+
+export type WriteFileBrowserFileContentErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type WriteFileBrowserFileContentError =
+  WriteFileBrowserFileContentErrors[keyof WriteFileBrowserFileContentErrors];
+
+export type WriteFileBrowserFileContentResponses = {
+  /**
+   * OK
+   */
+  200: FilebrowserWriteFileContentResponse;
+};
+
+export type WriteFileBrowserFileContentResponse =
+  WriteFileBrowserFileContentResponses[keyof WriteFileBrowserFileContentResponses];
 
 export type ClientOptions = {
   baseUrl: `${string}://${string}/api` | (string & {});

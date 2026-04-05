@@ -5,6 +5,8 @@ import {
   resolveActionType,
 } from "components/App/appBindings";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
+import { checkIfFileExists } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
@@ -17,12 +19,10 @@ import {
 import { createDefaultAppPolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_check_if_file_exists,
   route_list_app_deployments,
   route_publish_app_deployment,
 } from "utils/generatedEndpoints";
 import type {
-  CheckIfFileExistsResponse,
   DeploymentMetadataResponse,
   PublishAppDeploymentRequest,
   RunSnapshotMode,
@@ -32,8 +32,7 @@ import { createRandomName } from "utils/idNameCreation";
 type AppPolicyOverridesInput = NonNullable<
   PublishAppDeploymentRequest["appPolicyOverrides"]
 >;
-type CheckIfFileExistsRouteResponse =
-  ResponseDataAndStatus<CheckIfFileExistsResponse>;
+type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
 
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
@@ -119,10 +118,13 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     if (loadStoredListenerEntrypoint().trim().length > 0) {
       return;
     }
-    const res: CheckIfFileExistsRouteResponse =
-      await route_check_if_file_exists({
-        filepath: DEFAULT_LISTENER_ENTRYPOINT,
-      });
+    const res: CheckIfFileExistsRouteResponse = await callOpenAPI(
+      checkIfFileExists({
+        body: {
+          filepath: DEFAULT_LISTENER_ENTRYPOINT,
+        },
+      }),
+    );
     if (res200(res) && res.data) {
       setListenerEntrypoint((current) => {
         if (current.trim().length > 0) {

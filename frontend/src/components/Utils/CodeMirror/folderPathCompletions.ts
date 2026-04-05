@@ -1,14 +1,15 @@
 import type { Completion, CompletionSource } from "@codemirror/autocomplete";
 import {
+  getFolderContents,
+  type FilebrowserFolderContentItem as FolderContentItem,
+  type FilebrowserListFolderResponse as ListFolderResponse,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   isAbsoluteBrowserPath,
   normalizeBrowserPath,
 } from "utils/browserPaths";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import { route_get_folder_contents } from "utils/generatedEndpoints";
-import type {
-  FolderContentItem,
-  ListFolderResponse,
-} from "utils/generatedTypes";
 
 type FolderPathCompletionOptions = {
   rootPath: string | null;
@@ -70,14 +71,18 @@ async function loadFolderEntries({
   maxEntries: number | undefined;
   allowOutsideWorkspaceRoot: boolean | undefined;
 }): Promise<FolderContentItem[]> {
-  const res: GetFolderContentsRouteResponse = await route_get_folder_contents({
-    folderPath,
-    baseFolderPath,
-    ignorePatterns: ignorePatterns ?? null,
-    maxEntries: maxEntries ?? null,
-    allowOutsideWorkspaceRoot: allowOutsideWorkspaceRoot ?? false,
-    missingFolderBehavior: "empty",
-  });
+  const res: GetFolderContentsRouteResponse = await callOpenAPI(
+    getFolderContents({
+      body: {
+        folderPath,
+        baseFolderPath,
+        ignorePatterns: ignorePatterns ?? null,
+        maxEntries: maxEntries ?? null,
+        allowOutsideWorkspaceRoot: allowOutsideWorkspaceRoot ?? false,
+        missingFolderBehavior: "empty",
+      },
+    }),
+  );
   if (!res200(res)) {
     return [];
   }

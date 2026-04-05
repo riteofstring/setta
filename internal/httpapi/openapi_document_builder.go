@@ -11,6 +11,7 @@ import (
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
+	"setta/internal/filebrowser"
 	"setta/internal/modes"
 	"setta/internal/pathreveal"
 	"setta/internal/plugins"
@@ -22,6 +23,7 @@ import (
 )
 
 type frontendHTTPOpenAPIInfoService struct{}
+type frontendHTTPOpenAPIFileBrowserService struct{}
 type frontendHTTPOpenAPIPluginService struct{}
 
 func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
@@ -52,6 +54,54 @@ func (frontendHTTPOpenAPIInfoService) SDKRuntimeHandshake(context.Context) pytho
 		CoreVersion:        "dev-core",
 		SDKContractVersion: pythonsdkcontracts.SDKContractVersion,
 	}
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) Root(context.Context) filebrowser.RootResponse {
+	return filebrowser.RootResponse{}
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) CreateFile(context.Context, string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) CheckIfFileExists(context.Context, string) (bool, error) {
+	return false, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) CheckWorkspaceInitialized(context.Context, filebrowser.CheckWorkspaceInitializedRequest) (bool, error) {
+	return false, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) ListFolder(context.Context, filebrowser.ListFolderRequest) (filebrowser.ListFolderResponse, error) {
+	return filebrowser.ListFolderResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) WorkspacePythonSignal(context.Context, string) (filebrowser.WorkspacePythonSignalResponse, error) {
+	return filebrowser.WorkspacePythonSignalResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) BuildDownloadURLs(context.Context, filebrowser.FileBrowserDownloadURLRequest, func(string) string) ([]filebrowser.FileBrowserDownloadURLEntry, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) ReadFileContent(context.Context, filebrowser.FileContentRequest) (filebrowser.FileContentResponse, error) {
+	return filebrowser.FileContentResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) StatFile(context.Context, string) (filebrowser.FileStatResponse, error) {
+	return filebrowser.FileStatResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) WriteFileContent(context.Context, filebrowser.WriteFileContentRequest) (filebrowser.WriteFileContentResponse, error) {
+	return filebrowser.WriteFileContentResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) Transfer(context.Context, filebrowser.TransferRequest) (filebrowser.TransferResponse, error) {
+	return filebrowser.TransferResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIFileBrowserService) Download(context.Context, string) (filebrowser.DownloadResult, error) {
+	return filebrowser.DownloadResult{}, nil
 }
 
 func (frontendHTTPOpenAPIPluginService) ResolveAssetPath(string, string) (string, error) {
@@ -219,6 +269,13 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		Launch:     &workspacelaunch.LocalLaunchService{},
 	}); err != nil {
 		return nil, fmt.Errorf("register workspace launch routes: %w", err)
+	}
+	if err := RegisterFileBrowserRoutes(router, FileBrowserRouteDependencies{
+		ModePolicy:     modes.NewPolicy(config.ModeIDE),
+		DeploymentRoot: "/deployment",
+		Browser:        frontendHTTPOpenAPIFileBrowserService{},
+	}); err != nil {
+		return nil, fmt.Errorf("register file browser routes: %w", err)
 	}
 	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),

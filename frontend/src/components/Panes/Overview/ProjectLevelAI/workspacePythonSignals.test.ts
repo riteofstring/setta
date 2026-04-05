@@ -1,4 +1,4 @@
-import { route_get_workspace_python_signal } from "utils/generatedEndpoints";
+import { getWorkspacePythonSignal } from "openapi/http";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getCachedWorkspacePythonSignal,
@@ -7,13 +7,17 @@ import {
   type WorkspacePythonSignalCache,
 } from "./workspacePythonSignals";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_workspace_python_signal: vi.fn(),
+vi.mock("openapi/http", () => ({
+  getWorkspacePythonSignal: vi.fn(),
 }));
 
-const mockedGetWorkspacePythonSignal = vi.mocked(
-  route_get_workspace_python_signal,
-);
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+const mockedGetWorkspacePythonSignal = vi.mocked(getWorkspacePythonSignal);
 
 function buildWorkspacePythonSignalResponse(
   folderPath: string,
@@ -128,7 +132,9 @@ describe("workspacePythonSignals", () => {
 
     expect(mockedGetWorkspacePythonSignal).toHaveBeenCalledTimes(1);
     expect(mockedGetWorkspacePythonSignal).toHaveBeenCalledWith({
-      folderPath: "/workspace/python-app",
+      body: {
+        folderPath: "/workspace/python-app",
+      },
     });
 
     if (!resolveRequest) {

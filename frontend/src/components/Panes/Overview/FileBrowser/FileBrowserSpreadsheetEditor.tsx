@@ -8,7 +8,15 @@ import {
   type Theme,
 } from "@glideapps/glide-data-grid";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { downloadBinary } from "openapi/http";
+import {
+  downloadBinary,
+  getFileBrowserFileContent,
+  getFileBrowserFileStat,
+  writeFileBrowserFileContent,
+  type FilebrowserFileContentResponse,
+  type FilebrowserFileStatResponse,
+  type FilebrowserWriteFileContentResponse,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import type {
   CSSProperties,
@@ -36,16 +44,6 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  route_get_file_browser_file_content,
-  route_get_file_browser_file_stat,
-  route_write_file_browser_file_content,
-} from "utils/generatedEndpoints";
-import {
-  FileContentResponse,
-  FileStatResponse,
-  WriteFileContentResponse,
-} from "utils/generatedTypes";
-import {
   getSpreadsheetColumnLabel,
   isSpreadsheetPath,
   parseSpreadsheetBytes,
@@ -67,10 +65,11 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER = 6;
 
 type FileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<FileContentResponse>;
-type FileBrowserFileStatRouteResponse = ResponseDataAndStatus<FileStatResponse>;
+  ResponseDataAndStatus<FilebrowserFileContentResponse>;
+type FileBrowserFileStatRouteResponse =
+  ResponseDataAndStatus<FilebrowserFileStatResponse>;
 type WriteFileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<WriteFileContentResponse>;
+  ResponseDataAndStatus<FilebrowserWriteFileContentResponse>;
 type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
 
 type SpreadsheetDraft = {
@@ -187,11 +186,14 @@ export function shouldAnnounceSpreadsheetAutoReload(args: {
 async function loadSpreadsheetDraft(
   path: string,
 ): Promise<SpreadsheetLoadOutcome> {
-  const response: FileBrowserFileContentRouteResponse =
-    await route_get_file_browser_file_content({
-      path,
-      maxBytes: MAX_FILE_BYTES,
-    });
+  const response: FileBrowserFileContentRouteResponse = await callOpenAPI(
+    getFileBrowserFileContent({
+      body: {
+        path,
+        maxBytes: MAX_FILE_BYTES,
+      },
+    }),
+  );
   if (!res200(response)) {
     return {
       status: "error",
@@ -344,12 +346,15 @@ async function persistSpreadsheetSave(args: {
   if (isSaveResultStale()) {
     return { status: "stale" };
   }
-  const response: WriteFileBrowserFileContentRouteResponse =
-    await route_write_file_browser_file_content({
-      path: sheet.path,
-      contentId: uploadResult.contentId,
-      expectedMtimeNs,
-    });
+  const response: WriteFileBrowserFileContentRouteResponse = await callOpenAPI(
+    writeFileBrowserFileContent({
+      body: {
+        path: sheet.path,
+        contentId: uploadResult.contentId,
+        expectedMtimeNs,
+      },
+    }),
+  );
   if (isSaveResultStale()) {
     return { status: "stale" };
   }
@@ -1897,10 +1902,13 @@ function useSpreadsheetAutoReloadEffect(args: {
     const loadedMtimeNs = sheet.mtimeNs;
     let isCancelled = false;
     const pollForExternalChanges = async () => {
-      const response: FileBrowserFileStatRouteResponse =
-        await route_get_file_browser_file_stat({
-          path: selectedPath,
-        });
+      const response: FileBrowserFileStatRouteResponse = await callOpenAPI(
+        getFileBrowserFileStat({
+          body: {
+            path: selectedPath,
+          },
+        }),
+      );
       if (!res200(response) || isCancelled) {
         return;
       }

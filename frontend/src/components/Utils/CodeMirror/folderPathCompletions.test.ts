@@ -1,18 +1,26 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
-import { route_get_folder_contents } from "utils/generatedEndpoints";
-import { createFolderContentItem } from "utils/generatedTypes";
+import {
+  getFolderContents,
+  type FilebrowserFolderContentItem,
+} from "openapi/http";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createDynamicFolderPathCompletionSource,
   createFolderPathCompletionSource,
 } from "./folderPathCompletions";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_folder_contents: vi.fn(),
+vi.mock("openapi/http", () => ({
+  getFolderContents: vi.fn(),
 }));
 
-const mockedGetFolderContents = vi.mocked(route_get_folder_contents);
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+const mockedGetFolderContents = vi.mocked(getFolderContents);
 
 function buildContext(text: string, explicit = false) {
   const state = EditorState.create({ doc: text });
@@ -21,7 +29,7 @@ function buildContext(text: string, explicit = false) {
 
 function buildFolderContentsResponse(
   folderPath: string,
-  items: ReturnType<typeof createFolderContentItem>[],
+  items: FilebrowserFolderContentItem[],
 ) {
   return {
     data: {
@@ -30,6 +38,17 @@ function buildFolderContentsResponse(
     },
     status: 200,
     hasResponse: true,
+  };
+}
+
+function createFolderContentItem(
+  options: Partial<FilebrowserFolderContentItem> = {},
+): FilebrowserFolderContentItem {
+  return {
+    fullPath: "",
+    name: "",
+    type: "file",
+    ...options,
   };
 }
 
@@ -75,12 +94,14 @@ describe("createFolderPathCompletionSource", () => {
 
     const result = await source(buildContext("/root/a"));
     expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      baseFolderPath: null,
-      folderPath: "/root",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: false,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "/root",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: false,
+        missingFolderBehavior: "empty",
+      },
     });
     expect(result?.options.map((option) => option.label)).toEqual([
       "alpha",
@@ -105,12 +126,14 @@ describe("createFolderPathCompletionSource", () => {
     const result = await source(buildContext("/etc/"));
     expect(result).toBeNull();
     expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      baseFolderPath: null,
-      folderPath: "/etc",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: false,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "/etc",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: false,
+        missingFolderBehavior: "empty",
+      },
     });
   });
 
@@ -135,12 +158,14 @@ describe("createFolderPathCompletionSource", () => {
 
     const result = await source(buildContext("/Users/p"));
     expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      baseFolderPath: null,
-      folderPath: "/Users",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "/Users",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: true,
+        missingFolderBehavior: "empty",
+      },
     });
     expect(result?.options.map((option) => option.label)).toEqual(["projects"]);
   });
@@ -167,12 +192,14 @@ describe("createFolderPathCompletionSource", () => {
 
     const result = await source(buildContext("C:\\Users\\p"));
     expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      baseFolderPath: null,
-      folderPath: "C:/Users",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "C:/Users",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: true,
+        missingFolderBehavior: "empty",
+      },
     });
     expect(result?.options[0].apply).toBe("projects\\");
   });
@@ -220,12 +247,14 @@ describe("createFolderPathCompletionSource", () => {
 
     const result = await source(buildContext("src/c"));
     expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      baseFolderPath: "/root",
-      folderPath: "src",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: false,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: "/root",
+        folderPath: "src",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: false,
+        missingFolderBehavior: "empty",
+      },
     });
     expect(result?.options.map((option) => option.label)).toEqual([
       "components",
@@ -268,24 +297,28 @@ describe("createDynamicFolderPathCompletionSource", () => {
     const first = await source(buildContext("/root/a"));
     expect(first?.options.map((option) => option.label)).toEqual(["alpha"]);
     expect(mockedGetFolderContents).toHaveBeenNthCalledWith(1, {
-      baseFolderPath: null,
-      folderPath: "/root",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: false,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "/root",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: false,
+        missingFolderBehavior: "empty",
+      },
     });
 
     options.allowOutsideWorkspaceRoot = true;
     const second = await source(buildContext("/root/a"));
     expect(second?.options.map((option) => option.label)).toEqual(["beta"]);
     expect(mockedGetFolderContents).toHaveBeenNthCalledWith(2, {
-      baseFolderPath: null,
-      folderPath: "/root",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "/root",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: true,
+        missingFolderBehavior: "empty",
+      },
     });
   });
 
@@ -308,12 +341,14 @@ describe("createDynamicFolderPathCompletionSource", () => {
 
     const result = await source(buildContext("C:\\Users\\p"));
     expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      baseFolderPath: null,
-      folderPath: "C:/Users",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "C:/Users",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: true,
+        missingFolderBehavior: "empty",
+      },
     });
     expect(result?.options[0].apply).toBe("projects\\");
   });

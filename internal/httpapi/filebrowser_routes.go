@@ -190,18 +190,118 @@ func RegisterFileBrowserRoutes(router chi.Router, deps FileBrowserRouteDependenc
 	}
 
 	guard := modeRequirementMiddleware(deps.ModePolicy, deps.ModePolicy.RequireNotLauncher)
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateFile, createFileHandler(deps))
-	router.With(guard).Post(RouteCheckIfFileExists, checkIfFileExistsHandler(deps))
-	router.With(guard).Post(RouteCheckWorkspaceInitialized, checkWorkspaceInitializedHandler(deps))
-	router.With(guard).Post(RouteGetFileBrowserRoot, getFileBrowserRootHandler(deps))
-	router.With(guard).Post(RouteGetWorkspacePythonSignal, getWorkspacePythonSignalHandler(deps))
-	router.With(guard).Post(RouteGetFolderContents, getFolderContentsHandler(deps))
-	router.With(guard).Post(RouteGetFileBrowserDownloadURL, getFileBrowserDownloadURLsHandler(deps))
-	router.With(guard).Post(RouteGetFileBrowserFileContent, getFileBrowserFileContentHandler(deps))
-	router.With(guard).Post(RouteGetFileBrowserFileStat, getFileBrowserFileStatHandler(deps))
-	router.With(guard).Post(RouteWriteFileBrowserContent, writeFileBrowserFileContentHandler(deps))
-	router.With(guard).Post(RouteTransferFileBrowserEntry, transferFileBrowserEntryHandler(deps))
-	router.With(guard).Get(RouteFileBrowserDownload, fileBrowserDownloadHandler(deps))
+	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
+	sharedRouter := router.With(guard)
+	registerOpenAPIPost[CreateFileRequest, openAPIJSONNull](
+		ideRouter,
+		"createFile",
+		RouteCreateFile,
+		createFileHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Create an empty file inside the workspace root."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[CheckIfFileExistsRequest, bool](
+		sharedRouter,
+		"checkIfFileExists",
+		RouteCheckIfFileExists,
+		checkIfFileExistsHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Check whether a file exists and is accessible from the current runtime."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[CheckWorkspaceInitializedRequest, bool](
+		sharedRouter,
+		"checkWorkspaceInitialized",
+		RouteCheckWorkspaceInitialized,
+		checkWorkspaceInitializedHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Check whether a folder is initialized for Setta workspace usage."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPostNoRequest[filebrowser.RootResponse](
+		sharedRouter,
+		"getFileBrowserRoot",
+		RouteGetFileBrowserRoot,
+		getFileBrowserRootHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Get the root path and ignore patterns for the file browser."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetWorkspacePythonSignalRequest, filebrowser.WorkspacePythonSignalResponse](
+		sharedRouter,
+		"getWorkspacePythonSignal",
+		RouteGetWorkspacePythonSignal,
+		getWorkspacePythonSignalHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Detect whether a workspace folder contains Python project signals."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetFolderContentsRequest, filebrowser.ListFolderResponse](
+		sharedRouter,
+		"getFolderContents",
+		RouteGetFolderContents,
+		getFolderContentsHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("List the visible contents of a folder in the file browser."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetFileBrowserDownloadURLsRequest, []filebrowser.FileBrowserDownloadURLEntry](
+		sharedRouter,
+		"getFileBrowserDownloadUrls",
+		RouteGetFileBrowserDownloadURL,
+		getFileBrowserDownloadURLsHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Build signed backend download URLs for file browser entries."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetFileBrowserFileContentRequest, filebrowser.FileContentResponse](
+		sharedRouter,
+		"getFileBrowserFileContent",
+		RouteGetFileBrowserFileContent,
+		getFileBrowserFileContentHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Read file browser content into the runtime binary store."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetFileBrowserFileStatRequest, filebrowser.FileStatResponse](
+		sharedRouter,
+		"getFileBrowserFileStat",
+		RouteGetFileBrowserFileStat,
+		getFileBrowserFileStatHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Read file browser stat metadata for a path."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[WriteFileBrowserFileContentRequest, filebrowser.WriteFileContentResponse](
+		sharedRouter,
+		"writeFileBrowserFileContent",
+		RouteWriteFileBrowserContent,
+		writeFileBrowserFileContentHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Write binary-store content to a file browser path."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[TransferFileBrowserEntryRequest, filebrowser.TransferResponse](
+		sharedRouter,
+		"transferFileBrowserEntry",
+		RouteTransferFileBrowserEntry,
+		transferFileBrowserEntryHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Copy or move a file browser entry into another folder."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIGet[openAPIBinaryPayload](
+		sharedRouter,
+		"downloadFileBrowserEntry",
+		RouteFileBrowserDownload,
+		fileBrowserDownloadHandler(deps),
+		withOpenAPITags("File Browser"),
+		withOpenAPISummary("Download a file browser entry by signed token."),
+		withOpenAPIModeRequirement("not-launcher"),
+		withOpenAPIPathParams[FileBrowserDownloadRouteParams](),
+		withOpenAPIResponseContentType("application/octet-stream"),
+	)
 	return nil
 }
 

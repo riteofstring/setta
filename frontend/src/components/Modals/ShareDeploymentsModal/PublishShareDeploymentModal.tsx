@@ -1,5 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
+import { checkIfFileExists } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
@@ -9,12 +11,10 @@ import { buildSharePath } from "utils/constants";
 import { createDefaultSharePolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_check_if_file_exists,
   route_list_share_deployments,
   route_publish_share_deployment,
 } from "utils/generatedEndpoints";
 import type {
-  CheckIfFileExistsResponse,
   DeploymentMetadataResponse,
   PublishShareDeploymentRequest,
   RunSnapshotMode,
@@ -24,8 +24,7 @@ import { createRandomName } from "utils/idNameCreation";
 type SharePolicyOverridesInput = NonNullable<
   PublishShareDeploymentRequest["sharePolicyOverrides"]
 >;
-type CheckIfFileExistsRouteResponse =
-  ResponseDataAndStatus<CheckIfFileExistsResponse>;
+type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
 
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
@@ -90,10 +89,13 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     if (loadStoredListenerEntrypoint().trim().length > 0) {
       return;
     }
-    const res: CheckIfFileExistsRouteResponse =
-      await route_check_if_file_exists({
-        filepath: DEFAULT_LISTENER_ENTRYPOINT,
-      });
+    const res: CheckIfFileExistsRouteResponse = await callOpenAPI(
+      checkIfFileExists({
+        body: {
+          filepath: DEFAULT_LISTENER_ENTRYPOINT,
+        },
+      }),
+    );
     if (res200(res) && res.data) {
       setListenerEntrypoint((current) => {
         if (current.trim().length > 0) {

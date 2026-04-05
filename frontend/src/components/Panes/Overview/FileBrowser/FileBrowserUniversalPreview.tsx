@@ -1,4 +1,10 @@
-import { downloadBinary } from "openapi/http";
+import {
+  downloadBinary,
+  getFileBrowserDownloadUrls,
+  getFileBrowserFileContent,
+  type FilebrowserFileBrowserDownloadUrlEntry,
+  type FilebrowserFileContentResponse,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { FiArchive, FiFileText, FiMusic } from "react-icons/fi";
@@ -9,14 +15,6 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import {
-  route_get_file_browser_download_urls,
-  route_get_file_browser_file_content,
-} from "utils/generatedEndpoints";
-import {
-  FileContentResponse,
-  GetFileBrowserDownloadURLsResponse,
-} from "utils/generatedTypes";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 import type { FileNode } from "./FileBrowserPane";
 
@@ -28,10 +26,11 @@ const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
 
-type FileBrowserDownloadURLsRouteResponse =
-  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
+type FileBrowserDownloadURLsRouteResponse = ResponseDataAndStatus<
+  Array<FilebrowserFileBrowserDownloadUrlEntry>
+>;
 type FileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<FileContentResponse>;
+  ResponseDataAndStatus<FilebrowserFileContentResponse>;
 type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
 
 export function resolveFileBrowserPreviewKind({
@@ -141,9 +140,13 @@ export function FileBrowserUniversalPreview({
     const loadUrl = async () => {
       try {
         const response: FileBrowserDownloadURLsRouteResponse =
-          await route_get_file_browser_download_urls({
-            paths: [selectedFilePath],
-          });
+          await callOpenAPI(
+            getFileBrowserDownloadUrls({
+              body: {
+                paths: [selectedFilePath],
+              },
+            }),
+          );
         if (!isMounted) {
           return;
         }
@@ -197,11 +200,14 @@ export function FileBrowserUniversalPreview({
     });
     const loadText = async () => {
       try {
-        const response: FileBrowserFileContentRouteResponse =
-          await route_get_file_browser_file_content({
-            path: selectedFilePath,
-            maxBytes: TEXT_PREVIEW_MAX_BYTES,
-          });
+        const response: FileBrowserFileContentRouteResponse = await callOpenAPI(
+          getFileBrowserFileContent({
+            body: {
+              path: selectedFilePath,
+              maxBytes: TEXT_PREVIEW_MAX_BYTES,
+            },
+          }),
+        );
         if (!isMounted || isStaleRequest()) {
           return;
         }

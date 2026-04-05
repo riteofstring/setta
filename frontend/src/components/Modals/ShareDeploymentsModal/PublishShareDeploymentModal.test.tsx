@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import * as Dialog from "@radix-ui/react-dialog";
+import { checkIfFileExists } from "openapi/http";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,8 +11,11 @@ import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { createProjectConfig } from "utils/generatedTypes";
 
+const openAPI = vi.hoisted(() => ({
+  checkIfFileExists: vi.fn(),
+}));
+
 const generatedEndpoints = vi.hoisted(() => ({
-  route_check_if_file_exists: vi.fn(),
   route_list_share_deployments: vi.fn(),
   route_publish_share_deployment: vi.fn(),
 }));
@@ -20,13 +24,27 @@ vi.mock("state/actions/modal", () => ({
   closeModal: vi.fn(),
 }));
 
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    checkIfFileExists: openAPI.checkIfFileExists,
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
     typeof import("utils/generatedEndpoints")
   >("utils/generatedEndpoints");
   return {
     ...actual,
-    route_check_if_file_exists: generatedEndpoints.route_check_if_file_exists,
     route_list_share_deployments:
       generatedEndpoints.route_list_share_deployments,
     route_publish_share_deployment:
@@ -97,7 +115,7 @@ describe("PublishShareDeploymentModal", () => {
     resetProjectStores();
     installTestLocalStorage();
     document.body.innerHTML = "";
-    generatedEndpoints.route_check_if_file_exists.mockReset();
+    openAPI.checkIfFileExists.mockReset();
     generatedEndpoints.route_list_share_deployments.mockReset();
     generatedEndpoints.route_publish_share_deployment.mockReset();
     useProjectState.setState({
@@ -128,7 +146,7 @@ describe("PublishShareDeploymentModal", () => {
   });
 
   it("autofills the listener entrypoint through the Go file-exists contract", async () => {
-    generatedEndpoints.route_check_if_file_exists.mockResolvedValue({
+    openAPI.checkIfFileExists.mockResolvedValue({
       data: true,
       status: 200,
       hasResponse: true,
@@ -142,8 +160,10 @@ describe("PublishShareDeploymentModal", () => {
     const { host, root } = await renderModal();
     await flushEffects();
 
-    expect(generatedEndpoints.route_check_if_file_exists).toHaveBeenCalledWith({
-      filepath: "listener/app.py",
+    expect(checkIfFileExists).toHaveBeenCalledWith({
+      body: {
+        filepath: "listener/app.py",
+      },
     });
     const entrypointInput = host.querySelector(
       'input[placeholder="listener/app.py"]',

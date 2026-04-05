@@ -1,9 +1,9 @@
+import type {
+  FilebrowserFolderContentItem,
+  FilebrowserRootResponse,
+  FilebrowserWriteFileContentResponse,
+} from "openapi/http";
 import { GoHTTPRoutes, GoRoutePrefixes } from "utils/generatedRoutes";
-import {
-  createFolderContentItem,
-  createRootResponse,
-  createWriteFileContentResponse,
-} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { importNativeFileToWorkspace } from "./nativeFileImport";
 
@@ -14,18 +14,85 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
+function resolveFetchURL(input: unknown): string {
+  if (input instanceof Request) {
+    return input.url;
+  }
+  return String(input);
+}
+
 function matchesGoHTTPRoute(input: unknown, routePath: string): boolean {
-  const url = new URL(String(input), "http://setta.test");
+  const url = new URL(resolveFetchURL(input), "http://setta.test");
   return url.pathname === `${GoRoutePrefixes.api}${routePath}`;
+}
+
+async function getRequestJSONBody(
+  input: unknown,
+  init?: RequestInit,
+): Promise<Record<string, unknown>> {
+  if (input instanceof Request) {
+    return JSON.parse(await input.clone().text()) as Record<string, unknown>;
+  }
+  if (typeof init?.body === "string") {
+    return JSON.parse(init.body) as Record<string, unknown>;
+  }
+  throw new Error("Expected JSON request body.");
+}
+
+async function getRequestFormData(
+  input: unknown,
+  init?: RequestInit,
+): Promise<FormData> {
+  if (input instanceof Request) {
+    return await input.clone().formData();
+  }
+  if (init?.body instanceof FormData) {
+    return init.body;
+  }
+  throw new Error("Expected FormData request body.");
 }
 
 function buildFolderContentsResponse(
   folderPath: string,
-  items: ReturnType<typeof createFolderContentItem>[],
+  items: FilebrowserFolderContentItem[],
 ) {
   return {
     folderPath,
     items,
+  };
+}
+
+function createFolderContentItem(
+  options: Partial<FilebrowserFolderContentItem> = {},
+): FilebrowserFolderContentItem {
+  return {
+    fullPath: "",
+    name: "",
+    type: "file",
+    ...options,
+  };
+}
+
+function createRootResponse(
+  options: Partial<FilebrowserRootResponse> = {},
+): FilebrowserRootResponse {
+  return {
+    ignorePatterns: [],
+    pathSeparator: "/",
+    rootPath: "",
+    ...options,
+  };
+}
+
+function createWriteFileContentResponse(
+  options: Partial<FilebrowserWriteFileContentResponse> = {},
+): FilebrowserWriteFileContentResponse {
+  return {
+    mimeType: "",
+    mtimeNs: 0,
+    path: "",
+    size: 0,
+    ...options,
   };
 }
 
@@ -45,8 +112,7 @@ describe("importNativeFileToWorkspace", () => {
     let writePayload: Record<string, unknown> | null = null;
     let writeCallCount = 0;
     fetchMock.mockImplementation(async (input, init) => {
-      const url = input;
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFileBrowserRoot)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFileBrowserRoot)) {
         return jsonResponse(
           createRootResponse({
             rootPath: "/workspace",
@@ -55,13 +121,11 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFolderContents)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFolderContents)) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.binaryUpload)) {
-        if (!(init?.body instanceof FormData)) {
-          throw new Error("Expected FormData upload body.");
-        }
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.binaryUpload)) {
+        await getRequestFormData(input, init);
         return jsonResponse({
           contentId: "content-abc",
           byteLength: 11,
@@ -69,12 +133,9 @@ describe("importNativeFileToWorkspace", () => {
           sha256: null,
         });
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.writeFileBrowserFileContent)) {
-        if (typeof init?.body !== "string") {
-          throw new Error("Expected JSON write payload.");
-        }
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.writeFileBrowserFileContent)) {
         writeCallCount += 1;
-        writePayload = JSON.parse(init.body);
+        writePayload = await getRequestJSONBody(input, init);
         return jsonResponse(
           createWriteFileContentResponse({
             path: "/workspace/drop.csv",
@@ -84,7 +145,7 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      throw new Error(`Unexpected fetch URL: ${String(url)}`);
+      throw new Error(`Unexpected fetch URL: ${resolveFetchURL(input)}`);
     });
 
     const file = new File(["a,b\n1,2\n"], "drop.csv", { type: "text/csv" });
@@ -106,8 +167,7 @@ describe("importNativeFileToWorkspace", () => {
   it("returns upload errors without writing file content", async () => {
     let writeCalled = false;
     fetchMock.mockImplementation(async (input) => {
-      const url = input;
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFileBrowserRoot)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFileBrowserRoot)) {
         return jsonResponse(
           createRootResponse({
             rootPath: "/workspace",
@@ -116,17 +176,17 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFolderContents)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFolderContents)) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.binaryUpload)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.binaryUpload)) {
         return jsonResponse({ detail: "Upload denied." }, 400);
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.writeFileBrowserFileContent)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.writeFileBrowserFileContent)) {
         writeCalled = true;
         return jsonResponse({ detail: "unexpected" }, 500);
       }
-      throw new Error(`Unexpected fetch URL: ${String(url)}`);
+      throw new Error(`Unexpected fetch URL: ${resolveFetchURL(input)}`);
     });
 
     const file = new File(["abc"], "drop.csv", { type: "text/csv" });
@@ -142,8 +202,7 @@ describe("importNativeFileToWorkspace", () => {
   it("resolves write conflicts with a suffixed file name", async () => {
     const writePayloads: Array<Record<string, unknown>> = [];
     fetchMock.mockImplementation(async (input, init) => {
-      const url = input;
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFileBrowserRoot)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFileBrowserRoot)) {
         return jsonResponse(
           createRootResponse({
             rootPath: "/workspace",
@@ -152,7 +211,7 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFolderContents)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFolderContents)) {
         return jsonResponse(
           buildFolderContentsResponse("/workspace", [
             createFolderContentItem({
@@ -163,7 +222,7 @@ describe("importNativeFileToWorkspace", () => {
           ]),
         );
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.binaryUpload)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.binaryUpload)) {
         return jsonResponse({
           contentId: "content-abc",
           byteLength: 11,
@@ -171,11 +230,8 @@ describe("importNativeFileToWorkspace", () => {
           sha256: null,
         });
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.writeFileBrowserFileContent)) {
-        if (typeof init?.body !== "string") {
-          throw new Error("Expected JSON write payload.");
-        }
-        const payload = JSON.parse(init.body) as Record<string, unknown>;
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.writeFileBrowserFileContent)) {
+        const payload = await getRequestJSONBody(input, init);
         writePayloads.push(payload);
         if (writePayloads.length === 1) {
           return jsonResponse({ detail: "File already exists." }, 409);
@@ -189,7 +245,7 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      throw new Error(`Unexpected fetch URL: ${String(url)}`);
+      throw new Error(`Unexpected fetch URL: ${resolveFetchURL(input)}`);
     });
 
     const file = new File(["a,b\n1,2\n"], "drop.csv", { type: "text/csv" });
@@ -217,8 +273,7 @@ describe("importNativeFileToWorkspace", () => {
   it("keeps retrying write conflicts beyond three attempts", async () => {
     const writePayloads: Array<Record<string, unknown>> = [];
     fetchMock.mockImplementation(async (input, init) => {
-      const url = input;
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFileBrowserRoot)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFileBrowserRoot)) {
         return jsonResponse(
           createRootResponse({
             rootPath: "/workspace",
@@ -227,10 +282,10 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFolderContents)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFolderContents)) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.binaryUpload)) {
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.binaryUpload)) {
         return jsonResponse({
           contentId: "content-abc",
           byteLength: 11,
@@ -238,11 +293,8 @@ describe("importNativeFileToWorkspace", () => {
           sha256: null,
         });
       }
-      if (matchesGoHTTPRoute(url, GoHTTPRoutes.writeFileBrowserFileContent)) {
-        if (typeof init?.body !== "string") {
-          throw new Error("Expected JSON write payload.");
-        }
-        const payload = JSON.parse(init.body) as Record<string, unknown>;
+      if (matchesGoHTTPRoute(input, GoHTTPRoutes.writeFileBrowserFileContent)) {
+        const payload = await getRequestJSONBody(input, init);
         writePayloads.push(payload);
         if (writePayloads.length <= 5) {
           return jsonResponse({ detail: "File already exists." }, 409);
@@ -256,7 +308,7 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      throw new Error(`Unexpected fetch URL: ${String(url)}`);
+      throw new Error(`Unexpected fetch URL: ${resolveFetchURL(input)}`);
     });
 
     const file = new File(["a,b\n1,2\n"], "drop.csv", { type: "text/csv" });

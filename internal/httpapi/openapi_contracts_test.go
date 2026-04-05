@@ -136,6 +136,13 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register workspace launch routes: %v", err)
 	}
+	if err := RegisterFileBrowserRoutes(router, FileBrowserRouteDependencies{
+		ModePolicy:     modes.NewPolicy(config.ModeIDE),
+		DeploymentRoot: "/deployment",
+		Browser:        frontendHTTPOpenAPIFileBrowserService{},
+	}); err != nil {
+		t.Fatalf("register file browser routes: %v", err)
+	}
 	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
 		Service:    frontendHTTPOpenAPIPluginService{},
@@ -186,6 +193,66 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if workspaceLaunch.OperationID != "launchWorkspace" {
 		t.Fatalf("workspace launch operation id = %q, want %q", workspaceLaunch.OperationID, "launchWorkspace")
+	}
+
+	createFile := document.Paths[RouteCreateFile].Post
+	if createFile == nil {
+		t.Fatalf("expected %s post operation", RouteCreateFile)
+	}
+	if createFile.OperationID != "createFile" {
+		t.Fatalf("create file operation id = %q, want %q", createFile.OperationID, "createFile")
+	}
+	if got := createFile.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("create file mode requirement = %#v, want %q", got, "ide")
+	}
+	createFileResponse := createFile.Responses["200"]
+	if createFileResponse == nil {
+		t.Fatalf("expected createFile success response")
+	}
+	createFileJSON := createFileResponse.Content["application/json"]
+	if createFileJSON == nil || createFileJSON.Schema == nil || createFileJSON.Schema.Type != "null" {
+		t.Fatalf("createFile response schema = %#v, want json null", createFileJSON)
+	}
+
+	getFileBrowserRoot := document.Paths[RouteGetFileBrowserRoot].Post
+	if getFileBrowserRoot == nil {
+		t.Fatalf("expected %s post operation", RouteGetFileBrowserRoot)
+	}
+	if getFileBrowserRoot.OperationID != "getFileBrowserRoot" {
+		t.Fatalf("file browser root operation id = %q, want %q", getFileBrowserRoot.OperationID, "getFileBrowserRoot")
+	}
+	if getFileBrowserRoot.RequestBody != nil {
+		t.Fatalf("expected getFileBrowserRoot request body to be omitted, got %#v", getFileBrowserRoot.RequestBody)
+	}
+
+	getFileBrowserDownloadURLs := document.Paths[RouteGetFileBrowserDownloadURL].Post
+	if getFileBrowserDownloadURLs == nil {
+		t.Fatalf("expected %s post operation", RouteGetFileBrowserDownloadURL)
+	}
+	if getFileBrowserDownloadURLs.OperationID != "getFileBrowserDownloadUrls" {
+		t.Fatalf("download url operation id = %q, want %q", getFileBrowserDownloadURLs.OperationID, "getFileBrowserDownloadUrls")
+	}
+	if got := getFileBrowserDownloadURLs.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("download url mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	fileBrowserDownload := document.Paths[RouteFileBrowserDownload].Get
+	if fileBrowserDownload == nil {
+		t.Fatalf("expected %s get operation", RouteFileBrowserDownload)
+	}
+	if fileBrowserDownload.OperationID != "downloadFileBrowserEntry" {
+		t.Fatalf("file browser download operation id = %q, want %q", fileBrowserDownload.OperationID, "downloadFileBrowserEntry")
+	}
+	if len(fileBrowserDownload.Parameters) != 1 || fileBrowserDownload.Parameters[0].Name != "token" {
+		t.Fatalf("file browser download params = %#v, want token path param", fileBrowserDownload.Parameters)
+	}
+	fileBrowserDownloadResponse := fileBrowserDownload.Responses["200"]
+	if fileBrowserDownloadResponse == nil {
+		t.Fatalf("expected file browser download success response")
+	}
+	fileBrowserDownloadContent := fileBrowserDownloadResponse.Content["application/octet-stream"]
+	if fileBrowserDownloadContent == nil || fileBrowserDownloadContent.Schema == nil || fileBrowserDownloadContent.Schema.Format != "binary" {
+		t.Fatalf("file browser download response schema = %#v, want binary octet-stream", fileBrowserDownloadContent)
 	}
 
 	mcpStatus := document.Paths[RouteMCPServerRuntimeStatus].Post

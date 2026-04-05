@@ -1,15 +1,23 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
-import { route_get_folder_contents } from "utils/generatedEndpoints";
-import { createFolderContentItem } from "utils/generatedTypes";
+import {
+  getFolderContents,
+  type FilebrowserFolderContentItem,
+} from "openapi/http";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDynamicFolderPathCompletionSource } from "./folderPathCompletions";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_folder_contents: vi.fn(),
+vi.mock("openapi/http", () => ({
+  getFolderContents: vi.fn(),
 }));
 
-const mockedGetFolderContents = vi.mocked(route_get_folder_contents);
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+const mockedGetFolderContents = vi.mocked(getFolderContents);
 
 function buildContext(text: string, explicit = false) {
   const state = EditorState.create({ doc: text });
@@ -18,7 +26,7 @@ function buildContext(text: string, explicit = false) {
 
 function buildFolderContentsResponse(
   folderPath: string,
-  items: ReturnType<typeof createFolderContentItem>[],
+  items: FilebrowserFolderContentItem[],
 ) {
   return {
     data: {
@@ -27,6 +35,17 @@ function buildFolderContentsResponse(
     },
     status: 200,
     hasResponse: true,
+  };
+}
+
+function createFolderContentItem(
+  options: Partial<FilebrowserFolderContentItem> = {},
+): FilebrowserFolderContentItem {
+  return {
+    fullPath: "",
+    name: "",
+    type: "file",
+    ...options,
   };
 }
 
@@ -76,20 +95,24 @@ describe("folder path completions integration", () => {
     expect(outsideRoot?.options[0].apply).toBe("projects\\");
 
     expect(mockedGetFolderContents).toHaveBeenNthCalledWith(1, {
-      baseFolderPath: null,
-      folderPath: "/root",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: false,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "/root",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: false,
+        missingFolderBehavior: "empty",
+      },
     });
     expect(mockedGetFolderContents).toHaveBeenNthCalledWith(2, {
-      baseFolderPath: null,
-      folderPath: "C:/Users",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "C:/Users",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: true,
+        missingFolderBehavior: "empty",
+      },
     });
   });
 });

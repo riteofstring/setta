@@ -9,6 +9,18 @@ import {
 } from "components/Utils/FileBrowserPathControls";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  checkWorkspaceInitialized,
+  getFileBrowserDownloadUrls,
+  getFileBrowserRoot,
+  getFolderContents,
+  transferFileBrowserEntry,
+  type FilebrowserFileBrowserDownloadUrlEntry,
+  type FilebrowserListFolderResponse,
+  type FilebrowserRootResponse,
+  type FilebrowserTransferResponse,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { CSSProperties } from "react";
 import {
   useCallback,
@@ -59,22 +71,7 @@ import {
   filterFileBrowserItemsByTypeFilters,
   type FileBrowserSearchScope,
 } from "utils/fileBrowserTypes";
-import {
-  route_check_workspace_initialized,
-  route_get_file_browser_download_urls,
-  route_get_file_browser_root,
-  route_get_folder_contents,
-  route_transfer_file_browser_entry,
-} from "utils/generatedEndpoints";
-import {
-  CheckWorkspaceInitializedResponse,
-  FileBrowserDownloadURLEntry,
-  GetFileBrowserDownloadURLsResponse,
-  ListFolderResponse,
-  NotificationTypeEnum,
-  RootResponse,
-  TransferResponse,
-} from "utils/generatedTypes";
+import { NotificationTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
 const ROW_HEIGHT = 24;
@@ -104,15 +101,20 @@ type FileBrowserClipboardEntry = {
 type SortKey = "name" | "modified";
 type SortDirection = "asc" | "desc";
 
-type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
-type CheckWorkspaceInitializedRouteResponse =
-  ResponseDataAndStatus<CheckWorkspaceInitializedResponse>;
-type FileBrowserRootRouteResponse = ResponseDataAndStatus<RootResponse>;
-type FolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
-type FileBrowserDownloadURLsRouteResponse =
-  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
+type FileUrlEntry = Pick<
+  FilebrowserFileBrowserDownloadUrlEntry,
+  "url" | "expiresAt"
+>;
+type CheckWorkspaceInitializedRouteResponse = ResponseDataAndStatus<boolean>;
+type FileBrowserRootRouteResponse =
+  ResponseDataAndStatus<FilebrowserRootResponse>;
+type FolderContentsRouteResponse =
+  ResponseDataAndStatus<FilebrowserListFolderResponse>;
+type FileBrowserDownloadURLsRouteResponse = ResponseDataAndStatus<
+  Array<FilebrowserFileBrowserDownloadUrlEntry>
+>;
 type TransferFileBrowserEntryRouteResponse =
-  ResponseDataAndStatus<TransferResponse>;
+  ResponseDataAndStatus<FilebrowserTransferResponse>;
 
 export type FileNode = {
   name: string;
@@ -750,16 +752,19 @@ export function FileBrowserPane({
         });
       };
       try {
-        const res: FolderContentsRouteResponse =
-          await route_get_folder_contents({
-            folderPath,
-            ignorePatterns: activeIgnorePatterns,
-            maxEntries: MAX_ENTRIES,
-            includeMtime: true,
-            includeSettaInitialized: includeSettaInitializedRef.current,
-            allowOutsideWorkspaceRoot,
-            missingFolderBehavior: "empty",
-          });
+        const res: FolderContentsRouteResponse = await callOpenAPI(
+          getFolderContents({
+            body: {
+              folderPath,
+              ignorePatterns: activeIgnorePatterns,
+              maxEntries: MAX_ENTRIES,
+              includeMtime: true,
+              includeSettaInitialized: includeSettaInitializedRef.current,
+              allowOutsideWorkspaceRoot,
+              missingFolderBehavior: "empty",
+            },
+          }),
+        );
         if (rootRequestIdRef.current !== activeRootRequestId) {
           return null;
         }
@@ -843,10 +848,14 @@ export function FileBrowserPane({
             })
           ) {
             const initializationRes: CheckWorkspaceInitializedRouteResponse =
-              await route_check_workspace_initialized({
-                folderPath: resolvedFolderPath,
-                allowOutsideWorkspaceRoot,
-              });
+              await callOpenAPI(
+                checkWorkspaceInitialized({
+                  body: {
+                    folderPath: resolvedFolderPath,
+                    allowOutsideWorkspaceRoot,
+                  },
+                }),
+              );
             if (rootRequestIdRef.current !== activeRootRequestId) {
               return null;
             }
@@ -1073,7 +1082,7 @@ export function FileBrowserPane({
     didLoadRootRef.current = true;
     const loadRoot = async () => {
       const res: FileBrowserRootRouteResponse =
-        await route_get_file_browser_root();
+        await callOpenAPI(getFileBrowserRoot());
       if (!res200(res)) {
         let errorMessage = "Failed to load file browser root.";
         if (res.hasResponse && res.status !== undefined) {
@@ -1199,8 +1208,13 @@ export function FileBrowserPane({
     for (const path of pending) {
       fileUrlRequests.current.add(path);
     }
-    const res: FileBrowserDownloadURLsRouteResponse =
-      await route_get_file_browser_download_urls({ paths: pending });
+    const res: FileBrowserDownloadURLsRouteResponse = await callOpenAPI(
+      getFileBrowserDownloadUrls({
+        body: {
+          paths: pending,
+        },
+      }),
+    );
     for (const path of pending) {
       fileUrlRequests.current.delete(path);
     }
@@ -1362,12 +1376,15 @@ export function FileBrowserPane({
         );
         return null;
       }
-      const response: TransferFileBrowserEntryRouteResponse =
-        await route_transfer_file_browser_entry({
-          sourcePath: normalizedSourcePath,
-          destinationFolderPath: normalizedDestinationFolderPath,
-          operation,
-        });
+      const response: TransferFileBrowserEntryRouteResponse = await callOpenAPI(
+        transferFileBrowserEntry({
+          body: {
+            sourcePath: normalizedSourcePath,
+            destinationFolderPath: normalizedDestinationFolderPath,
+            operation,
+          },
+        }),
+      );
       if (!res200(response)) {
         const detail = getErrorDetail(response.data);
         addTemporaryNotification(

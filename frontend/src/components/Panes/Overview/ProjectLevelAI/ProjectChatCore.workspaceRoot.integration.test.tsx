@@ -6,6 +6,11 @@ import { StrictMode, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const openAPI = vi.hoisted(() => ({
+  getFileBrowserRoot: vi.fn(),
+  getWorkspacePythonSignal: vi.fn(),
+}));
+
 vi.mock("components/Chat/ChatInput", () => ({
   ChatInput: () => <div data-testid="mock-chat-input" />,
   resolveSlashCommandRequest: vi.fn(),
@@ -15,16 +20,21 @@ vi.mock("components/Chat/ChatMessages", () => ({
   ChatMessageList: () => <div data-testid="mock-chat-message-list" />,
 }));
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_file_browser_root: vi.fn(),
-    route_get_workspace_python_signal: vi.fn(),
+    getFileBrowserRoot: openAPI.getFileBrowserRoot,
+    getWorkspacePythonSignal: openAPI.getWorkspacePythonSignal,
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 import {
   useAIStore,
@@ -32,10 +42,6 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  route_get_file_browser_root,
-  route_get_workspace_python_signal,
-} from "utils/generatedEndpoints";
 import { EngineTypeEnum, createProjectConfig } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 
@@ -97,8 +103,9 @@ describe("ProjectChatCore workspace root scans", () => {
 
   beforeEach(() => {
     resetProjectStores();
-    vi.clearAllMocks();
     vi.useFakeTimers();
+    openAPI.getFileBrowserRoot.mockReset();
+    openAPI.getWorkspacePythonSignal.mockReset();
 
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -127,7 +134,7 @@ describe("ProjectChatCore workspace root scans", () => {
       pendingProjectChatPrompt: null,
     });
 
-    vi.mocked(route_get_file_browser_root).mockResolvedValue({
+    openAPI.getFileBrowserRoot.mockResolvedValue({
       data: {
         rootPath: "/workspace",
         pathSeparator: "/",
@@ -159,7 +166,7 @@ describe("ProjectChatCore workspace root scans", () => {
         }) => void)
       | null = null;
 
-    vi.mocked(route_get_workspace_python_signal).mockImplementation(
+    openAPI.getWorkspacePythonSignal.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveFolderScan = resolve;
@@ -169,14 +176,14 @@ describe("ProjectChatCore workspace root scans", () => {
     await renderProjectChatCore();
 
     await vi.waitFor(() => {
-      expect(route_get_workspace_python_signal).toHaveBeenCalledTimes(1);
+      expect(openAPI.getWorkspacePythonSignal).toHaveBeenCalledTimes(1);
     });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(6200);
     });
 
-    expect(route_get_workspace_python_signal).toHaveBeenCalledTimes(1);
+    expect(openAPI.getWorkspacePythonSignal).toHaveBeenCalledTimes(1);
 
     if (!resolveFolderScan) {
       throw new Error(
@@ -189,23 +196,22 @@ describe("ProjectChatCore workspace root scans", () => {
   });
 
   it("does not schedule repeated workspace root fetches after the initial resolution", async () => {
-    vi.mocked(route_get_workspace_python_signal).mockResolvedValue(
+    openAPI.getWorkspacePythonSignal.mockResolvedValue(
       buildWorkspacePythonSignalResponse("/workspace", false),
     );
 
     await renderProjectChatCore({ strictMode: true });
 
     await vi.waitFor(() => {
-      expect(route_get_file_browser_root).toHaveBeenCalled();
+      expect(openAPI.getFileBrowserRoot).toHaveBeenCalled();
     });
-    const initialRootFetchCount = vi.mocked(route_get_file_browser_root).mock
-      .calls.length;
+    const initialRootFetchCount = openAPI.getFileBrowserRoot.mock.calls.length;
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20000);
     });
 
-    expect(vi.mocked(route_get_file_browser_root).mock.calls.length).toBe(
+    expect(openAPI.getFileBrowserRoot.mock.calls.length).toBe(
       initialRootFetchCount,
     );
   });

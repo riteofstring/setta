@@ -19,6 +19,16 @@ import {
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import {
+  getFileBrowserDownloadUrls,
+  getFileBrowserRoot,
+  getFolderContents,
+  type FilebrowserFileBrowserDownloadUrlEntry,
+  type FilebrowserFolderContentItem as FolderContentItem,
+  type FilebrowserListFolderResponse as ListFolderResponse,
+  type FilebrowserRootResponse as RootResponse,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   Suspense,
   lazy,
   useCallback,
@@ -87,9 +97,6 @@ import {
   getFileBrowserFolderPathLabel,
 } from "utils/fileBrowserTypes";
 import {
-  route_get_file_browser_download_urls,
-  route_get_file_browser_root,
-  route_get_folder_contents,
   route_set_browser_area_view_mode,
   route_set_browser_saved_searches,
 } from "utils/generatedEndpoints";
@@ -97,11 +104,6 @@ import {
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
   BrowserSavedSearch,
-  FileBrowserDownloadURLEntry,
-  FolderContentItem,
-  GetFileBrowserDownloadURLsResponse,
-  ListFolderResponse,
-  RootResponse,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
@@ -151,9 +153,13 @@ type OpenableBrowserItem = {
   type: string;
 };
 
-type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
-type GetFileBrowserDownloadURLsRouteResponse =
-  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
+type FileUrlEntry = Pick<
+  FilebrowserFileBrowserDownloadUrlEntry,
+  "url" | "expiresAt"
+>;
+type GetFileBrowserDownloadURLsRouteResponse = ResponseDataAndStatus<
+  Array<FilebrowserFileBrowserDownloadUrlEntry>
+>;
 type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
 type GetFileBrowserRootRouteResponse = ResponseDataAndStatus<RootResponse>;
 
@@ -1503,10 +1509,13 @@ function ItemsColumn({
       const aggregated: Record<string, FileUrlEntry> = {};
       const chunks = _.chunk(pending, FILE_URL_REQUEST_CHUNK_SIZE);
       for (const chunk of chunks) {
-        const res: GetFileBrowserDownloadURLsRouteResponse =
-          await route_get_file_browser_download_urls({
-            paths: chunk,
-          });
+        const res: GetFileBrowserDownloadURLsRouteResponse = await callOpenAPI(
+          getFileBrowserDownloadUrls({
+            body: {
+              paths: chunk,
+            },
+          }),
+        );
         for (const path of chunk) {
           fileUrlRequests.current.delete(path);
         }
@@ -1653,14 +1662,17 @@ function ItemsColumn({
       }
       const requestId = folderRequestIdRef.current + 1;
       folderRequestIdRef.current = requestId;
-      const res: GetFolderContentsRouteResponse =
-        await route_get_folder_contents({
-          folderPath: trimmed,
-          baseFolderPath: rootInfo.rootPath,
-          ignorePatterns: rootInfo?.ignorePatterns ?? null,
-          includeSize: true,
-          missingFolderBehavior: "empty",
-        });
+      const res: GetFolderContentsRouteResponse = await callOpenAPI(
+        getFolderContents({
+          body: {
+            folderPath: trimmed,
+            baseFolderPath: rootInfo.rootPath,
+            ignorePatterns: rootInfo?.ignorePatterns ?? null,
+            includeSize: true,
+            missingFolderBehavior: "empty",
+          },
+        }),
+      );
       if (folderRequestIdRef.current !== requestId) {
         return null;
       }
@@ -1939,7 +1951,7 @@ function ItemsColumn({
     rootRequestIdRef.current = requestId;
     const loadRoot = async () => {
       const res: GetFileBrowserRootRouteResponse =
-        await route_get_file_browser_root();
+        await callOpenAPI(getFileBrowserRoot());
       if (!res200(res)) {
         return;
       }
@@ -2037,13 +2049,16 @@ function ItemsColumn({
 
         let listing = folderContentsCacheRef.current.get(folder);
         if (!listing) {
-          const res: GetFolderContentsRouteResponse =
-            await route_get_folder_contents({
-              folderPath: folder,
-              ignorePatterns: rootInfo.ignorePatterns ?? null,
-              includeSize: true,
-              missingFolderBehavior: "empty",
-            });
+          const res: GetFolderContentsRouteResponse = await callOpenAPI(
+            getFolderContents({
+              body: {
+                folderPath: folder,
+                ignorePatterns: rootInfo.ignorePatterns ?? null,
+                includeSize: true,
+                missingFolderBehavior: "empty",
+              },
+            }),
+          );
           if (recursiveFilterRequestIdRef.current !== requestId) {
             return;
           }

@@ -76,6 +76,177 @@
         "required": ["contentId", "byteLength"],
         "type": "object"
       },
+      "FilebrowserFileBrowserDownloadURLEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": ["path", "url", "expiresAt"],
+        "type": "object"
+      },
+      "FilebrowserFileContentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "contentId": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "mtimeNs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["path", "mimeType", "contentId", "mtimeNs", "size"],
+        "type": "object"
+      },
+      "FilebrowserFileStatResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "mtimeNs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["path", "mtimeNs", "size"],
+        "type": "object"
+      },
+      "FilebrowserFolderContentItem": {
+        "additionalProperties": false,
+        "properties": {
+          "fullPath": {
+            "type": "string"
+          },
+          "isSettaInitialized": {
+            "type": "boolean"
+          },
+          "mtime": {
+            "format": "double",
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "type", "fullPath"],
+        "type": "object"
+      },
+      "FilebrowserListFolderResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "folderPath": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FilebrowserFolderContentItem"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["folderPath", "items"],
+        "type": "object"
+      },
+      "FilebrowserRootResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "ignorePatterns": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "pathSeparator": {
+            "type": "string"
+          },
+          "rootPath": {
+            "type": "string"
+          }
+        },
+        "required": ["rootPath", "pathSeparator", "ignorePatterns"],
+        "type": "object"
+      },
+      "FilebrowserTransferResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "destinationPath": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "sourcePath": {
+            "type": "string"
+          }
+        },
+        "required": ["sourcePath", "destinationPath", "operation"],
+        "type": "object"
+      },
+      "FilebrowserWorkspacePythonSignalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "folderPath": {
+            "type": "string"
+          },
+          "hasPython": {
+            "type": "boolean"
+          }
+        },
+        "required": ["folderPath", "hasPython"],
+        "type": "object"
+      },
+      "FilebrowserWriteFileContentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "mimeType": {
+            "type": "string"
+          },
+          "mtimeNs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["path", "mimeType", "mtimeNs", "size"],
+        "type": "object"
+      },
       "HttpapiAuthRefreshStatusResponse": {
         "additionalProperties": false,
         "properties": {
@@ -146,6 +317,39 @@
           }
         },
         "required": ["file"],
+        "type": "object"
+      },
+      "HttpapiCheckIfFileExistsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "filepath": {
+            "type": "string"
+          }
+        },
+        "required": ["filepath"],
+        "type": "object"
+      },
+      "HttpapiCheckWorkspaceInitializedRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "allowOutsideWorkspaceRoot": {
+            "type": "boolean"
+          },
+          "folderPath": {
+            "type": "string"
+          }
+        },
+        "required": ["folderPath"],
+        "type": "object"
+      },
+      "HttpapiCreateFileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "filepath": {
+            "type": "string"
+          }
+        },
+        "required": ["filepath"],
         "type": "object"
       },
       "HttpapiCreateWorkspaceLaunchIntentRequest": {
@@ -228,6 +432,94 @@
           }
         },
         "required": ["projectConfigId", "chatSectionId"],
+        "type": "object"
+      },
+      "HttpapiGetFileBrowserDownloadURLsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["paths"],
+        "type": "object"
+      },
+      "HttpapiGetFileBrowserFileContentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "maxBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["path"],
+        "type": "object"
+      },
+      "HttpapiGetFileBrowserFileStatRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["path"],
+        "type": "object"
+      },
+      "HttpapiGetFolderContentsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "allowOutsideWorkspaceRoot": {
+            "type": "boolean"
+          },
+          "baseFolderPath": {
+            "type": "string"
+          },
+          "folderPath": {
+            "type": "string"
+          },
+          "ignorePatterns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "includeHidden": {
+            "type": "boolean"
+          },
+          "includeMtime": {
+            "type": "boolean"
+          },
+          "includeSettaInitialized": {
+            "type": "boolean"
+          },
+          "includeSize": {
+            "type": "boolean"
+          },
+          "maxEntries": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "missingFolderBehavior": {
+            "type": "string"
+          }
+        },
+        "required": ["folderPath"],
+        "type": "object"
+      },
+      "HttpapiGetWorkspacePythonSignalRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "folderPath": {
+            "type": "string"
+          }
+        },
+        "required": ["folderPath"],
         "type": "object"
       },
       "HttpapiLaunchRequest": {
@@ -759,6 +1051,22 @@
         ],
         "type": "object"
       },
+      "HttpapiTransferFileBrowserEntryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "destinationFolderPath": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "sourcePath": {
+            "type": "string"
+          }
+        },
+        "required": ["sourcePath", "destinationFolderPath", "operation"],
+        "type": "object"
+      },
       "HttpapiWorkspaceLaunchErrorPayload": {
         "additionalProperties": false,
         "properties": {
@@ -770,6 +1078,23 @@
           }
         },
         "required": ["code", "message"],
+        "type": "object"
+      },
+      "HttpapiWriteFileBrowserFileContentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "contentId": {
+            "type": "string"
+          },
+          "expectedMtimeNs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["path", "contentId"],
         "type": "object"
       },
       "McpxServerRuntimeStatus": {
@@ -2473,6 +2798,129 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/checkIfFileExists": {
+      "post": {
+        "operationId": "checkIfFileExists",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCheckIfFileExistsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Check whether a file exists and is accessible from the current runtime.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/checkWorkspaceInitialized": {
+      "post": {
+        "operationId": "checkWorkspaceInitialized",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCheckWorkspaceInitializedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Check whether a folder is initialized for Setta workspace usage.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/createFile": {
+      "post": {
+        "operationId": "createFile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCreateFileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create an empty file inside the workspace root.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
     "/createWorkspaceLaunchIntent": {
       "post": {
         "operationId": "createWorkspaceLaunchIntent",
@@ -2555,6 +3003,49 @@
         "x-setta-mode-requirement": "ide"
       }
     },
+    "/fileBrowser/{token}": {
+      "get": {
+        "operationId": "downloadFileBrowserEntry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Download a file browser entry by signed token.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/getAgenticSummaryCacheStatus": {
       "post": {
         "operationId": "getAgenticSummaryCacheStatus",
@@ -2594,6 +3085,245 @@
         "tags": ["AgenticSummaryCache"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getFileBrowserDownloadUrls": {
+      "post": {
+        "operationId": "getFileBrowserDownloadUrls",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetFileBrowserDownloadURLsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FilebrowserFileBrowserDownloadURLEntry"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Build signed backend download URLs for file browser entries.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getFileBrowserFileContent": {
+      "post": {
+        "operationId": "getFileBrowserFileContent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetFileBrowserFileContentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilebrowserFileContentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Read file browser content into the runtime binary store.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getFileBrowserFileStat": {
+      "post": {
+        "operationId": "getFileBrowserFileStat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetFileBrowserFileStatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilebrowserFileStatResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Read file browser stat metadata for a path.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getFileBrowserRoot": {
+      "post": {
+        "operationId": "getFileBrowserRoot",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilebrowserRootResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the root path and ignore patterns for the file browser.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getFolderContents": {
+      "post": {
+        "operationId": "getFolderContents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetFolderContentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilebrowserListFolderResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the visible contents of a folder in the file browser.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getWorkspacePythonSignal": {
+      "post": {
+        "operationId": "getWorkspacePythonSignal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetWorkspacePythonSignalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilebrowserWorkspacePythonSignalResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Detect whether a workspace folder contains Python project signals.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     },
     "/launch": {
@@ -3402,6 +4132,88 @@
         "tags": ["Status"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/transferFileBrowserEntry": {
+      "post": {
+        "operationId": "transferFileBrowserEntry",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiTransferFileBrowserEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilebrowserTransferResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Copy or move a file browser entry into another folder.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/writeFileBrowserFileContent": {
+      "post": {
+        "operationId": "writeFileBrowserFileContent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiWriteFileBrowserFileContentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilebrowserWriteFileContentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Write binary-store content to a file browser path.",
+        "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     }
   },

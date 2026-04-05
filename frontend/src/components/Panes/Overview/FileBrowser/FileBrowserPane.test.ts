@@ -1,18 +1,16 @@
 /* @vitest-environment jsdom */
 
+import {
+  getFileBrowserRoot,
+  getFolderContents,
+  type FilebrowserFolderContentItem,
+  type FilebrowserRootResponse,
+} from "openapi/http";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useFileBrowserState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import {
-  route_get_file_browser_root,
-  route_get_folder_contents,
-} from "utils/generatedEndpoints";
-import {
-  createFolderContentItem,
-  createRootResponse,
-} from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildFileBrowserLoadingPathOwner,
@@ -34,28 +32,32 @@ import {
   type FileNode,
 } from "./FileBrowserPane";
 
-const generatedEndpoints = vi.hoisted(() => ({
-  route_get_file_browser_root: vi.fn(),
-  route_get_folder_contents: vi.fn(),
-  route_check_workspace_initialized: vi.fn(),
-  route_get_file_browser_download_urls: vi.fn(),
-  route_transfer_file_browser_entry: vi.fn(),
+const openAPI = vi.hoisted(() => ({
+  getFileBrowserRoot: vi.fn(),
+  getFolderContents: vi.fn(),
+  checkWorkspaceInitialized: vi.fn(),
+  getFileBrowserDownloadUrls: vi.fn(),
+  transferFileBrowserEntry: vi.fn(),
 }));
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_file_browser_root: generatedEndpoints.route_get_file_browser_root,
-    route_get_folder_contents: generatedEndpoints.route_get_folder_contents,
-    route_check_workspace_initialized:
-      generatedEndpoints.route_check_workspace_initialized,
-    route_get_file_browser_download_urls:
-      generatedEndpoints.route_get_file_browser_download_urls,
-    route_transfer_file_browser_entry:
-      generatedEndpoints.route_transfer_file_browser_entry,
+    getFileBrowserRoot: openAPI.getFileBrowserRoot,
+    getFolderContents: openAPI.getFolderContents,
+    checkWorkspaceInitialized: openAPI.checkWorkspaceInitialized,
+    getFileBrowserDownloadUrls: openAPI.getFileBrowserDownloadUrls,
+    transferFileBrowserEntry: openAPI.transferFileBrowserEntry,
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 vi.mock("react-window", async () => {
   const React = await import("react");
@@ -128,7 +130,7 @@ type RenderedFileBrowserPane = {
 
 function buildFolderContentsResponse(
   folderPath: string,
-  items: ReturnType<typeof createFolderContentItem>[],
+  items: FilebrowserFolderContentItem[],
 ) {
   return {
     data: {
@@ -137,6 +139,28 @@ function buildFolderContentsResponse(
     },
     status: 200,
     hasResponse: true,
+  };
+}
+
+function createFolderContentItem(
+  options: Partial<FilebrowserFolderContentItem> = {},
+): FilebrowserFolderContentItem {
+  return {
+    fullPath: "",
+    name: "",
+    type: "file",
+    ...options,
+  };
+}
+
+function createRootResponse(
+  options: Partial<FilebrowserRootResponse> = {},
+): FilebrowserRootResponse {
+  return {
+    ignorePatterns: [],
+    pathSeparator: "/",
+    rootPath: "",
+    ...options,
   };
 }
 
@@ -202,12 +226,12 @@ describe("sortChildPaths", () => {
       },
       searchScope: "recursive",
     });
-    generatedEndpoints.route_get_file_browser_root.mockReset();
-    generatedEndpoints.route_get_folder_contents.mockReset();
-    generatedEndpoints.route_check_workspace_initialized.mockReset();
-    generatedEndpoints.route_get_file_browser_download_urls.mockReset();
-    generatedEndpoints.route_transfer_file_browser_entry.mockReset();
-    generatedEndpoints.route_check_workspace_initialized.mockResolvedValue({
+    openAPI.getFileBrowserRoot.mockReset();
+    openAPI.getFolderContents.mockReset();
+    openAPI.checkWorkspaceInitialized.mockReset();
+    openAPI.getFileBrowserDownloadUrls.mockReset();
+    openAPI.transferFileBrowserEntry.mockReset();
+    openAPI.checkWorkspaceInitialized.mockResolvedValue({
       data: false,
       status: 200,
       hasResponse: true,
@@ -294,7 +318,7 @@ describe("sortChildPaths", () => {
   });
 
   it("loads the Go root and folder contents into the pane", async () => {
-    vi.mocked(route_get_file_browser_root).mockResolvedValue({
+    vi.mocked(getFileBrowserRoot).mockResolvedValue({
       data: createRootResponse({
         rootPath: "/workspace",
         pathSeparator: "/",
@@ -303,7 +327,7 @@ describe("sortChildPaths", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_get_folder_contents).mockResolvedValue(
+    vi.mocked(getFolderContents).mockResolvedValue(
       buildFolderContentsResponse("/workspace", [
         createFolderContentItem({
           name: "src",
@@ -324,15 +348,17 @@ describe("sortChildPaths", () => {
     try {
       await flushEffects();
 
-      expect(route_get_file_browser_root).toHaveBeenCalledWith();
-      expect(route_get_folder_contents).toHaveBeenCalledWith({
-        folderPath: "/workspace",
-        ignorePatterns: ["node_modules"],
-        maxEntries: 5000,
-        includeMtime: true,
-        includeSettaInitialized: false,
-        allowOutsideWorkspaceRoot: false,
-        missingFolderBehavior: "empty",
+      expect(getFileBrowserRoot).toHaveBeenCalledWith();
+      expect(getFolderContents).toHaveBeenCalledWith({
+        body: {
+          folderPath: "/workspace",
+          ignorePatterns: ["node_modules"],
+          maxEntries: 5000,
+          includeMtime: true,
+          includeSettaInitialized: false,
+          allowOutsideWorkspaceRoot: false,
+          missingFolderBehavior: "empty",
+        },
       });
       expect(useFileBrowserState.getState().rootPath).toBe("/workspace");
       expect(host.textContent).toContain("workspace");

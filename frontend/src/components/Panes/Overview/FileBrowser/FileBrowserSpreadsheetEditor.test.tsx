@@ -1,20 +1,18 @@
 /* @vitest-environment jsdom */
 
-import { downloadBinary } from "openapi/http";
+import {
+  downloadBinary,
+  getFileBrowserFileContent,
+  getFileBrowserFileStat,
+  writeFileBrowserFileContent,
+  type FilebrowserFileContentResponse,
+  type FilebrowserFileStatResponse,
+  type FilebrowserWriteFileContentResponse,
+} from "openapi/http";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import "testUtils/reactRefreshPreamble";
-import {
-  route_get_file_browser_file_content,
-  route_get_file_browser_file_stat,
-  route_write_file_browser_file_content,
-} from "utils/generatedEndpoints";
-import {
-  createFileContentResponse,
-  createFileStatResponse,
-  createWriteFileContentResponse,
-} from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applySpreadsheetCellUpdates,
@@ -38,38 +36,33 @@ import {
   SpreadsheetRow,
 } from "./FileBrowserSpreadsheetEditor";
 
-const generatedEndpoints = vi.hoisted(() => ({
-  route_get_file_browser_file_content: vi.fn(),
-  route_get_file_browser_file_stat: vi.fn(),
-  route_write_file_browser_file_content: vi.fn(),
+const openAPI = vi.hoisted(() => ({
+  getFileBrowserFileContent: vi.fn(),
+  getFileBrowserFileStat: vi.fn(),
+  writeFileBrowserFileContent: vi.fn(),
 }));
 
 const { downloadBinaryMock } = vi.hoisted(() => ({
   downloadBinaryMock: vi.fn(),
 }));
 
-vi.mock("openapi/http", () => ({
-  downloadBinary: downloadBinaryMock,
-}));
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    downloadBinary: downloadBinaryMock,
+    getFileBrowserFileContent: openAPI.getFileBrowserFileContent,
+    getFileBrowserFileStat: openAPI.getFileBrowserFileStat,
+    writeFileBrowserFileContent: openAPI.writeFileBrowserFileContent,
+  };
+});
 
 vi.mock("openapi/http/result", () => ({
   callOpenAPI: function <T>(promise: Promise<T>) {
     return promise;
   },
 }));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_get_file_browser_file_content:
-      generatedEndpoints.route_get_file_browser_file_content,
-    route_get_file_browser_file_stat:
-      generatedEndpoints.route_get_file_browser_file_stat,
-    route_write_file_browser_file_content:
-      generatedEndpoints.route_write_file_browser_file_content,
-  };
-});
 
 type RenderedFileBrowserSpreadsheetEditor = {
   host: HTMLDivElement;
@@ -130,9 +123,9 @@ async function waitForSpreadsheetCellValue(args: {
 describe("FileBrowserSpreadsheetEditor layout", () => {
   beforeEach(() => {
     downloadBinaryMock.mockReset();
-    generatedEndpoints.route_get_file_browser_file_content.mockReset();
-    generatedEndpoints.route_get_file_browser_file_stat.mockReset();
-    generatedEndpoints.route_write_file_browser_file_content.mockReset();
+    openAPI.getFileBrowserFileContent.mockReset();
+    openAPI.getFileBrowserFileStat.mockReset();
+    openAPI.writeFileBrowserFileContent.mockReset();
     document.body.innerHTML = "";
     globalThis.ResizeObserver = class {
       observe() {}
@@ -140,6 +133,42 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       unobserve() {}
     } as typeof ResizeObserver;
   });
+
+  function createFileContentResponse(
+    options: Partial<FilebrowserFileContentResponse> = {},
+  ): FilebrowserFileContentResponse {
+    return {
+      contentId: "",
+      mimeType: "",
+      mtimeNs: 0,
+      path: "",
+      size: 0,
+      ...options,
+    };
+  }
+
+  function createFileStatResponse(
+    options: Partial<FilebrowserFileStatResponse> = {},
+  ): FilebrowserFileStatResponse {
+    return {
+      mtimeNs: 0,
+      path: "",
+      size: 0,
+      ...options,
+    };
+  }
+
+  function createWriteFileContentResponse(
+    options: Partial<FilebrowserWriteFileContentResponse> = {},
+  ): FilebrowserWriteFileContentResponse {
+    return {
+      mimeType: "",
+      mtimeNs: 0,
+      path: "",
+      size: 0,
+      ...options,
+    };
+  }
 
   it("uses compact spreadsheet sizing defaults", () => {
     expect(SPREADSHEET_HEADER_HEIGHT).toBeLessThanOrEqual(24);
@@ -391,7 +420,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
   });
 
   it("loads spreadsheet cells through the Go file-content and binary routes", async () => {
-    vi.mocked(route_get_file_browser_file_content).mockResolvedValue({
+    vi.mocked(getFileBrowserFileContent).mockResolvedValue({
       data: createFileContentResponse({
         path: "/workspace/report.csv",
         contentId: "content-1",
@@ -409,7 +438,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_get_file_browser_file_stat).mockResolvedValue({
+    vi.mocked(getFileBrowserFileStat).mockResolvedValue({
       data: createFileStatResponse({
         path: "/workspace/report.csv",
         mtimeNs: 123,
@@ -418,7 +447,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_write_file_browser_file_content).mockResolvedValue({
+    vi.mocked(writeFileBrowserFileContent).mockResolvedValue({
       data: createWriteFileContentResponse({
         path: "/workspace/report.csv",
         mimeType: "text/csv",
@@ -438,9 +467,11 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
         expectedValue: "alpha",
       });
 
-      expect(route_get_file_browser_file_content).toHaveBeenCalledWith({
-        path: "/workspace/report.csv",
-        maxBytes: 8 * 1024 * 1024,
+      expect(getFileBrowserFileContent).toHaveBeenCalledWith({
+        body: {
+          path: "/workspace/report.csv",
+          maxBytes: 8 * 1024 * 1024,
+        },
       });
       expect(downloadBinary).toHaveBeenCalledWith({
         path: { contentId: "content-1" },

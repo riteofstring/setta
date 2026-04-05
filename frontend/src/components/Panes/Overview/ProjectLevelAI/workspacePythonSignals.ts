@@ -1,6 +1,7 @@
+import { getWorkspacePythonSignal } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { res200 } from "utils/endpointUtils";
-import { route_get_workspace_python_signal } from "utils/generatedEndpoints";
 
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
@@ -89,9 +90,13 @@ export function loadWorkspacePythonSignal({
     inFlightWorkspacePythonSignalLoads,
     { rootPath: normalizedRootPath },
     async ({ rootPath: nextRootPath }) => {
-      const response = await route_get_workspace_python_signal({
-        folderPath: nextRootPath,
-      });
+      const response = await callOpenAPI(
+        getWorkspacePythonSignal({
+          body: {
+            folderPath: nextRootPath,
+          },
+        }),
+      );
       if (!res200(response) || !response.data) {
         return null;
       }

@@ -11,6 +11,15 @@ import type {
   ApplyPluginLockfileData,
   ApplyPluginLockfileErrors,
   ApplyPluginLockfileResponses,
+  CheckIfFileExistsData,
+  CheckIfFileExistsErrors,
+  CheckIfFileExistsResponses,
+  CheckWorkspaceInitializedData,
+  CheckWorkspaceInitializedErrors,
+  CheckWorkspaceInitializedResponses,
+  CreateFileData,
+  CreateFileErrors,
+  CreateFileResponses,
   CreateWorkspaceLaunchIntentData,
   CreateWorkspaceLaunchIntentErrors,
   CreateWorkspaceLaunchIntentResponses,
@@ -23,6 +32,9 @@ import type {
   DownloadBinaryData,
   DownloadBinaryErrors,
   DownloadBinaryResponses,
+  DownloadFileBrowserEntryData,
+  DownloadFileBrowserEntryErrors,
+  DownloadFileBrowserEntryResponses,
   EnablePluginData,
   EnablePluginErrors,
   EnablePluginResponses,
@@ -35,6 +47,21 @@ import type {
   GetBackendInitStatusData,
   GetBackendInitStatusErrors,
   GetBackendInitStatusResponses,
+  GetFileBrowserDownloadUrlsData,
+  GetFileBrowserDownloadUrlsErrors,
+  GetFileBrowserDownloadUrlsResponses,
+  GetFileBrowserFileContentData,
+  GetFileBrowserFileContentErrors,
+  GetFileBrowserFileContentResponses,
+  GetFileBrowserFileStatData,
+  GetFileBrowserFileStatErrors,
+  GetFileBrowserFileStatResponses,
+  GetFileBrowserRootData,
+  GetFileBrowserRootErrors,
+  GetFileBrowserRootResponses,
+  GetFolderContentsData,
+  GetFolderContentsErrors,
+  GetFolderContentsResponses,
   GetMcpServerRuntimeStatusData,
   GetMcpServerRuntimeStatusErrors,
   GetMcpServerRuntimeStatusResponses,
@@ -50,6 +77,9 @@ import type {
   GetSettaHomeInfoData,
   GetSettaHomeInfoErrors,
   GetSettaHomeInfoResponses,
+  GetWorkspacePythonSignalData,
+  GetWorkspacePythonSignalErrors,
+  GetWorkspacePythonSignalResponses,
   InstallPluginData,
   InstallPluginErrors,
   InstallPluginResponses,
@@ -80,6 +110,9 @@ import type {
   SdkRuntimeHandshakeData,
   SdkRuntimeHandshakeErrors,
   SdkRuntimeHandshakeResponses,
+  TransferFileBrowserEntryData,
+  TransferFileBrowserEntryErrors,
+  TransferFileBrowserEntryResponses,
   UninstallPluginData,
   UninstallPluginErrors,
   UninstallPluginResponses,
@@ -89,6 +122,9 @@ import type {
   UploadBinaryData,
   UploadBinaryErrors,
   UploadBinaryResponses,
+  WriteFileBrowserFileContentData,
+  WriteFileBrowserFileContentErrors,
+  WriteFileBrowserFileContentResponses,
   WritePluginConfigData,
   WritePluginConfigErrors,
   WritePluginConfigResponses,
@@ -184,6 +220,66 @@ export const downloadBinary = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Check whether a file exists and is accessible from the current runtime.
+ */
+export const checkIfFileExists = <ThrowOnError extends boolean = false>(
+  options: Options<CheckIfFileExistsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CheckIfFileExistsResponses,
+    CheckIfFileExistsErrors,
+    ThrowOnError
+  >({
+    url: "/checkIfFileExists",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Check whether a folder is initialized for Setta workspace usage.
+ */
+export const checkWorkspaceInitialized = <ThrowOnError extends boolean = false>(
+  options: Options<CheckWorkspaceInitializedData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CheckWorkspaceInitializedResponses,
+    CheckWorkspaceInitializedErrors,
+    ThrowOnError
+  >({
+    url: "/checkWorkspaceInitialized",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Create an empty file inside the workspace root.
+ */
+export const createFile = <ThrowOnError extends boolean = false>(
+  options: Options<CreateFileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateFileResponses,
+    CreateFileErrors,
+    ThrowOnError
+  >({
+    url: "/createFile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Create a launch intent token for a local workspace launch.
  */
 export const createWorkspaceLaunchIntent = <
@@ -226,6 +322,22 @@ export const docstringToMarkdown = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Download a file browser entry by signed token.
+ */
+export const downloadFileBrowserEntry = <ThrowOnError extends boolean = false>(
+  options: Options<DownloadFileBrowserEntryData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    DownloadFileBrowserEntryResponses,
+    DownloadFileBrowserEntryErrors,
+    ThrowOnError
+  >({
+    url: "/fileBrowser/{token}",
+    ...options,
+  });
+};
+
+/**
  * Get the cache status for a chat section summary.
  */
 export const getAgenticSummaryCacheStatus = <
@@ -239,6 +351,124 @@ export const getAgenticSummaryCacheStatus = <
     ThrowOnError
   >({
     url: "/getAgenticSummaryCacheStatus",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Build signed backend download URLs for file browser entries.
+ */
+export const getFileBrowserDownloadUrls = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetFileBrowserDownloadUrlsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetFileBrowserDownloadUrlsResponses,
+    GetFileBrowserDownloadUrlsErrors,
+    ThrowOnError
+  >({
+    url: "/getFileBrowserDownloadUrls",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read file browser content into the runtime binary store.
+ */
+export const getFileBrowserFileContent = <ThrowOnError extends boolean = false>(
+  options: Options<GetFileBrowserFileContentData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetFileBrowserFileContentResponses,
+    GetFileBrowserFileContentErrors,
+    ThrowOnError
+  >({
+    url: "/getFileBrowserFileContent",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read file browser stat metadata for a path.
+ */
+export const getFileBrowserFileStat = <ThrowOnError extends boolean = false>(
+  options: Options<GetFileBrowserFileStatData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetFileBrowserFileStatResponses,
+    GetFileBrowserFileStatErrors,
+    ThrowOnError
+  >({
+    url: "/getFileBrowserFileStat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the root path and ignore patterns for the file browser.
+ */
+export const getFileBrowserRoot = <ThrowOnError extends boolean = false>(
+  options?: Options<GetFileBrowserRootData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GetFileBrowserRootResponses,
+    GetFileBrowserRootErrors,
+    ThrowOnError
+  >({
+    url: "/getFileBrowserRoot",
+    ...options,
+  });
+};
+
+/**
+ * List the visible contents of a folder in the file browser.
+ */
+export const getFolderContents = <ThrowOnError extends boolean = false>(
+  options: Options<GetFolderContentsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetFolderContentsResponses,
+    GetFolderContentsErrors,
+    ThrowOnError
+  >({
+    url: "/getFolderContents",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Detect whether a workspace folder contains Python project signals.
+ */
+export const getWorkspacePythonSignal = <ThrowOnError extends boolean = false>(
+  options: Options<GetWorkspacePythonSignalData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetWorkspacePythonSignalResponses,
+    GetWorkspacePythonSignalErrors,
+    ThrowOnError
+  >({
+    url: "/getWorkspacePythonSignal",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -650,5 +880,47 @@ export const getSettaHomeInfo = <ThrowOnError extends boolean = false>(
   >({
     url: "/settaHomeInfo",
     ...options,
+  });
+};
+
+/**
+ * Copy or move a file browser entry into another folder.
+ */
+export const transferFileBrowserEntry = <ThrowOnError extends boolean = false>(
+  options: Options<TransferFileBrowserEntryData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    TransferFileBrowserEntryResponses,
+    TransferFileBrowserEntryErrors,
+    ThrowOnError
+  >({
+    url: "/transferFileBrowserEntry",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Write binary-store content to a file browser path.
+ */
+export const writeFileBrowserFileContent = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<WriteFileBrowserFileContentData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    WriteFileBrowserFileContentResponses,
+    WriteFileBrowserFileContentErrors,
+    ThrowOnError
+  >({
+    url: "/writeFileBrowserFileContent",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };

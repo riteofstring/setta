@@ -1,8 +1,9 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
+import { checkIfFileExists } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { res200 } from "utils/endpointUtils";
-import { route_check_if_file_exists } from "utils/generatedEndpoints";
 import { asyncDebounce } from "utils/utils";
 
 export function useMatchSorterFilter<T>(
@@ -70,7 +71,13 @@ function useFileExists(delay) {
 
   const debouncedCheckIfFileExists = useCallback(
     asyncDebounce(async (f) => {
-      const res = await route_check_if_file_exists({ filepath: f });
+      const res = await callOpenAPI(
+        checkIfFileExists({
+          body: {
+            filepath: f,
+          },
+        }),
+      );
       if (res200(res)) {
         setFileExists(res.data);
       }
