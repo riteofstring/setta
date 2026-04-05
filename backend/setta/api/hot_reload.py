@@ -281,30 +281,26 @@ class _WatcherSpec:
     ignores: tuple[str, ...]
 
     def accepts(self, candidate: Path) -> bool:
+        match_target = self._match_target(candidate)
+        if match_target is None:
+            return False
+        if self._matches_any(match_target, self.ignores):
+            return False
+        return not self.includes or self._matches_any(match_target, self.includes)
+
+    def _match_target(self, candidate: Path) -> str | None:
         if self.is_file:
             if candidate != self.root:
-                return False
-            if not self.ignores:
-                return True
+                return None
             # Treat ignored file patterns as matching the file name.
-            relative = candidate.name
-            if any(self._fnmatch(relative, pattern) for pattern in self.ignores):
-                return False
-            return True
+            return candidate.name
         try:
-            relative = candidate.relative_to(self.root)
+            return candidate.relative_to(self.root).as_posix()
         except ValueError:
-            return False
-        relative_as_posix = relative.as_posix()
-        if self.ignores and any(
-            self._fnmatch(relative_as_posix, pattern) for pattern in self.ignores
-        ):
-            return False
-        if not self.includes:
-            return True
-        return any(
-            self._fnmatch(relative_as_posix, pattern) for pattern in self.includes
-        )
+            return None
+
+    def _matches_any(self, target: str, patterns: tuple[str, ...]) -> bool:
+        return any(self._fnmatch(target, pattern) for pattern in patterns)
 
     def merged_with(
         self,
