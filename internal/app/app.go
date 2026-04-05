@@ -1698,15 +1698,17 @@ func registerRootRoutes(r chi.Router, deps appHandlerDeps) error {
 			return err
 		}
 	}
+	var rootDeps httpapi.FrontendRootRouteDependencies
 	if deps.attachmentService != nil {
-		if err := httpapi.RegisterAttachmentRootRoutes(r, httpapi.AttachmentRootRouteDependencies{
+		rootDeps.AttachmentRoot = &httpapi.AttachmentRootRouteDependencies{
 			ModePolicy:    deps.modePolicy,
 			ShareSessions: deps.shareSessions,
 			Deployment:    deps.deploymentRuntime,
 			Service:       deps.attachmentService,
-		}); err != nil {
-			return err
 		}
+	}
+	if err := httpapi.RegisterFrontendRootRoutes(r, rootDeps); err != nil {
+		return err
 	}
 	return wsapi.RegisterRoutes(r, wsapi.RouteDependencies{
 		Transport: wsapi.Dependencies{
@@ -1743,8 +1745,15 @@ func registerAuthenticatedRootRoutes(r chi.Router, deps appHandlerDeps) error {
 	})
 }
 
-func registerStatusAndSystemRoutes(r chi.Router, deps appHandlerDeps) error {
-	if err := httpapi.RegisterStatusRoutes(r, httpapi.StatusRouteDependencies{
+func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
+	var apiDeps httpapi.FrontendAPIRouteDependencies
+	if deps.pluginRouteService != nil {
+		apiDeps.Plugin = &httpapi.PluginRouteDependencies{
+			ModePolicy: deps.modePolicy,
+			Service:    deps.pluginRouteService,
+		}
+	}
+	apiDeps.Status = httpapi.StatusRouteDependencies{
 		ModePolicy:               deps.modePolicy,
 		SettaHome:                deps.cfg.Paths.SettaHome,
 		GlobalSettaFilesBase:     deps.cfg.User.GlobalSettaFilesBase,
@@ -1754,141 +1763,103 @@ func registerStatusAndSystemRoutes(r chi.Router, deps appHandlerDeps) error {
 		AuthRefreshWindowSeconds: deps.authRefreshWindowSeconds,
 		WorktreeName:             deps.worktreeName,
 		ReadyAt:                  deps.statusReadyAt,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterDocstringRoutes(r, httpapi.DocstringRouteDependencies{
-		ModePolicy: deps.modePolicy,
-	}); err != nil {
-		return err
-	}
-	if err := httpapi.RegisterSettingsRoutes(r, httpapi.SettingsRouteDependencies{
+	apiDeps.Docstring = httpapi.DocstringRouteDependencies{ModePolicy: deps.modePolicy}
+	apiDeps.Settings = httpapi.SettingsRouteDependencies{
 		ModePolicy:    deps.modePolicy,
 		SettingsState: deps.settingsStateRuntime,
 		WebsocketHub:  deps.websocketHub,
-	}); err != nil {
-		return err
 	}
-	if deps.pluginRouteService != nil {
-		if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
-			ModePolicy: deps.modePolicy,
-			Service:    deps.pluginRouteService,
-		}); err != nil {
-			return err
-		}
-	}
-	if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
+	apiDeps.Listener = httpapi.ListenerRouteDependencies{
 		ModePolicy:          deps.modePolicy,
 		ShareSessions:       deps.shareSessions,
 		ProjectState:        deps.projectRuntime,
 		Deployment:          deps.deploymentRuntime,
 		ListenerBroadcaster: deps.listenerBroadcaster,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterDeploymentRoutes(r, httpapi.DeploymentRouteDependencies{
-		ModePolicy: deps.modePolicy,
-		Deployment: deps.deploymentRuntime,
-	}); err != nil {
-		return err
-	}
-	if err := httpapi.RegisterDeploymentIDERoutes(r, httpapi.DeploymentIDERouteDependencies{
+	apiDeps.DeploymentIDE = httpapi.DeploymentIDERouteDependencies{
 		ModePolicy:     deps.modePolicy,
 		ProjectState:   deps.projectRuntime,
 		Catalog:        deps.deploymentCatalog,
 		SharePublisher: deps.sharePublisher,
 		AppPublisher:   deps.appPublisher,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterLauncherHomeRoutes(r, httpapi.LauncherHomeRouteDependencies{
+	if deps.modePolicy.IsShare() {
+		apiDeps.ShareDeployment = httpapi.DeploymentRouteDependencies{
+			ModePolicy: deps.modePolicy,
+			Deployment: deps.deploymentRuntime,
+		}
+	}
+	if deps.modePolicy.IsApp() {
+		apiDeps.AppDeployment = httpapi.DeploymentRouteDependencies{
+			ModePolicy: deps.modePolicy,
+			Deployment: deps.deploymentRuntime,
+		}
+	}
+	apiDeps.LauncherHome = httpapi.LauncherHomeRouteDependencies{
 		ModePolicy:       deps.modePolicy,
 		Auth:             deps.authService,
 		DefaultSettaHome: deps.cfg.Paths.SettaHome,
 		Home:             deps.launcherHome,
 		OpenWorkspace:    deps.launcherOpenWorkspace,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterLauncherManagementRoutes(r, httpapi.LauncherManagementRouteDependencies{
+	apiDeps.LauncherManagement = httpapi.LauncherManagementRouteDependencies{
 		ModePolicy:       deps.modePolicy,
 		DefaultSettaHome: deps.cfg.Paths.SettaHome,
 		Manager:          deps.launcherManagement,
-	}); err != nil {
-		return err
 	}
-	return httpapi.RegisterWorkspaceLaunchRoutes(r, httpapi.WorkspaceLaunchRouteDependencies{
+	apiDeps.WorkspaceLaunch = httpapi.WorkspaceLaunchRouteDependencies{
 		ModePolicy: deps.modePolicy,
 		Auth:       deps.authService,
 		Intents:    deps.launchIntentService,
 		Launch:     deps.localLaunchService,
-	})
-}
-
-func registerWorkspaceRoutes(r chi.Router, deps appHandlerDeps) error {
-	if err := httpapi.RegisterBinaryRoutes(r, httpapi.BinaryRouteDependencies{
+	}
+	apiDeps.Binary = httpapi.BinaryRouteDependencies{
 		ModePolicy:    deps.modePolicy,
 		ShareSessions: deps.shareSessions,
 		Deployment:    deps.deploymentRuntime,
 		Store:         deps.binaryStore,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterAttachmentRoutes(r, httpapi.AttachmentRouteDependencies{
+	apiDeps.Attachment = httpapi.AttachmentRouteDependencies{
 		ModePolicy:    deps.modePolicy,
 		ShareSessions: deps.shareSessions,
 		Deployment:    deps.deploymentRuntime,
 		Service:       deps.attachmentService,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterFileBrowserRoutes(r, httpapi.FileBrowserRouteDependencies{
+	apiDeps.FileBrowser = httpapi.FileBrowserRouteDependencies{
 		ModePolicy:     deps.modePolicy,
 		DeploymentRoot: deps.cfg.Paths.DeploymentRoot,
 		Browser:        deps.fileBrowserService,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterArtifactRoutes(r, httpapi.ArtifactRouteDependencies{
+	apiDeps.Artifact = httpapi.ArtifactRouteDependencies{
 		ModePolicy:     deps.modePolicy,
 		ShareSessions:  deps.shareSessions,
 		Artifacts:      deps.artifactService,
 		ShareArtifacts: deps.shareArtifactService,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterTerminalRoutes(r, httpapi.TerminalRouteDependencies{
+	apiDeps.Terminal = httpapi.TerminalRouteDependencies{
 		ModePolicy:    deps.modePolicy,
 		ShareSessions: deps.shareSessions,
 		Deployment:    deps.deploymentRuntime,
 		Terminals:     deps.terminalService,
 		RunCode:       deps.runCodeService,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterDetachedRunRoutes(r, httpapi.DetachedRunRouteDependencies{
+	apiDeps.DetachedRun = httpapi.DetachedRunRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		Planner:      deps.runPlanner,
 		Runs:         deps.detachedRunManager,
 		ProjectState: deps.projectRuntime,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterProjectShellRoutes(r, httpapi.ProjectShellRouteDependencies{
+	apiDeps.ProjectShell = httpapi.ProjectShellRouteDependencies{
 		ModePolicy:    deps.modePolicy,
 		Shell:         deps.projectShellService,
 		Notifications: deps.notificationService,
-	}); err != nil {
-		return err
 	}
-	return httpapi.RegisterGitRoutes(r, httpapi.GitRouteDependencies{
+	apiDeps.Git = httpapi.GitRouteDependencies{
 		ModePolicy: deps.modePolicy,
 		Git:        deps.gitReadService,
-	})
-}
-
-func registerProjectRoutes(r chi.Router, deps appHandlerDeps) error {
-	if err := httpapi.RegisterProjectRoutes(r, httpapi.ProjectRouteDependencies{
+	}
+	apiDeps.Project = httpapi.ProjectRouteDependencies{
 		ModePolicy:                     deps.modePolicy,
 		WorkspaceRoot:                  deps.cfg.Paths.WorkspaceRoot,
 		ProjectState:                   deps.projectRuntime,
@@ -1905,16 +1876,12 @@ func registerProjectRoutes(r chi.Router, deps appHandlerDeps) error {
 		CallableSignatures:             deps.lspSignature,
 		CodeUpdates:                    deps.codeUpdates,
 		RenameRefactors:                deps.renameRefactors,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterAppDefinitionRoutes(r, httpapi.AppDefinitionRouteDependencies{
+	apiDeps.AppDefinition = httpapi.AppDefinitionRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		ProjectState: deps.projectRuntime,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
+	apiDeps.AI = httpapi.AIRouteDependencies{
 		ModePolicy:            deps.modePolicy,
 		Deployment:            deps.deploymentRuntime,
 		ManagedChats:          deps.managedChatService,
@@ -1925,90 +1892,67 @@ func registerProjectRoutes(r chi.Router, deps appHandlerDeps) error {
 		TranscriptionProfiles: deps.transcriptionProfiles,
 		TranscriptionSessions: deps.transcriptionSessions,
 		Sessions:              deps.authService,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterAgentProfileRoutes(r, httpapi.AgentProfileRouteDependencies{
+	apiDeps.AgentProfile = httpapi.AgentProfileRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		Profiles:     deps.agentProfileStore,
 		Deployment:   deps.deploymentRuntime,
 		WebsocketHub: deps.websocketHub,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
+	apiDeps.PromptTemplate = httpapi.PromptTemplateRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		Templates:    deps.promptTemplateStore,
 		Watcher:      deps.promptTemplateWatcher,
 		ProjectState: deps.projectRuntime,
 		Deployment:   deps.deploymentRuntime,
 		WebsocketHub: deps.websocketHub,
-	}); err != nil {
-		return err
 	}
-	return httpapi.RegisterAppGenSkillRoutes(r, httpapi.AppGenSkillRouteDependencies{
+	apiDeps.AppGenSkill = httpapi.AppGenSkillRouteDependencies{
 		ModePolicy: deps.modePolicy,
 		Service:    deps.appGenSkillService,
-	})
-}
-
-func registerToolingRoutes(r chi.Router, deps appHandlerDeps) error {
-	if err := httpapi.RegisterExternalAgentConfigRoutes(r, httpapi.ExternalAgentConfigRouteDependencies{
+	}
+	apiDeps.ExternalAgentConfig = httpapi.ExternalAgentConfigRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		Configs:      deps.externalConfigService,
 		Preflight:    deps.externalPreflight,
 		Deployment:   deps.deploymentRuntime,
 		WebsocketHub: deps.websocketHub,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterEngineConfigRoutes(r, httpapi.EngineConfigRouteDependencies{
+	apiDeps.EngineConfig = httpapi.EngineConfigRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		Engines:      deps.engineStore,
 		LLM:          deps.llmRuntime,
 		WebsocketHub: deps.websocketHub,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterTranscriptionProfileRoutes(r, httpapi.TranscriptionProfileRouteDependencies{
+	apiDeps.TranscriptionProfile = httpapi.TranscriptionProfileRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		Profiles:     deps.transcriptionProfiles,
 		Deployment:   deps.deploymentRuntime,
 		WebsocketHub: deps.websocketHub,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterLLMRoutes(r, httpapi.LLMRouteDependencies{
+	apiDeps.LLM = httpapi.LLMRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		Service:      deps.llmService,
 		WebsocketHub: deps.websocketHub,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterAgenticSummaryCacheRoutes(r, httpapi.AgenticSummaryCacheRouteDependencies{
+	apiDeps.AgenticSummaryCache = httpapi.AgenticSummaryCacheRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		ProjectState: deps.projectRuntime,
 		Statuses:     deps.agenticSummaryStatus,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterAgentRunRoutes(r, httpapi.AgentRunRouteDependencies{
+	apiDeps.AgentRun = httpapi.AgentRunRouteDependencies{
 		ModePolicy: deps.modePolicy,
 		Profiles:   deps.agentProfileStore,
 		Runs:       deps.agentRunStore,
 		Managed:    deps.agentRunRuntime,
 		Chains:     deps.runChainRuntime,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterStateMachineRunRoutes(r, httpapi.StateMachineRunRouteDependencies{
+	apiDeps.StateMachine = httpapi.StateMachineRunRouteDependencies{
 		ModePolicy:    deps.modePolicy,
 		ShareSessions: deps.deploymentRuntime,
 		Runtime:       deps.stateMachineRuntime,
-	}); err != nil {
-		return err
 	}
-	if err := httpapi.RegisterMCPRoutes(r, httpapi.MCPRouteDependencies{
+	apiDeps.MCP = httpapi.MCPRouteDependencies{
 		Logger:                   deps.logger,
 		ModePolicy:               deps.modePolicy,
 		LLMConfigPath:            mcpx.LLMConfigPath(deps.cfg.Paths.SettaFilesRoot),
@@ -2018,29 +1962,15 @@ func registerToolingRoutes(r chi.Router, deps appHandlerDeps) error {
 			runtime: deps.externalAgentRuntime,
 			send:    deps.externalAgentSend,
 		},
-	}); err != nil {
-		return err
 	}
-	return httpapi.RegisterLSPRoutes(r, httpapi.LSPRouteDependencies{
+	apiDeps.LSP = httpapi.LSPRouteDependencies{
 		ModePolicy:   deps.modePolicy,
 		ProjectState: deps.projectRuntime,
 		Diagnostics:  deps.lspDiagnostics,
 		Completions:  deps.lspCompletion,
 		Admin:        deps.projectLSPSyncer,
-	})
-}
-
-func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
-	if err := registerStatusAndSystemRoutes(r, deps); err != nil {
-		return err
 	}
-	if err := registerWorkspaceRoutes(r, deps); err != nil {
-		return err
-	}
-	if err := registerProjectRoutes(r, deps); err != nil {
-		return err
-	}
-	return registerToolingRoutes(r, deps)
+	return httpapi.RegisterFrontendAPIRoutes(r, apiDeps)
 }
 
 func newAppHandler(deps appHandlerDeps) (http.Handler, error) {

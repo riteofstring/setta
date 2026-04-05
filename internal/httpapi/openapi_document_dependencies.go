@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-chi/chi/v5"
 	"setta/internal/codegen"
 	"setta/internal/launcher"
 	"setta/internal/modes"
@@ -14,28 +13,6 @@ import (
 )
 
 var errOpenAPIDocumentRouteDependencyUnavailable = errors.New("openapi document route dependency is unavailable for runtime requests")
-
-func registerOpenAPIProjectRouteFamily(router chi.Router, modePolicy modes.Policy, workspaceRoot string) error {
-	deps, err := newOpenAPIProjectRouteDependencies(modePolicy, workspaceRoot)
-	if err != nil {
-		return err
-	}
-	return registerFrontendHTTPOpenAPIRouteFamily("project", RegisterProjectRoutes(router, deps))
-}
-
-func registerOpenAPILauncherManagementRouteFamily(
-	router chi.Router,
-	modePolicy modes.Policy,
-	defaultSettaHome string,
-) error {
-	return registerFrontendHTTPOpenAPIRouteFamily(
-		"launcher management",
-		RegisterLauncherManagementRoutes(
-			router,
-			newOpenAPILauncherManagementRouteDependencies(modePolicy, defaultSettaHome),
-		),
-	)
-}
 
 func newOpenAPIProjectRouteDependencies(
 	modePolicy modes.Policy,

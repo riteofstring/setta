@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -78,18 +77,15 @@ func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	)
 }
 
-func registerFrontendHTTPOpenAPIRouteFamily(family string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("register %s routes: %w", family, err)
-}
-
 func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	settaHome, settaFilesRoot := "/setta-home", "/setta-files"
 	ideMode, shareMode, appMode, launcherMode := modes.NewPolicy(config.ModeIDE), modes.NewPolicy(config.ModeShare), modes.NewPolicy(config.ModeApp), modes.NewPolicy(config.ModeLauncher)
 	websocketHub, projectStateRuntime, deploymentRuntime := &realtime.WebsocketHub{}, &projectstate.Runtime{}, &deployments.Runtime{}
 	attachmentService := &chatattachments.Service{}
+	projectDeps, err := newOpenAPIProjectRouteDependencies(ideMode, "/workspace")
+	if err != nil {
+		return err
+	}
 
 	registerCoreRuntimeOpenAPIRoutes(router, NewConfigInfoService(config.Config{
 		Server: config.Server{Mode: config.ModeIDE},
@@ -106,219 +102,179 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 			AutoMode:             config.AutoModeCreateLocal,
 		},
 	}, ""))
-	if err := registerFrontendHTTPOpenAPIRouteFamily("status", RegisterStatusRoutes(router, StatusRouteDependencies{
-		ModePolicy:           ideMode,
-		SettaHome:            settaHome,
-		SettaFilesRoot:       settaFilesRoot,
-		RevealPath:           &pathreveal.Service{},
-		WorktreeName:         "default",
-		GlobalSettaFilesBase: "/global-setta",
-	})); err != nil {
+	if err := RegisterFrontendRootRoutes(router, FrontendRootRouteDependencies{
+		AttachmentRoot: &AttachmentRootRouteDependencies{
+			ModePolicy: ideMode,
+			Service:    attachmentService,
+		},
+	}); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("settings", RegisterSettingsRoutes(router, SettingsRouteDependencies{
-		ModePolicy:    ideMode,
-		SettingsState: &settingsstate.Runtime{},
-		WebsocketHub:  websocketHub,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("llm", RegisterLLMRoutes(router, LLMRouteDependencies{
-		ModePolicy:   ideMode,
-		Service:      &llmconfig.Service{},
-		WebsocketHub: websocketHub,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("engine config", RegisterEngineConfigRoutes(router, EngineConfigRouteDependencies{
-		ModePolicy:   ideMode,
-		Engines:      &agentruns.EngineStore{},
-		LLM:          &llmconfig.Runtime{},
-		WebsocketHub: websocketHub,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("agent profile", RegisterAgentProfileRoutes(router, AgentProfileRouteDependencies{
-		ModePolicy:   ideMode,
-		Profiles:     &agentprofiles.Store{},
-		WebsocketHub: websocketHub,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("prompt template", RegisterPromptTemplateRoutes(router, PromptTemplateRouteDependencies{
-		ModePolicy:   ideMode,
-		Templates:    &prompttemplates.Store{},
-		WebsocketHub: websocketHub,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("external agent config", RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
-		ModePolicy:   ideMode,
-		Configs:      &externalagentconfigs.Service{},
-		Preflight:    (*externalagentconfigs.SystemChecker)(nil),
-		WebsocketHub: websocketHub,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("transcription profile", RegisterTranscriptionProfileRoutes(router, TranscriptionProfileRouteDependencies{
-		ModePolicy:   ideMode,
-		Profiles:     &transcriptionprofiles.Service{},
-		WebsocketHub: websocketHub,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("docstring", RegisterDocstringRoutes(router, DocstringRouteDependencies{
-		ModePolicy: ideMode,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("agentic summary cache", RegisterAgenticSummaryCacheRoutes(router, AgenticSummaryCacheRouteDependencies{
-		ModePolicy:   ideMode,
-		ProjectState: projectStateRuntime,
-		Statuses:     &agenticsummarycache.Service{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("mcp", RegisterMCPRoutes(router, MCPRouteDependencies{ModePolicy: ideMode, LLMConfigPath: settaFilesRoot + "/llm_config.json"})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("app definition", RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
-		ModePolicy:   ideMode,
-		ProjectState: projectStateRuntime,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("app gen skill", RegisterAppGenSkillRoutes(router, AppGenSkillRouteDependencies{
-		ModePolicy: ideMode,
-		Service:    &appgenskills.Service{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("artifact", RegisterArtifactRoutes(router, ArtifactRouteDependencies{ModePolicy: ideMode, Artifacts: (*artifacts.Service)(nil), ShareArtifacts: (*shareartifacts.Service)(nil)})); err != nil {
-		return err
-	}
-	if err := registerOpenAPIProjectRouteFamily(router, ideMode, "/workspace"); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("git", RegisterGitRoutes(router, GitRouteDependencies{ModePolicy: ideMode, Git: (*gitread.Service)(nil)})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("listener", RegisterListenerRoutes(router, ListenerRouteDependencies{
-		ModePolicy:          ideMode,
-		ProjectState:        projectStateRuntime,
-		ListenerBroadcaster: &realtime.ListenerBroadcaster{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("agent run", RegisterAgentRunRoutes(router, AgentRunRouteDependencies{
-		ModePolicy: ideMode,
-		Profiles:   &agentprofiles.Store{},
-		Runs:       &agentruns.RunStore{},
-		Managed:    &agentruns.Runtime{},
-		Chains:     &runchains.Runtime{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("detached run", RegisterDetachedRunRoutes(router, DetachedRunRouteDependencies{
-		ModePolicy:   ideMode,
-		Planner:      &runs.Planner{},
-		Runs:         &detachedruns.Manager{},
-		ProjectState: projectStateRuntime,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("state machine", RegisterStateMachineRunRoutes(router, StateMachineRunRouteDependencies{
-		ModePolicy: ideMode,
-		Runtime:    &statemachineruns.Runtime{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("workspace launch", RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
-		ModePolicy: ideMode,
-		Auth:       &auth.Service{},
-		Intents:    &workspacelaunch.IntentService{},
-		Launch:     &workspacelaunch.LocalLaunchService{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("file browser", RegisterFileBrowserRoutes(router, FileBrowserRouteDependencies{
-		ModePolicy:     ideMode,
-		DeploymentRoot: "/deployment",
-		Browser:        (*filebrowser.Service)(nil),
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("lsp", RegisterLSPRoutes(router, LSPRouteDependencies{
-		ModePolicy:   ideMode,
-		ProjectState: projectStateRuntime,
-		Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
-		Completions:  &lspcompletion.Service{},
-		Admin:        (*lsp.ProjectSynchronizer)(nil),
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("plugin", RegisterPluginRoutes(router, PluginRouteDependencies{ModePolicy: ideMode, Service: (*plugins.Service)(nil)})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("binary", RegisterBinaryRoutes(router, BinaryRouteDependencies{ModePolicy: ideMode, Store: &binarypayload.Store{}})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("attachment root", RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{ModePolicy: ideMode, Service: attachmentService})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("attachment", RegisterAttachmentRoutes(router, AttachmentRouteDependencies{ModePolicy: ideMode, Service: attachmentService})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("project shell", RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
-		ModePolicy:    ideMode,
-		Shell:         (*projectshell.Service)(nil),
-		Notifications: (*notifications.Service)(nil),
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("terminal", RegisterTerminalRoutes(router, TerminalRouteDependencies{
-		ModePolicy: ideMode,
-		Terminals:  &terminals.Service{},
-		RunCode:    &runs.Service{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("ai", RegisterAIRoutes(router, AIRouteDependencies{ModePolicy: shareMode, Deployment: deploymentRuntime})); err != nil {
-		return err
-	}
-	if err := registerOpenAPILauncherManagementRouteFamily(router, ideMode, settaHome); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("launcher home", RegisterLauncherHomeRoutes(router, LauncherHomeRouteDependencies{
-		ModePolicy:       launcherMode,
-		DefaultSettaHome: settaHome,
-		Home:             launcher.NewHomeService(launcher.HomeServiceOptions{}),
-		OpenWorkspace:    &launcher.OpenWorkspaceService{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("deployment ide", RegisterDeploymentIDERoutes(router, DeploymentIDERouteDependencies{
-		ModePolicy:     ideMode,
-		ProjectState:   projectStateRuntime,
-		Catalog:        &deployments.Catalog{},
-		SharePublisher: &deployments.SharePublisher{},
-		AppPublisher:   &deployments.AppPublisher{},
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment", RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
-		ModePolicy: shareMode,
-		Deployment: deploymentRuntime,
-	})); err != nil {
-		return err
-	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("app deployment", RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
-		ModePolicy: appMode,
-		Deployment: deploymentRuntime,
-	})); err != nil {
-		return err
-	}
-	return nil
+	return RegisterFrontendAPIRoutes(router, FrontendAPIRouteDependencies{
+		Status: StatusRouteDependencies{
+			ModePolicy:           ideMode,
+			SettaHome:            settaHome,
+			SettaFilesRoot:       settaFilesRoot,
+			RevealPath:           &pathreveal.Service{},
+			WorktreeName:         "default",
+			GlobalSettaFilesBase: "/global-setta",
+		},
+		Docstring: DocstringRouteDependencies{
+			ModePolicy: ideMode,
+		},
+		Settings: SettingsRouteDependencies{
+			ModePolicy:    ideMode,
+			SettingsState: &settingsstate.Runtime{},
+			WebsocketHub:  websocketHub,
+		},
+		Plugin: &PluginRouteDependencies{
+			ModePolicy: ideMode,
+			Service:    (*plugins.Service)(nil),
+		},
+		Listener: ListenerRouteDependencies{
+			ModePolicy:          ideMode,
+			ProjectState:        projectStateRuntime,
+			ListenerBroadcaster: &realtime.ListenerBroadcaster{},
+		},
+		DeploymentIDE: DeploymentIDERouteDependencies{
+			ModePolicy:     ideMode,
+			ProjectState:   projectStateRuntime,
+			Catalog:        &deployments.Catalog{},
+			SharePublisher: &deployments.SharePublisher{},
+			AppPublisher:   &deployments.AppPublisher{},
+		},
+		ShareDeployment: DeploymentRouteDependencies{
+			ModePolicy: shareMode,
+			Deployment: deploymentRuntime,
+		},
+		AppDeployment: DeploymentRouteDependencies{
+			ModePolicy: appMode,
+			Deployment: deploymentRuntime,
+		},
+		LauncherHome: LauncherHomeRouteDependencies{
+			ModePolicy:       launcherMode,
+			DefaultSettaHome: settaHome,
+			Home:             launcher.NewHomeService(launcher.HomeServiceOptions{}),
+			OpenWorkspace:    &launcher.OpenWorkspaceService{},
+		},
+		LauncherManagement: newOpenAPILauncherManagementRouteDependencies(ideMode, settaHome),
+		WorkspaceLaunch: WorkspaceLaunchRouteDependencies{
+			ModePolicy: ideMode,
+			Auth:       &auth.Service{},
+			Intents:    &workspacelaunch.IntentService{},
+			Launch:     &workspacelaunch.LocalLaunchService{},
+		},
+		Binary: BinaryRouteDependencies{
+			ModePolicy: ideMode,
+			Store:      &binarypayload.Store{},
+		},
+		Attachment: AttachmentRouteDependencies{
+			ModePolicy: ideMode,
+			Service:    attachmentService,
+		},
+		FileBrowser: FileBrowserRouteDependencies{
+			ModePolicy:     ideMode,
+			DeploymentRoot: "/deployment",
+			Browser:        (*filebrowser.Service)(nil),
+		},
+		Artifact: ArtifactRouteDependencies{
+			ModePolicy:     ideMode,
+			Artifacts:      (*artifacts.Service)(nil),
+			ShareArtifacts: (*shareartifacts.Service)(nil),
+		},
+		Terminal: TerminalRouteDependencies{
+			ModePolicy: ideMode,
+			Terminals:  &terminals.Service{},
+			RunCode:    &runs.Service{},
+		},
+		DetachedRun: DetachedRunRouteDependencies{
+			ModePolicy:   ideMode,
+			Planner:      &runs.Planner{},
+			Runs:         &detachedruns.Manager{},
+			ProjectState: projectStateRuntime,
+		},
+		ProjectShell: ProjectShellRouteDependencies{
+			ModePolicy:    ideMode,
+			Shell:         (*projectshell.Service)(nil),
+			Notifications: (*notifications.Service)(nil),
+		},
+		Git: GitRouteDependencies{
+			ModePolicy: ideMode,
+			Git:        (*gitread.Service)(nil),
+		},
+		Project: projectDeps,
+		AppDefinition: AppDefinitionRouteDependencies{
+			ModePolicy:   ideMode,
+			ProjectState: projectStateRuntime,
+		},
+		AI: AIRouteDependencies{
+			ModePolicy: shareMode,
+			Deployment: deploymentRuntime,
+		},
+		AgentProfile: AgentProfileRouteDependencies{
+			ModePolicy:   ideMode,
+			Profiles:     &agentprofiles.Store{},
+			WebsocketHub: websocketHub,
+		},
+		PromptTemplate: PromptTemplateRouteDependencies{
+			ModePolicy:   ideMode,
+			Templates:    &prompttemplates.Store{},
+			WebsocketHub: websocketHub,
+		},
+		AppGenSkill: AppGenSkillRouteDependencies{
+			ModePolicy: ideMode,
+			Service:    &appgenskills.Service{},
+		},
+		ExternalAgentConfig: ExternalAgentConfigRouteDependencies{
+			ModePolicy:   ideMode,
+			Configs:      &externalagentconfigs.Service{},
+			Preflight:    (*externalagentconfigs.SystemChecker)(nil),
+			WebsocketHub: websocketHub,
+		},
+		EngineConfig: EngineConfigRouteDependencies{
+			ModePolicy:   ideMode,
+			Engines:      &agentruns.EngineStore{},
+			LLM:          &llmconfig.Runtime{},
+			WebsocketHub: websocketHub,
+		},
+		TranscriptionProfile: TranscriptionProfileRouteDependencies{
+			ModePolicy:   ideMode,
+			Profiles:     &transcriptionprofiles.Service{},
+			WebsocketHub: websocketHub,
+		},
+		LLM: LLMRouteDependencies{
+			ModePolicy:   ideMode,
+			Service:      &llmconfig.Service{},
+			WebsocketHub: websocketHub,
+		},
+		AgenticSummaryCache: AgenticSummaryCacheRouteDependencies{
+			ModePolicy:   ideMode,
+			ProjectState: projectStateRuntime,
+			Statuses:     &agenticsummarycache.Service{},
+		},
+		AgentRun: AgentRunRouteDependencies{
+			ModePolicy: ideMode,
+			Profiles:   &agentprofiles.Store{},
+			Runs:       &agentruns.RunStore{},
+			Managed:    &agentruns.Runtime{},
+			Chains:     &runchains.Runtime{},
+		},
+		StateMachine: StateMachineRunRouteDependencies{
+			ModePolicy: ideMode,
+			Runtime:    &statemachineruns.Runtime{},
+		},
+		MCP: MCPRouteDependencies{
+			ModePolicy:    ideMode,
+			LLMConfigPath: settaFilesRoot + "/llm_config.json",
+		},
+		LSP: LSPRouteDependencies{
+			ModePolicy:   ideMode,
+			ProjectState: projectStateRuntime,
+			Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+			Completions:  &lspcompletion.Service{},
+			Admin:        (*lsp.ProjectSynchronizer)(nil),
+		},
+	})
 }
 
 func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
