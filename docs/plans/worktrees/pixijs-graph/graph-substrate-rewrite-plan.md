@@ -263,7 +263,7 @@ Pivot from DOM-backed renderer-boundary prep to the first visible Pixi insertion
 
 1. Do not reopen the completed controller split from Ralph item `205`; `SettingsGraphSubstrateCanary.tsx` is already a view shell and that prep boundary is in place.
 2. Do not reopen the completed DOM-only shell/header/body seam-lift lane from items `228` through `233`; those contracts are now regression coverage and future scene-owned inputs, not the next default slice picker.
-3. The first remaining product frontier is permission-gated: after explicit user approval to add a frontend dependency, install Pixi and land the first scene-owned static layer for the canary while section bodies remain DOM-backed.
+3. `pixi.js@8.17.1` is now installed in the frontend, so the first remaining product frontier is to land the first scene-owned static layer for the canary while section bodies remain DOM-backed.
 4. Scope that first Pixi slice to non-editing visuals only: card shells, section chrome, simple static decoration, or equivalent scene-owned visuals that do not take over editor/input behavior.
 5. Keep the broad normalized `rotaryParamCodeObjDefault` lane as the regression oracle; rerun it plus CDP after product slices instead of opening new section-specific parity coverage.
-6. Until approval arrives, do not spend more iterations on DOM-only seam lifts, standalone lifecycle cleanup, or harness-only work unless a live runtime is genuinely unhealthy.
+6. Do not spend more iterations on DOM-only seam lifts, standalone lifecycle cleanup, or harness-only work unless a live runtime is genuinely unhealthy or one of those failures directly blocks the first scene-owned slice.

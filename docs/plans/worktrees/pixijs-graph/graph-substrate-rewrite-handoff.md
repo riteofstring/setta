@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 19:05 EDT
+Last updated: 2026-04-06 22:09 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,38 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `235` clears the last external dependency gate by recording the granted approval, pinning `pixi.js@8.17.1` in the frontend, and updating the durable rewrite docs so the next loop resumes at the first scene-owned static shell/header/body slice instead of self-blocking on approval collection.
+  - Why this slice was needed:
+    - item `234` intentionally stopped the loop on an approval blocker, and that blocker is now resolved
+    - `frontend/package.json` and `frontend/pnpm-lock.yaml` needed the exact Pixi pin from the research worktree before the first visible renderer slice could land here
+    - leaving the durable docs on the old approval-gated wording would cause the next loop to stop again or reopen stale DOM-only seams instead of starting the first scene-owned product slice
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for the first scene-owned slice
+  - Production/test change:
+    - updated `frontend/package.json`
+      - pinned `pixi.js` to exact version `8.17.1`
+    - updated `frontend/pnpm-lock.yaml`
+      - locked the frontend install to `pixi.js@8.17.1`
+    - updated durable rewrite docs:
+      - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
+      - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+      - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - What this slice established:
+    - the explicit Pixi approval blocker is cleared in both code and durable docs
+    - the next remaining product step is now unambiguously the first scene-owned static shell/header/body layer while DOM editors remain intact
+    - the accumulated shell/body/header contracts remain prep only; stop reopening them instead of using them
+  - Verification:
+    - `pnpm -C frontend add pixi.js@8.17.1`
+    - `rg -n '"pixi\\.js"' frontend/package.json frontend/pnpm-lock.yaml -S`
+    - tests:
+      - not run; dependency install plus durable-doc sync slice
+  - Lane status:
+    - `pixi.js@8.17.1` is installed and pinned in the frontend, so the next live blocker is product implementation rather than approval
+    - keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage and rerun it plus CDP after the first scene-owned slice lands
+  - Next frontier:
+    - use the accumulated shell-layer, body-surface, header-renderer, header-layout, header-controls, and header-leading-controls contracts to land the first scene-owned static shell/header/body surface while DOM editors remain intact
+    - rerun one broad normalized `rotaryParamCodeObjDefault` lane plus the required CDP spot-check after that first scene-owned slice
 
 - Ralph item `234` synchronizes the durable loop docs with the actual frontier after item `233`, so the next iteration no longer reopens the already-complete controller/header fallback lanes by mistake.
   - Why this slice was needed:
@@ -8278,10 +8310,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not reopen that boundary as a default next slice
 - The DOM-only shell/header/body prep lane is also complete through item `233`:
   - `SectionHeader` no longer hard-codes layout, trailing controls, or leading controls inline at the future scene-owned header boundary
-  - do not reopen another DOM-only fallback seam in that area while approval is still unavailable
-- Explicit approval to add a new frontend dependency still has not arrived, and that is now the real blocker on the next product slice:
-  - once approval arrives, install Pixi and use the accumulated shell-layer, body-surface, header-renderer, header-layout, header-controls, and header-leading-controls contracts to land the first scene-owned static shell/header/body surface while DOM editors remain intact
-  - until approval arrives, do not manufacture more DOM-only seam lifts in place of that product slice
+  - do not reopen another DOM-only fallback seam in that area as a substitute for the first scene-owned slice
+- The Pixi dependency gate is now cleared:
+  - `frontend/package.json` pins `pixi.js` to exact version `8.17.1`
+  - `frontend/pnpm-lock.yaml` locks the install to `pixi.js@8.17.1`
+  - use the accumulated shell-layer, body-surface, header-renderer, header-layout, header-controls, and header-leading-controls contracts to land the first scene-owned static shell/header/body surface while DOM editors remain intact
 - Keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage only:
   - rerun it plus the required CDP spot-check after the first scene-owned slice lands
   - the repeated headless Playwright failure is still unchanged `ensureAppReady(...)` harness noise, not product evidence
@@ -8310,6 +8343,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `234`
-- Latest item: `2026-04-06 234`
+- Active history window: items `001` through `235`
+- Latest item: `2026-04-06 235`
 - Older history archives: none yet

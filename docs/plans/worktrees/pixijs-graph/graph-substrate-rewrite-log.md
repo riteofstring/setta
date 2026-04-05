@@ -9242,3 +9242,19 @@ LOOP_TERMINAL_MARKER: none
     - request explicit approval to add the frontend Pixi dependency
     - after approval, land the first scene-owned static layer and rerun the broad normalized `rotaryParamCodeObjDefault` lane plus CDP as regression coverage
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-06 22:09 EDT, Ralph item `235`
+  - Summary: recorded the granted Pixi approval by pinning `pixi.js@8.17.1` in the frontend and synchronizing the durable rewrite docs so the next frontier is the first scene-owned static shell/header/body slice rather than another approval or DOM-only seam pass.
+  - Files: `frontend/package.json`, `frontend/pnpm-lock.yaml`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Verification:
+    - `pnpm -C frontend add pixi.js@8.17.1`
+    - `rg -n '"pixi\\.js"' frontend/package.json frontend/pnpm-lock.yaml -S`
+    - tests not run; dependency install plus durable-doc sync slice
+  - Result:
+    - the explicit approval blocker is now cleared in both the workspace state and the durable loop docs
+    - the frontend is pinned to `pixi.js@8.17.1`, matching the research worktree
+    - the next remaining product step is to use the existing shell/body/header contracts to land the first scene-owned static shell/header/body layer while keeping DOM editors intact
+  - Next:
+    - land the first scene-owned static shell/header/body layer on the canary while DOM editor/body content stays intact
+    - rerun one broad normalized `rotaryParamCodeObjDefault` lane plus the required CDP spot-check after that first scene-owned slice
+  - LOOP_TERMINAL_MARKER: none
