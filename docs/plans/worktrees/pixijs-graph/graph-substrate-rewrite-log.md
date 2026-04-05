@@ -6002,3 +6002,43 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - open the next named normalized blank-pane pan lane on `chartSectionDefault`, which still only has drag/zoom-style coverage on `All Settings`
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 166
+
+- Item: Open and close the canonical `chartSectionDefault` normalized blank-pane pan lane with a trusted Playwright probe plus fresh-context CDP confirmation.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `165` explicitly handed the motion sequence to `chartSectionDefault` as the next named section that still only had drag/zoom-style coverage on normalized `All Settings`
+    - `chartSectionDefault` already had trusted toolbar-zoom and top-level drag lanes, but it still lacked any named blank-pane pan evidence
+    - the next bounded step needed to close that exact motion-family gap instead of widening helpers or reopening finished lanes
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the chart data path row attached during normalized pane pan on read-only main legacy and worktree canary`
+      - the new lane fixes the canonical target to `chartSectionDefault`, runs shared compare preflight, applies the same short blank-pane pan, and compares data-path row anchor drift plus viewport transform deltas
+  - What this slice established:
+    - the targeted live Playwright rerun passed on the current run-026 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), so the deterministic parity oracle currently sees `chartSectionDefault` pane pan staying within thresholds
+    - the fresh-context CDP sub-agent confirmed the same named lane without surfacing renderer drift:
+      - both sides were normalized to `All Settings`
+      - preflight looked healthy on the live hydrated surfaces
+      - one blank-pane pan kept `chartSectionDefault` attached on both sides
+    - stale bootstrap tabs were present during CDP, but they were treated as oracle noise and ignored in favor of the live hydrated worktree `3076/settings` page and the live main session reached through `3087/home` into `3087/settings`
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the chart data path row attached during normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `33.8s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - verified the live worktree at `3076/settings` and the live main session through `3087/home` -> `3087/settings`
+  - CDP visual check:
+    - result: done
+    - note: normalized `chartSectionDefault` pane pan kept the data-path row attached on both sides; stale bootstrap tabs were ignored as oracle noise
+- Lane status:
+  - close `chartSectionDefault` as a clean normalized blank-pane pan lane
+  - do not reopen stale bootstrap tabs as renderer drift on this lane
+- Next action:
+  - open the next named normalized blank-pane pan lane on `dictSectionDefault`, which still only has drag/zoom-style coverage on `All Settings`
+- LOOP_TERMINAL_MARKER: none
