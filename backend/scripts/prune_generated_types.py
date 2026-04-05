@@ -40,6 +40,13 @@ class Definition:
         return (self.module, self.name)
 
 
+@dataclass(frozen=True)
+class ImportCleanupEdit:
+    start_idx: int
+    end_idx: int
+    replacement: str
+
+
 class _LocalReferenceCollector(ast.NodeVisitor):
     """Records names that are referenced within a module."""
 
@@ -50,6 +57,19 @@ class _LocalReferenceCollector(ast.NodeVisitor):
         if isinstance(node.ctx, ast.Load):
             self.names.add(node.id)
         self.generic_visit(node)
+
+
+def parse_python_module(source: str, path: Path) -> ast.Module:
+    try:
+        return ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        raise RuntimeError(f"Failed to parse {path}: {exc}") from exc
+
+
+def collect_local_references(tree: ast.AST) -> set[str]:
+    ref_collector = _LocalReferenceCollector()
+    ref_collector.visit(tree)
+    return ref_collector.names
 
 
 def module_name_from_path(path: Path, repo_root: Path) -> str:
@@ -117,10 +137,7 @@ def collect_definitions(
     for path in sorted(target_dir.glob("*.py")):
         module_name = module_name_from_path(path, repo_root)
         source = path.read_text(encoding="utf-8")
-        try:
-            tree = ast.parse(source, filename=str(path))
-        except SyntaxError as exc:
-            raise RuntimeError(f"Failed to parse {path}: {exc}") from exc
+        tree = parse_python_module(source, path)
 
         for node in tree.body:
             definitions.extend(
@@ -132,9 +149,7 @@ def collect_definitions(
                 )
                 for name in definition_names_from_node(node)
             )
-        ref_collector = _LocalReferenceCollector()
-        ref_collector.visit(tree)
-        module_local_refs[module_name] = ref_collector.names
+        module_local_refs[module_name] = collect_local_references(tree)
     return definitions, module_local_refs
 
 
@@ -169,31 +184,11 @@ class UsageCollector(ast.NodeVisitor):
         self._imported_modules: dict[str, str] = {}
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if node.level:
+        module_name = self._generated_import_module_name(node)
+        if module_name is None:
             return
-        module_name = node.module or ""
-        if not module_name.startswith(MODULE_PREFIX):
-            return
-
-        if not node.names:
-            return
-
         for alias in node.names:
-            if alias.name == "*":
-                for name in self._module_to_names.get(module_name, set()):
-                    self._mark_used(module_name, name)
-                continue
-
-            local_name = alias.asname or alias.name
-            full_module = f"{module_name}.{alias.name}"
-            if full_module in self._module_to_names:
-                self._imported_modules[local_name] = full_module
-                continue
-
-            # Treat direct imports as usage even when the current module only
-            # re-exports the imported symbol via __all__.
-            self._mark_used(module_name, alias.name)
-            self._imported_names[local_name] = (module_name, alias.name)
+            self._register_generated_import_alias(module_name, alias)
 
     def visit_Name(self, node: ast.Name) -> None:
         data = self._imported_names.get(node.id)
@@ -207,6 +202,34 @@ class UsageCollector(ast.NodeVisitor):
             if module_name:
                 self._mark_used(module_name, node.attr)
         self.generic_visit(node)
+
+    def _generated_import_module_name(self, node: ast.ImportFrom) -> str | None:
+        if node.level or not node.names:
+            return None
+        module_name = node.module or ""
+        if not module_name.startswith(MODULE_PREFIX):
+            return None
+        return module_name
+
+    def _register_generated_import_alias(
+        self, module_name: str, alias: ast.alias
+    ) -> None:
+        if alias.name == "*":
+            self._mark_all_module_names(module_name)
+            return
+        local_name = alias.asname or alias.name
+        full_module = f"{module_name}.{alias.name}"
+        if full_module in self._module_to_names:
+            self._imported_modules[local_name] = full_module
+            return
+        # Treat direct imports as usage even when the current module only
+        # re-exports the imported symbol via __all__.
+        self._mark_used(module_name, alias.name)
+        self._imported_names[local_name] = (module_name, alias.name)
+
+    def _mark_all_module_names(self, module_name: str) -> None:
+        for name in self._module_to_names.get(module_name, set()):
+            self._mark_used(module_name, name)
 
 
 def collect_used_keys(
@@ -228,8 +251,8 @@ def collect_used_keys(
             continue
 
         try:
-            tree = ast.parse(source, filename=str(path))
-        except SyntaxError:
+            tree = parse_python_module(source, path)
+        except RuntimeError:
             continue
 
         collector = UsageCollector(mark_used, module_to_names)
@@ -272,30 +295,8 @@ def cleanup_unused_imports(paths: Iterable[Path], *, dry_run: bool) -> int:
     updated_files = 0
     for path in sorted(set(paths)):
         source = path.read_text(encoding="utf-8")
-        try:
-            tree = ast.parse(source, filename=str(path))
-        except SyntaxError as exc:
-            raise RuntimeError(f"Failed to parse {path}: {exc}") from exc
-
-        ref_collector = _LocalReferenceCollector()
-        ref_collector.visit(tree)
-        used_names = ref_collector.names
-        lines = source.splitlines(keepends=True)
-        replacements: list[tuple[int, int, str]] = []
-
-        for node in tree.body:
-            replacement = render_cleaned_import(node, used_names)
-            if replacement is None:
-                continue
-            replacements.append(
-                (
-                    max(node.lineno - 1, 0),
-                    min(node.end_lineno or node.lineno, len(lines)),
-                    replacement,
-                )
-            )
-
-        if not replacements:
+        cleanup_edits = collect_import_cleanup_edits(source, path)
+        if not cleanup_edits:
             continue
 
         updated_files += 1
@@ -303,15 +304,40 @@ def cleanup_unused_imports(paths: Iterable[Path], *, dry_run: bool) -> int:
             print(f"[dry-run] {path}: would clean unused imports")
             continue
 
-        for start_idx, end_idx, replacement in reversed(replacements):
-            replacement_lines = [] if replacement == "" else [replacement]
-            lines[start_idx:end_idx] = replacement_lines
-
-        new_content = "".join(lines).rstrip() + "\n"
-        path.write_text(new_content, encoding="utf-8")
+        write_cleaned_imports(path, source, cleanup_edits)
         print(f"[prune-generated] Cleaned unused imports in {path}")
 
     return updated_files
+
+
+def collect_import_cleanup_edits(source: str, path: Path) -> list[ImportCleanupEdit]:
+    tree = parse_python_module(source, path)
+    used_names = collect_local_references(tree)
+    line_count = len(source.splitlines(keepends=True))
+    cleanup_edits: list[ImportCleanupEdit] = []
+    for node in tree.body:
+        replacement = render_cleaned_import(node, used_names)
+        if replacement is None:
+            continue
+        cleanup_edits.append(
+            ImportCleanupEdit(
+                start_idx=max(node.lineno - 1, 0),
+                end_idx=min(node.end_lineno or node.lineno, line_count),
+                replacement=replacement,
+            )
+        )
+    return cleanup_edits
+
+
+def write_cleaned_imports(
+    path: Path, source: str, cleanup_edits: Iterable[ImportCleanupEdit]
+) -> None:
+    lines = source.splitlines(keepends=True)
+    for edit in reversed(list(cleanup_edits)):
+        replacement_lines = [] if edit.replacement == "" else [edit.replacement]
+        lines[edit.start_idx : edit.end_idx] = replacement_lines
+    new_content = "".join(lines).rstrip() + "\n"
+    path.write_text(new_content, encoding="utf-8")
 
 
 def render_cleaned_import(node: ast.stmt, used_names: set[str]) -> str | None:  # noqa: C901

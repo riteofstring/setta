@@ -76,6 +76,45 @@ def test_collect_used_keys_treats_direct_generated_import_as_usage(
     assert ("setta.types.generated.go_shared_types", "LLMConfig") in used_keys
 
 
+def test_collect_used_keys_marks_generated_submodule_alias_attribute_usage(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    target_dir = repo_root / "backend" / "setta" / "types" / "generated"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "go_shared_types.py").write_text(
+        "class Thing:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    wrapper_path = repo_root / "backend" / "setta" / "types" / "consumer.py"
+    wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+    wrapper_path.write_text(
+        "from setta.types.generated import go_shared_types as generated_types\n\n"
+        "VALUE = generated_types.Thing\n",
+        encoding="utf-8",
+    )
+
+    module = _load_prune_generated_types_module()
+    definitions, module_local_refs = module.collect_definitions(target_dir, repo_root)
+    module_to_names = {}
+    for definition in definitions:
+        module_to_names.setdefault(definition.module, set()).add(definition.name)
+
+    initial_used_keys = {
+        definition.key
+        for definition in definitions
+        if definition.name in module_local_refs.get(definition.module, set())
+    }
+    used_keys = module.collect_used_keys(
+        repo_root,
+        module_to_names,
+        initial_used_keys=initial_used_keys,
+    )
+
+    assert ("setta.types.generated.go_shared_types", "Thing") in used_keys
+
+
 def test_cleanup_unused_imports_removes_stale_generated_imports(
     tmp_path: Path,
 ) -> None:
