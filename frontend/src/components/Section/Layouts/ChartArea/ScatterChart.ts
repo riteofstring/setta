@@ -6,7 +6,7 @@ import {
   Plugin,
   Tooltip,
 } from "chart.js";
-import { ChartDataArtifact, ScatterChartSettings } from "utils/generatedTypes";
+import { ChartDataType, ScatterChartSettings } from "utils/generatedTypes";
 import {
   getAxisType,
   getOnLegendClickSetDatasetHidden,
@@ -80,7 +80,7 @@ type ScatterChartData = ChartData<
 
 export function updateScatterChartWithNewData(
   chart: Chart,
-  data: ChartDataArtifact["value"],
+  data: ChartDataType,
   datasetHidden: Record<string, boolean>,
   darkMode: boolean,
   chartSettings: ScatterChartSettings,

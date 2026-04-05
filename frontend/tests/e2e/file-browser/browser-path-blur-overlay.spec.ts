@@ -1,7 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
@@ -14,7 +13,10 @@ function normalizePathForComparison(value: string): string {
   return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
 }
 
-async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
+async function readCodeMirrorValue(
+  page: Page,
+  id: string,
+): Promise<string> {
   const value = await page.evaluate((targetId) => {
     const root = document.getElementById(targetId);
     if (!root) {
@@ -58,20 +60,22 @@ test("browser path overlay snaps visible on blur (no blank flash)", async ({
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
-    const browserSection = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId,
-      implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.5,
-        y: viewportBounds.y + viewportBounds.h * 0.22,
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.5,
+          y: viewportBounds.y + viewportBounds.h * 0.22,
+        },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -95,10 +99,7 @@ test("browser path overlay snaps visible on blur (no blank flash)", async ({
       await cmContent.click();
 
       await expect
-        .poll(
-          async () =>
-            (await readBrowserPathOverlayOpacity(page, pathInputId)) ?? 1,
-        )
+        .poll(async () => (await readBrowserPathOverlayOpacity(page, pathInputId)) ?? 1)
         .toBeLessThanOrEqual(0.01);
 
       const filterRoot = sectionNode
