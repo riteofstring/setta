@@ -122,7 +122,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
       installArtifacts: true,
       channel: "uv-tool",
       openMode: "browser",
-      workspaceBehavior: "always-prompt",
+      workspaceBehavior: "always_prompt",
       artifactOptions: {
         app_name: "Setta",
       },
