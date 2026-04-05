@@ -1,6 +1,4 @@
 import _ from "lodash";
-import { setBrowserSavedSearches } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback } from "react";
 import { FiFileText, FiMusic, FiTrash2, FiVideo } from "react-icons/fi";
 import { IoImageOutline } from "react-icons/io5";
@@ -13,15 +11,18 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { route_set_browser_saved_searches } from "utils/generatedEndpoints";
 import {
   BrowserSavedSearch,
   BrowserSavedSearchTypeFilters,
   BrowserSearchScopeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+
 type BrowserAreaSettingsProps = {
   sectionId: string;
 };
+
 const TYPE_FILTERS: Array<{
   key: keyof BrowserSavedSearchTypeFilters;
   label: string;
@@ -33,6 +34,7 @@ const TYPE_FILTERS: Array<{
   { key: "text", label: "Text", icon: <FiFileText /> },
   { key: "data", label: "Data", icon: <MdDataArray /> },
 ];
+
 function updateSavedSearchesOptimistically({
   sectionId,
   nextSavedSearches,
@@ -47,18 +49,15 @@ function updateSavedSearchesOptimistically({
       });
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        setBrowserSavedSearches({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            savedSearches: nextSavedSearches,
-            frontendOpId,
-          },
-        } as Parameters<typeof setBrowserSavedSearches>[0]),
-      ),
+      route_set_browser_saved_searches({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        savedSearches: nextSavedSearches,
+        frontendOpId,
+      }),
   });
 }
+
 export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
   const { canEditLayout } = useShareCapabilities();
   const { savedSearches, isFrozen } = useProjectState((state) => {
@@ -72,7 +71,9 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
+
   const isDisabled = !canEditLayout || isFrozen;
+
   const updateSearch = useCallback(
     (id: string, patch: Partial<BrowserSavedSearch>) => {
       if (isDisabled) {
@@ -85,6 +86,7 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
     },
     [isDisabled, savedSearches, sectionId],
   );
+
   const deleteSearch = useCallback(
     (id: string) => {
       if (isDisabled) {
@@ -95,6 +97,7 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
     },
     [isDisabled, savedSearches, sectionId],
   );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
       <div className="flex flex-col gap-1">
