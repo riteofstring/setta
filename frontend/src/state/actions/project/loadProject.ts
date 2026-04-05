@@ -21,7 +21,7 @@ import {
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_create_project_config,
   route_get_latest_lsp_diagnostics,
@@ -29,10 +29,8 @@ import {
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import {
-  type AllProjectMetadata,
-  type CreateProjectConfigResponse,
-  type LSPDiagnosticsPayload,
-  type SingleConfig,
+  type ProjectStateSingleConfig,
+  type ProjectStateSingleConfigInput,
 } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
@@ -45,27 +43,15 @@ import {
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
-type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
-type LatestLspDiagnosticsRouteResponse =
-  ResponseDataAndStatus<LSPDiagnosticsPayload>;
-type LoadAllProjectMetadataRouteResponse =
-  ResponseDataAndStatus<AllProjectMetadata>;
-type CreateProjectConfigRouteResponse =
-  ResponseDataAndStatus<CreateProjectConfigResponse>;
-type LoadProjectStateInput = SingleConfig | Partial<SingleConfig>;
-
 export async function loadProjectConfig({ projectConfigName }) {
-  const res: LoadProjectConfigRouteResponse = await route_load_project_config({
-    projectConfigName,
-  });
+  const res = await route_load_project_config({ projectConfigName });
   if (res200(res)) {
     const loadedProjectState = validateLoadedProjectState(res.data);
     const loaded = await loadProjectState(loadedProjectState);
     if (loaded) {
-      const diagnosticsRes: LatestLspDiagnosticsRouteResponse =
-        await route_get_latest_lsp_diagnostics({
-          projectConfigId: loadedProjectState.projectConfig.id,
-        });
+      const diagnosticsRes = await route_get_latest_lsp_diagnostics({
+        projectConfigId: loadedProjectState.projectConfig.id,
+      });
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }
@@ -79,8 +65,8 @@ export async function loadProjectConfig({ projectConfigName }) {
 }
 
 function validateLoadedProjectState(
-  projectState: LoadProjectStateInput,
-): SingleConfig {
+  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
+): ProjectStateSingleConfig {
   if (projectState.projectConfig.windowSpaces === undefined) {
     throw new Error(
       "Loaded project state is missing projectConfig.windowSpaces.",
@@ -89,10 +75,12 @@ function validateLoadedProjectState(
   if (projectState.projectChatWindowing === undefined) {
     throw new Error("Loaded project state is missing projectChatWindowing.");
   }
-  return projectState as SingleConfig;
+  return projectState as ProjectStateSingleConfig;
 }
 
-export async function loadProjectState(projectState: LoadProjectStateInput) {
+export async function loadProjectState(
+  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
+) {
   const normalizedProjectState = validateLoadedProjectState(projectState);
   const { viewport, viewportInitialized } =
     normalizedProjectState.projectConfig;
@@ -156,8 +144,7 @@ export function useCreateAndGoToProjectConfig() {
     if (!previewImgColor) {
       throw new Error();
     }
-    const res: CreateProjectConfigRouteResponse =
-      await route_create_project_config({ previewImgColor });
+    const res = await route_create_project_config({ previewImgColor });
     if (res200(res)) {
       useLocalStorage.setState({
         overviewTab: OverviewTabNameEnum.ProjectAIChat,
@@ -188,8 +175,7 @@ export async function loadAllProjectMetadata(): Promise<boolean> {
   if (mode !== "ide") {
     return false;
   }
-  const res: LoadAllProjectMetadataRouteResponse =
-    await route_load_all_project_metadata();
+  const res = await route_load_all_project_metadata();
   if (res200(res)) {
     useAllProjectMetadata.setState(res.data);
     return true;

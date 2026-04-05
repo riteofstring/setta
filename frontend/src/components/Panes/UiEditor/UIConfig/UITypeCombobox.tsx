@@ -5,7 +5,7 @@ import {
 import _ from "lodash";
 import {
   getCodeObjImpl,
-  getCurrCodeObjVariantIfPresent,
+  getCurrCodeObjVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -148,10 +148,7 @@ function useNonPresetImplsForParam(
   allowedImplTypes?: Array<CodeObjType>,
 ) {
   return useProjectState((x) => {
-    const variant = getCurrCodeObjVariantIfPresent(x, sectionId, paramInfoId);
-    if (!variant) {
-      return [];
-    }
+    const variant = getCurrCodeObjVariant(x, sectionId, paramInfoId);
     const prevImpls: Record<string, string> = {};
     for (const i of variant.nonPresetImpls) {
       const impl = getCodeObjImpl(x, i);
