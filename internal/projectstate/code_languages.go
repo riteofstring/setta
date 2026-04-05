@@ -5,14 +5,15 @@ import "strings"
 const defaultCodeLanguageExtension = "txt"
 
 var codeLanguageExtensions = map[CodeLanguage]string{
-	CodeLanguagePython:         "py",
-	CodeLanguageBash:           "sh",
-	CodeLanguage("javascript"): "js",
-	CodeLanguage("typescript"): "ts",
-	CodeLanguage("json"):       "json",
-	CodeLanguage("yaml"):       "yml",
-	CodeLanguage("markdown"):   "md",
-	CodeLanguage("plaintext"):  "txt",
+	CodeLanguagePython:     "py",
+	CodeLanguageBash:       "sh",
+	CodeLanguageJavaScript: "js",
+	CodeLanguageTypeScript: "ts",
+	CodeLanguageJSON:       "json",
+	CodeLanguageYAML:       "yml",
+	CodeLanguageTOML:       "toml",
+	CodeLanguageMarkdown:   "md",
+	CodeLanguagePlaintext:  "txt",
 }
 
 func normalizeCodeLanguage(language CodeLanguage) CodeLanguage {

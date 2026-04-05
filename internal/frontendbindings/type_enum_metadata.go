@@ -4,32 +4,13 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/projectstate"
 	"setta/internal/stringenumvalues"
 )
-
-var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
-	reflect.TypeOf(projectstate.CodeLanguage("")): frontendBindingFixedEnumValues(
-		"python",
-		"bash",
-		"javascript",
-		"typescript",
-		"json",
-		"yaml",
-		"toml",
-		"markdown",
-		"plaintext",
-	),
-}
 
 func frontendBindingEnumValues(t reflect.Type) ([]EnumValue, bool, error) {
 	t = canonicalFrontendBindingType(t)
 	if t == nil {
 		return nil, false, nil
-	}
-
-	if provider, ok := frontendBindingSyntheticEnumProviders[t]; ok {
-		return provider(), true, nil
 	}
 
 	discovered, ok, err := stringenumvalues.Default().Values(t)
@@ -40,33 +21,7 @@ func frontendBindingEnumValues(t reflect.Type) ([]EnumValue, bool, error) {
 		return nil, false, nil
 	}
 
-	return frontendBindingAdjustedDiscoveredEnumValues(t, discovered), true, nil
-}
-
-func frontendBindingAdjustedDiscoveredEnumValues(
-	t reflect.Type,
-	discovered []stringenumvalues.EnumValue,
-) []EnumValue {
-	values := frontendBindingEnumValuesFromDiscovered(discovered)
-	switch t {
-	case reflect.TypeOf(projectstate.FrontendSectionType("")):
-		return frontendBindingMoveEnumValueBefore(values, "TextBlock", "Prompt")
-	default:
-		return values
-	}
-}
-
-func frontendBindingFixedEnumValues(values ...string) func() []EnumValue {
-	return func() []EnumValue {
-		enumValues := make([]EnumValue, 0, len(values))
-		for _, value := range values {
-			enumValues = append(enumValues, EnumValue{
-				Name:  value,
-				Value: value,
-			})
-		}
-		return enumValues
-	}
+	return frontendBindingEnumValuesFromDiscovered(discovered), true, nil
 }
 
 func frontendBindingEnumValuesFromDiscovered(
@@ -106,32 +61,6 @@ func frontendBindingStructFieldEnumValues(structType reflect.Type) []EnumValue {
 		})
 	}
 	return values
-}
-
-func frontendBindingMoveEnumValueBefore(
-	values []EnumValue,
-	name string,
-	before string,
-) []EnumValue {
-	fromIndex := -1
-	toIndex := -1
-	for index, value := range values {
-		switch value.Name {
-		case name:
-			fromIndex = index
-		case before:
-			toIndex = index
-		}
-	}
-	if fromIndex == -1 || toIndex == -1 || fromIndex < toIndex {
-		return values
-	}
-
-	ordered := append([]EnumValue(nil), values...)
-	value := ordered[fromIndex]
-	copy(ordered[toIndex+1:fromIndex+1], ordered[toIndex:fromIndex])
-	ordered[toIndex] = value
-	return ordered
 }
 
 func frontendBindingStructFieldEnumName(field reflect.StructField) string {

@@ -3,6 +3,8 @@ package projectstate
 import (
 	"reflect"
 	"testing"
+
+	"setta/internal/stringenumvalues"
 )
 
 func TestFrontendDefaultsMaterializeGeneratorValues(t *testing.T) {
@@ -106,4 +108,62 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 			)
 		}
 	}
+}
+
+func TestFrontendSectionTypeEnumPreservesOwnerOrder(t *testing.T) {
+	values, ok, err := stringenumvalues.Default().Values(reflect.TypeOf(FrontendSectionType("")))
+	if err != nil {
+		t.Fatalf("Values(FrontendSectionType) error = %v", err)
+	}
+	if !ok {
+		t.Fatal("expected FrontendSectionType enum values")
+	}
+
+	textBlockIndex := enumValueIndex(values, "TextBlock")
+	promptIndex := enumValueIndex(values, "Prompt")
+	if textBlockIndex == -1 || promptIndex == -1 {
+		t.Fatalf("expected TextBlock and Prompt enum values, got %#v", values)
+	}
+	if textBlockIndex > promptIndex {
+		t.Fatalf("expected TextBlock before Prompt, got %#v", values)
+	}
+}
+
+func TestCodeLanguageEnumIncludesBuiltinFrontendLanguages(t *testing.T) {
+	values, ok, err := stringenumvalues.Default().Values(reflect.TypeOf(CodeLanguage("")))
+	if err != nil {
+		t.Fatalf("Values(CodeLanguage) error = %v", err)
+	}
+	if !ok {
+		t.Fatal("expected CodeLanguage enum values")
+	}
+
+	want := []string{
+		"python",
+		"bash",
+		"javascript",
+		"typescript",
+		"json",
+		"yaml",
+		"toml",
+		"markdown",
+		"plaintext",
+	}
+	if len(values) != len(want) {
+		t.Fatalf("len(values) = %d, want %d (%#v)", len(values), len(want), values)
+	}
+	for index, expected := range want {
+		if values[index].Value != expected {
+			t.Fatalf("values[%d] = %q, want %q", index, values[index].Value, expected)
+		}
+	}
+}
+
+func enumValueIndex(values []stringenumvalues.EnumValue, target string) int {
+	for index, value := range values {
+		if value.Value == target {
+			return index
+		}
+	}
+	return -1
 }

@@ -71,8 +71,15 @@ const (
 type CodeLanguage string
 
 const (
-	CodeLanguagePython CodeLanguage = "python"
-	CodeLanguageBash   CodeLanguage = "bash"
+	CodeLanguagePython     CodeLanguage = "python"
+	CodeLanguageBash       CodeLanguage = "bash"
+	CodeLanguageJavaScript CodeLanguage = "javascript"
+	CodeLanguageTypeScript CodeLanguage = "typescript"
+	CodeLanguageJSON       CodeLanguage = "json"
+	CodeLanguageYAML       CodeLanguage = "yaml"
+	CodeLanguageTOML       CodeLanguage = "toml"
+	CodeLanguageMarkdown   CodeLanguage = "markdown"
+	CodeLanguagePlaintext  CodeLanguage = "plaintext"
 )
 
 type CodeFileAccessMode string

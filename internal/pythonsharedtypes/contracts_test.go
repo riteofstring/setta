@@ -22,10 +22,18 @@ func TestEnumContractSpecIfConvertibleNormalizesOwnerFrontendNames(t *testing.T)
 		t.Fatalf("spec.Name = %q, want %q", spec.Name, "SectionType")
 	}
 	if len(spec.EnumValues) == 0 {
-		t.Fatalf("expected fallback enum values to be populated")
+		t.Fatalf("expected owner enum values to be populated")
 	}
 	if spec.EnumValues[0].Value != "Callable" {
 		t.Fatalf("first enum value = %q, want %q", spec.EnumValues[0].Value, "Callable")
+	}
+	textBlockIndex := pythonEnumValueIndex(spec.EnumValues, "TextBlock")
+	promptIndex := pythonEnumValueIndex(spec.EnumValues, "Prompt")
+	if textBlockIndex == -1 || promptIndex == -1 {
+		t.Fatalf("expected TextBlock and Prompt enum values, got %#v", spec.EnumValues)
+	}
+	if textBlockIndex > promptIndex {
+		t.Fatalf("expected TextBlock before Prompt, got %#v", spec.EnumValues)
 	}
 }
 
@@ -175,4 +183,13 @@ func defaultExprForField(t *testing.T, model modelSpec, fieldName string) string
 	}
 	t.Fatalf("field %q not found", fieldName)
 	return ""
+}
+
+func pythonEnumValueIndex(values []enumValueSpec, target string) int {
+	for index, value := range values {
+		if value.Value == target {
+			return index
+		}
+	}
+	return -1
 }

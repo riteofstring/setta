@@ -211,17 +211,6 @@ func validateTSLiteralObjectKeys(context string, object map[string]any, orderedK
 	}
 }
 
-func EnumValuesForType(t reflect.Type) ([]EnumValue, bool, error) {
-	values, ok, err := frontendBindingEnumValues(t)
-	if err != nil {
-		return nil, false, err
-	}
-	if !ok {
-		return nil, false, nil
-	}
-	return append([]EnumValue(nil), values...), true, nil
-}
-
 func mustTSLiteralValueFromGoValue(context string, value any) any {
 	payload, err := json.Marshal(value)
 	if err != nil {

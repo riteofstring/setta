@@ -159,24 +159,6 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 			EnumValues: discoveredEnumValues,
 		}, true, nil
 	}
-	enumValues, enumOK, enumErr := frontendbindings.EnumValuesForType(t)
-	if enumErr != nil {
-		return contractSpec{}, false, enumErr
-	}
-	if enumOK && len(enumValues) > 0 {
-		fallbackValues := make([]enumValueSpec, 0, len(enumValues))
-		for _, value := range enumValues {
-			fallbackValues = append(fallbackValues, enumValueSpec{
-				Name:  value.Name,
-				Value: value.Value,
-			})
-		}
-		return contractSpec{
-			Name:       pythonSharedContractNameForType(t),
-			Kind:       contractKindEnum,
-			EnumValues: fallbackValues,
-		}, true, nil
-	}
 	values, ok, err = stringenumvalues.Default().ValuesByTypeName(
 		pythonSharedEnumFallbackPackages,
 		t.Name(),
