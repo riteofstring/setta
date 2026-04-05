@@ -33,34 +33,21 @@ func discriminatedObjectFamilyForType(t reflect.Type) (frontendbindingmeta.Discr
 			continue
 		}
 		seenBaseTypes[family.BaseType] = struct{}{}
-
-		memberTypes := make([]reflect.Type, 0, len(family.MemberTypes))
-		seenMemberTypes := make(map[reflect.Type]struct{}, len(family.MemberTypes))
-		for _, memberType := range family.MemberTypes {
-			memberType = canonicalFrontendBindingType(memberType)
-			if memberType == nil || memberType == family.BaseType {
-				continue
-			}
-			if _, duplicate := seenMemberTypes[memberType]; duplicate {
-				continue
-			}
-			seenMemberTypes[memberType] = struct{}{}
-			memberTypes = append(memberTypes, memberType)
-		}
-		family.MemberTypes = memberTypes
-		isMember := false
-		for _, memberType := range family.MemberTypes {
-			if memberType == t {
-				isMember = true
-				break
-			}
-		}
-		if t != family.BaseType && !isMember {
-			continue
-		}
 		members, err := discriminatedObjectFamilyMembers(family)
 		if err != nil {
 			return frontendbindingmeta.DiscriminatedObjectFamily{}, nil, false, err
+		}
+		if t != family.BaseType {
+			isMember := false
+			for _, member := range members {
+				if member.Type == t {
+					isMember = true
+					break
+				}
+			}
+			if !isMember {
+				continue
+			}
 		}
 		return family, members, true, nil
 	}
@@ -297,6 +284,9 @@ func discriminatedObjectFamilyTraitDeclarations(
 func discriminatedObjectFamilyMembers(
 	family frontendbindingmeta.DiscriminatedObjectFamily,
 ) ([]discriminatedObjectFamilyMember, error) {
+	if family.DiscriminatorValue == nil {
+		return nil, fmt.Errorf("%s family is missing discriminator metadata", frontendBindingTypeName(family.BaseType))
+	}
 	enumValues, ok, err := discoveredFrontendEnumValues(family.EnumType)
 	if err != nil {
 		return nil, err
@@ -312,18 +302,22 @@ func discriminatedObjectFamilyMembers(
 		order = append(order, enumValue.Value)
 	}
 
-	membersByValue := make(map[string]reflect.Type, len(family.MemberTypes))
-	for _, candidate := range family.MemberTypes {
-		if family.DiscriminatorValue == nil {
-			return nil, fmt.Errorf("%s family is missing discriminator metadata", frontendBindingTypeName(family.BaseType))
+	candidates := DiscoveredConvertibleTypes()
+	membersByValue := make(map[string]reflect.Type, len(candidates))
+	seen := make(map[reflect.Type]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		candidate = canonicalFrontendBindingType(candidate)
+		if candidate == nil ||
+			candidate == family.BaseType ||
+			!discriminatedObjectFamilyTypeEmbedsBase(candidate, family.BaseType) {
+			continue
+		}
+		if _, duplicate := seen[candidate]; duplicate {
+			continue
 		}
 		value, ok := family.DiscriminatorValue(candidate)
 		if !ok {
-			return nil, fmt.Errorf(
-				"%s family member %s is missing a discriminator value",
-				frontendBindingTypeName(family.BaseType),
-				candidate.String(),
-			)
+			continue
 		}
 		if _, ok := enumExprsByValue[value]; !ok {
 			return nil, fmt.Errorf(
@@ -342,6 +336,7 @@ func discriminatedObjectFamilyMembers(
 				candidate.String(),
 			)
 		}
+		seen[candidate] = struct{}{}
 		membersByValue[value] = candidate
 	}
 
@@ -358,4 +353,27 @@ func discriminatedObjectFamilyMembers(
 		})
 	}
 	return members, nil
+}
+
+func discriminatedObjectFamilyTypeEmbedsBase(t reflect.Type, baseType reflect.Type) bool {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	for baseType != nil && baseType.Kind() == reflect.Pointer {
+		baseType = baseType.Elem()
+	}
+	if t == nil || baseType == nil || t.Kind() != reflect.Struct {
+		return false
+	}
+	for index := 0; index < t.NumField(); index++ {
+		field := t.Field(index)
+		if !field.Anonymous {
+			continue
+		}
+		fieldType := canonicalFrontendBindingType(field.Type)
+		if fieldType == baseType || discriminatedObjectFamilyTypeEmbedsBase(fieldType, baseType) {
+			return true
+		}
+	}
+	return false
 }

@@ -2,7 +2,6 @@ package projectstate
 
 import (
 	"reflect"
-	"sort"
 	"testing"
 
 	"setta/internal/stringenumvalues"
@@ -130,51 +129,6 @@ func TestFrontendSectionTypeEnumPreservesOwnerOrder(t *testing.T) {
 	}
 }
 
-func TestFrontendDiscriminatedObjectFamiliesExposeExplicitMemberTypes(t *testing.T) {
-	sectionFamily := FrontendBaseSectionImpl{}.FrontendBindingDiscriminatedObjectFamily()
-	if got, want := frontendBindingTypeNames(sectionFamily.MemberTypes), frontendBindingMemberTypeNames(
-		FrontendBrowserSectionImpl{},
-		FrontendCallableSectionImpl{},
-		FrontendChartSectionImpl{},
-		FrontendChatSectionImpl{},
-		FrontendCodeSectionImpl{},
-		FrontendDictSectionImpl{},
-		FrontendGroupSectionImpl{},
-		FrontendListRootSectionImpl{},
-		FrontendPromptSectionImpl{},
-		FrontendSpreadsheetSectionImpl{},
-		FrontendStateMachineEndSectionImpl{},
-		FrontendStateMachineGateSectionImpl{},
-		FrontendStateMachineStartSectionImpl{},
-		FrontendTaskBoardSectionImpl{},
-		FrontendTerminalSectionImpl{},
-		FrontendTextBlockSectionImpl{},
-	); !reflect.DeepEqual(got, want) {
-		t.Fatalf("section family member types = %#v, want %#v", got, want)
-	}
-
-	codeObjFamily := FrontendBaseCodeObjImpl{}.FrontendBindingDiscriminatedObjectFamily()
-	if got, want := frontendBindingTypeNames(codeObjFamily.MemberTypes), frontendBindingMemberTypeNames(
-		FrontendButtonParamCodeObjImpl{},
-		FrontendCodeCallableCodeObjImpl{},
-		FrontendCodeParamCodeObjImpl{},
-		FrontendColorPickerParamCodeObjImpl{},
-		FrontendDateParamCodeObjImpl{},
-		FrontendDropdownParamCodeObjImpl{},
-		FrontendDropzoneParamCodeObjImpl{},
-		FrontendNestedParamCodeObjImpl{},
-		FrontendPasswordParamCodeObjImpl{},
-		FrontendRotaryParamCodeObjImpl{},
-		FrontendSliderParamCodeObjImpl{},
-		FrontendSwitchParamCodeObjImpl{},
-		FrontendTextAreaParamCodeObjImpl{},
-		FrontendTextParamCodeObjImpl{},
-		FrontendTimeParamCodeObjImpl{},
-	); !reflect.DeepEqual(got, want) {
-		t.Fatalf("code object family member types = %#v, want %#v", got, want)
-	}
-}
-
 func TestCodeLanguageEnumIncludesBuiltinFrontendLanguages(t *testing.T) {
 	values, ok, err := stringenumvalues.Default().Values(reflect.TypeOf(CodeLanguage("")))
 	if err != nil {
@@ -203,24 +157,6 @@ func TestCodeLanguageEnumIncludesBuiltinFrontendLanguages(t *testing.T) {
 			t.Fatalf("values[%d] = %q, want %q", index, values[index].Value, expected)
 		}
 	}
-}
-
-func frontendBindingTypeNames(types []reflect.Type) []string {
-	names := make([]string, 0, len(types))
-	for _, typ := range types {
-		names = append(names, typ.String())
-	}
-	sort.Strings(names)
-	return names
-}
-
-func frontendBindingMemberTypeNames(values ...any) []string {
-	names := make([]string, 0, len(values))
-	for _, value := range values {
-		names = append(names, reflect.TypeOf(value).String())
-	}
-	sort.Strings(names)
-	return names
 }
 
 func enumValueIndex(values []stringenumvalues.EnumValue, target string) int {

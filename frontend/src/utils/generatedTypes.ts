@@ -1184,7 +1184,10 @@ export type BaseSectionImplUnion =
   | ChartSectionImpl
   | TextBlockSectionImpl
   | PromptSectionImpl
+  | GlobalVariablesSectionImpl
   | CodeSectionImpl
+  | GenPythonCodeSectionImpl
+  | GenPythonMetadataSectionImpl
   | TerminalSectionImpl
   | ChatSectionImpl
   | BrowserSectionImpl
@@ -1194,12 +1197,16 @@ export type BaseSectionImplUnion =
 type BaseParentSectionImplUnion =
   | ListRootSectionImpl
   | GroupSectionImpl
-  | CodeSectionImpl;
+  | CodeSectionImpl
+  | GenPythonCodeSectionImpl
+  | GenPythonMetadataSectionImpl;
 
 const BaseParentSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.ListRoot,
   SectionTypeEnum.Group,
   SectionTypeEnum.Code,
+  SectionTypeEnum.GenPythonCode,
+  SectionTypeEnum.GenPythonMetadata,
 ]);
 
 export function isBaseParentSectionImpl(
@@ -1208,11 +1215,15 @@ export function isBaseParentSectionImpl(
   return BaseParentSectionImplTypeSet.has(x.type);
 }
 
-type BaseSectionWithParamsImplUnion = CallableSectionImpl | DictSectionImpl;
+type BaseSectionWithParamsImplUnion =
+  | CallableSectionImpl
+  | DictSectionImpl
+  | GlobalVariablesSectionImpl;
 
 const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Callable,
   SectionTypeEnum.Dict,
+  SectionTypeEnum.GlobalVariables,
 ]);
 
 export function isBaseSectionWithParamsImpl(
@@ -2937,6 +2948,40 @@ function createSectionSizingPolicy(
     ),
   };
 }
+
+type GlobalVariablesSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GlobalVariables;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+};
+
+type GenPythonCodeSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GenPythonCode;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
+
+type GenPythonMetadataSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GenPythonMetadata;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
 
 export type Viewport = {
   x: number;
