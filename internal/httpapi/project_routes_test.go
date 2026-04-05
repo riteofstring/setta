@@ -13377,7 +13377,7 @@ func newProjectRouteTestHandler(
 	validator projectstate.CodegenTargetValidator,
 	pythonReconciler projectstate.PythonCodegenSectionReconciler,
 	callableResolver projectstate.CallableSignatureResolver,
-	codeUpdates ...ProjectCodeUpdateService,
+	codeUpdates ...projectRouteCodeUpdateService,
 ) http.Handler {
 	return newProjectRouteTestHandlerWithRouteOptions(
 		t,
@@ -13403,7 +13403,7 @@ func newProjectRouteTestHandlerWithWebsocketHub(
 	validator projectstate.CodegenTargetValidator,
 	pythonReconciler projectstate.PythonCodegenSectionReconciler,
 	callableResolver projectstate.CallableSignatureResolver,
-	codeUpdates ...ProjectCodeUpdateService,
+	codeUpdates ...projectRouteCodeUpdateService,
 ) http.Handler {
 	return newProjectRouteTestHandlerWithRouteOptions(
 		t,
@@ -13428,9 +13428,9 @@ func newProjectRouteTestHandlerWithRenameService(
 	validator projectstate.CodegenTargetValidator,
 	pythonReconciler projectstate.PythonCodegenSectionReconciler,
 	callableResolver projectstate.CallableSignatureResolver,
-	chatSectionChatIDs ChatSectionChatIDService,
-	renameRefactors ProjectRenameRefactorService,
-	codeUpdates ...ProjectCodeUpdateService,
+	chatSectionChatID func(ctx context.Context, projectID string, sectionID string) (*string, error),
+	renameRefactors *stubProjectRouteRenameRefactorService,
+	codeUpdates ...projectRouteCodeUpdateService,
 ) http.Handler {
 	return newProjectRouteTestHandlerWithRouteOptions(
 		t,
@@ -13440,7 +13440,7 @@ func newProjectRouteTestHandlerWithRenameService(
 		validator,
 		pythonReconciler,
 		callableResolver,
-		chatSectionChatIDs,
+		chatSectionChatID,
 		renameRefactors,
 		nil,
 		codeUpdates...,
@@ -13455,10 +13455,10 @@ func newProjectRouteTestHandlerWithRouteOptions(
 	validator projectstate.CodegenTargetValidator,
 	pythonReconciler projectstate.PythonCodegenSectionReconciler,
 	callableResolver projectstate.CallableSignatureResolver,
-	chatSectionChatIDs ChatSectionChatIDService,
-	renameRefactors ProjectRenameRefactorService,
+	chatSectionChatID func(ctx context.Context, projectID string, sectionID string) (*string, error),
+	renameRefactors *stubProjectRouteRenameRefactorService,
 	websocketHub *realtime.WebsocketHub,
-	codeUpdates ...ProjectCodeUpdateService,
+	codeUpdates ...projectRouteCodeUpdateService,
 ) http.Handler {
 	t.Helper()
 	if validator == nil {
@@ -13471,23 +13471,18 @@ func newProjectRouteTestHandlerWithRouteOptions(
 			return nil
 		})
 	}
-	var codeUpdateService ProjectCodeUpdateService
+	var codeUpdateService projectRouteCodeUpdateService
 	if len(codeUpdates) > 0 {
 		codeUpdateService = codeUpdates[0]
 	}
-	if codeUpdateService == nil {
-		codeUpdateService = projectRouteCodeUpdateService{}
-	}
 	if renameRefactors == nil {
-		renameRefactors = projectRouteRenameRefactorServiceFunc(func(context.Context, string, string, string) error {
-			return nil
-		})
+		renameRefactors = &stubProjectRouteRenameRefactorService{}
 	}
-	if chatSectionChatIDs == nil {
+	if chatSectionChatID == nil {
 		if projectRuntime == nil {
-			chatSectionChatIDs = projectRouteChatSectionChatIDServiceFunc(func(context.Context, string, string) (*string, error) {
+			chatSectionChatID = func(context.Context, string, string) (*string, error) {
 				return nil, nil
-			})
+			}
 		} else {
 			runStore, err := agentruns.NewRunStore(t.TempDir())
 			if err != nil {
@@ -13500,7 +13495,7 @@ func newProjectRouteTestHandlerWithRouteOptions(
 			if err != nil {
 				t.Fatalf("new chat section service: %v", err)
 			}
-			chatSectionChatIDs = chatSectionService
+			chatSectionChatID = chatSectionService.GetChatID
 		}
 	}
 	settingsDocument, err := settingsstate.NewDocument()
@@ -13549,13 +13544,16 @@ func newProjectRouteTestHandlerWithRouteOptions(
 				ShareSessions:                  shareSessions,
 				Deployment:                     deploymentRuntime,
 				SettingsState:                  settingsRuntime,
-				ChatSectionChatIDs:             chatSectionChatIDs,
+				ChatSectionChatID:              chatSectionChatID,
 				EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
 				CodegenTargetValidator:         validator,
 				PythonCodegenSectionReconciler: pythonReconciler,
 				CallableSignatures:             callableResolver,
-				CodeUpdates:                    codeUpdateService,
-				RenameRefactors:                renameRefactors,
+				SetCode:                        codeUpdateService.SetCode,
+				FormatCode:                     codeUpdateService.FormatCode,
+				SetSectionName:                 renameRefactors.SetSectionName,
+				AcceptRenameRefactor:           renameRefactors.AcceptRenameRefactor,
+				DeclineRenameRefactor:          renameRefactors.DeclineRenameRefactor,
 			}); err != nil {
 				t.Fatalf("register project routes: %v", err)
 			}
@@ -13788,26 +13786,6 @@ func (s projectRouteCodeUpdateService) FormatCode(ctx context.Context, projectID
 		return nil
 	}
 	return s.formatCode(ctx, projectID, sectionID)
-}
-
-type projectRouteRenameRefactorServiceFunc func(ctx context.Context, projectID string, sectionID string, name string) error
-
-func (f projectRouteRenameRefactorServiceFunc) SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error {
-	return f(ctx, projectID, sectionID, name)
-}
-
-func (f projectRouteRenameRefactorServiceFunc) AcceptRenameRefactor(context.Context, string, string) error {
-	return nil
-}
-
-func (f projectRouteRenameRefactorServiceFunc) DeclineRenameRefactor(context.Context, string, string) error {
-	return nil
-}
-
-type projectRouteChatSectionChatIDServiceFunc func(ctx context.Context, projectID string, sectionID string) (*string, error)
-
-func (f projectRouteChatSectionChatIDServiceFunc) GetChatID(ctx context.Context, projectID string, sectionID string) (*string, error) {
-	return f(ctx, projectID, sectionID)
 }
 
 type stubProjectRouteRenameRefactorService struct {

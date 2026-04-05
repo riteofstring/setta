@@ -1869,13 +1869,22 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		ShareSessions:                  deps.shareSessions,
 		Deployment:                     deps.deploymentRuntime,
 		SettingsState:                  deps.settingsStateRuntime,
-		ChatSectionChatIDs:             deps.chatSectionChatIDs,
 		EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
 		CodegenTargetValidator:         deps.codegenValidator,
 		PythonCodegenSectionReconciler: deps.pythonMaterializer,
 		CallableSignatures:             deps.lspSignature,
-		CodeUpdates:                    deps.codeUpdates,
-		RenameRefactors:                deps.renameRefactors,
+	}
+	if deps.chatSectionChatIDs != nil {
+		apiDeps.Project.ChatSectionChatID = deps.chatSectionChatIDs.GetChatID
+	}
+	if deps.codeUpdates != nil {
+		apiDeps.Project.SetCode = deps.codeUpdates.SetCode
+		apiDeps.Project.FormatCode = deps.codeUpdates.FormatCode
+	}
+	if deps.renameRefactors != nil {
+		apiDeps.Project.SetSectionName = deps.renameRefactors.SetSectionName
+		apiDeps.Project.AcceptRenameRefactor = deps.renameRefactors.AcceptRenameRefactor
+		apiDeps.Project.DeclineRenameRefactor = deps.renameRefactors.DeclineRenameRefactor
 	}
 	apiDeps.AppDefinition = httpapi.AppDefinitionRouteDependencies{
 		ModePolicy:   deps.modePolicy,

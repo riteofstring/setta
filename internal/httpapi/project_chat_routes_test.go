@@ -669,7 +669,7 @@ func TestRegisterProjectRoutesGetChatSectionChatIDReturnsExistingAndClearsMissin
 		nil,
 		nil,
 		nil,
-		chatSectionService,
+		chatSectionService.GetChatID,
 		nil,
 	)
 

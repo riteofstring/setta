@@ -171,28 +171,16 @@ type ProjectRouteDependencies struct {
 	ShareSessions                  modes.ShareSessionStore
 	Deployment                     *deployments.Runtime
 	SettingsState                  *settingsstate.Runtime
-	ChatSectionChatIDs             ChatSectionChatIDService
+	ChatSectionChatID              func(ctx context.Context, projectID string, sectionID string) (*string, error)
 	EdgeExpressionBuilder          projectstate.EdgeExpressionBuilder
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
 	CallableSignatures             projectstate.CallableSignatureResolver
-	CodeUpdates                    ProjectCodeUpdateService
-	RenameRefactors                ProjectRenameRefactorService
-}
-
-type ProjectCodeUpdateService interface {
-	SetCode(ctx context.Context, projectID string, sectionID string, code string) error
-	FormatCode(ctx context.Context, projectID string, sectionID string) error
-}
-
-type ProjectRenameRefactorService interface {
-	SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error
-	AcceptRenameRefactor(ctx context.Context, projectID string, frontendOpID string) error
-	DeclineRenameRefactor(ctx context.Context, projectID string, frontendOpID string) error
-}
-
-type ChatSectionChatIDService interface {
-	GetChatID(ctx context.Context, projectID string, sectionID string) (*string, error)
+	SetCode                        func(ctx context.Context, projectID string, sectionID string, code string) error
+	FormatCode                     func(ctx context.Context, projectID string, sectionID string) error
+	SetSectionName                 func(ctx context.Context, projectID string, sectionID string, name string) error
+	AcceptRenameRefactor           func(ctx context.Context, projectID string, frontendOpID string) error
+	DeclineRenameRefactor          func(ctx context.Context, projectID string, frontendOpID string) error
 }
 
 // setta-go-type-discovery: skip
@@ -1691,13 +1679,13 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		if deps.SettingsState == nil {
 			return fmt.Errorf("settings runtime is required in ide mode")
 		}
-		if deps.ChatSectionChatIDs == nil {
+		if deps.ChatSectionChatID == nil {
 			return fmt.Errorf("chat section chat id service is required in ide mode")
 		}
-		if deps.CodeUpdates == nil {
+		if deps.SetCode == nil || deps.FormatCode == nil {
 			return fmt.Errorf("project code update service is required in ide mode")
 		}
-		if deps.RenameRefactors == nil {
+		if deps.SetSectionName == nil || deps.AcceptRenameRefactor == nil || deps.DeclineRenameRefactor == nil {
 			return fmt.Errorf("project rename refactor service is required in ide mode")
 		}
 		if deps.PythonCodegenSectionReconciler == nil {
@@ -4134,12 +4122,12 @@ func setSectionNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if deps.RenameRefactors == nil {
+		if deps.SetSectionName == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if err := deps.RenameRefactors.SetSectionName(
+		if err := deps.SetSectionName(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			payload.ProjectID,
 			payload.SectionID,
@@ -4161,12 +4149,12 @@ func acceptRenameRefactorHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			return
 		}
 
-		if deps.RenameRefactors == nil {
+		if deps.AcceptRenameRefactor == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if err := deps.RenameRefactors.AcceptRenameRefactor(r.Context(), payload.ProjectID, payload.FrontendOpID); err != nil {
+		if err := deps.AcceptRenameRefactor(r.Context(), payload.ProjectID, payload.FrontendOpID); err != nil {
 			writeRenameRefactorMutationError(w, r, err)
 			return
 		}
@@ -4183,12 +4171,12 @@ func declineRenameRefactorHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 
-		if deps.RenameRefactors == nil {
+		if deps.DeclineRenameRefactor == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if err := deps.RenameRefactors.DeclineRenameRefactor(r.Context(), payload.ProjectID, payload.FrontendOpID); err != nil {
+		if err := deps.DeclineRenameRefactor(r.Context(), payload.ProjectID, payload.FrontendOpID); err != nil {
 			writeRenameRefactorMutationError(w, r, err)
 			return
 		}
@@ -4858,12 +4846,12 @@ func setCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.CodeUpdates == nil {
+		if deps.SetCode == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if err := deps.CodeUpdates.SetCode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.Code); err != nil {
+		if err := deps.SetCode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.Code); err != nil {
 			writeSetCodeError(w, r, err)
 			return
 		}
@@ -4928,12 +4916,12 @@ func formatCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.CodeUpdates == nil {
+		if deps.FormatCode == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if err := deps.CodeUpdates.FormatCode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID); err != nil {
+		if err := deps.FormatCode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID); err != nil {
 			writeFormatCodeError(w, r, err)
 			return
 		}
@@ -6706,12 +6694,12 @@ func getChatSectionChatIDHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ChatSectionChatIDs == nil {
+		if deps.ChatSectionChatID == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		chatID, err := deps.ChatSectionChatIDs.GetChatID(r.Context(), projectID, sectionID)
+		chatID, err := deps.ChatSectionChatID(r.Context(), projectID, sectionID)
 		if err != nil {
 			writeChatSectionMutationError(w, r, err)
 			return
