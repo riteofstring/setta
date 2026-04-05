@@ -4,7 +4,7 @@ import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateC
 import { resolveSettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanaryNodeSync", () => {
-  it("syncs layout and section-model sizes authoritatively while leaving measured fallback only on shared-node sections", () => {
+  it("syncs only authoritative section sizes back into node internals", () => {
     const nodeInternals = new Map<string, Node>([
       [
         "section-a",
@@ -57,11 +57,22 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           tempZIndex: 3,
           positionAndSizeLocked: false,
         },
+        {
+          sectionId: "section-d",
+          position: { x: 640, y: 420 },
+          width: null,
+          height: null,
+          sizeAuthority: "none",
+          zIndex: 5,
+          tempZIndex: 5,
+          positionAndSizeLocked: false,
+        },
       ],
       {
         "section-a": { width: 360, height: 210 },
         "section-b": { width: 280, height: 190 },
         "section-c": { width: 320, height: 220 },
+        "section-d": { width: 300, height: 200 },
       },
       null,
       "section-a",
@@ -97,11 +108,22 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
     expect(nextNodeInternals.get("section-c")).toEqual({
       id: "section-c",
       position: { x: 260, y: 140 },
-      width: 320,
-      height: 220,
+      width: 260,
+      height: 180,
       sizeAuthority: "sharedNode",
       zIndex: 3,
       tempZIndex: 3,
+      type: undefined,
+      style: undefined,
+    });
+    expect(nextNodeInternals.get("section-d")).toEqual({
+      id: "section-d",
+      position: { x: 640, y: 420 },
+      width: null,
+      height: null,
+      sizeAuthority: "none",
+      zIndex: 5,
+      tempZIndex: 5,
       type: undefined,
       style: undefined,
     });

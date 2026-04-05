@@ -65,7 +65,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     vi.unstubAllGlobals();
   });
 
-  it("drives resolved size and node-internals sync from the same scene snapshot", async () => {
+  it("keeps measured fallback local while syncing scene position and z-index", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -117,13 +117,13 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
 
     await vi.waitFor(() => {
       expect(useNodeInternals.getState().x.get("section-a")).toEqual({
-        height: 190,
+        height: null,
         id: "section-a",
         position: { x: 120, y: 80 },
         style: undefined,
         tempZIndex: 2,
         type: undefined,
-        width: 280,
+        width: null,
         zIndex: 2,
       });
     });
@@ -542,13 +542,13 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
 
     expect(useNodeInternals.getState().x.get("section-a")).toEqual({
-      height: 190,
+      height: null,
       id: "section-a",
       position: { x: 120, y: 80 },
       style: undefined,
       tempZIndex: 2,
       type: undefined,
-      width: 280,
+      width: null,
       zIndex: 2,
     });
   });
@@ -572,13 +572,13 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
 
     await vi.waitFor(() => {
       expect(useNodeInternals.getState().x.get("section-a")).toEqual({
-        height: 190,
+        height: null,
         id: "section-a",
         position: { x: 120, y: 80 },
         style: undefined,
         tempZIndex: 2,
         type: undefined,
-        width: 280,
+        width: null,
         zIndex: 2,
       });
     });
@@ -637,7 +637,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("drops unresolved measured size after a controller refresh instead of promoting it into shared-node authority", async () => {
+  it("keeps unresolved measured size local across controller refreshes", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -656,14 +656,14 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
 
     await vi.waitFor(() => {
       expect(useNodeInternals.getState().x.get("section-a")).toEqual({
-        height: 190,
+        height: null,
         id: "section-a",
         position: { x: 120, y: 80 },
         sizeAuthority: "none",
         style: undefined,
         tempZIndex: 2,
         type: undefined,
-        width: 280,
+        width: null,
         zIndex: 2,
       });
     });

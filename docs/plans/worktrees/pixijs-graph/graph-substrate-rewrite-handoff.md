@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 05:33 EDT
+Last updated: 2026-04-07 05:44 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `257` stopped the canary runtime from mirroring unresolved local measured sizes back into global `nodeInternals`; measured fallback now stays local to the scene snapshot while shared node internals only track controller-authoritative section sizes.
+
+  - Why this pass stopped here:
+    - item `256` explicitly moved the geometry-authority frontier into scene-runtime / scene-snapshot / node-sync ownership, and the smallest real ownership move was to close the later global sync leak before changing scene-bounds semantics
+    - `syncSettingsGraphSubstrateCanaryNodes(...)` still wrote `section.resolvedSize` back into shared `nodeInternals`, which let unresolved DOM measurements from `sizeAuthority: "none"` sections escape the canary even though the controller now ignores that size on rebuild
+    - this pass stayed bounded to the node-sync contract plus focused runtime coverage; it does not yet change local scene rendering, scene bounds, or `useSectionElementSizes(...)` subscriptions
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened; the visual gate remained a bounded worktree canary-health check only
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts)
+      - node sync now writes only controller-authoritative `section.width` / `section.height` into shared `nodeInternals`
+      - unresolved local `resolvedSize` measurements no longer get promoted into the global node map as if they were authoritative geometry
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts)
+      - locked that layout, section-model, and shared-node sections sync only their authoritative controller sizes
+      - added a `sizeAuthority: "none"` case proving measured fallback stays local instead of being written into shared node internals
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx)
+      - locked that unresolved measured fallback stays local for normal and locked sections
+      - locked that controller refreshes keep those unresolved measurements local until a later authoritative section size arrives
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`2 files`, `16 tests`)
+    - CDP visual gate:
+      - done
+      - fresh-context CDP sub-agent bootstrapped through the loop-context worktree backend, landed on `http://127.0.0.1:3076/settings`, confirmed `All Settings`, and reported a populated settings canary surface with visible section bodies/controls rather than a blank or detached shell
+      - the CDP pass reported console issues, but they did not block canary mount or this bounded health gate
+  - Lane status:
+    - the later global node-internals sync leak is now closed for unresolved local measured fallback
+    - authoritative controller sizes still propagate to shared node internals for layout, section-model, and shared-node sections
+    - do not spend the next pass reopening this node-sync lane unless a downstream compatibility consumer proves it still needs locally measured fallback in the shared node map
+  - Next frontier:
+    - move the next geometry-authority slice into scene-snapshot ownership by separating local measured fallback from authoritative scene geometry for `sizeAuthority: "none"` sections, so bounds/fit-view stop treating unresolved DOM measurements as authoritative while the local shell remains visible
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `256` cleared the pending verification/commit lane for item `255` after one allowed worktree lifecycle recovery; there is no new product code beyond the existing controller/bootstrap-seed slice.
 

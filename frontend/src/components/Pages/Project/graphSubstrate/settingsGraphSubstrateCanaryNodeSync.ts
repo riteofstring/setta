@@ -9,7 +9,8 @@ export function syncSettingsGraphSubstrateCanaryNodes(
 
   for (const section of sceneSnapshot.sections) {
     const currentNode = nodeInternals.get(section.sectionId);
-    const { width, height } = resolveSyncedNodeSize(section, currentNode);
+    const width = section.width;
+    const height = section.height;
     const position = section.renderedPosition;
     if (
       currentNode &&
@@ -46,30 +47,4 @@ export function syncSettingsGraphSubstrateCanaryNodes(
   }
 
   return nextNodeInternals ?? nodeInternals;
-}
-
-function resolveSyncedNodeSize(
-  section: SettingsGraphSubstrateCanarySceneSnapshot["sections"][number],
-  currentNode: Node | undefined,
-) {
-  const currentSharedWidth = currentNode?.width ?? null;
-  const currentSharedHeight = currentNode?.height ?? null;
-  if (
-    section.sizeAuthority === "sharedNode" &&
-    currentNode?.sizeAuthority === "sharedNode" &&
-    typeof currentSharedWidth === "number" &&
-    currentSharedWidth > 0 &&
-    typeof currentSharedHeight === "number" &&
-    currentSharedHeight > 0
-  ) {
-    return {
-      width: currentSharedWidth,
-      height: currentSharedHeight,
-    };
-  }
-
-  return {
-    width: section.resolvedSize?.width ?? section.width,
-    height: section.resolvedSize?.height ?? section.height,
-  };
 }
