@@ -15,6 +15,7 @@ export type SettingsGraphSubstrateCanarySceneSection =
   };
 
 export type SettingsGraphSubstrateCanarySceneSnapshot = {
+  boundsSizeBySectionId?: SectionElementSizes;
   sceneBounds: GraphRect | null;
   sections: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionsById: Map<string, SettingsGraphSubstrateCanarySceneSection>;
@@ -22,6 +23,7 @@ export type SettingsGraphSubstrateCanarySceneSnapshot = {
 
 export function createEmptySettingsGraphSubstrateCanarySceneSnapshot(): SettingsGraphSubstrateCanarySceneSnapshot {
   return {
+    boundsSizeBySectionId: {},
     sceneBounds: null,
     sections: [],
     sectionsById: new Map(),
@@ -33,7 +35,9 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   sectionElementSizes: SectionElementSizes,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
   draggingSectionId: string | null = null,
+  sceneBoundsSizeFallbacks: SectionElementSizes = {},
 ): SettingsGraphSubstrateCanarySceneSnapshot {
+  const boundsSizeBySectionId: SectionElementSizes = {};
   const sceneSections = sections.map((section) => {
     const geometry = resolveSettingsGraphSubstrateCanarySectionGeometry(
       section,
@@ -46,12 +50,21 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
       resolvedSize: geometry.resolvedSize,
       tempZIndex: getRenderedSectionTempZIndex(section, draggingSectionId),
     };
+    const boundsSize =
+      getPositiveSceneBoundsSize(sceneSection.resolvedSize) ??
+      getPositiveSceneBoundsSize(sceneBoundsSizeFallbacks[section.sectionId]);
+    if (boundsSize) {
+      boundsSizeBySectionId[section.sectionId] = boundsSize;
+    }
     return sceneSection;
   });
 
   return {
-    sceneBounds:
-      getSettingsGraphSubstrateCanarySceneBoundsForSections(sceneSections),
+    boundsSizeBySectionId,
+    sceneBounds: getSettingsGraphSubstrateCanarySceneBoundsForSections(
+      sceneSections,
+      boundsSizeBySectionId,
+    ),
     sections: sceneSections,
     sectionsById: new Map(
       sceneSections.map((section) => [section.sectionId, section]),
@@ -71,6 +84,7 @@ function getRenderedSectionTempZIndex(
 
 export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
   sections: Array<SettingsGraphSubstrateCanarySceneSection>,
+  boundsSizeBySectionId: SectionElementSizes = {},
 ): GraphRect | null {
   if (sections.length === 0) {
     return null;
@@ -82,20 +96,17 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
   let maxY = Number.NEGATIVE_INFINITY;
 
   for (const section of sections) {
-    if (!section.resolvedSize) {
+    const boundsSize =
+      getPositiveSceneBoundsSize(section.resolvedSize) ??
+      getPositiveSceneBoundsSize(boundsSizeBySectionId[section.sectionId]);
+    if (!boundsSize) {
       return null;
     }
 
     minX = Math.min(minX, section.renderedPosition.x);
     minY = Math.min(minY, section.renderedPosition.y);
-    maxX = Math.max(
-      maxX,
-      section.renderedPosition.x + section.resolvedSize.width,
-    );
-    maxY = Math.max(
-      maxY,
-      section.renderedPosition.y + section.resolvedSize.height,
-    );
+    maxX = Math.max(maxX, section.renderedPosition.x + boundsSize.width);
+    maxY = Math.max(maxY, section.renderedPosition.y + boundsSize.height);
   }
 
   return {
@@ -104,4 +115,19 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
     width: maxX - minX,
     height: maxY - minY,
   };
+}
+
+function getPositiveSceneBoundsSize(
+  size: SectionElementSizes[string] | null | undefined,
+) {
+  if (
+    typeof size?.width === "number" &&
+    size.width > 0 &&
+    typeof size.height === "number" &&
+    size.height > 0
+  ) {
+    return size;
+  }
+
+  return null;
 }

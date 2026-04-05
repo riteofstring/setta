@@ -141,8 +141,10 @@ export function createSettingsGraphSubstrateCanaryViewportController({
         sceneSnapshot.sections,
         options?.nodes,
       );
-      const bounds =
-        getSettingsGraphSubstrateCanarySceneBoundsForSections(targetSections);
+      const bounds = getSettingsGraphSubstrateCanarySceneBoundsForSections(
+        targetSections,
+        sceneSnapshot.boundsSizeBySectionId,
+      );
       if (!bounds) {
         return false;
       }

@@ -50,6 +50,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
   beforeEach(() => {
     resetProjectStores();
     useNodeInternals.setState({ x: new Map() });
+    useSectionElementSizeRegistry.getState().reset();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -265,7 +266,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("clears stale shared node size when measured fallback disappears without layout authority", async () => {
+  it("keeps scene bounds on the last live size even after node sync clears stale shared dimensions", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -296,12 +297,17 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
 
     act(() => {
-      useSectionElementSizeRegistry.setState({}, true);
+      useSectionElementSizeRegistry.getState().reset();
     });
 
     await vi.waitFor(() => {
       expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: null,
+        sceneBounds: {
+          x: 120,
+          y: 80,
+          width: 280,
+          height: 190,
+        },
         sections: [
           {
             height: null,
@@ -325,6 +331,50 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         type: undefined,
         width: null,
         zIndex: 2,
+      });
+    });
+  });
+
+  it("drops the carried-forward scene bounds once the section leaves the active canary scene", async () => {
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[createSection()]}
+        />,
+      );
+    });
+
+    act(() => {
+      useSectionElementSizeRegistry.setState({
+        "section-a": { width: 280, height: 190 },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host).sceneBounds).toEqual({
+        x: 120,
+        y: 80,
+        width: 280,
+        height: 190,
+      });
+    });
+
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: null,
+        sections: [],
       });
     });
   });
@@ -521,6 +571,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     expect(
       useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
     ).toEqual({
+      boundsSizeBySectionId: {},
       sceneBounds: null,
       sections: [],
       sectionsById: new Map(),

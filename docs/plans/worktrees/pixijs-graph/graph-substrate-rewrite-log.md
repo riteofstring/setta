@@ -75,6 +75,51 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `204` | 2026-04-05 19:05 EDT
+  - Subtask: keep canary scene bounds and explicit fit behavior on the last live runtime size without reviving stale shared node-size authority.
+  - Why:
+    - item `203` explicitly handed off to the remaining canary-local DOM measurement dependency in scene-bounds / fit behavior instead of another shared stale-`w/h` pass
+    - items `199` through `203` already removed stale size authority from node sync, persistence, hydration, and the canary model, but `sceneBounds` still collapsed to `null` as soon as the current measured fallback disappeared
+    - this slice keeps the camera/bounds path on the last live runtime size for active sections while leaving shared node internals on the stricter current-authority contract
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - added `boundsSizeBySectionId` so the shared scene snapshot carries the last live positive bounds size for each active section
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+      - now feeds the snapshot with the last live bounds-size cache and refreshes that cache from each active scene snapshot
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.ts`
+      - explicit `fitView(...)` now uses the shared bounds-size cache when current section measurement is temporarily missing
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts` -> passed (`3 files`, `16 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanary(SceneSnapshot|SceneRuntime|ViewportController)(\\.test)?" || true` -> no matches
+  - Runtime verification:
+    - refreshed run-035 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-035/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-035/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-035 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-035 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `37.3s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration `17.0435ms`; worktree average frame duration `17.0018ms`
+      - visible section count stayed `46` on both sides; both sides recorded one long task (`55ms` reference, `56ms` worktree)
+    - Chrome DevTools MCP:
+      - fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - both sides were checked on active `All Settings` with the canonical `rotaryParamCodeObjDefault` target in the normalized fit-view lane
+      - no blocking gross graph-surface drift was visible; the only notable difference was the expected workspace label outside the graph surface (`pixijs-graph` on worktree vs `main` on reference)
+  - Result:
+    - canary scene bounds and explicit fit behavior now stay on the last live runtime size for active sections when the current measured fallback temporarily disappears
+    - shared node internals still clear width/height to `null` when the current authoritative size disappears, so stale size authority is not reintroduced
+    - the carried-forward bounds cache prunes when a section leaves the active canary scene
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains green and visually comparable after the change
+  - Next:
+    - if Pixi approval arrives, use the existing surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - if approval is still unavailable, treat the remaining first-live-measurement requirement as the only open bounds dependency and do not reopen more DOM-only `w/h` fallback slices unless a concrete live canary failure shows this bounds cache is insufficient
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `202` | 2026-04-05 18:36 EDT
   - Subtask: stop shared read-side top-level node hydration from reviving stale persisted `w/h` when a live node currently reports `null` dimensions.
   - Why:

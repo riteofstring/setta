@@ -190,4 +190,50 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
       }),
     );
   });
+
+  it("fits against the last live bounds size when current scene measurement is temporarily missing", () => {
+    // Validates fit-view can keep using the shared scene-bounds fallback without
+    // reviving stale node size authority in node sync.
+    const section = createSceneSection({
+      height: null,
+      resolvedSize: null,
+      width: null,
+    });
+    const state = createState({
+      sceneSnapshot: {
+        boundsSizeBySectionId: {
+          [section.sectionId]: { width: 280, height: 190 },
+        },
+        sceneBounds: { x: 0, y: 0, width: 280, height: 190 },
+        sections: [section],
+        sectionsById: new Map([[section.sectionId, section]]),
+      },
+    });
+    const harness = createApplyHarness();
+    const controller = createSettingsGraphSubstrateCanaryViewportController({
+      applyControlledViewportChange: harness.applyControlledViewportChange,
+      getPaneWidths: () => ({ overviewWidth: 320, uiEditorWidth: 0 }),
+      getSettings: () => ({
+        defaultZoomLevel: 1,
+        maxZoom: 4,
+        minZoom: 0.1,
+      }),
+      getState: () => state,
+      getToolbarZoomViewportBase: () => null,
+    });
+
+    expect(controller.fitView()).toBe(true);
+    expect(harness.resolveNextViewport(state.resolvedViewport!)).toEqual(
+      fitViewportToWorldRect(
+        { x: 0, y: 0, width: 280, height: 190 },
+        { width: 680, height: 600 },
+        {
+          minZoom: 0.1,
+          maxZoom: 4,
+          padding: 0.1,
+          centerScreenPoint: { x: 660, y: 300 },
+        },
+      ),
+    );
+  });
 });

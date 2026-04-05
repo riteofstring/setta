@@ -110,4 +110,37 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
       height: 190,
     });
   });
+
+  it("keeps scene bounds on the last live section size when current fallback measurement drops out", () => {
+    const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: null,
+          height: null,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+      ],
+      {},
+      null,
+      null,
+      {
+        "section-a": { width: 280, height: 190 },
+      },
+    );
+
+    expect(snapshot.sections[0]?.resolvedSize).toBeNull();
+    expect(snapshot.sceneBounds).toEqual({
+      x: 120,
+      y: 80,
+      width: 280,
+      height: 190,
+    });
+    expect(snapshot.boundsSizeBySectionId).toEqual({
+      "section-a": { width: 280, height: 190 },
+    });
+  });
 });

@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo } from "react";
-import { useNodeInternals } from "state/definitions";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useNodeInternals, type SectionElementSize } from "state/definitions";
 import { useSectionElementSizes } from "state/hooks/sectionElementSizes";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
@@ -25,6 +25,9 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   sectionPositionOverride,
   sections,
 }: SettingsGraphSubstrateCanarySceneRuntimeArgs): SettingsGraphSubstrateCanarySceneSnapshot {
+  const sceneBoundsSizeFallbacksRef = useRef<
+    Record<string, SectionElementSize>
+  >({});
   const measuredSectionIds = useMemo(
     () =>
       sections
@@ -41,6 +44,7 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
       sectionElementSizes,
       sectionPositionOverride,
       draggingSectionId,
+      sceneBoundsSizeFallbacksRef.current,
     );
   }, [
     draggingSectionId,
@@ -50,6 +54,8 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   ]);
 
   useLayoutEffect(() => {
+    sceneBoundsSizeFallbacksRef.current =
+      sceneSnapshot.boundsSizeBySectionId ?? {};
     setSettingsGraphSubstrateCanarySceneSnapshot(sceneSnapshot);
   }, [sceneSnapshot]);
 
