@@ -1,5 +1,3 @@
-import { uploadBinary } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -28,6 +26,7 @@ import {
 import { createDropzoneFileArtifactId } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_binary_upload,
   route_delete_artifacts,
   route_import_files_to_artifacts,
   route_update_artifacts,
@@ -36,7 +35,7 @@ import {
   ArtifactTypeEnum,
   ChatFileAttachment,
   FileArtifact,
-  NotificationTypeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 
 type UseChatAttachmentManagerArgs = {
@@ -111,7 +110,7 @@ export function useChatAttachmentManager({
   }, [initialAttachments]);
 
   const notifyAttachmentWarning = useCallback((message: string) => {
-    addTemporaryNotification(message, NotificationTypeEnum.warning);
+    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
     setAttachmentWarning(message);
     if (warningTimeoutRef.current !== null) {
       window.clearTimeout(warningTimeoutRef.current);
@@ -131,15 +130,11 @@ export function useChatAttachmentManager({
       try {
         const uploadResults = await Promise.allSettled(
           files.map(async (file) => {
-            const res = await callOpenAPI(
-              uploadBinary({
-                body: {
-                  durable: false,
-                  file,
-                },
-              }),
-            );
-            if (!res200(res) || !res.data) {
+            const form = new FormData();
+            form.append("file", file, file.name);
+            form.append("durable", "false");
+            const res = await route_binary_upload(form);
+            if (!res200(res)) {
               throw new Error("Upload failed");
             }
             return { file, ref: res.data };

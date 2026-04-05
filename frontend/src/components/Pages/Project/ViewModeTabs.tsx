@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { RxDragHandleDots2 } from "react-icons/rx";
+import { persistCurrentViewportImmediately } from "state/actions/sectionInfos";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -55,11 +56,12 @@ export function ViewModeTabs() {
     return null;
   }
 
-  const handleSelect = (modeId: string) => {
+  const handleSelect = async (modeId: string) => {
     if (!canEditVariants || modeId === activeViewModeId) {
       return;
     }
-    void route_set_active_view_mode({
+    await persistCurrentViewportImmediately();
+    await route_set_active_view_mode({
       projectConfigId,
       activeViewModeId: modeId,
     });
@@ -162,7 +164,7 @@ function ViewModeTabButton({
       aria-label={label}
       className={tabClasses}
       style={sortable.style}
-      onClick={canEditVariants ? () => onSelect(modeId) : undefined}
+      onClick={canEditVariants ? () => void onSelect(modeId) : undefined}
       title={label}
       disabled={!canEditVariants}
     >
