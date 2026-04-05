@@ -2,9 +2,8 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
-  ensureAppReady,
-  ensureManagedChatEngine,
   ensureProjectChatThreadsPanelVisible,
+  ensureAppReady,
   getVisibleProjectChatSurface,
   openIsolatedProject,
   seedLocalStorage,
@@ -83,7 +82,12 @@ async function bindVisibleProjectChatWindowToChatId(
 }
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return chatId;
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
 }
 
 test("project ai hydrates external threads via external provenance endpoint", async ({
@@ -1426,7 +1430,6 @@ test("project ai keeps the selected sibling thread stable until the retrying thr
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
-  const engineCleanup = await ensureManagedChatEngine(page);
 
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -1657,7 +1660,6 @@ test("project ai keeps the selected sibling thread stable until the retrying thr
       overviewPane.getByText("Retry chat hydrated after returning.").first(),
     ).toBeVisible();
   } finally {
-    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
