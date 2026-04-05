@@ -17,10 +17,10 @@ import {
   type APIKeys,
   type AgentRun,
   type AllLLMConfigs,
+  type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
   type ExternalAgentPreflightStatus,
-  type SkillEntry,
 } from "utils/generatedTypes";
 
 export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
@@ -57,9 +57,9 @@ export function isAgentRunsAuthorityReady(
 }
 
 export function filterSkills(
-  skills: SkillEntry[],
+  skills: AppGenSkillEntry[],
   query: string,
-): SkillEntry[] {
+): AppGenSkillEntry[] {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) {
     return skills;
@@ -96,8 +96,13 @@ const CLAUDE_APPLICABLE_ROOT_IDS = [
   "user_claude_skills",
 ];
 
+const OPENCODE_APPLICABLE_ROOT_IDS = [
+  "workspace_opencode_skills",
+  "user_opencode_skills",
+];
+
 type SkillStatusContext = {
-  skills: SkillEntry[];
+  skills: AppGenSkillEntry[];
   engineType: EngineConfig["engineType"] | null;
   externalAgentToolType: string | null;
   messages: BaseChatMessageUnion[] | null;
@@ -127,6 +132,9 @@ function getApplicableRootIds({
   if (externalAgentToolType === ExternalAgentToolTypeEnum.claude_code) {
     return CLAUDE_APPLICABLE_ROOT_IDS;
   }
+  if (externalAgentToolType === ExternalAgentToolTypeEnum.opencode) {
+    return OPENCODE_APPLICABLE_ROOT_IDS;
+  }
   return [];
 }
 
@@ -146,6 +154,9 @@ function getEngineLabel({
     }
     if (externalAgentToolType === ExternalAgentToolTypeEnum.claude_code) {
       return "Claude";
+    }
+    if (externalAgentToolType === ExternalAgentToolTypeEnum.opencode) {
+      return "OpenCode";
     }
     return "external agent";
   }
@@ -270,10 +281,16 @@ function collectActiveSkillNames({
   if (engineType !== EngineTypeEnum.external_agent) {
     return { activeByName, hasStructuredMetadata };
   }
-  if (externalAgentToolType !== ExternalAgentToolTypeEnum.codex) {
+  if (
+    externalAgentToolType !== ExternalAgentToolTypeEnum.codex &&
+    externalAgentToolType !== ExternalAgentToolTypeEnum.opencode
+  ) {
     return { activeByName, hasStructuredMetadata };
   }
-  const activitySource = "codex_skill_tool";
+  const activitySource =
+    externalAgentToolType === ExternalAgentToolTypeEnum.codex
+      ? "codex_skill_tool"
+      : "opencode_skill_tool";
   for (const message of messages) {
     if (message.role === "assistant" && Array.isArray(message.tool_calls)) {
       hasStructuredMetadata = true;
@@ -305,7 +322,7 @@ function collectActiveSkillNames({
   return { activeByName, hasStructuredMetadata };
 }
 
-function buildSkillIdentifierSet(skill: SkillEntry): Set<string> {
+function buildSkillIdentifierSet(skill: AppGenSkillEntry): Set<string> {
   const identifiers = new Set<string>();
   identifiers.add(normalizeSkillToken(skill.name));
   const normalizedRelativePath = normalizeSkillToken(skill.relativePath);
@@ -319,9 +336,9 @@ function buildSkillIdentifierSet(skill: SkillEntry): Set<string> {
 }
 
 function buildSkillIdentifierIndex(
-  skills: SkillEntry[],
-): Map<string, SkillEntry[]> {
-  const index = new Map<string, SkillEntry[]>();
+  skills: AppGenSkillEntry[],
+): Map<string, AppGenSkillEntry[]> {
+  const index = new Map<string, AppGenSkillEntry[]>();
   for (const skill of skills) {
     const identifiers = buildSkillIdentifierSet(skill);
     for (const identifier of identifiers) {
@@ -342,7 +359,7 @@ function mapActiveSkillNamesToSkillIds({
   activeSkillNames,
 }: {
   applicableRootIds: string[];
-  skills: SkillEntry[];
+  skills: AppGenSkillEntry[];
   activeSkillNames: Map<string, string>;
 }): {
   activeSkillSourcesBySkillId: Map<string, string>;
@@ -402,7 +419,8 @@ export function buildSkillStatusBySkillId({
   });
   const requiresStructuredMetadata =
     engineType === EngineTypeEnum.external_agent &&
-    externalAgentToolType === ExternalAgentToolTypeEnum.codex;
+    (externalAgentToolType === ExternalAgentToolTypeEnum.codex ||
+      externalAgentToolType === ExternalAgentToolTypeEnum.opencode);
   const { activeByName: activeSkillNames, hasStructuredMetadata } =
     collectActiveSkillNames({
       engineType,
@@ -441,11 +459,11 @@ export function buildSkillStatusBySkillId({
 type SkillsByRootPath = {
   rootPath: string;
   rootLabel: string;
-  skills: SkillEntry[];
+  skills: AppGenSkillEntry[];
 };
 
 export function groupSkillsByRootPath(
-  skills: SkillEntry[],
+  skills: AppGenSkillEntry[],
 ): SkillsByRootPath[] {
   const grouped = new Map<string, SkillsByRootPath>();
   for (const skill of skills) {
@@ -477,6 +495,7 @@ export function groupSkillsByRootPath(
 
 type McpServerListEntry = {
   serverId: string;
+  source: string;
   transport: string;
   endpoint: string;
 };
@@ -517,6 +536,12 @@ type McpServersByConfigPath = {
   servers: McpServerListEntry[];
 };
 
+export const SETTA_MCP_RUNTIME_SOURCE = "setta_mcp";
+
+function buildRuntimeStatusMapKey(source: string, serverId: string): string {
+  return `${source}:${serverId}`;
+}
+
 function resolveMcpServerEndpoint(
   config: AllLLMConfigs["mcpServers"][string],
 ): string {
@@ -543,28 +568,20 @@ export function groupMcpServersByConfigPath({
   mcpServers,
   mcpConfigPath,
   settaFilesLocation,
-  runtimeServers = [],
+  externalRuntimeServers = [],
 }: {
   mcpServers: AllLLMConfigs["mcpServers"] | undefined;
   mcpConfigPath: string | null;
   settaFilesLocation: string | null;
-  runtimeServers?: Array<McpServerListEntry>;
+  externalRuntimeServers?: Array<McpServerListEntry>;
 }): McpServersByConfigPath[] {
   const groups: McpServersByConfigPath[] = [];
-  const runtimeServerByServerId = new Map(
-    runtimeServers.map((server) => [server.serverId, server]),
-  );
   if (mcpServers) {
     const serverEntries = Object.entries(mcpServers)
       .map(([serverId, config]) => {
-        const liveRuntimeServer = runtimeServerByServerId.get(serverId);
-        if (liveRuntimeServer) {
-          return {
-            ...liveRuntimeServer,
-          };
-        }
         return {
           serverId,
+          source: SETTA_MCP_RUNTIME_SOURCE,
           transport: config.transport,
           endpoint: resolveMcpServerEndpoint(config),
         };
@@ -578,14 +595,11 @@ export function groupMcpServersByConfigPath({
       });
     }
   }
-  const unmatchedRuntimeServers = runtimeServers.filter(
-    (server) => !(mcpServers && server.serverId in mcpServers),
-  );
-  if (unmatchedRuntimeServers.length > 0) {
+  if (externalRuntimeServers.length > 0) {
     groups.push({
       configPath: null,
       configLabel: "Active external runtime",
-      servers: [...unmatchedRuntimeServers].sort((a, b) =>
+      servers: [...externalRuntimeServers].sort((a, b) =>
         a.serverId.localeCompare(b.serverId),
       ),
     });
@@ -888,8 +902,8 @@ function normalizeRuntimeServerQuickInfo({
 export function toRuntimeStatusByServerId(
   runtimeStatuses: Array<{
     serverId: string;
+    source: string;
     state: unknown;
-    quickInfo?: string | null;
     lastError?: string | null;
     missingEnvVar?: string | null;
     toolCount?: number;
@@ -898,7 +912,11 @@ export function toRuntimeStatusByServerId(
   const statuses: Record<string, McpRuntimeServerStatus> = {};
   for (const runtimeStatus of runtimeStatuses) {
     const serverId = runtimeStatus.serverId.trim();
+    const source = runtimeStatus.source.trim();
     if (!serverId) {
+      continue;
+    }
+    if (!source) {
       continue;
     }
     const state = normalizeRuntimeServerState(runtimeStatus.state);
@@ -910,11 +928,11 @@ export function toRuntimeStatusByServerId(
       runtimeStatus.toolCount >= 0
         ? runtimeStatus.toolCount
         : 0;
-    statuses[serverId] = {
+    statuses[buildRuntimeStatusMapKey(source, serverId)] = {
       state,
       quickInfo: normalizeRuntimeServerQuickInfo({
         state,
-        quickInfo: runtimeStatus.quickInfo?.trim() || null,
+        quickInfo: null,
         issue,
         missingEnvVar,
         registeredToolCount,
@@ -929,12 +947,14 @@ export function toRuntimeStatusByServerId(
 
 export function resolveMcpServerStatus({
   serverId,
+  source,
   endpoint,
   runtimeStatusByServerId,
   runtimeStatusLoading,
   runtimeStatusError,
 }: {
   serverId: string;
+  source: string;
   endpoint: string;
   runtimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
   runtimeStatusLoading: boolean;
@@ -965,7 +985,8 @@ export function resolveMcpServerStatus({
       quickInfo: "Status unknown: MCP runtime status data is not available.",
     };
   }
-  const runtimeStatus = runtimeStatusByServerId[serverId] ?? null;
+  const runtimeStatus =
+    runtimeStatusByServerId[buildRuntimeStatusMapKey(source, serverId)];
   if (!runtimeStatus) {
     return {
       color: "yellow",
