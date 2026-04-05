@@ -187,6 +187,10 @@ function useHasPythonInWorkspaceRoot(
       if (document.visibilityState !== "visible") {
         return;
       }
+      // This stays as visible-page polling because the backend does not keep a
+      // websocket-backed watcher for arbitrary workspace-root Python presence.
+      // Revalidation is intentionally scoped to the active page instead of
+      // pretending there is an authoritative push source for this filesystem probe.
       intervalId = window.setInterval(() => {
         setRevalidationTick((current) => current + 1);
       }, WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS);

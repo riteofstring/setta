@@ -20,11 +20,18 @@ type listenerBuiltInEndpointInvoker struct {
 	projectRuntime     *projectstate.Runtime
 	deploymentRuntime  *deployments.Runtime
 	chatSectionChatIDs listenerChatSectionChatIDService
+	explicitHandlers   map[string]listenerBuiltInEndpointHandler
 }
 
 type listenerChatSectionChatIDService interface {
 	GetChatID(ctx context.Context, projectID string, sectionID string) (*string, error)
 }
+
+type listenerBuiltInEndpointHandler func(
+	context.Context,
+	wsapi.ConnectionInfo,
+	map[string]any,
+) (any, error)
 
 func newListenerBuiltInEndpointInvoker(
 	scriptableChat *scriptablechat.Service,
@@ -32,12 +39,26 @@ func newListenerBuiltInEndpointInvoker(
 	deploymentRuntime *deployments.Runtime,
 	chatSectionChatIDs listenerChatSectionChatIDService,
 ) (*listenerBuiltInEndpointInvoker, error) {
-	return &listenerBuiltInEndpointInvoker{
+	invoker := &listenerBuiltInEndpointInvoker{
 		scriptableChat:     scriptableChat,
 		projectRuntime:     projectRuntime,
 		deploymentRuntime:  deploymentRuntime,
 		chatSectionChatIDs: chatSectionChatIDs,
-	}, nil
+	}
+	invoker.explicitHandlers = map[string]listenerBuiltInEndpointHandler{
+		listenerendpoints.EndpointCreateChat:           invoker.handleCreateChat,
+		listenerendpoints.EndpointGetChat:              invoker.handleGetChat,
+		listenerendpoints.EndpointAppendChatMessages:   invoker.handleAppendChatMessages,
+		listenerendpoints.EndpointSetChatSystemPrompt:  invoker.handleSetChatSystemPrompt,
+		listenerendpoints.EndpointGetAllChatMetadata:   invoker.handleGetAllChatMetadata,
+		listenerendpoints.EndpointGetChatSectionChatID: invoker.handleGetChatSectionChatID,
+		listenerendpoints.EndpointSetChatSectionChatID: invoker.handleSetChatSectionChatID,
+		listenerendpoints.EndpointSetChatSectionState:  invoker.handleSetChatSectionState,
+		listenerendpoints.EndpointDeleteChat:           invoker.handleDeleteChat,
+		listenerendpoints.EndpointEmitChatStreamDelta:  invoker.handleEmitChatStreamDelta,
+		listenerendpoints.EndpointRunMCPTools:          invoker.handleRunMCPTools,
+	}
+	return invoker, nil
 }
 
 func (i *listenerBuiltInEndpointInvoker) SetHandler(http.Handler) {}
@@ -66,166 +87,213 @@ func (i *listenerBuiltInEndpointInvoker) invokeExplicitBuiltInEndpoint(
 	if i == nil {
 		return nil, false, nil
 	}
-
-	switch strings.TrimSpace(endpointName) {
-	case listenerendpoints.EndpointCreateChat:
-		if i.scriptableChat == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		request, err := decodeListenerBuiltInPayload[scriptablechat.CreateChatRequest](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		result, err := i.scriptableChat.CreateChat(request)
-		return result, true, err
-	case listenerendpoints.EndpointGetChat:
-		if i.scriptableChat == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		request, err := decodeListenerBuiltInPayload[scriptablechat.GetChatRequest](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		result, err := i.scriptableChat.GetChat(request)
-		return result, true, err
-	case listenerendpoints.EndpointAppendChatMessages:
-		if i.scriptableChat == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		request, err := decodeListenerBuiltInPayload[scriptablechat.AppendMessagesRequest](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		result, err := i.scriptableChat.AppendMessages(request)
-		return result, true, err
-	case listenerendpoints.EndpointSetChatSystemPrompt:
-		if i.scriptableChat == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		request, err := decodeListenerBuiltInPayload[scriptablechat.SetSystemPromptRequest](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		result, err := i.scriptableChat.SetSystemPrompt(request)
-		return result, true, err
-	case listenerendpoints.EndpointGetAllChatMetadata:
-		if i.scriptableChat == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		request, err := decodeListenerBuiltInPayload[scriptablechat.GetAllMetadataRequest](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		result, err := i.scriptableChat.GetAllMetadata(request)
-		return result, true, err
-	case listenerendpoints.EndpointGetChatSectionChatID:
-		request, err := decodeListenerBuiltInPayload[listenerendpoints.ListenerGetChatSectionChatIDRequestPayload](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		if err := info.Modes.Policy.RequireIDE(); err != nil {
-			return nil, true, err
-		}
-		projectID, err := requiredListenerProjectID(request.ProjectConfigID)
-		if err != nil {
-			return nil, true, err
-		}
-		sectionID := strings.TrimSpace(request.SectionID)
-		if sectionID == "" {
-			return nil, true, fmt.Errorf("Section id is required.")
-		}
-		if i.chatSectionChatIDs == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		chatID, err := i.chatSectionChatIDs.GetChatID(ctx, projectID, sectionID)
-		if err != nil {
-			return nil, true, listenerChatSectionMutationError(err)
-		}
-		if chatID == nil {
-			return nil, true, nil
-		}
-		return *chatID, true, nil
-	case listenerendpoints.EndpointSetChatSectionChatID:
-		request, err := decodeListenerBuiltInPayload[listenerendpoints.ListenerSetChatSectionChatIDRequestPayload](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		if err := ensureListenerProjectLLMMutationsAllowed(info, i.deploymentRuntime); err != nil {
-			return nil, true, err
-		}
-		projectID, err := requiredListenerProjectID(request.ProjectConfigID)
-		if err != nil {
-			return nil, true, err
-		}
-		sectionID := strings.TrimSpace(request.SectionID)
-		if sectionID == "" {
-			return nil, true, fmt.Errorf("Section id is required.")
-		}
-		runtime, err := i.projectRuntimeForInfo(info)
-		if err != nil {
-			return nil, true, err
-		}
-		if _, err := runtime.SetChatSectionChatID(ctx, projectID, sectionID, request.ChatID); err != nil {
-			return nil, true, listenerChatSectionMutationError(err)
-		}
-		return nil, true, nil
-	case listenerendpoints.EndpointSetChatSectionState:
-		request, err := decodeListenerBuiltInPayload[listenerendpoints.ListenerSetChatSectionStateRequestPayload](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		if err := ensureListenerProjectLayoutMutationsAllowed(info, i.deploymentRuntime); err != nil {
-			return nil, true, err
-		}
-		projectID, err := requiredListenerProjectID(request.ProjectConfigID)
-		if err != nil {
-			return nil, true, err
-		}
-		sectionID := strings.TrimSpace(request.SectionID)
-		if sectionID == "" {
-			return nil, true, fmt.Errorf("Section id is required.")
-		}
-		runtime, err := i.projectRuntimeForInfo(info)
-		if err != nil {
-			return nil, true, err
-		}
-		if _, err := runtime.SetChatSectionState(ctx, projectID, sectionID, request.State); err != nil {
-			return nil, true, listenerChatSectionMutationError(err)
-		}
-		return nil, true, nil
-	case listenerendpoints.EndpointDeleteChat:
-		if i.scriptableChat == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		request, err := decodeListenerBuiltInPayload[scriptablechat.DeleteChatRequest](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		return nil, true, i.scriptableChat.DeleteChat(request)
-	case listenerendpoints.EndpointEmitChatStreamDelta:
-		if i.scriptableChat == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		request, err := decodeListenerBuiltInPayload[scriptablechat.EmitStreamDeltaRequest](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		request.ShareSessionID = info.Modes.ShareSessionID
-		return nil, true, i.scriptableChat.EmitStreamDelta(ctx, request)
-	case listenerendpoints.EndpointRunMCPTools:
-		if i.scriptableChat == nil {
-			return nil, true, fmt.Errorf("Internal Server Error")
-		}
-		request, err := decodeListenerBuiltInPayload[scriptablechat.RunToolsRequest](payload)
-		if err != nil {
-			return nil, true, err
-		}
-		request.ShareSessionID = info.Modes.ShareSessionID
-		result, err := i.scriptableChat.RunTools(ctx, request)
-		return result, true, err
-	default:
+	handler, ok := i.explicitHandlers[strings.TrimSpace(endpointName)]
+	if !ok {
 		return nil, false, nil
 	}
+	result, err := handler(ctx, info, payload)
+	return result, true, err
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleCreateChat(
+	_ context.Context,
+	_ wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	return invokeListenerScriptableChatPayload(
+		payload,
+		i.scriptableChat,
+		func(service *scriptablechat.Service, request scriptablechat.CreateChatRequest) (any, error) {
+			return service.CreateChat(request)
+		},
+	)
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleGetChat(
+	_ context.Context,
+	_ wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	return invokeListenerScriptableChatPayload(
+		payload,
+		i.scriptableChat,
+		func(service *scriptablechat.Service, request scriptablechat.GetChatRequest) (any, error) {
+			return service.GetChat(request)
+		},
+	)
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleAppendChatMessages(
+	_ context.Context,
+	_ wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	return invokeListenerScriptableChatPayload(
+		payload,
+		i.scriptableChat,
+		func(service *scriptablechat.Service, request scriptablechat.AppendMessagesRequest) (any, error) {
+			return service.AppendMessages(request)
+		},
+	)
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleSetChatSystemPrompt(
+	_ context.Context,
+	_ wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	return invokeListenerScriptableChatPayload(
+		payload,
+		i.scriptableChat,
+		func(service *scriptablechat.Service, request scriptablechat.SetSystemPromptRequest) (any, error) {
+			return service.SetSystemPrompt(request)
+		},
+	)
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleGetAllChatMetadata(
+	_ context.Context,
+	_ wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	return invokeListenerScriptableChatPayload(
+		payload,
+		i.scriptableChat,
+		func(service *scriptablechat.Service, request scriptablechat.GetAllMetadataRequest) (any, error) {
+			return service.GetAllMetadata(request)
+		},
+	)
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleGetChatSectionChatID(
+	ctx context.Context,
+	info wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	request, err := decodeListenerBuiltInPayload[listenerendpoints.ListenerGetChatSectionChatIDRequestPayload](payload)
+	if err != nil {
+		return nil, err
+	}
+	if err := info.Modes.Policy.RequireIDE(); err != nil {
+		return nil, err
+	}
+	projectID, sectionID, err := listenerProjectSectionScope(request.ProjectConfigID, request.SectionID)
+	if err != nil {
+		return nil, err
+	}
+	if i.chatSectionChatIDs == nil {
+		return nil, fmt.Errorf("Internal Server Error")
+	}
+	chatID, err := i.chatSectionChatIDs.GetChatID(ctx, projectID, sectionID)
+	if err != nil {
+		return nil, listenerChatSectionMutationError(err)
+	}
+	if chatID == nil {
+		return nil, nil
+	}
+	return *chatID, nil
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleSetChatSectionChatID(
+	ctx context.Context,
+	info wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	request, err := decodeListenerBuiltInPayload[listenerendpoints.ListenerSetChatSectionChatIDRequestPayload](payload)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureListenerProjectLLMMutationsAllowed(info, i.deploymentRuntime); err != nil {
+		return nil, err
+	}
+	projectID, sectionID, err := listenerProjectSectionScope(request.ProjectConfigID, request.SectionID)
+	if err != nil {
+		return nil, err
+	}
+	runtime, err := i.projectRuntimeForInfo(info)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := runtime.SetChatSectionChatID(ctx, projectID, sectionID, request.ChatID); err != nil {
+		return nil, listenerChatSectionMutationError(err)
+	}
+	return nil, nil
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleSetChatSectionState(
+	ctx context.Context,
+	info wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	request, err := decodeListenerBuiltInPayload[listenerendpoints.ListenerSetChatSectionStateRequestPayload](payload)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureListenerProjectLayoutMutationsAllowed(info, i.deploymentRuntime); err != nil {
+		return nil, err
+	}
+	projectID, sectionID, err := listenerProjectSectionScope(request.ProjectConfigID, request.SectionID)
+	if err != nil {
+		return nil, err
+	}
+	runtime, err := i.projectRuntimeForInfo(info)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := runtime.SetChatSectionState(ctx, projectID, sectionID, request.State); err != nil {
+		return nil, listenerChatSectionMutationError(err)
+	}
+	return nil, nil
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleDeleteChat(
+	_ context.Context,
+	_ wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	return invokeListenerScriptableChatPayload(
+		payload,
+		i.scriptableChat,
+		func(service *scriptablechat.Service, request scriptablechat.DeleteChatRequest) (any, error) {
+			return nil, service.DeleteChat(request)
+		},
+	)
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleEmitChatStreamDelta(
+	ctx context.Context,
+	info wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	return invokeListenerScriptableChatContextPayload(
+		ctx,
+		payload,
+		i.scriptableChat,
+		func(request *scriptablechat.EmitStreamDeltaRequest) {
+			request.ShareSessionID = info.Modes.ShareSessionID
+		},
+		func(ctx context.Context, service *scriptablechat.Service, request scriptablechat.EmitStreamDeltaRequest) (any, error) {
+			return nil, service.EmitStreamDelta(ctx, request)
+		},
+	)
+}
+
+func (i *listenerBuiltInEndpointInvoker) handleRunMCPTools(
+	ctx context.Context,
+	info wsapi.ConnectionInfo,
+	payload map[string]any,
+) (any, error) {
+	return invokeListenerScriptableChatContextPayload(
+		ctx,
+		payload,
+		i.scriptableChat,
+		func(request *scriptablechat.RunToolsRequest) {
+			request.ShareSessionID = info.Modes.ShareSessionID
+		},
+		func(ctx context.Context, service *scriptablechat.Service, request scriptablechat.RunToolsRequest) (any, error) {
+			return service.RunTools(ctx, request)
+		},
+	)
 }
 
 func decodeListenerBuiltInPayload[T any](payload map[string]any) (T, error) {
@@ -240,6 +308,40 @@ func decodeListenerBuiltInPayload[T any](payload map[string]any) (T, error) {
 	return decoded, nil
 }
 
+func invokeListenerScriptableChatPayload[T any](
+	payload map[string]any,
+	service *scriptablechat.Service,
+	handler func(*scriptablechat.Service, T) (any, error),
+) (any, error) {
+	if service == nil {
+		return nil, fmt.Errorf("Internal Server Error")
+	}
+	request, err := decodeListenerBuiltInPayload[T](payload)
+	if err != nil {
+		return nil, err
+	}
+	return handler(service, request)
+}
+
+func invokeListenerScriptableChatContextPayload[T any](
+	ctx context.Context,
+	payload map[string]any,
+	service *scriptablechat.Service,
+	prepare func(*T),
+	handler func(context.Context, *scriptablechat.Service, T) (any, error),
+) (any, error) {
+	return invokeListenerScriptableChatPayload(
+		payload,
+		service,
+		func(service *scriptablechat.Service, request T) (any, error) {
+			if prepare != nil {
+				prepare(&request)
+			}
+			return handler(ctx, service, request)
+		},
+	)
+}
+
 func requiredListenerProjectID(projectID *string) (string, error) {
 	if projectID == nil {
 		return "", fmt.Errorf("Project config id is required.")
@@ -249,6 +351,18 @@ func requiredListenerProjectID(projectID *string) (string, error) {
 		return "", fmt.Errorf("Project config id is required.")
 	}
 	return trimmedProjectID, nil
+}
+
+func listenerProjectSectionScope(projectID *string, sectionID string) (string, string, error) {
+	resolvedProjectID, err := requiredListenerProjectID(projectID)
+	if err != nil {
+		return "", "", err
+	}
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	if trimmedSectionID == "" {
+		return "", "", fmt.Errorf("Section id is required.")
+	}
+	return resolvedProjectID, trimmedSectionID, nil
 }
 
 func (i *listenerBuiltInEndpointInvoker) projectRuntimeForInfo(info wsapi.ConnectionInfo) (*projectstate.Runtime, error) {

@@ -412,6 +412,10 @@ function startAuthRefresh({ runImmediately }: { runImmediately: boolean }) {
   if (authLost) {
     return;
   }
+  // This remains HTTP polling rather than a websocket push because the server
+  // needs an authenticated HTTP request to rotate the browser auth cookie.
+  // Websocket traffic can report auth loss (4401), but it cannot extend cookie
+  // expiry for an otherwise idle tab.
   if (runImmediately) {
     void runAuthRefresh();
   }

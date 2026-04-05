@@ -1860,6 +1860,10 @@ function useSpreadsheetAutoReloadEffect(args: {
         setStatusText("Reloaded from disk.");
       }
     };
+    // This remains route polling because the backend does not maintain a
+    // websocket watcher for every arbitrary previewed file. The editor only
+    // needs a stale-write guard while it is open, so scoped mtime checks are
+    // the current concrete tradeoff.
     void pollForExternalChanges();
     const timer = window.setInterval(() => {
       void pollForExternalChanges();
