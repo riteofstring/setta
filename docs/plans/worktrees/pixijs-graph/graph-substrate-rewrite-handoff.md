@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 10:33 EDT
+Last updated: 2026-04-05 10:57 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,57 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `174` split the canary viewport-controller logic out of `SettingsGraphSubstrateCanary.tsx` and cleared the stale run-003 title-edit blocker before taking the planned controller-boundary slice.
+  - Why this slice was needed:
+    - item `173` left the next action pointed at a worktree-canary title-edit persistence bug on the broad normalized pan+zoom lane, but that diagnosis was still based on run-003 evidence
+    - before touching product code again, the loop reran the trusted regression lane on the live run-004 surfaces and found that the pan+zoom title-edit lane now passes with fresh auth, so the earlier failure should not keep steering the frontier
+    - with the regression lane green again, the next planned geometry-authority step was to deepen the remaining mixed viewport/runtime ownership inside `SettingsGraphSubstrateCanary.tsx` instead of reopening more oracle work
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.ts`
+      - owns the custom viewport-controller behavior for pan, zoom, set-center, and fit-view
+      - centralizes viewport-center and targeted fit-section resolution behind one testable module boundary
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`
+      - covers no-op pan guards, shared callback pan writes, targeted fit-view bounds with initial zoom capping, and visible-center set-center behavior
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now wires the extracted viewport controller instead of defining the controller object inline
+      - removes local helper ownership for viewport-center and fit-target resolution
+  - What this slice established:
+    - the canary no longer keeps its custom viewport-controller behavior inline inside the 1.1k-line render component; that logic now lives behind a dedicated module boundary with focused unit coverage
+    - the broad normalized `shared title editing working after normalized pan and zoom` regression lane is green again on the live run-004 surfaces, so the worktree title-edit blocker recorded in item `173` is stale and should not be treated as the active frontier
+    - the required CDP visual confirmation is also green on the same broad lane:
+      - canonical target section remains `rotaryParamCodeObjDefault`
+      - the sub-agent normalized both worktree canary and read-only `main` legacy surfaces to `All Settings`
+      - after fit/center normalization, the title/body region around `rotaryParamCodeObjDefault` stayed visually attached with no gross drift between worktree and `main`
+      - caveat: a fresh bootstrap attempt in a brand-new browser context rejected the token, so the sub-agent verified against the already-live CDP session holding the worktree/main tabs
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`2 files`, `17 tests`)
+    - runtime refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-004/worktree-ai.log`
+      - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-004/main-ai.log`
+      - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed visual compare still works
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `1.2m`)
+      - note: one earlier rerun attempt failed in global setup with a bootstrap 401 after the old token expired; treat that run as auth noise, not product evidence
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - note: the visual compare used the live CDP session that already held worktree/main tabs because a fresh bootstrap in a new browser context rejected the token; after fit/center normalization, `rotaryParamCodeObjDefault` stayed visually attached with no gross canary-vs-main drift
+  - Lane status:
+    - close the worktree-canary title-edit blocker from item `173` as stale run-003 evidence; the trusted broad regression lane is green again on run-004
+    - the geometry-authority/controller-split lane advanced in product code and should remain the active frontier
+  - Next frontier:
+    - split the remaining pane/drag/wheel interaction bookkeeping out of `SettingsGraphSubstrateCanary.tsx` so viewport interaction state, timeouts, and pointer/wheel coordination stop living directly in the render component
+    - keep the broad normalized `rotaryParamCodeObjDefault` pan+zoom title-edit lane as regression coverage plus CDP confirmation after the next product slice
 
 - Ralph item `173` reran the pending visual gate for item `172` and showed that the old `reference_unhealthy` diagnosis is stale; the live blocker is now a reproducible worktree-canary title-edit persistence failure on the broad shared pan+zoom lane.
   - Why this slice was needed:

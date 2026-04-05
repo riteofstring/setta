@@ -2,7 +2,6 @@ import { SectionContainer } from "components/Section/Container/SectionContainer"
 import Background from "forks/xyflow/background/Background";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import type { CustomViewportController } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
   useEffect,
@@ -48,10 +47,8 @@ import {
 } from "./settingsGraphSubstrateCanaryModel";
 import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
 import {
-  getSettingsGraphSubstrateCanarySceneBoundsForSections,
   resolveSettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSection,
-  type SettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySectionPositionOverride,
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
@@ -59,7 +56,6 @@ import {
   resolveSettingsGraphSubstrateCanaryEffectivePaneWidths,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
-  resolveSettingsGraphSubstrateCanaryToolbarZoomViewport,
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   resolveSettingsGraphSubstrateCanaryWheelOutcome,
@@ -68,11 +64,10 @@ import {
   type SettingsGraphSubstrateCanaryViewportOwnership,
 } from "./settingsGraphSubstrateCanaryViewport";
 import {
-  centerViewportOnWorldPoint,
-  fitViewportToWorldRect,
-  translateViewport,
-  type GraphViewport,
-} from "./viewportTransform";
+  createSettingsGraphSubstrateCanaryViewportController,
+  type SettingsGraphSubstrateCanaryViewportControllerState,
+} from "./settingsGraphSubstrateCanaryViewportController";
+import { translateViewport, type GraphViewport } from "./viewportTransform";
 
 const ROOT_STYLE: CSSProperties = {
   inset: 0,
@@ -97,12 +92,6 @@ type ActiveViewportPan = {
   pointerId: number;
   originScreenPoint: Position;
   originViewport: GraphViewport;
-};
-
-type CanaryViewportState = {
-  resolvedViewport: GraphViewport | null;
-  sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
-  wrapperDimensions: { width: number; height: number };
 };
 
 export function SettingsGraphSubstrateCanary() {
@@ -210,15 +199,16 @@ export function SettingsGraphSubstrateCanary() {
     }),
     _.isEqual,
   );
-  const canaryViewportStateRef = useRef<CanaryViewportState>({
-    resolvedViewport: null,
-    sceneSnapshot: {
-      sceneBounds: null,
-      sections: [],
-      sectionsById: new Map(),
-    },
-    wrapperDimensions: { width: 0, height: 0 },
-  });
+  const canaryViewportStateRef =
+    useRef<SettingsGraphSubstrateCanaryViewportControllerState>({
+      resolvedViewport: null,
+      sceneSnapshot: {
+        sceneBounds: null,
+        sections: [],
+        sectionsById: new Map(),
+      },
+      wrapperDimensions: { width: 0, height: 0 },
+    });
 
   useEffect(() => {
     return () => {
@@ -456,158 +446,22 @@ export function SettingsGraphSubstrateCanary() {
   }
 
   useEffect(() => {
-    const viewportController: CustomViewportController = {
-      panBy: (delta) => {
-        if (!delta.x && !delta.y) {
-          return false;
-        }
-        const baseViewport = canaryViewportStateRef.current.resolvedViewport;
-        if (!baseViewport) {
-          return false;
-        }
-        const nextViewport = translateViewport(baseViewport, delta);
-        if (
-          nextViewport.x === baseViewport.x &&
-          nextViewport.y === baseViewport.y
-        ) {
-          return false;
-        }
-        viewportOwnershipRef.current = "local";
-        setViewport((currentViewport) => {
-          const effectiveViewport =
-            currentViewport ?? canaryViewportStateRef.current.resolvedViewport;
-          if (!effectiveViewport) {
-            return currentViewport;
-          }
-          const nextViewport = translateViewport(effectiveViewport, delta);
-          toolbarZoomViewportBaseRef.current = nextViewport;
-          return nextViewport;
-        });
-        return true;
-      },
-      zoomBy: (factor: number) => {
-        const { resolvedViewport, wrapperDimensions } =
-          canaryViewportStateRef.current;
-        if (!resolvedViewport || factor === 1) {
-          return;
-        }
-        const toolbarZoomBaseViewport =
-          toolbarZoomViewportBaseRef.current ?? resolvedViewport;
-        const { minZoom, maxZoom } = useSettings.getState().gui;
-        const nextZoom = Math.min(
-          maxZoom,
-          Math.max(minZoom, resolvedViewport.zoom * factor),
-        );
-        applyControlledViewportChange(() =>
-          resolveSettingsGraphSubstrateCanaryToolbarZoomViewport(
-            toolbarZoomBaseViewport,
-            wrapperDimensions,
-            {
-              maxZoom,
-              minZoom,
-              nextZoom,
-            },
-          ),
-        );
-      },
-      zoomTo: (zoomLevel: number) => {
-        const { resolvedViewport, wrapperDimensions } =
-          canaryViewportStateRef.current;
-        if (!resolvedViewport) {
-          return;
-        }
-        const toolbarZoomBaseViewport =
-          toolbarZoomViewportBaseRef.current ?? resolvedViewport;
-        const { minZoom, maxZoom } = useSettings.getState().gui;
-        const nextZoom = Math.min(maxZoom, Math.max(minZoom, zoomLevel));
-        applyControlledViewportChange(() =>
-          resolveSettingsGraphSubstrateCanaryToolbarZoomViewport(
-            toolbarZoomBaseViewport,
-            wrapperDimensions,
-            {
-              maxZoom,
-              minZoom,
-              nextZoom,
-            },
-          ),
-        );
-      },
-      setViewport: (transform) => {
-        applyControlledViewportChange((currentViewport) => ({
-          x: transform.x ?? currentViewport.x,
-          y: transform.y ?? currentViewport.y,
-          zoom: transform.zoom ?? currentViewport.zoom,
-        }));
-      },
-      setCenter: (x: number, y: number, options) => {
-        const centerScreenPoint = getCanaryViewportCenterScreenPoint(
-          canaryViewportStateRef.current.wrapperDimensions,
-          getCurrentCanaryPaneWidths(),
-        );
-        if (!centerScreenPoint) {
-          return;
-        }
-        const { maxZoom } = useSettings.getState().gui;
-        const nextZoom =
-          typeof options?.zoom === "number" ? options.zoom : maxZoom;
-        applyControlledViewportChange((currentViewport) =>
-          centerViewportOnWorldPoint(currentViewport, {
-            worldPoint: { x, y },
-            screenPoint: centerScreenPoint,
-            zoom: nextZoom,
-          }),
-        );
-      },
-      fitView: (options) => {
-        const { sceneSnapshot } = canaryViewportStateRef.current;
-        const targetSections = getCanaryFitViewSections(
-          sceneSnapshot.sections,
-          options?.nodes,
-        );
-        const bounds =
-          getSettingsGraphSubstrateCanarySceneBoundsForSections(targetSections);
-        if (!bounds) {
-          return false;
-        }
-        const centerScreenPoint = getCanaryViewportCenterScreenPoint(
-          canaryViewportStateRef.current.wrapperDimensions,
-          getCurrentCanaryPaneWidths(),
-        );
-        if (!centerScreenPoint) {
-          return false;
-        }
-        const {
-          minZoom: settingsMinZoom,
-          maxZoom: settingsMaxZoom,
-          defaultZoomLevel: settingsDefaultZoomLevel,
-        } = useSettings.getState().gui;
-        const resolvedMinZoom = options?.minZoom ?? settingsMinZoom;
-        let resolvedMaxZoom = options?.maxZoom ?? settingsMaxZoom;
-        if (options?.initial) {
-          resolvedMaxZoom = Math.min(resolvedMaxZoom, settingsDefaultZoomLevel);
-        }
-        if (resolvedMaxZoom < resolvedMinZoom) {
-          resolvedMaxZoom = resolvedMinZoom;
-        }
-        applyControlledViewportChange(() =>
-          fitViewportToWorldRect(
-            bounds,
-            resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
-              canaryViewportStateRef.current.wrapperDimensions,
-              getCurrentCanaryPaneWidths().overviewWidth,
-              getCurrentCanaryPaneWidths().uiEditorWidth,
-            ),
-            {
-              minZoom: resolvedMinZoom,
-              maxZoom: resolvedMaxZoom,
-              padding: options?.padding ?? 0.1,
-              centerScreenPoint,
-            },
-          ),
-        );
-        return true;
-      },
-    };
+    const viewportController =
+      createSettingsGraphSubstrateCanaryViewportController({
+        applyControlledViewportChange,
+        getPaneWidths: getCurrentCanaryPaneWidths,
+        getSettings: () => {
+          const { defaultZoomLevel, maxZoom, minZoom } =
+            useSettings.getState().gui;
+          return {
+            defaultZoomLevel,
+            maxZoom,
+            minZoom,
+          };
+        },
+        getState: () => canaryViewportStateRef.current,
+        getToolbarZoomViewportBase: () => toolbarZoomViewportBaseRef.current,
+      });
 
     useReactFlow.setState({ viewportController });
     return () => {
@@ -1056,28 +910,6 @@ export function SettingsGraphSubstrateCanary() {
   );
 }
 
-function getCanaryViewportCenterScreenPoint(
-  wrapperDimensions: {
-    width: number;
-    height: number;
-  },
-  paneWidths: { overviewWidth: number; uiEditorWidth: number },
-) {
-  const visibleViewportSize =
-    resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
-      wrapperDimensions,
-      paneWidths.overviewWidth,
-      paneWidths.uiEditorWidth,
-    );
-  if (visibleViewportSize.width <= 0 || visibleViewportSize.height <= 0) {
-    return null;
-  }
-  return {
-    x: paneWidths.overviewWidth + visibleViewportSize.width / 2,
-    y: visibleViewportSize.height / 2,
-  };
-}
-
 function getCurrentCanaryPaneWidths() {
   const localStorageState = useLocalStorage.getState();
   return resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
@@ -1086,17 +918,6 @@ function getCurrentCanaryPaneWidths() {
     uiEditorVisible: localStorageState.uiEditorVis,
     uiEditorTrueWidth: localStorageState.uiEditorTrueWidth,
   });
-}
-
-function getCanaryFitViewSections<T extends { sectionId: string }>(
-  sections: Array<T>,
-  nodes: Array<{ id: string }> | undefined,
-): Array<T> {
-  if (!nodes?.length) {
-    return sections;
-  }
-  const targetSectionIds = new Set(nodes.map((node) => node.id));
-  return sections.filter((section) => targetSectionIds.has(section.sectionId));
 }
 
 function ensureCanaryNode(
