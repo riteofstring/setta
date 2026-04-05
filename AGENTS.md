@@ -25,25 +25,19 @@
 - Neither install script should rewrite lockfiles. Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
 - Use `docs/guides/dev-scripts.md` when you need the exact command map for generation, cleanup, or the source-checkout dev loop.
 - Use `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for browser verification workflows when relevant.
+- For dependency audit or upgrade work, use `docs/guides/dependency-audits.md`.
 - For Python/package tooling, use `source activate.sh && <command>`.
 - Pin checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests.
-- For dependency audit or upgrade work, follow `docs/guides/dependency-audits.md` and prefer official dependency sources over obscure forks or mirrors.
 - Run Go through `./scripts/go.sh`.
 - Format Go with `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>`.
-- Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh`, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
-- `./scripts/run_backend_tests.sh` is the Python/package pytest runner, not the Go backend test runner.
+- Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh` for Python/package pytest, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
 - When changing runtime behavior, add Go tests beside the backend owner. When changing Python SDK or package boundaries, add focused pytest coverage under `tests/`.
 - Unless the developer explicitly narrows verification scope, run `./check_quality.sh` before committing.
 - Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly. Any skip must be narrow and justified.
 - A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
 - Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
 - Tests must use temporary directories instead of `setta_files`, must never mutate real git history in this repo or any non-disposable developer worktree, and should exercise production paths instead of mocks or test-only code paths.
-
-## Dependency Audits
-
-- Start with `./audit_supply_chain.sh`.
-- Default to fixing critical and high findings only unless the developer explicitly asks for broader cleanup.
-- Every kept dependency upgrade must satisfy the repo minimum release-age policy.
+- Do not add tautological tests that only restate the implementation or reproduce the same logic to compute the expected result.
 
 ## UI Rules
 
