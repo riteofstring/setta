@@ -10,6 +10,8 @@ from setta.types.generated.go_shared_types import (
     MessageStartEvent,
     MessageTextContent,
     MessageTextDelta,
+    MessageThinkingContent,
+    MessageThinkingDelta,
     StreamingEventType,
     ToolChatMessage,
     ToolArgumentPreviewDeltaEvent,
@@ -104,6 +106,77 @@ class TestChatSectionSync:
         updated = apply_stream_delta(state=updated, chunk=preview_delta)
 
         assert updated.toolCallArguments["tool-1"] == '{"value":"ok"}'
+
+    def test_thinking_deltas_append_text_and_preserve_existing_metadata(self) -> None:
+        state = build_chat_section_state(messages=[])
+
+        updated = apply_stream_delta(
+            state=state,
+            chunk=MessageDeltaEvent(
+                type=StreamingEventType.delta,
+                message_id="assistant-1",
+                content=[
+                    MessageThinkingDelta(
+                        type="thinking_delta",
+                        index=0,
+                        thinking="Plan",
+                        summary="summary",
+                        signature="sig",
+                    )
+                ],
+            ),
+        )
+        updated = apply_stream_delta(
+            state=updated,
+            chunk=MessageDeltaEvent(
+                type=StreamingEventType.delta,
+                message_id="assistant-1",
+                content=[
+                    MessageThinkingDelta(
+                        type="thinking_delta",
+                        index=0,
+                        thinking=" more",
+                    )
+                ],
+            ),
+        )
+
+        assistant_message = updated.messages[0]
+        assert isinstance(assistant_message, AssistantChatMessage)
+        assert isinstance(assistant_message.content[0], MessageThinkingContent)
+        assert assistant_message.content[0].thinking == "Plan more"
+        assert assistant_message.content[0].summary == "summary"
+        assert assistant_message.content[0].signature == "sig"
+
+    def test_message_delta_noops_without_message_id_or_content(self) -> None:
+        assistant = AssistantChatMessage(
+            id="assistant-1",
+            content=[MessageTextContent(type="text", text="Hello")],
+        )
+        state = build_chat_section_state(messages=[assistant], waiting_for_response=True)
+
+        missing_message_id = apply_stream_delta(
+            state=state,
+            chunk=MessageDeltaEvent(
+                type=StreamingEventType.delta,
+                message_id="",
+                content=[MessageTextDelta(type="text_delta", index=0, text="ignored")],
+            ),
+        )
+        empty_content = apply_stream_delta(
+            state=state,
+            chunk=MessageDeltaEvent(
+                type=StreamingEventType.delta,
+                message_id="assistant-1",
+                content=[],
+            ),
+        )
+
+        for updated in (missing_message_id, empty_content):
+            assistant_message = updated.messages[0]
+            assert isinstance(assistant_message, AssistantChatMessage)
+            assert assistant_message.content[0].text == "Hello"
+            assert updated.waitingForResponse
 
     def test_tool_result_and_finalized_clear_waiting_state(self) -> None:
         assistant = AssistantChatMessage(

@@ -13,7 +13,9 @@ from setta.types.generated.go_shared_types import (
     MessageStartEvent,
     MessageStopEvent,
     MessageTextContent,
+    MessageTextDelta,
     MessageThinkingContent,
+    MessageThinkingDelta,
     ToolArgumentPreviewDeltaEvent,
     ToolCall,
     ToolCallDeltaEvent,
@@ -289,28 +291,57 @@ def _apply_message_delta(
     messages: list[BaseChatMessageUnion],
     chunk: MessageDeltaEvent,
 ) -> list[BaseChatMessageUnion]:
-    if not chunk.message_id:
-        return messages
-    if not chunk.content:
+    if not chunk.message_id or not chunk.content:
         return messages
     updated_messages, assistant = _ensure_assistant_message(messages, chunk.message_id)
     content = list(assistant.content)
     for delta in chunk.content:
-        if delta.type == "text_delta":
-            index = _normalize_index(delta.index, len(content))
-            block = _ensure_text_block(content, index)
-            block.text += delta.text
-        elif delta.type == "thinking_delta":
-            index = _normalize_index(delta.index, len(content))
-            block = _ensure_thinking_block(content, index)
-            if delta.thinking:
-                block.thinking += delta.thinking
-            if delta.summary is not None:
-                block.summary = delta.summary
-            if delta.signature is not None:
-                block.signature = delta.signature
+        _apply_content_delta(content, delta)
     assistant.content = content
     return _upsert_message(updated_messages, assistant)
+
+
+def _apply_content_delta(
+    content: list[MessageTextContent | MessageThinkingContent],
+    delta: MessageTextDelta | MessageThinkingDelta,
+) -> None:
+    handler = _MESSAGE_CONTENT_DELTA_HANDLERS.get(delta.type)
+    if handler is None:
+        return
+    handler(content, _normalize_index(delta.index, len(content)), delta)
+
+
+def _apply_text_content_delta(
+    content: list[MessageTextContent | MessageThinkingContent],
+    index: int,
+    delta: MessageTextDelta | MessageThinkingDelta,
+) -> None:
+    if not isinstance(delta, MessageTextDelta):
+        return
+    block = _ensure_text_block(content, index)
+    block.text += delta.text
+
+
+def _apply_thinking_content_delta(
+    content: list[MessageTextContent | MessageThinkingContent],
+    index: int,
+    delta: MessageTextDelta | MessageThinkingDelta,
+) -> None:
+    if not isinstance(delta, MessageThinkingDelta):
+        return
+    block = _ensure_thinking_block(content, index)
+    block.thinking += delta.thinking
+    block.summary = _coalesce_optional_message_value(block.summary, delta.summary)
+    block.signature = _coalesce_optional_message_value(
+        block.signature,
+        delta.signature,
+    )
+
+
+_MESSAGE_CONTENT_DELTA_HANDLERS = {
+    "text_delta": _apply_text_content_delta,
+    "thinking_delta": _apply_thinking_content_delta,
+}
 
 
 def _apply_tool_call_delta(
@@ -352,6 +383,15 @@ def _normalize_index(index: int | None, current_length: int) -> int:
     if index < 0:
         return 0
     return index
+
+
+def _coalesce_optional_message_value(
+    current_value: str | None,
+    delta_value: str | None,
+) -> str | None:
+    if delta_value is None:
+        return current_value
+    return delta_value
 
 
 def _ensure_text_block(
