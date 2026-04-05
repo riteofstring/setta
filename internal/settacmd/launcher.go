@@ -79,6 +79,33 @@ type launcherRootFlags struct {
 	timeout    float64
 }
 
+type launcherCommandFailure struct {
+	code     string
+	message  string
+	exitCode int
+}
+
+func (e *launcherCommandFailure) emit(stdout io.Writer, stderr io.Writer, jsonOutput bool) error {
+	if e == nil {
+		return nil
+	}
+	return emitLauncherCommandError(stdout, stderr, jsonOutput, e.code, e.message, e.exitCode)
+}
+
+type launcherRootRequest struct {
+	flags              launcherRootFlags
+	installedMetadata  *launcher.LauncherInstallMetadata
+	requestedOpenMode  launcher.LauncherOpenMode
+	shouldOpenSwitcher bool
+	launchTimeout      time.Duration
+	sessionLaunchInput launcher.IDELaunchInput
+}
+
+type launcherRootResult struct {
+	launchResult launcher.IDELaunchResult
+	bootstrapURL string
+}
+
 type launcherRunPayload struct {
 	Ok                    bool                  `json:"ok"`
 	BootstrapURL          string                `json:"bootstrapUrl,omitempty"`
@@ -209,32 +236,42 @@ func runLauncherRoot(args []string, global globalFlags, stdout io.Writer, stderr
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher run does not accept positional arguments")
 	}
+	request, failure := prepareLauncherRootRequest(parsed, global, envLookup, cwd, deps)
+	if failure != nil {
+		return failure.emit(stdout, stderr, parsed.jsonOutput)
+	}
+
+	result, failure := executeLauncherRootRequest(request, envLookup, deps)
+	if failure != nil {
+		return failure.emit(stdout, stderr, parsed.jsonOutput)
+	}
+
+	return writeLauncherRootResponse(stdout, stderr, request, result, deps)
+}
+
+func prepareLauncherRootRequest(parsed launcherRootFlags, global globalFlags, envLookup func(string) (string, bool), cwd string, deps launcherRootDependencies) (launcherRootRequest, *launcherCommandFailure) {
 	if parsed.timeout <= 0 {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", "--timeout must be greater than 0.", 2)
+		return launcherRootRequest{}, newLauncherCommandFailure("BadRequest", "--timeout must be greater than 0.", 2)
 	}
 
 	baseConfig, err := deps.loadBaseConfig(global, cwd, envLookup)
 	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
+		return launcherRootRequest{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
 	}
 
 	resolvedWorkspaceOption, err := resolveLauncherWorkspaceOption(parsed.workspace, global.workspaceRoot)
 	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
+		return launcherRootRequest{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
 	}
 
 	installedMetadata, err := deps.loadMetadata(baseConfig.Paths.SettaHome)
 	if err != nil {
-		var metadataErr *launcher.LauncherMetadataError
-		if errors.As(err, &metadataErr) {
-			return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "LauncherMetadata", metadataErr.Error(), 2)
-		}
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", err.Error(), 1)
+		return launcherRootRequest{}, launcherMetadataFailure(err)
 	}
 	if installedMetadata != nil {
 		targetError := deps.validateMetadataTarget(*installedMetadata)
 		if targetError != "" {
-			return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "LauncherTargetMissing", targetError, 2)
+			return launcherRootRequest{}, newLauncherCommandFailure("LauncherTargetMissing", targetError, 2)
 		}
 	}
 
@@ -244,7 +281,7 @@ func runLauncherRoot(args []string, global globalFlags, stdout io.Writer, stderr
 		deps.resolveUserHome,
 	)
 	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InvalidWorkspace", fmt.Sprintf("Failed to initialize launcher workspace: %v", err), 2)
+		return launcherRootRequest{}, newLauncherCommandFailure("InvalidWorkspace", fmt.Sprintf("Failed to initialize launcher workspace: %v", err), 2)
 	}
 
 	normalizedProfile := strings.TrimSpace(global.profile)
@@ -258,98 +295,148 @@ func runLauncherRoot(args []string, global globalFlags, stdout io.Writer, stderr
 
 	requestedOpenMode, err := resolveLauncherRunOpenMode(parsed.openMode, installedMetadata)
 	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
+		return launcherRootRequest{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
 	}
+
 	serverMode := config.ModeIDE
 	if shouldOpenSwitcher {
 		serverMode = config.ModeLauncher
-	}
-
-	currentExecutable, err := deps.resolveCurrentExecutable()
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", fmt.Sprintf("resolve current executable: %v", err), 1)
-	}
-	serverExecutable, err := deps.resolveServerExecutable(currentExecutable, envLookup)
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "LaunchFailed", err.Error(), 2)
-	}
-	sessionLauncher, err := deps.newSessionLauncher(serverExecutable, time.Duration(parsed.timeout*float64(time.Second)))
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", err.Error(), 1)
 	}
 
 	profileLookupHome := ""
 	if normalizedProfile != "" {
 		profileLookupHome = baseConfig.Paths.ProfileLookupHome
 	}
-	launchResult, err := sessionLauncher.EnsureSession(launcher.IDELaunchInput{
-		WorkspaceRoot:      resolvedWorkspaceRoot,
-		SettaHome:          baseConfig.Paths.SettaHome,
-		ProfileLookupHome:  profileLookupHome,
-		Profile:            normalizedProfile,
-		SettaFilesRoot:     normalizedSettaFilesRoot,
-		SettaFilesLocation: resolvedSettaFilesLocation,
-		RuntimeRoot:        normalizedRuntimeRoot,
-		ServerMode:         serverMode,
-	})
+
+	return launcherRootRequest{
+		flags:              parsed,
+		installedMetadata:  installedMetadata,
+		requestedOpenMode:  requestedOpenMode,
+		shouldOpenSwitcher: shouldOpenSwitcher,
+		launchTimeout:      time.Duration(parsed.timeout * float64(time.Second)),
+		sessionLaunchInput: launcher.IDELaunchInput{
+			WorkspaceRoot:      resolvedWorkspaceRoot,
+			SettaHome:          baseConfig.Paths.SettaHome,
+			ProfileLookupHome:  profileLookupHome,
+			Profile:            normalizedProfile,
+			SettaFilesRoot:     normalizedSettaFilesRoot,
+			SettaFilesLocation: resolvedSettaFilesLocation,
+			RuntimeRoot:        normalizedRuntimeRoot,
+			ServerMode:         serverMode,
+		},
+	}, nil
+}
+
+func executeLauncherRootRequest(request launcherRootRequest, envLookup func(string) (string, bool), deps launcherRootDependencies) (launcherRootResult, *launcherCommandFailure) {
+	currentExecutable, err := deps.resolveCurrentExecutable()
 	if err != nil {
-		var sessionLaunchErr *launcher.SessionLaunchError
-		if errors.As(err, &sessionLaunchErr) {
-			return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, sessionLaunchErr.Code, sessionLaunchErr.Message, 2)
-		}
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", err.Error(), 1)
+		return launcherRootResult{}, newLauncherCommandFailure("InternalError", fmt.Sprintf("resolve current executable: %v", err), 1)
 	}
 
+	serverExecutable, err := deps.resolveServerExecutable(currentExecutable, envLookup)
+	if err != nil {
+		return launcherRootResult{}, newLauncherCommandFailure("LaunchFailed", err.Error(), 2)
+	}
+
+	sessionLauncher, err := deps.newSessionLauncher(serverExecutable, request.launchTimeout)
+	if err != nil {
+		return launcherRootResult{}, newLauncherCommandFailure("InternalError", err.Error(), 1)
+	}
+
+	launchResult, err := sessionLauncher.EnsureSession(request.sessionLaunchInput)
+	if err != nil {
+		return launcherRootResult{}, launcherSessionFailure(err)
+	}
+
+	bootstrapURL, failure := buildLauncherRootBootstrapURL(launchResult, request.shouldOpenSwitcher, deps)
+	if failure != nil {
+		return launcherRootResult{}, failure
+	}
+
+	if !request.shouldOpenSwitcher {
+		_ = deps.updateLastUsedWorkspace(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
+	}
+
+	return launcherRootResult{
+		launchResult: launchResult,
+		bootstrapURL: bootstrapURL,
+	}, nil
+}
+
+func buildLauncherRootBootstrapURL(launchResult launcher.IDELaunchResult, shouldOpenSwitcher bool, deps launcherRootDependencies) (string, *launcherCommandFailure) {
 	token, err := deps.mintBootstrapToken(launchResult.Session.ID, launchResult.Secret, deps.now().UTC())
 	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", "Unexpected launcher failure. Check logs for details.", 1)
+		return "", unexpectedLauncherFailure()
 	}
 	bootstrapURL, err := launcher.BuildBootstrapURLFragment(launchResult.Session.Host, launchResult.Session.Port, token)
 	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", "Unexpected launcher failure. Check logs for details.", 1)
+		return "", unexpectedLauncherFailure()
 	}
 	if shouldOpenSwitcher {
 		bootstrapURL, err = appendBootstrapURLFragmentParam(bootstrapURL, "osw", "1")
 		if err != nil {
-			return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", "Unexpected launcher failure. Check logs for details.", 1)
+			return "", unexpectedLauncherFailure()
 		}
 	}
+	return bootstrapURL, nil
+}
 
-	if !shouldOpenSwitcher {
-		_ = deps.updateLastUsedWorkspace(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
-	}
-
-	actualOpenMode := requestedOpenMode
-	if !(parsed.jsonOutput || parsed.noOpen) {
-		actualOpenMode = deps.openURLWithMode(bootstrapURL, requestedOpenMode, stderr)
+func writeLauncherRootResponse(stdout io.Writer, stderr io.Writer, request launcherRootRequest, result launcherRootResult, deps launcherRootDependencies) error {
+	actualOpenMode := request.requestedOpenMode
+	if !(request.flags.jsonOutput || request.flags.noOpen) {
+		actualOpenMode = deps.openURLWithMode(result.bootstrapURL, request.requestedOpenMode, stderr)
 	}
 
 	payload := launcherRunPayload{
 		Ok:                    true,
-		BootstrapURL:          bootstrapURL,
-		WorkspaceRoot:         launchResult.Paths.WorkspaceRoot,
-		SessionID:             launchResult.Session.ID,
-		StartedNew:            launchResult.StartedNew,
-		ReusedSession:         !launchResult.StartedNew,
-		SessionServerMode:     string(serverMode),
+		BootstrapURL:          result.bootstrapURL,
+		WorkspaceRoot:         result.launchResult.Paths.WorkspaceRoot,
+		SessionID:             result.launchResult.Session.ID,
+		StartedNew:            result.launchResult.StartedNew,
+		ReusedSession:         !result.launchResult.StartedNew,
+		SessionServerMode:     string(request.sessionLaunchInput.ServerMode),
 		OpenMode:              string(actualOpenMode),
-		WorkspaceBehavior:     effectiveLauncherWorkspaceBehavior(installedMetadata),
-		OpenWorkspaceSwitcher: shouldOpenSwitcher,
-		SettaHome:             launchResult.Paths.SettaHome,
-		Profile:               stringPointer(launchResult.Paths.ProfileName),
+		WorkspaceBehavior:     effectiveLauncherWorkspaceBehavior(request.installedMetadata),
+		OpenWorkspaceSwitcher: request.shouldOpenSwitcher,
+		SettaHome:             result.launchResult.Paths.SettaHome,
+		Profile:               stringPointer(result.launchResult.Paths.ProfileName),
 	}
-	if parsed.jsonOutput {
+	if request.flags.jsonOutput {
 		return writeJSONPayload(stdout, payload)
 	}
-	if parsed.noOpen {
-		fmt.Fprintf(stdout, "Bootstrap URL: %s\n", bootstrapURL)
-		if shouldOpenSwitcher {
+	if request.flags.noOpen {
+		fmt.Fprintf(stdout, "Bootstrap URL: %s\n", result.bootstrapURL)
+		if request.shouldOpenSwitcher {
 			fmt.Fprintln(stdout, "Workspace switcher will open after bootstrap.")
 		}
 		return nil
 	}
-	fmt.Fprintf(stdout, "Opened Setta (%s) for workspace %s\n", actualOpenMode, launchResult.Paths.WorkspaceRoot)
+	fmt.Fprintf(stdout, "Opened Setta (%s) for workspace %s\n", actualOpenMode, result.launchResult.Paths.WorkspaceRoot)
 	return nil
+}
+
+func newLauncherCommandFailure(code string, message string, exitCode int) *launcherCommandFailure {
+	return &launcherCommandFailure{code: code, message: message, exitCode: exitCode}
+}
+
+func launcherMetadataFailure(err error) *launcherCommandFailure {
+	var metadataErr *launcher.LauncherMetadataError
+	if errors.As(err, &metadataErr) {
+		return newLauncherCommandFailure("LauncherMetadata", metadataErr.Error(), 2)
+	}
+	return newLauncherCommandFailure("InternalError", err.Error(), 1)
+}
+
+func launcherSessionFailure(err error) *launcherCommandFailure {
+	var sessionLaunchErr *launcher.SessionLaunchError
+	if errors.As(err, &sessionLaunchErr) {
+		return newLauncherCommandFailure(sessionLaunchErr.Code, sessionLaunchErr.Message, 2)
+	}
+	return newLauncherCommandFailure("InternalError", err.Error(), 1)
+}
+
+func unexpectedLauncherFailure() *launcherCommandFailure {
+	return newLauncherCommandFailure("InternalError", "Unexpected launcher failure. Check logs for details.", 1)
 }
 
 func runLauncherSetup(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
