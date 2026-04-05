@@ -150,47 +150,6 @@ func goJSONFieldOrder(value any) []string {
 	return order
 }
 
-func writeTSObjectLiteral(
-	builder *strings.Builder,
-	indent string,
-	object map[string]any,
-	orderedKeys []string,
-) {
-	builder.WriteString("{\n")
-	childIndent := indent + "  "
-	writeProperty := func(key string, value any) {
-		builder.WriteString(childIndent)
-		builder.WriteString(renderTSObjectKey(key))
-		builder.WriteString(": ")
-		writeTSLiteralValue(builder, childIndent, value, nil)
-		builder.WriteString(",\n")
-	}
-	seen := map[string]struct{}{}
-	for _, key := range orderedKeys {
-		value, ok := object[key]
-		if !ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		writeProperty(key, value)
-	}
-
-	remaining := make([]string, 0, len(object)-len(seen))
-	for key := range object {
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		remaining = append(remaining, key)
-	}
-	sort.Strings(remaining)
-	for _, key := range remaining {
-		writeProperty(key, object[key])
-	}
-
-	builder.WriteString(indent)
-	builder.WriteString("}")
-}
-
 func writeTSLiteralValue(builder *strings.Builder, indent string, value any, orderedKeys []string) {
 	switch typed := value.(type) {
 	case nil:
@@ -209,7 +168,37 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any, ord
 	case []any:
 		writeTSArrayLiteral(builder, indent, typed)
 	case map[string]any:
-		writeTSObjectLiteral(builder, indent, typed, orderedKeys)
+		builder.WriteString("{\n")
+		childIndent := indent + "  "
+		seen := map[string]struct{}{}
+		writeProperty := func(key string, value any) {
+			builder.WriteString(childIndent)
+			builder.WriteString(renderTSObjectKey(key))
+			builder.WriteString(": ")
+			writeTSLiteralValue(builder, childIndent, value, nil)
+			builder.WriteString(",\n")
+		}
+		for _, key := range orderedKeys {
+			value, ok := typed[key]
+			if !ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			writeProperty(key, value)
+		}
+		remaining := make([]string, 0, len(typed)-len(seen))
+		for key := range typed {
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			remaining = append(remaining, key)
+		}
+		sort.Strings(remaining)
+		for _, key := range remaining {
+			writeProperty(key, typed[key])
+		}
+		builder.WriteString(indent)
+		builder.WriteString("}")
 	default:
 		payload, err := json.Marshal(typed)
 		if err != nil {
