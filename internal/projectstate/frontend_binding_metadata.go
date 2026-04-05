@@ -3,27 +3,16 @@ package projectstate
 import (
 	"errors"
 	"reflect"
-	"strings"
 
 	"setta/internal/frontendbindingmeta"
 )
 
-var (
-	frontendBindingBaseSectionImplType                = reflect.TypeOf(FrontendBaseSectionImpl{})
-	frontendBindingBaseCodeObjImplType                = reflect.TypeOf(FrontendBaseCodeObjImpl{})
-	frontendBindingChildSectionFieldsType             = reflect.TypeOf(FrontendChildSectionFields{})
-	frontendBindingSectionWithParamsLeadingFieldsType = reflect.TypeOf(FrontendSectionWithParamsLeadingFields{})
-	frontendBindingBaseValueParamCodeObjImplType      = reflect.TypeOf(FrontendBaseValueParamCodeObjImpl{})
-	frontendBindingChildCodeObjFieldsType             = reflect.TypeOf(FrontendChildCodeObjFields{})
-	frontendBindingParamCodeObjFieldsType             = reflect.TypeOf(FrontendParamCodeObjFields{})
-)
-
 func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() frontendbindingmeta.DiscriminatedObjectFamily {
 	return frontendbindingmeta.DiscriminatedObjectFamily{
-		BaseType:           frontendBindingBaseSectionImplType,
-		EnumType:           reflect.TypeOf(FrontendSectionType("")),
+		BaseType:           reflect.TypeFor[FrontendBaseSectionImpl](),
+		EnumType:           reflect.TypeFor[FrontendSectionType](),
 		DiscriminatorField: "type",
-		DiscriminatorValue: frontendBindingConcreteTypeValueWithSuffix("SectionImpl"),
+		ConcreteTypeSuffix: "SectionImpl",
 		DefaultValueForDiscriminator: func(value string) (any, bool, error) {
 			defaultValue, err := FrontendSectionImplDefaultValue(value)
 			if err != nil {
@@ -36,14 +25,14 @@ func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 		},
 		Traits: []frontendbindingmeta.DiscriminatedObjectTraitSpec{
 			{
-				UnionName:  "BaseParentSectionImplUnion",
-				LocalUnion: true,
-				Predicate:  frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingChildSectionFieldsType),
+				UnionName:         "BaseParentSectionImplUnion",
+				LocalUnion:        true,
+				EmbeddedFieldType: reflect.TypeFor[FrontendChildSectionFields](),
 			},
 			{
-				UnionName:  "BaseSectionWithParamsImplUnion",
-				LocalUnion: true,
-				Predicate:  frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingSectionWithParamsLeadingFieldsType),
+				UnionName:         "BaseSectionWithParamsImplUnion",
+				LocalUnion:        true,
+				EmbeddedFieldType: reflect.TypeFor[FrontendSectionWithParamsLeadingFields](),
 			},
 		},
 	}
@@ -51,10 +40,10 @@ func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 
 func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() frontendbindingmeta.DiscriminatedObjectFamily {
 	return frontendbindingmeta.DiscriminatedObjectFamily{
-		BaseType:           frontendBindingBaseCodeObjImplType,
-		EnumType:           reflect.TypeOf(FrontendCodeObjType("")),
+		BaseType:           reflect.TypeFor[FrontendBaseCodeObjImpl](),
+		EnumType:           reflect.TypeFor[FrontendCodeObjType](),
 		DiscriminatorField: "type",
-		DiscriminatorValue: frontendBindingConcreteTypeValueWithSuffix("CodeObjImpl"),
+		ConcreteTypeSuffix: "CodeObjImpl",
 		DefaultValueForDiscriminator: func(value string) (any, bool, error) {
 			if value != string(FrontendCodeObjTypeCodeParam) {
 				return nil, false, nil
@@ -64,74 +53,21 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 		BaseExtraLines: []string{"[key: string]: unknown;"},
 		Traits: []frontendbindingmeta.DiscriminatedObjectTraitSpec{
 			{
-				UnionName:   "BaseChildlessCodeObjImplUnion",
-				IncludeBase: true,
-				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingBaseValueParamCodeObjImplType),
+				UnionName:         "BaseChildlessCodeObjImplUnion",
+				IncludeBase:       true,
+				EmbeddedFieldType: reflect.TypeFor[FrontendBaseValueParamCodeObjImpl](),
 			},
 			{
-				UnionName:   "BaseParamCodeObjImplUnion",
-				LocalUnion:  true,
-				IncludeBase: true,
-				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingParamCodeObjFieldsType),
+				UnionName:         "BaseParamCodeObjImplUnion",
+				LocalUnion:        true,
+				IncludeBase:       true,
+				EmbeddedFieldType: reflect.TypeFor[FrontendParamCodeObjFields](),
 			},
 			{
-				UnionName:  "BaseParentCodeObjImplUnion",
-				LocalUnion: true,
-				Predicate:  frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingChildCodeObjFieldsType),
+				UnionName:         "BaseParentCodeObjImplUnion",
+				LocalUnion:        true,
+				EmbeddedFieldType: reflect.TypeFor[FrontendChildCodeObjFields](),
 			},
 		},
 	}
-}
-
-func frontendBindingEmbedsAnonymousFieldPredicate(target reflect.Type) func(reflect.Type) bool {
-	return func(t reflect.Type) bool { return frontendBindingContractTypeEmbedsAnonymousField(t, target) }
-}
-func frontendBindingConcreteTypeValueWithSuffix(suffix string) func(reflect.Type) (string, bool) {
-	return func(t reflect.Type) (string, bool) { return frontendBindingNamedConcreteTypeValue(t, suffix) }
-}
-func frontendBindingNamedConcreteTypeValue(t reflect.Type, suffix string) (string, bool) {
-	for t != nil && t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	if t == nil || t.Kind() != reflect.Struct {
-		return "", false
-	}
-	name := t.Name()
-	if !strings.HasPrefix(name, "Frontend") ||
-		strings.HasPrefix(name, "FrontendBase") ||
-		!strings.HasSuffix(name, suffix) {
-		return "", false
-	}
-	value := strings.TrimSuffix(strings.TrimPrefix(name, "Frontend"), suffix)
-	if value == "" || strings.HasPrefix(value, "UserDefault") {
-		return "", false
-	}
-	return value, true
-}
-
-func frontendBindingContractTypeEmbedsAnonymousField(t reflect.Type, target reflect.Type) bool {
-	for t != nil && t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	if t == nil || target == nil || t.Kind() != reflect.Struct {
-		return false
-	}
-	for index := 0; index < t.NumField(); index++ {
-		field := t.Field(index)
-		if !field.Anonymous {
-			continue
-		}
-		fieldType := field.Type
-		if fieldType == target {
-			return true
-		}
-		if fieldType.Kind() == reflect.Pointer {
-			fieldType = fieldType.Elem()
-		}
-		if fieldType.Kind() == reflect.Struct &&
-			frontendBindingContractTypeEmbedsAnonymousField(fieldType, target) {
-			return true
-		}
-	}
-	return false
 }

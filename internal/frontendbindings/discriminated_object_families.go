@@ -255,7 +255,7 @@ func discriminatedObjectFamilyTraitDeclarations(
 		memberTypeNames := []string{}
 		memberEnumExprs := []string{}
 		for _, member := range members {
-			if trait.Predicate != nil && !trait.Predicate(member.Type) {
+			if !trait.Matches(member.Type) {
 				continue
 			}
 			memberTypeNames = append(memberTypeNames, frontendBindingTypeName(member.Type))
@@ -296,7 +296,7 @@ func discriminatedObjectFamilyTraitDeclarations(
 func discriminatedObjectFamilyMembers(
 	family frontendbindingmeta.DiscriminatedObjectFamily,
 ) ([]discriminatedObjectFamilyMember, error) {
-	if family.DiscriminatorValue == nil {
+	if strings.TrimSpace(family.ConcreteTypeSuffix) == "" {
 		return nil, fmt.Errorf("%s family is missing discriminator metadata", frontendBindingTypeName(family.BaseType))
 	}
 	enumValues, ok, err := discoveredFrontendEnumValues(family.EnumType)
