@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 06:26 EDT
+Last updated: 2026-04-05 06:41 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,43 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `161` closed the canonical `dropzoneParamCodeObjDefault` normalized top-level drag lane by promoting the exact deterministic backend/state post-move path into a trusted Playwright oracle and rechecking it through fresh-context CDP.
+  - Why this slice was needed:
+    - item `160` left `dropzoneParamCodeObjDefault` open only because one fresh-context CDP read reported about `105px` of vertical drift after the deterministic backend/state post-move lane
+    - the last two completed iterations were support/oracle-heavy, so this pass needed to spend its one allowed support slice on the exact open renderer question instead of opening another lane
+    - the plan's lane-budget rules allow one bounded normalization/oracle step when it directly decides whether an apparent renderer mismatch is real
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the dropzone mode row attached after normalized authoritative layout move on read-only main legacy and worktree canary`
+      - the new lane reuses the dropzone param-filter normalization, restores the initial view-mode layout, applies the same authoritative `{ x: 120, y: 80 }` backend move through `setTopLevelSectionLayout`, refits `dropzoneParamCodeObjDefault`, and compares rendered graph-surface geometry plus row-anchor placement instead of relying on raw viewport `x/y`
+  - What this slice established:
+    - the targeted live Playwright rerun passed on the current run-021 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), so the exact deterministic backend/state post-move path now has a trusted named oracle for `dropzoneParamCodeObjDefault`
+    - the fresh-context CDP sub-agent rechecked that same path and found the graph surface aligned after normalization:
+      - post-fit/post-move section rect matched at about `x=454.55`, `y=283.53`, `w=690.91`, `h=332.94`
+      - center offset from the graph root center matched at about `80px`
+      - `paramFilter` was already `""` on both sides, so there was no remaining filter-state drift on this lane
+    - the only mismatch left on this path was stored viewport translation:
+      - worktree: about `x=-861.036`, `y=-9140.72`, `zoom=1.25165`
+      - main reference: about `x=-710.838`, `y=-9040.59`, `zoom=1.25165`
+    - treat that raw viewport `x/y` delta as deterministic-fit oracle noise for this lane, not as visible renderer drift; rendered section geometry and row placement matched
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the dropzone mode row attached after normalized authoritative layout move on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `39.1s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - compared worktree `3076` and read-only `main` `3087` on `Settings` -> `All Settings`
+      - normalized both around `dropzoneParamCodeObjDefault`, used the deterministic backend/state post-move lane, and confirmed the rendered graph surface aligned
+    - CDP visual check: done (fresh-context sub-agent; deterministic post-move `dropzoneParamCodeObjDefault` graph surface matched read-only `main`; only raw stored viewport `x/y` differed)
+  - Lane status:
+    - close `dropzoneParamCodeObjDefault` as a clean normalized top-level drag lane
+    - do not reopen the old `~105px` CDP read or the raw deterministic-fit viewport `x/y` mismatch on this lane; both are now classified as oracle noise because rendered post-state geometry matched
+  - Next frontier:
+    - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
 
 - Ralph item `160` opened the canonical `dropzoneParamCodeObjDefault` normalized top-level drag lane and left it as the next concrete renderer question.
   - Why this slice was needed:
