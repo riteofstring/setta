@@ -151,6 +151,10 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-codex-frontendbindings-rebuild-loop.sh`
   - Specialized Codex loop for rebuilding `internal/frontendbindings` from scratch to match the main-branch two-converter shape.
   - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
+- `./scripts/run-codex-frontendbindings-openapi-loop.sh`
+  - Specialized Codex loop for replacing the bespoke HTTP half of `internal/frontendbindings` with an OpenAPI-based pipeline.
+  - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
+  - Seeds an HTTP/OpenAPI migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids keeping AST-based HTTP endpoint discovery, handwritten endpoint inventories, compatibility-name shims, or custom per-endpoint wrappers around the generated OpenAPI client.
 
 ## Layer 3: Frontend `pnpm` scripts (from `frontend/`)
 
