@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 17:27 EDT
+Last updated: 2026-04-05 17:32 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,60 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `196` added a renderer-neutral section chrome frame-structure resolver behind the existing DOM class helpers so the first scene-owned static layer can consume shell structure without reverse-engineering Tailwind strings.
+  - Why this slice was needed:
+    - item `195` already centralized chrome appearance values, but the remaining shell/frame structure still only existed implicitly inside Tailwind class concatenation
+    - the first scene-owned static layer would otherwise need to duplicate or parse DOM-only border, outline, joined-corner, and frame-border rules before it could draw the same shell shape
+    - explicit user approval is still required before adding Pixi, so a small dependency-free prep slice needed to deepen the renderer contract instead of stalling or repeating another parity-only pass
+  - Production/test change:
+    - updated `frontend/src/components/Section/Container/sectionChrome.ts`
+      - added `resolveSectionChromeFrameStructure(...)` as a renderer-neutral contract for shell corners, joined-edge state, shell border tone/visibility, outline width, and surface-frame visibility
+      - routed `getSectionContainerShellClassName(...)` and `getSectionSurfaceClassName(...)` through that structure resolver so the DOM path stays behaviorally unchanged while future scene-owned drawing can reuse the same structural decisions
+      - fixed the touched helper's narrowed typecheck path by passing `jsonSourceMissing: false` into `getOutlineColor(...)`
+    - updated `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - added focused coverage for locked joined shells and meta-control transparent/full-bleed structure in addition to the existing DOM class-shape assertions
+  - What this slice established:
+    - section chrome now has two explicit seams:
+      - `sectionChromeAppearance.ts` for colors/CSS vars/meta-control transparency
+      - `resolveSectionChromeFrameStructure(...)` for structural shell/frame rules that a scene-owned renderer can consume directly
+    - the DOM class helpers remain the only Tailwind-specific adapter layer instead of being the only source of truth for shell structure
+    - the broad normalized `rotaryParamCodeObjDefault` regression lane stayed green after the helper refactor on refreshed run-027 tokens:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `17.002ms`; worktree average frame duration was `17.472ms`
+    - the required CDP visual gate is still green on the same lane:
+      - the fresh-context sub-agent compared direct `/settings` on worktree `3076` and read-only `main` `3087`
+      - `rotaryParamCodeObjDefault` and nearby normalized cards matched at a gross graph-surface level with no obvious drift from the refactor
+      - some non-target chat/window chrome remained visible on the worktree side, but it did not materially contaminate the target graph surface
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: passed (`3 files`, `9 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionChrome\\.ts|sectionChrome\\.test\\.ts|SectionWindowSurface\\.tsx"`
+      - result: no matches after the local `jsonSourceMissing` fix
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-027/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-027/main-ai.log`
+      - result: worktree remained healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`; read-only `main` remained healthy on `3087/8087`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-027 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-027 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `36.7s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - note: direct `/settings` compare on `3076` and `3087` showed no gross graph-surface drift around `rotaryParamCodeObjDefault`; non-target chat/window chrome on the worktree remained oracle noise
+  - Lane status:
+    - the pre-Pixi chrome seam is now split into explicit appearance and structure contracts; another DOM-only chrome cleanup would likely be churn
+    - keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage only
+  - Next frontier:
+    - explicit user approval is still required before adding Pixi to the frontend
+    - once approved, use the surface-runtime boundary plus the shared chrome appearance and frame-structure contracts to land the first scene-owned static layer while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
 
 - Ralph item `195` moved section chrome appearance authority behind one shared resolver used by the canary-backed DOM shell path and the standalone section window surface.
   - Why this slice was needed:
