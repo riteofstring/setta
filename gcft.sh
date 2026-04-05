@@ -9,7 +9,7 @@ usage() {
 Usage: ./gcft.sh [--all]
 
 Options:
-  --all            Enable opt-in live-provider integration tests.
+  --all            Enable opt-in external agent integration tests.
   -h, --help       Show this help.
 EOF
 }
