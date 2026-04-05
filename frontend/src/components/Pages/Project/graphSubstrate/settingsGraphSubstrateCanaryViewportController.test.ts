@@ -13,18 +13,16 @@ import {
 function createSceneSection(
   overrides: Partial<SettingsGraphSubstrateCanarySceneSection> = {},
 ): SettingsGraphSubstrateCanarySceneSection {
-  const resolvedSize =
-    "resolvedSize" in overrides
-      ? overrides.resolvedSize ?? null
+  const renderSize =
+    "renderSize" in overrides
+      ? overrides.renderSize ?? null
       : { width: 200, height: 100 };
   const width =
-    "width" in overrides
-      ? overrides.width ?? null
-      : resolvedSize?.width ?? null;
+    "width" in overrides ? overrides.width ?? null : renderSize?.width ?? null;
   const height =
     "height" in overrides
       ? overrides.height ?? null
-      : resolvedSize?.height ?? null;
+      : renderSize?.height ?? null;
   const sizeAuthority =
     overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
 
@@ -36,12 +34,12 @@ function createSceneSection(
     tempZIndex: 1,
     width,
     height,
-    resolvedSize,
+    renderSize,
     sceneBoundsSize:
       overrides.sceneBoundsSize ??
-      (resolvedSize &&
+      (renderSize &&
       (sizeAuthority === "layout" || sizeAuthority === "sectionModel")
-        ? resolvedSize
+        ? renderSize
         : width && height
           ? { width, height }
           : null),
@@ -142,7 +140,7 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
       renderedPosition: { x: 500, y: 100 },
       width: 400,
       height: 200,
-      resolvedSize: { width: 400, height: 200 },
+      renderSize: { width: 400, height: 200 },
     });
     const state = createState({
       sceneSnapshot: {
@@ -220,7 +218,7 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
     // rest of the canary scene runtime instead of reviving stale bounds.
     const section = createSceneSection({
       height: null,
-      resolvedSize: null,
+      renderSize: null,
       width: null,
     });
     const state = createState({
@@ -252,7 +250,7 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
     // authoritative scene geometry.
     const section = createSceneSection({
       height: null,
-      resolvedSize: { width: 280, height: 190 },
+      renderSize: { width: 280, height: 190 },
       sizeAuthority: "none",
       width: null,
     });

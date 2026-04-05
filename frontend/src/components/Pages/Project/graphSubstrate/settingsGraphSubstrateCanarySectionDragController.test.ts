@@ -86,18 +86,16 @@ function createHarness(
 function createSection(
   overrides: Partial<SettingsGraphSubstrateCanarySceneSection> = {},
 ): SettingsGraphSubstrateCanarySceneSection {
-  const resolvedSize =
-    "resolvedSize" in overrides
-      ? overrides.resolvedSize ?? null
+  const renderSize =
+    "renderSize" in overrides
+      ? overrides.renderSize ?? null
       : { width: 180, height: 90 };
   const width =
-    "width" in overrides
-      ? overrides.width ?? null
-      : resolvedSize?.width ?? null;
+    "width" in overrides ? overrides.width ?? null : renderSize?.width ?? null;
   const height =
     "height" in overrides
       ? overrides.height ?? null
-      : resolvedSize?.height ?? null;
+      : renderSize?.height ?? null;
   const sizeAuthority =
     overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
 
@@ -106,12 +104,12 @@ function createSection(
     position: { x: 100, y: 200 },
     positionAndSizeLocked: false,
     renderedPosition: { x: 100, y: 200 },
-    resolvedSize,
+    renderSize,
     sceneBoundsSize:
       overrides.sceneBoundsSize ??
-      (resolvedSize &&
+      (renderSize &&
       (sizeAuthority === "layout" || sizeAuthority === "sectionModel")
-        ? resolvedSize
+        ? renderSize
         : width && height
           ? { width, height }
           : null),
@@ -257,7 +255,7 @@ describe("settingsGraphSubstrateCanarySectionDragController", () => {
   it("keeps local measured fallback size out of node internals when drag bootstrap creates a canary node", () => {
     const section = createSection({
       height: null,
-      resolvedSize: { width: 280, height: 190 },
+      renderSize: { width: 280, height: 190 },
       sceneBoundsSize: null,
       sizeAuthority: "none",
       width: null,

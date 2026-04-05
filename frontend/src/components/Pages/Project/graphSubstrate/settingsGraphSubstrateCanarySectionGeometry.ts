@@ -13,7 +13,7 @@ export type SettingsGraphSubstrateCanarySectionPositionOverride = {
 
 export type SettingsGraphSubstrateCanaryResolvedSectionGeometry = {
   renderedPosition: Position;
-  resolvedSize: SectionElementSize | null;
+  renderSize: SectionElementSize | null;
   sceneBoundsSize: SectionElementSize | null;
 };
 
@@ -22,15 +22,15 @@ export function resolveSettingsGraphSubstrateCanarySectionGeometry(
   sectionElementSizes: SectionElementSizes,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
 ): SettingsGraphSubstrateCanaryResolvedSectionGeometry {
-  const resolvedSize = getResolvedSectionSize(section, sectionElementSizes);
+  const renderSize = getRenderSectionSize(section, sectionElementSizes);
 
   return {
     renderedPosition: getRenderedSectionPosition(
       section,
       sectionPositionOverride,
     ),
-    resolvedSize,
-    sceneBoundsSize: getSceneBoundsSize(section, resolvedSize),
+    renderSize,
+    sceneBoundsSize: getSceneBoundsSize(section, renderSize),
   };
 }
 
@@ -60,7 +60,7 @@ function getRenderedSectionPosition(
   return section.position;
 }
 
-function getResolvedSectionSize(
+function getRenderSectionSize(
   section: GraphSubstrateCanarySection,
   sectionElementSizes: SectionElementSizes,
 ) {
@@ -90,15 +90,15 @@ function getResolvedSectionSize(
 
 function getSceneBoundsSize(
   section: GraphSubstrateCanarySection,
-  resolvedSize: SectionElementSize | null,
+  renderSize: SectionElementSize | null,
 ) {
   const sizeAuthority =
     getSettingsGraphSubstrateCanarySectionSizeAuthority(section);
   if (
-    hasPositiveSectionSize(resolvedSize) &&
+    hasPositiveSectionSize(renderSize) &&
     (sizeAuthority === "layout" || sizeAuthority === "sectionModel")
   ) {
-    return resolvedSize;
+    return renderSize;
   }
 
   return getStoredSectionSize(section);

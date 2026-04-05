@@ -68,12 +68,12 @@ function getSharedNodeLocalSeed(
     };
   }
 
-  const resolvedWidth = section.resolvedSize?.width ?? null;
-  const resolvedHeight = section.resolvedSize?.height ?? null;
-  if (hasPositiveSeedSize(resolvedWidth, resolvedHeight)) {
+  const renderWidth = section.renderSize?.width ?? null;
+  const renderHeight = section.renderSize?.height ?? null;
+  if (hasPositiveSeedSize(renderWidth, renderHeight)) {
     return {
-      width: resolvedWidth,
-      height: resolvedHeight,
+      width: renderWidth,
+      height: renderHeight,
       sizeAuthority: "sharedNode",
     };
   }

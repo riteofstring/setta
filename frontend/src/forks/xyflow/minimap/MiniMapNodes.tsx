@@ -227,8 +227,8 @@ export function resolveMiniMapRenderableNodes(
 
   for (const canarySection of canarySections) {
     const sourceNode = nodesById.get(canarySection.sectionId);
-    const width = canarySection.resolvedSize?.width;
-    const height = canarySection.resolvedSize?.height;
+    const width = canarySection.renderSize?.width;
+    const height = canarySection.renderSize?.height;
     if (!width || !height) {
       continue;
     }

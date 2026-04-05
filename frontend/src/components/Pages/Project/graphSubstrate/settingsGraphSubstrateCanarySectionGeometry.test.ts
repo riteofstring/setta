@@ -27,7 +27,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
       ),
     ).toEqual({
       renderedPosition: { x: 420, y: 260 },
-      resolvedSize: { width: 240, height: 160 },
+      renderSize: { width: 240, height: 160 },
       sceneBoundsSize: { width: 240, height: 160 },
     });
   });
@@ -71,7 +71,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      resolvedSize: { width: 550, height: 78 },
+      renderSize: { width: 550, height: 78 },
       sceneBoundsSize: { width: 550, height: 78 },
     });
   });
@@ -103,7 +103,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      resolvedSize: { width: 240, height: 160 },
+      renderSize: { width: 240, height: 160 },
       sceneBoundsSize: { width: 240, height: 160 },
     });
   });
@@ -127,7 +127,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      resolvedSize: { width: 240, height: 160 },
+      renderSize: { width: 240, height: 160 },
       sceneBoundsSize: { width: 240, height: 160 },
     });
   });
@@ -159,7 +159,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      resolvedSize: { width: 360, height: 210 },
+      renderSize: { width: 360, height: 210 },
       sceneBoundsSize: null,
     });
   });
@@ -181,7 +181,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      resolvedSize: { width: 240, height: 160 },
+      renderSize: { width: 240, height: 160 },
       sceneBoundsSize: { width: 240, height: 160 },
     });
   });

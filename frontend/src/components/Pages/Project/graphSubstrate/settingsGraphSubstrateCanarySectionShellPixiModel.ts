@@ -475,11 +475,11 @@ function isVisibleActiveOutlineTone(
 function getPositiveSceneSectionSize(
   section: Pick<
     SettingsGraphSubstrateCanarySceneSection,
-    "height" | "resolvedSize" | "width"
+    "height" | "renderSize" | "width"
   >,
 ) {
-  const width = section.resolvedSize?.width ?? section.width ?? 0;
-  const height = section.resolvedSize?.height ?? section.height ?? 0;
+  const width = section.renderSize?.width ?? section.width ?? 0;
+  const height = section.renderSize?.height ?? section.height ?? 0;
 
   if (width <= 0 || height <= 0) {
     return null;

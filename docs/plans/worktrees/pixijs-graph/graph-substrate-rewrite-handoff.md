@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 13:02 EDT
+Last updated: 2026-04-07 13:34 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,49 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `269` renamed the shared scene-snapshot size field from mixed `resolvedSize` semantics to explicit render-only `renderSize`, so local measured fallback is no longer framed as authoritative geometry inside the shared canary scene shape.
+
+  - Why this pass completed:
+    - item `268` explicitly left the remaining scene-layer cleanup as the next frontier, and the smallest real product seam was to stop publishing local measured fallback through an authority-sounding shared field
+    - `settingsGraphSubstrateCanarySceneSnapshot.ts` previously exposed `resolvedSize` even when the section had no authoritative width/height, which kept local render fallback looking like shared scene authority
+    - this pass stayed bounded to the scene geometry/snapshot semantics and the direct consumers that actually need render-only size (`seedNodes`, shell Pixi model, minimap, and the affected canary tests); it did not widen into a new drag/parity lane
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - no new section-specific parity lane opened; the live visual gate stayed on bounded canary health only
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts) so the geometry helper now resolves `renderSize` instead of `resolvedSize`, while keeping `sceneBoundsSize` as the authoritative subset for scene bounds / fit-view math
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts) so shared scene sections expose `renderSize` rather than `resolvedSize`
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts), and [`frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx) so render/bootstrap consumers follow the explicit render-only field name instead of the old mixed authority term
+    - updated the focused graph-substrate and minimap tests to lock the renamed render-only scene field across scene snapshot, runtime, viewport, shell, drag, sections-layer, and minimap coverage
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-003/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `757054`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 25138`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx src/forks/xyflow/minimap/MiniMapNodes.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed (`12 files`, `87 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"`
+      - result: failed in the disposable E2E session, but the timeout happened in the test's `finally` cleanup (`applyProjectStateUpdate(...)` while restoring initial state at line `146`) rather than on the graph/minimap assertions, so it is not trustworthy evidence against this renamed scene-field slice
+    - CDP visual gate:
+      - the live worktree DevTools sidecar was healthy and reachable, but the fresh-context CDP sub-agent could not call DevTools from its sandbox, so the main session attempted the gate directly
+      - direct CDP evidence:
+        - `mcp__chrome_devtools__new_page` on `http://127.0.0.1:3075/settings` showed the loading shell
+        - navigating through the fresh bootstrap URL restored an authenticated live session and reached `Home`, proving the sidecar/session path was healthy
+        - clicking the in-app `Settings` link returned to `http://127.0.0.1:3075/settings`, but subsequent `take_snapshot`, `take_screenshot`, and `evaluate_script` calls on that mounted route timed out instead of yielding trustworthy visual evidence
+        - console output only showed existing React 19 `element.ref` warnings; network traffic showed the project/config/settings APIs and graph-substrate modules loading
+      - final classification: `deferred_visual_gate`
+  - Lane status:
+    - the shared scene shape now distinguishes render-only size from authoritative scene-bounds geometry, which closes the `resolvedSize` naming/ownership leak left by item `268`
+    - the live worktree/runtime is healthy enough to serve API/module traffic, but the current CDP path still does not yield a trustworthy post-mount visual capture on the `Settings` route for this slice
+  - Next frontier:
+    - continue the measured-geometry authority cleanup under the runtime/store layer now that the shared scene shape no longer labels local fallback as resolved authority
+    - when the live `Settings` route becomes CDP-capturable again, rerun a bounded canary-health visual gate before treating this lane as visually closed
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `268` removed the remaining drag-bootstrap path that could copy local measured fallback size into shared node internals before the canary scene sync corrected it.
 

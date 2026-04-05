@@ -10340,3 +10340,47 @@ LOOP_TERMINAL_MARKER: none
     - continue the geometry-authority cleanup at the shared scene layer, starting with the remaining measured fallback paths in `settingsGraphSubstrateCanarySceneRuntime.ts` and `settingsGraphSubstrateCanarySceneSnapshot.ts`
     - if a drag lane needs to become gating again, tighten the disposable Playwright drag start assumptions or replace them with a deterministic named-section lane before using them as the primary oracle
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 13:34 EDT, Ralph item `269`
+  - Summary: renamed the shared scene-snapshot size field from mixed `resolvedSize` semantics to explicit render-only `renderSize`, so local measured fallback no longer looks like authoritative geometry inside the shared canary scene shape.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    - `frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+    - `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane opened; the live visual gate stayed on bounded canary health only
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-003/worktree-ai.log` -> frontend `3075`, backend `8075`, session `757054`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 25138`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx src/forks/xyflow/minimap/MiniMapNodes.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx` -> passed (`12 files`, `87 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"` -> failed in the disposable E2E session, but the timeout occurred in the test's `finally` cleanup while restoring initial state through `applyProjectStateUpdate(...)` at line `146`, not on the graph/minimap assertions themselves
+    - CDP visual gate:
+      - the live DevTools sidecar was healthy, but the fresh-context CDP sub-agent could not call DevTools from its sandbox, so the main session attempted the gate directly
+      - direct `/settings` opened only the loading shell, while the bootstrap URL restored an authenticated `Home` session and the in-app `Settings` link returned to `http://127.0.0.1:3075/settings`
+      - after that route mount, `take_snapshot`, `take_screenshot`, and `evaluate_script` all timed out instead of yielding trustworthy visual evidence, even though console output only showed existing React 19 `element.ref` warnings and network traffic showed project/config/settings APIs plus graph-substrate modules loading
+      - final classification: `deferred_visual_gate`
+  - Result:
+    - the shared scene shape now distinguishes render-only size from authoritative scene-bounds geometry, which closes the `resolvedSize` naming/ownership leak left by item `268`
+    - the live worktree/runtime is healthy enough to serve API/module traffic, but the current CDP path still does not produce a trustworthy post-mount visual capture on the `Settings` route for this slice
+    - the code slice is complete and safe to commit, but the live visual gate remains deferred rather than passed
+  - Next:
+    - continue the measured-geometry authority cleanup under the runtime/store layer now that the shared scene shape no longer labels local fallback as resolved authority
+    - when the live `Settings` route becomes CDP-capturable again, rerun a bounded canary-health visual gate before treating this lane as visually closed
+  - LOOP_TERMINAL_MARKER: none

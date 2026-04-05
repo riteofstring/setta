@@ -365,18 +365,16 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
 function createSceneSection(
   overrides: Partial<SettingsGraphSubstrateCanarySceneSection> = {},
 ): SettingsGraphSubstrateCanarySceneSection {
-  const resolvedSize =
-    "resolvedSize" in overrides
-      ? overrides.resolvedSize ?? null
+  const renderSize =
+    "renderSize" in overrides
+      ? overrides.renderSize ?? null
       : { width: 240, height: 160 };
   const width =
-    "width" in overrides
-      ? overrides.width ?? null
-      : resolvedSize?.width ?? null;
+    "width" in overrides ? overrides.width ?? null : renderSize?.width ?? null;
   const height =
     "height" in overrides
       ? overrides.height ?? null
-      : resolvedSize?.height ?? null;
+      : renderSize?.height ?? null;
   const sizeAuthority =
     overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
 
@@ -387,12 +385,12 @@ function createSceneSection(
     position: { x: 120, y: 80 },
     positionAndSizeLocked: false,
     renderedPosition: { x: 120, y: 80 },
-    resolvedSize,
+    renderSize,
     sceneBoundsSize:
       overrides.sceneBoundsSize ??
-      (resolvedSize &&
+      (renderSize &&
       (sizeAuthority === "layout" || sizeAuthority === "sectionModel")
-        ? resolvedSize
+        ? renderSize
         : width && height
           ? { width, height }
           : null),
