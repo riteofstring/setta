@@ -49,7 +49,5 @@ func discoveredValueDeclaration(
 
 func renderTSLiteralExprFromGoValue(context string, value any) string {
 	normalized := mustTSLiteralValueFromGoValue(context, value)
-	var builder strings.Builder
-	writeTSLiteralValue(&builder, "", normalized)
-	return builder.String()
+	return renderTSLiteralValue(normalized, "")
 }

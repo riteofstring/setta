@@ -437,12 +437,10 @@ func buildGoBackedCreateBodyTS(
 		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
 	}
 	var builder strings.Builder
-	var defaultsBuilder strings.Builder
-	writeTSLiteralValue(&defaultsBuilder, "  ", defaultsObject)
 	builder.WriteString("  const defaults: ")
 	builder.WriteString(declarationName)
 	builder.WriteString(" = ")
-	builder.WriteString(defaultsBuilder.String())
+	builder.WriteString(renderTSLiteralValue(defaultsObject, "  "))
 	builder.WriteString(";\n")
 	builder.WriteString("  return {\n")
 	builder.WriteString("    ...mergeGeneratedOptions<")

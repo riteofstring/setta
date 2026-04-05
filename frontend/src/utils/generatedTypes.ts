@@ -6442,27 +6442,19 @@ export const RequiredUIEditorTabs = {
 
 export const ServerModeBoundaryPolicyByMode = {
   app: {
-    capabilities: {
-      canManageDesktopLauncher: false,
-    },
+    capabilities: { canManageDesktopLauncher: false },
     workspaceLaunchRouteKind: "blocked",
   },
   ide: {
-    capabilities: {
-      canManageDesktopLauncher: true,
-    },
+    capabilities: { canManageDesktopLauncher: true },
     workspaceLaunchRouteKind: "ide",
   },
   launcher: {
-    capabilities: {
-      canManageDesktopLauncher: false,
-    },
+    capabilities: { canManageDesktopLauncher: false },
     workspaceLaunchRouteKind: "launcher",
   },
   share: {
-    capabilities: {
-      canManageDesktopLauncher: false,
-    },
+    capabilities: { canManageDesktopLauncher: false },
     workspaceLaunchRouteKind: "blocked",
   },
 } satisfies ServerModeBoundaryPolicy;
@@ -6475,10 +6467,7 @@ export const ToolNameNormalizationConfig = {
 
 export const TransportRouteConstants = {
   apiPrefix: "/api",
-  binary: {
-    download: "/binary/{contentId}",
-    upload: "/binary/upload",
-  },
+  binary: { download: "/binary/{contentId}", upload: "/binary/upload" },
   fileBrowser: {
     getFileBrowserRoot: "/getFileBrowserRoot",
     getFolderContents: "/getFolderContents",

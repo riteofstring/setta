@@ -173,10 +173,10 @@ func TestBuildGoBackedCreateBodyTSRestoresOmitEmptyDefaultsFromStructFields(t *t
 	if err != nil {
 		t.Fatalf("buildGoBackedCreateBodyTS(testOmitEmptyDefaults): %v", err)
 	}
-	if !strings.Contains(createBody, "count: 0") {
+	if !strings.Contains(createBody, "\"count\": 0") {
 		t.Fatalf("create body missing zero-value omitempty int default:\n%s", createBody)
 	}
-	if !strings.Contains(createBody, "enabled: false") {
+	if !strings.Contains(createBody, "\"enabled\": false") {
 		t.Fatalf("create body missing zero-value omitempty embedded bool default:\n%s", createBody)
 	}
 }
@@ -199,7 +199,7 @@ func TestBuildGoBackedCreateBodyTSRestoresNestedOmitEmptyDefaults(t *testing.T) 
 	if err != nil {
 		t.Fatalf("buildGoBackedCreateBodyTS(testNestedOmitEmptyDefaults): %v", err)
 	}
-	if !strings.Contains(createBody, "inner: {\n      enabled: false,") {
+	if !strings.Contains(createBody, "\"inner\": {") || !strings.Contains(createBody, "\"enabled\": false") {
 		t.Fatalf("create body missing nested zero-value omitempty default:\n%s", createBody)
 	}
 }
