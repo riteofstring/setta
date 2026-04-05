@@ -4,7 +4,7 @@ import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateC
 import { resolveSettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanaryNodeSync", () => {
-  it("syncs layout size authority when current layout geometry exists and measured fallback only when layout is missing", () => {
+  it("syncs explicit size authority while keeping measured fallback only when layout is missing", () => {
     const nodeInternals = new Map<string, Node>([
       [
         "section-a",
@@ -13,6 +13,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           position: { x: 12, y: 18 },
           width: null,
           height: null,
+          sizeAuthority: "none",
           zIndex: 1,
           tempZIndex: 7,
           type: "Code",
@@ -31,6 +32,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           position: { x: 500, y: 300 },
           width: 240,
           height: 160,
+          sizeAuthority: "layout",
           zIndex: 4,
           tempZIndex: 4,
           positionAndSizeLocked: false,
@@ -40,6 +42,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           position: { x: 120, y: 80 },
           width: null,
           height: null,
+          sizeAuthority: "sectionModel",
           zIndex: 2,
           tempZIndex: 2,
           positionAndSizeLocked: false,
@@ -63,6 +66,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       position: { x: 500, y: 300 },
       width: 240,
       height: 160,
+      sizeAuthority: "layout",
       zIndex: 4,
       tempZIndex: 1004,
       type: "Code",
@@ -73,6 +77,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       position: { x: 120, y: 80 },
       width: 280,
       height: 190,
+      sizeAuthority: "sectionModel",
       zIndex: 2,
       tempZIndex: 2,
       type: undefined,
@@ -89,6 +94,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           position: { x: 500, y: 300 },
           width: 240,
           height: 160,
+          sizeAuthority: "layout",
           zIndex: 4,
           tempZIndex: 1004,
         },
@@ -104,6 +110,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           position: { x: 500, y: 300 },
           width: 240,
           height: 160,
+          sizeAuthority: "layout",
           zIndex: 4,
           tempZIndex: 4,
           positionAndSizeLocked: false,
@@ -132,6 +139,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           position: { x: 12, y: 18 },
           width: 360,
           height: 210,
+          sizeAuthority: "sectionModel",
           zIndex: 1,
           tempZIndex: 7,
           type: "Code",
@@ -149,6 +157,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           position: { x: 500, y: 300 },
           width: null,
           height: null,
+          sizeAuthority: "none",
           zIndex: 4,
           tempZIndex: 4,
           positionAndSizeLocked: false,
@@ -169,6 +178,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       position: { x: 500, y: 300 },
       width: null,
       height: null,
+      sizeAuthority: "none",
       zIndex: 4,
       tempZIndex: 4,
       type: "Code",

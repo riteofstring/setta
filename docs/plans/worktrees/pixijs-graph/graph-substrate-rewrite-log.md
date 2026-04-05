@@ -8838,6 +8838,68 @@ LOOP_TERMINAL_MARKER: none
     - do not spend the next iteration on another standalone `ensureAppReady(...)` recovery loop unless the next product slice truly needs live Playwright again
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-06 225
+
+- Item: share the top-level size-authority helper between shared node hydration and the canary resolver, and carry explicit `sizeAuthority` through node internals so section-model fallback does not get re-persisted as layout.
+- Status: `done`
+- Details:
+  - Why:
+    - item `224` added the backend-mirrored `layout -> impl.size -> sectionSizingPolicy min` fallback inside the canary, but `createNodesMapFromProjectConfigChildren(...)` still hydrated node internals from the older pair-only `layout/currentNode` path
+    - once shared hydration starts carrying section-model fallback sizes, the writer seam from item `222` would reopen unless the runtime can distinguish section-model seed size from real measured/shared-node size
+    - this is a bounded product fix on the geometry-authority lane, not another forwarding hop or another harness-only retry
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Production:
+    - added `frontend/src/state/actions/topLevelSectionSizeAuthority.ts`
+      - introduced one shared resolver that returns `layout` / `sharedNode` / `sectionModel` / `none` using the backend-mirrored per-axis fallback chain
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - `createNodesMapFromProjectConfigChildren(...)` now uses that shared resolver and stores explicit `sizeAuthority` on shared node internals
+      - `getPersistedTopLevelSectionLayoutSize(...)` now clears `sectionModel` seed size instead of persisting it as authoritative `w/h`
+    - updated `frontend/src/forks/xyflow/core/types/nodes.ts`
+      - added optional `sizeAuthority` metadata on shared node internals
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - switched the canary section resolver to the same shared helper so shared hydration and canary resolution stop diverging
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
+      - preserved `sizeAuthority` when syncing scene snapshot state back into shared node internals
+  - Tests:
+    - updated `frontend/src/state/actions/sectionInfos.test.ts`
+      - added coverage proving mixed partial layout/current-node input now falls back to `sectionModel` size during shared hydration
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - added coverage proving prehydrated `sectionModel` node internals stay `sectionModel` inside the canary instead of being reclassified as `sharedNode`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - added coverage proving explicit `sizeAuthority` survives node-sync updates
+    - updated `frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+      - added coverage proving section-model fallback size does not re-persist through top-level layout snapshots
+    - updated `frontend/src/state/actions/sections/moveSections.test.ts`
+      - added coverage proving pane moves also clear section-model fallback size instead of persisting it as live layout
+  - Verification:
+    - `pnpm -C frontend exec prettier --write src/state/actions/topLevelSectionSizeAuthority.ts src/forks/xyflow/core/types/nodes.ts src/state/actions/sectionInfos.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts src/state/actions/sectionInfos.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/actions/sections/moveSections.test.ts`
+      - result: passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/actions/sections/moveSections.test.ts`
+      - result: passed (`5 files`, `52 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'settingsGraphSubstrateCanaryModel\\.ts\\((29|30|205|206|207|208|209|210|211|212|213|214)|sectionInfos\\.ts\\((1322|1323|1324|1325|1326|1327|1328|1329|1330|1331|1332|1333|1334|1335|1336|1337|1338|1339|1368|1369|1370|1371|1372|1373|1374|1375|1376|1377|1378)|topLevelSectionSizeAuthority\\.ts\\((24|25|26|27|28|29|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80)' || true`
+      - result: no matches
+      - note: full `tsc --noEmit` still reports broad pre-existing strict-type noise in `sectionInfos.ts` / `moveSections.test.ts`, so the exact-line sanity grep stayed the useful type gate here
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary top-level layout persistence clears mixed partial node size instead of storing a split pair' --reporter=line --timeout=30000`
+      - result: not a trustworthy gate; the runner produced no useful body output and `frontend/test-results/.last-run.json` ended at `{\"status\":\"failed\",\"failedTests\":[]}`
+    - CDP visual check:
+      - result: done
+      - note:
+        - the fresh-context sub-agent could not complete the DevTools tool flow in its own session, so the historical main-thread fallback was used after reading `docs/guides/browser-mcp-quickstart.md`
+        - runtime info was refreshed with `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.vRDaiK/loop-001/run-001/worktree-ai.log`
+        - direct Chrome DevTools MCP verification on `http://127.0.0.1:3076/settings` confirmed `data-testid=\"graph-substrate-canary\"` with non-zero rect `x=0`, `y=36`, `w=1440`, `h=441`
+        - direct Chrome DevTools MCP verification also found visible `rotaryParamCodeObjDefault` text with non-zero rect `x≈775.3`, `y≈571.3`, `w≈43.4`, `h≈2.2`
+        - the `All Settings` tab was visibly styled as active during this check
+- Result:
+  - shared hydration and canary section resolution now use one deterministic size-authority path
+  - section-model fallback can survive through shared node internals without being re-persisted as authoritative layout
+  - this closes the divergence item `224` left open without reopening the writer seam or spending another iteration on harness-only work
+- Next action:
+  - use the unified `sizeAuthority` path to land the first bounded Pixi-owned static shell/chrome layer on the `rotaryParamCodeObjDefault` canary while keeping the DOM body/editor path intact
+
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `222` | 2026-04-06 15:53 EDT
   - Subtask: enforce pair-only top-level layout persistence so writer paths cannot re-store split `w/h` geometry after the reader/model started rejecting it.
   - Why:

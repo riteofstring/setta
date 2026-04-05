@@ -342,6 +342,53 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     ]);
   });
 
+  it("keeps section-model authority when shared node internals were prehydrated from the same fallback chain", () => {
+    const sections = resolveSettingsGraphSubstrateCanarySections(
+      [
+        {
+          configuredHeight: "auto",
+          configuredWidth: 500,
+          height: null,
+          position: { x: 120, y: 100 },
+          positionAndSizeLocked: false,
+          sectionId: "section-a",
+          sectionTypeName: SectionTypeEnum.Code,
+          styleColor: null,
+          tempZIndex: 1,
+          textBlockMetaControlStyle: false,
+          width: 280,
+          zIndex: 1,
+        },
+      ],
+      new Map([
+        [
+          "section-a",
+          {
+            width: 280,
+            height: 58.2,
+            sizeAuthority: "sectionModel",
+          },
+        ],
+      ]),
+    );
+
+    expect(sections).toEqual([
+      {
+        height: 58.2,
+        position: { x: 120, y: 100 },
+        positionAndSizeLocked: false,
+        sectionId: "section-a",
+        sectionTypeName: SectionTypeEnum.Code,
+        sizeAuthority: "sectionModel",
+        styleColor: null,
+        tempZIndex: 1,
+        textBlockMetaControlStyle: false,
+        width: 280,
+        zIndex: 1,
+      },
+    ]);
+  });
+
   it("resolves a section-model size from section settings when layout and shared node sizes are missing", () => {
     const state = createProjectState();
     state.projectConfig.viewModes["all-settings"]!.topLevelSections[

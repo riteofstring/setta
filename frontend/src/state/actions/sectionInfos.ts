@@ -29,6 +29,7 @@ import {
   useNodeInternals,
   usePendingOperations,
   useProjectState,
+  useSettings,
   useShareSession,
   useToolArgumentPreview,
   ZustandNodeInternalsState,
@@ -52,6 +53,7 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
+  createSettingsState,
   ImplArgsBundleMap,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
@@ -70,6 +72,7 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
 import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
 import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
+import { resolveTopLevelSectionNodeSize } from "./topLevelSectionSizeAuthority";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -1274,6 +1277,8 @@ function updateProjectState({
 export function createNodesMapFromProjectConfigChildren(
   p: ZustandProjectState,
   nodes: ZustandNodeInternalsState["x"],
+  sectionSizingPolicy = useSettings.getState().sectionSizingPolicy ??
+    createSettingsState().sectionSizingPolicy,
 ) {
   const nodesMap: Map<string, Node> = new Map();
   const darkMode = useLocalStorage.getState().darkMode;
@@ -1314,19 +1319,23 @@ export function createNodesMapFromProjectConfigChildren(
       sectionImpl.styleColor.trim() !== ""
         ? deriveSectionStyleTheme(sectionImpl.styleColor, darkMode)
         : null;
-    const authoritativeSize = getAuthoritativeTopLevelSectionNodeSize(
-      layout,
+    const authoritativeSize = resolveTopLevelSectionNodeSize({
+      configuredSize: sectionImpl?.size ?? null,
       currentNode,
-    );
+      layout,
+      sectionSizingPolicy,
+      sectionTypeName: sectionImpl?.type,
+    });
     nodesMap.set(sectionId, {
       id: sectionId,
       position: { x: layout.x, y: layout.y },
       width: authoritativeSize.width,
       height: authoritativeSize.height,
+      sizeAuthority: authoritativeSize.sizeAuthority,
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
-      type: sectionImpl?.type,
-      style: sectionTheme ? { background: sectionTheme.bg } : undefined,
+      ...(sectionImpl?.type ? { type: sectionImpl.type } : {}),
+      ...(sectionTheme ? { style: { background: sectionTheme.bg } } : {}),
     });
   }
 
@@ -1357,8 +1366,15 @@ export function getAuthoritativeTopLevelSectionNodeSize(
 }
 
 export function getPersistedTopLevelSectionLayoutSize(
-  currentNode: Pick<Node, "height" | "width"> | undefined,
+  currentNode: Pick<Node, "height" | "sizeAuthority" | "width"> | undefined,
 ) {
+  if (currentNode?.sizeAuthority === "sectionModel") {
+    return {
+      w: null,
+      h: null,
+    };
+  }
+
   const width = currentNode?.width ?? null;
   const height = currentNode?.height ?? null;
   if (hasPositiveTopLevelSectionNodeSize(width, height)) {

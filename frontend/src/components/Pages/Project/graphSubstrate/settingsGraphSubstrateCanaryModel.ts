@@ -1,17 +1,16 @@
 import type { Node } from "forks/xyflow/core/types";
 import {
   getActiveViewModeTopLevelSections,
-  getAuthoritativeTopLevelSectionNodeSize,
   getCurrEffectiveSectionImpl,
   getSectionShouldRender,
   getSectionViewModeVisibility,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
-import type { ZustandProjectState } from "state/definitions";
 import {
-  getMinSectionHeight,
-  getMinSectionWidth,
-} from "state/hooks/sectionSizes";
+  resolveTopLevelSectionNodeSize,
+  type TopLevelSectionNodeSizeAuthority,
+} from "state/actions/topLevelSectionSizeAuthority";
+import type { ZustandProjectState } from "state/definitions";
 import {
   createSettingsState,
   SectionTypeEnum,
@@ -39,10 +38,7 @@ export type GraphSubstrateCanaryLayoutSection = {
 };
 
 export type SettingsGraphSubstrateCanarySectionSizeAuthority =
-  | "layout"
-  | "sharedNode"
-  | "sectionModel"
-  | "none";
+  TopLevelSectionNodeSizeAuthority;
 
 const DEFAULT_SECTION_SIZING_POLICY = createSettingsState().sectionSizingPolicy;
 
@@ -147,7 +143,7 @@ export function resolveSettingsGraphSubstrateCanarySections(
   layoutSections: Array<GraphSubstrateCanaryLayoutSection>,
   nodeInternals: ReadonlyMap<
     string,
-    Pick<Node, "height" | "width"> | undefined
+    Pick<Node, "height" | "sizeAuthority" | "width"> | undefined
   > = new Map(),
   sectionSizingPolicy: SectionSizingPolicy = DEFAULT_SECTION_SIZING_POLICY,
 ): Array<GraphSubstrateCanarySection> {
@@ -199,119 +195,26 @@ function resolveSettingsGraphSubstrateCanarySectionSize(
     | "sectionTypeName"
     | "width"
   >,
-  currentNode: Pick<Node, "height" | "width"> | undefined,
+  currentNode: Pick<Node, "height" | "sizeAuthority" | "width"> | undefined,
   sectionSizingPolicy: SectionSizingPolicy,
 ): {
   height: number | null;
   sizeAuthority: SettingsGraphSubstrateCanarySectionSizeAuthority;
   width: number | null;
 } {
-  if (hasPositiveSectionSize(layoutSection.width, layoutSection.height)) {
-    return {
-      height: layoutSection.height,
-      sizeAuthority: "layout",
-      width: layoutSection.width,
-    };
-  }
-
-  const authoritativeSize = getAuthoritativeTopLevelSectionNodeSize(
-    {
-      w: layoutSection.width,
-      h: layoutSection.height,
+  return resolveTopLevelSectionNodeSize({
+    configuredSize: {
+      height: layoutSection.configuredHeight,
+      width: layoutSection.configuredWidth,
     },
     currentNode,
-  );
-  if (
-    hasPositiveSectionSize(authoritativeSize.width, authoritativeSize.height)
-  ) {
-    return {
-      height: authoritativeSize.height,
-      sizeAuthority: "sharedNode",
-      width: authoritativeSize.width,
-    };
-  }
-
-  const sectionModelWidth =
-    resolveSettingsGraphSubstrateCanarySectionDimensionWithFallback({
-      axis: "width",
-      configuredValue: layoutSection.configuredWidth,
-      layoutValue: layoutSection.width,
-      sectionSizingPolicy,
-      sectionTypeName: layoutSection.sectionTypeName,
-    });
-  const sectionModelHeight =
-    resolveSettingsGraphSubstrateCanarySectionDimensionWithFallback({
-      axis: "height",
-      configuredValue: layoutSection.configuredHeight,
-      layoutValue: layoutSection.height,
-      sectionSizingPolicy,
-      sectionTypeName: layoutSection.sectionTypeName,
-    });
-  if (hasPositiveSectionSize(sectionModelWidth, sectionModelHeight)) {
-    return {
-      height: sectionModelHeight,
-      sizeAuthority: "sectionModel",
-      width: sectionModelWidth,
-    };
-  }
-
-  return {
-    height: null,
-    sizeAuthority: "none",
-    width: null,
-  };
-}
-
-function resolveSettingsGraphSubstrateCanarySectionDimensionWithFallback({
-  axis,
-  configuredValue,
-  layoutValue,
-  sectionSizingPolicy,
-  sectionTypeName,
-}: {
-  axis: "height" | "width";
-  configuredValue: SectionSize["height"] | SectionSize["width"];
-  layoutValue: number | null;
-  sectionSizingPolicy: SectionSizingPolicy;
-  sectionTypeName: SectionType | undefined;
-}) {
-  const positiveLayoutValue = coercePositiveSectionDimension(layoutValue);
-  if (positiveLayoutValue !== null) {
-    return positiveLayoutValue;
-  }
-
-  const positiveConfiguredValue = coercePositiveSectionDimension(
-    typeof configuredValue === "number" ? configuredValue : null,
-  );
-  if (positiveConfiguredValue !== null) {
-    return positiveConfiguredValue;
-  }
-
-  if (!sectionTypeName) {
-    return null;
-  }
-
-  if (axis === "width") {
-    return getMinSectionWidth({
-      sectionType: sectionTypeName,
-      sizingPolicy: sectionSizingPolicy,
-    });
-  }
-
-  return getMinSectionHeight({
-    sectionType: sectionTypeName,
-    sizingPolicy: sectionSizingPolicy,
+    layout: {
+      h: layoutSection.height,
+      w: layoutSection.width,
+    },
+    sectionSizingPolicy,
+    sectionTypeName: layoutSection.sectionTypeName,
   });
-}
-
-function coercePositiveSectionDimension(
-  value: number | null | undefined,
-): number | null {
-  if (typeof value === "number" && value > 0) {
-    return value;
-  }
-
-  return null;
 }
 
 function hasPositiveSectionSize(

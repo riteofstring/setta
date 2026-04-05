@@ -29,12 +29,16 @@ import {
   createChatSectionImpl,
   createCodeSectionImpl,
   createCore,
+  createDictSectionImpl,
   createListRootSectionImpl,
   createMessageTextContent,
   createProjectConfig,
+  createSectionSize,
+  createSettingsState,
   createSingletonSections,
   createTerminalSectionImpl,
   createUserDefaultChatSectionImpl,
+  createUserDefaultDictSectionImpl,
   createUserDefaultListRootSectionImpl,
   createVariant,
   ListRootViewModeEnum,
@@ -816,11 +820,13 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     });
   });
 
-  it("does not synthesize a mixed authoritative size from partial layout and current-node dimensions", () => {
+  it("falls back to section-model size when shared hydration only has a mixed partial layout/current-node pair", () => {
     const sectionId = "section-visible";
     const variantId = "variant-visible";
     const implId = "impl-visible";
     const layout = { x: 30, y: 40, zIndex: 2, w: 320, h: null };
+    const expectedModelHeight =
+      createSettingsState().sectionSizingPolicy.byType.Dict.minHeight;
     const projectState = {
       projectConfig: createProjectConfig({
         id: "project-1",
@@ -835,9 +841,9 @@ describe("createNodesMapFromProjectConfigChildren", () => {
         [sectionId]: createCore({ id: sectionId }),
       },
       sectionImpls: {
-        [implId]: createTerminalSectionImpl({
+        [implId]: createDictSectionImpl(createUserDefaultDictSectionImpl(), {
           id: implId,
-          type: SectionTypeEnum.Terminal,
+          size: createSectionSize({ width: 550 }),
         }),
       },
       sectionVariants: {
@@ -879,8 +885,9 @@ describe("createNodesMapFromProjectConfigChildren", () => {
 
     expect(nodesMap.get(sectionId)).toMatchObject({
       position: { x: layout.x, y: layout.y },
-      width: null,
-      height: null,
+      width: layout.w,
+      height: expectedModelHeight,
+      sizeAuthority: "sectionModel",
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
     });

@@ -171,6 +171,7 @@ describe("moveSectionsWithBackend", () => {
       position: { x: number; y: number };
       width: number | null;
       height: number | null;
+      sizeAuthority?: "layout" | "none" | "sectionModel" | "sharedNode";
       zIndex: number;
       tempZIndex: number;
     };
@@ -418,6 +419,49 @@ describe("moveSectionsWithBackend", () => {
       zIndex: 7,
       w: 552,
       h: 352,
+    });
+  });
+
+  it("does not persist section-model fallback size when moving an existing top-level node in the pane", () => {
+    seedExistingTopLevelCodeSection({
+      layout: { x: 10, y: 20, zIndex: 1, w: null, h: null },
+      node: {
+        position: { x: 10, y: 20 },
+        width: 552,
+        height: 58.2,
+        sizeAuthority: "sectionModel",
+        zIndex: 7,
+        tempZIndex: 7,
+      },
+    });
+
+    moveSectionsWithBackend({
+      sectionIds: [codeSectionId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [codeSectionId]: { x: 60, y: 80 },
+      },
+    });
+
+    const state = useProjectState.getState();
+    expect(state.projectConfig.topLevelSections[codeSectionId]).toEqual({
+      x: 60,
+      y: 80,
+      zIndex: 7,
+      w: null,
+      h: null,
+    });
+    expect(
+      state.projectConfig.viewModes[viewModeId]?.topLevelSections?.[
+        codeSectionId
+      ],
+    ).toEqual({
+      x: 60,
+      y: 80,
+      zIndex: 7,
+      w: null,
+      h: null,
     });
   });
 

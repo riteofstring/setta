@@ -18,6 +18,7 @@ export function syncSettingsGraphSubstrateCanaryNodes(
       currentNode.position.y === position.y &&
       currentNode.width === width &&
       currentNode.height === height &&
+      currentNode.sizeAuthority === section.sizeAuthority &&
       currentNode.zIndex === section.zIndex &&
       currentNode.tempZIndex === section.tempZIndex
     ) {
@@ -33,6 +34,9 @@ export function syncSettingsGraphSubstrateCanaryNodes(
       position,
       width,
       height,
+      ...(section.sizeAuthority
+        ? { sizeAuthority: section.sizeAuthority }
+        : {}),
       zIndex: section.zIndex,
       tempZIndex: section.tempZIndex,
       ...(currentNode?.type ? { type: currentNode.type } : {}),
