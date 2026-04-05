@@ -11,7 +11,7 @@ import {
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
-  PromptFormatEnum,
+  FormatEnum,
   SectionTypeEnum,
   createCore,
   createProjectConfig,
@@ -136,7 +136,7 @@ function seedPromptSection({
     isPreset: false,
     promptTemplateId,
     template,
-    format: PromptFormatEnum.Jinja,
+    format: FormatEnum.Jinja,
     inputs: { name: "Ada" },
     renderedText,
     missingVariables: promptTemplateId ? ["name"] : [],
@@ -207,7 +207,7 @@ describe("PromptArea", () => {
           name: "Greeting",
           description: "",
           template: "Hello {{ name }}",
-          format: PromptFormatEnum.Jinja,
+          format: FormatEnum.Jinja,
           inputSchema: {},
           metadata: {},
         },
