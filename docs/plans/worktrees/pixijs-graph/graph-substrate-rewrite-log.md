@@ -7437,3 +7437,64 @@ LOOP_TERMINAL_MARKER: none
   - stop spending the default slice on standalone CDP/lifecycle repair now that the required visual gate is green again
   - finish splitting the remaining viewport/runtime controller ownership out of `SettingsGraphSubstrateCanary.tsx`, then take the next geometry-authority product slice from that deeper boundary
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 194
+
+- Item: Extract the remaining canary controller/surface wiring behind `useSettingsGraphSubstrateCanarySurfaceRuntime(...)` and rerun the broad normalized `rotaryParamCodeObjDefault` regression lane.
+- Status: `subtask_done`
+- Details:
+  - Why this slice was necessary:
+    - item `192` explicitly made the remaining controller split the last bounded pre-Pixi prerequisite
+    - item `193` had already restored the required `rotaryParamCodeObjDefault` CDP visual gate, so another lifecycle/parity-only pass would have been churn
+    - `SettingsGraphSubstrateCanary.tsx` still owned scene-state/runtime composition, controller refs, cleanup, drag-cancel validation, and pane event adaptation inline
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.ts`
+      - composes canary scene state/runtime, viewport runtime, pane controller, section-drag controller, cleanup, and authoritative scene-snapshot drag cancellation behind one hook
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx`
+      - covers controller cleanup, scene-snapshot-driven drag cancellation, and pane pointer/wheel delegation at the extracted boundary
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now renders from the extracted surface runtime instead of owning controller/runtime wiring inline
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      - accepts React 19 null-capable refs and drops stale pane-visibility forwarding that the pane-width math no longer uses
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - aligns with the narrowed viewport-runtime contract
+    - updated `frontend/src/utils/focusManager.ts`
+      - widens `useTabScope(...)`'s `rootRef` contract to match the null-capable refs returned by React 19
+  - What this slice established:
+    - the canary root is now render-focused; scene-state/runtime composition, controller lifecycle, drag-cancel validation, and pane gesture adaptation live behind one deeper surface hook
+    - another controller-only extraction would now be churn rather than progress
+    - the broad normalized `rotaryParamCodeObjDefault` lane stayed green on refreshed run-025 sessions:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - average frame duration stayed essentially identical (`17.049ms` reference, `17.046ms` worktree)
+    - the required fresh-context CDP check is also green on the same lane:
+      - direct `/settings` comparison on worktree `3076` and read-only `main` `3087` showed `rotaryParamCodeObjDefault` visually attached with no gross graph-surface drift
+      - both bootstrap URLs rejected their token during that sub-agent pass, but direct route access still made the compare trustworthy
+      - remaining chat/sidebar chrome and a slight size variance on `main` were treated as oracle noise, not a new blocker
+    - full frontend typecheck still has large unrelated debt, but the narrowed grep over the touched canary files returned no matches after the local ref/viewport cleanup
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/utils/focusManager.ts`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts`
+    - result: passed (`5 files`, `21 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-025/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-025/main-ai.log`
+    - result: worktree healthy on `3076/8076`; read-only `main` healthy on `3087/8087`
+  - narrowed typecheck sanity:
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanarySurfaceRuntime|SettingsGraphSubstrateCanary.tsx|settingsGraphSubstrateCanaryViewportRuntime.ts"`
+    - result: no matches
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-025 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<run-025 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `30.8s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual check:
+    - result: done
+    - note: direct `/settings` compare on `3076` and `3087` showed `rotaryParamCodeObjDefault` visually attached with no gross graph-surface drift
+- Next action:
+  - explicit user approval is still required before adding Pixi to the frontend
+  - once approved, land the first scene-owned static layer behind the new surface-runtime boundary while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
+- LOOP_TERMINAL_MARKER: none

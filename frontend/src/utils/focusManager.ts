@@ -14,7 +14,7 @@ type TabScopeBehavior = "default" | "canvas";
 type TabScopeRegistration = {
   scopeId: string;
   order: number;
-  rootRef: RefObject<HTMLElement>;
+  rootRef: RefObject<HTMLElement | null>;
   behavior?: TabScopeBehavior;
 };
 

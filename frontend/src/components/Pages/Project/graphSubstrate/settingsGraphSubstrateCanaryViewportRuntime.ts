@@ -34,12 +34,10 @@ type SettingsGraphSubstrateCanaryViewportRuntimeArgs = {
   maxZoom: number;
   minZoom: number;
   overviewTrueWidth: number;
-  overviewVisible: boolean;
-  rootRef: RefObject<HTMLDivElement>;
+  rootRef: RefObject<HTMLDivElement | null>;
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
   sharedProjectViewport: GraphViewport | null;
   uiEditorTrueWidth: number;
-  uiEditorVisible: boolean;
 };
 
 export type SettingsGraphSubstrateCanaryViewportRuntime = {
@@ -64,12 +62,10 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
   maxZoom,
   minZoom,
   overviewTrueWidth,
-  overviewVisible,
   rootRef,
   sceneSnapshot,
   sharedProjectViewport,
   uiEditorTrueWidth,
-  uiEditorVisible,
 }: SettingsGraphSubstrateCanaryViewportRuntimeArgs): SettingsGraphSubstrateCanaryViewportRuntime {
   const viewportOwnershipRef =
     useRef<SettingsGraphSubstrateCanaryViewportOwnership | null>(null);
@@ -108,12 +104,10 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
 
   const effectivePaneWidths = useMemo(() => {
     return resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
-      overviewVisible,
       overviewTrueWidth,
-      uiEditorVisible,
       uiEditorTrueWidth,
     });
-  }, [overviewTrueWidth, overviewVisible, uiEditorTrueWidth, uiEditorVisible]);
+  }, [overviewTrueWidth, uiEditorTrueWidth]);
 
   const visibleViewportSize = useMemo(() => {
     return resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
@@ -413,9 +407,7 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
 function getCurrentCanaryPaneWidths() {
   const localStorageState = useLocalStorage.getState();
   return resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
-    overviewVisible: localStorageState.overviewVis,
     overviewTrueWidth: localStorageState.overviewTrueWidth,
-    uiEditorVisible: localStorageState.uiEditorVis,
     uiEditorTrueWidth: localStorageState.uiEditorTrueWidth,
   });
 }
@@ -442,7 +434,7 @@ function areGraphViewportsEqual(
   return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
 }
 
-function useElementDimensions(ref: RefObject<HTMLDivElement>) {
+function useElementDimensions(ref: RefObject<HTMLDivElement | null>) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {

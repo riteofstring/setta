@@ -45,12 +45,10 @@ function ViewportRuntimeProbe({
     maxZoom: 4,
     minZoom: 0.1,
     overviewTrueWidth: 420,
-    overviewVisible: false,
     rootRef,
     sceneSnapshot,
     sharedProjectViewport,
     uiEditorTrueWidth: 260,
-    uiEditorVisible: false,
   });
 
   useEffect(() => {

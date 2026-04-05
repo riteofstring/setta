@@ -3,12 +3,9 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
-  useEffect,
   useRef,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
@@ -18,20 +15,9 @@ import {
   useSettings,
 } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
-import { isMacOs } from "utils/utils";
 import { selectSettingsGraphSubstrateCanarySections } from "./settingsGraphSubstrateCanaryModel";
-import {
-  createSettingsGraphSubstrateCanaryPaneInteractionController,
-  type SettingsGraphSubstrateCanaryPaneInteractionController,
-} from "./settingsGraphSubstrateCanaryPaneInteractionController";
-import { useSettingsGraphSubstrateCanarySceneRuntime } from "./settingsGraphSubstrateCanarySceneRuntime";
-import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
-import {
-  createSettingsGraphSubstrateCanarySectionDragController,
-  type SettingsGraphSubstrateCanarySectionDragController,
-} from "./settingsGraphSubstrateCanarySectionDragController";
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
-import { useSettingsGraphSubstrateCanaryViewportRuntime } from "./settingsGraphSubstrateCanaryViewportRuntime";
+import { useSettingsGraphSubstrateCanarySurfaceRuntime } from "./settingsGraphSubstrateCanarySurfaceRuntime";
 
 const ROOT_STYLE: CSSProperties = {
   inset: 0,
@@ -53,17 +39,6 @@ export function SettingsGraphSubstrateCanary() {
     selectSettingsGraphSubstrateCanarySections,
     _.isEqual,
   );
-  const {
-    draggingSectionId,
-    sectionPositionOverride,
-    setDraggingSectionId,
-    setSectionPositionOverride,
-  } = useSettingsGraphSubstrateCanarySceneState();
-  const sceneSnapshot = useSettingsGraphSubstrateCanarySceneRuntime({
-    draggingSectionId,
-    sectionPositionOverride,
-    sections,
-  });
   const sharedProjectViewport = useProjectState((state) => {
     const { viewport, viewportInitialized } = state.projectConfig;
     if (!viewportInitialized || !viewport) {
@@ -105,189 +80,33 @@ export function SettingsGraphSubstrateCanary() {
     }),
     _.isEqual,
   );
-  const { overviewVis, overviewTrueWidth, uiEditorVis, uiEditorTrueWidth } =
-    useLocalStorage(
-      (state) => ({
-        overviewVis: state.overviewVis,
-        overviewTrueWidth: state.overviewTrueWidth,
-        uiEditorVis: state.uiEditorVis,
-        uiEditorTrueWidth: state.uiEditorTrueWidth,
-      }),
-      _.isEqual,
-    );
+  const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
+    (state) => ({
+      overviewTrueWidth: state.overviewTrueWidth,
+      uiEditorTrueWidth: state.uiEditorTrueWidth,
+    }),
+    _.isEqual,
+  );
   const snapToGrid = useLocalStorage((state) => state.snapToGrid);
-  const viewportRuntime = useSettingsGraphSubstrateCanaryViewportRuntime({
+  const surfaceRuntime = useSettingsGraphSubstrateCanarySurfaceRuntime({
     defaultZoomLevel,
     maxZoom,
     minZoom,
+    nodeDragThreshold,
     overviewTrueWidth,
-    overviewVisible: overviewVis,
-    rootRef,
-    sceneSnapshot,
-    sharedProjectViewport,
-    uiEditorTrueWidth,
-    uiEditorVisible: uiEditorVis,
-  });
-  const paneInteractionBehaviorRef = useRef({
-    isMacOs: isMacOs(),
-    maxZoom: 4,
-    minZoom: 0.1,
-    panOnScroll: false,
-    panOnScrollMode,
-    panOnScrollSpeed: 0,
-    zoomActivationKeyPressed: false,
-    zoomOnPinch: false,
-    zoomOnScroll: false,
-  });
-  const paneInteractionControllerRef =
-    useRef<SettingsGraphSubstrateCanaryPaneInteractionController | null>(null);
-  const sectionDragControllerRef =
-    useRef<SettingsGraphSubstrateCanarySectionDragController | null>(null);
-
-  useEffect(() => {
-    return () => {
-      sectionDragControllerRef.current?.cleanup();
-      paneInteractionControllerRef.current?.cleanup();
-    };
-  }, []);
-
-  const sceneSectionsByIdRef = useRef(sceneSnapshot.sectionsById);
-  sceneSectionsByIdRef.current = sceneSnapshot.sectionsById;
-
-  paneInteractionBehaviorRef.current = {
-    isMacOs: isMacOs(),
-    maxZoom,
-    minZoom,
     panOnScroll,
     panOnScrollMode,
     panOnScrollSpeed,
+    rootRef,
+    sections,
+    sharedProjectViewport,
+    snapGrid,
+    snapToGrid,
+    uiEditorTrueWidth,
     zoomActivationKeyPressed,
     zoomOnPinch,
     zoomOnScroll,
-  };
-  const sectionDragBehaviorRef = useRef({
-    nodeDragThreshold: 0,
-    snapGrid,
-    snapToGrid,
   });
-  sectionDragBehaviorRef.current = {
-    nodeDragThreshold,
-    snapGrid,
-    snapToGrid,
-  };
-
-  if (paneInteractionControllerRef.current === null) {
-    paneInteractionControllerRef.current =
-      createSettingsGraphSubstrateCanaryPaneInteractionController({
-        applyControlledViewportChange:
-          viewportRuntime.applyControlledViewportChange,
-        commitLocalViewport: viewportRuntime.commitLocalViewport,
-        getResolvedViewport: viewportRuntime.getResolvedViewport,
-        getRootBounds: viewportRuntime.getRootBounds,
-        getWheelBehavior: () => paneInteractionBehaviorRef.current,
-        onViewportPanningChange: viewportRuntime.onViewportPanningChange,
-        syncViewportInteractionState:
-          viewportRuntime.syncViewportInteractionState,
-      });
-  }
-  const paneInteractionController = paneInteractionControllerRef.current;
-
-  if (sectionDragControllerRef.current === null) {
-    sectionDragControllerRef.current =
-      createSettingsGraphSubstrateCanarySectionDragController({
-        getNodeDragThreshold: () =>
-          sectionDragBehaviorRef.current.nodeDragThreshold,
-        getResolvedViewport: viewportRuntime.getResolvedViewport,
-        getSectionById: (sectionId) =>
-          sceneSectionsByIdRef.current.get(sectionId),
-        getSnapSettings: () => ({
-          snapGrid: sectionDragBehaviorRef.current.snapGrid,
-          snapToGrid: sectionDragBehaviorRef.current.snapToGrid,
-        }),
-        onDraggingSectionIdChange: setDraggingSectionId,
-        onSectionPositionOverrideChange: setSectionPositionOverride,
-      });
-  }
-  const sectionDragController = sectionDragControllerRef.current;
-
-  useEffect(() => {
-    if (
-      (draggingSectionId &&
-        !sceneSnapshot.sectionsById.has(draggingSectionId)) ||
-      (sectionPositionOverride &&
-        !sceneSnapshot.sectionsById.has(sectionPositionOverride.sectionId)) ||
-      sceneSnapshot.sections.length === 0
-    ) {
-      sectionDragController.cancelSectionDrag();
-    }
-  }, [
-    draggingSectionId,
-    sectionDragController,
-    sectionPositionOverride,
-    sceneSnapshot.sections.length,
-    sceneSnapshot.sectionsById,
-  ]);
-
-  function handlePanePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (
-      !paneInteractionController.handlePanePointerDown({
-        button: event.button,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        pointerId: event.pointerId,
-        target: event.target,
-      })
-    ) {
-      return;
-    }
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function handlePanePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (
-      !paneInteractionController.handlePanePointerMove({
-        clientX: event.clientX,
-        clientY: event.clientY,
-        pointerId: event.pointerId,
-      })
-    ) {
-      return;
-    }
-    event.preventDefault();
-  }
-
-  function finishPanePan(event: ReactPointerEvent<HTMLDivElement>) {
-    if (
-      !paneInteractionController.finishPanePan({
-        pointerId: event.pointerId,
-      })
-    ) {
-      return;
-    }
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }
-
-  function handlePaneWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    if (
-      !paneInteractionController.handlePaneWheel({
-        clientX: event.clientX,
-        clientY: event.clientY,
-        ctrlKey: event.ctrlKey,
-        deltaMode: event.deltaMode,
-        deltaX: event.deltaX,
-        deltaY: event.deltaY,
-        shiftKey: event.shiftKey,
-        target: event.target,
-      })
-    ) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-  }
 
   function handlePaneClick(event: ReactMouseEvent<HTMLDivElement>) {
     if (!rootRef.current || event.target !== rootRef.current) {
@@ -313,17 +132,17 @@ export function SettingsGraphSubstrateCanary() {
       ref={rootRef}
       style={{
         ...ROOT_STYLE,
-        cursor: viewportRuntime.isViewportPanning ? "grabbing" : "grab",
+        cursor: surfaceRuntime.isViewportPanning ? "grabbing" : "grab",
       }}
       className="react-flow setta-light dark:setta-dark"
       data-tab-scope="canvas"
       data-testid="graph-substrate-canary"
       onClick={handlePaneClick}
-      onPointerDown={handlePanePointerDown}
-      onPointerMove={handlePanePointerMove}
-      onPointerUp={finishPanePan}
-      onPointerCancel={finishPanePan}
-      onWheel={handlePaneWheel}
+      onPointerDown={surfaceRuntime.handlePanePointerDown}
+      onPointerMove={surfaceRuntime.handlePanePointerMove}
+      onPointerUp={surfaceRuntime.finishPanePan}
+      onPointerCancel={surfaceRuntime.finishPanePan}
+      onWheel={surfaceRuntime.handlePaneWheel}
     >
       {snapToGrid && showGridLines && <Background />}
       <div
@@ -333,18 +152,18 @@ export function SettingsGraphSubstrateCanary() {
           inset: 0,
           pointerEvents: "none",
           position: "absolute",
-          transform: viewportRuntime.resolvedViewport
-            ? `translate(${viewportRuntime.resolvedViewport.x}px, ${viewportRuntime.resolvedViewport.y}px) scale(${viewportRuntime.resolvedViewport.zoom})`
+          transform: surfaceRuntime.resolvedViewport
+            ? `translate(${surfaceRuntime.resolvedViewport.x}px, ${surfaceRuntime.resolvedViewport.y}px) scale(${surfaceRuntime.resolvedViewport.zoom})`
             : undefined,
           transformOrigin: "0 0",
           zIndex: 1,
         }}
       >
-        {sceneSnapshot.sections.length > 0 ? (
+        {surfaceRuntime.sceneSnapshot.sections.length > 0 ? (
           <SettingsGraphSubstrateCanarySectionsLayer
-            draggingSectionId={draggingSectionId}
-            sceneSections={sceneSnapshot.sections}
-            sectionDragController={sectionDragController}
+            draggingSectionId={surfaceRuntime.draggingSectionId}
+            sceneSections={surfaceRuntime.sceneSnapshot.sections}
+            sectionDragController={surfaceRuntime.sectionDragController}
           />
         ) : (
           <div
