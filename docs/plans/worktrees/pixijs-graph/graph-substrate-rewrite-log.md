@@ -10827,3 +10827,34 @@ LOOP_TERMINAL_MARKER: none
     - return to the product frontier and land one bounded Pixi shell redraw-invalidations slice on the existing `rotaryParamCodeObjDefault` lane
     - only revisit runtime-info or CDP recovery if a fresh loop lifecycle still reproduces stale runtime metadata or transport timeouts on the same healthy Playwright lane
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 18:26 EDT, Ralph item `284`
+  - Summary: hardened the live canonical `rotaryParamCodeObjDefault` probe so fullscreen-pane startup drift and probe-budget limits no longer masquerade as a canary mount failure, restored the Playwright lane on both the original and restarted worktree sessions, and then hit a dead CDP transport after the one allowed `aireset` recovery.
+  - Files:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass did not open a new section-specific parity lane; it recovered the existing live probe on the same named target
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=60000` -> passed on session `e3df0d` (`1 passed`, `12.8s`)
+    - bounded self-recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> restarted the worktree to session `ff25a0`, frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, debug port `9298`
+    - reran the same canonical probe on restarted session `ff25a0` with the fresh bootstrap token from `setta status` -> passed (`1 passed`, `1.2m`)
+    - Playwright snapshots from the recovered probe stayed clean on both sessions:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1`, viewport zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted section bodies `1`
+      - after one toolbar zoom-in: mounted section bodies `1`, viewport zoom `1.428099173553719`
+    - fresh-context CDP sub-agent 1 -> read `docs/guides/browser-mcp-quickstart.md`, reached `http://127.0.0.1:3076/settings`, but only saw the Setta shell plus a centered loading spinner and did not confirm `graph-substrate-canary` or `rotaryParamCodeObjDefault`
+    - fresh-context CDP sub-agent 2 -> read the same quickstart after the restart, but `127.0.0.1:9298` refused connection and the recorded devtools runtime process from `/tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-runtime.json` was no longer running; a fresh browser context only reached `Connected to server`
+  - Result:
+    - the live missing-canary failure from item `283` is reclassified as startup drift plus insufficient probe budget, not as a new product regression on the canonical lane
+    - the canonical Playwright oracle is healthy again on `rotaryParamCodeObjDefault`
+    - the required CDP visual gate remains blocked after the one allowed recovery attempt because the devtools transport died on the restarted runtime
+  - Next:
+    - start the next iteration from a fresh outer-loop worktree lifecycle and retry only the bounded CDP confirmation on the already-green canonical lane
+    - if devtools transport is still dead after that fresh bootstrap, keep the blocker explicit and do not spend the pass on more renderer or harness work
+  - LOOP_TERMINAL_MARKER: none

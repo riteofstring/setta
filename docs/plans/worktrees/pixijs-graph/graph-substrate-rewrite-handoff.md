@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 17:56 EDT
+Last updated: 2026-04-07 18:26 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,11 +62,12 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
 - Current live verification blocker:
-  - item `283` landed the bounded Pixi shell no-op redraw suppression slice in code, but the required live canonical probe is blocked again on canary health rather than renderer parity
-  - direct live Playwright against the loop-managed `3076/8076` session timed out waiting for `[data-testid="graph-substrate-canary"]` on the normalized `All Settings` lane before the canary mounted
-  - one bounded self-recovery was attempted with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`, which restarted the worktree onto `http://127.0.0.1:3075/settings` / `http://127.0.0.1:8075`
-  - the retried direct Playwright probe on the recovered `57f8e5` session failed the same way: `[data-testid="graph-substrate-canary"]` never became visible on `All Settings`
-  - the stale-runtime-info fix from item `282` still stands, but it is not sufficient to keep the live canary healthy after this pass's restart
+  - item `284` recovered the canonical Playwright lane by classifying the repeated missing-canary state as persisted fullscreen-pane startup drift plus an under-budget live probe timeout, not as a new renderer regression
+  - the hardened canonical probe now passes again on the loop-managed `3076/8076` session `e3df0d`, and it also passed after one bounded `aireset` recovery on restarted session `ff25a0`
+  - the required CDP confirmation is still blocked after that one allowed recovery attempt:
+    - fresh-context CDP sub-agent on `e3df0d` only reached the Setta shell plus a centered loading spinner and never produced a trustworthy `All Settings` canary view
+    - after `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`, the restarted runtime reported debug port `9298`, but a second fresh-context CDP sub-agent found `127.0.0.1:9298` refusing connection and the recorded devtools runtime process no longer running
+  - because the one allowed in-iteration recovery attempt is spent, the remaining blocker is CDP/tooling availability rather than a proven renderer defect on `rotaryParamCodeObjDefault`
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -86,32 +87,40 @@ This section overrides older "next frontier" notes below when choosing the next 
   - targeted fit-view snapshot on `rotaryParamCodeObjDefault`: mounted section bodies `1`, scene syncs `2`
   - after normalized blank-pane pan on the same target: mounted section bodies `1`, scene syncs `2`
   - after one toolbar zoom-in on the same target: mounted section bodies `1`, scene syncs `2`
+- New startup-recovery evidence from item `284` on the same canonical lane:
+  - the live `3076/8076` session can start with the graph hidden behind a persisted fullscreen pane, so `waitForInitialSettingsGraphReady(...)` must treat fullscreen pane chrome as healthy pre-normalization state instead of treating the hidden graph as a canary mount failure
+  - the canonical `settings graph substrate canary exposes live instrumentation on normalized All Settings` probe now owns a `120000ms` per-test timeout because the live normalization + fit-view + motion instrumentation lane can legitimately exceed the temporary `--timeout=60000` CLI cap on fresh loop sessions
+  - the recovered probe continued to report the same healthy canary snapshots after the harness hardening:
+    - auto-fit snapshot: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved seed fallback `0`, viewport `720 x 828` at zoom `0.1`
+    - focused fit-view snapshot on `rotaryParamCodeObjDefault`: mounted section bodies `1` at zoom `1.1900826446280992`
+    - after normalized blank-pane pan on the same target: mounted section bodies `1`
+    - after one toolbar zoom-in on the same target: mounted section bodies `1` at zoom `1.428099173553719`
 - Working hypothesis:
   - the current win is "one batched shell surface" rather than "Pixi solved the whole graph"
   - the normalized baseline no longer points at seed-fallback churn on the visible canary path
   - the combined viewport-visible plus screen-space mount gate proves the canary can eliminate wide-view DOM body ownership without blanking the focused section body or reopening the motion lane
   - the normalized motion lane on `rotaryParamCodeObjDefault` is now clean enough to treat as regression coverage rather than as an open blocker
   - item `281` confirms semantically identical rerenders were still paying extra scene-sync fan-out in the seeded probe
-  - item `283` should remove one remaining redraw-invalidations class by reusing semantically unchanged shell drawables, but that product slice still needs live-lane confirmation once the canary mounts again
-  - the immediate next iteration should recover or narrow the repeated live canary mount failure before more redraw-invalidations work lands
+  - item `283` is back to a healthy Playwright-backed live lane after the probe hardening, so its remaining unresolved gate is CDP/tooling confirmation rather than canary mount health
+  - once CDP transport is healthy again, the next real frontier can return to redraw-invalidations work instead of more startup/probe churn
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- recover or narrowly classify why the live `All Settings` worktree no longer mounts `graph-substrate-canary` on the canonical `rotaryParamCodeObjDefault` lane, then rerun the existing probe before more Pixi redraw work
+- begin from a fresh outer-loop lifecycle and recover bounded CDP access on the already-green canonical `rotaryParamCodeObjDefault` lane, then rerun the minimal visual confirmation only
 
 Recommended recovery target:
 
-- keep item `283` as the landed shell redraw-suppression slice; do not reopen that product seam unless the live canary proves it regressed
-- treat the current blocker as `worktree_unhealthy`, not as a new renderer-drift claim against `main`
-- reuse the same canonical target and existing normalized probe; do not open a new section-specific lane while the canary still fails to mount
+- keep item `283` and the new probe hardening as landed; do not reopen those seams unless the canonical Playwright lane regresses again
+- treat the current blocker as dead CDP transport after the spent in-iteration recovery attempt, not as a renderer-drift claim against `main`
+- reuse the same canonical target and the same normalized probe; do not open a new section-specific lane while the visual gate is blocked on tooling
 
 Recommended deliverables for the next iteration:
 
-- one successful rerun of the existing canonical `rotaryParamCodeObjDefault` probe on a fresh loop-managed runtime
-- one narrow classification of whether the repeated missing-canary state is startup state drift, bootstrap/session drift, or a real product regression
-- one bounded CDP follow-up only if the live canary mounts and the DevTools transport is healthy in that fresh loop session
+- one fresh loop-managed lifecycle with healthy devtools transport
+- one bounded CDP confirmation that `graph-substrate-canary` is visibly mounted on `All Settings` and that `rotaryParamCodeObjDefault` is visible on the graph surface
+- if the devtools runtime dies again, keep the blocker explicit and stop rather than adding more harness or renderer work in the same pass
 
 Recommended canonical target:
 
@@ -121,14 +130,47 @@ Recommended canonical target:
 Do not use the next iteration for:
 
 - more `tldraw` investigation
-- another instrumentation-only pass unless a concrete mount-health question blocks the gate follow-up
-- another motion-only verification pass on `rotaryParamCodeObjDefault` unless a live regression now contradicts item `280`
+- another instrumentation-only or harness-only pass unless the fresh lifecycle changes the CDP failure shape in a concrete way
+- another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
 - more body-viability tuning unless a live regression reopens wide-view blanking or focused-body continuity
-- another shell redraw product slice until the live canary mounts again
+- another shell redraw product slice until the required CDP gate is satisfied or explicitly reclassified
 - more runtime-log hygiene unless a fresh loop-managed lifecycle shows the session-aware helper is still insufficient
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `284` hardened the live canonical probe so persisted fullscreen-pane startup drift no longer masquerades as a canary mount failure, and the `rotaryParamCodeObjDefault` Playwright lane is green again on both the original and restarted worktree sessions, but the required CDP visual gate is still blocked because the devtools transport died after the one allowed `aireset` recovery.
+
+  - Why this pass completed:
+    - item `283` had already landed the bounded Pixi shell redraw-suppression product slice, so repeating more shell work while the live gate was failing would have been churn
+    - the concrete blocker on the current worktree turned out to be startup/tooling behavior rather than a new renderer regression: the graph can start hidden behind a fullscreen pane until normalization runs, and the live canonical probe needed a larger per-test timeout budget than the temporary CLI cap
+    - the shared compare helper now settles local pane state in one browser round-trip instead of long-running store polls while the page is still transitioning
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass did not open a new section-specific lane; it recovered the existing live lane and kept the same named target
+  - Product/test change:
+    - updated [`frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/graphSubstrateParityProbe.ts) so `setLocalPaneState(...)` now writes the compare-pane state once, waits two animation frames, and asserts the settled store snapshot directly instead of polling repeated browser-side module imports
+    - updated [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts) so `waitForInitialSettingsGraphReady(...)` treats fullscreen pane chrome as a healthy pre-normalization state and gives that readiness check a `30000ms` budget
+    - updated [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts) so the live canonical instrumentation test owns a `120000ms` timeout budget on fresh loop sessions
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=60000` -> passed on session `e3df0d` (`1 passed`, `12.8s`)
+    - bounded self-recovery attempted because CDP was the only remaining blocker:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> restarted the worktree onto session `ff25a0`, frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, debug port `9298`
+    - reran the same canonical Playwright lane on restarted session `ff25a0` with the fresh bootstrap token from `setta status` -> passed (`1 passed`, `1.2m`)
+    - recovered Playwright snapshots stayed clean on both sessions:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted section bodies `1`
+      - after one toolbar zoom-in: mounted section bodies `1` at zoom `1.428099173553719`
+    - fresh-context CDP follow-up:
+      - sub-agent 1 on `e3df0d` read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), reached `http://127.0.0.1:3076/settings`, but only saw the Setta shell plus a centered loading spinner and never confirmed `graph-substrate-canary` or `rotaryParamCodeObjDefault`
+      - sub-agent 2 on restarted session `ff25a0` read the same quickstart, but `127.0.0.1:9298` refused connection and the recorded devtools runtime process from [`/tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-runtime.json`](/tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-runtime.json) was no longer running; a fresh browser context only reached `Connected to server`
+  - Lane status:
+    - the canonical Playwright oracle is healthy again, so the earlier repeated missing-canary state is reclassified as startup drift plus insufficient probe budget rather than `worktree_unhealthy`
+    - the required CDP visual gate is still blocked after the one allowed recovery attempt because the devtools transport died on the restarted runtime
+    - the next iteration should begin with a fresh outer-loop lifecycle and retry only the bounded CDP confirmation before more product work lands
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `283` landed semantic no-op redraw suppression in the Pixi shell layer so semantically identical drawable output now reuses the last stable drawables array instead of forcing another full-shell `app.render()`, but the required live `All Settings` gate is blocked on a repeated canary mount failure even after one bounded `aireset` recovery.
 

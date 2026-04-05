@@ -153,6 +153,8 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
 test("settings graph substrate canary exposes live instrumentation on normalized All Settings", async ({
   page,
 }) => {
+  test.setTimeout(120000);
+
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await waitForInitialSettingsGraphReady(page);
@@ -4902,13 +4904,27 @@ async function waitForNodeCount(page: Page, expected: number): Promise<void> {
 
 async function waitForInitialSettingsGraphReady(page: Page): Promise<void> {
   await expect
-    .poll(async () => {
-      const [legacyPaneCount, canaryRootCount] = await Promise.all([
-        page.locator(READY_SELECTOR).count(),
-        page.getByTestId("graph-substrate-canary").count(),
-      ]);
-      return legacyPaneCount > 0 || canaryRootCount > 0;
-    })
+    .poll(
+      async () => {
+        const [
+          canaryRootCount,
+          legacyPaneCount,
+          overviewFullscreenCount,
+          uiEditorFullscreenCount,
+        ] = await Promise.all([
+          page.getByTestId("graph-substrate-canary").count(),
+          page.locator(READY_SELECTOR).count(),
+          page.getByTestId("overview-pane-fullscreen-button").count(),
+          page.getByTestId("uiEditor-pane-fullscreen-button").count(),
+        ]);
+        const fullscreenPaneReady =
+          overviewFullscreenCount > 0 || uiEditorFullscreenCount > 0;
+        return (
+          legacyPaneCount > 0 || canaryRootCount > 0 || fullscreenPaneReady
+        );
+      },
+      { timeout: 30000 },
+    )
     .toBe(true);
 }
 

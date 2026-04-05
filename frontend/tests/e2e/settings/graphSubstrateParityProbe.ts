@@ -493,18 +493,38 @@ export async function setLocalPaneState(
   page: Page,
   paneState: SettingsGraphLocalPaneState,
 ): Promise<void> {
-  await page.evaluate(async (nextPaneState: SettingsGraphLocalPaneState) => {
-    const { useLocalStorage } = await import("/src/state/definitions.ts");
-    useLocalStorage.setState({
-      overviewVis: nextPaneState.overviewVisible,
-      overviewTrueWidth: nextPaneState.overviewTrueWidth,
-      snapToGrid: nextPaneState.snapToGrid,
-      uiEditorVis: nextPaneState.uiEditorVisible,
-      uiEditorTrueWidth: nextPaneState.uiEditorTrueWidth,
-    });
-  }, paneState);
+  const settledPaneState = await page.evaluate(
+    async (nextPaneState: SettingsGraphLocalPaneState) => {
+      const waitForAnimationFrame = async () =>
+        new Promise<void>((resolve) => {
+          window.requestAnimationFrame(() => resolve());
+        });
 
-  await expect.poll(async () => getLocalPaneState(page)).toEqual(paneState);
+      const { useLocalStorage } = await import("/src/state/definitions.ts");
+      useLocalStorage.setState({
+        overviewVis: nextPaneState.overviewVisible,
+        overviewTrueWidth: nextPaneState.overviewTrueWidth,
+        snapToGrid: nextPaneState.snapToGrid,
+        uiEditorVis: nextPaneState.uiEditorVisible,
+        uiEditorTrueWidth: nextPaneState.uiEditorTrueWidth,
+      });
+
+      await waitForAnimationFrame();
+      await waitForAnimationFrame();
+
+      const state = useLocalStorage.getState();
+      return {
+        overviewVisible: state.overviewVis,
+        overviewTrueWidth: state.overviewTrueWidth,
+        snapToGrid: state.snapToGrid,
+        uiEditorVisible: state.uiEditorVis,
+        uiEditorTrueWidth: state.uiEditorTrueWidth,
+      };
+    },
+    paneState,
+  );
+
+  expect(settledPaneState).toEqual(paneState);
 }
 
 export async function normalizeSettingsGraphComparePaneState(
