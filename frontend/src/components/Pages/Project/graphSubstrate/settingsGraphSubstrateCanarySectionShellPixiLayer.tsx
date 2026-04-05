@@ -36,6 +36,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<Application | null>(null);
   const graphicsRef = useRef<Graphics | null>(null);
+  const stableViewportRef = useRef<GraphViewport | null>(viewport);
   const drawablesRef = useRef<
     Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>
   >([]);
@@ -70,7 +71,6 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
       previewStyleColors,
       sceneSections,
       sectionSeedNodes,
-      viewport,
     });
   }, [
     activeSectionIds,
@@ -80,7 +80,6 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     previewStyleColors,
     sceneSections,
     sectionSeedNodes,
-    viewport,
   ]);
   const stableDrawables = useMemo(() => {
     if (
@@ -95,6 +94,19 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     stableDrawablesRef.current = drawables;
     return drawables;
   }, [drawables]);
+  const stableViewport = useMemo(() => {
+    if (
+      areSettingsGraphSubstrateCanarySectionShellPixiViewportsEqual(
+        stableViewportRef.current,
+        viewport,
+      )
+    ) {
+      return stableViewportRef.current;
+    }
+
+    stableViewportRef.current = viewport;
+    return viewport;
+  }, [viewport]);
 
   drawablesRef.current = stableDrawables;
 
@@ -155,22 +167,34 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
       appRef.current = app;
       graphicsRef.current = graphics;
 
-      const syncCanvas = () => {
+      const redrawCanvas = () => {
+        if (
+          !redrawSettingsGraphSubstrateCanarySectionShellPixiCanvas({
+            app,
+            drawables: drawablesRef.current,
+            graphics,
+            hostRef: canvasRef,
+            viewport: stableViewportRef.current,
+          })
+        ) {
+          return;
+        }
         pixiSyncCountRef.current += 1;
-        syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
-          app,
-          drawables: drawablesRef.current,
-          graphics,
-          hostRef: canvasRef,
-        });
         updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
           pixiDrawableCount: drawablesRef.current.length,
           pixiSyncCount: pixiSyncCountRef.current,
         });
       };
+      const presentViewport = () => {
+        presentSettingsGraphSubstrateCanarySectionShellPixiViewport({
+          app,
+          hostRef: canvasRef,
+          viewport: stableViewportRef.current,
+        });
+      };
 
-      syncCanvas();
-      resizeObserver = new ResizeObserver(syncCanvas);
+      redrawCanvas();
+      resizeObserver = new ResizeObserver(presentViewport);
       resizeObserver.observe(host);
     })();
 
@@ -197,13 +221,35 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     if (!app || !graphics) {
       return;
     }
-    syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
-      app,
-      drawables: stableDrawables,
-      graphics,
-      hostRef: canvasRef,
+    if (
+      !redrawSettingsGraphSubstrateCanarySectionShellPixiCanvas({
+        app,
+        drawables: stableDrawables,
+        graphics,
+        hostRef: canvasRef,
+        viewport: stableViewportRef.current,
+      })
+    ) {
+      return;
+    }
+    pixiSyncCountRef.current += 1;
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      pixiDrawableCount: stableDrawables.length,
+      pixiSyncCount: pixiSyncCountRef.current,
     });
   }, [stableDrawables]);
+
+  useLayoutEffect(() => {
+    const app = appRef.current;
+    if (!app) {
+      return;
+    }
+    presentSettingsGraphSubstrateCanarySectionShellPixiViewport({
+      app,
+      hostRef: canvasRef,
+      viewport: stableViewport,
+    });
+  }, [stableViewport]);
 
   if (stableDrawables.length === 0) {
     return null;
@@ -215,35 +261,48 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
       className="pointer-events-none absolute inset-0"
       data-testid="graph-substrate-canary-section-pixi-layer"
       ref={canvasRef}
-      style={{ zIndex: 1 }}
+      style={{
+        visibility: viewport && viewport.zoom > 0 ? "visible" : "hidden",
+        zIndex: 1,
+      }}
     />
   );
 }
 
-function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
+function areSettingsGraphSubstrateCanarySectionShellPixiViewportsEqual(
+  left: GraphViewport | null,
+  right: GraphViewport | null,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
+}
+
+function redrawSettingsGraphSubstrateCanarySectionShellPixiCanvas({
   app,
   drawables,
   graphics,
   hostRef,
+  viewport,
 }: {
   app: Application;
   drawables: Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>;
   graphics: Graphics;
   hostRef: RefObject<HTMLCanvasElement | null>;
-}) {
-  const host = hostRef.current?.parentElement;
-  if (!host) {
-    return;
-  }
-
-  const width = host.clientWidth;
-  const height = host.clientHeight;
-  if (width <= 0 || height <= 0) {
-    return;
-  }
-
-  if (app.renderer.width !== width || app.renderer.height !== height) {
-    app.renderer.resize(width, height);
+  viewport: GraphViewport | null;
+}): boolean {
+  if (
+    !prepareSettingsGraphSubstrateCanarySectionShellPixiViewport({
+      app,
+      hostRef,
+      viewport,
+    })
+  ) {
+    return false;
   }
 
   graphics.clear();
@@ -251,10 +310,10 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
     if (drawable.fill) {
       graphics
         .roundRect(
-          drawable.screenX,
-          drawable.screenY,
-          drawable.screenWidth,
-          drawable.screenHeight,
+          drawable.x,
+          drawable.y,
+          drawable.width,
+          drawable.height,
           drawable.cornerRadius,
         )
         .fill({
@@ -265,10 +324,10 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
     if (drawable.surfaceFrame) {
       graphics
         .roundRect(
-          drawable.screenX,
-          drawable.screenY,
-          drawable.screenWidth,
-          drawable.screenHeight,
+          drawable.x,
+          drawable.y,
+          drawable.width,
+          drawable.height,
           drawable.cornerRadius,
         )
         .stroke({
@@ -282,10 +341,10 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
     if (drawable.outline) {
       graphics
         .roundRect(
-          drawable.screenX,
-          drawable.screenY,
-          drawable.screenWidth,
-          drawable.screenHeight,
+          drawable.x,
+          drawable.y,
+          drawable.width,
+          drawable.height,
           drawable.cornerRadius,
         )
         .stroke({
@@ -299,10 +358,10 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
     if (drawable.border) {
       graphics
         .roundRect(
-          drawable.screenX,
-          drawable.screenY,
-          drawable.screenWidth,
-          drawable.screenHeight,
+          drawable.x,
+          drawable.y,
+          drawable.width,
+          drawable.height,
           drawable.cornerRadius,
         )
         .stroke({
@@ -316,10 +375,10 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
     if (drawable.topDragHandle) {
       graphics
         .roundRect(
-          drawable.topDragHandle.screenX,
-          drawable.topDragHandle.screenY,
-          drawable.topDragHandle.screenWidth,
-          drawable.topDragHandle.screenHeight,
+          drawable.topDragHandle.x,
+          drawable.topDragHandle.y,
+          drawable.topDragHandle.width,
+          drawable.topDragHandle.height,
           drawable.topDragHandle.cornerRadius,
         )
         .fill({
@@ -329,4 +388,57 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
     }
   }
   app.render();
+  return true;
+}
+
+function presentSettingsGraphSubstrateCanarySectionShellPixiViewport({
+  app,
+  hostRef,
+  viewport,
+}: {
+  app: Application;
+  hostRef: RefObject<HTMLCanvasElement | null>;
+  viewport: GraphViewport | null;
+}): boolean {
+  if (
+    !prepareSettingsGraphSubstrateCanarySectionShellPixiViewport({
+      app,
+      hostRef,
+      viewport,
+    })
+  ) {
+    return false;
+  }
+
+  app.render();
+  return true;
+}
+
+function prepareSettingsGraphSubstrateCanarySectionShellPixiViewport({
+  app,
+  hostRef,
+  viewport,
+}: {
+  app: Application;
+  hostRef: RefObject<HTMLCanvasElement | null>;
+  viewport: GraphViewport | null;
+}): boolean {
+  const host = hostRef.current?.parentElement;
+  if (!host || !viewport || viewport.zoom <= 0) {
+    return false;
+  }
+
+  const width = host.clientWidth;
+  const height = host.clientHeight;
+  if (width <= 0 || height <= 0) {
+    return false;
+  }
+
+  if (app.renderer.width !== width || app.renderer.height !== height) {
+    app.renderer.resize(width, height);
+  }
+
+  app.stage.position.set(viewport.x, viewport.y);
+  app.stage.scale.set(viewport.zoom);
+  return true;
 }

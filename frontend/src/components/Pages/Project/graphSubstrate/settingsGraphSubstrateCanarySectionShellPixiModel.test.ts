@@ -6,7 +6,7 @@ import type { SettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGra
 import { resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables } from "./settingsGraphSubstrateCanarySectionShellPixiModel";
 
 describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
-  it("projects themed active shell chrome into screen-space Pixi strokes", () => {
+  it("projects themed active shell chrome into world-space Pixi strokes", () => {
     const previewStyleColor = "#336699";
     const appearance = resolveSectionChromeAppearance({
       darkMode: false,
@@ -27,7 +27,6 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
         },
         sceneSections: [createSceneSection({ isActiveSection: true })],
         sectionSeedNodes: new Map(),
-        viewport: { x: 50, y: -20, zoom: 0.5 },
       });
 
     expect(drawables).toHaveLength(1);
@@ -35,26 +34,26 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
       border: {
         alignment: 1,
         color: appearance.sectionStyleVars?.["--setta-section-style-border"],
-        width: 0.5,
+        width: 1,
       },
-      cornerRadius: 4,
+      cornerRadius: 8,
       fill: {
         color: appearance.backgroundColor,
       },
       outline: {
         alignment: 0,
         color: appearance.sectionStyleVars?.["--setta-section-style-outline"],
-        width: 2,
+        width: 4,
       },
       surfaceFrame: {
         alignment: 1,
         color: appearance.surfaceFrameColor?.color,
-        width: 0.5,
+        width: 1,
       },
-      screenHeight: 80,
-      screenWidth: 120,
-      screenX: 110,
-      screenY: 20,
+      height: 160,
+      width: 240,
+      x: 120,
+      y: 80,
       sectionId: "section-a",
       topDragHandle: null,
     });
@@ -77,7 +76,6 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
           }),
         ],
         sectionSeedNodes: new Map(),
-        viewport: { x: 0, y: 0, zoom: 1 },
       });
 
     expect(drawables).toEqual([]);
@@ -100,7 +98,6 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
           }),
         ],
         sectionSeedNodes: new Map(),
-        viewport: { x: 0, y: 0, zoom: 1 },
       });
 
     expect(drawables).toEqual([
@@ -115,10 +112,10 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
             alpha: 0.7,
             color: "hsl(220, 25%, 67%)",
           },
-          screenHeight: 4,
-          screenWidth: 32,
-          screenX: 224,
-          screenY: 78,
+          height: 4,
+          width: 32,
+          x: 224,
+          y: 78,
         },
       }),
     ]);
@@ -134,7 +131,6 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
         previewStyleColors: {},
         sceneSections: [createSceneSection({ isActiveSection: false })],
         sectionSeedNodes: new Map(),
-        viewport: { x: 0, y: 0, zoom: 1 },
       });
 
     expect(drawables).toHaveLength(1);
@@ -173,7 +169,6 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
           }),
         ],
         sectionSeedNodes: new Map(),
-        viewport: { x: 0, y: 0, zoom: 1 },
       });
 
     expect(drawables).toEqual([
@@ -219,13 +214,12 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
             },
           ],
         ]),
-        viewport: { x: 0, y: 0, zoom: 1 },
       });
 
     expect(drawables).toHaveLength(1);
     expect(drawables[0]).toMatchObject({
-      screenHeight: 190,
-      screenWidth: 280,
+      height: 190,
+      width: 280,
     });
   });
 });

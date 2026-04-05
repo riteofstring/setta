@@ -338,6 +338,9 @@ test("settings graph substrate canary exposes live instrumentation on normalized
       afterPanState.snapshot?.mountedSceneSectionCount ??
         Number.POSITIVE_INFINITY,
     );
+    expect(afterPanState.snapshot?.pixiSyncCount).toBe(
+      focusedSnapshot.pixiSyncCount,
+    );
 
     await page.getByRole("button", { name: "zoom in" }).click();
 
@@ -361,6 +364,9 @@ test("settings graph substrate canary exposes live instrumentation on normalized
     ).toBeLessThan(
       afterZoomState.snapshot?.mountedSceneSectionCount ??
         Number.POSITIVE_INFINITY,
+    );
+    expect(afterZoomState.snapshot?.pixiSyncCount).toBe(
+      focusedSnapshot.pixiSyncCount,
     );
 
     console.info(

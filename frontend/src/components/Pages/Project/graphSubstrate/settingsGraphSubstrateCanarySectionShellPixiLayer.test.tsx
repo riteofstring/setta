@@ -29,6 +29,12 @@ type MockApplicationInstance = {
   stage: {
     addChild: ReturnType<typeof vi.fn>;
     eventMode: string;
+    position: {
+      set: ReturnType<typeof vi.fn>;
+    };
+    scale: {
+      set: ReturnType<typeof vi.fn>;
+    };
   };
 };
 
@@ -98,6 +104,12 @@ vi.mock("pixi.js", () => {
     stage = {
       addChild: vi.fn(),
       eventMode: "auto",
+      position: {
+        set: vi.fn(),
+      },
+      scale: {
+        set: vi.fn(),
+      },
     };
 
     constructor() {
@@ -170,6 +182,35 @@ describe("SettingsGraphSubstrateCanarySectionShellPixiLayer", () => {
     });
   });
 
+  it("reuses the existing Pixi geometry when only the viewport changes", async () => {
+    await renderLayer({
+      sceneSections: [createSceneSection()],
+      viewport: { x: 10, y: -20, zoom: 1 },
+    });
+
+    await vi.waitFor(() => {
+      expect(hoisted.appInstances).toHaveLength(1);
+      expect(hoisted.appInstances[0]?.render).toHaveBeenCalledTimes(1);
+      expect(hoisted.graphicsInstances[0]?.clear).toHaveBeenCalledTimes(1);
+    });
+
+    await renderLayer({
+      sceneSections: [createSceneSection()],
+      viewport: { x: 24, y: -20, zoom: 1.2 },
+    });
+
+    await vi.waitFor(() => {
+      expect(hoisted.appInstances[0]?.render).toHaveBeenCalledTimes(2);
+      expect(hoisted.graphicsInstances[0]?.clear).toHaveBeenCalledTimes(1);
+      expect(
+        hoisted.appInstances[0]?.stage.position.set,
+      ).toHaveBeenLastCalledWith(24, -20);
+      expect(hoisted.appInstances[0]?.stage.scale.set).toHaveBeenLastCalledWith(
+        1.2,
+      );
+    });
+  });
+
   it("redraws the Pixi shell layer when drawable output changes", async () => {
     await renderLayer({
       sceneSections: [createSceneSection()],
@@ -179,15 +220,17 @@ describe("SettingsGraphSubstrateCanarySectionShellPixiLayer", () => {
     await vi.waitFor(() => {
       expect(hoisted.appInstances).toHaveLength(1);
       expect(hoisted.appInstances[0]?.render).toHaveBeenCalledTimes(1);
+      expect(hoisted.graphicsInstances[0]?.clear).toHaveBeenCalledTimes(1);
     });
 
     await renderLayer({
-      sceneSections: [createSceneSection()],
-      viewport: { x: 24, y: -20, zoom: 1 },
+      sceneSections: [createSceneSection({ styleColor: "#22c55e" })],
+      viewport: { x: 10, y: -20, zoom: 1 },
     });
 
     await vi.waitFor(() => {
       expect(hoisted.appInstances[0]?.render).toHaveBeenCalledTimes(2);
+      expect(hoisted.graphicsInstances[0]?.clear).toHaveBeenCalledTimes(2);
     });
   });
 

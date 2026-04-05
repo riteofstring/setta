@@ -13,14 +13,9 @@ import {
   resolveSettingsGraphSubstrateCanarySectionShellAppearance,
   type SettingsGraphSubstrateCanarySectionShellAppearance,
 } from "./settingsGraphSubstrateCanarySectionShellAppearance";
-import {
-  worldPointToScreenPoint,
-  type GraphViewport,
-} from "./viewportTransform";
 
 const LARGE_CORNER_RADIUS_PX = 8;
 const SMALL_CORNER_RADIUS_PX = 2;
-const MIN_STROKE_WIDTH = 0.0001;
 
 const BLUE_600 = "#2563eb";
 const BLUE_700 = "#1d4ed8";
@@ -59,10 +54,10 @@ export type SettingsGraphSubstrateCanarySectionShellPixiStroke = {
 export type SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle = {
   cornerRadius: number;
   fill: SettingsGraphSubstrateCanarySectionShellPixiFill;
-  screenHeight: number;
-  screenWidth: number;
-  screenX: number;
-  screenY: number;
+  height: number;
+  width: number;
+  x: number;
+  y: number;
 };
 
 export type SettingsGraphSubstrateCanarySectionShellPixiDrawable = {
@@ -71,10 +66,10 @@ export type SettingsGraphSubstrateCanarySectionShellPixiDrawable = {
   fill: SettingsGraphSubstrateCanarySectionShellPixiFill | null;
   outline: SettingsGraphSubstrateCanarySectionShellPixiStroke | null;
   surfaceFrame: SettingsGraphSubstrateCanarySectionShellPixiStroke | null;
-  screenHeight: number;
-  screenWidth: number;
-  screenX: number;
-  screenY: number;
+  height: number;
+  width: number;
+  x: number;
+  y: number;
   sectionId: string;
   topDragHandle: SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle | null;
 };
@@ -118,7 +113,6 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   previewStyleColors,
   sceneSections,
   sectionSeedNodes,
-  viewport,
 }: {
   activeSectionIds: ReadonlyArray<string>;
   darkMode: boolean;
@@ -127,12 +121,7 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   previewStyleColors: Record<string, string | null | undefined>;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionSeedNodes: SettingsGraphSubstrateCanarySectionSeedNodes;
-  viewport: GraphViewport | null;
 }): Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable> {
-  if (!viewport || viewport.zoom <= 0) {
-    return [];
-  }
-
   const activeSectionIdSet = new Set(activeSectionIds);
   const drawables: Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable> =
     [];
@@ -153,7 +142,6 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         previewStyleColor: previewStyleColors[section.sectionId],
         section,
         sectionSeedNode,
-        viewport,
       });
     if (drawable) {
       drawables.push(drawable);
@@ -170,10 +158,10 @@ function areSettingsGraphSubstrateCanarySectionShellPixiDrawableEqual(
   return (
     left.sectionId === right.sectionId &&
     left.cornerRadius === right.cornerRadius &&
-    left.screenX === right.screenX &&
-    left.screenY === right.screenY &&
-    left.screenWidth === right.screenWidth &&
-    left.screenHeight === right.screenHeight &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height &&
     areSettingsGraphSubstrateCanarySectionShellPixiFillEqual(
       left.fill,
       right.fill,
@@ -243,10 +231,10 @@ function areSettingsGraphSubstrateCanarySectionShellPixiTopDragHandlesEqual(
 
   return (
     left.cornerRadius === right.cornerRadius &&
-    left.screenX === right.screenX &&
-    left.screenY === right.screenY &&
-    left.screenWidth === right.screenWidth &&
-    left.screenHeight === right.screenHeight &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height &&
     areSettingsGraphSubstrateCanarySectionShellPixiFillEqual(
       left.fill,
       right.fill,
@@ -262,7 +250,6 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
   previewStyleColor,
   section,
   sectionSeedNode,
-  viewport,
 }: {
   darkMode: boolean;
   isActiveSection: boolean;
@@ -271,7 +258,6 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
   previewStyleColor: string | null | undefined;
   section: SettingsGraphSubstrateCanarySceneSection;
   sectionSeedNode: SettingsGraphSubstrateCanarySectionSeedNode | undefined;
-  viewport: GraphViewport;
 }): SettingsGraphSubstrateCanarySectionShellPixiDrawable | null {
   const sectionSize = getPositiveSceneSectionSize(section, sectionSeedNode);
   if (!sectionSize) {
@@ -296,47 +282,31 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
       sectionTypeName,
       useMetaControlStyle: sectionChromeAppearance.useMetaControlStyle,
     });
-  const screenPosition = worldPointToScreenPoint(
-    section.renderedPosition,
-    viewport,
-  );
-  const screenSize = {
-    height: sectionSize.height * viewport.zoom,
-    width: sectionSize.width * viewport.zoom,
-  };
-
-  if (screenSize.width <= 0 || screenSize.height <= 0) {
+  if (sectionSize.width <= 0 || sectionSize.height <= 0) {
     return null;
   }
 
-  const border = resolveSectionShellPixiBorderStroke(
-    shellAppearance,
-    darkMode,
-    viewport.zoom,
-  );
+  const border = resolveSectionShellPixiBorderStroke(shellAppearance, darkMode);
   const fill = resolveSectionShellPixiFill(
     sectionChromeAppearance.backgroundColor,
   );
   const outline = resolveSectionShellPixiOutlineStroke(
     shellAppearance,
     darkMode,
-    viewport.zoom,
   );
   const surfaceFrame = resolveSectionShellPixiSurfaceFrameStroke({
     appearance: shellAppearance,
     hoverStrokeColor: sectionChromeAppearance.surfaceFrameHoverColor,
     isHovered: isSurfaceFrameHovered,
     strokeColor: sectionChromeAppearance.surfaceFrameColor,
-    zoom: viewport.zoom,
   });
   const topDragHandle = resolveSectionShellPixiTopDragHandle({
     appearance: shellAppearance,
     darkMode,
     isVisible: isTopDragHandleVisible,
-    screenWidth: screenSize.width,
-    screenX: screenPosition.x,
-    screenY: screenPosition.y,
-    zoom: viewport.zoom,
+    sectionWidth: sectionSize.width,
+    sectionX: section.renderedPosition.x,
+    sectionY: section.renderedPosition.y,
   });
 
   if (!border && !fill && !outline && !surfaceFrame && !topDragHandle) {
@@ -346,16 +316,16 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
   return {
     border,
     cornerRadius:
-      (shellAppearance.frameStructure.cornerStyle === "small"
+      shellAppearance.frameStructure.cornerStyle === "small"
         ? SMALL_CORNER_RADIUS_PX
-        : LARGE_CORNER_RADIUS_PX) * viewport.zoom,
+        : LARGE_CORNER_RADIUS_PX,
     fill,
     outline,
     surfaceFrame,
-    screenHeight: screenSize.height,
-    screenWidth: screenSize.width,
-    screenX: screenPosition.x,
-    screenY: screenPosition.y,
+    height: sectionSize.height,
+    width: sectionSize.width,
+    x: section.renderedPosition.x,
+    y: section.renderedPosition.y,
     sectionId: section.sectionId,
     topDragHandle,
   };
@@ -375,7 +345,6 @@ function resolveSectionShellPixiFill(backgroundColor: string | null) {
 function resolveSectionShellPixiBorderStroke(
   appearance: SettingsGraphSubstrateCanarySectionShellAppearance,
   darkMode: boolean,
-  zoom: number,
 ): SettingsGraphSubstrateCanarySectionShellPixiStroke | null {
   if (
     !appearance.frameStructure.shellBorderVisible ||
@@ -402,14 +371,13 @@ function resolveSectionShellPixiBorderStroke(
     alignment: 1,
     alpha: color.alpha,
     color: color.color,
-    width: Math.max(zoom, MIN_STROKE_WIDTH),
+    width: 1,
   };
 }
 
 function resolveSectionShellPixiOutlineStroke(
   appearance: SettingsGraphSubstrateCanarySectionShellAppearance,
   darkMode: boolean,
-  zoom: number,
 ): SettingsGraphSubstrateCanarySectionShellPixiStroke | null {
   const outlineWidth = appearance.frameStructure.shellOutlineWidth;
   if (outlineWidth === 0) {
@@ -425,7 +393,7 @@ function resolveSectionShellPixiOutlineStroke(
     alignment: 0,
     alpha: color.alpha,
     color: color.color,
-    width: Math.max(outlineWidth * zoom, MIN_STROKE_WIDTH),
+    width: outlineWidth,
   };
 }
 
@@ -434,13 +402,11 @@ function resolveSectionShellPixiSurfaceFrameStroke({
   hoverStrokeColor,
   isHovered,
   strokeColor,
-  zoom,
 }: {
   appearance: SettingsGraphSubstrateCanarySectionShellAppearance;
   hoverStrokeColor: SectionChromeStaticColor | null;
   isHovered: boolean;
   strokeColor: SectionChromeStaticColor | null;
-  zoom: number;
 }): SettingsGraphSubstrateCanarySectionShellPixiStroke | null {
   if (!appearance.frameStructure.surfaceFrameVisible) {
     return null;
@@ -456,7 +422,7 @@ function resolveSectionShellPixiSurfaceFrameStroke({
     alignment: 1,
     alpha: color.alpha,
     color: color.color,
-    width: Math.max(zoom, MIN_STROKE_WIDTH),
+    width: 1,
   };
 }
 
@@ -464,18 +430,16 @@ function resolveSectionShellPixiTopDragHandle({
   appearance,
   darkMode,
   isVisible,
-  screenWidth,
-  screenX,
-  screenY,
-  zoom,
+  sectionWidth,
+  sectionX,
+  sectionY,
 }: {
   appearance: SettingsGraphSubstrateCanarySectionShellAppearance;
   darkMode: boolean;
   isVisible: boolean;
-  screenWidth: number;
-  screenX: number;
-  screenY: number;
-  zoom: number;
+  sectionWidth: number;
+  sectionX: number;
+  sectionY: number;
 }): SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle | null {
   if (!isVisible || !appearance.surfaceDecorations.showTopDragHandle) {
     return null;
@@ -486,16 +450,16 @@ function resolveSectionShellPixiTopDragHandle({
     return null;
   }
 
-  const topDragHandleWidth = TOP_DRAG_HANDLE_WIDTH_PX * zoom;
-  const topDragHandleHeight = TOP_DRAG_HANDLE_HEIGHT_PX * zoom;
+  const topDragHandleWidth = TOP_DRAG_HANDLE_WIDTH_PX;
+  const topDragHandleHeight = TOP_DRAG_HANDLE_HEIGHT_PX;
 
   return {
     cornerRadius: topDragHandleHeight / 2,
     fill,
-    screenHeight: topDragHandleHeight,
-    screenWidth: topDragHandleWidth,
-    screenX: screenX + (screenWidth - topDragHandleWidth) / 2,
-    screenY: screenY - topDragHandleHeight / 2,
+    height: topDragHandleHeight,
+    width: topDragHandleWidth,
+    x: sectionX + (sectionWidth - topDragHandleWidth) / 2,
+    y: sectionY - topDragHandleHeight / 2,
   };
 }
 

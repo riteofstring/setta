@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 18:56 EDT
+Last updated: 2026-04-08 00:52 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,17 +61,19 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
-- Current live verification blocker:
-  - item `285` already spent the mandated fresh-lifecycle retry on the bounded CDP-only confirmation for the already-green canonical lane
-  - the canonical Playwright instrumentation probe passed again on live loop session `937dff` at `3076/8076` with the same healthy snapshots:
-    - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
-    - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1` at zoom `1.1900826446280992`
-    - after normalized blank-pane pan: mounted section bodies `1`
-    - after one toolbar zoom-in: mounted section bodies `1` at zoom `1.428099173553719`
-  - item `286` refreshed the cross-worktree normalized motion-perf baseline on the same canonical lane:
-    - legacy `main`: average `17.05ms`, max `50.0ms`, `44` samples, `1` long task (`61ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
-    - worktree canary: average `17.83ms`, max `47.9ms`, `43` samples, `1` long task (`53ms`), root DOM `180`, target section DOM `132`, editable controls `2`
-  - the remaining CDP issue is unchanged deferred tooling debt around fresh-context visual inspection, not dead transport or a fresh renderer regression claim
+- Current live verification state:
+  - item `287` landed the bounded viewport-motion invalidation reduction on the canonical lane and kept the deterministic probes green on the live `3076/8076` worktree runtime
+  - the canonical Playwright instrumentation probe now shows the intended redraw change on `rotaryParamCodeObjDefault`:
+    - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+    - focused fit-view baseline: mounted section bodies `1`, Pixi syncs `1`, zoom `1.1900826446280992`
+    - after normalized blank-pane pan: mounted section bodies `1`, Pixi syncs `1`
+    - after one toolbar zoom-in: mounted section bodies `1`, Pixi syncs `1`, zoom `1.428099173553719`
+  - the cross-worktree motion-perf probe still shows the canary in the same general range as legacy, but not faster on this run:
+    - legacy `main`: average `17.40ms`, max `66.4ms`, `44` samples, `1` long task (`70ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
+    - worktree canary: average `18.99ms`, max `66.5ms`, `43` samples, `2` long tasks (`119ms` total, `69ms` max), root DOM `180`, target section DOM `132`, editable controls `2`
+  - the required CDP visual gate is no longer deferred for this slice:
+    - a fresh-context sub-agent used Chrome DevTools MCP, opened `/settings` directly, and visually confirmed `All Settings` with the expected graph workspace content rather than a blank/crashed canary
+    - note: the bootstrap token was rejected in that sub-agent context, so the visual confirmation used the direct frontend route instead of the bootstrap page
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -81,23 +83,23 @@ This section overrides older "next frontier" notes below when choosing the next 
     - worktree auto-fit still mounts `0` bodies
     - focused fit-view still mounts `1` body
     - worktree graph-root DOM footprint is now only `180` nodes on the normalized motion lane
-  - the remaining motion path still carries a full `46` visible sections and `46` Pixi drawables on the same lane even though scene sync and Pixi sync counters stay flat at `2`
-  - because the canary stays close to legacy frame cost despite the tiny DOM root, the next hotspot is more likely motion-time whole-scene recompute/redraw or presentation work than DOM body volume
+  - the new slice removed viewport-driven shell redraw churn, but the motion path still carries a full `46` visible sections and `46` Pixi drawables on the same lane
+  - because the canary stays close to but still a bit slower than legacy despite the tiny DOM root and flat redraw counter, the next hotspot is more likely whole-scene fan-out / presentation work than DOM body volume or shell redraw invalidation
 - Working hypothesis:
   - the current win is still "one batched shell surface plus aggressive DOM body reduction", not "Pixi solved the whole graph"
-  - the live counters and refreshed motion baseline say the next frontier is not more DOM-body gating or no-op sync cleanup
-  - the next product slice should reduce motion-time whole-scene shell/scene work on pure pan/zoom updates while keeping the canonical `rotaryParamCodeObjDefault` lane and the deferred CDP gate unchanged
+  - the live counters now show that pure viewport motion no longer redraws the shell geometry, so the next frontier is not more no-op redraw cleanup
+  - the next product slice should reduce whole-scene fan-out or presentation work on the same canonical `rotaryParamCodeObjDefault` lane
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- land one bounded production invalidation reduction on the already-green canonical `rotaryParamCodeObjDefault` motion lane while keeping the unresolved CDP visual gate explicit as deferred tooling debt
+- land one bounded production fan-out reduction on the already-green canonical `rotaryParamCodeObjDefault` motion lane
 
 Recommended next target:
 
-- keep the existing body-gating, scene-sync, and shell-redraw reductions as landed; do not reopen those lanes unless the canonical Playwright probe regresses
-- treat the current CDP issue as unchanged tooling debt, not as a renderer-drift claim against `main`
+- keep the existing body-gating, scene-sync, shell-redraw, and viewport-transform reductions as landed; do not reopen those lanes unless the canonical Playwright probe regresses
+- treat the CDP requirement as satisfied for this slice; only reopen a CDP-specific lane if a future visual claim needs new evidence
 - reuse the same canonical target and the same normalized probes; do not open a new section-specific lane
 - target pure motion-time whole-scene work next: reduce or narrow the scene-section / Pixi-drawable fan-out that still rides pan/zoom on all `46` sections
 
@@ -105,7 +107,7 @@ Recommended deliverables for the next iteration:
 
 - one bounded production slice on the canonical `All Settings` canary with `rotaryParamCodeObjDefault` as the focused target
 - focused verification on the existing Playwright instrumentation lane plus the same normalized motion-perf probe
-- an explicit note in handoff/history if the deferred CDP visual gate remains unchanged, rather than spending another tooling-only pass
+- record whether the chosen fan-out slice produces a real motion-perf improvement or only reshapes counters, rather than assuming the redraw reduction already solved the lane
 
 Recommended canonical target:
 
@@ -123,6 +125,43 @@ Do not use the next iteration for:
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `287` moved the Pixi shell drawables into world space and applied viewport motion through the Pixi stage transform, so the canonical `rotaryParamCodeObjDefault` lane no longer redraws shell geometry during pure pan/zoom updates, while the live canary, cross-worktree motion probe, and CDP visual check all completed on the current loop-managed runtimes.
+
+  - Why this pass completed:
+    - item `286` explicitly handed the next iteration to one bounded production invalidation slice on the existing canonical lane instead of another harness-only or CDP-only pass
+    - the chosen seam stayed on the measured hotspot: it removed viewport-driven shell redraw work without reopening the completed DOM-body gating lane
+    - the same deterministic Playwright lane plus the cross-worktree motion probe were enough to verify the landed reduction and show the remaining hotspot honestly
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass did not open a new section-specific lane; it reused the same normalized instrumentation lane and the same cross-worktree motion-perf probe
+  - Product/test change:
+    - updated [`settingsGraphSubstrateCanarySectionShellPixiModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts) so shell drawables resolve in world space instead of screen space
+    - updated [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx) so viewport changes apply through the Pixi stage transform and only drawable changes increment `pixiSyncCount`
+    - updated [`settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx) and [`settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts) to cover the world-space geometry and viewport-only no-redraw contract
+    - updated [`settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts) so the live canary probe asserts `pixiSyncCount` stays flat after the normalized pan and zoom steps
+    - added [`2026-04-08_settings-graph-substrate-canary-pixi-stage-viewport-transform.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pixi-stage-viewport-transform.md)
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts tests/e2e/settings/settings-view-modes.spec.ts ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pixi-stage-viewport-transform.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts` -> passed (`2 files`, `9 tests`)
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=120000` -> passed on session `1d8bcb` (`1 passed`, `21.4s`)
+    - live instrumentation snapshots from the passing probe:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1`, Pixi syncs `1`, scene syncs `2`, zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted section bodies `1`, Pixi syncs `1`
+      - after one toolbar zoom-in: mounted section bodies `1`, Pixi syncs `1`, zoom `1.428099173553719`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `40.9s`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.40ms`, max `66.4ms`, `44` samples, `1` long task (`70ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
+      - worktree canary: average `18.99ms`, max `66.5ms`, `43` samples, `2` long tasks (`119ms` total, `69ms` max), root DOM `180`, target section DOM `132`, editable controls `2`
+    - CDP follow-up:
+      - fresh-context sub-agent used Chrome DevTools MCP and confirmed `/settings` on the direct frontend route with `All Settings`, `rotaryParamCodeObjDefault`, `Chat Window 1`, and the graph workspace visible rather than a blank/crashed canary
+      - note: the bootstrap token was rejected in that sub-agent context, so the visual check used the direct frontend route instead of the bootstrap page
+  - Lane status:
+    - the canonical canary lane is healthy and the intended invalidation reduction is now explicit: `pixiSyncCount` stays flat through pure pan/zoom motion
+    - this slice did not deliver a broader motion-perf win yet; the canary stayed near but slower than legacy on the current run
+    - the remaining frontier is whole-scene fan-out / presentation work, not more DOM-body gating, shell no-op redraw suppression, or CDP-only recovery
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `286` refreshed the normalized `rotaryParamCodeObjDefault` motion baseline on the current loop-managed runtimes, confirmed the canary counters are still stable on `3076/8076`, and showed that the next product hotspot is no longer DOM body ownership but motion-time whole-scene work.
 
