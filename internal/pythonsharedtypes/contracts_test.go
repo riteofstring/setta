@@ -1,0 +1,256 @@
+package pythonsharedtypes
+
+import (
+	"reflect"
+	"strings"
+	"testing"
+
+	"setta/internal/llmconfig"
+	"setta/internal/projectstate"
+	"setta/internal/projectview"
+	"setta/internal/sharedtypes"
+)
+
+func TestEnumContractSpecIfConvertibleNormalizesOwnerFrontendNames(t *testing.T) {
+	spec, ok, err := enumContractSpecIfConvertible(reflect.TypeOf(projectstate.FrontendSectionType("")))
+	if err != nil {
+		t.Fatalf("enumContractSpecIfConvertible() error = %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected owner frontend enum to be convertible")
+	}
+	if spec.Name != "SectionType" {
+		t.Fatalf("spec.Name = %q, want %q", spec.Name, "SectionType")
+	}
+	if len(spec.EnumValues) == 0 {
+		t.Fatalf("expected owner enum values to be populated")
+	}
+	if spec.EnumValues[0].Value != "Callable" {
+		t.Fatalf("first enum value = %q, want %q", spec.EnumValues[0].Value, "Callable")
+	}
+	textBlockIndex := pythonEnumValueIndex(spec.EnumValues, "TextBlock")
+	promptIndex := pythonEnumValueIndex(spec.EnumValues, "Prompt")
+	if textBlockIndex == -1 || promptIndex == -1 {
+		t.Fatalf("expected TextBlock and Prompt enum values, got %#v", spec.EnumValues)
+	}
+	if textBlockIndex > promptIndex {
+		t.Fatalf("expected TextBlock before Prompt, got %#v", spec.EnumValues)
+	}
+}
+
+func TestPythonValueExprFromGoValueNormalizesOwnerFrontendNames(t *testing.T) {
+	expr, err := pythonValueExprFromGoValue(projectstate.FrontendSectionTypeChat)
+	if err != nil {
+		t.Fatalf("pythonValueExprFromGoValue() error = %v", err)
+	}
+	if expr != "SectionType.Chat" {
+		t.Fatalf("expr = %q, want %q", expr, "SectionType.Chat")
+	}
+}
+
+func TestPythonValueExprFromGoValueRendersDefaultProjectCodegenTarget(t *testing.T) {
+	expr, err := pythonValueExprFromGoValue(
+		[]projectview.ProjectCodegenPythonTarget{
+			projectview.FrontendDefaultProjectCodegenPythonTarget(),
+		},
+	)
+	if err != nil {
+		t.Fatalf("pythonValueExprFromGoValue() error = %v", err)
+	}
+	if !strings.HasPrefix(expr, "[ProjectCodegenPythonTarget(") {
+		t.Fatalf("expected project codegen target constructor, got %q", expr)
+	}
+	if !strings.Contains(expr, "language=ProjectCodegenLanguage.python") {
+		t.Fatalf("expected enum-backed language value, got %q", expr)
+	}
+	if !strings.Contains(expr, `genCodeSuffix="state = SettaState()"`) {
+		t.Fatalf("expected canonical suffix default, got %q", expr)
+	}
+	if !strings.Contains(expr, "sectionPolicy=SectionCodegenPolicy(") {
+		t.Fatalf("expected nested section policy constructor, got %q", expr)
+	}
+	if !strings.Contains(
+		expr,
+		`"Chat": SectionTypeCodegenPolicy(mode=SectionCodegenMode.inherit, representation=SectionRepresentationMode.file_read)`,
+	) {
+		t.Fatalf("expected canonical Chat section policy, got %q", expr)
+	}
+	if !strings.Contains(
+		expr,
+		`"DropzoneParam": CodeObjTypeValuePolicy(representation=CodeObjValueRepresentationMode.file_path)`,
+	) {
+		t.Fatalf("expected canonical DropzoneParam value policy, got %q", expr)
+	}
+}
+
+func TestPythonValueExprFromGoValueRendersRawProjectCodegenTargetSemantically(t *testing.T) {
+	t.Parallel()
+
+	expr, err := pythonValueExprFromGoValue(
+		projectview.PythonSharedDefaultProjectConfig().CodegenTargets,
+	)
+	if err != nil {
+		t.Fatalf("pythonValueExprFromGoValue() error = %v", err)
+	}
+	if !strings.HasPrefix(expr, "[ProjectCodegenPythonTarget(") {
+		t.Fatalf("expected semantic project codegen target constructor, got %q", expr)
+	}
+}
+
+func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
+	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
+
+	expectedCodegenTargets := "Field(default_factory=lambda: " + mustPythonValueExprFromGoValue(
+		"default project codegen targets",
+		[]projectview.ProjectCodegenPythonTarget{
+			projectview.FrontendDefaultProjectCodegenPythonTarget(),
+		},
+	) + ")"
+	if got := defaultExprForTypeField(t, ownerType, "codegenTargets"); got != expectedCodegenTargets {
+		t.Fatalf("codegenTargets default = %q, want %q", got, expectedCodegenTargets)
+	}
+
+	if got := defaultExprForTypeField(t, ownerType, "allowJsonSourceKeyEdits"); got != "True" {
+		t.Fatalf("allowJsonSourceKeyEdits default = %q, want %q", got, "True")
+	}
+	if got := defaultExprForTypeField(t, ownerType, "hasPythonCodegenTarget"); got != "False" {
+		t.Fatalf("hasPythonCodegenTarget default = %q, want %q", got, "False")
+	}
+	if got := defaultExprForTypeField(t, ownerType, "previewImgColor"); got != `"bg-blue-500/60 dark:bg-blue-600/30"` {
+		t.Fatalf("previewImgColor default = %q, want canonical preview color", got)
+	}
+	if got := defaultExprForTypeField(t, ownerType, "viewport"); got != "Field(default_factory=lambda: Viewport(x=0.0, y=0.0, zoom=1.0))" {
+		t.Fatalf("viewport default = %q, want canonical go-backed viewport", got)
+	}
+	if got := defaultExprForTypeField(t, ownerType, "runCapabilities"); got != "Field(default_factory=lambda: ProjectRunCapabilities(canRunFromMain=False, mainRunDisabledReason=None, effectiveEntrySectionId=None))" {
+		t.Fatalf("runCapabilities default = %q, want canonical go-backed run capabilities", got)
+	}
+	for _, fieldName := range []string{
+		"sectionPathSlugsById",
+		"sectionIdsByPathSlug",
+		"windowSpaceSlugsById",
+		"windowSpaceIdsBySlug",
+	} {
+		if got := defaultExprForTypeField(t, ownerType, fieldName); got != "Field(default_factory=dict)" {
+			t.Fatalf("%s default = %q, want %q", fieldName, got, "Field(default_factory=dict)")
+		}
+	}
+}
+
+func TestDefaultSourcesFromSidecarPrefersPythonSharedProfile(t *testing.T) {
+	t.Parallel()
+
+	sidecar, err := sharedtypes.BuildSemanticSidecar()
+	if err != nil {
+		t.Fatalf("BuildSemanticSidecar() error = %v", err)
+	}
+
+	defaultSources, err := defaultSourcesFromSidecar(
+		sidecar,
+		sharedtypes.DefaultProfilePythonShared,
+		sharedtypes.DefaultProfileFrontend,
+	)
+	if err != nil {
+		t.Fatalf("defaultSourcesFromSidecar() error = %v", err)
+	}
+
+	source := defaultSources[reflect.TypeOf(projectview.ProjectConfig{})]
+	if !source.IsValid() {
+		t.Fatalf("expected ProjectConfig default source")
+	}
+	config, ok := source.Interface().(projectview.ProjectConfig)
+	if !ok {
+		t.Fatalf("ProjectConfig default source type = %T", source.Interface())
+	}
+	if config.PreviewImgColor != projectview.PythonSharedDefaultProjectConfig().PreviewImgColor {
+		t.Fatalf("ProjectConfig preview color = %q, want %q", config.PreviewImgColor, projectview.PythonSharedDefaultProjectConfig().PreviewImgColor)
+	}
+}
+
+func TestBuildModelSpecUsesGoValueDefaultsForOwnerTypes(t *testing.T) {
+	typeErrorType := reflect.TypeOf(projectstate.TypeErrorIgnoreState{})
+	if got := defaultExprForTypeField(t, typeErrorType, "callable"); got != "False" {
+		t.Fatalf("callable default = %q, want %q", got, "False")
+	}
+	if got := defaultExprForTypeField(t, typeErrorType, "params"); got != "Field(default_factory=dict)" {
+		t.Fatalf("params default = %q, want %q", got, "Field(default_factory=dict)")
+	}
+
+	searchFiltersType := reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{})
+	for _, fieldName := range []string{"image", "video", "audio", "text", "data"} {
+		if got := defaultExprForTypeField(t, searchFiltersType, fieldName); got != "True" {
+			t.Fatalf("%s default = %q, want %q", fieldName, got, "True")
+		}
+	}
+
+	if got := defaultExprForTypeField(t, reflect.TypeOf(llmconfig.Config{}), "temporary"); got != "False" {
+		t.Fatalf("temporary default = %q, want %q", got, "False")
+	}
+}
+
+func TestBuildUsesAuthoritativeSharedRouteInventory(t *testing.T) {
+	generated, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	if !strings.Contains(generated.PythonModule, `API_PREFIX = "/api"`) {
+		t.Fatalf("expected generated routes to include API prefix route")
+	}
+	if !strings.Contains(generated.PythonModule, `LISTENER_BY_ID = "/ws/listeners/{listenerID}"`) {
+		t.Fatalf("expected generated routes to include listener route")
+	}
+}
+
+func defaultExprForTypeField(t *testing.T, ownerType reflect.Type, fieldName string) string {
+	t.Helper()
+	field := fieldSpecForTypeField(t, ownerType, fieldName)
+	return field.DefaultExpr
+}
+
+func fieldSpecForTypeField(t *testing.T, ownerType reflect.Type, fieldName string) fieldSpec {
+	t.Helper()
+	ctx, err := buildGenerationContext()
+	if err != nil {
+		t.Fatalf("buildGenerationContext() error = %v", err)
+	}
+	knownContractNames := map[string]struct{}{}
+	for _, entry := range ctx.Sidecar.Contracts {
+		name := strings.TrimSpace(entry.Name)
+		if name == "" {
+			continue
+		}
+		knownContractNames[name] = struct{}{}
+	}
+	for _, candidate := range visibleFields(ownerType) {
+		jsonName, err := fieldJSONName(candidate)
+		if err != nil {
+			t.Fatalf("fieldJSONName(%s.%s) error = %v", ownerType, candidate.Name, err)
+		}
+		if jsonName != fieldName {
+			continue
+		}
+		resolvedField, _, err := buildModelFieldSpec(
+			pythonSharedContractNameForType(ownerType),
+			ownerType,
+			candidate,
+			knownContractNames,
+			ctx.DefaultSourcesByType,
+		)
+		if err != nil {
+			t.Fatalf("buildModelFieldSpec(%s.%s) error = %v", ownerType, candidate.Name, err)
+		}
+		return resolvedField
+	}
+	t.Fatalf("field %q not found on %s", fieldName, ownerType)
+	return fieldSpec{}
+}
+
+func pythonEnumValueIndex(values []enumValueSpec, target string) int {
+	for index, value := range values {
+		if value.Value == target {
+			return index
+		}
+	}
+	return -1
+}
