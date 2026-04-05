@@ -7,8 +7,8 @@ import {
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
 import {
-  AgentRunStatusEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
+  RunStatusEnum,
   StreamingEventTypeEnum,
   createAgentRun,
   createAssistantChatMessage,
@@ -201,7 +201,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -299,7 +299,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -350,7 +350,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -402,7 +402,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-local",
           content: [createMessageTextContent({ text: "Local optimistic" })],
@@ -461,7 +461,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -495,7 +495,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -624,7 +624,7 @@ describe("stopProjectChatResponse", () => {
       agentRuns: [
         createAgentRun({
           id: "run-1",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "external_agent",
             chatId,
@@ -660,7 +660,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -679,7 +679,7 @@ describe("stopProjectChatResponse", () => {
       agentRuns: [
         createAgentRun({
           id: "run-project-a",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2026-03-01T00:00:00Z",
           inputs: {
             runType: "external_agent",
@@ -689,7 +689,7 @@ describe("stopProjectChatResponse", () => {
         }),
         createAgentRun({
           id: "run-project-b",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2026-03-02T00:00:00Z",
           inputs: {
             runType: "external_agent",
@@ -741,7 +741,7 @@ describe("stopProjectChatResponse", () => {
       agentRuns: [
         createAgentRun({
           id: "run-external-hydrate-fail",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "external_agent",
             chatId,
@@ -773,7 +773,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -801,7 +801,7 @@ describe("stopProjectChatResponse", () => {
       agentRuns: [
         createAgentRun({
           id: "run-external-noop",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "external_agent",
             chatId,
@@ -814,7 +814,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -826,7 +826,7 @@ describe("stopProjectChatResponse", () => {
       hasResponse: true,
       data: createAgentRun({
         id: "run-external-noop",
-        status: AgentRunStatusEnum.completed,
+        status: RunStatusEnum.completed,
       }),
     });
     mockedRouteGetExternalAgentChat.mockResolvedValue({
@@ -870,7 +870,7 @@ describe("stopProjectChatResponse", () => {
       data: [
         createAgentRun({
           id: "run-refresh",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "external_agent",
             chatId,
@@ -884,7 +884,7 @@ describe("stopProjectChatResponse", () => {
       hasResponse: true,
       data: createAgentRun({
         id: "run-refresh",
-        status: AgentRunStatusEnum.cancelled,
+        status: RunStatusEnum.cancelled,
       }),
     });
 
@@ -937,7 +937,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -1026,7 +1026,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop section chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   });
 
@@ -1055,7 +1055,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -1123,7 +1123,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop section chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -1169,7 +1169,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        type: StreamingEventTypeEnum.message_stop,
         message_id: "assistant-streaming",
       },
     });

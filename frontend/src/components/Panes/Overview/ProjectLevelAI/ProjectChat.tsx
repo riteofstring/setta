@@ -13,6 +13,7 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
+  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
@@ -67,21 +68,21 @@ import {
 import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
-  AllLLMConfigs,
+  AllConfigs,
   BaseChatMessageUnion,
   EngineConfig,
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import { ProjectAISettings } from "./ProjectAISettings";
+import { ProjectChatCore } from "./ProjectChatCore";
 import {
   getDefaultProjectChatPermissionMode,
-  ProjectChatCore,
   type ProjectChatBlockedErrorCode,
-} from "./ProjectChatCore";
+} from "./projectChatCoreUtils";
 import {
   focusInputWithoutSelectionById,
   PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
@@ -164,7 +165,7 @@ type ResolveProjectChatSelectedEngineIdAfterEngineConfigsLoadInput = {
 type ResolveProjectChatSelectedLLMUnavailableReasonInput = {
   engineType: EngineTypeEnum | null;
   selectedLLMConfigId: string | null;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
 };
 
@@ -568,9 +569,10 @@ function ProjectChatSurface({
   useHydrateLLMState();
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
-    if (chatId === null) {
-      const pendingMessages =
-        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]?.messages;
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
+      const pendingMessages = pendingDetails?.messages;
       if (Array.isArray(pendingMessages)) {
         return pendingMessages as Array<BaseChatMessageUnion>;
       }
@@ -586,7 +588,9 @@ function ProjectChatSurface({
     return [];
   });
   const activeConversationAppGenerationDetails = useAIStore((state) => {
-    if (chatId === null) {
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
       return (
         state.pendingChatAppGenerationDetailsBySurfaceId[resolvedSurfaceId] ??
         getDefaultChatAppGenerationDetails()
@@ -601,11 +605,10 @@ function ProjectChatSurface({
     );
   });
   const selectedChatWaitingForResponse = useAIStore((state) => {
-    if (chatId === null) {
-      return Boolean(
-        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]
-          ?.waitingForResponse,
-      );
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
+      return Boolean(pendingDetails?.waitingForResponse);
     }
     if (typeof chatId !== "string") {
       return false;
@@ -870,6 +873,11 @@ function ProjectChatSurface({
   const providerDictationLikelySupported = providerDictationAvailable;
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
+  );
+  const selectableLLMConfigId = useMemo(
+    () =>
+      resolveSelectableLLMConfigId(availableConfigGroups, selectedLLMConfigId),
+    [availableConfigGroups, selectedLLMConfigId],
   );
   const llmSelectionUnavailableReason = useMemo(
     () =>
@@ -1208,7 +1216,7 @@ function ProjectChatSurface({
     notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
     addPersistentNotification(
       externalEngineIssueMessage,
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   }, [externalEngineIssueMessage]);
 
@@ -1965,7 +1973,7 @@ function ProjectChatSurface({
                         transcriptionProfileGroups={transcriptionProfileGroups}
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
-                        selectedLLMConfigId={selectedLLMConfigId}
+                        selectedLLMConfigId={selectableLLMConfigId}
                         llmSelectionUnavailableReason={
                           llmSelectionUnavailableReason
                         }
@@ -2192,6 +2200,7 @@ function ProjectChatSurface({
                   }
                   thinking={thinking}
                   engineConfigId={effectiveEngineId}
+                  engineConfig={selectedEngineConfig}
                   engineType={engineType}
                   hasLLMConfig={hasLLMConfig}
                   externalEngineAvailable={externalEngineAvailable}
@@ -2265,6 +2274,7 @@ function ProjectChatSurface({
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
+              engineConfig={selectedEngineConfig}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
@@ -2302,7 +2312,7 @@ function findPreferredEngineId({
   externalAgentHealthInitialLoadComplete,
 }: {
   engineConfigs: EngineConfig[];
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
   externalAgentHealth: ExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;
@@ -2350,7 +2360,7 @@ function isEngineUsable({
   externalAgentHealthInitialLoadComplete,
 }: {
   config: EngineConfig;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
   externalAgentHealth: ExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;

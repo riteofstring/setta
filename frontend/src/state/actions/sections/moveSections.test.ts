@@ -15,7 +15,6 @@ import {
   createCore,
   createProjectConfig,
   createTerminalSectionImpl,
-  createUserDefaultChatSectionImpl,
   createVariant,
   type BaseSectionImplUnion,
   type Core,
@@ -58,16 +57,16 @@ function seedProjectState() {
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: null }),
-    {
+  const sectionImpl = createChatSectionImpl({
+    ...{ chatId: null },
+    ...{
       id: implId,
       chatId: null,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  );
+  });
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
     state.sections = { [sectionId]: sectionCore };
