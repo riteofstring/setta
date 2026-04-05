@@ -22,19 +22,14 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   CodeLanguageEnum,
+  LSPDiagnostic,
   SectionTypeEnum,
-  SettaLspDiagnostic,
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
-import {
-  getSectionChromeTitleDomAdapter,
-  resolveSectionChromeTitleDecorations,
-} from "../Container/sectionChrome";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { AttachedTerminalControls } from "./AttachedTerminalControls";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
@@ -119,9 +114,12 @@ function _SectionHeader({
     return getCurrEffectiveSectionImpl(x, sectionId).tagColor ?? null;
   });
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
-  const pythonCodegenEnabled = useProjectState((x) =>
-    projectConfigHasPythonCodegen(x.projectConfig),
-  );
+  const showRunControls = useProjectState((state) => {
+    const capabilities = state.sectionCapabilities[sectionId];
+    return Boolean(
+      capabilities?.canRun || capabilities?.canSelectAsEntryCodeBlock,
+    );
+  });
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const selectedSectionIds = useAIFollow(
     (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
@@ -274,15 +272,10 @@ function _SectionHeader({
             <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
           </StandardPopover>
         )}
-        {(sectionTypeName === SectionTypeEnum.Code ||
-          (pythonCodegenEnabled &&
-            sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
+        {showRunControls && (
           <>
             <RunButton sectionId={sectionId} />
-            <ToggleEntryCodeBlockButton
-              sectionId={sectionId}
-              sectionTypeName={sectionTypeName}
-            />
+            <ToggleEntryCodeBlockButton sectionId={sectionId} />
           </>
         )}
         {isBaseCodeSectionType(sectionTypeName) && (
@@ -362,13 +355,13 @@ function DiagnosticsPopover({
   onSetSuppressedCode,
   inlineSuppressionHint,
 }: {
-  diagnostics: Array<SettaLspDiagnostic>;
+  diagnostics: Array<LSPDiagnostic>;
   label: string;
   title: string;
-  suppressedCodes?: Array<NonNullable<SettaLspDiagnostic["code"]>>;
+  suppressedCodes?: Array<NonNullable<LSPDiagnostic["code"]>>;
   isMuted?: boolean;
   onSetSuppressedCode?: (
-    code: NonNullable<SettaLspDiagnostic["code"]>,
+    code: NonNullable<LSPDiagnostic["code"]>,
     suppress: boolean,
   ) => void;
   inlineSuppressionHint?: string | null;
@@ -380,6 +373,7 @@ function DiagnosticsPopover({
     <StandardPopover
       arrowClasses="fill-white/95 stroke-[1px] stroke-slate-200/80 dark:fill-slate-950/90 dark:stroke-slate-700/70"
       contentClasses="z-30 w-[min(16rem,calc(100vw-0.75rem))] rounded-md border border-slate-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-950/90 dark:ring-slate-800/60"
+      repositionOnCanvasTransform
       trigger={
         <button
           className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ring-1 ring-white/70 backdrop-blur-sm transition dark:ring-slate-800/60 ${badgeClassName}`}
@@ -448,7 +442,7 @@ function DiagnosticsPopover({
                           className="ml-auto rounded-full border border-slate-200/80 bg-white/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-slate-600"
                           onClick={() =>
                             void suppressHandler?.(
-                              code as NonNullable<SettaLspDiagnostic["code"]>,
+                              code as NonNullable<LSPDiagnostic["code"]>,
                               true,
                             )
                           }
@@ -501,7 +495,7 @@ function DiagnosticsPopover({
   );
 }
 
-function getBadgeClassName(diagnostics: Array<SettaLspDiagnostic>) {
+function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
   let hasError = false;
   let hasWarning = false;
   for (const diagnostic of diagnostics) {
@@ -569,7 +563,7 @@ function MaybeCardTitle({
   ) : (
     <SectionTitle
       sectionId={sectionId}
-      titleProps={getSectionTitleProps({
+      titleProps={getTitleStyles({
         isActiveSection,
         isInOtherProjectConfigs,
         sectionTypeName,
@@ -641,7 +635,7 @@ function TextBlockCardTitle({
     !useHeadingAsSectionName && (
       <SectionTitle
         sectionId={sectionId}
-        titleProps={getSectionTitleProps({
+        titleProps={getTitleStyles({
           isActiveSection,
           isInOtherProjectConfigs,
           sectionTypeName,
@@ -657,27 +651,83 @@ export function hasMarkdownHeadingText(markdown: string) {
   if (!match) {
     return false;
   }
-  const headingText = match[2];
-  return headingText !== undefined && headingText.trim().length > 0;
+  return match[2].trim().length > 0;
 }
 
-function getSectionTitleProps({
+export function getTitleStyles({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
-}: {
-  isActiveSection: boolean;
-  isInOtherProjectConfigs: boolean;
-  sectionTypeName: SectionType;
-  hasSectionStyleTheme: boolean;
 }) {
-  return getSectionChromeTitleDomAdapter(
-    resolveSectionChromeTitleDecorations({
-      isActiveSection,
-      isInOtherProjectConfigs,
-      sectionTypeName,
-      hasSectionStyleTheme,
-    }),
-  );
+  const editing = hasSectionStyleTheme
+    ? "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight"
+    : "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
+
+  const notEditing = getNotEditingStyle({
+    isActiveSection,
+    isInOtherProjectConfigs,
+    sectionTypeName,
+    hasSectionStyleTheme,
+  });
+
+  if (
+    sectionTypeName === SectionTypeEnum.GlobalVariables ||
+    sectionTypeName === SectionTypeEnum.GenPythonCode ||
+    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+  ) {
+    return { fixed: notEditing };
+  }
+
+  const fixed = hasSectionStyleTheme
+    ? "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5"
+    : "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
+
+  return { editing, notEditing, fixed };
+}
+
+function getNotEditingStyle({
+  isActiveSection,
+  isInOtherProjectConfigs,
+  sectionTypeName,
+  hasSectionStyleTheme,
+}) {
+  let textColorClass = "";
+  let fontClass = "font-bold";
+
+  // Handle text color based on conditions
+  if (!hasSectionStyleTheme) {
+    if (isActiveSection) {
+      if (isInOtherProjectConfigs) {
+        textColorClass = "text-purple-800 dark:text-purple-200";
+      } else if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
+        textColorClass = "text-green-800 dark:text-green-200";
+      } else if (sectionTypeName === SectionTypeEnum.Terminal) {
+        textColorClass = "text-blue-400";
+      } else {
+        textColorClass = "text-blue-600 dark:text-blue-400";
+      }
+    } else {
+      if (sectionTypeName === SectionTypeEnum.Terminal) {
+        textColorClass = "text-setta-300";
+      } else {
+        textColorClass = "text-setta-700 dark:text-setta-300";
+      }
+    }
+  }
+
+  // Handle text case for global variables
+  if (
+    sectionTypeName === SectionTypeEnum.GlobalVariables ||
+    sectionTypeName === SectionTypeEnum.GenPythonCode ||
+    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+  ) {
+    fontClass = "uppercase font-bold";
+  }
+
+  // Combine all the classes
+  const baseClasses =
+    "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
+
+  return `${baseClasses} ${textColorClass} ${fontClass}`;
 }
