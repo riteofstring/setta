@@ -648,6 +648,83 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 	}
 }
 
+func TestRegistryWriteValueWatchCodeFilesRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	nextFiles := []string{"backend/setta/api/listener.py", "frontend/src/components/App/appTheme.ts"}
+	expectedFiles := []any{nextFiles[0], nextFiles[1]}
+	result, err := registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.watch_code.files",
+		[]any{nextFiles[0], nextFiles[1]},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("write watch code files: %v", err)
+	}
+	if result.Changed != true {
+		t.Fatalf("expected watch code files write to change state, got %#v", result)
+	}
+	if !reflect.DeepEqual(result.NewValue, expectedFiles) {
+		t.Fatalf("expected new watch code files %#v, got %#v", expectedFiles, result.NewValue)
+	}
+	if !reflect.DeepEqual(result.NormalizedValue, expectedFiles) {
+		t.Fatalf("expected normalized watch code files %#v, got %#v", expectedFiles, result.NormalizedValue)
+	}
+
+	value, err := registry.ReadValue(context.Background(), "project-alpha", "core.watch_code.files")
+	if err != nil {
+		t.Fatalf("read watch code files after write: %v", err)
+	}
+	if !reflect.DeepEqual(value, expectedFiles) {
+		t.Fatalf("expected watch code files %#v after write, got %#v", expectedFiles, value)
+	}
+}
+
+func TestRegistryWriteValueAppThemeModeRoundTripsOnFreshProject(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	result, err := registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.app.theme_mode",
+		"  dark  ",
+		projectstate.DefaultAppThemeMode(),
+	)
+	if err != nil {
+		t.Fatalf("write app theme mode: %v", err)
+	}
+	if result.OldValue != projectstate.DefaultAppThemeMode() {
+		t.Fatalf("expected old app theme mode %q, got %#v", projectstate.DefaultAppThemeMode(), result.OldValue)
+	}
+	if result.NewValue != "dark" || result.NormalizedValue != "dark" {
+		t.Fatalf("expected dark new/normalized app theme mode, got %#v", result)
+	}
+
+	value, err := registry.ReadValue(context.Background(), "project-alpha", "core.app.theme_mode")
+	if err != nil {
+		t.Fatalf("read app theme mode after write: %v", err)
+	}
+	if value != "dark" {
+		t.Fatalf("expected app theme mode dark after write, got %#v", value)
+	}
+}
+
 func openCoreRegistryRuntime(t *testing.T) *projectstate.Runtime {
 	t.Helper()
 	return openCoreRegistryPersistedRuntime(t, t.TempDir())
