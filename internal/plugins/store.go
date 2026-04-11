@@ -551,6 +551,26 @@ func writeStoreJSONFile(path string, payload any) error {
 }
 
 func computeDirectoryDigest(root string) (string, error) {
+	resolvedRoot, err := resolveDirectoryDigestRoot(root)
+	if err != nil {
+		return "", err
+	}
+	entries, err := collectDirectoryDigestEntries(resolvedRoot)
+	if err != nil {
+		return "", err
+	}
+	return encodeDirectoryDigest(resolvedRoot, entries)
+}
+
+func copyDirectoryTree(sourceRoot string, destRoot string) error {
+	copier := directoryTreeCopier{
+		sourceRoot: sourceRoot,
+		destRoot:   destRoot,
+	}
+	return filepath.WalkDir(sourceRoot, copier.walk)
+}
+
+func resolveDirectoryDigestRoot(root string) (string, error) {
 	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -566,105 +586,156 @@ func computeDirectoryDigest(root string) (string, error) {
 	if !info.IsDir() {
 		return "", fmt.Errorf("%w: %s", ErrPluginRootInvalid, resolvedRoot)
 	}
+	return resolvedRoot, nil
+}
+
+func collectDirectoryDigestEntries(root string) ([]string, error) {
 	entries := make([]string, 0)
-	if err := filepath.WalkDir(resolvedRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+	if err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 		if entry.IsDir() {
 			return nil
 		}
-		relativePath, err := filepath.Rel(resolvedRoot, path)
+		relativePath, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
 		entries = append(entries, filepath.ToSlash(relativePath))
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("walk plugin root %s: %w", resolvedRoot, err)
+		return nil, fmt.Errorf("walk plugin root %s: %w", root, err)
 	}
 	slices.Sort(entries)
+	return entries, nil
+}
+
+func encodeDirectoryDigest(root string, entries []string) (string, error) {
 	hasher := sha256.New()
 	for _, relativePath := range entries {
-		hasher.Write([]byte(relativePath))
-		resolvedPath := filepath.Join(resolvedRoot, filepath.FromSlash(relativePath))
-		handle, err := os.Open(resolvedPath)
-		if err != nil {
-			return "", fmt.Errorf("open plugin file %s: %w", resolvedPath, err)
-		}
-		if _, err := io.Copy(hasher, handle); err != nil {
-			handle.Close()
-			return "", fmt.Errorf("hash plugin file %s: %w", resolvedPath, err)
-		}
-		if err := handle.Close(); err != nil {
-			return "", fmt.Errorf("close plugin file %s: %w", resolvedPath, err)
+		if err := hashDirectoryDigestEntry(hasher, root, relativePath); err != nil {
+			return "", err
 		}
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func copyDirectoryTree(sourceRoot string, destRoot string) error {
-	return filepath.WalkDir(sourceRoot, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+func hashDirectoryDigestEntry(writer io.Writer, root string, relativePath string) error {
+	if _, err := writer.Write([]byte(relativePath)); err != nil {
+		return fmt.Errorf("hash plugin path %s: %w", relativePath, err)
+	}
+	resolvedPath := filepath.Join(root, filepath.FromSlash(relativePath))
+	return hashDirectoryDigestFile(writer, resolvedPath)
+}
+
+func hashDirectoryDigestFile(writer io.Writer, path string) (err error) {
+	handle, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open plugin file %s: %w", path, err)
+	}
+	defer func() {
+		closeErr := handle.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("close plugin file %s: %w", path, closeErr)
 		}
-		relativePath, err := filepath.Rel(sourceRoot, path)
-		if err != nil {
-			return err
+	}()
+	if _, err := io.Copy(writer, handle); err != nil {
+		return fmt.Errorf("hash plugin file %s: %w", path, err)
+	}
+	return nil
+}
+
+type directoryTreeCopier struct {
+	sourceRoot string
+	destRoot   string
+}
+
+func (c directoryTreeCopier) walk(path string, entry fs.DirEntry, walkErr error) error {
+	if walkErr != nil {
+		return walkErr
+	}
+	targetPath, err := c.targetPath(path)
+	if err != nil {
+		return err
+	}
+	if entry.IsDir() {
+		return copyDirectoryTreeDirectory(entry, targetPath)
+	}
+	if entry.Type()&os.ModeSymlink != 0 {
+		return copyDirectoryTreeSymlink(path, targetPath)
+	}
+	if !entry.Type().IsRegular() {
+		return fmt.Errorf("copy plugin snapshot: unsupported file mode at %s", path)
+	}
+	info, err := entry.Info()
+	if err != nil {
+		return err
+	}
+	return copyDirectoryTreeFile(path, targetPath, info.Mode().Perm())
+}
+
+func (c directoryTreeCopier) targetPath(path string) (string, error) {
+	relativePath, err := filepath.Rel(c.sourceRoot, path)
+	if err != nil {
+		return "", err
+	}
+	if relativePath == "." {
+		return c.destRoot, nil
+	}
+	return filepath.Join(c.destRoot, relativePath), nil
+}
+
+func copyDirectoryTreeDirectory(entry fs.DirEntry, targetPath string) error {
+	info, err := entry.Info()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(targetPath, info.Mode().Perm()); err != nil {
+		return fmt.Errorf("create plugin snapshot directory %s: %w", targetPath, err)
+	}
+	return nil
+}
+
+func copyDirectoryTreeSymlink(sourcePath string, targetPath string) error {
+	linkTarget, err := os.Readlink(sourcePath)
+	if err != nil {
+		return fmt.Errorf("read plugin snapshot symlink %s: %w", sourcePath, err)
+	}
+	if err := os.Symlink(linkTarget, targetPath); err != nil {
+		return fmt.Errorf("create plugin snapshot symlink %s: %w", targetPath, err)
+	}
+	return nil
+}
+
+func copyDirectoryTreeFile(sourcePath string, targetPath string, permissions fs.FileMode) (err error) {
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		return fmt.Errorf("create plugin snapshot parent %s: %w", targetPath, err)
+	}
+	sourceHandle, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("open plugin snapshot source %s: %w", sourcePath, err)
+	}
+	defer func() {
+		closeErr := sourceHandle.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("close plugin snapshot source %s: %w", sourcePath, closeErr)
 		}
-		targetPath := destRoot
-		if relativePath != "." {
-			targetPath = filepath.Join(destRoot, relativePath)
+	}()
+	destHandle, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, permissions)
+	if err != nil {
+		return fmt.Errorf("create plugin snapshot file %s: %w", targetPath, err)
+	}
+	defer func() {
+		closeErr := destHandle.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("close plugin snapshot file %s: %w", targetPath, closeErr)
 		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			if err := os.MkdirAll(targetPath, info.Mode().Perm()); err != nil {
-				return fmt.Errorf("create plugin snapshot directory %s: %w", targetPath, err)
-			}
-			return nil
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			linkTarget, err := os.Readlink(path)
-			if err != nil {
-				return fmt.Errorf("read plugin snapshot symlink %s: %w", path, err)
-			}
-			if err := os.Symlink(linkTarget, targetPath); err != nil {
-				return fmt.Errorf("create plugin snapshot symlink %s: %w", targetPath, err)
-			}
-			return nil
-		}
-		if !entry.Type().IsRegular() {
-			return fmt.Errorf("copy plugin snapshot: unsupported file mode at %s", path)
-		}
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			return fmt.Errorf("create plugin snapshot parent %s: %w", targetPath, err)
-		}
-		sourceHandle, err := os.Open(path)
-		if err != nil {
-			return fmt.Errorf("open plugin snapshot source %s: %w", path, err)
-		}
-		destHandle, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode().Perm())
-		if err != nil {
-			sourceHandle.Close()
-			return fmt.Errorf("create plugin snapshot file %s: %w", targetPath, err)
-		}
-		if _, err := io.Copy(destHandle, sourceHandle); err != nil {
-			sourceHandle.Close()
-			destHandle.Close()
-			return fmt.Errorf("copy plugin snapshot file %s: %w", targetPath, err)
-		}
-		if err := sourceHandle.Close(); err != nil {
-			destHandle.Close()
-			return fmt.Errorf("close plugin snapshot source %s: %w", path, err)
-		}
-		if err := destHandle.Close(); err != nil {
-			return fmt.Errorf("close plugin snapshot file %s: %w", targetPath, err)
-		}
-		return nil
-	})
+	}()
+	if _, err := io.Copy(destHandle, sourceHandle); err != nil {
+		return fmt.Errorf("copy plugin snapshot file %s: %w", targetPath, err)
+	}
+	return nil
 }
 
 func randomHex(byteCount int) string {

@@ -368,6 +368,51 @@ func TestStoreCreateHistorySnapshotCopiesInstalledPluginTree(t *testing.T) {
 	}
 }
 
+// History snapshots should preserve plugin-relative symlinks instead of flattening linked files into plain copies.
+func TestStoreCreateHistorySnapshotPreservesRelativeSymlinks(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	linkTarget := "linked.txt"
+	targetPath := filepath.Join(pluginRoot, "backend", linkTarget)
+	if err := os.WriteFile(targetPath, []byte("linked"), 0o644); err != nil {
+		t.Fatalf("write symlink target: %v", err)
+	}
+	linkPath := filepath.Join(pluginRoot, "backend", "linked-symlink.txt")
+	if err := os.Symlink(linkTarget, linkPath); err != nil {
+		t.Fatalf("create plugin symlink: %v", err)
+	}
+
+	store, err := NewStore(StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	historyEntry, err := store.CreateHistorySnapshot("setta-fixture-backend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("create history snapshot: %v", err)
+	}
+
+	snapshotLinkPath := filepath.Join(historyEntry.SnapshotPath, "backend", "linked-symlink.txt")
+	info, err := os.Lstat(snapshotLinkPath)
+	if err != nil {
+		t.Fatalf("lstat snapshot symlink: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected snapshot symlink, got mode %#o", info.Mode())
+	}
+	snapshotTarget, err := os.Readlink(snapshotLinkPath)
+	if err != nil {
+		t.Fatalf("read snapshot symlink: %v", err)
+	}
+	if snapshotTarget != linkTarget {
+		t.Fatalf("expected snapshot symlink target %q, got %q", linkTarget, snapshotTarget)
+	}
+}
+
 // History snapshots should include a random suffix so repeated backups do not collide under the same plugin history root.
 func TestStoreCreateHistorySnapshotUsesUniqueSuffixes(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
