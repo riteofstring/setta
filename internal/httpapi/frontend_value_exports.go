@@ -6,8 +6,6 @@ import (
 	"setta/internal/wsapi"
 )
 
-const frontendAskUserQuestionToolName = "AskUserQuestion"
-
 type FrontendEndpointOrigin string
 
 const (
@@ -168,9 +166,9 @@ func FrontendValueModeScopedLauncherRoutesList() FrontendModeScopedLauncherRoute
 
 func FrontendValueToolNameNormalizationConfig() FrontendToolNameNormalization {
 	return FrontendToolNameNormalization{
-		SinglePrefix:            mcpx.DefaultServerID + "_",
-		DoublePrefix:            mcpx.DefaultServerID + mcpx.ToolNameSeparator,
-		AskUserQuestionToolName: frontendAskUserQuestionToolName,
+		SinglePrefix:            mcpx.DefaultServerSingleTool,
+		DoublePrefix:            mcpx.DefaultServerDoubleTool,
+		AskUserQuestionToolName: mcpx.AskUserQuestionToolName,
 	}
 }
 

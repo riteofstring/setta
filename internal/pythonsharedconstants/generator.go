@@ -10,6 +10,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/localsessions"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdklocalcore"
 	"setta/internal/realtime"
@@ -50,6 +51,11 @@ func Build() (GeneratedConstants, error) {
 		{Name: "SESSION_SECRET_FILENAME", PythonExpr: pythonStringLiteral(localsessions.SessionSecretFileName)},
 		{Name: "PASSWORD_STORE_FILENAME", PythonExpr: pythonStringLiteral(projectstate.PasswordStoreFileName)},
 		{Name: "HEADER_LENGTH_BYTES", PythonExpr: strconv.Itoa(realtime.BinaryHeaderLengthBytes)},
+		{Name: "MCP_TOOL_PREFIX", PythonExpr: pythonStringLiteral(mcpx.ToolNameMCPPrefix)},
+		{Name: "SETTA_TOOL_SINGLE_PREFIX", PythonExpr: pythonStringLiteral(mcpx.DefaultServerSingleTool)},
+		{Name: "SETTA_TOOL_DOUBLE_PREFIX", PythonExpr: pythonStringLiteral(mcpx.DefaultServerDoubleTool)},
+		{Name: "ASK_USER_QUESTION_TOOL_ALIAS", PythonExpr: pythonStringLiteral(mcpx.AskUserQuestionAlias)},
+		{Name: "ASK_USER_QUESTION_TOOL_NAME", PythonExpr: pythonStringLiteral(mcpx.AskUserQuestionToolName)},
 		{Name: "LOCAL_CORE_PROTOCOL_VERSION", PythonExpr: strconv.Itoa(pythonsdklocalcore.ProtocolVersion)},
 		{
 			Name:       "LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES",

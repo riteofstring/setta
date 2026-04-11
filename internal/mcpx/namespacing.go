@@ -3,8 +3,13 @@ package mcpx
 import "strings"
 
 const (
-	ToolNameSeparator = "__"
-	DefaultServerID   = "setta"
+	ToolNameSeparator       = "__"
+	ToolNameMCPPrefix       = "mcp__"
+	DefaultServerID         = "setta"
+	DefaultServerSingleTool = DefaultServerID + "_"
+	DefaultServerDoubleTool = DefaultServerID + ToolNameSeparator
+	AskUserQuestionAlias    = "question"
+	AskUserQuestionToolName = "AskUserQuestion"
 )
 
 func BuildNamespacedToolName(serverID string, toolName string) string {
@@ -25,13 +30,11 @@ func NormalizeToolName(toolName string) string {
 	if normalized == "" {
 		return ""
 	}
-	if strings.HasPrefix(normalized, "mcp__") {
-		normalized = strings.TrimPrefix(normalized, "mcp__")
+	if strings.HasPrefix(normalized, ToolNameMCPPrefix) {
+		normalized = strings.TrimPrefix(normalized, ToolNameMCPPrefix)
 	}
-	singlePrefix := DefaultServerID + "_"
-	doublePrefix := DefaultServerID + ToolNameSeparator
-	if strings.HasPrefix(normalized, singlePrefix) && !strings.HasPrefix(normalized, doublePrefix) {
-		normalized = DefaultServerID + ToolNameSeparator + strings.TrimPrefix(normalized, singlePrefix)
+	if strings.HasPrefix(normalized, DefaultServerSingleTool) && !strings.HasPrefix(normalized, DefaultServerDoubleTool) {
+		normalized = DefaultServerDoubleTool + strings.TrimPrefix(normalized, DefaultServerSingleTool)
 	}
 	return normalized
 }

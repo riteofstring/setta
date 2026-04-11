@@ -18,6 +18,13 @@ from claude_agent_sdk import (
     ResultMessage,
     SystemMessage,
 )
+from setta.types.generated.go_shared_constants import (
+    ASK_USER_QUESTION_TOOL_ALIAS,
+    ASK_USER_QUESTION_TOOL_NAME,
+    MCP_TOOL_PREFIX,
+    SETTA_TOOL_DOUBLE_PREFIX,
+    SETTA_TOOL_SINGLE_PREFIX,
+)
 
 try:
     from claude_agent_sdk import StreamEvent as ClaudeStreamEvent
@@ -153,14 +160,16 @@ def to_jsonable(value: Any) -> Any:
 
 
 def strip_mcp_tool_prefix(tool_name: str) -> tuple[str, bool]:
-    if tool_name.startswith("mcp__"):
-        return tool_name[len("mcp__") :], True
+    if tool_name.startswith(MCP_TOOL_PREFIX):
+        return tool_name[len(MCP_TOOL_PREFIX) :], True
     return tool_name, False
 
 
 def normalize_setta_tool_prefix(tool_name: str) -> str:
-    if tool_name.startswith("setta_") and not tool_name.startswith("setta__"):
-        return "setta__" + tool_name[len("setta_") :]
+    if tool_name.startswith(SETTA_TOOL_SINGLE_PREFIX) and not tool_name.startswith(
+        SETTA_TOOL_DOUBLE_PREFIX
+    ):
+        return SETTA_TOOL_DOUBLE_PREFIX + tool_name[len(SETTA_TOOL_SINGLE_PREFIX) :]
     return tool_name
 
 
@@ -170,9 +179,9 @@ def normalize_tool_name(value: str | None) -> str:
         return ""
     normalized, had_mcp_prefix = strip_mcp_tool_prefix(trimmed)
     normalized = normalize_setta_tool_prefix(normalized)
-    if had_mcp_prefix or normalized.lower() != "question":
+    if had_mcp_prefix or normalized.lower() != ASK_USER_QUESTION_TOOL_ALIAS:
         return normalized
-    return "AskUserQuestion"
+    return ASK_USER_QUESTION_TOOL_NAME
 
 
 def parse_non_negative_int(value: Any) -> int | None:
@@ -340,8 +349,8 @@ def normalize_allowed_tool(value: Any) -> str | None:
     normalized = normalize_optional_string(value)
     if normalized is None:
         return None
-    if normalized.lower() == "askuserquestion":
-        return "question"
+    if normalized.lower() == ASK_USER_QUESTION_TOOL_NAME.lower():
+        return ASK_USER_QUESTION_TOOL_ALIAS
     return normalized
 
 
@@ -637,7 +646,7 @@ class ClaudeSidecar:
         if updated_input is not None:
             return updated_input
         answers = extract_answers(payload)
-        if not answers or pending.tool_name != "AskUserQuestion":
+        if not answers or pending.tool_name != ASK_USER_QUESTION_TOOL_NAME:
             return None
         base_input = pending.tool_input if isinstance(pending.tool_input, dict) else {}
         return {**base_input, "answers": answers}
