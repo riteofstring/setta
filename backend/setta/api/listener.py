@@ -69,6 +69,7 @@ from setta.types.artifact import (
     BaseArtifactTypeAdapter,
     BaseArtifactUnion,
 )
+from setta.types.generated.go_shared_constants import LOOPBACK_HOSTS
 from setta.types.generated.go_shared_types import (
     CodeObjType,
     CodeObjValueRepresentationMode,
@@ -109,7 +110,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING = object()
 _UNAVAILABLE = object()
-_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _GENERATED_LISTENER_MESSAGE_MODELS: dict[str, type[BaseModel]] = {
     ListenerMessageType.ListenerError.value: ListenerErrorMessage,
     ListenerMessageType.ListenerFrontendEmit.value: ListenerFrontendEmitMessage,
@@ -137,7 +137,7 @@ def parse_frontend_affinity_token(value: Any) -> str | None:
 
 
 def _hosts_are_equivalent(left: str, right: str) -> bool:
-    return left == right or {left, right} <= _LOOPBACK_HOSTS
+    return left == right or {left, right} <= LOOPBACK_HOSTS
 
 
 def _validate_generated_listener_message(raw_message: Any) -> BaseModel | None:

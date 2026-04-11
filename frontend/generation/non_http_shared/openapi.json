@@ -7231,6 +7231,20 @@
         "title": "LocalCoreVersionHandshake",
         "type": "object"
       },
+      "LocalHostnamePolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "loopbackHosts": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["loopbackHosts"],
+        "title": "LocalHostnamePolicy",
+        "type": "object"
+      },
       "Location": {
         "additionalProperties": false,
         "properties": {},

@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"setta/internal/hostnames"
 )
 
 const (
@@ -764,9 +766,9 @@ func resolveBootstrapRedirectURL(r *http.Request) string {
 		host = requestHostname(r)
 	}
 	if host == "" {
-		host = "127.0.0.1"
+		host = hostnames.LoopbackIPv4
 	}
-	devHost := formatHostForURL(host)
+	devHost := hostnames.FormatHostForURL(host)
 
 	redirectURL := scheme + "://" + devHost + ":" + devFrontendPort + "/"
 	backendOrigin := requestOrigin(r)
@@ -821,18 +823,6 @@ func requestHostname(r *http.Request) string {
 	}
 	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
 		return parsedHost
-	}
-	return host
-}
-
-func formatHostForURL(host string) string {
-	if host == "0.0.0.0" {
-		host = "127.0.0.1"
-	} else if host == "::" {
-		host = "::1"
-	}
-	if strings.Contains(host, ":") && !strings.HasPrefix(host, "[") {
-		return "[" + host + "]"
 	}
 	return host
 }

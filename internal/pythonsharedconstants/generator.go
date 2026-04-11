@@ -2,6 +2,8 @@ package pythonsharedconstants
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/hostnames"
 	"setta/internal/localsessions"
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
@@ -51,6 +54,8 @@ func Build() (GeneratedConstants, error) {
 		{Name: "SESSION_SECRET_FILENAME", PythonExpr: pythonStringLiteral(localsessions.SessionSecretFileName)},
 		{Name: "PASSWORD_STORE_FILENAME", PythonExpr: pythonStringLiteral(projectstate.PasswordStoreFileName)},
 		{Name: "HEADER_LENGTH_BYTES", PythonExpr: strconv.Itoa(realtime.BinaryHeaderLengthBytes)},
+		{Name: "LOOPBACK_HOSTS", PythonExpr: pythonFrozenStringSetExpr(hostnames.LoopbackHosts())},
+		{Name: "SESSION_MATCH_HOST_REWRITES", PythonExpr: pythonStringDictExpr(hostnames.SessionMatchHostRewrites())},
 		{Name: "MCP_TOOL_PREFIX", PythonExpr: pythonStringLiteral(mcpx.ToolNameMCPPrefix)},
 		{Name: "SETTA_TOOL_SINGLE_PREFIX", PythonExpr: pythonStringLiteral(mcpx.DefaultServerSingleTool)},
 		{Name: "SETTA_TOOL_DOUBLE_PREFIX", PythonExpr: pythonStringLiteral(mcpx.DefaultServerDoubleTool)},
@@ -93,4 +98,16 @@ func pythonFrozenStringSetExpr(values []string) string {
 		parts = append(parts, pythonStringLiteral(value))
 	}
 	return fmt.Sprintf("frozenset((%s))", strings.Join(parts, ", "))
+}
+
+func pythonStringDictExpr(values map[string]string) string {
+	if len(values) == 0 {
+		return "{}"
+	}
+	keys := slices.Sorted(maps.Keys(values))
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s: %s", pythonStringLiteral(key), pythonStringLiteral(values[key])))
+	}
+	return fmt.Sprintf("{%s}", strings.Join(parts, ", "))
 }

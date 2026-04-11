@@ -21,6 +21,7 @@ from setta.sdk_contracts.generated import (
 )
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
+from setta.types.generated.go_shared_constants import SESSION_MATCH_HOST_REWRITES
 from setta.types.generated.go_shared_types import (
     DependencyKeyType,
     ProjectConfig,
@@ -146,11 +147,7 @@ def _normalize_backend_host(host: str | None) -> str | None:
     cleaned = host.strip()
     if cleaned.startswith("[") and cleaned.endswith("]"):
         cleaned = cleaned[1:-1]
-    if cleaned == "0.0.0.0" or cleaned == "localhost":
-        return "127.0.0.1"
-    if cleaned == "::":
-        return "::1"
-    return cleaned
+    return SESSION_MATCH_HOST_REWRITES.get(cleaned.lower(), cleaned)
 
 
 def _build_cookie_headers(cookie_name: str, cookie_value: str) -> dict[str, str]:

@@ -299,6 +299,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesResult{}):  "LocalCoreRenderRealtimeDependencyValuesResult",
 	reflect.TypeOf(pythonsdkcontracts.LocalCoreResultEnvelope{}):                        "LocalCoreResultEnvelope",
 	reflect.TypeOf(pythonsdkcontracts.LocalCoreVersionHandshake{}):                      "LocalCoreVersionHandshake",
+	reflect.TypeOf(httpapi.FrontendLocalHostnamePolicy{}):                               "LocalHostnamePolicy",
 	reflect.TypeOf(llmconfig.ManagedAPIKeysSnapshot{}):                                  "ManagedAPIKeysSnapshot",
 	reflect.TypeOf(llmconfig.ManagedAPIKeysWriteStatus("")):                             "ManagedAPIKeysWriteStatus",
 	reflect.TypeOf(deployments.Manifest{}):                                              "Manifest",

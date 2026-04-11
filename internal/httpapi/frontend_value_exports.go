@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"setta/internal/config"
+	"setta/internal/hostnames"
 	"setta/internal/mcpx"
 	"setta/internal/wsapi"
 )
@@ -41,6 +42,10 @@ type FrontendToolNameNormalization struct {
 	SinglePrefix            string `json:"singlePrefix"`
 	DoublePrefix            string `json:"doublePrefix"`
 	AskUserQuestionToolName string `json:"askUserQuestionToolName"`
+}
+
+type FrontendLocalHostnamePolicy struct {
+	LoopbackHosts []string `json:"loopbackHosts"`
 }
 
 type FrontendRootTransportRoutes struct {
@@ -169,6 +174,12 @@ func FrontendValueToolNameNormalizationConfig() FrontendToolNameNormalization {
 		SinglePrefix:            mcpx.DefaultServerSingleTool,
 		DoublePrefix:            mcpx.DefaultServerDoubleTool,
 		AskUserQuestionToolName: mcpx.AskUserQuestionToolName,
+	}
+}
+
+func FrontendValueLocalHostnamePolicyConfig() FrontendLocalHostnamePolicy {
+	return FrontendLocalHostnamePolicy{
+		LoopbackHosts: hostnames.LoopbackHosts(),
 	}
 }
 

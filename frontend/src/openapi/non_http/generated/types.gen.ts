@@ -3059,6 +3059,13 @@ type LocalCoreVersionHandshake = {
 };
 
 /**
+ * LocalHostnamePolicy
+ */
+export type LocalHostnamePolicy = {
+  loopbackHosts: null | Array<string>;
+};
+
+/**
  * Location
  */
 type Location = {

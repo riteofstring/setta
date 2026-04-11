@@ -4308,6 +4308,10 @@ export const EndpointOriginPolicyByRoute = {
   "/settaHomeInfo": "backend",
 } satisfies gt.EndpointOriginPolicy;
 
+export const LocalHostnamePolicyConfig = {
+  loopbackHosts: ["127.0.0.1", "localhost", "::1"],
+} satisfies gt.LocalHostnamePolicy;
+
 export const ModeScopedLauncherRoutesList = [
   "/launch",
   "/createWorkspaceLaunchIntent",

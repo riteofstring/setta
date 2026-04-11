@@ -8626,6 +8626,25 @@
       ],
       "additionalProperties": false
     },
+    "LocalHostnamePolicy": {
+      "type": "object",
+      "properties": {
+        "loopbackHosts": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "LocalHostnamePolicy",
+      "required": [
+        "loopbackHosts"
+      ],
+      "additionalProperties": false
+    },
     "Location": {
       "type": "object",
       "properties": {},

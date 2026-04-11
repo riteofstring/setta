@@ -20,6 +20,14 @@ SESSION_METADATA_FILENAME = "session.json"
 SESSION_SECRET_FILENAME = "secret"
 PASSWORD_STORE_FILENAME = "passwords.json"
 HEADER_LENGTH_BYTES = 4
+LOOPBACK_HOSTS = frozenset(("127.0.0.1", "localhost", "::1"))
+SESSION_MATCH_HOST_REWRITES = {
+    "0.0.0.0": "127.0.0.1",
+    "127.0.0.1": "127.0.0.1",
+    "::": "::1",
+    "::1": "::1",
+    "localhost": "127.0.0.1",
+}
 MCP_TOOL_PREFIX = "mcp__"
 SETTA_TOOL_SINGLE_PREFIX = "setta_"
 SETTA_TOOL_DOUBLE_PREFIX = "setta__"

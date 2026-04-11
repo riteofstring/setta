@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"setta/internal/hostnames"
 )
 
 const JSONPayloadPrefix = "__SETTA_JSON_B64__"
@@ -301,17 +303,7 @@ func TunnelIDForKeyHash(keyHash string) string {
 }
 
 func FormatHostForSSHTunnel(host string) string {
-	trimmedHost := strings.TrimSpace(host)
-	switch trimmedHost {
-	case "0.0.0.0":
-		trimmedHost = "127.0.0.1"
-	case "::":
-		trimmedHost = "::1"
-	}
-	if strings.Contains(trimmedHost, ":") && !strings.HasPrefix(trimmedHost, "[") {
-		return "[" + trimmedHost + "]"
-	}
-	return trimmedHost
+	return hostnames.FormatHostForURL(host)
 }
 
 func BuildSSHTunnelArgs(sshTarget string, sshArgs []string, host string, localPort int, remotePort int, sshPrefix []string) []string {

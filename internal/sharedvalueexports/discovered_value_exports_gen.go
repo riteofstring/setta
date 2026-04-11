@@ -41,6 +41,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "LocalHostnamePolicyConfig",
+			Type: reflect.TypeOf(httpapi.FrontendValueLocalHostnamePolicyConfig()),
+			Value: func() any {
+				return httpapi.FrontendValueLocalHostnamePolicyConfig()
+			},
+		},
+		{
 			Name: "ModeScopedLauncherRoutesList",
 			Type: reflect.TypeOf(httpapi.FrontendValueModeScopedLauncherRoutesList()),
 			Value: func() any {

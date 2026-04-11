@@ -18,6 +18,7 @@ import (
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/frontendorigins"
+	"setta/internal/hostnames"
 	"setta/internal/modes"
 	"setta/internal/pythonsdkcontracts"
 )
@@ -1003,8 +1004,8 @@ func TestFormatHostForURLNormalizesWildcardAndIPv6Hosts(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		if got := formatHostForURL(testCase.host); got != testCase.want {
-			t.Fatalf("formatHostForURL(%q) = %q, want %q", testCase.host, got, testCase.want)
+		if got := hostnames.FormatHostForURL(testCase.host); got != testCase.want {
+			t.Fatalf("FormatHostForURL(%q) = %q, want %q", testCase.host, got, testCase.want)
 		}
 	}
 }

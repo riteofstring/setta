@@ -2090,6 +2090,11 @@
       "schemaRef": "#/$defs/LocalCoreVersionHandshake"
     },
     {
+      "name": "LocalHostnamePolicy",
+      "kind": "model",
+      "schemaRef": "#/$defs/LocalHostnamePolicy"
+    },
+    {
       "name": "Location",
       "kind": "model",
       "schemaRef": "#/$defs/Location"
@@ -10244,6 +10249,17 @@
         "/pinLauncherRecentWorkspace": "launcher",
         "/removeLauncherRecentWorkspace": "launcher",
         "/settaHomeInfo": "backend"
+      }
+    },
+    {
+      "name": "LocalHostnamePolicyConfig",
+      "type": "LocalHostnamePolicy",
+      "value": {
+        "loopbackHosts": [
+          "127.0.0.1",
+          "localhost",
+          "::1"
+        ]
       }
     },
     {
