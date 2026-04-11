@@ -67,6 +67,12 @@ type DirectoryListing struct {
 	Truncated   bool
 }
 
+type directoryListRequest struct {
+	directory    string
+	pageSize     int
+	cursorOffset int
+}
+
 type HomeServiceOptions struct {
 	EnvLookup                func(string) (string, bool)
 	Now                      func() time.Time
@@ -286,103 +292,21 @@ func (s *HomeService) ListDirectory(input ListDirectoryInput) (DirectoryListing,
 		return DirectoryListing{}, err
 	}
 
-	if input.Path == nil || strings.TrimSpace(*input.Path) == "" {
-		entries := make([]DirectoryEntry, 0, len(allowedRoots))
-		for _, root := range allowedRoots {
-			entries = append(entries, DirectoryEntry{
-				Name:        launcherPathDisplayName(root),
-				Path:        root,
-				IsDirectory: true,
-				IsSymlink:   pathIsSymlink(root),
-			})
-		}
-		return DirectoryListing{
-			Entries: entries,
-		}, nil
+	if shouldListAllowedRoots(input.Path) {
+		return listAllowedRootsDirectory(allowedRoots), nil
 	}
 
-	pageSize, err := s.normalizeDirectoryPageSize(input.PageSize)
-	if err != nil {
-		return DirectoryListing{}, err
-	}
-	cursorOffset, err := s.normalizeDirectoryCursor(input.Cursor)
+	request, err := s.resolveDirectoryListRequest(input, allowedRoots)
 	if err != nil {
 		return DirectoryListing{}, err
 	}
 
-	resolvedDirectory, err := resolvePathWithinAllowedRoots(*input.Path, allowedRoots, false)
+	candidateEntries, truncated, err := s.readDirectoryEntries(request.directory, allowedRoots)
 	if err != nil {
 		return DirectoryListing{}, err
 	}
-
-	info, statErr := os.Stat(resolvedDirectory)
-	if statErr != nil {
-		if errors.Is(statErr, fs.ErrNotExist) {
-			return DirectoryListing{}, &HomeError{
-				Code:    "PathNotFound",
-				Message: fmt.Sprintf("Path does not exist: %s", resolvedDirectory),
-			}
-		}
-		return DirectoryListing{}, &HomeError{
-			Code:    "DirectoryReadFailed",
-			Message: fmt.Sprintf("Failed to read directory %s: %v", resolvedDirectory, statErr),
-		}
-	}
-	if !info.IsDir() {
-		return DirectoryListing{}, &HomeError{
-			Code:    "BadRequest",
-			Message: fmt.Sprintf("Path is not a directory: %s", resolvedDirectory),
-		}
-	}
-
-	candidateEntries, truncated, err := s.readDirectoryEntries(resolvedDirectory, allowedRoots)
-	if err != nil {
-		return DirectoryListing{}, err
-	}
-	sort.Slice(candidateEntries, func(i int, j int) bool {
-		if candidateEntries[i].IsDirectory != candidateEntries[j].IsDirectory {
-			return candidateEntries[i].IsDirectory
-		}
-		leftName := strings.ToLower(candidateEntries[i].Name)
-		rightName := strings.ToLower(candidateEntries[j].Name)
-		if leftName != rightName {
-			return leftName < rightName
-		}
-		return candidateEntries[i].Name < candidateEntries[j].Name
-	})
-
-	pageStart := cursorOffset
-	if pageStart > len(candidateEntries) {
-		pageStart = len(candidateEntries)
-	}
-	pageEnd := pageStart + pageSize
-	if pageEnd > len(candidateEntries) {
-		pageEnd = len(candidateEntries)
-	}
-	visibleEntries := append([]DirectoryEntry(nil), candidateEntries[pageStart:pageEnd]...)
-	hasMore := len(candidateEntries) > pageEnd
-
-	var nextCursor *string
-	if hasMore {
-		cursor := strconv.Itoa(cursorOffset + len(visibleEntries))
-		nextCursor = &cursor
-	}
-
-	var parentPath *string
-	parent := filepath.Dir(resolvedDirectory)
-	if parent != resolvedDirectory && isWithinAnyRoot(parent, allowedRoots) {
-		parentPath = &parent
-	}
-
-	currentPath := resolvedDirectory
-	return DirectoryListing{
-		CurrentPath: &currentPath,
-		ParentPath:  parentPath,
-		Entries:     visibleEntries,
-		NextCursor:  nextCursor,
-		HasMore:     hasMore,
-		Truncated:   truncated,
-	}, nil
+	sortDirectoryEntries(candidateEntries)
+	return buildDirectoryListing(request.directory, candidateEntries, request.pageSize, request.cursorOffset, truncated, allowedRoots), nil
 }
 
 func (s *HomeService) updateRecentWorkspaces(settaHome string, apply func([]RecentWorkspaceEntry, []string) ([]RecentWorkspaceEntry, error)) ([]RecentWorkspaceEntry, error) {
@@ -533,71 +457,36 @@ func (s *HomeService) normalizeTimestamp(rawValue any) int64 {
 func (s *HomeService) readDirectoryEntries(directory string, allowedRoots []string) ([]DirectoryEntry, bool, error) {
 	handle, err := os.Open(directory)
 	if err != nil {
-		return nil, false, &HomeError{
-			Code:    "DirectoryReadFailed",
-			Message: fmt.Sprintf("Failed to read directory %s: %v", directory, err),
-		}
+		return nil, false, directoryReadError(directory, err)
 	}
 	defer handle.Close()
 
-	entries := []DirectoryEntry{}
+	entries := make([]DirectoryEntry, 0)
 	scannedCount := 0
-	truncated := false
 	for {
-		children, err := handle.ReadDir(256)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return nil, false, &HomeError{
-				Code:    "DirectoryReadFailed",
-				Message: fmt.Sprintf("Failed to read directory %s: %v", directory, err),
-			}
+		children, done, err := readDirectoryChunk(handle, directory)
+		if err != nil {
+			return nil, false, err
 		}
-		if len(children) == 0 {
-			break
-		}
-
 		for _, child := range children {
 			scannedCount++
 			if scannedCount > s.maxDirectoryScanEntries {
-				truncated = true
-				return entries, truncated, nil
+				return entries, true, nil
 			}
 
-			childPath := filepath.Join(directory, child.Name())
-			resolvedChild, resolveErr := resolvePathLoose(childPath)
-			if resolveErr != nil {
-				return nil, false, &HomeError{
-					Code:    "DirectoryReadFailed",
-					Message: fmt.Sprintf("Failed to read directory %s: %v", directory, resolveErr),
-				}
+			entry, visible, err := resolveDirectoryEntry(directory, child, allowedRoots)
+			if err != nil {
+				return nil, false, err
 			}
-			if !isWithinAnyRoot(resolvedChild, allowedRoots) {
-				continue
+			if visible {
+				entries = append(entries, entry)
 			}
-
-			isDirectory := false
-			childInfo, statErr := os.Stat(resolvedChild)
-			if statErr == nil {
-				isDirectory = childInfo.IsDir()
-			} else if !errors.Is(statErr, fs.ErrNotExist) {
-				return nil, false, &HomeError{
-					Code:    "DirectoryReadFailed",
-					Message: fmt.Sprintf("Failed to read directory %s: %v", directory, statErr),
-				}
-			}
-
-			entries = append(entries, DirectoryEntry{
-				Name:        child.Name(),
-				Path:        resolvedChild,
-				IsDirectory: isDirectory,
-				IsSymlink:   child.Type()&os.ModeSymlink != 0,
-			})
 		}
 
-		if errors.Is(err, io.EOF) {
-			break
+		if done {
+			return entries, false, nil
 		}
 	}
-	return entries, truncated, nil
 }
 
 func (s *HomeService) normalizeDirectoryPageSize(rawPageSize *int) (int, error) {
@@ -667,6 +556,118 @@ func filterEntriesWithinAllowedRoots(entries []RecentWorkspaceEntry, allowedRoot
 	return filtered
 }
 
+func shouldListAllowedRoots(path *string) bool {
+	return path == nil || strings.TrimSpace(*path) == ""
+}
+
+func listAllowedRootsDirectory(allowedRoots []string) DirectoryListing {
+	entries := make([]DirectoryEntry, 0, len(allowedRoots))
+	for _, root := range allowedRoots {
+		entries = append(entries, DirectoryEntry{
+			Name:        launcherPathDisplayName(root),
+			Path:        root,
+			IsDirectory: true,
+			IsSymlink:   pathIsSymlink(root),
+		})
+	}
+	return DirectoryListing{Entries: entries}
+}
+
+func (s *HomeService) resolveDirectoryListRequest(input ListDirectoryInput, allowedRoots []string) (directoryListRequest, error) {
+	pageSize, err := s.normalizeDirectoryPageSize(input.PageSize)
+	if err != nil {
+		return directoryListRequest{}, err
+	}
+	cursorOffset, err := s.normalizeDirectoryCursor(input.Cursor)
+	if err != nil {
+		return directoryListRequest{}, err
+	}
+	resolvedDirectory, err := resolvePathWithinAllowedRoots(*input.Path, allowedRoots, false)
+	if err != nil {
+		return directoryListRequest{}, err
+	}
+	if err := ensureDirectoryPath(resolvedDirectory); err != nil {
+		return directoryListRequest{}, err
+	}
+	return directoryListRequest{
+		directory:    resolvedDirectory,
+		pageSize:     pageSize,
+		cursorOffset: cursorOffset,
+	}, nil
+}
+
+func ensureDirectoryPath(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return &HomeError{
+				Code:    "PathNotFound",
+				Message: fmt.Sprintf("Path does not exist: %s", path),
+			}
+		}
+		return directoryReadError(path, err)
+	}
+	if !info.IsDir() {
+		return &HomeError{
+			Code:    "BadRequest",
+			Message: fmt.Sprintf("Path is not a directory: %s", path),
+		}
+	}
+	return nil
+}
+
+func sortDirectoryEntries(entries []DirectoryEntry) {
+	sort.Slice(entries, func(i int, j int) bool {
+		if entries[i].IsDirectory != entries[j].IsDirectory {
+			return entries[i].IsDirectory
+		}
+		leftName := strings.ToLower(entries[i].Name)
+		rightName := strings.ToLower(entries[j].Name)
+		if leftName != rightName {
+			return leftName < rightName
+		}
+		return entries[i].Name < entries[j].Name
+	})
+}
+
+func buildDirectoryListing(directory string, entries []DirectoryEntry, pageSize int, cursorOffset int, truncated bool, allowedRoots []string) DirectoryListing {
+	visibleEntries, nextCursor, hasMore := paginateDirectoryEntries(entries, pageSize, cursorOffset)
+	currentPath := directory
+	return DirectoryListing{
+		CurrentPath: &currentPath,
+		ParentPath:  directoryParentPath(directory, allowedRoots),
+		Entries:     visibleEntries,
+		NextCursor:  nextCursor,
+		HasMore:     hasMore,
+		Truncated:   truncated,
+	}
+}
+
+func paginateDirectoryEntries(entries []DirectoryEntry, pageSize int, cursorOffset int) ([]DirectoryEntry, *string, bool) {
+	pageStart := cursorOffset
+	if pageStart > len(entries) {
+		pageStart = len(entries)
+	}
+	pageEnd := pageStart + pageSize
+	if pageEnd > len(entries) {
+		pageEnd = len(entries)
+	}
+	visibleEntries := append([]DirectoryEntry(nil), entries[pageStart:pageEnd]...)
+	if len(entries) <= pageEnd {
+		return visibleEntries, nil, false
+	}
+	cursor := strconv.Itoa(cursorOffset + len(visibleEntries))
+	return visibleEntries, &cursor, true
+}
+
+func directoryParentPath(directory string, allowedRoots []string) *string {
+	parent := filepath.Dir(directory)
+	if parent == directory || !isWithinAnyRoot(parent, allowedRoots) {
+		return nil
+	}
+	return &parent
+}
+
 func writeRecentWorkspacesFile(path string, entries []RecentWorkspaceEntry) error {
 	content, err := json.MarshalIndent(entries, "", "  ")
 	if err != nil {
@@ -718,6 +719,56 @@ func resolvePathWithinAllowedRoots(rawPath string, allowedRoots []string, allowN
 	}
 
 	return resolvedPath, nil
+}
+
+func readDirectoryChunk(handle *os.File, directory string) ([]os.DirEntry, bool, error) {
+	children, err := handle.ReadDir(256)
+	switch {
+	case err == nil:
+		return children, false, nil
+	case errors.Is(err, io.EOF):
+		return children, true, nil
+	default:
+		return nil, false, directoryReadError(directory, err)
+	}
+}
+
+func resolveDirectoryEntry(directory string, child os.DirEntry, allowedRoots []string) (DirectoryEntry, bool, error) {
+	resolvedChild, err := resolvePathLoose(filepath.Join(directory, child.Name()))
+	if err != nil {
+		return DirectoryEntry{}, false, directoryReadError(directory, err)
+	}
+	if !isWithinAnyRoot(resolvedChild, allowedRoots) {
+		return DirectoryEntry{}, false, nil
+	}
+	isDirectory, err := isDirectoryEntryPath(resolvedChild)
+	if err != nil {
+		return DirectoryEntry{}, false, directoryReadError(directory, err)
+	}
+	return DirectoryEntry{
+		Name:        child.Name(),
+		Path:        resolvedChild,
+		IsDirectory: isDirectory,
+		IsSymlink:   child.Type()&os.ModeSymlink != 0,
+	}, true, nil
+}
+
+func isDirectoryEntryPath(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if err == nil {
+		return info.IsDir(), nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
+}
+
+func directoryReadError(directory string, err error) *HomeError {
+	return &HomeError{
+		Code:    "DirectoryReadFailed",
+		Message: fmt.Sprintf("Failed to read directory %s: %v", directory, err),
+	}
 }
 
 func resolvePathLoose(rawPath string) (string, error) {
