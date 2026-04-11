@@ -299,91 +299,251 @@ func createPromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 	}
 }
 
+func requirePromptTemplateMutationStore(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps PromptTemplateRouteDependencies,
+) (*prompttemplates.Store, *projectstate.Runtime, bool) {
+	store := deps.Templates
+	if store == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return nil, nil, false
+	}
+	return store, deps.ProjectState, true
+}
+
+func decodeUpdatedPromptTemplateRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+) (prompttemplates.Template, bool) {
+	payload, err := decodeStrictJSONBody[UpdatePromptTemplateRequest](r)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+		return prompttemplates.Template{}, false
+	}
+	template, routeErr := buildUpdatedPromptTemplate(payload)
+	if routeErr != nil {
+		writeError(w, r, routeErr.Status, routeErr.Code, routeErr.Message)
+		return prompttemplates.Template{}, false
+	}
+	return template, true
+}
+
+func linkedPromptTemplateProjectIDsForUpdate(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectState *projectstate.Runtime,
+	templateID string,
+) ([]string, bool) {
+	if projectState == nil {
+		return nil, true
+	}
+	projectIDs, err := linkedPromptTemplateProjectIDs(
+		projectState.Snapshot().Document,
+		templateID,
+	)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return nil, false
+	}
+	return projectIDs, true
+}
+
+func ensurePromptTemplateExists(
+	w http.ResponseWriter,
+	r *http.Request,
+	store *prompttemplates.Store,
+	templateID string,
+) bool {
+	if _, err := store.Get(templateID); err != nil {
+		if writePromptTemplateStoreError(w, r, err) {
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	return true
+}
+
+func refreshPromptTemplateLinkedProjectState(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectState *projectstate.Runtime,
+	template prompttemplates.Template,
+) (projectstate.Snapshot, bool) {
+	if projectState == nil {
+		return projectstate.Snapshot{}, true
+	}
+	projectSnapshot, _, err := projectState.RefreshLinkedPromptSectionsForTemplate(
+		r.Context(),
+		template.ID,
+		template.Template,
+		template.Format,
+	)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return projectstate.Snapshot{}, false
+	}
+	return projectSnapshot, true
+}
+
+func syncPromptTemplateWatcher(
+	w http.ResponseWriter,
+	r *http.Request,
+	watcher *prompttemplates.Watcher,
+) bool {
+	if watcher == nil {
+		return true
+	}
+	if err := watcher.SyncKnownState(); err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	return true
+}
+
+func broadcastUpdatedPromptTemplateState(
+	w http.ResponseWriter,
+	r *http.Request,
+	store *prompttemplates.Store,
+	watcherHub *realtime.WebsocketHub,
+	projectState *projectstate.Runtime,
+	projectSnapshot projectstate.Snapshot,
+	linkedProjectIDs []string,
+) bool {
+	if err := broadcastPromptTemplatesUpdated(r.Context(), store, watcherHub); err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if err := broadcastLinkedPromptTemplateProjectStateUpdates(
+		r.Context(),
+		watcherHub,
+		projectState,
+		projectSnapshot,
+		linkedProjectIDs,
+	); err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	return true
+}
+
+func loadSavedPromptTemplate(
+	w http.ResponseWriter,
+	r *http.Request,
+	store *prompttemplates.Store,
+	templateID string,
+) (prompttemplates.Template, bool) {
+	saved, err := store.Get(templateID)
+	if err != nil {
+		if writePromptTemplateStoreError(w, r, err) {
+			return prompttemplates.Template{}, false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return prompttemplates.Template{}, false
+	}
+	return saved, true
+}
+
+func decodeDeletePromptTemplateID(
+	w http.ResponseWriter,
+	r *http.Request,
+) (string, bool) {
+	payload, err := decodeStrictJSONBody[DeletePromptTemplateRequest](r)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+		return "", false
+	}
+	templateID := strings.TrimSpace(payload.TemplateID)
+	if templateID == "" {
+		writeError(w, r, http.StatusBadRequest, "template_id_required", "Template id is required.")
+		return "", false
+	}
+	return templateID, true
+}
+
+func ensurePromptTemplateDeleteAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectState *projectstate.Runtime,
+	templateID string,
+) bool {
+	if projectState == nil {
+		return true
+	}
+	references := projectState.Snapshot().Document.WorkflowPromptTemplateReferences(templateID)
+	if len(references) == 0 {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusConflict,
+		"prompt_template_in_use",
+		fmt.Sprintf(
+			"Prompt template %s is still referenced by workflow edges: %s",
+			templateID,
+			strings.Join(references, "; "),
+		),
+	)
+	return false
+}
+
 func updatePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !ensurePromptTemplateMutationsAllowed(w, r, "updating") {
 			return
 		}
-		store := deps.Templates
-		projectState := deps.ProjectState
-		if store == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		store, projectState, ok := requirePromptTemplateMutationStore(w, r, deps)
+		if !ok {
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[UpdatePromptTemplateRequest](r)
-		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+		template, ok := decodeUpdatedPromptTemplateRequest(w, r)
+		if !ok {
 			return
 		}
-
-		template, routeErr := buildUpdatedPromptTemplate(payload)
-		if routeErr != nil {
-			writeError(w, r, routeErr.Status, routeErr.Code, routeErr.Message)
+		linkedProjectIDs, ok := linkedPromptTemplateProjectIDsForUpdate(
+			w,
+			r,
+			projectState,
+			template.ID,
+		)
+		if !ok {
 			return
 		}
-		linkedProjectIDs := []string(nil)
-		if projectState != nil {
-			linkedProjectIDs, err = linkedPromptTemplateProjectIDs(
-				projectState.Snapshot().Document,
-				template.ID,
-			)
-			if err != nil {
-				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-				return
-			}
-		}
-		if _, err := store.Get(template.ID); err != nil {
-			if writePromptTemplateStoreError(w, r, err) {
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		if !ensurePromptTemplateExists(w, r, store, template.ID) {
 			return
 		}
 		if err := store.Save(template); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		projectSnapshot := projectstate.Snapshot{}
-		if projectState != nil {
-			projectSnapshot, _, err = projectState.RefreshLinkedPromptSectionsForTemplate(
-				r.Context(),
-				template.ID,
-				template.Template,
-				template.Format,
-			)
-			if err != nil {
-				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-				return
-			}
-		}
-		if deps.Watcher != nil {
-			if err := deps.Watcher.SyncKnownState(); err != nil {
-				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-				return
-			}
-		}
-		if err := broadcastPromptTemplatesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		projectSnapshot, ok := refreshPromptTemplateLinkedProjectState(
+			w,
+			r,
+			projectState,
+			template,
+		)
+		if !ok {
 			return
 		}
-		if err := broadcastLinkedPromptTemplateProjectStateUpdates(
-			r.Context(),
+		if !syncPromptTemplateWatcher(w, r, deps.Watcher) {
+			return
+		}
+		if !broadcastUpdatedPromptTemplateState(
+			w,
+			r,
+			store,
 			deps.WebsocketHub,
 			projectState,
 			projectSnapshot,
 			linkedProjectIDs,
-		); err != nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		) {
 			return
 		}
-
-		saved, err := store.Get(template.ID)
-		if err != nil {
-			if writePromptTemplateStoreError(w, r, err) {
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		saved, ok := loadSavedPromptTemplate(w, r, store, template.ID)
+		if !ok {
 			return
 		}
 		writeJSON(w, http.StatusOK, saved)
@@ -395,57 +555,26 @@ func deletePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 		if !ensurePromptTemplateMutationsAllowed(w, r, "deleting") {
 			return
 		}
-		store := deps.Templates
-		projectState := deps.ProjectState
-		if store == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		store, projectState, ok := requirePromptTemplateMutationStore(w, r, deps)
+		if !ok {
 			return
 		}
-
-		payload, err := decodeStrictJSONBody[DeletePromptTemplateRequest](r)
-		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+		templateID, ok := decodeDeletePromptTemplateID(w, r)
+		if !ok {
 			return
 		}
-
-		templateID := strings.TrimSpace(payload.TemplateID)
-		if templateID == "" {
-			writeError(w, r, http.StatusBadRequest, "template_id_required", "Template id is required.")
+		if !ensurePromptTemplateExists(w, r, store, templateID) {
 			return
 		}
-		if _, err := store.Get(templateID); err != nil {
-			if writePromptTemplateStoreError(w, r, err) {
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		if !ensurePromptTemplateDeleteAllowed(w, r, projectState, templateID) {
 			return
-		}
-		if projectState != nil {
-			references := projectState.Snapshot().Document.WorkflowPromptTemplateReferences(templateID)
-			if len(references) > 0 {
-				writeError(
-					w,
-					r,
-					http.StatusConflict,
-					"prompt_template_in_use",
-					fmt.Sprintf(
-						"Prompt template %s is still referenced by workflow edges: %s",
-						templateID,
-						strings.Join(references, "; "),
-					),
-				)
-				return
-			}
 		}
 		if err := store.Delete(templateID); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		if deps.Watcher != nil {
-			if err := deps.Watcher.SyncKnownState(); err != nil {
-				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-				return
-			}
+		if !syncPromptTemplateWatcher(w, r, deps.Watcher) {
+			return
 		}
 		if err := broadcastPromptTemplatesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
