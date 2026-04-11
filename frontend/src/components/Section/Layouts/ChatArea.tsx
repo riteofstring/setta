@@ -78,6 +78,7 @@ import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   AgenticEdgeKindEnum,
+  ChatDictationMode,
   ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
@@ -124,6 +125,40 @@ type EmitChatStopActionArgs = {
   managed: boolean;
   timestampMs: number;
 };
+type ManagedChatSubmitGuardInput = {
+  message: string;
+  attachments: ChatFileAttachment[];
+  canUseManagedChat: boolean;
+  hasEngineConfig: boolean;
+  isExternalEngine: boolean;
+  hasLLMConfig: boolean;
+  externalEngineAvailable: boolean;
+};
+
+function canSubmitManagedChatMessage({
+  message,
+  attachments,
+  canUseManagedChat,
+  hasEngineConfig,
+  isExternalEngine,
+  hasLLMConfig,
+  externalEngineAvailable,
+}: ManagedChatSubmitGuardInput): boolean {
+  if (!message.trim() && attachments.length === 0) {
+    return false;
+  }
+  if (!canUseManagedChat || !hasEngineConfig) {
+    return false;
+  }
+  if (!isExternalEngine && !hasLLMConfig) {
+    return false;
+  }
+  if (isExternalEngine && !externalEngineAvailable) {
+    return false;
+  }
+  return true;
+}
+
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
     payload: JSON.stringify(payload),
@@ -263,7 +298,7 @@ type ScriptableChatAreaProps = {
   activeBranchId: string | null;
   branches: ChatSectionState["branches"];
   isFrozen: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
 };
 function ScriptableChatArea({
   sectionId,
@@ -921,8 +956,9 @@ type ManagedChatAreaProps = {
   thinking: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
 };
+// eslint-disable-next-line complexity
 function ManagedChatArea({
   sectionId,
   surfaceId,
@@ -1350,20 +1386,17 @@ function ManagedChatArea({
   );
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
-      const trimmed = message.trim();
-      if (!trimmed && attachments.length === 0) {
-        return false;
-      }
-      if (!canUseManagedChat) {
-        return false;
-      }
-      if (!hasEngineConfig) {
-        return false;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
+      if (
+        !canSubmitManagedChatMessage({
+          message,
+          attachments,
+          canUseManagedChat,
+          hasEngineConfig,
+          isExternalEngine,
+          hasLLMConfig,
+          externalEngineAvailable,
+        })
+      ) {
         return false;
       }
       const messageId = createNewId();

@@ -64,6 +64,7 @@ import {
   ChatRoleEnum,
   EngineConfig,
   EngineTypeEnum,
+  type ChatDictationMode,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
@@ -117,6 +118,81 @@ const DEFAULT_CHAT_APP_GENERATION_DETAILS =
   getDefaultChatAppGenerationDetails();
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
+type AIStoreState = ReturnType<typeof useAIStore.getState>;
+type ResolveProjectChatRedoTargetInput = {
+  chatId: string | null | undefined;
+  lastChatId: string | null;
+  waitingForResponse: boolean;
+  requiresNewThreadContinuation: boolean;
+  engineConfigId: string | null;
+  isExternalEngine: boolean;
+  hasLLMConfig: boolean;
+  externalEngineAvailable: boolean;
+};
+
+// eslint-disable-next-line complexity
+function selectProjectChatCoreState(
+  state: AIStoreState,
+  surfaceId: string,
+  chatId: string | null | undefined,
+) {
+  const pendingDetails = state.pendingChatDetailsBySurfaceId[surfaceId] ?? null;
+  const appGenerationDetails =
+    chatId === null || (typeof chatId !== "string" && pendingDetails !== null)
+      ? state.pendingChatAppGenerationDetailsBySurfaceId[surfaceId] ??
+        DEFAULT_CHAT_APP_GENERATION_DETAILS
+      : typeof chatId === "string"
+        ? state.chatAppGenerationDetailsByChatId[chatId] ??
+          DEFAULT_CHAT_APP_GENERATION_DETAILS
+        : DEFAULT_CHAT_APP_GENERATION_DETAILS;
+  const shouldUsePendingDraftDetails =
+    chatId === null || (typeof chatId !== "string" && pendingDetails !== null);
+  if (shouldUsePendingDraftDetails) {
+    return {
+      ...(pendingDetails ?? getDefaultChatDetails()),
+      ...appGenerationDetails,
+      usingPendingDraftDetails: pendingDetails !== null,
+    };
+  }
+  if (typeof chatId !== "string") {
+    return {
+      ...getDefaultChatDetails(),
+      ...appGenerationDetails,
+      usingPendingDraftDetails: false,
+    };
+  }
+  return {
+    ...(state.chatDetails[chatId] ?? getDefaultChatDetails()),
+    ...appGenerationDetails,
+    usingPendingDraftDetails: false,
+  };
+}
+
+function resolveProjectChatRedoTarget({
+  chatId,
+  lastChatId,
+  waitingForResponse,
+  requiresNewThreadContinuation,
+  engineConfigId,
+  isExternalEngine,
+  hasLLMConfig,
+  externalEngineAvailable,
+}: ResolveProjectChatRedoTargetInput): { resolvedChatId: string } | null {
+  const resolvedChatId = typeof chatId === "string" ? chatId : lastChatId;
+  if (!resolvedChatId || waitingForResponse || requiresNewThreadContinuation) {
+    return null;
+  }
+  if (!engineConfigId) {
+    return null;
+  }
+  if (!isExternalEngine && !hasLLMConfig) {
+    return null;
+  }
+  if (isExternalEngine && !externalEngineAvailable) {
+    return null;
+  }
+  return { resolvedChatId };
+}
 
 function useWorkspaceRootIdentity(
   enabled: boolean,
@@ -295,6 +371,7 @@ function EmptyChatState({
   );
 }
 
+// eslint-disable-next-line complexity
 export const ProjectChatCore = memo(function ProjectChatCore({
   surfaceId,
   chatId,
@@ -348,7 +425,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
   transcriptionProfileId: string | null;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   providerDictationAvailable: boolean;
   providerDictationLikelySupported: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
@@ -375,40 +452,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     activeAppGeneration,
     appGenerationByMessageId,
     usingPendingDraftDetails,
-  } = useAIStore((state) => {
-    const pendingDetails =
-      state.pendingChatDetailsBySurfaceId[surfaceId] ?? null;
-    const appGenerationDetails =
-      chatId === null || (typeof chatId !== "string" && pendingDetails !== null)
-        ? state.pendingChatAppGenerationDetailsBySurfaceId[surfaceId] ??
-          DEFAULT_CHAT_APP_GENERATION_DETAILS
-        : typeof chatId === "string"
-          ? state.chatAppGenerationDetailsByChatId[chatId] ??
-            DEFAULT_CHAT_APP_GENERATION_DETAILS
-          : DEFAULT_CHAT_APP_GENERATION_DETAILS;
-    const shouldUsePendingDraftDetails =
-      chatId === null ||
-      (typeof chatId !== "string" && pendingDetails !== null);
-    if (shouldUsePendingDraftDetails) {
-      return {
-        ...(pendingDetails ?? getDefaultChatDetails()),
-        ...appGenerationDetails,
-        usingPendingDraftDetails: pendingDetails !== null,
-      };
-    }
-    if (typeof chatId !== "string") {
-      return {
-        ...getDefaultChatDetails(),
-        ...appGenerationDetails,
-        usingPendingDraftDetails: false,
-      };
-    }
-    return {
-      ...(state.chatDetails[chatId] ?? getDefaultChatDetails()),
-      ...appGenerationDetails,
-      usingPendingDraftDetails: false,
-    };
-  }, shallow);
+  } = useAIStore(
+    (state) => selectProjectChatCoreState(state, surfaceId, chatId),
+    shallow,
+  );
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -621,7 +668,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }),
     [createProjectStarterPrompt, hasPythonInWorkspaceRoot],
   );
-
   useEffect(() => {
     if (!agentRunsInitialLoadComplete) {
       void loadAgentRuns();
@@ -671,6 +717,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     useAIStore.setState({ pendingProjectChatPrompt: null });
   }, [pendingPrompt]);
 
+  // eslint-disable-next-line complexity
   useEffect(() => {
     if (typeof chatId !== "string") {
       return;
@@ -1132,21 +1179,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   const handleRedoMessage = useCallback(
     async (assistantMessageId: string) => {
-      const resolvedChatId =
-        typeof chatId === "string" ? chatId : lastChatIdRef.current;
-      if (!resolvedChatId || waitingForResponse) {
-        return false;
-      }
-      if (requiresNewThreadContinuation) {
-        return false;
-      }
-      if (!engineConfigId) {
-        return false;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
+      const redoTarget = resolveProjectChatRedoTarget({
+        chatId,
+        lastChatId: lastChatIdRef.current,
+        waitingForResponse,
+        requiresNewThreadContinuation,
+        engineConfigId,
+        isExternalEngine,
+        hasLLMConfig,
+        externalEngineAvailable,
+      });
+      if (!redoTarget) {
         return false;
       }
       const sourceUserMessage = findBranchSourceUserMessage(
@@ -1159,7 +1202,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       const sourceText = extractUserPromptText(sourceUserMessage) ?? "";
       const sourceAttachments = getMessageAttachments(sourceUserMessage);
       const nextChatId = await submitEditedMessage({
-        parentChatId: resolvedChatId,
+        parentChatId: redoTarget.resolvedChatId,
         messages,
         messageId: sourceUserMessage.id,
         message: sourceText,
