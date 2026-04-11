@@ -26,130 +26,121 @@ type frontendContractNameKnownWord struct {
 	Pascal string
 }
 
+type frontendContractTypeCollector struct {
+	seen  map[reflect.Type]struct{}
+	named map[reflect.Type]struct{}
+}
+
 func DiscoverFrontendContractNameEntries() []FrontendContractNameEntry {
 	types := frontendContractNameTypes()
-	knownWords := frontendContractNameKnownWordsFromTypes(types)
-
-	baseNames := map[string][]reflect.Type{}
-	for _, t := range types {
-		baseName := normalizedFrontendContractName(t.Name())
-		if strings.TrimSpace(baseName) == "" {
-			continue
-		}
-		baseNames[baseName] = append(baseNames[baseName], t)
-	}
-
-	entries := make([]FrontendContractNameEntry, 0, len(types))
-	baseNameOrder := sortedFrontendContractBaseNames(baseNames)
-	resolvedNames := map[reflect.Type]string{}
-
-	for _, baseName := range baseNameOrder {
-		group := baseNames[baseName]
-		if len(group) != 1 {
-			continue
-		}
-		resolvedNames[group[0]] = baseName
-	}
-
-	for _, baseName := range baseNameOrder {
-		group := baseNames[baseName]
-		if len(group) <= 1 {
-			continue
-		}
-		sort.Slice(group, func(i, j int) bool {
-			if group[i].PkgPath() == group[j].PkgPath() {
-				return group[i].Name() < group[j].Name()
-			}
-			return group[i].PkgPath() < group[j].PkgPath()
-		})
-		for _, t := range group {
-			resolvedNames[t] = frontendContractCollisionTypeName(t, baseName, knownWords)
-		}
-	}
-
-	for _, t := range types {
-		name := strings.TrimSpace(resolvedNames[t])
-		if name == "" {
-			continue
-		}
-		entries = append(entries, FrontendContractNameEntry{
-			Type: t,
-			Name: name,
-		})
-	}
-
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].Name == entries[j].Name {
-			if entries[i].Type.PkgPath() == entries[j].Type.PkgPath() {
-				return entries[i].Type.Name() < entries[j].Type.Name()
-			}
-			return entries[i].Type.PkgPath() < entries[j].Type.PkgPath()
-		}
-		return entries[i].Name < entries[j].Name
-	})
-	return entries
+	resolvedNames := resolveFrontendContractNames(
+		frontendContractBaseNameGroups(types),
+		frontendContractNameKnownWordsFromTypes(types),
+	)
+	return frontendContractNameEntries(types, resolvedNames)
 }
 
 func frontendContractNameTypes() []reflect.Type {
-	seen := map[reflect.Type]struct{}{}
-	named := map[reflect.Type]struct{}{}
-
-	var visit func(reflect.Type)
-	visit = func(t reflect.Type) {
-		t = frontendbindings.CanonicalBindingType(t)
-		if t == nil {
-			return
-		}
-		if _, ok := seen[t]; ok {
-			return
-		}
-		seen[t] = struct{}{}
-		if t != frontendContractNameTimeType &&
-			t != frontendContractNameRawJSONType &&
-			strings.TrimSpace(t.Name()) != "" &&
-			strings.TrimSpace(t.PkgPath()) != "" {
-			named[t] = struct{}{}
-		}
-		if t == frontendContractNameTimeType || t == frontendContractNameRawJSONType {
-			return
-		}
-
-		switch t.Kind() {
-		case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Chan:
-			visit(t.Elem())
-		case reflect.Map:
-			visit(t.Key())
-			visit(t.Elem())
-		case reflect.Struct:
-			for index := 0; index < t.NumField(); index++ {
-				visit(t.Field(index).Type)
-			}
-		case reflect.Func:
-			for index := 0; index < t.NumIn(); index++ {
-				visit(t.In(index))
-			}
-			for index := 0; index < t.NumOut(); index++ {
-				visit(t.Out(index))
-			}
-		case reflect.Interface:
-			for index := 0; index < t.NumMethod(); index++ {
-				visit(t.Method(index).Type)
-			}
-		}
-	}
-
-	for _, t := range frontendbindings.DiscoveredConvertibleTypes() {
-		visit(t)
-	}
-	for _, t := range sharedtypes.DiscoveredAdditionalTypesForGeneration() {
-		visit(t)
-	}
+	collector := newFrontendContractTypeCollector()
+	collector.visitAll(frontendbindings.DiscoveredConvertibleTypes())
+	collector.visitAll(sharedtypes.DiscoveredAdditionalTypesForGeneration())
 	for _, export := range sharedvalueexports.DiscoveredValueExports() {
-		visit(export.Type)
+		collector.visit(export.Type)
 	}
+	return collector.sortedTypes()
+}
 
-	types := make([]reflect.Type, 0, len(named))
-	for t := range named {
+func newFrontendContractTypeCollector() *frontendContractTypeCollector {
+	return &frontendContractTypeCollector{
+		seen:  map[reflect.Type]struct{}{},
+		named: map[reflect.Type]struct{}{},
+	}
+}
+
+func (collector *frontendContractTypeCollector) visitAll(types []reflect.Type) {
+	for _, t := range types {
+		collector.visit(t)
+	}
+}
+
+func (collector *frontendContractTypeCollector) visit(t reflect.Type) {
+	t = frontendbindings.CanonicalBindingType(t)
+	if t == nil || collector.markSeen(t) {
+		return
+	}
+	collector.recordNamedType(t)
+	if frontendContractTypeWalkStopsAt(t) {
+		return
+	}
+	collector.visitChildren(t)
+}
+
+func (collector *frontendContractTypeCollector) markSeen(t reflect.Type) bool {
+	if _, ok := collector.seen[t]; ok {
+		return true
+	}
+	collector.seen[t] = struct{}{}
+	return false
+}
+
+func (collector *frontendContractTypeCollector) recordNamedType(t reflect.Type) {
+	if !frontendContractIsNamedType(t) {
+		return
+	}
+	collector.named[t] = struct{}{}
+}
+
+func frontendContractIsNamedType(t reflect.Type) bool {
+	return t != frontendContractNameTimeType &&
+		t != frontendContractNameRawJSONType &&
+		strings.TrimSpace(t.Name()) != "" &&
+		strings.TrimSpace(t.PkgPath()) != ""
+}
+
+func frontendContractTypeWalkStopsAt(t reflect.Type) bool {
+	return t == frontendContractNameTimeType || t == frontendContractNameRawJSONType
+}
+
+func (collector *frontendContractTypeCollector) visitChildren(t reflect.Type) {
+	switch t.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Chan:
+		collector.visit(t.Elem())
+	case reflect.Map:
+		collector.visit(t.Key())
+		collector.visit(t.Elem())
+	case reflect.Struct:
+		collector.visitStructFields(t)
+	case reflect.Func:
+		collector.visitFuncTypes(t)
+	case reflect.Interface:
+		collector.visitInterfaceMethods(t)
+	}
+}
+
+func (collector *frontendContractTypeCollector) visitStructFields(t reflect.Type) {
+	for index := 0; index < t.NumField(); index++ {
+		collector.visit(t.Field(index).Type)
+	}
+}
+
+func (collector *frontendContractTypeCollector) visitFuncTypes(t reflect.Type) {
+	for index := 0; index < t.NumIn(); index++ {
+		collector.visit(t.In(index))
+	}
+	for index := 0; index < t.NumOut(); index++ {
+		collector.visit(t.Out(index))
+	}
+}
+
+func (collector *frontendContractTypeCollector) visitInterfaceMethods(t reflect.Type) {
+	for index := 0; index < t.NumMethod(); index++ {
+		collector.visit(t.Method(index).Type)
+	}
+}
+
+func (collector *frontendContractTypeCollector) sortedTypes() []reflect.Type {
+	types := make([]reflect.Type, 0, len(collector.named))
+	for t := range collector.named {
 		types = append(types, t)
 	}
 	types = preferredFrontendContractNameTypes(types)
@@ -160,6 +151,96 @@ func frontendContractNameTypes() []reflect.Type {
 		return types[i].PkgPath() < types[j].PkgPath()
 	})
 	return types
+}
+
+func frontendContractBaseNameGroups(types []reflect.Type) map[string][]reflect.Type {
+	baseNames := map[string][]reflect.Type{}
+	for _, t := range types {
+		baseName := normalizedFrontendContractName(t.Name())
+		if strings.TrimSpace(baseName) == "" {
+			continue
+		}
+		baseNames[baseName] = append(baseNames[baseName], t)
+	}
+	return baseNames
+}
+
+func resolveFrontendContractNames(
+	baseNames map[string][]reflect.Type,
+	knownWords []frontendContractNameKnownWord,
+) map[reflect.Type]string {
+	resolvedNames := map[reflect.Type]string{}
+	baseNameOrder := sortedFrontendContractBaseNames(baseNames)
+	assignUniqueFrontendContractNames(resolvedNames, baseNames, baseNameOrder)
+	assignCollisionFrontendContractNames(resolvedNames, baseNames, baseNameOrder, knownWords)
+	return resolvedNames
+}
+
+func assignUniqueFrontendContractNames(
+	resolvedNames map[reflect.Type]string,
+	baseNames map[string][]reflect.Type,
+	baseNameOrder []string,
+) {
+	for _, baseName := range baseNameOrder {
+		group := baseNames[baseName]
+		if len(group) == 1 {
+			resolvedNames[group[0]] = baseName
+		}
+	}
+}
+
+func assignCollisionFrontendContractNames(
+	resolvedNames map[reflect.Type]string,
+	baseNames map[string][]reflect.Type,
+	baseNameOrder []string,
+	knownWords []frontendContractNameKnownWord,
+) {
+	for _, baseName := range baseNameOrder {
+		group := baseNames[baseName]
+		if len(group) <= 1 {
+			continue
+		}
+		sortFrontendContractTypes(group)
+		for _, t := range group {
+			resolvedNames[t] = frontendContractCollisionTypeName(t, baseName, knownWords)
+		}
+	}
+}
+
+func sortFrontendContractTypes(types []reflect.Type) {
+	sort.Slice(types, func(i, j int) bool {
+		if types[i].PkgPath() == types[j].PkgPath() {
+			return types[i].Name() < types[j].Name()
+		}
+		return types[i].PkgPath() < types[j].PkgPath()
+	})
+}
+
+func frontendContractNameEntries(
+	types []reflect.Type,
+	resolvedNames map[reflect.Type]string,
+) []FrontendContractNameEntry {
+	entries := make([]FrontendContractNameEntry, 0, len(types))
+	for _, t := range types {
+		name := strings.TrimSpace(resolvedNames[t])
+		if name == "" {
+			continue
+		}
+		entries = append(entries, FrontendContractNameEntry{
+			Type: t,
+			Name: name,
+		})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Name == entries[j].Name {
+			if entries[i].Type.PkgPath() == entries[j].Type.PkgPath() {
+				return entries[i].Type.Name() < entries[j].Type.Name()
+			}
+			return entries[i].Type.PkgPath() < entries[j].Type.PkgPath()
+		}
+		return entries[i].Name < entries[j].Name
+	})
+	return entries
 }
 
 func preferredFrontendContractNameTypes(types []reflect.Type) []reflect.Type {

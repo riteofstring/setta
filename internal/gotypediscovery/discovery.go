@@ -116,180 +116,269 @@ func DiscoverPackageTypesInDirWithOptions(
 	dir string,
 	options DiscoverOptions,
 ) ([]DiscoveredType, error) {
-	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	files, localTypes, err := parsePackageTypes(dir)
 	if err != nil {
-		return nil, fmt.Errorf("glob %s: %w", dir, err)
+		return nil, err
 	}
-	slices.Sort(matches)
-
-	discovered := make([]DiscoveredType, 0, len(matches))
-	fileSet := token.NewFileSet()
-	files := make([]*ast.File, 0, len(matches))
-	localTypes := map[string]*ast.TypeSpec{}
-	for _, match := range matches {
-		if strings.HasSuffix(match, "_test.go") {
-			continue
-		}
-		file, err := parser.ParseFile(fileSet, match, nil, parser.ParseComments)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", match, err)
-		}
-		files = append(files, file)
-		for _, decl := range file.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
-			if !ok || genDecl.Tok != token.TYPE {
-				continue
-			}
-			for _, spec := range genDecl.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok || typeSpec.Name == nil {
-					continue
-				}
-				localTypes[typeSpec.Name.Name] = typeSpec
-			}
-		}
-	}
-	for _, file := range files {
-		importPaths := importAliasPaths(file)
-		for _, decl := range file.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
-			if !ok || genDecl.Tok != token.TYPE {
-				continue
-			}
-			for _, spec := range genDecl.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok ||
-					!typeSpec.Name.IsExported() ||
-					typeSpec.TypeParams != nil {
-					continue
-				}
-				if shouldSkipType(genDecl, typeSpec) {
-					continue
-				}
-				kind, ok := classifyType(typeSpec.Type, options, localTypes, map[string]bool{})
-				if !ok {
-					continue
-				}
-				entry := DiscoveredType{
-					Name:    typeSpec.Name.Name,
-					Kind:    kind,
-					IsAlias: typeSpec.Assign.IsValid(),
-				}
-				if targetPackagePath, targetTypeName, ok := selectorTarget(
-					typeSpec.Type,
-					importPaths,
-					localTypes,
-					map[string]bool{},
-				); ok {
-					entry.TargetPackagePath = targetPackagePath
-					entry.TargetTypeName = targetTypeName
-				}
-				discovered = append(discovered, entry)
-			}
-		}
-	}
-	return discovered, nil
+	return discoverTypesFromFiles(files, options, localTypes), nil
 }
 
 func DiscoverPackageZeroArgFunctionsWithPrefixInDir(
 	dir string,
 	prefix string,
 ) ([]DiscoveredFunction, error) {
-	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	files, err := parsePackageFiles(dir, parser.ParseComments)
 	if err != nil {
-		return nil, fmt.Errorf("glob %s: %w", dir, err)
+		return nil, err
 	}
-	slices.Sort(matches)
-
-	discovered := make([]DiscoveredFunction, 0, len(matches))
-	fileSet := token.NewFileSet()
-	for _, match := range matches {
-		if strings.HasSuffix(match, "_test.go") {
-			continue
-		}
-		file, err := parser.ParseFile(fileSet, match, nil, parser.ParseComments)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", match, err)
-		}
-		for _, decl := range file.Decls {
-			funcDecl, ok := decl.(*ast.FuncDecl)
-			if !ok || funcDecl.Recv != nil || funcDecl.Type == nil {
-				continue
-			}
-			if funcDecl.Name == nil ||
-				!funcDecl.Name.IsExported() ||
-				!strings.HasPrefix(funcDecl.Name.Name, prefix) ||
-				shouldSkipFunc(funcDecl) {
-				continue
-			}
-			if funcDecl.Type.TypeParams != nil ||
-				funcDecl.Type.Params == nil ||
-				len(funcDecl.Type.Params.List) != 0 ||
-				funcDecl.Type.Results == nil ||
-				len(funcDecl.Type.Results.List) != 1 ||
-				len(funcDecl.Type.Results.List[0].Names) != 0 {
-				continue
-			}
-			discovered = append(discovered, DiscoveredFunction{Name: funcDecl.Name.Name})
-		}
-	}
-	return discovered, nil
+	return discoverZeroArgFunctions(files, prefix), nil
 }
 
 func DiscoverPackageStringConstantsWithPrefixInDir(
 	dir string,
 	prefix string,
 ) ([]DiscoveredStringConstant, error) {
+	files, err := parsePackageFiles(dir, 0)
+	if err != nil {
+		return nil, err
+	}
+	constExprs := discoverPackageConstExprs(files)
+	return discoverStringConstants(dir, prefix, constExprs)
+}
+
+func parsePackageTypes(dir string) ([]*ast.File, map[string]*ast.TypeSpec, error) {
+	files, err := parsePackageFiles(dir, parser.ParseComments)
+	if err != nil {
+		return nil, nil, err
+	}
+	localTypes := map[string]*ast.TypeSpec{}
+	for _, file := range files {
+		collectLocalTypes(file, localTypes)
+	}
+	return files, localTypes, nil
+}
+
+func parsePackageFiles(dir string, mode parser.Mode) ([]*ast.File, error) {
+	matches, err := packageGoFiles(dir)
+	if err != nil {
+		return nil, err
+	}
+	fileSet := token.NewFileSet()
+	files := make([]*ast.File, 0, len(matches))
+	for _, match := range matches {
+		file, err := parser.ParseFile(fileSet, match, nil, mode)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", match, err)
+		}
+		files = append(files, file)
+	}
+	return files, nil
+}
+
+func packageGoFiles(dir string) ([]string, error) {
 	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
 	if err != nil {
 		return nil, fmt.Errorf("glob %s: %w", dir, err)
 	}
 	slices.Sort(matches)
-
-	constExprs := map[string]ast.Expr{}
-	fileSet := token.NewFileSet()
+	filtered := make([]string, 0, len(matches))
 	for _, match := range matches {
 		if strings.HasSuffix(match, "_test.go") {
 			continue
 		}
-		file, err := parser.ParseFile(fileSet, match, nil, 0)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", match, err)
+		filtered = append(filtered, match)
+	}
+	return filtered, nil
+}
+
+func collectLocalTypes(file *ast.File, localTypes map[string]*ast.TypeSpec) {
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.TYPE {
+			continue
 		}
-		for _, decl := range file.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
-			if !ok || genDecl.Tok != token.CONST {
+		for _, spec := range genDecl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if !ok || typeSpec.Name == nil {
 				continue
 			}
-			for _, spec := range genDecl.Specs {
-				valueSpec, ok := spec.(*ast.ValueSpec)
-				if !ok {
+			localTypes[typeSpec.Name.Name] = typeSpec
+		}
+	}
+}
+
+func discoverTypesFromFiles(
+	files []*ast.File,
+	options DiscoverOptions,
+	localTypes map[string]*ast.TypeSpec,
+) []DiscoveredType {
+	discovered := make([]DiscoveredType, 0, len(files))
+	for _, file := range files {
+		discovered = append(discovered, discoverFileTypes(file, options, localTypes)...)
+	}
+	return discovered
+}
+
+func discoverFileTypes(
+	file *ast.File,
+	options DiscoverOptions,
+	localTypes map[string]*ast.TypeSpec,
+) []DiscoveredType {
+	importPaths := importAliasPaths(file)
+	discovered := []DiscoveredType{}
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.TYPE {
+			continue
+		}
+		for _, spec := range genDecl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
+			}
+			entry, ok := discoveredTypeEntry(typeSpec, genDecl, options, importPaths, localTypes)
+			if ok {
+				discovered = append(discovered, entry)
+			}
+		}
+	}
+	return discovered
+}
+
+func discoveredTypeEntry(
+	typeSpec *ast.TypeSpec,
+	genDecl *ast.GenDecl,
+	options DiscoverOptions,
+	importPaths map[string]string,
+	localTypes map[string]*ast.TypeSpec,
+) (DiscoveredType, bool) {
+	if typeSpec == nil ||
+		typeSpec.Name == nil ||
+		!typeSpec.Name.IsExported() ||
+		typeSpec.TypeParams != nil ||
+		shouldSkipType(genDecl, typeSpec) {
+		return DiscoveredType{}, false
+	}
+	kind, ok := classifyType(typeSpec.Type, options, localTypes, map[string]bool{})
+	if !ok {
+		return DiscoveredType{}, false
+	}
+	entry := DiscoveredType{
+		Name:    typeSpec.Name.Name,
+		Kind:    kind,
+		IsAlias: typeSpec.Assign.IsValid(),
+	}
+	if targetPackagePath, targetTypeName, ok := selectorTarget(
+		typeSpec.Type,
+		importPaths,
+		localTypes,
+		map[string]bool{},
+	); ok {
+		entry.TargetPackagePath = targetPackagePath
+		entry.TargetTypeName = targetTypeName
+	}
+	return entry, true
+}
+
+func discoverZeroArgFunctions(files []*ast.File, prefix string) []DiscoveredFunction {
+	discovered := make([]DiscoveredFunction, 0, len(files))
+	for _, file := range files {
+		discovered = append(discovered, discoverFileZeroArgFunctions(file, prefix)...)
+	}
+	return discovered
+}
+
+func discoverFileZeroArgFunctions(file *ast.File, prefix string) []DiscoveredFunction {
+	discovered := []DiscoveredFunction{}
+	for _, decl := range file.Decls {
+		funcDecl, ok := decl.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		name, ok := zeroArgFunctionName(funcDecl, prefix)
+		if ok {
+			discovered = append(discovered, DiscoveredFunction{Name: name})
+		}
+	}
+	return discovered
+}
+
+func zeroArgFunctionName(funcDecl *ast.FuncDecl, prefix string) (string, bool) {
+	if !isNamedTopLevelFunction(funcDecl) {
+		return "", false
+	}
+	if !matchesDiscoveredFunctionPrefix(funcDecl, prefix) {
+		return "", false
+	}
+	if !isZeroArgSingleUnnamedResult(funcDecl.Type) {
+		return "", false
+	}
+	return funcDecl.Name.Name, true
+}
+
+func isNamedTopLevelFunction(funcDecl *ast.FuncDecl) bool {
+	return funcDecl != nil && funcDecl.Recv == nil && funcDecl.Type != nil && funcDecl.Name != nil
+}
+
+func matchesDiscoveredFunctionPrefix(funcDecl *ast.FuncDecl, prefix string) bool {
+	return funcDecl.Name.IsExported() &&
+		strings.HasPrefix(funcDecl.Name.Name, prefix) &&
+		!shouldSkipFunc(funcDecl)
+}
+
+func isZeroArgSingleUnnamedResult(funcType *ast.FuncType) bool {
+	if funcType == nil || funcType.TypeParams != nil {
+		return false
+	}
+	if funcType.Params == nil || len(funcType.Params.List) != 0 {
+		return false
+	}
+	if funcType.Results == nil || len(funcType.Results.List) != 1 {
+		return false
+	}
+	return len(funcType.Results.List[0].Names) == 0
+}
+
+func discoverPackageConstExprs(files []*ast.File) map[string]ast.Expr {
+	constExprs := map[string]ast.Expr{}
+	for _, file := range files {
+		collectFileConstExprs(file, constExprs)
+	}
+	return constExprs
+}
+
+func collectFileConstExprs(file *ast.File, constExprs map[string]ast.Expr) {
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range genDecl.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+			for index, name := range valueSpec.Names {
+				if name == nil || strings.TrimSpace(name.Name) == "" {
 					continue
 				}
-				for index, name := range valueSpec.Names {
-					if name == nil || strings.TrimSpace(name.Name) == "" {
-						continue
-					}
-					expr, ok := constValueExpr(valueSpec, index)
-					if !ok {
-						continue
-					}
+				expr, ok := constValueExpr(valueSpec, index)
+				if ok {
 					constExprs[name.Name] = expr
 				}
 			}
 		}
 	}
+}
 
+func discoverStringConstants(
+	dir string,
+	prefix string,
+	constExprs map[string]ast.Expr,
+) ([]DiscoveredStringConstant, error) {
 	cache := map[string]string{}
 	resolving := map[string]bool{}
-	names := []string{}
-	for name := range constExprs {
-		if strings.HasPrefix(name, prefix) {
-			names = append(names, name)
-		}
-	}
-	slices.Sort(names)
-
+	names := prefixedSortedNames(constExprs, prefix)
 	discovered := make([]DiscoveredStringConstant, 0, len(names))
 	for _, name := range names {
 		value, ok, err := resolveStringConstant(name, constExprs, cache, resolving)
@@ -304,8 +393,18 @@ func DiscoverPackageStringConstantsWithPrefixInDir(
 			Value: value,
 		})
 	}
-
 	return discovered, nil
+}
+
+func prefixedSortedNames(constExprs map[string]ast.Expr, prefix string) []string {
+	names := []string{}
+	for name := range constExprs {
+		if strings.HasPrefix(name, prefix) {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names
 }
 
 func importAliasPaths(file *ast.File) map[string]string {
@@ -484,6 +583,20 @@ func classifyType(
 	localTypes map[string]*ast.TypeSpec,
 	resolving map[string]bool,
 ) (TypeKind, bool) {
+	if kind, ok := classifyDirectType(expr, options); ok {
+		return kind, true
+	}
+	ident, ok := expr.(*ast.Ident)
+	if !ok {
+		return "", false
+	}
+	if kind, ok := classifyBuiltinIdentType(ident.Name, options); ok {
+		return kind, true
+	}
+	return classifyLocalNamedType(ident.Name, options, localTypes, resolving)
+}
+
+func classifyDirectType(expr ast.Expr, options DiscoverOptions) (TypeKind, bool) {
 	switch typed := expr.(type) {
 	case *ast.StructType:
 		if !structMatchesOptions(typed, options) {
@@ -510,41 +623,48 @@ func classifyType(
 		return TypeKindMap, true
 	case *ast.SelectorExpr:
 		return TypeKindNamed, true
-	case *ast.Ident:
-		switch typed.Name {
-		case "string":
-			return TypeKindString, true
-		case "bool":
-			if !options.IncludeNonStringScalars {
-				return "", false
-			}
-			return TypeKindBool, true
-		case "int", "int8", "int16", "int32", "int64":
-			if !options.IncludeNonStringScalars {
-				return "", false
-			}
-			return TypeKindInt, true
-		case "uint", "uint8", "uint16", "uint32", "uint64":
-			if !options.IncludeNonStringScalars {
-				return "", false
-			}
-			return TypeKindUint, true
-		case "float32", "float64":
-			if !options.IncludeNonStringScalars {
-				return "", false
-			}
-			return TypeKindFloat, true
-		}
-		typeSpec, ok := localTypes[typed.Name]
-		if !ok || resolving[typed.Name] {
-			return "", false
-		}
-		resolving[typed.Name] = true
-		defer delete(resolving, typed.Name)
-		return classifyType(typeSpec.Type, options, localTypes, resolving)
 	default:
 		return "", false
 	}
+}
+
+func classifyBuiltinIdentType(name string, options DiscoverOptions) (TypeKind, bool) {
+	switch name {
+	case "string":
+		return TypeKindString, true
+	case "bool":
+		return classifyNonStringScalarType(TypeKindBool, options)
+	case "int", "int8", "int16", "int32", "int64":
+		return classifyNonStringScalarType(TypeKindInt, options)
+	case "uint", "uint8", "uint16", "uint32", "uint64":
+		return classifyNonStringScalarType(TypeKindUint, options)
+	case "float32", "float64":
+		return classifyNonStringScalarType(TypeKindFloat, options)
+	default:
+		return "", false
+	}
+}
+
+func classifyNonStringScalarType(kind TypeKind, options DiscoverOptions) (TypeKind, bool) {
+	if !options.IncludeNonStringScalars {
+		return "", false
+	}
+	return kind, true
+}
+
+func classifyLocalNamedType(
+	name string,
+	options DiscoverOptions,
+	localTypes map[string]*ast.TypeSpec,
+	resolving map[string]bool,
+) (TypeKind, bool) {
+	typeSpec, ok := localTypes[name]
+	if !ok || resolving[name] {
+		return "", false
+	}
+	resolving[name] = true
+	defer delete(resolving, name)
+	return classifyType(typeSpec.Type, options, localTypes, resolving)
 }
 
 func structMatchesOptions(typed *ast.StructType, options DiscoverOptions) bool {
