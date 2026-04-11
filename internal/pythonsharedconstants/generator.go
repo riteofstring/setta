@@ -54,6 +54,8 @@ func Build() (GeneratedConstants, error) {
 		{Name: "SESSION_SECRET_BYTES", PythonExpr: strconv.Itoa(localsessions.SessionSecretBytes)},
 		{Name: "SESSION_METADATA_FILENAME", PythonExpr: pythonStringLiteral(localsessions.SessionMetadataFileName)},
 		{Name: "SESSION_SECRET_FILENAME", PythonExpr: pythonStringLiteral(localsessions.SessionSecretFileName)},
+		{Name: "SESSION_SERVER_MODE_VALUES", PythonExpr: pythonStringTupleExpr(modeValuesToStrings([]config.Mode{config.ModeIDE, config.ModeLauncher}))},
+		{Name: "DEFAULT_SESSION_SERVER_MODE", PythonExpr: pythonStringLiteral(string(config.ModeIDE))},
 		{Name: "PASSWORD_STORE_FILENAME", PythonExpr: pythonStringLiteral(projectstate.PasswordStoreFileName)},
 		{Name: "HEADER_LENGTH_BYTES", PythonExpr: strconv.Itoa(realtime.BinaryHeaderLengthBytes)},
 		{Name: "LOOPBACK_HOSTS", PythonExpr: pythonFrozenStringSetExpr(hostnames.LoopbackHosts())},
@@ -125,6 +127,14 @@ func filesLocationValuesToStrings(values []config.FilesLocation) []string {
 }
 
 func resolvedFilesLocationValuesToStrings(values []config.ResolvedFilesLocation) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, string(value))
+	}
+	return result
+}
+
+func modeValuesToStrings(values []config.Mode) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
 		result = append(result, string(value))

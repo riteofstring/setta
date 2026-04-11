@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import psutil
+import pytest
 from setta.sessions.registry import SessionRegistry
 from setta.types.generated.go_shared_constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
@@ -286,6 +287,50 @@ def test_load_session_prunes_missing_server_mode(tmp_path: Path) -> None:
     assert (quarantined[0] / "session.json").exists()
 
 
+def test_load_session_prunes_invalid_server_mode(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "invalid-mode"
+    session_dir = sessions_root / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    secret_path = session_dir / "secret"
+    secret_path.write_bytes(b"secret")
+    metadata_path = session_dir / "session.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "id": session_id,
+                "workspacePath": str(workspace),
+                "workspacePathCanonical": str(workspace.resolve()),
+                "host": "127.0.0.1",
+                "port": 61234,
+                "pid": 12345,
+                "secretPath": str(secret_path),
+                "serverMode": "share",
+            }
+        ),
+        encoding="utf-8",
+    )
+    old = time.time() - 10.0
+    os.utime(metadata_path, (old, old))
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    loaded = registry.load_session(session_id, prune_stale=True)
+
+    assert loaded is None
+    assert not session_dir.exists()
+    invalid_root = sessions_root / "invalid"
+    assert invalid_root.exists()
+    quarantined = [
+        entry
+        for entry in invalid_root.iterdir()
+        if entry.is_dir() and entry.name.startswith(f"{session_id}-")
+    ]
+    assert len(quarantined) == 1
+    assert (quarantined[0] / "session.json").exists()
+
+
 def test_find_sessions_by_workspace_and_mode_filters_server_mode() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -317,6 +362,29 @@ def test_find_sessions_by_workspace_and_mode_filters_server_mode() -> None:
         assert len(matches) == 1
         assert matches[0].id == launcher_session.id
         assert matches[0].serverMode == "launcher"
+
+
+def test_find_sessions_by_workspace_and_mode_rejects_invalid_server_mode() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        sessions_root = root / "sessions"
+        workspace = root / "workspace"
+        workspace.mkdir()
+        registry = SessionRegistry(sessions_root=sessions_root)
+
+        registry.create_session(
+            workspace_path=workspace,
+            host="127.0.0.1",
+            port=61234,
+            pid=12345,
+        )
+
+        with pytest.raises(ValueError, match="Invalid session server mode"):
+            registry.find_sessions_by_workspace_and_mode(
+                workspace,
+                server_mode="share",
+                prune_stale=False,
+            )
 
 
 def test_delete_session_removes_metadata() -> None:

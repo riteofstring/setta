@@ -7,14 +7,15 @@ import stat
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 
 import psutil
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from setta.types.generated.go_shared_constants import (
+    DEFAULT_SESSION_SERVER_MODE,
     IN_PROCESS_ENV_VAR,
     SESSION_METADATA_FILENAME,
     SESSION_SECRET_FILENAME,
+    SESSION_SERVER_MODE_VALUES,
 )
 from setta.utils.constants import C
 
@@ -29,6 +30,16 @@ _SETTA_PROCESS_BASENAMES = frozenset(
         "setta-server.exe",
     }
 )
+_ALLOWED_SESSION_SERVER_MODES = frozenset(SESSION_SERVER_MODE_VALUES)
+
+
+def _require_session_server_mode(value: str) -> str:
+    if value not in _ALLOWED_SESSION_SERVER_MODES:
+        allowed = ", ".join(repr(mode) for mode in SESSION_SERVER_MODE_VALUES)
+        raise ValueError(
+            f"Invalid session server mode {value!r}. Expected one of: {allowed}."
+        )
+    return value
 
 
 def resolve_pid_create_time(pid: int) -> float | None:
@@ -59,7 +70,12 @@ class SessionMetadata(BaseModel):
     runtimeRoot: str | None = None
     settaHome: str | None = None
     profile: str | None = None
-    serverMode: Literal["ide", "launcher"]
+    serverMode: str
+
+    @field_validator("serverMode")
+    @classmethod
+    def validate_server_mode(cls, value: str) -> str:
+        return _require_session_server_mode(value)
 
 
 class SessionRegistry:
@@ -97,7 +113,7 @@ class SessionRegistry:
         runtime_root: str | None = None,
         setta_home: str | None = None,
         profile: str | None = None,
-        server_mode: Literal["ide", "launcher"] = "ide",
+        server_mode: str = DEFAULT_SESSION_SERVER_MODE,
     ) -> SessionMetadata:
         canonical_workspace = self._canonicalize_workspace_path(workspace_path)
         display_workspace = workspace_display_path or str(workspace_path)
@@ -174,10 +190,11 @@ class SessionRegistry:
     def find_sessions_by_workspace_and_mode(
         self,
         workspace_path: Path | str,
-        server_mode: Literal["ide", "launcher"],
+        server_mode: str,
         prune_stale: bool = True,
         track_suspicious: bool = False,
     ) -> list[SessionMetadata]:
+        expected_server_mode = _require_session_server_mode(server_mode)
         return [
             session
             for session in self.find_sessions_by_workspace(
@@ -185,7 +202,7 @@ class SessionRegistry:
                 prune_stale=prune_stale,
                 track_suspicious=track_suspicious,
             )
-            if session.serverMode == server_mode
+            if session.serverMode == expected_server_mode
         ]
 
     def delete_session(self, session_id: str) -> None:
