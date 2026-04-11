@@ -61,6 +61,227 @@ type ButtonRequestConfig = Pick<
   | "requestHeaderValue"
   | "requestBody"
 >;
+type ProjectStateSnapshot = Parameters<typeof getSectionCore>[0];
+type MetaControlSharedState = {
+  sectionName: string;
+  paramDisplayName: string;
+  codeObjVariantId: string | null;
+  sectionVariantId: string | null;
+};
+type MetaControlButtonState = MetaControlSharedState & {
+  codeObjType: CodeObjTypeEnum.ButtonParam;
+  buttonConfig: ButtonRequestConfig;
+};
+type MetaControlValueState = MetaControlSharedState & {
+  codeObjType: BaseChildlessCodeObjImplUnion["type"];
+  baseValue: string;
+  defaultVal: string;
+  dropzoneMode: DropzoneModeEnum | null;
+  dropzoneMaxAttachments: number | null;
+  dropzonePlaceholder: string | null;
+  timeControlMode: TimeControlModeEnum;
+  timeDisplayFormat: TimeDisplayFormatEnum;
+  timeDisplayTransparent: boolean;
+  timeDisplayScale: number;
+  timeDisplayFont: TimeDisplayFontEnum;
+  dateDisplayFormat: DateDisplayFormatEnum;
+  dateControlMode: DateControlModeEnum;
+  dateSelectionMode: DateSelectionModeEnum;
+  dateCalendarWeekStart: DateCalendarWeekStartEnum;
+  dateIncludesTime: boolean;
+};
+type MetaControlState = MetaControlButtonState | MetaControlValueState;
+
+const DEFAULT_TIME_META_CONTROL = {
+  timeControlMode: TimeControlModeEnum.display,
+  timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+  timeDisplayTransparent: false,
+  timeDisplayScale: 1,
+  timeDisplayFont: TimeDisplayFontEnum.monospace,
+};
+
+const DEFAULT_DATE_META_CONTROL = {
+  dateDisplayFormat: DateDisplayFormatEnum.iso,
+  dateControlMode: DateControlModeEnum.input,
+  dateSelectionMode: DateSelectionModeEnum.single,
+  dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+  dateIncludesTime: false,
+};
+
+function useMetaControlState(sectionId: string, controlParamId: string) {
+  return useProjectState(
+    (state) => resolveMetaControlState(state, sectionId, controlParamId),
+    _.isEqual,
+  );
+}
+
+function resolveMetaControlState(
+  state: ProjectStateSnapshot,
+  sectionId: string,
+  controlParamId: string,
+): MetaControlState | null {
+  const sharedState = readMetaControlSharedState(
+    state,
+    sectionId,
+    controlParamId,
+  );
+  if (!sharedState) {
+    return null;
+  }
+  if (sharedState.controlImpl.type === CodeObjTypeEnum.ButtonParam) {
+    return buildButtonMetaControlState(
+      state,
+      sectionId,
+      controlParamId,
+      sharedState,
+    );
+  }
+  return buildValueMetaControlState(
+    state,
+    sectionId,
+    controlParamId,
+    sharedState,
+  );
+}
+
+function readMetaControlSharedState(
+  state: ProjectStateSnapshot,
+  sectionId: string,
+  controlParamId: string,
+) {
+  const paramDisplayName =
+    getParamDisplayNameIfPresent(state, sectionId, controlParamId) ?? null;
+  const controlImpl = getCurrEffectiveCodeObjImplIfPresent(
+    state,
+    sectionId,
+    controlParamId,
+  );
+  if (!controlImpl || !paramDisplayName) {
+    return null;
+  }
+  return {
+    controlImpl,
+    sectionName: getSectionCore(state, sectionId).name,
+    paramDisplayName,
+    codeObjVariantId:
+      getCurrCodeObjVariantIfPresent(state, sectionId, controlParamId)?.id ??
+      null,
+    sectionVariantId: getCurrSectionVariantId(state, sectionId),
+  };
+}
+
+function buildButtonMetaControlState(
+  state: ProjectStateSnapshot,
+  sectionId: string,
+  controlParamId: string,
+  sharedState: MetaControlSharedState & {
+    controlImpl: BaseCodeObjImplUnion;
+  },
+): MetaControlButtonState | null {
+  const buttonImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    state,
+    sectionId,
+    controlParamId,
+    isButtonParamCodeObjImpl,
+  );
+  if (!buttonImpl) {
+    return null;
+  }
+  return {
+    ...sharedState,
+    codeObjType: CodeObjTypeEnum.ButtonParam,
+    buttonConfig: buildButtonRequestConfig(buttonImpl),
+  };
+}
+
+function buildButtonRequestConfig(
+  buttonImpl: ButtonParamCodeObjImpl,
+): ButtonRequestConfig {
+  return {
+    actionMode: buttonImpl.actionMode,
+    requestMethod: buttonImpl.requestMethod,
+    requestUrl: buttonImpl.requestUrl,
+    requestHeaderKey: buttonImpl.requestHeaderKey,
+    requestHeaderValue: buttonImpl.requestHeaderValue,
+    requestBody: buttonImpl.requestBody,
+  };
+}
+
+function buildValueMetaControlState(
+  state: ProjectStateSnapshot,
+  sectionId: string,
+  controlParamId: string,
+  sharedState: MetaControlSharedState & {
+    controlImpl: BaseCodeObjImplUnion;
+  },
+): MetaControlValueState | null {
+  const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    state,
+    sectionId,
+    controlParamId,
+    isBaseChildlessCodeObjImpl,
+  );
+  if (!childlessImpl) {
+    return null;
+  }
+  return {
+    ...sharedState,
+    codeObjType: childlessImpl.type,
+    baseValue: childlessImpl.value,
+    defaultVal: childlessImpl.defaultVal,
+    ...buildDropzoneMetaControlState(childlessImpl),
+    ...buildTimeMetaControlState(childlessImpl),
+    ...buildDateMetaControlState(childlessImpl),
+  };
+}
+
+function buildDropzoneMetaControlState(
+  childlessImpl: BaseChildlessCodeObjImplUnion,
+) {
+  if (childlessImpl.type !== CodeObjTypeEnum.DropzoneParam) {
+    return {
+      dropzoneMode: null,
+      dropzoneMaxAttachments: null,
+      dropzonePlaceholder: null,
+    };
+  }
+  return {
+    dropzoneMode: childlessImpl.mode,
+    dropzoneMaxAttachments: childlessImpl.maxAttachments ?? null,
+    dropzonePlaceholder: childlessImpl.placeholder,
+  };
+}
+
+function buildTimeMetaControlState(
+  childlessImpl: BaseChildlessCodeObjImplUnion,
+) {
+  if (childlessImpl.type !== CodeObjTypeEnum.TimeParam) {
+    return DEFAULT_TIME_META_CONTROL;
+  }
+  return {
+    timeControlMode: childlessImpl.timeControlMode,
+    timeDisplayFormat: childlessImpl.timeDisplayFormat,
+    timeDisplayTransparent: childlessImpl.timeDisplayTransparent,
+    timeDisplayScale: childlessImpl.timeDisplayScale,
+    timeDisplayFont: childlessImpl.timeDisplayFont,
+  };
+}
+
+function buildDateMetaControlState(
+  childlessImpl: BaseChildlessCodeObjImplUnion,
+) {
+  if (childlessImpl.type !== CodeObjTypeEnum.DateParam) {
+    return DEFAULT_DATE_META_CONTROL;
+  }
+  return {
+    dateDisplayFormat: childlessImpl.dateDisplayFormat,
+    dateControlMode: childlessImpl.dateControlMode,
+    dateSelectionMode: childlessImpl.dateSelectionMode,
+    dateCalendarWeekStart: childlessImpl.dateCalendarWeekStart,
+    dateIncludesTime: childlessImpl.dateIncludesTime,
+  };
+}
+
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
   const { controlParamId, showSectionTitle } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -93,346 +314,344 @@ function MetaControlValueArea({
   controlParamId: string;
   showSectionTitle: boolean;
 }) {
-  const metaControlState = useProjectState((x) => {
-    const sectionName = getSectionCore(x, sectionId).name;
-    const paramDisplayName =
-      getParamDisplayNameIfPresent(x, sectionId, controlParamId) ?? null;
-    const controlImpl = getCurrEffectiveCodeObjImplIfPresent(
-      x,
-      sectionId,
-      controlParamId,
-    );
-    if (!controlImpl || !paramDisplayName) {
-      return null;
-    }
-    if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
-      const buttonImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
-        x,
-        sectionId,
-        controlParamId,
-        isButtonParamCodeObjImpl,
-      );
-      if (!buttonImpl) {
-        return null;
-      }
-      return {
-        codeObjType: controlImpl.type,
-        baseValue: "",
-        defaultVal: "",
-        sectionName,
-        paramDisplayName,
-        codeObjVariantId:
-          getCurrCodeObjVariantIfPresent(x, sectionId, controlParamId)?.id ??
-          null,
-        sectionVariantId: getCurrSectionVariantId(x, sectionId),
-        buttonConfig: {
-          actionMode: buttonImpl.actionMode,
-          requestMethod: buttonImpl.requestMethod,
-          requestUrl: buttonImpl.requestUrl,
-          requestHeaderKey: buttonImpl.requestHeaderKey,
-          requestHeaderValue: buttonImpl.requestHeaderValue,
-          requestBody: buttonImpl.requestBody,
-        },
-        dropzoneMode: null,
-        dropzoneMaxAttachments: null,
-        dropzonePlaceholder: null,
-        timeControlMode: TimeControlModeEnum.display,
-        timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
-        timeDisplayTransparent: false,
-        timeDisplayScale: 1,
-        timeDisplayFont: TimeDisplayFontEnum.monospace,
-        dateDisplayFormat: DateDisplayFormatEnum.iso,
-        dateControlMode: DateControlModeEnum.input,
-        dateSelectionMode: DateSelectionModeEnum.single,
-        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-        dateIncludesTime: false,
-      };
-    }
-    const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
-      x,
-      sectionId,
-      controlParamId,
-      isBaseChildlessCodeObjImpl,
-    );
-    if (!childlessImpl) {
-      return null;
-    }
-    const isDropzone = childlessImpl.type === CodeObjTypeEnum.DropzoneParam;
-    const isDateParam = childlessImpl.type === CodeObjTypeEnum.DateParam;
-    const isTimeParam = childlessImpl.type === CodeObjTypeEnum.TimeParam;
-    return {
-      codeObjType: childlessImpl.type,
-      baseValue: childlessImpl.value,
-      defaultVal: childlessImpl.defaultVal,
-      sectionName,
-      paramDisplayName,
-      codeObjVariantId:
-        getCurrCodeObjVariantIfPresent(x, sectionId, controlParamId)?.id ??
-        null,
-      sectionVariantId: getCurrSectionVariantId(x, sectionId),
-      buttonConfig: null,
-      dropzoneMode: isDropzone ? childlessImpl.mode : null,
-      dropzoneMaxAttachments: isDropzone
-        ? childlessImpl.maxAttachments ?? null
-        : null,
-      dropzonePlaceholder: isDropzone ? childlessImpl.placeholder : null,
-      timeControlMode: isTimeParam
-        ? childlessImpl.timeControlMode
-        : TimeControlModeEnum.display,
-      timeDisplayFormat: isTimeParam
-        ? childlessImpl.timeDisplayFormat
-        : TimeDisplayFormatEnum.twenty_four_hour,
-      timeDisplayTransparent: isTimeParam
-        ? childlessImpl.timeDisplayTransparent
-        : false,
-      timeDisplayScale: isTimeParam ? childlessImpl.timeDisplayScale : 1,
-      timeDisplayFont: isTimeParam
-        ? childlessImpl.timeDisplayFont
-        : TimeDisplayFontEnum.monospace,
-      dateDisplayFormat: isDateParam
-        ? childlessImpl.dateDisplayFormat
-        : DateDisplayFormatEnum.iso,
-      dateControlMode: isDateParam
-        ? childlessImpl.dateControlMode
-        : DateControlModeEnum.input,
-      dateSelectionMode: isDateParam
-        ? childlessImpl.dateSelectionMode
-        : DateSelectionModeEnum.single,
-      dateCalendarWeekStart: isDateParam
-        ? childlessImpl.dateCalendarWeekStart
-        : DateCalendarWeekStartEnum.sunday,
-      dateIncludesTime: isDateParam ? childlessImpl.dateIncludesTime : false,
-    };
-  }, _.isEqual);
-  const hasMetaControlState = metaControlState !== null;
-  const codeObjType =
-    metaControlState?.codeObjType ?? CodeObjTypeEnum.TextParam;
-  const codeObjVariantId = metaControlState?.codeObjVariantId ?? null;
-  const sectionVariantId = metaControlState?.sectionVariantId ?? null;
-  const baseValue = metaControlState?.baseValue ?? "";
-  const defaultVal = metaControlState?.defaultVal ?? "";
-  const sectionName = metaControlState?.sectionName ?? "";
-  const paramDisplayName = metaControlState?.paramDisplayName ?? "";
-  const buttonConfig = metaControlState?.buttonConfig ?? null;
-  const dropzoneMode = metaControlState?.dropzoneMode ?? null;
-  const dropzoneMaxAttachments =
-    metaControlState?.dropzoneMaxAttachments ?? null;
-  const dropzonePlaceholder = metaControlState?.dropzonePlaceholder ?? null;
-  const timeControlMode =
-    metaControlState?.timeControlMode ?? TimeControlModeEnum.display;
-  const timeDisplayFormat =
-    metaControlState?.timeDisplayFormat ??
-    TimeDisplayFormatEnum.twenty_four_hour;
-  const timeDisplayTransparent =
-    metaControlState?.timeDisplayTransparent ?? false;
-  const timeDisplayScale = metaControlState?.timeDisplayScale ?? 1;
-  const timeDisplayFont =
-    metaControlState?.timeDisplayFont ?? TimeDisplayFontEnum.monospace;
-  const dateDisplayFormat =
-    metaControlState?.dateDisplayFormat ?? DateDisplayFormatEnum.iso;
-  const dateControlMode =
-    metaControlState?.dateControlMode ?? DateControlModeEnum.input;
-  const dateSelectionMode =
-    metaControlState?.dateSelectionMode ?? DateSelectionModeEnum.single;
-  const dateCalendarWeekStart =
-    metaControlState?.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday;
-  const dateIncludesTime = metaControlState?.dateIncludesTime ?? false;
-  const [value, setPendingValue] = useLocalPendingValue(
-    baseValue,
-    (pendingValue) => {
-      if (
-        !hasMetaControlState ||
-        codeObjType === CodeObjTypeEnum.ButtonParam ||
-        !codeObjVariantId
-      ) {
-        return;
-      }
-      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        return;
-      }
-      useProjectState.setState((state) => {
-        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
-          state,
-          controlParamId,
-          codeObjVariantId,
-          {
-            value: pendingValue,
-          },
-        );
-      });
-    },
-    codeObjVariantId,
-  );
-  const handleValueChange: ParamValueChange = (
-    nextValue,
-    options?: ParamValueChangeOptions,
-  ) => {
-    if (!hasMetaControlState || codeObjType === CodeObjTypeEnum.ButtonParam) {
-      return;
-    }
-    if (nextValue === null) {
-      return;
-    }
-    const valueStr = _.toString(nextValue);
-    setPendingValue(valueStr);
-    if (
-      shouldEmitRealtimeValue({
-        previousValue: value,
-        nextValue: valueStr,
-        codeObjType,
-      })
-    ) {
-      sendRealtimeSectionLiteral(sectionId, valueStr);
-    }
-    if (!options?.skipBackendUpdate) {
-      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        if (!sectionVariantId) {
-          return;
-        }
-        debouncedSetPasswordParamValue(
-          sectionId,
-          sectionVariantId,
-          controlParamId,
-          valueStr,
-        );
-      } else {
-        if (!sectionVariantId || !codeObjVariantId) {
-          return;
-        }
-        debouncedSetParamEnteredValue(
-          sectionId,
-          sectionVariantId,
-          controlParamId,
-          codeObjVariantId,
-          valueStr,
-        );
-      }
-    }
-  };
-  function handleAction() {
-    if (!hasMetaControlState || !buttonConfig) {
-      return;
-    }
-    if (buttonConfig.actionMode === ButtonActionModeEnum.HTTP_REQUEST) {
-      sendButtonHttpRequest(buttonConfig);
-      return;
-    }
-    if (buttonConfig.actionMode === ButtonActionModeEnum.SETTA_API) {
-      sendButtonSettaRequest(buttonConfig);
-      return;
-    }
-    const payload: LiteralDependencyValue = {
-      payload: JSON.stringify({
-        actionMode: buttonConfig.actionMode,
-        controlParamId,
-      }),
-      type: DependencyValueTypeEnum.Literal,
-    };
-    sendRealtimeDependencyEvent({
-      dependencyKey: {
-        type: DependencyKeyTypeEnum.Section,
-        sectionId,
-      },
-      payload,
-    });
-  }
-  function handleDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
-    if (!hasMetaControlState || attachments.length === 0) {
-      return;
-    }
-    const dependencyKey = {
-      type: DependencyKeyTypeEnum.Section,
-      sectionId,
-    };
-    const metadataAttachments = attachments.map((attachment) => {
-      if (attachment.kind === "file") {
-        return {
-          kind: attachment.kind,
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          size: attachment.size,
-          contentId: attachment.contentId,
-          byteLength: attachment.byteLength,
-        };
-      }
-      return attachment;
-    });
-    const metadataPayload: LiteralDependencyValue = {
-      payload: JSON.stringify({
-        sectionId,
-        paramInfoId: controlParamId,
-        attachments: metadataAttachments,
-      }),
-      type: DependencyValueTypeEnum.Literal,
-    };
-    sendRealtimeDependencyEvent({
-      dependencyKey,
-      payload: metadataPayload,
-    });
-    for (const attachment of attachments) {
-      if (attachment.kind !== "file") {
-        continue;
-      }
-      const binaryPayload: BinaryDependencyValue = {
-        payload: {
-          contentId: attachment.contentId,
-          byteLength: attachment.byteLength,
-          mimeType: attachment.mimeType,
-        },
-        type: DependencyValueTypeEnum.Binary,
-      };
-      sendRealtimeDependencyEvent({
-        dependencyKey,
-        payload: binaryPayload,
-        binaryPayload: attachment.binaryPayload,
-      });
-    }
-  }
-  if (!hasMetaControlState) {
+  const metaControlState = useMetaControlState(sectionId, controlParamId);
+  if (!metaControlState) {
     return null;
   }
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
-      {codeObjType === CodeObjTypeEnum.ButtonParam ? (
-        <MetaControlContent
+      {isButtonMetaControlState(metaControlState) ? (
+        <ButtonMetaControlContent
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
-          paramDisplayName={paramDisplayName}
-          codeObjType={codeObjType}
-          onAction={handleAction}
           showSectionTitle={showSectionTitle}
+          state={metaControlState}
         />
       ) : (
-        <MetaControlContent
+        <ValueMetaControlContent
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
-          paramDisplayName={paramDisplayName}
-          codeObjType={codeObjType}
-          value={value}
-          defaultVal={defaultVal}
-          onValueChange={handleValueChange}
-          onDropzoneStateless={handleDropzoneStateless}
-          dropzoneMode={dropzoneMode ?? DropzoneModeEnum.STATEFUL}
-          dropzoneMaxAttachments={dropzoneMaxAttachments}
-          dropzonePlaceholder={dropzonePlaceholder ?? undefined}
-          timeControlMode={timeControlMode}
-          timeDisplayFormat={timeDisplayFormat}
-          timeDisplayTransparent={timeDisplayTransparent}
-          timeDisplayScale={timeDisplayScale}
-          timeDisplayFont={timeDisplayFont}
-          dateDisplayFormat={dateDisplayFormat}
-          dateControlMode={dateControlMode}
-          dateSelectionMode={dateSelectionMode}
-          dateCalendarWeekStart={dateCalendarWeekStart}
-          dateIncludesTime={dateIncludesTime}
           showSectionTitle={showSectionTitle}
+          state={metaControlState}
         />
       )}
     </div>
   );
 }
+
+function isButtonMetaControlState(
+  metaControlState: MetaControlState,
+): metaControlState is MetaControlButtonState {
+  return metaControlState.codeObjType === CodeObjTypeEnum.ButtonParam;
+}
+
+function ButtonMetaControlContent({
+  sectionId,
+  controlParamId,
+  showSectionTitle,
+  state,
+}: {
+  sectionId: string;
+  controlParamId: string;
+  showSectionTitle: boolean;
+  state: MetaControlButtonState;
+}) {
+  return (
+    <MetaControlContent
+      sectionId={sectionId}
+      controlParamId={controlParamId}
+      sectionName={state.sectionName}
+      paramDisplayName={state.paramDisplayName}
+      codeObjType={state.codeObjType}
+      onAction={() =>
+        handleMetaControlButtonAction(
+          state.buttonConfig,
+          sectionId,
+          controlParamId,
+        )
+      }
+      showSectionTitle={showSectionTitle}
+    />
+  );
+}
+
+function handleMetaControlButtonAction(
+  buttonConfig: ButtonRequestConfig,
+  sectionId: string,
+  controlParamId: string,
+) {
+  if (buttonConfig.actionMode === ButtonActionModeEnum.HTTP_REQUEST) {
+    sendButtonHttpRequest(buttonConfig);
+    return;
+  }
+  if (buttonConfig.actionMode === ButtonActionModeEnum.SETTA_API) {
+    sendButtonSettaRequest(buttonConfig);
+    return;
+  }
+  const payload: LiteralDependencyValue = {
+    payload: JSON.stringify({
+      actionMode: buttonConfig.actionMode,
+      controlParamId,
+    }),
+    type: DependencyValueTypeEnum.Literal,
+  };
+  sendRealtimeDependencyEvent({
+    dependencyKey: {
+      type: DependencyKeyTypeEnum.Section,
+      sectionId,
+    },
+    payload,
+  });
+}
+
+function ValueMetaControlContent({
+  sectionId,
+  controlParamId,
+  showSectionTitle,
+  state,
+}: {
+  sectionId: string;
+  controlParamId: string;
+  showSectionTitle: boolean;
+  state: MetaControlValueState;
+}) {
+  const [value, setPendingValue] = useLocalPendingValue(
+    state.baseValue,
+    (pendingValue) =>
+      syncLocalMetaControlValue(
+        controlParamId,
+        state.codeObjVariantId,
+        state.codeObjType,
+        pendingValue,
+      ),
+    state.codeObjVariantId,
+  );
+  const handleValueChange: ParamValueChange = (
+    nextValue,
+    options?: ParamValueChangeOptions,
+  ) => {
+    applyMetaControlValueChange({
+      nextValue,
+      options,
+      currentValue: value,
+      setPendingValue,
+      sectionId,
+      controlParamId,
+      codeObjType: state.codeObjType,
+      sectionVariantId: state.sectionVariantId,
+      codeObjVariantId: state.codeObjVariantId,
+    });
+  };
+  return (
+    <MetaControlContent
+      sectionId={sectionId}
+      controlParamId={controlParamId}
+      sectionName={state.sectionName}
+      paramDisplayName={state.paramDisplayName}
+      codeObjType={state.codeObjType}
+      value={value}
+      defaultVal={state.defaultVal}
+      onValueChange={handleValueChange}
+      onDropzoneStateless={(attachments) =>
+        handleDropzoneStateless(sectionId, controlParamId, attachments)
+      }
+      dropzoneMode={state.dropzoneMode ?? DropzoneModeEnum.STATEFUL}
+      dropzoneMaxAttachments={state.dropzoneMaxAttachments}
+      dropzonePlaceholder={state.dropzonePlaceholder ?? undefined}
+      timeControlMode={state.timeControlMode}
+      timeDisplayFormat={state.timeDisplayFormat}
+      timeDisplayTransparent={state.timeDisplayTransparent}
+      timeDisplayScale={state.timeDisplayScale}
+      timeDisplayFont={state.timeDisplayFont}
+      dateDisplayFormat={state.dateDisplayFormat}
+      dateControlMode={state.dateControlMode}
+      dateSelectionMode={state.dateSelectionMode}
+      dateCalendarWeekStart={state.dateCalendarWeekStart}
+      dateIncludesTime={state.dateIncludesTime}
+      showSectionTitle={showSectionTitle}
+    />
+  );
+}
+
+function syncLocalMetaControlValue(
+  controlParamId: string,
+  codeObjVariantId: string | null,
+  codeObjType: BaseChildlessCodeObjImplUnion["type"],
+  pendingValue: string,
+) {
+  if (!codeObjVariantId || codeObjType === CodeObjTypeEnum.PasswordParam) {
+    return;
+  }
+  useProjectState.setState((state) => {
+    setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
+      state,
+      controlParamId,
+      codeObjVariantId,
+      {
+        value: pendingValue,
+      },
+    );
+  });
+}
+
+function applyMetaControlValueChange({
+  nextValue,
+  options,
+  currentValue,
+  setPendingValue,
+  sectionId,
+  controlParamId,
+  codeObjType,
+  sectionVariantId,
+  codeObjVariantId,
+}: {
+  nextValue: string | number | boolean | null;
+  options?: ParamValueChangeOptions;
+  currentValue: string;
+  setPendingValue: (value: string) => void;
+  sectionId: string;
+  controlParamId: string;
+  codeObjType: BaseChildlessCodeObjImplUnion["type"];
+  sectionVariantId: string | null;
+  codeObjVariantId: string | null;
+}) {
+  if (nextValue === null) {
+    return;
+  }
+  const valueStr = _.toString(nextValue);
+  setPendingValue(valueStr);
+  if (
+    shouldEmitRealtimeValue({
+      previousValue: currentValue,
+      nextValue: valueStr,
+      codeObjType,
+    })
+  ) {
+    sendRealtimeSectionLiteral(sectionId, valueStr);
+  }
+  if (options?.skipBackendUpdate) {
+    return;
+  }
+  sendMetaControlBackendUpdate({
+    sectionId,
+    sectionVariantId,
+    controlParamId,
+    codeObjVariantId,
+    codeObjType,
+    value: valueStr,
+  });
+}
+
+function sendMetaControlBackendUpdate({
+  sectionId,
+  sectionVariantId,
+  controlParamId,
+  codeObjVariantId,
+  codeObjType,
+  value,
+}: {
+  sectionId: string;
+  sectionVariantId: string | null;
+  controlParamId: string;
+  codeObjVariantId: string | null;
+  codeObjType: BaseChildlessCodeObjImplUnion["type"];
+  value: string;
+}) {
+  if (!sectionVariantId) {
+    return;
+  }
+  if (codeObjType === CodeObjTypeEnum.PasswordParam) {
+    debouncedSetPasswordParamValue(
+      sectionId,
+      sectionVariantId,
+      controlParamId,
+      value,
+    );
+    return;
+  }
+  if (!codeObjVariantId) {
+    return;
+  }
+  debouncedSetParamEnteredValue(
+    sectionId,
+    sectionVariantId,
+    controlParamId,
+    codeObjVariantId,
+    value,
+  );
+}
+
+function handleDropzoneStateless(
+  sectionId: string,
+  controlParamId: string,
+  attachments: DropzoneStatelessAttachment[],
+) {
+  if (attachments.length === 0) {
+    return;
+  }
+  const dependencyKey = {
+    type: DependencyKeyTypeEnum.Section,
+    sectionId,
+  };
+  sendRealtimeDependencyEvent({
+    dependencyKey,
+    payload: buildDropzoneMetadataPayload(
+      sectionId,
+      controlParamId,
+      attachments,
+    ),
+  });
+  for (const attachment of attachments) {
+    if (attachment.kind !== "file") {
+      continue;
+    }
+    sendRealtimeDependencyEvent({
+      dependencyKey,
+      payload: buildDropzoneBinaryPayload(attachment),
+      binaryPayload: attachment.binaryPayload,
+    });
+  }
+}
+
+function buildDropzoneMetadataPayload(
+  sectionId: string,
+  controlParamId: string,
+  attachments: DropzoneStatelessAttachment[],
+): LiteralDependencyValue {
+  return {
+    payload: JSON.stringify({
+      sectionId,
+      paramInfoId: controlParamId,
+      attachments: attachments.map((attachment) =>
+        attachment.kind === "file"
+          ? {
+              kind: attachment.kind,
+              name: attachment.name,
+              mimeType: attachment.mimeType,
+              size: attachment.size,
+              contentId: attachment.contentId,
+              byteLength: attachment.byteLength,
+            }
+          : attachment,
+      ),
+    }),
+    type: DependencyValueTypeEnum.Literal,
+  };
+}
+
+function buildDropzoneBinaryPayload(
+  attachment: Extract<DropzoneStatelessAttachment, { kind: "file" }>,
+): BinaryDependencyValue {
+  return {
+    payload: {
+      contentId: attachment.contentId,
+      byteLength: attachment.byteLength,
+      mimeType: attachment.mimeType,
+    },
+    type: DependencyValueTypeEnum.Binary,
+  };
+}
+
 export const MetaControlArea = React.memo(_MetaControlArea);
 const debouncedSetParamEnteredValue = _.debounce(
   (
