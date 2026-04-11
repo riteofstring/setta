@@ -231,6 +231,13 @@ class ListenerRuntimeState:
     dependency_catalog: ListenerDependencyCatalog
 
 
+@dataclass(slots=True)
+class ListenerRealtimeCacheUpdate:
+    previous_cache: dict[str, Any]
+    updated_cache: dict[str, Any]
+    dirty_dependency_keys: set[BaseDependencyKeyUnion]
+
+
 @dataclass(frozen=True, slots=True)
 class ListenerParamIds:
     sectionId: "ID"
@@ -2015,6 +2022,29 @@ class SettaListener:
         )
         return True
 
+    def _prepare_sequenced_runtime_event(
+        self,
+        *,
+        event_name: str,
+        project_config_id: str,
+        sequence: int,
+        share_session_id: str | None,
+    ) -> ListenerRuntimeState | None:
+        if self._should_ignore_project_event(project_config_id, event_name):
+            return None
+        runtime_state = self._runtime_state_for_event(event_name)
+        if runtime_state is None:
+            return None
+        if self._is_out_of_order_event_sequence(
+            sequence,
+            share_session_id,
+            event_name,
+        ):
+            return None
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
+        self._set_last_realtime_sequence(sequence)
+        return runtime_state
+
     def _collect_dirty_dependency_keys(
         self,
         dependency_metadata: ListenerDependencyMetadata,
@@ -2102,6 +2132,81 @@ class SettaListener:
                 continue
             updated_cache.pop(dependency, None)
         return applied_dependency_keys
+
+    def _apply_optional_rendered_dependency_values_to_cache(
+        self,
+        updated_cache: dict[str, Any],
+        dependency_values: ListenerRenderedDependencyValues | None,
+        dependency_metadata: ListenerDependencyMetadata,
+        *,
+        unknown_key_log: str,
+    ) -> set[BaseDependencyKeyUnion]:
+        if dependency_values is None:
+            return set()
+        return self._apply_rendered_dependency_values_to_cache(
+            updated_cache,
+            dependency_values,
+            dependency_metadata,
+            unknown_key_log=unknown_key_log,
+        )
+
+    async def _build_realtime_cache_update(
+        self,
+        runtime_state: ListenerRuntimeState,
+        content: ListenerRealtimeEventContent,
+    ) -> ListenerRealtimeCacheUpdate | None:
+        previous_cache = dict(self._dependency_cache)
+        updated_cache = dict(previous_cache)
+        initial_dirty_dependency_keys = self._collect_dirty_dependency_keys(
+            runtime_state.dependency_metadata,
+            content.deltas,
+        )
+        if not initial_dirty_dependency_keys:
+            return None
+
+        dirty_dependency_keys = self._build_realtime_affected_dependency_keys(
+            runtime_state.dependency_metadata,
+            initial_dirty_dependency_keys,
+        )
+        local_core_dependency_values = await self._render_local_core_dependency_values(
+            runtime_state,
+            content.deltas,
+        )
+        self._remove_dirty_dependencies_from_cache(
+            updated_cache,
+            dirty_dependency_keys,
+            runtime_state.dependency_metadata,
+        )
+
+        self._apply_optional_rendered_dependency_values_to_cache(
+            updated_cache,
+            local_core_dependency_values,
+            runtime_state.dependency_metadata,
+            unknown_key_log=(
+                "Listener %s ignoring local core value for unknown dependency key %s"
+            ),
+        )
+        authoritative_dependency_keys = self._apply_optional_rendered_dependency_values_to_cache(
+            updated_cache,
+            content.dependencyValues,
+            runtime_state.dependency_metadata,
+            unknown_key_log=(
+                "Listener %s ignoring realtime authoritative value for unknown dependency key %s"
+            ),
+        )
+        dirty_dependency_keys.update(authoritative_dependency_keys)
+
+        self._update_latest_dependency_values_from_realtime(
+            dirty_dependency_keys,
+            local_core_dependency_values,
+            authoritative_dependency_keys,
+            content.dependencyValues,
+        )
+        return ListenerRealtimeCacheUpdate(
+            previous_cache=previous_cache,
+            updated_cache=updated_cache,
+            dirty_dependency_keys=dirty_dependency_keys,
+        )
 
     def _update_latest_dependency_values_from_realtime(
         self,
@@ -2201,20 +2306,15 @@ class SettaListener:
         self, content: ListenerRealtimeEventContent
     ) -> None:
         """Apply realtime deltas and invoke interested callbacks."""
-        if self._should_ignore_project_event(content.projectConfigId, "realtime event"):
-            return
-        runtime_state = self._runtime_state_for_event("realtime event")
+        runtime_state = self._prepare_sequenced_runtime_event(
+            event_name="realtime event",
+            project_config_id=content.projectConfigId,
+            sequence=content.sequence,
+            share_session_id=content.shareSessionId,
+        )
         if runtime_state is None:
             return
 
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-        if self._is_out_of_order_event_sequence(
-            content.sequence,
-            content.shareSessionId,
-            "realtime",
-        ):
-            return
-        self._set_last_realtime_sequence(content.sequence)
         if not content.deltas:
             logger.debug(
                 "Listener %s received realtime event with no deltas (sequence=%s)",
@@ -2223,88 +2323,31 @@ class SettaListener:
             )
             return
 
-        previous_cache = dict(self._dependency_cache)
-        updated_cache = dict(previous_cache)
-        initial_dirty_dependency_keys = self._collect_dirty_dependency_keys(
-            runtime_state.dependency_metadata,
-            content.deltas,
-        )
-        if not initial_dirty_dependency_keys:
+        cache_update = await self._build_realtime_cache_update(runtime_state, content)
+        if cache_update is None:
             return
-
-        dirty_dependency_keys = self._build_realtime_affected_dependency_keys(
-            runtime_state.dependency_metadata,
-            initial_dirty_dependency_keys,
-        )
-        local_core_dependency_values = await self._render_local_core_dependency_values(
-            runtime_state,
-            content.deltas,
-        )
-        self._remove_dirty_dependencies_from_cache(
-            updated_cache,
-            dirty_dependency_keys,
-            runtime_state.dependency_metadata,
-        )
-
-        authoritative_dependency_keys: set[BaseDependencyKeyUnion] = set()
-        if local_core_dependency_values is not None:
-            self._apply_rendered_dependency_values_to_cache(
-                updated_cache,
-                local_core_dependency_values,
-                runtime_state.dependency_metadata,
-                unknown_key_log=(
-                    "Listener %s ignoring local core value for unknown dependency key %s"
-                ),
-            )
-        if content.dependencyValues is not None:
-            authoritative_dependency_keys = self._apply_rendered_dependency_values_to_cache(
-                updated_cache,
-                content.dependencyValues,
-                runtime_state.dependency_metadata,
-                unknown_key_log=(
-                    "Listener %s ignoring realtime authoritative value for unknown dependency key %s"
-                ),
-            )
-            dirty_dependency_keys.update(authoritative_dependency_keys)
-
-        self._update_latest_dependency_values_from_realtime(
-            dirty_dependency_keys,
-            local_core_dependency_values,
-            authoritative_dependency_keys,
-            content.dependencyValues,
-        )
-        self._dependency_cache = updated_cache
-
-        callbacks_to_run = self._collect_realtime_callbacks_to_run(
-            previous_cache,
-            updated_cache,
-            dirty_dependency_keys,
-        )
-        if not callbacks_to_run:
-            return
-
-        for spec, changed in callbacks_to_run:
+        self._dependency_cache = cache_update.updated_cache
+        for spec, changed in self._collect_realtime_callbacks_to_run(
+            cache_update.previous_cache,
+            cache_update.updated_cache,
+            cache_update.dirty_dependency_keys,
+        ):
             self._scheduler.submit(spec.callback_id, changed=dict(changed))
 
     async def _handle_dependency_event(
         self, content: ListenerDependencyEventContent
     ) -> None:
         """Apply realtime dependency events and invoke interested callbacks."""
-        if self._should_ignore_project_event(
-            content.projectConfigId,
-            "dependency event",
+        if (
+            self._prepare_sequenced_runtime_event(
+                event_name="dependency event",
+                project_config_id=content.projectConfigId,
+                sequence=content.sequence,
+                share_session_id=content.shareSessionId,
+            )
+            is None
         ):
             return
-        runtime_state = self._runtime_state_for_event("dependency event")
-        if runtime_state is None:
-            return
-        if self._is_out_of_order_event_sequence(
-            content.sequence,
-            content.shareSessionId,
-            "dependency",
-        ):
-            return
-        self._set_last_realtime_sequence(content.sequence)
         if not content.dependencyEvents:
             logger.debug(
                 "Listener %s received dependency event with no events (sequence=%s)",
@@ -2313,14 +2356,9 @@ class SettaListener:
             )
             return
 
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-        callbacks_to_run = self._collect_dependency_event_callbacks(
+        for callback_id, events in self._collect_dependency_event_callbacks(
             content.dependencyEvents,
-        )
-        if not callbacks_to_run:
-            return
-
-        for callback_id, events in callbacks_to_run.items():
+        ).items():
             spec = self._callbacks.get(callback_id)
             if spec is None:
                 continue
