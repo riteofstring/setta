@@ -18,10 +18,15 @@ import {
 
 import { AppRenderer } from "./AppRenderer";
 
+const addTemporaryNotificationMock = vi.hoisted(() => vi.fn());
 let latestHandlers: Record<
   string,
   (params?: Record<string, unknown>) => void | Promise<void>
 > = {};
+
+vi.mock("state/actions/notifications", () => ({
+  addTemporaryNotification: addTemporaryNotificationMock,
+}));
 
 vi.mock("@json-render/react", async () => {
   const React = await import("react");
@@ -96,6 +101,7 @@ function renderApp(
 describe("AppRenderer", () => {
   beforeEach(() => {
     resetProjectStores();
+    addTemporaryNotificationMock.mockReset();
     latestHandlers = {};
   });
 
@@ -289,6 +295,9 @@ describe("AppRenderer", () => {
     });
 
     expect(runSpy).not.toHaveBeenCalled();
+    expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
+      "Invalid paramOverrides (expected object of string -> string).",
+    );
   });
 
   it("uses the generated binary download helper for app actions", async () => {
