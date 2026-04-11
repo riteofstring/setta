@@ -71,6 +71,14 @@ type trackedProcess struct {
 	exitCode  int
 }
 
+type cancelRunPlan struct {
+	cmd               *exec.Cmd
+	done              <-chan struct{}
+	existingResult    Run
+	hasExistingResult bool
+	reloadStatus      bool
+}
+
 type Manager struct {
 	root      string
 	timeNow   func() time.Time
@@ -243,50 +251,83 @@ func (m *Manager) CancelRun(runID string) (Run, error) {
 		return Run{}, ErrRunIDRequired
 	}
 
-	m.mu.Lock()
-	run, err := m.loadRunLocked(trimmedRunID)
+	plan, err := m.prepareCancelRun(trimmedRunID)
 	if err != nil {
-		m.mu.Unlock()
 		return Run{}, err
 	}
-	switch run.Status {
-	case StatusExited, StatusFailed, StatusLost:
-		m.mu.Unlock()
-		return run, nil
-	case StatusCanceled:
-		if run.ExitCode != nil {
-			m.mu.Unlock()
-			return run, nil
-		}
+	if plan.hasExistingResult {
+		return plan.existingResult, nil
+	}
+	if plan.reloadStatus {
+		return m.GetStatus(trimmedRunID)
 	}
 
-	tracked := m.processes[trimmedRunID]
+	stopTrackedProcess(plan.cmd, plan.done)
+	return m.GetStatus(trimmedRunID)
+}
+
+func (m *Manager) prepareCancelRun(runID string) (cancelRunPlan, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	run, err := m.loadRunLocked(runID)
+	if err != nil {
+		return cancelRunPlan{}, err
+	}
+	if cancelRunReturnsExistingStatus(run) {
+		return cancelRunPlan{
+			existingResult:    run,
+			hasExistingResult: true,
+		}, nil
+	}
+
+	tracked := m.processes[runID]
 	if tracked == nil {
-		m.mu.Unlock()
-		return m.GetStatus(trimmedRunID)
+		return cancelRunPlan{reloadStatus: true}, nil
 	}
 	tracked.canceled = true
-	done := tracked.done
-	cmd := tracked.cmd
-	m.mu.Unlock()
+	return cancelRunPlan{
+		cmd:  tracked.cmd,
+		done: tracked.done,
+	}, nil
+}
 
-	if err := terminateProcess(cmd); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return m.GetStatus(trimmedRunID)
+func cancelRunReturnsExistingStatus(run Run) bool {
+	switch run.Status {
+	case StatusExited, StatusFailed, StatusLost:
+		return true
+	case StatusCanceled:
+		return run.ExitCode != nil
+	default:
+		return false
 	}
+}
+
+func stopTrackedProcess(cmd *exec.Cmd, done <-chan struct{}) {
+	if !sendTrackedProcessSignal(cmd, terminateProcess) {
+		return
+	}
+	if waitForTrackedProcess(done, time.Second) {
+		return
+	}
+	if !sendTrackedProcessSignal(cmd, killProcess) {
+		return
+	}
+	waitForTrackedProcess(done, time.Second)
+}
+
+func sendTrackedProcessSignal(cmd *exec.Cmd, signal func(*exec.Cmd) error) bool {
+	err := signal(cmd)
+	return err == nil || errors.Is(err, os.ErrProcessDone)
+}
+
+func waitForTrackedProcess(done <-chan struct{}, timeout time.Duration) bool {
 	select {
 	case <-done:
-		return m.GetStatus(trimmedRunID)
-	case <-time.After(time.Second):
+		return true
+	case <-time.After(timeout):
+		return false
 	}
-
-	if err := killProcess(cmd); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return m.GetStatus(trimmedRunID)
-	}
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-	}
-	return m.GetStatus(trimmedRunID)
 }
 
 func (m *Manager) watchProcess(runID string, tracked *trackedProcess) {
