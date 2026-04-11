@@ -151,80 +151,131 @@ func (p *Project) SetCallable(
 		ctx = context.Background()
 	}
 
-	trimmedSectionID := strings.TrimSpace(sectionID)
-	trimmedCallableName := strings.TrimSpace(callableName)
-	_, _, _, sectionPayload, err := p.resolveCallableSectionContext(trimmedSectionID)
+	request, err := p.prepareSetCallableRequest(sectionID, callableName)
 	if err != nil {
 		return SetCallableResponse{}, err
 	}
-
-	currentCallableID := payloadStringField(sectionPayload, "callable")
-	currentCallableName := p.callableNameByID(currentCallableID)
-	if !refetchParams && currentCallableName != "" && currentCallableName == trimmedCallableName {
-		return p.buildSetCallableResponse(trimmedSectionID, currentCallableID, SignatureHelpStatusSkipped)
+	if request.shouldSkipRefetch(refetchParams) {
+		return p.buildSetCallableResponse(request.sectionID, request.currentCallableID, SignatureHelpStatusSkipped)
+	}
+	if request.callableName == "" {
+		return p.clearCallableSelection(request.sectionID)
+	}
+	if request.shouldReusePreviousSelection(refetchParams) {
+		return p.commitCallableSelection(request.sectionID, request.prevSelectedID, SignatureHelpStatusSkipped)
 	}
 
-	if trimmedCallableName == "" {
-		if err := p.setCurrentSectionField(trimmedSectionID, "callable", nil); err != nil {
-			return SetCallableResponse{}, err
-		}
-		if err := p.syncWatchCodeRegistrySectionMembership(trimmedSectionID); err != nil {
-			return SetCallableResponse{}, err
-		}
-		return p.buildSetCallableResponse(trimmedSectionID, "", SignatureHelpStatusSkipped)
-	}
-
-	prevSelectedID := p.findCallableIDByName(sectionPayload, trimmedCallableName)
-	if prevSelectedID != "" && !refetchParams {
-		if err := p.setCurrentSectionField(trimmedSectionID, "callable", prevSelectedID); err != nil {
-			return SetCallableResponse{}, err
-		}
-		if err := p.syncWatchCodeRegistrySectionMembership(trimmedSectionID); err != nil {
-			return SetCallableResponse{}, err
-		}
-		return p.buildSetCallableResponse(trimmedSectionID, prevSelectedID, SignatureHelpStatusSkipped)
-	}
-
-	signatureResult, ok, err := resolveCallableSignature(ctx, resolver, p.Clone(), trimmedSectionID, trimmedCallableName)
+	signatureResult, ok, err := resolveCallableSignature(ctx, resolver, p.Clone(), request.sectionID, request.callableName)
 	if err != nil {
 		return SetCallableResponse{}, err
 	}
 	if !ok {
-		return p.buildSetCallableResponse(trimmedSectionID, currentCallableID, SignatureHelpStatusSkipped)
+		return p.buildSetCallableResponse(request.sectionID, request.currentCallableID, SignatureHelpStatusSkipped)
 	}
 
-	callableID := prevSelectedID
-	if callableID == "" {
-		callableCore, callableVariant, callableImpl, err := newCallableCodeObject(trimmedCallableName, signatureResult.Documentation)
-		if err != nil {
+	callableID, created, err := p.ensureCallableCodeObject(
+		request.sectionID,
+		request.callableName,
+		request.prevSelectedID,
+		signatureResult.Documentation,
+	)
+	if err != nil {
+		return SetCallableResponse{}, err
+	}
+	if shouldApplyCallableParamProposals(signatureResult.Status, created) {
+		if err := p.applyCallableParamProposals(request.sectionID, callableID, signatureResult.Params); err != nil {
 			return SetCallableResponse{}, err
 		}
-		callableID = callableCore.ID
+	}
+	return p.commitCallableSelection(request.sectionID, callableID, signatureResult.Status)
+}
+
+type setCallableRequest struct {
+	sectionID           string
+	callableName        string
+	currentCallableID   string
+	currentCallableName string
+	prevSelectedID      string
+}
+
+func (p *Project) prepareSetCallableRequest(sectionID string, callableName string) (setCallableRequest, error) {
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	trimmedCallableName := strings.TrimSpace(callableName)
+	_, _, _, sectionPayload, err := p.resolveCallableSectionContext(trimmedSectionID)
+	if err != nil {
+		return setCallableRequest{}, err
+	}
+	currentCallableID := payloadStringField(sectionPayload, "callable")
+	return setCallableRequest{
+		sectionID:           trimmedSectionID,
+		callableName:        trimmedCallableName,
+		currentCallableID:   currentCallableID,
+		currentCallableName: p.callableNameByID(currentCallableID),
+		prevSelectedID:      p.findCallableIDByName(sectionPayload, trimmedCallableName),
+	}, nil
+}
+
+func (r setCallableRequest) shouldSkipRefetch(refetchParams bool) bool {
+	return !refetchParams && r.currentCallableName != "" && r.currentCallableName == r.callableName
+}
+
+func (r setCallableRequest) shouldReusePreviousSelection(refetchParams bool) bool {
+	return !refetchParams && r.prevSelectedID != ""
+}
+
+func (p *Project) clearCallableSelection(sectionID string) (SetCallableResponse, error) {
+	if err := p.setCurrentSectionField(sectionID, "callable", nil); err != nil {
+		return SetCallableResponse{}, err
+	}
+	if err := p.syncWatchCodeRegistrySectionMembership(sectionID); err != nil {
+		return SetCallableResponse{}, err
+	}
+	return p.buildSetCallableResponse(sectionID, "", SignatureHelpStatusSkipped)
+}
+
+func (p *Project) commitCallableSelection(
+	sectionID string,
+	callableID string,
+	status SignatureHelpStatus,
+) (SetCallableResponse, error) {
+	if err := p.setCurrentSectionField(sectionID, "callable", callableID); err != nil {
+		return SetCallableResponse{}, err
+	}
+	if err := p.syncWatchCodeRegistrySectionMembership(sectionID); err != nil {
+		return SetCallableResponse{}, err
+	}
+	return p.buildSetCallableResponse(sectionID, callableID, status)
+}
+
+func (p *Project) ensureCallableCodeObject(
+	sectionID string,
+	callableName string,
+	existingCallableID string,
+	documentation string,
+) (string, bool, error) {
+	if existingCallableID == "" {
+		callableCore, callableVariant, callableImpl, err := newCallableCodeObject(callableName, documentation)
+		if err != nil {
+			return "", false, err
+		}
 		p.CodeObjs[callableCore.ID] = callableCore
 		p.CodeObjVariants[callableVariant.ID] = callableVariant
 		p.CodeObjImpls[callableImpl.ID] = callableImpl
-		if err := p.setSectionCodeObjectVariant(trimmedSectionID, callableCore.ID, callableVariant.ID); err != nil {
-			return SetCallableResponse{}, err
+		if err := p.setSectionCodeObjectVariant(sectionID, callableCore.ID, callableVariant.ID); err != nil {
+			return "", false, err
 		}
-	} else if signatureResult.Documentation != "" {
-		if err := p.setCurrentCodeObjectField(trimmedSectionID, callableID, "description", signatureResult.Documentation); err != nil {
-			return SetCallableResponse{}, err
+		return callableCore.ID, true, nil
+	}
+	if documentation != "" {
+		if err := p.setCurrentCodeObjectField(sectionID, existingCallableID, "description", documentation); err != nil {
+			return "", false, err
 		}
 	}
+	return existingCallableID, false, nil
+}
 
-	if signatureResult.Status == SignatureHelpStatusMatched || prevSelectedID == "" {
-		if err := p.applyCallableParamProposals(trimmedSectionID, callableID, signatureResult.Params); err != nil {
-			return SetCallableResponse{}, err
-		}
-	}
-
-	if err := p.setCurrentSectionField(trimmedSectionID, "callable", callableID); err != nil {
-		return SetCallableResponse{}, err
-	}
-	if err := p.syncWatchCodeRegistrySectionMembership(trimmedSectionID); err != nil {
-		return SetCallableResponse{}, err
-	}
-	return p.buildSetCallableResponse(trimmedSectionID, callableID, signatureResult.Status)
+func shouldApplyCallableParamProposals(status SignatureHelpStatus, created bool) bool {
+	return status == SignatureHelpStatusMatched || created
 }
 
 func (p *Project) SetCallableName(sectionID string, callableName string) error {
@@ -327,50 +378,78 @@ func (p *Project) applyCallableParamProposals(sectionID string, callableID strin
 		return err
 	}
 
-	existingParamIDs := payloadStringArrayField(callablePayload, "children")
-	existingParamIDsByName := make(map[string]string, len(existingParamIDs))
-	for _, paramID := range existingParamIDs {
-		codeObj, ok := p.CodeObjs[paramID]
-		if !ok {
-			return fmt.Errorf("%w: %q", ErrCodeObjNotFound, paramID)
-		}
-		existingParamIDsByName[codeObj.Name] = codeObj.ID
+	existingParamIDsByName, err := p.callableParamIDsByName(payloadStringArrayField(callablePayload, "children"))
+	if err != nil {
+		return err
 	}
 
 	nextChildIDs := make([]string, 0, len(proposals))
 	for _, proposal := range proposals {
-		paramName := strings.TrimSpace(proposal.Name)
-		if paramName == "" || paramName == "/" || paramName == "*" || paramName == "..." {
-			continue
-		}
-
-		existingParamID, ok := existingParamIDsByName[paramName]
-		if ok {
-			existingValue, err := p.currentCodeObjectValue(sectionID, existingParamID)
-			if err != nil {
-				return err
-			}
-			if err := p.updateExistingCallableParam(sectionID, existingParamID, proposal, existingValue); err != nil {
-				return err
-			}
-			nextChildIDs = append(nextChildIDs, existingParamID)
-			continue
-		}
-
-		paramCore, paramVariant, paramImpl, err := newCallableParamCodeObject(proposal)
+		childID, includeChild, err := p.applyCallableParamProposal(sectionID, proposal, existingParamIDsByName)
 		if err != nil {
 			return err
 		}
-		p.CodeObjs[paramCore.ID] = paramCore
-		p.CodeObjVariants[paramVariant.ID] = paramVariant
-		p.CodeObjImpls[paramImpl.ID] = paramImpl
-		if err := p.setSectionCodeObjectVariant(sectionID, paramCore.ID, paramVariant.ID); err != nil {
-			return err
+		if includeChild {
+			nextChildIDs = append(nextChildIDs, childID)
 		}
-		nextChildIDs = append(nextChildIDs, paramCore.ID)
 	}
 
 	return p.setCurrentCodeObjectField(sectionID, callableID, "children", nextChildIDs)
+}
+
+func (p *Project) callableParamIDsByName(paramIDs []string) (map[string]string, error) {
+	paramIDsByName := make(map[string]string, len(paramIDs))
+	for _, paramID := range paramIDs {
+		codeObj, ok := p.CodeObjs[paramID]
+		if !ok {
+			return nil, fmt.Errorf("%w: %q", ErrCodeObjNotFound, paramID)
+		}
+		paramIDsByName[codeObj.Name] = codeObj.ID
+	}
+	return paramIDsByName, nil
+}
+
+func (p *Project) applyCallableParamProposal(
+	sectionID string,
+	proposal CallableParamProposal,
+	existingParamIDsByName map[string]string,
+) (string, bool, error) {
+	paramName := strings.TrimSpace(proposal.Name)
+	if isSkippedCallableParamProposal(paramName) {
+		return "", false, nil
+	}
+
+	if existingParamID, ok := existingParamIDsByName[paramName]; ok {
+		existingValue, err := p.currentCodeObjectValue(sectionID, existingParamID)
+		if err != nil {
+			return "", false, err
+		}
+		if err := p.updateExistingCallableParam(sectionID, existingParamID, proposal, existingValue); err != nil {
+			return "", false, err
+		}
+		return existingParamID, true, nil
+	}
+
+	paramCore, paramVariant, paramImpl, err := newCallableParamCodeObject(proposal)
+	if err != nil {
+		return "", false, err
+	}
+	p.CodeObjs[paramCore.ID] = paramCore
+	p.CodeObjVariants[paramVariant.ID] = paramVariant
+	p.CodeObjImpls[paramImpl.ID] = paramImpl
+	if err := p.setSectionCodeObjectVariant(sectionID, paramCore.ID, paramVariant.ID); err != nil {
+		return "", false, err
+	}
+	return paramCore.ID, true, nil
+}
+
+func isSkippedCallableParamProposal(paramName string) bool {
+	switch paramName {
+	case "", "/", "*", "...":
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *Project) updateExistingCallableParam(
@@ -481,6 +560,14 @@ func (p *Project) setCurrentSectionCodeObjVariantMap(sectionID string, codeObjVa
 		return err
 	}
 
+	normalizedMap := normalizeCodeObjVariantMap(codeObjVariantMap)
+	if err := p.writeSectionCodeObjVariantMap(section, variant, impl, normalizedMap); err != nil {
+		return err
+	}
+	return p.cleanupSectionSharedCodeObjVariantMap(section, normalizedMap)
+}
+
+func normalizeCodeObjVariantMap(codeObjVariantMap map[string]string) map[string]string {
 	normalizedMap := make(map[string]string, len(codeObjVariantMap))
 	for codeObjID, variantID := range codeObjVariantMap {
 		trimmedCodeObjID := strings.TrimSpace(codeObjID)
@@ -490,84 +577,101 @@ func (p *Project) setCurrentSectionCodeObjVariantMap(sectionID string, codeObjVa
 		}
 		normalizedMap[trimmedCodeObjID] = trimmedVariantID
 	}
+	return normalizedMap
+}
 
+func (p *Project) writeSectionCodeObjVariantMap(
+	section Section,
+	variant SectionVariant,
+	impl SectionImpl,
+	normalizedMap map[string]string,
+) error {
+	if !sectionFieldIsUnshared(section, "codeObjVariantMap") {
+		return p.writeSectionImplCodeObjVariantMap(impl, normalizedMap)
+	}
+	if sectionImplIsPreset(impl) {
+		return p.writeSectionVariantCodeObjVariantMap(variant, normalizedMap)
+	}
+	if err := p.writeSectionImplCodeObjVariantMap(impl, normalizedMap); err != nil {
+		return err
+	}
+	return p.removeSectionVariantModifierField(variant, "codeObjVariantMap")
+}
+
+func (p *Project) writeSectionImplCodeObjVariantMap(impl SectionImpl, normalizedMap map[string]string) error {
+	payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
+	if err != nil {
+		return err
+	}
+	payload["codeObjVariantMap"] = cloneProjectValue(normalizedMap)
+	rawPayload, err := marshalProjectObject(payload)
+	if err != nil {
+		return err
+	}
+	impl.Payload = rawPayload
+	p.SectionImpls[impl.ID] = impl
+	return nil
+}
+
+func (p *Project) writeSectionVariantCodeObjVariantMap(variant SectionVariant, normalizedMap map[string]string) error {
+	modifier, err := rawObjectFromProjectPayload(variant.Modifier)
+	if err != nil {
+		return err
+	}
+	modifier["codeObjVariantMap"] = cloneProjectValue(normalizedMap)
+	rawModifier, err := marshalProjectObject(modifier)
+	if err != nil {
+		return err
+	}
+	variant.Modifier = rawModifier
+	p.SectionVariants[variant.ID] = variant
+	return nil
+}
+
+func (p *Project) removeSectionVariantModifierField(variant SectionVariant, fieldName string) error {
+	modifier, err := rawObjectFromProjectPayload(variant.Modifier)
+	if err != nil {
+		return err
+	}
+	if _, ok := modifier[fieldName]; !ok {
+		return nil
+	}
+	delete(modifier, fieldName)
+	rawModifier, err := marshalProjectObject(modifier)
+	if err != nil {
+		return err
+	}
+	variant.Modifier = rawModifier
+	p.SectionVariants[variant.ID] = variant
+	return nil
+}
+
+func (p *Project) cleanupSectionSharedCodeObjVariantMap(section Section, normalizedMap map[string]string) error {
 	if sectionFieldIsUnshared(section, "codeObjVariantMap") {
-		if !sectionImplIsPreset(impl) {
-			payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
-			if err != nil {
-				return err
-			}
-			payload["codeObjVariantMap"] = cloneProjectValue(normalizedMap)
-			rawPayload, err := marshalProjectObject(payload)
-			if err != nil {
-				return err
-			}
-			impl.Payload = rawPayload
-			p.SectionImpls[impl.ID] = impl
-
-			modifier, err := rawObjectFromProjectPayload(variant.Modifier)
-			if err != nil {
-				return err
-			}
-			if _, ok := modifier["codeObjVariantMap"]; ok {
-				delete(modifier, "codeObjVariantMap")
-				rawModifier, err := marshalProjectObject(modifier)
-				if err != nil {
-					return err
-				}
-				variant.Modifier = rawModifier
-				p.SectionVariants[variant.ID] = variant
-			}
-		} else {
-			modifier, err := rawObjectFromProjectPayload(variant.Modifier)
-			if err != nil {
-				return err
-			}
-			modifier["codeObjVariantMap"] = cloneProjectValue(normalizedMap)
-			rawModifier, err := marshalProjectObject(modifier)
-			if err != nil {
-				return err
-			}
-			variant.Modifier = rawModifier
-			p.SectionVariants[variant.ID] = variant
-		}
-	} else {
-		payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
-		if err != nil {
-			return err
-		}
-		payload["codeObjVariantMap"] = cloneProjectValue(normalizedMap)
-		rawPayload, err := marshalProjectObject(payload)
-		if err != nil {
-			return err
-		}
-		impl.Payload = rawPayload
-		p.SectionImpls[impl.ID] = impl
+		return p.removeSectionSharedModifierField(section, "codeObjVariantMap")
 	}
 
 	modifier, err := rawObjectFromProjectPayload(section.SharedModifier)
 	if err != nil {
 		return err
 	}
-	if sectionFieldIsUnshared(section, "codeObjVariantMap") {
-		if _, ok := modifier["codeObjVariantMap"]; ok {
-			delete(modifier, "codeObjVariantMap")
-			rawModifier, err := marshalProjectObject(modifier)
-			if err != nil {
-				return err
-			}
-			section.SharedModifier = rawModifier
-			p.Sections[section.ID] = section
-		}
-		return nil
-	}
-
 	if modifierMap, ok := modifier["codeObjVariantMap"]; ok {
 		if existing, ok := modifierMap.(map[string]any); ok && len(existing) == 0 && len(normalizedMap) == 0 {
 			return nil
 		}
 	}
-	delete(modifier, "codeObjVariantMap")
+	return p.removeSectionSharedModifierField(section, "codeObjVariantMap")
+}
+
+func (p *Project) removeSectionSharedModifierField(section Section, fieldName string) error {
+	modifier, err := rawObjectFromProjectPayload(section.SharedModifier)
+	if err != nil {
+		return err
+	}
+	if _, ok := modifier[fieldName]; !ok {
+		return nil
+	}
+	delete(modifier, fieldName)
 	rawModifier, err := marshalProjectObject(modifier)
 	if err != nil {
 		return err

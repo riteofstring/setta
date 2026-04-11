@@ -390,6 +390,72 @@ func TestProjectCallableParamValuesStayScopedToTheirSectionVariantsAfterSetCalla
 	}
 }
 
+func TestProjectSetCurrentSectionCodeObjVariantMapStoresUnsharedMapOnImplAndClearsOverrides(t *testing.T) {
+	t.Parallel()
+
+	project := callableTestProject(t)
+	project.SectionVariants["callable-variant-1"] = SectionVariant{
+		ID:       "callable-variant-1",
+		ImplID:   "callable-impl-1",
+		Modifier: RawJSON(`{"codeObjVariantMap":{"stale":"variant"},"keep":"variant"}`),
+	}
+	project.Sections["callable-section"] = Section{
+		ID:               "callable-section",
+		Name:             "CallSection",
+		VariantIDs:       []string{"callable-variant-1"},
+		DefaultVariantID: "callable-variant-1",
+		UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
+		SharedModifier:   RawJSON(`{"codeObjVariantMap":{"stale":"shared"},"keep":"shared"}`),
+	}
+
+	err := project.setCurrentSectionCodeObjVariantMap("callable-section", map[string]string{
+		" callable-1 ":    " callable-variant-a ",
+		"":                "ignored",
+		"param-existing":  " param-variant-existing ",
+		"callable-empty":  "",
+		"callable-space ": "   ",
+	})
+	if err != nil {
+		t.Fatalf("setCurrentSectionCodeObjVariantMap returned error: %v", err)
+	}
+
+	implPayload, err := rawObjectFromProjectPayload(project.SectionImpls["callable-impl-1"].Payload)
+	if err != nil {
+		t.Fatalf("decode impl payload: %v", err)
+	}
+	if got := payloadStringMapField(implPayload, "codeObjVariantMap"); !reflect.DeepEqual(
+		got,
+		map[string]string{
+			"callable-1":     "callable-variant-a",
+			"param-existing": "param-variant-existing",
+		},
+	) {
+		t.Fatalf("unexpected impl codeObjVariantMap %#v", got)
+	}
+
+	variantModifier, err := rawObjectFromProjectPayload(project.SectionVariants["callable-variant-1"].Modifier)
+	if err != nil {
+		t.Fatalf("decode variant modifier: %v", err)
+	}
+	if _, ok := variantModifier["codeObjVariantMap"]; ok {
+		t.Fatalf("expected variant override to be cleared, got %#v", variantModifier)
+	}
+	if got := payloadStringField(variantModifier, "keep"); got != "variant" {
+		t.Fatalf("expected variant keep field to remain, got %#v", variantModifier)
+	}
+
+	sectionModifier, err := rawObjectFromProjectPayload(project.Sections["callable-section"].SharedModifier)
+	if err != nil {
+		t.Fatalf("decode section shared modifier: %v", err)
+	}
+	if _, ok := sectionModifier["codeObjVariantMap"]; ok {
+		t.Fatalf("expected shared override to be cleared, got %#v", sectionModifier)
+	}
+	if got := payloadStringField(sectionModifier, "keep"); got != "shared" {
+		t.Fatalf("expected shared keep field to remain, got %#v", sectionModifier)
+	}
+}
+
 func callableTestProject(t *testing.T) Project {
 	t.Helper()
 
