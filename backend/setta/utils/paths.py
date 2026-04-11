@@ -202,17 +202,9 @@ def _resolve_go_paths_payload(
     allow_env_non_files_overrides: bool,
     allow_profile_env_overrides: bool,
 ) -> dict[str, Any]:
-    try:
-        command, command_cwd = resolve_go_cli_command()
-    except OSError as exc:
-        raise SettaPathsError(str(exc)) from exc
-
-    env = {
-        **os.environ,
-        **resolve_go_cli_env(command_cwd),
-    }
-    _apply_paths_env_override_policy(
-        env,
+    command, command_cwd = _resolve_go_paths_command()
+    env = _build_go_paths_env(
+        command_cwd,
         allow_env_files_overrides=allow_env_files_overrides,
         allow_env_non_files_overrides=allow_env_non_files_overrides,
         allow_profile_env_overrides=allow_profile_env_overrides,
@@ -228,6 +220,40 @@ def _resolve_go_paths_payload(
         runtime_root=runtime_root,
         profile=profile,
     )
+    completed = _run_go_paths_command(args, command_cwd=command_cwd, env=env)
+    return _decode_go_paths_payload(completed.stdout)
+
+
+def _resolve_go_paths_command() -> tuple[list[str], Path | None]:
+    try:
+        return resolve_go_cli_command()
+    except OSError as exc:
+        raise SettaPathsError(str(exc)) from exc
+
+
+def _build_go_paths_env(
+    command_cwd: Path | None,
+    *,
+    allow_env_files_overrides: bool,
+    allow_env_non_files_overrides: bool,
+    allow_profile_env_overrides: bool,
+) -> dict[str, str]:
+    env = {
+        **os.environ,
+        **resolve_go_cli_env(command_cwd),
+    }
+    _apply_paths_env_override_policy(
+        env,
+        allow_env_files_overrides=allow_env_files_overrides,
+        allow_env_non_files_overrides=allow_env_non_files_overrides,
+        allow_profile_env_overrides=allow_profile_env_overrides,
+    )
+    return env
+
+
+def _run_go_paths_command(
+    args: list[str], *, command_cwd: Path | None, env: dict[str, str]
+) -> subprocess.CompletedProcess[str]:
     try:
         completed = subprocess.run(
             args,
@@ -247,8 +273,12 @@ def _resolve_go_paths_payload(
             completed.stderr.strip() or completed.stdout.strip()
         )
         raise SettaPathsError(message or "Go Setta paths command failed.")
+    return completed
+
+
+def _decode_go_paths_payload(stdout: str) -> dict[str, Any]:
     try:
-        payload = json.loads(completed.stdout)
+        payload = json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise SettaPathsError("Go Setta paths command returned invalid JSON.") from exc
     if not isinstance(payload, dict):
