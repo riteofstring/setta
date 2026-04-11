@@ -19,43 +19,59 @@ func resolveToolTargets(metadata tools.Metadata, arguments map[string]any, proje
 		return resolvedToolTargets{}, nil
 	}
 
-	targetSectionSet := map[string]struct{}{}
-	unmappedCodeObjSet := map[string]struct{}{}
-	if len(arguments) != 0 && len(metadata.IDPathsByType) != 0 {
-		idsByType := extractIDsByType(arguments, metadata.IDPathsByType, true)
-		for codeObjID := range idsByType[tools.IDTypeCodeObject] {
-			unmappedCodeObjSet[codeObjID] = struct{}{}
-		}
-
-		for sectionID := range idsByType[tools.IDTypeSection] {
-			targetSectionSet[sectionID] = struct{}{}
-		}
-
-		if len(idsByType[tools.IDTypeCodeObject]) != 0 {
-			if projectView == nil {
-				return resolvedToolTargets{}, fmt.Errorf("mcpx: project view is required for code object target mapping")
-			}
-			mappedSections, unmappedCodeObjIDs, err := mapCodeObjIDsToSections(*projectView, idsByType[tools.IDTypeCodeObject])
-			if err != nil {
-				return resolvedToolTargets{}, err
-			}
-			for sectionID := range mappedSections {
-				targetSectionSet[sectionID] = struct{}{}
-			}
-			unmappedCodeObjSet = unmappedCodeObjIDs
-		}
+	targetSectionSet, extractedCodeObjIDs := extractExplicitTargetSets(metadata, arguments)
+	unmappedCodeObjSet, err := resolveMappedCodeObjectTargets(targetSectionSet, extractedCodeObjIDs, projectView)
+	if err != nil {
+		return resolvedToolTargets{}, err
 	}
-
-	if len(targetSectionSet) == 0 && strings.TrimSpace(metadata.DefaultTargetSingletonSection) != "" && projectView != nil {
-		if singletonSectionID := resolveDefaultTargetSingletonSection(*projectView, metadata.DefaultTargetSingletonSection); singletonSectionID != "" {
-			targetSectionSet[singletonSectionID] = struct{}{}
-		}
-	}
+	addDefaultTargetSingletonSection(targetSectionSet, metadata.DefaultTargetSingletonSection, projectView)
 
 	return resolvedToolTargets{
 		sectionIDs:         sortedStringSet(targetSectionSet),
 		unmappedCodeObjIDs: sortedStringSet(unmappedCodeObjSet),
 	}, nil
+}
+
+func extractExplicitTargetSets(metadata tools.Metadata, arguments map[string]any) (map[string]struct{}, map[string]struct{}) {
+	targetSectionSet := map[string]struct{}{}
+	extractedCodeObjIDs := map[string]struct{}{}
+	if len(arguments) == 0 || len(metadata.IDPathsByType) == 0 {
+		return targetSectionSet, extractedCodeObjIDs
+	}
+	idsByType := extractIDsByType(arguments, metadata.IDPathsByType, true)
+	addStringSetEntries(targetSectionSet, idsByType[tools.IDTypeSection])
+	addStringSetEntries(extractedCodeObjIDs, idsByType[tools.IDTypeCodeObject])
+	return targetSectionSet, extractedCodeObjIDs
+}
+
+func resolveMappedCodeObjectTargets(targetSectionSet map[string]struct{}, codeObjIDs map[string]struct{}, projectView *projectview.SingleConfig) (map[string]struct{}, error) {
+	if len(codeObjIDs) == 0 {
+		return map[string]struct{}{}, nil
+	}
+	if projectView == nil {
+		return nil, fmt.Errorf("mcpx: project view is required for code object target mapping")
+	}
+	mappedSections, unmappedCodeObjIDs, err := mapCodeObjIDsToSections(*projectView, codeObjIDs)
+	if err != nil {
+		return nil, err
+	}
+	addStringSetEntries(targetSectionSet, mappedSections)
+	return unmappedCodeObjIDs, nil
+}
+
+func addDefaultTargetSingletonSection(targetSectionSet map[string]struct{}, singletonName string, projectView *projectview.SingleConfig) {
+	if len(targetSectionSet) != 0 || projectView == nil || strings.TrimSpace(singletonName) == "" {
+		return
+	}
+	if singletonSectionID := resolveDefaultTargetSingletonSection(*projectView, singletonName); singletonSectionID != "" {
+		targetSectionSet[singletonSectionID] = struct{}{}
+	}
+}
+
+func addStringSetEntries(target map[string]struct{}, values map[string]struct{}) {
+	for value := range values {
+		target[value] = struct{}{}
+	}
 }
 
 func resolveDefaultTargetSingletonSection(view projectview.SingleConfig, singletonName string) string {
