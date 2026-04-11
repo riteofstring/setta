@@ -225,59 +225,12 @@ func DecodePythonSectionCodegenPolicy(raw RawJSON) (PythonSectionCodegenPolicy, 
 		return PythonSectionCodegenPolicy{}, err
 	}
 	for key, value := range fields {
-		switch key {
-		case "allowlist":
-			decoded, allowAll, err := decodePythonCodegenStringSetField(
-				value,
-				key,
-				knownPythonSectionTypes,
-				true,
-				ErrPythonSectionCodegenPolicyFieldInvalid,
-			)
-			if err != nil {
-				return PythonSectionCodegenPolicy{}, err
-			}
-			policy.Allowlist = decoded
-			policy.AllowlistAllowAll = allowAll
-		case "metaControlAllowlist":
-			decoded, allowAll, err := decodePythonCodegenStringSetField(
-				value,
-				key,
-				knownPythonCodeObjTypes,
-				true,
-				ErrPythonSectionCodegenPolicyFieldInvalid,
-			)
-			if err != nil {
-				return PythonSectionCodegenPolicy{}, err
-			}
-			policy.MetaControlAllowlist = decoded
-			policy.MetaControlAllowlistAllowAll = allowAll
-		case "exclude":
-			decoded, _, err := decodePythonCodegenStringSetField(
-				value,
-				key,
-				nil,
-				false,
-				ErrPythonSectionCodegenPolicyFieldInvalid,
-			)
-			if err != nil {
-				return PythonSectionCodegenPolicy{}, err
-			}
-			policy.Exclude = decoded
-		case "typePolicies":
-			decoded, err := decodePythonSectionTypePoliciesField(value)
-			if err != nil {
-				return PythonSectionCodegenPolicy{}, err
-			}
-			policy.TypePolicies = decoded
-		case "sectionOverrides":
-			decoded, err := decodePythonSectionOverridesField(value)
-			if err != nil {
-				return PythonSectionCodegenPolicy{}, err
-			}
-			policy.SectionOverrides = decoded
-		default:
+		decoder, ok := pythonSectionCodegenPolicyFieldDecoders[key]
+		if !ok {
 			return PythonSectionCodegenPolicy{}, fmt.Errorf("%w: %s", ErrPythonSectionCodegenPolicyFieldUnknown, key)
+		}
+		if err := decoder(&policy, value); err != nil {
+			return PythonSectionCodegenPolicy{}, err
 		}
 	}
 
@@ -464,6 +417,81 @@ func defaultPythonCodeObjValueRepresentation(codeObjType string) PythonCodeObjVa
 	default:
 		return PythonCodeObjValueRepresentationExpression
 	}
+}
+
+type pythonSectionCodegenPolicyFieldDecoder func(policy *PythonSectionCodegenPolicy, raw json.RawMessage) error
+
+var pythonSectionCodegenPolicyFieldDecoders = map[string]pythonSectionCodegenPolicyFieldDecoder{
+	"allowlist":            decodePythonSectionAllowlistField,
+	"metaControlAllowlist": decodePythonSectionMetaControlAllowlistField,
+	"exclude":              decodePythonSectionExcludeField,
+	"typePolicies":         decodePythonSectionTypePoliciesAssignment,
+	"sectionOverrides":     decodePythonSectionOverridesAssignment,
+}
+
+func decodePythonSectionAllowlistField(policy *PythonSectionCodegenPolicy, raw json.RawMessage) error {
+	decoded, allowAll, err := decodePythonCodegenStringSetField(
+		raw,
+		"allowlist",
+		knownPythonSectionTypes,
+		true,
+		ErrPythonSectionCodegenPolicyFieldInvalid,
+	)
+	if err != nil {
+		return err
+	}
+	policy.Allowlist = decoded
+	policy.AllowlistAllowAll = allowAll
+	return nil
+}
+
+func decodePythonSectionMetaControlAllowlistField(policy *PythonSectionCodegenPolicy, raw json.RawMessage) error {
+	decoded, allowAll, err := decodePythonCodegenStringSetField(
+		raw,
+		"metaControlAllowlist",
+		knownPythonCodeObjTypes,
+		true,
+		ErrPythonSectionCodegenPolicyFieldInvalid,
+	)
+	if err != nil {
+		return err
+	}
+	policy.MetaControlAllowlist = decoded
+	policy.MetaControlAllowlistAllowAll = allowAll
+	return nil
+}
+
+func decodePythonSectionExcludeField(policy *PythonSectionCodegenPolicy, raw json.RawMessage) error {
+	decoded, _, err := decodePythonCodegenStringSetField(
+		raw,
+		"exclude",
+		nil,
+		false,
+		ErrPythonSectionCodegenPolicyFieldInvalid,
+	)
+	if err != nil {
+		return err
+	}
+	policy.Exclude = decoded
+	return nil
+}
+
+func decodePythonSectionTypePoliciesAssignment(policy *PythonSectionCodegenPolicy, raw json.RawMessage) error {
+	decoded, err := decodePythonSectionTypePoliciesField(raw)
+	if err != nil {
+		return err
+	}
+	policy.TypePolicies = decoded
+	return nil
+}
+
+func decodePythonSectionOverridesAssignment(policy *PythonSectionCodegenPolicy, raw json.RawMessage) error {
+	decoded, err := decodePythonSectionOverridesField(raw)
+	if err != nil {
+		return err
+	}
+	policy.SectionOverrides = decoded
+	return nil
 }
 
 func decodePythonSectionTypePoliciesField(raw json.RawMessage) (map[string]PythonSectionTypeCodegenPolicy, error) {

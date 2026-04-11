@@ -112,6 +112,68 @@ func TestDecodePythonSectionCodegenPolicyPreservesExplicitSpreadsheetExclusion(t
 	}
 }
 
+func TestDecodePythonSectionCodegenPolicyDecodesAllFieldOverrides(t *testing.T) {
+	t.Parallel()
+
+	raw, err := json.Marshal(map[string]any{
+		"allowlist":            nil,
+		"metaControlAllowlist": nil,
+		"exclude":              []string{"section-hidden"},
+		"typePolicies": map[string]any{
+			"Image": map[string]any{
+				"mode":           "exclude",
+				"representation": "file_read",
+			},
+		},
+		"sectionOverrides": map[string]any{
+			"section-hidden": map[string]any{
+				"mode":           "include",
+				"representation": "file_path",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal section policy overrides: %v", err)
+	}
+
+	policy, err := DecodePythonSectionCodegenPolicy(raw)
+	if err != nil {
+		t.Fatalf("decode section policy overrides: %v", err)
+	}
+	if !policy.AllowlistAllowAll {
+		t.Fatal("expected null allowlist to enable allow-all mode")
+	}
+	if len(policy.Allowlist) != 0 {
+		t.Fatalf("expected null allowlist to clear explicit entries, got %#v", policy.Allowlist)
+	}
+	if !policy.MetaControlAllowlistAllowAll {
+		t.Fatal("expected null meta-control allowlist to enable allow-all mode")
+	}
+	if _, ok := policy.Exclude["section-hidden"]; !ok {
+		t.Fatal("expected explicit section exclusion to decode")
+	}
+	imagePolicy, ok := policy.TypePolicies["Image"]
+	if !ok {
+		t.Fatal("expected explicit Image type policy override")
+	}
+	if imagePolicy.Mode != PythonSectionCodegenModeExclude {
+		t.Fatalf("expected Image mode exclude, got %q", imagePolicy.Mode)
+	}
+	if imagePolicy.Representation != PythonSectionRepresentationFileRead {
+		t.Fatalf("expected Image representation file_read, got %q", imagePolicy.Representation)
+	}
+	override, ok := policy.SectionOverrides["section-hidden"]
+	if !ok {
+		t.Fatal("expected explicit section override to decode")
+	}
+	if override.Mode != PythonSectionCodegenModeInclude {
+		t.Fatalf("expected section override mode include, got %q", override.Mode)
+	}
+	if override.Representation != PythonSectionRepresentationFilePath {
+		t.Fatalf("expected section override representation file_path, got %q", override.Representation)
+	}
+}
+
 // Section policy resolution should respect the meta-control allowlist and reject unsupported type/representation pairs.
 func TestResolvePythonSectionCodegenPolicyAppliesMetaControlAllowlistAndValidation(t *testing.T) {
 	t.Parallel()
