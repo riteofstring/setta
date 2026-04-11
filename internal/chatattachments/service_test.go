@@ -531,6 +531,41 @@ func TestBuildDownloadURLNormalizesArtifactID(t *testing.T) {
 	}
 }
 
+func TestResolveAttachmentPathRejectsAbsolutePathOutsideArtifactsRoot(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	outsidePath := filepath.Join(root, "notes.txt")
+	if err := os.WriteFile(outsidePath, []byte("outside"), 0o644); err != nil {
+		t.Fatalf("write outside attachment: %v", err)
+	}
+
+	_, err := resolveAttachmentPath(outsidePath, root, artifactsRoot, true)
+	if !errors.Is(err, ErrAttachmentNotFound) {
+		t.Fatalf("expected outside-artifacts attachment to be rejected, got %v", err)
+	}
+}
+
+func TestResolveAttachmentPathRejectsDirectories(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	attachmentDir := filepath.Join(artifactsRoot, "nested")
+	if err := os.MkdirAll(attachmentDir, 0o755); err != nil {
+		t.Fatalf("mkdir attachment directory: %v", err)
+	}
+
+	_, err := resolveAttachmentPath("artifacts/nested", root, artifactsRoot, true)
+	if !errors.Is(err, ErrAttachmentPathIsDirectory) {
+		t.Fatalf("expected directory attachment to be rejected, got %v", err)
+	}
+}
+
 func TestDownloadForShareSessionServesDeploymentArtifacts(t *testing.T) {
 	t.Parallel()
 
