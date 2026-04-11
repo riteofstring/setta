@@ -164,69 +164,101 @@ func recordEmittedSymbols(seen map[string]string, symbols []emittedSymbol, names
 func validateTypeDeclarationShape(declaration TypeDeclaration) error {
 	switch declaration.Kind {
 	case "object":
-		if err := validateDeclarationProperties(declaration.Name, "property", declaration.Properties); err != nil {
-			return err
-		}
+		return validateObjectDeclarationShape(declaration)
 	case "enum":
-		for index, value := range declaration.EnumValues {
-			if value.Name == "" {
-				return fmt.Errorf("declaration %s: enum value at index %d has empty name", declaration.Name, index)
-			}
-			if err := validateTSObjectLiteralPropertyName(
-				fmt.Sprintf("declaration %s: enum value %q", declaration.Name, value.Name),
-				value.Name,
-			); err != nil {
-				return err
-			}
-		}
+		return validateEnumDeclarationShape(declaration)
 	case "alias":
-		if strings.TrimSpace(declaration.Alias) == "" {
-			return fmt.Errorf("declaration %s: %s requires alias expression", declaration.Name, declaration.Kind)
-		}
+		return validateAliasDeclarationShape(declaration)
 	case "set":
-		if strings.TrimSpace(declaration.SetElementType) == "" {
-			return fmt.Errorf("declaration %s: set requires element type", declaration.Name)
-		}
-		for index, member := range declaration.SetMembers {
-			if strings.TrimSpace(member) == "" {
-				return fmt.Errorf("declaration %s: set member at index %d is empty", declaration.Name, index)
-			}
-		}
+		return validateSetDeclarationShape(declaration)
 	case "type_guard":
-		if strings.TrimSpace(declaration.GuardInputType) == "" {
-			return fmt.Errorf("declaration %s: type guard requires input type", declaration.Name)
-		}
-		if strings.TrimSpace(declaration.GuardReturnType) == "" {
-			return fmt.Errorf("declaration %s: type guard requires return type", declaration.Name)
-		}
-		if strings.TrimSpace(declaration.GuardSetName) == "" {
-			return fmt.Errorf("declaration %s: type guard requires backing set name", declaration.Name)
-		}
+		return validateTypeGuardDeclarationShape(declaration)
 	case "function":
-		if strings.TrimSpace(declaration.FunctionReturn) == "" {
-			return fmt.Errorf("declaration %s: function requires return type", declaration.Name)
-		}
-		if strings.TrimSpace(declaration.FunctionBody) == "" {
-			return fmt.Errorf("declaration %s: function requires body", declaration.Name)
-		}
-		if err := validateDeclarationProperties(declaration.Name, "function parameter", declaration.FunctionParams); err != nil {
-			return err
-		}
-		for _, param := range declaration.FunctionParams {
-			if param.Optional && param.DefaultValue != "" {
-				return fmt.Errorf(
-					"declaration %s: function parameter %q cannot be optional and have a default value",
-					declaration.Name,
-					param.Name,
-				)
-			}
-		}
+		return validateFunctionDeclarationShape(declaration)
 	case "const":
-		if strings.TrimSpace(declaration.ConstExpr) == "" {
-			return fmt.Errorf("declaration %s: const requires expression", declaration.Name)
-		}
+		return validateConstDeclarationShape(declaration)
 	}
 
+	return nil
+}
+
+func validateObjectDeclarationShape(declaration TypeDeclaration) error {
+	return validateDeclarationProperties(declaration.Name, "property", declaration.Properties)
+}
+
+func validateEnumDeclarationShape(declaration TypeDeclaration) error {
+	for index, value := range declaration.EnumValues {
+		if value.Name == "" {
+			return fmt.Errorf("declaration %s: enum value at index %d has empty name", declaration.Name, index)
+		}
+		if err := validateTSObjectLiteralPropertyName(
+			fmt.Sprintf("declaration %s: enum value %q", declaration.Name, value.Name),
+			value.Name,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAliasDeclarationShape(declaration TypeDeclaration) error {
+	if strings.TrimSpace(declaration.Alias) == "" {
+		return fmt.Errorf("declaration %s: %s requires alias expression", declaration.Name, declaration.Kind)
+	}
+	return nil
+}
+
+func validateSetDeclarationShape(declaration TypeDeclaration) error {
+	if strings.TrimSpace(declaration.SetElementType) == "" {
+		return fmt.Errorf("declaration %s: set requires element type", declaration.Name)
+	}
+	for index, member := range declaration.SetMembers {
+		if strings.TrimSpace(member) == "" {
+			return fmt.Errorf("declaration %s: set member at index %d is empty", declaration.Name, index)
+		}
+	}
+	return nil
+}
+
+func validateTypeGuardDeclarationShape(declaration TypeDeclaration) error {
+	if strings.TrimSpace(declaration.GuardInputType) == "" {
+		return fmt.Errorf("declaration %s: type guard requires input type", declaration.Name)
+	}
+	if strings.TrimSpace(declaration.GuardReturnType) == "" {
+		return fmt.Errorf("declaration %s: type guard requires return type", declaration.Name)
+	}
+	if strings.TrimSpace(declaration.GuardSetName) == "" {
+		return fmt.Errorf("declaration %s: type guard requires backing set name", declaration.Name)
+	}
+	return nil
+}
+
+func validateFunctionDeclarationShape(declaration TypeDeclaration) error {
+	if strings.TrimSpace(declaration.FunctionReturn) == "" {
+		return fmt.Errorf("declaration %s: function requires return type", declaration.Name)
+	}
+	if strings.TrimSpace(declaration.FunctionBody) == "" {
+		return fmt.Errorf("declaration %s: function requires body", declaration.Name)
+	}
+	if err := validateDeclarationProperties(declaration.Name, "function parameter", declaration.FunctionParams); err != nil {
+		return err
+	}
+	for _, param := range declaration.FunctionParams {
+		if param.Optional && param.DefaultValue != "" {
+			return fmt.Errorf(
+				"declaration %s: function parameter %q cannot be optional and have a default value",
+				declaration.Name,
+				param.Name,
+			)
+		}
+	}
+	return nil
+}
+
+func validateConstDeclarationShape(declaration TypeDeclaration) error {
+	if strings.TrimSpace(declaration.ConstExpr) == "" {
+		return fmt.Errorf("declaration %s: const requires expression", declaration.Name)
+	}
 	return nil
 }
 
