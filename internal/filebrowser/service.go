@@ -149,6 +149,11 @@ type ListFolderResponse struct {
 	Items      []FolderContentItem `json:"items"`
 }
 
+type listFolderSettings struct {
+	ignorePatterns []string
+	maxEntries     int
+}
+
 type WorkspacePythonSignalResponse struct {
 	FolderPath string `json:"folderPath"`
 	HasPython  bool   `json:"hasPython"`
@@ -175,6 +180,11 @@ type FileContentResponse struct {
 	ContentID string `json:"contentId"`
 	MtimeNs   int64  `json:"mtimeNs"`
 	Size      int64  `json:"size"`
+}
+
+type fileContentSnapshot struct {
+	content []byte
+	info    os.FileInfo
 }
 
 type FileStatResponse struct {
@@ -213,6 +223,14 @@ type TransferResponse struct {
 	SourcePath      string            `json:"sourcePath"`
 	DestinationPath string            `json:"destinationPath"`
 	Operation       TransferOperation `json:"operation"`
+}
+
+type transferPlan struct {
+	requestSourcePath string
+	source            string
+	sourceCompare     string
+	destinationFolder string
+	operation         TransferOperation
 }
 
 type DownloadResult struct {
@@ -378,97 +396,21 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) (List
 	response := ListFolderResponse{
 		FolderPath: s.formatBrowserPath(resolved),
 	}
-	info, statErr := os.Stat(resolved)
-	if statErr != nil {
-		if errors.Is(statErr, os.ErrNotExist) {
-			if strings.TrimSpace(request.MissingFolderBehavior) == "empty" {
-				response.Items = []FolderContentItem{}
-				return response, nil
-			}
-			return ListFolderResponse{}, &Error{
-				Kind:    ErrorPathNotFound,
-				Message: fmt.Sprintf("Path does not exist: %s", request.FolderPath),
-			}
-		}
-		return ListFolderResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to stat folder: %s", request.FolderPath),
-		}
-	}
-	if !info.IsDir() {
-		return ListFolderResponse{}, &Error{
-			Kind:    ErrorPathNotDirectory,
-			Message: fmt.Sprintf("Path is not a directory: %s", request.FolderPath),
-		}
-	}
-
-	ignorePatterns := request.IgnorePatterns
-	if ignorePatterns == nil {
-		ignorePatterns = DefaultIgnorePatterns
-	}
-	maxEntries := DefaultMaxEntries
-	if request.MaxEntries != nil && *request.MaxEntries >= 0 {
-		maxEntries = *request.MaxEntries
-	}
-	internalIgnoreRoots := s.internalIgnoreRoots()
-	entries, err := os.ReadDir(resolved)
+	isEmpty, err := ensureListFolderTarget(resolved, request.FolderPath, request.MissingFolderBehavior)
 	if err != nil {
-		return ListFolderResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to read folder: %s", request.FolderPath),
-		}
+		return ListFolderResponse{}, err
 	}
-
-	items := make([]FolderContentItem, 0, len(entries))
-	for _, entry := range entries {
-		entryPath := filepath.Join(resolved, entry.Name())
-		if s.isUnderIgnoredRoot(entryPath, internalIgnoreRoots) {
-			continue
-		}
-		if shouldIgnoreName(entry.Name(), ignorePatterns) {
-			continue
-		}
-
-		info, statErr := os.Stat(entryPath)
-		if statErr != nil {
-			continue
-		}
-
-		item := FolderContentItem{
-			Name:     entry.Name(),
-			Type:     FolderContentItemTypeFile,
-			FullPath: s.formatBrowserPath(entryPath),
-		}
-		if info.IsDir() {
-			item.Type = FolderContentItemTypeFolder
-		}
-		if request.IncludeMtime {
-			value := float64(info.ModTime().UnixNano()) / float64(time.Second)
-			item.Mtime = &value
-		}
-		if request.IncludeSize {
-			value := info.Size()
-			item.Size = &value
-		}
-		if request.IncludeSettaInitialized && info.IsDir() {
-			value := s.isInitializedWorkspaceFolder(entryPath)
-			item.IsSettaInitialized = &value
-		}
-		items = append(items, item)
+	if isEmpty {
+		response.Items = []FolderContentItem{}
+		return response, nil
 	}
-
-	sort.Slice(items, func(i int, j int) bool {
-		left := items[i]
-		right := items[j]
-		if left.Type != right.Type {
-			return left.Type == FolderContentItemTypeFolder
-		}
-		return strings.ToLower(left.Name) < strings.ToLower(right.Name)
-	})
-	if len(items) > maxEntries {
-		items = append([]FolderContentItem(nil), items[:maxEntries]...)
+	settings := buildListFolderSettings(request)
+	items, err := s.collectFolderItems(resolved, request, settings)
+	if err != nil {
+		return ListFolderResponse{}, err
 	}
-	response.Items = items
+	sortFolderContentItems(items)
+	response.Items = limitFolderContentItems(items, settings.maxEntries)
 	return response, nil
 }
 
@@ -544,56 +486,12 @@ func (s *Service) ReadFileContent(_ context.Context, request FileContentRequest)
 	if err != nil {
 		return FileContentResponse{}, err
 	}
-	maxBytes := int64(DefaultMaxFileContentBytes)
-	if request.MaxBytes != nil && *request.MaxBytes > 0 && *request.MaxBytes < maxBytes {
-		maxBytes = *request.MaxBytes
-	}
-
-	file, err := os.Open(resolved)
+	snapshot, err := readStableFileContent(resolved, resolveReadMaxBytes(request), request.Path)
 	if err != nil {
-		return FileContentResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to read file: %s", request.Path),
-		}
+		return FileContentResponse{}, err
 	}
-	defer file.Close()
-
-	statBefore, err := file.Stat()
-	if err != nil {
-		return FileContentResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to read file: %s", request.Path),
-		}
-	}
-	content, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
-	if err != nil {
-		return FileContentResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to read file: %s", request.Path),
-		}
-	}
-	statAfter, err := file.Stat()
-	if err != nil {
-		return FileContentResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to read file: %s", request.Path),
-		}
-	}
-	if int64(len(content)) > maxBytes {
-		return FileContentResponse{}, &Error{
-			Kind:    ErrorTooLarge,
-			Message: fmt.Sprintf("File exceeds max size (%d bytes): %s", maxBytes, request.Path),
-		}
-	}
-	if statBefore.Size() != statAfter.Size() || statBefore.ModTime().UnixNano() != statAfter.ModTime().UnixNano() {
-		return FileContentResponse{}, &Error{
-			Kind:    ErrorConflict,
-			Message: "File changed on disk while reading.",
-		}
-	}
-
 	mimeType := guessMimeType(resolved)
-	ref, err := s.binaryStore.StoreBytes(content, mimeType, false)
+	ref, err := s.binaryStore.StoreBytes(snapshot.content, mimeType, false)
 	if err != nil {
 		return FileContentResponse{}, fmt.Errorf("store file browser payload: %w", err)
 	}
@@ -601,8 +499,8 @@ func (s *Service) ReadFileContent(_ context.Context, request FileContentRequest)
 		Path:      s.formatBrowserPath(resolved),
 		MimeType:  mimeType,
 		ContentID: ref.ContentID,
-		MtimeNs:   statAfter.ModTime().UnixNano(),
-		Size:      statAfter.Size(),
+		MtimeNs:   snapshot.info.ModTime().UnixNano(),
+		Size:      snapshot.info.Size(),
 	}, nil
 }
 
@@ -626,71 +524,13 @@ func (s *Service) StatFile(_ context.Context, rawPath string) (FileStatResponse,
 }
 
 func (s *Service) WriteFileContent(_ context.Context, request WriteFileContentRequest) (WriteFileContentResponse, error) {
-	resolved, err := s.resolveFilePathForEdit(request.Path, true)
+	resolved, payload, err := s.prepareWriteFileContent(request)
 	if err != nil {
 		return WriteFileContentResponse{}, err
 	}
-	payload, err := s.binaryStore.ReadBytes(request.ContentID)
-	if err != nil {
-		return WriteFileContentResponse{}, &Error{
-			Kind:    ErrorBinaryPayloadInvalid,
-			Message: "Invalid binary content payload.",
-		}
+	if err := s.writeFileContentBytes(resolved, payload, request); err != nil {
+		return WriteFileContentResponse{}, err
 	}
-	if int64(len(payload)) > DefaultMaxFileContentBytes {
-		return WriteFileContentResponse{}, &Error{
-			Kind:    ErrorTooLarge,
-			Message: fmt.Sprintf("Updated file content exceeds maximum supported size (%d bytes).", DefaultMaxFileContentBytes),
-		}
-	}
-	if err := os.MkdirAll(filepath.Dir(resolved), 0o755); err != nil {
-		return WriteFileContentResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to write file: %s", request.Path),
-		}
-	}
-
-	if request.ExpectedMtimeNs == nil {
-		if err := writeCreateOnlyFile(resolved, payload); err != nil {
-			if errors.Is(err, os.ErrExist) {
-				return WriteFileContentResponse{}, &Error{
-					Kind:    ErrorConflict,
-					Message: "File already exists.",
-				}
-			}
-			return WriteFileContentResponse{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Failed to write file: %s", request.Path),
-			}
-		}
-	} else {
-		existingInfo, err := os.Stat(resolved)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return WriteFileContentResponse{}, &Error{
-					Kind:    ErrorConflict,
-					Message: "File changed on disk since it was loaded.",
-				}
-			}
-			return WriteFileContentResponse{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Failed to stat file: %s", request.Path),
-			}
-		}
-		if existingInfo.ModTime().UnixNano() != *request.ExpectedMtimeNs {
-			return WriteFileContentResponse{}, &Error{
-				Kind:    ErrorConflict,
-				Message: "File changed on disk since it was loaded.",
-			}
-		}
-		if err := statefs.AtomicWriteFile(resolved, payload, existingInfo.Mode().Perm()); err != nil {
-			return WriteFileContentResponse{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Failed to write file: %s", request.Path),
-			}
-		}
-	}
-
 	updatedInfo, err := os.Stat(resolved)
 	if err != nil {
 		return WriteFileContentResponse{}, &Error{
@@ -706,124 +546,406 @@ func (s *Service) WriteFileContent(_ context.Context, request WriteFileContentRe
 	}, nil
 }
 
-func (s *Service) Transfer(_ context.Context, request TransferRequest) (TransferResponse, error) {
-	if request.Operation != TransferOperationCopy && request.Operation != TransferOperationMove {
-		return TransferResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: "Invalid transfer operation.",
+func ensureListFolderTarget(resolved string, rawPath string, missingFolderBehavior string) (bool, error) {
+	info, err := os.Stat(resolved)
+	if err == nil {
+		if info.IsDir() {
+			return false, nil
 		}
+		return false, &Error{
+			Kind:    ErrorPathNotDirectory,
+			Message: fmt.Sprintf("Path is not a directory: %s", rawPath),
+		}
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		if strings.TrimSpace(missingFolderBehavior) == "empty" {
+			return true, nil
+		}
+		return false, &Error{
+			Kind:    ErrorPathNotFound,
+			Message: fmt.Sprintf("Path does not exist: %s", rawPath),
+		}
+	}
+	return false, &Error{
+		Kind:    ErrorInvalidRequest,
+		Message: fmt.Sprintf("Failed to stat folder: %s", rawPath),
+	}
+}
+
+func buildListFolderSettings(request ListFolderRequest) listFolderSettings {
+	settings := listFolderSettings{
+		ignorePatterns: request.IgnorePatterns,
+		maxEntries:     DefaultMaxEntries,
+	}
+	if settings.ignorePatterns == nil {
+		settings.ignorePatterns = DefaultIgnorePatterns
+	}
+	if request.MaxEntries != nil && *request.MaxEntries >= 0 {
+		settings.maxEntries = *request.MaxEntries
+	}
+	return settings
+}
+
+func (s *Service) collectFolderItems(resolved string, request ListFolderRequest, settings listFolderSettings) ([]FolderContentItem, error) {
+	entries, err := os.ReadDir(resolved)
+	if err != nil {
+		return nil, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to read folder: %s", request.FolderPath),
+		}
+	}
+	internalIgnoreRoots := s.internalIgnoreRoots()
+	items := make([]FolderContentItem, 0, len(entries))
+	for _, entry := range entries {
+		entryPath := filepath.Join(resolved, entry.Name())
+		if s.isUnderIgnoredRoot(entryPath, internalIgnoreRoots) || shouldIgnoreName(entry.Name(), settings.ignorePatterns) {
+			continue
+		}
+		item, ok := s.buildFolderContentItem(entryPath, entry, request)
+		if ok {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+
+func (s *Service) buildFolderContentItem(entryPath string, entry os.DirEntry, request ListFolderRequest) (FolderContentItem, bool) {
+	info, err := os.Stat(entryPath)
+	if err != nil {
+		return FolderContentItem{}, false
+	}
+	item := FolderContentItem{
+		Name:     entry.Name(),
+		Type:     FolderContentItemTypeFile,
+		FullPath: s.formatBrowserPath(entryPath),
+	}
+	if info.IsDir() {
+		item.Type = FolderContentItemTypeFolder
+	}
+	if request.IncludeMtime {
+		value := float64(info.ModTime().UnixNano()) / float64(time.Second)
+		item.Mtime = &value
+	}
+	if request.IncludeSize {
+		value := info.Size()
+		item.Size = &value
+	}
+	if request.IncludeSettaInitialized && info.IsDir() {
+		value := s.isInitializedWorkspaceFolder(entryPath)
+		item.IsSettaInitialized = &value
+	}
+	return item, true
+}
+
+func sortFolderContentItems(items []FolderContentItem) {
+	sort.Slice(items, func(i int, j int) bool {
+		left := items[i]
+		right := items[j]
+		if left.Type != right.Type {
+			return left.Type == FolderContentItemTypeFolder
+		}
+		return strings.ToLower(left.Name) < strings.ToLower(right.Name)
+	})
+}
+
+func limitFolderContentItems(items []FolderContentItem, maxEntries int) []FolderContentItem {
+	if len(items) <= maxEntries {
+		return items
+	}
+	return append([]FolderContentItem(nil), items[:maxEntries]...)
+}
+
+func resolveReadMaxBytes(request FileContentRequest) int64 {
+	maxBytes := int64(DefaultMaxFileContentBytes)
+	if request.MaxBytes != nil && *request.MaxBytes > 0 && *request.MaxBytes < maxBytes {
+		maxBytes = *request.MaxBytes
+	}
+	return maxBytes
+}
+
+func readStableFileContent(path string, maxBytes int64, rawPath string) (fileContentSnapshot, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return fileContentSnapshot{}, fileReadError(rawPath)
+	}
+	defer file.Close()
+
+	infoBefore, err := file.Stat()
+	if err != nil {
+		return fileContentSnapshot{}, fileReadError(rawPath)
+	}
+	content, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
+	if err != nil {
+		return fileContentSnapshot{}, fileReadError(rawPath)
+	}
+	infoAfter, err := file.Stat()
+	if err != nil {
+		return fileContentSnapshot{}, fileReadError(rawPath)
+	}
+	if int64(len(content)) > maxBytes {
+		return fileContentSnapshot{}, &Error{
+			Kind:    ErrorTooLarge,
+			Message: fmt.Sprintf("File exceeds max size (%d bytes): %s", maxBytes, rawPath),
+		}
+	}
+	if infoBefore.Size() != infoAfter.Size() || infoBefore.ModTime().UnixNano() != infoAfter.ModTime().UnixNano() {
+		return fileContentSnapshot{}, &Error{
+			Kind:    ErrorConflict,
+			Message: "File changed on disk while reading.",
+		}
+	}
+	return fileContentSnapshot{
+		content: content,
+		info:    infoAfter,
+	}, nil
+}
+
+func fileReadError(rawPath string) error {
+	return &Error{
+		Kind:    ErrorInvalidRequest,
+		Message: fmt.Sprintf("Failed to read file: %s", rawPath),
+	}
+}
+
+func (s *Service) prepareWriteFileContent(request WriteFileContentRequest) (string, []byte, error) {
+	resolved, err := s.resolveFilePathForEdit(request.Path, true)
+	if err != nil {
+		return "", nil, err
+	}
+	payload, err := s.binaryStore.ReadBytes(request.ContentID)
+	if err != nil {
+		return "", nil, &Error{
+			Kind:    ErrorBinaryPayloadInvalid,
+			Message: "Invalid binary content payload.",
+		}
+	}
+	if int64(len(payload)) > DefaultMaxFileContentBytes {
+		return "", nil, &Error{
+			Kind:    ErrorTooLarge,
+			Message: fmt.Sprintf("Updated file content exceeds maximum supported size (%d bytes).", DefaultMaxFileContentBytes),
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(resolved), 0o755); err != nil {
+		return "", nil, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to write file: %s", request.Path),
+		}
+	}
+	return resolved, payload, nil
+}
+
+func (s *Service) writeFileContentBytes(resolved string, payload []byte, request WriteFileContentRequest) error {
+	if request.ExpectedMtimeNs == nil {
+		return writeNewFileContent(resolved, payload, request.Path)
+	}
+	return writeExistingFileContent(resolved, payload, request.Path, *request.ExpectedMtimeNs)
+}
+
+func writeNewFileContent(resolved string, payload []byte, rawPath string) error {
+	if err := writeCreateOnlyFile(resolved, payload); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return &Error{
+				Kind:    ErrorConflict,
+				Message: "File already exists.",
+			}
+		}
+		return &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to write file: %s", rawPath),
+		}
+	}
+	return nil
+}
+
+func writeExistingFileContent(resolved string, payload []byte, rawPath string, expectedMtimeNs int64) error {
+	existingInfo, err := os.Stat(resolved)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &Error{
+				Kind:    ErrorConflict,
+				Message: "File changed on disk since it was loaded.",
+			}
+		}
+		return &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to stat file: %s", rawPath),
+		}
+	}
+	if existingInfo.ModTime().UnixNano() != expectedMtimeNs {
+		return &Error{
+			Kind:    ErrorConflict,
+			Message: "File changed on disk since it was loaded.",
+		}
+	}
+	if err := statefs.AtomicWriteFile(resolved, payload, existingInfo.Mode().Perm()); err != nil {
+		return &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to write file: %s", rawPath),
+		}
+	}
+	return nil
+}
+
+func (s *Service) Transfer(_ context.Context, request TransferRequest) (TransferResponse, error) {
+	plan, err := s.prepareTransfer(request)
+	if err != nil {
+		return TransferResponse{}, err
+	}
+	if plan.operation == TransferOperationCopy {
+		return s.copyTransfer(plan)
+	}
+	return s.moveTransfer(plan)
+}
+
+func validateTransferOperation(operation TransferOperation) error {
+	if operation == TransferOperationCopy || operation == TransferOperationMove {
+		return nil
+	}
+	return &Error{
+		Kind:    ErrorInvalidRequest,
+		Message: "Invalid transfer operation.",
+	}
+}
+
+func (s *Service) prepareTransfer(request TransferRequest) (transferPlan, error) {
+	if err := validateTransferOperation(request.Operation); err != nil {
+		return transferPlan{}, err
 	}
 	source, err := s.resolveExistingWorkspaceEntry(request.SourcePath)
 	if err != nil {
-		return TransferResponse{}, err
+		return transferPlan{}, err
 	}
-	destinationFolder, err := s.resolveFolderPath(
-		request.DestinationFolderPath,
-		"",
-		false,
-	)
+	destinationFolder, err := s.resolveTransferDestinationFolder(request.DestinationFolderPath)
 	if err != nil {
-		return TransferResponse{}, err
+		return transferPlan{}, err
+	}
+	sourceCompare, err := resolveForComparison(source)
+	if err != nil {
+		return transferPlan{}, err
+	}
+	if err := s.validateTransferBounds(source, sourceCompare, destinationFolder); err != nil {
+		return transferPlan{}, err
+	}
+	return transferPlan{
+		requestSourcePath: request.SourcePath,
+		source:            source,
+		sourceCompare:     sourceCompare,
+		destinationFolder: destinationFolder,
+		operation:         request.Operation,
+	}, nil
+}
+
+func (s *Service) resolveTransferDestinationFolder(destinationFolderPath string) (string, error) {
+	destinationFolder, err := s.resolveFolderPath(destinationFolderPath, "", false)
+	if err != nil {
+		return "", err
 	}
 	destinationInfo, err := os.Stat(destinationFolder)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return TransferResponse{}, &Error{
+			return "", &Error{
 				Kind:    ErrorPathNotFound,
-				Message: fmt.Sprintf("Destination folder does not exist: %s", request.DestinationFolderPath),
+				Message: fmt.Sprintf("Destination folder does not exist: %s", destinationFolderPath),
 			}
 		}
-		return TransferResponse{}, &Error{
+		return "", &Error{
 			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Destination is not a folder: %s", request.DestinationFolderPath),
+			Message: fmt.Sprintf("Destination is not a folder: %s", destinationFolderPath),
 		}
 	}
 	if !destinationInfo.IsDir() {
-		return TransferResponse{}, &Error{
+		return "", &Error{
 			Kind:    ErrorPathNotDirectory,
-			Message: fmt.Sprintf("Destination is not a folder: %s", request.DestinationFolderPath),
+			Message: fmt.Sprintf("Destination is not a folder: %s", destinationFolderPath),
 		}
 	}
+	return destinationFolder, nil
+}
 
-	sourceCompare, err := resolveForComparison(source)
-	if err != nil {
-		return TransferResponse{}, err
-	}
+func (s *Service) validateTransferBounds(source string, sourceCompare string, destinationFolder string) error {
 	workspaceCompare, err := resolveForComparison(s.workspaceRoot)
 	if err != nil {
-		return TransferResponse{}, err
+		return err
 	}
 	if samePath(sourceCompare, workspaceCompare) {
-		return TransferResponse{}, &Error{
+		return &Error{
 			Kind:    ErrorInvalidRequest,
 			Message: "Cannot move or copy the workspace root.",
 		}
 	}
 	destinationFolderCompare, err := resolveForComparison(destinationFolder)
 	if err != nil {
+		return err
+	}
+	sourceInfo, err := os.Stat(source)
+	if err != nil || !sourceInfo.IsDir() {
+		return err
+	}
+	if isWithinRoot(sourceCompare, destinationFolderCompare) {
+		return &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: "Cannot move or copy a folder into itself.",
+		}
+	}
+	return nil
+}
+
+func (s *Service) copyTransfer(plan transferPlan) (TransferResponse, error) {
+	destination, err := resolveCopyDestinationPath(plan.source, plan.destinationFolder)
+	if err != nil {
 		return TransferResponse{}, err
 	}
-	if sourceInfo, err := os.Stat(source); err == nil && sourceInfo.IsDir() {
-		if isWithinRoot(sourceCompare, destinationFolderCompare) {
-			return TransferResponse{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: "Cannot move or copy a folder into itself.",
-			}
+	if err := copyPath(plan.source, destination); err != nil {
+		return TransferResponse{}, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to copy path: %s", plan.requestSourcePath),
 		}
 	}
+	return s.transferResponse(plan.source, destination, plan.operation), nil
+}
 
-	if request.Operation == TransferOperationCopy {
-		destination, err := resolveCopyDestinationPath(source, destinationFolder)
-		if err != nil {
-			return TransferResponse{}, err
-		}
-		if err := copyPath(source, destination); err != nil {
-			return TransferResponse{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Failed to copy path: %s", request.SourcePath),
-			}
-		}
-		return TransferResponse{
-			SourcePath:      s.formatBrowserPath(source),
-			DestinationPath: s.formatBrowserPath(destination),
-			Operation:       request.Operation,
-		}, nil
-	}
-
-	destination := filepath.Join(destinationFolder, filepath.Base(source))
+func (s *Service) moveTransfer(plan transferPlan) (TransferResponse, error) {
+	destination := filepath.Join(plan.destinationFolder, filepath.Base(plan.source))
 	destinationCompare, err := resolveForComparison(destination)
 	if err != nil {
 		return TransferResponse{}, err
 	}
-	if samePath(sourceCompare, destinationCompare) {
-		return TransferResponse{
-			SourcePath:      s.formatBrowserPath(source),
-			DestinationPath: s.formatBrowserPath(destination),
-			Operation:       request.Operation,
-		}, nil
+	if samePath(plan.sourceCompare, destinationCompare) {
+		return s.transferResponse(plan.source, destination, plan.operation), nil
 	}
-	if _, err := os.Stat(destination); err == nil {
+	if err := ensureTransferMoveDestination(plan.requestSourcePath, destination); err != nil {
+		return TransferResponse{}, err
+	}
+	if err := movePath(plan.source, destination); err != nil {
 		return TransferResponse{}, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to move path: %s", plan.requestSourcePath),
+		}
+	}
+	return s.transferResponse(plan.source, destination, plan.operation), nil
+}
+
+func ensureTransferMoveDestination(source string, destination string) error {
+	if _, err := os.Stat(destination); err == nil {
+		return &Error{
 			Kind:    ErrorConflict,
 			Message: fmt.Sprintf("Destination already exists: %s", destination),
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return TransferResponse{}, &Error{
+		return &Error{
 			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to move path: %s", request.SourcePath),
+			Message: fmt.Sprintf("Failed to move path: %s", source),
 		}
 	}
-	if err := movePath(source, destination); err != nil {
-		return TransferResponse{}, &Error{
-			Kind:    ErrorInvalidRequest,
-			Message: fmt.Sprintf("Failed to move path: %s", request.SourcePath),
-		}
-	}
+	return nil
+}
+
+func (s *Service) transferResponse(source string, destination string, operation TransferOperation) TransferResponse {
 	return TransferResponse{
 		SourcePath:      s.formatBrowserPath(source),
 		DestinationPath: s.formatBrowserPath(destination),
-		Operation:       request.Operation,
-	}, nil
+		Operation:       operation,
+	}
 }
 
 func (s *Service) Download(_ context.Context, token string) (DownloadResult, error) {

@@ -753,6 +753,76 @@ func TestServiceTransferCopyRenamesConflictsAndRejectsNestedMoves(t *testing.T) 
 	}
 }
 
+func TestServiceTransferMoveReturnsSamePathWhenAlreadyInDestinationFolder(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+
+	sourceFile := filepath.Join(workspaceRoot, "notes.csv")
+	if err := os.WriteFile(sourceFile, []byte("task,status\nalpha,todo\n"), 0o644); err != nil {
+		t.Fatalf("write source file: %v", err)
+	}
+
+	result, err := service.Transfer(context.Background(), TransferRequest{
+		SourcePath:            sourceFile,
+		DestinationFolderPath: workspaceRoot,
+		Operation:             TransferOperationMove,
+	})
+	if err != nil {
+		t.Fatalf("move within same folder: %v", err)
+	}
+	if result.SourcePath != sourceFile || result.DestinationPath != sourceFile {
+		t.Fatalf("expected same-path move response, got %#v", result)
+	}
+	if _, err := os.Stat(sourceFile); err != nil {
+		t.Fatalf("expected source file to remain in place, got %v", err)
+	}
+}
+
+func TestServiceTransferMoveRejectsWorkspaceRootAndConflictingDestination(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+
+	sourceFile := filepath.Join(workspaceRoot, "notes.csv")
+	if err := os.WriteFile(sourceFile, []byte("task,status\nalpha,todo\n"), 0o644); err != nil {
+		t.Fatalf("write source file: %v", err)
+	}
+	destinationFolder := filepath.Join(workspaceRoot, "archive")
+	if err := os.MkdirAll(destinationFolder, 0o755); err != nil {
+		t.Fatalf("mkdir destination: %v", err)
+	}
+	conflictingDestination := filepath.Join(destinationFolder, filepath.Base(sourceFile))
+	if err := os.WriteFile(conflictingDestination, []byte("existing"), 0o644); err != nil {
+		t.Fatalf("write conflicting destination: %v", err)
+	}
+
+	_, err := service.Transfer(context.Background(), TransferRequest{
+		SourcePath:            sourceFile,
+		DestinationFolderPath: destinationFolder,
+		Operation:             TransferOperationMove,
+	})
+	if err == nil {
+		t.Fatal("expected conflicting move destination to fail")
+	}
+	var routeErr *Error
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorConflict || !strings.Contains(err.Error(), "Destination already exists") {
+		t.Fatalf("expected move destination conflict, got %#v", err)
+	}
+
+	_, err = service.Transfer(context.Background(), TransferRequest{
+		SourcePath:            workspaceRoot,
+		DestinationFolderPath: destinationFolder,
+		Operation:             TransferOperationMove,
+	})
+	if err == nil {
+		t.Fatal("expected workspace root move to fail")
+	}
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorInvalidRequest || !strings.Contains(err.Error(), "Cannot move or copy the workspace root.") {
+		t.Fatalf("expected workspace root rejection, got %#v", err)
+	}
+}
+
 func newTestFileBrowserService(t *testing.T, timeNow func() time.Time) (*Service, string, *binarypayload.Store, string) {
 	t.Helper()
 
