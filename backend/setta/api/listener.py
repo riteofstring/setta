@@ -723,6 +723,39 @@ class SettaListener:
             )
         return project_config_id
 
+    def _require_runtime_state(
+        self,
+        *,
+        action: str,
+    ) -> ListenerRuntimeState:
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            raise RuntimeError(
+                f"Listener project state is unavailable; wait for bootstrap before {action}"
+            )
+        return runtime_state
+
+    def _require_registered_listener(
+        self,
+        *,
+        action: str,
+    ) -> None:
+        if self._is_registered or self._registration_pending:
+            return
+        raise RuntimeError(
+            "Listener is not registered with the server; "
+            f"wait for registration to complete before {action}"
+        )
+
+    def _require_outbound_project_id(
+        self,
+        *,
+        action: str,
+    ):
+        self._require_runtime_state(action=action)
+        self._require_registered_listener(action=action)
+        return self._require_project_id()
+
     def _validate_sequence_session_id(self, share_session_id: str | None) -> str | None:
         if self._share_session_id is None:
             if share_session_id is not None:
@@ -2291,31 +2324,73 @@ class SettaListener:
                 continue
             self._scheduler.submit(spec.callback_id, events=list(events))
 
+    def _resolve_snapshot_refresh_kind(
+        self,
+        refresh_kind: str | None,
+    ) -> Literal["bootstrap", "force_refresh"] | None:
+        if refresh_kind == "bootstrap":
+            return "bootstrap"
+        if refresh_kind == "force_refresh":
+            return "force_refresh"
+        return None
+
+    def _complete_pending_force_refresh(self, raw_call_id: str | None) -> None:
+        if raw_call_id is None:
+            return
+        call_id = raw_call_id.strip()
+        if not call_id:
+            return
+        future = self._pending_router_endpoint_force_refreshes.get(call_id)
+        if future is None or future.done():
+            return
+        future.set_result(None)
+
     async def _handle_force_refresh(self, content: ListenerForceRefreshEvent) -> None:
         """Handle force refresh payloads by replaying the latest snapshot."""
         completed = False
         try:
-            refresh_kind: Literal["bootstrap", "force_refresh"] | None = None
-            if content.refreshKind == "bootstrap":
-                refresh_kind = "bootstrap"
-            elif content.refreshKind == "force_refresh":
-                refresh_kind = "force_refresh"
             await self._refresh_from_snapshot(
                 content.snapshot,
-                refresh_kind=refresh_kind,
+                refresh_kind=self._resolve_snapshot_refresh_kind(content.refreshKind),
             )
             completed = True
         finally:
             if completed:
-                raw_call_id = content.callId
-                if raw_call_id is not None:
-                    call_id = raw_call_id.strip()
-                    if call_id:
-                        future = self._pending_router_endpoint_force_refreshes.get(
-                            call_id
-                        )
-                        if future is not None and not future.done():
-                            future.set_result(None)
+                self._complete_pending_force_refresh(content.callId)
+
+    def _serialize_frontend_emit_artifact_updates(
+        self,
+        artifact_updates: Sequence[BaseArtifactUnion | Mapping[str, Any]] | None,
+    ) -> list[BaseArtifactUnion]:
+        serialized_artifact_updates: list[BaseArtifactUnion] = []
+        if artifact_updates is None:
+            return serialized_artifact_updates
+        for artifact in artifact_updates:
+            try:
+                serialized_artifact_updates.append(
+                    BaseArtifactTypeAdapter.validate_python(artifact)
+                )
+            except ValidationError as exc:
+                raise ValueError(
+                    "artifact_updates entries must match the BaseArtifact schema"
+                ) from exc
+        return serialized_artifact_updates
+
+    def _build_frontend_emit_message(
+        self,
+        *,
+        project_config_id: str,
+        dependency_values: Mapping[str, Any],
+        artifact_updates: Sequence[BaseArtifactUnion],
+    ) -> ListenerFrontendEmitMessage:
+        return ListenerFrontendEmitMessage(
+            messageType=ListenerMessageType.ListenerFrontendEmit,
+            content=ListenerFrontendEmitRequest(
+                projectConfigId=project_config_id,
+                dependencyValues=dependency_values,
+                artifactUpdates=list(artifact_updates),
+            ).model_dump(mode="python"),
+        )
 
     async def emit_to_frontend(
         self,
@@ -2323,38 +2398,19 @@ class SettaListener:
         dependency_values: Mapping[str, Any] | None = None,
         artifact_updates: Sequence[BaseArtifactUnion | Mapping[str, Any]] | None = None,
     ) -> None:
-        if self._runtime_state is None:
-            raise RuntimeError(
-                "Listener project state is unavailable; wait for bootstrap before emitting"
-            )
-        if not self._is_registered and not self._registration_pending:
-            raise RuntimeError(
-                "Listener is not registered with the server; wait for registration to complete before emitting"
-            )
+        project_config_id = self._require_outbound_project_id(action="emitting")
         serialized_values = dict(dependency_values or {})
-        serialized_artifact_updates: list[BaseArtifactUnion] = []
-        if artifact_updates:
-            for artifact in artifact_updates:
-                try:
-                    serialized_artifact_updates.append(
-                        BaseArtifactTypeAdapter.validate_python(artifact)
-                    )
-                except ValidationError as exc:
-                    raise ValueError(
-                        "artifact_updates entries must match the BaseArtifact schema"
-                    ) from exc
+        serialized_artifact_updates = self._serialize_frontend_emit_artifact_updates(
+            artifact_updates
+        )
         if not serialized_values and not serialized_artifact_updates:
             raise ValueError(
                 "emit_to_frontend requires at least one dependency value or artifact update"
             )
-        project_config_id = self._require_project_id()
-        message = ListenerFrontendEmitMessage(
-            messageType=ListenerMessageType.ListenerFrontendEmit,
-            content=ListenerFrontendEmitRequest(
-                projectConfigId=project_config_id,
-                dependencyValues=serialized_values,
-                artifactUpdates=serialized_artifact_updates,
-            ).model_dump(mode="python"),
+        message = self._build_frontend_emit_message(
+            project_config_id=project_config_id,
+            dependency_values=serialized_values,
+            artifact_updates=serialized_artifact_updates,
         )
         logger.debug(
             "Listener %s emitting dependency overrides %s and artifact updates %s",
@@ -2364,38 +2420,46 @@ class SettaListener:
         )
         await self._send_websocket_payload(message.model_dump_json())
 
-    async def _call_router_endpoint(
+    def _serialize_router_endpoint_payload(
+        self,
+        payload: BaseModel | dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        if payload is None:
+            return {}
+        if isinstance(payload, BaseModel):
+            return payload.model_dump()
+        if isinstance(payload, dict):
+            return dict(payload)
+        raise ValueError("router endpoint payload must be a dict or pydantic model")
+
+    def _start_router_endpoint_call(
         self,
         endpoint_name: str,
-        payload: BaseModel | dict[str, object] | None = None,
-    ) -> Any:
-        if self._runtime_state is None:
-            raise RuntimeError(
-                "Listener project state is unavailable; wait for bootstrap before calling router endpoints"
-            )
-        if not self._is_registered and not self._registration_pending:
-            raise RuntimeError(
-                "Listener is not registered with the server; wait for registration to complete before calling router endpoints"
-            )
-        if not endpoint_name:
-            raise ValueError("router endpoint call requires a non-empty endpoint name")
-        call_id = uuid4().hex
+    ) -> tuple[str, asyncio.Future[Any], asyncio.Future[None] | None]:
         loop = asyncio.get_running_loop()
+        call_id = uuid4().hex
         future: asyncio.Future[Any] = loop.create_future()
         self._pending_router_endpoint_calls[call_id] = future
         refresh_future: asyncio.Future[None] | None = None
         if endpoint_name == ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE:
             refresh_future = loop.create_future()
             self._pending_router_endpoint_force_refreshes[call_id] = refresh_future
-        project_config_id = self._require_project_id()
-        if payload is None:
-            serialized_payload: dict[str, object] = {}
-        elif isinstance(payload, BaseModel):
-            serialized_payload = payload.model_dump()
-        elif isinstance(payload, dict):
-            serialized_payload = dict(payload)
-        else:
-            raise ValueError("router endpoint payload must be a dict or pydantic model")
+        return call_id, future, refresh_future
+
+    async def _call_router_endpoint(
+        self,
+        endpoint_name: str,
+        payload: BaseModel | dict[str, object] | None = None,
+    ) -> Any:
+        project_config_id = self._require_outbound_project_id(
+            action="calling router endpoints"
+        )
+        if not endpoint_name:
+            raise ValueError("router endpoint call requires a non-empty endpoint name")
+        call_id, future, refresh_future = self._start_router_endpoint_call(
+            endpoint_name
+        )
+        serialized_payload = self._serialize_router_endpoint_payload(payload)
         message = ListenerRouterEndpointCallMessage(
             messageType=ListenerMessageType.ListenerRouterEndpointCall,
             content=ListenerRouterEndpointCallContent(
@@ -2472,62 +2536,59 @@ class SettaListener:
                 throttle_ms=spec.throttle_ms,
             )
 
+    def _callback_logger(self, spec: ListenerCallbackSpec) -> logging.Logger:
+        spec_logger = spec.logger
+        if spec_logger is None:
+            spec_logger = logger.getChild(f"callback.{spec.callback_id}")
+            spec.logger = spec_logger
+        return spec_logger
+
+    def _callback_project_manager(self) -> RouterEndpointAPI:
+        if self._router_endpoint_api is None:
+            self._router_endpoint_api = RouterEndpointAPI(self._call_router_endpoint)
+        return self._router_endpoint_api
+
+    def _current_dependency_metadata(self) -> ListenerDependencyMetadata | None:
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            return None
+        return runtime_state.dependency_metadata
+
+    def _current_callback_state(self) -> Any | None:
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            return None
+        return self._build_callback_state(runtime_state)
+
+    def _current_dependency_value(self, dependency_name: str) -> Any:
+        return self._dependency_cache.get(dependency_name, _MISSING)
+
+    def _build_listener_dependency_values(self) -> ListenerDependencyValues:
+        return ListenerDependencyValues(
+            dependency_metadata_resolver=self._current_dependency_metadata,
+            value_resolver=self._current_dependency_value,
+            state_resolver=self._current_callback_state,
+        )
+
     def _build_callback_context(
         self,
         spec: ListenerCallbackSpec,
         changed: dict[str, Any],
         events: list[DependencyEvent] | None = None,
     ) -> ListenerCallbackContext:
-        spec_logger = spec.logger
-        if spec_logger is None:
-            spec_logger = logger.getChild(f"callback.{spec.callback_id}")
-            spec.logger = spec_logger
-
-        if events is None:
-            events = []
-
-        if self._router_endpoint_api is None:
-            self._router_endpoint_api = RouterEndpointAPI(self._call_router_endpoint)
-        project_manager = self._router_endpoint_api
-        runtime_state = self._runtime_state
-        if runtime_state is None:
-            raise RuntimeError(
-                "Listener project state is unavailable; wait for bootstrap before calling router endpoints"
-            )
-        ids = ListenerDependencyIds(runtime_state.dependency_metadata)
-
-        def dependency_metadata_resolver() -> ListenerDependencyMetadata | None:
-            current_runtime_state = self._runtime_state
-            if current_runtime_state is None:
-                return None
-            return current_runtime_state.dependency_metadata
-
-        def state_resolver() -> Any:
-            current_runtime_state = self._runtime_state
-            if current_runtime_state is None:
-                return None
-            return self._build_callback_state(current_runtime_state)
-
-        def value_resolver(dependency_name: str) -> Any:
-            return self._dependency_cache.get(dependency_name, _MISSING)
-
-        values = ListenerDependencyValues(
-            dependency_metadata_resolver=dependency_metadata_resolver,
-            value_resolver=value_resolver,
-            state_resolver=state_resolver,
-        )
+        runtime_state = self._require_runtime_state(action="calling router endpoints")
         return ListenerCallbackContext(
             changed=changed,
             changed_by_id=self._build_changed_by_id(
                 runtime_state.dependency_metadata, changed
             ),
-            events=events,
-            log=spec_logger,
+            events=[] if events is None else events,
+            log=self._callback_logger(spec),
             emit_to_frontend=self.emit_to_frontend,
-            project_manager=project_manager,
+            project_manager=self._callback_project_manager(),
             frontend_affinity_token=self._frontend_affinity_token,
-            ids=ids,
-            values=values,
+            ids=ListenerDependencyIds(runtime_state.dependency_metadata),
+            values=self._build_listener_dependency_values(),
         )
 
     def _build_callback_state(
