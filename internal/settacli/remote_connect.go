@@ -32,13 +32,70 @@ type connectFlags struct {
 }
 
 func runConnect(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, stdin io.Reader, envLookup func(string) (string, bool), cwd string) error {
-	sshTarget := ""
-	flagArgs := args
-	if len(args) > 0 && !strings.HasPrefix(strings.TrimSpace(args[0]), "-") {
-		sshTarget = strings.TrimSpace(args[0])
-		flagArgs = args[1:]
+	sshTarget, parsed, err := parseConnectInvocation(args, stderr)
+	if err != nil {
+		return err
+	}
+	workspaceRoot, err := resolveRemoteWorkspaceFlag(global.workspaceRoot, parsed.workspaceRoot, "connect")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(workspaceRoot) == "" {
+		return fmt.Errorf("--workspace is required for SSH connect")
 	}
 
+	service, sshBin, err := newSSHServiceForRemoteConnectCLI(cwd, envLookup)
+	if err != nil {
+		return err
+	}
+	localPort := optionalLocalPort(parsed.localPort)
+	connectPlan, err := prepareRemoteConnectPlan(service, sshTarget, workspaceRoot, global, parsed)
+	if err != nil {
+		return addExpandedLocalHomeWorkspaceHint(err, workspaceRoot)
+	}
+
+	if parsed.verbose {
+		printConnectVerboseDetails(stdout, parsed, connectPlan)
+	}
+
+	if !parsed.printOnly {
+		_, _ = fmt.Fprintf(stdout, "Using session %s (port %d).\n", connectPlan.Session.ID, connectPlan.Session.Port)
+	}
+
+	switch {
+	case parsed.printOnly:
+		return runPrintOnlyConnect(stdout, sshTarget, strings.TrimSpace(parsed.sshArgs), sshBin, connectPlan, localPort)
+	case parsed.detach:
+		return runDetachedConnect(stdout, stderr, service, sshTarget, strings.TrimSpace(parsed.sshArgs), connectPlan, localPort, parsed.noOpen, parsed.verbose)
+	default:
+		return runForegroundConnect(stdout, stderr, stdin, envLookup, sshTarget, strings.TrimSpace(parsed.sshArgs), sshBin, connectPlan, localPort, parsed.noOpen, parsed.verbose)
+	}
+}
+
+func parseConnectInvocation(args []string, stderr io.Writer) (string, connectFlags, error) {
+	sshTarget, flagArgs := splitLeadingSSHTarget(args)
+	parsed, flags, err := parseConnectFlags(flagArgs, stderr)
+	if err != nil {
+		return "", connectFlags{}, err
+	}
+	if err := validateConnectInvocation(sshTarget, flags, parsed); err != nil {
+		return "", connectFlags{}, err
+	}
+	return sshTarget, parsed, nil
+}
+
+func splitLeadingSSHTarget(args []string) (string, []string) {
+	if len(args) == 0 {
+		return "", args
+	}
+	trimmedTarget := strings.TrimSpace(args[0])
+	if strings.HasPrefix(trimmedTarget, "-") {
+		return "", args
+	}
+	return trimmedTarget, args[1:]
+}
+
+func parseConnectFlags(args []string, stderr io.Writer) (connectFlags, *flag.FlagSet, error) {
 	var parsed connectFlags
 	flags := flag.NewFlagSet("connect", flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -53,9 +110,13 @@ func runConnect(args []string, global globalFlags, stdout io.Writer, stderr io.W
 	flags.BoolVar(&parsed.printOnly, "print-only", false, "Print the tunnel command and URLs without running them.")
 	flags.BoolVar(&parsed.noOpen, "no-open", false, "Skip opening the browser.")
 	flags.BoolVar(&parsed.verbose, "verbose", false, "Print SSH and resolution details.")
-	if err := flags.Parse(flagArgs); err != nil {
-		return err
+	if err := flags.Parse(args); err != nil {
+		return connectFlags{}, nil, err
 	}
+	return parsed, flags, nil
+}
+
+func validateConnectInvocation(sshTarget string, flags *flag.FlagSet, parsed connectFlags) error {
 	if sshTarget == "" {
 		return fmt.Errorf("connect requires <ssh_target>")
 	}
@@ -71,21 +132,11 @@ func runConnect(args []string, global globalFlags, stdout io.Writer, stderr io.W
 	if parsed.localPort < 0 || parsed.localPort > 65535 {
 		return fmt.Errorf("Invalid local port: %d", parsed.localPort)
 	}
+	return nil
+}
 
-	workspaceRoot, err := resolveRemoteWorkspaceFlag(global.workspaceRoot, parsed.workspaceRoot, "connect")
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(workspaceRoot) == "" {
-		return fmt.Errorf("--workspace is required for SSH connect")
-	}
-
-	service, sshBin, err := newSSHServiceForRemoteConnectCLI(cwd, envLookup)
-	if err != nil {
-		return err
-	}
-	localPort := optionalLocalPort(parsed.localPort)
-	connectPlan, err := service.PrepareConnectWorkspaceSession(sshx.PrepareConnectWorkspaceInput{
+func prepareRemoteConnectPlan(service *sshx.Service, sshTarget string, workspaceRoot string, global globalFlags, parsed connectFlags) (sshx.PreparedConnectWorkspaceResult, error) {
+	return service.PrepareConnectWorkspaceSession(sshx.PrepareConnectWorkspaceInput{
 		SSHTarget:          sshTarget,
 		Workspace:          workspaceRoot,
 		SessionID:          strings.TrimSpace(parsed.sessionID),
@@ -98,36 +149,21 @@ func runConnect(args []string, global globalFlags, stdout io.Writer, stderr io.W
 		SSHArgs:            strings.TrimSpace(parsed.sshArgs),
 		RemoteCommand:      strings.TrimSpace(parsed.remoteCommand),
 	})
-	if err != nil {
-		return addExpandedLocalHomeWorkspaceHint(err, workspaceRoot)
-	}
+}
 
-	if parsed.verbose {
-		if strings.TrimSpace(parsed.sshArgs) == "" {
-			_, _ = fmt.Fprintln(stdout, "SSH args: (none)")
-		} else {
-			_, _ = fmt.Fprintf(stdout, "SSH args: %s\n", strings.TrimSpace(parsed.sshArgs))
-		}
-		_, _ = fmt.Fprintf(stdout, "Remote shell: %s\n", connectPlan.RemoteShell)
-		_, _ = fmt.Fprintf(stdout, "Remote workspace: %s\n", connectPlan.RemoteWorkspace)
-		_, _ = fmt.Fprintf(stdout, "Remote Setta command: %s\n", connectPlan.RemoteCommand)
-		_, _ = fmt.Fprintf(stdout, "Remote sessions found: %d\n", connectPlan.InitialSessionCount)
-		if connectPlan.StartedNew {
-			_, _ = fmt.Fprintln(stdout, "Started new remote Setta session.")
-		}
+func printConnectVerboseDetails(stdout io.Writer, parsed connectFlags, connectPlan sshx.PreparedConnectWorkspaceResult) {
+	trimmedSSHArgs := strings.TrimSpace(parsed.sshArgs)
+	if trimmedSSHArgs == "" {
+		_, _ = fmt.Fprintln(stdout, "SSH args: (none)")
+	} else {
+		_, _ = fmt.Fprintf(stdout, "SSH args: %s\n", trimmedSSHArgs)
 	}
-
-	if !parsed.printOnly {
-		_, _ = fmt.Fprintf(stdout, "Using session %s (port %d).\n", connectPlan.Session.ID, connectPlan.Session.Port)
-	}
-
-	switch {
-	case parsed.printOnly:
-		return runPrintOnlyConnect(stdout, sshTarget, strings.TrimSpace(parsed.sshArgs), sshBin, connectPlan, localPort)
-	case parsed.detach:
-		return runDetachedConnect(stdout, stderr, service, sshTarget, strings.TrimSpace(parsed.sshArgs), connectPlan, localPort, parsed.noOpen, parsed.verbose)
-	default:
-		return runForegroundConnect(stdout, stderr, stdin, envLookup, sshTarget, strings.TrimSpace(parsed.sshArgs), sshBin, connectPlan, localPort, parsed.noOpen, parsed.verbose)
+	_, _ = fmt.Fprintf(stdout, "Remote shell: %s\n", connectPlan.RemoteShell)
+	_, _ = fmt.Fprintf(stdout, "Remote workspace: %s\n", connectPlan.RemoteWorkspace)
+	_, _ = fmt.Fprintf(stdout, "Remote Setta command: %s\n", connectPlan.RemoteCommand)
+	_, _ = fmt.Fprintf(stdout, "Remote sessions found: %d\n", connectPlan.InitialSessionCount)
+	if connectPlan.StartedNew {
+		_, _ = fmt.Fprintln(stdout, "Started new remote Setta session.")
 	}
 }
 
