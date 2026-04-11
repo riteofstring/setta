@@ -2,6 +2,11 @@ package projectstate
 
 import "strings"
 
+type jsonSourcePersistenceInputs struct {
+	topLevelParamID   string
+	codeObjVariantMap map[string]string
+}
+
 func (d *Document) ClearJSONSourceValuesForPersistence() error {
 	if d == nil {
 		return ErrProjectNotFound
@@ -22,47 +27,84 @@ func (p *Project) ClearJSONSourceValuesForPersistence() error {
 	}
 
 	for sectionID, section := range p.Sections {
-		for _, sectionVariantID := range section.VariantIDs {
-			sectionPayload, err := p.EffectiveSectionPayload(sectionID, sectionVariantID)
-			if err != nil {
-				return err
-			}
-			if !payloadBoolField(sectionPayload, "isJsonSource") {
-				continue
-			}
-			topLevelParamID := strings.TrimSpace(payloadStringField(sectionPayload, "topLevelParamId"))
-			if topLevelParamID == "" {
-				continue
-			}
-			codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-			_, childrenByID, err := collectCodeObjectHierarchy(*p, codeObjVariantMap, topLevelParamID)
-			if err != nil {
-				return err
-			}
-			for codeObjID, childIDs := range childrenByID {
-				if len(childIDs) != 0 {
-					continue
-				}
-				codeObjVariantID := strings.TrimSpace(codeObjVariantMap[codeObjID])
-				if codeObjVariantID == "" {
-					continue
-				}
-				codeObjPayload, err := effectiveCodeObjectPayloadForVariant(*p, codeObjID, codeObjVariantID)
-				if err != nil {
-					return err
-				}
-				if _, ok := codeObjPayload["value"]; !ok {
-					continue
-				}
-				if payloadRawStringField(codeObjPayload, "value") == "" {
-					continue
-				}
-				if err := p.setCodeObjectFieldForVariant(codeObjID, codeObjVariantID, "value", ""); err != nil {
-					return err
-				}
-			}
+		if err := p.clearSectionJSONSourceValuesForPersistence(sectionID, section.VariantIDs); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func (p *Project) clearSectionJSONSourceValuesForPersistence(sectionID string, variantIDs []string) error {
+	for _, sectionVariantID := range variantIDs {
+		if err := p.clearSectionVariantJSONSourceValuesForPersistence(sectionID, sectionVariantID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Project) clearSectionVariantJSONSourceValuesForPersistence(sectionID string, sectionVariantID string) error {
+	sectionPayload, err := p.EffectiveSectionPayload(sectionID, sectionVariantID)
+	if err != nil {
+		return err
+	}
+
+	inputs, ok := jsonSourcePersistenceInputsForSectionPayload(sectionPayload)
+	if !ok {
+		return nil
+	}
+	return p.clearJSONSourceLeafValuesForPersistence(inputs)
+}
+
+func jsonSourcePersistenceInputsForSectionPayload(sectionPayload map[string]any) (jsonSourcePersistenceInputs, bool) {
+	if !payloadBoolField(sectionPayload, "isJsonSource") {
+		return jsonSourcePersistenceInputs{}, false
+	}
+	topLevelParamID := strings.TrimSpace(payloadStringField(sectionPayload, "topLevelParamId"))
+	if topLevelParamID == "" {
+		return jsonSourcePersistenceInputs{}, false
+	}
+	return jsonSourcePersistenceInputs{
+		topLevelParamID:   topLevelParamID,
+		codeObjVariantMap: payloadStringMapField(sectionPayload, "codeObjVariantMap"),
+	}, true
+}
+
+func (p *Project) clearJSONSourceLeafValuesForPersistence(inputs jsonSourcePersistenceInputs) error {
+	_, childrenByID, err := collectCodeObjectHierarchy(*p, inputs.codeObjVariantMap, inputs.topLevelParamID)
+	if err != nil {
+		return err
+	}
+	for codeObjID, childIDs := range childrenByID {
+		if len(childIDs) != 0 {
+			continue
+		}
+		if err := p.clearJSONSourceCodeObjectValueForPersistence(codeObjID, inputs.codeObjVariantMap[codeObjID]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Project) clearJSONSourceCodeObjectValueForPersistence(codeObjID string, rawVariantID string) error {
+	codeObjVariantID := strings.TrimSpace(rawVariantID)
+	if codeObjVariantID == "" {
+		return nil
+	}
+	codeObjPayload, err := effectiveCodeObjectPayloadForVariant(*p, codeObjID, codeObjVariantID)
+	if err != nil {
+		return err
+	}
+	if !jsonSourceCodeObjectHasPersistedValue(codeObjPayload) {
+		return nil
+	}
+	return p.setCodeObjectFieldForVariant(codeObjID, codeObjVariantID, "value", "")
+}
+
+func jsonSourceCodeObjectHasPersistedValue(codeObjPayload map[string]any) bool {
+	if _, ok := codeObjPayload["value"]; !ok {
+		return false
+	}
+	return payloadRawStringField(codeObjPayload, "value") != ""
 }
