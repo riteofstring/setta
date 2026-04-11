@@ -45,45 +45,95 @@ type appComponentListResult struct {
 	Components []string `json:"components"`
 }
 
+const defaultMCPToolSearchLimit = 2
+
+type mcpToolSearchRequest struct {
+	query     string
+	limit     int
+	serverIDs []string
+}
+
 func newSearchMCPToolsHandler(server *Server) tools.Handler {
 	return func(_ context.Context, arguments map[string]any) (any, error) {
-		query, err := readRequiredStringArgument(arguments, "query")
+		request, err := readMCPToolSearchRequest(arguments)
 		if err != nil {
 			return nil, err
 		}
-		limit := 2
-		if resolvedLimit, err := readOptionalIntArgument(arguments, "limit"); err != nil {
-			return nil, err
-		} else if resolvedLimit != nil {
-			limit = *resolvedLimit
-		}
-		serverIDs, err := readOptionalStringArrayArgument(arguments, "serverIds")
-		if err != nil {
-			return nil, err
-		}
-		serverIDs, err = normalizeNonBlankStrings(serverIDs, "serverIds")
-		if err != nil {
-			return nil, err
-		}
-		if len(serverIDs) > 0 && !slices.Contains(serverIDs, DefaultServerID) {
-			return mcpToolSearchResult{Results: []tools.SearchResult{}}, nil
-		}
-		if server == nil || server.toolSearch == nil {
+		if !shouldSearchMCPToolServers(request.serverIDs) {
 			return mcpToolSearchResult{Results: []tools.SearchResult{}}, nil
 		}
 
-		results, err := server.toolSearch.Search(query, limit)
+		results, err := searchMCPTools(server, request)
 		if err != nil {
-			if errors.Is(err, tools.ErrToolSearchQueryRequired) || errors.Is(err, tools.ErrToolSearchQueryUnsearchable) {
-				return nil, newToolError("invalid_arguments", "%s", err.Error())
-			}
 			return nil, err
-		}
-		if results == nil {
-			results = []tools.SearchResult{}
 		}
 		return mcpToolSearchResult{Results: results}, nil
 	}
+}
+
+func readMCPToolSearchRequest(arguments map[string]any) (mcpToolSearchRequest, error) {
+	query, err := readRequiredStringArgument(arguments, "query")
+	if err != nil {
+		return mcpToolSearchRequest{}, err
+	}
+	limit, err := readMCPToolSearchLimit(arguments)
+	if err != nil {
+		return mcpToolSearchRequest{}, err
+	}
+	serverIDs, err := readNormalizedOptionalStringArrayArgument(arguments, "serverIds")
+	if err != nil {
+		return mcpToolSearchRequest{}, err
+	}
+	return mcpToolSearchRequest{
+		query:     query,
+		limit:     limit,
+		serverIDs: serverIDs,
+	}, nil
+}
+
+func readMCPToolSearchLimit(arguments map[string]any) (int, error) {
+	resolvedLimit, err := readOptionalIntArgument(arguments, "limit")
+	if err != nil {
+		return 0, err
+	}
+	if resolvedLimit == nil {
+		return defaultMCPToolSearchLimit, nil
+	}
+	return *resolvedLimit, nil
+}
+
+func readNormalizedOptionalStringArrayArgument(arguments map[string]any, field string) ([]string, error) {
+	values, err := readOptionalStringArrayArgument(arguments, field)
+	if err != nil {
+		return nil, err
+	}
+	return normalizeNonBlankStrings(values, field)
+}
+
+func shouldSearchMCPToolServers(serverIDs []string) bool {
+	return len(serverIDs) == 0 || slices.Contains(serverIDs, DefaultServerID)
+}
+
+func searchMCPTools(server *Server, request mcpToolSearchRequest) ([]tools.SearchResult, error) {
+	if server == nil || server.toolSearch == nil {
+		return []tools.SearchResult{}, nil
+	}
+
+	results, err := server.toolSearch.Search(request.query, request.limit)
+	if err != nil {
+		return nil, mapMCPToolSearchError(err)
+	}
+	if results == nil {
+		return []tools.SearchResult{}, nil
+	}
+	return results, nil
+}
+
+func mapMCPToolSearchError(err error) error {
+	if errors.Is(err, tools.ErrToolSearchQueryRequired) || errors.Is(err, tools.ErrToolSearchQueryUnsearchable) {
+		return newToolError("invalid_arguments", "%s", err.Error())
+	}
+	return err
 }
 
 func newGetMCPServerRuntimeStatusHandler(server *Server) tools.Handler {

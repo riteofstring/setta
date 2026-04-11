@@ -19,6 +19,12 @@ type DeleteKwargResult struct {
 	CodeObjID string `json:"codeObjId"`
 }
 
+type deleteKwargContext struct {
+	sectionID     string
+	sectionType   string
+	rootCodeObjID string
+}
+
 func (d *Document) DeleteKwarg(projectID string, sectionID string) (DeleteKwargResult, error) {
 	if d == nil {
 		return DeleteKwargResult{}, ErrProjectNotFound
@@ -61,54 +67,20 @@ func (p *Project) DeleteKwarg(sectionID string) (DeleteKwargResult, error) {
 		return DeleteKwargResult{}, ErrProjectNotFound
 	}
 
-	trimmedSectionID := strings.TrimSpace(sectionID)
-	if trimmedSectionID == "" {
-		return DeleteKwargResult{}, ErrSectionIDRequired
-	}
-
-	sectionType, sectionPayload, err := p.resolveAddKwargSectionContext(trimmedSectionID)
+	ctx, err := p.resolveDeleteKwargContext(sectionID)
 	if err != nil {
-		if errors.Is(err, ErrAddKwargUnsupported) {
-			return DeleteKwargResult{}, fmt.Errorf("%w: section=%q", ErrDeleteKwargUnsupported, trimmedSectionID)
-		}
 		return DeleteKwargResult{}, err
 	}
 
-	var rootCodeObjID string
-	switch sectionType {
-	case "Callable":
-		rootCodeObjID = payloadStringField(sectionPayload, "callable")
-		if rootCodeObjID == "" {
-			return DeleteKwargResult{}, fmt.Errorf("%w: section=%q", ErrDeleteKwargCallableUnset, trimmedSectionID)
-		}
-	case "Dict", "GlobalVariables":
-		rootCodeObjID = payloadStringField(sectionPayload, "topLevelParamId")
-		if rootCodeObjID == "" {
-			return DeleteKwargResult{}, fmt.Errorf("%w: section=%q", ErrDeleteKwargNoParams, trimmedSectionID)
-		}
-	default:
-		return DeleteKwargResult{}, fmt.Errorf("%w: section=%q type=%q", ErrDeleteKwargUnsupported, trimmedSectionID, sectionType)
-	}
-
-	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-	if _, ok := codeObjVariantMap[rootCodeObjID]; !ok {
-		return DeleteKwargResult{}, fmt.Errorf(
-			"%w: section=%q root=%q",
-			ErrDeleteKwargRootMissing,
-			trimmedSectionID,
-			rootCodeObjID,
-		)
-	}
-
-	removedCodeObjID, err := p.deleteLastKwargFromRoot(trimmedSectionID, rootCodeObjID)
+	removedCodeObjID, err := p.deleteLastKwargFromRoot(ctx.sectionID, ctx.rootCodeObjID)
 	if err != nil {
 		return DeleteKwargResult{}, err
 	}
 	removedSet := map[string]struct{}{removedCodeObjID: {}}
-	if err := p.cleanupDeletedParamSectionState(trimmedSectionID, removedSet); err != nil {
+	if err := p.cleanupDeletedParamSectionState(ctx.sectionID, removedSet); err != nil {
 		return DeleteKwargResult{}, err
 	}
-	if err := p.removeDeletedParamsFromSectionVariantMaps(sectionType, trimmedSectionID, rootCodeObjID, removedSet); err != nil {
+	if err := p.removeDeletedParamsFromSectionVariantMaps(ctx.sectionType, ctx.sectionID, ctx.rootCodeObjID, removedSet); err != nil {
 		return DeleteKwargResult{}, err
 	}
 	if err := p.pruneUnusedCodeObjects(); err != nil {
@@ -116,6 +88,67 @@ func (p *Project) DeleteKwarg(sectionID string) (DeleteKwargResult, error) {
 	}
 
 	return DeleteKwargResult{CodeObjID: removedCodeObjID}, nil
+}
+
+func (p *Project) resolveDeleteKwargContext(sectionID string) (deleteKwargContext, error) {
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	if trimmedSectionID == "" {
+		return deleteKwargContext{}, ErrSectionIDRequired
+	}
+
+	sectionType, sectionPayload, err := p.resolveDeleteKwargSectionContext(trimmedSectionID)
+	if err != nil {
+		return deleteKwargContext{}, err
+	}
+	rootCodeObjID, err := resolveDeleteKwargRootCodeObjID(trimmedSectionID, sectionType, sectionPayload)
+	if err != nil {
+		return deleteKwargContext{}, err
+	}
+	if err := validateDeleteKwargRootPresent(trimmedSectionID, rootCodeObjID, sectionPayload); err != nil {
+		return deleteKwargContext{}, err
+	}
+
+	return deleteKwargContext{
+		sectionID:     trimmedSectionID,
+		sectionType:   sectionType,
+		rootCodeObjID: rootCodeObjID,
+	}, nil
+}
+
+func (p Project) resolveDeleteKwargSectionContext(sectionID string) (string, map[string]any, error) {
+	sectionType, sectionPayload, err := p.resolveAddKwargSectionContext(sectionID)
+	if err != nil {
+		if errors.Is(err, ErrAddKwargUnsupported) {
+			return "", nil, fmt.Errorf("%w: section=%q", ErrDeleteKwargUnsupported, sectionID)
+		}
+		return "", nil, err
+	}
+	return sectionType, sectionPayload, nil
+}
+
+func resolveDeleteKwargRootCodeObjID(sectionID string, sectionType string, sectionPayload map[string]any) (string, error) {
+	if sectionType == "Callable" {
+		rootCodeObjID := payloadStringField(sectionPayload, "callable")
+		if rootCodeObjID == "" {
+			return "", fmt.Errorf("%w: section=%q", ErrDeleteKwargCallableUnset, sectionID)
+		}
+		return rootCodeObjID, nil
+	}
+	if isKwargDictLikeSectionType(sectionType) {
+		rootCodeObjID := payloadStringField(sectionPayload, "topLevelParamId")
+		if rootCodeObjID == "" {
+			return "", fmt.Errorf("%w: section=%q", ErrDeleteKwargNoParams, sectionID)
+		}
+		return rootCodeObjID, nil
+	}
+	return "", fmt.Errorf("%w: section=%q type=%q", ErrDeleteKwargUnsupported, sectionID, sectionType)
+}
+
+func validateDeleteKwargRootPresent(sectionID string, rootCodeObjID string, sectionPayload map[string]any) error {
+	if _, ok := payloadStringMapField(sectionPayload, "codeObjVariantMap")[rootCodeObjID]; ok {
+		return nil
+	}
+	return fmt.Errorf("%w: section=%q root=%q", ErrDeleteKwargRootMissing, sectionID, rootCodeObjID)
 }
 
 func (p *Project) deleteLastKwargFromRoot(sectionID string, rootCodeObjID string) (string, error) {
