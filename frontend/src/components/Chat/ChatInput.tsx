@@ -29,7 +29,10 @@ import {
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { formatBytes } from "utils/attachments";
-import { ChatFileAttachment } from "utils/generatedTypes";
+import {
+  type ChatDictationMode,
+  ChatFileAttachment,
+} from "utils/generatedTypes";
 import {
   CHAT_SLASH_COMMANDS,
   type ChatPermissionModeValue,
@@ -195,7 +198,7 @@ type ChatInputProps = {
     command: ChatSlashCommand,
   ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
   slashSuggestionsPlacement?: "auto" | "above" | "below";
-  dictationMode?: "auto" | "browser" | "provider";
+  dictationMode?: ChatDictationMode;
   onProviderDictationTranscribe?: (
     audioBlob: Blob,
   ) => Promise<ProviderDictationTranscriptionResult>;
@@ -224,6 +227,65 @@ type SubmitRemotelyHandler = (args: {
 
 type NormalizedSlashCommandResult = Exclude<ChatSlashCommandResult, boolean>;
 type FloatingBoxHandlers = ReturnType<typeof getFloatingBoxHandlers>;
+
+function resolveChatInputUIProps(props: ChatInputProps) {
+  return {
+    disabled: props.disabled ?? false,
+    submitDisabled: props.submitDisabled ?? false,
+    hasRetainedImageAttachmentForImageMode:
+      props.hasRetainedImageAttachmentForImageMode ?? false,
+    submitReadinessKey: props.submitReadinessKey ?? null,
+    executionControlVisibility:
+      props.executionControlVisibility ?? DEFAULT_EXECUTION_CONTROL_VISIBILITY,
+    slashCommands: props.slashCommands ?? CHAT_SLASH_COMMANDS,
+    slashSuggestionsPlacement: props.slashSuggestionsPlacement ?? "auto",
+  };
+}
+
+function resolveChatInputDictationProps(props: ChatInputProps) {
+  return {
+    dictationMode: props.dictationMode ?? "auto",
+    dictationEnabledByProvider: props.dictationEnabledByProvider ?? true,
+    providerDictationLikelySupported:
+      props.providerDictationLikelySupported ?? true,
+  };
+}
+
+function resolveChatInputContextProps(props: ChatInputProps) {
+  return {
+    contextWindowTokens: props.contextWindowTokens ?? null,
+    contextUsedTokens: props.contextUsedTokens ?? null,
+    contextUsageIsEstimated: props.contextUsageIsEstimated ?? false,
+    submittedMessageHistory:
+      props.submittedMessageHistory ?? DEFAULT_SUBMITTED_MESSAGE_HISTORY,
+    runtimeActivityCounts:
+      props.runtimeActivityCounts ?? DEFAULT_RUNTIME_ACTIVITY_COUNTS,
+    runtimeActivityDetails:
+      props.runtimeActivityDetails ?? DEFAULT_RUNTIME_ACTIVITY_DETAILS,
+  };
+}
+
+function resolveChatInputProps(props: ChatInputProps) {
+  const uiProps = resolveChatInputUIProps(props);
+  const dictationProps = resolveChatInputDictationProps(props);
+  const contextProps = resolveChatInputContextProps(props);
+  return {
+    placeholderText: props.placeholderText,
+    waitingForResponse: props.waitingForResponse,
+    value: props.value,
+    onChange: props.onChange,
+    onSubmit: props.onSubmit,
+    onUnknownSlashCommand: props.onUnknownSlashCommand,
+    onStop: props.onStop,
+    executionControls: props.executionControls,
+    recognizedSlashCommands: props.recognizedSlashCommands,
+    onSlashCommand: props.onSlashCommand,
+    onProviderDictationTranscribe: props.onProviderDictationTranscribe,
+    ...uiProps,
+    ...dictationProps,
+    ...contextProps,
+  };
+}
 
 function focusComposerTextareaAtEnd(
   textareaRef: MutableRefObject<HTMLTextAreaElement | null>,
@@ -1608,7 +1670,7 @@ function resolveChatInputControlState(args: {
 
 function resolveDictationCapabilityState(args: {
   dictationEnabledByProvider: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   dictationSupported: boolean;
   isDisabled: boolean;
   mediaRecorderSupported: boolean;
@@ -1781,13 +1843,205 @@ function resolveSlashSuggestionsDisplayState(args: {
   };
 }
 
+function useChatInputSlashSuggestions(args: {
+  inputValue: string;
+  setInputValue: (nextValue: string) => void;
+  setSlashFeedback: (value: string | null) => void;
+  slashCommands: ChatSlashCommandDefinition[];
+  slashSuggestionsPlacement: "auto" | "above" | "below";
+  textareaRef: MutableRefObject<HTMLTextAreaElement | null>;
+}): {
+  activeSlashIndex: number;
+  applySlashSuggestion: (index: number) => void;
+  canRenderSlashSuggestionsInPortal: boolean;
+  setActiveSlashIndex: (value: number | ((current: number) => number)) => void;
+  shouldShowSlashSuggestions: boolean;
+  slashSuggestions: ChatSlashCommandDefinition[];
+  slashSuggestionsList: ReactNode;
+  slashSuggestionsPortalStyle: CSSProperties | null;
+  slashSuggestionsPositionClass: string;
+} {
+  const {
+    inputValue,
+    setInputValue,
+    setSlashFeedback,
+    slashCommands,
+    slashSuggestionsPlacement,
+    textareaRef,
+  } = args;
+  const [activeSlashIndex, setActiveSlashIndex] = useState(0);
+  const [resolvedSlashPlacement, setResolvedSlashPlacement] = useState<
+    "above" | "below"
+  >(slashSuggestionsPlacement === "above" ? "above" : "below");
+  const [slashSuggestionsPortalStyle, setSlashSuggestionsPortalStyle] =
+    useState<CSSProperties | null>(null);
+  const slashSuggestions = useMemo(
+    () => getSlashCommandSuggestions(inputValue, slashCommands),
+    [inputValue, slashCommands],
+  );
+  const shouldShowSlashSuggestions = useMemo(() => {
+    if (slashSuggestions.length === 0) {
+      return false;
+    }
+    return /^\/[^\s]*$/u.test(inputValue.trimStart());
+  }, [inputValue, slashSuggestions.length]);
+
+  useEffect(() => {
+    if (!shouldShowSlashSuggestions) {
+      setActiveSlashIndex(0);
+      return;
+    }
+    setActiveSlashIndex((current) =>
+      Math.min(current, Math.max(0, slashSuggestions.length - 1)),
+    );
+  }, [shouldShowSlashSuggestions, slashSuggestions.length]);
+
+  const updateSlashSuggestionsLayout = useCallback(() => {
+    if (!shouldShowSlashSuggestions) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    const inputNode = textareaRef.current;
+    if (!inputNode) {
+      return;
+    }
+    const inputRect = inputNode.getBoundingClientRect();
+    const spaceAbove = inputRect.top - SLASH_SUGGESTIONS_EDGE_PADDING_PX;
+    const spaceBelow =
+      window.innerHeight - inputRect.bottom - SLASH_SUGGESTIONS_EDGE_PADDING_PX;
+    const estimatedMenuHeight = Math.min(
+      SLASH_SUGGESTIONS_MAX_HEIGHT_PX,
+      SLASH_SUGGESTIONS_BASE_HEIGHT_PX +
+        slashSuggestions.length * SLASH_SUGGESTIONS_ROW_HEIGHT_PX,
+    );
+    const nextPlacement = resolveSlashSuggestionsPlacement({
+      estimatedMenuHeight,
+      slashSuggestionsPlacement,
+      spaceAbove,
+      spaceBelow,
+    });
+    setResolvedSlashPlacement((current) =>
+      current === nextPlacement ? current : nextPlacement,
+    );
+    const nextStyle = resolveSlashSuggestionsPortalStyle({
+      inputRect,
+      nextPlacement,
+    });
+    setSlashSuggestionsPortalStyle((current) => {
+      if (areSlashSuggestionsPortalStylesEqual(current, nextStyle)) {
+        return current;
+      }
+      return nextStyle;
+    });
+  }, [
+    shouldShowSlashSuggestions,
+    slashSuggestions.length,
+    slashSuggestionsPlacement,
+    textareaRef,
+  ]);
+
+  useEffect(() => {
+    if (!shouldShowSlashSuggestions) {
+      setSlashSuggestionsPortalStyle((current) =>
+        current === null ? current : null,
+      );
+      setResolvedSlashPlacement(
+        slashSuggestionsPlacement === "above" ? "above" : "below",
+      );
+      return;
+    }
+    updateSlashSuggestionsLayout();
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleViewportChange = () => {
+      requestAnimationFrame(() => {
+        updateSlashSuggestionsLayout();
+      });
+    };
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [
+    shouldShowSlashSuggestions,
+    slashSuggestionsPlacement,
+    updateSlashSuggestionsLayout,
+  ]);
+
+  const applySlashSuggestion = useCallback(
+    (index: number) => {
+      const suggestion = slashSuggestions[index];
+      if (!suggestion) {
+        return;
+      }
+      setInputValue(`${suggestion.command} `);
+      setActiveSlashIndex(index);
+      setSlashFeedback(null);
+      focusComposerTextareaAtEnd(textareaRef, `${suggestion.command} `);
+    },
+    [setInputValue, setSlashFeedback, slashSuggestions, textareaRef],
+  );
+
+  const slashSuggestionsList = useMemo(
+    () => (
+      <>
+        {slashSuggestions.map((suggestion, index) => (
+          <button
+            key={suggestion.command}
+            type="button"
+            className={`flex w-full min-w-0 flex-col items-start gap-0.5 rounded px-2 py-1 text-left text-xs transition-colors ${
+              index === activeSlashIndex
+                ? "bg-setta-100 text-setta-900 dark:bg-setta-800 dark:text-setta-100"
+                : "text-setta-600 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800"
+            }`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applySlashSuggestion(index)}
+          >
+            <span className="w-full truncate font-semibold">
+              {suggestion.command}
+            </span>
+            <span className="w-full truncate text-[10px] text-setta-400 dark:text-setta-500">
+              {suggestion.summary}
+            </span>
+          </button>
+        ))}
+      </>
+    ),
+    [activeSlashIndex, applySlashSuggestion, slashSuggestions],
+  );
+
+  const { canRenderSlashSuggestionsInPortal, slashSuggestionsPositionClass } =
+    resolveSlashSuggestionsDisplayState({
+      resolvedSlashPlacement,
+      shouldShowSlashSuggestions,
+      slashSuggestionsPortalStyle,
+    });
+
+  return {
+    activeSlashIndex,
+    applySlashSuggestion,
+    canRenderSlashSuggestionsInPortal,
+    setActiveSlashIndex,
+    shouldShowSlashSuggestions,
+    slashSuggestions,
+    slashSuggestionsList,
+    slashSuggestionsPortalStyle,
+    slashSuggestionsPositionClass,
+  };
+}
+
 function useChatComposerMetaState(args: {
   attachmentInputDisabled: boolean;
   contextUsageIsEstimated: boolean;
   contextUsedTokens?: number | null;
   contextWindowTokens?: number | null;
   dictationEnabledByProvider: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   dictationState: DictationState;
   executionControlVisibility: ChatExecutionControlVisibility;
   executionControls?: ChatExecutionControls;
@@ -2690,6 +2944,243 @@ function ChatDictationControl(props: {
   );
 }
 
+function ChatQueuedDraftStack(props: {
+  queuedDrafts: readonly QueuedChatDraft[];
+  restoreQueuedDraftToComposer: (draftId: string) => void;
+  selectedQueuedDraftId: string | null;
+  selectQueuedDraft: (draftId: string) => void;
+  cycleSelectedQueuedDraft: (direction: "prev" | "next") => void;
+}) {
+  const {
+    queuedDrafts,
+    restoreQueuedDraftToComposer,
+    selectedQueuedDraftId,
+    selectQueuedDraft,
+    cycleSelectedQueuedDraft,
+  } = props;
+  if (queuedDrafts.length === 0) {
+    return null;
+  }
+  return (
+    <div
+      className="mb-1 flex flex-col gap-1"
+      data-chat-queued-draft-stack="true"
+    >
+      {queuedDrafts.map((draft, index) => {
+        const isSelected = draft.id === selectedQueuedDraftId;
+        const previewText = draft.message.trim();
+        const attachmentCount = draft.attachments.length;
+        const attachmentLabel =
+          attachmentCount === 1
+            ? "1 attachment"
+            : `${attachmentCount} attachments`;
+        const queuedDraftTooltipHandlers = getFloatingBoxHandlers({
+          title: "Queued draft",
+          content:
+            previewText.length > 0 ? previewText : "Queued attachment message",
+        });
+        return (
+          <button
+            key={draft.id}
+            type="button"
+            className={`grid w-full grid-cols-[1.75rem_minmax(0,1fr)] overflow-hidden rounded-md border text-left transition-colors ${
+              isSelected
+                ? "border-blue-400/90 bg-blue-200 text-setta-950 dark:border-blue-700/80 dark:bg-blue-950 dark:text-white"
+                : "border-blue-300/75 bg-blue-100/85 text-setta-900 hover:border-blue-400/80 hover:bg-blue-200/80 dark:border-blue-800/70 dark:bg-blue-950/70 dark:text-blue-100 dark:hover:border-blue-700 dark:hover:bg-blue-900/80"
+            }`}
+            data-chat-queued-draft="true"
+            data-selected={isSelected ? "true" : "false"}
+            onClick={() => selectQueuedDraft(draft.id)}
+            onDoubleClick={() => restoreQueuedDraftToComposer(draft.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                restoreQueuedDraftToComposer(draft.id);
+                return;
+              }
+              if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                event.preventDefault();
+                cycleSelectedQueuedDraft(
+                  event.key === "ArrowUp" ? "prev" : "next",
+                );
+              }
+            }}
+            {...queuedDraftTooltipHandlers}
+          >
+            <div
+              className={`flex h-full items-center justify-center text-[10px] font-semibold ${
+                isSelected
+                  ? "bg-blue-300/75 text-blue-900 dark:bg-blue-900/80 dark:text-blue-100"
+                  : "bg-blue-200/75 text-blue-900 dark:bg-blue-900/65 dark:text-blue-200"
+              }`}
+              data-chat-queued-draft-rail="true"
+            >
+              <span className="inline-flex h-4 min-w-4 items-center justify-center">
+                {index + 1}
+              </span>
+            </div>
+            <div className="min-w-0 px-2 py-1">
+              <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em]">
+                <span>Queued</span>
+                {attachmentCount > 0 ? (
+                  <span className="truncate opacity-80">{attachmentLabel}</span>
+                ) : null}
+              </div>
+              <div className="mt-0.5 truncate text-[11px] font-medium">
+                {previewText.length > 0 ? previewText : "(Attachment message)"}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChatComposerFeedbackSection(props: {
+  dictationFeedback: string | null;
+  dictationState: DictationState;
+  isUploading: boolean;
+  showAttachmentDisabledMessage: boolean;
+  showSharePolicyMessage: boolean;
+  slashFeedback: string | null;
+}) {
+  const {
+    dictationFeedback,
+    dictationState,
+    isUploading,
+    showAttachmentDisabledMessage,
+    showSharePolicyMessage,
+    slashFeedback,
+  } = props;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
+      {showSharePolicyMessage ? (
+        <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
+          Attachments blocked by share policy
+        </span>
+      ) : null}
+      {showAttachmentDisabledMessage ? (
+        <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
+          Attachments disabled
+        </span>
+      ) : null}
+      {isUploading ? (
+        <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
+          Uploading...
+        </span>
+      ) : null}
+      {slashFeedback ? (
+        <span className="text-[10px] uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+          {slashFeedback}
+        </span>
+      ) : null}
+      {dictationFeedback ? (
+        <span
+          className={`text-[10px] uppercase tracking-[0.16em] ${
+            dictationState === "error"
+              ? "text-amber-700 dark:text-amber-300"
+              : "text-blue-600 dark:text-blue-400"
+          }`}
+        >
+          {dictationFeedback}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ChatAttachmentsSection(props: {
+  attachmentActionsDisabled: boolean;
+  attachments: readonly ChatFileAttachment[];
+  handleClearAttachments: () => void;
+  handleRemoveAttachment: (attachment: ChatFileAttachment) => void;
+}) {
+  const {
+    attachmentActionsDisabled,
+    attachments,
+    handleClearAttachments,
+    handleRemoveAttachment,
+  } = props;
+  if (attachments.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mb-0.5 flex flex-wrap gap-1.5 [&_button]:cursor-pointer">
+      {attachments.map((attachment) => {
+        const removeAttachmentTooltipHandlers = getFloatingBoxHandlers({
+          title: "Remove attachment",
+          content: attachment.name,
+        });
+        return (
+          <div
+            key={attachment.id}
+            className="flex items-center gap-1.5 rounded-md border border-setta-200 bg-white/80 px-2 py-0.5 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200"
+          >
+            <span className="max-w-[200px] truncate">{attachment.name}</span>
+            {attachment.size !== null && attachment.size !== undefined ? (
+              <span className="text-[10px] text-setta-400">
+                {formatBytes(attachment.size)}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className="rounded-full p-1 text-setta-400 transition-colors hover:text-red-500"
+              onClick={() => handleRemoveAttachment(attachment)}
+              disabled={attachmentActionsDisabled}
+              {...removeAttachmentTooltipHandlers}
+            >
+              <IoClose />
+            </button>
+          </div>
+        );
+      })}
+      {attachments.length > 1 ? (
+        <button
+          type="button"
+          className="rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 hover:border-setta-400 hover:text-setta-600 dark:border-setta-800 dark:text-setta-500 dark:hover:text-setta-200"
+          onClick={handleClearAttachments}
+          disabled={attachmentActionsDisabled}
+          {...getFloatingBoxHandlers({
+            title: "Clear attachments",
+            content: "Remove all attachments from this draft.",
+          })}
+        >
+          Clear all
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ChatSlashSuggestionsPortal(props: {
+  canRenderSlashSuggestionsInPortal: boolean;
+  slashSuggestionsList: ReactNode;
+  slashSuggestionsPortalStyle: CSSProperties | null;
+}) {
+  const {
+    canRenderSlashSuggestionsInPortal,
+    slashSuggestionsList,
+    slashSuggestionsPortalStyle,
+  } = props;
+  if (
+    !canRenderSlashSuggestionsInPortal ||
+    typeof document === "undefined" ||
+    !document.body
+  ) {
+    return null;
+  }
+  return createPortal(
+    <div
+      className="fixed z-40 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900"
+      style={slashSuggestionsPortalStyle}
+    >
+      {slashSuggestionsList}
+    </div>,
+    document.body,
+  );
+}
+
 function ChatComposerFieldSection(props: {
   attachmentCountLabel: string;
   attachmentInputDisabled: boolean;
@@ -2806,43 +3297,38 @@ function ChatComposerFieldSection(props: {
   );
 }
 
-export const ChatInput = memo(function ChatInput({
-  placeholderText,
-  waitingForResponse,
-  disabled = false,
-  submitDisabled = false,
-  hasRetainedImageAttachmentForImageMode = false,
-  value,
-  onChange,
-  onSubmit,
-  submitReadinessKey = null,
-  onUnknownSlashCommand,
-  onStop,
-  executionControls,
-  executionControlVisibility = DEFAULT_EXECUTION_CONTROL_VISIBILITY,
-  slashCommands = CHAT_SLASH_COMMANDS,
-  recognizedSlashCommands,
-  onSlashCommand,
-  slashSuggestionsPlacement = "auto",
-  dictationMode = "auto",
-  onProviderDictationTranscribe,
-  dictationEnabledByProvider = true,
-  providerDictationLikelySupported = true,
-  contextWindowTokens = null,
-  contextUsedTokens = null,
-  contextUsageIsEstimated = false,
-  submittedMessageHistory = DEFAULT_SUBMITTED_MESSAGE_HISTORY,
-  runtimeActivityCounts = DEFAULT_RUNTIME_ACTIVITY_COUNTS,
-  runtimeActivityDetails = DEFAULT_RUNTIME_ACTIVITY_DETAILS,
-}: ChatInputProps) {
+export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
+  const {
+    placeholderText,
+    waitingForResponse,
+    disabled,
+    submitDisabled,
+    hasRetainedImageAttachmentForImageMode,
+    value,
+    onChange,
+    onSubmit,
+    submitReadinessKey,
+    onUnknownSlashCommand,
+    onStop,
+    executionControls,
+    executionControlVisibility,
+    slashCommands,
+    recognizedSlashCommands,
+    onSlashCommand,
+    slashSuggestionsPlacement,
+    dictationMode,
+    onProviderDictationTranscribe,
+    dictationEnabledByProvider,
+    providerDictationLikelySupported,
+    contextWindowTokens,
+    contextUsedTokens,
+    contextUsageIsEstimated,
+    submittedMessageHistory,
+    runtimeActivityCounts,
+    runtimeActivityDetails,
+  } = resolveChatInputProps(props);
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
-  const [activeSlashIndex, setActiveSlashIndex] = useState(0);
-  const [resolvedSlashPlacement, setResolvedSlashPlacement] = useState<
-    "above" | "below"
-  >(slashSuggestionsPlacement === "above" ? "above" : "below");
-  const [slashSuggestionsPortalStyle, setSlashSuggestionsPortalStyle] =
-    useState<CSSProperties | null>(null);
   const [dictationState, setDictationState] = useState<DictationState>("idle");
   const [dictationFeedback, setDictationFeedback] = useState<string | null>(
     null,
@@ -2945,6 +3431,25 @@ export const ChatInput = memo(function ChatInput({
     },
     [isControlled, onChange],
   );
+
+  const {
+    activeSlashIndex,
+    applySlashSuggestion,
+    canRenderSlashSuggestionsInPortal,
+    setActiveSlashIndex,
+    shouldShowSlashSuggestions,
+    slashSuggestions,
+    slashSuggestionsList,
+    slashSuggestionsPortalStyle,
+    slashSuggestionsPositionClass,
+  } = useChatInputSlashSuggestions({
+    inputValue,
+    setInputValue,
+    setSlashFeedback,
+    slashCommands,
+    slashSuggestionsPlacement,
+    textareaRef,
+  });
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -3502,118 +4007,6 @@ export const ChatInput = memo(function ChatInput({
     [onStop, waitingForResponse],
   );
 
-  const slashSuggestions = useMemo(
-    () => getSlashCommandSuggestions(inputValue, slashCommands),
-    [inputValue, slashCommands],
-  );
-
-  const shouldShowSlashSuggestions = useMemo(() => {
-    if (slashSuggestions.length === 0) {
-      return false;
-    }
-    return /^\/[^\s]*$/u.test(inputValue.trimStart());
-  }, [inputValue, slashSuggestions.length]);
-
-  useEffect(() => {
-    if (!shouldShowSlashSuggestions) {
-      setActiveSlashIndex(0);
-      return;
-    }
-    setActiveSlashIndex((current) =>
-      Math.min(current, Math.max(0, slashSuggestions.length - 1)),
-    );
-  }, [shouldShowSlashSuggestions, slashSuggestions.length]);
-
-  const updateSlashSuggestionsLayout = useCallback(() => {
-    if (!shouldShowSlashSuggestions) {
-      return;
-    }
-    if (typeof window === "undefined") {
-      return;
-    }
-    const inputNode = textareaRef.current;
-    if (!inputNode) {
-      return;
-    }
-    const inputRect = inputNode.getBoundingClientRect();
-    const spaceAbove = inputRect.top - SLASH_SUGGESTIONS_EDGE_PADDING_PX;
-    const spaceBelow =
-      window.innerHeight - inputRect.bottom - SLASH_SUGGESTIONS_EDGE_PADDING_PX;
-    const estimatedMenuHeight = Math.min(
-      SLASH_SUGGESTIONS_MAX_HEIGHT_PX,
-      SLASH_SUGGESTIONS_BASE_HEIGHT_PX +
-        slashSuggestions.length * SLASH_SUGGESTIONS_ROW_HEIGHT_PX,
-    );
-    const nextPlacement = resolveSlashSuggestionsPlacement({
-      estimatedMenuHeight,
-      slashSuggestionsPlacement,
-      spaceAbove,
-      spaceBelow,
-    });
-    setResolvedSlashPlacement((current) =>
-      current === nextPlacement ? current : nextPlacement,
-    );
-    const nextStyle = resolveSlashSuggestionsPortalStyle({
-      inputRect,
-      nextPlacement,
-    });
-    setSlashSuggestionsPortalStyle((current) => {
-      if (areSlashSuggestionsPortalStylesEqual(current, nextStyle)) {
-        return current;
-      }
-      return nextStyle;
-    });
-  }, [
-    shouldShowSlashSuggestions,
-    slashSuggestions.length,
-    slashSuggestionsPlacement,
-  ]);
-
-  useEffect(() => {
-    if (!shouldShowSlashSuggestions) {
-      setSlashSuggestionsPortalStyle((current) =>
-        current === null ? current : null,
-      );
-      setResolvedSlashPlacement(
-        slashSuggestionsPlacement === "above" ? "above" : "below",
-      );
-      return;
-    }
-    updateSlashSuggestionsLayout();
-    if (typeof window === "undefined") {
-      return;
-    }
-    const handleViewportChange = () => {
-      requestAnimationFrame(() => {
-        updateSlashSuggestionsLayout();
-      });
-    };
-    window.addEventListener("resize", handleViewportChange);
-    window.addEventListener("scroll", handleViewportChange, true);
-    return () => {
-      window.removeEventListener("resize", handleViewportChange);
-      window.removeEventListener("scroll", handleViewportChange, true);
-    };
-  }, [
-    shouldShowSlashSuggestions,
-    slashSuggestionsPlacement,
-    updateSlashSuggestionsLayout,
-  ]);
-
-  const applySlashSuggestion = useCallback(
-    (index: number) => {
-      const suggestion = slashSuggestions[index];
-      if (!suggestion) {
-        return;
-      }
-      setInputValue(`${suggestion.command} `);
-      setActiveSlashIndex(index);
-      setSlashFeedback(null);
-      focusComposerTextareaAtEnd(textareaRef, `${suggestion.command} `);
-    },
-    [setInputValue, slashSuggestions, textareaRef],
-  );
-
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) =>
       handleChatInputKeyDown({
@@ -3747,12 +4140,6 @@ export const ChatInput = memo(function ChatInput({
     runtimeActivityDetails,
     waitingForResponse,
   });
-  const { canRenderSlashSuggestionsInPortal, slashSuggestionsPositionClass } =
-    resolveSlashSuggestionsDisplayState({
-      resolvedSlashPlacement,
-      shouldShowSlashSuggestions,
-      slashSuggestionsPortalStyle,
-    });
 
   const cleanupProviderCapture = useCallback(() => {
     const recorder = providerRecorderRef.current;
@@ -4105,130 +4492,6 @@ export const ChatInput = memo(function ChatInput({
     stopBrowserDictation,
     stopProviderCapture,
   ]);
-
-  const slashSuggestionsList = useMemo(
-    () => (
-      <>
-        {slashSuggestions.map((suggestion, index) => (
-          <button
-            key={suggestion.command}
-            type="button"
-            className={`flex w-full min-w-0 flex-col items-start gap-0.5 rounded px-2 py-1 text-left text-xs transition-colors ${
-              index === activeSlashIndex
-                ? "bg-setta-100 text-setta-900 dark:bg-setta-800 dark:text-setta-100"
-                : "text-setta-600 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800"
-            }`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => applySlashSuggestion(index)}
-          >
-            <span className="w-full truncate font-semibold">
-              {suggestion.command}
-            </span>
-            <span className="w-full truncate text-[10px] text-setta-400 dark:text-setta-500">
-              {suggestion.summary}
-            </span>
-          </button>
-        ))}
-      </>
-    ),
-    [activeSlashIndex, applySlashSuggestion, slashSuggestions],
-  );
-
-  const queuedDraftsSection = useMemo(() => {
-    if (queuedDrafts.length === 0) {
-      return null;
-    }
-    return (
-      <div
-        className="mb-1 flex flex-col gap-1"
-        data-chat-queued-draft-stack="true"
-      >
-        {queuedDrafts.map((draft, index) => {
-          const isSelected = draft.id === selectedQueuedDraftId;
-          const previewText = draft.message.trim();
-          const attachmentCount = draft.attachments.length;
-          const attachmentLabel =
-            attachmentCount === 1
-              ? "1 attachment"
-              : `${attachmentCount} attachments`;
-          const queuedDraftTooltipHandlers = getFloatingBoxHandlers({
-            title: "Queued draft",
-            content:
-              previewText.length > 0
-                ? previewText
-                : "Queued attachment message",
-          });
-          return (
-            <button
-              key={draft.id}
-              type="button"
-              className={`grid w-full grid-cols-[1.75rem_minmax(0,1fr)] overflow-hidden rounded-md border text-left transition-colors ${
-                isSelected
-                  ? "border-blue-400/90 bg-blue-200 text-setta-950 dark:border-blue-700/80 dark:bg-blue-950 dark:text-white"
-                  : "border-blue-300/75 bg-blue-100/85 text-setta-900 hover:border-blue-400/80 hover:bg-blue-200/80 dark:border-blue-800/70 dark:bg-blue-950/70 dark:text-blue-100 dark:hover:border-blue-700 dark:hover:bg-blue-900/80"
-              }`}
-              data-chat-queued-draft="true"
-              data-selected={isSelected ? "true" : "false"}
-              onClick={() => setSelectedQueuedDraftId(draft.id)}
-              onDoubleClick={() => restoreQueuedDraftToComposer(draft.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  restoreQueuedDraftToComposer(draft.id);
-                  return;
-                }
-                if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                  event.preventDefault();
-                  setSelectedQueuedDraftId((current) =>
-                    cycleQueuedDraftSelection(
-                      queuedDrafts,
-                      current,
-                      event.key === "ArrowUp" ? "prev" : "next",
-                    ),
-                  );
-                }
-              }}
-              {...queuedDraftTooltipHandlers}
-            >
-              <div
-                className={`flex h-full items-center justify-center text-[10px] font-semibold ${
-                  isSelected
-                    ? "bg-blue-300/75 text-blue-900 dark:bg-blue-900/80 dark:text-blue-100"
-                    : "bg-blue-200/75 text-blue-900 dark:bg-blue-900/65 dark:text-blue-200"
-                }`}
-                data-chat-queued-draft-rail="true"
-              >
-                <span className="inline-flex h-4 min-w-4 items-center justify-center">
-                  {index + 1}
-                </span>
-              </div>
-              <div className="min-w-0 px-2 py-1">
-                <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em]">
-                  <span>Queued</span>
-                  {attachmentCount > 0 ? (
-                    <span className="truncate opacity-80">
-                      {attachmentLabel}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="mt-0.5 truncate text-[11px] font-medium">
-                  {previewText.length > 0
-                    ? previewText
-                    : "(Attachment message)"}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    );
-  }, [
-    queuedDrafts,
-    restoreQueuedDraftToComposer,
-    selectedQueuedDraftId,
-    setSelectedQueuedDraftId,
-  ]);
-
   const composerFieldSection = (
     <ChatComposerFieldSection
       attachmentCountLabel={attachmentCountLabel}
@@ -4262,52 +4525,6 @@ export const ChatInput = memo(function ChatInput({
     />
   );
 
-  const feedbackSection = useMemo(
-    () => (
-      <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
-        {showSharePolicyMessage ? (
-          <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
-            Attachments blocked by share policy
-          </span>
-        ) : null}
-        {showAttachmentDisabledMessage ? (
-          <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
-            Attachments disabled
-          </span>
-        ) : null}
-        {isUploading ? (
-          <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
-            Uploading...
-          </span>
-        ) : null}
-        {slashFeedback ? (
-          <span className="text-[10px] uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
-            {slashFeedback}
-          </span>
-        ) : null}
-        {dictationFeedback ? (
-          <span
-            className={`text-[10px] uppercase tracking-[0.16em] ${
-              dictationState === "error"
-                ? "text-amber-700 dark:text-amber-300"
-                : "text-blue-600 dark:text-blue-400"
-            }`}
-          >
-            {dictationFeedback}
-          </span>
-        ) : null}
-      </div>
-    ),
-    [
-      dictationFeedback,
-      dictationState,
-      isUploading,
-      showAttachmentDisabledMessage,
-      showSharePolicyMessage,
-      slashFeedback,
-    ],
-  );
-
   const composerMetaSection = (
     <ChatComposerMetaSection
       activeBackgroundTerminalEntries={activeBackgroundTerminalEntries}
@@ -4338,63 +4555,6 @@ export const ChatInput = memo(function ChatInput({
     />
   );
 
-  const attachmentsSection = useMemo(() => {
-    if (attachments.length === 0) {
-      return null;
-    }
-    return (
-      <div className="mb-0.5 flex flex-wrap gap-1.5 [&_button]:cursor-pointer">
-        {attachments.map((attachment) => {
-          const removeAttachmentTooltipHandlers = getFloatingBoxHandlers({
-            title: "Remove attachment",
-            content: attachment.name,
-          });
-          return (
-            <div
-              key={attachment.id}
-              className="flex items-center gap-1.5 rounded-md border border-setta-200 bg-white/80 px-2 py-0.5 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200"
-            >
-              <span className="max-w-[200px] truncate">{attachment.name}</span>
-              {attachment.size !== null && attachment.size !== undefined ? (
-                <span className="text-[10px] text-setta-400">
-                  {formatBytes(attachment.size)}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                className="rounded-full p-1 text-setta-400 transition-colors hover:text-red-500"
-                onClick={() => handleRemoveAttachment(attachment)}
-                disabled={attachmentActionsDisabled}
-                {...removeAttachmentTooltipHandlers}
-              >
-                <IoClose />
-              </button>
-            </div>
-          );
-        })}
-        {attachments.length > 1 ? (
-          <button
-            type="button"
-            className="rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 hover:border-setta-400 hover:text-setta-600 dark:border-setta-800 dark:text-setta-500 dark:hover:text-setta-200"
-            onClick={handleClearAttachments}
-            disabled={attachmentActionsDisabled}
-            {...getFloatingBoxHandlers({
-              title: "Clear attachments",
-              content: "Remove all attachments from this draft.",
-            })}
-          >
-            Clear all
-          </button>
-        ) : null}
-      </div>
-    );
-  }, [
-    attachmentActionsDisabled,
-    attachments,
-    handleClearAttachments,
-    handleRemoveAttachment,
-  ]);
-
   const attachmentWarningSection = useMemo(() => {
     if (!attachmentWarning) {
       return null;
@@ -4408,29 +4568,18 @@ export const ChatInput = memo(function ChatInput({
       </div>
     );
   }, [attachmentWarning]);
+  const selectQueuedDraft = useCallback((draftId: string) => {
+    setSelectedQueuedDraftId(draftId);
+  }, []);
 
-  const portalSlashSuggestions = useMemo(() => {
-    if (
-      !canRenderSlashSuggestionsInPortal ||
-      typeof document === "undefined" ||
-      !document.body
-    ) {
-      return null;
-    }
-    return createPortal(
-      <div
-        className="fixed z-40 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900"
-        style={slashSuggestionsPortalStyle}
-      >
-        {slashSuggestionsList}
-      </div>,
-      document.body,
-    );
-  }, [
-    canRenderSlashSuggestionsInPortal,
-    slashSuggestionsList,
-    slashSuggestionsPortalStyle,
-  ]);
+  const cycleSelectedQueuedDraft = useCallback(
+    (direction: "prev" | "next") => {
+      setSelectedQueuedDraftId((current) =>
+        cycleQueuedDraftSelection(queuedDrafts, current, direction),
+      );
+    },
+    [queuedDrafts],
+  );
 
   return (
     <form
@@ -4446,15 +4595,37 @@ export const ChatInput = memo(function ChatInput({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {queuedDraftsSection}
+          <ChatQueuedDraftStack
+            queuedDrafts={queuedDrafts}
+            restoreQueuedDraftToComposer={restoreQueuedDraftToComposer}
+            selectedQueuedDraftId={selectedQueuedDraftId}
+            selectQueuedDraft={selectQueuedDraft}
+            cycleSelectedQueuedDraft={cycleSelectedQueuedDraft}
+          />
           {composerFieldSection}
-          {feedbackSection}
+          <ChatComposerFeedbackSection
+            dictationFeedback={dictationFeedback}
+            dictationState={dictationState}
+            isUploading={isUploading}
+            showAttachmentDisabledMessage={showAttachmentDisabledMessage}
+            showSharePolicyMessage={showSharePolicyMessage}
+            slashFeedback={slashFeedback}
+          />
           {composerMetaSection}
-          {attachmentsSection}
+          <ChatAttachmentsSection
+            attachmentActionsDisabled={attachmentActionsDisabled}
+            attachments={attachments}
+            handleClearAttachments={handleClearAttachments}
+            handleRemoveAttachment={handleRemoveAttachment}
+          />
           {attachmentWarningSection}
         </div>
       </div>
-      {portalSlashSuggestions}
+      <ChatSlashSuggestionsPortal
+        canRenderSlashSuggestionsInPortal={canRenderSlashSuggestionsInPortal}
+        slashSuggestionsList={slashSuggestionsList}
+        slashSuggestionsPortalStyle={slashSuggestionsPortalStyle}
+      />
     </form>
   );
 });
