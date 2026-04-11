@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/localsessions"
 	"setta/internal/projectbackup"
@@ -25,6 +26,12 @@ type backupsRestoreFlags struct {
 	backupPath string
 	force      bool
 	yes        bool
+}
+
+type backupsRestorePlan struct {
+	backupDir          string
+	projectPath        string
+	selectedBackupPath string
 }
 
 type backupListJSON struct {
@@ -55,20 +62,9 @@ func runBackups(args []string, global globalFlags, stdin io.Reader, stdout io.Wr
 }
 
 func runBackupsList(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
-	flags := flag.NewFlagSet("backups list", flag.ContinueOnError)
-	flags.SetOutput(stderr)
-
-	parsed := backupsListFlags{limit: -1}
-	flags.BoolVar(&parsed.jsonOutput, "json", false, "Emit JSON output.")
-	flags.IntVar(&parsed.limit, "limit", -1, "Limit number of entries.")
-	if err := flags.Parse(args); err != nil {
+	parsed, err := parseBackupsListFlags(args, stderr)
+	if err != nil {
 		return err
-	}
-	if len(flags.Args()) != 0 {
-		return &ExitError{Code: 2, Err: fmt.Errorf("backups list does not accept positional arguments")}
-	}
-	if parsed.limit == 0 || parsed.limit < -1 {
-		return &ExitError{Code: 2, Err: fmt.Errorf("--limit must be >= 1")}
 	}
 
 	commandCfg, err := resolveBackupsCommandConfig(global, cwd, envLookup)
@@ -76,12 +72,39 @@ func runBackupsList(args []string, global globalFlags, stdout io.Writer, stderr 
 		return &ExitError{Code: 2, Err: err}
 	}
 	backupDir := projectbackup.BackupDir(commandCfg.Paths.SettaFilesRoot)
-	files, err := projectbackup.ListFiles(backupDir)
+	payload, err := buildBackupListPayload(backupDir, parsed.limit)
 	if err != nil {
 		return err
 	}
-	if parsed.limit > 0 && len(files) > parsed.limit {
-		files = files[:parsed.limit]
+	return writeBackupsListOutput(stdout, backupDir, payload, parsed.jsonOutput)
+}
+
+func parseBackupsListFlags(args []string, stderr io.Writer) (backupsListFlags, error) {
+	flags := flag.NewFlagSet("backups list", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+
+	parsed := backupsListFlags{limit: -1}
+	flags.BoolVar(&parsed.jsonOutput, "json", false, "Emit JSON output.")
+	flags.IntVar(&parsed.limit, "limit", -1, "Limit number of entries.")
+	if err := flags.Parse(args); err != nil {
+		return backupsListFlags{}, err
+	}
+	if len(flags.Args()) != 0 {
+		return backupsListFlags{}, &ExitError{Code: 2, Err: fmt.Errorf("backups list does not accept positional arguments")}
+	}
+	if parsed.limit == 0 || parsed.limit < -1 {
+		return backupsListFlags{}, &ExitError{Code: 2, Err: fmt.Errorf("--limit must be >= 1")}
+	}
+	return parsed, nil
+}
+
+func buildBackupListPayload(backupDir string, limit int) ([]backupListJSON, error) {
+	files, err := projectbackup.ListFiles(backupDir)
+	if err != nil {
+		return nil, err
+	}
+	if limit > 0 && len(files) > limit {
+		files = files[:limit]
 	}
 
 	payload := make([]backupListJSON, 0, len(files))
@@ -92,8 +115,11 @@ func runBackupsList(args []string, global globalFlags, stdout io.Writer, stderr 
 			Timestamp: projectbackup.FormatTimestamp(file.Timestamp),
 		})
 	}
+	return payload, nil
+}
 
-	if parsed.jsonOutput {
+func writeBackupsListOutput(stdout io.Writer, backupDir string, payload []backupListJSON, jsonOutput bool) error {
+	if jsonOutput {
 		return writeJSONPayload(stdout, payload)
 	}
 	if len(payload) == 0 {
@@ -109,6 +135,34 @@ func runBackupsList(args []string, global globalFlags, stdout io.Writer, stderr 
 }
 
 func runBackupsRestore(args []string, global globalFlags, stdin io.Reader, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	parsed, err := parseBackupsRestoreFlags(args, stderr)
+	if err != nil {
+		return err
+	}
+
+	commandCfg, err := resolveBackupsCommandConfig(global, cwd, envLookup)
+	if err != nil {
+		return &ExitError{Code: 2, Err: err}
+	}
+
+	plan, err := resolveBackupsRestorePlan(commandCfg.Paths.SettaFilesRoot, parsed, cwd)
+	if err != nil {
+		return &ExitError{Code: 2, Err: err}
+	}
+	if err := refuseBackupsRestoreForActiveSessions(commandCfg.Paths.RuntimeRoot, commandCfg.Paths.WorkspaceRoot, parsed.force); err != nil {
+		return err
+	}
+	confirmed, err := confirmBackupsRestore(parsed, stdin, stdout, plan)
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		return nil
+	}
+	return executeBackupsRestore(stdout, plan)
+}
+
+func parseBackupsRestoreFlags(args []string, stderr io.Writer) (backupsRestoreFlags, error) {
 	flags := flag.NewFlagSet("backups restore", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 
@@ -119,68 +173,97 @@ func runBackupsRestore(args []string, global globalFlags, stdin io.Reader, stdou
 	flags.BoolVar(&parsed.force, "force", false, "Allow restore even if a Setta session appears to be running.")
 	flags.BoolVar(&parsed.yes, "yes", false, "Skip confirmation prompt.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return backupsRestoreFlags{}, err
 	}
 	if len(flags.Args()) != 0 {
-		return &ExitError{Code: 2, Err: fmt.Errorf("backups restore does not accept positional arguments")}
+		return backupsRestoreFlags{}, &ExitError{Code: 2, Err: fmt.Errorf("backups restore does not accept positional arguments")}
 	}
+	return parsed, nil
+}
 
-	commandCfg, err := resolveBackupsCommandConfig(global, cwd, envLookup)
-	if err != nil {
-		return &ExitError{Code: 2, Err: err}
-	}
-
-	backupDir := projectbackup.BackupDir(commandCfg.Paths.SettaFilesRoot)
+func resolveBackupsRestorePlan(settaFilesRoot string, parsed backupsRestoreFlags, cwd string) (backupsRestorePlan, error) {
+	backupDir := projectbackup.BackupDir(settaFilesRoot)
 	selectedBackupPath, err := projectbackup.ResolveRestorePath(backupDir, projectbackup.RestoreSelection{
 		Latest:     parsed.latest,
 		Index:      parsed.index,
 		BackupPath: resolveBackupPathArg(parsed.backupPath, cwd),
 	})
 	if err != nil {
-		return &ExitError{Code: 2, Err: err}
+		return backupsRestorePlan{}, err
+	}
+	return backupsRestorePlan{
+		backupDir:          backupDir,
+		projectPath:        projectbackup.ProjectPath(settaFilesRoot),
+		selectedBackupPath: selectedBackupPath,
+	}, nil
+}
+
+func refuseBackupsRestoreForActiveSessions(runtimeRoot string, workspaceRoot string, force bool) error {
+	if force {
+		return nil
 	}
 
 	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
-		SessionsRoot: filepath.Join(commandCfg.Paths.RuntimeRoot, "sessions"),
+		SessionsRoot: filepath.Join(runtimeRoot, "sessions"),
 	})
 	if err != nil {
 		return err
 	}
-	sessions, err := registry.FindSessionsByWorkspaceAndMode(commandCfg.Paths.WorkspaceRoot, "")
+	sessions, err := registry.FindSessionsByWorkspaceAndMode(workspaceRoot, "")
 	if err != nil {
 		return err
 	}
-	sessions = localsessions.FilterActiveSessions(sessions)
-	if len(sessions) > 0 && !parsed.force {
-		sessionIDs := make([]string, 0, len(sessions))
-		for _, session := range sessions {
-			sessionIDs = append(sessionIDs, session.ID)
-		}
-		return &ExitError{
-			Code: 2,
-			Err: fmt.Errorf(
-				"Refusing to restore while a Setta session is running for this workspace (%s). Stop it first or pass --force.",
-				strings.Join(sessionIDs, ", "),
-			),
-		}
-	}
+	return maybeRefuseBackupsRestore(activeSessionIDs(localsessions.FilterActiveSessions(sessions)))
+}
 
-	projectPath := projectbackup.ProjectPath(commandCfg.Paths.SettaFilesRoot)
-	if !parsed.yes {
-		confirmed, err := promptForRestoreConfirmation(stdin, stdout, projectPath, selectedBackupPath)
-		if err != nil {
-			return err
-		}
-		if !confirmed {
-			_, err := fmt.Fprintln(stdout, "Cancelled.")
-			return err
-		}
+func activeSessionIDs(sessions []auth.SessionMetadata) []string {
+	if len(sessions) == 0 {
+		return nil
 	}
+	sessionIDs := make([]string, 0, len(sessions))
+	for _, session := range sessions {
+		sessionIDs = append(sessionIDs, session.ID)
+	}
+	return sessionIDs
+}
 
-	result, err := projectbackup.RestoreProject(selectedBackupPath, projectPath, backupDir, commandNow())
+func maybeRefuseBackupsRestore(sessionIDs []string) error {
+	if len(sessionIDs) == 0 {
+		return nil
+	}
+	return &ExitError{
+		Code: 2,
+		Err: fmt.Errorf(
+			"Refusing to restore while a Setta session is running for this workspace (%s). Stop it first or pass --force.",
+			strings.Join(sessionIDs, ", "),
+		),
+	}
+}
+
+func confirmBackupsRestore(parsed backupsRestoreFlags, stdin io.Reader, stdout io.Writer, plan backupsRestorePlan) (bool, error) {
+	if parsed.yes {
+		return true, nil
+	}
+	confirmed, err := promptForRestoreConfirmation(stdin, stdout, plan.projectPath, plan.selectedBackupPath)
+	if err != nil {
+		return false, err
+	}
+	if confirmed {
+		return true, nil
+	}
+	_, err = fmt.Fprintln(stdout, "Cancelled.")
+	return false, err
+}
+
+func executeBackupsRestore(stdout io.Writer, plan backupsRestorePlan) error {
+	result, err := projectbackup.RestoreProject(plan.selectedBackupPath, plan.projectPath, plan.backupDir, commandNow())
 	if err != nil {
 		return err
 	}
+	return writeBackupsRestoreResult(stdout, result)
+}
+
+func writeBackupsRestoreResult(stdout io.Writer, result projectbackup.RestoreResult) error {
 	if _, err := fmt.Fprintf(stdout, "Restored %s from %s\n", result.ProjectPath, result.BackupPath); err != nil {
 		return err
 	}
@@ -189,7 +272,7 @@ func runBackupsRestore(args []string, global globalFlags, stdin io.Reader, stdou
 			return err
 		}
 	}
-	_, err = fmt.Fprintln(stdout, "Restart any running Setta backend to load the restored project.")
+	_, err := fmt.Fprintln(stdout, "Restart any running Setta backend to load the restored project.")
 	return err
 }
 
