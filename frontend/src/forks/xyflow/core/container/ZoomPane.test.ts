@@ -1,17 +1,20 @@
 /* @vitest-environment jsdom */
 
+import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useMisc, useNodeInternals, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { createSettingsState } from "utils/generatedTypes";
+import { PanOnScrollModeEnum, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import initialState from "../store/initialState";
 import ZoomPane, {
   getViewportInteractionActiveValue,
   resetViewportInteractionState,
+  resolvePanOnScrollDelta,
+  shouldAllowZoomFilterEvent,
 } from "./ZoomPane";
 
 type RenderedZoomPane = {
@@ -46,6 +49,135 @@ async function renderZoomPane(): Promise<RenderedZoomPane> {
 
   return { host, renderer, root };
 }
+
+function withEventTarget<T extends Event>(event: T, target: Element): T {
+  Object.defineProperty(event, "target", {
+    configurable: true,
+    value: target,
+  });
+  return event;
+}
+
+function appendTargetWithClass(className: string): HTMLDivElement {
+  const target = document.createElement("div");
+  target.className = className;
+  document.body.appendChild(target);
+  return target;
+}
+
+describe("resolvePanOnScrollDelta", () => {
+  it("normalizes line-based wheel deltas and preserves shift remapping on non-mac", () => {
+    const event = new WheelEvent("wheel", {
+      deltaX: 2,
+      deltaY: 3,
+      shiftKey: true,
+    });
+    Object.defineProperty(event, "deltaMode", {
+      configurable: true,
+      value: 1,
+    });
+
+    expect(
+      resolvePanOnScrollDelta({
+        event,
+        isMacOS: false,
+        panOnScrollMode: PanOnScrollModeEnum.free,
+      }),
+    ).toEqual({
+      deltaX: 60,
+      deltaY: 0,
+    });
+  });
+
+  it("zeros the excluded axis for constrained pan modes", () => {
+    const event = new WheelEvent("wheel", {
+      deltaX: 9,
+      deltaY: 4,
+    });
+
+    expect(
+      resolvePanOnScrollDelta({
+        event,
+        isMacOS: true,
+        panOnScrollMode: PanOnScrollModeEnum.vertical,
+      }),
+    ).toEqual({
+      deltaX: 0,
+      deltaY: 4,
+    });
+    expect(
+      resolvePanOnScrollDelta({
+        event,
+        isMacOS: true,
+        panOnScrollMode: PanOnScrollModeEnum.horizontal,
+      }),
+    ).toEqual({
+      deltaX: 9,
+      deltaY: 0,
+    });
+  });
+});
+
+describe("shouldAllowZoomFilterEvent", () => {
+  it("allows middle-click node panning when that button is enabled", () => {
+    const node = appendTargetWithClass("react-flow__node");
+    const event = withEventTarget(
+      new MouseEvent("mousedown", { button: 1 }),
+      node,
+    );
+
+    expect(
+      shouldAllowZoomFilterEvent({
+        event,
+        panOnDrag: [1],
+        panOnScroll: false,
+        userSelectionActive: false,
+        zoomOnDoubleClick: true,
+        zoomOnPinch: true,
+        zoomOnScroll: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("blocks nowheel targets from wheel zoom without an override", () => {
+    const target = appendTargetWithClass("nowheel");
+    const event = withEventTarget(
+      new WheelEvent("wheel", { deltaY: -120 }),
+      target,
+    );
+
+    expect(
+      shouldAllowZoomFilterEvent({
+        event,
+        panOnDrag: true,
+        panOnScroll: false,
+        userSelectionActive: false,
+        zoomOnDoubleClick: true,
+        zoomOnPinch: true,
+        zoomOnScroll: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("blocks viewport gestures while drag sorting is active", () => {
+    useDndState.setState({
+      isSorting: true,
+      isMovingFree: false,
+    });
+
+    expect(
+      shouldAllowZoomFilterEvent({
+        event: new MouseEvent("mousedown", { button: 0 }),
+        panOnDrag: true,
+        panOnScroll: false,
+        userSelectionActive: false,
+        zoomOnDoubleClick: true,
+        zoomOnPinch: true,
+        zoomOnScroll: true,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("getViewportInteractionActiveValue", () => {
   beforeEach(() => {
