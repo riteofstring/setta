@@ -262,26 +262,22 @@ func (c *typeConverter) structPropertySpecs(
 	return properties, nil
 }
 
-func (c *typeConverter) namedStructPropertySpec(
-	ownerType reflect.Type,
-	field reflect.StructField,
-) (reflectedStructProperty, bool, error) {
-	fieldLabel := ownerType.Name() + "." + field.Name
-	parseBoolTag := func(tagName string) (bool, bool, error) {
-		value := strings.TrimSpace(field.Tag.Get(tagName))
-		if value == "" {
-			return false, false, nil
-		}
-		parsed, err := strconv.ParseBool(value)
-		if err != nil {
-			return false, false, fmt.Errorf("%s: invalid %s value %q", fieldLabel, tagName, value)
-		}
-		return parsed, true, nil
+func parseFrontendBindingBoolTag(field reflect.StructField, fieldLabel string, tagName string) (bool, bool, error) {
+	value := strings.TrimSpace(field.Tag.Get(tagName))
+	if value == "" {
+		return false, false, nil
 	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, false, fmt.Errorf("%s: invalid %s value %q", fieldLabel, tagName, value)
+	}
+	return parsed, true, nil
+}
 
+func parseFrontendBindingJSONTag(field reflect.StructField) (name string, optional bool, include bool) {
 	jsonTag := strings.TrimSpace(field.Tag.Get("json"))
 	if jsonTag == "-" {
-		return reflectedStructProperty{}, false, nil
+		return "", false, false
 	}
 	if jsonTag == "" {
 		panic(fmt.Sprintf("frontend binding field %s is missing a json tag", field.Name))
@@ -291,58 +287,90 @@ func (c *typeConverter) namedStructPropertySpec(
 	if name == "" {
 		panic(fmt.Sprintf("frontend binding field %s has an empty json field name", field.Name))
 	}
-	optional := strings.Contains(","+jsonOptions+",", ",omitempty,")
+	return name, strings.Contains(","+jsonOptions+",", ",omitempty,"), true
+}
 
+func unwrapFrontendBindingFieldType(fieldType reflect.Type) (reflect.Type, bool) {
+	nullable := false
+	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
+		nullable = true
+		fieldType = fieldType.Elem()
+	}
+	return fieldType, nullable
+}
+
+func frontendBindingMapValueCreateTarget(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	fieldType reflect.Type,
+	typeExpr string,
+	createMapValues bool,
+) (string, error) {
+	if !createMapValues {
+		return "", nil
+	}
+	if fieldType == nil || fieldType.Kind() != reflect.Map {
+		return "", fmt.Errorf(
+			"%s.%s: ts_create_map_values requires a map field",
+			ownerType.Name(),
+			field.Name,
+		)
+	}
+	targetTypeName, ok := frontendBindingCreateTargetTypeName(fieldType.Elem())
+	if !ok {
+		return "", fmt.Errorf(
+			"%s.%s: ts_create_map_values requires map values with generated create support",
+			ownerType.Name(),
+			field.Name,
+		)
+	}
+	if typeExpr == "" {
+		return "", fmt.Errorf(
+			"%s.%s: ts_create_map_values requires explicit ts_type",
+			ownerType.Name(),
+			field.Name,
+		)
+	}
+	return targetTypeName, nil
+}
+
+func (c *typeConverter) namedStructPropertySpec(
+	ownerType reflect.Type,
+	field reflect.StructField,
+) (reflectedStructProperty, bool, error) {
+	fieldLabel := ownerType.Name() + "." + field.Name
+	name, optional, include := parseFrontendBindingJSONTag(field)
+	if !include {
+		return reflectedStructProperty{}, false, nil
+	}
 	typeExpr := strings.TrimSpace(field.Tag.Get("ts_type"))
-	if override, ok, err := parseBoolTag("ts_optional"); err != nil {
+	if override, ok, err := parseFrontendBindingBoolTag(field, fieldLabel, "ts_optional"); err != nil {
 		return reflectedStructProperty{}, false, err
 	} else if ok {
 		optional = override
 	}
 	createExpr := strings.TrimSpace(field.Tag.Get("ts_create_expr"))
-	createMapValues, _, err := parseBoolTag("ts_create_map_values")
+	createMapValues, _, err := parseFrontendBindingBoolTag(field, fieldLabel, "ts_create_map_values")
 	if err != nil {
 		return reflectedStructProperty{}, false, err
 	}
-	if skip, ok, err := parseBoolTag("ts_skip"); err != nil {
+	if skip, ok, err := parseFrontendBindingBoolTag(field, fieldLabel, "ts_skip"); err != nil {
 		return reflectedStructProperty{}, false, err
 	} else if ok && skip {
 		return reflectedStructProperty{}, false, nil
 	}
 
-	nullable := false
-	fieldType := field.Type
-	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
-		nullable = true
-		fieldType = fieldType.Elem()
-	}
+	fieldType, nullable := unwrapFrontendBindingFieldType(field.Type)
 	createTargetTypeName, _ := frontendBindingCreateTargetTypeName(fieldType)
-
-	mapValueCreateTargetTypeName := ""
-	if createMapValues {
-		if fieldType == nil || fieldType.Kind() != reflect.Map {
-			return reflectedStructProperty{}, false, fmt.Errorf(
-				"%s.%s: ts_create_map_values requires a map field",
-				ownerType.Name(),
-				field.Name,
-			)
-		}
-		var ok bool
-		mapValueCreateTargetTypeName, ok = frontendBindingCreateTargetTypeName(fieldType.Elem())
-		if !ok {
-			return reflectedStructProperty{}, false, fmt.Errorf(
-				"%s.%s: ts_create_map_values requires map values with generated create support",
-				ownerType.Name(),
-				field.Name,
-			)
-		}
-		if typeExpr == "" {
-			return reflectedStructProperty{}, false, fmt.Errorf(
-				"%s.%s: ts_create_map_values requires explicit ts_type",
-				ownerType.Name(),
-				field.Name,
-			)
-		}
+	mapValueCreateTargetTypeName, err := frontendBindingMapValueCreateTarget(
+		ownerType,
+		field,
+		fieldType,
+		typeExpr,
+		createMapValues,
+	)
+	if err != nil {
+		return reflectedStructProperty{}, false, err
 	}
 	return reflectedStructProperty{
 		Property: TypeProperty{
