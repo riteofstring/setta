@@ -13,6 +13,8 @@ type StateMachineActivityItem = {
   tone: StateMachineActivityTone;
 };
 
+type StateMachineGateStatus = "waiting" | "satisfied" | "blocked";
+
 type StateMachineGateStatusPresentation = {
   label: string;
   classes: string;
@@ -46,8 +48,108 @@ type StateMachineNodePresentationArgs = {
 };
 
 type AgentRunEvent = AgentRun["events"][number];
+type StateMachineActivityDescriptor = Omit<StateMachineActivityItem, "id">;
+type StateMachineActivityDefinition =
+  | StateMachineActivityDescriptor
+  | ((event: AgentRunEvent) => StateMachineActivityDescriptor);
 
 const DEFAULT_ACTIVITY_ITEM_LIMIT = 3;
+const STATE_MACHINE_GATE_STATUS_PRESENTATION: Record<
+  StateMachineGateStatus,
+  NonNullable<StateMachineGateStatusPresentation>
+> = {
+  waiting: {
+    label: "Waiting",
+    classes:
+      "border-amber-400/70 bg-amber-500/10 text-amber-800 dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200",
+  },
+  satisfied: {
+    label: "Satisfied",
+    classes:
+      "border-emerald-400/70 bg-emerald-500/10 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200",
+  },
+  blocked: {
+    label: "Blocked",
+    classes:
+      "border-rose-400/70 bg-rose-500/10 text-rose-800 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-200",
+  },
+};
+const MACHINE_ACTIVITY_ITEM_BY_EVENT_TYPE: Partial<
+  Record<AgentRunEvent["type"], StateMachineActivityDefinition>
+> = {
+  run_started: {
+    label: "Workflow started",
+    tone: "default",
+  },
+  start_edge_actions_dispatched: buildStartActionsDispatchedActivityItem,
+  start_edge_action_dispatched: {
+    label: "Start prompt dispatched",
+    tone: "default",
+  },
+  start_edge_action_reset: {
+    label: "Start thread reset",
+    tone: "default",
+  },
+  edge_action_dispatched: {
+    label: "Prompt dispatched",
+    tone: "default",
+  },
+  edge_action_reset: {
+    label: "Thread reset",
+    tone: "default",
+  },
+  signal_reported: buildSignalReportedActivityItem,
+  signal_edges_activated: buildSignalRoutedActivityItem,
+  child_run_completed: {
+    label: "Chat completed",
+    tone: "success",
+  },
+  child_run_failed: {
+    label: "Chat failed",
+    tone: "danger",
+  },
+  child_run_edges_activated: {
+    label: "Chat output routed",
+    tone: "default",
+  },
+  gate_blocked: {
+    label: "Gate blocked",
+    tone: "danger",
+  },
+  run_blocked: {
+    label: "Workflow blocked",
+    tone: "danger",
+  },
+  child_runs_cancelled: buildChildRunsCancelledActivityItem,
+  end_reached: {
+    label: "Reached end",
+    tone: "success",
+  },
+  run_completed: {
+    label: "Workflow completed",
+    tone: "success",
+  },
+  run_cancelled: {
+    label: "Workflow stopped",
+    tone: "warning",
+  },
+  start_edge_action_failed: {
+    label: "Start failed",
+    tone: "danger",
+  },
+  gate_satisfied: {
+    label: "Gate satisfied",
+    tone: "success",
+  },
+  gate_input_activated: {
+    label: "Gate input received",
+    tone: "default",
+  },
+  run_failed: {
+    label: "Workflow failed",
+    tone: "danger",
+  },
+};
 
 export function getStateMachineNodePresentation({
   runs,
@@ -137,28 +239,9 @@ function getGateStatusPresentation(
   sectionId: string,
 ): StateMachineGateStatusPresentation {
   const rawGateStatus = getGateStatus(run, sectionId);
-  if (rawGateStatus === "waiting") {
-    return {
-      label: "Waiting",
-      classes:
-        "border-amber-400/70 bg-amber-500/10 text-amber-800 dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200",
-    };
-  }
-  if (rawGateStatus === "satisfied") {
-    return {
-      label: "Satisfied",
-      classes:
-        "border-emerald-400/70 bg-emerald-500/10 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200",
-    };
-  }
-  if (rawGateStatus === "blocked") {
-    return {
-      label: "Blocked",
-      classes:
-        "border-rose-400/70 bg-rose-500/10 text-rose-800 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-200",
-    };
-  }
-  return null;
+  return rawGateStatus === null
+    ? null
+    : STATE_MACHINE_GATE_STATUS_PRESENTATION[rawGateStatus];
 }
 
 function getGateInputProgressPresentation(
@@ -169,68 +252,41 @@ function getGateInputProgressPresentation(
   if (outputs === null) {
     return null;
   }
-  const rawIncomingEdgesBySectionId = outputs.gateIncomingEdgeIdsBySectionId;
-  if (
-    rawIncomingEdgesBySectionId === null ||
-    typeof rawIncomingEdgesBySectionId !== "object" ||
-    Array.isArray(rawIncomingEdgesBySectionId)
-  ) {
+  const totalCount = getSectionPayloadStringArrayCount(
+    outputs,
+    "gateIncomingEdgeIdsBySectionId",
+    sectionId,
+  );
+  if (totalCount === null || totalCount === 0) {
     return null;
   }
-  const rawIncomingEdges = rawIncomingEdgesBySectionId[sectionId];
-  if (!Array.isArray(rawIncomingEdges)) {
-    return null;
-  }
-  const totalCount = rawIncomingEdges.filter(
-    (edgeId): edgeId is string => typeof edgeId === "string",
-  ).length;
-  if (totalCount === 0) {
-    return null;
-  }
-  const rawActivatedEdgesBySectionId = outputs.gateInputEdgeIdsBySectionId;
-  let receivedCount = 0;
-  if (
-    rawActivatedEdgesBySectionId !== null &&
-    typeof rawActivatedEdgesBySectionId === "object" &&
-    !Array.isArray(rawActivatedEdgesBySectionId)
-  ) {
-    const rawActivatedEdges = rawActivatedEdgesBySectionId[sectionId];
-    if (Array.isArray(rawActivatedEdges)) {
-      receivedCount = rawActivatedEdges.filter(
-        (edgeId): edgeId is string => typeof edgeId === "string",
-      ).length;
-    }
-  }
+  const receivedCount =
+    getSectionPayloadStringArrayCount(
+      outputs,
+      "gateInputEdgeIdsBySectionId",
+      sectionId,
+    ) ?? 0;
   const rawGateStatus = getGateStatus(run, sectionId);
-  let classes =
-    "border-amber-400/70 bg-amber-500/10 text-amber-800 dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200";
-  if (rawGateStatus === "blocked") {
-    classes =
-      "border-rose-400/70 bg-rose-500/10 text-rose-800 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-200";
-  } else if (receivedCount >= totalCount) {
-    classes =
-      "border-emerald-400/70 bg-emerald-500/10 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200";
-  }
   return {
     label: `${receivedCount} / ${totalCount}`,
-    classes,
+    classes: getGateInputProgressClasses(
+      rawGateStatus,
+      receivedCount,
+      totalCount,
+    ),
   };
 }
 
 function getGateStatus(
   run: AgentRun | null,
   sectionId: string,
-): "waiting" | "satisfied" | "blocked" | null {
+): StateMachineGateStatus | null {
   const outputs = getRunOutputs(run);
   if (outputs === null) {
     return null;
   }
-  const rawGateStatuses = outputs.gateStatusBySectionId;
-  if (
-    rawGateStatuses === null ||
-    typeof rawGateStatuses !== "object" ||
-    Array.isArray(rawGateStatuses)
-  ) {
+  const rawGateStatuses = getPayloadRecord(outputs, "gateStatusBySectionId");
+  if (rawGateStatuses === null) {
     return null;
   }
   const rawGateStatus = rawGateStatuses[sectionId];
@@ -341,176 +397,16 @@ function getGateActivityItem(
 function getMachineActivityItem(
   event: AgentRunEvent,
 ): StateMachineActivityItem | null {
-  if (event.type === "run_started") {
-    return {
-      id: event.id,
-      label: "Workflow started",
-      tone: "default",
-    };
+  const definition = MACHINE_ACTIVITY_ITEM_BY_EVENT_TYPE[event.type];
+  if (definition === undefined) {
+    return null;
   }
-  if (event.type === "start_edge_actions_dispatched") {
-    const actionCount = getPayloadArrayLength(event.payload, "actions");
-    if (actionCount === null) {
-      return {
-        id: event.id,
-        label: "Start actions dispatched",
-        tone: "default",
-      };
-    }
-    return {
-      id: event.id,
-      label: `Dispatched ${actionCount} start ${pluralize(actionCount, "action")}`,
-      tone: "default",
-    };
-  }
-  if (event.type === "start_edge_action_dispatched") {
-    return {
-      id: event.id,
-      label: "Start prompt dispatched",
-      tone: "default",
-    };
-  }
-  if (event.type === "start_edge_action_reset") {
-    return {
-      id: event.id,
-      label: "Start thread reset",
-      tone: "default",
-    };
-  }
-  if (event.type === "edge_action_dispatched") {
-    return {
-      id: event.id,
-      label: "Prompt dispatched",
-      tone: "default",
-    };
-  }
-  if (event.type === "edge_action_reset") {
-    return {
-      id: event.id,
-      label: "Thread reset",
-      tone: "default",
-    };
-  }
-  if (event.type === "signal_reported") {
-    const signalName = getPayloadString(event.payload, "signalName");
-    return {
-      id: event.id,
-      label:
-        signalName === null
-          ? "Signal reported"
-          : `Signal ${signalName} reported`,
-      tone: "success",
-    };
-  }
-  if (event.type === "signal_edges_activated") {
-    const signalName = getPayloadString(event.payload, "signalName");
-    return {
-      id: event.id,
-      label:
-        signalName === null ? "Signal routed" : `Signal ${signalName} routed`,
-      tone: "success",
-    };
-  }
-  if (event.type === "child_run_completed") {
-    return {
-      id: event.id,
-      label: "Chat completed",
-      tone: "success",
-    };
-  }
-  if (event.type === "child_run_failed") {
-    return {
-      id: event.id,
-      label: "Chat failed",
-      tone: "danger",
-    };
-  }
-  if (event.type === "child_run_edges_activated") {
-    return {
-      id: event.id,
-      label: "Chat output routed",
-      tone: "default",
-    };
-  }
-  if (event.type === "gate_blocked") {
-    return {
-      id: event.id,
-      label: "Gate blocked",
-      tone: "danger",
-    };
-  }
-  if (event.type === "run_blocked") {
-    return {
-      id: event.id,
-      label: "Workflow blocked",
-      tone: "danger",
-    };
-  }
-  if (event.type === "child_runs_cancelled") {
-    const cancelledCount = getPayloadArrayLength(event.payload, "childRunIds");
-    if (cancelledCount === null) {
-      return {
-        id: event.id,
-        label: "Child runs cancelled",
-        tone: "warning",
-      };
-    }
-    return {
-      id: event.id,
-      label: `Cancelled ${cancelledCount} child ${pluralize(cancelledCount, "run")}`,
-      tone: "warning",
-    };
-  }
-  if (event.type === "end_reached") {
-    return {
-      id: event.id,
-      label: "Reached end",
-      tone: "success",
-    };
-  }
-  if (event.type === "run_completed") {
-    return {
-      id: event.id,
-      label: "Workflow completed",
-      tone: "success",
-    };
-  }
-  if (event.type === "run_cancelled") {
-    return {
-      id: event.id,
-      label: "Workflow stopped",
-      tone: "warning",
-    };
-  }
-  if (event.type === "start_edge_action_failed") {
-    return {
-      id: event.id,
-      label: "Start failed",
-      tone: "danger",
-    };
-  }
-  if (event.type === "gate_satisfied") {
-    return {
-      id: event.id,
-      label: "Gate satisfied",
-      tone: "success",
-    };
-  }
-  if (event.type === "gate_input_activated") {
-    return {
-      id: event.id,
-      label: "Gate input received",
-      tone: "default",
-    };
-  }
-  if (event.type === "run_failed") {
-    return {
-      id: event.id,
-      label: "Workflow failed",
-      tone: "danger",
-    };
-  }
-  return null;
+  const descriptor =
+    typeof definition === "function" ? definition(event) : definition;
+  return {
+    id: event.id,
+    ...descriptor,
+  };
 }
 
 function getRunOutputs(run: AgentRun | null): Record<string, unknown> | null {
@@ -546,6 +442,126 @@ function getPayloadArrayLength(
     return null;
   }
   return rawValue.length;
+}
+
+function getPayloadRecord(
+  payload: Record<string, unknown> | null | undefined,
+  key: string,
+): Record<string, unknown> | null {
+  if (payload === null || payload === undefined || Array.isArray(payload)) {
+    return null;
+  }
+  const rawValue = payload[key];
+  if (
+    rawValue === null ||
+    typeof rawValue !== "object" ||
+    Array.isArray(rawValue)
+  ) {
+    return null;
+  }
+  return rawValue as Record<string, unknown>;
+}
+
+function getStringArrayCount(value: unknown): number | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  return value.filter((entry): entry is string => typeof entry === "string")
+    .length;
+}
+
+function getSectionPayloadStringArrayCount(
+  payload: Record<string, unknown>,
+  key: string,
+  sectionId: string,
+): number | null {
+  const sectionsById = getPayloadRecord(payload, key);
+  if (sectionsById === null) {
+    return null;
+  }
+  return getStringArrayCount(sectionsById[sectionId]);
+}
+
+function getGateInputProgressClasses(
+  gateStatus: StateMachineGateStatus | null,
+  receivedCount: number,
+  totalCount: number,
+): string {
+  if (gateStatus === "blocked") {
+    return STATE_MACHINE_GATE_STATUS_PRESENTATION.blocked.classes;
+  }
+  return receivedCount >= totalCount
+    ? STATE_MACHINE_GATE_STATUS_PRESENTATION.satisfied.classes
+    : STATE_MACHINE_GATE_STATUS_PRESENTATION.waiting.classes;
+}
+
+function buildStartActionsDispatchedActivityItem(
+  event: AgentRunEvent,
+): StateMachineActivityDescriptor {
+  const actionCount = getPayloadArrayLength(event.payload, "actions");
+  if (actionCount === null) {
+    return {
+      label: "Start actions dispatched",
+      tone: "default",
+    };
+  }
+  return {
+    label: `Dispatched ${actionCount} start ${pluralize(actionCount, "action")}`,
+    tone: "default",
+  };
+}
+
+function buildSignalReportedActivityItem(
+  event: AgentRunEvent,
+): StateMachineActivityDescriptor {
+  return {
+    label: getSignalActivityLabel(event, {
+      emptyLabel: "Signal reported",
+      suffix: "reported",
+    }),
+    tone: "success",
+  };
+}
+
+function buildSignalRoutedActivityItem(
+  event: AgentRunEvent,
+): StateMachineActivityDescriptor {
+  return {
+    label: getSignalActivityLabel(event, {
+      emptyLabel: "Signal routed",
+      suffix: "routed",
+    }),
+    tone: "success",
+  };
+}
+
+function getSignalActivityLabel(
+  event: AgentRunEvent,
+  args: {
+    emptyLabel: string;
+    suffix: string;
+  },
+): string {
+  const signalName = getPayloadString(event.payload, "signalName");
+  return signalName === null
+    ? args.emptyLabel
+    : `Signal ${signalName} ${args.suffix}`;
+}
+
+function buildChildRunsCancelledActivityItem(
+  event: AgentRunEvent,
+): StateMachineActivityDescriptor {
+  const cancelledCount = getPayloadArrayLength(event.payload, "childRunIds");
+  if (cancelledCount === null) {
+    return {
+      label: "Child runs cancelled",
+      tone: "warning",
+    };
+  }
+  return {
+    label: `Cancelled ${cancelledCount} child ${pluralize(cancelledCount, "run")}`,
+    tone: "warning",
+  };
 }
 
 function pluralize(count: number, singular: string): string {
