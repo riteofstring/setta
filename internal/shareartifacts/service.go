@@ -347,46 +347,21 @@ func (s *Service) loadCachedJSON(sessionID string, rawPath string, artifactType 
 	if err != nil {
 		return nil, err
 	}
-	if entry, ok := s.overlayEntry(sessionID, resolvedPath); ok {
-		if entry.deleted {
-			return nil, nil
-		}
-		if entry.json != nil && entry.artifactType == artifactType {
-			cloned := cloneJSONArtifact(*entry.json)
-			return &cloned, nil
-		}
+	if overlayArtifact, handled := s.loadOverlayJSONArtifact(sessionID, resolvedPath, artifactType); handled {
+		return overlayArtifact, nil
 	}
 
-	content, err := os.ReadFile(resolvedPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
+	content, hash, ok := readOptionalArtifactContent(resolvedPath)
+	if !ok {
 		return nil, nil
 	}
-	if len(strings.TrimSpace(string(content))) == 0 {
-		return nil, nil
+	if cached := s.cachedJSONArtifact(resolvedPath, artifactType, hash); cached != nil {
+		return cached, nil
 	}
-	hash := hashBytes(content)
 
-	s.mu.RLock()
-	if cached, ok := s.jsonArtifacts[resolvedPath]; ok && cached.Type == artifactType {
-		if metadata := s.metadata[resolvedPath]; metadata.LastKnownHash == hash {
-			cloned := cloneJSONArtifact(cached)
-			s.mu.RUnlock()
-			return &cloned, nil
-		}
-	}
-	s.mu.RUnlock()
-
-	canonicalJSON, err := canonicalizeJSONObject(content)
+	artifact, err := buildCanonicalJSONArtifact(artifactID, artifactType, content)
 	if err != nil {
 		return nil, nil
-	}
-	artifact := artifacts.JSONArtifact{
-		Type:  artifactType,
-		ID:    artifactID,
-		Value: canonicalJSON,
 	}
 	s.storeJSONCache(resolvedPath, artifact, hash)
 	cloned := cloneJSONArtifact(artifact)
@@ -396,89 +371,13 @@ func (s *Service) loadCachedJSON(sessionID string, rawPath string, artifactType 
 func (s *Service) buildOverlayEntry(artifactID string, resolvedPath string, artifact artifacts.RawArtifact, scope artifacts.UploadScope) (overlayEntry, any, error) {
 	switch artifact.Type {
 	case artifacts.ArtifactTypeFile:
-		ref, err := s.parseBinaryRef(artifactID, artifact)
-		if err != nil {
-			return overlayEntry{}, nil, err
-		}
-		content, err := s.readBinaryContent(ref)
-		if err != nil {
-			return overlayEntry{}, nil, err
-		}
-		if err := artifacts.EnforceUploadPolicy(s.uploadPolicies, scope, artifactID, guessMimeType(resolvedPath, ref.MimeType), len(content)); err != nil {
-			return overlayEntry{}, nil, err
-		}
-		fileArtifact := artifacts.FileArtifact{
-			Type:  artifacts.ArtifactTypeFile,
-			ID:    artifactID,
-			Value: ref,
-		}
-		return overlayEntry{
-			artifactType: artifacts.ArtifactTypeFile,
-			file:         &fileArtifact,
-		}, nil, nil
+		return s.buildFileOverlayEntry(artifactID, resolvedPath, artifact, scope)
 	case artifacts.ArtifactTypeImage:
-		ref, err := s.parseBinaryRef(artifactID, artifact)
-		if err != nil {
-			return overlayEntry{}, nil, err
-		}
-		if _, err := s.readBinaryContent(ref); err != nil {
-			return overlayEntry{}, nil, err
-		}
-		imageArtifact := artifacts.ImageArtifact{
-			Type:  artifacts.ArtifactTypeImage,
-			ID:    artifactID,
-			Value: ref,
-		}
-		return overlayEntry{
-			artifactType: artifacts.ArtifactTypeImage,
-			image:        &imageArtifact,
-		}, cloneImageArtifact(imageArtifact), nil
+		return s.buildImageOverlayEntry(artifactID, artifact)
 	case artifacts.ArtifactTypeChartData:
-		if artifact.Value == nil {
-			return overlayEntry{}, nil, &artifacts.Error{
-				Kind:    artifacts.ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
-			}
-		}
-		var value artifacts.ChartDataValue
-		if err := json.Unmarshal(*artifact.Value, &value); err != nil {
-			return overlayEntry{}, nil, &artifacts.Error{
-				Kind:    artifacts.ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s has an invalid chart data payload.", artifactID),
-			}
-		}
-		chartArtifact := artifacts.ChartDataArtifact{
-			Type:  artifacts.ArtifactTypeChartData,
-			ID:    artifactID,
-			Value: value,
-		}
-		return overlayEntry{
-			artifactType: artifacts.ArtifactTypeChartData,
-			chart:        &chartArtifact,
-		}, cloneChartDataArtifact(chartArtifact), nil
+		return s.buildChartOverlayEntry(artifactID, artifact)
 	case artifacts.ArtifactTypeBrushStroke, artifacts.ArtifactTypeDrawAreaLayerItemTransform:
-		if artifact.Value == nil {
-			return overlayEntry{}, nil, &artifacts.Error{
-				Kind:    artifacts.ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
-			}
-		}
-		canonicalJSON, err := canonicalizeJSONObject(*artifact.Value)
-		if err != nil {
-			return overlayEntry{}, nil, &artifacts.Error{
-				Kind:    artifacts.ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s has an invalid JSON value.", artifactID),
-			}
-		}
-		jsonArtifact := artifacts.JSONArtifact{
-			Type:  artifact.Type,
-			ID:    artifactID,
-			Value: canonicalJSON,
-		}
-		return overlayEntry{
-			artifactType: artifact.Type,
-			json:         &jsonArtifact,
-		}, cloneJSONArtifact(jsonArtifact), nil
+		return s.buildJSONOverlayEntry(artifactID, artifact)
 	default:
 		return overlayEntry{}, nil, &artifacts.Error{
 			Kind:    artifacts.ErrorArtifactTypeUnsupported,
@@ -487,15 +386,163 @@ func (s *Service) buildOverlayEntry(artifactID string, resolvedPath string, arti
 	}
 }
 
-func (s *Service) parseBinaryRef(artifactID string, artifact artifacts.RawArtifact) (binarypayload.ContentRef, error) {
+func (s *Service) loadOverlayJSONArtifact(sessionID string, resolvedPath string, artifactType artifacts.ArtifactType) (*artifacts.JSONArtifact, bool) {
+	entry, ok := s.overlayEntry(sessionID, resolvedPath)
+	if !ok {
+		return nil, false
+	}
+	if entry.deleted {
+		return nil, true
+	}
+	if entry.json == nil || entry.artifactType != artifactType {
+		return nil, false
+	}
+	cloned := cloneJSONArtifact(*entry.json)
+	return &cloned, true
+}
+
+func readOptionalArtifactContent(path string) ([]byte, string, bool) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, "", false
+		}
+		return nil, "", false
+	}
+	if len(strings.TrimSpace(string(content))) == 0 {
+		return nil, "", false
+	}
+	return content, hashBytes(content), true
+}
+
+func (s *Service) cachedJSONArtifact(path string, artifactType artifacts.ArtifactType, hash string) *artifacts.JSONArtifact {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	cached, ok := s.jsonArtifacts[path]
+	if !ok || cached.Type != artifactType {
+		return nil
+	}
+	if metadata := s.metadata[path]; metadata.LastKnownHash != hash {
+		return nil
+	}
+	cloned := cloneJSONArtifact(cached)
+	return &cloned
+}
+
+func buildCanonicalJSONArtifact(artifactID string, artifactType artifacts.ArtifactType, raw []byte) (artifacts.JSONArtifact, error) {
+	canonicalJSON, err := canonicalizeJSONObject(raw)
+	if err != nil {
+		return artifacts.JSONArtifact{}, err
+	}
+	return artifacts.JSONArtifact{
+		Type:  artifactType,
+		ID:    artifactID,
+		Value: canonicalJSON,
+	}, nil
+}
+
+func (s *Service) buildFileOverlayEntry(artifactID string, resolvedPath string, artifact artifacts.RawArtifact, scope artifacts.UploadScope) (overlayEntry, any, error) {
+	ref, err := s.parseBinaryRef(artifactID, artifact)
+	if err != nil {
+		return overlayEntry{}, nil, err
+	}
+	content, err := s.readBinaryContent(ref)
+	if err != nil {
+		return overlayEntry{}, nil, err
+	}
+	if err := artifacts.EnforceUploadPolicy(s.uploadPolicies, scope, artifactID, guessMimeType(resolvedPath, ref.MimeType), len(content)); err != nil {
+		return overlayEntry{}, nil, err
+	}
+	fileArtifact := artifacts.FileArtifact{
+		Type:  artifacts.ArtifactTypeFile,
+		ID:    artifactID,
+		Value: ref,
+	}
+	return overlayEntry{
+		artifactType: artifacts.ArtifactTypeFile,
+		file:         &fileArtifact,
+	}, nil, nil
+}
+
+func (s *Service) buildImageOverlayEntry(artifactID string, artifact artifacts.RawArtifact) (overlayEntry, any, error) {
+	ref, err := s.parseBinaryRef(artifactID, artifact)
+	if err != nil {
+		return overlayEntry{}, nil, err
+	}
+	if _, err := s.readBinaryContent(ref); err != nil {
+		return overlayEntry{}, nil, err
+	}
+	imageArtifact := artifacts.ImageArtifact{
+		Type:  artifacts.ArtifactTypeImage,
+		ID:    artifactID,
+		Value: ref,
+	}
+	return overlayEntry{
+		artifactType: artifacts.ArtifactTypeImage,
+		image:        &imageArtifact,
+	}, cloneImageArtifact(imageArtifact), nil
+}
+
+func (s *Service) buildChartOverlayEntry(artifactID string, artifact artifacts.RawArtifact) (overlayEntry, any, error) {
+	rawValue, err := requireArtifactValue(artifactID, artifact)
+	if err != nil {
+		return overlayEntry{}, nil, err
+	}
+	var value artifacts.ChartDataValue
+	if err := json.Unmarshal(rawValue, &value); err != nil {
+		return overlayEntry{}, nil, newInvalidArtifactValueError(artifactID, "chart data payload")
+	}
+	chartArtifact := artifacts.ChartDataArtifact{
+		Type:  artifacts.ArtifactTypeChartData,
+		ID:    artifactID,
+		Value: value,
+	}
+	return overlayEntry{
+		artifactType: artifacts.ArtifactTypeChartData,
+		chart:        &chartArtifact,
+	}, cloneChartDataArtifact(chartArtifact), nil
+}
+
+func (s *Service) buildJSONOverlayEntry(artifactID string, artifact artifacts.RawArtifact) (overlayEntry, any, error) {
+	rawValue, err := requireArtifactValue(artifactID, artifact)
+	if err != nil {
+		return overlayEntry{}, nil, err
+	}
+	jsonArtifact, err := buildCanonicalJSONArtifact(artifactID, artifact.Type, rawValue)
+	if err != nil {
+		return overlayEntry{}, nil, newInvalidArtifactValueError(artifactID, "JSON value")
+	}
+	return overlayEntry{
+		artifactType: artifact.Type,
+		json:         &jsonArtifact,
+	}, cloneJSONArtifact(jsonArtifact), nil
+}
+
+func requireArtifactValue(artifactID string, artifact artifacts.RawArtifact) (json.RawMessage, error) {
 	if artifact.Value == nil {
-		return binarypayload.ContentRef{}, &artifacts.Error{
+		return nil, &artifacts.Error{
 			Kind:    artifacts.ErrorInvalidRequest,
 			Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
 		}
 	}
+	return *artifact.Value, nil
+}
+
+func newInvalidArtifactValueError(artifactID string, valueLabel string) *artifacts.Error {
+	return &artifacts.Error{
+		Kind:    artifacts.ErrorInvalidRequest,
+		Message: fmt.Sprintf("Artifact %s has an invalid %s.", artifactID, valueLabel),
+	}
+}
+
+func (s *Service) parseBinaryRef(artifactID string, artifact artifacts.RawArtifact) (binarypayload.ContentRef, error) {
+	rawValue, err := requireArtifactValue(artifactID, artifact)
+	if err != nil {
+		return binarypayload.ContentRef{}, err
+	}
 	var ref binarypayload.ContentRef
-	if err := json.Unmarshal(*artifact.Value, &ref); err != nil {
+	if err := json.Unmarshal(rawValue, &ref); err != nil {
 		return binarypayload.ContentRef{}, &artifacts.Error{
 			Kind:    artifacts.ErrorInvalidRequest,
 			Message: fmt.Sprintf("Artifact %s has an invalid binary payload.", artifactID),
