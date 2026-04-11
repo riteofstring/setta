@@ -226,35 +226,64 @@ func (s *codexEventState) stalledPendingFunctionCall(
 	var stalled *codexPendingFunctionCallStall
 	var stalledAt time.Time
 	for _, pending := range s.pendingFunctionCalls {
-		if strings.TrimSpace(pending.SettaToolName) == "" {
-			continue
-		}
-		snapshot := runtime.MCPToolInvocationSnapshot(runID, pending.SettaToolName)
-		started := snapshot.StartedCount > pending.ActivityBaseline.StartedCount
-		completed := snapshot.CompletedCount > pending.ActivityBaseline.CompletedCount
-		switch {
-		case !started && now.Sub(pending.StartedAt) >= dispatchTimeout:
-			if stalled == nil || pending.StartedAt.Before(stalledAt) || (pending.StartedAt.Equal(stalledAt) && pending.ToolCallID < stalled.ToolCallID) {
-				stalledAt = pending.StartedAt
-				stalled = &codexPendingFunctionCallStall{
-					ToolCallID: pending.ToolCallID,
-					ToolName:   pending.ToolName,
-					Reason:     "dispatch",
-				}
-			}
-		case completed && snapshot.LastCompletedAt != nil && now.Sub(*snapshot.LastCompletedAt) >= resultTimeout:
-			completedAt := snapshot.LastCompletedAt.UTC()
-			if stalled == nil || completedAt.Before(stalledAt) || (completedAt.Equal(stalledAt) && pending.ToolCallID < stalled.ToolCallID) {
-				stalledAt = completedAt
-				stalled = &codexPendingFunctionCallStall{
-					ToolCallID: pending.ToolCallID,
-					ToolName:   pending.ToolName,
-					Reason:     "result",
-				}
-			}
+		candidate, candidateAt := codexPendingFunctionCallStallCandidate(runID, runtime, now, dispatchTimeout, resultTimeout, pending)
+		if codexPendingFunctionCallStallBefore(candidate, candidateAt, stalled, stalledAt) {
+			stalled = candidate
+			stalledAt = candidateAt
 		}
 	}
 	return stalled
+}
+
+func codexPendingFunctionCallStallCandidate(
+	runID string,
+	runtime *Runtime,
+	now time.Time,
+	dispatchTimeout time.Duration,
+	resultTimeout time.Duration,
+	pending codexPendingFunctionCall,
+) (*codexPendingFunctionCallStall, time.Time) {
+	if strings.TrimSpace(pending.SettaToolName) == "" {
+		return nil, time.Time{}
+	}
+	snapshot := runtime.MCPToolInvocationSnapshot(runID, pending.SettaToolName)
+	if snapshot.StartedCount <= pending.ActivityBaseline.StartedCount && now.Sub(pending.StartedAt) >= dispatchTimeout {
+		return newCodexPendingFunctionCallStall(pending, "dispatch"), pending.StartedAt
+	}
+	if snapshot.CompletedCount <= pending.ActivityBaseline.CompletedCount || snapshot.LastCompletedAt == nil {
+		return nil, time.Time{}
+	}
+	completedAt := snapshot.LastCompletedAt.UTC()
+	if now.Sub(*snapshot.LastCompletedAt) < resultTimeout {
+		return nil, time.Time{}
+	}
+	return newCodexPendingFunctionCallStall(pending, "result"), completedAt
+}
+
+func codexPendingFunctionCallStallBefore(
+	candidate *codexPendingFunctionCallStall,
+	candidateAt time.Time,
+	current *codexPendingFunctionCallStall,
+	currentAt time.Time,
+) bool {
+	if candidate == nil {
+		return false
+	}
+	if current == nil {
+		return true
+	}
+	if candidateAt.Before(currentAt) {
+		return true
+	}
+	return candidateAt.Equal(currentAt) && candidate.ToolCallID < current.ToolCallID
+}
+
+func newCodexPendingFunctionCallStall(pending codexPendingFunctionCall, reason string) *codexPendingFunctionCallStall {
+	return &codexPendingFunctionCallStall{
+		ToolCallID: pending.ToolCallID,
+		ToolName:   pending.ToolName,
+		Reason:     reason,
+	}
 }
 
 func (s *codexEventState) resolveToolMessageID(state *ChatState) string {
@@ -284,49 +313,80 @@ func (s *codexEventState) adoptSyntheticAssistantMessage(state *ChatState, messa
 	if s == nil || trimmedMessageID == "" {
 		return trimmedMessageID
 	}
-	syntheticID := strings.TrimSpace(s.syntheticAssistantID)
-	if syntheticID == "" || syntheticID == trimmedMessageID {
-		s.syntheticAssistantID = ""
+	if !s.shouldAdoptSyntheticAssistantMessage(trimmedMessageID) {
 		return trimmedMessageID
 	}
-	syntheticIndex := findMessageIndex(state.Messages, syntheticID)
+	syntheticIndex := findMessageIndex(state.Messages, strings.TrimSpace(s.syntheticAssistantID))
 	if syntheticIndex == -1 {
-		s.syntheticAssistantID = ""
+		s.clearSyntheticAssistantID()
 		return trimmedMessageID
 	}
-	actualIndex := findMessageIndex(state.Messages, trimmedMessageID)
-	if actualIndex == -1 {
-		message := cloneMessageOrPanic(state.Messages[syntheticIndex])
-		message["id"] = trimmedMessageID
-		state.Messages[syntheticIndex] = message
-		s.syntheticAssistantID = ""
+	if renameSyntheticAssistantMessage(state, syntheticIndex, trimmedMessageID) {
+		s.clearSyntheticAssistantID()
 		return trimmedMessageID
 	}
+	adoptSyntheticAssistantToolCalls(state, syntheticIndex, trimmedMessageID)
+	state.Messages = append(state.Messages[:syntheticIndex], state.Messages[syntheticIndex+1:]...)
+	s.clearSyntheticAssistantID()
+	return trimmedMessageID
+}
+
+func (s *codexEventState) shouldAdoptSyntheticAssistantMessage(messageID string) bool {
+	syntheticID := strings.TrimSpace(s.syntheticAssistantID)
+	if syntheticID == "" || syntheticID == messageID {
+		s.clearSyntheticAssistantID()
+		return false
+	}
+	return true
+}
+
+func (s *codexEventState) clearSyntheticAssistantID() {
+	if s != nil {
+		s.syntheticAssistantID = ""
+	}
+}
+
+func renameSyntheticAssistantMessage(state *ChatState, syntheticIndex int, messageID string) bool {
+	if findMessageIndex(state.Messages, messageID) != -1 {
+		return false
+	}
+	message := cloneMessageOrPanic(state.Messages[syntheticIndex])
+	message["id"] = messageID
+	state.Messages[syntheticIndex] = message
+	return true
+}
+
+func adoptSyntheticAssistantToolCalls(state *ChatState, syntheticIndex int, messageID string) {
 	syntheticMessage := cloneMessageOrPanic(state.Messages[syntheticIndex])
 	rawToolCalls, _ := syntheticMessage["tool_calls"].([]any)
 	for _, rawToolCall := range rawToolCalls {
-		toolCall, ok := rawToolCall.(map[string]any)
+		toolCallID, toolName, arguments, ok := codexAssistantToolCallParts(rawToolCall)
 		if !ok {
 			continue
 		}
-		toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
-		function, _ := mapValue(toolCall["function"])
-		toolName := ""
-		arguments := map[string]any{}
-		if function != nil {
-			toolName = strings.TrimSpace(stringValue(function["name"]))
-			if parsedArguments, ok := mapValue(function["arguments"]); ok && parsedArguments != nil {
-				arguments = cloneAnyMap(parsedArguments)
-			}
-		}
-		if toolCallID == "" {
-			continue
-		}
-		upsertAssistantToolCall(state, trimmedMessageID, toolCallID, toolName, arguments)
+		upsertAssistantToolCall(state, messageID, toolCallID, toolName, arguments)
 	}
-	state.Messages = append(state.Messages[:syntheticIndex], state.Messages[syntheticIndex+1:]...)
-	s.syntheticAssistantID = ""
-	return trimmedMessageID
+}
+
+func codexAssistantToolCallParts(rawToolCall any) (string, string, map[string]any, bool) {
+	toolCall, ok := rawToolCall.(map[string]any)
+	if !ok {
+		return "", "", nil, false
+	}
+	toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
+	if toolCallID == "" {
+		return "", "", nil, false
+	}
+	function, _ := mapValue(toolCall["function"])
+	toolName := ""
+	arguments := map[string]any{}
+	if function != nil {
+		toolName = strings.TrimSpace(stringValue(function["name"]))
+		if parsedArguments, ok := mapValue(function["arguments"]); ok && parsedArguments != nil {
+			arguments = cloneAnyMap(parsedArguments)
+		}
+	}
+	return toolCallID, toolName, arguments, true
 }
 
 func applyCodexStreamEvent(state *ChatState, eventState *codexEventState, payload map[string]any) (bool, *codexToolResultMetadata, error) {
@@ -463,59 +523,98 @@ func bufferCodexOutputDelta(eventState *codexEventState, payload map[string]any,
 }
 
 func applyCodexRawToolItem(state *ChatState, eventState *codexEventState, payload map[string]any, item map[string]any, method string) (bool, *codexToolResultMetadata) {
+	itemType, itemID, ok := codexRawToolItemIdentity(state, payload, item)
+	if !ok {
+		return false, nil
+	}
+	changed := ensureCodexRawToolCall(state, eventState, itemID, itemType, item)
+	metadata := maybeAppendCodexRawToolResult(state, eventState, itemID, itemType, item, method)
+	if metadata != nil {
+		return true, metadata
+	}
+	return changed, nil
+}
+
+func codexRawToolItemIdentity(state *ChatState, payload map[string]any, item map[string]any) (string, string, bool) {
 	itemType := strings.TrimSpace(stringValue(item["type"]))
 	itemID := codexEventItemID(payload, item)
 	if state == nil || itemID == "" || !isCodexRawToolItemType(itemType) {
-		return false, nil
+		return "", "", false
 	}
-	changed := false
-	if !codexToolCallPresent(state, itemID) {
-		messageID := ""
-		if eventState != nil {
-			messageID = eventState.ensureToolMessageID(state)
-		}
-		if messageID == "" {
-			messageID = "codex_" + newChatID()
-			upsertAssistantMessage(state, messageID, "")
-		}
-		toolName, arguments, rawArguments, ok := buildCodexRawToolCall(itemType, item)
-		if ok {
-			if rawArguments != "" {
-				setToolCallArgumentsRaw(state, itemID, rawArguments)
-			}
-			upsertAssistantToolCall(state, messageID, itemID, toolName, arguments)
-			changed = true
-		}
+	return itemType, itemID, true
+}
+
+func ensureCodexRawToolCall(state *ChatState, eventState *codexEventState, itemID string, itemType string, item map[string]any) bool {
+	if codexToolCallPresent(state, itemID) {
+		return false
 	}
+	toolName, arguments, rawArguments, ok := buildCodexRawToolCall(itemType, item)
+	if !ok {
+		return false
+	}
+	if rawArguments != "" {
+		setToolCallArgumentsRaw(state, itemID, rawArguments)
+	}
+	upsertAssistantToolCall(state, resolveCodexToolMessageID(state, eventState), itemID, toolName, arguments)
+	return true
+}
+
+func resolveCodexToolMessageID(state *ChatState, eventState *codexEventState) string {
+	if eventState != nil {
+		return eventState.ensureToolMessageID(state)
+	}
+	messageID := "codex_" + newChatID()
+	upsertAssistantMessage(state, messageID, "")
+	return messageID
+}
+
+func maybeAppendCodexRawToolResult(
+	state *ChatState,
+	eventState *codexEventState,
+	itemID string,
+	itemType string,
+	item map[string]any,
+	method string,
+) *codexToolResultMetadata {
 	if !codexRawToolItemTerminal(method, itemType, item) || toolResultMessagePresent(state, itemID) {
-		return changed, nil
+		return nil
 	}
+	return appendCodexRawToolResult(state, itemID, itemType, resolveCodexRawToolResultItem(eventState, itemID, itemType, item))
+}
+
+func resolveCodexRawToolResultItem(eventState *codexEventState, itemID string, itemType string, item map[string]any) map[string]any {
 	resolved := cloneAnyMap(item)
-	if itemType == codexCommandExecutionItemType {
-		if resolved["aggregatedOutput"] == nil && resolved["aggregated_output"] == nil && eventState != nil {
-			if buffered := eventState.commandOutputByItemID[itemID]; len(buffered) > 0 {
-				resolved["aggregatedOutput"] = strings.Join(buffered, "")
-			}
-		}
-		if eventState != nil {
-			delete(eventState.commandOutputByItemID, itemID)
+	switch itemType {
+	case codexCommandExecutionItemType:
+		applyCodexCommandExecutionResultBuffers(eventState, itemID, resolved)
+	case codexFileChangeItemType:
+		applyCodexFileChangeResultBuffers(eventState, itemID, resolved)
+	}
+	return resolved
+}
+
+func applyCodexCommandExecutionResultBuffers(eventState *codexEventState, itemID string, resolved map[string]any) {
+	if eventState == nil {
+		return
+	}
+	if resolved["aggregatedOutput"] == nil && resolved["aggregated_output"] == nil {
+		if buffered := eventState.commandOutputByItemID[itemID]; len(buffered) > 0 {
+			resolved["aggregatedOutput"] = strings.Join(buffered, "")
 		}
 	}
-	if itemType == codexFileChangeItemType {
-		if resolved["diff"] == nil && eventState != nil {
-			if buffered := eventState.fileChangeOutputByItemID[itemID]; len(buffered) > 0 {
-				resolved["diff"] = strings.Join(buffered, "")
-			}
-		}
-		if eventState != nil {
-			delete(eventState.fileChangeOutputByItemID, itemID)
+	delete(eventState.commandOutputByItemID, itemID)
+}
+
+func applyCodexFileChangeResultBuffers(eventState *codexEventState, itemID string, resolved map[string]any) {
+	if eventState == nil {
+		return
+	}
+	if resolved["diff"] == nil {
+		if buffered := eventState.fileChangeOutputByItemID[itemID]; len(buffered) > 0 {
+			resolved["diff"] = strings.Join(buffered, "")
 		}
 	}
-	metadata := appendCodexRawToolResult(state, itemID, itemType, resolved)
-	if metadata != nil {
-		changed = true
-	}
-	return changed, metadata
+	delete(eventState.fileChangeOutputByItemID, itemID)
 }
 
 func codexEventItem(payload map[string]any) (map[string]any, bool) {
@@ -581,48 +680,13 @@ func codexToolCallPresent(state *ChatState, toolCallID string) bool {
 func buildCodexRawToolCall(itemType string, item map[string]any) (string, map[string]any, string, bool) {
 	switch itemType {
 	case codexCommandExecutionItemType:
-		command := strings.TrimSpace(stringValue(item["command"]))
-		if command == "" {
-			return "", nil, "", false
-		}
-		arguments := map[string]any{"command": command}
-		rawArguments := mustMarshalJSON(arguments)
-		return codexCommandExecutionToolName, arguments, rawArguments, true
+		return buildCodexCommandExecutionToolCall(item)
 	case codexFileChangeItemType:
-		arguments := map[string]any{}
-		if path := strings.TrimSpace(stringValue(item["path"])); path != "" {
-			arguments["path"] = path
-		} else if filePath := strings.TrimSpace(stringValue(item["filePath"])); filePath != "" {
-			arguments["path"] = filePath
-		}
-		if diff := stringValue(item["diff"]); diff != "" {
-			arguments["diff"] = diff
-		}
-		if len(arguments) == 0 {
-			return "", nil, "", false
-		}
-		return codexFileChangeToolName, arguments, mustMarshalJSON(arguments), true
+		return buildCodexFileChangeToolCall(item)
 	case codexMCPToolCallItemType:
-		toolName := normalizeCodexMCPToolName(item)
-		if toolName == "" {
-			return "", nil, "", false
-		}
-		rawArgumentsSource := item["input"]
-		if rawArgumentsSource == nil {
-			rawArgumentsSource = item["arguments"]
-		}
-		arguments, rawArguments := normalizeCodexRawArguments(rawArgumentsSource)
-		if rawArgumentsSource == nil {
-			return "", nil, "", false
-		}
-		return toolName, arguments, rawArguments, true
+		return buildCodexMCPToolCall(item)
 	default:
-		argumentsSource := extractCodexGenericToolArguments(item)
-		arguments, rawArguments := normalizeCodexRawArguments(argumentsSource)
-		if rawArguments == "" {
-			rawArguments = mustMarshalJSON(argumentsSource)
-		}
-		return itemType, arguments, rawArguments, true
+		return buildCodexGenericToolCall(itemType, item)
 	}
 }
 
@@ -632,106 +696,135 @@ func appendCodexRawToolResult(state *ChatState, itemID string, itemType string, 
 	}
 	switch itemType {
 	case codexCommandExecutionItemType:
-		command := strings.TrimSpace(stringValue(item["command"]))
-		arguments := map[string]any{}
-		if command != "" {
-			arguments["command"] = command
-		}
-		result := map[string]any{
-			"command":           command,
-			"aggregated_output": resolveCodexCommandOutput(item),
-			"exit_code":         resolveCodexExitCodeValue(item),
-			"status":            strings.TrimSpace(stringValue(item["status"])),
-		}
-		appendToolResultMessage(
-			state,
-			itemID,
-			codexCommandExecutionToolName,
-			arguments,
-			result,
-			formatToolResultContent(result["aggregated_output"]),
-			codexCommandExecutionIsError(item),
-		)
-		return &codexToolResultMetadata{
-			ToolCallID: itemID,
-			ToolName:   codexCommandExecutionToolName,
-			IsError:    codexCommandExecutionIsError(item),
-		}
+		return appendCodexCommandExecutionToolResult(state, itemID, item)
 	case codexFileChangeItemType:
-		path := strings.TrimSpace(stringValue(item["path"]))
-		if path == "" {
-			path = strings.TrimSpace(stringValue(item["filePath"]))
-		}
-		arguments := map[string]any{}
-		if path != "" {
-			arguments["path"] = path
-		}
-		result := map[string]any{
-			"path":   path,
-			"diff":   item["diff"],
-			"status": strings.TrimSpace(stringValue(item["status"])),
-		}
-		appendToolResultMessage(
-			state,
-			itemID,
-			codexFileChangeToolName,
-			arguments,
-			result,
-			formatToolResultContent(result["diff"]),
-			codexToolResultIsError(item),
-		)
-		return &codexToolResultMetadata{
-			ToolCallID: itemID,
-			ToolName:   codexFileChangeToolName,
-			IsError:    codexToolResultIsError(item),
-		}
+		return appendCodexFileChangeToolResult(state, itemID, item)
 	case codexMCPToolCallItemType:
-		toolName, arguments := lookupToolCallContext(state, itemID)
-		if toolName == "" {
-			toolName = normalizeCodexMCPToolName(item)
-		}
-		if toolName == "" {
-			return nil
-		}
-		result := item["output"]
-		if result == nil {
-			result = item["result"]
-		}
-		appendToolResultMessage(
-			state,
-			itemID,
-			toolName,
-			arguments,
-			deepCloneJSONValue(result),
-			formatToolResultContent(result),
-			codexToolResultIsError(item),
-		)
-		return &codexToolResultMetadata{
-			ToolCallID: itemID,
-			ToolName:   toolName,
-			IsError:    codexToolResultIsError(item),
-		}
+		return appendCodexMCPToolResult(state, itemID, item)
 	default:
-		toolName, arguments := lookupToolCallContext(state, itemID)
-		if toolName == "" {
-			toolName = itemType
-		}
-		result := extractCodexGenericToolOutput(item)
-		appendToolResultMessage(
-			state,
-			itemID,
-			toolName,
-			arguments,
-			deepCloneJSONValue(result),
-			formatToolResultContent(result),
-			codexToolResultIsError(item),
-		)
-		return &codexToolResultMetadata{
-			ToolCallID: itemID,
-			ToolName:   toolName,
-			IsError:    codexToolResultIsError(item),
-		}
+		return appendCodexGenericToolResult(state, itemID, itemType, item)
 	}
+}
+
+func buildCodexCommandExecutionToolCall(item map[string]any) (string, map[string]any, string, bool) {
+	command := strings.TrimSpace(stringValue(item["command"]))
+	if command == "" {
+		return "", nil, "", false
+	}
+	arguments := map[string]any{"command": command}
+	return codexCommandExecutionToolName, arguments, mustMarshalJSON(arguments), true
+}
+
+func buildCodexFileChangeToolCall(item map[string]any) (string, map[string]any, string, bool) {
+	arguments := map[string]any{}
+	if path := resolveCodexFileChangePath(item); path != "" {
+		arguments["path"] = path
+	}
+	if diff := stringValue(item["diff"]); diff != "" {
+		arguments["diff"] = diff
+	}
+	if len(arguments) == 0 {
+		return "", nil, "", false
+	}
+	return codexFileChangeToolName, arguments, mustMarshalJSON(arguments), true
+}
+
+func buildCodexMCPToolCall(item map[string]any) (string, map[string]any, string, bool) {
+	toolName := normalizeCodexMCPToolName(item)
+	rawArgumentsSource := item["input"]
+	if rawArgumentsSource == nil {
+		rawArgumentsSource = item["arguments"]
+	}
+	if toolName == "" || rawArgumentsSource == nil {
+		return "", nil, "", false
+	}
+	arguments, rawArguments := normalizeCodexRawArguments(rawArgumentsSource)
+	return toolName, arguments, rawArguments, true
+}
+
+func buildCodexGenericToolCall(itemType string, item map[string]any) (string, map[string]any, string, bool) {
+	argumentsSource := extractCodexGenericToolArguments(item)
+	arguments, rawArguments := normalizeCodexRawArguments(argumentsSource)
+	if rawArguments == "" {
+		rawArguments = mustMarshalJSON(argumentsSource)
+	}
+	return itemType, arguments, rawArguments, true
+}
+
+func appendCodexCommandExecutionToolResult(state *ChatState, itemID string, item map[string]any) *codexToolResultMetadata {
+	command := strings.TrimSpace(stringValue(item["command"]))
+	arguments := map[string]any{}
+	if command != "" {
+		arguments["command"] = command
+	}
+	isError := codexCommandExecutionIsError(item)
+	result := map[string]any{
+		"command":           command,
+		"aggregated_output": resolveCodexCommandOutput(item),
+		"exit_code":         resolveCodexExitCodeValue(item),
+		"status":            strings.TrimSpace(stringValue(item["status"])),
+	}
+	appendToolResultMessage(state, itemID, codexCommandExecutionToolName, arguments, result, formatToolResultContent(result["aggregated_output"]), isError)
+	return newCodexToolResultMetadata(itemID, codexCommandExecutionToolName, isError)
+}
+
+func appendCodexFileChangeToolResult(state *ChatState, itemID string, item map[string]any) *codexToolResultMetadata {
+	path := resolveCodexFileChangePath(item)
+	arguments := map[string]any{}
+	if path != "" {
+		arguments["path"] = path
+	}
+	isError := codexToolResultIsError(item)
+	result := map[string]any{
+		"path":   path,
+		"diff":   item["diff"],
+		"status": strings.TrimSpace(stringValue(item["status"])),
+	}
+	appendToolResultMessage(state, itemID, codexFileChangeToolName, arguments, result, formatToolResultContent(result["diff"]), isError)
+	return newCodexToolResultMetadata(itemID, codexFileChangeToolName, isError)
+}
+
+func appendCodexMCPToolResult(state *ChatState, itemID string, item map[string]any) *codexToolResultMetadata {
+	toolName, arguments := lookupToolCallContext(state, itemID)
+	if toolName == "" {
+		toolName = normalizeCodexMCPToolName(item)
+	}
+	if toolName == "" {
+		return nil
+	}
+	isError := codexToolResultIsError(item)
+	result := item["output"]
+	if result == nil {
+		result = item["result"]
+	}
+	appendToolResultMessage(state, itemID, toolName, arguments, deepCloneJSONValue(result), formatToolResultContent(result), isError)
+	return newCodexToolResultMetadata(itemID, toolName, isError)
+}
+
+func appendCodexGenericToolResult(state *ChatState, itemID string, itemType string, item map[string]any) *codexToolResultMetadata {
+	toolName, arguments := lookupToolCallContext(state, itemID)
+	if toolName == "" {
+		toolName = itemType
+	}
+	isError := codexToolResultIsError(item)
+	result := extractCodexGenericToolOutput(item)
+	appendToolResultMessage(state, itemID, toolName, arguments, deepCloneJSONValue(result), formatToolResultContent(result), isError)
+	return newCodexToolResultMetadata(itemID, toolName, isError)
+}
+
+func newCodexToolResultMetadata(itemID string, toolName string, isError bool) *codexToolResultMetadata {
+	return &codexToolResultMetadata{
+		ToolCallID: itemID,
+		ToolName:   toolName,
+		IsError:    isError,
+	}
+}
+
+func resolveCodexFileChangePath(item map[string]any) string {
+	if path := strings.TrimSpace(stringValue(item["path"])); path != "" {
+		return path
+	}
+	return strings.TrimSpace(stringValue(item["filePath"]))
 }
 
 func codexRawToolItemTerminal(method string, itemType string, item map[string]any) bool {
