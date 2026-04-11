@@ -96,6 +96,75 @@ func TestBuildModelFieldLineRewritesSchemaGeneratedTypeAdapterDefaults(t *testin
 	}
 }
 
+func TestPythonSharedSchemaDeclarationsFromModuleCollectsLeadingImports(t *testing.T) {
+	t.Helper()
+
+	module := strings.Join([]string{
+		"# generated comment",
+		"",
+		"from __future__ import annotations",
+		"",
+		"from alpha import Beta",
+		"import gamma",
+		"",
+		"class Example(BaseModel):",
+		"    value: str",
+		"",
+		"from trailing import Delta",
+	}, "\n")
+
+	blocks, imports, err := pythonSharedSchemaDeclarationsFromModule(module, nil, nil)
+	if err != nil {
+		t.Fatalf("pythonSharedSchemaDeclarationsFromModule(...) error = %v", err)
+	}
+	if !reflect.DeepEqual(imports, []string{"from alpha import Beta", "import gamma"}) {
+		t.Fatalf("imports = %#v", imports)
+	}
+	if !reflect.DeepEqual(blocks, []string{
+		"class Example(BaseModel):\n    value: str",
+		"from trailing import Delta",
+	}) {
+		t.Fatalf("blocks = %#v", blocks)
+	}
+}
+
+func TestPythonSharedSchemaDeclarationsFromModuleRewritesGoBackedClasses(t *testing.T) {
+	t.Helper()
+
+	schemasByName, err := pythonSharedProjectionSchemas()
+	if err != nil {
+		t.Fatalf("pythonSharedProjectionSchemas() error = %v", err)
+	}
+
+	blocks, imports, err := pythonSharedSchemaDeclarationsFromModule(
+		"class ProjectConfig(BaseModel):\n    placeholder: str",
+		defaultSourcesForTest(t),
+		schemasByName,
+	)
+	if err != nil {
+		t.Fatalf("pythonSharedSchemaDeclarationsFromModule(...) error = %v", err)
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("len(blocks) = %d, want 1", len(blocks))
+	}
+	if strings.Contains(blocks[0], "placeholder: str") {
+		t.Fatalf("rewritten block still contains placeholder body: %q", blocks[0])
+	}
+	for _, snippet := range []string{
+		"class ProjectConfig(BaseModel):",
+		`model_config = ConfigDict(`,
+		"name: str = Field(default_factory=generate_memorable_string)",
+		"codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]",
+	} {
+		if !strings.Contains(blocks[0], snippet) {
+			t.Fatalf("rewritten block missing snippet %q", snippet)
+		}
+	}
+	if !containsImportLine(imports, "from setta.utils.generate_memorable_string import generate_memorable_string") {
+		t.Fatalf("imports = %#v, want generate_memorable_string import", imports)
+	}
+}
+
 func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 	t.Helper()
 
@@ -301,5 +370,13 @@ func schemaFieldTypeExprForOwnerField(t *testing.T, ownerType reflect.Type, fiel
 		t.Fatalf("pythonProjectedSchemaTypeExpr(%s.%s) error = %v", contractName, fieldName, err)
 	}
 	return typeExpr
-	return ""
+}
+
+func containsImportLine(lines []string, want string) bool {
+	for _, line := range lines {
+		if line == want {
+			return true
+		}
+	}
+	return false
 }

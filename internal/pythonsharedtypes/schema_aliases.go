@@ -157,63 +157,123 @@ func pythonSharedSchemaDeclarations(
 	if err != nil {
 		return nil, nil, err
 	}
+	return pythonSharedSchemaDeclarationsFromModule(module, defaultSourcesByType, schemasByName)
+}
+
+type pythonSharedSchemaBlock struct {
+	text   string
+	lines  []string
+	header string
+}
+
+func pythonSharedSchemaDeclarationsFromModule(
+	module string,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+	schemasByName map[string]any,
+) ([]string, []string, error) {
 	imports := map[string]struct{}{}
 	blocks := []string{}
 	sawDeclaration := false
-	for _, block := range strings.Split(module, "\n\n") {
-		block = strings.TrimSpace(block)
-		if block == "" {
+	for _, rawBlock := range strings.Split(module, "\n\n") {
+		block, ok := newPythonSharedSchemaBlock(rawBlock)
+		if !ok || block.shouldSkip() {
 			continue
 		}
-		lines := strings.Split(block, "\n")
-		header := strings.TrimSpace(lines[0])
-		switch {
-		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
-			continue
-		case !sawDeclaration && (strings.HasPrefix(header, "from ") || strings.HasPrefix(header, "import ")):
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if line == "" || strings.HasPrefix(line, "#") || line == "from __future__ import annotations" {
-					continue
-				}
-				if !strings.HasPrefix(line, "from ") && !strings.HasPrefix(line, "import ") {
-					continue
-				}
-				imports[line] = struct{}{}
-			}
+		if !sawDeclaration && block.isImportBlock() {
+			mergeImportSet(imports, block.importLines())
 			continue
 		}
-
-		declarationImports := map[string]struct{}(nil)
-		if strings.HasPrefix(header, "class ") {
-			declarationName := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
-			if before, _, ok := strings.Cut(declarationName, "("); ok {
-				declarationName = strings.TrimSpace(before)
-			}
-			if declarationName == "" {
-				return nil, nil, fmt.Errorf("python shared types: datamodel class has empty name")
-			}
-
-			ownerType, ok := sharedtypes.TypeByContractName(declarationName)
-			if ok && ownerType != nil && ownerType.Kind() == reflect.Struct {
-				updatedBlock, extraImports, err := renderGoBackedDatamodelClassBlock(
-					declarationName,
-					ownerType,
-					defaultSourcesByType,
-					schemasByName,
-				)
-				if err != nil {
-					return nil, nil, err
-				}
-				declarationImports = extraImports
-				block = updatedBlock
-			}
+		updatedBlock, declarationImports, err := rewritePythonSharedSchemaBlock(
+			block,
+			defaultSourcesByType,
+			schemasByName,
+		)
+		if err != nil {
+			return nil, nil, err
 		}
 		sawDeclaration = true
 		mergeImportSet(imports, declarationImports)
-		blocks = append(blocks, block)
+		blocks = append(blocks, updatedBlock)
 	}
 	return blocks, sortedImportNames(imports), nil
+}
+
+func newPythonSharedSchemaBlock(raw string) (pythonSharedSchemaBlock, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return pythonSharedSchemaBlock{}, false
+	}
+	lines := strings.Split(trimmed, "\n")
+	return pythonSharedSchemaBlock{
+		text:   trimmed,
+		lines:  lines,
+		header: strings.TrimSpace(lines[0]),
+	}, true
+}
+
+func (block pythonSharedSchemaBlock) shouldSkip() bool {
+	return block.header == "" ||
+		strings.HasPrefix(block.header, "#") ||
+		block.header == "from __future__ import annotations"
+}
+
+func (block pythonSharedSchemaBlock) isImportBlock() bool {
+	return strings.HasPrefix(block.header, "from ") || strings.HasPrefix(block.header, "import ")
+}
+
+func (block pythonSharedSchemaBlock) importLines() map[string]struct{} {
+	imports := map[string]struct{}{}
+	for _, line := range block.lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" ||
+			strings.HasPrefix(trimmed, "#") ||
+			trimmed == "from __future__ import annotations" {
+			continue
+		}
+		if !strings.HasPrefix(trimmed, "from ") && !strings.HasPrefix(trimmed, "import ") {
+			continue
+		}
+		imports[trimmed] = struct{}{}
+	}
+	return imports
+}
+
+func (block pythonSharedSchemaBlock) classDeclarationName() (string, bool, error) {
+	if !strings.HasPrefix(block.header, "class ") {
+		return "", false, nil
+	}
+	declarationName := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(block.header, "class "), ":"))
+	if before, _, ok := strings.Cut(declarationName, "("); ok {
+		declarationName = strings.TrimSpace(before)
+	}
+	if declarationName == "" {
+		return "", false, fmt.Errorf("python shared types: datamodel class has empty name")
+	}
+	return declarationName, true, nil
+}
+
+func rewritePythonSharedSchemaBlock(
+	block pythonSharedSchemaBlock,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+	schemasByName map[string]any,
+) (string, map[string]struct{}, error) {
+	declarationName, isClass, err := block.classDeclarationName()
+	if err != nil {
+		return "", nil, err
+	}
+	if !isClass {
+		return block.text, nil, nil
+	}
+	ownerType, ok := sharedtypes.TypeByContractName(declarationName)
+	if !ok || ownerType == nil || ownerType.Kind() != reflect.Struct {
+		return block.text, nil, nil
+	}
+	return renderGoBackedDatamodelClassBlock(
+		declarationName,
+		ownerType,
+		defaultSourcesByType,
+		schemasByName,
+	)
 }
 
 func renderGoBackedDatamodelClassBlock(
@@ -222,77 +282,136 @@ func renderGoBackedDatamodelClassBlock(
 	defaultSourcesByType map[reflect.Type]reflect.Value,
 	schemasByName map[string]any,
 ) (string, map[string]struct{}, error) {
+	properties, err := goBackedProjectedSchemaProperties(contractName, schemasByName)
+	if err != nil {
+		return "", nil, err
+	}
+	lines, imports, err := renderGoBackedDatamodelFieldLines(
+		contractName,
+		ownerType,
+		defaultSourcesByType,
+		properties,
+	)
+	if err != nil {
+		return "", nil, err
+	}
+	return strings.Join(append(goBackedDatamodelClassHeader(contractName), lines...), "\n"), imports, nil
+}
+
+func goBackedProjectedSchemaProperties(
+	contractName string,
+	schemasByName map[string]any,
+) (map[string]any, error) {
 	rawSchema, ok := schemasByName[contractName]
 	if !ok {
-		return "", nil, fmt.Errorf("python shared types: missing projected schema for %s", contractName)
+		return nil, fmt.Errorf("python shared types: missing projected schema for %s", contractName)
 	}
 	schema, ok := rawSchema.(map[string]any)
 	if !ok {
-		return "", nil, fmt.Errorf("python shared types: projected schema %s has unsupported shape %T", contractName, rawSchema)
+		return nil, fmt.Errorf("python shared types: projected schema %s has unsupported shape %T", contractName, rawSchema)
 	}
 	properties, err := projectedSchemaProperties(schema)
 	if err != nil {
-		return "", nil, fmt.Errorf("python shared types: %s: %w", contractName, err)
+		return nil, fmt.Errorf("python shared types: %s: %w", contractName, err)
 	}
+	return properties, nil
+}
 
-	imports := map[string]struct{}{}
-	lines := []string{
+func goBackedDatamodelClassHeader(contractName string) []string {
+	return []string{
 		fmt.Sprintf("class %s(BaseModel):", contractName),
 		"    model_config = ConfigDict(",
 		`        extra="forbid",`,
 		"    )",
 	}
+}
+
+func renderGoBackedDatamodelFieldLines(
+	contractName string,
+	ownerType reflect.Type,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+	properties map[string]any,
+) ([]string, map[string]struct{}, error) {
+	imports := map[string]struct{}{}
+	lines := []string{}
 	for _, field := range reflect.VisibleFields(ownerType) {
-		if !field.IsExported() || field.Anonymous || field.Tag.Get("json") == "-" {
+		if !shouldRenderGoBackedDatamodelField(field) {
 			continue
 		}
-		jsonName, err := fieldJSONName(field)
-		if err != nil {
-			return "", nil, fmt.Errorf(
-				"python shared types: %s: %w",
-				contractName,
-				err,
-			)
-		}
-		propertySchema, exists := properties[jsonName]
-		if !exists {
-			return "", nil, fmt.Errorf(
-				"python shared types: %s.%s: missing projected property %q",
-				contractName,
-				field.Name,
-				jsonName,
-			)
-		}
-		currentTypeExpr, err := pythonProjectedSchemaTypeExpr(propertySchema)
-		if err != nil {
-			return "", nil, fmt.Errorf(
-				"python shared types: %s.%s: %w",
-				contractName,
-				field.Name,
-				err,
-			)
-		}
-		if discriminatorValue := strings.TrimSpace(field.Tag.Get("shared_discriminator")); discriminatorValue != "" {
-			currentTypeExpr = fmt.Sprintf("Literal[%q]", discriminatorValue)
-		}
-		if shouldStripProjectedNullability(field) {
-			currentTypeExpr = stripProjectedNoneType(currentTypeExpr)
-		}
-		renderedLine, fieldImports, err := buildModelFieldLine(
+		renderedLine, fieldImports, err := renderGoBackedDatamodelFieldLine(
 			contractName,
 			ownerType,
 			field,
-			currentTypeExpr,
 			defaultSourcesByType,
+			properties,
 		)
 		if err != nil {
-			return "", nil, err
+			return nil, nil, err
 		}
 		mergeImportSet(imports, fieldImports)
 		lines = append(lines, renderedLine)
 	}
+	return lines, imports, nil
+}
 
-	return strings.Join(lines, "\n"), imports, nil
+func shouldRenderGoBackedDatamodelField(field reflect.StructField) bool {
+	return field.IsExported() && !field.Anonymous && field.Tag.Get("json") != "-"
+}
+
+func renderGoBackedDatamodelFieldLine(
+	contractName string,
+	ownerType reflect.Type,
+	field reflect.StructField,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+	properties map[string]any,
+) (string, map[string]struct{}, error) {
+	jsonName, err := fieldJSONName(field)
+	if err != nil {
+		return "", nil, fmt.Errorf(
+			"python shared types: %s: %w",
+			contractName,
+			err,
+		)
+	}
+	propertySchema, exists := properties[jsonName]
+	if !exists {
+		return "", nil, fmt.Errorf(
+			"python shared types: %s.%s: missing projected property %q",
+			contractName,
+			field.Name,
+			jsonName,
+		)
+	}
+	currentTypeExpr, err := pythonProjectedFieldTypeExpr(contractName, field, propertySchema)
+	if err != nil {
+		return "", nil, err
+	}
+	return buildModelFieldLine(
+		contractName,
+		ownerType,
+		field,
+		currentTypeExpr,
+		defaultSourcesByType,
+	)
+}
+
+func pythonProjectedFieldTypeExpr(contractName string, field reflect.StructField, propertySchema any) (string, error) {
+	currentTypeExpr, err := pythonProjectedSchemaTypeExpr(propertySchema)
+	if err != nil {
+		return "", fmt.Errorf(
+			"python shared types: %s.%s: %w",
+			contractName,
+			field.Name,
+			err,
+		)
+	}
+	if discriminatorValue := strings.TrimSpace(field.Tag.Get("shared_discriminator")); discriminatorValue != "" {
+		currentTypeExpr = fmt.Sprintf("Literal[%q]", discriminatorValue)
+	}
+	if shouldStripProjectedNullability(field) {
+		currentTypeExpr = stripProjectedNoneType(currentTypeExpr)
+	}
+	return currentTypeExpr, nil
 }
 
 func shouldStripProjectedNullability(field reflect.StructField) bool {
@@ -495,10 +614,7 @@ func pythonProjectedTypeExprFromTypes(types []string, schema map[string]any) (st
 func pythonProjectedBaseTypeExpr(typeName string, schema map[string]any) (string, error) {
 	switch strings.TrimSpace(typeName) {
 	case "string":
-		if strings.TrimSpace(stringValue(schema["format"])) == "date-time" {
-			return "datetime", nil
-		}
-		return "str", nil
+		return pythonProjectedStringTypeExpr(schema), nil
 	case "integer":
 		return "int", nil
 	case "number":
@@ -506,28 +622,40 @@ func pythonProjectedBaseTypeExpr(typeName string, schema map[string]any) (string
 	case "boolean":
 		return "bool", nil
 	case "object":
-		if additionalProperties, ok := schema["additionalProperties"]; ok {
-			return pythonProjectedMapTypeExpr(additionalProperties)
-		}
-		if _, ok := schema["properties"]; ok {
-			return "dict[str, Any]", nil
-		}
-		return "dict[str, Any]", nil
+		return pythonProjectedObjectTypeExpr(schema)
 	case "array":
-		itemExpr := "Any"
-		if items, ok := schema["items"]; ok {
-			var err error
-			itemExpr, err = pythonProjectedSchemaTypeExpr(items)
-			if err != nil {
-				return "", err
-			}
-		}
-		return "list[" + itemExpr + "]", nil
+		return pythonProjectedArrayTypeExpr(schema)
 	case "null":
 		return "None", nil
 	default:
 		return "", fmt.Errorf("unsupported projected schema type %q", typeName)
 	}
+}
+
+func pythonProjectedStringTypeExpr(schema map[string]any) string {
+	if strings.TrimSpace(stringValue(schema["format"])) == "date-time" {
+		return "datetime"
+	}
+	return "str"
+}
+
+func pythonProjectedObjectTypeExpr(schema map[string]any) (string, error) {
+	if additionalProperties, ok := schema["additionalProperties"]; ok {
+		return pythonProjectedMapTypeExpr(additionalProperties)
+	}
+	return "dict[str, Any]", nil
+}
+
+func pythonProjectedArrayTypeExpr(schema map[string]any) (string, error) {
+	itemExpr := "Any"
+	if items, ok := schema["items"]; ok {
+		var err error
+		itemExpr, err = pythonProjectedSchemaTypeExpr(items)
+		if err != nil {
+			return "", err
+		}
+	}
+	return "list[" + itemExpr + "]", nil
 }
 
 func pythonProjectedMapTypeExpr(additionalProperties any) (string, error) {
