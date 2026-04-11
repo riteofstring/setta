@@ -16,51 +16,77 @@ const (
 )
 
 func interruptTerminalSession(session *session) (bool, error) {
-	if session == nil || session.pty == nil {
-		return false, nil
+	foregroundPG, err := resolveInterruptTargetProcessGroup(session)
+	if err != nil || foregroundPG <= 0 {
+		return false, err
 	}
+	if err := sendInterruptSignal(session.id, foregroundPG); err != nil {
+		return false, err
+	}
+	return true, nil
+}
 
-	shellProcessGroup := session.pty.ProcessPID()
+func resolveInterruptTargetProcessGroup(session *session) (int, error) {
+	shellProcessGroup := interruptShellProcessGroup(session)
 	if shellProcessGroup <= 0 {
-		return false, nil
+		return 0, nil
 	}
 
-	foregroundPG, err := foregroundProcessGroup(session.pty)
+	foregroundPG, err := resolveInterruptForegroundProcessGroup(session)
 	if err != nil {
-		if isIgnorableInterruptError(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("interrupt terminal %q: resolve foreground process group: %w", session.id, err)
+		return 0, err
 	}
-	if foregroundPG > 0 && foregroundPG != shellProcessGroup {
-		deadline := time.Now().Add(interruptSettleWindow)
-		for time.Now().Before(deadline) {
-			time.Sleep(interruptPollInterval)
+	return waitForInterruptTargetProcessGroup(session, shellProcessGroup, foregroundPG)
+}
 
-			foregroundPG, err = foregroundProcessGroup(session.pty)
-			if err != nil {
-				if isIgnorableInterruptError(err) {
-					return false, nil
-				}
-				return false, fmt.Errorf("interrupt terminal %q: resolve foreground process group: %w", session.id, err)
-			}
-			if foregroundPG <= 0 || foregroundPG == shellProcessGroup {
-				return false, nil
-			}
-		}
+func interruptShellProcessGroup(session *session) int {
+	if session == nil || session.pty == nil {
+		return 0
 	}
+	return session.pty.ProcessPID()
+}
+
+func resolveInterruptForegroundProcessGroup(session *session) (int, error) {
+	foregroundPG, err := foregroundProcessGroup(session.pty)
+	if err == nil {
+		return foregroundPG, nil
+	}
+	if isIgnorableInterruptError(err) {
+		return 0, nil
+	}
+	return 0, fmt.Errorf("interrupt terminal %q: resolve foreground process group: %w", session.id, err)
+}
+
+func waitForInterruptTargetProcessGroup(session *session, shellProcessGroup int, foregroundPG int) (int, error) {
 	if foregroundPG <= 0 || foregroundPG == shellProcessGroup {
-		return false, nil
+		return 0, nil
 	}
 
+	deadline := time.Now().Add(interruptSettleWindow)
+	for time.Now().Before(deadline) {
+		time.Sleep(interruptPollInterval)
+
+		nextForegroundPG, err := resolveInterruptForegroundProcessGroup(session)
+		if err != nil {
+			return 0, err
+		}
+		if nextForegroundPG <= 0 || nextForegroundPG == shellProcessGroup {
+			return 0, nil
+		}
+		foregroundPG = nextForegroundPG
+	}
+
+	return foregroundPG, nil
+}
+
+func sendInterruptSignal(sessionID string, foregroundPG int) error {
 	if err := unix.Kill(-foregroundPG, unix.SIGINT); err != nil {
 		if errors.Is(err, unix.ESRCH) {
-			return false, nil
+			return nil
 		}
-		return false, fmt.Errorf("interrupt terminal %q: send SIGINT to process group %d: %w", session.id, foregroundPG, err)
+		return fmt.Errorf("interrupt terminal %q: send SIGINT to process group %d: %w", sessionID, foregroundPG, err)
 	}
-
-	return true, nil
+	return nil
 }
 
 func foregroundProcessGroup(ptyInstance ptySession) (int, error) {
