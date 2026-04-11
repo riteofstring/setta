@@ -17,6 +17,8 @@ from typing import (
     Literal,
     Mapping,
     Sequence,
+    get_args,
+    get_origin,
 )
 from urllib.parse import urlencode
 from uuid import uuid4
@@ -64,6 +66,9 @@ from setta.sdk_contracts.generated import (
 from setta.sdk_contracts.generated import (
     ListenerRealtimeEvent as SDKListenerRealtimeEvent,
 )
+from setta.sdk_contracts.generated import (
+    ListenerRegisterAckStatus as SDKListenerRegisterAckStatus,
+)
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.types.artifact import (
     BaseArtifactTypeAdapter,
@@ -110,6 +115,42 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING = object()
 _UNAVAILABLE = object()
+
+
+def _literal_string_values(annotation: Any) -> tuple[str, ...]:
+    if get_origin(annotation) is Literal:
+        return tuple(value for value in get_args(annotation) if isinstance(value, str))
+    values: list[str] = []
+    for arg in get_args(annotation):
+        values.extend(_literal_string_values(arg))
+    return tuple(dict.fromkeys(values))
+
+
+def _contract_literal_string_values(
+    model: type[BaseModel], field_name: str
+) -> tuple[str, ...]:
+    field_info = model.model_fields.get(field_name)
+    if field_info is None:
+        raise RuntimeError(
+            f"Generated listener contract {model.__name__}.{field_name} is missing"
+        )
+    literal_values = _literal_string_values(field_info.annotation)
+    if not literal_values:
+        raise RuntimeError(
+            f"Generated listener contract {model.__name__}.{field_name} must use Literal values"
+        )
+    return literal_values
+
+
+(
+    _LISTENER_ACK_STATUS_ACCEPTED,
+    _LISTENER_ACK_STATUS_REJECTED,
+) = _contract_literal_string_values(SDKListenerRegisterAckStatus, "status")
+(
+    _LISTENER_SNAPSHOT_REFRESH_KIND_BOOTSTRAP,
+    _LISTENER_SNAPSHOT_REFRESH_KIND_FORCE_REFRESH,
+) = _contract_literal_string_values(ListenerForceRefreshEvent, "refreshKind")
+
 _GENERATED_LISTENER_MESSAGE_MODELS: dict[str, type[BaseModel]] = {
     ListenerMessageType.ListenerError.value: ListenerErrorMessage,
     ListenerMessageType.ListenerFrontendEmit.value: ListenerFrontendEmitMessage,
@@ -1380,10 +1421,10 @@ class SettaListener:
         accepted_count = 0
         rejected: list[tuple[str, ListenerRegisterAckStatus]] = []
         for callback_id, status in ack_statuses.items():
-            if status.status == "accepted":
+            if status.status == _LISTENER_ACK_STATUS_ACCEPTED:
                 accepted_count += 1
                 continue
-            if status.status == "rejected":
+            if status.status == _LISTENER_ACK_STATUS_REJECTED:
                 rejected.append((callback_id, status))
         return accepted_count, rejected
 
@@ -1709,9 +1750,11 @@ class SettaListener:
     ) -> None:
         """Refresh listener state from a snapshot delivered over the websocket."""
         if self._runtime_state is None:
-            resolved_refresh_kind: Literal["bootstrap", "force_refresh"] = "bootstrap"
+            resolved_refresh_kind: Literal["bootstrap", "force_refresh"] = (
+                _LISTENER_SNAPSHOT_REFRESH_KIND_BOOTSTRAP
+            )
         else:
-            resolved_refresh_kind = "force_refresh"
+            resolved_refresh_kind = _LISTENER_SNAPSHOT_REFRESH_KIND_FORCE_REFRESH
         if refresh_kind is not None:
             resolved_refresh_kind = refresh_kind
         await self._process_snapshot(
@@ -2395,10 +2438,10 @@ class SettaListener:
         self,
         refresh_kind: str | None,
     ) -> Literal["bootstrap", "force_refresh"] | None:
-        if refresh_kind == "bootstrap":
-            return "bootstrap"
-        if refresh_kind == "force_refresh":
-            return "force_refresh"
+        if refresh_kind == _LISTENER_SNAPSHOT_REFRESH_KIND_BOOTSTRAP:
+            return _LISTENER_SNAPSHOT_REFRESH_KIND_BOOTSTRAP
+        if refresh_kind == _LISTENER_SNAPSHOT_REFRESH_KIND_FORCE_REFRESH:
+            return _LISTENER_SNAPSHOT_REFRESH_KIND_FORCE_REFRESH
         return None
 
     def _complete_pending_force_refresh(self, raw_call_id: str | None) -> None:

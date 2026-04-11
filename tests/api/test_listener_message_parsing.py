@@ -95,6 +95,36 @@ def test_parse_listener_control_message_accepts_enum_message_type() -> None:
     assert parsed.model_dump(mode="json") == content.model_dump(mode="json")
 
 
+def test_parse_listener_control_message_rejects_invalid_refresh_kind() -> None:
+    listener = SettaListener(project_name="Invalid Refresh Kind")
+    dependency = create_dep_key(sectionId=ID("section-1"))
+
+    parsed = listener._parse_listener_control_message(
+        {
+            "messageType": ListenerMessageType.ListenerForceRefresh,
+            "content": {
+                "snapshot": ListenerSnapshot(
+                    projectConfigId=ID("project-1"),
+                    dependencyCatalog=ListenerDependencyCatalog(
+                        entries=[
+                            ListenerDependencyCatalogEntry(
+                                dependencyKey=dependency,
+                                name="Welcome",
+                                fullPathName="Welcome",
+                            )
+                        ]
+                    ),
+                    dependencyValues=ListenerRenderedDependencyValues(entries=[]),
+                ).model_dump(mode="json"),
+                "refreshKind": "unexpected",
+            },
+        },
+        payload="<inline>",
+    )
+
+    assert parsed is None
+
+
 def test_parse_text_generated_listener_message_uses_generated_mapping() -> None:
     listener = SettaListener(project_name="Generated Parse")
     message = ListenerErrorMessage(

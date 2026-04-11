@@ -81,7 +81,7 @@ class ListenerForceRefreshEvent(SettaSDKContractBaseModel):
     callId: str | None = None
     snapshot: ListenerSnapshot
     sequence: int | None = None
-    refreshKind: str | None = None
+    refreshKind: Literal["bootstrap", "force_refresh"] | None = None
 
 
 class ListenerInitRequest(SettaSDKContractBaseModel):

@@ -73,7 +73,7 @@ type ListenerForceRefreshEvent struct {
 	CallID      *string          `json:"callId,omitempty"`
 	Snapshot    ListenerSnapshot `json:"snapshot"`
 	Sequence    *uint64          `json:"sequence,omitempty"`
-	RefreshKind *string          `json:"refreshKind,omitempty"`
+	RefreshKind *string          `json:"refreshKind,omitempty" py_type:"Literal[\"bootstrap\", \"force_refresh\"] | None"`
 }
 
 type ListenerInitRequest struct {
