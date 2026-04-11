@@ -106,84 +106,14 @@ func Load(path string, opts LoadOptions) (AllConfigs, error) {
 	if err != nil {
 		return AllConfigs{}, fmt.Errorf("llm config path: %w", err)
 	}
-	content, err := os.ReadFile(resolvedPath)
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		return defaultConfigs(opts), nil
-	case err != nil:
-		return AllConfigs{}, fmt.Errorf("read llm config: %w", err)
+	payload, found, err := readPersistedFile(resolvedPath)
+	if err != nil {
+		return AllConfigs{}, err
 	}
-	if len(bytes.TrimSpace(content)) == 0 {
+	if !found || isEmptyPayload(payload) {
 		return defaultConfigs(opts), nil
 	}
-
-	decoder := json.NewDecoder(bytes.NewReader(content))
-	decoder.DisallowUnknownFields()
-
-	var payload persistedFile
-	if err := decoder.Decode(&payload); err != nil {
-		return AllConfigs{}, fmt.Errorf("decode llm config: %w", err)
-	}
-	if isEmptyPayload(payload) {
-		return defaultConfigs(opts), nil
-	}
-
-	configs := make(map[string]Config, len(payload.Configs))
-	for configID, raw := range payload.Configs {
-		normalizedID := strings.TrimSpace(configID)
-		if normalizedID == "" {
-			return AllConfigs{}, fmt.Errorf("llm config id is required")
-		}
-		if idPresent(raw) {
-			return AllConfigs{}, fmt.Errorf("LLM config %q cannot declare an id; use the key instead", normalizedID)
-		}
-		entry, err := decodePersistedConfig(raw)
-		if err != nil {
-			return AllConfigs{}, fmt.Errorf("decode llm config %q: %w", normalizedID, err)
-		}
-		config, err := normalizeConfig(normalizedID, Config{
-			Model:        entry.Model,
-			Provider:     entry.Provider,
-			BaseURL:      entry.BaseURL,
-			APIKeyEnv:    entry.APIKeyEnv,
-			OtherParams:  entry.OtherParams,
-			MCPServerIDs: entry.MCPServerIDs,
-			Temporary:    entry.Temporary,
-		})
-		if err != nil {
-			return AllConfigs{}, err
-		}
-		configs[normalizedID] = config
-	}
-
-	servers := make(map[string]ServerConfig, len(payload.MCPServers))
-	for serverID, raw := range payload.MCPServers {
-		normalizedID := strings.TrimSpace(serverID)
-		if normalizedID == "" {
-			return AllConfigs{}, fmt.Errorf("llm config server id is required")
-		}
-		if strings.Contains(normalizedID, ToolNameSeparator) {
-			return AllConfigs{}, fmt.Errorf("%w: %s", ErrServerIDInvalid, normalizedID)
-		}
-		server, err := decodeServerConfig(raw)
-		if err != nil {
-			return AllConfigs{}, fmt.Errorf("decode llm server %q: %w", normalizedID, err)
-		}
-		server, err = normalizeServerConfig(normalizedID, server)
-		if err != nil {
-			return AllConfigs{}, err
-		}
-		servers[normalizedID] = server
-	}
-
-	loaded := AllConfigs{
-		Configs:             configs,
-		MCPServers:          ensureSettaServerURL(servers, strings.TrimSpace(opts.SettaServerURL)),
-		DefaultMCPServerIDs: normalizeServerIDs(payload.DefaultMCPServerIDs),
-		DefaultConfigID:     strings.TrimSpace(payload.DefaultConfigID),
-		CodexMCPImportedAt:  strings.TrimSpace(payload.CodexMCPImportedAt),
-	}
-	return loaded.normalized()
+	return loadPersistedAllConfigs(payload, opts)
 }
 
 func Save(path string, configs AllConfigs) error {
@@ -416,50 +346,25 @@ func ResolveRuntimeAPIKeys(configs AllConfigs, managedEnv map[string]string, pro
 }
 
 func (c AllConfigs) normalized() (AllConfigs, error) {
+	normalizedServers, err := normalizeServerConfigMap(c.MCPServers)
+	if err != nil {
+		return AllConfigs{}, err
+	}
+	normalizedConfigs, err := normalizeConfigMap(c.Configs)
+	if err != nil {
+		return AllConfigs{}, err
+	}
 	normalized := AllConfigs{
-		Configs:             map[string]Config{},
-		MCPServers:          map[string]ServerConfig{},
+		Configs:             normalizedConfigs,
+		MCPServers:          normalizedServers,
 		DefaultMCPServerIDs: normalizeServerIDs(c.DefaultMCPServerIDs),
 		DefaultConfigID:     strings.TrimSpace(c.DefaultConfigID),
 		CodexMCPImportedAt:  strings.TrimSpace(c.CodexMCPImportedAt),
 	}
-	for serverID, server := range c.MCPServers {
-		normalizedID := strings.TrimSpace(serverID)
-		if normalizedID == "" {
-			return AllConfigs{}, fmt.Errorf("llm config server id is required")
-		}
-		if strings.Contains(normalizedID, ToolNameSeparator) {
-			return AllConfigs{}, fmt.Errorf("%w: %s", ErrServerIDInvalid, normalizedID)
-		}
-		normalizedServer, err := normalizeServerConfig(normalizedID, server)
-		if err != nil {
-			return AllConfigs{}, err
-		}
-		normalized.MCPServers[normalizedID] = normalizedServer
-	}
-	for configID, config := range c.Configs {
-		normalizedConfig, err := normalizeConfig(configID, config)
-		if err != nil {
-			return AllConfigs{}, err
-		}
-		normalized.Configs[normalizedConfig.ID] = normalizedConfig
-	}
-	if err := validateServerIDs(normalized.DefaultMCPServerIDs, normalized.MCPServers, "defaultMcpServerIds"); err != nil {
+	if err := validateNormalizedConfigServerIDs(normalized); err != nil {
 		return AllConfigs{}, err
 	}
-	for _, config := range normalized.Configs {
-		if config.MCPServerIDs == nil {
-			continue
-		}
-		if err := validateServerIDs(config.MCPServerIDs, normalized.MCPServers, fmt.Sprintf("LLM config %q mcpServerIds", config.ID)); err != nil {
-			return AllConfigs{}, err
-		}
-	}
-	if normalized.DefaultConfigID != "" {
-		if _, ok := normalized.Configs[normalized.DefaultConfigID]; !ok {
-			normalized.DefaultConfigID = ""
-		}
-	}
+	normalized.DefaultConfigID = normalizeDefaultConfigID(normalized.DefaultConfigID, normalized.Configs)
 	return normalized, nil
 }
 
@@ -490,6 +395,47 @@ func defaultConfigs(opts LoadOptions) AllConfigs {
 		MCPServers:      servers,
 		DefaultConfigID: "claude-sonnet",
 	}
+}
+
+func readPersistedFile(path string) (persistedFile, bool, error) {
+	content, err := os.ReadFile(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return persistedFile{}, false, nil
+	case err != nil:
+		return persistedFile{}, false, fmt.Errorf("read llm config: %w", err)
+	}
+	if len(bytes.TrimSpace(content)) == 0 {
+		return persistedFile{}, false, nil
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(content))
+	decoder.DisallowUnknownFields()
+
+	var payload persistedFile
+	if err := decoder.Decode(&payload); err != nil {
+		return persistedFile{}, false, fmt.Errorf("decode llm config: %w", err)
+	}
+	return payload, true, nil
+}
+
+func loadPersistedAllConfigs(payload persistedFile, opts LoadOptions) (AllConfigs, error) {
+	configs, err := loadPersistedConfigs(payload.Configs)
+	if err != nil {
+		return AllConfigs{}, err
+	}
+	servers, err := loadPersistedServers(payload.MCPServers)
+	if err != nil {
+		return AllConfigs{}, err
+	}
+	loaded := AllConfigs{
+		Configs:             configs,
+		MCPServers:          ensureSettaServerURL(servers, strings.TrimSpace(opts.SettaServerURL)),
+		DefaultMCPServerIDs: normalizeServerIDs(payload.DefaultMCPServerIDs),
+		DefaultConfigID:     strings.TrimSpace(payload.DefaultConfigID),
+		CodexMCPImportedAt:  strings.TrimSpace(payload.CodexMCPImportedAt),
+	}
+	return loaded.normalized()
 }
 
 func isEmptyPayload(payload persistedFile) bool {
@@ -529,6 +475,53 @@ func idPresent(raw json.RawMessage) bool {
 	return ok
 }
 
+func loadPersistedConfigs(rawConfigs map[string]json.RawMessage) (map[string]Config, error) {
+	configs := make(map[string]Config, len(rawConfigs))
+	for configID, raw := range rawConfigs {
+		config, err := loadPersistedConfig(configID, raw)
+		if err != nil {
+			return nil, err
+		}
+		configs[config.ID] = config
+	}
+	return configs, nil
+}
+
+func loadPersistedConfig(configID string, raw json.RawMessage) (Config, error) {
+	normalizedID := strings.TrimSpace(configID)
+	if normalizedID == "" {
+		return Config{}, fmt.Errorf("llm config id is required")
+	}
+	if idPresent(raw) {
+		return Config{}, fmt.Errorf("LLM config %q cannot declare an id; use the key instead", normalizedID)
+	}
+	entry, err := decodePersistedConfig(raw)
+	if err != nil {
+		return Config{}, fmt.Errorf("decode llm config %q: %w", normalizedID, err)
+	}
+	return normalizeConfig(normalizedID, Config{
+		Model:        entry.Model,
+		Provider:     entry.Provider,
+		BaseURL:      entry.BaseURL,
+		APIKeyEnv:    entry.APIKeyEnv,
+		OtherParams:  entry.OtherParams,
+		MCPServerIDs: entry.MCPServerIDs,
+		Temporary:    entry.Temporary,
+	})
+}
+
+func normalizeConfigMap(rawConfigs map[string]Config) (map[string]Config, error) {
+	configs := make(map[string]Config, len(rawConfigs))
+	for configID, config := range rawConfigs {
+		normalizedConfig, err := normalizeConfig(configID, config)
+		if err != nil {
+			return nil, err
+		}
+		configs[normalizedConfig.ID] = normalizedConfig
+	}
+	return configs, nil
+}
+
 func normalizeConfig(configID string, raw Config) (Config, error) {
 	normalizedID := strings.TrimSpace(configID)
 	if normalizedID == "" {
@@ -551,6 +544,81 @@ func normalizeConfig(configID string, raw Config) (Config, error) {
 	return normalized, nil
 }
 
+func normalizeDefaultConfigID(defaultConfigID string, configs map[string]Config) string {
+	if defaultConfigID == "" {
+		return ""
+	}
+	if _, ok := configs[defaultConfigID]; !ok {
+		return ""
+	}
+	return defaultConfigID
+}
+
+func validateNormalizedConfigServerIDs(configs AllConfigs) error {
+	if err := validateServerIDs(configs.DefaultMCPServerIDs, configs.MCPServers, "defaultMcpServerIds"); err != nil {
+		return err
+	}
+	for _, config := range configs.Configs {
+		if config.MCPServerIDs == nil {
+			continue
+		}
+		if err := validateServerIDs(config.MCPServerIDs, configs.MCPServers, fmt.Sprintf("LLM config %q mcpServerIds", config.ID)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func loadPersistedServers(rawServers map[string]json.RawMessage) (map[string]ServerConfig, error) {
+	servers := make(map[string]ServerConfig, len(rawServers))
+	for serverID, raw := range rawServers {
+		normalizedID, server, err := loadPersistedServer(serverID, raw)
+		if err != nil {
+			return nil, err
+		}
+		servers[normalizedID] = server
+	}
+	return servers, nil
+}
+
+func loadPersistedServer(serverID string, raw json.RawMessage) (string, ServerConfig, error) {
+	normalizedID := strings.TrimSpace(serverID)
+	if normalizedID == "" {
+		return "", ServerConfig{}, fmt.Errorf("llm config server id is required")
+	}
+	if strings.Contains(normalizedID, ToolNameSeparator) {
+		return "", ServerConfig{}, fmt.Errorf("%w: %s", ErrServerIDInvalid, normalizedID)
+	}
+	server, err := decodeServerConfig(raw)
+	if err != nil {
+		return "", ServerConfig{}, fmt.Errorf("decode llm server %q: %w", normalizedID, err)
+	}
+	server, err = normalizeServerConfig(normalizedID, server)
+	if err != nil {
+		return "", ServerConfig{}, err
+	}
+	return normalizedID, server, nil
+}
+
+func normalizeServerConfigMap(rawServers map[string]ServerConfig) (map[string]ServerConfig, error) {
+	servers := make(map[string]ServerConfig, len(rawServers))
+	for serverID, server := range rawServers {
+		normalizedID := strings.TrimSpace(serverID)
+		if normalizedID == "" {
+			return nil, fmt.Errorf("llm config server id is required")
+		}
+		if strings.Contains(normalizedID, ToolNameSeparator) {
+			return nil, fmt.Errorf("%w: %s", ErrServerIDInvalid, normalizedID)
+		}
+		normalizedServer, err := normalizeServerConfig(normalizedID, server)
+		if err != nil {
+			return nil, err
+		}
+		servers[normalizedID] = normalizedServer
+	}
+	return servers, nil
+}
+
 func normalizeServerConfig(serverID string, raw ServerConfig) (ServerConfig, error) {
 	normalized := ServerConfig{
 		Transport:            Transport(strings.ToLower(strings.TrimSpace(string(raw.Transport)))),
@@ -563,39 +631,60 @@ func normalizeServerConfig(serverID string, raw ServerConfig) (ServerConfig, err
 		Encoding:             strings.ToLower(strings.TrimSpace(raw.Encoding)),
 		EncodingErrorHandler: strings.ToLower(strings.TrimSpace(raw.EncodingErrorHandler)),
 	}
-	if normalized.Encoding == "" {
-		normalized.Encoding = "utf-8"
-	}
-	if normalized.EncodingErrorHandler == "" {
-		normalized.EncodingErrorHandler = "strict"
-	}
-	switch normalized.Transport {
-	case "":
-		return ServerConfig{}, fmt.Errorf("%w for server %q", ErrTransportRequired, serverID)
-	case TransportSSE, TransportStreamableHTTP:
-		if normalized.URL == "" {
-			return ServerConfig{}, fmt.Errorf("%w for server %q", ErrServerURLRequired, serverID)
-		}
-		if normalized.Command != "" {
-			return ServerConfig{}, fmt.Errorf("llm config HTTP transport cannot declare command for server %q", serverID)
-		}
-	case TransportStdio:
-		if normalized.Command == "" {
-			return ServerConfig{}, fmt.Errorf("%w for server %q", ErrServerCommandRequired, serverID)
-		}
-		if normalized.URL != "" {
-			return ServerConfig{}, fmt.Errorf("llm config stdio transport cannot declare url for server %q", serverID)
-		}
-		if len(normalized.HTTPHeaders) > 0 {
-			return ServerConfig{}, fmt.Errorf("%w for server %q", ErrServerHTTPHeadersInvalid, serverID)
-		}
-		if normalized.Encoding != "utf-8" || normalized.EncodingErrorHandler != "strict" {
-			return ServerConfig{}, fmt.Errorf("%w for server %q", ErrServerEncodingUnsupported, serverID)
-		}
-	default:
-		return ServerConfig{}, fmt.Errorf("%w: %q", ErrTransportInvalid, raw.Transport)
+	normalized = withDefaultServerEncoding(normalized)
+	if err := validateNormalizedServerConfig(serverID, normalized, raw.Transport); err != nil {
+		return ServerConfig{}, err
 	}
 	return normalized, nil
+}
+
+func withDefaultServerEncoding(server ServerConfig) ServerConfig {
+	if server.Encoding == "" {
+		server.Encoding = "utf-8"
+	}
+	if server.EncodingErrorHandler == "" {
+		server.EncodingErrorHandler = "strict"
+	}
+	return server
+}
+
+func validateNormalizedServerConfig(serverID string, normalized ServerConfig, rawTransport Transport) error {
+	switch normalized.Transport {
+	case "":
+		return fmt.Errorf("%w for server %q", ErrTransportRequired, serverID)
+	case TransportSSE, TransportStreamableHTTP:
+		return validateHTTPTransportServerConfig(serverID, normalized)
+	case TransportStdio:
+		return validateStdioTransportServerConfig(serverID, normalized)
+	default:
+		return fmt.Errorf("%w: %q", ErrTransportInvalid, rawTransport)
+	}
+}
+
+func validateHTTPTransportServerConfig(serverID string, normalized ServerConfig) error {
+	if normalized.URL == "" {
+		return fmt.Errorf("%w for server %q", ErrServerURLRequired, serverID)
+	}
+	if normalized.Command != "" {
+		return fmt.Errorf("llm config HTTP transport cannot declare command for server %q", serverID)
+	}
+	return nil
+}
+
+func validateStdioTransportServerConfig(serverID string, normalized ServerConfig) error {
+	if normalized.Command == "" {
+		return fmt.Errorf("%w for server %q", ErrServerCommandRequired, serverID)
+	}
+	if normalized.URL != "" {
+		return fmt.Errorf("llm config stdio transport cannot declare url for server %q", serverID)
+	}
+	if len(normalized.HTTPHeaders) > 0 {
+		return fmt.Errorf("%w for server %q", ErrServerHTTPHeadersInvalid, serverID)
+	}
+	if normalized.Encoding != "utf-8" || normalized.EncodingErrorHandler != "strict" {
+		return fmt.Errorf("%w for server %q", ErrServerEncodingUnsupported, serverID)
+	}
+	return nil
 }
 
 func ensureSettaServerURL(servers map[string]ServerConfig, settaServerURL string) map[string]ServerConfig {

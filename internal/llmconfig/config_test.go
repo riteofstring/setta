@@ -48,6 +48,44 @@ func TestLoadDefaultsToSettaServerWhenFileMissing(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultsToSettaServerWhenFileBlankOrPayloadEmpty(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		payload string
+	}{
+		{name: "blank file", payload: "  \n\t"},
+		{name: "empty payload", payload: "{}"},
+	}
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, "llm_config.json")
+			if err := os.WriteFile(path, []byte(testCase.payload), 0o644); err != nil {
+				t.Fatalf("write llm config: %v", err)
+			}
+
+			configs, err := Load(path, LoadOptions{SettaServerURL: "http://127.0.0.1:8000/mcp"})
+			if err != nil {
+				t.Fatalf("load llm config: %v", err)
+			}
+
+			server, ok := configs.MCPServers[DefaultServerID]
+			if !ok {
+				t.Fatal("expected default setta server")
+			}
+			if server.URL != "http://127.0.0.1:8000/mcp" {
+				t.Fatalf("unexpected setta server url %q", server.URL)
+			}
+			if configs.DefaultConfigID != "claude-sonnet" {
+				t.Fatalf("expected default config id claude-sonnet, got %#v", configs)
+			}
+		})
+	}
+}
+
 func TestLoadDerivesConfigIDsAndResolvesServerSets(t *testing.T) {
 	t.Parallel()
 
