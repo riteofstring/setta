@@ -172,6 +172,98 @@ func TestIntentServiceAllowsTrustedReturnURL(t *testing.T) {
 	}
 }
 
+func TestIntentServiceValidateAndNormalizeReturnURL(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewIntentService(IntentServiceOptions{
+		RuntimeRoot: filepath.Join(t.TempDir(), "runtime"),
+	})
+	if err != nil {
+		t.Fatalf("new intent service: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		returnURL     string
+		requestOrigin string
+		wantURL       string
+		wantErr       string
+	}{
+		{
+			name:          "normalizes origin and default path",
+			returnURL:     "https://example.com?tab=files#focus",
+			requestOrigin: "https://example.com",
+			wantURL:       "https://example.com/?tab=files#focus",
+		},
+		{
+			name:          "preserves path and query",
+			returnURL:     "https://example.com/users/home?q=1",
+			requestOrigin: "https://example.com",
+			wantURL:       "https://example.com/users/home?q=1",
+		},
+		{
+			name:          "allows blank request origin when trusted-origins service is absent",
+			returnURL:     "https://launcher.example.com/home",
+			requestOrigin: "   ",
+			wantURL:       "https://launcher.example.com/home",
+		},
+		{
+			name:          "rejects blank url",
+			returnURL:     "   ",
+			requestOrigin: "https://example.com",
+			wantErr:       "returnUrl must not be blank.",
+		},
+		{
+			name:          "rejects non-http scheme",
+			returnURL:     "ftp://example.com/home",
+			requestOrigin: "https://example.com",
+			wantErr:       "returnUrl must use http or https.",
+		},
+		{
+			name:          "rejects credentials",
+			returnURL:     "https://user:pass@example.com/home",
+			requestOrigin: "https://example.com",
+			wantErr:       "returnUrl must not include credentials.",
+		},
+		{
+			name:          "rejects missing origin",
+			returnURL:     "https:///home",
+			requestOrigin: "https://example.com",
+			wantErr:       "returnUrl must include an origin.",
+		},
+		{
+			name:          "rejects mismatched origin without trust",
+			returnURL:     "https://launcher.example.com/home",
+			requestOrigin: "https://example.com",
+			wantErr:       "returnUrl origin is not allowed.",
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotURL, err := service.validateAndNormalizeReturnURL(tc.returnURL, tc.requestOrigin, "session-1")
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error %q, got nil", tc.wantErr)
+				}
+				if err.Error() != tc.wantErr {
+					t.Fatalf("expected error %q, got %q", tc.wantErr, err.Error())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("validate and normalize return URL: %v", err)
+			}
+			if gotURL != tc.wantURL {
+				t.Fatalf("expected normalized return URL %q, got %q", tc.wantURL, gotURL)
+			}
+		})
+	}
+}
+
 func TestIntentServiceRejectsNestedLaunchIntentToken(t *testing.T) {
 	t.Parallel()
 

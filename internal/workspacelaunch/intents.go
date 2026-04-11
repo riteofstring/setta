@@ -248,45 +248,73 @@ func (s *IntentService) ConsumeIntent(currentSession *auth.CurrentSession, token
 }
 
 func (s *IntentService) validateAndNormalizeReturnURL(returnURL string, requestOrigin string, sessionID string) (string, error) {
-	trimmedReturnURL := strings.TrimSpace(returnURL)
+	parsedReturnURL, err := parseAbsoluteHTTPReturnURL(returnURL)
+	if err != nil {
+		return "", err
+	}
+	normalizedReturnOrigin, err := normalizeReturnOrigin(parsedReturnURL)
+	if err != nil {
+		return "", err
+	}
+	if !s.returnOriginAllowed(normalizedReturnOrigin, requestOrigin, sessionID) {
+		return "", errors.New("returnUrl origin is not allowed.")
+	}
+	return buildNormalizedReturnURL(parsedReturnURL, normalizedReturnOrigin), nil
+}
+
+func parseAbsoluteHTTPReturnURL(rawReturnURL string) (*url.URL, error) {
+	trimmedReturnURL := strings.TrimSpace(rawReturnURL)
 	if trimmedReturnURL == "" {
-		return "", errors.New("returnUrl must not be blank.")
+		return nil, errors.New("returnUrl must not be blank.")
 	}
 	parsedReturnURL, err := urlParse(trimmedReturnURL)
-	if err != nil {
-		return "", errors.New("returnUrl must use http or https.")
-	}
-	if parsedReturnURL.Scheme != "http" && parsedReturnURL.Scheme != "https" {
-		return "", errors.New("returnUrl must use http or https.")
+	if err != nil || !isReturnURLSchemeAllowed(parsedReturnURL.Scheme) {
+		return nil, errors.New("returnUrl must use http or https.")
 	}
 	if parsedReturnURL.User != nil {
-		return "", errors.New("returnUrl must not include credentials.")
+		return nil, errors.New("returnUrl must not include credentials.")
 	}
 	if parsedReturnURL.Hostname() == "" {
-		return "", errors.New("returnUrl must include an origin.")
+		return nil, errors.New("returnUrl must include an origin.")
 	}
+	return parsedReturnURL, nil
+}
 
+func isReturnURLSchemeAllowed(scheme string) bool {
+	return scheme == "http" || scheme == "https"
+}
+
+func normalizeReturnOrigin(parsedReturnURL *url.URL) (string, error) {
 	normalizedReturnOrigin := frontendorigins.NormalizeOrigin(parsedReturnURL.Scheme + "://" + parsedReturnURL.Host)
 	if normalizedReturnOrigin == "" {
 		return "", errors.New("returnUrl origin is invalid.")
 	}
-	if s.trustedOrigins != nil && !s.trustedOrigins.IsReturnOriginAllowed(normalizedReturnOrigin, requestOrigin, sessionID) {
-		return "", errors.New("returnUrl origin is not allowed.")
-	}
-	if s.trustedOrigins == nil && frontendorigins.NormalizeOrigin(requestOrigin) != "" && normalizedReturnOrigin != frontendorigins.NormalizeOrigin(requestOrigin) {
-		return "", errors.New("returnUrl origin is not allowed.")
-	}
+	return normalizedReturnOrigin, nil
+}
 
-	normalizedOriginURL, _ := urlParse(normalizedReturnOrigin)
-	normalizedPath := parsedReturnURL.EscapedPath()
-	if normalizedPath == "" {
-		normalizedPath = "/"
+func (s *IntentService) returnOriginAllowed(normalizedReturnOrigin string, requestOrigin string, sessionID string) bool {
+	if s.trustedOrigins != nil {
+		return s.trustedOrigins.IsReturnOriginAllowed(normalizedReturnOrigin, requestOrigin, sessionID)
 	}
-	normalizedOriginURL.Path = normalizedPath
+	normalizedRequestOrigin := frontendorigins.NormalizeOrigin(requestOrigin)
+	return normalizedRequestOrigin == "" || normalizedReturnOrigin == normalizedRequestOrigin
+}
+
+func buildNormalizedReturnURL(parsedReturnURL *url.URL, normalizedReturnOrigin string) string {
+	normalizedOriginURL, _ := urlParse(normalizedReturnOrigin)
+	normalizedOriginURL.Path = normalizedReturnURLPath(parsedReturnURL)
 	normalizedOriginURL.RawPath = parsedReturnURL.RawPath
 	normalizedOriginURL.RawQuery = parsedReturnURL.RawQuery
 	normalizedOriginURL.Fragment = parsedReturnURL.Fragment
-	return normalizedOriginURL.String(), nil
+	return normalizedOriginURL.String()
+}
+
+func normalizedReturnURLPath(parsedReturnURL *url.URL) string {
+	normalizedPath := parsedReturnURL.EscapedPath()
+	if normalizedPath == "" {
+		return "/"
+	}
+	return normalizedPath
 }
 
 func urlParse(raw string) (*url.URL, error) {
