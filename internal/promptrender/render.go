@@ -201,67 +201,102 @@ func (c *undeclaredCollector) visitControlStructure(controlStructure nodes.Contr
 	case nil:
 		return
 	case *controlStructures.ForControlStructure:
-		c.visitExpression(typed.ObjectEvaluator)
-		c.visitExpression(typed.IfCondition)
-
-		bodyScope := c.pushScope()
-		bodyScope.declare(typed.Key)
-		bodyScope.declare(typed.Value)
-		bodyScope.declare("loop")
-		c.visitWrapper(typed.BodyWrapper)
-		c.popScope()
-
-		c.pushScope()
-		c.visitWrapper(typed.EmptyWrapper)
-		c.popScope()
+		c.visitForControlStructure(typed)
 	case *controlStructures.IfControlStructure:
-		for _, condition := range typed.Conditions {
-			c.visitExpression(condition)
-		}
-
-		declaredByBranches := map[string]struct{}{}
-		for _, wrapper := range typed.Wrappers {
-			branchScope := c.pushScope()
-			c.visitWrapper(wrapper)
-			for declaredName := range branchScope.declared {
-				declaredByBranches[declaredName] = struct{}{}
-			}
-			c.popScope()
-		}
-		for declaredName := range declaredByBranches {
-			c.scope.declare(declaredName)
-		}
+		c.visitIfControlStructure(typed)
 	case *controlStructures.MacroControlStructure:
-		if typed.Macro == nil {
-			return
-		}
-		for _, argument := range typed.Macro.Kwargs {
-			if argument == nil {
-				continue
-			}
-			c.visitExpression(argument.Value)
-		}
-		macroScope := c.pushScope()
-		for _, argument := range typed.Macro.Kwargs {
-			if argument == nil {
-				continue
-			}
-			if argumentName, ok := argument.Key.(*nodes.String); ok {
-				macroScope.declare(argumentName.Val)
-			}
-		}
-		c.visitWrapper(typed.Macro.Wrapper)
-		c.popScope()
-		c.scope.declare(typed.Macro.Name)
+		c.visitMacroControlStructure(typed)
 	case *controlStructures.FromImportControlStructure:
-		c.visitExpression(typed.FilenameExpression)
-		for alias := range typed.As {
-			c.scope.declare(alias)
-		}
+		c.visitFromImportControlStructure(typed)
 	case *controlStructures.AutoescapeControlStructure:
 		c.visitWrapper(typed.Wrapper)
 	default:
 		c.visitReflectedControlStructure(controlStructure)
+	}
+}
+
+func (c *undeclaredCollector) visitForControlStructure(controlStructure *controlStructures.ForControlStructure) {
+	if controlStructure == nil {
+		return
+	}
+	c.visitExpressions(controlStructure.ObjectEvaluator, controlStructure.IfCondition)
+
+	bodyScope := c.pushScope()
+	bodyScope.declare(controlStructure.Key)
+	bodyScope.declare(controlStructure.Value)
+	bodyScope.declare("loop")
+	c.visitWrapper(controlStructure.BodyWrapper)
+	c.popScope()
+
+	c.pushScope()
+	c.visitWrapper(controlStructure.EmptyWrapper)
+	c.popScope()
+}
+
+func (c *undeclaredCollector) visitIfControlStructure(controlStructure *controlStructures.IfControlStructure) {
+	if controlStructure == nil {
+		return
+	}
+	c.visitExpressions(controlStructure.Conditions...)
+
+	declaredByBranches := map[string]struct{}{}
+	for _, wrapper := range controlStructure.Wrappers {
+		branchScope := c.pushScope()
+		c.visitWrapper(wrapper)
+		for declaredName := range branchScope.declared {
+			declaredByBranches[declaredName] = struct{}{}
+		}
+		c.popScope()
+	}
+	for declaredName := range declaredByBranches {
+		c.scope.declare(declaredName)
+	}
+}
+
+func (c *undeclaredCollector) visitMacroControlStructure(controlStructure *controlStructures.MacroControlStructure) {
+	if controlStructure == nil || controlStructure.Macro == nil {
+		return
+	}
+	c.visitMacroArguments(controlStructure.Macro.Kwargs)
+
+	macroScope := c.pushScope()
+	c.declareMacroArguments(macroScope, controlStructure.Macro.Kwargs)
+	c.visitWrapper(controlStructure.Macro.Wrapper)
+	c.popScope()
+
+	c.scope.declare(controlStructure.Macro.Name)
+}
+
+func (c *undeclaredCollector) visitFromImportControlStructure(controlStructure *controlStructures.FromImportControlStructure) {
+	if controlStructure == nil {
+		return
+	}
+	c.visitExpression(controlStructure.FilenameExpression)
+	for alias := range controlStructure.As {
+		c.scope.declare(alias)
+	}
+}
+
+func (c *undeclaredCollector) visitMacroArguments(arguments []*nodes.Pair) {
+	for _, argument := range arguments {
+		if argument == nil {
+			continue
+		}
+		c.visitExpression(argument.Value)
+	}
+}
+
+func (c *undeclaredCollector) declareMacroArguments(scope *scope, arguments []*nodes.Pair) {
+	if scope == nil {
+		return
+	}
+	for _, argument := range arguments {
+		if argument == nil {
+			continue
+		}
+		if argumentName, ok := argument.Key.(*nodes.String); ok {
+			scope.declare(argumentName.Val)
+		}
 	}
 }
 
@@ -313,29 +348,50 @@ func (c *undeclaredCollector) visitExpression(expression nodes.Expression) {
 	case *nodes.Name:
 		c.recordMissing(typed.Name.Val)
 	case *nodes.Call:
-		c.visitNodeLike(typed.Func)
-		for _, argument := range typed.Args {
-			c.visitExpression(argument)
-		}
-		for _, argument := range typed.Kwargs {
-			c.visitExpression(argument)
-		}
+		c.visitCallExpression(typed)
+	case *nodes.GetItem, *nodes.GetSlice, *nodes.GetAttribute:
+		c.visitAccessExpression(expression)
+	case *nodes.Negation, *nodes.UnaryExpression, *nodes.BinaryExpression:
+		c.visitOperationExpression(expression)
+	case *nodes.FilteredExpression, *nodes.TestExpression:
+		c.visitPipelineExpression(expression)
+	case *nodes.List, *nodes.Tuple, *nodes.Dict, *nodes.Pair:
+		c.visitCollectionExpression(expression)
+	}
+}
+
+func (c *undeclaredCollector) visitCallExpression(call *nodes.Call) {
+	if call == nil {
+		return
+	}
+	c.visitNodeLike(call.Func)
+	c.visitArguments(call.Args, call.Kwargs)
+}
+
+func (c *undeclaredCollector) visitAccessExpression(expression nodes.Expression) {
+	switch typed := expression.(type) {
 	case *nodes.GetItem:
-		c.visitNodeLike(typed.Node)
-		c.visitNodeLike(typed.Arg)
+		c.visitNodeLikes(typed.Node, typed.Arg)
 	case *nodes.GetSlice:
-		c.visitNodeLike(typed.Node)
-		c.visitNodeLike(typed.Start)
-		c.visitNodeLike(typed.End)
+		c.visitNodeLikes(typed.Node, typed.Start, typed.End)
 	case *nodes.GetAttribute:
 		c.visitNodeLike(typed.Node)
+	}
+}
+
+func (c *undeclaredCollector) visitOperationExpression(expression nodes.Expression) {
+	switch typed := expression.(type) {
 	case *nodes.Negation:
 		c.visitExpression(typed.Term)
 	case *nodes.UnaryExpression:
 		c.visitExpression(typed.Term)
 	case *nodes.BinaryExpression:
-		c.visitExpression(typed.Left)
-		c.visitExpression(typed.Right)
+		c.visitExpressions(typed.Left, typed.Right)
+	}
+}
+
+func (c *undeclaredCollector) visitPipelineExpression(expression nodes.Expression) {
+	switch typed := expression.(type) {
 	case *nodes.FilteredExpression:
 		c.visitExpression(typed.Expression)
 		for _, filterCall := range typed.Filters {
@@ -344,21 +400,21 @@ func (c *undeclaredCollector) visitExpression(expression nodes.Expression) {
 	case *nodes.TestExpression:
 		c.visitExpression(typed.Expression)
 		c.visitTestCall(typed.Test)
+	}
+}
+
+func (c *undeclaredCollector) visitCollectionExpression(expression nodes.Expression) {
+	switch typed := expression.(type) {
 	case *nodes.List:
-		for _, element := range typed.Val {
-			c.visitExpression(element)
-		}
+		c.visitExpressions(typed.Val...)
 	case *nodes.Tuple:
-		for _, element := range typed.Val {
-			c.visitExpression(element)
-		}
+		c.visitExpressions(typed.Val...)
 	case *nodes.Dict:
 		for _, pair := range typed.Pairs {
 			c.visitExpression(pair)
 		}
 	case *nodes.Pair:
-		c.visitExpression(typed.Key)
-		c.visitExpression(typed.Value)
+		c.visitExpressions(typed.Key, typed.Value)
 	}
 }
 
@@ -370,26 +426,35 @@ func (c *undeclaredCollector) visitNodeLike(candidate nodes.Node) {
 	c.visitNode(candidate)
 }
 
+func (c *undeclaredCollector) visitNodeLikes(candidates ...nodes.Node) {
+	for _, candidate := range candidates {
+		c.visitNodeLike(candidate)
+	}
+}
+
+func (c *undeclaredCollector) visitExpressions(expressions ...nodes.Expression) {
+	for _, expression := range expressions {
+		c.visitExpression(expression)
+	}
+}
+
 func (c *undeclaredCollector) visitFilterCall(filterCall *nodes.FilterCall) {
 	if filterCall == nil {
 		return
 	}
-	for _, argument := range filterCall.Args {
-		c.visitExpression(argument)
-	}
-	for _, argument := range filterCall.Kwargs {
-		c.visitExpression(argument)
-	}
+	c.visitArguments(filterCall.Args, filterCall.Kwargs)
 }
 
 func (c *undeclaredCollector) visitTestCall(testCall *nodes.TestCall) {
 	if testCall == nil {
 		return
 	}
-	for _, argument := range testCall.Args {
-		c.visitExpression(argument)
-	}
-	for _, argument := range testCall.Kwargs {
+	c.visitArguments(testCall.Args, testCall.Kwargs)
+}
+
+func (c *undeclaredCollector) visitArguments(args []nodes.Expression, kwargs map[string]nodes.Expression) {
+	c.visitExpressions(args...)
+	for _, argument := range kwargs {
 		c.visitExpression(argument)
 	}
 }
