@@ -18,6 +18,23 @@ import (
 
 const defaultGeminiBaseURL = "https://generativelanguage.googleapis.com/"
 
+var geminiConfigKeyAliases = map[string]string{
+	"top_p":                "topP",
+	"top_k":                "topK",
+	"candidate_count":      "candidateCount",
+	"max_output_tokens":    "maxOutputTokens",
+	"max_tokens":           "maxOutputTokens",
+	"stop_sequences":       "stopSequences",
+	"presence_penalty":     "presencePenalty",
+	"frequency_penalty":    "frequencyPenalty",
+	"response_mime_type":   "responseMIMEType",
+	"response_schema":      "responseSchema",
+	"response_json_schema": "responseJsonSchema",
+	"safety_settings":      "safetySettings",
+	"tool_config":          "toolConfig",
+	"thinking_config":      "thinkingConfig",
+}
+
 type geminiStreamState struct {
 	toolCallIndexes map[string]int
 	nextToolIndex   int
@@ -227,36 +244,11 @@ func isValidGeminiThinkingLevel(level genai.ThinkingLevel) bool {
 }
 
 func normalizeGeminiConfigKey(key string) string {
-	switch strings.TrimSpace(key) {
-	case "top_p":
-		return "topP"
-	case "top_k":
-		return "topK"
-	case "candidate_count":
-		return "candidateCount"
-	case "max_output_tokens", "max_tokens":
-		return "maxOutputTokens"
-	case "stop_sequences":
-		return "stopSequences"
-	case "presence_penalty":
-		return "presencePenalty"
-	case "frequency_penalty":
-		return "frequencyPenalty"
-	case "response_mime_type":
-		return "responseMIMEType"
-	case "response_schema":
-		return "responseSchema"
-	case "response_json_schema":
-		return "responseJsonSchema"
-	case "safety_settings":
-		return "safetySettings"
-	case "tool_config":
-		return "toolConfig"
-	case "thinking_config":
-		return "thinkingConfig"
-	default:
-		return key
+	trimmedKey := strings.TrimSpace(key)
+	if normalizedKey, ok := geminiConfigKeyAliases[trimmedKey]; ok {
+		return normalizedKey
 	}
+	return key
 }
 
 func buildGeminiTools(toolDefinitions []map[string]any) ([]*genai.Tool, error) {
@@ -319,44 +311,60 @@ func buildGeminiContent(message map[string]any) (*genai.Content, string, bool, e
 	role := strings.TrimSpace(stringValue(message["role"]))
 	switch role {
 	case "system":
-		content, include, err := normalizeProviderMessageContent(message["content"])
-		if err != nil {
-			return nil, "", false, err
-		}
-		if !include {
-			return nil, "", false, nil
-		}
-		return nil, content, false, nil
+		return buildGeminiSystemContent(message["content"])
 	case "user":
-		parts, err := buildGeminiUserParts(message["content"])
-		if err != nil {
-			return nil, "", false, err
-		}
-		if len(parts) == 0 {
-			return nil, "", false, nil
-		}
-		return genai.NewContentFromParts(parts, genai.RoleUser), "", true, nil
+		return buildGeminiUserContent(message["content"])
 	case "assistant":
-		parts, err := buildGeminiAssistantParts(message)
-		if err != nil {
-			return nil, "", false, err
-		}
-		if len(parts) == 0 {
-			return nil, "", false, nil
-		}
-		return genai.NewContentFromParts(parts, genai.RoleModel), "", true, nil
+		return buildGeminiAssistantContent(message)
 	case "tool":
-		part, include, err := buildGeminiToolResponsePart(message)
-		if err != nil {
-			return nil, "", false, err
-		}
-		if !include {
-			return nil, "", false, nil
-		}
-		return genai.NewContentFromParts([]*genai.Part{part}, genai.RoleUser), "", true, nil
+		return buildGeminiToolContent(message)
 	default:
 		return nil, "", false, fmt.Errorf("unsupported role %q", role)
 	}
+}
+
+func buildGeminiSystemContent(raw any) (*genai.Content, string, bool, error) {
+	content, include, err := normalizeProviderMessageContent(raw)
+	if err != nil {
+		return nil, "", false, err
+	}
+	if !include {
+		return nil, "", false, nil
+	}
+	return nil, content, false, nil
+}
+
+func buildGeminiUserContent(raw any) (*genai.Content, string, bool, error) {
+	parts, err := buildGeminiUserParts(raw)
+	if err != nil {
+		return nil, "", false, err
+	}
+	if len(parts) == 0 {
+		return nil, "", false, nil
+	}
+	return genai.NewContentFromParts(parts, genai.RoleUser), "", true, nil
+}
+
+func buildGeminiAssistantContent(message map[string]any) (*genai.Content, string, bool, error) {
+	parts, err := buildGeminiAssistantParts(message)
+	if err != nil {
+		return nil, "", false, err
+	}
+	if len(parts) == 0 {
+		return nil, "", false, nil
+	}
+	return genai.NewContentFromParts(parts, genai.RoleModel), "", true, nil
+}
+
+func buildGeminiToolContent(message map[string]any) (*genai.Content, string, bool, error) {
+	part, include, err := buildGeminiToolResponsePart(message)
+	if err != nil {
+		return nil, "", false, err
+	}
+	if !include {
+		return nil, "", false, nil
+	}
+	return genai.NewContentFromParts([]*genai.Part{part}, genai.RoleUser), "", true, nil
 }
 
 func buildGeminiUserParts(raw any) ([]*genai.Part, error) {
@@ -386,57 +394,103 @@ func buildGeminiUserParts(raw any) ([]*genai.Part, error) {
 }
 
 func buildGeminiAssistantParts(message map[string]any) ([]*genai.Part, error) {
-	content, _ := message["content"].([]any)
-	parts := make([]*genai.Part, 0, len(content)+len(assistantToolCalls(message)))
-	for index, entry := range content {
-		block, ok := entry.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("assistant content block %d must be an object", index)
-		}
-		switch strings.TrimSpace(stringValue(block["type"])) {
-		case "", "text":
-			text := strings.TrimSpace(stringValue(block["text"]))
-			if text != "" {
-				parts = append(parts, genai.NewPartFromText(text))
-			}
-		case "thinking":
-			thinking := stringValue(block["thinking"])
-			signature := strings.TrimSpace(stringValue(block["signature"]))
-			if strings.TrimSpace(thinking) == "" && signature == "" {
-				continue
-			}
-			part := &genai.Part{
-				Text:    thinking,
-				Thought: true,
-			}
-			if signature != "" {
-				part.ThoughtSignature = decodeGeminiThoughtSignature(signature)
-			}
-			parts = append(parts, part)
-		default:
-			return nil, fmt.Errorf("assistant content block type %q", stringValue(block["type"]))
-		}
+	contentParts, err := buildGeminiAssistantContentParts(message["content"])
+	if err != nil {
+		return nil, err
 	}
-	for _, toolCall := range assistantToolCalls(message) {
-		toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
-		function, _ := toolCall["function"].(map[string]any)
-		toolName := strings.TrimSpace(stringValue(function["name"]))
-		if toolCallID == "" || toolName == "" {
-			return nil, fmt.Errorf("%w: gemini assistant tool call requires id and name", ErrToolsUnsupported)
+	toolCallParts, err := buildGeminiAssistantToolCallParts(message)
+	if err != nil {
+		return nil, err
+	}
+	return append(contentParts, toolCallParts...), nil
+}
+
+func buildGeminiAssistantContentParts(raw any) ([]*genai.Part, error) {
+	content, _ := raw.([]any)
+	parts := make([]*genai.Part, 0, len(content))
+	for index, entry := range content {
+		part, include, err := buildGeminiAssistantContentPart(index, entry)
+		if err != nil {
+			return nil, err
 		}
-		arguments, _ := function["arguments"].(map[string]any)
-		if arguments == nil {
-			arguments = map[string]any{}
+		if include {
+			parts = append(parts, part)
 		}
-		parts = append(parts, &genai.Part{
-			FunctionCall: &genai.FunctionCall{
-				ID:   toolCallID,
-				Name: toolName,
-				Args: cloneAnyMap(arguments),
-			},
-		})
 	}
 	return parts, nil
+}
+
+func buildGeminiAssistantContentPart(index int, entry any) (*genai.Part, bool, error) {
+	block, ok := entry.(map[string]any)
+	if !ok {
+		return nil, false, fmt.Errorf("assistant content block %d must be an object", index)
+	}
+	switch strings.TrimSpace(stringValue(block["type"])) {
+	case "", "text":
+		part := buildGeminiAssistantTextPart(block)
+		return part, part != nil, nil
+	case "thinking":
+		return buildGeminiAssistantThinkingPart(block)
+	default:
+		return nil, false, fmt.Errorf("assistant content block type %q", stringValue(block["type"]))
+	}
+}
+
+func buildGeminiAssistantTextPart(block map[string]any) *genai.Part {
+	text := strings.TrimSpace(stringValue(block["text"]))
+	if text == "" {
+		return nil
+	}
+	return genai.NewPartFromText(text)
+}
+
+func buildGeminiAssistantThinkingPart(block map[string]any) (*genai.Part, bool, error) {
+	thinking := stringValue(block["thinking"])
+	signature := strings.TrimSpace(stringValue(block["signature"]))
+	if strings.TrimSpace(thinking) == "" && signature == "" {
+		return nil, false, nil
+	}
+	part := &genai.Part{
+		Text:    thinking,
+		Thought: true,
+	}
+	if signature != "" {
+		part.ThoughtSignature = decodeGeminiThoughtSignature(signature)
+	}
+	return part, true, nil
+}
+
+func buildGeminiAssistantToolCallParts(message map[string]any) ([]*genai.Part, error) {
+	toolCalls := assistantToolCalls(message)
+	parts := make([]*genai.Part, 0, len(toolCalls))
+	for _, toolCall := range toolCalls {
+		part, err := buildGeminiAssistantToolCallPart(toolCall)
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, part)
+	}
+	return parts, nil
+}
+
+func buildGeminiAssistantToolCallPart(toolCall map[string]any) (*genai.Part, error) {
+	toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
+	function, _ := toolCall["function"].(map[string]any)
+	toolName := strings.TrimSpace(stringValue(function["name"]))
+	if toolCallID == "" || toolName == "" {
+		return nil, fmt.Errorf("%w: gemini assistant tool call requires id and name", ErrToolsUnsupported)
+	}
+	arguments, _ := function["arguments"].(map[string]any)
+	if arguments == nil {
+		arguments = map[string]any{}
+	}
+	return &genai.Part{
+		FunctionCall: &genai.FunctionCall{
+			ID:   toolCallID,
+			Name: toolName,
+			Args: cloneAnyMap(arguments),
+		},
+	}, nil
 }
 
 func buildGeminiToolResponsePart(message map[string]any) (*genai.Part, bool, error) {
@@ -546,60 +600,120 @@ func (e *Executor) processGeminiResponseChunk(
 		return nil, nil
 	}
 	usage := buildGeminiUsagePayload(response.UsageMetadata)
+	candidate, err := geminiPrimaryCandidate(response)
+	if err != nil || candidate == nil {
+		return usage, err
+	}
+	for _, part := range candidate.Content.Parts {
+		if err := e.processGeminiResponsePart(
+			ctx,
+			part,
+			prepared,
+			assistantMessage,
+			accumulator,
+			previewAccumulator,
+			streamState,
+		); err != nil {
+			return usage, err
+		}
+	}
+	return usage, nil
+}
+
+func geminiPrimaryCandidate(response *genai.GenerateContentResponse) (*genai.Candidate, error) {
+	if response == nil {
+		return nil, nil
+	}
 	if len(response.Candidates) == 0 {
 		if response.PromptFeedback != nil && response.PromptFeedback.BlockReason != "" {
-			return usage, fmt.Errorf(
+			return nil, fmt.Errorf(
 				"managed llm provider request failed: prompt blocked (%s)",
 				response.PromptFeedback.BlockReason,
 			)
 		}
-		return usage, nil
+		return nil, nil
 	}
 	candidate := response.Candidates[0]
 	if candidate == nil || candidate.Content == nil {
-		return usage, nil
+		return nil, nil
 	}
-	for _, part := range candidate.Content.Parts {
-		if part == nil {
-			continue
-		}
-		switch {
-		case part.FunctionCall != nil:
-			if err := e.processGeminiFunctionCallPart(
-				ctx,
-				part.FunctionCall,
-				prepared,
-				assistantMessage,
-				accumulator,
-				previewAccumulator,
-				streamState,
-			); err != nil {
-				return usage, err
-			}
-		case part.Thought && (part.Text != "" || len(part.ThoughtSignature) > 0):
-			signature := ""
-			if len(part.ThoughtSignature) > 0 {
-				signature = base64.StdEncoding.EncodeToString(part.ThoughtSignature)
-				setAssistantThinkingSignatureAtIndex(assistantMessage, 0, signature)
-			}
-			if part.Text != "" {
-				appendAssistantThinkingAtIndex(assistantMessage, 0, part.Text)
-			}
-			if err := e.emitGeminiThinkingDelta(ctx, prepared, assistantMessage, 0, part.Text, optionalStringPointer(signature)); err != nil {
-				return usage, err
-			}
-		case part.Text != "":
-			textIndex := 0
-			if hasMessageThinking(assistantMessage) {
-				textIndex = 1
-			}
-			appendAssistantTextAtIndex(assistantMessage, textIndex, part.Text)
-			if err := e.emitGeminiTextDelta(ctx, prepared, assistantMessage, textIndex, part.Text); err != nil {
-				return usage, err
-			}
-		}
+	return candidate, nil
+}
+
+func (e *Executor) processGeminiResponsePart(
+	ctx context.Context,
+	part *genai.Part,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	accumulator *toolCallAccumulator,
+	previewAccumulator *toolPreviewAccumulator,
+	streamState *geminiStreamState,
+) error {
+	if part == nil {
+		return nil
 	}
-	return usage, nil
+	switch {
+	case part.FunctionCall != nil:
+		return e.processGeminiFunctionCallPart(
+			ctx,
+			part.FunctionCall,
+			prepared,
+			assistantMessage,
+			accumulator,
+			previewAccumulator,
+			streamState,
+		)
+	case part.Thought && (part.Text != "" || len(part.ThoughtSignature) > 0):
+		return e.processGeminiThinkingPart(ctx, part, prepared, assistantMessage)
+	case part.Text != "":
+		return e.processGeminiTextPart(ctx, part.Text, prepared, assistantMessage)
+	default:
+		return nil
+	}
+}
+
+func (e *Executor) processGeminiThinkingPart(
+	ctx context.Context,
+	part *genai.Part,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+) error {
+	signature := geminiThoughtSignatureString(part)
+	if signature != "" {
+		setAssistantThinkingSignatureAtIndex(assistantMessage, 0, signature)
+	}
+	if part.Text != "" {
+		appendAssistantThinkingAtIndex(assistantMessage, 0, part.Text)
+	}
+	return e.emitGeminiThinkingDelta(ctx, prepared, assistantMessage, 0, part.Text, optionalStringPointer(signature))
+}
+
+func geminiThoughtSignatureString(part *genai.Part) string {
+	if part == nil || len(part.ThoughtSignature) == 0 {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(part.ThoughtSignature)
+}
+
+func (e *Executor) processGeminiTextPart(
+	ctx context.Context,
+	text string,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+) error {
+	textIndex := 0
+	if hasMessageThinking(assistantMessage) {
+		textIndex = 1
+	}
+	appendAssistantTextAtIndex(assistantMessage, textIndex, text)
+	return e.emitGeminiTextDelta(ctx, prepared, assistantMessage, textIndex, text)
+}
+
+type geminiFunctionCallPayload struct {
+	EncodedArguments string
+	ToolCallID       string
+	ToolName         string
+	Index            int
 }
 
 func (e *Executor) processGeminiFunctionCallPart(
@@ -611,41 +725,79 @@ func (e *Executor) processGeminiFunctionCallPart(
 	previewAccumulator *toolPreviewAccumulator,
 	streamState *geminiStreamState,
 ) error {
+	call, err := prepareGeminiFunctionCallPayload(functionCall, streamState)
+	if err != nil {
+		return err
+	}
+	state := accumulator.apply(call.Index, call.ToolCallID, "", call.ToolName, call.EncodedArguments)
+	if err := e.emitGeminiFunctionCallDelta(ctx, prepared, assistantMessage, state, call); err != nil {
+		return err
+	}
+	return e.emitGeminiFunctionCallPreview(ctx, prepared, assistantMessage, state, previewAccumulator, call)
+}
+
+func prepareGeminiFunctionCallPayload(functionCall *genai.FunctionCall, streamState *geminiStreamState) (geminiFunctionCallPayload, error) {
 	if functionCall == nil {
-		return nil
+		return geminiFunctionCallPayload{}, nil
 	}
 	toolName := strings.TrimSpace(functionCall.Name)
 	if toolName == "" {
-		return fmt.Errorf("%w: gemini function call name is required", ErrToolsUnsupported)
+		return geminiFunctionCallPayload{}, fmt.Errorf("%w: gemini function call name is required", ErrToolsUnsupported)
 	}
 	toolCallID := strings.TrimSpace(functionCall.ID)
 	if toolCallID == "" {
 		toolCallID = fmt.Sprintf("gemini-tool-call-%d", streamState.nextToolIndex)
 	}
-	index := streamState.toolCallIndex(toolCallID)
 	arguments := cloneAnyMap(functionCall.Args)
 	if arguments == nil {
 		arguments = map[string]any{}
 	}
 	encodedArguments, err := json.Marshal(arguments)
 	if err != nil {
-		return fmt.Errorf("%w: encode gemini tool call arguments: %v", ErrToolsUnsupported, err)
+		return geminiFunctionCallPayload{}, fmt.Errorf("%w: encode gemini tool call arguments: %v", ErrToolsUnsupported, err)
 	}
-	state := accumulator.apply(index, toolCallID, "", toolName, string(encodedArguments))
+	return geminiFunctionCallPayload{
+		EncodedArguments: string(encodedArguments),
+		ToolCallID:       toolCallID,
+		ToolName:         toolName,
+		Index:            streamState.toolCallIndex(toolCallID),
+	}, nil
+}
+
+func (e *Executor) emitGeminiFunctionCallDelta(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	state *toolCallState,
+	call geminiFunctionCallPayload,
+) error {
 	if !prepared.emitStream || state == nil {
 		return nil
 	}
-	toolNamePtr := optionalStringPointer(toolName)
 	if err := e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
 		Type:           realtime.StreamingEventTypeToolCallDelta,
 		MessageID:      stringValue(assistantMessage["id"]),
-		ToolCallID:     toolCallID,
-		ArgumentsDelta: string(encodedArguments),
-		ToolName:       toolNamePtr,
+		ToolCallID:     call.ToolCallID,
+		ArgumentsDelta: call.EncodedArguments,
+		ToolName:       optionalStringPointer(call.ToolName),
 	}); err != nil {
 		return err
 	}
-	descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(toolName)]
+	return nil
+}
+
+func (e *Executor) emitGeminiFunctionCallPreview(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	state *toolCallState,
+	previewAccumulator *toolPreviewAccumulator,
+	call geminiFunctionCallPayload,
+) error {
+	if !prepared.emitStream || state == nil {
+		return nil
+	}
+	descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(call.ToolName)]
 	if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
 		return nil
 	}
@@ -653,7 +805,7 @@ func (e *Executor) processGeminiFunctionCallPart(
 		stringValue(assistantMessage["id"]),
 		state,
 		descriptor.Metadata.ToolArgumentPreview,
-		string(encodedArguments),
+		call.EncodedArguments,
 		prepared.temporaryToCanonical,
 	)
 	if err != nil {
