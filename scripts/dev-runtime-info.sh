@@ -116,9 +116,15 @@ elif [[ "${RUNTIME_LOG_PATH}" != /* ]]; then
   RUNTIME_LOG_PATH="${WORKTREE_ROOT}/${RUNTIME_LOG_PATH}"
 fi
 
-if [[ -f "${WORKTREE_ROOT}/activate.sh" ]]; then
+if [[ -f "${WORKTREE_ROOT}/.venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source "${WORKTREE_ROOT}/.venv/bin/activate"
+elif [[ -f "${WORKTREE_ROOT}/activate.sh" ]]; then
   # shellcheck disable=SC1090
+  ORIGINAL_PWD="$(pwd -P)"
+  cd "${WORKTREE_ROOT}"
   source "${WORKTREE_ROOT}/activate.sh"
+  cd "${ORIGINAL_PWD}"
 fi
 
 if [[ -z "${SETTA_FILES_ROOT:-}" ]] && [[ -z "${SETTA_FILES_LOCATION:-}" ]]; then
@@ -156,6 +162,7 @@ from pathlib import Path
 LOCAL_URL_RE = re.compile(r"Local:\s*(http://\S+)")
 READY_URL_RE = re.compile(r"Ready:\s*(http://\S+)")
 SESSION_ID_RE = re.compile(r"Setta running \(session ([^)]+)\)")
+RUNTIME_BLOCK_START_RE = re.compile(r"Starting Chrome with remote debugging on port \d+")
 
 
 def frontend_url_for_current_runtime(
@@ -171,24 +178,67 @@ def frontend_url_for_current_runtime(
     except OSError:
         return None, None
 
-    current_frontend_url: str | None = None
+    blocks: list[dict[str, object]] = []
+    current_block: dict[str, object] = {
+        "frontend_url": None,
+        "ready_urls": [],
+        "session_ids": [],
+    }
+
     for line in log_lines:
+        if RUNTIME_BLOCK_START_RE.search(line):
+            if (
+                current_block["frontend_url"]
+                or current_block["ready_urls"]
+                or current_block["session_ids"]
+            ):
+                blocks.append(current_block)
+                current_block = {
+                    "frontend_url": None,
+                    "ready_urls": [],
+                    "session_ids": [],
+                }
+
         local_match = LOCAL_URL_RE.search(line)
         if local_match:
-            current_frontend_url = local_match.group(1)
+            current_block["frontend_url"] = local_match.group(1)
 
         session_match = SESSION_ID_RE.search(line)
-        if session_id and session_match and session_match.group(1) == session_id:
-            return current_frontend_url, "runtime_log_current_session"
+        if session_match:
+            session_ids = current_block["session_ids"]
+            assert isinstance(session_ids, list)
+            session_ids.append(session_match.group(1))
 
         ready_match = READY_URL_RE.search(line)
-        if (
-            not session_id
-            and backend_url
-            and ready_match
-            and ready_match.group(1) == backend_url
-        ):
-            return current_frontend_url, "runtime_log_current_backend"
+        if ready_match:
+            ready_urls = current_block["ready_urls"]
+            assert isinstance(ready_urls, list)
+            ready_urls.append(ready_match.group(1))
+
+    if (
+        current_block["frontend_url"]
+        or current_block["ready_urls"]
+        or current_block["session_ids"]
+    ):
+        blocks.append(current_block)
+
+    if session_id:
+        for block in reversed(blocks):
+            session_ids = block["session_ids"]
+            assert isinstance(session_ids, list)
+            if session_id in session_ids:
+                frontend_url = block["frontend_url"]
+                assert frontend_url is None or isinstance(frontend_url, str)
+                return frontend_url, "runtime_log_current_session"
+
+    if backend_url:
+        for block in reversed(blocks):
+            ready_urls = block["ready_urls"]
+            assert isinstance(ready_urls, list)
+            if backend_url in ready_urls:
+                frontend_url = block["frontend_url"]
+                assert frontend_url is None or isinstance(frontend_url, str)
+                return frontend_url, "runtime_log_current_backend"
 
     return None, None
 

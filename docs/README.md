@@ -2,6 +2,7 @@
 
 ## Guides
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
+- `guides/aws-remote-devbox.md` – phase-1 AWS remote dev box setup and operator runbook.
 - `guides/worktree-dev-quickstart.md` – create worktrees and run isolated dev instances with predictable ports.
 - `guides/browser-mcp-quickstart.md` – quickstart for Chrome DevTools MCP.
 - `guides/install-setta-desktop.md` – beginner desktop install flow (no repo required).

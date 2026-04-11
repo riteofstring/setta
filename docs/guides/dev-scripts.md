@@ -21,6 +21,14 @@ Use these first for day-to-day work.
   - Uses the same default dev paths as `start.sh`.
   - Accepts the same runtime path flags as `start.sh`.
   - Wrapper over `scripts/ai.sh`.
+- `./remote.sh`
+  - Preferred remote-devbox entry point.
+  - Defaults to selecting an existing remote worktree runtime, or use `worktree <branch>` to create/reuse a named remote worktree runtime on the devbox.
+  - Use `local` to target the remote runtime that matches the current local worktree explicitly.
+  - Use `reset` before a selector (`select`, `worktree <branch>`, or `local`) to restart a remote runtime with `./aireset.sh`.
+  - Use `--nochrome` for the older shell-only attach path.
+- `./remote-kill.sh`
+  - Stops the remote devbox instance.
 - `./aireset.sh`
   - Wipes the resolved active state root, then runs `./ai.sh`.
   - Uses the same default dev paths as `start.sh`.

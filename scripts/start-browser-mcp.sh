@@ -88,6 +88,7 @@ DEVTOOLS_CLOSE_BLANK_TABS="${DEVTOOLS_CLOSE_BLANK_TABS:-1}"
 DEVTOOLS_OPEN_WITH_CHROME="${DEVTOOLS_OPEN_WITH_CHROME:-1}"
 BOOTSTRAP_VERBOSE="${BOOTSTRAP_VERBOSE:-1}"
 DEVTOOLS_HEADLESS="${DEVTOOLS_HEADLESS:-0}"
+BOOTSTRAP_LOG_PATH="${SETTA_BOOTSTRAP_LOG_PATH:-${SETTA_BACKEND_LOG_FILE:-${ROOT_DIR}/backend.log}}"
 
 CHROME_ARGS=()
 HEADLESS_CHROME_ARGS=()
@@ -243,28 +244,27 @@ PY
 }
 
 get_bootstrap_url() {
+  local status_payload=""
+  local status_url=""
+
   if [[ -f "${ROOT_DIR}/activate.sh" ]]; then
     # Ensure the python env is active for the Setta CLI.
     # shellcheck disable=SC1090
     source "${ROOT_DIR}/activate.sh"
   fi
   if ! command -v setta >/dev/null 2>&1; then
-    return 1
+    extract_bootstrap_url_from_runtime_log "${BOOTSTRAP_LOG_PATH}" || return 1
+    return 0
   fi
 
-  local status_payload=""
   status_payload="$(setta status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
-  if [[ "$status_payload" != __SETTA_JSON_B64__* ]]; then
-    return 1
-  fi
-
-  local b64_payload="${status_payload#__SETTA_JSON_B64__}"
-  local python_bin=""
-  python_bin="$(resolve_python_bin || true)"
-  if [[ -z "$python_bin" ]]; then
-    return 1
-  fi
-  SETTA_STATUS_B64="$b64_payload" "$python_bin" - <<'PY'
+  if [[ "$status_payload" == __SETTA_JSON_B64__* ]]; then
+    local b64_payload="${status_payload#__SETTA_JSON_B64__}"
+    local python_bin=""
+    python_bin="$(resolve_python_bin || true)"
+    if [[ -n "$python_bin" ]]; then
+      status_url="$(
+        SETTA_STATUS_B64="$b64_payload" "$python_bin" - <<'PY'
 import base64
 import json
 import os
@@ -277,6 +277,109 @@ data = json.loads(base64.b64decode(payload).decode("utf-8"))
 url = data.get("bootstrapUrlFragment", "") or data.get("bootstrapUrlPlain", "")
 if url:
     print(url)
+PY
+      )"
+    fi
+  fi
+
+  if [[ -n "${status_url}" ]]; then
+    printf '%s\n' "${status_url}"
+    return 0
+  fi
+
+  extract_bootstrap_url_from_runtime_log "${BOOTSTRAP_LOG_PATH}" || return 1
+}
+
+extract_bootstrap_url_from_runtime_log() {
+  local log_path="$1"
+  local python_bin=""
+
+  if [[ ! -f "${log_path}" ]]; then
+    return 1
+  fi
+
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "${python_bin}" ]]; then
+    return 1
+  fi
+
+  BOOTSTRAP_LOG_PATH_TO_PARSE="${log_path}" "$python_bin" - <<'PY'
+import os
+import re
+import sys
+from pathlib import Path
+
+BOOTSTRAP_URL_RE = re.compile(r"http://\S+/__setta__/bootstrap(?:#\S+)?")
+BIND_RE = re.compile(r"Bind:\s*([^\s:]+):(\d+)")
+SESSION_RE = re.compile(r"Setta running \(session ([^)]+)\)")
+TOKEN_RE = re.compile(r"and paste:\s*(\S+)")
+URL_TOKEN_RE = re.compile(r"[?#&]token=([^&#\s]+)")
+
+
+def parse_bootstrap_url(log_path: Path) -> str | None:
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+
+    blocks: list[dict[str, str | None]] = []
+    current: dict[str, str | None] | None = None
+
+    for line in lines:
+        session_match = SESSION_RE.search(line)
+        if session_match:
+            if current is not None:
+                blocks.append(current)
+            current = {
+                "session_id": session_match.group(1),
+                "bind_host": None,
+                "bind_port": None,
+                "bootstrap_url": None,
+                "token": None,
+            }
+            continue
+
+        if current is None:
+            continue
+
+        bind_match = BIND_RE.search(line)
+        if bind_match:
+            current["bind_host"] = bind_match.group(1)
+            current["bind_port"] = bind_match.group(2)
+
+        url_match = BOOTSTRAP_URL_RE.search(line)
+        if url_match:
+            url = url_match.group(0)
+            current["bootstrap_url"] = url
+            token_match = URL_TOKEN_RE.search(url)
+            if token_match:
+                current["token"] = token_match.group(1)
+
+        token_match = TOKEN_RE.search(line)
+        if token_match:
+            current["token"] = token_match.group(1)
+
+    if current is not None:
+        blocks.append(current)
+
+    for block in reversed(blocks):
+        bootstrap_url = block["bootstrap_url"]
+        if bootstrap_url and "${LOCAL_PORT}" not in bootstrap_url:
+            return bootstrap_url
+        bind_host = block["bind_host"]
+        bind_port = block["bind_port"]
+        token = block["token"]
+        if bind_host and bind_port and token:
+            return f"http://{bind_host}:{bind_port}/__setta__/bootstrap#token={token}"
+
+    return None
+
+
+bootstrap_url = parse_bootstrap_url(Path(os.environ["BOOTSTRAP_LOG_PATH_TO_PARSE"]))
+if bootstrap_url:
+    print(bootstrap_url)
+    sys.exit(0)
+sys.exit(1)
 PY
 }
 

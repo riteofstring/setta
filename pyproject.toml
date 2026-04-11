@@ -45,13 +45,14 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://setta.dev"
-GitHub = "https://github.com/settadev/setta"
+GitHub = "https://github.com/riteofstring/setta"
 
 [project.scripts]
 setta = "setta.start:cli"
 
 [project.optional-dependencies]
 dev = [
+    "boto3==1.42.85",
     "build==1.0.3",
     "pip-audit==2.9.0",
     "pytest==8.3.3",
