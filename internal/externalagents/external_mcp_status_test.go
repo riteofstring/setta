@@ -236,6 +236,35 @@ func TestBuildClaudeMCPStatusesUsesIDFallbackForMCPContainers(t *testing.T) {
 	}
 }
 
+func TestBuildClaudeMCPStatusesUsesNamedServerMapFallbackForMCPContainers(t *testing.T) {
+	t.Parallel()
+
+	now := func() time.Time { return time.Date(2026, 3, 20, 11, 6, 0, 0, time.UTC) }
+	statuses := buildClaudeMCPStatuses(map[string]any{
+		"message": map[string]any{
+			"mcp_servers": map[string]any{
+				"filesystem": map[string]any{
+					"status": "failed",
+					"error":  "spawn failed",
+				},
+				"skip-non-map": "not-a-row",
+			},
+		},
+	}, now)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one MCP status, got %#v", statuses)
+	}
+	if statuses[0].ServerID != "filesystem" {
+		t.Fatalf("unexpected server id %#v", statuses[0])
+	}
+	if statuses[0].State != mcpx.RuntimeStateError {
+		t.Fatalf("expected error status, got %#v", statuses[0])
+	}
+	if statuses[0].LastError == nil || *statuses[0].LastError != "spawn failed" {
+		t.Fatalf("expected last error to persist, got %#v", statuses[0])
+	}
+}
+
 func TestResolveExternalRuntimeStatePrefersDisabledAndKeepsMessageOnlyUnknown(t *testing.T) {
 	t.Parallel()
 
@@ -482,6 +511,38 @@ func TestRuntimeAttachMCPStatusSnapshotMutatesRunUntilExplicitSave(t *testing.T)
 	}
 	if _, ok := persistedAfterSave.Outputs[externalMCPStatusSnapshotKey].([]any); !ok {
 		t.Fatalf("expected snapshot after explicit save, got %#v", persistedAfterSave.Outputs)
+	}
+}
+
+func TestRuntimeUpsertMCPStatusesKeepsKnownStateWhenNextStateUnknown(t *testing.T) {
+	t.Parallel()
+
+	_, runtime := buildRuntimeFixture(t)
+	runID := "run-status-upsert"
+	runtime.activeRuns[runID] = runState{controller: &stubRunController{}}
+
+	if err := runtime.UpsertMCPStatuses(runID, []mcpx.ServerRuntimeStatus{{
+		ServerID: "filesystem",
+		State:    mcpx.RuntimeStateConnected,
+	}}); err != nil {
+		t.Fatalf("upsert initial status: %v", err)
+	}
+	if err := runtime.UpsertMCPStatuses(runID, []mcpx.ServerRuntimeStatus{{
+		ServerID: "filesystem",
+		State:    mcpx.RuntimeStateUnknown,
+	}}); err != nil {
+		t.Fatalf("upsert unknown status: %v", err)
+	}
+
+	statuses := runtime.MCPStatusesForRun(runID)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one runtime status, got %#v", statuses)
+	}
+	if statuses[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("expected known state to win over unknown update, got %#v", statuses[0])
+	}
+	if statuses[0].Source != externalMCPStatusSource {
+		t.Fatalf("expected blank source to default, got %#v", statuses[0])
 	}
 }
 

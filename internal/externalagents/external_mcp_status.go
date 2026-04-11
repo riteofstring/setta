@@ -31,29 +31,48 @@ func (r *Runtime) UpsertMCPStatuses(runID string, statuses []mcpx.ServerRuntimeS
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.activeRuns[trimmedRunID]; !ok {
-		return ErrRunNotActive
-	}
-	if _, ok := r.mcpStatuses[trimmedRunID]; !ok {
-		r.mcpStatuses[trimmedRunID] = map[string]mcpx.ServerRuntimeStatus{}
+	statusMap, err := r.ensureActiveRunMCPStatusesLocked(trimmedRunID)
+	if err != nil {
+		return err
 	}
 	for _, status := range statuses {
-		serverID := strings.TrimSpace(status.ServerID)
-		if serverID == "" {
+		serverID, nextStatus, ok := normalizeExternalRuntimeStatus(status)
+		if !ok {
 			continue
 		}
-		nextStatus := cloneMCPStatus(status)
-		nextStatus.ServerID = serverID
-		if strings.TrimSpace(nextStatus.Source) == "" {
-			nextStatus.Source = externalMCPStatusSource
-		}
-		existing, ok := r.mcpStatuses[trimmedRunID][serverID]
-		if ok && existing.State != mcpx.RuntimeStateUnknown && nextStatus.State == mcpx.RuntimeStateUnknown {
+		if existing, ok := statusMap[serverID]; ok && shouldSkipExternalRuntimeStatusUpdate(existing, nextStatus) {
 			continue
 		}
-		r.mcpStatuses[trimmedRunID][serverID] = nextStatus
+		statusMap[serverID] = nextStatus
 	}
 	return nil
+}
+
+func (r *Runtime) ensureActiveRunMCPStatusesLocked(runID string) (map[string]mcpx.ServerRuntimeStatus, error) {
+	if _, ok := r.activeRuns[runID]; !ok {
+		return nil, ErrRunNotActive
+	}
+	if _, ok := r.mcpStatuses[runID]; !ok {
+		r.mcpStatuses[runID] = map[string]mcpx.ServerRuntimeStatus{}
+	}
+	return r.mcpStatuses[runID], nil
+}
+
+func normalizeExternalRuntimeStatus(status mcpx.ServerRuntimeStatus) (string, mcpx.ServerRuntimeStatus, bool) {
+	serverID := strings.TrimSpace(status.ServerID)
+	if serverID == "" {
+		return "", mcpx.ServerRuntimeStatus{}, false
+	}
+	nextStatus := cloneMCPStatus(status)
+	nextStatus.ServerID = serverID
+	if strings.TrimSpace(nextStatus.Source) == "" {
+		nextStatus.Source = externalMCPStatusSource
+	}
+	return serverID, nextStatus, true
+}
+
+func shouldSkipExternalRuntimeStatusUpdate(existing mcpx.ServerRuntimeStatus, next mcpx.ServerRuntimeStatus) bool {
+	return existing.State != mcpx.RuntimeStateUnknown && next.State == mcpx.RuntimeStateUnknown
 }
 
 func (r *Runtime) ExternalRuntimeStatuses(chatID *string, engineConfigID *string) ([]mcpx.ServerRuntimeStatus, error) {
@@ -499,69 +518,108 @@ func extractExternalStatusPayloads(payload any, allowGenericServerContainers boo
 func extractExternalStatusPayloadsFromContainer(payload any, isMCPContainer bool, allowGenericServerContainers bool) []map[string]any {
 	switch typed := payload.(type) {
 	case map[string]any:
-		for _, key := range []string{"result", "message", "event", "stream_event", "data"} {
-			nestedPayloads := extractExternalStatusPayloadsFromContainer(typed[key], isMCPContainer, allowGenericServerContainers)
-			if len(nestedPayloads) > 0 {
-				return nestedPayloads
-			}
-		}
-		if nested := typed["mcp_servers"]; nested != nil {
-			return extractExternalStatusPayloadsFromContainer(nested, true, allowGenericServerContainers)
-		}
-		if allowGenericServerContainers {
-			if nested := typed["servers"]; nested != nil {
-				return extractExternalStatusPayloadsFromContainer(nested, true, allowGenericServerContainers)
-			}
-		}
-		if looksLikeExternalStatusEntry(typed, isMCPContainer) {
-			normalized := cloneAnyMap(typed)
-			if isMCPContainer && strings.TrimSpace(stringValue(normalized["serverId"])) == "" {
-				if serverID := resolveExternalServerID(normalized, true); serverID != "" {
-					normalized["serverId"] = serverID
-				}
-			}
-			if resolveExternalServerID(normalized, true) != "" {
-				return []map[string]any{normalized}
-			}
-		}
-		if !isMCPContainer {
-			return []map[string]any{}
-		}
-		rows := make([]map[string]any, 0, len(typed))
-		for serverID, rawRow := range typed {
-			row, ok := rawRow.(map[string]any)
-			if !ok || strings.TrimSpace(serverID) == "" {
-				continue
-			}
-			normalized := cloneAnyMap(row)
-			if strings.TrimSpace(stringValue(normalized["serverId"])) == "" {
-				normalized["serverId"] = serverID
-			}
-			if looksLikeExternalStatusEntry(normalized, true) {
-				rows = append(rows, normalized)
-			}
-		}
-		return rows
+		return extractExternalStatusPayloadsFromMap(typed, isMCPContainer, allowGenericServerContainers)
 	case []any:
-		rows := make([]map[string]any, 0, len(typed))
-		for _, rawRow := range typed {
-			row, ok := rawRow.(map[string]any)
-			if !ok {
-				continue
-			}
-			normalized := cloneAnyMap(row)
-			if isMCPContainer && strings.TrimSpace(stringValue(normalized["serverId"])) == "" {
-				if serverID := resolveExternalServerID(normalized, true); serverID != "" {
-					normalized["serverId"] = serverID
-				}
-			}
-			if looksLikeExternalStatusEntry(normalized, isMCPContainer) {
-				rows = append(rows, normalized)
-			}
-		}
-		return rows
+		return extractExternalStatusPayloadsFromList(typed, isMCPContainer)
 	default:
 		return []map[string]any{}
+	}
+}
+
+func extractExternalStatusPayloadsFromMap(payload map[string]any, isMCPContainer bool, allowGenericServerContainers bool) []map[string]any {
+	if nested := extractNestedExternalStatusPayloads(payload, isMCPContainer, allowGenericServerContainers); len(nested) > 0 {
+		return nested
+	}
+	if normalized, ok := normalizeExternalStatusRow(payload, isMCPContainer); ok {
+		return []map[string]any{normalized}
+	}
+	if !isMCPContainer {
+		return []map[string]any{}
+	}
+	return extractExternalStatusRowsFromServerMap(payload)
+}
+
+func extractNestedExternalStatusPayloads(payload map[string]any, isMCPContainer bool, allowGenericServerContainers bool) []map[string]any {
+	for _, key := range []string{"result", "message", "event", "stream_event", "data"} {
+		nestedPayloads := extractExternalStatusPayloadsFromContainer(payload[key], isMCPContainer, allowGenericServerContainers)
+		if len(nestedPayloads) > 0 {
+			return nestedPayloads
+		}
+	}
+	if nested := payload["mcp_servers"]; nested != nil {
+		return extractExternalStatusPayloadsFromContainer(nested, true, allowGenericServerContainers)
+	}
+	if allowGenericServerContainers {
+		if nested := payload["servers"]; nested != nil {
+			return extractExternalStatusPayloadsFromContainer(nested, true, allowGenericServerContainers)
+		}
+	}
+	return nil
+}
+
+func extractExternalStatusPayloadsFromList(payload []any, isMCPContainer bool) []map[string]any {
+	rows := make([]map[string]any, 0, len(payload))
+	for _, rawRow := range payload {
+		row, ok := rawRow.(map[string]any)
+		if !ok {
+			continue
+		}
+		if normalized, ok := normalizeExternalStatusRow(row, isMCPContainer); ok {
+			rows = append(rows, normalized)
+		}
+	}
+	return rows
+}
+
+func extractExternalStatusRowsFromServerMap(payload map[string]any) []map[string]any {
+	rows := make([]map[string]any, 0, len(payload))
+	for serverID, rawRow := range payload {
+		normalized, ok := normalizeExternalNamedStatusRow(serverID, rawRow)
+		if !ok {
+			continue
+		}
+		rows = append(rows, normalized)
+	}
+	return rows
+}
+
+func normalizeExternalStatusRow(row map[string]any, isMCPContainer bool) (map[string]any, bool) {
+	normalized := cloneAnyMap(row)
+	if isMCPContainer {
+		ensureExternalServerID(normalized, "")
+	}
+	if !looksLikeExternalStatusEntry(normalized, isMCPContainer) {
+		return nil, false
+	}
+	if resolveExternalServerID(normalized, true) == "" {
+		return nil, false
+	}
+	return normalized, true
+}
+
+func normalizeExternalNamedStatusRow(serverID string, rawRow any) (map[string]any, bool) {
+	row, ok := rawRow.(map[string]any)
+	if !ok || strings.TrimSpace(serverID) == "" {
+		return nil, false
+	}
+	normalized := cloneAnyMap(row)
+	ensureExternalServerID(normalized, serverID)
+	if !looksLikeExternalStatusEntry(normalized, true) {
+		return nil, false
+	}
+	return normalized, true
+}
+
+func ensureExternalServerID(row map[string]any, fallback string) {
+	if strings.TrimSpace(stringValue(row["serverId"])) != "" {
+		return
+	}
+	if serverID := resolveExternalServerID(row, true); serverID != "" {
+		row["serverId"] = serverID
+		return
+	}
+	if strings.TrimSpace(fallback) != "" {
+		row["serverId"] = fallback
 	}
 }
 
