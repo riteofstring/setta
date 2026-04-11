@@ -2,6 +2,7 @@ package appspec
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -66,45 +67,76 @@ func ValidateTheme(theme map[string]any) error {
 		return nil
 	}
 
-	if mode, ok := theme["mode"]; ok {
-		modeString, ok := mode.(string)
-		if !ok {
-			return fmt.Errorf("theme.mode must be a string")
-		}
-		if _, ok := allowedThemeModes[modeString]; !ok {
-			return fmt.Errorf("theme.mode must be one of: light, dark, auto")
-		}
-	}
-
-	if className, ok := theme["className"]; ok {
-		if _, ok := className.(string); !ok {
-			return fmt.Errorf("theme.className must be a string")
-		}
-	}
-
-	if motion, ok := theme["motion"]; ok {
-		motionObject, ok := motion.(map[string]any)
-		if !ok {
-			return fmt.Errorf("theme.motion must be an object")
-		}
-		for key, value := range motionObject {
-			if _, ok := allowedThemeMotionKeys[key]; !ok {
-				continue
-			}
-			switch key {
-			case "easing":
-				if _, ok := value.(string); !ok {
-					return fmt.Errorf("theme.motion.easing must be a string")
-				}
-			default:
-				if _, ok := asNumber(value); !ok {
-					return fmt.Errorf("theme.motion.%s must be a number", key)
-				}
-			}
+	for _, validate := range []func(map[string]any) error{
+		validateThemeMode,
+		validateThemeClassName,
+		validateThemeMotion,
+	} {
+		if err := validate(theme); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func validateThemeMode(theme map[string]any) error {
+	mode, ok := theme["mode"]
+	if !ok {
+		return nil
+	}
+	modeString, ok := mode.(string)
+	if !ok {
+		return fmt.Errorf("theme.mode must be a string")
+	}
+	if _, ok := allowedThemeModes[modeString]; ok {
+		return nil
+	}
+	return fmt.Errorf("theme.mode must be one of: light, dark, auto")
+}
+
+func validateThemeClassName(theme map[string]any) error {
+	className, ok := theme["className"]
+	if !ok {
+		return nil
+	}
+	if _, ok := className.(string); ok {
+		return nil
+	}
+	return fmt.Errorf("theme.className must be a string")
+}
+
+func validateThemeMotion(theme map[string]any) error {
+	motion, ok := theme["motion"]
+	if !ok {
+		return nil
+	}
+	motionObject, ok := motion.(map[string]any)
+	if !ok {
+		return fmt.Errorf("theme.motion must be an object")
+	}
+	for key, value := range motionObject {
+		if err := validateThemeMotionEntry(key, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateThemeMotionEntry(key string, value any) error {
+	if _, ok := allowedThemeMotionKeys[key]; !ok {
+		return nil
+	}
+	if key == "easing" {
+		if _, ok := value.(string); ok {
+			return nil
+		}
+		return fmt.Errorf("theme.motion.easing must be a string")
+	}
+	if _, ok := asNumber(value); ok {
+		return nil
+	}
+	return fmt.Errorf("theme.motion.%s must be a number", key)
 }
 
 func ValidateActionDefinitions(actionDefinitions map[string]any) error {
@@ -200,118 +232,209 @@ type validationState struct {
 	visited           map[string]struct{}
 }
 
+type validatedElementContext struct {
+	key           string
+	componentType string
+	props         map[string]any
+	binding       map[string]any
+}
+
 func validateElementTree(
 	element map[string]any,
 	elements map[string]map[string]any,
 	scopeConfigID *string,
 	state validationState,
 ) (int, error) {
+	context, alreadyVisited, err := validateElementContext(element, state)
+	if err != nil || alreadyVisited {
+		return 0, err
+	}
+
+	currentScopeConfigID := applyConfigScopeToElement(scopeConfigID, context, state.usedConfigIDs)
+	runActionCount, err := validateElementUsage(context, currentScopeConfigID, state)
+	if err != nil {
+		return 0, err
+	}
+
+	childRunCount, err := validateElementChildren(context.key, element, elements, currentScopeConfigID, state)
+	if err != nil {
+		return runActionCount, err
+	}
+
+	return runActionCount + childRunCount, nil
+}
+
+func validateElementContext(
+	element map[string]any,
+	state validationState,
+) (validatedElementContext, bool, error) {
 	keyValue, ok := element["key"].(string)
 	if !ok {
-		return 0, fmt.Errorf("App spec elements require a string key")
+		return validatedElementContext{}, false, fmt.Errorf("App spec elements require a string key")
 	}
 	if _, ok := state.visited[keyValue]; ok {
-		return 0, nil
+		return validatedElementContext{}, true, nil
 	}
 	state.visited[keyValue] = struct{}{}
 
 	componentType, ok := element["type"].(string)
 	if !ok {
-		return 0, fmt.Errorf("App spec element %q missing component type", keyValue)
+		return validatedElementContext{}, false, fmt.Errorf("App spec element %q missing component type", keyValue)
 	}
 
 	componentSchema, ok := state.catalog.Components[componentType]
 	if !ok {
-		return 0, fmt.Errorf("App spec element %q uses unknown component %q", keyValue, componentType)
+		return validatedElementContext{}, false, fmt.Errorf("App spec element %q uses unknown component %q", keyValue, componentType)
 	}
 
 	props, err := elementProps(element)
 	if err != nil {
-		return 0, fmt.Errorf("App spec element %q props must be an object", keyValue)
+		return validatedElementContext{}, false, fmt.Errorf("App spec element %q props must be an object", keyValue)
 	}
 	binding := resolveBindingRecord(state.dataBindings, getDataPath(props))
 
 	if err := validateChildrenAgainstCatalog(keyValue, componentSchema, element); err != nil {
-		return 0, err
+		return validatedElementContext{}, false, err
 	}
 	if err := validatePropsAgainstCatalog(keyValue, componentType, componentSchema, props, binding); err != nil {
-		return 0, err
+		return validatedElementContext{}, false, err
 	}
 
-	currentScopeConfigID := scopeConfigID
-	if componentType == "ConfigScope" {
-		configID := getPropString(props, "configId")
-		if configID != "" {
-			state.usedConfigIDs[configID] = struct{}{}
-			currentScopeConfigID = &configID
-		}
+	return validatedElementContext{
+		key:           keyValue,
+		componentType: componentType,
+		props:         props,
+		binding:       binding,
+	}, false, nil
+}
+
+func applyConfigScopeToElement(
+	scopeConfigID *string,
+	context validatedElementContext,
+	usedConfigIDs map[string]struct{},
+) *string {
+	if context.componentType != "ConfigScope" {
+		return scopeConfigID
 	}
 
-	runActionCount := 0
-	if componentType == "ActionButton" {
-		actionName := resolveActionName(props, binding)
-		if actionName != "" {
-			if _, ok := state.allowedActions[actionName]; !ok {
-				return 0, fmt.Errorf("App spec action %q is not registered (element %q)", actionName, keyValue)
-			}
-			actionType := resolveActionType(actionName, state.actionDefinitions[actionName])
-			if actionType == "run" {
-				runActionCount++
-			}
-			applyConfigScopeGuardrail(
-				keyValue,
-				currentScopeConfigID,
-				props,
-				binding,
-				state.usedConfigIDs,
-				state.unscopedKeys,
-				actionType,
-			)
-		}
+	configID := getPropString(context.props, "configId")
+	if configID == "" {
+		return scopeConfigID
 	}
-	if componentType == "ParamInput" || componentType == "TextOutput" || componentType == "ImageOutput" {
+
+	usedConfigIDs[configID] = struct{}{}
+	return &configID
+}
+
+func validateElementUsage(
+	context validatedElementContext,
+	scopeConfigID *string,
+	state validationState,
+) (int, error) {
+	if context.componentType == "ActionButton" {
+		return validateActionButtonUsage(context, scopeConfigID, state)
+	}
+	if requiresConfigScopeGuardrail(context.componentType) {
 		applyConfigScopeGuardrail(
-			keyValue,
-			currentScopeConfigID,
-			props,
-			binding,
+			context.key,
+			scopeConfigID,
+			context.props,
+			context.binding,
 			state.usedConfigIDs,
 			state.unscopedKeys,
 			"",
 		)
 	}
 
+	return 0, nil
+}
+
+func validateActionButtonUsage(
+	context validatedElementContext,
+	scopeConfigID *string,
+	state validationState,
+) (int, error) {
+	actionName := resolveActionName(context.props, context.binding)
+	if actionName == "" {
+		return 0, nil
+	}
+	if _, ok := state.allowedActions[actionName]; !ok {
+		return 0, fmt.Errorf("App spec action %q is not registered (element %q)", actionName, context.key)
+	}
+
+	actionType := resolveActionType(actionName, state.actionDefinitions[actionName])
+	applyConfigScopeGuardrail(
+		context.key,
+		scopeConfigID,
+		context.props,
+		context.binding,
+		state.usedConfigIDs,
+		state.unscopedKeys,
+		actionType,
+	)
+	if actionType == "run" {
+		return 1, nil
+	}
+
+	return 0, nil
+}
+
+func requiresConfigScopeGuardrail(componentType string) bool {
+	switch componentType {
+	case "ParamInput", "TextOutput", "ImageOutput":
+		return true
+	default:
+		return false
+	}
+}
+
+func validateElementChildren(
+	elementKey string,
+	element map[string]any,
+	elements map[string]map[string]any,
+	scopeConfigID *string,
+	state validationState,
+) (int, error) {
 	children, err := elementChildren(element)
 	if err != nil {
-		return runActionCount, fmt.Errorf("App spec element %q children must be a list", keyValue)
+		return 0, fmt.Errorf("App spec element %q children must be a list", elementKey)
 	}
+
+	runActionCount := 0
 	for _, child := range children {
-		switch typed := child.(type) {
-		case string:
-			childElement, ok := elements[typed]
-			if !ok {
-				return runActionCount, fmt.Errorf("App spec element %q references missing child %q", keyValue, typed)
-			}
-			childRunCount, err := validateElementTree(childElement, elements, currentScopeConfigID, state)
-			if err != nil {
-				return runActionCount, err
-			}
-			runActionCount += childRunCount
-		case map[string]any:
-			if !isUIElement(typed) {
-				return runActionCount, fmt.Errorf("App spec element %q children must be element keys or objects", keyValue)
-			}
-			childRunCount, err := validateElementTree(typed, elements, currentScopeConfigID, state)
-			if err != nil {
-				return runActionCount, err
-			}
-			runActionCount += childRunCount
-		default:
-			return runActionCount, fmt.Errorf("App spec element %q children must be element keys or objects", keyValue)
+		childElement, err := resolveChildElement(elementKey, child, elements)
+		if err != nil {
+			return runActionCount, err
 		}
+		childRunCount, err := validateElementTree(childElement, elements, scopeConfigID, state)
+		if err != nil {
+			return runActionCount, err
+		}
+		runActionCount += childRunCount
 	}
 
 	return runActionCount, nil
+}
+
+func resolveChildElement(
+	elementKey string,
+	child any,
+	elements map[string]map[string]any,
+) (map[string]any, error) {
+	switch typed := child.(type) {
+	case string:
+		childElement, ok := elements[typed]
+		if !ok {
+			return nil, fmt.Errorf("App spec element %q references missing child %q", elementKey, typed)
+		}
+		return childElement, nil
+	case map[string]any:
+		if isUIElement(typed) {
+			return typed, nil
+		}
+	}
+
+	return nil, fmt.Errorf("App spec element %q children must be element keys or objects", elementKey)
 }
 
 func validateChildrenAgainstCatalog(elementKey string, componentSchema ComponentSchema, element map[string]any) error {
@@ -403,40 +526,94 @@ func validateScalarPropValue(
 	value any,
 	propSchema PropSchema,
 ) error {
-	switch propSchema.Type {
-	case PropTypeString:
-		if _, ok := value.(string); !ok {
-			return fmt.Errorf("App spec element %q prop %q must be a string (component %q)", elementKey, propKey, componentType)
-		}
-	case PropTypeNumber, PropTypeDimension:
-		if propSchema.Type == PropTypeDimension {
-			if stringValue, ok := value.(string); ok {
-				if strings.TrimSpace(stringValue) == "" {
-					return fmt.Errorf("App spec element %q prop %q must be a non-empty string (component %q)", elementKey, propKey, componentType)
-				}
-				return nil
-			}
-		}
-		numericValue, ok := asNumber(value)
-		if !ok {
-			return fmt.Errorf("App spec element %q prop %q must be a number (component %q)", elementKey, propKey, componentType)
-		}
-		if propSchema.Min != nil && numericValue < *propSchema.Min {
-			return fmt.Errorf("App spec element %q prop %q must be >= %v (component %q)", elementKey, propKey, *propSchema.Min, componentType)
-		}
-		if propSchema.Max != nil && numericValue > *propSchema.Max {
-			return fmt.Errorf("App spec element %q prop %q must be <= %v (component %q)", elementKey, propKey, *propSchema.Max, componentType)
-		}
-	case PropTypeBoolean:
-		if _, ok := value.(bool); !ok {
-			return fmt.Errorf("App spec element %q prop %q must be a boolean (component %q)", elementKey, propKey, componentType)
-		}
+	if err := validateScalarPropType(elementKey, componentType, propKey, value, propSchema); err != nil {
+		return err
 	}
-
 	if len(propSchema.Enum) > 0 && !enumContains(propSchema.Enum, value) {
 		return fmt.Errorf("App spec element %q prop %q must be one of %v (component %q)", elementKey, propKey, propSchema.Enum, componentType)
 	}
 
+	return nil
+}
+
+func validateScalarPropType(
+	elementKey string,
+	componentType string,
+	propKey string,
+	value any,
+	propSchema PropSchema,
+) error {
+	switch propSchema.Type {
+	case PropTypeString:
+		return requireStringPropValue(elementKey, componentType, propKey, value)
+	case PropTypeNumber:
+		return validateNumericPropValue(elementKey, componentType, propKey, value, propSchema)
+	case PropTypeDimension:
+		return validateDimensionPropValue(elementKey, componentType, propKey, value, propSchema)
+	case PropTypeBoolean:
+		return requireBooleanPropValue(elementKey, componentType, propKey, value)
+	default:
+		return nil
+	}
+}
+
+func requireStringPropValue(elementKey string, componentType string, propKey string, value any) error {
+	if _, ok := value.(string); ok {
+		return nil
+	}
+	return fmt.Errorf("App spec element %q prop %q must be a string (component %q)", elementKey, propKey, componentType)
+}
+
+func requireBooleanPropValue(elementKey string, componentType string, propKey string, value any) error {
+	if _, ok := value.(bool); ok {
+		return nil
+	}
+	return fmt.Errorf("App spec element %q prop %q must be a boolean (component %q)", elementKey, propKey, componentType)
+}
+
+func validateDimensionPropValue(
+	elementKey string,
+	componentType string,
+	propKey string,
+	value any,
+	propSchema PropSchema,
+) error {
+	if stringValue, ok := value.(string); ok {
+		if strings.TrimSpace(stringValue) == "" {
+			return fmt.Errorf("App spec element %q prop %q must be a non-empty string (component %q)", elementKey, propKey, componentType)
+		}
+		return nil
+	}
+	return validateNumericPropValue(elementKey, componentType, propKey, value, propSchema)
+}
+
+func validateNumericPropValue(
+	elementKey string,
+	componentType string,
+	propKey string,
+	value any,
+	propSchema PropSchema,
+) error {
+	numericValue, ok := asNumber(value)
+	if !ok {
+		return fmt.Errorf("App spec element %q prop %q must be a number (component %q)", elementKey, propKey, componentType)
+	}
+	return validateNumericPropBounds(elementKey, componentType, propKey, numericValue, propSchema)
+}
+
+func validateNumericPropBounds(
+	elementKey string,
+	componentType string,
+	propKey string,
+	numericValue float64,
+	propSchema PropSchema,
+) error {
+	if propSchema.Min != nil && numericValue < *propSchema.Min {
+		return fmt.Errorf("App spec element %q prop %q must be >= %v (component %q)", elementKey, propKey, *propSchema.Min, componentType)
+	}
+	if propSchema.Max != nil && numericValue > *propSchema.Max {
+		return fmt.Errorf("App spec element %q prop %q must be <= %v (component %q)", elementKey, propKey, *propSchema.Max, componentType)
+	}
 	return nil
 }
 
@@ -446,43 +623,69 @@ func resolveAppSpec(appSpec any) (map[string]any, map[string]map[string]any, err
 		return nil, nil, fmt.Errorf("App spec must be an object")
 	}
 
-	elements := map[string]map[string]any{}
-	if rawElements, ok := appSpecObject["elements"]; ok {
-		elementsObject, ok := rawElements.(map[string]any)
-		if !ok {
-			return nil, nil, fmt.Errorf("App spec elements must be an object")
-		}
-		for key, value := range elementsObject {
-			element, ok := value.(map[string]any)
-			if !ok || !isUIElement(element) {
-				return nil, nil, fmt.Errorf("Invalid app spec element for key %q: each element must be an object with top-level string fields 'key' and 'type' (example: {\"key\":\"root\",\"type\":\"Stack\",\"props\":{},\"children\":[]})", key)
-			}
-			elementKey, _ := element["key"].(string)
-			if elementKey != key {
-				return nil, nil, fmt.Errorf("App spec element map key %q does not match element.key %q", key, elementKey)
-			}
-			elements[key] = element
-		}
+	elements, err := resolveAppSpecElements(appSpecObject)
+	if err != nil {
+		return nil, nil, err
 	}
+	rootElement, err := resolveAppSpecRoot(appSpecObject, elements)
+	if err != nil {
+		return nil, nil, err
+	}
+	return rootElement, elements, nil
+}
 
+func resolveAppSpecElements(appSpecObject map[string]any) (map[string]map[string]any, error) {
+	elements := map[string]map[string]any{}
+	rawElements, ok := appSpecObject["elements"]
+	if !ok {
+		return elements, nil
+	}
+	elementsObject, ok := rawElements.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("App spec elements must be an object")
+	}
+	for key, value := range elementsObject {
+		element, err := resolveNamedAppSpecElement(key, value)
+		if err != nil {
+			return nil, err
+		}
+		elements[key] = element
+	}
+	return elements, nil
+}
+
+func resolveNamedAppSpecElement(key string, value any) (map[string]any, error) {
+	element, ok := value.(map[string]any)
+	if !ok || !isUIElement(element) {
+		return nil, fmt.Errorf("Invalid app spec element for key %q: each element must be an object with top-level string fields 'key' and 'type' (example: {\"key\":\"root\",\"type\":\"Stack\",\"props\":{},\"children\":[]})", key)
+	}
+	elementKey, _ := element["key"].(string)
+	if elementKey != key {
+		return nil, fmt.Errorf("App spec element map key %q does not match element.key %q", key, elementKey)
+	}
+	return element, nil
+}
+
+func resolveAppSpecRoot(
+	appSpecObject map[string]any,
+	elements map[string]map[string]any,
+) (map[string]any, error) {
 	if rootValue, ok := appSpecObject["root"]; ok {
 		if rootElement, ok := rootValue.(map[string]any); ok && isUIElement(rootElement) {
-			return rootElement, elements, nil
+			return rootElement, nil
 		}
 		if rootKey, ok := rootValue.(string); ok {
 			rootElement, ok := elements[rootKey]
 			if !ok {
-				return nil, nil, fmt.Errorf("App spec root %q not found in elements", rootKey)
+				return nil, fmt.Errorf("App spec root %q not found in elements", rootKey)
 			}
-			return rootElement, elements, nil
+			return rootElement, nil
 		}
 	}
-
 	if isUIElement(appSpecObject) {
-		return appSpecObject, elements, nil
+		return appSpecObject, nil
 	}
-
-	return nil, nil, fmt.Errorf("App spec root must be a UI element or element key")
+	return nil, fmt.Errorf("App spec root must be a UI element or element key")
 }
 
 func isUIElement(value map[string]any) bool {
@@ -700,31 +903,17 @@ func enumContains(values []any, candidate any) bool {
 }
 
 func asNumber(value any) (float64, bool) {
-	switch typed := value.(type) {
-	case int:
-		return float64(typed), true
-	case int8:
-		return float64(typed), true
-	case int16:
-		return float64(typed), true
-	case int32:
-		return float64(typed), true
-	case int64:
-		return float64(typed), true
-	case uint:
-		return float64(typed), true
-	case uint8:
-		return float64(typed), true
-	case uint16:
-		return float64(typed), true
-	case uint32:
-		return float64(typed), true
-	case uint64:
-		return float64(typed), true
-	case float32:
-		return float64(typed), true
-	case float64:
-		return typed, true
+	if value == nil {
+		return 0, false
+	}
+	typedValue := reflect.ValueOf(value)
+	switch typedValue.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(typedValue.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return float64(typedValue.Uint()), true
+	case reflect.Float32, reflect.Float64:
+		return typedValue.Convert(reflect.TypeOf(float64(0))).Float(), true
 	default:
 		return 0, false
 	}

@@ -340,6 +340,54 @@ func TestValidateSpecAllowsMultipleRunButtonsWithMultipleRunActions(t *testing.T
 	}
 }
 
+func TestValidateSpecAllowsReferencedChildElements(t *testing.T) {
+	t.Parallel()
+
+	appSpec := map[string]any{
+		"root": "root",
+		"elements": map[string]any{
+			"root": map[string]any{
+				"key":  "root",
+				"type": "Stack",
+				"children": []any{
+					"heading",
+				},
+			},
+			"heading": map[string]any{
+				"key":  "heading",
+				"type": "Heading",
+				"props": map[string]any{
+					"text": "Hello",
+				},
+			},
+		},
+	}
+
+	if err := ValidateSpec(appSpec, ValidationOptions{CatalogID: DefaultCatalogID}); err != nil {
+		t.Fatalf("expected referenced child element to validate, got %v", err)
+	}
+}
+
+func TestValidateSpecRejectsMissingChildReference(t *testing.T) {
+	t.Parallel()
+
+	appSpec := map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+			"children": []any{
+				"missing-child",
+			},
+		},
+		"elements": map[string]any{},
+	}
+
+	err := ValidateSpec(appSpec, ValidationOptions{CatalogID: DefaultCatalogID})
+	if err == nil || !strings.Contains(err.Error(), "references missing child") {
+		t.Fatalf("expected missing child reference error, got %v", err)
+	}
+}
+
 func TestValidateSpecRejectsUnknownProp(t *testing.T) {
 	t.Parallel()
 
