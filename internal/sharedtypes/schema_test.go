@@ -12,6 +12,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/stringenumvalues"
+	"setta/internal/tools"
 	"setta/internal/wsapi"
 )
 
@@ -97,6 +98,51 @@ func TestBuildSchemaDocumentIncludesAuthoritativeRouteEnum(t *testing.T) {
 		if _, ok := routeValues[want]; !ok {
 			t.Fatalf("Route schema is missing %q", want)
 		}
+	}
+}
+
+func TestBuildSchemaDocumentIncludesToolArgumentPreviewMetadataContracts(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	previewKindSchema := document.Defs["PreviewKind"]
+	if previewKindSchema == nil {
+		t.Fatalf("expected PreviewKind schema in $defs")
+	}
+	values, ok, err := stringenumvalues.Default().Values(reflect.TypeOf(tools.PreviewKind("")))
+	if err != nil {
+		t.Fatalf("enum discovery error = %v", err)
+	}
+	if !ok || len(values) == 0 {
+		t.Fatalf("expected authoritative PreviewKind enum values")
+	}
+	if got, want := len(previewKindSchema.Enum), len(values); got != want {
+		t.Fatalf("PreviewKind enum count = %d, want %d", got, want)
+	}
+
+	targetIDsSchema := document.Defs["ToolArgumentPreviewTargetIDs"]
+	if targetIDsSchema == nil {
+		t.Fatalf("expected ToolArgumentPreviewTargetIDs schema in $defs")
+	}
+	for _, propertyName := range []string{"section", "codeObj"} {
+		if targetIDsSchema.Properties[propertyName] == nil {
+			t.Fatalf("expected ToolArgumentPreviewTargetIDs.%s property", propertyName)
+		}
+	}
+
+	eventSchema := document.Defs["ToolArgumentPreviewDeltaEvent"]
+	if eventSchema == nil {
+		t.Fatalf("expected ToolArgumentPreviewDeltaEvent schema in $defs")
+	}
+	if eventSchema.Properties["preview_kind"] == nil {
+		t.Fatalf("expected ToolArgumentPreviewDeltaEvent.preview_kind property")
+	}
+	if eventSchema.Properties["target_ids_by_type"] == nil {
+		t.Fatalf("expected ToolArgumentPreviewDeltaEvent.target_ids_by_type property")
 	}
 }
 

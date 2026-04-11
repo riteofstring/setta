@@ -173,7 +173,7 @@ func (s *liveRunState) followKey() (managedAIFollowChatKey, bool) {
 func extractManagedAIFollowIDsByType(chunk any) (map[string][]string, bool) {
 	switch typed := chunk.(type) {
 	case realtime.ToolArgumentPreviewDeltaEvent:
-		return normalizeManagedAIFollowIDsByType(typed.TargetIDsByType), true
+		return normalizeManagedAIFollowIDsByType(typed.TargetIDsByType.IDsByType()), true
 	case *realtime.ToolArgumentPreviewDeltaEvent:
 		if typed == nil {
 			return nil, false
@@ -390,35 +390,49 @@ func applyMessageDelta(messages []map[string]any, chunk realtime.MessageDeltaEve
 	message := cloneAnyMap(updated[index])
 	content := cloneContentList(message["content"])
 	for _, rawDelta := range chunk.Content {
-		switch delta := rawDelta.(type) {
-		case realtime.MessageTextDelta:
-			content = applyTextDelta(content, delta)
-		case *realtime.MessageTextDelta:
-			if delta != nil {
-				content = applyTextDelta(content, *delta)
-			}
-		case realtime.MessageThinkingDelta:
-			content = applyThinkingDelta(content, delta)
-		case *realtime.MessageThinkingDelta:
-			if delta != nil {
-				content = applyThinkingDelta(content, *delta)
-			}
-		case map[string]any:
-			normalized, ok := normalizeContentDelta(delta)
-			if !ok {
-				continue
-			}
-			switch typed := normalized.(type) {
-			case realtime.MessageTextDelta:
-				content = applyTextDelta(content, typed)
-			case realtime.MessageThinkingDelta:
-				content = applyThinkingDelta(content, typed)
-			}
-		}
+		content = applySingleMessageDelta(content, rawDelta)
 	}
 	message["content"] = content
 	updated[index] = message
 	return updated
+}
+
+func applySingleMessageDelta(content []any, rawDelta any) []any {
+	switch delta := rawDelta.(type) {
+	case realtime.MessageTextDelta:
+		return applyTextDelta(content, delta)
+	case *realtime.MessageTextDelta:
+		if delta == nil {
+			return content
+		}
+		return applyTextDelta(content, *delta)
+	case realtime.MessageThinkingDelta:
+		return applyThinkingDelta(content, delta)
+	case *realtime.MessageThinkingDelta:
+		if delta == nil {
+			return content
+		}
+		return applyThinkingDelta(content, *delta)
+	case map[string]any:
+		return applyNormalizedMessageDelta(content, delta)
+	default:
+		return content
+	}
+}
+
+func applyNormalizedMessageDelta(content []any, raw map[string]any) []any {
+	normalized, ok := normalizeContentDelta(raw)
+	if !ok {
+		return content
+	}
+	switch typed := normalized.(type) {
+	case realtime.MessageTextDelta:
+		return applyTextDelta(content, typed)
+	case realtime.MessageThinkingDelta:
+		return applyThinkingDelta(content, typed)
+	default:
+		return content
+	}
 }
 
 func normalizeContentDelta(raw map[string]any) (any, bool) {
@@ -552,43 +566,29 @@ func appendToolCallArgumentsDelta(
 func dereferenceStreamChunk(chunk any) any {
 	switch typed := chunk.(type) {
 	case *realtime.MessageStartEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
+		return dereferenceStreamChunkPointer(typed)
 	case *realtime.MessageDeltaEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
+		return dereferenceStreamChunkPointer(typed)
 	case *realtime.ToolCallDeltaEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
+		return dereferenceStreamChunkPointer(typed)
 	case *realtime.ToolArgumentPreviewDeltaEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
+		return dereferenceStreamChunkPointer(typed)
 	case *realtime.ToolResultEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
+		return dereferenceStreamChunkPointer(typed)
 	case *realtime.MessageStopEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
+		return dereferenceStreamChunkPointer(typed)
 	case *realtime.MessageFinalizedEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
+		return dereferenceStreamChunkPointer(typed)
 	default:
 		return chunk
 	}
+}
+
+func dereferenceStreamChunkPointer[T any](typed *T) any {
+	if typed == nil {
+		return nil
+	}
+	return *typed
 }
 
 func cloneStreamChunk(chunk any) any {
@@ -616,7 +616,7 @@ func cloneStreamChunk(chunk any) any {
 			ToolName:          typed.ToolName,
 			ArgumentsDelta:    typed.ArgumentsDelta,
 			PreviewKind:       typed.PreviewKind,
-			TargetIDsByType:   cloneStringSliceMap(typed.TargetIDsByType),
+			TargetIDsByType:   typed.TargetIDsByType.Clone(),
 			PreviewValueDelta: typed.PreviewValueDelta,
 		}
 	case realtime.ToolResultEvent:

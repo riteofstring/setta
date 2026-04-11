@@ -29,13 +29,13 @@ func TestToolPreviewAccumulatorBuildsAppSpecPatchEvent(t *testing.T) {
 	if event == nil {
 		t.Fatal("expected preview event")
 	}
-	if event.PreviewKind != string(tools.PreviewKindAppSpecPatch) {
+	if event.PreviewKind != tools.PreviewKindAppSpecPatch {
 		t.Fatalf("unexpected preview kind %#v", event)
 	}
 	if event.PreviewValueDelta != "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n" {
 		t.Fatalf("unexpected preview delta %q", event.PreviewValueDelta)
 	}
-	if len(event.TargetIDsByType) != 0 {
+	if len(event.TargetIDsByType.IDsByType()) != 0 {
 		t.Fatalf("expected empty target ids, got %#v", event.TargetIDsByType)
 	}
 

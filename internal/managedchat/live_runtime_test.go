@@ -177,13 +177,16 @@ func TestLiveRuntimeAIFollowSnapshotDedupesAndClears(t *testing.T) {
 		ChatID:          "chat-follow",
 		ProjectConfigID: stringPtr("project-alpha"),
 		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
-			Type:            realtime.StreamingEventTypeToolArgumentPreview,
-			MessageID:       "assistant-1",
-			ToolCallID:      "tool-call-1",
-			ToolName:        "setta__set_param_value",
-			ArgumentsDelta:  `{"sectionId":"section-2","codeObjId":"param-b"}`,
-			PreviewKind:     "paramValue",
-			TargetIDsByType: map[string][]string{"section": {"section-2", "section-1", "section-2"}, "codeObj": {"param-b", "param-a", "param-b"}},
+			Type:           realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:      "assistant-1",
+			ToolCallID:     "tool-call-1",
+			ToolName:       "setta__set_param_value",
+			ArgumentsDelta: `{"sectionId":"section-2","codeObjId":"param-b"}`,
+			PreviewKind:    "paramValue",
+			TargetIDsByType: realtime.ToolArgumentPreviewTargetIDs{
+				Section: []string{"section-2", "section-1", "section-2"},
+				CodeObj: []string{"param-b", "param-a", "param-b"},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("apply preview chunk: %v", err)
@@ -213,7 +216,7 @@ func TestLiveRuntimeAIFollowSnapshotDedupesAndClears(t *testing.T) {
 			ToolCallID:      "tool-call-1",
 			ToolName:        "setta__set_param_value",
 			PreviewKind:     "paramValue",
-			TargetIDsByType: map[string][]string{},
+			TargetIDsByType: realtime.ToolArgumentPreviewTargetIDs{},
 		},
 	}); err != nil {
 		t.Fatalf("apply clearing preview chunk: %v", err)
@@ -245,13 +248,16 @@ func TestLiveRuntimeApplyChunkBroadcastsManagedAIFollowUpdates(t *testing.T) {
 		ChatID:          "chat-follow",
 		ProjectConfigID: stringPtr("project-alpha"),
 		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
-			Type:            realtime.StreamingEventTypeToolArgumentPreview,
-			MessageID:       "assistant-1",
-			ToolCallID:      "tool-call-1",
-			ToolName:        "setta__set_param_value",
-			ArgumentsDelta:  `{"sectionId":"section-2","codeObjId":"param-b"}`,
-			PreviewKind:     "paramValue",
-			TargetIDsByType: map[string][]string{"section": {"section-2", "section-1", "section-2"}, "codeObj": {"param-b", "param-a", "param-b"}},
+			Type:           realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:      "assistant-1",
+			ToolCallID:     "tool-call-1",
+			ToolName:       "setta__set_param_value",
+			ArgumentsDelta: `{"sectionId":"section-2","codeObjId":"param-b"}`,
+			PreviewKind:    "paramValue",
+			TargetIDsByType: realtime.ToolArgumentPreviewTargetIDs{
+				Section: []string{"section-2", "section-1", "section-2"},
+				CodeObj: []string{"param-b", "param-a", "param-b"},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("apply preview chunk: %v", err)
@@ -276,7 +282,7 @@ func TestLiveRuntimeApplyChunkBroadcastsManagedAIFollowUpdates(t *testing.T) {
 			ToolCallID:      "tool-call-1",
 			ToolName:        "setta__set_param_value",
 			PreviewKind:     "paramValue",
-			TargetIDsByType: map[string][]string{},
+			TargetIDsByType: realtime.ToolArgumentPreviewTargetIDs{},
 		},
 	}); err != nil {
 		t.Fatalf("apply clearing preview chunk: %v", err)
@@ -311,12 +317,14 @@ func TestLiveRuntimeAIFollowSnapshotClearsOnDeactivate(t *testing.T) {
 		ChatID:          "chat-follow",
 		ProjectConfigID: stringPtr("project-alpha"),
 		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
-			Type:            realtime.StreamingEventTypeToolArgumentPreview,
-			MessageID:       "assistant-1",
-			ToolCallID:      "tool-call-1",
-			ToolName:        "setta__set_param_value",
-			PreviewKind:     "paramValue",
-			TargetIDsByType: map[string][]string{"section": {"section-1"}},
+			Type:        realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:   "assistant-1",
+			ToolCallID:  "tool-call-1",
+			ToolName:    "setta__set_param_value",
+			PreviewKind: "paramValue",
+			TargetIDsByType: realtime.ToolArgumentPreviewTargetIDs{
+				Section: []string{"section-1"},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("apply preview chunk: %v", err)

@@ -52,19 +52,8 @@ func newToolPreviewAccumulator() *toolPreviewAccumulator {
 }
 
 func (a *toolPreviewAccumulator) buildEvent(messageID string, state *toolCallState, metadata *tools.ToolArgumentPreviewMetadata, argumentsDelta string, temporaryToCanonical map[string]string) (*realtime.ToolArgumentPreviewDeltaEvent, error) {
-	if a == nil || state == nil || metadata == nil {
-		return nil, nil
-	}
-	if strings.TrimSpace(messageID) == "" {
-		return nil, nil
-	}
-	toolCallID := strings.TrimSpace(state.id)
-	toolName := strings.TrimSpace(state.name)
-	if toolCallID == "" || toolName == "" {
-		return nil, nil
-	}
-	buffer := state.arguments.String()
-	if buffer == "" {
+	toolCallID, toolName, buffer, ok := validateToolPreviewEventInputs(messageID, state, metadata)
+	if !ok {
 		return nil, nil
 	}
 
@@ -72,85 +61,33 @@ func (a *toolPreviewAccumulator) buildEvent(messageID string, state *toolCallSta
 	if err != nil {
 		return nil, err
 	}
-	previewValue, ok := extractPreviewValueFromTokens(tokens, metadata.PreviewValuePath)
-	if !ok {
-		return nil, nil
-	}
 
-	targetIDsByType, ok := canonicalizePreviewTargetIDsByType(
-		extractPreviewTargetIDsFromTokens(tokens, metadata.TargetIDPathsByType),
-		metadata.TargetIDPathsByType,
+	previewValue, targetIDsByType, ok := resolveToolPreviewPayload(
+		tokens,
+		metadata,
 		temporaryToCanonical,
 	)
 	if !ok {
 		return nil, nil
 	}
-
-	current := a.byIndex[state.index]
-	if current == nil {
-		current = &toolPreviewState{}
-		a.byIndex[state.index] = current
-	}
-
-	previewValue = coalescePreviewValue(current.previewValue, previewValue)
-	if current.previewValue != "" && !strings.HasPrefix(previewValue, current.previewValue) {
-		return nil, nil
-	}
-	previewDelta := previewValue[len(current.previewValue):]
-	if previewDelta == "" && previewIDSetsEqual(current.targetIDsByType, targetIDsByType) {
-		return nil, nil
-	}
-
-	current.previewValue = previewValue
-	current.targetIDsByType = cloneStringSliceMap(targetIDsByType)
-
-	return &realtime.ToolArgumentPreviewDeltaEvent{
-		Type:              realtime.StreamingEventTypeToolArgumentPreview,
-		MessageID:         messageID,
-		ToolCallID:        toolCallID,
-		ToolName:          toolName,
-		ArgumentsDelta:    argumentsDelta,
-		PreviewKind:       string(metadata.PreviewKind),
-		TargetIDsByType:   cloneStringSliceMap(targetIDsByType),
-		PreviewValueDelta: previewDelta,
-	}, nil
+	return a.finalizePreviewEvent(
+		messageID,
+		state.index,
+		toolCallID,
+		toolName,
+		argumentsDelta,
+		metadata.PreviewKind,
+		previewValue,
+		targetIDsByType,
+	), nil
 }
 
 func extractPreviewTargetIDsFromTokens(tokens []partialJSONStringToken, pathsByType map[tools.IDType][]string) map[tools.IDType][]string {
-	keysByType := map[tools.IDType]map[string]struct{}{}
-	for idType, paths := range pathsByType {
-		for _, path := range paths {
-			key := previewPathKey(path)
-			if key == "" {
-				continue
-			}
-			if keysByType[idType] == nil {
-				keysByType[idType] = map[string]struct{}{}
-			}
-			keysByType[idType][key] = struct{}{}
-		}
-	}
+	keysByType := previewKeysByType(pathsByType)
 	if len(keysByType) == 0 {
 		return nil
 	}
-
-	keyToTypes := map[string][]tools.IDType{}
-	for idType, keys := range keysByType {
-		for key := range keys {
-			keyToTypes[key] = append(keyToTypes[key], idType)
-		}
-	}
-
-	combined := map[tools.IDType][]string{}
-	for _, token := range tokens {
-		if !token.IsComplete || token.Value == "" || token.OwnerKey == "" {
-			continue
-		}
-		for _, idType := range keyToTypes[token.OwnerKey] {
-			combined[idType] = appendUniqueString(combined[idType], token.Value)
-		}
-	}
-	return combined
+	return collectPreviewTargetIDs(tokens, previewKeyOwners(keysByType))
 }
 
 func canonicalizePreviewTargetIDsByType(idsByType map[tools.IDType][]string, requiredPathsByType map[tools.IDType][]string, temporaryToCanonical map[string]string) (map[string][]string, bool) {
@@ -160,32 +97,9 @@ func canonicalizePreviewTargetIDsByType(idsByType map[tools.IDType][]string, req
 	if len(idsByType) == 0 || len(temporaryToCanonical) == 0 {
 		return nil, false
 	}
-
-	filtered := map[string][]string{}
-	for idType, ids := range idsByType {
-		if len(ids) == 0 {
-			continue
-		}
-		resolved := make([]string, 0, len(ids))
-		for _, id := range ids {
-			canonical, ok := temporaryToCanonical[id]
-			if !ok || strings.TrimSpace(canonical) == "" {
-				continue
-			}
-			resolved = appendUniqueString(resolved, canonical)
-		}
-		if len(resolved) != 0 {
-			filtered[string(idType)] = resolved
-		}
-	}
-
-	for idType, paths := range requiredPathsByType {
-		if len(paths) == 0 {
-			continue
-		}
-		if len(filtered[string(idType)]) == 0 {
-			return nil, false
-		}
+	filtered := resolveCanonicalPreviewIDs(idsByType, temporaryToCanonical)
+	if !previewTargetIDsSatisfied(filtered, requiredPathsByType) {
+		return nil, false
 	}
 	return filtered, true
 }
@@ -455,51 +369,219 @@ func parsePartialJSONStringWithEnd(buffer string, startIndex int) (string, int, 
 	var parsed strings.Builder
 	index := startIndex
 	for index < len(buffer) {
-		char := buffer[index]
-		if char == '"' {
-			return parsed.String(), index + 1, true, nil
+		nextIndex, complete, terminal, err := appendPartialJSONStringFragment(&parsed, buffer, index)
+		if err != nil {
+			return "", 0, false, err
 		}
-		if char != '\\' {
-			parsed.WriteByte(char)
-			index++
-			continue
+		if terminal {
+			return parsed.String(), nextIndex, complete, nil
 		}
-		index++
-		if index >= len(buffer) {
-			return parsed.String(), len(buffer), false, nil
-		}
-		escape := buffer[index]
-		switch escape {
-		case '"', '\\', '/':
-			parsed.WriteByte(escape)
-		case 'b':
-			parsed.WriteByte('\b')
-		case 'f':
-			parsed.WriteByte('\f')
-		case 'n':
-			parsed.WriteByte('\n')
-		case 'r':
-			parsed.WriteByte('\r')
-		case 't':
-			parsed.WriteByte('\t')
-		case 'u':
-			if index+4 >= len(buffer) {
-				return parsed.String(), len(buffer), false, nil
-			}
-			code := buffer[index+1 : index+5]
-			value, err := strconv.ParseUint(code, 16, 64)
-			if err != nil {
-				return "", 0, false, fmt.Errorf("decode partial json unicode escape %q: %w", code, err)
-			}
-			parsed.WriteRune(rune(value))
-			index += 5
-			continue
-		default:
-			parsed.WriteByte(escape)
-		}
-		index++
+		index = nextIndex
 	}
 	return parsed.String(), len(buffer), false, nil
+}
+
+func validateToolPreviewEventInputs(messageID string, state *toolCallState, metadata *tools.ToolArgumentPreviewMetadata) (string, string, string, bool) {
+	if state == nil || metadata == nil || strings.TrimSpace(messageID) == "" {
+		return "", "", "", false
+	}
+	toolCallID := strings.TrimSpace(state.id)
+	toolName := strings.TrimSpace(state.name)
+	buffer := state.arguments.String()
+	if toolCallID == "" || toolName == "" || buffer == "" {
+		return "", "", "", false
+	}
+	return toolCallID, toolName, buffer, true
+}
+
+func resolveToolPreviewPayload(tokens []partialJSONStringToken, metadata *tools.ToolArgumentPreviewMetadata, temporaryToCanonical map[string]string) (string, map[string][]string, bool) {
+	previewValue, ok := extractPreviewValueFromTokens(tokens, metadata.PreviewValuePath)
+	if !ok {
+		return "", nil, false
+	}
+	targetIDsByType, ok := canonicalizePreviewTargetIDsByType(
+		extractPreviewTargetIDsFromTokens(tokens, metadata.TargetIDPathsByType),
+		metadata.TargetIDPathsByType,
+		temporaryToCanonical,
+	)
+	if !ok {
+		return "", nil, false
+	}
+	return previewValue, targetIDsByType, true
+}
+
+func (a *toolPreviewAccumulator) previewState(index int) *toolPreviewState {
+	current := a.byIndex[index]
+	if current != nil {
+		return current
+	}
+	current = &toolPreviewState{}
+	a.byIndex[index] = current
+	return current
+}
+
+func (a *toolPreviewAccumulator) finalizePreviewEvent(messageID string, stateIndex int, toolCallID string, toolName string, argumentsDelta string, previewKind tools.PreviewKind, previewValue string, targetIDsByType map[string][]string) *realtime.ToolArgumentPreviewDeltaEvent {
+	current := a.previewState(stateIndex)
+	previewValue = coalescePreviewValue(current.previewValue, previewValue)
+	if !previewProgressed(current, previewValue, targetIDsByType) {
+		return nil
+	}
+	previewDelta := previewValue[len(current.previewValue):]
+	current.previewValue = previewValue
+	current.targetIDsByType = cloneStringSliceMap(targetIDsByType)
+	return &realtime.ToolArgumentPreviewDeltaEvent{
+		Type:              realtime.StreamingEventTypeToolArgumentPreview,
+		MessageID:         messageID,
+		ToolCallID:        toolCallID,
+		ToolName:          toolName,
+		ArgumentsDelta:    argumentsDelta,
+		PreviewKind:       previewKind,
+		TargetIDsByType:   realtime.NewToolArgumentPreviewTargetIDsFromMap(targetIDsByType),
+		PreviewValueDelta: previewDelta,
+	}
+}
+
+func previewProgressed(current *toolPreviewState, previewValue string, targetIDsByType map[string][]string) bool {
+	if current.previewValue != "" && !strings.HasPrefix(previewValue, current.previewValue) {
+		return false
+	}
+	previewDelta := previewValue[len(current.previewValue):]
+	return previewDelta != "" || !previewIDSetsEqual(current.targetIDsByType, targetIDsByType)
+}
+
+func previewKeysByType(pathsByType map[tools.IDType][]string) map[tools.IDType]map[string]struct{} {
+	keysByType := map[tools.IDType]map[string]struct{}{}
+	for idType, paths := range pathsByType {
+		for _, path := range paths {
+			key := previewPathKey(path)
+			if key == "" {
+				continue
+			}
+			if keysByType[idType] == nil {
+				keysByType[idType] = map[string]struct{}{}
+			}
+			keysByType[idType][key] = struct{}{}
+		}
+	}
+	return keysByType
+}
+
+func previewKeyOwners(keysByType map[tools.IDType]map[string]struct{}) map[string][]tools.IDType {
+	keyToTypes := map[string][]tools.IDType{}
+	for idType, keys := range keysByType {
+		for key := range keys {
+			keyToTypes[key] = append(keyToTypes[key], idType)
+		}
+	}
+	return keyToTypes
+}
+
+func collectPreviewTargetIDs(tokens []partialJSONStringToken, keyToTypes map[string][]tools.IDType) map[tools.IDType][]string {
+	combined := map[tools.IDType][]string{}
+	for _, token := range tokens {
+		if !token.IsComplete || token.Value == "" || token.OwnerKey == "" {
+			continue
+		}
+		for _, idType := range keyToTypes[token.OwnerKey] {
+			combined[idType] = appendUniqueString(combined[idType], token.Value)
+		}
+	}
+	return combined
+}
+
+func resolveCanonicalPreviewIDs(idsByType map[tools.IDType][]string, temporaryToCanonical map[string]string) map[string][]string {
+	filtered := map[string][]string{}
+	for idType, ids := range idsByType {
+		resolved := resolveCanonicalPreviewIDsForType(ids, temporaryToCanonical)
+		if len(resolved) != 0 {
+			filtered[string(idType)] = resolved
+		}
+	}
+	return filtered
+}
+
+func resolveCanonicalPreviewIDsForType(ids []string, temporaryToCanonical map[string]string) []string {
+	if len(ids) == 0 {
+		return nil
+	}
+	resolved := make([]string, 0, len(ids))
+	for _, id := range ids {
+		canonical, ok := temporaryToCanonical[id]
+		if !ok || strings.TrimSpace(canonical) == "" {
+			continue
+		}
+		resolved = appendUniqueString(resolved, canonical)
+	}
+	return resolved
+}
+
+func previewTargetIDsSatisfied(filtered map[string][]string, requiredPathsByType map[tools.IDType][]string) bool {
+	for idType, paths := range requiredPathsByType {
+		if len(paths) == 0 {
+			continue
+		}
+		if len(filtered[string(idType)]) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func appendPartialJSONStringFragment(parsed *strings.Builder, buffer string, index int) (int, bool, bool, error) {
+	char := buffer[index]
+	if char == '"' {
+		return index + 1, true, true, nil
+	}
+	if char != '\\' {
+		parsed.WriteByte(char)
+		return index + 1, false, false, nil
+	}
+	return appendEscapedPartialJSONStringFragment(parsed, buffer, index+1)
+}
+
+func appendEscapedPartialJSONStringFragment(parsed *strings.Builder, buffer string, index int) (int, bool, bool, error) {
+	if index >= len(buffer) {
+		return len(buffer), false, true, nil
+	}
+	escape := buffer[index]
+	switch escape {
+	case '"', '\\', '/':
+		parsed.WriteByte(escape)
+		return index + 1, false, false, nil
+	case 'b':
+		parsed.WriteByte('\b')
+		return index + 1, false, false, nil
+	case 'f':
+		parsed.WriteByte('\f')
+		return index + 1, false, false, nil
+	case 'n':
+		parsed.WriteByte('\n')
+		return index + 1, false, false, nil
+	case 'r':
+		parsed.WriteByte('\r')
+		return index + 1, false, false, nil
+	case 't':
+		parsed.WriteByte('\t')
+		return index + 1, false, false, nil
+	case 'u':
+		return appendUnicodeEscape(parsed, buffer, index)
+	default:
+		parsed.WriteByte(escape)
+		return index + 1, false, false, nil
+	}
+}
+
+func appendUnicodeEscape(parsed *strings.Builder, buffer string, index int) (int, bool, bool, error) {
+	if index+4 >= len(buffer) {
+		return len(buffer), false, true, nil
+	}
+	code := buffer[index+1 : index+5]
+	value, err := strconv.ParseUint(code, 16, 64)
+	if err != nil {
+		return 0, false, false, fmt.Errorf("decode partial json unicode escape %q: %w", code, err)
+	}
+	parsed.WriteRune(rune(value))
+	return index + 5, false, false, nil
 }
 
 func isWhitespace(value byte) bool {

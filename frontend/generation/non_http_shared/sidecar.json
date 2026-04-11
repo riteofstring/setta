@@ -2795,6 +2795,29 @@
       "schemaRef": "#/$defs/Position"
     },
     {
+      "name": "PreviewKind",
+      "kind": "enum",
+      "schemaRef": "#/$defs/PreviewKind",
+      "enumValues": [
+        {
+          "name": "code",
+          "value": "code"
+        },
+        {
+          "name": "paramValue",
+          "value": "paramValue"
+        },
+        {
+          "name": "callableName",
+          "value": "callableName"
+        },
+        {
+          "name": "appSpecPatch",
+          "value": "appSpecPatch"
+        }
+      ]
+    },
+    {
       "name": "ProjectChatWindowInstance",
       "kind": "model",
       "schemaRef": "#/$defs/ProjectChatWindowInstance"
@@ -5602,6 +5625,11 @@
       "name": "ToolArgumentPreviewDeltaEvent",
       "kind": "model",
       "schemaRef": "#/$defs/ToolArgumentPreviewDeltaEvent"
+    },
+    {
+      "name": "ToolArgumentPreviewTargetIDs",
+      "kind": "model",
+      "schemaRef": "#/$defs/ToolArgumentPreviewTargetIDs"
     },
     {
       "name": "ToolCall",

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"setta/internal/realtime"
+	"setta/internal/tools"
 )
 
 type managedChatStreamContractFixture struct {
@@ -200,7 +201,8 @@ func decodeManagedChatStreamContractChunk(t *testing.T, rawChunk json.RawMessage
 			ToolCallID:      stringValue(payload["tool_call_id"]),
 			ToolName:        stringValue(payload["tool_name"]),
 			ArgumentsDelta:  stringValue(payload["arguments_delta"]),
-			TargetIDsByType: targetIDsByType,
+			PreviewKind:     tools.PreviewKind(stringValue(payload["preview_kind"])),
+			TargetIDsByType: realtime.NewToolArgumentPreviewTargetIDsFromMap(targetIDsByType),
 		}
 	case realtime.StreamingEventTypeToolResult:
 		result, err := normalizeMessage(payload["result"])

@@ -18,7 +18,6 @@ from setta.llm.chat_toolkit import (
     user_message,
 )
 from setta.llm.chat_toolkit.stream_assembler import AssistantMessageBuilder
-from setta.mcp.tool_metadata import ToolArgumentPreviewIdType, ToolArgumentPreviewKind
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
     BaseChatMessageUnion,
@@ -37,9 +36,11 @@ from setta.types.generated.go_shared_types import (
     MessageTextContent,
     MessageTextDelta,
     MessageThinkingDelta,
+    PreviewKind,
     StreamingEventType,
     SystemChatMessage,
     ToolArgumentPreviewDeltaEvent,
+    ToolArgumentPreviewTargetIDs,
     ToolCall,
     ToolCallDeltaEvent,
     ToolChatMessage,
@@ -240,8 +241,8 @@ class ChatStreamEmitterClient:
         tool_call_id: str,
         tool_name: str,
         arguments_delta: str,
-        preview_kind: ToolArgumentPreviewKind,
-        target_ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]],
+        preview_kind: PreviewKind,
+        target_ids_by_type: ToolArgumentPreviewTargetIDs,
         preview_value_delta: str,
         section_id: ID | None = None,
     ) -> None:

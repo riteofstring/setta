@@ -11153,6 +11153,16 @@
       ],
       "additionalProperties": false
     },
+    "PreviewKind": {
+      "type": "string",
+      "title": "PreviewKind",
+      "enum": [
+        "code",
+        "paramValue",
+        "callableName",
+        "appSpecPatch"
+      ]
+    },
     "ProjectChatWindowInstance": {
       "type": "object",
       "properties": {
@@ -17579,19 +17589,10 @@
           "type": "string"
         },
         "preview_kind": {
-          "type": "string"
+          "$ref": "#/$defs/PreviewKind"
         },
         "target_ids_by_type": {
-          "type": "object",
-          "additionalProperties": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          }
+          "$ref": "#/$defs/ToolArgumentPreviewTargetIDs"
         },
         "preview_value_delta": {
           "type": "string"
@@ -17608,6 +17609,31 @@
         "target_ids_by_type",
         "preview_value_delta"
       ],
+      "additionalProperties": false
+    },
+    "ToolArgumentPreviewTargetIDs": {
+      "type": "object",
+      "properties": {
+        "section": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "codeObj": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "ToolArgumentPreviewTargetIDs",
       "additionalProperties": false
     },
     "ToolCall": {

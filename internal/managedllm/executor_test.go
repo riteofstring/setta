@@ -615,7 +615,7 @@ func TestExecutorExecuteStreamsManagedToolArgumentPreview(t *testing.T) {
 	if previewEvent.ToolName != "setta__stream_app_definition" {
 		t.Fatalf("unexpected preview event %#v", previewEvent)
 	}
-	if previewEvent.PreviewKind != string(tools.PreviewKindAppSpecPatch) {
+	if previewEvent.PreviewKind != tools.PreviewKindAppSpecPatch {
 		t.Fatalf("unexpected preview kind %#v", previewEvent)
 	}
 	if previewEvent.PreviewValueDelta != "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n" {
@@ -4784,7 +4784,7 @@ func TestExecutorExecuteEmitsOpenAIResponsesToolPreviewFromCompletedFallback(t *
 	if previewEvent == nil {
 		t.Fatalf("expected tool preview event in %#v", broadcaster.Messages())
 	}
-	if previewEvent.PreviewKind != string(tools.PreviewKindAppSpecPatch) {
+	if previewEvent.PreviewKind != tools.PreviewKindAppSpecPatch {
 		t.Fatalf("unexpected preview kind %#v", previewEvent)
 	}
 	if previewEvent.PreviewValueDelta != "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n" {
@@ -4977,7 +4977,7 @@ func TestExecutorExecuteEmitsOpenAIResponsesToolPreviewFromArgumentsDoneEvent(t 
 	if previewEvent == nil {
 		t.Fatalf("expected tool preview event in %#v", broadcaster.Messages())
 	}
-	if previewEvent.PreviewKind != string(tools.PreviewKindAppSpecPatch) {
+	if previewEvent.PreviewKind != tools.PreviewKindAppSpecPatch {
 		t.Fatalf("unexpected preview kind %#v", previewEvent)
 	}
 	if previewEvent.PreviewValueDelta != "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n" {
@@ -5155,7 +5155,7 @@ func TestExecutorExecuteEmitsOpenAIResponsesToolPreviewFromFunctionCallItemDoneE
 	if previewEvent == nil {
 		t.Fatalf("expected tool preview event in %#v", broadcaster.Messages())
 	}
-	if previewEvent.PreviewKind != string(tools.PreviewKindAppSpecPatch) {
+	if previewEvent.PreviewKind != tools.PreviewKindAppSpecPatch {
 		t.Fatalf("unexpected preview kind %#v", previewEvent)
 	}
 	if previewEvent.PreviewValueDelta != "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n" {

@@ -12,6 +12,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/settingsstate"
+	"setta/internal/tools"
 	"setta/internal/transcriptionprofiles"
 )
 
@@ -162,15 +163,20 @@ type ToolResultEvent struct {
 	Result map[string]any     `json:"result" ts_type:"ToolChatMessage" shared_schema_ref:"ToolChatMessage"`
 }
 
+type ToolArgumentPreviewTargetIDs struct {
+	Section []string `json:"section,omitempty"`
+	CodeObj []string `json:"codeObj,omitempty"`
+}
+
 type ToolArgumentPreviewDeltaEvent struct {
-	Type              StreamingEventType  `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_argument_preview_delta" shared_discriminator:"tool_argument_preview_delta"`
-	MessageID         string              `json:"message_id"`
-	ToolCallID        string              `json:"tool_call_id"`
-	ToolName          string              `json:"tool_name"`
-	ArgumentsDelta    string              `json:"arguments_delta"`
-	PreviewKind       string              `json:"preview_kind"`
-	TargetIDsByType   map[string][]string `json:"target_ids_by_type"`
-	PreviewValueDelta string              `json:"preview_value_delta"`
+	Type              StreamingEventType           `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_argument_preview_delta" shared_discriminator:"tool_argument_preview_delta"`
+	MessageID         string                       `json:"message_id"`
+	ToolCallID        string                       `json:"tool_call_id"`
+	ToolName          string                       `json:"tool_name"`
+	ArgumentsDelta    string                       `json:"arguments_delta"`
+	PreviewKind       tools.PreviewKind            `json:"preview_kind"`
+	TargetIDsByType   ToolArgumentPreviewTargetIDs `json:"target_ids_by_type"`
+	PreviewValueDelta string                       `json:"preview_value_delta"`
 }
 
 type MessageStopEvent struct {
@@ -458,6 +464,44 @@ func NewListenerCoverageSnapshotMessage(content ListenerCoverageSnapshot) Listen
 			HasRealtimeWildcard: content.HasRealtimeWildcard,
 		},
 	}
+}
+
+func NewToolArgumentPreviewTargetIDsFromMap(idsByType map[string][]string) ToolArgumentPreviewTargetIDs {
+	if len(idsByType) == 0 {
+		return ToolArgumentPreviewTargetIDs{}
+	}
+	return ToolArgumentPreviewTargetIDs{
+		Section: cloneToolArgumentPreviewTargetIDsList(idsByType[string(tools.IDTypeSection)]),
+		CodeObj: cloneToolArgumentPreviewTargetIDsList(idsByType[string(tools.IDTypeCodeObject)]),
+	}
+}
+
+func (ids ToolArgumentPreviewTargetIDs) Clone() ToolArgumentPreviewTargetIDs {
+	return ToolArgumentPreviewTargetIDs{
+		Section: cloneToolArgumentPreviewTargetIDsList(ids.Section),
+		CodeObj: cloneToolArgumentPreviewTargetIDsList(ids.CodeObj),
+	}
+}
+
+func (ids ToolArgumentPreviewTargetIDs) IDsByType() map[string][]string {
+	result := map[string][]string{}
+	if len(ids.Section) > 0 {
+		result[string(tools.IDTypeSection)] = cloneToolArgumentPreviewTargetIDsList(ids.Section)
+	}
+	if len(ids.CodeObj) > 0 {
+		result[string(tools.IDTypeCodeObject)] = cloneToolArgumentPreviewTargetIDsList(ids.CodeObj)
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func cloneToolArgumentPreviewTargetIDsList(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	return append([]string(nil), values...)
 }
 
 func NewUpdateArtifactsMessage(content UpdateArtifactsContent) UpdateArtifactsMessage {

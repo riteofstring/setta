@@ -828,6 +828,13 @@ class PasswordParamCodeObjImpl(BaseModel):
     hasSecret: bool
 
 
+class PreviewKind(StrEnum):
+    code = "code"
+    paramValue = "paramValue"
+    callableName = "callableName"
+    appSpecPatch = "appSpecPatch"
+
+
 class ProjectCodegenLanguage(StrEnum):
     python = "python"
 
@@ -1644,18 +1651,12 @@ class TimeParamCodeObjImpl(BaseModel):
     timeDisplayFont: TimeDisplayFont
 
 
-class ToolArgumentPreviewDeltaEvent(BaseModel):
+class ToolArgumentPreviewTargetIDs(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    type: Literal["tool_argument_preview_delta"]
-    message_id: str
-    tool_call_id: str
-    tool_name: str
-    arguments_delta: str
-    preview_kind: str
-    target_ids_by_type: dict[str, list[str] | None]
-    preview_value_delta: str
+    section: list[str] | None = None
+    codeObj: list[str] | None = None
 
 
 class ToolCallDeltaEvent(BaseModel):
@@ -2313,6 +2314,20 @@ class TextParamCodeObjImpl(BaseModel):
     defaultVal: str
     value: str
     uiType: TextParamInputUIType
+
+
+class ToolArgumentPreviewDeltaEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: Literal["tool_argument_preview_delta"]
+    message_id: str
+    tool_call_id: str
+    tool_name: str
+    arguments_delta: str
+    preview_kind: PreviewKind
+    target_ids_by_type: ToolArgumentPreviewTargetIDs
+    preview_value_delta: str
 
 
 class ToolCall(BaseModel):

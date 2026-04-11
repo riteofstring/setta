@@ -454,6 +454,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(realtime.MessageDeltaEvent{}),
 		reflect.TypeOf(realtime.ToolCallDeltaEvent{}),
 		reflect.TypeOf(realtime.ToolResultEvent{}),
+		reflect.TypeOf(realtime.ToolArgumentPreviewTargetIDs{}),
 		reflect.TypeOf(realtime.ToolArgumentPreviewDeltaEvent{}),
 		reflect.TypeOf(realtime.MessageStopEvent{}),
 		reflect.TypeOf(realtime.MessageFinalizedEvent{}),

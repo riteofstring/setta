@@ -213,13 +213,13 @@ func TestExecutorExecuteStreamsTargetedToolArgumentPreviewKinds(t *testing.T) {
 			if previewEvent.ToolName != testCase.toolName {
 				t.Fatalf("unexpected preview event %#v", previewEvent)
 			}
-			if previewEvent.PreviewKind != string(testCase.expectedKind) {
+			if previewEvent.PreviewKind != testCase.expectedKind {
 				t.Fatalf("unexpected preview kind %#v", previewEvent)
 			}
 			if previewEvent.PreviewValueDelta != testCase.expectedValue {
 				t.Fatalf("unexpected preview delta %#v", previewEvent)
 			}
-			if !previewStringSliceMapsEqual(previewEvent.TargetIDsByType, testCase.expectedTargetIDs) {
+			if !previewStringSliceMapsEqual(previewEvent.TargetIDsByType.IDsByType(), testCase.expectedTargetIDs) {
 				t.Fatalf("unexpected target ids %#v", previewEvent.TargetIDsByType)
 			}
 		})

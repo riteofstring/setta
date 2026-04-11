@@ -1850,13 +1850,15 @@ func TestRegisterAIRoutesReturnsManagedAndExternalAIFollowSnapshot(t *testing.T)
 		ChatID:          "chat-managed",
 		ProjectConfigID: stringPtr("project-alpha"),
 		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
-			Type:            realtime.StreamingEventTypeToolArgumentPreview,
-			MessageID:       "assistant-managed",
-			ToolCallID:      "tool-call-managed",
-			ToolName:        mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
-			ArgumentsDelta:  `{"sectionId":"section-managed"}`,
-			PreviewKind:     "paramValue",
-			TargetIDsByType: map[string][]string{"section": {"section-managed", "section-managed"}},
+			Type:           realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:      "assistant-managed",
+			ToolCallID:     "tool-call-managed",
+			ToolName:       mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+			ArgumentsDelta: `{"sectionId":"section-managed"}`,
+			PreviewKind:    "paramValue",
+			TargetIDsByType: realtime.ToolArgumentPreviewTargetIDs{
+				Section: []string{"section-managed", "section-managed"},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("apply managed preview chunk: %v", err)
@@ -2014,13 +2016,15 @@ func TestRegisterAIRoutesAllowDeploymentAIFollowSnapshotWhenLLMAccessEnabled(t *
 		ChatID:          "chat-managed",
 		ProjectConfigID: stringPtr("project-alpha"),
 		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
-			Type:            realtime.StreamingEventTypeToolArgumentPreview,
-			MessageID:       "assistant-managed",
-			ToolCallID:      "tool-call-managed",
-			ToolName:        mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
-			ArgumentsDelta:  `{"sectionId":"section-managed"}`,
-			PreviewKind:     "paramValue",
-			TargetIDsByType: map[string][]string{"section": {"section-managed"}},
+			Type:           realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:      "assistant-managed",
+			ToolCallID:     "tool-call-managed",
+			ToolName:       mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+			ArgumentsDelta: `{"sectionId":"section-managed"}`,
+			PreviewKind:    "paramValue",
+			TargetIDsByType: realtime.ToolArgumentPreviewTargetIDs{
+				Section: []string{"section-managed"},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("apply managed preview chunk: %v", err)
@@ -2088,13 +2092,15 @@ func TestRegisterAIRoutesAIFollowSnapshotPreservesExactProjectConfigIDMatching(t
 		ChatID:          "chat-managed",
 		ProjectConfigID: stringPtr("project-alpha"),
 		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
-			Type:            realtime.StreamingEventTypeToolArgumentPreview,
-			MessageID:       "assistant-managed",
-			ToolCallID:      "tool-call-managed",
-			ToolName:        mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
-			ArgumentsDelta:  `{"sectionId":"section-managed"}`,
-			PreviewKind:     "paramValue",
-			TargetIDsByType: map[string][]string{"section": {"section-managed"}},
+			Type:           realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:      "assistant-managed",
+			ToolCallID:     "tool-call-managed",
+			ToolName:       mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+			ArgumentsDelta: `{"sectionId":"section-managed"}`,
+			PreviewKind:    "paramValue",
+			TargetIDsByType: realtime.ToolArgumentPreviewTargetIDs{
+				Section: []string{"section-managed"},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("apply managed preview chunk: %v", err)

@@ -26,6 +26,7 @@ import (
 	realtime "setta/internal/realtime"
 	scriptablechat "setta/internal/scriptablechat"
 	settingsstate "setta/internal/settingsstate"
+	tools "setta/internal/tools"
 	transcriptionprofiles "setta/internal/transcriptionprofiles"
 	uisettings "setta/internal/uisettings"
 	wsapi "setta/internal/wsapi"
@@ -388,6 +389,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(plugins.PluginsStateFile{}):                                          "PluginsStateFile",
 	reflect.TypeOf(deployments.Policy{}):                                                "Policy",
 	reflect.TypeOf(projectstate.Position{}):                                             "Position",
+	reflect.TypeOf(tools.PreviewKind("")):                                               "PreviewKind",
 	reflect.TypeOf(projectstate.ProjectChatWindowInstance{}):                            "ProjectChatWindowInstance",
 	reflect.TypeOf(projectstate.ProjectChatWindowingState{}):                            "ProjectChatWindowingState",
 	reflect.TypeOf(projectview.ProjectCodegenLanguage("")):                              "ProjectCodegenLanguage",
@@ -533,6 +535,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.FrontendTimeParamCodeObjImpl{}):                         "TimeParamCodeObjImpl",
 	reflect.TypeOf(projectstate.ToggleParamSelectedInput{}):                             "ToggleParamSelectedInput",
 	reflect.TypeOf(realtime.ToolArgumentPreviewDeltaEvent{}):                            "ToolArgumentPreviewDeltaEvent",
+	reflect.TypeOf(realtime.ToolArgumentPreviewTargetIDs{}):                             "ToolArgumentPreviewTargetIDs",
 	reflect.TypeOf(scriptablechat.ToolCall{}):                                           "ToolCall",
 	reflect.TypeOf(realtime.ToolCallDeltaEvent{}):                                       "ToolCallDeltaEvent",
 	reflect.TypeOf(scriptablechat.ToolCallFunction{}):                                   "ToolCallFunction",

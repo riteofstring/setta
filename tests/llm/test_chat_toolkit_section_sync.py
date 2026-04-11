@@ -2,7 +2,6 @@ from setta.llm.chat_toolkit.section_sync import (
     apply_stream_delta,
     build_chat_section_state,
 )
-from setta.mcp.tool_metadata import ToolArgumentPreviewKind
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
     MessageDeltaEvent,
@@ -12,9 +11,11 @@ from setta.types.generated.go_shared_types import (
     MessageTextDelta,
     MessageThinkingContent,
     MessageThinkingDelta,
+    PreviewKind,
     StreamingEventType,
     ToolChatMessage,
     ToolArgumentPreviewDeltaEvent,
+    ToolArgumentPreviewTargetIDs,
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
@@ -99,8 +100,8 @@ class TestChatSectionSync:
             tool_call_id="tool-1",
             tool_name="setta__tool",
             arguments_delta='"ok"}',
-            preview_kind=ToolArgumentPreviewKind.code,
-            target_ids_by_type={"section": []},
+            preview_kind=PreviewKind.code,
+            target_ids_by_type=ToolArgumentPreviewTargetIDs(section=[]),
             preview_value_delta="ok",
         )
         updated = apply_stream_delta(state=updated, chunk=preview_delta)

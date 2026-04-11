@@ -3961,6 +3961,11 @@ export type Position = {
 };
 
 /**
+ * PreviewKind
+ */
+type PreviewKind = "code" | "paramValue" | "callableName" | "appSpecPatch";
+
+/**
  * ProjectChatWindowInstance
  */
 export type ProjectChatWindowInstance = {
@@ -6136,14 +6141,20 @@ type ToggleParamSelectedInput = {
 export type ToolArgumentPreviewDeltaEvent = {
   arguments_delta: string;
   message_id: string;
-  preview_kind: string;
+  preview_kind: PreviewKind;
   preview_value_delta: string;
-  target_ids_by_type: {
-    [key: string]: null | Array<string>;
-  };
+  target_ids_by_type: ToolArgumentPreviewTargetIDs;
   tool_call_id: string;
   tool_name: string;
   type: StreamingEventType;
+};
+
+/**
+ * ToolArgumentPreviewTargetIDs
+ */
+type ToolArgumentPreviewTargetIDs = {
+  codeObj?: null | Array<string>;
+  section?: null | Array<string>;
 };
 
 /**
