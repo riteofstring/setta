@@ -158,57 +158,18 @@ func (s *codeUpdateService) ReloadBoundCodeFile(ctx context.Context, raw string,
 	}
 
 	signatureObserver := newWatchCodeSignatureObserver(s.callableSignatures)
-	projectIDs := make([]string, 0, len(orderedBindings))
-	for _, binding := range orderedBindings {
-		projectIDs = append(projectIDs, binding.ProjectID)
-	}
-	typeCheckProjectIDs := map[string]struct{}{}
-	snapshot, err := s.projectState.MutateAndSaveReconcilePythonGeneratedSections(
+	projectIDs := boundCodeBindingProjectIDs(orderedBindings)
+	snapshot, typeCheckProjectIDs, err := s.reloadBoundCodeBindings(
 		ctx,
+		raw,
 		projectIDs,
-		func(document projectstate.Document) (projectstate.Document, error) {
-			for _, binding := range orderedBindings {
-				project, ok := document.Projects[binding.ProjectID]
-				if !ok {
-					continue
-				}
-
-				if _, err := project.SetBoundCodeSectionContent(binding.SectionID, raw); err != nil {
-					return document, err
-				}
-
-				boundSection, ok, err := project.ResolveWatchCodeBoundSection(binding.SectionID, s.workspaceRoot)
-				if err != nil {
-					return document, err
-				}
-				document.Projects[project.ID] = project
-				if !ok {
-					continue
-				}
-
-				if s.lspSync != nil {
-					if err := s.lspSync.SyncWatchCodeBoundSection(ctx, boundSection); err != nil {
-						return document, err
-					}
-				}
-				if _, err := project.ApplyWatchCodeBoundSectionUpdate(
-					ctx,
-					binding.SectionID,
-					s.workspaceRoot,
-					signatureObserver,
-				); err != nil {
-					return document, err
-				}
-				typeCheckProjectIDs[project.ID] = struct{}{}
-				document.Projects[project.ID] = project
-			}
-			return document, nil
-		},
+		orderedBindings,
+		signatureObserver,
 	)
 	if err != nil {
 		return err
 	}
-	if err := s.typeCheckProjects(ctx, snapshot.Document, mapKeysSorted(typeCheckProjectIDs)); err != nil {
+	if err := s.typeCheckProjects(ctx, snapshot.Document, typeCheckProjectIDs); err != nil {
 		return err
 	}
 	if err := s.broadcastProjectStateUpdates(ctx, snapshot, projectIDs); err != nil {
@@ -216,6 +177,110 @@ func (s *codeUpdateService) ReloadBoundCodeFile(ctx context.Context, raw string,
 	}
 
 	return s.broadcastWatchCodeWarnings(ctx, snapshot.Document, projectIDs, signatureObserver.Attempts())
+}
+
+func (s *codeUpdateService) reloadBoundCodeBindings(
+	ctx context.Context,
+	raw string,
+	projectIDs []string,
+	orderedBindings []boundcode.Binding,
+	signatureObserver *watchCodeSignatureObserver,
+) (projectstate.Snapshot, []string, error) {
+	typeCheckProjectIDs := map[string]struct{}{}
+	snapshot, err := s.projectState.MutateAndSaveReconcilePythonGeneratedSections(
+		ctx,
+		projectIDs,
+		func(document projectstate.Document) (projectstate.Document, error) {
+			for _, binding := range orderedBindings {
+				updatedDocument, err := s.reloadBoundCodeBinding(
+					ctx,
+					document,
+					binding,
+					raw,
+					signatureObserver,
+					typeCheckProjectIDs,
+				)
+				if err != nil {
+					return document, err
+				}
+				document = updatedDocument
+			}
+			return document, nil
+		},
+	)
+	if err != nil {
+		return projectstate.Snapshot{}, nil, err
+	}
+	return snapshot, mapKeysSorted(typeCheckProjectIDs), nil
+}
+
+func (s *codeUpdateService) reloadBoundCodeBinding(
+	ctx context.Context,
+	document projectstate.Document,
+	binding boundcode.Binding,
+	raw string,
+	signatureObserver *watchCodeSignatureObserver,
+	typeCheckProjectIDs map[string]struct{},
+) (projectstate.Document, error) {
+	project, ok := document.Projects[binding.ProjectID]
+	if !ok {
+		return document, nil
+	}
+
+	updatedProject, needsTypeCheck, err := s.reloadBoundCodeProject(
+		ctx,
+		project,
+		binding,
+		raw,
+		signatureObserver,
+	)
+	if err != nil {
+		return document, err
+	}
+	document.Projects[updatedProject.ID] = updatedProject
+	if needsTypeCheck {
+		typeCheckProjectIDs[updatedProject.ID] = struct{}{}
+	}
+	return document, nil
+}
+
+func (s *codeUpdateService) reloadBoundCodeProject(
+	ctx context.Context,
+	project projectstate.Project,
+	binding boundcode.Binding,
+	raw string,
+	signatureObserver *watchCodeSignatureObserver,
+) (projectstate.Project, bool, error) {
+	if _, err := project.SetBoundCodeSectionContent(binding.SectionID, raw); err != nil {
+		return project, false, err
+	}
+
+	boundSection, ok, err := project.ResolveWatchCodeBoundSection(binding.SectionID, s.workspaceRoot)
+	if err != nil {
+		return project, false, err
+	}
+	if !ok {
+		return project, false, nil
+	}
+	if err := s.syncBoundCodeSection(ctx, boundSection); err != nil {
+		return project, false, err
+	}
+	if _, err := project.ApplyWatchCodeBoundSectionUpdate(
+		ctx,
+		binding.SectionID,
+		s.workspaceRoot,
+		signatureObserver,
+	); err != nil {
+		return project, false, err
+	}
+	return project, true, nil
+}
+
+func (s *codeUpdateService) syncBoundCodeSection(ctx context.Context, boundSection projectstate.WatchCodeBoundSection) error {
+	if s == nil || s.lspSync == nil {
+		return nil
+	}
+	return s.lspSync.SyncWatchCodeBoundSection(ctx, boundSection)
 }
 
 func (s *codeUpdateService) typeCheckProjects(
@@ -289,6 +354,14 @@ func mapKeysSorted(input map[string]struct{}) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func boundCodeBindingProjectIDs(bindings []boundcode.Binding) []string {
+	projectIDs := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		projectIDs = append(projectIDs, binding.ProjectID)
+	}
+	return projectIDs
 }
 
 func (s *codeUpdateService) broadcastWatchCodeWarnings(
