@@ -51,6 +51,36 @@ func emitLocalStartupOutput(cfg config.Config, localSession *localProcessSession
 	if localSession == nil {
 		return nil
 	}
+	deps = withLocalStartupDefaults(deps)
+	bootstrapOutput, err := prepareLocalStartupOutput(localSession, deps)
+	if err != nil {
+		return err
+	}
+	autoOpen := maybeAutoOpenBootstrapURL(noOpen, deps, bootstrapOutput.fragmentURL, stderr)
+
+	message := renderLocalStartupMessage(
+		localSession.metadata,
+		cfg.Paths.WorkspaceRoot,
+		bootstrapOutput.fragmentURL,
+		bootstrapOutput.plainURL,
+		bootstrapOutput.token,
+		autoOpen,
+		isSSHSession(deps.envLookup),
+	)
+	if stdout == nil {
+		return nil
+	}
+	_, err = fmt.Fprintln(stdout, message)
+	return err
+}
+
+type preparedLocalStartupOutput struct {
+	token       string
+	fragmentURL string
+	plainURL    string
+}
+
+func withLocalStartupDefaults(deps localStartupDependencies) localStartupDependencies {
 	if deps.now == nil {
 		deps.now = time.Now
 	}
@@ -70,40 +100,36 @@ func emitLocalStartupOutput(cfg config.Config, localSession *localProcessSession
 	if deps.hasGUI == nil {
 		deps.hasGUI = processHasGUI
 	}
+	return deps
+}
 
+func prepareLocalStartupOutput(localSession *localProcessSession, deps localStartupDependencies) (preparedLocalStartupOutput, error) {
 	token, err := deps.mintBootstrapToken(localSession.metadata.ID, localSession.secret, deps.now().UTC())
 	if err != nil {
-		return fmt.Errorf("mint bootstrap token: %w", err)
+		return preparedLocalStartupOutput{}, fmt.Errorf("mint bootstrap token: %w", err)
 	}
 	bootstrapURLFragment, bootstrapURLPlain, err := buildBootstrapURLs(localSession.metadata.Host, localSession.metadata.Port, token)
 	if err != nil {
-		return fmt.Errorf("build bootstrap urls: %w", err)
+		return preparedLocalStartupOutput{}, fmt.Errorf("build bootstrap urls: %w", err)
 	}
+	return preparedLocalStartupOutput{
+		token:       token,
+		fragmentURL: bootstrapURLFragment,
+		plainURL:    bootstrapURLPlain,
+	}, nil
+}
 
-	autoOpen := shouldAutoOpenLocalStart(noOpen, deps.envLookup, deps.stdinIsTTY, deps.hasGUI)
-	if autoOpen {
-		if err := deps.openBrowser(bootstrapURLFragment); err != nil {
-			autoOpen = false
-			if stderr != nil {
-				_, _ = fmt.Fprintf(stderr, "Failed to open browser automatically. Open manually: %s (%v)\n", bootstrapURLFragment, err)
-			}
+func maybeAutoOpenBootstrapURL(noOpen bool, deps localStartupDependencies, bootstrapURL string, stderr io.Writer) bool {
+	if !shouldAutoOpenLocalStart(noOpen, deps.envLookup, deps.stdinIsTTY, deps.hasGUI) {
+		return false
+	}
+	if err := deps.openBrowser(bootstrapURL); err != nil {
+		if stderr != nil {
+			_, _ = fmt.Fprintf(stderr, "Failed to open browser automatically. Open manually: %s (%v)\n", bootstrapURL, err)
 		}
+		return false
 	}
-
-	message := renderLocalStartupMessage(
-		localSession.metadata,
-		cfg.Paths.WorkspaceRoot,
-		bootstrapURLFragment,
-		bootstrapURLPlain,
-		token,
-		autoOpen,
-		isSSHSession(deps.envLookup),
-	)
-	if stdout == nil {
-		return nil
-	}
-	_, err = fmt.Fprintln(stdout, message)
-	return err
+	return true
 }
 
 func shouldAutoOpenLocalStart(noOpen bool, envLookup func(string) (string, bool), stdinIsTTY func() bool, hasGUI func(func(string) (string, bool)) bool) bool {
@@ -166,6 +192,17 @@ func emitDeploymentStartupOutput(cfg config.Config, listener net.Listener, noOpe
 	if listener == nil {
 		return fmt.Errorf("%s listener is required", spec.modeName)
 	}
+	deps = withDeploymentStartupDefaults(deps)
+	manifest, deploymentURL, err := prepareDeploymentStartup(cfg, listener, deps, spec)
+	if err != nil {
+		return err
+	}
+	warnIfPublicDeploymentHost(stderr, spec.modeName, cfg.Server.Host)
+	maybeAutoOpenDeploymentURL(noOpen, deps, deploymentURL, stderr)
+	return writeDeploymentStartupMessage(stdout, spec, manifest, deploymentURL)
+}
+
+func withDeploymentStartupDefaults(deps deploymentStartupDependencies) deploymentStartupDependencies {
 	if deps.loadManifest == nil {
 		deps.loadManifest = deployments.LoadManifest
 	}
@@ -181,37 +218,50 @@ func emitDeploymentStartupOutput(cfg config.Config, listener net.Listener, noOpe
 	if deps.hasGUI == nil {
 		deps.hasGUI = processHasGUI
 	}
+	return deps
+}
 
+func prepareDeploymentStartup(cfg config.Config, listener net.Listener, deps deploymentStartupDependencies, spec deploymentStartupSpec) (deployments.Manifest, string, error) {
 	manifest, err := deps.loadManifest(cfg.Paths.DeploymentRoot)
 	if err != nil {
-		return err
+		return deployments.Manifest{}, "", err
 	}
 	if manifest.DeploymentType != spec.deploymentType {
-		return fmt.Errorf("deployment is not a %s deployment: %s/%s", spec.modeName, manifest.DeploymentName, manifest.DeploymentVersion)
+		return deployments.Manifest{}, "", fmt.Errorf("deployment is not a %s deployment: %s/%s", spec.modeName, manifest.DeploymentName, manifest.DeploymentVersion)
 	}
 	deploymentURL, err := buildDeploymentURL(cfg.Server.Host, listener, spec.modeName)
 	if err != nil {
-		return err
+		return deployments.Manifest{}, "", err
 	}
-	if !isLoopbackHost(cfg.Server.Host) && stderr != nil {
-		_, _ = fmt.Fprintf(
-			stderr,
-			"WARNING: %s mode disables auth. Binding to %q may expose your deployment publicly.\n",
-			spec.modeName,
-			cfg.Server.Host,
-		)
-	}
+	return manifest, deploymentURL, nil
+}
 
-	if shouldAutoOpenLocalStart(noOpen, deps.envLookup, deps.stdinIsTTY, deps.hasGUI) {
-		if err := deps.openBrowser(deploymentURL); err != nil && stderr != nil {
-			_, _ = fmt.Fprintf(stderr, "Failed to open browser automatically. Open manually: %s (%v)\n", deploymentURL, err)
-		}
+func warnIfPublicDeploymentHost(stderr io.Writer, modeName string, host string) {
+	if isLoopbackHost(host) || stderr == nil {
+		return
 	}
+	_, _ = fmt.Fprintf(
+		stderr,
+		"WARNING: %s mode disables auth. Binding to %q may expose your deployment publicly.\n",
+		modeName,
+		host,
+	)
+}
 
+func maybeAutoOpenDeploymentURL(noOpen bool, deps deploymentStartupDependencies, deploymentURL string, stderr io.Writer) {
+	if !shouldAutoOpenLocalStart(noOpen, deps.envLookup, deps.stdinIsTTY, deps.hasGUI) {
+		return
+	}
+	if err := deps.openBrowser(deploymentURL); err != nil && stderr != nil {
+		_, _ = fmt.Fprintf(stderr, "Failed to open browser automatically. Open manually: %s (%v)\n", deploymentURL, err)
+	}
+}
+
+func writeDeploymentStartupMessage(stdout io.Writer, spec deploymentStartupSpec, manifest deployments.Manifest, deploymentURL string) error {
 	if stdout == nil {
 		return nil
 	}
-	_, err = fmt.Fprintf(
+	_, err := fmt.Fprintf(
 		stdout,
 		"Starting %s backend for %s/%s\n%s: %s\n",
 		spec.modeName,
