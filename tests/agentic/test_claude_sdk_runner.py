@@ -94,6 +94,97 @@ def test_claude_sdk_runner_falls_back_to_types_stream_event(
     assert module.is_stream_event_message(StreamEvent(event={"type": "message_start"}))
 
 
+def test_claude_sdk_runner_patches_query_close_to_close_internal_streams(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fake_site = tmp_path / "site"
+    sdk_root = fake_site / "claude_agent_sdk"
+    internal_root = sdk_root / "_internal"
+    internal_root.mkdir(parents=True)
+    (sdk_root / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            class AssistantMessage: pass
+            class ClaudeAgentOptions:
+                def __init__(self, **kwargs):
+                    self.kwargs = kwargs
+            class ClaudeSDKClient:
+                def __init__(self, options=None):
+                    self.options = options
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+                async def query(self, prompt, session_id="default"):
+                    return None
+                async def receive_response(self):
+                    if False:
+                        yield None
+            class PermissionResultAllow:
+                def __init__(self, behavior, updated_input=None):
+                    self.behavior = behavior
+                    self.updated_input = updated_input
+            class PermissionResultDeny:
+                def __init__(self, behavior, message, interrupt):
+                    self.behavior = behavior
+                    self.message = message
+                    self.interrupt = interrupt
+            class ResultMessage: pass
+            class SystemMessage: pass
+            """
+        ),
+        encoding="utf-8",
+    )
+    (internal_root / "__init__.py").write_text("", encoding="utf-8")
+    (internal_root / "query.py").write_text(
+        textwrap.dedent(
+            """
+            class Query:
+                def __init__(self):
+                    self.close_calls = 0
+                    self._message_send = None
+                    self._message_receive = None
+
+                async def close(self):
+                    self.close_calls += 1
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(fake_site))
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk", raising=False)
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk._internal", raising=False)
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk._internal.query", raising=False)
+
+    _load_claude_sdk_runner("test_claude_sdk_runner_query_close_patch")
+
+    from claude_agent_sdk._internal.query import Query
+
+    class FakeStream:
+        def __init__(self) -> None:
+            self.closed = 0
+
+        async def aclose(self) -> None:
+            self.closed += 1
+
+    async def run_test() -> tuple[int, int, int]:
+        query = Query()
+        send_stream = FakeStream()
+        receive_stream = FakeStream()
+        query._message_send = send_stream
+        query._message_receive = receive_stream
+        await query.close()
+        return query.close_calls, send_stream.closed, receive_stream.closed
+
+    close_calls, send_closed, receive_closed = asyncio.run(run_test())
+
+    assert getattr(Query, "_setta_close_patched", False) is True
+    assert close_calls == 1
+    assert send_closed == 1
+    assert receive_closed == 1
+
+
 def test_claude_sdk_runner_enriches_result_usage_with_context_usage(
     tmp_path: Path,
     monkeypatch,

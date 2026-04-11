@@ -28,28 +28,45 @@ except ImportError:
         ClaudeStreamEvent = None
 
 
-def _patch_claude_sdk_query_close() -> None:
+def load_claude_query_type() -> Any | None:
     try:
         from claude_agent_sdk._internal.query import Query
     except Exception:
+        return None
+    return Query
+
+
+async def close_query_stream(stream: Any) -> None:
+    if stream is None:
         return
-    if getattr(Query, "_setta_close_patched", False):
+    with contextlib.suppress(Exception):
+        await stream.aclose()
+
+
+async def close_query_streams(query: Any) -> None:
+    for attr in ("_message_send", "_message_receive"):
+        await close_query_stream(getattr(query, attr, None))
+
+
+def install_claude_query_close_patch(query_type: Any) -> None:
+    if getattr(query_type, "_setta_close_patched", False):
         return
-    original_close = Query.close
+    original_close = query_type.close
 
     async def _patched_close(self) -> None:
         try:
             await original_close(self)
         finally:
-            for attr in ("_message_send", "_message_receive"):
-                stream = getattr(self, attr, None)
-                if stream is None:
-                    continue
-                with contextlib.suppress(Exception):
-                    await stream.aclose()
+            await close_query_streams(self)
 
-    Query.close = _patched_close  # type: ignore[assignment]
-    Query._setta_close_patched = True
+    query_type.close = _patched_close  # type: ignore[assignment]
+    query_type._setta_close_patched = True
+
+
+def _patch_claude_sdk_query_close() -> None:
+    query_type = load_claude_query_type()
+    if query_type is not None:
+        install_claude_query_close_patch(query_type)
 
 
 _patch_claude_sdk_query_close()
@@ -135,20 +152,27 @@ def to_jsonable(value: Any) -> Any:
     return str(value)
 
 
+def strip_mcp_tool_prefix(tool_name: str) -> tuple[str, bool]:
+    if tool_name.startswith("mcp__"):
+        return tool_name[len("mcp__") :], True
+    return tool_name, False
+
+
+def normalize_setta_tool_prefix(tool_name: str) -> str:
+    if tool_name.startswith("setta_") and not tool_name.startswith("setta__"):
+        return "setta__" + tool_name[len("setta_") :]
+    return tool_name
+
+
 def normalize_tool_name(value: str | None) -> str:
-    if not isinstance(value, str):
+    trimmed = normalize_optional_string(value)
+    if trimmed is None:
         return ""
-    trimmed = value.strip()
-    if not trimmed:
-        return ""
-    normalized = trimmed
-    if normalized.startswith("mcp__"):
-        normalized = normalized[len("mcp__") :]
-    if normalized.startswith("setta_") and not normalized.startswith("setta__"):
-        normalized = "setta__" + normalized[len("setta_") :]
-    if not trimmed.startswith("mcp__") and normalized.lower() == "question":
-        return "AskUserQuestion"
-    return normalized
+    normalized, had_mcp_prefix = strip_mcp_tool_prefix(trimmed)
+    normalized = normalize_setta_tool_prefix(normalized)
+    if had_mcp_prefix or normalized.lower() != "question":
+        return normalized
+    return "AskUserQuestion"
 
 
 def parse_non_negative_int(value: Any) -> int | None:
@@ -346,6 +370,67 @@ def load_mcp_servers(path_value: str | None) -> dict[str, Any] | None:
     return None
 
 
+def build_optional_option(
+    option_key: str, value: Any, *, allow_empty: bool = False
+) -> tuple[str, Any] | None:
+    if value is None:
+        return None
+    if not allow_empty and isinstance(value, (dict, list)) and not value:
+        return None
+    return option_key, value
+
+
+def build_env_option(payload: dict[str, Any]) -> tuple[str, Any] | None:
+    return build_optional_option("env", normalize_string_dict(payload.get("env")))
+
+
+def build_allowed_tools_option(payload: dict[str, Any]) -> tuple[str, Any] | None:
+    return build_optional_option(
+        "allowed_tools", normalize_allowed_tools(payload.get("allowedTools"))
+    )
+
+
+def build_sandbox_option(payload: dict[str, Any]) -> tuple[str, Any] | None:
+    sandbox = payload.get("sandbox")
+    if not isinstance(sandbox, dict):
+        return None
+    return build_optional_option("sandbox", sandbox, allow_empty=True)
+
+
+def build_setting_sources_option(
+    payload: dict[str, Any],
+) -> tuple[str, Any] | None:
+    return build_optional_option(
+        "setting_sources", normalize_string_list(payload.get("settingSources"))
+    )
+
+
+def build_mcp_servers_option(payload: dict[str, Any]) -> tuple[str, Any] | None:
+    return build_optional_option(
+        "mcp_servers", load_mcp_servers(payload.get("mcpConfigPath"))
+    )
+
+
+OPTIONAL_OPTION_BUILDERS: tuple[
+    Callable[[dict[str, Any]], tuple[str, Any] | None], ...
+] = (
+    build_env_option,
+    build_allowed_tools_option,
+    build_sandbox_option,
+    build_setting_sources_option,
+    build_mcp_servers_option,
+)
+
+
+def iter_optional_options(payload: dict[str, Any]) -> list[tuple[str, Any]]:
+    options: list[tuple[str, Any]] = []
+    for builder in OPTIONAL_OPTION_BUILDERS:
+        option = builder(payload)
+        if option is not None:
+            options.append(option)
+    return options
+
+
 def normalize_stream_event(payload: dict[str, Any]) -> dict[str, Any]:
     content_block = payload.get("content_block")
     if isinstance(content_block, dict) and content_block.get("type") == "tool_use":
@@ -512,28 +597,13 @@ class ClaudeSidecar:
                 self.start_payload, STRING_OPTION_FIELDS, normalize_optional_string
             )
         )
-        env = normalize_string_dict(self.start_payload.get("env"))
-        if env is not None:
-            options["env"] = env
-        allowed_tools = normalize_allowed_tools(self.start_payload.get("allowedTools"))
-        if allowed_tools:
-            options["allowed_tools"] = allowed_tools
         options.update(
             collect_mapped_options(
                 self.start_payload, INT_OPTION_FIELDS, normalize_passthrough_int
             )
         )
-        sandbox = self.start_payload.get("sandbox")
-        if isinstance(sandbox, dict):
-            options["sandbox"] = sandbox
-        normalized_sources = normalize_string_list(
-            self.start_payload.get("settingSources")
-        )
-        if normalized_sources:
-            options["setting_sources"] = normalized_sources
-        mcp_servers = load_mcp_servers(self.start_payload.get("mcpConfigPath"))
-        if mcp_servers:
-            options["mcp_servers"] = mcp_servers
+        for option_key, value in iter_optional_options(self.start_payload):
+            options[option_key] = value
         return ClaudeAgentOptions(**options)
 
     async def read_context_usage(self, client: Any) -> dict[str, Any] | None:
@@ -651,45 +721,61 @@ class ClaudeSidecar:
             "usage": usage,
         }
 
-    async def handle_message(self, message: Any, client: Any | None = None) -> None:
-        event: dict[str, Any] | None = None
+    def build_non_result_event_payload(self, message: Any) -> dict[str, Any] | None:
         if is_stream_event_message(message):
-            event = self.build_stream_event_payload(message)
-        elif isinstance(message, AssistantMessage):
-            event = self.build_assistant_event_payload(message)
-        elif isinstance(message, SystemMessage):
-            event = self.build_system_event_payload(message)
-        elif isinstance(message, ResultMessage):
-            event = await self.build_result_event_payload(message, client)
-        if event is not None:
-            write_event(event)
+            return self.build_stream_event_payload(message)
+        if isinstance(message, AssistantMessage):
+            return self.build_assistant_event_payload(message)
+        if isinstance(message, SystemMessage):
+            return self.build_system_event_payload(message)
+        return None
+
+    async def build_message_event_payload(
+        self, message: Any, client: Any | None
+    ) -> dict[str, Any] | None:
+        if isinstance(message, ResultMessage):
+            return await self.build_result_event_payload(message, client)
+        return self.build_non_result_event_payload(message)
+
+    async def handle_message(self, message: Any, client: Any | None = None) -> None:
+        event = await self.build_message_event_payload(message, client)
+        if event is None:
+            return
+        write_event(event)
+
+    async def stream_client_messages(self, client: Any, prompt: str) -> None:
+        await client.query(
+            prompt=prompt,
+            session_id=self.start_payload.get("resume") or "default",
+        )
+        async for message in client.receive_response():
+            await self.handle_message(message, client)
+
+    async def finalize_run(
+        self, command_task: asyncio.Task[None] | asyncio.Task[Any]
+    ) -> None:
+        for pending in self.pending_approvals.values():
+            if pending.future.done():
+                continue
+            pending.future.cancel()
+        command_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await command_task
 
     async def run(self) -> int:
         prompt = str(self.start_payload.get("prompt") or "")
-        session_id = self.start_payload.get("resume")
         options = self.build_options()
         command_task = asyncio.create_task(self.read_commands())
         try:
             async with ClaudeSDKClient(options=options) as client:
-                await client.query(
-                    prompt=prompt,
-                    session_id=session_id or "default",
-                )
-                async for message in client.receive_response():
-                    await self.handle_message(message, client)
+                await self.stream_client_messages(client, prompt)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             write_event({"type": "error", "message": stringify_error(exc)})
             return 1
         finally:
-            for pending in self.pending_approvals.values():
-                if pending.future.done():
-                    continue
-                pending.future.cancel()
-            command_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await command_task
+            await self.finalize_run(command_task)
         return 0
 
 
