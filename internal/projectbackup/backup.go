@@ -21,6 +21,8 @@ const (
 
 var backupFilenamePattern = regexp.MustCompile(`^backup_([0-9]{8}_[0-9]{6}_[0-9]{6})\.json$`)
 
+const restoreSelectionUsageError = "Use exactly one of: --latest, --index, --path"
+
 type File struct {
 	Path      string
 	Timestamp time.Time
@@ -36,6 +38,12 @@ type RestoreResult struct {
 	ProjectPath string
 	BackupPath  string
 	StashPath   string
+}
+
+type resolvedRestoreSelection struct {
+	backupPath string
+	latest     bool
+	index      int
 }
 
 type AutoBackupOptions struct {
@@ -87,47 +95,82 @@ func ListFiles(backupDir string) ([]File, error) {
 	return files, nil
 }
 
-func ResolveRestorePath(backupDir string, selection RestoreSelection) (string, error) {
-	usageError := "Use exactly one of: --latest, --index, --path"
-	trimmedPath := strings.TrimSpace(selection.BackupPath)
-
-	switch {
-	case trimmedPath != "":
-		if selection.Latest || selection.Index >= 0 {
-			return "", fmt.Errorf("%s", usageError)
-		}
-		resolvedPath, err := statefs.NormalizePath(trimmedPath, "")
-		if err != nil {
-			return "", fmt.Errorf("resolve --path: %w", err)
-		}
-		return validateRestorePath(resolvedPath)
-	case selection.Latest:
-		if selection.Index >= 0 {
-			return "", fmt.Errorf("%s", usageError)
-		}
-		backups, err := ListFiles(backupDir)
-		if err != nil {
-			return "", err
-		}
-		if len(backups) == 0 {
-			return "", fmt.Errorf("No backups found in %s", BackupDirPathForMessage(backupDir))
-		}
-		return backups[0].Path, nil
-	case selection.Index >= 0:
-		backups, err := ListFiles(backupDir)
-		if err != nil {
-			return "", err
-		}
-		if len(backups) == 0 {
-			return "", fmt.Errorf("No backups found in %s", BackupDirPathForMessage(backupDir))
-		}
-		if selection.Index < 1 || selection.Index > len(backups) {
-			return "", fmt.Errorf("--index must be between 1 and %d (got %d)", len(backups), selection.Index)
-		}
-		return backups[selection.Index-1].Path, nil
-	default:
-		return "", fmt.Errorf("%s", usageError)
+func normalizeRestoreSelection(selection RestoreSelection) (resolvedRestoreSelection, error) {
+	resolved := resolvedRestoreSelection{
+		backupPath: strings.TrimSpace(selection.BackupPath),
+		latest:     selection.Latest,
+		index:      selection.Index,
 	}
+	selectedModes := 0
+	if resolved.backupPath != "" {
+		selectedModes++
+	}
+	if resolved.latest {
+		selectedModes++
+	}
+	if resolved.index >= 0 {
+		selectedModes++
+	}
+	if selectedModes != 1 {
+		return resolvedRestoreSelection{}, fmt.Errorf("%s", restoreSelectionUsageError)
+	}
+	return resolved, nil
+}
+
+func resolveRestorePathArgument(backupPath string) (string, error) {
+	resolvedPath, err := statefs.NormalizePath(backupPath, "")
+	if err != nil {
+		return "", fmt.Errorf("resolve --path: %w", err)
+	}
+	return validateRestorePath(resolvedPath)
+}
+
+func listRestoreBackups(backupDir string) ([]File, error) {
+	backups, err := ListFiles(backupDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(backups) == 0 {
+		return nil, fmt.Errorf("No backups found in %s", BackupDirPathForMessage(backupDir))
+	}
+	return backups, nil
+}
+
+func selectRestoreBackupByIndex(backups []File, index int) string {
+	return backups[index-1].Path
+}
+
+func validateRestoreBackupIndex(index int, backupCount int) error {
+	if index < 1 || index > backupCount {
+		return fmt.Errorf("--index must be between 1 and %d (got %d)", backupCount, index)
+	}
+	return nil
+}
+
+func selectRestoreBackupPath(backups []File, selection resolvedRestoreSelection) (string, error) {
+	if selection.latest {
+		return backups[0].Path, nil
+	}
+	if err := validateRestoreBackupIndex(selection.index, len(backups)); err != nil {
+		return "", err
+	}
+	return selectRestoreBackupByIndex(backups, selection.index), nil
+}
+
+func ResolveRestorePath(backupDir string, selection RestoreSelection) (string, error) {
+	resolvedSelection, err := normalizeRestoreSelection(selection)
+	if err != nil {
+		return "", err
+	}
+	if resolvedSelection.backupPath != "" {
+		return resolveRestorePathArgument(resolvedSelection.backupPath)
+	}
+
+	backups, err := listRestoreBackups(backupDir)
+	if err != nil {
+		return "", err
+	}
+	return selectRestoreBackupPath(backups, resolvedSelection)
 }
 
 // MaybeCreateBackup snapshots the current on-disk project file before a save overwrites it.

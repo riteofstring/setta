@@ -77,6 +77,30 @@ func TestResolveRestorePathLatestAndIndex(t *testing.T) {
 	}
 }
 
+func TestResolveRestorePathRejectsConflictingSelectors(t *testing.T) {
+	t.Parallel()
+
+	backupDir := filepath.Join(t.TempDir(), "backups")
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		t.Fatalf("mkdir backup dir: %v", err)
+	}
+
+	_, err := ResolveRestorePath(
+		backupDir,
+		RestoreSelection{
+			Latest:     true,
+			Index:      -1,
+			BackupPath: filepath.Join(backupDir, "backup_20260101_000000_000001.json"),
+		},
+	)
+	if err == nil {
+		t.Fatal("expected conflicting restore selectors to fail")
+	}
+	if err.Error() != restoreSelectionUsageError {
+		t.Fatalf("expected usage error %q, got %q", restoreSelectionUsageError, err.Error())
+	}
+}
+
 func TestMaybeCreateBackupNoopWhenProjectMissing(t *testing.T) {
 	t.Parallel()
 
