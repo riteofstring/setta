@@ -140,68 +140,141 @@ func (r *Registry) parsePackage(pkgPath string) (*packageData, error) {
 		return nil, err
 	}
 
-	matches, err := filepath.Glob(filepath.Join(packageDir, "*.go"))
+	matches, err := packageSourceFiles(packageDir)
 	if err != nil {
 		return nil, fmt.Errorf("glob package files for %s: %w", pkgPath, err)
 	}
-	slices.Sort(matches)
 
-	data := &packageData{
+	data := newPackageData()
+	if err := collectPackageSourceDeclarations(matches, data); err != nil {
+		return nil, err
+	}
+	if err := r.collectPackageConstEnumValues(pkgPath, data); err != nil {
+		return nil, err
+	}
+	if err := r.preResolvePackageNamedTypes(pkgPath, data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func newPackageData() *packageData {
+	return &packageData{
 		constEntries:     make(map[string]*constEntry),
 		constDeclaration: make([]*constEntry, 0),
 		namedTypes:       make(map[string]*typeEntry),
 		enumValuesByType: make(map[string][]EnumValue),
 	}
-	fileSet := token.NewFileSet()
+}
 
+func packageSourceFiles(packageDir string) ([]string, error) {
+	matches, err := filepath.Glob(filepath.Join(packageDir, "*.go"))
+	if err != nil {
+		return nil, err
+	}
+	slices.Sort(matches)
+	filtered := matches[:0]
 	for _, match := range matches {
 		if strings.HasSuffix(match, "_test.go") {
 			continue
 		}
-		file, err := parser.ParseFile(fileSet, match, nil, 0)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", match, err)
-		}
-		imports := fileImportPaths(file)
+		filtered = append(filtered, match)
+	}
+	return filtered, nil
+}
 
-		for _, decl := range file.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
-			if !ok {
-				continue
-			}
-			switch genDecl.Tok {
-			case token.TYPE:
-				collectNamedTypes(data.namedTypes, genDecl, imports)
-			case token.CONST:
-				collectConstEntries(data, genDecl, imports)
-			}
+func collectPackageSourceDeclarations(matches []string, data *packageData) error {
+	fileSet := token.NewFileSet()
+	for _, match := range matches {
+		if err := collectPackageSourceFileDeclarations(fileSet, data, match); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	for _, entry := range data.constDeclaration {
-		isStringType, err := r.isNamedStringType(pkgPath, data, entry.typeName)
-		if err != nil {
-			return nil, err
-		}
-		if !isStringType {
+func collectPackageSourceFileDeclarations(
+	fileSet *token.FileSet,
+	data *packageData,
+	path string,
+) error {
+	file, err := parser.ParseFile(fileSet, path, nil, 0)
+	if err != nil {
+		return fmt.Errorf("parse %s: %w", path, err)
+	}
+	imports := fileImportPaths(file)
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok {
 			continue
 		}
-		value, ok, err := r.resolveConstValue(pkgPath, data, entry)
+		collectPackageGenDecl(data, genDecl, imports)
+	}
+	return nil
+}
+
+func collectPackageGenDecl(
+	data *packageData,
+	genDecl *ast.GenDecl,
+	imports map[string]string,
+) {
+	switch genDecl.Tok {
+	case token.TYPE:
+		collectNamedTypes(data.namedTypes, genDecl, imports)
+	case token.CONST:
+		collectConstEntries(data, genDecl, imports)
+	}
+}
+
+func (r *Registry) collectPackageConstEnumValues(
+	pkgPath string,
+	data *packageData,
+) error {
+	for _, entry := range data.constDeclaration {
+		value, ok, err := r.enumValueForConstEntry(pkgPath, data, entry)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !ok {
 			continue
 		}
 		data.enumValuesByType[entry.typeName] = append(
 			data.enumValuesByType[entry.typeName],
-			EnumValue{
-				Name:  deriveEnumMemberName(entry.typeName, entry.name, value),
-				Value: value,
-			},
+			value,
 		)
 	}
+	return nil
+}
 
+func (r *Registry) enumValueForConstEntry(
+	pkgPath string,
+	data *packageData,
+	entry *constEntry,
+) (EnumValue, bool, error) {
+	isStringType, err := r.isNamedStringType(pkgPath, data, entry.typeName)
+	if err != nil {
+		return EnumValue{}, false, err
+	}
+	if !isStringType {
+		return EnumValue{}, false, nil
+	}
+	value, ok, err := r.resolveConstValue(pkgPath, data, entry)
+	if err != nil {
+		return EnumValue{}, false, err
+	}
+	if !ok {
+		return EnumValue{}, false, nil
+	}
+	return EnumValue{
+		Name:  deriveEnumMemberName(entry.typeName, entry.name, value),
+		Value: value,
+	}, true, nil
+}
+
+func (r *Registry) preResolvePackageNamedTypes(
+	pkgPath string,
+	data *packageData,
+) error {
 	for typeName := range data.namedTypes {
 		if _, _, err := r.resolveEnumValuesForType(
 			pkgPath,
@@ -209,11 +282,10 @@ func (r *Registry) parsePackage(pkgPath string) (*packageData, error) {
 			typeName,
 			map[string]bool{},
 		); err != nil {
-			return nil, err
+			return err
 		}
 	}
-
-	return data, nil
+	return nil
 }
 
 func (r *Registry) resolveEnumValuesForType(
@@ -485,48 +557,87 @@ func (r *Registry) evalStringExpr(
 ) (string, bool, error) {
 	switch typed := expr.(type) {
 	case *ast.BasicLit:
-		if typed.Kind != token.STRING {
-			return "", false, nil
-		}
-		value, err := strconv.Unquote(typed.Value)
-		if err != nil {
-			return "", false, fmt.Errorf("unquote %s: %w", typed.Value, err)
-		}
-		return value, true, nil
+		return evalBasicStringLiteral(typed)
 	case *ast.Ident:
-		entry, ok := data.constEntries[typed.Name]
-		if !ok {
-			return "", false, nil
-		}
-		return r.resolveConstValue(pkgPath, data, entry)
+		return r.evalLocalConstReference(pkgPath, data, typed.Name)
 	case *ast.SelectorExpr:
-		packageIdent, ok := typed.X.(*ast.Ident)
-		if !ok {
-			return "", false, nil
-		}
-		importPath, ok := imports[packageIdent.Name]
-		if !ok {
-			return "", false, nil
-		}
-		importedPackage, err := r.loadPackage(importPath)
-		if err != nil {
-			return "", false, err
-		}
-		entry, ok := importedPackage.constEntries[typed.Sel.Name]
-		if !ok {
-			return "", false, nil
-		}
-		return r.resolveConstValue(importPath, importedPackage, entry)
+		return r.evalImportedConstReference(imports, typed)
 	case *ast.CallExpr:
-		if len(typed.Args) != 1 {
-			return "", false, nil
-		}
-		return r.evalStringExpr(pkgPath, data, imports, typed.Args[0])
+		return r.evalWrappedStringExpr(pkgPath, data, imports, typed)
 	case *ast.ParenExpr:
 		return r.evalStringExpr(pkgPath, data, imports, typed.X)
 	default:
 		return "", false, nil
 	}
+}
+
+func evalBasicStringLiteral(literal *ast.BasicLit) (string, bool, error) {
+	if literal.Kind != token.STRING {
+		return "", false, nil
+	}
+	value, err := strconv.Unquote(literal.Value)
+	if err != nil {
+		return "", false, fmt.Errorf("unquote %s: %w", literal.Value, err)
+	}
+	return value, true, nil
+}
+
+func (r *Registry) evalLocalConstReference(
+	pkgPath string,
+	data *packageData,
+	name string,
+) (string, bool, error) {
+	entry, ok := data.constEntries[name]
+	if !ok {
+		return "", false, nil
+	}
+	return r.resolveConstValue(pkgPath, data, entry)
+}
+
+func (r *Registry) evalImportedConstReference(
+	imports map[string]string,
+	selector *ast.SelectorExpr,
+) (string, bool, error) {
+	importPath, ok := importPathForSelector(imports, selector)
+	if !ok {
+		return "", false, nil
+	}
+	importedPackage, err := r.loadPackage(importPath)
+	if err != nil {
+		return "", false, err
+	}
+	entry, ok := importedPackage.constEntries[selector.Sel.Name]
+	if !ok {
+		return "", false, nil
+	}
+	return r.resolveConstValue(importPath, importedPackage, entry)
+}
+
+func importPathForSelector(
+	imports map[string]string,
+	selector *ast.SelectorExpr,
+) (string, bool) {
+	packageIdent, ok := selector.X.(*ast.Ident)
+	if !ok {
+		return "", false
+	}
+	importPath, ok := imports[packageIdent.Name]
+	if !ok {
+		return "", false
+	}
+	return importPath, true
+}
+
+func (r *Registry) evalWrappedStringExpr(
+	pkgPath string,
+	data *packageData,
+	imports map[string]string,
+	call *ast.CallExpr,
+) (string, bool, error) {
+	if len(call.Args) != 1 {
+		return "", false, nil
+	}
+	return r.evalStringExpr(pkgPath, data, imports, call.Args[0])
 }
 
 func fileImportPaths(file *ast.File) map[string]string {
