@@ -483,50 +483,66 @@ func filterRequiredDecodedImagesForSummary(projectState SingleConfig, allowedSec
 	if len(projectState.RequiredDecodedImages) == 0 {
 		return nil
 	}
+	return filterStringSliceByAllowedSet(
+		projectState.RequiredDecodedImages,
+		allowedDecodedImagePathsForSummary(projectState, allowedSectionIDs),
+	)
+}
+
+func allowedDecodedImagePathsForSummary(projectState SingleConfig, allowedSectionIDs map[string]struct{}) map[string]struct{} {
 	allowedPaths := map[string]struct{}{}
 	for sectionID := range allowedSectionIDs {
-		variantID, ok := projectState.ProjectConfig.SectionVariantMap[sectionID]
-		if !ok {
-			continue
-		}
-		section, ok := projectState.Sections[sectionID]
-		if !ok {
-			continue
-		}
-		variant, ok := projectState.SectionVariants[variantID]
-		if !ok {
-			continue
-		}
-		basePayload, ok := projectState.SectionImpls[variant.Impl]
-		if !ok {
-			continue
-		}
-		base, err := rawObjectFromPayload(basePayload)
-		if err != nil {
-			continue
-		}
-		sharedModifier, err := rawObjectFromModifier(section.SharedModifier)
-		if err != nil {
-			continue
-		}
-		modifier, err := rawObjectFromModifier(variant.Modifier)
-		if err != nil {
-			continue
-		}
-		effectiveSection := mergeObjects(mergeObjects(base, sharedModifier), modifier)
-		if stringField(effectiveSection, "type") != "Draw" {
-			continue
-		}
-		for _, path := range collectDrawImagePaths(effectiveSection) {
+		for _, path := range summarySectionDrawImagePaths(projectState, sectionID) {
 			allowedPaths[path] = struct{}{}
 		}
 	}
-	filtered := make([]string, 0, len(projectState.RequiredDecodedImages))
-	for _, path := range projectState.RequiredDecodedImages {
-		if _, ok := allowedPaths[path]; !ok {
-			continue
-		}
-		filtered = append(filtered, path)
+	return allowedPaths
+}
+
+func summarySectionDrawImagePaths(projectState SingleConfig, sectionID string) []string {
+	effectiveSection, ok := summaryEffectiveSectionObject(projectState, sectionID)
+	if !ok || stringField(effectiveSection, "type") != "Draw" {
+		return nil
 	}
-	return filtered
+	return collectDrawImagePaths(effectiveSection)
+}
+
+func summaryEffectiveSectionObject(projectState SingleConfig, sectionID string) (map[string]any, bool) {
+	section, variant, ok := summarySectionAndVariant(projectState, sectionID)
+	if !ok {
+		return nil, false
+	}
+	basePayload, ok := projectState.SectionImpls[variant.Impl]
+	if !ok {
+		return nil, false
+	}
+	base, err := rawObjectFromPayload(basePayload)
+	if err != nil {
+		return nil, false
+	}
+	sharedModifier, err := rawObjectFromModifier(section.SharedModifier)
+	if err != nil {
+		return nil, false
+	}
+	modifier, err := rawObjectFromModifier(variant.Modifier)
+	if err != nil {
+		return nil, false
+	}
+	return mergeObjects(mergeObjects(base, sharedModifier), modifier), true
+}
+
+func summarySectionAndVariant(projectState SingleConfig, sectionID string) (Core, Variant, bool) {
+	variantID, ok := projectState.ProjectConfig.SectionVariantMap[sectionID]
+	if !ok {
+		return Core{}, Variant{}, false
+	}
+	section, ok := projectState.Sections[sectionID]
+	if !ok {
+		return Core{}, Variant{}, false
+	}
+	variant, ok := projectState.SectionVariants[variantID]
+	if !ok {
+		return Core{}, Variant{}, false
+	}
+	return section, variant, true
 }

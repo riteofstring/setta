@@ -95,6 +95,30 @@ func TestBuildProjectStateSummaryFiltersRequiredDecodedImagesToAllowedSections(t
 	}
 }
 
+func TestBuildProjectStateSummarySkipsBrokenSectionsWhenFilteringRequiredDecodedImages(t *testing.T) {
+	t.Parallel()
+
+	view, err := DefaultSingleConfig(testProjectViewDocument(t))
+	if err != nil {
+		t.Fatalf("DefaultSingleConfig returned error: %v", err)
+	}
+
+	view.Sections["broken-draw-section"] = Core{
+		ID:       "broken-draw-section",
+		Name:     "Broken Draw Section",
+		Variants: []string{"broken-draw-variant"},
+	}
+	view.ProjectConfig.SectionVariantMap["broken-draw-section"] = "missing-variant"
+
+	summary := BuildProjectStateSummary(view, map[string]struct{}{
+		"draw-section":        {},
+		"broken-draw-section": {},
+	})
+	if !reflect.DeepEqual(summary.RequiredDecodedImages, []string{"images/a.png", "images/b.png"}) {
+		t.Fatalf("expected broken draw sections to be ignored while preserving valid image paths, got %#v", summary.RequiredDecodedImages)
+	}
+}
+
 func TestBuildProjectStateSummaryTrimsWindowSpacesToAllowedSections(t *testing.T) {
 	t.Parallel()
 
