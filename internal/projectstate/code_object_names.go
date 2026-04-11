@@ -113,78 +113,77 @@ func activeSectionIDsForCodeObject(project Project, codeObjID string) ([]string,
 	return matches, nil
 }
 
-func validateCodeObjectNameForSection(project Project, sectionID string, codeObjID string, name string) (string, error) {
+type codeObjectNameValidationSection struct {
+	sectionID         string
+	sectionType       string
+	sectionPayload    map[string]any
+	codeObjVariantMap map[string]string
+}
+
+func resolveCodeObjectNameValidationSection(project Project, sectionID string) (codeObjectNameValidationSection, error) {
 	section, variant, impl, err := project.ResolveSection(sectionID)
 	if err != nil {
-		return "", err
+		return codeObjectNameValidationSection{}, err
 	}
 	sectionPayload, err := effectiveSectionPayload(project, section.ID, variant.ID)
 	if err != nil {
-		return "", err
+		return codeObjectNameValidationSection{}, err
 	}
 	sectionType := payloadStringField(sectionPayload, "type")
 	if sectionType == "" {
 		sectionType = fallbackSectionType(impl)
 	}
+	return codeObjectNameValidationSection{
+		sectionID:         section.ID,
+		sectionType:       sectionType,
+		sectionPayload:    sectionPayload,
+		codeObjVariantMap: payloadStringMapField(sectionPayload, "codeObjVariantMap"),
+	}, nil
+}
 
-	normalized, err := validateCodeObjectNameFormat(project, sectionPayload, sectionType, section.ID, codeObjID, name)
+func validateCodeObjectNameForSection(project Project, sectionID string, codeObjID string, name string) (string, error) {
+	context, err := resolveCodeObjectNameValidationSection(project, sectionID)
 	if err != nil {
 		return "", err
 	}
-	if sectionType == "MetaControl" {
-		return normalized, nil
-	}
+	return validateCodeObjectNameForResolvedSection(project, context, codeObjID, name)
+}
 
-	rootCodeObjID := codeObjectRenameRootID(sectionPayload)
-	if rootCodeObjID == "" {
-		return "", fmt.Errorf("%w: section=%q type=%q", ErrCodeObjRenameUnsupported, section.ID, sectionType)
-	}
-	parentByID, childrenByID, err := collectCodeObjectHierarchy(project, payloadStringMapField(sectionPayload, "codeObjVariantMap"), rootCodeObjID)
+func validateCodeObjectNameForResolvedSection(
+	project Project,
+	context codeObjectNameValidationSection,
+	codeObjID string,
+	name string,
+) (string, error) {
+	normalized, err := validateCodeObjectNameFormat(
+		project,
+		context.sectionPayload,
+		context.sectionType,
+		context.sectionID,
+		codeObjID,
+		name,
+	)
 	if err != nil {
 		return "", err
 	}
-	parentID, ok := parentByID[codeObjID]
-	if !ok {
-		return "", fmt.Errorf("%w: section=%q codeObj=%q", ErrCodeObjActiveReferenceNotFound, section.ID, codeObjID)
-	}
-	if parentID == "" {
+	if context.sectionType == "MetaControl" {
 		return normalized, nil
 	}
-
-	for _, siblingID := range childrenByID[parentID] {
-		if siblingID == codeObjID {
-			continue
-		}
-		sibling, ok := project.CodeObjs[siblingID]
-		if !ok {
-			return "", fmt.Errorf("%w: %q", ErrCodeObjNotFound, siblingID)
-		}
-		if strings.TrimSpace(sibling.Name) == normalized {
-			return "", &InvalidCodeObjectNameError{
-				Message: fmt.Sprintf(`Param name "%s" already exists under this parent.`, normalized),
-			}
-		}
+	if err := validateCodeObjectSiblingConflict(project, context, codeObjID, normalized); err != nil {
+		return "", err
 	}
 	return normalized, nil
 }
 
 func validateParamCodeObjectNameForSection(project Project, sectionID string, codeObjID string, name string) (string, error) {
-	section, variant, impl, err := project.ResolveSection(sectionID)
+	context, err := resolveCodeObjectNameValidationSection(project, sectionID)
 	if err != nil {
 		return "", err
 	}
-	sectionPayload, err := effectiveSectionPayload(project, section.ID, variant.ID)
-	if err != nil {
-		return "", err
+	if context.sectionType == "MetaControl" {
+		return "", fmt.Errorf("%w: section=%q type=%q", ErrCodeObjRenameUnsupported, context.sectionID, context.sectionType)
 	}
-	sectionType := payloadStringField(sectionPayload, "type")
-	if sectionType == "" {
-		sectionType = fallbackSectionType(impl)
-	}
-	if sectionType == "MetaControl" {
-		return "", fmt.Errorf("%w: section=%q type=%q", ErrCodeObjRenameUnsupported, section.ID, sectionType)
-	}
-	return validateCodeObjectNameForSection(project, section.ID, codeObjID, name)
+	return validateCodeObjectNameForResolvedSection(project, context, codeObjID, name)
 }
 
 func validateCodeObjectNameFormat(
@@ -196,48 +195,129 @@ func validateCodeObjectNameFormat(
 	name string,
 ) (string, error) {
 	normalized := strings.TrimSpace(name)
-	payload, _, _, impl, err := project.ResolveSectionCodeObject(sectionID, codeObjID)
+	payload, codeObjType, err := resolveCodeObjectRenamePayload(project, sectionID, codeObjID)
 	if err != nil {
 		return "", err
+	}
+	if err := ensureRenamableCodeObjectType(codeObjID, codeObjType); err != nil {
+		return "", err
+	}
+
+	if normalized == "" {
+		return normalized, validateEmptyCodeObjectName(sectionPayload, payload, codeObjID)
+	}
+	if err := validateNonEmptyCodeObjectName(project, sectionType, normalized); err != nil {
+		return "", err
+	}
+
+	return normalized, nil
+}
+
+func validateCodeObjectSiblingConflict(
+	project Project,
+	context codeObjectNameValidationSection,
+	codeObjID string,
+	normalized string,
+) error {
+	rootCodeObjID := codeObjectRenameRootID(context.sectionPayload)
+	if rootCodeObjID == "" {
+		return fmt.Errorf("%w: section=%q type=%q", ErrCodeObjRenameUnsupported, context.sectionID, context.sectionType)
+	}
+	parentByID, childrenByID, err := collectCodeObjectHierarchy(project, context.codeObjVariantMap, rootCodeObjID)
+	if err != nil {
+		return err
+	}
+	parentID, ok := parentByID[codeObjID]
+	if !ok {
+		return fmt.Errorf("%w: section=%q codeObj=%q", ErrCodeObjActiveReferenceNotFound, context.sectionID, codeObjID)
+	}
+	if parentID == "" {
+		return nil
+	}
+	return validateSiblingCodeObjectName(project, childrenByID[parentID], codeObjID, normalized)
+}
+
+func validateSiblingCodeObjectName(project Project, siblingIDs []string, codeObjID string, normalized string) error {
+	for _, siblingID := range siblingIDs {
+		if siblingID == codeObjID {
+			continue
+		}
+		sibling, ok := project.CodeObjs[siblingID]
+		if !ok {
+			return fmt.Errorf("%w: %q", ErrCodeObjNotFound, siblingID)
+		}
+		if strings.TrimSpace(sibling.Name) == normalized {
+			return &InvalidCodeObjectNameError{
+				Message: fmt.Sprintf(`Param name "%s" already exists under this parent.`, normalized),
+			}
+		}
+	}
+	return nil
+}
+
+func resolveCodeObjectRenamePayload(project Project, sectionID string, codeObjID string) (map[string]any, string, error) {
+	payload, _, _, impl, err := project.ResolveSectionCodeObject(sectionID, codeObjID)
+	if err != nil {
+		return nil, "", err
 	}
 	codeObjType := payloadStringField(payload, "type")
 	if codeObjType == "" {
 		codeObjType = strings.TrimSpace(impl.Type)
 	}
-	if !isRenamableCodeObjectType(codeObjType) {
-		return "", fmt.Errorf("%w: codeObj=%q type=%q", ErrCodeObjRenameUnsupported, codeObjID, codeObjType)
-	}
+	return payload, codeObjType, nil
+}
 
-	if normalized == "" {
-		if payloadBoolField(payload, "coreNameEditable") {
-			return normalized, nil
-		}
-		if payloadStringField(sectionPayload, "topLevelParamId") == codeObjID {
-			return normalized, nil
-		}
-		return "", &InvalidCodeObjectNameError{Message: "Param name cannot be empty."}
+func ensureRenamableCodeObjectType(codeObjID string, codeObjType string) error {
+	if isRenamableCodeObjectType(codeObjType) {
+		return nil
 	}
+	return fmt.Errorf("%w: codeObj=%q type=%q", ErrCodeObjRenameUnsupported, codeObjID, codeObjType)
+}
+
+func validateEmptyCodeObjectName(sectionPayload map[string]any, codeObjPayload map[string]any, codeObjID string) error {
+	if payloadBoolField(codeObjPayload, "coreNameEditable") {
+		return nil
+	}
+	if payloadStringField(sectionPayload, "topLevelParamId") == codeObjID {
+		return nil
+	}
+	return &InvalidCodeObjectNameError{Message: "Param name cannot be empty."}
+}
+
+func validateNonEmptyCodeObjectName(project Project, sectionType string, normalized string) error {
 	if containsControlChars(normalized) {
-		return "", &InvalidCodeObjectNameError{Message: "Param name cannot include control characters."}
+		return &InvalidCodeObjectNameError{Message: "Param name cannot include control characters."}
 	}
-	if !sectionAllowsDictStyleParamNames(sectionType) {
-		if strings.Contains(normalized, "/") || strings.Contains(normalized, "\\") {
-			return "", &InvalidCodeObjectNameError{Message: "Param name cannot include path separators."}
-		}
-		if strings.Contains(normalized, "..") {
-			return "", &InvalidCodeObjectNameError{Message: "Param name cannot include '..' path segments."}
-		}
-		if project.HasPythonCodegenTarget() {
-			if !pythonIdentifierRegexp.MatchString(normalized) {
-				return "", &InvalidCodeObjectNameError{Message: "Param name must be a valid Python identifier."}
-			}
-			if isPythonKeyword(normalized) {
-				return "", &InvalidCodeObjectNameError{Message: "Param name cannot be a Python keyword."}
-			}
-		}
+	if sectionAllowsDictStyleParamNames(sectionType) {
+		return nil
 	}
+	if err := validateCodeObjectNamePathShape(normalized); err != nil {
+		return err
+	}
+	if !project.HasPythonCodegenTarget() {
+		return nil
+	}
+	return validatePythonCodeObjectIdentifier(normalized)
+}
 
-	return normalized, nil
+func validateCodeObjectNamePathShape(normalized string) error {
+	if strings.Contains(normalized, "/") || strings.Contains(normalized, "\\") {
+		return &InvalidCodeObjectNameError{Message: "Param name cannot include path separators."}
+	}
+	if strings.Contains(normalized, "..") {
+		return &InvalidCodeObjectNameError{Message: "Param name cannot include '..' path segments."}
+	}
+	return nil
+}
+
+func validatePythonCodeObjectIdentifier(normalized string) error {
+	if !pythonIdentifierRegexp.MatchString(normalized) {
+		return &InvalidCodeObjectNameError{Message: "Param name must be a valid Python identifier."}
+	}
+	if isPythonKeyword(normalized) {
+		return &InvalidCodeObjectNameError{Message: "Param name cannot be a Python keyword."}
+	}
+	return nil
 }
 
 func codeObjectRenameRootID(sectionPayload map[string]any) string {
