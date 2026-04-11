@@ -188,81 +188,14 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 		return StartResponse{}, ErrExecutorUnavailable
 	}
 
-	workingDir, cleanupWorkingDir, err := e.resolveWorkingDir(request.ExternalConfig)
+	workingDir, cleanupPaths, cleanupStart, err := e.resolveStartWorkingDir(request.ExternalConfig)
 	if err != nil {
 		return StartResponse{}, err
 	}
-	cleanupPaths := []string{}
-	if cleanupWorkingDir != nil {
-		cleanupPaths = append(cleanupPaths, workingDir)
-	}
-	cleanupStart := func() {
-		if cleanupWorkingDir != nil {
-			_ = cleanupWorkingDir()
-		}
-	}
-
-	envMap := e.buildRuntimeEnv(request.ExternalConfig)
-	completionGuardEnabled, err := e.resolveCompletionGuardEnabled(ctx)
+	session, startupState, err := e.prepareStartSession(ctx, request, workingDir)
 	if err != nil {
-		cleanupStart()
 		return StartResponse{}, err
 	}
-	headers, err := e.buildCodexMCPHeaders(request)
-	if err != nil {
-		cleanupStart()
-		return StartResponse{}, err
-	}
-	codexHome, err := e.prepareCodexHome(
-		request.ExternalConfig,
-		request.ChatID,
-		workingDir,
-		request.Inputs,
-		request.Profile,
-		completionGuardEnabled,
-		headers,
-	)
-	if err != nil {
-		cleanupStart()
-		return StartResponse{}, err
-	}
-	envMap["CODEX_HOME"] = codexHome
-	if err := e.ensureCodexLogin(ctx, request.ExternalConfig, workingDir, envMap); err != nil {
-		cleanupStart()
-		return StartResponse{}, err
-	}
-
-	commandPath := strings.TrimSpace(derefOptionalString(request.ExternalConfig.CommandPath))
-	if commandPath == "" {
-		commandPath = "codex"
-	}
-	cmd := exec.Command(commandPath, codexAppServerArg)
-	cmd.Dir = workingDir
-	cmd.Env = envMapToList(envMap)
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		cleanupStart()
-		return StartResponse{}, fmt.Errorf("codex stdin pipe: %w", err)
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		cleanupStart()
-		return StartResponse{}, fmt.Errorf("codex stdout pipe: %w", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		cleanupStart()
-		return StartResponse{}, fmt.Errorf("codex stderr pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		cleanupStart()
-		return StartResponse{}, fmt.Errorf("start codex app-server: %w", err)
-	}
-
-	session := newCodexSession(cmd, stdin)
-	session.start(stdout, stderr)
-
 	startupFailed := true
 	defer func() {
 		if !startupFailed {
@@ -272,35 +205,8 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 		cleanupStart()
 	}()
 
-	if _, err := session.sendRequest(ctx, "initialize", map[string]any{
-		"clientInfo": map[string]any{
-			"name":    "setta",
-			"version": buildinfo.Version(),
-		},
-	}); err != nil {
-		return StartResponse{}, err
-	}
-	if err := session.sendNotification("initialized", nil); err != nil {
-		return StartResponse{}, err
-	}
-	if _, err := session.sendRequest(ctx, "config/mcpServer/reload", map[string]any{}); err != nil {
-		return StartResponse{}, err
-	}
-
-	threadID, err := session.startOrResumeThread(ctx, request.Inputs)
+	threadID, err := e.initializeStartSession(ctx, request, session, workingDir)
 	if err != nil {
-		return StartResponse{}, err
-	}
-	if err := e.persistThreadID(request.Run.ID, threadID); err != nil {
-		return StartResponse{}, err
-	}
-
-	prompt := buildCodexPrompt(request.Inputs)
-	turnParams, err := buildCodexTurnParams(request, prompt, threadID, workingDir)
-	if err != nil {
-		return StartResponse{}, err
-	}
-	if _, err := session.sendRequest(ctx, "turn/start", turnParams); err != nil {
 		return StartResponse{}, err
 	}
 
@@ -316,9 +222,172 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 		controller,
 		cleanupPaths,
 		threadID,
-		filepath.Join(codexHome, codexConfigFileName),
+		filepath.Join(startupState.codexHome, codexConfigFileName),
 	)
 	return StartResponse{Controller: controller}, nil
+}
+
+func (e *CodexExecutor) resolveStartWorkingDir(
+	config externalagentconfigs.Config,
+) (string, []string, func(), error) {
+	workingDir, cleanupWorkingDir, err := e.resolveWorkingDir(config)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	cleanupPaths := []string{}
+	if cleanupWorkingDir != nil {
+		cleanupPaths = append(cleanupPaths, workingDir)
+	}
+	cleanupStart := func() {
+		if cleanupWorkingDir != nil {
+			_ = cleanupWorkingDir()
+		}
+	}
+	return workingDir, cleanupPaths, cleanupStart, nil
+}
+
+func (e *CodexExecutor) prepareStartSession(
+	ctx context.Context,
+	request StartRequest,
+	workingDir string,
+) (*codexSession, codexPreparedStartState, error) {
+	startupState, err := e.prepareStartState(ctx, request, workingDir)
+	if err != nil {
+		return nil, codexPreparedStartState{}, err
+	}
+	session, err := e.startCodexSession(request.ExternalConfig, workingDir, startupState.envMap)
+	if err != nil {
+		return nil, codexPreparedStartState{}, err
+	}
+	return session, startupState, nil
+}
+
+type codexPreparedStartState struct {
+	codexHome string
+	envMap    map[string]string
+}
+
+func (e *CodexExecutor) prepareStartState(
+	ctx context.Context,
+	request StartRequest,
+	workingDir string,
+) (codexPreparedStartState, error) {
+	envMap := e.buildRuntimeEnv(request.ExternalConfig)
+	completionGuardEnabled, err := e.resolveCompletionGuardEnabled(ctx)
+	if err != nil {
+		return codexPreparedStartState{}, err
+	}
+	headers, err := e.buildCodexMCPHeaders(request)
+	if err != nil {
+		return codexPreparedStartState{}, err
+	}
+	codexHome, err := e.prepareCodexHome(
+		request.ExternalConfig,
+		request.ChatID,
+		workingDir,
+		request.Inputs,
+		request.Profile,
+		completionGuardEnabled,
+		headers,
+	)
+	if err != nil {
+		return codexPreparedStartState{}, err
+	}
+	envMap["CODEX_HOME"] = codexHome
+	if err := e.ensureCodexLogin(ctx, request.ExternalConfig, workingDir, envMap); err != nil {
+		return codexPreparedStartState{}, err
+	}
+	return codexPreparedStartState{
+		codexHome: codexHome,
+		envMap:    envMap,
+	}, nil
+}
+
+func (e *CodexExecutor) startCodexSession(
+	config externalagentconfigs.Config,
+	workingDir string,
+	envMap map[string]string,
+) (*codexSession, error) {
+	commandPath := strings.TrimSpace(derefOptionalString(config.CommandPath))
+	if commandPath == "" {
+		commandPath = "codex"
+	}
+	cmd := exec.Command(commandPath, codexAppServerArg)
+	cmd.Dir = workingDir
+	cmd.Env = envMapToList(envMap)
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("codex stdin pipe: %w", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("codex stdout pipe: %w", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, fmt.Errorf("codex stderr pipe: %w", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("start codex app-server: %w", err)
+	}
+	session := newCodexSession(cmd, stdin)
+	session.start(stdout, stderr)
+	return session, nil
+}
+
+func (e *CodexExecutor) initializeStartSession(
+	ctx context.Context,
+	request StartRequest,
+	session *codexSession,
+	workingDir string,
+) (string, error) {
+	if err := initializeCodexSessionProtocol(ctx, session); err != nil {
+		return "", err
+	}
+	threadID, err := session.startOrResumeThread(ctx, request.Inputs)
+	if err != nil {
+		return "", err
+	}
+	if err := e.persistThreadID(request.Run.ID, threadID); err != nil {
+		return "", err
+	}
+	if err := startCodexSessionTurn(ctx, session, request, threadID, workingDir); err != nil {
+		return "", err
+	}
+	return threadID, nil
+}
+
+func initializeCodexSessionProtocol(ctx context.Context, session *codexSession) error {
+	if _, err := session.sendRequest(ctx, "initialize", map[string]any{
+		"clientInfo": map[string]any{
+			"name":    "setta",
+			"version": buildinfo.Version(),
+		},
+	}); err != nil {
+		return err
+	}
+	if err := session.sendNotification("initialized", nil); err != nil {
+		return err
+	}
+	_, err := session.sendRequest(ctx, "config/mcpServer/reload", map[string]any{})
+	return err
+}
+
+func startCodexSessionTurn(
+	ctx context.Context,
+	session *codexSession,
+	request StartRequest,
+	threadID string,
+	workingDir string,
+) error {
+	prompt := buildCodexPrompt(request.Inputs)
+	turnParams, err := buildCodexTurnParams(request, prompt, threadID, workingDir)
+	if err != nil {
+		return err
+	}
+	_, err = session.sendRequest(ctx, "turn/start", turnParams)
+	return err
 }
 
 func (e *CodexExecutor) runLoop(
@@ -333,12 +402,7 @@ func (e *CodexExecutor) runLoop(
 	defer func() {
 		backgroundTasks.Wait()
 		_ = controller.Cancel()
-		for _, cleanupPath := range cleanupPaths {
-			if strings.TrimSpace(cleanupPath) == "" {
-				continue
-			}
-			_ = os.RemoveAll(cleanupPath)
-		}
+		cleanupCodexPaths(cleanupPaths)
 		e.runtime.DeactivateRun(request.Run.ID)
 	}()
 	if !controller.waitForRuntimeReady() {
@@ -363,27 +427,68 @@ func (e *CodexExecutor) runLoop(
 	for {
 		select {
 		case payload, ok := <-session.events:
-			if !ok {
-				if err := e.handleProcessExit(request.Run.ID, session.processErr(), session.stderrTail()); err != nil {
-					_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
-				}
-				return
-			}
-			finished, err := e.handleEvent(request, session, payload, &state, eventState, &backgroundTasks)
-			if err != nil {
-				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
-				return
-			}
-			if finished {
+			finished, ok := e.handleRunLoopEvent(
+				request,
+				session,
+				payload,
+				ok,
+				&state,
+				eventState,
+				&backgroundTasks,
+			)
+			if !ok || finished {
 				return
 			}
 		case <-watchdog.C:
-			if err := e.checkPendingFunctionCallStall(request.Run.ID, eventState); err != nil {
-				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
+			if !e.handleRunLoopWatchdog(request.Run.ID, session, eventState) {
 				return
 			}
 		}
 	}
+}
+
+func cleanupCodexPaths(cleanupPaths []string) {
+	for _, cleanupPath := range cleanupPaths {
+		if strings.TrimSpace(cleanupPath) == "" {
+			continue
+		}
+		_ = os.RemoveAll(cleanupPath)
+	}
+}
+
+func (e *CodexExecutor) handleRunLoopEvent(
+	request StartRequest,
+	session *codexSession,
+	payload map[string]any,
+	ok bool,
+	state *ChatState,
+	eventState *codexEventState,
+	backgroundTasks *sync.WaitGroup,
+) (bool, bool) {
+	if !ok {
+		if err := e.handleProcessExit(request.Run.ID, session.processErr(), session.stderrTail()); err != nil {
+			_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
+		}
+		return false, false
+	}
+	finished, err := e.handleEvent(request, session, payload, state, eventState, backgroundTasks)
+	if err != nil {
+		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
+		return false, false
+	}
+	return finished, true
+}
+
+func (e *CodexExecutor) handleRunLoopWatchdog(
+	runID string,
+	session *codexSession,
+	eventState *codexEventState,
+) bool {
+	if err := e.checkPendingFunctionCallStall(runID, eventState); err != nil {
+		_ = e.markRunFailed(runID, err, session.stderrTail())
+		return false
+	}
+	return true
 }
 
 func (e *CodexExecutor) handleEvent(
@@ -1384,32 +1489,64 @@ func normalizeCodexTokenUsage(tokenUsage map[string]any) map[string]any {
 	}
 	normalized := map[string]any{}
 	if total, ok := mapValue(tokenUsage["total"]); ok && total != nil {
-		for _, key := range []string{"inputTokens", "promptTokens", "outputTokens", "completionTokens", "totalTokens"} {
-			if value := deepCloneJSONValue(total[key]); value != nil {
-				normalized[key] = value
-			}
-		}
+		copyClonedTokenUsageValues(
+			normalized,
+			total,
+			"inputTokens",
+			"promptTokens",
+			"outputTokens",
+			"completionTokens",
+			"totalTokens",
+		)
 	}
-	if normalized["contextUsedTokens"] == nil {
-		if last, ok := mapValue(tokenUsage["last"]); ok && last != nil {
-			for _, key := range []string{"contextUsedTokens", "inputTokens", "promptTokens", "usedTokens"} {
-				if value := deepCloneJSONValue(last[key]); value != nil {
-					normalized["contextUsedTokens"] = value
-					break
-				}
-			}
-		}
+	if last, ok := mapValue(tokenUsage["last"]); ok && last != nil {
+		copyFirstClonedTokenUsageValue(
+			normalized,
+			last,
+			"contextUsedTokens",
+			"contextUsedTokens",
+			"inputTokens",
+			"promptTokens",
+			"usedTokens",
+		)
 	}
-	for _, key := range []string{"contextWindowTokens", "windowTokens", "modelContextWindow"} {
-		if value := deepCloneJSONValue(tokenUsage[key]); value != nil {
-			normalized["contextWindowTokens"] = value
-			break
-		}
-	}
+	copyFirstClonedTokenUsageValue(
+		normalized,
+		tokenUsage,
+		"contextWindowTokens",
+		"contextWindowTokens",
+		"windowTokens",
+		"modelContextWindow",
+	)
 	if len(normalized) == 0 {
 		return nil
 	}
 	return normalized
+}
+
+func copyClonedTokenUsageValues(destination map[string]any, source map[string]any, keys ...string) {
+	for _, key := range keys {
+		if value := deepCloneJSONValue(source[key]); value != nil {
+			destination[key] = value
+		}
+	}
+}
+
+func copyFirstClonedTokenUsageValue(
+	destination map[string]any,
+	source map[string]any,
+	destinationKey string,
+	sourceKeys ...string,
+) {
+	if destination[destinationKey] != nil {
+		return
+	}
+	for _, key := range sourceKeys {
+		if value := deepCloneJSONValue(source[key]); value != nil {
+			destination[destinationKey] = value
+			return
+		}
+	}
 }
 
 func buildCodexPrompt(inputs map[string]any) string {
@@ -1513,55 +1650,104 @@ func applyCodexRuntimeConfig(
 	if payload == nil {
 		return nil
 	}
-	if model := strings.TrimSpace(stringValue(inputs["model"])); model != "" {
-		payload["model"] = model
-	} else if model := strings.TrimSpace(derefOptionalString(config.DefaultModel)); model != "" {
-		payload["model"] = model
+	applyCodexRuntimeCoreSettings(payload, config, inputs)
+	applyCodexAPIKeyDefaults(payload, config.EnvVarWhitelist)
+	applyCodexSettaMCPServer(payload, settaHeaders)
+	applyCodexTrustedProject(payload, workingDir)
+	if err := applyCodexEnabledToolsConfig(
+		payload,
+		profile,
+		completionGuardEnabled,
+		settaToolRegistry,
+	); err != nil {
+		return err
 	}
-	if approvalPolicy := strings.TrimSpace(stringValue(inputs["approvalPolicy"])); approvalPolicy != "" {
-		payload["approval_policy"] = approvalPolicy
-	} else if approvalPolicy := strings.TrimSpace(derefOptionalString(config.ApprovalPolicy)); approvalPolicy != "" {
-		payload["approval_policy"] = approvalPolicy
+	return nil
+}
+
+type codexRuntimeStringOverride struct {
+	inputKey    string
+	payloadKey  string
+	configValue *string
+}
+
+func applyCodexRuntimeCoreSettings(
+	payload map[string]any,
+	config externalagentconfigs.Config,
+	inputs map[string]any,
+) {
+	applyCodexRuntimeStringOverrides(payload, inputs, []codexRuntimeStringOverride{
+		{
+			inputKey:    "model",
+			payloadKey:  "model",
+			configValue: config.DefaultModel,
+		},
+		{
+			inputKey:    "approvalPolicy",
+			payloadKey:  "approval_policy",
+			configValue: config.ApprovalPolicy,
+		},
+		{
+			inputKey:    "sandboxPolicy",
+			payloadKey:  "sandbox_mode",
+			configValue: config.SandboxPolicy,
+		},
+	})
+	prependCodexDeveloperInstructions(
+		payload,
+		strings.TrimSpace(stringValue(inputs["systemPrompt"])),
+	)
+	setCodexStringDefault(payload, "model_reasoning_summary", "none")
+}
+
+func applyCodexRuntimeStringOverrides(
+	payload map[string]any,
+	inputs map[string]any,
+	overrides []codexRuntimeStringOverride,
+) {
+	for _, override := range overrides {
+		resolved := firstNonEmptyTrimmed(
+			stringValue(inputs[override.inputKey]),
+			derefOptionalString(override.configValue),
+		)
+		if resolved == "" {
+			continue
+		}
+		payload[override.payloadKey] = resolved
 	}
-	if sandboxPolicy := strings.TrimSpace(stringValue(inputs["sandboxPolicy"])); sandboxPolicy != "" {
-		payload["sandbox_mode"] = sandboxPolicy
-	} else if sandboxPolicy := strings.TrimSpace(derefOptionalString(config.SandboxPolicy)); sandboxPolicy != "" {
-		payload["sandbox_mode"] = sandboxPolicy
+}
+
+func prependCodexDeveloperInstructions(payload map[string]any, systemPrompt string) {
+	if systemPrompt == "" {
+		return
 	}
-	if systemPrompt := strings.TrimSpace(stringValue(inputs["systemPrompt"])); systemPrompt != "" {
-		if existing := strings.TrimSpace(stringValue(payload["developer_instructions"])); existing != "" {
-			payload["developer_instructions"] = systemPrompt + "\n\n" + existing
-		} else {
-			payload["developer_instructions"] = systemPrompt
-		}
+	if existing := strings.TrimSpace(stringValue(payload["developer_instructions"])); existing != "" {
+		payload["developer_instructions"] = systemPrompt + "\n\n" + existing
+		return
 	}
-	if envWhitelistContains(config.EnvVarWhitelist, "OPENAI_API_KEY") {
-		if strings.TrimSpace(stringValue(payload["forced_login_method"])) == "" {
-			payload["forced_login_method"] = "api"
-		}
-		if strings.TrimSpace(stringValue(payload["preferred_auth_method"])) == "" {
-			payload["preferred_auth_method"] = "apikey"
-		}
-		if strings.TrimSpace(stringValue(payload["cli_auth_credentials_store"])) == "" {
-			payload["cli_auth_credentials_store"] = "file"
-		}
-		features := ensureAnyMapFromValue(payload["features"])
-		if _, ok := features["remote_models"]; !ok {
-			features["remote_models"] = false
-		}
-		if _, ok := features["remote_compaction"]; !ok {
-			features["remote_compaction"] = false
-		}
-		payload["features"] = features
+	payload["developer_instructions"] = systemPrompt
+}
+
+func applyCodexAPIKeyDefaults(payload map[string]any, envWhitelist []string) {
+	if !envWhitelistContains(envWhitelist, "OPENAI_API_KEY") {
+		return
 	}
-	if strings.TrimSpace(stringValue(payload["model_reasoning_summary"])) == "" {
-		payload["model_reasoning_summary"] = "none"
-	}
+	setCodexStringDefault(payload, "forced_login_method", "api")
+	setCodexStringDefault(payload, "preferred_auth_method", "apikey")
+	setCodexStringDefault(payload, "cli_auth_credentials_store", "file")
+	features := ensureAnyMapFromValue(payload["features"])
+	setCodexMapValueDefault(features, "remote_models", false)
+	setCodexMapValueDefault(features, "remote_compaction", false)
+	payload["features"] = features
+}
+
+func applyCodexSettaMCPServer(payload map[string]any, settaHeaders map[string]string) {
 	mcpServers := ensureAnyMapFromValue(payload["mcp_servers"])
 	serverEntry := ensureAnyMapFromValue(mcpServers[mcpx.DefaultServerID])
-	if len(serverEntry) > 0 || len(settaHeaders) > 0 {
-		serverEntry = externalagentconfigs.NormalizeSettaCodexMCPServerEntry(serverEntry, "")
+	if len(serverEntry) == 0 && len(settaHeaders) == 0 {
+		return
 	}
+	serverEntry = externalagentconfigs.NormalizeSettaCodexMCPServerEntry(serverEntry, "")
 	if len(settaHeaders) > 0 {
 		headerEntry := ensureAnyMapFromValue(serverEntry["http_headers"])
 		for key, value := range settaHeaders {
@@ -1569,27 +1755,61 @@ func applyCodexRuntimeConfig(
 		}
 		serverEntry["http_headers"] = headerEntry
 	}
-	if len(serverEntry) > 0 {
-		mcpServers[mcpx.DefaultServerID] = serverEntry
-		payload["mcp_servers"] = mcpServers
-	}
+	mcpServers[mcpx.DefaultServerID] = serverEntry
+	payload["mcp_servers"] = mcpServers
+}
+
+func applyCodexTrustedProject(payload map[string]any, workingDir string) {
 	projects := ensureAnyMapFromValue(payload["projects"])
 	projectEntry := ensureAnyMapFromValue(projects[workingDir])
 	projectEntry["trust_level"] = "trusted"
 	projects[workingDir] = projectEntry
 	payload["projects"] = projects
+}
+
+func applyCodexEnabledToolsConfig(
+	payload map[string]any,
+	profile *agentprofiles.Profile,
+	completionGuardEnabled bool,
+	settaToolRegistry *tools.Registry,
+) error {
 	enabledTools, err := buildCodexEnabledTools(profile, completionGuardEnabled, settaToolRegistry)
 	if err != nil {
 		return err
 	}
-	if len(enabledTools) > 0 {
-		mcpServers := ensureAnyMapFromValue(payload["mcp_servers"])
-		serverEntry := ensureAnyMapFromValue(mcpServers[mcpx.DefaultServerID])
-		serverEntry["enabled_tools"] = append([]string(nil), enabledTools...)
-		mcpServers[mcpx.DefaultServerID] = serverEntry
-		payload["mcp_servers"] = mcpServers
+	if len(enabledTools) == 0 {
+		return nil
 	}
+	mcpServers := ensureAnyMapFromValue(payload["mcp_servers"])
+	serverEntry := ensureAnyMapFromValue(mcpServers[mcpx.DefaultServerID])
+	serverEntry["enabled_tools"] = append([]string(nil), enabledTools...)
+	mcpServers[mcpx.DefaultServerID] = serverEntry
+	payload["mcp_servers"] = mcpServers
 	return nil
+}
+
+func setCodexStringDefault(payload map[string]any, key string, value string) {
+	if strings.TrimSpace(stringValue(payload[key])) != "" {
+		return
+	}
+	payload[key] = value
+}
+
+func setCodexMapValueDefault(payload map[string]any, key string, value any) {
+	if _, exists := payload[key]; exists {
+		return
+	}
+	payload[key] = value
+}
+
+func firstNonEmptyTrimmed(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 type codexToolAllowlist struct {
@@ -1605,29 +1825,15 @@ func buildCodexToolAllowlist(profile *agentprofiles.Profile, completionGuardEnab
 	allowAll := false
 	toolNames := map[string]struct{}{}
 	for _, entry := range profile.ToolAllowlist {
-		normalized := strings.TrimSpace(entry)
-		if normalized == "" {
-			return nil, fmt.Errorf("toolAllowlist entries must be non-empty strings")
+		allowAllEntry, toolName, err := normalizeCodexToolAllowlistEntry(entry)
+		if err != nil {
+			return nil, err
 		}
-		if strings.HasPrefix(normalized, "mcp__") {
-			normalized = strings.TrimPrefix(normalized, "mcp__")
-		}
-		if strings.Contains(normalized, mcpx.ToolNameSeparator) {
-			serverID, toolName, ok := mcpx.SplitNamespacedToolName(normalized)
-			if !ok || strings.TrimSpace(serverID) == "" || strings.TrimSpace(toolName) == "" {
-				return nil, fmt.Errorf("invalid tool allowlist entry %q", entry)
-			}
-			if serverID != mcpx.DefaultServerID {
-				return nil, fmt.Errorf("external tool allowlist only supports MCP server %q: %s", mcpx.DefaultServerID, entry)
-			}
-			toolNames[toolName] = struct{}{}
-			continue
-		}
-		if normalized == mcpx.DefaultServerID {
+		if allowAllEntry {
 			allowAll = true
 			continue
 		}
-		toolNames[normalized] = struct{}{}
+		toolNames[toolName] = struct{}{}
 	}
 	if allowAll {
 		return &codexToolAllowlist{allowAll: true}, nil
@@ -1635,6 +1841,34 @@ func buildCodexToolAllowlist(profile *agentprofiles.Profile, completionGuardEnab
 	if len(toolNames) == 0 {
 		return nil, nil
 	}
+	return finalizeCodexToolAllowlist(toolNames, completionGuardEnabled), nil
+}
+
+func normalizeCodexToolAllowlistEntry(entry string) (bool, string, error) {
+	normalized := strings.TrimSpace(entry)
+	if normalized == "" {
+		return false, "", fmt.Errorf("toolAllowlist entries must be non-empty strings")
+	}
+	if strings.HasPrefix(normalized, "mcp__") {
+		normalized = strings.TrimPrefix(normalized, "mcp__")
+	}
+	if !strings.Contains(normalized, mcpx.ToolNameSeparator) {
+		return normalized == mcpx.DefaultServerID, normalized, nil
+	}
+	serverID, toolName, ok := mcpx.SplitNamespacedToolName(normalized)
+	if !ok || strings.TrimSpace(serverID) == "" || strings.TrimSpace(toolName) == "" {
+		return false, "", fmt.Errorf("invalid tool allowlist entry %q", entry)
+	}
+	if serverID != mcpx.DefaultServerID {
+		return false, "", fmt.Errorf("external tool allowlist only supports MCP server %q: %s", mcpx.DefaultServerID, entry)
+	}
+	return false, toolName, nil
+}
+
+func finalizeCodexToolAllowlist(
+	toolNames map[string]struct{},
+	completionGuardEnabled bool,
+) *codexToolAllowlist {
 	toolNames["set_agentic_context"] = struct{}{}
 	if completionGuardEnabled {
 		toolNames["report_completion_status"] = struct{}{}
@@ -1646,7 +1880,7 @@ func buildCodexToolAllowlist(profile *agentprofiles.Profile, completionGuardEnab
 	sort.Strings(resolved)
 	return &codexToolAllowlist{
 		toolNames: resolved,
-	}, nil
+	}
 }
 
 func buildCodexEnabledTools(
