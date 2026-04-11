@@ -1054,54 +1054,72 @@ func normalizeTerminalSearchBuffer(raw []byte) ([]byte, []int) {
 	offsets := make([]int, 0, len(raw))
 
 	for index := 0; index < len(raw); index++ {
-		current := raw[index]
-		if current == 0x1b {
-			if index+1 >= len(raw) {
-				break
-			}
-			switch raw[index+1] {
-			case '[':
-				index += 2
-				for index < len(raw) {
-					if raw[index] >= 0x40 && raw[index] <= 0x7e {
-						break
-					}
-					index++
-				}
-			case ']':
-				index += 2
-				for index < len(raw) {
-					if raw[index] == 0x07 {
-						break
-					}
-					if raw[index] == 0x1b && index+1 < len(raw) && raw[index+1] == '\\' {
-						index++
-						break
-					}
-					index++
-				}
-			default:
-				index++
-			}
+		if nextIndex, ok := consumeTerminalEscapeSequence(raw, index); ok {
+			index = nextIndex
 			continue
 		}
-		if current == '\b' {
-			if len(normalized) > 0 {
-				normalized = normalized[:len(normalized)-1]
-				offsets = offsets[:len(offsets)-1]
-			}
-			continue
+		normalized, offsets = appendNormalizedTerminalByte(normalized, offsets, raw[index], index)
+	}
+
+	return normalized, offsets
+}
+
+func consumeTerminalEscapeSequence(raw []byte, index int) (int, bool) {
+	if raw[index] != 0x1b {
+		return index, false
+	}
+	if index+1 >= len(raw) {
+		return len(raw), true
+	}
+
+	switch raw[index+1] {
+	case '[':
+		return consumeTerminalCSISequence(raw, index+2), true
+	case ']':
+		return consumeTerminalOSCSequence(raw, index+2), true
+	default:
+		return index + 1, true
+	}
+}
+
+func consumeTerminalCSISequence(raw []byte, index int) int {
+	for index < len(raw) {
+		if raw[index] >= 0x40 && raw[index] <= 0x7e {
+			return index
 		}
-		if current == '\r' {
-			continue
+		index++
+	}
+	return index
+}
+
+func consumeTerminalOSCSequence(raw []byte, index int) int {
+	for index < len(raw) {
+		if raw[index] == 0x07 {
+			return index
 		}
-		if current < 0x20 && current != '\n' && current != '\t' {
-			continue
+		if raw[index] == 0x1b && index+1 < len(raw) && raw[index+1] == '\\' {
+			return index + 1
 		}
+		index++
+	}
+	return index
+}
+
+func appendNormalizedTerminalByte(normalized []byte, offsets []int, current byte, index int) ([]byte, []int) {
+	switch {
+	case current == '\b':
+		if len(normalized) > 0 {
+			normalized = normalized[:len(normalized)-1]
+			offsets = offsets[:len(offsets)-1]
+		}
+	case current == '\r':
+		return normalized, offsets
+	case current < 0x20 && current != '\n' && current != '\t':
+		return normalized, offsets
+	default:
 		normalized = append(normalized, current)
 		offsets = append(offsets, index+1)
 	}
-
 	return normalized, offsets
 }
 

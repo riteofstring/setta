@@ -399,6 +399,29 @@ func TestFindPromptReadyLineEndRawOffsetPrefersDirectRawMarkerSlice(t *testing.T
 	}
 }
 
+func TestNormalizeTerminalSearchBufferStripsOSCSequences(t *testing.T) {
+	t.Parallel()
+
+	raw := []byte(
+		"start" +
+			"\x1b]0;title\x07" +
+			"\x1b]0;second\x1b\\" +
+			"\b" +
+			"!\r\n",
+	)
+
+	normalized, offsets := normalizeTerminalSearchBuffer(raw)
+	if got := string(normalized); got != "star!\n" {
+		t.Fatalf("expected OSC sequences and redisplay noise to be stripped, got %q", got)
+	}
+	if len(offsets) != len(normalized) {
+		t.Fatalf("expected offsets to match normalized bytes, got %d offsets for %d bytes", len(offsets), len(normalized))
+	}
+	if got := raw[offsets[len(offsets)-1]-1]; got != '\n' {
+		t.Fatalf("expected final offset to map to newline byte, got %q", got)
+	}
+}
+
 func TestServiceDefaultShellStartupDoesNotExposePromptReadyProbe(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)
