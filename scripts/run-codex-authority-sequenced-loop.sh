@@ -17,6 +17,7 @@ Defaults:
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
+- Phase 3 hotspot thresholds: Python `10`, frontend `10`, Go `12`
 - Stop when Codex explicitly reports either true audited completion or a documented sustained plateau
 - Require every non-stop iteration to leave a clean worktree and advance HEAD
 
@@ -50,6 +51,9 @@ state_dir=""
 model="gpt-5.4"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
+hotspot_python_min="10"
+hotspot_frontend_min="10"
+hotspot_go_min="12"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: AUTHORITY_SEQUENCE_AUDITED_STOP"
 codex_extra_args=()
@@ -211,6 +215,14 @@ fi
 
 mkdir -p "${output_dir}" "${state_dir}"
 
+hotspot_report_command="$(
+  shell_join \
+    "./report_quality_hotspots.sh" \
+    --python-min "${hotspot_python_min}" \
+    --frontend-min "${hotspot_frontend_min}" \
+    --go-min "${hotspot_go_min}"
+)"
+
 checklist_file="${state_dir}/checklist.md"
 prompt_file="${state_dir}/prompt.md"
 hotspot_report_file="${state_dir}/quality-hotspots.txt"
@@ -299,7 +311,7 @@ Rules:
 - [ ] Mark Phase 2 complete only after ${polling_audit_file} reflects the current repo state and a fresh audit finds no remaining actionable polling-to-websocket replacements under the repo rules.
 
 ## Phase 3: Fix Quality Hotspots
-- [ ] Run \`./report_quality_hotspots.sh\` at the start of every Phase 3 iteration and save the latest output to ${hotspot_report_file}.
+- [ ] Run \`${hotspot_report_command}\` at the start of every Phase 3 iteration and save the latest output to ${hotspot_report_file}.
 - [ ] Update the Phase 3 hotspot review at ${hotspot_review_file} on every Phase 3 iteration.
 - [ ] Use the latest hotspot report to choose the highest-leverage actionable hotspot or tight cluster of hotspots.
 - [ ] Count a Phase 3 iteration as material only when it removes a current top-10 hotspot, lowers a current top-10 hotspot score, or clearly reduces structural branching in a current top-10 hotspot file without just moving complexity sideways.
@@ -319,7 +331,7 @@ Mission:
 Complete these three phases in strict order:
 1. remove unjustified duplicated logic across Go, Python, and TypeScript
 2. replace unjustified polling with websocket pushes
-3. run \`./report_quality_hotspots.sh\` and fix actionable code quality hotspots
+3. run \`${hotspot_report_command}\` and fix actionable code quality hotspots
 
 Read first, in this order:
 - ${ROOT_DIR}/AGENTS.md
@@ -377,10 +389,11 @@ Phase 2 rules:
 Phase 3 rules:
 - Enter Phase 3 only after Phase 2 is complete in the checklist.
 - At the start of every Phase 3 iteration, run:
-  \`./report_quality_hotspots.sh > ${hotspot_report_file}\`
+  \`${hotspot_report_command} > ${hotspot_report_file}\`
 - Read the saved report at ${hotspot_report_file} before choosing work.
 - Update ${hotspot_review_file} during every Phase 3 iteration.
 - Use the report to pick the highest-leverage actionable hotspot or tight cluster of related hotspots, then simplify it without regressing behavior.
+- Treat these thresholds as the Phase 3 floor for this loop: Python ${hotspot_python_min}, frontend ${hotspot_frontend_min}, Go ${hotspot_go_min}. Do not burn iterations on sub-threshold churn unless that cleanup is already bundled into a higher-threshold target you are touching anyway.
 - Favor real structural simplification over just shuffling complexity into neighboring helpers.
 - Do not mark Phase 3 complete just because the remaining hotspots are orchestration paths. You must name the concrete reason they are no longer good cleanup targets.
 - A Phase 3 iteration counts as material only if it does at least one of:
@@ -463,6 +476,7 @@ echo "New session every: 1"
 echo "Model: ${model}"
 echo 'Reasoning effort: xhigh'
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
+echo "Phase 3 hotspot thresholds: python=${hotspot_python_min} frontend=${hotspot_frontend_min} go=${hotspot_go_min}"
 if [[ "${yolo_mode}" == "1" ]]; then
   echo "Yolo mode: enabled"
 else
