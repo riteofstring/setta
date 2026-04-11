@@ -28,52 +28,63 @@ func resolveMCPRuntimeDisplayServers(
 	settaServers []mcpx.ServerRuntimeStatus,
 	externalServers []mcpx.ServerRuntimeStatus,
 ) []MCPResolvedRuntimeServer {
-	settaByID := make(map[string]mcpx.ServerRuntimeStatus, len(settaServers))
-	for _, status := range settaServers {
-		serverID := strings.TrimSpace(status.ServerID)
-		if serverID == "" {
-			continue
-		}
-		settaByID[serverID] = status
-	}
-	externalByID := make(map[string]mcpx.ServerRuntimeStatus, len(externalServers))
-	for _, status := range externalServers {
-		serverID := strings.TrimSpace(status.ServerID)
-		if serverID == "" {
-			continue
-		}
-		externalByID[serverID] = status
-	}
-	serverIDs := make([]string, 0, len(settaByID)+len(externalByID))
-	seen := make(map[string]struct{}, len(settaByID)+len(externalByID))
-	for serverID := range settaByID {
-		seen[serverID] = struct{}{}
-		serverIDs = append(serverIDs, serverID)
-	}
-	for serverID := range externalByID {
-		if _, ok := seen[serverID]; ok {
-			continue
-		}
-		serverIDs = append(serverIDs, serverID)
-	}
-	sort.Strings(serverIDs)
+	settaByID := indexMCPRuntimeStatusesByID(settaServers)
+	externalByID := indexMCPRuntimeStatusesByID(externalServers)
+	serverIDs := sortedMCPRuntimeStatusIDs(settaByID, externalByID)
 	resolved := make([]MCPResolvedRuntimeServer, 0, len(serverIDs))
 	for _, serverID := range serverIDs {
-		settaStatus, hasSetta := settaByID[serverID]
-		externalStatus, hasExternal := externalByID[serverID]
-		switch {
-		case hasSetta && hasExternal:
-			resolved = append(
-				resolved,
-				mergeMCPRuntimeDisplayServer(settaStatus, externalStatus),
-			)
-		case hasSetta:
-			resolved = append(resolved, resolvedMCPRuntimeServerFromStatus(settaStatus))
-		case hasExternal:
-			resolved = append(resolved, resolvedMCPRuntimeServerFromStatus(externalStatus))
-		}
+		resolved = append(resolved, resolveMCPRuntimeDisplayServer(serverID, settaByID, externalByID))
 	}
 	return resolved
+}
+
+func indexMCPRuntimeStatusesByID(
+	statuses []mcpx.ServerRuntimeStatus,
+) map[string]mcpx.ServerRuntimeStatus {
+	indexed := make(map[string]mcpx.ServerRuntimeStatus, len(statuses))
+	for _, status := range statuses {
+		serverID := strings.TrimSpace(status.ServerID)
+		if serverID == "" {
+			continue
+		}
+		indexed[serverID] = status
+	}
+	return indexed
+}
+
+func sortedMCPRuntimeStatusIDs(
+	settaByID map[string]mcpx.ServerRuntimeStatus,
+	externalByID map[string]mcpx.ServerRuntimeStatus,
+) []string {
+	serverIDs := make([]string, 0, len(settaByID)+len(externalByID))
+	seen := make(map[string]struct{}, len(settaByID)+len(externalByID))
+	for _, statuses := range []map[string]mcpx.ServerRuntimeStatus{settaByID, externalByID} {
+		for serverID := range statuses {
+			if _, ok := seen[serverID]; ok {
+				continue
+			}
+			seen[serverID] = struct{}{}
+			serverIDs = append(serverIDs, serverID)
+		}
+	}
+	sort.Strings(serverIDs)
+	return serverIDs
+}
+
+func resolveMCPRuntimeDisplayServer(
+	serverID string,
+	settaByID map[string]mcpx.ServerRuntimeStatus,
+	externalByID map[string]mcpx.ServerRuntimeStatus,
+) MCPResolvedRuntimeServer {
+	settaStatus, hasSetta := settaByID[serverID]
+	externalStatus, hasExternal := externalByID[serverID]
+	if hasSetta && hasExternal {
+		return mergeMCPRuntimeDisplayServer(settaStatus, externalStatus)
+	}
+	if hasSetta {
+		return resolvedMCPRuntimeServerFromStatus(settaStatus)
+	}
+	return resolvedMCPRuntimeServerFromStatus(externalStatus)
 }
 
 func mergeMCPRuntimeDisplayServer(
