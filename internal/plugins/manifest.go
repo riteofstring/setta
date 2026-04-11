@@ -94,49 +94,70 @@ func ResolvePluginBackendEntrypoint(pluginRoot string, manifest PluginManifest) 
 }
 
 func ValidatePluginManifestPaths(pluginRoot string, manifest PluginManifest) error {
-	if manifest.Backend != nil {
-		if _, err := ResolvePluginBackendEntrypoint(pluginRoot, manifest); err != nil {
-			return err
-		}
+	if err := validatePluginBackendPaths(pluginRoot, manifest); err != nil {
+		return err
 	}
-	if manifest.Frontend != nil {
-		entrypoint := strings.TrimSpace(manifest.Frontend.Entrypoint)
-		if entrypoint == "" {
-			return fmt.Errorf("%w: plugin frontend entrypoint is required for %s", ErrPluginManifestInvalid, manifest.ID)
-		}
-		if _, err := resolveManifestRegularFile(pluginRoot, entrypoint, "plugin frontend entrypoint"); err != nil {
-			return err
-		}
-		style := strings.TrimSpace(manifest.Frontend.Style)
-		if style != "" {
-			if _, err := resolveManifestRegularFile(pluginRoot, style, "plugin frontend style"); err != nil {
-				return err
-			}
-		}
+	if err := validatePluginFrontendPaths(pluginRoot, manifest); err != nil {
+		return err
 	}
-	if manifest.Content != nil {
-		if strings.TrimSpace(manifest.Content.BlueprintsDir) != "" {
-			if _, err := resolveManifestDirectory(pluginRoot, manifest.Content.BlueprintsDir, "plugin content blueprintsDir"); err != nil {
-				return err
-			}
-		}
-		if strings.TrimSpace(manifest.Content.ProjectTemplatesDir) != "" {
-			if _, err := resolveManifestDirectory(pluginRoot, manifest.Content.ProjectTemplatesDir, "plugin content projectTemplatesDir"); err != nil {
-				return err
-			}
-		}
-		if strings.TrimSpace(manifest.Content.PromptsDir) != "" {
-			if _, err := resolveManifestDirectory(pluginRoot, manifest.Content.PromptsDir, "plugin content promptsDir"); err != nil {
-				return err
-			}
-		}
+	if err := validatePluginContentPaths(pluginRoot, manifest); err != nil {
+		return err
 	}
-	if strings.TrimSpace(manifest.ConfigSchemaPath) != "" {
-		if _, err := resolveManifestRegularFile(pluginRoot, manifest.ConfigSchemaPath, "plugin config schema"); err != nil {
-			return err
-		}
+	return validateOptionalManifestRegularFile(pluginRoot, manifest.ConfigSchemaPath, "plugin config schema")
+}
+
+func validatePluginBackendPaths(pluginRoot string, manifest PluginManifest) error {
+	if manifest.Backend == nil {
+		return nil
 	}
-	return nil
+	_, err := ResolvePluginBackendEntrypoint(pluginRoot, manifest)
+	return err
+}
+
+func validatePluginFrontendPaths(pluginRoot string, manifest PluginManifest) error {
+	if manifest.Frontend == nil {
+		return nil
+	}
+	if err := validateRequiredManifestRegularFile(pluginRoot, manifest.Frontend.Entrypoint, "plugin frontend entrypoint", manifest.ID); err != nil {
+		return err
+	}
+	return validateOptionalManifestRegularFile(pluginRoot, manifest.Frontend.Style, "plugin frontend style")
+}
+
+func validatePluginContentPaths(pluginRoot string, manifest PluginManifest) error {
+	if manifest.Content == nil {
+		return nil
+	}
+	if err := validateOptionalManifestDirectory(pluginRoot, manifest.Content.BlueprintsDir, "plugin content blueprintsDir"); err != nil {
+		return err
+	}
+	if err := validateOptionalManifestDirectory(pluginRoot, manifest.Content.ProjectTemplatesDir, "plugin content projectTemplatesDir"); err != nil {
+		return err
+	}
+	return validateOptionalManifestDirectory(pluginRoot, manifest.Content.PromptsDir, "plugin content promptsDir")
+}
+
+func validateRequiredManifestRegularFile(pluginRoot string, relativePath string, label string, pluginID string) error {
+	if strings.TrimSpace(relativePath) == "" {
+		return fmt.Errorf("%w: %s is required for %s", ErrPluginManifestInvalid, label, pluginID)
+	}
+	return validateOptionalManifestRegularFile(pluginRoot, relativePath, label)
+}
+
+func validateOptionalManifestRegularFile(pluginRoot string, relativePath string, label string) error {
+	if strings.TrimSpace(relativePath) == "" {
+		return nil
+	}
+	_, err := resolveManifestRegularFile(pluginRoot, relativePath, label)
+	return err
+}
+
+func validateOptionalManifestDirectory(pluginRoot string, relativePath string, label string) error {
+	if strings.TrimSpace(relativePath) == "" {
+		return nil
+	}
+	_, err := resolveManifestDirectory(pluginRoot, relativePath, label)
+	return err
 }
 
 func resolveManifestRegularFile(pluginRoot string, relativePath string, label string) (string, error) {
