@@ -1,6 +1,9 @@
 package uisettings
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestValidateValueRejectsMissingRequiredPropertiesInSortedOrder(t *testing.T) {
 	t.Parallel()
@@ -104,4 +107,81 @@ func TestValidateValueRejectsStringEnumValue(t *testing.T) {
 	if settingErr.Message != "Value must be one of: alpha, beta." {
 		t.Fatalf("unexpected error message %q", settingErr.Message)
 	}
+}
+
+func TestInferPluginValueSchemaBuildsNestedArrayObjectSchema(t *testing.T) {
+	t.Parallel()
+
+	schemaJSON := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"settings": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"profiles": map[string]any{
+						"type": []any{"array", "null"},
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"name": map[string]any{
+									"type":      "string",
+									"minLength": 1,
+								},
+								"retries": map[string]any{
+									"type":    "integer",
+									"minimum": 1,
+									"maximum": 5,
+								},
+							},
+							"required":             []any{"name", "", 42},
+							"additionalProperties": false,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	got, ok := inferPluginValueSchema(schemaJSON, []string{"settings", "profiles"})
+	if !ok {
+		t.Fatal("expected schema inference to succeed")
+	}
+
+	expected := ValueSchema{
+		Type: ValueTypeArray,
+		Items: &ValueSchema{
+			Type: ValueTypeObject,
+			Properties: map[string]ValueSchema{
+				"name": {
+					Type:      ValueTypeString,
+					MinLength: intPointer(1),
+				},
+				"retries": {
+					Type:    ValueTypeInteger,
+					Minimum: float64Pointer(1),
+					Maximum: float64Pointer(5),
+				},
+			},
+			RequiredProperties:   []string{"name"},
+			AdditionalProperties: boolPointer(false),
+		},
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatalf("unexpected inferred schema:\n got: %#v\nwant: %#v", got, expected)
+	}
+}
+
+func TestInferValueSchemaFromSchemaNodeRejectsAmbiguousUnion(t *testing.T) {
+	t.Parallel()
+
+	_, ok := inferValueSchemaFromSchemaNode(map[string]any{
+		"type": []any{"string", "number"},
+	})
+	if ok {
+		t.Fatal("expected ambiguous union schema to be rejected")
+	}
+}
+
+func float64Pointer(value float64) *float64 {
+	return &value
 }
