@@ -125,6 +125,20 @@ type resolvedSkillDoc struct {
 	SkillDocPath string
 }
 
+type upsertCustomSkillSelection struct {
+	SkillID      string
+	RelativePath string
+}
+
+type upsertCustomSkillTarget struct {
+	RootID       string
+	RootPath     string
+	RelativePath string
+	SkillDocPath string
+	SkillID      string
+	Created      bool
+}
+
 func NewService(opts ServiceOptions) (*Service, error) {
 	lookupEnv := opts.LookupEnv
 	if lookupEnv == nil {
@@ -300,115 +314,18 @@ func (s *Service) ReadContent(skillID string) (SkillContent, error) {
 }
 
 func (s *Service) UpsertCustomSkill(skillID string, relativePath string, content string) (UpsertCustomSkillResponse, error) {
-	selectedSkillID := strings.TrimSpace(skillID)
-	selectedRelativePath := strings.TrimSpace(relativePath)
-	if selectedSkillID != "" && selectedRelativePath != "" {
-		return UpsertCustomSkillResponse{}, invalidErrorf("Provide either skillId or relativePath, not both.")
-	}
-	if selectedSkillID == "" && selectedRelativePath == "" {
-		return UpsertCustomSkillResponse{}, invalidErrorf("relativePath is required when skillId is not provided.")
-	}
-
-	var (
-		targetRootID       string
-		targetRootPath     string
-		targetRelativePath string
-		resolvedSkillID    string
-		skillDocPath       string
-		created            bool
-	)
-
-	if selectedSkillID != "" {
-		skillIndex, err := s.skillIndexByID()
-		if err != nil {
-			return UpsertCustomSkillResponse{}, err
-		}
-		selectedSkill, ok := skillIndex[selectedSkillID]
-		if !ok {
-			return UpsertCustomSkillResponse{}, notFoundErrorf("Unknown or non-discoverable skillId: %s", selectedSkillID)
-		}
-		target, err := s.resolveSkillDocPathFromID(selectedSkill.SkillID)
-		if err != nil {
-			return UpsertCustomSkillResponse{}, err
-		}
-		if _, err := os.Stat(target.SkillDocPath); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return UpsertCustomSkillResponse{}, notFoundErrorf("Missing SKILL.md for %s", selectedSkill.SkillID)
-			}
-			return UpsertCustomSkillResponse{}, invalidErrorf("%v", err)
-		}
-		isEditable, editabilityReason := resolveSkillEditability(target.RootID, target.RelativePath, target.SkillDocPath)
-		if !isEditable {
-			if strings.TrimSpace(editabilityReason) == "" {
-				return UpsertCustomSkillResponse{}, invalidErrorf("Selected skill is not editable.")
-			}
-			return UpsertCustomSkillResponse{}, invalidErrorf("%s", editabilityReason)
-		}
-		targetRootID = target.RootID
-		targetRootPath = target.RootPath
-		targetRelativePath = target.RelativePath
-		skillDocPath = target.SkillDocPath
-		resolvedSkillID = selectedSkill.SkillID
-		created = false
-	} else {
-		root, err := s.resolveCustomSkillCreateRootForWrite()
-		if err != nil {
-			return UpsertCustomSkillResponse{}, err
-		}
-		targetRootID = s.resolveDiscoverableRootIDForPath(root.Path, root.ID)
-		targetRootPath = root.Path
-		targetRelativePath, err = normalizeCustomSkillRelativePath(selectedRelativePath)
-		if err != nil {
-			return UpsertCustomSkillResponse{}, err
-		}
-		skillDocPath, err = normalizePath(filepath.Join(targetRootPath, filepath.FromSlash(targetRelativePath), "SKILL.md"), "", s.lookupEnv, s.homeDir)
-		if err != nil {
-			return UpsertCustomSkillResponse{}, invalidErrorf("%v", err)
-		}
-		if !isWithinRoot(targetRootPath, skillDocPath) {
-			return UpsertCustomSkillResponse{}, invalidErrorf("Invalid skill path.")
-		}
-		if _, err := os.Stat(skillDocPath); err == nil {
-			return UpsertCustomSkillResponse{}, invalidErrorf("Custom skill already exists for relativePath '%s'.", targetRelativePath)
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return UpsertCustomSkillResponse{}, invalidErrorf("%v", err)
-		}
-		resolvedSkillID = fmt.Sprintf("%s::%s", targetRootID, targetRelativePath)
-		created = true
-	}
-
-	if created {
-		if err := writeNewCustomSkillDoc(skillDocPath, targetRelativePath, content); err != nil {
-			return UpsertCustomSkillResponse{}, err
-		}
-	} else {
-		if err := writeExistingCustomSkillDoc(skillDocPath, resolvedSkillID, content); err != nil {
-			return UpsertCustomSkillResponse{}, err
-		}
-	}
-
-	skillIndex, err := s.skillIndexByID()
+	selection, err := resolveUpsertCustomSkillSelection(skillID, relativePath)
 	if err != nil {
 		return UpsertCustomSkillResponse{}, err
 	}
-	skill, ok := skillIndex[resolvedSkillID]
-	if !ok {
-		return UpsertCustomSkillResponse{}, notFoundErrorf("Unknown or non-discoverable skillId: %s", resolvedSkillID)
-	}
-
-	skillContent, err := buildWrittenSkillContent(resolvedSkillID, content, skillDocPath)
+	target, err := s.resolveUpsertCustomSkillTarget(selection)
 	if err != nil {
 		return UpsertCustomSkillResponse{}, err
 	}
-
-	return UpsertCustomSkillResponse{
-		SkillID:      resolvedSkillID,
-		Created:      created,
-		RootPath:     targetRootPath,
-		SkillDocPath: skillDocPath,
-		Skill:        skill,
-		SkillContent: skillContent,
-	}, nil
+	if err := writeUpsertCustomSkill(target, content); err != nil {
+		return UpsertCustomSkillResponse{}, err
+	}
+	return s.buildUpsertCustomSkillResponse(target, content)
 }
 
 func (s *Service) skillRoots() ([]skillRoot, error) {
@@ -619,6 +536,156 @@ func (s *Service) skillIndexByID() (map[string]SkillEntry, error) {
 		index[row.SkillID] = row
 	}
 	return index, nil
+}
+
+func resolveUpsertCustomSkillSelection(skillID string, relativePath string) (upsertCustomSkillSelection, error) {
+	selection := upsertCustomSkillSelection{
+		SkillID:      strings.TrimSpace(skillID),
+		RelativePath: strings.TrimSpace(relativePath),
+	}
+	switch {
+	case selection.SkillID != "" && selection.RelativePath != "":
+		return upsertCustomSkillSelection{}, invalidErrorf("Provide either skillId or relativePath, not both.")
+	case selection.SkillID == "" && selection.RelativePath == "":
+		return upsertCustomSkillSelection{}, invalidErrorf("relativePath is required when skillId is not provided.")
+	default:
+		return selection, nil
+	}
+}
+
+func (s *Service) resolveUpsertCustomSkillTarget(selection upsertCustomSkillSelection) (upsertCustomSkillTarget, error) {
+	if selection.SkillID != "" {
+		return s.resolveExistingCustomSkillTarget(selection.SkillID)
+	}
+	return s.resolveNewCustomSkillTarget(selection.RelativePath)
+}
+
+func (s *Service) resolveExistingCustomSkillTarget(skillID string) (upsertCustomSkillTarget, error) {
+	selectedSkill, err := s.lookupSkillByID(skillID)
+	if err != nil {
+		return upsertCustomSkillTarget{}, err
+	}
+	target, err := s.resolveSkillDocPathFromID(selectedSkill.SkillID)
+	if err != nil {
+		return upsertCustomSkillTarget{}, err
+	}
+	if err := requireExistingSkillDoc(target.SkillDocPath, selectedSkill.SkillID); err != nil {
+		return upsertCustomSkillTarget{}, err
+	}
+	if err := validateEditableSkillTarget(target); err != nil {
+		return upsertCustomSkillTarget{}, err
+	}
+	return upsertCustomSkillTarget{
+		RootID:       target.RootID,
+		RootPath:     target.RootPath,
+		RelativePath: target.RelativePath,
+		SkillDocPath: target.SkillDocPath,
+		SkillID:      selectedSkill.SkillID,
+		Created:      false,
+	}, nil
+}
+
+func (s *Service) resolveNewCustomSkillTarget(relativePath string) (upsertCustomSkillTarget, error) {
+	root, err := s.resolveCustomSkillCreateRootForWrite()
+	if err != nil {
+		return upsertCustomSkillTarget{}, err
+	}
+	normalizedRelativePath, err := normalizeCustomSkillRelativePath(relativePath)
+	if err != nil {
+		return upsertCustomSkillTarget{}, err
+	}
+	skillDocPath, err := normalizePath(
+		filepath.Join(root.Path, filepath.FromSlash(normalizedRelativePath), "SKILL.md"),
+		"",
+		s.lookupEnv,
+		s.homeDir,
+	)
+	if err != nil {
+		return upsertCustomSkillTarget{}, invalidErrorf("%v", err)
+	}
+	if err := validateNewCustomSkillPath(root.Path, skillDocPath, normalizedRelativePath); err != nil {
+		return upsertCustomSkillTarget{}, err
+	}
+	rootID := s.resolveDiscoverableRootIDForPath(root.Path, root.ID)
+	return upsertCustomSkillTarget{
+		RootID:       rootID,
+		RootPath:     root.Path,
+		RelativePath: normalizedRelativePath,
+		SkillDocPath: skillDocPath,
+		SkillID:      fmt.Sprintf("%s::%s", rootID, normalizedRelativePath),
+		Created:      true,
+	}, nil
+}
+
+func (s *Service) buildUpsertCustomSkillResponse(target upsertCustomSkillTarget, content string) (UpsertCustomSkillResponse, error) {
+	skill, err := s.lookupSkillByID(target.SkillID)
+	if err != nil {
+		return UpsertCustomSkillResponse{}, err
+	}
+	skillContent, err := buildWrittenSkillContent(target.SkillID, content, target.SkillDocPath)
+	if err != nil {
+		return UpsertCustomSkillResponse{}, err
+	}
+	return UpsertCustomSkillResponse{
+		SkillID:      target.SkillID,
+		Created:      target.Created,
+		RootPath:     target.RootPath,
+		SkillDocPath: target.SkillDocPath,
+		Skill:        skill,
+		SkillContent: skillContent,
+	}, nil
+}
+
+func (s *Service) lookupSkillByID(skillID string) (SkillEntry, error) {
+	skillIndex, err := s.skillIndexByID()
+	if err != nil {
+		return SkillEntry{}, err
+	}
+	skill, ok := skillIndex[skillID]
+	if !ok {
+		return SkillEntry{}, notFoundErrorf("Unknown or non-discoverable skillId: %s", skillID)
+	}
+	return skill, nil
+}
+
+func requireExistingSkillDoc(skillDocPath string, skillID string) error {
+	if _, err := os.Stat(skillDocPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return notFoundErrorf("Missing SKILL.md for %s", skillID)
+		}
+		return invalidErrorf("%v", err)
+	}
+	return nil
+}
+
+func validateEditableSkillTarget(target resolvedSkillDoc) error {
+	isEditable, editabilityReason := resolveSkillEditability(target.RootID, target.RelativePath, target.SkillDocPath)
+	if isEditable {
+		return nil
+	}
+	if strings.TrimSpace(editabilityReason) == "" {
+		return invalidErrorf("Selected skill is not editable.")
+	}
+	return invalidErrorf("%s", editabilityReason)
+}
+
+func validateNewCustomSkillPath(rootPath string, skillDocPath string, relativePath string) error {
+	if !isWithinRoot(rootPath, skillDocPath) {
+		return invalidErrorf("Invalid skill path.")
+	}
+	if _, err := os.Stat(skillDocPath); err == nil {
+		return invalidErrorf("Custom skill already exists for relativePath '%s'.", relativePath)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return invalidErrorf("%v", err)
+	}
+	return nil
+}
+
+func writeUpsertCustomSkill(target upsertCustomSkillTarget, content string) error {
+	if target.Created {
+		return writeNewCustomSkillDoc(target.SkillDocPath, target.RelativePath, content)
+	}
+	return writeExistingCustomSkillDoc(target.SkillDocPath, target.SkillID, content)
 }
 
 func splitSkillID(skillID string) (string, string, error) {
