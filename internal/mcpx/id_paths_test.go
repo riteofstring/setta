@@ -2,6 +2,7 @@ package mcpx
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/tools"
@@ -116,6 +117,27 @@ func TestTranslateIDsAtPathsRewritesObjectKeys(t *testing.T) {
 	}
 	if _, ok := topLevelSections["section-1"]; ok {
 		t.Fatalf("did not expect canonical key section-1 after translation, got %#v", topLevelSections)
+	}
+}
+
+func TestTranslateIDsAtPathsRejectsDuplicateRewrittenObjectKeys(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"topLevelSections": map[string]any{
+			"section-1": map[string]any{"x": 10},
+			"section-2": map[string]any{"x": 20},
+		},
+	}
+
+	err := translateIDsAtPaths(payload, []string{"topLevelSections"}, func(value string) (string, error) {
+		if strings.HasPrefix(value, "section-") {
+			return "tmp-section", nil
+		}
+		return value, nil
+	})
+	if err == nil {
+		t.Fatal("expected duplicate rewritten key error")
 	}
 }
 

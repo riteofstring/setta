@@ -13,31 +13,9 @@ func ExtractIDsByType(payload any, pathsByType map[tools.IDType][]string, allowD
 
 	idsByType := make(map[tools.IDType]map[string]struct{}, len(pathsByType))
 	for idType, paths := range pathsByType {
-		for _, path := range paths {
-			values := selectValuesByPath(payload, path)
-			for _, value := range values {
-				ids := coerceIDList(value)
-				if ids == nil && allowDictKeys {
-					if rawMap, ok := value.(map[string]any); ok {
-						keys := make([]string, 0, len(rawMap))
-						for key := range rawMap {
-							keys = append(keys, key)
-						}
-						ids = coerceIDList(keys)
-					}
-				}
-				if ids == nil {
-					continue
-				}
-				targets := idsByType[idType]
-				if targets == nil {
-					targets = map[string]struct{}{}
-					idsByType[idType] = targets
-				}
-				for _, id := range ids {
-					targets[id] = struct{}{}
-				}
-			}
+		targets := collectIDsAtPaths(payload, paths, allowDictKeys)
+		if targets != nil {
+			idsByType[idType] = targets
 		}
 	}
 	return idsByType
@@ -123,46 +101,118 @@ func rewriteIDCarrier(value any, transform func(string) (string, error)) (any, e
 	case string:
 		return transform(typed)
 	case map[string]any:
-		rewritten := make(map[string]any, len(typed))
-		for key, entry := range typed {
-			nextKey, err := transform(key)
-			if err != nil {
-				return nil, err
-			}
-			if _, exists := rewritten[nextKey]; exists && nextKey != key {
-				return nil, newToolError("invalid_arguments", "rewriting id carrier produced duplicate key %q", nextKey)
-			}
-			rewritten[nextKey] = entry
-		}
-		return rewritten, nil
+		return rewriteIDCarrierMap(typed, transform)
 	case []string:
-		rewritten := make([]string, len(typed))
-		for index, entry := range typed {
-			next, err := transform(entry)
-			if err != nil {
-				return nil, err
-			}
-			rewritten[index] = next
-		}
-		return rewritten, nil
+		return rewriteStringCarrier(typed, transform)
 	case []any:
-		rewritten := make([]any, len(typed))
-		copy(rewritten, typed)
-		for index, entry := range rewritten {
-			rawString, ok := entry.(string)
-			if !ok {
-				continue
-			}
-			next, err := transform(rawString)
-			if err != nil {
-				return nil, err
-			}
-			rewritten[index] = next
-		}
-		return rewritten, nil
+		return rewriteAnyStringCarrier(typed, transform)
 	default:
 		return value, nil
 	}
+}
+
+func collectIDsAtPaths(payload any, paths []string, allowDictKeys bool) map[string]struct{} {
+	var targets map[string]struct{}
+	for _, path := range paths {
+		targets = addIDsFromValues(targets, selectValuesByPath(payload, path), allowDictKeys)
+	}
+	return targets
+}
+
+func addIDsFromValues(targets map[string]struct{}, values []any, allowDictKeys bool) map[string]struct{} {
+	for _, value := range values {
+		ids := idListFromValue(value, allowDictKeys)
+		if ids == nil {
+			continue
+		}
+		targets = ensureIDSet(targets)
+		addIDs(targets, ids)
+	}
+	return targets
+}
+
+func idListFromValue(value any, allowDictKeys bool) []string {
+	ids := coerceIDList(value)
+	if ids != nil || !allowDictKeys {
+		return ids
+	}
+	rawMap, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return coerceIDList(mapKeys(rawMap))
+}
+
+func mapKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+func ensureIDSet(targets map[string]struct{}) map[string]struct{} {
+	if targets != nil {
+		return targets
+	}
+	return map[string]struct{}{}
+}
+
+func addIDs(targets map[string]struct{}, ids []string) {
+	for _, id := range ids {
+		targets[id] = struct{}{}
+	}
+}
+
+func rewriteIDCarrierMap(values map[string]any, transform func(string) (string, error)) (map[string]any, error) {
+	rewritten := make(map[string]any, len(values))
+	for key, entry := range values {
+		nextKey, err := transform(key)
+		if err != nil {
+			return nil, err
+		}
+		if err := ensureUniqueRewrittenKey(rewritten, key, nextKey); err != nil {
+			return nil, err
+		}
+		rewritten[nextKey] = entry
+	}
+	return rewritten, nil
+}
+
+func ensureUniqueRewrittenKey(rewritten map[string]any, originalKey, nextKey string) error {
+	if _, exists := rewritten[nextKey]; exists && nextKey != originalKey {
+		return newToolError("invalid_arguments", "rewriting id carrier produced duplicate key %q", nextKey)
+	}
+	return nil
+}
+
+func rewriteStringCarrier(values []string, transform func(string) (string, error)) ([]string, error) {
+	rewritten := make([]string, len(values))
+	for index, entry := range values {
+		next, err := transform(entry)
+		if err != nil {
+			return nil, err
+		}
+		rewritten[index] = next
+	}
+	return rewritten, nil
+}
+
+func rewriteAnyStringCarrier(values []any, transform func(string) (string, error)) ([]any, error) {
+	rewritten := make([]any, len(values))
+	copy(rewritten, values)
+	for index, entry := range rewritten {
+		rawString, ok := entry.(string)
+		if !ok {
+			continue
+		}
+		next, err := transform(rawString)
+		if err != nil {
+			return nil, err
+		}
+		rewritten[index] = next
+	}
+	return rewritten, nil
 }
 
 func coerceIDList(value any) []string {
