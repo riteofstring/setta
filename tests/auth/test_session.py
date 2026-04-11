@@ -187,3 +187,30 @@ def test_load_current_session_secret_clears_cache_when_secret_deleted(
 
     result = load_current_session_secret()
     assert result is None
+
+
+def test_load_current_session_secret_does_not_reuse_cache_across_sessions_roots(
+    tmp_path, monkeypatch
+) -> None:
+    sessions_root = tmp_path / "sessions"
+    registry = SessionRegistry(sessions_root=sessions_root)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    created = registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=os.getpid(),
+    )
+    monkeypatch.setenv(SESSION_ID_ENV_VAR, created.id)
+    monkeypatch.setenv(SESSIONS_ROOT_ENV_VAR, str(sessions_root))
+
+    result = load_current_session_secret()
+    assert result is not None
+
+    other_sessions_root = tmp_path / "other-sessions"
+    monkeypatch.setenv(SESSIONS_ROOT_ENV_VAR, str(other_sessions_root))
+
+    result = load_current_session_secret()
+    assert result is None

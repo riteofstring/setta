@@ -12,19 +12,23 @@ _cached_secret: bytes | None = None
 _cached_sessions_root: str | None = None
 
 
+def _sessions_root_cache_key(sessions_root: Path | None) -> str | None:
+    return None if sessions_root is None else str(sessions_root)
+
+
 def _get_cached_session(
     session_id: str, sessions_root: Path | None
 ) -> tuple[SessionMetadata, bytes] | None:
-    if _cached_metadata is None or _cached_secret is None:
+    metadata = _cached_metadata
+    secret = _cached_secret
+    if metadata is None or secret is None:
         return None
-    if sessions_root is not None:
-        if _cached_sessions_root != str(sessions_root):
-            return None
-    elif _cached_sessions_root is not None:
+    if (metadata.id, _cached_sessions_root) != (
+        session_id,
+        _sessions_root_cache_key(sessions_root),
+    ):
         return None
-    if _cached_metadata.id != session_id:
-        return None
-    return _cached_metadata, _cached_secret
+    return metadata, secret
 
 
 def _update_cached_session(
@@ -35,7 +39,7 @@ def _update_cached_session(
     global _cached_sessions_root
     _cached_metadata = metadata
     _cached_secret = secret
-    _cached_sessions_root = str(sessions_root) if sessions_root is not None else None
+    _cached_sessions_root = _sessions_root_cache_key(sessions_root)
 
 
 def _clear_cached_session() -> None:
@@ -96,6 +100,24 @@ def _load_session_secret(
     return metadata, secret_path.read_bytes()
 
 
+def _load_session_secret_with_optional_cache(
+    active_registry: SessionRegistry,
+    session_id: str,
+    sessions_root: Path | None,
+    allow_cache: bool,
+) -> tuple[SessionMetadata, bytes] | None:
+    if allow_cache:
+        cached = _load_cached_session_secret(active_registry, session_id, sessions_root)
+        if cached is not None:
+            return cached
+    loaded = _load_session_secret(active_registry, session_id)
+    if loaded is None or not allow_cache:
+        return loaded
+    metadata, secret = loaded
+    _update_cached_session(metadata, secret, sessions_root)
+    return loaded
+
+
 def load_current_session_secret(
     registry: SessionRegistry | None = None,
 ) -> tuple[SessionMetadata, bytes] | None:
@@ -103,14 +125,9 @@ def load_current_session_secret(
     if not session_id:
         return None
     active_registry, sessions_root, allow_cache = _resolve_active_registry(registry)
-    if allow_cache:
-        cached = _load_cached_session_secret(active_registry, session_id, sessions_root)
-        if cached is not None:
-            return cached
-    loaded = _load_session_secret(active_registry, session_id)
-    if loaded is None:
-        return None
-    if allow_cache:
-        metadata, secret = loaded
-        _update_cached_session(metadata, secret, sessions_root)
-    return loaded
+    return _load_session_secret_with_optional_cache(
+        active_registry,
+        session_id,
+        sessions_root,
+        allow_cache,
+    )
