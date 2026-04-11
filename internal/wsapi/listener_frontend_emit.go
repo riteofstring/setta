@@ -148,6 +148,34 @@ type listenerResolvedArtifactUpdate struct {
 	Artifact artifacts.RawArtifact
 }
 
+type listenerFrontendEmitContext struct {
+	ProjectID string
+}
+
+type listenerPluginSectionTarget struct {
+	SectionID string
+	VariantID string
+	Payload   map[string]any
+}
+
+type listenerPluginControlUpdate struct {
+	Data                 map[string]any
+	Kind                 *string
+	SchemaVersionPresent bool
+	SchemaVersionValue   any
+}
+
+type listenerEmitErrorResolver func(error) (realtime.ListenerErrorContent, bool)
+
+var listenerEmitErrorResolvers = []listenerEmitErrorResolver{
+	listenerEmitUnknownDependencyContent,
+	listenerEmitUnsupportedDependencyContent,
+	listenerEmitInvalidValueContent,
+	listenerEmitInvalidArtifactUpdateContent,
+	listenerEmitUnsupportedArtifactUpdateContent,
+	listenerEmitArtifactUpdateFailedContent,
+}
+
 func handleListenerFrontendEmit(
 	ctx context.Context,
 	connectionID string,
@@ -155,79 +183,12 @@ func handleListenerFrontendEmit(
 	content realtime.ListenerFrontendEmitContent,
 	deps RouteDependencies,
 ) error {
-	registration, ok := deps.ListenerBroadcaster.Registry().Registration(connectionID)
-	if !ok {
-		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-			Error: "listener_not_registered",
-			Details: map[string]any{
-				"websocketId": connectionID,
-			},
-		}, deps)
+	emitCtx, listenerErr, err := prepareListenerFrontendEmit(connectionID, requestInfo, content, deps)
+	if listenerErr != nil {
+		return sendListenerError(ctx, connectionID, *listenerErr, deps)
 	}
-
-	projectID := registration.ProjectID
-	receivedProjectID := strings.TrimSpace(content.ProjectConfigID)
-	if listenerUsesTemporaryIDs(deps, connectionID) {
-		resolvedProjectID, err := resolveListenerProjectIDFromTemporary(receivedProjectID, deps.TemporaryIDs)
-		if err != nil {
-			var temporaryIDError *listenerTemporaryIDError
-			if errors.As(err, &temporaryIDError) {
-				return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-					Error: "listener_invalid_id",
-					Details: map[string]any{
-						"message": temporaryIDError.Error(),
-					},
-				}, deps)
-			}
-			return err
-		}
-		receivedProjectID = resolvedProjectID
-	}
-	if receivedProjectID != projectID {
-		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-			Error: "project_config_mismatch",
-			Details: map[string]any{
-				"expectedProjectConfigId": projectID,
-				"receivedProjectConfigId": receivedProjectID,
-			},
-		}, deps)
-	}
-
-	if requestInfo.Policy.IsDeployment() && strings.TrimSpace(registration.ShareSessionID) == "" {
-		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-			Error: "share_session_missing",
-			Details: map[string]any{
-				"websocketId": connectionID,
-			},
-		}, deps)
-	}
-
-	if len(content.DependencyValues) == 0 && len(content.ArtifactUpdates) == 0 {
-		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-			Error: "listener_emit_invalid_payload",
-			Details: map[string]any{
-				"message": "listener emits require dependencyValues or artifactUpdates",
-			},
-		}, deps)
-	}
-
-	if requestInfo.Policy.IsDeployment() {
-		if deps.Deployment == nil {
-			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-				Error: "project_state_unavailable",
-				Details: map[string]any{
-					"message": "deployment runtime is required",
-				},
-			}, deps)
-		}
-		if !deps.Deployment.Policy().AllowParamChanges {
-			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-				Error: "listener_emit_failed",
-				Details: map[string]any{
-					"message": "Deployment policy disallows listener updates.",
-				},
-			}, deps)
-		}
+	if err != nil {
+		return err
 	}
 
 	artifactUpdates, err := validateListenerArtifactUpdates(requestInfo, content.ArtifactUpdates, deps)
@@ -236,65 +197,86 @@ func handleListenerFrontendEmit(
 	}
 
 	if len(content.DependencyValues) == 0 {
-		if err := applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps); err != nil {
-			return sendResolvedListenerEmitError(ctx, connectionID, err, deps)
-		}
-		return nil
+		return applyResolvedListenerArtifactUpdates(ctx, connectionID, requestInfo, artifactUpdates, deps)
 	}
 
-	runtime, err := listenerMutationRuntime(requestInfo, deps)
-	if err != nil {
-		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-			Error: "project_state_unavailable",
-			Details: map[string]any{
-				"message": err.Error(),
-			},
-		}, deps)
+	return applyListenerFrontendEmitDependencyUpdates(
+		ctx,
+		connectionID,
+		requestInfo,
+		emitCtx.ProjectID,
+		content.DependencyValues,
+		artifactUpdates,
+		deps,
+	)
+}
+
+func prepareListenerFrontendEmit(
+	connectionID string,
+	requestInfo modes.RequestInfo,
+	content realtime.ListenerFrontendEmitContent,
+	deps RouteDependencies,
+) (listenerFrontendEmitContext, *realtime.ListenerErrorContent, error) {
+	registration, ok := deps.ListenerBroadcaster.Registry().Registration(connectionID)
+	if !ok {
+		return listenerFrontendEmitContext{}, listenerNotRegisteredContent(connectionID), nil
 	}
 
-	snapshot := runtime.Snapshot()
-	project, err := snapshot.Document.ProjectByID(projectID)
-	if err != nil {
-		message := err.Error()
-		if errors.Is(err, projectstate.ErrProjectNotFound) {
-			message = fmt.Sprintf("'%s'", projectID)
-		}
-		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-			Error: "project_state_unavailable",
-			Details: map[string]any{
-				"message": message,
-			},
-		}, deps)
+	projectID, listenerErr, err := resolveListenerFrontendEmitProjectID(registration, content.ProjectConfigID, connectionID, deps)
+	if listenerErr != nil || err != nil {
+		return listenerFrontendEmitContext{}, listenerErr, err
+	}
+	if listenerErr := validateListenerFrontendEmitRequest(registration, requestInfo, content, deps); listenerErr != nil {
+		return listenerFrontendEmitContext{}, listenerErr, nil
 	}
 
-	updates, err := resolveListenerFrontendDependencyUpdates(project, content.DependencyValues)
-	if err != nil {
-		return sendResolvedListenerEmitError(ctx, connectionID, err, deps)
-	}
+	return listenerFrontendEmitContext{
+		ProjectID: projectID,
+	}, nil, nil
+}
 
-	updatedSnapshot, err := runtime.MutateAndSave(ctx, func(document projectstate.Document) (projectstate.Document, error) {
-		project, err := document.ProjectByID(projectID)
+func resolveListenerFrontendEmitProjectID(
+	registration realtime.ListenerRegistration,
+	projectConfigID string,
+	connectionID string,
+	deps RouteDependencies,
+) (string, *realtime.ListenerErrorContent, error) {
+	projectID := registration.ProjectID
+	receivedProjectID := strings.TrimSpace(projectConfigID)
+	if listenerUsesTemporaryIDs(deps, connectionID) {
+		resolvedProjectID, err := resolveListenerProjectIDFromTemporary(receivedProjectID, deps.TemporaryIDs)
 		if err != nil {
-			return projectstate.Document{}, err
+			var temporaryIDError *listenerTemporaryIDError
+			if errors.As(err, &temporaryIDError) {
+				return "", listenerInvalidIDContent(temporaryIDError.Error()), nil
+			}
+			return "", nil, err
 		}
-		if err := applyListenerFrontendDependencyUpdates(&project, updates); err != nil {
-			return projectstate.Document{}, err
-		}
-		document.Projects[project.ID] = project
-		return document, nil
-	})
-	if err != nil {
-		return sendResolvedListenerEmitError(ctx, connectionID, &listenerEmitApplyError{
-			Message: err.Error(),
-		}, deps)
+		receivedProjectID = resolvedProjectID
 	}
-
-	if err := broadcastListenerProjectStateUpdate(ctx, updatedSnapshot, projectID, requestInfo.ShareSessionID, deps); err != nil {
-		return err
+	if receivedProjectID != projectID {
+		return "", projectConfigMismatchContent(projectID, receivedProjectID), nil
 	}
+	return projectID, nil, nil
+}
 
-	if err := applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps); err != nil {
-		return sendResolvedListenerEmitError(ctx, connectionID, err, deps)
+func validateListenerFrontendEmitRequest(
+	registration realtime.ListenerRegistration,
+	requestInfo modes.RequestInfo,
+	content realtime.ListenerFrontendEmitContent,
+	deps RouteDependencies,
+) *realtime.ListenerErrorContent {
+	if requestInfo.Policy.IsDeployment() && strings.TrimSpace(registration.ShareSessionID) == "" {
+		return shareSessionMissingContent(registration.ConnectionID)
+	}
+	if len(content.DependencyValues) == 0 && len(content.ArtifactUpdates) == 0 {
+		return listenerEmitInvalidPayloadContent()
+	}
+	if requestInfo.Policy.IsDeployment() && deps.Deployment == nil {
+		return listenerProjectStateUnavailableContent("deployment runtime is required")
+	}
+	if requestInfo.Policy.IsDeployment() && !deps.Deployment.Policy().AllowParamChanges {
+		return listenerEmitFailedContent("Deployment policy disallows listener updates.")
 	}
 	return nil
 }
@@ -404,6 +386,87 @@ func applyListenerArtifactUpdates(
 		return classifyListenerArtifactUpdateError(rawUpdates[0].ID, err)
 	}
 	return broadcastListenerArtifactUpdates(ctx, rawUpdates, requestInfo.ShareSessionID, deps)
+}
+
+func applyResolvedListenerArtifactUpdates(
+	ctx context.Context,
+	connectionID string,
+	requestInfo modes.RequestInfo,
+	artifactUpdates []listenerResolvedArtifactUpdate,
+	deps RouteDependencies,
+) error {
+	if err := applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps); err != nil {
+		return sendResolvedListenerEmitError(ctx, connectionID, err, deps)
+	}
+	return nil
+}
+
+func applyListenerFrontendEmitDependencyUpdates(
+	ctx context.Context,
+	connectionID string,
+	requestInfo modes.RequestInfo,
+	projectID string,
+	rawValues map[string]json.RawMessage,
+	artifactUpdates []listenerResolvedArtifactUpdate,
+	deps RouteDependencies,
+) error {
+	runtime, err := listenerMutationRuntime(requestInfo, deps)
+	if err != nil {
+		return sendListenerError(ctx, connectionID, *listenerProjectStateUnavailableContent(err.Error()), deps)
+	}
+
+	project, err := listenerEmitProjectForMutation(runtime, projectID)
+	if err != nil {
+		return sendListenerError(ctx, connectionID, *listenerProjectStateUnavailableContent(listenerProjectUnavailableMessage(projectID, err)), deps)
+	}
+
+	updates, err := resolveListenerFrontendDependencyUpdates(project, rawValues)
+	if err != nil {
+		return sendResolvedListenerEmitError(ctx, connectionID, err, deps)
+	}
+
+	updatedSnapshot, err := mutateListenerFrontendEmitProject(ctx, runtime, projectID, updates)
+	if err != nil {
+		return sendResolvedListenerEmitError(ctx, connectionID, &listenerEmitApplyError{Message: err.Error()}, deps)
+	}
+	if err := broadcastListenerProjectStateUpdate(ctx, updatedSnapshot, projectID, requestInfo.ShareSessionID, deps); err != nil {
+		return err
+	}
+	return applyResolvedListenerArtifactUpdates(ctx, connectionID, requestInfo, artifactUpdates, deps)
+}
+
+func listenerEmitProjectForMutation(
+	runtime *projectstate.Runtime,
+	projectID string,
+) (projectstate.Project, error) {
+	snapshot := runtime.Snapshot()
+	return snapshot.Document.ProjectByID(projectID)
+}
+
+func mutateListenerFrontendEmitProject(
+	ctx context.Context,
+	runtime *projectstate.Runtime,
+	projectID string,
+	updates []listenerResolvedDependencyUpdate,
+) (projectstate.Snapshot, error) {
+	return runtime.MutateAndSave(ctx, func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID(projectID)
+		if err != nil {
+			return projectstate.Document{}, err
+		}
+		if err := applyListenerFrontendDependencyUpdates(&project, updates); err != nil {
+			return projectstate.Document{}, err
+		}
+		document.Projects[project.ID] = project
+		return document, nil
+	})
+}
+
+func listenerProjectUnavailableMessage(projectID string, err error) string {
+	if errors.Is(err, projectstate.ErrProjectNotFound) {
+		return fmt.Sprintf("'%s'", projectID)
+	}
+	return err.Error()
 }
 
 func resolveListenerFrontendDependencyUpdates(
@@ -522,50 +585,73 @@ func applyListenerFrontendDependencyUpdates(
 		return projectstate.ErrProjectNotFound
 	}
 	for _, update := range updates {
-		if strings.TrimSpace(update.CodeObjectID) != "" {
-			value, err := decodeJSONString(update.RawValue)
-			if err != nil {
-				return &listenerEmitApplyError{
-					Message: fmt.Sprintf("listener emit expected literal payload for %s", update.DependencyName),
-				}
-			}
-			if err := project.SetSectionCodeObjectValue(update.SectionID, update.CodeObjectID, value); err != nil {
-				return &listenerEmitApplyError{Message: err.Error()}
-			}
-			continue
+		if err := applyListenerFrontendDependencyUpdate(project, update); err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		switch update.SectionType {
-		case "TextBlock":
-			value, err := decodeJSONString(update.RawValue)
-			if err != nil {
-				return &listenerEmitApplyError{
-					Message: fmt.Sprintf("listener emit expected literal payload for %s", update.DependencyName),
-				}
-			}
-			if err := project.SetTextBlockText(update.SectionID, value); err != nil {
-				return &listenerEmitApplyError{Message: err.Error()}
-			}
-		case "Chat":
-			state, err := decodeListenerChatState(update.SectionID, update.RawValue)
-			if err != nil {
-				return &listenerEmitApplyError{Message: err.Error()}
-			}
-			if err := project.SetChatSectionState(update.SectionID, state); err != nil {
-				return &listenerEmitApplyError{Message: err.Error()}
-			}
-		case "Plugin":
-			if err := applyListenerPluginSectionUpdate(project, update.SectionID, update.RawValue); err != nil {
-				return &listenerEmitApplyError{Message: err.Error()}
-			}
-		default:
+func applyListenerFrontendDependencyUpdate(
+	project *projectstate.Project,
+	update listenerResolvedDependencyUpdate,
+) error {
+	if strings.TrimSpace(update.CodeObjectID) != "" {
+		return applyListenerCodeObjectDependencyUpdate(project, update)
+	}
+	return applyListenerSectionDependencyUpdate(project, update)
+}
+
+func applyListenerCodeObjectDependencyUpdate(
+	project *projectstate.Project,
+	update listenerResolvedDependencyUpdate,
+) error {
+	value, err := decodeJSONString(update.RawValue)
+	if err != nil {
+		return &listenerEmitApplyError{
+			Message: fmt.Sprintf("listener emit expected literal payload for %s", update.DependencyName),
+		}
+	}
+	if err := project.SetSectionCodeObjectValue(update.SectionID, update.CodeObjectID, value); err != nil {
+		return &listenerEmitApplyError{Message: err.Error()}
+	}
+	return nil
+}
+
+func applyListenerSectionDependencyUpdate(
+	project *projectstate.Project,
+	update listenerResolvedDependencyUpdate,
+) error {
+	switch update.SectionType {
+	case "TextBlock":
+		value, err := decodeJSONString(update.RawValue)
+		if err != nil {
 			return &listenerEmitApplyError{
-				Message: fmt.Sprintf(
-					"listener emit targeted unsupported section type %s (section %s)",
-					update.SectionType,
-					update.SectionID,
-				),
+				Message: fmt.Sprintf("listener emit expected literal payload for %s", update.DependencyName),
 			}
+		}
+		if err := project.SetTextBlockText(update.SectionID, value); err != nil {
+			return &listenerEmitApplyError{Message: err.Error()}
+		}
+	case "Chat":
+		state, err := decodeListenerChatState(update.SectionID, update.RawValue)
+		if err != nil {
+			return &listenerEmitApplyError{Message: err.Error()}
+		}
+		if err := project.SetChatSectionState(update.SectionID, state); err != nil {
+			return &listenerEmitApplyError{Message: err.Error()}
+		}
+	case "Plugin":
+		if err := applyListenerPluginSectionUpdate(project, update.SectionID, update.RawValue); err != nil {
+			return &listenerEmitApplyError{Message: err.Error()}
+		}
+	default:
+		return &listenerEmitApplyError{
+			Message: fmt.Sprintf(
+				"listener emit targeted unsupported section type %s (section %s)",
+				update.SectionType,
+				update.SectionID,
+			),
 		}
 	}
 	return nil
@@ -609,16 +695,9 @@ func decodeListenerChatState(sectionID string, rawValue json.RawMessage) (projec
 }
 
 func applyListenerPluginSectionUpdate(project *projectstate.Project, sectionID string, rawValue json.RawMessage) error {
-	section, variant, impl, err := project.ResolveSection(sectionID)
+	target, err := resolveListenerPluginSectionTarget(project, sectionID)
 	if err != nil {
 		return err
-	}
-	payload, err := project.EffectiveSectionPayload(section.ID, variant.ID)
-	if err != nil {
-		return err
-	}
-	if sectionTypeForPayload(payload, impl) != "Plugin" {
-		return fmt.Errorf("listener emit targeted unsupported section type %s (section %s)", sectionTypeForPayload(payload, impl), sectionID)
 	}
 
 	parsedPayload, err := decodeListenerPluginPayload(sectionID, rawValue)
@@ -626,84 +705,177 @@ func applyListenerPluginSectionUpdate(project *projectstate.Project, sectionID s
 		return err
 	}
 
-	currentData := map[string]any{}
-	if rawData, ok := payload["data"].(map[string]any); ok {
-		currentData = cloneJSONObject(rawData)
+	currentData := listenerPluginCurrentData(target.Payload)
+	controlUpdate, hasControlPayload, err := decodeListenerPluginControlUpdate(parsedPayload, currentData)
+	if err != nil {
+		return err
 	}
-
-	controlKeys := map[string]struct{}{
-		"data":          {},
-		"kind":          {},
-		"schemaVersion": {},
-		"merge":         {},
-	}
-	hasControlPayload := false
-	if _, ok := parsedPayload["data"]; ok {
-		hasControlPayload = true
-		for key := range parsedPayload {
-			if _, ok := controlKeys[key]; !ok {
-				hasControlPayload = false
-				break
-			}
-		}
-	}
-
-	nextData := map[string]any{}
 	if hasControlPayload {
-		mergeValue := true
-		if rawMerge, ok := parsedPayload["merge"]; ok {
-			typed, ok := rawMerge.(bool)
-			if !ok {
-				return fmt.Errorf("listener emit plugin section merge flag must be boolean")
-			}
-			mergeValue = typed
+		return applyListenerPluginControlUpdate(project, target, controlUpdate)
+	}
+
+	nextData := mergeJSONObjects(currentData, parsedPayload)
+	return project.SetSectionFieldForVariant(target.SectionID, target.VariantID, "data", nextData)
+}
+
+func resolveListenerPluginSectionTarget(
+	project *projectstate.Project,
+	sectionID string,
+) (listenerPluginSectionTarget, error) {
+	section, variant, impl, err := project.ResolveSection(sectionID)
+	if err != nil {
+		return listenerPluginSectionTarget{}, err
+	}
+	payload, err := project.EffectiveSectionPayload(section.ID, variant.ID)
+	if err != nil {
+		return listenerPluginSectionTarget{}, err
+	}
+	sectionType := sectionTypeForPayload(payload, impl)
+	if sectionType != "Plugin" {
+		return listenerPluginSectionTarget{}, fmt.Errorf(
+			"listener emit targeted unsupported section type %s (section %s)",
+			sectionType,
+			sectionID,
+		)
+	}
+	return listenerPluginSectionTarget{
+		SectionID: section.ID,
+		VariantID: variant.ID,
+		Payload:   payload,
+	}, nil
+}
+
+func listenerPluginCurrentData(payload map[string]any) map[string]any {
+	if rawData, ok := payload["data"].(map[string]any); ok {
+		return cloneJSONObject(rawData)
+	}
+	return map[string]any{}
+}
+
+func decodeListenerPluginControlUpdate(
+	parsedPayload map[string]any,
+	currentData map[string]any,
+) (listenerPluginControlUpdate, bool, error) {
+	if !isListenerPluginControlPayload(parsedPayload) {
+		return listenerPluginControlUpdate{}, false, nil
+	}
+
+	nextData, err := listenerPluginControlData(parsedPayload)
+	if err != nil {
+		return listenerPluginControlUpdate{}, true, err
+	}
+	mergeValue, err := listenerPluginMergeValue(parsedPayload)
+	if err != nil {
+		return listenerPluginControlUpdate{}, true, err
+	}
+	if mergeValue {
+		nextData = mergeJSONObjects(currentData, nextData)
+	}
+
+	kind, err := listenerPluginKindValue(parsedPayload)
+	if err != nil {
+		return listenerPluginControlUpdate{}, true, err
+	}
+	schemaPresent, schemaValue, err := listenerPluginSchemaVersionValue(parsedPayload)
+	if err != nil {
+		return listenerPluginControlUpdate{}, true, err
+	}
+
+	return listenerPluginControlUpdate{
+		Data:                 nextData,
+		Kind:                 kind,
+		SchemaVersionPresent: schemaPresent,
+		SchemaVersionValue:   schemaValue,
+	}, true, nil
+}
+
+func isListenerPluginControlPayload(parsedPayload map[string]any) bool {
+	if _, ok := parsedPayload["data"]; !ok {
+		return false
+	}
+	for key := range parsedPayload {
+		switch key {
+		case "data", "kind", "schemaVersion", "merge":
+		default:
+			return false
 		}
-		rawData, ok := parsedPayload["data"]
-		if !ok {
-			rawData = map[string]any{}
+	}
+	return true
+}
+
+func listenerPluginControlData(parsedPayload map[string]any) (map[string]any, error) {
+	rawData, ok := parsedPayload["data"]
+	if !ok {
+		return map[string]any{}, nil
+	}
+	typedData, ok := rawData.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("listener emit plugin section data field must be an object")
+	}
+	return cloneJSONObject(typedData), nil
+}
+
+func listenerPluginMergeValue(parsedPayload map[string]any) (bool, error) {
+	rawMerge, ok := parsedPayload["merge"]
+	if !ok {
+		return true, nil
+	}
+	typed, ok := rawMerge.(bool)
+	if !ok {
+		return false, fmt.Errorf("listener emit plugin section merge flag must be boolean")
+	}
+	return typed, nil
+}
+
+func listenerPluginKindValue(parsedPayload map[string]any) (*string, error) {
+	rawKind, ok := parsedPayload["kind"]
+	if !ok {
+		return nil, nil
+	}
+	typedKind, ok := rawKind.(string)
+	if !ok {
+		return nil, fmt.Errorf("listener emit plugin section kind field must be a string")
+	}
+	return &typedKind, nil
+}
+
+func listenerPluginSchemaVersionValue(parsedPayload map[string]any) (bool, any, error) {
+	rawSchemaVersion, ok := parsedPayload["schemaVersion"]
+	if !ok {
+		return false, nil, nil
+	}
+	switch typed := rawSchemaVersion.(type) {
+	case nil:
+		return true, nil, nil
+	case float64:
+		if typed != float64(int(typed)) {
+			return false, nil, fmt.Errorf("listener emit plugin section schemaVersion must be int or null")
 		}
-		typedData, ok := rawData.(map[string]any)
-		if !ok {
-			return fmt.Errorf("listener emit plugin section data field must be an object")
-		}
-		nextData = cloneJSONObject(typedData)
-		if mergeValue {
-			nextData = mergeJSONObjects(currentData, nextData)
-		}
-		if err := project.SetSectionFieldForVariant(section.ID, variant.ID, "data", nextData); err != nil {
+		return true, int(typed), nil
+	default:
+		return false, nil, fmt.Errorf("listener emit plugin section schemaVersion must be int or null")
+	}
+}
+
+func applyListenerPluginControlUpdate(
+	project *projectstate.Project,
+	target listenerPluginSectionTarget,
+	update listenerPluginControlUpdate,
+) error {
+	if err := project.SetSectionFieldForVariant(target.SectionID, target.VariantID, "data", update.Data); err != nil {
+		return err
+	}
+	if update.Kind != nil {
+		if err := project.SetSectionFieldForVariant(target.SectionID, target.VariantID, "kind", *update.Kind); err != nil {
 			return err
 		}
-		if rawKind, ok := parsedPayload["kind"]; ok {
-			typedKind, ok := rawKind.(string)
-			if !ok {
-				return fmt.Errorf("listener emit plugin section kind field must be a string")
-			}
-			if err := project.SetSectionFieldForVariant(section.ID, variant.ID, "kind", typedKind); err != nil {
-				return err
-			}
-		}
-		if rawSchemaVersion, ok := parsedPayload["schemaVersion"]; ok {
-			switch typed := rawSchemaVersion.(type) {
-			case nil:
-				if err := project.SetSectionFieldForVariant(section.ID, variant.ID, "schemaVersion", nil); err != nil {
-					return err
-				}
-			case float64:
-				if typed != float64(int(typed)) {
-					return fmt.Errorf("listener emit plugin section schemaVersion must be int or null")
-				}
-				if err := project.SetSectionFieldForVariant(section.ID, variant.ID, "schemaVersion", int(typed)); err != nil {
-					return err
-				}
-			default:
-				return fmt.Errorf("listener emit plugin section schemaVersion must be int or null")
-			}
-		}
-		return nil
 	}
-
-	nextData = mergeJSONObjects(currentData, parsedPayload)
-	return project.SetSectionFieldForVariant(section.ID, variant.ID, "data", nextData)
+	if update.SchemaVersionPresent {
+		if err := project.SetSectionFieldForVariant(target.SectionID, target.VariantID, "schemaVersion", update.SchemaVersionValue); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func decodeListenerPluginPayload(sectionID string, rawValue json.RawMessage) (map[string]any, error) {
@@ -839,85 +1011,165 @@ func classifyListenerArtifactUpdateError(path string, err error) error {
 	}
 }
 
+func listenerNotRegisteredContent(connectionID string) *realtime.ListenerErrorContent {
+	return &realtime.ListenerErrorContent{
+		Error: "listener_not_registered",
+		Details: map[string]any{
+			"websocketId": connectionID,
+		},
+	}
+}
+
+func listenerInvalidIDContent(message string) *realtime.ListenerErrorContent {
+	return &realtime.ListenerErrorContent{
+		Error: "listener_invalid_id",
+		Details: map[string]any{
+			"message": message,
+		},
+	}
+}
+
+func projectConfigMismatchContent(expectedProjectID string, receivedProjectID string) *realtime.ListenerErrorContent {
+	return &realtime.ListenerErrorContent{
+		Error: "project_config_mismatch",
+		Details: map[string]any{
+			"expectedProjectConfigId": expectedProjectID,
+			"receivedProjectConfigId": receivedProjectID,
+		},
+	}
+}
+
+func shareSessionMissingContent(connectionID string) *realtime.ListenerErrorContent {
+	return &realtime.ListenerErrorContent{
+		Error: "share_session_missing",
+		Details: map[string]any{
+			"websocketId": connectionID,
+		},
+	}
+}
+
+func listenerEmitInvalidPayloadContent() *realtime.ListenerErrorContent {
+	return &realtime.ListenerErrorContent{
+		Error: "listener_emit_invalid_payload",
+		Details: map[string]any{
+			"message": "listener emits require dependencyValues or artifactUpdates",
+		},
+	}
+}
+
+func listenerProjectStateUnavailableContent(message string) *realtime.ListenerErrorContent {
+	return &realtime.ListenerErrorContent{
+		Error: "project_state_unavailable",
+		Details: map[string]any{
+			"message": message,
+		},
+	}
+}
+
+func listenerEmitFailedContent(message string) *realtime.ListenerErrorContent {
+	return &realtime.ListenerErrorContent{
+		Error: "listener_emit_failed",
+		Details: map[string]any{
+			"message": message,
+		},
+	}
+}
+
 func sendResolvedListenerEmitError(
 	ctx context.Context,
 	connectionID string,
 	err error,
 	deps RouteDependencies,
 ) error {
-	switch {
-	case errors.Is(err, errListenerEmitUnknownDependency):
-		var typed *listenerEmitUnknownDependencyError
-		if errors.As(err, &typed) {
-			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-				Error: "listener_emit_unknown_dependency",
-				Details: map[string]any{
-					"dependencyName": typed.DependencyName,
-				},
-			}, deps)
-		}
-	case errors.Is(err, errListenerEmitUnsupportedDependency):
-		var typed *listenerEmitUnsupportedDependencyError
-		if errors.As(err, &typed) {
-			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-				Error: "listener_emit_unsupported_dependency",
-				Details: map[string]any{
-					"dependencyName": typed.DependencyName,
-					"reason":         typed.Reason,
-				},
-			}, deps)
-		}
-	case errors.Is(err, errListenerEmitInvalidValue):
-		var typed *listenerEmitInvalidValueError
-		if errors.As(err, &typed) {
-			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-				Error: "listener_emit_invalid_value",
-				Details: map[string]any{
-					"dependencyName": typed.DependencyName,
-					"expectedType":   typed.ExpectedType,
-				},
-			}, deps)
-		}
-	case errors.Is(err, errListenerEmitInvalidArtifactUpdate):
-		var typed *listenerEmitInvalidArtifactUpdateError
-		if errors.As(err, &typed) {
-			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-				Error: "listener_emit_invalid_artifact_update",
-				Details: map[string]any{
-					"path":    typed.Path,
-					"message": typed.Message,
-				},
-			}, deps)
-		}
-	case errors.Is(err, errListenerEmitUnsupportedArtifactUpdate):
-		var typed *listenerEmitUnsupportedArtifactUpdateError
-		if errors.As(err, &typed) {
-			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-				Error: "listener_emit_unsupported_artifact_update",
-				Details: map[string]any{
-					"path":   typed.Path,
-					"reason": typed.Reason,
-				},
-			}, deps)
-		}
-	case errors.Is(err, errListenerEmitArtifactUpdateFailed):
-		var typed *listenerEmitArtifactUpdateFailedError
-		if errors.As(err, &typed) {
-			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-				Error: "listener_emit_artifact_update_failed",
-				Details: map[string]any{
-					"message": typed.Message,
-				},
-			}, deps)
+	for _, resolve := range listenerEmitErrorResolvers {
+		if content, ok := resolve(err); ok {
+			return sendListenerError(ctx, connectionID, content, deps)
 		}
 	}
 
-	return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-		Error: "listener_emit_failed",
+	return sendListenerError(ctx, connectionID, *listenerEmitFailedContent(err.Error()), deps)
+}
+
+func listenerEmitUnknownDependencyContent(err error) (realtime.ListenerErrorContent, bool) {
+	var typed *listenerEmitUnknownDependencyError
+	if !errors.As(err, &typed) {
+		return realtime.ListenerErrorContent{}, false
+	}
+	return realtime.ListenerErrorContent{
+		Error: "listener_emit_unknown_dependency",
 		Details: map[string]any{
-			"message": err.Error(),
+			"dependencyName": typed.DependencyName,
 		},
-	}, deps)
+	}, true
+}
+
+func listenerEmitUnsupportedDependencyContent(err error) (realtime.ListenerErrorContent, bool) {
+	var typed *listenerEmitUnsupportedDependencyError
+	if !errors.As(err, &typed) {
+		return realtime.ListenerErrorContent{}, false
+	}
+	return realtime.ListenerErrorContent{
+		Error: "listener_emit_unsupported_dependency",
+		Details: map[string]any{
+			"dependencyName": typed.DependencyName,
+			"reason":         typed.Reason,
+		},
+	}, true
+}
+
+func listenerEmitInvalidValueContent(err error) (realtime.ListenerErrorContent, bool) {
+	var typed *listenerEmitInvalidValueError
+	if !errors.As(err, &typed) {
+		return realtime.ListenerErrorContent{}, false
+	}
+	return realtime.ListenerErrorContent{
+		Error: "listener_emit_invalid_value",
+		Details: map[string]any{
+			"dependencyName": typed.DependencyName,
+			"expectedType":   typed.ExpectedType,
+		},
+	}, true
+}
+
+func listenerEmitInvalidArtifactUpdateContent(err error) (realtime.ListenerErrorContent, bool) {
+	var typed *listenerEmitInvalidArtifactUpdateError
+	if !errors.As(err, &typed) {
+		return realtime.ListenerErrorContent{}, false
+	}
+	return realtime.ListenerErrorContent{
+		Error: "listener_emit_invalid_artifact_update",
+		Details: map[string]any{
+			"path":    typed.Path,
+			"message": typed.Message,
+		},
+	}, true
+}
+
+func listenerEmitUnsupportedArtifactUpdateContent(err error) (realtime.ListenerErrorContent, bool) {
+	var typed *listenerEmitUnsupportedArtifactUpdateError
+	if !errors.As(err, &typed) {
+		return realtime.ListenerErrorContent{}, false
+	}
+	return realtime.ListenerErrorContent{
+		Error: "listener_emit_unsupported_artifact_update",
+		Details: map[string]any{
+			"path":   typed.Path,
+			"reason": typed.Reason,
+		},
+	}, true
+}
+
+func listenerEmitArtifactUpdateFailedContent(err error) (realtime.ListenerErrorContent, bool) {
+	var typed *listenerEmitArtifactUpdateFailedError
+	if !errors.As(err, &typed) {
+		return realtime.ListenerErrorContent{}, false
+	}
+	return realtime.ListenerErrorContent{
+		Error: "listener_emit_artifact_update_failed",
+		Details: map[string]any{
+			"message": typed.Message,
+		},
+	}, true
 }
 
 func decodeJSONString(raw json.RawMessage) (string, error) {

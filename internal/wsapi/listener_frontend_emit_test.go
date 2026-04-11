@@ -127,6 +127,18 @@ func TestApplyListenerPluginSectionUpdateRejectsInvalidDataField(t *testing.T) {
 	}
 }
 
+func TestApplyListenerPluginSectionUpdateRejectsInvalidMergeFlag(t *testing.T) {
+	t.Parallel()
+
+	project, sectionID := newListenerEmitPluginProject(t, nil)
+	raw := quotedJSONRawMessage(`{"data":{"next":true},"merge":"invalid"}`)
+	if err := applyListenerPluginSectionUpdate(&project, sectionID, raw); err == nil {
+		t.Fatalf("expected invalid merge flag rejection")
+	} else if !strings.Contains(err.Error(), "merge flag must be boolean") {
+		t.Fatalf("expected merge flag error, got %v", err)
+	}
+}
+
 func TestApplyListenerPluginSectionUpdateRejectsPythonLiteralPayload(t *testing.T) {
 	t.Parallel()
 
