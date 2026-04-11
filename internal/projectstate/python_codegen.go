@@ -42,6 +42,17 @@ type PythonCodegenTarget struct {
 	CodeObjValuePolicy RawJSON
 }
 
+type pythonCodegenTargetFieldDecoder func(*PythonCodegenTarget, json.RawMessage) error
+
+var pythonCodegenTargetFieldDecoders = map[string]pythonCodegenTargetFieldDecoder{
+	"language":           decodePythonCodegenTargetLanguageField,
+	"genCodePrefix":      decodePythonCodegenTargetPrefixField,
+	"genCodeSuffix":      decodePythonCodegenTargetSuffixField,
+	"generateMetadata":   decodePythonCodegenTargetGenerateMetadataField,
+	"sectionPolicy":      decodePythonCodegenTargetSectionPolicyField,
+	"codeObjValuePolicy": decodePythonCodegenTargetCodeObjValuePolicyField,
+}
+
 func defaultProjectCodegenTargets() []ProjectCodegenTarget {
 	return []ProjectCodegenTarget{
 		{
@@ -51,73 +62,22 @@ func defaultProjectCodegenTargets() []ProjectCodegenTarget {
 }
 
 func DecodePythonCodegenTarget(target ProjectCodegenTarget) (PythonCodegenTarget, error) {
-	if strings.TrimSpace(target.Language) != string(CodeLanguagePython) {
-		return PythonCodegenTarget{}, fmt.Errorf("%w: %s", ErrProjectCodegenPythonTargetLanguageMismatch, strings.TrimSpace(target.Language))
+	if err := validatePythonCodegenTargetLanguage(strings.TrimSpace(target.Language)); err != nil {
+		return PythonCodegenTarget{}, err
 	}
 
-	config := PythonCodegenTarget{
-		GenCodeSuffix: DefaultPythonCodegenSuffix,
-	}
+	config := defaultPythonCodegenTarget()
 	if len(target.Payload) == 0 {
 		return config, nil
 	}
 
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(target.Payload, &fields); err != nil {
-		return PythonCodegenTarget{}, fmt.Errorf("%w: decode target payload: %v", ErrProjectCodegenPythonTargetPayloadInvalid, err)
+	fields, err := decodePythonCodegenTargetPayloadFields(target.Payload)
+	if err != nil {
+		return PythonCodegenTarget{}, err
 	}
-	if fields == nil {
-		return PythonCodegenTarget{}, ErrProjectCodegenPythonTargetObjectRequired
-	}
-
 	for key, raw := range fields {
-		switch key {
-		case "language":
-			payloadLanguage, err := decodePythonCodegenTargetStringField(raw, key)
-			if err != nil {
-				return PythonCodegenTarget{}, err
-			}
-			if payloadLanguage != string(CodeLanguagePython) {
-				return PythonCodegenTarget{}, fmt.Errorf("%w: %s", ErrProjectCodegenPythonTargetLanguageMismatch, payloadLanguage)
-			}
-		case "genCodePrefix":
-			value, err := decodePythonCodegenTargetStringField(raw, key)
-			if err != nil {
-				return PythonCodegenTarget{}, err
-			}
-			config.GenCodePrefix = value
-		case "genCodeSuffix":
-			value, err := decodePythonCodegenTargetStringField(raw, key)
-			if err != nil {
-				return PythonCodegenTarget{}, err
-			}
-			config.GenCodeSuffix = value
-		case "generateMetadata":
-			value, err := decodePythonCodegenTargetBoolField(raw, key)
-			if err != nil {
-				return PythonCodegenTarget{}, err
-			}
-			config.GenerateMetadata = value
-		case "sectionPolicy":
-			normalized, err := normalizePythonCodegenTargetObjectField(raw, key)
-			if err != nil {
-				return PythonCodegenTarget{}, err
-			}
-			if _, err := DecodePythonSectionCodegenPolicy(normalized); err != nil {
-				return PythonCodegenTarget{}, err
-			}
-			config.SectionPolicy = normalized
-		case "codeObjValuePolicy":
-			normalized, err := normalizePythonCodegenTargetObjectField(raw, key)
-			if err != nil {
-				return PythonCodegenTarget{}, err
-			}
-			if _, err := DecodePythonCodeObjValuePolicy(normalized); err != nil {
-				return PythonCodegenTarget{}, err
-			}
-			config.CodeObjValuePolicy = normalized
-		default:
-			return PythonCodegenTarget{}, fmt.Errorf("%w: %s", ErrProjectCodegenPythonTargetFieldUnknown, key)
+		if err := applyPythonCodegenTargetField(&config, key, raw); err != nil {
+			return PythonCodegenTarget{}, err
 		}
 	}
 
@@ -242,6 +202,38 @@ func sanitizeProjectSlug(name string) string {
 	return sanitizeSimpleNameSlug(name)
 }
 
+func defaultPythonCodegenTarget() PythonCodegenTarget {
+	return PythonCodegenTarget{
+		GenCodeSuffix: DefaultPythonCodegenSuffix,
+	}
+}
+
+func validatePythonCodegenTargetLanguage(language string) error {
+	if language != string(CodeLanguagePython) {
+		return fmt.Errorf("%w: %s", ErrProjectCodegenPythonTargetLanguageMismatch, language)
+	}
+	return nil
+}
+
+func decodePythonCodegenTargetPayloadFields(payload RawJSON) (map[string]json.RawMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		return nil, fmt.Errorf("%w: decode target payload: %v", ErrProjectCodegenPythonTargetPayloadInvalid, err)
+	}
+	if fields == nil {
+		return nil, ErrProjectCodegenPythonTargetObjectRequired
+	}
+	return fields, nil
+}
+
+func applyPythonCodegenTargetField(config *PythonCodegenTarget, field string, raw json.RawMessage) error {
+	decoder, ok := pythonCodegenTargetFieldDecoders[field]
+	if !ok {
+		return fmt.Errorf("%w: %s", ErrProjectCodegenPythonTargetFieldUnknown, field)
+	}
+	return decoder(config, raw)
+}
+
 func decodePythonCodegenTargetStringField(raw json.RawMessage, field string) (string, error) {
 	var value string
 	if err := json.Unmarshal(raw, &value); err != nil {
@@ -256,6 +248,65 @@ func decodePythonCodegenTargetBoolField(raw json.RawMessage, field string) (bool
 		return false, fmt.Errorf("%w: %s must be a boolean", ErrProjectCodegenPythonTargetFieldInvalid, field)
 	}
 	return value, nil
+}
+
+func decodePythonCodegenTargetLanguageField(_ *PythonCodegenTarget, raw json.RawMessage) error {
+	payloadLanguage, err := decodePythonCodegenTargetStringField(raw, "language")
+	if err != nil {
+		return err
+	}
+	return validatePythonCodegenTargetLanguage(payloadLanguage)
+}
+
+func decodePythonCodegenTargetPrefixField(config *PythonCodegenTarget, raw json.RawMessage) error {
+	value, err := decodePythonCodegenTargetStringField(raw, "genCodePrefix")
+	if err != nil {
+		return err
+	}
+	config.GenCodePrefix = value
+	return nil
+}
+
+func decodePythonCodegenTargetSuffixField(config *PythonCodegenTarget, raw json.RawMessage) error {
+	value, err := decodePythonCodegenTargetStringField(raw, "genCodeSuffix")
+	if err != nil {
+		return err
+	}
+	config.GenCodeSuffix = value
+	return nil
+}
+
+func decodePythonCodegenTargetGenerateMetadataField(config *PythonCodegenTarget, raw json.RawMessage) error {
+	value, err := decodePythonCodegenTargetBoolField(raw, "generateMetadata")
+	if err != nil {
+		return err
+	}
+	config.GenerateMetadata = value
+	return nil
+}
+
+func decodePythonCodegenTargetSectionPolicyField(config *PythonCodegenTarget, raw json.RawMessage) error {
+	normalized, err := normalizePythonCodegenTargetObjectField(raw, "sectionPolicy")
+	if err != nil {
+		return err
+	}
+	if _, err := DecodePythonSectionCodegenPolicy(normalized); err != nil {
+		return err
+	}
+	config.SectionPolicy = normalized
+	return nil
+}
+
+func decodePythonCodegenTargetCodeObjValuePolicyField(config *PythonCodegenTarget, raw json.RawMessage) error {
+	normalized, err := normalizePythonCodegenTargetObjectField(raw, "codeObjValuePolicy")
+	if err != nil {
+		return err
+	}
+	if _, err := DecodePythonCodeObjValuePolicy(normalized); err != nil {
+		return err
+	}
+	config.CodeObjValuePolicy = normalized
+	return nil
 }
 
 func normalizePythonCodegenTargetObjectField(raw json.RawMessage, field string) (RawJSON, error) {

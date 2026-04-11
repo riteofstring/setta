@@ -101,6 +101,18 @@ func TestDecodePythonCodegenTargetRejectsUnknownField(t *testing.T) {
 	}
 }
 
+func TestDecodePythonCodegenTargetRejectsPayloadLanguageMismatch(t *testing.T) {
+	t.Parallel()
+
+	_, err := DecodePythonCodegenTarget(ProjectCodegenTarget{
+		Language: string(CodeLanguagePython),
+		Payload:  RawJSON(`{"language":"typescript"}`),
+	})
+	if !errors.Is(err, ErrProjectCodegenPythonTargetLanguageMismatch) {
+		t.Fatalf("expected language-mismatch error, got %v", err)
+	}
+}
+
 func TestDecodePythonCodegenTargetRejectsInvalidNestedSectionPolicy(t *testing.T) {
 	t.Parallel()
 
