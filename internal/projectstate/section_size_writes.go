@@ -332,33 +332,59 @@ func (p *Project) applyEmbeddedSectionSizeRules(
 			continue
 		}
 
-		if sectionID == codeSectionID && !size.Width.Auto {
-			terminalState, err := p.ensureSectionSizeMutationState(mutations, terminalSectionID)
-			if err != nil {
-				return err
-			}
-			writeSectionSizeDimensionToPayload(terminalState.payload, "width", size.Width)
-		}
-		if sectionID == terminalSectionID && !size.Width.Auto {
-			codeState, err := p.ensureSectionSizeMutationState(mutations, codeSectionID)
-			if err != nil {
-				return err
-			}
-			writeSectionSizeDimensionToPayload(codeState.payload, "width", size.Width)
+		if err := p.syncEmbeddedAttachedTerminalWidth(mutations, sectionID, codeSectionID, terminalSectionID, size.Width); err != nil {
+			return err
 		}
 		if _, ok := enforcedCodeSections[codeSectionID]; ok {
 			continue
 		}
-		codeState, err := p.ensureSectionSizeMutationState(mutations, codeSectionID)
-		if err != nil {
-			return err
-		}
-		if err := ensureEmbeddedCodeSectionPayloadSize(codeSectionID, codeState.payload, policy); err != nil {
+		if err := p.ensureEmbeddedCodeSectionSize(mutations, codeSectionID, policy); err != nil {
 			return err
 		}
 		enforcedCodeSections[codeSectionID] = struct{}{}
 	}
 	return nil
+}
+
+func (p *Project) syncEmbeddedAttachedTerminalWidth(
+	mutations map[string]*sectionSizeMutationState,
+	sectionID string,
+	codeSectionID string,
+	terminalSectionID string,
+	width SectionSizeValue,
+) error {
+	if width.Auto {
+		return nil
+	}
+
+	targetSectionID := ""
+	switch sectionID {
+	case codeSectionID:
+		targetSectionID = terminalSectionID
+	case terminalSectionID:
+		targetSectionID = codeSectionID
+	default:
+		return nil
+	}
+
+	targetState, err := p.ensureSectionSizeMutationState(mutations, targetSectionID)
+	if err != nil {
+		return err
+	}
+	writeSectionSizeDimensionToPayload(targetState.payload, "width", width)
+	return nil
+}
+
+func (p *Project) ensureEmbeddedCodeSectionSize(
+	mutations map[string]*sectionSizeMutationState,
+	codeSectionID string,
+	policy AutoLayoutSectionSizingPolicy,
+) error {
+	codeState, err := p.ensureSectionSizeMutationState(mutations, codeSectionID)
+	if err != nil {
+		return err
+	}
+	return ensureEmbeddedCodeSectionPayloadSize(codeSectionID, codeState.payload, policy)
 }
 
 func (p *Project) embeddedAttachedTerminalPair(
@@ -371,36 +397,45 @@ func (p *Project) embeddedAttachedTerminalPair(
 	}
 
 	if isCodeFamilySectionType(state.sectionType) {
-		attachedTerminalID := strings.TrimSpace(payloadStringField(state.payload, "attachedTerminalSectionId"))
-		if attachedTerminalID == "" {
-			children := payloadStringArrayField(state.payload, "children")
-			if len(children) == 1 {
-				attachedTerminalID = children[0]
-			}
-		}
-		if attachedTerminalID == "" {
-			return "", "", false, nil
-		}
-		terminalState, err := p.ensureSectionSizeMutationState(mutations, attachedTerminalID)
-		if err != nil {
-			return "", "", false, err
-		}
-		if strings.TrimSpace(terminalState.section.ParentSectionID) != sectionID {
-			return "", "", false, nil
-		}
-		if !strings.EqualFold(terminalState.sectionType, "Terminal") {
-			return "", "", false, ErrTerminalSectionRequired
-		}
-		return sectionID, attachedTerminalID, true, nil
+		return p.embeddedAttachedTerminalPairForCodeState(mutations, state)
 	}
-
 	if !strings.EqualFold(state.sectionType, "Terminal") {
 		return "", "", false, nil
 	}
+	return p.embeddedAttachedTerminalPairForTerminalState(mutations, state)
+}
+
+func (p *Project) embeddedAttachedTerminalPairForCodeState(
+	mutations map[string]*sectionSizeMutationState,
+	state *sectionSizeMutationState,
+) (string, string, bool, error) {
+	attachedTerminalID := attachedTerminalSectionIDFromPayload(state.payload)
+	if attachedTerminalID == "" {
+		return "", "", false, nil
+	}
+
+	terminalState, err := p.ensureSectionSizeMutationState(mutations, attachedTerminalID)
+	if err != nil {
+		return "", "", false, err
+	}
+	if strings.TrimSpace(terminalState.section.ParentSectionID) != state.sectionID {
+		return "", "", false, nil
+	}
+	if !strings.EqualFold(terminalState.sectionType, "Terminal") {
+		return "", "", false, ErrTerminalSectionRequired
+	}
+	return state.sectionID, attachedTerminalID, true, nil
+}
+
+func (p *Project) embeddedAttachedTerminalPairForTerminalState(
+	mutations map[string]*sectionSizeMutationState,
+	state *sectionSizeMutationState,
+) (string, string, bool, error) {
 	parentSectionID := strings.TrimSpace(state.section.ParentSectionID)
 	if parentSectionID == "" {
 		return "", "", false, nil
 	}
+
 	parentState, err := p.ensureSectionSizeMutationState(mutations, parentSectionID)
 	if err != nil {
 		return "", "", false, err
@@ -408,17 +443,21 @@ func (p *Project) embeddedAttachedTerminalPair(
 	if !isCodeFamilySectionType(parentState.sectionType) {
 		return "", "", false, nil
 	}
-	attachedTerminalID := strings.TrimSpace(payloadStringField(parentState.payload, "attachedTerminalSectionId"))
-	if attachedTerminalID == "" {
-		children := payloadStringArrayField(parentState.payload, "children")
-		if len(children) == 1 {
-			attachedTerminalID = children[0]
-		}
-	}
-	if attachedTerminalID != sectionID {
+	if attachedTerminalSectionIDFromPayload(parentState.payload) != state.sectionID {
 		return "", "", false, nil
 	}
-	return parentSectionID, sectionID, true, nil
+	return parentSectionID, state.sectionID, true, nil
+}
+
+func attachedTerminalSectionIDFromPayload(payload map[string]any) string {
+	if attachedTerminalID := strings.TrimSpace(payloadStringField(payload, "attachedTerminalSectionId")); attachedTerminalID != "" {
+		return attachedTerminalID
+	}
+	children := payloadStringArrayField(payload, "children")
+	if len(children) != 1 {
+		return ""
+	}
+	return strings.TrimSpace(children[0])
 }
 
 func isCodeFamilySectionType(sectionType string) bool {
