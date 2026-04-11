@@ -1,4 +1,5 @@
 import { OverviewTabNameEnum } from "utils/constants";
+import type { ServerModeValue } from "utils/serverModeTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginRestartBanner } from "./PluginRestartBanner";
 
@@ -28,7 +29,7 @@ let restartCapability: Record<string, unknown> | null = {
   command: null,
   reason: null,
 };
-let runtimeServerMode: "ide" | "share" | "app" | "launcher" | null = "ide";
+let runtimeServerMode: ServerModeValue = "ide";
 let isDeploymentMode = false;
 
 const {
@@ -52,7 +53,7 @@ const {
     (
       selector?: (state: {
         restartCapability: unknown;
-        serverMode: "ide" | "share" | "app" | "launcher" | null;
+        serverMode: ServerModeValue;
       }) => unknown,
     ) => {
       const state = { restartCapability, serverMode: runtimeServerMode };

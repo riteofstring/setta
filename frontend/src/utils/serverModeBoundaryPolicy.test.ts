@@ -1,3 +1,4 @@
+import type { ServerModeValue } from "utils/serverModeTypes";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,9 +12,7 @@ import {
   SERVER_MODE_BOUNDARY_ROUTES,
 } from "./transportRouteConstants";
 
-function modeSupportsWorkspaceLaunch(
-  mode: "ide" | "share" | "app" | "launcher" | null,
-): boolean {
+function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {
   return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
 }
 

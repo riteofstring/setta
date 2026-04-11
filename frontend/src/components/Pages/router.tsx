@@ -32,6 +32,7 @@ import {
   resolveWorkspaceLaunchRouteKind,
   type WorkspaceLaunchRouteKind,
 } from "utils/serverModeBoundaryPolicy";
+import type { ResolvedServerMode } from "utils/serverModeTypes";
 import { resolveDefaultProjectConfigName } from "./defaultProjectRouting";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import {
@@ -437,9 +438,7 @@ const workspaceLaunchRouteElementsByKind: Record<
   blocked: workspaceLaunchBlockedRouteElement,
 };
 
-function resolveWorkspaceLaunchRouteElement(
-  mode: "ide" | "share" | "app" | "launcher",
-) {
+function resolveWorkspaceLaunchRouteElement(mode: ResolvedServerMode) {
   return workspaceLaunchRouteElementsByKind[
     resolveWorkspaceLaunchRouteKind(mode)
   ];

@@ -2,10 +2,9 @@ import { getServerMode, type HttpapiServerModeResponse } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useServerMode } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import type { ServerModeValue } from "utils/serverModeTypes";
 type ServerModeRouteResponse = ResponseDataAndStatus<HttpapiServerModeResponse>;
-export async function initializeServerMode(): Promise<
-  "ide" | "share" | "app" | "launcher" | null
-> {
+export async function initializeServerMode(): Promise<ServerModeValue> {
   const serverMode = useServerMode.getState();
   if (serverMode.modeResolved) {
     return serverMode.mode;

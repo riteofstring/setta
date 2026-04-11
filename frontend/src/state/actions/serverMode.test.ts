@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as endpoints from "openapi/http";
+import type { ServerModeValue } from "utils/serverModeTypes";
 
 import { initializeServerMode } from "./serverMode";
 
 const { useServerMode } = vi.hoisted(() => {
   const state = {
-    mode: null as "ide" | "share" | "app" | "launcher" | null,
+    mode: null as ServerModeValue,
     modeResolved: false,
     modeError: null as string | null,
   };
