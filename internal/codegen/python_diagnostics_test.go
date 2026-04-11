@@ -714,3 +714,29 @@ func minInt(left int, right int) int {
 	}
 	return right
 }
+
+func TestIsPythonIdentifier(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{name: "trimmed valid identifier", value: "  valid_name9  ", want: true},
+		{name: "starts with digit", value: "9lives", want: false},
+		{name: "rejects punctuation", value: "has-dash", want: false},
+		{name: "rejects non ascii letter", value: "naiveé", want: false},
+		{name: "underscore only", value: "_", want: true},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := isPythonIdentifier(test.value); got != test.want {
+				t.Fatalf("isPythonIdentifier(%q) = %v, want %v", test.value, got, test.want)
+			}
+		})
+	}
+}

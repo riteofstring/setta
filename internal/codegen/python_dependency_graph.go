@@ -168,6 +168,13 @@ type pythonSectionExportResult struct {
 	recordPotentialRefs bool
 }
 
+type pythonSectionExporter func(
+	projectstate.PythonCodegenSection,
+	string,
+	bool,
+	PythonDependencyNode,
+) (pythonSectionExportResult, error)
+
 var pythonDependencyGraphSectionExporters = map[string]struct{}{
 	"Callable":        {},
 	"Dict":            {},
@@ -308,36 +315,32 @@ func (b *pythonDependencyGraphBuilder) exportTypedSection(
 	isTopLevel bool,
 	parent PythonDependencyNode,
 ) (pythonSectionExportResult, error) {
-	switch section.Type {
-	case "Callable":
-		return b.exportCallableSection(section, fullPathName, isTopLevel, parent)
-	case "Dict":
-		return b.exportDictSection(section, fullPathName, isTopLevel, parent)
-	case "ListRoot", "Group":
-		return b.exportChildSection(section, fullPathName, isTopLevel, parent)
-	case "GlobalVariables":
-		return b.exportGlobalVariablesSection(section, fullPathName, isTopLevel, parent)
-	case "TextBlock":
-		return b.exportTextBlockSection(section, fullPathName, isTopLevel, parent)
-	case "Prompt":
-		return b.exportPromptSection(section, fullPathName, isTopLevel, parent)
-	case "Draw":
-		return b.exportDrawSection(section, fullPathName, isTopLevel, parent)
-	case "Image":
-		return b.exportImageSection(section, fullPathName, isTopLevel, parent)
-	case "Plugin":
-		return b.exportPluginSection(section, fullPathName, isTopLevel, parent)
-	case "MetaControl":
-		return b.exportMetaControlSection(section, fullPathName, isTopLevel, parent)
-	case "Chat":
-		return b.exportChatSection(section, fullPathName, isTopLevel, parent)
-	case "TaskBoard":
-		return b.exportTaskBoardSection(section, fullPathName, isTopLevel, parent)
-	case "Spreadsheet":
-		return b.exportSpreadsheetSection(section, fullPathName, isTopLevel, parent)
-	default:
+	exporter, ok := b.sectionExporter(section.Type)
+	if !ok {
 		return pythonSectionExportResult{}, fmt.Errorf("%w: %s", ErrPythonDependencyGraphSectionType, section.Type)
 	}
+	return exporter(section, fullPathName, isTopLevel, parent)
+}
+
+func (b *pythonDependencyGraphBuilder) sectionExporter(sectionType string) (pythonSectionExporter, bool) {
+	exporters := map[string]pythonSectionExporter{
+		"Callable":        b.exportCallableSection,
+		"Dict":            b.exportDictSection,
+		"ListRoot":        b.exportChildSection,
+		"Group":           b.exportChildSection,
+		"GlobalVariables": b.exportGlobalVariablesSection,
+		"TextBlock":       b.exportTextBlockSection,
+		"Prompt":          b.exportPromptSection,
+		"Draw":            b.exportDrawSection,
+		"Image":           b.exportImageSection,
+		"Plugin":          b.exportPluginSection,
+		"MetaControl":     b.exportMetaControlSection,
+		"Chat":            b.exportChatSection,
+		"TaskBoard":       b.exportTaskBoardSection,
+		"Spreadsheet":     b.exportSpreadsheetSection,
+	}
+	exporter, ok := exporters[sectionType]
+	return exporter, ok
 }
 
 func (b *pythonDependencyGraphBuilder) exportCallableSection(
@@ -1013,49 +1016,58 @@ func renderPythonLiteral(value any) string {
 	case nil:
 		return "None"
 	case bool:
-		if typed {
-			return "True"
-		}
-		return "False"
+		return renderPythonBoolLiteral(typed)
 	case string:
 		return renderPythonStringLiteral(typed)
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
 		return fmt.Sprintf("%v", typed)
-	case []string:
-		items := make([]string, 0, len(typed))
-		for _, item := range typed {
-			items = append(items, renderPythonLiteral(item))
-		}
-		return "[" + strings.Join(items, ", ") + "]"
-	case []int:
-		items := make([]string, 0, len(typed))
-		for _, item := range typed {
-			items = append(items, renderPythonLiteral(item))
-		}
-		return "[" + strings.Join(items, ", ") + "]"
-	case []any:
-		items := make([]string, 0, len(typed))
-		for _, item := range typed {
-			items = append(items, renderPythonLiteral(item))
-		}
-		return "[" + strings.Join(items, ", ") + "]"
-	case map[string]string:
-		keys := sortedStringKeys(typed)
-		items := make([]string, 0, len(keys))
-		for _, key := range keys {
-			items = append(items, fmt.Sprintf("%s: %s", renderPythonLiteral(key), renderPythonLiteral(typed[key])))
-		}
-		return "{" + strings.Join(items, ", ") + "}"
-	case map[string]any:
-		keys := sortedStringKeys(typed)
-		items := make([]string, 0, len(keys))
-		for _, key := range keys {
-			items = append(items, fmt.Sprintf("%s: %s", renderPythonLiteral(key), renderPythonLiteral(typed[key])))
-		}
-		return "{" + strings.Join(items, ", ") + "}"
 	default:
+		if rendered, ok := renderPythonCollectionLiteral(typed); ok {
+			return rendered
+		}
 		return renderPythonStringLiteral(fmt.Sprintf("%v", typed))
 	}
+}
+
+func renderPythonBoolLiteral(value bool) string {
+	if value {
+		return "True"
+	}
+	return "False"
+}
+
+func renderPythonCollectionLiteral(value any) (string, bool) {
+	switch typed := value.(type) {
+	case []string:
+		return renderPythonListLiteral(typed), true
+	case []int:
+		return renderPythonListLiteral(typed), true
+	case []any:
+		return renderPythonListLiteral(typed), true
+	case map[string]string:
+		return renderPythonStringKeyMapLiteral(typed), true
+	case map[string]any:
+		return renderPythonStringKeyMapLiteral(typed), true
+	default:
+		return "", false
+	}
+}
+
+func renderPythonListLiteral[T any](values []T) string {
+	items := make([]string, 0, len(values))
+	for _, item := range values {
+		items = append(items, renderPythonLiteral(item))
+	}
+	return "[" + strings.Join(items, ", ") + "]"
+}
+
+func renderPythonStringKeyMapLiteral[V any](values map[string]V) string {
+	keys := sortedStringKeys(values)
+	items := make([]string, 0, len(keys))
+	for _, key := range keys {
+		items = append(items, fmt.Sprintf("%s: %s", renderPythonLiteral(key), renderPythonLiteral(values[key])))
+	}
+	return "{" + strings.Join(items, ", ") + "}"
 }
 
 func renderPythonStringLiteral(value string) string {

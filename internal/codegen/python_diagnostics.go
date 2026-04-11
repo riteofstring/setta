@@ -124,60 +124,82 @@ func (m *PythonGeneratedDiagnosticsMapper) AnalyzeCodeDiagnostics(
 	diagnostics []PythonGeneratedDiagnostic,
 	uri string,
 ) PythonGeneratedCodeDiagnosticsResult {
-	if m == nil || m.renderer == nil || m.graph == nil {
-		return PythonGeneratedCodeDiagnosticsResult{
-			Diagnostics:               emptyGeneratedDiagnostics(""),
-			Unmapped:                  buildProjectDiagnostics(diagnostics, uri),
-			UndefinedCallableSections: map[string]struct{}{},
-			CallableMismatchSections:  map[string]struct{}{},
-		}
+	if emptyResult, ok := m.emptyCodeDiagnosticsResult(diagnostics, uri); ok {
+		return emptyResult
 	}
 
 	positions := convertDiagnosticLineColsToPositions(m.renderer.Code, diagnostics)
 	rangeIndex := buildDiagnosticRangeIndex(m.renderer)
-	errors := map[string]projectstate.SectionTypeErrors{}
-	unmapped := make([]projectstate.LSPDiagnostic, 0)
-	undefinedCallableSections := map[string]struct{}{}
-	callableMismatchSections := map[string]struct{}{}
+	analysis := newGeneratedDiagnosticAnalysis(len(diagnostics))
 
 	for index, diagnostic := range diagnostics {
-		position := positions[index]
-		if m.shouldIgnoreDiagnostic(diagnostic, position) {
-			continue
-		}
-		if isCallMismatchDiagnostic(diagnostic) {
-			if sectionID, ok := m.callableMismatchSectionID(position, rangeIndex); ok {
-				callableMismatchSections[sectionID] = struct{}{}
-			}
-		}
-		isUndefinedSymbol := isUndefinedSymbolDiagnostic(diagnostic)
-		results := m.processDiagnostic(diagnostic, position, rangeIndex)
-		mapped := len(results) > 0
-		for _, result := range results {
-			if isUndefinedSymbol && strings.TrimSpace(result.ParamID) == "" {
-				undefinedCallableSections[result.SectionID] = struct{}{}
-			}
-			if shouldIgnoreGeneratedTypeError(result.SectionID, result.ParamID, m.ignoredTypeErrorsByID) {
-				continue
-			}
-			addGeneratedErrorMessage(errors, result.SectionID, result.ParamID, diagnostic.Message)
-		}
-		if !mapped {
-			unmapped = append(unmapped, buildProjectDiagnostic(diagnostic, uri))
-		}
+		m.analyzeSingleDiagnostic(diagnostic, positions[index], rangeIndex, uri, &analysis)
 	}
-	m.applyRequiredParamFallback(errors)
+	m.applyRequiredParamFallback(analysis.errors)
+	return analysis.result(m.projectID)
+}
 
-	return PythonGeneratedCodeDiagnosticsResult{
-		Diagnostics: projectstate.ProjectConfigDiagnostics{
-			ProjectID: m.projectID,
-			Errors:    errors,
-			IsGenCode: true,
-		},
-		Unmapped:                  unmapped,
-		UndefinedCallableSections: undefinedCallableSections,
-		CallableMismatchSections:  callableMismatchSections,
+func (m *PythonGeneratedDiagnosticsMapper) emptyCodeDiagnosticsResult(
+	diagnostics []PythonGeneratedDiagnostic,
+	uri string,
+) (PythonGeneratedCodeDiagnosticsResult, bool) {
+	if m != nil && m.renderer != nil && m.graph != nil {
+		return PythonGeneratedCodeDiagnosticsResult{}, false
 	}
+	return PythonGeneratedCodeDiagnosticsResult{
+		Diagnostics:               emptyGeneratedDiagnostics(""),
+		Unmapped:                  buildProjectDiagnostics(diagnostics, uri),
+		UndefinedCallableSections: map[string]struct{}{},
+		CallableMismatchSections:  map[string]struct{}{},
+	}, true
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) analyzeSingleDiagnostic(
+	diagnostic PythonGeneratedDiagnostic,
+	position pythonGeneratedDiagnosticPosition,
+	rangeIndex pythonGeneratedDiagnosticRangeIndex,
+	uri string,
+	analysis *generatedDiagnosticAnalysis,
+) {
+	if m.shouldIgnoreDiagnostic(diagnostic, position) {
+		return
+	}
+	if sectionID, ok := m.callableMismatchSectionIDForDiagnostic(diagnostic, position, rangeIndex); ok {
+		analysis.callableMismatchSections[sectionID] = struct{}{}
+	}
+	results := m.processDiagnostic(diagnostic, position, rangeIndex)
+	if len(results) == 0 {
+		analysis.unmapped = append(analysis.unmapped, buildProjectDiagnostic(diagnostic, uri))
+		return
+	}
+	for _, result := range results {
+		m.recordGeneratedDiagnosticResult(analysis, result, diagnostic)
+	}
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) callableMismatchSectionIDForDiagnostic(
+	diagnostic PythonGeneratedDiagnostic,
+	position pythonGeneratedDiagnosticPosition,
+	rangeIndex pythonGeneratedDiagnosticRangeIndex,
+) (string, bool) {
+	if !isCallMismatchDiagnostic(diagnostic) {
+		return "", false
+	}
+	return m.callableMismatchSectionID(position, rangeIndex)
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) recordGeneratedDiagnosticResult(
+	analysis *generatedDiagnosticAnalysis,
+	result generatedDiagnosticResult,
+	diagnostic PythonGeneratedDiagnostic,
+) {
+	if isUndefinedSymbolDiagnostic(diagnostic) && strings.TrimSpace(result.ParamID) == "" {
+		analysis.undefinedCallableSections[result.SectionID] = struct{}{}
+	}
+	if shouldIgnoreGeneratedTypeError(result.SectionID, result.ParamID, m.ignoredTypeErrorsByID) {
+		return
+	}
+	addGeneratedErrorMessage(analysis.errors, result.SectionID, result.ParamID, diagnostic.Message)
 }
 
 func (m *PythonGeneratedDiagnosticsMapper) MapMetadataDiagnostics(
@@ -190,6 +212,35 @@ func (m *PythonGeneratedDiagnosticsMapper) MapMetadataDiagnostics(
 type generatedDiagnosticResult struct {
 	SectionID string
 	ParamID   string
+}
+
+type generatedDiagnosticAnalysis struct {
+	errors                    map[string]projectstate.SectionTypeErrors
+	unmapped                  []projectstate.LSPDiagnostic
+	undefinedCallableSections map[string]struct{}
+	callableMismatchSections  map[string]struct{}
+}
+
+func newGeneratedDiagnosticAnalysis(sizeHint int) generatedDiagnosticAnalysis {
+	return generatedDiagnosticAnalysis{
+		errors:                    map[string]projectstate.SectionTypeErrors{},
+		unmapped:                  make([]projectstate.LSPDiagnostic, 0, sizeHint),
+		undefinedCallableSections: map[string]struct{}{},
+		callableMismatchSections:  map[string]struct{}{},
+	}
+}
+
+func (analysis generatedDiagnosticAnalysis) result(projectID string) PythonGeneratedCodeDiagnosticsResult {
+	return PythonGeneratedCodeDiagnosticsResult{
+		Diagnostics: projectstate.ProjectConfigDiagnostics{
+			ProjectID: projectID,
+			Errors:    analysis.errors,
+			IsGenCode: true,
+		},
+		Unmapped:                  analysis.unmapped,
+		UndefinedCallableSections: analysis.undefinedCallableSections,
+		CallableMismatchSections:  analysis.callableMismatchSections,
+	}
 }
 
 func (m *PythonGeneratedDiagnosticsMapper) processDiagnostic(
@@ -590,47 +641,18 @@ func collectWatchCodeRequiredParamsBySection(
 		return map[string][]pythonRequiredParam{}
 	}
 
-	watchCodeSectionIDs := map[string]struct{}{}
-	for _, entry := range project.WatchCodeRegistry {
-		for _, sectionID := range entry.SectionIDs {
-			trimmedSectionID := strings.TrimSpace(sectionID)
-			if trimmedSectionID == "" {
-				continue
-			}
-			watchCodeSectionIDs[trimmedSectionID] = struct{}{}
-		}
-	}
+	watchCodeSectionIDs := collectWatchCodeSectionIDs(project)
 	if len(watchCodeSectionIDs) == 0 {
 		return map[string][]pythonRequiredParam{}
 	}
 
 	required := map[string][]pythonRequiredParam{}
 	for _, key := range graph.NodeOrder {
-		if strings.TrimSpace(key.CodeObjectID) == "" {
-			continue
-		}
-		if _, ok := watchCodeSectionIDs[key.SectionID]; !ok {
-			continue
-		}
-		node, ok := graph.Node(key)
+		param, ok := collectWatchCodeRequiredParam(graph, key, watchCodeSectionIDs)
 		if !ok {
 			continue
 		}
-		paramNode, ok := node.(*PythonParamNode)
-		if !ok {
-			continue
-		}
-		if strings.TrimSpace(paramNode.DefaultValue) != "" {
-			continue
-		}
-		switch strings.TrimSpace(paramNode.PassingStyle) {
-		case "ARGS", "KWARGS":
-			continue
-		}
-		required[key.SectionID] = append(required[key.SectionID], pythonRequiredParam{
-			ParamID: key.CodeObjectID,
-			Name:    strings.TrimSpace(paramNode.Name),
-		})
+		required[key.SectionID] = append(required[key.SectionID], param)
 	}
 	return required
 }
@@ -642,40 +664,98 @@ func (m *PythonGeneratedDiagnosticsMapper) applyRequiredParamFallback(
 		return
 	}
 
-	sectionIDs := make([]string, 0, len(m.requiredParamsByID))
-	for sectionID := range m.requiredParamsByID {
-		sectionIDs = append(sectionIDs, sectionID)
-	}
-	sort.Strings(sectionIDs)
-
-	for _, sectionID := range sectionIDs {
-		requiredParams := m.requiredParamsByID[sectionID]
-		if len(requiredParams) == 0 {
-			continue
-		}
-		missing := make([]pythonRequiredParam, 0, len(requiredParams))
-		for _, required := range requiredParams {
-			key := PythonCodeObjectDependencyKey(sectionID, required.ParamID)
-			node, ok := m.graph.Node(key)
-			if !ok {
-				continue
-			}
-			paramNode, ok := node.(*PythonParamNode)
-			if !ok || paramNode.HasNameAndValue() {
-				continue
-			}
-			if len(errors[sectionID].Params[required.ParamID]) > 0 {
-				continue
-			}
-			missing = append(missing, required)
-		}
+	for _, sectionID := range sortedStringKeys(m.requiredParamsByID) {
+		missing := m.collectMissingRequiredParams(sectionID, m.requiredParamsByID[sectionID], errors)
 		if len(missing) == 0 {
 			continue
 		}
-		message := missingParametersMessage(missing)
-		for _, required := range missing {
-			addGeneratedErrorMessage(errors, sectionID, required.ParamID, message)
+		addGeneratedRequiredParamErrors(errors, sectionID, missing)
+	}
+}
+
+func collectWatchCodeSectionIDs(project projectstate.Project) map[string]struct{} {
+	watchCodeSectionIDs := map[string]struct{}{}
+	for _, entry := range project.WatchCodeRegistry {
+		for _, sectionID := range entry.SectionIDs {
+			trimmedSectionID := strings.TrimSpace(sectionID)
+			if trimmedSectionID == "" {
+				continue
+			}
+			watchCodeSectionIDs[trimmedSectionID] = struct{}{}
 		}
+	}
+	return watchCodeSectionIDs
+}
+
+func collectWatchCodeRequiredParam(
+	graph *PythonDependencyGraph,
+	key PythonDependencyKey,
+	watchCodeSectionIDs map[string]struct{},
+) (pythonRequiredParam, bool) {
+	if strings.TrimSpace(key.CodeObjectID) == "" {
+		return pythonRequiredParam{}, false
+	}
+	if _, ok := watchCodeSectionIDs[key.SectionID]; !ok {
+		return pythonRequiredParam{}, false
+	}
+	node, ok := graph.Node(key)
+	if !ok {
+		return pythonRequiredParam{}, false
+	}
+	paramNode, ok := node.(*PythonParamNode)
+	if !ok || isOptionalWatchCodeParam(paramNode) {
+		return pythonRequiredParam{}, false
+	}
+	return pythonRequiredParam{
+		ParamID: key.CodeObjectID,
+		Name:    strings.TrimSpace(paramNode.Name),
+	}, true
+}
+
+func isOptionalWatchCodeParam(paramNode *PythonParamNode) bool {
+	if strings.TrimSpace(paramNode.DefaultValue) != "" {
+		return true
+	}
+	switch strings.TrimSpace(paramNode.PassingStyle) {
+	case "ARGS", "KWARGS":
+		return true
+	default:
+		return false
+	}
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) collectMissingRequiredParams(
+	sectionID string,
+	requiredParams []pythonRequiredParam,
+	errors map[string]projectstate.SectionTypeErrors,
+) []pythonRequiredParam {
+	missing := make([]pythonRequiredParam, 0, len(requiredParams))
+	for _, required := range requiredParams {
+		key := PythonCodeObjectDependencyKey(sectionID, required.ParamID)
+		node, ok := m.graph.Node(key)
+		if !ok {
+			continue
+		}
+		paramNode, ok := node.(*PythonParamNode)
+		if !ok || paramNode.HasNameAndValue() {
+			continue
+		}
+		if len(errors[sectionID].Params[required.ParamID]) > 0 {
+			continue
+		}
+		missing = append(missing, required)
+	}
+	return missing
+}
+
+func addGeneratedRequiredParamErrors(
+	errors map[string]projectstate.SectionTypeErrors,
+	sectionID string,
+	missing []pythonRequiredParam,
+) {
+	message := missingParametersMessage(missing)
+	for _, required := range missing {
+		addGeneratedErrorMessage(errors, sectionID, required.ParamID, message)
 	}
 }
 
@@ -771,17 +851,29 @@ func isPythonIdentifier(value string) bool {
 		return false
 	}
 	for index, r := range trimmed {
-		if index == 0 {
-			if r != '_' && (r < 'A' || (r > 'Z' && r < 'a') || r > 'z') {
-				return false
-			}
-			continue
-		}
-		if r != '_' && (r < '0' || (r > '9' && r < 'A') || (r > 'Z' && r < 'a') || r > 'z') {
+		if !isPythonIdentifierRune(r, index == 0) {
 			return false
 		}
 	}
 	return true
+}
+
+func isPythonIdentifierRune(value rune, first bool) bool {
+	if value == '_' {
+		return true
+	}
+	if first {
+		return isASCIILetter(value)
+	}
+	return isASCIILetter(value) || isASCIIDigit(value)
+}
+
+func isASCIILetter(value rune) bool {
+	return ('A' <= value && value <= 'Z') || ('a' <= value && value <= 'z')
+}
+
+func isASCIIDigit(value rune) bool {
+	return '0' <= value && value <= '9'
 }
 
 func diagnosticCodeString(code any) string {

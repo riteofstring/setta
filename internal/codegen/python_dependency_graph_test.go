@@ -1952,6 +1952,34 @@ func mustJSONString(t *testing.T, value string) string {
 	return string(encoded)
 }
 
+func TestRenderPythonLiteralCollectionsAndFallback(t *testing.T) {
+	t.Parallel()
+
+	t.Run("renders supported collections deterministically", func(t *testing.T) {
+		t.Parallel()
+
+		rendered := renderPythonLiteral(map[string]any{
+			"names": []string{"alpha", "beta"},
+			"nums":  []int{1, 2},
+			"meta":  map[string]string{"b": "two", "a": "one"},
+			"flag":  true,
+		})
+		expected := "{'flag': True, 'meta': {'a': 'one', 'b': 'two'}, 'names': ['alpha', 'beta'], 'nums': [1, 2]}"
+		if rendered != expected {
+			t.Fatalf("unexpected rendered literal %q", rendered)
+		}
+	})
+
+	t.Run("falls back to string literal for unsupported collection types", func(t *testing.T) {
+		t.Parallel()
+
+		rendered := renderPythonLiteral([]bool{true, false})
+		if rendered != "'[true false]'" {
+			t.Fatalf("unexpected fallback literal %q", rendered)
+		}
+	})
+}
+
 func mustPythonSectionTypePolicyPayload(
 	t *testing.T,
 	sectionType string,
