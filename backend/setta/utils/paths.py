@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import subprocess
@@ -172,21 +171,6 @@ def resolve_setta_paths(
 @lru_cache(maxsize=1)
 def get_setta_paths() -> SettaPaths:
     return resolve_setta_paths()
-
-
-# This helper remains available for tests and offline callers that need the
-# deterministic global-root naming rule without running the Go CLI. The full
-# path-selection authority now lives in Go via resolve_setta_paths().
-def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
-    sanitized_leaf = _sanitize_leaf(workspace_root.name)
-    max_leaf_chars = 48
-    if len(sanitized_leaf) > max_leaf_chars:
-        sanitized_leaf = sanitized_leaf[:max_leaf_chars].rstrip("._-") or "workspace"
-    canonical_workspace_root = workspace_root.resolve(strict=False)
-    digest = hashlib.sha256(str(canonical_workspace_root).encode("utf-8")).hexdigest()[
-        :8
-    ]
-    return base_root / f"{sanitized_leaf}-{digest}"
 
 
 def _resolve_go_paths_payload(
@@ -397,24 +381,3 @@ def _normalize_go_command_error_output(raw_message: str) -> str:
     if lines and lines[-1].startswith("exit status "):
         lines = lines[:-1]
     return "\n".join(lines)
-
-
-def _sanitize_leaf(value: str) -> str:
-    if not value:
-        return "workspace"
-    allowed_symbols = "._-"
-    cleaned_chars: list[str] = []
-    for ch in value:
-        codepoint = ord(ch)
-        is_ascii_alnum = (
-            (48 <= codepoint <= 57)
-            or (65 <= codepoint <= 90)
-            or (97 <= codepoint <= 122)
-        )
-        if is_ascii_alnum or ch in allowed_symbols:
-            cleaned_chars.append(ch)
-        else:
-            cleaned_chars.append("_")
-    cleaned = "".join(cleaned_chars)
-    cleaned = cleaned.strip("._-")
-    return cleaned or "workspace"
