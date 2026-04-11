@@ -137,25 +137,81 @@ func NewLocalLaunchService(options LocalLaunchServiceOptions) (*LocalLaunchServi
 }
 
 func (s *LocalLaunchService) Launch(input LocalLaunchInput) (LocalLaunchResult, error) {
+	launchRequest, returnURL, err := s.resolveLaunchRequest(input)
+	if err != nil {
+		return LocalLaunchResult{}, err
+	}
+
+	normalized := normalizeLaunchRequest(launchRequest)
+	if normalized.isRemote() {
+		return s.launchRemoteWorkspace(
+			launchRequest,
+			returnURL,
+			input.RequestOrigin,
+			input.CurrentSession,
+			normalized.Profile,
+			normalized.SettaHome,
+			normalized.SettaFilesRoot,
+			normalized.SettaFilesLocation,
+			normalized.RuntimeRoot,
+		)
+	}
+
+	return s.launchLocalWorkspace(input, returnURL, normalized)
+}
+
+type normalizedLaunchRequest struct {
+	WorkspaceRoot      string
+	Profile            string
+	SettaHome          string
+	SettaFilesRoot     string
+	SettaFilesLocation *string
+	RuntimeRoot        string
+	SSHTarget          string
+}
+
+func normalizeLaunchRequest(request Request) normalizedLaunchRequest {
+	normalizedProfile := trimmedStringPointer(request.Profile)
+	normalizedSettaFilesRoot := trimmedStringPointer(request.SettaFilesRoot)
+	return normalizedLaunchRequest{
+		WorkspaceRoot:  trimmedStringPointer(request.WorkspaceRoot),
+		Profile:        normalizedProfile,
+		SettaHome:      trimmedStringPointer(request.SettaHome),
+		SettaFilesRoot: normalizedSettaFilesRoot,
+		SettaFilesLocation: launcher.NormalizeSettaFilesLocationForLaunch(
+			request.SettaFilesLocation,
+			request.FieldProvided("settaFilesLocation"),
+			normalizedSettaFilesRoot,
+			normalizedProfile,
+		),
+		RuntimeRoot: trimmedStringPointer(request.RuntimeRoot),
+		SSHTarget:   trimmedStringPointer(request.SSHTarget),
+	}
+}
+
+func (r normalizedLaunchRequest) isRemote() bool {
+	return r.SSHTarget != ""
+}
+
+func (s *LocalLaunchService) resolveLaunchRequest(input LocalLaunchInput) (Request, string, error) {
 	returnURL := buildSafeLaunchReturnURL(input.RequestOrigin)
 	if input.CurrentSession == nil {
-		return LocalLaunchResult{}, &LaunchError{
+		return Request{}, returnURL, &LaunchError{
 			Code:      "Unauthorized",
 			Message:   "Missing session.",
 			ReturnURL: returnURL,
 		}
 	}
-
 	launchIntentToken := trimmedStringPointer(input.Request.LaunchIntentToken)
 	if launchIntentToken == "" {
-		return LocalLaunchResult{}, &LaunchError{
+		return Request{}, returnURL, &LaunchError{
 			Code:      "BadRequest",
 			Message:   "launchIntentToken is required.",
 			ReturnURL: returnURL,
 		}
 	}
 	if launchRequestHasInlineOverrides(input.Request) {
-		return LocalLaunchResult{}, &LaunchError{
+		return Request{}, returnURL, &LaunchError{
 			Code:      "BadRequest",
 			Message:   "launchIntentToken must be the only request field when provided.",
 			ReturnURL: returnURL,
@@ -164,148 +220,137 @@ func (s *LocalLaunchService) Launch(input LocalLaunchInput) (LocalLaunchResult, 
 
 	launchRequest, storedReturnURL, err := s.intents.ConsumeIntent(input.CurrentSession, launchIntentToken)
 	if err != nil {
-		intentErr, ok := err.(*IntentError)
-		if !ok {
-			return LocalLaunchResult{}, &LaunchError{
-				Code:      "InternalError",
-				Message:   "Internal Server Error",
-				ReturnURL: returnURL,
-			}
-		}
-		return LocalLaunchResult{}, &LaunchError{
+		return Request{}, returnURL, mapIntentLaunchError(err, returnURL)
+	}
+	return launchRequest, storedReturnURL, nil
+}
+
+func mapIntentLaunchError(err error, returnURL string) error {
+	var intentErr *IntentError
+	if errors.As(err, &intentErr) {
+		return &LaunchError{
 			Code:      intentErr.Code,
 			Message:   intentErr.Message,
 			ReturnURL: returnURL,
 		}
 	}
-	returnURL = storedReturnURL
+	return internalLaunchError(returnURL)
+}
 
-	normalizedProfile := trimmedStringPointer(launchRequest.Profile)
-	normalizedSettaFilesRoot := trimmedStringPointer(launchRequest.SettaFilesRoot)
-	normalizedRuntimeRoot := trimmedStringPointer(launchRequest.RuntimeRoot)
-	normalizedSettaFilesLocation := launcher.NormalizeSettaFilesLocationForLaunch(
-		launchRequest.SettaFilesLocation,
-		launchRequest.FieldProvided("settaFilesLocation"),
-		normalizedSettaFilesRoot,
-		normalizedProfile,
-	)
-	normalizedSettaHome := trimmedStringPointer(launchRequest.SettaHome)
-	if trimmedStringPointer(launchRequest.SSHTarget) != "" {
-		return s.launchRemoteWorkspace(
-			launchRequest,
-			returnURL,
-			input.RequestOrigin,
-			input.CurrentSession,
-			normalizedProfile,
-			normalizedSettaHome,
-			normalizedSettaFilesRoot,
-			normalizedSettaFilesLocation,
-			normalizedRuntimeRoot,
-		)
+func (s *LocalLaunchService) launchLocalWorkspace(
+	input LocalLaunchInput,
+	returnURL string,
+	normalized normalizedLaunchRequest,
+) (LocalLaunchResult, error) {
+	launchResult, err := s.sessions.EnsureSession(s.buildLocalSessionInput(normalized))
+	if err != nil {
+		return LocalLaunchResult{}, mapLocalSessionLaunchError(err, returnURL)
 	}
 
-	explicitSettaHome := normalizedSettaHome
-	normalizedSettaHome = strings.TrimSpace(s.defaultSettaHome)
-	if explicitSettaHome != "" {
-		normalizedSettaHome = explicitSettaHome
+	bootstrapURLFragment, normalizedRequestOrigin, err := s.buildLocalBootstrapURLFragment(launchResult, input.RequestOrigin, returnURL)
+	if err != nil {
+		return LocalLaunchResult{}, err
 	}
+	if err := s.persistLocalLaunchTrust(normalizedRequestOrigin, bootstrapURLFragment, input.CurrentSession, launchResult, returnURL); err != nil {
+		return LocalLaunchResult{}, err
+	}
+
+	_ = launcher.UpdateLauncherLastUsedWorkspaceIfInstalled(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
+	return buildLocalLaunchResult(launchResult, bootstrapURLFragment, returnURL), nil
+}
+
+func (s *LocalLaunchService) buildLocalSessionInput(normalized normalizedLaunchRequest) launcher.IDELaunchInput {
+	settaHome := strings.TrimSpace(s.defaultSettaHome)
 	profileLookupHome := ""
-	if normalizedProfile != "" && explicitSettaHome == "" {
+	if normalized.SettaHome != "" {
+		settaHome = normalized.SettaHome
+	} else if normalized.Profile != "" {
 		profileLookupHome = s.defaultProfileLookupHome
 	}
-
-	launchResult, err := s.sessions.EnsureSession(launcher.IDELaunchInput{
-		WorkspaceRoot:      trimmedStringPointer(launchRequest.WorkspaceRoot),
-		SettaHome:          normalizedSettaHome,
+	return launcher.IDELaunchInput{
+		WorkspaceRoot:      normalized.WorkspaceRoot,
+		SettaHome:          settaHome,
 		ProfileLookupHome:  profileLookupHome,
-		Profile:            normalizedProfile,
-		SettaFilesRoot:     normalizedSettaFilesRoot,
-		SettaFilesLocation: normalizedSettaFilesLocation,
-		RuntimeRoot:        normalizedRuntimeRoot,
-	})
-	if err != nil {
-		var sessionLaunchErr *launcher.SessionLaunchError
-		if errors.As(err, &sessionLaunchErr) {
-			return LocalLaunchResult{}, &LaunchError{
-				Code:      sessionLaunchErr.Code,
-				Message:   sessionLaunchErr.Message,
-				ReturnURL: returnURL,
-			}
-		}
-		return LocalLaunchResult{}, &LaunchError{
-			Code:      "InternalError",
-			Message:   "Internal Server Error",
+		Profile:            normalized.Profile,
+		SettaFilesRoot:     normalized.SettaFilesRoot,
+		SettaFilesLocation: normalized.SettaFilesLocation,
+		RuntimeRoot:        normalized.RuntimeRoot,
+	}
+}
+
+func mapLocalSessionLaunchError(err error, returnURL string) error {
+	var sessionLaunchErr *launcher.SessionLaunchError
+	if errors.As(err, &sessionLaunchErr) {
+		return &LaunchError{
+			Code:      sessionLaunchErr.Code,
+			Message:   sessionLaunchErr.Message,
 			ReturnURL: returnURL,
 		}
 	}
+	return internalLaunchError(returnURL)
+}
 
+func (s *LocalLaunchService) buildLocalBootstrapURLFragment(
+	launchResult launcher.IDELaunchResult,
+	requestOrigin string,
+	returnURL string,
+) (string, string, error) {
 	token, err := s.mintBootstrapToken(launchResult.Session.ID, launchResult.Secret, s.now().UTC())
 	if err != nil {
-		return LocalLaunchResult{}, &LaunchError{
-			Code:      "InternalError",
-			Message:   "Internal Server Error",
-			ReturnURL: returnURL,
-		}
+		return "", "", internalLaunchError(returnURL)
 	}
 	bootstrapURLFragment, err := launcher.BuildBootstrapURLFragment(launchResult.Session.Host, launchResult.Session.Port, token)
 	if err != nil {
-		return LocalLaunchResult{}, &LaunchError{
-			Code:      "InternalError",
-			Message:   "Internal Server Error",
-			ReturnURL: returnURL,
-		}
+		return "", "", internalLaunchError(returnURL)
 	}
 
-	normalizedRequestOrigin := frontendorigins.NormalizeOrigin(input.RequestOrigin)
-	if normalizedRequestOrigin != "" {
-		proof := frontendorigins.MintLauncherOriginHandoffProof(
-			launchResult.Session.ID,
-			normalizedRequestOrigin,
-			launchResult.Secret,
-		)
-		bootstrapURLFragment, err = frontendorigins.AppendLauncherOriginHandoffToBootstrapURL(
-			bootstrapURLFragment,
-			normalizedRequestOrigin,
-			proof,
-		)
-		if err != nil {
-			return LocalLaunchResult{}, &LaunchError{
-				Code:      "InternalError",
-				Message:   "Internal Server Error",
-				ReturnURL: returnURL,
-			}
-		}
+	normalizedRequestOrigin := frontendorigins.NormalizeOrigin(requestOrigin)
+	if normalizedRequestOrigin == "" {
+		return bootstrapURLFragment, "", nil
 	}
+	proof := frontendorigins.MintLauncherOriginHandoffProof(
+		launchResult.Session.ID,
+		normalizedRequestOrigin,
+		launchResult.Secret,
+	)
+	bootstrapURLFragment, err = frontendorigins.AppendLauncherOriginHandoffToBootstrapURL(
+		bootstrapURLFragment,
+		normalizedRequestOrigin,
+		proof,
+	)
+	if err != nil {
+		return "", "", internalLaunchError(returnURL)
+	}
+	return bootstrapURLFragment, normalizedRequestOrigin, nil
+}
 
-	if err := s.trustLaunchedWorkspaceOriginForLauncherSession(normalizedRequestOrigin, bootstrapURLFragment, input.CurrentSession); err != nil {
+func (s *LocalLaunchService) persistLocalLaunchTrust(
+	requestOrigin string,
+	bootstrapURLFragment string,
+	currentSession *auth.CurrentSession,
+	launchResult launcher.IDELaunchResult,
+	returnURL string,
+) error {
+	if err := s.trustLaunchedWorkspaceOriginForLauncherSession(requestOrigin, bootstrapURLFragment, currentSession); err != nil {
 		if launchResult.StartedNew {
 			if rollbackErr := s.rollbackLocalSession(launchResult.Session, launchResult.Paths.RuntimeRoot); rollbackErr != nil {
-				return LocalLaunchResult{}, &LaunchError{
+				return &LaunchError{
 					Code:      "LocalRollbackFailed",
 					Message:   fmt.Sprintf("Launch trust persistence failed and rollback of local session %s also failed: %v", launchResult.Session.ID, rollbackErr),
 					ReturnURL: returnURL,
 				}
 			}
 		}
-		code := "InternalError"
-		message := "Internal Server Error"
-		switch {
-		case isTrustedOriginUnavailableError(err):
-			code = "TrustedFrontendOriginStoreUnavailable"
-			message = err.Error()
-		case isTrustedOriginStateError(err):
-			code = "TrustedFrontendOriginStoreInvalid"
-			message = err.Error()
-		}
-		return LocalLaunchResult{}, &LaunchError{
-			Code:      code,
-			Message:   message,
-			ReturnURL: returnURL,
-		}
+		return mapTrustedOriginPersistenceError(err, returnURL)
 	}
+	return nil
+}
 
-	_ = launcher.UpdateLauncherLastUsedWorkspaceIfInstalled(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
-
+func buildLocalLaunchResult(
+	launchResult launcher.IDELaunchResult,
+	bootstrapURLFragment string,
+	returnURL string,
+) LocalLaunchResult {
 	return LocalLaunchResult{
 		BootstrapURLFragment:   bootstrapURLFragment,
 		ReturnURL:              returnURL,
@@ -320,7 +365,33 @@ func (s *LocalLaunchService) Launch(input LocalLaunchInput) (LocalLaunchResult, 
 		SessionID:              launchResult.Session.ID,
 		StartedNew:             launchResult.StartedNew,
 		Session:                launchResult.Session,
-	}, nil
+	}
+}
+
+func internalLaunchError(returnURL string) *LaunchError {
+	return &LaunchError{
+		Code:      "InternalError",
+		Message:   "Internal Server Error",
+		ReturnURL: returnURL,
+	}
+}
+
+func mapTrustedOriginPersistenceError(err error, returnURL string) *LaunchError {
+	code := "InternalError"
+	message := "Internal Server Error"
+	switch {
+	case isTrustedOriginUnavailableError(err):
+		code = "TrustedFrontendOriginStoreUnavailable"
+		message = err.Error()
+	case isTrustedOriginStateError(err):
+		code = "TrustedFrontendOriginStoreInvalid"
+		message = err.Error()
+	}
+	return &LaunchError{
+		Code:      code,
+		Message:   message,
+		ReturnURL: returnURL,
+	}
 }
 
 func buildSafeLaunchReturnURL(requestOrigin string) string {
@@ -333,23 +404,38 @@ func buildSafeLaunchReturnURL(requestOrigin string) string {
 
 func launchRequestHasInlineOverrides(request Request) bool {
 	if len(request.fieldSet) > 0 {
-		for fieldName := range request.fieldSet {
-			if fieldName != launchIntentTokenField {
-				return true
-			}
-		}
-		return false
+		return launchRequestFieldSetHasInlineOverrides(request.fieldSet)
 	}
-	return request.WorkspaceRoot != nil ||
-		request.Profile != nil ||
-		request.SettaHome != nil ||
-		request.SettaFilesRoot != nil ||
-		request.SettaFilesLocation != nil ||
-		request.RuntimeRoot != nil ||
-		request.SSHTarget != nil ||
-		request.SSHArgs != nil ||
-		request.RemoteCmd != nil ||
-		request.LocalPort != nil
+	return launchRequestPointerHasInlineOverrides(request)
+}
+
+func launchRequestFieldSetHasInlineOverrides(fieldSet map[string]struct{}) bool {
+	for fieldName := range fieldSet {
+		if fieldName != launchIntentTokenField {
+			return true
+		}
+	}
+	return false
+}
+
+func launchRequestPointerHasInlineOverrides(request Request) bool {
+	for _, provided := range []bool{
+		request.WorkspaceRoot != nil,
+		request.Profile != nil,
+		request.SettaHome != nil,
+		request.SettaFilesRoot != nil,
+		request.SettaFilesLocation != nil,
+		request.RuntimeRoot != nil,
+		request.SSHTarget != nil,
+		request.SSHArgs != nil,
+		request.RemoteCmd != nil,
+		request.LocalPort != nil,
+	} {
+		if provided {
+			return true
+		}
+	}
+	return false
 }
 
 func optionalStringPointer(value string) *string {

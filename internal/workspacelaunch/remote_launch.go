@@ -54,11 +54,7 @@ func (s *LocalLaunchService) launchRemoteWorkspace(
 			remoteLaunchResult.LauncherOriginProof,
 		)
 		if err != nil {
-			return LocalLaunchResult{}, &LaunchError{
-				Code:      "InternalError",
-				Message:   "Internal Server Error",
-				ReturnURL: returnURL,
-			}
+			return LocalLaunchResult{}, internalLaunchError(returnURL)
 		}
 	}
 
@@ -87,21 +83,7 @@ func (s *LocalLaunchService) launchRemoteWorkspace(
 			}
 		}
 
-		code := "InternalError"
-		message := "Internal Server Error"
-		switch {
-		case isTrustedOriginUnavailableError(err):
-			code = "TrustedFrontendOriginStoreUnavailable"
-			message = err.Error()
-		case isTrustedOriginStateError(err):
-			code = "TrustedFrontendOriginStoreInvalid"
-			message = err.Error()
-		}
-		return LocalLaunchResult{}, &LaunchError{
-			Code:      code,
-			Message:   message,
-			ReturnURL: returnURL,
-		}
+		return LocalLaunchResult{}, mapTrustedOriginPersistenceError(err, returnURL)
 	}
 
 	return LocalLaunchResult{
@@ -143,9 +125,5 @@ func mapRemoteLaunchError(err error, returnURL string) error {
 			ReturnURL: returnURL,
 		}
 	}
-	return &LaunchError{
-		Code:      "InternalError",
-		Message:   "Internal Server Error",
-		ReturnURL: returnURL,
-	}
+	return internalLaunchError(returnURL)
 }
