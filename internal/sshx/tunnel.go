@@ -139,27 +139,96 @@ func (s *Service) ensureSSHTunnel(sshTarget string, sshArgs []string, remoteHost
 		return TunnelMetadata{}, err
 	}
 	now := s.now().UTC().Format(time.RFC3339Nano)
-	if existing != nil && existing.KeyHash != keyHash {
-		existing = nil
+	existing = s.normalizeExistingTunnelMetadata(metadataPath, keyHash, existing)
+	if metadata, reused, err := s.reuseExistingTunnelMetadata(metadataPath, existing, requestedLocalPort, now); reused || err != nil {
+		return metadata, err
 	}
-	if existing != nil && s.isPIDAlive(existing.PID) {
-		if !s.pidMatchesCreateTime(existing.PID, existing.PIDCreateTime) {
-			_ = os.Remove(metadataPath)
-			existing = nil
-		} else if requestedLocalPort == nil || *requestedLocalPort == existing.LocalPort {
-			existing.LastUsedAt = now
-			if err := s.writeTunnelMetadata(metadataPath, *existing); err != nil {
-				return TunnelMetadata{}, err
-			}
-			return *existing, nil
-		} else {
-			s.stopPID(existing.PID, existing.PIDCreateTime)
-		}
-	}
-	if existing != nil && !s.isPIDAlive(existing.PID) {
-		_ = os.Remove(metadataPath)
-	}
+	return s.startSSHTunnelOnCandidatePorts(
+		sshTarget,
+		sshArgs,
+		remoteHost,
+		remotePort,
+		requestedLocalPort,
+		keyHash,
+		metadataPath,
+		now,
+	)
+}
 
+func (s *Service) normalizeExistingTunnelMetadata(metadataPath string, keyHash string, existing *TunnelMetadata) *TunnelMetadata {
+	if existing == nil || existing.KeyHash != keyHash {
+		return nil
+	}
+	if !s.isPIDAlive(existing.PID) {
+		_ = os.Remove(metadataPath)
+		return nil
+	}
+	if !s.pidMatchesCreateTime(existing.PID, existing.PIDCreateTime) {
+		_ = os.Remove(metadataPath)
+		return nil
+	}
+	return existing
+}
+
+func (s *Service) reuseExistingTunnelMetadata(metadataPath string, existing *TunnelMetadata, requestedLocalPort *int, now string) (TunnelMetadata, bool, error) {
+	if existing == nil {
+		return TunnelMetadata{}, false, nil
+	}
+	if requestedLocalPort != nil && *requestedLocalPort != existing.LocalPort {
+		s.stopPID(existing.PID, existing.PIDCreateTime)
+		if !s.isPIDAlive(existing.PID) {
+			_ = os.Remove(metadataPath)
+		}
+		return TunnelMetadata{}, false, nil
+	}
+	existing.LastUsedAt = now
+	if err := s.writeTunnelMetadata(metadataPath, *existing); err != nil {
+		return TunnelMetadata{}, false, err
+	}
+	return *existing, true, nil
+}
+
+func (s *Service) startSSHTunnelOnCandidatePorts(
+	sshTarget string,
+	sshArgs []string,
+	remoteHost string,
+	remotePort int,
+	requestedLocalPort *int,
+	keyHash string,
+	metadataPath string,
+	now string,
+) (TunnelMetadata, error) {
+	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
+	seenPorts := make(map[int]struct{})
+	lastFailure := ""
+	for _, candidatePort := range candidateTunnelPorts(keyHash, requestedLocalPort) {
+		if _, seen := seenPorts[candidatePort]; seen {
+			continue
+		}
+		seenPorts[candidatePort] = struct{}{}
+		metadata, candidateFailure, err := s.tryStartSSHTunnelOnPort(
+			sshTarget,
+			sshArgs,
+			remoteHost,
+			remotePort,
+			candidatePort,
+			sshPrefix,
+			keyHash,
+			metadataPath,
+			now,
+		)
+		if err != nil {
+			return TunnelMetadata{}, err
+		}
+		if candidateFailure == "" {
+			return metadata, nil
+		}
+		lastFailure = candidateFailure
+	}
+	return TunnelMetadata{}, finalTunnelStartError(lastFailure)
+}
+
+func candidateTunnelPorts(keyHash string, requestedLocalPort *int) []int {
 	candidatePorts := make([]int, 0, 1+1+randomTunnelPortCandidateRuns)
 	if requestedLocalPort != nil {
 		candidatePorts = append(candidatePorts, *requestedLocalPort)
@@ -172,85 +241,112 @@ func (s *Service) ensureSSHTunnel(sshTarget string, sshArgs []string, remoteHost
 		}
 		candidatePorts = append(candidatePorts, port)
 	}
+	return candidatePorts
+}
 
-	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
-	seenPorts := make(map[int]struct{}, len(candidatePorts))
-	lastFailure := ""
-	for _, candidatePort := range candidatePorts {
-		if _, seen := seenPorts[candidatePort]; seen {
-			continue
-		}
-		seenPorts[candidatePort] = struct{}{}
-		processHandle, err := s.startTunnelProcess(BuildSSHTunnelArgs(
-			sshTarget,
-			sshArgs,
-			remoteHost,
-			candidatePort,
-			remotePort,
-			sshPrefix,
-		))
-		if err != nil {
-			return TunnelMetadata{}, err
-		}
-
-		launchErr := s.ensureBackgroundTunnelStarted(processHandle)
-		if launchErr == nil && !testStubForwardDisabled() && !waitForLocalPort("127.0.0.1", candidatePort, tunnelReadyTimeout) {
-			if processHandle.Exited() {
-				launchErr = &Error{
-					Code:    "TunnelStartFailed",
-					Message: fmt.Sprintf("SSH tunnel failed to start (exit %d).", processHandle.ExitCode()),
-				}
-			} else {
-				launchErr = &Error{
-					Code:    "TunnelStartFailed",
-					Message: fmt.Sprintf("SSH tunnel did not bind local port %d within 2 seconds.", candidatePort),
-				}
-			}
-		}
-		if launchErr != nil {
-			stderr := strings.TrimSpace(processHandle.Stderr())
-			if stderr != "" {
-				launchErr = &Error{
-					Code:    errorCodeOrDefault(launchErr, "TunnelStartFailed"),
-					Message: launchErr.Error() + " " + stderr,
-				}
-			}
-			processHandle.Kill()
-			lastFailure = launchErr.Error()
-			continue
-		}
-
-		pid := processHandle.PID()
-		pidCreateTime, ok := s.pidCreateTime(pid)
-		if !ok {
-			processHandle.Kill()
-			lastFailure = "Failed to capture tunnel process identity."
-			continue
-		}
-		metadata := TunnelMetadata{
-			KeyHash:       keyHash,
-			RemoteHost:    remoteHost,
-			RemotePort:    remotePort,
-			LocalPort:     candidatePort,
-			PID:           pid,
-			PIDCreateTime: pidCreateTime,
-			CreatedAt:     now,
-			LastUsedAt:    now,
-		}
-		if err := s.writeTunnelMetadata(metadataPath, metadata); err != nil {
-			processHandle.Kill()
-			return TunnelMetadata{}, err
-		}
-		return metadata, nil
+func (s *Service) tryStartSSHTunnelOnPort(
+	sshTarget string,
+	sshArgs []string,
+	remoteHost string,
+	remotePort int,
+	candidatePort int,
+	sshPrefix []string,
+	keyHash string,
+	metadataPath string,
+	now string,
+) (TunnelMetadata, string, error) {
+	processHandle, err := s.startTunnelProcess(BuildSSHTunnelArgs(
+		sshTarget,
+		sshArgs,
+		remoteHost,
+		candidatePort,
+		remotePort,
+		sshPrefix,
+	))
+	if err != nil {
+		return TunnelMetadata{}, "", err
+	}
+	if launchErr := s.ensureTunnelProcessReady(processHandle, candidatePort); launchErr != nil {
+		processHandle.Kill()
+		return TunnelMetadata{}, launchErr.Error(), nil
 	}
 
+	metadata, ok := s.buildStartedTunnelMetadata(processHandle, keyHash, remoteHost, remotePort, candidatePort, now)
+	if !ok {
+		processHandle.Kill()
+		return TunnelMetadata{}, "Failed to capture tunnel process identity.", nil
+	}
+	if err := s.writeTunnelMetadata(metadataPath, metadata); err != nil {
+		processHandle.Kill()
+		return TunnelMetadata{}, "", err
+	}
+	return metadata, "", nil
+}
+
+func (s *Service) ensureTunnelProcessReady(processHandle *startedTunnelProcess, candidatePort int) error {
+	launchErr := s.ensureBackgroundTunnelStarted(processHandle)
+	if launchErr == nil && !testStubForwardDisabled() && !waitForLocalPort("127.0.0.1", candidatePort, tunnelReadyTimeout) {
+		launchErr = tunnelBindTimeoutError(processHandle, candidatePort)
+	}
+	if launchErr == nil {
+		return nil
+	}
+	stderr := strings.TrimSpace(processHandle.Stderr())
+	if stderr == "" {
+		return launchErr
+	}
+	return &Error{
+		Code:    errorCodeOrDefault(launchErr, "TunnelStartFailed"),
+		Message: launchErr.Error() + " " + stderr,
+	}
+}
+
+func tunnelBindTimeoutError(processHandle *startedTunnelProcess, candidatePort int) error {
+	if processHandle.Exited() {
+		return &Error{
+			Code:    "TunnelStartFailed",
+			Message: fmt.Sprintf("SSH tunnel failed to start (exit %d).", processHandle.ExitCode()),
+		}
+	}
+	return &Error{
+		Code:    "TunnelStartFailed",
+		Message: fmt.Sprintf("SSH tunnel did not bind local port %d within 2 seconds.", candidatePort),
+	}
+}
+
+func (s *Service) buildStartedTunnelMetadata(
+	processHandle *startedTunnelProcess,
+	keyHash string,
+	remoteHost string,
+	remotePort int,
+	candidatePort int,
+	now string,
+) (TunnelMetadata, bool) {
+	pid := processHandle.PID()
+	pidCreateTime, ok := s.pidCreateTime(pid)
+	if !ok {
+		return TunnelMetadata{}, false
+	}
+	return TunnelMetadata{
+		KeyHash:       keyHash,
+		RemoteHost:    remoteHost,
+		RemotePort:    remotePort,
+		LocalPort:     candidatePort,
+		PID:           pid,
+		PIDCreateTime: pidCreateTime,
+		CreatedAt:     now,
+		LastUsedAt:    now,
+	}, true
+}
+
+func finalTunnelStartError(lastFailure string) error {
 	if strings.TrimSpace(lastFailure) != "" {
-		return TunnelMetadata{}, &Error{
+		return &Error{
 			Code:    "TunnelStartFailed",
 			Message: lastFailure,
 		}
 	}
-	return TunnelMetadata{}, &Error{
+	return &Error{
 		Code:    "TunnelStartFailed",
 		Message: "Unable to start SSH tunnel (all candidate ports failed). Provide localPort to override.",
 	}

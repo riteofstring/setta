@@ -198,6 +198,162 @@ func TestServiceEnsureSSHTunnelReportsMissingBinary(t *testing.T) {
 	requireSSHErrorCode(t, err, "SshMissing")
 }
 
+func TestServiceEnsureSSHTunnelReusesMatchingMetadataAndRefreshesTimestamp(t *testing.T) {
+	t.Parallel()
+
+	fixedNow := time.Date(2026, time.April, 9, 12, 0, 0, 0, time.UTC)
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      "ssh-does-not-exist",
+		Now: func() time.Time {
+			return fixedNow
+		},
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	command := startTunnelHelperProcess(t)
+	pidCreateTime, ok := service.pidCreateTime(command.Process.Pid)
+	if !ok {
+		t.Fatal("expected helper process create time")
+	}
+
+	const (
+		sshTarget    = "user@host"
+		remoteHost   = "127.0.0.1"
+		remotePort   = 61234
+		existingPort = 61000
+	)
+	metadataPath := tunnelMetadataPath(service.runtimeRoot, sshTarget, nil, remoteHost, remotePort)
+	metadata := TunnelMetadata{
+		KeyHash:       ComputeTunnelKeyHash(sshTarget, nil, remoteHost, remotePort),
+		RemoteHost:    remoteHost,
+		RemotePort:    remotePort,
+		LocalPort:     existingPort,
+		PID:           command.Process.Pid,
+		PIDCreateTime: pidCreateTime,
+		CreatedAt:     fixedNow.Add(-time.Hour).Format(time.RFC3339Nano),
+		LastUsedAt:    fixedNow.Add(-time.Hour).Format(time.RFC3339Nano),
+	}
+	if err := service.writeTunnelMetadata(metadataPath, metadata); err != nil {
+		t.Fatalf("write tunnel metadata: %v", err)
+	}
+
+	requestedLocalPort := existingPort
+	got, err := service.ensureSSHTunnel(sshTarget, nil, remoteHost, remotePort, &requestedLocalPort)
+	if err != nil {
+		t.Fatalf("ensure ssh tunnel reuses metadata: %v", err)
+	}
+	if got.PID != command.Process.Pid {
+		t.Fatalf("expected reused pid %d, got %d", command.Process.Pid, got.PID)
+	}
+	if got.LastUsedAt != fixedNow.Format(time.RFC3339Nano) {
+		t.Fatalf("expected refreshed lastUsedAt %q, got %q", fixedNow.Format(time.RFC3339Nano), got.LastUsedAt)
+	}
+
+	stored, err := service.loadTunnelMetadata(metadataPath)
+	if err != nil {
+		t.Fatalf("load tunnel metadata: %v", err)
+	}
+	if stored == nil {
+		t.Fatal("expected tunnel metadata to remain present")
+	}
+	if stored.LastUsedAt != fixedNow.Format(time.RFC3339Nano) {
+		t.Fatalf("expected persisted lastUsedAt %q, got %q", fixedNow.Format(time.RFC3339Nano), stored.LastUsedAt)
+	}
+}
+
+func TestServiceEnsureSSHTunnelRemovesStaleMetadataBeforeLaunchingReplacement(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      "ssh-does-not-exist",
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	command := startTunnelHelperProcess(t)
+	pidCreateTime, ok := service.pidCreateTime(command.Process.Pid)
+	if !ok {
+		t.Fatal("expected helper process create time")
+	}
+
+	const (
+		sshTarget  = "user@host"
+		remoteHost = "127.0.0.1"
+		remotePort = 61234
+	)
+	metadataPath := tunnelMetadataPath(service.runtimeRoot, sshTarget, nil, remoteHost, remotePort)
+	metadata := TunnelMetadata{
+		KeyHash:       ComputeTunnelKeyHash(sshTarget, nil, remoteHost, remotePort),
+		RemoteHost:    remoteHost,
+		RemotePort:    remotePort,
+		LocalPort:     61000,
+		PID:           command.Process.Pid,
+		PIDCreateTime: pidCreateTime + 10,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339Nano),
+		LastUsedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if err := service.writeTunnelMetadata(metadataPath, metadata); err != nil {
+		t.Fatalf("write tunnel metadata: %v", err)
+	}
+
+	_, err = service.ensureSSHTunnel(sshTarget, nil, remoteHost, remotePort, nil)
+	requireSSHErrorCode(t, err, "SshMissing")
+	if _, statErr := os.Stat(metadataPath); !os.IsNotExist(statErr) {
+		t.Fatalf("expected stale metadata to be removed, stat err=%v", statErr)
+	}
+}
+
+func TestServiceEnsureSSHTunnelStopsMismatchedExistingPortBeforeRestart(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      "ssh-does-not-exist",
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	command := startTunnelHelperProcess(t)
+	pidCreateTime, ok := service.pidCreateTime(command.Process.Pid)
+	if !ok {
+		t.Fatal("expected helper process create time")
+	}
+
+	const (
+		sshTarget  = "user@host"
+		remoteHost = "127.0.0.1"
+		remotePort = 61234
+	)
+	metadataPath := tunnelMetadataPath(service.runtimeRoot, sshTarget, nil, remoteHost, remotePort)
+	metadata := TunnelMetadata{
+		KeyHash:       ComputeTunnelKeyHash(sshTarget, nil, remoteHost, remotePort),
+		RemoteHost:    remoteHost,
+		RemotePort:    remotePort,
+		LocalPort:     61000,
+		PID:           command.Process.Pid,
+		PIDCreateTime: pidCreateTime,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339Nano),
+		LastUsedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if err := service.writeTunnelMetadata(metadataPath, metadata); err != nil {
+		t.Fatalf("write tunnel metadata: %v", err)
+	}
+
+	requestedLocalPort := 61001
+	_, err = service.ensureSSHTunnel(sshTarget, nil, remoteHost, remotePort, &requestedLocalPort)
+	requireSSHErrorCode(t, err, "SshMissing")
+	waitForTunnelHelperExit(t, command, 5*time.Second)
+	if _, statErr := os.Stat(metadataPath); !os.IsNotExist(statErr) {
+		t.Fatalf("expected mismatched-port metadata to be removed, stat err=%v", statErr)
+	}
+}
+
 const tunnelHelperEnvVar = "GO_WANT_SSHX_TUNNEL_HELPER"
 const tunnelExitHelperEnvVar = "GO_WANT_SSHX_TUNNEL_EXIT_HELPER"
 
@@ -343,6 +499,11 @@ func waitForTunnelHelperExit(t *testing.T, command *exec.Cmd, timeout time.Durat
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("process %d did not exit", command.Process.Pid)
+}
+
+func tunnelMetadataPath(runtimeRoot string, sshTarget string, sshArgs []string, remoteHost string, remotePort int) string {
+	keyHash := ComputeTunnelKeyHash(sshTarget, sshArgs, remoteHost, remotePort)
+	return serviceRuntimePath(runtimeRoot, "ssh_tunnels", TunnelIDForKeyHash(keyHash)+".json")
 }
 
 func slicesContains(values []string, want string) bool {
