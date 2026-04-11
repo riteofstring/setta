@@ -281,6 +281,27 @@ func TestNormalizeUsagePayloadMapsSnakeCaseAliases(t *testing.T) {
 	}
 }
 
+func TestNormalizeUsagePayloadAcceptsIntegerKinds(t *testing.T) {
+	t.Parallel()
+
+	normalized := normalizeUsagePayload(map[string]any{
+		"promptTokens":     int64(12),
+		"completionTokens": uint32(5),
+	})
+	if normalized == nil {
+		t.Fatal("expected normalized usage payload")
+	}
+	if normalized["promptTokens"] != 12 {
+		t.Fatalf("expected promptTokens=12, got %#v", normalized)
+	}
+	if normalized["completionTokens"] != 5 {
+		t.Fatalf("expected completionTokens=5, got %#v", normalized)
+	}
+	if normalized["totalTokens"] != 17 {
+		t.Fatalf("expected totalTokens=17, got %#v", normalized)
+	}
+}
+
 func TestResolveContextUsageMarksMissingContextWindowAsEstimated(t *testing.T) {
 	t.Parallel()
 
@@ -342,6 +363,58 @@ func TestResolveContextUsageRejectsFractionalUsageValuesAndKeepsValidStringWindo
 	}
 	if usage.Estimated {
 		t.Fatalf("expected valid context window to disable estimation, got %#v", usage)
+	}
+}
+
+func TestBuildAppGenerationModePromptIncludesPromptBuilderPersistenceGuidance(t *testing.T) {
+	t.Parallel()
+
+	mode := stringPtr(string(agentruns.AppGenerationModePromptBuilder))
+	prompt := buildAppGenerationModePrompt(mode, false, nil, nil)
+	if !strings.Contains(prompt, "## App spec generation mode") {
+		t.Fatalf("expected app generation heading, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "- streamingPreview: disabled") {
+		t.Fatalf("expected disabled streaming preview guidance, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "setta__set_app_definition") {
+		t.Fatalf("expected non-streaming persistence guidance, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "setta__validate_app_definition") {
+		t.Fatalf("expected validate guidance, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "Prompt-builder flow: keep responses concise") {
+		t.Fatalf("expected prompt-builder guidance, got %q", prompt)
+	}
+	if strings.Contains(prompt, "setta__stream_app_definition") {
+		t.Fatalf("expected prompt-builder prompt to avoid streaming guidance when disabled, got %q", prompt)
+	}
+}
+
+func TestBuildAppGenerationModePromptIncludesReferenceImageGuidance(t *testing.T) {
+	t.Parallel()
+
+	mode := stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage))
+	prompt := buildAppGenerationModePrompt(
+		mode,
+		true,
+		stringPtr(" https://example.com/reference.png "),
+		stringPtr(" Match the hero spacing and card rhythm. "),
+	)
+	if !strings.Contains(prompt, "- streamingPreview: enabled") {
+		t.Fatalf("expected enabled streaming preview guidance, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "setta__stream_app_definition") {
+		t.Fatalf("expected streaming persistence guidance, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "Reference image URL: https://example.com/reference.png") {
+		t.Fatalf("expected normalized reference image url, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "Reference image notes: Match the hero spacing and card rhythm.") {
+		t.Fatalf("expected normalized reference image notes, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "Prioritize reference-image fidelity") {
+		t.Fatalf("expected reference image fidelity guidance, got %q", prompt)
 	}
 }
 

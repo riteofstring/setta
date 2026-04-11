@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -249,44 +250,70 @@ func (s *Service) StartChat(request StartChatRequest) (StartChatResult, error) {
 }
 
 func (s *Service) GetChat(chatID string, projectConfigID *string) (HydratedChat, error) {
-	if s == nil || s.runs == nil {
-		return HydratedChat{}, ErrRunStoreRequired
-	}
-	trimmedChatID := strings.TrimSpace(chatID)
-	if trimmedChatID == "" {
-		return HydratedChat{}, fmt.Errorf("chat id is required")
-	}
-	filter := agentruns.RunFilter{
-		RunType: stringPtr(RunTypeManagedChat),
-		ChatID:  &trimmedChatID,
-	}
-	if projectConfigID != nil {
-		trimmedProjectID := strings.TrimSpace(*projectConfigID)
-		if trimmedProjectID != "" {
-			filter.ProjectConfigID = &trimmedProjectID
-		}
-	}
-	runs, err := s.runs.ListByMetadata(filter)
+	latestRun, err := s.loadHydratedChatRun(chatID, projectConfigID)
 	if err != nil {
 		return HydratedChat{}, err
-	}
-	latestRun, ok := selectLatestRun(runs)
-	if !ok {
-		return HydratedChat{}, ErrChatNotFound
 	}
 	state, err := buildChatStateFromRun(latestRun)
 	if err != nil {
 		return HydratedChat{}, err
 	}
-	if latestRun.Status == agentruns.RunStatusRunning && s.live != nil {
-		liveState, err := s.live.GetLiveChatState(latestRun.ID)
-		if err != nil {
-			return HydratedChat{}, err
-		}
-		if liveState != nil {
-			state = liveState.Clone()
-		}
+	state, err = s.resolveHydratedChatState(latestRun, state)
+	if err != nil {
+		return HydratedChat{}, err
 	}
+	return s.hydrateChat(latestRun, state)
+}
+
+func (s *Service) loadHydratedChatRun(chatID string, projectConfigID *string) (agentruns.Run, error) {
+	if s == nil || s.runs == nil {
+		return agentruns.Run{}, ErrRunStoreRequired
+	}
+	filter, err := buildManagedChatRunFilter(chatID, projectConfigID)
+	if err != nil {
+		return agentruns.Run{}, err
+	}
+	runs, err := s.runs.ListByMetadata(filter)
+	if err != nil {
+		return agentruns.Run{}, err
+	}
+	latestRun, ok := selectLatestRun(runs)
+	if !ok {
+		return agentruns.Run{}, ErrChatNotFound
+	}
+	return latestRun, nil
+}
+
+func buildManagedChatRunFilter(chatID string, projectConfigID *string) (agentruns.RunFilter, error) {
+	trimmedChatID := strings.TrimSpace(chatID)
+	if trimmedChatID == "" {
+		return agentruns.RunFilter{}, fmt.Errorf("chat id is required")
+	}
+	filter := agentruns.RunFilter{
+		RunType: stringPtr(RunTypeManagedChat),
+		ChatID:  &trimmedChatID,
+	}
+	if trimmedProjectID := derefOptionalString(projectConfigID); trimmedProjectID != "" {
+		filter.ProjectConfigID = &trimmedProjectID
+	}
+	return filter, nil
+}
+
+func (s *Service) resolveHydratedChatState(latestRun agentruns.Run, state *ChatState) (*ChatState, error) {
+	if latestRun.Status != agentruns.RunStatusRunning || s.live == nil {
+		return state, nil
+	}
+	liveState, err := s.live.GetLiveChatState(latestRun.ID)
+	if err != nil {
+		return nil, err
+	}
+	if liveState == nil {
+		return state, nil
+	}
+	return liveState.Clone(), nil
+}
+
+func (s *Service) hydrateChat(latestRun agentruns.Run, state *ChatState) (HydratedChat, error) {
 	resolvedLLMConfig, err := s.resolveLLMConfig(latestRun)
 	if err != nil {
 		return HydratedChat{}, err
@@ -830,42 +857,59 @@ func normalizeUsagePayload(raw any) map[string]int {
 	if !ok {
 		return nil
 	}
-	normalized := map[string]int{}
-	for key, aliases := range usageKeyAliases() {
-		for _, alias := range aliases {
-			value, ok := payload[alias]
-			if !ok {
-				continue
-			}
-			parsed := extractNonNegativeInt(value)
-			if parsed == nil {
-				continue
-			}
-			normalized[key] = *parsed
-			break
-		}
-	}
-	if _, ok := normalized["promptTokens"]; !ok {
-		if inputTokens, ok := normalized["inputTokens"]; ok {
-			normalized["promptTokens"] = inputTokens
-		}
-	}
-	if _, ok := normalized["completionTokens"]; !ok {
-		if outputTokens, ok := normalized["outputTokens"]; ok {
-			normalized["completionTokens"] = outputTokens
-		}
-	}
-	if _, ok := normalized["totalTokens"]; !ok {
-		promptTokens, hasPrompt := normalized["promptTokens"]
-		completionTokens, hasCompletion := normalized["completionTokens"]
-		if hasPrompt && hasCompletion {
-			normalized["totalTokens"] = promptTokens + completionTokens
-		}
-	}
+	normalized := collectUsageAliasValues(payload)
+	populateDerivedUsageValues(normalized)
 	if len(normalized) == 0 {
 		return nil
 	}
 	return normalized
+}
+
+func collectUsageAliasValues(payload map[string]any) map[string]int {
+	normalized := map[string]int{}
+	for key, aliases := range usageKeyAliases() {
+		if value, ok := readUsageAliasValue(payload, aliases); ok {
+			normalized[key] = value
+		}
+	}
+	return normalized
+}
+
+func readUsageAliasValue(payload map[string]any, aliases []string) (int, bool) {
+	for _, alias := range aliases {
+		value, ok := payload[alias]
+		if !ok {
+			continue
+		}
+		parsed := extractNonNegativeInt(value)
+		if parsed != nil {
+			return *parsed, true
+		}
+	}
+	return 0, false
+}
+
+func populateDerivedUsageValues(normalized map[string]int) {
+	copyUsageValue(normalized, "promptTokens", "inputTokens")
+	copyUsageValue(normalized, "completionTokens", "outputTokens")
+
+	if _, ok := normalized["totalTokens"]; ok {
+		return
+	}
+	promptTokens, hasPrompt := normalized["promptTokens"]
+	completionTokens, hasCompletion := normalized["completionTokens"]
+	if hasPrompt && hasCompletion {
+		normalized["totalTokens"] = promptTokens + completionTokens
+	}
+}
+
+func copyUsageValue(normalized map[string]int, target string, source string) {
+	if _, ok := normalized[target]; ok {
+		return
+	}
+	if value, ok := normalized[source]; ok {
+		normalized[target] = value
+	}
 }
 
 func usageKeyAliases() map[string][]string {
@@ -884,38 +928,69 @@ func usageKeyAliases() map[string][]string {
 
 func extractNonNegativeInt(raw any) *int {
 	switch value := raw.(type) {
-	case bool:
+	case nil, bool:
 		return nil
-	case int:
-		if value < 0 {
-			return nil
-		}
-		return &value
+	case float32:
+		return extractWholeNonNegativeFloat(float64(value))
 	case float64:
-		if math.IsNaN(value) || math.IsInf(value, 0) || math.Trunc(value) != value {
-			return nil
-		}
-		parsed := int(value)
-		if parsed < 0 {
-			return nil
-		}
-		return &parsed
+		return extractWholeNonNegativeFloat(value)
 	case string:
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			return nil
-		}
-		parsed, err := strconv.Atoi(trimmed)
-		if err != nil {
-			return nil
-		}
-		if parsed < 0 {
-			return nil
-		}
-		return &parsed
+		return parseNonNegativeIntString(value)
+	default:
+		return extractReflectedNonNegativeInt(raw)
+	}
+}
+
+func extractWholeNonNegativeFloat(value float64) *int {
+	if math.IsNaN(value) || math.IsInf(value, 0) || math.Trunc(value) != value {
+		return nil
+	}
+	return buildNonNegativeInt(value)
+}
+
+func parseNonNegativeIntString(value string) *int {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	parsed, err := strconv.Atoi(trimmed)
+	if err != nil {
+		return nil
+	}
+	return buildNonNegativeInt(parsed)
+}
+
+func extractReflectedNonNegativeInt(raw any) *int {
+	reflected := reflect.ValueOf(raw)
+	switch reflected.Kind() {
+	case reflect.Bool:
+		return nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return buildNonNegativeInt(reflected.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return buildUnsignedInt(reflected.Uint())
 	default:
 		return nil
 	}
+}
+
+func buildNonNegativeInt[T ~int | ~int64 | ~float64](value T) *int {
+	if value < 0 {
+		return nil
+	}
+	parsed := int(value)
+	if T(parsed) != value {
+		return nil
+	}
+	return &parsed
+}
+
+func buildUnsignedInt(value uint64) *int {
+	parsed := int(value)
+	if uint64(parsed) != value {
+		return nil
+	}
+	return &parsed
 }
 
 func resolveContextWindowTokens(usagePayload map[string]int) *int {
@@ -1040,75 +1115,112 @@ func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNote
 }
 
 func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, referenceImageURL *string, referenceImageNotes *string) string {
-	if mode == nil {
-		return ""
-	}
-	resolvedMode := strings.TrimSpace(*mode)
+	resolvedMode := derefOptionalString(mode)
 	if resolvedMode == "" {
 		return ""
 	}
 	lines := []string{
 		"## App spec generation mode",
 		fmt.Sprintf("- mode: %s", resolvedMode),
-		"- streamingPreview: disabled",
+		resolveStreamingPreviewPromptLine(appSpecStreamingEnabled),
 	}
+	lines = append(
+		lines,
+		resolveAppGenerationModePromptLines(
+			resolvedMode,
+			appSpecStreamingEnabled,
+			referenceImageURL,
+			referenceImageNotes,
+		)...,
+	)
+	return strings.Join(lines, "\n")
+}
+
+func resolveStreamingPreviewPromptLine(appSpecStreamingEnabled bool) string {
 	if appSpecStreamingEnabled {
-		lines[2] = "- streamingPreview: enabled"
+		return "- streamingPreview: enabled"
 	}
+	return "- streamingPreview: disabled"
+}
+
+func resolveAppGenerationModePromptLines(
+	resolvedMode string,
+	appSpecStreamingEnabled bool,
+	referenceImageURL *string,
+	referenceImageNotes *string,
+) []string {
 	switch resolvedMode {
-	case string(agentruns.AppGenerationModeJSONRender),
-		string(agentruns.AppGenerationModeJSONRenderWithImage),
-		string(agentruns.AppGenerationModePromptBuilder):
-		lines = append(lines,
-			"- If you are generating/updating the App spec (json-render):",
-			"  - Use catalog-compatible components only.",
-			"  - Persist via Setta app tools.",
-		)
-		if appSpecStreamingEnabled {
-			lines = append(lines,
-				"  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
-				"  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
-			)
-		} else {
-			lines = append(lines,
-				"  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
-				"  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
-			)
-		}
-	}
-	switch resolvedMode {
+	case string(agentruns.AppGenerationModeJSONRender):
+		return buildJSONRenderPromptLines(appSpecStreamingEnabled)
 	case string(agentruns.AppGenerationModeJSONRenderWithImage):
-		lines = append(lines,
-			"- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
-			"- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
+		return append(
+			buildJSONRenderPromptLines(appSpecStreamingEnabled),
+			buildReferenceImagePromptLines(referenceImageURL, referenceImageNotes)...,
 		)
-		if referenceImageURL != nil && strings.TrimSpace(*referenceImageURL) != "" {
-			lines = append(lines,
-				fmt.Sprintf("- Reference image URL: %s", strings.TrimSpace(*referenceImageURL)),
-				"- Use this image as layout/style guidance when composing the app spec.",
-			)
-			if referenceImageNotes != nil && strings.TrimSpace(*referenceImageNotes) != "" {
-				lines = append(lines, fmt.Sprintf("- Reference image notes: %s", strings.TrimSpace(*referenceImageNotes)))
-			}
-		}
 	case string(agentruns.AppGenerationModePromptBuilder):
-		lines = append(lines,
+		return append(
+			buildJSONRenderPromptLines(appSpecStreamingEnabled),
 			"- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
 		)
 	case string(agentruns.AppGenerationModeMCPServer):
-		lines = append(lines,
-			"- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
-			"- For Figma-oriented requests, support both paths:",
-			"  - Pull an existing Figma design into a JSON-render appSpec.",
-			"  - Generate/update in Figma first, then pull the resulting design back into Setta.",
-		)
-		if appSpecStreamingEnabled {
-			lines = append(lines, "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`.")
-		} else {
-			lines = append(lines, "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`.")
+		return buildMCPServerPromptLines(appSpecStreamingEnabled)
+	default:
+		return nil
+	}
+}
+
+func buildJSONRenderPromptLines(appSpecStreamingEnabled bool) []string {
+	lines := []string{
+		"- If you are generating/updating the App spec (json-render):",
+		"  - Use catalog-compatible components only.",
+		"  - Persist via Setta app tools.",
+	}
+	return append(lines, buildAppDefinitionPersistencePromptLines(appSpecStreamingEnabled)...)
+}
+
+func buildAppDefinitionPersistencePromptLines(appSpecStreamingEnabled bool) []string {
+	if appSpecStreamingEnabled {
+		return []string{
+			"  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
+			"  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
 		}
 	}
-	return strings.Join(lines, "\n")
+	return []string{
+		"  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
+		"  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
+	}
+}
+
+func buildReferenceImagePromptLines(referenceImageURL *string, referenceImageNotes *string) []string {
+	lines := []string{
+		"- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
+		"- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
+	}
+	normalizedURL := derefOptionalString(referenceImageURL)
+	if normalizedURL == "" {
+		return lines
+	}
+	lines = append(lines,
+		fmt.Sprintf("- Reference image URL: %s", normalizedURL),
+		"- Use this image as layout/style guidance when composing the app spec.",
+	)
+	if normalizedNotes := derefOptionalString(referenceImageNotes); normalizedNotes != "" {
+		lines = append(lines, fmt.Sprintf("- Reference image notes: %s", normalizedNotes))
+	}
+	return lines
+}
+
+func buildMCPServerPromptLines(appSpecStreamingEnabled bool) []string {
+	lines := []string{
+		"- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
+		"- For Figma-oriented requests, support both paths:",
+		"  - Pull an existing Figma design into a JSON-render appSpec.",
+		"  - Generate/update in Figma first, then pull the resulting design back into Setta.",
+	}
+	if appSpecStreamingEnabled {
+		return append(lines, "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`.")
+	}
+	return append(lines, "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`.")
 }
 
 func buildExecutionPolicyPrompt(permissionMode ChatPermissionMode, searchEnabled bool) string {
