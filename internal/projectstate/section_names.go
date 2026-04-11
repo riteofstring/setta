@@ -67,86 +67,136 @@ func (p *Project) SetSectionName(sectionID string, name string) error {
 	return nil
 }
 
+type sectionNameValidationScope struct {
+	sectionID  string
+	parentID   string
+	siblingIDs []string
+}
+
 func validateSectionName(project Project, sectionID string, name string) (string, error) {
+	scope, err := resolveSectionNameValidationScope(project, sectionID)
+	if err != nil {
+		return "", err
+	}
+	normalized, err := normalizeSectionName(name)
+	if err != nil {
+		return "", err
+	}
+	if err := validateSiblingSectionNameConflicts(project, scope, normalized); err != nil {
+		return "", err
+	}
+	if scope.parentID == "" {
+		if err := validateTopLevelSectionIdentifierConflicts(project, scope, normalized); err != nil {
+			return "", err
+		}
+	}
+	if err := validateSectionSlugConflicts(project, scope.sectionID, normalized); err != nil {
+		return "", err
+	}
+	return normalized, nil
+}
+
+func resolveSectionNameValidationScope(project Project, sectionID string) (sectionNameValidationScope, error) {
 	trimmedSectionID := strings.TrimSpace(sectionID)
 	if trimmedSectionID == "" {
-		return "", ErrSectionIDRequired
+		return sectionNameValidationScope{}, ErrSectionIDRequired
 	}
 	section, ok := project.Sections[trimmedSectionID]
 	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrSectionNotFound, trimmedSectionID)
+		return sectionNameValidationScope{}, fmt.Errorf("%w: %q", ErrSectionNotFound, trimmedSectionID)
 	}
+	parentID := strings.TrimSpace(section.ParentSectionID)
+	siblingIDs, err := activeSiblingSectionIDs(project, trimmedSectionID, parentID)
+	if err != nil {
+		return sectionNameValidationScope{}, err
+	}
+	return sectionNameValidationScope{
+		sectionID:  trimmedSectionID,
+		parentID:   parentID,
+		siblingIDs: siblingIDs,
+	}, nil
+}
 
+func normalizeSectionName(name string) (string, error) {
 	normalized := strings.TrimSpace(name)
 	if formatError := sectionNameFormatError(normalized); formatError != "" {
 		return "", &InvalidSectionNameError{Message: formatError}
 	}
+	return normalized, nil
+}
 
-	parentID := strings.TrimSpace(section.ParentSectionID)
-	siblingIDs, err := activeSiblingSectionIDs(project, trimmedSectionID, parentID)
-	if err != nil {
-		return "", err
-	}
-	for _, siblingID := range siblingIDs {
-		if siblingID == trimmedSectionID {
+func validateSiblingSectionNameConflicts(
+	project Project,
+	scope sectionNameValidationScope,
+	normalized string,
+) error {
+	for _, siblingID := range scope.siblingIDs {
+		if siblingID == scope.sectionID {
 			continue
 		}
 		sibling, ok := project.Sections[siblingID]
 		if !ok {
-			return "", fmt.Errorf("%w: %q", ErrSectionNotFound, siblingID)
+			return fmt.Errorf("%w: %q", ErrSectionNotFound, siblingID)
 		}
 		if strings.TrimSpace(sibling.Name) == normalized {
-			return "", &InvalidSectionNameError{
+			return &InvalidSectionNameError{
 				Message: fmt.Sprintf("Section name %q already exists under this parent.", normalized),
 			}
 		}
 	}
+	return nil
+}
 
-	if parentID == "" {
-		normalizedIdentifier := sanitizeSectionPythonIdentifier(normalized)
-		for _, siblingID := range siblingIDs {
-			if siblingID == trimmedSectionID {
-				continue
-			}
-			sibling, ok := project.Sections[siblingID]
-			if !ok {
-				return "", fmt.Errorf("%w: %q", ErrSectionNotFound, siblingID)
-			}
-			siblingName := strings.TrimSpace(sibling.Name)
-			if siblingName == "" {
-				continue
-			}
-			if sanitizeSectionPythonIdentifier(siblingName) == normalizedIdentifier {
-				return "", &InvalidSectionNameError{
-					Message: "Section name conflicts with another top-level name after Python identifier sanitization.",
-				}
+func validateTopLevelSectionIdentifierConflicts(
+	project Project,
+	scope sectionNameValidationScope,
+	normalized string,
+) error {
+	normalizedIdentifier := sanitizeSectionPythonIdentifier(normalized)
+	for _, siblingID := range scope.siblingIDs {
+		if siblingID == scope.sectionID {
+			continue
+		}
+		sibling, ok := project.Sections[siblingID]
+		if !ok {
+			return fmt.Errorf("%w: %q", ErrSectionNotFound, siblingID)
+		}
+		siblingName := strings.TrimSpace(sibling.Name)
+		if siblingName == "" {
+			continue
+		}
+		if sanitizeSectionPythonIdentifier(siblingName) == normalizedIdentifier {
+			return &InvalidSectionNameError{
+				Message: "Section name conflicts with another top-level name after Python identifier sanitization.",
 			}
 		}
 	}
+	return nil
+}
 
+func validateSectionSlugConflicts(project Project, sectionID string, normalized string) error {
 	slugBySectionID, slugToSectionIDs, err := activeSectionSlugMap(project, map[string]string{
-		trimmedSectionID: normalized,
+		sectionID: normalized,
 	})
 	if err != nil {
-		return "", err
+		return err
 	}
-	affectedSectionIDs, err := activeSectionAndDescendantIDs(project, trimmedSectionID)
+	affectedSectionIDs, err := activeSectionAndDescendantIDs(project, sectionID)
 	if err != nil {
-		return "", err
+		return err
 	}
 	for _, affectedSectionID := range affectedSectionIDs {
 		sectionSlug := slugBySectionID[affectedSectionID]
 		if sectionSlug == "" {
-			return "", &InvalidSectionNameError{Message: "Section name is invalid after sanitization."}
+			return &InvalidSectionNameError{Message: "Section name is invalid after sanitization."}
 		}
 		if len(slugToSectionIDs[sectionSlug]) > 1 {
-			return "", &InvalidSectionNameError{
+			return &InvalidSectionNameError{
 				Message: fmt.Sprintf("Section path slug %q conflicts with another section.", sectionSlug),
 			}
 		}
 	}
-
-	return normalized, nil
+	return nil
 }
 
 func activeSiblingSectionIDs(project Project, sectionID string, parentID string) ([]string, error) {
