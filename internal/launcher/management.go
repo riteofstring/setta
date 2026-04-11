@@ -96,6 +96,14 @@ type launcherSetupState struct {
 	existingManagedArtifacts map[string]string
 }
 
+type launcherManagementState struct {
+	settaHome        string
+	launcherDir      string
+	metadataPath     string
+	metadata         *LauncherInstallMetadata
+	managedArtifacts map[string]string
+}
+
 type launcherSetupPlan struct {
 	launcherSetupState
 	installArtifacts  bool
@@ -183,105 +191,14 @@ func (s *ManagementService) ResolveTargetCommand() []string {
 }
 
 func (s *ManagementService) CollectStatus(settaHome string) (LauncherStatusSnapshot, error) {
-	resolvedSettaHome, err := resolvePathLoose(settaHome)
+	state, err := loadLauncherManagementState(settaHome)
 	if err != nil {
 		return LauncherStatusSnapshot{}, err
 	}
-	launcherDir, err := resolveLauncherDir(resolvedSettaHome)
-	if err != nil {
-		return LauncherStatusSnapshot{}, err
+	if state.metadata == nil {
+		return buildLauncherNotInstalledStatus(state), nil
 	}
-	metadataPath, err := resolveLauncherMetadataPath(resolvedSettaHome)
-	if err != nil {
-		return LauncherStatusSnapshot{}, err
-	}
-
-	metadata, err := LoadLauncherInstallMetadata(resolvedSettaHome)
-	if err != nil {
-		var metadataErr *LauncherMetadataError
-		if errors.As(err, &metadataErr) {
-			return LauncherStatusSnapshot{}, &LauncherSetupError{Code: "LauncherMetadata", Message: metadataErr.Error()}
-		}
-		return LauncherStatusSnapshot{}, err
-	}
-	if metadata == nil {
-		guidance := "Launcher is not installed. Run `setta launcher setup` first."
-		return LauncherStatusSnapshot{
-			SettaHome:                resolvedSettaHome,
-			LauncherDir:              launcherDir,
-			MetadataPath:             metadataPath,
-			Installed:                false,
-			ArtifactOptions:          map[string]string{},
-			ManagedArtifacts:         map[string]string{},
-			ExistingManagedArtifacts: []string{},
-			MissingManagedArtifacts:  []string{},
-			UpdateCapability:         LauncherUpdateCapabilityUnsupported,
-			UpdateGuidance:           &guidance,
-			Metadata:                 nil,
-		}, nil
-	}
-
-	if err := validateMetadataSettaHomeScope(*metadata, resolvedSettaHome, "LauncherMetadata"); err != nil {
-		return LauncherStatusSnapshot{}, err
-	}
-	normalizedManagedArtifacts, err := validateManagedArtifactRegistry(metadata.ManagedArtifacts, resolvedSettaHome, "LauncherMetadata")
-	if err != nil {
-		return LauncherStatusSnapshot{}, err
-	}
-
-	targetErrorValue := LauncherTargetValidationError(*metadata)
-	var targetValid *bool
-	var targetError *string
-	if targetErrorValue == "" {
-		targetValid = boolPointer(true)
-	} else {
-		targetValid = boolPointer(false)
-		targetError = &targetErrorValue
-	}
-
-	existingManagedArtifacts := make([]string, 0, len(normalizedManagedArtifacts))
-	missingManagedArtifacts := make([]string, 0, len(normalizedManagedArtifacts))
-	for _, pathString := range normalizedManagedArtifacts {
-		info, err := os.Stat(pathString)
-		switch {
-		case err == nil && info != nil:
-			existingManagedArtifacts = append(existingManagedArtifacts, pathString)
-		case errors.Is(err, os.ErrNotExist):
-			missingManagedArtifacts = append(missingManagedArtifacts, pathString)
-		default:
-			missingManagedArtifacts = append(missingManagedArtifacts, pathString)
-		}
-	}
-	sort.Strings(existingManagedArtifacts)
-	sort.Strings(missingManagedArtifacts)
-
-	updateCapability, updateGuidance := resolveLauncherUpdateCapability(*metadata, normalizedManagedArtifacts)
-	channel := metadata.Channel
-	settaVersion := metadata.SettaVersion
-	openMode := LauncherOpenMode(metadata.OpenMode)
-	workspaceBehavior := LauncherWorkspaceBehavior(metadata.WorkspaceBehavior)
-
-	return LauncherStatusSnapshot{
-		SettaHome:                resolvedSettaHome,
-		LauncherDir:              launcherDir,
-		MetadataPath:             metadataPath,
-		Installed:                true,
-		TargetCommand:            append([]string(nil), metadata.TargetCommand...),
-		TargetValid:              targetValid,
-		TargetError:              targetError,
-		Channel:                  &channel,
-		SettaVersion:             &settaVersion,
-		OpenMode:                 &openMode,
-		WorkspaceBehavior:        &workspaceBehavior,
-		LastUsedWorkspace:        cloneStringPointer(metadata.LastUsedWorkspace),
-		ArtifactOptions:          cloneStringMap(metadata.ArtifactOptions),
-		ManagedArtifacts:         normalizedManagedArtifacts,
-		ExistingManagedArtifacts: existingManagedArtifacts,
-		MissingManagedArtifacts:  missingManagedArtifacts,
-		UpdateCapability:         updateCapability,
-		UpdateGuidance:           updateGuidance,
-		Metadata:                 metadata,
-	}, nil
+	return buildLauncherInstalledStatus(state), nil
 }
 
 func (s *ManagementService) Setup(settaHome string, input LauncherSetupInput) (LauncherSetupResult, error) {
@@ -321,31 +238,15 @@ func (s *ManagementService) Setup(settaHome string, input LauncherSetupInput) (L
 }
 
 func loadLauncherSetupState(settaHome string) (launcherSetupState, error) {
-	resolvedSettaHome, err := resolvePathLoose(settaHome)
+	state, err := loadLauncherManagementState(settaHome)
 	if err != nil {
 		return launcherSetupState{}, err
 	}
-	existingMetadata, err := LoadLauncherInstallMetadata(resolvedSettaHome)
-	if err != nil {
-		return launcherSetupState{}, wrapLauncherSetupMetadataError("LauncherMetadata", err)
-	}
-	state := launcherSetupState{
-		settaHome:                resolvedSettaHome,
-		existingMetadata:         existingMetadata,
-		existingManagedArtifacts: map[string]string{},
-	}
-	if existingMetadata == nil {
-		return state, nil
-	}
-	if err := validateMetadataSettaHomeScope(*existingMetadata, resolvedSettaHome, "LauncherMetadata"); err != nil {
-		return launcherSetupState{}, err
-	}
-	normalizedManagedArtifacts, err := validateManagedArtifactRegistry(existingMetadata.ManagedArtifacts, resolvedSettaHome, "LauncherMetadata")
-	if err != nil {
-		return launcherSetupState{}, err
-	}
-	state.existingManagedArtifacts = normalizedManagedArtifacts
-	return state, nil
+	return launcherSetupState{
+		settaHome:                state.settaHome,
+		existingMetadata:         state.metadata,
+		existingManagedArtifacts: cloneStringMap(state.managedArtifacts),
+	}, nil
 }
 
 func (s *ManagementService) buildLauncherSetupPlan(settaHome string, input LauncherSetupInput) (launcherSetupPlan, error) {
@@ -591,103 +492,25 @@ func (s *ManagementService) Repair(settaHome string) (LauncherStatusSnapshot, er
 		}
 	}
 
-	channel := status.Metadata.Channel
-	installSource := LauncherInstallSource(status.Metadata.InstallSource)
-	openMode := LauncherOpenMode(status.Metadata.OpenMode)
-	workspaceBehavior := LauncherWorkspaceBehavior(status.Metadata.WorkspaceBehavior)
-	installArtifacts := len(status.Metadata.ManagedArtifacts) > 0
-
-	if _, err := s.Setup(settaHome, LauncherSetupInput{
-		Channel:           &channel,
-		InstallSource:     &installSource,
-		OpenMode:          &openMode,
-		WorkspaceBehavior: &workspaceBehavior,
-		InstallArtifacts:  &installArtifacts,
-		ArtifactOptions:   mapPointer(cloneStringMap(status.Metadata.ArtifactOptions)),
-	}); err != nil {
+	if _, err := s.Setup(settaHome, launcherSetupInputFromMetadata(status.Metadata, nil)); err != nil {
 		return LauncherStatusSnapshot{}, err
 	}
 	return s.CollectStatus(settaHome)
 }
 
 func (s *ManagementService) Remove(settaHome string) (LauncherRemoveResult, error) {
-	resolvedSettaHome, err := resolvePathLoose(settaHome)
+	state, err := loadLauncherManagementState(settaHome)
 	if err != nil {
 		return LauncherRemoveResult{}, err
 	}
-	metadataPath, err := resolveLauncherMetadataPath(resolvedSettaHome)
-	if err != nil {
-		return LauncherRemoveResult{}, err
-	}
-	launcherDir, err := resolveLauncherDir(resolvedSettaHome)
-	if err != nil {
-		return LauncherRemoveResult{}, err
-	}
-
-	existingMetadata, err := LoadLauncherInstallMetadata(resolvedSettaHome)
-	if err != nil {
-		var metadataErr *LauncherMetadataError
-		if errors.As(err, &metadataErr) {
-			return LauncherRemoveResult{}, &LauncherSetupError{Code: "LauncherMetadata", Message: metadataErr.Error()}
-		}
-		return LauncherRemoveResult{}, err
-	}
-	if existingMetadata != nil {
-		if err := validateMetadataSettaHomeScope(*existingMetadata, resolvedSettaHome, "LauncherMetadata"); err != nil {
-			return LauncherRemoveResult{}, err
-		}
-		normalizedManagedArtifacts, err := validateManagedArtifactRegistry(existingMetadata.ManagedArtifacts, resolvedSettaHome, "LauncherMetadata")
+	if state.metadata != nil && len(state.managedArtifacts) > 0 {
+		removedPaths, missingPaths, err := removeLauncherManagedArtifacts(state.managedArtifacts, state.metadata.ArtifactOwnershipToken)
 		if err != nil {
 			return LauncherRemoveResult{}, err
 		}
-		if len(normalizedManagedArtifacts) > 0 {
-			removalResult := removeOwnedArtifacts(normalizedManagedArtifacts, existingMetadata.ArtifactOwnershipToken)
-			if len(removalResult.Errors) > 0 {
-				return LauncherRemoveResult{}, &LauncherSetupError{
-					Code:    "ArtifactRemovalFailed",
-					Message: strings.Join(removalResult.Errors, "; "),
-				}
-			}
-			returnedRemovedPaths := append([]string(nil), removalResult.RemovedPaths...)
-			returnedMissingPaths := append([]string(nil), removalResult.MissingPaths...)
-			metadataRemoved, err := RemoveLauncherInstallMetadata(resolvedSettaHome)
-			if err != nil {
-				return LauncherRemoveResult{}, &LauncherSetupError{
-					Code:    "LauncherMetadata",
-					Message: fmt.Sprintf("Failed to remove launcher metadata: %v", err),
-				}
-			}
-			if info, err := os.Stat(launcherDir); err == nil && info.IsDir() {
-				_ = os.Remove(launcherDir)
-			}
-			return LauncherRemoveResult{
-				SettaHome:       resolvedSettaHome,
-				MetadataPath:    metadataPath,
-				MetadataRemoved: metadataRemoved,
-				RemovedPaths:    returnedRemovedPaths,
-				MissingPaths:    returnedMissingPaths,
-			}, nil
-		}
+		return finalizeLauncherRemoval(state, removedPaths, missingPaths)
 	}
-
-	metadataRemoved, err := RemoveLauncherInstallMetadata(resolvedSettaHome)
-	if err != nil {
-		return LauncherRemoveResult{}, &LauncherSetupError{
-			Code:    "LauncherMetadata",
-			Message: fmt.Sprintf("Failed to remove launcher metadata: %v", err),
-		}
-	}
-	if info, err := os.Stat(launcherDir); err == nil && info.IsDir() {
-		_ = os.Remove(launcherDir)
-	}
-
-	return LauncherRemoveResult{
-		SettaHome:       resolvedSettaHome,
-		MetadataPath:    metadataPath,
-		MetadataRemoved: metadataRemoved,
-		RemovedPaths:    []string{},
-		MissingPaths:    []string{},
-	}, nil
+	return finalizeLauncherRemoval(state, nil, nil)
 }
 
 func (s *ManagementService) Update(settaHome string, packageSpec string) (LauncherUpdateResult, error) {
@@ -695,113 +518,25 @@ func (s *ManagementService) Update(settaHome string, packageSpec string) (Launch
 	if err != nil {
 		return LauncherUpdateResult{}, err
 	}
-	if !status.Installed || status.Metadata == nil {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "LauncherNotInstalled",
-			Message: "Launcher is not installed. Run `setta launcher setup` first.",
-		}
-	}
-	if status.UpdateCapability != LauncherUpdateCapabilityInApp {
-		guidance := "In-app launcher update is unavailable."
-		if status.UpdateGuidance != nil {
-			guidance = *status.UpdateGuidance
-		}
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "UpdateUnavailable",
-			Message: guidance,
-		}
-	}
-
-	normalizedPackageSpec := strings.TrimSpace(packageSpec)
-	if normalizedPackageSpec == "" {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "BadRequest",
-			Message: "package spec must be non-empty.",
-		}
-	}
-
-	uvPath := s.which("uv")
-	if uvPath == "" {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "MissingDependency",
-			Message: "uv is required for in-app update but was not found on PATH.",
-		}
-	}
-
-	installResult, err := s.runCommand([]string{uvPath, "tool", "install", "--upgrade", normalizedPackageSpec})
-	if err != nil {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "UpdateFailed",
-			Message: fmt.Sprintf("uv tool install --upgrade failed: %v", err),
-		}
-	}
-	if installResult.ExitCode != 0 {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "UpdateFailed",
-			Message: fmt.Sprintf("uv tool install --upgrade failed: %s", formatLauncherCommandFailure(installResult)),
-		}
-	}
-
-	dirResult, err := s.runCommand([]string{uvPath, "tool", "dir", "--bin"})
-	if err != nil {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "UpdateFailed",
-			Message: fmt.Sprintf("uv tool dir --bin failed: %v", err),
-		}
-	}
-	if dirResult.ExitCode != 0 {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "UpdateFailed",
-			Message: fmt.Sprintf("uv tool dir --bin failed: %s", formatLauncherCommandFailure(dirResult)),
-		}
-	}
-
-	binDir := strings.TrimSpace(dirResult.Stdout)
-	if binDir == "" {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "UpdateFailed",
-			Message: "uv tool dir --bin returned an empty path.",
-		}
-	}
-	settaExecutable, err := resolveSettaExecutable(binDir)
-	if err != nil {
-		return LauncherUpdateResult{}, &LauncherSetupError{
-			Code:    "UpdateFailed",
-			Message: err.Error(),
-		}
-	}
-
-	channel := status.Metadata.Channel
-	installSource := LauncherInstallSource(status.Metadata.InstallSource)
-	openMode := LauncherOpenMode(status.Metadata.OpenMode)
-	workspaceBehavior := LauncherWorkspaceBehavior(status.Metadata.WorkspaceBehavior)
-	installArtifacts := len(status.Metadata.ManagedArtifacts) > 0
-
-	if _, err := s.Setup(settaHome, LauncherSetupInput{
-		Channel:           &channel,
-		InstallSource:     &installSource,
-		OpenMode:          &openMode,
-		WorkspaceBehavior: &workspaceBehavior,
-		InstallArtifacts:  &installArtifacts,
-		ArtifactOptions:   mapPointer(cloneStringMap(status.Metadata.ArtifactOptions)),
-		TargetCommand:     []string{settaExecutable},
-	}); err != nil {
+	if err := validateLauncherUpdateStatus(status); err != nil {
 		return LauncherUpdateResult{}, err
 	}
-
+	normalizedPackageSpec, err := normalizeLauncherUpdatePackageSpec(packageSpec)
+	if err != nil {
+		return LauncherUpdateResult{}, err
+	}
+	settaExecutable, err := s.installUpdatedLauncher(normalizedPackageSpec)
+	if err != nil {
+		return LauncherUpdateResult{}, err
+	}
+	if _, err := s.Setup(settaHome, launcherSetupInputFromMetadata(status.Metadata, []string{settaExecutable})); err != nil {
+		return LauncherUpdateResult{}, err
+	}
 	nextStatus, err := s.CollectStatus(settaHome)
 	if err != nil {
 		return LauncherUpdateResult{}, err
 	}
-
-	fromVersion := cloneStringPointer(status.Metadata.SettaVersionPointer())
-	toVersion := cloneStringPointer(nextStatus.Metadata.SettaVersionPointer())
-	return LauncherUpdateResult{
-		PackageSpec: normalizedPackageSpec,
-		FromVersion: fromVersion,
-		ToVersion:   toVersion,
-		Status:      nextStatus,
-	}, nil
+	return buildLauncherUpdateResult(normalizedPackageSpec, status, nextStatus), nil
 }
 
 func resolveLauncherUpdateCapability(metadata LauncherInstallMetadata, managedArtifacts map[string]string) (LauncherUpdateCapability, *string) {
@@ -815,6 +550,264 @@ func resolveLauncherUpdateCapability(metadata LauncherInstallMetadata, managedAr
 	default:
 		guidance := "In-app update is unavailable for this launcher installation source."
 		return LauncherUpdateCapabilityUnsupported, &guidance
+	}
+}
+
+func loadLauncherManagementState(settaHome string) (launcherManagementState, error) {
+	resolvedSettaHome, err := resolvePathLoose(settaHome)
+	if err != nil {
+		return launcherManagementState{}, err
+	}
+	launcherDir, err := resolveLauncherDir(resolvedSettaHome)
+	if err != nil {
+		return launcherManagementState{}, err
+	}
+	metadataPath, err := resolveLauncherMetadataPath(resolvedSettaHome)
+	if err != nil {
+		return launcherManagementState{}, err
+	}
+	metadata, err := LoadLauncherInstallMetadata(resolvedSettaHome)
+	if err != nil {
+		return launcherManagementState{}, wrapLauncherSetupMetadataError("LauncherMetadata", err)
+	}
+
+	state := launcherManagementState{
+		settaHome:        resolvedSettaHome,
+		launcherDir:      launcherDir,
+		metadataPath:     metadataPath,
+		metadata:         metadata,
+		managedArtifacts: map[string]string{},
+	}
+	if metadata == nil {
+		return state, nil
+	}
+	if err := validateMetadataSettaHomeScope(*metadata, resolvedSettaHome, "LauncherMetadata"); err != nil {
+		return launcherManagementState{}, err
+	}
+	managedArtifacts, err := validateManagedArtifactRegistry(metadata.ManagedArtifacts, resolvedSettaHome, "LauncherMetadata")
+	if err != nil {
+		return launcherManagementState{}, err
+	}
+	state.managedArtifacts = managedArtifacts
+	return state, nil
+}
+
+func buildLauncherNotInstalledStatus(state launcherManagementState) LauncherStatusSnapshot {
+	guidance := "Launcher is not installed. Run `setta launcher setup` first."
+	return LauncherStatusSnapshot{
+		SettaHome:                state.settaHome,
+		LauncherDir:              state.launcherDir,
+		MetadataPath:             state.metadataPath,
+		Installed:                false,
+		ArtifactOptions:          map[string]string{},
+		ManagedArtifacts:         map[string]string{},
+		ExistingManagedArtifacts: []string{},
+		MissingManagedArtifacts:  []string{},
+		UpdateCapability:         LauncherUpdateCapabilityUnsupported,
+		UpdateGuidance:           &guidance,
+		Metadata:                 nil,
+	}
+}
+
+func buildLauncherInstalledStatus(state launcherManagementState) LauncherStatusSnapshot {
+	metadata := state.metadata
+	targetValid, targetError := launcherTargetValidationPointers(*metadata)
+	existingManagedArtifacts, missingManagedArtifacts := collectManagedArtifactPresence(state.managedArtifacts)
+	updateCapability, updateGuidance := resolveLauncherUpdateCapability(*metadata, state.managedArtifacts)
+	channel := metadata.Channel
+	settaVersion := metadata.SettaVersion
+	openMode := LauncherOpenMode(metadata.OpenMode)
+	workspaceBehavior := LauncherWorkspaceBehavior(metadata.WorkspaceBehavior)
+
+	return LauncherStatusSnapshot{
+		SettaHome:                state.settaHome,
+		LauncherDir:              state.launcherDir,
+		MetadataPath:             state.metadataPath,
+		Installed:                true,
+		TargetCommand:            append([]string(nil), metadata.TargetCommand...),
+		TargetValid:              targetValid,
+		TargetError:              targetError,
+		Channel:                  &channel,
+		SettaVersion:             &settaVersion,
+		OpenMode:                 &openMode,
+		WorkspaceBehavior:        &workspaceBehavior,
+		LastUsedWorkspace:        cloneStringPointer(metadata.LastUsedWorkspace),
+		ArtifactOptions:          cloneStringMap(metadata.ArtifactOptions),
+		ManagedArtifacts:         state.managedArtifacts,
+		ExistingManagedArtifacts: existingManagedArtifacts,
+		MissingManagedArtifacts:  missingManagedArtifacts,
+		UpdateCapability:         updateCapability,
+		UpdateGuidance:           updateGuidance,
+		Metadata:                 metadata,
+	}
+}
+
+func launcherTargetValidationPointers(metadata LauncherInstallMetadata) (*bool, *string) {
+	targetErrorValue := LauncherTargetValidationError(metadata)
+	if targetErrorValue == "" {
+		return boolPointer(true), nil
+	}
+	return boolPointer(false), &targetErrorValue
+}
+
+func collectManagedArtifactPresence(managedArtifacts map[string]string) ([]string, []string) {
+	existingManagedArtifacts := make([]string, 0, len(managedArtifacts))
+	missingManagedArtifacts := make([]string, 0, len(managedArtifacts))
+	for _, pathString := range managedArtifacts {
+		if info, err := os.Stat(pathString); err == nil && info != nil {
+			existingManagedArtifacts = append(existingManagedArtifacts, pathString)
+			continue
+		}
+		missingManagedArtifacts = append(missingManagedArtifacts, pathString)
+	}
+	sort.Strings(existingManagedArtifacts)
+	sort.Strings(missingManagedArtifacts)
+	return existingManagedArtifacts, missingManagedArtifacts
+}
+
+func removeLauncherManagedArtifacts(managedArtifacts map[string]string, ownershipToken string) ([]string, []string, error) {
+	removalResult := removeOwnedArtifacts(managedArtifacts, ownershipToken)
+	if len(removalResult.Errors) > 0 {
+		return nil, nil, &LauncherSetupError{
+			Code:    "ArtifactRemovalFailed",
+			Message: strings.Join(removalResult.Errors, "; "),
+		}
+	}
+	return append([]string(nil), removalResult.RemovedPaths...), append([]string(nil), removalResult.MissingPaths...), nil
+}
+
+func finalizeLauncherRemoval(state launcherManagementState, removedPaths []string, missingPaths []string) (LauncherRemoveResult, error) {
+	metadataRemoved, err := RemoveLauncherInstallMetadata(state.settaHome)
+	if err != nil {
+		return LauncherRemoveResult{}, &LauncherSetupError{
+			Code:    "LauncherMetadata",
+			Message: fmt.Sprintf("Failed to remove launcher metadata: %v", err),
+		}
+	}
+	removeLauncherDirIfPresent(state.launcherDir)
+	return LauncherRemoveResult{
+		SettaHome:       state.settaHome,
+		MetadataPath:    state.metadataPath,
+		MetadataRemoved: metadataRemoved,
+		RemovedPaths:    append([]string(nil), removedPaths...),
+		MissingPaths:    append([]string(nil), missingPaths...),
+	}, nil
+}
+
+func removeLauncherDirIfPresent(launcherDir string) {
+	if info, err := os.Stat(launcherDir); err == nil && info.IsDir() {
+		_ = os.Remove(launcherDir)
+	}
+}
+
+func validateLauncherUpdateStatus(status LauncherStatusSnapshot) error {
+	if !status.Installed || status.Metadata == nil {
+		return &LauncherSetupError{
+			Code:    "LauncherNotInstalled",
+			Message: "Launcher is not installed. Run `setta launcher setup` first.",
+		}
+	}
+	if status.UpdateCapability == LauncherUpdateCapabilityInApp {
+		return nil
+	}
+	guidance := "In-app launcher update is unavailable."
+	if status.UpdateGuidance != nil {
+		guidance = *status.UpdateGuidance
+	}
+	return &LauncherSetupError{
+		Code:    "UpdateUnavailable",
+		Message: guidance,
+	}
+}
+
+func normalizeLauncherUpdatePackageSpec(packageSpec string) (string, error) {
+	normalizedPackageSpec := strings.TrimSpace(packageSpec)
+	if normalizedPackageSpec != "" {
+		return normalizedPackageSpec, nil
+	}
+	return "", &LauncherSetupError{
+		Code:    "BadRequest",
+		Message: "package spec must be non-empty.",
+	}
+}
+
+func launcherSetupInputFromMetadata(metadata *LauncherInstallMetadata, targetCommand []string) LauncherSetupInput {
+	if metadata == nil {
+		return LauncherSetupInput{
+			TargetCommand: append([]string(nil), targetCommand...),
+		}
+	}
+	channel := metadata.Channel
+	installSource := LauncherInstallSource(metadata.InstallSource)
+	openMode := LauncherOpenMode(metadata.OpenMode)
+	workspaceBehavior := LauncherWorkspaceBehavior(metadata.WorkspaceBehavior)
+	installArtifacts := len(metadata.ManagedArtifacts) > 0
+	return LauncherSetupInput{
+		Channel:           &channel,
+		InstallSource:     &installSource,
+		OpenMode:          &openMode,
+		WorkspaceBehavior: &workspaceBehavior,
+		InstallArtifacts:  &installArtifacts,
+		ArtifactOptions:   mapPointer(cloneStringMap(metadata.ArtifactOptions)),
+		TargetCommand:     append([]string(nil), targetCommand...),
+	}
+}
+
+func (s *ManagementService) installUpdatedLauncher(packageSpec string) (string, error) {
+	uvPath := s.which("uv")
+	if uvPath == "" {
+		return "", &LauncherSetupError{
+			Code:    "MissingDependency",
+			Message: "uv is required for in-app update but was not found on PATH.",
+		}
+	}
+	if _, err := s.runLauncherUpdateCommand([]string{uvPath, "tool", "install", "--upgrade", packageSpec}, "uv tool install --upgrade"); err != nil {
+		return "", err
+	}
+	dirResult, err := s.runLauncherUpdateCommand([]string{uvPath, "tool", "dir", "--bin"}, "uv tool dir --bin")
+	if err != nil {
+		return "", err
+	}
+	binDir := strings.TrimSpace(dirResult.Stdout)
+	if binDir == "" {
+		return "", &LauncherSetupError{
+			Code:    "UpdateFailed",
+			Message: "uv tool dir --bin returned an empty path.",
+		}
+	}
+	settaExecutable, err := resolveSettaExecutable(binDir)
+	if err != nil {
+		return "", &LauncherSetupError{
+			Code:    "UpdateFailed",
+			Message: err.Error(),
+		}
+	}
+	return settaExecutable, nil
+}
+
+func (s *ManagementService) runLauncherUpdateCommand(args []string, commandDescription string) (launcherCommandResult, error) {
+	result, err := s.runCommand(args)
+	if err != nil {
+		return launcherCommandResult{}, &LauncherSetupError{
+			Code:    "UpdateFailed",
+			Message: fmt.Sprintf("%s failed: %v", commandDescription, err),
+		}
+	}
+	if result.ExitCode == 0 {
+		return result, nil
+	}
+	return launcherCommandResult{}, &LauncherSetupError{
+		Code:    "UpdateFailed",
+		Message: fmt.Sprintf("%s failed: %s", commandDescription, formatLauncherCommandFailure(result)),
+	}
+}
+
+func buildLauncherUpdateResult(packageSpec string, previousStatus LauncherStatusSnapshot, nextStatus LauncherStatusSnapshot) LauncherUpdateResult {
+	return LauncherUpdateResult{
+		PackageSpec: packageSpec,
+		FromVersion: cloneStringPointer(previousStatus.Metadata.SettaVersionPointer()),
+		ToVersion:   cloneStringPointer(nextStatus.Metadata.SettaVersionPointer()),
+		Status:      nextStatus,
 	}
 }
 
