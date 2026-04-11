@@ -109,6 +109,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING = object()
 _UNAVAILABLE = object()
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _GENERATED_LISTENER_MESSAGE_MODELS: dict[str, type[BaseModel]] = {
     ListenerMessageType.ListenerError.value: ListenerErrorMessage,
     ListenerMessageType.ListenerFrontendEmit.value: ListenerFrontendEmitMessage,
@@ -121,6 +122,7 @@ _GENERATED_LISTENER_MESSAGE_MODELS: dict[str, type[BaseModel]] = {
 FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE = (
     "frontendAffinityToken must be a non-empty string when provided."
 )
+ListenerSessionSecret = tuple[SessionMetadata, bytes]
 
 
 def parse_frontend_affinity_token(value: Any) -> str | None:
@@ -132,6 +134,10 @@ def parse_frontend_affinity_token(value: Any) -> str | None:
     if normalized == "":
         raise ValueError(FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE)
     return normalized
+
+
+def _hosts_are_equivalent(left: str, right: str) -> bool:
+    return left == right or {left, right} <= _LOOPBACK_HOSTS
 
 
 def _validate_generated_listener_message(raw_message: Any) -> BaseModel | None:
@@ -638,26 +644,39 @@ class SettaListener:
             self._set_binary_base_url = True
 
     def _maybe_autoconnect_to_latest_local_session(self) -> None:
-        if self._share_session_id is not None:
+        if not self._should_autoconnect_to_latest_local_session():
             return
-        if self._auth_headers is not None:
+        session_info = self._load_autoconnect_session()
+        if session_info is None:
             return
-        if self._explicit_host or self._explicit_port:
-            return
-        if not self._listener_autoconnect_enabled():
-            return
+        metadata, secret = session_info
+        self._apply_autoconnect_session(metadata, secret)
+
+    def _should_autoconnect_to_latest_local_session(self) -> bool:
+        return (
+            self._share_session_id is None
+            and self._auth_headers is None
+            and not self._explicit_host
+            and not self._explicit_port
+            and self._listener_autoconnect_enabled()
+        )
+
+    def _load_autoconnect_session(self) -> ListenerSessionSecret | None:
         # If the caller didn't pass host/port, prefer the latest session recorded in
         # this workspace (dev worktrees use per-worktree ports + cookie names).
         session_root_info = self._resolve_autoconnect_sessions_root()
         if session_root_info is None:
-            return
+            return None
         workspace_root, sessions_root = session_root_info
         if not sessions_root.exists():
-            return
-        session_info = self._select_autoconnect_session(sessions_root, workspace_root)
-        if session_info is None:
-            return
-        metadata, secret = session_info
+            return None
+        return self._select_autoconnect_session(sessions_root, workspace_root)
+
+    def _apply_autoconnect_session(
+        self,
+        metadata: SessionMetadata,
+        secret: bytes,
+    ) -> None:
         logger.info(
             "SettaListener autoconnecting to session %s at %s:%s (workspace=%s)",
             metadata.id,
@@ -693,7 +712,7 @@ class SettaListener:
         self,
         sessions_root: Path,
         workspace_root: Path,
-    ) -> tuple[SessionMetadata, bytes] | None:
+    ) -> ListenerSessionSecret | None:
         registry = SessionRegistry(sessions_root=sessions_root)
         sessions = registry.find_sessions_by_workspace(
             workspace_root,
@@ -819,24 +838,32 @@ class SettaListener:
             return dict(self._auth_headers)
         if self._share_session_id is not None:
             return None
-        session_info = load_current_session_secret()
-        if session_info is None and self._auto_session_metadata is not None:
-            if self._auto_session_secret is None:
-                return None
-            session_info = (self._auto_session_metadata, self._auto_session_secret)
+        session_info = self._resolve_listener_session_secret()
         if session_info is None:
             return None
         session_metadata, secret = session_info
-        if session_metadata.host != self._host and not {
-            session_metadata.host,
-            self._host,
-        } <= {"127.0.0.1", "localhost", "::1"}:
-            return None
-        if session_metadata.port != self._port:
+        if not self._session_matches_listener_target(session_metadata):
             return None
 
         cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
         return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+
+    def _resolve_listener_session_secret(self) -> ListenerSessionSecret | None:
+        session_info = load_current_session_secret()
+        if session_info is not None:
+            return session_info
+        if self._auto_session_metadata is None or self._auto_session_secret is None:
+            return None
+        return self._auto_session_metadata, self._auto_session_secret
+
+    def _session_matches_listener_target(
+        self,
+        session_metadata: SessionMetadata,
+    ) -> bool:
+        return session_metadata.port == self._port and _hosts_are_equivalent(
+            session_metadata.host,
+            self._host,
+        )
 
     async def run_forever(self) -> None:
         """Maintain a websocket connection, reconnecting when needed."""
