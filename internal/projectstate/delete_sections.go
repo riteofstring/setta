@@ -299,6 +299,16 @@ func (p *Project) removeDeletedSectionReferences(removed map[string]struct{}) er
 		return nil
 	}
 
+	if err := p.removeDeletedSectionSharedModifiers(removed); err != nil {
+		return err
+	}
+	if err := p.removeDeletedSectionVariantModifiers(removed); err != nil {
+		return err
+	}
+	return p.removeDeletedSectionImplReferences(removed)
+}
+
+func (p *Project) removeDeletedSectionSharedModifiers(removed map[string]struct{}) error {
 	for sectionID, section := range p.Sections {
 		if _, ok := removed[sectionID]; ok {
 			continue
@@ -311,7 +321,10 @@ func (p *Project) removeDeletedSectionReferences(removed map[string]struct{}) er
 			p.Sections[sectionID] = section
 		}
 	}
+	return nil
+}
 
+func (p *Project) removeDeletedSectionVariantModifiers(removed map[string]struct{}) error {
 	for variantID, variant := range p.SectionVariants {
 		changed, err := filterDeletedSectionIDsFromRawJSON(&variant.Modifier, removed)
 		if err != nil {
@@ -321,30 +334,51 @@ func (p *Project) removeDeletedSectionReferences(removed map[string]struct{}) er
 			p.SectionVariants[variantID] = variant
 		}
 	}
+	return nil
+}
 
+func (p *Project) removeDeletedSectionImplReferences(removed map[string]struct{}) error {
 	for implID, impl := range p.SectionImpls {
-		changed := false
-		if impl.IsCode() && impl.Code != nil {
-			nextChildren := filterStringSlice(impl.Code.Children, removed)
-			if !stringSlicesEqual(impl.Code.Children, nextChildren) {
-				impl.Code.Children = nextChildren
-				changed = true
-			}
-			if _, ok := removed[strings.TrimSpace(impl.Code.AttachedTerminalSectionID)]; ok {
-				impl.Code.AttachedTerminalSectionID = ""
-				changed = true
-			}
-		}
-		payloadChanged, err := filterDeletedSectionIDsFromRawJSON(&impl.Payload, removed)
+		changed, err := removeDeletedSectionReferencesFromImpl(&impl, removed)
 		if err != nil {
 			return err
 		}
-		if changed || payloadChanged {
+		if changed {
 			p.SectionImpls[implID] = impl
 		}
 	}
-
 	return nil
+}
+
+func removeDeletedSectionReferencesFromImpl(impl *SectionImpl, removed map[string]struct{}) (bool, error) {
+	if impl == nil {
+		return false, nil
+	}
+
+	changed := removeDeletedSectionReferencesFromCodeImpl(impl, removed)
+	payloadChanged, err := filterDeletedSectionIDsFromRawJSON(&impl.Payload, removed)
+	if err != nil {
+		return false, err
+	}
+	return changed || payloadChanged, nil
+}
+
+func removeDeletedSectionReferencesFromCodeImpl(impl *SectionImpl, removed map[string]struct{}) bool {
+	if impl == nil || !impl.IsCode() || impl.Code == nil {
+		return false
+	}
+
+	changed := false
+	nextChildren := filterStringSlice(impl.Code.Children, removed)
+	if !stringSlicesEqual(impl.Code.Children, nextChildren) {
+		impl.Code.Children = nextChildren
+		changed = true
+	}
+	if _, ok := removed[strings.TrimSpace(impl.Code.AttachedTerminalSectionID)]; ok {
+		impl.Code.AttachedTerminalSectionID = ""
+		changed = true
+	}
+	return changed
 }
 
 func filterDeletedSectionIDsFromRawJSON(raw *RawJSON, removed map[string]struct{}) (bool, error) {

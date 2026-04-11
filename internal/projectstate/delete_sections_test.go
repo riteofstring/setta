@@ -360,6 +360,130 @@ func TestProjectDeleteSectionsClearsAttachedTerminalReferences(t *testing.T) {
 	}
 }
 
+func TestProjectDeleteSectionsPrunesSharedAndVariantModifiers(t *testing.T) {
+	project := mustNormalizedDeleteProject(t, Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"parent-section",
+		},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"parent-section": {X: 10, Y: 20},
+		},
+		Sections: map[string]Section{
+			"parent-section": {
+				ID:               "parent-section",
+				Name:             "Parent",
+				VariantIDs:       []string{"parent-variant"},
+				DefaultVariantID: "parent-variant",
+				SharedModifier: mustMarshalProjectObject(map[string]any{
+					"children":                  []string{"child-section", "sibling-section"},
+					"attachedTerminalSectionId": "terminal-section",
+					"label":                     "shared",
+				}),
+			},
+			"child-section": {
+				ID:               "child-section",
+				Name:             "Child",
+				VariantIDs:       []string{"child-variant"},
+				DefaultVariantID: "child-variant",
+				ParentSectionID:  "parent-section",
+			},
+			"sibling-section": {
+				ID:               "sibling-section",
+				Name:             "Sibling",
+				VariantIDs:       []string{"sibling-variant"},
+				DefaultVariantID: "sibling-variant",
+				ParentSectionID:  "parent-section",
+			},
+			"terminal-section": {
+				ID:               "terminal-section",
+				Name:             "Terminal",
+				VariantIDs:       []string{"terminal-variant"},
+				DefaultVariantID: "terminal-variant",
+				ParentSectionID:  "parent-section",
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"parent-section":   "parent-variant",
+			"child-section":    "child-variant",
+			"sibling-section":  "sibling-variant",
+			"terminal-section": "terminal-variant",
+		},
+		SectionVariants: map[string]SectionVariant{
+			"parent-variant": {
+				ID:     "parent-variant",
+				ImplID: "parent-impl",
+				Modifier: mustMarshalProjectObject(map[string]any{
+					"children":                  []string{"child-section", "sibling-section"},
+					"attachedTerminalSectionId": "terminal-section",
+					"label":                     "variant",
+				}),
+			},
+			"child-variant":    {ID: "child-variant", ImplID: "child-impl"},
+			"sibling-variant":  {ID: "sibling-variant", ImplID: "sibling-impl"},
+			"terminal-variant": {ID: "terminal-variant", ImplID: "terminal-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"parent-impl": {
+				ID:      "parent-impl",
+				Kind:    SectionKind("group"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "parent-impl", "type": "Group"}),
+			},
+			"child-impl": {
+				ID:      "child-impl",
+				Kind:    SectionKind("text_block"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-impl", "type": "TextBlock"}),
+			},
+			"sibling-impl": {
+				ID:      "sibling-impl",
+				Kind:    SectionKind("text_block"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "sibling-impl", "type": "TextBlock"}),
+			},
+			"terminal-impl": {
+				ID:       "terminal-impl",
+				Kind:     SectionKindTerminal,
+				Terminal: &TerminalSectionImpl{},
+				Payload:  mustMarshalProjectObject(map[string]any{"id": "terminal-impl", "type": "Terminal"}),
+			},
+		},
+	})
+
+	if _, err := project.DeleteSections(DeleteSectionsInput{
+		SectionIDs: []string{"child-section", "terminal-section"},
+	}); err != nil {
+		t.Fatalf("DeleteSections returned error: %v", err)
+	}
+
+	sharedModifier, err := rawObjectFromProjectPayload(project.Sections["parent-section"].SharedModifier)
+	if err != nil {
+		t.Fatalf("decode parent shared modifier: %v", err)
+	}
+	if children := payloadStringArrayField(sharedModifier, "children"); !reflect.DeepEqual(children, []string{"sibling-section"}) {
+		t.Fatalf("expected shared modifier children to prune deleted sections, got %#v", children)
+	}
+	if attached := payloadStringField(sharedModifier, "attachedTerminalSectionId"); attached != "" {
+		t.Fatalf("expected shared modifier attachedTerminalSectionId to clear, got %q", attached)
+	}
+	if label := payloadStringField(sharedModifier, "label"); label != "shared" {
+		t.Fatalf("expected shared modifier label to stay intact, got %q", label)
+	}
+
+	variantModifier, err := rawObjectFromProjectPayload(project.SectionVariants["parent-variant"].Modifier)
+	if err != nil {
+		t.Fatalf("decode parent variant modifier: %v", err)
+	}
+	if children := payloadStringArrayField(variantModifier, "children"); !reflect.DeepEqual(children, []string{"sibling-section"}) {
+		t.Fatalf("expected variant modifier children to prune deleted sections, got %#v", children)
+	}
+	if attached := payloadStringField(variantModifier, "attachedTerminalSectionId"); attached != "" {
+		t.Fatalf("expected variant modifier attachedTerminalSectionId to clear, got %q", attached)
+	}
+	if label := payloadStringField(variantModifier, "label"); label != "variant" {
+		t.Fatalf("expected variant modifier label to stay intact, got %q", label)
+	}
+}
+
 func TestProjectDeleteSectionsPrunesUnusedCodeObjects(t *testing.T) {
 	project := mustNormalizedDeleteProject(t, Project{
 		ID:   "project-alpha",
