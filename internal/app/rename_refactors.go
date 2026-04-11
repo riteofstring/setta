@@ -33,6 +33,11 @@ type renameRefactorServiceOptions struct {
 	WebsocketHub *realtime.WebsocketHub
 }
 
+type setSectionNameResult struct {
+	snapshot      projectstate.Snapshot
+	changedValues []codegen.PythonRenameReferenceChangedValue
+}
+
 func newRenameRefactorService(options renameRefactorServiceOptions) (*renameRefactorService, error) {
 	if options.ProjectState == nil {
 		return nil, fmt.Errorf("project runtime is required")
@@ -59,64 +64,16 @@ func (s *renameRefactorService) SetSectionName(ctx context.Context, projectID st
 	}
 	frontendOpID := projectstate.FrontendOpIDFromContext(ctx)
 
-	var (
-		changedValues []codegen.PythonRenameReferenceChangedValue
-		snapshot      projectstate.Snapshot
-	)
-	snapshot, err = s.projectState.MutateAndSave(ctx, func(document projectstate.Document) (projectstate.Document, error) {
-		project, err := document.ProjectByID(projectID)
-		if err != nil {
-			return document, err
-		}
-
-		nextProject, plannedValues, err := planSectionRename(project, sectionID, name)
-		if err != nil {
-			return document, err
-		}
-		changedValues = plannedValues
-
-		switch renameMode {
-		case projectstate.RenameRefactorModeAlwaysRename:
-			if err := applyRenameChangedValues(&nextProject, changedValues); err != nil {
-				return document, err
-			}
-		case projectstate.RenameRefactorModeNeverRename,
-			projectstate.RenameRefactorModeAlwaysAsk:
-			// No immediate dependent-value mutation.
-		default:
-			return document, fmt.Errorf("unsupported rename refactor mode %q", renameMode)
-		}
-
-		document.Projects[nextProject.ID] = nextProject
-		return document, nil
-	})
+	result, err := s.setSectionName(ctx, projectID, sectionID, name, renameMode)
 	if err != nil {
 		return err
 	}
 
-	switch renameMode {
-	case projectstate.RenameRefactorModeAlwaysAsk:
-		if frontendOpID != "" && len(changedValues) > 0 {
-			s.setPending(frontendOpID, pendingRenameRefactor{
-				ProjectID:     strings.TrimSpace(projectID),
-				ChangedValues: append([]codegen.PythonRenameReferenceChangedValue(nil), changedValues...),
-			})
-		}
-	case projectstate.RenameRefactorModeAlwaysRename:
-		if frontendOpID != "" {
-			s.clearPending(frontendOpID)
-		}
-	}
-
-	if err := s.broadcastProjectStateUpdate(ctx, snapshot, projectID); err != nil {
+	s.updatePendingRename(frontendOpID, projectID, renameMode, result.changedValues)
+	if err := s.broadcastProjectStateUpdate(ctx, result.snapshot, projectID); err != nil {
 		return err
 	}
-	if renameMode == projectstate.RenameRefactorModeAlwaysAsk && frontendOpID != "" && len(changedValues) > 0 {
-		if err := s.broadcastRenamePrompt(ctx, projectID, frontendOpID, renameMode, changedValues); err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.broadcastRenamePromptIfNeeded(ctx, projectID, frontendOpID, renameMode, result.changedValues)
 }
 
 func (s *renameRefactorService) AcceptRenameRefactor(ctx context.Context, projectID string, frontendOpID string) error {
@@ -159,6 +116,35 @@ func (s *renameRefactorService) DeclineRenameRefactor(_ context.Context, project
 	return nil
 }
 
+func (s *renameRefactorService) setSectionName(
+	ctx context.Context,
+	projectID string,
+	sectionID string,
+	name string,
+	renameMode projectstate.RenameRefactorMode,
+) (setSectionNameResult, error) {
+	var result setSectionNameResult
+	snapshot, err := s.projectState.MutateAndSave(ctx, func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID(projectID)
+		if err != nil {
+			return document, err
+		}
+
+		nextProject, changedValues, err := renameProjectForMode(project, sectionID, name, renameMode)
+		if err != nil {
+			return document, err
+		}
+		result.changedValues = changedValues
+		document.Projects[nextProject.ID] = nextProject
+		return document, nil
+	})
+	if err != nil {
+		return setSectionNameResult{}, err
+	}
+	result.snapshot = snapshot
+	return result, nil
+}
+
 func planSectionRename(
 	project projectstate.Project,
 	sectionID string,
@@ -195,6 +181,37 @@ func planSectionRename(
 		return projectstate.Project{}, nil, err
 	}
 	return nextProject, changedValues, nil
+}
+
+func renameProjectForMode(
+	project projectstate.Project,
+	sectionID string,
+	name string,
+	renameMode projectstate.RenameRefactorMode,
+) (projectstate.Project, []codegen.PythonRenameReferenceChangedValue, error) {
+	nextProject, changedValues, err := planSectionRename(project, sectionID, name)
+	if err != nil {
+		return projectstate.Project{}, nil, err
+	}
+	if err := applyRenameMode(&nextProject, renameMode, changedValues); err != nil {
+		return projectstate.Project{}, nil, err
+	}
+	return nextProject, changedValues, nil
+}
+
+func applyRenameMode(
+	project *projectstate.Project,
+	renameMode projectstate.RenameRefactorMode,
+	changedValues []codegen.PythonRenameReferenceChangedValue,
+) error {
+	switch renameMode {
+	case projectstate.RenameRefactorModeAlwaysRename:
+		return applyRenameChangedValues(project, changedValues)
+	case projectstate.RenameRefactorModeNeverRename, projectstate.RenameRefactorModeAlwaysAsk:
+		return nil
+	default:
+		return fmt.Errorf("unsupported rename refactor mode %q", renameMode)
+	}
 }
 
 func applyRenameChangedValues(project *projectstate.Project, changedValues []codegen.PythonRenameReferenceChangedValue) error {
@@ -236,6 +253,43 @@ func (s *renameRefactorService) broadcastProjectStateUpdate(ctx context.Context,
 		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
 	)
 	return err
+}
+
+func (s *renameRefactorService) updatePendingRename(
+	frontendOpID string,
+	projectID string,
+	renameMode projectstate.RenameRefactorMode,
+	changedValues []codegen.PythonRenameReferenceChangedValue,
+) {
+	if frontendOpID == "" {
+		return
+	}
+
+	switch renameMode {
+	case projectstate.RenameRefactorModeAlwaysAsk:
+		if len(changedValues) == 0 {
+			return
+		}
+		s.setPending(frontendOpID, pendingRenameRefactor{
+			ProjectID:     strings.TrimSpace(projectID),
+			ChangedValues: append([]codegen.PythonRenameReferenceChangedValue(nil), changedValues...),
+		})
+	case projectstate.RenameRefactorModeAlwaysRename:
+		s.clearPending(frontendOpID)
+	}
+}
+
+func (s *renameRefactorService) broadcastRenamePromptIfNeeded(
+	ctx context.Context,
+	projectID string,
+	frontendOpID string,
+	renameMode projectstate.RenameRefactorMode,
+	changedValues []codegen.PythonRenameReferenceChangedValue,
+) error {
+	if renameMode != projectstate.RenameRefactorModeAlwaysAsk || frontendOpID == "" || len(changedValues) == 0 {
+		return nil
+	}
+	return s.broadcastRenamePrompt(ctx, projectID, frontendOpID, renameMode, changedValues)
 }
 
 func (s *renameRefactorService) broadcastRenamePrompt(
