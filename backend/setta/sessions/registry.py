@@ -466,21 +466,30 @@ class SessionRegistry:
             return []
 
     def _is_port_listening(self, process: psutil.Process, host: str, port: int) -> bool:
+        connections, fallback = self._load_process_listen_probe_connections(process)
+        if fallback is not None:
+            return fallback
+        return any(
+            self._connection_matches_listen_target(conn, host, port)
+            for conn in connections
+        )
+
+    def _load_process_listen_probe_connections(
+        self, process: psutil.Process
+    ) -> tuple[list, bool | None]:
         try:
-            connections = process.net_connections(kind="inet")
+            return process.net_connections(kind="inet"), None
         except psutil.AccessDenied:
-            return True
+            return [], True
         except (psutil.NoSuchProcess, psutil.ZombieProcess):
-            return False
-        for conn in connections:
-            if conn.status != psutil.CONN_LISTEN:
-                continue
-            if conn.laddr.port != port:
-                continue
-            if not self._host_matches_listen(host, conn.laddr.ip):
-                continue
-            return True
-        return False
+            return [], False
+
+    def _connection_matches_listen_target(self, conn, host: str, port: int) -> bool:
+        return (
+            conn.status == psutil.CONN_LISTEN
+            and conn.laddr.port == port
+            and self._host_matches_listen(host, conn.laddr.ip)
+        )
 
     def _host_matches_listen(self, host: str, listen_host: str) -> bool:
         if listen_host in {"0.0.0.0", "::"}:

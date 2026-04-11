@@ -1,11 +1,13 @@
 import json
 import os
+from types import SimpleNamespace
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
+import psutil
 from setta.sessions.registry import SessionRegistry
 from setta.types.generated.go_shared_constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
@@ -518,6 +520,78 @@ def test_load_sessions_tracks_suspicious_when_enabled() -> None:
             if process.poll() is None:
                 process.terminate()
             process.wait()
+
+
+def test_is_port_listening_treats_access_denied_as_listening() -> None:
+    registry = SessionRegistry()
+
+    class AccessDeniedProcess:
+        def net_connections(self, kind: str) -> list:
+            assert kind == "inet"
+            raise psutil.AccessDenied()
+
+    assert registry._is_port_listening(
+        AccessDeniedProcess(), host="127.0.0.1", port=61234
+    )
+
+
+def test_is_port_listening_returns_false_when_process_disappears() -> None:
+    registry = SessionRegistry()
+
+    class MissingProcess:
+        def net_connections(self, kind: str) -> list:
+            assert kind == "inet"
+            raise psutil.NoSuchProcess(pid=12345)
+
+    assert not registry._is_port_listening(
+        MissingProcess(), host="127.0.0.1", port=61234
+    )
+
+
+def test_is_port_listening_requires_matching_listener() -> None:
+    registry = SessionRegistry()
+    connections = [
+        SimpleNamespace(
+            status=psutil.CONN_ESTABLISHED,
+            laddr=SimpleNamespace(ip="127.0.0.1", port=61234),
+        ),
+        SimpleNamespace(
+            status=psutil.CONN_LISTEN,
+            laddr=SimpleNamespace(ip="127.0.0.1", port=61235),
+        ),
+        SimpleNamespace(
+            status=psutil.CONN_LISTEN,
+            laddr=SimpleNamespace(ip="127.0.0.1", port=61234),
+        ),
+    ]
+
+    class MatchingProcess:
+        def net_connections(self, kind: str) -> list:
+            assert kind == "inet"
+            return connections
+
+    assert registry._is_port_listening(
+        MatchingProcess(), host="127.0.0.1", port=61234
+    )
+
+
+def test_is_port_listening_accepts_wildcard_listener_host() -> None:
+    registry = SessionRegistry()
+    connections = [
+        SimpleNamespace(
+            status=psutil.CONN_LISTEN,
+            laddr=SimpleNamespace(ip="0.0.0.0", port=61234),
+        )
+    ]
+
+    class WildcardProcess:
+        def net_connections(self, kind: str) -> list:
+            assert kind == "inet"
+            return connections
+
+    assert registry._is_port_listening(
+        WildcardProcess(), host="127.0.0.1", port=61234
+    )
 
 
 def test_load_sessions_prunes_non_setta_process() -> None:
