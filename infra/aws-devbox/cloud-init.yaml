@@ -1,0 +1,441 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/setta-devbox.conf
+    permissions: "0644"
+    owner: root:root
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      ChallengeResponseAuthentication no
+      PermitRootLogin no
+      PubkeyAuthentication yes
+      AllowUsers ubuntu
+      AllowAgentForwarding yes
+
+  - path: /etc/ssh/ssh_config.d/setta-devbox-github.conf
+    permissions: "0644"
+    owner: root:root
+    content: |
+      Host github.com
+        PubkeyAuthentication unbound
+        IdentityAgent SSH_AUTH_SOCK
+
+  - path: /etc/profile.d/setta-devbox.sh
+    permissions: "0644"
+    owner: root:root
+    content: |
+      export PATH="$HOME/.local/bin:$PATH"
+      export SETTA_DEVBOX_REPO_CHECKOUT="${repo_checkout_path}"
+      export SETTA_DEVBOX_REPO_CLONE_URL="${repo_clone_url}"
+      export SETTA_DEVBOX_SETTA_PORT="${setta_port}"
+      export SETTA_DEVBOX_CDP_PORT="${cdp_port}"
+
+      if [ -s "$HOME/.nvm/nvm.sh" ]; then
+        . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
+      fi
+
+  - path: /home/ubuntu/.tmux.conf
+    permissions: "0644"
+    owner: ubuntu:ubuntu
+    content: |
+      set -g default-terminal "tmux-256color"
+      set -g mouse on
+      set -g history-limit 200000
+      set -s extended-keys on
+      set -s extended-keys-format csi-u
+      set -as terminal-features ',xterm-ghostty:extkeys,RGB'
+      bind -n PageUp copy-mode -eu
+      bind -n S-Up if-shell -F '#{pane_in_mode}' 'send-keys -X scroll-up' 'copy-mode -eu'
+      bind c new-window -c "#{?pane_current_path,#{pane_current_path},/home/ubuntu/dev}"
+      bind '"' split-window -v -c "#{?pane_current_path,#{pane_current_path},/home/ubuntu/dev}"
+      bind % split-window -h -c "#{?pane_current_path,#{pane_current_path},/home/ubuntu/dev}"
+
+  - path: /usr/local/share/setta-devbox/terminfo/xterm-ghostty.terminfo
+    permissions: "0644"
+    owner: root:root
+    content: |
+      #	Reconstructed via infocmp from file: /Applications/Ghostty.app/Contents/Resources/terminfo/78/xterm-ghostty
+      xterm-ghostty|ghostty|Ghostty,
+      	am, bce, ccc, hs, km, mc5i, mir, msgr, npc, xenl, AX, Su, Tc, XT, fullkbd,
+      	colors#256, cols#80, it#8, lines#24, pairs#32767,
+      	acsc=++\\,\\,--..00``aaffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~,
+      	bel=^G, blink=\E[5m, bold=\E[1m, cbt=\E[Z, civis=\E[?25l,
+      	clear=\E[H\E[2J, cnorm=\E[?12l\E[?25h, cr=^M,
+      	csr=\E[%i%p1%d;%p2%dr, cub=\E[%p1%dD, cub1=^H,
+      	cud=\E[%p1%dB, cud1=^J, cuf=\E[%p1%dC, cuf1=\E[C,
+      	cup=\E[%i%p1%d;%p2%dH, cuu=\E[%p1%dA, cuu1=\E[A,
+      	cvvis=\E[?12;25h, dch=\E[%p1%dP, dch1=\E[P, dim=\E[2m,
+      	dl=\E[%p1%dM, dl1=\E[M, dsl=\E]2;\007, ech=\E[%p1%dX,
+      	ed=\E[J, el=\E[K, el1=\E[1K, flash=\E[?5h$<100/>\E[?5l,
+      	fsl=^G, home=\E[H, hpa=\E[%i%p1%dG, ht=^I, hts=\EH,
+      	ich=\E[%p1%d@, ich1=\E[@, il=\E[%p1%dL, il1=\E[L, ind=^J,
+      	indn=\E[%p1%dS,
+      	initc=\E]4;%p1%d;rgb\:%p2%{255}%*%{1000}%/%2.2X/%p3%{255}%*%{1000}%/%2.2X/%p4%{255}%*%{1000}%/%2.2X\E\\,
+      	invis=\E[8m, kDC=\E[3;2~, kEND=\E[1;2F, kHOM=\E[1;2H,
+      	kIC=\E[2;2~, kLFT=\E[1;2D, kNXT=\E[6;2~, kPRV=\E[5;2~,
+      	kRIT=\E[1;2C, kbs=\177, kcbt=\E[Z, kcub1=\EOD, kcud1=\EOB,
+      	kcuf1=\EOC, kcuu1=\EOA, kdch1=\E[3~, kend=\EOF, kent=\EOM,
+      	kf1=\EOP, kf10=\E[21~, kf11=\E[23~, kf12=\E[24~,
+      	kf13=\E[1;2P, kf14=\E[1;2Q, kf15=\E[1;2R, kf16=\E[1;2S,
+      	kf17=\E[15;2~, kf18=\E[17;2~, kf19=\E[18;2~, kf2=\EOQ,
+      	kf20=\E[19;2~, kf21=\E[20;2~, kf22=\E[21;2~,
+      	kf23=\E[23;2~, kf24=\E[24;2~, kf25=\E[1;5P, kf26=\E[1;5Q,
+      	kf27=\E[1;5R, kf28=\E[1;5S, kf29=\E[15;5~, kf3=\EOR,
+      	kf30=\E[17;5~, kf31=\E[18;5~, kf32=\E[19;5~,
+      	kf33=\E[20;5~, kf34=\E[21;5~, kf35=\E[23;5~,
+      	kf36=\E[24;5~, kf37=\E[1;6P, kf38=\E[1;6Q, kf39=\E[1;6R,
+      	kf4=\EOS, kf40=\E[1;6S, kf41=\E[15;6~, kf42=\E[17;6~,
+      	kf43=\E[18;6~, kf44=\E[19;6~, kf45=\E[20;6~,
+      	kf46=\E[21;6~, kf47=\E[23;6~, kf48=\E[24;6~,
+      	kf49=\E[1;3P, kf5=\E[15~, kf50=\E[1;3Q, kf51=\E[1;3R,
+      	kf52=\E[1;3S, kf53=\E[15;3~, kf54=\E[17;3~,
+      	kf55=\E[18;3~, kf56=\E[19;3~, kf57=\E[20;3~,
+      	kf58=\E[21;3~, kf59=\E[23;3~, kf6=\E[17~, kf60=\E[24;3~,
+      	kf61=\E[1;4P, kf62=\E[1;4Q, kf63=\E[1;4R, kf7=\E[18~,
+      	kf8=\E[19~, kf9=\E[20~, khome=\EOH, kich1=\E[2~,
+      	kind=\E[1;2B, kmous=\E[<, knp=\E[6~, kpp=\E[5~,
+      	kri=\E[1;2A, oc=\E]104\007, op=\E[39;49m, rc=\E8,
+      	rep=%p1%c\E[%p2%{1}%-%db, rev=\E[7m, ri=\EM,
+      	rin=\E[%p1%dT, ritm=\E[23m, rmacs=\E(B, rmam=\E[?7l,
+      	rmcup=\E[?1049l, rmir=\E[4l, rmkx=\E[?1l\E>, rmso=\E[27m,
+      	rmul=\E[24m, rs1=\E]\E\\\Ec, sc=\E7,
+      	setab=\E[%?%p1%{8}%<%t4%p1%d%e%p1%{16}%<%t10%p1%{8}%-%d%e48;5;%p1%d%;m,
+      	setaf=\E[%?%p1%{8}%<%t3%p1%d%e%p1%{16}%<%t9%p1%{8}%-%d%e38;5;%p1%d%;m,
+      	sgr=%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p5%t;2%;%?%p2%t;4%;%?%p1%p3%|%t;7%;%?%p4%t;5%;%?%p7%t;8%;m,
+      	sgr0=\E(B\E[m, sitm=\E[3m, smacs=\E(0, smam=\E[?7h,
+      	smcup=\E[?1049h, smir=\E[4h, smkx=\E[?1h\E=, smso=\E[7m,
+      	smul=\E[4m, tbc=\E[3g, tsl=\E]2;, u6=\E[%i%d;%dR, u7=\E[6n,
+      	u8=\E[?%[;0123456789]c, u9=\E[c, vpa=\E[%i%p1%dd,
+      	BD=\E[?2004l, BE=\E[?2004h, Clmg=\E[s,
+      	Cmg=\E[%i%p1%d;%p2%ds, Dsmg=\E[?69l, E3=\E[3J,
+      	Enmg=\E[?69h, Ms=\E]52;%p1%s;%p2%s\007, PE=\E[201~,
+      	PS=\E[200~, RV=\E[>c, Se=\E[2 q,
+      	Setulc=\E[58\:2\:\:%p1%{65536}%/%d\:%p1%{256}%/%{255}%&%d\:%p1%{255}%&%d%;m,
+      	Smulx=\E[4\:%p1%dm, Ss=\E[%p1%d q,
+      	Sync=\E[?2026%?%p1%{1}%-%tl%eh%;,
+      	XM=\E[?1006;1000%?%p1%{1}%=%th%el%;, XR=\E[>0q,
+      	fd=\E[?1004l, fe=\E[?1004h, kDC3=\E[3;3~, kDC4=\E[3;4~,
+      	kDC5=\E[3;5~, kDC6=\E[3;6~, kDC7=\E[3;7~, kDN=\E[1;2B,
+      	kDN3=\E[1;3B, kDN4=\E[1;4B, kDN5=\E[1;5B, kDN6=\E[1;6B,
+      	kDN7=\E[1;7B, kEND3=\E[1;3F, kEND4=\E[1;4F,
+      	kEND5=\E[1;5F, kEND6=\E[1;6F, kEND7=\E[1;7F,
+      	kHOM3=\E[1;3H, kHOM4=\E[1;4H, kHOM5=\E[1;5H,
+      	kHOM6=\E[1;6H, kHOM7=\E[1;7H, kIC3=\E[2;3~, kIC4=\E[2;4~,
+      	kIC5=\E[2;5~, kIC6=\E[2;6~, kIC7=\E[2;7~, kLFT3=\E[1;3D,
+      	kLFT4=\E[1;4D, kLFT5=\E[1;5D, kLFT6=\E[1;6D,
+      	kLFT7=\E[1;7D, kNXT3=\E[6;3~, kNXT4=\E[6;4~,
+      	kNXT5=\E[6;5~, kNXT6=\E[6;6~, kNXT7=\E[6;7~,
+      	kPRV3=\E[5;3~, kPRV4=\E[5;4~, kPRV5=\E[5;5~,
+      	kPRV6=\E[5;6~, kPRV7=\E[5;7~, kRIT3=\E[1;3C,
+      	kRIT4=\E[1;4C, kRIT5=\E[1;5C, kRIT6=\E[1;6C,
+      	kRIT7=\E[1;7C, kUP=\E[1;2A, kUP3=\E[1;3A, kUP4=\E[1;4A,
+      	kUP5=\E[1;5A, kUP6=\E[1;6A, kUP7=\E[1;7A, kxIN=\E[I,
+      	kxOUT=\E[O, rmxx=\E[29m, rv=\E\\[[0-9]+;[0-9]+;[0-9]+c,
+      	setrgbb=\E[48\:2\:%p1%d\:%p2%d\:%p3%dm,
+      	setrgbf=\E[38\:2\:%p1%d\:%p2%d\:%p3%dm, smxx=\E[9m,
+      	xm=\E[<%i%p3%d;%p1%d;%p2%d;%?%p4%tM%em%;,
+      	xr=\EP>\\|[ -~]+a\E\\,
+
+  - path: /etc/motd.d/setta-devbox
+    permissions: "0644"
+    owner: root:root
+    content: |
+      Setta devbox bootstrap complete.
+      - Repo checkout: ${repo_checkout_path}
+      - Default Setta port: ${setta_port}
+      - Default CDP port: ${cdp_port}
+      - Start a persistent shell with: tmux new -As setta
+
+  - path: /usr/local/bin/setta-devbox-bootstrap
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      export DEBIAN_FRONTEND=noninteractive
+
+      apt-get update
+      apt-get install -y \
+        build-essential \
+        ca-certificates \
+        curl \
+        fd-find \
+        fonts-liberation \
+        git \
+        gnupg \
+        jq \
+        libasound2t64 \
+        libatk-bridge2.0-0 \
+        libatk1.0-0 \
+        libcairo2 \
+        libcups2 \
+        libdbus-1-3 \
+        libdrm2 \
+        libgbm1 \
+        libglib2.0-0 \
+        libgtk-3-0 \
+        libnspr4 \
+        libnss3 \
+        libpango-1.0-0 \
+        libu2f-udev \
+        libwayland-client0 \
+        libx11-6 \
+        libx11-xcb1 \
+        libxcb1 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxkbcommon0 \
+        libxrandr2 \
+        ncurses-bin \
+        openssh-server \
+        python3 \
+        python3-dev \
+        python3-pip \
+        python3-venv \
+        ripgrep \
+        tmux \
+        unzip \
+        xauth \
+        xdg-utils \
+        xvfb \
+        zip
+
+      install -d -m 0755 /etc/apt/keyrings
+      if [ ! -f /etc/apt/keyrings/google-chrome.gpg ]; then
+        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+          | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+      fi
+
+      cat >/etc/apt/sources.list.d/google-chrome.list <<'EOF'
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main
+      EOF
+
+      apt-get update
+      apt-get install -y google-chrome-stable
+
+      install -d -o ubuntu -g ubuntu /home/ubuntu/dev
+      install -d -o ubuntu -g ubuntu "${repo_checkout_path}"
+      install -d -m 0700 -o ubuntu -g ubuntu /home/ubuntu/.ssh
+      cat >/home/ubuntu/.ssh/authorized_keys <<'EOF'
+%{ for ssh_key in ssh_authorized_keys ~}
+      ${ssh_key}
+%{ endfor ~}
+      EOF
+      chown ubuntu:ubuntu /home/ubuntu/.ssh/authorized_keys
+      chmod 0600 /home/ubuntu/.ssh/authorized_keys
+
+      if [ -n "${repo_clone_url}" ] && [ ! -d "${repo_checkout_path}/.git" ]; then
+        sudo -u ubuntu -H git clone "${repo_clone_url}" "${repo_checkout_path}"
+      fi
+
+      sudo -u ubuntu -H bash -lc '
+        set -euo pipefail
+        export NVM_DIR="$HOME/.nvm"
+        if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+          curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+        fi
+        . "$NVM_DIR/nvm.sh"
+        nvm install "${node_version}"
+        nvm alias default "${node_version}"
+        corepack enable
+        npm install -g @openai/codex@latest
+        install -d -m 0700 "$HOME/.codex"
+        printf '\''cli_auth_credentials_store = "file"\n'\'' > "$HOME/.codex/config.toml"
+      '
+
+      sudo -u ubuntu -H bash -lc '
+        set -euo pipefail
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+      '
+
+      chown -R ubuntu:ubuntu /home/ubuntu/dev
+      install -d -m 0700 -o ubuntu -g ubuntu /home/ubuntu/.terminfo
+      sudo -u ubuntu -H env HOME=/home/ubuntu tic -x -o /home/ubuntu/.terminfo /usr/local/share/setta-devbox/terminfo/xterm-ghostty.terminfo
+      sudo -u ubuntu -H env HOME=/home/ubuntu bash -lc 'tmux start-server >/dev/null 2>&1 || true; tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true'
+      systemctl enable --now ssh
+
+  - path: /usr/local/bin/setta-devbox-install-repo
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      REPO_DIR="$${1:-$${SETTA_DEVBOX_REPO_CHECKOUT:-${repo_checkout_path}}}"
+      export PATH="$${HOME}/.local/bin:$${PATH}"
+      if [ -s "$${HOME}/.nvm/nvm.sh" ]; then
+        . "$${HOME}/.nvm/nvm.sh"
+        nvm use default >/dev/null
+      fi
+      cd "$${REPO_DIR}"
+      ./dev_install.sh
+      cd frontend
+      pnpm build
+      cd ..
+      mkdir -p backend/setta/static
+      rm -rf backend/setta/static/frontend
+      cp -r frontend/dist backend/setta/static/frontend
+      cd frontend
+      pnpm exec playwright install chromium
+
+  - path: /usr/local/bin/setta-devbox-prepare-repo
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      REPO_DIR="$${SETTA_DEVBOX_REPO_CHECKOUT:-${repo_checkout_path}}"
+      REPO_REMOTE_URL="$${SETTA_DEVBOX_REPO_REMOTE_URL:-$${SETTA_DEVBOX_REPO_CLONE_URL:-}}"
+      REPO_BRANCH="$${SETTA_DEVBOX_REPO_BRANCH:-}"
+
+      if [ -d "$${REPO_DIR}/.git" ] || [ -f "$${REPO_DIR}/.git" ]; then
+        if [ -z "$${REPO_REMOTE_URL}" ]; then
+          exit 0
+        fi
+
+        CURRENT_REMOTE_URL="$$(git -C "$${REPO_DIR}" remote get-url origin 2>/dev/null || true)"
+        if [ -z "$${CURRENT_REMOTE_URL}" ]; then
+          git -C "$${REPO_DIR}" remote add origin "$${REPO_REMOTE_URL}"
+          exit 0
+        fi
+
+        if [ "$${CURRENT_REMOTE_URL}" != "$${REPO_REMOTE_URL}" ]; then
+          git -C "$${REPO_DIR}" remote set-url origin "$${REPO_REMOTE_URL}"
+        fi
+        exit 0
+      fi
+
+      if [ -z "$${REPO_REMOTE_URL}" ]; then
+        exit 0
+      fi
+
+      install -d "$$(dirname "$${REPO_DIR}")"
+      if [ -n "$${REPO_BRANCH}" ]; then
+        exec git clone --branch "$${REPO_BRANCH}" "$${REPO_REMOTE_URL}" "$${REPO_DIR}"
+      fi
+
+      exec git clone "$${REPO_REMOTE_URL}" "$${REPO_DIR}"
+
+  - path: /usr/local/bin/setta-devbox-ensure-ready
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      REPO_DIR="$${SETTA_DEVBOX_REPO_CHECKOUT:-${repo_checkout_path}}"
+      START_DIR="$${1:-$${REPO_DIR}}"
+      SHELL_MODE="$${2:-preserve}"
+
+      /usr/local/bin/setta-devbox-prepare-repo
+
+      shell_window_command() {
+        printf "bash -lc 'cd %q && exec bash'" "$${START_DIR}"
+      }
+
+      ensure_window() {
+        window_name="$${1}"
+        window_command="$${2}"
+
+        if ! tmux list-windows -t setta -F '#{window_name}' 2>/dev/null | grep -Fxq "$${window_name}"; then
+          tmux new-window -d -t setta -n "$${window_name}" "$${window_command}"
+          return
+        fi
+
+        pane_dead="$$(tmux display-message -p -t "setta:$${window_name}" '#{pane_dead}')"
+        if [ "$${pane_dead}" = "1" ]; then
+          tmux respawn-window -k -t "setta:$${window_name}" "$${window_command}"
+        fi
+      }
+
+      tmux start-server >/dev/null 2>&1 || true
+      tmux source-file "$${HOME}/.tmux.conf" >/dev/null 2>&1 || true
+
+      if ! tmux has-session -t setta 2>/dev/null; then
+        tmux new-session -d -s setta -n shell "$$(shell_window_command)"
+      fi
+
+      tmux set-option -t setta allow-rename off >/dev/null 2>&1 || true
+      if [ -n "$${SSH_AUTH_SOCK:-}" ]; then
+        tmux set-environment -t setta SSH_AUTH_SOCK "$${SSH_AUTH_SOCK}" >/dev/null 2>&1 || true
+      else
+        tmux set-environment -t setta -r SSH_AUTH_SOCK >/dev/null 2>&1 || true
+      fi
+
+      if ! tmux list-windows -t setta -F '#{window_name}' 2>/dev/null | grep -Fxq shell; then
+        tmux new-window -d -t setta -n shell "$$(shell_window_command)"
+      fi
+
+      shell_pane_dead="$$(tmux display-message -p -t setta:shell '#{pane_dead}' 2>/dev/null || echo 0)"
+      if [ "$${shell_pane_dead}" = "1" ] || [ "$${SHELL_MODE}" = "reset" ]; then
+        tmux respawn-window -k -t setta:shell "$$(shell_window_command)"
+      fi
+
+      ensure_window app "bash -lc 'cd \"$${REPO_DIR}\" && exec setta-devbox-run-setta'"
+      ensure_window chrome "bash -lc 'cd \"$${REPO_DIR}\" && exec setta-devbox-start-chrome'"
+
+  - path: /usr/local/bin/setta-devbox-attach
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      START_DIR="$${1:-$${SETTA_DEVBOX_REPO_CHECKOUT:-${repo_checkout_path}}}"
+      SHELL_MODE="$${2:-preserve}"
+
+      /usr/local/bin/setta-devbox-ensure-ready "$${START_DIR}" "$${SHELL_MODE}"
+      tmux select-window -t setta:shell >/dev/null 2>&1 || true
+      exec tmux attach-session -t setta
+
+  - path: /usr/local/bin/setta-devbox-run-setta
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      REPO_DIR="$${SETTA_DEVBOX_REPO_CHECKOUT:-${repo_checkout_path}}"
+      PORT="$${SETTA_PORT:-${setta_port}}"
+      cd "$${REPO_DIR}"
+      source .venv/bin/activate
+      exec setta --host 127.0.0.1 --port "$${PORT}" --no-open
+
+  - path: /usr/local/bin/setta-devbox-start-chrome
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      export DISPLAY="$${DISPLAY:-:99}"
+      PORT="$${1:-$${SETTA_DEVBOX_CDP_PORT:-${cdp_port}}}"
+      USER_DATA_DIR="$${HOME}/.config/setta-devbox-chrome"
+
+      if ! pgrep -f "Xvfb $${DISPLAY}" >/dev/null 2>&1; then
+        nohup Xvfb "$${DISPLAY}" -screen 0 1920x1080x24 >/tmp/setta-devbox-xvfb.log 2>&1 &
+        sleep 1
+      fi
+
+      install -d "$${USER_DATA_DIR}"
+
+      exec /usr/bin/google-chrome-stable \
+        --disable-background-networking \
+        --disable-dev-shm-usage \
+        --no-default-browser-check \
+        --no-first-run \
+        --remote-debugging-address=127.0.0.1 \
+        --remote-debugging-port="$${PORT}" \
+        --user-data-dir="$${USER_DATA_DIR}" \
+        about:blank
+
+runcmd:
+  - [bash, -lc, "/usr/local/bin/setta-devbox-bootstrap"]
