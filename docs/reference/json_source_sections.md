@@ -33,14 +33,11 @@ The section’s top-level params are mapped to:
 
 ## Load flow (file → params)
 1. The JSON source watcher discovers all `isJsonSource` variants and watches their file paths.
-2. On a file change, the Go runtime reads the file through
-   `readOrderedJSONSourceObject`, which supports `.json`, `.yaml` / `.yml`, and
-   `.toml` source files.
-3. The JSON-source loader converts the structured object to code objects:
+2. On a file change, the backend reads the file via `DBE.read_json` (JSON only).
+3. `JSONSource.process_json_object` converts the JSON object to code objects:
    - **dict** → `NestedParam` code objects.
    - **non-dict** (strings, numbers, lists, bools, null) → `CodeParam` with `value=json.dumps(value)`.
-4. `LoadAllJSONSourceVariantsFromDisk` / `ReloadJSONSourceBindingsFromDisk`
-   merge the processed tree into the project state by **name path**:
+4. `load_json_sources_into_data_structures` merges the processed tree into the project state by **name path**:
    - Reuses existing code objects when name paths match.
    - Updates children/value fields.
    - Deletes code objects that no longer exist in the file.
@@ -48,24 +45,17 @@ The section’s top-level params are mapped to:
    - Marks `jsonSourceMissing` if the file is absent (no merge happens in that case).
 
 ## Save flow (params → file)
-- The app save/autosave path calls `SaveJSONSourceFiles` before persisting `project.json`:
-  - It rebuilds a nested object tree from the section params and converts stored
-    leaf values back into structured data.
+- Autosave calls `save_json_source_data` before writing `project.json`:
+  - `traverse_hierarchy(..., build_nested_dict=True)` rebuilds a nested dict and uses `try_json` to turn JSON-encoded strings back into proper JSON types.
   - `jsonSourceKeys` is ensured to exist even if empty.
-  - The file is written back using the source file's extension-specific encoder
-    (`.json`, `.yaml` / `.yml`, or `.toml`).
-- `ClearJSONSourceValuesForPersistence` clears the in-project values so the
-  source file remains the canonical on-disk store for those values.
+  - `DBE.write_json` writes the file (indent=2, sort_keys=True).
+- `remove_json_source_values` clears the in-project values so JSON sources remain the canonical storage for those values.
 
-## Formats: JSON, YAML, and TOML
-- JSON source files can use `.json`, `.yaml` / `.yml`, or `.toml`.
-- The root payload must still be an **object** for every supported format.
-- Leaf values must remain JSON-compatible (`string`, number, bool, null,
-  arrays, and nested objects with string keys).
-- YAML/TOML-only value shapes outside that JSON-compatible set are rejected by
-  the validation/load path.
-- Save keeps the file extension and writes the same structured format back out.
-- Unsupported extensions fail validation/load.
+## Formats: JSON vs YAML/TOML
+- **JSON is the only supported storage format** for JSON source files. The backend uses `json.loads`/`json.dumps`.
+- **YAML** only appears in UI display mode (`SectionWithParamsDisplayMode.Yaml`) and readable exports; it is **not** used for JSON source loading/saving.
+- **TOML** is not parsed in the JSON source flow.
+- Pointing a JSON source at a `.yaml` or `.toml` file will fail to parse as JSON.
 
 ## Notes / gotchas
 - The JSON source file must be an **object** at the root. Arrays are treated as leaf values, not nested params.
@@ -94,8 +84,8 @@ On save:
 - If a deeper update would write into a non-dict value, save raises: `ValueError("JSON source path conflicts with a non-dict value.")`.
 
 ## Code references
-- `internal/projectstate/json_source_load.go`
-- `internal/projectstate/json_source_save.go`
-- `internal/projectstate/json_source_keys_validation.go`
-- `internal/projectstate/json_source_watch.go`
-- `internal/jsonsourcewatch/service.go`
+- `backend/setta/project_state/jsonSource/jsonSource.py`
+- `backend/setta/project_state/jsonSource/load.py`
+- `backend/setta/project_state/jsonSource/save.py`
+- `backend/setta/database/db_objs.py`
+- `backend/setta/project_state/base_project_manager.py`

@@ -53,171 +53,35 @@ import {
   TempCanvasesType,
 } from "./types";
 
-type CanvasMouseHandler = React.MouseEventHandler<HTMLCanvasElement>;
-
-type DrawingMouseDownHandler = (
-  e: React.MouseEvent<HTMLCanvasElement>,
-  offsetX?: number | null,
-  offsetY?: number | null,
-) => void;
-
-type DrawModeMouseHandlersArgs = {
-  layers: Array<DrawAreaLayer>;
-  sectionId: string;
-  strokeRef: React.RefObject<BrushStrokeArtifact | null>;
-  eraserStrokeRef: React.RefObject<BrushStroke | null>;
-  prevPointRef: React.RefObject<CanvasPoint | null>;
-  eraserBrushSize: number;
-  brushShape: DrawAreaBrushShape;
-  isDrawing: React.RefObject<boolean>;
-  isDragging: React.RefObject<boolean>;
-  draggedIdx: React.RefObject<number | null>;
-  lastPos: React.RefObject<CanvasPointXY | null>;
-  selectedIdx: React.RefObject<number | null>;
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  drawThrottleDelay: number;
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
-  tempCanvasRefs: React.RefObject<TempCanvasesType>;
-  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>;
-  activeLayerIdx: number;
-  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>;
-  canvasMode: DrawAreaMode;
-  notifyRealtimeDirty: () => void;
-  flushRealtimeSnapshot: () => void;
-};
-
-type DrawingMouseDownArgs = {
-  layers: Array<DrawAreaLayer>;
-  strokeRef: React.RefObject<BrushStrokeArtifact | null>;
-  eraserStrokeRef: React.RefObject<BrushStroke | null>;
-  eraserBrushSize: number;
-  brushShape: DrawAreaBrushShape;
-  prevPointRef: React.RefObject<CanvasPoint | null>;
-  isDrawingRef: React.RefObject<boolean>;
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
-  tempCanvasRefs: React.RefObject<TempCanvasesType>;
-  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>;
-  activeLayerIdx: number;
-  canvasMode: DrawAreaMode;
-  notifyRealtimeDirty: () => void;
-};
-
-type DrawingMouseMoveArgs = {
-  layers: Array<DrawAreaLayer>;
-  strokeRef: React.RefObject<BrushStrokeArtifact | null>;
-  eraserStrokeRef: React.RefObject<BrushStroke | null>;
-  prevPointRef: React.RefObject<CanvasPoint | null>;
-  isDrawingRef: React.RefObject<boolean>;
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
-  tempCanvasRefs: React.RefObject<TempCanvasesType>;
-  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>;
-  activeLayerIdx: number;
-  canvasMode: DrawAreaMode;
-  notifyRealtimeDirty: () => void;
-};
-
-type DrawingMouseUpArgs = {
-  sectionId: string;
-  layers: Array<DrawAreaLayer>;
-  eraserStrokeRef: React.RefObject<BrushStroke | null>;
-  isDrawingRef: React.RefObject<boolean>;
-  activeLayerIdx: number;
-  strokeRef: React.RefObject<BrushStrokeArtifact | null>;
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
-  tempCanvasRefs: React.RefObject<TempCanvasesType>;
-  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasMode: DrawAreaMode;
-  flushRealtimeSnapshot: () => void;
-};
-
-type EditModeMouseDownArgs = {
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
-  selectedIdx: React.RefObject<number | null>;
-  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>;
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  lastPos: React.RefObject<CanvasPointXY | null>;
-  draggedIdx: React.RefObject<number | null>;
-  isDragging: React.RefObject<boolean>;
-  activeLayerIdx: number;
-};
-
-type EditModeMouseMoveArgs = {
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
-  isDragging: React.RefObject<boolean>;
-  lastPos: React.RefObject<CanvasPointXY | null>;
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  selectedIdx: React.RefObject<number | null>;
-  draggedIdx: React.RefObject<number | null>;
-  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>;
-  activeLayerIdx: number;
-};
-
-type EditModeMouseUpArgs = {
-  sectionId: string;
-  isDragging: React.RefObject<boolean>;
-  draggedIdx: React.RefObject<number | null>;
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  activeLayerIdx: number;
-  layers: Array<DrawAreaLayer>;
-  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>;
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
-  tempCanvasRefs: React.RefObject<TempCanvasesType>;
-  flushRealtimeSnapshot: () => void;
-};
-
-type ResizeBounds =
-  | ReturnType<typeof getImageBounds>
-  | ReturnType<typeof getBrushStrokesBounds>;
-
-type BrushResizeHandleConfig = {
-  widthDirection: -1 | 1;
-  heightDirection: -1 | 1;
-  anchorX: "minX" | "maxX";
-  anchorY: "minY" | "maxY";
-};
-
-const BRUSH_RESIZE_HANDLE_CONFIGS: Array<BrushResizeHandleConfig> = [
-  { widthDirection: -1, heightDirection: -1, anchorX: "maxX", anchorY: "maxY" },
-  { widthDirection: 1, heightDirection: -1, anchorX: "minX", anchorY: "maxY" },
-  { widthDirection: -1, heightDirection: 1, anchorX: "maxX", anchorY: "minY" },
-  { widthDirection: 1, heightDirection: 1, anchorX: "minX", anchorY: "minY" },
-];
-
-export function useDrawModeMouseHandlers({
-  layers,
-  sectionId,
-  strokeRef,
-  eraserStrokeRef,
-  prevPointRef,
-  eraserBrushSize,
-  brushShape,
-  isDrawing,
-  isDragging,
-  draggedIdx,
-  lastPos,
-  selectedIdx,
-  resizeHandle,
-  resizeHandleCorners,
-  drawThrottleDelay: _drawThrottleDelay,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  draftCanvasRef,
-  activeLayerIdx,
-  localArtifactTransformsRef,
-  canvasMode,
-  notifyRealtimeDirty,
-  flushRealtimeSnapshot,
-}: DrawModeMouseHandlersArgs) {
-  void _drawThrottleDelay;
-
-  let onMouseDown: DrawingMouseDownHandler;
-  let onMouseMove: CanvasMouseHandler;
-  let onMouseUp: CanvasMouseHandler;
-  let onMouseEnter: CanvasMouseHandler;
+export function useDrawModeMouseHandlers(
+  layers: Array<DrawAreaLayer>,
+  sectionId: string,
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>,
+  eraserStrokeRef: React.RefObject<BrushStroke | null>,
+  prevPointRef: React.RefObject<CanvasPoint | null>,
+  eraserBrushSize: number,
+  brushShape: DrawAreaBrushShape,
+  isDrawing: React.RefObject<boolean>,
+  isDragging: React.RefObject<boolean>,
+  draggedIdx: React.RefObject<number | null>,
+  lastPos: React.RefObject<CanvasPointXY | null>,
+  selectedIdx: React.RefObject<number | null>,
+  resizeHandle: React.RefObject<ResizeHandle | null>,
+  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>,
+  drawThrottleDelay: number,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  activeLayerIdx: number,
+  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>,
+  canvasMode: DrawAreaMode,
+  notifyRealtimeDirty: () => void,
+  flushRealtimeSnapshot: () => void,
+) {
+  let onMouseDown: React.MouseEventHandler<HTMLCanvasElement>,
+    onMouseMove: React.MouseEventHandler<HTMLCanvasElement>,
+    onMouseUp: React.MouseEventHandler<HTMLCanvasElement>,
+    onMouseEnter: React.MouseEventHandler<HTMLCanvasElement>;
 
   const activeLayer = layers[activeLayerIdx];
 
@@ -277,41 +141,42 @@ export function useDrawModeMouseHandlers({
     canvasMode === DrawAreaModeEnum.draw ||
     canvasMode === DrawAreaModeEnum.erase
   ) {
-    onMouseDown = drawingOnMouseDown({
+    onMouseDown = drawingOnMouseDown(
       layers,
       strokeRef,
       eraserStrokeRef,
       eraserBrushSize,
       brushShape,
       prevPointRef,
-      isDrawingRef: isDrawing,
+      isDrawing,
       layerCanvasRefs,
       tempCanvasRefs,
       draftCanvasRef,
       activeLayerIdx,
       canvasMode,
       notifyRealtimeDirty,
-    });
+    );
 
-    onMouseMove = drawingOnMouseMove({
+    onMouseMove = drawingOnMouseMove(
+      sectionId,
       layers,
       strokeRef,
       eraserStrokeRef,
       prevPointRef,
-      isDrawingRef: isDrawing,
+      isDrawing,
       layerCanvasRefs,
       tempCanvasRefs,
       draftCanvasRef,
       activeLayerIdx,
       canvasMode,
       notifyRealtimeDirty,
-    });
+    );
 
-    onMouseUp = drawingOnMouseUp({
+    onMouseUp = drawingOnMouseUp(
       sectionId,
       layers,
       eraserStrokeRef,
-      isDrawingRef: isDrawing,
+      isDrawing,
       activeLayerIdx,
       strokeRef,
       layerCanvasRefs,
@@ -319,7 +184,7 @@ export function useDrawModeMouseHandlers({
       draftCanvasRef,
       canvasMode,
       flushRealtimeSnapshot,
-    });
+    );
 
     onMouseEnter = drawingOnMouseEnter({
       canvasMode,
@@ -457,21 +322,21 @@ function syncLocalTransformsForEditMode(
   });
 }
 
-function drawingOnMouseDown({
-  layers,
-  strokeRef,
-  eraserStrokeRef,
-  eraserBrushSize,
-  brushShape,
-  prevPointRef,
-  isDrawingRef,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  draftCanvasRef,
-  activeLayerIdx,
-  canvasMode,
-  notifyRealtimeDirty,
-}: DrawingMouseDownArgs): DrawingMouseDownHandler {
+function drawingOnMouseDown(
+  layers: Array<DrawAreaLayer>,
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>,
+  eraserStrokeRef: React.RefObject<BrushStroke | null>,
+  eraserBrushSize: number,
+  brushShape: DrawAreaBrushShape,
+  prevPointRef: React.RefObject<CanvasPoint | null>,
+  isDrawingRef: React.RefObject<boolean>,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  activeLayerIdx: number,
+  canvasMode: DrawAreaMode,
+  notifyRealtimeDirty: () => void,
+): React.MouseEventHandler<HTMLCanvasElement> {
   return (e, offsetX: number | null = null, offsetY: number | null = null) => {
     isDrawingRef.current = true;
     const point: CanvasPoint =
@@ -504,19 +369,20 @@ function drawingOnMouseDown({
   };
 }
 
-function drawingOnMouseMove({
-  layers,
-  strokeRef,
-  eraserStrokeRef,
-  prevPointRef,
-  isDrawingRef,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  draftCanvasRef,
-  activeLayerIdx,
-  canvasMode,
-  notifyRealtimeDirty,
-}: DrawingMouseMoveArgs): CanvasMouseHandler {
+function drawingOnMouseMove(
+  sectionId: string,
+  layers: Array<DrawAreaLayer>,
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>,
+  eraserStrokeRef: React.RefObject<BrushStroke | null>,
+  prevPointRef: React.RefObject<CanvasPoint | null>,
+  isDrawingRef: React.RefObject<boolean>,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  activeLayerIdx: number,
+  canvasMode: DrawAreaMode,
+  notifyRealtimeDirty: () => void,
+): React.MouseEventHandler<HTMLCanvasElement> {
   return (e) => {
     if (!isDrawingRef.current) {
       return;
@@ -556,19 +422,19 @@ function drawingOnMouseMove({
   };
 }
 
-function drawingOnMouseUp({
-  sectionId,
-  layers,
-  eraserStrokeRef,
-  isDrawingRef,
-  activeLayerIdx,
-  strokeRef,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  draftCanvasRef,
-  canvasMode,
-  flushRealtimeSnapshot,
-}: DrawingMouseUpArgs): () => void {
+function drawingOnMouseUp(
+  sectionId: string,
+  layers: Array<DrawAreaLayer>,
+  eraserStrokeRef: React.RefObject<BrushStroke | null>,
+  isDrawingRef: React.RefObject<boolean>,
+  activeLayerIdx: number,
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  canvasMode: DrawAreaMode,
+  flushRealtimeSnapshot: () => void,
+) {
   return () => {
     if (!isDrawingRef.current) {
       return;
@@ -584,21 +450,79 @@ function drawingOnMouseUp({
     }
 
     if (canvasMode === DrawAreaModeEnum.erase) {
-      const touchedTransformIds = finishEraserStroke({
-        sectionId,
-        layer,
-        layerCanvas,
-        eraserStrokeRef,
-        tempCanvasRefs,
-      });
-      if (touchedTransformIds.length > 0) {
-        queueTransformsForSave(touchedTransformIds);
+      const images = useDecodedImages.getState().x;
+      const brushStrokes = useBrushStrokes.getState().x;
+      const layer = layers[activeLayerIdx];
+      if (!layer) {
+        return;
       }
-      flushRealtimeSnapshot();
-      return;
-    }
+      const touchedTransformIds = new Set<string>();
+      useDrawAreaLayerItemTransform.setState((state) => {
+        if (!eraserStrokeRef.current) {
+          return;
+        }
+        const changedIds: Array<string> = [];
+        for (const el of layer.elements) {
+          const artifact = state.x[el.transformId];
+          if (!artifact) {
+            continue;
+          }
+          const inverseTransform = getInverseTransform(
+            artifact.value.transform,
+          );
+          let bounds;
+          if (el.type === ArtifactTypeEnum.Image) {
+            const img = images[el.dataPath];
+            if (img) {
+              bounds = getImageBounds(img, artifact.value.transform);
+            }
+          } else if (el.type === ArtifactTypeEnum.BrushStroke) {
+            const brushStroke = brushStrokes[el.dataPath];
+            if (brushStroke) {
+              bounds = getBrushStrokesBounds(
+                brushStroke.value,
+                artifact.value.transform,
+              );
+            }
+          }
 
-    if (canvasMode === DrawAreaModeEnum.draw) {
+          const intersectingPath = filterEraserPath(
+            eraserStrokeRef.current.points,
+            eraserStrokeRef.current.lineWidth,
+            eraserStrokeRef.current.lineCap,
+            bounds,
+          );
+          if (intersectingPath.length === 0) {
+            continue;
+          }
+          artifact.value.eraserStrokes.push({
+            ...eraserStrokeRef.current,
+            points: intersectingPath,
+            transform: inverseTransform,
+          });
+          touchedTransformIds.add(el.transformId);
+          changedIds.push(el.transformId);
+        }
+        if (changedIds.length > 0) {
+          const revisions = bumpLocalRevisions(
+            {
+              revisionById: state.revisionById,
+              localRevisionById: state.localRevisionById,
+            },
+            changedIds,
+            sectionId,
+          );
+          state.revisionById = revisions.revisionById;
+          state.localRevisionById = revisions.localRevisionById;
+        }
+      });
+
+      eraserStrokeRef.current = null;
+      drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
+      if (touchedTransformIds.size > 0) {
+        queueTransformsForSave(Array.from(touchedTransformIds));
+      }
+    } else if (canvasMode === DrawAreaModeEnum.draw) {
       if (!strokeRef.current || !draftCanvasRef.current) {
         return;
       }
@@ -614,108 +538,6 @@ function drawingOnMouseUp({
     }
     flushRealtimeSnapshot();
   };
-}
-
-function finishEraserStroke({
-  sectionId,
-  layer,
-  layerCanvas,
-  eraserStrokeRef,
-  tempCanvasRefs,
-}: {
-  sectionId: string;
-  layer: DrawAreaLayer;
-  layerCanvas: HTMLCanvasElement;
-  eraserStrokeRef: React.RefObject<BrushStroke | null>;
-  tempCanvasRefs: React.RefObject<TempCanvasesType>;
-}): Array<string> {
-  const eraserStroke = eraserStrokeRef.current;
-  if (!eraserStroke) {
-    return [];
-  }
-
-  const images = useDecodedImages.getState().x;
-  const brushStrokes = useBrushStrokes.getState().x;
-  const touchedTransformIds = new Set<string>();
-
-  useDrawAreaLayerItemTransform.setState((state) => {
-    const changedIds: Array<string> = [];
-    for (const element of layer.elements) {
-      const artifact = state.x[element.transformId];
-      if (!artifact) {
-        continue;
-      }
-
-      const bounds = getErasableBounds({
-        element,
-        transform: artifact.value.transform,
-        images,
-        brushStrokes,
-      });
-      const intersectingPath = filterEraserPath(
-        eraserStroke.points,
-        eraserStroke.lineWidth,
-        eraserStroke.lineCap,
-        bounds,
-      );
-      if (intersectingPath.length === 0) {
-        continue;
-      }
-
-      artifact.value.eraserStrokes.push({
-        ...eraserStroke,
-        points: intersectingPath,
-        transform: getInverseTransform(artifact.value.transform),
-      });
-      touchedTransformIds.add(element.transformId);
-      changedIds.push(element.transformId);
-    }
-
-    if (changedIds.length === 0) {
-      return;
-    }
-
-    const revisions = bumpLocalRevisions(
-      {
-        revisionById: state.revisionById,
-        localRevisionById: state.localRevisionById,
-      },
-      changedIds,
-      sectionId,
-    );
-    state.revisionById = revisions.revisionById;
-    state.localRevisionById = revisions.localRevisionById;
-  });
-
-  eraserStrokeRef.current = null;
-  drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
-  return Array.from(touchedTransformIds);
-}
-
-function getErasableBounds({
-  element,
-  transform,
-  images,
-  brushStrokes,
-}: {
-  element: DrawAreaLayer["elements"][number];
-  transform: LocalLayerItemState["transform"];
-  images: ReturnType<typeof useDecodedImages.getState>["x"];
-  brushStrokes: ReturnType<typeof useBrushStrokes.getState>["x"];
-}): ResizeBounds | undefined {
-  if (element.type === ArtifactTypeEnum.Image) {
-    const image = images[element.dataPath];
-    return image ? getImageBounds(image, transform) : undefined;
-  }
-
-  if (element.type === ArtifactTypeEnum.BrushStroke) {
-    const brushStroke = brushStrokes[element.dataPath];
-    return brushStroke
-      ? getBrushStrokesBounds(brushStroke.value, transform)
-      : undefined;
-  }
-
-  return undefined;
 }
 
 function drawingOnMouseEnter({
@@ -748,177 +570,81 @@ function drawingOnMouseEnter({
   tempCanvasRefs: React.RefObject<TempCanvasesType>;
   activeLayerIdx: number;
   notifyRealtimeDirty: () => void;
-}): CanvasMouseHandler {
+}): React.MouseEventHandler<HTMLCanvasElement> {
   return (e) => {
-    const draftCanvas = draftCanvasRef.current;
-    if (!draftCanvas || e.buttons !== 1) {
+    if (!draftCanvasRef.current || e.buttons !== 1) {
       return;
     }
 
-    const { x: offsetX, y: offsetY } = getCanvasMousePoint(draftCanvas, e);
+    const zoom = getZoom();
+    const rect = draftCanvasRef.current.getBoundingClientRect();
+    const offsetX = (e.clientX - rect.left) / zoom;
+    const offsetY = (e.clientY - rect.top) / zoom;
     const point: CanvasPoint = [offsetX, offsetY];
 
-    if (
-      resumeDrawStrokeOnMouseEnter({
-        canvasMode,
-        point,
-        draftCanvas,
-        onMouseDown,
-        strokeRef,
-        prevPointRef,
-        isDrawingRef,
-        notifyRealtimeDirty,
-        event: e,
-      })
-    ) {
+    if (canvasMode === DrawAreaModeEnum.draw) {
+      const activeStroke = strokeRef.current;
+      if (!activeStroke) {
+        onMouseDown(e, offsetX, offsetY);
+        return;
+      }
+
+      const points = activeStroke.value.points;
+      if (points.length > 0) {
+        const lastPoint = points[points.length - 1];
+        if (lastPoint !== "BREAK") {
+          points.push("BREAK");
+        }
+      }
+      points.push(point);
+
+      drawStroke(draftCanvasRef.current, point, point);
+      prevPointRef.current = point;
+      isDrawingRef.current = true;
+      notifyRealtimeDirty();
       return;
     }
 
-    if (
-      resumeEraserStrokeOnMouseEnter({
-        canvasMode,
-        point,
-        onMouseDown,
-        eraserStrokeRef,
-        prevPointRef,
-        isDrawingRef,
+    if (canvasMode === DrawAreaModeEnum.erase) {
+      const activeEraserStroke = eraserStrokeRef.current;
+      if (!activeEraserStroke) {
+        onMouseDown(e, offsetX, offsetY);
+        return;
+      }
+
+      const points = activeEraserStroke.points;
+      if (points.length > 0) {
+        const lastPoint = points[points.length - 1];
+        if (lastPoint !== "BREAK") {
+          points.push("BREAK");
+        }
+      }
+      points.push(point);
+
+      prevPointRef.current = point;
+      isDrawingRef.current = true;
+
+      const [layer, layerCanvas] = getActiveLayerAndCanvas(
         layers,
         layerCanvasRefs,
-        tempCanvasRefs,
         activeLayerIdx,
-        notifyRealtimeDirty,
-        event: e,
-      })
-    ) {
+      );
+      if (layer && layerCanvas) {
+        drawOneLayer(
+          layer,
+          layerCanvas,
+          tempCanvasRefs,
+          [],
+          null,
+          activeEraserStroke,
+        );
+        notifyRealtimeDirty();
+      }
       return;
     }
 
     onMouseDown(e, offsetX, offsetY);
   };
-}
-
-function getCanvasMousePoint(
-  canvas: HTMLCanvasElement,
-  event: React.MouseEvent<HTMLCanvasElement>,
-): CanvasPointXY {
-  const rect = canvas.getBoundingClientRect();
-  const zoom = getZoom();
-  return {
-    x: (event.clientX - rect.left) / zoom,
-    y: (event.clientY - rect.top) / zoom,
-  };
-}
-
-function pushBreakPoint(
-  points: Array<CanvasPoint | "BREAK">,
-  point: CanvasPoint,
-) {
-  const lastPoint = points[points.length - 1];
-  if (points.length > 0 && lastPoint !== "BREAK") {
-    points.push("BREAK");
-  }
-  points.push(point);
-}
-
-function resumeDrawStrokeOnMouseEnter({
-  canvasMode,
-  point,
-  draftCanvas,
-  onMouseDown,
-  strokeRef,
-  prevPointRef,
-  isDrawingRef,
-  notifyRealtimeDirty,
-  event,
-}: {
-  canvasMode: DrawAreaMode;
-  point: CanvasPoint;
-  draftCanvas: HTMLCanvasElement;
-  onMouseDown: DrawingMouseDownHandler;
-  strokeRef: React.RefObject<BrushStrokeArtifact | null>;
-  prevPointRef: React.RefObject<CanvasPoint | null>;
-  isDrawingRef: React.RefObject<boolean>;
-  notifyRealtimeDirty: () => void;
-  event: React.MouseEvent<HTMLCanvasElement>;
-}): boolean {
-  if (canvasMode !== DrawAreaModeEnum.draw) {
-    return false;
-  }
-
-  const activeStroke = strokeRef.current;
-  if (!activeStroke) {
-    onMouseDown(event, point[0], point[1]);
-    return true;
-  }
-
-  pushBreakPoint(activeStroke.value.points, point);
-  drawStroke(draftCanvas, point, point);
-  prevPointRef.current = point;
-  isDrawingRef.current = true;
-  notifyRealtimeDirty();
-  return true;
-}
-
-function resumeEraserStrokeOnMouseEnter({
-  canvasMode,
-  point,
-  onMouseDown,
-  eraserStrokeRef,
-  prevPointRef,
-  isDrawingRef,
-  layers,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  activeLayerIdx,
-  notifyRealtimeDirty,
-  event,
-}: {
-  canvasMode: DrawAreaMode;
-  point: CanvasPoint;
-  onMouseDown: DrawingMouseDownHandler;
-  eraserStrokeRef: React.RefObject<BrushStroke | null>;
-  prevPointRef: React.RefObject<CanvasPoint | null>;
-  isDrawingRef: React.RefObject<boolean>;
-  layers: Array<DrawAreaLayer>;
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
-  tempCanvasRefs: React.RefObject<TempCanvasesType>;
-  activeLayerIdx: number;
-  notifyRealtimeDirty: () => void;
-  event: React.MouseEvent<HTMLCanvasElement>;
-}): boolean {
-  if (canvasMode !== DrawAreaModeEnum.erase) {
-    return false;
-  }
-
-  const activeEraserStroke = eraserStrokeRef.current;
-  if (!activeEraserStroke) {
-    onMouseDown(event, point[0], point[1]);
-    return true;
-  }
-
-  pushBreakPoint(activeEraserStroke.points, point);
-  prevPointRef.current = point;
-  isDrawingRef.current = true;
-
-  const [layer, layerCanvas] = getActiveLayerAndCanvas(
-    layers,
-    layerCanvasRefs,
-    activeLayerIdx,
-  );
-  if (!layer || !layerCanvas) {
-    return true;
-  }
-
-  drawOneLayer(
-    layer,
-    layerCanvas,
-    tempCanvasRefs,
-    [],
-    null,
-    activeEraserStroke,
-  );
-  notifyRealtimeDirty();
-  return true;
 }
 
 function editingOnMouseDown({
@@ -931,218 +657,100 @@ function editingOnMouseDown({
   draggedIdx,
   isDragging,
   activeLayerIdx,
-}: EditModeMouseDownArgs): (
-  event: React.MouseEvent<HTMLCanvasElement>,
-) => boolean {
+}) {
   return (e) => {
     const canvas = layerCanvasRefs.current[activeLayerIdx];
     if (!canvas) {
       return false;
     }
-    const { x, y } = getCanvasMousePoint(canvas, e);
+    const rect = canvas.getBoundingClientRect();
+    const zoom = getZoom();
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
 
     const localTransforms = localArtifactTransformsRef.current;
+    const images = useDecodedImages.getState().x;
+    const brushStrokes = useBrushStrokes.getState().x;
+
     if (
-      tryStartResizeHandleDrag({
-        x,
-        y,
-        selectedIdx,
-        localTransforms,
-        resizeHandle,
-        resizeHandleCorners,
-        lastPos,
-      })
+      selectedIdx.current !== null &&
+      resizeHandleCorners.current &&
+      localTransforms[selectedIdx.current]
     ) {
-      return true;
+      const currTransform = localTransforms[selectedIdx.current].transform;
+      for (let i = 0; i < resizeHandleCorners.current.length; i++) {
+        const corner = resizeHandleCorners.current[i];
+        if (
+          Math.abs(x - corner.x) <= RESIZE_HANDLE_SIZE / 2 &&
+          Math.abs(y - corner.y) <= RESIZE_HANDLE_SIZE / 2
+        ) {
+          resizeHandle.current = {
+            idx: i,
+            wasPositive: {
+              xScale: currTransform[0] >= 0,
+              yScale: currTransform[3] >= 0,
+            },
+          };
+          lastPos.current = { x, y };
+          return true;
+        }
+      }
     }
 
-    const selection = resolveLocalSelectionAtPoint({
-      x,
-      y,
-      localTransforms,
-      images: useDecodedImages.getState().x,
-      brushStrokes: useBrushStrokes.getState().x,
-    });
-    if (!selection) {
-      return clearEditSelectionState({
-        selectedIdx,
-        resizeHandleCorners,
-        isDragging,
-        draggedIdx,
-        resizeHandle,
-        lastPos,
-      });
+    for (let i = localTransforms.length - 1; i >= 0; i--) {
+      const local = localTransforms[i];
+      if (!local) {
+        continue;
+      }
+      if (local.type === ArtifactTypeEnum.Image) {
+        const img = images[local.dataPath];
+        if (!img) {
+          continue;
+        }
+        const bounds = getImageBounds(img, local.transform);
+        if (
+          x >= bounds.minX &&
+          x <= bounds.maxX &&
+          y >= bounds.minY &&
+          y <= bounds.maxY
+        ) {
+          setResizeHandleCorners(resizeHandleCorners, bounds);
+          isDragging.current = true;
+          draggedIdx.current = i;
+          selectedIdx.current = i;
+          lastPos.current = { x, y };
+          return true;
+        }
+      } else if (local.type === ArtifactTypeEnum.BrushStroke) {
+        const brushStrokeArtifact = brushStrokes[local.dataPath];
+        if (!brushStrokeArtifact) {
+          continue;
+        }
+        const hit = detectHit(x, y, brushStrokeArtifact, local.transform);
+        if (hit) {
+          const bounds = getBrushStrokesBounds(
+            brushStrokeArtifact.value,
+            local.transform,
+          );
+          setResizeHandleCorners(resizeHandleCorners, bounds);
+          isDragging.current = true;
+          draggedIdx.current = i;
+          selectedIdx.current = i;
+          lastPos.current = { x, y };
+          return true;
+        }
+      }
     }
 
-    setResizeHandleCorners(resizeHandleCorners, selection.bounds);
-    isDragging.current = true;
-    draggedIdx.current = selection.index;
-    selectedIdx.current = selection.index;
-    lastPos.current = { x, y };
-    return true;
+    const hadSelection = selectedIdx.current !== null;
+    selectedIdx.current = null;
+    resizeHandleCorners.current = null;
+    isDragging.current = false;
+    draggedIdx.current = null;
+    resizeHandle.current = null;
+    lastPos.current = null;
+    return hadSelection;
   };
-}
-
-function tryStartResizeHandleDrag({
-  x,
-  y,
-  selectedIdx,
-  localTransforms,
-  resizeHandle,
-  resizeHandleCorners,
-  lastPos,
-}: {
-  x: number;
-  y: number;
-  selectedIdx: React.RefObject<number | null>;
-  localTransforms: Array<LocalLayerItemState>;
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  lastPos: React.RefObject<CanvasPointXY | null>;
-}): boolean {
-  const selectedIndex = selectedIdx.current;
-  if (selectedIndex === null || !resizeHandleCorners.current) {
-    return false;
-  }
-
-  const local = localTransforms[selectedIndex];
-  if (!local) {
-    return false;
-  }
-
-  const handleIdx = findResizeHandleIndex(x, y, resizeHandleCorners.current);
-  if (handleIdx === null) {
-    return false;
-  }
-
-  resizeHandle.current = {
-    idx: handleIdx,
-    wasPositive: {
-      xScale: local.transform[0] >= 0,
-      yScale: local.transform[3] >= 0,
-    },
-  };
-  lastPos.current = { x, y };
-  return true;
-}
-
-function findResizeHandleIndex(
-  x: number,
-  y: number,
-  corners: ResizeHandleCorners,
-): number | null {
-  for (let i = 0; i < corners.length; i += 1) {
-    const corner = corners[i];
-    if (
-      Math.abs(x - corner.x) <= RESIZE_HANDLE_SIZE / 2 &&
-      Math.abs(y - corner.y) <= RESIZE_HANDLE_SIZE / 2
-    ) {
-      return i;
-    }
-  }
-
-  return null;
-}
-
-function resolveLocalSelectionAtPoint({
-  x,
-  y,
-  localTransforms,
-  images,
-  brushStrokes,
-}: {
-  x: number;
-  y: number;
-  localTransforms: Array<LocalLayerItemState>;
-  images: ReturnType<typeof useDecodedImages.getState>["x"];
-  brushStrokes: ReturnType<typeof useBrushStrokes.getState>["x"];
-}): { index: number; bounds: ResizeBounds } | null {
-  for (let i = localTransforms.length - 1; i >= 0; i -= 1) {
-    const local = localTransforms[i];
-    if (!local) {
-      continue;
-    }
-
-    const bounds = getLocalSelectionBounds({
-      x,
-      y,
-      local,
-      images,
-      brushStrokes,
-    });
-    if (bounds) {
-      return { index: i, bounds };
-    }
-  }
-
-  return null;
-}
-
-function getLocalSelectionBounds({
-  x,
-  y,
-  local,
-  images,
-  brushStrokes,
-}: {
-  x: number;
-  y: number;
-  local: LocalLayerItemState;
-  images: ReturnType<typeof useDecodedImages.getState>["x"];
-  brushStrokes: ReturnType<typeof useBrushStrokes.getState>["x"];
-}): ResizeBounds | null {
-  if (local.type === ArtifactTypeEnum.Image) {
-    const image = images[local.dataPath];
-    if (!image) {
-      return null;
-    }
-    const bounds = getImageBounds(image, local.transform);
-    return isPointInBounds(x, y, bounds) ? bounds : null;
-  }
-
-  if (local.type === ArtifactTypeEnum.BrushStroke) {
-    const brushStrokeArtifact = brushStrokes[local.dataPath];
-    if (!brushStrokeArtifact) {
-      return null;
-    }
-    if (!detectHit(x, y, brushStrokeArtifact, local.transform)) {
-      return null;
-    }
-    return getBrushStrokesBounds(brushStrokeArtifact.value, local.transform);
-  }
-
-  return null;
-}
-
-function isPointInBounds(x: number, y: number, bounds: ResizeBounds): boolean {
-  return (
-    x >= bounds.minX && x <= bounds.maxX && y >= bounds.minY && y <= bounds.maxY
-  );
-}
-
-function clearEditSelectionState({
-  selectedIdx,
-  resizeHandleCorners,
-  isDragging,
-  draggedIdx,
-  resizeHandle,
-  lastPos,
-}: {
-  selectedIdx: React.RefObject<number | null>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  isDragging: React.RefObject<boolean>;
-  draggedIdx: React.RefObject<number | null>;
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  lastPos: React.RefObject<CanvasPointXY | null>;
-}): boolean {
-  const hadSelection = selectedIdx.current !== null;
-  selectedIdx.current = null;
-  resizeHandleCorners.current = null;
-  isDragging.current = false;
-  draggedIdx.current = null;
-  resizeHandle.current = null;
-  lastPos.current = null;
-  return hadSelection;
 }
 
 function editingOnMouseMove({
@@ -1155,17 +763,11 @@ function editingOnMouseMove({
   draggedIdx,
   localArtifactTransformsRef,
   activeLayerIdx,
-}: EditModeMouseMoveArgs): (
-  event: React.MouseEvent<HTMLCanvasElement>,
-) => boolean {
+}) {
   return (e) => {
     if (
-      !hasActiveEditInteraction({
-        isDragging,
-        draggedIdx,
-        resizeHandle,
-        selectedIdx,
-      })
+      (!isDragging.current || draggedIdx.current === null) &&
+      (resizeHandle.current === null || selectedIdx.current === null)
     ) {
       return false;
     }
@@ -1174,407 +776,228 @@ function editingOnMouseMove({
     if (!canvas) {
       return false;
     }
-    const nextPos = getCanvasMousePoint(canvas, e);
-    const delta = getMouseDelta(lastPos, nextPos);
-    if (!delta) {
+    const rect = canvas.getBoundingClientRect();
+    const zoom = getZoom();
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
+    if (!lastPos.current) {
+      lastPos.current = { x, y };
       return false;
     }
+    const prev = lastPos.current as unknown as { x: number; y: number };
+    const dx = x - prev.x;
+    const dy = y - prev.y;
+    // Check if shift key is pressed to preserve aspect ratio
+    const preserveAspectRatio = e.shiftKey;
 
-    if (
-      moveDraggedSelection({
-        draggedIdx,
-        localArtifactTransformsRef,
-        resizeHandleCorners,
-        lastPos,
-        nextPos,
-        dx: delta.dx,
-        dy: delta.dy,
-      })
-    ) {
+    if (isDragging.current && draggedIdx.current !== null) {
+      const local = localArtifactTransformsRef.current[draggedIdx.current];
+      if (!local || !resizeHandleCorners.current) {
+        return false;
+      }
+      local.transform[4] += dx;
+      local.transform[5] += dy;
+      resizeHandleCorners.current = resizeHandleCorners.current.map((c) => ({
+        x: c.x + dx,
+        y: c.y + dy,
+      })) as ResizeHandleCorners;
+      lastPos.current = { x, y };
       return true;
     }
 
     if (
-      !hasActiveResizeInteraction({
-        resizeHandle,
-        selectedIdx,
-        resizeHandleCorners,
-      })
+      resizeHandle.current !== null &&
+      selectedIdx.current !== null &&
+      resizeHandleCorners.current
     ) {
-      return false;
+      const local = localArtifactTransformsRef.current[selectedIdx.current];
+      if (!local) {
+        return false;
+      }
+      const images = useDecodedImages.getState().x;
+      const brushStrokes = useBrushStrokes.getState().x;
+
+      let latestBounds:
+        | ReturnType<typeof getImageBounds>
+        | ReturnType<typeof getBrushStrokesBounds>
+        | null = null;
+
+      if (local.type === ArtifactTypeEnum.Image) {
+        const img = images[local.dataPath];
+        if (!img) {
+          return false;
+        }
+        const scaledWidth = getScaledWidth(img, local.transform);
+        const scaledHeight = getScaledHeight(img, local.transform);
+        const handleBehaviorFn = getImageHandleBehaviorFn(
+          resizeHandle.current.idx,
+          resizeHandle.current.wasPositive.xScale,
+          resizeHandle.current.wasPositive.yScale,
+        );
+        let nextDx = dx;
+        let nextDy = dy;
+
+        if (preserveAspectRatio) {
+          const aspectRatio = scaledWidth / scaledHeight;
+          const epsilon = 0.001;
+          const absDx = Math.abs(dx);
+          const absDy = Math.abs(dy);
+
+          if (!(absDx < epsilon && absDy < epsilon)) {
+            if (absDx < epsilon) {
+              nextDx = (dy > 0 ? 1 : -1) * absDy * aspectRatio;
+              if (
+                resizeHandle.current.idx === 1 ||
+                resizeHandle.current.idx === 2
+              ) {
+                nextDx = -nextDx;
+              }
+            } else if (absDy < epsilon) {
+              nextDy = ((dx > 0 ? 1 : -1) * absDx) / aspectRatio;
+              if (
+                resizeHandle.current.idx === 1 ||
+                resizeHandle.current.idx === 2
+              ) {
+                nextDy = -nextDy;
+              }
+            } else if (absDx > absDy) {
+              nextDy = ((dx > 0 ? 1 : -1) * absDx) / aspectRatio;
+              if (
+                resizeHandle.current.idx === 1 ||
+                resizeHandle.current.idx === 2
+              ) {
+                nextDy = -nextDy;
+              }
+            } else {
+              nextDx = (dy > 0 ? 1 : -1) * absDy * aspectRatio;
+              if (
+                resizeHandle.current.idx === 1 ||
+                resizeHandle.current.idx === 2
+              ) {
+                nextDx = -nextDx;
+              }
+            }
+          }
+        }
+
+        handleBehaviorFn(
+          local.transform,
+          scaledWidth,
+          scaledHeight,
+          preserveAspectRatio ? nextDx : dx,
+          preserveAspectRatio ? nextDy : dy,
+          { value: img },
+        );
+
+        if (preserveAspectRatio) {
+          latestBounds = getImageBounds(img, local.transform);
+        }
+      } else if (local.type === ArtifactTypeEnum.BrushStroke) {
+        const brushStrokeArtifact = brushStrokes[local.dataPath];
+        if (!brushStrokeArtifact) {
+          return false;
+        }
+        const bounds =
+          getPseudoBoundsFromResizeHandleCorners(resizeHandleCorners);
+        const width = bounds.maxX - bounds.minX;
+        const height = bounds.maxY - bounds.minY;
+
+        switch (resizeHandle.current.idx) {
+          case 0: {
+            let scaleX = (width - dx) / width;
+            let scaleY = (height - dy) / height;
+            if (preserveAspectRatio) {
+              const uniformScale = Math.max(scaleX, scaleY);
+              scaleX = scaleY = uniformScale;
+            }
+            const anchorX = bounds.maxX;
+            const anchorY = bounds.maxY;
+            local.transform[0] = preventExactZero(local.transform[0] * scaleX);
+            local.transform[3] = preventExactZero(local.transform[3] * scaleY);
+            local.transform[4] =
+              anchorX - (anchorX - local.transform[4]) * scaleX;
+            local.transform[5] =
+              anchorY - (anchorY - local.transform[5]) * scaleY;
+            break;
+          }
+          case 1: {
+            let scaleX = (width + dx) / width;
+            let scaleY = (height - dy) / height;
+            if (preserveAspectRatio) {
+              const uniformScale = Math.max(scaleX, scaleY);
+              scaleX = scaleY = uniformScale;
+            }
+            const anchorX = bounds.minX;
+            const anchorY = bounds.maxY;
+            local.transform[0] = preventExactZero(local.transform[0] * scaleX);
+            local.transform[3] = preventExactZero(local.transform[3] * scaleY);
+            local.transform[4] =
+              anchorX - (anchorX - local.transform[4]) * scaleX;
+            local.transform[5] =
+              anchorY - (anchorY - local.transform[5]) * scaleY;
+            break;
+          }
+          case 2: {
+            let scaleX = (width - dx) / width;
+            let scaleY = (height + dy) / height;
+            if (preserveAspectRatio) {
+              const uniformScale = Math.max(scaleX, scaleY);
+              scaleX = scaleY = uniformScale;
+            }
+            const anchorX = bounds.maxX;
+            const anchorY = bounds.minY;
+            local.transform[0] = preventExactZero(local.transform[0] * scaleX);
+            local.transform[3] = preventExactZero(local.transform[3] * scaleY);
+            local.transform[4] =
+              anchorX - (anchorX - local.transform[4]) * scaleX;
+            local.transform[5] =
+              anchorY - (anchorY - local.transform[5]) * scaleY;
+            break;
+          }
+          case 3: {
+            let scaleX = (width + dx) / width;
+            let scaleY = (height + dy) / height;
+            if (preserveAspectRatio) {
+              const uniformScale = Math.max(scaleX, scaleY);
+              scaleX = scaleY = uniformScale;
+            }
+            const anchorX = bounds.minX;
+            const anchorY = bounds.minY;
+            local.transform[0] = preventExactZero(local.transform[0] * scaleX);
+            local.transform[3] = preventExactZero(local.transform[3] * scaleY);
+            local.transform[4] =
+              anchorX - (anchorX - local.transform[4]) * scaleX;
+            local.transform[5] =
+              anchorY - (anchorY - local.transform[5]) * scaleY;
+            break;
+          }
+        }
+
+        if (preserveAspectRatio) {
+          latestBounds = getBrushStrokesBounds(
+            brushStrokeArtifact.value,
+            local.transform,
+          );
+        }
+      }
+
+      if (preserveAspectRatio && latestBounds) {
+        setResizeHandleCorners(resizeHandleCorners, latestBounds);
+      } else {
+        incrementResizeHandleCorners(
+          resizeHandle,
+          resizeHandleCorners,
+          preserveAspectRatio ? 0 : dx,
+          preserveAspectRatio ? 0 : dy,
+        );
+      }
+
+      lastPos.current = { x, y };
+      return true;
     }
 
-    const preserveAspectRatio = e.shiftKey;
-    const latestBounds = resizeSelectedArtifact({
-      selectedIdx,
-      localArtifactTransformsRef,
-      resizeHandle: resizeHandle.current,
-      resizeHandleCorners,
-      dx: delta.dx,
-      dy: delta.dy,
-      preserveAspectRatio,
-    });
-    if (latestBounds === false) {
-      return false;
-    }
-
-    updateResizeHandleCornersAfterMove({
-      resizeHandle,
-      resizeHandleCorners,
-      preserveAspectRatio,
-      latestBounds,
-      dx: delta.dx,
-      dy: delta.dy,
-    });
-    lastPos.current = nextPos;
-    return true;
+    return false;
   };
-}
-
-function hasActiveEditInteraction({
-  isDragging,
-  draggedIdx,
-  resizeHandle,
-  selectedIdx,
-}: {
-  isDragging: React.RefObject<boolean>;
-  draggedIdx: React.RefObject<number | null>;
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  selectedIdx: React.RefObject<number | null>;
-}): boolean {
-  return (
-    (isDragging.current && draggedIdx.current !== null) ||
-    (resizeHandle.current !== null && selectedIdx.current !== null)
-  );
-}
-
-function hasActiveResizeInteraction({
-  resizeHandle,
-  selectedIdx,
-  resizeHandleCorners,
-}: {
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  selectedIdx: React.RefObject<number | null>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-}): boolean {
-  return (
-    resizeHandle.current !== null &&
-    selectedIdx.current !== null &&
-    resizeHandleCorners.current !== null
-  );
-}
-
-function getMouseDelta(
-  lastPos: React.RefObject<CanvasPointXY | null>,
-  nextPos: CanvasPointXY,
-): { dx: number; dy: number } | null {
-  const previousPos = lastPos.current;
-  if (!previousPos) {
-    lastPos.current = nextPos;
-    return null;
-  }
-
-  return {
-    dx: nextPos.x - previousPos.x,
-    dy: nextPos.y - previousPos.y,
-  };
-}
-
-function moveDraggedSelection({
-  draggedIdx,
-  localArtifactTransformsRef,
-  resizeHandleCorners,
-  lastPos,
-  nextPos,
-  dx,
-  dy,
-}: {
-  draggedIdx: React.RefObject<number | null>;
-  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  lastPos: React.RefObject<CanvasPointXY | null>;
-  nextPos: CanvasPointXY;
-  dx: number;
-  dy: number;
-}): boolean {
-  const draggedIndex = draggedIdx.current;
-  if (draggedIndex === null) {
-    return false;
-  }
-
-  const local = localArtifactTransformsRef.current[draggedIndex];
-  if (!local || !resizeHandleCorners.current) {
-    return false;
-  }
-
-  local.transform[4] += dx;
-  local.transform[5] += dy;
-  resizeHandleCorners.current = resizeHandleCorners.current.map((corner) => ({
-    x: corner.x + dx,
-    y: corner.y + dy,
-  })) as ResizeHandleCorners;
-  lastPos.current = nextPos;
-  return true;
-}
-
-function resizeSelectedArtifact({
-  selectedIdx,
-  localArtifactTransformsRef,
-  resizeHandle,
-  resizeHandleCorners,
-  dx,
-  dy,
-  preserveAspectRatio,
-}: {
-  selectedIdx: React.RefObject<number | null>;
-  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>;
-  resizeHandle: ResizeHandle;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  dx: number;
-  dy: number;
-  preserveAspectRatio: boolean;
-}): ResizeBounds | null | false {
-  const selectedIndex = selectedIdx.current;
-  if (selectedIndex === null || !resizeHandleCorners.current) {
-    return false;
-  }
-
-  const local = localArtifactTransformsRef.current[selectedIndex];
-  if (!local) {
-    return false;
-  }
-
-  if (local.type === ArtifactTypeEnum.Image) {
-    return resizeSelectedImage({
-      local,
-      resizeHandle,
-      dx,
-      dy,
-      preserveAspectRatio,
-    });
-  }
-
-  if (local.type === ArtifactTypeEnum.BrushStroke) {
-    return resizeSelectedBrushStroke({
-      local,
-      resizeHandleIdx: resizeHandle.idx,
-      resizeHandleCorners,
-      dx,
-      dy,
-      preserveAspectRatio,
-    });
-  }
-
-  return false;
-}
-
-function resizeSelectedImage({
-  local,
-  resizeHandle,
-  dx,
-  dy,
-  preserveAspectRatio,
-}: {
-  local: LocalLayerItemState;
-  resizeHandle: ResizeHandle;
-  dx: number;
-  dy: number;
-  preserveAspectRatio: boolean;
-}): ResizeBounds | null | false {
-  const image = useDecodedImages.getState().x[local.dataPath];
-  if (!image) {
-    return false;
-  }
-
-  const scaledWidth = getScaledWidth(image, local.transform);
-  const scaledHeight = getScaledHeight(image, local.transform);
-  const nextDelta = preserveAspectRatio
-    ? resolveAspectRatioResizeDeltas({
-        dx,
-        dy,
-        aspectRatio: scaledWidth / scaledHeight,
-        resizeHandleIdx: resizeHandle.idx,
-      })
-    : { dx, dy };
-
-  getImageHandleBehaviorFn(
-    resizeHandle.idx,
-    resizeHandle.wasPositive.xScale,
-    resizeHandle.wasPositive.yScale,
-  )(local.transform, scaledWidth, scaledHeight, nextDelta.dx, nextDelta.dy, {
-    value: image,
-  });
-
-  return preserveAspectRatio ? getImageBounds(image, local.transform) : null;
-}
-
-function resizeSelectedBrushStroke({
-  local,
-  resizeHandleIdx,
-  resizeHandleCorners,
-  dx,
-  dy,
-  preserveAspectRatio,
-}: {
-  local: LocalLayerItemState;
-  resizeHandleIdx: number;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  dx: number;
-  dy: number;
-  preserveAspectRatio: boolean;
-}): ResizeBounds | null | false {
-  const brushStrokeArtifact = useBrushStrokes.getState().x[local.dataPath];
-  if (!brushStrokeArtifact || !resizeHandleCorners.current) {
-    return false;
-  }
-
-  applyBrushHandleResize({
-    transform: local.transform,
-    bounds: getPseudoBoundsFromResizeHandleCorners(resizeHandleCorners),
-    resizeHandleIdx,
-    dx,
-    dy,
-    preserveAspectRatio,
-  });
-
-  return preserveAspectRatio
-    ? getBrushStrokesBounds(brushStrokeArtifact.value, local.transform)
-    : null;
-}
-
-export function resolveAspectRatioResizeDeltas({
-  dx,
-  dy,
-  aspectRatio,
-  resizeHandleIdx,
-}: {
-  dx: number;
-  dy: number;
-  aspectRatio: number;
-  resizeHandleIdx: number;
-}): { dx: number; dy: number } {
-  const epsilon = 0.001;
-  const absDx = Math.abs(dx);
-  const absDy = Math.abs(dy);
-  if (absDx < epsilon && absDy < epsilon) {
-    return { dx, dy };
-  }
-
-  if (absDx < epsilon) {
-    return {
-      dx: flipDerivedAspectRatioDelta(
-        resizeHandleIdx,
-        resolveSignedMagnitude(dy, absDy * aspectRatio),
-      ),
-      dy,
-    };
-  }
-
-  const derivedY = flipDerivedAspectRatioDelta(
-    resizeHandleIdx,
-    resolveSignedMagnitude(dx, absDx / aspectRatio),
-  );
-  if (absDy < epsilon || absDx > absDy) {
-    return { dx, dy: derivedY };
-  }
-
-  return {
-    dx: flipDerivedAspectRatioDelta(
-      resizeHandleIdx,
-      resolveSignedMagnitude(dy, absDy * aspectRatio),
-    ),
-    dy,
-  };
-}
-
-function resolveSignedMagnitude(value: number, magnitude: number): number {
-  return value > 0 ? magnitude : -magnitude;
-}
-
-function flipDerivedAspectRatioDelta(
-  resizeHandleIdx: number,
-  value: number,
-): number {
-  return resizeHandleIdx === 1 || resizeHandleIdx === 2 ? -value : value;
-}
-
-export function applyBrushHandleResize({
-  transform,
-  bounds,
-  resizeHandleIdx,
-  dx,
-  dy,
-  preserveAspectRatio,
-}: {
-  transform: LocalLayerItemState["transform"];
-  bounds: ResizeBounds;
-  resizeHandleIdx: number;
-  dx: number;
-  dy: number;
-  preserveAspectRatio: boolean;
-}) {
-  const config =
-    BRUSH_RESIZE_HANDLE_CONFIGS[resizeHandleIdx] ??
-    BRUSH_RESIZE_HANDLE_CONFIGS[0];
-  const width = bounds.maxX - bounds.minX;
-  const height = bounds.maxY - bounds.minY;
-  let scaleX = (width + dx * config.widthDirection) / width;
-  let scaleY = (height + dy * config.heightDirection) / height;
-
-  if (preserveAspectRatio) {
-    const uniformScale = Math.max(scaleX, scaleY);
-    scaleX = uniformScale;
-    scaleY = uniformScale;
-  }
-
-  applyScaleAroundAnchor(
-    transform,
-    bounds[config.anchorX],
-    bounds[config.anchorY],
-    scaleX,
-    scaleY,
-  );
-}
-
-function applyScaleAroundAnchor(
-  transform: LocalLayerItemState["transform"],
-  anchorX: number,
-  anchorY: number,
-  scaleX: number,
-  scaleY: number,
-) {
-  transform[0] = preventExactZero(transform[0] * scaleX);
-  transform[3] = preventExactZero(transform[3] * scaleY);
-  transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
-  transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
-}
-
-function updateResizeHandleCornersAfterMove({
-  resizeHandle,
-  resizeHandleCorners,
-  preserveAspectRatio,
-  latestBounds,
-  dx,
-  dy,
-}: {
-  resizeHandle: React.RefObject<ResizeHandle | null>;
-  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>;
-  preserveAspectRatio: boolean;
-  latestBounds: ResizeBounds | null;
-  dx: number;
-  dy: number;
-}) {
-  if (preserveAspectRatio && latestBounds) {
-    setResizeHandleCorners(resizeHandleCorners, latestBounds);
-    return;
-  }
-
-  incrementResizeHandleCorners(
-    resizeHandle,
-    resizeHandleCorners,
-    preserveAspectRatio ? 0 : dx,
-    preserveAspectRatio ? 0 : dy,
-  );
 }
 
 function editingOnMouseUp({
@@ -1589,7 +1012,7 @@ function editingOnMouseUp({
   layerCanvasRefs,
   tempCanvasRefs,
   flushRealtimeSnapshot,
-}: EditModeMouseUpArgs): () => void {
+}) {
   return () => {
     // have to update the corners
     // in case the x or y scaling went from positive to negative or vice versa

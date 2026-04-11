@@ -192,7 +192,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   ]);
 
   const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
-    useDrawModeMouseHandlers({
+    useDrawModeMouseHandlers(
       layers,
       sectionId,
       strokeRef,
@@ -216,7 +216,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       canvasMode,
       notifyRealtimeDirty,
       flushRealtimeSnapshot,
-    });
+    );
 
   function clearStrokes() {
     const [layer] = getActiveLayerAndCanvas(
