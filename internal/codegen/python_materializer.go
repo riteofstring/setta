@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -311,6 +312,20 @@ func ensurePythonGeneratedSection(project *projectstate.Project, spec pythonGene
 	if project == nil {
 		return projectstate.ErrProjectNotFound
 	}
+	initializeGeneratedSectionCollections(project)
+	ensureGeneratedSectionTopLevelLayout(project, spec.sectionID)
+	applyGeneratedSectionState(project, spec)
+
+	payload, err := marshalGeneratedPythonSectionPayload(project, spec)
+	if err != nil {
+		return err
+	}
+	project.SectionImpls[spec.implID] = generatedPythonSectionImpl(spec, payload)
+	ensureGeneratedSectionVisibleInViewModes(project, spec.sectionID)
+	return nil
+}
+
+func initializeGeneratedSectionCollections(project *projectstate.Project) {
 	if project.SectionVariantMap == nil {
 		project.SectionVariantMap = map[string]string{}
 	}
@@ -326,13 +341,18 @@ func ensurePythonGeneratedSection(project *projectstate.Project, spec pythonGene
 	if project.TopLevelSections == nil {
 		project.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
 	}
-	if !containsString(project.TopLevelSectionIDs, spec.sectionID) {
-		project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, spec.sectionID)
-	}
-	if _, ok := project.TopLevelSections[spec.sectionID]; !ok {
-		project.TopLevelSections[spec.sectionID] = projectstate.TopLevelSectionLayout{}
-	}
+}
 
+func ensureGeneratedSectionTopLevelLayout(project *projectstate.Project, sectionID string) {
+	if !slices.Contains(project.TopLevelSectionIDs, sectionID) {
+		project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, sectionID)
+	}
+	if _, ok := project.TopLevelSections[sectionID]; !ok {
+		project.TopLevelSections[sectionID] = projectstate.TopLevelSectionLayout{}
+	}
+}
+
+func applyGeneratedSectionState(project *projectstate.Project, spec pythonGeneratedSectionSpec) {
 	section := project.Sections[spec.sectionID]
 	section.ID = spec.sectionID
 	section.Name = spec.name
@@ -340,17 +360,20 @@ func ensurePythonGeneratedSection(project *projectstate.Project, spec pythonGene
 	section.VariantIDs = []string{spec.variantID}
 	section.DefaultVariantID = spec.variantID
 	project.Sections[spec.sectionID] = section
+
 	project.SectionVariantMap[spec.sectionID] = spec.variantID
+
 	variant := project.SectionVariants[spec.variantID]
 	variant.ID = spec.variantID
 	variant.ImplID = spec.implID
 	project.SectionVariants[spec.variantID] = variant
+}
 
-	payload, err := marshalGeneratedPythonSectionPayload(project, spec)
-	if err != nil {
-		return err
-	}
-	project.SectionImpls[spec.implID] = projectstate.SectionImpl{
+func generatedPythonSectionImpl(
+	spec pythonGeneratedSectionSpec,
+	payload projectstate.RawJSON,
+) projectstate.SectionImpl {
+	return projectstate.SectionImpl{
 		ID:      spec.implID,
 		Kind:    projectstate.SectionKindGenerated,
 		Payload: payload,
@@ -358,23 +381,31 @@ func ensurePythonGeneratedSection(project *projectstate.Project, spec pythonGene
 			Kind: spec.kind,
 		},
 	}
+}
 
+func ensureGeneratedSectionVisibleInViewModes(project *projectstate.Project, sectionID string) {
 	for viewModeID, viewMode := range project.ViewModes {
-		if viewMode.VisibilityBySectionID == nil {
-			viewMode.VisibilityBySectionID = map[string]bool{}
-		}
-		if viewMode.TopLevelSections == nil {
-			viewMode.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
-		}
-		if _, ok := viewMode.VisibilityBySectionID[spec.sectionID]; !ok {
-			viewMode.VisibilityBySectionID[spec.sectionID] = true
-		}
-		if _, ok := viewMode.TopLevelSections[spec.sectionID]; !ok {
-			viewMode.TopLevelSections[spec.sectionID] = projectstate.TopLevelSectionLayout{}
-		}
-		project.ViewModes[viewModeID] = viewMode
+		project.ViewModes[viewModeID] = withGeneratedSectionVisibility(viewMode, sectionID)
 	}
-	return nil
+}
+
+func withGeneratedSectionVisibility(
+	viewMode projectstate.ViewMode,
+	sectionID string,
+) projectstate.ViewMode {
+	if viewMode.VisibilityBySectionID == nil {
+		viewMode.VisibilityBySectionID = map[string]bool{}
+	}
+	if viewMode.TopLevelSections == nil {
+		viewMode.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
+	}
+	if _, ok := viewMode.VisibilityBySectionID[sectionID]; !ok {
+		viewMode.VisibilityBySectionID[sectionID] = true
+	}
+	if _, ok := viewMode.TopLevelSections[sectionID]; !ok {
+		viewMode.TopLevelSections[sectionID] = projectstate.TopLevelSectionLayout{}
+	}
+	return viewMode
 }
 
 func marshalGeneratedPythonSectionPayload(
@@ -460,15 +491,6 @@ func applyGeneratedPythonSectionPayloadDefaults(payload map[string]any) {
 	if _, ok := payload["attachedTerminalSectionId"]; !ok {
 		payload["attachedTerminalSectionId"] = nil
 	}
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }
 
 func readPasswordSecrets(path string) (map[string]string, error) {
