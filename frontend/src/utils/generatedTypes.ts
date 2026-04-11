@@ -4611,6 +4611,11 @@ export const ServerModeBoundaryPolicyByMode = {
   },
 } satisfies gt.ServerModeBoundaryPolicy;
 
+export const SettaFilesLocationPolicyConfig = {
+  requested: ["auto", "local", "global"],
+  resolved: ["local", "global"],
+} satisfies gt.SettaFilesLocationPolicy;
+
 export const ToolNameNormalizationConfig = {
   askUserQuestionToolName: "AskUserQuestion",
   doublePrefix: "setta__",

@@ -3058,6 +3058,21 @@
       "schemaRef": "#/$defs/RequiredUIEditorTabMap"
     },
     {
+      "name": "ResolvedSettaFilesLocation",
+      "kind": "enum",
+      "schemaRef": "#/$defs/ResolvedSettaFilesLocation",
+      "enumValues": [
+        {
+          "name": "local",
+          "value": "local"
+        },
+        {
+          "name": "global",
+          "value": "global"
+        }
+      ]
+    },
+    {
       "name": "RestartRequiredResponse",
       "kind": "model",
       "schemaRef": "#/$defs/RestartRequiredResponse"
@@ -4999,6 +5014,30 @@
       "name": "SettaAPIPresetRoutes",
       "kind": "model",
       "schemaRef": "#/$defs/SettaAPIPresetRoutes"
+    },
+    {
+      "name": "SettaFilesLocation",
+      "kind": "enum",
+      "schemaRef": "#/$defs/SettaFilesLocation",
+      "enumValues": [
+        {
+          "name": "auto",
+          "value": "auto"
+        },
+        {
+          "name": "local",
+          "value": "local"
+        },
+        {
+          "name": "global",
+          "value": "global"
+        }
+      ]
+    },
+    {
+      "name": "SettaFilesLocationPolicy",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettaFilesLocationPolicy"
     },
     {
       "name": "SettingsBackend",
@@ -10634,6 +10673,21 @@
           },
           "workspaceLaunchRouteKind": "blocked"
         }
+      }
+    },
+    {
+      "name": "SettaFilesLocationPolicyConfig",
+      "type": "SettaFilesLocationPolicy",
+      "value": {
+        "requested": [
+          "auto",
+          "local",
+          "global"
+        ],
+        "resolved": [
+          "local",
+          "global"
+        ]
       }
     },
     {

@@ -4356,6 +4356,11 @@ export type RequiredUIEditorTabMap = {
 };
 
 /**
+ * ResolvedSettaFilesLocation
+ */
+type ResolvedSettaFilesLocation = "local" | "global";
+
+/**
  * RestartRequiredResponse
  */
 type RestartRequiredResponse = {
@@ -5272,6 +5277,19 @@ type SettaAPIPresetRoutes = {
   createTopLevelSection: string;
   getLatestProjectState: string;
   saveProject: string;
+};
+
+/**
+ * SettaFilesLocation
+ */
+type SettaFilesLocation = "auto" | "local" | "global";
+
+/**
+ * SettaFilesLocationPolicy
+ */
+export type SettaFilesLocationPolicy = {
+  requested: null | Array<SettaFilesLocation>;
+  resolved: null | Array<ResolvedSettaFilesLocation>;
 };
 
 /**

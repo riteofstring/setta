@@ -12368,6 +12368,14 @@
         }
       }
     },
+    "ResolvedSettaFilesLocation": {
+      "type": "string",
+      "title": "ResolvedSettaFilesLocation",
+      "enum": [
+        "local",
+        "global"
+      ]
+    },
     "RestartRequiredResponse": {
       "type": "object",
       "properties": {
@@ -14895,6 +14903,44 @@
         "createTopLevelSection",
         "getLatestProjectState",
         "saveProject"
+      ],
+      "additionalProperties": false
+    },
+    "SettaFilesLocation": {
+      "type": "string",
+      "title": "SettaFilesLocation",
+      "enum": [
+        "auto",
+        "local",
+        "global"
+      ]
+    },
+    "SettaFilesLocationPolicy": {
+      "type": "object",
+      "properties": {
+        "requested": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SettaFilesLocation"
+          }
+        },
+        "resolved": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ResolvedSettaFilesLocation"
+          }
+        }
+      },
+      "title": "SettaFilesLocationPolicy",
+      "required": [
+        "requested",
+        "resolved"
       ],
       "additionalProperties": false
     },

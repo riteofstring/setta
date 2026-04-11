@@ -76,6 +76,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "SettaFilesLocationPolicyConfig",
+			Type: reflect.TypeOf(httpapi.FrontendValueSettaFilesLocationPolicyConfig()),
+			Value: func() any {
+				return httpapi.FrontendValueSettaFilesLocationPolicyConfig()
+			},
+		},
+		{
 			Name: "ToolNameNormalizationConfig",
 			Type: reflect.TypeOf(httpapi.FrontendValueToolNameNormalizationConfig()),
 			Value: func() any {

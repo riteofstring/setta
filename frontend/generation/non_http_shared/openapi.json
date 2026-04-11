@@ -10358,6 +10358,11 @@
         "title": "RequiredUIEditorTabMap",
         "type": "object"
       },
+      "ResolvedSettaFilesLocation": {
+        "enum": ["local", "global"],
+        "title": "ResolvedSettaFilesLocation",
+        "type": "string"
+      },
       "RestartRequiredResponse": {
         "additionalProperties": false,
         "properties": {
@@ -12624,6 +12629,31 @@
           "saveProject"
         ],
         "title": "SettaAPIPresetRoutes",
+        "type": "object"
+      },
+      "SettaFilesLocation": {
+        "enum": ["auto", "local", "global"],
+        "title": "SettaFilesLocation",
+        "type": "string"
+      },
+      "SettaFilesLocationPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "requested": {
+            "items": {
+              "$ref": "#/components/schemas/SettaFilesLocation"
+            },
+            "type": ["null", "array"]
+          },
+          "resolved": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedSettaFilesLocation"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["requested", "resolved"],
+        "title": "SettaFilesLocationPolicy",
         "type": "object"
       },
       "SettingsBackend": {

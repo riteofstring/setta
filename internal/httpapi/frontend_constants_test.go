@@ -95,3 +95,24 @@ func TestFrontendValueTransportRouteConstantsUsesAuthoritativeRouteConstants(t *
 		t.Fatalf("unexpected create-top-level-section route: got %q want %q", got.SettaAPIPresets.CreateTopLevelSection, RouteCreateTopLevelSection)
 	}
 }
+
+func TestFrontendValueSettaFilesLocationPolicyConfigUsesAuthoritativeConfigValues(t *testing.T) {
+	got := FrontendValueSettaFilesLocationPolicyConfig()
+
+	wantRequested := []FrontendSettaFilesLocation{
+		FrontendSettaFilesLocation(config.FilesLocationAuto),
+		FrontendSettaFilesLocation(config.FilesLocationLocal),
+		FrontendSettaFilesLocation(config.FilesLocationGlobal),
+	}
+	if !slices.Equal(got.Requested, wantRequested) {
+		t.Fatalf("unexpected requested setta files locations: got %v want %v", got.Requested, wantRequested)
+	}
+
+	wantResolved := []FrontendResolvedSettaFilesLocation{
+		FrontendResolvedSettaFilesLocation(config.ResolvedFilesLocationLocal),
+		FrontendResolvedSettaFilesLocation(config.ResolvedFilesLocationGlobal),
+	}
+	if !slices.Equal(got.Resolved, wantResolved) {
+		t.Fatalf("unexpected resolved setta files locations: got %v want %v", got.Resolved, wantResolved)
+	}
+}

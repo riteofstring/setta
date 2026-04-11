@@ -48,6 +48,26 @@ type FrontendLocalHostnamePolicy struct {
 	LoopbackHosts []string `json:"loopbackHosts"`
 }
 
+type FrontendSettaFilesLocation string
+
+const (
+	FrontendSettaFilesLocationAuto   FrontendSettaFilesLocation = FrontendSettaFilesLocation(config.FilesLocationAuto)
+	FrontendSettaFilesLocationLocal  FrontendSettaFilesLocation = FrontendSettaFilesLocation(config.FilesLocationLocal)
+	FrontendSettaFilesLocationGlobal FrontendSettaFilesLocation = FrontendSettaFilesLocation(config.FilesLocationGlobal)
+)
+
+type FrontendResolvedSettaFilesLocation string
+
+const (
+	FrontendResolvedSettaFilesLocationLocal  FrontendResolvedSettaFilesLocation = FrontendResolvedSettaFilesLocation(config.ResolvedFilesLocationLocal)
+	FrontendResolvedSettaFilesLocationGlobal FrontendResolvedSettaFilesLocation = FrontendResolvedSettaFilesLocation(config.ResolvedFilesLocationGlobal)
+)
+
+type FrontendSettaFilesLocationPolicy struct {
+	Requested []FrontendSettaFilesLocation         `json:"requested"`
+	Resolved  []FrontendResolvedSettaFilesLocation `json:"resolved"`
+}
+
 type FrontendRootTransportRoutes struct {
 	BootstrapPage string `json:"bootstrapPage"`
 	ToolsCall     string `json:"toolsCall"`
@@ -180,6 +200,20 @@ func FrontendValueToolNameNormalizationConfig() FrontendToolNameNormalization {
 func FrontendValueLocalHostnamePolicyConfig() FrontendLocalHostnamePolicy {
 	return FrontendLocalHostnamePolicy{
 		LoopbackHosts: hostnames.LoopbackHosts(),
+	}
+}
+
+func FrontendValueSettaFilesLocationPolicyConfig() FrontendSettaFilesLocationPolicy {
+	return FrontendSettaFilesLocationPolicy{
+		Requested: []FrontendSettaFilesLocation{
+			FrontendSettaFilesLocationAuto,
+			FrontendSettaFilesLocationLocal,
+			FrontendSettaFilesLocationGlobal,
+		},
+		Resolved: []FrontendResolvedSettaFilesLocation{
+			FrontendResolvedSettaFilesLocationLocal,
+			FrontendResolvedSettaFilesLocationGlobal,
+		},
 	}
 }
 
