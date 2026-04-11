@@ -236,113 +236,203 @@ func CollectSpecValidationIssues(appSpec any, options ValidationOptions) []AppVa
 		return []AppValidationIssue{{Message: err.Error()}}
 	}
 
+	collector := newSpecValidationCollector(catalog, options, rootElement, elements)
+	return collector.collect()
+}
+
+type specValidationCollector struct {
+	catalog        Catalog
+	options        ValidationOptions
+	allowedActions map[string]struct{}
+	elements       map[string]map[string]any
+	issues         []AppValidationIssue
+	runActionNames map[string]struct{}
+	runActionCount int
+	usedConfigIDs  map[string]struct{}
+	unscopedKeys   []string
+	visited        map[string]struct{}
+	stack          []validationStackEntry
+}
+
+func newSpecValidationCollector(
+	catalog Catalog,
+	options ValidationOptions,
+	rootElement map[string]any,
+	elements map[string]map[string]any,
+) specValidationCollector {
 	allowedActions := cloneActionSet(catalog.Actions)
 	for name := range options.ActionDefinitions {
 		allowedActions[name] = struct{}{}
 	}
+	return specValidationCollector{
+		catalog:        catalog,
+		options:        options,
+		allowedActions: allowedActions,
+		elements:       elements,
+		runActionNames: collectRunActionNames(options.ActionDefinitions),
+		usedConfigIDs:  map[string]struct{}{},
+		unscopedKeys:   make([]string, 0),
+		visited:        map[string]struct{}{},
+		stack:          []validationStackEntry{{element: rootElement}},
+	}
+}
 
-	issues := make([]AppValidationIssue, 0)
-	runActionNames := collectRunActionNames(options.ActionDefinitions)
-	runActionCount := 0
-	usedConfigIDs := map[string]struct{}{}
-	unscopedKeys := make([]string, 0)
-	visited := map[string]struct{}{}
-	stack := []validationStackEntry{{element: rootElement}}
+func (c *specValidationCollector) collect() []AppValidationIssue {
+	for len(c.stack) > 0 {
+		current := c.stack[len(c.stack)-1]
+		c.stack = c.stack[:len(c.stack)-1]
+		c.visit(current)
+	}
+	c.appendSummaryIssues()
+	return c.issues
+}
 
-	for len(stack) > 0 {
-		current := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
+func (c *specValidationCollector) visit(current validationStackEntry) {
+	keyValue, ok := c.resolveElementKey(current.element)
+	if !ok {
+		return
+	}
+	if _, seen := c.visited[keyValue]; seen {
+		return
+	}
+	c.visited[keyValue] = struct{}{}
 
-		keyValue, ok := current.element["key"].(string)
-		if !ok {
-			issues = append(issues, AppValidationIssue{Message: "App spec elements require a string key."})
-			continue
-		}
-		if _, ok := visited[keyValue]; ok {
-			continue
-		}
-		visited[keyValue] = struct{}{}
-
-		componentType, ok := current.element["type"].(string)
-		if !ok {
-			issues = append(issues, collectValidationIssue(
-				"App spec element "+quote(keyValue)+" missing component type.",
-				keyValue,
-				"",
-			))
-			collectPushChildren(keyValue, current.element, elements, current.scopeConfigID, "", &issues, &stack)
-			continue
-		}
-
-		componentSchema, ok := catalog.Components[componentType]
-		if !ok {
-			issues = append(issues, collectValidationIssue(
-				"App spec element "+quote(keyValue)+" uses unknown component "+quote(componentType)+".",
-				keyValue,
-				componentType,
-			))
-			collectPushChildren(keyValue, current.element, elements, current.scopeConfigID, componentType, &issues, &stack)
-			continue
-		}
-
-		props := collectElementProps(keyValue, current.element, componentType, &issues)
-		binding := resolveBindingRecord(options.DataBindings, getDataPath(props))
-
-		collectValidateChildrenAgainstCatalog(keyValue, componentType, componentSchema, current.element, &issues)
-		collectValidatePropsAgainstCatalog(keyValue, componentType, componentSchema, props, binding, &issues)
-
-		scopeConfigID := current.scopeConfigID
-		if componentType == "ConfigScope" {
-			configID := getPropString(props, "configId")
-			if configID != "" {
-				usedConfigIDs[configID] = struct{}{}
-				configIDCopy := configID
-				scopeConfigID = &configIDCopy
-			} else {
-				scopeConfigID = nil
-			}
-		}
-
-		if componentType == "ActionButton" {
-			actionName := resolveActionName(props, binding)
-			actionType := ""
-			if actionName != "" {
-				if _, ok := allowedActions[actionName]; !ok {
-					issues = append(issues, collectValidationIssue(
-						"App spec action "+quote(actionName)+" is not registered (element "+quote(keyValue)+").",
-						keyValue,
-						componentType,
-					))
-				} else {
-					actionType = resolveActionType(actionName, options.ActionDefinitions[actionName])
-					if actionType == "run" {
-						runActionCount++
-					}
-				}
-				collectApplyConfigScopeGuardrail(keyValue, scopeConfigID, props, binding, usedConfigIDs, &unscopedKeys, actionType)
-			}
-		}
-
-		if componentType == "ParamInput" || componentType == "TextOutput" || componentType == "ImageOutput" {
-			collectApplyConfigScopeGuardrail(keyValue, scopeConfigID, props, binding, usedConfigIDs, &unscopedKeys, "")
-		}
-
-		collectPushChildren(keyValue, current.element, elements, scopeConfigID, componentType, &issues, &stack)
+	componentType, componentSchema, ok := c.resolveComponentSchema(current, keyValue)
+	if !ok {
+		return
 	}
 
-	if runActionCount > 1 && len(runActionNames) <= 1 {
-		issues = append(issues, AppValidationIssue{
+	props := collectElementProps(keyValue, current.element, componentType, &c.issues)
+	binding := resolveBindingRecord(c.options.DataBindings, getDataPath(props))
+
+	collectValidateChildrenAgainstCatalog(keyValue, componentType, componentSchema, current.element, &c.issues)
+	collectValidatePropsAgainstCatalog(keyValue, componentType, componentSchema, props, binding, &c.issues)
+
+	scopeConfigID := c.resolveScopeConfigID(componentType, props, current.scopeConfigID)
+	c.collectUsageIssues(keyValue, componentType, props, binding, scopeConfigID)
+	c.pushChildren(keyValue, current.element, scopeConfigID, componentType)
+}
+
+func (c *specValidationCollector) resolveElementKey(element map[string]any) (string, bool) {
+	keyValue, ok := element["key"].(string)
+	if !ok {
+		c.issues = append(c.issues, AppValidationIssue{Message: "App spec elements require a string key."})
+		return "", false
+	}
+	return keyValue, true
+}
+
+func (c *specValidationCollector) resolveComponentSchema(
+	current validationStackEntry,
+	keyValue string,
+) (string, ComponentSchema, bool) {
+	componentType, ok := current.element["type"].(string)
+	if !ok {
+		c.issues = append(c.issues, collectValidationIssue(
+			"App spec element "+quote(keyValue)+" missing component type.",
+			keyValue,
+			"",
+		))
+		c.pushChildren(keyValue, current.element, current.scopeConfigID, "")
+		return "", ComponentSchema{}, false
+	}
+
+	componentSchema, ok := c.catalog.Components[componentType]
+	if !ok {
+		c.issues = append(c.issues, collectValidationIssue(
+			"App spec element "+quote(keyValue)+" uses unknown component "+quote(componentType)+".",
+			keyValue,
+			componentType,
+		))
+		c.pushChildren(keyValue, current.element, current.scopeConfigID, componentType)
+		return componentType, ComponentSchema{}, false
+	}
+	return componentType, componentSchema, true
+}
+
+func (c *specValidationCollector) resolveScopeConfigID(
+	componentType string,
+	props map[string]any,
+	scopeConfigID *string,
+) *string {
+	if componentType != "ConfigScope" {
+		return scopeConfigID
+	}
+	configID := getPropString(props, "configId")
+	if configID == "" {
+		return nil
+	}
+	c.usedConfigIDs[configID] = struct{}{}
+	configIDCopy := configID
+	return &configIDCopy
+}
+
+func (c *specValidationCollector) collectUsageIssues(
+	keyValue string,
+	componentType string,
+	props map[string]any,
+	binding map[string]any,
+	scopeConfigID *string,
+) {
+	if componentType == "ActionButton" {
+		c.collectActionUsageIssues(keyValue, componentType, props, binding, scopeConfigID)
+		return
+	}
+	if requiresConfigScopeGuardrail(componentType) {
+		applyConfigScopeGuardrail(keyValue, scopeConfigID, props, binding, c.usedConfigIDs, &c.unscopedKeys, "")
+	}
+}
+
+func (c *specValidationCollector) collectActionUsageIssues(
+	keyValue string,
+	componentType string,
+	props map[string]any,
+	binding map[string]any,
+	scopeConfigID *string,
+) {
+	actionName := resolveActionName(props, binding)
+	if actionName == "" {
+		return
+	}
+
+	actionType := ""
+	if _, ok := c.allowedActions[actionName]; !ok {
+		c.issues = append(c.issues, collectValidationIssue(
+			"App spec action "+quote(actionName)+" is not registered (element "+quote(keyValue)+").",
+			keyValue,
+			componentType,
+		))
+	} else {
+		actionType = resolveActionType(actionName, c.options.ActionDefinitions[actionName])
+		if actionType == "run" {
+			c.runActionCount++
+		}
+	}
+
+	applyConfigScopeGuardrail(keyValue, scopeConfigID, props, binding, c.usedConfigIDs, &c.unscopedKeys, actionType)
+}
+
+func (c *specValidationCollector) pushChildren(
+	keyValue string,
+	element map[string]any,
+	scopeConfigID *string,
+	componentType string,
+) {
+	collectPushChildren(keyValue, element, c.elements, scopeConfigID, componentType, &c.issues, &c.stack)
+}
+
+func (c *specValidationCollector) appendSummaryIssues() {
+	if c.runActionCount > 1 && len(c.runActionNames) <= 1 {
+		c.issues = append(c.issues, AppValidationIssue{
 			Message: "App spec can only include one run action. Define an additional run action to allow multiple run buttons.",
 		})
 	}
-	if len(usedConfigIDs) > 1 && len(unscopedKeys) > 0 {
-		sort.Strings(unscopedKeys)
-		issues = append(issues, AppValidationIssue{
-			Message: "App spec uses multiple configs but some elements are not scoped. Wrap them in ConfigScope or set configId explicitly. Missing scope for: " + strings.Join(unscopedKeys, ", ") + ".",
+	if len(c.usedConfigIDs) > 1 && len(c.unscopedKeys) > 0 {
+		sort.Strings(c.unscopedKeys)
+		c.issues = append(c.issues, AppValidationIssue{
+			Message: "App spec uses multiple configs but some elements are not scoped. Wrap them in ConfigScope or set configId explicitly. Missing scope for: " + strings.Join(c.unscopedKeys, ", ") + ".",
 		})
 	}
-
-	return issues
 }
 
 func CollectThemeValidationIssues(theme map[string]any) ([]AppValidationIssue, []AppValidationIssue) {
@@ -558,34 +648,6 @@ func collectPushChildren(
 	}
 }
 
-func collectApplyConfigScopeGuardrail(
-	elementKey string,
-	scopeConfigID *string,
-	props map[string]any,
-	binding map[string]any,
-	usedConfigIDs map[string]struct{},
-	unscopedKeys *[]string,
-	actionType string,
-) {
-	explicitConfigID := getPropString(props, "configId")
-	if explicitConfigID == "" {
-		explicitConfigID = resolveBindingString(binding, "configId")
-	}
-	effectiveConfigID := explicitConfigID
-	if effectiveConfigID == "" && scopeConfigID != nil {
-		effectiveConfigID = *scopeConfigID
-	}
-
-	if effectiveConfigID != "" {
-		usedConfigIDs[effectiveConfigID] = struct{}{}
-		return
-	}
-	if actionType != "" && actionType != "run" && actionType != "downloadArtifact" {
-		return
-	}
-	*unscopedKeys = append(*unscopedKeys, elementKey)
-}
-
 func previewSorted(values []string, limit int) (string, string) {
 	if len(values) == 0 {
 		return "", ""
@@ -716,72 +778,79 @@ func collectThemeTypographyIssues(raw any, warnings *[]AppValidationIssue) []App
 		})
 	}
 
+	errors := collectThemeStringOrNumberIssues(
+		typography,
+		[]string{"bodySize", "bodyLineHeight", "headingLineHeight"},
+		"theme.typography",
+	)
+	errors = append(errors, collectThemeOptionalStringOrNumberMapIssues(
+		typography,
+		"headingSizes",
+		themeHeadingSizeKeys,
+		"theme.typography.headingSizes",
+		warnings,
+	)...)
+	errors = append(errors, collectThemeOptionalStringOrNumberMapIssues(
+		typography,
+		"scale",
+		themeTextScaleKeys,
+		"theme.typography.scale",
+		warnings,
+	)...)
+	return errors
+}
+
+func collectThemeStringOrNumberIssues(values map[string]any, keys []string, prefix string) []AppValidationIssue {
 	errors := make([]AppValidationIssue, 0)
-	for _, key := range []string{"bodySize", "bodyLineHeight", "headingLineHeight"} {
-		if !hasMapKey(typography, key) {
+	for _, key := range keys {
+		if !hasMapKey(values, key) {
 			continue
 		}
-		if !isStringOrNumber(typography[key]) {
+		if !isStringOrNumber(values[key]) {
 			errors = append(errors, AppValidationIssue{
-				Message: "theme.typography." + key + " must be a number or string.",
+				Message: prefix + "." + key + " must be a number or string.",
 			})
 		}
 	}
+	return errors
+}
 
-	if hasMapKey(typography, "headingSizes") {
-		headingSizes, ok := typography["headingSizes"].(map[string]any)
-		if !ok {
-			errors = append(errors, AppValidationIssue{
-				Message: "theme.typography.headingSizes must be an object.",
-			})
-		} else {
-			headingUnknown := unknownMapKeys(headingSizes, themeHeadingSizeKeys)
-			if len(headingUnknown) > 0 {
-				preview, suffix := previewSorted(headingUnknown, 6)
-				*warnings = append(*warnings, AppValidationIssue{
-					Message: "theme.typography.headingSizes contains unknown keys and they will be ignored: " + preview + suffix,
-				})
-			}
-			for key := range themeHeadingSizeKeys {
-				if !hasMapKey(headingSizes, key) {
-					continue
-				}
-				if !isStringOrNumber(headingSizes[key]) {
-					errors = append(errors, AppValidationIssue{
-						Message: "theme.typography.headingSizes." + key + " must be a number or string.",
-					})
-				}
-			}
-		}
+func collectThemeOptionalStringOrNumberMapIssues(
+	values map[string]any,
+	key string,
+	allowed map[string]struct{},
+	prefix string,
+	warnings *[]AppValidationIssue,
+) []AppValidationIssue {
+	if !hasMapKey(values, key) {
+		return nil
+	}
+	entries, ok := values[key].(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{
+			Message: prefix + " must be an object.",
+		}}
 	}
 
-	if hasMapKey(typography, "scale") {
-		scale, ok := typography["scale"].(map[string]any)
-		if !ok {
-			errors = append(errors, AppValidationIssue{
-				Message: "theme.typography.scale must be an object.",
-			})
-		} else {
-			scaleUnknown := unknownMapKeys(scale, themeTextScaleKeys)
-			if len(scaleUnknown) > 0 {
-				preview, suffix := previewSorted(scaleUnknown, 6)
-				*warnings = append(*warnings, AppValidationIssue{
-					Message: "theme.typography.scale contains unknown keys and they will be ignored: " + preview + suffix,
-				})
-			}
-			for key := range themeTextScaleKeys {
-				if !hasMapKey(scale, key) {
-					continue
-				}
-				if !isStringOrNumber(scale[key]) {
-					errors = append(errors, AppValidationIssue{
-						Message: "theme.typography.scale." + key + " must be a number or string.",
-					})
-				}
-			}
-		}
+	unknown := unknownMapKeys(entries, allowed)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: prefix + " contains unknown keys and they will be ignored: " + preview + suffix,
+		})
 	}
 
+	errors := make([]AppValidationIssue, 0)
+	for allowedKey := range allowed {
+		if !hasMapKey(entries, allowedKey) {
+			continue
+		}
+		if !isStringOrNumber(entries[allowedKey]) {
+			errors = append(errors, AppValidationIssue{
+				Message: prefix + "." + allowedKey + " must be a number or string.",
+			})
+		}
+	}
 	return errors
 }
 
@@ -1072,44 +1141,69 @@ func iterAppElements(appSpec any) ([]map[string]any, bool) {
 		return nil, false
 	}
 
-	stack := []map[string]any{rootElement}
-	visited := map[string]struct{}{}
-	output := make([]map[string]any, 0)
-	for len(stack) > 0 {
-		element := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
+	iterator := appElementIterator{
+		elements: elements,
+		stack:    []map[string]any{rootElement},
+		visited:  map[string]struct{}{},
+		output:   make([]map[string]any, 0),
+	}
+	return iterator.collect(), true
+}
 
-		keyValue, ok := element["key"].(string)
-		if !ok {
-			continue
-		}
-		if _, ok := visited[keyValue]; ok {
-			continue
-		}
-		visited[keyValue] = struct{}{}
-		output = append(output, element)
+type appElementIterator struct {
+	elements map[string]map[string]any
+	stack    []map[string]any
+	visited  map[string]struct{}
+	output   []map[string]any
+}
 
-		rawChildren, ok := element["children"]
-		if !ok || rawChildren == nil {
+func (i *appElementIterator) collect() []map[string]any {
+	for len(i.stack) > 0 {
+		element := i.stack[len(i.stack)-1]
+		i.stack = i.stack[:len(i.stack)-1]
+		if !i.record(element) {
 			continue
 		}
-		children, ok := rawChildren.([]any)
-		if !ok {
-			continue
-		}
-		for _, child := range children {
-			if childKey, ok := child.(string); ok {
-				if childElement, ok := elements[childKey]; ok {
-					stack = append(stack, childElement)
-				}
-				continue
-			}
-			if childElement, ok := child.(map[string]any); ok && isUIElement(childElement) {
-				stack = append(stack, childElement)
-			}
+		i.pushChildren(element)
+	}
+	return i.output
+}
+
+func (i *appElementIterator) record(element map[string]any) bool {
+	keyValue, ok := element["key"].(string)
+	if !ok {
+		return false
+	}
+	if _, ok := i.visited[keyValue]; ok {
+		return false
+	}
+	i.visited[keyValue] = struct{}{}
+	i.output = append(i.output, element)
+	return true
+}
+
+func (i *appElementIterator) pushChildren(element map[string]any) {
+	children, err := elementChildren(element)
+	if err != nil {
+		return
+	}
+	for _, child := range children {
+		childElement := i.resolveChild(child)
+		if childElement != nil {
+			i.stack = append(i.stack, childElement)
 		}
 	}
-	return output, true
+}
+
+func (i *appElementIterator) resolveChild(child any) map[string]any {
+	if childKey, ok := child.(string); ok {
+		return i.elements[childKey]
+	}
+	childElement, ok := child.(map[string]any)
+	if ok && isUIElement(childElement) {
+		return childElement
+	}
+	return nil
 }
 
 func resolveAssetHref(asset any) string {

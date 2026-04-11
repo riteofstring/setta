@@ -116,6 +116,171 @@ func TestValidateDefinitionPayloadWarnsOnRunMissingSectionIDAndExternalAssets(t 
 	}
 }
 
+func TestCollectSpecValidationIssuesReportsUnknownActionWithElementMetadata(t *testing.T) {
+	t.Parallel()
+
+	issues := CollectSpecValidationIssues(map[string]any{
+		"root": map[string]any{
+			"key":  "ship-btn",
+			"type": "ActionButton",
+			"props": map[string]any{
+				"label":  "Ship",
+				"action": "ship",
+			},
+		},
+	}, ValidationOptions{})
+
+	found := false
+	for _, issue := range issues {
+		if issue.Message != `App spec action "ship" is not registered (element "ship-btn").` {
+			continue
+		}
+		if issue.ElementKey != "ship-btn" || issue.ElementType != "ActionButton" {
+			t.Fatalf("expected element metadata on unknown-action issue, got %#v", issue)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected unknown-action issue, got %#v", issues)
+	}
+}
+
+func TestCollectSpecValidationIssuesReportsUnscopedElementsAcrossMultipleConfigs(t *testing.T) {
+	t.Parallel()
+
+	issues := CollectSpecValidationIssues(map[string]any{
+		"root": map[string]any{
+			"key":  "layout",
+			"type": "Stack",
+			"children": []any{
+				"cfg-a",
+				"cfg-b",
+				map[string]any{
+					"key":  "orphan-output",
+					"type": "TextOutput",
+					"props": map[string]any{
+						"sectionId": "summary",
+					},
+				},
+			},
+		},
+		"elements": map[string]any{
+			"cfg-a": map[string]any{
+				"key":  "cfg-a",
+				"type": "ConfigScope",
+				"props": map[string]any{
+					"configId": "alpha",
+				},
+				"children": []any{
+					map[string]any{
+						"key":  "input-a",
+						"type": "ParamInput",
+						"props": map[string]any{
+							"sectionId": "prompt",
+							"paramId":   "topic",
+						},
+					},
+				},
+			},
+			"cfg-b": map[string]any{
+				"key":  "cfg-b",
+				"type": "ConfigScope",
+				"props": map[string]any{
+					"configId": "beta",
+				},
+				"children": []any{
+					map[string]any{
+						"key":  "input-b",
+						"type": "ParamInput",
+						"props": map[string]any{
+							"sectionId": "prompt",
+							"paramId":   "tone",
+						},
+					},
+				},
+			},
+		},
+	}, ValidationOptions{})
+
+	want := "App spec uses multiple configs but some elements are not scoped. Wrap them in ConfigScope or set configId explicitly. Missing scope for: orphan-output."
+	if !hasIssueMessage(issues, want) {
+		t.Fatalf("expected multi-config scope issue, got %#v", issues)
+	}
+}
+
+func TestCollectSpecValidationIssuesRejectsMultipleDefaultRunButtons(t *testing.T) {
+	t.Parallel()
+
+	issues := CollectSpecValidationIssues(map[string]any{
+		"root": map[string]any{
+			"key":  "layout",
+			"type": "Stack",
+			"children": []any{
+				map[string]any{
+					"key":  "run-1",
+					"type": "ActionButton",
+					"props": map[string]any{
+						"label":  "Run",
+						"action": "run",
+					},
+				},
+				map[string]any{
+					"key":  "run-2",
+					"type": "ActionButton",
+					"props": map[string]any{
+						"label":  "Run again",
+						"action": "run",
+					},
+				},
+			},
+		},
+	}, ValidationOptions{})
+
+	want := "App spec can only include one run action. Define an additional run action to allow multiple run buttons."
+	if !hasIssueMessage(issues, want) {
+		t.Fatalf("expected multi-run issue, got %#v", issues)
+	}
+}
+
+func TestCollectSpecValidationIssuesAllowsNamedAdditionalRunActions(t *testing.T) {
+	t.Parallel()
+
+	issues := CollectSpecValidationIssues(map[string]any{
+		"root": map[string]any{
+			"key":  "layout",
+			"type": "Stack",
+			"children": []any{
+				map[string]any{
+					"key":  "run-1",
+					"type": "ActionButton",
+					"props": map[string]any{
+						"label":  "Run",
+						"action": "run",
+					},
+				},
+				map[string]any{
+					"key":  "run-2",
+					"type": "ActionButton",
+					"props": map[string]any{
+						"label":  "Run alt",
+						"action": "rerun",
+					},
+				},
+			},
+		},
+	}, ValidationOptions{
+		ActionDefinitions: map[string]any{
+			"rerun": map[string]any{
+				"type": "run",
+			},
+		},
+	})
+
+	if len(issues) != 0 {
+		t.Fatalf("expected no validation issues, got %#v", issues)
+	}
+}
+
 func TestCollectThemeValidationIssuesAcceptsMotionTokens(t *testing.T) {
 	t.Parallel()
 
