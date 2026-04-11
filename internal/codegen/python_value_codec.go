@@ -41,6 +41,8 @@ type PythonValueCodec struct {
 	requiredImports             map[string]struct{}
 }
 
+type pythonSectionFormatter func(*PythonSectionNode) (string, error)
+
 func NewPythonValueCodec(
 	graph *PythonDependencyGraph,
 	varLookup PythonVarLookup,
@@ -118,65 +120,105 @@ func (c *PythonValueCodec) FormatSection(node *PythonSectionNode) (string, bool,
 		return "", false, nil
 	}
 
-	switch node.SectionType {
-	case "Callable":
-		if node.Value == nil {
-			return "None", true, nil
-		}
-		literal, ok := node.Value.(LiteralDependencyValue)
-		if !ok {
-			return "", false, fmt.Errorf("codegen: callable section %s expected literal payload", node.FullPathName)
-		}
-		value, err := c.constructCallable(literal.Payload, node.Deps, node.DepOrder)
-		return value, true, err
-	case "ListRoot":
-		value, err := c.FormatList(node.Deps, node.DepOrder)
-		return value, true, err
-	case "Group", "Dict":
-		value, err := c.FormatDict(node.Deps, node.DepOrder)
-		return value, true, err
-	case "MetaControl":
-		value, err := c.formatMetaControlSection(node)
-		return value, true, err
-	case "TaskBoard", "Spreadsheet":
-		if node.Value == nil {
-			return "None", true, nil
-		}
-		literal, ok := node.Value.(LiteralDependencyValue)
-		if !ok {
-			return "", false, fmt.Errorf("codegen: %s section %s expected literal payload", node.SectionType, node.FullPathName)
-		}
-		return literal.Payload, true, nil
-	case "TextBlock", "Prompt":
-		if node.Value == nil {
-			return "None", true, nil
-		}
-		literal, ok := node.Value.(LiteralDependencyValue)
-		if !ok {
-			return "", false, fmt.Errorf("codegen: %s section %s expected literal payload", node.SectionType, node.FullPathName)
-		}
-		return renderPythonStringLiteral(literal.Payload), true, nil
-	case "Plugin":
-		if node.Value == nil {
-			return "None", true, nil
-		}
-		literal, ok := node.Value.(LiteralDependencyValue)
-		if !ok {
-			return "", false, fmt.Errorf("codegen: plugin section %s expected literal payload", node.FullPathName)
-		}
-		return literal.Payload, true, nil
-	case "Chat":
-		value, err := c.formatFileRepresentedSection("Chat", node.FullPathName, node.Value, node.Representation)
-		return value, true, err
-	case "Image":
-		value, err := c.formatFileRepresentedSection("Image", node.FullPathName, node.Value, node.Representation)
-		return value, true, err
-	case "Draw":
-		value, err := c.formatFileRepresentedSection("Draw", node.FullPathName, node.Value, node.Representation)
-		return value, true, err
-	default:
+	formatter, ok := c.sectionFormatter(node.SectionType)
+	if !ok {
 		return "", false, nil
 	}
+
+	value, err := formatter(node)
+	return value, true, err
+}
+
+func (c *PythonValueCodec) sectionFormatter(sectionType string) (pythonSectionFormatter, bool) {
+	switch sectionType {
+	case "Callable":
+		return c.formatCallableSection, true
+	case "ListRoot":
+		return c.formatListSection, true
+	case "Group", "Dict":
+		return c.formatDictSection, true
+	case "MetaControl":
+		return c.formatMetaControlSection, true
+	case "TaskBoard", "Spreadsheet":
+		return c.formatLiteralPayloadSection, true
+	case "Plugin":
+		return c.formatPluginSection, true
+	case "TextBlock", "Prompt":
+		return c.formatStringLiteralSection, true
+	case "Chat", "Image", "Draw":
+		return c.formatFileRepresentedSectionNode, true
+	default:
+		return nil, false
+	}
+}
+
+func (c *PythonValueCodec) formatCallableSection(node *PythonSectionNode) (string, error) {
+	if node.Value == nil {
+		return "None", nil
+	}
+	literal, err := literalSectionPayload("callable", node.Value, node.FullPathName)
+	if err != nil {
+		return "", err
+	}
+	return c.constructCallable(literal, node.Deps, node.DepOrder)
+}
+
+func (c *PythonValueCodec) formatListSection(node *PythonSectionNode) (string, error) {
+	return c.FormatList(node.Deps, node.DepOrder)
+}
+
+func (c *PythonValueCodec) formatDictSection(node *PythonSectionNode) (string, error) {
+	return c.FormatDict(node.Deps, node.DepOrder)
+}
+
+func (c *PythonValueCodec) formatLiteralPayloadSection(node *PythonSectionNode) (string, error) {
+	return c.formatLiteralSection(node, func(payload string) string { return payload })
+}
+
+func (c *PythonValueCodec) formatPluginSection(node *PythonSectionNode) (string, error) {
+	return c.formatLiteralSectionWithLabel(node, "plugin", func(payload string) string { return payload })
+}
+
+func (c *PythonValueCodec) formatStringLiteralSection(node *PythonSectionNode) (string, error) {
+	return c.formatLiteralSection(node, renderPythonStringLiteral)
+}
+
+func (c *PythonValueCodec) formatLiteralSection(
+	node *PythonSectionNode,
+	render func(string) string,
+) (string, error) {
+	return c.formatLiteralSectionWithLabel(node, node.SectionType, render)
+}
+
+func (c *PythonValueCodec) formatLiteralSectionWithLabel(
+	node *PythonSectionNode,
+	label string,
+	render func(string) string,
+) (string, error) {
+	if node.Value == nil {
+		return "None", nil
+	}
+	literal, err := literalSectionPayload(label, node.Value, node.FullPathName)
+	if err != nil {
+		return "", err
+	}
+	return render(literal), nil
+}
+
+func literalSectionPayload(
+	label string,
+	value PythonDependencyValue,
+	fullPathName string,
+) (string, error) {
+	literal, ok := value.(LiteralDependencyValue)
+	if !ok {
+		return "", fmt.Errorf("codegen: %s section %s expected literal payload", label, fullPathName)
+	}
+	return literal.Payload, nil
+}
+
+func (c *PythonValueCodec) formatFileRepresentedSectionNode(node *PythonSectionNode) (string, error) {
+	return c.formatFileRepresentedSection(node.SectionType, node.FullPathName, node.Value, node.Representation)
 }
 
 func (c *PythonValueCodec) FormatDependencyValue(value PythonDependencyValue) (string, error) {
