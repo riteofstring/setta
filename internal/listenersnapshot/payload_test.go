@@ -208,3 +208,47 @@ func TestBuildListenerRenderedDependencyValuesFromGraphUsesPasswordSecretLiteral
 		t.Fatalf("expected meta-control password literal %q, got %q", "\"toggle-secret\"", got)
 	}
 }
+
+func TestBuildListenerRenderedDependencyValuesFromGraphSkipsCycles(t *testing.T) {
+	t.Parallel()
+
+	firstKey := codegen.PythonSectionDependencyKey("section-a")
+	secondKey := codegen.PythonSectionDependencyKey("section-b")
+	graph := &codegen.PythonDependencyGraph{
+		Nodes: map[codegen.PythonDependencyKey]codegen.PythonDependencyNode{
+			firstKey: &codegen.PythonSectionNode{
+				PythonDependencyNodeBase: codegen.PythonDependencyNodeBase{
+					Name:             "first",
+					FullPathName:     "section__first",
+					IncludeInCodegen: true,
+					Deps: map[codegen.PythonDependencyKey]bool{
+						secondKey: true,
+					},
+					DepOrder: []codegen.PythonDependencyKey{secondKey},
+				},
+				SectionType: "Dict",
+			},
+			secondKey: &codegen.PythonSectionNode{
+				PythonDependencyNodeBase: codegen.PythonDependencyNodeBase{
+					Name:             "second",
+					FullPathName:     "section__second",
+					IncludeInCodegen: true,
+					Deps: map[codegen.PythonDependencyKey]bool{
+						firstKey: true,
+					},
+					DepOrder: []codegen.PythonDependencyKey{firstKey},
+				},
+				SectionType: "Dict",
+			},
+		},
+		NodeOrder: []codegen.PythonDependencyKey{firstKey, secondKey},
+	}
+
+	values := buildListenerRenderedDependencyValuesFromGraph(graph)
+	if values == nil {
+		t.Fatal("expected listener dependency values")
+	}
+	if len(values.Entries) != 0 {
+		t.Fatalf("expected cyclic dependency values to be skipped, got %#v", values.Entries)
+	}
+}

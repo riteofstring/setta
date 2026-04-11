@@ -214,60 +214,93 @@ func (b *renderedListenerValueBuilder) render(key codegen.PythonDependencyKey) (
 	if renderedValue, ok := b.rendered[key]; ok {
 		return renderedValue.value, renderedValue.ok
 	}
-	if b.graph == nil {
-		return "", false
+	node, ok := b.renderableNode(key)
+	if !ok {
+		return b.cacheRenderedValue(key, "", false)
 	}
-	if _, ok := b.visiting[key]; ok {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
-	}
-	node, ok := b.graph.Node(key)
-	if !ok || !node.Base().IncludeInCodegen {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
-	}
-
-	switch typed := node.(type) {
-	case *codegen.PythonParamNode:
-		if typed.CodeObjectType == "PasswordParam" {
-			renderedValue := strconv.Quote(
-				b.graph.PasswordSecrets[strings.TrimSpace(typed.CodeObjectImplID)],
-			)
-			b.rendered[key] = renderedListenerValue{
-				value: renderedValue,
-				ok:    true,
-			}
-			return renderedValue, true
-		}
-	case *codegen.PythonSectionNode:
-		if typed.SectionType == "MetaControl" && typed.ControlCodeObjType == "PasswordParam" {
-			renderedValue := strconv.Quote(
-				b.graph.PasswordSecrets[strings.TrimSpace(typed.ControlCodeObjImplID)],
-			)
-			b.rendered[key] = renderedListenerValue{
-				value: renderedValue,
-				ok:    true,
-			}
-			return renderedValue, true
-		}
+	if renderedValue, ok := b.renderSpecialValue(node); ok {
+		return b.cacheRenderedValue(key, renderedValue, true)
 	}
 
 	b.visiting[key] = struct{}{}
 	defer delete(b.visiting, key)
 
-	childValues := map[codegen.PythonDependencyKey]string{}
-	for _, depKey := range orderedListenerDependencyKeys(node.Base().Deps, node.Base().DepOrder) {
+	childValues, ok := b.renderChildValues(node)
+	if !ok {
+		return b.cacheRenderedValue(key, "", false)
+	}
+
+	renderedValue, ok := b.formatRenderedValue(node, childValues)
+	if !ok {
+		return b.cacheRenderedValue(key, "", false)
+	}
+	renderedValue = strings.TrimSpace(renderedValue)
+	if renderedValue == "" {
+		return b.cacheRenderedValue(key, "", false)
+	}
+	return b.cacheRenderedValue(key, renderedValue, true)
+}
+
+func (b *renderedListenerValueBuilder) renderableNode(key codegen.PythonDependencyKey) (codegen.PythonDependencyNode, bool) {
+	if b.graph == nil {
+		return nil, false
+	}
+	if _, ok := b.visiting[key]; ok {
+		return nil, false
+	}
+	node, ok := b.graph.Node(key)
+	if !ok || !node.Base().IncludeInCodegen {
+		return nil, false
+	}
+	return node, true
+}
+
+func (b *renderedListenerValueBuilder) renderSpecialValue(node codegen.PythonDependencyNode) (string, bool) {
+	switch typed := node.(type) {
+	case *codegen.PythonParamNode:
+		if typed.CodeObjectType != "PasswordParam" {
+			return "", false
+		}
+		return strconv.Quote(
+			b.graph.PasswordSecrets[strings.TrimSpace(typed.CodeObjectImplID)],
+		), true
+	case *codegen.PythonSectionNode:
+		if typed.SectionType != "MetaControl" || typed.ControlCodeObjType != "PasswordParam" {
+			return "", false
+		}
+		return strconv.Quote(
+			b.graph.PasswordSecrets[strings.TrimSpace(typed.ControlCodeObjImplID)],
+		), true
+	default:
+		return "", false
+	}
+}
+
+func (b *renderedListenerValueBuilder) renderChildValues(
+	node codegen.PythonDependencyNode,
+) (map[codegen.PythonDependencyKey]string, bool) {
+	orderedDeps := orderedListenerDependencyKeys(node.Base().Deps, node.Base().DepOrder)
+	if len(orderedDeps) == 0 {
+		return nil, true
+	}
+	childValues := make(map[codegen.PythonDependencyKey]string, len(orderedDeps))
+	for _, depKey := range orderedDeps {
 		if !node.Base().Deps[depKey] {
 			continue
 		}
 		renderedValue, ok := b.render(depKey)
 		if !ok {
-			b.rendered[key] = renderedListenerValue{}
-			return "", false
+			return nil, false
 		}
 		childValues[depKey] = renderedValue
 	}
+	return childValues, true
+}
 
+func (b *renderedListenerValueBuilder) formatRenderedValue(
+	node codegen.PythonDependencyNode,
+	childValues map[codegen.PythonDependencyKey]string,
+) (string, bool) {
 	codec := codegen.NewPythonValueCodec(
 		b.graph,
 		func(depKey codegen.PythonDependencyKey) string {
@@ -277,40 +310,28 @@ func (b *renderedListenerValueBuilder) render(key codegen.PythonDependencyKey) (
 			Mode: codegen.PythonValueModeLiveRuntime,
 		},
 	)
-	var (
-		renderedValue string
-		err           error
-	)
 	switch typed := node.(type) {
 	case *codegen.PythonParamNode:
-		renderedValue, err = codec.FormatParamExpression(typed)
+		renderedValue, err := codec.FormatParamExpression(typed)
+		return renderedValue, err == nil
 	case *codegen.PythonSectionNode:
-		var handled bool
-		renderedValue, handled, err = codec.FormatSection(typed)
-		if !handled {
-			b.rendered[key] = renderedListenerValue{}
-			return "", false
-		}
+		renderedValue, handled, err := codec.FormatSection(typed)
+		return renderedValue, handled && err == nil
 	default:
-		b.rendered[key] = renderedListenerValue{}
 		return "", false
 	}
-	if err != nil {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
-	}
+}
 
-	renderedValue = strings.TrimSpace(renderedValue)
-	if renderedValue == "" {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
-	}
-
+func (b *renderedListenerValueBuilder) cacheRenderedValue(
+	key codegen.PythonDependencyKey,
+	value string,
+	ok bool,
+) (string, bool) {
 	b.rendered[key] = renderedListenerValue{
-		value: renderedValue,
-		ok:    true,
+		value: value,
+		ok:    ok,
 	}
-	return renderedValue, true
+	return value, ok
 }
 
 func orderedListenerDependencyKeys(
