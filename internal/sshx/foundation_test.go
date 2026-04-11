@@ -70,6 +70,32 @@ func TestParseSSHArgsRejectsDanglingEscape(t *testing.T) {
 	requireSSHErrorCode(t, err, "InvalidSshArgs")
 }
 
+func TestParseSSHArgsPreservesEmptyQuotedToken(t *testing.T) {
+	t.Parallel()
+
+	args, err := ParseSSHArgs(`-o "" -p 2222`)
+	if err != nil {
+		t.Fatalf("parse empty quoted token: %v", err)
+	}
+	want := []string{"-o", "", "-p", "2222"}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("unexpected empty quoted token args:\n got: %#v\nwant: %#v", args, want)
+	}
+}
+
+func TestParseSSHArgsTreatsEscapedDoubleQuoteAsLiteral(t *testing.T) {
+	t.Parallel()
+
+	args, err := ParseSSHArgs(`-o ProxyCommand="ssh -o ProxyJump=\"bastion host\" target"`)
+	if err != nil {
+		t.Fatalf("parse escaped double quote args: %v", err)
+	}
+	want := []string{"-o", `ProxyCommand=ssh -o ProxyJump="bastion host" target`}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("unexpected escaped double quote args:\n got: %#v\nwant: %#v", args, want)
+	}
+}
+
 func TestApplyControlSocketArgsAddsDefaultsWhenMissing(t *testing.T) {
 	t.Parallel()
 
