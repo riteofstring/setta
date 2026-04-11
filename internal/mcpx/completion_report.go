@@ -133,43 +133,19 @@ func readCompletionCheckResultValue(rawValue any, key string, index int) (comple
 		return typed, nil
 	}
 
-	object, ok := rawValue.(map[string]any)
-	if !ok {
-		return completionCheckResult{}, newToolError("invalid_arguments", "%s[%d] must be an object", key, index)
+	object, err := readCompletionCheckResultObject(rawValue, key, index)
+	if err != nil {
+		return completionCheckResult{}, err
 	}
-
-	checkNameValue, ok := object["checkName"]
-	if !ok || checkNameValue == nil {
-		return completionCheckResult{}, newToolError("invalid_arguments", "%s[%d].checkName is required", key, index)
+	checkName, err := readRequiredCompletionCheckName(object, key, index)
+	if err != nil {
+		return completionCheckResult{}, err
 	}
-	checkName, ok := checkNameValue.(string)
-	if !ok {
-		return completionCheckResult{}, newToolError("invalid_arguments", "%s[%d].checkName must be a string", key, index)
+	required, err := readCompletionCheckRequiredFlag(object, key, index)
+	if err != nil {
+		return completionCheckResult{}, err
 	}
-	checkName = strings.TrimSpace(checkName)
-	if checkName == "" {
-		return completionCheckResult{}, newToolError("invalid_arguments", "%s[%d].checkName must be non-empty", key, index)
-	}
-
-	required := true
-	if rawRequired, ok := object["required"]; ok && rawRequired != nil {
-		typedRequired, ok := rawRequired.(bool)
-		if !ok {
-			return completionCheckResult{}, newToolError("invalid_arguments", "%s[%d].required must be a boolean", key, index)
-		}
-		required = typedRequired
-	}
-
-	statusValue, ok := object["status"]
-	if !ok || statusValue == nil {
-		return completionCheckResult{}, newToolError("invalid_arguments", "%s[%d].status is required", key, index)
-	}
-	statusString, ok := statusValue.(string)
-	if !ok {
-		return completionCheckResult{}, newToolError("invalid_arguments", "%s[%d].status must be a string", key, index)
-	}
-
-	status, err := parseCompletionCheckStatus(statusString, key, index)
+	status, err := readRequiredCompletionCheckStatus(object, key, index)
 	if err != nil {
 		return completionCheckResult{}, err
 	}
@@ -189,6 +165,54 @@ func readCompletionCheckResultValue(rawValue any, key string, index int) (comple
 		Details:   details,
 		Source:    source,
 	}, nil
+}
+
+func readCompletionCheckResultObject(rawValue any, key string, index int) (map[string]any, error) {
+	object, ok := rawValue.(map[string]any)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s[%d] must be an object", key, index)
+	}
+	return object, nil
+}
+
+func readRequiredCompletionCheckName(object map[string]any, key string, index int) (string, error) {
+	checkNameValue, ok := object["checkName"]
+	if !ok || checkNameValue == nil {
+		return "", newToolError("invalid_arguments", "%s[%d].checkName is required", key, index)
+	}
+	checkName, ok := checkNameValue.(string)
+	if !ok {
+		return "", newToolError("invalid_arguments", "%s[%d].checkName must be a string", key, index)
+	}
+	trimmed := strings.TrimSpace(checkName)
+	if trimmed == "" {
+		return "", newToolError("invalid_arguments", "%s[%d].checkName must be non-empty", key, index)
+	}
+	return trimmed, nil
+}
+
+func readCompletionCheckRequiredFlag(object map[string]any, key string, index int) (bool, error) {
+	rawRequired, ok := object["required"]
+	if !ok || rawRequired == nil {
+		return true, nil
+	}
+	required, ok := rawRequired.(bool)
+	if !ok {
+		return false, newToolError("invalid_arguments", "%s[%d].required must be a boolean", key, index)
+	}
+	return required, nil
+}
+
+func readRequiredCompletionCheckStatus(object map[string]any, key string, index int) (checkStatus, error) {
+	statusValue, ok := object["status"]
+	if !ok || statusValue == nil {
+		return "", newToolError("invalid_arguments", "%s[%d].status is required", key, index)
+	}
+	statusString, ok := statusValue.(string)
+	if !ok {
+		return "", newToolError("invalid_arguments", "%s[%d].status must be a string", key, index)
+	}
+	return parseCompletionCheckStatus(statusString, key, index)
 }
 
 func parseCompletionCheckStatus(value string, key string, index int) (checkStatus, error) {
