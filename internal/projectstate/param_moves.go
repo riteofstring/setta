@@ -64,6 +64,11 @@ type paramSelectionContext struct {
 	ParamIDs       []string
 }
 
+type paramParentMoveGroup struct {
+	ParentID string
+	ParamIDs []string
+}
+
 func (d *Document) MoveParams(projectID string, input MoveParamsInput) error {
 	if d == nil {
 		return ErrProjectNotFound
@@ -224,70 +229,18 @@ func (p *Project) IndentParams(input IndentParamsInput) error {
 	if err != nil {
 		return err
 	}
-	parentPayload, _, _, parentImpl, err := p.ResolveSectionCodeObject(normalized.SectionID, parentID)
+	children, err := p.resolveParamContainerChildren(normalized.SectionID, parentID)
 	if err != nil {
 		return err
 	}
-	children := payloadStringArrayField(parentPayload, "children")
 	orderedParamIDs, err := orderedParamIDsByChildren(children, normalized.ParamIDs, parentID)
 	if err != nil {
 		return err
 	}
-	if !paramPayloadHasChildren(parentPayload, parentImpl) {
-		return fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParentUnsupported, parentID, effectiveCodeObjType(parentPayload, parentImpl))
-	}
 
 	selectedSet := stringSetFromSlice(orderedParamIDs)
-	groups := buildContiguousParamGroups(children, selectedSet)
-	for _, group := range groups {
-		parentPayload, _, _, parentImpl, err := p.ResolveSectionCodeObject(normalized.SectionID, parentID)
-		if err != nil {
-			return err
-		}
-		if !paramPayloadHasChildren(parentPayload, parentImpl) {
-			return fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParentUnsupported, parentID, effectiveCodeObjType(parentPayload, parentImpl))
-		}
-		currentChildren := payloadStringArrayField(parentPayload, "children")
-		orderedGroupIDs, err := orderedParamIDsByChildren(currentChildren, group, parentID)
-		if err != nil {
-			return err
-		}
-		if len(orderedGroupIDs) == 0 {
-			continue
-		}
-
-		firstID := orderedGroupIDs[0]
-		firstIndex := indexOfString(currentChildren, firstID)
-		if firstIndex < 0 {
-			return fmt.Errorf("%w: codeObj=%q", ErrParamMoveParamNotFound, firstID)
-		}
-
-		previousID := ""
-		for idx := firstIndex - 1; idx >= 0; idx-- {
-			candidate := currentChildren[idx]
-			if _, ok := selectedSet[candidate]; ok {
-				continue
-			}
-			previousID = candidate
-			break
-		}
-		if previousID == "" {
-			continue
-		}
-
-		if _, err := p.ensureParamParent(normalized.SectionID, previousID); err != nil {
-			return err
-		}
-		previousPayload, _, _, _, err := p.ResolveSectionCodeObject(normalized.SectionID, previousID)
-		if err != nil {
-			return err
-		}
-		if err := p.MoveParams(MoveParamsInput{
-			SectionID:   normalized.SectionID,
-			ParamIDs:    orderedGroupIDs,
-			NewParentID: previousID,
-			NewIndex:    len(payloadStringArrayField(previousPayload, "children")),
-		}); err != nil {
+	for _, group := range buildContiguousParamGroups(children, selectedSet) {
+		if err := p.indentParamGroup(normalized.SectionID, parentID, group, selectedSet); err != nil {
 			return err
 		}
 	}
@@ -339,65 +292,12 @@ func (p *Project) UnindentParams(input UnindentParamsInput) error {
 	if err != nil {
 		return err
 	}
-
-	paramsByParent := map[string][]string{}
-	parentsInOrder := make([]string, 0, len(selection.ParamIDs))
-	for _, paramID := range selection.ParamIDs {
-		parentID, ok := selection.ParentByID[paramID]
-		if !ok || parentID == "" {
-			return fmt.Errorf("%w: section=%q codeObj=%q", ErrParamMoveParentMissing, normalized.SectionID, paramID)
-		}
-		if _, ok := paramsByParent[parentID]; !ok {
-			paramsByParent[parentID] = []string{}
-			parentsInOrder = append(parentsInOrder, parentID)
-		}
-		paramsByParent[parentID] = append(paramsByParent[parentID], paramID)
+	parentGroups, err := buildParamParentMoveGroups(selection)
+	if err != nil {
+		return err
 	}
-
-	for _, parentID := range parentsInOrder {
-		grandparentID := selection.ParentByID[parentID]
-		if grandparentID == "" {
-			continue
-		}
-
-		grandparentPayload, _, _, grandparentImpl, err := p.ResolveSectionCodeObject(normalized.SectionID, grandparentID)
-		if err != nil {
-			return err
-		}
-		if !paramPayloadHasChildren(grandparentPayload, grandparentImpl) {
-			return fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParentUnsupported, grandparentID, effectiveCodeObjType(grandparentPayload, grandparentImpl))
-		}
-		grandparentChildren := payloadStringArrayField(grandparentPayload, "children")
-		parentIndex := indexOfString(grandparentChildren, parentID)
-		if parentIndex < 0 {
-			return fmt.Errorf("%w: codeObj=%q parent=%q", ErrParamMoveParentMissingFromGrand, grandparentID, parentID)
-		}
-
-		if err := p.MoveParams(MoveParamsInput{
-			SectionID:   normalized.SectionID,
-			ParamIDs:    paramsByParent[parentID],
-			NewParentID: grandparentID,
-			NewIndex:    parentIndex + 1,
-		}); err != nil {
-			return err
-		}
-
-		parentPayload, _, _, parentImpl, err := p.ResolveSectionCodeObject(normalized.SectionID, parentID)
-		if err != nil {
-			return err
-		}
-		if payloadStringField(parentPayload, "type") != nestedParamCodeObjType &&
-			effectiveCodeObjType(parentPayload, parentImpl) != nestedParamCodeObjType {
-			continue
-		}
-		if len(payloadStringArrayField(parentPayload, "children")) != 0 {
-			continue
-		}
-
-		if err := p.ChangeParamImpl(normalized.SectionID, parentID, codeParamType); err != nil {
-			return err
-		}
-		if err := p.SetSectionCodeObjectValue(normalized.SectionID, parentID, "{}"); err != nil {
+	for _, group := range parentGroups {
+		if err := p.unindentParamParentGroup(normalized.SectionID, selection.ParentByID, group); err != nil {
 			return err
 		}
 	}
@@ -410,15 +310,9 @@ func (p *Project) resolveParamSelection(sectionID string, paramIDs []string) (pa
 		return paramSelectionContext{}, ErrSectionIDRequired
 	}
 
-	_, sectionPayload, rootCodeObjID, err := p.resolveDeleteSelectedParamsContext(normalizedSectionID)
+	sectionPayload, rootCodeObjID, err := p.resolveParamSelectionSectionContext(normalizedSectionID)
 	if err != nil {
-		if errors.Is(err, ErrDeleteSelectedParamsUnsupported) {
-			return paramSelectionContext{}, fmt.Errorf("%w: section=%q", ErrParamMoveUnsupported, normalizedSectionID)
-		}
 		return paramSelectionContext{}, err
-	}
-	if strings.TrimSpace(payloadStringField(sectionPayload, "paramFilter")) != "" {
-		return paramSelectionContext{}, fmt.Errorf("%w: section=%q", ErrParamMoveFilterActive, normalizedSectionID)
 	}
 
 	normalizedParamIDs, err := normalizeParamMoveIDs(paramIDs)
@@ -433,43 +327,12 @@ func (p *Project) resolveParamSelection(sectionID string, paramIDs []string) (pa
 			ParamIDs:       []string{},
 		}, nil
 	}
-	if rootCodeObjID == "" {
-		return paramSelectionContext{}, fmt.Errorf("%w: section=%q", ErrParamMoveRootMissing, normalizedSectionID)
-	}
-
-	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-	if _, ok := codeObjVariantMap[rootCodeObjID]; !ok {
-		return paramSelectionContext{}, fmt.Errorf("%w: section=%q root=%q", ErrParamMoveRootMissing, normalizedSectionID, rootCodeObjID)
-	}
-	parentByID, childrenByID, err := collectCodeObjectHierarchy(*p, codeObjVariantMap, rootCodeObjID)
+	parentByID, childrenByID, err := p.resolveParamSelectionHierarchy(normalizedSectionID, sectionPayload, rootCodeObjID)
 	if err != nil {
 		return paramSelectionContext{}, err
 	}
-
-	selectedSet := stringSetFromSlice(normalizedParamIDs)
-	for _, paramID := range normalizedParamIDs {
-		if _, ok := p.CodeObjs[paramID]; !ok {
-			return paramSelectionContext{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, paramID)
-		}
-		if _, ok := parentByID[paramID]; !ok {
-			return paramSelectionContext{}, fmt.Errorf("%w: section=%q codeObj=%q", ErrParamMoveParamNotFound, normalizedSectionID, paramID)
-		}
-		paramPayload, _, _, paramImpl, err := p.ResolveSectionCodeObject(normalizedSectionID, paramID)
-		if err != nil {
-			return paramSelectionContext{}, err
-		}
-		paramType := effectiveCodeObjType(paramPayload, paramImpl)
-		if !isParamCodeObjectType(paramType) {
-			return paramSelectionContext{}, fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParamUnsupported, paramID, paramType)
-		}
-
-		ancestor := parentByID[paramID]
-		for strings.TrimSpace(ancestor) != "" {
-			if _, ok := selectedSet[ancestor]; ok {
-				return paramSelectionContext{}, fmt.Errorf("%w: section=%q codeObj=%q ancestor=%q", ErrParamMoveAncestorSelection, normalizedSectionID, paramID, ancestor)
-			}
-			ancestor = parentByID[ancestor]
-		}
+	if err := p.validateParamSelection(normalizedSectionID, normalizedParamIDs, parentByID); err != nil {
+		return paramSelectionContext{}, err
 	}
 
 	return paramSelectionContext{
@@ -480,6 +343,72 @@ func (p *Project) resolveParamSelection(sectionID string, paramIDs []string) (pa
 		ChildrenByID:   childrenByID,
 		ParamIDs:       normalizedParamIDs,
 	}, nil
+}
+
+func (p *Project) resolveParamSelectionSectionContext(normalizedSectionID string) (map[string]any, string, error) {
+	_, sectionPayload, rootCodeObjID, err := p.resolveDeleteSelectedParamsContext(normalizedSectionID)
+	if err != nil {
+		if errors.Is(err, ErrDeleteSelectedParamsUnsupported) {
+			return nil, "", fmt.Errorf("%w: section=%q", ErrParamMoveUnsupported, normalizedSectionID)
+		}
+		return nil, "", err
+	}
+	if strings.TrimSpace(payloadStringField(sectionPayload, "paramFilter")) != "" {
+		return nil, "", fmt.Errorf("%w: section=%q", ErrParamMoveFilterActive, normalizedSectionID)
+	}
+	return sectionPayload, rootCodeObjID, nil
+}
+
+func (p *Project) resolveParamSelectionHierarchy(normalizedSectionID string, sectionPayload map[string]any, rootCodeObjID string) (map[string]string, map[string][]string, error) {
+	if rootCodeObjID == "" {
+		return nil, nil, fmt.Errorf("%w: section=%q", ErrParamMoveRootMissing, normalizedSectionID)
+	}
+
+	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
+	if _, ok := codeObjVariantMap[rootCodeObjID]; !ok {
+		return nil, nil, fmt.Errorf("%w: section=%q root=%q", ErrParamMoveRootMissing, normalizedSectionID, rootCodeObjID)
+	}
+	return collectCodeObjectHierarchy(*p, codeObjVariantMap, rootCodeObjID)
+}
+
+func (p *Project) validateParamSelection(sectionID string, paramIDs []string, parentByID map[string]string) error {
+	selectedSet := stringSetFromSlice(paramIDs)
+	for _, paramID := range paramIDs {
+		if err := p.validateSelectedParam(sectionID, paramID, parentByID, selectedSet); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Project) validateSelectedParam(sectionID string, paramID string, parentByID map[string]string, selectedSet map[string]struct{}) error {
+	if _, ok := p.CodeObjs[paramID]; !ok {
+		return fmt.Errorf("%w: %q", ErrCodeObjNotFound, paramID)
+	}
+	if _, ok := parentByID[paramID]; !ok {
+		return fmt.Errorf("%w: section=%q codeObj=%q", ErrParamMoveParamNotFound, sectionID, paramID)
+	}
+
+	paramPayload, _, _, paramImpl, err := p.ResolveSectionCodeObject(sectionID, paramID)
+	if err != nil {
+		return err
+	}
+	paramType := effectiveCodeObjType(paramPayload, paramImpl)
+	if !isParamCodeObjectType(paramType) {
+		return fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParamUnsupported, paramID, paramType)
+	}
+	return ensureSelectionHasNoSelectedAncestor(sectionID, paramID, parentByID, selectedSet)
+}
+
+func ensureSelectionHasNoSelectedAncestor(sectionID string, paramID string, parentByID map[string]string, selectedSet map[string]struct{}) error {
+	ancestor := parentByID[paramID]
+	for strings.TrimSpace(ancestor) != "" {
+		if _, ok := selectedSet[ancestor]; ok {
+			return fmt.Errorf("%w: section=%q codeObj=%q ancestor=%q", ErrParamMoveAncestorSelection, sectionID, paramID, ancestor)
+		}
+		ancestor = parentByID[ancestor]
+	}
+	return nil
 }
 
 func (p *Project) resolveParamMoveContext(sectionID string, paramIDs []string) (paramSelectionContext, string, error) {
@@ -504,15 +433,10 @@ func (p *Project) resolveParamMoveContext(sectionID string, paramIDs []string) (
 }
 
 func (p *Project) moveParamsWithinParent(sectionID string, parentID string, paramIDs []string, newIndex int) error {
-	parentPayload, _, _, parentImpl, err := p.ResolveSectionCodeObject(sectionID, parentID)
+	children, err := p.resolveParamContainerChildren(sectionID, parentID)
 	if err != nil {
 		return err
 	}
-	if !paramPayloadHasChildren(parentPayload, parentImpl) {
-		return fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParentUnsupported, parentID, effectiveCodeObjType(parentPayload, parentImpl))
-	}
-
-	children := payloadStringArrayField(parentPayload, "children")
 	orderedParamIDs, err := orderedParamIDsByChildren(children, paramIDs, parentID)
 	if err != nil {
 		return err
@@ -526,15 +450,10 @@ func (p *Project) moveParamsWithinParent(sectionID string, parentID string, para
 }
 
 func (p *Project) moveParamsToParent(sectionID string, oldParentID string, paramIDs []string, newParentID string, newIndex int) error {
-	oldParentPayload, _, _, oldParentImpl, err := p.ResolveSectionCodeObject(sectionID, oldParentID)
+	oldChildren, err := p.resolveParamContainerChildren(sectionID, oldParentID)
 	if err != nil {
 		return err
 	}
-	if !paramPayloadHasChildren(oldParentPayload, oldParentImpl) {
-		return fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParentUnsupported, oldParentID, effectiveCodeObjType(oldParentPayload, oldParentImpl))
-	}
-
-	oldChildren := payloadStringArrayField(oldParentPayload, "children")
 	orderedParamIDs, err := orderedParamIDsByChildren(oldChildren, paramIDs, oldParentID)
 	if err != nil {
 		return err
@@ -581,6 +500,116 @@ func (p *Project) ensureParamParent(sectionID string, codeObjID string) (map[str
 		return nil, fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParentUnsupported, codeObjID, effectiveCodeObjType(payload, impl))
 	}
 	return payload, nil
+}
+
+func (p *Project) resolveParamContainerChildren(sectionID string, codeObjID string) ([]string, error) {
+	payload, _, _, impl, err := p.ResolveSectionCodeObject(sectionID, codeObjID)
+	if err != nil {
+		return nil, err
+	}
+	if !paramPayloadHasChildren(payload, impl) {
+		return nil, fmt.Errorf("%w: codeObj=%q type=%q", ErrParamMoveParentUnsupported, codeObjID, effectiveCodeObjType(payload, impl))
+	}
+	return payloadStringArrayField(payload, "children"), nil
+}
+
+func (p *Project) indentParamGroup(sectionID string, parentID string, group []string, selectedSet map[string]struct{}) error {
+	currentChildren, err := p.resolveParamContainerChildren(sectionID, parentID)
+	if err != nil {
+		return err
+	}
+	orderedGroupIDs, err := orderedParamIDsByChildren(currentChildren, group, parentID)
+	if err != nil {
+		return err
+	}
+	if len(orderedGroupIDs) == 0 {
+		return nil
+	}
+
+	firstID := orderedGroupIDs[0]
+	firstIndex := indexOfString(currentChildren, firstID)
+	if firstIndex < 0 {
+		return fmt.Errorf("%w: codeObj=%q", ErrParamMoveParamNotFound, firstID)
+	}
+
+	previousID := findPreviousUnselectedParamSibling(currentChildren, firstIndex, selectedSet)
+	if previousID == "" {
+		return nil
+	}
+
+	previousPayload, err := p.ensureParamParent(sectionID, previousID)
+	if err != nil {
+		return err
+	}
+	return p.MoveParams(MoveParamsInput{
+		SectionID:   sectionID,
+		ParamIDs:    orderedGroupIDs,
+		NewParentID: previousID,
+		NewIndex:    len(payloadStringArrayField(previousPayload, "children")),
+	})
+}
+
+func buildParamParentMoveGroups(selection paramSelectionContext) ([]paramParentMoveGroup, error) {
+	paramsByParent := make(map[string][]string, len(selection.ParamIDs))
+	parentGroups := make([]paramParentMoveGroup, 0, len(selection.ParamIDs))
+	for _, paramID := range selection.ParamIDs {
+		parentID, ok := selection.ParentByID[paramID]
+		if !ok || parentID == "" {
+			return nil, fmt.Errorf("%w: section=%q codeObj=%q", ErrParamMoveParentMissing, selection.SectionID, paramID)
+		}
+		if _, ok := paramsByParent[parentID]; !ok {
+			parentGroups = append(parentGroups, paramParentMoveGroup{ParentID: parentID})
+		}
+		paramsByParent[parentID] = append(paramsByParent[parentID], paramID)
+	}
+	for idx := range parentGroups {
+		parentGroups[idx].ParamIDs = paramsByParent[parentGroups[idx].ParentID]
+	}
+	return parentGroups, nil
+}
+
+func (p *Project) unindentParamParentGroup(sectionID string, parentByID map[string]string, group paramParentMoveGroup) error {
+	grandparentID := parentByID[group.ParentID]
+	if grandparentID == "" {
+		return nil
+	}
+
+	grandparentChildren, err := p.resolveParamContainerChildren(sectionID, grandparentID)
+	if err != nil {
+		return err
+	}
+	parentIndex := indexOfString(grandparentChildren, group.ParentID)
+	if parentIndex < 0 {
+		return fmt.Errorf("%w: codeObj=%q parent=%q", ErrParamMoveParentMissingFromGrand, grandparentID, group.ParentID)
+	}
+
+	if err := p.MoveParams(MoveParamsInput{
+		SectionID:   sectionID,
+		ParamIDs:    group.ParamIDs,
+		NewParentID: grandparentID,
+		NewIndex:    parentIndex + 1,
+	}); err != nil {
+		return err
+	}
+	return p.restoreEmptyNestedParamParent(sectionID, group.ParentID)
+}
+
+func (p *Project) restoreEmptyNestedParamParent(sectionID string, parentID string) error {
+	parentPayload, _, _, parentImpl, err := p.ResolveSectionCodeObject(sectionID, parentID)
+	if err != nil {
+		return err
+	}
+	if effectiveCodeObjType(parentPayload, parentImpl) != nestedParamCodeObjType {
+		return nil
+	}
+	if len(payloadStringArrayField(parentPayload, "children")) != 0 {
+		return nil
+	}
+
+	if err := p.ChangeParamImpl(sectionID, parentID, codeParamType); err != nil {
+		return err
+	}
+	return p.SetSectionCodeObjectValue(sectionID, parentID, "{}")
 }
 
 func ensureValidMoveNewParent(parentByID map[string]string, paramIDs []string, newParentID string) error {
@@ -705,6 +734,17 @@ func buildContiguousParamGroups(children []string, selected map[string]struct{})
 		groups = append(groups, append([]string(nil), current...))
 	}
 	return groups
+}
+
+func findPreviousUnselectedParamSibling(children []string, firstIndex int, selectedSet map[string]struct{}) string {
+	for idx := firstIndex - 1; idx >= 0; idx-- {
+		candidate := children[idx]
+		if _, ok := selectedSet[candidate]; ok {
+			continue
+		}
+		return candidate
+	}
+	return ""
 }
 
 func orderedParamIDsByChildren(children []string, paramIDs []string, parentID string) ([]string, error) {
