@@ -14,6 +14,25 @@ type CreateNewSectionVariantResult struct {
 	VariantID string `json:"variantId"`
 }
 
+type sectionVariantCreationSource struct {
+	section Section
+	variant SectionVariant
+	impl    SectionImpl
+	payload map[string]any
+}
+
+type codeObjectVariantCreationSource struct {
+	codeObj CodeObject
+	variant CodeObjectVariant
+	impl    CodeObjectImpl
+}
+
+type sectionVariantEdgeClonePlan struct {
+	shouldClone  bool
+	updateSource bool
+	updateTarget bool
+}
+
 func (d *Document) CreateNewSectionVariant(
 	projectID string,
 	input CreateNewSectionVariantInput,
@@ -67,80 +86,23 @@ func (p *Project) CreateNewSectionVariant(input CreateNewSectionVariantInput) (C
 	if err != nil {
 		return CreateNewSectionVariantResult{}, err
 	}
-	section, sourceVariant, sourceImpl, err := p.ResolveSection(normalized.SectionID)
+	source, err := p.loadSectionVariantCreationSource(normalized.SectionID)
 	if err != nil {
 		return CreateNewSectionVariantResult{}, err
 	}
-	sectionPayload, err := effectiveSectionPayload(*p, section.ID, sourceVariant.ID)
-	if err != nil {
-		return CreateNewSectionVariantResult{}, err
-	}
-
-	newVariantID, err := newProjectStateID()
+	newVariant, err := p.buildCreatedSectionVariant(source)
 	if err != nil {
 		return CreateNewSectionVariantResult{}, err
 	}
 
-	newVariantModifier, err := rawObjectFromProjectPayload(sourceVariant.Modifier)
-	if err != nil {
-		return CreateNewSectionVariantResult{}, err
-	}
-	clonedVariantModifier := cloneProjectObject(newVariantModifier)
-
-	newVariant := SectionVariant{
-		ID: newVariantID,
-	}
-	existingVariantNames := collectSectionVariantNames(section, p.SectionVariants)
-	newVariant.Name, err = nextAvailableCreatedSectionVariantName(existingVariantNames)
-	if err != nil {
-		return CreateNewSectionVariantResult{}, err
-	}
-
-	sourceImplPreset := sectionImplIsPreset(sourceImpl)
-	if sourceImplPreset {
-		newVariant.ImplID = sourceImpl.ID
-	} else {
-		clonedImpl, err := cloneSectionImplForVariant(sourceImpl)
-		if err != nil {
-			return CreateNewSectionVariantResult{}, err
-		}
-		newVariant.ImplID = clonedImpl.ID
-		newVariant.NonPresetImplIDs = []string{clonedImpl.ID}
-		p.SectionImpls[clonedImpl.ID] = clonedImpl
-	}
-
-	sourceCodeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-	if len(sourceCodeObjVariantMap) != 0 {
-		clonedCodeObjVariantMap := make(map[string]string, len(sourceCodeObjVariantMap))
-		for codeObjID, sourceCodeObjVariantID := range sourceCodeObjVariantMap {
-			newCodeObjVariantID, err := p.createNewCodeObjectVariant(codeObjID, sourceCodeObjVariantID)
-			if err != nil {
-				return CreateNewSectionVariantResult{}, err
-			}
-			clonedCodeObjVariantMap[codeObjID] = newCodeObjVariantID
-		}
-		clonedVariantModifier["codeObjVariantMap"] = clonedCodeObjVariantMap
-	}
-
-	if len(clonedVariantModifier) != 0 {
-		rawModifier, err := marshalProjectObject(clonedVariantModifier)
-		if err != nil {
-			return CreateNewSectionVariantResult{}, err
-		}
-		newVariant.Modifier = rawModifier
-	}
-
-	section.VariantIDs = append(section.VariantIDs, newVariant.ID)
-	p.Sections[section.ID] = section
-	p.SectionVariants[newVariant.ID] = newVariant
-	p.SectionVariantMap[section.ID] = newVariant.ID
+	p.storeCreatedSectionVariant(source.section, newVariant)
 
 	if err := p.copyEdgesForNewSectionVariant(
-		section.ID,
-		sourceVariant.ID,
+		source.section.ID,
+		source.variant.ID,
 		newVariant.ID,
-		payloadEdgeOutputPortIDs(sectionPayload),
-		stringSetFromSlice(payloadStringArrayField(sectionPayload, "edgeInputParams")),
+		payloadEdgeOutputPortIDs(source.payload),
+		stringSetFromSlice(payloadStringArrayField(source.payload, "edgeInputParams")),
 	); err != nil {
 		return CreateNewSectionVariantResult{}, err
 	}
@@ -158,6 +120,131 @@ func normalizeCreateNewSectionVariantInput(input CreateNewSectionVariantInput) (
 		return CreateNewSectionVariantInput{}, ErrSectionIDRequired
 	}
 	return normalized, nil
+}
+
+func (p *Project) loadSectionVariantCreationSource(sectionID string) (sectionVariantCreationSource, error) {
+	section, variant, impl, err := p.ResolveSection(sectionID)
+	if err != nil {
+		return sectionVariantCreationSource{}, err
+	}
+	payload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
+	if err != nil {
+		return sectionVariantCreationSource{}, err
+	}
+	return sectionVariantCreationSource{
+		section: section,
+		variant: variant,
+		impl:    impl,
+		payload: payload,
+	}, nil
+}
+
+func (p *Project) buildCreatedSectionVariant(source sectionVariantCreationSource) (SectionVariant, error) {
+	newVariantID, err := newProjectStateID()
+	if err != nil {
+		return SectionVariant{}, err
+	}
+	newVariant := SectionVariant{ID: newVariantID}
+	if err := assignCreatedSectionVariantName(&newVariant, source.section, p.SectionVariants); err != nil {
+		return SectionVariant{}, err
+	}
+	if err := p.assignCreatedSectionVariantImpl(&newVariant, source.impl); err != nil {
+		return SectionVariant{}, err
+	}
+	if err := p.populateCreatedSectionVariantModifier(&newVariant, source.variant, source.payload); err != nil {
+		return SectionVariant{}, err
+	}
+	return newVariant, nil
+}
+
+func assignCreatedSectionVariantName(
+	newVariant *SectionVariant,
+	section Section,
+	existingVariants map[string]SectionVariant,
+) error {
+	existingVariantNames := collectSectionVariantNames(section, existingVariants)
+	nextName, err := nextAvailableCreatedSectionVariantName(existingVariantNames)
+	if err != nil {
+		return err
+	}
+	newVariant.Name = nextName
+	return nil
+}
+
+func (p *Project) assignCreatedSectionVariantImpl(newVariant *SectionVariant, sourceImpl SectionImpl) error {
+	if sectionImplIsPreset(sourceImpl) {
+		newVariant.ImplID = sourceImpl.ID
+		return nil
+	}
+
+	clonedImpl, err := cloneSectionImplForVariant(sourceImpl)
+	if err != nil {
+		return err
+	}
+	newVariant.ImplID = clonedImpl.ID
+	newVariant.NonPresetImplIDs = []string{clonedImpl.ID}
+	p.SectionImpls[clonedImpl.ID] = clonedImpl
+	return nil
+}
+
+func (p *Project) populateCreatedSectionVariantModifier(
+	newVariant *SectionVariant,
+	sourceVariant SectionVariant,
+	sectionPayload map[string]any,
+) error {
+	clonedVariantModifier, err := cloneSectionVariantModifier(sourceVariant)
+	if err != nil {
+		return err
+	}
+	if err := p.cloneSectionVariantCodeObjectVariants(clonedVariantModifier, sectionPayload); err != nil {
+		return err
+	}
+	if len(clonedVariantModifier) == 0 {
+		return nil
+	}
+
+	rawModifier, err := marshalProjectObject(clonedVariantModifier)
+	if err != nil {
+		return err
+	}
+	newVariant.Modifier = rawModifier
+	return nil
+}
+
+func cloneSectionVariantModifier(sourceVariant SectionVariant) (map[string]any, error) {
+	newVariantModifier, err := rawObjectFromProjectPayload(sourceVariant.Modifier)
+	if err != nil {
+		return nil, err
+	}
+	return cloneProjectObject(newVariantModifier), nil
+}
+
+func (p *Project) cloneSectionVariantCodeObjectVariants(
+	clonedVariantModifier map[string]any,
+	sectionPayload map[string]any,
+) error {
+	sourceCodeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
+	if len(sourceCodeObjVariantMap) == 0 {
+		return nil
+	}
+
+	clonedCodeObjVariantMap := make(map[string]string, len(sourceCodeObjVariantMap))
+	for codeObjID, sourceCodeObjVariantID := range sourceCodeObjVariantMap {
+		newCodeObjVariantID, err := p.createNewCodeObjectVariant(codeObjID, sourceCodeObjVariantID)
+		if err != nil {
+			return err
+		}
+		clonedCodeObjVariantMap[codeObjID] = newCodeObjVariantID
+	}
+	clonedVariantModifier["codeObjVariantMap"] = clonedCodeObjVariantMap
+	return nil
+}
+
+func (p *Project) storeCreatedSectionVariant(section Section, newVariant SectionVariant) {
+	section.VariantIDs = append(section.VariantIDs, newVariant.ID)
+	p.Sections[section.ID] = section
+	p.SectionVariants[newVariant.ID] = newVariant
+	p.SectionVariantMap[section.ID] = newVariant.ID
 }
 
 func cloneSectionImplForVariant(sourceImpl SectionImpl) (SectionImpl, error) {
@@ -182,69 +269,126 @@ func cloneSectionImplForVariant(sourceImpl SectionImpl) (SectionImpl, error) {
 }
 
 func (p *Project) createNewCodeObjectVariant(codeObjID string, sourceVariantID string) (string, error) {
+	source, err := p.loadCodeObjectVariantCreationSource(codeObjID, sourceVariantID)
+	if err != nil {
+		return "", err
+	}
+	newVariant, err := p.buildCreatedCodeObjectVariant(source)
+	if err != nil {
+		return "", err
+	}
+	p.storeCreatedCodeObjectVariant(source.codeObj, newVariant)
+	return newVariant.ID, nil
+}
+
+func (p *Project) loadCodeObjectVariantCreationSource(
+	codeObjID string,
+	sourceVariantID string,
+) (codeObjectVariantCreationSource, error) {
 	trimmedCodeObjID := strings.TrimSpace(codeObjID)
 	if trimmedCodeObjID == "" {
-		return "", ErrCodeObjIDRequired
+		return codeObjectVariantCreationSource{}, ErrCodeObjIDRequired
 	}
 	trimmedVariantID := strings.TrimSpace(sourceVariantID)
 	if trimmedVariantID == "" {
-		return "", ErrCodeObjVariantIDRequired
+		return codeObjectVariantCreationSource{}, ErrCodeObjVariantIDRequired
 	}
 
 	codeObj, ok := p.CodeObjs[trimmedCodeObjID]
 	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrCodeObjNotFound, trimmedCodeObjID)
+		return codeObjectVariantCreationSource{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, trimmedCodeObjID)
 	}
 	if !containsString(codeObj.VariantIDs, trimmedVariantID) {
-		return "", fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantMembership, trimmedCodeObjID, trimmedVariantID)
+		return codeObjectVariantCreationSource{}, fmt.Errorf(
+			"%w: codeObj=%q variant=%q",
+			ErrCodeObjVariantMembership,
+			trimmedCodeObjID,
+			trimmedVariantID,
+		)
 	}
 
-	sourceVariant, ok := p.CodeObjVariants[trimmedVariantID]
+	variant, ok := p.CodeObjVariants[trimmedVariantID]
 	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, trimmedVariantID)
+		return codeObjectVariantCreationSource{}, fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, trimmedVariantID)
 	}
-	sourceImpl, ok := p.CodeObjImpls[sourceVariant.ImplID]
+	impl, ok := p.CodeObjImpls[variant.ImplID]
 	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrCodeObjImplNotFound, sourceVariant.ImplID)
+		return codeObjectVariantCreationSource{}, fmt.Errorf("%w: %q", ErrCodeObjImplNotFound, variant.ImplID)
 	}
 
+	return codeObjectVariantCreationSource{
+		codeObj: codeObj,
+		variant: variant,
+		impl:    impl,
+	}, nil
+}
+
+func (p *Project) buildCreatedCodeObjectVariant(source codeObjectVariantCreationSource) (CodeObjectVariant, error) {
 	newVariantID, err := newProjectStateID()
 	if err != nil {
-		return "", err
+		return CodeObjectVariant{}, err
 	}
+	newVariant := CodeObjectVariant{ID: newVariantID}
+	if err := p.assignCreatedCodeObjectVariantImpl(&newVariant, source.impl); err != nil {
+		return CodeObjectVariant{}, err
+	}
+	if err := populateCreatedCodeObjectVariantModifier(&newVariant, source.variant); err != nil {
+		return CodeObjectVariant{}, err
+	}
+	return newVariant, nil
+}
 
-	newVariantModifier, err := rawObjectFromProjectPayload(sourceVariant.Modifier)
-	if err != nil {
-		return "", err
-	}
-	clonedVariantModifier := cloneProjectObject(newVariantModifier)
-
-	newVariant := CodeObjectVariant{
-		ID: newVariantID,
-	}
+func (p *Project) assignCreatedCodeObjectVariantImpl(
+	newVariant *CodeObjectVariant,
+	sourceImpl CodeObjectImpl,
+) error {
 	if codeObjImplIsPreset(sourceImpl) {
 		newVariant.ImplID = sourceImpl.ID
-	} else {
-		clonedImpl, err := cloneCodeObjectImplForVariant(sourceImpl)
-		if err != nil {
-			return "", err
-		}
-		newVariant.ImplID = clonedImpl.ID
-		newVariant.NonPresetImplIDs = []string{clonedImpl.ID}
-		p.CodeObjImpls[clonedImpl.ID] = clonedImpl
-	}
-	if len(clonedVariantModifier) != 0 {
-		rawModifier, err := marshalProjectObject(clonedVariantModifier)
-		if err != nil {
-			return "", err
-		}
-		newVariant.Modifier = rawModifier
+		return nil
 	}
 
+	clonedImpl, err := cloneCodeObjectImplForVariant(sourceImpl)
+	if err != nil {
+		return err
+	}
+	newVariant.ImplID = clonedImpl.ID
+	newVariant.NonPresetImplIDs = []string{clonedImpl.ID}
+	p.CodeObjImpls[clonedImpl.ID] = clonedImpl
+	return nil
+}
+
+func populateCreatedCodeObjectVariantModifier(
+	newVariant *CodeObjectVariant,
+	sourceVariant CodeObjectVariant,
+) error {
+	clonedVariantModifier, err := cloneCodeObjectVariantModifier(sourceVariant)
+	if err != nil {
+		return err
+	}
+	if len(clonedVariantModifier) == 0 {
+		return nil
+	}
+
+	rawModifier, err := marshalProjectObject(clonedVariantModifier)
+	if err != nil {
+		return err
+	}
+	newVariant.Modifier = rawModifier
+	return nil
+}
+
+func cloneCodeObjectVariantModifier(sourceVariant CodeObjectVariant) (map[string]any, error) {
+	newVariantModifier, err := rawObjectFromProjectPayload(sourceVariant.Modifier)
+	if err != nil {
+		return nil, err
+	}
+	return cloneProjectObject(newVariantModifier), nil
+}
+
+func (p *Project) storeCreatedCodeObjectVariant(codeObj CodeObject, newVariant CodeObjectVariant) {
 	codeObj.VariantIDs = append(codeObj.VariantIDs, newVariant.ID)
 	p.CodeObjs[codeObj.ID] = codeObj
 	p.CodeObjVariants[newVariant.ID] = newVariant
-	return newVariant.ID, nil
 }
 
 func cloneCodeObjectImplForVariant(sourceImpl CodeObjectImpl) (CodeObjectImpl, error) {
@@ -281,33 +425,20 @@ func (p *Project) copyEdgesForNewSectionVariant(
 
 	newEdges := make([]Edge, 0, len(p.Edges))
 	for _, edge := range p.Edges {
-		updateSource := edge.SourceSectionID == sectionID && edge.SourceVariantID == sourceVariantID
-		updateTarget := edge.TargetSectionID == sectionID && edge.TargetVariantID == sourceVariantID
-		if !updateSource && !updateTarget {
+		plan := newSectionVariantEdgeClonePlan(
+			edge,
+			sectionID,
+			sourceVariantID,
+			sourceOutputPortIDs,
+			targetInputPortIDs,
+		)
+		if !plan.shouldClone {
 			continue
 		}
-		if updateSource {
-			if _, ok := sourceOutputPortIDs[edge.SourcePortID]; !ok {
-				continue
-			}
-		}
-		if updateTarget {
-			if _, ok := targetInputPortIDs[edge.TargetPortID]; !ok {
-				continue
-			}
-		}
 
-		newEdgeID, err := newProjectStateID()
+		clonedEdge, err := cloneEdgeForNewSectionVariant(edge, newVariantID, plan)
 		if err != nil {
 			return err
-		}
-		clonedEdge := edge.Clone()
-		clonedEdge.ID = newEdgeID
-		if updateSource {
-			clonedEdge.SourceVariantID = newVariantID
-		}
-		if updateTarget {
-			clonedEdge.TargetVariantID = newVariantID
 		}
 		newEdges = append(newEdges, clonedEdge)
 	}
@@ -316,6 +447,54 @@ func (p *Project) copyEdgesForNewSectionVariant(
 		p.Edges = append(p.Edges, newEdges...)
 	}
 	return nil
+}
+
+func newSectionVariantEdgeClonePlan(
+	edge Edge,
+	sectionID string,
+	sourceVariantID string,
+	sourceOutputPortIDs map[string]struct{},
+	targetInputPortIDs map[string]struct{},
+) sectionVariantEdgeClonePlan {
+	plan := sectionVariantEdgeClonePlan{
+		updateSource: edge.SourceSectionID == sectionID && edge.SourceVariantID == sourceVariantID,
+		updateTarget: edge.TargetSectionID == sectionID && edge.TargetVariantID == sourceVariantID,
+	}
+	if !plan.updateSource && !plan.updateTarget {
+		return sectionVariantEdgeClonePlan{}
+	}
+	if plan.updateSource {
+		if _, ok := sourceOutputPortIDs[edge.SourcePortID]; !ok {
+			return sectionVariantEdgeClonePlan{}
+		}
+	}
+	if plan.updateTarget {
+		if _, ok := targetInputPortIDs[edge.TargetPortID]; !ok {
+			return sectionVariantEdgeClonePlan{}
+		}
+	}
+	plan.shouldClone = true
+	return plan
+}
+
+func cloneEdgeForNewSectionVariant(
+	edge Edge,
+	newVariantID string,
+	plan sectionVariantEdgeClonePlan,
+) (Edge, error) {
+	newEdgeID, err := newProjectStateID()
+	if err != nil {
+		return Edge{}, err
+	}
+	clonedEdge := edge.Clone()
+	clonedEdge.ID = newEdgeID
+	if plan.updateSource {
+		clonedEdge.SourceVariantID = newVariantID
+	}
+	if plan.updateTarget {
+		clonedEdge.TargetVariantID = newVariantID
+	}
+	return clonedEdge, nil
 }
 
 func payloadEdgeOutputPorts(object map[string]any) []EdgePort {
