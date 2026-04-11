@@ -30,6 +30,13 @@ type PluginConfigWriteResponse struct {
 	Validation PluginConfigValidationResult `json:"validation"`
 }
 
+type preparedPluginConfigWrite struct {
+	entry         DiscoveredPlugin
+	state         PluginsStateFile
+	currentConfig map[string]any
+	requested     map[string]any
+}
+
 func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (PluginConfigWriteResponse, error) {
 	if s == nil {
 		return PluginConfigWriteResponse{}, ErrWorkspaceRootRequired
@@ -41,66 +48,90 @@ func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (Pl
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	prepared, err := s.preparePluginConfigWriteLocked(options)
+	if err != nil {
+		return PluginConfigWriteResponse{}, err
+	}
+
+	if response, skipWrite := pluginConfigWriteNoopResponse(prepared, options.SkipWriteIfCurrentMatchesExpected); skipWrite {
+		return response, nil
+	}
+
+	return s.persistPluginConfigWriteLocked(prepared)
+}
+
+func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (preparedPluginConfigWrite, error) {
 	entry, err := s.resolveHighestPrecedenceEntryLocked(options.PluginID)
 	if err != nil {
-		return PluginConfigWriteResponse{}, err
+		return preparedPluginConfigWrite{}, err
 	}
 	if entry.Manifest == nil {
-		return PluginConfigWriteResponse{}, newServiceError(ServiceErrorCodeConfigInvalid, "Plugin manifest missing for plugin: %s", options.PluginID)
+		return preparedPluginConfigWrite{}, newServiceError(
+			ServiceErrorCodeConfigInvalid,
+			"Plugin manifest missing for plugin: %s",
+			options.PluginID,
+		)
 	}
 	if err := validatePluginConfig(entry, options.Config); err != nil {
-		return PluginConfigWriteResponse{}, err
+		return preparedPluginConfigWrite{}, err
 	}
+
 	state, err := s.store.LoadPluginsState()
 	if err != nil {
-		return PluginConfigWriteResponse{}, err
+		return preparedPluginConfigWrite{}, err
 	}
 	currentConfig := runtimeCurrentConfig(entry, &state)
-	expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig)
-	if expectedCurrentConfig != nil && !reflect.DeepEqual(currentConfig, expectedCurrentConfig) {
-		return PluginConfigWriteResponse{}, newServiceError(
+	if expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig); expectedCurrentConfig != nil && !reflect.DeepEqual(currentConfig, expectedCurrentConfig) {
+		return preparedPluginConfigWrite{}, newServiceError(
 			ServiceErrorCodeConfigChanged,
 			"Plugin %s config changed since pre-write validation.",
 			entry.PluginID,
 		)
 	}
-	if options.SkipWriteIfCurrentMatchesExpected {
-		return PluginConfigWriteResponse{
-			PluginID: entry.PluginID,
-			Config:   cloneStringAnyMap(currentConfig),
-			Validation: PluginConfigValidationResult{
-				OK: true,
-			},
-		}, nil
+
+	return preparedPluginConfigWrite{
+		entry:         entry,
+		state:         state,
+		currentConfig: currentConfig,
+		requested:     cloneStringAnyMap(options.Config),
+	}, nil
+}
+
+func pluginConfigWriteNoopResponse(
+	prepared preparedPluginConfigWrite,
+	skipWriteIfCurrentMatchesExpected bool,
+) (PluginConfigWriteResponse, bool) {
+	if skipWriteIfCurrentMatchesExpected {
+		return pluginConfigWriteResponse(prepared.entry.PluginID, prepared.currentConfig), true
 	}
-	if reflect.DeepEqual(currentConfig, cloneStringAnyMap(options.Config)) {
-		return PluginConfigWriteResponse{
-			PluginID: entry.PluginID,
-			Config:   cloneStringAnyMap(currentConfig),
-			Validation: PluginConfigValidationResult{
-				OK: true,
-			},
-		}, nil
+	if reflect.DeepEqual(prepared.currentConfig, prepared.requested) {
+		return pluginConfigWriteResponse(prepared.entry.PluginID, prepared.currentConfig), true
 	}
-	if state.PluginConfigByID == nil {
-		state.PluginConfigByID = map[string]any{}
+	return PluginConfigWriteResponse{}, false
+}
+
+func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWrite) (PluginConfigWriteResponse, error) {
+	if prepared.state.PluginConfigByID == nil {
+		prepared.state.PluginConfigByID = map[string]any{}
 	}
-	savedConfig := cloneStringAnyMap(options.Config)
-	state.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)] = savedConfig
-	if err := s.store.SavePluginsState(state); err != nil {
+	prepared.state.PluginConfigByID[pluginConfigKey(prepared.entry.PluginID, prepared.entry.Scope)] = prepared.requested
+	if err := s.store.SavePluginsState(prepared.state); err != nil {
 		return PluginConfigWriteResponse{}, err
 	}
 	if _, err := s.rescanLocked(); err != nil {
 		return PluginConfigWriteResponse{}, err
 	}
+	return pluginConfigWriteResponse(prepared.entry.PluginID, prepared.requested), nil
+}
 
+func pluginConfigWriteResponse(pluginID string, config map[string]any) PluginConfigWriteResponse {
 	return PluginConfigWriteResponse{
-		PluginID: entry.PluginID,
-		Config:   cloneStringAnyMap(savedConfig),
+		PluginID: pluginID,
+		Config:   cloneStringAnyMap(config),
 		Validation: PluginConfigValidationResult{
 			OK: true,
 		},
-	}, nil
+	}
 }
 
 func validatePluginConfig(entry DiscoveredPlugin, config map[string]any) error {
