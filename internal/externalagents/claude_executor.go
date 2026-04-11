@@ -151,90 +151,120 @@ func (e *ClaudeExecutor) Start(ctx context.Context, request StartRequest) (Start
 	if request.ExternalConfig.ToolType != externalagentconfigs.ToolTypeClaudeCode || request.ExternalConfig.RunMode != externalagentconfigs.RunModeSDK {
 		return StartResponse{}, ErrExecutorUnavailable
 	}
-	workingDir, cleanupWorkingDir, err := e.resolveWorkingDir(request.ExternalConfig)
+	resources, err := e.prepareClaudeStartResources(&request)
 	if err != nil {
 		return StartResponse{}, err
 	}
-	cleanupPaths := []string{}
-	if cleanupWorkingDir != nil {
-		cleanupPaths = append(cleanupPaths, workingDir)
-	}
-	cleanupStart := func() {
-		if cleanupWorkingDir != nil {
-			_ = cleanupWorkingDir()
-		}
-	}
-	if err := e.prepareClaudeSettings(request.ExternalConfig); err != nil {
-		cleanupStart()
+	session, err := e.launchClaudeSession(request, resources)
+	if err != nil {
+		resources.cleanupStartup()
 		return StartResponse{}, err
 	}
-	if cleanupMCPDir, err := e.ensureClaudeMCPConfig(&request); err != nil {
-		cleanupStart()
-		return StartResponse{}, err
-	} else if strings.TrimSpace(cleanupMCPDir) != "" {
-		cleanupPaths = append(cleanupPaths, cleanupMCPDir)
-	}
-
-	envMap := e.buildRuntimeEnv(request.ExternalConfig)
-	pythonCommand := strings.TrimSpace(e.pythonCommand)
-	if pythonCommand == "" {
-		pythonCommand, err = externalagentconfigs.ResolveClaudePythonCommand()
-		if err != nil {
-			cleanupStart()
-			return StartResponse{}, fmt.Errorf("%w: %v", errClaudeExecutorPythonRequired, err)
-		}
-	}
-	// The Claude sidecar outlives the HTTP request that started it, so the
-	// subprocess lifetime must be owned by the run controller instead of the
-	// request-scoped context.
-	cmd := exec.Command(pythonCommand, e.sidecarPath)
-	cmd.Dir = workingDir
-	cmd.Env = envMapToList(envMap)
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		cleanupStart()
-		return StartResponse{}, fmt.Errorf("claude stdin pipe: %w", err)
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		cleanupStart()
-		return StartResponse{}, fmt.Errorf("claude stdout pipe: %w", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		cleanupStart()
-		return StartResponse{}, fmt.Errorf("claude stderr pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		cleanupStart()
-		return StartResponse{}, fmt.Errorf("start claude sidecar: %w", err)
-	}
-
-	session := newClaudeSession(cmd, stdin)
-	session.start(stdout, stderr)
-
-	startupFailed := true
-	defer func() {
-		if !startupFailed {
-			return
-		}
-		_ = session.terminate()
-		cleanupStart()
-	}()
-
-	if err := session.writeJSON(buildClaudeStartPayload(request, workingDir, envMap)); err != nil {
-		return StartResponse{}, err
-	}
-
 	controller := &claudeRunController{
 		session:      session,
 		runtimeReady: make(chan struct{}),
 		cancelled:    make(chan struct{}),
 	}
-	startupFailed = false
-	go e.runLoop(request, session, controller, cleanupPaths)
+	go e.runLoop(request, session, controller, resources.cleanupPaths)
 	return StartResponse{Controller: controller}, nil
+}
+
+type claudeStartResources struct {
+	workingDir     string
+	envMap         map[string]string
+	cleanupPaths   []string
+	cleanupStartup func()
+}
+
+func (e *ClaudeExecutor) prepareClaudeStartResources(request *StartRequest) (claudeStartResources, error) {
+	workingDir, cleanupWorkingDir, err := e.resolveWorkingDir(request.ExternalConfig)
+	if err != nil {
+		return claudeStartResources{}, err
+	}
+	resources := claudeStartResources{
+		workingDir:     workingDir,
+		envMap:         e.buildRuntimeEnv(request.ExternalConfig),
+		cleanupStartup: func() {},
+	}
+	if cleanupWorkingDir != nil {
+		resources.cleanupPaths = append(resources.cleanupPaths, workingDir)
+		resources.cleanupStartup = func() {
+			_ = cleanupWorkingDir()
+		}
+	}
+	if err := e.prepareClaudeSettings(request.ExternalConfig); err != nil {
+		resources.cleanupStartup()
+		return claudeStartResources{}, err
+	}
+	cleanupMCPDir, err := e.ensureClaudeMCPConfig(request)
+	if err != nil {
+		resources.cleanupStartup()
+		return claudeStartResources{}, err
+	}
+	if strings.TrimSpace(cleanupMCPDir) != "" {
+		resources.cleanupPaths = append(resources.cleanupPaths, cleanupMCPDir)
+		previousCleanup := resources.cleanupStartup
+		resources.cleanupStartup = func() {
+			previousCleanup()
+			_ = os.RemoveAll(cleanupMCPDir)
+		}
+	}
+	return resources, nil
+}
+
+func (e *ClaudeExecutor) resolveClaudePythonCommand() (string, error) {
+	pythonCommand := strings.TrimSpace(e.pythonCommand)
+	if pythonCommand != "" {
+		return pythonCommand, nil
+	}
+	resolved, err := externalagentconfigs.ResolveClaudePythonCommand()
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", errClaudeExecutorPythonRequired, err)
+	}
+	return resolved, nil
+}
+
+func (e *ClaudeExecutor) launchClaudeSession(
+	request StartRequest,
+	resources claudeStartResources,
+) (*claudeSession, error) {
+	pythonCommand, err := e.resolveClaudePythonCommand()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(pythonCommand, e.sidecarPath)
+	cmd.Dir = resources.workingDir
+	cmd.Env = envMapToList(resources.envMap)
+	stdin, stdout, stderr, err := openClaudePipes(cmd)
+	if err != nil {
+		return nil, err
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("start claude sidecar: %w", err)
+	}
+	session := newClaudeSession(cmd, stdin)
+	session.start(stdout, stderr)
+	if err := session.writeJSON(buildClaudeStartPayload(request, resources.workingDir, resources.envMap)); err != nil {
+		_ = session.terminate()
+		return nil, err
+	}
+	return session, nil
+}
+
+func openClaudePipes(cmd *exec.Cmd) (io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("claude stdin pipe: %w", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("claude stdout pipe: %w", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("claude stderr pipe: %w", err)
+	}
+	return stdin, stdout, stderr, nil
 }
 
 func (e *ClaudeExecutor) runLoop(
@@ -243,76 +273,124 @@ func (e *ClaudeExecutor) runLoop(
 	controller *claudeRunController,
 	cleanupPaths []string,
 ) {
-	defer func() {
-		_ = controller.Cancel()
-		for _, cleanupPath := range cleanupPaths {
-			if strings.TrimSpace(cleanupPath) == "" {
-				continue
-			}
-			_ = os.RemoveAll(cleanupPath)
-		}
-		e.runtime.DeactivateRun(request.Run.ID)
-	}()
-	if !controller.waitForRuntimeReady() {
+	defer e.finishClaudeRunLoop(request.Run.ID, controller, cleanupPaths)
+	loopState, ready, err := e.prepareClaudeRunLoop(request, session, controller)
+	if !ready {
 		return
 	}
-	if err := e.seedClaudeMCPStatuses(request.Run.ID, stringValue(request.Inputs["mcpConfig"])); err != nil && !errors.Is(err, ErrRunNotActive) {
-		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
-		return
-	}
-
-	sessionID := strings.TrimSpace(stringValue(request.Inputs["sessionId"]))
-	state, err := e.loadCurrentChatState(request.Run)
 	if err != nil {
 		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 		return
 	}
-	if err := e.persistLiveState(request.Run.ID, state, sessionID, nil); err != nil {
-		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
-		return
-	}
-
-	parser := newClaudeEventParser(e.runtime, request)
-	var result *claudeResultPayload
 	for {
-		payload, ok := <-session.events
-		if !ok {
-			if err := e.handleProcessExit(
-				request.Run.ID,
-				session.processErr(),
-				session.stderrTail(),
-				state,
-				sessionID,
-				result,
-				boolValue(request.Inputs["completionGuardEnabled"]),
-			); err != nil {
-				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
-			}
-			return
-		}
-		if currentLiveState, err := e.runtime.GetLiveChatState(request.Run.ID); err == nil && currentLiveState != nil {
-			state = *currentLiveState.Clone()
-		}
-		if nextSessionID := extractClaudeSessionID(payload); nextSessionID != "" {
-			sessionID = nextSessionID
-		}
-		changed, nextResult, err := e.handleEvent(request, parser, payload, &state)
+		done, err := e.processClaudeRunLoopEvent(request, session, loopState)
 		if err != nil {
 			_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 			return
 		}
-		if nextResult != nil {
-			result = nextResult
-			if result.SessionID != "" {
-				sessionID = result.SessionID
-			}
+		if done {
+			return
 		}
-		if changed {
-			if err := e.persistLiveState(request.Run.ID, state, sessionID, nil); err != nil {
-				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
-				return
-			}
+	}
+}
+
+type claudeLoopState struct {
+	chatState ChatState
+	sessionID string
+	parser    *claudeEventParser
+	result    *claudeResultPayload
+}
+
+func (e *ClaudeExecutor) finishClaudeRunLoop(
+	runID string,
+	controller *claudeRunController,
+	cleanupPaths []string,
+) {
+	_ = controller.Cancel()
+	for _, cleanupPath := range cleanupPaths {
+		if strings.TrimSpace(cleanupPath) == "" {
+			continue
 		}
+		_ = os.RemoveAll(cleanupPath)
+	}
+	e.runtime.DeactivateRun(runID)
+}
+
+func (e *ClaudeExecutor) prepareClaudeRunLoop(
+	request StartRequest,
+	session *claudeSession,
+	controller *claudeRunController,
+) (*claudeLoopState, bool, error) {
+	if !controller.waitForRuntimeReady() {
+		return nil, false, nil
+	}
+	if err := e.seedClaudeMCPStatuses(request.Run.ID, stringValue(request.Inputs["mcpConfig"])); err != nil && !errors.Is(err, ErrRunNotActive) {
+		return nil, true, err
+	}
+	sessionID := strings.TrimSpace(stringValue(request.Inputs["sessionId"]))
+	state, err := e.loadCurrentChatState(request.Run)
+	if err != nil {
+		return nil, true, err
+	}
+	if err := e.persistLiveState(request.Run.ID, state, sessionID, nil); err != nil {
+		return nil, true, err
+	}
+	return &claudeLoopState{
+		chatState: state,
+		sessionID: sessionID,
+		parser:    newClaudeEventParser(e.runtime, request),
+	}, true, nil
+}
+
+func (e *ClaudeExecutor) processClaudeRunLoopEvent(
+	request StartRequest,
+	session *claudeSession,
+	loopState *claudeLoopState,
+) (bool, error) {
+	payload, ok := <-session.events
+	if !ok {
+		return true, e.handleProcessExit(
+			request.Run.ID,
+			session.processErr(),
+			session.stderrTail(),
+			loopState.chatState,
+			loopState.sessionID,
+			loopState.result,
+			boolValue(request.Inputs["completionGuardEnabled"]),
+		)
+	}
+	e.refreshClaudeRunLoopState(request.Run.ID, payload, loopState)
+	changed, nextResult, err := e.handleEvent(request, loopState.parser, payload, &loopState.chatState)
+	if err != nil {
+		return false, err
+	}
+	loopState.applyResult(nextResult)
+	if !changed {
+		return false, nil
+	}
+	return false, e.persistLiveState(request.Run.ID, loopState.chatState, loopState.sessionID, nil)
+}
+
+func (e *ClaudeExecutor) refreshClaudeRunLoopState(
+	runID string,
+	payload map[string]any,
+	loopState *claudeLoopState,
+) {
+	if currentLiveState, err := e.runtime.GetLiveChatState(runID); err == nil && currentLiveState != nil {
+		loopState.chatState = *currentLiveState.Clone()
+	}
+	if nextSessionID := extractClaudeSessionID(payload); nextSessionID != "" {
+		loopState.sessionID = nextSessionID
+	}
+}
+
+func (loopState *claudeLoopState) applyResult(result *claudeResultPayload) {
+	if result == nil {
+		return
+	}
+	loopState.result = result
+	if result.SessionID != "" {
+		loopState.sessionID = result.SessionID
 	}
 }
 
@@ -324,75 +402,132 @@ func (e *ClaudeExecutor) handleEvent(
 ) (bool, *claudeResultPayload, error) {
 	switch strings.TrimSpace(stringValue(payload["type"])) {
 	case "approval_request":
-		approvalID := strings.TrimSpace(stringValue(payload["approvalId"]))
-		if approvalID == "" {
-			return false, nil, fmt.Errorf("claude approval request missing approvalId")
-		}
-		toolName := normalizeClaudeToolName(stringValue(payload["toolName"]))
-		if toolName == askUserQuestionToolName {
-			if err := parser.queueQuestionApproval(approvalID); err != nil {
-				return false, nil, err
-			}
-			if err := e.persistApprovalRequestEvent(request.Run.ID, approvalID, payload); err != nil {
-				return false, nil, err
-			}
-			return false, nil, nil
-		}
-		approvalState := ApprovalState{
-			ApprovalID:      approvalID,
-			RunID:           request.Run.ID,
-			ProjectConfigID: request.ProjectConfigID,
-			ChatID:          request.ChatID,
-			SectionID:       cloneOptionalString(request.SectionID),
-		}
-		if err := e.runtime.RegisterApproval(approvalState); err != nil {
-			return false, nil, err
-		}
-		appendApprovalRequestMessage(state, approvalID, buildClaudeApprovalArguments(payload))
-		if err := e.persistApprovalRequestEvent(request.Run.ID, approvalID, payload); err != nil {
-			return true, nil, err
-		}
-		return true, nil, nil
+		changed, err := e.handleApprovalRequestEvent(request, parser, payload, state)
+		return changed, nil, err
 	case "stream_event":
-		eventPayload, ok := mapValue(payload["event"])
-		if !ok {
-			return false, nil, nil
-		}
-		changed, err := parser.handleStreamEvent(eventPayload, state)
-		if err != nil {
-			return changed, nil, err
-		}
-		return e.persistClaudeToolResults(request.Run.ID, parser.takeToolResults(), changed)
+		return e.handleStreamEventEnvelope(request.Run.ID, parser, payload, state)
 	case "assistant_message":
-		messagePayload, ok := mapValue(payload["message"])
-		if !ok {
-			return false, nil, nil
-		}
-		changed, err := parser.handleAssistantMessage(messagePayload, state)
-		if err != nil {
-			return changed, nil, err
-		}
-		return e.persistClaudeToolResults(request.Run.ID, parser.takeToolResults(), changed)
+		return e.handleAssistantMessageEvent(request.Run.ID, parser, payload, state)
 	case "system_message":
-		statuses := buildClaudeMCPStatuses(payload, e.timeNow)
-		if len(statuses) == 0 {
-			return false, nil, nil
-		}
-		if err := e.runtime.UpsertMCPStatuses(request.Run.ID, statuses); err != nil && !errors.Is(err, ErrRunNotActive) {
-			return false, nil, err
-		}
-		return false, nil, nil
+		return false, nil, e.handleSystemMessageEvent(request.Run.ID, payload)
 	case "result":
 		return false, extractClaudeResult(payload), nil
 	case "error":
-		message := strings.TrimSpace(stringValue(payload["message"]))
-		if message == "" {
-			message = "claude sidecar reported an error"
-		}
-		return false, nil, errors.New(message)
+		return false, nil, claudeEventError(payload)
 	default:
 		return false, nil, nil
 	}
+}
+
+func (e *ClaudeExecutor) handleApprovalRequestEvent(
+	request StartRequest,
+	parser *claudeEventParser,
+	payload map[string]any,
+	state *ChatState,
+) (bool, error) {
+	approvalID := strings.TrimSpace(stringValue(payload["approvalId"]))
+	if approvalID == "" {
+		return false, fmt.Errorf("claude approval request missing approvalId")
+	}
+	toolName := normalizeClaudeToolName(stringValue(payload["toolName"]))
+	if toolName == askUserQuestionToolName {
+		return false, e.queueQuestionApprovalRequest(request.Run.ID, parser, approvalID, payload)
+	}
+	return e.registerApprovalRequestEvent(request, approvalID, payload, state)
+}
+
+func (e *ClaudeExecutor) queueQuestionApprovalRequest(
+	runID string,
+	parser *claudeEventParser,
+	approvalID string,
+	payload map[string]any,
+) error {
+	if err := parser.queueQuestionApproval(approvalID); err != nil {
+		return err
+	}
+	return e.persistApprovalRequestEvent(runID, approvalID, payload)
+}
+
+func (e *ClaudeExecutor) registerApprovalRequestEvent(
+	request StartRequest,
+	approvalID string,
+	payload map[string]any,
+	state *ChatState,
+) (bool, error) {
+	approvalState := ApprovalState{
+		ApprovalID:      approvalID,
+		RunID:           request.Run.ID,
+		ProjectConfigID: request.ProjectConfigID,
+		ChatID:          request.ChatID,
+		SectionID:       cloneOptionalString(request.SectionID),
+	}
+	if err := e.runtime.RegisterApproval(approvalState); err != nil {
+		return false, err
+	}
+	appendApprovalRequestMessage(state, approvalID, buildClaudeApprovalArguments(payload))
+	if err := e.persistApprovalRequestEvent(request.Run.ID, approvalID, payload); err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
+func (e *ClaudeExecutor) handleStreamEventEnvelope(
+	runID string,
+	parser *claudeEventParser,
+	payload map[string]any,
+	state *ChatState,
+) (bool, *claudeResultPayload, error) {
+	eventPayload, ok := mapValue(payload["event"])
+	if !ok {
+		return false, nil, nil
+	}
+	changed, err := parser.handleStreamEvent(eventPayload, state)
+	return e.finishParsedClaudeEvent(runID, parser, changed, err)
+}
+
+func (e *ClaudeExecutor) handleAssistantMessageEvent(
+	runID string,
+	parser *claudeEventParser,
+	payload map[string]any,
+	state *ChatState,
+) (bool, *claudeResultPayload, error) {
+	messagePayload, ok := mapValue(payload["message"])
+	if !ok {
+		return false, nil, nil
+	}
+	changed, err := parser.handleAssistantMessage(messagePayload, state)
+	return e.finishParsedClaudeEvent(runID, parser, changed, err)
+}
+
+func (e *ClaudeExecutor) finishParsedClaudeEvent(
+	runID string,
+	parser *claudeEventParser,
+	changed bool,
+	err error,
+) (bool, *claudeResultPayload, error) {
+	if err != nil {
+		return changed, nil, err
+	}
+	return e.persistClaudeToolResults(runID, parser.takeToolResults(), changed)
+}
+
+func (e *ClaudeExecutor) handleSystemMessageEvent(runID string, payload map[string]any) error {
+	statuses := buildClaudeMCPStatuses(payload, e.timeNow)
+	if len(statuses) == 0 {
+		return nil
+	}
+	if err := e.runtime.UpsertMCPStatuses(runID, statuses); err != nil && !errors.Is(err, ErrRunNotActive) {
+		return err
+	}
+	return nil
+}
+
+func claudeEventError(payload map[string]any) error {
+	message := strings.TrimSpace(stringValue(payload["message"]))
+	if message == "" {
+		message = "claude sidecar reported an error"
+	}
+	return errors.New(message)
 }
 
 func (e *ClaudeExecutor) persistApprovalRequestEvent(runID string, approvalID string, payload map[string]any) error {
@@ -1243,6 +1378,21 @@ type claudeEventParser struct {
 	pendingToolResults       []claudeToolResultMetadata
 }
 
+type claudeContentBlockDelta struct {
+	messageID string
+	index     int
+	blockType string
+	deltaType string
+	delta     map[string]any
+}
+
+type claudeContentBlockStart struct {
+	messageID    string
+	index        int
+	blockType    string
+	contentBlock map[string]any
+}
+
 func newClaudeEventParser(runtime *Runtime, request StartRequest) *claudeEventParser {
 	return &claudeEventParser{
 		runtime:                 runtime,
@@ -1253,6 +1403,17 @@ func newClaudeEventParser(runtime *Runtime, request StartRequest) *claudeEventPa
 		toolCallArgumentsByID:   map[string]string{},
 		toolCallSeededFromInput: map[string]bool{},
 		toolResultBuffersByID:   map[string]*claudeToolResultBuffer{},
+	}
+}
+
+func contentBlockIndex(eventPayload map[string]any) (int, bool) {
+	switch value := eventPayload["index"].(type) {
+	case float64:
+		return int(value), true
+	case int:
+		return value, true
+	default:
+		return 0, false
 	}
 }
 
@@ -1339,220 +1500,293 @@ func (p *claudeEventParser) handleAssistantMessage(messagePayload map[string]any
 		return false, nil
 	}
 	upsertAssistantMessage(state, messageID, "")
-	changed := true
-	if rawContent, ok := messagePayload["content"].([]any); ok {
-		for _, rawEntry := range rawContent {
-			entry, ok := rawEntry.(map[string]any)
-			if !ok {
-				continue
-			}
-			switch strings.TrimSpace(stringValue(entry["type"])) {
-			case "text":
-				if text := strings.TrimSpace(stringValue(entry["text"])); text != "" {
-					appendAssistantDelta(state, messageID, text)
-				}
-			case "thinking":
-				thinking := strings.TrimSpace(stringValue(entry["thinking"]))
-				summary := optionalStringValue(entry, "summary")
-				signature := optionalStringValue(entry, "signature")
-				if thinking != "" || summary != nil || signature != nil {
-					appendAssistantThinkingUpdate(state, messageID, thinking, summary, signature)
-				}
-			case "tool_use":
-				toolCallID := strings.TrimSpace(stringValue(entry["id"]))
-				if toolCallID == "" {
-					continue
-				}
-				toolName := normalizeClaudeToolName(stringValue(entry["name"]))
-				arguments, _ := mapValue(entry["input"])
-				if arguments == nil {
-					arguments = map[string]any{}
-				}
-				setToolCallArguments(state, toolCallID, arguments)
-				upsertAssistantToolCall(state, messageID, toolCallID, toolName, arguments)
-				if err := p.registerQuestion(toolCallID, toolName); err != nil {
-					return changed, err
-				}
-			case "tool_result":
-				metadata := buildClaudeToolResultFromContentBlock(state, entry)
-				if metadata == nil {
-					continue
-				}
-				p.pendingToolResults = append(p.pendingToolResults, *metadata)
-			}
+	rawContent, _ := messagePayload["content"].([]any)
+	for _, rawEntry := range rawContent {
+		if err := p.handleAssistantMessageEntry(messageID, rawEntry, state); err != nil {
+			return true, err
 		}
 	}
-	return changed, nil
+	return true, nil
+}
+
+func (p *claudeEventParser) handleAssistantMessageEntry(
+	messageID string,
+	rawEntry any,
+	state *ChatState,
+) error {
+	entry, ok := rawEntry.(map[string]any)
+	if !ok {
+		return nil
+	}
+	switch strings.TrimSpace(stringValue(entry["type"])) {
+	case "text":
+		text := strings.TrimSpace(stringValue(entry["text"]))
+		if text != "" {
+			appendAssistantDelta(state, messageID, text)
+		}
+		return nil
+	case "thinking":
+		thinking := strings.TrimSpace(stringValue(entry["thinking"]))
+		summary := optionalStringValue(entry, "summary")
+		signature := optionalStringValue(entry, "signature")
+		if thinking != "" || summary != nil || signature != nil {
+			appendAssistantThinkingUpdate(state, messageID, thinking, summary, signature)
+		}
+		return nil
+	case "tool_use":
+		toolCallID, toolName, arguments := toolUsePayload(entry)
+		if toolCallID == "" {
+			return nil
+		}
+		setToolCallArguments(state, toolCallID, arguments)
+		upsertAssistantToolCall(state, messageID, toolCallID, toolName, arguments)
+		return p.registerQuestion(toolCallID, toolName)
+	case "tool_result":
+		metadata := buildClaudeToolResultFromContentBlock(state, entry)
+		if metadata != nil {
+			p.pendingToolResults = append(p.pendingToolResults, *metadata)
+		}
+		return nil
+	default:
+		return nil
+	}
 }
 
 func (p *claudeEventParser) handleContentBlockStart(eventPayload map[string]any, state *ChatState) (bool, error) {
-	messageID := strings.TrimSpace(p.currentMessageID)
-	if messageID == "" {
-		return false, nil
-	}
-	indexValue, ok := eventPayload["index"].(float64)
-	if !ok {
-		if parsedIndex, ok := eventPayload["index"].(int); ok {
-			indexValue = float64(parsedIndex)
-		} else {
-			return false, nil
-		}
-	}
-	index := int(indexValue)
-	contentBlock, ok := mapValue(eventPayload["content_block"])
+	start, ok := p.parseContentBlockStart(eventPayload)
 	if !ok {
 		return false, nil
 	}
-	blockType := strings.TrimSpace(stringValue(contentBlock["type"]))
-	if blockType == "" {
-		return false, nil
-	}
-	p.blockTypesByIndex[index] = blockType
-	switch blockType {
+	p.blockTypesByIndex[start.index] = start.blockType
+	switch start.blockType {
 	case "text":
-		if text := stringValue(contentBlock["text"]); text != "" {
-			appendAssistantDelta(state, messageID, text)
-			return true, nil
-		}
+		return start.applyTextStart(state)
 	case "thinking":
-		thinking := stringValue(contentBlock["thinking"])
-		summary := optionalStringValue(contentBlock, "summary")
-		signature := optionalStringValue(contentBlock, "signature")
-		if thinking != "" || summary != nil || signature != nil {
-			appendAssistantThinkingUpdate(state, messageID, thinking, summary, signature)
-			return true, nil
-		}
+		return start.applyThinkingStart(state)
 	case "tool_use":
-		toolCallID := strings.TrimSpace(stringValue(contentBlock["id"]))
-		if toolCallID == "" {
-			return false, nil
-		}
-		p.toolUseIDsByIndex[index] = toolCallID
-		toolName := normalizeClaudeToolName(stringValue(contentBlock["name"]))
-		arguments, _ := mapValue(contentBlock["input"])
-		if arguments == nil {
-			arguments = map[string]any{}
-		}
-		if len(arguments) > 0 {
-			setToolCallArguments(state, toolCallID, arguments)
-			if encoded, err := json.Marshal(arguments); err == nil {
-				p.toolCallArgumentsByID[toolCallID] = string(encoded)
-				p.toolCallSeededFromInput[toolCallID] = true
-			}
-		}
-		upsertAssistantToolCall(state, messageID, toolCallID, toolName, arguments)
-		if err := p.registerQuestion(toolCallID, toolName); err != nil {
-			return true, err
-		}
-		return true, nil
+		return p.applyToolUseStart(start, state)
 	case "tool_result":
-		toolCallID := strings.TrimSpace(stringValue(contentBlock["tool_use_id"]))
-		if toolCallID == "" {
-			return false, nil
-		}
-		p.toolResultIDsByIndex[index] = toolCallID
-		appendClaudeToolResultChunk(
-			p.toolResultBuffersByID,
-			toolCallID,
-			contentBlock["content"],
-			boolValue(contentBlock["is_error"]),
-		)
-	}
-	return false, nil
-}
-
-func (p *claudeEventParser) handleContentBlockDelta(eventPayload map[string]any, state *ChatState) (bool, error) {
-	messageID := strings.TrimSpace(p.currentMessageID)
-	if messageID == "" {
-		return false, nil
-	}
-	indexValue, ok := eventPayload["index"].(float64)
-	if !ok {
-		if parsedIndex, ok := eventPayload["index"].(int); ok {
-			indexValue = float64(parsedIndex)
-		} else {
-			return false, nil
-		}
-	}
-	index := int(indexValue)
-	delta, ok := mapValue(eventPayload["delta"])
-	if !ok {
-		return false, nil
-	}
-	blockType := p.blockTypesByIndex[index]
-	switch {
-	case blockType == "text" && strings.TrimSpace(stringValue(delta["type"])) == "text_delta":
-		text := stringValue(delta["text"])
-		if text == "" {
-			return false, nil
-		}
-		appendAssistantDelta(state, messageID, text)
-		return true, nil
-	case blockType == "thinking" && strings.TrimSpace(stringValue(delta["type"])) == "thinking_delta":
-		thinking := stringValue(delta["thinking"])
-		summary := optionalStringValue(delta, "summary")
-		if thinking == "" && summary == nil {
-			return false, nil
-		}
-		appendAssistantThinkingUpdate(state, messageID, thinking, summary, nil)
-		return true, nil
-	case blockType == "thinking" && strings.TrimSpace(stringValue(delta["type"])) == "signature_delta":
-		signature := optionalStringValue(delta, "signature")
-		if signature == nil {
-			return false, nil
-		}
-		appendAssistantThinkingUpdate(state, messageID, "", nil, signature)
-		return true, nil
-	case blockType == "thinking" && strings.TrimSpace(stringValue(delta["type"])) == "summary_delta":
-		summary := optionalStringValue(delta, "summary")
-		if summary == nil {
-			return false, nil
-		}
-		appendAssistantThinkingUpdate(state, messageID, "", summary, nil)
-		return true, nil
-	case blockType == "tool_use" && strings.TrimSpace(stringValue(delta["type"])) == "input_json_delta":
-		toolCallID := strings.TrimSpace(p.toolUseIDsByIndex[index])
-		if toolCallID == "" {
-			return false, nil
-		}
-		partialJSON := stringValue(delta["partial_json"])
-		if partialJSON == "" {
-			return false, nil
-		}
-		if p.toolCallSeededFromInput[toolCallID] {
-			p.toolCallArgumentsByID[toolCallID] = ""
-			p.toolCallSeededFromInput[toolCallID] = false
-		}
-		p.toolCallArgumentsByID[toolCallID] += partialJSON
-		parsed, ok := decodeJSONObject(p.toolCallArgumentsByID[toolCallID])
-		if !ok {
-			return false, nil
-		}
-		setToolCallArguments(state, toolCallID, parsed)
-		upsertAssistantToolCall(state, messageID, toolCallID, "", parsed)
-		return true, nil
-	case blockType == "tool_result" && strings.TrimSpace(stringValue(delta["type"])) == "text_delta":
-		toolCallID := strings.TrimSpace(p.toolResultIDsByIndex[index])
-		if toolCallID == "" {
-			return false, nil
-		}
-		appendClaudeToolResultChunk(p.toolResultBuffersByID, toolCallID, delta["text"], false)
-		return false, nil
+		return p.applyToolResultStart(start)
 	default:
 		return false, nil
 	}
 }
 
-func (p *claudeEventParser) handleContentBlockStop(eventPayload map[string]any, state *ChatState) (bool, error) {
-	indexValue, ok := eventPayload["index"].(float64)
+func (p *claudeEventParser) parseContentBlockStart(eventPayload map[string]any) (claudeContentBlockStart, bool) {
+	messageID := strings.TrimSpace(p.currentMessageID)
+	if messageID == "" {
+		return claudeContentBlockStart{}, false
+	}
+	index, ok := contentBlockIndex(eventPayload)
 	if !ok {
-		if parsedIndex, ok := eventPayload["index"].(int); ok {
-			indexValue = float64(parsedIndex)
-		} else {
-			return false, nil
+		return claudeContentBlockStart{}, false
+	}
+	contentBlock, ok := mapValue(eventPayload["content_block"])
+	if !ok {
+		return claudeContentBlockStart{}, false
+	}
+	blockType := strings.TrimSpace(stringValue(contentBlock["type"]))
+	if blockType == "" {
+		return claudeContentBlockStart{}, false
+	}
+	return claudeContentBlockStart{
+		messageID:    messageID,
+		index:        index,
+		blockType:    blockType,
+		contentBlock: contentBlock,
+	}, true
+}
+
+func (start claudeContentBlockStart) applyTextStart(state *ChatState) (bool, error) {
+	text := stringValue(start.contentBlock["text"])
+	if text == "" {
+		return false, nil
+	}
+	appendAssistantDelta(state, start.messageID, text)
+	return true, nil
+}
+
+func (start claudeContentBlockStart) applyThinkingStart(state *ChatState) (bool, error) {
+	thinking := stringValue(start.contentBlock["thinking"])
+	summary := optionalStringValue(start.contentBlock, "summary")
+	signature := optionalStringValue(start.contentBlock, "signature")
+	if thinking == "" && summary == nil && signature == nil {
+		return false, nil
+	}
+	appendAssistantThinkingUpdate(state, start.messageID, thinking, summary, signature)
+	return true, nil
+}
+
+func (p *claudeEventParser) applyToolUseStart(start claudeContentBlockStart, state *ChatState) (bool, error) {
+	toolCallID, toolName, arguments := toolUsePayload(start.contentBlock)
+	if toolCallID == "" {
+		return false, nil
+	}
+	p.toolUseIDsByIndex[start.index] = toolCallID
+	if len(arguments) > 0 {
+		setToolCallArguments(state, toolCallID, arguments)
+		if encoded, err := json.Marshal(arguments); err == nil {
+			p.toolCallArgumentsByID[toolCallID] = string(encoded)
+			p.toolCallSeededFromInput[toolCallID] = true
 		}
 	}
-	index := int(indexValue)
+	upsertAssistantToolCall(state, start.messageID, toolCallID, toolName, arguments)
+	if err := p.registerQuestion(toolCallID, toolName); err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
+func (p *claudeEventParser) applyToolResultStart(start claudeContentBlockStart) (bool, error) {
+	toolCallID := strings.TrimSpace(stringValue(start.contentBlock["tool_use_id"]))
+	if toolCallID == "" {
+		return false, nil
+	}
+	p.toolResultIDsByIndex[start.index] = toolCallID
+	appendClaudeToolResultChunk(
+		p.toolResultBuffersByID,
+		toolCallID,
+		start.contentBlock["content"],
+		boolValue(start.contentBlock["is_error"]),
+	)
+	return false, nil
+}
+
+func toolUsePayload(payload map[string]any) (string, string, map[string]any) {
+	toolCallID := strings.TrimSpace(stringValue(payload["id"]))
+	toolName := normalizeClaudeToolName(stringValue(payload["name"]))
+	arguments, _ := mapValue(payload["input"])
+	if arguments == nil {
+		arguments = map[string]any{}
+	}
+	return toolCallID, toolName, arguments
+}
+
+func (p *claudeEventParser) handleContentBlockDelta(eventPayload map[string]any, state *ChatState) (bool, error) {
+	delta, ok := p.parseContentBlockDelta(eventPayload)
+	if !ok {
+		return false, nil
+	}
+	switch delta.blockType {
+	case "text":
+		return delta.applyTextDelta(state)
+	case "thinking":
+		return delta.applyThinkingDelta(state)
+	case "tool_use":
+		return p.applyToolUseDelta(delta, state)
+	case "tool_result":
+		return p.applyToolResultDelta(delta)
+	default:
+		return false, nil
+	}
+}
+
+func (p *claudeEventParser) parseContentBlockDelta(eventPayload map[string]any) (claudeContentBlockDelta, bool) {
+	messageID := strings.TrimSpace(p.currentMessageID)
+	if messageID == "" {
+		return claudeContentBlockDelta{}, false
+	}
+	index, ok := contentBlockIndex(eventPayload)
+	if !ok {
+		return claudeContentBlockDelta{}, false
+	}
+	delta, ok := mapValue(eventPayload["delta"])
+	if !ok {
+		return claudeContentBlockDelta{}, false
+	}
+	return claudeContentBlockDelta{
+		messageID: messageID,
+		index:     index,
+		blockType: p.blockTypesByIndex[index],
+		deltaType: strings.TrimSpace(stringValue(delta["type"])),
+		delta:     delta,
+	}, true
+}
+
+func (delta claudeContentBlockDelta) applyTextDelta(state *ChatState) (bool, error) {
+	if delta.deltaType != "text_delta" {
+		return false, nil
+	}
+	text := stringValue(delta.delta["text"])
+	if text == "" {
+		return false, nil
+	}
+	appendAssistantDelta(state, delta.messageID, text)
+	return true, nil
+}
+
+func (delta claudeContentBlockDelta) applyThinkingDelta(state *ChatState) (bool, error) {
+	switch delta.deltaType {
+	case "thinking_delta":
+		thinking := stringValue(delta.delta["thinking"])
+		summary := optionalStringValue(delta.delta, "summary")
+		if thinking == "" && summary == nil {
+			return false, nil
+		}
+		appendAssistantThinkingUpdate(state, delta.messageID, thinking, summary, nil)
+		return true, nil
+	case "signature_delta":
+		signature := optionalStringValue(delta.delta, "signature")
+		if signature == nil {
+			return false, nil
+		}
+		appendAssistantThinkingUpdate(state, delta.messageID, "", nil, signature)
+		return true, nil
+	case "summary_delta":
+		summary := optionalStringValue(delta.delta, "summary")
+		if summary == nil {
+			return false, nil
+		}
+		appendAssistantThinkingUpdate(state, delta.messageID, "", summary, nil)
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+func (p *claudeEventParser) applyToolUseDelta(delta claudeContentBlockDelta, state *ChatState) (bool, error) {
+	if delta.deltaType != "input_json_delta" {
+		return false, nil
+	}
+	toolCallID := strings.TrimSpace(p.toolUseIDsByIndex[delta.index])
+	if toolCallID == "" {
+		return false, nil
+	}
+	partialJSON := stringValue(delta.delta["partial_json"])
+	if partialJSON == "" {
+		return false, nil
+	}
+	if p.toolCallSeededFromInput[toolCallID] {
+		p.toolCallArgumentsByID[toolCallID] = ""
+		p.toolCallSeededFromInput[toolCallID] = false
+	}
+	p.toolCallArgumentsByID[toolCallID] += partialJSON
+	parsed, ok := decodeJSONObject(p.toolCallArgumentsByID[toolCallID])
+	if !ok {
+		return false, nil
+	}
+	setToolCallArguments(state, toolCallID, parsed)
+	upsertAssistantToolCall(state, delta.messageID, toolCallID, "", parsed)
+	return true, nil
+}
+
+func (p *claudeEventParser) applyToolResultDelta(delta claudeContentBlockDelta) (bool, error) {
+	if delta.deltaType != "text_delta" {
+		return false, nil
+	}
+	toolCallID := strings.TrimSpace(p.toolResultIDsByIndex[delta.index])
+	if toolCallID == "" {
+		return false, nil
+	}
+	appendClaudeToolResultChunk(p.toolResultBuffersByID, toolCallID, delta.delta["text"], false)
+	return false, nil
+}
+
+func (p *claudeEventParser) handleContentBlockStop(eventPayload map[string]any, state *ChatState) (bool, error) {
+	index, ok := contentBlockIndex(eventPayload)
+	if !ok {
+		return false, nil
+	}
 	switch p.blockTypesByIndex[index] {
 	case "tool_use":
 		toolCallID := strings.TrimSpace(p.toolUseIDsByIndex[index])
