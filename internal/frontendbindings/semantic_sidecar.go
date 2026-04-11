@@ -59,6 +59,12 @@ type semanticDiscriminatedTraitSpec struct {
 	MemberTypes []string `json:"memberTypes"`
 }
 
+type semanticDiscriminatedFamilyInfo struct {
+	baseType           string
+	enumType           string
+	memberValuesByName map[string]string
+}
+
 var (
 	semanticSidecarManifestOnce sync.Once
 	cachedSemanticSidecar       semanticSidecarManifest
@@ -308,66 +314,142 @@ func semanticDiscriminatedFamilyDeclarations() ([]TypeDeclaration, error) {
 	if err != nil {
 		return nil, err
 	}
+	return semanticDiscriminatedFamilyDeclarationsForManifest(manifest)
+}
 
+func semanticDiscriminatedFamilyDeclarationsForManifest(manifest semanticSidecarManifest) ([]TypeDeclaration, error) {
 	declarations := make([]TypeDeclaration, 0, len(manifest.DiscriminatedFamilies)*4)
 	for _, family := range manifest.DiscriminatedFamilies {
-		baseType := strings.TrimSpace(family.BaseType)
-		enumType := strings.TrimSpace(family.EnumType)
-		if baseType == "" {
-			return nil, fmt.Errorf("frontend semantic sidecar family is missing baseType")
+		familyDeclarations, err := semanticDiscriminatedFamilyDeclarationsForFamily(family)
+		if err != nil {
+			return nil, err
 		}
-		if enumType == "" {
-			return nil, fmt.Errorf("frontend semantic sidecar family %s is missing enumType", baseType)
+		declarations = append(declarations, familyDeclarations...)
+	}
+	return declarations, nil
+}
+
+func semanticDiscriminatedFamilyDeclarationsForFamily(family semanticDiscriminatedFamily) ([]TypeDeclaration, error) {
+	info, err := semanticDiscriminatedFamilyInfoForFamily(family)
+	if err != nil {
+		return nil, err
+	}
+
+	declarations := []TypeDeclaration{
+		aliasDeclaration(info.baseType+"Union", "gt."+info.baseType+"Union"),
+	}
+	for _, trait := range family.Traits {
+		traitDeclarations, err := semanticTraitDeclarations(info, family.Members, trait)
+		if err != nil {
+			return nil, err
 		}
+		declarations = append(declarations, traitDeclarations...)
+	}
+	return declarations, nil
+}
 
-		declarations = append(declarations, aliasDeclaration(baseType+"Union", "gt."+baseType+"Union"))
+func semanticDiscriminatedFamilyInfoForFamily(
+	family semanticDiscriminatedFamily,
+) (semanticDiscriminatedFamilyInfo, error) {
+	baseType := strings.TrimSpace(family.BaseType)
+	if baseType == "" {
+		return semanticDiscriminatedFamilyInfo{}, fmt.Errorf("frontend semantic sidecar family is missing baseType")
+	}
 
-		memberValuesByName := make(map[string]string, len(family.Members))
-		for _, member := range family.Members {
-			name := strings.TrimSpace(member.Name)
-			value := strings.TrimSpace(member.DiscriminatorValue)
-			if name == "" {
-				return nil, fmt.Errorf("frontend semantic sidecar family %s has a member with empty name", baseType)
-			}
-			if value == "" {
-				return nil, fmt.Errorf("frontend semantic sidecar family %s member %s has empty discriminatorValue", baseType, name)
-			}
-			memberValuesByName[name] = value
-		}
+	enumType := strings.TrimSpace(family.EnumType)
+	if enumType == "" {
+		return semanticDiscriminatedFamilyInfo{}, fmt.Errorf(
+			"frontend semantic sidecar family %s is missing enumType",
+			baseType,
+		)
+	}
 
-		for _, trait := range family.Traits {
-			unionName := strings.TrimSpace(trait.UnionName)
-			if unionName == "" {
-				continue
-			}
-			memberTypeNames, memberValues, err := orderedTraitMembers(family.Members, trait.MemberTypes, memberValuesByName)
-			if err != nil {
-				return nil, fmt.Errorf("frontend semantic sidecar family %s trait %s: %w", baseType, unionName, err)
-			}
-			if len(memberTypeNames) == 0 {
-				continue
-			}
-
-			returnTypeMembers := append([]string(nil), memberTypeNames...)
-			if trait.IncludeBase {
-				returnTypeMembers = append([]string{baseType}, returnTypeMembers...)
-			}
-			returnType := unionAliasExpr(returnTypeMembers...)
-			if !trait.LocalUnion {
-				declarations = append(declarations, aliasDeclaration(unionName, "gt."+unionName))
-				returnType = unionName
-			}
-
-			traitTypeName := strings.TrimSuffix(unionName, "Union")
-			traitSetName := traitTypeName + "TypeSet"
-			declarations = append(declarations,
-				setDeclaration(traitSetName, enumType, memberValues...),
-				typeGuardDeclaration("is"+traitTypeName, baseType+"Union", returnType, traitSetName),
+	memberValuesByName := make(map[string]string, len(family.Members))
+	for _, member := range family.Members {
+		name := strings.TrimSpace(member.Name)
+		if name == "" {
+			return semanticDiscriminatedFamilyInfo{}, fmt.Errorf(
+				"frontend semantic sidecar family %s has a member with empty name",
+				baseType,
 			)
 		}
 
+		value := strings.TrimSpace(member.DiscriminatorValue)
+		if value == "" {
+			return semanticDiscriminatedFamilyInfo{}, fmt.Errorf(
+				"frontend semantic sidecar family %s member %s has empty discriminatorValue",
+				baseType,
+				name,
+			)
+		}
+		memberValuesByName[name] = value
 	}
+
+	return semanticDiscriminatedFamilyInfo{
+		baseType:           baseType,
+		enumType:           enumType,
+		memberValuesByName: memberValuesByName,
+	}, nil
+}
+
+func semanticTraitDeclarations(
+	info semanticDiscriminatedFamilyInfo,
+	members []semanticDiscriminatedMember,
+	trait semanticDiscriminatedTraitSpec,
+) ([]TypeDeclaration, error) {
+	unionName := strings.TrimSpace(trait.UnionName)
+	if unionName == "" {
+		return nil, nil
+	}
+
+	memberTypeNames, memberValues, err := orderedTraitMembers(
+		members,
+		trait.MemberTypes,
+		info.memberValuesByName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"frontend semantic sidecar family %s trait %s: %w",
+			info.baseType,
+			unionName,
+			err,
+		)
+	}
+	if len(memberTypeNames) == 0 {
+		return nil, nil
+	}
+
+	returnType := semanticTraitReturnType(info.baseType, unionName, trait, memberTypeNames)
+	declarations := make([]TypeDeclaration, 0, 3)
+	if !trait.LocalUnion {
+		declarations = append(declarations, aliasDeclaration(unionName, "gt."+unionName))
+		returnType = unionName
+	}
+
+	traitTypeName := strings.TrimSuffix(unionName, "Union")
+	traitSetName := traitTypeName + "TypeSet"
+	declarations = append(
+		declarations,
+		setDeclaration(traitSetName, info.enumType, memberValues...),
+		typeGuardDeclaration("is"+traitTypeName, info.baseType+"Union", returnType, traitSetName),
+	)
 	return declarations, nil
+}
+
+func semanticTraitReturnType(
+	baseType string,
+	unionName string,
+	trait semanticDiscriminatedTraitSpec,
+	memberTypeNames []string,
+) string {
+	returnTypeMembers := append([]string(nil), memberTypeNames...)
+	if trait.IncludeBase {
+		returnTypeMembers = append([]string{baseType}, returnTypeMembers...)
+	}
+	if !trait.LocalUnion {
+		return unionName
+	}
+	return unionAliasExpr(returnTypeMembers...)
 }
 
 func frontendBindingTypesByName() map[string]reflect.Type {
