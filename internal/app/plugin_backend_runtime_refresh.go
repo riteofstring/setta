@@ -24,6 +24,14 @@ type pluginBackendRuntimeRefresher struct {
 	mu sync.Mutex
 }
 
+type pluginBackendRefreshTransition struct {
+	previewSnapshot  plugins.DiscoverySnapshot
+	nextRuntime      *pluginBackendMCPRuntime
+	nextLSPSpecs     []lsp.LanguageServerSpec
+	previousRuntime  *pluginBackendMCPRuntime
+	previousLSPSpecs []lsp.LanguageServerSpec
+}
+
 type pluginMutationRuntimeService struct {
 	base      *plugins.Service
 	refresher *pluginBackendRuntimeRefresher
@@ -265,55 +273,88 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	previewSnapshot, err := r.service.PreviewBackendRuntimeRefresh()
+	transition, err := r.prepareRefreshTransitionLocked(ctx)
 	if err != nil {
 		return plugins.DiscoverySnapshot{}, err
+	}
+	if err := r.applyRefreshTransitionLocked(ctx, transition); err != nil {
+		return plugins.DiscoverySnapshot{}, err
+	}
+	return r.commitRefreshTransitionLocked(transition)
+}
+
+func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx context.Context) (*pluginBackendRefreshTransition, error) {
+	previewSnapshot, err := r.service.PreviewBackendRuntimeRefresh()
+	if err != nil {
+		return nil, err
 	}
 
 	nextRuntime, err := r.buildRuntimeLocked(ctx, previewSnapshot)
 	if err != nil {
-		return plugins.DiscoverySnapshot{}, err
+		return nil, err
 	}
 	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(previewSnapshot)
 	if err != nil {
-		_ = nextRuntime.Close(context.Background())
-		return plugins.DiscoverySnapshot{}, err
+		closePluginBackendRuntime(nextRuntime)
+		return nil, err
 	}
-	previousRuntime := r.runtime
-	previousLSPSpecs := cloneLanguageServerSpecs(r.lspSpecs)
-	if err := r.replaceRuntimeToolsLocked(r.runtime, nextRuntime); err != nil {
-		_ = nextRuntime.Close(context.Background())
-		return plugins.DiscoverySnapshot{}, err
-	}
-	if err := r.replaceLSPSpecsLocked(ctx, previousLSPSpecs, nextLSPSpecs); err != nil {
-		if rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime); rollbackErr != nil && r.logger != nil {
-			r.logger.Error("rollback plugin backend MCP tools after LSP refresh failure", "error", rollbackErr)
-		}
-		_ = nextRuntime.Close(context.Background())
-		return plugins.DiscoverySnapshot{}, err
-	}
+	return &pluginBackendRefreshTransition{
+		previewSnapshot:  previewSnapshot,
+		nextRuntime:      nextRuntime,
+		nextLSPSpecs:     nextLSPSpecs,
+		previousRuntime:  r.runtime,
+		previousLSPSpecs: cloneLanguageServerSpecs(r.lspSpecs),
+	}, nil
+}
 
-	r.runtime = nextRuntime
+func (r *pluginBackendRuntimeRefresher) applyRefreshTransitionLocked(
+	ctx context.Context,
+	transition *pluginBackendRefreshTransition,
+) error {
+	if err := r.replaceRuntimeToolsLocked(transition.previousRuntime, transition.nextRuntime); err != nil {
+		closePluginBackendRuntime(transition.nextRuntime)
+		return err
+	}
+	if err := r.replaceLSPSpecsLocked(ctx, transition.previousLSPSpecs, transition.nextLSPSpecs); err != nil {
+		r.logPluginBackendRuntimeError(
+			"rollback plugin backend MCP tools after LSP refresh failure",
+			r.replaceRuntimeToolsLocked(transition.nextRuntime, transition.previousRuntime),
+		)
+		closePluginBackendRuntime(transition.nextRuntime)
+		return err
+	}
+	r.runtime = transition.nextRuntime
+	return nil
+}
+
+func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
+	transition *pluginBackendRefreshTransition,
+) (plugins.DiscoverySnapshot, error) {
 	committedSnapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
 	if commitErr != nil {
-		rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime)
-		if rollbackErr != nil && r.logger != nil {
-			r.logger.Error("rollback plugin backend MCP tools failed", "error", rollbackErr)
-		}
-		if rollbackErr := r.replaceLSPSpecsLocked(context.Background(), nextLSPSpecs, previousLSPSpecs); rollbackErr != nil && r.logger != nil {
-			r.logger.Error("rollback plugin backend language servers failed", "error", rollbackErr)
-		}
-		r.runtime = previousRuntime
-		r.lspSpecs = previousLSPSpecs
-		_ = nextRuntime.Close(context.Background())
+		r.rollbackRefreshTransitionLocked(transition)
 		return committedSnapshot, commitErr
 	}
 
-	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
-	if previousRuntime != nil {
-		_ = previousRuntime.Close(context.Background())
-	}
+	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)
+	closePluginBackendRuntime(transition.previousRuntime)
 	return committedSnapshot, nil
+}
+
+func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
+	transition *pluginBackendRefreshTransition,
+) {
+	r.logPluginBackendRuntimeError(
+		"rollback plugin backend MCP tools failed",
+		r.replaceRuntimeToolsLocked(transition.nextRuntime, transition.previousRuntime),
+	)
+	r.logPluginBackendRuntimeError(
+		"rollback plugin backend language servers failed",
+		r.replaceLSPSpecsLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs),
+	)
+	r.runtime = transition.previousRuntime
+	r.lspSpecs = transition.previousLSPSpecs
+	closePluginBackendRuntime(transition.nextRuntime)
 }
 
 func (r *pluginBackendRuntimeRefresher) Close(ctx context.Context) error {
@@ -384,6 +425,13 @@ func (r *pluginBackendRuntimeRefresher) replaceLSPSpecsLocked(
 	return nil
 }
 
+func (r *pluginBackendRuntimeRefresher) logPluginBackendRuntimeError(message string, err error) {
+	if err == nil || r == nil || r.logger == nil {
+		return
+	}
+	r.logger.Error(message, "error", err)
+}
+
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {
 	for _, entry := range entries {
 		if entry.PluginID == pluginID && entry.Scope == scope {
@@ -433,4 +481,11 @@ func cloneOptionalString(value *string) *string {
 	}
 	cloned := strings.TrimSpace(*value)
 	return &cloned
+}
+
+func closePluginBackendRuntime(runtime *pluginBackendMCPRuntime) {
+	if runtime == nil {
+		return
+	}
+	_ = runtime.Close(context.Background())
 }
