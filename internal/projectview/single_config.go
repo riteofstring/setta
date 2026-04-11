@@ -215,6 +215,10 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		return SingleConfig{}, err
 	}
 
+	return buildSingleConfig(project)
+}
+
+func buildSingleConfig(project projectstate.Project) (SingleConfig, error) {
 	view := SingleConfig{
 		Sections:              make(map[string]Core, len(project.Sections)),
 		SectionImpls:          make(map[string]json.RawMessage, len(project.SectionImpls)),
@@ -245,31 +249,11 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		view.SectionCapabilities,
 	)
 
-	for sectionID, section := range project.Sections {
-		view.Sections[sectionID] = coreFromSection(section)
+	if err := populateSectionViewData(&view, project); err != nil {
+		return SingleConfig{}, err
 	}
-	for implID, impl := range project.SectionImpls {
-		payload, err := sectionImplPayload(impl)
-		if err != nil {
-			return SingleConfig{}, fmt.Errorf("project %q section impl %q: %w", project.ID, implID, err)
-		}
-		view.SectionImpls[implID] = payload
-	}
-	for variantID, variant := range project.SectionVariants {
-		view.SectionVariants[variantID] = variantFromSectionVariant(variant)
-	}
-	for codeObjID, codeObj := range project.CodeObjs {
-		view.CodeObjs[codeObjID] = coreFromCodeObject(codeObj)
-	}
-	for implID, impl := range project.CodeObjImpls {
-		payload, err := codeObjImplPayload(impl)
-		if err != nil {
-			return SingleConfig{}, fmt.Errorf("project %q code object impl %q: %w", project.ID, implID, err)
-		}
-		view.CodeObjImpls[implID] = payload
-	}
-	for variantID, variant := range project.CodeObjVariants {
-		view.CodeObjVariants[variantID] = variantFromCodeObjectVariant(variant)
+	if err := populateCodeObjectViewData(&view, project); err != nil {
+		return SingleConfig{}, err
 	}
 
 	shownParamIDs, err := deriveShownParamIDs(project)
@@ -285,40 +269,9 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 }
 
 func projectConfigFromProject(project projectstate.Project) (ProjectConfig, error) {
-	topLevelSections := make(map[string]projectstate.TopLevelSectionLayout, len(project.TopLevelSections)+len(project.TopLevelSectionIDs))
-	for sectionID, layout := range project.TopLevelSections {
-		topLevelSections[sectionID] = layout.Clone()
-	}
-	for _, sectionID := range project.TopLevelSectionIDs {
-		if _, ok := topLevelSections[sectionID]; !ok {
-			topLevelSections[sectionID] = projectstate.TopLevelSectionLayout{}
-		}
-	}
-
-	viewModes := make(map[string]projectstate.ViewMode, len(project.ViewModes))
-	for viewModeID, viewMode := range project.ViewModes {
-		clonedViewMode := viewMode.Clone()
-		if clonedViewMode.VisibilityBySectionID == nil {
-			clonedViewMode.VisibilityBySectionID = map[string]bool{}
-		}
-		if clonedViewMode.TopLevelSections == nil {
-			clonedViewMode.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
-		}
-		for _, sectionID := range project.TopLevelSectionIDs {
-			if _, ok := clonedViewMode.VisibilityBySectionID[sectionID]; !ok {
-				clonedViewMode.VisibilityBySectionID[sectionID] = true
-			}
-			if _, ok := clonedViewMode.TopLevelSections[sectionID]; !ok {
-				clonedViewMode.TopLevelSections[sectionID] = topLevelSections[sectionID].Clone()
-			}
-		}
-		viewModes[viewModeID] = clonedViewMode
-	}
-
-	codegenTargets := make([]ProjectCodegenTarget, 0, len(project.CodegenTargets))
-	for _, target := range project.CodegenTargets {
-		codegenTargets = append(codegenTargets, ProjectCodegenTarget(codegenTargetPayload(target)))
-	}
+	topLevelSections := cloneTopLevelSectionLayouts(project.TopLevelSections, project.TopLevelSectionIDs)
+	viewModes := cloneProjectViewModes(project.ViewModes, project.TopLevelSectionIDs, topLevelSections)
+	codegenTargets := cloneProjectCodegenTargets(project.CodegenTargets)
 
 	sectionPathSlugsByID, sectionIDsByPathSlug, err := projectstate.ActiveSectionSlugMaps(project)
 	if err != nil {
@@ -328,19 +281,7 @@ func projectConfigFromProject(project projectstate.Project) (ProjectConfig, erro
 
 	activeViewModeID := stringPointerOrNil(project.ActiveViewModeID)
 	entryCodeBlockID := stringPointerOrNil(project.EntryCodeBlockID)
-
-	edges := make([]projectstate.Edge, len(project.Edges))
-	for index, edge := range project.Edges {
-		edges[index] = edge.Clone()
-	}
-	agenticEdges := make([]projectstate.AgenticEdge, len(project.AgenticEdges))
-	for index, edge := range project.AgenticEdges {
-		agenticEdges[index] = edge.Clone()
-	}
-	stateMachineEdges := make([]projectstate.StateMachineEdge, len(project.StateMachineEdges))
-	for index, edge := range project.StateMachineEdges {
-		stateMachineEdges[index] = edge.Clone()
-	}
+	edges, agenticEdges, stateMachineEdges := cloneProjectEdges(project)
 
 	return ProjectConfig{
 		ID:                      project.ID,
@@ -374,6 +315,121 @@ func projectConfigFromProject(project projectstate.Project) (ProjectConfig, erro
 		AgenticEdges:            agenticEdges,
 		StateMachineEdges:       stateMachineEdges,
 	}, nil
+}
+
+func populateSectionViewData(view *SingleConfig, project projectstate.Project) error {
+	for sectionID, section := range project.Sections {
+		view.Sections[sectionID] = coreFromSection(section)
+	}
+	for implID, impl := range project.SectionImpls {
+		payload, err := sectionImplPayload(impl)
+		if err != nil {
+			return fmt.Errorf("project %q section impl %q: %w", project.ID, implID, err)
+		}
+		view.SectionImpls[implID] = payload
+	}
+	for variantID, variant := range project.SectionVariants {
+		view.SectionVariants[variantID] = variantFromSectionVariant(variant)
+	}
+	return nil
+}
+
+func populateCodeObjectViewData(view *SingleConfig, project projectstate.Project) error {
+	for codeObjID, codeObj := range project.CodeObjs {
+		view.CodeObjs[codeObjID] = coreFromCodeObject(codeObj)
+	}
+	for implID, impl := range project.CodeObjImpls {
+		payload, err := codeObjImplPayload(impl)
+		if err != nil {
+			return fmt.Errorf("project %q code object impl %q: %w", project.ID, implID, err)
+		}
+		view.CodeObjImpls[implID] = payload
+	}
+	for variantID, variant := range project.CodeObjVariants {
+		view.CodeObjVariants[variantID] = variantFromCodeObjectVariant(variant)
+	}
+	return nil
+}
+
+func cloneTopLevelSectionLayouts(
+	layouts map[string]projectstate.TopLevelSectionLayout,
+	topLevelSectionIDs []string,
+) map[string]projectstate.TopLevelSectionLayout {
+	cloned := make(map[string]projectstate.TopLevelSectionLayout, len(layouts)+len(topLevelSectionIDs))
+	for sectionID, layout := range layouts {
+		cloned[sectionID] = layout.Clone()
+	}
+	for _, sectionID := range topLevelSectionIDs {
+		if _, ok := cloned[sectionID]; ok {
+			continue
+		}
+		cloned[sectionID] = projectstate.TopLevelSectionLayout{}
+	}
+	return cloned
+}
+
+func cloneProjectViewModes(
+	viewModes map[string]projectstate.ViewMode,
+	topLevelSectionIDs []string,
+	topLevelSections map[string]projectstate.TopLevelSectionLayout,
+) map[string]projectstate.ViewMode {
+	cloned := make(map[string]projectstate.ViewMode, len(viewModes))
+	for viewModeID, viewMode := range viewModes {
+		clonedViewMode := viewMode.Clone()
+		repairViewModeTopLevelState(&clonedViewMode, topLevelSectionIDs, topLevelSections)
+		cloned[viewModeID] = clonedViewMode
+	}
+	return cloned
+}
+
+func repairViewModeTopLevelState(
+	viewMode *projectstate.ViewMode,
+	topLevelSectionIDs []string,
+	topLevelSections map[string]projectstate.TopLevelSectionLayout,
+) {
+	if viewMode.VisibilityBySectionID == nil {
+		viewMode.VisibilityBySectionID = map[string]bool{}
+	}
+	if viewMode.TopLevelSections == nil {
+		viewMode.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
+	}
+	for _, sectionID := range topLevelSectionIDs {
+		if _, ok := viewMode.VisibilityBySectionID[sectionID]; !ok {
+			viewMode.VisibilityBySectionID[sectionID] = true
+		}
+		if _, ok := viewMode.TopLevelSections[sectionID]; ok {
+			continue
+		}
+		viewMode.TopLevelSections[sectionID] = topLevelSections[sectionID].Clone()
+	}
+}
+
+func cloneProjectCodegenTargets(targets []projectstate.ProjectCodegenTarget) []ProjectCodegenTarget {
+	cloned := make([]ProjectCodegenTarget, 0, len(targets))
+	for _, target := range targets {
+		cloned = append(cloned, ProjectCodegenTarget(codegenTargetPayload(target)))
+	}
+	return cloned
+}
+
+func cloneProjectEdges(project projectstate.Project) (
+	[]projectstate.Edge,
+	[]projectstate.AgenticEdge,
+	[]projectstate.StateMachineEdge,
+) {
+	edges := make([]projectstate.Edge, len(project.Edges))
+	for index, edge := range project.Edges {
+		edges[index] = edge.Clone()
+	}
+	agenticEdges := make([]projectstate.AgenticEdge, len(project.AgenticEdges))
+	for index, edge := range project.AgenticEdges {
+		agenticEdges[index] = edge.Clone()
+	}
+	stateMachineEdges := make([]projectstate.StateMachineEdge, len(project.StateMachineEdges))
+	for index, edge := range project.StateMachineEdges {
+		stateMachineEdges[index] = edge.Clone()
+	}
+	return edges, agenticEdges, stateMachineEdges
 }
 
 func coreFromSection(section projectstate.Section) Core {
