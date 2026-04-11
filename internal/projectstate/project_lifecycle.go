@@ -158,63 +158,106 @@ func cloneProjectWithFreshPasswordImplIDs(project Project) (Project, error) {
 }
 
 func rewriteCopiedPasswordImpls(project *Project) error {
+	passwordImplIDs := copiedPasswordImplIDs(project)
+	if len(passwordImplIDs) == 0 {
+		return nil
+	}
+
+	remappedImplIDs, err := remapCopiedPasswordImpls(project, passwordImplIDs)
+	if err != nil {
+		return err
+	}
+	rewriteCopiedPasswordVariantImplReferences(project, remappedImplIDs)
+	return clearCopiedPasswordSecretMetadata(project)
+}
+
+func copiedPasswordImplIDs(project *Project) []string {
 	if project == nil || len(project.CodeObjImpls) == 0 {
 		return nil
 	}
 
 	passwordImplIDs := make([]string, 0, len(project.CodeObjImpls))
 	for implID, impl := range project.CodeObjImpls {
-		if strings.TrimSpace(impl.Type) != "PasswordParam" {
-			continue
+		if isPasswordCodeObjImpl(impl) {
+			passwordImplIDs = append(passwordImplIDs, implID)
 		}
-		passwordImplIDs = append(passwordImplIDs, implID)
 	}
 	sort.Strings(passwordImplIDs)
-	if len(passwordImplIDs) == 0 {
-		return nil
-	}
+	return passwordImplIDs
+}
 
+func isPasswordCodeObjImpl(impl CodeObjectImpl) bool {
+	return strings.TrimSpace(impl.Type) == "PasswordParam"
+}
+
+func remapCopiedPasswordImpls(project *Project, passwordImplIDs []string) (map[string]string, error) {
 	remappedImplIDs := make(map[string]string, len(passwordImplIDs))
 	for _, oldImplID := range passwordImplIDs {
-		impl := project.CodeObjImpls[oldImplID]
-		newImplID, err := newProjectStateID()
+		newImplID, err := rewriteCopiedPasswordImpl(project, oldImplID)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		payload, err := rawObjectFromProjectPayload(impl.Payload)
-		if err != nil {
-			return err
-		}
-		payload["id"] = newImplID
-		payload["value"] = ""
-		payload["defaultVal"] = ""
-		payload["hasSecret"] = false
-
-		rawPayload, err := marshalProjectObject(payload)
-		if err != nil {
-			return err
-		}
-		impl.ID = newImplID
-		impl.Payload = rawPayload
-		delete(project.CodeObjImpls, oldImplID)
-		project.CodeObjImpls[newImplID] = impl
 		remappedImplIDs[oldImplID] = newImplID
 	}
+	return remappedImplIDs, nil
+}
 
+func rewriteCopiedPasswordImpl(project *Project, oldImplID string) (string, error) {
+	updatedImpl, newImplID, err := copiedPasswordImplWithFreshID(project.CodeObjImpls[oldImplID])
+	if err != nil {
+		return "", err
+	}
+	delete(project.CodeObjImpls, oldImplID)
+	project.CodeObjImpls[newImplID] = updatedImpl
+	return newImplID, nil
+}
+
+func copiedPasswordImplWithFreshID(impl CodeObjectImpl) (CodeObjectImpl, string, error) {
+	newImplID, err := newProjectStateID()
+	if err != nil {
+		return CodeObjectImpl{}, "", err
+	}
+	rawPayload, err := resetCopiedPasswordImplPayload(impl.Payload, newImplID)
+	if err != nil {
+		return CodeObjectImpl{}, "", err
+	}
+	impl.ID = newImplID
+	impl.Payload = rawPayload
+	return impl, newImplID, nil
+}
+
+func resetCopiedPasswordImplPayload(rawPayload RawJSON, newImplID string) (RawJSON, error) {
+	payload, err := rawObjectFromProjectPayload(rawPayload)
+	if err != nil {
+		return nil, err
+	}
+	payload["id"] = newImplID
+	payload["value"] = ""
+	payload["defaultVal"] = ""
+	payload["hasSecret"] = false
+	return marshalProjectObject(payload)
+}
+
+func rewriteCopiedPasswordVariantImplReferences(project *Project, remappedImplIDs map[string]string) {
 	for variantID, variant := range project.CodeObjVariants {
-		if newImplID, ok := remappedImplIDs[strings.TrimSpace(variant.ImplID)]; ok {
-			variant.ImplID = newImplID
-		}
-		for index, implID := range variant.NonPresetImplIDs {
-			if newImplID, ok := remappedImplIDs[strings.TrimSpace(implID)]; ok {
-				variant.NonPresetImplIDs[index] = newImplID
-			}
-		}
+		variant.ImplID = remapCopiedPasswordVariantImplID(variant.ImplID, remappedImplIDs)
+		variant.NonPresetImplIDs = remapCopiedPasswordVariantImplIDs(variant.NonPresetImplIDs, remappedImplIDs)
 		project.CodeObjVariants[variantID] = variant
 	}
+}
 
-	return clearCopiedPasswordSecretMetadata(project)
+func remapCopiedPasswordVariantImplID(implID string, remappedImplIDs map[string]string) string {
+	if newImplID, ok := remappedImplIDs[strings.TrimSpace(implID)]; ok {
+		return newImplID
+	}
+	return implID
+}
+
+func remapCopiedPasswordVariantImplIDs(implIDs []string, remappedImplIDs map[string]string) []string {
+	for index, implID := range implIDs {
+		implIDs[index] = remapCopiedPasswordVariantImplID(implID, remappedImplIDs)
+	}
+	return implIDs
 }
 
 func clearCopiedPasswordSecretMetadata(project *Project) error {
@@ -222,61 +265,86 @@ func clearCopiedPasswordSecretMetadata(project *Project) error {
 		return nil
 	}
 
-	passwordVariantIDs := make(map[string]struct{})
-	for variantID, variant := range project.CodeObjVariants {
-		impl, ok := project.CodeObjImpls[strings.TrimSpace(variant.ImplID)]
-		if !ok || strings.TrimSpace(impl.Type) != "PasswordParam" {
-			continue
-		}
-		passwordVariantIDs[variantID] = struct{}{}
-	}
+	passwordVariantIDs := copiedPasswordVariantIDs(project)
 	if len(passwordVariantIDs) == 0 {
 		return nil
 	}
 
-	for codeObjID, codeObj := range project.CodeObjs {
-		hasPasswordVariant := false
-		for _, variantID := range codeObj.VariantIDs {
-			if _, ok := passwordVariantIDs[strings.TrimSpace(variantID)]; ok {
-				hasPasswordVariant = true
-				break
-			}
+	if err := clearCopiedPasswordCodeObjectSecretMetadata(project, passwordVariantIDs); err != nil {
+		return err
+	}
+	return clearCopiedPasswordVariantSecretMetadata(project, passwordVariantIDs)
+}
+
+func copiedPasswordVariantIDs(project *Project) map[string]struct{} {
+	passwordVariantIDs := make(map[string]struct{})
+	for variantID, variant := range project.CodeObjVariants {
+		impl, ok := project.CodeObjImpls[strings.TrimSpace(variant.ImplID)]
+		if ok && isPasswordCodeObjImpl(impl) {
+			passwordVariantIDs[variantID] = struct{}{}
 		}
-		if !hasPasswordVariant {
+	}
+	return passwordVariantIDs
+}
+
+func clearCopiedPasswordCodeObjectSecretMetadata(project *Project, passwordVariantIDs map[string]struct{}) error {
+	for codeObjID, codeObj := range project.CodeObjs {
+		if !codeObjectHasPasswordVariant(codeObj, passwordVariantIDs) {
 			continue
 		}
 
-		modifier, err := rawObjectFromProjectPayload(codeObj.SharedModifier)
+		modifier, changed, err := clearCopiedPasswordHasSecretFlag(codeObj.SharedModifier)
 		if err != nil {
 			return err
 		}
-		if _, ok := modifier["hasSecret"]; ok {
-			modifier["hasSecret"] = false
-			codeObj.SharedModifier, err = marshalOptionalProjectObject(modifier)
-			if err != nil {
-				return err
-			}
-			project.CodeObjs[codeObjID] = codeObj
+		if !changed {
+			continue
+		}
+		codeObj.SharedModifier = modifier
+		project.CodeObjs[codeObjID] = codeObj
+	}
+	return nil
+}
+
+func codeObjectHasPasswordVariant(codeObj CodeObject, passwordVariantIDs map[string]struct{}) bool {
+	for _, variantID := range codeObj.VariantIDs {
+		if _, ok := passwordVariantIDs[strings.TrimSpace(variantID)]; ok {
+			return true
 		}
 	}
+	return false
+}
 
+func clearCopiedPasswordVariantSecretMetadata(project *Project, passwordVariantIDs map[string]struct{}) error {
 	for variantID := range passwordVariantIDs {
 		variant := project.CodeObjVariants[variantID]
-		modifier, err := rawObjectFromProjectPayload(variant.Modifier)
+		modifier, changed, err := clearCopiedPasswordHasSecretFlag(variant.Modifier)
 		if err != nil {
 			return err
 		}
-		if _, ok := modifier["hasSecret"]; ok {
-			modifier["hasSecret"] = false
-			variant.Modifier, err = marshalOptionalProjectObject(modifier)
-			if err != nil {
-				return err
-			}
-			project.CodeObjVariants[variantID] = variant
+		if !changed {
+			continue
 		}
+		variant.Modifier = modifier
+		project.CodeObjVariants[variantID] = variant
 	}
-
 	return nil
+}
+
+func clearCopiedPasswordHasSecretFlag(rawModifier RawJSON) (RawJSON, bool, error) {
+	modifier, err := rawObjectFromProjectPayload(rawModifier)
+	if err != nil {
+		return nil, false, err
+	}
+	if _, ok := modifier["hasSecret"]; !ok {
+		return rawModifier, false, nil
+	}
+	modifier["hasSecret"] = false
+	clearedModifier, err := marshalOptionalProjectObject(modifier)
+	if err != nil {
+		return nil, false, err
+	}
+	return clearedModifier, true, nil
 }
 
 func (d *Document) DeleteProjects(projectIDs []string) ([]string, error) {

@@ -631,6 +631,36 @@ func TestDocumentSaveAsNewProjectConfigClearsCopiedPasswordSecrets(t *testing.T)
 	}
 }
 
+func TestCloneProjectWithFreshPasswordImplIDsClearsPasswordModifierSecretsOnly(t *testing.T) {
+	project := passwordParamNameAndValueTestProject(t)
+
+	secretCodeObj := project.CodeObjs["shared-secret"]
+	secretCodeObj.SharedModifier = mustMarshalProjectObject(map[string]any{"hasSecret": true, "label": "secret"})
+	project.CodeObjs["shared-secret"] = secretCodeObj
+
+	childCodeObj := project.CodeObjs["shared-child"]
+	childCodeObj.SharedModifier = mustMarshalProjectObject(map[string]any{"hasSecret": true, "label": "child"})
+	project.CodeObjs["shared-child"] = childCodeObj
+
+	secretVariant := project.CodeObjVariants["shared-secret-variant"]
+	secretVariant.Modifier = mustMarshalProjectObject(map[string]any{"hasSecret": true, "label": "secret"})
+	project.CodeObjVariants["shared-secret-variant"] = secretVariant
+
+	childVariant := project.CodeObjVariants["shared-child-variant"]
+	childVariant.Modifier = mustMarshalProjectObject(map[string]any{"hasSecret": true, "label": "child"})
+	project.CodeObjVariants["shared-child-variant"] = childVariant
+
+	clonedProject, err := cloneProjectWithFreshPasswordImplIDs(project)
+	if err != nil {
+		t.Fatalf("cloneProjectWithFreshPasswordImplIDs returned error: %v", err)
+	}
+
+	assertCodeObjectSharedHasSecret(t, clonedProject, "shared-secret", false)
+	assertCodeObjectSharedHasSecret(t, clonedProject, "shared-child", true)
+	assertCodeObjectVariantHasSecret(t, clonedProject, "shared-secret-variant", false)
+	assertCodeObjectVariantHasSecret(t, clonedProject, "shared-child-variant", true)
+}
+
 func TestDocumentDeleteProjectsReconcilesDefaultProject(t *testing.T) {
 	t.Parallel()
 
@@ -679,6 +709,23 @@ func assertCodeObjectSharedHasSecret(t *testing.T, project Project, codeObjID st
 	got, ok := modifier["hasSecret"].(bool)
 	if !ok || got != expected {
 		t.Fatalf("expected shared modifier hasSecret %t for %q, got %#v", expected, codeObjID, modifier["hasSecret"])
+	}
+}
+
+func assertCodeObjectVariantHasSecret(t *testing.T, project Project, variantID string, expected bool) {
+	t.Helper()
+
+	variant, ok := project.CodeObjVariants[variantID]
+	if !ok {
+		t.Fatalf("expected code object variant %q, got %#v", variantID, project.CodeObjVariants)
+	}
+	modifier, err := rawObjectFromProjectPayload(variant.Modifier)
+	if err != nil {
+		t.Fatalf("decode variant modifier for %q: %v", variantID, err)
+	}
+	got, ok := modifier["hasSecret"].(bool)
+	if !ok || got != expected {
+		t.Fatalf("expected variant modifier hasSecret %t for %q, got %#v", expected, variantID, modifier["hasSecret"])
 	}
 }
 
