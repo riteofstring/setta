@@ -46,6 +46,7 @@ done
 python "${SCRIPT_DIR}/aws_devbox.py" up
 
 status_json=$(python "${SCRIPT_DIR}/aws_devbox.py" status --json)
+current_status_json="${status_json}"
 instance_id=$(printf '%s' "${status_json}" | jq -r '.instance_id')
 region=$(printf '%s' "${status_json}" | jq -r '.region')
 remote_setta_port=$(printf '%s' "${status_json}" | jq -r '.setta_port')
@@ -78,8 +79,17 @@ repo_branch=${SETTA_AWS_DEVBOX_REPO_BRANCH:-}
 browser_app=${SETTA_AWS_DEVBOX_BROWSER_APP:-Google Chrome}
 browser_profile_dir=${SETTA_AWS_DEVBOX_BROWSER_PROFILE_DIR:-${HOME}/.cache/setta-aws-devbox/chrome-profile}
 local_codex_auth_file=${SETTA_AWS_DEVBOX_CODEX_AUTH_FILE:-${HOME}/.codex/auth.json}
+remote_tmux_mouse=${SETTA_AWS_DEVBOX_TMUX_MOUSE:-off}
 managed_agent_pid=""
-browser_open_pid=""
+browser_watch_pid=""
+
+case "${remote_tmux_mouse}" in
+    on|off) ;;
+    *)
+        echo "Invalid value for SETTA_AWS_DEVBOX_TMUX_MOUSE: ${remote_tmux_mouse}. Expected on or off." >&2
+        exit 1
+        ;;
+esac
 
 resolve_ssh_term() {
     if [ -n "${SETTA_AWS_DEVBOX_TERM:-}" ]; then
@@ -143,9 +153,119 @@ if [ -n "${SETTA_AWS_DEVBOX_SSH_IDENTITY_FILE:-}" ]; then
     )
 fi
 
+refresh_status_json() {
+    python "${SCRIPT_DIR}/aws_devbox.py" status --json
+}
+
+status_json_field() {
+    raw_status_json="$1"
+    field_name="$2"
+    printf '%s' "${raw_status_json}" | jq -r --arg field_name "${field_name}" '.[$field_name] // empty' 2>/dev/null || true
+}
+
+status_json_has_ssm_transport() {
+    raw_status_json="$1"
+    status_state="$(status_json_field "${raw_status_json}" state)"
+    status_ping="$(status_json_field "${raw_status_json}" ssm_ping_status)"
+    [ "${status_state}" = "running" ] && [ "${status_ping}" = "online" ]
+}
+
+format_status_summary() {
+    raw_status_json="$1"
+    status_state="$(status_json_field "${raw_status_json}" state)"
+    status_ping="$(status_json_field "${raw_status_json}" ssm_ping_status)"
+    printf 'state: %s, ssm_ping_status: %s' "${status_state:-unknown}" "${status_ping:-unknown}"
+}
+
+attempt_ssm_transport_recovery() {
+    operation_label="$1"
+    recovery_status_json="$2"
+    recovery_state="$(status_json_field "${recovery_status_json}" state)"
+
+    echo "AWS devbox Session Manager transport is unavailable before ${operation_label} ($(format_status_summary "${recovery_status_json}")). Attempting bounded recovery..." >&2
+
+    if [ "${recovery_state}" = "running" ]; then
+        if ! python "${SCRIPT_DIR}/aws_devbox.py" down; then
+            echo "Could not stop the AWS devbox while recovering Session Manager connectivity." >&2
+            return 1
+        fi
+    fi
+
+    if ! python "${SCRIPT_DIR}/aws_devbox.py" up; then
+        echo "Could not bring the AWS devbox back online while recovering Session Manager connectivity." >&2
+        return 1
+    fi
+
+    current_status_json="$(refresh_status_json)"
+    if status_json_has_ssm_transport "${current_status_json}"; then
+        echo "AWS devbox Session Manager transport recovered for ${operation_label}." >&2
+        return 0
+    fi
+
+    echo "AWS devbox Session Manager transport is still unavailable after recovery ($(format_status_summary "${current_status_json}"))." >&2
+    return 1
+}
+
+ensure_ssm_transport_ready() {
+    operation_label="$1"
+
+    if status_json_has_ssm_transport "${current_status_json}"; then
+        return 0
+    fi
+
+    current_status_json="$(refresh_status_json)"
+    if status_json_has_ssm_transport "${current_status_json}"; then
+        return 0
+    fi
+
+    if attempt_ssm_transport_recovery "${operation_label}" "${current_status_json}"; then
+        return 0
+    fi
+
+    echo "Cannot continue with ${operation_label} while Session Manager remains unavailable." >&2
+    return 1
+}
+
+run_noninteractive_ssh() {
+    operation_label="$1"
+    shift
+
+    if ! ensure_ssm_transport_ready "${operation_label}"; then
+        return 1
+    fi
+
+    stdout_file="$(mktemp)"
+    stderr_file="$(mktemp)"
+
+    if ssh -n -T "$@" >"${stdout_file}" 2>"${stderr_file}"; then
+        cat "${stdout_file}"
+        rm -f "${stdout_file}" "${stderr_file}"
+        return 0
+    fi
+
+    ssh_exit=$?
+    current_status_json="$(refresh_status_json)"
+    if ! status_json_has_ssm_transport "${current_status_json}"; then
+        echo "AWS devbox Session Manager transport dropped during ${operation_label} ($(format_status_summary "${current_status_json}"))." >&2
+        if attempt_ssm_transport_recovery "${operation_label}" "${current_status_json}"; then
+            if ssh -n -T "$@" >"${stdout_file}" 2>"${stderr_file}"; then
+                cat "${stdout_file}"
+                rm -f "${stdout_file}" "${stderr_file}"
+                return 0
+            fi
+            ssh_exit=$?
+        fi
+    fi
+
+    cat "${stderr_file}" >&2
+    rm -f "${stdout_file}" "${stderr_file}"
+    return "${ssh_exit}"
+}
+
 cleanup() {
-    if [ -n "${browser_open_pid}" ]; then
-        wait "${browser_open_pid}" 2>/dev/null || true
+    if [ -n "${browser_watch_pid}" ]; then
+        kill "${browser_watch_pid}" >/dev/null 2>&1 || true
+        wait "${browser_watch_pid}" 2>/dev/null || true
     fi
     if [ -n "${managed_agent_pid}" ]; then
         ssh-agent -k >/dev/null 2>&1 || true
@@ -191,11 +311,47 @@ sync_local_codex_auth() {
         return
     fi
 
-    ssh \
+    echo "Syncing Codex auth to the remote devbox..." >&2
+    codex_auth_b64="$(
+        LOCAL_CODEX_AUTH_FILE="${local_codex_auth_file}" python3 - <<'PY'
+import base64
+import os
+from pathlib import Path
+
+print(base64.b64encode(Path(os.environ["LOCAL_CODEX_AUTH_FILE"]).read_bytes()).decode("ascii"), end="")
+PY
+    )"
+    remote_auth_script=$(cat <<'EOF'
+set -euo pipefail
+umask 077
+mkdir -p ~/.codex
+if [ ! -f ~/.codex/config.toml ]; then
+    printf 'cli_auth_credentials_store = "file"\n' > ~/.codex/config.toml
+fi
+python3 - <<'PY'
+import base64
+import os
+from pathlib import Path
+
+auth_path = Path.home() / ".codex" / "auth.json"
+auth_path.write_bytes(base64.b64decode(os.environ["SETTA_CODEX_AUTH_B64"]))
+auth_path.chmod(0o600)
+PY
+EOF
+)
+    printf -v remote_auth_command 'SETTA_CODEX_AUTH_B64=%q bash -lc %q' \
+        "${codex_auth_b64}" \
+        "${remote_auth_script}"
+
+    if ! run_noninteractive_ssh "Codex auth sync" \
         "${ssh_login_args[@]}" \
         "${ssh_user}@${instance_id}" \
-        'umask 077 && mkdir -p ~/.codex && { [ -f ~/.codex/config.toml ] || printf '\''cli_auth_credentials_store = "file"\n'\'' > ~/.codex/config.toml; } && cat > ~/.codex/auth.json && chmod 0600 ~/.codex/auth.json' \
-        < "${local_codex_auth_file}"
+        "${remote_auth_command}"; then
+        if ! status_json_has_ssm_transport "${current_status_json}"; then
+            return 1
+        fi
+        echo "Warning: could not sync Codex auth to the remote devbox. Continuing without auth sync." >&2
+    fi
 }
 
 sync_local_codex_auth
@@ -242,7 +398,7 @@ build_remote_bootstrap_command() {
 remote_bootstrap_command=$(build_remote_bootstrap_command)
 
 fetch_bootstrap_url() {
-    ssh \
+    run_noninteractive_ssh "bootstrap URL lookup" \
         "${ssh_login_args[@]}" \
         "${ssh_user}@${instance_id}" \
         "${remote_bootstrap_command}"
@@ -261,21 +417,188 @@ print(urlunparse(rewritten))
 PY
 }
 
-wait_for_local_setta() {
-    deadline_seconds=30
-    start_time=$(date +%s)
+local_setta_is_ready() {
+    curl -fsS "http://127.0.0.1:${local_setta_port}/__setta__/bootstrap" >/dev/null 2>&1
+}
+
+browser_profile_match_pattern() {
+    BROWSER_PROFILE_ARG="--user-data-dir=${browser_profile_dir}" python - <<'PY'
+import os
+import re
+
+print(re.escape(os.environ["BROWSER_PROFILE_ARG"]))
+PY
+}
+
+restart_local_browser_profile_instance() {
+    if ! command -v pgrep >/dev/null 2>&1 || ! command -v pkill >/dev/null 2>&1; then
+        return 0
+    fi
+
+    browser_pattern="$(browser_profile_match_pattern)"
+    if [ -z "${browser_pattern}" ]; then
+        return 0
+    fi
+
+    if ! pgrep -f -- "${browser_pattern}" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    echo "Closing existing local browser instance for ${browser_profile_dir} before reopening..." >&2
+    pkill -f -- "${browser_pattern}" >/dev/null 2>&1 || true
+
+    attempts=0
+    while pgrep -f -- "${browser_pattern}" >/dev/null 2>&1; do
+        if [ "${attempts}" -ge 50 ]; then
+            pkill -9 -f -- "${browser_pattern}" >/dev/null 2>&1 || true
+            break
+        fi
+
+        sleep 0.1
+        attempts=$((attempts + 1))
+    done
+}
+
+browser_opener_available() {
+    command -v open >/dev/null 2>&1 || command -v xdg-open >/dev/null 2>&1
+}
+
+browser_profile_instance_running() {
+    if ! command -v pgrep >/dev/null 2>&1; then
+        return 0
+    fi
+
+    browser_pattern="$(browser_profile_match_pattern)"
+    if [ -z "${browser_pattern}" ]; then
+        return 0
+    fi
+
+    pgrep -f -- "${browser_pattern}" >/dev/null 2>&1
+}
+
+local_listener_pids_for_port() {
+    local_port="$1"
+
+    if ! command -v lsof >/dev/null 2>&1; then
+        return 0
+    fi
+
+    lsof -nP -t -iTCP:"${local_port}" -sTCP:LISTEN 2>/dev/null | awk '!seen[$0]++'
+}
+
+process_command_for_pid() {
+    process_pid="$1"
+    ps -p "${process_pid}" -o command= 2>/dev/null || true
+}
+
+process_tty_for_pid() {
+    process_pid="$1"
+    ps -p "${process_pid}" -o tty= 2>/dev/null | awk '{$1=$1; print}' || true
+}
+
+stale_ssh_listener_matches_port() {
+    local_port="$1"
+    remote_port="$2"
+    process_command="$3"
+    process_tty="$4"
+
+    case "${process_command}" in
+        ssh\ *|*/ssh\ *) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_command}" in
+        *"${ssh_user}@${instance_id}"*) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_command}" in
+        *"-L ${local_port}:127.0.0.1:${remote_port}"*) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_tty:-}" in
+        ""|"?"|"??"|"not a tty") ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+stop_stale_local_ssh_listener() {
+    process_pid="$1"
+    local_port="$2"
+
+    echo "Closing stale local SSH forward process ${process_pid} on port ${local_port} before reopening..." >&2
+    kill "${process_pid}" >/dev/null 2>&1 || true
+
+    attempts=0
+    while kill -0 "${process_pid}" >/dev/null 2>&1; do
+        if [ "${attempts}" -ge 50 ]; then
+            kill -9 "${process_pid}" >/dev/null 2>&1 || true
+            break
+        fi
+
+        sleep 0.1
+        attempts=$((attempts + 1))
+    done
+}
+
+ensure_local_forward_port_available() {
+    local_port="$1"
+    remote_port="$2"
+    port_label="$3"
+    override_hint="${4:-}"
+
+    if ! command -v lsof >/dev/null 2>&1; then
+        return 0
+    fi
 
     while true; do
-        if curl -fsS "http://127.0.0.1:${local_setta_port}/__setta__/bootstrap" >/dev/null 2>&1; then
+        listener_pids="$(local_listener_pids_for_port "${local_port}")"
+        if [ -z "${listener_pids}" ]; then
             return 0
         fi
 
-        current_time=$(date +%s)
-        if [ $((current_time - start_time)) -ge "${deadline_seconds}" ]; then
-            return 1
-        fi
+        closed_stale_listener=0
+        while IFS= read -r listener_pid; do
+            [ -n "${listener_pid}" ] || continue
 
-        sleep 1
+            listener_command="$(process_command_for_pid "${listener_pid}")"
+            listener_tty="$(process_tty_for_pid "${listener_pid}")"
+
+            if stale_ssh_listener_matches_port "${local_port}" "${remote_port}" "${listener_command}" "${listener_tty}"; then
+                stop_stale_local_ssh_listener "${listener_pid}" "${local_port}"
+                closed_stale_listener=1
+                break
+            fi
+
+            tty_label="${listener_tty:-none}"
+            echo "Local port ${local_port} required for ${port_label} is already in use by PID ${listener_pid} (tty ${tty_label})." >&2
+            if [ -n "${listener_command}" ]; then
+                echo "Conflicting process: ${listener_command}" >&2
+            fi
+            if [ -n "${override_hint}" ]; then
+                echo "Stop the conflicting process or choose a different local port with ${override_hint}." >&2
+            else
+                echo "Stop the conflicting process and retry." >&2
+            fi
+            return 1
+        done <<EOF
+${listener_pids}
+EOF
+
+        if [ "${closed_stale_listener}" != "1" ]; then
+            return 0
+        fi
     done
 }
 
@@ -284,6 +607,7 @@ open_local_browser() {
 
     if command -v open >/dev/null 2>&1; then
         mkdir -p "${browser_profile_dir}"
+        restart_local_browser_profile_instance
         open -na "${browser_app}" --args \
             "--user-data-dir=${browser_profile_dir}" \
             --new-window \
@@ -300,20 +624,51 @@ open_local_browser() {
     return 1
 }
 
+start_local_browser_watch() {
+    bootstrap_url="$1"
+
+    if ! browser_opener_available; then
+        echo "Warning: could not find a browser opener for ${bootstrap_url}" >&2
+        return 1
+    fi
+
+    initially_ready=0
+    if local_setta_is_ready; then
+        open_local_browser "${bootstrap_url}" || true
+        initially_ready=1
+    fi
+
+    (
+        previously_ready="${initially_ready}"
+        while true; do
+            if local_setta_is_ready; then
+                if [ "${previously_ready}" = "0" ] || ! browser_profile_instance_running; then
+                    open_local_browser "${bootstrap_url}" || true
+                fi
+                previously_ready=1
+            else
+                previously_ready=0
+            fi
+            sleep 2
+        done
+    ) &
+    browser_watch_pid=$!
+}
+
 bootstrap_url=""
+if ! ensure_local_forward_port_available "${local_setta_port}" "${remote_setta_port}" "remote shell tunnel" "SETTA_AWS_DEVBOX_LOCAL_SETTA_PORT"; then
+    exit 1
+fi
+if ! ensure_local_forward_port_available "${local_cdp_port}" "${remote_cdp_port}" "remote shell CDP tunnel" "SETTA_AWS_DEVBOX_LOCAL_CDP_PORT"; then
+    exit 1
+fi
+
 if [ "${open_browser}" = "1" ]; then
     raw_bootstrap_url=$(fetch_bootstrap_url || true)
     if [ -n "${raw_bootstrap_url}" ]; then
         bootstrap_url=$(rewrite_bootstrap_url_for_local_forward "${raw_bootstrap_url}")
-        (
-            if wait_for_local_setta; then
-                open_local_browser "${bootstrap_url}"
-            else
-                echo "Warning: local Setta tunnel did not become ready before browser launch timeout." >&2
-                echo "Bootstrap URL: ${bootstrap_url}" >&2
-            fi
-        ) &
-        browser_open_pid=$!
+        echo "Watching local Setta tunnel at ${bootstrap_url} and reopening the dedicated browser profile on recovery..." >&2
+        start_local_browser_watch "${bootstrap_url}" || true
     else
         echo "Warning: could not fetch a remote bootstrap URL." >&2
     fi
@@ -331,7 +686,7 @@ build_remote_attach_command() {
         remote_command="${remote_command}${branch_prefix}"
     fi
 
-    printf -v attach_command 'tmux start-server >/dev/null 2>&1 || true; tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true; setta-devbox-attach %q reset' "${remote_start_dir}"
+    printf -v attach_command 'tmux start-server >/dev/null 2>&1 || true; tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true; tmux set-option -g mouse %q >/dev/null 2>&1 || true; setta-devbox-attach %q reset' "${remote_tmux_mouse}" "${remote_start_dir}"
     remote_command="${remote_command}${attach_command}"
     printf '%s\n' "${remote_command}"
 }
@@ -344,4 +699,7 @@ ssh_args+=(
 )
 
 echo "Opening remote shell session..." >&2
+if ! ensure_ssm_transport_ready "remote shell attach"; then
+    exit 1
+fi
 TERM="${ssh_term}" ssh "${ssh_args[@]}"

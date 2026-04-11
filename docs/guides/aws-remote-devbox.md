@@ -243,6 +243,7 @@ the same per-worktree ports that local `./ai.sh` would normally pick.
 Browser-open defaults:
 
 - `./remote.sh` opens Setta automatically in a fresh local Chrome instance by default
+- `./remote.sh` keeps a local watcher on the forwarded Setta URL and reopens its dedicated devbox browser profile when the tunnel recovers or that dedicated browser instance disappears
 - `--no-open` disables that behavior for one run
 - `--open` forces it back on for one run
 - `SETTA_AWS_DEVBOX_OPEN_BROWSER=0|1` changes the repo-local default

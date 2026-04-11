@@ -1,4 +1,6 @@
+import base64
 import os
+import re
 import socket
 import subprocess
 from pathlib import Path
@@ -50,6 +52,14 @@ def _build_aws_sandbox(
         encoding="utf-8",
     )
     activate_path.chmod(0o755)
+
+    write_stub_executable(
+        bin_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
 
     return sandbox_root, bin_dir, env_dir
 
@@ -332,7 +342,6 @@ def test_remote_sh_starts_box_and_execs_ssh_over_ssm_with_local_forwards(
     sandbox_root, bin_dir, env_dir = _build_aws_sandbox(tmp_path)
     python_args_capture = sandbox_root / "python-args.txt"
     ssh_sync_args_capture = sandbox_root / "ssh-sync-args.txt"
-    ssh_sync_stdin_capture = sandbox_root / "ssh-sync-stdin.txt"
     ssh_fetch_args_capture = sandbox_root / "ssh-fetch-args.txt"
     ssh_attach_args_capture = sandbox_root / "ssh-attach-args.txt"
     ssh_attach_env_capture = sandbox_root / "ssh-attach-env.txt"
@@ -372,7 +381,7 @@ fi
 printf '%s\n' "$@" >> "{python_args_capture}"
 printf '%s\n' '--' >> "{python_args_capture}"
 if [ "${{2:-}}" = "status" ] && [ "${{3:-}}" = "--json" ]; then
-  printf '%s\n' '{{"instance_id":"i-devbox","region":"us-east-1","setta_port":8000,"cdp_port":9222,"repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}}'
+  printf '%s\n' '{{"instance_id":"i-devbox","region":"us-east-1","setta_port":8000,"cdp_port":9222,"repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}}'
 fi
 """,
     )
@@ -385,9 +394,8 @@ if printf '%s\n' "$@" | grep -Fq './scripts/bootstrap-url.sh'; then
   printf '%s\n' 'http://127.0.0.1:8000/__setta__/bootstrap#token=abc123'
   exit 0
 fi
-if printf '%s\n' "$@" | grep -Fq 'cat > ~/.codex/auth.json'; then
+if printf '%s\n' "$@" | grep -Fq 'SETTA_CODEX_AUTH_B64='; then
   printf '%s\n' "$@" > "{ssh_sync_args_capture}"
-  cat > "{ssh_sync_stdin_capture}"
   exit 0
 fi
 env | sort > "{ssh_attach_env_capture}"
@@ -476,20 +484,33 @@ printf '%s\n' "$@" > "{open_args_capture}"
 
     ssh_sync_args = ssh_sync_args_capture.read_text(encoding="utf-8").splitlines()
     assert "-A" not in ssh_sync_args
+    assert "-n" in ssh_sync_args
+    assert "-T" in ssh_sync_args
+    assert "-tt" not in ssh_sync_args
     assert "ubuntu@i-devbox" in ssh_sync_args
     assert any(str(identity_file) == arg for arg in ssh_sync_args)
-    assert "cat > ~/.codex/auth.json" in ssh_sync_args[-1]
-    assert (
-        ssh_sync_stdin_capture.read_text(encoding="utf-8")
-        == '{"access_token":"codex-token"}\n'
-    )
+    assert "SETTA_CODEX_AUTH_B64=" in ssh_sync_args[-1]
+    auth_b64_match = re.search(r"SETTA_CODEX_AUTH_B64=([^ ]+)", ssh_sync_args[-1])
+    assert auth_b64_match is not None
+    decoded_auth = subprocess.run(
+        ["bash", "-lc", f"printf '%s' {auth_b64_match.group(1)}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert base64.b64decode(decoded_auth).decode("utf-8") == '{"access_token":"codex-token"}\n'
 
     assert "-A" not in ssh_fetch_args
+    assert "-n" in ssh_fetch_args
+    assert "-T" in ssh_fetch_args
+    assert "-tt" not in ssh_fetch_args
     assert "./scripts/bootstrap-url.sh" in ssh_fetch_args[-1]
 
     assert ssh_attach_env["TERM"] == "xterm-ghostty"
     assert ssh_attach_env["SSH_AUTH_SOCK"] == "/tmp/managed-agent"
     assert "-A" in ssh_attach_args
+    assert "-n" not in ssh_attach_args
+    assert "-T" not in ssh_attach_args
     assert "-tt" in ssh_attach_args
     assert "LogLevel=QUIET" in ssh_attach_args
     assert "-F" in ssh_attach_args
@@ -520,7 +541,7 @@ printf '%s\n' "$@" > "{open_args_capture}"
         ssh_attach_args[-1]
         == "SETTA_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git "
         "SETTA_DEVBOX_REPO_BRANCH=pixijs-graph "
-        'tmux start-server >/dev/null 2>&1 || true; tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true; '
+        'tmux start-server >/dev/null 2>&1 || true; tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true; tmux set-option -g mouse off >/dev/null 2>&1 || true; '
         "setta-devbox-attach /home/ubuntu/dev/setta.pixijs-graph/backend/setta reset"
     )
     assert (
@@ -561,7 +582,7 @@ def test_remote_sh_root_flag_forces_remote_repo_root(tmp_path: Path) -> None:
         """#!/usr/bin/env bash
 set -euo pipefail
 if [ "$2" = "status" ] && [ "$3" = "--json" ]; then
-  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","setta_port":8000,"cdp_port":9222,"repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}'
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","setta_port":8000,"cdp_port":9222,"repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
 fi
 """,
     )
@@ -618,7 +639,7 @@ exit 1
         ssh_args[-1]
         == "SETTA_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git "
         "SETTA_DEVBOX_REPO_BRANCH=pixijs-graph "
-        'tmux start-server >/dev/null 2>&1 || true; tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true; '
+        'tmux start-server >/dev/null 2>&1 || true; tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true; tmux set-option -g mouse off >/dev/null 2>&1 || true; '
         "setta-devbox-attach /home/ubuntu/dev/setta.pixijs-graph reset"
     )
 
@@ -629,7 +650,6 @@ def test_remote_sh_local_starts_remote_worktree_runtime_and_tunnels_runtime_port
     sandbox_root, bin_dir, env_dir = _build_aws_sandbox(tmp_path)
     python_args_capture = sandbox_root / "python-args-ai.txt"
     ssh_sync_args_capture = sandbox_root / "ssh-sync-args-ai.txt"
-    ssh_sync_stdin_capture = sandbox_root / "ssh-sync-stdin-ai.txt"
     ssh_runtime_args_capture = sandbox_root / "ssh-runtime-args-ai.txt"
     ssh_attach_args_capture = sandbox_root / "ssh-attach-args-ai.txt"
     ssh_attach_env_capture = sandbox_root / "ssh-attach-env-ai.txt"
@@ -670,7 +690,7 @@ fi
 printf '%s\n' "$@" >> "{python_args_capture}"
 printf '%s\n' '--' >> "{python_args_capture}"
 if [ "${{2:-}}" = "status" ] && [ "${{3:-}}" = "--json" ]; then
-  printf '%s\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}}'
+  printf '%s\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}}'
 fi
 """,
     )
@@ -678,9 +698,8 @@ fi
         bin_dir / "ssh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-if printf '%s\n' "$@" | grep -Fq 'cat > ~/.codex/auth.json'; then
+if printf '%s\n' "$@" | grep -Fq 'SETTA_CODEX_AUTH_B64='; then
   printf '%s\n' "$@" > "{ssh_sync_args_capture}"
-  cat > "{ssh_sync_stdin_capture}"
   exit 0
 fi
     if printf '%s\n' "$@" | grep -Fq 'dev-runtime-info.sh'; then
@@ -774,14 +793,25 @@ printf '%s\n' "$@" > "{open_args_capture}"
     assert python_args[4:] == ["status", "--json", "--"]
 
     assert "-A" not in ssh_sync_args
+    assert "-n" in ssh_sync_args
+    assert "-T" in ssh_sync_args
+    assert "-tt" not in ssh_sync_args
     assert "ubuntu@i-devbox" in ssh_sync_args
-    assert "cat > ~/.codex/auth.json" in ssh_sync_args[-1]
-    assert (
-        ssh_sync_stdin_capture.read_text(encoding="utf-8")
-        == '{"access_token":"codex-token"}\n'
-    )
+    assert "SETTA_CODEX_AUTH_B64=" in ssh_sync_args[-1]
+    auth_b64_match = re.search(r"SETTA_CODEX_AUTH_B64=([^ ]+)", ssh_sync_args[-1])
+    assert auth_b64_match is not None
+    decoded_auth = subprocess.run(
+        ["bash", "-lc", f"printf '%s' {auth_b64_match.group(1)}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert base64.b64decode(decoded_auth).decode("utf-8") == '{"access_token":"codex-token"}\n'
 
     assert "-A" not in ssh_runtime_args
+    assert "-n" in ssh_runtime_args
+    assert "-T" in ssh_runtime_args
+    assert "-tt" not in ssh_runtime_args
     assert "ubuntu@i-devbox" in ssh_runtime_args
     assert (
         'remote_runtime_info_script="${remote_worktree_root}/scripts/dev-runtime-info.sh"'
@@ -789,11 +819,14 @@ printf '%s\n' "$@" > "{open_args_capture}"
     )
     assert "SETTA_REMOTE_LIFECYCLE_MODE=ai" in ssh_runtime_args[-1]
     assert "SETTA_REMOTE_BROWSER_MODE=headless" in ssh_runtime_args[-1]
+    assert "SETTA_REMOTE_TMUX_MOUSE=off" in ssh_runtime_args[-1]
     assert "/home/ubuntu/dev/aws_script_sandbox" in ssh_runtime_args[-1]
 
     assert ssh_attach_env["TERM"] == "xterm-ghostty"
     assert ssh_attach_env["SSH_AUTH_SOCK"] == "/tmp/managed-agent"
     assert "-A" in ssh_attach_args
+    assert "-n" not in ssh_attach_args
+    assert "-T" not in ssh_attach_args
     assert "-tt" in ssh_attach_args
     assert "LogLevel=QUIET" in ssh_attach_args
     assert "3045:127.0.0.1:3045" in ssh_attach_args
@@ -821,7 +854,10 @@ printf '%s\n' "$@" > "{open_args_capture}"
         "Remote ai runtime ready: frontend http://127.0.0.1:3045, backend http://127.0.0.1:8045, cdp 9267."
         in result.stderr
     )
-    assert "Opening local browser at http://127.0.0.1:3045..." in result.stderr
+    assert (
+        "Watching local browser at http://127.0.0.1:3045 and reopening the dedicated profile on tunnel recovery..."
+        in result.stderr
+    )
     assert "Opening remote ai session..." in result.stderr
 
 
@@ -871,7 +907,7 @@ if [ "${1:-}" = "-" ]; then
   exit $?
 fi
 if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
-  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}'
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
 fi
 """,
         )
@@ -953,12 +989,692 @@ printf '%s\n' "$@" > "{open_args_capture}"
     assert "Google Chrome" in open_args
     assert open_args[-1] == f"http://127.0.0.1:{local_frontend_port}"
     assert (
-        f"Opening local browser at http://127.0.0.1:{local_frontend_port}..."
+        f"Watching local browser at http://127.0.0.1:{local_frontend_port} and reopening the dedicated profile on tunnel recovery..."
         in result.stderr
     )
     assert (
         "Warning: local remote-ai tunnel did not become ready before browser launch timeout."
         not in result.stderr
+    )
+
+
+def test_remote_ai_sh_restarts_existing_dedicated_browser_profile_before_open(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, bin_dir, env_dir = _build_aws_sandbox(
+        tmp_path, sandbox_name="aws_script_sandbox_browser_restart"
+    )
+    ssh_runtime_args_capture = sandbox_root / "ssh-runtime-args-browser-restart.txt"
+    ssh_attach_args_capture = sandbox_root / "ssh-attach-args-browser-restart.txt"
+    open_args_capture = sandbox_root / "open-args-browser-restart.txt"
+    pgrep_args_capture = sandbox_root / "pgrep-args-browser-restart.txt"
+    pkill_args_capture = sandbox_root / "pkill-args-browser-restart.txt"
+    pgrep_state = sandbox_root / "pgrep-state-browser-restart.txt"
+    identity_file = sandbox_root / "setta-devbox-login"
+    identity_file.write_text("private-key-placeholder\n", encoding="utf-8")
+    git_identity_file = sandbox_root / "macgitkey"
+    git_identity_file.write_text("git-key-placeholder\n", encoding="utf-8")
+
+    (env_dir / "aws-devbox.env").write_text(
+        "\n".join(
+            [
+                "AWS_PROFILE=setta-admin",
+                f"SETTA_AWS_DEVBOX_SSH_IDENTITY_FILE={identity_file}",
+                f"SETTA_AWS_DEVBOX_GIT_IDENTITY_FILE={git_identity_file}",
+                "SETTA_AWS_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git",
+                "SETTA_AWS_DEVBOX_REPO_BRANCH=pixijs-graph",
+                "SETTA_AWS_DEVBOX_REMOTE_BROWSER_MODE=headless",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    working_dir = sandbox_root / "backend" / "setta"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        bin_dir / "python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-" ]; then
+  /usr/bin/env python3 "$@"
+  exit $?
+fi
+if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq 'dev-runtime-info.sh'; then
+  printf '%s\n' "$@" > "{ssh_runtime_args_capture}"
+  printf '%s\n' '{{"frontendUrl":"http://127.0.0.1:3045","backendUrl":"http://127.0.0.1:8045","debugPort":9267}}'
+  exit 0
+fi
+printf '%s\n' "$@" > "{ssh_attach_args_capture}"
+sleep 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-agent",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-s" ]; then
+  cat <<'EOF'
+SSH_AUTH_SOCK=/tmp/managed-agent; export SSH_AUTH_SOCK;
+SSH_AGENT_PID=4242; export SSH_AGENT_PID;
+echo Agent pid 4242;
+EOF
+  exit 0
+fi
+if [ "${1:-}" = "-k" ]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-add",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    write_stub_executable(
+        bin_dir / "curl",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    write_stub_executable(
+        bin_dir / "open",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$@" > "{open_args_capture}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "pgrep",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$@" >> "{pgrep_args_capture}"
+count=0
+if [ -f "{pgrep_state}" ]; then
+  count="$(cat "{pgrep_state}")"
+fi
+count="$((count + 1))"
+printf '%s\n' "${{count}}" > "{pgrep_state}"
+if [ "${{count}}" -eq 1 ]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "pkill",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$@" > "{pkill_args_capture}"
+exit 0
+""",
+    )
+
+    home_dir = sandbox_root / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = script_env(bin_dir, home_dir)
+
+    result = run_script(
+        ["sh", str(sandbox_root / "remote.sh"), "local"],
+        cwd=working_dir,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    open_args = open_args_capture.read_text(encoding="utf-8").splitlines()
+    pgrep_args = pgrep_args_capture.read_text(encoding="utf-8").splitlines()
+    pkill_args = pkill_args_capture.read_text(encoding="utf-8").splitlines()
+
+    assert "Google Chrome" in open_args
+    assert open_args[-1] == "http://127.0.0.1:3045"
+    assert pgrep_args[0:2] == ["-f", "--"]
+    assert pgrep_args[2]
+    assert pkill_args[0:2] == ["-f", "--"]
+    assert re.escape(home_dir.as_posix()) in pkill_args[2]
+    assert (
+        f"Closing existing local browser instance for {home_dir}/.cache/setta-aws-devbox/chrome-profile before reopening..."
+        in result.stderr
+    )
+
+
+def test_remote_ai_sh_closes_stale_headless_ssh_forward_before_attach(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, bin_dir, env_dir = _build_aws_sandbox(
+        tmp_path, sandbox_name="aws_script_sandbox_stale_forward"
+    )
+    ssh_runtime_args_capture = sandbox_root / "ssh-runtime-args-stale-forward.txt"
+    ssh_attach_args_capture = sandbox_root / "ssh-attach-args-stale-forward.txt"
+    lsof_state = sandbox_root / "stale-forward-lsof-state.txt"
+    identity_file = sandbox_root / "setta-devbox-login"
+    identity_file.write_text("private-key-placeholder\n", encoding="utf-8")
+    git_identity_file = sandbox_root / "macgitkey"
+    git_identity_file.write_text("git-key-placeholder\n", encoding="utf-8")
+
+    (env_dir / "aws-devbox.env").write_text(
+        "\n".join(
+            [
+                "AWS_PROFILE=setta-admin",
+                f"SETTA_AWS_DEVBOX_SSH_IDENTITY_FILE={identity_file}",
+                f"SETTA_AWS_DEVBOX_GIT_IDENTITY_FILE={git_identity_file}",
+                "SETTA_AWS_DEVBOX_OPEN_BROWSER=0",
+                "SETTA_AWS_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git",
+                "SETTA_AWS_DEVBOX_REPO_BRANCH=pixijs-graph",
+                "SETTA_AWS_DEVBOX_REMOTE_BROWSER_MODE=headless",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    working_dir = sandbox_root / "backend" / "setta"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        bin_dir / "python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-" ]; then
+  /usr/bin/env python3 "$@"
+  exit $?
+fi
+if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq 'dev-runtime-info.sh'; then
+  printf '%s\n' "$@" > "{ssh_runtime_args_capture}"
+  printf '%s\n' '{{"frontendUrl":"http://127.0.0.1:3045","backendUrl":"http://127.0.0.1:8045","debugPort":9267}}'
+  exit 0
+fi
+printf '%s\n' "$@" > "{ssh_attach_args_capture}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-agent",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-s" ]; then
+  cat <<'EOF'
+SSH_AUTH_SOCK=/tmp/managed-agent; export SSH_AUTH_SOCK;
+SSH_AGENT_PID=4242; export SSH_AGENT_PID;
+echo Agent pid 4242;
+EOF
+  exit 0
+fi
+if [ "${1:-}" = "-k" ]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-add",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    write_stub_executable(
+        bin_dir / "lsof",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq -- '-iTCP:3045'; then
+  count=0
+  if [ -f "{lsof_state}" ]; then
+    count="$(cat "{lsof_state}")"
+  fi
+  count="$((count + 1))"
+  printf '%s\n' "${{count}}" > "{lsof_state}"
+  if [ "${{count}}" -eq 1 ]; then
+    printf '%s\n' '51515'
+  fi
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ps",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${4:-}" = "command=" ]; then
+  printf '%s\n' 'ssh -A -tt -L 3045:127.0.0.1:3045 ubuntu@i-devbox tmux attach-session'
+  exit 0
+fi
+if [ "${4:-}" = "tty=" ]; then
+  printf '%s\n' '??'
+  exit 0
+fi
+exit 0
+""",
+    )
+    home_dir = sandbox_root / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = script_env(bin_dir, home_dir)
+
+    result = run_script(
+        ["sh", str(sandbox_root / "remote.sh"), "local"],
+        cwd=working_dir,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    ssh_runtime_args = ssh_runtime_args_capture.read_text(encoding="utf-8").splitlines()
+    ssh_attach_args = ssh_attach_args_capture.read_text(encoding="utf-8").splitlines()
+
+    assert "dev-runtime-info.sh" in ssh_runtime_args[-1]
+    assert "tmux attach-session" in ssh_attach_args[-1]
+    assert (
+        "Closing stale local SSH forward process 51515 on port 3045 before reopening..."
+        in result.stderr
+    )
+
+
+def test_remote_ai_sh_reports_conflicting_local_forward_port_before_attach(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, bin_dir, env_dir = _build_aws_sandbox(
+        tmp_path, sandbox_name="aws_script_sandbox_port_conflict"
+    )
+    ssh_runtime_args_capture = sandbox_root / "ssh-runtime-args-port-conflict.txt"
+    ssh_attach_args_capture = sandbox_root / "ssh-attach-args-port-conflict.txt"
+    identity_file = sandbox_root / "setta-devbox-login"
+    identity_file.write_text("private-key-placeholder\n", encoding="utf-8")
+    git_identity_file = sandbox_root / "macgitkey"
+    git_identity_file.write_text("git-key-placeholder\n", encoding="utf-8")
+
+    (env_dir / "aws-devbox.env").write_text(
+        "\n".join(
+            [
+                "AWS_PROFILE=setta-admin",
+                f"SETTA_AWS_DEVBOX_SSH_IDENTITY_FILE={identity_file}",
+                f"SETTA_AWS_DEVBOX_GIT_IDENTITY_FILE={git_identity_file}",
+                "SETTA_AWS_DEVBOX_OPEN_BROWSER=0",
+                "SETTA_AWS_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git",
+                "SETTA_AWS_DEVBOX_REPO_BRANCH=pixijs-graph",
+                "SETTA_AWS_DEVBOX_REMOTE_BROWSER_MODE=headless",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    working_dir = sandbox_root / "backend" / "setta"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        bin_dir / "python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-" ]; then
+  /usr/bin/env python3 "$@"
+  exit $?
+fi
+if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq 'dev-runtime-info.sh'; then
+  printf '%s\n' "$@" > "{ssh_runtime_args_capture}"
+  printf '%s\n' '{{"frontendUrl":"http://127.0.0.1:3045","backendUrl":"http://127.0.0.1:8045","debugPort":9267}}'
+  exit 0
+fi
+printf '%s\n' "$@" > "{ssh_attach_args_capture}"
+exit 99
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-agent",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-s" ]; then
+  cat <<'EOF'
+SSH_AUTH_SOCK=/tmp/managed-agent; export SSH_AUTH_SOCK;
+SSH_AGENT_PID=4242; export SSH_AGENT_PID;
+echo Agent pid 4242;
+EOF
+  exit 0
+fi
+if [ "${1:-}" = "-k" ]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-add",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    write_stub_executable(
+        bin_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq -- '-iTCP:9267'; then
+  printf '%s\n' '42424'
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ps",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${4:-}" = "command=" ]; then
+  printf '%s\n' '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9267 --headless about:blank'
+  exit 0
+fi
+if [ "${4:-}" = "tty=" ]; then
+  printf '%s\n' '??'
+  exit 0
+fi
+exit 0
+""",
+    )
+
+    home_dir = sandbox_root / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = script_env(bin_dir, home_dir)
+
+    result = run_script(
+        ["sh", str(sandbox_root / "remote.sh"), "local"],
+        cwd=working_dir,
+        env=env,
+    )
+
+    assert result.returncode == 1
+    assert "dev-runtime-info.sh" in ssh_runtime_args_capture.read_text(encoding="utf-8")
+    assert not ssh_attach_args_capture.exists()
+    assert (
+        "Local port 9267 required for selected runtime CDP tunnel is already in use by PID 42424 (tty ??)."
+        in result.stderr
+    )
+    assert (
+        "Conflicting process: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9267 --headless about:blank"
+        in result.stderr
+    )
+    assert (
+        "Stop the conflicting process or choose a different local port with SETTA_AWS_DEVBOX_LOCAL_CDP_PORT."
+        in result.stderr
+    )
+
+
+def test_remote_ai_sh_recovers_connection_lost_ssm_before_codex_auth_sync(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, bin_dir, env_dir = _build_aws_sandbox(tmp_path)
+    python_args_capture = sandbox_root / "python-args-ssm-recovery.txt"
+    ssh_sync_args_capture = sandbox_root / "ssh-sync-args-ssm-recovery.txt"
+    ssh_runtime_args_capture = sandbox_root / "ssh-runtime-args-ssm-recovery.txt"
+    ssh_attach_args_capture = sandbox_root / "ssh-attach-args-ssm-recovery.txt"
+    identity_file = sandbox_root / "setta-devbox-login"
+    identity_file.write_text("private-key-placeholder\n", encoding="utf-8")
+    git_identity_file = sandbox_root / "macgitkey"
+    git_identity_file.write_text("git-key-placeholder\n", encoding="utf-8")
+    recovery_marker = sandbox_root / "ssm-recovered.txt"
+    down_marker = sandbox_root / "ssm-down.txt"
+
+    (env_dir / "aws-devbox.env").write_text(
+        "\n".join(
+            [
+                "AWS_PROFILE=setta-admin",
+                f"SETTA_AWS_DEVBOX_SSH_IDENTITY_FILE={identity_file}",
+                f"SETTA_AWS_DEVBOX_GIT_IDENTITY_FILE={git_identity_file}",
+                "SETTA_AWS_DEVBOX_OPEN_BROWSER=0",
+                "SETTA_AWS_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git",
+                "SETTA_AWS_DEVBOX_REPO_BRANCH=pixijs-graph",
+                "SETTA_AWS_DEVBOX_REMOTE_BROWSER_MODE=headless",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    working_dir = sandbox_root / "backend" / "setta"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        bin_dir / "python",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [ "${{1:-}}" = "-" ]; then
+  /usr/bin/env python3 "$@"
+  exit $?
+fi
+printf '%s\n' "$@" >> "{python_args_capture}"
+printf '%s\n' '--' >> "{python_args_capture}"
+if [ "${{2:-}}" = "down" ]; then
+  : > "{down_marker}"
+  exit 0
+fi
+if [ "${{2:-}}" = "up" ]; then
+  if [ -f "{down_marker}" ]; then
+    : > "{recovery_marker}"
+  fi
+  exit 0
+fi
+if [ "${{2:-}}" = "status" ] && [ "${{3:-}}" = "--json" ]; then
+  if [ -f "{recovery_marker}" ]; then
+    printf '%s\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}}'
+  else
+    printf '%s\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"connectionlost","state":"running"}}'
+  fi
+  exit 0
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq 'SETTA_CODEX_AUTH_B64='; then
+  printf '%s\n' "$@" > "{ssh_sync_args_capture}"
+  exit 0
+fi
+if printf '%s\n' "$@" | grep -Fq 'dev-runtime-info.sh'; then
+  printf '%s\n' "$@" > "{ssh_runtime_args_capture}"
+  printf '%s\n' '{{"frontendUrl":"http://127.0.0.1:3045","backendUrl":"http://127.0.0.1:8045","debugPort":9267}}'
+  exit 0
+fi
+printf '%s\n' "$@" > "{ssh_attach_args_capture}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-agent",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-s" ]; then
+  cat <<'EOF'
+SSH_AUTH_SOCK=/tmp/managed-agent; export SSH_AUTH_SOCK;
+SSH_AGENT_PID=4242; export SSH_AGENT_PID;
+echo Agent pid 4242;
+EOF
+  exit 0
+fi
+if [ "${1:-}" = "-k" ]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-add",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+
+    home_dir = sandbox_root / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    codex_auth_dir = home_dir / ".codex"
+    codex_auth_dir.mkdir(parents=True, exist_ok=True)
+    codex_auth_dir.joinpath("auth.json").write_text(
+        '{"access_token":"codex-token"}\n',
+        encoding="utf-8",
+    )
+    env = script_env(bin_dir, home_dir)
+
+    result = run_script(
+        ["sh", str(sandbox_root / "remote.sh"), "local"],
+        cwd=working_dir,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    python_args = python_args_capture.read_text(encoding="utf-8").splitlines()
+    ssh_sync_args = ssh_sync_args_capture.read_text(encoding="utf-8").splitlines()
+    ssh_runtime_args = ssh_runtime_args_capture.read_text(encoding="utf-8").splitlines()
+    ssh_attach_args = ssh_attach_args_capture.read_text(encoding="utf-8").splitlines()
+
+    assert python_args.count("up") == 2
+    assert python_args.count("down") == 1
+    assert python_args.count("status") >= 2
+    assert "SETTA_CODEX_AUTH_B64=" in ssh_sync_args[-1]
+    assert "dev-runtime-info.sh" in ssh_runtime_args[-1]
+    assert "tmux attach-session" in ssh_attach_args[-1]
+    assert (
+        "AWS devbox Session Manager transport is unavailable before Codex auth sync (state: running, ssm_ping_status: connectionlost). Attempting bounded recovery..."
+        in result.stderr
+    )
+    assert "AWS devbox Session Manager transport recovered for Codex auth sync." in result.stderr
+    assert (
+        "Remote ai runtime ready: frontend http://127.0.0.1:3045, backend http://127.0.0.1:8045, cdp 9267."
+        in result.stderr
+    )
+
+
+def test_remote_ai_sh_exits_with_clear_message_when_ssm_recovery_fails(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, bin_dir, env_dir = _build_aws_sandbox(tmp_path)
+    python_args_capture = sandbox_root / "python-args-ssm-failure.txt"
+    identity_file = sandbox_root / "setta-devbox-login"
+    identity_file.write_text("private-key-placeholder\n", encoding="utf-8")
+    git_identity_file = sandbox_root / "macgitkey"
+    git_identity_file.write_text("git-key-placeholder\n", encoding="utf-8")
+    down_marker = sandbox_root / "ssm-down-failure.txt"
+
+    (env_dir / "aws-devbox.env").write_text(
+        "\n".join(
+            [
+                "AWS_PROFILE=setta-admin",
+                f"SETTA_AWS_DEVBOX_SSH_IDENTITY_FILE={identity_file}",
+                f"SETTA_AWS_DEVBOX_GIT_IDENTITY_FILE={git_identity_file}",
+                "SETTA_AWS_DEVBOX_OPEN_BROWSER=0",
+                "SETTA_AWS_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git",
+                "SETTA_AWS_DEVBOX_REPO_BRANCH=pixijs-graph",
+                "SETTA_AWS_DEVBOX_REMOTE_BROWSER_MODE=headless",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    working_dir = sandbox_root / "backend" / "setta"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        bin_dir / "python",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [ "${{1:-}}" = "-" ]; then
+  /usr/bin/env python3 "$@"
+  exit $?
+fi
+printf '%s\n' "$@" >> "{python_args_capture}"
+printf '%s\n' '--' >> "{python_args_capture}"
+if [ "${{2:-}}" = "down" ]; then
+  : > "{down_marker}"
+  exit 0
+fi
+if [ "${{2:-}}" = "up" ]; then
+  exit 0
+fi
+if [ "${{2:-}}" = "status" ] && [ "${{3:-}}" = "--json" ]; then
+  printf '%s\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"connectionlost","state":"running"}}'
+  exit 0
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 99
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-agent",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-s" ]; then
+  cat <<'EOF'
+SSH_AUTH_SOCK=/tmp/managed-agent; export SSH_AUTH_SOCK;
+SSH_AGENT_PID=4242; export SSH_AGENT_PID;
+echo Agent pid 4242;
+EOF
+  exit 0
+fi
+if [ "${1:-}" = "-k" ]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-add",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+
+    home_dir = sandbox_root / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    codex_auth_dir = home_dir / ".codex"
+    codex_auth_dir.mkdir(parents=True, exist_ok=True)
+    codex_auth_dir.joinpath("auth.json").write_text(
+        '{"access_token":"codex-token"}\n',
+        encoding="utf-8",
+    )
+    env = script_env(bin_dir, home_dir)
+
+    result = run_script(
+        ["sh", str(sandbox_root / "remote.sh"), "local"],
+        cwd=working_dir,
+        env=env,
+    )
+
+    assert result.returncode != 0
+    python_args = python_args_capture.read_text(encoding="utf-8").splitlines()
+    assert python_args.count("up") == 2
+    assert python_args.count("down") == 1
+    assert (
+        "AWS devbox Session Manager transport is unavailable before Codex auth sync (state: running, ssm_ping_status: connectionlost). Attempting bounded recovery..."
+        in result.stderr
+    )
+    assert (
+        "AWS devbox Session Manager transport is still unavailable after recovery (state: running, ssm_ping_status: connectionlost)."
+        in result.stderr
+    )
+    assert (
+        "Cannot continue with Codex auth sync while Session Manager remains unavailable."
+        in result.stderr
     )
 
 
@@ -994,7 +1710,7 @@ if [ "${1:-}" = "-" ]; then
   exit $?
 fi
 if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
-  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}'
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
 fi
 """,
     )
@@ -1056,6 +1772,8 @@ exit 0
         'remote_runtime_info_script="${remote_worktree_root}/scripts/dev-runtime-info.sh"'
         in ssh_runtime_args[-1]
     )
+    assert 'deadline_epoch=$(( $(date +%s) + timeout_seconds ))' in ssh_runtime_args[-1]
+    assert 'remaining_seconds=$((deadline_epoch - now_epoch))' in ssh_runtime_args[-1]
     assert (
         "Preparing remote aireset runtime for /home/ubuntu/dev/aws_script_sandbox..."
         in result.stderr
@@ -1103,7 +1821,7 @@ if [ "${1:-}" = "-" ]; then
   exit $?
 fi
 if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
-  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}'
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
 fi
 """,
     )
@@ -1203,7 +1921,7 @@ if [ "${1:-}" = "-" ]; then
   exit $?
 fi
 if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
-  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}'
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
 fi
 """,
     )
@@ -1288,7 +2006,9 @@ exit 0
     assert 'read_runtime_info "${runtime_info_script}" "${workspace_root}" "${runtime_log}" "${allow_missing_connect_info}"' in ssh_runtime_args[-1]
     assert "--allow-missing-connect-info" not in ssh_runtime_args[-1]
     assert "SETTA_REMOTE_SESSION_NAME=setta-setta-feature-auth" in ssh_attach_args[-1]
+    assert "SETTA_REMOTE_TMUX_MOUSE=off" in ssh_attach_args[-1]
     assert 'remote_session_target="=${remote_session_name}"' in ssh_attach_args[-1]
+    assert 'tmux set-option -g mouse "${remote_tmux_mouse}"' in ssh_attach_args[-1]
     assert 'exec tmux attach-session -t "${remote_session_target}"' in ssh_attach_args[-1]
     assert (
         "Remote main reference ai runtime ready: frontend http://127.0.0.1:3087/, backend http://127.0.0.1:8087, cdp 9309."
@@ -1339,7 +2059,7 @@ if [ "${1:-}" = "-" ]; then
   exit $?
 fi
 if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
-  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}'
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
 fi
 """,
     )
@@ -1455,7 +2175,7 @@ if [ "${1:-}" = "-" ]; then
   exit $?
 fi
 if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
-  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}'
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
 fi
 """,
     )
@@ -1614,7 +2334,7 @@ if [ "${{1:-}}" = "-" ]; then
   exit $?
 fi
 if [ "${{2:-}}" = "status" ] && [ "${{3:-}}" = "--json" ]; then
-  printf '%s\\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"{remote_repo_root}"}}'
+  printf '%s\\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"{remote_repo_root}","ssm_ping_status":"online","state":"running"}}'
 fi
 """,
     )
@@ -1860,7 +2580,7 @@ if [ "${{1:-}}" = "-" ]; then
   exit $?
 fi
 if [ "${{2:-}}" = "status" ] && [ "${{3:-}}" = "--json" ]; then
-  printf '%s\\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"{remote_repo_root}"}}'
+  printf '%s\\n' '{{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"{remote_repo_root}","ssm_ping_status":"online","state":"running"}}'
 fi
 """,
     )
@@ -1967,7 +2687,7 @@ if [ "${1:-}" = "-" ]; then
   exit $?
 fi
 if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
-  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph"}'
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
 fi
 """,
     )
