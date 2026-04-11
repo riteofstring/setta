@@ -34,112 +34,166 @@ func (e *InvalidAutoLayoutError) Error() string {
 
 func ResolveAutoLayoutSectionSizingPolicy(document Document) (AutoLayoutSectionSizingPolicy, error) {
 	policy := defaultAutoLayoutSectionSizingPolicy()
-
-	settingsProject, ok, err := resolveSettingsProject(document)
+	settingsSource, ok, err := resolveAutoLayoutSectionSizingSettings(document)
 	if err != nil {
 		return AutoLayoutSectionSizingPolicy{}, err
 	}
 	if !ok {
 		return policy, nil
+	}
+	if err := applyAutoLayoutSectionSizingOverrides(&policy, settingsSource); err != nil {
+		return AutoLayoutSectionSizingPolicy{}, err
+	}
+
+	return policy, nil
+}
+
+type autoLayoutSectionSizingSettingsSource struct {
+	project           Project
+	codeObjVariantMap map[string]string
+	byTypePayload     map[string]any
+}
+
+func resolveAutoLayoutSectionSizingSettings(
+	document Document,
+) (autoLayoutSectionSizingSettingsSource, bool, error) {
+	settingsProject, ok, err := resolveSettingsProject(document)
+	if err != nil {
+		return autoLayoutSectionSizingSettingsSource{}, false, err
+	}
+	if !ok {
+		return autoLayoutSectionSizingSettingsSource{}, false, nil
 	}
 
 	sectionID, ok, err := findSectionIDByName(settingsProject, "sectionSizingPolicy")
 	if err != nil {
-		return AutoLayoutSectionSizingPolicy{}, err
+		return autoLayoutSectionSizingSettingsSource{}, false, err
 	}
 	if !ok {
-		return policy, nil
+		return autoLayoutSectionSizingSettingsSource{}, false, nil
 	}
 
 	_, sectionVariant, _, err := settingsProject.ResolveSection(sectionID)
 	if err != nil {
-		return AutoLayoutSectionSizingPolicy{}, err
+		return autoLayoutSectionSizingSettingsSource{}, false, err
 	}
 	sectionPayload, err := effectiveSectionPayload(settingsProject, sectionID, sectionVariant.ID)
 	if err != nil {
-		return AutoLayoutSectionSizingPolicy{}, err
+		return autoLayoutSectionSizingSettingsSource{}, false, err
 	}
 	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
 	topLevelParamID := payloadStringField(sectionPayload, "topLevelParamId")
 	if topLevelParamID == "" {
-		return policy, nil
+		return autoLayoutSectionSizingSettingsSource{}, false, nil
 	}
 
 	topLevelPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, topLevelParamID)
 	if err != nil {
-		return AutoLayoutSectionSizingPolicy{}, err
+		return autoLayoutSectionSizingSettingsSource{}, false, err
 	}
 	byTypePayload, ok, err := findSettingsChildPayload(settingsProject, codeObjVariantMap, topLevelPayload, "byType")
 	if err != nil {
-		return AutoLayoutSectionSizingPolicy{}, err
+		return autoLayoutSectionSizingSettingsSource{}, false, err
 	}
 	if !ok {
-		return policy, nil
+		return autoLayoutSectionSizingSettingsSource{}, false, nil
 	}
 
+	return autoLayoutSectionSizingSettingsSource{
+		project:           settingsProject,
+		codeObjVariantMap: codeObjVariantMap,
+		byTypePayload:     byTypePayload,
+	}, true, nil
+}
+
+func applyAutoLayoutSectionSizingOverrides(
+	policy *AutoLayoutSectionSizingPolicy,
+	settings autoLayoutSectionSizingSettingsSource,
+) error {
 	for sectionType, defaults := range policy.ByType {
-		typePayload, ok, err := findSettingsChildPayload(settingsProject, codeObjVariantMap, byTypePayload, sectionType)
-		if err != nil {
-			return AutoLayoutSectionSizingPolicy{}, err
-		}
-		if !ok {
-			continue
-		}
-
-		minWidth, err := resolveSettingsChildFloat(
-			settingsProject,
-			codeObjVariantMap,
-			typePayload,
-			"minWidth",
-			defaults.MinWidth,
-			fmt.Sprintf("sectionSizingPolicy.byType.%s.minWidth", sectionType),
+		overrides, ok, err := resolveAutoLayoutSectionSizingTypeOverrides(
+			settings.project,
+			settings.codeObjVariantMap,
+			settings.byTypePayload,
+			sectionType,
+			defaults,
 		)
 		if err != nil {
-			return AutoLayoutSectionSizingPolicy{}, err
+			return err
 		}
-		minHeight, err := resolveSettingsChildFloat(
-			settingsProject,
-			codeObjVariantMap,
-			typePayload,
-			"minHeight",
-			defaults.MinHeight,
-			fmt.Sprintf("sectionSizingPolicy.byType.%s.minHeight", sectionType),
-		)
-		if err != nil {
-			return AutoLayoutSectionSizingPolicy{}, err
-		}
-		maxWidth, err := resolveSettingsChildFloat(
-			settingsProject,
-			codeObjVariantMap,
-			typePayload,
-			"maxWidth",
-			defaults.MaxWidth,
-			fmt.Sprintf("sectionSizingPolicy.byType.%s.maxWidth", sectionType),
-		)
-		if err != nil {
-			return AutoLayoutSectionSizingPolicy{}, err
-		}
-		maxHeight, err := resolveSettingsChildFloat(
-			settingsProject,
-			codeObjVariantMap,
-			typePayload,
-			"maxHeight",
-			defaults.MaxHeight,
-			fmt.Sprintf("sectionSizingPolicy.byType.%s.maxHeight", sectionType),
-		)
-		if err != nil {
-			return AutoLayoutSectionSizingPolicy{}, err
-		}
-
-		policy.ByType[sectionType] = AutoLayoutSectionMinDimensions{
-			MinWidth:  max(0, minWidth),
-			MinHeight: max(0, minHeight),
-			MaxWidth:  maxWidth,
-			MaxHeight: maxHeight,
+		if ok {
+			policy.ByType[sectionType] = overrides
 		}
 	}
+	return nil
+}
 
-	return policy, nil
+func resolveAutoLayoutSectionSizingTypeOverrides(
+	project Project,
+	codeObjVariantMap map[string]string,
+	byTypePayload map[string]any,
+	sectionType string,
+	defaults AutoLayoutSectionMinDimensions,
+) (AutoLayoutSectionMinDimensions, bool, error) {
+	typePayload, ok, err := findSettingsChildPayload(project, codeObjVariantMap, byTypePayload, sectionType)
+	if err != nil {
+		return AutoLayoutSectionMinDimensions{}, false, err
+	}
+	if !ok {
+		return AutoLayoutSectionMinDimensions{}, false, nil
+	}
+
+	minWidth, err := resolveSettingsChildFloat(
+		project,
+		codeObjVariantMap,
+		typePayload,
+		"minWidth",
+		defaults.MinWidth,
+		fmt.Sprintf("sectionSizingPolicy.byType.%s.minWidth", sectionType),
+	)
+	if err != nil {
+		return AutoLayoutSectionMinDimensions{}, false, err
+	}
+	minHeight, err := resolveSettingsChildFloat(
+		project,
+		codeObjVariantMap,
+		typePayload,
+		"minHeight",
+		defaults.MinHeight,
+		fmt.Sprintf("sectionSizingPolicy.byType.%s.minHeight", sectionType),
+	)
+	if err != nil {
+		return AutoLayoutSectionMinDimensions{}, false, err
+	}
+	maxWidth, err := resolveSettingsChildFloat(
+		project,
+		codeObjVariantMap,
+		typePayload,
+		"maxWidth",
+		defaults.MaxWidth,
+		fmt.Sprintf("sectionSizingPolicy.byType.%s.maxWidth", sectionType),
+	)
+	if err != nil {
+		return AutoLayoutSectionMinDimensions{}, false, err
+	}
+	maxHeight, err := resolveSettingsChildFloat(
+		project,
+		codeObjVariantMap,
+		typePayload,
+		"maxHeight",
+		defaults.MaxHeight,
+		fmt.Sprintf("sectionSizingPolicy.byType.%s.maxHeight", sectionType),
+	)
+	if err != nil {
+		return AutoLayoutSectionMinDimensions{}, false, err
+	}
+
+	return AutoLayoutSectionMinDimensions{
+		MinWidth:  max(0, minWidth),
+		MinHeight: max(0, minHeight),
+		MaxWidth:  maxWidth,
+		MaxHeight: maxHeight,
+	}, true, nil
 }
 
 func (d *Document) AutoLayoutTopLevelSections(projectID string, policy AutoLayoutSectionSizingPolicy, margin int) error {
@@ -222,20 +276,11 @@ func (p Project) collectAutoLayoutRects(
 	first := true
 
 	for sectionID, layout := range p.TopLevelSections {
-		width, height, err := p.resolveAutoLayoutSectionDimensions(sectionID, layout, policy)
+		rect, err := p.buildAutoLayoutRect(sectionID, layout, policy, margin)
 		if err != nil {
 			return nil, 0, 0, err
 		}
-
-		rects = append(rects, autoLayoutRect{
-			SectionID:      sectionID,
-			Layout:         layout.Clone(),
-			Width:          width,
-			Height:         height,
-			PaddedWidth:    int(math.Ceil(width + float64(margin))),
-			PaddedHeight:   int(math.Ceil(height + float64(margin))),
-			OriginalZIndex: layout.ZIndex,
-		})
+		rects = append(rects, rect)
 		if first || layout.X < minX {
 			minX = layout.X
 		}
@@ -245,36 +290,68 @@ func (p Project) collectAutoLayoutRects(
 		first = false
 	}
 
-	for _, rect := range rects {
-		if rect.PaddedWidth <= 0 || rect.PaddedHeight <= 0 {
-			return nil, 0, 0, &InvalidAutoLayoutError{
-				Message: "Auto layout expects positive integer dimensions for packing.",
-			}
-		}
+	if err := validateAutoLayoutRects(rects); err != nil {
+		return nil, 0, 0, err
 	}
 
 	sort.Slice(rects, func(i int, j int) bool {
-		left := rects[i]
-		right := rects[j]
-		if left.PaddedHeight != right.PaddedHeight {
-			return left.PaddedHeight > right.PaddedHeight
-		}
-		if left.PaddedWidth != right.PaddedWidth {
-			return left.PaddedWidth > right.PaddedWidth
-		}
-		if left.OriginalZIndex != right.OriginalZIndex {
-			return left.OriginalZIndex < right.OriginalZIndex
-		}
-		if left.Layout.Y != right.Layout.Y {
-			return left.Layout.Y < right.Layout.Y
-		}
-		if left.Layout.X != right.Layout.X {
-			return left.Layout.X < right.Layout.X
-		}
-		return left.SectionID < right.SectionID
+		return autoLayoutRectLess(rects[i], rects[j])
 	})
 
 	return rects, minX, minY, nil
+}
+
+func (p Project) buildAutoLayoutRect(
+	sectionID string,
+	layout TopLevelSectionLayout,
+	policy AutoLayoutSectionSizingPolicy,
+	margin int,
+) (autoLayoutRect, error) {
+	width, height, err := p.resolveAutoLayoutSectionDimensions(sectionID, layout, policy)
+	if err != nil {
+		return autoLayoutRect{}, err
+	}
+
+	return autoLayoutRect{
+		SectionID:      sectionID,
+		Layout:         layout.Clone(),
+		Width:          width,
+		Height:         height,
+		PaddedWidth:    int(math.Ceil(width + float64(margin))),
+		PaddedHeight:   int(math.Ceil(height + float64(margin))),
+		OriginalZIndex: layout.ZIndex,
+	}, nil
+}
+
+func validateAutoLayoutRects(rects []autoLayoutRect) error {
+	for _, rect := range rects {
+		if rect.PaddedWidth > 0 && rect.PaddedHeight > 0 {
+			continue
+		}
+		return &InvalidAutoLayoutError{
+			Message: "Auto layout expects positive integer dimensions for packing.",
+		}
+	}
+	return nil
+}
+
+func autoLayoutRectLess(left autoLayoutRect, right autoLayoutRect) bool {
+	if left.PaddedHeight != right.PaddedHeight {
+		return left.PaddedHeight > right.PaddedHeight
+	}
+	if left.PaddedWidth != right.PaddedWidth {
+		return left.PaddedWidth > right.PaddedWidth
+	}
+	if left.OriginalZIndex != right.OriginalZIndex {
+		return left.OriginalZIndex < right.OriginalZIndex
+	}
+	if left.Layout.Y != right.Layout.Y {
+		return left.Layout.Y < right.Layout.Y
+	}
+	if left.Layout.X != right.Layout.X {
+		return left.Layout.X < right.Layout.X
+	}
+	return left.SectionID < right.SectionID
 }
 
 func (p Project) resolveAutoLayoutSectionDimensions(

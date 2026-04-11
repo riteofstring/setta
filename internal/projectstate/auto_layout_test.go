@@ -2,8 +2,62 @@ package projectstate
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
+
+func TestResolveAutoLayoutSectionSizingPolicyDefaultsWithoutSettingsProject(t *testing.T) {
+	t.Parallel()
+
+	policy, err := ResolveAutoLayoutSectionSizingPolicy(Document{
+		SchemaVersion: CurrentSchemaVersion,
+		Projects:      map[string]Project{},
+	})
+	if err != nil {
+		t.Fatalf("ResolveAutoLayoutSectionSizingPolicy default document: %v", err)
+	}
+
+	defaults := defaultAutoLayoutSectionSizingPolicy()
+	if got := policy.ByType["TextBlock"]; got != defaults.ByType["TextBlock"] {
+		t.Fatalf("expected default TextBlock policy %#v, got %#v", defaults.ByType["TextBlock"], got)
+	}
+}
+
+func TestResolveAutoLayoutSectionSizingPolicyReadsSettingsOverrides(t *testing.T) {
+	t.Parallel()
+
+	policy, err := ResolveAutoLayoutSectionSizingPolicy(autoLayoutSettingsPolicyTestDocument(
+		t,
+		autoLayoutSettingsPolicyField{Name: "minWidth", Value: "180.5"},
+		autoLayoutSettingsPolicyField{Name: "minHeight", Value: "-7"},
+		autoLayoutSettingsPolicyField{Name: "maxHeight", Value: "640"},
+	))
+	if err != nil {
+		t.Fatalf("ResolveAutoLayoutSectionSizingPolicy settings document: %v", err)
+	}
+
+	defaults := defaultAutoLayoutSectionSizingPolicy().ByType["TextBlock"]
+	if got := policy.ByType["TextBlock"]; got != (AutoLayoutSectionMinDimensions{
+		MinWidth:  180.5,
+		MinHeight: 0,
+		MaxWidth:  defaults.MaxWidth,
+		MaxHeight: 640,
+	}) {
+		t.Fatalf("unexpected TextBlock policy overrides %#v", got)
+	}
+}
+
+func TestResolveAutoLayoutSectionSizingPolicyRejectsInvalidSettingsValue(t *testing.T) {
+	t.Parallel()
+
+	_, err := ResolveAutoLayoutSectionSizingPolicy(autoLayoutSettingsPolicyTestDocument(
+		t,
+		autoLayoutSettingsPolicyField{Name: "minWidth", Value: "not-a-number"},
+	))
+	if !errors.Is(err, ErrSettingsValueInvalid) {
+		t.Fatalf("expected ErrSettingsValueInvalid, got %v", err)
+	}
+}
 
 func TestProjectResolveAutoLayoutSectionDimensionsPrefersLayoutOverrideAndAutoFallback(t *testing.T) {
 	t.Parallel()
@@ -312,6 +366,145 @@ func autoLayoutInvalidDimensionProject(t *testing.T) Project {
 		t.Fatalf("normalize invalid auto layout project: %v", err)
 	}
 	return project
+}
+
+type autoLayoutSettingsPolicyField struct {
+	Name  string
+	Value string
+}
+
+func autoLayoutSettingsPolicyTestDocument(t *testing.T, fields ...autoLayoutSettingsPolicyField) Document {
+	t.Helper()
+
+	codeObjVariantMap := map[string]string{
+		"policy-root":       "policy-root-variant",
+		"policy-by-type":    "policy-by-type-variant",
+		"text-block-policy": "text-block-policy-variant",
+	}
+	codeObjs := map[string]CodeObject{
+		"policy-root": {
+			ID:               "policy-root",
+			Name:             "sectionSizingPolicy",
+			VariantIDs:       []string{"policy-root-variant"},
+			DefaultVariantID: "policy-root-variant",
+		},
+		"policy-by-type": {
+			ID:               "policy-by-type",
+			Name:             "byType",
+			VariantIDs:       []string{"policy-by-type-variant"},
+			DefaultVariantID: "policy-by-type-variant",
+		},
+		"text-block-policy": {
+			ID:               "text-block-policy",
+			Name:             "TextBlock",
+			VariantIDs:       []string{"text-block-policy-variant"},
+			DefaultVariantID: "text-block-policy-variant",
+		},
+	}
+	codeObjVariants := map[string]CodeObjectVariant{
+		"policy-root-variant": {
+			ID:     "policy-root-variant",
+			ImplID: "policy-root-impl",
+		},
+		"policy-by-type-variant": {
+			ID:     "policy-by-type-variant",
+			ImplID: "policy-by-type-impl",
+		},
+		"text-block-policy-variant": {
+			ID:     "text-block-policy-variant",
+			ImplID: "text-block-policy-impl",
+		},
+	}
+	codeObjImpls := map[string]CodeObjectImpl{
+		"policy-root-impl": {
+			ID:      "policy-root-impl",
+			Type:    "NestedParam",
+			Payload: mustMarshalProjectObject(map[string]any{"id": "policy-root-impl", "type": "NestedParam", "children": []string{"policy-by-type"}}),
+		},
+		"policy-by-type-impl": {
+			ID:      "policy-by-type-impl",
+			Type:    "NestedParam",
+			Payload: mustMarshalProjectObject(map[string]any{"id": "policy-by-type-impl", "type": "NestedParam", "children": []string{"text-block-policy"}}),
+		},
+	}
+	textBlockChildren := make([]string, 0, len(fields))
+	for _, field := range fields {
+		codeObjID := "text-block-" + field.Name
+		variantID := codeObjID + "-variant"
+		implID := codeObjID + "-impl"
+		codeObjVariantMap[codeObjID] = variantID
+		codeObjs[codeObjID] = CodeObject{
+			ID:               codeObjID,
+			Name:             field.Name,
+			VariantIDs:       []string{variantID},
+			DefaultVariantID: variantID,
+		}
+		codeObjVariants[variantID] = CodeObjectVariant{
+			ID:     variantID,
+			ImplID: implID,
+		}
+		codeObjImpls[implID] = CodeObjectImpl{
+			ID:      implID,
+			Type:    "StringParam",
+			Payload: mustMarshalProjectObject(map[string]any{"id": implID, "type": "StringParam", "value": field.Value}),
+		}
+		textBlockChildren = append(textBlockChildren, codeObjID)
+	}
+	codeObjImpls["text-block-policy-impl"] = CodeObjectImpl{
+		ID:      "text-block-policy-impl",
+		Type:    "NestedParam",
+		Payload: mustMarshalProjectObject(map[string]any{"id": "text-block-policy-impl", "type": "NestedParam", "children": textBlockChildren}),
+	}
+
+	document, err := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "settings-home",
+		Projects: map[string]Project{
+			"settings-home": {
+				ID:   "settings-home",
+				Name: "Settings Home",
+				TopLevelSectionIDs: []string{
+					"section-sizing-policy-section",
+				},
+				SectionVariantMap: map[string]string{
+					"section-sizing-policy-section": "section-sizing-policy-variant",
+				},
+				Sections: map[string]Section{
+					"section-sizing-policy-section": {
+						ID:               "section-sizing-policy-section",
+						Name:             "sectionSizingPolicy",
+						VariantIDs:       []string{"section-sizing-policy-variant"},
+						DefaultVariantID: "section-sizing-policy-variant",
+					},
+				},
+				SectionVariants: map[string]SectionVariant{
+					"section-sizing-policy-variant": {
+						ID:     "section-sizing-policy-variant",
+						ImplID: "section-sizing-policy-impl",
+					},
+				},
+				SectionImpls: map[string]SectionImpl{
+					"section-sizing-policy-impl": {
+						ID:   "section-sizing-policy-impl",
+						Kind: SectionKind("dict"),
+						Payload: mustMarshalProjectObject(map[string]any{
+							"id":                "section-sizing-policy-impl",
+							"type":              "Dict",
+							"topLevelParamId":   "policy-root",
+							"codeObjVariantMap": codeObjVariantMap,
+						}),
+					},
+				},
+				CodeObjs:        codeObjs,
+				CodeObjVariants: codeObjVariants,
+				CodeObjImpls:    codeObjImpls,
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize auto layout settings document: %v", err)
+	}
+	return document
 }
 
 func minProjectLayoutX(layouts map[string]TopLevelSectionLayout) float64 {
