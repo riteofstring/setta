@@ -128,34 +128,27 @@ func applySupportedPythonCodegenMutation(
 		ctx = context.Background()
 	}
 
-	previousPython, previousHasPython := pythonCodegenTarget(previous)
-	nextPython, nextHasPython := pythonCodegenTarget(project.CodegenTargets)
-	switch {
-	case !previousHasPython && !nextHasPython:
-		return nil
-	case previousHasPython && !nextHasPython:
+	mutation, err := planSupportedPythonCodegenMutation(previous, project.CodegenTargets)
+	if err != nil {
+		return err
+	}
+	if mutation.cleanup {
 		cleanupRemovedPythonCodegen(project)
 		return nil
-	default:
-		if pythonReconciler == nil {
-			equal := false
-			var err error
-			if previousHasPython && nextHasPython {
-				equal, err = projectCodegenTargetsEqual(previousPython, nextPython)
-				if err != nil {
-					return err
-				}
-			}
-			if equal {
-				return project.ReconcilePythonGeneratedBindings()
-			}
+	}
+	if !mutation.reconcileBindings {
+		return nil
+	}
+	if err := project.ReconcilePythonGeneratedBindings(); err != nil {
+		return err
+	}
+	if pythonReconciler == nil {
+		if mutation.requiresReconciler {
 			return ErrProjectCodegenPythonReconcilerRequired
 		}
-		if err := project.ReconcilePythonGeneratedBindings(); err != nil {
-			return err
-		}
-		return pythonReconciler.ReconcileProjectPythonGeneratedSections(ctx, project)
+		return nil
 	}
+	return pythonReconciler.ReconcileProjectPythonGeneratedSections(ctx, project)
 }
 
 func cleanupRemovedPythonCodegen(project *Project) {
@@ -168,75 +161,155 @@ func cleanupRemovedPythonCodegen(project *Project) {
 	project.GeneratedMetadataBinding = nil
 }
 
+type pythonCodegenMutationPlan struct {
+	cleanup            bool
+	reconcileBindings  bool
+	requiresReconciler bool
+}
+
+func planSupportedPythonCodegenMutation(previous []ProjectCodegenTarget, next []ProjectCodegenTarget) (pythonCodegenMutationPlan, error) {
+	previousPython, previousHasPython := pythonCodegenTarget(previous)
+	nextPython, nextHasPython := pythonCodegenTarget(next)
+	switch {
+	case !previousHasPython && !nextHasPython:
+		return pythonCodegenMutationPlan{}, nil
+	case previousHasPython && !nextHasPython:
+		return pythonCodegenMutationPlan{cleanup: true}, nil
+	case !previousHasPython && nextHasPython:
+		return pythonCodegenMutationPlan{
+			reconcileBindings:  true,
+			requiresReconciler: true,
+		}, nil
+	}
+
+	equal, err := projectCodegenTargetsEqual(previousPython, nextPython)
+	if err != nil {
+		return pythonCodegenMutationPlan{}, err
+	}
+	return pythonCodegenMutationPlan{
+		reconcileBindings:  true,
+		requiresReconciler: !equal,
+	}, nil
+}
+
 func RemoveSections(project *Project, sectionIDs []string) {
 	if project == nil || len(sectionIDs) == 0 {
 		return
 	}
 
-	removedSections := make(map[string]struct{}, len(sectionIDs))
-	removedVariantIDs := make(map[string]struct{})
-	removedImplIDs := make(map[string]struct{})
+	removal := buildSectionRemovalPlan(project, sectionIDs)
+	if len(removal.sections) == 0 {
+		return
+	}
 
+	clearRemovedEntryCodeBlock(project, removal.sections)
+	removeSectionRelationships(project, removal.sections)
+	deleteRemovedSections(project, removal.sections)
+	deleteRemovedVariants(project, removal.variantIDs)
+	deleteRemovedImpls(project, removal.implIDs)
+	pruneRemovedSectionsFromViewModes(project.ViewModes, removal.sections)
+}
+
+type sectionRemovalPlan struct {
+	sections   map[string]struct{}
+	variantIDs map[string]struct{}
+	implIDs    map[string]struct{}
+}
+
+func buildSectionRemovalPlan(project *Project, sectionIDs []string) sectionRemovalPlan {
+	removal := sectionRemovalPlan{
+		sections:   make(map[string]struct{}, len(sectionIDs)),
+		variantIDs: make(map[string]struct{}),
+		implIDs:    make(map[string]struct{}),
+	}
 	for _, sectionID := range sectionIDs {
-		trimmedSectionID := strings.TrimSpace(sectionID)
-		if trimmedSectionID == "" {
-			continue
-		}
-		if _, ok := removedSections[trimmedSectionID]; ok {
-			continue
-		}
-		removedSections[trimmedSectionID] = struct{}{}
+		appendRemovedSection(project, &removal, sectionID)
+	}
+	return removal
+}
 
-		section, ok := project.Sections[trimmedSectionID]
+func appendRemovedSection(project *Project, removal *sectionRemovalPlan, rawSectionID string) {
+	sectionID := strings.TrimSpace(rawSectionID)
+	if sectionID == "" {
+		return
+	}
+	if _, exists := removal.sections[sectionID]; exists {
+		return
+	}
+	removal.sections[sectionID] = struct{}{}
+
+	section, ok := project.Sections[sectionID]
+	if !ok {
+		return
+	}
+	for _, variantID := range collectSectionVariantIDs(*project, section) {
+		removal.variantIDs[variantID] = struct{}{}
+		variant, ok := project.SectionVariants[variantID]
 		if !ok {
 			continue
 		}
-		for _, variantID := range collectSectionVariantIDs(*project, section) {
-			removedVariantIDs[variantID] = struct{}{}
-			variant, ok := project.SectionVariants[variantID]
-			if !ok {
-				continue
-			}
-			removedImplIDs[variant.ImplID] = struct{}{}
-		}
+		removal.implIDs[variant.ImplID] = struct{}{}
 	}
+}
 
+func clearRemovedEntryCodeBlock(project *Project, removedSections map[string]struct{}) {
 	if _, ok := removedSections[project.EntryCodeBlockID]; ok {
 		project.EntryCodeBlockID = ""
 	}
+}
+
+func removeSectionRelationships(project *Project, removedSections map[string]struct{}) {
 	project.TopLevelSectionIDs = filterStringSlice(project.TopLevelSectionIDs, removedSections)
 	project.ActiveIDs = filterStringSlice(project.ActiveIDs, removedSections)
 	project.Edges = filterEdgesBySectionIDs(project.Edges, removedSections)
 	project.AgenticEdges = filterAgenticEdgesBySectionIDs(project.AgenticEdges, removedSections)
 	project.StateMachineEdges = filterStateMachineEdgesBySectionIDs(project.StateMachineEdges, removedSections)
+}
 
+func deleteRemovedSections(project *Project, removedSections map[string]struct{}) {
 	for sectionID := range removedSections {
 		delete(project.TopLevelSections, sectionID)
 		delete(project.SectionVariantMap, sectionID)
 		delete(project.Sections, sectionID)
 	}
+}
+
+func deleteRemovedVariants(project *Project, removedVariantIDs map[string]struct{}) {
 	for variantID := range removedVariantIDs {
 		delete(project.SectionVariants, variantID)
 	}
+}
 
-	stillReferencedImplIDs := make(map[string]struct{}, len(project.SectionVariants))
-	for _, variant := range project.SectionVariants {
-		stillReferencedImplIDs[variant.ImplID] = struct{}{}
-	}
+func deleteRemovedImpls(project *Project, removedImplIDs map[string]struct{}) {
+	referencedImplIDs := referencedSectionImplIDs(project.SectionVariants)
 	for implID := range removedImplIDs {
-		if _, ok := stillReferencedImplIDs[implID]; ok {
+		if _, ok := referencedImplIDs[implID]; ok {
 			continue
 		}
 		delete(project.SectionImpls, implID)
 	}
+}
 
-	for viewModeID, viewMode := range project.ViewModes {
-		for sectionID := range removedSections {
-			delete(viewMode.VisibilityBySectionID, sectionID)
-			delete(viewMode.TopLevelSections, sectionID)
-		}
-		project.ViewModes[viewModeID] = viewMode
+func referencedSectionImplIDs(sectionVariants map[string]SectionVariant) map[string]struct{} {
+	referenced := make(map[string]struct{}, len(sectionVariants))
+	for _, variant := range sectionVariants {
+		referenced[variant.ImplID] = struct{}{}
 	}
+	return referenced
+}
+
+func pruneRemovedSectionsFromViewModes(viewModes map[string]ViewMode, removedSections map[string]struct{}) {
+	for viewModeID, viewMode := range viewModes {
+		viewModes[viewModeID] = pruneViewModeSections(viewMode, removedSections)
+	}
+}
+
+func pruneViewModeSections(viewMode ViewMode, removedSections map[string]struct{}) ViewMode {
+	for sectionID := range removedSections {
+		delete(viewMode.VisibilityBySectionID, sectionID)
+		delete(viewMode.TopLevelSections, sectionID)
+	}
+	return viewMode
 }
 
 func GeneratedPythonSectionIDs(project Project) []string {

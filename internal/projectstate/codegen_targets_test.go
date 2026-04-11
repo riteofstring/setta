@@ -196,6 +196,112 @@ func TestRuntimeSetProjectCodegenTargetsDisablesPythonTargetAndCleansUpGenerated
 	}
 }
 
+func TestRemoveSectionsKeepsSharedImplsReferencedByRemainingSections(t *testing.T) {
+	t.Parallel()
+
+	project := Project{
+		ID:               "project-alpha",
+		Name:             "Alpha",
+		EntryCodeBlockID: "section-a",
+		TopLevelSectionIDs: []string{
+			"section-a",
+			"section-b",
+		},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"section-a": {},
+			"section-b": {},
+		},
+		SectionVariantMap: map[string]string{
+			"section-a": "variant-a",
+			"section-b": "variant-b",
+		},
+		ActiveIDs: []string{
+			"section-a",
+			"section-b",
+		},
+		ViewModes: map[string]ViewMode{
+			"focus": {
+				ID: "focus",
+				VisibilityBySectionID: map[string]bool{
+					"section-a": true,
+					"section-b": true,
+				},
+				TopLevelSections: map[string]TopLevelSectionLayout{
+					"section-a": {},
+					"section-b": {},
+				},
+			},
+		},
+		Sections: map[string]Section{
+			"section-a": {
+				ID:               "section-a",
+				Name:             "Section A",
+				VariantIDs:       []string{"variant-a"},
+				DefaultVariantID: "variant-a",
+			},
+			"section-b": {
+				ID:               "section-b",
+				Name:             "Section B",
+				VariantIDs:       []string{"variant-b"},
+				DefaultVariantID: "variant-b",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"variant-a": {
+				ID:     "variant-a",
+				ImplID: "shared-impl",
+			},
+			"variant-b": {
+				ID:     "variant-b",
+				ImplID: "shared-impl",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"shared-impl": {
+				ID:   "shared-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{
+					Language: CodeLanguagePython,
+				},
+			},
+		},
+	}
+
+	RemoveSections(&project, []string{" section-a ", "", "section-a"})
+
+	if project.EntryCodeBlockID != "" {
+		t.Fatalf("expected entry code block id to clear, got %q", project.EntryCodeBlockID)
+	}
+	if !reflect.DeepEqual(project.TopLevelSectionIDs, []string{"section-b"}) {
+		t.Fatalf("expected only section-b to remain top-level, got %#v", project.TopLevelSectionIDs)
+	}
+	if !reflect.DeepEqual(project.ActiveIDs, []string{"section-b"}) {
+		t.Fatalf("expected only section-b to remain active, got %#v", project.ActiveIDs)
+	}
+	if _, ok := project.Sections["section-a"]; ok {
+		t.Fatal("expected removed section to be deleted")
+	}
+	if _, ok := project.SectionVariants["variant-a"]; ok {
+		t.Fatal("expected removed section variant to be deleted")
+	}
+	if _, ok := project.SectionImpls["shared-impl"]; !ok {
+		t.Fatal("expected shared impl to remain because section-b still references it")
+	}
+	if got := project.SectionVariantMap["section-b"]; got != "variant-b" {
+		t.Fatalf("expected remaining section variant mapping to stay intact, got %q", got)
+	}
+	viewMode := project.ViewModes["focus"]
+	if _, ok := viewMode.VisibilityBySectionID["section-a"]; ok {
+		t.Fatal("expected removed section visibility to be cleared from view mode")
+	}
+	if _, ok := viewMode.TopLevelSections["section-a"]; ok {
+		t.Fatal("expected removed section layout to be cleared from view mode")
+	}
+	if !viewMode.VisibilityBySectionID["section-b"] {
+		t.Fatal("expected remaining section visibility to stay intact")
+	}
+}
+
 // Python target edits now require an explicit generated-section reconciler because the mutation path must update singleton sections and bindings together.
 func TestRuntimeSetProjectCodegenTargetsRequiresReconcilerForPythonMutation(t *testing.T) {
 	t.Parallel()
