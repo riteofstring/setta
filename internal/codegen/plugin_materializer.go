@@ -114,35 +114,66 @@ func (m *PluginMaterializer) MaterializeDocument(ctx context.Context, document p
 	if m == nil {
 		return ErrPluginCodegenSettaFilesRootRequired
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := ctx.Err(); err != nil {
+	ctx, err := normalizePluginMaterializerContext(ctx)
+	if err != nil {
 		return err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	nextStateByProject, expectedOutputRoots, err := m.materializeProjectsLocked(ctx, document)
+	if err != nil {
+		return err
+	}
+	if err := removeDeletedProjectPluginOutputs(m.stateByProject, nextStateByProject); err != nil {
+		return err
+	}
+	if err := pruneStalePluginGeneratedOutputs(m.settaFilesRoot, expectedOutputRoots); err != nil {
+		return err
+	}
+
+	m.stateByProject = nextStateByProject
+	return nil
+}
+
+func normalizePluginMaterializerContext(ctx context.Context) (context.Context, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return ctx, nil
+}
+
+func sortedDocumentProjectIDs(document projectstate.Document) []string {
 	projectIDs := make([]string, 0, len(document.Projects))
 	for projectID := range document.Projects {
 		projectIDs = append(projectIDs, projectID)
 	}
 	sort.Strings(projectIDs)
+	return projectIDs
+}
 
+func (m *PluginMaterializer) materializeProjectsLocked(
+	ctx context.Context,
+	document projectstate.Document,
+) (map[string]pluginMaterializerProjectState, map[string]struct{}, error) {
+	projectIDs := sortedDocumentProjectIDs(document)
 	nextStateByProject := make(map[string]pluginMaterializerProjectState, len(projectIDs))
 	expectedOutputRoots := map[string]struct{}{}
 	for _, projectID := range projectIDs {
 		if err := ctx.Err(); err != nil {
-			return err
+			return nil, nil, err
 		}
 		project, err := document.ProjectByID(projectID)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		projectState, ok, err := m.materializeProjectLocked(ctx, project, m.stateByProject[projectID])
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		if !ok {
 			continue
@@ -150,8 +181,14 @@ func (m *PluginMaterializer) MaterializeDocument(ctx context.Context, document p
 		nextStateByProject[projectID] = projectState
 		expectedOutputRoots[projectState.OutputRoot] = struct{}{}
 	}
+	return nextStateByProject, expectedOutputRoots, nil
+}
 
-	for projectID, previousState := range m.stateByProject {
+func removeDeletedProjectPluginOutputs(
+	previousStateByProject map[string]pluginMaterializerProjectState,
+	nextStateByProject map[string]pluginMaterializerProjectState,
+) error {
+	for projectID, previousState := range previousStateByProject {
 		if _, ok := nextStateByProject[projectID]; ok {
 			continue
 		}
@@ -159,11 +196,6 @@ func (m *PluginMaterializer) MaterializeDocument(ctx context.Context, document p
 			return err
 		}
 	}
-	if err := pruneStalePluginGeneratedOutputs(m.settaFilesRoot, expectedOutputRoots); err != nil {
-		return err
-	}
-
-	m.stateByProject = nextStateByProject
 	return nil
 }
 
@@ -544,43 +576,75 @@ func resolvePluginGeneratedOutputPath(targetRoot string, relativePath string) (s
 }
 
 func preparePluginOutputPathForWrite(targetRoot string, outputPath string) error {
+	if err := preparePluginOutputParentPaths(targetRoot, outputPath); err != nil {
+		return err
+	}
+	return preparePluginOutputLeafPath(outputPath)
+}
+
+func preparePluginOutputParentPaths(targetRoot string, outputPath string) error {
+	for _, parentPath := range pluginOutputParentPaths(targetRoot, outputPath) {
+		if err := preparePluginOutputParentPath(parentPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func pluginOutputParentPaths(targetRoot string, outputPath string) []string {
 	parentPaths := []string{}
 	current := filepath.Dir(outputPath)
 	for {
-		relative, err := filepath.Rel(targetRoot, current)
-		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-			break
-		}
-		if relative == "." {
+		relative, ok := relativePluginOutputPath(targetRoot, current)
+		if !ok || relative == "." {
 			break
 		}
 		parentPaths = append(parentPaths, current)
 		current = filepath.Dir(current)
 	}
-	for index := len(parentPaths) - 1; index >= 0; index-- {
-		parentPath := parentPaths[index]
-		info, err := os.Lstat(parentPath)
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("stat plugin codegen parent path %s: %w", parentPath, err)
-		}
-		if info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-			if err := os.Remove(parentPath); err != nil {
-				return fmt.Errorf("remove plugin codegen parent path %s: %w", parentPath, err)
-			}
+	reverseStringSlice(parentPaths)
+	return parentPaths
+}
+
+func relativePluginOutputPath(targetRoot string, path string) (string, bool) {
+	relative, err := filepath.Rel(targetRoot, path)
+	if err != nil {
+		return "", false
+	}
+	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return relative, true
+}
+
+func reverseStringSlice(values []string) {
+	for left, right := 0, len(values)-1; left < right; left, right = left+1, right-1 {
+		values[left], values[right] = values[right], values[left]
+	}
+}
+
+func preparePluginOutputParentPath(parentPath string) error {
+	info, err := os.Lstat(parentPath)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil
+	case err != nil:
+		return fmt.Errorf("stat plugin codegen parent path %s: %w", parentPath, err)
+	case info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0:
+		if err := os.Remove(parentPath); err != nil {
+			return fmt.Errorf("remove plugin codegen parent path %s: %w", parentPath, err)
 		}
 	}
+	return nil
+}
 
+func preparePluginOutputLeafPath(outputPath string) error {
 	info, err := os.Lstat(outputPath)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		return nil
 	case err != nil:
 		return fmt.Errorf("stat plugin codegen output path %s: %w", outputPath, err)
-	case info.Mode()&os.ModeSymlink != 0:
-		return os.Remove(outputPath)
 	case info.Mode().IsRegular():
 		return nil
 	case info.IsDir():
@@ -595,58 +659,99 @@ func cachedPluginOutputsExist(
 	outputHashes map[string]string,
 	outputStats map[string]pluginMaterializerOutputStat,
 ) (bool, map[string]pluginMaterializerOutputStat, error) {
-	info, err := os.Stat(targetRoot)
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		return false, map[string]pluginMaterializerOutputStat{}, nil
-	case err != nil:
-		return false, nil, fmt.Errorf("stat plugin codegen target root %s: %w", targetRoot, err)
-	case !info.IsDir():
+	rootExists, err := pluginOutputRootExists(targetRoot)
+	if err != nil {
+		return false, nil, err
+	}
+	if !rootExists {
 		return false, map[string]pluginMaterializerOutputStat{}, nil
 	}
 
+	expectedPaths, err := expectedPluginOutputPaths(outputHashes)
+	if err != nil {
+		return false, nil, err
+	}
+	observedStats, pathsMatch, err := collectCachedPluginOutputStats(targetRoot, expectedPaths)
+	if err != nil {
+		return false, nil, err
+	}
+	if !pathsMatch {
+		return false, map[string]pluginMaterializerOutputStat{}, nil
+	}
+	if outputStatsEqual(observedStats, normalizeOutputStats(outputStats)) {
+		return true, observedStats, nil
+	}
+
+	hashesMatch, err := pluginOutputContentHashesMatch(targetRoot, outputHashes)
+	if err != nil {
+		return false, nil, err
+	}
+	if !hashesMatch {
+		return false, map[string]pluginMaterializerOutputStat{}, nil
+	}
+	return true, observedStats, nil
+}
+
+func pluginOutputRootExists(targetRoot string) (bool, error) {
+	info, err := os.Stat(targetRoot)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return false, nil
+	case err != nil:
+		return false, fmt.Errorf("stat plugin codegen target root %s: %w", targetRoot, err)
+	default:
+		return info.IsDir(), nil
+	}
+}
+
+func expectedPluginOutputPaths(outputHashes map[string]string) (map[string]struct{}, error) {
 	expectedPaths := make(map[string]struct{}, len(outputHashes))
 	for relativePath := range outputHashes {
 		normalizedRelativePath, err := normalizePluginGeneratedRelativePath(relativePath)
 		if err != nil {
-			return false, nil, err
+			return nil, err
 		}
 		expectedPaths[normalizedRelativePath] = struct{}{}
 	}
+	return expectedPaths, nil
+}
+
+func collectCachedPluginOutputStats(
+	targetRoot string,
+	expectedPaths map[string]struct{},
+) (map[string]pluginMaterializerOutputStat, bool, error) {
 	discoveredPaths, err := collectPluginOutputRelativePaths(targetRoot)
 	if err != nil {
-		return false, nil, err
+		return nil, false, err
 	}
 	if !stringSetEqual(discoveredPaths, expectedPaths) {
-		return false, map[string]pluginMaterializerOutputStat{}, nil
+		return nil, false, nil
 	}
-
 	observedStats, err := collectPluginOutputStats(targetRoot, expectedPaths)
 	if err != nil {
-		return false, nil, err
+		return nil, false, err
 	}
-	expectedStats := normalizeOutputStats(outputStats)
-	if outputStatsEqual(observedStats, expectedStats) {
-		return true, observedStats, nil
-	}
+	return observedStats, true, nil
+}
 
+func pluginOutputContentHashesMatch(targetRoot string, outputHashes map[string]string) (bool, error) {
 	for relativePath, expectedHash := range outputHashes {
 		outputPath, err := resolvePluginGeneratedOutputPath(targetRoot, relativePath)
 		if err != nil {
-			return false, nil, err
+			return false, err
 		}
 		outputContent, err := os.ReadFile(outputPath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return false, map[string]pluginMaterializerOutputStat{}, nil
+				return false, nil
 			}
-			return false, nil, fmt.Errorf("read plugin generated output %s: %w", outputPath, err)
+			return false, fmt.Errorf("read plugin generated output %s: %w", outputPath, err)
 		}
 		if hashPluginGeneratedContent(string(outputContent)) != expectedHash {
-			return false, map[string]pluginMaterializerOutputStat{}, nil
+			return false, nil
 		}
 	}
-	return true, observedStats, nil
+	return true, nil
 }
 
 func collectPluginOutputRelativePaths(targetRoot string) (map[string]struct{}, error) {
