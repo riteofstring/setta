@@ -634,6 +634,73 @@ def test_write_sanitized_copy_sanitizes_jsonl_lines(tmp_path: Path) -> None:
     ]
 
 
+def test_build_external_agent_run_update_ignores_non_external_or_incomplete_payloads(
+) -> None:
+    module = _load_collect_llm_artifacts_module()
+
+    assert module.build_external_agent_run_update({"event": {}}) is None
+    assert (
+        module.build_external_agent_run_update(
+            {
+                "event": {
+                    "detailJson": {
+                        "messageType": "OtherEvent",
+                        "content": {
+                            "id": "run-123",
+                            "inputs": {"runType": "external_agent"},
+                        },
+                    }
+                }
+            }
+        )
+        is None
+    )
+    assert (
+        module.build_external_agent_run_update(
+            {
+                "event": {
+                    "detailJson": {
+                        "messageType": "AgentRunUpdated",
+                        "content": {
+                            "id": "   ",
+                            "inputs": {"runType": "external_agent"},
+                        },
+                    }
+                }
+            }
+        )
+        is None
+    )
+
+
+def test_build_external_agent_run_update_normalizes_external_agent_payload() -> None:
+    module = _load_collect_llm_artifacts_module()
+
+    assert module.build_external_agent_run_update(
+        {
+            "event": {
+                "detailJson": {
+                    "messageType": "AgentRunUpdated",
+                    "content": {
+                        "id": " run-123 ",
+                        "inputs": {
+                            "runType": " external_agent ",
+                            "chatId": " chat-456 ",
+                            "engineConfigId": " engine-789 ",
+                        },
+                        "outputs": ["not-a-dict"],
+                    },
+                }
+            }
+        }
+    ) == {
+        "runId": "run-123",
+        "chatId": "chat-456",
+        "engineConfigId": "engine-789",
+        "threadId": "",
+    }
+
+
 def test_chrome_repro_collect_llm_artifacts_merges_external_agent_run_updates(
     tmp_path: Path,
 ) -> None:

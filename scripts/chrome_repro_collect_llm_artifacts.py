@@ -170,38 +170,37 @@ def iter_json_object_lines(path: Path) -> Iterator[dict[str, Any]]:
             yield payload
 
 
+def normalize_mapping_string(mapping: dict[str, Any], key: str) -> str:
+    return normalize_string(mapping.get(key))
+
+
 def build_external_agent_run_update(payload: dict[str, Any]) -> dict[str, str] | None:
-    event = payload.get("event")
-    if not isinstance(event, dict):
-        return None
-    detail_json = event.get("detailJson")
-    if (
-        not isinstance(detail_json, dict)
-        or detail_json.get("messageType") != "AgentRunUpdated"
-    ):
-        return None
-    content = detail_json.get("content")
-    if not isinstance(content, dict):
-        return None
-    inputs = content.get("inputs")
-    if (
-        not isinstance(inputs, dict)
-        or normalize_string(inputs.get("runType")) != "external_agent"
-    ):
-        return None
-    run_id = normalize_string(content.get("id"))
-    if run_id == "":
-        return None
-    outputs = content.get("outputs")
-    thread_id = ""
-    if isinstance(outputs, dict):
-        thread_id = normalize_string(outputs.get("threadId"))
-    return {
-        "runId": run_id,
-        "chatId": normalize_string(inputs.get("chatId")),
-        "engineConfigId": normalize_string(inputs.get("engineConfigId")),
-        "threadId": thread_id,
-    }
+    match payload:
+        case {
+            "event": {
+                "detailJson": {
+                    "messageType": "AgentRunUpdated",
+                    "content": {
+                        "id": raw_run_id,
+                        "inputs": {"runType": raw_run_type, **inputs},
+                        **content,
+                    },
+                }
+            }
+        } if normalize_string(raw_run_type) == "external_agent":
+            run_id = normalize_string(raw_run_id)
+            if run_id == "":
+                return None
+            outputs = content.get("outputs")
+            output_values = outputs if isinstance(outputs, dict) else {}
+            return {
+                "runId": run_id,
+                "chatId": normalize_mapping_string(inputs, "chatId"),
+                "engineConfigId": normalize_mapping_string(inputs, "engineConfigId"),
+                "threadId": normalize_mapping_string(output_values, "threadId"),
+            }
+        case _:
+            return None
 
 
 def merge_recorded_run_update(
