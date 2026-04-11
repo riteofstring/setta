@@ -39,6 +39,8 @@ func Build() (GeneratedConstants, error) {
 		{Name: "PROFILE_LOOKUP_HOME_ENV", PythonExpr: pythonStringLiteral(config.ProfileLookupHomeEnv)},
 		{Name: "SETTA_HOME_ENV", PythonExpr: pythonStringLiteral(config.SettaHomeEnv)},
 		{Name: "FILES_LOCATION_ENV", PythonExpr: pythonStringLiteral(config.FilesLocationEnv)},
+		{Name: "SETTA_FILES_LOCATION_VALUES", PythonExpr: pythonStringTupleExpr(filesLocationValuesToStrings(config.RequestedFilesLocations()))},
+		{Name: "RESOLVED_SETTA_FILES_LOCATION_VALUES", PythonExpr: pythonStringTupleExpr(resolvedFilesLocationValuesToStrings(config.ResolvedFilesLocations()))},
 		{Name: "SESSION_ID_ENV_VAR", PythonExpr: pythonStringLiteral(auth.SessionIDEnv)},
 		{Name: "SESSIONS_ROOT_ENV_VAR", PythonExpr: pythonStringLiteral(auth.SessionsRootEnv)},
 		{Name: "IN_PROCESS_ENV_VAR", PythonExpr: pythonStringLiteral(localsessions.InProcessBackendEnvVar)},
@@ -98,6 +100,36 @@ func pythonFrozenStringSetExpr(values []string) string {
 		parts = append(parts, pythonStringLiteral(value))
 	}
 	return fmt.Sprintf("frozenset((%s))", strings.Join(parts, ", "))
+}
+
+func pythonStringTupleExpr(values []string) string {
+	if len(values) == 0 {
+		return "()"
+	}
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		parts = append(parts, pythonStringLiteral(value))
+	}
+	if len(parts) == 1 {
+		return fmt.Sprintf("(%s,)", parts[0])
+	}
+	return fmt.Sprintf("(%s)", strings.Join(parts, ", "))
+}
+
+func filesLocationValuesToStrings(values []config.FilesLocation) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, string(value))
+	}
+	return result
+}
+
+func resolvedFilesLocationValuesToStrings(values []config.ResolvedFilesLocation) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, string(value))
+	}
+	return result
 }
 
 func pythonStringDictExpr(values map[string]string) string {

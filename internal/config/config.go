@@ -82,6 +82,21 @@ const (
 	ResolvedFilesLocationGlobal ResolvedFilesLocation = "global"
 )
 
+func RequestedFilesLocations() []FilesLocation {
+	return []FilesLocation{
+		FilesLocationAuto,
+		FilesLocationLocal,
+		FilesLocationGlobal,
+	}
+}
+
+func ResolvedFilesLocations() []ResolvedFilesLocation {
+	return []ResolvedFilesLocation{
+		ResolvedFilesLocationLocal,
+		ResolvedFilesLocationGlobal,
+	}
+}
+
 type AutoMode string
 
 const (

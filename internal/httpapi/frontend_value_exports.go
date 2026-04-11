@@ -204,16 +204,17 @@ func FrontendValueLocalHostnamePolicyConfig() FrontendLocalHostnamePolicy {
 }
 
 func FrontendValueSettaFilesLocationPolicyConfig() FrontendSettaFilesLocationPolicy {
+	requested := make([]FrontendSettaFilesLocation, 0, len(config.RequestedFilesLocations()))
+	for _, value := range config.RequestedFilesLocations() {
+		requested = append(requested, FrontendSettaFilesLocation(value))
+	}
+	resolved := make([]FrontendResolvedSettaFilesLocation, 0, len(config.ResolvedFilesLocations()))
+	for _, value := range config.ResolvedFilesLocations() {
+		resolved = append(resolved, FrontendResolvedSettaFilesLocation(value))
+	}
 	return FrontendSettaFilesLocationPolicy{
-		Requested: []FrontendSettaFilesLocation{
-			FrontendSettaFilesLocationAuto,
-			FrontendSettaFilesLocationLocal,
-			FrontendSettaFilesLocationGlobal,
-		},
-		Resolved: []FrontendResolvedSettaFilesLocation{
-			FrontendResolvedSettaFilesLocationLocal,
-			FrontendResolvedSettaFilesLocationGlobal,
-		},
+		Requested: requested,
+		Resolved:  resolved,
 	}
 }
 

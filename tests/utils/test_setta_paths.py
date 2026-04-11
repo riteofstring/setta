@@ -184,6 +184,22 @@ def test_resolve_setta_paths_rejects_invalid_files_location_override(
         resolve_setta_paths(workspace_root=workspace, setta_files_location="nope")
 
 
+def test_resolve_setta_paths_rejects_invalid_resolved_files_location_from_go_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    payload = authoritative_go_paths_payload(
+        workspace_root=workspace.resolve(strict=False)
+    )
+    payload["resolvedFilesLocation"] = "custom"
+    monkeypatch.setattr(paths_module, "_resolve_go_paths_payload", lambda **_: payload)
+
+    with pytest.raises(ValueError, match=r"invalid resolvedFilesLocation"):
+        resolve_setta_paths(workspace_root=workspace)
+
+
 def test_resolve_setta_paths_normalizes_files_location_override_case_and_whitespace(
     tmp_path: Path,
 ) -> None:

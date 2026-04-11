@@ -4,7 +4,7 @@ import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, TypeAlias
 
 from setta.entrypoint import resolve_go_cli_command, resolve_go_cli_env
 from setta.types.generated.go_shared_constants import (
@@ -12,13 +12,16 @@ from setta.types.generated.go_shared_constants import (
     FILES_ROOT_ENV,
     PROFILE_ENV,
     PROFILE_LOOKUP_HOME_ENV,
+    RESOLVED_SETTA_FILES_LOCATION_VALUES,
     RUNTIME_ROOT_ENV,
     SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
 )
 
-SettaFilesLocation = Literal["auto", "local", "global"]
-ResolvedSettaFilesLocation = Literal["local", "global"]
+SettaFilesLocation: TypeAlias = str
+ResolvedSettaFilesLocation: TypeAlias = str
+
+_RESOLVED_SETTA_FILES_LOCATION_SET = frozenset(RESOLVED_SETTA_FILES_LOCATION_VALUES)
 
 
 class SettaPathsError(ValueError):
@@ -147,14 +150,12 @@ def resolve_setta_paths(
     setta_files_location_result: ResolvedSettaFilesLocation | None = None
     if not uses_explicit_setta_files:
         normalized_location = resolved_files_location.strip().lower()
-        if normalized_location not in ("local", "global"):
+        if normalized_location not in _RESOLVED_SETTA_FILES_LOCATION_SET:
             raise SettaPathsError(
                 "Setta paths payload returned an invalid resolvedFilesLocation: "
                 f"{resolved_files_location!r}"
             )
-        setta_files_location_result = cast(
-            "ResolvedSettaFilesLocation", normalized_location
-        )
+        setta_files_location_result = normalized_location
 
     return SettaPaths(
         workspace_root=_required_path_field(payload, "workspaceRoot"),
