@@ -48,6 +48,15 @@ type setUISettingValueResult struct {
 	Error           *uiSettingToolErrorResult `json:"error,omitempty"`
 }
 
+type setUISettingValueRequest struct {
+	SettingID           string
+	Value               any
+	ExpectedOldValue    any
+	HasExpectedOldValue bool
+	RevealAfterSet      bool
+	DurationMS          int
+}
+
 type revealUISettingStatusResult struct {
 	SettingID string                          `json:"settingId"`
 	Status    string                          `json:"status"`
@@ -170,128 +179,191 @@ func newSetUISettingValueHandler(server *Server, workspaceRoot string) tools.Han
 			return nil, err
 		}
 
-		settingID, err := readRequiredStringArgument(arguments, "settingId")
+		request, err := readSetUISettingValueRequest(arguments)
 		if err != nil {
 			return nil, err
 		}
-		value, err := readRequiredPresentArgument(arguments, "value")
+		entry, summary, earlyResult, err := resolveSetUISettingWriteTarget(registry, request.SettingID)
 		if err != nil {
 			return nil, err
 		}
-		expectedOldValue, hasExpectedOldValue := arguments["expectedOldValue"]
-		revealAfterSet, err := readOptionalBoolArgument(arguments, "revealAfterSet")
+		if earlyResult != nil {
+			return *earlyResult, nil
+		}
+
+		currentValue, earlyResult := readCurrentUISettingValueForWrite(ctx, registry, projectConfigID, entry, summary)
+		if earlyResult != nil {
+			return *earlyResult, nil
+		}
+
+		payload := applySetUISettingValueWrite(ctx, registry, projectConfigID, entry, summary, request, currentValue)
+		if payload.Error != nil || !request.RevealAfterSet {
+			return payload, nil
+		}
+
+		revealResult, err := runUISettingReveal(
+			server,
+			ctx,
+			registry,
+			projectConfigID,
+			entry.Metadata.SettingID,
+			"",
+			request.DurationMS,
+		)
 		if err != nil {
 			return nil, err
 		}
-		durationMS := 3000
-		if resolvedDuration, err := readOptionalIntArgument(arguments, "durationMs"); err != nil {
-			return nil, err
-		} else if resolvedDuration != nil {
-			durationMS = *resolvedDuration
-		}
+		payload.Reveal = &revealResult
+		return payload, nil
+	}
+}
 
-		entry, ok, err := registry.Get(settingID)
-		if err != nil {
-			return nil, newToolError("invalid_arguments", "%s", err.Error())
-		}
-		if !ok {
-			missingErr := registry.MissingSettingError(settingID)
-			errorResult := normalizeUISettingRuntimeError(missingErr, settingID, "write")
-			return setUISettingValueResult{
-				OldValue:        nil,
-				NewValue:        nil,
-				NormalizedValue: nil,
-				Changed:         false,
-				Error:           errorResult,
-			}, nil
-		}
+func readSetUISettingValueRequest(arguments map[string]any) (setUISettingValueRequest, error) {
+	settingID, err := readRequiredStringArgument(arguments, "settingId")
+	if err != nil {
+		return setUISettingValueRequest{}, err
+	}
+	value, err := readRequiredPresentArgument(arguments, "value")
+	if err != nil {
+		return setUISettingValueRequest{}, err
+	}
+	revealAfterSet, err := readOptionalBoolArgument(arguments, "revealAfterSet")
+	if err != nil {
+		return setUISettingValueRequest{}, err
+	}
+	durationMS := 3000
+	if resolvedDuration, err := readOptionalIntArgument(arguments, "durationMs"); err != nil {
+		return setUISettingValueRequest{}, err
+	} else if resolvedDuration != nil {
+		durationMS = *resolvedDuration
+	}
+	expectedOldValue, hasExpectedOldValue := arguments["expectedOldValue"]
+	return setUISettingValueRequest{
+		SettingID:           settingID,
+		Value:               value,
+		ExpectedOldValue:    expectedOldValue,
+		HasExpectedOldValue: hasExpectedOldValue,
+		RevealAfterSet:      revealAfterSet,
+		DurationMS:          durationMS,
+	}, nil
+}
 
-		summary := summaryPointer(buildUISettingResultSummary(entry.Metadata))
-		if entry.Metadata.Mutability != uisettings.MutabilityWritable || entry.WriteValue == nil {
-			return setUISettingValueResult{
-				Setting:         summary,
-				OldValue:        nil,
-				NewValue:        nil,
-				NormalizedValue: nil,
-				Changed:         false,
-				Error: newUISettingToolErrorResult(
-					uisettings.ErrorCodeSettingReadOnly,
-					fmt.Sprintf("UI setting %q is read-only.", entry.Metadata.SettingID),
-				),
-			}, nil
-		}
+func resolveSetUISettingWriteTarget(
+	registry *uisettings.Registry,
+	settingID string,
+) (uisettings.RuntimeEntry, *uiSettingResultSummary, *setUISettingValueResult, error) {
+	entry, ok, err := registry.Get(settingID)
+	if err != nil {
+		return uisettings.RuntimeEntry{}, nil, nil, newToolError("invalid_arguments", "%s", err.Error())
+	}
+	if !ok {
+		missingErr := registry.MissingSettingError(settingID)
+		return uisettings.RuntimeEntry{}, nil, &setUISettingValueResult{
+			OldValue:        nil,
+			NewValue:        nil,
+			NormalizedValue: nil,
+			Changed:         false,
+			Error:           normalizeUISettingRuntimeError(missingErr, settingID, "write"),
+		}, nil
+	}
 
-		currentValue, err := registry.ReadValue(ctx, projectConfigID, entry.Metadata.SettingID)
-		if err != nil {
-			if entry.Metadata.Source == uisettings.SourcePlugin && entry.WriteValue != nil {
-				err = uisettings.RecontextualizePluginBackendInvalidValueError(
-					err,
-					"pre-write oldValue read returned an invalid value",
-				)
-			}
-			return setUISettingValueResult{
-				Setting:         summary,
-				OldValue:        nil,
-				NewValue:        nil,
-				NormalizedValue: nil,
-				Changed:         false,
-				Error:           normalizeUISettingRuntimeError(err, entry.Metadata.SettingID, "read"),
-			}, nil
-		}
-
-		writerExpectedOldValue := currentValue
-		if hasExpectedOldValue {
-			writerExpectedOldValue = expectedOldValue
-		}
-		result, err := registry.WriteValue(ctx, projectConfigID, entry.Metadata.SettingID, value, writerExpectedOldValue)
-		if err != nil {
-			return setUISettingValueResult{
-				Setting:         summary,
-				OldValue:        currentValue,
-				NewValue:        nil,
-				NormalizedValue: nil,
-				Changed:         false,
-				Error:           normalizeUISettingRuntimeError(err, entry.Metadata.SettingID, "write"),
-			}, nil
-		}
-		if !reflect.DeepEqual(result.OldValue, currentValue) {
-			return setUISettingValueResult{
-				Setting:         summary,
-				OldValue:        currentValue,
-				NewValue:        result.NewValue,
-				NormalizedValue: result.NormalizedValue,
-				Changed:         false,
-				Error: newUISettingToolErrorResult(
-					uisettings.ErrorCodeMutationFailed,
-					fmt.Sprintf("Failed to write %s: writer old value drifted from the current persisted value.", entry.Metadata.SettingID),
-				),
-			}, nil
-		}
-
-		payload := setUISettingValueResult{
+	summary := summaryPointer(buildUISettingResultSummary(entry.Metadata))
+	if entry.Metadata.Mutability != uisettings.MutabilityWritable || entry.WriteValue == nil {
+		return uisettings.RuntimeEntry{}, nil, &setUISettingValueResult{
 			Setting:         summary,
-			OldValue:        result.OldValue,
+			OldValue:        nil,
+			NewValue:        nil,
+			NormalizedValue: nil,
+			Changed:         false,
+			Error: newUISettingToolErrorResult(
+				uisettings.ErrorCodeSettingReadOnly,
+				fmt.Sprintf("UI setting %q is read-only.", entry.Metadata.SettingID),
+			),
+		}, nil
+	}
+	return entry, summary, nil, nil
+}
+
+func readCurrentUISettingValueForWrite(
+	ctx context.Context,
+	registry *uisettings.Registry,
+	projectConfigID string,
+	entry uisettings.RuntimeEntry,
+	summary *uiSettingResultSummary,
+) (any, *setUISettingValueResult) {
+	currentValue, err := registry.ReadValue(ctx, projectConfigID, entry.Metadata.SettingID)
+	if err != nil {
+		return nil, &setUISettingValueResult{
+			Setting:         summary,
+			OldValue:        nil,
+			NewValue:        nil,
+			NormalizedValue: nil,
+			Changed:         false,
+			Error: normalizeUISettingRuntimeError(
+				normalizePreWriteUISettingReadError(err, entry),
+				entry.Metadata.SettingID,
+				"read",
+			),
+		}
+	}
+	return currentValue, nil
+}
+
+func normalizePreWriteUISettingReadError(err error, entry uisettings.RuntimeEntry) error {
+	if entry.Metadata.Source == uisettings.SourcePlugin && entry.WriteValue != nil {
+		return uisettings.RecontextualizePluginBackendInvalidValueError(
+			err,
+			"pre-write oldValue read returned an invalid value",
+		)
+	}
+	return err
+}
+
+func applySetUISettingValueWrite(
+	ctx context.Context,
+	registry *uisettings.Registry,
+	projectConfigID string,
+	entry uisettings.RuntimeEntry,
+	summary *uiSettingResultSummary,
+	request setUISettingValueRequest,
+	currentValue any,
+) setUISettingValueResult {
+	writerExpectedOldValue := currentValue
+	if request.HasExpectedOldValue {
+		writerExpectedOldValue = request.ExpectedOldValue
+	}
+
+	result, err := registry.WriteValue(ctx, projectConfigID, entry.Metadata.SettingID, request.Value, writerExpectedOldValue)
+	if err != nil {
+		return setUISettingValueResult{
+			Setting:         summary,
+			OldValue:        currentValue,
+			NewValue:        nil,
+			NormalizedValue: nil,
+			Changed:         false,
+			Error:           normalizeUISettingRuntimeError(err, entry.Metadata.SettingID, "write"),
+		}
+	}
+	if !reflect.DeepEqual(result.OldValue, currentValue) {
+		return setUISettingValueResult{
+			Setting:         summary,
+			OldValue:        currentValue,
 			NewValue:        result.NewValue,
 			NormalizedValue: result.NormalizedValue,
-			Changed:         result.Changed,
+			Changed:         false,
+			Error: newUISettingToolErrorResult(
+				uisettings.ErrorCodeMutationFailed,
+				fmt.Sprintf("Failed to write %s: writer old value drifted from the current persisted value.", entry.Metadata.SettingID),
+			),
 		}
-		if revealAfterSet {
-			revealResult, err := runUISettingReveal(
-				server,
-				ctx,
-				registry,
-				projectConfigID,
-				entry.Metadata.SettingID,
-				"",
-				durationMS,
-			)
-			if err != nil {
-				return nil, err
-			}
-			payload.Reveal = &revealResult
-		}
+	}
 
-		return payload, nil
+	return setUISettingValueResult{
+		Setting:         summary,
+		OldValue:        result.OldValue,
+		NewValue:        result.NewValue,
+		NormalizedValue: result.NormalizedValue,
+		Changed:         result.Changed,
 	}
 }
 
