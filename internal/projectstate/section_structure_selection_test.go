@@ -84,6 +84,61 @@ func TestRuntimeGroupSectionsCreatesTopLevelGroupAndReparentsSelectedSections(t 
 	}
 }
 
+func TestProjectGroupSectionsCreatesChildGroupAndPreservesParentOrder(t *testing.T) {
+	t.Parallel()
+
+	project := sectionStructureSelectionTestProject(t)
+	originalSectionIDs := make(map[string]struct{}, len(project.Sections))
+	for sectionID := range project.Sections {
+		originalSectionIDs[sectionID] = struct{}{}
+	}
+
+	if err := project.GroupSections(
+		GroupSectionsInput{SectionIDs: []string{"top-child-b", "top-child-a"}},
+		DefaultStructuralMutationSettings(),
+	); err != nil {
+		t.Fatalf("GroupSections returned error: %v", err)
+	}
+
+	groupID := ""
+	for sectionID := range project.Sections {
+		if _, ok := originalSectionIDs[sectionID]; ok {
+			continue
+		}
+		groupID = sectionID
+		break
+	}
+	if groupID == "" {
+		t.Fatal("expected GroupSections to create a nested group section")
+	}
+	if got := project.Sections[groupID].ParentSectionID; got != "top-group" {
+		t.Fatalf("expected nested group parent top-group, got %q", got)
+	}
+	if got := project.Sections["top-child-a"].ParentSectionID; got != groupID {
+		t.Fatalf("expected top-child-a parent %q, got %q", groupID, got)
+	}
+	if got := project.Sections["top-child-b"].ParentSectionID; got != groupID {
+		t.Fatalf("expected top-child-b parent %q, got %q", groupID, got)
+	}
+
+	parentPayload, err := effectiveSectionPayload(project, "top-group", "top-group-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload top-group: %v", err)
+	}
+	if got := payloadStringArrayField(parentPayload, "children"); !reflect.DeepEqual(got, []string{groupID}) {
+		t.Fatalf("expected top-group children [%s], got %#v", groupID, got)
+	}
+
+	groupVariantID := project.SectionVariantMap[groupID]
+	groupPayload, err := effectiveSectionPayload(project, groupID, groupVariantID)
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload group: %v", err)
+	}
+	if got := payloadStringArrayField(groupPayload, "children"); !reflect.DeepEqual(got, []string{"top-child-a", "top-child-b"}) {
+		t.Fatalf("expected grouped children [top-child-a top-child-b], got %#v", got)
+	}
+}
+
 func TestRuntimeUngroupGroupsMovesChildrenBackToTopLevelAndParentOrder(t *testing.T) {
 	t.Parallel()
 

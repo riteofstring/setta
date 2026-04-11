@@ -83,41 +83,57 @@ func (p *Project) GroupSections(
 	if err != nil {
 		return err
 	}
-	selectedSet := make(map[string]struct{}, len(orderedSectionIDs))
-	for _, sectionID := range orderedSectionIDs {
-		selectedSet[sectionID] = struct{}{}
-	}
-
-	groupID := ""
 	if strings.TrimSpace(parentID) == "" {
-		position, err := p.resolveGroupSectionsTopLevelPosition(orderedSectionIDs)
-		if err != nil {
-			return err
-		}
-		result, err := p.CreateTopLevelSection(CreateTopLevelSectionInput{
-			ImplType: "Group",
-			Position: &position,
-		}, settings)
-		if err != nil {
-			return err
-		}
-		groupID = result.SectionID
-		for _, sectionID := range orderedSectionIDs {
-			p.removeTopLevelSectionViewState(sectionID)
-			if err := p.setSectionParent(sectionID, groupID); err != nil {
-				return err
-			}
-		}
-		return p.setSectionChildren(groupID, orderedSectionIDs)
+		return p.groupTopLevelSections(orderedSectionIDs, settings)
 	}
+	return p.groupChildSections(parentID, orderedSectionIDs, settings)
+}
 
-	parentChildren, err := p.sectionChildIDs(parentID)
+func (p *Project) groupTopLevelSections(sectionIDs []string, settings StructuralMutationSettings) error {
+	position, err := p.resolveGroupSectionsTopLevelPosition(sectionIDs)
 	if err != nil {
 		return err
 	}
-	startIdx := indexOfString(parentChildren, orderedSectionIDs[0])
+	result, err := p.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "Group",
+		Position: &position,
+	}, settings)
+	if err != nil {
+		return err
+	}
+	for _, sectionID := range sectionIDs {
+		p.removeTopLevelSectionViewState(sectionID)
+	}
+	return p.attachGroupedSections(result.SectionID, sectionIDs)
+}
+
+func (p *Project) groupChildSections(
+	parentID string,
+	sectionIDs []string,
+	settings StructuralMutationSettings,
+) error {
+	groupID, err := p.createChildGroupSection(parentID, sectionIDs[0], settings)
+	if err != nil {
+		return err
+	}
+	if err := p.removeSectionsFromParent(parentID, sectionIDs); err != nil {
+		return err
+	}
+	return p.attachGroupedSections(groupID, sectionIDs)
+}
+
+func (p *Project) createChildGroupSection(
+	parentID string,
+	firstSectionID string,
+	settings StructuralMutationSettings,
+) (string, error) {
+	parentChildren, err := p.sectionChildIDs(parentID)
+	if err != nil {
+		return "", err
+	}
+	startIdx := indexOfString(parentChildren, firstSectionID)
 	if startIdx < 0 {
-		return fmt.Errorf("%w: %q", ErrSectionNotFound, orderedSectionIDs[0])
+		return "", fmt.Errorf("%w: %q", ErrSectionNotFound, firstSectionID)
 	}
 	createResult, err := p.CreateChildSections(CreateChildSectionsInput{
 		ParentID:    parentID,
@@ -126,23 +142,24 @@ func (p *Project) GroupSections(
 		StartIdx:    &startIdx,
 	}, settings)
 	if err != nil {
-		return err
+		return "", err
 	}
-	groupID = createResult.SectionIDs[0]
+	return createResult.SectionIDs[0], nil
+}
 
-	parentChildren, err = p.sectionChildIDs(parentID)
+func (p *Project) removeSectionsFromParent(parentID string, sectionIDs []string) error {
+	parentChildren, err := p.sectionChildIDs(parentID)
 	if err != nil {
 		return err
 	}
-	if err := p.setSectionChildren(parentID, filterStringSlice(parentChildren, selectedSet)); err != nil {
+	return p.setSectionChildren(parentID, filterStringSlice(parentChildren, stringSetFromSlice(sectionIDs)))
+}
+
+func (p *Project) attachGroupedSections(groupID string, sectionIDs []string) error {
+	if err := p.setSectionParents(sectionIDs, groupID); err != nil {
 		return err
 	}
-	for _, sectionID := range orderedSectionIDs {
-		if err := p.setSectionParent(sectionID, groupID); err != nil {
-			return err
-		}
-	}
-	return p.setSectionChildren(groupID, orderedSectionIDs)
+	return p.setSectionChildren(groupID, sectionIDs)
 }
 
 func (d *Document) UngroupGroups(projectID string, input UngroupGroupsInput) error {
@@ -384,11 +401,30 @@ func (p *Project) resolveGroupingSelection(sectionIDs []string) (string, []strin
 		return "", nil, ErrProjectNotFound
 	}
 
+	parentID, err := p.resolveGroupingParentID(sectionIDs)
+	if err != nil {
+		return "", nil, err
+	}
+	if parentID == "" {
+		return "", p.orderTopLevelGroupingSelection(sectionIDs), nil
+	}
+	parentChildren, err := p.sectionChildIDs(parentID)
+	if err != nil {
+		return "", nil, err
+	}
+	ordered, complete := orderSelectedSectionIDs(parentChildren, sectionIDs)
+	if !complete {
+		return "", nil, ErrGroupSectionsParentMismatch
+	}
+	return parentID, ordered, nil
+}
+
+func (p *Project) resolveGroupingParentID(sectionIDs []string) (string, error) {
 	parentID := ""
 	for index, sectionID := range sectionIDs {
 		section, ok := p.Sections[sectionID]
 		if !ok {
-			return "", nil, fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
+			return "", fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
 		}
 		currentParentID := strings.TrimSpace(section.ParentSectionID)
 		if index == 0 {
@@ -396,49 +432,32 @@ func (p *Project) resolveGroupingSelection(sectionIDs []string) (string, []strin
 			continue
 		}
 		if currentParentID != parentID {
-			return "", nil, ErrGroupSectionsParentMismatch
+			return "", ErrGroupSectionsParentMismatch
 		}
 	}
+	return parentID, nil
+}
 
-	if parentID == "" {
-		ordered := append([]string(nil), sectionIDs...)
-		if len(p.TopLevelSectionIDs) == 0 {
-			return parentID, ordered, nil
-		}
-		selectedSet := make(map[string]struct{}, len(sectionIDs))
-		for _, sectionID := range sectionIDs {
-			selectedSet[sectionID] = struct{}{}
-		}
-		ordered = make([]string, 0, len(sectionIDs))
-		for _, sectionID := range p.TopLevelSectionIDs {
-			if _, ok := selectedSet[sectionID]; ok {
-				ordered = append(ordered, sectionID)
-			}
-		}
-		if len(ordered) == len(selectedSet) {
-			return parentID, ordered, nil
-		}
-		return parentID, append([]string(nil), sectionIDs...), nil
+func (p *Project) orderTopLevelGroupingSelection(sectionIDs []string) []string {
+	if len(p.TopLevelSectionIDs) == 0 {
+		return append([]string(nil), sectionIDs...)
 	}
+	ordered, complete := orderSelectedSectionIDs(p.TopLevelSectionIDs, sectionIDs)
+	if !complete {
+		return append([]string(nil), sectionIDs...)
+	}
+	return ordered
+}
 
-	parentChildren, err := p.sectionChildIDs(parentID)
-	if err != nil {
-		return "", nil, err
-	}
-	selectedSet := make(map[string]struct{}, len(sectionIDs))
-	for _, sectionID := range sectionIDs {
-		selectedSet[sectionID] = struct{}{}
-	}
+func orderSelectedSectionIDs(siblingIDs []string, sectionIDs []string) ([]string, bool) {
+	selectedSet := stringSetFromSlice(sectionIDs)
 	ordered := make([]string, 0, len(sectionIDs))
-	for _, sectionID := range parentChildren {
+	for _, sectionID := range siblingIDs {
 		if _, ok := selectedSet[sectionID]; ok {
 			ordered = append(ordered, sectionID)
 		}
 	}
-	if len(ordered) != len(selectedSet) {
-		return "", nil, ErrGroupSectionsParentMismatch
-	}
-	return parentID, ordered, nil
+	return ordered, len(ordered) == len(selectedSet)
 }
 
 func (p *Project) resolveGroupSectionsTopLevelPosition(sectionIDs []string) (Position, error) {
@@ -476,51 +495,61 @@ func (p *Project) ungroupGroup(groupID string) error {
 	parentID := strings.TrimSpace(section.ParentSectionID)
 
 	if parentID == "" {
-		layout, ok := p.existingTopLevelSectionLayout(groupID)
-		if !ok {
-			return fmt.Errorf("%w: section=%q", ErrTopLevelSectionLayoutRequired, groupID)
-		}
-		for _, childID := range groupChildren {
-			if err := p.setSectionParent(childID, ""); err != nil {
-				return err
-			}
-			nextLayout := TopLevelSectionLayout{
-				X:      layout.X,
-				Y:      layout.Y,
-				ZIndex: p.nextCreateTopLevelSectionZIndex(),
-			}
-			p.addTopLevelSectionViewState(childID, nextLayout)
-		}
-	} else {
-		parentChildren, err := p.sectionChildIDs(parentID)
-		if err != nil {
+		if err := p.promoteGroupChildrenToTopLevel(groupID, groupChildren); err != nil {
 			return err
 		}
-		groupIndex := indexOfString(parentChildren, groupID)
-		if groupIndex < 0 {
-			return fmt.Errorf("%w: %q", ErrSectionNotFound, groupID)
-		}
-		if err := p.setSectionChildren(
-			parentID,
-			insertStringSlice(
-				filterStringSlice(parentChildren, map[string]struct{}{groupID: struct{}{}}),
-				groupIndex,
-				groupChildren,
-			),
-		); err != nil {
-			return err
-		}
-		for _, childID := range groupChildren {
-			if err := p.setSectionParent(childID, parentID); err != nil {
-				return err
-			}
-		}
+	} else if err := p.restoreGroupChildrenToParent(parentID, groupID, groupChildren); err != nil {
+		return err
 	}
 
+	return p.deleteEmptyGroupSection(groupID)
+}
+
+func (p *Project) promoteGroupChildrenToTopLevel(groupID string, childIDs []string) error {
+	layout, ok := p.existingTopLevelSectionLayout(groupID)
+	if !ok {
+		return fmt.Errorf("%w: section=%q", ErrTopLevelSectionLayoutRequired, groupID)
+	}
+	if err := p.setSectionParents(childIDs, ""); err != nil {
+		return err
+	}
+	nextZIndex := p.nextCreateTopLevelSectionZIndex()
+	for _, childID := range childIDs {
+		p.addTopLevelSectionViewState(childID, TopLevelSectionLayout{
+			X:      layout.X,
+			Y:      layout.Y,
+			ZIndex: nextZIndex,
+		})
+		nextZIndex += 1
+	}
+	return nil
+}
+
+func (p *Project) restoreGroupChildrenToParent(parentID string, groupID string, childIDs []string) error {
+	parentChildren, err := p.sectionChildIDs(parentID)
+	if err != nil {
+		return err
+	}
+	groupIndex := indexOfString(parentChildren, groupID)
+	if groupIndex < 0 {
+		return fmt.Errorf("%w: %q", ErrSectionNotFound, groupID)
+	}
+	nextChildren := insertStringSlice(
+		filterStringSlice(parentChildren, map[string]struct{}{groupID: {}}),
+		groupIndex,
+		childIDs,
+	)
+	if err := p.setSectionChildren(parentID, nextChildren); err != nil {
+		return err
+	}
+	return p.setSectionParents(childIDs, parentID)
+}
+
+func (p *Project) deleteEmptyGroupSection(groupID string) error {
 	if err := p.setSectionChildren(groupID, []string{}); err != nil {
 		return err
 	}
-	_, err = p.DeleteSections(DeleteSectionsInput{SectionIDs: []string{groupID}})
+	_, err := p.DeleteSections(DeleteSectionsInput{SectionIDs: []string{groupID}})
 	return err
 }
 
@@ -559,6 +588,15 @@ func (p *Project) setSectionParent(sectionID string, parentID string) error {
 	}
 	section.ParentSectionID = strings.TrimSpace(parentID)
 	p.Sections[section.ID] = section
+	return nil
+}
+
+func (p *Project) setSectionParents(sectionIDs []string, parentID string) error {
+	for _, sectionID := range sectionIDs {
+		if err := p.setSectionParent(sectionID, parentID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
