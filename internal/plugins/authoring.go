@@ -34,6 +34,39 @@ type LinkOptions struct {
 	Force           bool
 }
 
+type initTemplateComponent string
+
+const (
+	initTemplateComponentBackend  initTemplateComponent = "backend"
+	initTemplateComponentFrontend initTemplateComponent = "frontend"
+	initTemplateComponentContent  initTemplateComponent = "content"
+)
+
+var initTemplateDefinitions = map[string][]initTemplateComponent{
+	"backend":  {initTemplateComponentBackend},
+	"frontend": {initTemplateComponentFrontend},
+	"content":  {initTemplateComponentContent},
+	"full": {
+		initTemplateComponentBackend,
+		initTemplateComponentFrontend,
+		initTemplateComponentContent,
+	},
+}
+
+type initTemplateFile struct {
+	relativePath string
+	contents     []byte
+	description  string
+}
+
+type preparedLinkSource struct {
+	sourceRoot   string
+	manifest     PluginManifest
+	sourceDigest string
+	scope        PluginScope
+	targetPath   string
+}
+
 func (s *Service) InitTemplate(options InitTemplateOptions) (string, error) {
 	if s == nil || s.store == nil {
 		return "", ErrWorkspaceRootRequired
@@ -52,96 +85,133 @@ func (s *Service) InitTemplate(options InitTemplateOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := ensureInitTemplateRoot(root); err != nil {
+		return "", err
+	}
+
+	manifest, err := scaffoldInitTemplate(root, normalizedID, template)
+	if err != nil {
+		return "", err
+	}
+	if err := writeInitTemplateFiles(root, normalizedID, manifest); err != nil {
+		return "", err
+	}
+	return root, nil
+}
+
+func ensureInitTemplateRoot(root string) error {
 	if _, err := os.Stat(root); err == nil {
-		return "", newServiceError(ServiceErrorCodeInitTargetExists, "Plugin folder already exists: %s", root)
+		return newServiceError(ServiceErrorCodeInitTargetExists, "Plugin folder already exists: %s", root)
 	} else if !os.IsNotExist(err) {
-		return "", fmt.Errorf("stat plugin template root %s: %w", root, err)
+		return fmt.Errorf("stat plugin template root %s: %w", root, err)
 	}
 	if err := os.MkdirAll(root, 0o755); err != nil {
-		return "", fmt.Errorf("create plugin template root %s: %w", root, err)
+		return fmt.Errorf("create plugin template root %s: %w", root, err)
+	}
+	return nil
+}
+
+func scaffoldInitTemplate(root string, pluginID string, template string) (PluginManifest, error) {
+	components, ok := initTemplateDefinitions[template]
+	if !ok {
+		return PluginManifest{}, newServiceError(ServiceErrorCodeSourceInvalid, "Invalid plugin init template: %q", template)
 	}
 
 	manifest := PluginManifest{
 		SchemaVersion:     pluginManifestSchemaVersion,
-		ID:                normalizedID,
-		Name:              normalizedID,
+		ID:                pluginID,
+		Name:              pluginID,
 		Version:           "0.1.0",
 		SettaVersionRange: ">=0.0.0",
 		EnabledByDefault:  false,
 		Capabilities:      []string{},
 	}
-
-	switch template {
-	case "backend":
-		if err := scaffoldBackendTemplate(root, normalizedID); err != nil {
-			return "", err
+	for _, component := range components {
+		if err := scaffoldInitTemplateComponent(root, pluginID, component); err != nil {
+			return PluginManifest{}, err
 		}
-		manifest.Backend = &PluginBackendManifest{
-			Entrypoint: "backend/main.go",
-		}
-	case "frontend":
-		if err := scaffoldFrontendTemplate(root); err != nil {
-			return "", err
-		}
-		manifest.Frontend = &PluginFrontendManifest{
-			Entrypoint: "frontend/dist/index.js",
-			Style:      "frontend/dist/index.css",
-		}
-	case "content":
-		if err := scaffoldContentTemplate(root); err != nil {
-			return "", err
-		}
-		manifest.Content = &PluginContentManifest{
-			BlueprintsDir:       "content/blueprints",
-			ProjectTemplatesDir: "content/project_templates",
-			PromptsDir:          "content/prompts",
-		}
-	case "full":
-		if err := scaffoldBackendTemplate(root, normalizedID); err != nil {
-			return "", err
-		}
-		if err := scaffoldFrontendTemplate(root); err != nil {
-			return "", err
-		}
-		if err := scaffoldContentTemplate(root); err != nil {
-			return "", err
-		}
-		manifest.Backend = &PluginBackendManifest{
-			Entrypoint: "backend/main.go",
-		}
-		manifest.Frontend = &PluginFrontendManifest{
-			Entrypoint: "frontend/dist/index.js",
-			Style:      "frontend/dist/index.css",
-		}
-		manifest.Content = &PluginContentManifest{
-			BlueprintsDir:       "content/blueprints",
-			ProjectTemplatesDir: "content/project_templates",
-			PromptsDir:          "content/prompts",
-		}
-	default:
-		return "", newServiceError(ServiceErrorCodeSourceInvalid, "Invalid plugin init template: %q", template)
+		addInitTemplateComponentToManifest(&manifest, component)
 	}
+	return manifest, nil
+}
 
+func scaffoldInitTemplateComponent(root string, pluginID string, component initTemplateComponent) error {
+	switch component {
+	case initTemplateComponentBackend:
+		return scaffoldBackendTemplate(root, pluginID)
+	case initTemplateComponentFrontend:
+		return scaffoldFrontendTemplate(root)
+	case initTemplateComponentContent:
+		return scaffoldContentTemplate(root)
+	default:
+		return newServiceError(ServiceErrorCodeSourceInvalid, "Invalid plugin init component: %q", component)
+	}
+}
+
+func addInitTemplateComponentToManifest(manifest *PluginManifest, component initTemplateComponent) {
+	switch component {
+	case initTemplateComponentBackend:
+		manifest.Backend = &PluginBackendManifest{
+			Entrypoint: "backend/main.go",
+		}
+	case initTemplateComponentFrontend:
+		manifest.Frontend = &PluginFrontendManifest{
+			Entrypoint: "frontend/dist/index.js",
+			Style:      "frontend/dist/index.css",
+		}
+	case initTemplateComponentContent:
+		manifest.Content = &PluginContentManifest{
+			BlueprintsDir:       "content/blueprints",
+			ProjectTemplatesDir: "content/project_templates",
+			PromptsDir:          "content/prompts",
+		}
+	}
+}
+
+func writeInitTemplateFiles(root string, pluginID string, manifest PluginManifest) error {
 	manifestPayload, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("marshal plugin manifest: %w", err)
+		return fmt.Errorf("marshal plugin manifest: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, pluginManifestFileName), manifestPayload, 0o644); err != nil {
-		return "", fmt.Errorf("write plugin manifest: %w", err)
+	files := []initTemplateFile{
+		{
+			relativePath: pluginManifestFileName,
+			contents:     manifestPayload,
+			description:  "plugin manifest",
+		},
+		{
+			relativePath: "pyproject.toml",
+			contents:     []byte(buildInitTemplatePyproject(pluginID, manifest)),
+			description:  "pyproject.toml",
+		},
+		{
+			relativePath: filepath.Join(".github", "workflows", "release.yml"),
+			contents:     []byte(initTemplateWorkflow),
+			description:  "release workflow",
+		},
+		{
+			relativePath: "README.md",
+			contents:     []byte(buildInitTemplateREADME(pluginID, manifest)),
+			description:  "plugin README",
+		},
 	}
-	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(buildInitTemplatePyproject(normalizedID, manifest)), 0o644); err != nil {
-		return "", fmt.Errorf("write pyproject.toml: %w", err)
+	for _, file := range files {
+		if err := writeInitTemplateFile(root, file); err != nil {
+			return err
+		}
 	}
-	if err := os.MkdirAll(filepath.Join(root, ".github", "workflows"), 0o755); err != nil {
-		return "", fmt.Errorf("create workflow directory: %w", err)
+	return nil
+}
+
+func writeInitTemplateFile(root string, file initTemplateFile) error {
+	fullPath := filepath.Join(root, file.relativePath)
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+		return fmt.Errorf("create parent directory for %s: %w", file.description, err)
 	}
-	if err := os.WriteFile(filepath.Join(root, ".github", "workflows", "release.yml"), []byte(initTemplateWorkflow), 0o644); err != nil {
-		return "", fmt.Errorf("write release workflow: %w", err)
+	if err := os.WriteFile(fullPath, file.contents, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", file.description, err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte(buildInitTemplateREADME(normalizedID, manifest)), 0o644); err != nil {
-		return "", fmt.Errorf("write plugin README: %w", err)
-	}
-	return root, nil
+	return nil
 }
 
 func (s *Service) ValidateFolder(options ValidateFolderOptions) (string, error) {
@@ -166,19 +236,7 @@ func (s *Service) Link(options LinkOptions) (PluginInstallResponse, error) {
 		return PluginInstallResponse{}, ErrWorkspaceRootRequired
 	}
 
-	sourceRoot, manifest, err := s.validateLocalPluginSource(options.LocalPluginRoot)
-	if err != nil {
-		return PluginInstallResponse{}, err
-	}
-	sourceDigest, err := computeDirectoryDigest(sourceRoot)
-	if err != nil {
-		return PluginInstallResponse{}, err
-	}
-	scope, err := NormalizeScope(options.Scope)
-	if err != nil {
-		return PluginInstallResponse{}, err
-	}
-	targetPath, err := s.store.PluginRoot(scope, manifest.ID)
+	prepared, err := s.prepareLinkSource(options)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
@@ -186,85 +244,146 @@ func (s *Service) Link(options LinkOptions) (PluginInstallResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.reserveInstallTargetPathLocked(targetPath, options.Force); err != nil {
+	return s.linkPreparedSourceLocked(prepared, options.Enable, options.Force)
+}
+
+func (s *Service) prepareLinkSource(options LinkOptions) (preparedLinkSource, error) {
+	sourceRoot, manifest, err := s.validateLocalPluginSource(options.LocalPluginRoot)
+	if err != nil {
+		return preparedLinkSource{}, err
+	}
+	sourceDigest, err := computeDirectoryDigest(sourceRoot)
+	if err != nil {
+		return preparedLinkSource{}, err
+	}
+	scope, err := NormalizeScope(options.Scope)
+	if err != nil {
+		return preparedLinkSource{}, err
+	}
+	targetPath, err := s.store.PluginRoot(scope, manifest.ID)
+	if err != nil {
+		return preparedLinkSource{}, err
+	}
+	return preparedLinkSource{
+		sourceRoot:   sourceRoot,
+		manifest:     manifest,
+		sourceDigest: sourceDigest,
+		scope:        scope,
+		targetPath:   targetPath,
+	}, nil
+}
+
+func (s *Service) linkPreparedSourceLocked(prepared preparedLinkSource, enable bool, force bool) (PluginInstallResponse, error) {
+	if err := s.reserveInstallTargetPathLocked(prepared.targetPath, force); err != nil {
 		return PluginInstallResponse{}, err
 	}
-	defer s.releaseInstallTargetPathReservationLocked(targetPath)
+	defer s.releaseInstallTargetPathReservationLocked(prepared.targetPath)
 
-	snapshot, err := s.rescanLocked()
+	hadBackendBefore, err := s.prepareLinkTargetLocked(prepared, force)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
-	existingEntry := findDiscoveredPlugin(snapshot.Plugins, manifest.ID, scope)
-	hadBackendBefore := existingEntry.PluginID != "" && existingEntry.HasBackend()
 
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return PluginInstallResponse{}, fmt.Errorf("create plugin target parent %s: %w", targetPath, err)
+	if err := os.Symlink(prepared.sourceRoot, prepared.targetPath); err != nil {
+		return PluginInstallResponse{}, fmt.Errorf("activate linked plugin %s: %w", prepared.targetPath, err)
 	}
-	if err := s.ensureTargetPathAvailableLocked(targetPath, options.Force); err != nil {
+	if err := s.recordLinkedInstallLocked(prepared, enable); err != nil {
 		return PluginInstallResponse{}, err
 	}
-	if targetExists(targetPath) {
-		if err := s.backupExistingPluginLocked(manifest.ID, scope, targetPath); err != nil {
-			return PluginInstallResponse{}, err
-		}
-		if err := removePluginTarget(targetPath); err != nil {
-			return PluginInstallResponse{}, err
-		}
-	}
-	if err := os.Symlink(sourceRoot, targetPath); err != nil {
-		return PluginInstallResponse{}, fmt.Errorf("activate linked plugin %s: %w", targetPath, err)
-	}
-
-	canonicalSourceKey := "local:" + sourceRoot
-	if err := s.store.SetInstallMetadata(PluginInstallMetadataEntry{
-		PluginID:           manifest.ID,
-		Scope:              scope,
-		SourceSpec:         canonicalSourceKey,
-		CanonicalSourceKey: canonicalSourceKey,
-		SourceDigestSHA256: stringPtr(sourceDigest),
-		Version:            manifest.Version,
-	}); err != nil {
-		return PluginInstallResponse{}, err
-	}
-	if err := s.applyEnablementAfterInstallLocked(manifest.ID, scope, options.Enable); err != nil {
-		return PluginInstallResponse{}, err
-	}
-	delete(s.pendingRestartRemovedPlugin, manifest.ID)
-
-	restartRequired := manifest.Backend != nil || hadBackendBefore
-	if restartRequired {
-		if err := s.addPendingRestartBackendIDLocked(manifest.ID); err != nil {
-			return PluginInstallResponse{}, err
-		}
-	} else if err := s.discardPendingRestartBackendIDLocked(manifest.ID); err != nil {
-		return PluginInstallResponse{}, err
-	}
-
-	snapshot, err = s.rescanLocked()
+	restartRequired, err := s.updateLinkRestartStateLocked(prepared.manifest.ID, prepared.manifest.Backend != nil || hadBackendBefore)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
-	entry := findDiscoveredPlugin(snapshot.Plugins, manifest.ID, scope)
-	if entry.PluginID == "" {
-		return PluginInstallResponse{}, newServiceError(ServiceErrorCodeLinkFailed, "Linked plugin was not discovered: %s", manifest.ID)
-	}
 
+	entry, err := s.rescanLinkedEntryLocked(prepared.manifest.ID, prepared.scope)
+	if err != nil {
+		return PluginInstallResponse{}, err
+	}
 	return PluginInstallResponse{
 		PluginID:              entry.PluginID,
 		Version:               entry.Version,
-		SourceScope:           scope,
-		SourceScopeLabel:      string(scope),
+		SourceScope:           prepared.scope,
+		SourceScopeLabel:      string(prepared.scope),
 		SourcePath:            entry.SourcePath,
 		CanonicalSourceKey:    entry.CanonicalSourceKey,
 		SourceDigestSHA256:    cloneOptionalString(entry.SourceDigestSHA256),
 		RequestedCapabilities: append([]string(nil), entry.RequestedCapabilities...),
 		TrustStatus:           PluginSourceTrustStatusUnverified,
 		TrustWarning:          unverifiedSourceWarning,
-		Components:            manifestComponents(manifest),
+		Components:            manifestComponents(prepared.manifest),
 		State:                 entry.State,
 		RestartRequired:       restartRequired,
 	}, nil
+}
+
+func (s *Service) prepareLinkTargetLocked(prepared preparedLinkSource, force bool) (bool, error) {
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return false, err
+	}
+	existingEntry := findDiscoveredPlugin(snapshot.Plugins, prepared.manifest.ID, prepared.scope)
+	hadBackendBefore := existingEntry.PluginID != "" && existingEntry.HasBackend()
+
+	if err := os.MkdirAll(filepath.Dir(prepared.targetPath), 0o755); err != nil {
+		return false, fmt.Errorf("create plugin target parent %s: %w", prepared.targetPath, err)
+	}
+	if err := s.ensureTargetPathAvailableLocked(prepared.targetPath, force); err != nil {
+		return false, err
+	}
+	if !targetExists(prepared.targetPath) {
+		return hadBackendBefore, nil
+	}
+	if err := s.backupExistingPluginLocked(prepared.manifest.ID, prepared.scope, prepared.targetPath); err != nil {
+		return false, err
+	}
+	if err := removePluginTarget(prepared.targetPath); err != nil {
+		return false, err
+	}
+	return hadBackendBefore, nil
+}
+
+func (s *Service) recordLinkedInstallLocked(prepared preparedLinkSource, enable bool) error {
+	canonicalSourceKey := "local:" + prepared.sourceRoot
+	if err := s.store.SetInstallMetadata(PluginInstallMetadataEntry{
+		PluginID:           prepared.manifest.ID,
+		Scope:              prepared.scope,
+		SourceSpec:         canonicalSourceKey,
+		CanonicalSourceKey: canonicalSourceKey,
+		SourceDigestSHA256: stringPtr(prepared.sourceDigest),
+		Version:            prepared.manifest.Version,
+	}); err != nil {
+		return err
+	}
+	if err := s.applyEnablementAfterInstallLocked(prepared.manifest.ID, prepared.scope, enable); err != nil {
+		return err
+	}
+	delete(s.pendingRestartRemovedPlugin, prepared.manifest.ID)
+	return nil
+}
+
+func (s *Service) updateLinkRestartStateLocked(pluginID string, restartRequired bool) (bool, error) {
+	if restartRequired {
+		if err := s.addPendingRestartBackendIDLocked(pluginID); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	if err := s.discardPendingRestartBackendIDLocked(pluginID); err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+func (s *Service) rescanLinkedEntryLocked(pluginID string, scope PluginScope) (DiscoveredPlugin, error) {
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return DiscoveredPlugin{}, err
+	}
+	entry := findDiscoveredPlugin(snapshot.Plugins, pluginID, scope)
+	if entry.PluginID == "" {
+		return DiscoveredPlugin{}, newServiceError(ServiceErrorCodeLinkFailed, "Linked plugin was not discovered: %s", pluginID)
+	}
+	return entry, nil
 }
 
 func (s *Service) validateLocalPluginSource(rawRoot string) (string, PluginManifest, error) {
@@ -307,21 +426,9 @@ func loadAuthoringManifest(manifestPath string) (PluginManifest, error) {
 		return PluginManifest{}, fmt.Errorf("read plugin manifest %s: %w", manifestPath, err)
 	}
 
-	decoder := json.NewDecoder(bytes.NewReader(content))
-	var rawValue any
-	if err := decoder.Decode(&rawValue); err != nil {
-		return PluginManifest{}, newServiceError(ServiceErrorCodeManifestInvalid, "Invalid JSON in plugin manifest: %s", manifestPath)
-	}
-	if decoder.More() {
-		return PluginManifest{}, newServiceError(ServiceErrorCodeManifestInvalid, "Invalid JSON in plugin manifest: %s", manifestPath)
-	}
-
-	rawManifest, ok := rawValue.(map[string]any)
-	if !ok {
-		return PluginManifest{}, newServiceError(ServiceErrorCodeManifestInvalid, "Plugin manifest failed schema validation in %s: manifest must be a JSON object", manifestPath)
-	}
-	if rawSchemaVersion, ok := rawManifest["schemaVersion"].(float64); ok && rawSchemaVersion == float64(int(rawSchemaVersion)) && int(rawSchemaVersion) != pluginManifestSchemaVersion {
-		return PluginManifest{}, newServiceError(ServiceErrorCodeManifestUnsupported, "Unsupported plugin manifest schema version: %d", int(rawSchemaVersion))
+	rawManifest, err := decodeRawAuthoringManifest(manifestPath, content)
+	if err != nil {
+		return PluginManifest{}, err
 	}
 	if err := validateManifestCapabilities(rawManifest); err != nil {
 		return PluginManifest{}, err
@@ -329,16 +436,48 @@ func loadAuthoringManifest(manifestPath string) (PluginManifest, error) {
 
 	manifest, err := loadPluginManifestFile(manifestPath)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrPluginManifestUnsupported):
-			return PluginManifest{}, newServiceError(ServiceErrorCodeManifestUnsupported, "Unsupported plugin manifest schema version: %s", strings.TrimSpace(strings.TrimPrefix(err.Error(), ErrPluginManifestUnsupported.Error()+":")))
-		case errors.Is(err, ErrPluginManifestInvalid):
-			return PluginManifest{}, newServiceError(ServiceErrorCodeManifestInvalid, "Plugin manifest validation failed in %s: %s", manifestPath, err.Error())
-		default:
-			return PluginManifest{}, err
-		}
+		return PluginManifest{}, normalizeAuthoringManifestLoadError(manifestPath, err)
 	}
 	return manifest, nil
+}
+
+func decodeRawAuthoringManifest(manifestPath string, content []byte) (map[string]any, error) {
+	decoder := json.NewDecoder(bytes.NewReader(content))
+	var rawValue any
+	if err := decoder.Decode(&rawValue); err != nil || decoder.More() {
+		return nil, newServiceError(ServiceErrorCodeManifestInvalid, "Invalid JSON in plugin manifest: %s", manifestPath)
+	}
+	rawManifest, ok := rawValue.(map[string]any)
+	if !ok {
+		return nil, newServiceError(ServiceErrorCodeManifestInvalid, "Plugin manifest failed schema validation in %s: manifest must be a JSON object", manifestPath)
+	}
+	if err := validateAuthoringManifestSchemaVersion(rawManifest); err != nil {
+		return nil, err
+	}
+	return rawManifest, nil
+}
+
+func validateAuthoringManifestSchemaVersion(rawManifest map[string]any) error {
+	rawSchemaVersion, ok := rawManifest["schemaVersion"].(float64)
+	if !ok || rawSchemaVersion != float64(int(rawSchemaVersion)) || int(rawSchemaVersion) == pluginManifestSchemaVersion {
+		return nil
+	}
+	return newServiceError(ServiceErrorCodeManifestUnsupported, "Unsupported plugin manifest schema version: %d", int(rawSchemaVersion))
+}
+
+func normalizeAuthoringManifestLoadError(manifestPath string, err error) error {
+	switch {
+	case errors.Is(err, ErrPluginManifestUnsupported):
+		return newServiceError(
+			ServiceErrorCodeManifestUnsupported,
+			"Unsupported plugin manifest schema version: %s",
+			strings.TrimSpace(strings.TrimPrefix(err.Error(), ErrPluginManifestUnsupported.Error()+":")),
+		)
+	case errors.Is(err, ErrPluginManifestInvalid):
+		return newServiceError(ServiceErrorCodeManifestInvalid, "Plugin manifest validation failed in %s: %s", manifestPath, err.Error())
+	default:
+		return err
+	}
 }
 
 func validateManifestCapabilities(rawManifest map[string]any) error {
@@ -368,64 +507,114 @@ func validateManifestCapabilities(rawManifest map[string]any) error {
 }
 
 func validateManifestPathsForAuthoring(pluginRoot string, manifest PluginManifest) error {
-	if manifest.Backend != nil {
-		path, err := resolveAuthoringPath(pluginRoot, manifest.Backend.Entrypoint, "Invalid backend entrypoint")
-		if err != nil {
+	if err := validateBackendManifestPathsForAuthoring(pluginRoot, manifest.Backend); err != nil {
+		return err
+	}
+	if err := validateFrontendManifestPathsForAuthoring(pluginRoot, manifest.Frontend); err != nil {
+		return err
+	}
+	if err := validateContentManifestPathsForAuthoring(pluginRoot, manifest.Content); err != nil {
+		return err
+	}
+	return validateConfigSchemaPathForAuthoring(pluginRoot, manifest.ConfigSchemaPath)
+}
+
+func validateBackendManifestPathsForAuthoring(pluginRoot string, backend *PluginBackendManifest) error {
+	if backend == nil {
+		return nil
+	}
+	return validateAuthoringRegularFile(
+		pluginRoot,
+		backend.Entrypoint,
+		"Invalid backend entrypoint",
+		"Plugin backend entrypoint not found: %s",
+	)
+}
+
+func validateFrontendManifestPathsForAuthoring(pluginRoot string, frontend *PluginFrontendManifest) error {
+	if frontend == nil {
+		return nil
+	}
+	if err := validateAuthoringRegularFile(
+		pluginRoot,
+		frontend.Entrypoint,
+		"Invalid frontend entrypoint",
+		"Plugin frontend entrypoint not found: %s",
+	); err != nil {
+		return err
+	}
+	return validateAuthoringOptionalRegularFile(
+		pluginRoot,
+		frontend.Style,
+		"Invalid frontend style path",
+		"Plugin frontend style not found: %s",
+	)
+}
+
+func validateContentManifestPathsForAuthoring(pluginRoot string, content *PluginContentManifest) error {
+	if content == nil {
+		return nil
+	}
+	requirements := []struct {
+		label string
+		path  string
+	}{
+		{label: "blueprints", path: content.BlueprintsDir},
+		{label: "project templates", path: content.ProjectTemplatesDir},
+		{label: "prompts", path: content.PromptsDir},
+	}
+	for _, requirement := range requirements {
+		if err := validateAuthoringOptionalDirectory(
+			pluginRoot,
+			requirement.path,
+			fmt.Sprintf("Invalid content %s directory", requirement.label),
+			fmt.Sprintf("Plugin content %s directory not found: %%s", requirement.label),
+		); err != nil {
 			return err
 		}
-		info, err := os.Stat(path)
-		if err != nil || !info.Mode().IsRegular() {
-			return newServiceError(ServiceErrorCodeManifestPathNotFound, "Plugin backend entrypoint not found: %s", path)
-		}
 	}
-	if manifest.Frontend != nil {
-		path, err := resolveAuthoringPath(pluginRoot, manifest.Frontend.Entrypoint, "Invalid frontend entrypoint")
-		if err != nil {
-			return err
-		}
-		info, err := os.Stat(path)
-		if err != nil || !info.Mode().IsRegular() {
-			return newServiceError(ServiceErrorCodeManifestPathNotFound, "Plugin frontend entrypoint not found: %s", path)
-		}
-		if strings.TrimSpace(manifest.Frontend.Style) != "" {
-			stylePath, err := resolveAuthoringPath(pluginRoot, manifest.Frontend.Style, "Invalid frontend style path")
-			if err != nil {
-				return err
-			}
-			info, err := os.Stat(stylePath)
-			if err != nil || !info.Mode().IsRegular() {
-				return newServiceError(ServiceErrorCodeManifestPathNotFound, "Plugin frontend style not found: %s", stylePath)
-			}
-		}
+	return nil
+}
+
+func validateConfigSchemaPathForAuthoring(pluginRoot string, configSchemaPath string) error {
+	return validateAuthoringOptionalRegularFile(
+		pluginRoot,
+		configSchemaPath,
+		"Invalid configSchemaPath",
+		"Plugin configSchemaPath not found: %s",
+	)
+}
+
+func validateAuthoringOptionalRegularFile(pluginRoot string, relativePath string, invalidMessage string, notFoundFormat string) error {
+	if strings.TrimSpace(relativePath) == "" {
+		return nil
 	}
-	if manifest.Content != nil {
-		for label, rawPath := range map[string]string{
-			"blueprints":        manifest.Content.BlueprintsDir,
-			"project templates": manifest.Content.ProjectTemplatesDir,
-			"prompts":           manifest.Content.PromptsDir,
-		} {
-			if strings.TrimSpace(rawPath) == "" {
-				continue
-			}
-			dirPath, err := resolveAuthoringPath(pluginRoot, rawPath, fmt.Sprintf("Invalid content %s directory", label))
-			if err != nil {
-				return err
-			}
-			info, err := os.Stat(dirPath)
-			if err != nil || !info.IsDir() {
-				return newServiceError(ServiceErrorCodeManifestPathNotFound, "Plugin content %s directory not found: %s", label, dirPath)
-			}
-		}
+	return validateAuthoringRegularFile(pluginRoot, relativePath, invalidMessage, notFoundFormat)
+}
+
+func validateAuthoringRegularFile(pluginRoot string, relativePath string, invalidMessage string, notFoundFormat string) error {
+	path, err := resolveAuthoringPath(pluginRoot, relativePath, invalidMessage)
+	if err != nil {
+		return err
 	}
-	if strings.TrimSpace(manifest.ConfigSchemaPath) != "" {
-		schemaPath, err := resolveAuthoringPath(pluginRoot, manifest.ConfigSchemaPath, "Invalid configSchemaPath")
-		if err != nil {
-			return err
-		}
-		info, err := os.Stat(schemaPath)
-		if err != nil || !info.Mode().IsRegular() {
-			return newServiceError(ServiceErrorCodeManifestPathNotFound, "Plugin configSchemaPath not found: %s", schemaPath)
-		}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return newServiceError(ServiceErrorCodeManifestPathNotFound, notFoundFormat, path)
+	}
+	return nil
+}
+
+func validateAuthoringOptionalDirectory(pluginRoot string, relativePath string, invalidMessage string, notFoundFormat string) error {
+	if strings.TrimSpace(relativePath) == "" {
+		return nil
+	}
+	path, err := resolveAuthoringPath(pluginRoot, relativePath, invalidMessage)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return newServiceError(ServiceErrorCodeManifestPathNotFound, notFoundFormat, path)
 	}
 	return nil
 }
@@ -517,12 +706,21 @@ func readPyprojectMetadataOptional(pluginRoot string) (string, string) {
 }
 
 func readPackageMetadataOptional(pluginRoot string) (string, string) {
+	metadataPath := findPackageMetadataPath(pluginRoot)
+	if metadataPath == "" {
+		return "", ""
+	}
+	content, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return "", ""
+	}
+	return parsePackageMetadataNameAndVersion(string(content))
+}
+
+func findPackageMetadataPath(pluginRoot string) string {
 	metadataPath := ""
-	walkErr := filepath.WalkDir(pluginRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if entry.IsDir() {
+	if err := filepath.WalkDir(pluginRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(path, ".dist-info"+string(filepath.Separator)+"METADATA") {
@@ -530,17 +728,16 @@ func readPackageMetadataOptional(pluginRoot string) (string, string) {
 			return fs.SkipAll
 		}
 		return nil
-	})
-	if walkErr != nil || metadataPath == "" {
-		return "", ""
+	}); err != nil {
+		return ""
 	}
-	content, err := os.ReadFile(metadataPath)
-	if err != nil {
-		return "", ""
-	}
+	return metadataPath
+}
+
+func parsePackageMetadataNameAndVersion(content string) (string, string) {
 	packageName := ""
 	packageVersion := ""
-	for _, line := range strings.Split(string(content), "\n") {
+	for _, line := range strings.Split(content, "\n") {
 		switch {
 		case strings.HasPrefix(line, "Name:") && packageName == "":
 			packageName = strings.TrimSpace(strings.TrimPrefix(line, "Name:"))

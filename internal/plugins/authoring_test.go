@@ -72,6 +72,32 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 	}
 }
 
+// Init should default an empty template to the full publish-ready scaffold.
+func TestServiceInitTemplateDefaultsBlankTemplateToFullScaffold(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	pluginRoot, err := service.InitTemplate(InitTemplateOptions{
+		PluginID: "setta-default-template-fixture",
+		Template: "   ",
+		OutDir:   roots.workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("init default full template: %v", err)
+	}
+
+	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load default scaffold manifest: %v", err)
+	}
+	if manifest.Backend == nil || manifest.Frontend == nil || manifest.Content == nil {
+		t.Fatalf("expected blank template to scaffold full manifest, got %#v", manifest)
+	}
+	if _, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot}); err != nil {
+		t.Fatalf("validate default full scaffold: %v", err)
+	}
+}
+
 // Init should reject invalid plugin ids and existing target roots before writing files.
 func TestServiceInitTemplateRejectsInvalidIDsAndExistingTarget(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -176,6 +202,50 @@ func TestServiceInitTemplateGeneratesGoBackendScaffold(t *testing.T) {
 	}
 }
 
+// Init should scaffold a frontend-only template without backend or content payloads.
+func TestServiceInitTemplateGeneratesFrontendOnlyScaffold(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	pluginRoot, err := service.InitTemplate(InitTemplateOptions{
+		PluginID: "setta-frontend-fixture",
+		Template: "frontend",
+		OutDir:   roots.workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("init frontend template: %v", err)
+	}
+	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load frontend scaffold manifest: %v", err)
+	}
+	if manifest.Frontend == nil || manifest.Frontend.Entrypoint != "frontend/dist/index.js" || manifest.Frontend.Style != "frontend/dist/index.css" {
+		t.Fatalf("expected frontend scaffold manifest, got %#v", manifest.Frontend)
+	}
+	if manifest.Backend != nil || manifest.Content != nil {
+		t.Fatalf("expected frontend-only scaffold, got %#v", manifest)
+	}
+	for _, relativePath := range []string{
+		filepath.Join("frontend", "dist", "index.js"),
+		filepath.Join("frontend", "dist", "index.css"),
+	} {
+		if _, err := os.Stat(filepath.Join(pluginRoot, relativePath)); err != nil {
+			t.Fatalf("expected frontend scaffold file %s: %v", relativePath, err)
+		}
+	}
+	for _, relativePath := range []string{
+		"backend",
+		"content",
+	} {
+		if _, err := os.Stat(filepath.Join(pluginRoot, relativePath)); !os.IsNotExist(err) {
+			t.Fatalf("expected %s to be omitted from frontend scaffold, got err=%v", relativePath, err)
+		}
+	}
+	if _, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot}); err != nil {
+		t.Fatalf("validate frontend scaffolded plugin: %v", err)
+	}
+}
+
 // Init should scaffold a content-only template without backend or frontend payloads.
 func TestServiceInitTemplateGeneratesContentOnlyScaffold(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -274,6 +344,26 @@ func TestServiceValidateFolderRejectsAuthoringFailures(t *testing.T) {
 		PluginRoot: validRoot,
 	})
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeHostVersionInvalid)
+}
+
+func TestReadPackageMetadataOptionalReadsDistInfoMetadata(t *testing.T) {
+	pluginRoot := t.TempDir()
+	distInfoRoot := filepath.Join(pluginRoot, "build", "setta_fixture-1.2.3.dist-info")
+	if err := os.MkdirAll(distInfoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir dist-info root: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(distInfoRoot, "METADATA"),
+		[]byte("Metadata-Version: 2.4\nName: setta-fixture\nVersion: 1.2.3\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+
+	name, version := readPackageMetadataOptional(pluginRoot)
+	if name != "setta-fixture" || version != "1.2.3" {
+		t.Fatalf("expected package metadata from dist-info, got name=%q version=%q", name, version)
+	}
 }
 
 // Validate should fail closed on missing manifests, invalid JSON, missing paths,
