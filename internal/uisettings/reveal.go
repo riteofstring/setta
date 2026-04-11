@@ -86,6 +86,37 @@ func NewRevealService(options RevealServiceOptions) (*RevealCoordinator, error) 
 }
 
 func (c *RevealCoordinator) Reveal(ctx context.Context, input RevealInput) (RevealResult, error) {
+	result, err := c.initializeRevealResult(input)
+	if err != nil {
+		return result, err
+	}
+
+	entry, err := resolveRevealEntry(input.Registry, input.SettingID)
+	if err != nil {
+		return failedRevealResult(result, input.SettingID, err), nil
+	}
+
+	requestedActiveSectionID, target, err := prepareRevealTarget(entry.Metadata, *input.ProjectView, input.SectionIDToActivate, input.ContextSectionID)
+	if err != nil {
+		return failedRevealResult(result, entry.Metadata.SettingID, err), nil
+	}
+
+	frontendStatus, err := c.dispatchReveal(ctx, input, result, entry.Metadata.SettingID, requestedActiveSectionID, target)
+	if err != nil {
+		if errors.Is(err, context.Canceled) && ctx.Err() != nil {
+			return RevealResult{}, ctx.Err()
+		}
+		return failedRevealResult(result, entry.Metadata.SettingID, err), nil
+	}
+
+	if frontendStatus.Status == "revealed" {
+		return successfulRevealResult(result, entry.Metadata.SettingID, target), nil
+	}
+
+	return failedRevealResult(result, entry.Metadata.SettingID, settingErrorFromFrontendStatus(frontendStatus)), nil
+}
+
+func (c *RevealCoordinator) initializeRevealResult(input RevealInput) (RevealResult, error) {
 	if c == nil {
 		return RevealResult{}, fmt.Errorf("uisettings: reveal service is unavailable")
 	}
@@ -94,6 +125,7 @@ func (c *RevealCoordinator) Reveal(ctx context.Context, input RevealInput) (Reve
 	if err != nil {
 		return RevealResult{}, err
 	}
+
 	result := RevealResult{
 		RequestID:       requestID,
 		ProjectConfigID: strings.TrimSpace(input.ProjectConfigID),
@@ -105,121 +137,149 @@ func (c *RevealCoordinator) Reveal(ctx context.Context, input RevealInput) (Reve
 	if input.ProjectView == nil {
 		return result, fmt.Errorf("uisettings: project view is required")
 	}
+	return result, nil
+}
 
-	entry, ok, err := input.Registry.Get(input.SettingID)
+func resolveRevealEntry(registry *Registry, settingID string) (RuntimeEntry, error) {
+	entry, ok, err := registry.Get(settingID)
 	if err != nil {
-		result.Statuses = []RevealStatus{failedRevealStatus(
-			strings.TrimSpace(input.SettingID),
-			newSettingError(ErrorCodeMutationFailed, "%s", err.Error()),
-		)}
-		return result, nil
+		return RuntimeEntry{}, newSettingError(ErrorCodeMutationFailed, "%s", err.Error())
 	}
-	if !ok {
-		missingErr := input.Registry.MissingSettingError(input.SettingID)
-		var settingErr *SettingError
-		if errors.As(missingErr, &settingErr) {
-			result.Statuses = []RevealStatus{failedRevealStatus(strings.TrimSpace(input.SettingID), settingErr)}
-			return result, nil
-		}
-		result.Statuses = []RevealStatus{failedRevealStatus(
-			strings.TrimSpace(input.SettingID),
-			newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", strings.TrimSpace(input.SettingID)),
-		)}
-		return result, nil
+	if ok {
+		return entry, nil
 	}
 
-	location := entry.Metadata.Location
-	requestedActiveSectionID, resolvedActiveSectionID, err := resolveRevealActiveSection(entry.Metadata, *input.ProjectView, input.SectionIDToActivate, input.ContextSectionID)
+	missingErr := registry.MissingSettingError(settingID)
+	var settingErr *SettingError
+	if errors.As(missingErr, &settingErr) {
+		return RuntimeEntry{}, settingErr
+	}
+	return RuntimeEntry{}, newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", strings.TrimSpace(settingID))
+}
+
+func prepareRevealTarget(entry Entry, view projectview.SingleConfig, explicitSectionID string, contextSectionID string) (string, realtime.UISettingRevealTarget, error) {
+	requestedActiveSectionID, resolvedActiveSectionID, err := resolveRevealActiveSection(entry, view, explicitSectionID, contextSectionID)
 	if err != nil {
-		result.Statuses = []RevealStatus{failedRevealStatus(entry.Metadata.SettingID, err)}
-		return result, nil
+		return "", realtime.UISettingRevealTarget{}, err
 	}
 	if resolvedActiveSectionID != "" {
-		if err := validateRightPaneRevealTarget(*input.ProjectView, resolvedActiveSectionID, location.UIEditorTabName); err != nil {
-			result.Statuses = []RevealStatus{failedRevealStatus(entry.Metadata.SettingID, err)}
-			return result, nil
+		if err := validateRightPaneRevealTarget(view, resolvedActiveSectionID, entry.Location.UIEditorTabName); err != nil {
+			return "", realtime.UISettingRevealTarget{}, err
 		}
 	}
+	return requestedActiveSectionID, buildRevealTarget(entry), nil
+}
 
-	target := buildRevealTarget(entry.Metadata)
+func (c *RevealCoordinator) dispatchReveal(
+	ctx context.Context,
+	input RevealInput,
+	result RevealResult,
+	settingID string,
+	requestedActiveSectionID string,
+	target realtime.UISettingRevealTarget,
+) (realtime.UISettingRevealResultStatus, error) {
 	targetFrontendID, affinitySelected, err := c.resolveTargetFrontendID(input.FrontendAffinityToken, input.ShareSessionID)
 	if err != nil {
-		result.Statuses = []RevealStatus{failedRevealStatus(entry.Metadata.SettingID, err)}
-		return result, nil
+		return realtime.UISettingRevealResultStatus{}, err
 	}
+	if err := c.registerRevealRequest(result.RequestID, result.ProjectConfigID, settingID, targetFrontendID); err != nil {
+		return realtime.UISettingRevealResultStatus{}, err
+	}
+	if err := c.sendRevealMessage(ctx, input, result, requestedActiveSectionID, target, targetFrontendID, affinitySelected); err != nil {
+		return realtime.UISettingRevealResultStatus{}, err
+	}
+	return c.awaitRevealStatus(ctx, result.RequestID, result.DurationMS, settingID)
+}
 
-	if err := c.results.RegisterRequest(requestID, realtime.RegisterUISettingRevealRequestParams{
+func (c *RevealCoordinator) registerRevealRequest(requestID string, projectConfigID string, settingID string, targetFrontendID string) error {
+	return c.results.RegisterRequest(requestID, realtime.RegisterUISettingRevealRequestParams{
 		ExpectedWebsocketID:     targetFrontendID,
-		ExpectedProjectConfigID: result.ProjectConfigID,
-		ExpectedSettingIDs:      []string{entry.Metadata.SettingID},
-	}); err != nil {
-		return result, err
-	}
+		ExpectedProjectConfigID: projectConfigID,
+		ExpectedSettingIDs:      []string{settingID},
+	})
+}
 
+func (c *RevealCoordinator) sendRevealMessage(
+	ctx context.Context,
+	input RevealInput,
+	result RevealResult,
+	requestedActiveSectionID string,
+	target realtime.UISettingRevealTarget,
+	targetFrontendID string,
+	affinitySelected bool,
+) error {
 	delivered, sendErr := c.transport.SendJSON(ctx, realtime.NewUISettingRevealMessage(realtime.UISettingRevealContent{
 		ProjectConfigID: result.ProjectConfigID,
 		ChatID:          stringPointerIfNotBlank(input.ChatID),
 		ActiveSectionID: stringPointerIfNotBlank(requestedActiveSectionID),
 		Reveals:         []realtime.UISettingRevealTarget{target},
 		DurationMS:      result.DurationMS,
-		RequestID:       requestID,
+		RequestID:       result.RequestID,
 	}), targetFrontendID)
 	if sendErr != nil {
-		c.results.CancelRequest(requestID)
-		return result, sendErr
+		c.results.CancelRequest(result.RequestID)
+		return sendErr
 	}
-	if !delivered {
-		c.results.CancelRequest(requestID)
-		if affinitySelected {
-			result.Statuses = []RevealStatus{failedRevealStatus(
-				entry.Metadata.SettingID,
-				newSettingError(ErrorCodeMutationFailed, "Requested frontend affinity token became unavailable before reveal dispatch: %s", targetFrontendID),
-			)}
-			return result, nil
-		}
-		result.Statuses = []RevealStatus{failedRevealStatus(
-			entry.Metadata.SettingID,
-			newSettingError(ErrorCodeMutationFailed, "Selected frontend websocket became unavailable before reveal dispatch: %s", targetFrontendID),
-		)}
-		return result, nil
+	if delivered {
+		return nil
 	}
 
-	waitCtx, cancel := context.WithTimeout(ctx, revealWaitTimeout(result.DurationMS))
+	c.results.CancelRequest(result.RequestID)
+	if affinitySelected {
+		return newSettingError(
+			ErrorCodeMutationFailed,
+			"Requested frontend affinity token became unavailable before reveal dispatch: %s",
+			targetFrontendID,
+		)
+	}
+	return newSettingError(
+		ErrorCodeMutationFailed,
+		"Selected frontend websocket became unavailable before reveal dispatch: %s",
+		targetFrontendID,
+	)
+}
+
+func (c *RevealCoordinator) awaitRevealStatus(
+	ctx context.Context,
+	requestID string,
+	durationMS int,
+	settingID string,
+) (realtime.UISettingRevealResultStatus, error) {
+	waitCtx, cancel := context.WithTimeout(ctx, revealWaitTimeout(durationMS))
 	defer cancel()
 
 	revealResult, err := c.results.Wait(waitCtx, requestID)
 	if err != nil {
 		if errors.Is(err, context.Canceled) && ctx.Err() != nil {
-			return RevealResult{}, ctx.Err()
+			return realtime.UISettingRevealResultStatus{}, ctx.Err()
 		}
-		result.Statuses = []RevealStatus{failedRevealStatus(entry.Metadata.SettingID, mapRevealWaitError(entry.Metadata.SettingID, err))}
-		return result, nil
+		return realtime.UISettingRevealResultStatus{}, mapRevealWaitError(settingID, err)
 	}
 
-	frontendStatus, ok := revealStatusForSetting(revealResult.Statuses, entry.Metadata.SettingID)
+	frontendStatus, ok := revealStatusForSetting(revealResult.Statuses, settingID)
 	if !ok {
-		result.Statuses = []RevealStatus{failedRevealStatus(
-			entry.Metadata.SettingID,
-			newSettingError(ErrorCodeMutationFailed, "Frontend reveal response did not include status for %s.", entry.Metadata.SettingID),
-		)}
-		return result, nil
+		return realtime.UISettingRevealResultStatus{}, newSettingError(
+			ErrorCodeMutationFailed,
+			"Frontend reveal response did not include status for %s.",
+			settingID,
+		)
 	}
+	return frontendStatus, nil
+}
 
-	if frontendStatus.Status == "revealed" {
-		result.EmittedRevealCount = 1
-		result.Statuses = []RevealStatus{{
-			SettingID: entry.Metadata.SettingID,
-			Status:    "revealed",
-			Target:    &target,
-		}}
-		return result, nil
-	}
+func failedRevealResult(result RevealResult, settingID string, err error) RevealResult {
+	result.Statuses = []RevealStatus{failedRevealStatus(settingID, err)}
+	return result
+}
 
-	result.Statuses = []RevealStatus{failedRevealStatus(
-		entry.Metadata.SettingID,
-		settingErrorFromFrontendStatus(frontendStatus),
-	)}
-	return result, nil
+func successfulRevealResult(result RevealResult, settingID string, target realtime.UISettingRevealTarget) RevealResult {
+	result.EmittedRevealCount = 1
+	result.Statuses = []RevealStatus{{
+		SettingID: settingID,
+		Status:    "revealed",
+		Target:    &target,
+	}}
+	return result
 }
 
 func (c *RevealCoordinator) resolveTargetFrontendID(frontendAffinityToken string, shareSessionID string) (string, bool, error) {
