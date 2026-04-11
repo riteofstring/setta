@@ -53,3 +53,16 @@ def test_logging_context_filter_adds_attributes() -> None:
     logging_filter = LoggingContextFilter()
     assert logging_filter.filter(record)
     assert record.setta_context == "project_config_id=xyz request_id=abc"
+
+
+def test_normalize_value_formats_scalar_types() -> None:
+    assert logging_context_module._normalize_value(True) == "true"
+    assert logging_context_module._normalize_value(False) == "false"
+    assert logging_context_module._normalize_value(7) == "7"
+    assert logging_context_module._normalize_value(2.5) == "2.5"
+    assert logging_context_module._normalize_value("alpha") == "alpha"
+
+
+def test_normalize_value_rejects_none() -> None:
+    with pytest.raises(ValueError, match="cannot be None"):
+        logging_context_module._normalize_value(None)
