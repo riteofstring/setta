@@ -106,6 +106,28 @@ func TestApplyControlSocketArgsLeavesExplicitOptionsUntouched(t *testing.T) {
 	}
 }
 
+func TestHasControlSocketOptionRecognizesCompactAndInlineOptions(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{name: "control_socket_flag", args: []string{"-S/tmp/setta.sock"}, want: true},
+		{name: "inline_control_path_option", args: []string{"-oControlPath=/tmp/setta.sock"}, want: true},
+		{name: "mixed_case_split_option", args: []string{"-o", "CONTROLPERSIST=5m"}, want: true},
+		{name: "missing_option_value", args: []string{"-o"}, want: false},
+		{name: "non_control_option", args: []string{"-o", "StrictHostKeyChecking=no"}, want: false},
+	}
+
+	for _, testCase := range testCases {
+		if got := HasControlSocketOption(testCase.args); got != testCase.want {
+			t.Fatalf("%s: HasControlSocketOption(%#v) = %t, want %t", testCase.name, testCase.args, got, testCase.want)
+		}
+	}
+}
+
 func TestSplitTildePathAllowsSafePrefixes(t *testing.T) {
 	t.Parallel()
 
@@ -125,6 +147,22 @@ func TestSplitTildePathAllowsSafePrefixes(t *testing.T) {
 		prefix, remainder, ok := splitTildePath(testCase.path)
 		if prefix != testCase.wantPrefix || remainder != testCase.wantRemainder || ok != testCase.wantOK {
 			t.Fatalf("splitTildePath(%q) = (%q, %q, %t), want (%q, %q, %t)", testCase.path, prefix, remainder, ok, testCase.wantPrefix, testCase.wantRemainder, testCase.wantOK)
+		}
+	}
+}
+
+func TestSplitTildePathRejectsUnsafePrefixes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []string{
+		"~user!/repo",
+		"~user name/repo",
+		"~user$/repo",
+	}
+
+	for _, testCase := range testCases {
+		if prefix, remainder, ok := splitTildePath(testCase); ok || prefix != "" || remainder != "" {
+			t.Fatalf("splitTildePath(%q) = (%q, %q, %t), want rejected prefix", testCase, prefix, remainder, ok)
 		}
 	}
 }
@@ -272,6 +310,19 @@ func TestParseRemoteConnectInfoValidatesLauncherOriginProof(t *testing.T) {
 	requireSSHErrorCode(t, err, "RemoteConnectInfo")
 	if !strings.Contains(err.Error(), "did not match requested launcher origin") {
 		t.Fatalf("expected launcher origin mismatch error, got %q", err.Error())
+	}
+}
+
+func TestParseRemoteConnectInfoRejectsUnresolvedSettaFilesLocation(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseRemoteConnectInfo(map[string]any{
+		"bootstrapUrlFragment": "http://127.0.0.1:61234/__setta__/bootstrap#token=abc",
+		"settaFilesLocation":   "auto",
+	}, "")
+	requireSSHErrorCode(t, err, "RemoteConnectInfo")
+	if !strings.Contains(err.Error(), "resolved settaFilesLocation") {
+		t.Fatalf("expected resolved location error, got %q", err.Error())
 	}
 }
 

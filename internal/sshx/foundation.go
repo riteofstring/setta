@@ -16,6 +16,23 @@ import (
 
 const JSONPayloadPrefix = "__SETTA_JSON_B64__"
 
+const (
+	remoteConnectInfoErrorCode = "RemoteConnectInfo"
+	remoteSessionListErrorCode = "RemoteSessionList"
+	tildeUserAllowedRunes      = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-"
+)
+
+var remoteSessionRequiredKeys = []string{
+	"id",
+	"workspacePath",
+	"workspacePathCanonical",
+	"host",
+	"port",
+	"pid",
+	"startedAt",
+	"serverMode",
+}
+
 type Error struct {
 	Code    string
 	Message string
@@ -85,35 +102,19 @@ func SSHCommandPrefix(batchMode bool, sshBin string) []string {
 }
 
 func HasControlSocketOption(sshArgs []string) bool {
-	controlKeys := []string{"controlmaster", "controlpath", "controlpersist"}
-	for index, arg := range sshArgs {
-		switch {
-		case arg == "-M" || arg == "-S":
-			return true
-		case strings.HasPrefix(arg, "-S") && len(arg) > 2:
+	for index := 0; index < len(sshArgs); index++ {
+		if isControlSocketFlag(sshArgs[index]) {
 			return true
 		}
-
-		lowerArg := strings.ToLower(arg)
-		if lowerArg == "-o" {
-			if index+1 >= len(sshArgs) {
-				continue
-			}
-			option := strings.ToLower(sshArgs[index+1])
-			for _, key := range controlKeys {
-				if strings.HasPrefix(option, key+"=") {
-					return true
-				}
-			}
+		option, consumedNext := sshOptionValue(sshArgs, index)
+		if option == "" {
 			continue
 		}
-		if strings.HasPrefix(lowerArg, "-o") {
-			option := strings.TrimPrefix(lowerArg, "-o")
-			for _, key := range controlKeys {
-				if strings.HasPrefix(option, key+"=") {
-					return true
-				}
-			}
+		if consumedNext {
+			index++
+		}
+		if isControlSocketOption(option) {
+			return true
 		}
 	}
 	return false
@@ -198,171 +199,46 @@ func ParseJSONPayload(output string) (map[string]any, error) {
 }
 
 func ParseRemoteSessionList(payload map[string]any) ([]RemoteSessionSummary, error) {
-	rawSessions, ok := payload["sessions"]
-	if !ok {
-		rawSessions = []any{}
+	sessionList, err := parseRemoteSessionEntries(payload)
+	if err != nil {
+		return nil, err
 	}
-	sessionList, ok := rawSessions.([]any)
-	if !ok {
-		return nil, &Error{
-			Code:    "RemoteSessionList",
-			Message: "Remote sessions payload is invalid.",
-		}
-	}
-
 	sessions := make([]RemoteSessionSummary, 0, len(sessionList))
 	for _, rawSession := range sessionList {
 		sessionPayload, ok := rawSession.(map[string]any)
 		if !ok {
 			continue
 		}
-		requiredKeys := []string{
-			"id",
-			"workspacePath",
-			"workspacePathCanonical",
-			"host",
-			"port",
-			"pid",
-			"startedAt",
-			"serverMode",
-		}
-		missing := make([]string, 0, len(requiredKeys))
-		for _, key := range requiredKeys {
-			if _, ok := sessionPayload[key]; !ok {
-				missing = append(missing, key)
-			}
-		}
-		if len(missing) > 0 {
-			return nil, &Error{
-				Code:    "RemoteSessionList",
-				Message: fmt.Sprintf("Remote sessions payload missing required key(s): %s.", strings.Join(missing, ", ")),
-			}
-		}
-
-		sessionID, ok := sessionPayload["id"].(string)
-		if !ok || strings.TrimSpace(sessionID) == "" {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid id values."}
-		}
-		workspacePath, ok := sessionPayload["workspacePath"].(string)
-		if !ok || strings.TrimSpace(workspacePath) == "" {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid workspacePath values."}
-		}
-		workspacePathCanonical, ok := sessionPayload["workspacePathCanonical"].(string)
-		if !ok || strings.TrimSpace(workspacePathCanonical) == "" {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid workspacePathCanonical values."}
-		}
-		host, ok := sessionPayload["host"].(string)
-		if !ok || strings.TrimSpace(host) == "" {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid host values."}
-		}
-
-		port, err := parseInteger(sessionPayload["port"])
+		session, err := parseRemoteSessionSummary(sessionPayload)
 		if err != nil {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid port values."}
+			return nil, err
 		}
-		pid, err := parseInteger(sessionPayload["pid"])
-		if err != nil {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid pid values."}
-		}
-		startedAtRaw, ok := sessionPayload["startedAt"].(string)
-		if !ok || strings.TrimSpace(startedAtRaw) == "" {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid startedAt values."}
-		}
-		startedAt, err := time.Parse(time.RFC3339Nano, startedAtRaw)
-		if err != nil {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid startedAt values."}
-		}
-		serverModeRaw, ok := sessionPayload["serverMode"].(string)
-		if !ok {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid serverMode values."}
-		}
-		serverMode := RemoteServerMode(serverModeRaw)
-		if serverMode != RemoteServerModeIDE && serverMode != RemoteServerModeLauncher {
-			return nil, &Error{Code: "RemoteSessionList", Message: "Remote sessions payload has invalid serverMode values."}
-		}
-
-		sessions = append(sessions, RemoteSessionSummary{
-			ID:                     sessionID,
-			WorkspacePath:          workspacePath,
-			WorkspacePathCanonical: workspacePathCanonical,
-			Host:                   host,
-			Port:                   port,
-			PID:                    pid,
-			StartedAt:              startedAt,
-			ServerMode:             serverMode,
-		})
+		sessions = append(sessions, session)
 	}
 	return sessions, nil
 }
 
 func ParseRemoteConnectInfo(payload map[string]any, requestedLauncherOrigin string) (RemoteConnectInfo, error) {
-	bootstrapURLFragment, ok := payload["bootstrapUrlFragment"].(string)
-	if !ok || strings.TrimSpace(bootstrapURLFragment) == "" {
-		return RemoteConnectInfo{}, &Error{
-			Code:    "RemoteConnectInfo",
-			Message: "Remote connect info did not include a bootstrapUrlFragment.",
-		}
-	}
+	info := RemoteConnectInfo{}
 
-	var info RemoteConnectInfo
+	bootstrapURLFragment, err := requireRemoteConnectInfoString(
+		payload,
+		"bootstrapUrlFragment",
+		"Remote connect info did not include a bootstrapUrlFragment.",
+	)
+	if err != nil {
+		return RemoteConnectInfo{}, err
+	}
 	info.BootstrapURLFragment = bootstrapURLFragment
 
-	if rawLocation, ok := payload["settaFilesLocation"]; ok && rawLocation != nil {
-		location, ok := rawLocation.(string)
-		if !ok {
-			return RemoteConnectInfo{}, &Error{
-				Code:    "RemoteConnectInfo",
-				Message: "Remote connect info did not include a valid settaFilesLocation.",
-			}
-		}
-		normalizedLocation, err := NormalizeSettaFilesLocation(location)
-		if err != nil || (normalizedLocation != "" && normalizedLocation != "local" && normalizedLocation != "global") {
-			return RemoteConnectInfo{}, &Error{
-				Code:    "RemoteConnectInfo",
-				Message: "Remote connect info did not include a resolved settaFilesLocation.",
-			}
-		}
-		info.SettaFilesLocation = normalizedLocation
-	}
-
-	var err error
-	if info.SettaFilesRoot, err = parseOptionalConnectInfoField(payload, "settaFilesRoot"); err != nil {
+	if info.SettaFilesLocation, err = parseResolvedSettaFilesLocation(payload); err != nil {
 		return RemoteConnectInfo{}, err
 	}
-	if info.RuntimeRoot, err = parseOptionalConnectInfoField(payload, "runtimeRoot"); err != nil {
+	if err := populateOptionalConnectInfoFields(&info, payload); err != nil {
 		return RemoteConnectInfo{}, err
 	}
-	if info.SettaHome, err = parseOptionalConnectInfoField(payload, "settaHome"); err != nil {
+	if err := validateRequestedLauncherOrigin(info, requestedLauncherOrigin); err != nil {
 		return RemoteConnectInfo{}, err
-	}
-	if info.Profile, err = parseOptionalConnectInfoField(payload, "profile"); err != nil {
-		return RemoteConnectInfo{}, err
-	}
-	if info.LauncherOrigin, err = parseOptionalConnectInfoField(payload, "launcherOrigin"); err != nil {
-		return RemoteConnectInfo{}, err
-	}
-	if info.LauncherOriginProof, err = parseOptionalConnectInfoField(payload, "launcherOriginProof"); err != nil {
-		return RemoteConnectInfo{}, err
-	}
-
-	trimmedRequestedOrigin := NormalizeOptionalArgument(requestedLauncherOrigin)
-	if trimmedRequestedOrigin != "" {
-		if info.LauncherOrigin != trimmedRequestedOrigin {
-			return RemoteConnectInfo{}, &Error{
-				Code: "RemoteConnectInfo",
-				Message: fmt.Sprintf(
-					"Remote connect info launcherOrigin did not match requested launcher origin. requested=%q, remote=%q",
-					trimmedRequestedOrigin,
-					info.LauncherOrigin,
-				),
-			}
-		}
-		if info.LauncherOriginProof == "" {
-			return RemoteConnectInfo{}, &Error{
-				Code:    "RemoteConnectInfo",
-				Message: "Remote connect info did not include launcherOriginProof.",
-			}
-		}
 	}
 
 	return info, nil
@@ -457,7 +333,7 @@ func parseOptionalConnectInfoField(payload map[string]any, key string) (string, 
 	value, ok := rawValue.(string)
 	if !ok {
 		return "", &Error{
-			Code:    "RemoteConnectInfo",
+			Code:    remoteConnectInfoErrorCode,
 			Message: fmt.Sprintf("Remote connect info did not include a valid %s.", key),
 		}
 	}
@@ -517,23 +393,8 @@ func splitTildePath(value string) (string, string, bool) {
 }
 
 func isValidTildePrefix(value string) bool {
-	if value == "~" {
-		return true
-	}
-	if !strings.HasPrefix(value, "~") {
-		return false
-	}
-	for _, r := range value[1:] {
-		switch {
-		case r >= 'a' && r <= 'z':
-		case r >= 'A' && r <= 'Z':
-		case r >= '0' && r <= '9':
-		case r == '_' || r == '.' || r == '-':
-		default:
-			return false
-		}
-	}
-	return true
+	suffix, ok := strings.CutPrefix(value, "~")
+	return ok && strings.IndexFunc(suffix, isInvalidTildeUserRune) == -1
 }
 
 func resolveRemoteRootForLogs(rawRoot string, workspace string) string {
@@ -572,4 +433,247 @@ func isSafeRemotePath(value string) bool {
 func isSafeRelativeRemotePath(value string) bool {
 	raw := strings.TrimSpace(value)
 	return raw != "" && !strings.HasPrefix(raw, "/") && !strings.Contains(raw, "\x00") && !strings.Contains(raw, "\n") && !strings.Contains(raw, "\r")
+}
+
+func isControlSocketFlag(arg string) bool {
+	return arg == "-M" || arg == "-S" || (strings.HasPrefix(arg, "-S") && len(arg) > 2)
+}
+
+func sshOptionValue(sshArgs []string, index int) (string, bool) {
+	lowerArg := strings.ToLower(sshArgs[index])
+	switch {
+	case lowerArg == "-o" && index+1 < len(sshArgs):
+		return strings.ToLower(sshArgs[index+1]), true
+	case strings.HasPrefix(lowerArg, "-o"):
+		return strings.TrimPrefix(lowerArg, "-o"), false
+	default:
+		return "", false
+	}
+}
+
+func isControlSocketOption(option string) bool {
+	key, _, ok := strings.Cut(option, "=")
+	if !ok {
+		return false
+	}
+	switch key {
+	case "controlmaster", "controlpath", "controlpersist":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseRemoteSessionEntries(payload map[string]any) ([]any, error) {
+	rawSessions, ok := payload["sessions"]
+	if !ok {
+		return []any{}, nil
+	}
+	sessionList, ok := rawSessions.([]any)
+	if !ok {
+		return nil, &Error{
+			Code:    remoteSessionListErrorCode,
+			Message: "Remote sessions payload is invalid.",
+		}
+	}
+	return sessionList, nil
+}
+
+func parseRemoteSessionSummary(sessionPayload map[string]any) (RemoteSessionSummary, error) {
+	if missing := missingPayloadKeys(sessionPayload, remoteSessionRequiredKeys); len(missing) > 0 {
+		return RemoteSessionSummary{}, &Error{
+			Code:    remoteSessionListErrorCode,
+			Message: fmt.Sprintf("Remote sessions payload missing required key(s): %s.", strings.Join(missing, ", ")),
+		}
+	}
+
+	sessionID, err := requireRemoteSessionString(sessionPayload, "id")
+	if err != nil {
+		return RemoteSessionSummary{}, err
+	}
+	workspacePath, err := requireRemoteSessionString(sessionPayload, "workspacePath")
+	if err != nil {
+		return RemoteSessionSummary{}, err
+	}
+	workspacePathCanonical, err := requireRemoteSessionString(sessionPayload, "workspacePathCanonical")
+	if err != nil {
+		return RemoteSessionSummary{}, err
+	}
+	host, err := requireRemoteSessionString(sessionPayload, "host")
+	if err != nil {
+		return RemoteSessionSummary{}, err
+	}
+	port, err := requireRemoteSessionInteger(sessionPayload, "port")
+	if err != nil {
+		return RemoteSessionSummary{}, err
+	}
+	pid, err := requireRemoteSessionInteger(sessionPayload, "pid")
+	if err != nil {
+		return RemoteSessionSummary{}, err
+	}
+	startedAt, err := requireRemoteSessionStartedAt(sessionPayload)
+	if err != nil {
+		return RemoteSessionSummary{}, err
+	}
+	serverMode, err := requireRemoteSessionServerMode(sessionPayload)
+	if err != nil {
+		return RemoteSessionSummary{}, err
+	}
+	return RemoteSessionSummary{
+		ID:                     sessionID,
+		WorkspacePath:          workspacePath,
+		WorkspacePathCanonical: workspacePathCanonical,
+		Host:                   host,
+		Port:                   port,
+		PID:                    pid,
+		StartedAt:              startedAt,
+		ServerMode:             serverMode,
+	}, nil
+}
+
+func missingPayloadKeys(payload map[string]any, requiredKeys []string) []string {
+	missing := make([]string, 0, len(requiredKeys))
+	for _, key := range requiredKeys {
+		if _, ok := payload[key]; !ok {
+			missing = append(missing, key)
+		}
+	}
+	return missing
+}
+
+func requireRemoteSessionString(payload map[string]any, key string) (string, error) {
+	value, ok := payload[key].(string)
+	if !ok || strings.TrimSpace(value) == "" {
+		return "", invalidRemoteSessionFieldError(key)
+	}
+	return value, nil
+}
+
+func requireRemoteSessionInteger(payload map[string]any, key string) (int, error) {
+	value, err := parseInteger(payload[key])
+	if err != nil {
+		return 0, invalidRemoteSessionFieldError(key)
+	}
+	return value, nil
+}
+
+func requireRemoteSessionStartedAt(payload map[string]any) (time.Time, error) {
+	value, err := requireRemoteSessionString(payload, "startedAt")
+	if err != nil {
+		return time.Time{}, err
+	}
+	startedAt, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return time.Time{}, invalidRemoteSessionFieldError("startedAt")
+	}
+	return startedAt, nil
+}
+
+func requireRemoteSessionServerMode(payload map[string]any) (RemoteServerMode, error) {
+	value, err := requireRemoteSessionString(payload, "serverMode")
+	if err != nil {
+		return "", err
+	}
+	serverMode := RemoteServerMode(value)
+	switch serverMode {
+	case RemoteServerModeIDE, RemoteServerModeLauncher:
+		return serverMode, nil
+	default:
+		return "", invalidRemoteSessionFieldError("serverMode")
+	}
+}
+
+func invalidRemoteSessionFieldError(key string) error {
+	return &Error{
+		Code:    remoteSessionListErrorCode,
+		Message: fmt.Sprintf("Remote sessions payload has invalid %s values.", key),
+	}
+}
+
+func requireRemoteConnectInfoString(payload map[string]any, key string, message string) (string, error) {
+	value, ok := payload[key].(string)
+	if !ok || strings.TrimSpace(value) == "" {
+		return "", &Error{Code: remoteConnectInfoErrorCode, Message: message}
+	}
+	return value, nil
+}
+
+func parseResolvedSettaFilesLocation(payload map[string]any) (string, error) {
+	rawLocation, ok := payload["settaFilesLocation"]
+	if !ok || rawLocation == nil {
+		return "", nil
+	}
+	location, ok := rawLocation.(string)
+	if !ok {
+		return "", &Error{
+			Code:    remoteConnectInfoErrorCode,
+			Message: "Remote connect info did not include a valid settaFilesLocation.",
+		}
+	}
+	normalizedLocation, err := NormalizeSettaFilesLocation(location)
+	if err != nil {
+		return "", &Error{
+			Code:    remoteConnectInfoErrorCode,
+			Message: "Remote connect info did not include a resolved settaFilesLocation.",
+		}
+	}
+	switch normalizedLocation {
+	case "", "local", "global":
+		return normalizedLocation, nil
+	default:
+		return "", &Error{
+			Code:    remoteConnectInfoErrorCode,
+			Message: "Remote connect info did not include a resolved settaFilesLocation.",
+		}
+	}
+}
+
+func populateOptionalConnectInfoFields(info *RemoteConnectInfo, payload map[string]any) error {
+	fields := []struct {
+		key         string
+		destination *string
+	}{
+		{key: "settaFilesRoot", destination: &info.SettaFilesRoot},
+		{key: "runtimeRoot", destination: &info.RuntimeRoot},
+		{key: "settaHome", destination: &info.SettaHome},
+		{key: "profile", destination: &info.Profile},
+		{key: "launcherOrigin", destination: &info.LauncherOrigin},
+		{key: "launcherOriginProof", destination: &info.LauncherOriginProof},
+	}
+	for _, field := range fields {
+		value, err := parseOptionalConnectInfoField(payload, field.key)
+		if err != nil {
+			return err
+		}
+		*field.destination = value
+	}
+	return nil
+}
+
+func validateRequestedLauncherOrigin(info RemoteConnectInfo, requestedLauncherOrigin string) error {
+	trimmedRequestedOrigin := NormalizeOptionalArgument(requestedLauncherOrigin)
+	if trimmedRequestedOrigin == "" {
+		return nil
+	}
+	if info.LauncherOrigin != trimmedRequestedOrigin {
+		return &Error{
+			Code: remoteConnectInfoErrorCode,
+			Message: fmt.Sprintf(
+				"Remote connect info launcherOrigin did not match requested launcher origin. requested=%q, remote=%q",
+				trimmedRequestedOrigin,
+				info.LauncherOrigin,
+			),
+		}
+	}
+	if info.LauncherOriginProof == "" {
+		return &Error{
+			Code:    remoteConnectInfoErrorCode,
+			Message: "Remote connect info did not include launcherOriginProof.",
+		}
+	}
+	return nil
+}
+
+func isInvalidTildeUserRune(r rune) bool {
+	return !strings.ContainsRune(tildeUserAllowedRunes, r)
 }
