@@ -20,7 +20,14 @@ from setta.types.id import ID
 
 
 def _build_llm_config() -> LLMConfig:
-    return LLMConfig(id="test-llm", model="gpt-test")
+    return LLMConfig(
+        id="test-llm",
+        model="gpt-test",
+        provider="openai",
+        base_url="https://example.invalid/v1",
+        api_key_env="SETTA_TEST_API_KEY",
+        other_params={},
+    )
 
 
 def _derive_chat_name(first_message: object) -> str:

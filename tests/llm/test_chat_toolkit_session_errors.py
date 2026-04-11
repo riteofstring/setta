@@ -8,6 +8,7 @@ from setta.api.chat_toolkit import (
     ChatSession,
     ChatStreamEmitterClient,
     ChatToolRunnerClient,
+    ToolCallBuilder,
     on_chat_action_event,
 )
 from setta.api.listener import DependencyEvent, ListenerCallbackContext, SettaListener
@@ -29,6 +30,8 @@ from setta.types.generated.go_shared_types import (
     LiteralDependencyValue,
     MessageFinalizedEvent,
     MessageTextContent,
+    ToolChatMessage,
+    ToolResultEvent,
     SystemChatMessage,
     UserChatMessage,
 )
@@ -58,6 +61,17 @@ def _build_listener_context(
 
     spec = next(iter(listener._callbacks.values()))
     return listener._build_callback_context(spec, {})
+
+
+def _build_llm_config() -> LLMConfig:
+    return LLMConfig(
+        id="test-llm",
+        model="gpt-test",
+        provider="openai",
+        base_url="https://example.invalid/v1",
+        api_key_env="SETTA_TEST_API_KEY",
+        other_params={},
+    )
 
 
 def _derive_chat_name(first_message: object) -> str:
@@ -200,7 +214,7 @@ class TestChatSessionErrors:
     pytestmark = pytest.mark.asyncio
 
     async def test_stream_exception_resets_waiting_state(self) -> None:
-        llm_config = LLMConfig(id="test-llm", model="gpt-test")
+        llm_config = _build_llm_config()
         section_id = ID("section-1")
         first_message = UserChatMessage(
             content=[MessageTextContent(type="text", text="Hello")],
@@ -266,7 +280,7 @@ class TestChatSessionErrors:
         assert not section_states[section_id].waitingForResponse
 
     async def test_cancel_emits_message_finalized_when_partial_message(self) -> None:
-        llm_config = LLMConfig(id="test-llm", model="gpt-test")
+        llm_config = _build_llm_config()
         section_id = ID("section-1")
         first_message = UserChatMessage(
             content=[MessageTextContent(type="text", text="Hello")],
@@ -343,12 +357,187 @@ class TestChatSessionErrors:
         assert finalized.content
         assert finalized.content[0].text == "Hello"
 
+    async def test_cancel_skips_blank_partial_message(self) -> None:
+        llm_config = _build_llm_config()
+        section_id = ID("section-1")
+        first_message = UserChatMessage(
+            content=[MessageTextContent(type="text", text="Hello")],
+        )
+        chat = _build_chat(
+            chat_id=ID("chat-1"), llm_config=llm_config, first_message=first_message
+        )
+        chats: dict[ID, Chat] = {chat.id: chat}
+        section_states: dict[ID, ChatSectionState] = {
+            section_id: build_chat_section_state(messages=chat.messages),
+        }
+        emitted_chunks: list[object] = []
+
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat":
+                return chats[payload["chatId"]].model_dump(mode="json")
+            if endpoint_name == "route_append_chat_messages":
+                chat_entry = _append_chat_messages(
+                    chats[payload["chatId"]], payload["messages"]
+                )
+                chats[chat_entry.id] = chat_entry
+                return chat_entry.model_dump(mode="json")
+            if endpoint_name == "route_emit_chat_stream_delta":
+                chunk = payload["chunk"]
+                emitted_chunks.append(chunk)
+                target_section_id = payload["sectionId"]
+                current = section_states.get(target_section_id)
+                if current is None:
+                    current = build_chat_section_state(messages=[])
+                section_states[target_section_id] = apply_stream_delta(
+                    state=current,
+                    chunk=chunk,
+                )
+                return None
+            if endpoint_name == "route_set_chat_section_state":
+                target_section_id = payload["sectionId"]
+                section_states[target_section_id] = ChatSectionState.model_validate(
+                    payload["state"]
+                )
+                return None
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        api = RouterEndpointAPI(router_caller)
+        history_client = ChatHistoryClient(api)
+        stream_client = ChatStreamEmitterClient(api)
+        tools_client = ChatToolRunnerClient(api)
+        sync_client = ChatSectionSyncClient(api, history_client)
+        session = ChatSession(
+            section_id=section_id,
+            chat_id=chat.id,
+            history=history_client,
+            stream=stream_client,
+            tools=tools_client,
+            sync=sync_client,
+        )
+
+        async def provider_stream() -> AsyncIterator[str]:
+            yield "   "
+            raise RuntimeError("stream failure")
+
+        with pytest.raises(RuntimeError):
+            await session.stream_text(provider_stream())
+
+        finalized_chunks = [
+            chunk
+            for chunk in emitted_chunks
+            if isinstance(chunk, MessageFinalizedEvent)
+        ]
+        assert not finalized_chunks
+        assert len(chats[chat.id].messages) == 1
+        assert not section_states[section_id].waitingForResponse
+
+    async def test_stream_runs_tools_and_emits_tool_results(self) -> None:
+        llm_config = _build_llm_config()
+        section_id = ID("section-1")
+        first_message = UserChatMessage(
+            content=[MessageTextContent(type="text", text="Hello")],
+        )
+        chat = _build_chat(
+            chat_id=ID("chat-1"), llm_config=llm_config, first_message=first_message
+        )
+        chats: dict[ID, Chat] = {chat.id: chat}
+        section_states: dict[ID, ChatSectionState] = {
+            section_id: build_chat_section_state(messages=chat.messages),
+        }
+        emitted_chunks: list[object] = []
+        tool_result_message = ToolChatMessage(
+            tool_call_id="tool-call-1",
+            tool_name="setta__list_mcp_tools",
+            arguments={},
+            content=[],
+            is_error=False,
+            result={"tools": []},
+        )
+
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat":
+                return chats[payload["chatId"]].model_dump(mode="json")
+            if endpoint_name == "route_append_chat_messages":
+                chat_entry = _append_chat_messages(
+                    chats[payload["chatId"]], payload["messages"]
+                )
+                chats[chat_entry.id] = chat_entry
+                return chat_entry.model_dump(mode="json")
+            if endpoint_name == "route_emit_chat_stream_delta":
+                chunk = payload["chunk"]
+                emitted_chunks.append(chunk)
+                target_section_id = payload["sectionId"]
+                current = section_states.get(target_section_id)
+                if current is None:
+                    current = build_chat_section_state(messages=[])
+                section_states[target_section_id] = apply_stream_delta(
+                    state=current,
+                    chunk=chunk,
+                )
+                return None
+            if endpoint_name == "route_set_chat_section_state":
+                target_section_id = payload["sectionId"]
+                section_states[target_section_id] = ChatSectionState.model_validate(
+                    payload["state"]
+                )
+                return None
+            if endpoint_name == "route_run_mcp_tools":
+                assert payload["sectionId"] == section_id
+                return [tool_result_message.model_dump(mode="json")]
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        api = RouterEndpointAPI(router_caller)
+        history_client = ChatHistoryClient(api)
+        stream_client = ChatStreamEmitterClient(api)
+        tools_client = ChatToolRunnerClient(api)
+        sync_client = ChatSectionSyncClient(api, history_client)
+        session = ChatSession(
+            section_id=section_id,
+            chat_id=chat.id,
+            history=history_client,
+            stream=stream_client,
+            tools=tools_client,
+            sync=sync_client,
+        )
+        tool_call = ToolCallBuilder.from_name_and_args(
+            name="setta__list_mcp_tools",
+            arguments={},
+            tool_call_id="tool-call-1",
+        )
+
+        async def provider_stream() -> AsyncIterator[str]:
+            yield "tool-call"
+
+        async def normalize(_chunk: object) -> None:
+            await session.tool_call_delta(tool_call)
+
+        assistant_message = await session.stream(
+            provider_stream=provider_stream(),
+            normalize_chunk=normalize,
+            run_tools=True,
+        )
+
+        assert assistant_message.tool_calls is not None
+        assert assistant_message.tool_calls[0].id == tool_call.id
+        tool_result_chunks = [
+            chunk for chunk in emitted_chunks if isinstance(chunk, ToolResultEvent)
+        ]
+        assert len(tool_result_chunks) == 1
+        assert tool_result_chunks[0].result.tool_call_id == tool_call.id
+        assert isinstance(chats[chat.id].messages[-1], ToolChatMessage)
+        assert chats[chat.id].messages[-1].tool_call_id == tool_call.id
+        assert not section_states[section_id].waitingForResponse
+
 
 class TestChatSessionOpenFromEvent:
     pytestmark = pytest.mark.asyncio
 
     async def test_open_from_event_uses_system_role(self) -> None:
-        llm_config = LLMConfig(id="test-llm", model="gpt-test")
+        llm_config = _build_llm_config()
         engine_config_id = None
         section_id = ID("section-1")
         captured_messages: list[object] = []
@@ -398,7 +587,7 @@ class TestChatSessionOpenFromEvent:
         assert isinstance(captured_messages[0], SystemChatMessage)
 
     async def test_open_from_event_preserves_attachments(self) -> None:
-        llm_config = LLMConfig(id="test-llm", model="gpt-test")
+        llm_config = _build_llm_config()
         engine_config_id = None
         section_id = ID("section-1")
         captured_messages: list[object] = []
@@ -457,7 +646,7 @@ class TestChatSessionOpenFromEvent:
         assert message.attachments[0].id == "artifacts/notes.txt"
 
     async def test_open_from_event_uses_assistant_role(self) -> None:
-        llm_config = LLMConfig(id="test-llm", model="gpt-test")
+        llm_config = _build_llm_config()
         engine_config_id = None
         section_id = ID("section-1")
         captured_messages: list[object] = []

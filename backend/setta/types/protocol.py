@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import ConfigDict, Discriminator, Tag
+from pydantic import ConfigDict, Field
 from setta.types.generated.go_shared_types import (
     BaseDependencyValueUnion,
     BinaryDependencyValue,
@@ -8,7 +8,6 @@ from setta.types.generated.go_shared_types import (
     DependencyValueType,
     FileReadDependencyValue,
     LiteralDependencyValue,
-    _base_dependency_key_union_discriminator,
 )
 from setta.types.generated.go_shared_types import (
     SectionDependencyKey as GoSectionDependencyKey,
@@ -42,12 +41,8 @@ def create_dep_key(sectionId: ID, codeObjId: ID | None = None):
 
 BaseDependencyKeyUnion = SectionDependencyKey | SectionParamDependencyKey
 BaseDependencyKeyUnionWithDiscriminator = Annotated[
-    Annotated[SectionDependencyKey, Tag(DependencyKeyType.Section.value)]
-    | Annotated[
-        SectionParamDependencyKey,
-        Tag(DependencyKeyType.SectionParam.value),
-    ],
-    Discriminator(_base_dependency_key_union_discriminator),
+    SectionDependencyKey | SectionParamDependencyKey,
+    Field(discriminator="type"),
 ]
 
 __all__ = [
