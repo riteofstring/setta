@@ -24,6 +24,8 @@ import (
 	"setta/internal/statefs"
 )
 
+var errPromptTemplateStoreRequired = errors.New("prompt template store is required")
+
 const (
 	RouteGetLatestProjectState             = "/getLatestProjectState"
 	RouteUndo                              = "/undo"
@@ -1412,6 +1414,99 @@ func registerProjectNullPost[Req any](router chi.Router, routePath string, handl
 	registerProjectPost[Req, openAPIJSONNull](router, routePath, handler)
 }
 
+type projectRouteDependencyCheck struct {
+	ok      bool
+	message string
+}
+
+func validateProjectRouteDependencies(router chi.Router, deps ProjectRouteDependencies) error {
+	if router == nil {
+		return fmt.Errorf("router is required")
+	}
+	if err := validateProjectIDERouteDependencies(router, deps); err != nil {
+		return err
+	}
+	if err := validateProjectDeploymentRouteDependencies(deps); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateProjectIDERouteDependencies(router chi.Router, deps ProjectRouteDependencies) error {
+	if !deps.ModePolicy.IsIDE() || openAPIDocumentOnlyFromRouter(router) {
+		return nil
+	}
+	return validateProjectRouteDependencyChecks([]projectRouteDependencyCheck{
+		{
+			ok:      strings.TrimSpace(deps.WorkspaceRoot) != "",
+			message: "workspace root is required in ide mode",
+		},
+		{
+			ok:      deps.ProjectState != nil,
+			message: "project runtime is required in ide mode",
+		},
+		{
+			ok:      deps.EdgeExpressionBuilder != nil,
+			message: "edge expression builder is required in ide mode",
+		},
+		{
+			ok:      deps.SettingsState != nil,
+			message: "settings runtime is required in ide mode",
+		},
+		{
+			ok:      deps.ChatSectionChatID != nil,
+			message: "chat section chat id service is required in ide mode",
+		},
+		{
+			ok:      hasProjectCodeUpdateServices(deps),
+			message: "project code update service is required in ide mode",
+		},
+		{
+			ok:      hasProjectRenameRefactorServices(deps),
+			message: "project rename refactor service is required in ide mode",
+		},
+		{
+			ok:      deps.PythonCodegenSectionReconciler != nil,
+			message: "project python generated-section reconciler is required in ide mode",
+		},
+	})
+}
+
+func validateProjectDeploymentRouteDependencies(deps ProjectRouteDependencies) error {
+	if !deps.ModePolicy.IsDeployment() {
+		return nil
+	}
+	return validateProjectRouteDependencyChecks([]projectRouteDependencyCheck{
+		{
+			ok:      deps.ShareSessions != nil,
+			message: "share session store is required in deployment mode",
+		},
+		{
+			ok:      deps.Deployment != nil,
+			message: "deployment runtime is required in deployment mode",
+		},
+	})
+}
+
+func validateProjectRouteDependencyChecks(checks []projectRouteDependencyCheck) error {
+	for _, check := range checks {
+		if !check.ok {
+			return errors.New(check.message)
+		}
+	}
+	return nil
+}
+
+func hasProjectCodeUpdateServices(deps ProjectRouteDependencies) bool {
+	return deps.SetCode != nil && deps.FormatCode != nil
+}
+
+func hasProjectRenameRefactorServices(deps ProjectRouteDependencies) bool {
+	return deps.SetSectionName != nil &&
+		deps.AcceptRenameRefactor != nil &&
+		deps.DeclineRenameRefactor != nil
+}
+
 func projectMutationContext(ctx context.Context, frontendOpID *string) context.Context {
 	if frontendOpID == nil {
 		return ctx
@@ -1663,43 +1758,8 @@ func resolveStructuralMutationSettingsFromRuntime(
 }
 
 func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) error {
-	if router == nil {
-		return fmt.Errorf("router is required")
-	}
-	documentOnly := openAPIDocumentOnlyFromRouter(router)
-	if deps.ModePolicy.IsIDE() && !documentOnly {
-		if strings.TrimSpace(deps.WorkspaceRoot) == "" {
-			return fmt.Errorf("workspace root is required in ide mode")
-		}
-		if deps.ProjectState == nil {
-			return fmt.Errorf("project runtime is required in ide mode")
-		}
-		if deps.EdgeExpressionBuilder == nil {
-			return fmt.Errorf("edge expression builder is required in ide mode")
-		}
-		if deps.SettingsState == nil {
-			return fmt.Errorf("settings runtime is required in ide mode")
-		}
-		if deps.ChatSectionChatID == nil {
-			return fmt.Errorf("chat section chat id service is required in ide mode")
-		}
-		if deps.SetCode == nil || deps.FormatCode == nil {
-			return fmt.Errorf("project code update service is required in ide mode")
-		}
-		if deps.SetSectionName == nil || deps.AcceptRenameRefactor == nil || deps.DeclineRenameRefactor == nil {
-			return fmt.Errorf("project rename refactor service is required in ide mode")
-		}
-		if deps.PythonCodegenSectionReconciler == nil {
-			return fmt.Errorf("project python generated-section reconciler is required in ide mode")
-		}
-	}
-	if deps.ModePolicy.IsDeployment() {
-		if deps.ShareSessions == nil {
-			return fmt.Errorf("share session store is required in deployment mode")
-		}
-		if deps.Deployment == nil {
-			return fmt.Errorf("deployment runtime is required in deployment mode")
-		}
+	if err := validateProjectRouteDependencies(router, deps); err != nil {
+		return err
 	}
 
 	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
@@ -2744,80 +2804,141 @@ func setVariantJSONSourceKeysHandler(deps ProjectRouteDependencies) http.Handler
 
 		ctx := projectMutationContext(r.Context(), payload.FrontendOpID)
 		snapshotDocument := runtime.Snapshot().Document
-		resolution, err := projectstate.ResolveVariantJSONSourceKeys(
+		resolution, preserveLiveTreeOnMissingReload, err := resolveVariantJSONSourceMutation(
 			snapshotDocument,
 			deps.WorkspaceRoot,
 			projectID,
-			payload.SectionID,
-			payload.VariantID,
-			payload.JSONSourceKeys,
+			payload,
 		)
 		if err != nil {
 			writeVariantJSONSourceMutationError(w, r, err)
 			return
 		}
-		preserveLiveTreeOnMissingReload := false
-		if resolution.JSONSourceMissing {
-			preserveLiveTreeOnMissingReload, err = snapshotDocument.ShouldPreserveVariantJSONSourceLiveTreeOnMissingReload(
-				projectID,
-				payload.SectionID,
-				payload.VariantID,
-				resolution.JSONSourceKeys,
-			)
-			if err != nil {
-				writeVariantJSONSourceMutationError(w, r, err)
-				return
-			}
-		}
-		mutate := func(document projectstate.Document) (projectstate.Document, error) {
-			if resolution.JSONSourceMissing {
-				if preserveLiveTreeOnMissingReload {
-					return document, nil
-				}
-				if err := document.SetVariantJSONSourceKeysState(
-					projectID,
-					payload.SectionID,
-					payload.VariantID,
-					resolution.JSONSourceKeys,
-					true,
-				); err != nil {
-					return document, err
-				}
-				return document, nil
-			}
-			if resolution.JSONSourceObject == nil {
-				return document, fmt.Errorf("json source object resolution missing for existing file")
-			}
-			if err := document.RefreshVariantJSONSourceLiveTree(
-				projectID,
-				payload.SectionID,
-				payload.VariantID,
-				resolution.JSONSourceKeys,
-				*resolution.JSONSourceObject,
-			); err != nil {
-				return document, err
-			}
-			return document, nil
-		}
-
-		snapshotErr := func() error {
-			if resolution.JSONSourceMissing {
-				if preserveLiveTreeOnMissingReload {
-					_, err = runtime.MutateWithContext(ctx, mutate)
-					return err
-				}
-				_, err = runtime.MutateAndSave(ctx, mutate)
-				return err
-			}
-			_, err = runtime.MutateWithContext(ctx, mutate)
-			return err
-		}()
-		if snapshotErr != nil {
-			writeVariantJSONSourceMutationError(w, r, snapshotErr)
+		if err := applyVariantJSONSourceMutation(
+			runtime,
+			ctx,
+			projectID,
+			payload,
+			resolution,
+			preserveLiveTreeOnMissingReload,
+		); err != nil {
+			writeVariantJSONSourceMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func resolveVariantJSONSourceMutation(
+	snapshotDocument projectstate.Document,
+	workspaceRoot string,
+	projectID string,
+	payload SetVariantJSONSourceKeysRequest,
+) (projectstate.JSONSourceKeysResolution, bool, error) {
+	resolution, err := projectstate.ResolveVariantJSONSourceKeys(
+		snapshotDocument,
+		workspaceRoot,
+		projectID,
+		payload.SectionID,
+		payload.VariantID,
+		payload.JSONSourceKeys,
+	)
+	if err != nil {
+		return projectstate.JSONSourceKeysResolution{}, false, err
+	}
+	preserveLiveTreeOnMissingReload, err := resolveVariantJSONSourceMissingReloadPolicy(
+		snapshotDocument,
+		projectID,
+		payload.SectionID,
+		payload.VariantID,
+		resolution,
+	)
+	if err != nil {
+		return projectstate.JSONSourceKeysResolution{}, false, err
+	}
+	return resolution, preserveLiveTreeOnMissingReload, nil
+}
+
+func resolveVariantJSONSourceMissingReloadPolicy(
+	snapshotDocument projectstate.Document,
+	projectID string,
+	sectionID string,
+	variantID string,
+	resolution projectstate.JSONSourceKeysResolution,
+) (bool, error) {
+	if !resolution.JSONSourceMissing {
+		return false, nil
+	}
+	return snapshotDocument.ShouldPreserveVariantJSONSourceLiveTreeOnMissingReload(
+		projectID,
+		sectionID,
+		variantID,
+		resolution.JSONSourceKeys,
+	)
+}
+
+func applyVariantJSONSourceMutation(
+	runtime *projectstate.Runtime,
+	ctx context.Context,
+	projectID string,
+	payload SetVariantJSONSourceKeysRequest,
+	resolution projectstate.JSONSourceKeysResolution,
+	preserveLiveTreeOnMissingReload bool,
+) error {
+	mutate := func(document projectstate.Document) (projectstate.Document, error) {
+		return mutateVariantJSONSourceDocument(
+			document,
+			projectID,
+			payload.SectionID,
+			payload.VariantID,
+			resolution,
+			preserveLiveTreeOnMissingReload,
+		)
+	}
+	if resolution.JSONSourceMissing && !preserveLiveTreeOnMissingReload {
+		_, err := runtime.MutateAndSave(ctx, mutate)
+		return err
+	}
+	_, err := runtime.MutateWithContext(ctx, mutate)
+	return err
+}
+
+func mutateVariantJSONSourceDocument(
+	document projectstate.Document,
+	projectID string,
+	sectionID string,
+	variantID string,
+	resolution projectstate.JSONSourceKeysResolution,
+	preserveLiveTreeOnMissingReload bool,
+) (projectstate.Document, error) {
+	if resolution.JSONSourceMissing {
+		if preserveLiveTreeOnMissingReload {
+			return document, nil
+		}
+		if err := document.SetVariantJSONSourceKeysState(
+			projectID,
+			sectionID,
+			variantID,
+			resolution.JSONSourceKeys,
+			true,
+		); err != nil {
+			return document, err
+		}
+		return document, nil
+	}
+	if resolution.JSONSourceObject == nil {
+		return document, fmt.Errorf("json source object resolution missing for existing file")
+	}
+	if err := document.RefreshVariantJSONSourceLiveTree(
+		projectID,
+		sectionID,
+		variantID,
+		resolution.JSONSourceKeys,
+		*resolution.JSONSourceObject,
+	); err != nil {
+		return document, err
+	}
+	return document, nil
 }
 
 func setSectionVariantNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
@@ -2864,19 +2985,9 @@ func deleteJSONSourceFileAndVariantHandler(deps ProjectRouteDependencies) http.H
 			return
 		}
 
-		projectID := strings.TrimSpace(payload.ProjectID)
-		if projectID == "" {
-			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
-			return
-		}
-		sectionID := strings.TrimSpace(payload.SectionID)
-		if sectionID == "" {
-			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
-			return
-		}
-		variantID := strings.TrimSpace(payload.VariantID)
-		if variantID == "" {
-			writeError(w, r, http.StatusBadRequest, "variant_id_required", "Variant id is required.")
+		projectID, sectionID, variantID, err := deleteJSONSourceFileAndVariantIDs(payload)
+		if err != nil {
+			writeDeleteSectionVariantError(w, r, err)
 			return
 		}
 		if deps.ProjectState == nil {
@@ -2904,14 +3015,7 @@ func deleteJSONSourceFileAndVariantHandler(deps ProjectRouteDependencies) http.H
 			writeError(w, r, http.StatusForbidden, "filepath_forbidden", "File path must be within the project root.")
 			return
 		}
-		if err := os.Remove(resolvedPath); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				writeJSON(w, http.StatusOK, nil)
-				return
-			}
-			writeJSON(w, http.StatusOK, nil)
-			return
-		}
+		removeFileAllowMissing(resolvedPath)
 
 		snapshot, err := runtime.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID)
 		if err != nil {
@@ -2923,6 +3027,28 @@ func deleteJSONSourceFileAndVariantHandler(deps ProjectRouteDependencies) http.H
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func deleteJSONSourceFileAndVariantIDs(payload DeleteJSONSourceFileAndVariantRequest) (string, string, string, error) {
+	projectID := strings.TrimSpace(payload.ProjectID)
+	if projectID == "" {
+		return "", "", "", projectstate.ErrProjectIDRequired
+	}
+	sectionID := strings.TrimSpace(payload.SectionID)
+	if sectionID == "" {
+		return "", "", "", projectstate.ErrSectionIDRequired
+	}
+	variantID := strings.TrimSpace(payload.VariantID)
+	if variantID == "" {
+		return "", "", "", projectstate.ErrSectionVariantIDRequired
+	}
+	return projectID, sectionID, variantID, nil
+}
+
+func removeFileAllowMissing(path string) {
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return
 	}
 }
 
@@ -6423,51 +6549,16 @@ func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFun
 		}
 
 		promptTemplateID := normalizeOptionalBodyString(payload.PromptTemplateID)
-		var nextTemplate string
-		var nextFormat prompttemplates.Format
-		if promptTemplateID != nil {
-			if deps.PromptTemplates == nil {
-				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-				return
-			}
-			template, err := deps.PromptTemplates.Get(*promptTemplateID)
-			if err != nil {
-				if errors.Is(err, prompttemplates.ErrTemplateNotFound) {
-					writeError(w, r, http.StatusNotFound, "prompt_template_not_found", "Prompt template not found.")
-					return
-				}
-				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-				return
-			}
-			nextTemplate = template.Template
-			nextFormat = template.Format
-		} else {
-			snapshot := runtime.Snapshot()
-			source, err := snapshot.Document.PromptSectionSource(projectID, sectionID)
-			if err != nil {
-				writePromptTemplateLinkMutationError(w, r, err, sectionID)
-				return
-			}
-			if source.PromptTemplateID != nil {
-				if deps.PromptTemplates == nil {
-					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-					return
-				}
-				template, err := deps.PromptTemplates.Get(*source.PromptTemplateID)
-				if err != nil {
-					if errors.Is(err, prompttemplates.ErrTemplateNotFound) {
-						writeError(w, r, http.StatusNotFound, "prompt_template_not_found", "Prompt template not found.")
-						return
-					}
-					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-					return
-				}
-				nextTemplate = template.Template
-				nextFormat = template.Format
-			} else {
-				nextTemplate = source.Template
-				nextFormat = source.Format
-			}
+		nextTemplate, nextFormat, err := resolvePromptTemplateLinkContent(
+			deps.PromptTemplates,
+			runtime,
+			projectID,
+			sectionID,
+			promptTemplateID,
+		)
+		if err != nil {
+			writePromptTemplateLinkResolveError(w, r, err, sectionID)
+			return
 		}
 
 		snapshot, err := runtime.SetPromptTemplateLink(
@@ -6487,6 +6578,57 @@ func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func resolvePromptTemplateLinkContent(
+	store *prompttemplates.Store,
+	runtime *projectstate.Runtime,
+	projectID string,
+	sectionID string,
+	promptTemplateID *string,
+) (string, prompttemplates.Format, error) {
+	if promptTemplateID != nil {
+		return loadPromptTemplateLinkContent(store, *promptTemplateID)
+	}
+	snapshot := runtime.Snapshot()
+	source, err := snapshot.Document.PromptSectionSource(projectID, sectionID)
+	if err != nil {
+		return "", "", err
+	}
+	if source.PromptTemplateID == nil {
+		return source.Template, source.Format, nil
+	}
+	return loadPromptTemplateLinkContent(store, *source.PromptTemplateID)
+}
+
+func loadPromptTemplateLinkContent(
+	store *prompttemplates.Store,
+	templateID string,
+) (string, prompttemplates.Format, error) {
+	if store == nil {
+		return "", "", errPromptTemplateStoreRequired
+	}
+	template, err := store.Get(templateID)
+	if err != nil {
+		return "", "", err
+	}
+	return template.Template, template.Format, nil
+}
+
+func writePromptTemplateLinkResolveError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+	sectionID string,
+) {
+	switch {
+	case errors.Is(err, prompttemplates.ErrTemplateNotFound):
+		writeError(w, r, http.StatusNotFound, "prompt_template_not_found", "Prompt template not found.")
+	case errors.Is(err, errPromptTemplateStoreRequired):
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	default:
+		writePromptTemplateLinkMutationError(w, r, err, sectionID)
 	}
 }
 
@@ -7553,15 +7695,53 @@ func writeDeleteSectionsError(w http.ResponseWriter, r *http.Request, err error)
 
 func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case writeProjectLayoutMutationRequiredError(w, r, err):
+	case writeProjectLayoutMutationNotFoundError(w, r, err):
+	case writeProjectLayoutMutationUnsupportedError(w, r, err):
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeProjectLayoutMutationRequiredError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) bool {
+	switch {
 	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
 		errors.Is(err, projectstate.ErrProjectIDRequired):
 		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 	case errors.Is(err, projectstate.ErrSectionIDRequired):
 		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	default:
+		return false
+	}
+	return true
+}
+
+func writeProjectLayoutMutationNotFoundError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) bool {
+	switch {
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	default:
+		return false
+	}
+	return true
+}
+
+func writeProjectLayoutMutationUnsupportedError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) bool {
+	switch {
 	case errors.Is(err, projectstate.ErrGroupSectionRequired):
 		writeError(w, r, http.StatusUnprocessableEntity, "group_section_required", "Section must resolve to a group section.")
 	case errors.Is(err, projectstate.ErrDefaultChildSectionParentRequired):
@@ -7583,8 +7763,9 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 	case errors.Is(err, projectstate.ErrSectionParamColumnWidthUnsupported):
 		writeError(w, r, http.StatusUnprocessableEntity, "section_param_column_width_unsupported", err.Error())
 	default:
-		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
 	}
+	return true
 }
 
 func writeSectionEdgeMutationError(w http.ResponseWriter, r *http.Request, err error) {
@@ -7606,6 +7787,21 @@ func writeSectionEdgeMutationError(w http.ResponseWriter, r *http.Request, err e
 
 func writeGraphEdgeMutationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case writeGraphEdgeMutationRequiredError(w, r, err):
+	case writeGraphEdgeMutationNotFoundError(w, r, err):
+	case writeGraphEdgeMutationConflictError(w, r, err):
+	case writeGraphEdgeMutationValidationError(w, r, err):
+	default:
+		writeProjectLayoutMutationError(w, r, err)
+	}
+}
+
+func writeGraphEdgeMutationRequiredError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) bool {
+	switch {
 	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
 		errors.Is(err, projectstate.ErrProjectIDRequired):
 		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
@@ -7617,6 +7813,18 @@ func writeGraphEdgeMutationError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, r, http.StatusBadRequest, "port_id_required", "Port id is required.")
 	case errors.Is(err, projectstate.ErrEdgeIDRequired):
 		writeError(w, r, http.StatusBadRequest, "edge_id_required", "Edge id is required.")
+	default:
+		return false
+	}
+	return true
+}
+
+func writeGraphEdgeMutationNotFoundError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) bool {
+	switch {
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
@@ -7627,14 +7835,38 @@ func writeGraphEdgeMutationError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, r, http.StatusNotFound, "state_machine_edge_not_found", "State machine edge not found.")
 	case errors.Is(err, projectstate.ErrAgenticEdgeNotFound):
 		writeError(w, r, http.StatusNotFound, "agentic_edge_not_found", "Agentic edge not found.")
-	case errors.Is(err, projectstate.ErrProjectCodegenPythonTargetMissing):
-		writeError(w, r, http.StatusUnprocessableEntity, "project_codegen_python_target_missing", err.Error())
+	default:
+		return false
+	}
+	return true
+}
+
+func writeGraphEdgeMutationConflictError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) bool {
+	switch {
 	case errors.Is(err, projectstate.ErrEdgeDuplicateID):
 		writeError(w, r, http.StatusConflict, "edge_id_conflict", err.Error())
 	case errors.Is(err, projectstate.ErrStateMachineEdgeDuplicateID):
 		writeError(w, r, http.StatusConflict, "state_machine_edge_id_conflict", err.Error())
 	case errors.Is(err, projectstate.ErrAgenticEdgeDuplicateID):
 		writeError(w, r, http.StatusConflict, "agentic_edge_id_conflict", err.Error())
+	default:
+		return false
+	}
+	return true
+}
+
+func writeGraphEdgeMutationValidationError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) bool {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectCodegenPythonTargetMissing):
+		writeError(w, r, http.StatusUnprocessableEntity, "project_codegen_python_target_missing", err.Error())
 	case errors.Is(err, projectstate.ErrEdgeEndpointSectionUnsupported),
 		errors.Is(err, projectstate.ErrEdgeSourcePortNotFound),
 		errors.Is(err, projectstate.ErrEdgeTargetPortNotFound):
@@ -7652,8 +7884,9 @@ func writeGraphEdgeMutationError(w http.ResponseWriter, r *http.Request, err err
 	case errors.Is(err, codegen.ErrPythonDependencyNodeNotFound):
 		writeError(w, r, http.StatusUnprocessableEntity, "edge_expression_unavailable", err.Error())
 	default:
-		writeProjectLayoutMutationError(w, r, err)
+		return false
 	}
+	return true
 }
 
 func writeGroupSectionsError(w http.ResponseWriter, r *http.Request, err error) {
