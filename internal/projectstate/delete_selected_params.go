@@ -25,6 +25,18 @@ type DeleteSelectedParamsResult struct {
 	ParamInfoIDs []string `json:"paramInfoIds"`
 }
 
+type deleteSelectedParamsContext struct {
+	sectionType string
+	rootCodeObj string
+	parentByID  map[string]string
+}
+
+type deleteSelectedParamsPlan struct {
+	removedByParent map[string]map[string]struct{}
+	removedIDs      []string
+	removedSet      map[string]struct{}
+}
+
 func (d *Document) DeleteSelectedParams(projectID string, input DeleteSelectedParamsInput) (DeleteSelectedParamsResult, error) {
 	if d == nil {
 		return DeleteSelectedParamsResult{}, ErrProjectNotFound
@@ -79,113 +91,29 @@ func (p *Project) DeleteSelectedParams(input DeleteSelectedParamsInput) (DeleteS
 		return DeleteSelectedParamsResult{ParamInfoIDs: []string{}}, nil
 	}
 
-	sectionType, sectionPayload, rootCodeObjID, err := p.resolveDeleteSelectedParamsContext(normalized.SectionID)
+	ctx, err := p.buildDeleteSelectedParamsContext(normalized.SectionID)
 	if err != nil {
 		return DeleteSelectedParamsResult{}, err
 	}
-	if rootCodeObjID == "" {
+	if ctx.rootCodeObj == "" {
 		return DeleteSelectedParamsResult{ParamInfoIDs: []string{}}, nil
 	}
 
-	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-	if _, ok := codeObjVariantMap[rootCodeObjID]; !ok {
-		return DeleteSelectedParamsResult{}, fmt.Errorf(
-			"%w: section=%q root=%q",
-			ErrDeleteSelectedParamsRootMissing,
-			normalized.SectionID,
-			rootCodeObjID,
-		)
-	}
-
-	parentByID, _, err := collectCodeObjectHierarchy(*p, codeObjVariantMap, rootCodeObjID)
+	plan, err := p.collectDeleteSelectedParamsPlan(normalized.SectionID, normalized.ParamInfoIDs, ctx.parentByID)
 	if err != nil {
 		return DeleteSelectedParamsResult{}, err
 	}
-
-	removedByParent := map[string]map[string]struct{}{}
-	removedIDs := make([]string, 0, len(normalized.ParamInfoIDs))
-	removedSet := map[string]struct{}{}
-	for _, paramInfoID := range normalized.ParamInfoIDs {
-		if _, ok := p.CodeObjs[paramInfoID]; !ok {
-			return DeleteSelectedParamsResult{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, paramInfoID)
-		}
-
-		paramPayload, _, _, paramImpl, err := p.ResolveSectionCodeObject(normalized.SectionID, paramInfoID)
-		if err != nil {
-			return DeleteSelectedParamsResult{}, err
-		}
-		paramType := effectiveCodeObjType(paramPayload, paramImpl)
-		if !isParamCodeObjectType(paramType) {
-			return DeleteSelectedParamsResult{}, fmt.Errorf(
-				"%w: codeObj=%q type=%q",
-				ErrDeleteSelectedParamsParamUnsupported,
-				paramInfoID,
-				paramType,
-			)
-		}
-		if !payloadBoolField(paramPayload, "coreNameEditable") {
-			continue
-		}
-
-		parentID, ok := parentByID[paramInfoID]
-		if !ok || strings.TrimSpace(parentID) == "" {
-			return DeleteSelectedParamsResult{}, fmt.Errorf(
-				"%w: section=%q codeObj=%q",
-				ErrDeleteSelectedParamsParentMissing,
-				normalized.SectionID,
-				paramInfoID,
-			)
-		}
-
-		removedIDs = append(removedIDs, paramInfoID)
-		removedSet[paramInfoID] = struct{}{}
-		if _, ok := removedByParent[parentID]; !ok {
-			removedByParent[parentID] = map[string]struct{}{}
-		}
-		removedByParent[parentID][paramInfoID] = struct{}{}
-	}
-
-	if len(removedIDs) == 0 {
+	if len(plan.removedIDs) == 0 {
 		return DeleteSelectedParamsResult{ParamInfoIDs: []string{}}, nil
 	}
 
-	for parentID, removedChildren := range removedByParent {
-		parentPayload, _, _, parentImpl, err := p.ResolveSectionCodeObject(normalized.SectionID, parentID)
-		if err != nil {
-			return DeleteSelectedParamsResult{}, err
-		}
-		if _, ok := parentPayload["children"]; !ok {
-			return DeleteSelectedParamsResult{}, fmt.Errorf(
-				"%w: codeObj=%q type=%q",
-				ErrDeleteSelectedParamsParentUnsupported,
-				parentID,
-				effectiveCodeObjType(parentPayload, parentImpl),
-			)
-		}
-
-		currentChildren := payloadStringArrayField(parentPayload, "children")
-		nextChildren := filterStringSlice(currentChildren, removedChildren)
-		if stringSlicesEqual(currentChildren, nextChildren) {
-			continue
-		}
-		if err := p.setCurrentCodeObjectField(normalized.SectionID, parentID, "children", append([]string(nil), nextChildren...)); err != nil {
-			return DeleteSelectedParamsResult{}, err
-		}
-	}
-
-	if err := p.cleanupDeletedParamSectionState(normalized.SectionID, removedSet); err != nil {
+	if err := p.removeDeletedParamsFromParents(normalized.SectionID, plan.removedByParent); err != nil {
 		return DeleteSelectedParamsResult{}, err
 	}
-	if err := p.removeDeletedParamsFromSectionVariantMaps(sectionType, normalized.SectionID, rootCodeObjID, removedSet); err != nil {
+	if err := p.applyDeleteSelectedParamsCleanup(ctx.sectionType, normalized.SectionID, ctx.rootCodeObj, plan.removedSet); err != nil {
 		return DeleteSelectedParamsResult{}, err
 	}
-	if err := p.pruneUnusedCodeObjects(); err != nil {
-		return DeleteSelectedParamsResult{}, err
-	}
-
-	return DeleteSelectedParamsResult{
-		ParamInfoIDs: append([]string(nil), removedIDs...),
-	}, nil
+	return DeleteSelectedParamsResult{ParamInfoIDs: append([]string(nil), plan.removedIDs...)}, nil
 }
 
 func normalizeDeleteSelectedParamsInput(input DeleteSelectedParamsInput) (DeleteSelectedParamsInput, error) {
@@ -215,6 +143,36 @@ func normalizeDeleteSelectedParamsInput(input DeleteSelectedParamsInput) (Delete
 	return normalized, nil
 }
 
+func (p *Project) buildDeleteSelectedParamsContext(sectionID string) (deleteSelectedParamsContext, error) {
+	sectionType, sectionPayload, rootCodeObjID, err := p.resolveDeleteSelectedParamsContext(sectionID)
+	if err != nil {
+		return deleteSelectedParamsContext{}, err
+	}
+	if rootCodeObjID == "" {
+		return deleteSelectedParamsContext{sectionType: sectionType}, nil
+	}
+
+	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
+	if _, ok := codeObjVariantMap[rootCodeObjID]; !ok {
+		return deleteSelectedParamsContext{}, fmt.Errorf(
+			"%w: section=%q root=%q",
+			ErrDeleteSelectedParamsRootMissing,
+			sectionID,
+			rootCodeObjID,
+		)
+	}
+
+	parentByID, _, err := collectCodeObjectHierarchy(*p, codeObjVariantMap, rootCodeObjID)
+	if err != nil {
+		return deleteSelectedParamsContext{}, err
+	}
+	return deleteSelectedParamsContext{
+		sectionType: sectionType,
+		rootCodeObj: rootCodeObjID,
+		parentByID:  parentByID,
+	}, nil
+}
+
 func (p Project) resolveDeleteSelectedParamsContext(sectionID string) (string, map[string]any, string, error) {
 	section, variant, impl, err := p.ResolveSection(sectionID)
 	if err != nil {
@@ -235,6 +193,107 @@ func (p Project) resolveDeleteSelectedParamsContext(sectionID string) (string, m
 	}
 }
 
+func (p *Project) collectDeleteSelectedParamsPlan(
+	sectionID string,
+	paramInfoIDs []string,
+	parentByID map[string]string,
+) (deleteSelectedParamsPlan, error) {
+	plan := deleteSelectedParamsPlan{
+		removedByParent: map[string]map[string]struct{}{},
+		removedIDs:      make([]string, 0, len(paramInfoIDs)),
+		removedSet:      map[string]struct{}{},
+	}
+	for _, paramInfoID := range paramInfoIDs {
+		parentID, shouldDelete, err := p.resolveDeleteSelectedParamTarget(sectionID, paramInfoID, parentByID)
+		if err != nil {
+			return deleteSelectedParamsPlan{}, err
+		}
+		if !shouldDelete {
+			continue
+		}
+		plan.removedIDs = append(plan.removedIDs, paramInfoID)
+		plan.removedSet[paramInfoID] = struct{}{}
+		if _, ok := plan.removedByParent[parentID]; !ok {
+			plan.removedByParent[parentID] = map[string]struct{}{}
+		}
+		plan.removedByParent[parentID][paramInfoID] = struct{}{}
+	}
+	return plan, nil
+}
+
+func (p *Project) resolveDeleteSelectedParamTarget(
+	sectionID string,
+	paramInfoID string,
+	parentByID map[string]string,
+) (string, bool, error) {
+	if _, ok := p.CodeObjs[paramInfoID]; !ok {
+		return "", false, fmt.Errorf("%w: %q", ErrCodeObjNotFound, paramInfoID)
+	}
+
+	paramPayload, _, _, paramImpl, err := p.ResolveSectionCodeObject(sectionID, paramInfoID)
+	if err != nil {
+		return "", false, err
+	}
+	paramType := effectiveCodeObjType(paramPayload, paramImpl)
+	if !isParamCodeObjectType(paramType) {
+		return "", false, fmt.Errorf(
+			"%w: codeObj=%q type=%q",
+			ErrDeleteSelectedParamsParamUnsupported,
+			paramInfoID,
+			paramType,
+		)
+	}
+	if !payloadBoolField(paramPayload, "coreNameEditable") {
+		return "", false, nil
+	}
+
+	parentID, ok := parentByID[paramInfoID]
+	if !ok || strings.TrimSpace(parentID) == "" {
+		return "", false, fmt.Errorf(
+			"%w: section=%q codeObj=%q",
+			ErrDeleteSelectedParamsParentMissing,
+			sectionID,
+			paramInfoID,
+		)
+	}
+	return parentID, true, nil
+}
+
+func (p *Project) removeDeletedParamsFromParents(sectionID string, removedByParent map[string]map[string]struct{}) error {
+	for parentID, removedChildren := range removedByParent {
+		if err := p.removeDeletedChildrenFromParent(sectionID, parentID, removedChildren); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Project) removeDeletedChildrenFromParent(
+	sectionID string,
+	parentID string,
+	removedChildren map[string]struct{},
+) error {
+	parentPayload, _, _, parentImpl, err := p.ResolveSectionCodeObject(sectionID, parentID)
+	if err != nil {
+		return err
+	}
+	if _, ok := parentPayload["children"]; !ok {
+		return fmt.Errorf(
+			"%w: codeObj=%q type=%q",
+			ErrDeleteSelectedParamsParentUnsupported,
+			parentID,
+			effectiveCodeObjType(parentPayload, parentImpl),
+		)
+	}
+
+	currentChildren := payloadStringArrayField(parentPayload, "children")
+	nextChildren := filterStringSlice(currentChildren, removedChildren)
+	if stringSlicesEqual(currentChildren, nextChildren) {
+		return nil
+	}
+	return p.setCurrentCodeObjectField(sectionID, parentID, "children", append([]string(nil), nextChildren...))
+}
+
 func (p *Project) cleanupDeletedParamSectionState(sectionID string, removed map[string]struct{}) error {
 	if p == nil || len(removed) == 0 {
 		return nil
@@ -245,22 +304,33 @@ func (p *Project) cleanupDeletedParamSectionState(sectionID string, removed map[
 		return err
 	}
 
-	currentPinned := payloadStringArrayField(payload, "pinnedParams")
-	nextPinned := filterStringSlice(currentPinned, removed)
-	if !stringSlicesEqual(currentPinned, nextPinned) {
-		if err := p.setCurrentSectionField(sectionID, "pinnedParams", append([]string(nil), nextPinned...)); err != nil {
-			return err
-		}
+	if err := p.removeDeletedSectionParamList(sectionID, payload, "pinnedParams", removed); err != nil {
+		return err
 	}
-
-	currentSelected := payloadStringArrayField(payload, "selectedParams")
-	nextSelected := filterStringSlice(currentSelected, removed)
-	if !stringSlicesEqual(currentSelected, nextSelected) {
-		if err := p.setCurrentSectionField(sectionID, "selectedParams", append([]string(nil), nextSelected...)); err != nil {
-			return err
-		}
+	if err := p.removeDeletedSectionParamList(sectionID, payload, "selectedParams", removed); err != nil {
+		return err
 	}
+	if err := p.removeDeletedIgnoreParams(sectionID, removed); err != nil {
+		return err
+	}
+	return p.removeDeletedEdgeInputParams(sectionID, payload, removed)
+}
 
+func (p *Project) removeDeletedSectionParamList(
+	sectionID string,
+	payload map[string]any,
+	field string,
+	removed map[string]struct{},
+) error {
+	current := payloadStringArrayField(payload, field)
+	next := filterStringSlice(current, removed)
+	if stringSlicesEqual(current, next) {
+		return nil
+	}
+	return p.setCurrentSectionField(sectionID, field, append([]string(nil), next...))
+}
+
+func (p *Project) removeDeletedIgnoreParams(sectionID string, removed map[string]struct{}) error {
 	ignoreState, err := p.TypeErrorIgnoreStateForSection(sectionID)
 	if err != nil {
 		return err
@@ -274,31 +344,54 @@ func (p *Project) cleanupDeletedParamSectionState(sectionID string, removed map[
 		delete(nextIgnoreParams, paramInfoID)
 		ignoreChanged = true
 	}
-	if ignoreChanged {
-		ignoreState.Params = nextIgnoreParams
-		if err := p.setCurrentTypeErrorIgnoreState(sectionID, ignoreState); err != nil {
-			return err
-		}
+	if !ignoreChanged {
+		return nil
 	}
+	ignoreState.Params = nextIgnoreParams
+	return p.setCurrentTypeErrorIgnoreState(sectionID, ignoreState)
+}
 
+func (p *Project) removeDeletedEdgeInputParams(
+	sectionID string,
+	payload map[string]any,
+	removed map[string]struct{},
+) error {
 	currentEdgeInputs := payloadStringArrayField(payload, "edgeInputParams")
 	nextEdgeInputs := filterStringSlice(currentEdgeInputs, removed)
-	if !stringSlicesEqual(currentEdgeInputs, nextEdgeInputs) {
-		removedEdgeInputs := map[string]struct{}{}
-		for _, paramInfoID := range currentEdgeInputs {
-			if _, ok := removed[paramInfoID]; ok {
-				removedEdgeInputs[paramInfoID] = struct{}{}
-			}
-		}
-		if err := p.removeDeletedParamEdgeTargets(sectionID, removedEdgeInputs); err != nil {
-			return err
-		}
-		if err := p.setCurrentSectionField(sectionID, "edgeInputParams", append([]string(nil), nextEdgeInputs...)); err != nil {
-			return err
-		}
+	if stringSlicesEqual(currentEdgeInputs, nextEdgeInputs) {
+		return nil
 	}
 
-	return nil
+	removedEdgeInputs := sliceIntersectionSet(currentEdgeInputs, removed)
+	if err := p.removeDeletedParamEdgeTargets(sectionID, removedEdgeInputs); err != nil {
+		return err
+	}
+	return p.setCurrentSectionField(sectionID, "edgeInputParams", append([]string(nil), nextEdgeInputs...))
+}
+
+func sliceIntersectionSet(values []string, allowed map[string]struct{}) map[string]struct{} {
+	result := map[string]struct{}{}
+	for _, value := range values {
+		if _, ok := allowed[value]; ok {
+			result[value] = struct{}{}
+		}
+	}
+	return result
+}
+
+func (p *Project) applyDeleteSelectedParamsCleanup(
+	sectionType string,
+	sectionID string,
+	rootCodeObjID string,
+	removed map[string]struct{},
+) error {
+	if err := p.cleanupDeletedParamSectionState(sectionID, removed); err != nil {
+		return err
+	}
+	if err := p.removeDeletedParamsFromSectionVariantMaps(sectionType, sectionID, rootCodeObjID, removed); err != nil {
+		return err
+	}
+	return p.pruneUnusedCodeObjects()
 }
 
 func (p *Project) removeDeletedParamEdgeTargets(sectionID string, removedPorts map[string]struct{}) error {
@@ -342,45 +435,63 @@ func (p *Project) removeDeletedParamsFromSectionVariantMaps(
 		return nil
 	}
 
-	affectedSectionIDs := []string{sectionID}
-	if isKwargDictLikeSectionType(sectionType) {
-		sharedSectionIDs, err := p.dictSectionIDsForTopLevelParam(rootCodeObjID)
-		if err != nil {
-			return err
-		}
-		affectedSectionIDs = sharedSectionIDs
+	affectedSectionIDs, err := p.deleteSelectedParamsAffectedSectionIDs(sectionType, sectionID, rootCodeObjID)
+	if err != nil {
+		return err
 	}
-
 	for _, affectedSectionID := range affectedSectionIDs {
-		section, variant, _, err := p.ResolveSection(affectedSectionID)
-		if err != nil {
-			return err
-		}
-		payload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
-		if err != nil {
-			return err
-		}
-		currentMap := payloadStringMapField(payload, "codeObjVariantMap")
-		if len(currentMap) == 0 {
-			continue
-		}
-
-		nextMap := make(map[string]string, len(currentMap))
-		changed := false
-		for codeObjID, variantID := range currentMap {
-			if _, ok := removed[codeObjID]; ok {
-				changed = true
-				continue
-			}
-			nextMap[codeObjID] = variantID
-		}
-		if !changed {
-			continue
-		}
-		if err := p.setCurrentSectionCodeObjVariantMap(affectedSectionID, nextMap); err != nil {
+		if err := p.removeDeletedParamsFromSectionVariantMap(affectedSectionID, removed); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (p *Project) deleteSelectedParamsAffectedSectionIDs(
+	sectionType string,
+	sectionID string,
+	rootCodeObjID string,
+) ([]string, error) {
+	if !isKwargDictLikeSectionType(sectionType) {
+		return []string{sectionID}, nil
+	}
+	return p.dictSectionIDsForTopLevelParam(rootCodeObjID)
+}
+
+func (p *Project) removeDeletedParamsFromSectionVariantMap(sectionID string, removed map[string]struct{}) error {
+	section, variant, _, err := p.ResolveSection(sectionID)
+	if err != nil {
+		return err
+	}
+	payload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
+	if err != nil {
+		return err
+	}
+	currentMap := payloadStringMapField(payload, "codeObjVariantMap")
+	if len(currentMap) == 0 {
+		return nil
+	}
+
+	nextMap, changed := withoutRemovedCodeObjectVariants(currentMap, removed)
+	if !changed {
+		return nil
+	}
+	return p.setCurrentSectionCodeObjVariantMap(sectionID, nextMap)
+}
+
+func withoutRemovedCodeObjectVariants(
+	current map[string]string,
+	removed map[string]struct{},
+) (map[string]string, bool) {
+	next := make(map[string]string, len(current))
+	changed := false
+	for codeObjID, variantID := range current {
+		if _, ok := removed[codeObjID]; ok {
+			changed = true
+			continue
+		}
+		next[codeObjID] = variantID
+	}
+	return next, changed
 }
