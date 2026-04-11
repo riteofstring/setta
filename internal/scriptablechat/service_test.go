@@ -445,7 +445,7 @@ func TestServiceGetAllMetadataUsesCachedNamesAndSortsByLastUpdated(t *testing.T)
 		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		Inputs: map[string]any{
-			"runType": runTypeScriptableChat,
+			"runType": RunTypeScriptableChat,
 			"chatId":  "chat-cached",
 			"llmConfig": map[string]any{
 				"id":        "primary",
@@ -466,7 +466,7 @@ func TestServiceGetAllMetadataUsesCachedNamesAndSortsByLastUpdated(t *testing.T)
 		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 5, 0, 0, time.UTC)),
 		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 5, 0, 0, time.UTC)),
 		Inputs: map[string]any{
-			"runType": runTypeScriptableChat,
+			"runType": RunTypeScriptableChat,
 			"chatId":  "chat-derived",
 			"llmConfig": map[string]any{
 				"id":        "primary",
@@ -591,7 +591,7 @@ func TestServiceRunToolsForwardsFrontendAffinityTokenAndContext(t *testing.T) {
 		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		Inputs: map[string]any{
-			"runType":         runTypeScriptableChat,
+			"runType":         RunTypeScriptableChat,
 			"chatId":          "chat-1",
 			"projectConfigId": "project-alpha",
 			"llmConfig": map[string]any{
@@ -666,7 +666,7 @@ func TestServiceRunToolsRejectsBlankFrontendAffinityToken(t *testing.T) {
 		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		Inputs: map[string]any{
-			"runType":         runTypeScriptableChat,
+			"runType":         RunTypeScriptableChat,
 			"chatId":          "chat-1",
 			"projectConfigId": "project-alpha",
 			"llmConfig": map[string]any{
@@ -710,7 +710,7 @@ func TestServiceRunToolsRequiresChatProjectForSettaTools(t *testing.T) {
 		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		Inputs: map[string]any{
-			"runType": runTypeScriptableChat,
+			"runType": RunTypeScriptableChat,
 			"chatId":  "chat-1",
 			"llmConfig": map[string]any{
 				"id":    "primary",
@@ -760,7 +760,7 @@ func TestServiceRunToolsReturnsErrorMessageForUnknownTool(t *testing.T) {
 		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
 		Inputs: map[string]any{
-			"runType":         runTypeScriptableChat,
+			"runType":         RunTypeScriptableChat,
 			"chatId":          "chat-1",
 			"projectConfigId": "project-alpha",
 			"llmConfig": map[string]any{

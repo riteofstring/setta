@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	runTypeScriptableChat = "scriptable_chat"
+	RunTypeScriptableChat = "scriptable_chat"
 	scriptableLLMConfigID = "scriptable"
 )
 
@@ -167,7 +167,7 @@ func (s *Service) CreateChat(request CreateChatRequest) (Chat, error) {
 
 	now := s.now().UTC()
 	inputs := map[string]any{
-		"runType":   runTypeScriptableChat,
+		"runType":   RunTypeScriptableChat,
 		"llmConfig": cloneLLMConfigValue(llmCfg),
 	}
 	if projectConfigID != nil {
@@ -257,7 +257,7 @@ func (s *Service) GetAllMetadata(GetAllMetadataRequest) ([]ChatMetadata, error) 
 	if s == nil || s.runs == nil {
 		return nil, ErrRunStoreRequired
 	}
-	runType := runTypeScriptableChat
+	runType := RunTypeScriptableChat
 	runs, err := s.runs.ListByMetadata(agentruns.RunFilter{
 		RunType: &runType,
 	})
@@ -453,7 +453,7 @@ func isScriptableChatRun(run agentruns.Run) bool {
 	if !ok {
 		return false
 	}
-	return strings.TrimSpace(rawRunType) == runTypeScriptableChat
+	return strings.TrimSpace(rawRunType) == RunTypeScriptableChat
 }
 
 func parseLLMConfig(run agentruns.Run) (llmconfig.Config, bool, error) {

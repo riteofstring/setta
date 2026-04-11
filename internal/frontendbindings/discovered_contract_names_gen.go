@@ -107,6 +107,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(scriptablechat.ChatMetadata{}):                                       "ChatMetadata",
 	reflect.TypeOf(projectstate.ChatPermissionMode("")):                                 "ChatPermissionMode",
 	reflect.TypeOf(scriptablechat.ChatRole("")):                                         "ChatRole",
+	reflect.TypeOf(httpapi.FrontendChatRunTypeSet(nil)):                                 "ChatRunTypeSet",
 	reflect.TypeOf(projectstate.ChatSectionBranch{}):                                    "ChatSectionBranch",
 	reflect.TypeOf(projectstate.FrontendChatSectionImpl{}):                              "ChatSectionImpl",
 	reflect.TypeOf(projectstate.ChatSectionSettings{}):                                  "ChatSectionSettings",

@@ -8,7 +8,10 @@ import (
 	"setta/internal/artifacts"
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/externalagents"
+	"setta/internal/managedchat"
 	"setta/internal/projectstate"
+	"setta/internal/scriptablechat"
 	"setta/internal/transcriptionsessions"
 	"setta/internal/wsapi"
 )
@@ -113,5 +116,22 @@ func TestFrontendValueSettaFilesLocationPolicyConfigUsesAuthoritativeConfigValue
 	}
 	if !slices.Equal(got.Resolved, wantResolved) {
 		t.Fatalf("unexpected resolved setta files locations: got %v want %v", got.Resolved, wantResolved)
+	}
+}
+
+func TestFrontendValueChatRunTypesByNameUsesAuthoritativeRunTypeConstants(t *testing.T) {
+	got := FrontendValueChatRunTypesByName()
+	want := FrontendChatRunTypeSet{
+		managedchat.RunTypeManagedChat:       true,
+		externalagents.RunTypeExternalAgent:  true,
+		scriptablechat.RunTypeScriptableChat: true,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("unexpected chat run type set length: got %d want %d", len(got), len(want))
+	}
+	for key, wantValue := range want {
+		if got[key] != wantValue {
+			t.Fatalf("unexpected chat run type membership for %q: got %v want %v", key, got[key], wantValue)
+		}
 	}
 }

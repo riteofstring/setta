@@ -27,6 +27,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "ChatRunTypesByName",
+			Type: reflect.TypeOf(httpapi.FrontendValueChatRunTypesByName()),
+			Value: func() any {
+				return httpapi.FrontendValueChatRunTypesByName()
+			},
+		},
+		{
 			Name: "DefaultAppPolicy",
 			Type: reflect.TypeOf(deployments.FrontendValueDefaultAppPolicy()),
 			Value: func() any {

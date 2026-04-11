@@ -2230,6 +2230,13 @@
         "title": "ChatRole",
         "type": "string"
       },
+      "ChatRunTypeSet": {
+        "additionalProperties": {
+          "type": "boolean"
+        },
+        "title": "ChatRunTypeSet",
+        "type": "object"
+      },
       "ChatSectionBranch": {
         "additionalProperties": false,
         "properties": {

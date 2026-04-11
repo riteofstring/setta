@@ -2598,6 +2598,13 @@
         "tool"
       ]
     },
+    "ChatRunTypeSet": {
+      "type": "object",
+      "title": "ChatRunTypeSet",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
     "ChatSectionBranch": {
       "type": "object",
       "properties": {

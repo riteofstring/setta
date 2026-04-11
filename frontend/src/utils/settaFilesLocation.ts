@@ -1,12 +1,16 @@
 import { SettaFilesLocationPolicyConfig } from "utils/generatedTypes";
 
 const requestedSettaFilesLocations = SettaFilesLocationPolicyConfig.requested;
-if (!requestedSettaFilesLocations || requestedSettaFilesLocations.length === 0) {
+if (
+  !requestedSettaFilesLocations ||
+  requestedSettaFilesLocations.length === 0
+) {
   throw new Error(
     "SettaFilesLocationPolicyConfig.requested must include at least one location.",
   );
 }
-const resolvedSettaFilesLocations = SettaFilesLocationPolicyConfig.resolved ?? [];
+const resolvedSettaFilesLocations =
+  SettaFilesLocationPolicyConfig.resolved ?? [];
 const requestedSettaFilesLocationSet = new Set<string>(
   requestedSettaFilesLocations,
 );

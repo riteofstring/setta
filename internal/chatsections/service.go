@@ -9,9 +9,8 @@ import (
 	"setta/internal/externalagents"
 	"setta/internal/managedchat"
 	"setta/internal/projectstate"
+	"setta/internal/scriptablechat"
 )
-
-const runTypeScriptableChat = "scriptable_chat"
 
 var (
 	ErrProjectStateRequired = errors.New("chat sections project state is required")
@@ -89,7 +88,7 @@ func (s *Service) chatRunExists(projectID string, chatID string) (bool, error) {
 	}
 	for _, run := range runs {
 		switch strings.TrimSpace(runTypeFromRun(run)) {
-		case managedchat.RunTypeManagedChat, externalagents.RunTypeExternalAgent, runTypeScriptableChat:
+		case managedchat.RunTypeManagedChat, externalagents.RunTypeExternalAgent, scriptablechat.RunTypeScriptableChat:
 			return true, nil
 		}
 	}

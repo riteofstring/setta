@@ -9,6 +9,7 @@ import {
   buildChatHistoryEntries,
   buildChatProvenanceByChatId,
   resolveScopedChatProvenanceForChatId,
+  type ChatRunType,
 } from "./chatHistory";
 
 function buildRun({
@@ -34,7 +35,7 @@ function buildRun({
   nameSource?: string;
   sectionId?: string;
   projectConfigId?: string | null;
-  runType?: "llm_chat" | "external_agent" | "scriptable_chat";
+  runType?: ChatRunType;
   engineConfigId?: string | null;
   status?: RunStatusEnum;
 }): AgentRun {

@@ -2,8 +2,11 @@ package httpapi
 
 import (
 	"setta/internal/config"
+	"setta/internal/externalagents"
 	"setta/internal/hostnames"
+	"setta/internal/managedchat"
 	"setta/internal/mcpx"
+	"setta/internal/scriptablechat"
 	"setta/internal/wsapi"
 )
 
@@ -67,6 +70,8 @@ type FrontendSettaFilesLocationPolicy struct {
 	Requested []FrontendSettaFilesLocation         `json:"requested"`
 	Resolved  []FrontendResolvedSettaFilesLocation `json:"resolved"`
 }
+
+type FrontendChatRunTypeSet map[string]bool
 
 type FrontendRootTransportRoutes struct {
 	BootstrapPage string `json:"bootstrapPage"`
@@ -215,6 +220,14 @@ func FrontendValueSettaFilesLocationPolicyConfig() FrontendSettaFilesLocationPol
 	return FrontendSettaFilesLocationPolicy{
 		Requested: requested,
 		Resolved:  resolved,
+	}
+}
+
+func FrontendValueChatRunTypesByName() FrontendChatRunTypeSet {
+	return FrontendChatRunTypeSet{
+		managedchat.RunTypeManagedChat:       true,
+		externalagents.RunTypeExternalAgent:  true,
+		scriptablechat.RunTypeScriptableChat: true,
 	}
 }
 

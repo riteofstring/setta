@@ -570,6 +570,11 @@
       ]
     },
     {
+      "name": "ChatRunTypeSet",
+      "kind": "alias",
+      "schemaRef": "#/$defs/ChatRunTypeSet"
+    },
+    {
       "name": "ChatSectionBranch",
       "kind": "model",
       "schemaRef": "#/$defs/ChatSectionBranch"
@@ -10256,6 +10261,15 @@
         "SETTA_TERMINAL_READY": "SETTA_TERMINAL_READY",
         "SETTINGS_PROJECT_NAME": "settings",
         "WS_TERMINAL_RESIZE": "terminalResize"
+      }
+    },
+    {
+      "name": "ChatRunTypesByName",
+      "type": "ChatRunTypeSet",
+      "value": {
+        "external_agent": true,
+        "llm_chat": true,
+        "scriptable_chat": true
       }
     },
     {

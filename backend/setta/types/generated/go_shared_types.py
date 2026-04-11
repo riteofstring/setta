@@ -124,6 +124,9 @@ class ChatRole(StrEnum):
     tool = "tool"
 
 
+type ChatRunTypeSet = dict[str, bool]
+
+
 class ChatSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

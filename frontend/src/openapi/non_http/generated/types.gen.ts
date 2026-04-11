@@ -911,6 +911,13 @@ export type ChatPermissionMode = "minimal" | "yolo" | "config_toml_custom";
 type ChatRole = "system" | "user" | "assistant" | "tool";
 
 /**
+ * ChatRunTypeSet
+ */
+export type ChatRunTypeSet = {
+  [key: string]: boolean;
+};
+
+/**
  * ChatSectionBranch
  */
 export type ChatSectionBranch = {

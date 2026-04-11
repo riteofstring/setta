@@ -4289,6 +4289,12 @@ export const C = {
   WS_TERMINAL_RESIZE: "terminalResize",
 } satisfies gt.Constants;
 
+export const ChatRunTypesByName = {
+  external_agent: true,
+  llm_chat: true,
+  scriptable_chat: true,
+} satisfies gt.ChatRunTypeSet;
+
 export const DefaultAppPolicy = {
   allowExternalLinks: false,
   allowFileDownloads: false,
