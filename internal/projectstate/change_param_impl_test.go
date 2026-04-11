@@ -180,3 +180,73 @@ func TestProjectChangeParamImplMigratesPasswordSecretsAndSupportsFollowOnWrites(
 		t.Fatalf("expected text value to stay blank after password switch-back, got %q", got)
 	}
 }
+
+// Switching between distinct password impls should preserve the stored secret,
+// clear the old impl store entry, and keep the section payload sanitized.
+func TestProjectChangeParamImplTransfersPasswordSecretsBetweenPasswordImpls(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	secrets := NewMemoryPasswordSecretStore()
+	project.passwordSecrets = secrets
+
+	if err := project.ChangeParamImpl("dict-a", "shared-child", "PasswordParam"); err != nil {
+		t.Fatalf("change text param to password: %v", err)
+	}
+	if err := project.SetSectionCodeObjectValue("dict-a", "shared-child", "open-sesame"); err != nil {
+		t.Fatalf("write initial password value: %v", err)
+	}
+
+	passwordPayload, _, _, oldPasswordImpl, err := project.ResolveSectionCodeObject("dict-a", "shared-child")
+	if err != nil {
+		t.Fatalf("resolve initial password impl: %v", err)
+	}
+	if !payloadBoolField(passwordPayload, "hasSecret") {
+		t.Fatalf("expected initial password impl to report hasSecret, got %#v", passwordPayload)
+	}
+
+	replacementImpl, err := newCodeObjectImplForType("PasswordParam")
+	if err != nil {
+		t.Fatalf("create replacement password impl: %v", err)
+	}
+	project.CodeObjImpls[replacementImpl.ID] = replacementImpl
+
+	if err := project.ChangeParamImpl("dict-a", "shared-child", replacementImpl.ID); err != nil {
+		t.Fatalf("change password param to replacement impl: %v", err)
+	}
+
+	replacementPayload, _, _, resolvedReplacementImpl, err := project.ResolveSectionCodeObject("dict-a", "shared-child")
+	if err != nil {
+		t.Fatalf("resolve replacement password impl: %v", err)
+	}
+	if resolvedReplacementImpl.ID != replacementImpl.ID {
+		t.Fatalf("expected replacement impl %q, got %q", replacementImpl.ID, resolvedReplacementImpl.ID)
+	}
+	if got := payloadRawStringField(replacementPayload, "value"); got != "" {
+		t.Fatalf("expected replacement password value to stay blank, got %q", got)
+	}
+	if !payloadBoolField(replacementPayload, "hasSecret") {
+		t.Fatalf("expected replacement password impl to report hasSecret, got %#v", replacementPayload)
+	}
+
+	replacementSecret, err := secrets.Get(replacementImpl.ID)
+	if err != nil {
+		t.Fatalf("read replacement password secret: %v", err)
+	}
+	if replacementSecret != "open-sesame" {
+		t.Fatalf("expected replacement secret open-sesame, got %q", replacementSecret)
+	}
+
+	oldSecret, err := secrets.Get(oldPasswordImpl.ID)
+	if err != nil {
+		t.Fatalf("read old password secret after replacement: %v", err)
+	}
+	if oldSecret != "" {
+		t.Fatalf("expected old password secret to clear, got %q", oldSecret)
+	}
+
+	oldImplPayload := codeObjImplPayloadObject(project.CodeObjImpls[oldPasswordImpl.ID])
+	if payloadBoolField(oldImplPayload, "hasSecret") {
+		t.Fatalf("expected old password impl payload to clear hasSecret, got %#v", oldImplPayload)
+	}
+}

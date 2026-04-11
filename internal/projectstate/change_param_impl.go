@@ -115,65 +115,127 @@ func (p *Project) ChangeParamImpl(sectionID string, paramInfoID string, selected
 		return ErrProjectNotFound
 	}
 
+	resolvedChange, err := p.resolveChangeParamImpl(sectionID, paramInfoID, selectedID)
+	if err != nil {
+		return err
+	}
+	p.applyChangeParamImplVariant(&resolvedChange.oldVariant, resolvedChange.nextImpl)
+	if err := p.copyChangedParamImplMetadata(
+		resolvedChange.sectionID,
+		resolvedChange.paramInfoID,
+		resolvedChange.oldPayload,
+		resolvedChange.oldType,
+		resolvedChange.nextType,
+	); err != nil {
+		return err
+	}
+	return p.migrateChangedParamValue(
+		resolvedChange.sectionID,
+		resolvedChange.paramInfoID,
+		resolvedChange.oldImpl,
+		resolvedChange.oldPayload,
+		resolvedChange.oldType,
+	)
+}
+
+type resolvedChangeParamImpl struct {
+	sectionID   string
+	paramInfoID string
+	oldPayload  map[string]any
+	oldVariant  CodeObjectVariant
+	oldImpl     CodeObjectImpl
+	oldType     string
+	nextImpl    CodeObjectImpl
+	nextType    string
+}
+
+func normalizeChangeParamImplInput(sectionID string, paramInfoID string, selectedID string) (string, string, string, error) {
 	trimmedSectionID := strings.TrimSpace(sectionID)
 	if trimmedSectionID == "" {
-		return ErrSectionIDRequired
+		return "", "", "", ErrSectionIDRequired
 	}
 	trimmedParamID := strings.TrimSpace(paramInfoID)
 	if trimmedParamID == "" {
-		return ErrCodeObjIDRequired
+		return "", "", "", ErrCodeObjIDRequired
 	}
 	trimmedSelectedID := strings.TrimSpace(selectedID)
 	if trimmedSelectedID == "" {
-		return ErrChangeParamImplSelectedRequired
+		return "", "", "", ErrChangeParamImplSelectedRequired
 	}
+	return trimmedSectionID, trimmedParamID, trimmedSelectedID, nil
+}
 
+func (p *Project) resolveChangeParamImpl(sectionID string, paramInfoID string, selectedID string) (resolvedChangeParamImpl, error) {
+	trimmedSectionID, trimmedParamID, trimmedSelectedID, err := normalizeChangeParamImplInput(sectionID, paramInfoID, selectedID)
+	if err != nil {
+		return resolvedChangeParamImpl{}, err
+	}
 	allowedTypes, err := p.allowedChangeParamImplTypes(trimmedSectionID)
 	if err != nil {
-		return err
+		return resolvedChangeParamImpl{}, err
 	}
-
 	oldPayload, _, oldVariant, oldImpl, err := p.ResolveSectionCodeObject(trimmedSectionID, trimmedParamID)
 	if err != nil {
-		return err
+		return resolvedChangeParamImpl{}, err
 	}
 	oldType := effectiveCodeObjType(oldPayload, oldImpl)
-
 	nextImpl, nextType, err := p.resolveChangeParamImplTarget(trimmedSelectedID, allowedTypes)
 	if err != nil {
-		return err
+		return resolvedChangeParamImpl{}, err
 	}
 	if _, ok := allowedTypes[nextType]; !ok {
-		return fmt.Errorf("%w: section=%q type=%q", ErrChangeParamImplCodeObjTypeNotAllowed, trimmedSectionID, nextType)
+		return resolvedChangeParamImpl{}, fmt.Errorf("%w: section=%q type=%q", ErrChangeParamImplCodeObjTypeNotAllowed, trimmedSectionID, nextType)
 	}
+	return resolvedChangeParamImpl{
+		sectionID:   trimmedSectionID,
+		paramInfoID: trimmedParamID,
+		oldPayload:  oldPayload,
+		oldVariant:  oldVariant,
+		oldImpl:     oldImpl,
+		oldType:     oldType,
+		nextImpl:    nextImpl,
+		nextType:    nextType,
+	}, nil
+}
 
-	if nextImpl.ID != oldVariant.ImplID {
+func (p *Project) applyChangeParamImplVariant(variant *CodeObjectVariant, nextImpl CodeObjectImpl) {
+	if nextImpl.ID != variant.ImplID {
 		if _, ok := p.CodeObjImpls[nextImpl.ID]; !ok {
 			p.CodeObjImpls[nextImpl.ID] = nextImpl
 		}
 	}
-	oldVariant.ImplID = nextImpl.ID
-	if !codeObjImplIsPreset(nextImpl) && !containsString(oldVariant.NonPresetImplIDs, nextImpl.ID) {
-		oldVariant.NonPresetImplIDs = append(oldVariant.NonPresetImplIDs, nextImpl.ID)
+	variant.ImplID = nextImpl.ID
+	if !codeObjImplIsPreset(nextImpl) && !containsString(variant.NonPresetImplIDs, nextImpl.ID) {
+		variant.NonPresetImplIDs = append(variant.NonPresetImplIDs, nextImpl.ID)
 	}
-	p.CodeObjVariants[oldVariant.ID] = oldVariant
+	p.CodeObjVariants[variant.ID] = *variant
+}
 
-	if isParamCodeObjectType(oldType) && isParamCodeObjectType(nextType) {
-		if err := p.setSectionCodeObjectField(trimmedSectionID, trimmedParamID, "coreNameEditable", payloadBoolField(oldPayload, "coreNameEditable")); err != nil {
-			return err
-		}
-		if err := p.setSectionCodeObjectField(trimmedSectionID, trimmedParamID, "coreNameType", stringFieldOrDefault(oldPayload, "coreNameType", "TEXT")); err != nil {
-			return err
-		}
-		if err := p.setSectionCodeObjectField(trimmedSectionID, trimmedParamID, "passingStyle", stringFieldOrDefault(oldPayload, "passingStyle", "DEFAULT")); err != nil {
-			return err
-		}
-		if err := p.setSectionCodeObjectField(trimmedSectionID, trimmedParamID, "typeAnnotation", payloadRawStringField(oldPayload, "typeAnnotation")); err != nil {
+func (p *Project) copyChangedParamImplMetadata(
+	sectionID string,
+	paramInfoID string,
+	oldPayload map[string]any,
+	oldType string,
+	newType string,
+) error {
+	if !isParamCodeObjectType(oldType) || !isParamCodeObjectType(newType) {
+		return nil
+	}
+	metadataFields := []struct {
+		name  string
+		value any
+	}{
+		{name: "coreNameEditable", value: payloadBoolField(oldPayload, "coreNameEditable")},
+		{name: "coreNameType", value: stringFieldOrDefault(oldPayload, "coreNameType", "TEXT")},
+		{name: "passingStyle", value: stringFieldOrDefault(oldPayload, "passingStyle", "DEFAULT")},
+		{name: "typeAnnotation", value: payloadRawStringField(oldPayload, "typeAnnotation")},
+	}
+	for _, field := range metadataFields {
+		if err := p.setSectionCodeObjectField(sectionID, paramInfoID, field.name, field.value); err != nil {
 			return err
 		}
 	}
-
-	return p.migrateChangedParamValue(trimmedSectionID, trimmedParamID, oldImpl, oldPayload, oldType, nextImpl)
+	return nil
 }
 
 func (p Project) allowedChangeParamImplTypes(sectionID string) (map[string]struct{}, error) {
@@ -243,85 +305,41 @@ func (p *Project) resolveChangeParamImplTarget(selectedID string, allowedTypes m
 	return impl, nextType, nil
 }
 
+var paramImplBasePayloadFactories = map[string]func() map[string]any{
+	codeParamType:          childlessParamImplBasePayload,
+	"TextParam":            textParamImplBasePayload,
+	"DateParam":            dateParamImplBasePayload,
+	"TimeParam":            timeParamImplBasePayload,
+	"ButtonParam":          buttonParamImplBasePayload,
+	"SliderParam":          sliderParamImplBasePayload,
+	"RotaryParam":          rotaryParamImplBasePayload,
+	"SwitchParam":          switchParamImplBasePayload,
+	"ColorPickerParam":     colorPickerParamImplBasePayload,
+	"DropdownParam":        dropdownParamImplBasePayload,
+	"PasswordParam":        passwordParamImplBasePayload,
+	"TextAreaParam":        childlessParamImplBasePayload,
+	"DropzoneParam":        dropzoneParamImplBasePayload,
+	nestedParamCodeObjType: nestedParamImplBasePayload,
+}
+
 func newCodeObjectImplForType(codeObjType string) (CodeObjectImpl, error) {
 	implID, err := newProjectStateID()
 	if err != nil {
 		return CodeObjectImpl{}, err
 	}
 
-	base := paramImplBasePayload()
-	switch strings.TrimSpace(codeObjType) {
-	case codeParamType:
-		base = childlessParamImplBasePayload()
-	case "TextParam":
-		base = childlessParamImplBasePayload()
-		base["uiType"] = "plain"
-	case "DateParam":
-		base = childlessParamImplBasePayload()
-		base["dateDisplayFormat"] = "iso"
-		base["dateControlMode"] = "input"
-		base["dateSelectionMode"] = "single"
-		base["dateCalendarWeekStart"] = "sunday"
-		base["dateIncludesTime"] = false
-	case "TimeParam":
-		base = childlessParamImplBasePayload()
-		base["timeControlMode"] = "input"
-		base["timeDisplayFormat"] = "twenty_four_hour"
-		base["timeDisplayTransparent"] = false
-		base["timeDisplayScale"] = 1.0
-		base["timeDisplayFont"] = "monospace"
-	case "ButtonParam":
-		base["label"] = "Trigger"
-		base["actionMode"] = "WEBSOCKET_LISTENER"
-		base["requestMethod"] = "POST"
-		base["requestUrl"] = ""
-		base["requestHeaderKey"] = ""
-		base["requestHeaderValue"] = ""
-		base["requestBody"] = ""
-	case "SliderParam":
-		base = childlessParamImplBasePayload()
-		base["min"] = 0
-		base["max"] = 100
-		base["step"] = 1
-		base["value"] = "0"
-	case "RotaryParam":
-		base = childlessParamImplBasePayload()
-		base["min"] = 0
-		base["max"] = 1
-		base["step"] = 0.1
-		base["value"] = "0"
-	case "SwitchParam":
-		base = childlessParamImplBasePayload()
-		base["value"] = "false"
-	case "ColorPickerParam":
-		base = childlessParamImplBasePayload()
-		base["colorChoices"] = []any{}
-		base["value"] = "#ff0000"
-	case "DropdownParam":
-		base = childlessParamImplBasePayload()
-		base["choices"] = []any{}
-	case "PasswordParam":
-		base = childlessParamImplBasePayload()
-		base["hasSecret"] = false
-	case "TextAreaParam":
-		base = childlessParamImplBasePayload()
-	case "DropzoneParam":
-		base = childlessParamImplBasePayload()
-		base["mode"] = "STATEFUL"
-		base["placeholder"] = "Drop a file here"
-	case nestedParamCodeObjType:
-		base["children"] = []any{}
-	default:
+	trimmedType := strings.TrimSpace(codeObjType)
+	factory, ok := paramImplBasePayloadFactories[trimmedType]
+	if !ok {
 		return CodeObjectImpl{}, fmt.Errorf("%w: %q", ErrChangeParamImplCodeObjTypeUnknown, codeObjType)
 	}
-
-	payload, err := buildCreatedCodeObjectPayload(implID, codeObjType, base)
+	payload, err := buildCreatedCodeObjectPayload(implID, trimmedType, factory())
 	if err != nil {
 		return CodeObjectImpl{}, err
 	}
 	return CodeObjectImpl{
 		ID:      implID,
-		Type:    codeObjType,
+		Type:    trimmedType,
 		Payload: payload,
 	}, nil
 }
@@ -342,141 +360,316 @@ func childlessParamImplBasePayload() map[string]any {
 	return base
 }
 
+func textParamImplBasePayload() map[string]any {
+	base := childlessParamImplBasePayload()
+	base["uiType"] = "plain"
+	return base
+}
+
+func dateParamImplBasePayload() map[string]any {
+	base := childlessParamImplBasePayload()
+	base["dateDisplayFormat"] = "iso"
+	base["dateControlMode"] = "input"
+	base["dateSelectionMode"] = "single"
+	base["dateCalendarWeekStart"] = "sunday"
+	base["dateIncludesTime"] = false
+	return base
+}
+
+func timeParamImplBasePayload() map[string]any {
+	base := childlessParamImplBasePayload()
+	base["timeControlMode"] = "input"
+	base["timeDisplayFormat"] = "twenty_four_hour"
+	base["timeDisplayTransparent"] = false
+	base["timeDisplayScale"] = 1.0
+	base["timeDisplayFont"] = "monospace"
+	return base
+}
+
+func buttonParamImplBasePayload() map[string]any {
+	base := paramImplBasePayload()
+	base["label"] = "Trigger"
+	base["actionMode"] = "WEBSOCKET_LISTENER"
+	base["requestMethod"] = "POST"
+	base["requestUrl"] = ""
+	base["requestHeaderKey"] = ""
+	base["requestHeaderValue"] = ""
+	base["requestBody"] = ""
+	return base
+}
+
+func sliderParamImplBasePayload() map[string]any {
+	return rangedParamImplBasePayload(0, 100, 1)
+}
+
+func rotaryParamImplBasePayload() map[string]any {
+	return rangedParamImplBasePayload(0, 1, 0.1)
+}
+
+func rangedParamImplBasePayload(minimum float64, maximum float64, step float64) map[string]any {
+	base := childlessParamImplBasePayload()
+	base["min"] = minimum
+	base["max"] = maximum
+	base["step"] = step
+	base["value"] = formatProjectNumber(minimum)
+	return base
+}
+
+func switchParamImplBasePayload() map[string]any {
+	base := childlessParamImplBasePayload()
+	base["value"] = "false"
+	return base
+}
+
+func colorPickerParamImplBasePayload() map[string]any {
+	base := childlessParamImplBasePayload()
+	base["colorChoices"] = []any{}
+	base["value"] = "#ff0000"
+	return base
+}
+
+func dropdownParamImplBasePayload() map[string]any {
+	base := childlessParamImplBasePayload()
+	base["choices"] = []any{}
+	return base
+}
+
+func passwordParamImplBasePayload() map[string]any {
+	base := childlessParamImplBasePayload()
+	base["hasSecret"] = false
+	return base
+}
+
+func dropzoneParamImplBasePayload() map[string]any {
+	base := childlessParamImplBasePayload()
+	base["mode"] = "STATEFUL"
+	base["placeholder"] = "Drop a file here"
+	return base
+}
+
+func nestedParamImplBasePayload() map[string]any {
+	base := paramImplBasePayload()
+	base["children"] = []any{}
+	return base
+}
+
+type changedParamValueMigration struct {
+	sectionID     string
+	paramInfoID   string
+	oldImpl       CodeObjectImpl
+	newImpl       CodeObjectImpl
+	oldType       string
+	newType       string
+	oldValue      string
+	oldHasValue   bool
+	oldIsPassword bool
+	newIsPassword bool
+	newPayload    map[string]any
+}
+
 func (p *Project) migrateChangedParamValue(
 	sectionID string,
 	paramInfoID string,
 	oldImpl CodeObjectImpl,
 	oldPayload map[string]any,
 	oldType string,
-	newImpl CodeObjectImpl,
 ) error {
+	migration, err := p.resolveChangedParamValueMigration(sectionID, paramInfoID, oldImpl, oldPayload, oldType)
+	if err != nil {
+		return err
+	}
+	if err := p.requireChangedParamPasswordStore(migration); err != nil {
+		return err
+	}
+	if err := p.migrateChangedParamOldPassword(&migration); err != nil {
+		return err
+	}
+	if migration.newIsPassword {
+		return p.finalizeChangedPasswordParamValue(migration)
+	}
+	return p.migrateChangedChildlessParamValue(migration)
+}
+
+func (p *Project) resolveChangedParamValueMigration(
+	sectionID string,
+	paramInfoID string,
+	oldImpl CodeObjectImpl,
+	oldPayload map[string]any,
+	oldType string,
+) (changedParamValueMigration, error) {
 	newPayload, _, _, resolvedNewImpl, err := p.ResolveSectionCodeObject(sectionID, paramInfoID)
 	if err != nil {
-		return err
+		return changedParamValueMigration{}, err
 	}
-	newType := effectiveCodeObjType(newPayload, resolvedNewImpl)
-
 	oldValue, oldHasValue := payloadRawStringFieldWithPresence(oldPayload, "value")
-	oldIsPassword := oldType == "PasswordParam"
-	newIsPassword := newType == "PasswordParam"
+	newType := effectiveCodeObjType(newPayload, resolvedNewImpl)
+	return changedParamValueMigration{
+		sectionID:     sectionID,
+		paramInfoID:   paramInfoID,
+		oldImpl:       oldImpl,
+		newImpl:       resolvedNewImpl,
+		oldType:       oldType,
+		newType:       newType,
+		oldValue:      oldValue,
+		oldHasValue:   oldHasValue,
+		oldIsPassword: oldType == "PasswordParam",
+		newIsPassword: newType == "PasswordParam",
+		newPayload:    newPayload,
+	}, nil
+}
 
-	if oldIsPassword || newIsPassword {
-		if p.passwordSecrets == nil {
-			return ErrPasswordParamMutationUnsupported
-		}
+func (p *Project) requireChangedParamPasswordStore(migration changedParamValueMigration) error {
+	if (migration.oldIsPassword || migration.newIsPassword) && p.passwordSecrets == nil {
+		return ErrPasswordParamMutationUnsupported
 	}
+	return nil
+}
 
-	if oldIsPassword {
-		oldSecret, err := p.passwordSecrets.Get(oldImpl.ID)
-		if err != nil {
-			return err
-		}
-		if newIsPassword {
-			if resolvedNewImpl.ID != oldImpl.ID && oldSecret != "" {
-				if err := p.passwordSecrets.Set(resolvedNewImpl.ID, oldSecret); err != nil {
-					return err
-				}
-			}
-			if resolvedNewImpl.ID != oldImpl.ID {
-				if err := p.passwordSecrets.Set(oldImpl.ID, ""); err != nil {
-					return err
-				}
-			}
-		} else {
-			if err := p.passwordSecrets.Set(oldImpl.ID, ""); err != nil {
-				return err
-			}
-		}
-		oldValue = ""
-		oldHasValue = true
-		if resolvedNewImpl.ID != oldImpl.ID {
-			if err := p.setCodeObjectImplBaseField(oldImpl.ID, "hasSecret", false); err != nil {
-				return err
-			}
-		}
-	}
-
-	if newIsPassword {
-		if !oldIsPassword && oldHasValue && oldValue != "" {
-			if err := p.passwordSecrets.Set(resolvedNewImpl.ID, oldValue); err != nil {
-				return err
-			}
-		}
-		hasSecret, err := p.passwordSecrets.Get(resolvedNewImpl.ID)
-		if err != nil {
-			return err
-		}
-		if err := p.setSectionCodeObjectField(sectionID, paramInfoID, "hasSecret", hasSecret != ""); err != nil {
-			return err
-		}
-		if _, ok := childlessParamCodeObjectTypes[newType]; ok {
-			return p.setSectionCodeObjectField(sectionID, paramInfoID, "value", "")
-		}
+func (p *Project) migrateChangedParamOldPassword(migration *changedParamValueMigration) error {
+	if !migration.oldIsPassword {
 		return nil
 	}
 
-	if _, ok := childlessParamCodeObjectTypes[oldType]; !ok {
-		return nil
-	}
-	if _, ok := childlessParamCodeObjectTypes[newType]; !ok {
-		return nil
-	}
-	if !oldHasValue {
-		return nil
-	}
-
-	convertedValue, err := convertCodeObjectValueForType(newPayload, oldValue)
+	oldSecret, err := p.passwordSecrets.Get(migration.oldImpl.ID)
 	if err != nil {
 		return err
 	}
-	return p.setSectionCodeObjectField(sectionID, paramInfoID, "value", convertedValue)
+	if err := p.transferChangedParamPasswordSecret(*migration, oldSecret); err != nil {
+		return err
+	}
+
+	migration.oldValue = ""
+	migration.oldHasValue = true
+	if migration.newImpl.ID == migration.oldImpl.ID {
+		return nil
+	}
+	return p.setCodeObjectImplBaseField(migration.oldImpl.ID, "hasSecret", false)
+}
+
+func (p *Project) transferChangedParamPasswordSecret(migration changedParamValueMigration, oldSecret string) error {
+	if !migration.newIsPassword {
+		return p.passwordSecrets.Set(migration.oldImpl.ID, "")
+	}
+	if migration.newImpl.ID == migration.oldImpl.ID {
+		return nil
+	}
+	if oldSecret != "" {
+		if err := p.passwordSecrets.Set(migration.newImpl.ID, oldSecret); err != nil {
+			return err
+		}
+	}
+	return p.passwordSecrets.Set(migration.oldImpl.ID, "")
+}
+
+func (p *Project) finalizeChangedPasswordParamValue(migration changedParamValueMigration) error {
+	if !migration.oldIsPassword && migration.oldHasValue && migration.oldValue != "" {
+		if err := p.passwordSecrets.Set(migration.newImpl.ID, migration.oldValue); err != nil {
+			return err
+		}
+	}
+
+	hasSecret, err := p.passwordSecrets.Get(migration.newImpl.ID)
+	if err != nil {
+		return err
+	}
+	if err := p.setSectionCodeObjectField(migration.sectionID, migration.paramInfoID, "hasSecret", hasSecret != ""); err != nil {
+		return err
+	}
+	if !isChildlessParamCodeObjectType(migration.newType) {
+		return nil
+	}
+	return p.setSectionCodeObjectField(migration.sectionID, migration.paramInfoID, "value", "")
+}
+
+func (p *Project) migrateChangedChildlessParamValue(migration changedParamValueMigration) error {
+	if !migration.oldHasValue || !isChildlessParamCodeObjectType(migration.oldType) || !isChildlessParamCodeObjectType(migration.newType) {
+		return nil
+	}
+	convertedValue, err := convertCodeObjectValueForType(migration.newPayload, migration.oldValue)
+	if err != nil {
+		return err
+	}
+	return p.setSectionCodeObjectField(migration.sectionID, migration.paramInfoID, "value", convertedValue)
+}
+
+func isChildlessParamCodeObjectType(codeObjType string) bool {
+	_, ok := childlessParamCodeObjectTypes[codeObjType]
+	return ok
+}
+
+type paramImplValueConverter func(payload map[string]any, value string) (string, error)
+
+var paramImplValueConverters = map[string]paramImplValueConverter{
+	codeParamType:      passThroughParamImplValue,
+	"TextParam":        passThroughParamImplValue,
+	"DateParam":        passThroughParamImplValue,
+	"TimeParam":        passThroughParamImplValue,
+	"DropdownParam":    passThroughParamImplValue,
+	"PasswordParam":    passThroughParamImplValue,
+	"TextAreaParam":    passThroughParamImplValue,
+	"DropzoneParam":    convertDropzoneParamImplValue,
+	"SliderParam":      convertRangedParamImplValue,
+	"RotaryParam":      convertRangedParamImplValue,
+	"SwitchParam":      convertSwitchParamImplValue,
+	"ColorPickerParam": convertColorPickerParamImplValue,
 }
 
 func convertCodeObjectValueForType(payload map[string]any, value string) (string, error) {
-	switch strings.TrimSpace(payloadStringField(payload, "type")) {
-	case codeParamType, "TextParam", "DateParam", "TimeParam", "DropdownParam", "PasswordParam", "TextAreaParam":
-		return value, nil
-	case "DropzoneParam":
-		if stringFieldOrDefault(payload, "mode", "STATEFUL") == "STATELESS" {
-			return "", nil
-		}
-		return normalizeDropzoneValue(value, optionalPositiveIntField(payload, "maxAttachments")), nil
-	case "SliderParam", "RotaryParam":
-		minimum := numberFieldOrDefault(payload, "min", 0)
-		maximum := numberFieldOrDefault(payload, "max", minimum)
-		parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-		if err != nil || math.IsNaN(parsed) {
-			return formatProjectNumber(minimum), nil
-		}
-		if parsed < minimum {
-			parsed = minimum
-		}
-		if parsed > maximum {
-			parsed = maximum
-		}
-		return formatProjectNumber(parsed), nil
-	case "SwitchParam":
-		if value == "0" {
-			return "false", nil
-		}
-		return "true", nil
-	case "ColorPickerParam":
-		choices := colorChoiceValues(payload["colorChoices"])
-		if len(choices) > 0 {
-			for _, choice := range choices {
-				if value == choice {
-					return value, nil
-				}
-			}
-			return choices[0], nil
-		}
-		if isColorHex(value) {
-			return value, nil
-		}
-		return "#ff0000", nil
-	default:
+	converter, ok := paramImplValueConverters[strings.TrimSpace(payloadStringField(payload, "type"))]
+	if !ok {
 		return value, nil
 	}
+	return converter(payload, value)
+}
+
+func passThroughParamImplValue(_ map[string]any, value string) (string, error) {
+	return value, nil
+}
+
+func convertDropzoneParamImplValue(payload map[string]any, value string) (string, error) {
+	if stringFieldOrDefault(payload, "mode", "STATEFUL") == "STATELESS" {
+		return "", nil
+	}
+	return normalizeDropzoneValue(value, optionalPositiveIntField(payload, "maxAttachments")), nil
+}
+
+func convertRangedParamImplValue(payload map[string]any, value string) (string, error) {
+	minimum := numberFieldOrDefault(payload, "min", 0)
+	maximum := numberFieldOrDefault(payload, "max", minimum)
+	parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	if err != nil || math.IsNaN(parsed) {
+		return formatProjectNumber(minimum), nil
+	}
+	if parsed < minimum {
+		parsed = minimum
+	}
+	if parsed > maximum {
+		parsed = maximum
+	}
+	return formatProjectNumber(parsed), nil
+}
+
+func convertSwitchParamImplValue(_ map[string]any, value string) (string, error) {
+	if value == "0" {
+		return "false", nil
+	}
+	return "true", nil
+}
+
+func convertColorPickerParamImplValue(payload map[string]any, value string) (string, error) {
+	choices := colorChoiceValues(payload["colorChoices"])
+	if len(choices) > 0 {
+		for _, choice := range choices {
+			if value == choice {
+				return value, nil
+			}
+		}
+		return choices[0], nil
+	}
+	if isColorHex(value) {
+		return value, nil
+	}
+	return "#ff0000", nil
 }
 
 func effectiveCodeObjType(payload map[string]any, impl CodeObjectImpl) string {
