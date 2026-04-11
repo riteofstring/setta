@@ -134,35 +134,12 @@ func planLinuxArtifactPaths(context launcherArtifactContext) (map[string]string,
 	existingDesktopEntry := existingArtifactPath(context.ExistingManagedArtifacts, "linuxDesktopEntry")
 	existingShortcut := existingArtifactPath(context.ExistingManagedArtifacts, "linuxDesktopShortcut")
 
-	var applicationsDir string
-	if rawPath := strings.TrimSpace(context.Options["applications_dir"]); rawPath != "" {
-		resolvedPath, err := resolvePathLoose(rawPath)
-		if err != nil {
-			return nil, &LauncherArtifactError{Message: fmt.Sprintf("resolve applications_dir: %v", err)}
-		}
-		applicationsDir = resolvedPath
-	} else if existingDesktopEntry != "" {
-		applicationsDir = filepath.Dir(existingDesktopEntry)
-	} else {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, &LauncherArtifactError{Message: fmt.Sprintf("resolve user home: %v", err)}
-		}
-		applicationsDir, err = resolvePathLoose(filepath.Join(homeDir, ".local", "share", "applications"))
-		if err != nil {
-			return nil, err
-		}
+	applicationsDir, err := resolveLinuxApplicationsDir(context.Options, existingDesktopEntry)
+	if err != nil {
+		return nil, err
 	}
-
-	desktopEntryName := strings.TrimSpace(context.Options["desktop_entry_name"])
-	if desktopEntryName == "" {
-		if existingDesktopEntry != "" {
-			desktopEntryName = filepath.Base(existingDesktopEntry)
-		} else {
-			desktopEntryName = "setta.desktop"
-		}
-	}
-	desktopEntryName, err := validateFileNameComponent("desktop_entry_name", desktopEntryName)
+	desktopEntryName := resolveLinuxDesktopEntryName(context.Options, existingDesktopEntry)
+	desktopEntryName, err = validateFileNameComponent("desktop_entry_name", desktopEntryName)
 	if err != nil {
 		return nil, err
 	}
@@ -194,24 +171,81 @@ func planLinuxArtifactPaths(context launcherArtifactContext) (map[string]string,
 	if err != nil {
 		return nil, err
 	}
+	return buildLinuxPlannedArtifacts(
+		context,
+		desktopEntryPath,
+		wrapperPath,
+		desktopEntryName,
+		homeDir,
+		createDesktopShortcut,
+	)
+}
+
+func resolveLinuxApplicationsDir(options map[string]string, existingDesktopEntry string) (string, error) {
+	if rawPath := strings.TrimSpace(options["applications_dir"]); rawPath != "" {
+		resolvedPath, err := resolvePathLoose(rawPath)
+		if err != nil {
+			return "", &LauncherArtifactError{Message: fmt.Sprintf("resolve applications_dir: %v", err)}
+		}
+		return resolvedPath, nil
+	}
+	if existingDesktopEntry != "" {
+		return filepath.Dir(existingDesktopEntry), nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", &LauncherArtifactError{Message: fmt.Sprintf("resolve user home: %v", err)}
+	}
+	return resolvePathLoose(filepath.Join(homeDir, ".local", "share", "applications"))
+}
+
+func resolveLinuxDesktopEntryName(options map[string]string, existingDesktopEntry string) string {
+	if desktopEntryName := strings.TrimSpace(options["desktop_entry_name"]); desktopEntryName != "" {
+		return desktopEntryName
+	}
+	if existingDesktopEntry != "" {
+		return filepath.Base(existingDesktopEntry)
+	}
+	return "setta.desktop"
+}
+
+func buildLinuxPlannedArtifacts(
+	context launcherArtifactContext,
+	desktopEntryPath string,
+	wrapperPath string,
+	desktopEntryName string,
+	homeDir string,
+	createDesktopShortcut bool,
+) (map[string]string, error) {
 	plannedArtifacts := map[string]string{
 		"linuxDesktopEntry": desktopEntryPath,
 		"linuxWrapper":      wrapperPath,
 	}
-	if createDesktopShortcut {
-		desktopShortcutPath, err := resolvePathOptionWithExisting(
-			context.Options,
-			"desktop_shortcut_path",
-			context.ExistingManagedArtifacts,
-			"linuxDesktopShortcut",
-			filepath.Join(homeDir, "Desktop", desktopEntryName),
-		)
-		if err != nil {
-			return nil, err
-		}
-		plannedArtifacts["linuxDesktopShortcut"] = desktopShortcutPath
+	if !createDesktopShortcut {
+		return plannedArtifacts, nil
 	}
+
+	desktopShortcutPath, err := resolveLinuxDesktopShortcutPath(context, desktopEntryName, homeDir)
+	if err != nil {
+		return nil, err
+	}
+	plannedArtifacts["linuxDesktopShortcut"] = desktopShortcutPath
 	return plannedArtifacts, nil
+}
+
+func resolveLinuxDesktopShortcutPath(
+	context launcherArtifactContext,
+	desktopEntryName string,
+	homeDir string,
+) (string, error) {
+	return resolvePathOptionWithExisting(
+		context.Options,
+		"desktop_shortcut_path",
+		context.ExistingManagedArtifacts,
+		"linuxDesktopShortcut",
+		filepath.Join(homeDir, "Desktop", desktopEntryName),
+	)
 }
 
 func installLinuxArtifacts(context launcherArtifactContext) (map[string]string, error) {
