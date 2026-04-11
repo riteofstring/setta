@@ -325,6 +325,67 @@ func TestRunServiceValidateRunRejectsNonStringProjectConfigID(t *testing.T) {
 	}
 }
 
+func TestRunServiceValidateRunRejectsInvalidScopeInputs(t *testing.T) {
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	profile, err := fixture.profiles.Get("profile-alpha")
+	if err != nil {
+		t.Fatalf("get profile: %v", err)
+	}
+
+	service, _ := newAsyncRunServiceForTest(t, fixture, newRunServiceProjectRuntimeWithSection(t))
+
+	tests := []struct {
+		name   string
+		inputs map[string]any
+		want   string
+	}{
+		{
+			name: "non-string section id",
+			inputs: map[string]any{
+				"projectConfigId": "project-alpha",
+				"sectionId":       123,
+			},
+			want: "sectionId must be a string",
+		},
+		{
+			name: "non-bool allow unscoped",
+			inputs: map[string]any{
+				"projectConfigId": "project-alpha",
+				"allowUnscoped":   "yes",
+			},
+			want: "allowUnscoped must be a boolean",
+		},
+		{
+			name: "section required when not unscoped",
+			inputs: map[string]any{
+				"projectConfigId": "project-alpha",
+			},
+			want: "sectionId is required unless allowUnscoped is true.",
+		},
+		{
+			name: "allow unscoped conflicts with section",
+			inputs: map[string]any{
+				"projectConfigId": "project-alpha",
+				"sectionId":       "section-1",
+				"allowUnscoped":   true,
+			},
+			want: "allowUnscoped requires sectionId to be omitted.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := service.ValidateRun(profile, cloneAnyMap(tt.inputs))
+			if !errors.Is(err, ErrInvalidRunInput) {
+				t.Fatalf("expected invalid run input error, got %v", err)
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("expected error containing %q, got %v", tt.want, err)
+			}
+		})
+	}
+}
+
 func TestRunServiceCreatesDistinctRunIDsWhenChatIDIsReused(t *testing.T) {
 	fixture := newSendServiceFixture(t, sendFixtureOptions{})
 	profile, err := fixture.profiles.Get("profile-alpha")

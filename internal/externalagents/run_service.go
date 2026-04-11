@@ -69,6 +69,11 @@ type preparedRunInputs struct {
 	initialMessages []map[string]any
 }
 
+type runScopeSelection struct {
+	sectionID     *string
+	allowUnscoped bool
+}
+
 func NewRunService(options RunServiceOptions) (*RunService, error) {
 	if options.ProjectState == nil {
 		return nil, ErrRunServiceProjectStateRequired
@@ -121,23 +126,48 @@ func (s *RunService) StartRun(ctx context.Context, profile agentprofiles.Profile
 	if err != nil {
 		return agentruns.Run{}, err
 	}
-
-	profileID := strings.TrimSpace(profile.ID)
-	var runProfileID *string
-	if profileID != "" {
-		runProfileID = stringPtr(profileID)
-	}
-	run := agentruns.NewRun(runProfileID, prepared.inputs, s.timeNow())
-	if prepared.chatID == "" {
-		prepared.chatID = run.ID
-		run.Inputs = cloneAnyMap(prepared.inputs)
-		run.Inputs["chatId"] = prepared.chatID
-		if err := s.seedChatContinuity(run.Inputs, prepared.chatID, prepared.projectConfigID, prepared.engineConfig.ID, prepared.externalConfig.ToolType); err != nil {
-			return agentruns.Run{}, err
-		}
-	}
-	if err := s.runs.Save(run); err != nil {
+	run, err := s.initializeRun(&prepared)
+	if err != nil {
 		return agentruns.Run{}, err
+	}
+	if err := s.persistStartedRun(&run, prepared); err != nil {
+		return agentruns.Run{}, err
+	}
+	started, err := s.executor.Start(ctx, buildRunStartRequest(run, prepared))
+	if err != nil {
+		return s.markRunFailed(run, err)
+	}
+	if err := s.activateStartedRun(run.ID, started.Controller, prepared.initialMessages); err != nil {
+		return agentruns.Run{}, err
+	}
+	return s.runs.Load(run.ID)
+}
+
+func (s *RunService) initializeRun(prepared *preparedRun) (agentruns.Run, error) {
+	run := agentruns.NewRun(resolveRunProfileID(prepared.profile), prepared.inputs, s.timeNow())
+	if prepared.chatID != "" {
+		return run, nil
+	}
+	prepared.chatID = run.ID
+	run.Inputs = cloneAnyMap(prepared.inputs)
+	run.Inputs["chatId"] = prepared.chatID
+	if err := s.seedChatContinuity(run.Inputs, prepared.chatID, prepared.projectConfigID, prepared.engineConfig.ID, prepared.externalConfig.ToolType); err != nil {
+		return agentruns.Run{}, err
+	}
+	return run, nil
+}
+
+func resolveRunProfileID(profile agentprofiles.Profile) *string {
+	profileID := strings.TrimSpace(profile.ID)
+	if profileID == "" {
+		return nil
+	}
+	return stringPtr(profileID)
+}
+
+func (s *RunService) persistStartedRun(run *agentruns.Run, prepared preparedRun) error {
+	if err := s.runs.Save(*run); err != nil {
+		return err
 	}
 	run.Events = append(run.Events, agentruns.NewRunEvent("run_started", map[string]any{
 		"engineConfigId":  prepared.engineConfig.ID,
@@ -145,11 +175,11 @@ func (s *RunService) StartRun(ctx context.Context, profile agentprofiles.Profile
 		"chatId":          prepared.chatID,
 		"sectionId":       derefOptionalString(prepared.sectionID),
 	}, s.timeNow()))
-	if err := s.runs.Save(run); err != nil {
-		return agentruns.Run{}, err
-	}
+	return s.runs.Save(*run)
+}
 
-	started, err := s.executor.Start(ctx, StartRequest{
+func buildRunStartRequest(run agentruns.Run, prepared preparedRun) StartRequest {
+	return StartRequest{
 		Run:             run.Clone(),
 		EngineConfig:    prepared.engineConfig,
 		ExternalConfig:  prepared.externalConfig,
@@ -158,27 +188,27 @@ func (s *RunService) StartRun(ctx context.Context, profile agentprofiles.Profile
 		ChatID:          prepared.chatID,
 		SectionID:       cloneOptionalString(prepared.sectionID),
 		Inputs:          cloneAnyMap(run.Inputs),
-	})
-	if err != nil {
-		return s.markRunFailed(run, err)
 	}
-	if err := s.runtime.ActivateRun(run.ID, started.Controller); err != nil {
-		_ = started.Controller.Cancel()
-		return agentruns.Run{}, err
+}
+
+func (s *RunService) activateStartedRun(runID string, controller RunController, initialMessages []map[string]any) error {
+	if err := s.runtime.ActivateRun(runID, controller); err != nil {
+		_ = controller.Cancel()
+		return err
 	}
-	if err := s.runtime.SetLiveChatState(run.ID, ChatState{
-		Messages:           cloneMessageSlice(prepared.initialMessages),
+	if err := s.runtime.SetLiveChatState(runID, ChatState{
+		Messages:           cloneMessageSlice(initialMessages),
 		WaitingForResponse: true,
 		ToolCallArguments:  map[string]string{},
 	}); err != nil {
-		_ = started.Controller.Cancel()
-		s.runtime.DeactivateRun(run.ID)
-		return agentruns.Run{}, err
+		_ = controller.Cancel()
+		s.runtime.DeactivateRun(runID)
+		return err
 	}
-	if readyController, ok := started.Controller.(runtimeReadyController); ok {
+	if readyController, ok := controller.(runtimeReadyController); ok {
 		readyController.markRuntimeReady()
 	}
-	return s.runs.Load(run.ID)
+	return nil
 }
 
 func (s *RunService) StopRun(runID string) (agentruns.Run, error) {
@@ -281,54 +311,20 @@ func (s *RunService) normalizePreparedRunInputs(
 	if inputs == nil {
 		inputs = map[string]any{}
 	}
-
 	projectConfigID, sectionID, err := s.resolveScope(inputs)
 	if err != nil {
 		return preparedRunInputs{}, err
 	}
-	inputs["projectConfigId"] = projectConfigID
-	if err := s.normalizeEngineInput(inputs, engineConfigID); err != nil {
+	if err := s.seedPreparedRunInputs(inputs, profile, engineConfigID, projectConfigID, sectionID); err != nil {
 		return preparedRunInputs{}, err
 	}
-	if strings.TrimSpace(profile.ID) != "" {
-		inputs["agentProfileId"] = strings.TrimSpace(profile.ID)
-	}
-	if _, ok := inputs["runType"]; !ok {
-		inputs["runType"] = RunTypeExternalAgent
-	}
-	if sectionID != nil {
-		inputs["sectionId"] = *sectionID
-	}
-
-	thinking, err := normalizeThinkingInput(inputs)
+	thinking, initialMessages, err := normalizePreparedRunMessages(inputs, &profile)
 	if err != nil {
 		return preparedRunInputs{}, err
 	}
-	initialMessages, synthesizedFromPrompt, err := normalizeInitialMessages(inputs)
+	chatID, err := normalizePreparedRunChatID(inputs, synthesizedChatID)
 	if err != nil {
 		return preparedRunInputs{}, err
-	}
-	if len(initialMessages) > 0 {
-		inputs["messages"] = messageSliceToJSONList(initialMessages)
-	}
-	if synthesizedFromPrompt {
-		delete(inputs, "prompt")
-	}
-	systemPrompt, err := normalizeRunSystemPrompt(inputs, &profile)
-	if err != nil {
-		return preparedRunInputs{}, err
-	}
-	if systemPrompt != "" {
-		inputs["systemPrompt"] = systemPrompt
-	}
-
-	chatID, err := normalizeRunChatID(inputs)
-	if err != nil {
-		return preparedRunInputs{}, err
-	}
-	if chatID == "" && strings.TrimSpace(synthesizedChatID) != "" {
-		chatID = strings.TrimSpace(synthesizedChatID)
-		inputs["chatId"] = chatID
 	}
 
 	return preparedRunInputs{
@@ -399,52 +395,161 @@ func (s *RunService) markRunFailed(run agentruns.Run, runErr error) (agentruns.R
 
 func (s *RunService) resolveScope(inputs map[string]any) (string, *string, error) {
 	projectSnapshot := s.projectState.Snapshot().Document
-	if strings.TrimSpace(projectSnapshot.DefaultProjectID) == "" {
+	defaultProjectConfigID := strings.TrimSpace(projectSnapshot.DefaultProjectID)
+	if defaultProjectConfigID == "" {
 		return "", nil, fmt.Errorf("%w: project state does not define a default project config", ErrInvalidRunInput)
 	}
-	projectConfigID := projectSnapshot.DefaultProjectID
-	if rawProjectConfigID, ok := inputs["projectConfigId"]; ok {
-		projectConfigIDValue, ok := rawProjectConfigID.(string)
-		if !ok {
-			return "", nil, fmt.Errorf("%w: projectConfigId must be a string", ErrInvalidRunInput)
-		}
-		projectConfigID = strings.TrimSpace(projectConfigIDValue)
+	projectConfigID, err := resolveProjectConfigIDInput(inputs, defaultProjectConfigID)
+	if err != nil {
+		return "", nil, err
 	}
 	project, err := projectSnapshot.ProjectByID(projectConfigID)
 	if err != nil {
 		return "", nil, fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
 	}
-	var sectionID *string
-	if rawSectionID, ok := inputs["sectionId"]; ok {
-		sectionIDValue, ok := rawSectionID.(string)
-		if !ok {
-			return "", nil, fmt.Errorf("%w: sectionId must be a string", ErrInvalidRunInput)
-		}
-		trimmed := strings.TrimSpace(sectionIDValue)
-		if trimmed != "" {
-			sectionID = &trimmed
-		}
+	selection, err := resolveRunScopeSelection(inputs)
+	if err != nil {
+		return "", nil, err
 	}
-	allowUnscoped := false
-	if rawAllowUnscoped, ok := inputs["allowUnscoped"]; ok {
-		allowUnscopedValue, ok := rawAllowUnscoped.(bool)
-		if !ok {
-			return "", nil, fmt.Errorf("%w: allowUnscoped must be a boolean", ErrInvalidRunInput)
-		}
-		allowUnscoped = allowUnscopedValue
+	if err := validateRunScopeSelection(project, selection); err != nil {
+		return "", nil, err
 	}
-	if sectionID == nil && !allowUnscoped {
-		return "", nil, fmt.Errorf("%w: sectionId is required unless allowUnscoped is true.", ErrInvalidRunInput)
+	return projectConfigID, selection.sectionID, nil
+}
+
+func resolveProjectConfigIDInput(inputs map[string]any, defaultProjectConfigID string) (string, error) {
+	rawProjectConfigID, ok := inputs["projectConfigId"]
+	if !ok {
+		return defaultProjectConfigID, nil
 	}
-	if sectionID != nil && allowUnscoped {
-		return "", nil, fmt.Errorf("%w: allowUnscoped requires sectionId to be omitted.", ErrInvalidRunInput)
+	projectConfigID, ok := rawProjectConfigID.(string)
+	if !ok {
+		return "", fmt.Errorf("%w: projectConfigId must be a string", ErrInvalidRunInput)
+	}
+	return strings.TrimSpace(projectConfigID), nil
+}
+
+func resolveRunScopeSelection(inputs map[string]any) (runScopeSelection, error) {
+	sectionID, err := resolveRunSectionIDInput(inputs)
+	if err != nil {
+		return runScopeSelection{}, err
+	}
+	allowUnscoped, err := resolveAllowUnscopedInput(inputs)
+	if err != nil {
+		return runScopeSelection{}, err
+	}
+	return runScopeSelection{
+		sectionID:     sectionID,
+		allowUnscoped: allowUnscoped,
+	}, nil
+}
+
+func resolveRunSectionIDInput(inputs map[string]any) (*string, error) {
+	rawSectionID, ok := inputs["sectionId"]
+	if !ok {
+		return nil, nil
+	}
+	sectionID, ok := rawSectionID.(string)
+	if !ok {
+		return nil, fmt.Errorf("%w: sectionId must be a string", ErrInvalidRunInput)
+	}
+	trimmed := strings.TrimSpace(sectionID)
+	if trimmed == "" {
+		return nil, nil
+	}
+	return &trimmed, nil
+}
+
+func resolveAllowUnscopedInput(inputs map[string]any) (bool, error) {
+	rawAllowUnscoped, ok := inputs["allowUnscoped"]
+	if !ok {
+		return false, nil
+	}
+	allowUnscoped, ok := rawAllowUnscoped.(bool)
+	if !ok {
+		return false, fmt.Errorf("%w: allowUnscoped must be a boolean", ErrInvalidRunInput)
+	}
+	return allowUnscoped, nil
+}
+
+func validateRunScopeSelection(project projectstate.Project, selection runScopeSelection) error {
+	if selection.sectionID == nil && !selection.allowUnscoped {
+		return fmt.Errorf("%w: sectionId is required unless allowUnscoped is true.", ErrInvalidRunInput)
+	}
+	if selection.sectionID != nil && selection.allowUnscoped {
+		return fmt.Errorf("%w: allowUnscoped requires sectionId to be omitted.", ErrInvalidRunInput)
+	}
+	if selection.sectionID == nil {
+		return nil
+	}
+	if _, _, _, err := project.ResolveSection(*selection.sectionID); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
+	}
+	return nil
+}
+
+func (s *RunService) seedPreparedRunInputs(
+	inputs map[string]any,
+	profile agentprofiles.Profile,
+	engineConfigID string,
+	projectConfigID string,
+	sectionID *string,
+) error {
+	inputs["projectConfigId"] = projectConfigID
+	if err := s.normalizeEngineInput(inputs, engineConfigID); err != nil {
+		return err
+	}
+	if profileID := strings.TrimSpace(profile.ID); profileID != "" {
+		inputs["agentProfileId"] = profileID
+	}
+	if _, ok := inputs["runType"]; !ok {
+		inputs["runType"] = RunTypeExternalAgent
 	}
 	if sectionID != nil {
-		if _, _, _, err := project.ResolveSection(*sectionID); err != nil {
-			return "", nil, fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
-		}
+		inputs["sectionId"] = *sectionID
 	}
-	return projectConfigID, sectionID, nil
+	return nil
+}
+
+func normalizePreparedRunMessages(inputs map[string]any, profile *agentprofiles.Profile) (bool, []map[string]any, error) {
+	thinking, err := normalizeThinkingInput(inputs)
+	if err != nil {
+		return false, nil, err
+	}
+	initialMessages, synthesizedFromPrompt, err := normalizeInitialMessages(inputs)
+	if err != nil {
+		return false, nil, err
+	}
+	if len(initialMessages) > 0 {
+		inputs["messages"] = messageSliceToJSONList(initialMessages)
+	}
+	if synthesizedFromPrompt {
+		delete(inputs, "prompt")
+	}
+	systemPrompt, err := normalizeRunSystemPrompt(inputs, profile)
+	if err != nil {
+		return false, nil, err
+	}
+	if systemPrompt != "" {
+		inputs["systemPrompt"] = systemPrompt
+	}
+	return thinking, initialMessages, nil
+}
+
+func normalizePreparedRunChatID(inputs map[string]any, synthesizedChatID string) (string, error) {
+	chatID, err := normalizeRunChatID(inputs)
+	if err != nil {
+		return "", err
+	}
+	if chatID != "" {
+		return chatID, nil
+	}
+	trimmedSynthesizedChatID := strings.TrimSpace(synthesizedChatID)
+	if trimmedSynthesizedChatID == "" {
+		return "", nil
+	}
+	inputs["chatId"] = trimmedSynthesizedChatID
+	return trimmedSynthesizedChatID, nil
 }
 
 func (s *RunService) normalizeEngineInput(inputs map[string]any, engineConfigID string) error {
