@@ -170,6 +170,45 @@ func TestLSPDiagnosticsRegistryPrunesMissingPythonCodeSections(t *testing.T) {
 	}
 }
 
+// A prune pass that finds the same active sections should not rebroadcast the
+// existing snapshot.
+func TestLSPDiagnosticsRegistryPruneDocumentSkipsUnchangedProjectState(t *testing.T) {
+	t.Parallel()
+
+	payloads := make([]LSPDiagnosticsPayload, 0, 2)
+	registry := NewLSPDiagnosticsRegistry(LSPDiagnosticsRegistryOptions{
+		OnChange: func(payload LSPDiagnosticsPayload) {
+			payloads = append(payloads, payload)
+		},
+	})
+	registry.UpdateCodeSection("project-alpha", "section-1", []LSPDiagnostic{testLSPDiagnostic("fixture-ts")})
+
+	project := ignoreStateTestProject(t, ignoreStateTestProjectOptions{})
+	project.ID = "project-alpha"
+	project.Name = "Alpha"
+
+	document, err := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize unchanged prune document: %v", err)
+	}
+	if err := registry.PruneDocument(document); err != nil {
+		t.Fatalf("prune unchanged diagnostics: %v", err)
+	}
+
+	if len(payloads) != 1 {
+		t.Fatalf("expected no prune rebroadcast, got %d payloads", len(payloads))
+	}
+	if len(registry.Snapshot("project-alpha").CodeSections["section-1"]) != 1 {
+		t.Fatalf("expected unchanged section diagnostics to remain, got %#v", registry.Snapshot("project-alpha").CodeSections)
+	}
+}
+
 // Duplicate generated-document payloads should not rebroadcast.
 func TestLSPDiagnosticsRegistrySkipsDuplicateGeneratedDocumentBroadcast(t *testing.T) {
 	t.Parallel()

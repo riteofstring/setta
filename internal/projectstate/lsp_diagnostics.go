@@ -222,17 +222,9 @@ func (r *LSPDiagnosticsRegistry) PruneDocument(document Document) error {
 		return nil
 	}
 
-	validProjectSectionIDs := make(map[string]map[string]struct{}, len(document.Projects))
-	for projectID, project := range document.Projects {
-		sectionFiles, err := project.ActiveCodeSectionFiles()
-		if err != nil {
-			return err
-		}
-		validSectionIDs := make(map[string]struct{}, len(sectionFiles))
-		for _, file := range sectionFiles {
-			validSectionIDs[file.SectionID] = struct{}{}
-		}
-		validProjectSectionIDs[projectID] = validSectionIDs
+	validProjectSectionIDs, err := collectDocumentActiveCodeSectionIDs(document)
+	if err != nil {
+		return err
 	}
 
 	r.mu.Lock()
@@ -245,31 +237,7 @@ func (r *LSPDiagnosticsRegistry) PruneDocument(document Document) error {
 			delete(r.projects, projectID)
 			continue
 		}
-		validSectionIDs := validProjectSectionIDs[projectID]
-		if validSectionIDs == nil {
-			validSectionIDs = map[string]struct{}{}
-		}
-		changed := false
-		if !project.HasPythonCodegenTarget() && len(state.generatedDocs) > 0 {
-			state.generatedDocs = map[string]generatedDocumentDiagnostics{}
-			changed = true
-		}
-
-		for sectionID := range state.rawCodeSections {
-			if _, ok := validSectionIDs[sectionID]; ok {
-				continue
-			}
-			delete(state.rawCodeSections, sectionID)
-			changed = true
-		}
-		for sectionID := range state.codeSections {
-			if _, ok := validSectionIDs[sectionID]; ok {
-				continue
-			}
-			delete(state.codeSections, sectionID)
-			changed = true
-		}
-
+		state, changed := pruneProjectLSPDiagnosticsState(project, state, validProjectSectionIDs[projectID])
 		if changed {
 			r.projects[projectID] = state
 			changedPayloads = append(changedPayloads, state.snapshot())
@@ -284,6 +252,64 @@ func (r *LSPDiagnosticsRegistry) PruneDocument(document Document) error {
 	}
 
 	return nil
+}
+
+func collectDocumentActiveCodeSectionIDs(document Document) (map[string]map[string]struct{}, error) {
+	validProjectSectionIDs := make(map[string]map[string]struct{}, len(document.Projects))
+	for projectID, project := range document.Projects {
+		sectionFiles, err := project.ActiveCodeSectionFiles()
+		if err != nil {
+			return nil, err
+		}
+		validProjectSectionIDs[projectID] = activeCodeSectionIDSet(sectionFiles)
+	}
+	return validProjectSectionIDs, nil
+}
+
+func activeCodeSectionIDSet(sectionFiles []ActiveCodeSectionFile) map[string]struct{} {
+	validSectionIDs := make(map[string]struct{}, len(sectionFiles))
+	for _, file := range sectionFiles {
+		validSectionIDs[file.SectionID] = struct{}{}
+	}
+	return validSectionIDs
+}
+
+func pruneProjectLSPDiagnosticsState(
+	project Project,
+	state projectLSPDiagnosticsState,
+	validSectionIDs map[string]struct{},
+) (projectLSPDiagnosticsState, bool) {
+	if validSectionIDs == nil {
+		validSectionIDs = map[string]struct{}{}
+	}
+
+	changed := false
+	if !project.HasPythonCodegenTarget() && len(state.generatedDocs) > 0 {
+		state.generatedDocs = map[string]generatedDocumentDiagnostics{}
+		changed = true
+	}
+	if pruneCodeSectionDiagnostics(state.rawCodeSections, validSectionIDs) {
+		changed = true
+	}
+	if pruneCodeSectionDiagnostics(state.codeSections, validSectionIDs) {
+		changed = true
+	}
+	return state, changed
+}
+
+func pruneCodeSectionDiagnostics(
+	codeSections map[string][]LSPDiagnostic,
+	validSectionIDs map[string]struct{},
+) bool {
+	changed := false
+	for sectionID := range codeSections {
+		if _, ok := validSectionIDs[sectionID]; ok {
+			continue
+		}
+		delete(codeSections, sectionID)
+		changed = true
+	}
+	return changed
 }
 
 func (r *LSPDiagnosticsRegistry) projectStateLocked(projectID string) projectLSPDiagnosticsState {
