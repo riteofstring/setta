@@ -1,9 +1,13 @@
+import importlib.util
 import json
 import os
 import subprocess
 import threading
+from types import ModuleType
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import pytest
 
 from tests.start.dev_script_wiring_helpers import repo_root, write_stub_executable
 
@@ -21,6 +25,15 @@ def _sandbox_env(sandbox_root: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
     return env
+
+
+def _load_repo_script(relative_path: str, *, module_name: str) -> ModuleType:
+    script_path = repo_root() / relative_path
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_configure_supply_chain_local_only_updates_repo_policy_and_npmrc_files(
@@ -281,6 +294,39 @@ packages:
 
     assert result.returncode == 1
     assert "@scope/newpkg@2.0.0" in result.stdout
+
+
+def test_check_pnpm_lock_release_age_rejects_invalid_lockfile_shapes() -> None:
+    module = _load_repo_script(
+        "scripts/check_pnpm_lock_release_age.py",
+        module_name="check_pnpm_lock_release_age_script",
+    )
+
+    with pytest.raises(SystemExit, match="expected a top-level mapping"):
+        module.load_package_keys("[]\n", lockfile=Path("pnpm-lock.yaml"))
+
+    with pytest.raises(SystemExit, match="non-string package key"):
+        module.load_package_keys("packages:\n  12: {}\n", lockfile=Path("pnpm-lock.yaml"))
+
+
+def test_configure_supply_chain_upsert_npmrc_replaces_aliases_in_place(
+    tmp_path: Path,
+) -> None:
+    module = _load_repo_script(
+        "scripts/configure_supply_chain.py",
+        module_name="configure_supply_chain_script",
+    )
+    npmrc = tmp_path / ".npmrc"
+    npmrc.write_text(
+        "legacy-peer-deps=true\nmin-release-age=1440\nminimumReleaseAge=2880\nstrict-peer-dependencies=false\n",
+        encoding="utf-8",
+    )
+
+    module.upsert_npmrc(npmrc, days=3)
+
+    assert npmrc.read_text(encoding="utf-8") == (
+        "legacy-peer-deps=true\nminimum-release-age=4320\nstrict-peer-dependencies=false\n"
+    )
 
 
 def test_normalize_uv_lock_strips_exclude_newer_options_block(

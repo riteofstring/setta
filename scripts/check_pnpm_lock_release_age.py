@@ -39,30 +39,37 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_package_keys(lockfile_text: str, *, lockfile: Path) -> list[str]:
-    data = yaml.safe_load(lockfile_text) or {}
-    if not isinstance(data, dict):
-        raise SystemExit(
-            f"pnpm release-age policy failed: expected a top-level mapping in {lockfile}."
-        )
+def require_mapping(
+    value: object, *, lockfile: Path, description: str
+) -> dict[object, object]:
+    if isinstance(value, dict):
+        return value
+    raise SystemExit(
+        f"pnpm release-age policy failed: expected {description} in {lockfile}."
+    )
 
-    packages = data.get("packages")
+
+def load_package_keys(lockfile_text: str, *, lockfile: Path) -> list[str]:
+    data = yaml.safe_load(lockfile_text)
+    if data is None:
+        data = {}
+    lockfile_data = require_mapping(
+        data, lockfile=lockfile, description="a top-level mapping"
+    )
+
+    packages = lockfile_data.get("packages")
     if packages is None:
         return []
-    if not isinstance(packages, dict):
+    package_map = require_mapping(
+        packages, lockfile=lockfile, description="'packages' to be a mapping"
+    )
+
+    invalid_key = next((key for key in package_map if not isinstance(key, str)), None)
+    if invalid_key is not None:
         raise SystemExit(
-            f"pnpm release-age policy failed: expected 'packages' to be a mapping in {lockfile}."
+            f"pnpm release-age policy failed: found a non-string package key in {lockfile}."
         )
-
-    package_keys: list[str] = []
-    for key in packages:
-        if not isinstance(key, str):
-            raise SystemExit(
-                f"pnpm release-age policy failed: found a non-string package key in {lockfile}."
-            )
-        package_keys.append(key)
-
-    return package_keys
+    return list(package_map)
 
 
 def parse_registry_package(raw_key: str) -> tuple[str, str] | None:

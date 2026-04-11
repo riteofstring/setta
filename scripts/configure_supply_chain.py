@@ -78,29 +78,40 @@ def days_to_minutes(days: int) -> int:
     return days * MINUTES_PER_DAY
 
 
-def upsert_npmrc(path: Path, *, days: int) -> None:
-    minutes = days_to_minutes(days)
-    lines: list[str]
-    if path.exists():
-        lines = path.read_text(encoding="utf-8").splitlines()
-    else:
-        lines = []
+def load_npmrc_lines(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    return path.read_text(encoding="utf-8").splitlines()
 
-    updated_lines: list[str] = []
-    replaced = False
+
+def npmrc_key(line: str) -> str | None:
+    stripped = line.strip()
+    if "=" not in stripped:
+        return None
+    return stripped.split("=", 1)[0].strip()
+
+
+def normalize_release_age_npmrc_lines(lines: list[str], *, minutes: int) -> list[str]:
+    policy_line = f"minimum-release-age={minutes}"
+    kept_lines: list[str] = []
+    insert_at: int | None = None
     for line in lines:
-        stripped = line.strip()
-        key = stripped.split("=", 1)[0].strip() if "=" in stripped else None
-        if key in NPMRC_KEY_ALIASES:
-            if not replaced:
-                updated_lines.append(f"minimum-release-age={minutes}")
-                replaced = True
+        if npmrc_key(line) not in NPMRC_KEY_ALIASES:
+            kept_lines.append(line)
             continue
-        updated_lines.append(line)
+        if insert_at is None:
+            insert_at = len(kept_lines)
+    if insert_at is None:
+        kept_lines.append(policy_line)
+        return kept_lines
+    kept_lines.insert(insert_at, policy_line)
+    return kept_lines
 
-    if not replaced:
-        updated_lines.append(f"minimum-release-age={minutes}")
 
+def upsert_npmrc(path: Path, *, days: int) -> None:
+    updated_lines = normalize_release_age_npmrc_lines(
+        load_npmrc_lines(path), minutes=days_to_minutes(days)
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(updated_lines).rstrip() + "\n", encoding="utf-8")
 
