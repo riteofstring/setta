@@ -96,6 +96,59 @@ printf '%s\\n' '{_status_payload(session_id, backend_port)}'
     return json.loads(result.stdout)
 
 
+def _run_dev_runtime_info_process(
+    tmp_path: Path,
+    runtime_log_body: str,
+    setta_body: str,
+    extra_args: list[str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "dev-runtime-info.sh"
+    workspace_root = tmp_path / "worktree"
+    stub_dir = tmp_path / "bin"
+    runtime_log_path = tmp_path / "runtime.log"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    runtime_log_path.write_text(runtime_log_body, encoding="utf-8")
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"rev-parse --show-toplevel"* ]]; then
+  printf '%s\\n' "{workspace_root}"
+  exit 0
+fi
+echo "unsupported git args: $*" >&2
+exit 1
+""",
+    )
+    _write_executable(stub_dir / "setta", setta_body)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+
+    command = [
+        "bash",
+        str(script_path),
+        "--workspace",
+        str(workspace_root),
+        "--runtime-log",
+        str(runtime_log_path),
+    ]
+    if extra_args:
+        command.extend(extra_args)
+
+    return subprocess.run(
+        command,
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_dev_runtime_info_omits_stale_frontend_url_when_log_session_is_stale(
     tmp_path: Path,
 ) -> None:
@@ -255,3 +308,53 @@ exec {sys.executable} "$@"
     payload = json.loads(result.stdout)
     assert payload["frontendUrl"] == "http://127.0.0.1:3075/"
     assert payload["backendUrl"] == "http://127.0.0.1:8075"
+
+
+def test_dev_runtime_info_requires_connect_info_by_default(
+    tmp_path: Path,
+) -> None:
+    result = _run_dev_runtime_info_process(
+        tmp_path=tmp_path,
+        runtime_log_body="""
+Starting Chrome with remote debugging on port 9297
+Ready: http://127.0.0.1:8075
+Local: http://127.0.0.1:3075/
+""".strip(),
+        setta_body="""#!/usr/bin/env bash
+set -euo pipefail
+echo 'Error: No matching Setta sessions found.' >&2
+exit 1
+""",
+    )
+
+    assert result.returncode != 0
+    assert "Failed to read connect-info JSON" in result.stderr
+
+
+def test_dev_runtime_info_can_fall_back_to_runtime_log_when_connect_info_is_missing(
+    tmp_path: Path,
+) -> None:
+    result = _run_dev_runtime_info_process(
+        tmp_path=tmp_path,
+        runtime_log_body="""
+Starting Chrome with remote debugging on port 9297
+Ready: http://127.0.0.1:8075
+Local: http://127.0.0.1:3075/
+""".strip(),
+        setta_body="""#!/usr/bin/env bash
+set -euo pipefail
+echo 'Error: No matching Setta sessions found.' >&2
+exit 1
+""",
+        extra_args=["--allow-missing-connect-info"],
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["connectInfoAvailable"] is False
+    assert payload["frontendUrl"] == "http://127.0.0.1:3075/"
+    assert payload["frontendUrlSource"] == "runtime_log_current_backend"
+    assert payload["backendUrl"] == "http://127.0.0.1:8075"
+    assert payload["backendUrlSource"] == "runtime_log"
+    assert payload["bootstrapUrl"] is None
+    assert payload["session"] == {}

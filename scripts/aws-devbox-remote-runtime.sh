@@ -888,8 +888,95 @@ runtime_info_is_ready() {
     printf '%s' "${info_json}" | jq -e '
       (.frontendUrl // "") != "" and
       (.backendUrl // "") != "" and
-      (.debugPort // 0) > 0
+      (.debugPort // 0) > 0 and
+      (.debugPortSource // "") != "default"
     ' >/dev/null 2>&1
+}
+
+extract_runtime_value_from_log() {
+    log_path="$1"
+    pattern="$2"
+    replacement="$3"
+
+    if [ ! -f "${log_path}" ]; then
+        return 1
+    fi
+
+    sed -nE "s/${pattern}/${replacement}/p" "${log_path}" | tail -n1
+}
+
+extract_frontend_url_from_log() {
+    log_path="$1"
+    extract_runtime_value_from_log "${log_path}" '.*Local:[[:space:]]*(http:\/\/[^[:space:]]+).*$' '\1'
+}
+
+extract_backend_url_from_log() {
+    log_path="$1"
+    extract_runtime_value_from_log "${log_path}" '.*Ready:[[:space:]]*(http:\/\/[^[:space:]]+).*$' '\1'
+}
+
+extract_debug_port_from_log() {
+    log_path="$1"
+    extract_runtime_value_from_log "${log_path}" '.*Starting Chrome with remote debugging on port ([0-9]+).*$' '\1'
+}
+
+runtime_info_from_log_fallback() {
+    workspace_root="$1"
+    runtime_log="$2"
+
+    frontend_url="$(extract_frontend_url_from_log "${runtime_log}" 2>/dev/null || true)"
+    backend_url="$(extract_backend_url_from_log "${runtime_log}" 2>/dev/null || true)"
+    debug_port="$(extract_debug_port_from_log "${runtime_log}" 2>/dev/null || true)"
+
+    if [ -z "${frontend_url}" ] || [ -z "${backend_url}" ] || [ -z "${debug_port}" ]; then
+        return 1
+    fi
+
+    jq -n \
+        --arg workspace_root "${workspace_root}" \
+        --arg frontend_url "${frontend_url}" \
+        --arg backend_url "${backend_url}" \
+        --arg runtime_log_path "${runtime_log}" \
+        --arg debug_port "${debug_port}" \
+        '{
+          workspaceRoot: $workspace_root,
+          connectInfoAvailable: false,
+          frontendUrl: $frontend_url,
+          frontendUrlSource: "runtime_log_latest",
+          backendUrl: $backend_url,
+          backendUrlSource: "runtime_log",
+          bootstrapUrl: null,
+          runtimeLogPath: $runtime_log_path,
+          session: {},
+          runtimeRoot: null,
+          settaFilesRoot: null,
+          settaHome: null,
+          debugPort: ($debug_port | tonumber),
+          debugPortSource: "runtime_log",
+          debugPortPid: null,
+          profileDir: null,
+          mcpRunDir: null,
+          runtimeMetadataPath: null
+        }'
+}
+
+read_runtime_info() {
+    runtime_info_script="$1"
+    workspace_root="$2"
+    runtime_log="$3"
+    allow_missing_connect_info="${4:-0}"
+
+    info_json="$("${runtime_info_script}" --workspace "${workspace_root}" --runtime-log "${runtime_log}" 2>/dev/null || true)"
+    if [ -n "${info_json}" ]; then
+        printf '%s\n' "${info_json}"
+        return 0
+    fi
+
+    if [ "${allow_missing_connect_info}" = "1" ]; then
+        runtime_info_from_log_fallback "${workspace_root}" "${runtime_log}" && return 0
+    fi
+
+    return 1
 }
 
 log_runtime_progress() {
@@ -926,6 +1013,7 @@ ensure_tmux_session() {
     runtime_log="$4"
     runtime_info_script="$5"
     browser_mode="$6"
+    allow_missing_connect_info="${7:-0}"
     session_target="$(tmux_session_target "${session_name}")"
     shell_target="$(tmux_window_target "${session_name}" shell)"
     ai_target="$(tmux_window_target "${session_name}" ai)"
@@ -950,7 +1038,7 @@ ensure_tmux_session() {
         tmux respawn-window -k -t "${shell_target}" "$(shell_window_command "${shell_start_dir}")"
     fi
 
-    current_runtime_info="$("${runtime_info_script}" --workspace "${workspace_root}" --runtime-log "${runtime_log}" 2>/dev/null || true)"
+    current_runtime_info="$(read_runtime_info "${runtime_info_script}" "${workspace_root}" "${runtime_log}" "${allow_missing_connect_info}" 2>/dev/null || true)"
     if [ "${lifecycle_mode}" = "aireset" ] || ! runtime_info_is_ready "${current_runtime_info}"; then
         if tmux list-windows -t "${session_target}" -F '#{window_name}' 2>/dev/null | grep -Fxq ai; then
             tmux respawn-window -k -t "${ai_target}" "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}")"
@@ -967,11 +1055,12 @@ emit_runtime_info() {
     runtime_label="$4"
     max_attempts="$5"
     allow_timeout="${6:-0}"
+    allow_missing_connect_info="${7:-0}"
 
     attempts="${max_attempts}"
     progress_interval=5
     while [ "${attempts}" -gt 0 ]; do
-        info_json="$("${runtime_info_script}" --workspace "${workspace_root}" --runtime-log "${runtime_log}" 2>/dev/null || true)"
+        info_json="$(read_runtime_info "${runtime_info_script}" "${workspace_root}" "${runtime_log}" "${allow_missing_connect_info}" 2>/dev/null || true)"
         if [ -n "${info_json}" ] && runtime_info_is_ready "${info_json}"; then
             printf '%s\n' "${info_json}"
             return
@@ -1001,8 +1090,9 @@ ensure_tmux_session \
     "${remote_worktree_root}" \
     "${remote_runtime_log}" \
     "${remote_runtime_info_script}" \
-    "${remote_browser_mode}"
-selected_runtime_info_json="$(emit_runtime_info "${remote_runtime_info_script}" "${remote_worktree_root}" "${remote_runtime_log}" "worktree" "180")"
+    "${remote_browser_mode}" \
+    "1"
+selected_runtime_info_json="$(emit_runtime_info "${remote_runtime_info_script}" "${remote_worktree_root}" "${remote_runtime_log}" "worktree" "180" "0" "1")"
 
 if [ -n "${main_reference_root}" ] && [ "${main_reference_root}" != "${remote_worktree_root}" ]; then
     ensure_main_reference_checkout "${main_reference_root}"
@@ -1017,7 +1107,8 @@ if [ -n "${main_reference_root}" ] && [ "${main_reference_root}" != "${remote_wo
         "${main_reference_root}" \
         "${main_reference_runtime_log}" \
         "${main_reference_runtime_info_script}" \
-        "${remote_browser_mode}"
+        "${remote_browser_mode}" \
+        "0"
     if ! main_reference_info_json="$(emit_runtime_info "${main_reference_runtime_info_script}" "${main_reference_root}" "${main_reference_runtime_log}" "main reference" "${remote_main_reference_wait_seconds}" "1")"; then
         main_reference_info_json=""
         echo "Remote main reference ${lifecycle_mode} runtime is still bootstrapping in ${main_reference_root}; continuing without main reference port forwards for now." >&2

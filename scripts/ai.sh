@@ -181,6 +181,58 @@ export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
 export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
 setta_path_flags_apply_env
 
+read_required_node_version() {
+  local version_file="${ROOT_DIR}/scripts/node_version.txt"
+  if [[ -f "${version_file}" ]]; then
+    tr -d '[:space:]' < "${version_file}"
+  fi
+}
+
+ensure_node_tooling_on_path() {
+  if command -v pnpm >/dev/null 2>&1 || command -v corepack >/dev/null 2>&1; then
+    return
+  fi
+
+  if [[ -n "${HOME:-}" ]] && [[ -d "${HOME}/.local/share/pnpm" ]]; then
+    export PATH="${HOME}/.local/share/pnpm:${PATH}"
+  fi
+  if command -v pnpm >/dev/null 2>&1 || command -v corepack >/dev/null 2>&1; then
+    return
+  fi
+
+  if [[ -n "${HOME:-}" ]] && [[ -d "${HOME}/.nvm/versions/node" ]]; then
+    local required_node_version=""
+    local nvm_bin_dir=""
+    required_node_version="$(read_required_node_version)"
+    if [[ -n "${required_node_version}" ]] && [[ -d "${HOME}/.nvm/versions/node/v${required_node_version}/bin" ]]; then
+      export PATH="${HOME}/.nvm/versions/node/v${required_node_version}/bin:${PATH}"
+      if command -v pnpm >/dev/null 2>&1 || command -v corepack >/dev/null 2>&1; then
+        return
+      fi
+    fi
+    while IFS= read -r nvm_bin_dir; do
+      export PATH="${nvm_bin_dir}:${PATH}"
+    done < <(find "${HOME}/.nvm/versions/node" -mindepth 2 -maxdepth 2 -type d -name bin 2>/dev/null | sort -V)
+  fi
+}
+
+run_pnpm() {
+  ensure_node_tooling_on_path
+
+  if command -v pnpm >/dev/null 2>&1; then
+    pnpm "$@"
+    return
+  fi
+
+  if command -v corepack >/dev/null 2>&1; then
+    corepack pnpm "$@"
+    return
+  fi
+
+  echo "Could not find pnpm or corepack on PATH." >&2
+  return 1
+}
+
 NEEDS_DEV_INSTALL=0
 if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then
   NEEDS_DEV_INSTALL=1
@@ -194,9 +246,9 @@ if [ "${NEEDS_DEV_INSTALL}" -eq 1 ]; then
 fi
 
 if [ "${RUN_MODE}" = "startr" ]; then
-  (cd "${ROOT_DIR}/frontend" && pnpm startr) &
+  (cd "${ROOT_DIR}/frontend" && run_pnpm startr) &
 else
-  (cd "${ROOT_DIR}/frontend" && pnpm start) &
+  (cd "${ROOT_DIR}/frontend" && run_pnpm start) &
 fi
 DEV_PID=$!
 

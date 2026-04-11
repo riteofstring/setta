@@ -5,10 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKSPACE_PATH=""
 RUNTIME_LOG_PATH=""
+ALLOW_MISSING_CONNECT_INFO="0"
 
 usage() {
   cat <<'EOF'
-Usage: dev-runtime-info.sh [--workspace PATH] [--runtime-log PATH]
+Usage: dev-runtime-info.sh [--workspace PATH] [--runtime-log PATH] [--allow-missing-connect-info]
 
 Emit a single JSON payload describing the current dev runtime for a worktree.
 The payload merges authoritative Setta session info with the current frontend
@@ -97,6 +98,10 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
+    --allow-missing-connect-info)
+      ALLOW_MISSING_CONNECT_INFO="1"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -137,7 +142,7 @@ if ! command -v setta >/dev/null 2>&1; then
 fi
 
 STATUS_PAYLOAD="$(setta status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
-if [[ "${STATUS_PAYLOAD}" != __SETTA_JSON_B64__* ]]; then
+if [[ "${STATUS_PAYLOAD}" != __SETTA_JSON_B64__* ]] && [[ "${ALLOW_MISSING_CONNECT_INFO}" != "1" ]]; then
   echo "Failed to read connect-info JSON for ${WORKTREE_ROOT}." >&2
   exit 1
 fi
@@ -150,6 +155,7 @@ CDP_PORT_JSON="${CDP_PORT_JSON}" \
 LOG_BACKEND_URL="${LOG_BACKEND_URL}" \
 RUNTIME_LOG_PATH="${RUNTIME_LOG_PATH}" \
 WORKTREE_ROOT="${WORKTREE_ROOT}" \
+ALLOW_MISSING_CONNECT_INFO="${ALLOW_MISSING_CONNECT_INFO}" \
 python - <<'PY'
 import base64
 import json
@@ -244,8 +250,23 @@ def frontend_url_for_current_runtime(
 
 status_payload = os.environ["SETTA_STATUS_PAYLOAD"]
 cdp_payload = json.loads(os.environ["CDP_PORT_JSON"])
-status = json.loads(base64.b64decode(status_payload[len("__SETTA_JSON_B64__") :]).decode())
-session = status.get("session") or {}
+allow_missing_connect_info = os.environ.get("ALLOW_MISSING_CONNECT_INFO") == "1"
+connect_info_available = status_payload.startswith("__SETTA_JSON_B64__")
+
+status: dict[str, object]
+session: dict[str, object]
+if connect_info_available:
+    status = json.loads(base64.b64decode(status_payload[len("__SETTA_JSON_B64__") :]).decode())
+    raw_session = status.get("session") or {}
+    if isinstance(raw_session, dict):
+        session = raw_session
+    else:
+        session = {}
+else:
+    if not allow_missing_connect_info:
+        raise SystemExit(1)
+    status = {}
+    session = {}
 
 backend_url = None
 host = session.get("host")
@@ -265,6 +286,7 @@ print(
     json.dumps(
         {
             "workspaceRoot": os.environ["WORKTREE_ROOT"],
+            "connectInfoAvailable": connect_info_available,
             "frontendUrl": frontend_url,
             "frontendUrlSource": frontend_url_source,
             "backendUrl": backend_url,
