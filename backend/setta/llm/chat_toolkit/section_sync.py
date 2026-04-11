@@ -250,16 +250,10 @@ def _find_assistant_message_for_finalized_update(
     messages: list[BaseChatMessageUnion],
     message: AssistantChatMessage,
 ) -> AssistantChatMessage | None:
-    for entry in messages:
-        if entry.id == message.id and isinstance(entry, AssistantChatMessage):
-            return entry
-    for entry in reversed(messages):
-        if not isinstance(entry, AssistantChatMessage):
-            continue
-        if not _is_response_placeholder_message_id(entry.id):
-            continue
-        return entry
-    return None
+    exact_match = _find_assistant_message(messages, message.id)
+    if exact_match is not None:
+        return exact_match
+    return _find_latest_placeholder_assistant_message(messages)
 
 
 def _merge_finalized_assistant_message(
@@ -280,11 +274,32 @@ def _ensure_assistant_message(
     messages: list[BaseChatMessageUnion],
     message_id: str,
 ) -> tuple[list[BaseChatMessageUnion], AssistantChatMessage]:
-    for entry in messages:
-        if entry.id == message_id and isinstance(entry, AssistantChatMessage):
-            return list(messages), entry
+    existing_assistant = _find_assistant_message(messages, message_id)
+    if existing_assistant is not None:
+        return list(messages), existing_assistant
     assistant = AssistantChatMessage(id=message_id, content=[])
     return list(messages) + [assistant], assistant
+
+
+def _find_assistant_message(
+    messages: list[BaseChatMessageUnion],
+    message_id: str,
+) -> AssistantChatMessage | None:
+    for entry in messages:
+        if isinstance(entry, AssistantChatMessage) and entry.id == message_id:
+            return entry
+    return None
+
+
+def _find_latest_placeholder_assistant_message(
+    messages: list[BaseChatMessageUnion],
+) -> AssistantChatMessage | None:
+    for entry in reversed(messages):
+        if isinstance(
+            entry, AssistantChatMessage
+        ) and _is_response_placeholder_message_id(entry.id):
+            return entry
+    return None
 
 
 def _apply_message_delta(
@@ -351,11 +366,22 @@ def _apply_tool_call_delta(
 ) -> list[BaseChatMessageUnion]:
     updated_messages, assistant = _ensure_assistant_message(messages, chunk.message_id)
     tool_calls = list(assistant.tool_calls or [])
-    existing = None
-    for call in tool_calls:
-        if call.id == chunk.tool_call_id:
-            existing = call
-            break
+    _ensure_tool_call(tool_calls, chunk)
+    assistant.tool_calls = tool_calls
+    _append_tool_call_arguments(
+        tool_call_arguments,
+        tool_call_id=chunk.tool_call_id,
+        arguments_delta=chunk.arguments_delta,
+    )
+
+    return _upsert_message(updated_messages, assistant)
+
+
+def _ensure_tool_call(
+    tool_calls: list[ToolCall],
+    chunk: ToolCallDeltaEvent | ToolArgumentPreviewDeltaEvent,
+) -> ToolCall:
+    existing = _find_tool_call(tool_calls, chunk.tool_call_id)
     if existing is None:
         existing = ToolCall(
             id=chunk.tool_call_id,
@@ -366,15 +392,27 @@ def _apply_tool_call_delta(
             ),
         )
         tool_calls.append(existing)
-    elif chunk.tool_name:
+        return existing
+    if chunk.tool_name:
         existing.function.name = chunk.tool_name
-    assistant.tool_calls = tool_calls
+    return existing
 
-    if chunk.tool_call_id not in tool_call_arguments:
-        tool_call_arguments[chunk.tool_call_id] = ""
-    tool_call_arguments[chunk.tool_call_id] += chunk.arguments_delta
 
-    return _upsert_message(updated_messages, assistant)
+def _find_tool_call(tool_calls: list[ToolCall], tool_call_id: str) -> ToolCall | None:
+    for call in tool_calls:
+        if call.id == tool_call_id:
+            return call
+    return None
+
+
+def _append_tool_call_arguments(
+    tool_call_arguments: dict[str, str],
+    *,
+    tool_call_id: str,
+    arguments_delta: str,
+) -> None:
+    existing_arguments = tool_call_arguments.get(tool_call_id, "")
+    tool_call_arguments[tool_call_id] = existing_arguments + arguments_delta
 
 
 def _normalize_index(index: int | None, current_length: int) -> int:

@@ -218,3 +218,42 @@ class TestChatSectionSync:
 
         assert not finalized.waitingForResponse
         assert finalized.toolCallArguments == {}
+
+    def test_message_finalized_prefers_exact_assistant_id_over_placeholder(
+        self,
+    ) -> None:
+        exact_assistant = AssistantChatMessage(
+            id="assistant-1",
+            content=[MessageTextContent(type="text", text="stale exact")],
+        )
+        placeholder_assistant = AssistantChatMessage(
+            id="resp_placeholder_1",
+            content=[MessageTextContent(type="text", text="placeholder text")],
+        )
+        state = build_chat_section_state(
+            messages=[exact_assistant, placeholder_assistant],
+            waiting_for_response=True,
+        )
+        finalized_message = AssistantChatMessage(
+            id="assistant-1",
+            content=[MessageTextContent(type="text", text="final text")],
+        )
+
+        finalized = apply_stream_delta(
+            state=state,
+            chunk=MessageFinalizedEvent(
+                type=StreamingEventType.message_finalized,
+                message=finalized_message.model_dump(mode="python"),
+            ),
+        )
+
+        exact_message = finalized.messages[0]
+        assert isinstance(exact_message, AssistantChatMessage)
+        assert exact_message.id == "assistant-1"
+        assert exact_message.content[0].text == "final text"
+
+        placeholder_message = finalized.messages[1]
+        assert isinstance(placeholder_message, AssistantChatMessage)
+        assert placeholder_message.id == "resp_placeholder_1"
+        assert placeholder_message.content[0].text == "placeholder text"
+        assert not finalized.waitingForResponse
