@@ -89,6 +89,15 @@ func TestPlanPythonRenameReferenceChangedValuesSkipsShadowedState(t *testing.T) 
 	}
 }
 
+func TestPlanPythonRenameReferenceChangedValuesRequiresGraphs(t *testing.T) {
+	t.Parallel()
+
+	_, err := PlanPythonRenameReferenceChangedValues(nil, &PythonDependencyGraph{})
+	if err != ErrPythonRenameRefactorGraphRequired {
+		t.Fatalf("expected missing-graph error, got %v", err)
+	}
+}
+
 func pythonRenameReferenceProject(t *testing.T, paramValue string) projectstate.Project {
 	t.Helper()
 

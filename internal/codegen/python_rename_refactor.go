@@ -32,13 +32,34 @@ func PlanPythonRenameReferenceChangedValues(
 		return nil, ErrPythonRenameRefactorGraphRequired
 	}
 
-	renamings := map[PythonDependencyKey]pythonRenameDetails{}
-	for key, oldNode := range oldGraph.Nodes {
-		newNode, ok := newGraph.Node(key)
-		if !ok {
+	renamings := collectPythonRenameDetails(oldGraph, newGraph)
+	if len(renamings) == 0 {
+		return nil, nil
+	}
+
+	changedValues := []PythonRenameReferenceChangedValue{}
+	for _, key := range newGraph.NodeOrder {
+		changedValue, err := planPythonRenameReferenceChangedValue(key, oldGraph, newGraph, renamings)
+		if err != nil {
+			return nil, err
+		}
+		if changedValue == nil {
 			continue
 		}
-		if oldNode.Base().FullPathName == newNode.Base().FullPathName {
+		changedValues = append(changedValues, *changedValue)
+	}
+
+	return changedValues, nil
+}
+
+func collectPythonRenameDetails(
+	oldGraph *PythonDependencyGraph,
+	newGraph *PythonDependencyGraph,
+) map[PythonDependencyKey]pythonRenameDetails {
+	renamings := make(map[PythonDependencyKey]pythonRenameDetails)
+	for key, oldNode := range oldGraph.Nodes {
+		newNode, ok := newGraph.Node(key)
+		if !ok || oldNode.Base().FullPathName == newNode.Base().FullPathName {
 			continue
 		}
 		renamings[key] = pythonRenameDetails{
@@ -46,59 +67,81 @@ func PlanPythonRenameReferenceChangedValues(
 			NewName: newNode.Base().FullPathName,
 		}
 	}
-	if len(renamings) == 0 {
+	return renamings
+}
+
+func planPythonRenameReferenceChangedValue(
+	key PythonDependencyKey,
+	oldGraph *PythonDependencyGraph,
+	newGraph *PythonDependencyGraph,
+	renamings map[PythonDependencyKey]pythonRenameDetails,
+) (*PythonRenameReferenceChangedValue, error) {
+	literalPayload, refs, ok := pythonRenameLiteralPayloadAndRefs(key, newGraph)
+	if !ok {
 		return nil, nil
 	}
 
-	changedValues := []PythonRenameReferenceChangedValue{}
-	for _, key := range newGraph.NodeOrder {
-		refs := newGraph.PotentialRefs[key]
-		if len(refs) == 0 {
-			continue
-		}
-
-		node, ok := newGraph.Node(key)
-		if !ok {
-			continue
-		}
-		literal, ok := node.Base().Value.(LiteralDependencyValue)
-		if !ok {
-			continue
-		}
-
-		replacements := []pythonStringReplacement{}
-		for _, ref := range sortedStringKeys(refs) {
-			depKey, ok := oldGraph.FullPathNameToKey[ref]
-			if !ok {
-				continue
-			}
-			renameDetails, ok := renamings[depKey]
-			if !ok {
-				continue
-			}
-			for _, position := range refs[ref] {
-				replacements = append(replacements, pythonStringReplacement{
-					Position: position,
-					Old:      renameDetails.OldName,
-					New:      renameDetails.NewName,
-				})
-			}
-		}
-		if len(replacements) == 0 {
-			continue
-		}
-
-		newValue, err := replacePythonStringAtPositions(literal.Payload, replacements)
-		if err != nil {
-			return nil, fmt.Errorf("plan rename reference changed value for %+v: %w", key, err)
-		}
-		changedValues = append(changedValues, PythonRenameReferenceChangedValue{
-			DepKey:   key,
-			NewValue: newValue,
-		})
+	replacements := collectPythonRenameReplacements(refs, oldGraph, renamings)
+	if len(replacements) == 0 {
+		return nil, nil
 	}
 
-	return changedValues, nil
+	newValue, err := replacePythonStringAtPositions(literalPayload, replacements)
+	if err != nil {
+		return nil, fmt.Errorf("plan rename reference changed value for %+v: %w", key, err)
+	}
+
+	return &PythonRenameReferenceChangedValue{
+		DepKey:   key,
+		NewValue: newValue,
+	}, nil
+}
+
+func pythonRenameLiteralPayloadAndRefs(
+	key PythonDependencyKey,
+	graph *PythonDependencyGraph,
+) (string, map[string][]int, bool) {
+	refs := graph.PotentialRefs[key]
+	if len(refs) == 0 {
+		return "", nil, false
+	}
+
+	node, ok := graph.Node(key)
+	if !ok {
+		return "", nil, false
+	}
+	literal, ok := node.Base().Value.(LiteralDependencyValue)
+	if !ok {
+		return "", nil, false
+	}
+
+	return literal.Payload, refs, true
+}
+
+func collectPythonRenameReplacements(
+	refs map[string][]int,
+	oldGraph *PythonDependencyGraph,
+	renamings map[PythonDependencyKey]pythonRenameDetails,
+) []pythonStringReplacement {
+	replacements := []pythonStringReplacement{}
+	for _, ref := range sortedStringKeys(refs) {
+		depKey, ok := oldGraph.FullPathNameToKey[ref]
+		if !ok {
+			continue
+		}
+		renameDetails, ok := renamings[depKey]
+		if !ok {
+			continue
+		}
+		for _, position := range refs[ref] {
+			replacements = append(replacements, pythonStringReplacement{
+				Position: position,
+				Old:      renameDetails.OldName,
+				New:      renameDetails.NewName,
+			})
+		}
+	}
+	return replacements
 }
 
 func replacePythonStringAtPositions(input string, replacements []pythonStringReplacement) (string, error) {
