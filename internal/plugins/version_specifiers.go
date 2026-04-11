@@ -51,45 +51,27 @@ const (
 	preReleaseRC
 )
 
+type parsedVersionSuffixes struct {
+	pre   *versionPreRelease
+	post  *int
+	dev   *int
+	local []versionLocalSegment
+}
+
 func parseVersion(raw string) (parsedVersion, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return parsedVersion{}, fmt.Errorf("version is required")
+	trimmed, err := normalizeVersionInput(raw)
+	if err != nil {
+		return parsedVersion{}, err
 	}
-	if trimmed[0] == 'v' || trimmed[0] == 'V' {
-		trimmed = trimmed[1:]
+	epoch, trimmed, err := consumeVersionEpoch(raw, trimmed)
+	if err != nil {
+		return parsedVersion{}, err
 	}
-	if trimmed == "" {
-		return parsedVersion{}, fmt.Errorf("version is required")
-	}
-
-	epoch := 0
-	if epochIndex := strings.IndexByte(trimmed, '!'); epochIndex >= 0 {
-		parsedEpoch, ok := parseNumericToken(trimmed[:epochIndex])
-		if !ok {
-			return parsedVersion{}, fmt.Errorf("invalid epoch %q", raw)
-		}
-		epoch = parsedEpoch
-		trimmed = trimmed[epochIndex+1:]
-	}
-
 	release, rest, err := consumeRelease(trimmed)
 	if err != nil {
 		return parsedVersion{}, err
 	}
-	pre, rest, err := consumePreRelease(rest)
-	if err != nil {
-		return parsedVersion{}, err
-	}
-	post, rest, err := consumePostRelease(rest)
-	if err != nil {
-		return parsedVersion{}, err
-	}
-	dev, rest, err := consumeDevRelease(rest)
-	if err != nil {
-		return parsedVersion{}, err
-	}
-	local, rest, err := consumeLocalVersion(rest)
+	suffixes, rest, err := consumeVersionSuffixes(rest)
 	if err != nil {
 		return parsedVersion{}, err
 	}
@@ -100,11 +82,66 @@ func parseVersion(raw string) (parsedVersion, error) {
 	return parsedVersion{
 		epoch:   epoch,
 		release: release,
-		pre:     pre,
-		post:    post,
-		dev:     dev,
-		local:   local,
+		pre:     suffixes.pre,
+		post:    suffixes.post,
+		dev:     suffixes.dev,
+		local:   suffixes.local,
 	}, nil
+}
+
+func normalizeVersionInput(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("version is required")
+	}
+	if hasVersionPrefix(trimmed[0]) {
+		trimmed = trimmed[1:]
+	}
+	if trimmed == "" {
+		return "", fmt.Errorf("version is required")
+	}
+	return trimmed, nil
+}
+
+func hasVersionPrefix(ch byte) bool {
+	return ch == 'v' || ch == 'V'
+}
+
+func consumeVersionEpoch(original string, raw string) (int, string, error) {
+	epochIndex := strings.IndexByte(raw, '!')
+	if epochIndex < 0 {
+		return 0, raw, nil
+	}
+	parsedEpoch, ok := parseNumericToken(raw[:epochIndex])
+	if !ok {
+		return 0, "", fmt.Errorf("invalid epoch %q", original)
+	}
+	return parsedEpoch, raw[epochIndex+1:], nil
+}
+
+func consumeVersionSuffixes(raw string) (parsedVersionSuffixes, string, error) {
+	pre, remainder, err := consumePreRelease(raw)
+	if err != nil {
+		return parsedVersionSuffixes{}, "", err
+	}
+	post, remainder, err := consumePostRelease(remainder)
+	if err != nil {
+		return parsedVersionSuffixes{}, "", err
+	}
+	dev, remainder, err := consumeDevRelease(remainder)
+	if err != nil {
+		return parsedVersionSuffixes{}, "", err
+	}
+	local, remainder, err := consumeLocalVersion(remainder)
+	if err != nil {
+		return parsedVersionSuffixes{}, "", err
+	}
+	return parsedVersionSuffixes{
+		pre:   pre,
+		post:  post,
+		dev:   dev,
+		local: local,
+	}, remainder, nil
 }
 
 func parseSpecifierSet(raw string) (parsedSpecifierSet, error) {
@@ -504,47 +541,90 @@ func consumeDevRelease(raw string) (*int, string, error) {
 }
 
 func consumeLocalVersion(raw string) ([]versionLocalSegment, string, error) {
-	if raw == "" {
-		return nil, raw, nil
-	}
-	if raw[0] != '+' {
-		return nil, raw, nil
-	}
-	remainder := raw[1:]
-	if remainder == "" {
-		return nil, "", fmt.Errorf("local version segment is required")
-	}
-
-	segments := []versionLocalSegment{}
-	current := strings.Builder{}
-	for index := 0; index < len(remainder); index++ {
-		ch := remainder[index]
-		if ch == '.' || ch == '-' || ch == '_' {
-			if current.Len() == 0 {
-				return nil, "", fmt.Errorf("invalid empty local version segment")
-			}
-			segment, err := parseLocalVersionSegment(current.String())
-			if err != nil {
-				return nil, "", err
-			}
-			segments = append(segments, segment)
-			current.Reset()
-			continue
-		}
-		if !isASCIILetter(ch) && (ch < '0' || ch > '9') {
-			return nil, "", fmt.Errorf("invalid local version character %q", string(ch))
-		}
-		current.WriteByte(asciiToLower(ch))
-	}
-	if current.Len() == 0 {
-		return nil, "", fmt.Errorf("invalid empty local version segment")
-	}
-	segment, err := parseLocalVersionSegment(current.String())
+	remainder, ok, err := requireLocalVersionBody(raw)
 	if err != nil {
 		return nil, "", err
 	}
-	segments = append(segments, segment)
+	if !ok {
+		return nil, raw, nil
+	}
+	segmentTexts, err := splitLocalVersionSegments(remainder)
+	if err != nil {
+		return nil, "", err
+	}
+	segments, err := parseLocalVersionSegments(segmentTexts)
+	if err != nil {
+		return nil, "", err
+	}
 	return segments, "", nil
+}
+
+func requireLocalVersionBody(raw string) (string, bool, error) {
+	if raw == "" || raw[0] != '+' {
+		return "", false, nil
+	}
+	remainder := raw[1:]
+	if remainder == "" {
+		return "", true, fmt.Errorf("local version segment is required")
+	}
+	return remainder, true, nil
+}
+
+func splitLocalVersionSegments(raw string) ([]string, error) {
+	segments := make([]string, 0, strings.Count(raw, ".")+strings.Count(raw, "-")+strings.Count(raw, "_")+1)
+	start := 0
+	for index := 0; index < len(raw); index++ {
+		ch := raw[index]
+		if isLocalVersionSeparator(ch) {
+			segment, err := requireLocalVersionSegment(raw[start:index])
+			if err != nil {
+				return nil, err
+			}
+			segments = append(segments, segment)
+			start = index + 1
+			continue
+		}
+		if !isLocalVersionSegmentCharacter(ch) {
+			return nil, fmt.Errorf("invalid local version character %q", string(ch))
+		}
+	}
+	segment, err := requireLocalVersionSegment(raw[start:])
+	if err != nil {
+		return nil, err
+	}
+	return append(segments, segment), nil
+}
+
+func requireLocalVersionSegment(raw string) (string, error) {
+	if raw == "" {
+		return "", fmt.Errorf("invalid empty local version segment")
+	}
+	return raw, nil
+}
+
+func parseLocalVersionSegments(rawSegments []string) ([]versionLocalSegment, error) {
+	segments := make([]versionLocalSegment, 0, len(rawSegments))
+	for _, raw := range rawSegments {
+		segment, err := parseLocalVersionSegment(raw)
+		if err != nil {
+			return nil, err
+		}
+		segments = append(segments, segment)
+	}
+	return segments, nil
+}
+
+func isLocalVersionSeparator(ch byte) bool {
+	switch ch {
+	case '.', '-', '_':
+		return true
+	default:
+		return false
+	}
+}
+
+func isLocalVersionSegmentCharacter(ch byte) bool {
+	return isASCIILetter(ch) || (ch >= '0' && ch <= '9')
 }
 
 func parseLocalVersionSegment(raw string) (versionLocalSegment, error) {

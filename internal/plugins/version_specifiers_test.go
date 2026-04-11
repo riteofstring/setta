@@ -129,6 +129,26 @@ func TestParseSpecifierSetContains(t *testing.T) {
 	}
 }
 
+func TestParseVersionNormalizesLocalSegments(t *testing.T) {
+	version := mustParseVersionForTest(t, "1.0+ABC.01-def_2")
+
+	if len(version.local) != 4 {
+		t.Fatalf("expected 4 local version segments, got %d", len(version.local))
+	}
+	if version.local[0].value != "abc" || version.local[0].numeric {
+		t.Fatalf("expected first local segment to be normalized text, got %#v", version.local[0])
+	}
+	if !version.local[1].numeric || version.local[1].number != 1 {
+		t.Fatalf("expected second local segment to be numeric 1, got %#v", version.local[1])
+	}
+	if version.local[2].value != "def" || version.local[2].numeric {
+		t.Fatalf("expected third local segment to be normalized text, got %#v", version.local[2])
+	}
+	if !version.local[3].numeric || version.local[3].number != 2 {
+		t.Fatalf("expected fourth local segment to be numeric 2, got %#v", version.local[3])
+	}
+}
+
 // Invalid version and specifier forms should fail deterministically instead of
 // being interpreted heuristically.
 func TestParseVersionAndSpecifierRejectInvalidInputs(t *testing.T) {
@@ -137,6 +157,9 @@ func TestParseVersionAndSpecifierRejectInvalidInputs(t *testing.T) {
 		"not-a-version",
 		"1..0",
 		"1.",
+		"1.0+",
+		"1.0+abc..def",
+		"1.0+abc$",
 	} {
 		if _, err := parseVersion(raw); err == nil {
 			t.Fatalf("expected invalid version %q to fail", raw)
