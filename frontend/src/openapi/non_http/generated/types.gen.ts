@@ -3475,6 +3475,18 @@ type PasteSectionsInput = {
 };
 
 /**
+ * PatchPolicy
+ */
+export type PatchPolicy = {
+  allowedOps: null | Array<string>;
+  commentPrefix: string;
+  elementsPathPrefix: string;
+  rootPath: string;
+  rootResetValue: string;
+  valueOptionalOps: null | Array<string>;
+};
+
+/**
  * PluginBackendManifest
  */
 type PluginBackendManifest = {

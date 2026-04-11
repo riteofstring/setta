@@ -2442,6 +2442,11 @@
       "schemaRef": "#/$defs/PasteSectionsInput"
     },
     {
+      "name": "PatchPolicy",
+      "kind": "model",
+      "schemaRef": "#/$defs/PatchPolicy"
+    },
+    {
       "name": "PluginBackendManifest",
       "kind": "model",
       "schemaRef": "#/$defs/PluginBackendManifest"
@@ -10218,6 +10223,25 @@
     }
   ],
   "exportedValues": [
+    {
+      "name": "AppSpecPatchPolicyConfig",
+      "type": "PatchPolicy",
+      "value": {
+        "allowedOps": [
+          "set",
+          "add",
+          "replace",
+          "remove"
+        ],
+        "commentPrefix": "//",
+        "elementsPathPrefix": "/elements/",
+        "rootPath": "/root",
+        "rootResetValue": "",
+        "valueOptionalOps": [
+          "remove"
+        ]
+      }
+    },
     {
       "name": "BootstrapProtocol",
       "type": "BootstrapHandoffProtocol",

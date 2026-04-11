@@ -8140,6 +8140,45 @@
         "title": "PasteSectionsInput",
         "type": "object"
       },
+      "PatchPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "allowedOps": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "commentPrefix": {
+            "type": "string"
+          },
+          "elementsPathPrefix": {
+            "type": "string"
+          },
+          "rootPath": {
+            "type": "string"
+          },
+          "rootResetValue": {
+            "type": "string"
+          },
+          "valueOptionalOps": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "allowedOps",
+          "valueOptionalOps",
+          "commentPrefix",
+          "rootPath",
+          "elementsPathPrefix",
+          "rootResetValue"
+        ],
+        "title": "PatchPolicy",
+        "type": "object"
+      },
       "PluginBackendManifest": {
         "additionalProperties": false,
         "properties": {

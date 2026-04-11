@@ -9709,6 +9709,51 @@
       ],
       "additionalProperties": false
     },
+    "PatchPolicy": {
+      "type": "object",
+      "properties": {
+        "allowedOps": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "valueOptionalOps": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "commentPrefix": {
+          "type": "string"
+        },
+        "rootPath": {
+          "type": "string"
+        },
+        "elementsPathPrefix": {
+          "type": "string"
+        },
+        "rootResetValue": {
+          "type": "string"
+        }
+      },
+      "title": "PatchPolicy",
+      "required": [
+        "allowedOps",
+        "valueOptionalOps",
+        "commentPrefix",
+        "rootPath",
+        "elementsPathPrefix",
+        "rootResetValue"
+      ],
+      "additionalProperties": false
+    },
     "PluginBackendManifest": {
       "type": "object",
       "properties": {

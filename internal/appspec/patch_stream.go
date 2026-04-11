@@ -7,12 +7,8 @@ import (
 	"strings"
 )
 
-var allowedPatchOps = map[string]struct{}{
-	"set":     {},
-	"add":     {},
-	"replace": {},
-	"remove":  {},
-}
+var allowedPatchOps = newPatchOpSet(supportedPatchOps)
+var patchValueOptionalOpSet = newPatchOpSet(patchValueOptionalOps)
 
 type PatchOp struct {
 	Op       string
@@ -80,7 +76,7 @@ func ApplyPatchOp(spec map[string]any, op PatchOp) error {
 
 func parsePatchLineCore(line string) (*PatchOp, error) {
 	trimmed := strings.TrimSpace(line)
-	if trimmed == "" || strings.HasPrefix(trimmed, "//") {
+	if trimmed == "" || strings.HasPrefix(trimmed, PatchCommentPrefix) {
 		return nil, nil
 	}
 
@@ -103,12 +99,12 @@ func parsePatchLineCore(line string) (*PatchOp, error) {
 	if !ok {
 		return nil, fmt.Errorf("Patch path must be a string.")
 	}
-	if rawPath != "/root" && !strings.HasPrefix(rawPath, "/elements/") {
+	if !isSupportedPatchPath(rawPath) {
 		return nil, fmt.Errorf("Unsupported patch path: %q", rawPath)
 	}
 
 	value, hasValue := object["value"]
-	if rawOp != "remove" && !hasValue {
+	if !patchOpAllowsMissingValue(rawOp) && !hasValue {
 		return nil, fmt.Errorf("Patch line missing required 'value'.")
 	}
 
@@ -138,7 +134,7 @@ func validatePatchApplication(spec map[string]any, op PatchOp) error {
 	if op.Path == "" {
 		return fmt.Errorf("Patch path must be a string.")
 	}
-	if op.Path != "/root" && !strings.HasPrefix(op.Path, "/elements/") {
+	if !isSupportedPatchPath(op.Path) {
 		return fmt.Errorf("Unsupported patch path: %q", op.Path)
 	}
 	return nil
@@ -146,7 +142,7 @@ func validatePatchApplication(spec map[string]any, op PatchOp) error {
 
 func applyRootPatchOp(spec map[string]any, op PatchOp) error {
 	if op.Op == "remove" {
-		spec["root"] = ""
+		spec["root"] = PatchRootResetValue
 		return nil
 	}
 	value, ok := op.Value.(string)
@@ -445,4 +441,21 @@ func clonePatchJSONValue(value any) any {
 		}
 		return cloned
 	}
+}
+
+func newPatchOpSet(values []string) map[string]struct{} {
+	ops := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		ops[value] = struct{}{}
+	}
+	return ops
+}
+
+func patchOpAllowsMissingValue(op string) bool {
+	_, ok := patchValueOptionalOpSet[op]
+	return ok
+}
+
+func isSupportedPatchPath(path string) bool {
+	return path == PatchRootPath || strings.HasPrefix(path, PatchElementsPathPrefix)
 }

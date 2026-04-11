@@ -342,6 +342,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.FrontendParameterPassingStyle("")):                      "ParameterPassingStyle",
 	reflect.TypeOf(projectstate.FrontendPasswordParamCodeObjImpl{}):                     "PasswordParamCodeObjImpl",
 	reflect.TypeOf(projectstate.PasteSectionsInput{}):                                   "PasteSectionsInput",
+	reflect.TypeOf(appspec.PatchPolicy{}):                                               "PatchPolicy",
 	reflect.TypeOf(plugins.PluginBackendManifest{}):                                     "PluginBackendManifest",
 	reflect.TypeOf(plugins.PluginBlockedCapability{}):                                   "PluginBlockedCapability",
 	reflect.TypeOf(plugins.PluginBlockedCapabilityReason("")):                           "PluginBlockedCapabilityReason",

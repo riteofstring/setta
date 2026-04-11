@@ -4264,6 +4264,15 @@ export function isBaseSectionWithParamsImpl(
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
+export const AppSpecPatchPolicyConfig = {
+  allowedOps: ["set", "add", "replace", "remove"],
+  commentPrefix: "//",
+  elementsPathPrefix: "/elements/",
+  rootPath: "/root",
+  rootResetValue: "",
+  valueOptionalOps: ["remove"],
+} satisfies gt.PatchPolicy;
+
 export const BootstrapProtocol = {
   backendOriginOverrideQueryParam: "__setta_backend_origin",
   launcherOriginHashParam: "lo",

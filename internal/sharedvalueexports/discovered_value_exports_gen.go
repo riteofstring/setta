@@ -13,6 +13,13 @@ import (
 func DiscoveredValueExports() []ValueExport {
 	return []ValueExport{
 		{
+			Name: "AppSpecPatchPolicyConfig",
+			Type: reflect.TypeOf(httpapi.FrontendValueAppSpecPatchPolicyConfig()),
+			Value: func() any {
+				return httpapi.FrontendValueAppSpecPatchPolicyConfig()
+			},
+		},
+		{
 			Name: "BootstrapProtocol",
 			Type: reflect.TypeOf(httpapi.FrontendValueBootstrapProtocol()),
 			Value: func() any {
