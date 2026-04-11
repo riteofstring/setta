@@ -13,6 +13,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import type { FileBrowserSearchScope } from "utils/fileBrowserTypes";
 import {
   BrowserSavedSearch,
   BrowserSavedSearchTypeFilters,
@@ -168,7 +169,7 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
                   disabled={isDisabled}
                   onChange={(e) =>
                     updateSearch(search.id, {
-                      searchScope: e.target.value as BrowserSearchScopeEnum,
+                      searchScope: e.target.value as FileBrowserSearchScope,
                     })
                   }
                 >
