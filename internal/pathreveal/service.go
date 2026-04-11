@@ -102,37 +102,79 @@ func NewService(opts ServiceOptions) (*Service, error) {
 }
 
 func (s *Service) Reveal(ctx context.Context, rawPath string) error {
+	resolvedPath, isDirectory, err := s.resolveRevealTarget(rawPath)
+	if err != nil {
+		return err
+	}
+	return s.executeRevealCommand(ctx, resolvedPath, isDirectory)
+}
+
+func (s *Service) resolveRevealTarget(rawPath string) (string, bool, error) {
+	resolvedPath, err := normalizeRevealRequestPath(rawPath)
+	if err != nil {
+		return "", false, err
+	}
+	resolvedPath = resolveExistingPathPrefix(resolvedPath)
+
+	allowedRoots, err := s.allowedRoots()
+	if err != nil {
+		return "", false, &Error{
+			Kind:    ErrorExecution,
+			Message: fmt.Sprintf("Failed to determine allowed reveal roots: %v", err),
+		}
+	}
+	if err := validateRevealPathWithinRoots(resolvedPath, allowedRoots); err != nil {
+		return "", false, err
+	}
+
+	info, err := os.Stat(resolvedPath)
+	if err != nil {
+		return "", false, newRevealStatError(resolvedPath, err)
+	}
+
+	resolvedPath = evaluateRevealPathSymlinks(resolvedPath)
+	if err := validateRevealPathWithinRoots(resolvedPath, allowedRoots); err != nil {
+		return "", false, err
+	}
+	return resolvedPath, info.IsDir(), nil
+}
+
+func normalizeRevealRequestPath(rawPath string) (string, error) {
 	trimmedPath := strings.TrimSpace(rawPath)
 	if trimmedPath == "" {
-		return &Error{Kind: ErrorInvalidRequest, Message: "Path is required."}
+		return "", &Error{Kind: ErrorInvalidRequest, Message: "Path is required."}
 	}
 	resolvedPath, err := statefs.NormalizePath(trimmedPath, "")
 	if err != nil {
-		return &Error{Kind: ErrorInvalidRequest, Message: err.Error()}
+		return "", &Error{Kind: ErrorInvalidRequest, Message: err.Error()}
 	}
-	resolvedPath = resolveExistingPathPrefix(resolvedPath)
-	allowedRoots, err := s.allowedRoots()
-	if err != nil {
-		return &Error{Kind: ErrorExecution, Message: fmt.Sprintf("Failed to determine allowed reveal roots: %v", err)}
-	}
-	if !isWithinAnyRoot(resolvedPath, allowedRoots) {
-		return &Error{Kind: ErrorInvalidRequest, Message: "Path is outside allowed reveal roots."}
-	}
-	info, err := os.Stat(resolvedPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &Error{Kind: ErrorNotFound, Message: fmt.Sprintf("Path does not exist: %s", resolvedPath)}
-		}
-		return &Error{Kind: ErrorExecution, Message: fmt.Sprintf("Failed to inspect path: %v", err)}
-	}
-	if evaluatedPath, err := filepath.EvalSymlinks(resolvedPath); err == nil && strings.TrimSpace(evaluatedPath) != "" {
-		resolvedPath = filepath.Clean(evaluatedPath)
-	}
-	if !isWithinAnyRoot(resolvedPath, allowedRoots) {
-		return &Error{Kind: ErrorInvalidRequest, Message: "Path is outside allowed reveal roots."}
-	}
+	return resolvedPath, nil
+}
 
-	command := buildRevealCommand(resolvedPath, info.IsDir(), s.goos)
+func validateRevealPathWithinRoots(path string, allowedRoots []string) error {
+	if isWithinAnyRoot(path, allowedRoots) {
+		return nil
+	}
+	return &Error{Kind: ErrorInvalidRequest, Message: "Path is outside allowed reveal roots."}
+}
+
+func newRevealStatError(path string, err error) error {
+	if os.IsNotExist(err) {
+		return &Error{Kind: ErrorNotFound, Message: fmt.Sprintf("Path does not exist: %s", path)}
+	}
+	return &Error{Kind: ErrorExecution, Message: fmt.Sprintf("Failed to inspect path: %v", err)}
+}
+
+func evaluateRevealPathSymlinks(path string) string {
+	evaluatedPath, err := filepath.EvalSymlinks(path)
+	if err != nil || strings.TrimSpace(evaluatedPath) == "" {
+		return path
+	}
+	return filepath.Clean(evaluatedPath)
+}
+
+func (s *Service) executeRevealCommand(ctx context.Context, path string, isDirectory bool) error {
+	command := buildRevealCommand(path, isDirectory, s.goos)
 	executable, err := s.lookPath(command[0])
 	if err != nil {
 		return &Error{Kind: ErrorUnavailable, Message: fmt.Sprintf("File explorer command not available: %s", command[0])}
@@ -148,23 +190,27 @@ func (s *Service) Reveal(ctx context.Context, rawPath string) error {
 		}
 	}
 	if runErr != nil {
-		detail := strings.TrimSpace(string(output))
-		var exitErr *exec.ExitError
-		if detail == "" && errors.As(runErr, &exitErr) {
-			detail = fmt.Sprintf("%s exited with status %d.", command[0], exitErr.ExitCode())
-		}
-		if detail != "" {
-			return &Error{
-				Kind:    ErrorExecution,
-				Message: fmt.Sprintf("Failed to reveal path in file explorer: %s", detail),
-			}
-		}
-		return &Error{
-			Kind:    ErrorExecution,
-			Message: fmt.Sprintf("Failed to launch file explorer: %v", runErr),
-		}
+		return newRevealCommandError(command[0], output, runErr)
 	}
 	return nil
+}
+
+func newRevealCommandError(command string, output []byte, runErr error) error {
+	detail := strings.TrimSpace(string(output))
+	var exitErr *exec.ExitError
+	if detail == "" && errors.As(runErr, &exitErr) {
+		detail = fmt.Sprintf("%s exited with status %d.", command, exitErr.ExitCode())
+	}
+	if detail != "" {
+		return &Error{
+			Kind:    ErrorExecution,
+			Message: fmt.Sprintf("Failed to reveal path in file explorer: %s", detail),
+		}
+	}
+	return &Error{
+		Kind:    ErrorExecution,
+		Message: fmt.Sprintf("Failed to launch file explorer: %v", runErr),
+	}
 }
 
 func (s *Service) allowedRoots() ([]string, error) {
