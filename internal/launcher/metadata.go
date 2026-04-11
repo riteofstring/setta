@@ -72,6 +72,26 @@ type LauncherInstallMetadataInput struct {
 	ManagedArtifacts       map[string]string
 }
 
+type launcherInstallMetadataIdentity struct {
+	targetCommand          []string
+	channel                string
+	installSource          LauncherInstallSource
+	artifactOwnershipToken string
+	settaVersion           string
+	settaHome              string
+}
+
+type launcherInstallMetadataBehavior struct {
+	openMode          LauncherOpenMode
+	workspaceBehavior LauncherWorkspaceBehavior
+	lastUsedWorkspace *string
+}
+
+type launcherInstallMetadataArtifacts struct {
+	artifactOptions  map[string]string
+	managedArtifacts map[string]string
+}
+
 type LauncherMetadataError struct {
 	Message string
 }
@@ -108,68 +128,102 @@ func resolveLauncherMetadataPath(settaHome string) (string, error) {
 }
 
 func BuildLauncherInstallMetadata(input LauncherInstallMetadataInput) (LauncherInstallMetadata, error) {
-	targetCommand, err := normalizeLauncherTargetCommand(input.TargetCommand)
+	identity, err := buildLauncherInstallMetadataIdentity(input)
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
-	channel, err := normalizeRequiredLauncherString(input.Channel, "channel")
+	behavior, err := buildLauncherInstallMetadataBehavior(input)
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
-	installSource, err := normalizeLauncherInstallSource(string(input.InstallSource))
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	artifactOwnershipToken, err := normalizeRequiredLauncherString(input.ArtifactOwnershipToken, "artifactOwnershipToken")
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	settaVersion, err := normalizeRequiredLauncherString(input.SettaVersion, "settaVersion")
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	settaHome, err := normalizeRequiredLauncherSettaHome(input.SettaHome)
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	openMode, err := normalizeLauncherOpenMode(string(input.OpenMode))
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	workspaceBehaviorInput := input.WorkspaceBehavior
-	if strings.TrimSpace(string(workspaceBehaviorInput)) == "" {
-		workspaceBehaviorInput = LauncherWorkspaceBehaviorDefault
-	}
-	workspaceBehavior, err := normalizeLauncherWorkspaceBehavior(string(workspaceBehaviorInput))
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	lastUsedWorkspace, err := normalizeOptionalLauncherWorkspace(input.LastUsedWorkspace)
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	artifactOptions, err := normalizeLauncherArtifactOptions(input.ArtifactOptions)
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	managedArtifacts, err := normalizeLauncherManagedArtifacts(input.ManagedArtifacts)
+	artifacts, err := buildLauncherInstallMetadataArtifacts(input)
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
 
 	return LauncherInstallMetadata{
 		SchemaVersion:          launcherMetadataSchemaVersion,
-		TargetCommand:          targetCommand,
-		Channel:                channel,
-		InstallSource:          string(installSource),
-		ArtifactOwnershipToken: artifactOwnershipToken,
-		SettaVersion:           settaVersion,
-		SettaHome:              settaHome,
-		OpenMode:               string(openMode),
-		WorkspaceBehavior:      string(workspaceBehavior),
-		LastUsedWorkspace:      lastUsedWorkspace,
-		ArtifactOptions:        artifactOptions,
-		ManagedArtifacts:       managedArtifacts,
+		TargetCommand:          identity.targetCommand,
+		Channel:                identity.channel,
+		InstallSource:          string(identity.installSource),
+		ArtifactOwnershipToken: identity.artifactOwnershipToken,
+		SettaVersion:           identity.settaVersion,
+		SettaHome:              identity.settaHome,
+		OpenMode:               string(behavior.openMode),
+		WorkspaceBehavior:      string(behavior.workspaceBehavior),
+		LastUsedWorkspace:      behavior.lastUsedWorkspace,
+		ArtifactOptions:        artifacts.artifactOptions,
+		ManagedArtifacts:       artifacts.managedArtifacts,
+	}, nil
+}
+
+func buildLauncherInstallMetadataIdentity(input LauncherInstallMetadataInput) (launcherInstallMetadataIdentity, error) {
+	targetCommand, err := normalizeLauncherTargetCommand(input.TargetCommand)
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	channel, err := normalizeRequiredLauncherString(input.Channel, "channel")
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	installSource, err := normalizeLauncherInstallSource(string(input.InstallSource))
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	artifactOwnershipToken, err := normalizeRequiredLauncherString(input.ArtifactOwnershipToken, "artifactOwnershipToken")
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	settaVersion, err := normalizeRequiredLauncherString(input.SettaVersion, "settaVersion")
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	settaHome, err := normalizeRequiredLauncherSettaHome(input.SettaHome)
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	return launcherInstallMetadataIdentity{
+		targetCommand:          targetCommand,
+		channel:                channel,
+		installSource:          installSource,
+		artifactOwnershipToken: artifactOwnershipToken,
+		settaVersion:           settaVersion,
+		settaHome:              settaHome,
+	}, nil
+}
+
+func buildLauncherInstallMetadataBehavior(input LauncherInstallMetadataInput) (launcherInstallMetadataBehavior, error) {
+	openMode, err := normalizeLauncherOpenMode(string(input.OpenMode))
+	if err != nil {
+		return launcherInstallMetadataBehavior{}, err
+	}
+	workspaceBehavior, err := normalizeLauncherWorkspaceBehaviorInput(input.WorkspaceBehavior)
+	if err != nil {
+		return launcherInstallMetadataBehavior{}, err
+	}
+	lastUsedWorkspace, err := normalizeOptionalLauncherWorkspace(input.LastUsedWorkspace)
+	if err != nil {
+		return launcherInstallMetadataBehavior{}, err
+	}
+	return launcherInstallMetadataBehavior{
+		openMode:          openMode,
+		workspaceBehavior: workspaceBehavior,
+		lastUsedWorkspace: lastUsedWorkspace,
+	}, nil
+}
+
+func buildLauncherInstallMetadataArtifacts(input LauncherInstallMetadataInput) (launcherInstallMetadataArtifacts, error) {
+	artifactOptions, err := normalizeLauncherArtifactOptions(input.ArtifactOptions)
+	if err != nil {
+		return launcherInstallMetadataArtifacts{}, err
+	}
+	managedArtifacts, err := normalizeLauncherManagedArtifacts(input.ManagedArtifacts)
+	if err != nil {
+		return launcherInstallMetadataArtifacts{}, err
+	}
+	return launcherInstallMetadataArtifacts{
+		artifactOptions:  artifactOptions,
+		managedArtifacts: managedArtifacts,
 	}, nil
 }
 
@@ -296,64 +350,102 @@ func parseLauncherInstallMetadata(rawPayload map[string]any, metadataPath string
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
-	targetCommand, err := parseLauncherMetadataTargetCommand(rawPayload["targetCommand"])
+	identity, err := parseLauncherMetadataIdentityFields(rawPayload)
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
-	channel, err := parseLauncherMetadataString(rawPayload["channel"], "channel")
+	behavior, err := parseLauncherMetadataBehaviorFields(rawPayload)
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
-	installSource, err := parseLauncherMetadataInstallSource(rawPayload["installSource"])
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	artifactOwnershipToken, err := parseLauncherMetadataString(rawPayload["artifactOwnershipToken"], "artifactOwnershipToken")
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	settaVersion, err := parseLauncherMetadataString(rawPayload["settaVersion"], "settaVersion")
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	settaHome, err := parseLauncherMetadataSettaHome(rawPayload["settaHome"])
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	openMode, err := parseLauncherMetadataOpenMode(rawPayload["openMode"])
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	workspaceBehavior, err := parseLauncherMetadataWorkspaceBehavior(rawPayload["workspaceBehavior"])
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	lastUsedWorkspace, err := parseLauncherMetadataOptionalWorkspace(rawPayload["lastUsedWorkspace"])
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	managedArtifacts, err := parseLauncherMetadataManagedArtifacts(rawPayload["managedArtifacts"])
-	if err != nil {
-		return LauncherInstallMetadata{}, err
-	}
-	artifactOptions, err := parseLauncherMetadataArtifactOptions(rawPayload["artifactOptions"])
+	artifacts, err := parseLauncherMetadataArtifactFields(rawPayload)
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
 
 	return LauncherInstallMetadata{
 		SchemaVersion:          schemaVersion,
-		TargetCommand:          targetCommand,
-		Channel:                channel,
-		InstallSource:          string(installSource),
-		ArtifactOwnershipToken: artifactOwnershipToken,
-		SettaVersion:           settaVersion,
-		SettaHome:              settaHome,
-		OpenMode:               string(openMode),
-		WorkspaceBehavior:      string(workspaceBehavior),
-		LastUsedWorkspace:      lastUsedWorkspace,
-		ArtifactOptions:        artifactOptions,
-		ManagedArtifacts:       managedArtifacts,
+		TargetCommand:          identity.targetCommand,
+		Channel:                identity.channel,
+		InstallSource:          string(identity.installSource),
+		ArtifactOwnershipToken: identity.artifactOwnershipToken,
+		SettaVersion:           identity.settaVersion,
+		SettaHome:              identity.settaHome,
+		OpenMode:               string(behavior.openMode),
+		WorkspaceBehavior:      string(behavior.workspaceBehavior),
+		LastUsedWorkspace:      behavior.lastUsedWorkspace,
+		ArtifactOptions:        artifacts.artifactOptions,
+		ManagedArtifacts:       artifacts.managedArtifacts,
+	}, nil
+}
+
+func parseLauncherMetadataIdentityFields(rawPayload map[string]any) (launcherInstallMetadataIdentity, error) {
+	targetCommand, err := parseLauncherMetadataTargetCommand(rawPayload["targetCommand"])
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	channel, err := parseLauncherMetadataString(rawPayload["channel"], "channel")
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	installSource, err := parseLauncherMetadataInstallSource(rawPayload["installSource"])
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	artifactOwnershipToken, err := parseLauncherMetadataString(rawPayload["artifactOwnershipToken"], "artifactOwnershipToken")
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	settaVersion, err := parseLauncherMetadataString(rawPayload["settaVersion"], "settaVersion")
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	settaHome, err := parseLauncherMetadataSettaHome(rawPayload["settaHome"])
+	if err != nil {
+		return launcherInstallMetadataIdentity{}, err
+	}
+	return launcherInstallMetadataIdentity{
+		targetCommand:          targetCommand,
+		channel:                channel,
+		installSource:          installSource,
+		artifactOwnershipToken: artifactOwnershipToken,
+		settaVersion:           settaVersion,
+		settaHome:              settaHome,
+	}, nil
+}
+
+func parseLauncherMetadataBehaviorFields(rawPayload map[string]any) (launcherInstallMetadataBehavior, error) {
+	openMode, err := parseLauncherMetadataOpenMode(rawPayload["openMode"])
+	if err != nil {
+		return launcherInstallMetadataBehavior{}, err
+	}
+	workspaceBehavior, err := parseLauncherMetadataWorkspaceBehavior(rawPayload["workspaceBehavior"])
+	if err != nil {
+		return launcherInstallMetadataBehavior{}, err
+	}
+	lastUsedWorkspace, err := parseLauncherMetadataOptionalWorkspace(rawPayload["lastUsedWorkspace"])
+	if err != nil {
+		return launcherInstallMetadataBehavior{}, err
+	}
+	return launcherInstallMetadataBehavior{
+		openMode:          openMode,
+		workspaceBehavior: workspaceBehavior,
+		lastUsedWorkspace: lastUsedWorkspace,
+	}, nil
+}
+
+func parseLauncherMetadataArtifactFields(rawPayload map[string]any) (launcherInstallMetadataArtifacts, error) {
+	managedArtifacts, err := parseLauncherMetadataManagedArtifacts(rawPayload["managedArtifacts"])
+	if err != nil {
+		return launcherInstallMetadataArtifacts{}, err
+	}
+	artifactOptions, err := parseLauncherMetadataArtifactOptions(rawPayload["artifactOptions"])
+	if err != nil {
+		return launcherInstallMetadataArtifacts{}, err
+	}
+	return launcherInstallMetadataArtifacts{
+		artifactOptions:  artifactOptions,
+		managedArtifacts: managedArtifacts,
 	}, nil
 }
 
@@ -557,6 +649,13 @@ func normalizeLauncherWorkspaceBehavior(rawValue string) (LauncherWorkspaceBehav
 			Message: "workspaceBehavior must be either 'last_used_or_prompt' or 'always_prompt'.",
 		}
 	}
+}
+
+func normalizeLauncherWorkspaceBehaviorInput(rawValue LauncherWorkspaceBehavior) (LauncherWorkspaceBehavior, error) {
+	if strings.TrimSpace(string(rawValue)) == "" {
+		rawValue = LauncherWorkspaceBehaviorDefault
+	}
+	return normalizeLauncherWorkspaceBehavior(string(rawValue))
 }
 
 func normalizeOptionalLauncherWorkspace(rawValue *string) (*string, error) {
