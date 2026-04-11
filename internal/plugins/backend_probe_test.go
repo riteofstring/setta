@@ -469,3 +469,147 @@ func TestDecodeBackendProbeResponseRejectsLeadingStdoutNoise(t *testing.T) {
 		t.Fatal("expected leading stdout noise to fail decode")
 	}
 }
+
+func TestNormalizeBackendUISettingRegistrationDefaultWritable(t *testing.T) {
+	t.Parallel()
+
+	raw := map[string]any{
+		"id":             " setting-id ",
+		"title":          " Setting Title ",
+		"description":    " Description ",
+		"paneId":         " pane.settings ",
+		"revealKey":      " reveal.key ",
+		"synonyms":       []any{" first ", "second"},
+		"valueSchema":    map[string]any{"type": "boolean"},
+		"readHandlerId":  " read-handler ",
+		"writeHandlerId": " write-handler ",
+	}
+
+	registration, err := normalizeBackendUISettingRegistration(" plugin.test ", raw)
+	if err != nil {
+		t.Fatalf("normalize backend ui setting registration: %v", err)
+	}
+
+	if registration.LocalSettingID != "setting-id" {
+		t.Fatalf("expected trimmed local setting id, got %#v", registration.LocalSettingID)
+	}
+	if registration.PluginID != "plugin.test" {
+		t.Fatalf("expected trimmed plugin id, got %#v", registration.PluginID)
+	}
+	if registration.Mutability != "writable" {
+		t.Fatalf("expected default writable mutability, got %#v", registration.Mutability)
+	}
+	if registration.WriteHandlerID == nil || *registration.WriteHandlerID != "write-handler" {
+		t.Fatalf("expected write handler id, got %#v", registration.WriteHandlerID)
+	}
+	if len(registration.Synonyms) != 2 || registration.Synonyms[0] != "first" || registration.Synonyms[1] != "second" {
+		t.Fatalf("expected trimmed synonyms, got %#v", registration.Synonyms)
+	}
+
+	rawSchema := raw["valueSchema"].(map[string]any)
+	rawSchema["type"] = "string"
+	if registration.ValueSchema["type"] != "boolean" {
+		t.Fatalf("expected cloned value schema, got %#v", registration.ValueSchema)
+	}
+}
+
+func TestNormalizeBackendUISettingRegistrationReadOnlyOmitsWriteHandler(t *testing.T) {
+	t.Parallel()
+
+	registration, err := normalizeBackendUISettingRegistration("plugin.test", map[string]any{
+		"id":            "setting-id",
+		"title":         "Setting Title",
+		"description":   "Description",
+		"paneId":        "pane.settings",
+		"revealKey":     "reveal.key",
+		"mutability":    "readOnly",
+		"valueSchema":   map[string]any{"type": "boolean"},
+		"readHandlerId": "read-handler",
+	})
+	if err != nil {
+		t.Fatalf("normalize readOnly backend ui setting registration: %v", err)
+	}
+	if registration.Mutability != "readOnly" {
+		t.Fatalf("expected readOnly mutability, got %#v", registration.Mutability)
+	}
+	if registration.WriteHandlerID != nil {
+		t.Fatalf("expected no write handler, got %#v", registration.WriteHandlerID)
+	}
+}
+
+func TestNormalizeBackendUISettingRegistrationRejectsInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	base := func() map[string]any {
+		return map[string]any{
+			"id":             "setting-id",
+			"title":          "Setting Title",
+			"description":    "Description",
+			"paneId":         "pane.settings",
+			"revealKey":      "reveal.key",
+			"valueSchema":    map[string]any{"type": "boolean"},
+			"readHandlerId":  "read-handler",
+			"writeHandlerId": "write-handler",
+		}
+	}
+
+	tests := []struct {
+		name      string
+		mutate    func(map[string]any)
+		wantError string
+	}{
+		{
+			name: "unsupported key",
+			mutate: func(raw map[string]any) {
+				raw["extra"] = true
+			},
+			wantError: `unsupported key "extra"`,
+		},
+		{
+			name: "compound id",
+			mutate: func(raw map[string]any) {
+				raw["id"] = "group::setting"
+			},
+			wantError: "id must not contain '::'",
+		},
+		{
+			name: "readOnly with write handler",
+			mutate: func(raw map[string]any) {
+				raw["mutability"] = "readOnly"
+			},
+			wantError: "writeHandlerId must be omitted when mutability=readOnly",
+		},
+		{
+			name: "writable without write handler",
+			mutate: func(raw map[string]any) {
+				delete(raw, "writeHandlerId")
+			},
+			wantError: "writeHandlerId is required when mutability=writable",
+		},
+		{
+			name: "non object schema",
+			mutate: func(raw map[string]any) {
+				raw["valueSchema"] = []any{"boolean"}
+			},
+			wantError: "valueSchema must be an object",
+		},
+	}
+
+	for _, testCase := range tests {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			raw := base()
+			testCase.mutate(raw)
+
+			_, err := normalizeBackendUISettingRegistration("plugin.test", raw)
+			if err == nil {
+				t.Fatalf("expected error containing %q", testCase.wantError)
+			}
+			if !strings.Contains(err.Error(), testCase.wantError) {
+				t.Fatalf("expected error containing %q, got %v", testCase.wantError, err)
+			}
+		})
+	}
+}
