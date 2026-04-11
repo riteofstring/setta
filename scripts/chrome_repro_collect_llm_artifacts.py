@@ -5,7 +5,7 @@ import json
 import re
 import shutil
 from collections import OrderedDict
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -114,9 +114,7 @@ def write_sanitized_json_copy(source: Path, destination: Path) -> None:
 
 
 def iter_sanitized_jsonl_lines(source: Path) -> Iterator[str]:
-    for raw_line in source.read_text(encoding="utf-8").splitlines():
-        if not raw_line.strip():
-            continue
+    for raw_line in iter_nonempty_lines(source):
         try:
             payload = json.loads(raw_line)
         except json.JSONDecodeError:
@@ -156,18 +154,32 @@ def write_sanitized_copy(source: Path, destination: Path) -> None:
     writer(source, destination)
 
 
-def iter_json_object_lines(path: Path) -> Iterator[dict[str, Any]]:
+def iter_nonempty_lines(path: Path) -> Iterator[str]:
     if not path.is_file():
         return
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        if not raw_line.strip():
-            continue
-        try:
-            payload = json.loads(raw_line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            yield payload
+    yield from (
+        raw_line
+        for raw_line in path.read_text(encoding="utf-8").splitlines()
+        if raw_line.strip()
+    )
+
+
+def parse_json_object_line(raw_line: str) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(raw_line)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def iter_json_object_lines(path: Path) -> Iterator[dict[str, Any]]:
+    yield from (
+        payload
+        for raw_line in iter_nonempty_lines(path)
+        if (payload := parse_json_object_line(raw_line)) is not None
+    )
 
 
 def normalize_mapping_string(mapping: dict[str, Any], key: str) -> str:
@@ -258,21 +270,29 @@ def collect_session_artifacts(
         copied_files.append(str(destination_path.relative_to(llm_artifacts_dir)))
 
 
-def iter_safe_session_source_paths(source_root: Path) -> Iterator[Path]:
-    for file_name in SAFE_TOP_LEVEL_SESSION_FILES:
-        source_path = source_root / file_name
-        if not source_path.is_file():
-            continue
-        yield source_path
+def iter_existing_files(paths: Iterable[Path]) -> Iterator[Path]:
+    yield from (path for path in paths if path.is_file())
 
-    for directory_name in SAFE_SESSION_SUBDIRS:
-        source_dir = source_root / directory_name
-        if not source_dir.is_dir():
-            continue
-        yield from sorted(path for path in source_dir.rglob("*") if path.is_file())
 
-    for pattern in SAFE_SESSION_GLOB_PATTERNS:
+def iter_existing_tree_files(paths: Iterable[Path]) -> Iterator[Path]:
+    for root in paths:
+        if root.is_dir():
+            yield from sorted(path for path in root.rglob("*") if path.is_file())
+
+
+def iter_globbed_files(source_root: Path, patterns: Iterable[str]) -> Iterator[Path]:
+    for pattern in patterns:
         yield from sorted(path for path in source_root.glob(pattern) if path.is_file())
+
+
+def iter_safe_session_source_paths(source_root: Path) -> Iterator[Path]:
+    yield from iter_existing_files(
+        source_root / file_name for file_name in SAFE_TOP_LEVEL_SESSION_FILES
+    )
+    yield from iter_existing_tree_files(
+        source_root / directory_name for directory_name in SAFE_SESSION_SUBDIRS
+    )
+    yield from iter_globbed_files(source_root, SAFE_SESSION_GLOB_PATTERNS)
 
 
 def build_manifest(artifact_dir: Path, setta_files_root: Path) -> dict[str, Any]:

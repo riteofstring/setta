@@ -634,6 +634,77 @@ def test_write_sanitized_copy_sanitizes_jsonl_lines(tmp_path: Path) -> None:
     ]
 
 
+def test_iter_json_object_lines_skips_blank_invalid_and_non_object_lines(
+    tmp_path: Path,
+) -> None:
+    module = _load_collect_llm_artifacts_module()
+    source_path = tmp_path / "transport_details.ndjson"
+    source_path.write_text(
+        "\n".join(
+            [
+                "",
+                "{not valid json}",
+                '["not", "an", "object"]',
+                '{"event":{"type":"websocket-message"}}',
+                "{}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert list(module.iter_json_object_lines(source_path)) == [
+        {"event": {"type": "websocket-message"}},
+        {},
+    ]
+    assert list(module.iter_json_object_lines(tmp_path / "missing.ndjson")) == []
+
+
+def test_iter_safe_session_source_paths_only_returns_allowlisted_files(
+    tmp_path: Path,
+) -> None:
+    module = _load_collect_llm_artifacts_module()
+    session_root = tmp_path / "session"
+    (session_root / "log" / "nested").mkdir(parents=True, exist_ok=True)
+    (session_root / "sessions" / "2026" / "04" / "09").mkdir(
+        parents=True, exist_ok=True
+    )
+    (session_root / "tmp").mkdir(parents=True, exist_ok=True)
+    (session_root / "memories").mkdir(parents=True, exist_ok=True)
+
+    (session_root / "config.toml").write_text('model = "gpt-5.4"\n', encoding="utf-8")
+    (session_root / "log" / "listener.log").write_text("started\n", encoding="utf-8")
+    (session_root / "log" / "nested" / "worker.log").write_text(
+        "worker\n", encoding="utf-8"
+    )
+    (session_root / "sessions" / "2026" / "04" / "09" / "a.jsonl").write_text(
+        '{"message":"a"}\n',
+        encoding="utf-8",
+    )
+    (session_root / "sessions" / "2026" / "04" / "09" / "z.jsonl").write_text(
+        '{"message":"z"}\n',
+        encoding="utf-8",
+    )
+    (session_root / "sessions" / "2026" / "04" / "09" / "ignored.txt").write_text(
+        "ignored\n",
+        encoding="utf-8",
+    )
+    (session_root / "auth.json").write_text("{}", encoding="utf-8")
+    (session_root / "tmp" / "tmp.txt").write_text("tmp\n", encoding="utf-8")
+    (session_root / "memories" / "memory.txt").write_text("memory\n", encoding="utf-8")
+
+    assert [
+        path.relative_to(session_root).as_posix()
+        for path in module.iter_safe_session_source_paths(session_root)
+    ] == [
+        "config.toml",
+        "log/listener.log",
+        "log/nested/worker.log",
+        "sessions/2026/04/09/a.jsonl",
+        "sessions/2026/04/09/z.jsonl",
+    ]
+
+
 def test_build_external_agent_run_update_ignores_non_external_or_incomplete_payloads(
 ) -> None:
     module = _load_collect_llm_artifacts_module()
