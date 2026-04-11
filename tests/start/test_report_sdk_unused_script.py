@@ -174,6 +174,49 @@ def test_member_report_propagates_only_from_live_member_dependencies(
     assert ("C", "LIVE_DERIVED") not in member_names
 
 
+def test_member_report_propagates_transitive_member_dependencies(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    api_dir = repo_root / "backend" / "setta" / "api"
+    utils_dir = repo_root / "backend" / "setta" / "utils"
+    api_dir.mkdir(parents=True, exist_ok=True)
+    utils_dir.mkdir(parents=True, exist_ok=True)
+
+    (api_dir / "__init__.py").write_text("", encoding="utf-8")
+    (api_dir / "client.py").write_text(
+        "from setta.utils.constants import C\n\n"
+        "class Client:\n"
+        "    def run(self) -> int:\n"
+        "        return C.LIVE_TOP\n",
+        encoding="utf-8",
+    )
+    (utils_dir / "constants.py").write_text(
+        "class C:\n"
+        "    LIVE_BASE = 2\n"
+        "    LIVE_MID = LIVE_BASE + 1\n"
+        "    LIVE_TOP = LIVE_MID + 1\n"
+        "    DEAD = 0\n",
+        encoding="utf-8",
+    )
+
+    module = _load_report_sdk_unused_module()
+    report = module.analyze_repo(
+        repo_root=repo_root,
+        target_dir=repo_root / "backend" / "setta",
+        root_paths=(repo_root / "backend" / "setta" / "api",),
+        excluded_dirs=(),
+    )
+
+    member_names = {
+        (member.class_name, member.name) for member in report.potential_unused_members
+    }
+    assert ("C", "LIVE_BASE") not in member_names
+    assert ("C", "LIVE_MID") not in member_names
+    assert ("C", "LIVE_TOP") not in member_names
+    assert ("C", "DEAD") in member_names
+
+
 def test_excluded_modules_still_contribute_import_edges(
     tmp_path: Path,
 ) -> None:

@@ -20,9 +20,10 @@ import ast
 import json
 import os
 import sys
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterator
+from typing import TypeVar
 
 TARGET_RELATIVE_PATH = Path("backend/setta")
 DEFAULT_ROOT_PATHS = (
@@ -116,6 +117,9 @@ class AnalysisReport:
     unreachable_modules: list[str]
     unused_top_level: list[TopLevelDefinition]
     potential_unused_members: list[ClassMemberDefinition]
+
+
+DependencyKey = TypeVar("DependencyKey")
 
 
 def is_type_checking_test(node: ast.expr) -> bool:
@@ -698,22 +702,49 @@ def resolve_root_modules(
     return root_modules
 
 
+def expand_dependency_closure(
+    *,
+    seed_keys: set[DependencyKey],
+    next_keys: Callable[[DependencyKey], Iterable[DependencyKey]],
+) -> set[DependencyKey]:
+    expanded = set(seed_keys)
+    queue = list(seed_keys)
+    while queue:
+        for dependency_key in next_keys(queue.pop()):
+            if dependency_key in expanded:
+                continue
+            expanded.add(dependency_key)
+            queue.append(dependency_key)
+    return expanded
+
+
+def iter_known_imported_modules(
+    *,
+    module_infos: dict[str, ModuleInfo],
+    module_name: str,
+) -> Iterator[str]:
+    module_info = module_infos.get(module_name)
+    if module_info is None:
+        return
+    yield from (
+        imported_module
+        for imported_module in module_info.imported_modules
+        if imported_module in module_infos
+    )
+
+
 def collect_reachable_modules(
     *,
     module_infos: dict[str, ModuleInfo],
     root_modules: set[str],
 ) -> set[str]:
-    reachable = set(root_modules)
-    queue = list(root_modules)
-    while queue:
-        module_name = queue.pop(0)
-        module_info = module_infos[module_name]
-        for imported_module in module_info.imported_modules:
-            if imported_module not in module_infos or imported_module in reachable:
-                continue
-            reachable.add(imported_module)
-            queue.append(imported_module)
-    return reachable
+    return expand_dependency_closure(
+        seed_keys=root_modules,
+        next_keys=lambda module_name: iter_known_imported_modules(
+            module_infos=module_infos,
+            module_name=module_name,
+        ),
+    )
 
 
 def exported_top_level_names(module_info: ModuleInfo) -> set[str]:
@@ -739,28 +770,36 @@ def exported_member_names(class_info: ClassInfo) -> set[str]:
     }
 
 
+def iter_member_dependency_keys(
+    *,
+    module_infos: dict[str, ModuleInfo],
+    member_key: tuple[str, str, str],
+) -> Iterator[tuple[str, str, str]]:
+    module_name, class_name, member_name = member_key
+    module_info = module_infos.get(module_name)
+    if module_info is None:
+        return
+    class_info = module_info.classes.get(class_name)
+    if class_info is None:
+        return
+    yield from (
+        (module_name, class_name, dependency_name)
+        for dependency_name in class_info.member_dependencies.get(member_name, set())
+    )
+
+
 def propagate_member_dependencies(
     *,
     module_infos: dict[str, ModuleInfo],
     used_members: set[tuple[str, str, str]],
 ) -> set[tuple[str, str, str]]:
-    expanded = set(used_members)
-    queue = list(used_members)
-    while queue:
-        module_name, class_name, member_name = queue.pop()
-        module_info = module_infos.get(module_name)
-        if module_info is None:
-            continue
-        class_info = module_info.classes.get(class_name)
-        if class_info is None:
-            continue
-        for dependency_name in class_info.member_dependencies.get(member_name, set()):
-            dependency_key = (module_name, class_name, dependency_name)
-            if dependency_key in expanded:
-                continue
-            expanded.add(dependency_key)
-            queue.append(dependency_key)
-    return expanded
+    return expand_dependency_closure(
+        seed_keys=used_members,
+        next_keys=lambda member_key: iter_member_dependency_keys(
+            module_infos=module_infos,
+            member_key=member_key,
+        ),
+    )
 
 
 def collect_root_usage(
