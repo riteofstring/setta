@@ -262,14 +262,13 @@ export function useDrawModeMouseHandlers({
         ? resizeHandleCorners.current
         : null;
 
-    drawOneLayer(
-      activeLayer,
+    drawOneLayer({
+      layer: activeLayer,
       layerCanvas,
       tempCanvasRefs,
-      transforms,
-      handles,
-      null,
-    );
+      realTimeTransforms: transforms,
+      realTimeResizeHandles: handles,
+    });
     notifyRealtimeDirty();
   };
 
@@ -487,14 +486,12 @@ function drawingOnMouseDown({
       if (!layer || !layerCanvas) {
         return;
       }
-      drawOneLayer(
+      drawOneLayer({
         layer,
         layerCanvas,
         tempCanvasRefs,
-        [],
-        null,
-        eraserStrokeRef.current,
-      );
+        realTimeEraserStroke: eraserStrokeRef.current,
+      });
       notifyRealtimeDirty();
     } else {
       strokeRef.current = startNewStroke(draftCanvasRef, point);
@@ -533,14 +530,12 @@ function drawingOnMouseMove({
       if (!layer || !layerCanvas) {
         return;
       }
-      drawOneLayer(
+      drawOneLayer({
         layer,
         layerCanvas,
         tempCanvasRefs,
-        [],
-        null,
-        eraserStrokeRef.current,
-      );
+        realTimeEraserStroke: eraserStrokeRef.current,
+      });
       notifyRealtimeDirty();
     } else if (
       canvasMode === DrawAreaModeEnum.draw &&
@@ -602,15 +597,15 @@ function drawingOnMouseUp({
       if (!strokeRef.current || !draftCanvasRef.current) {
         return;
       }
-      addNewBrushStrokeToGlobalStateAndDrawLayer(
+      addNewBrushStrokeToGlobalStateAndDrawLayer({
         sectionId,
-        activeLayerIdx,
-        strokeRef.current,
+        layerIdx: activeLayerIdx,
+        stroke: strokeRef.current,
         layer,
         layerCanvas,
         tempCanvasRefs,
-        draftCanvasRef.current,
-      );
+        draftCanvas: draftCanvasRef.current,
+      });
     }
     flushRealtimeSnapshot();
   };
@@ -688,7 +683,7 @@ function finishEraserStroke({
   });
 
   eraserStrokeRef.current = null;
-  drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
+  drawOneLayer({ layer, layerCanvas, tempCanvasRefs });
   return Array.from(touchedTransformIds);
 }
 
@@ -909,14 +904,12 @@ function resumeEraserStrokeOnMouseEnter({
     return true;
   }
 
-  drawOneLayer(
+  drawOneLayer({
     layer,
     layerCanvas,
     tempCanvasRefs,
-    [],
-    null,
-    activeEraserStroke,
-  );
+    realTimeEraserStroke: activeEraserStroke,
+  });
   notifyRealtimeDirty();
   return true;
 }
@@ -1599,7 +1592,7 @@ function editingOnMouseUp({
         getTrueBoundsFromResizeHandleCorners(resizeHandleCorners),
       );
     }
-    setGlobalArtifactTransformsAndDrawAllLayers(
+    setGlobalArtifactTransformsAndDrawAllLayers({
       sectionId,
       layers,
       activeLayerIdx,
@@ -1607,7 +1600,7 @@ function editingOnMouseUp({
       resizeHandleCorners,
       layerCanvasRefs,
       tempCanvasRefs,
-    );
+    });
     isDragging.current = false;
     draggedIdx.current = null;
     resizeHandle.current = null;
