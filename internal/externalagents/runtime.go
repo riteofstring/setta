@@ -310,62 +310,27 @@ func (r *Runtime) RespondToApproval(approvalID string, approved bool) error {
 		return ErrApprovalIDRequired
 	}
 
-	r.mu.RLock()
-	approvalState, ok := r.approvals[trimmedApprovalID]
-	if !ok {
-		r.mu.RUnlock()
-		return ErrApprovalNotFound
+	approvalState, activeRun, err := r.lookupApprovalResponse(trimmedApprovalID)
+	if err != nil {
+		return err
 	}
-	runState, active := r.activeRuns[approvalState.RunID]
-	r.mu.RUnlock()
-	if !active || runState.controller == nil {
-		return ErrRunNotActive
-	}
-
 	run, err := r.runs.Load(approvalState.RunID)
 	if err != nil {
 		return err
 	}
-	if err := runState.controller.SendApprovalResponse(trimmedApprovalID, approved); err != nil {
+	if err := activeRun.controller.SendApprovalResponse(trimmedApprovalID, approved); err != nil {
 		return err
 	}
-	liveState := runState.liveChat
-	if liveState == nil {
-		built, err := buildChatStateFromRun(run.Clone())
-		if err != nil {
-			return err
-		}
-		liveState = built
-	}
-	if liveState != nil {
-		nextState := liveState.Clone()
+	if err := r.applyLiveChatResponse(approvalState.RunID, &run, activeRun, func(nextState *ChatState) {
 		appendApprovalResultMessage(nextState, trimmedApprovalID, approved)
-		run.Outputs = ensureAnyMap(run.Outputs)
-		run.Outputs["messages"] = messageSliceToJSONList(nextState.Messages)
-		runState.liveChat = nextState.Clone()
-		r.mu.Lock()
-		r.activeRuns[approvalState.RunID] = runState
-		r.mu.Unlock()
-		if err := r.syncFollowState(run, nextState); err != nil {
-			return err
-		}
+	}); err != nil {
+		return err
 	}
-	appendRunEvent(&run, "tool_result", map[string]any{
-		"toolCallId": trimmedApprovalID,
-		"toolName":   codexApprovalToolName,
-		"isError":    !approved,
-	}, r.timeNow())
-	appendRunEvent(&run, "approval_response", map[string]any{
-		"approvalId": trimmedApprovalID,
-		"approved":   approved,
-	}, r.timeNow())
+	r.appendApprovalResponseEvents(&run, trimmedApprovalID, approved)
 	if err := r.runs.Save(run); err != nil {
 		return err
 	}
-
-	r.mu.Lock()
-	delete(r.approvals, trimmedApprovalID)
-	r.mu.Unlock()
+	r.deleteApproval(trimmedApprovalID)
 	return nil
 }
 
@@ -395,69 +360,30 @@ func (r *Runtime) RespondToQuestion(toolCallID string, answers map[string]string
 		return ErrToolCallIDRequired
 	}
 
-	r.mu.RLock()
-	questionState, ok := r.questions[trimmedToolCallID]
-	if !ok {
-		r.mu.RUnlock()
-		return ErrQuestionNotFound
+	questionState, activeRun, err := r.lookupQuestionResponse(trimmedToolCallID)
+	if err != nil {
+		return err
 	}
-	runState, active := r.activeRuns[questionState.RunID]
-	r.mu.RUnlock()
-	if !active || runState.controller == nil {
-		return ErrRunNotActive
-	}
-
 	run, err := r.runs.Load(questionState.RunID)
 	if err != nil {
 		return err
 	}
-	responseID := trimmedToolCallID
-	if questionState.ResponseID != nil && strings.TrimSpace(*questionState.ResponseID) != "" {
-		responseID = strings.TrimSpace(*questionState.ResponseID)
-	}
 	answerPayload := map[string]any{
 		"answers": stringMapToAnyMap(answers),
 	}
-	if err := runState.controller.SendToolResponse(responseID, answerPayload); err != nil {
+	if err := activeRun.controller.SendToolResponse(questionResponseID(questionState, trimmedToolCallID), answerPayload); err != nil {
 		return err
 	}
-	liveState := runState.liveChat
-	if liveState == nil {
-		built, err := buildChatStateFromRun(run.Clone())
-		if err != nil {
-			return err
-		}
-		liveState = built
-	}
-	if liveState != nil {
-		nextState := liveState.Clone()
+	if err := r.applyLiveChatResponse(questionState.RunID, &run, activeRun, func(nextState *ChatState) {
 		appendQuestionResultMessage(nextState, trimmedToolCallID, answers)
-		run.Outputs = ensureAnyMap(run.Outputs)
-		run.Outputs["messages"] = messageSliceToJSONList(nextState.Messages)
-		runState.liveChat = nextState.Clone()
-		r.mu.Lock()
-		r.activeRuns[questionState.RunID] = runState
-		r.mu.Unlock()
-		if err := r.syncFollowState(run, nextState); err != nil {
-			return err
-		}
+	}); err != nil {
+		return err
 	}
-	appendRunEvent(&run, "tool_result", map[string]any{
-		"toolCallId": trimmedToolCallID,
-		"toolName":   askUserQuestionToolName,
-		"isError":    false,
-	}, r.timeNow())
-	appendRunEvent(&run, "question_response", map[string]any{
-		"toolCallId": trimmedToolCallID,
-		"answers":    stringMapToAnyMap(answers),
-	}, r.timeNow())
+	r.appendQuestionResponseEvents(&run, trimmedToolCallID, answers)
 	if err := r.runs.Save(run); err != nil {
 		return err
 	}
-
-	r.mu.Lock()
-	delete(r.questions, trimmedToolCallID)
-	r.mu.Unlock()
+	r.deleteQuestion(trimmedToolCallID)
 	return nil
 }
 
@@ -474,42 +400,17 @@ func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 	if err != nil {
 		return agentruns.Run{}, err
 	}
-	if run.Status == agentruns.RunStatusCompleted || run.Status == agentruns.RunStatusFailed || run.Status == agentruns.RunStatusCancelled {
+	if isTerminalRunStatus(run.Status) {
 		return run, nil
 	}
-
-	r.mu.RLock()
-	runState, active := r.activeRuns[trimmedRunID]
-	r.mu.RUnlock()
-	if active && runState.controller != nil {
-		if err := runState.controller.Cancel(); err != nil {
-			return agentruns.Run{}, err
-		}
-	}
-
-	finishedAt := r.timeNow().UTC()
-	r.attachMCPStatusSnapshot(&run)
-	run.Status = agentruns.RunStatusCancelled
-	run.FinishedAt = &finishedAt
-	appendRunEvent(&run, "run_cancelled", map[string]any{}, finishedAt)
-	if err := r.runs.Save(run); err != nil {
+	if err := r.cancelActiveRunController(trimmedRunID); err != nil {
 		return agentruns.Run{}, err
 	}
-
-	r.mu.Lock()
-	if state, ok := r.activeRuns[trimmedRunID]; ok {
-		closeRunDone(&state)
+	if err := r.persistCancelledRun(&run); err != nil {
+		return agentruns.Run{}, err
 	}
-	delete(r.activeRuns, trimmedRunID)
-	r.clearApprovalsLocked(trimmedRunID)
-	r.clearQuestionsLocked(trimmedRunID)
-	delete(r.mcpStatuses, trimmedRunID)
-	follow := r.follow
-	r.mu.Unlock()
-	if follow != nil {
-		if err := follow.ClearRun(context.Background(), trimmedRunID); err != nil {
-			return agentruns.Run{}, err
-		}
+	if err := r.clearRunState(trimmedRunID); err != nil {
+		return agentruns.Run{}, err
 	}
 	return run, nil
 }
@@ -596,6 +497,152 @@ func (s QuestionState) normalized() (QuestionState, error) {
 		}
 	}
 	return normalized, nil
+}
+
+func (r *Runtime) lookupApprovalResponse(approvalID string) (ApprovalState, runState, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	approvalState, ok := r.approvals[approvalID]
+	if !ok {
+		return ApprovalState{}, runState{}, ErrApprovalNotFound
+	}
+	activeRun, ok := r.activeRuns[approvalState.RunID]
+	if !ok || activeRun.controller == nil {
+		return ApprovalState{}, runState{}, ErrRunNotActive
+	}
+	return approvalState, activeRun, nil
+}
+
+func (r *Runtime) lookupQuestionResponse(toolCallID string) (QuestionState, runState, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	questionState, ok := r.questions[toolCallID]
+	if !ok {
+		return QuestionState{}, runState{}, ErrQuestionNotFound
+	}
+	activeRun, ok := r.activeRuns[questionState.RunID]
+	if !ok || activeRun.controller == nil {
+		return QuestionState{}, runState{}, ErrRunNotActive
+	}
+	return questionState, activeRun, nil
+}
+
+func (r *Runtime) applyLiveChatResponse(runID string, run *agentruns.Run, state runState, mutate func(*ChatState)) error {
+	nextState, err := responseLiveChatState(*run, state.liveChat)
+	if err != nil || nextState == nil {
+		return err
+	}
+	mutate(nextState)
+	run.Outputs = ensureAnyMap(run.Outputs)
+	run.Outputs["messages"] = messageSliceToJSONList(nextState.Messages)
+	state.liveChat = nextState.Clone()
+	r.storeActiveRunState(runID, state)
+	return r.syncFollowState(*run, nextState)
+}
+
+func responseLiveChatState(run agentruns.Run, liveState *ChatState) (*ChatState, error) {
+	if liveState != nil {
+		return liveState.Clone(), nil
+	}
+	return buildChatStateFromRun(run.Clone())
+}
+
+func questionResponseID(state QuestionState, fallback string) string {
+	if state.ResponseID == nil {
+		return fallback
+	}
+	trimmedResponseID := strings.TrimSpace(*state.ResponseID)
+	if trimmedResponseID == "" {
+		return fallback
+	}
+	return trimmedResponseID
+}
+
+func (r *Runtime) appendApprovalResponseEvents(run *agentruns.Run, approvalID string, approved bool) {
+	appendRunEvent(run, "tool_result", map[string]any{
+		"toolCallId": approvalID,
+		"toolName":   codexApprovalToolName,
+		"isError":    !approved,
+	}, r.timeNow())
+	appendRunEvent(run, "approval_response", map[string]any{
+		"approvalId": approvalID,
+		"approved":   approved,
+	}, r.timeNow())
+}
+
+func (r *Runtime) appendQuestionResponseEvents(run *agentruns.Run, toolCallID string, answers map[string]string) {
+	appendRunEvent(run, "tool_result", map[string]any{
+		"toolCallId": toolCallID,
+		"toolName":   askUserQuestionToolName,
+		"isError":    false,
+	}, r.timeNow())
+	appendRunEvent(run, "question_response", map[string]any{
+		"toolCallId": toolCallID,
+		"answers":    stringMapToAnyMap(answers),
+	}, r.timeNow())
+}
+
+func (r *Runtime) storeActiveRunState(runID string, state runState) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.activeRuns[runID] = state
+}
+
+func (r *Runtime) deleteApproval(approvalID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.approvals, approvalID)
+}
+
+func (r *Runtime) deleteQuestion(toolCallID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.questions, toolCallID)
+}
+
+func isTerminalRunStatus(status agentruns.RunStatus) bool {
+	switch status {
+	case agentruns.RunStatusCompleted, agentruns.RunStatusFailed, agentruns.RunStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+func (r *Runtime) cancelActiveRunController(runID string) error {
+	r.mu.RLock()
+	runState, active := r.activeRuns[runID]
+	r.mu.RUnlock()
+	if !active || runState.controller == nil {
+		return nil
+	}
+	return runState.controller.Cancel()
+}
+
+func (r *Runtime) persistCancelledRun(run *agentruns.Run) error {
+	finishedAt := r.timeNow().UTC()
+	r.attachMCPStatusSnapshot(run)
+	run.Status = agentruns.RunStatusCancelled
+	run.FinishedAt = &finishedAt
+	appendRunEvent(run, "run_cancelled", map[string]any{}, finishedAt)
+	return r.runs.Save(*run)
+}
+
+func (r *Runtime) clearRunState(runID string) error {
+	r.mu.Lock()
+	if state, ok := r.activeRuns[runID]; ok {
+		closeRunDone(&state)
+	}
+	delete(r.activeRuns, runID)
+	r.clearApprovalsLocked(runID)
+	r.clearQuestionsLocked(runID)
+	delete(r.mcpStatuses, runID)
+	follow := r.follow
+	r.mu.Unlock()
+	if follow == nil {
+		return nil
+	}
+	return follow.ClearRun(context.Background(), runID)
 }
 
 func (r *Runtime) clearApprovalsLocked(runID string) {

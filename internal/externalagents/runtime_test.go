@@ -425,6 +425,58 @@ func TestRuntimeRespondToQuestionDispatchesAndPersistsEvent(t *testing.T) {
 	}
 }
 
+func TestRuntimeRespondToQuestionUsesResponseIDOverride(t *testing.T) {
+	t.Parallel()
+
+	store, runtime := buildRuntimeFixture(t)
+	run := newPersistedRuntimeRun(t, store, "run-question-response-id", agentruns.RunStatusRunning)
+	controller := &stubRunController{}
+	if err := runtime.ActivateRun(run.ID, controller); err != nil {
+		t.Fatalf("activate run: %v", err)
+	}
+	if err := runtime.SetLiveChatState(run.ID, ChatState{
+		Messages: []map[string]any{
+			{
+				"id":      "assistant-1",
+				"role":    "assistant",
+				"content": []any{},
+				"tool_calls": []any{
+					map[string]any{
+						"id": "question-1",
+						"function": map[string]any{
+							"name":      askUserQuestionToolName,
+							"arguments": map[string]any{"questions": []any{map[string]any{"question": "Language"}}},
+						},
+					},
+				},
+			},
+		},
+		WaitingForResponse: true,
+	}); err != nil {
+		t.Fatalf("set live question state: %v", err)
+	}
+	responseID := "approval-bridge-1"
+	if err := runtime.RegisterQuestion(QuestionState{
+		ToolCallID:      "question-1",
+		ResponseID:      &responseID,
+		RunID:           run.ID,
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+	}); err != nil {
+		t.Fatalf("register question: %v", err)
+	}
+
+	if err := runtime.RespondToQuestion("question-1", map[string]string{"Language": "Go"}); err != nil {
+		t.Fatalf("respond to question: %v", err)
+	}
+	if len(controller.toolCalls) != 1 {
+		t.Fatalf("expected one tool response dispatch, got %#v", controller.toolCalls)
+	}
+	if controller.toolCalls[0].ToolCallID != responseID {
+		t.Fatalf("expected response id override %q, got %#v", responseID, controller.toolCalls[0])
+	}
+}
+
 func TestRuntimeReturnsPersistedTerminalRunWithoutCancel(t *testing.T) {
 	t.Parallel()
 
