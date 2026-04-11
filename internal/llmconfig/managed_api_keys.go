@@ -73,6 +73,18 @@ func (e *managedAPIKeysStoreCorruptError) Error() string {
 	return e.message
 }
 
+type managedAPIKeysResolvedPaths struct {
+	envPath  string
+	lockRoot string
+}
+
+type managedAPIKeysWriteStoreState struct {
+	rawDotEnvPayload       *string
+	currentManagedKeyNames map[string]struct{}
+	managedKeyNamesToPurge map[string]struct{}
+	currentAPIKeys         map[string]string
+}
+
 var (
 	dotEnvAssignmentPattern              = regexp.MustCompile(`^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=`)
 	safeUnquotedManagedAPIKeyValueRegexp = regexp.MustCompile(`^[A-Za-z0-9_./:@%+\-=]+$`)
@@ -83,19 +95,12 @@ func ManagedAPIKeysPath(workspaceRoot string) string {
 }
 
 func ReadManagedAPIKeysWithStatusInLockRoot(path string, lockRoot string) ManagedAPIKeysReadResult {
-	resolvedPath, err := statefs.NormalizePath(path, "")
+	paths, err := resolveManagedAPIKeysPaths(path, lockRoot)
 	if err != nil {
-		return managedAPIKeysUnavailableResult(fmt.Errorf("env path: %w", err))
+		return managedAPIKeysUnavailableResult(err)
 	}
-	resolvedLockRoot := ""
-	if strings.TrimSpace(lockRoot) != "" {
-		resolvedLockRoot, err = statefs.NormalizePath(lockRoot, "")
-		if err != nil {
-			return managedAPIKeysUnavailableResult(fmt.Errorf("lock root: %w", err))
-		}
-	}
-	result, err := withManagedAPIKeysLock(resolvedPath, resolvedLockRoot, func() (ManagedAPIKeysReadResult, error) {
-		envVars, err := readDotEnvPayloadFromDisk(resolvedPath)
+	result, err := withManagedAPIKeysLock(paths.envPath, paths.lockRoot, func() (ManagedAPIKeysReadResult, error) {
+		envVars, err := readDotEnvPayloadFromDisk(paths.envPath)
 		if err != nil {
 			return ManagedAPIKeysReadResult{}, err
 		}
@@ -140,85 +145,37 @@ func ReadManagedAPIKeysWithStatus(path string) ManagedAPIKeysReadResult {
 }
 
 func WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path string, payload map[string]string, expectedRevision int, configuredProviderKeyNames []string, lockRoot string) ManagedAPIKeysWriteAttempt {
-	resolvedPath, err := statefs.NormalizePath(path, "")
+	paths, err := resolveManagedAPIKeysPaths(path, lockRoot)
 	if err != nil {
-		return managedAPIKeysUnavailableWriteAttempt(fmt.Errorf("env path: %w", err))
-	}
-	resolvedLockRoot := ""
-	if strings.TrimSpace(lockRoot) != "" {
-		resolvedLockRoot, err = statefs.NormalizePath(lockRoot, "")
-		if err != nil {
-			return managedAPIKeysUnavailableWriteAttempt(fmt.Errorf("lock root: %w", err))
-		}
+		return managedAPIKeysUnavailableWriteAttempt(err)
 	}
 
 	normalized := normalizeManagedAPIKeyWritePayload(payload)
-	attempt, err := withManagedAPIKeysLock(resolvedPath, resolvedLockRoot, func() (ManagedAPIKeysWriteAttempt, error) {
-		rawDotEnvPayload, err := readDotEnvRawPayloadFromDisk(resolvedPath)
+	attempt, err := withManagedAPIKeysLock(paths.envPath, paths.lockRoot, func() (ManagedAPIKeysWriteAttempt, error) {
+		state, err := loadManagedAPIKeysWriteStoreState(paths.envPath, expectedRevision, configuredProviderKeyNames)
 		if err != nil {
 			return ManagedAPIKeysWriteAttempt{}, err
 		}
-		currentEnvVars, err := parseDotEnvPayload(rawDotEnvPayload)
-		if err != nil {
-			return ManagedAPIKeysWriteAttempt{}, err
-		}
-
-		managedKeyNamesToPurge := map[string]struct{}{}
-		currentManagedKeyNames, currentAPIKeys, err := readManagedAPIKeysFromDotEnvPayload(currentEnvVars)
-		if err != nil {
-			var corruptErr *managedAPIKeysStoreCorruptError
-			if !errorAs(err, &corruptErr) || expectedRevision != 0 {
-				return ManagedAPIKeysWriteAttempt{}, err
-			}
-			for _, key := range configuredProviderKeyNames {
-				normalizedKey := strings.TrimSpace(key)
-				if normalizedKey == "" {
-					continue
-				}
-				managedKeyNamesToPurge[normalizedKey] = struct{}{}
-			}
-			currentManagedKeyNames = map[string]struct{}{}
-			currentAPIKeys = map[string]string{}
-		}
-
-		currentRevision := computeManagedAPIKeysRevision(currentAPIKeys)
+		currentRevision := computeManagedAPIKeysRevision(state.currentAPIKeys)
 		if expectedRevision != currentRevision {
-			return ManagedAPIKeysWriteAttempt{
-				Status:    ManagedAPIKeysWriteStatusRevisionConflict,
-				APIKeys:   cloneStringMap(currentAPIKeys),
-				Revision:  currentRevision,
-				ErrorCode: ManagedAPIKeysRevisionConflictErrorCode,
-				Error: fmt.Sprintf(
-					".env API key store revision mismatch: expected %d, found %d.",
-					expectedRevision,
-					currentRevision,
-				),
-			}, nil
+			return managedAPIKeysRevisionConflictWriteAttempt(state.currentAPIKeys, expectedRevision, currentRevision), nil
 		}
 
 		nextDotEnvPayload := buildNextDotEnvPayload(
-			rawDotEnvPayload,
-			currentManagedKeyNames,
-			managedKeyNamesToPurge,
+			state.rawDotEnvPayload,
+			state.currentManagedKeyNames,
+			state.managedKeyNamesToPurge,
 			normalized,
 		)
-		if err := writeDotEnvPayloadToDisk(resolvedPath, nextDotEnvPayload); err != nil {
+		if err := writeDotEnvPayloadToDisk(paths.envPath, nextDotEnvPayload); err != nil {
 			return ManagedAPIKeysWriteAttempt{}, err
 		}
-		return ManagedAPIKeysWriteAttempt{
-			Status:   ManagedAPIKeysWriteStatusSuccess,
-			APIKeys:  cloneStringMap(normalized),
-			Revision: computeManagedAPIKeysRevision(normalized),
-		}, nil
+		return managedAPIKeysSuccessWriteAttempt(normalized), nil
 	})
 	if err == nil {
 		return attempt
 	}
-	var corruptErr *managedAPIKeysStoreCorruptError
-	if errorAs(err, &corruptErr) {
-		return managedAPIKeysCorruptWriteAttempt(err)
-	}
-	return managedAPIKeysUnavailableWriteAttempt(err)
+	return managedAPIKeysWriteAttemptFromError(err)
 }
 
 func WriteManagedAPIKeysWithExpectedRevision(path string, payload map[string]string, expectedRevision int, configuredProviderKeyNames []string) ManagedAPIKeysWriteAttempt {
@@ -263,6 +220,24 @@ func withManagedAPIKeysLock[T any](path string, lockRoot string, fn func() (T, e
 	return fn()
 }
 
+func resolveManagedAPIKeysPaths(path string, lockRoot string) (managedAPIKeysResolvedPaths, error) {
+	resolvedPath, err := statefs.NormalizePath(path, "")
+	if err != nil {
+		return managedAPIKeysResolvedPaths{}, fmt.Errorf("env path: %w", err)
+	}
+	if strings.TrimSpace(lockRoot) == "" {
+		return managedAPIKeysResolvedPaths{envPath: resolvedPath}, nil
+	}
+	resolvedLockRoot, err := statefs.NormalizePath(lockRoot, "")
+	if err != nil {
+		return managedAPIKeysResolvedPaths{}, fmt.Errorf("lock root: %w", err)
+	}
+	return managedAPIKeysResolvedPaths{
+		envPath:  resolvedPath,
+		lockRoot: resolvedLockRoot,
+	}, nil
+}
+
 func managedAPIKeysLockPath(path string, lockRoot string) (string, error) {
 	if strings.TrimSpace(lockRoot) == "" {
 		return path + ".lock", nil
@@ -288,6 +263,18 @@ func normalizeManagedAPIKeyWritePayload(payload map[string]string) map[string]st
 			continue
 		}
 		normalized[key] = value
+	}
+	return normalized
+}
+
+func normalizeManagedAPIKeyNames(names []string) map[string]struct{} {
+	normalized := map[string]struct{}{}
+	for _, name := range names {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" {
+			continue
+		}
+		normalized[trimmedName] = struct{}{}
 	}
 	return normalized
 }
@@ -358,6 +345,38 @@ func readDotEnvPayloadFromDisk(path string) (map[string]string, error) {
 	return parseDotEnvPayload(rawPayload)
 }
 
+func loadManagedAPIKeysWriteStoreState(path string, expectedRevision int, configuredProviderKeyNames []string) (managedAPIKeysWriteStoreState, error) {
+	rawDotEnvPayload, err := readDotEnvRawPayloadFromDisk(path)
+	if err != nil {
+		return managedAPIKeysWriteStoreState{}, err
+	}
+	currentEnvVars, err := parseDotEnvPayload(rawDotEnvPayload)
+	if err != nil {
+		return managedAPIKeysWriteStoreState{}, err
+	}
+
+	currentManagedKeyNames, currentAPIKeys, err := readManagedAPIKeysFromDotEnvPayload(currentEnvVars)
+	if err == nil {
+		return managedAPIKeysWriteStoreState{
+			rawDotEnvPayload:       rawDotEnvPayload,
+			currentManagedKeyNames: currentManagedKeyNames,
+			managedKeyNamesToPurge: map[string]struct{}{},
+			currentAPIKeys:         currentAPIKeys,
+		}, nil
+	}
+
+	managedKeyNamesToPurge, err := purgeManagedAPIKeyNamesForRepair(err, expectedRevision, configuredProviderKeyNames)
+	if err != nil {
+		return managedAPIKeysWriteStoreState{}, err
+	}
+	return managedAPIKeysWriteStoreState{
+		rawDotEnvPayload:       rawDotEnvPayload,
+		currentManagedKeyNames: map[string]struct{}{},
+		managedKeyNamesToPurge: managedKeyNamesToPurge,
+		currentAPIKeys:         map[string]string{},
+	}, nil
+}
+
 func readManagedAPIKeysFromDotEnvPayload(envVars map[string]string) (map[string]struct{}, map[string]string, error) {
 	managedKeyNames, err := parseManagedAPIKeyNames(envVars[managedAPIKeyNamesEnvVar])
 	if err != nil {
@@ -378,6 +397,14 @@ func readManagedAPIKeysFromDotEnvPayload(envVars map[string]string) (map[string]
 		managedAPIKeys[key] = trimmedValue
 	}
 	return managedKeyNames, managedAPIKeys, nil
+}
+
+func purgeManagedAPIKeyNamesForRepair(err error, expectedRevision int, configuredProviderKeyNames []string) (map[string]struct{}, error) {
+	var corruptErr *managedAPIKeysStoreCorruptError
+	if !errorAs(err, &corruptErr) || expectedRevision != 0 {
+		return nil, err
+	}
+	return normalizeManagedAPIKeyNames(configuredProviderKeyNames), nil
 }
 
 func parseManagedAPIKeyNames(rawValue string) (map[string]struct{}, error) {
@@ -415,53 +442,71 @@ func parseManagedAPIKeyNames(rawValue string) (map[string]struct{}, error) {
 }
 
 func buildNextDotEnvPayload(rawPayload *string, currentManagedKeyNames map[string]struct{}, managedKeyNamesToPurge map[string]struct{}, nextManagedAPIKeys map[string]string) string {
-	managedKeysToRemove := map[string]struct{}{}
-	for key := range currentManagedKeyNames {
-		managedKeysToRemove[key] = struct{}{}
-	}
-	for key := range managedKeyNamesToPurge {
-		managedKeysToRemove[key] = struct{}{}
-	}
-	managedKeysToRemove[managedAPIKeyNamesEnvVar] = struct{}{}
-
-	preservedLines := make([]string, 0)
-	if rawPayload != nil {
-		for _, rawLine := range splitLinesKeepEnds(*rawPayload) {
-			key := extractDotEnvAssignmentKey(strings.TrimRight(rawLine, "\r\n"))
-			if key != "" {
-				if _, ok := managedKeysToRemove[key]; ok {
-					continue
-				}
-			}
-			preservedLines = append(preservedLines, rawLine)
-		}
-	}
-
-	newline := resolveDotEnvNewline(rawPayload)
-	additions := make([]string, 0, len(nextManagedAPIKeys)+1)
-	if len(nextManagedAPIKeys) > 0 {
-		keys := make([]string, 0, len(nextManagedAPIKeys))
-		for key := range nextManagedAPIKeys {
-			keys = append(keys, key)
-		}
-		slices.Sort(keys)
-		for _, key := range keys {
-			additions = append(additions, key+"="+serializeDotEnvAssignmentValue(nextManagedAPIKeys[key]))
-		}
-		additions = append(
-			additions,
-			managedAPIKeyNamesEnvVar+"="+mustMarshalManagedAPIKeyNames(keys),
-		)
-	}
-
-	preservedContent := strings.Join(preservedLines, "")
+	preservedContent := strings.Join(
+		preservedDotEnvLines(rawPayload, managedAPIKeysToRemove(currentManagedKeyNames, managedKeyNamesToPurge)),
+		"",
+	)
+	additions := managedAPIKeyAdditions(nextManagedAPIKeys)
 	if len(additions) == 0 {
 		return preservedContent
 	}
-	if preservedContent != "" && !strings.HasSuffix(preservedContent, "\n") && !strings.HasSuffix(preservedContent, "\r") {
+	newline := resolveDotEnvNewline(rawPayload)
+	if requiresDotEnvJoinNewline(preservedContent) {
 		preservedContent += newline
 	}
 	return preservedContent + strings.Join(additions, newline) + newline
+}
+
+func managedAPIKeysToRemove(currentManagedKeyNames map[string]struct{}, managedKeyNamesToPurge map[string]struct{}) map[string]struct{} {
+	keysToRemove := map[string]struct{}{}
+	for key := range currentManagedKeyNames {
+		keysToRemove[key] = struct{}{}
+	}
+	for key := range managedKeyNamesToPurge {
+		keysToRemove[key] = struct{}{}
+	}
+	keysToRemove[managedAPIKeyNamesEnvVar] = struct{}{}
+	return keysToRemove
+}
+
+func preservedDotEnvLines(rawPayload *string, managedKeysToRemove map[string]struct{}) []string {
+	if rawPayload == nil {
+		return nil
+	}
+	preservedLines := make([]string, 0)
+	for _, rawLine := range splitLinesKeepEnds(*rawPayload) {
+		key := extractDotEnvAssignmentKey(strings.TrimRight(rawLine, "\r\n"))
+		if key != "" {
+			if _, ok := managedKeysToRemove[key]; ok {
+				continue
+			}
+		}
+		preservedLines = append(preservedLines, rawLine)
+	}
+	return preservedLines
+}
+
+func managedAPIKeyAdditions(nextManagedAPIKeys map[string]string) []string {
+	if len(nextManagedAPIKeys) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(nextManagedAPIKeys))
+	for key := range nextManagedAPIKeys {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	additions := make([]string, 0, len(nextManagedAPIKeys)+1)
+	for _, key := range keys {
+		additions = append(additions, key+"="+serializeDotEnvAssignmentValue(nextManagedAPIKeys[key]))
+	}
+	return append(additions, managedAPIKeyNamesEnvVar+"="+mustMarshalManagedAPIKeyNames(keys))
+}
+
+func requiresDotEnvJoinNewline(preservedContent string) bool {
+	return preservedContent != "" &&
+		!strings.HasSuffix(preservedContent, "\n") &&
+		!strings.HasSuffix(preservedContent, "\r")
 }
 
 func writeDotEnvPayloadToDisk(path string, content string) error {
@@ -515,6 +560,36 @@ func resolveDotEnvNewline(rawPayload *string) string {
 		return "\r\n"
 	}
 	return "\n"
+}
+
+func managedAPIKeysRevisionConflictWriteAttempt(currentAPIKeys map[string]string, expectedRevision int, currentRevision int) ManagedAPIKeysWriteAttempt {
+	return ManagedAPIKeysWriteAttempt{
+		Status:    ManagedAPIKeysWriteStatusRevisionConflict,
+		APIKeys:   cloneStringMap(currentAPIKeys),
+		Revision:  currentRevision,
+		ErrorCode: ManagedAPIKeysRevisionConflictErrorCode,
+		Error: fmt.Sprintf(
+			".env API key store revision mismatch: expected %d, found %d.",
+			expectedRevision,
+			currentRevision,
+		),
+	}
+}
+
+func managedAPIKeysSuccessWriteAttempt(apiKeys map[string]string) ManagedAPIKeysWriteAttempt {
+	return ManagedAPIKeysWriteAttempt{
+		Status:   ManagedAPIKeysWriteStatusSuccess,
+		APIKeys:  cloneStringMap(apiKeys),
+		Revision: computeManagedAPIKeysRevision(apiKeys),
+	}
+}
+
+func managedAPIKeysWriteAttemptFromError(err error) ManagedAPIKeysWriteAttempt {
+	var corruptErr *managedAPIKeysStoreCorruptError
+	if errorAs(err, &corruptErr) {
+		return managedAPIKeysCorruptWriteAttempt(err)
+	}
+	return managedAPIKeysUnavailableWriteAttempt(err)
 }
 
 func mustMarshalManagedAPIKeyNames(keys []string) string {
