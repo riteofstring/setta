@@ -114,9 +114,18 @@ class LocalCoreClient:
         line = process.stdout.readline()
         if line:
             return line
-        stderr_text = ""
-        if process.stderr is not None:
-            stderr_text = process.stderr.read().strip()
+        self._raise_closed_stdout(process, self._read_stderr(process))
+
+    def _read_stderr(self, process: subprocess.Popen[str]) -> str:
+        if process.stderr is None:
+            return ""
+        return process.stderr.read().strip()
+
+    def _raise_closed_stdout(
+        self,
+        process: subprocess.Popen[str],
+        stderr_text: str,
+    ) -> None:
         returncode = process.poll()
         if returncode is None:
             raise RuntimeError("Setta local core closed stdout unexpectedly")
@@ -151,16 +160,21 @@ class LocalCoreClient:
             )
 
     def _terminate_process(self, process: subprocess.Popen[str]) -> None:
-        if process.stdin is not None:
-            process.stdin.close()
+        self._close_pipe(process.stdin)
         if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=1)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=1)
-        if process.stdout is not None:
-            process.stdout.close()
-        if process.stderr is not None:
-            process.stderr.close()
+            self._stop_running_process(process)
+        self._close_pipe(process.stdout)
+        self._close_pipe(process.stderr)
+
+    def _stop_running_process(self, process: subprocess.Popen[str]) -> None:
+        process.terminate()
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=1)
+
+    def _close_pipe(self, pipe: Any | None) -> None:
+        if pipe is None:
+            return
+        pipe.close()

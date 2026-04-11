@@ -1,6 +1,7 @@
 import contextlib
 import importlib.util
 import pathlib
+import subprocess
 import sys
 import types
 
@@ -75,6 +76,144 @@ def _dependency_key_tuple(
         if isinstance(dependency_key, SectionParamDependencyKey)
         else None,
     )
+
+
+class _FakeStream:
+    def __init__(self, *, line: str = "", text: str = "") -> None:
+        self._line = line
+        self._text = text
+        self.closed = False
+
+    def readline(self) -> str:
+        return self._line
+
+    def read(self) -> str:
+        return self._text
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeProcess:
+    def __init__(
+        self,
+        *,
+        stdin: _FakeStream | None = None,
+        stdout: _FakeStream | None = None,
+        stderr: _FakeStream | None = None,
+        poll_results: list[int | None] | None = None,
+        wait_effects: list[Exception | None] | None = None,
+    ) -> None:
+        self.stdin = stdin
+        self.stdout = stdout
+        self.stderr = stderr
+        self._poll_results = list(poll_results or [])
+        self._last_poll_result = self._poll_results[-1] if self._poll_results else None
+        self._wait_effects = list(wait_effects or [])
+        self.terminate_calls = 0
+        self.kill_calls = 0
+        self.wait_calls: list[int] = []
+
+    def poll(self) -> int | None:
+        if self._poll_results:
+            self._last_poll_result = self._poll_results.pop(0)
+        return self._last_poll_result
+
+    def terminate(self) -> None:
+        self.terminate_calls += 1
+
+    def wait(self, timeout: int) -> int:
+        self.wait_calls.append(timeout)
+        if self._wait_effects:
+            effect = self._wait_effects.pop(0)
+            if effect is not None:
+                raise effect
+        return 0
+
+    def kill(self) -> None:
+        self.kill_calls += 1
+
+
+def test_read_line_reports_live_process_stdout_close() -> None:
+    with _loaded_local_core_module() as local_core_module:
+        client = local_core_module.LocalCoreClient()
+        process = _FakeProcess(
+            stdout=_FakeStream(),
+            stderr=_FakeStream(text="ignored\n"),
+            poll_results=[None],
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="Setta local core closed stdout unexpectedly",
+        ):
+            client._read_line(process)
+
+
+def test_read_line_reports_exited_process_stderr() -> None:
+    with _loaded_local_core_module() as local_core_module:
+        client = local_core_module.LocalCoreClient()
+        process = _FakeProcess(
+            stdout=_FakeStream(),
+            stderr=_FakeStream(text="boom\n"),
+            poll_results=[17],
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="Setta local core exited before responding: boom",
+        ):
+            client._read_line(process)
+
+
+def test_terminate_process_kills_after_timeout_and_closes_pipes() -> None:
+    with _loaded_local_core_module() as local_core_module:
+        client = local_core_module.LocalCoreClient()
+        stdin = _FakeStream()
+        stdout = _FakeStream()
+        stderr = _FakeStream()
+        process = _FakeProcess(
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            poll_results=[None],
+            wait_effects=[
+                subprocess.TimeoutExpired(cmd="setta sdk-local-core", timeout=1),
+                None,
+            ],
+        )
+
+        client._terminate_process(process)
+
+        assert process.terminate_calls == 1
+        assert process.kill_calls == 1
+        assert process.wait_calls == [1, 1]
+        assert stdin.closed
+        assert stdout.closed
+        assert stderr.closed
+
+
+def test_terminate_process_closes_pipes_without_signaling_exited_process() -> None:
+    with _loaded_local_core_module() as local_core_module:
+        client = local_core_module.LocalCoreClient()
+        stdin = _FakeStream()
+        stdout = _FakeStream()
+        stderr = _FakeStream()
+        process = _FakeProcess(
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            poll_results=[0],
+        )
+
+        client._terminate_process(process)
+
+        assert process.terminate_calls == 0
+        assert process.kill_calls == 0
+        assert process.wait_calls == []
+        assert stdin.closed
+        assert stdout.closed
+        assert stderr.closed
 
 
 @pytest.mark.asyncio
