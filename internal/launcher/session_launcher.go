@@ -168,114 +168,130 @@ func NewLocalIDESessionLauncher(options LocalIDESessionLauncherOptions) (*LocalI
 }
 
 func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunchResult, error) {
-	targetConfig, err := loadIDELaunchConfig(input)
+	paths, serverMode, registry, err := l.prepareLaunch(input)
 	if err != nil {
 		return IDELaunchResult{}, err
+	}
+	matchingSessions, err := l.matchingSessions(registry, paths, serverMode)
+	if err != nil {
+		return IDELaunchResult{}, err
+	}
+	if result, ok, err := l.firstReusableSessionResult(registry, paths, matchingSessions, false); err != nil || ok {
+		return result, err
+	}
+	if result, ok, err := l.waitForExistingSession(registry, paths, matchingSessions); err != nil || ok {
+		return result, err
+	}
+	if err := ensureSettingsProjectLaunchPreflight(paths); err != nil {
+		return IDELaunchResult{}, err
+	}
+	process, err := l.startSessionProcess(input, paths)
+	if err != nil {
+		return IDELaunchResult{}, err
+	}
+	return l.waitForStartedSession(registry, paths, serverMode, process)
+}
+
+func (l *LocalIDESessionLauncher) prepareLaunch(input IDELaunchInput) (config.Paths, config.Mode, *localsessions.Registry, error) {
+	targetConfig, err := loadIDELaunchConfig(input)
+	if err != nil {
+		return config.Paths{}, "", nil, err
 	}
 	serverMode := effectiveLaunchMode(input.ServerMode)
 	registry, err := l.registryFactory(filepath.Join(targetConfig.Paths.RuntimeRoot, "sessions"))
 	if err != nil {
-		return IDELaunchResult{}, &SessionLaunchError{
+		return config.Paths{}, "", nil, &SessionLaunchError{
 			Code:    "LaunchFailed",
 			Message: fmt.Sprintf("Create session registry: %v", err),
 		}
 	}
+	return targetConfig.Paths, serverMode, registry, nil
+}
 
-	matchingSessions, err := l.matchingSessions(registry, targetConfig.Paths, serverMode)
+func (l *LocalIDESessionLauncher) firstReusableSessionResult(registry *localsessions.Registry, paths config.Paths, sessions []auth.SessionMetadata, startedNew bool) (IDELaunchResult, bool, error) {
+	reused, ok := l.firstConnectableSession(sessions)
+	if !ok {
+		return IDELaunchResult{}, false, nil
+	}
+	result, err := l.reusedSessionResult(registry, paths, reused, startedNew)
 	if err != nil {
-		return IDELaunchResult{}, err
+		return IDELaunchResult{}, false, err
 	}
-	if reused, ok := l.firstConnectableSession(matchingSessions); ok {
-		secret, err := registry.LoadSecret(reused)
-		if err != nil {
-			return IDELaunchResult{}, &SessionLaunchError{
-				Code:    "LaunchFailed",
-				Message: fmt.Sprintf("Load session secret: %v", err),
-			}
-		}
-		return IDELaunchResult{
-			Session:    reused,
-			Secret:     secret,
-			Paths:      targetConfig.Paths,
-			StartedNew: false,
-		}, nil
-	}
+	return result, true, nil
+}
 
-	if len(matchingSessions) > 0 {
-		deadline := l.now().Add(existingSessionWaitWindow(
-			matchingSessions[0],
-			l.now(),
-			l.launchTimeout,
-			l.existingSessionWait,
-		))
-		for l.now().Before(deadline) {
-			if reused, ok := l.firstConnectableSession(matchingSessions); ok {
-				secret, err := registry.LoadSecret(reused)
-				if err != nil {
-					return IDELaunchResult{}, &SessionLaunchError{
-						Code:    "LaunchFailed",
-						Message: fmt.Sprintf("Load session secret: %v", err),
-					}
-				}
-				return IDELaunchResult{
-					Session:    reused,
-					Secret:     secret,
-					Paths:      targetConfig.Paths,
-					StartedNew: false,
-				}, nil
-			}
-			l.sleep(minDuration(l.pollInterval, time.Until(deadline)))
+func (l *LocalIDESessionLauncher) reusedSessionResult(registry *localsessions.Registry, paths config.Paths, session auth.SessionMetadata, startedNew bool) (IDELaunchResult, error) {
+	secret, err := registry.LoadSecret(session)
+	if err != nil {
+		return IDELaunchResult{}, &SessionLaunchError{
+			Code:    "LaunchFailed",
+			Message: fmt.Sprintf("Load session secret: %v", err),
 		}
 	}
+	return IDELaunchResult{
+		Session:    session,
+		Secret:     secret,
+		Paths:      paths,
+		StartedNew: startedNew,
+	}, nil
+}
 
-	if err := ensureSettingsProjectLaunchPreflight(targetConfig.Paths); err != nil {
-		return IDELaunchResult{}, err
+func (l *LocalIDESessionLauncher) waitForExistingSession(registry *localsessions.Registry, paths config.Paths, sessions []auth.SessionMetadata) (IDELaunchResult, bool, error) {
+	if len(sessions) == 0 {
+		return IDELaunchResult{}, false, nil
 	}
+	deadline := l.now().Add(existingSessionWaitWindow(
+		sessions[0],
+		l.now(),
+		l.launchTimeout,
+		l.existingSessionWait,
+	))
+	for l.now().Before(deadline) {
+		if result, ok, err := l.firstReusableSessionResult(registry, paths, sessions, false); err != nil || ok {
+			return result, ok, err
+		}
+		l.sleep(minDuration(l.pollInterval, time.Until(deadline)))
+	}
+	return IDELaunchResult{}, false, nil
+}
 
+func (l *LocalIDESessionLauncher) startSessionProcess(input IDELaunchInput, paths config.Paths) (startedProcess, error) {
 	process, err := l.processStarter(processStartRequest{
 		Args:        l.buildLaunchArgs(input),
 		Env:         l.launchEnv(),
-		CWD:         targetConfig.Paths.WorkspaceRoot,
-		RuntimeRoot: targetConfig.Paths.RuntimeRoot,
+		CWD:         paths.WorkspaceRoot,
+		RuntimeRoot: paths.RuntimeRoot,
 	})
 	if err != nil {
 		var invalidRuntimeErr *invalidRuntimeRootError
 		if errors.As(err, &invalidRuntimeErr) {
-			return IDELaunchResult{}, &SessionLaunchError{
+			return nil, &SessionLaunchError{
 				Code:    "InvalidRuntimeRoot",
 				Message: err.Error(),
 			}
 		}
-		return IDELaunchResult{}, &SessionLaunchError{
+		return nil, &SessionLaunchError{
 			Code:    "LaunchFailed",
 			Message: err.Error(),
 		}
 	}
+	return process, nil
+}
 
+func (l *LocalIDESessionLauncher) waitForStartedSession(registry *localsessions.Registry, paths config.Paths, serverMode config.Mode, process startedProcess) (IDELaunchResult, error) {
 	deadline := l.now().Add(l.launchTimeout)
 	for {
-		latestMatchingSessions, err := l.matchingSessions(registry, targetConfig.Paths, serverMode)
+		latestMatchingSessions, err := l.matchingSessions(registry, paths, serverMode)
 		if err != nil {
 			_ = process.Kill()
 			return IDELaunchResult{}, err
 		}
-		if reused, ok := l.firstConnectableSession(latestMatchingSessions); ok {
-			secret, err := registry.LoadSecret(reused)
-			if err != nil {
-				_ = process.Kill()
-				return IDELaunchResult{}, &SessionLaunchError{
-					Code:    "LaunchFailed",
-					Message: fmt.Sprintf("Load session secret: %v", err),
-				}
-			}
-			return IDELaunchResult{
-				Session:    reused,
-				Secret:     secret,
-				Paths:      targetConfig.Paths,
-				StartedNew: true,
-			}, nil
+		if result, ok, err := l.firstReusableSessionResult(registry, paths, latestMatchingSessions, true); err != nil {
+			_ = process.Kill()
+			return IDELaunchResult{}, err
+		} else if ok {
+			return result, nil
 		}
-
 		if process.Exited() {
 			return IDELaunchResult{}, &SessionLaunchError{
 				Code:    "LaunchFailed",
