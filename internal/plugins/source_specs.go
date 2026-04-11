@@ -64,43 +64,35 @@ func RetargetSourceSpec(sourceSpec string, to string) string {
 	if strings.Contains(trimmedTarget, ":") {
 		return trimmedTarget
 	}
-	if strings.HasPrefix(sourceSpec, "github:") {
-		githubSpec := strings.TrimPrefix(sourceSpec, "github:")
-		hashIndex := strings.Index(githubSpec, "#")
-		atIndex := strings.Index(githubSpec, "@")
-		splitIndex := -1
-		if hashIndex != -1 && atIndex != -1 {
-			if hashIndex < atIndex {
-				splitIndex = hashIndex
-			} else {
-				splitIndex = atIndex
-			}
-		} else if hashIndex != -1 {
-			splitIndex = hashIndex
-		} else if atIndex != -1 {
-			splitIndex = atIndex
-		}
-		repoSpec := githubSpec
-		if splitIndex != -1 {
-			repoSpec = githubSpec[:splitIndex]
-		}
-		return "github:" + repoSpec + "#" + trimmedTarget
+	parsed, err := ParseSourceSpec(sourceSpec)
+	if err != nil {
+		return sourceSpec
 	}
-	if strings.HasPrefix(sourceSpec, "pypi:") {
-		packageSpec := strings.TrimPrefix(sourceSpec, "pypi:")
-		packageName, _, err := splitPyPISpec(packageSpec)
-		if err != nil {
-			return sourceSpec
-		}
-		if strings.HasPrefix(trimmedTarget, "pypi:") {
-			return trimmedTarget
-		}
-		if strings.Contains(trimmedTarget, "==") {
-			return "pypi:" + trimmedTarget
-		}
-		return "pypi:" + packageName + "==" + trimmedTarget
+	switch parsed.Scheme {
+	case PluginSourceSchemeGitHub:
+		return retargetGitHubSourceSpec(parsed, trimmedTarget)
+	case PluginSourceSchemePyPI:
+		return retargetPyPISourceSpec(parsed, trimmedTarget)
+	default:
+		return sourceSpec
 	}
-	return sourceSpec
+}
+
+func retargetGitHubSourceSpec(parsed ParsedSourceSpec, target string) string {
+	if parsed.Owner == "" || parsed.Repo == "" {
+		return parsed.Raw
+	}
+	return "github:" + parsed.Owner + "/" + parsed.Repo + "#" + target
+}
+
+func retargetPyPISourceSpec(parsed ParsedSourceSpec, target string) string {
+	if parsed.Package == "" {
+		return parsed.Raw
+	}
+	if strings.Contains(target, "==") {
+		return "pypi:" + target
+	}
+	return "pypi:" + parsed.Package + "==" + target
 }
 
 func NormalizeScope(rawScope *PluginScope) (PluginScope, error) {
