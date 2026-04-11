@@ -27,6 +27,14 @@ type MoveSectionsInput struct {
 	PositionsByID map[string]Position `json:"positionsById,omitempty"`
 }
 
+type moveSectionsParentTarget struct {
+	section         Section
+	variant         SectionVariant
+	impl            SectionImpl
+	payload         map[string]any
+	currentChildren []string
+}
+
 func (d *Document) MoveSections(
 	projectID string,
 	input MoveSectionsInput,
@@ -109,57 +117,90 @@ func (p *Project) MoveSections(
 }
 
 func normalizeMoveSectionsInput(input MoveSectionsInput) (MoveSectionsInput, error) {
-	normalized := MoveSectionsInput{
-		SectionIDs: make([]string, 0, len(input.SectionIDs)),
+	sectionIDs, err := normalizeMoveSectionsSectionIDs(input.SectionIDs)
+	if err != nil {
+		return MoveSectionsInput{}, err
+	}
+	newParentID, err := normalizeMoveSectionsParentID(input.NewParentID)
+	if err != nil {
+		return MoveSectionsInput{}, err
+	}
+	positionsByID, err := normalizeMoveSectionsPositions(input.PositionsByID)
+	if err != nil {
+		return MoveSectionsInput{}, err
 	}
 
-	seenSectionIDs := make(map[string]struct{}, len(input.SectionIDs))
-	for _, rawSectionID := range input.SectionIDs {
+	normalized := MoveSectionsInput{
+		SectionIDs:    sectionIDs,
+		NewParentID:   newParentID,
+		PositionsByID: positionsByID,
+	}
+	if input.NewIndex != nil {
+		newIndex := *input.NewIndex
+		normalized.NewIndex = &newIndex
+	}
+	if err := validateMoveSectionsParentInput(normalized.NewParentID, normalized.NewIndex); err != nil {
+		return MoveSectionsInput{}, err
+	}
+	return normalized, nil
+}
+
+func normalizeMoveSectionsSectionIDs(sectionIDs []string) ([]string, error) {
+	normalized := make([]string, 0, len(sectionIDs))
+	seenSectionIDs := make(map[string]struct{}, len(sectionIDs))
+	for _, rawSectionID := range sectionIDs {
 		sectionID := strings.TrimSpace(rawSectionID)
 		if sectionID == "" {
-			return MoveSectionsInput{}, ErrMoveSectionsSectionIDBlank
+			return nil, ErrMoveSectionsSectionIDBlank
 		}
 		if _, ok := seenSectionIDs[sectionID]; ok {
 			continue
 		}
 		seenSectionIDs[sectionID] = struct{}{}
-		normalized.SectionIDs = append(normalized.SectionIDs, sectionID)
-	}
-
-	if input.NewParentID != nil {
-		newParentID := strings.TrimSpace(*input.NewParentID)
-		if newParentID == "" {
-			return MoveSectionsInput{}, ErrChildSectionParentIDRequired
-		}
-		normalized.NewParentID = &newParentID
-	}
-
-	if input.NewIndex != nil {
-		newIndex := *input.NewIndex
-		normalized.NewIndex = &newIndex
-	}
-
-	if input.PositionsByID != nil {
-		normalized.PositionsByID = make(map[string]Position, len(input.PositionsByID))
-		for rawSectionID, position := range input.PositionsByID {
-			sectionID := strings.TrimSpace(rawSectionID)
-			if sectionID == "" {
-				return MoveSectionsInput{}, ErrMoveSectionsPositionMissing
-			}
-			normalized.PositionsByID[sectionID] = position
-		}
-	}
-
-	if normalized.NewParentID == nil {
-		return normalized, nil
-	}
-	if normalized.NewIndex == nil {
-		return MoveSectionsInput{}, ErrMoveSectionsNewIndexRequired
-	}
-	if *normalized.NewIndex < 0 {
-		return MoveSectionsInput{}, ErrMoveSectionsNewIndexNegative
+		normalized = append(normalized, sectionID)
 	}
 	return normalized, nil
+}
+
+func normalizeMoveSectionsParentID(parentID *string) (*string, error) {
+	if parentID == nil {
+		return nil, nil
+	}
+	normalized := strings.TrimSpace(*parentID)
+	if normalized == "" {
+		return nil, ErrChildSectionParentIDRequired
+	}
+	return &normalized, nil
+}
+
+func normalizeMoveSectionsPositions(
+	positionsByID map[string]Position,
+) (map[string]Position, error) {
+	if positionsByID == nil {
+		return nil, nil
+	}
+	normalized := make(map[string]Position, len(positionsByID))
+	for rawSectionID, position := range positionsByID {
+		sectionID := strings.TrimSpace(rawSectionID)
+		if sectionID == "" {
+			return nil, ErrMoveSectionsPositionMissing
+		}
+		normalized[sectionID] = position
+	}
+	return normalized, nil
+}
+
+func validateMoveSectionsParentInput(newParentID *string, newIndex *int) error {
+	if newParentID == nil {
+		return nil
+	}
+	if newIndex == nil {
+		return ErrMoveSectionsNewIndexRequired
+	}
+	if *newIndex < 0 {
+		return ErrMoveSectionsNewIndexNegative
+	}
+	return nil
 }
 
 func (p *Project) validateMoveSectionsSelection(sectionIDs []string) error {
@@ -250,24 +291,63 @@ func (p *Project) moveSectionsToParent(
 		return ErrProjectNotFound
 	}
 
-	newParentSection, newParentVariant, newParentImpl, err := p.ResolveSection(newParentID)
+	target, err := p.resolveMoveSectionsParentTarget(newParentID)
 	if err != nil {
 		return err
 	}
-	newParentPayload, err := effectiveSectionPayload(*p, newParentSection.ID, newParentVariant.ID)
-	if err != nil {
+	selectedSet := stringSetFromSlice(sectionIDs)
+	if err := p.validateMoveSectionsParentSelection(target.section.ID, selectedSet); err != nil {
 		return err
 	}
-	currentChildren, err := p.sectionChildIDs(newParentSection.ID)
+	remainingChildren, err := validateMoveSectionsParentIndex(target.currentChildren, selectedSet, newIndex)
 	if err != nil {
 		return err
 	}
 
-	selectedSet := stringSetFromSlice(sectionIDs)
-	if _, ok := selectedSet[newParentSection.ID]; ok {
+	if supportsBaseCodeSectionSemantics(target.impl, target.payload) {
+		return p.attachMoveSectionsCodeParent(target, sectionIDs, policy, terminalDefaultHeight)
+	}
+	if err := p.reparentSections(sectionIDs, target.section.ID); err != nil {
+		return err
+	}
+	return p.setSectionChildren(
+		target.section.ID,
+		insertStringSlice(remainingChildren, newIndex, sectionIDs),
+	)
+}
+
+func (p *Project) resolveMoveSectionsParentTarget(
+	newParentID string,
+) (moveSectionsParentTarget, error) {
+	newParentSection, newParentVariant, newParentImpl, err := p.ResolveSection(newParentID)
+	if err != nil {
+		return moveSectionsParentTarget{}, err
+	}
+	newParentPayload, err := effectiveSectionPayload(*p, newParentSection.ID, newParentVariant.ID)
+	if err != nil {
+		return moveSectionsParentTarget{}, err
+	}
+	currentChildren, err := p.sectionChildIDs(newParentSection.ID)
+	if err != nil {
+		return moveSectionsParentTarget{}, err
+	}
+	return moveSectionsParentTarget{
+		section:         newParentSection,
+		variant:         newParentVariant,
+		impl:            newParentImpl,
+		payload:         newParentPayload,
+		currentChildren: currentChildren,
+	}, nil
+}
+
+func (p *Project) validateMoveSectionsParentSelection(
+	newParentID string,
+	selectedSet map[string]struct{},
+) error {
+	if _, ok := selectedSet[newParentID]; ok {
 		return ErrMoveSectionsNewParentSelected
 	}
-	ancestorID := newParentSection.ID
+	ancestorID := newParentID
 	for ancestorID != "" {
 		if _, ok := selectedSet[ancestorID]; ok {
 			return ErrMoveSectionsNewParentDescendant
@@ -278,49 +358,69 @@ func (p *Project) moveSectionsToParent(
 		}
 		ancestorID = strings.TrimSpace(ancestor.ParentSectionID)
 	}
+	return nil
+}
 
+func validateMoveSectionsParentIndex(
+	currentChildren []string,
+	selectedSet map[string]struct{},
+	newIndex int,
+) ([]string, error) {
 	remainingChildren := filterStringSlice(currentChildren, selectedSet)
 	if newIndex > len(remainingChildren) {
-		return ErrMoveSectionsNewIndexOutOfRange
+		return nil, ErrMoveSectionsNewIndexOutOfRange
 	}
+	return remainingChildren, nil
+}
 
-	if supportsBaseCodeSectionSemantics(newParentImpl, newParentPayload) {
-		if err := p.validateMoveSectionsCodeParent(newParentSection.ID, newParentImpl, newParentPayload, currentChildren, sectionIDs); err != nil {
-			return err
-		}
-		terminalSectionID := sectionIDs[0]
-		return p.attachCodeSectionTerminal(
-			newParentSection,
-			newParentVariant,
-			newParentImpl,
-			terminalSectionID,
-			policy,
-			terminalDefaultHeight,
-		)
+func (p *Project) attachMoveSectionsCodeParent(
+	target moveSectionsParentTarget,
+	sectionIDs []string,
+	policy AutoLayoutSectionSizingPolicy,
+	terminalDefaultHeight float64,
+) error {
+	if err := p.validateMoveSectionsCodeParent(
+		target.section.ID,
+		target.impl,
+		target.payload,
+		target.currentChildren,
+		sectionIDs,
+	); err != nil {
+		return err
 	}
-
-	for _, sectionID := range sectionIDs {
-		section, _, _, err := p.ResolveSection(sectionID)
-		if err != nil {
-			return err
-		}
-		currentParentID := strings.TrimSpace(section.ParentSectionID)
-		if currentParentID == "" {
-			p.removeTopLevelSectionViewState(sectionID)
-		} else {
-			if err := p.removeChildFromParent(currentParentID, sectionID); err != nil {
-				return err
-			}
-		}
-		if err := p.setSectionParent(sectionID, newParentSection.ID); err != nil {
-			return err
-		}
-	}
-
-	return p.setSectionChildren(
-		newParentSection.ID,
-		insertStringSlice(remainingChildren, newIndex, sectionIDs),
+	return p.attachCodeSectionTerminal(
+		target.section,
+		target.variant,
+		target.impl,
+		sectionIDs[0],
+		policy,
+		terminalDefaultHeight,
 	)
+}
+
+func (p *Project) reparentSections(sectionIDs []string, newParentID string) error {
+	for _, sectionID := range sectionIDs {
+		if err := p.reparentSection(sectionID, newParentID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Project) reparentSection(sectionID string, newParentID string) error {
+	section, _, _, err := p.ResolveSection(sectionID)
+	if err != nil {
+		return err
+	}
+	currentParentID := strings.TrimSpace(section.ParentSectionID)
+	if currentParentID == "" {
+		p.removeTopLevelSectionViewState(sectionID)
+	} else {
+		if err := p.removeChildFromParent(currentParentID, sectionID); err != nil {
+			return err
+		}
+	}
+	return p.setSectionParent(sectionID, newParentID)
 }
 
 func (p *Project) validateMoveSectionsCodeParent(
