@@ -660,75 +660,126 @@ func (s *Server) invokeRegisteredTool(ctx context.Context, registered tools.Regi
 }
 
 func (s *Server) invokeRegisteredToolDetailed(ctx context.Context, registered tools.Registered, arguments map[string]any, requestContext ToolRequestContext) (*sdkmcp.CallToolResult, ToolInvocationContext) {
+	translatedArguments, errorResult := s.translateRegisteredToolArguments(registered, arguments)
+	if errorResult != nil {
+		return errorResult, ToolInvocationContext{}
+	}
+
+	trackProjectMutation, beforeRevision := s.projectMutationTrackingState()
+	invocation, errorResult := s.resolveRegisteredToolInvocation(ctx, registered, translatedArguments, requestContext)
+	if errorResult != nil {
+		return errorResult, invocation
+	}
+
+	callResult := s.executeRegisteredToolCall(ctx, registered, translatedArguments, invocation)
+	if trackProjectMutation {
+		s.notifyAfterProjectMutation(ctx, registered.Name, invocation, beforeRevision)
+	}
+	return callResult, invocation
+}
+
+func (s *Server) translateRegisteredToolArguments(registered tools.Registered, arguments map[string]any) (map[string]any, *sdkmcp.CallToolResult) {
 	if arguments == nil {
 		arguments = map[string]any{}
 	}
 	translatedArguments, err := translateArgumentsToCanonical(registered.Name, registered.Metadata, arguments, s.temporaryIDs)
 	if err != nil {
-		return s.buildToolErrorResult(err), ToolInvocationContext{}
+		return nil, s.buildToolErrorResult(err)
+	}
+	return translatedArguments, nil
+}
+
+func (s *Server) projectMutationTrackingState() (bool, uint64) {
+	if s.projectState == nil || s.afterProjectMutation == nil {
+		return false, 0
+	}
+	return true, s.projectState.Snapshot().Revision
+}
+
+func (s *Server) resolveRegisteredToolInvocation(
+	ctx context.Context,
+	registered tools.Registered,
+	translatedArguments map[string]any,
+	requestContext ToolRequestContext,
+) (ToolInvocationContext, *sdkmcp.CallToolResult) {
+	invocation := ToolInvocationContext{SessionKey: requestContext.SessionKey}
+	if isUnscopedToolName(registered.Name) {
+		return invocation, nil
 	}
 
-	beforeRevision := uint64(0)
-	trackProjectMutation := s.projectState != nil && s.afterProjectMutation != nil
-	if trackProjectMutation {
-		beforeRevision = s.projectState.Snapshot().Revision
+	resolvedAgenticContext, scope, projectView, err := s.resolveScopedInvocationContext(
+		registered.Name,
+		registered.Metadata,
+		translatedArguments,
+		requestContext,
+	)
+	if err != nil {
+		return invocation, s.buildToolErrorResult(err)
 	}
+	invocation.AgenticContext = resolvedAgenticContext
+	invocation.Scope = scope
+	invocation.ProjectView = projectView
+	return invocation, nil
+}
 
-	invocation := ToolInvocationContext{
-		SessionKey: requestContext.SessionKey,
-	}
-	if !isUnscopedToolName(registered.Name) {
-		resolvedAgenticContext, scope, projectView, err := s.resolveScopedInvocationContext(registered.Name, registered.Metadata, translatedArguments, requestContext)
+func (s *Server) executeRegisteredToolCall(
+	ctx context.Context,
+	registered tools.Registered,
+	translatedArguments map[string]any,
+	invocation ToolInvocationContext,
+) *sdkmcp.CallToolResult {
+	runCall := func() (*sdkmcp.CallToolResult, error) {
+		result, err := registered.Handler(contextWithToolInvocation(ctx, invocation), translatedArguments)
 		if err != nil {
-			return s.buildToolErrorResult(err), invocation
+			return nil, err
 		}
-		invocation.AgenticContext = resolvedAgenticContext
-		invocation.Scope = scope
-		invocation.ProjectView = projectView
+		result, err = applyToolResultFilter(result, registered.Metadata, invocation)
+		if err != nil {
+			return nil, err
+		}
+		result, err = translateResultToTemporary(result, registered.Metadata, s.temporaryIDs)
+		if err != nil {
+			return nil, err
+		}
+		return buildToolSuccessResult(result)
 	}
+
 	if runID := strings.TrimSpace(invocationRunID(invocation)); runID != "" && s.toolInvocations != nil {
 		s.toolInvocations.RecordMCPToolInvocationStarted(runID, registered.Name)
 		defer s.toolInvocations.RecordMCPToolInvocationCompleted(runID, registered.Name)
 	}
+	callResult, err := runCall()
+	if err != nil {
+		return s.buildToolErrorResult(err)
+	}
+	return callResult
+}
 
-	result, err := registered.Handler(contextWithToolInvocation(ctx, invocation), translatedArguments)
-	if err != nil {
-		return s.buildToolErrorResult(err), invocation
+func (s *Server) notifyAfterProjectMutation(
+	ctx context.Context,
+	toolName string,
+	invocation ToolInvocationContext,
+	beforeRevision uint64,
+) {
+	afterRevision := s.projectState.Snapshot().Revision
+	if afterRevision == beforeRevision {
+		return
 	}
-	result, err = applyToolResultFilter(result, registered.Metadata, invocation)
-	if err != nil {
-		return s.buildToolErrorResult(err), invocation
+	projectConfigID := ""
+	if invocation.AgenticContext != nil {
+		projectConfigID = strings.TrimSpace(invocation.AgenticContext.ProjectConfigID)
 	}
-
-	result, err = translateResultToTemporary(result, registered.Metadata, s.temporaryIDs)
-	if err != nil {
-		return s.buildToolErrorResult(err), invocation
+	if projectConfigID == "" {
+		return
 	}
-
-	callResult, err := buildToolSuccessResult(result)
-	if err != nil {
-		return s.buildToolErrorResult(err), invocation
+	if err := s.afterProjectMutation(ctx, projectConfigID); err != nil && s.logger != nil {
+		s.logger.Error(
+			"broadcast MCP project state update failed",
+			"tool", toolName,
+			"projectConfigId", projectConfigID,
+			"error", err,
+		)
 	}
-	if trackProjectMutation {
-		afterRevision := s.projectState.Snapshot().Revision
-		if afterRevision != beforeRevision {
-			projectConfigID := ""
-			if invocation.AgenticContext != nil {
-				projectConfigID = strings.TrimSpace(invocation.AgenticContext.ProjectConfigID)
-			}
-			if projectConfigID != "" {
-				if err := s.afterProjectMutation(ctx, projectConfigID); err != nil && s.logger != nil {
-					s.logger.Error(
-						"broadcast MCP project state update failed",
-						"tool", registered.Name,
-						"projectConfigId", projectConfigID,
-						"error", err,
-					)
-				}
-			}
-		}
-	}
-	return callResult, invocation
 }
 
 func invocationRunID(invocation ToolInvocationContext) string {
@@ -910,170 +961,67 @@ func newLSPDiagnosticsHandler(diagnostics lspDiagnosticsProvider) tools.Handler 
 
 func newCreateTopLevelSectionHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		args, err := readCreateTopLevelSectionArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		implType, err := readRequiredStringArgument(arguments, "implType")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		controlCodeObjType, err := readOptionalStringArgument(arguments, "controlCodeObjType")
-		if err != nil {
-			return nil, err
-		}
-		position, err := readOptionalPositionArgument(arguments, "position")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural section-creation invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		input := projectstate.CreateTopLevelSectionInput{
-			ImplType: implType,
-			Position: position,
-		}
-		if strings.TrimSpace(controlCodeObjType) != "" {
-			input.ControlCodeObjType = &controlCodeObjType
-		}
-
-		settings, err := resolveStructuralMutationSettings(settingsState)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-
-		_, result, err := projectState.CreateTopLevelSection(ctx, projectConfigID, input, settings)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
+		return executeScopedStructuralMutation(
+			ctx,
+			args.projectConfigID,
+			"Structural section-creation invocation context is unavailable.",
+			settingsState,
+			func(settings projectstate.StructuralMutationSettings) (any, error) {
+				_, result, err := projectState.CreateTopLevelSection(ctx, args.projectConfigID, args.input, settings)
+				return result, err
+			},
+		)
 	}
 }
 
 func newCreateChildSectionsHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		args, err := readCreateChildSectionsArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		parentID, err := readRequiredStringArgument(arguments, "parentId")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		implType, err := readRequiredStringArgument(arguments, "implType")
-		if err != nil {
-			return nil, err
-		}
-		numChildren, err := readRequiredPositiveIntArgument(arguments, "numChildren")
-		if err != nil {
-			return nil, err
-		}
-		startIdx, err := readOptionalNonNegativeIntArgument(arguments, "startIdx")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural child-section invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		input := projectstate.CreateChildSectionsInput{
-			ParentID:    parentID,
-			ImplType:    implType,
-			NumChildren: numChildren,
-			StartIdx:    startIdx,
-		}
-
-		settings, err := resolveStructuralMutationSettings(settingsState)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-
-		_, result, err := projectState.CreateChildSections(ctx, projectConfigID, input, settings)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
+		return executeScopedStructuralMutation(
+			ctx,
+			args.projectConfigID,
+			"Structural child-section invocation context is unavailable.",
+			settingsState,
+			func(settings projectstate.StructuralMutationSettings) (any, error) {
+				_, result, err := projectState.CreateChildSections(ctx, args.projectConfigID, args.input, settings)
+				return result, err
+			},
+		)
 	}
 }
 
 func newCreateChildSectionsViaIncrementerHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		args, err := readCreateChildSectionsViaIncrementerArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		calledBy, err := readRequiredStringArgument(arguments, "calledBy")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		implType, err := readRequiredStringArgument(arguments, "implType")
-		if err != nil {
-			return nil, err
-		}
-		numChildren, err := readRequiredPositiveIntArgument(arguments, "numChildren")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural incrementer child-section invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		input := projectstate.CreateChildSectionsViaIncrementerInput{
-			CalledBy:    calledBy,
-			ImplType:    implType,
-			NumChildren: numChildren,
-		}
-
-		settings, err := resolveStructuralMutationSettings(settingsState)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-
-		_, result, err := projectState.CreateChildSectionsViaIncrementer(ctx, projectConfigID, input, settings)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
+		return executeScopedStructuralMutation(
+			ctx,
+			args.projectConfigID,
+			"Structural incrementer child-section invocation context is unavailable.",
+			settingsState,
+			func(settings projectstate.StructuralMutationSettings) (any, error) {
+				_, result, err := projectState.CreateChildSectionsViaIncrementer(ctx, args.projectConfigID, args.input, settings)
+				return result, err
+			},
+		)
 	}
 }
 
@@ -1836,203 +1784,66 @@ func newGetAppDefinitionHandler(projectState projectStateProvider) tools.Handler
 
 func newValidateAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		projectConfigID, input, err := readValidateAppDefinitionArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		appSpec, err := readRequiredObjectArgument(arguments, "appSpec")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state app-definition runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		appSpecVersion, err := readOptionalNullableStringPointerArgument(arguments, "appSpecVersion")
-		if err != nil {
-			return nil, err
-		}
-		catalogID, err := readOptionalNullableStringPointerArgument(arguments, "catalogId")
-		if err != nil {
-			return nil, err
-		}
-		routes, err := readOptionalAppRoutesArgument(arguments, "routes")
-		if err != nil {
-			return nil, err
-		}
-		dataBindings, err := readOptionalObjectPointerArgument(arguments, "dataBindings")
-		if err != nil {
-			return nil, err
-		}
-		actions, err := readOptionalObjectPointerArgument(arguments, "actions")
-		if err != nil {
-			return nil, err
-		}
-		theme, err := readOptionalObjectPointerArgument(arguments, "theme")
-		if err != nil {
-			return nil, err
-		}
-		assets, err := readOptionalArrayPointerArgument(arguments, "assets")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state app-definition runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		result, err := projectState.ValidateAppDefinition(ctx, projectstate.ValidateAppDefinitionInput{
-			AppSpec:        appSpec,
-			AppSpecVersion: appSpecVersion,
-			CatalogID:      catalogID,
-			Routes:         routes,
-			DataBindings:   dataBindings,
-			Actions:        actions,
-			Theme:          theme,
-			Assets:         assets,
-		})
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Structural app-definition invocation context is unavailable.",
+			func() (any, error) {
+				return projectState.ValidateAppDefinition(ctx, input)
+			},
+		)
 	}
 }
 
 func newSetAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		projectConfigID, input, err := readSetAppDefinitionArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		appSpec, err := readRequiredObjectArgument(arguments, "appSpec")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
-		if err != nil {
-			return nil, err
-		}
-		appSpecVersion, err := readOptionalNullableStringPointerArgument(arguments, "appSpecVersion")
-		if err != nil {
-			return nil, err
-		}
-		catalogID, err := readOptionalNullableStringPointerArgument(arguments, "catalogId")
-		if err != nil {
-			return nil, err
-		}
-		routes, err := readOptionalAppRoutesArgument(arguments, "routes")
-		if err != nil {
-			return nil, err
-		}
-		dataBindings, err := readOptionalObjectPointerArgument(arguments, "dataBindings")
-		if err != nil {
-			return nil, err
-		}
-		actions, err := readOptionalObjectPointerArgument(arguments, "actions")
-		if err != nil {
-			return nil, err
-		}
-		theme, err := readOptionalObjectPointerArgument(arguments, "theme")
-		if err != nil {
-			return nil, err
-		}
-		assets, err := readOptionalArrayPointerArgument(arguments, "assets")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		_, result, err := projectState.SetAppDefinition(ctx, projectstate.SetAppDefinitionInput{
-			AppSpec:        appSpec,
-			AppSpecPath:    appSpecPath,
-			AppSpecVersion: appSpecVersion,
-			CatalogID:      catalogID,
-			Routes:         routes,
-			DataBindings:   dataBindings,
-			Actions:        actions,
-			Theme:          theme,
-			Assets:         assets,
-		})
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Structural app-definition invocation context is unavailable.",
+			func() (any, error) {
+				_, result, err := projectState.SetAppDefinition(ctx, input)
+				return result, err
+			},
+		)
 	}
 }
 
 func newStreamAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		projectConfigID, input, err := readStreamAppDefinitionArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		patches, err := readRequiredRawStringArgument(arguments, "patches")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		if strings.TrimSpace(patches) == "" {
-			return nil, newToolError("invalid_arguments", "patches must be non-empty.")
-		}
-		appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
-		if err != nil {
-			return nil, err
-		}
-		baseAppSpec, err := readOptionalObjectPointerArgument(arguments, "baseAppSpec")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		_, result, err := projectState.StreamAppDefinition(ctx, projectstate.StreamAppDefinitionInput{
-			Patches:     patches,
-			AppSpecPath: appSpecPath,
-			BaseAppSpec: baseAppSpec,
-		})
-		if err != nil {
-			if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
-				return nil, newToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
-			}
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Structural app-definition invocation context is unavailable.",
+			func() (any, error) {
+				_, result, err := projectState.StreamAppDefinition(ctx, input)
+				if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
+					return nil, newToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
+				}
+				return result, err
+			},
+		)
 	}
 }
 
@@ -2445,35 +2256,24 @@ func newSetCodeSectionDiagnosticsMuteHandler(projectState projectStateProvider, 
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil || diagnostics == nil {
-			return nil, newToolError("internal_error", "LSP diagnostics mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Scoped diagnostics mute invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		snapshot, err := projectState.SetCodeSectionDiagnosticsMute(ctx, projectConfigID, sectionID, mute)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		project, err := snapshot.Document.ProjectByID(projectConfigID)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		if err := diagnostics.ReapplyCodeSectionIgnoreState(project, sectionID); err != nil {
+		if err := requireCodeSectionDiagnosticsRuntime(projectState, diagnostics); err != nil {
 			return nil, err
 		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Scoped diagnostics mute invocation context is unavailable.",
+			func() (any, error) {
+				snapshot, err := projectState.SetCodeSectionDiagnosticsMute(ctx, projectConfigID, sectionID, mute)
+				if err != nil {
+					return nil, err
+				}
+				if err := reapplyCodeSectionIgnoreState(snapshot, projectConfigID, sectionID, diagnostics); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
@@ -2495,35 +2295,24 @@ func newSetCodeSectionDiagnosticCodeSuppressionHandler(projectState projectState
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil || diagnostics == nil {
-			return nil, newToolError("internal_error", "LSP diagnostics mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Scoped diagnostics suppression invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		snapshot, err := projectState.SetCodeSectionDiagnosticCodeSuppression(ctx, projectConfigID, sectionID, code, suppress)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		project, err := snapshot.Document.ProjectByID(projectConfigID)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		if err := diagnostics.ReapplyCodeSectionIgnoreState(project, sectionID); err != nil {
+		if err := requireCodeSectionDiagnosticsRuntime(projectState, diagnostics); err != nil {
 			return nil, err
 		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Scoped diagnostics suppression invocation context is unavailable.",
+			func() (any, error) {
+				snapshot, err := projectState.SetCodeSectionDiagnosticCodeSuppression(ctx, projectConfigID, sectionID, code, suppress)
+				if err != nil {
+					return nil, err
+				}
+				if err := reapplyCodeSectionIgnoreState(snapshot, projectConfigID, sectionID, diagnostics); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
@@ -2907,27 +2696,20 @@ func newSetParamNameAndValueHandler(projectState projectStateProvider) tools.Han
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+			return nil, err
 		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Scoped param name/value invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, err := projectState.SetParamNameAndValue(ctx, projectConfigID, sectionID, codeObjID, name, value); err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Scoped param name/value invocation context is unavailable.",
+			func() (any, error) {
+				if _, err := projectState.SetParamNameAndValue(ctx, projectConfigID, sectionID, codeObjID, name, value); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
@@ -2949,31 +2731,24 @@ func newSetTypeErrorIgnoreHandler(projectState projectStateProvider) tools.Handl
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+			return nil, err
 		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Scoped type-error ignore invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
 		var paramInfoIDPtr *string
 		if strings.TrimSpace(paramInfoID) != "" {
 			paramInfoIDPtr = &paramInfoID
 		}
-		if _, err := projectState.SetTypeErrorIgnore(ctx, projectConfigID, sectionID, paramInfoIDPtr, ignoreTypeErrors); err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Scoped type-error ignore invocation context is unavailable.",
+			func() (any, error) {
+				if _, err := projectState.SetTypeErrorIgnore(ctx, projectConfigID, sectionID, paramInfoIDPtr, ignoreTypeErrors); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
@@ -6666,65 +6441,19 @@ func defaultToolDefinitions(
 
 func newReadFileRangeHandler(workspaceRoot string) tools.Handler {
 	return func(_ context.Context, arguments map[string]any) (any, error) {
-		rawPath, err := readRequiredStringArgument(arguments, "path")
+		request, err := readReadFileRangeRequest(arguments)
 		if err != nil {
 			return nil, err
 		}
-		startLine, err := readOptionalPositiveIntArgument(arguments, "start_line")
-		if err != nil {
-			return nil, err
-		}
-		endLine, err := readOptionalPositiveIntArgument(arguments, "end_line")
-		if err != nil {
-			return nil, err
-		}
-
-		resolvedStartLine := 1
-		if startLine != nil {
-			resolvedStartLine = *startLine
-		}
-		if endLine != nil && *endLine < resolvedStartLine {
-			return nil, newToolError(
-				"invalid_arguments",
-				"end_line must be greater than or equal to start_line",
-			)
-		}
-
-		resolvedPath, err := statefs.ResolveWithinRoot(workspaceRoot, rawPath, "path")
+		resolvedPath, err := statefs.ResolveWithinRoot(workspaceRoot, request.rawPath, "path")
 		if err != nil {
 			return nil, newToolError("invalid_arguments", "%s", err.Error())
 		}
-
-		info, err := os.Stat(resolvedPath)
+		content, err := readUTF8RegularFile(resolvedPath)
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil, newToolError("file_not_found", "File not found: %s", resolvedPath)
-			}
-			return nil, fmt.Errorf("stat %s: %w", resolvedPath, err)
+			return nil, err
 		}
-		if !info.Mode().IsRegular() {
-			return nil, newToolError("invalid_arguments", "Path is not a file: %s", resolvedPath)
-		}
-
-		data, err := os.ReadFile(resolvedPath)
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", resolvedPath, err)
-		}
-		if !utf8.Valid(data) {
-			return nil, newToolError("invalid_arguments", "File is not UTF-8 encoded: %s", resolvedPath)
-		}
-
-		lines := splitFileLines(string(data))
-		selectedLines := make([]string, 0, len(lines))
-		resolvedEndLine := resolvedStartLine - 1
-		for lineNumber := resolvedStartLine; lineNumber <= len(lines); lineNumber++ {
-			if endLine != nil && lineNumber > *endLine {
-				break
-			}
-			selectedLines = append(selectedLines, lines[lineNumber-1])
-			resolvedEndLine = lineNumber
-		}
-
+		selectedLines, resolvedEndLine := selectReadFileRangeLines(splitFileLines(content), request.startLine, request.endLine)
 		relativePath, err := filepath.Rel(workspaceRoot, resolvedPath)
 		if err != nil {
 			return nil, fmt.Errorf("relative path for %s: %w", resolvedPath, err)
@@ -6733,12 +6462,84 @@ func newReadFileRangeHandler(workspaceRoot string) tools.Handler {
 		return readFileRangeResult{
 			Path:         filepath.ToSlash(filepath.Clean(relativePath)),
 			AbsolutePath: resolvedPath,
-			StartLine:    resolvedStartLine,
+			StartLine:    request.startLine,
 			EndLine:      resolvedEndLine,
 			Encoding:     "utf-8",
 			Content:      strings.Join(selectedLines, "\n"),
 		}, nil
 	}
+}
+
+type readFileRangeRequest struct {
+	rawPath   string
+	startLine int
+	endLine   *int
+}
+
+func readReadFileRangeRequest(arguments map[string]any) (readFileRangeRequest, error) {
+	rawPath, err := readRequiredStringArgument(arguments, "path")
+	if err != nil {
+		return readFileRangeRequest{}, err
+	}
+	startLine, err := readOptionalPositiveIntArgument(arguments, "start_line")
+	if err != nil {
+		return readFileRangeRequest{}, err
+	}
+	endLine, err := readOptionalPositiveIntArgument(arguments, "end_line")
+	if err != nil {
+		return readFileRangeRequest{}, err
+	}
+
+	request := readFileRangeRequest{
+		rawPath:   rawPath,
+		startLine: 1,
+		endLine:   endLine,
+	}
+	if startLine != nil {
+		request.startLine = *startLine
+	}
+	if request.endLine != nil && *request.endLine < request.startLine {
+		return readFileRangeRequest{}, newToolError(
+			"invalid_arguments",
+			"end_line must be greater than or equal to start_line",
+		)
+	}
+	return request, nil
+}
+
+func readUTF8RegularFile(resolvedPath string) (string, error) {
+	info, err := os.Stat(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", newToolError("file_not_found", "File not found: %s", resolvedPath)
+		}
+		return "", fmt.Errorf("stat %s: %w", resolvedPath, err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", newToolError("invalid_arguments", "Path is not a file: %s", resolvedPath)
+	}
+
+	data, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", resolvedPath, err)
+	}
+	if !utf8.Valid(data) {
+		return "", newToolError("invalid_arguments", "File is not UTF-8 encoded: %s", resolvedPath)
+	}
+	return string(data), nil
+}
+
+func selectReadFileRangeLines(lines []string, startLine int, endLine *int) ([]string, int) {
+	selectedLines := make([]string, 0, len(lines))
+	resolvedEndLine := startLine - 1
+	for lineNumber := startLine; lineNumber <= len(lines); lineNumber++ {
+		if endLine != nil && lineNumber > *endLine {
+			break
+		}
+		selectedLines = append(selectedLines, lines[lineNumber-1])
+		resolvedEndLine = lineNumber
+	}
+	return selectedLines, resolvedEndLine
 }
 
 func splitFileLines(content string) []string {
@@ -6965,6 +6766,237 @@ func readOptionalPositionArgument(arguments map[string]any, key string) (*projec
 	return &projectstate.Position{X: x, Y: y}, nil
 }
 
+type createTopLevelSectionArgs struct {
+	projectConfigID string
+	input           projectstate.CreateTopLevelSectionInput
+}
+
+type createChildSectionsArgs struct {
+	projectConfigID string
+	input           projectstate.CreateChildSectionsInput
+}
+
+type createChildSectionsViaIncrementerArgs struct {
+	projectConfigID string
+	input           projectstate.CreateChildSectionsViaIncrementerInput
+}
+
+type appDefinitionMutationFields struct {
+	appSpec        map[string]any
+	appSpecVersion *string
+	catalogID      *string
+	routes         *[]projectstate.AppRoute
+	dataBindings   *map[string]any
+	actions        *map[string]any
+	theme          *map[string]any
+	assets         *[]any
+}
+
+func readCreateTopLevelSectionArgs(arguments map[string]any) (createTopLevelSectionArgs, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return createTopLevelSectionArgs{}, err
+	}
+	implType, err := readRequiredStringArgument(arguments, "implType")
+	if err != nil {
+		return createTopLevelSectionArgs{}, err
+	}
+	controlCodeObjType, err := readOptionalStringArgument(arguments, "controlCodeObjType")
+	if err != nil {
+		return createTopLevelSectionArgs{}, err
+	}
+	position, err := readOptionalPositionArgument(arguments, "position")
+	if err != nil {
+		return createTopLevelSectionArgs{}, err
+	}
+
+	args := createTopLevelSectionArgs{
+		projectConfigID: projectConfigID,
+		input: projectstate.CreateTopLevelSectionInput{
+			ImplType: implType,
+			Position: position,
+		},
+	}
+	if strings.TrimSpace(controlCodeObjType) != "" {
+		args.input.ControlCodeObjType = &controlCodeObjType
+	}
+	return args, nil
+}
+
+func readCreateChildSectionsArgs(arguments map[string]any) (createChildSectionsArgs, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return createChildSectionsArgs{}, err
+	}
+	parentID, err := readRequiredStringArgument(arguments, "parentId")
+	if err != nil {
+		return createChildSectionsArgs{}, err
+	}
+	implType, err := readRequiredStringArgument(arguments, "implType")
+	if err != nil {
+		return createChildSectionsArgs{}, err
+	}
+	numChildren, err := readRequiredPositiveIntArgument(arguments, "numChildren")
+	if err != nil {
+		return createChildSectionsArgs{}, err
+	}
+	startIdx, err := readOptionalNonNegativeIntArgument(arguments, "startIdx")
+	if err != nil {
+		return createChildSectionsArgs{}, err
+	}
+	return createChildSectionsArgs{
+		projectConfigID: projectConfigID,
+		input: projectstate.CreateChildSectionsInput{
+			ParentID:    parentID,
+			ImplType:    implType,
+			NumChildren: numChildren,
+			StartIdx:    startIdx,
+		},
+	}, nil
+}
+
+func readCreateChildSectionsViaIncrementerArgs(arguments map[string]any) (createChildSectionsViaIncrementerArgs, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return createChildSectionsViaIncrementerArgs{}, err
+	}
+	calledBy, err := readRequiredStringArgument(arguments, "calledBy")
+	if err != nil {
+		return createChildSectionsViaIncrementerArgs{}, err
+	}
+	implType, err := readRequiredStringArgument(arguments, "implType")
+	if err != nil {
+		return createChildSectionsViaIncrementerArgs{}, err
+	}
+	numChildren, err := readRequiredPositiveIntArgument(arguments, "numChildren")
+	if err != nil {
+		return createChildSectionsViaIncrementerArgs{}, err
+	}
+	return createChildSectionsViaIncrementerArgs{
+		projectConfigID: projectConfigID,
+		input: projectstate.CreateChildSectionsViaIncrementerInput{
+			CalledBy:    calledBy,
+			ImplType:    implType,
+			NumChildren: numChildren,
+		},
+	}, nil
+}
+
+func readAppDefinitionMutationFields(arguments map[string]any) (string, appDefinitionMutationFields, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	appSpec, err := readRequiredObjectArgument(arguments, "appSpec")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	appSpecVersion, err := readOptionalNullableStringPointerArgument(arguments, "appSpecVersion")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	catalogID, err := readOptionalNullableStringPointerArgument(arguments, "catalogId")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	routes, err := readOptionalAppRoutesArgument(arguments, "routes")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	dataBindings, err := readOptionalObjectPointerArgument(arguments, "dataBindings")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	actions, err := readOptionalObjectPointerArgument(arguments, "actions")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	theme, err := readOptionalObjectPointerArgument(arguments, "theme")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	assets, err := readOptionalArrayPointerArgument(arguments, "assets")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	return projectConfigID, appDefinitionMutationFields{
+		appSpec:        appSpec,
+		appSpecVersion: appSpecVersion,
+		catalogID:      catalogID,
+		routes:         routes,
+		dataBindings:   dataBindings,
+		actions:        actions,
+		theme:          theme,
+		assets:         assets,
+	}, nil
+}
+
+func readValidateAppDefinitionArgs(arguments map[string]any) (string, projectstate.ValidateAppDefinitionInput, error) {
+	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
+	if err != nil {
+		return "", projectstate.ValidateAppDefinitionInput{}, err
+	}
+	return projectConfigID, projectstate.ValidateAppDefinitionInput{
+		AppSpec:        fields.appSpec,
+		AppSpecVersion: fields.appSpecVersion,
+		CatalogID:      fields.catalogID,
+		Routes:         fields.routes,
+		DataBindings:   fields.dataBindings,
+		Actions:        fields.actions,
+		Theme:          fields.theme,
+		Assets:         fields.assets,
+	}, nil
+}
+
+func readSetAppDefinitionArgs(arguments map[string]any) (string, projectstate.SetAppDefinitionInput, error) {
+	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
+	if err != nil {
+		return "", projectstate.SetAppDefinitionInput{}, err
+	}
+	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
+	if err != nil {
+		return "", projectstate.SetAppDefinitionInput{}, err
+	}
+	return projectConfigID, projectstate.SetAppDefinitionInput{
+		AppSpec:        fields.appSpec,
+		AppSpecPath:    appSpecPath,
+		AppSpecVersion: fields.appSpecVersion,
+		CatalogID:      fields.catalogID,
+		Routes:         fields.routes,
+		DataBindings:   fields.dataBindings,
+		Actions:        fields.actions,
+		Theme:          fields.theme,
+		Assets:         fields.assets,
+	}, nil
+}
+
+func readStreamAppDefinitionArgs(arguments map[string]any) (string, projectstate.StreamAppDefinitionInput, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return "", projectstate.StreamAppDefinitionInput{}, err
+	}
+	patches, err := readRequiredRawStringArgument(arguments, "patches")
+	if err != nil {
+		return "", projectstate.StreamAppDefinitionInput{}, err
+	}
+	if strings.TrimSpace(patches) == "" {
+		return "", projectstate.StreamAppDefinitionInput{}, newToolError("invalid_arguments", "patches must be non-empty.")
+	}
+	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
+	if err != nil {
+		return "", projectstate.StreamAppDefinitionInput{}, err
+	}
+	baseAppSpec, err := readOptionalObjectPointerArgument(arguments, "baseAppSpec")
+	if err != nil {
+		return "", projectstate.StreamAppDefinitionInput{}, err
+	}
+	return projectConfigID, projectstate.StreamAppDefinitionInput{
+		Patches:     patches,
+		AppSpecPath: appSpecPath,
+		BaseAppSpec: baseAppSpec,
+	}, nil
+}
+
 func readRequiredTopLevelSectionLayoutsArgument(arguments map[string]any, key string) (map[string]projectstate.TopLevelSectionLayout, error) {
 	rawLayouts, err := readRequiredObjectArgument(arguments, key)
 	if err != nil {
@@ -6977,50 +7009,54 @@ func readRequiredTopLevelSectionLayoutsArgument(arguments map[string]any, key st
 		if sectionID == "" {
 			return nil, newToolError("invalid_arguments", "%s contains an empty section id key", key)
 		}
-
-		layoutObject, ok := rawLayout.(map[string]any)
-		if !ok {
-			return nil, newToolError("invalid_arguments", "%s.%s must be an object", key, rawSectionID)
-		}
-
-		x, err := readRequiredFiniteNumberField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "x")
+		layout, err := readTopLevelSectionLayout(rawLayout, fmt.Sprintf("%s.%s", key, rawSectionID))
 		if err != nil {
 			return nil, err
-		}
-		y, err := readRequiredFiniteNumberField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "y")
-		if err != nil {
-			return nil, err
-		}
-		zIndex, err := readOptionalIntField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "zIndex")
-		if err != nil {
-			return nil, err
-		}
-		width, err := readOptionalFiniteNumberField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "w")
-		if err != nil {
-			return nil, err
-		}
-		height, err := readOptionalFiniteNumberField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "h")
-		if err != nil {
-			return nil, err
-		}
-
-		layout := projectstate.TopLevelSectionLayout{
-			X: x,
-			Y: y,
-		}
-		if zIndex != nil {
-			layout.ZIndex = *zIndex
-		}
-		if width != nil {
-			layout.W = width
-		}
-		if height != nil {
-			layout.H = height
 		}
 		layouts[sectionID] = layout
 	}
 
 	return layouts, nil
+}
+
+func readTopLevelSectionLayout(rawLayout any, parentKey string) (projectstate.TopLevelSectionLayout, error) {
+	layoutObject, ok := rawLayout.(map[string]any)
+	if !ok {
+		return projectstate.TopLevelSectionLayout{}, newToolError("invalid_arguments", "%s must be an object", parentKey)
+	}
+
+	x, err := readRequiredFiniteNumberField(layoutObject, parentKey, "x")
+	if err != nil {
+		return projectstate.TopLevelSectionLayout{}, err
+	}
+	y, err := readRequiredFiniteNumberField(layoutObject, parentKey, "y")
+	if err != nil {
+		return projectstate.TopLevelSectionLayout{}, err
+	}
+	zIndex, err := readOptionalIntField(layoutObject, parentKey, "zIndex")
+	if err != nil {
+		return projectstate.TopLevelSectionLayout{}, err
+	}
+	width, err := readOptionalFiniteNumberField(layoutObject, parentKey, "w")
+	if err != nil {
+		return projectstate.TopLevelSectionLayout{}, err
+	}
+	height, err := readOptionalFiniteNumberField(layoutObject, parentKey, "h")
+	if err != nil {
+		return projectstate.TopLevelSectionLayout{}, err
+	}
+
+	layout := projectstate.TopLevelSectionLayout{X: x, Y: y}
+	if zIndex != nil {
+		layout.ZIndex = *zIndex
+	}
+	if width != nil {
+		layout.W = width
+	}
+	if height != nil {
+		layout.H = height
+	}
+	return layout, nil
 }
 
 func readRequiredSectionSizesArgument(arguments map[string]any, key string) (map[string]projectstate.SectionSize, error) {
@@ -7065,35 +7101,17 @@ func readRequiredSectionSizeValueField(
 	if !ok || rawValue == nil {
 		return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s is required", parentKey, field)
 	}
+	return readSectionSizeValue(rawValue, fmt.Sprintf("%s.%s", parentKey, field))
+}
 
+func readSectionSizeValue(rawValue any, fieldKey string) (projectstate.SectionSizeValue, error) {
 	switch typed := rawValue.(type) {
 	case string:
-		trimmed := strings.TrimSpace(typed)
-		if trimmed == "" {
-			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a number or 'auto'", parentKey, field)
-		}
-		if strings.EqualFold(trimmed, "auto") {
-			return projectstate.AutoSectionSizeValue(), nil
-		}
-		value, err := strconv.ParseFloat(trimmed, 64)
-		if err != nil {
-			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a number or 'auto'", parentKey, field)
-		}
-		if math.IsNaN(value) || math.IsInf(value, 0) {
-			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
-		}
-		return projectstate.FixedSectionSizeValue(value), nil
+		return parseSectionSizeValueString(typed, fieldKey)
 	case float64:
-		if math.IsNaN(typed) || math.IsInf(typed, 0) {
-			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
-		}
-		return projectstate.FixedSectionSizeValue(typed), nil
+		return readFixedSectionSizeValue(typed, fieldKey)
 	case float32:
-		value := float64(typed)
-		if math.IsNaN(value) || math.IsInf(value, 0) {
-			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
-		}
-		return projectstate.FixedSectionSizeValue(value), nil
+		return readFixedSectionSizeValue(float64(typed), fieldKey)
 	case int:
 		return projectstate.FixedSectionSizeValue(float64(typed)), nil
 	case int8:
@@ -7105,8 +7123,30 @@ func readRequiredSectionSizeValueField(
 	case int64:
 		return projectstate.FixedSectionSizeValue(float64(typed)), nil
 	default:
-		return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a number or 'auto'", parentKey, field)
+		return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s must be a number or 'auto'", fieldKey)
 	}
+}
+
+func parseSectionSizeValueString(rawValue string, fieldKey string) (projectstate.SectionSizeValue, error) {
+	trimmed := strings.TrimSpace(rawValue)
+	if trimmed == "" {
+		return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s must be a number or 'auto'", fieldKey)
+	}
+	if strings.EqualFold(trimmed, "auto") {
+		return projectstate.AutoSectionSizeValue(), nil
+	}
+	value, err := strconv.ParseFloat(trimmed, 64)
+	if err != nil {
+		return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s must be a number or 'auto'", fieldKey)
+	}
+	return readFixedSectionSizeValue(value, fieldKey)
+}
+
+func readFixedSectionSizeValue(value float64, fieldKey string) (projectstate.SectionSizeValue, error) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s must be a finite number", fieldKey)
+	}
+	return projectstate.FixedSectionSizeValue(value), nil
 }
 
 func readRequiredFiniteNumberField(object map[string]any, parentKey string, field string) (float64, error) {
@@ -7575,115 +7615,291 @@ func buildToolErrorResult(err error) *sdkmcp.CallToolResult {
 	}
 }
 
+func requireProjectStateRuntime(projectState projectStateProvider, unavailableMessage string) error {
+	if projectState != nil {
+		return nil
+	}
+	return newToolError("internal_error", unavailableMessage)
+}
+
+func requireCodeSectionDiagnosticsRuntime(projectState projectStateProvider, diagnostics lspDiagnosticsProvider) error {
+	if projectState != nil && diagnostics != nil {
+		return nil
+	}
+	return newToolError("internal_error", "LSP diagnostics mutation runtime is unavailable.")
+}
+
+func requireScopedProjectInvocation(ctx context.Context, projectConfigID string, missingContextMessage string) error {
+	invocation, ok := ToolInvocationFromContext(ctx)
+	if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+		return newToolError("internal_error", missingContextMessage)
+	}
+	if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+		return newToolError(
+			"invalid_arguments",
+			"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+			projectConfigID,
+			invocation.AgenticContext.ProjectConfigID,
+		)
+	}
+	return nil
+}
+
+func executeScopedProjectStateOperation(
+	ctx context.Context,
+	projectConfigID string,
+	missingContextMessage string,
+	run func() (any, error),
+) (any, error) {
+	if err := requireScopedProjectInvocation(ctx, projectConfigID, missingContextMessage); err != nil {
+		return nil, err
+	}
+	result, err := run()
+	if err != nil {
+		return nil, normalizeProjectStateMutationError(err)
+	}
+	return result, nil
+}
+
+func executeScopedStructuralMutation(
+	ctx context.Context,
+	projectConfigID string,
+	missingContextMessage string,
+	settingsState settingsStateProvider,
+	run func(projectstate.StructuralMutationSettings) (any, error),
+) (any, error) {
+	if err := requireScopedProjectInvocation(ctx, projectConfigID, missingContextMessage); err != nil {
+		return nil, err
+	}
+	settings, err := resolveStructuralMutationSettings(settingsState)
+	if err != nil {
+		return nil, normalizeProjectStateMutationError(err)
+	}
+	result, err := run(settings)
+	if err != nil {
+		return nil, normalizeProjectStateMutationError(err)
+	}
+	return result, nil
+}
+
+func reapplyCodeSectionIgnoreState(
+	snapshot projectstate.Snapshot,
+	projectConfigID string,
+	sectionID string,
+	diagnostics lspDiagnosticsProvider,
+) error {
+	project, err := snapshot.Document.ProjectByID(projectConfigID)
+	if err != nil {
+		return normalizeProjectStateMutationError(err)
+	}
+	return diagnostics.ReapplyCodeSectionIgnoreState(project, sectionID)
+}
+
 func normalizeProjectStateMutationError(err error) error {
 	if err == nil {
 		return nil
 	}
+	if code := projectStateMutationErrorCode(err); code != "" {
+		return newToolError(code, "%s", err.Error())
+	}
+	return err
+}
+
+func projectStateMutationErrorCode(err error) string {
 	switch {
 	case errors.Is(err, projectstate.ErrProjectNotFound):
-		return newToolError(projectNotFoundErrorCode, "%s", err.Error())
-	case projectstate.IsInvalidSectionNameError(err):
-		return newToolError("invalid_arguments", "%s", err.Error())
-	case projectstate.IsInvalidSectionVariantSortOrderError(err):
-		return newToolError("invalid_arguments", "%s", err.Error())
-	case projectstate.IsFormatCodeError(err):
-		return newToolError("invalid_arguments", "%s", err.Error())
-	case projectstate.IsInvalidCodeObjectNameError(err):
-		return newToolError("invalid_arguments", "%s", err.Error())
-	case projectstate.IsInvalidAutoLayoutError(err):
-		return newToolError("invalid_arguments", "%s", err.Error())
-	case errors.Is(err, projectstate.ErrSettingsValueInvalid),
-		errors.Is(err, settingsstate.ErrSettingsValueInvalid):
-		return newToolError("invalid_arguments", "%s", err.Error())
+		return projectNotFoundErrorCode
 	case projectstate.IsExpectedOldValueMismatchError(err):
-		return newToolError("mutation_failed", "%s", err.Error())
-	case errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired),
-		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid):
-		return newToolError("invalid_arguments", "%s", err.Error())
-	case errors.Is(err, projectstate.ErrAppSpecPathUnconfigured):
-		return newToolError("invalid_arguments", "%s", err.Error())
+		return "mutation_failed"
 	case errors.Is(err, projectstate.ErrAppSpecNotFound):
-		return newToolError("file_not_found", "%s", err.Error())
+		return "file_not_found"
 	case errors.Is(err, projectstate.ErrAppSpecStoreUnsupported):
-		return newToolError("internal_error", "%s", err.Error())
-	case errors.Is(err, projectstate.ErrProjectCodegenTargetLanguage),
-		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage),
-		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired),
-		errors.Is(err, plugins.ErrRegisteredCodegenTargetNotFound),
-		errors.Is(err, plugins.ErrRegisteredCodegenTargetConflict),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetPayloadInvalid),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetObjectRequired),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldUnknown),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldInvalid),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetMissing),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetLanguageMismatch):
-		return newToolError("invalid_arguments", "%s", err.Error())
-	case errors.Is(err, projectstate.ErrSectionNotFound),
-		errors.Is(err, projectstate.ErrSectionVariantNotFound),
-		errors.Is(err, projectstate.ErrSectionVariantMembership),
-		errors.Is(err, projectstate.ErrCodeObjNotFound),
-		errors.Is(err, projectstate.ErrCallableSectionRequired),
-		errors.Is(err, projectstate.ErrGroupSectionRequired),
-		errors.Is(err, projectstate.ErrAddKwargUnsupported),
-		errors.Is(err, projectstate.ErrAddKwargCallableUnset),
-		errors.Is(err, projectstate.ErrAddKwargParentTypeUnsupported),
-		errors.Is(err, projectstate.ErrDeleteKwargUnsupported),
-		errors.Is(err, projectstate.ErrDeleteKwargCallableUnset),
-		errors.Is(err, projectstate.ErrDeleteKwargNoParams),
-		errors.Is(err, projectstate.ErrDeleteKwargRootMissing),
-		errors.Is(err, projectstate.ErrDeleteKwargParentUnsupported),
-		errors.Is(err, projectstate.ErrChangeParamImplUnsupported),
-		errors.Is(err, projectstate.ErrChangeParamImplSelectedRequired),
-		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeUnknown),
-		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeNotAllowed),
-		errors.Is(err, projectstate.ErrUpdateParamImplConfigUnsupported),
-		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldUnsupported),
-		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldInvalid),
-		errors.Is(err, projectstate.ErrDeleteSelectedParamsUnsupported),
-		errors.Is(err, projectstate.ErrDeleteSelectedParamsParamIDBlank),
-		errors.Is(err, projectstate.ErrDeleteSelectedParamsRootMissing),
-		errors.Is(err, projectstate.ErrDeleteSelectedParamsParamUnsupported),
-		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentMissing),
-		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentUnsupported),
-		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
-		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
-		errors.Is(err, projectstate.ErrSectionParamFilterUnsupported),
-		errors.Is(err, projectstate.ErrMetaControlSectionRequired),
-		errors.Is(err, projectstate.ErrCodeSectionRequired),
-		errors.Is(err, projectstate.ErrCodeSectionReadOnly),
-		errors.Is(err, projectstate.ErrChildSectionParentIDRequired),
-		errors.Is(err, projectstate.ErrChildSectionImplTypeRequired),
-		errors.Is(err, projectstate.ErrChildSectionImplTypeUnsupported),
-		errors.Is(err, projectstate.ErrChildSectionCountInvalid),
-		errors.Is(err, projectstate.ErrChildSectionStartIdxInvalid),
-		errors.Is(err, projectstate.ErrChildSectionParentUnsupported),
-		errors.Is(err, projectstate.ErrCodeSectionChildTypeInvalid),
-		errors.Is(err, projectstate.ErrCodeSectionChildCountInvalid),
-		errors.Is(err, projectstate.ErrCodeSectionAlreadyHasChild),
-		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByRequired),
-		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByUnsupported),
-		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByNotInParent),
-		errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByRequired),
-		errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByUnsupported),
-		errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByNotInParent),
-		errors.Is(err, projectstate.ErrChildSectionDecrementerCountInvalid),
-		errors.Is(err, projectstate.ErrDeleteSectionsSectionIDsRequired),
-		errors.Is(err, projectstate.ErrDeleteSectionsSectionIDBlank),
-		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeRequired),
-		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeUnsupported),
-		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeUnsupported),
-		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeNotAllowed),
-		errors.Is(err, projectstate.ErrTopLevelSectionPositionInvalid),
-		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticCode),
-		errors.Is(err, projectstate.ErrCodeObjectValueMutationUnsupported),
-		errors.Is(err, projectstate.ErrPasswordParamMutationUnsupported),
-		errors.Is(err, projectstate.ErrInvalidTypeErrorIgnoreState),
-		errors.Is(err, projectstate.ErrTypeErrorIgnoreUnsupported):
-		return newToolError("invalid_arguments", "%s", err.Error())
+		return "internal_error"
+	case isInvalidProjectStateMutationError(err):
+		return "invalid_arguments"
 	default:
-		return err
+		return ""
 	}
+}
+
+func isInvalidProjectStateMutationError(err error) bool {
+	return isBasicInvalidProjectStateMutationError(err) ||
+		isSettingsOrWatchCodeMutationError(err) ||
+		isAppSpecOrCodegenMutationError(err) ||
+		isSectionOrParamMutationError(err) ||
+		isStructureMutationError(err)
+}
+
+func isBasicInvalidProjectStateMutationError(err error) bool {
+	return projectstate.IsInvalidSectionNameError(err) ||
+		projectstate.IsInvalidSectionVariantSortOrderError(err) ||
+		projectstate.IsFormatCodeError(err) ||
+		projectstate.IsInvalidCodeObjectNameError(err) ||
+		projectstate.IsInvalidAutoLayoutError(err)
+}
+
+func isSettingsOrWatchCodeMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrSettingsValueInvalid) ||
+		errors.Is(err, settingsstate.ErrSettingsValueInvalid) ||
+		errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired) ||
+		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid)
+}
+
+func isAppSpecOrCodegenMutationError(err error) bool {
+	return isAppSpecMutationError(err) || isCodegenMutationError(err)
+}
+
+func isSectionOrParamMutationError(err error) bool {
+	return isSectionLookupMutationError(err) ||
+		isKwargMutationError(err) ||
+		isParamMutationError(err) ||
+		isCodeObjectMutationError(err) ||
+		isSectionCapabilityMutationError(err) ||
+		isTypeErrorMutationError(err)
+}
+
+func isStructureMutationError(err error) bool {
+	return isChildSectionMutationError(err) ||
+		isIncrementerMutationError(err) ||
+		isDecrementerMutationError(err) ||
+		isDeleteSectionsMutationError(err) ||
+		isTopLevelSectionMutationError(err) ||
+		isCodeSectionStructureMutationError(err)
+}
+
+func isAppSpecMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrAppSpecPathUnconfigured)
+}
+
+func isCodegenMutationError(err error) bool {
+	return isProjectCodegenMutationError(err) || isPythonCodegenMutationError(err)
+}
+
+func isProjectCodegenMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrProjectCodegenTargetLanguage) ||
+		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage) ||
+		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired) ||
+		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired) ||
+		errors.Is(err, plugins.ErrRegisteredCodegenTargetNotFound) ||
+		errors.Is(err, plugins.ErrRegisteredCodegenTargetConflict)
+}
+
+func isPythonCodegenMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrProjectCodegenPythonTargetPayloadInvalid) ||
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetObjectRequired) ||
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldUnknown) ||
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldInvalid) ||
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetMissing) ||
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetLanguageMismatch)
+}
+
+func isSectionLookupMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrSectionNotFound) ||
+		errors.Is(err, projectstate.ErrSectionVariantNotFound) ||
+		errors.Is(err, projectstate.ErrSectionVariantMembership) ||
+		errors.Is(err, projectstate.ErrCodeObjNotFound) ||
+		errors.Is(err, projectstate.ErrCallableSectionRequired) ||
+		errors.Is(err, projectstate.ErrGroupSectionRequired)
+}
+
+func isKwargMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrAddKwargUnsupported) ||
+		errors.Is(err, projectstate.ErrAddKwargCallableUnset) ||
+		errors.Is(err, projectstate.ErrAddKwargParentTypeUnsupported) ||
+		errors.Is(err, projectstate.ErrDeleteKwargUnsupported) ||
+		errors.Is(err, projectstate.ErrDeleteKwargCallableUnset) ||
+		errors.Is(err, projectstate.ErrDeleteKwargNoParams) ||
+		errors.Is(err, projectstate.ErrDeleteKwargRootMissing) ||
+		errors.Is(err, projectstate.ErrDeleteKwargParentUnsupported)
+}
+
+func isParamMutationError(err error) bool {
+	return isChangeParamMutationError(err) ||
+		isUpdateParamConfigMutationError(err) ||
+		isDeleteSelectedParamsMutationError(err)
+}
+
+func isChangeParamMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrChangeParamImplUnsupported) ||
+		errors.Is(err, projectstate.ErrChangeParamImplSelectedRequired) ||
+		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeUnknown) ||
+		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeNotAllowed)
+}
+
+func isUpdateParamConfigMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrUpdateParamImplConfigUnsupported) ||
+		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldUnsupported) ||
+		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldInvalid)
+}
+
+func isDeleteSelectedParamsMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrDeleteSelectedParamsUnsupported) ||
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParamIDBlank) ||
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsRootMissing) ||
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParamUnsupported) ||
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentMissing) ||
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentUnsupported)
+}
+
+func isCodeObjectMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrCodeObjRenameUnsupported) ||
+		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound) ||
+		errors.Is(err, projectstate.ErrCodeObjectValueMutationUnsupported) ||
+		errors.Is(err, projectstate.ErrPasswordParamMutationUnsupported)
+}
+
+func isSectionCapabilityMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrSectionParamFilterUnsupported) ||
+		errors.Is(err, projectstate.ErrMetaControlSectionRequired) ||
+		errors.Is(err, projectstate.ErrCodeSectionRequired) ||
+		errors.Is(err, projectstate.ErrCodeSectionReadOnly)
+}
+
+func isTypeErrorMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrInvalidTypeErrorIgnoreState) ||
+		errors.Is(err, projectstate.ErrTypeErrorIgnoreUnsupported)
+}
+
+func isChildSectionMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrChildSectionParentIDRequired) ||
+		errors.Is(err, projectstate.ErrChildSectionImplTypeRequired) ||
+		errors.Is(err, projectstate.ErrChildSectionImplTypeUnsupported) ||
+		errors.Is(err, projectstate.ErrChildSectionCountInvalid) ||
+		errors.Is(err, projectstate.ErrChildSectionStartIdxInvalid) ||
+		errors.Is(err, projectstate.ErrChildSectionParentUnsupported)
+}
+
+func isCodeSectionStructureMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrCodeSectionChildTypeInvalid) ||
+		errors.Is(err, projectstate.ErrCodeSectionChildCountInvalid) ||
+		errors.Is(err, projectstate.ErrCodeSectionAlreadyHasChild) ||
+		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticCode)
+}
+
+func isIncrementerMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByRequired) ||
+		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByUnsupported) ||
+		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByNotInParent)
+}
+
+func isDecrementerMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByRequired) ||
+		errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByUnsupported) ||
+		errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByNotInParent) ||
+		errors.Is(err, projectstate.ErrChildSectionDecrementerCountInvalid)
+}
+
+func isDeleteSectionsMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrDeleteSectionsSectionIDsRequired) ||
+		errors.Is(err, projectstate.ErrDeleteSectionsSectionIDBlank)
+}
+
+func isTopLevelSectionMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrTopLevelSectionImplTypeRequired) ||
+		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeUnsupported) ||
+		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeUnsupported) ||
+		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeNotAllowed) ||
+		errors.Is(err, projectstate.ErrTopLevelSectionPositionInvalid)
 }
 
 func resolveStructuralMutationSettings(
