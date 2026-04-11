@@ -4645,8 +4645,10 @@ export const SettaFilesLocationPolicyConfig = {
 
 export const ToolNameNormalizationConfig = {
   approvalToolName: "setta.approval",
+  askUserQuestionToolAlias: "question",
   askUserQuestionToolName: "AskUserQuestion",
   doublePrefix: "setta__",
+  mcpPrefix: "mcp__",
   singlePrefix: "setta_",
   todoWriteToolName: "TodoWrite",
 } satisfies gt.ToolNameNormalization;

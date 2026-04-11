@@ -6242,8 +6242,10 @@ export type ToolChatMessage = {
  */
 export type ToolNameNormalization = {
   approvalToolName: string;
+  askUserQuestionToolAlias: string;
   askUserQuestionToolName: string;
   doublePrefix: string;
+  mcpPrefix: string;
   singlePrefix: string;
   todoWriteToolName: string;
 };

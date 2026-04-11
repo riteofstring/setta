@@ -17853,10 +17853,16 @@
     "ToolNameNormalization": {
       "type": "object",
       "properties": {
+        "mcpPrefix": {
+          "type": "string"
+        },
         "singlePrefix": {
           "type": "string"
         },
         "doublePrefix": {
+          "type": "string"
+        },
+        "askUserQuestionToolAlias": {
           "type": "string"
         },
         "askUserQuestionToolName": {
@@ -17871,8 +17877,10 @@
       },
       "title": "ToolNameNormalization",
       "required": [
+        "mcpPrefix",
         "singlePrefix",
         "doublePrefix",
+        "askUserQuestionToolAlias",
         "askUserQuestionToolName",
         "approvalToolName",
         "todoWriteToolName"

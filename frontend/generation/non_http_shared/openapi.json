@@ -15231,10 +15231,16 @@
           "approvalToolName": {
             "type": "string"
           },
+          "askUserQuestionToolAlias": {
+            "type": "string"
+          },
           "askUserQuestionToolName": {
             "type": "string"
           },
           "doublePrefix": {
+            "type": "string"
+          },
+          "mcpPrefix": {
             "type": "string"
           },
           "singlePrefix": {
@@ -15245,8 +15251,10 @@
           }
         },
         "required": [
+          "mcpPrefix",
           "singlePrefix",
           "doublePrefix",
+          "askUserQuestionToolAlias",
           "askUserQuestionToolName",
           "approvalToolName",
           "todoWriteToolName"

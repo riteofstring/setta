@@ -122,11 +122,17 @@ func TestFrontendValueSettaFilesLocationPolicyConfigUsesAuthoritativeConfigValue
 
 func TestFrontendValueToolNameNormalizationConfigUsesAuthoritativeToolNames(t *testing.T) {
 	got := FrontendValueToolNameNormalizationConfig()
+	if got.MCPPrefix != mcpx.ToolNameMCPPrefix {
+		t.Fatalf("unexpected MCP prefix: got %q want %q", got.MCPPrefix, mcpx.ToolNameMCPPrefix)
+	}
 	if got.SinglePrefix != mcpx.DefaultServerSingleTool {
 		t.Fatalf("unexpected single prefix: got %q want %q", got.SinglePrefix, mcpx.DefaultServerSingleTool)
 	}
 	if got.DoublePrefix != mcpx.DefaultServerDoubleTool {
 		t.Fatalf("unexpected double prefix: got %q want %q", got.DoublePrefix, mcpx.DefaultServerDoubleTool)
+	}
+	if got.AskUserQuestionToolAlias != mcpx.AskUserQuestionAlias {
+		t.Fatalf("unexpected AskUserQuestion tool alias: got %q want %q", got.AskUserQuestionToolAlias, mcpx.AskUserQuestionAlias)
 	}
 	if got.AskUserQuestionToolName != mcpx.AskUserQuestionToolName {
 		t.Fatalf("unexpected AskUserQuestion tool name: got %q want %q", got.AskUserQuestionToolName, mcpx.AskUserQuestionToolName)

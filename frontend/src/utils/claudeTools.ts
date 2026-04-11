@@ -56,11 +56,42 @@ type ToolInteractionIndex = {
 export function normalizeToolName(
   name: string | null | undefined,
 ): string | null {
+  if (typeof name !== "string") {
+    return null;
+  }
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return null;
+  }
+  let normalized = trimmed;
+  const {
+    mcpPrefix,
+    singlePrefix,
+    doublePrefix,
+    askUserQuestionToolAlias,
+    askUserQuestionToolName,
+  } = ToolNameNormalizationConfig;
+  const loweredAlias = askUserQuestionToolAlias.toLowerCase();
+  if (normalized.startsWith(mcpPrefix)) {
+    normalized = normalized.slice(mcpPrefix.length);
+  }
+  if (
+    trimmed.startsWith(mcpPrefix) &&
+    normalized.toLowerCase() === loweredAlias
+  ) {
+    return normalized;
+  }
+  if (
+    !trimmed.startsWith(mcpPrefix) &&
+    normalized.toLowerCase() === loweredAlias
+  ) {
+    return askUserQuestionToolName;
+  }
   return normalizeGeneratedToolName(
-    name,
-    ToolNameNormalizationConfig.singlePrefix,
-    ToolNameNormalizationConfig.doublePrefix,
-    ToolNameNormalizationConfig.askUserQuestionToolName,
+    normalized,
+    singlePrefix,
+    doublePrefix,
+    askUserQuestionToolName,
   );
 }
 

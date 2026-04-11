@@ -42,11 +42,13 @@ type FrontendEndpointOriginPolicy map[string]FrontendEndpointOrigin
 type FrontendModeScopedLauncherRoutes []string
 
 type FrontendToolNameNormalization struct {
-	SinglePrefix            string `json:"singlePrefix"`
-	DoublePrefix            string `json:"doublePrefix"`
-	AskUserQuestionToolName string `json:"askUserQuestionToolName"`
-	ApprovalToolName        string `json:"approvalToolName"`
-	TodoWriteToolName       string `json:"todoWriteToolName"`
+	MCPPrefix                string `json:"mcpPrefix"`
+	SinglePrefix             string `json:"singlePrefix"`
+	DoublePrefix             string `json:"doublePrefix"`
+	AskUserQuestionToolAlias string `json:"askUserQuestionToolAlias"`
+	AskUserQuestionToolName  string `json:"askUserQuestionToolName"`
+	ApprovalToolName         string `json:"approvalToolName"`
+	TodoWriteToolName        string `json:"todoWriteToolName"`
 }
 
 type FrontendLocalHostnamePolicy struct {
@@ -198,11 +200,13 @@ func FrontendValueModeScopedLauncherRoutesList() FrontendModeScopedLauncherRoute
 
 func FrontendValueToolNameNormalizationConfig() FrontendToolNameNormalization {
 	return FrontendToolNameNormalization{
-		SinglePrefix:            mcpx.DefaultServerSingleTool,
-		DoublePrefix:            mcpx.DefaultServerDoubleTool,
-		AskUserQuestionToolName: mcpx.AskUserQuestionToolName,
-		ApprovalToolName:        externalagents.ApprovalToolName,
-		TodoWriteToolName:       externalagents.TodoWriteToolName,
+		MCPPrefix:                mcpx.ToolNameMCPPrefix,
+		SinglePrefix:             mcpx.DefaultServerSingleTool,
+		DoublePrefix:             mcpx.DefaultServerDoubleTool,
+		AskUserQuestionToolAlias: mcpx.AskUserQuestionAlias,
+		AskUserQuestionToolName:  mcpx.AskUserQuestionToolName,
+		ApprovalToolName:         externalagents.ApprovalToolName,
+		TodoWriteToolName:        externalagents.TodoWriteToolName,
 	}
 }
 
