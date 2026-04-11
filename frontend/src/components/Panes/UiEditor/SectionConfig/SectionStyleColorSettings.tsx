@@ -1,7 +1,5 @@
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import _ from "lodash";
-import { setSectionStyleColor } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -16,6 +14,8 @@ import {
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { getSectionStylePreviewColorKey } from "utils/constants";
+import { route_set_section_style_color } from "utils/generatedEndpoints";
+
 export function SectionStyleColorSettings({
   sectionId,
 }: {
@@ -24,6 +24,7 @@ export function SectionStyleColorSettings({
   const projectConfigId = getCurrProjectConfigId();
   const { canEditLayout } = useShareCapabilities();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+
   const { styleColor, isFrozen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
@@ -31,22 +32,28 @@ export function SectionStyleColorSettings({
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
+
   const [localStyleColor, setLocalStyleColor] = useState<string | null>(
     styleColor,
   );
   const previewColorKey = getSectionStylePreviewColorKey(sectionId);
+
   const clearPreviewStyleColor = useCallback(() => {
     useTemporaryMiscState.setState(
       (state) => _.omit(state, [previewColorKey]),
       true,
     );
   }, [previewColorKey]);
+
   useEffect(() => {
     setLocalStyleColor(styleColor);
     clearPreviewStyleColor();
   }, [clearPreviewStyleColor, styleColor]);
+
   useEffect(() => clearPreviewStyleColor, [clearPreviewStyleColor]);
+
   const canEditStyleColor = (!isDeploymentMode || canEditLayout) && !isFrozen;
+
   const commitStyleColor = useCallback(
     (nextStyleColor: string | null) => {
       if (!canEditStyleColor) {
@@ -64,16 +71,12 @@ export function SectionStyleColorSettings({
           });
         },
         send: (frontendOpId) =>
-          callOpenAPI(
-            setSectionStyleColor({
-              body: {
-                projectConfigId,
-                sectionId,
-                styleColor: nextStyleColor,
-                frontendOpId,
-              },
-            } as Parameters<typeof setSectionStyleColor>[0]),
-          ),
+          route_set_section_style_color({
+            projectConfigId,
+            sectionId,
+            styleColor: nextStyleColor,
+            frontendOpId,
+          }),
       });
     },
     [
@@ -84,6 +87,7 @@ export function SectionStyleColorSettings({
       styleColor,
     ],
   );
+
   const previewStyleColor = useCallback(
     (nextStyleColor: string) => {
       if (!canEditStyleColor) {
@@ -96,7 +100,9 @@ export function SectionStyleColorSettings({
     },
     [canEditStyleColor, previewColorKey],
   );
+
   const isResetDisabled = !canEditStyleColor || localStyleColor === null;
+
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-setta-100/70 px-3 py-2 dark:bg-setta-900/60">
       <div className="flex items-center justify-between">

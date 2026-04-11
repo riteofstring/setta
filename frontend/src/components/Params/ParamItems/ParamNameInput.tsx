@@ -1,8 +1,6 @@
 import { useParamDuplicateIndex } from "components/Params/ParamDuplicateIndexContext";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import { setCodeObjDisplayName, setCodeObjName } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -15,8 +13,9 @@ import { createPortal } from "react-dom";
 import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
-  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
+  getCodeObjCore,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useNameValidationErrors, useProjectState } from "state/definitions";
@@ -27,12 +26,17 @@ import {
 } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
+  route_set_code_obj_display_name,
+  route_set_code_obj_name,
+} from "utils/generatedEndpoints";
+import {
   isBaseDictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
+
 type ParamNameInputProps = {
   border: string;
   bg: string;
@@ -41,6 +45,7 @@ type ParamNameInputProps = {
   hasChildren: boolean;
   onMouseDown?: MouseEventHandler;
 };
+
 function getParamNameDuplicateError(
   paramInfoId: string,
   value: string,
@@ -70,6 +75,7 @@ function getParamNameDuplicateError(
   }
   return `Param name "${normalized}" already exists under this parent.`;
 }
+
 export function ParamNameInput({
   border,
   bg,
@@ -78,26 +84,35 @@ export function ParamNameInput({
   hasChildren,
   onMouseDown,
 }: ParamNameInputProps) {
-  const paramNameState = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+  const {
+    configLanguage,
+    isDictSection,
+    displayName,
+    name,
+    isKwarg,
+    pythonCodegenEnabled,
+    showParamDisplayNames,
+    topLevelParamId,
+    // variantIsFrozen,
+  } = useProjectState((x) => {
+    // const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       paramInfoId,
       isBaseParamCodeObjImpl,
     );
-    const codeObjCore = x.codeObjs[paramInfoId];
-    if (!impl || !codeObjImpl || !codeObjCore) {
-      return null;
-    }
+    const codeObjCore = getCodeObjCore(x, paramInfoId);
     const pythonCodegenEnabled = x.projectConfig.codegenTargets.some(
       (target) => target.language === ProjectCodegenLanguageEnum.python,
     );
     return {
+      // variantIsFrozen: isFrozen,
       configLanguage: impl.configLanguage,
       isDictSection: isBaseDictSectionImpl(impl),
       topLevelParamId: isBaseDictSectionImpl(impl)
@@ -110,15 +125,7 @@ export function ParamNameInput({
       showParamDisplayNames: x.projectConfig.showParamDisplayNames,
     };
   }, _.isEqual);
-  const hasParamNameState = paramNameState !== null;
-  const configLanguage = paramNameState?.configLanguage;
-  const isDictSection = paramNameState?.isDictSection ?? false;
-  const displayName = paramNameState?.displayName ?? "";
-  const name = paramNameState?.name ?? "";
-  const isKwarg = paramNameState?.isKwarg ?? false;
-  const pythonCodegenEnabled = paramNameState?.pythonCodegenEnabled ?? false;
-  const showParamDisplayNames = paramNameState?.showParamDisplayNames ?? false;
-  const topLevelParamId = paramNameState?.topLevelParamId ?? null;
+
   const hasDisplayName = displayName.trim().length > 0;
   const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
   const value = useDisplayName ? displayName : name;
@@ -176,6 +183,7 @@ export function ParamNameInput({
   useEffect(() => {
     setInputValue(value);
   }, [value]);
+
   const updateBubblePosition = useCallback(() => {
     if (!hasError) {
       return;
@@ -218,12 +226,14 @@ export function ParamNameInput({
       visible: true,
     });
   }, [dummyDivId, hasError, realDivId]);
+
   useLayoutEffect(() => {
     if (!hasError) {
       return;
     }
     updateBubblePosition();
   }, [combinedErrorMessage, hasError, updateBubblePosition]);
+
   useEffect(() => {
     if (!hasError) {
       return;
@@ -238,9 +248,10 @@ export function ParamNameInput({
       window.removeEventListener("resize", handleScrollOrResize);
     };
   }, [hasError, updateBubblePosition]);
+
   function onChange(v: string) {
     setInputValue(v);
-    if (!hasParamNameState || !canEditStructure) {
+    if (!canEditStructure) {
       return;
     }
     if (showParamDisplayNames && !isKwarg) {
@@ -261,11 +272,8 @@ export function ParamNameInput({
     }
     debouncedSetParamName(paramInfoId, v);
   }
+
   function onBlur() {
-    if (!hasParamNameState) {
-      setInputValue(value);
-      return;
-    }
     if (useDisplayName) {
       return;
     }
@@ -293,17 +301,17 @@ export function ParamNameInput({
       setInputValue(value);
     }
   }
+
   function onEscape(completionResult) {
     if (!completionResult) {
       focusOnSection(null, sectionId, false);
     }
   }
+
   // const isSelectingParams = useMisc((x) => x.isSelectingParams);
   // const isDisabled = isSelectingParams || variantIsFrozen;
-  const isDisabled = !hasParamNameState || !canEditStructure;
-  if (!hasParamNameState) {
-    return null;
-  }
+  const isDisabled = !canEditStructure;
+
   return (
     <div className="contents">
       <TextInputCodeMirror
@@ -350,6 +358,7 @@ export function ParamNameInput({
     </div>
   );
 }
+
 const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
   const normalizedName = name.trim();
   const previousName =
@@ -373,18 +382,15 @@ const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
       codeObj.name = previousName;
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        setCodeObjName({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            codeObjId,
-            name: normalizedName,
-            frontendOpId,
-          },
-        } as Parameters<typeof setCodeObjName>[0]),
-      ),
+      route_set_code_obj_name({
+        projectConfigId: getCurrProjectConfigId(),
+        codeObjId,
+        name: normalizedName,
+        frontendOpId,
+      }),
   });
 }, 200);
+
 const debouncedSetParamDisplayName = _.debounce(
   (codeObjId: string, displayName: string) => {
     let nextDisplayName = displayName;
@@ -400,16 +406,12 @@ const debouncedSetParamDisplayName = _.debounce(
         codeObj.displayName = nextDisplayName;
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setCodeObjDisplayName({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              codeObjId,
-              displayName: nextDisplayName,
-              frontendOpId,
-            },
-          } as Parameters<typeof setCodeObjDisplayName>[0]),
-        ),
+        route_set_code_obj_display_name({
+          projectConfigId: getCurrProjectConfigId(),
+          codeObjId,
+          displayName: nextDisplayName,
+          frontendOpId,
+        }),
     });
   },
   200,

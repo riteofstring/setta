@@ -1,5 +1,3 @@
-import { toggleGroupOrientation } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   TbArrowBigDownLinesFilled,
   TbArrowBigRightLinesFilled,
@@ -11,10 +9,13 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_toggle_group_orientation } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+
 type ChangeOrientationButtonProps = {
   sectionId: string;
 };
+
 export function ChangeOrientationButton({
   sectionId,
 }: ChangeOrientationButtonProps) {
@@ -22,6 +23,7 @@ export function ChangeOrientationButton({
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
   });
+
   function onClick() {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -34,17 +36,14 @@ export function ChangeOrientationButton({
         });
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          toggleGroupOrientation({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              frontendOpId,
-            },
-          } as Parameters<typeof toggleGroupOrientation>[0]),
-        ),
+        route_toggle_group_orientation({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          frontendOpId,
+        }),
     });
   }
+
   return (
     <button
       className="nodrag justify-content-center mr-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
