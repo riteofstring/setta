@@ -111,6 +111,19 @@ func TestTemporaryIDStoreReloadsAfterExternalFileChange(t *testing.T) {
 	}
 }
 
+func TestTemporaryIDStoreRejectsNonNumericPersistedTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	store, mapPath := newTemporaryIDStoreForTest(t)
+	writeTemporaryIDMapForTest(t, mapPath, map[string]string{
+		"project-alpha": "abc",
+	})
+
+	if _, err := store.ResolveClientID("abc"); err == nil {
+		t.Fatal("expected malformed temporary id map to fail")
+	}
+}
+
 func newTemporaryIDStoreForTest(t *testing.T) (*TemporaryIDStore, string) {
 	t.Helper()
 

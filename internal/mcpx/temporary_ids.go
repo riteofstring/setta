@@ -138,10 +138,7 @@ func (s *TemporaryIDStore) refreshLocked() error {
 	info, err := os.Stat(s.path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			s.loaded = true
-			s.mtimeNs = 0
-			s.canonicalToTemporary = map[string]string{}
-			s.temporaryToCanonical = map[string]string{}
+			s.resetLocked()
 			return nil
 		}
 		return fmt.Errorf("stat temporary id map %s: %w", s.path, err)
@@ -150,40 +147,11 @@ func (s *TemporaryIDStore) refreshLocked() error {
 		return nil
 	}
 
-	payload, err := os.ReadFile(s.path)
+	canonicalToTemporary, temporaryToCanonical, err := loadTemporaryIDMappings(s.path)
 	if err != nil {
-		return fmt.Errorf("read temporary id map %s: %w", s.path, err)
+		return err
 	}
-
-	raw := map[string]string{}
-	if len(strings.TrimSpace(string(payload))) != 0 {
-		if err := json.Unmarshal(payload, &raw); err != nil {
-			return fmt.Errorf("decode temporary id map %s: %w", s.path, err)
-		}
-	}
-
-	canonicalToTemporary := make(map[string]string, len(raw))
-	temporaryToCanonical := make(map[string]string, len(raw))
-	for canonicalID, temporaryID := range raw {
-		normalizedCanonical := strings.TrimSpace(canonicalID)
-		normalizedTemporary := strings.TrimSpace(temporaryID)
-		if normalizedCanonical == "" {
-			return fmt.Errorf("temporary id map %s contains an empty canonical id", s.path)
-		}
-		if !isNumericTemporaryID(normalizedTemporary) {
-			return fmt.Errorf("temporary id map %s contains a non-numeric temporary id %q", s.path, normalizedTemporary)
-		}
-		if priorCanonical, exists := temporaryToCanonical[normalizedTemporary]; exists && priorCanonical != normalizedCanonical {
-			return fmt.Errorf("temporary id map %s reuses temporary id %q", s.path, normalizedTemporary)
-		}
-		canonicalToTemporary[normalizedCanonical] = normalizedTemporary
-		temporaryToCanonical[normalizedTemporary] = normalizedCanonical
-	}
-
-	s.loaded = true
-	s.mtimeNs = info.ModTime().UnixNano()
-	s.canonicalToTemporary = canonicalToTemporary
-	s.temporaryToCanonical = temporaryToCanonical
+	s.replaceMappingsLocked(info.ModTime().UnixNano(), canonicalToTemporary, temporaryToCanonical)
 	return nil
 }
 
@@ -228,6 +196,72 @@ func (s *TemporaryIDStore) availableTemporaryIDsLocked() []string {
 	}
 	slices.Sort(values)
 	return values
+}
+
+func (s *TemporaryIDStore) resetLocked() {
+	s.replaceMappingsLocked(0, map[string]string{}, map[string]string{})
+}
+
+func (s *TemporaryIDStore) replaceMappingsLocked(mtimeNs int64, canonicalToTemporary map[string]string, temporaryToCanonical map[string]string) {
+	s.loaded = true
+	s.mtimeNs = mtimeNs
+	s.canonicalToTemporary = canonicalToTemporary
+	s.temporaryToCanonical = temporaryToCanonical
+}
+
+func loadTemporaryIDMappings(path string) (map[string]string, map[string]string, error) {
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read temporary id map %s: %w", path, err)
+	}
+
+	raw, err := decodeTemporaryIDMap(path, payload)
+	if err != nil {
+		return nil, nil, err
+	}
+	return normalizeTemporaryIDMappings(path, raw)
+}
+
+func decodeTemporaryIDMap(path string, payload []byte) (map[string]string, error) {
+	raw := map[string]string{}
+	if len(strings.TrimSpace(string(payload))) == 0 {
+		return raw, nil
+	}
+	if err := json.Unmarshal(payload, &raw); err != nil {
+		return nil, fmt.Errorf("decode temporary id map %s: %w", path, err)
+	}
+	return raw, nil
+}
+
+func normalizeTemporaryIDMappings(path string, raw map[string]string) (map[string]string, map[string]string, error) {
+	canonicalToTemporary := make(map[string]string, len(raw))
+	temporaryToCanonical := make(map[string]string, len(raw))
+	for canonicalID, temporaryID := range raw {
+		normalizedCanonical, normalizedTemporary, err := normalizeTemporaryIDMapping(path, canonicalID, temporaryID, temporaryToCanonical)
+		if err != nil {
+			return nil, nil, err
+		}
+		canonicalToTemporary[normalizedCanonical] = normalizedTemporary
+		temporaryToCanonical[normalizedTemporary] = normalizedCanonical
+	}
+	return canonicalToTemporary, temporaryToCanonical, nil
+}
+
+func normalizeTemporaryIDMapping(path, canonicalID, temporaryID string, temporaryToCanonical map[string]string) (string, string, error) {
+	normalizedCanonical := strings.TrimSpace(canonicalID)
+	if normalizedCanonical == "" {
+		return "", "", fmt.Errorf("temporary id map %s contains an empty canonical id", path)
+	}
+
+	normalizedTemporary := strings.TrimSpace(temporaryID)
+	if !isNumericTemporaryID(normalizedTemporary) {
+		return "", "", fmt.Errorf("temporary id map %s contains a non-numeric temporary id %q", path, normalizedTemporary)
+	}
+	if priorCanonical, exists := temporaryToCanonical[normalizedTemporary]; exists && priorCanonical != normalizedCanonical {
+		return "", "", fmt.Errorf("temporary id map %s reuses temporary id %q", path, normalizedTemporary)
+	}
+
+	return normalizedCanonical, normalizedTemporary, nil
 }
 
 func isNumericTemporaryID(value string) bool {
