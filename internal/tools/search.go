@@ -216,6 +216,15 @@ func collectSchemaText(schema any, rootSchema map[string]any, seenRefs map[strin
 		seenRefs = map[string]struct{}{}
 	}
 
+	segments := collectSchemaLabelText(object)
+	segments = append(segments, collectReferencedSchemaText(object, rootSchema, seenRefs)...)
+	segments = append(segments, collectCompositeSchemaText(object, rootSchema, seenRefs)...)
+	segments = append(segments, collectSchemaItemsText(object, rootSchema, seenRefs)...)
+	segments = append(segments, collectSchemaPropertiesText(object, rootSchema, seenRefs)...)
+	return append(segments, collectSchemaText(object["additionalProperties"], rootSchema, seenRefs)...)
+}
+
+func collectSchemaLabelText(object map[string]any) []string {
 	segments := []string{}
 	if description, ok := object["description"].(string); ok {
 		segments = append(segments, description)
@@ -223,52 +232,74 @@ func collectSchemaText(schema any, rootSchema map[string]any, seenRefs map[strin
 	if title, ok := object["title"].(string); ok {
 		segments = append(segments, title)
 	}
+	return segments
+}
 
-	if ref, ok := object["$ref"].(string); ok {
-		if _, seen := seenRefs[ref]; !seen {
-			if resolved := resolveJSONPointer(rootSchema, ref); resolved != nil {
-				seenRefs[ref] = struct{}{}
-				segments = append(segments, collectSchemaText(resolved, rootSchema, seenRefs)...)
-				delete(seenRefs, ref)
-			}
-		}
+func collectReferencedSchemaText(schema map[string]any, rootSchema map[string]any, seenRefs map[string]struct{}) []string {
+	ref, ok := schema["$ref"].(string)
+	if !ok {
+		return nil
+	}
+	if _, seen := seenRefs[ref]; seen {
+		return nil
 	}
 
+	resolved := resolveJSONPointer(rootSchema, ref)
+	if resolved == nil {
+		return nil
+	}
+
+	seenRefs[ref] = struct{}{}
+	defer delete(seenRefs, ref)
+	return collectSchemaText(resolved, rootSchema, seenRefs)
+}
+
+func collectCompositeSchemaText(schema map[string]any, rootSchema map[string]any, seenRefs map[string]struct{}) []string {
+	segments := []string{}
 	for _, keyword := range []string{"anyOf", "allOf", "oneOf"} {
-		rawOptions, ok := object[keyword].([]any)
+		options, ok := schema[keyword].([]any)
 		if !ok {
 			continue
 		}
-		for _, option := range rawOptions {
+		for _, option := range options {
 			segments = append(segments, collectSchemaText(option, rootSchema, seenRefs)...)
 		}
 	}
+	return segments
+}
 
-	switch items := object["items"].(type) {
+func collectSchemaItemsText(schema map[string]any, rootSchema map[string]any, seenRefs map[string]struct{}) []string {
+	switch items := schema["items"].(type) {
 	case map[string]any:
-		segments = append(segments, collectSchemaText(items, rootSchema, seenRefs)...)
+		return collectSchemaText(items, rootSchema, seenRefs)
 	case []any:
+		segments := make([]string, 0, len(items))
 		for _, item := range items {
 			segments = append(segments, collectSchemaText(item, rootSchema, seenRefs)...)
 		}
+		return segments
+	default:
+		return nil
+	}
+}
+
+func collectSchemaPropertiesText(schema map[string]any, rootSchema map[string]any, seenRefs map[string]struct{}) []string {
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		return nil
 	}
 
-	if properties, ok := object["properties"].(map[string]any); ok {
-		propertyNames := make([]string, 0, len(properties))
-		for name := range properties {
-			propertyNames = append(propertyNames, name)
-		}
-		sort.Strings(propertyNames)
-		for _, name := range propertyNames {
-			segments = append(segments, name)
-			segments = append(segments, collectSchemaText(properties[name], rootSchema, seenRefs)...)
-		}
+	propertyNames := make([]string, 0, len(properties))
+	for name := range properties {
+		propertyNames = append(propertyNames, name)
 	}
+	sort.Strings(propertyNames)
 
-	if additional, ok := object["additionalProperties"].(map[string]any); ok {
-		segments = append(segments, collectSchemaText(additional, rootSchema, seenRefs)...)
+	segments := make([]string, 0, len(propertyNames))
+	for _, name := range propertyNames {
+		segments = append(segments, name)
+		segments = append(segments, collectSchemaText(properties[name], rootSchema, seenRefs)...)
 	}
-
 	return segments
 }
 

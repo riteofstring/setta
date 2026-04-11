@@ -275,6 +275,32 @@ func TestBuildSearchTextFromSchemaIncludesNestedDefinitionDescriptions(t *testin
 	}
 }
 
+func TestBuildSearchTextFromSchemaSkipsRecursiveReferences(t *testing.T) {
+	t.Parallel()
+
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"Loop": map[string]any{
+				"description": "Recursive loop description.",
+				"$ref":        "#/$defs/Loop",
+			},
+		},
+		"properties": map[string]any{
+			"loop": map[string]any{
+				"$ref": "#/$defs/Loop",
+			},
+		},
+	}
+
+	text := buildSearchTextFromSchema(schema)
+	if !strings.Contains(text, "recursive loop description") {
+		t.Fatalf("expected recursive description in schema text, got %q", text)
+	}
+	if strings.Count(text, "recursive loop description") != 1 {
+		t.Fatalf("expected recursive description once, got %q", text)
+	}
+}
+
 func TestSearchIndexSearchReturnsEmptyForNilIndex(t *testing.T) {
 	t.Parallel()
 
