@@ -78,6 +78,7 @@ from setta.types.generated.go_shared_types import (
     ListenerInitMessage,
     ListenerMessageType,
     ListenerRegisterAckMessage,
+    ListenerRegisterAckStatus,
     ListenerRouterEndpointCallContent,
     ListenerRouterEndpointCallMessage,
     ListenerRouterEndpointResultMessage,
@@ -1207,23 +1208,9 @@ class SettaListener:
         message: Any,
     ) -> None:
         """Delegate parsed websocket messages to dedicated handlers."""
-        if isinstance(message, ListenerRegisterAckMessage):
-            self._handle_register_ack(message)
+        if self._dispatch_sync_websocket_message(message):
             return
-        if isinstance(message, ListenerRealtimeEventContent):
-            await self._handle_realtime_event(message)
-            return
-        if isinstance(message, ListenerDependencyEventContent):
-            await self._handle_dependency_event(message)
-            return
-        if isinstance(message, ListenerForceRefreshEvent):
-            await self._handle_force_refresh(message)
-            return
-        if isinstance(message, ListenerErrorMessage):
-            self._handle_listener_error(message)
-            return
-        if isinstance(message, ListenerRouterEndpointResultMessage):
-            self._handle_router_endpoint_result(message)
+        if await self._dispatch_async_websocket_message(message):
             return
         logger.debug(
             "Listener %s ignoring unsupported message type %s",
@@ -1231,72 +1218,38 @@ class SettaListener:
             getattr(message, "messageType", type(message)),
         )
 
+    def _dispatch_sync_websocket_message(self, message: Any) -> bool:
+        if isinstance(message, ListenerRegisterAckMessage):
+            self._handle_register_ack(message)
+            return True
+        if isinstance(message, ListenerErrorMessage):
+            self._handle_listener_error(message)
+            return True
+        if isinstance(message, ListenerRouterEndpointResultMessage):
+            self._handle_router_endpoint_result(message)
+            return True
+        return False
+
+    async def _dispatch_async_websocket_message(self, message: Any) -> bool:
+        if isinstance(message, ListenerRealtimeEventContent):
+            await self._handle_realtime_event(message)
+            return True
+        if isinstance(message, ListenerDependencyEventContent):
+            await self._handle_dependency_event(message)
+            return True
+        if isinstance(message, ListenerForceRefreshEvent):
+            await self._handle_force_refresh(message)
+            return True
+        return False
+
     def _handle_register_ack(self, message: ListenerRegisterAckMessage) -> None:
         """Handle ListenerRegisterAck responses from the server."""
-        received_project_id = message.content.projectConfigId
-        if self._project_config_id is None:
-            self._project_config_id = received_project_id
-        elif received_project_id != self._project_config_id:
-            logger.warning(
-                "Listener %s received register ack for unexpected project %s",
-                self._log_identifier,
-                received_project_id,
-            )
-        if not self._registration_pending:
-            logger.debug(
-                "Listener %s received register ack without pending registration",
-                self._log_identifier,
-            )
-        self._registration_pending = False
-
-        expected_ids = set(self._expected_ack_callback_ids)
-        if not expected_ids:
-            logger.debug(
-                "Listener %s received register ack with no expected callback ids",
-                self._log_identifier,
-            )
+        self._sync_register_ack_project_id(message.content.projectConfigId)
+        expected_ids = self._consume_expected_register_ack_ids()
         ack_statuses = message.content.callbacks
-        ack_ids = set(ack_statuses.keys())
-
-        missing_ids = expected_ids - ack_ids
-        if missing_ids:
-            logger.warning(
-                "Listener %s missing register ack for callbacks: %s",
-                self._log_identifier,
-                ", ".join(sorted(missing_ids)),
-            )
-
-        unknown_ids = ack_ids - expected_ids
-        for callback_id in sorted(unknown_ids):
-            logger.warning(
-                "Listener %s received register ack for unknown callback %s",
-                self._log_identifier,
-                callback_id,
-            )
-
-        rejected = [
-            (callback_id, status)
-            for callback_id, status in ack_statuses.items()
-            if status.status == "rejected"
-        ]
-        accepted_count = sum(
-            1 for status in ack_statuses.values() if status.status == "accepted"
-        )
-
-        if rejected:
-            self._is_registered = False
-            error_details = ", ".join(
-                f"{callback_id} ({status.message or 'no details'})"
-                for callback_id, status in rejected
-            )
-            logger.error(
-                "Listener %s registration rejected for %d callback(s): %s",
-                self._log_identifier,
-                len(rejected),
-                error_details,
-            )
-            raise RuntimeError(f"Listener registration rejected: {error_details}")
-
+        self._log_register_ack_mismatches(expected_ids, ack_statuses.keys())
+        accepted_count, rejected = self._summarize_register_ack_statuses(ack_statuses)
+        self._raise_for_rejected_register_ack(rejected)
         self._expected_ack_callback_ids = set()
         self._is_registered = True
         logger.info(
@@ -1304,6 +1257,85 @@ class SettaListener:
             self._log_identifier,
             accepted_count,
         )
+
+    def _sync_register_ack_project_id(self, received_project_id: "ID") -> None:
+        if self._project_config_id is None:
+            self._project_config_id = received_project_id
+            return
+        if received_project_id != self._project_config_id:
+            logger.warning(
+                "Listener %s received register ack for unexpected project %s",
+                self._log_identifier,
+                received_project_id,
+            )
+
+    def _consume_expected_register_ack_ids(self) -> set[str]:
+        if not self._registration_pending:
+            logger.debug(
+                "Listener %s received register ack without pending registration",
+                self._log_identifier,
+            )
+        self._registration_pending = False
+        expected_ids = set(self._expected_ack_callback_ids)
+        if not expected_ids:
+            logger.debug(
+                "Listener %s received register ack with no expected callback ids",
+                self._log_identifier,
+            )
+        return expected_ids
+
+    def _log_register_ack_mismatches(
+        self,
+        expected_ids: set[str],
+        ack_ids: Iterable[str],
+    ) -> None:
+        ack_id_set = set(ack_ids)
+        missing_ids = expected_ids - ack_id_set
+        if missing_ids:
+            logger.warning(
+                "Listener %s missing register ack for callbacks: %s",
+                self._log_identifier,
+                ", ".join(sorted(missing_ids)),
+            )
+        for callback_id in sorted(ack_id_set - expected_ids):
+            logger.warning(
+                "Listener %s received register ack for unknown callback %s",
+                self._log_identifier,
+                callback_id,
+            )
+
+    def _summarize_register_ack_statuses(
+        self,
+        ack_statuses: Mapping[str, ListenerRegisterAckStatus],
+    ) -> tuple[int, list[tuple[str, ListenerRegisterAckStatus]]]:
+        accepted_count = 0
+        rejected: list[tuple[str, ListenerRegisterAckStatus]] = []
+        for callback_id, status in ack_statuses.items():
+            if status.status == "accepted":
+                accepted_count += 1
+                continue
+            if status.status == "rejected":
+                rejected.append((callback_id, status))
+        return accepted_count, rejected
+
+    def _raise_for_rejected_register_ack(
+        self,
+        rejected: Sequence[tuple[str, ListenerRegisterAckStatus]],
+    ) -> None:
+        if not rejected:
+            return
+        self._is_registered = False
+        error_details = ", ".join(
+            f"{callback_id} ({status.message or 'no details'})"
+            for callback_id, status in rejected
+        )
+        logger.error(
+            "Listener %s registration rejected for %d callback(s): %s",
+            self._log_identifier,
+            len(rejected),
+            error_details,
+        )
+        raise RuntimeError(f"Listener registration rejected: {error_details}")
 
     def _handle_listener_error(self, message: ListenerErrorMessage) -> None:
         """Surface listener errors."""
