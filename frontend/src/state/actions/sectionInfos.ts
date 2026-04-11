@@ -40,6 +40,7 @@ import {
   useToolArgumentPreview,
   ZustandNodeInternalsState,
   ZustandProjectState,
+  type ToolArgumentPreviewProjectState,
 } from "state/definitions";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
@@ -129,89 +130,220 @@ type ChatSectionImpl = Extract<
     type: SectionTypeEnum.Chat;
   }
 >;
+export type ManagedChatSectionAuthorityState = Pick<
+  ZustandProjectState,
+  "sections" | "sectionVariants" | "sectionImpls"
+> & {
+  projectConfig: Pick<
+    ZustandProjectState["projectConfig"],
+    "sectionVariantMap"
+  >;
+};
+type SectionAuthoritySnapshot = {
+  variant: Variant;
+  impl: BaseSectionImplUnion;
+  core: Core;
+};
+type ResolvedChatSection = {
+  variant: Variant;
+  impl: ChatSectionImpl;
+  core: Core;
+  effective: ChatSectionImpl;
+};
+function getSectionAuthoritySnapshotIfPresent(
+  state: ManagedChatSectionAuthorityState,
+  sectionId: string,
+): SectionAuthoritySnapshot | null {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = state.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+  return { variant, impl, core };
+}
+function getEffectiveSectionOverrideValue(
+  snapshot: SectionAuthoritySnapshot,
+  key: string,
+): unknown {
+  const sources = [
+    snapshot.variant.modifier as Record<string, unknown> | undefined,
+    snapshot.core.sharedModifier as Record<string, unknown> | undefined,
+    snapshot.impl as Record<string, unknown>,
+  ];
+  for (const source of sources) {
+    const value = source?.[key];
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+  return undefined;
+}
+function resolveChatSectionForMerge(
+  state: ManagedChatSectionAuthorityState,
+  sectionId: string,
+): ResolvedChatSection | null {
+  const snapshot = getSectionAuthoritySnapshotIfPresent(state, sectionId);
+  if (!snapshot || snapshot.impl.type !== SectionTypeEnum.Chat) {
+    return null;
+  }
+  const impl = snapshot.impl as ChatSectionImpl;
+  return {
+    variant: snapshot.variant,
+    impl,
+    core: snapshot.core,
+    effective: getEffectiveImpl(impl, snapshot.core, snapshot.variant),
+  };
+}
+function getStreamingChatMergePatch(
+  incomingChat: ChatSectionImpl,
+  currentChat: ChatSectionImpl,
+  isManagedSection: boolean,
+  shouldPreserveStreaming: boolean,
+): Pick<
+  ChatSectionImpl,
+  "inputText" | "toolCallArguments" | "waitingForResponse"
+> | null {
+  const incomingToolArgs = incomingChat.toolCallArguments ?? {};
+  const currentToolArgs = currentChat.toolCallArguments ?? {};
+  const incomingInputText = incomingChat.inputText ?? "";
+  const currentInputText = currentChat.inputText ?? "";
+  const nextInputText = getStreamingChatInputText(
+    incomingInputText,
+    currentInputText,
+    isManagedSection,
+  );
+  const nextWaitingForResponse = getStreamingChatWaitingForResponse(
+    incomingChat.waitingForResponse,
+    currentChat.waitingForResponse,
+    isManagedSection,
+    shouldPreserveStreaming,
+  );
+  const nextToolCallArguments = getStreamingChatToolCallArguments(
+    incomingToolArgs,
+    currentToolArgs,
+    isManagedSection,
+    shouldPreserveStreaming,
+  );
+  if (
+    shouldSkipStreamingChatMerge(
+      {
+        incomingInputText,
+        incomingToolArgs,
+        incomingWaitingForResponse: incomingChat.waitingForResponse,
+      },
+      {
+        nextInputText,
+        nextToolCallArguments,
+        nextWaitingForResponse,
+      },
+    )
+  ) {
+    return null;
+  }
+  return {
+    toolCallArguments: nextToolCallArguments,
+    inputText: nextInputText,
+    waitingForResponse: nextWaitingForResponse,
+  };
+}
+function getStreamingChatInputText(
+  incomingInputText: string,
+  currentInputText: string,
+  isManagedSection: boolean,
+): string {
+  if (isManagedSection || currentInputText.length > incomingInputText.length) {
+    return currentInputText;
+  }
+  return incomingInputText;
+}
+function getStreamingChatWaitingForResponse(
+  incomingWaitingForResponse: boolean,
+  currentWaitingForResponse: boolean,
+  isManagedSection: boolean,
+  shouldPreserveStreaming: boolean,
+): boolean {
+  if (isManagedSection && shouldPreserveStreaming) {
+    return incomingWaitingForResponse || currentWaitingForResponse;
+  }
+  return incomingWaitingForResponse;
+}
+function getStreamingChatToolCallArguments(
+  incomingToolArgs: Record<string, string>,
+  currentToolArgs: Record<string, string>,
+  isManagedSection: boolean,
+  shouldPreserveStreaming: boolean,
+): Record<string, string> {
+  if (!isManagedSection || !shouldPreserveStreaming) {
+    return incomingToolArgs;
+  }
+  return resolveHydratedToolCallArguments({
+    backendToolCallArguments: incomingToolArgs,
+    localToolCallArguments: currentToolArgs,
+    preserveLocalOverlay: true,
+  });
+}
+function shouldSkipStreamingChatMerge(
+  incomingState: {
+    incomingInputText: string;
+    incomingToolArgs: Record<string, string>;
+    incomingWaitingForResponse: boolean;
+  },
+  nextState: {
+    nextInputText: string;
+    nextToolCallArguments: Record<string, string>;
+    nextWaitingForResponse: boolean;
+  },
+): boolean {
+  return (
+    nextState.nextInputText === incomingState.incomingInputText &&
+    nextState.nextWaitingForResponse ===
+      incomingState.incomingWaitingForResponse &&
+    _.isEqual(nextState.nextToolCallArguments, incomingState.incomingToolArgs)
+  );
+}
 function mergeStreamingChatSections(
   projectState: SingleConfig,
   currentState: ZustandProjectState,
 ): string[] {
   const mergedSectionIds: string[] = [];
-  const incomingVariantMap = projectState.projectConfig.sectionVariantMap;
-  const currentVariantMap = currentState.projectConfig.sectionVariantMap;
-  for (const [sectionId, variantId] of Object.entries(incomingVariantMap)) {
-    const variant = projectState.sectionVariants[variantId];
-    if (!variant) {
+  for (const sectionId of Object.keys(
+    projectState.projectConfig.sectionVariantMap,
+  )) {
+    const incomingSection = resolveChatSectionForMerge(projectState, sectionId);
+    const currentSection = resolveChatSectionForMerge(currentState, sectionId);
+    if (!incomingSection || !currentSection) {
       continue;
     }
-    const incomingCore = projectState.sections[sectionId];
-    if (!incomingCore) {
-      continue;
-    }
-    const incomingImpl = projectState.sectionImpls[variant.impl];
-    if (!incomingImpl || incomingImpl.type !== SectionTypeEnum.Chat) {
-      continue;
-    }
-    const currentVariantId = currentVariantMap[sectionId];
-    if (!currentVariantId) {
-      continue;
-    }
-    const currentVariant = currentState.sectionVariants[currentVariantId];
-    if (!currentVariant) {
-      continue;
-    }
-    const currentImpl = currentState.sectionImpls[currentVariant.impl];
-    if (!currentImpl || currentImpl.type !== SectionTypeEnum.Chat) {
-      continue;
-    }
-    const currentCore = currentState.sections[sectionId];
-    if (!currentCore) {
-      continue;
-    }
-    const incomingChat = getEffectiveImpl(
-      incomingImpl,
-      incomingCore,
-      variant,
-    ) as ChatSectionImpl;
-    const currentChat = getEffectiveImpl(
-      currentImpl,
-      currentCore,
-      currentVariant,
-    ) as ChatSectionImpl;
-    const incomingToolArgs = incomingChat.toolCallArguments ?? {};
-    const currentToolArgs = currentChat.toolCallArguments ?? {};
-    const incomingInputText = incomingChat.inputText ?? "";
-    const currentInputText = currentChat.inputText ?? "";
     const isManagedSection =
       isManagedChatSection(projectState, sectionId) ||
       isManagedChatSection(currentState, sectionId);
     const shouldPreserveStreaming = isSectionStreamActive(sectionId);
-    const nextInputText = isManagedSection
-      ? currentInputText
-      : currentInputText.length > incomingInputText.length
-        ? currentInputText
-        : incomingInputText;
-    const nextWaitingForResponse =
-      isManagedSection && shouldPreserveStreaming
-        ? incomingChat.waitingForResponse || currentChat.waitingForResponse
-        : incomingChat.waitingForResponse;
-    const nextToolCallArguments =
-      isManagedSection && shouldPreserveStreaming
-        ? resolveHydratedToolCallArguments({
-            backendToolCallArguments: incomingToolArgs,
-            localToolCallArguments: currentToolArgs,
-            preserveLocalOverlay: true,
-          })
-        : incomingToolArgs;
-    if (
-      nextInputText === incomingInputText &&
-      nextWaitingForResponse === incomingChat.waitingForResponse &&
-      _.isEqual(nextToolCallArguments, incomingToolArgs)
-    ) {
+    const nextPatch = getStreamingChatMergePatch(
+      incomingSection.effective,
+      currentSection.effective,
+      isManagedSection,
+      shouldPreserveStreaming,
+    );
+    if (!nextPatch) {
       continue;
     }
-    setEffectiveImplValue<"ChatSection">(incomingImpl, incomingCore, variant, {
-      toolCallArguments: nextToolCallArguments,
-      inputText: nextInputText,
-      waitingForResponse: nextWaitingForResponse,
-    });
+    setEffectiveImplValue<"ChatSection">(
+      incomingSection.impl,
+      incomingSection.core,
+      incomingSection.variant,
+      nextPatch,
+    );
     mergedSectionIds.push(sectionId);
   }
   return mergedSectionIds;
@@ -227,6 +359,23 @@ type EmbeddedAttachedTerminalInfo = {
   attachedTerminalId: string;
   isTerminalMinimized: boolean;
 };
+function isEmbeddedAttachedTerminalChild(
+  childIds: string[],
+  attachedTerminalId: string,
+): boolean {
+  const firstChildId = childIds[0] ?? attachedTerminalId;
+  return firstChildId === attachedTerminalId && childIds.length < 2;
+}
+function getAttachedTerminalChildIds(
+  impl: BaseSectionImplUnion,
+  attachedTerminalId: string,
+  childIdsOverride?: string[],
+): string[] {
+  if (childIdsOverride) {
+    return childIdsOverride;
+  }
+  return isBaseParentSectionImpl(impl) ? impl.children : [attachedTerminalId];
+}
 export function getAttachedTerminalParentIdForTerminalSection(
   state: ZustandProjectState,
   terminalSectionId: string,
@@ -275,12 +424,9 @@ export function getEmbeddedAttachedTerminalParentIdForTerminalSection(
   if (!isBaseParentSectionImpl(parentImpl)) {
     return null;
   }
-  const childIds = parentImpl.children;
-  const candidateChildId =
-    childIds.length > 0 ? childIds[0] : terminalSectionId;
-  const isEmbeddedCandidate =
-    candidateChildId === terminalSectionId && childIds.length < 2;
-  if (!isEmbeddedCandidate) {
+  if (
+    !isEmbeddedAttachedTerminalChild(parentImpl.children, terminalSectionId)
+  ) {
     return null;
   }
   return parentId;
@@ -308,14 +454,12 @@ export function getEmbeddedAttachedTerminalForCodeSection(
   if (parentId !== sectionId) {
     return null;
   }
-  const childIds =
-    childIdsOverride ??
-    (isBaseParentSectionImpl(impl) ? impl.children : [attachedTerminalId]);
-  const candidateChildId =
-    childIds.length > 0 ? childIds[0] : attachedTerminalId;
-  const isEmbeddedCandidate =
-    candidateChildId === attachedTerminalId && childIds.length < 2;
-  if (!isEmbeddedCandidate) {
+  const childIds = getAttachedTerminalChildIds(
+    impl,
+    attachedTerminalId,
+    childIdsOverride,
+  );
+  if (!isEmbeddedAttachedTerminalChild(childIds, attachedTerminalId)) {
     return null;
   }
   const terminalImpl = getEffectiveSectionImplIfPresent(
@@ -356,38 +500,40 @@ function getEffectiveCodeObjImplIfPresent(
   sectionImpl: BaseSectionImplUnion,
   codeObjId: string,
 ): BaseCodeObjImplUnion | null {
-  if (!isBaseSectionWithParamsImpl(sectionImpl)) {
-    if (sectionImpl.type !== SectionTypeEnum.MetaControl) {
-      return null;
-    }
-    if (!sectionImpl.metaControlParamId) {
-      return null;
-    }
-    if (sectionImpl.metaControlParamId !== codeObjId) {
-      return null;
-    }
-    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
-    if (variantId === undefined) {
-      return null;
-    }
-    const variant = projectState.codeObjVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = projectState.codeObjImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    const core = projectState.codeObjs[codeObjId];
-    if (!core) {
-      return null;
-    }
-    return getEffectiveImpl(impl, core, variant);
-  }
-  const variantId = sectionImpl.codeObjVariantMap[codeObjId];
-  if (variantId === undefined) {
+  const variantId = getSectionCodeObjVariantId(sectionImpl, codeObjId);
+  if (!variantId) {
     return null;
   }
+  return getEffectiveCodeObjImplForVariantId(
+    projectState,
+    variantId,
+    codeObjId,
+  );
+}
+function getSectionCodeObjVariantId(
+  sectionImpl: BaseSectionImplUnion,
+  codeObjId: string,
+): string | null {
+  if (isBaseSectionWithParamsImpl(sectionImpl)) {
+    return sectionImpl.codeObjVariantMap[codeObjId] ?? null;
+  }
+  if (
+    sectionImpl.type !== SectionTypeEnum.MetaControl ||
+    !sectionImpl.metaControlParamId ||
+    sectionImpl.metaControlParamId !== codeObjId
+  ) {
+    return null;
+  }
+  return sectionImpl.codeObjVariantMap[codeObjId] ?? null;
+}
+function getEffectiveCodeObjImplForVariantId(
+  projectState: Pick<
+    ZustandProjectState,
+    "codeObjImpls" | "codeObjVariants" | "codeObjs"
+  >,
+  variantId: string,
+  codeObjId: string,
+): BaseCodeObjImplUnion | null {
   const variant = projectState.codeObjVariants[variantId];
   if (!variant) {
     return null;
@@ -516,79 +662,20 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
     }
   >;
 }
-export type ManagedChatSectionAuthorityState = Pick<
-  ZustandProjectState,
-  "sections" | "sectionVariants" | "sectionImpls"
-> & {
-  projectConfig: Pick<
-    ZustandProjectState["projectConfig"],
-    "sectionVariantMap"
-  >;
-};
 export function isManagedChatSection(
   state: ManagedChatSectionAuthorityState,
   sectionId: string,
 ): boolean {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
+  const snapshot = getSectionAuthoritySnapshotIfPresent(state, sectionId);
+  if (!snapshot) {
     return false;
   }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
+  if (
+    getEffectiveSectionOverrideValue(snapshot, "type") !== SectionTypeEnum.Chat
+  ) {
     return false;
   }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return false;
-  }
-  const core = state.sections[sectionId];
-  if (!core) {
-    return false;
-  }
-  const effectiveType =
-    (
-      variant.modifier as
-        | {
-            type?: unknown;
-          }
-        | undefined
-    )?.type ??
-    (
-      core.sharedModifier as
-        | {
-            type?: unknown;
-          }
-        | undefined
-    )?.type ??
-    (
-      impl as {
-        type?: unknown;
-      }
-    ).type;
-  if (effectiveType !== SectionTypeEnum.Chat) {
-    return false;
-  }
-  const managed =
-    (
-      variant.modifier as
-        | {
-            managed?: unknown;
-          }
-        | undefined
-    )?.managed ??
-    (
-      core.sharedModifier as
-        | {
-            managed?: unknown;
-          }
-        | undefined
-    )?.managed ??
-    (
-      impl as {
-        managed?: unknown;
-      }
-    ).managed;
-  return Boolean(managed);
+  return Boolean(getEffectiveSectionOverrideValue(snapshot, "managed"));
 }
 export function getVariantBaseAndEffectiveSectionImpl(
   p: ZustandProjectState,
@@ -624,28 +711,8 @@ export function getCurrCodeObjVariantIfPresent(
   preview = false,
 ) {
   const sectionImpl = getCurrEffectiveSectionImpl(p, sectionId, preview);
-  if (isBaseSectionWithParamsImpl(sectionImpl)) {
-    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
-    if (variantId === undefined) {
-      return null;
-    }
-    return p.codeObjVariants[variantId] ?? null;
-  }
-  if (sectionImpl.type === SectionTypeEnum.MetaControl) {
-    const controlParamId = sectionImpl.metaControlParamId;
-    if (!controlParamId) {
-      return null;
-    }
-    if (controlParamId !== codeObjId) {
-      return null;
-    }
-    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
-    if (variantId === undefined) {
-      return null;
-    }
-    return p.codeObjVariants[variantId] ?? null;
-  }
-  return null;
+  const variantId = getSectionCodeObjVariantId(sectionImpl, codeObjId);
+  return variantId ? p.codeObjVariants[variantId] ?? null : null;
 }
 export function getCurrEffectiveCodeObjImpl(
   p: ZustandProjectState,
@@ -682,27 +749,6 @@ export function getCurrEffectiveCodeObjImplIfPresent(
   const baseImpl = getCodeObjImpl(p, variant.impl);
   const core = getCodeObjCore(p, codeObjId);
   return getEffectiveImpl(baseImpl, core, variant);
-}
-function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
-  p: ZustandProjectState,
-  sectionId: string,
-  codeObjId: string,
-  typeGuard: (impl) => impl is T,
-  preview = false,
-): T {
-  const effective = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
-    p,
-    sectionId,
-    codeObjId,
-    typeGuard,
-    preview,
-  );
-  if (!effective) {
-    throw new Error(
-      `Missing code obj implementation for section ${sectionId}, codeObj ${codeObjId}`,
-    );
-  }
-  return effective;
 }
 export function getCurrEffectiveCodeObjImplWithTypeGuardIfPresent<T>(
   p: ZustandProjectState,
@@ -748,25 +794,6 @@ export function getCurrEffectiveCodeObjImplOfType<T extends CodeObjType>(
       type: T;
     }
   >;
-}
-function getEffectiveImplFromVariantMap(
-  id: string,
-  impls: ZustandProjectState["codeObjImpls"],
-  cores: ZustandProjectState["codeObjs"],
-  variants: ZustandProjectState["codeObjVariants"],
-  variantMap: Record<string, string>,
-) {
-  const variantId = variantMap[id];
-  const variant = variants[variantId];
-  if (!variant) {
-    throw new Error();
-  }
-  const baseImpl = impls[variant.impl];
-  const core = cores[id];
-  if (!baseImpl || !core) {
-    throw new Error();
-  }
-  return getEffectiveImpl(baseImpl, core, variant);
 }
 function resolveGeneratedImplUpdateValue<T>(
   value: GeneratedImplUpdateValue<T>,
@@ -950,54 +977,80 @@ export function updateShownParamIdsForPinnedParams(
     return;
   }
   const nextPinnedSet = new Set(nextPinnedParams);
-  const nextPinnedTopLevel: Array<string> = [];
-  const nextUnpinnedTopLevel: Array<string> = [];
-  for (const paramId of shown.pinned.topLevelParamIds) {
-    if (nextPinnedSet.has(paramId)) {
-      nextPinnedTopLevel.push(paramId);
-    } else {
-      nextUnpinnedTopLevel.push(paramId);
-    }
-  }
-  for (const paramId of shown.unpinned.topLevelParamIds) {
-    if (nextPinnedSet.has(paramId)) {
-      nextPinnedTopLevel.push(paramId);
-    } else {
-      nextUnpinnedTopLevel.push(paramId);
-    }
-  }
-  const nextPinnedRequired: Record<string, Array<string>> = {};
-  const nextUnpinnedRequired: Record<string, Array<string>> = {};
-  for (const [paramId, path] of Object.entries(
+  const nextPinnedTopLevel = partitionParamIdsByPinnedState(
+    shown.pinned.topLevelParamIds,
+    nextPinnedSet,
+  );
+  const nextUnpinnedTopLevel = partitionParamIdsByPinnedState(
+    shown.unpinned.topLevelParamIds,
+    nextPinnedSet,
+  );
+  const nextPinnedRequired = partitionParamPathsByPinnedState(
     shown.pinned.requiredParamIdsToPaths,
-  )) {
-    if (nextPinnedSet.has(paramId)) {
-      nextPinnedRequired[paramId] = path;
-    } else {
-      nextUnpinnedRequired[paramId] = path;
-    }
-  }
-  for (const [paramId, path] of Object.entries(
+    nextPinnedSet,
+  );
+  const nextUnpinnedRequired = partitionParamPathsByPinnedState(
     shown.unpinned.requiredParamIdsToPaths,
-  )) {
-    if (nextPinnedSet.has(paramId)) {
-      nextPinnedRequired[paramId] = path;
-    } else {
-      nextUnpinnedRequired[paramId] = path;
-    }
-  }
+    nextPinnedSet,
+  );
   state.shownParamIds[variantId] = {
     pinned: {
       ...shown.pinned,
-      topLevelParamIds: nextPinnedTopLevel,
-      requiredParamIdsToPaths: nextPinnedRequired,
+      topLevelParamIds: [
+        ...nextPinnedTopLevel.pinned,
+        ...nextUnpinnedTopLevel.pinned,
+      ],
+      requiredParamIdsToPaths: {
+        ...nextPinnedRequired.pinned,
+        ...nextUnpinnedRequired.pinned,
+      },
     },
     unpinned: {
       ...shown.unpinned,
-      topLevelParamIds: nextUnpinnedTopLevel,
-      requiredParamIdsToPaths: nextUnpinnedRequired,
+      topLevelParamIds: [
+        ...nextPinnedTopLevel.unpinned,
+        ...nextUnpinnedTopLevel.unpinned,
+      ],
+      requiredParamIdsToPaths: {
+        ...nextPinnedRequired.unpinned,
+        ...nextUnpinnedRequired.unpinned,
+      },
     },
   };
+}
+function partitionParamIdsByPinnedState(
+  paramIds: string[],
+  nextPinnedSet: Set<string>,
+): {
+  pinned: string[];
+  unpinned: string[];
+} {
+  const partitioned = {
+    pinned: [] as string[],
+    unpinned: [] as string[],
+  };
+  for (const paramId of paramIds) {
+    const key = nextPinnedSet.has(paramId) ? "pinned" : "unpinned";
+    partitioned[key].push(paramId);
+  }
+  return partitioned;
+}
+function partitionParamPathsByPinnedState(
+  requiredParamIdsToPaths: Record<string, Array<string>>,
+  nextPinnedSet: Set<string>,
+): {
+  pinned: Record<string, Array<string>>;
+  unpinned: Record<string, Array<string>>;
+} {
+  const partitioned = {
+    pinned: {} as Record<string, Array<string>>,
+    unpinned: {} as Record<string, Array<string>>,
+  };
+  for (const [paramId, path] of Object.entries(requiredParamIdsToPaths)) {
+    const key = nextPinnedSet.has(paramId) ? "pinned" : "unpinned";
+    partitioned[key][paramId] = path;
+  }
+  return partitioned;
 }
 export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
@@ -1305,6 +1358,100 @@ function getFitViewOptionsForVisibleSections(projectState: SingleConfig) {
     nodes: visibleNodeIds.map((id) => ({ id }) as Node),
   };
 }
+function prunePreviewCodeEntries(
+  previewState: ToolArgumentPreviewProjectState,
+  projectState: ZustandProjectState,
+) {
+  for (const [sectionId, entry] of Object.entries(
+    previewState.previewCodeBySectionId,
+  )) {
+    const sectionImpl = getEffectiveSectionImplIfPresent(
+      projectState,
+      sectionId,
+    );
+    if (
+      !sectionImpl ||
+      sectionImpl.type !== SectionTypeEnum.Code ||
+      sectionImpl.code === entry.value
+    ) {
+      delete previewState.previewCodeBySectionId[sectionId];
+    }
+  }
+}
+function getCanonicalCallableName(
+  projectState: ZustandProjectState,
+  sectionImpl: Extract<BaseSectionImplUnion, { callable?: string | null }>,
+): string | null {
+  if (!sectionImpl.callable) {
+    return "";
+  }
+  const codeObj = projectState.codeObjs[sectionImpl.callable];
+  return codeObj ? codeObj.name : null;
+}
+function prunePreviewCallableNameEntries(
+  previewState: ToolArgumentPreviewProjectState,
+  projectState: ZustandProjectState,
+) {
+  for (const [sectionId, entry] of Object.entries(
+    previewState.previewCallableNameBySectionId,
+  )) {
+    const sectionImpl = getEffectiveSectionImplIfPresent(
+      projectState,
+      sectionId,
+    );
+    if (!sectionImpl || !isBaseSectionWithParamsImpl(sectionImpl)) {
+      delete previewState.previewCallableNameBySectionId[sectionId];
+      continue;
+    }
+    const canonicalName = getCanonicalCallableName(projectState, sectionImpl);
+    if (canonicalName === null || canonicalName === entry.value) {
+      delete previewState.previewCallableNameBySectionId[sectionId];
+    }
+  }
+}
+function prunePreviewParamValueEntries(
+  previewState: ToolArgumentPreviewProjectState,
+  projectState: ZustandProjectState,
+) {
+  for (const [sectionId, paramEntries] of Object.entries(
+    previewState.previewParamValueBySectionAndParamId,
+  )) {
+    const sectionImpl = getEffectiveSectionImplIfPresent(
+      projectState,
+      sectionId,
+    );
+    if (!sectionImpl || !isBaseSectionWithParamsImpl(sectionImpl)) {
+      delete previewState.previewParamValueBySectionAndParamId[sectionId];
+      continue;
+    }
+    for (const [paramInfoId, entry] of Object.entries(paramEntries)) {
+      const impl = getEffectiveCodeObjImplIfPresent(
+        projectState,
+        sectionImpl,
+        paramInfoId,
+      );
+      if (
+        !impl ||
+        !isBaseChildlessCodeObjImpl(impl) ||
+        impl.value === entry.value
+      ) {
+        delete paramEntries[paramInfoId];
+      }
+    }
+    if (Object.keys(paramEntries).length === 0) {
+      delete previewState.previewParamValueBySectionAndParamId[sectionId];
+    }
+  }
+}
+function isToolArgumentPreviewEmpty(
+  previewState: ToolArgumentPreviewProjectState,
+): boolean {
+  return (
+    Object.keys(previewState.previewCodeBySectionId).length === 0 &&
+    Object.keys(previewState.previewCallableNameBySectionId).length === 0 &&
+    Object.keys(previewState.previewParamValueBySectionAndParamId).length === 0
+  );
+}
 function clearToolArgumentPreviewForProjectState(
   projectConfigId: string,
   projectState: ZustandProjectState,
@@ -1314,100 +1461,66 @@ function clearToolArgumentPreviewForProjectState(
     if (!previewState) {
       return;
     }
-    for (const [sectionId, entry] of Object.entries(
-      previewState.previewCodeBySectionId,
-    )) {
-      const sectionImpl = getEffectiveSectionImplIfPresent(
-        projectState,
-        sectionId,
-      );
-      if (!sectionImpl || sectionImpl.type !== SectionTypeEnum.Code) {
-        delete previewState.previewCodeBySectionId[sectionId];
-        continue;
-      }
-      if (sectionImpl.code === entry.value) {
-        delete previewState.previewCodeBySectionId[sectionId];
-      }
-    }
-    for (const [sectionId, entry] of Object.entries(
-      previewState.previewCallableNameBySectionId,
-    )) {
-      const sectionImpl = getEffectiveSectionImplIfPresent(
-        projectState,
-        sectionId,
-      );
-      if (!sectionImpl || !isBaseSectionWithParamsImpl(sectionImpl)) {
-        delete previewState.previewCallableNameBySectionId[sectionId];
-        continue;
-      }
-      const { callable } = sectionImpl;
-      let canonicalName = "";
-      if (callable) {
-        const codeObj = projectState.codeObjs[callable];
-        if (!codeObj) {
-          delete previewState.previewCallableNameBySectionId[sectionId];
-          continue;
-        }
-        canonicalName = codeObj.name;
-      }
-      if (canonicalName === entry.value) {
-        delete previewState.previewCallableNameBySectionId[sectionId];
-      }
-    }
-    for (const [sectionId, paramEntries] of Object.entries(
-      previewState.previewParamValueBySectionAndParamId,
-    )) {
-      const sectionImpl = getEffectiveSectionImplIfPresent(
-        projectState,
-        sectionId,
-      );
-      if (!sectionImpl || !isBaseSectionWithParamsImpl(sectionImpl)) {
-        delete previewState.previewParamValueBySectionAndParamId[sectionId];
-        continue;
-      }
-      for (const [paramInfoId, entry] of Object.entries(paramEntries)) {
-        const impl = getEffectiveCodeObjImplIfPresent(
-          projectState,
-          sectionImpl,
-          paramInfoId,
-        );
-        if (!impl || !isBaseChildlessCodeObjImpl(impl)) {
-          delete paramEntries[paramInfoId];
-          continue;
-        }
-        if (impl.value === entry.value) {
-          delete paramEntries[paramInfoId];
-        }
-      }
-      if (Object.keys(paramEntries).length === 0) {
-        delete previewState.previewParamValueBySectionAndParamId[sectionId];
-      }
-    }
-    if (
-      Object.keys(previewState.previewCodeBySectionId).length === 0 &&
-      Object.keys(previewState.previewCallableNameBySectionId).length === 0 &&
-      Object.keys(previewState.previewParamValueBySectionAndParamId).length ===
-        0
-    ) {
+    prunePreviewCodeEntries(previewState, projectState);
+    prunePreviewCallableNameEntries(previewState, projectState);
+    prunePreviewParamValueEntries(previewState, projectState);
+    if (isToolArgumentPreviewEmpty(previewState)) {
       delete state.byProjectConfigId[projectConfigId];
     }
   });
 }
-function updateProjectState({
-  sections,
-  variants,
-  uiTypes,
-  uiTypeCols,
-  codeInfo,
-  codeInfoCols,
-  state,
-}) {
-  state.sections = { ...state.sections, ...sections };
-  state.variants = { ...state.variants, ...variants };
-  state.uiTypes = { ...state.uiTypes, ...uiTypes };
-  state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
-  state.codeInfo = { ...state.codeInfo, ...codeInfo };
-  state.codeInfoCols = { ...state.codeInfoCols, ...codeInfoCols };
+type TopLevelSectionLayout =
+  SingleConfig["projectConfig"]["topLevelSections"][string];
+function shouldRenderTopLevelSectionNode(
+  state: ZustandProjectState,
+  sectionId: string,
+  canFilterByView: boolean,
+): boolean {
+  if (!canFilterByView) {
+    return true;
+  }
+  const visibilityInfo = getSectionViewModeVisibilityIfPresent(
+    sectionId,
+    state,
+  );
+  return visibilityInfo
+    ? getSectionShouldRender(
+        visibilityInfo.visibility,
+        visibilityInfo.isEditingViewMode,
+      )
+    : false;
+}
+function getSectionNodeStyle(
+  sectionImpl: BaseSectionImplUnion | null,
+  darkMode: boolean,
+) {
+  const styleColor = sectionImpl?.styleColor;
+  if (
+    styleColor === null ||
+    styleColor === undefined ||
+    styleColor.trim() === ""
+  ) {
+    return undefined;
+  }
+  return { background: deriveSectionStyleTheme(styleColor, darkMode).bg };
+}
+function buildTopLevelSectionNode(
+  sectionId: string,
+  layout: TopLevelSectionLayout,
+  existingNode: Node | undefined,
+  sectionImpl: BaseSectionImplUnion | null,
+  darkMode: boolean,
+): Node {
+  return {
+    id: sectionId,
+    position: { x: layout.x, y: layout.y },
+    width: existingNode?.width ?? layout.w,
+    height: existingNode?.height ?? layout.h,
+    zIndex: layout.zIndex,
+    tempZIndex: layout.zIndex,
+    type: sectionImpl?.type,
+    style: getSectionNodeStyle(sectionImpl, darkMode),
+  };
 }
 export function createNodesMapFromProjectConfigChildren(
   p: ZustandProjectState,
@@ -1418,48 +1531,28 @@ export function createNodesMapFromProjectConfigChildren(
   const { activeViewModeId, viewModes } = p.projectConfig;
   const topLevelSections = getActiveViewModeTopLevelSections(p);
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
-  const canFilterByView =
-    Boolean(activeViewModeId) &&
-    Boolean(activeViewModeId && viewModes[activeViewModeId]);
+  const canFilterByView = Boolean(
+    activeViewModeId && viewModes[activeViewModeId],
+  );
   for (const sectionId of topLevelSectionIds) {
     const layout = topLevelSections[sectionId];
-    if (!layout) {
+    if (
+      !layout ||
+      !shouldRenderTopLevelSectionNode(p, sectionId, canFilterByView)
+    ) {
       continue;
     }
-    if (canFilterByView) {
-      const visibilityInfo = getSectionViewModeVisibilityIfPresent(
-        sectionId,
-        p,
-      );
-      if (!visibilityInfo) {
-        continue;
-      }
-      if (
-        !getSectionShouldRender(
-          visibilityInfo.visibility,
-          visibilityInfo.isEditingViewMode,
-        )
-      ) {
-        continue;
-      }
-    }
     const sectionImpl = getEffectiveSectionImplIfPresent(p, sectionId);
-    const sectionTheme =
-      sectionImpl?.styleColor !== null &&
-      sectionImpl?.styleColor !== undefined &&
-      sectionImpl.styleColor.trim() !== ""
-        ? deriveSectionStyleTheme(sectionImpl.styleColor, darkMode)
-        : null;
-    nodesMap.set(sectionId, {
-      id: sectionId,
-      position: { x: layout.x, y: layout.y },
-      width: nodes.get(sectionId)?.width ?? layout.w,
-      height: nodes.get(sectionId)?.height ?? layout.h,
-      zIndex: layout.zIndex,
-      tempZIndex: layout.zIndex,
-      type: sectionImpl?.type,
-      style: sectionTheme ? { background: sectionTheme.bg } : undefined,
-    });
+    nodesMap.set(
+      sectionId,
+      buildTopLevelSectionNode(
+        sectionId,
+        layout,
+        nodes.get(sectionId),
+        sectionImpl,
+        darkMode,
+      ),
+    );
   }
   return nodesMap;
 }
@@ -1517,21 +1610,6 @@ export function resetAllSectionsToDefaultVersions() {
   resetSectionsToDefaultVersions(
     Object.keys(useProjectState.getState().sections),
   );
-}
-function getCodeChildrenAndParentCodeInfoId(
-  sectionId,
-  state,
-  variantId = null,
-) {
-  const sectionVariant = variantId
-    ? state.variants[variantId]
-    : getDisplayedSectionVariant(sectionId, state);
-  const { codeInfoColId } = sectionVariant;
-  const parentCodeInfoId = sectionVariant.selectedItem;
-  const codeInfoChildren = codeInfoColId
-    ? state.codeInfoCols[codeInfoColId].children
-    : createCodeInfoCol().children;
-  return { codeInfoChildren, parentCodeInfoId };
 }
 export function getSectionShouldRender(
   visibility: boolean,
@@ -1664,32 +1742,49 @@ export function createTopLevelSectionLayoutDict(
     | SingleConfig["projectConfig"]["topLevelSections"]
     | null = null,
 ) {
-  const topLevelSections: SingleConfig["projectConfig"]["topLevelSections"] =
-    {};
-  if (existingLayouts) {
-    for (const [sectionId, layout] of Object.entries(existingLayouts)) {
-      if (sectionId in sections) {
-        topLevelSections[sectionId] = { ...layout };
-      }
-    }
-  }
+  const topLevelSections = copyExistingTopLevelSectionLayouts(
+    sections,
+    existingLayouts,
+  );
   for (const c of nodeInternals.values()) {
     if (c.id in sections) {
-      // need this filter because some sections might be temporary
-      const existing = topLevelSections[c.id];
-      topLevelSections[c.id] = {
-        x: c.position.x,
-        y: c.position.y,
-        zIndex: c.zIndex ?? existing?.zIndex ?? 0,
-        w: c.width ?? existing?.w ?? null, // save width and height so we can show preview on home page
-        h: c.height ?? existing?.h ?? null,
-      };
+      topLevelSections[c.id] = buildTopLevelSectionLayout(
+        c,
+        topLevelSections[c.id],
+      );
     }
   }
   return topLevelSections;
 }
 type TopLevelSectionLayoutMap =
   SingleConfig["projectConfig"]["topLevelSections"];
+function copyExistingTopLevelSectionLayouts(
+  sections: SingleConfig["sections"],
+  existingLayouts: TopLevelSectionLayoutMap | null,
+): TopLevelSectionLayoutMap {
+  const nextLayouts: TopLevelSectionLayoutMap = {};
+  if (!existingLayouts) {
+    return nextLayouts;
+  }
+  for (const [sectionId, layout] of Object.entries(existingLayouts)) {
+    if (sectionId in sections) {
+      nextLayouts[sectionId] = { ...layout };
+    }
+  }
+  return nextLayouts;
+}
+function buildTopLevelSectionLayout(
+  node: Node,
+  existingLayout?: TopLevelSectionLayout,
+): TopLevelSectionLayout {
+  return {
+    x: node.position.x,
+    y: node.position.y,
+    zIndex: node.zIndex ?? existingLayout?.zIndex ?? 0,
+    w: node.width ?? existingLayout?.w ?? null,
+    h: node.height ?? existingLayout?.h ?? null,
+  };
+}
 type PendingViewportState = Viewport | null;
 const pendingViewportRef: {
   opId: string | null;
@@ -1908,15 +2003,7 @@ export function debounced_route_set_top_level_section_layout() {
     nodeInternals,
     existingLayouts,
   );
-  if (pendingTopLevelLayoutRef.opId) {
-    const pendingOps = usePendingOperations.getState().pending;
-    const stillPending = pendingOps.some(
-      (opInfo) => opInfo.opId === pendingTopLevelLayoutRef.opId,
-    );
-    if (!stillPending) {
-      pendingTopLevelLayoutRef.opId = null;
-    }
-  }
+  clearCompletedPendingOpId(pendingTopLevelLayoutRef);
   pendingTopLevelLayoutRef.snapshot = topLevelSections;
   pendingTopLevelLayoutRef.hasQueuedSend = true;
   useProjectState.setState((state) => {
@@ -2004,6 +2091,19 @@ function removePendingOp(opId: string) {
   usePendingOperations.setState((state) => ({
     pending: state.pending.filter((opInfo) => opInfo.opId !== opId),
   }));
+}
+function isPendingOpQueued(opId: string | null): boolean {
+  return (
+    opId !== null &&
+    usePendingOperations
+      .getState()
+      .pending.some((opInfo) => opInfo.opId === opId)
+  );
+}
+function clearCompletedPendingOpId(ref: { opId: string | null }) {
+  if (ref.opId && !isPendingOpQueued(ref.opId)) {
+    ref.opId = null;
+  }
 }
 function removePendingOpAndGetReplayOps(opId: string): Array<PendingOperation> {
   const pendingBeforeRemoval = usePendingOperations.getState().pending;
@@ -2231,32 +2331,30 @@ export function unselectAllParams() {
 export function updateAllProjectMetadata(x: AllProjectMetadata) {
   useAllProjectMetadata.setState(x);
 }
-function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
-  const projectConfigId = getCurrProjectConfigId();
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-  if (pendingViewportRef.opId) {
-    const pendingOps = usePendingOperations.getState().pending;
-    const stillPending = pendingOps.some(
-      (opInfo) => opInfo.opId === pendingViewportRef.opId,
-    );
-    if (!stillPending) {
-      pendingViewportRef.opId = null;
-    }
-  }
-  const currentProjectState = useProjectState.getState();
+function shouldSkipViewportDispatch(
+  viewport: PendingViewportState,
+  currentProjectState: ZustandProjectState,
+): boolean {
   const snapshotUnchanged = _.isEqual(pendingViewportRef.snapshot, viewport);
   const currentMatches =
     _.isEqual(currentProjectState.projectConfig.viewport, viewport) &&
     currentProjectState.projectConfig.viewportInitialized ===
       (viewport !== null);
-  if (
+  return (
     !pendingViewportRef.hasQueuedSend &&
     !pendingViewportRef.opId &&
     snapshotUnchanged &&
     currentMatches
-  ) {
+  );
+}
+function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  clearCompletedPendingOpId(pendingViewportRef);
+  const currentProjectState = useProjectState.getState();
+  if (shouldSkipViewportDispatch(viewport, currentProjectState)) {
     return;
   }
   pendingViewportRef.snapshot = viewport;
