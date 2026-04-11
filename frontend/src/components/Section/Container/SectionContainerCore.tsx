@@ -11,10 +11,11 @@ import {
   useLocalStorage,
   useProjectState,
   useTemporaryMiscState,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { getSectionStylePreviewColorKey } from "utils/constants";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
@@ -35,6 +36,180 @@ type SectionContainerCoreProps = {
   joinedCorners?: "none" | "code-terminal-parent";
 };
 
+type SectionContainerSnapshot = {
+  sectionTypeName: SectionType;
+  isInOtherProjectConfigs: boolean;
+  positionAndSizeLocked: boolean;
+  textBlockMetaControlStyle: boolean;
+  projectConfigId: string;
+  isAttachedTerminalChild: boolean;
+  styleColor: string | null;
+  isJoinedAttachedTerminalChild: boolean;
+};
+
+type SectionEdgeHandleMode = "agentic" | "chat" | "none" | "state-machine";
+
+const WORKFLOW_ONLY_SECTION_TYPES = new Set<SectionType>([
+  SectionTypeEnum.StateMachineStart,
+  SectionTypeEnum.StateMachineGate,
+  SectionTypeEnum.StateMachineEnd,
+]);
+
+const EDGE_HANDLE_COMPONENTS = {
+  agentic: AgenticEdgeHandles,
+  chat: ChatSharedEdgeHandles,
+  "state-machine": StateMachineEdgeHandles,
+} satisfies Record<
+  Exclude<SectionEdgeHandleMode, "none">,
+  React.ComponentType<{ isUserView: boolean }>
+>;
+
+function getSectionContainerSnapshot(
+  state: ZustandProjectState,
+  sectionId: string,
+): SectionContainerSnapshot {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  const isAttachedTerminalChild =
+    getAttachedTerminalParentIdForTerminalSection(state, sectionId) !== null;
+  const isJoinedAttachedTerminalChild =
+    getEmbeddedAttachedTerminalParentIdForTerminalSection(state, sectionId) !==
+      null && !impl.isMinimized;
+  return {
+    sectionTypeName: impl.type,
+    isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+    positionAndSizeLocked: impl.positionAndSizeLocked,
+    textBlockMetaControlStyle:
+      impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
+    projectConfigId: state.projectConfig.id,
+    isAttachedTerminalChild,
+    styleColor: impl.styleColor,
+    isJoinedAttachedTerminalChild,
+  };
+}
+
+function getScopeHighlightClassName(
+  isWriteScope: boolean,
+  hasReadScope: boolean,
+) {
+  if (isWriteScope) {
+    return "ring-2 ring-amber-400/70 ring-inset";
+  }
+  if (hasReadScope) {
+    return "ring-2 ring-emerald-400/70 ring-inset";
+  }
+  return "";
+}
+
+function getAiHighlightClassName(showAiHighlight: boolean) {
+  return showAiHighlight
+    ? "setta-ai-gradient-border setta-ai-gradient-border-active"
+    : "";
+}
+
+function getSectionTypeChromeState(
+  sectionTypeName: SectionType,
+  textBlockMetaControlStyle: boolean,
+) {
+  const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
+  const useMetaControlStyle =
+    sectionTypeName === SectionTypeEnum.MetaControl ||
+    textBlockMetaControlStyle;
+  return { isGlobalVariables, useMetaControlStyle };
+}
+
+function resolvePreviewStyleColor(
+  previewStyleColor: string | null | undefined,
+  styleColor: string | null,
+) {
+  return previewStyleColor === undefined ? styleColor : previewStyleColor;
+}
+
+function getSectionStyleThemeOrNull({
+  darkMode,
+  resolvedStyleColor,
+  useMetaControlStyle,
+}: {
+  darkMode: boolean;
+  resolvedStyleColor: string | null;
+  useMetaControlStyle: boolean;
+}) {
+  if (!resolvedStyleColor || useMetaControlStyle) {
+    return null;
+  }
+  return deriveSectionStyleTheme(resolvedStyleColor, darkMode);
+}
+
+function resolveSectionStyleVars(
+  sectionStyleTheme: ReturnType<typeof deriveSectionStyleTheme> | null,
+) {
+  if (!sectionStyleTheme) {
+    return undefined;
+  }
+  return {
+    "--setta-section-style-bg": sectionStyleTheme.bg,
+    "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
+    "--setta-section-style-border": sectionStyleTheme.border,
+    "--setta-section-style-outline": sectionStyleTheme.outline,
+    "--setta-section-style-text": sectionStyleTheme.text,
+    "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
+    "--setta-section-style-arg-handle": sectionStyleTheme.border,
+    "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
+    "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
+    "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
+  } satisfies React.CSSProperties;
+}
+
+function getSectionShellStyle(
+  sectionStyleVars: React.CSSProperties | undefined,
+  viewportInteractionActive: boolean,
+) {
+  if (!viewportInteractionActive) {
+    return sectionStyleVars;
+  }
+  return {
+    ...sectionStyleVars,
+    willChange: "transform",
+    transform: "translateZ(0)",
+    backfaceVisibility: "hidden",
+    isolation: "isolate",
+  } satisfies React.CSSProperties;
+}
+
+function getSectionEdgeHandleMode({
+  hideAgenticEdgeHandles,
+  isAttachedTerminalChild,
+  sectionTypeName,
+}: {
+  hideAgenticEdgeHandles: boolean;
+  isAttachedTerminalChild: boolean;
+  sectionTypeName: SectionType;
+}): SectionEdgeHandleMode {
+  if (hideAgenticEdgeHandles || isAttachedTerminalChild) {
+    return "none";
+  }
+  if (sectionTypeName === SectionTypeEnum.Chat) {
+    return "chat";
+  }
+  if (WORKFLOW_ONLY_SECTION_TYPES.has(sectionTypeName)) {
+    return "state-machine";
+  }
+  return "agentic";
+}
+
+function SectionEdgeHandles({
+  isUserView,
+  mode,
+}: {
+  isUserView: boolean;
+  mode: SectionEdgeHandleMode;
+}) {
+  if (mode === "none") {
+    return null;
+  }
+  const EdgeHandles = EDGE_HANDLE_COMPONENTS[mode];
+  return <EdgeHandles isUserView={isUserView} />;
+}
+
 function _SectionContainerCore({
   sectionId,
   isUserView,
@@ -52,30 +227,13 @@ function _SectionContainerCore({
     isAttachedTerminalChild,
     styleColor,
     isJoinedAttachedTerminalChild,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const isAttachedTerminalChild =
-      getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null;
-    const isJoinedAttachedTerminalChild =
-      getEmbeddedAttachedTerminalParentIdForTerminalSection(x, sectionId) !==
-        null && !impl.isMinimized;
-    return {
-      sectionTypeName: impl.type,
-      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-      textBlockMetaControlStyle:
-        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
-      projectConfigId: x.projectConfig.id,
-      isAttachedTerminalChild,
-      styleColor: impl.styleColor,
-      isJoinedAttachedTerminalChild,
-    };
-  }, shallow);
+  } = useProjectState(
+    (x) => getSectionContainerSnapshot(x, sectionId),
+    shallow,
+  );
   const isActiveSection = useIsSectionUIActive(sectionId);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
-  const aiHighlightClassName = showAiHighlight
-    ? "setta-ai-gradient-border setta-ai-gradient-border-active"
-    : "";
+  const aiHighlightClassName = getAiHighlightClassName(showAiHighlight);
   const { scopeReadMap, scopeWriteMap } = useAgenticScopeHighlights(
     (state) => ({
       scopeReadMap:
@@ -85,46 +243,34 @@ function _SectionContainerCore({
     }),
     shallow,
   );
-  const isWriteScope = Boolean(scopeWriteMap?.[sectionId]);
-  const isReadScope = !isWriteScope && Boolean(scopeReadMap?.[sectionId]);
-  const scopeHighlightClassName = isWriteScope
-    ? "ring-2 ring-amber-400/70 ring-inset"
-    : isReadScope
-      ? "ring-2 ring-emerald-400/70 ring-inset"
-      : "";
+  const scopeHighlightClassName = getScopeHighlightClassName(
+    Boolean(scopeWriteMap?.[sectionId]),
+    Boolean(scopeReadMap?.[sectionId]),
+  );
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
-  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
-  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
+  const { isGlobalVariables, useMetaControlStyle } = getSectionTypeChromeState(
+    sectionTypeName,
+    textBlockMetaControlStyle,
+  );
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
     (x) => x[styleColorPreviewKey] as string | null | undefined,
   );
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const resolvedStyleColor = resolvePreviewStyleColor(
+    previewStyleColor,
+    styleColor,
+  );
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const sectionStyleTheme =
-    resolvedStyleColor && !useMetaControlStyle
-      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-      : null;
+  const sectionStyleTheme = getSectionStyleThemeOrNull({
+    darkMode,
+    resolvedStyleColor,
+    useMetaControlStyle,
+  });
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
-  const sectionStyleVars = sectionStyleTheme
-    ? ({
-        "--setta-section-style-bg": sectionStyleTheme.bg,
-        "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
-        "--setta-section-style-border": sectionStyleTheme.border,
-        "--setta-section-style-outline": sectionStyleTheme.outline,
-        "--setta-section-style-text": sectionStyleTheme.text,
-        "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
-        "--setta-section-style-arg-handle": sectionStyleTheme.border,
-        "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
-        "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
-        "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
-      } as React.CSSProperties)
-    : undefined;
+  const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
@@ -139,29 +285,15 @@ function _SectionContainerCore({
     aiHighlightClassName,
     scopeHighlightClassName,
   });
-  const sectionShellStyle = viewportInteractionActive
-    ? ({
-        ...sectionStyleVars,
-        willChange: "transform",
-        transform: "translateZ(0)",
-        backfaceVisibility: "hidden",
-        isolation: "isolate",
-      } as React.CSSProperties)
-    : sectionStyleVars;
-  const shouldRenderSharedChatHandles =
-    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
-  const isWorkflowOnlyNodeSection =
-    sectionTypeName === SectionTypeEnum.StateMachineStart ||
-    sectionTypeName === SectionTypeEnum.StateMachineGate ||
-    sectionTypeName === SectionTypeEnum.StateMachineEnd;
-  const shouldRenderChatSharedHandles =
-    shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
-  const shouldRenderAgenticEdgeHandles =
-    shouldRenderSharedChatHandles &&
-    !shouldRenderChatSharedHandles &&
-    !isWorkflowOnlyNodeSection;
-  const shouldRenderStateMachineEdgeHandles =
-    shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
+  const sectionShellStyle = getSectionShellStyle(
+    sectionStyleVars,
+    viewportInteractionActive,
+  );
+  const edgeHandleMode = getSectionEdgeHandleMode({
+    hideAgenticEdgeHandles,
+    isAttachedTerminalChild,
+    sectionTypeName,
+  });
 
   return (
     <section
@@ -173,15 +305,7 @@ function _SectionContainerCore({
       data-section-active={isActiveSection ? "true" : "false"}
       style={sectionShellStyle}
     >
-      {shouldRenderChatSharedHandles ? (
-        <ChatSharedEdgeHandles isUserView={isUserView} />
-      ) : null}
-      {shouldRenderAgenticEdgeHandles ? (
-        <AgenticEdgeHandles isUserView={isUserView} />
-      ) : null}
-      {shouldRenderStateMachineEdgeHandles ? (
-        <StateMachineEdgeHandles isUserView={isUserView} />
-      ) : null}
+      <SectionEdgeHandles isUserView={isUserView} mode={edgeHandleMode} />
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
