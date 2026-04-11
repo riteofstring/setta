@@ -25,31 +25,108 @@ func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
 	resolver CallableSignatureResolver,
 	parsedSignatures map[string]CallableSignatureResult,
 ) (bool, error) {
-	didUpdate := false
-	signatureRefetchCallables := map[string]watchcode.CallableInfo{}
+	state := newWatchCodeScanPlanState()
+	state.markUpdated(p.applyWatchCodePrunedBaseline(plan.SourcePath, plan.PrunedBaseline))
 
-	if _, ok := p.WatchCodeBaselineByPath[plan.SourcePath]; ok {
-		if p.setWatchCodeBaseline(plan.SourcePath, plan.PrunedBaseline) {
-			didUpdate = true
-		}
+	if err := p.applyWatchCodeRenamePlans(plan.SourcePath, plan.Renames, state); err != nil {
+		return false, err
 	}
 
-	pendingByIdentity := map[string]watchcode.CallableInfo{}
+	updated, err := p.removeWatchCodeIdentities(plan.RemovedIdentities)
+	if err != nil {
+		return false, err
+	}
+	state.markUpdated(updated)
 
-	for _, rename := range plan.Renames {
-		updated, pending, err := p.applyWatchCodeRename(rename, plan.SourcePath)
+	if err := p.applyWatchCodeMetadataChanges(plan.SourcePath, plan.MetadataChanges, state); err != nil {
+		return false, err
+	}
+	if err := p.applyWatchCodeSignatureChanges(plan.SourcePath, plan.SignatureChanges, state); err != nil {
+		return false, err
+	}
+
+	state.markUpdated(p.applyWatchCodeAdditions(plan.SourcePath, plan.Additions, state))
+
+	updated, err = p.ensurePendingWatchCodeCallableSections(
+		ctx,
+		state.pendingByIdentity,
+		resolver,
+		parsedSignatures,
+	)
+	if err != nil {
+		return false, err
+	}
+	state.markUpdated(updated)
+
+	updated, err = p.refetchPendingWatchCodeCallableSections(
+		ctx,
+		state.signatureRefetchByIdentity,
+		resolver,
+		parsedSignatures,
+	)
+	if err != nil {
+		return false, err
+	}
+	state.markUpdated(updated)
+
+	return state.didUpdate, nil
+}
+
+type watchCodeScanPlanState struct {
+	didUpdate                  bool
+	pendingByIdentity          map[string]watchcode.CallableInfo
+	signatureRefetchByIdentity map[string]watchcode.CallableInfo
+}
+
+func newWatchCodeScanPlanState() *watchCodeScanPlanState {
+	return &watchCodeScanPlanState{
+		pendingByIdentity:          map[string]watchcode.CallableInfo{},
+		signatureRefetchByIdentity: map[string]watchcode.CallableInfo{},
+	}
+}
+
+func (s *watchCodeScanPlanState) markUpdated(updated bool) {
+	if updated {
+		s.didUpdate = true
+	}
+}
+
+func (s *watchCodeScanPlanState) trackPending(identity string, callable watchcode.CallableInfo) {
+	s.pendingByIdentity[identity] = callable
+}
+
+func (s *watchCodeScanPlanState) trackSignatureRefetch(identity string, callable watchcode.CallableInfo) {
+	s.signatureRefetchByIdentity[identity] = callable
+}
+
+func (p *Project) applyWatchCodePrunedBaseline(sourcePath string, prunedBaseline []string) bool {
+	if _, ok := p.WatchCodeBaselineByPath[sourcePath]; !ok {
+		return false
+	}
+	return p.setWatchCodeBaseline(sourcePath, prunedBaseline)
+}
+
+func (p *Project) applyWatchCodeRenamePlans(
+	sourcePath string,
+	renames []watchcode.RenamePlan,
+	state *watchCodeScanPlanState,
+) error {
+	for _, rename := range renames {
+		updated, pending, err := p.applyWatchCodeRename(rename, sourcePath)
 		if err != nil {
-			return false, err
+			return err
 		}
-		if updated {
-			didUpdate = true
-		}
+		state.markUpdated(updated)
 		if pending {
-			pendingByIdentity[rename.NewCallable.Identity] = rename.NewCallable
+			state.trackPending(rename.NewCallable.Identity, rename.NewCallable)
 		}
 	}
+	return nil
+}
 
-	for _, identity := range plan.RemovedIdentities {
+func (p *Project) removeWatchCodeIdentities(identities []string) (bool, error) {
+	didUpdate := false
+	for _, identity := range identities {
 		updated, err := p.removeWatchCodeIdentity(identity)
 		if err != nil {
 			return false, err
@@ -58,56 +135,101 @@ func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
 			didUpdate = true
 		}
 	}
+	return didUpdate, nil
+}
 
-	for _, metadataChange := range plan.MetadataChanges {
-		if p.applyWatchCodeMetadataChange(metadataChange.Identity, metadataChange.Callable, plan.SourcePath) {
-			didUpdate = true
-		}
-		pending, err := p.watchCodeEntryNeedsSection(metadataChange.Identity)
-		if err != nil {
-			return false, err
-		}
-		if pending {
-			pendingByIdentity[metadataChange.Identity] = metadataChange.Callable
+func (p *Project) applyWatchCodeMetadataChanges(
+	sourcePath string,
+	changes []watchcode.MetadataChangePlan,
+	state *watchCodeScanPlanState,
+) error {
+	for _, change := range changes {
+		if err := p.applyWatchCodeTrackedCallableChange(
+			sourcePath,
+			change.Identity,
+			change.Callable,
+			false,
+			state,
+		); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	for _, signatureChange := range plan.SignatureChanges {
-		if p.applyWatchCodeMetadataChange(signatureChange.Identity, signatureChange.Callable, plan.SourcePath) {
-			didUpdate = true
-		}
-		signatureRefetchCallables[signatureChange.Identity] = signatureChange.Callable
-		pending, err := p.watchCodeEntryNeedsSection(signatureChange.Identity)
-		if err != nil {
-			return false, err
-		}
-		if pending {
-			pendingByIdentity[signatureChange.Identity] = signatureChange.Callable
+func (p *Project) applyWatchCodeSignatureChanges(
+	sourcePath string,
+	changes []watchcode.SignatureChangePlan,
+	state *watchCodeScanPlanState,
+) error {
+	for _, change := range changes {
+		if err := p.applyWatchCodeTrackedCallableChange(
+			sourcePath,
+			change.Identity,
+			change.Callable,
+			true,
+			state,
+		); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	for _, addition := range plan.Additions {
+func (p *Project) applyWatchCodeTrackedCallableChange(
+	sourcePath string,
+	identity string,
+	callable watchcode.CallableInfo,
+	shouldRefetch bool,
+	state *watchCodeScanPlanState,
+) error {
+	state.markUpdated(p.applyWatchCodeMetadataChange(identity, callable, sourcePath))
+	if shouldRefetch {
+		state.trackSignatureRefetch(identity, callable)
+	}
+
+	pending, err := p.watchCodeEntryNeedsSection(identity)
+	if err != nil {
+		return err
+	}
+	if pending {
+		state.trackPending(identity, callable)
+	}
+	return nil
+}
+
+func (p *Project) applyWatchCodeAdditions(
+	sourcePath string,
+	additions []watchcode.CallableInfo,
+	state *watchCodeScanPlanState,
+) bool {
+	didUpdate := false
+	for _, addition := range additions {
 		if _, ok := p.WatchCodeRegistry[addition.Identity]; !ok {
 			p.WatchCodeRegistry[addition.Identity] = WatchCodeRegistryEntry{
 				CallableName:  addition.CanonicalName,
 				Kind:          fromWatchcodeCallableKind(addition.Kind),
 				SignatureHash: addition.SignatureHash,
 				BodyHash:      addition.BodyHash,
-				SourcePath:    plan.SourcePath,
+				SourcePath:    sourcePath,
 				SectionIDs:    []string{},
 				SectionsCount: 0,
 			}
 			didUpdate = true
 		}
-		pendingByIdentity[addition.Identity] = addition
+		state.trackPending(addition.Identity, addition)
 	}
+	return didUpdate
+}
 
-	pendingIdentities := make([]string, 0, len(pendingByIdentity))
-	for identity := range pendingByIdentity {
-		pendingIdentities = append(pendingIdentities, identity)
-	}
-	sort.Strings(pendingIdentities)
-	for _, identity := range pendingIdentities {
+func (p *Project) ensurePendingWatchCodeCallableSections(
+	ctx context.Context,
+	pendingByIdentity map[string]watchcode.CallableInfo,
+	resolver CallableSignatureResolver,
+	parsedSignatures map[string]CallableSignatureResult,
+) (bool, error) {
+	didUpdate := false
+	for _, identity := range sortedWatchCodeCallableIdentities(pendingByIdentity) {
 		updated, err := p.ensureWatchCodeCallableSection(
 			ctx,
 			identity,
@@ -122,13 +244,17 @@ func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
 			didUpdate = true
 		}
 	}
+	return didUpdate, nil
+}
 
-	refetchIdentities := make([]string, 0, len(signatureRefetchCallables))
-	for identity := range signatureRefetchCallables {
-		refetchIdentities = append(refetchIdentities, identity)
-	}
-	sort.Strings(refetchIdentities)
-	for _, identity := range refetchIdentities {
+func (p *Project) refetchPendingWatchCodeCallableSections(
+	ctx context.Context,
+	signatureRefetchByIdentity map[string]watchcode.CallableInfo,
+	resolver CallableSignatureResolver,
+	parsedSignatures map[string]CallableSignatureResult,
+) (bool, error) {
+	didUpdate := false
+	for _, identity := range sortedWatchCodeCallableIdentities(signatureRefetchByIdentity) {
 		updated, err := p.refetchWatchCodeCallableSections(
 			ctx,
 			identity,
@@ -142,8 +268,16 @@ func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
 			didUpdate = true
 		}
 	}
-
 	return didUpdate, nil
+}
+
+func sortedWatchCodeCallableIdentities(callablesByIdentity map[string]watchcode.CallableInfo) []string {
+	identities := make([]string, 0, len(callablesByIdentity))
+	for identity := range callablesByIdentity {
+		identities = append(identities, identity)
+	}
+	sort.Strings(identities)
+	return identities
 }
 
 func (p *Project) applyWatchCodeDeletePlan(plan watchcode.DeletePlan) (bool, error) {
@@ -171,13 +305,11 @@ func (p *Project) watchCodeEntryNeedsSection(identity string) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	validSectionIDs := p.pruneWatchCodeSectionIDs(entry)
-	if !stringSlicesEqual(entry.SectionIDs, validSectionIDs) || entry.SectionsCount != len(validSectionIDs) {
-		entry.SectionIDs = validSectionIDs
-		entry.SectionsCount = len(validSectionIDs)
+	entry, updated := p.normalizeWatchCodeRegistryEntrySections(entry)
+	if updated {
 		p.WatchCodeRegistry[identity] = entry
 	}
-	return len(validSectionIDs) == 0, nil
+	return len(entry.SectionIDs) == 0, nil
 }
 
 func (p *Project) ensureWatchCodeCallableSection(
@@ -191,55 +323,33 @@ func (p *Project) ensureWatchCodeCallableSection(
 	if !ok {
 		return false, nil
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = watchCodeContext(ctx)
 
 	didUpdate := false
-	validSectionIDs := p.pruneWatchCodeSectionIDs(entry)
-	if !stringSlicesEqual(entry.SectionIDs, validSectionIDs) || entry.SectionsCount != len(validSectionIDs) {
-		entry.SectionIDs = validSectionIDs
-		entry.SectionsCount = len(validSectionIDs)
-		didUpdate = true
-	}
+	entry, updated := p.normalizeWatchCodeRegistryEntrySections(entry)
+	markWatchCodeUpdated(&didUpdate, updated)
 
-	previousReferenceName := strings.TrimSpace(entry.CallableName)
-	referenceName := p.resolveWatchCodeReferenceName(callable, identity)
-	if previousReferenceName != referenceName {
-		modulePath, symbolName, err := splitWatchCodeCanonicalIdentity(identity)
-		if err != nil {
-			return false, err
-		}
-		removedImport, err := p.removeWatchCodePythonImport(modulePath, symbolName, previousReferenceName)
-		if err != nil {
-			return false, err
-		}
-		if removedImport {
-			didUpdate = true
-		}
-		entry.CallableName = referenceName
-		didUpdate = true
+	entry, previousReferenceName, referenceName, updated, err := p.syncWatchCodeEntryReferenceName(
+		identity,
+		entry,
+		callable,
+	)
+	if err != nil {
+		return false, err
 	}
+	markWatchCodeUpdated(&didUpdate, updated)
 
 	importUpdated, err := p.ensureWatchCodePythonImport(callable.ModulePath, callable.SymbolName, referenceName)
 	if err != nil {
 		return false, err
 	}
-	if importUpdated {
-		didUpdate = true
-	}
+	markWatchCodeUpdated(&didUpdate, importUpdated)
 
-	createdSection := false
-	if len(entry.SectionIDs) == 0 {
-		sectionID, err := p.createWatchCodeCallableSection()
-		if err != nil {
-			return false, err
-		}
-		entry.SectionIDs = []string{sectionID}
-		entry.SectionsCount = 1
-		createdSection = true
-		didUpdate = true
+	entry, createdSection, updated, err := p.ensureWatchCodeRegistryEntrySection(entry)
+	if err != nil {
+		return false, err
 	}
+	markWatchCodeUpdated(&didUpdate, updated)
 
 	p.WatchCodeRegistry[identity] = entry
 
@@ -252,23 +362,18 @@ func (p *Project) ensureWatchCodeCallableSection(
 	if err != nil {
 		return false, err
 	}
-	if bound {
-		didUpdate = true
-	}
+	markWatchCodeUpdated(&didUpdate, bound)
 
-	if !createdSection && previousReferenceName != "" && previousReferenceName != referenceName {
-		renamed, err := p.renameWatchCodeCallableSections(
-			entry.SectionIDs,
-			previousReferenceName,
-			referenceName,
-		)
-		if err != nil {
-			return false, err
-		}
-		if renamed {
-			didUpdate = true
-		}
+	renamed, err := p.renameWatchCodeCallableSectionsIfNeeded(
+		entry.SectionIDs,
+		createdSection,
+		previousReferenceName,
+		referenceName,
+	)
+	if err != nil {
+		return false, err
 	}
+	markWatchCodeUpdated(&didUpdate, renamed)
 
 	return didUpdate, nil
 }
@@ -283,19 +388,15 @@ func (p *Project) refetchWatchCodeCallableSections(
 	if !ok {
 		return false, nil
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = watchCodeContext(ctx)
 
 	didUpdate := false
-	validSectionIDs := p.pruneWatchCodeSectionIDs(entry)
-	if !stringSlicesEqual(entry.SectionIDs, validSectionIDs) || entry.SectionsCount != len(validSectionIDs) {
-		entry.SectionIDs = validSectionIDs
-		entry.SectionsCount = len(validSectionIDs)
+	entry, updated := p.normalizeWatchCodeRegistryEntrySections(entry)
+	if updated {
 		p.WatchCodeRegistry[identity] = entry
 		didUpdate = true
 	}
-	if len(validSectionIDs) == 0 {
+	if len(entry.SectionIDs) == 0 {
 		return didUpdate, nil
 	}
 
@@ -304,36 +405,293 @@ func (p *Project) refetchWatchCodeCallableSections(
 		return didUpdate, nil
 	}
 
-	for _, sectionID := range uniqueSortedTrimmedStrings(validSectionIDs) {
-		if _, ok := p.Sections[sectionID]; !ok {
-			continue
-		}
-		variantIDs, err := p.watchCodeCallableVariantsForName(sectionID, callableName)
+	signatureResolver := wrapWatchCodeParsedSignatureResolver(callableName, parsedSignature, resolver)
+	for _, sectionID := range uniqueSortedTrimmedStrings(entry.SectionIDs) {
+		updated, err := p.refetchWatchCodeCallableSectionVariants(ctx, sectionID, callableName, signatureResolver)
 		if err != nil {
 			return false, err
 		}
-		for _, variantID := range variantIDs {
-			var response SetCallableResponse
-			if err := p.withSectionVariantSelected(sectionID, variantID, func() error {
-				var setCallableErr error
-				response, setCallableErr = p.SetCallable(
-					ctx,
-					sectionID,
-					callableName,
-					true,
-					wrapWatchCodeParsedSignatureResolver(callableName, parsedSignature, resolver),
-				)
-				return setCallableErr
-			}); err != nil {
-				return false, err
-			}
-			if response.LSPStatus != SignatureHelpStatusSkipped {
-				didUpdate = true
-			}
-		}
+		didUpdate = didUpdate || updated
 	}
 
 	return didUpdate, nil
+}
+
+func watchCodeContext(ctx context.Context) context.Context {
+	if ctx != nil {
+		return ctx
+	}
+	return context.Background()
+}
+
+func markWatchCodeUpdated(didUpdate *bool, updated bool) {
+	if updated {
+		*didUpdate = true
+	}
+}
+
+func (p *Project) normalizeWatchCodeRegistryEntrySections(entry WatchCodeRegistryEntry) (WatchCodeRegistryEntry, bool) {
+	validSectionIDs := p.pruneWatchCodeSectionIDs(entry)
+	if stringSlicesEqual(entry.SectionIDs, validSectionIDs) && entry.SectionsCount == len(validSectionIDs) {
+		return entry, false
+	}
+	entry.SectionIDs = validSectionIDs
+	entry.SectionsCount = len(validSectionIDs)
+	return entry, true
+}
+
+func (p *Project) syncWatchCodeEntryReferenceName(
+	identity string,
+	entry WatchCodeRegistryEntry,
+	callable watchcode.CallableInfo,
+) (WatchCodeRegistryEntry, string, string, bool, error) {
+	previousReferenceName := strings.TrimSpace(entry.CallableName)
+	referenceName := p.resolveWatchCodeReferenceName(callable, identity)
+	if previousReferenceName == referenceName {
+		return entry, previousReferenceName, referenceName, false, nil
+	}
+
+	modulePath, symbolName, err := splitWatchCodeCanonicalIdentity(identity)
+	if err != nil {
+		return entry, "", "", false, err
+	}
+	_, err = p.removeWatchCodePythonImport(modulePath, symbolName, previousReferenceName)
+	if err != nil {
+		return entry, "", "", false, err
+	}
+	entry.CallableName = referenceName
+	return entry, previousReferenceName, referenceName, true, nil
+}
+
+func (p *Project) ensureWatchCodeRegistryEntrySection(entry WatchCodeRegistryEntry) (WatchCodeRegistryEntry, bool, bool, error) {
+	if len(entry.SectionIDs) != 0 {
+		return entry, false, false, nil
+	}
+	sectionID, err := p.createWatchCodeCallableSection()
+	if err != nil {
+		return entry, false, false, err
+	}
+	entry.SectionIDs = []string{sectionID}
+	entry.SectionsCount = 1
+	return entry, true, true, nil
+}
+
+func (p *Project) renameWatchCodeCallableSectionsIfNeeded(
+	sectionIDs []string,
+	createdSection bool,
+	previousReferenceName string,
+	referenceName string,
+) (bool, error) {
+	if createdSection || previousReferenceName == "" || previousReferenceName == referenceName {
+		return false, nil
+	}
+	return p.renameWatchCodeCallableSections(sectionIDs, previousReferenceName, referenceName)
+}
+
+func (p *Project) refetchWatchCodeCallableSectionVariants(
+	ctx context.Context,
+	sectionID string,
+	callableName string,
+	resolver CallableSignatureResolver,
+) (bool, error) {
+	if _, ok := p.Sections[sectionID]; !ok {
+		return false, nil
+	}
+
+	didUpdate := false
+	variantIDs, err := p.watchCodeCallableVariantsForName(sectionID, callableName)
+	if err != nil {
+		return false, err
+	}
+	for _, variantID := range variantIDs {
+		updated, err := p.refetchWatchCodeCallableSectionVariant(ctx, sectionID, variantID, callableName, resolver)
+		if err != nil {
+			return false, err
+		}
+		didUpdate = didUpdate || updated
+	}
+	return didUpdate, nil
+}
+
+func (p *Project) refetchWatchCodeCallableSectionVariant(
+	ctx context.Context,
+	sectionID string,
+	variantID string,
+	callableName string,
+	resolver CallableSignatureResolver,
+) (bool, error) {
+	var response SetCallableResponse
+	if err := p.withSectionVariantSelected(sectionID, variantID, func() error {
+		var setCallableErr error
+		response, setCallableErr = p.SetCallable(ctx, sectionID, callableName, true, resolver)
+		return setCallableErr
+	}); err != nil {
+		return false, err
+	}
+	return response.LSPStatus != SignatureHelpStatusSkipped, nil
+}
+
+func (p *Project) replaceWatchCodeRegistryIdentity(
+	oldIdentity string,
+	newCallable watchcode.CallableInfo,
+	sourcePath string,
+	entry WatchCodeRegistryEntry,
+) {
+	delete(p.WatchCodeRegistry, oldIdentity)
+	entry.Kind = fromWatchcodeCallableKind(newCallable.Kind)
+	entry.SignatureHash = newCallable.SignatureHash
+	entry.BodyHash = newCallable.BodyHash
+	entry.SourcePath = sourcePath
+	p.WatchCodeRegistry[newCallable.Identity] = entry
+}
+
+func (p *Project) syncWatchCodeRenameImports(
+	oldModulePath string,
+	oldSymbolName string,
+	previousReferenceName string,
+	newCallable watchcode.CallableInfo,
+	referenceName string,
+) (bool, error) {
+	didUpdate := false
+	if previousReferenceName != referenceName ||
+		oldModulePath != newCallable.ModulePath ||
+		oldSymbolName != newCallable.SymbolName {
+		removedImport, err := p.removeWatchCodePythonImport(oldModulePath, oldSymbolName, previousReferenceName)
+		if err != nil {
+			return false, err
+		}
+		didUpdate = didUpdate || removedImport
+	}
+
+	importUpdated, err := p.ensureWatchCodePythonImport(newCallable.ModulePath, newCallable.SymbolName, referenceName)
+	if err != nil {
+		return false, err
+	}
+	return didUpdate || importUpdated, nil
+}
+
+func (p *Project) setWatchCodeRegistryCallableName(identity string, referenceName string) bool {
+	entry := p.WatchCodeRegistry[identity]
+	if entry.CallableName == referenceName {
+		return false
+	}
+	entry.CallableName = referenceName
+	p.WatchCodeRegistry[identity] = entry
+	return true
+}
+
+func (p *Project) removeWatchCodeCallableFromSection(sectionID string, callableName string) (bool, error) {
+	if _, ok := p.Sections[sectionID]; !ok {
+		return false, nil
+	}
+
+	variantsToRemove, err := p.watchCodeCallableVariantsForName(sectionID, callableName)
+	if err != nil || len(variantsToRemove) == 0 {
+		return false, err
+	}
+
+	section := p.Sections[sectionID]
+	if len(section.VariantIDs) == len(variantsToRemove) {
+		return true, nil
+	}
+	for _, variantID := range variantsToRemove {
+		if err := p.deleteWatchCodeSectionVariant(sectionID, variantID); err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}
+
+func filterEdgesWithoutSectionVariant(edges []Edge, sectionID string, variantID string) []Edge {
+	filteredEdges := make([]Edge, 0, len(edges))
+	for _, edge := range edges {
+		if (edge.SourceSectionID == sectionID && edge.SourceVariantID == variantID) ||
+			(edge.TargetSectionID == sectionID && edge.TargetVariantID == variantID) {
+			continue
+		}
+		filteredEdges = append(filteredEdges, edge)
+	}
+	return filteredEdges
+}
+
+func (p *Project) syncWatchCodeSectionVariantSelection(
+	sectionID string,
+	section *Section,
+	removedVariantID string,
+	fallbackVariantID string,
+) {
+	if section.DefaultVariantID == removedVariantID {
+		section.DefaultVariantID = fallbackVariantID
+	}
+	if p.SectionVariantMap[sectionID] == removedVariantID {
+		p.SectionVariantMap[sectionID] = fallbackVariantID
+	}
+}
+
+func (p *Project) watchCodeUsedCodeObjectIDs() (map[string]struct{}, error) {
+	usedCodeObjIDs := map[string]struct{}{}
+	for sectionID, section := range p.Sections {
+		for _, variantID := range collectSectionVariantIDs(*p, section) {
+			if _, ok := p.SectionVariants[variantID]; !ok {
+				continue
+			}
+			payload, err := effectiveSectionPayload(*p, sectionID, variantID)
+			if err != nil {
+				return nil, err
+			}
+			for codeObjID := range payloadStringMapField(payload, "codeObjVariantMap") {
+				usedCodeObjIDs[codeObjID] = struct{}{}
+			}
+		}
+	}
+	return usedCodeObjIDs, nil
+}
+
+func (p *Project) reachableWatchCodeCodeObjects(rootIDs map[string]struct{}) (map[string]struct{}, error) {
+	pending := make([]string, 0, len(rootIDs))
+	for codeObjID := range rootIDs {
+		pending = append(pending, codeObjID)
+	}
+
+	reachable := map[string]struct{}{}
+	for len(pending) > 0 {
+		lastIndex := len(pending) - 1
+		codeObjID := pending[lastIndex]
+		pending = pending[:lastIndex]
+		if _, ok := reachable[codeObjID]; ok {
+			continue
+		}
+		codeObj, ok := p.CodeObjs[codeObjID]
+		if !ok {
+			return nil, fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
+		}
+		reachable[codeObjID] = struct{}{}
+		for _, variantID := range codeObj.VariantIDs {
+			payload, err := effectiveCodeObjectPayloadForVariant(*p, codeObjID, variantID)
+			if err != nil {
+				return nil, err
+			}
+			pending = append(pending, payloadStringArrayField(payload, "children")...)
+		}
+	}
+	return reachable, nil
+}
+
+func (p *Project) deleteUnusedWatchCodeCodeObjects(reachable map[string]struct{}) error {
+	codeObjIDs := make([]string, 0, len(p.CodeObjs))
+	for codeObjID := range p.CodeObjs {
+		codeObjIDs = append(codeObjIDs, codeObjID)
+	}
+	sort.Strings(codeObjIDs)
+	for _, codeObjID := range codeObjIDs {
+		if _, ok := reachable[codeObjID]; ok {
+			continue
+		}
+		if err := p.deleteWatchCodeCodeObject(codeObjID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func watchCodeParsedSignatureResults(callables []watchcode.CallableInfo) map[string]CallableSignatureResult {
@@ -453,8 +811,8 @@ func (p *Project) applyWatchCodeRename(plan watchcode.RenamePlan, sourcePath str
 	}
 
 	didUpdate := false
-	entry.SectionIDs = p.pruneWatchCodeSectionIDs(entry)
-	entry.SectionsCount = len(entry.SectionIDs)
+	entry, updated := p.normalizeWatchCodeRegistryEntrySections(entry)
+	didUpdate = didUpdate || updated
 
 	previousReferenceName := strings.TrimSpace(entry.CallableName)
 	oldModulePath, oldSymbolName, err := splitWatchCodeCanonicalIdentity(plan.OldIdentity)
@@ -462,39 +820,25 @@ func (p *Project) applyWatchCodeRename(plan watchcode.RenamePlan, sourcePath str
 		return false, false, err
 	}
 
-	delete(p.WatchCodeRegistry, plan.OldIdentity)
-	entry.Kind = fromWatchcodeCallableKind(plan.NewCallable.Kind)
-	entry.SignatureHash = plan.NewCallable.SignatureHash
-	entry.BodyHash = plan.NewCallable.BodyHash
-	entry.SourcePath = sourcePath
-	p.WatchCodeRegistry[plan.NewCallable.Identity] = entry
+	p.replaceWatchCodeRegistryIdentity(plan.OldIdentity, plan.NewCallable, sourcePath, entry)
 	didUpdate = true
 
 	referenceName := p.resolveWatchCodeReferenceName(plan.NewCallable, plan.NewCallable.Identity)
-	if previousReferenceName != referenceName || oldModulePath != plan.NewCallable.ModulePath || oldSymbolName != plan.NewCallable.SymbolName {
-		removedImport, err := p.removeWatchCodePythonImport(oldModulePath, oldSymbolName, previousReferenceName)
-		if err != nil {
-			return false, false, err
-		}
-		if removedImport {
-			didUpdate = true
-		}
-	}
-	importUpdated, err := p.ensureWatchCodePythonImport(plan.NewCallable.ModulePath, plan.NewCallable.SymbolName, referenceName)
+	updated, err = p.syncWatchCodeRenameImports(
+		oldModulePath,
+		oldSymbolName,
+		previousReferenceName,
+		plan.NewCallable,
+		referenceName,
+	)
 	if err != nil {
 		return false, false, err
 	}
-	if importUpdated {
-		didUpdate = true
-	}
+	didUpdate = didUpdate || updated
+
+	didUpdate = didUpdate || p.setWatchCodeRegistryCallableName(plan.NewCallable.Identity, referenceName)
 
 	entry = p.WatchCodeRegistry[plan.NewCallable.Identity]
-	if entry.CallableName != referenceName {
-		entry.CallableName = referenceName
-		p.WatchCodeRegistry[plan.NewCallable.Identity] = entry
-		didUpdate = true
-	}
-
 	renamedSections, err := p.renameWatchCodeCallableSections(
 		entry.SectionIDs,
 		previousReferenceName,
@@ -529,25 +873,12 @@ func (p *Project) removeWatchCodeIdentity(identity string) (bool, error) {
 	sectionIDs := p.pruneWatchCodeSectionIDs(entry)
 	sectionsToDelete := make([]string, 0)
 	for _, sectionID := range sectionIDs {
-		if _, ok := p.Sections[sectionID]; !ok {
-			continue
-		}
-		variantsToRemove, err := p.watchCodeCallableVariantsForName(sectionID, entry.CallableName)
+		deleteSection, err := p.removeWatchCodeCallableFromSection(sectionID, entry.CallableName)
 		if err != nil {
 			return false, err
 		}
-		if len(variantsToRemove) == 0 {
-			continue
-		}
-		section := p.Sections[sectionID]
-		if len(section.VariantIDs) == len(variantsToRemove) {
+		if deleteSection {
 			sectionsToDelete = append(sectionsToDelete, sectionID)
-			continue
-		}
-		for _, variantID := range variantsToRemove {
-			if err := p.deleteWatchCodeSectionVariant(sectionID, variantID); err != nil {
-				return false, err
-			}
 		}
 	}
 	if len(sectionsToDelete) > 0 {
@@ -612,33 +943,14 @@ func (p *Project) deleteWatchCodeSectionVariant(sectionID string, variantID stri
 		return nil
 	}
 
-	filteredEdges := make([]Edge, 0, len(p.Edges))
-	for _, edge := range p.Edges {
-		if (edge.SourceSectionID == sectionID && edge.SourceVariantID == variantID) ||
-			(edge.TargetSectionID == sectionID && edge.TargetVariantID == variantID) {
-			continue
-		}
-		filteredEdges = append(filteredEdges, edge)
-	}
-	p.Edges = filteredEdges
+	p.Edges = filterEdgesWithoutSectionVariant(p.Edges, sectionID, variantID)
 
-	nextVariants := make([]string, 0, len(section.VariantIDs)-1)
-	for _, candidate := range section.VariantIDs {
-		if candidate == variantID {
-			continue
-		}
-		nextVariants = append(nextVariants, candidate)
-	}
+	nextVariants := filterStringSlice(section.VariantIDs, map[string]struct{}{variantID: {}})
 	if len(nextVariants) == 0 {
 		return nil
 	}
 	section.VariantIDs = nextVariants
-	if section.DefaultVariantID == variantID {
-		section.DefaultVariantID = nextVariants[0]
-	}
-	if p.SectionVariantMap[sectionID] == variantID {
-		p.SectionVariantMap[sectionID] = nextVariants[0]
-	}
+	p.syncWatchCodeSectionVariantSelection(sectionID, &section, variantID, nextVariants[0])
 	p.Sections[sectionID] = section
 	delete(p.SectionVariants, variantID)
 
@@ -649,62 +961,17 @@ func (p *Project) deleteWatchCodeSectionVariant(sectionID string, variantID stri
 }
 
 func (p *Project) pruneUnusedCodeObjects() error {
-	usedCodeObjIDs := map[string]struct{}{}
-	for sectionID, section := range p.Sections {
-		for _, variantID := range collectSectionVariantIDs(*p, section) {
-			if _, ok := p.SectionVariants[variantID]; !ok {
-				continue
-			}
-			payload, err := effectiveSectionPayload(*p, sectionID, variantID)
-			if err != nil {
-				return err
-			}
-			for codeObjID := range payloadStringMapField(payload, "codeObjVariantMap") {
-				usedCodeObjIDs[codeObjID] = struct{}{}
-			}
-		}
+	usedCodeObjIDs, err := p.watchCodeUsedCodeObjectIDs()
+	if err != nil {
+		return err
 	}
 
-	pending := make([]string, 0, len(usedCodeObjIDs))
-	for codeObjID := range usedCodeObjIDs {
-		pending = append(pending, codeObjID)
-	}
-	reachable := map[string]struct{}{}
-	for len(pending) > 0 {
-		lastIndex := len(pending) - 1
-		codeObjID := pending[lastIndex]
-		pending = pending[:lastIndex]
-		if _, ok := reachable[codeObjID]; ok {
-			continue
-		}
-		codeObj, ok := p.CodeObjs[codeObjID]
-		if !ok {
-			return fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
-		}
-		reachable[codeObjID] = struct{}{}
-		for _, variantID := range codeObj.VariantIDs {
-			payload, err := effectiveCodeObjectPayloadForVariant(*p, codeObjID, variantID)
-			if err != nil {
-				return err
-			}
-			pending = append(pending, payloadStringArrayField(payload, "children")...)
-		}
+	reachable, err := p.reachableWatchCodeCodeObjects(usedCodeObjIDs)
+	if err != nil {
+		return err
 	}
 
-	codeObjIDs := make([]string, 0, len(p.CodeObjs))
-	for codeObjID := range p.CodeObjs {
-		codeObjIDs = append(codeObjIDs, codeObjID)
-	}
-	sort.Strings(codeObjIDs)
-	for _, codeObjID := range codeObjIDs {
-		if _, ok := reachable[codeObjID]; ok {
-			continue
-		}
-		if err := p.deleteWatchCodeCodeObject(codeObjID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return p.deleteUnusedWatchCodeCodeObjects(reachable)
 }
 
 func effectiveCodeObjectPayloadForVariant(project Project, codeObjID string, variantID string) (map[string]any, error) {
@@ -849,33 +1116,47 @@ func (p *Project) renameWatchCodeCallableSections(
 			return false, err
 		}
 		for _, variantID := range variantIDs {
-			if err := p.withSectionVariantSelected(sectionID, variantID, func() error {
-				sectionPayload, err := p.currentCallableSectionPayload(sectionID)
-				if err != nil {
-					if errors.Is(err, ErrCallableSectionRequired) {
-						return nil
-					}
-					return err
-				}
-				callableID := payloadStringField(sectionPayload, "callable")
-				if callableID == "" {
-					return nil
-				}
-				codeObj, ok := p.CodeObjs[callableID]
-				if !ok {
-					return fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
-				}
-				if codeObj.Name == trimmedCallableName {
-					return nil
-				}
-				codeObj.Name = trimmedCallableName
-				p.CodeObjs[callableID] = codeObj
-				didUpdate = true
-				return nil
-			}); err != nil {
+			updated, err := p.renameWatchCodeCallableSectionVariant(sectionID, variantID, trimmedCallableName)
+			if err != nil {
 				return false, err
 			}
+			didUpdate = didUpdate || updated
 		}
+	}
+	return didUpdate, nil
+}
+
+func (p *Project) renameWatchCodeCallableSectionVariant(
+	sectionID string,
+	variantID string,
+	callableName string,
+) (bool, error) {
+	didUpdate := false
+	if err := p.withSectionVariantSelected(sectionID, variantID, func() error {
+		sectionPayload, err := p.currentCallableSectionPayload(sectionID)
+		if err != nil {
+			if errors.Is(err, ErrCallableSectionRequired) {
+				return nil
+			}
+			return err
+		}
+		callableID := payloadStringField(sectionPayload, "callable")
+		if callableID == "" {
+			return nil
+		}
+		codeObj, ok := p.CodeObjs[callableID]
+		if !ok {
+			return fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
+		}
+		if codeObj.Name == callableName {
+			return nil
+		}
+		codeObj.Name = callableName
+		p.CodeObjs[callableID] = codeObj
+		didUpdate = true
+		return nil
+	}); err != nil {
+		return false, err
 	}
 	return didUpdate, nil
 }
@@ -948,37 +1229,8 @@ func (p *Project) ensureWatchCodePythonImport(modulePath string, symbolName stri
 	}
 	importLine := buildWatchCodeImportLine(modulePath, symbolName, referenceName)
 	existingLines := strings.Split(target.GenCodePrefix, "\n")
-	for _, line := range existingLines {
-		stripped := strings.TrimSpace(line)
-		if stripped == "" {
-			continue
-		}
-		if stripped == importLine {
-			return false, nil
-		}
-		if !strings.HasPrefix(stripped, "from "+modulePath+" import") {
-			continue
-		}
-		if commentIndex := strings.Index(stripped, "#"); commentIndex >= 0 {
-			stripped = strings.TrimSpace(stripped[:commentIndex])
-		}
-		parts := strings.SplitN(stripped, "import", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		imports := strings.Split(parts[1], ",")
-		for _, item := range imports {
-			trimmed := strings.TrimSpace(item)
-			if trimmed == "" {
-				continue
-			}
-			if referenceName == symbolName && trimmed == symbolName {
-				return false, nil
-			}
-			if referenceName != symbolName && trimmed == symbolName+" as "+referenceName {
-				return false, nil
-			}
-		}
+	if watchCodeImportAlreadyPresent(existingLines, modulePath, symbolName, referenceName, importLine) {
+		return false, nil
 	}
 
 	prefix := target.GenCodePrefix
@@ -990,6 +1242,64 @@ func (p *Project) ensureWatchCodePythonImport(modulePath string, symbolName stri
 		return false, err
 	}
 	return true, nil
+}
+
+func watchCodeImportAlreadyPresent(
+	lines []string,
+	modulePath string,
+	symbolName string,
+	referenceName string,
+	importLine string,
+) bool {
+	for _, line := range lines {
+		if watchCodeImportLineMatches(line, modulePath, symbolName, referenceName, importLine) {
+			return true
+		}
+	}
+	return false
+}
+
+func watchCodeImportLineMatches(
+	line string,
+	modulePath string,
+	symbolName string,
+	referenceName string,
+	importLine string,
+) bool {
+	stripped := strings.TrimSpace(line)
+	if stripped == "" {
+		return false
+	}
+	if stripped == importLine {
+		return true
+	}
+	if !strings.HasPrefix(stripped, "from "+modulePath+" import") {
+		return false
+	}
+	if commentIndex := strings.Index(stripped, "#"); commentIndex >= 0 {
+		stripped = strings.TrimSpace(stripped[:commentIndex])
+	}
+	parts := strings.SplitN(stripped, "import", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	return watchCodeImportListContains(parts[1], symbolName, referenceName)
+}
+
+func watchCodeImportListContains(importList string, symbolName string, referenceName string) bool {
+	for _, item := range strings.Split(importList, ",") {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		if referenceName == symbolName && trimmed == symbolName {
+			return true
+		}
+		if referenceName != symbolName && trimmed == symbolName+" as "+referenceName {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Project) removeWatchCodePythonImport(modulePath string, symbolName string, referenceName string) (bool, error) {
@@ -1093,66 +1403,102 @@ func (p *Project) syncWatchCodeRegistrySectionMembership(sectionID string) error
 		return nil
 	}
 
-	callableNamesBySection := map[string]struct{}{}
-	if section, ok := p.Sections[trimmedSectionID]; ok {
-		for _, variantID := range collectSectionVariantIDs(*p, section) {
-			if _, ok := p.SectionVariants[variantID]; !ok {
-				continue
-			}
-			payload, err := effectiveSectionPayload(*p, trimmedSectionID, variantID)
-			if err != nil {
-				return err
-			}
-			sectionType := payloadStringField(payload, "type")
-			if sectionType == "" {
-				implID := strings.TrimSpace(p.SectionVariants[variantID].ImplID)
-				if impl, ok := p.SectionImpls[implID]; ok {
-					sectionType = fallbackSectionType(impl)
-				}
-			}
-			if sectionType != "Callable" {
-				continue
-			}
-			callableID := payloadStringField(payload, "callable")
-			if callableID == "" {
-				continue
-			}
-			codeObj, ok := p.CodeObjs[callableID]
-			if !ok {
-				return fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
-			}
-			callableName := strings.TrimSpace(codeObj.Name)
-			if callableName == "" {
-				continue
-			}
-			callableNamesBySection[callableName] = struct{}{}
-		}
+	callableNamesBySection, err := p.watchCodeCallableNamesForSection(trimmedSectionID)
+	if err != nil {
+		return err
 	}
 
-	identities := make([]string, 0, len(p.WatchCodeRegistry))
-	for identity := range p.WatchCodeRegistry {
-		identities = append(identities, identity)
-	}
-	sort.Strings(identities)
-
-	for _, identity := range identities {
-		entry := p.WatchCodeRegistry[identity]
-		nextSectionIDs := filterStringSlice(
-			uniqueSortedTrimmedStrings(p.pruneWatchCodeSectionIDs(entry)),
-			map[string]struct{}{trimmedSectionID: {}},
-		)
-		if _, ok := callableNamesBySection[strings.TrimSpace(entry.CallableName)]; ok {
-			nextSectionIDs = uniqueSortedTrimmedStrings(append(nextSectionIDs, trimmedSectionID))
-		}
-		if stringSlicesEqual(entry.SectionIDs, nextSectionIDs) && entry.SectionsCount == len(nextSectionIDs) {
-			continue
-		}
-		entry.SectionIDs = nextSectionIDs
-		entry.SectionsCount = len(nextSectionIDs)
-		p.WatchCodeRegistry[identity] = entry
+	for _, identity := range sortedWatchCodeRegistryIdentities(p.WatchCodeRegistry) {
+		p.syncWatchCodeRegistryEntryMembership(identity, trimmedSectionID, callableNamesBySection)
 	}
 
 	return nil
+}
+
+func (p *Project) watchCodeCallableNamesForSection(sectionID string) (map[string]struct{}, error) {
+	callableNamesBySection := map[string]struct{}{}
+	section, ok := p.Sections[sectionID]
+	if !ok {
+		return callableNamesBySection, nil
+	}
+
+	for _, variantID := range collectSectionVariantIDs(*p, section) {
+		callableName, ok, err := p.watchCodeCallableNameForVariant(sectionID, variantID)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			callableNamesBySection[callableName] = struct{}{}
+		}
+	}
+	return callableNamesBySection, nil
+}
+
+func (p *Project) watchCodeCallableNameForVariant(sectionID string, variantID string) (string, bool, error) {
+	if _, ok := p.SectionVariants[variantID]; !ok {
+		return "", false, nil
+	}
+	payload, err := effectiveSectionPayload(*p, sectionID, variantID)
+	if err != nil {
+		return "", false, err
+	}
+	if !watchCodeSectionPayloadIsCallable(*p, payload, variantID) {
+		return "", false, nil
+	}
+	callableID := payloadStringField(payload, "callable")
+	if callableID == "" {
+		return "", false, nil
+	}
+	codeObj, ok := p.CodeObjs[callableID]
+	if !ok {
+		return "", false, fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
+	}
+	callableName := strings.TrimSpace(codeObj.Name)
+	if callableName == "" {
+		return "", false, nil
+	}
+	return callableName, true, nil
+}
+
+func watchCodeSectionPayloadIsCallable(project Project, payload map[string]any, variantID string) bool {
+	sectionType := payloadStringField(payload, "type")
+	if sectionType == "" {
+		implID := strings.TrimSpace(project.SectionVariants[variantID].ImplID)
+		if impl, ok := project.SectionImpls[implID]; ok {
+			sectionType = fallbackSectionType(impl)
+		}
+	}
+	return sectionType == "Callable"
+}
+
+func sortedWatchCodeRegistryIdentities(registry map[string]WatchCodeRegistryEntry) []string {
+	identities := make([]string, 0, len(registry))
+	for identity := range registry {
+		identities = append(identities, identity)
+	}
+	sort.Strings(identities)
+	return identities
+}
+
+func (p *Project) syncWatchCodeRegistryEntryMembership(
+	identity string,
+	sectionID string,
+	callableNamesBySection map[string]struct{},
+) {
+	entry := p.WatchCodeRegistry[identity]
+	nextSectionIDs := filterStringSlice(
+		uniqueSortedTrimmedStrings(p.pruneWatchCodeSectionIDs(entry)),
+		map[string]struct{}{sectionID: {}},
+	)
+	if _, ok := callableNamesBySection[strings.TrimSpace(entry.CallableName)]; ok {
+		nextSectionIDs = uniqueSortedTrimmedStrings(append(nextSectionIDs, sectionID))
+	}
+	if stringSlicesEqual(entry.SectionIDs, nextSectionIDs) && entry.SectionsCount == len(nextSectionIDs) {
+		return
+	}
+	entry.SectionIDs = nextSectionIDs
+	entry.SectionsCount = len(nextSectionIDs)
+	p.WatchCodeRegistry[identity] = entry
 }
 
 func (p *Project) withSectionVariantSelected(
