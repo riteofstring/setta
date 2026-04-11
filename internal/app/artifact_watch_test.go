@@ -106,6 +106,74 @@ func TestArtifactWatchInputsIncludesValidArtifactPathsAndTypes(t *testing.T) {
 	}
 }
 
+func TestArtifactWatchInputsIncludesDrawArtifacts(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	artifactsRoot := filepath.Join(settaFilesRoot, "artifacts")
+	imagePath := filepath.Join(artifactsRoot, "draw-image.png")
+	brushPath := filepath.Join(artifactsRoot, "draw-strokes.json")
+	transformPath := filepath.Join(artifactsRoot, "draw-transform.json")
+	document := projectstate.Document{
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID: "project-alpha",
+				SectionVariantMap: map[string]string{
+					"draw-section": "draw-variant",
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"draw-variant": {ID: "draw-variant", ImplID: "draw-impl"},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"draw-impl": {ID: "draw-impl", Payload: projectstate.RawJSON(`{
+						"type":"Draw",
+						"layers":[
+							{"elements":[
+								{"type":"Image","dataPath":"` + imagePath + `","transformId":"` + transformPath + `"},
+								{"type":"BrushStroke","dataPath":"` + brushPath + `","transformId":"` + transformPath + `"}
+							]}
+						]
+					}`)},
+				},
+			},
+		},
+	}
+
+	inputs, err := artifactWatchInputs(document, settaFilesRoot)
+	if err != nil {
+		t.Fatalf("build artifact watch inputs: %v", err)
+	}
+	if len(inputs) != 3 {
+		t.Fatalf("expected draw image, brush, and transform watch inputs, got %#v", inputs)
+	}
+
+	byPath := map[string]artifactwatch.FileInput{}
+	for _, input := range inputs {
+		byPath[input.Path] = input
+	}
+	if got, ok := byPath[imagePath]; !ok {
+		t.Fatalf("expected draw image watch path %q in %#v", imagePath, inputs)
+	} else if len(got.Types) != 1 || got.Types[0] != artifacts.ArtifactTypeImage {
+		t.Fatalf("expected image draw watch input for %q, got %#v", imagePath, got)
+	}
+	if got, ok := byPath[brushPath]; !ok {
+		t.Fatalf("expected draw brush watch path %q in %#v", brushPath, inputs)
+	} else if len(got.Types) != 1 || got.Types[0] != artifacts.ArtifactTypeBrushStroke {
+		t.Fatalf("expected brush draw watch input for %q, got %#v", brushPath, got)
+	}
+	if got, ok := byPath[transformPath]; !ok {
+		t.Fatalf("expected draw transform watch path %q in %#v", transformPath, inputs)
+	} else if len(got.Types) != 2 {
+		t.Fatalf("expected shared transform watch input for %q, got %#v", transformPath, got)
+	} else {
+		for _, typ := range got.Types {
+			if typ != artifacts.ArtifactTypeDrawAreaLayerItemTransform {
+				t.Fatalf("expected only transform watch types for %q, got %#v", transformPath, got)
+			}
+		}
+	}
+}
+
 func TestCollectArtifactWatchUpdateOutputsBuildsImageBinaryDeltas(t *testing.T) {
 	t.Parallel()
 

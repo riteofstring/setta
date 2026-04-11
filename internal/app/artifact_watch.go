@@ -245,60 +245,123 @@ func syncArtifactWatchInputs(service *artifactwatch.Service, document projectsta
 	return service.SyncInputs(inputs)
 }
 
+type artifactWatchInputCollector struct {
+	artifactsRoot  string
+	settaFilesRoot string
+	inputsByPath   map[string]*artifactwatch.FileInput
+}
+
 func artifactWatchInputs(document projectstate.Document, settaFilesRoot string) ([]artifactwatch.FileInput, error) {
-	artifactsRoot := filepath.Join(settaFilesRoot, "artifacts")
-	inputsByPath := map[string]*artifactwatch.FileInput{}
+	collector := newArtifactWatchInputCollector(settaFilesRoot)
+	if err := collector.collectDocument(document); err != nil {
+		return nil, err
+	}
+	return collector.inputs(), nil
+}
 
+func newArtifactWatchInputCollector(settaFilesRoot string) artifactWatchInputCollector {
+	return artifactWatchInputCollector{
+		artifactsRoot:  filepath.Join(settaFilesRoot, "artifacts"),
+		settaFilesRoot: settaFilesRoot,
+		inputsByPath:   map[string]*artifactwatch.FileInput{},
+	}
+}
+
+func (c *artifactWatchInputCollector) collectDocument(document projectstate.Document) error {
 	for projectID, project := range document.Projects {
-		for sectionID, variantID := range project.SectionVariantMap {
-			variant, ok := project.SectionVariants[variantID]
-			if !ok {
-				return nil, fmt.Errorf("%w: section=%q variant=%q", projectstate.ErrSectionVariantNotFound, sectionID, variantID)
-			}
-			impl, ok := project.SectionImpls[variant.ImplID]
-			if !ok {
-				return nil, fmt.Errorf("%w: variant=%q impl=%q", projectstate.ErrSectionImplNotFound, variantID, variant.ImplID)
-			}
-
-			payload, err := rawArtifactWatchPayload(impl.Payload)
-			if err != nil {
-				return nil, err
-			}
-			switch payloadType(payload) {
-			case "Image":
-				addArtifactWatchPath(inputsByPath, artifactsRoot, settaFilesRoot, payloadString(payload, "imagePath"), artifacts.ArtifactTypeImage, &artifactwatch.ImageRef{
-					ProjectID: projectID,
-					SectionID: sectionID,
-				})
-			case "Chart":
-				addArtifactWatchPath(inputsByPath, artifactsRoot, settaFilesRoot, payloadString(payload, "dataPath"), artifacts.ArtifactTypeChartData, nil)
-			case "Draw":
-				for _, layer := range payloadObjectSlice(payload, "layers") {
-					for _, element := range payloadObjectSlice(layer, "elements") {
-						switch strings.TrimSpace(payloadString(element, "type")) {
-						case string(artifacts.ArtifactTypeImage):
-							addArtifactWatchPath(inputsByPath, artifactsRoot, settaFilesRoot, payloadString(element, "dataPath"), artifacts.ArtifactTypeImage, nil)
-						case string(artifacts.ArtifactTypeBrushStroke):
-							addArtifactWatchPath(inputsByPath, artifactsRoot, settaFilesRoot, payloadString(element, "dataPath"), artifacts.ArtifactTypeBrushStroke, nil)
-						}
-						addArtifactWatchPath(inputsByPath, artifactsRoot, settaFilesRoot, payloadString(element, "transformId"), artifacts.ArtifactTypeDrawAreaLayerItemTransform, nil)
-					}
-				}
-			}
+		if err := c.collectProject(projectID, project); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	paths := make([]string, 0, len(inputsByPath))
-	for path := range inputsByPath {
+func (c *artifactWatchInputCollector) collectProject(projectID string, project projectstate.Project) error {
+	for sectionID, variantID := range project.SectionVariantMap {
+		if err := c.collectSection(projectID, sectionID, variantID, project); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *artifactWatchInputCollector) collectSection(projectID string, sectionID string, variantID string, project projectstate.Project) error {
+	impl, err := resolveArtifactWatchSectionImpl(project, sectionID, variantID)
+	if err != nil {
+		return err
+	}
+	payload, err := rawArtifactWatchPayload(impl.Payload)
+	if err != nil {
+		return err
+	}
+	c.collectPayload(projectID, sectionID, payload)
+	return nil
+}
+
+func resolveArtifactWatchSectionImpl(project projectstate.Project, sectionID string, variantID string) (projectstate.SectionImpl, error) {
+	variant, ok := project.SectionVariants[variantID]
+	if !ok {
+		return projectstate.SectionImpl{}, fmt.Errorf("%w: section=%q variant=%q", projectstate.ErrSectionVariantNotFound, sectionID, variantID)
+	}
+	impl, ok := project.SectionImpls[variant.ImplID]
+	if !ok {
+		return projectstate.SectionImpl{}, fmt.Errorf("%w: variant=%q impl=%q", projectstate.ErrSectionImplNotFound, variantID, variant.ImplID)
+	}
+	return impl, nil
+}
+
+func (c *artifactWatchInputCollector) collectPayload(projectID string, sectionID string, payload map[string]any) {
+	switch payloadType(payload) {
+	case "Image":
+		c.add(payloadString(payload, "imagePath"), artifacts.ArtifactTypeImage, &artifactwatch.ImageRef{
+			ProjectID: projectID,
+			SectionID: sectionID,
+		})
+	case "Chart":
+		c.add(payloadString(payload, "dataPath"), artifacts.ArtifactTypeChartData, nil)
+	case "Draw":
+		c.collectDrawPayload(payload)
+	}
+}
+
+func (c *artifactWatchInputCollector) collectDrawPayload(payload map[string]any) {
+	for _, layer := range payloadObjectSlice(payload, "layers") {
+		c.collectDrawLayer(layer)
+	}
+}
+
+func (c *artifactWatchInputCollector) collectDrawLayer(layer map[string]any) {
+	for _, element := range payloadObjectSlice(layer, "elements") {
+		c.collectDrawElement(element)
+	}
+}
+
+func (c *artifactWatchInputCollector) collectDrawElement(element map[string]any) {
+	switch strings.TrimSpace(payloadString(element, "type")) {
+	case string(artifacts.ArtifactTypeImage):
+		c.add(payloadString(element, "dataPath"), artifacts.ArtifactTypeImage, nil)
+	case string(artifacts.ArtifactTypeBrushStroke):
+		c.add(payloadString(element, "dataPath"), artifacts.ArtifactTypeBrushStroke, nil)
+	}
+	c.add(payloadString(element, "transformId"), artifacts.ArtifactTypeDrawAreaLayerItemTransform, nil)
+}
+
+func (c *artifactWatchInputCollector) add(rawPath string, artifactType artifacts.ArtifactType, imageRef *artifactwatch.ImageRef) {
+	addArtifactWatchPath(c.inputsByPath, c.artifactsRoot, c.settaFilesRoot, rawPath, artifactType, imageRef)
+}
+
+func (c *artifactWatchInputCollector) inputs() []artifactwatch.FileInput {
+	paths := make([]string, 0, len(c.inputsByPath))
+	for path := range c.inputsByPath {
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
 
 	inputs := make([]artifactwatch.FileInput, 0, len(paths))
 	for _, path := range paths {
-		inputs = append(inputs, *inputsByPath[path])
+		inputs = append(inputs, *c.inputsByPath[path])
 	}
-	return inputs, nil
+	return inputs
 }
 
 func addArtifactWatchPath(
