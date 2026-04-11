@@ -181,3 +181,23 @@ def test_spawn_background_task_closes_runner_when_loop_create_task_fails() -> No
     assert not any(
         "was never awaited" in str(warning.message) for warning in caught
     )
+
+
+def test_spawn_background_task_closes_input_coroutine_when_loop_create_task_fails() -> None:
+    class _FakeLoop:
+        def create_task(self, _coro, *, name: str | None = None):  # noqa: ANN001
+            raise RuntimeError("loop closed")
+
+    async def noop() -> None:
+        return None
+
+    loop = _FakeLoop()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", category=RuntimeWarning)
+        with pytest.raises(RuntimeError):
+            spawn_background_task(noop(), label="bg-test", loop=loop)
+        gc.collect()
+
+    assert not any(
+        "was never awaited" in str(warning.message) for warning in caught
+    )
