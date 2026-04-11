@@ -10,6 +10,7 @@ import argparse
 import ast
 import os
 import sys
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Iterator
@@ -174,6 +175,14 @@ def iter_python_files(root: Path) -> Iterator[Path]:
         )
 
 
+def iter_parseable_python_modules(root: Path) -> Iterator[ast.Module]:
+    for path in iter_python_files(root):
+        with suppress(OSError):
+            source = path.read_text(encoding="utf-8")
+            with suppress(RuntimeError):
+                yield parse_python_module(source, path)
+
+
 class UsageCollector(ast.NodeVisitor):
     def __init__(
         self,
@@ -247,17 +256,7 @@ def collect_used_keys(
         if name in module_to_names.get(module, set()):
             used_keys.add((module, name))
 
-    for path in iter_python_files(repo_root):
-        try:
-            source = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-
-        try:
-            tree = parse_python_module(source, path)
-        except RuntimeError:
-            continue
-
+    for tree in iter_parseable_python_modules(repo_root):
         collector = UsageCollector(mark_used, module_to_names)
         collector.visit(tree)
 

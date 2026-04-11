@@ -115,6 +115,94 @@ def test_collect_used_keys_marks_generated_submodule_alias_attribute_usage(
     assert ("setta.types.generated.go_shared_types", "Thing") in used_keys
 
 
+def test_collect_used_keys_skips_unparseable_python_files(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    target_dir = repo_root / "backend" / "setta" / "types" / "generated"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "go_shared_types.py").write_text(
+        "class Thing:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    consumer_path = repo_root / "backend" / "setta" / "types" / "consumer.py"
+    consumer_path.parent.mkdir(parents=True, exist_ok=True)
+    consumer_path.write_text(
+        "from setta.types.generated.go_shared_types import Thing\n\n"
+        "VALUE = Thing\n",
+        encoding="utf-8",
+    )
+    (repo_root / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+
+    module = _load_prune_generated_types_module()
+    definitions, module_local_refs = module.collect_definitions(target_dir, repo_root)
+    module_to_names = {}
+    for definition in definitions:
+        module_to_names.setdefault(definition.module, set()).add(definition.name)
+
+    initial_used_keys = {
+        definition.key
+        for definition in definitions
+        if definition.name in module_local_refs.get(definition.module, set())
+    }
+    used_keys = module.collect_used_keys(
+        repo_root,
+        module_to_names,
+        initial_used_keys=initial_used_keys,
+    )
+
+    assert ("setta.types.generated.go_shared_types", "Thing") in used_keys
+
+
+def test_collect_used_keys_skips_unreadable_python_files(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    target_dir = repo_root / "backend" / "setta" / "types" / "generated"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "go_shared_types.py").write_text(
+        "class Thing:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    consumer_path = repo_root / "backend" / "setta" / "types" / "consumer.py"
+    consumer_path.parent.mkdir(parents=True, exist_ok=True)
+    consumer_path.write_text(
+        "from setta.types.generated.go_shared_types import Thing\n\n"
+        "VALUE = Thing\n",
+        encoding="utf-8",
+    )
+    unreadable_path = repo_root / "unreadable.py"
+    unreadable_path.write_text("print('blocked')\n", encoding="utf-8")
+
+    module = _load_prune_generated_types_module()
+    original_read_text = module.Path.read_text
+
+    def patched_read_text(self: Path, *args: object, **kwargs: object) -> str:
+        if self == unreadable_path:
+            raise OSError("denied")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(module.Path, "read_text", patched_read_text)
+
+    definitions, module_local_refs = module.collect_definitions(target_dir, repo_root)
+    module_to_names = {}
+    for definition in definitions:
+        module_to_names.setdefault(definition.module, set()).add(definition.name)
+
+    initial_used_keys = {
+        definition.key
+        for definition in definitions
+        if definition.name in module_local_refs.get(definition.module, set())
+    }
+    used_keys = module.collect_used_keys(
+        repo_root,
+        module_to_names,
+        initial_used_keys=initial_used_keys,
+    )
+
+    assert ("setta.types.generated.go_shared_types", "Thing") in used_keys
+
+
 def test_apply_removals_trims_blank_lines_after_removed_definition(
     tmp_path: Path,
 ) -> None:
