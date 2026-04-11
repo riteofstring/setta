@@ -44,57 +44,21 @@ type PasteSectionsInput struct {
 }
 
 func (c ClipboardProjectStateCore) Clone() ClipboardProjectStateCore {
-	cloned := ClipboardProjectStateCore{}
-	if c.Sections != nil {
-		cloned.Sections = make(map[string]Section, len(c.Sections))
-		for id, section := range c.Sections {
-			cloned.Sections[id] = section.Clone()
-		}
+	return ClipboardProjectStateCore{
+		Sections:        cloneMapValues(c.Sections, func(section Section) Section { return section.Clone() }),
+		SectionImpls:    cloneMapValues(c.SectionImpls, func(impl SectionImpl) SectionImpl { return impl.Clone() }),
+		SectionVariants: cloneMapValues(c.SectionVariants, func(variant SectionVariant) SectionVariant { return variant.Clone() }),
+		CodeObjs:        cloneMapValues(c.CodeObjs, func(codeObj CodeObject) CodeObject { return codeObj.Clone() }),
+		CodeObjImpls:    cloneMapValues(c.CodeObjImpls, func(impl CodeObjectImpl) CodeObjectImpl { return impl.Clone() }),
+		CodeObjVariants: cloneMapValues(c.CodeObjVariants, func(variant CodeObjectVariant) CodeObjectVariant { return variant.Clone() }),
 	}
-	if c.SectionImpls != nil {
-		cloned.SectionImpls = make(map[string]SectionImpl, len(c.SectionImpls))
-		for id, impl := range c.SectionImpls {
-			cloned.SectionImpls[id] = impl.Clone()
-		}
-	}
-	if c.SectionVariants != nil {
-		cloned.SectionVariants = make(map[string]SectionVariant, len(c.SectionVariants))
-		for id, variant := range c.SectionVariants {
-			cloned.SectionVariants[id] = variant.Clone()
-		}
-	}
-	if c.CodeObjs != nil {
-		cloned.CodeObjs = make(map[string]CodeObject, len(c.CodeObjs))
-		for id, codeObj := range c.CodeObjs {
-			cloned.CodeObjs[id] = codeObj.Clone()
-		}
-	}
-	if c.CodeObjImpls != nil {
-		cloned.CodeObjImpls = make(map[string]CodeObjectImpl, len(c.CodeObjImpls))
-		for id, impl := range c.CodeObjImpls {
-			cloned.CodeObjImpls[id] = impl.Clone()
-		}
-	}
-	if c.CodeObjVariants != nil {
-		cloned.CodeObjVariants = make(map[string]CodeObjectVariant, len(c.CodeObjVariants))
-		for id, variant := range c.CodeObjVariants {
-			cloned.CodeObjVariants[id] = variant.Clone()
-		}
-	}
-	return cloned
 }
 
 func (c ClipboardProjectStateCoreWithSectionVariantMap) Clone() ClipboardProjectStateCoreWithSectionVariantMap {
-	cloned := ClipboardProjectStateCoreWithSectionVariantMap{
-		Core: c.Core.Clone(),
+	return ClipboardProjectStateCoreWithSectionVariantMap{
+		Core:              c.Core.Clone(),
+		SectionVariantMap: cloneStringMap(c.SectionVariantMap),
 	}
-	if c.SectionVariantMap != nil {
-		cloned.SectionVariantMap = make(map[string]string, len(c.SectionVariantMap))
-		for sectionID, variantID := range c.SectionVariantMap {
-			cloned.SectionVariantMap[sectionID] = variantID
-		}
-	}
-	return cloned
 }
 
 func (c ClipboardProjectStateCoreWithSectionVariantMap) toProject() Project {
@@ -150,6 +114,28 @@ func (r *Runtime) PrepareSectionsForCopy(ctx context.Context, projectID string, 
 	return result, nil
 }
 
+func cloneMapValues[T any](source map[string]T, clone func(T) T) map[string]T {
+	if source == nil {
+		return nil
+	}
+	cloned := make(map[string]T, len(source))
+	for id, value := range source {
+		cloned[id] = clone(value)
+	}
+	return cloned
+}
+
+func cloneStringMap(source map[string]string) map[string]string {
+	if source == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
 func (p Project) prepareSectionsForCopy(sectionIDs []string) (SectionsClipboardData, error) {
 	normalizedIDs, err := normalizeClipboardSectionIDs(sectionIDs)
 	if err != nil {
@@ -183,74 +169,129 @@ func normalizeClipboardSectionIDs(sectionIDs []string) ([]string, error) {
 }
 
 func (p Project) prepareClipboardCoreWithVariants(sectionIDs []string) (ClipboardProjectStateCoreWithSectionVariantMap, error) {
-	collectedSectionIDs := map[string]struct{}{}
-	collectedSectionImplIDs := map[string]struct{}{}
-	collectedSectionVariantIDs := map[string]struct{}{}
-	collectedCodeObjIDs := map[string]struct{}{}
-	collectedCodeObjImplIDs := map[string]struct{}{}
-	collectedCodeObjVariantIDs := map[string]struct{}{}
+	collector := newClipboardCoreCollector(p, sectionIDs)
+	if err := collector.collect(); err != nil {
+		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	}
+	sectionVariantMap, err := collector.buildSectionVariantMap()
+	if err != nil {
+		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	}
+	return ClipboardProjectStateCoreWithSectionVariantMap{
+		Core:              collector.buildCore(),
+		SectionVariantMap: sectionVariantMap,
+	}, nil
+}
 
-	codeObjQueue := []string{}
-	for len(sectionIDs) > 0 {
-		sectionID := sectionIDs[0]
-		sectionIDs = sectionIDs[1:]
+type clipboardCoreCollector struct {
+	project Project
 
-		if _, ok := collectedSectionIDs[sectionID]; ok {
-			continue
-		}
-		section, ok := p.Sections[sectionID]
-		if !ok {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
-		}
-		collectedSectionIDs[sectionID] = struct{}{}
+	sectionIDs        map[string]struct{}
+	sectionImplIDs    map[string]struct{}
+	sectionVariantIDs map[string]struct{}
+	codeObjIDs        map[string]struct{}
+	codeObjImplIDs    map[string]struct{}
+	codeObjVariantIDs map[string]struct{}
 
-		for _, variantID := range section.VariantIDs {
-			variant, impl, payload, err := p.resolveSectionVariantClipboardPayload(sectionID, variantID)
-			if err != nil {
-				return ClipboardProjectStateCoreWithSectionVariantMap{}, err
-			}
-			collectedSectionVariantIDs[variant.ID] = struct{}{}
-			collectedSectionImplIDs[impl.ID] = struct{}{}
+	pendingSectionIDs []string
+	pendingCodeObjIDs []string
+}
 
-			for _, childID := range payloadStringArrayField(payload, "children") {
-				sectionIDs = append(sectionIDs, childID)
-			}
-			for codeObjID := range payloadStringMapField(payload, "codeObjVariantMap") {
-				codeObjQueue = append(codeObjQueue, codeObjID)
-			}
-			for _, codeObjID := range collectOptionalClipboardCodeObjectIDs(payload) {
-				codeObjQueue = append(codeObjQueue, codeObjID)
-			}
+func newClipboardCoreCollector(project Project, sectionIDs []string) *clipboardCoreCollector {
+	return &clipboardCoreCollector{
+		project:           project,
+		sectionIDs:        map[string]struct{}{},
+		sectionImplIDs:    map[string]struct{}{},
+		sectionVariantIDs: map[string]struct{}{},
+		codeObjIDs:        map[string]struct{}{},
+		codeObjImplIDs:    map[string]struct{}{},
+		codeObjVariantIDs: map[string]struct{}{},
+		pendingSectionIDs: append([]string{}, sectionIDs...),
+	}
+}
+
+func (c *clipboardCoreCollector) collect() error {
+	if err := c.collectSections(); err != nil {
+		return err
+	}
+	return c.collectCodeObjects()
+}
+
+func (c *clipboardCoreCollector) collectSections() error {
+	for len(c.pendingSectionIDs) > 0 {
+		sectionID := c.pendingSectionIDs[0]
+		c.pendingSectionIDs = c.pendingSectionIDs[1:]
+		if err := c.collectSection(sectionID); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	for len(codeObjQueue) > 0 {
-		codeObjID := codeObjQueue[0]
-		codeObjQueue = codeObjQueue[1:]
+func (c *clipboardCoreCollector) collectSection(sectionID string) error {
+	if _, ok := c.sectionIDs[sectionID]; ok {
+		return nil
+	}
+	section, ok := c.project.Sections[sectionID]
+	if !ok {
+		return fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
+	}
+	c.sectionIDs[sectionID] = struct{}{}
 
-		if _, ok := collectedCodeObjIDs[codeObjID]; ok {
-			continue
+	for _, variantID := range section.VariantIDs {
+		variant, impl, payload, err := c.project.resolveSectionVariantClipboardPayload(sectionID, variantID)
+		if err != nil {
+			return err
 		}
-		codeObj, ok := p.CodeObjs[codeObjID]
-		if !ok {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
-		}
-		collectedCodeObjIDs[codeObjID] = struct{}{}
+		c.sectionVariantIDs[variant.ID] = struct{}{}
+		c.sectionImplIDs[impl.ID] = struct{}{}
+		c.pendingSectionIDs = append(c.pendingSectionIDs, payloadStringArrayField(payload, "children")...)
+		c.enqueueSectionPayloadCodeObjects(payload)
+	}
+	return nil
+}
 
-		for _, variantID := range codeObj.VariantIDs {
-			variant, impl, payload, err := p.resolveCodeObjectVariantClipboardPayload(codeObjID, variantID)
-			if err != nil {
-				return ClipboardProjectStateCoreWithSectionVariantMap{}, err
-			}
-			collectedCodeObjVariantIDs[variant.ID] = struct{}{}
-			collectedCodeObjImplIDs[impl.ID] = struct{}{}
+func (c *clipboardCoreCollector) enqueueSectionPayloadCodeObjects(payload map[string]any) {
+	for codeObjID := range payloadStringMapField(payload, "codeObjVariantMap") {
+		c.pendingCodeObjIDs = append(c.pendingCodeObjIDs, codeObjID)
+	}
+	c.pendingCodeObjIDs = append(c.pendingCodeObjIDs, collectOptionalClipboardCodeObjectIDs(payload)...)
+}
 
-			for _, childID := range payloadStringArrayField(payload, "children") {
-				codeObjQueue = append(codeObjQueue, childID)
-			}
+func (c *clipboardCoreCollector) collectCodeObjects() error {
+	for len(c.pendingCodeObjIDs) > 0 {
+		codeObjID := c.pendingCodeObjIDs[0]
+		c.pendingCodeObjIDs = c.pendingCodeObjIDs[1:]
+		if err := c.collectCodeObject(codeObjID); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
+func (c *clipboardCoreCollector) collectCodeObject(codeObjID string) error {
+	if _, ok := c.codeObjIDs[codeObjID]; ok {
+		return nil
+	}
+	codeObj, ok := c.project.CodeObjs[codeObjID]
+	if !ok {
+		return fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
+	}
+	c.codeObjIDs[codeObjID] = struct{}{}
+
+	for _, variantID := range codeObj.VariantIDs {
+		variant, impl, payload, err := c.project.resolveCodeObjectVariantClipboardPayload(codeObjID, variantID)
+		if err != nil {
+			return err
+		}
+		c.codeObjVariantIDs[variant.ID] = struct{}{}
+		c.codeObjImplIDs[impl.ID] = struct{}{}
+		c.pendingCodeObjIDs = append(c.pendingCodeObjIDs, payloadStringArrayField(payload, "children")...)
+	}
+	return nil
+}
+
+func (c *clipboardCoreCollector) buildCore() ClipboardProjectStateCore {
 	core := ClipboardProjectStateCore{
 		Sections:        map[string]Section{},
 		SectionImpls:    map[string]SectionImpl{},
@@ -259,41 +300,40 @@ func (p Project) prepareClipboardCoreWithVariants(sectionIDs []string) (Clipboar
 		CodeObjImpls:    map[string]CodeObjectImpl{},
 		CodeObjVariants: map[string]CodeObjectVariant{},
 	}
-	for sectionID := range collectedSectionIDs {
-		core.Sections[sectionID] = p.Sections[sectionID].Clone()
+	for sectionID := range c.sectionIDs {
+		core.Sections[sectionID] = c.project.Sections[sectionID].Clone()
 	}
-	for implID := range collectedSectionImplIDs {
-		core.SectionImpls[implID] = p.SectionImpls[implID].Clone()
+	for implID := range c.sectionImplIDs {
+		core.SectionImpls[implID] = c.project.SectionImpls[implID].Clone()
 	}
-	for variantID := range collectedSectionVariantIDs {
-		core.SectionVariants[variantID] = p.SectionVariants[variantID].Clone()
+	for variantID := range c.sectionVariantIDs {
+		core.SectionVariants[variantID] = c.project.SectionVariants[variantID].Clone()
 	}
-	for codeObjID := range collectedCodeObjIDs {
-		core.CodeObjs[codeObjID] = p.CodeObjs[codeObjID].Clone()
+	for codeObjID := range c.codeObjIDs {
+		core.CodeObjs[codeObjID] = c.project.CodeObjs[codeObjID].Clone()
 	}
-	for implID := range collectedCodeObjImplIDs {
-		core.CodeObjImpls[implID] = p.CodeObjImpls[implID].Clone()
+	for implID := range c.codeObjImplIDs {
+		core.CodeObjImpls[implID] = c.project.CodeObjImpls[implID].Clone()
 	}
-	for variantID := range collectedCodeObjVariantIDs {
-		core.CodeObjVariants[variantID] = p.CodeObjVariants[variantID].Clone()
+	for variantID := range c.codeObjVariantIDs {
+		core.CodeObjVariants[variantID] = c.project.CodeObjVariants[variantID].Clone()
 	}
+	return core
+}
 
-	sectionVariantMap := make(map[string]string, len(core.Sections))
-	for sectionID := range core.Sections {
-		activeVariantID := strings.TrimSpace(p.SectionVariantMap[sectionID])
+func (c *clipboardCoreCollector) buildSectionVariantMap() (map[string]string, error) {
+	sectionVariantMap := make(map[string]string, len(c.sectionIDs))
+	for sectionID := range c.sectionIDs {
+		activeVariantID := strings.TrimSpace(c.project.SectionVariantMap[sectionID])
 		if activeVariantID == "" {
-			activeVariantID = strings.TrimSpace(core.Sections[sectionID].DefaultVariantID)
+			activeVariantID = strings.TrimSpace(c.project.Sections[sectionID].DefaultVariantID)
 		}
 		if activeVariantID == "" {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, fmt.Errorf("%w: section=%q", ErrClipboardSectionVariantMissing, sectionID)
+			return nil, fmt.Errorf("%w: section=%q", ErrClipboardSectionVariantMissing, sectionID)
 		}
 		sectionVariantMap[sectionID] = activeVariantID
 	}
-
-	return ClipboardProjectStateCoreWithSectionVariantMap{
-		Core:              core,
-		SectionVariantMap: sectionVariantMap,
-	}, nil
+	return sectionVariantMap, nil
 }
 
 func collectOptionalClipboardCodeObjectIDs(payload map[string]any) []string {
@@ -522,7 +562,17 @@ func (p *Project) mergeClipboardSections(data ClipboardProjectStateCoreWithSecti
 	if p == nil {
 		return ErrProjectNotFound
 	}
+	p.ensureClipboardMergeMaps()
 
+	rootIDs := inferClipboardRootSectionIDs(data.toProject())
+	rootSet := stringSetFromSlice(rootIDs)
+	p.mergeClipboardCore(data.Core, rootSet)
+	mergeStringMap(p.SectionVariantMap, data.SectionVariantMap)
+	p.addClipboardRootLayouts(rootIDs, position)
+	return nil
+}
+
+func (p *Project) ensureClipboardMergeMaps() {
 	if p.Sections == nil {
 		p.Sections = map[string]Section{}
 	}
@@ -547,12 +597,19 @@ func (p *Project) mergeClipboardSections(data ClipboardProjectStateCoreWithSecti
 	if p.TopLevelSections == nil {
 		p.TopLevelSections = map[string]TopLevelSectionLayout{}
 	}
+}
 
-	rootIDs := inferClipboardRootSectionIDs(data.toProject())
-	rootSet := stringSetFromSlice(rootIDs)
-	nextZIndex := p.nextCreateTopLevelSectionZIndex()
+func (p *Project) mergeClipboardCore(core ClipboardProjectStateCore, rootSet map[string]struct{}) {
+	p.mergeClipboardSectionsMap(core.Sections, rootSet)
+	mergeClonedEntries(p.SectionImpls, core.SectionImpls, func(impl SectionImpl) SectionImpl { return impl.Clone() })
+	mergeClonedEntries(p.SectionVariants, core.SectionVariants, func(variant SectionVariant) SectionVariant { return variant.Clone() })
+	mergeClonedEntries(p.CodeObjs, core.CodeObjs, func(codeObj CodeObject) CodeObject { return codeObj.Clone() })
+	mergeClonedEntries(p.CodeObjImpls, core.CodeObjImpls, func(impl CodeObjectImpl) CodeObjectImpl { return impl.Clone() })
+	mergeClonedEntries(p.CodeObjVariants, core.CodeObjVariants, func(variant CodeObjectVariant) CodeObjectVariant { return variant.Clone() })
+}
 
-	for sectionID, section := range data.Core.Sections {
+func (p *Project) mergeClipboardSectionsMap(sections map[string]Section, rootSet map[string]struct{}) {
+	for sectionID, section := range sections {
 		cloned := section.Clone()
 		if _, ok := rootSet[sectionID]; ok {
 			cloned.ParentSectionID = ""
@@ -562,25 +619,10 @@ func (p *Project) mergeClipboardSections(data ClipboardProjectStateCoreWithSecti
 			p.removeTopLevelSectionViewState(sectionID)
 		}
 	}
-	for implID, impl := range data.Core.SectionImpls {
-		p.SectionImpls[implID] = impl.Clone()
-	}
-	for variantID, variant := range data.Core.SectionVariants {
-		p.SectionVariants[variantID] = variant.Clone()
-	}
-	for codeObjID, codeObj := range data.Core.CodeObjs {
-		p.CodeObjs[codeObjID] = codeObj.Clone()
-	}
-	for implID, impl := range data.Core.CodeObjImpls {
-		p.CodeObjImpls[implID] = impl.Clone()
-	}
-	for variantID, variant := range data.Core.CodeObjVariants {
-		p.CodeObjVariants[variantID] = variant.Clone()
-	}
-	for sectionID, variantID := range data.SectionVariantMap {
-		p.SectionVariantMap[sectionID] = variantID
-	}
+}
 
+func (p *Project) addClipboardRootLayouts(rootIDs []string, position Position) {
+	nextZIndex := p.nextCreateTopLevelSectionZIndex()
 	for _, sectionID := range rootIDs {
 		p.addTopLevelSectionViewState(sectionID, TopLevelSectionLayout{
 			X:      position.X,
@@ -589,153 +631,246 @@ func (p *Project) mergeClipboardSections(data ClipboardProjectStateCoreWithSecti
 		})
 		nextZIndex++
 	}
-	return nil
+}
+
+func mergeClonedEntries[T any](dest map[string]T, source map[string]T, clone func(T) T) {
+	for id, value := range source {
+		dest[id] = clone(value)
+	}
+}
+
+func mergeStringMap(dest map[string]string, source map[string]string) {
+	for key, value := range source {
+		dest[key] = value
+	}
 }
 
 func cloneClipboardProjectState(data ClipboardProjectStateCoreWithSectionVariantMap) (ClipboardProjectStateCoreWithSectionVariantMap, error) {
-	cloned := data.Clone()
+	remapper := newClipboardCloneRemapper(data.Clone())
+	if err := remapper.cloneCodeObjectCore(); err != nil {
+		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	}
+	if err := remapper.remapCodeObjectRelations(); err != nil {
+		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	}
+	if err := remapper.cloneSectionCore(); err != nil {
+		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	}
+	if err := remapper.remapSectionRelations(); err != nil {
+		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	}
+	sectionVariantMap, err := remapper.remapSectionVariantMap()
+	if err != nil {
+		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	}
+	remapper.data.SectionVariantMap = sectionVariantMap
+	return remapper.data, nil
+}
 
-	newCodeObjImpls := make(map[string]CodeObjectImpl, len(cloned.Core.CodeObjImpls))
-	codeObjImplIDMap := make(map[string]string, len(cloned.Core.CodeObjImpls))
-	for oldID, impl := range cloned.Core.CodeObjImpls {
+type clipboardCloneRemapper struct {
+	data ClipboardProjectStateCoreWithSectionVariantMap
+
+	codeObjImplIDMap    map[string]string
+	codeObjVariantIDMap map[string]string
+	codeObjIDMap        map[string]string
+	sectionImplIDMap    map[string]string
+	sectionVariantIDMap map[string]string
+	sectionIDMap        map[string]string
+}
+
+func newClipboardCloneRemapper(data ClipboardProjectStateCoreWithSectionVariantMap) *clipboardCloneRemapper {
+	return &clipboardCloneRemapper{
+		data:                data,
+		codeObjImplIDMap:    make(map[string]string, len(data.Core.CodeObjImpls)),
+		codeObjVariantIDMap: make(map[string]string, len(data.Core.CodeObjVariants)),
+		codeObjIDMap:        make(map[string]string, len(data.Core.CodeObjs)),
+		sectionImplIDMap:    make(map[string]string, len(data.Core.SectionImpls)),
+		sectionVariantIDMap: make(map[string]string, len(data.Core.SectionVariants)),
+		sectionIDMap:        make(map[string]string, len(data.Core.Sections)),
+	}
+}
+
+func (r *clipboardCloneRemapper) cloneCodeObjectCore() error {
+	codeObjImpls, err := r.cloneCodeObjectImpls()
+	if err != nil {
+		return err
+	}
+	codeObjVariants, err := r.cloneCodeObjectVariants()
+	if err != nil {
+		return err
+	}
+	codeObjs, err := r.cloneCodeObjects()
+	if err != nil {
+		return err
+	}
+	r.data.Core.CodeObjImpls = codeObjImpls
+	r.data.Core.CodeObjVariants = codeObjVariants
+	r.data.Core.CodeObjs = codeObjs
+	return nil
+}
+
+func (r *clipboardCloneRemapper) cloneCodeObjectImpls() (map[string]CodeObjectImpl, error) {
+	clonedImpls := make(map[string]CodeObjectImpl, len(r.data.Core.CodeObjImpls))
+	for oldID, impl := range r.data.Core.CodeObjImpls {
 		if codeObjImplIsPreset(impl) {
-			newCodeObjImpls[oldID] = impl.Clone()
-			codeObjImplIDMap[oldID] = oldID
+			clonedImpls[oldID] = impl.Clone()
+			r.codeObjImplIDMap[oldID] = oldID
 			continue
 		}
 		copiedImpl, err := cloneCodeObjectImplForClipboard(impl)
 		if err != nil {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+			return nil, err
 		}
-		newCodeObjImpls[copiedImpl.ID] = copiedImpl
-		codeObjImplIDMap[oldID] = copiedImpl.ID
+		clonedImpls[copiedImpl.ID] = copiedImpl
+		r.codeObjImplIDMap[oldID] = copiedImpl.ID
 	}
+	return clonedImpls, nil
+}
 
-	newCodeObjVariants := make(map[string]CodeObjectVariant, len(cloned.Core.CodeObjVariants))
-	codeObjVariantIDMap := make(map[string]string, len(cloned.Core.CodeObjVariants))
-	for oldID, variant := range cloned.Core.CodeObjVariants {
+func (r *clipboardCloneRemapper) cloneCodeObjectVariants() (map[string]CodeObjectVariant, error) {
+	clonedVariants := make(map[string]CodeObjectVariant, len(r.data.Core.CodeObjVariants))
+	for oldID, variant := range r.data.Core.CodeObjVariants {
 		newVariantID, err := newProjectStateID()
 		if err != nil {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+			return nil, err
 		}
 		copied := variant.Clone()
 		copied.ID = newVariantID
-		copied.ImplID = codeObjImplIDMap[variant.ImplID]
-		copied.NonPresetImplIDs = remapIDSlice(variant.NonPresetImplIDs, codeObjImplIDMap)
-		newCodeObjVariants[newVariantID] = copied
-		codeObjVariantIDMap[oldID] = newVariantID
+		copied.ImplID = r.codeObjImplIDMap[variant.ImplID]
+		copied.NonPresetImplIDs = remapIDSlice(variant.NonPresetImplIDs, r.codeObjImplIDMap)
+		clonedVariants[newVariantID] = copied
+		r.codeObjVariantIDMap[oldID] = newVariantID
 	}
+	return clonedVariants, nil
+}
 
-	newCodeObjs := make(map[string]CodeObject, len(cloned.Core.CodeObjs))
-	codeObjIDMap := make(map[string]string, len(cloned.Core.CodeObjs))
-	for oldID, codeObj := range cloned.Core.CodeObjs {
+func (r *clipboardCloneRemapper) cloneCodeObjects() (map[string]CodeObject, error) {
+	clonedCodeObjs := make(map[string]CodeObject, len(r.data.Core.CodeObjs))
+	for oldID, codeObj := range r.data.Core.CodeObjs {
 		newCodeObjID, err := newProjectStateID()
 		if err != nil {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+			return nil, err
 		}
 		copied := codeObj.Clone()
 		copied.ID = newCodeObjID
-		copied.VariantIDs = remapIDSlice(codeObj.VariantIDs, codeObjVariantIDMap)
+		copied.VariantIDs = remapIDSlice(codeObj.VariantIDs, r.codeObjVariantIDMap)
 		if copied.DefaultVariantID != "" {
-			copied.DefaultVariantID = codeObjVariantIDMap[codeObj.DefaultVariantID]
+			copied.DefaultVariantID = r.codeObjVariantIDMap[codeObj.DefaultVariantID]
 		}
-		newCodeObjs[newCodeObjID] = copied
-		codeObjIDMap[oldID] = newCodeObjID
+		clonedCodeObjs[newCodeObjID] = copied
+		r.codeObjIDMap[oldID] = newCodeObjID
 	}
+	return clonedCodeObjs, nil
+}
 
-	if err := remapCodeObjectImpls(newCodeObjImpls, codeObjIDMap, codeObjImplIDMap); err != nil {
-		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+func (r *clipboardCloneRemapper) remapCodeObjectRelations() error {
+	if err := remapCodeObjectImpls(r.data.Core.CodeObjImpls, r.codeObjIDMap, r.codeObjImplIDMap); err != nil {
+		return err
 	}
-	if err := remapCodeObjects(newCodeObjs, codeObjIDMap); err != nil {
-		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	if err := remapCodeObjects(r.data.Core.CodeObjs, r.codeObjIDMap); err != nil {
+		return err
 	}
-	if err := remapCodeObjectVariants(newCodeObjVariants, codeObjIDMap); err != nil {
-		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
-	}
+	return remapCodeObjectVariants(r.data.Core.CodeObjVariants, r.codeObjIDMap)
+}
 
-	newSectionImpls := make(map[string]SectionImpl, len(cloned.Core.SectionImpls))
-	sectionImplIDMap := make(map[string]string, len(cloned.Core.SectionImpls))
-	for oldID, impl := range cloned.Core.SectionImpls {
+func (r *clipboardCloneRemapper) cloneSectionCore() error {
+	sectionImpls, err := r.cloneSectionImpls()
+	if err != nil {
+		return err
+	}
+	sectionVariants, err := r.cloneSectionVariants()
+	if err != nil {
+		return err
+	}
+	sections, err := r.cloneSections()
+	if err != nil {
+		return err
+	}
+	r.data.Core.SectionImpls = sectionImpls
+	r.data.Core.SectionVariants = sectionVariants
+	r.data.Core.Sections = sections
+	return nil
+}
+
+func (r *clipboardCloneRemapper) cloneSectionImpls() (map[string]SectionImpl, error) {
+	clonedImpls := make(map[string]SectionImpl, len(r.data.Core.SectionImpls))
+	for oldID, impl := range r.data.Core.SectionImpls {
 		if sectionImplIsPreset(impl) {
-			newSectionImpls[oldID] = impl.Clone()
-			sectionImplIDMap[oldID] = oldID
+			clonedImpls[oldID] = impl.Clone()
+			r.sectionImplIDMap[oldID] = oldID
 			continue
 		}
 		copiedImpl, err := cloneSectionImplForClipboard(impl)
 		if err != nil {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+			return nil, err
 		}
-		newSectionImpls[copiedImpl.ID] = copiedImpl
-		sectionImplIDMap[oldID] = copiedImpl.ID
+		clonedImpls[copiedImpl.ID] = copiedImpl
+		r.sectionImplIDMap[oldID] = copiedImpl.ID
 	}
+	return clonedImpls, nil
+}
 
-	newSectionVariants := make(map[string]SectionVariant, len(cloned.Core.SectionVariants))
-	sectionVariantIDMap := make(map[string]string, len(cloned.Core.SectionVariants))
-	for oldID, variant := range cloned.Core.SectionVariants {
+func (r *clipboardCloneRemapper) cloneSectionVariants() (map[string]SectionVariant, error) {
+	clonedVariants := make(map[string]SectionVariant, len(r.data.Core.SectionVariants))
+	for oldID, variant := range r.data.Core.SectionVariants {
 		newVariantID, err := newProjectStateID()
 		if err != nil {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+			return nil, err
 		}
 		copied := variant.Clone()
 		copied.ID = newVariantID
-		copied.ImplID = sectionImplIDMap[variant.ImplID]
-		copied.NonPresetImplIDs = remapIDSlice(variant.NonPresetImplIDs, sectionImplIDMap)
-		newSectionVariants[newVariantID] = copied
-		sectionVariantIDMap[oldID] = newVariantID
+		copied.ImplID = r.sectionImplIDMap[variant.ImplID]
+		copied.NonPresetImplIDs = remapIDSlice(variant.NonPresetImplIDs, r.sectionImplIDMap)
+		clonedVariants[newVariantID] = copied
+		r.sectionVariantIDMap[oldID] = newVariantID
 	}
+	return clonedVariants, nil
+}
 
-	newSections := make(map[string]Section, len(cloned.Core.Sections))
-	sectionIDMap := make(map[string]string, len(cloned.Core.Sections))
-	for oldID, section := range cloned.Core.Sections {
+func (r *clipboardCloneRemapper) cloneSections() (map[string]Section, error) {
+	clonedSections := make(map[string]Section, len(r.data.Core.Sections))
+	for oldID, section := range r.data.Core.Sections {
 		newSectionID, err := newProjectStateID()
 		if err != nil {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+			return nil, err
 		}
 		copied := section.Clone()
 		copied.ID = newSectionID
-		copied.VariantIDs = remapIDSlice(section.VariantIDs, sectionVariantIDMap)
+		copied.VariantIDs = remapIDSlice(section.VariantIDs, r.sectionVariantIDMap)
 		if copied.DefaultVariantID != "" {
-			copied.DefaultVariantID = sectionVariantIDMap[section.DefaultVariantID]
+			copied.DefaultVariantID = r.sectionVariantIDMap[section.DefaultVariantID]
 		}
 		copied.ParentSectionID = section.ParentSectionID
-		newSections[newSectionID] = copied
-		sectionIDMap[oldID] = newSectionID
+		clonedSections[newSectionID] = copied
+		r.sectionIDMap[oldID] = newSectionID
 	}
+	return clonedSections, nil
+}
 
-	if err := remapSections(newSections, sectionIDMap, codeObjIDMap, codeObjVariantIDMap); err != nil {
-		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+func (r *clipboardCloneRemapper) remapSectionRelations() error {
+	if err := remapSections(r.data.Core.Sections, r.sectionIDMap, r.codeObjIDMap, r.codeObjVariantIDMap); err != nil {
+		return err
 	}
-	if err := remapSectionVariants(newSectionVariants, sectionIDMap, codeObjIDMap, codeObjVariantIDMap); err != nil {
-		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
+	if err := remapSectionVariants(r.data.Core.SectionVariants, r.sectionIDMap, r.codeObjIDMap, r.codeObjVariantIDMap); err != nil {
+		return err
 	}
-	if err := remapSectionImpls(newSectionImpls, sectionIDMap, codeObjIDMap, codeObjVariantIDMap); err != nil {
-		return ClipboardProjectStateCoreWithSectionVariantMap{}, err
-	}
+	return remapSectionImpls(r.data.Core.SectionImpls, r.sectionIDMap, r.codeObjIDMap, r.codeObjVariantIDMap)
+}
 
-	nextVariantMap := make(map[string]string, len(cloned.SectionVariantMap))
-	for sectionID, variantID := range cloned.SectionVariantMap {
-		mappedSectionID, ok := sectionIDMap[sectionID]
+func (r *clipboardCloneRemapper) remapSectionVariantMap() (map[string]string, error) {
+	remapped := make(map[string]string, len(r.data.SectionVariantMap))
+	for sectionID, variantID := range r.data.SectionVariantMap {
+		mappedSectionID, ok := r.sectionIDMap[sectionID]
 		if !ok {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, fmt.Errorf("%w: section=%q", ErrSectionNotFound, sectionID)
+			return nil, fmt.Errorf("%w: section=%q", ErrSectionNotFound, sectionID)
 		}
-		mappedVariantID, ok := sectionVariantIDMap[variantID]
+		mappedVariantID, ok := r.sectionVariantIDMap[variantID]
 		if !ok {
-			return ClipboardProjectStateCoreWithSectionVariantMap{}, fmt.Errorf("%w: variant=%q", ErrSectionVariantNotFound, variantID)
+			return nil, fmt.Errorf("%w: variant=%q", ErrSectionVariantNotFound, variantID)
 		}
-		nextVariantMap[mappedSectionID] = mappedVariantID
+		remapped[mappedSectionID] = mappedVariantID
 	}
-
-	return ClipboardProjectStateCoreWithSectionVariantMap{
-		Core: ClipboardProjectStateCore{
-			Sections:        newSections,
-			SectionImpls:    newSectionImpls,
-			SectionVariants: newSectionVariants,
-			CodeObjs:        newCodeObjs,
-			CodeObjImpls:    newCodeObjImpls,
-			CodeObjVariants: newCodeObjVariants,
-		},
-		SectionVariantMap: nextVariantMap,
-	}, nil
+	return remapped, nil
 }
 
 func cloneSectionImplForClipboard(sourceImpl SectionImpl) (SectionImpl, error) {
