@@ -156,7 +156,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Specialized Codex loop that works in three strict phases: remove unjustified Go/Python/TypeScript duplication, then replace unjustified polling with websocket pushes, then run `./report_quality_hotspots.sh` and fix actionable hotspots.
   - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
-  - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, and stops only after Codex reports either true audited completion or a documented sustained plateau.
+  - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
   - Runs with a 30-minute transcript inactivity watchdog by default and retries cleanly after a timed-out iteration instead of hanging forever.
   - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires a developer-started browser session.
 - `./scripts/run-codex-frontendbindings-rebuild-loop.sh`

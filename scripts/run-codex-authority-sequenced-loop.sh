@@ -18,6 +18,7 @@ Defaults:
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
 - Phase 3 hotspot thresholds: Python `10`, frontend `10`, Go `12`
+- Phase 3 escalates to broader backlog-burn refactors in dominant hotspot files before declaring plateau
 - Stop when Codex explicitly reports either true audited completion or a documented sustained plateau
 - Require every non-stop iteration to leave a clean worktree and advance HEAD
 
@@ -268,6 +269,9 @@ Update this file during Phase 3.
 
 ## Current target
 
+## Dominant blocking clusters
+- When same-file backlog blocks narrow progress, list the current dominant files or tightly coupled file clusters here with the concrete touched-file gate counts or other repo-specific blockers.
+
 ## Before/after result
 
 ## Consecutive no-material-reduction Phase 3 iterations
@@ -313,9 +317,10 @@ Rules:
 ## Phase 3: Fix Quality Hotspots
 - [ ] Run \`${hotspot_report_command}\` at the start of every Phase 3 iteration and save the latest output to ${hotspot_report_file}.
 - [ ] Update the Phase 3 hotspot review at ${hotspot_review_file} on every Phase 3 iteration.
-- [ ] Use the latest hotspot report to choose the highest-leverage actionable hotspot or tight cluster of hotspots.
-- [ ] Count a Phase 3 iteration as material only when it removes a current top-10 hotspot, lowers a current top-10 hotspot score, or clearly reduces structural branching in a current top-10 hotspot file without just moving complexity sideways.
-- [ ] If Phase 3 plateaus, require three consecutive audited no-material-reduction iterations documented in ${hotspot_review_file} before stopping.
+- [ ] Use the latest hotspot report to choose the highest-leverage actionable hotspot or tight cluster of hotspots. If the report is dominated by a few backlog-dense files, escalate to a broader backlog-burn pass on one dominant file or cluster instead of only chasing isolated helpers.
+- [ ] Count a Phase 3 iteration as material only when it removes a current top-10 hotspot, lowers a current top-10 hotspot score, clearly reduces structural branching in a current top-10 hotspot file without just moving complexity sideways, or materially reduces the touched-file quality backlog for one dominant blocking hotspot file or cluster.
+- [ ] When same-file backlog blocks narrow Phase 3 edits, document the dominant blocking files or clusters in ${hotspot_review_file} with concrete touched-file gate counts before plateauing.
+- [ ] If Phase 3 plateaus, require three consecutive audited no-material-reduction iterations documented in ${hotspot_review_file} after backlog-burn candidates in the remaining dominant files or clusters have been attempted or ruled out with concrete blockers before stopping.
 - [ ] Mark Phase 3 complete only after ${hotspot_review_file} and a fresh hotspot report show no remaining actionable hotspot cleanup worth landing without churn. Do not mark it complete when the real result is plateau.
 
 ## Completion
@@ -393,6 +398,8 @@ Phase 3 rules:
 - Read the saved report at ${hotspot_report_file} before choosing work.
 - Update ${hotspot_review_file} during every Phase 3 iteration.
 - Use the report to pick the highest-leverage actionable hotspot or tight cluster of related hotspots, then simplify it without regressing behavior.
+- Start with contained top-10 hotspots only while that still produces real reductions. If the current top hotspots are concentrated in a few backlog-dense files or \`./check_quality.sh --files <file>\` shows that a narrow slice is blocked by same-file backlog, switch into Phase 3 backlog-burn mode instead of calling plateau.
+- In backlog-burn mode, choose one dominant hotspot file or tightly coupled file cluster and make a broader refactor intended to materially lower that file or cluster's total backlog, even if the change spans multiple functions in the same file.
 - Treat these thresholds as the Phase 3 floor for this loop: Python ${hotspot_python_min}, frontend ${hotspot_frontend_min}, Go ${hotspot_go_min}. Do not burn iterations on sub-threshold churn unless that cleanup is already bundled into a higher-threshold target you are touching anyway.
 - Favor real structural simplification over just shuffling complexity into neighboring helpers.
 - Do not mark Phase 3 complete just because the remaining hotspots are orchestration paths. You must name the concrete reason they are no longer good cleanup targets.
@@ -400,8 +407,15 @@ Phase 3 rules:
   - removes a current top-10 hotspot from the saved report
   - lowers the reported complexity score of a current top-10 hotspot
   - clearly reduces structural branching in a current top-10 hotspot file without merely moving that complexity into adjacent helpers
+- A backlog-burn iteration also counts as material if it does at least one of:
+  - reduces the number of \`./check_quality.sh --files ...\` failures in the target file or cluster by at least 3
+  - removes at least 2 current above-threshold hotspots from the same target file or cluster
+  - gets the touched-file quality gate to pass for a file or cluster that previously failed because of same-file backlog
 - Keep a consecutive no-material-reduction counter in ${hotspot_review_file}.
-- If three consecutive audited Phase 3 iterations fail to achieve a material reduction, make no repo changes, leave the Phase 3 completion checkbox unchecked, explain that the stop reason is plateau, and end with the stop sentinel.
+- If a top hotspot file fails the touched-file gate because of many same-file issues, do not treat that by itself as plateau. First record it under "Dominant blocking clusters" in ${hotspot_review_file} and attempt a backlog-burn refactor in one of the dominant files or clusters.
+- Plateau only after three consecutive audited Phase 3 iterations fail to achieve a material reduction and the remaining dominant blocking files or clusters have either received a backlog-burn attempt or been ruled out with a concrete repo-specific blocker that would require a broader planned rewrite than this loop should land.
+- When auditing plateau, include the concrete \`./check_quality.sh --files ...\` failure counts for the remaining dominant files or clusters.
+- If plateau is reached, make no repo changes, leave the Phase 3 completion checkbox unchecked, explain that the stop reason is plateau, and end with the stop sentinel.
 - Mark Phase 3 complete only after a fresh hotspot report and ${hotspot_review_file} show no remaining actionable hotspot cleanup worth landing without churn.
 
 If a fresh audit shows all three phases are complete under these rules, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
