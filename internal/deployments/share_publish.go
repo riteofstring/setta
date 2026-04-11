@@ -84,6 +84,14 @@ type publishPathMaps struct {
 	json     map[string]string
 }
 
+type preparedSharePublish struct {
+	project                projectstate.Project
+	policy                 Policy
+	listenerConfig         *ListenerConfig
+	publishedDocument      projectstate.Document
+	structuredDataPayloads map[string]map[string]any
+}
+
 func NewSharePublisher(options SharePublisherOptions) (*SharePublisher, error) {
 	if options.Catalog == nil {
 		return nil, ErrSharePublisherCatalogRequired
@@ -133,30 +141,8 @@ func (p *SharePublisher) Publish(ctx context.Context, request SharePublishReques
 		}
 	}()
 
-	snapshot := request.ProjectState.Snapshot()
-	document := snapshot.Document.Clone()
-	project, err := document.ProjectByID(request.ProjectID)
+	prepared, err := p.prepareSharePublish(request, allocation.DeploymentRoot)
 	if err != nil {
-		return SharePublishResult{}, err
-	}
-	document.DefaultProjectID = project.ID
-
-	policy, err := applySharePolicyOverrides(request.PolicyOverrides)
-	if err != nil {
-		return SharePublishResult{}, err
-	}
-
-	listenerConfig, err := p.copyListenerEntrypoint(strings.TrimSpace(request.ListenerEntrypoint), allocation.DeploymentRoot, request.ListenerEnabled)
-	if err != nil {
-		return SharePublishResult{}, err
-	}
-
-	publishedDocument := document.Clone()
-	structuredDataPayloads, err := p.rewriteDocumentForDeployment(&publishedDocument, allocation.DeploymentRoot)
-	if err != nil {
-		return SharePublishResult{}, err
-	}
-	if err := stripPasswordValues(&publishedDocument); err != nil {
 		return SharePublishResult{}, err
 	}
 
@@ -164,36 +150,23 @@ func (p *SharePublisher) Publish(ctx context.Context, request SharePublishReques
 		Version:           1,
 		DeploymentName:    allocation.DeploymentName,
 		DeploymentType:    TypeShare,
-		DefaultProjectID:  project.ID,
+		DefaultProjectID:  prepared.project.ID,
 		DeploymentVersion: allocation.DeploymentVersion,
 		CreatedAt:         p.now().UTC(),
-		Listener:          listenerConfig,
+		Listener:          prepared.listenerConfig,
 	}.Normalized()
 	if err != nil {
 		return SharePublishResult{}, err
 	}
-
-	store, err := projectstate.NewStore(filepath.Join(allocation.DeploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
-	if err != nil {
-		return SharePublishResult{}, fmt.Errorf("create deployment project store: %w", err)
-	}
-	if err := store.Save(ctx, publishedDocument); err != nil {
-		return SharePublishResult{}, fmt.Errorf("save deployment project: %w", err)
-	}
-	for relativePath, payload := range structuredDataPayloads {
-		targetPath, err := statefs.ResolveWithinRoot(allocation.DeploymentRoot, filepath.FromSlash(relativePath), "deployment structured data")
-		if err != nil {
-			return SharePublishResult{}, err
-		}
-		if err := writeStructuredDataPayload(targetPath, payload); err != nil {
-			return SharePublishResult{}, err
-		}
-	}
-	if err := writeJSONFile(filepath.Join(allocation.DeploymentRoot, "manifest.json"), manifest); err != nil {
-		return SharePublishResult{}, fmt.Errorf("write deployment manifest: %w", err)
-	}
-	if err := writeJSONFile(filepath.Join(allocation.DeploymentRoot, "policy.json"), policy); err != nil {
-		return SharePublishResult{}, fmt.Errorf("write deployment policy: %w", err)
+	if err := p.writeSharePublishOutput(
+		ctx,
+		allocation.DeploymentRoot,
+		prepared.publishedDocument,
+		prepared.structuredDataPayloads,
+		manifest,
+		prepared.policy,
+	); err != nil {
+		return SharePublishResult{}, err
 	}
 
 	success = true
@@ -202,17 +175,89 @@ func (p *SharePublisher) Publish(ctx context.Context, request SharePublishReques
 			DeploymentName:      allocation.DeploymentName,
 			DeploymentVersion:   allocation.DeploymentVersion,
 			DeploymentType:      TypeShare,
-			DefaultProjectID:    project.ID,
-			DefaultProjectName:  project.Name,
+			DefaultProjectID:    prepared.project.ID,
+			DefaultProjectName:  prepared.project.Name,
 			CreatedAt:           manifest.CreatedAt,
 			DeploymentRoot:      allocation.DeploymentRoot,
 			PolicyPath:          filepath.Join(allocation.DeploymentRoot, "policy.json"),
 			DeploymentVersionNo: mustParseDeploymentVersion(allocation.DeploymentVersion),
 		},
 		Manifest: manifest,
-		Policy:   policy,
-		Snapshot: publishedDocument,
+		Policy:   prepared.policy,
+		Snapshot: prepared.publishedDocument,
 	}, nil
+}
+
+func (p *SharePublisher) prepareSharePublish(
+	request SharePublishRequest,
+	deploymentRoot string,
+) (preparedSharePublish, error) {
+	snapshot := request.ProjectState.Snapshot()
+	document := snapshot.Document.Clone()
+	project, err := document.ProjectByID(request.ProjectID)
+	if err != nil {
+		return preparedSharePublish{}, err
+	}
+	document.DefaultProjectID = project.ID
+
+	policy, err := applySharePolicyOverrides(request.PolicyOverrides)
+	if err != nil {
+		return preparedSharePublish{}, err
+	}
+	listenerConfig, err := p.copyListenerEntrypoint(strings.TrimSpace(request.ListenerEntrypoint), deploymentRoot, request.ListenerEnabled)
+	if err != nil {
+		return preparedSharePublish{}, err
+	}
+
+	publishedDocument := document.Clone()
+	structuredDataPayloads, err := p.rewriteDocumentForDeployment(&publishedDocument, deploymentRoot)
+	if err != nil {
+		return preparedSharePublish{}, err
+	}
+	if err := stripPasswordValues(&publishedDocument); err != nil {
+		return preparedSharePublish{}, err
+	}
+
+	return preparedSharePublish{
+		project:                project,
+		policy:                 policy,
+		listenerConfig:         listenerConfig,
+		publishedDocument:      publishedDocument,
+		structuredDataPayloads: structuredDataPayloads,
+	}, nil
+}
+
+func (p *SharePublisher) writeSharePublishOutput(
+	ctx context.Context,
+	deploymentRoot string,
+	publishedDocument projectstate.Document,
+	structuredDataPayloads map[string]map[string]any,
+	manifest Manifest,
+	policy Policy,
+) error {
+	store, err := projectstate.NewStore(filepath.Join(deploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
+	if err != nil {
+		return fmt.Errorf("create deployment project store: %w", err)
+	}
+	if err := store.Save(ctx, publishedDocument); err != nil {
+		return fmt.Errorf("save deployment project: %w", err)
+	}
+	for relativePath, payload := range structuredDataPayloads {
+		targetPath, err := statefs.ResolveWithinRoot(deploymentRoot, filepath.FromSlash(relativePath), "deployment structured data")
+		if err != nil {
+			return err
+		}
+		if err := writeStructuredDataPayload(targetPath, payload); err != nil {
+			return err
+		}
+	}
+	if err := writeJSONFile(filepath.Join(deploymentRoot, "manifest.json"), manifest); err != nil {
+		return fmt.Errorf("write deployment manifest: %w", err)
+	}
+	if err := writeJSONFile(filepath.Join(deploymentRoot, "policy.json"), policy); err != nil {
+		return fmt.Errorf("write deployment policy: %w", err)
+	}
+	return nil
 }
 
 func applySharePolicyOverrides(overrides *SharePolicyOverrides) (Policy, error) {
@@ -348,82 +393,148 @@ func (p *SharePublisher) rewriteSectionPayload(
 	deploymentRoot string,
 	pathMaps publishPathMaps,
 ) error {
-	if imagePath := stringField(payload, "imagePath"); imagePath != "" {
-		rebased, err := p.copyArtifactPath(imagePath, deploymentRoot, pathMaps.artifact)
-		if err != nil {
-			return err
-		}
-		if err := project.SetSectionFieldForVariant(sectionID, variantID, "imagePath", rebased); err != nil {
-			return err
-		}
-	}
-	if dataPath := stringField(payload, "dataPath"); dataPath != "" {
-		rebased, err := p.copyArtifactPath(dataPath, deploymentRoot, pathMaps.artifact)
-		if err != nil {
-			return err
-		}
-		if err := project.SetSectionFieldForVariant(sectionID, variantID, "dataPath", rebased); err != nil {
-			return err
-		}
-	}
-	if renderedImagePath := stringField(payload, "renderedImagePath"); renderedImagePath != "" {
-		rebased, err := p.copyArtifactPath(renderedImagePath, deploymentRoot, pathMaps.artifact)
-		if err != nil {
-			return err
-		}
-		if err := project.SetSectionFieldForVariant(sectionID, variantID, "renderedImagePath", rebased); err != nil {
-			return err
-		}
-	}
-
-	if bindingObject, ok := objectField(payload, "codeFileBinding"); ok {
-		bindingPath := stringField(bindingObject, "canonical_path")
-		if bindingPath != "" {
-			rebased, err := p.copyCodePath(bindingPath, deploymentRoot, pathMaps.code)
-			if err != nil {
-				return err
-			}
-			bindingObject["canonical_path"] = rebased
-			if err := project.SetSectionFieldForVariant(sectionID, variantID, "codeFileBinding", bindingObject); err != nil {
-				return err
-			}
-		}
-	}
-
-	layers, changedLayers, err := p.rewriteDrawLayers(payload, deploymentRoot, pathMaps.artifact)
-	if err != nil {
+	if err := p.rewriteSectionArtifactPathFields(project, sectionID, variantID, payload, deploymentRoot, pathMaps.artifact); err != nil {
 		return err
 	}
-	if changedLayers {
-		if err := project.SetSectionFieldForVariant(sectionID, variantID, "layers", layers); err != nil {
-			return err
-		}
-	}
-
-	messages, changedMessages, err := p.rewriteChatMessagesField(payload, deploymentRoot, pathMaps.artifact)
-	if err != nil {
+	if err := p.rewriteSectionCodeFileBinding(project, sectionID, variantID, payload, deploymentRoot, pathMaps.code); err != nil {
 		return err
 	}
-	if changedMessages {
-		if err := project.SetSectionFieldForVariant(sectionID, variantID, "messages", messages); err != nil {
-			return err
-		}
-	}
-
-	branches, changedBranches, err := p.rewriteChatBranchesField(payload, deploymentRoot, pathMaps.artifact)
-	if err != nil {
+	if err := p.rewriteSectionDrawLayersField(project, sectionID, variantID, payload, deploymentRoot, pathMaps.artifact); err != nil {
 		return err
 	}
-	if changedBranches {
-		if err := project.SetSectionFieldForVariant(sectionID, variantID, "branches", branches); err != nil {
-			return err
-		}
+	if err := p.rewriteSectionMessagesField(project, sectionID, variantID, payload, deploymentRoot, pathMaps.artifact); err != nil {
+		return err
 	}
-
+	if err := p.rewriteSectionBranchesField(project, sectionID, variantID, payload, deploymentRoot, pathMaps.artifact); err != nil {
+		return err
+	}
 	if err := p.rewriteSectionCodeObjectPayloads(project, sectionID, payload, deploymentRoot, pathMaps.artifact); err != nil {
 		return err
 	}
+	return p.rewriteSectionJSONSourceVariant(project, variantID, payload, deploymentRoot, pathMaps.json)
+}
 
+func (p *SharePublisher) rewriteSectionArtifactPathFields(
+	project *projectstate.Project,
+	sectionID string,
+	variantID string,
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
+	for _, fieldName := range []string{"imagePath", "dataPath", "renderedImagePath"} {
+		if err := p.rewriteSectionArtifactPathField(project, sectionID, variantID, fieldName, payload, deploymentRoot, pathMap); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *SharePublisher) rewriteSectionArtifactPathField(
+	project *projectstate.Project,
+	sectionID string,
+	variantID string,
+	fieldName string,
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
+	sourcePath := stringField(payload, fieldName)
+	if sourcePath == "" {
+		return nil
+	}
+	rebased, err := p.copyArtifactPath(sourcePath, deploymentRoot, pathMap)
+	if err != nil {
+		return err
+	}
+	return project.SetSectionFieldForVariant(sectionID, variantID, fieldName, rebased)
+}
+
+func (p *SharePublisher) rewriteSectionCodeFileBinding(
+	project *projectstate.Project,
+	sectionID string,
+	variantID string,
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
+	bindingObject, ok := objectField(payload, "codeFileBinding")
+	if !ok {
+		return nil
+	}
+	bindingPath := stringField(bindingObject, "canonical_path")
+	if bindingPath == "" {
+		return nil
+	}
+	rebased, err := p.copyCodePath(bindingPath, deploymentRoot, pathMap)
+	if err != nil {
+		return err
+	}
+	bindingObject["canonical_path"] = rebased
+	return project.SetSectionFieldForVariant(sectionID, variantID, "codeFileBinding", bindingObject)
+}
+
+func (p *SharePublisher) rewriteSectionDrawLayersField(
+	project *projectstate.Project,
+	sectionID string,
+	variantID string,
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
+	layers, changed, err := p.rewriteDrawLayers(payload, deploymentRoot, pathMap)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	return project.SetSectionFieldForVariant(sectionID, variantID, "layers", layers)
+}
+
+func (p *SharePublisher) rewriteSectionMessagesField(
+	project *projectstate.Project,
+	sectionID string,
+	variantID string,
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
+	messages, changed, err := p.rewriteChatMessagesField(payload, deploymentRoot, pathMap)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	return project.SetSectionFieldForVariant(sectionID, variantID, "messages", messages)
+}
+
+func (p *SharePublisher) rewriteSectionBranchesField(
+	project *projectstate.Project,
+	sectionID string,
+	variantID string,
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
+	branches, changed, err := p.rewriteChatBranchesField(payload, deploymentRoot, pathMap)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	return project.SetSectionFieldForVariant(sectionID, variantID, "branches", branches)
+}
+
+func (p *SharePublisher) rewriteSectionJSONSourceVariant(
+	project *projectstate.Project,
+	variantID string,
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
 	if !boolField(payload, "isJsonSource") {
 		return nil
 	}
@@ -435,7 +546,7 @@ func (p *SharePublisher) rewriteSectionPayload(
 	if strings.TrimSpace(variant.Name) == "" {
 		return nil
 	}
-	rebased, err := p.rebaseJSONSourcePath(variant.Name, deploymentRoot, pathMaps.json)
+	rebased, err := p.rebaseJSONSourcePath(variant.Name, deploymentRoot, pathMap)
 	if err != nil {
 		return err
 	}

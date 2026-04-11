@@ -288,6 +288,109 @@ func TestSharePublisherRebasesPathsAndCopiesFiles(t *testing.T) {
 	assertPublishedPathExistsWithin(t, result.Metadata.DeploymentRoot, dictVariant.Name, filepath.Join(result.Metadata.DeploymentRoot, "json_sources"))
 }
 
+func TestSharePublisherRewriteSectionPayloadRebasesSectionAssetsAndJSONSourceVariant(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deploymentRoot := t.TempDir()
+
+	imagePath := filepath.Join(settaFilesRoot, "artifacts", "image.png")
+	chartPath := filepath.Join(settaFilesRoot, "artifacts", "chart.csv")
+	drawDataPath := filepath.Join(settaFilesRoot, "artifacts", "draw", "data.png")
+	drawTransformPath := filepath.Join(settaFilesRoot, "artifacts", "draw", "transform.json")
+	codePath := filepath.Join(settaFilesRoot, "code", "sections", "alpha", "custom.py")
+	jsonSourcePath := filepath.Join(settaFilesRoot, "json_sources", "source.json")
+
+	writeBinaryFile(t, imagePath, []byte("image"))
+	writeTextFile(t, chartPath, "x,y\n1,2\n")
+	writeBinaryFile(t, drawDataPath, []byte("draw"))
+	writeTextFile(t, drawTransformPath, "{\"transform\":[1,0,0,1,0,0]}\n")
+	writeTextFile(t, codePath, "print('hello')\n")
+	writeTextFile(t, jsonSourcePath, "{\n  \"foo\": 1\n}\n")
+
+	publisher := openTestSharePublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC))
+	project := rebaseDocument(imagePath, chartPath, drawDataPath, drawTransformPath, codePath, jsonSourcePath).Projects["project-alpha"]
+	pathMaps := publishPathMaps{
+		artifact: map[string]string{},
+		code:     map[string]string{},
+		json:     map[string]string{},
+	}
+
+	for _, target := range []struct {
+		sectionID string
+		variantID string
+	}{
+		{sectionID: "image-section", variantID: "image-variant"},
+		{sectionID: "chart-section", variantID: "chart-variant"},
+		{sectionID: "draw-section", variantID: "draw-variant"},
+		{sectionID: "code-section", variantID: "code-variant"},
+		{sectionID: "dict-section", variantID: "dict-variant"},
+	} {
+		payload, err := project.EffectiveSectionPayload(target.sectionID, target.variantID)
+		if err != nil {
+			t.Fatalf("effective payload for %s: %v", target.sectionID, err)
+		}
+		if err := publisher.rewriteSectionPayload(&project, target.sectionID, target.variantID, payload, deploymentRoot, pathMaps); err != nil {
+			t.Fatalf("rewrite section payload for %s: %v", target.sectionID, err)
+		}
+	}
+
+	imagePayload, err := project.EffectiveSectionPayload("image-section", "image-variant")
+	if err != nil {
+		t.Fatalf("effective image payload: %v", err)
+	}
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(imagePayload, "imagePath"), filepath.Join(deploymentRoot, "artifacts"))
+
+	chartPayload, err := project.EffectiveSectionPayload("chart-section", "chart-variant")
+	if err != nil {
+		t.Fatalf("effective chart payload: %v", err)
+	}
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(chartPayload, "dataPath"), filepath.Join(deploymentRoot, "artifacts"))
+
+	drawPayload, err := project.EffectiveSectionPayload("draw-section", "draw-variant")
+	if err != nil {
+		t.Fatalf("effective draw payload: %v", err)
+	}
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(drawPayload, "renderedImagePath"), filepath.Join(deploymentRoot, "artifacts"))
+	layers, ok := drawPayload["layers"].([]any)
+	if !ok || len(layers) != 1 {
+		t.Fatalf("expected one draw layer, got %#v", drawPayload["layers"])
+	}
+	layer, ok := layers[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected draw layer object, got %#v", layers[0])
+	}
+	elements, ok := layer["elements"].([]any)
+	if !ok || len(elements) != 1 {
+		t.Fatalf("expected one draw element, got %#v", layer["elements"])
+	}
+	element, ok := elements[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected draw element object, got %#v", elements[0])
+	}
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(element, "dataPath"), filepath.Join(deploymentRoot, "artifacts"))
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(element, "transformId"), filepath.Join(deploymentRoot, "artifacts"))
+
+	codePayload, err := project.EffectiveSectionPayload("code-section", "code-variant")
+	if err != nil {
+		t.Fatalf("effective code payload: %v", err)
+	}
+	codeBinding, ok := objectField(codePayload, "codeFileBinding")
+	if !ok {
+		t.Fatalf("expected code file binding, got %#v", codePayload)
+	}
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(codeBinding, "canonical_path"), filepath.Join(deploymentRoot, "code"))
+
+	dictVariant := project.SectionVariants["dict-variant"]
+	if filepath.IsAbs(dictVariant.Name) {
+		t.Fatalf("expected rebased json source path, got absolute path %q", dictVariant.Name)
+	}
+	if _, ok := relativeWithinRoot(filepath.Join(deploymentRoot, "json_sources"), filepath.Join(deploymentRoot, filepath.FromSlash(dictVariant.Name))); !ok {
+		t.Fatalf("expected rebased json source path %q to stay within deployment json_sources", dictVariant.Name)
+	}
+}
+
 func TestSharePublisherRebasesProjectGeneratedCodeBinding(t *testing.T) {
 	t.Parallel()
 
@@ -406,6 +509,129 @@ func TestSharePublisherRebasesDropzoneAndChatAttachmentPaths(t *testing.T) {
 		stringField(dropzoneAttachment, "id"),
 		filepath.Join(result.Metadata.DeploymentRoot, "artifacts"),
 	)
+}
+
+func TestSharePublisherRewriteSectionPayloadRewritesChatBranchesAndDropzoneAttachments(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deploymentRoot := t.TempDir()
+	attachmentRelativePath := filepath.ToSlash(filepath.Join("artifacts", "old.txt"))
+
+	writeTextFile(t, filepath.Join(settaFilesRoot, filepath.FromSlash(attachmentRelativePath)), "attachment\n")
+
+	publisher := openTestSharePublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 9, 9, 15, 0, 0, time.UTC))
+	project := attachmentRebaseDocument(attachmentRelativePath).Projects["project-alpha"]
+	pathMaps := publishPathMaps{
+		artifact: map[string]string{},
+		code:     map[string]string{},
+		json:     map[string]string{},
+	}
+
+	chatPayload, err := project.EffectiveSectionPayload("chat-section", "chat-variant")
+	if err != nil {
+		t.Fatalf("effective chat payload: %v", err)
+	}
+	chatPayload["branches"] = map[string]any{
+		"branch-1": map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":   "message-2",
+					"role": "assistant",
+					"attachments": []any{
+						map[string]any{
+							"id":       attachmentRelativePath,
+							"name":     "old.txt",
+							"mimeType": "text/plain",
+							"size":     10,
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := publisher.rewriteSectionPayload(&project, "chat-section", "chat-variant", chatPayload, deploymentRoot, pathMaps); err != nil {
+		t.Fatalf("rewrite chat payload: %v", err)
+	}
+
+	dictPayload, err := project.EffectiveSectionPayload("dict-section", "dict-variant")
+	if err != nil {
+		t.Fatalf("effective dict payload: %v", err)
+	}
+	if err := publisher.rewriteSectionPayload(&project, "dict-section", "dict-variant", dictPayload, deploymentRoot, pathMaps); err != nil {
+		t.Fatalf("rewrite dict payload: %v", err)
+	}
+
+	updatedChatPayload, err := project.EffectiveSectionPayload("chat-section", "chat-variant")
+	if err != nil {
+		t.Fatalf("effective rewritten chat payload: %v", err)
+	}
+	messages, ok := updatedChatPayload["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected one rewritten chat message, got %#v", updatedChatPayload["messages"])
+	}
+	message, ok := messages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chat message object, got %#v", messages[0])
+	}
+	chatAttachments := rawAttachmentList(message["attachments"])
+	if len(chatAttachments) != 1 {
+		t.Fatalf("expected one rewritten chat attachment, got %#v", message["attachments"])
+	}
+	chatAttachment, ok := chatAttachments[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected rewritten chat attachment object, got %#v", chatAttachments[0])
+	}
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(chatAttachment, "id"), filepath.Join(deploymentRoot, "artifacts"))
+
+	branches, ok := updatedChatPayload["branches"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected rewritten branches, got %#v", updatedChatPayload["branches"])
+	}
+	branch, ok := branches["branch-1"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected branch object, got %#v", branches["branch-1"])
+	}
+	branchMessages, ok := branch["messages"].([]any)
+	if !ok || len(branchMessages) != 1 {
+		t.Fatalf("expected one rewritten branch message, got %#v", branch["messages"])
+	}
+	branchMessage, ok := branchMessages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected branch message object, got %#v", branchMessages[0])
+	}
+	branchAttachments := rawAttachmentList(branchMessage["attachments"])
+	if len(branchAttachments) != 1 {
+		t.Fatalf("expected one rewritten branch attachment, got %#v", branchMessage["attachments"])
+	}
+	branchAttachment, ok := branchAttachments[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected rewritten branch attachment object, got %#v", branchAttachments[0])
+	}
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(branchAttachment, "id"), filepath.Join(deploymentRoot, "artifacts"))
+
+	dropzonePayload, _, _, _, err := project.ResolveSectionCodeObject("dict-section", "dropzone-param")
+	if err != nil {
+		t.Fatalf("resolve dropzone payload: %v", err)
+	}
+	var storedDropzone map[string]any
+	if err := json.Unmarshal([]byte(rawStringField(dropzonePayload, "value")), &storedDropzone); err != nil {
+		t.Fatalf("decode rewritten dropzone payload: %v", err)
+	}
+	dropzoneAttachments := rawAttachmentList(storedDropzone["attachments"])
+	if len(dropzoneAttachments) != 1 {
+		t.Fatalf("expected one rewritten dropzone attachment, got %#v", storedDropzone["attachments"])
+	}
+	dropzoneAttachment, ok := dropzoneAttachments[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected rewritten dropzone attachment object, got %#v", dropzoneAttachments[0])
+	}
+	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(dropzoneAttachment, "id"), filepath.Join(deploymentRoot, "artifacts"))
+
+	if stringField(chatAttachment, "id") != stringField(branchAttachment, "id") || stringField(chatAttachment, "id") != stringField(dropzoneAttachment, "id") {
+		t.Fatalf("expected all rewritten attachment ids to share the same rebased path, got chat=%q branch=%q dropzone=%q", stringField(chatAttachment, "id"), stringField(branchAttachment, "id"), stringField(dropzoneAttachment, "id"))
+	}
 }
 
 func TestSharePublisherCopiesListenerEntrypoint(t *testing.T) {
