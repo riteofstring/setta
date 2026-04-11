@@ -22,6 +22,14 @@ class _CallbackEntry:
     is_running: bool = False
 
 
+@dataclass(slots=True)
+class _PendingCallbackExecution:
+    entry: _CallbackEntry
+    loop: asyncio.AbstractEventLoop
+    payload: dict[str, Any]
+    events: list[Any]
+
+
 class ListenerCallbackScheduler:
     """Coordinates debounce/throttle timing for listener callbacks."""
 
@@ -164,30 +172,51 @@ class ListenerCallbackScheduler:
         )
 
     async def _execute_callback(self, callback_id: str) -> None:
+        execution = self._claim_pending_execution(callback_id)
+        if execution is None:
+            return
+        try:
+            await self._run_pending_execution(execution)
+        finally:
+            self._finish_pending_execution(execution)
+
+    def _claim_pending_execution(
+        self, callback_id: str
+    ) -> _PendingCallbackExecution | None:
         entry = self._callbacks.get(callback_id)
         if entry is None:
-            return
+            return None
         if entry.is_running:
-            return
+            return None
         if not entry.pending_payload and not entry.pending_events:
-            return
+            return None
         loop = self._get_loop()
         entry.is_running = True
-        payload = dict(entry.pending_payload)
-        events = list(entry.pending_events)
+        execution = _PendingCallbackExecution(
+            entry=entry,
+            loop=loop,
+            payload=dict(entry.pending_payload),
+            events=list(entry.pending_events),
+        )
         entry.pending_payload.clear()
         entry.pending_events.clear()
-        try:
-            result = entry.executor(payload, events)
-            if inspect.isawaitable(result):
-                await result
-        finally:
-            entry.is_running = False
-            entry.timer_handle = None
-            entry.next_scheduled_time = None
-            entry.last_invoked = loop.time()
-            if entry.pending_payload or entry.pending_events:
-                self._plan_execution(entry, entry.last_invoked)
+        return execution
+
+    async def _run_pending_execution(
+        self, execution: _PendingCallbackExecution
+    ) -> None:
+        result = execution.entry.executor(execution.payload, execution.events)
+        if inspect.isawaitable(result):
+            await result
+
+    def _finish_pending_execution(self, execution: _PendingCallbackExecution) -> None:
+        entry = execution.entry
+        entry.is_running = False
+        entry.timer_handle = None
+        entry.next_scheduled_time = None
+        entry.last_invoked = execution.loop.time()
+        if entry.pending_payload or entry.pending_events:
+            self._plan_execution(entry, entry.last_invoked)
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         loop = self._loop

@@ -72,3 +72,39 @@ async def test_throttle_delays_followup_invocation() -> None:
     assert payloads[0] == {"value": 1}
     assert payloads[1] == {"value": 2}
     assert call_times[1] - call_times[0] >= 0.05
+
+
+@pytest.mark.asyncio
+async def test_submit_while_callback_running_replays_after_completion() -> None:
+    scheduler = ListenerCallbackScheduler()
+    invocations: list[dict[str, int]] = []
+    first_started = asyncio.Event()
+    allow_first_finish = asyncio.Event()
+    second_finished = asyncio.Event()
+
+    async def executor(payload: dict[str, int], _events: list[object]):
+        invocations.append(dict(payload))
+        if len(invocations) == 1:
+            first_started.set()
+            await allow_first_finish.wait()
+            return
+        second_finished.set()
+
+    scheduler.register_callback(
+        "cb",
+        executor=executor,
+        debounce_ms=None,
+        throttle_ms=None,
+    )
+
+    scheduler.submit("cb", changed={"value": 1})
+    await asyncio.wait_for(first_started.wait(), timeout=0.2)
+
+    scheduler.submit("cb", changed={"value": 2})
+    await asyncio.sleep(0)
+    assert invocations == [{"value": 1}]
+
+    allow_first_finish.set()
+    await asyncio.wait_for(second_finished.wait(), timeout=0.2)
+
+    assert invocations == [{"value": 1}, {"value": 2}]
