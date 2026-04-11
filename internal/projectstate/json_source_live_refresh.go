@@ -68,70 +68,102 @@ func (p *Project) RefreshVariantJSONSourceLiveTree(sectionID string, variantID s
 		return err
 	}
 
-	currentMap := cloneProjectStringMap(payloadStringMapField(payload, "codeObjVariantMap"))
-	topLevelParamID := strings.TrimSpace(payloadStringField(payload, "topLevelParamId"))
-	oldSubtreeIDs := map[string]struct{}{}
-	currentRootVariantID := ""
-	if topLevelParamID != "" {
-		currentRootVariantID = strings.TrimSpace(currentMap[topLevelParamID])
-		if currentRootVariantID != "" {
-			parentByID, _, err := collectCodeObjectHierarchy(*p, currentMap, topLevelParamID)
-			if err != nil {
-				return err
-			}
-			for codeObjID := range parentByID {
-				oldSubtreeIDs[codeObjID] = struct{}{}
-			}
-		}
-	}
-
-	nextMap := cloneProjectStringMap(currentMap)
-	for codeObjID := range oldSubtreeIDs {
-		delete(nextMap, codeObjID)
-	}
-
-	rootID := topLevelParamID
-	rootVariantID := currentRootVariantID
-	if rootID == "" || rootVariantID == "" {
-		rootID, rootVariantID, err = p.createJSONSourceRootCodeObject(jsonSourceRootName(payload, requestedKeys))
-		if err != nil {
-			return err
-		}
-	} else {
-		isParent, err := p.codeObjectVariantIsParent(rootID, rootVariantID)
-		if err != nil {
-			return err
-		}
-		if !isParent {
-			rootID, rootVariantID, err = p.createJSONSourceRootCodeObject(jsonSourceRootName(payload, requestedKeys))
-			if err != nil {
-				return err
-			}
-		}
-	}
-	nextMap[rootID] = rootVariantID
-
-	if err := p.setCodeObjectName(rootID, jsonSourceRootName(payload, requestedKeys)); err != nil {
+	state, err := p.loadJSONSourceLiveRefreshState(payload)
+	if err != nil {
 		return err
 	}
-	if err := p.syncJSONSourceObjectTree(currentMap, nextMap, rootID, rootVariantID, sourceObject); err != nil {
+
+	rootName := jsonSourceRootName(payload, requestedKeys)
+	rootID, rootVariantID, err := p.ensureJSONSourceLiveRefreshRoot(rootName, state)
+	if err != nil {
 		return err
 	}
-	if err := p.setCurrentSectionCodeObjVariantMap(section.ID, nextMap); err != nil {
+	state.nextMap[rootID] = rootVariantID
+
+	if err := p.setCodeObjectName(rootID, rootName); err != nil {
+		return err
+	}
+	if err := p.syncJSONSourceObjectTree(state.currentMap, state.nextMap, rootID, rootVariantID, sourceObject); err != nil {
+		return err
+	}
+	if err := p.commitJSONSourceLiveRefresh(section.ID, variant.ID, payload, state.nextMap, rootID); err != nil {
+		return err
+	}
+	return p.pruneUnusedCodeObjects()
+}
+
+type jsonSourceLiveRefreshState struct {
+	currentMap           map[string]string
+	nextMap              map[string]string
+	topLevelParamID      string
+	currentRootVariantID string
+}
+
+func (p *Project) loadJSONSourceLiveRefreshState(payload map[string]any) (jsonSourceLiveRefreshState, error) {
+	state := jsonSourceLiveRefreshState{
+		currentMap:      cloneProjectStringMap(payloadStringMapField(payload, "codeObjVariantMap")),
+		topLevelParamID: strings.TrimSpace(payloadStringField(payload, "topLevelParamId")),
+	}
+	state.nextMap = cloneProjectStringMap(state.currentMap)
+	if state.topLevelParamID == "" {
+		return state, nil
+	}
+
+	state.currentRootVariantID = strings.TrimSpace(state.currentMap[state.topLevelParamID])
+	if state.currentRootVariantID == "" {
+		return state, nil
+	}
+
+	subtreeIDs, err := p.collectJSONSourceLiveSubtreeIDs(state.currentMap, state.topLevelParamID)
+	if err != nil {
+		return jsonSourceLiveRefreshState{}, err
+	}
+	for codeObjID := range subtreeIDs {
+		delete(state.nextMap, codeObjID)
+	}
+	return state, nil
+}
+
+func (p *Project) collectJSONSourceLiveSubtreeIDs(codeObjVariantMap map[string]string, rootCodeObjID string) (map[string]struct{}, error) {
+	parentByID, _, err := collectCodeObjectHierarchy(*p, codeObjVariantMap, rootCodeObjID)
+	if err != nil {
+		return nil, err
+	}
+	subtreeIDs := make(map[string]struct{}, len(parentByID))
+	for codeObjID := range parentByID {
+		subtreeIDs[codeObjID] = struct{}{}
+	}
+	return subtreeIDs, nil
+}
+
+func (p *Project) ensureJSONSourceLiveRefreshRoot(rootName string, state jsonSourceLiveRefreshState) (string, string, error) {
+	if state.topLevelParamID == "" || state.currentRootVariantID == "" {
+		return p.createJSONSourceRootCodeObject(rootName)
+	}
+
+	isParent, err := p.codeObjectVariantIsParent(state.topLevelParamID, state.currentRootVariantID)
+	if err != nil {
+		return "", "", err
+	}
+	if isParent {
+		return state.topLevelParamID, state.currentRootVariantID, nil
+	}
+	return p.createJSONSourceRootCodeObject(rootName)
+}
+
+func (p *Project) commitJSONSourceLiveRefresh(sectionID string, variantID string, payload map[string]any, nextMap map[string]string, rootID string) error {
+	if err := p.setCurrentSectionCodeObjVariantMap(sectionID, nextMap); err != nil {
 		return err
 	}
 	if payloadStringField(payload, "topLevelParamId") != rootID {
-		if err := p.SetSectionFieldForVariant(section.ID, variant.ID, "topLevelParamId", rootID); err != nil {
+		if err := p.SetSectionFieldForVariant(sectionID, variantID, "topLevelParamId", rootID); err != nil {
 			return err
 		}
 	}
-	if payloadBoolField(payload, "jsonSourceMissing") {
-		if err := p.SetSectionFieldForVariant(section.ID, variant.ID, "jsonSourceMissing", false); err != nil {
-			return err
-		}
+	if !payloadBoolField(payload, "jsonSourceMissing") {
+		return nil
 	}
-
-	return p.pruneUnusedCodeObjects()
+	return p.SetSectionFieldForVariant(sectionID, variantID, "jsonSourceMissing", false)
 }
 
 func (p *Project) syncJSONSourceObjectTree(currentMap map[string]string, nextMap map[string]string, parentID string, parentVariantID string, sourceObject JSONSourceObject) error {
@@ -140,75 +172,97 @@ func (p *Project) syncJSONSourceObjectTree(currentMap map[string]string, nextMap
 		return err
 	}
 
-	existingChildren := make(map[string]jsonSourceExistingCodeObject, len(payloadStringArrayField(parentPayload, "children")))
-	for _, childID := range payloadStringArrayField(parentPayload, "children") {
-		childVariantID := strings.TrimSpace(currentMap[childID])
-		if childVariantID == "" {
-			childVariantID = strings.TrimSpace(nextMap[childID])
-		}
-		if childVariantID == "" {
-			continue
-		}
-		childCore, ok := p.CodeObjs[childID]
-		if !ok {
-			return fmt.Errorf("%w: %q", ErrCodeObjNotFound, childID)
-		}
-		isParent, err := p.codeObjectVariantIsParent(childID, childVariantID)
-		if err != nil {
-			return err
-		}
-		existingChildren[childCore.Name] = jsonSourceExistingCodeObject{
-			CodeObjID:  childID,
-			VariantID:  childVariantID,
-			IsParent:   isParent,
-			ShouldKeep: false,
-		}
+	existingChildren, err := p.loadJSONSourceExistingChildren(payloadStringArrayField(parentPayload, "children"), currentMap, nextMap)
+	if err != nil {
+		return err
 	}
 
 	nextChildren := make([]string, 0, len(sourceObject.Entries))
 	for _, entry := range sourceObject.Entries {
-		existing, ok := existingChildren[entry.Key]
-		if ok && existing.IsParent == entry.Value.IsObject() {
-			existing.ShouldKeep = true
-			existingChildren[entry.Key] = existing
-			if err := p.setCodeObjectName(existing.CodeObjID, entry.Key); err != nil {
-				return err
-			}
-			nextMap[existing.CodeObjID] = existing.VariantID
-			if entry.Value.Object != nil {
-				if err := p.syncJSONSourceObjectTree(currentMap, nextMap, existing.CodeObjID, existing.VariantID, *entry.Value.Object); err != nil {
-					return err
-				}
-			} else {
-				if err := p.setCodeObjectFieldForVariant(existing.CodeObjID, existing.VariantID, "value", entry.Value.Serialized); err != nil {
-					return err
-				}
-			}
-			nextChildren = append(nextChildren, existing.CodeObjID)
-			continue
-		}
-
-		createdCodeObjID, createdVariantID, err := p.createJSONSourceCodeObject(entry)
+		childID, err := p.syncJSONSourceObjectEntry(currentMap, nextMap, existingChildren, entry)
 		if err != nil {
 			return err
 		}
-		nextMap[createdCodeObjID] = createdVariantID
-		if entry.Value.Object != nil {
-			if err := p.syncJSONSourceObjectTree(currentMap, nextMap, createdCodeObjID, createdVariantID, *entry.Value.Object); err != nil {
-				return err
-			}
-		}
-		nextChildren = append(nextChildren, createdCodeObjID)
+		nextChildren = append(nextChildren, childID)
 	}
 
 	return p.setCodeObjectFieldForVariant(parentID, parentVariantID, "children", nextChildren)
 }
 
+func (p *Project) loadJSONSourceExistingChildren(childIDs []string, currentMap map[string]string, nextMap map[string]string) (map[string]jsonSourceExistingCodeObject, error) {
+	existingChildren := make(map[string]jsonSourceExistingCodeObject, len(childIDs))
+	for _, childID := range childIDs {
+		childVariantID := jsonSourceChildVariantID(childID, currentMap, nextMap)
+		if childVariantID == "" {
+			continue
+		}
+		childCore, existing, err := p.loadJSONSourceExistingChild(childID, childVariantID)
+		if err != nil {
+			return nil, err
+		}
+		existingChildren[childCore.Name] = existing
+	}
+	return existingChildren, nil
+}
+
+func (p *Project) loadJSONSourceExistingChild(childID string, childVariantID string) (CodeObject, jsonSourceExistingCodeObject, error) {
+	childCore, ok := p.CodeObjs[childID]
+	if !ok {
+		return CodeObject{}, jsonSourceExistingCodeObject{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, childID)
+	}
+	isParent, err := p.codeObjectVariantIsParent(childID, childVariantID)
+	if err != nil {
+		return CodeObject{}, jsonSourceExistingCodeObject{}, err
+	}
+	return childCore, jsonSourceExistingCodeObject{
+		CodeObjID: childID,
+		VariantID: childVariantID,
+		IsParent:  isParent,
+	}, nil
+}
+
+func (p *Project) syncJSONSourceObjectEntry(currentMap map[string]string, nextMap map[string]string, existingChildren map[string]jsonSourceExistingCodeObject, entry JSONSourceObjectEntry) (string, error) {
+	if existing, ok := existingChildren[entry.Key]; ok && existing.IsParent == entry.Value.IsObject() {
+		if err := p.setCodeObjectName(existing.CodeObjID, entry.Key); err != nil {
+			return "", err
+		}
+		nextMap[existing.CodeObjID] = existing.VariantID
+		if err := p.syncJSONSourceEntryValue(currentMap, nextMap, existing.CodeObjID, existing.VariantID, entry.Value); err != nil {
+			return "", err
+		}
+		return existing.CodeObjID, nil
+	}
+
+	createdCodeObjID, createdVariantID, err := p.createJSONSourceCodeObject(entry)
+	if err != nil {
+		return "", err
+	}
+	nextMap[createdCodeObjID] = createdVariantID
+	if err := p.syncJSONSourceEntryValue(currentMap, nextMap, createdCodeObjID, createdVariantID, entry.Value); err != nil {
+		return "", err
+	}
+	return createdCodeObjID, nil
+}
+
+func (p *Project) syncJSONSourceEntryValue(currentMap map[string]string, nextMap map[string]string, codeObjID string, variantID string, value JSONSourceValue) error {
+	if value.Object != nil {
+		return p.syncJSONSourceObjectTree(currentMap, nextMap, codeObjID, variantID, *value.Object)
+	}
+	return p.setCodeObjectFieldForVariant(codeObjID, variantID, "value", value.Serialized)
+}
+
+func jsonSourceChildVariantID(childID string, currentMap map[string]string, nextMap map[string]string) string {
+	childVariantID := strings.TrimSpace(currentMap[childID])
+	if childVariantID != "" {
+		return childVariantID
+	}
+	return strings.TrimSpace(nextMap[childID])
+}
+
 type jsonSourceExistingCodeObject struct {
-	CodeObjID  string
-	VariantID  string
-	IsParent   bool
-	ShouldKeep bool
+	CodeObjID string
+	VariantID string
+	IsParent  bool
 }
 
 func (p *Project) createJSONSourceRootCodeObject(name string) (string, string, error) {

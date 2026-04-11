@@ -334,6 +334,73 @@ func TestDocumentRefreshVariantJSONSourceLiveTreeReusesMatchingChildNamesAndPrun
 	}
 }
 
+func TestDocumentRefreshVariantJSONSourceLiveTreeRecreatesRootWhenCurrentRootIsLeaf(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"beta\":{\"second\":2,\"first\":[1,true]}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	document := jsonSourceLiveRefreshLeafRootTestDocument(t)
+	resolution, err := ResolveVariantJSONSourceKeys(
+		document,
+		workspaceRoot,
+		"project-alpha",
+		"json-section",
+		"json-variant-a",
+		[]string{"beta"},
+	)
+	if err != nil {
+		t.Fatalf("ResolveVariantJSONSourceKeys returned error: %v", err)
+	}
+	if resolution.JSONSourceObject == nil {
+		t.Fatal("expected ResolveVariantJSONSourceKeys to return a selected object")
+	}
+
+	if err := document.RefreshVariantJSONSourceLiveTree(
+		"project-alpha",
+		"json-section",
+		"json-variant-a",
+		resolution.JSONSourceKeys,
+		*resolution.JSONSourceObject,
+	); err != nil {
+		t.Fatalf("RefreshVariantJSONSourceLiveTree returned error: %v", err)
+	}
+
+	project, err := document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after refresh: %v", err)
+	}
+	sectionPayload, err := project.EffectiveSectionPayload("json-section", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective section payload after refresh: %v", err)
+	}
+	rootID := payloadStringField(sectionPayload, "topLevelParamId")
+	if rootID == "" || rootID == "old-root" {
+		t.Fatalf("expected refresh to create a new root id, got %q", rootID)
+	}
+	if _, ok := project.CodeObjs["old-root"]; ok {
+		t.Fatalf("expected old-root code object to be pruned, got %#v", project.CodeObjs["old-root"])
+	}
+
+	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
+	rootPayload, rootCodeObj, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, rootID)
+	if err != nil {
+		t.Fatalf("effective recreated root payload after refresh: %v", err)
+	}
+	if rootCodeObj.Name != "alpha" {
+		t.Fatalf("expected recreated root to keep name alpha, got %q", rootCodeObj.Name)
+	}
+	childIDs := payloadStringArrayField(rootPayload, "children")
+	if len(childIDs) != 2 {
+		t.Fatalf("expected recreated root children [second first], got %#v", childIDs)
+	}
+}
+
 func TestRuntimeToggleVariantJSONSourceRejectsNonDictSection(t *testing.T) {
 	t.Parallel()
 
@@ -594,6 +661,43 @@ func jsonSourceLiveRefreshReuseTestDocument(t *testing.T) Document {
 				"old-root": "old-root-variant",
 				"old-leaf": "old-leaf-variant",
 				"old-drop": "old-drop-variant",
+			},
+		}),
+	}
+	document.Projects["project-alpha"] = project
+	return document
+}
+
+func jsonSourceLiveRefreshLeafRootTestDocument(t *testing.T) Document {
+	t.Helper()
+
+	document := jsonSourceLiveRefreshTestDocument(t)
+	project := document.Projects["project-alpha"]
+
+	delete(project.CodeObjs, "old-leaf")
+	delete(project.CodeObjVariants, "old-leaf-variant")
+	delete(project.CodeObjImpls, "old-leaf-impl")
+	project.CodeObjImpls["old-root-impl"] = CodeObjectImpl{
+		ID:   "old-root-impl",
+		Type: "CodeParam",
+		Payload: mustSectionVariantMutationRawJSON(t, map[string]any{
+			"id":    "old-root-impl",
+			"type":  "CodeParam",
+			"value": "1",
+		}),
+	}
+	project.SectionImpls["json-impl-a"] = SectionImpl{
+		ID:   "json-impl-a",
+		Kind: SectionKind("dict"),
+		Payload: mustSectionVariantMutationRawJSON(t, map[string]any{
+			"id":              "json-impl-a",
+			"type":            "Dict",
+			"isJsonSource":    true,
+			"configLanguage":  "json",
+			"jsonSourceKeys":  []string{"alpha"},
+			"topLevelParamId": "old-root",
+			"codeObjVariantMap": map[string]any{
+				"old-root": "old-root-variant",
 			},
 		}),
 	}
