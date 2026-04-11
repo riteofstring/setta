@@ -390,89 +390,140 @@ func buildOpenAIProviderMessage(message map[string]any) (map[string]any, bool, e
 func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.ResponseInputParam, error) {
 	items := make(responses.ResponseInputParam, 0, len(transcript))
 	for index, message := range transcript {
-		role := strings.TrimSpace(stringValue(message["role"]))
-		switch role {
-		case "system", "user":
-			content, include, err := buildOpenAIResponseInputMessageContent(message["content"])
-			if err != nil {
-				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
-			}
-			if include {
-				items = append(items, responses.ResponseInputItemParamOfInputMessage(content, role))
-			}
-		case "assistant":
-			messageID := strings.TrimSpace(stringValue(message["id"]))
-			if messageID == "" {
-				return nil, fmt.Errorf("%w: assistant message id is required", ErrHistoryUnsupported)
-			}
-			reasoningItems, includeReasoning, err := buildOpenAIResponseReasoningItems(
-				messageID,
-				message["content"],
-			)
-			if err != nil {
-				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
-			}
-			if includeReasoning {
-				items = append(items, reasoningItems...)
-			}
-			content, include, err := buildOpenAIResponseOutputMessageContent(message)
-			if err != nil {
-				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
-			}
-			if include {
-				outputMessage := responses.ResponseOutputMessageParam{
-					Content: content,
-					ID:      openAIResponseOutputMessageID(message, messageID),
-					Status:  responses.ResponseOutputMessageStatusCompleted,
-				}
-				if phase := openAIResponseOutputMessagePhase(message); phase != "" {
-					outputMessage.Phase = responses.ResponseOutputMessagePhase(phase)
-				}
-				items = append(items, responses.ResponseInputItemUnionParam{
-					OfOutputMessage: &outputMessage,
-				})
-			}
-			toolCalls, includeToolCalls, err := normalizeOpenAIResponseFunctionCalls(message["tool_calls"], role)
-			if err != nil {
-				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrToolsUnsupported, index, err)
-			}
-			if !includeToolCalls {
-				continue
-			}
-			for _, toolCall := range toolCalls {
-				functionCall := responses.ResponseFunctionToolCallParam{
-					Arguments: toolCall.arguments,
-					CallID:    toolCall.callID,
-					Name:      toolCall.name,
-				}
-				if toolCall.providerItemID != "" {
-					functionCall.ID = param.NewOpt(toolCall.providerItemID)
-				}
-				items = append(items, responses.ResponseInputItemUnionParam{
-					OfFunctionCall: &functionCall,
-				})
-			}
-		case "tool":
-			content, include, err := normalizeProviderMessageContent(message["content"])
-			if err != nil {
-				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
-			}
-			if !include {
-				content, err = normalizeProviderToolResultContent(message["result"])
-				if err != nil {
-					return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
-				}
-			}
-			toolCallID := strings.TrimSpace(stringValue(message["tool_call_id"]))
-			if toolCallID == "" {
-				return nil, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
-			}
-			items = append(items, responses.ResponseInputItemParamOfFunctionCallOutput(toolCallID, content))
-		default:
-			return nil, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
+		messageItems, err := buildOpenAIResponseItemsForMessage(message)
+		if err != nil {
+			return nil, wrapOpenAIResponseTranscriptError(index, err)
 		}
+		items = append(items, messageItems...)
 	}
 	return items, nil
+}
+
+func buildOpenAIResponseItemsForMessage(message map[string]any) ([]responses.ResponseInputItemUnionParam, error) {
+	role := strings.TrimSpace(stringValue(message["role"]))
+	switch role {
+	case "system", "user":
+		return buildOpenAIResponseInputMessageItems(message["content"], role)
+	case "assistant":
+		return buildOpenAIAssistantResponseInputItems(message)
+	case "tool":
+		item, err := buildOpenAIResponseToolInputItem(message)
+		if err != nil {
+			return nil, err
+		}
+		return []responses.ResponseInputItemUnionParam{item}, nil
+	default:
+		return nil, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
+	}
+}
+
+func buildOpenAIResponseInputMessageItems(raw any, role string) ([]responses.ResponseInputItemUnionParam, error) {
+	content, include, err := buildOpenAIResponseInputMessageContent(raw)
+	if err != nil || !include {
+		return nil, err
+	}
+	return []responses.ResponseInputItemUnionParam{
+		responses.ResponseInputItemParamOfInputMessage(content, role),
+	}, nil
+}
+
+func buildOpenAIAssistantResponseInputItems(message map[string]any) ([]responses.ResponseInputItemUnionParam, error) {
+	messageID := strings.TrimSpace(stringValue(message["id"]))
+	if messageID == "" {
+		return nil, fmt.Errorf("%w: assistant message id is required", ErrHistoryUnsupported)
+	}
+	items := make([]responses.ResponseInputItemUnionParam, 0, 3)
+	reasoningItems, includeReasoning, err := buildOpenAIResponseReasoningItems(messageID, message["content"])
+	if err != nil {
+		return nil, err
+	}
+	if includeReasoning {
+		items = append(items, reasoningItems...)
+	}
+	outputMessage, includeOutputMessage, err := buildOpenAIResponseOutputMessageItem(message, messageID)
+	if err != nil {
+		return nil, err
+	}
+	if includeOutputMessage {
+		items = append(items, outputMessage)
+	}
+	functionCalls, err := buildOpenAIResponseFunctionCallItems(message["tool_calls"], "assistant")
+	if err != nil {
+		return nil, err
+	}
+	return append(items, functionCalls...), nil
+}
+
+func buildOpenAIResponseOutputMessageItem(
+	message map[string]any,
+	messageID string,
+) (responses.ResponseInputItemUnionParam, bool, error) {
+	content, include, err := buildOpenAIResponseOutputMessageContent(message)
+	if err != nil || !include {
+		return responses.ResponseInputItemUnionParam{}, false, err
+	}
+	outputMessage := responses.ResponseOutputMessageParam{
+		Content: content,
+		ID:      openAIResponseOutputMessageID(message, messageID),
+		Status:  responses.ResponseOutputMessageStatusCompleted,
+	}
+	if phase := openAIResponseOutputMessagePhase(message); phase != "" {
+		outputMessage.Phase = responses.ResponseOutputMessagePhase(phase)
+	}
+	return responses.ResponseInputItemUnionParam{
+		OfOutputMessage: &outputMessage,
+	}, true, nil
+}
+
+func buildOpenAIResponseFunctionCallItems(raw any, role string) ([]responses.ResponseInputItemUnionParam, error) {
+	toolCalls, include, err := normalizeOpenAIResponseFunctionCalls(raw, role)
+	if err != nil || !include {
+		return nil, err
+	}
+	items := make([]responses.ResponseInputItemUnionParam, 0, len(toolCalls))
+	for _, toolCall := range toolCalls {
+		items = append(items, buildOpenAIResponseFunctionCallItem(toolCall))
+	}
+	return items, nil
+}
+
+func buildOpenAIResponseFunctionCallItem(toolCall openAIResponseFunctionCallInput) responses.ResponseInputItemUnionParam {
+	functionCall := responses.ResponseFunctionToolCallParam{
+		Arguments: toolCall.arguments,
+		CallID:    toolCall.callID,
+		Name:      toolCall.name,
+	}
+	if toolCall.providerItemID != "" {
+		functionCall.ID = param.NewOpt(toolCall.providerItemID)
+	}
+	return responses.ResponseInputItemUnionParam{
+		OfFunctionCall: &functionCall,
+	}
+}
+
+func buildOpenAIResponseToolInputItem(message map[string]any) (responses.ResponseInputItemUnionParam, error) {
+	content, include, err := normalizeProviderMessageContent(message["content"])
+	if err != nil {
+		return responses.ResponseInputItemUnionParam{}, err
+	}
+	if !include {
+		content, err = normalizeProviderToolResultContent(message["result"])
+		if err != nil {
+			return responses.ResponseInputItemUnionParam{}, err
+		}
+	}
+	toolCallID := strings.TrimSpace(stringValue(message["tool_call_id"]))
+	if toolCallID == "" {
+		return responses.ResponseInputItemUnionParam{}, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
+	}
+	return responses.ResponseInputItemParamOfFunctionCallOutput(toolCallID, content), nil
+}
+
+func wrapOpenAIResponseTranscriptError(index int, err error) error {
+	if errors.Is(err, ErrToolsUnsupported) {
+		return fmt.Errorf("%w: transcript message %d: %v", ErrToolsUnsupported, index, err)
+	}
+	return fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
 }
 
 func buildOpenAIResponseIncludes(request agentruns.ExecutionRequest) ([]responses.ResponseIncludable, error) {
@@ -622,45 +673,64 @@ func buildOpenAIResponseReasoningItems(
 		if !ok {
 			return nil, false, fmt.Errorf("%w: content block %d must be an object", ErrHistoryUnsupported, index)
 		}
-		if strings.TrimSpace(stringValue(block["type"])) != "thinking" {
+		reasoningItem, include := buildOpenAIResponseReasoningItem(messageID, reasoningIndex, block)
+		if !include {
 			continue
 		}
-		thinking := stringValue(block["thinking"])
-		summary := stringValue(block["summary"])
-		signature := strings.TrimSpace(stringValue(block["signature"]))
-		providerItemID := strings.TrimSpace(stringValue(block["provider_item_id"]))
-		if strings.TrimSpace(thinking) == "" &&
-			strings.TrimSpace(summary) == "" &&
-			signature == "" {
-			continue
-		}
-		reasoning := responses.ResponseReasoningItemParam{
-			ID:      openAIResponseReasoningItemID(messageID, reasoningIndex, providerItemID),
-			Summary: []responses.ResponseReasoningItemSummaryParam{},
-			Status:  responses.ResponseReasoningItemStatusCompleted,
-		}
-		if strings.TrimSpace(summary) != "" {
-			reasoning.Summary = []responses.ResponseReasoningItemSummaryParam{
-				{Text: summary},
-			}
-		}
-		if strings.TrimSpace(thinking) != "" {
-			reasoning.Content = []responses.ResponseReasoningItemContentParam{
-				{Text: thinking},
-			}
-		}
-		if signature != "" {
-			reasoning.EncryptedContent = param.NewOpt(signature)
-		}
-		items = append(items, responses.ResponseInputItemUnionParam{
-			OfReasoning: &reasoning,
-		})
+		items = append(items, reasoningItem)
 		reasoningIndex++
 	}
 	if len(items) == 0 {
 		return nil, false, nil
 	}
 	return items, true, nil
+}
+
+func buildOpenAIResponseReasoningItem(
+	messageID string,
+	reasoningIndex int,
+	block map[string]any,
+) (responses.ResponseInputItemUnionParam, bool) {
+	if strings.TrimSpace(stringValue(block["type"])) != "thinking" {
+		return responses.ResponseInputItemUnionParam{}, false
+	}
+	thinking := stringValue(block["thinking"])
+	summary := stringValue(block["summary"])
+	signature := strings.TrimSpace(stringValue(block["signature"]))
+	if strings.TrimSpace(thinking) == "" &&
+		strings.TrimSpace(summary) == "" &&
+		signature == "" {
+		return responses.ResponseInputItemUnionParam{}, false
+	}
+	reasoning := responses.ResponseReasoningItemParam{
+		ID:      openAIResponseReasoningItemID(messageID, reasoningIndex, strings.TrimSpace(stringValue(block["provider_item_id"]))),
+		Summary: []responses.ResponseReasoningItemSummaryParam{},
+		Status:  responses.ResponseReasoningItemStatusCompleted,
+	}
+	setOpenAIResponseReasoningItemSummaryAndContent(&reasoning, summary, thinking)
+	if signature != "" {
+		reasoning.EncryptedContent = param.NewOpt(signature)
+	}
+	return responses.ResponseInputItemUnionParam{
+		OfReasoning: &reasoning,
+	}, true
+}
+
+func setOpenAIResponseReasoningItemSummaryAndContent(
+	reasoning *responses.ResponseReasoningItemParam,
+	summary string,
+	thinking string,
+) {
+	if strings.TrimSpace(summary) != "" {
+		reasoning.Summary = []responses.ResponseReasoningItemSummaryParam{
+			{Text: summary},
+		}
+	}
+	if strings.TrimSpace(thinking) != "" {
+		reasoning.Content = []responses.ResponseReasoningItemContentParam{
+			{Text: thinking},
+		}
+	}
 }
 
 func openAIResponseReasoningItemID(messageID string, reasoningIndex int, providerItemID string) string {
