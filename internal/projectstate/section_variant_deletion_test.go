@@ -120,6 +120,49 @@ func TestProjectDeleteSectionVariantClearsRemovedPasswordSecret(t *testing.T) {
 	}
 }
 
+func TestProjectDeleteSectionVariantKeepsCodeObjectVariantStillUsedByRemainingVariant(t *testing.T) {
+	t.Parallel()
+
+	project := sectionVariantDeletionTestProject(t)
+	project.passwordSecrets = NewMemoryPasswordSecretStore()
+
+	sourceImplA := project.SectionImpls["source-impl-a"]
+	sourceImplA.Payload = mustMarshalProjectObject(map[string]any{
+		"id":              "source-impl-a",
+		"type":            "Dict",
+		"topLevelParamId": "source-root",
+		"codeObjVariantMap": map[string]string{
+			"source-root":  "source-root-variant-a",
+			"source-param": "source-param-variant-b",
+		},
+		"edgeOutputPorts": []map[string]any{{"id": "source-port", "accessor": ".result"}},
+	})
+	project.SectionImpls["source-impl-a"] = sourceImplA
+
+	if err := project.passwordSecrets.Set("source-param-impl-b", "keep-me"); err != nil {
+		t.Fatalf("seed password secret before DeleteSectionVariant: %v", err)
+	}
+
+	if err := project.DeleteSectionVariant("source-section", "source-variant-b"); err != nil {
+		t.Fatalf("DeleteSectionVariant returned error: %v", err)
+	}
+
+	if _, ok := project.CodeObjVariants["source-param-variant-b"]; !ok {
+		t.Fatal("expected still-referenced code object variant to remain in project state")
+	}
+	if _, ok := project.CodeObjImpls["source-param-impl-b"]; !ok {
+		t.Fatal("expected impl for still-referenced code object variant to remain in project state")
+	}
+
+	secret, err := project.passwordSecrets.Get("source-param-impl-b")
+	if err != nil {
+		t.Fatalf("read password secret after DeleteSectionVariant: %v", err)
+	}
+	if secret != "keep-me" {
+		t.Fatalf("expected still-referenced password secret to remain, got %q", secret)
+	}
+}
+
 func sectionVariantDeletionTestProject(t *testing.T) Project {
 	t.Helper()
 

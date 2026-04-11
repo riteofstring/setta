@@ -101,20 +101,38 @@ func (p *Project) DeleteSectionVariant(sectionID string, variantID string) error
 		return nil
 	}
 
-	deletedPayload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
+	deletedCodeObjectVariants, err := p.deletedSectionVariantCodeObjectVariants(section.ID, variant.ID)
 	if err != nil {
 		return err
 	}
-	deletedCodeObjectVariants := payloadStringMapField(deletedPayload, "codeObjVariantMap")
+	if err := p.removeSectionVariantEdges(section.ID, variant.ID); err != nil {
+		return err
+	}
+	p.removeSectionVariantState(section, variant)
 
+	if err := p.removeUnusedDeletedSectionVariantCodeObjectVariants(deletedCodeObjectVariants); err != nil {
+		return err
+	}
+	p.removeUnusedDeletedSectionVariantImpls(variant)
+	if err := p.pruneUnusedCodeObjects(); err != nil {
+		return err
+	}
+	return p.syncWatchCodeRegistrySectionMembership(section.ID)
+}
+
+func (p *Project) deletedSectionVariantCodeObjectVariants(sectionID string, variantID string) (map[string]string, error) {
+	payload, err := effectiveSectionPayload(*p, sectionID, variantID)
+	if err != nil {
+		return nil, err
+	}
+	return payloadStringMapField(payload, "codeObjVariantMap"), nil
+}
+
+func (p *Project) removeSectionVariantEdges(sectionID string, variantID string) error {
 	remainingEdges := make([]Edge, 0, len(p.Edges))
 	removedEdges := make([]Edge, 0, len(p.Edges))
 	for _, edge := range p.Edges {
-		if edge.SourceSectionID == section.ID && edge.SourceVariantID == variant.ID {
-			removedEdges = append(removedEdges, edge)
-			continue
-		}
-		if edge.TargetSectionID == section.ID && edge.TargetVariantID == variant.ID {
+		if sectionVariantMatchesEdge(edge, sectionID, variantID) {
 			removedEdges = append(removedEdges, edge)
 			continue
 		}
@@ -127,27 +145,34 @@ func (p *Project) DeleteSectionVariant(sectionID string, variantID string) error
 			return err
 		}
 	}
+	return nil
+}
 
-	removedVariantIDs := map[string]struct{}{variant.ID: {}}
-	section.VariantIDs = filterStringSlice(section.VariantIDs, removedVariantIDs)
-	if section.DefaultVariantID == variant.ID && len(section.VariantIDs) > 0 {
-		section.DefaultVariantID = section.VariantIDs[0]
-	}
+func sectionVariantMatchesEdge(edge Edge, sectionID string, variantID string) bool {
+	return (edge.SourceSectionID == sectionID && edge.SourceVariantID == variantID) ||
+		(edge.TargetSectionID == sectionID && edge.TargetVariantID == variantID)
+}
+
+func (p *Project) removeSectionVariantState(section Section, variant SectionVariant) {
+	nextVariantIDs := filterStringSlice(section.VariantIDs, map[string]struct{}{variant.ID: {}})
+	section.VariantIDs = nextVariantIDs
+	section.DefaultVariantID = defaultVariantIDAfterRemoval(section.DefaultVariantID, nextVariantIDs, variant.ID)
 	p.Sections[section.ID] = section
 
-	if p.SectionVariantMap[section.ID] == variant.ID && len(section.VariantIDs) > 0 {
-		p.SectionVariantMap[section.ID] = section.VariantIDs[0]
+	if p.SectionVariantMap[section.ID] == variant.ID {
+		p.SectionVariantMap[section.ID] = nextVariantIDs[0]
 	}
 	delete(p.SectionVariants, variant.ID)
+}
 
-	if err := p.removeUnusedDeletedSectionVariantCodeObjectVariants(deletedCodeObjectVariants); err != nil {
-		return err
+func defaultVariantIDAfterRemoval(currentDefault string, remainingVariantIDs []string, removedVariantID string) string {
+	if currentDefault != removedVariantID {
+		return currentDefault
 	}
-	p.removeUnusedDeletedSectionVariantImpls(variant)
-	if err := p.pruneUnusedCodeObjects(); err != nil {
-		return err
+	if len(remainingVariantIDs) == 0 {
+		return ""
 	}
-	return p.syncWatchCodeRegistrySectionMembership(section.ID)
+	return remainingVariantIDs[0]
 }
 
 func (p *Project) removeUnusedDeletedSectionVariantCodeObjectVariants(deleted map[string]string) error {
@@ -155,7 +180,19 @@ func (p *Project) removeUnusedDeletedSectionVariantCodeObjectVariants(deleted ma
 		return nil
 	}
 
-	usedVariantIDs := make(map[string]struct{}, len(deleted))
+	usedVariantIDs, err := p.usedSectionCodeObjectVariantIDs()
+	if err != nil {
+		return err
+	}
+	removedImplIDs, err := p.removeDeletedSectionCodeObjectVariants(deleted, usedVariantIDs)
+	if err != nil {
+		return err
+	}
+	return p.removeUnreferencedCodeObjectImpls(removedImplIDs)
+}
+
+func (p *Project) usedSectionCodeObjectVariantIDs() (map[string]struct{}, error) {
+	usedVariantIDs := make(map[string]struct{}, len(p.CodeObjVariants))
 	for sectionID, section := range p.Sections {
 		for _, variantID := range collectSectionVariantIDs(*p, section) {
 			if _, ok := p.SectionVariants[variantID]; !ok {
@@ -163,52 +200,65 @@ func (p *Project) removeUnusedDeletedSectionVariantCodeObjectVariants(deleted ma
 			}
 			payload, err := effectiveSectionPayload(*p, sectionID, variantID)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			for _, codeObjVariantID := range payloadStringMapField(payload, "codeObjVariantMap") {
 				usedVariantIDs[codeObjVariantID] = struct{}{}
 			}
 		}
 	}
+	return usedVariantIDs, nil
+}
 
+func (p *Project) removeDeletedSectionCodeObjectVariants(
+	deleted map[string]string,
+	usedVariantIDs map[string]struct{},
+) (map[string]struct{}, error) {
 	removedImplIDs := map[string]struct{}{}
 	for codeObjID, codeObjVariantID := range deleted {
 		if _, ok := usedVariantIDs[codeObjVariantID]; ok {
 			continue
 		}
 
-		codeObj, ok := p.CodeObjs[codeObjID]
-		if !ok {
-			return fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
+		removedImplID, err := p.removeCodeObjectVariant(codeObjID, codeObjVariantID)
+		if err != nil {
+			return nil, err
 		}
-		codeObjVariant, ok := p.CodeObjVariants[codeObjVariantID]
-		if !ok {
-			return fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, codeObjVariantID)
+		if removedImplID != "" {
+			removedImplIDs[removedImplID] = struct{}{}
 		}
+	}
+	return removedImplIDs, nil
+}
 
-		removedVariantIDs := map[string]struct{}{codeObjVariantID: {}}
-		codeObj.VariantIDs = filterStringSlice(codeObj.VariantIDs, removedVariantIDs)
-		if codeObj.DefaultVariantID == codeObjVariantID {
-			if len(codeObj.VariantIDs) > 0 {
-				codeObj.DefaultVariantID = codeObj.VariantIDs[0]
-			} else {
-				codeObj.DefaultVariantID = ""
-			}
-		}
-		if len(codeObj.VariantIDs) == 0 {
-			delete(p.CodeObjs, codeObjID)
-		} else {
-			p.CodeObjs[codeObjID] = codeObj
-		}
-
-		removedImplIDs[codeObjVariant.ImplID] = struct{}{}
-		delete(p.CodeObjVariants, codeObjVariantID)
+func (p *Project) removeCodeObjectVariant(codeObjID string, codeObjVariantID string) (string, error) {
+	codeObj, ok := p.CodeObjs[codeObjID]
+	if !ok {
+		return "", fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
+	}
+	codeObjVariant, ok := p.CodeObjVariants[codeObjVariantID]
+	if !ok {
+		return "", fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, codeObjVariantID)
 	}
 
-	stillReferencedImplIDs := map[string]struct{}{}
-	for _, variant := range p.CodeObjVariants {
-		stillReferencedImplIDs[strings.TrimSpace(variant.ImplID)] = struct{}{}
+	codeObj.VariantIDs = filterStringSlice(codeObj.VariantIDs, map[string]struct{}{codeObjVariantID: {}})
+	codeObj.DefaultVariantID = defaultVariantIDAfterRemoval(codeObj.DefaultVariantID, codeObj.VariantIDs, codeObjVariantID)
+	if len(codeObj.VariantIDs) == 0 {
+		delete(p.CodeObjs, codeObjID)
+	} else {
+		p.CodeObjs[codeObjID] = codeObj
 	}
+
+	delete(p.CodeObjVariants, codeObjVariantID)
+	return strings.TrimSpace(codeObjVariant.ImplID), nil
+}
+
+func (p *Project) removeUnreferencedCodeObjectImpls(removedImplIDs map[string]struct{}) error {
+	if len(removedImplIDs) == 0 {
+		return nil
+	}
+
+	stillReferencedImplIDs := p.codeObjectImplIDsInUse()
 	for implID := range removedImplIDs {
 		if _, ok := stillReferencedImplIDs[implID]; ok {
 			continue
@@ -218,8 +268,19 @@ func (p *Project) removeUnusedDeletedSectionVariantCodeObjectVariants(deleted ma
 		}
 		delete(p.CodeObjImpls, implID)
 	}
-
 	return nil
+}
+
+func (p *Project) codeObjectImplIDsInUse() map[string]struct{} {
+	stillReferencedImplIDs := map[string]struct{}{}
+	for _, variant := range p.CodeObjVariants {
+		implID := strings.TrimSpace(variant.ImplID)
+		if implID == "" {
+			continue
+		}
+		stillReferencedImplIDs[implID] = struct{}{}
+	}
+	return stillReferencedImplIDs
 }
 
 func (p *Project) removeUnusedDeletedSectionVariantImpls(variant SectionVariant) {
