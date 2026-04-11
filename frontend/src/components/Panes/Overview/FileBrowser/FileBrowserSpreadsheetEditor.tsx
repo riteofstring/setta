@@ -43,6 +43,7 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
+import type { SpreadsheetGridDensity } from "utils/generatedTypes";
 import {
   getSpreadsheetColumnLabel,
   isSpreadsheetPath,
@@ -117,7 +118,6 @@ type SpreadsheetSelectedFile = {
   fullPath: string;
 };
 type SpreadsheetGridMode = "dom" | "glide";
-type SpreadsheetDensityMode = "compact" | "comfortable";
 type SpreadsheetDensityMetrics = {
   headerHeight: number;
   rowHeight: number;
@@ -462,7 +462,7 @@ export function getSpreadsheetGlideTheme({
   };
 }
 export function getSpreadsheetDensityMetrics(
-  density: SpreadsheetDensityMode,
+  density: SpreadsheetGridDensity,
 ): SpreadsheetDensityMetrics {
   if (density === "comfortable") {
     return {
@@ -482,7 +482,7 @@ export function getSpreadsheetDensityMetrics(
 export function getSpreadsheetGridTemplateColumns(
   columnCount: number,
   showRowNumbers = true,
-  density: SpreadsheetDensityMode = "compact",
+  density: SpreadsheetGridDensity = "compact",
 ): string {
   const metrics = getSpreadsheetDensityMetrics(density);
   if (!showRowNumbers) {
@@ -493,7 +493,7 @@ export function getSpreadsheetGridTemplateColumns(
 export function getSpreadsheetGridWidth(
   columnCount: number,
   showRowNumbers = true,
-  density: SpreadsheetDensityMode = "compact",
+  density: SpreadsheetGridDensity = "compact",
 ): number {
   const metrics = getSpreadsheetDensityMetrics(density);
   return (
@@ -2513,7 +2513,7 @@ function useSpreadsheetSelectedFileState(
   };
 }
 function useSpreadsheetGridLayout(args: {
-  density: SpreadsheetDensityMode;
+  density: SpreadsheetGridDensity;
   densityMetrics: SpreadsheetDensityMetrics;
   densityMultiplier: number;
   effectiveReadOnly: boolean;
@@ -2607,7 +2607,7 @@ export function FileBrowserSpreadsheetEditor({
   flowZoom?: number;
   readOnly?: boolean;
   showRowNumbers?: boolean;
-  density?: SpreadsheetDensityMode;
+  density?: SpreadsheetGridDensity;
   autoReloadOnExternalChange?: boolean;
 }) {
   const darkMode = useLocalStorage((state) => state.darkMode);
