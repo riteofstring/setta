@@ -54,6 +54,51 @@ const (
 	DefaultRenameRefactorMode      = projectstate.DefaultRenameRefactorMode
 )
 
+type sectionSizingDimensionSpec struct {
+	fieldName string
+	fallback  func(projectstate.AutoLayoutSectionMinDimensions) float64
+	apply     func(*projectstate.AutoLayoutSectionMinDimensions, float64)
+}
+
+var sectionSizingDimensionSpecs = []sectionSizingDimensionSpec{
+	{
+		fieldName: "minWidth",
+		fallback: func(dimensions projectstate.AutoLayoutSectionMinDimensions) float64 {
+			return dimensions.MinWidth
+		},
+		apply: func(dimensions *projectstate.AutoLayoutSectionMinDimensions, value float64) {
+			dimensions.MinWidth = math.Max(0, value)
+		},
+	},
+	{
+		fieldName: "minHeight",
+		fallback: func(dimensions projectstate.AutoLayoutSectionMinDimensions) float64 {
+			return dimensions.MinHeight
+		},
+		apply: func(dimensions *projectstate.AutoLayoutSectionMinDimensions, value float64) {
+			dimensions.MinHeight = math.Max(0, value)
+		},
+	},
+	{
+		fieldName: "maxWidth",
+		fallback: func(dimensions projectstate.AutoLayoutSectionMinDimensions) float64 {
+			return dimensions.MaxWidth
+		},
+		apply: func(dimensions *projectstate.AutoLayoutSectionMinDimensions, value float64) {
+			dimensions.MaxWidth = value
+		},
+	},
+	{
+		fieldName: "maxHeight",
+		fallback: func(dimensions projectstate.AutoLayoutSectionMinDimensions) float64 {
+			return dimensions.MaxHeight
+		},
+		apply: func(dimensions *projectstate.AutoLayoutSectionMinDimensions, value float64) {
+			dimensions.MaxHeight = value
+		},
+	},
+}
+
 func AutoBackupPolicyForDocument(document Document) (AutoBackupPolicy, error) {
 	policy := AutoBackupPolicy{
 		Enabled:          DefaultAutoBackupEnabled,
@@ -184,70 +229,8 @@ func StructuralMutationSettingsForDocument(document Document) (projectstate.Stru
 		return settings, nil
 	}
 
-	sectionSizingPolicy, ok, err := objectField(document, "sectionSizingPolicy")
-	if err != nil {
+	if err := applySectionSizingPolicyOverrides(document, &settings); err != nil {
 		return projectstate.StructuralMutationSettings{}, err
-	}
-	if ok {
-		byType, ok, err := objectField(sectionSizingPolicy, "byType")
-		if err != nil {
-			return projectstate.StructuralMutationSettings{}, err
-		}
-		if ok {
-			for sectionType, defaults := range settings.SectionSizingPolicy.ByType {
-				typeObject, ok, err := objectField(byType, sectionType)
-				if err != nil {
-					return projectstate.StructuralMutationSettings{}, err
-				}
-				if !ok {
-					continue
-				}
-
-				minWidth, err := resolveSectionSizingDimension(
-					typeObject,
-					"minWidth",
-					defaults.MinWidth,
-					fmt.Sprintf("sectionSizingPolicy.byType.%s.minWidth", sectionType),
-				)
-				if err != nil {
-					return projectstate.StructuralMutationSettings{}, err
-				}
-				minHeight, err := resolveSectionSizingDimension(
-					typeObject,
-					"minHeight",
-					defaults.MinHeight,
-					fmt.Sprintf("sectionSizingPolicy.byType.%s.minHeight", sectionType),
-				)
-				if err != nil {
-					return projectstate.StructuralMutationSettings{}, err
-				}
-				maxWidth, err := resolveSectionSizingDimension(
-					typeObject,
-					"maxWidth",
-					defaults.MaxWidth,
-					fmt.Sprintf("sectionSizingPolicy.byType.%s.maxWidth", sectionType),
-				)
-				if err != nil {
-					return projectstate.StructuralMutationSettings{}, err
-				}
-				maxHeight, err := resolveSectionSizingDimension(
-					typeObject,
-					"maxHeight",
-					defaults.MaxHeight,
-					fmt.Sprintf("sectionSizingPolicy.byType.%s.maxHeight", sectionType),
-				)
-				if err != nil {
-					return projectstate.StructuralMutationSettings{}, err
-				}
-
-				settings.SectionSizingPolicy.ByType[sectionType] = projectstate.AutoLayoutSectionMinDimensions{
-					MinWidth:  math.Max(0, minWidth),
-					MinHeight: math.Max(0, minHeight),
-					MaxWidth:  maxWidth,
-					MaxHeight: maxHeight,
-				}
-			}
-		}
 	}
 
 	sectionDefaults, err := sectionCreateDefaultsForDocument(document)
@@ -264,6 +247,31 @@ func StructuralMutationSettingsForDocument(document Document) (projectstate.Stru
 	return settings, nil
 }
 
+func applySectionSizingPolicyOverrides(
+	document Document,
+	settings *projectstate.StructuralMutationSettings,
+) error {
+	byType, ok, err := objectPathField(document, "sectionSizingPolicy", "byType")
+	if err != nil || !ok {
+		return err
+	}
+	for sectionType, defaults := range settings.SectionSizingPolicy.ByType {
+		typeObject, ok, err := objectField(byType, sectionType)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		overrides, err := resolveSectionSizingTypeOverrides(typeObject, sectionType, defaults)
+		if err != nil {
+			return err
+		}
+		settings.SectionSizingPolicy.ByType[sectionType] = overrides
+	}
+	return nil
+}
+
 func sectionCreateDefaultsForDocument(document Document) (map[string]map[string]any, error) {
 	defaults := make(map[string]map[string]any, len(sectionDefaultSettingsKeysByType))
 	for sectionType, settingsKey := range sectionDefaultSettingsKeysByType {
@@ -277,6 +285,27 @@ func sectionCreateDefaultsForDocument(document Document) (map[string]map[string]
 		defaults[sectionType] = cloneMap(sectionDefaults)
 	}
 	return defaults, nil
+}
+
+func resolveSectionSizingTypeOverrides(
+	typeObject map[string]any,
+	sectionType string,
+	defaults projectstate.AutoLayoutSectionMinDimensions,
+) (projectstate.AutoLayoutSectionMinDimensions, error) {
+	resolved := defaults
+	for _, spec := range sectionSizingDimensionSpecs {
+		value, err := resolveSectionSizingDimension(
+			typeObject,
+			spec.fieldName,
+			spec.fallback(defaults),
+			fmt.Sprintf("sectionSizingPolicy.byType.%s.%s", sectionType, spec.fieldName),
+		)
+		if err != nil {
+			return projectstate.AutoLayoutSectionMinDimensions{}, err
+		}
+		spec.apply(&resolved, value)
+	}
+	return resolved, nil
 }
 
 func resolveSectionSizingDimension(
@@ -298,20 +327,28 @@ func resolveSectionSizingDimension(
 	return value, nil
 }
 
+func objectPathField(object map[string]any, fields ...string) (map[string]any, bool, error) {
+	current := object
+	for _, field := range fields {
+		nested, ok, err := objectField(current, field)
+		if err != nil {
+			return nil, false, err
+		}
+		if !ok {
+			return nil, false, nil
+		}
+		current = nested
+	}
+	return current, true, nil
+}
+
 func terminalDefaultHeightForDocument(document Document) (float64, error) {
 	defaults := projectstate.DefaultStructuralMutationSettings()
 	if document == nil {
 		return defaults.TerminalDefaultHeight, nil
 	}
 
-	terminalSectionDefault, ok, err := objectField(document, "terminalSectionDefault")
-	if err != nil {
-		return 0, err
-	}
-	if !ok {
-		return defaults.TerminalDefaultHeight, nil
-	}
-	size, ok, err := objectField(terminalSectionDefault, "size")
+	size, ok, err := objectPathField(document, "terminalSectionDefault", "size")
 	if err != nil {
 		return 0, err
 	}
@@ -322,13 +359,13 @@ func terminalDefaultHeightForDocument(document Document) (float64, error) {
 	if !ok {
 		return defaults.TerminalDefaultHeight, nil
 	}
+	return resolveTerminalDefaultHeightValue(rawValue, defaults.TerminalDefaultHeight)
+}
+
+func resolveTerminalDefaultHeightValue(rawValue any, fallback float64) (float64, error) {
 	if textValue, ok := rawValue.(string); ok {
-		trimmed := strings.TrimSpace(textValue)
-		if trimmed == "" {
-			return defaults.TerminalDefaultHeight, nil
-		}
-		if strings.EqualFold(trimmed, "auto") {
-			return 0, fmt.Errorf("%w: terminalSectionDefault.size.height=%q", ErrSettingsValueInvalid, textValue)
+		if strings.TrimSpace(textValue) == "" {
+			return fallback, nil
 		}
 		return 0, fmt.Errorf("%w: terminalSectionDefault.size.height=%q", ErrSettingsValueInvalid, textValue)
 	}
