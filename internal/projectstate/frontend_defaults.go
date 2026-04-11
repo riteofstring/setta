@@ -214,100 +214,107 @@ func FrontendDefaultSectionSize() SectionSize {
 	}
 }
 
+type frontendSectionImplDefaultBuilder func() (any, error)
+
+var frontendSectionImplDefaultBuilders = map[string]frontendSectionImplDefaultBuilder{
+	"Browser": frontendSectionImplDefaultBuilderFor[FrontendBrowserSectionImpl](
+		FrontendSectionTypeBrowser,
+		createdBrowserSectionDefaults,
+	),
+	"Callable": frontendSectionImplDefaultBuilderFor[FrontendCallableSectionImpl](
+		FrontendSectionTypeCallable,
+		createdCallableSectionDefaults,
+	),
+	"Chart": frontendSectionImplDefaultBuilderFor[FrontendChartSectionImpl](
+		FrontendSectionTypeChart,
+		createdFrontendChartSectionDefaults,
+	),
+	"Chat": frontendSectionImplDefaultBuilderFor[FrontendChatSectionImpl](
+		FrontendSectionTypeChat,
+		createdChatSectionDefaults,
+	),
+	"Code": frontendSectionImplDefaultBuilderFor[FrontendCodeSectionImpl](
+		FrontendSectionTypeCode,
+		createdCodeSectionDefaults,
+	),
+	"Dict": frontendSectionImplDefaultBuilderFor[FrontendDictSectionImpl](
+		FrontendSectionTypeDict,
+		createdDictSectionDefaults,
+	),
+	"Group": frontendSectionImplDefaultBuilderFor[FrontendGroupSectionImpl](
+		FrontendSectionTypeGroup,
+		createdGroupSectionDefaults,
+	),
+	"ListRoot": frontendSectionImplDefaultBuilderFor[FrontendListRootSectionImpl](
+		FrontendSectionTypeListRoot,
+		createdListRootSectionDefaults,
+	),
+	"Prompt": frontendSectionImplDefaultBuilderFor[FrontendPromptSectionImpl](
+		FrontendSectionTypePrompt,
+		createdPromptSectionDefaults,
+	),
+	"Spreadsheet": frontendSectionImplDefaultBuilderFor[FrontendSpreadsheetSectionImpl](
+		FrontendSectionTypeSpreadsheet,
+		createdSpreadsheetSectionDefaults,
+	),
+	"StateMachineEnd": frontendSectionImplDefaultBuilderFor[FrontendStateMachineEndSectionImpl](
+		FrontendSectionTypeStateMachineEnd,
+		func() map[string]any { return createdStateMachineEndSectionDefaults("") },
+	),
+	"StateMachineGate": frontendSectionImplDefaultBuilderFor[FrontendStateMachineGateSectionImpl](
+		FrontendSectionTypeStateMachineGate,
+		func() map[string]any { return createdStateMachineGateSectionDefaults("") },
+	),
+	"StateMachineStart": frontendSectionImplDefaultBuilderFor[FrontendStateMachineStartSectionImpl](
+		FrontendSectionTypeStateMachineStart,
+		func() map[string]any { return createdStateMachineStartSectionDefaults("") },
+	),
+	"TaskBoard": frontendSectionImplDefaultBuilderFor[FrontendTaskBoardSectionImpl](
+		FrontendSectionTypeTaskBoard,
+		createdTaskBoardSectionDefaults,
+		initializeTaskBoardSectionDefaults,
+	),
+	"Terminal": frontendSectionImplDefaultBuilderFor[FrontendTerminalSectionImpl](
+		FrontendSectionTypeTerminal,
+		createdTerminalSectionDefaults,
+	),
+	"TextBlock": frontendSectionImplDefaultBuilderFor[FrontendTextBlockSectionImpl](
+		FrontendSectionTypeTextBlock,
+		createdTextBlockSectionDefaults,
+	),
+}
+
 func FrontendSectionImplDefaultValue(implType string) (any, error) {
-	switch strings.TrimSpace(implType) {
-	case "Browser":
-		return frontendSectionImplDefaultValue[FrontendBrowserSectionImpl](
-			FrontendSectionTypeBrowser,
-			createdBrowserSectionDefaults(),
-		)
-	case "Callable":
-		return frontendSectionImplDefaultValue[FrontendCallableSectionImpl](
-			FrontendSectionTypeCallable,
-			createdCallableSectionDefaults(),
-		)
-	case "Chart":
-		return frontendSectionImplDefaultValue[FrontendChartSectionImpl](
-			FrontendSectionTypeChart,
-			createdFrontendChartSectionDefaults(),
-		)
-	case "Chat":
-		return frontendSectionImplDefaultValue[FrontendChatSectionImpl](
-			FrontendSectionTypeChat,
-			createdChatSectionDefaults(),
-		)
-	case "Code":
-		return frontendSectionImplDefaultValue[FrontendCodeSectionImpl](
-			FrontendSectionTypeCode,
-			createdCodeSectionDefaults(),
-		)
-	case "Dict":
-		return frontendSectionImplDefaultValue[FrontendDictSectionImpl](
-			FrontendSectionTypeDict,
-			createdDictSectionDefaults(),
-		)
-	case "Group":
-		return frontendSectionImplDefaultValue[FrontendGroupSectionImpl](
-			FrontendSectionTypeGroup,
-			createdGroupSectionDefaults(),
-		)
-	case "ListRoot":
-		return frontendSectionImplDefaultValue[FrontendListRootSectionImpl](
-			FrontendSectionTypeListRoot,
-			createdListRootSectionDefaults(),
-		)
-	case "Prompt":
-		return frontendSectionImplDefaultValue[FrontendPromptSectionImpl](
-			FrontendSectionTypePrompt,
-			createdPromptSectionDefaults(),
-		)
-	case "Spreadsheet":
-		return frontendSectionImplDefaultValue[FrontendSpreadsheetSectionImpl](
-			FrontendSectionTypeSpreadsheet,
-			createdSpreadsheetSectionDefaults(),
-		)
-	case "StateMachineEnd":
-		return frontendSectionImplDefaultValue[FrontendStateMachineEndSectionImpl](
-			FrontendSectionTypeStateMachineEnd,
-			createdStateMachineEndSectionDefaults(""),
-		)
-	case "StateMachineGate":
-		return frontendSectionImplDefaultValue[FrontendStateMachineGateSectionImpl](
-			FrontendSectionTypeStateMachineGate,
-			createdStateMachineGateSectionDefaults(""),
-		)
-	case "StateMachineStart":
-		return frontendSectionImplDefaultValue[FrontendStateMachineStartSectionImpl](
-			FrontendSectionTypeStateMachineStart,
-			createdStateMachineStartSectionDefaults(""),
-		)
-	case "TaskBoard":
-		value, err := frontendSectionImplDefaultValue[FrontendTaskBoardSectionImpl](
-			FrontendSectionTypeTaskBoard,
-			createdTaskBoardSectionDefaults(),
-		)
+	builder, ok := frontendSectionImplDefaultBuilders[strings.TrimSpace(implType)]
+	if !ok {
+		return nil, fmt.Errorf("%w: %q", ErrTopLevelSectionImplTypeUnsupported, implType)
+	}
+	return builder()
+}
+
+func frontendSectionImplDefaultBuilderFor[T any](
+	sectionType FrontendSectionType,
+	defaults func() map[string]any,
+	postprocess ...func(*T),
+) frontendSectionImplDefaultBuilder {
+	return func() (any, error) {
+		value, err := frontendSectionImplDefaultValue[T](sectionType, defaults())
 		if err != nil {
 			return value, err
 		}
-		if value.Columns == nil {
-			value.Columns = []TaskBoardColumn{}
-		}
-		if value.Tasks == nil {
-			value.Tasks = []TaskBoardTask{}
+		for _, apply := range postprocess {
+			apply(&value)
 		}
 		return value, nil
-	case "Terminal":
-		return frontendSectionImplDefaultValue[FrontendTerminalSectionImpl](
-			FrontendSectionTypeTerminal,
-			createdTerminalSectionDefaults(),
-		)
-	case "TextBlock":
-		return frontendSectionImplDefaultValue[FrontendTextBlockSectionImpl](
-			FrontendSectionTypeTextBlock,
-			createdTextBlockSectionDefaults(),
-		)
-	default:
-		return nil, fmt.Errorf("%w: %q", ErrTopLevelSectionImplTypeUnsupported, implType)
+	}
+}
+
+func initializeTaskBoardSectionDefaults(value *FrontendTaskBoardSectionImpl) {
+	if value.Columns == nil {
+		value.Columns = []TaskBoardColumn{}
+	}
+	if value.Tasks == nil {
+		value.Tasks = []TaskBoardTask{}
 	}
 }
 
