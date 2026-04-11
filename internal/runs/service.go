@@ -72,6 +72,29 @@ type Service struct {
 	idGenerator   func() string
 }
 
+type runTerminalSession struct {
+	sectionID  string
+	terminalID string
+	created    bool
+}
+
+type runStartupGuard struct {
+	active   bool
+	rollback func()
+}
+
+type drawSnapshotUpdate struct {
+	sectionID string
+	path      string
+	ref       binarypayload.ContentRef
+	payload   []byte
+}
+
+type drawSnapshotBatch struct {
+	updates                  []drawSnapshotUpdate
+	renderedPathsBySectionID map[string]string
+}
+
 func NewService(options ServiceOptions) (*Service, error) {
 	if options.Planner == nil {
 		return nil, ErrPlannerRequired
@@ -122,80 +145,36 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 		return RunCodeResult{}, err
 	}
 
-	startupCommitted := false
-	if execution.reservedSingleRun {
-		defer func() {
-			if startupCommitted {
-				return
-			}
-			_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
-		}()
-	}
+	startupGuard := s.newRunStartupGuard(request.ShareSessionID, execution.reservedSingleRun)
+	defer startupGuard.Rollback()
 
 	if err := s.applyDrawSnapshots(ctx, execution.projectState, execution.artifactsRoot, request.ProjectID, request.ShareSessionID, request.DrawSnapshotsBySectionID); err != nil {
 		return RunCodeResult{}, err
 	}
 
-	plan, err := execution.planner.Plan(PlanRequest{
-		ProjectID:                  request.ProjectID,
-		SectionID:                  request.SectionID,
-		RunSnapshotMode:            execution.runSnapshotMode,
-		SectionVariantOverrides:    request.SectionVariantOverrides,
-		ParamOverrides:             request.ParamOverrides,
-		DisallowParamOverrides:     execution.disallowParamOverrides,
-		DisallowCodeParamOverrides: execution.disallowCodeParamOverrides,
-	})
+	plan, err := execution.plan(request)
 	if err != nil {
 		return RunCodeResult{}, err
 	}
 
-	terminalSectionID, err := s.resolveTerminalSection(ctx, execution.projectState, request.ProjectID, request.ShareSessionID, plan, request.TerminalSectionID)
+	terminal, err := s.prepareRunTerminal(ctx, execution.projectState, request, plan)
 	if err != nil {
 		return RunCodeResult{}, err
 	}
 
-	terminalID := terminals.BuildTerminalID(terminalSectionID, request.ShareSessionID)
-	createdSession := false
-	if _, ok := s.terminals.Session(terminalID); !ok {
-		_, opened, err := s.terminals.Open(terminals.OpenOptions{
-			ID:             terminalID,
-			ProjectID:      request.ProjectID,
-			ShareSessionID: request.ShareSessionID,
-			AllowInput:     strings.TrimSpace(request.ShareSessionID) == "",
-		})
-		if err != nil {
-			return RunCodeResult{}, err
-		}
-		createdSession = opened
-	}
-
-	command := plan.Command
-	if !strings.HasSuffix(command, "\n") {
-		command += "\n"
-	}
-	if err := s.terminals.RunCommand(terminalID, []byte(command)); err != nil {
+	if err := s.runPlannedCommand(terminal.terminalID, plan.Command); err != nil {
 		return RunCodeResult{}, err
 	}
-	startupCommitted = true
-	if execution.deployment && !execution.reservedSingleRun {
-		if _, err := s.deployment.IncrementSessionRunCount(request.ShareSessionID); err != nil {
-			return RunCodeResult{}, err
-		}
-	}
-	if err := s.backendLogs.LogAndBroadcast(ctx, backendlogs.LogRequest{
-		Message:        "Started command",
-		Severity:       backendlogs.SeverityInfo,
-		ProjectID:      request.ProjectID,
-		ShareSessionID: request.ShareSessionID,
-	}); err != nil {
+	startupGuard.Commit()
+	if err := s.recordRunStart(ctx, execution, request); err != nil {
 		return RunCodeResult{}, err
 	}
 
 	return RunCodeResult{
 		Plan:              plan,
-		TerminalSectionID: terminalSectionID,
-		TerminalID:        terminalID,
-		CreatedSession:    createdSession,
+		TerminalSectionID: terminal.sectionID,
+		TerminalID:        terminal.terminalID,
+		CreatedSession:    terminal.created,
 	}, nil
 }
 
@@ -210,63 +189,99 @@ type runExecution struct {
 	disallowCodeParamOverrides bool
 }
 
+func (g *runStartupGuard) Commit() {
+	if g == nil {
+		return
+	}
+	g.active = false
+}
+
+func (g *runStartupGuard) Rollback() {
+	if g == nil || !g.active || g.rollback == nil {
+		return
+	}
+	g.rollback()
+	g.active = false
+}
+
+func (r runExecution) plan(request RunCodeRequest) (Plan, error) {
+	return r.planner.Plan(PlanRequest{
+		ProjectID:                  request.ProjectID,
+		SectionID:                  request.SectionID,
+		RunSnapshotMode:            r.runSnapshotMode,
+		SectionVariantOverrides:    request.SectionVariantOverrides,
+		ParamOverrides:             request.ParamOverrides,
+		DisallowParamOverrides:     r.disallowParamOverrides,
+		DisallowCodeParamOverrides: r.disallowCodeParamOverrides,
+	})
+}
+
 func (s *Service) resolveExecution(request RunCodeRequest) (runExecution, error) {
 	if s.deployment == nil {
-		return runExecution{
-			planner:                    s.planner,
-			projectState:               s.projectState,
-			artifactsRoot:              s.artifactsRoot,
-			runSnapshotMode:            request.RunSnapshotMode,
-			disallowParamOverrides:     false,
-			disallowCodeParamOverrides: false,
-		}, nil
+		return s.baseExecution(request), nil
 	}
 
 	policy := s.deployment.Policy()
-	if !policy.AllowRun {
-		return runExecution{}, ErrDeploymentRunDenied
-	}
-	if len(request.SectionVariantOverrides) > 0 && !policy.AllowVariantChanges {
-		return runExecution{}, ErrDeploymentVariantDenied
+	if err := validateDeploymentRunRequest(policy, request); err != nil {
+		return runExecution{}, err
 	}
 
-	reservedSingleRun := false
-	if !policy.AllowMultipleRuns {
-		reserved, err := s.deployment.TryReserveSessionRun(request.ShareSessionID)
-		if err != nil {
-			return runExecution{}, err
-		}
-		if !reserved {
-			return runExecution{}, ErrDeploymentSingleRunOnly
-		}
-		reservedSingleRun = true
+	reservedSingleRun, err := s.reserveDeploymentRun(policy, request.ShareSessionID)
+	if err != nil {
+		return runExecution{}, err
 	}
+	return s.resolveDeploymentExecution(request, policy, reservedSingleRun)
+}
+
+func (s *Service) baseExecution(request RunCodeRequest) runExecution {
+	return runExecution{
+		planner:                    s.planner,
+		projectState:               s.projectState,
+		artifactsRoot:              s.artifactsRoot,
+		runSnapshotMode:            request.RunSnapshotMode,
+		disallowParamOverrides:     false,
+		disallowCodeParamOverrides: false,
+	}
+}
+
+func validateDeploymentRunRequest(policy deployments.Policy, request RunCodeRequest) error {
+	if !policy.AllowRun {
+		return ErrDeploymentRunDenied
+	}
+	if len(request.SectionVariantOverrides) > 0 && !policy.AllowVariantChanges {
+		return ErrDeploymentVariantDenied
+	}
+	return nil
+}
+
+func (s *Service) reserveDeploymentRun(policy deployments.Policy, shareSessionID string) (bool, error) {
+	if policy.AllowMultipleRuns {
+		return false, nil
+	}
+	reserved, err := s.deployment.TryReserveSessionRun(shareSessionID)
+	if err != nil {
+		return false, err
+	}
+	if !reserved {
+		return false, ErrDeploymentSingleRunOnly
+	}
+	return true, nil
+}
+
+func (s *Service) resolveDeploymentExecution(request RunCodeRequest, policy deployments.Policy, reservedSingleRun bool) (execution runExecution, err error) {
+	defer func() {
+		if err == nil || !reservedSingleRun {
+			return
+		}
+		_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
+	}()
 
 	projectState, err := s.deployment.Overlay(request.ShareSessionID)
 	if err != nil {
-		if reservedSingleRun {
-			_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
-		}
 		return runExecution{}, err
 	}
-	sessionRunRoot, err := s.deployment.Paths().SessionRunRoot(request.ShareSessionID)
+	planner, err := s.newDeploymentPlanner(projectState, request.ShareSessionID, policy)
 	if err != nil {
-		if reservedSingleRun {
-			_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
-		}
-		return runExecution{}, err
-	}
-	planner, err := s.planner.withOptions(PlannerOptions{
-		ProjectState:           projectState,
-		SettaFilesRoot:         s.deployment.Paths().DeploymentRoot,
-		RuntimeRoot:            s.deployment.Paths().RuntimeRoot,
-		SnapshotRoot:           sessionRunRoot,
-		DefaultRunSnapshotMode: RunSnapshotMode(policy.RunSnapshotMode),
-	})
-	if err != nil {
-		if reservedSingleRun {
-			_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
-		}
 		return runExecution{}, err
 	}
 
@@ -280,6 +295,86 @@ func (s *Service) resolveExecution(request RunCodeRequest) (runExecution, error)
 		disallowParamOverrides:     !policy.AllowParamChanges,
 		disallowCodeParamOverrides: true,
 	}, nil
+}
+
+func (s *Service) newDeploymentPlanner(projectState *projectstate.Runtime, shareSessionID string, policy deployments.Policy) (*Planner, error) {
+	sessionRunRoot, err := s.deployment.Paths().SessionRunRoot(shareSessionID)
+	if err != nil {
+		return nil, err
+	}
+	return s.planner.withOptions(PlannerOptions{
+		ProjectState:           projectState,
+		SettaFilesRoot:         s.deployment.Paths().DeploymentRoot,
+		RuntimeRoot:            s.deployment.Paths().RuntimeRoot,
+		SnapshotRoot:           sessionRunRoot,
+		DefaultRunSnapshotMode: RunSnapshotMode(policy.RunSnapshotMode),
+	})
+}
+
+func (s *Service) newRunStartupGuard(shareSessionID string, reservedSingleRun bool) *runStartupGuard {
+	if !reservedSingleRun {
+		return nil
+	}
+	return &runStartupGuard{
+		active: true,
+		rollback: func() {
+			_, _ = s.deployment.RollbackReservedSessionRun(shareSessionID)
+		},
+	}
+}
+
+func (s *Service) prepareRunTerminal(ctx context.Context, projectState *projectstate.Runtime, request RunCodeRequest, plan Plan) (runTerminalSession, error) {
+	terminalSectionID, err := s.resolveTerminalSection(ctx, projectState, request.ProjectID, request.ShareSessionID, plan, request.TerminalSectionID)
+	if err != nil {
+		return runTerminalSession{}, err
+	}
+	terminalID := terminals.BuildTerminalID(terminalSectionID, request.ShareSessionID)
+	created, err := s.ensureTerminalSession(terminalID, request.ProjectID, request.ShareSessionID)
+	if err != nil {
+		return runTerminalSession{}, err
+	}
+	return runTerminalSession{
+		sectionID:  terminalSectionID,
+		terminalID: terminalID,
+		created:    created,
+	}, nil
+}
+
+func (s *Service) ensureTerminalSession(terminalID string, projectID string, shareSessionID string) (bool, error) {
+	if _, ok := s.terminals.Session(terminalID); ok {
+		return false, nil
+	}
+	_, opened, err := s.terminals.Open(terminals.OpenOptions{
+		ID:             terminalID,
+		ProjectID:      projectID,
+		ShareSessionID: shareSessionID,
+		AllowInput:     strings.TrimSpace(shareSessionID) == "",
+	})
+	if err != nil {
+		return false, err
+	}
+	return opened, nil
+}
+
+func (s *Service) runPlannedCommand(terminalID string, command string) error {
+	if !strings.HasSuffix(command, "\n") {
+		command += "\n"
+	}
+	return s.terminals.RunCommand(terminalID, []byte(command))
+}
+
+func (s *Service) recordRunStart(ctx context.Context, execution runExecution, request RunCodeRequest) error {
+	if execution.deployment && !execution.reservedSingleRun {
+		if _, err := s.deployment.IncrementSessionRunCount(request.ShareSessionID); err != nil {
+			return err
+		}
+	}
+	return s.backendLogs.LogAndBroadcast(ctx, backendlogs.LogRequest{
+		Message:        "Started command",
+		Severity:       backendlogs.SeverityInfo,
+		ProjectID:      request.ProjectID,
+		ShareSessionID: request.ShareSessionID,
+	})
 }
 
 func (s *Service) resolveTerminalSection(ctx context.Context, projectState *projectstate.Runtime, projectID string, shareSessionID string, plan Plan, explicitTerminalSectionID string) (string, error) {
@@ -376,84 +471,118 @@ func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projects
 		return nil
 	}
 
-	document := projectState.Snapshot().Document
-	project, err := document.ProjectByID(projectID)
+	batch, err := s.prepareDrawSnapshotBatch(projectState, artifactsRoot, projectID, refsBySectionID)
 	if err != nil {
 		return err
 	}
+	if err := writeDrawSnapshotFiles(batch.updates); err != nil {
+		return err
+	}
+	if err := persistDrawSnapshotPaths(ctx, projectState, projectID, batch.renderedPathsBySectionID); err != nil {
+		return err
+	}
+	if err := s.emitDrawSnapshotDeltas(ctx, projectID, shareSessionID, batch.updates); err != nil {
+		return err
+	}
+	s.deleteDrawSnapshotPayloads(batch.updates)
+	return nil
+}
 
-	type drawSnapshotUpdate struct {
-		sectionID string
-		path      string
-		ref       binarypayload.ContentRef
-		payload   []byte
+func (s *Service) prepareDrawSnapshotBatch(projectState *projectstate.Runtime, artifactsRoot string, projectID string, refsBySectionID map[string]binarypayload.ContentRef) (drawSnapshotBatch, error) {
+	document := projectState.Snapshot().Document
+	project, err := document.ProjectByID(projectID)
+	if err != nil {
+		return drawSnapshotBatch{}, err
 	}
 
-	updates := make([]drawSnapshotUpdate, 0, len(refsBySectionID))
-	renderedPathsBySectionID := make(map[string]string, len(refsBySectionID))
+	batch := drawSnapshotBatch{
+		updates:                  make([]drawSnapshotUpdate, 0, len(refsBySectionID)),
+		renderedPathsBySectionID: make(map[string]string, len(refsBySectionID)),
+	}
 	for sectionID, ref := range refsBySectionID {
-		_, _, impl, err := project.ResolveSection(sectionID)
+		update, err := s.resolveDrawSnapshotUpdate(project, artifactsRoot, sectionID, ref)
 		if err != nil {
-			return err
+			return drawSnapshotBatch{}, err
 		}
-		if !impl.IsDraw() {
-			return fmt.Errorf("%w: %q", projectstate.ErrDrawSectionRequired, sectionID)
-		}
+		batch.updates = append(batch.updates, update)
+		batch.renderedPathsBySectionID[sectionID] = update.path
+	}
+	return batch, nil
+}
 
-		targetPath := strings.TrimSpace(impl.Draw.RenderedImagePath)
-		if targetPath == "" {
-			targetPath, err = projectstate.BuildDrawSnapshotPath(sectionID, artifactsRoot)
-			if err != nil {
-				return err
-			}
-		}
-
-		payload, err := s.binaryStore.ReadBytes(ref.ContentID)
-		if err != nil {
-			return err
-		}
-		updates = append(updates, drawSnapshotUpdate{
-			sectionID: sectionID,
-			path:      targetPath,
-			ref:       ref,
-			payload:   payload,
-		})
-		renderedPathsBySectionID[sectionID] = targetPath
+func (s *Service) resolveDrawSnapshotUpdate(project projectstate.Project, artifactsRoot string, sectionID string, ref binarypayload.ContentRef) (drawSnapshotUpdate, error) {
+	_, _, impl, err := project.ResolveSection(sectionID)
+	if err != nil {
+		return drawSnapshotUpdate{}, err
+	}
+	if !impl.IsDraw() {
+		return drawSnapshotUpdate{}, fmt.Errorf("%w: %q", projectstate.ErrDrawSectionRequired, sectionID)
 	}
 
+	targetPath, err := resolveDrawSnapshotPath(impl, artifactsRoot, sectionID)
+	if err != nil {
+		return drawSnapshotUpdate{}, err
+	}
+	payload, err := s.binaryStore.ReadBytes(ref.ContentID)
+	if err != nil {
+		return drawSnapshotUpdate{}, err
+	}
+	return drawSnapshotUpdate{
+		sectionID: sectionID,
+		path:      targetPath,
+		ref:       ref,
+		payload:   payload,
+	}, nil
+}
+
+func resolveDrawSnapshotPath(impl projectstate.SectionImpl, artifactsRoot string, sectionID string) (string, error) {
+	targetPath := strings.TrimSpace(impl.Draw.RenderedImagePath)
+	if targetPath != "" {
+		return targetPath, nil
+	}
+	return projectstate.BuildDrawSnapshotPath(sectionID, artifactsRoot)
+}
+
+func writeDrawSnapshotFiles(updates []drawSnapshotUpdate) error {
 	for _, update := range updates {
 		if err := statefs.AtomicWriteFile(update.path, update.payload, 0o644); err != nil {
 			return fmt.Errorf("write draw snapshot %q: %w", update.sectionID, err)
 		}
 	}
+	return nil
+}
 
+func persistDrawSnapshotPaths(ctx context.Context, projectState *projectstate.Runtime, projectID string, renderedPathsBySectionID map[string]string) error {
 	if _, err := projectState.SetDrawSectionRenderedImagePaths(projectID, renderedPathsBySectionID); err != nil {
 		return err
 	}
-	if _, err := projectState.Save(ctx); err != nil {
-		return err
+	_, err := projectState.Save(ctx)
+	return err
+}
+
+func (s *Service) emitDrawSnapshotDeltas(ctx context.Context, projectID string, shareSessionID string, updates []drawSnapshotUpdate) error {
+	if s.listener == nil {
+		return nil
 	}
-	if s.listener != nil {
-		deltas := make([]realtime.BinarySectionDelta, 0, len(updates))
-		for _, update := range updates {
-			deltas = append(deltas, realtime.BinarySectionDelta{
-				SectionID:     update.sectionID,
-				Value:         update.ref,
-				BinaryPayload: update.payload,
-			})
-		}
-		if err := s.listener.EmitSectionBinaryDeltas(ctx, realtime.EmitSectionBinaryDeltasParams{
-			ProjectID:      projectID,
-			ShareSessionID: shareSessionID,
-			Deltas:         deltas,
-		}); err != nil {
-			return err
-		}
+	deltas := make([]realtime.BinarySectionDelta, 0, len(updates))
+	for _, update := range updates {
+		deltas = append(deltas, realtime.BinarySectionDelta{
+			SectionID:     update.sectionID,
+			Value:         update.ref,
+			BinaryPayload: update.payload,
+		})
 	}
+	return s.listener.EmitSectionBinaryDeltas(ctx, realtime.EmitSectionBinaryDeltasParams{
+		ProjectID:      projectID,
+		ShareSessionID: shareSessionID,
+		Deltas:         deltas,
+	})
+}
+
+func (s *Service) deleteDrawSnapshotPayloads(updates []drawSnapshotUpdate) {
 	for _, update := range updates {
 		_ = s.binaryStore.Delete(update.ref.ContentID)
 	}
-	return nil
 }
 
 func newRandomID() string {
