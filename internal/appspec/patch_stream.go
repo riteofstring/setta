@@ -69,68 +69,13 @@ func ApplyPatchOps(ops []PatchOp, initialSpec map[string]any) (map[string]any, e
 }
 
 func ApplyPatchOp(spec map[string]any, op PatchOp) error {
-	if spec == nil {
-		return fmt.Errorf("App spec must be an object")
+	if err := validatePatchApplication(spec, op); err != nil {
+		return err
 	}
-	if _, ok := allowedPatchOps[op.Op]; !ok {
-		return fmt.Errorf("Unsupported patch op: %q", op.Op)
-	}
-	if op.Path == "" {
-		return fmt.Errorf("Patch path must be a string.")
-	}
-	if op.Path != "/root" && !strings.HasPrefix(op.Path, "/elements/") {
-		return fmt.Errorf("Unsupported patch path: %q", op.Path)
-	}
-
 	if op.Path == "/root" {
-		if op.Op == "remove" {
-			spec["root"] = ""
-			return nil
-		}
-		value, ok := op.Value.(string)
-		if !ok {
-			return fmt.Errorf("Patch /root value must be a string element key.")
-		}
-		spec["root"] = value
-		return nil
+		return applyRootPatchOp(spec, op)
 	}
-
-	tokens, err := decodePointerTokens(op.Path)
-	if err != nil {
-		return err
-	}
-	if len(tokens) == 0 || tokens[0] != "elements" {
-		return fmt.Errorf("Unsupported patch path: %q", op.Path)
-	}
-
-	if len(tokens) == 2 {
-		elements, err := patchElementsObject(spec)
-		if err != nil {
-			return err
-		}
-		updatedElements, err := applyPatchToContainer(elements, tokens[1:], op, op.Op != "remove")
-		if err != nil {
-			return err
-		}
-		spec["elements"] = updatedElements
-		return nil
-	}
-
-	elements, err := patchElementsObject(spec)
-	if err != nil {
-		return err
-	}
-	elementKey := tokens[1]
-	element, ok := elements[elementKey].(map[string]any)
-	if !ok {
-		return fmt.Errorf("Element %q must exist before patching nested fields.", elementKey)
-	}
-	updatedElement, err := applyPatchToContainer(element, tokens[2:], op, op.Op != "remove")
-	if err != nil {
-		return err
-	}
-	elements[elementKey] = updatedElement
-	return nil
+	return applyElementsPatchOp(spec, op)
 }
 
 func parsePatchLineCore(line string) (*PatchOp, error) {
@@ -183,6 +128,84 @@ func patchElementsObject(spec map[string]any) (map[string]any, error) {
 	return elements, nil
 }
 
+func validatePatchApplication(spec map[string]any, op PatchOp) error {
+	if spec == nil {
+		return fmt.Errorf("App spec must be an object")
+	}
+	if _, ok := allowedPatchOps[op.Op]; !ok {
+		return fmt.Errorf("Unsupported patch op: %q", op.Op)
+	}
+	if op.Path == "" {
+		return fmt.Errorf("Patch path must be a string.")
+	}
+	if op.Path != "/root" && !strings.HasPrefix(op.Path, "/elements/") {
+		return fmt.Errorf("Unsupported patch path: %q", op.Path)
+	}
+	return nil
+}
+
+func applyRootPatchOp(spec map[string]any, op PatchOp) error {
+	if op.Op == "remove" {
+		spec["root"] = ""
+		return nil
+	}
+	value, ok := op.Value.(string)
+	if !ok {
+		return fmt.Errorf("Patch /root value must be a string element key.")
+	}
+	spec["root"] = value
+	return nil
+}
+
+func applyElementsPatchOp(spec map[string]any, op PatchOp) error {
+	elements, err := patchElementsObject(spec)
+	if err != nil {
+		return err
+	}
+	tokens, err := decodeElementPatchPath(op.Path)
+	if err != nil {
+		return err
+	}
+	if len(tokens) == 1 {
+		return applyTopLevelElementPatch(spec, elements, tokens[0], op)
+	}
+	return applyNestedElementPatch(elements, tokens, op)
+}
+
+func decodeElementPatchPath(path string) ([]string, error) {
+	tokens, err := decodePointerTokens(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(tokens) < 2 || tokens[0] != "elements" {
+		return nil, fmt.Errorf("Unsupported patch path: %q", path)
+	}
+	return tokens[1:], nil
+}
+
+func applyTopLevelElementPatch(spec map[string]any, elements map[string]any, elementKey string, op PatchOp) error {
+	updatedElements, err := applyPatchToContainer(elements, []string{elementKey}, op, op.Op != "remove")
+	if err != nil {
+		return err
+	}
+	spec["elements"] = updatedElements
+	return nil
+}
+
+func applyNestedElementPatch(elements map[string]any, tokens []string, op PatchOp) error {
+	elementKey := tokens[0]
+	element, ok := elements[elementKey].(map[string]any)
+	if !ok {
+		return fmt.Errorf("Element %q must exist before patching nested fields.", elementKey)
+	}
+	updatedElement, err := applyPatchToContainer(element, tokens[1:], op, op.Op != "remove")
+	if err != nil {
+		return err
+	}
+	elements[elementKey] = updatedElement
+	return nil
+}
+
 func decodePointerTokens(path string) ([]string, error) {
 	if !strings.HasPrefix(path, "/") {
 		return nil, fmt.Errorf("Patch path must be a JSON Pointer starting with '/'.")
@@ -210,43 +233,65 @@ func applyPatchToContainer(container any, tokens []string, op PatchOp, create bo
 		return applyPatchToLeaf(container, tokens[0], op)
 	}
 
-	token := tokens[0]
-	nextToken := tokens[1]
 	switch typed := container.(type) {
 	case map[string]any:
-		next, ok := typed[token]
-		if !ok || next == nil {
-			if !create {
-				return nil, fmt.Errorf("Missing path segment: %s", token)
-			}
-			next = inferContainer(nextToken)
-		}
-		updatedChild, err := applyPatchToContainer(next, tokens[1:], op, create)
-		if err != nil {
-			return nil, err
-		}
-		typed[token] = updatedChild
-		return typed, nil
+		return applyPatchToMapContainer(typed, tokens, op, create)
 	case []any:
-		index, err := resolveArrayIndex(token, len(typed), create)
-		if err != nil {
-			return nil, err
-		}
-		if index == len(typed) {
-			if !create {
-				return nil, fmt.Errorf("Array index out of range.")
-			}
-			typed = append(typed, inferContainer(nextToken))
-		}
-		updatedChild, err := applyPatchToContainer(typed[index], tokens[1:], op, create)
-		if err != nil {
-			return nil, err
-		}
-		typed[index] = updatedChild
-		return typed, nil
+		return applyPatchToArrayContainer(typed, tokens, op, create)
 	default:
 		return nil, fmt.Errorf("Patch path traversed into a non-container value.")
 	}
+}
+
+func applyPatchToMapContainer(container map[string]any, tokens []string, op PatchOp, create bool) (map[string]any, error) {
+	next, err := resolveMapPatchChild(container, tokens[0], tokens[1], create)
+	if err != nil {
+		return nil, err
+	}
+	updatedChild, err := applyPatchToContainer(next, tokens[1:], op, create)
+	if err != nil {
+		return nil, err
+	}
+	container[tokens[0]] = updatedChild
+	return container, nil
+}
+
+func resolveMapPatchChild(container map[string]any, token string, nextToken string, create bool) (any, error) {
+	next, ok := container[token]
+	if ok && next != nil {
+		return next, nil
+	}
+	if !create {
+		return nil, fmt.Errorf("Missing path segment: %s", token)
+	}
+	return inferContainer(nextToken), nil
+}
+
+func applyPatchToArrayContainer(items []any, tokens []string, op PatchOp, create bool) ([]any, error) {
+	index, err := resolveArrayIndex(tokens[0], len(items), create)
+	if err != nil {
+		return nil, err
+	}
+	items, err = ensureArrayContainerIndex(items, index, tokens[1], create)
+	if err != nil {
+		return nil, err
+	}
+	updatedChild, err := applyPatchToContainer(items[index], tokens[1:], op, create)
+	if err != nil {
+		return nil, err
+	}
+	items[index] = updatedChild
+	return items, nil
+}
+
+func ensureArrayContainerIndex(items []any, index int, nextToken string, create bool) ([]any, error) {
+	if index < len(items) {
+		return items, nil
+	}
+	if !create {
+		return nil, fmt.Errorf("Array index out of range.")
+	}
+	return append(items, inferContainer(nextToken)), nil
 }
 
 func inferContainer(nextToken string) any {
@@ -322,30 +367,44 @@ func applyPatchToLeaf(container any, key string, op PatchOp) (any, error) {
 
 func applyPatchToArrayLeaf(items []any, key string, op PatchOp) ([]any, error) {
 	if op.Op == "remove" {
-		if key == "-" {
-			return items, nil
-		}
-		index, err := parseArrayIndex(key)
-		if err != nil {
-			return nil, err
-		}
-		if index < 0 || index >= len(items) {
-			return items, nil
-		}
-		return append(items[:index], items[index+1:]...), nil
+		return removeArrayLeaf(items, key)
 	}
+	return upsertArrayLeaf(items, key, op)
+}
 
+func removeArrayLeaf(items []any, key string) ([]any, error) {
 	if key == "-" {
-		if op.Op == "replace" {
-			return nil, fmt.Errorf("Cannot replace missing array index.")
-		}
-		return append(items, op.Value), nil
+		return items, nil
 	}
-
 	index, err := parseArrayIndex(key)
 	if err != nil {
 		return nil, err
 	}
+	if index < 0 || index >= len(items) {
+		return items, nil
+	}
+	return append(items[:index], items[index+1:]...), nil
+}
+
+func upsertArrayLeaf(items []any, key string, op PatchOp) ([]any, error) {
+	if key == "-" {
+		return appendArrayLeaf(items, op)
+	}
+	index, err := parseArrayIndex(key)
+	if err != nil {
+		return nil, err
+	}
+	return setArrayLeafIndex(items, index, op)
+}
+
+func appendArrayLeaf(items []any, op PatchOp) ([]any, error) {
+	if op.Op == "replace" {
+		return nil, fmt.Errorf("Cannot replace missing array index.")
+	}
+	return append(items, op.Value), nil
+}
+
+func setArrayLeafIndex(items []any, index int, op PatchOp) ([]any, error) {
 	if index > len(items) {
 		return nil, fmt.Errorf("Array index out of range.")
 	}
