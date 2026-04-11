@@ -209,6 +209,39 @@ func TestCollectNameValidationErrorsFlagsTopLevelSectionIdentifierConflict(t *te
 	)
 }
 
+// Snapshot validation should mirror rename-time slug collision checks so
+// background broadcasts keep reporting conflicting top-level paths.
+func TestCollectNameValidationErrorsReportsSectionSlugConflict(t *testing.T) {
+	t.Parallel()
+
+	project := sectionNameTestProject(t)
+
+	existing := project.Sections["existing"]
+	existing.Name = "Foo"
+	project.Sections[existing.ID] = existing
+
+	target := project.Sections["target"]
+	target.Name = "foo"
+	project.Sections[target.ID] = target
+
+	errors, err := CollectNameValidationErrors(
+		Document{
+			SchemaVersion:    CurrentSchemaVersion,
+			DefaultProjectID: project.ID,
+			Projects: map[string]Project{
+				project.ID: project,
+			},
+		},
+		project.ID,
+	)
+	if err != nil {
+		t.Fatalf("CollectNameValidationErrors returned error: %v", err)
+	}
+
+	assertNameValidationMapMessage(t, errors.SectionErrors, "target", `Section path slug "foo" conflicts with another section.`)
+	assertNameValidationMapMessage(t, errors.SectionErrors, "existing", `Section path slug "foo" conflicts with another section.`)
+}
+
 // Section validation snapshots intentionally allow Chat_ because the current
 // route namespace is explicit rather than colliding with a bare chat slug.
 func TestCollectNameValidationErrorsAllowsChatSlugSectionName(t *testing.T) {

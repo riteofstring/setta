@@ -84,6 +84,22 @@ func collectProjectNameFormatErrors(project Project) []string {
 
 func collectSectionNameConflicts(project Project) (map[string][]string, error) {
 	errorsBySection := map[string][]string{}
+	siblingsByParent, err := collectSectionSiblingIDsByParent(project)
+	if err != nil {
+		return nil, err
+	}
+	for _, sectionIDs := range siblingsByParent {
+		appendSiblingSectionNameConflicts(project, sectionIDs, errorsBySection)
+	}
+	appendTopLevelSectionIdentifierConflicts(project, siblingsByParent[""], errorsBySection)
+	if err := appendSectionSlugConflicts(project, errorsBySection); err != nil {
+		return nil, err
+	}
+
+	return errorsBySection, nil
+}
+
+func collectSectionSiblingIDsByParent(project Project) (map[string][]string, error) {
 	siblingsByParent := map[string][]string{}
 
 	for _, sectionID := range sortedProjectSectionIDs(project.SectionVariantMap) {
@@ -95,54 +111,61 @@ func collectSectionNameConflicts(project Project) (map[string][]string, error) {
 		siblingsByParent[parentID] = append(siblingsByParent[parentID], sectionID)
 	}
 
-	for _, sectionIDs := range siblingsByParent {
-		nameToIDs := map[string][]string{}
-		for _, sectionID := range sectionIDs {
-			name := strings.TrimSpace(project.Sections[sectionID].Name)
-			if name == "" {
-				continue
-			}
-			nameToIDs[name] = append(nameToIDs[name], sectionID)
+	return siblingsByParent, nil
+}
+
+func appendSiblingSectionNameConflicts(project Project, sectionIDs []string, errorsBySection map[string][]string) {
+	nameToIDs := map[string][]string{}
+	for _, sectionID := range sectionIDs {
+		name := strings.TrimSpace(project.Sections[sectionID].Name)
+		if name == "" {
+			continue
 		}
-		for name, ids := range nameToIDs {
-			if len(ids) < 2 {
-				continue
-			}
-			message := fmt.Sprintf(`Duplicate sibling name "%s".`, name)
-			for _, sectionID := range ids {
-				appendUniqueError(errorsBySection, sectionID, message)
-			}
+		nameToIDs[name] = append(nameToIDs[name], sectionID)
+	}
+	for name, ids := range nameToIDs {
+		if len(ids) < 2 {
+			continue
+		}
+		message := fmt.Sprintf(`Duplicate sibling name "%s".`, name)
+		for _, sectionID := range ids {
+			appendUniqueError(errorsBySection, sectionID, message)
 		}
 	}
+}
 
-	topLevelIDs := siblingsByParent[""]
-	if len(topLevelIDs) != 0 {
-		identifierToIDs := map[string][]string{}
-		for _, sectionID := range topLevelIDs {
-			name := strings.TrimSpace(project.Sections[sectionID].Name)
-			if name == "" {
-				continue
-			}
-			identifier := sanitizeSectionPythonIdentifier(name)
-			identifierToIDs[identifier] = append(identifierToIDs[identifier], sectionID)
-		}
-		for _, ids := range identifierToIDs {
-			if len(ids) < 2 {
-				continue
-			}
-			for _, sectionID := range ids {
-				appendUniqueError(
-					errorsBySection,
-					sectionID,
-					"Section name conflicts with another top-level name after Python identifier sanitization.",
-				)
-			}
-		}
+func appendTopLevelSectionIdentifierConflicts(project Project, topLevelIDs []string, errorsBySection map[string][]string) {
+	if len(topLevelIDs) == 0 {
+		return
 	}
 
+	identifierToIDs := map[string][]string{}
+	for _, sectionID := range topLevelIDs {
+		name := strings.TrimSpace(project.Sections[sectionID].Name)
+		if name == "" {
+			continue
+		}
+		identifier := sanitizeSectionPythonIdentifier(name)
+		identifierToIDs[identifier] = append(identifierToIDs[identifier], sectionID)
+	}
+	for _, ids := range identifierToIDs {
+		if len(ids) < 2 {
+			continue
+		}
+		for _, sectionID := range ids {
+			appendUniqueError(
+				errorsBySection,
+				sectionID,
+				"Section name conflicts with another top-level name after Python identifier sanitization.",
+			)
+		}
+	}
+}
+
+func appendSectionSlugConflicts(project Project, errorsBySection map[string][]string) error {
 	_, slugToSectionIDs, err := activeSectionSlugMap(project, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for slug, ids := range slugToSectionIDs {
 		if slug == "" {
@@ -159,8 +182,7 @@ func collectSectionNameConflicts(project Project) (map[string][]string, error) {
 			appendUniqueError(errorsBySection, sectionID, message)
 		}
 	}
-
-	return errorsBySection, nil
+	return nil
 }
 
 func collectSectionNameFormatErrors(project Project) map[string][]string {
@@ -239,15 +261,44 @@ func sectionNameValidationErrorWithSlugIndex(
 		return formatError, nil
 	}
 
+	parentID, siblingIDs, err := activeValidationSiblingSectionIDs(project, sectionID)
+	if err != nil {
+		return "", err
+	}
+	if validationError, err := siblingSectionNameConflictError(project, sectionID, normalized, siblingIDs); err != nil {
+		return "", err
+	} else if validationError != "" {
+		return validationError, nil
+	}
+	if parentID == "" {
+		if validationError, err := topLevelSectionIdentifierConflictError(project, sectionID, normalized, siblingIDs); err != nil {
+			return "", err
+		} else if validationError != "" {
+			return validationError, nil
+		}
+	}
+	return sectionSlugConflictError(project, sectionID, normalized, slugToSectionIDs)
+}
+
+func activeValidationSiblingSectionIDs(project Project, sectionID string) (string, []string, error) {
 	section, ok := project.Sections[sectionID]
 	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
+		return "", nil, fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
 	}
 	parentID := strings.TrimSpace(section.ParentSectionID)
 	siblingIDs, err := activeSiblingSectionIDs(project, sectionID, parentID)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
+	return parentID, siblingIDs, nil
+}
+
+func siblingSectionNameConflictError(
+	project Project,
+	sectionID string,
+	normalized string,
+	siblingIDs []string,
+) (string, error) {
 	for _, siblingID := range siblingIDs {
 		if siblingID == sectionID {
 			continue
@@ -260,27 +311,41 @@ func sectionNameValidationErrorWithSlugIndex(
 			return fmt.Sprintf(`Section name "%s" already exists under this parent.`, normalized), nil
 		}
 	}
+	return "", nil
+}
 
-	if parentID == "" {
-		normalizedIdentifier := sanitizeSectionPythonIdentifier(normalized)
-		for _, siblingID := range siblingIDs {
-			if siblingID == sectionID {
-				continue
-			}
-			sibling, ok := project.Sections[siblingID]
-			if !ok {
-				return "", fmt.Errorf("%w: %q", ErrSectionNotFound, siblingID)
-			}
-			siblingName := strings.TrimSpace(sibling.Name)
-			if siblingName == "" {
-				continue
-			}
-			if sanitizeSectionPythonIdentifier(siblingName) == normalizedIdentifier {
-				return "Section name conflicts with another top-level name after Python identifier sanitization.", nil
-			}
+func topLevelSectionIdentifierConflictError(
+	project Project,
+	sectionID string,
+	normalized string,
+	siblingIDs []string,
+) (string, error) {
+	normalizedIdentifier := sanitizeSectionPythonIdentifier(normalized)
+	for _, siblingID := range siblingIDs {
+		if siblingID == sectionID {
+			continue
+		}
+		sibling, ok := project.Sections[siblingID]
+		if !ok {
+			return "", fmt.Errorf("%w: %q", ErrSectionNotFound, siblingID)
+		}
+		siblingName := strings.TrimSpace(sibling.Name)
+		if siblingName == "" {
+			continue
+		}
+		if sanitizeSectionPythonIdentifier(siblingName) == normalizedIdentifier {
+			return "Section name conflicts with another top-level name after Python identifier sanitization.", nil
 		}
 	}
+	return "", nil
+}
 
+func sectionSlugConflictError(
+	project Project,
+	sectionID string,
+	normalized string,
+	slugToSectionIDs map[string][]string,
+) (string, error) {
 	fullName, err := activeSectionPathFullNameWithOverrides(project, sectionID, map[string]string{
 		sectionID: normalized,
 	})
@@ -304,85 +369,158 @@ func collectParamNameErrors(project Project) (map[string][]string, map[string][]
 	formatErrors := map[string][]string{}
 
 	for _, sectionID := range sortedProjectSectionIDs(project.SectionVariantMap) {
-		section, variant, impl, err := project.ResolveSection(sectionID)
+		context, err := resolveSectionCodeObjectValidationContext(project, sectionID)
 		if err != nil {
 			return nil, nil, err
 		}
-		sectionPayload, err := effectiveSectionPayload(project, section.ID, variant.ID)
-		if err != nil {
-			return nil, nil, err
-		}
-		sectionType := payloadStringField(sectionPayload, "type")
-		if sectionType == "" {
-			sectionType = fallbackSectionType(impl)
-		}
-
-		codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-		if len(codeObjVariantMap) == 0 {
+		if len(context.codeObjVariantMap) == 0 {
 			continue
 		}
-
-		if sectionType != "MetaControl" {
-			rootCodeObjID := codeObjectRenameRootID(sectionPayload)
-			if rootCodeObjID != "" {
-				_, childrenByID, err := collectCodeObjectHierarchy(project, codeObjVariantMap, rootCodeObjID)
-				if err != nil {
-					return nil, nil, err
-				}
-				for _, childIDs := range childrenByID {
-					nameToIDs := map[string][]string{}
-					for _, childID := range childIDs {
-						codeObj, ok := project.CodeObjs[childID]
-						if !ok {
-							return nil, nil, fmt.Errorf("%w: %q", ErrCodeObjNotFound, childID)
-						}
-						name := strings.TrimSpace(codeObj.Name)
-						if name == "" {
-							continue
-						}
-						nameToIDs[name] = append(nameToIDs[name], childID)
-					}
-					for name, ids := range nameToIDs {
-						if len(ids) < 2 {
-							continue
-						}
-						message := fmt.Sprintf(`Duplicate param name "%s".`, name)
-						for _, codeObjID := range ids {
-							appendUniqueError(conflictErrors, codeObjID, message)
-						}
-					}
-				}
-			}
+		if err := appendParamConflictErrors(project, context, conflictErrors); err != nil {
+			return nil, nil, err
 		}
-
-		for codeObjID := range codeObjVariantMap {
-			codeObj, ok := project.CodeObjs[codeObjID]
-			if !ok {
-				return nil, nil, fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
-			}
-			payload, _, _, codeObjImpl, err := project.ResolveSectionCodeObject(section.ID, codeObjID)
-			if err != nil {
-				return nil, nil, err
-			}
-			codeObjType := payloadStringField(payload, "type")
-			if codeObjType == "" {
-				codeObjType = strings.TrimSpace(codeObjImpl.Type)
-			}
-			if !isRenamableCodeObjectType(codeObjType) {
-				continue
-			}
-			if _, err := validateCodeObjectNameFormat(project, sectionPayload, sectionType, section.ID, codeObjID, codeObj.Name); err != nil {
-				var invalid *InvalidCodeObjectNameError
-				if errors.As(err, &invalid) {
-					appendUniqueError(formatErrors, codeObjID, invalid.Message)
-					continue
-				}
-				return nil, nil, err
-			}
+		if err := appendParamFormatErrors(project, context, formatErrors); err != nil {
+			return nil, nil, err
 		}
 	}
 
 	return conflictErrors, formatErrors, nil
+}
+
+type sectionCodeObjectValidationContext struct {
+	sectionID         string
+	sectionPayload    map[string]any
+	sectionType       string
+	codeObjVariantMap map[string]string
+}
+
+func resolveSectionCodeObjectValidationContext(project Project, sectionID string) (sectionCodeObjectValidationContext, error) {
+	section, variant, impl, err := project.ResolveSection(sectionID)
+	if err != nil {
+		return sectionCodeObjectValidationContext{}, err
+	}
+	sectionPayload, err := effectiveSectionPayload(project, section.ID, variant.ID)
+	if err != nil {
+		return sectionCodeObjectValidationContext{}, err
+	}
+	sectionType := payloadStringField(sectionPayload, "type")
+	if sectionType == "" {
+		sectionType = fallbackSectionType(impl)
+	}
+
+	return sectionCodeObjectValidationContext{
+		sectionID:         section.ID,
+		sectionPayload:    sectionPayload,
+		sectionType:       sectionType,
+		codeObjVariantMap: payloadStringMapField(sectionPayload, "codeObjVariantMap"),
+	}, nil
+}
+
+func appendParamConflictErrors(
+	project Project,
+	context sectionCodeObjectValidationContext,
+	conflictErrors map[string][]string,
+) error {
+	if context.sectionType == "MetaControl" {
+		return nil
+	}
+
+	rootCodeObjID := codeObjectRenameRootID(context.sectionPayload)
+	if rootCodeObjID == "" {
+		return nil
+	}
+
+	_, childrenByID, err := collectCodeObjectHierarchy(project, context.codeObjVariantMap, rootCodeObjID)
+	if err != nil {
+		return err
+	}
+	for _, childIDs := range childrenByID {
+		if err := appendSiblingParamNameConflicts(project, childIDs, conflictErrors); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func appendSiblingParamNameConflicts(
+	project Project,
+	childIDs []string,
+	conflictErrors map[string][]string,
+) error {
+	nameToIDs := map[string][]string{}
+	for _, childID := range childIDs {
+		codeObj, ok := project.CodeObjs[childID]
+		if !ok {
+			return fmt.Errorf("%w: %q", ErrCodeObjNotFound, childID)
+		}
+		name := strings.TrimSpace(codeObj.Name)
+		if name == "" {
+			continue
+		}
+		nameToIDs[name] = append(nameToIDs[name], childID)
+	}
+	for name, ids := range nameToIDs {
+		if len(ids) < 2 {
+			continue
+		}
+		message := fmt.Sprintf(`Duplicate param name "%s".`, name)
+		for _, codeObjID := range ids {
+			appendUniqueError(conflictErrors, codeObjID, message)
+		}
+	}
+	return nil
+}
+
+func appendParamFormatErrors(
+	project Project,
+	context sectionCodeObjectValidationContext,
+	formatErrors map[string][]string,
+) error {
+	for codeObjID := range context.codeObjVariantMap {
+		if err := appendCodeObjectFormatError(project, context, codeObjID, formatErrors); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func appendCodeObjectFormatError(
+	project Project,
+	context sectionCodeObjectValidationContext,
+	codeObjID string,
+	formatErrors map[string][]string,
+) error {
+	codeObj, ok := project.CodeObjs[codeObjID]
+	if !ok {
+		return fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
+	}
+	payload, _, _, codeObjImpl, err := project.ResolveSectionCodeObject(context.sectionID, codeObjID)
+	if err != nil {
+		return err
+	}
+	codeObjType := payloadStringField(payload, "type")
+	if codeObjType == "" {
+		codeObjType = strings.TrimSpace(codeObjImpl.Type)
+	}
+	if !isRenamableCodeObjectType(codeObjType) {
+		return nil
+	}
+	if _, err := validateCodeObjectNameFormat(
+		project,
+		context.sectionPayload,
+		context.sectionType,
+		context.sectionID,
+		codeObjID,
+		codeObj.Name,
+	); err != nil {
+		var invalid *InvalidCodeObjectNameError
+		if errors.As(err, &invalid) {
+			appendUniqueError(formatErrors, codeObjID, invalid.Message)
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func appendUniqueError(errorsByID map[string][]string, id string, message string) {
