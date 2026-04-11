@@ -245,6 +245,8 @@ write_files:
         nvm alias default "${node_version}"
         corepack enable
         npm install -g @openai/codex@latest
+        git config --global pull.rebase true
+        git config --global fetch.prune true
         install -d -m 0700 "$HOME/.codex"
         printf '\''cli_auth_credentials_store = "file"\n'\'' > "$HOME/.codex/config.toml"
       '

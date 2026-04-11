@@ -35,7 +35,9 @@ def test_cloud_init_configures_github_ssh_for_forwarded_agent_security_keys() ->
 def test_cloud_init_installs_codex_cli_with_file_based_auth_storage() -> None:
     # The devbox should recreate with Codex ready on PATH, and headless auth
     # sync should land in ~/.codex/auth.json instead of depending on keyring
-    # availability on the remote Ubuntu box.
+    # availability on the remote Ubuntu box. It should also seed Git defaults
+    # that make server-side loop commits rebase cleanly instead of turning
+    # every pull into a divergent-branches prompt.
     cloud_init = (
         Path(__file__).resolve().parents[2]
         / "infra"
@@ -44,8 +46,11 @@ def test_cloud_init_installs_codex_cli_with_file_based_auth_storage() -> None:
     ).read_text(encoding="utf-8")
 
     assert "npm install -g @openai/codex@latest" in cloud_init
+    assert 'nvm install "${node_version}"' in cloud_init
     assert 'install -d -m 0700 "$HOME/.codex"' in cloud_init
     assert 'cli_auth_credentials_store = "file"' in cloud_init
+    assert 'git config --global pull.rebase true' in cloud_init
+    assert 'git config --global fetch.prune true' in cloud_init
 
 
 def test_cloud_init_installs_ghostty_terminfo_and_enables_tmux_extended_keys() -> None:
