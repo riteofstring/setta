@@ -175,63 +175,103 @@ func (p *Project) ApplyWatchCodeFileUpdate(
 		ctx = context.Background()
 	}
 
-	normalizedSourcePath, ok, err := resolveWatchCodeActivePath(workspaceRoot, sourcePath, "watch code source path")
+	update, ok, err := p.prepareWatchCodeFileUpdate(workspaceRoot, sourcePath, raw, baselineOnly)
 	if err != nil || !ok {
 		return false, err
 	}
+
+	didUpdate, err := p.applyWatchCodeMovedFileUpdate(workspaceRoot, movedFrom, update)
+	if err != nil {
+		return false, err
+	}
+	return p.applyParsedWatchCodeFileUpdate(ctx, update, baselineOnly, didUpdate, resolver)
+}
+
+type watchCodeFileUpdate struct {
+	sourcePath string
+	callables  []watchcode.CallableInfo
+	parsed     bool
+}
+
+func (p *Project) prepareWatchCodeFileUpdate(
+	workspaceRoot string,
+	sourcePath string,
+	raw string,
+	baselineOnly bool,
+) (watchCodeFileUpdate, bool, error) {
+	normalizedSourcePath, ok, err := resolveWatchCodeActivePath(workspaceRoot, sourcePath, "watch code source path")
+	if err != nil || !ok {
+		return watchCodeFileUpdate{}, false, err
+	}
 	if !p.watchCodePathMatches(workspaceRoot, normalizedSourcePath) {
-		return false, nil
+		return watchCodeFileUpdate{}, false, nil
 	}
 	if !baselineOnly && !p.WatchCodeEnabled {
-		return false, nil
+		return watchCodeFileUpdate{}, false, nil
 	}
 
 	relativeSourcePath, err := watchCodeRelativePath(workspaceRoot, normalizedSourcePath)
 	if err != nil {
-		return false, err
+		return watchCodeFileUpdate{}, false, err
 	}
 	callables, parsed, err := watchcode.ParsePythonCallables(raw, relativeSourcePath)
 	if err != nil {
+		return watchCodeFileUpdate{}, false, err
+	}
+
+	return watchCodeFileUpdate{
+		sourcePath: normalizedSourcePath,
+		callables:  callables,
+		parsed:     parsed,
+	}, true, nil
+}
+
+func (p *Project) applyWatchCodeMovedFileUpdate(
+	workspaceRoot string,
+	movedFrom string,
+	update watchCodeFileUpdate,
+) (bool, error) {
+	trimmedMovedFrom := strings.TrimSpace(movedFrom)
+	if trimmedMovedFrom == "" {
+		return false, nil
+	}
+
+	normalizedMovedFrom, ok, err := resolveWatchCodeActivePath(workspaceRoot, trimmedMovedFrom, "watch code moved-from path")
+	if err != nil || !ok {
 		return false, err
 	}
 
-	didUpdate := false
-	if trimmedMovedFrom := strings.TrimSpace(movedFrom); trimmedMovedFrom != "" {
-		normalizedMovedFrom, movedFromOK, err := resolveWatchCodeActivePath(workspaceRoot, trimmedMovedFrom, "watch code moved-from path")
-		if err != nil {
-			return false, err
-		}
-		if movedFromOK {
-			movePlan := watchcode.PlanMoveUpdate(
-				normalizedMovedFrom,
-				normalizedSourcePath,
-				callables,
-				parsed,
-				projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
-				cloneStringSliceMap(p.WatchCodeBaselineByPath),
-			)
-			if p.applyWatchCodeMovePlan(movePlan) {
-				didUpdate = true
-			}
-		}
-	}
+	movePlan := watchcode.PlanMoveUpdate(
+		normalizedMovedFrom,
+		update.sourcePath,
+		update.callables,
+		update.parsed,
+		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
+		cloneStringSliceMap(p.WatchCodeBaselineByPath),
+	)
+	return p.applyWatchCodeMovePlan(movePlan), nil
+}
 
-	if !parsed {
+func (p *Project) applyParsedWatchCodeFileUpdate(
+	ctx context.Context,
+	update watchCodeFileUpdate,
+	baselineOnly bool,
+	didUpdate bool,
+	resolver CallableSignatureResolver,
+) (bool, error) {
+	if !update.parsed {
 		return didUpdate, nil
 	}
 	if baselineOnly {
-		if p.setWatchCodeBaseline(normalizedSourcePath, watchcode.IdentityList(callables)) {
-			didUpdate = true
-		}
-		return didUpdate, nil
+		return didUpdate || p.setWatchCodeBaseline(update.sourcePath, watchcode.IdentityList(update.callables)), nil
 	}
 	if !p.HasPythonCodegenTarget() {
 		return didUpdate, nil
 	}
 
 	scanPlan := watchcode.PlanScanUpdate(
-		normalizedSourcePath,
-		callables,
+		update.sourcePath,
+		update.callables,
 		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
 		cloneStringSliceMap(p.WatchCodeBaselineByPath),
 	)
@@ -239,10 +279,7 @@ func (p *Project) ApplyWatchCodeFileUpdate(
 	if err != nil {
 		return false, err
 	}
-	if updated {
-		didUpdate = true
-	}
-	return didUpdate, nil
+	return didUpdate || updated, nil
 }
 
 func (p *Project) ApplyWatchCodeFileDelete(
@@ -287,12 +324,8 @@ func resolveWatchCodeActivePath(workspaceRoot string, raw string, label string) 
 }
 
 func (p *Project) watchCodePathMatches(workspaceRoot string, absolutePath string) bool {
-	relativePath, err := watchCodeRelativePath(workspaceRoot, absolutePath)
-	if err != nil {
-		return false
-	}
-	normalizedRelativePath := path.Clean(strings.TrimSpace(relativePath))
-	if normalizedRelativePath == "." || normalizedRelativePath == "" {
+	normalizedRelativePath, relativeDir, ok := normalizeWatchCodeMatchedRelativePath(workspaceRoot, absolutePath)
+	if !ok {
 		return false
 	}
 
@@ -301,29 +334,38 @@ func (p *Project) watchCodePathMatches(workspaceRoot string, absolutePath string
 			return true
 		}
 	}
-	relativeDir := path.Dir(normalizedRelativePath)
 	for _, folder := range p.WatchCodeFolders {
-		folderPath := path.Clean(strings.TrimSpace(folder.Path))
-		if folderPath == "" {
-			continue
-		}
-		if folderPath == "." {
-			if folder.Recursive || relativeDir == "." {
-				return true
-			}
-			continue
-		}
-		if folder.Recursive {
-			if normalizedRelativePath == folderPath || strings.HasPrefix(normalizedRelativePath, folderPath+"/") {
-				return true
-			}
-			continue
-		}
-		if relativeDir == folderPath {
+		if watchCodeFolderMatchesPath(folder, normalizedRelativePath, relativeDir) {
 			return true
 		}
 	}
 	return false
+}
+
+func normalizeWatchCodeMatchedRelativePath(workspaceRoot string, absolutePath string) (string, string, bool) {
+	relativePath, err := watchCodeRelativePath(workspaceRoot, absolutePath)
+	if err != nil {
+		return "", "", false
+	}
+	normalizedRelativePath := path.Clean(strings.TrimSpace(relativePath))
+	if normalizedRelativePath == "." || normalizedRelativePath == "" {
+		return "", "", false
+	}
+	return normalizedRelativePath, path.Dir(normalizedRelativePath), true
+}
+
+func watchCodeFolderMatchesPath(folder WatchCodeFolder, normalizedRelativePath string, relativeDir string) bool {
+	folderPath := path.Clean(strings.TrimSpace(folder.Path))
+	switch {
+	case folderPath == "":
+		return false
+	case folderPath == ".":
+		return folder.Recursive || relativeDir == "."
+	case folder.Recursive:
+		return normalizedRelativePath == folderPath || strings.HasPrefix(normalizedRelativePath, folderPath+"/")
+	default:
+		return relativeDir == folderPath
+	}
 }
 
 func projectWatchCodeRegistryPlanView(registry map[string]WatchCodeRegistryEntry) map[string]watchcode.RegistryEntry {
