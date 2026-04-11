@@ -364,52 +364,88 @@ func (s *Service) codexConfigPath(configID string) string {
 }
 
 func (s *Service) writeCodexConfig(path string, config Config) error {
-	basePath := resolveCodexBaseConfigPath(path, config)
-	payload, err := loadCodexTOMLPayload(basePath)
+	payload, err := prepareCodexPayload(path, config)
 	if err != nil {
 		return err
 	}
-	if config.SettingsManagedBlock != nil && config.SettingsManagedBlock.Codex != nil {
-		for key, value := range config.SettingsManagedBlock.Codex {
-			payload[key] = cloneJSONValue(value)
-		}
+	applyOptionalCodexStringOverride(payload, "model", config.DefaultModel)
+	applyOptionalCodexStringOverride(payload, "approval_policy", config.ApprovalPolicy)
+	applyOptionalCodexStringOverride(payload, "sandbox_mode", config.SandboxPolicy)
+	applyCodexOpenAIAuthDefaults(payload, config.EnvVarWhitelist)
+	ensureCodexReasoningSummary(payload)
+	payload["mcp_servers"] = ensureSettaCodexMCPServers(payload["mcp_servers"], s.settaServerURL)
+	return writeCodexTOMLPayload(path, payload)
+}
+
+func prepareCodexPayload(path string, config Config) (map[string]any, error) {
+	payload, err := loadCodexTOMLPayload(resolveCodexBaseConfigPath(path, config))
+	if err != nil {
+		return nil, err
 	}
-	if err := validateCodexMCPServersPayload(payload); err != nil {
-		return fmt.Errorf("decode codex base config: %w", err)
+	mergeManagedCodexPayload(payload, config.SettingsManagedBlock)
+	if err := validateCodexPayloadForWrite(payload); err != nil {
+		return nil, err
 	}
 	bootstrapCodexMCPServersFromUserConfig(payload, config)
+	if err := validateCodexPayloadForWrite(payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
+
+func mergeManagedCodexPayload(payload map[string]any, block *SettingsManagedBlock) {
+	if block == nil || block.Codex == nil {
+		return
+	}
+	for key, value := range block.Codex {
+		payload[key] = cloneJSONValue(value)
+	}
+}
+
+func validateCodexPayloadForWrite(payload map[string]any) error {
 	if err := validateCodexMCPServersPayload(payload); err != nil {
 		return fmt.Errorf("decode codex base config: %w", err)
 	}
-	if model := derefOptionalString(config.DefaultModel); model != "" {
-		payload["model"] = model
+	return nil
+}
+
+func applyOptionalCodexStringOverride(payload map[string]any, key string, value *string) {
+	if trimmed := derefOptionalString(value); trimmed != "" {
+		payload[key] = trimmed
 	}
-	if approvalPolicy := derefOptionalString(config.ApprovalPolicy); approvalPolicy != "" {
-		payload["approval_policy"] = approvalPolicy
+}
+
+func applyCodexOpenAIAuthDefaults(payload map[string]any, whitelist []string) {
+	if !envWhitelistContains(whitelist, "OPENAI_API_KEY") {
+		return
 	}
-	if sandboxPolicy := derefOptionalString(config.SandboxPolicy); sandboxPolicy != "" {
-		payload["sandbox_mode"] = sandboxPolicy
+	payload["forced_login_method"] = "api"
+	payload["preferred_auth_method"] = "apikey"
+	payload["cli_auth_credentials_store"] = "file"
+	payload["features"] = map[string]any{
+		"remote_models":     false,
+		"remote_compaction": false,
 	}
-	if envWhitelistContains(config.EnvVarWhitelist, "OPENAI_API_KEY") {
-		payload["forced_login_method"] = "api"
-		payload["preferred_auth_method"] = "apikey"
-		payload["cli_auth_credentials_store"] = "file"
-		payload["features"] = map[string]any{
-			"remote_models":     false,
-			"remote_compaction": false,
-		}
+}
+
+func ensureCodexReasoningSummary(payload map[string]any) {
+	if _, ok := payload["model_reasoning_summary"]; ok {
+		return
 	}
-	if _, ok := payload["model_reasoning_summary"]; !ok {
-		payload["model_reasoning_summary"] = "none"
-	}
-	mcpServers, _ := payload["mcp_servers"].(map[string]any)
+	payload["model_reasoning_summary"] = "none"
+}
+
+func ensureSettaCodexMCPServers(rawServers any, settaServerURL string) map[string]any {
+	mcpServers, _ := rawServers.(map[string]any)
 	if mcpServers == nil {
 		mcpServers = map[string]any{}
 	}
 	serverEntry, _ := mcpServers["setta"].(map[string]any)
-	serverEntry = NormalizeSettaCodexMCPServerEntry(serverEntry, s.settaServerURL)
-	mcpServers["setta"] = serverEntry
-	payload["mcp_servers"] = mcpServers
+	mcpServers["setta"] = NormalizeSettaCodexMCPServerEntry(serverEntry, settaServerURL)
+	return mcpServers
+}
+
+func writeCodexTOMLPayload(path string, payload map[string]any) error {
 	content, err := toml.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode codex canonical config: %w", err)

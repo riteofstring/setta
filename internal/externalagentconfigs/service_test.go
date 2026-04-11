@@ -122,6 +122,57 @@ func TestServiceCreateAppliesCodexOpenAIAuthDefaultsWhenOpenAIAPIKeyIsWhiteliste
 	}
 }
 
+func TestServiceCreateAppliesCodexOverridesAndPreservesExistingReasoningSummary(t *testing.T) {
+	t.Parallel()
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+
+	model := "gpt-5.4"
+	approvalPolicy := "never"
+	sandboxPolicy := "danger-full-access"
+	created, err := service.Create(Config{
+		ID:                 "codex-overrides",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+		DefaultModel:       &model,
+		ApprovalPolicy:     &approvalPolicy,
+		SandboxPolicy:      &sandboxPolicy,
+		SettingsManagedBlock: &SettingsManagedBlock{
+			Codex: map[string]any{
+				"model_reasoning_summary": "detailed",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+	if created.DefaultModel == nil || *created.DefaultModel != model {
+		t.Fatalf("expected created config to keep default model override, got %#v", created.DefaultModel)
+	}
+	if created.ApprovalPolicy == nil || *created.ApprovalPolicy != approvalPolicy {
+		t.Fatalf("expected created config to keep approval override, got %#v", created.ApprovalPolicy)
+	}
+	if created.SandboxPolicy == nil || *created.SandboxPolicy != sandboxPolicy {
+		t.Fatalf("expected created config to keep sandbox override, got %#v", created.SandboxPolicy)
+	}
+
+	payload := readCodexConfigPayload(t, filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName))
+	if got := payload["model"]; got != model {
+		t.Fatalf("expected model override in payload, got %#v", payload)
+	}
+	if got := payload["approval_policy"]; got != approvalPolicy {
+		t.Fatalf("expected approval override in payload, got %#v", payload)
+	}
+	if got := payload["sandbox_mode"]; got != sandboxPolicy {
+		t.Fatalf("expected sandbox override in payload, got %#v", payload)
+	}
+	if got := payload["model_reasoning_summary"]; got != "detailed" {
+		t.Fatalf("expected existing reasoning summary to survive, got %#v", payload)
+	}
+}
+
 func TestServiceCreatePreservesExistingCodexMCPServersWhenAddingSetta(t *testing.T) {
 	t.Parallel()
 
