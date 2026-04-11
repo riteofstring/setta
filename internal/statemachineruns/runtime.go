@@ -160,12 +160,51 @@ type resolvedSignalReportContext struct {
 	sourceActivationCount int
 }
 
+type terminalChildRunUpdateContext struct {
+	graph                 graph
+	sourceSectionID       string
+	projectConfigID       string
+	shareSessionID        *string
+	projectRuntime        *projectstate.Runtime
+	sourceActivationCount int
+}
+
+type startRunRequest struct {
+	projectConfigID string
+	machineGroupID  string
+	startSectionID  *string
+	shareSessionID  *string
+}
+
 type progressState struct {
 	possibleGateSectionIDs        map[string]struct{}
 	possibleChatSourceSectionIDs  map[string]struct{}
 	possibleEndSectionIDs         map[string]struct{}
 	blockedGateSectionIDs         map[string]struct{}
 	blockedGateDetailsBySectionID map[string]map[string]any
+}
+
+type progressReachability struct {
+	possibleGateSectionIDs       map[string]struct{}
+	possibleChatSourceSectionIDs map[string]struct{}
+	possibleEndSectionIDs        map[string]struct{}
+}
+
+type graphSectionInventory struct {
+	sections        map[string]graphSection
+	startSectionIDs []string
+	endSectionCount int
+}
+
+type preparedChatEdgeDispatch struct {
+	engineConfig          agentruns.EngineConfig
+	message               map[string]any
+	agentProfileID        *string
+	permissionMode        projectstate.ChatPermissionMode
+	searchEnabled         bool
+	nextChatID            *string
+	childInputs           map[string]any
+	sourceActivationCount int
 }
 
 func NewRuntime(options RuntimeOptions) (*Runtime, error) {
@@ -223,18 +262,12 @@ func (r *Runtime) StartRun(
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	normalizedProjectID := strings.TrimSpace(projectConfigID)
-	normalizedMachineGroupID := strings.TrimSpace(machineGroupID)
-	normalizedStartSectionID := normalizeOptionalString(startSectionID)
-	normalizedShareSessionID := normalizeOptionalString(shareSessionID)
-	if normalizedProjectID == "" {
-		return agentruns.Run{}, fmt.Errorf("%w: projectConfigId is required", ErrInvalidStateMachineInput)
-	}
-	if normalizedMachineGroupID == "" {
-		return agentruns.Run{}, fmt.Errorf("%w: machineGroupId is required", ErrInvalidStateMachineInput)
+	request, err := normalizeStartRunRequest(projectConfigID, machineGroupID, startSectionID, shareSessionID)
+	if err != nil {
+		return agentruns.Run{}, err
 	}
 
-	existing, err := r.getLatestRunLocked(normalizedProjectID, normalizedMachineGroupID, normalizedShareSessionID)
+	existing, err := r.getLatestRunLocked(request.projectConfigID, request.machineGroupID, request.shareSessionID)
 	if err != nil {
 		return agentruns.Run{}, err
 	}
@@ -242,74 +275,126 @@ func (r *Runtime) StartRun(
 		return existing.Clone(), nil
 	}
 
-	graph, projectRuntime, err := r.resolveGraph(normalizedProjectID, normalizedMachineGroupID, normalizedStartSectionID, normalizedShareSessionID)
+	run, graph, projectRuntime, err := r.createStartRun(request)
 	if err != nil {
 		return agentruns.Run{}, err
 	}
-	graphPayload, err := graph.jsonValue()
-	if err != nil {
+	if err := r.persistInitializedStartRun(&run, graph, request); err != nil {
 		return agentruns.Run{}, err
+	}
+	if activationErr := r.activateStartRun(projectRuntime, &run, graph, request); activationErr != nil {
+		return run.Clone(), activationErr
+	}
+	return run.Clone(), nil
+}
+
+func normalizeStartRunRequest(
+	projectConfigID string,
+	machineGroupID string,
+	startSectionID *string,
+	shareSessionID *string,
+) (startRunRequest, error) {
+	request := startRunRequest{
+		projectConfigID: strings.TrimSpace(projectConfigID),
+		machineGroupID:  strings.TrimSpace(machineGroupID),
+		startSectionID:  normalizeOptionalString(startSectionID),
+		shareSessionID:  normalizeOptionalString(shareSessionID),
+	}
+	if request.projectConfigID == "" {
+		return startRunRequest{}, fmt.Errorf("%w: projectConfigId is required", ErrInvalidStateMachineInput)
+	}
+	if request.machineGroupID == "" {
+		return startRunRequest{}, fmt.Errorf("%w: machineGroupId is required", ErrInvalidStateMachineInput)
+	}
+	return request, nil
+}
+
+func (r *Runtime) createStartRun(request startRunRequest) (agentruns.Run, graph, *projectstate.Runtime, error) {
+	resolvedGraph, projectRuntime, err := r.resolveGraph(
+		request.projectConfigID,
+		request.machineGroupID,
+		request.startSectionID,
+		request.shareSessionID,
+	)
+	if err != nil {
+		return agentruns.Run{}, graph{}, nil, err
+	}
+	graphPayload, err := resolvedGraph.jsonValue()
+	if err != nil {
+		return agentruns.Run{}, graph{}, nil, err
 	}
 
 	inputs := map[string]any{
 		"runType":               RunTypeStateMachine,
-		inputKeyProjectConfigID: normalizedProjectID,
-		inputKeyMachineGroupID:  normalizedMachineGroupID,
-		inputKeyStartSectionID:  graph.StartSectionID,
-		inputKeyMachineName:     graph.MachineName,
+		inputKeyProjectConfigID: request.projectConfigID,
+		inputKeyMachineGroupID:  request.machineGroupID,
+		inputKeyStartSectionID:  resolvedGraph.StartSectionID,
+		inputKeyMachineName:     resolvedGraph.MachineName,
 		graphSnapshotInputKey:   graphPayload,
 	}
-	if normalizedShareSessionID != nil {
-		inputs[inputKeyShareSessionID] = *normalizedShareSessionID
+	if request.shareSessionID != nil {
+		inputs[inputKeyShareSessionID] = *request.shareSessionID
 	}
 	run := agentruns.NewRun(nil, inputs, r.timeNow())
-	r.ensureRunOutputsInitialized(&run, graph)
+	r.ensureRunOutputsInitialized(&run, resolvedGraph)
 	if err := r.runs.Save(run); err != nil {
-		return agentruns.Run{}, err
+		return agentruns.Run{}, graph{}, nil, err
 	}
+	return run, resolvedGraph, projectRuntime, nil
+}
 
-	r.appendEvent(&run, "run_started", map[string]any{
-		inputKeyProjectConfigID: normalizedProjectID,
-		inputKeyMachineGroupID:  normalizedMachineGroupID,
+func (r *Runtime) persistInitializedStartRun(run *agentruns.Run, graph graph, request startRunRequest) error {
+	r.appendEvent(run, "run_started", map[string]any{
+		inputKeyProjectConfigID: request.projectConfigID,
+		inputKeyMachineGroupID:  request.machineGroupID,
 		inputKeyStartSectionID:  graph.StartSectionID,
 		inputKeyMachineName:     graph.MachineName,
 	})
-	r.appendEvent(&run, "graph_resolved", map[string]any{
+	r.appendEvent(run, "graph_resolved", map[string]any{
 		"machineEdgeIds":             edgeIDs(graph.Edges),
 		outputKeyGateIncomingEdgeIDs: cloneAnyMapMap(r.buildGateIncomingEdgeIDsBySectionID(graph)),
 	})
 	startEdges := r.outgoingEdges(graph, graph.StartSectionID)
-	r.appendEvent(&run, "start_edges_activated", map[string]any{
+	r.appendEvent(run, "start_edges_activated", map[string]any{
 		"edgeIds":          edgeIDs(startEdges),
 		"targetSectionIds": targetSectionIDs(startEdges),
 	})
-	if err := r.runs.Save(run); err != nil {
-		return agentruns.Run{}, err
-	}
+	return r.runs.Save(*run)
+}
 
-	actionResults, activationErr := r.activateOutgoingEdges(projectRuntime, &run, graph, graph.StartSectionID, normalizedProjectID, normalizedShareSessionID)
+func (r *Runtime) activateStartRun(
+	projectRuntime *projectstate.Runtime,
+	run *agentruns.Run,
+	graph graph,
+	request startRunRequest,
+) error {
+	actionResults, activationErr := r.activateOutgoingEdges(
+		projectRuntime,
+		run,
+		graph,
+		graph.StartSectionID,
+		request.projectConfigID,
+		request.shareSessionID,
+	)
 	if activationErr != nil {
-		r.failRun(&run, "start_edge_action_failed", fmt.Sprintf("Workflow failed while dispatching the first action: %v", activationErr), map[string]any{
+		r.failRun(run, "start_edge_action_failed", fmt.Sprintf("Workflow failed while dispatching the first action: %v", activationErr), map[string]any{
 			"error": activationErr.Error(),
 		})
-		if err := r.runs.Save(run); err != nil {
-			return agentruns.Run{}, err
+		if err := r.runs.Save(*run); err != nil {
+			return err
 		}
-		return run.Clone(), activationErr
+		return activationErr
 	}
 	run.Outputs[outputKeyDispatchedStartActions] = actionResults
-	r.incrementSourceActivationCount(&run, graph.StartSectionID)
-	r.refreshOutputs(&run, graph)
+	r.incrementSourceActivationCount(run, graph.StartSectionID)
+	r.refreshOutputs(run, graph)
 	if len(actionResults) > 0 {
-		r.appendActionEvents(&run, graph, actionResults)
-		r.appendEvent(&run, "start_edge_actions_dispatched", map[string]any{
+		r.appendActionEvents(run, graph, actionResults)
+		r.appendEvent(run, "start_edge_actions_dispatched", map[string]any{
 			"actions": actionResults,
 		})
 	}
-	if err := r.runs.Save(run); err != nil {
-		return agentruns.Run{}, err
-	}
-	return run.Clone(), nil
+	return r.runs.Save(*run)
 }
 
 func (r *Runtime) GetLatestRun(
@@ -475,16 +560,7 @@ func (r *Runtime) ReportSignal(
 	if err != nil {
 		return nil, err
 	}
-	matchingEdges := make([]projectstate.StateMachineEdge, 0)
-	for _, edge := range r.outgoingEdges(resolved.graph, resolved.sourceSectionID) {
-		if !edgeMatchesSignalEvent(edge, signalEvent) {
-			continue
-		}
-		if !matchesSourceActivationCountCondition(edge, resolved.sourceActivationCount) {
-			continue
-		}
-		matchingEdges = append(matchingEdges, edge)
-	}
+	matchingEdges := matchingSignalEdges(resolved.graph, resolved.sourceSectionID, signalEvent, resolved.sourceActivationCount)
 	if len(matchingEdges) > 0 {
 		r.appendEvent(&resolved.parentRun, "signal_edges_activated", map[string]any{
 			"signalEventId":   signalEvent["signalEventId"],
@@ -503,26 +579,11 @@ func (r *Runtime) ReportSignal(
 		if err != nil {
 			return nil, err
 		}
-		if len(actionResults) > 0 {
-			existing := outputListOfMaps(resolved.parentRun, outputKeyDispatchedEdgeActions)
-			resolved.parentRun.Outputs[outputKeyDispatchedEdgeActions] = append(existing, actionResults...)
-			r.appendActionEvents(&resolved.parentRun, resolved.graph, actionResults)
-		}
+		r.appendActivatedEdgeResults(&resolved.parentRun, resolved.graph, actionResults)
 	}
 	markSignalEventProcessed(&resolved.parentRun, signalEvent)
 	r.incrementSourceActivationCount(&resolved.parentRun, resolved.sourceSectionID)
-	progress := r.computeProgressState(resolved.parentRun, resolved.graph)
-	r.refreshOutputsWithProgress(&resolved.parentRun, resolved.graph, progress)
-	if resolved.parentRun.Status == agentruns.RunStatusRunning && len(progress.blockedGateSectionIDs) > 0 {
-		if err := r.blockRun(&resolved.parentRun, resolved.graph, progress); err != nil {
-			return nil, err
-		}
-		r.refreshOutputs(&resolved.parentRun, resolved.graph)
-	} else if resolved.parentRun.Status == agentruns.RunStatusRunning && shouldFailAsStalled(resolved.parentRun, progress) {
-		r.failRun(&resolved.parentRun, "run_stalled", "Workflow has no active children, pending signals, or reachable next step.", map[string]any{})
-		r.refreshOutputs(&resolved.parentRun, resolved.graph)
-	}
-	if err := r.runs.Save(resolved.parentRun); err != nil {
+	if err := r.finalizeParentRunUpdate(&resolved.parentRun, resolved.graph); err != nil {
 		return nil, err
 	}
 
@@ -538,97 +599,55 @@ func (r *Runtime) ReportSignal(
 }
 
 func (r *Runtime) HandleTerminalChildRunUpdate(childRun agentruns.Run) (*agentruns.Run, error) {
-	if childRun.Status != agentruns.RunStatusCompleted &&
-		childRun.Status != agentruns.RunStatusFailed &&
-		childRun.Status != agentruns.RunStatusCancelled {
-		return nil, nil
-	}
-	if !runInputsStringEquals(childRun, inputKeyStateMachineParentRunType, RunTypeStateMachine) {
-		return nil, nil
-	}
-	parentRunID := runInputString(childRun, inputKeyStateMachineRunID)
-	if parentRunID == "" {
+	if !shouldHandleTerminalChildRunUpdate(childRun) {
 		return nil, nil
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	parentRun, err := r.runs.Load(parentRunID)
+	parentRun, err := r.loadRunningStateMachineParentRun(childRun)
 	if err != nil {
-		if errors.Is(err, agentruns.ErrRunNotFound) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	if parentRun.Status != agentruns.RunStatusRunning {
+	if parentRun == nil {
 		return nil, nil
 	}
-	if !r.markChildRunProcessed(&parentRun, childRun.ID) {
+	if !r.markChildRunProcessed(parentRun, childRun.ID) {
 		cloned := parentRun.Clone()
 		return &cloned, nil
 	}
-	graph, err := decodeGraph(parentRun.Inputs[graphSnapshotInputKey])
+	context, err := r.prepareTerminalChildRunUpdate(parentRun, childRun)
 	if err != nil {
 		return nil, err
 	}
-	r.ensureRunOutputsInitialized(&parentRun, graph)
-	r.removeActiveChildRunID(&parentRun, childRun.ID)
-
-	sourceSectionID := runInputString(childRun, inputKeyStateMachineTargetSection)
-	if sourceSectionID == "" {
-		return nil, fmt.Errorf("child run %s is missing %s", childRun.ID, inputKeyStateMachineTargetSection)
-	}
-	projectConfigID := runInputString(parentRun, inputKeyProjectConfigID)
-	shareSessionID := normalizeOptionalString(stringPointer(runInputString(parentRun, inputKeyShareSessionID)))
-	projectRuntime, err := r.projectRuntime(shareSessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	sourceActivationCount := r.sourceActivationCount(parentRun, sourceSectionID)
-	r.appendChildRunTerminalEvent(&parentRun, childRun, sourceSectionID, sourceActivationCount)
-	matchingEdges := make([]projectstate.StateMachineEdge, 0)
-	for _, edge := range r.outgoingEdges(graph, sourceSectionID) {
-		if !edgeMatchesChildTerminalRun(edge, childRun) {
-			continue
-		}
-		if !matchesSourceActivationCountCondition(edge, sourceActivationCount) {
-			continue
-		}
-		matchingEdges = append(matchingEdges, edge)
-	}
+	r.appendChildRunTerminalEvent(parentRun, childRun, context.sourceSectionID, context.sourceActivationCount)
+	matchingEdges := matchingTerminalChildEdges(context.graph, context.sourceSectionID, childRun, context.sourceActivationCount)
 	if len(matchingEdges) > 0 {
-		r.appendEvent(&parentRun, "child_run_edges_activated", map[string]any{
+		r.appendEvent(parentRun, "child_run_edges_activated", map[string]any{
 			"childRunId":      childRun.ID,
 			"edgeIds":         edgeIDs(matchingEdges),
-			"sourceSectionId": sourceSectionID,
+			"sourceSectionId": context.sourceSectionID,
 		})
-		actionResults, err := r.activateEdges(projectRuntime, &parentRun, graph, matchingEdges, projectConfigID, shareSessionID)
+		actionResults, err := r.activateEdges(
+			context.projectRuntime,
+			parentRun,
+			context.graph,
+			matchingEdges,
+			context.projectConfigID,
+			context.shareSessionID,
+		)
 		if err != nil {
-			r.failRun(&parentRun, "child_run_edge_action_failed", fmt.Sprintf("Workflow failed while handling %s.", childRun.ID), map[string]any{
+			r.failRun(parentRun, "child_run_edge_action_failed", fmt.Sprintf("Workflow failed while handling %s.", childRun.ID), map[string]any{
 				"childRunId": childRun.ID,
 				"error":      err.Error(),
 			})
-		} else if len(actionResults) > 0 {
-			existing := outputListOfMaps(parentRun, outputKeyDispatchedEdgeActions)
-			parentRun.Outputs[outputKeyDispatchedEdgeActions] = append(existing, actionResults...)
-			r.appendActionEvents(&parentRun, graph, actionResults)
+		} else {
+			r.appendActivatedEdgeResults(parentRun, context.graph, actionResults)
 		}
 	}
-	r.incrementSourceActivationCount(&parentRun, sourceSectionID)
-	progress := r.computeProgressState(parentRun, graph)
-	r.refreshOutputsWithProgress(&parentRun, graph, progress)
-	if parentRun.Status == agentruns.RunStatusRunning && len(progress.blockedGateSectionIDs) > 0 {
-		if err := r.blockRun(&parentRun, graph, progress); err != nil {
-			return nil, err
-		}
-		r.refreshOutputs(&parentRun, graph)
-	} else if shouldFailAsStalled(parentRun, progress) {
-		r.failRun(&parentRun, "run_stalled", "Workflow has no active children, pending signals, or reachable next step.", map[string]any{})
-		r.refreshOutputs(&parentRun, graph)
-	}
-	if err := r.runs.Save(parentRun); err != nil {
+	r.incrementSourceActivationCount(parentRun, context.sourceSectionID)
+	if err := r.finalizeParentRunUpdate(parentRun, context.graph); err != nil {
 		return nil, err
 	}
 	cloned := parentRun.Clone()
@@ -692,77 +711,24 @@ func (r *Runtime) resolveSignalReportContext(
 	sectionID *string,
 	shareSessionID *string,
 ) (resolvedSignalReportContext, error) {
-	normalizedChildRunID := derefOptionalString(childRunID)
-	if normalizedChildRunID == "" {
-		return resolvedSignalReportContext{}, fmt.Errorf("report_state_machine_signal requires an active child run.")
-	}
-	childRun, err := r.runs.Load(normalizedChildRunID)
+	childRun, err := r.loadRequiredSignalChildRun(childRunID)
 	if err != nil {
 		return resolvedSignalReportContext{}, err
 	}
-
-	parentRunID := runInputString(childRun, inputKeyStateMachineRunID)
-	if parentRunID == "" {
-		return resolvedSignalReportContext{}, fmt.Errorf("report_state_machine_signal requires an active child run.")
-	}
-	if expectedParentRunID := derefOptionalString(machineRunID); expectedParentRunID != "" && expectedParentRunID != parentRunID {
-		return resolvedSignalReportContext{}, fmt.Errorf(
-			"machineRunId %s does not match child run %s parent %s",
-			expectedParentRunID,
-			childRun.ID,
-			parentRunID,
-		)
-	}
-
-	parentRun, err := r.runs.Load(parentRunID)
+	parentRunID, err := resolveSignalParentRunID(childRun, machineRunID)
 	if err != nil {
 		return resolvedSignalReportContext{}, err
 	}
-	if !runInputsStringEquals(parentRun, "runType", RunTypeStateMachine) {
-		return resolvedSignalReportContext{}, fmt.Errorf("run %s is not a state machine run", parentRun.ID)
-	}
-	if !runMatchesShareSessionID(parentRun, shareSessionID) {
-		return resolvedSignalReportContext{}, fmt.Errorf("state machine run %s does not belong to the active share session", parentRun.ID)
-	}
-	if runInputString(parentRun, inputKeyProjectConfigID) != projectConfigID {
-		return resolvedSignalReportContext{}, fmt.Errorf(
-			"state machine run %s does not belong to project config %s",
-			parentRun.ID,
-			projectConfigID,
-		)
-	}
-
-	graph, err := decodeGraph(parentRun.Inputs[graphSnapshotInputKey])
+	parentRun, graph, err := r.loadValidatedSignalParentRun(parentRunID, projectConfigID, shareSessionID)
 	if err != nil {
 		return resolvedSignalReportContext{}, err
 	}
-	resolvedSectionID := runInputString(childRun, inputKeyStateMachineTargetSection)
-	if normalizedSectionID := derefOptionalString(sectionID); normalizedSectionID != "" {
-		if resolvedSectionID != "" && normalizedSectionID != resolvedSectionID {
-			return resolvedSignalReportContext{}, fmt.Errorf(
-				"sectionId %s does not match child run %s section %s",
-				normalizedSectionID,
-				childRun.ID,
-				resolvedSectionID,
-			)
-		}
-		resolvedSectionID = normalizedSectionID
+	resolvedSectionID, err := resolveSignalSourceSectionID(childRun, sectionID)
+	if err != nil {
+		return resolvedSignalReportContext{}, err
 	}
-	if resolvedSectionID == "" {
-		return resolvedSignalReportContext{}, fmt.Errorf(
-			"report_state_machine_signal requires sectionId when no active chat section is available",
-		)
-	}
-
-	sourceSection, ok := graph.Sections[resolvedSectionID]
-	if !ok {
-		return resolvedSignalReportContext{}, fmt.Errorf(
-			"sectionId %s was not found in the workflow graph snapshot",
-			resolvedSectionID,
-		)
-	}
-	if sourceSection.Kind != graphSectionKindChat {
-		return resolvedSignalReportContext{}, fmt.Errorf("sectionId %s is not a workflow chat section", resolvedSectionID)
+	if err := ensureChatSignalSourceSection(graph, resolvedSectionID); err != nil {
+		return resolvedSignalReportContext{}, err
 	}
 
 	return resolvedSignalReportContext{
@@ -772,6 +738,91 @@ func (r *Runtime) resolveSignalReportContext(
 		sourceSectionID:       resolvedSectionID,
 		sourceActivationCount: r.sourceActivationCount(parentRun, resolvedSectionID),
 	}, nil
+}
+
+func (r *Runtime) loadRequiredSignalChildRun(childRunID *string) (agentruns.Run, error) {
+	normalizedChildRunID := derefOptionalString(childRunID)
+	if normalizedChildRunID == "" {
+		return agentruns.Run{}, fmt.Errorf("report_state_machine_signal requires an active child run.")
+	}
+	return r.runs.Load(normalizedChildRunID)
+}
+
+func resolveSignalParentRunID(childRun agentruns.Run, machineRunID *string) (string, error) {
+	parentRunID := runInputString(childRun, inputKeyStateMachineRunID)
+	if parentRunID == "" {
+		return "", fmt.Errorf("report_state_machine_signal requires an active child run.")
+	}
+	expectedParentRunID := derefOptionalString(machineRunID)
+	if expectedParentRunID != "" && expectedParentRunID != parentRunID {
+		return "", fmt.Errorf(
+			"machineRunId %s does not match child run %s parent %s",
+			expectedParentRunID,
+			childRun.ID,
+			parentRunID,
+		)
+	}
+	return parentRunID, nil
+}
+
+func (r *Runtime) loadValidatedSignalParentRun(
+	parentRunID string,
+	projectConfigID string,
+	shareSessionID *string,
+) (agentruns.Run, graph, error) {
+	parentRun, err := r.runs.Load(parentRunID)
+	if err != nil {
+		return agentruns.Run{}, graph{}, err
+	}
+	if !runInputsStringEquals(parentRun, "runType", RunTypeStateMachine) {
+		return agentruns.Run{}, graph{}, fmt.Errorf("run %s is not a state machine run", parentRun.ID)
+	}
+	if !runMatchesShareSessionID(parentRun, shareSessionID) {
+		return agentruns.Run{}, graph{}, fmt.Errorf("state machine run %s does not belong to the active share session", parentRun.ID)
+	}
+	if runInputString(parentRun, inputKeyProjectConfigID) != projectConfigID {
+		return agentruns.Run{}, graph{}, fmt.Errorf(
+			"state machine run %s does not belong to project config %s",
+			parentRun.ID,
+			projectConfigID,
+		)
+	}
+	resolvedGraph, err := decodeGraph(parentRun.Inputs[graphSnapshotInputKey])
+	if err != nil {
+		return agentruns.Run{}, graph{}, err
+	}
+	return parentRun, resolvedGraph, nil
+}
+
+func resolveSignalSourceSectionID(childRun agentruns.Run, sectionID *string) (string, error) {
+	resolvedSectionID := runInputString(childRun, inputKeyStateMachineTargetSection)
+	normalizedSectionID := derefOptionalString(sectionID)
+	if normalizedSectionID != "" {
+		if resolvedSectionID != "" && normalizedSectionID != resolvedSectionID {
+			return "", fmt.Errorf(
+				"sectionId %s does not match child run %s section %s",
+				normalizedSectionID,
+				childRun.ID,
+				resolvedSectionID,
+			)
+		}
+		resolvedSectionID = normalizedSectionID
+	}
+	if resolvedSectionID == "" {
+		return "", fmt.Errorf("report_state_machine_signal requires sectionId when no active chat section is available")
+	}
+	return resolvedSectionID, nil
+}
+
+func ensureChatSignalSourceSection(graph graph, sectionID string) error {
+	sourceSection, ok := graph.Sections[sectionID]
+	if !ok {
+		return fmt.Errorf("sectionId %s was not found in the workflow graph snapshot", sectionID)
+	}
+	if sourceSection.Kind != graphSectionKindChat {
+		return fmt.Errorf("sectionId %s is not a workflow chat section", sectionID)
+	}
+	return nil
 }
 
 func (r *Runtime) resolveGraph(
@@ -790,9 +841,160 @@ func (r *Runtime) resolveGraph(
 		return graph{}, nil, err
 	}
 
-	sections := map[string]graphSection{}
-	startSectionIDs := []string{}
-	endSectionCount := 0
+	inventory := buildGraphSectionInventory(project, machineGroupID)
+	resolvedStartSectionID, err := resolveGraphStartSectionID(machineGroupID, startSectionID, inventory)
+	if err != nil {
+		return graph{}, nil, err
+	}
+	edges, err := buildGraphEdges(project, machineGroupID, inventory.sections)
+	if err != nil {
+		return graph{}, nil, err
+	}
+	startSection := inventory.sections[resolvedStartSectionID]
+	machineName := strings.TrimSpace(startSection.Label)
+	if machineName == "" {
+		machineName = machineGroupID
+	}
+	return graph{
+		MachineGroupID: machineGroupID,
+		MachineName:    machineName,
+		StartSectionID: resolvedStartSectionID,
+		Sections:       inventory.sections,
+		Edges:          edges,
+	}, projectRuntime, nil
+}
+
+func (r *Runtime) projectRuntime(shareSessionID *string) (*projectstate.Runtime, error) {
+	return r.resolveProjectRuntime(cloneStringPointer(shareSessionID))
+}
+
+func shouldHandleTerminalChildRunUpdate(childRun agentruns.Run) bool {
+	if childRun.Status != agentruns.RunStatusCompleted &&
+		childRun.Status != agentruns.RunStatusFailed &&
+		childRun.Status != agentruns.RunStatusCancelled {
+		return false
+	}
+	return runInputsStringEquals(childRun, inputKeyStateMachineParentRunType, RunTypeStateMachine)
+}
+
+func (r *Runtime) loadRunningStateMachineParentRun(childRun agentruns.Run) (*agentruns.Run, error) {
+	parentRunID := runInputString(childRun, inputKeyStateMachineRunID)
+	if parentRunID == "" {
+		return nil, nil
+	}
+	parentRun, err := r.runs.Load(parentRunID)
+	if err != nil {
+		if errors.Is(err, agentruns.ErrRunNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if parentRun.Status != agentruns.RunStatusRunning {
+		return nil, nil
+	}
+	return &parentRun, nil
+}
+
+func (r *Runtime) prepareTerminalChildRunUpdate(parentRun *agentruns.Run, childRun agentruns.Run) (terminalChildRunUpdateContext, error) {
+	graph, err := decodeGraph(parentRun.Inputs[graphSnapshotInputKey])
+	if err != nil {
+		return terminalChildRunUpdateContext{}, err
+	}
+	r.ensureRunOutputsInitialized(parentRun, graph)
+	r.removeActiveChildRunID(parentRun, childRun.ID)
+
+	sourceSectionID := runInputString(childRun, inputKeyStateMachineTargetSection)
+	if sourceSectionID == "" {
+		return terminalChildRunUpdateContext{}, fmt.Errorf("child run %s is missing %s", childRun.ID, inputKeyStateMachineTargetSection)
+	}
+	shareSessionID := normalizeOptionalString(stringPointer(runInputString(*parentRun, inputKeyShareSessionID)))
+	projectRuntime, err := r.projectRuntime(shareSessionID)
+	if err != nil {
+		return terminalChildRunUpdateContext{}, err
+	}
+	return terminalChildRunUpdateContext{
+		graph:                 graph,
+		sourceSectionID:       sourceSectionID,
+		projectConfigID:       runInputString(*parentRun, inputKeyProjectConfigID),
+		shareSessionID:        shareSessionID,
+		projectRuntime:        projectRuntime,
+		sourceActivationCount: r.sourceActivationCount(*parentRun, sourceSectionID),
+	}, nil
+}
+
+func matchingSignalEdges(
+	graph graph,
+	sourceSectionID string,
+	signalEvent map[string]any,
+	sourceActivationCount int,
+) []projectstate.StateMachineEdge {
+	matchingEdges := make([]projectstate.StateMachineEdge, 0)
+	for _, edge := range graph.Edges {
+		if edge.SourceSectionID != sourceSectionID {
+			continue
+		}
+		if !edgeMatchesSignalEvent(edge, signalEvent) {
+			continue
+		}
+		if !matchesSourceActivationCountCondition(edge, sourceActivationCount) {
+			continue
+		}
+		matchingEdges = append(matchingEdges, edge.Clone())
+	}
+	return matchingEdges
+}
+
+func matchingTerminalChildEdges(
+	graph graph,
+	sourceSectionID string,
+	childRun agentruns.Run,
+	sourceActivationCount int,
+) []projectstate.StateMachineEdge {
+	matchingEdges := make([]projectstate.StateMachineEdge, 0)
+	for _, edge := range graph.Edges {
+		if edge.SourceSectionID != sourceSectionID {
+			continue
+		}
+		if !edgeMatchesChildTerminalRun(edge, childRun) {
+			continue
+		}
+		if !matchesSourceActivationCountCondition(edge, sourceActivationCount) {
+			continue
+		}
+		matchingEdges = append(matchingEdges, edge.Clone())
+	}
+	return matchingEdges
+}
+
+func (r *Runtime) appendActivatedEdgeResults(run *agentruns.Run, graph graph, actionResults []map[string]any) {
+	if len(actionResults) == 0 {
+		return
+	}
+	existing := outputListOfMaps(*run, outputKeyDispatchedEdgeActions)
+	run.Outputs[outputKeyDispatchedEdgeActions] = append(existing, actionResults...)
+	r.appendActionEvents(run, graph, actionResults)
+}
+
+func (r *Runtime) finalizeParentRunUpdate(run *agentruns.Run, graph graph) error {
+	progress := r.computeProgressState(*run, graph)
+	r.refreshOutputsWithProgress(run, graph, progress)
+	if run.Status == agentruns.RunStatusRunning && len(progress.blockedGateSectionIDs) > 0 {
+		if err := r.blockRun(run, graph, progress); err != nil {
+			return err
+		}
+		r.refreshOutputs(run, graph)
+	} else if shouldFailAsStalled(*run, progress) {
+		r.failRun(run, "run_stalled", "Workflow has no active children, pending signals, or reachable next step.", map[string]any{})
+		r.refreshOutputs(run, graph)
+	}
+	return r.runs.Save(*run)
+}
+
+func buildGraphSectionInventory(project projectstate.Project, machineGroupID string) graphSectionInventory {
+	inventory := graphSectionInventory{
+		sections:        map[string]graphSection{},
+		startSectionIDs: []string{},
+	}
 	for sectionID := range project.Sections {
 		section, err := buildGraphSection(project, sectionID)
 		if err != nil {
@@ -803,78 +1005,92 @@ func (r *Runtime) resolveGraph(
 			if machineGroupIDForSection(project, sectionID) != machineGroupID {
 				continue
 			}
-			sections[sectionID] = section
+			inventory.sections[sectionID] = section
 			if section.Kind == graphSectionKindStart {
-				startSectionIDs = append(startSectionIDs, sectionID)
+				inventory.startSectionIDs = append(inventory.startSectionIDs, sectionID)
 			}
 			if section.Kind == graphSectionKindEnd {
-				endSectionCount++
+				inventory.endSectionCount++
 			}
 		}
 	}
-	if len(startSectionIDs) == 0 {
-		return graph{}, nil, fmt.Errorf(
+	return inventory
+}
+
+func resolveGraphStartSectionID(
+	machineGroupID string,
+	startSectionID *string,
+	inventory graphSectionInventory,
+) (string, error) {
+	if len(inventory.startSectionIDs) == 0 {
+		return "", fmt.Errorf(
 			"%w: state machine group %s does not have a Start section",
 			ErrInvalidStateMachineInput,
 			machineGroupID,
 		)
 	}
-	if endSectionCount == 0 {
-		return graph{}, nil, fmt.Errorf(
+	if inventory.endSectionCount == 0 {
+		return "", fmt.Errorf(
 			"%w: state machine group %s must resolve to at least one End section",
 			ErrInvalidStateMachineInput,
 			machineGroupID,
 		)
 	}
-	if len(startSectionIDs) != 1 {
-		return graph{}, nil, fmt.Errorf(
+	if len(inventory.startSectionIDs) != 1 {
+		return "", fmt.Errorf(
 			"%w: state machine group %s must resolve to exactly one Start section",
 			ErrInvalidStateMachineInput,
 			machineGroupID,
 		)
 	}
-	resolvedStartSectionID := startSectionIDs[0]
-	if startSectionID != nil && strings.TrimSpace(*startSectionID) != "" && strings.TrimSpace(*startSectionID) != resolvedStartSectionID {
-		return graph{}, nil, fmt.Errorf("%w: state machine start %s not found in group %s", projectstate.ErrSectionNotFound, strings.TrimSpace(*startSectionID), machineGroupID)
+	resolvedStartSectionID := inventory.startSectionIDs[0]
+	requestedStartSectionID := strings.TrimSpace(derefOptionalString(startSectionID))
+	if requestedStartSectionID != "" && requestedStartSectionID != resolvedStartSectionID {
+		return "", fmt.Errorf(
+			"%w: state machine start %s not found in group %s",
+			projectstate.ErrSectionNotFound,
+			requestedStartSectionID,
+			machineGroupID,
+		)
 	}
+	return resolvedStartSectionID, nil
+}
 
+func buildGraphEdges(
+	project projectstate.Project,
+	machineGroupID string,
+	sections map[string]graphSection,
+) ([]projectstate.StateMachineEdge, error) {
 	edges := make([]projectstate.StateMachineEdge, 0)
 	for _, edge := range project.StateMachineEdges {
 		if edge.MachineGroupID != machineGroupID {
 			continue
 		}
 		edges = append(edges, edge.Clone())
-		if _, ok := sections[edge.SourceSectionID]; !ok {
-			section, err := buildGraphSection(project, edge.SourceSectionID)
-			if err != nil {
-				return graph{}, nil, err
-			}
-			sections[edge.SourceSectionID] = section
+		if err := ensureGraphSection(project, sections, edge.SourceSectionID); err != nil {
+			return nil, err
 		}
-		if _, ok := sections[edge.TargetSectionID]; !ok {
-			section, err := buildGraphSection(project, edge.TargetSectionID)
-			if err != nil {
-				return graph{}, nil, err
-			}
-			sections[edge.TargetSectionID] = section
+		if err := ensureGraphSection(project, sections, edge.TargetSectionID); err != nil {
+			return nil, err
 		}
 	}
-	startSection := sections[resolvedStartSectionID]
-	machineName := strings.TrimSpace(startSection.Label)
-	if machineName == "" {
-		machineName = machineGroupID
-	}
-	return graph{
-		MachineGroupID: machineGroupID,
-		MachineName:    machineName,
-		StartSectionID: resolvedStartSectionID,
-		Sections:       sections,
-		Edges:          edges,
-	}, projectRuntime, nil
+	return edges, nil
 }
 
-func (r *Runtime) projectRuntime(shareSessionID *string) (*projectstate.Runtime, error) {
-	return r.resolveProjectRuntime(cloneStringPointer(shareSessionID))
+func ensureGraphSection(
+	project projectstate.Project,
+	sections map[string]graphSection,
+	sectionID string,
+) error {
+	if _, ok := sections[sectionID]; ok {
+		return nil
+	}
+	section, err := buildGraphSection(project, sectionID)
+	if err != nil {
+		return err
+	}
+	sections[sectionID] = section
+	return nil
 }
 
 func buildGraphSection(project projectstate.Project, sectionID string) (graphSection, error) {
@@ -1285,113 +1501,169 @@ func (r *Runtime) dispatchChatEdgeWithCurrentChatID(
 	if targetAction == nil {
 		return chatEdgeDispatchResult{}, fmt.Errorf("workflow edge %s target action is required for chat dispatch", edge.ID)
 	}
-	promptText, err := r.resolvePromptText(projectRuntime, projectConfigID, edge, *targetAction)
+	prepared, err := r.prepareChatEdgeDispatch(
+		projectRuntime,
+		run,
+		graph,
+		edge,
+		targetSection,
+		projectConfigID,
+		shareSessionID,
+		currentChatID,
+		*targetAction,
+	)
 	if err != nil {
 		return chatEdgeDispatchResult{}, err
 	}
-	engineConfigID, err := r.resolveEngineConfigID(edge.ID, targetSection, *targetAction)
+
+	switch prepared.engineConfig.EngineType {
+	case agentruns.EngineTypeSettaLLM:
+		result, err := r.startManagedChatEdge(projectConfigID, edge.TargetSectionID, prepared)
+		if err != nil {
+			return chatEdgeDispatchResult{}, err
+		}
+		return newChatEdgeDispatchResult(edge, *targetAction, prepared, currentChatID, result.ChatID, result.Run.ID), nil
+	case agentruns.EngineTypeExternalAgent:
+		result, err := r.startExternalChatEdge(projectConfigID, edge.TargetSectionID, prepared)
+		if err != nil {
+			return chatEdgeDispatchResult{}, err
+		}
+		return newChatEdgeDispatchResult(edge, *targetAction, prepared, currentChatID, result.ChatID, result.Run.ID), nil
+	default:
+		return chatEdgeDispatchResult{}, fmt.Errorf("workflow edge %s uses unsupported engine type %s", edge.ID, prepared.engineConfig.EngineType)
+	}
+}
+
+func (r *Runtime) prepareChatEdgeDispatch(
+	projectRuntime *projectstate.Runtime,
+	run *agentruns.Run,
+	graph graph,
+	edge projectstate.StateMachineEdge,
+	targetSection graphSection,
+	projectConfigID string,
+	shareSessionID *string,
+	currentChatID *string,
+	targetAction projectstate.StateMachineTargetAction,
+) (preparedChatEdgeDispatch, error) {
+	promptText, err := r.resolvePromptText(projectRuntime, projectConfigID, edge, targetAction)
 	if err != nil {
-		return chatEdgeDispatchResult{}, err
+		return preparedChatEdgeDispatch{}, err
+	}
+	engineConfigID, err := r.resolveEngineConfigID(edge.ID, targetSection, targetAction)
+	if err != nil {
+		return preparedChatEdgeDispatch{}, err
 	}
 	engineConfig, err := r.engines.Get(engineConfigID)
 	if err != nil {
-		return chatEdgeDispatchResult{}, err
+		return preparedChatEdgeDispatch{}, err
 	}
-	if err := r.ensureSignalDispatchProfileAllowed(graph, targetSection, *targetAction); err != nil {
-		return chatEdgeDispatchResult{}, err
+	if err := r.ensureSignalDispatchProfileAllowed(graph, targetSection, targetAction); err != nil {
+		return preparedChatEdgeDispatch{}, err
 	}
-	message := userTextMessage(promptText)
-	resolvedPermissionMode := resolvePermissionMode(targetSection, *targetAction)
-	resolvedSearchEnabled := resolveSearchEnabled(targetSection, *targetAction)
-	var nextChatID *string
+
+	sourceActivationCount := r.sourceActivationCount(*run, edge.SourceSectionID)
+	prepared := preparedChatEdgeDispatch{
+		engineConfig:          engineConfig,
+		message:               userTextMessage(promptText),
+		agentProfileID:        chooseOptionalString(targetAction.AgentProfileID, targetSection.AgentProfileID),
+		permissionMode:        projectstate.ChatPermissionMode(resolvePermissionMode(targetSection, targetAction)),
+		searchEnabled:         resolveSearchEnabled(targetSection, targetAction),
+		childInputs:           buildStateMachineChildInputs(*run, edge, sourceActivationCount, shareSessionID),
+		sourceActivationCount: sourceActivationCount,
+	}
 	if targetAction.ThreadStrategy == projectstate.StateMachineThreadStrategyContinueCurrentThread && currentChatID != nil {
-		nextChatID = cloneStringPointer(currentChatID)
+		prepared.nextChatID = cloneStringPointer(currentChatID)
 	}
+	return prepared, nil
+}
+
+func buildStateMachineChildInputs(
+	run agentruns.Run,
+	edge projectstate.StateMachineEdge,
+	sourceActivationCount int,
+	shareSessionID *string,
+) map[string]any {
 	childInputs := map[string]any{
 		inputKeyStateMachineRunID:         run.ID,
-		inputKeyMachineGroupID:            runInputString(*run, inputKeyMachineGroupID),
+		inputKeyMachineGroupID:            runInputString(run, inputKeyMachineGroupID),
 		inputKeyStateMachineSourceEdgeID:  edge.ID,
 		inputKeyStateMachineTargetSection: edge.TargetSectionID,
-		inputKeyStateMachineSourceCount:   r.sourceActivationCount(*run, edge.SourceSectionID),
+		inputKeyStateMachineSourceCount:   sourceActivationCount,
 		inputKeyStateMachineParentRunType: RunTypeStateMachine,
 	}
 	if shareSessionID != nil {
 		childInputs[inputKeyShareSessionID] = *shareSessionID
 	}
+	return childInputs
+}
 
-	switch engineConfig.EngineType {
-	case agentruns.EngineTypeSettaLLM:
-		if r.managedChats == nil {
-			return chatEdgeDispatchResult{}, ErrRuntimeUnavailable
-		}
-		result, err := r.managedChats.StartChat(managedchat.StartChatRequest{
-			ChatID:           nextChatID,
-			Message:          message,
-			EngineConfigID:   engineConfig.ID,
-			AgentProfileID:   chooseOptionalString(targetAction.AgentProfileID, targetSection.AgentProfileID),
-			Thinking:         false,
-			ProjectConfigID:  projectConfigID,
-			SectionID:        stringPointer(edge.TargetSectionID),
-			PermissionMode:   managedchat.ChatPermissionMode(resolvedPermissionMode),
-			SearchEnabled:    resolvedSearchEnabled,
-			AdditionalInputs: childInputs,
-		})
-		if err != nil {
-			return chatEdgeDispatchResult{}, err
-		}
-		return chatEdgeDispatchResult{
-			action: map[string]any{
-				"edgeId":                edge.ID,
-				"actionType":            string(targetAction.Type),
-				"targetSectionId":       edge.TargetSectionID,
-				"chatId":                result.ChatID,
-				"runId":                 result.Run.ID,
-				"threadStrategy":        string(targetAction.ThreadStrategy),
-				"engineType":            string(engineConfig.EngineType),
-				"sourceActivationCount": r.sourceActivationCount(*run, edge.SourceSectionID),
-			},
-			targetSection:  edge.TargetSectionID,
-			previousChatID: cloneStringPointer(currentChatID),
-			chatID:         result.ChatID,
-			childRunID:     result.Run.ID,
-		}, nil
-	case agentruns.EngineTypeExternalAgent:
-		if r.externalChats == nil {
-			return chatEdgeDispatchResult{}, ErrRuntimeUnavailable
-		}
-		result, err := r.externalChats.StartChat(r.baseContext, externalagents.StartChatRequest{
-			ChatID:           nextChatID,
-			Message:          message,
-			EngineConfigID:   engineConfig.ID,
-			AgentProfileID:   chooseOptionalString(targetAction.AgentProfileID, targetSection.AgentProfileID),
-			Thinking:         false,
-			ProjectConfigID:  projectConfigID,
-			SectionID:        stringPointer(edge.TargetSectionID),
-			PermissionMode:   externalagents.ChatPermissionMode(resolvedPermissionMode),
-			SearchEnabled:    resolvedSearchEnabled,
-			AdditionalInputs: childInputs,
-		})
-		if err != nil {
-			return chatEdgeDispatchResult{}, err
-		}
-		return chatEdgeDispatchResult{
-			action: map[string]any{
-				"edgeId":                edge.ID,
-				"actionType":            string(targetAction.Type),
-				"targetSectionId":       edge.TargetSectionID,
-				"chatId":                result.ChatID,
-				"runId":                 result.Run.ID,
-				"threadStrategy":        string(targetAction.ThreadStrategy),
-				"engineType":            string(engineConfig.EngineType),
-				"sourceActivationCount": r.sourceActivationCount(*run, edge.SourceSectionID),
-			},
-			targetSection:  edge.TargetSectionID,
-			previousChatID: cloneStringPointer(currentChatID),
-			chatID:         result.ChatID,
-			childRunID:     result.Run.ID,
-		}, nil
-	default:
-		return chatEdgeDispatchResult{}, fmt.Errorf("workflow edge %s uses unsupported engine type %s", edge.ID, engineConfig.EngineType)
+func (r *Runtime) startManagedChatEdge(
+	projectConfigID string,
+	targetSectionID string,
+	prepared preparedChatEdgeDispatch,
+) (managedchat.StartChatResult, error) {
+	if r.managedChats == nil {
+		return managedchat.StartChatResult{}, ErrRuntimeUnavailable
+	}
+	return r.managedChats.StartChat(managedchat.StartChatRequest{
+		ChatID:           prepared.nextChatID,
+		Message:          prepared.message,
+		EngineConfigID:   prepared.engineConfig.ID,
+		AgentProfileID:   prepared.agentProfileID,
+		Thinking:         false,
+		ProjectConfigID:  projectConfigID,
+		SectionID:        stringPointer(targetSectionID),
+		PermissionMode:   managedchat.ChatPermissionMode(prepared.permissionMode),
+		SearchEnabled:    prepared.searchEnabled,
+		AdditionalInputs: prepared.childInputs,
+	})
+}
+
+func (r *Runtime) startExternalChatEdge(
+	projectConfigID string,
+	targetSectionID string,
+	prepared preparedChatEdgeDispatch,
+) (externalagents.StartChatResult, error) {
+	if r.externalChats == nil {
+		return externalagents.StartChatResult{}, ErrRuntimeUnavailable
+	}
+	return r.externalChats.StartChat(r.baseContext, externalagents.StartChatRequest{
+		ChatID:           prepared.nextChatID,
+		Message:          prepared.message,
+		EngineConfigID:   prepared.engineConfig.ID,
+		AgentProfileID:   prepared.agentProfileID,
+		Thinking:         false,
+		ProjectConfigID:  projectConfigID,
+		SectionID:        stringPointer(targetSectionID),
+		PermissionMode:   externalagents.ChatPermissionMode(prepared.permissionMode),
+		SearchEnabled:    prepared.searchEnabled,
+		AdditionalInputs: prepared.childInputs,
+	})
+}
+
+func newChatEdgeDispatchResult(
+	edge projectstate.StateMachineEdge,
+	targetAction projectstate.StateMachineTargetAction,
+	prepared preparedChatEdgeDispatch,
+	currentChatID *string,
+	chatID string,
+	childRunID string,
+) chatEdgeDispatchResult {
+	return chatEdgeDispatchResult{
+		action: map[string]any{
+			"edgeId":                edge.ID,
+			"actionType":            string(targetAction.Type),
+			"targetSectionId":       edge.TargetSectionID,
+			"chatId":                chatID,
+			"runId":                 childRunID,
+			"threadStrategy":        string(targetAction.ThreadStrategy),
+			"engineType":            string(prepared.engineConfig.EngineType),
+			"sourceActivationCount": prepared.sourceActivationCount,
+		},
+		targetSection:  edge.TargetSectionID,
+		previousChatID: cloneStringPointer(currentChatID),
+		chatID:         chatID,
+		childRunID:     childRunID,
 	}
 }
 
@@ -1420,56 +1692,85 @@ func (r *Runtime) resolvePromptText(
 	edge projectstate.StateMachineEdge,
 	targetAction projectstate.StateMachineTargetAction,
 ) (string, error) {
-	if targetAction.InlinePrompt != nil && strings.TrimSpace(*targetAction.InlinePrompt) != "" {
-		return *targetAction.InlinePrompt, nil
+	inlinePrompt := derefOptionalString(targetAction.InlinePrompt)
+	if strings.TrimSpace(inlinePrompt) != "" {
+		return inlinePrompt, nil
 	}
-	if targetAction.PromptSectionID != nil && strings.TrimSpace(*targetAction.PromptSectionID) != "" {
-		projectSnapshot := projectRuntime.Snapshot()
-		project, err := projectSnapshot.Document.ProjectByID(projectConfigID)
-		if err != nil {
-			return "", err
-		}
-		section, variant, _, err := project.ResolveSection(strings.TrimSpace(*targetAction.PromptSectionID))
-		if err != nil {
-			return "", err
-		}
-		payload, err := project.EffectiveSectionPayload(section.ID, variant.ID)
-		if err != nil {
-			return "", err
-		}
-		template := payloadString(payload, "template")
-		format := prompttemplates.Format(strings.TrimSpace(payloadString(payload, "format")))
-		if format == "" {
-			format = prompttemplates.FormatJinja
-		}
-		if format != prompttemplates.FormatJinja {
-			return "", fmt.Errorf("state machine edge %s prompt section %s format %s is unsupported", edge.ID, section.ID, format)
-		}
-		result := promptrender.RenderJinja(template, cloneStringMap(targetAction.PromptInputs))
-		if result.RenderError != nil {
-			return "", fmt.Errorf("state machine edge %s prompt section %s failed to render: %s", edge.ID, section.ID, *result.RenderError)
-		}
-		if strings.TrimSpace(result.RenderedText) == "" {
-			return "", fmt.Errorf("state machine edge %s prompt section %s rendered an empty prompt", edge.ID, section.ID)
-		}
-		return result.RenderedText, nil
+	promptSectionID := strings.TrimSpace(derefOptionalString(targetAction.PromptSectionID))
+	if promptSectionID != "" {
+		return r.resolvePromptSectionText(projectRuntime, projectConfigID, edge.ID, promptSectionID, targetAction.PromptInputs)
 	}
-	if targetAction.PromptTemplateID == nil || strings.TrimSpace(*targetAction.PromptTemplateID) == "" {
-		return "", fmt.Errorf("state machine edge %s send_prompt action is missing prompt content", edge.ID)
+	return r.resolvePromptTemplateText(edge.ID, targetAction.PromptTemplateID, targetAction.PromptInputs)
+}
+
+func (r *Runtime) resolvePromptSectionText(
+	projectRuntime *projectstate.Runtime,
+	projectConfigID string,
+	edgeID string,
+	promptSectionID string,
+	promptInputs map[string]string,
+) (string, error) {
+	projectSnapshot := projectRuntime.Snapshot()
+	project, err := projectSnapshot.Document.ProjectByID(projectConfigID)
+	if err != nil {
+		return "", err
+	}
+	section, variant, _, err := project.ResolveSection(promptSectionID)
+	if err != nil {
+		return "", err
+	}
+	payload, err := project.EffectiveSectionPayload(section.ID, variant.ID)
+	if err != nil {
+		return "", err
+	}
+	format := prompttemplates.Format(strings.TrimSpace(payloadString(payload, "format")))
+	if format == "" {
+		format = prompttemplates.FormatJinja
+	}
+	if format != prompttemplates.FormatJinja {
+		return "", fmt.Errorf("state machine edge %s prompt section %s format %s is unsupported", edgeID, section.ID, format)
+	}
+	return renderJinjaPromptSource(
+		fmt.Sprintf("state machine edge %s prompt section %s", edgeID, section.ID),
+		payloadString(payload, "template"),
+		promptInputs,
+	)
+}
+
+func (r *Runtime) resolvePromptTemplateText(
+	edgeID string,
+	promptTemplateID *string,
+	promptInputs map[string]string,
+) (string, error) {
+	normalizedPromptTemplateID := strings.TrimSpace(derefOptionalString(promptTemplateID))
+	if normalizedPromptTemplateID == "" {
+		return "", fmt.Errorf("state machine edge %s send_prompt action is missing prompt content", edgeID)
 	}
 	if r.templates == nil {
 		return "", ErrPromptTemplateStoreRequired
 	}
-	template, err := r.templates.Get(strings.TrimSpace(*targetAction.PromptTemplateID))
+	template, err := r.templates.Get(normalizedPromptTemplateID)
 	if err != nil {
 		return "", err
 	}
-	result := promptrender.RenderJinja(template.Template, cloneStringMap(targetAction.PromptInputs))
+	return renderJinjaPromptSource(
+		fmt.Sprintf("state machine edge %s prompt template %s", edgeID, template.ID),
+		template.Template,
+		promptInputs,
+	)
+}
+
+func renderJinjaPromptSource(
+	renderContext string,
+	template string,
+	promptInputs map[string]string,
+) (string, error) {
+	result := promptrender.RenderJinja(template, cloneStringMap(promptInputs))
 	if result.RenderError != nil {
-		return "", fmt.Errorf("state machine edge %s prompt template %s failed to render: %s", edge.ID, template.ID, *result.RenderError)
+		return "", fmt.Errorf("%s failed to render: %s", renderContext, *result.RenderError)
 	}
 	if strings.TrimSpace(result.RenderedText) == "" {
-		return "", fmt.Errorf("state machine edge %s prompt template %s rendered an empty prompt", edge.ID, template.ID)
+		return "", fmt.Errorf("%s rendered an empty prompt", renderContext)
 	}
 	return result.RenderedText, nil
 }
@@ -2141,69 +2442,146 @@ func edgeMatchesSignalEvent(edge projectstate.StateMachineEdge, signalEvent map[
 
 func (r *Runtime) computeProgressState(run agentruns.Run, graph graph) progressState {
 	if run.Status == agentruns.RunStatusCompleted {
-		return progressState{
-			possibleGateSectionIDs:        map[string]struct{}{},
-			possibleChatSourceSectionIDs:  map[string]struct{}{},
-			possibleEndSectionIDs:         map[string]struct{}{},
-			blockedGateSectionIDs:         map[string]struct{}{},
-			blockedGateDetailsBySectionID: map[string]map[string]any{},
-		}
+		return completedProgressState()
 	}
-	possibleChatSourceSectionIDs := r.initialPossibleChatSourceSectionIDs(run)
-	possibleGateSectionIDs := map[string]struct{}{}
-	possibleEndSectionIDs := map[string]struct{}{}
-	for {
-		nextPossibleGateSectionIDs := map[string]struct{}{}
-		for _, gateSectionID := range gateSectionIDs(graph) {
-			if r.gateCanSatisfyLater(gateSectionID, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs) {
-				nextPossibleGateSectionIDs[gateSectionID] = struct{}{}
-			}
-		}
-		nextPossibleChatSourceSectionIDs := cloneStringSet(possibleChatSourceSectionIDs)
-		nextPossibleEndSectionIDs := cloneStringSet(possibleEndSectionIDs)
-		for _, edge := range graph.Edges {
-			if !r.edgeSourceCanActivateLater(edge, graph, run, nextPossibleGateSectionIDs, possibleChatSourceSectionIDs) {
-				continue
-			}
-			targetSection, ok := graph.Sections[edge.TargetSectionID]
-			if !ok {
-				continue
-			}
-			switch targetSection.Kind {
-			case graphSectionKindChat:
-				nextPossibleChatSourceSectionIDs[edge.TargetSectionID] = struct{}{}
-			case graphSectionKindEnd:
-				nextPossibleEndSectionIDs[edge.TargetSectionID] = struct{}{}
-			}
-		}
-		if stringSetEquals(nextPossibleGateSectionIDs, possibleGateSectionIDs) &&
-			stringSetEquals(nextPossibleChatSourceSectionIDs, possibleChatSourceSectionIDs) &&
-			stringSetEquals(nextPossibleEndSectionIDs, possibleEndSectionIDs) {
-			break
-		}
-		possibleGateSectionIDs = nextPossibleGateSectionIDs
-		possibleChatSourceSectionIDs = nextPossibleChatSourceSectionIDs
-		possibleEndSectionIDs = nextPossibleEndSectionIDs
-	}
-	blockedGateSectionIDs := map[string]struct{}{}
-	blockedGateDetailsBySectionID := map[string]map[string]any{}
-	for _, gateSectionID := range gateSectionIDs(graph) {
-		if !r.gateIsRelevant(gateSectionID, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs) {
-			continue
-		}
-		if stringSetContains(possibleGateSectionIDs, gateSectionID) {
-			continue
-		}
-		blockedGateSectionIDs[gateSectionID] = struct{}{}
-		blockedGateDetailsBySectionID[gateSectionID] = r.buildBlockedGateDetail(gateSectionID, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs)
-	}
+	reachability := r.resolveProgressReachability(run, graph)
+	blockedGateSectionIDs, blockedGateDetailsBySectionID := r.blockedGatesForProgress(run, graph, reachability)
 	return progressState{
-		possibleGateSectionIDs:        possibleGateSectionIDs,
-		possibleChatSourceSectionIDs:  possibleChatSourceSectionIDs,
-		possibleEndSectionIDs:         possibleEndSectionIDs,
+		possibleGateSectionIDs:        reachability.possibleGateSectionIDs,
+		possibleChatSourceSectionIDs:  reachability.possibleChatSourceSectionIDs,
+		possibleEndSectionIDs:         reachability.possibleEndSectionIDs,
 		blockedGateSectionIDs:         blockedGateSectionIDs,
 		blockedGateDetailsBySectionID: blockedGateDetailsBySectionID,
 	}
+}
+
+func completedProgressState() progressState {
+	return progressState{
+		possibleGateSectionIDs:        map[string]struct{}{},
+		possibleChatSourceSectionIDs:  map[string]struct{}{},
+		possibleEndSectionIDs:         map[string]struct{}{},
+		blockedGateSectionIDs:         map[string]struct{}{},
+		blockedGateDetailsBySectionID: map[string]map[string]any{},
+	}
+}
+
+func (r *Runtime) resolveProgressReachability(run agentruns.Run, graph graph) progressReachability {
+	reachability := progressReachability{
+		possibleGateSectionIDs:       map[string]struct{}{},
+		possibleChatSourceSectionIDs: r.initialPossibleChatSourceSectionIDs(run),
+		possibleEndSectionIDs:        map[string]struct{}{},
+	}
+	for {
+		nextPossibleGateSectionIDs := r.nextPossibleGateSectionIDs(
+			graph,
+			run,
+			reachability.possibleGateSectionIDs,
+			reachability.possibleChatSourceSectionIDs,
+		)
+		nextPossibleChatSourceSectionIDs, nextPossibleEndSectionIDs := r.extendReachableTargetSections(
+			graph,
+			run,
+			nextPossibleGateSectionIDs,
+			reachability.possibleChatSourceSectionIDs,
+			reachability.possibleEndSectionIDs,
+		)
+		if progressReachabilityStable(
+			reachability,
+			nextPossibleGateSectionIDs,
+			nextPossibleChatSourceSectionIDs,
+			nextPossibleEndSectionIDs,
+		) {
+			return progressReachability{
+				possibleGateSectionIDs:       nextPossibleGateSectionIDs,
+				possibleChatSourceSectionIDs: nextPossibleChatSourceSectionIDs,
+				possibleEndSectionIDs:        nextPossibleEndSectionIDs,
+			}
+		}
+		reachability = progressReachability{
+			possibleGateSectionIDs:       nextPossibleGateSectionIDs,
+			possibleChatSourceSectionIDs: nextPossibleChatSourceSectionIDs,
+			possibleEndSectionIDs:        nextPossibleEndSectionIDs,
+		}
+	}
+}
+
+func (r *Runtime) nextPossibleGateSectionIDs(
+	graph graph,
+	run agentruns.Run,
+	possibleGateSectionIDs map[string]struct{},
+	possibleChatSourceSectionIDs map[string]struct{},
+) map[string]struct{} {
+	nextPossibleGateSectionIDs := map[string]struct{}{}
+	for _, gateSectionID := range gateSectionIDs(graph) {
+		if r.gateCanSatisfyLater(gateSectionID, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs) {
+			nextPossibleGateSectionIDs[gateSectionID] = struct{}{}
+		}
+	}
+	return nextPossibleGateSectionIDs
+}
+
+func (r *Runtime) extendReachableTargetSections(
+	graph graph,
+	run agentruns.Run,
+	nextPossibleGateSectionIDs map[string]struct{},
+	possibleChatSourceSectionIDs map[string]struct{},
+	possibleEndSectionIDs map[string]struct{},
+) (map[string]struct{}, map[string]struct{}) {
+	nextPossibleChatSourceSectionIDs := cloneStringSet(possibleChatSourceSectionIDs)
+	nextPossibleEndSectionIDs := cloneStringSet(possibleEndSectionIDs)
+	for _, edge := range graph.Edges {
+		if !r.edgeSourceCanActivateLater(edge, graph, run, nextPossibleGateSectionIDs, possibleChatSourceSectionIDs) {
+			continue
+		}
+		targetSection, ok := graph.Sections[edge.TargetSectionID]
+		if !ok {
+			continue
+		}
+		switch targetSection.Kind {
+		case graphSectionKindChat:
+			nextPossibleChatSourceSectionIDs[edge.TargetSectionID] = struct{}{}
+		case graphSectionKindEnd:
+			nextPossibleEndSectionIDs[edge.TargetSectionID] = struct{}{}
+		}
+	}
+	return nextPossibleChatSourceSectionIDs, nextPossibleEndSectionIDs
+}
+
+func progressReachabilityStable(
+	reachability progressReachability,
+	nextPossibleGateSectionIDs map[string]struct{},
+	nextPossibleChatSourceSectionIDs map[string]struct{},
+	nextPossibleEndSectionIDs map[string]struct{},
+) bool {
+	return stringSetEquals(nextPossibleGateSectionIDs, reachability.possibleGateSectionIDs) &&
+		stringSetEquals(nextPossibleChatSourceSectionIDs, reachability.possibleChatSourceSectionIDs) &&
+		stringSetEquals(nextPossibleEndSectionIDs, reachability.possibleEndSectionIDs)
+}
+
+func (r *Runtime) blockedGatesForProgress(
+	run agentruns.Run,
+	graph graph,
+	reachability progressReachability,
+) (map[string]struct{}, map[string]map[string]any) {
+	blockedGateSectionIDs := map[string]struct{}{}
+	blockedGateDetailsBySectionID := map[string]map[string]any{}
+	for _, gateSectionID := range gateSectionIDs(graph) {
+		if !r.gateIsRelevant(gateSectionID, graph, run, reachability.possibleGateSectionIDs, reachability.possibleChatSourceSectionIDs) {
+			continue
+		}
+		if stringSetContains(reachability.possibleGateSectionIDs, gateSectionID) {
+			continue
+		}
+		blockedGateSectionIDs[gateSectionID] = struct{}{}
+		blockedGateDetailsBySectionID[gateSectionID] = r.buildBlockedGateDetail(
+			gateSectionID,
+			graph,
+			run,
+			reachability.possibleGateSectionIDs,
+			reachability.possibleChatSourceSectionIDs,
+		)
+	}
+	return blockedGateSectionIDs, blockedGateDetailsBySectionID
 }
 
 func (r *Runtime) initialPossibleChatSourceSectionIDs(run agentruns.Run) map[string]struct{} {
