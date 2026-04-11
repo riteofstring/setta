@@ -42,6 +42,29 @@ type pluginScopeKey struct {
 	PluginID string
 }
 
+type lockfileDesiredAction int
+
+const (
+	lockfileDesiredActionInstall lockfileDesiredAction = iota
+	lockfileDesiredActionUpdate
+	lockfileDesiredActionReconcileSource
+	lockfileDesiredActionReconcileDigest
+)
+
+type lockfileDesiredOperation struct {
+	Action     lockfileDesiredAction
+	Desired    PluginLockEntry
+	Current    DiscoveredPlugin
+	HasCurrent bool
+}
+
+type lockfileApplyState struct {
+	desiredOperations    []lockfileDesiredOperation
+	desiredByScopePlugin map[pluginScopeKey]PluginLockEntry
+	currentByScopePlugin map[pluginScopeKey]DiscoveredPlugin
+	installMetadata      PluginInstallMetadataFile
+}
+
 func (s *Service) WriteLockfile() (PluginLockWriteResponse, error) {
 	if s == nil {
 		return PluginLockWriteResponse{}, ErrWorkspaceRootRequired
@@ -106,45 +129,14 @@ func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockAppl
 	if err != nil {
 		return PluginLockApplyResponse{}, err
 	}
-
-	s.mu.Lock()
-	snapshot, err := s.rescanLocked()
-	if err != nil {
-		s.mu.Unlock()
-		return PluginLockApplyResponse{}, err
-	}
-	installMetadata, err := s.store.LoadInstallMetadata()
-	if err != nil {
-		s.mu.Unlock()
-		return PluginLockApplyResponse{}, err
-	}
-	s.mu.Unlock()
-
-	desiredEntries, desiredByScopePlugin, err := normalizeLockfileEntries(lockfile)
+	state, err := s.buildLockfileApplyState(lockfile)
 	if err != nil {
 		return PluginLockApplyResponse{}, err
 	}
-
-	currentExternalByScopePlugin := map[pluginScopeKey]DiscoveredPlugin{}
-	currentByScopePlugin := map[pluginScopeKey]DiscoveredPlugin{}
-	for _, entry := range snapshot.Plugins {
-		if entry.ShadowedBySourcePath != "" {
-			continue
-		}
-		key := pluginScopeKey{Scope: entry.Scope, PluginID: entry.PluginID}
-		if entry.SourceManager == PluginSourceManagerPackageManager {
-			currentExternalByScopePlugin[key] = entry
-			continue
-		}
-		currentByScopePlugin[key] = entry
-	}
-
 	plannedChanges := planLockfileChanges(
-		desiredEntries,
-		desiredByScopePlugin,
-		currentExternalByScopePlugin,
-		currentByScopePlugin,
-		installMetadata,
+		state.desiredOperations,
+		state.desiredByScopePlugin,
+		state.currentByScopePlugin,
 	)
 	if check {
 		return PluginLockApplyResponse{
@@ -154,71 +146,11 @@ func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockAppl
 		}, nil
 	}
 
-	for _, desired := range desiredEntries {
-		key := pluginScopeKey{Scope: desired.Scope, PluginID: desired.PluginID}
-		if _, ok := currentExternalByScopePlugin[key]; ok {
-			continue
-		}
-		if lockEntryIsExternallyManaged(desired) {
-			continue
-		}
-		current, hasCurrent := currentByScopePlugin[key]
-		if hasCurrent && !lockEntryNeedsInstall(desired, current, installMetadata) {
-			continue
-		}
-		if desired.SourceSpec == nil {
-			return PluginLockApplyResponse{}, newServiceError(ServiceErrorCodeLockfileEntryMissing, "Lockfile entry missing source spec for plugin: %s", desired.PluginID)
-		}
-
-		enableForInstall := true
-		if hasCurrent {
-			enableForInstall = current.State != PluginRuntimeStateDisabled
-		}
-		installerBackend := cloneOptionalInstallerBackend(desired.InstallerBackend)
-		if installerBackend == nil && hasCurrent {
-			if metadataEntry, ok := installMetadata.Entries[metadataKey(current.Scope, current.PluginID)]; ok {
-				installerBackend = cloneOptionalInstallerBackend(metadataEntry.InstallerBackend)
-			}
-		}
-
-		options := InstallOptions{
-			SourceSpec:       *desired.SourceSpec,
-			Scope:            scopePointer(desired.Scope),
-			Installer:        installerBackend,
-			Enable:           enableForInstall,
-			Force:            true,
-			skipLookupRescan: true,
-			skipFinalRescan:  true,
-		}
-		if hasCurrent {
-			currentEntry := current
-			options.existingEntry = &currentEntry
-		}
-		if _, err := s.Install(ctx, options); err != nil {
-			return PluginLockApplyResponse{}, err
-		}
+	if err := s.applyLockfileDesiredOperations(ctx, state.desiredOperations, state.installMetadata); err != nil {
+		return PluginLockApplyResponse{}, err
 	}
-
-	uninstallKeys := make([]pluginScopeKey, 0, len(currentByScopePlugin))
-	for key := range currentByScopePlugin {
-		if _, ok := desiredByScopePlugin[key]; ok {
-			continue
-		}
-		uninstallKeys = append(uninstallKeys, key)
-	}
-	slices.SortFunc(uninstallKeys, comparePluginScopeKeys)
-	for _, key := range uninstallKeys {
-		currentEntry := currentByScopePlugin[key]
-		entryCopy := currentEntry
-		if _, err := s.Uninstall(ctx, UninstallOptions{
-			PluginID:         currentEntry.PluginID,
-			Scope:            scopePointer(currentEntry.Scope),
-			resolvedEntry:    &entryCopy,
-			skipLookupRescan: true,
-			skipFinalRescan:  true,
-		}); err != nil {
-			return PluginLockApplyResponse{}, err
-		}
+	if err := s.applyLockfileUninstalls(ctx, state.desiredByScopePlugin, state.currentByScopePlugin); err != nil {
+		return PluginLockApplyResponse{}, err
 	}
 
 	s.mu.Lock()
@@ -231,6 +163,101 @@ func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockAppl
 		PlannedChanges: plannedChanges,
 		Applied:        true,
 	}, nil
+}
+
+func (s *Service) buildLockfileApplyState(lockfile PluginsLockFile) (lockfileApplyState, error) {
+	s.mu.Lock()
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		s.mu.Unlock()
+		return lockfileApplyState{}, err
+	}
+	installMetadata, err := s.store.LoadInstallMetadata()
+	if err != nil {
+		s.mu.Unlock()
+		return lockfileApplyState{}, err
+	}
+	s.mu.Unlock()
+
+	desiredEntries, desiredByScopePlugin, err := normalizeLockfileEntries(lockfile)
+	if err != nil {
+		return lockfileApplyState{}, err
+	}
+	currentExternalByScopePlugin, currentByScopePlugin := indexCurrentLockfilePlugins(snapshot.Plugins)
+	return lockfileApplyState{
+		desiredOperations:    buildLockfileDesiredOperations(desiredEntries, currentExternalByScopePlugin, currentByScopePlugin, installMetadata),
+		desiredByScopePlugin: desiredByScopePlugin,
+		currentByScopePlugin: currentByScopePlugin,
+		installMetadata:      installMetadata,
+	}, nil
+}
+
+func indexCurrentLockfilePlugins(entries []DiscoveredPlugin) (map[pluginScopeKey]DiscoveredPlugin, map[pluginScopeKey]DiscoveredPlugin) {
+	currentExternalByScopePlugin := map[pluginScopeKey]DiscoveredPlugin{}
+	currentByScopePlugin := map[pluginScopeKey]DiscoveredPlugin{}
+	for _, entry := range entries {
+		if entry.ShadowedBySourcePath != "" {
+			continue
+		}
+		key := pluginScopeKey{Scope: entry.Scope, PluginID: entry.PluginID}
+		if entry.SourceManager == PluginSourceManagerPackageManager {
+			currentExternalByScopePlugin[key] = entry
+			continue
+		}
+		currentByScopePlugin[key] = entry
+	}
+	return currentExternalByScopePlugin, currentByScopePlugin
+}
+
+func buildLockfileDesiredOperations(
+	desiredEntries []PluginLockEntry,
+	currentExternalByScopePlugin map[pluginScopeKey]DiscoveredPlugin,
+	currentByScopePlugin map[pluginScopeKey]DiscoveredPlugin,
+	installMetadata PluginInstallMetadataFile,
+) []lockfileDesiredOperation {
+	operations := make([]lockfileDesiredOperation, 0, len(desiredEntries))
+	for _, desired := range desiredEntries {
+		operation, ok := classifyLockfileDesiredOperation(desired, currentExternalByScopePlugin, currentByScopePlugin, installMetadata)
+		if ok {
+			operations = append(operations, operation)
+		}
+	}
+	return operations
+}
+
+func classifyLockfileDesiredOperation(
+	desired PluginLockEntry,
+	currentExternalByScopePlugin map[pluginScopeKey]DiscoveredPlugin,
+	currentByScopePlugin map[pluginScopeKey]DiscoveredPlugin,
+	installMetadata PluginInstallMetadataFile,
+) (lockfileDesiredOperation, bool) {
+	key := pluginScopeKey{Scope: desired.Scope, PluginID: desired.PluginID}
+	if _, ok := currentExternalByScopePlugin[key]; ok {
+		return lockfileDesiredOperation{}, false
+	}
+	if lockEntryIsExternallyManaged(desired) {
+		return lockfileDesiredOperation{}, false
+	}
+
+	current, hasCurrent := currentByScopePlugin[key]
+	operation := lockfileDesiredOperation{
+		Desired:    desired,
+		Current:    current,
+		HasCurrent: hasCurrent,
+	}
+	switch {
+	case !hasCurrent:
+		operation.Action = lockfileDesiredActionInstall
+	case current.Version != desired.Version:
+		operation.Action = lockfileDesiredActionUpdate
+	case lockEntryRequiresSourceReconcile(desired, current, installMetadata):
+		operation.Action = lockfileDesiredActionReconcileSource
+	case desired.SourceDigestSHA256 != nil && !optionalStringEqual(current.SourceDigestSHA256, desired.SourceDigestSHA256):
+		operation.Action = lockfileDesiredActionReconcileDigest
+	default:
+		return lockfileDesiredOperation{}, false
+	}
+	return operation, true
 }
 
 func compareLockfilePluginEntries(left DiscoveredPlugin, right DiscoveredPlugin) int {
@@ -359,51 +386,118 @@ func normalizeLockEntry(entry PluginLockEntry) (PluginLockEntry, error) {
 }
 
 func planLockfileChanges(
-	desiredEntries []PluginLockEntry,
+	desiredOperations []lockfileDesiredOperation,
 	desiredByScopePlugin map[pluginScopeKey]PluginLockEntry,
-	currentExternalByScopePlugin map[pluginScopeKey]DiscoveredPlugin,
 	currentByScopePlugin map[pluginScopeKey]DiscoveredPlugin,
-	installMetadata PluginInstallMetadataFile,
 ) []string {
-	plannedChanges := make([]string, 0)
-	for _, desired := range desiredEntries {
-		key := pluginScopeKey{Scope: desired.Scope, PluginID: desired.PluginID}
-		if _, ok := currentExternalByScopePlugin[key]; ok {
-			continue
-		}
-		if lockEntryIsExternallyManaged(desired) {
-			continue
-		}
-		current, ok := currentByScopePlugin[key]
-		if !ok {
-			plannedChanges = append(plannedChanges, "install "+desired.PluginID+" in "+string(desired.Scope))
-			continue
-		}
-		if current.Version != desired.Version {
-			plannedChanges = append(plannedChanges, "update "+desired.PluginID+" in "+string(desired.Scope)+" from "+current.Version+" to "+desired.Version)
-			continue
-		}
-		if lockEntryRequiresSourceReconcile(desired, current, installMetadata) {
-			plannedChanges = append(plannedChanges, "reconcile source for "+desired.PluginID+" in "+string(desired.Scope))
-			continue
-		}
-		if desired.SourceDigestSHA256 != nil && !optionalStringEqual(current.SourceDigestSHA256, desired.SourceDigestSHA256) {
-			plannedChanges = append(plannedChanges, "reconcile digest for "+desired.PluginID+" in "+string(desired.Scope))
-		}
+	plannedChanges := make([]string, 0, len(desiredOperations))
+	for _, operation := range desiredOperations {
+		plannedChanges = append(plannedChanges, describeLockfileDesiredOperation(operation))
 	}
-
-	currentKeys := make([]pluginScopeKey, 0, len(currentByScopePlugin))
-	for key := range currentByScopePlugin {
-		currentKeys = append(currentKeys, key)
-	}
-	slices.SortFunc(currentKeys, comparePluginScopeKeys)
-	for _, key := range currentKeys {
-		if _, ok := desiredByScopePlugin[key]; ok {
-			continue
-		}
+	for _, key := range lockfileUninstallKeys(desiredByScopePlugin, currentByScopePlugin) {
 		plannedChanges = append(plannedChanges, "uninstall "+key.PluginID+" from "+string(key.Scope))
 	}
 	return plannedChanges
+}
+
+func describeLockfileDesiredOperation(operation lockfileDesiredOperation) string {
+	switch operation.Action {
+	case lockfileDesiredActionInstall:
+		return "install " + operation.Desired.PluginID + " in " + string(operation.Desired.Scope)
+	case lockfileDesiredActionUpdate:
+		return "update " + operation.Desired.PluginID + " in " + string(operation.Desired.Scope) + " from " + operation.Current.Version + " to " + operation.Desired.Version
+	case lockfileDesiredActionReconcileSource:
+		return "reconcile source for " + operation.Desired.PluginID + " in " + string(operation.Desired.Scope)
+	case lockfileDesiredActionReconcileDigest:
+		return "reconcile digest for " + operation.Desired.PluginID + " in " + string(operation.Desired.Scope)
+	default:
+		return ""
+	}
+}
+
+func (s *Service) applyLockfileDesiredOperations(
+	ctx context.Context,
+	operations []lockfileDesiredOperation,
+	installMetadata PluginInstallMetadataFile,
+) error {
+	for _, operation := range operations {
+		options, err := buildLockfileInstallOptions(operation, installMetadata)
+		if err != nil {
+			return err
+		}
+		if _, err := s.Install(ctx, options); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func buildLockfileInstallOptions(operation lockfileDesiredOperation, installMetadata PluginInstallMetadataFile) (InstallOptions, error) {
+	if operation.Desired.SourceSpec == nil {
+		return InstallOptions{}, newServiceError(ServiceErrorCodeLockfileEntryMissing, "Lockfile entry missing source spec for plugin: %s", operation.Desired.PluginID)
+	}
+
+	enableForInstall := true
+	if operation.HasCurrent {
+		enableForInstall = operation.Current.State != PluginRuntimeStateDisabled
+	}
+	installerBackend := cloneOptionalInstallerBackend(operation.Desired.InstallerBackend)
+	if installerBackend == nil && operation.HasCurrent {
+		if metadataEntry, ok := installMetadata.Entries[metadataKey(operation.Current.Scope, operation.Current.PluginID)]; ok {
+			installerBackend = cloneOptionalInstallerBackend(metadataEntry.InstallerBackend)
+		}
+	}
+
+	options := InstallOptions{
+		SourceSpec:       *operation.Desired.SourceSpec,
+		Scope:            scopePointer(operation.Desired.Scope),
+		Installer:        installerBackend,
+		Enable:           enableForInstall,
+		Force:            true,
+		skipLookupRescan: true,
+		skipFinalRescan:  true,
+	}
+	if operation.HasCurrent {
+		currentEntry := operation.Current
+		options.existingEntry = &currentEntry
+	}
+	return options, nil
+}
+
+func (s *Service) applyLockfileUninstalls(
+	ctx context.Context,
+	desiredByScopePlugin map[pluginScopeKey]PluginLockEntry,
+	currentByScopePlugin map[pluginScopeKey]DiscoveredPlugin,
+) error {
+	for _, key := range lockfileUninstallKeys(desiredByScopePlugin, currentByScopePlugin) {
+		currentEntry := currentByScopePlugin[key]
+		entryCopy := currentEntry
+		if _, err := s.Uninstall(ctx, UninstallOptions{
+			PluginID:         currentEntry.PluginID,
+			Scope:            scopePointer(currentEntry.Scope),
+			resolvedEntry:    &entryCopy,
+			skipLookupRescan: true,
+			skipFinalRescan:  true,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func lockfileUninstallKeys(
+	desiredByScopePlugin map[pluginScopeKey]PluginLockEntry,
+	currentByScopePlugin map[pluginScopeKey]DiscoveredPlugin,
+) []pluginScopeKey {
+	currentKeys := make([]pluginScopeKey, 0, len(currentByScopePlugin))
+	for key := range currentByScopePlugin {
+		if _, ok := desiredByScopePlugin[key]; ok {
+			continue
+		}
+		currentKeys = append(currentKeys, key)
+	}
+	slices.SortFunc(currentKeys, comparePluginScopeKeys)
+	return currentKeys
 }
 
 func lockEntryRequiresSourceReconcile(desired PluginLockEntry, current DiscoveredPlugin, installMetadata PluginInstallMetadataFile) bool {
@@ -418,19 +512,6 @@ func lockEntryRequiresSourceReconcile(desired PluginLockEntry, current Discovere
 		return true
 	}
 	return metadataEntry.SourceSpec != *desired.SourceSpec
-}
-
-func lockEntryNeedsInstall(desired PluginLockEntry, current DiscoveredPlugin, installMetadata PluginInstallMetadataFile) bool {
-	if current.Version != desired.Version {
-		return true
-	}
-	if lockEntryRequiresSourceReconcile(desired, current, installMetadata) {
-		return true
-	}
-	if desired.SourceDigestSHA256 != nil && !optionalStringEqual(current.SourceDigestSHA256, desired.SourceDigestSHA256) {
-		return true
-	}
-	return false
 }
 
 func lockEntryIsExternallyManaged(entry PluginLockEntry) bool {
