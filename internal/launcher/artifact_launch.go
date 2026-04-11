@@ -55,73 +55,24 @@ type ArtifactLauncher struct {
 }
 
 func NewArtifactLauncher(options ArtifactLaunchOptions) (*ArtifactLauncher, error) {
-	executablePath := strings.TrimSpace(options.ExecutablePath)
-	if executablePath == "" {
-		return nil, fmt.Errorf("launcher executable path is required")
-	}
-	resolvedExecutablePath, err := resolvePathLoose(executablePath)
+	resolvedExecutablePath, err := resolveArtifactLaunchExecutablePath(options.ExecutablePath)
 	if err != nil {
-		return nil, fmt.Errorf("resolve launcher executable path: %w", err)
-	}
-
-	now := options.Now
-	if now == nil {
-		now = time.Now
-	}
-	sleep := options.Sleep
-	if sleep == nil {
-		sleep = time.Sleep
-	}
-	launchTimeout := options.LaunchTimeout
-	if launchTimeout <= 0 {
-		launchTimeout = defaultLaunchTimeout
-	}
-	pollInterval := options.PollInterval
-	if pollInterval <= 0 {
-		pollInterval = defaultLaunchPollInterval
-	}
-	existingSessionWait := options.ExistingSessionWait
-	if existingSessionWait <= 0 {
-		existingSessionWait = defaultExistingSessionWait
-	}
-	connectTimeout := options.ConnectTimeout
-	if connectTimeout <= 0 {
-		connectTimeout = defaultConnectTimeout
-	}
-	processStarter := options.ProcessStarter
-	if processStarter == nil {
-		processStarter = startLauncherProcess
-	}
-	registryFactory := options.RegistryFactory
-	if registryFactory == nil {
-		registryFactory = func(sessionsRoot string) (*localsessions.Registry, error) {
-			return localsessions.NewRegistry(localsessions.RegistryOptions{
-				SessionsRoot: sessionsRoot,
-			})
-		}
-	}
-	openBrowser := options.OpenBrowser
-	if openBrowser == nil {
-		openBrowser = openLauncherBrowser
-	}
-	userHomeDir := options.UserHomeDir
-	if userHomeDir == nil {
-		userHomeDir = os.UserHomeDir
+		return nil, err
 	}
 
 	return &ArtifactLauncher{
 		executablePath:      resolvedExecutablePath,
 		env:                 append([]string(nil), options.Env...),
-		now:                 now,
-		sleep:               sleep,
-		launchTimeout:       launchTimeout,
-		pollInterval:        pollInterval,
-		existingSessionWait: existingSessionWait,
-		connectTimeout:      connectTimeout,
-		processStarter:      processStarter,
-		registryFactory:     registryFactory,
-		openBrowser:         openBrowser,
-		userHomeDir:         userHomeDir,
+		now:                 launcherNowOrDefault(options.Now),
+		sleep:               launcherSleepOrDefault(options.Sleep),
+		launchTimeout:       launcherDurationOrDefault(options.LaunchTimeout, defaultLaunchTimeout),
+		pollInterval:        launcherDurationOrDefault(options.PollInterval, defaultLaunchPollInterval),
+		existingSessionWait: launcherDurationOrDefault(options.ExistingSessionWait, defaultExistingSessionWait),
+		connectTimeout:      launcherDurationOrDefault(options.ConnectTimeout, defaultConnectTimeout),
+		processStarter:      artifactLaunchProcessStarterOrDefault(options.ProcessStarter),
+		registryFactory:     artifactLaunchRegistryFactoryOrDefault(options.RegistryFactory),
+		openBrowser:         artifactLaunchBrowserOpenerOrDefault(options.OpenBrowser),
+		userHomeDir:         artifactLaunchUserHomeDirOrDefault(options.UserHomeDir),
 	}, nil
 }
 
@@ -129,62 +80,188 @@ func (l *ArtifactLauncher) Launch(settaHome string) (ArtifactLaunchResult, error
 	if l == nil {
 		return ArtifactLaunchResult{}, fmt.Errorf("artifact launcher is required")
 	}
-	cfg, err := l.loadLauncherConfig(settaHome)
+	paths, registry, err := l.prepareArtifactLaunch(settaHome)
 	if err != nil {
 		return ArtifactLaunchResult{}, err
+	}
+	if result, ok, err := l.reuseOrWaitForArtifactSession(paths, registry); err != nil || ok {
+		return result, err
+	}
+	process, err := l.startArtifactSession(paths)
+	if err != nil {
+		return ArtifactLaunchResult{}, err
+	}
+	return l.waitForStartedArtifactSession(paths, registry, process)
+}
+
+func resolveArtifactLaunchExecutablePath(raw string) (string, error) {
+	executablePath := strings.TrimSpace(raw)
+	if executablePath == "" {
+		return "", fmt.Errorf("launcher executable path is required")
+	}
+	resolvedExecutablePath, err := resolvePathLoose(executablePath)
+	if err != nil {
+		return "", fmt.Errorf("resolve launcher executable path: %w", err)
+	}
+	return resolvedExecutablePath, nil
+}
+
+func launcherNowOrDefault(now func() time.Time) func() time.Time {
+	if now != nil {
+		return now
+	}
+	return time.Now
+}
+
+func launcherSleepOrDefault(sleep func(time.Duration)) func(time.Duration) {
+	if sleep != nil {
+		return sleep
+	}
+	return time.Sleep
+}
+
+func launcherDurationOrDefault(value time.Duration, fallback time.Duration) time.Duration {
+	if value > 0 {
+		return value
+	}
+	return fallback
+}
+
+func artifactLaunchProcessStarterOrDefault(
+	processStarter func(processStartRequest) (startedProcess, error),
+) func(processStartRequest) (startedProcess, error) {
+	if processStarter != nil {
+		return processStarter
+	}
+	return startLauncherProcess
+}
+
+func artifactLaunchRegistryFactoryOrDefault(
+	registryFactory func(string) (*localsessions.Registry, error),
+) func(string) (*localsessions.Registry, error) {
+	if registryFactory != nil {
+		return registryFactory
+	}
+	return func(sessionsRoot string) (*localsessions.Registry, error) {
+		return localsessions.NewRegistry(localsessions.RegistryOptions{
+			SessionsRoot: sessionsRoot,
+		})
+	}
+}
+
+func artifactLaunchBrowserOpenerOrDefault(openBrowser BrowserOpenFunc) BrowserOpenFunc {
+	if openBrowser != nil {
+		return openBrowser
+	}
+	return openLauncherBrowser
+}
+
+func artifactLaunchUserHomeDirOrDefault(userHomeDir func() (string, error)) func() (string, error) {
+	if userHomeDir != nil {
+		return userHomeDir
+	}
+	return os.UserHomeDir
+}
+
+func (l *ArtifactLauncher) prepareArtifactLaunch(settaHome string) (config.Paths, *localsessions.Registry, error) {
+	cfg, err := l.loadLauncherConfig(settaHome)
+	if err != nil {
+		return config.Paths{}, nil, err
 	}
 	registry, err := l.registryFactory(filepath.Join(cfg.Paths.RuntimeRoot, "sessions"))
 	if err != nil {
-		return ArtifactLaunchResult{}, fmt.Errorf("create launcher session registry: %w", err)
+		return config.Paths{}, nil, fmt.Errorf("create launcher session registry: %w", err)
 	}
+	return cfg.Paths, registry, nil
+}
 
-	matchingSessions, err := l.matchingLauncherSessions(registry, cfg.Paths)
+func (l *ArtifactLauncher) reuseOrWaitForArtifactSession(
+	paths config.Paths,
+	registry *localsessions.Registry,
+) (ArtifactLaunchResult, bool, error) {
+	matchingSessions, err := l.matchingLauncherSessions(registry, paths)
 	if err != nil {
-		return ArtifactLaunchResult{}, err
+		return ArtifactLaunchResult{}, false, err
 	}
-	if reused, ok := l.firstConnectableSession(matchingSessions); ok {
-		return l.openSession(reused, cfg.Paths.SettaHome, false)
+	if result, ok, err := l.openFirstConnectableSession(matchingSessions, paths.SettaHome, false); err != nil || ok {
+		return result, ok, err
 	}
+	if len(matchingSessions) == 0 {
+		return ArtifactLaunchResult{}, false, nil
+	}
+	return l.waitForExistingArtifactSession(matchingSessions, paths.SettaHome)
+}
 
-	if len(matchingSessions) > 0 {
-		deadline := l.now().Add(l.existingSessionWait)
-		for l.now().Before(deadline) {
-			if reused, ok := l.firstConnectableSession(matchingSessions); ok {
-				return l.openSession(reused, cfg.Paths.SettaHome, false)
-			}
-			l.sleep(minDuration(l.pollInterval, time.Until(deadline)))
+func (l *ArtifactLauncher) openFirstConnectableSession(
+	sessions []auth.SessionMetadata,
+	settaHome string,
+	startedNew bool,
+) (ArtifactLaunchResult, bool, error) {
+	reused, ok := l.firstConnectableSession(sessions)
+	if !ok {
+		return ArtifactLaunchResult{}, false, nil
+	}
+	result, err := l.openSession(reused, settaHome, startedNew)
+	if err != nil {
+		return ArtifactLaunchResult{}, false, err
+	}
+	return result, true, nil
+}
+
+func (l *ArtifactLauncher) waitForExistingArtifactSession(
+	sessions []auth.SessionMetadata,
+	settaHome string,
+) (ArtifactLaunchResult, bool, error) {
+	deadline := l.now().Add(l.existingSessionWait)
+	for l.now().Before(deadline) {
+		if result, ok, err := l.openFirstConnectableSession(sessions, settaHome, false); err != nil || ok {
+			return result, ok, err
 		}
+		l.sleep(minDuration(l.pollInterval, time.Until(deadline)))
 	}
+	return ArtifactLaunchResult{}, false, nil
+}
 
-	process, err := l.processStarter(processStartRequest{
-		Args:        l.buildLaunchArgs(cfg.Paths),
+func (l *ArtifactLauncher) startArtifactSession(paths config.Paths) (startedProcess, error) {
+	return l.processStarter(processStartRequest{
+		Args:        l.buildLaunchArgs(paths),
 		Env:         l.launchEnv(),
-		CWD:         cfg.Paths.WorkspaceRoot,
-		RuntimeRoot: cfg.Paths.RuntimeRoot,
+		CWD:         paths.WorkspaceRoot,
+		RuntimeRoot: paths.RuntimeRoot,
 	})
-	if err != nil {
-		return ArtifactLaunchResult{}, err
-	}
+}
 
+func (l *ArtifactLauncher) waitForStartedArtifactSession(
+	paths config.Paths,
+	registry *localsessions.Registry,
+	process startedProcess,
+) (ArtifactLaunchResult, error) {
 	deadline := l.now().Add(l.launchTimeout)
 	for {
-		latestSessions, err := l.matchingLauncherSessions(registry, cfg.Paths)
+		latestSessions, err := l.matchingLauncherSessions(registry, paths)
 		if err != nil {
 			_ = process.Kill()
 			return ArtifactLaunchResult{}, err
 		}
-		if reused, ok := l.firstConnectableSession(latestSessions); ok {
-			return l.openSession(reused, cfg.Paths.SettaHome, true)
+		if result, ok, err := l.openFirstConnectableSession(latestSessions, paths.SettaHome, true); err != nil || ok {
+			return result, err
 		}
-		if process.Exited() {
-			return ArtifactLaunchResult{}, fmt.Errorf("%s", launchFailureMessage(process.LogPath()))
-		}
-		if !l.now().Before(deadline) {
-			_ = process.Kill()
-			return ArtifactLaunchResult{}, fmt.Errorf("Timed out waiting for Setta launcher mode to start. Check logs at: %s", process.LogPath())
+		if err := l.waitForStartedArtifactProcess(process, deadline); err != nil {
+			return ArtifactLaunchResult{}, err
 		}
 		l.sleep(l.pollInterval)
 	}
+}
+
+func (l *ArtifactLauncher) waitForStartedArtifactProcess(process startedProcess, deadline time.Time) error {
+	if process.Exited() {
+		return fmt.Errorf("%s", launchFailureMessage(process.LogPath()))
+	}
+	if l.now().Before(deadline) {
+		return nil
+	}
+	_ = process.Kill()
+	return fmt.Errorf("Timed out waiting for Setta launcher mode to start. Check logs at: %s", process.LogPath())
 }
 
 func (l *ArtifactLauncher) loadLauncherConfig(settaHome string) (config.Config, error) {
