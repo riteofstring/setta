@@ -17,6 +17,97 @@ export type StructuredOutputPayload = {
 export type StructuredOutputPart = "input" | "output";
 
 type StructuredOutputRunState = "running" | "success" | "failed" | "stopped";
+type ResolvedLanguageHint = {
+  language: CodeLanguage | null;
+  useJsx: boolean;
+};
+
+const NO_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: null,
+  useJsx: false,
+};
+const JSON_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: CodeLanguageEnum.json,
+  useJsx: false,
+};
+const YAML_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: CodeLanguageEnum.yaml,
+  useJsx: false,
+};
+const MARKDOWN_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: CodeLanguageEnum.markdown,
+  useJsx: false,
+};
+const TOML_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: CodeLanguageEnum.toml,
+  useJsx: false,
+};
+const JAVASCRIPT_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: CodeLanguageEnum.javascript,
+  useJsx: false,
+};
+const TYPESCRIPT_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: CodeLanguageEnum.typescript,
+  useJsx: false,
+};
+const TYPESCRIPT_JSX_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: CodeLanguageEnum.typescript,
+  useJsx: true,
+};
+const JAVASCRIPT_JSX_LANGUAGE_HINT: ResolvedLanguageHint = {
+  language: CodeLanguageEnum.javascript,
+  useJsx: true,
+};
+
+const PATH_HINT_KEYS = [
+  "path",
+  "filePath",
+  "filepath",
+  "targetPath",
+  "target",
+  "file",
+  "filename",
+  "fileName",
+  "uri",
+] as const;
+const MIME_HINT_KEYS = [
+  "mimeType",
+  "mimetype",
+  "contentType",
+  "content_type",
+] as const;
+const MIME_TYPE_LANGUAGE_HINTS = new Map<string, ResolvedLanguageHint>([
+  ["application/json", JSON_LANGUAGE_HINT],
+  ["text/json", JSON_LANGUAGE_HINT],
+  ["application/yaml", YAML_LANGUAGE_HINT],
+  ["text/yaml", YAML_LANGUAGE_HINT],
+  ["application/x-yaml", YAML_LANGUAGE_HINT],
+  ["text/x-yaml", YAML_LANGUAGE_HINT],
+  ["text/markdown", MARKDOWN_LANGUAGE_HINT],
+  ["application/toml", TOML_LANGUAGE_HINT],
+  ["text/x-toml", TOML_LANGUAGE_HINT],
+  ["application/x-toml", TOML_LANGUAGE_HINT],
+  ["application/javascript", JAVASCRIPT_LANGUAGE_HINT],
+  ["text/javascript", JAVASCRIPT_LANGUAGE_HINT],
+  ["application/x-javascript", JAVASCRIPT_LANGUAGE_HINT],
+  ["application/typescript", TYPESCRIPT_LANGUAGE_HINT],
+  ["text/typescript", TYPESCRIPT_LANGUAGE_HINT],
+]);
+const MIME_TYPE_SUFFIX_LANGUAGE_HINTS = [
+  ["+json", JSON_LANGUAGE_HINT],
+] as const satisfies ReadonlyArray<
+  readonly [suffix: string, hint: ResolvedLanguageHint]
+>;
+const DIFF_META_PREFIXES = [
+  "index ",
+  "new file mode ",
+  "deleted file mode ",
+  "similarity index ",
+  "rename from ",
+  "rename to ",
+  "\\ No newline at end of file",
+] as const;
+const DIFF_FILE_PREFIXES = ["+++ ", "--- "] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -48,89 +139,49 @@ function formatStructuredOutputValue(args: unknown): string {
   }
 }
 
-function resolveCodeLanguageFromMimeType(mimeType: string | null): {
-  language: CodeLanguage | null;
-  useJsx: boolean;
-} {
+function resolveCodeLanguageFromMimeType(
+  mimeType: string | null,
+): ResolvedLanguageHint {
   if (!mimeType) {
-    return { language: null, useJsx: false };
+    return NO_LANGUAGE_HINT;
   }
   const normalized = mimeType.trim().toLowerCase();
-  if (
-    normalized === "application/json" ||
-    normalized.endsWith("+json") ||
-    normalized === "text/json"
-  ) {
-    return { language: CodeLanguageEnum.json, useJsx: false };
+  const exactMatch = MIME_TYPE_LANGUAGE_HINTS.get(normalized);
+  if (exactMatch) {
+    return exactMatch;
   }
-  if (
-    normalized === "application/yaml" ||
-    normalized === "text/yaml" ||
-    normalized === "application/x-yaml" ||
-    normalized === "text/x-yaml"
-  ) {
-    return { language: CodeLanguageEnum.yaml, useJsx: false };
-  }
-  if (normalized === "text/markdown") {
-    return { language: CodeLanguageEnum.markdown, useJsx: false };
-  }
-  if (
-    normalized === "application/toml" ||
-    normalized === "text/x-toml" ||
-    normalized === "application/x-toml"
-  ) {
-    return { language: CodeLanguageEnum.toml, useJsx: false };
-  }
-  if (
-    normalized === "application/javascript" ||
-    normalized === "text/javascript" ||
-    normalized === "application/x-javascript"
-  ) {
-    return { language: CodeLanguageEnum.javascript, useJsx: false };
-  }
-  if (
-    normalized === "application/typescript" ||
-    normalized === "text/typescript"
-  ) {
-    return { language: CodeLanguageEnum.typescript, useJsx: false };
-  }
-  return { language: null, useJsx: false };
+  return (
+    MIME_TYPE_SUFFIX_LANGUAGE_HINTS.find(([suffix]) =>
+      normalized.endsWith(suffix),
+    )?.[1] ?? NO_LANGUAGE_HINT
+  );
 }
 
-function resolveLanguageFromPathHint(pathHint: string | null): {
-  language: CodeLanguage | null;
-  useJsx: boolean;
-} {
+function resolveLanguageFromPathHint(
+  pathHint: string | null,
+): ResolvedLanguageHint {
   if (!pathHint) {
-    return { language: null, useJsx: false };
+    return NO_LANGUAGE_HINT;
   }
   const normalized = pathHint.toLowerCase();
   if (normalized.endsWith(".tsx")) {
-    return { language: CodeLanguageEnum.typescript, useJsx: true };
+    return TYPESCRIPT_JSX_LANGUAGE_HINT;
   }
   if (normalized.endsWith(".jsx")) {
-    return { language: CodeLanguageEnum.javascript, useJsx: true };
+    return JAVASCRIPT_JSX_LANGUAGE_HINT;
   }
   const language = resolveCodeLanguageFromPath(pathHint);
   if (language === CodeLanguageEnum.plaintext) {
-    return { language: null, useJsx: false };
+    return NO_LANGUAGE_HINT;
   }
   return { language, useJsx: false };
 }
 
-function resolvePathHintFromUnknown(value: unknown): string | null {
-  const pathKeys = [
-    "path",
-    "filePath",
-    "filepath",
-    "targetPath",
-    "target",
-    "file",
-    "filename",
-    "fileName",
-    "uri",
-  ];
-  for (const key of pathKeys) {
+function resolveFirstStringHint(
+  value: unknown,
+  keys: readonly string[],
+): string | null {
+  for (const key of keys) {
     const resolved = extractNonEmptyStringArg(value, key);
     if (resolved) {
       return resolved;
@@ -139,15 +190,12 @@ function resolvePathHintFromUnknown(value: unknown): string | null {
   return null;
 }
 
+function resolvePathHintFromUnknown(value: unknown): string | null {
+  return resolveFirstStringHint(value, PATH_HINT_KEYS);
+}
+
 function resolveMimeTypeHintFromUnknown(value: unknown): string | null {
-  const mimeKeys = ["mimeType", "mimetype", "contentType", "content_type"];
-  for (const key of mimeKeys) {
-    const resolved = extractNonEmptyStringArg(value, key);
-    if (resolved) {
-      return resolved;
-    }
-  }
-  return null;
+  return resolveFirstStringHint(value, MIME_HINT_KEYS);
 }
 
 function resolveCommandInputText(value: unknown): string | null {
@@ -180,33 +228,29 @@ function resolveDiffTextFromUnknown(value: unknown): string | null {
   return diff;
 }
 
+function lineStartsWithAny(line: string, prefixes: readonly string[]): boolean {
+  return prefixes.some((prefix) => line.startsWith(prefix));
+}
+
 export function classifyDiffLineForChat(
   line: string,
 ): "add" | "del" | "hunk" | "file" | "meta" | "context" {
   if (line.startsWith("@@")) {
     return "hunk";
   }
-  if (line.startsWith("diff --git")) {
-    return "meta";
-  }
   if (
-    line.startsWith("index ") ||
-    line.startsWith("new file mode ") ||
-    line.startsWith("deleted file mode ") ||
-    line.startsWith("similarity index ") ||
-    line.startsWith("rename from ") ||
-    line.startsWith("rename to ") ||
-    line.startsWith("\\ No newline at end of file")
+    line.startsWith("diff --git") ||
+    lineStartsWithAny(line, DIFF_META_PREFIXES)
   ) {
     return "meta";
   }
-  if (line.startsWith("+++ ") || line.startsWith("--- ")) {
+  if (lineStartsWithAny(line, DIFF_FILE_PREFIXES)) {
     return "file";
   }
-  if (line.startsWith("+") && !line.startsWith("+++")) {
+  if (line.startsWith("+")) {
     return "add";
   }
-  if (line.startsWith("-") && !line.startsWith("---")) {
+  if (line.startsWith("-")) {
     return "del";
   }
   return "context";
@@ -214,28 +258,18 @@ export function classifyDiffLineForChat(
 
 export function isUnifiedDiffText(text: string): boolean {
   const lines = text.split(/\r?\n/u);
-  let hasFileHeader = false;
-  let hasHunk = false;
-  let hasDiffHeader = false;
-  let hasBinaryHeader = false;
-  for (const line of lines) {
-    if (line.startsWith("diff --git ")) {
-      hasDiffHeader = true;
-    } else if (line.startsWith("--- ") || line.startsWith("+++ ")) {
-      hasFileHeader = true;
-    } else if (line.startsWith("@@")) {
-      hasHunk = true;
-    } else if (line.startsWith("Binary files ")) {
-      hasBinaryHeader = true;
-    }
-  }
-  if (hasDiffHeader && (hasFileHeader || hasHunk || hasBinaryHeader)) {
-    return true;
-  }
-  if (hasFileHeader && hasHunk) {
-    return true;
-  }
-  return false;
+  const hasDiffHeader = lines.some((line) => line.startsWith("diff --git "));
+  const hasFileHeader = lines.some((line) =>
+    lineStartsWithAny(line, DIFF_FILE_PREFIXES),
+  );
+  const hasHunk = lines.some((line) => line.startsWith("@@"));
+  const hasBinaryHeader = lines.some((line) =>
+    line.startsWith("Binary files "),
+  );
+  return (
+    (hasDiffHeader && (hasFileHeader || hasHunk || hasBinaryHeader)) ||
+    (hasFileHeader && hasHunk)
+  );
 }
 
 function tryParseObjectOrArrayJson(text: string): unknown | null {
@@ -248,6 +282,135 @@ function tryParseObjectOrArrayJson(text: string): unknown | null {
   } catch {
     return null;
   }
+}
+
+function createStructuredOutputPayload({
+  text,
+  kind,
+  language = null,
+  useJsx = false,
+  pathHint,
+}: {
+  text: string;
+  kind: StructuredOutputKind;
+  language?: CodeLanguage | null;
+  useJsx?: boolean;
+  pathHint: string | null;
+}): StructuredOutputPayload {
+  return {
+    text,
+    kind,
+    language,
+    useJsx,
+    pathHint,
+  };
+}
+
+function resolveStructuredOutputHints(
+  value: unknown,
+  contextValue: unknown,
+): {
+  pathHint: string | null;
+  resolvedLanguage: ResolvedLanguageHint;
+} {
+  const pathHint =
+    resolvePathHintFromUnknown(value) ??
+    resolvePathHintFromUnknown(contextValue) ??
+    null;
+  const mimeTypeHint =
+    resolveMimeTypeHintFromUnknown(value) ??
+    resolveMimeTypeHintFromUnknown(contextValue) ??
+    null;
+  const pathLanguage = resolveLanguageFromPathHint(pathHint);
+  return {
+    pathHint,
+    resolvedLanguage:
+      pathLanguage.language !== null
+        ? pathLanguage
+        : resolveCodeLanguageFromMimeType(mimeTypeHint),
+  };
+}
+
+function resolveSpecialToolPayload({
+  value,
+  toolName,
+  part,
+  pathHint,
+}: {
+  value: unknown;
+  toolName: string;
+  part: StructuredOutputPart;
+  pathHint: string | null;
+}): StructuredOutputPayload | null {
+  if (toolName === "file_change") {
+    const diffFromObject = resolveDiffTextFromUnknown(value);
+    if (diffFromObject && isUnifiedDiffText(diffFromObject)) {
+      return createStructuredOutputPayload({
+        text: diffFromObject,
+        kind: "diff",
+        pathHint,
+      });
+    }
+  }
+
+  if (toolName !== "command_execution" || part !== "input") {
+    return null;
+  }
+
+  const commandText = resolveCommandInputText(value);
+  if (!commandText) {
+    return null;
+  }
+  return createStructuredOutputPayload({
+    text: commandText,
+    kind: "code",
+    language: CodeLanguageEnum.bash,
+    pathHint,
+  });
+}
+
+function resolveStringStructuredOutputPayload({
+  value,
+  pathHint,
+  resolvedLanguage,
+}: {
+  value: string;
+  pathHint: string | null;
+  resolvedLanguage: ResolvedLanguageHint;
+}): StructuredOutputPayload | null {
+  if (value.trim().length === 0) {
+    return null;
+  }
+  if (isUnifiedDiffText(value)) {
+    return createStructuredOutputPayload({
+      text: value,
+      kind: "diff",
+      pathHint,
+    });
+  }
+  const parsedJson = tryParseObjectOrArrayJson(value);
+  if (parsedJson !== null) {
+    return createStructuredOutputPayload({
+      text: JSON.stringify(parsedJson, null, 2),
+      kind: "code",
+      language: CodeLanguageEnum.json,
+      pathHint,
+    });
+  }
+  if (resolvedLanguage.language !== null) {
+    return createStructuredOutputPayload({
+      text: value,
+      kind: "code",
+      language: resolvedLanguage.language,
+      useJsx: resolvedLanguage.useJsx,
+      pathHint,
+    });
+  }
+  return createStructuredOutputPayload({
+    text: value,
+    kind: "plain",
+    pathHint,
+  });
 }
 
 export function resolveStructuredOutputPayload({
@@ -265,114 +428,50 @@ export function resolveStructuredOutputPayload({
     return null;
   }
   const normalizedToolName = normalizeToolName(toolName) ?? toolName;
-  const pathHint =
-    resolvePathHintFromUnknown(value) ??
-    resolvePathHintFromUnknown(contextValue) ??
-    null;
-  const mimeTypeHint =
-    resolveMimeTypeHintFromUnknown(value) ??
-    resolveMimeTypeHintFromUnknown(contextValue) ??
-    null;
-  const pathLanguage = resolveLanguageFromPathHint(pathHint);
-  const mimeLanguage = resolveCodeLanguageFromMimeType(mimeTypeHint);
-  const resolvedLanguage =
-    pathLanguage.language !== null ? pathLanguage : mimeLanguage;
-
-  if (normalizedToolName === "file_change") {
-    const diffFromObject = resolveDiffTextFromUnknown(value);
-    if (diffFromObject && isUnifiedDiffText(diffFromObject)) {
-      return {
-        text: diffFromObject,
-        kind: "diff",
-        language: null,
-        useJsx: false,
-        pathHint,
-      };
-    }
-  }
-
-  if (part === "input" && normalizedToolName === "command_execution") {
-    const commandText = resolveCommandInputText(value);
-    if (commandText) {
-      return {
-        text: commandText,
-        kind: "code",
-        language: CodeLanguageEnum.bash,
-        useJsx: false,
-        pathHint,
-      };
-    }
+  const { pathHint, resolvedLanguage } = resolveStructuredOutputHints(
+    value,
+    contextValue,
+  );
+  const specialToolPayload = resolveSpecialToolPayload({
+    value,
+    toolName: normalizedToolName,
+    part,
+    pathHint,
+  });
+  if (specialToolPayload) {
+    return specialToolPayload;
   }
 
   if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) {
-      return null;
-    }
-    if (isUnifiedDiffText(value)) {
-      return {
-        text: value,
-        kind: "diff",
-        language: null,
-        useJsx: false,
-        pathHint,
-      };
-    }
-    const parsedJson = tryParseObjectOrArrayJson(value);
-    if (parsedJson !== null) {
-      return {
-        text: JSON.stringify(parsedJson, null, 2),
-        kind: "code",
-        language: CodeLanguageEnum.json,
-        useJsx: false,
-        pathHint,
-      };
-    }
-    if (resolvedLanguage.language !== null) {
-      return {
-        text: value,
-        kind: "code",
-        language: resolvedLanguage.language,
-        useJsx: resolvedLanguage.useJsx,
-        pathHint,
-      };
-    }
-    return {
-      text: value,
-      kind: "plain",
-      language: null,
-      useJsx: false,
+    return resolveStringStructuredOutputPayload({
+      value,
       pathHint,
-    };
+      resolvedLanguage,
+    });
   }
 
   if (typeof value === "number" || typeof value === "boolean") {
-    return {
+    return createStructuredOutputPayload({
       text: String(value),
       kind: "plain",
-      language: null,
-      useJsx: false,
       pathHint,
-    };
+    });
   }
 
   if (Array.isArray(value) || isRecord(value)) {
-    return {
+    return createStructuredOutputPayload({
       text: formatStructuredOutputValue(value),
       kind: "code",
       language: CodeLanguageEnum.json,
-      useJsx: false,
       pathHint,
-    };
+    });
   }
 
-  return {
+  return createStructuredOutputPayload({
     text: String(value),
     kind: "plain",
-    language: null,
-    useJsx: false,
     pathHint,
-  };
+  });
 }
 
 export function resolveStructuredOutputFallbackPayload({
