@@ -79,6 +79,53 @@ func TestProjectNormalizedPreservesExistingPythonCodeBinding(t *testing.T) {
 	}
 }
 
+func TestProjectNormalizedCopiesPayloadOnlyPythonCodeBindingIntoImpl(t *testing.T) {
+	t.Parallel()
+
+	project := testPythonCodeBindingProject()
+	project.SectionImpls["runner-impl"] = SectionImpl{
+		ID:   "runner-impl",
+		Kind: SectionKindCode,
+		Code: &CodeSectionImpl{
+			Language: CodeLanguagePython,
+		},
+		Payload: mustRawJSONForBindings(t, map[string]any{
+			"id":           "runner-impl",
+			"type":         "Code",
+			"code":         "print('runner')\n",
+			"codeLanguage": "python",
+			"children":     []string{},
+			"codeFileBinding": map[string]any{
+				"canonical_path": "code/from_payload.py",
+				"access_mode":    "read_only",
+				"autoBinding":    false,
+			},
+		}),
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project: %v", err)
+	}
+
+	_, _, impl, err := normalized.ResolveSection("runner")
+	if err != nil {
+		t.Fatalf("resolve runner: %v", err)
+	}
+	if impl.Code == nil || impl.Code.Binding == nil {
+		t.Fatal("expected payload binding to populate impl state")
+	}
+	if got := impl.Code.Binding.Path; got != "code/from_payload.py" {
+		t.Fatalf("unexpected payload binding path %q", got)
+	}
+	if got := impl.Code.Binding.AccessMode; got != CodeFileAccessModeReadOnly {
+		t.Fatalf("unexpected payload binding access mode %q", got)
+	}
+	if impl.Code.Binding.AutoBinding {
+		t.Fatal("expected payload binding to remain manual")
+	}
+}
+
 // Nested list-root paths need the Python-style `[index]` segment so the
 // canonical file layout stays deterministic for nested code sections.
 func TestProjectNormalizedUsesNestedListRootPathForPythonCodeBinding(t *testing.T) {
@@ -264,6 +311,99 @@ func TestProjectNormalizedLeavesConflictingPythonCodeBindingsUnset(t *testing.T)
 		}
 		if impl.Code.Binding != nil {
 			t.Fatalf("expected conflicting binding to stay unset for %s, got %#v", sectionID, impl.Code.Binding)
+		}
+	}
+}
+
+func TestProjectNormalizedClearsConflictingPayloadOnlyAutoBindings(t *testing.T) {
+	t.Parallel()
+
+	project := Project{
+		ID:   "project-alpha",
+		Name: "Demo Project",
+		SectionVariantMap: map[string]string{
+			"first":  "first-variant",
+			"second": "second-variant",
+		},
+		Sections: map[string]Section{
+			"first": {
+				ID:               "first",
+				Name:             "Foo Bar",
+				VariantIDs:       []string{"first-variant"},
+				DefaultVariantID: "first-variant",
+			},
+			"second": {
+				ID:               "second",
+				Name:             "foo_bar",
+				VariantIDs:       []string{"second-variant"},
+				DefaultVariantID: "second-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"first-variant":  {ID: "first-variant", ImplID: "first-impl"},
+			"second-variant": {ID: "second-variant", ImplID: "second-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"first-impl": {
+				ID:   "first-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{Language: CodeLanguagePython},
+				Payload: mustRawJSONForBindings(t, map[string]any{
+					"id":           "first-impl",
+					"type":         "Code",
+					"code":         "print('first')\n",
+					"codeLanguage": "python",
+					"children":     []string{},
+					"codeFileBinding": map[string]any{
+						"canonical_path": "code/sections/demo_project/foo_bar.py",
+						"access_mode":    "read_write",
+						"autoBinding":    true,
+					},
+				}),
+			},
+			"second-impl": {
+				ID:   "second-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{Language: CodeLanguagePython},
+				Payload: mustRawJSONForBindings(t, map[string]any{
+					"id":           "second-impl",
+					"type":         "Code",
+					"code":         "print('second')\n",
+					"codeLanguage": "python",
+					"children":     []string{},
+					"codeFileBinding": map[string]any{
+						"canonical_path": "code/sections/demo_project/foo_bar.py",
+						"access_mode":    "read_write",
+						"autoBinding":    true,
+					},
+				}),
+			},
+		},
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project: %v", err)
+	}
+
+	for _, sectionID := range []string{"first", "second"} {
+		_, _, impl, err := normalized.ResolveSection(sectionID)
+		if err != nil {
+			t.Fatalf("resolve %s: %v", sectionID, err)
+		}
+		if impl.Code == nil {
+			t.Fatalf("expected code impl for %s", sectionID)
+		}
+		if impl.Code.Binding != nil {
+			t.Fatalf("expected conflicting payload auto binding to clear for %s, got %#v", sectionID, impl.Code.Binding)
+		}
+
+		payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
+		if err != nil {
+			t.Fatalf("payload for %s: %v", sectionID, err)
+		}
+		if binding, ok := payload["codeFileBinding"]; ok && binding != nil {
+			t.Fatalf("expected payload auto binding to be removed for %s, got %#v", sectionID, binding)
 		}
 	}
 }

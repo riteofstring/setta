@@ -13,6 +13,13 @@ type ActiveCodeSectionFile struct {
 	HasInlineCode bool
 }
 
+type codeSectionBindingReconcileTarget struct {
+	sectionID string
+	implID    string
+	impl      SectionImpl
+	payload   map[string]any
+}
+
 func (p *Project) ReconcileCodeSectionBindings() error {
 	if p == nil {
 		return ErrProjectNotFound
@@ -25,64 +32,94 @@ func (p *Project) ReconcileCodeSectionBindings() error {
 
 	activeSectionIDs := sortedProjectSectionIDs(p.SectionVariantMap)
 	for _, sectionID := range activeSectionIDs {
-		section, variant, impl, err := p.ResolveSection(sectionID)
-		if err != nil {
+		if err := p.reconcileCodeSectionBinding(sectionID, conflicts); err != nil {
 			return err
 		}
-		if !impl.IsCode() || impl.Code == nil {
-			continue
-		}
-		if impl.IsGeneratedEntrySection() {
-			continue
-		}
-		payload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
-		if err != nil {
-			return err
-		}
-		binding := effectiveCodeFileBinding(payload, impl.Code.Binding)
-		if _, blocked := conflicts[section.ID]; blocked {
-			if binding != nil && binding.AutoBinding {
-				updatedImpl, err := setCodeSectionBinding(impl, nil)
-				if err != nil {
-					return err
-				}
-				p.SectionImpls[variant.ImplID] = updatedImpl
-			}
-			continue
-		}
-		if binding != nil {
-			if impl.Code.Binding == nil {
-				updatedImpl, err := setCodeSectionBinding(impl, binding)
-				if err != nil {
-					return err
-				}
-				p.SectionImpls[variant.ImplID] = updatedImpl
-			}
-			continue
-		}
-
-		fullName, err := activeSectionPathFullName(*p, section.ID)
-		if err != nil {
-			return err
-		}
-		sectionSlug := sanitizeSectionSlug(fullName)
-		if sectionSlug == "" {
-			continue
-		}
-
-		updatedImpl, err := setCodeSectionBinding(impl, &CodeFileBinding{
-			Path: path.Join(
-				ProjectCodeSectionsRelativeRoot(p.Name),
-				sectionSlug+"."+codeLanguageExtension(impl.Code.Language),
-			),
-			AccessMode:  CodeFileAccessModeReadWrite,
-			AutoBinding: true,
-		})
-		if err != nil {
-			return err
-		}
-		p.SectionImpls[variant.ImplID] = updatedImpl
 	}
+	return nil
+}
+
+func (p *Project) reconcileCodeSectionBinding(sectionID string, conflicts map[string]struct{}) error {
+	target, err := p.codeSectionBindingReconcileTarget(sectionID)
+	if err != nil || target == nil {
+		return err
+	}
+
+	binding, shouldUpdate, err := resolvedCodeSectionBinding(*p, *target, conflicts)
+	if err != nil || !shouldUpdate {
+		return err
+	}
+	return p.applyCodeSectionBinding(target.implID, target.impl, binding)
+}
+
+func (p Project) codeSectionBindingReconcileTarget(sectionID string) (*codeSectionBindingReconcileTarget, error) {
+	section, variant, impl, err := p.ResolveSection(sectionID)
+	if err != nil {
+		return nil, err
+	}
+	if !impl.IsCode() || impl.Code == nil || impl.IsGeneratedEntrySection() {
+		return nil, nil
+	}
+
+	payload, err := effectiveSectionPayload(p, section.ID, variant.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &codeSectionBindingReconcileTarget{
+		sectionID: section.ID,
+		implID:    variant.ImplID,
+		impl:      impl,
+		payload:   payload,
+	}, nil
+}
+
+func resolvedCodeSectionBinding(
+	project Project,
+	target codeSectionBindingReconcileTarget,
+	conflicts map[string]struct{},
+) (*CodeFileBinding, bool, error) {
+	binding := effectiveCodeFileBinding(target.payload, target.impl.Code.Binding)
+	if _, blocked := conflicts[target.sectionID]; blocked {
+		return conflictedCodeSectionBinding(binding), binding != nil && binding.AutoBinding, nil
+	}
+	if binding != nil {
+		return binding, target.impl.Code.Binding == nil, nil
+	}
+	return autoCodeSectionBinding(project, target.sectionID, target.impl.Code.Language)
+}
+
+func conflictedCodeSectionBinding(binding *CodeFileBinding) *CodeFileBinding {
+	if binding == nil || !binding.AutoBinding {
+		return binding
+	}
+	return nil
+}
+
+func autoCodeSectionBinding(project Project, sectionID string, language CodeLanguage) (*CodeFileBinding, bool, error) {
+	fullName, err := activeSectionPathFullName(project, sectionID)
+	if err != nil {
+		return nil, false, err
+	}
+	sectionSlug := sanitizeSectionSlug(fullName)
+	if sectionSlug == "" {
+		return nil, false, nil
+	}
+	return &CodeFileBinding{
+		Path: path.Join(
+			ProjectCodeSectionsRelativeRoot(project.Name),
+			sectionSlug+"."+codeLanguageExtension(language),
+		),
+		AccessMode:  CodeFileAccessModeReadWrite,
+		AutoBinding: true,
+	}, true, nil
+}
+
+func (p *Project) applyCodeSectionBinding(implID string, impl SectionImpl, binding *CodeFileBinding) error {
+	updatedImpl, err := setCodeSectionBinding(impl, binding)
+	if err != nil {
+		return err
+	}
+	p.SectionImpls[implID] = updatedImpl
 	return nil
 }
 
