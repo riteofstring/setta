@@ -194,6 +194,33 @@ type profileConfig struct {
 	AuthCookieName     string
 }
 
+type rawProfileConfig struct {
+	Name               string `json:"name"`
+	WorkspaceRoot      string `json:"workspaceRoot"`
+	SettaHome          string `json:"settaHome"`
+	SettaFilesRoot     string `json:"settaFilesRoot"`
+	RuntimeRoot        string `json:"runtimeRoot"`
+	SettaFilesLocation string `json:"settaFilesLocation"`
+	AuthCookieName     string `json:"authCookieName"`
+}
+
+type resolvedProfileContext struct {
+	profile           profileConfig
+	profileName       string
+	profileLookupHome string
+	settaHome         string
+}
+
+type resolvedLoadPaths struct {
+	workspaceRoot         string
+	deploymentRoot        string
+	settaFilesRoot        string
+	resolvedFilesLocation ResolvedFilesLocation
+	usesExplicitSettaFile bool
+	runtimeRoot           string
+	userConfig            UserConfig
+}
+
 func Load(opts LoadOptions) (Config, error) {
 	envLookup := opts.EnvLookup
 	if envLookup == nil {
@@ -209,107 +236,150 @@ func Load(opts LoadOptions) (Config, error) {
 		return Config{}, err
 	}
 
-	profileName := firstNonEmpty(trimmed(opts.CLI.Profile), lookupEnvTrimmed(envLookup, ProfileEnv))
-	var (
-		profile           profileConfig
-		profileLookupHome string
-		settaHome         string
-	)
-	if profileName == "" {
-		settaHome, err = resolveSettaHome(trimmed(opts.CLI.SettaHome), "", envLookup)
-		if err != nil {
-			return Config{}, err
-		}
-		profileLookupHome = settaHome
-	} else {
-		profileLookupHome, err = resolveProfileLookupHome(
-			trimmed(opts.CLI.ProfileLookupHome),
-			trimmed(opts.CLI.SettaHome),
-			envLookup,
-		)
-		if err != nil {
-			return Config{}, err
-		}
-		profile, err = loadProfile(profileLookupHome, profileName)
-		if err != nil {
-			return Config{}, err
-		}
-		settaHome, err = resolveSettaHome(trimmed(opts.CLI.SettaHome), profile.SettaHome, envLookup)
-		if err != nil {
-			return Config{}, err
-		}
-	}
-
-	if err := validateSettaHomeName(profileLookupHome, "Setta profile lookup home"); err != nil {
-		return Config{}, err
-	}
-	if err := validateSettaHomeName(settaHome, "Setta home"); err != nil {
-		return Config{}, err
-	}
-
-	workspaceRoot, err := resolveWorkspaceRoot(server.Mode, trimmed(opts.CLI.WorkspaceRoot), profile.WorkspaceRoot, cwd, envLookup)
+	profileContext, err := resolveProfileContext(opts.CLI, envLookup)
 	if err != nil {
 		return Config{}, err
 	}
-	if err := validateWorkspaceRoot(workspaceRoot); err != nil {
+	if err := validateLoadSettaHomes(profileContext); err != nil {
 		return Config{}, err
 	}
 
-	userConfig, err := loadUserConfig(settaHome)
+	paths, err := resolveLoadPaths(server.Mode, cwd, opts.CLI, profileContext, envLookup)
 	if err != nil {
-		return Config{}, err
-	}
-
-	settaFilesRoot, resolvedLocation, usesExplicitFilesRoot, err := resolveSettaFilesRoot(
-		server.Mode,
-		workspaceRoot,
-		settaHome,
-		userConfig,
-		opts.CLI,
-		profile,
-		envLookup,
-	)
-	if err != nil {
-		return Config{}, err
-	}
-	if err := validateSettaFilesRoot(settaFilesRoot); err != nil {
-		return Config{}, err
-	}
-
-	deploymentRoot, err := resolveDeploymentRoot(server.Mode, trimmed(opts.CLI.DeploymentRoot))
-	if err != nil {
-		return Config{}, err
-	}
-	runtimeRoot, err := resolveRuntimeRoot(
-		server.Mode,
-		settaFilesRoot,
-		deploymentRoot,
-		trimmed(opts.CLI.RuntimeRoot),
-		profile.RuntimeRoot,
-		envLookup,
-	)
-	if err != nil {
-		return Config{}, err
-	}
-	if err := validateRuntimeRoot(runtimeRoot, workspaceRoot); err != nil {
 		return Config{}, err
 	}
 
 	return Config{
 		Server: server,
 		Paths: Paths{
-			WorkspaceRoot:          workspaceRoot,
-			DeploymentRoot:         deploymentRoot,
-			SettaHome:              settaHome,
-			ProfileLookupHome:      profileLookupHome,
-			ProfileName:            profileName,
-			SettaFilesRoot:         settaFilesRoot,
-			ResolvedFilesLocation:  resolvedLocation,
-			UsesExplicitSettaFiles: usesExplicitFilesRoot,
-			RuntimeRoot:            runtimeRoot,
-			AuthCookieName:         profile.AuthCookieName,
+			WorkspaceRoot:          paths.workspaceRoot,
+			DeploymentRoot:         paths.deploymentRoot,
+			SettaHome:              profileContext.settaHome,
+			ProfileLookupHome:      profileContext.profileLookupHome,
+			ProfileName:            profileContext.profileName,
+			SettaFilesRoot:         paths.settaFilesRoot,
+			ResolvedFilesLocation:  paths.resolvedFilesLocation,
+			UsesExplicitSettaFiles: paths.usesExplicitSettaFile,
+			RuntimeRoot:            paths.runtimeRoot,
+			AuthCookieName:         profileContext.profile.AuthCookieName,
 		},
-		User: userConfig,
+		User: paths.userConfig,
+	}, nil
+}
+
+func resolveProfileContext(cli CLIOptions, envLookup func(string) (string, bool)) (resolvedProfileContext, error) {
+	profileName := firstNonEmpty(trimmed(cli.Profile), lookupEnvTrimmed(envLookup, ProfileEnv))
+	if profileName == "" {
+		settaHome, err := resolveSettaHome(trimmed(cli.SettaHome), "", envLookup)
+		if err != nil {
+			return resolvedProfileContext{}, err
+		}
+		return resolvedProfileContext{
+			profileName:       profileName,
+			profileLookupHome: settaHome,
+			settaHome:         settaHome,
+		}, nil
+	}
+
+	profileLookupHome, err := resolveProfileLookupHome(
+		trimmed(cli.ProfileLookupHome),
+		trimmed(cli.SettaHome),
+		envLookup,
+	)
+	if err != nil {
+		return resolvedProfileContext{}, err
+	}
+	profile, err := loadProfile(profileLookupHome, profileName)
+	if err != nil {
+		return resolvedProfileContext{}, err
+	}
+	settaHome, err := resolveSettaHome(trimmed(cli.SettaHome), profile.SettaHome, envLookup)
+	if err != nil {
+		return resolvedProfileContext{}, err
+	}
+	return resolvedProfileContext{
+		profile:           profile,
+		profileName:       profileName,
+		profileLookupHome: profileLookupHome,
+		settaHome:         settaHome,
+	}, nil
+}
+
+func validateLoadSettaHomes(profileContext resolvedProfileContext) error {
+	if err := validateSettaHomeName(profileContext.profileLookupHome, "Setta profile lookup home"); err != nil {
+		return err
+	}
+	return validateSettaHomeName(profileContext.settaHome, "Setta home")
+}
+
+func resolveLoadPaths(
+	mode Mode,
+	cwd string,
+	cli CLIOptions,
+	profileContext resolvedProfileContext,
+	envLookup func(string) (string, bool),
+) (resolvedLoadPaths, error) {
+	workspaceRoot, err := resolveWorkspaceRoot(
+		mode,
+		trimmed(cli.WorkspaceRoot),
+		profileContext.profile.WorkspaceRoot,
+		cwd,
+		envLookup,
+	)
+	if err != nil {
+		return resolvedLoadPaths{}, err
+	}
+	if err := validateWorkspaceRoot(workspaceRoot); err != nil {
+		return resolvedLoadPaths{}, err
+	}
+
+	userConfig, err := loadUserConfig(profileContext.settaHome)
+	if err != nil {
+		return resolvedLoadPaths{}, err
+	}
+	settaFilesRoot, resolvedLocation, usesExplicitFilesRoot, err := resolveSettaFilesRoot(
+		mode,
+		workspaceRoot,
+		profileContext.settaHome,
+		userConfig,
+		cli,
+		profileContext.profile,
+		envLookup,
+	)
+	if err != nil {
+		return resolvedLoadPaths{}, err
+	}
+	if err := validateSettaFilesRoot(settaFilesRoot); err != nil {
+		return resolvedLoadPaths{}, err
+	}
+
+	deploymentRoot, err := resolveDeploymentRoot(mode, trimmed(cli.DeploymentRoot))
+	if err != nil {
+		return resolvedLoadPaths{}, err
+	}
+	runtimeRoot, err := resolveRuntimeRoot(
+		mode,
+		settaFilesRoot,
+		deploymentRoot,
+		trimmed(cli.RuntimeRoot),
+		profileContext.profile.RuntimeRoot,
+		envLookup,
+	)
+	if err != nil {
+		return resolvedLoadPaths{}, err
+	}
+	if err := validateRuntimeRoot(runtimeRoot, workspaceRoot); err != nil {
+		return resolvedLoadPaths{}, err
+	}
+
+	return resolvedLoadPaths{
+		workspaceRoot:         workspaceRoot,
+		deploymentRoot:        deploymentRoot,
+		settaFilesRoot:        settaFilesRoot,
+		resolvedFilesLocation: resolvedLocation,
+		usesExplicitSettaFile: usesExplicitFilesRoot,
+		runtimeRoot:           runtimeRoot,
+		userConfig:            userConfig,
 	}, nil
 }
 
@@ -495,6 +565,11 @@ func resolveWorkspaceRoot(mode Mode, explicitWorkspaceRoot, profileWorkspaceRoot
 	}
 }
 
+type settaFilesSelection struct {
+	rootRaw     string
+	locationRaw string
+}
+
 func resolveSettaFilesRoot(
 	mode Mode,
 	workspaceRoot string,
@@ -509,6 +584,26 @@ func resolveSettaFilesRoot(
 		return "", "", false, err
 	}
 
+	selection, err := selectSettaFilesRoot(mode, cli, profile, envLookup)
+	if err != nil {
+		return "", "", false, err
+	}
+	if selection.rootRaw != "" {
+		return resolveExplicitSettaFilesRoot(selection.rootRaw)
+	}
+	selectedLocation, err := parseFilesLocation(selection.locationRaw)
+	if err != nil {
+		return "", "", false, err
+	}
+	return resolveLocationBackedSettaFilesRoot(localRoot, workspaceRoot, settaHome, userConfig, selectedLocation)
+}
+
+func selectSettaFilesRoot(
+	mode Mode,
+	cli CLIOptions,
+	profile profileConfig,
+	envLookup func(string) (string, bool),
+) (settaFilesSelection, error) {
 	explicitRootRaw := trimmed(cli.SettaFilesRoot)
 	explicitLocationRaw := trimmed(cli.SettaFilesLocation)
 	profileRootRaw := profile.SettaFilesRoot
@@ -516,60 +611,66 @@ func resolveSettaFilesRoot(
 	envRootRaw := lookupEnvTrimmed(envLookup, FilesRootEnv)
 	envLocationRaw := lookupEnvTrimmed(envLookup, FilesLocationEnv)
 
-	if explicitRootRaw != "" && explicitLocationRaw != "" {
-		return "", "", false, newConfigError(
-			"InvalidSettaFilesConfig",
-			"cannot use --setta-files-root together with --setta-files-location",
-			nil,
-		)
+	if err := validateConflictingSettaFilesSelection(
+		explicitRootRaw,
+		explicitLocationRaw,
+		"cannot use --setta-files-root together with --setta-files-location",
+	); err != nil {
+		return settaFilesSelection{}, err
 	}
-	if envRootRaw != "" && envLocationRaw != "" {
-		return "", "", false, newConfigError(
-			"InvalidSettaFilesConfig",
-			fmt.Sprintf("environment variables %s and %s cannot both be set", FilesRootEnv, FilesLocationEnv),
-			nil,
-		)
+	if err := validateConflictingSettaFilesSelection(
+		envRootRaw,
+		envLocationRaw,
+		fmt.Sprintf("environment variables %s and %s cannot both be set", FilesRootEnv, FilesLocationEnv),
+	); err != nil {
+		return settaFilesSelection{}, err
 	}
 
-	selectedRootRaw := ""
-	selectedLocationRaw := ""
 	switch {
 	case explicitRootRaw != "":
-		selectedRootRaw = explicitRootRaw
+		return settaFilesSelection{rootRaw: explicitRootRaw}, nil
 	case explicitLocationRaw != "":
-		selectedLocationRaw = explicitLocationRaw
+		return settaFilesSelection{locationRaw: explicitLocationRaw}, nil
 	case profileRootRaw != "":
-		selectedRootRaw = profileRootRaw
+		return settaFilesSelection{rootRaw: profileRootRaw}, nil
 	case profileLocationRaw != "":
-		selectedLocationRaw = profileLocationRaw
+		return settaFilesSelection{locationRaw: profileLocationRaw}, nil
 	case envRootRaw != "":
-		selectedRootRaw = envRootRaw
+		return settaFilesSelection{rootRaw: envRootRaw}, nil
 	case envLocationRaw != "":
-		selectedLocationRaw = envLocationRaw
+		return settaFilesSelection{locationRaw: envLocationRaw}, nil
+	case mode == ModeLauncher:
+		return settaFilesSelection{locationRaw: string(FilesLocationGlobal)}, nil
 	default:
-		if mode == ModeLauncher {
-			selectedLocationRaw = string(FilesLocationGlobal)
-		} else {
-			selectedLocationRaw = string(FilesLocationAuto)
-		}
+		return settaFilesSelection{locationRaw: string(FilesLocationAuto)}, nil
 	}
+}
 
-	if selectedRootRaw != "" {
-		selectedRoot, err := resolvePath(selectedRootRaw, "")
-		if err != nil {
-			return "", "", false, err
-		}
-		if err := validateExistingDir(selectedRoot, "setta files root"); err != nil {
-			return "", "", false, newConfigError("InvalidSettaFilesRoot", err.Error(), err)
-		}
-		return selectedRoot, ResolvedFilesLocationLocal, true, nil
+func validateConflictingSettaFilesSelection(rootRaw, locationRaw, message string) error {
+	if rootRaw == "" || locationRaw == "" {
+		return nil
 	}
+	return newConfigError("InvalidSettaFilesConfig", message, nil)
+}
 
-	selectedLocation, err := parseFilesLocation(selectedLocationRaw)
+func resolveExplicitSettaFilesRoot(selectedRootRaw string) (string, ResolvedFilesLocation, bool, error) {
+	selectedRoot, err := resolvePath(selectedRootRaw, "")
 	if err != nil {
 		return "", "", false, err
 	}
+	if err := validateExistingDir(selectedRoot, "setta files root"); err != nil {
+		return "", "", false, newConfigError("InvalidSettaFilesRoot", err.Error(), err)
+	}
+	return selectedRoot, ResolvedFilesLocationLocal, true, nil
+}
 
+func resolveLocationBackedSettaFilesRoot(
+	localRoot string,
+	workspaceRoot string,
+	settaHome string,
+	userConfig UserConfig,
+	selectedLocation FilesLocation,
+) (string, ResolvedFilesLocation, bool, error) {
 	if err := validateExistingDir(localRoot, "local setta_files path"); err != nil {
 		return "", "", false, newConfigError("InvalidSettaFilesRoot", err.Error(), err)
 	}
@@ -580,19 +681,30 @@ func resolveSettaFilesRoot(
 		return localRoot, ResolvedFilesLocationLocal, false, nil
 	}
 
-	globalBase, err := resolvePath(userConfig.GlobalSettaFilesBase, settaHome)
+	globalRoot, err := resolveGlobalSettaFilesRoot(workspaceRoot, settaHome, userConfig)
 	if err != nil {
 		return "", "", false, err
-	}
-	globalRoot := buildFilesRootFromBase(globalBase, workspaceRoot)
-	if err := validateExistingDir(globalRoot, "global setta_files path"); err != nil {
-		return "", "", false, newConfigError("InvalidSettaFilesRoot", err.Error(), err)
 	}
 	if selectedLocation == FilesLocationGlobal {
 		return globalRoot, ResolvedFilesLocationGlobal, false, nil
 	}
+	return resolveAutoSettaFilesRoot(localRoot, globalRoot, userConfig.AutoMode)
+}
 
-	switch userConfig.AutoMode {
+func resolveGlobalSettaFilesRoot(workspaceRoot string, settaHome string, userConfig UserConfig) (string, error) {
+	globalBase, err := resolvePath(userConfig.GlobalSettaFilesBase, settaHome)
+	if err != nil {
+		return "", err
+	}
+	globalRoot := buildFilesRootFromBase(globalBase, workspaceRoot)
+	if err := validateExistingDir(globalRoot, "global setta_files path"); err != nil {
+		return "", newConfigError("InvalidSettaFilesRoot", err.Error(), err)
+	}
+	return globalRoot, nil
+}
+
+func resolveAutoSettaFilesRoot(localRoot, globalRoot string, autoMode AutoMode) (string, ResolvedFilesLocation, bool, error) {
+	switch autoMode {
 	case AutoModeCreateLocal:
 		return localRoot, ResolvedFilesLocationLocal, false, nil
 	case AutoModeUseGlobalIfExists:
@@ -603,7 +715,7 @@ func resolveSettaFilesRoot(
 	case AutoModeCreateGlobal:
 		return globalRoot, ResolvedFilesLocationGlobal, false, nil
 	default:
-		return "", "", false, fmt.Errorf("unsupported auto mode %q", userConfig.AutoMode)
+		return "", "", false, fmt.Errorf("unsupported auto mode %q", autoMode)
 	}
 }
 
@@ -705,73 +817,25 @@ func loadUserConfig(settaHome string) (UserConfig, error) {
 }
 
 func loadProfile(settaHome string, profileName string) (profileConfig, error) {
-	trimmedName := trimmed(profileName)
-	if trimmedName == "" {
-		return profileConfig{}, newConfigError("InvalidSettaProfile", "missing profile name", nil)
-	}
-	if trimmedName == "." || trimmedName == ".." || strings.ContainsAny(trimmedName, "/\\") {
-		return profileConfig{}, newConfigError("InvalidSettaProfile", fmt.Sprintf("invalid profile name %q", profileName), nil)
-	}
-
-	profilePath := filepath.Join(settaHome, "profiles", trimmedName+".json")
-	content, err := os.ReadFile(profilePath)
+	trimmedName, err := validateProfileName(profileName)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return profileConfig{}, newConfigError("UnknownSettaProfile", fmt.Sprintf("unknown setta profile %q", trimmedName), err)
-		}
-		return profileConfig{}, newConfigError("InvalidSettaProfile", fmt.Sprintf("read setta profile: %v", err), err)
+		return profileConfig{}, err
 	}
-
-	var raw struct {
-		Name               string `json:"name"`
-		WorkspaceRoot      string `json:"workspaceRoot"`
-		SettaHome          string `json:"settaHome"`
-		SettaFilesRoot     string `json:"settaFilesRoot"`
-		RuntimeRoot        string `json:"runtimeRoot"`
-		SettaFilesLocation string `json:"settaFilesLocation"`
-		AuthCookieName     string `json:"authCookieName"`
-	}
-	if err := json.Unmarshal(content, &raw); err != nil {
-		return profileConfig{}, newConfigError("InvalidSettaProfile", fmt.Sprintf("invalid json in setta profile: %v", err), err)
-	}
-
-	if raw.Name != "" && trimmed(raw.Name) != trimmedName {
-		return profileConfig{}, newConfigError(
-			"InvalidSettaProfile",
-			fmt.Sprintf("profile name mismatch: expected %q, got %q", trimmedName, trimmed(raw.Name)),
-			nil,
-		)
-	}
-
-	location, err := parseOptionalFilesLocation(raw.SettaFilesLocation)
+	raw, err := readRawProfileConfig(settaHome, trimmedName)
 	if err != nil {
-		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
+		return profileConfig{}, err
 	}
-	if trimmed(raw.SettaFilesRoot) != "" && location != "" {
-		return profileConfig{}, newConfigError(
-			"InvalidSettaProfile",
-			"profile config cannot set both settaFilesRoot and settaFilesLocation",
-			nil,
-		)
+	if err := validateProfileNameMatch(trimmedName, raw.Name); err != nil {
+		return profileConfig{}, err
 	}
-
-	workspaceRoot, err := resolveOptionalPath(raw.WorkspaceRoot, settaHome)
+	location, err := parseProfileFilesLocation(raw)
 	if err != nil {
-		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
+		return profileConfig{}, err
 	}
-	profileSettaHome, err := resolveOptionalPath(raw.SettaHome, settaHome)
+	workspaceRoot, profileSettaHome, settaFilesRoot, runtimeRoot, err := resolveProfilePaths(raw, settaHome)
 	if err != nil {
-		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
+		return profileConfig{}, err
 	}
-	settaFilesRoot, err := resolveOptionalPath(raw.SettaFilesRoot, settaHome)
-	if err != nil {
-		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
-	}
-	runtimeRoot, err := resolveOptionalPath(raw.RuntimeRoot, settaHome)
-	if err != nil {
-		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
-	}
-
 	return profileConfig{
 		Name:               trimmedName,
 		WorkspaceRoot:      workspaceRoot,
@@ -781,6 +845,80 @@ func loadProfile(settaHome string, profileName string) (profileConfig, error) {
 		SettaFilesLocation: location,
 		AuthCookieName:     trimmed(raw.AuthCookieName),
 	}, nil
+}
+
+func validateProfileName(profileName string) (string, error) {
+	trimmedName := trimmed(profileName)
+	if trimmedName == "" {
+		return "", newConfigError("InvalidSettaProfile", "missing profile name", nil)
+	}
+	if trimmedName == "." || trimmedName == ".." || strings.ContainsAny(trimmedName, "/\\") {
+		return "", newConfigError("InvalidSettaProfile", fmt.Sprintf("invalid profile name %q", profileName), nil)
+	}
+	return trimmedName, nil
+}
+
+func readRawProfileConfig(settaHome string, trimmedName string) (rawProfileConfig, error) {
+	profilePath := filepath.Join(settaHome, "profiles", trimmedName+".json")
+	content, err := os.ReadFile(profilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return rawProfileConfig{}, newConfigError("UnknownSettaProfile", fmt.Sprintf("unknown setta profile %q", trimmedName), err)
+		}
+		return rawProfileConfig{}, newConfigError("InvalidSettaProfile", fmt.Sprintf("read setta profile: %v", err), err)
+	}
+
+	var raw rawProfileConfig
+	if err := json.Unmarshal(content, &raw); err != nil {
+		return rawProfileConfig{}, newConfigError("InvalidSettaProfile", fmt.Sprintf("invalid json in setta profile: %v", err), err)
+	}
+	return raw, nil
+}
+
+func validateProfileNameMatch(expectedName string, rawName string) error {
+	if rawName == "" || trimmed(rawName) == expectedName {
+		return nil
+	}
+	return newConfigError(
+		"InvalidSettaProfile",
+		fmt.Sprintf("profile name mismatch: expected %q, got %q", expectedName, trimmed(rawName)),
+		nil,
+	)
+}
+
+func parseProfileFilesLocation(raw rawProfileConfig) (FilesLocation, error) {
+	location, err := parseOptionalFilesLocation(raw.SettaFilesLocation)
+	if err != nil {
+		return "", newConfigError("InvalidSettaProfile", err.Error(), err)
+	}
+	if trimmed(raw.SettaFilesRoot) != "" && location != "" {
+		return "", newConfigError(
+			"InvalidSettaProfile",
+			"profile config cannot set both settaFilesRoot and settaFilesLocation",
+			nil,
+		)
+	}
+	return location, nil
+}
+
+func resolveProfilePaths(raw rawProfileConfig, settaHome string) (string, string, string, string, error) {
+	workspaceRoot, err := resolveOptionalPath(raw.WorkspaceRoot, settaHome)
+	if err != nil {
+		return "", "", "", "", newConfigError("InvalidSettaProfile", err.Error(), err)
+	}
+	profileSettaHome, err := resolveOptionalPath(raw.SettaHome, settaHome)
+	if err != nil {
+		return "", "", "", "", newConfigError("InvalidSettaProfile", err.Error(), err)
+	}
+	settaFilesRoot, err := resolveOptionalPath(raw.SettaFilesRoot, settaHome)
+	if err != nil {
+		return "", "", "", "", newConfigError("InvalidSettaProfile", err.Error(), err)
+	}
+	runtimeRoot, err := resolveOptionalPath(raw.RuntimeRoot, settaHome)
+	if err != nil {
+		return "", "", "", "", newConfigError("InvalidSettaProfile", err.Error(), err)
+	}
+	return workspaceRoot, profileSettaHome, settaFilesRoot, runtimeRoot, nil
 }
 
 func parseFilesLocation(raw string) (FilesLocation, error) {
