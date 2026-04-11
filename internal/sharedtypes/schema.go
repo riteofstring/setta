@@ -117,81 +117,133 @@ func schemaForType(t reflect.Type) (*jsonschema.Schema, error) {
 }
 
 func normalizeSchemaForType(t reflect.Type, schema *jsonschema.Schema) error {
-	for t != nil && t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = canonicalType(t)
 	if t == nil || schema == nil {
 		return nil
 	}
 
-	if enumSchema, ok, err := enumSchemaForType(t); err != nil {
+	if authoritativeSchema, ok, err := authoritativeSchemaForType(t); err != nil {
 		return err
 	} else if ok {
-		*schema = *enumSchema
-		return nil
-	}
-	if unionSchema, ok, err := unionSchemaForType(t); err != nil {
-		return err
-	} else if ok {
-		*schema = *unionSchema
+		*schema = *authoritativeSchema
 		return nil
 	}
 
+	return normalizeSchemaByKind(t, schema)
+}
+
+func authoritativeSchemaForType(t reflect.Type) (*jsonschema.Schema, bool, error) {
+	if enumSchema, ok, err := enumSchemaForType(t); err != nil || ok {
+		return enumSchema, ok, err
+	}
+	return unionSchemaForType(t)
+}
+
+func normalizeSchemaByKind(t reflect.Type, schema *jsonschema.Schema) error {
 	switch t.Kind() {
 	case reflect.Slice, reflect.Array:
-		if schema.Items != nil {
-			if refSchema, ok, err := nestedSharedSchemaForType(t.Elem(), schemaAllowsNull(schema.Items)); err != nil {
-				return err
-			} else if ok {
-				schema.Items = refSchema
-				return nil
-			}
-			return normalizeSchemaForType(t.Elem(), schema.Items)
-		}
+		return normalizeCollectionSchema(t.Elem(), schema)
 	case reflect.Map:
-		if schema.AdditionalProperties != nil {
-			if refSchema, ok, err := nestedSharedSchemaForType(t.Elem(), schemaAllowsNull(schema.AdditionalProperties)); err != nil {
-				return err
-			} else if ok {
-				schema.AdditionalProperties = refSchema
-				return nil
-			}
-			return normalizeSchemaForType(t.Elem(), schema.AdditionalProperties)
-		}
+		return normalizeMapSchema(t.Elem(), schema)
 	case reflect.Struct:
-		for index := 0; index < t.NumField(); index++ {
-			field := t.Field(index)
-			if !field.IsExported() || field.Tag.Get("json") == "-" {
-				continue
-			}
-			propertyName, ok := jsonFieldName(field)
-			if !ok {
-				continue
-			}
-			propertySchema := schema.Properties[propertyName]
-			if propertySchema == nil {
-				continue
-			}
-			if overriddenSchema, overridden, err := sharedSchemaOverrideForField(field, propertySchema); err != nil {
-				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
-			} else if overridden {
-				propertySchema = overriddenSchema
-				schema.Properties[propertyName] = propertySchema
-			} else if refSchema, ok, err := nestedSharedSchemaForType(field.Type, schemaAllowsNull(propertySchema)); err != nil {
-				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
-			} else if ok {
-				propertySchema = refSchema
-				schema.Properties[propertyName] = propertySchema
-			} else if err := normalizeSchemaForType(field.Type, propertySchema); err != nil {
-				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
-			}
-			if err := applySchemaDefaultForField(t, field, propertySchema); err != nil {
-				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
-			}
-		}
+		return normalizeStructSchema(t, schema)
 	}
 
 	return nil
+}
+
+func normalizeCollectionSchema(elemType reflect.Type, schema *jsonschema.Schema) error {
+	if schema == nil || schema.Items == nil {
+		return nil
+	}
+	itemSchema, err := normalizedNestedSchemaForType(elemType, schema.Items)
+	if err != nil {
+		return err
+	}
+	schema.Items = itemSchema
+	return nil
+}
+
+func normalizeMapSchema(elemType reflect.Type, schema *jsonschema.Schema) error {
+	if schema == nil || schema.AdditionalProperties == nil {
+		return nil
+	}
+	valueSchema, err := normalizedNestedSchemaForType(elemType, schema.AdditionalProperties)
+	if err != nil {
+		return err
+	}
+	schema.AdditionalProperties = valueSchema
+	return nil
+}
+
+func normalizeStructSchema(t reflect.Type, schema *jsonschema.Schema) error {
+	if schema == nil {
+		return nil
+	}
+	for index := 0; index < t.NumField(); index++ {
+		field := t.Field(index)
+		if !field.IsExported() {
+			continue
+		}
+		if err := normalizeStructFieldSchema(t, field, schema); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func normalizeStructFieldSchema(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	schema *jsonschema.Schema,
+) error {
+	propertyName, ok := jsonFieldName(field)
+	if !ok {
+		return nil
+	}
+	propertySchema := schema.Properties[propertyName]
+	if propertySchema == nil {
+		return nil
+	}
+	normalizedSchema, err := normalizedSchemaForField(field, propertySchema)
+	if err != nil {
+		return fmt.Errorf("%s.%s: %w", ownerType, field.Name, err)
+	}
+	schema.Properties[propertyName] = normalizedSchema
+	if err := applySchemaDefaultForField(ownerType, field, normalizedSchema); err != nil {
+		return fmt.Errorf("%s.%s: %w", ownerType, field.Name, err)
+	}
+	return nil
+}
+
+func normalizedSchemaForField(
+	field reflect.StructField,
+	existing *jsonschema.Schema,
+) (*jsonschema.Schema, error) {
+	if overriddenSchema, overridden, err := sharedSchemaOverrideForField(field, existing); err != nil {
+		return nil, err
+	} else if overridden {
+		return overriddenSchema, nil
+	}
+	return normalizedNestedSchemaForType(field.Type, existing)
+}
+
+func normalizedNestedSchemaForType(
+	t reflect.Type,
+	existing *jsonschema.Schema,
+) (*jsonschema.Schema, error) {
+	if existing == nil {
+		return nil, nil
+	}
+	if refSchema, ok, err := nestedSharedSchemaForType(t, schemaAllowsNull(existing)); err != nil {
+		return nil, err
+	} else if ok {
+		return refSchema, nil
+	}
+	if err := normalizeSchemaForType(t, existing); err != nil {
+		return nil, err
+	}
+	return existing, nil
 }
 
 func applySchemaDefaultForField(
@@ -226,6 +278,26 @@ func schemaDefaultValueForField(
 		return nil, false, nil
 	}
 
+	if defaultValue, ok, err := schemaTaggedDefaultValue(ownerType, field, defaultTag); err != nil || ok {
+		return defaultValue, ok, err
+	}
+	if scalarValue, ok := schemaParsedScalarDefaultValue(defaultTag); ok {
+		return scalarValue, true, nil
+	}
+	if enumValue, ok, err := schemaEnumDefaultValue(field.Type, defaultTag); err != nil {
+		return nil, false, err
+	} else if ok {
+		return enumValue, true, nil
+	}
+
+	return nil, false, nil
+}
+
+func schemaTaggedDefaultValue(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	defaultTag string,
+) (any, bool, error) {
 	switch defaultTag {
 	case "go_value":
 		return schemaGoDefaultValueForField(ownerType, field)
@@ -239,24 +311,22 @@ func schemaDefaultValueForField(
 		return false, true, nil
 	case "None":
 		return nil, true, nil
+	default:
+		return nil, false, nil
 	}
+}
 
+func schemaParsedScalarDefaultValue(defaultTag string) (any, bool) {
 	if unquoted, err := strconv.Unquote(defaultTag); err == nil {
-		return unquoted, true, nil
+		return unquoted, true
 	}
 	if integerValue, err := strconv.ParseInt(defaultTag, 10, 64); err == nil {
-		return integerValue, true, nil
+		return integerValue, true
 	}
 	if floatValue, err := strconv.ParseFloat(defaultTag, 64); err == nil {
-		return floatValue, true, nil
+		return floatValue, true
 	}
-	if enumValue, ok, err := schemaEnumDefaultValue(field.Type, defaultTag); err != nil {
-		return nil, false, err
-	} else if ok {
-		return enumValue, true, nil
-	}
-
-	return nil, false, nil
+	return nil, false
 }
 
 func schemaGoDefaultValueForField(
@@ -297,19 +367,13 @@ func schemaEnumDefaultValue(
 	fieldType reflect.Type,
 	defaultExpr string,
 ) (string, bool, error) {
-	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
-		fieldType = fieldType.Elem()
-	}
-	if fieldType == nil || fieldType.Kind() != reflect.String || fieldType.Name() == "" {
+	fieldType = canonicalType(fieldType)
+	if !schemaSupportsEnumDefault(fieldType) {
 		return "", false, nil
 	}
 
-	typeName, memberName, ok := strings.Cut(defaultExpr, ".")
-	if !ok || strings.TrimSpace(typeName) != fieldType.Name() {
-		return "", false, nil
-	}
-	memberName = strings.TrimSpace(memberName)
-	if memberName == "" {
+	memberName, ok := schemaEnumDefaultMemberName(fieldType, defaultExpr)
+	if !ok {
 		return "", false, nil
 	}
 
@@ -317,12 +381,33 @@ func schemaEnumDefaultValue(
 	if err != nil || !ok {
 		return "", false, err
 	}
+	enumValue, ok := schemaEnumValueByMember(values, memberName)
+	return enumValue, ok, nil
+}
+
+func schemaSupportsEnumDefault(fieldType reflect.Type) bool {
+	return fieldType != nil && fieldType.Kind() == reflect.String && fieldType.Name() != ""
+}
+
+func schemaEnumDefaultMemberName(fieldType reflect.Type, defaultExpr string) (string, bool) {
+	typeName, memberName, ok := strings.Cut(defaultExpr, ".")
+	if !ok || strings.TrimSpace(typeName) != fieldType.Name() {
+		return "", false
+	}
+	memberName = strings.TrimSpace(memberName)
+	return memberName, memberName != ""
+}
+
+func schemaEnumValueByMember(
+	values []stringenumvalues.EnumValue,
+	memberName string,
+) (string, bool) {
 	for _, value := range values {
 		if value.Name == memberName {
-			return value.Value, true, nil
+			return value.Value, true
 		}
 	}
-	return "", false, nil
+	return "", false
 }
 
 func enumSchemaForType(t reflect.Type) (*jsonschema.Schema, bool, error) {
@@ -414,34 +499,11 @@ func nestedSharedSchemaForType(t reflect.Type, nullable bool) (*jsonschema.Schem
 		return nil, false, nil
 	}
 
-	if baseType == sharedSchemaTimeType {
-		specialSchema, _, err := specialSchemaForType(baseType)
-		if err != nil {
-			return nil, false, err
-		}
-		if nullable || isNullable {
-			return &jsonschema.Schema{
-				AnyOf: []*jsonschema.Schema{
-					specialSchema,
-					{Type: "null"},
-				},
-			}, true, nil
-		}
-		return specialSchema, true, nil
-	}
-
-	if specialSchema, ok, err := specialSchemaForType(baseType); err != nil {
+	allowNull := nullable || isNullable
+	if specialSchema, ok, err := nestedSpecialSchemaForType(baseType); err != nil {
 		return nil, false, err
-	} else if ok && strings.TrimSpace(ContractNameForType(baseType)) == "" {
-		if nullable || isNullable {
-			return &jsonschema.Schema{
-				AnyOf: []*jsonschema.Schema{
-					specialSchema,
-					{Type: "null"},
-				},
-			}, true, nil
-		}
-		return specialSchema, true, nil
+	} else if ok {
+		return maybeNullableSchema(specialSchema, allowNull), true, nil
 	}
 
 	contractName := strings.TrimSpace(ContractNameForType(baseType))
@@ -456,15 +518,33 @@ func nestedSharedSchemaForType(t reflect.Type, nullable bool) (*jsonschema.Schem
 	if err != nil {
 		return nil, false, err
 	}
-	if nullable || isNullable {
-		return &jsonschema.Schema{
-			AnyOf: []*jsonschema.Schema{
-				refSchema,
-				{Type: "null"},
-			},
-		}, true, nil
+	return maybeNullableSchema(refSchema, allowNull), true, nil
+}
+
+func nestedSpecialSchemaForType(baseType reflect.Type) (*jsonschema.Schema, bool, error) {
+	if baseType == sharedSchemaTimeType {
+		return specialSchemaForType(baseType)
 	}
-	return refSchema, true, nil
+	specialSchema, ok, err := specialSchemaForType(baseType)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	if strings.TrimSpace(ContractNameForType(baseType)) != "" {
+		return nil, false, nil
+	}
+	return specialSchema, true, nil
+}
+
+func maybeNullableSchema(schema *jsonschema.Schema, nullable bool) *jsonschema.Schema {
+	if !nullable {
+		return schema
+	}
+	return &jsonschema.Schema{
+		AnyOf: []*jsonschema.Schema{
+			schema,
+			{Type: "null"},
+		},
+	}
 }
 
 func rawJSONSchema() *jsonschema.Schema {

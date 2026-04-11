@@ -384,6 +384,29 @@ func TestBuildSchemaDocumentUsesSharedSchemaOverridesForRawCarrierFields(t *test
 	}
 }
 
+func TestSchemaForTypeNormalizesNestedSharedRefsAndDefaults(t *testing.T) {
+	t.Parallel()
+
+	chatStateSchema, err := schemaForType(reflect.TypeOf(projectstate.ChatSectionState{}))
+	if err != nil {
+		t.Fatalf("schemaForType(ChatSectionState) error = %v", err)
+	}
+	if got := chatStateSchema.Properties["messages"].Items.Ref; got != "#/$defs/BaseChatMessageUnion" {
+		t.Fatalf("ChatSectionState.messages items ref = %q, want %q", got, "#/$defs/BaseChatMessageUnion")
+	}
+	if got := chatStateSchema.Properties["branches"].AdditionalProperties.Ref; got != "#/$defs/ChatSectionBranch" {
+		t.Fatalf("ChatSectionState.branches additionalProperties ref = %q, want %q", got, "#/$defs/ChatSectionBranch")
+	}
+
+	viewportSchema, err := schemaForType(reflect.TypeOf(projectstate.Viewport{}))
+	if err != nil {
+		t.Fatalf("schemaForType(Viewport) error = %v", err)
+	}
+	if got := decodeSchemaDefaultFloat(t, viewportSchema.Properties["zoom"]); got != 1 {
+		t.Fatalf("Viewport.zoom default = %v, want 1", got)
+	}
+}
+
 func TestBuildSchemaDocumentUsesSpecialSchemasForRecursiveJSONAndSyntheticUnions(t *testing.T) {
 	t.Parallel()
 
