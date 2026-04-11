@@ -376,78 +376,90 @@ func yamlNodeFromJSONDecoder(decoder *json.Decoder) (*yaml.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	return yamlNodeFromJSONToken(decoder, token)
+}
 
+func yamlNodeFromJSONToken(decoder *json.Decoder, token json.Token) (*yaml.Node, error) {
 	switch typed := token.(type) {
 	case json.Delim:
-		switch typed {
-		case '{':
-			node := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
-			for decoder.More() {
-				keyToken, err := decoder.Token()
-				if err != nil {
-					return nil, err
-				}
-				key, ok := keyToken.(string)
-				if !ok {
-					return nil, fmt.Errorf("expected object key, got %T", keyToken)
-				}
-				valueNode, err := yamlNodeFromJSONDecoder(decoder)
-				if err != nil {
-					return nil, err
-				}
-				node.Content = append(node.Content,
-					&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
-					valueNode,
-				)
-			}
-			endToken, err := decoder.Token()
-			if err != nil {
-				return nil, err
-			}
-			if end, ok := endToken.(json.Delim); !ok || end != '}' {
-				return nil, fmt.Errorf("expected object terminator, got %v", endToken)
-			}
-			return node, nil
-		case '[':
-			node := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
-			for decoder.More() {
-				child, err := yamlNodeFromJSONDecoder(decoder)
-				if err != nil {
-					return nil, err
-				}
-				node.Content = append(node.Content, child)
-			}
-			endToken, err := decoder.Token()
-			if err != nil {
-				return nil, err
-			}
-			if end, ok := endToken.(json.Delim); !ok || end != ']' {
-				return nil, fmt.Errorf("expected array terminator, got %v", endToken)
-			}
-			return node, nil
-		default:
-			return nil, fmt.Errorf("unsupported json delimiter %q", typed)
-		}
+		return yamlNodeFromJSONDelimiter(decoder, typed)
 	case nil:
-		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"}, nil
+		return newYAMLScalarNode("!!null", "null"), nil
 	case bool:
-		if typed {
-			return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "true"}, nil
-		}
-		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"}, nil
+		return newYAMLBoolNode(typed), nil
 	case string:
-		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: typed}, nil
+		return newYAMLScalarNode("!!str", typed), nil
 	case json.Number:
-		tag := "!!int"
-		if strings.ContainsAny(typed.String(), ".eE") {
-			tag = "!!float"
-		}
-		return &yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: typed.String()}, nil
+		return newYAMLNumberNode(typed.String()), nil
 	case float64:
-		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!float", Value: strconv.FormatFloat(typed, 'g', -1, 64)}, nil
+		return newYAMLScalarNode("!!float", strconv.FormatFloat(typed, 'g', -1, 64)), nil
 	default:
 		return nil, fmt.Errorf("unsupported json token %T", token)
 	}
+}
+
+func yamlNodeFromJSONDelimiter(decoder *json.Decoder, delimiter json.Delim) (*yaml.Node, error) {
+	switch delimiter {
+	case '{':
+		return yamlMappingNodeFromJSONDecoder(decoder)
+	case '[':
+		return yamlSequenceNodeFromJSONDecoder(decoder)
+	default:
+		return nil, fmt.Errorf("unsupported json delimiter %q", delimiter)
+	}
+}
+
+func yamlMappingNodeFromJSONDecoder(decoder *json.Decoder) (*yaml.Node, error) {
+	node := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	for decoder.More() {
+		key, err := nextJSONObjectKey(decoder)
+		if err != nil {
+			return nil, err
+		}
+		valueNode, err := yamlNodeFromJSONDecoder(decoder)
+		if err != nil {
+			return nil, err
+		}
+		node.Content = append(node.Content, newYAMLScalarNode("!!str", key), valueNode)
+	}
+	if err := consumeJSONDelimiter(decoder, '}', "object terminator"); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+func yamlSequenceNodeFromJSONDecoder(decoder *json.Decoder) (*yaml.Node, error) {
+	node := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+	for decoder.More() {
+		child, err := yamlNodeFromJSONDecoder(decoder)
+		if err != nil {
+			return nil, err
+		}
+		node.Content = append(node.Content, child)
+	}
+	if err := consumeJSONDelimiter(decoder, ']', "array terminator"); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+func newYAMLScalarNode(tag string, value string) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: value}
+}
+
+func newYAMLBoolNode(value bool) *yaml.Node {
+	if value {
+		return newYAMLScalarNode("!!bool", "true")
+	}
+	return newYAMLScalarNode("!!bool", "false")
+}
+
+func newYAMLNumberNode(value string) *yaml.Node {
+	tag := "!!int"
+	if strings.ContainsAny(value, ".eE") {
+		tag = "!!float"
+	}
+	return newYAMLScalarNode(tag, value)
 }
 
 func marshalOrderedTOMLObject(payload JSONSourceObject) ([]byte, error) {
@@ -504,73 +516,17 @@ func writeTOMLValueFromJSONDecoder(builder *strings.Builder, decoder *json.Decod
 	if err != nil {
 		return err
 	}
+	return writeTOMLValueFromJSONToken(builder, decoder, token)
+}
 
+func writeTOMLValueFromJSONToken(builder *strings.Builder, decoder *json.Decoder, token json.Token) error {
 	switch typed := token.(type) {
 	case json.Delim:
-		switch typed {
-		case '{':
-			builder.WriteString("{ ")
-			index := 0
-			for decoder.More() {
-				keyToken, err := decoder.Token()
-				if err != nil {
-					return err
-				}
-				key, ok := keyToken.(string)
-				if !ok {
-					return fmt.Errorf("expected object key, got %T", keyToken)
-				}
-				if index > 0 {
-					builder.WriteString(", ")
-				}
-				builder.WriteString(quoteTOMLKey(key))
-				builder.WriteString(" = ")
-				if err := writeTOMLValueFromJSONDecoder(builder, decoder); err != nil {
-					return err
-				}
-				index++
-			}
-			endToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			if end, ok := endToken.(json.Delim); !ok || end != '}' {
-				return fmt.Errorf("expected object terminator, got %v", endToken)
-			}
-			builder.WriteString(" }")
-			return nil
-		case '[':
-			builder.WriteString("[")
-			index := 0
-			for decoder.More() {
-				if index > 0 {
-					builder.WriteString(", ")
-				}
-				if err := writeTOMLValueFromJSONDecoder(builder, decoder); err != nil {
-					return err
-				}
-				index++
-			}
-			endToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			if end, ok := endToken.(json.Delim); !ok || end != ']' {
-				return fmt.Errorf("expected array terminator, got %v", endToken)
-			}
-			builder.WriteString("]")
-			return nil
-		default:
-			return fmt.Errorf("unsupported json delimiter %q", typed)
-		}
+		return writeTOMLValueFromJSONDelimiter(builder, decoder, typed)
 	case nil:
 		return fmt.Errorf("json source values must use TOML-compatible types, got null")
 	case bool:
-		if typed {
-			builder.WriteString("true")
-		} else {
-			builder.WriteString("false")
-		}
+		writeTOMLBoolValue(builder, typed)
 		return nil
 	case string:
 		builder.WriteString(strconv.Quote(typed))
@@ -584,6 +540,88 @@ func writeTOMLValueFromJSONDecoder(builder *strings.Builder, decoder *json.Decod
 	default:
 		return fmt.Errorf("unsupported json token %T", token)
 	}
+}
+
+func writeTOMLValueFromJSONDelimiter(builder *strings.Builder, decoder *json.Decoder, delimiter json.Delim) error {
+	switch delimiter {
+	case '{':
+		return writeTOMLObjectFromJSONDecoder(builder, decoder)
+	case '[':
+		return writeTOMLArrayFromJSONDecoder(builder, decoder)
+	default:
+		return fmt.Errorf("unsupported json delimiter %q", delimiter)
+	}
+}
+
+func writeTOMLObjectFromJSONDecoder(builder *strings.Builder, decoder *json.Decoder) error {
+	builder.WriteString("{ ")
+	for index := 0; decoder.More(); index++ {
+		if index > 0 {
+			builder.WriteString(", ")
+		}
+		key, err := nextJSONObjectKey(decoder)
+		if err != nil {
+			return err
+		}
+		builder.WriteString(quoteTOMLKey(key))
+		builder.WriteString(" = ")
+		if err := writeTOMLValueFromJSONDecoder(builder, decoder); err != nil {
+			return err
+		}
+	}
+	if err := consumeJSONDelimiter(decoder, '}', "object terminator"); err != nil {
+		return err
+	}
+	builder.WriteString(" }")
+	return nil
+}
+
+func writeTOMLArrayFromJSONDecoder(builder *strings.Builder, decoder *json.Decoder) error {
+	builder.WriteString("[")
+	for index := 0; decoder.More(); index++ {
+		if index > 0 {
+			builder.WriteString(", ")
+		}
+		if err := writeTOMLValueFromJSONDecoder(builder, decoder); err != nil {
+			return err
+		}
+	}
+	if err := consumeJSONDelimiter(decoder, ']', "array terminator"); err != nil {
+		return err
+	}
+	builder.WriteString("]")
+	return nil
+}
+
+func writeTOMLBoolValue(builder *strings.Builder, value bool) {
+	if value {
+		builder.WriteString("true")
+		return
+	}
+	builder.WriteString("false")
+}
+
+func nextJSONObjectKey(decoder *json.Decoder) (string, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return "", err
+	}
+	key, ok := token.(string)
+	if !ok {
+		return "", fmt.Errorf("expected object key, got %T", token)
+	}
+	return key, nil
+}
+
+func consumeJSONDelimiter(decoder *json.Decoder, want json.Delim, description string) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	if delimiter, ok := token.(json.Delim); ok && delimiter == want {
+		return nil
+	}
+	return fmt.Errorf("expected %s, got %v", description, token)
 }
 
 func quoteTOMLKey(key string) string {

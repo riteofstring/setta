@@ -148,6 +148,93 @@ func TestSaveJSONSourceFilesWritesStructuredDataFormatsAndPreservesChildOrder(t 
 	}
 }
 
+func TestMarshalOrderedStructuredDataFormatsRoundTripSerializedNestedValues(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		marshal func(JSONSourceObject) ([]byte, error)
+		path    string
+	}{
+		{
+			name:    "yaml",
+			marshal: marshalOrderedYAMLObject,
+			path:    "source.yaml",
+		},
+		{
+			name:    "toml",
+			marshal: marshalOrderedTOMLObject,
+			path:    "source.toml",
+		},
+	}
+
+	want := JSONSourceObject{
+		Entries: []JSONSourceObjectEntry{
+			{
+				Key:   "config",
+				Value: JSONSourceValue{Serialized: `{"list":[1,true],"nested":{"name":"Setta","enabled":false}}`},
+			},
+			{
+				Key:   "items",
+				Value: JSONSourceValue{Serialized: `["first",{"count":2}]`},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			content, err := tc.marshal(want)
+			if err != nil {
+				t.Fatalf("marshal ordered structured data object: %v", err)
+			}
+
+			root := t.TempDir()
+			path := filepath.Join(root, tc.path)
+			if err := os.WriteFile(path, content, 0o644); err != nil {
+				t.Fatalf("write structured data payload: %v", err)
+			}
+
+			got, exists, err := readOrderedJSONSourceObject(path)
+			if err != nil {
+				t.Fatalf("read back structured data payload: %v", err)
+			}
+			if !exists {
+				t.Fatal("expected structured data payload to exist")
+			}
+			if !reflect.DeepEqual(mustJSONSourceObjectAsMap(t, got), mustJSONSourceObjectAsMap(t, want)) {
+				t.Fatalf("expected round-tripped structured data payload to match original, got %#v", got)
+			}
+			assertJSONSourceEntryOrder(t, got, []string{"config", "items"})
+			if got.Entries[0].Value.Object == nil {
+				t.Fatalf("expected config entry to round-trip as an object, got %#v", got.Entries[0].Value)
+			}
+			assertJSONSourceEntryOrder(t, *got.Entries[0].Value.Object, []string{"list", "nested"})
+		})
+	}
+}
+
+func TestMarshalOrderedTOMLObjectRejectsNullSerializedValue(t *testing.T) {
+	t.Parallel()
+
+	_, err := marshalOrderedTOMLObject(JSONSourceObject{
+		Entries: []JSONSourceObjectEntry{
+			{
+				Key:   "missing",
+				Value: JSONSourceValue{Serialized: "null"},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected TOML marshal error for null value")
+	}
+	if !strings.Contains(err.Error(), "TOML-compatible types, got null") {
+		t.Fatalf("expected TOML null error, got %q", err.Error())
+	}
+}
+
 func TestDocumentClearJSONSourceValuesForPersistenceBlanksLeafValues(t *testing.T) {
 	t.Parallel()
 
