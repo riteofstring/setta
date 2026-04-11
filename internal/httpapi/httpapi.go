@@ -217,82 +217,152 @@ func RequireShareSession(resolver modes.Resolver) func(http.Handler) http.Handle
 	}
 }
 
-func bootstrapConsumeHandler(authService *auth.Service, trustedOrigins *frontendorigins.Service) http.HandlerFunc {
-	type requestPayload struct {
-		Token               string `json:"token"`
-		LauncherOrigin      string `json:"launcherOrigin"`
-		LauncherOriginProof string `json:"launcherOriginProof"`
-	}
+type bootstrapConsumeRequestPayload struct {
+	Token               string `json:"token"`
+	LauncherOrigin      string `json:"launcherOrigin"`
+	LauncherOriginProof string `json:"launcherOriginProof"`
+}
 
+type bootstrapConsumeAuthState struct {
+	currentSession    *auth.CurrentSession
+	cookieToken       string
+	authCookiePayload auth.AuthCookiePayload
+}
+
+func bootstrapConsumeHandler(authService *auth.Service, trustedOrigins *frontendorigins.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[requestPayload](r)
+		payload, err := decodeJSONBody[bootstrapConsumeRequestPayload](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
 
-		token := strings.TrimSpace(payload.Token)
-		if token == "" {
-			token = auth.ExtractBearerToken(r.Header)
-		}
-
 		now := time.Now().UTC()
-		_, err = authService.ConsumeBootstrapToken(token, now)
-		if err != nil {
-			switch {
-			case errors.Is(err, auth.ErrMissingToken):
-				writeError(w, r, http.StatusUnauthorized, "missing_token", "Missing token.")
-			case errors.Is(err, auth.ErrMissingCurrentSession):
-				writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
-			default:
-				writeError(w, r, http.StatusUnauthorized, "invalid_token", "Invalid token.")
-			}
-			return
-		}
-
-		currentSession, ok := authService.CurrentSession()
+		authState, ok := bootstrapConsumeAuthStateOrWriteError(w, r, authService, payload, now)
 		if !ok {
-			writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
 			return
 		}
 
-		cookieToken, authCookiePayload, err := authService.MintAuthCookie(now)
-		if err != nil {
-			writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+		launcherOrigin, ok := trustBootstrapLauncherOriginOrWriteError(
+			w,
+			r,
+			trustedOrigins,
+			payload,
+			authState.currentSession,
+			authState.authCookiePayload.Exp,
+		)
+		if !ok {
 			return
 		}
-		responsePayload := map[string]string{"status": "ok"}
-		if trustedOrigins != nil {
-			normalizedLauncherOrigin := frontendorigins.NormalizeOrigin(payload.LauncherOrigin)
-			if normalizedLauncherOrigin != "" && frontendorigins.ValidateLauncherOriginHandoffProof(
-				currentSession.Metadata.ID,
-				normalizedLauncherOrigin,
-				payload.LauncherOriginProof,
-				currentSession.Secret,
-			) {
-				if _, err := trustedOrigins.TrustOrigin(normalizedLauncherOrigin, currentSession.Metadata.ID, authCookiePayload.Exp); err != nil {
-					var unavailable *frontendorigins.StoreUnavailableError
-					if errors.As(err, &unavailable) {
-						writeError(w, r, http.StatusServiceUnavailable, "trusted_frontend_origin_store_unavailable", "Trusted frontend origin store unavailable")
-						return
-					}
-					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-					return
-				}
-				responsePayload["launcherOrigin"] = normalizedLauncherOrigin
-			}
-		}
-		if err := authService.SetAuthCookie(w, r, cookieToken); err != nil {
-			if errors.Is(err, auth.ErrMissingCurrentSession) {
-				writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		if err := authService.SetAuthCookie(w, r, authState.cookieToken); err != nil {
+			writeAuthMiddlewareError(w, r, err)
 			return
 		}
 
-		writeJSON(w, http.StatusOK, responsePayload)
+		writeJSON(w, http.StatusOK, bootstrapConsumeResponsePayload(launcherOrigin))
 	}
+}
+
+func bootstrapConsumeAuthStateOrWriteError(
+	w http.ResponseWriter,
+	r *http.Request,
+	authService *auth.Service,
+	payload bootstrapConsumeRequestPayload,
+	now time.Time,
+) (bootstrapConsumeAuthState, bool) {
+	token := strings.TrimSpace(payload.Token)
+	if token == "" {
+		token = auth.ExtractBearerToken(r.Header)
+	}
+
+	if _, err := authService.ConsumeBootstrapToken(token, now); err != nil {
+		writeBootstrapConsumeTokenError(w, r, err)
+		return bootstrapConsumeAuthState{}, false
+	}
+
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+		return bootstrapConsumeAuthState{}, false
+	}
+
+	cookieToken, authCookiePayload, err := authService.MintAuthCookie(now)
+	if err != nil {
+		writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+		return bootstrapConsumeAuthState{}, false
+	}
+
+	return bootstrapConsumeAuthState{
+		currentSession:    currentSession,
+		cookieToken:       cookieToken,
+		authCookiePayload: authCookiePayload,
+	}, true
+}
+
+func writeBootstrapConsumeTokenError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, auth.ErrMissingToken):
+		writeError(w, r, http.StatusUnauthorized, "missing_token", "Missing token.")
+	case errors.Is(err, auth.ErrMissingCurrentSession):
+		writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+	default:
+		writeError(w, r, http.StatusUnauthorized, "invalid_token", "Invalid token.")
+	}
+}
+
+func trustBootstrapLauncherOriginOrWriteError(
+	w http.ResponseWriter,
+	r *http.Request,
+	trustedOrigins *frontendorigins.Service,
+	payload bootstrapConsumeRequestPayload,
+	currentSession *auth.CurrentSession,
+	expiresAt int64,
+) (string, bool) {
+	launcherOrigin := verifiedBootstrapLauncherOrigin(payload, currentSession)
+	if launcherOrigin == "" || trustedOrigins == nil {
+		return "", true
+	}
+	if _, err := trustedOrigins.TrustOrigin(launcherOrigin, currentSession.Metadata.ID, expiresAt); err != nil {
+		var unavailable *frontendorigins.StoreUnavailableError
+		if errors.As(err, &unavailable) {
+			writeError(w, r, http.StatusServiceUnavailable, "trusted_frontend_origin_store_unavailable", "Trusted frontend origin store unavailable")
+			return "", false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return "", false
+	}
+	return launcherOrigin, true
+}
+
+func verifiedBootstrapLauncherOrigin(
+	payload bootstrapConsumeRequestPayload,
+	currentSession *auth.CurrentSession,
+) string {
+	if currentSession == nil {
+		return ""
+	}
+
+	normalizedLauncherOrigin := frontendorigins.NormalizeOrigin(payload.LauncherOrigin)
+	if normalizedLauncherOrigin == "" {
+		return ""
+	}
+	if !frontendorigins.ValidateLauncherOriginHandoffProof(
+		currentSession.Metadata.ID,
+		normalizedLauncherOrigin,
+		payload.LauncherOriginProof,
+		currentSession.Secret,
+	) {
+		return ""
+	}
+	return normalizedLauncherOrigin
+}
+
+func bootstrapConsumeResponsePayload(launcherOrigin string) map[string]string {
+	responsePayload := map[string]string{"status": "ok"}
+	if launcherOrigin != "" {
+		responsePayload["launcherOrigin"] = launcherOrigin
+	}
+	return responsePayload
 }
 
 func authMiddleware(authService *auth.Service, trustedOrigins *frontendorigins.Service) func(http.Handler) http.Handler {
