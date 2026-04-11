@@ -37,6 +37,13 @@ type deploymentCommandSpec struct {
 	wrongTypeText       string
 }
 
+type deploymentSelection struct {
+	explicitRoot      string
+	deploymentName    string
+	deploymentVersion string
+	latest            bool
+}
+
 func runDeploymentCommandWithDeps(args []string, global globalFlags, stdin io.Reader, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string, deps startCommandDependencies, spec deploymentCommandSpec) error {
 	flags := flag.NewFlagSet(spec.subcommand, flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -77,33 +84,58 @@ func runDeploymentCommandWithDeps(args []string, global globalFlags, stdin io.Re
 }
 
 func resolveDeploymentCommandRoot(parsed deploymentFlags, global globalFlags, envLookup func(string) (string, bool), cwd string, spec deploymentCommandSpec) (string, error) {
-	explicitDeploymentRoot := strings.TrimSpace(parsed.deploymentRoot)
-	deploymentName := strings.TrimSpace(parsed.deploymentName)
-	deploymentVersion := strings.TrimSpace(parsed.deploymentVersion)
-
-	if explicitDeploymentRoot != "" {
-		if deploymentName != "" || deploymentVersion != "" || parsed.latest {
-			return "", fmt.Errorf("Use either --deployment-root or --deployment-name/--version/--latest.")
-		}
-		resolvedRoot, err := normalizeLaunchComparisonPath(explicitDeploymentRoot, cwd)
-		if err != nil {
-			return "", fmt.Errorf("resolve --deployment-root: %w", err)
-		}
-		if _, err := validateDeploymentCommandRoot(resolvedRoot, spec); err != nil {
-			return "", err
-		}
-		return resolvedRoot, nil
+	selection, err := normalizeDeploymentSelection(parsed)
+	if err != nil {
+		return "", err
 	}
-	if deploymentName == "" {
-		return "", fmt.Errorf("Missing --deployment-name (or use --deployment-root).")
-	}
-	if deploymentVersion != "" && parsed.latest {
-		return "", fmt.Errorf("Use either --version or --latest, not both.")
-	}
-	if deploymentVersion == "" && !parsed.latest {
-		return "", fmt.Errorf("Missing --version or --latest.")
+	if selection.explicitRoot != "" {
+		return resolveExplicitDeploymentCommandRoot(selection.explicitRoot, cwd, spec)
 	}
 
+	catalog, err := loadDeploymentCommandCatalog(global, envLookup, cwd)
+	if err != nil {
+		return "", err
+	}
+	return resolveDeploymentRootFromCatalog(catalog, selection, spec)
+}
+
+func normalizeDeploymentSelection(parsed deploymentFlags) (deploymentSelection, error) {
+	selection := deploymentSelection{
+		explicitRoot:      strings.TrimSpace(parsed.deploymentRoot),
+		deploymentName:    strings.TrimSpace(parsed.deploymentName),
+		deploymentVersion: strings.TrimSpace(parsed.deploymentVersion),
+		latest:            parsed.latest,
+	}
+	if selection.explicitRoot != "" {
+		if selection.deploymentName != "" || selection.deploymentVersion != "" || selection.latest {
+			return deploymentSelection{}, fmt.Errorf("Use either --deployment-root or --deployment-name/--version/--latest.")
+		}
+		return selection, nil
+	}
+	if selection.deploymentName == "" {
+		return deploymentSelection{}, fmt.Errorf("Missing --deployment-name (or use --deployment-root).")
+	}
+	if selection.deploymentVersion != "" && selection.latest {
+		return deploymentSelection{}, fmt.Errorf("Use either --version or --latest, not both.")
+	}
+	if selection.deploymentVersion == "" && !selection.latest {
+		return deploymentSelection{}, fmt.Errorf("Missing --version or --latest.")
+	}
+	return selection, nil
+}
+
+func resolveExplicitDeploymentCommandRoot(explicitDeploymentRoot string, cwd string, spec deploymentCommandSpec) (string, error) {
+	resolvedRoot, err := normalizeLaunchComparisonPath(explicitDeploymentRoot, cwd)
+	if err != nil {
+		return "", fmt.Errorf("resolve --deployment-root: %w", err)
+	}
+	if _, err := validateDeploymentCommandRoot(resolvedRoot, spec); err != nil {
+		return "", err
+	}
+	return resolvedRoot, nil
+}
+
+func loadDeploymentCommandCatalog(global globalFlags, envLookup func(string) (string, bool), cwd string) (*deployments.Catalog, error) {
 	resolvedConfig, err := config.Load(config.LoadOptions{
 		CWD:       cwd,
 		EnvLookup: envLookup,
@@ -117,29 +149,40 @@ func resolveDeploymentCommandRoot(parsed deploymentFlags, global globalFlags, en
 		},
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	catalogRoot, err := deployments.DefaultCatalogRoot(resolvedConfig.Paths.SettaFilesRoot)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	catalog, err := deployments.NewCatalog(deployments.CatalogOptions{Root: catalogRoot})
+	return deployments.NewCatalog(deployments.CatalogOptions{Root: catalogRoot})
+}
+
+func resolveDeploymentRootFromCatalog(catalog *deployments.Catalog, selection deploymentSelection, spec deploymentCommandSpec) (string, error) {
+	if selection.latest {
+		return resolveLatestDeploymentRoot(catalog, selection.deploymentName, spec)
+	}
+	return resolveVersionedDeploymentRoot(
+		catalog,
+		selection.deploymentName,
+		selection.deploymentVersion,
+		spec,
+	)
+}
+
+func resolveLatestDeploymentRoot(catalog *deployments.Catalog, deploymentName string, spec deploymentCommandSpec) (string, error) {
+	metadata, err := catalog.Latest(context.Background(), deploymentName, spec.deploymentType)
 	if err != nil {
+		if errors.Is(err, deployments.ErrDeploymentNotFound) {
+			return "", fmt.Errorf("Deployment not found: %s", deploymentName)
+		}
 		return "", err
 	}
+	return metadata.DeploymentRoot, nil
+}
 
-	if parsed.latest {
-		metadata, err := catalog.Latest(context.Background(), deploymentName, spec.deploymentType)
-		if err != nil {
-			if errors.Is(err, deployments.ErrDeploymentNotFound) {
-				return "", fmt.Errorf("Deployment not found: %s", deploymentName)
-			}
-			return "", err
-		}
-		return metadata.DeploymentRoot, nil
-	}
-
+func resolveVersionedDeploymentRoot(catalog *deployments.Catalog, deploymentName string, deploymentVersion string, spec deploymentCommandSpec) (string, error) {
 	if !isValidDeploymentVersion(deploymentVersion) {
 		return "", fmt.Errorf("Invalid --version value. Expected vN (for example v3).")
 	}
