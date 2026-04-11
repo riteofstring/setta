@@ -137,17 +137,21 @@ def parse_frontend_affinity_token(value: Any) -> str | None:
 def _validate_generated_listener_message(raw_message: Any) -> BaseModel | None:
     if not isinstance(raw_message, dict):
         return None
-    raw_type = raw_message.get("messageType")
-    if isinstance(raw_type, ListenerMessageType):
-        message_type = raw_type.value
-    elif isinstance(raw_type, str):
-        message_type = raw_type
-    else:
+    message_type = _normalize_listener_message_type(raw_message.get("messageType"))
+    if message_type is None:
         return None
     model = _GENERATED_LISTENER_MESSAGE_MODELS.get(message_type)
     if model is None:
         return None
     return model.model_validate(raw_message)
+
+
+def _normalize_listener_message_type(raw_type: Any) -> str | None:
+    if isinstance(raw_type, ListenerMessageType):
+        return raw_type.value
+    if isinstance(raw_type, str):
+        return raw_type
+    return None
 
 
 class ListenerRealtimeEventContent(SDKListenerRealtimeEvent):
@@ -180,6 +184,13 @@ class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
     @binaryPayload.setter
     def binaryPayload(self, value: bytes | None) -> None:
         self._binary_payload = value
+
+
+_CONTROL_LISTENER_MESSAGE_MODELS: dict[str, type[BaseModel]] = {
+    ListenerMessageType.ListenerRealtimeEvent.value: ListenerRealtimeEventContent,
+    ListenerMessageType.ListenerDependencyEvent.value: ListenerDependencyEventContent,
+    ListenerMessageType.ListenerForceRefresh.value: ListenerForceRefreshEvent,
+}
 
 
 # Listener callbacks may either complete synchronously or return an awaitable.
@@ -1089,12 +1100,22 @@ class SettaListener:
         """Parse raw websocket payloads into typed messages."""
         if isinstance(payload, (bytes, bytearray)):
             return self._parse_binary_websocket_payload(bytes(payload))
+        return self._parse_text_listener_payload(payload)
+
+    def _parse_text_listener_payload(self, payload: str) -> Any | None:
         raw_message = self._parse_text_websocket_payload(payload)
         if raw_message is None:
             return None
         control_message = self._parse_listener_control_message(raw_message, payload)
         if control_message is not None:
             return control_message
+        return self._parse_generated_listener_message(raw_message, payload)
+
+    def _parse_generated_listener_message(
+        self,
+        raw_message: Any,
+        payload: str,
+    ) -> BaseModel | None:
         try:
             message = _validate_generated_listener_message(raw_message)
         except ValidationError:
@@ -1185,44 +1206,25 @@ class SettaListener:
     ) -> Any | None:
         if not isinstance(raw_message, dict):
             return None
-        known_messages: tuple[
-            tuple[str, type[BaseModel], ListenerMessageType],
-            ...,
-        ] = (
-            (
-                ListenerMessageType.ListenerRealtimeEvent.value,
-                ListenerRealtimeEventContent,
-                ListenerMessageType.ListenerRealtimeEvent,
-            ),
-            (
-                ListenerMessageType.ListenerDependencyEvent.value,
-                ListenerDependencyEventContent,
-                ListenerMessageType.ListenerDependencyEvent,
-            ),
-            (
-                ListenerMessageType.ListenerForceRefresh.value,
-                ListenerForceRefreshEvent,
-                ListenerMessageType.ListenerForceRefresh,
-            ),
+        message_type = _normalize_listener_message_type(raw_message.get("messageType"))
+        if message_type is None:
+            return None
+        model = _CONTROL_LISTENER_MESSAGE_MODELS.get(message_type)
+        if model is None:
+            return None
+        message = self._validate_listener_content(
+            payload,
+            raw_message.get("content"),
+            model,
         )
-        message_type = raw_message.get("messageType")
-        for expected_type, model, log_message_type in known_messages:
-            if message_type != expected_type:
-                continue
-            message = self._validate_listener_content(
-                payload,
-                raw_message.get("content"),
-                model,
-            )
-            if message is None:
-                return None
-            logger.debug(
-                "Listener %s received %s message",
-                self._log_identifier,
-                log_message_type,
-            )
-            return message
-        return None
+        if message is None:
+            return None
+        logger.debug(
+            "Listener %s received %s message",
+            self._log_identifier,
+            message_type,
+        )
+        return message
 
     def _validate_listener_content(
         self,
