@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 
 	"setta/internal/watchcode"
@@ -295,6 +296,48 @@ func TestRuntimeSetWatchCodeEnabledBaselineScansIgnoreConfiguredRootsAndExplicit
 		if _, ok := project.WatchCodeBaselineByPath[filepath.Clean(ignoredPath)]; ok {
 			t.Fatalf("expected ignored path %q to stay out of baseline %#v", ignoredPath, project.WatchCodeBaselineByPath)
 		}
+	}
+}
+
+func TestIterWatchCodePythonFilesHonorsTraversalModeAndIgnoredRoots(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	topLevelFile := filepath.Join(root, "top.py")
+	nestedFile := filepath.Join(root, "nested", "child.py")
+	ignoredRoot := filepath.Join(root, "custom_ignored")
+	ignoredFile := filepath.Join(ignoredRoot, "ignored.py")
+	for path, content := range map[string]string{
+		topLevelFile:                     "def top():\n    return 1\n",
+		nestedFile:                       "def child():\n    return 2\n",
+		ignoredFile:                      "def ignored():\n    return 3\n",
+		filepath.Join(root, "README.md"): "# ignored\n",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir parent for %q: %v", path, err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	nonRecursive, err := iterWatchCodePythonFiles(root, false, []string{ignoredRoot})
+	if err != nil {
+		t.Fatalf("scan top-level watch code files: %v", err)
+	}
+	sort.Strings(nonRecursive)
+	if !reflect.DeepEqual(nonRecursive, []string{topLevelFile}) {
+		t.Fatalf("expected only top-level python files, got %#v", nonRecursive)
+	}
+
+	recursive, err := iterWatchCodePythonFiles(root, true, []string{ignoredRoot})
+	if err != nil {
+		t.Fatalf("scan recursive watch code files: %v", err)
+	}
+	sort.Strings(recursive)
+	expectedRecursive := []string{nestedFile, topLevelFile}
+	if !reflect.DeepEqual(recursive, expectedRecursive) {
+		t.Fatalf("expected recursive python files %#v, got %#v", expectedRecursive, recursive)
 	}
 }
 

@@ -374,44 +374,62 @@ func (p *Project) baselineWatchCodeInputs(workspaceRoot string, ignoredRoots []s
 
 func (p *Project) baselineWatchCodeCodeSections(workspaceRoot string) error {
 	for sectionID := range p.Sections {
-		_, _, impl, err := p.ResolveSection(sectionID)
-		if err != nil {
-			return err
-		}
-		if !impl.IsCode() || impl.Code.Language != CodeLanguagePython || impl.Code.Binding == nil {
-			continue
-		}
-
-		bindingRelativePath, ok, err := normalizeWatchCodeInputPath(workspaceRoot, impl.Code.Binding.Path, "code binding")
+		bindingRelativePath, code, ok, err := p.watchCodeBoundSectionBaselineSource(workspaceRoot, sectionID)
 		if err != nil {
 			return err
 		}
 		if !ok {
 			continue
 		}
-
-		code, ok, err := watchCodeBoundSectionSource(*p, sectionID, workspaceRoot, bindingRelativePath)
-		if err != nil {
+		if err := p.recordParsedWatchCodeBaseline(workspaceRoot, bindingRelativePath, code, "code binding"); err != nil {
 			return err
 		}
-		if !ok {
-			continue
-		}
-
-		identities, parsed, err := parseWatchCodeBaselineIdentities(code, bindingRelativePath)
-		if err != nil {
-			return err
-		}
-		if !parsed {
-			continue
-		}
-
-		absolutePath, err := resolveWatchCodeAbsolutePath(workspaceRoot, bindingRelativePath, "code binding")
-		if err != nil {
-			return err
-		}
-		p.recordWatchCodeBaseline(absolutePath, identities)
 	}
+	return nil
+}
+
+func (p *Project) watchCodeBoundSectionBaselineSource(workspaceRoot string, sectionID string) (string, string, bool, error) {
+	_, _, impl, err := p.ResolveSection(sectionID)
+	if err != nil {
+		return "", "", false, err
+	}
+	if !isWatchCodePythonBoundSection(impl) {
+		return "", "", false, nil
+	}
+
+	bindingRelativePath, ok, err := normalizeWatchCodeInputPath(workspaceRoot, impl.Code.Binding.Path, "code binding")
+	if err != nil {
+		return "", "", false, err
+	}
+	if !ok {
+		return "", "", false, nil
+	}
+
+	code, ok, err := watchCodeBoundSectionSource(*p, sectionID, workspaceRoot, bindingRelativePath)
+	if err != nil || !ok {
+		return "", "", ok, err
+	}
+	return bindingRelativePath, code, true, nil
+}
+
+func isWatchCodePythonBoundSection(impl SectionImpl) bool {
+	return impl.IsCode() && impl.Code.Language == CodeLanguagePython && impl.Code.Binding != nil
+}
+
+func (p *Project) recordParsedWatchCodeBaseline(workspaceRoot string, relativePath string, code string, label string) error {
+	identities, parsed, err := parseWatchCodeBaselineIdentities(code, relativePath)
+	if err != nil {
+		return err
+	}
+	if !parsed {
+		return nil
+	}
+
+	absolutePath, err := resolveWatchCodeAbsolutePath(workspaceRoot, relativePath, label)
+	if err != nil {
+		return err
+	}
+	p.recordWatchCodeBaseline(absolutePath, identities)
 	return nil
 }
 
@@ -524,41 +542,57 @@ func (p *Project) recordWatchCodeBaseline(absolutePath string, identities []stri
 }
 
 func iterWatchCodePythonFiles(root string, recursive bool, ignoredRoots []string) ([]string, error) {
-	info, err := os.Stat(root)
+	ok, err := watchCodeScanRootExists(root, ignoredRoots)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	if !info.IsDir() {
-		return nil, nil
-	}
-	if shouldIgnoreWatchCodePath(root, ignoredRoots) {
+	if !ok {
 		return nil, nil
 	}
 
 	if !recursive {
-		entries, err := os.ReadDir(root)
-		if err != nil {
-			return nil, err
-		}
-		output := make([]string, 0, len(entries))
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			absolutePath := filepath.Join(root, entry.Name())
-			if filepath.Ext(entry.Name()) != ".py" || shouldIgnoreWatchCodePath(absolutePath, ignoredRoots) {
-				continue
-			}
-			output = append(output, absolutePath)
-		}
-		return output, nil
+		return listWatchCodePythonFiles(root, ignoredRoots)
 	}
 
+	return walkWatchCodePythonFiles(root, ignoredRoots)
+}
+
+func watchCodeScanRootExists(root string, ignoredRoots []string) (bool, error) {
+	info, err := os.Stat(root)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !info.IsDir() || shouldIgnoreWatchCodePath(root, ignoredRoots) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func listWatchCodePythonFiles(root string, ignoredRoots []string) ([]string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+
+	output := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		absolutePath := filepath.Join(root, entry.Name())
+		if shouldCollectWatchCodePythonFile(absolutePath, entry.Name(), ignoredRoots) {
+			output = append(output, absolutePath)
+		}
+	}
+	return output, nil
+}
+
+func walkWatchCodePythonFiles(root string, ignoredRoots []string) ([]string, error) {
 	output := make([]string, 0)
-	err = filepath.WalkDir(root, func(currentPath string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(root, func(currentPath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			if errors.Is(walkErr, os.ErrNotExist) {
 				return nil
@@ -571,16 +605,22 @@ func iterWatchCodePythonFiles(root string, recursive bool, ignoredRoots []string
 			}
 			return nil
 		}
-		if filepath.Ext(entry.Name()) != ".py" || shouldIgnoreWatchCodePath(currentPath, ignoredRoots) {
-			return nil
+		if shouldCollectWatchCodePythonFile(currentPath, entry.Name(), ignoredRoots) {
+			output = append(output, currentPath)
 		}
-		output = append(output, currentPath)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return output, nil
+}
+
+func shouldCollectWatchCodePythonFile(absolutePath string, entryName string, ignoredRoots []string) bool {
+	if filepath.Ext(entryName) != ".py" {
+		return false
+	}
+	return !shouldIgnoreWatchCodePath(absolutePath, ignoredRoots)
 }
 
 func shouldIgnoreWatchCodePath(absolutePath string, ignoredRoots []string) bool {
