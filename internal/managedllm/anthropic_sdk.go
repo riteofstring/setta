@@ -165,35 +165,49 @@ func resolveAnthropicMaxTokens(request agentruns.ExecutionRequest) (int64, error
 }
 
 func parsePositiveInt64(raw any, field string) (int64, error) {
-	switch value := raw.(type) {
-	case int:
-		if value <= 0 {
-			break
-		}
-		return int64(value), nil
-	case int32:
-		if value <= 0 {
-			break
-		}
-		return int64(value), nil
-	case int64:
-		if value <= 0 {
-			break
-		}
+	if value, ok := parsePositiveInt64Value(raw); ok {
 		return value, nil
-	case float64:
-		if value <= 0 || value != float64(int64(value)) {
-			break
-		}
-		return int64(value), nil
-	case string:
-		parsed, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
-		if err != nil || parsed <= 0 {
-			break
-		}
-		return parsed, nil
 	}
 	return 0, fmt.Errorf("%w: invalid %s %v", agentruns.ErrInvalidRunInput, field, raw)
+}
+
+func parsePositiveInt64Value(raw any) (int64, bool) {
+	switch value := raw.(type) {
+	case int:
+		return positiveSignedInt64(int64(value))
+	case int32:
+		return positiveSignedInt64(int64(value))
+	case int64:
+		return positiveSignedInt64(value)
+	case float64:
+		return positiveWholeFloat64(value)
+	case string:
+		return positiveStringInt64(value)
+	default:
+		return 0, false
+	}
+}
+
+func positiveSignedInt64(value int64) (int64, bool) {
+	if value <= 0 {
+		return 0, false
+	}
+	return value, true
+}
+
+func positiveWholeFloat64(value float64) (int64, bool) {
+	if value <= 0 || value != float64(int64(value)) {
+		return 0, false
+	}
+	return int64(value), true
+}
+
+func positiveStringInt64(value string) (int64, bool) {
+	parsed, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+	if err != nil || parsed <= 0 {
+		return 0, false
+	}
+	return parsed, true
 }
 
 func buildAnthropicTools(toolDefinitions []map[string]any) ([]anthropic.ToolUnionParam, error) {
@@ -276,57 +290,63 @@ func buildAnthropicProviderMessage(message map[string]any) (map[string]any, bool
 	case "system":
 		return nil, false, fmt.Errorf("%w: system transcript messages are not supported for anthropic managed chats", ErrHistoryUnsupported)
 	case "user":
-		blocks, include, err := normalizeAnthropicMessageContent(message["content"], role)
-		if err != nil {
-			return nil, false, err
-		}
-		if !include {
-			return nil, false, nil
-		}
-		return map[string]any{
-			"role":    "user",
-			"content": blocks,
-		}, true, nil
+		return buildAnthropicUserProviderMessage(message)
 	case "assistant":
-		blocks, includeText, err := normalizeAnthropicMessageContent(message["content"], role)
-		if err != nil {
-			return nil, false, err
-		}
-		toolUseBlocks, hasToolUses, err := normalizeAnthropicToolUseBlocks(message["tool_calls"])
-		if err != nil {
-			return nil, false, err
-		}
-		blocks = append(blocks, toolUseBlocks...)
-		if !includeText && !hasToolUses {
-			return nil, false, nil
-		}
-		return map[string]any{
-			"role":    "assistant",
-			"content": blocks,
-		}, true, nil
+		return buildAnthropicAssistantProviderMessage(message)
 	case "tool":
-		toolCallID := strings.TrimSpace(stringValue(message["tool_call_id"]))
-		if toolCallID == "" {
-			return nil, false, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
-		}
-		content, err := normalizeAnthropicToolResultContent(message)
-		if err != nil {
-			return nil, false, err
-		}
-		block := map[string]any{
-			"type":        "tool_result",
-			"tool_use_id": toolCallID,
-			"content":     content,
-		}
-		if isErrorValue(message["is_error"]) {
-			block["is_error"] = true
-		}
-		return map[string]any{
-			"role":    "user",
-			"content": []any{block},
-		}, true, nil
+		return buildAnthropicToolProviderMessage(message)
 	default:
 		return nil, false, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
+	}
+}
+
+func buildAnthropicUserProviderMessage(message map[string]any) (map[string]any, bool, error) {
+	blocks, include, err := normalizeAnthropicMessageContent(message["content"], "user")
+	if err != nil || !include {
+		return nil, include, err
+	}
+	return anthropicProviderMessage("user", blocks), true, nil
+}
+
+func buildAnthropicAssistantProviderMessage(message map[string]any) (map[string]any, bool, error) {
+	blocks, includeText, err := normalizeAnthropicMessageContent(message["content"], "assistant")
+	if err != nil {
+		return nil, false, err
+	}
+	toolUseBlocks, hasToolUses, err := normalizeAnthropicToolUseBlocks(message["tool_calls"])
+	if err != nil {
+		return nil, false, err
+	}
+	if !includeText && !hasToolUses {
+		return nil, false, nil
+	}
+	return anthropicProviderMessage("assistant", append(blocks, toolUseBlocks...)), true, nil
+}
+
+func buildAnthropicToolProviderMessage(message map[string]any) (map[string]any, bool, error) {
+	toolCallID := strings.TrimSpace(stringValue(message["tool_call_id"]))
+	if toolCallID == "" {
+		return nil, false, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
+	}
+	content, err := normalizeAnthropicToolResultContent(message)
+	if err != nil {
+		return nil, false, err
+	}
+	block := map[string]any{
+		"type":        "tool_result",
+		"tool_use_id": toolCallID,
+		"content":     content,
+	}
+	if isErrorValue(message["is_error"]) {
+		block["is_error"] = true
+	}
+	return anthropicProviderMessage("user", []any{block}), true, nil
+}
+
+func anthropicProviderMessage(role string, blocks []any) map[string]any {
+	return map[string]any{
+		"role":    role,
+		"content": blocks,
 	}
 }
 
@@ -469,39 +489,65 @@ func buildAnthropicMessageBlocks(raw any, role string) ([]anthropic.ContentBlock
 		if !ok {
 			return nil, fmt.Errorf("content block %d must be an object", index)
 		}
-		switch strings.TrimSpace(stringValue(block["type"])) {
-		case "text", "":
-			text := stringValue(block["text"])
-			if strings.TrimSpace(text) == "" {
-				continue
-			}
-			blocks = append(blocks, anthropic.NewTextBlock(text))
-		case "thinking":
-			signature := strings.TrimSpace(stringValue(block["signature"]))
-			thinking := stringValue(block["thinking"])
-			if role != "assistant" || signature == "" || strings.TrimSpace(thinking) == "" {
-				continue
-			}
-			blocks = append(blocks, anthropic.NewThinkingBlock(signature, thinking))
-		case "tool_use":
-			toolID := strings.TrimSpace(stringValue(block["id"]))
-			toolName := strings.TrimSpace(stringValue(block["name"]))
-			if toolID == "" || toolName == "" {
-				return nil, fmt.Errorf("tool_use block requires id and name")
-			}
-			blocks = append(blocks, anthropic.NewToolUseBlock(toolID, cloneJSONValue(block["input"]), toolName))
-		case "tool_result":
-			toolUseID := strings.TrimSpace(stringValue(block["tool_use_id"]))
-			if toolUseID == "" {
-				return nil, fmt.Errorf("tool_result block requires tool_use_id")
-			}
-			content := stringValue(block["content"])
-			blocks = append(blocks, anthropic.NewToolResultBlock(toolUseID, content, isErrorValue(block["is_error"])))
-		default:
-			return nil, fmt.Errorf("unsupported content block type %q", stringValue(block["type"]))
+		next, include, err := buildAnthropicMessageBlock(block, role)
+		if err != nil {
+			return nil, err
+		}
+		if include {
+			blocks = append(blocks, next)
 		}
 	}
 	return blocks, nil
+}
+
+func buildAnthropicMessageBlock(block map[string]any, role string) (anthropic.ContentBlockParamUnion, bool, error) {
+	switch strings.TrimSpace(stringValue(block["type"])) {
+	case "text", "":
+		return buildAnthropicTextBlock(block)
+	case "thinking":
+		return buildAnthropicThinkingBlock(block, role)
+	case "tool_use":
+		return buildAnthropicToolUseBlock(block)
+	case "tool_result":
+		return buildAnthropicToolResultBlock(block)
+	default:
+		return anthropic.ContentBlockParamUnion{}, false, fmt.Errorf("unsupported content block type %q", stringValue(block["type"]))
+	}
+}
+
+func buildAnthropicTextBlock(block map[string]any) (anthropic.ContentBlockParamUnion, bool, error) {
+	text := stringValue(block["text"])
+	if strings.TrimSpace(text) == "" {
+		return anthropic.ContentBlockParamUnion{}, false, nil
+	}
+	return anthropic.NewTextBlock(text), true, nil
+}
+
+func buildAnthropicThinkingBlock(block map[string]any, role string) (anthropic.ContentBlockParamUnion, bool, error) {
+	signature := strings.TrimSpace(stringValue(block["signature"]))
+	thinking := stringValue(block["thinking"])
+	if role != "assistant" || signature == "" || strings.TrimSpace(thinking) == "" {
+		return anthropic.ContentBlockParamUnion{}, false, nil
+	}
+	return anthropic.NewThinkingBlock(signature, thinking), true, nil
+}
+
+func buildAnthropicToolUseBlock(block map[string]any) (anthropic.ContentBlockParamUnion, bool, error) {
+	toolID := strings.TrimSpace(stringValue(block["id"]))
+	toolName := strings.TrimSpace(stringValue(block["name"]))
+	if toolID == "" || toolName == "" {
+		return anthropic.ContentBlockParamUnion{}, false, fmt.Errorf("tool_use block requires id and name")
+	}
+	return anthropic.NewToolUseBlock(toolID, cloneJSONValue(block["input"]), toolName), true, nil
+}
+
+func buildAnthropicToolResultBlock(block map[string]any) (anthropic.ContentBlockParamUnion, bool, error) {
+	toolUseID := strings.TrimSpace(stringValue(block["tool_use_id"]))
+	if toolUseID == "" {
+		return anthropic.ContentBlockParamUnion{}, false, fmt.Errorf("tool_result block requires tool_use_id")
+	}
+	content := stringValue(block["content"])
+	return anthropic.NewToolResultBlock(toolUseID, content, isErrorValue(block["is_error"])), true, nil
 }
 
 func (e *Executor) consumeAnthropicStream(
@@ -575,68 +621,60 @@ func (e *Executor) processAnthropicContentBlockStart(
 ) error {
 	switch block := event.ContentBlock.AsAny().(type) {
 	case anthropic.TextBlock:
-		if block.Text == "" {
-			return nil
-		}
-		appendAssistantTextAtIndex(assistantMessage, int(event.Index), block.Text)
-		if !prepared.emitStream {
-			return nil
-		}
-		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
-			Type:      realtime.StreamingEventTypeDelta,
-			MessageID: stringValue(assistantMessage["id"]),
-			Content: []any{
-				realtime.MessageTextDelta{
-					Type:  realtime.MessageContentTypeTextDelta,
-					Index: int(event.Index),
-					Text:  block.Text,
-				},
-			},
-		})
+		return e.processAnthropicTextBlockStart(ctx, int(event.Index), block.Text, prepared, assistantMessage)
 	case anthropic.ThinkingBlock:
-		if block.Thinking == "" && strings.TrimSpace(block.Signature) == "" {
-			return nil
-		}
-		if block.Thinking != "" {
-			appendAssistantThinkingAtIndex(assistantMessage, int(event.Index), block.Thinking)
-		}
-		if strings.TrimSpace(block.Signature) != "" {
-			setAssistantThinkingSignatureAtIndex(assistantMessage, int(event.Index), block.Signature)
-		}
-		if !prepared.emitStream {
-			return nil
-		}
-		var signature *string
-		if strings.TrimSpace(block.Signature) != "" {
-			signature = optionalStringPointer(block.Signature)
-		}
-		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
-			Type:      realtime.StreamingEventTypeDelta,
-			MessageID: stringValue(assistantMessage["id"]),
-			Content: []any{
-				realtime.MessageThinkingDelta{
-					Type:      realtime.MessageContentTypeThinkingDelta,
-					Index:     int(event.Index),
-					Thinking:  block.Thinking,
-					Signature: signature,
-				},
-			},
-		})
+		return e.processAnthropicThinkingBlockStart(ctx, int(event.Index), block, prepared, assistantMessage)
 	case anthropic.ToolUseBlock:
-		state := accumulator.apply(int(event.Index), block.ID, "", block.Name, "")
-		if !prepared.emitStream || state == nil {
-			return nil
-		}
-		return e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
-			Type:           realtime.StreamingEventTypeToolCallDelta,
-			MessageID:      stringValue(assistantMessage["id"]),
-			ToolCallID:     strings.TrimSpace(state.id),
-			ArgumentsDelta: "",
-			ToolName:       optionalStringPointer(state.name),
-		})
+		return e.processAnthropicToolUseBlockStart(ctx, int(event.Index), block, prepared, assistantMessage, accumulator)
 	default:
 		return nil
 	}
+}
+
+func (e *Executor) processAnthropicTextBlockStart(
+	ctx context.Context,
+	index int,
+	text string,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+) error {
+	if text == "" {
+		return nil
+	}
+	appendAssistantTextAtIndex(assistantMessage, index, text)
+	return e.emitAnthropicTextDelta(ctx, prepared, assistantMessage, index, text)
+}
+
+func (e *Executor) processAnthropicThinkingBlockStart(
+	ctx context.Context,
+	index int,
+	block anthropic.ThinkingBlock,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+) error {
+	signature := strings.TrimSpace(block.Signature)
+	if block.Thinking == "" && signature == "" {
+		return nil
+	}
+	if block.Thinking != "" {
+		appendAssistantThinkingAtIndex(assistantMessage, index, block.Thinking)
+	}
+	if signature != "" {
+		setAssistantThinkingSignatureAtIndex(assistantMessage, index, signature)
+	}
+	return e.emitAnthropicThinkingDelta(ctx, prepared, assistantMessage, index, block.Thinking, optionalString(signature))
+}
+
+func (e *Executor) processAnthropicToolUseBlockStart(
+	ctx context.Context,
+	index int,
+	block anthropic.ToolUseBlock,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	accumulator *toolCallAccumulator,
+) error {
+	state := accumulator.apply(index, block.ID, "", block.Name, "")
+	return e.emitAnthropicToolCallDelta(ctx, prepared, assistantMessage, state, "")
 }
 
 func (e *Executor) processAnthropicContentBlockDelta(
@@ -649,97 +687,188 @@ func (e *Executor) processAnthropicContentBlockDelta(
 ) error {
 	switch delta := event.Delta.AsAny().(type) {
 	case anthropic.TextDelta:
-		text := delta.Text
-		if text == "" {
-			return nil
-		}
-		appendAssistantTextAtIndex(assistantMessage, int(event.Index), text)
-		if !prepared.emitStream {
-			return nil
-		}
-		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
-			Type:      realtime.StreamingEventTypeDelta,
-			MessageID: stringValue(assistantMessage["id"]),
-			Content: []any{
-				realtime.MessageTextDelta{
-					Type:  realtime.MessageContentTypeTextDelta,
-					Index: int(event.Index),
-					Text:  text,
-				},
-			},
-		})
+		return e.processAnthropicTextContentDelta(ctx, int(event.Index), delta.Text, prepared, assistantMessage)
 	case anthropic.ThinkingDelta:
-		if delta.Thinking == "" {
-			return nil
-		}
-		appendAssistantThinkingAtIndex(assistantMessage, int(event.Index), delta.Thinking)
-		if !prepared.emitStream {
-			return nil
-		}
-		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
-			Type:      realtime.StreamingEventTypeDelta,
-			MessageID: stringValue(assistantMessage["id"]),
-			Content: []any{
-				realtime.MessageThinkingDelta{
-					Type:     realtime.MessageContentTypeThinkingDelta,
-					Index:    int(event.Index),
-					Thinking: delta.Thinking,
-				},
-			},
-		})
+		return e.processAnthropicThinkingContentDelta(ctx, int(event.Index), delta.Thinking, prepared, assistantMessage)
 	case anthropic.SignatureDelta:
-		signature := strings.TrimSpace(delta.Signature)
-		if signature == "" {
-			return nil
-		}
-		setAssistantThinkingSignatureAtIndex(assistantMessage, int(event.Index), signature)
-		if !prepared.emitStream {
-			return nil
-		}
-		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
-			Type:      realtime.StreamingEventTypeDelta,
-			MessageID: stringValue(assistantMessage["id"]),
-			Content: []any{
-				realtime.MessageThinkingDelta{
-					Type:      realtime.MessageContentTypeThinkingDelta,
-					Index:     int(event.Index),
-					Thinking:  "",
-					Signature: optionalStringPointer(signature),
-				},
-			},
-		})
+		return e.processAnthropicSignatureDelta(ctx, int(event.Index), delta.Signature, prepared, assistantMessage)
 	case anthropic.InputJSONDelta:
-		state := accumulator.apply(int(event.Index), "", "", "", delta.PartialJSON)
-		if !prepared.emitStream || state == nil {
-			return nil
-		}
-		if err := e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
-			Type:           realtime.StreamingEventTypeToolCallDelta,
-			MessageID:      stringValue(assistantMessage["id"]),
-			ToolCallID:     strings.TrimSpace(state.id),
-			ArgumentsDelta: delta.PartialJSON,
-			ToolName:       optionalStringPointer(state.name),
-		}); err != nil {
-			return err
-		}
-		descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
-		if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
-			return nil
-		}
-		previewEvent, err := previewAccumulator.buildEvent(
-			stringValue(assistantMessage["id"]),
-			state,
-			descriptor.Metadata.ToolArgumentPreview,
+		return e.processAnthropicInputJSONDelta(
+			ctx,
+			int(event.Index),
 			delta.PartialJSON,
-			prepared.temporaryToCanonical,
+			prepared,
+			assistantMessage,
+			accumulator,
+			previewAccumulator,
 		)
-		if err != nil || previewEvent == nil {
-			return err
-		}
-		return e.applyChunk(ctx, prepared, *previewEvent)
 	default:
 		return nil
 	}
+}
+
+func (e *Executor) processAnthropicTextContentDelta(
+	ctx context.Context,
+	index int,
+	text string,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+) error {
+	if text == "" {
+		return nil
+	}
+	appendAssistantTextAtIndex(assistantMessage, index, text)
+	return e.emitAnthropicTextDelta(ctx, prepared, assistantMessage, index, text)
+}
+
+func (e *Executor) processAnthropicThinkingContentDelta(
+	ctx context.Context,
+	index int,
+	thinking string,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+) error {
+	if thinking == "" {
+		return nil
+	}
+	appendAssistantThinkingAtIndex(assistantMessage, index, thinking)
+	return e.emitAnthropicThinkingDelta(ctx, prepared, assistantMessage, index, thinking, nil)
+}
+
+func (e *Executor) processAnthropicSignatureDelta(
+	ctx context.Context,
+	index int,
+	signature string,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+) error {
+	trimmedSignature := strings.TrimSpace(signature)
+	if trimmedSignature == "" {
+		return nil
+	}
+	setAssistantThinkingSignatureAtIndex(assistantMessage, index, trimmedSignature)
+	return e.emitAnthropicThinkingDelta(ctx, prepared, assistantMessage, index, "", optionalString(trimmedSignature))
+}
+
+func (e *Executor) processAnthropicInputJSONDelta(
+	ctx context.Context,
+	index int,
+	partialJSON string,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	accumulator *toolCallAccumulator,
+	previewAccumulator *toolPreviewAccumulator,
+) error {
+	state := accumulator.apply(index, "", "", "", partialJSON)
+	if err := e.emitAnthropicToolCallDelta(ctx, prepared, assistantMessage, state, partialJSON); err != nil {
+		return err
+	}
+	return e.emitAnthropicToolPreview(ctx, prepared, assistantMessage, state, previewAccumulator, partialJSON)
+}
+
+func (e *Executor) emitAnthropicTextDelta(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	index int,
+	text string,
+) error {
+	if !prepared.emitStream || text == "" {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+		Type:      realtime.StreamingEventTypeDelta,
+		MessageID: stringValue(assistantMessage["id"]),
+		Content: []any{
+			realtime.MessageTextDelta{
+				Type:  realtime.MessageContentTypeTextDelta,
+				Index: index,
+				Text:  text,
+			},
+		},
+	})
+}
+
+func (e *Executor) emitAnthropicThinkingDelta(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	index int,
+	thinking string,
+	signature *string,
+) error {
+	if !prepared.emitStream || (thinking == "" && signature == nil) {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+		Type:      realtime.StreamingEventTypeDelta,
+		MessageID: stringValue(assistantMessage["id"]),
+		Content: []any{
+			realtime.MessageThinkingDelta{
+				Type:      realtime.MessageContentTypeThinkingDelta,
+				Index:     index,
+				Thinking:  thinking,
+				Signature: signature,
+			},
+		},
+	})
+}
+
+func (e *Executor) emitAnthropicToolCallDelta(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	state *toolCallState,
+	argumentsDelta string,
+) error {
+	if !prepared.emitStream || state == nil {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
+		Type:           realtime.StreamingEventTypeToolCallDelta,
+		MessageID:      stringValue(assistantMessage["id"]),
+		ToolCallID:     strings.TrimSpace(state.id),
+		ArgumentsDelta: argumentsDelta,
+		ToolName:       optionalStringPointer(state.name),
+	})
+}
+
+func (e *Executor) emitAnthropicToolPreview(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	state *toolCallState,
+	previewAccumulator *toolPreviewAccumulator,
+	partialJSON string,
+) error {
+	if !prepared.emitStream || state == nil {
+		return nil
+	}
+	descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
+	if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
+		return nil
+	}
+	previewEvent, err := previewAccumulator.buildEvent(
+		stringValue(assistantMessage["id"]),
+		state,
+		descriptor.Metadata.ToolArgumentPreview,
+		partialJSON,
+		prepared.temporaryToCanonical,
+	)
+	if err != nil {
+		return err
+	}
+	if previewEvent == nil {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, *previewEvent)
+}
+
+func optionalString(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return optionalStringPointer(value)
 }
 
 func finalizeAnthropicAssistantToolCalls(message map[string]any, accumulated *anthropic.Message, accumulator *toolCallAccumulator) error {
