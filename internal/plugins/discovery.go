@@ -83,20 +83,45 @@ func (s *DiscoveryService) rescanWithStates(
 	pluginsState PluginsStateFile,
 	globalState PluginsGlobalStateFile,
 ) (DiscoverySnapshot, error) {
-	installMetadata, err := s.store.LoadInstallMetadata()
+	entries, err := s.discoverPluginEntries()
 	if err != nil {
 		return DiscoverySnapshot{}, err
+	}
+	resolvedEntries, err := s.resolveDiscoveredEntries(entries, pluginsState, globalState)
+	if err != nil {
+		return DiscoverySnapshot{}, err
+	}
+	installedCount, activeCount := countDiscoverySnapshotEntries(resolvedEntries)
+
+	return DiscoverySnapshot{
+		ServerMode:       s.serverMode,
+		InstalledPlugins: installedCount,
+		ActivePlugins:    activeCount,
+		Plugins:          resolvedEntries,
+	}, nil
+}
+
+func (s *DiscoveryService) discoverPluginEntries() ([]DiscoveredPlugin, error) {
+	installMetadata, err := s.store.LoadInstallMetadata()
+	if err != nil {
+		return nil, err
 	}
 	entries, err := s.discoverFilesystemPlugins(installMetadata)
 	if err != nil {
-		return DiscoverySnapshot{}, err
+		return nil, err
 	}
 	packageManagerEntries, err := s.discoverPackageManagerPlugins()
 	if err != nil {
-		return DiscoverySnapshot{}, err
+		return nil, err
 	}
-	entries = append(entries, packageManagerEntries...)
+	return append(entries, packageManagerEntries...), nil
+}
 
+func (s *DiscoveryService) resolveDiscoveredEntries(
+	entries []DiscoveredPlugin,
+	pluginsState PluginsStateFile,
+	globalState PluginsGlobalStateFile,
+) ([]DiscoveredPlugin, error) {
 	grouped := map[string][]DiscoveredPlugin{}
 	for _, entry := range entries {
 		grouped[entry.PluginID] = append(grouped[entry.PluginID], entry)
@@ -110,29 +135,47 @@ func (s *DiscoveryService) rescanWithStates(
 
 	resolvedEntries := make([]DiscoveredPlugin, 0, len(entries))
 	for _, pluginID := range pluginIDs {
-		group := grouped[pluginID]
-		slices.SortFunc(group, compareDiscoveredPlugins)
-		primary := &group[0]
-		for index := 1; index < len(group); index++ {
-			group[index].State = PluginRuntimeStateShadowed
-			group[index].ShadowedBySourcePath = primary.SourcePath
-			group[index].RestartRequired = false
-		}
-		resolvePrimaryPluginState(primary, pluginsState, globalState, s.serverMode)
-		if err := s.populateBackendRegistrations(primary); err != nil {
-			primary.Errors = append(primary.Errors, PluginErrorInfo{
-				Code:    string(ServiceErrorCodeBackendRuntimeInvalid),
-				Message: err.Error(),
-			})
-			primary.State = PluginRuntimeStateInvalid
-			primary.RestartRequired = false
+		group, err := s.resolveDiscoveredGroup(grouped[pluginID], pluginsState, globalState)
+		if err != nil {
+			return nil, err
 		}
 		resolvedEntries = append(resolvedEntries, group...)
 	}
+	return resolvedEntries, nil
+}
 
+func (s *DiscoveryService) resolveDiscoveredGroup(
+	group []DiscoveredPlugin,
+	pluginsState PluginsStateFile,
+	globalState PluginsGlobalStateFile,
+) ([]DiscoveredPlugin, error) {
+	slices.SortFunc(group, compareDiscoveredPlugins)
+	primary := &group[0]
+	markShadowedDiscoveredPlugins(group, primary.SourcePath)
+	resolvePrimaryPluginState(primary, pluginsState, globalState, s.serverMode)
+	if err := s.populateBackendRegistrations(primary); err != nil {
+		primary.Errors = append(primary.Errors, PluginErrorInfo{
+			Code:    string(ServiceErrorCodeBackendRuntimeInvalid),
+			Message: err.Error(),
+		})
+		primary.State = PluginRuntimeStateInvalid
+		primary.RestartRequired = false
+	}
+	return group, nil
+}
+
+func markShadowedDiscoveredPlugins(group []DiscoveredPlugin, primarySourcePath string) {
+	for index := 1; index < len(group); index++ {
+		group[index].State = PluginRuntimeStateShadowed
+		group[index].ShadowedBySourcePath = primarySourcePath
+		group[index].RestartRequired = false
+	}
+}
+
+func countDiscoverySnapshotEntries(entries []DiscoveredPlugin) (int, int) {
 	installedCount := 0
 	activeCount := 0
-	for _, entry := range resolvedEntries {
+	for _, entry := range entries {
 		if entry.State == PluginRuntimeStateActive || entry.State == PluginRuntimeStatePendingRestart {
 			activeCount++
 		}
@@ -144,13 +187,7 @@ func (s *DiscoveryService) rescanWithStates(
 			installedCount++
 		}
 	}
-
-	return DiscoverySnapshot{
-		ServerMode:       s.serverMode,
-		InstalledPlugins: installedCount,
-		ActivePlugins:    activeCount,
-		Plugins:          resolvedEntries,
-	}, nil
+	return installedCount, activeCount
 }
 
 func (s *DiscoveryService) discoverFilesystemPlugins(metadata PluginInstallMetadataFile) ([]DiscoveredPlugin, error) {
