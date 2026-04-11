@@ -81,70 +81,85 @@ func buildModelFieldLine(
 ) (string, map[string]struct{}, error) {
 	jsonName, err := fieldJSONName(field)
 	if err != nil {
-		return "", nil, fmt.Errorf(
-			"python shared types: %s.%s: %w",
-			contractName,
-			field.Name,
-			err,
-		)
+		return "", nil, pythonSharedFieldError(contractName, field, err)
 	}
-	imports := map[string]struct{}{}
-	if importTag := strings.TrimSpace(field.Tag.Get("py_import")); importTag != "" {
-		for _, line := range strings.Split(importTag, "\n") {
-			trimmed := strings.TrimSpace(line)
-			if trimmed == "" || strings.HasPrefix(trimmed, generatedPythonSharedTypesImportPrefix) {
-				continue
-			}
-			imports[trimmed] = struct{}{}
-		}
+	typeExpr, err := pythonFieldTypeExpr(field, currentTypeExpr)
+	if err != nil {
+		return "", nil, pythonSharedFieldError(contractName, field, err)
 	}
+	imports := pythonFieldImportSet(field)
+	defaultExpr, defaultImports, err := pythonFieldDefaultExpr(
+		ownerType,
+		field,
+		typeExpr,
+		defaultSourcesByType,
+	)
+	if err != nil {
+		return "", nil, pythonSharedFieldError(contractName, field, err)
+	}
+	mergeImportSet(imports, defaultImports)
+	return pythonModelFieldLine(jsonName, typeExpr, defaultExpr), imports, nil
+}
 
+func pythonSharedFieldError(contractName string, field reflect.StructField, err error) error {
+	return fmt.Errorf("python shared types: %s.%s: %w", contractName, field.Name, err)
+}
+
+func pythonFieldImportSet(field reflect.StructField) map[string]struct{} {
+	imports := map[string]struct{}{}
+	for _, line := range strings.Split(strings.TrimSpace(field.Tag.Get("py_import")), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, generatedPythonSharedTypesImportPrefix) {
+			continue
+		}
+		imports[trimmed] = struct{}{}
+	}
+	return imports
+}
+
+func pythonFieldTypeExpr(field reflect.StructField, currentTypeExpr string) (string, error) {
 	typeExpr := strings.TrimSpace(field.Tag.Get("py_type"))
 	if typeExpr == "" {
 		typeExpr = strings.TrimSpace(currentTypeExpr)
-		if typeExpr == "" {
-			return "", nil, fmt.Errorf(
-				"python shared types: %s.%s: missing datamodel type expression",
-				contractName,
-				field.Name,
-			)
-		}
 	}
-
-	defaultExpr := ""
-	switch defaultTag := strings.TrimSpace(field.Tag.Get("py_default")); defaultTag {
-	case "":
-		if field.Type.Kind() == reflect.Pointer || strings.HasSuffix(typeExpr, " | None") {
-			defaultExpr = "None"
-		}
-	case "go_value":
-		var defaultImports map[string]struct{}
-		defaultExpr, defaultImports, err = pythonGoValueDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
-		if err != nil {
-			return "", nil, fmt.Errorf(
-				"python shared types: %s.%s: %w",
-				contractName,
-				field.Name,
-				err,
-			)
-		}
-		mergeImportSet(imports, defaultImports)
-	case "factory:list":
-		defaultExpr = "Field(default_factory=list)"
-	case "factory:dict":
-		defaultExpr = "Field(default_factory=dict)"
-	default:
-		defaultExpr = defaultTag
+	if typeExpr == "" {
+		return "", fmt.Errorf("missing datamodel type expression")
 	}
 	if field.Type.Kind() == reflect.Pointer && !strings.Contains(typeExpr, " | None") {
 		typeExpr += " | None"
 	}
+	return typeExpr, nil
+}
 
+func pythonFieldDefaultExpr(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	typeExpr string,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (string, map[string]struct{}, error) {
+	switch defaultTag := strings.TrimSpace(field.Tag.Get("py_default")); defaultTag {
+	case "":
+		if field.Type.Kind() == reflect.Pointer || strings.HasSuffix(typeExpr, " | None") {
+			return "None", nil, nil
+		}
+		return "", nil, nil
+	case "go_value":
+		return pythonGoValueDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
+	case "factory:list":
+		return "Field(default_factory=list)", nil, nil
+	case "factory:dict":
+		return "Field(default_factory=dict)", nil, nil
+	default:
+		return defaultTag, nil, nil
+	}
+}
+
+func pythonModelFieldLine(jsonName string, typeExpr string, defaultExpr string) string {
 	line := "    " + jsonName + ": " + typeExpr
 	if defaultExpr != "" {
 		line += " = " + defaultExpr
 	}
-	return line, imports, nil
+	return line
 }
 
 func mergeImportSet(dst map[string]struct{}, src map[string]struct{}) {
@@ -213,9 +228,20 @@ func pythonGoValueDefaultExpr(
 
 func pythonLiteralDefaultExpr(value reflect.Value) (string, bool) {
 	valueType := value.Type()
-	if valueType.Kind() == reflect.String && valueType.Name() != "" && valueType.PkgPath() != "" {
+	if pythonNamedStringRequiresTypeAdapter(valueType) {
 		return "", false
 	}
+	if expr, ok := pythonEmptyCollectionDefaultExpr(value); ok {
+		return expr, true
+	}
+	return pythonScalarLiteralDefaultExpr(value)
+}
+
+func pythonNamedStringRequiresTypeAdapter(valueType reflect.Type) bool {
+	return valueType.Kind() == reflect.String && valueType.Name() != "" && valueType.PkgPath() != ""
+}
+
+func pythonEmptyCollectionDefaultExpr(value reflect.Value) (string, bool) {
 	switch value.Kind() {
 	case reflect.Map:
 		if value.IsNil() || value.Len() == 0 {
@@ -225,27 +251,41 @@ func pythonLiteralDefaultExpr(value reflect.Value) (string, bool) {
 		if value.Type().Elem().Kind() != reflect.Uint8 && (value.IsNil() || value.Len() == 0) {
 			return "Field(default_factory=list)", true
 		}
+	}
+	return "", false
+}
+
+func pythonScalarLiteralDefaultExpr(value reflect.Value) (string, bool) {
+	valueType := value.Type()
+	switch value.Kind() {
 	case reflect.String:
 		return strconv.Quote(value.String()), true
 	case reflect.Bool:
-		if value.Bool() {
-			return "True", true
-		}
-		return "False", true
+		return pythonBoolLiteral(value.Bool()), true
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return strconv.FormatInt(value.Int(), 10), true
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return strconv.FormatUint(value.Uint(), 10), true
 	case reflect.Float32, reflect.Float64:
-		literal := strconv.FormatFloat(value.Float(), 'f', -1, valueType.Bits())
-		if !strings.ContainsRune(literal, '.') {
-			literal += ".0"
-		}
-		return literal, true
+		return pythonFloatLiteral(value.Float(), valueType.Bits()), true
 	default:
 		return "", false
 	}
-	return "", false
+}
+
+func pythonBoolLiteral(value bool) string {
+	if value {
+		return "True"
+	}
+	return "False"
+}
+
+func pythonFloatLiteral(value float64, bits int) string {
+	literal := strconv.FormatFloat(value, 'f', -1, bits)
+	if !strings.ContainsRune(literal, '.') {
+		literal += ".0"
+	}
+	return literal
 }
 
 func sortedImportNames(imports map[string]struct{}) []string {

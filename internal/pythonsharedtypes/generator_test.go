@@ -13,6 +13,8 @@ import (
 	"setta/internal/sharedtypes"
 )
 
+type pythonLiteralDefaultExprNamedString string
+
 func TestBuildModelFieldLineUsesCurrentDatamodelTypeExpr(t *testing.T) {
 	t.Helper()
 
@@ -93,6 +95,69 @@ func TestBuildModelFieldLineRewritesSchemaGeneratedTypeAdapterDefaults(t *testin
 	}
 	if _, ok := imports["from pydantic import TypeAdapter"]; !ok {
 		t.Fatalf("expected TypeAdapter import, got %#v", imports)
+	}
+}
+
+func TestPythonLiteralDefaultExpr(t *testing.T) {
+	t.Helper()
+
+	var (
+		emptyMap   map[string]int
+		emptySlice []string
+		emptyBytes []byte
+	)
+	testCases := []struct {
+		name   string
+		value  reflect.Value
+		want   string
+		wantOK bool
+	}{
+		{
+			name:   "empty map uses dict factory",
+			value:  reflect.ValueOf(emptyMap),
+			want:   "Field(default_factory=dict)",
+			wantOK: true,
+		},
+		{
+			name:   "empty slice uses list factory",
+			value:  reflect.ValueOf(emptySlice),
+			want:   "Field(default_factory=list)",
+			wantOK: true,
+		},
+		{
+			name:   "bytes do not use list factory",
+			value:  reflect.ValueOf(emptyBytes),
+			want:   "",
+			wantOK: false,
+		},
+		{
+			name:   "bool uses python literal",
+			value:  reflect.ValueOf(false),
+			want:   "False",
+			wantOK: true,
+		},
+		{
+			name:   "float keeps decimal point",
+			value:  reflect.ValueOf(float64(2)),
+			want:   "2.0",
+			wantOK: true,
+		},
+		{
+			name:   "named string falls back to type adapter",
+			value:  reflect.ValueOf(pythonLiteralDefaultExprNamedString("theme")),
+			want:   "",
+			wantOK: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Helper()
+
+			got, gotOK := pythonLiteralDefaultExpr(tc.value)
+			if got != tc.want || gotOK != tc.wantOK {
+				t.Fatalf("pythonLiteralDefaultExpr(%v) = (%q, %t), want (%q, %t)", tc.value, got, gotOK, tc.want, tc.wantOK)
+			}
+		})
 	}
 }
 
