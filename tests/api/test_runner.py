@@ -103,6 +103,92 @@ def test_random_params_empty_grid_returns_identity() -> None:
     assert overrides[0].tags == {"kind": "base"}
 
 
+def test_grid_params_expands_cartesian_product_without_mutating_base_override() -> None:
+    base_override = RunOverride(tags={"kind": "base"})
+    plan = RunPlan([base_override])
+    learning_rate_key = SectionParamDependencyKey(
+        type=DependencyKeyType.SectionParam,
+        sectionId=ID("training-section"),
+        codeObjId=ID("lr-param"),
+    )
+    seed_key = (ID("training-section"), ID("seed-param"))
+
+    expanded = list(
+        plan.grid_params(
+            {
+                learning_rate_key: [0.1, 0.2],
+                seed_key: [1, 2],
+            }
+        )
+    )
+
+    assert [override.param_overrides for override in expanded] == [
+        {
+            (ID("training-section"), ID("lr-param")): "0.1",
+            seed_key: "1",
+        },
+        {
+            (ID("training-section"), ID("lr-param")): "0.1",
+            seed_key: "2",
+        },
+        {
+            (ID("training-section"), ID("lr-param")): "0.2",
+            seed_key: "1",
+        },
+        {
+            (ID("training-section"), ID("lr-param")): "0.2",
+            seed_key: "2",
+        },
+    ]
+    assert base_override.param_overrides == {}
+
+
+def test_zip_params_pairs_value_lists_without_mutating_base_override() -> None:
+    base_override = RunOverride(tags={"kind": "base"})
+    plan = RunPlan([base_override])
+    learning_rate_key = SectionParamDependencyKey(
+        type=DependencyKeyType.SectionParam,
+        sectionId=ID("training-section"),
+        codeObjId=ID("lr-param"),
+    )
+    seed_key = (ID("training-section"), ID("seed-param"))
+
+    expanded = list(
+        plan.zip_params(
+            {
+                learning_rate_key: [0.1, 0.2],
+                seed_key: [1, 2],
+            }
+        )
+    )
+
+    assert [override.param_overrides for override in expanded] == [
+        {
+            (ID("training-section"), ID("lr-param")): "0.1",
+            seed_key: "1",
+        },
+        {
+            (ID("training-section"), ID("lr-param")): "0.2",
+            seed_key: "2",
+        },
+    ]
+    assert base_override.param_overrides == {}
+
+
+def test_zip_params_rejects_mismatched_value_list_lengths() -> None:
+    plan = RunPlan()
+
+    with pytest.raises(
+        ValueError, match="zip_params requires all value lists to have the same length"
+    ):
+        plan.zip_params(
+            {
+                (ID("training-section"), ID("lr-param")): [0.1, 0.2],
+                (ID("training-section"), ID("seed-param")): [1],
+            }
+        )
+
+
 def test_resolve_project_config_id_matches_name_and_id() -> None:
     runner = SettaRunner(base_url="http://example.com")
     config = ProjectConfig(name="Alpha")
@@ -121,6 +207,44 @@ def test_resolve_project_config_id_raises_on_unknown() -> None:
 
     with pytest.raises(KeyError):
         runner._resolve_project_config_id("Missing")
+
+
+def test_resolve_project_config_id_uses_explicit_default_before_loading_metadata(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(
+        base_url="http://example.com",
+        project_config_id=ID("project-explicit"),
+    )
+
+    monkeypatch.setattr(
+        runner,
+        "_load_project_metadata",
+        lambda: (_ for _ in ()).throw(AssertionError("unexpected metadata load")),
+    )
+
+    assert runner._resolve_project_config_id(None) == ID("project-explicit")
+
+
+def test_resolve_project_config_id_loads_default_and_caches_lookup(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(base_url="http://example.com")
+    config = ProjectConfig(name="Alpha")
+    observed_requests: list[tuple[runner_mod.Route, dict]] = []
+
+    def post(route: runner_mod.Route, payload: dict) -> dict:
+        observed_requests.append((route, payload))
+        return {
+            "defaultProjectConfigId": config.id,
+            "projectMetadata": [config.model_dump(mode="json")],
+        }
+
+    monkeypatch.setattr(runner, "_post", post)
+
+    assert runner._resolve_project_config_id(None) == config.id
+    assert runner._resolve_project_config_id("Alpha") == config.id
+    assert observed_requests == [(runner_mod.Route.LOAD_ALL_PROJECT_METADATA, {})]
 
 
 def test_project_config_defaults_use_canonical_codegen_target_defaults() -> None:

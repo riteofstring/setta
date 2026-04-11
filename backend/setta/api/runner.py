@@ -1,5 +1,6 @@
 import itertools
 import random
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -171,6 +172,34 @@ def _bootstrap_cookie_headers(cookie_map: dict[str, str]) -> dict[str, str]:
     return _build_cookie_headers(cookie_name, cookie_value)
 
 
+def _normalize_param_grid(
+    param_grid: dict[object, list[object]],
+) -> tuple[list[tuple[ID, ID]], list[list[object]]]:
+    return [_normalize_param_key(key) for key in param_grid.keys()], list(
+        param_grid.values()
+    )
+
+
+def _copy_run_override_with_params(
+    override: RunOverride,
+    keys: list[tuple[ID, ID]],
+    values: Iterable[object],
+) -> RunOverride:
+    next_override = override.copy()
+    next_override.param_overrides.update(
+        {key: str(value) for key, value in zip(keys, values)}
+    )
+    return next_override
+
+
+def _build_project_config_lookup(configs: list[ProjectConfig]) -> dict[str, ID]:
+    lookup: dict[str, ID] = {}
+    for config in configs:
+        lookup[str(config.id)] = config.id
+        lookup.setdefault(config.name, config.id)
+    return lookup
+
+
 class RunPlan:
     def __init__(self, overrides: list[RunOverride] | None = None) -> None:
         self._overrides = overrides or [RunOverride()]
@@ -201,36 +230,23 @@ class RunPlan:
 
     def grid_params(self, param_grid: dict[object, list[object]]) -> "RunPlan":
         if not param_grid:
-            return RunPlan([override.copy() for override in self._overrides])
-        keys = [_normalize_param_key(key) for key in param_grid.keys()]
-        value_lists = list(param_grid.values())
-        expanded: list[RunOverride] = []
-        for override in self._overrides:
-            for values in itertools.product(*value_lists):
-                next_override = override.copy()
-                for key, value in zip(keys, values):
-                    next_override.param_overrides[key] = str(value)
-                expanded.append(next_override)
-        return RunPlan(expanded)
+            return RunPlan(self._copy_overrides())
+        keys, value_lists = _normalize_param_grid(param_grid)
+        return self._expand_param_rows(
+            keys,
+            lambda: itertools.product(*value_lists),
+        )
 
     def zip_params(self, param_grid: dict[object, list[object]]) -> "RunPlan":
         if not param_grid:
-            return RunPlan([override.copy() for override in self._overrides])
-        keys = [_normalize_param_key(key) for key in param_grid.keys()]
-        value_lists = list(param_grid.values())
+            return RunPlan(self._copy_overrides())
+        keys, value_lists = _normalize_param_grid(param_grid)
         lengths = {len(values) for values in value_lists}
         if len(lengths) > 1:
             raise ValueError(
                 "zip_params requires all value lists to have the same length"
             )
-        expanded: list[RunOverride] = []
-        for override in self._overrides:
-            for values in zip(*value_lists):
-                next_override = override.copy()
-                for key, value in zip(keys, values):
-                    next_override.param_overrides[key] = str(value)
-                expanded.append(next_override)
-        return RunPlan(expanded)
+        return self._expand_param_rows(keys, lambda: zip(*value_lists))
 
     def random_params(
         self,
@@ -240,18 +256,16 @@ class RunPlan:
         seed: int | None = None,
     ) -> "RunPlan":
         if not param_grid:
-            return RunPlan([override.copy() for override in self._overrides])
+            return RunPlan(self._copy_overrides())
         rng = random.Random(seed)
-        keys = [_normalize_param_key(key) for key in param_grid.keys()]
-        value_lists = list(param_grid.values())
-        expanded: list[RunOverride] = []
-        for override in self._overrides:
-            for _ in range(count):
-                next_override = override.copy()
-                for key, values in zip(keys, value_lists):
-                    next_override.param_overrides[key] = str(rng.choice(values))
-                expanded.append(next_override)
-        return RunPlan(expanded)
+        keys, value_lists = _normalize_param_grid(param_grid)
+        return self._expand_param_rows(
+            keys,
+            lambda: (
+                tuple(rng.choice(values) for values in value_lists)
+                for _ in range(count)
+            ),
+        )
 
     def repeat(self, count: int) -> "RunPlan":
         if count < 1:
@@ -259,6 +273,22 @@ class RunPlan:
         expanded: list[RunOverride] = []
         for _ in range(count):
             expanded.extend(override.copy() for override in self._overrides)
+        return RunPlan(expanded)
+
+    def _copy_overrides(self) -> list[RunOverride]:
+        return [override.copy() for override in self._overrides]
+
+    def _expand_param_rows(
+        self,
+        keys: list[tuple[ID, ID]],
+        value_rows_factory: Callable[[], Iterable[tuple[object, ...]]],
+    ) -> "RunPlan":
+        expanded: list[RunOverride] = []
+        for override in self._overrides:
+            expanded.extend(
+                _copy_run_override_with_params(override, keys, values)
+                for values in value_rows_factory()
+            )
         return RunPlan(expanded)
 
 
@@ -316,6 +346,7 @@ class SettaRunner:
             self._workspace_root = Path(workspace_root).expanduser().resolve()
         self._resolved_auth_headers: dict[str, str] | None = None
         self._project_configs: list[ProjectConfig] | None = None
+        self._project_config_ids_by_ref: dict[str, ID] | None = None
         self._default_project_config_id: ID | None = None
         self._verified_runtime_handshake: RunningBackendVersionHandshake | None = None
 
@@ -464,19 +495,28 @@ class SettaRunner:
         ]
 
     def _resolve_project_config_id(self, ref: str | None) -> ID:
-        project_name = ref or self._project_name
-        if project_name is None:
-            if self._project_config_id is not None:
-                return self._project_config_id
-            configs = self._load_project_metadata()
-            if self._default_project_config_id is None:
-                raise KeyError("No default project config available")
-            return self._default_project_config_id
-        configs = self._load_project_metadata()
-        for config in configs:
-            if config.name == project_name or config.id == project_name:
-                return config.id
-        raise KeyError(f"Unknown project config: {project_name}")
+        project_ref = ref or self._project_name
+        if project_ref is None:
+            return self._resolve_default_project_config_id()
+        project_config_id = self._project_config_lookup().get(str(project_ref))
+        if project_config_id is not None:
+            return project_config_id
+        raise KeyError(f"Unknown project config: {project_ref}")
+
+    def _resolve_default_project_config_id(self) -> ID:
+        if self._project_config_id is not None:
+            return self._project_config_id
+        self._load_project_metadata()
+        if self._default_project_config_id is None:
+            raise KeyError("No default project config available")
+        return self._default_project_config_id
+
+    def _project_config_lookup(self) -> dict[str, ID]:
+        if self._project_config_ids_by_ref is None:
+            self._project_config_ids_by_ref = _build_project_config_lookup(
+                self._load_project_metadata()
+            )
+        return self._project_config_ids_by_ref
 
     def _load_project_metadata(self) -> list[ProjectConfig]:
         if self._project_configs is not None:
@@ -486,4 +526,7 @@ class SettaRunner:
         self._project_configs = [
             ProjectConfig(**item) for item in data.get("projectMetadata", [])
         ]
+        self._project_config_ids_by_ref = _build_project_config_lookup(
+            self._project_configs
+        )
         return self._project_configs
