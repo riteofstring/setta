@@ -43,6 +43,18 @@ type chartSettingsState struct {
 	YAxisLog           bool
 }
 
+type chartSettingsFieldApplier func(*chartSettingsState, ChartSettingsUpdate, ChartType) error
+
+var chartSettingsFieldAppliers = map[string]chartSettingsFieldApplier{
+	"xAxisColumn":        applyChartSettingsXAxisColumn,
+	"secondYAxisColumns": applyChartSettingsSecondYAxisColumns,
+	"categoryColumn":     applyChartSettingsCategoryColumn,
+	"xAxisLog":           applyChartSettingsXAxisLog,
+	"y1AxisLog":          applyChartSettingsY1AxisLog,
+	"y2AxisLog":          applyChartSettingsY2AxisLog,
+	"yAxisLog":           applyChartSettingsYAxisLog,
+}
+
 func (p *Project) SetChartAreaDataPath(sectionID string, dataPath string) error {
 	section, _, _, err := p.resolveChartSectionMutationState(sectionID)
 	if err != nil {
@@ -111,59 +123,13 @@ func (r *Runtime) SetChartType(ctx context.Context, projectID string, sectionID 
 }
 
 func (p *Project) SetChartSettings(sectionID string, chartSettings ChartSettingsUpdate, changedSettings []string) error {
-	section, _, payload, err := p.resolveChartSectionMutationState(sectionID)
+	section, requestedType, current, err := p.resolveChartSettingsMutationState(sectionID, chartSettings.Type)
 	if err != nil {
 		return err
 	}
-	requestedType, err := normalizeChartType(chartSettings.Type)
-	if err != nil {
+	next := nextChartSettingsState(current, requestedType)
+	if err := applyChangedChartSettings(&next, chartSettings, requestedType, changedSettings); err != nil {
 		return err
-	}
-	current, err := chartSettingsStateFromPayload(payload)
-	if err != nil {
-		return err
-	}
-	next := current
-	if current.Type != requestedType {
-		next = carryForwardChartSettings(current, requestedType)
-	}
-	for _, fieldName := range changedSettings {
-		trimmedFieldName := strings.TrimSpace(fieldName)
-		switch trimmedFieldName {
-		case "":
-			continue
-		case "xAxisColumn":
-			next.XAxisColumn = normalizeOptionalString(chartSettings.XAxisColumn)
-		case "secondYAxisColumns":
-			if requestedType != ChartTypeLine {
-				return fmt.Errorf("%w: %q", ErrChartSettingsFieldInvalid, trimmedFieldName)
-			}
-			next.SecondYAxisColumns = normalizeStringSlice(chartSettings.SecondYAxisColumns)
-		case "categoryColumn":
-			if requestedType != ChartTypeScatter {
-				return fmt.Errorf("%w: %q", ErrChartSettingsFieldInvalid, trimmedFieldName)
-			}
-			next.CategoryColumn = normalizeOptionalString(chartSettings.CategoryColumn)
-		case "xAxisLog":
-			next.XAxisLog = chartSettings.XAxisLog
-		case "y1AxisLog":
-			if requestedType != ChartTypeLine {
-				return fmt.Errorf("%w: %q", ErrChartSettingsFieldInvalid, trimmedFieldName)
-			}
-			next.Y1AxisLog = chartSettings.Y1AxisLog
-		case "y2AxisLog":
-			if requestedType != ChartTypeLine {
-				return fmt.Errorf("%w: %q", ErrChartSettingsFieldInvalid, trimmedFieldName)
-			}
-			next.Y2AxisLog = chartSettings.Y2AxisLog
-		case "yAxisLog":
-			if requestedType != ChartTypeScatter {
-				return fmt.Errorf("%w: %q", ErrChartSettingsFieldInvalid, trimmedFieldName)
-			}
-			next.YAxisLog = chartSettings.YAxisLog
-		default:
-			return fmt.Errorf("%w: %q", ErrChartSettingsFieldInvalid, trimmedFieldName)
-		}
 	}
 	next.Type = requestedType
 	return p.setCurrentSectionField(section.ID, "chartSettings", chartSettingsObject(next))
@@ -198,6 +164,112 @@ func (r *Runtime) SetChartSettings(
 
 func (p *Project) resolveChartSectionMutationState(sectionID string) (Section, SectionVariant, map[string]any, error) {
 	return p.resolveTypedSectionMutationState(sectionID, "Chart", ErrChartSectionRequired)
+}
+
+func (p *Project) resolveChartSettingsMutationState(sectionID string, chartType ChartType) (Section, ChartType, chartSettingsState, error) {
+	section, _, payload, err := p.resolveChartSectionMutationState(sectionID)
+	if err != nil {
+		return Section{}, "", chartSettingsState{}, err
+	}
+	requestedType, err := normalizeChartType(chartType)
+	if err != nil {
+		return Section{}, "", chartSettingsState{}, err
+	}
+	current, err := chartSettingsStateFromPayload(payload)
+	if err != nil {
+		return Section{}, "", chartSettingsState{}, err
+	}
+	return section, requestedType, current, nil
+}
+
+func nextChartSettingsState(current chartSettingsState, requestedType ChartType) chartSettingsState {
+	if current.Type == requestedType {
+		return current
+	}
+	return carryForwardChartSettings(current, requestedType)
+}
+
+func applyChangedChartSettings(
+	next *chartSettingsState,
+	chartSettings ChartSettingsUpdate,
+	requestedType ChartType,
+	changedSettings []string,
+) error {
+	for _, fieldName := range changedSettings {
+		trimmedFieldName := strings.TrimSpace(fieldName)
+		if trimmedFieldName == "" {
+			continue
+		}
+		applier, ok := chartSettingsFieldAppliers[trimmedFieldName]
+		if !ok {
+			return invalidChartSettingsField(trimmedFieldName)
+		}
+		if err := applier(next, chartSettings, requestedType); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func applyChartSettingsXAxisColumn(next *chartSettingsState, chartSettings ChartSettingsUpdate, requestedType ChartType) error {
+	next.XAxisColumn = normalizeOptionalString(chartSettings.XAxisColumn)
+	return nil
+}
+
+func applyChartSettingsSecondYAxisColumns(next *chartSettingsState, chartSettings ChartSettingsUpdate, requestedType ChartType) error {
+	if err := requireChartSettingsTypeField(requestedType, ChartTypeLine, "secondYAxisColumns"); err != nil {
+		return err
+	}
+	next.SecondYAxisColumns = normalizeStringSlice(chartSettings.SecondYAxisColumns)
+	return nil
+}
+
+func applyChartSettingsCategoryColumn(next *chartSettingsState, chartSettings ChartSettingsUpdate, requestedType ChartType) error {
+	if err := requireChartSettingsTypeField(requestedType, ChartTypeScatter, "categoryColumn"); err != nil {
+		return err
+	}
+	next.CategoryColumn = normalizeOptionalString(chartSettings.CategoryColumn)
+	return nil
+}
+
+func applyChartSettingsXAxisLog(next *chartSettingsState, chartSettings ChartSettingsUpdate, requestedType ChartType) error {
+	next.XAxisLog = chartSettings.XAxisLog
+	return nil
+}
+
+func applyChartSettingsY1AxisLog(next *chartSettingsState, chartSettings ChartSettingsUpdate, requestedType ChartType) error {
+	if err := requireChartSettingsTypeField(requestedType, ChartTypeLine, "y1AxisLog"); err != nil {
+		return err
+	}
+	next.Y1AxisLog = chartSettings.Y1AxisLog
+	return nil
+}
+
+func applyChartSettingsY2AxisLog(next *chartSettingsState, chartSettings ChartSettingsUpdate, requestedType ChartType) error {
+	if err := requireChartSettingsTypeField(requestedType, ChartTypeLine, "y2AxisLog"); err != nil {
+		return err
+	}
+	next.Y2AxisLog = chartSettings.Y2AxisLog
+	return nil
+}
+
+func applyChartSettingsYAxisLog(next *chartSettingsState, chartSettings ChartSettingsUpdate, requestedType ChartType) error {
+	if err := requireChartSettingsTypeField(requestedType, ChartTypeScatter, "yAxisLog"); err != nil {
+		return err
+	}
+	next.YAxisLog = chartSettings.YAxisLog
+	return nil
+}
+
+func requireChartSettingsTypeField(requestedType ChartType, expectedType ChartType, fieldName string) error {
+	if requestedType != expectedType {
+		return invalidChartSettingsField(fieldName)
+	}
+	return nil
+}
+
+func invalidChartSettingsField(fieldName string) error {
+	return fmt.Errorf("%w: %q", ErrChartSettingsFieldInvalid, fieldName)
 }
 
 func normalizeChartType(chartType ChartType) (ChartType, error) {
