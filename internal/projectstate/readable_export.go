@@ -64,6 +64,12 @@ type readableParamHierarchy struct {
 	Values    map[string]any
 }
 
+type readableProjectConfigSections struct {
+	Sections                []ReadableSectionExport
+	ParamNamePathsBySection map[string]map[string][]string
+	OutputPortsBySection    map[string]map[string]string
+}
+
 func (d Document) BuildReadableProjectExport(opts ReadableExportOptions) (ReadableProjectExport, error) {
 	defaultProjectID := strings.TrimSpace(d.DefaultProjectID)
 	if defaultProjectID == "" {
@@ -119,11 +125,45 @@ func (d Document) BuildReadableProjectExport(opts ReadableExportOptions) (Readab
 }
 
 func buildReadableProjectConfigExport(project Project, opts ReadableExportOptions) (ReadableProjectConfigExport, error) {
+	sectionPathByID, orderedSectionIDs, err := buildReadableSectionPathIndex(project)
+	if err != nil {
+		return ReadableProjectConfigExport{}, err
+	}
+
+	sectionData, err := buildReadableProjectConfigSections(project, orderedSectionIDs, sectionPathByID, opts)
+	if err != nil {
+		return ReadableProjectConfigExport{}, err
+	}
+
+	edges, err := buildReadableEdgeExports(
+		project,
+		sectionPathByID,
+		sectionData.ParamNamePathsBySection,
+		sectionData.OutputPortsBySection,
+	)
+	if err != nil {
+		return ReadableProjectConfigExport{}, err
+	}
+
+	exported := ReadableProjectConfigExport{
+		Name:     project.Name,
+		Sections: sectionData.Sections,
+		Edges:    edges,
+	}
+
+	if err := applyReadableEntrySection(&exported, project, sectionPathByID); err != nil {
+		return ReadableProjectConfigExport{}, err
+	}
+
+	return exported, nil
+}
+
+func buildReadableSectionPathIndex(project Project) (map[string]string, []string, error) {
 	sectionPathByID := make(map[string]string, len(project.SectionVariantMap))
 	for _, sectionID := range sortedProjectSectionIDs(project.SectionVariantMap) {
 		fullName, err := activeSectionPathFullName(project, sectionID)
 		if err != nil {
-			return ReadableProjectConfigExport{}, err
+			return nil, nil, err
 		}
 		sectionPathByID[sectionID] = fullName
 	}
@@ -143,30 +183,33 @@ func buildReadableProjectConfigExport(project Project, opts ReadableExportOption
 		return leftID < rightID
 	})
 
-	paramNamePathsBySection := make(map[string]map[string][]string, len(orderedSectionIDs))
-	outputPortsBySection := make(map[string]map[string]string, len(orderedSectionIDs))
-	sections := make([]ReadableSectionExport, 0, len(orderedSectionIDs))
+	return sectionPathByID, orderedSectionIDs, nil
+}
+
+func buildReadableProjectConfigSections(
+	project Project,
+	orderedSectionIDs []string,
+	sectionPathByID map[string]string,
+	opts ReadableExportOptions,
+) (readableProjectConfigSections, error) {
+	output := readableProjectConfigSections{
+		Sections:                make([]ReadableSectionExport, 0, len(orderedSectionIDs)),
+		ParamNamePathsBySection: make(map[string]map[string][]string, len(orderedSectionIDs)),
+		OutputPortsBySection:    make(map[string]map[string]string, len(orderedSectionIDs)),
+	}
 
 	for _, sectionID := range orderedSectionIDs {
-		variantID, ok := project.SectionVariantMap[sectionID]
-		if !ok {
-			return ReadableProjectConfigExport{}, fmt.Errorf("%w: %q", ErrSectionActiveVariantNotFound, sectionID)
-		}
-		section, variant, impl, err := project.ResolveSectionWithVariant(sectionID, variantID)
+		section, variant, impl, payload, err := resolveReadableProjectSection(project, sectionID)
 		if err != nil {
-			return ReadableProjectConfigExport{}, err
-		}
-		payload, err := effectiveSectionPayload(project, section.ID, variant.ID)
-		if err != nil {
-			return ReadableProjectConfigExport{}, err
+			return readableProjectConfigSections{}, err
 		}
 
 		paramData, err := collectReadableSectionParamData(project, payload)
 		if err != nil {
-			return ReadableProjectConfigExport{}, err
+			return readableProjectConfigSections{}, err
 		}
-		paramNamePathsBySection[section.ID] = paramData.NamePaths
-		outputPortsBySection[section.ID] = collectReadableSectionOutputPorts(payload)
+		output.ParamNamePathsBySection[section.ID] = paramData.NamePaths
+		output.OutputPortsBySection[section.ID] = collectReadableSectionOutputPorts(payload)
 
 		sectionExport, err := buildReadableSectionExport(
 			project,
@@ -179,120 +222,175 @@ func buildReadableProjectConfigExport(project Project, opts ReadableExportOption
 			opts,
 		)
 		if err != nil {
-			return ReadableProjectConfigExport{}, err
+			return readableProjectConfigSections{}, err
 		}
-		sections = append(sections, sectionExport)
+		output.Sections = append(output.Sections, sectionExport)
 	}
 
-	edges, err := buildReadableEdgeExports(project, sectionPathByID, paramNamePathsBySection, outputPortsBySection)
+	return output, nil
+}
+
+func resolveReadableProjectSection(project Project, sectionID string) (Section, SectionVariant, SectionImpl, map[string]any, error) {
+	variantID, ok := project.SectionVariantMap[sectionID]
+	if !ok {
+		return Section{}, SectionVariant{}, SectionImpl{}, nil, fmt.Errorf("%w: %q", ErrSectionActiveVariantNotFound, sectionID)
+	}
+	section, variant, impl, err := project.ResolveSectionWithVariant(sectionID, variantID)
 	if err != nil {
-		return ReadableProjectConfigExport{}, err
+		return Section{}, SectionVariant{}, SectionImpl{}, nil, err
 	}
-
-	exported := ReadableProjectConfigExport{
-		Name:     project.Name,
-		Sections: sections,
-		Edges:    edges,
+	payload, err := effectiveSectionPayload(project, section.ID, variant.ID)
+	if err != nil {
+		return Section{}, SectionVariant{}, SectionImpl{}, nil, err
 	}
+	return section, variant, impl, payload, nil
+}
 
-	if entrySectionID := strings.TrimSpace(project.EntryCodeBlockID); entrySectionID != "" {
-		entryPath, ok := sectionPathByID[entrySectionID]
-		if !ok {
-			return ReadableProjectConfigExport{}, fmt.Errorf("%w: %q", ErrEntrySectionNotFound, entrySectionID)
-		}
-		exported.EntrySection = entryPath
+func applyReadableEntrySection(
+	exported *ReadableProjectConfigExport,
+	project Project,
+	sectionPathByID map[string]string,
+) error {
+	entrySectionID := strings.TrimSpace(project.EntryCodeBlockID)
+	if entrySectionID == "" {
+		return nil
 	}
-
-	return exported, nil
+	entryPath, ok := sectionPathByID[entrySectionID]
+	if !ok {
+		return fmt.Errorf("%w: %q", ErrEntrySectionNotFound, entrySectionID)
+	}
+	exported.EntrySection = entryPath
+	return nil
 }
 
 func collectReadableSectionParamData(project Project, payload map[string]any) (readableSectionParamData, error) {
 	sectionType := resolveReadableSectionType(payload, SectionImpl{})
 	codeObjVariantMap := payloadStringMapField(payload, "codeObjVariantMap")
 
-	switch {
-	case strings.TrimSpace(payloadStringField(payload, "metaControlParamId")) != "" || sectionType == "MetaControl":
-		paramID := payloadStringField(payload, "metaControlParamId")
-		if paramID == "" {
-			return readableSectionParamData{
-				NamePaths:     map[string][]string{},
-				Values:        map[string]any{},
-				IncludeParams: true,
-			}, nil
-		}
-		hierarchy, err := traverseReadableParamHierarchy(project, codeObjVariantMap, []string{paramID}, nil, true)
-		if err != nil {
-			return readableSectionParamData{}, err
-		}
-		return readableSectionParamData{
-			NamePaths:     hierarchy.NamePaths,
-			Values:        hierarchy.Values,
-			IncludeParams: true,
-		}, nil
-	case strings.TrimSpace(payloadStringField(payload, "topLevelParamId")) != "":
-		topLevelParamID := payloadStringField(payload, "topLevelParamId")
-		rootPayload, _, _, _, err := effectiveCodeObjectPayload(project, codeObjVariantMap, topLevelParamID)
-		if err != nil {
-			return readableSectionParamData{}, err
-		}
-		topLevelIDs := payloadStringArrayField(rootPayload, "children")
-		if payloadBoolField(payload, "isJsonSource") {
-			hierarchy, err := traverseReadableParamHierarchy(
-				project,
-				codeObjVariantMap,
-				topLevelIDs,
-				payloadStringArrayField(payload, "jsonSourceKeys"),
-				false,
-			)
-			if err != nil {
-				return readableSectionParamData{}, err
-			}
-			return readableSectionParamData{
-				NamePaths: hierarchy.NamePaths,
-			}, nil
-		}
-		hierarchy, err := traverseReadableParamHierarchy(project, codeObjVariantMap, topLevelIDs, nil, true)
-		if err != nil {
-			return readableSectionParamData{}, err
-		}
-		return readableSectionParamData{
-			NamePaths:     hierarchy.NamePaths,
-			Values:        hierarchy.Values,
-			IncludeParams: true,
-		}, nil
-	case sectionType == "Dict" || sectionType == "GlobalVariables":
-		return readableSectionParamData{
-			NamePaths:     map[string][]string{},
-			Values:        map[string]any{},
-			IncludeParams: !payloadBoolField(payload, "isJsonSource"),
-		}, nil
-	case sectionType == "Callable":
-		callableID := payloadStringField(payload, "callable")
-		if callableID == "" {
-			return readableSectionParamData{
-				NamePaths:     map[string][]string{},
-				Values:        map[string]any{},
-				IncludeParams: true,
-			}, nil
-		}
-		callablePayload, _, _, _, err := effectiveCodeObjectPayload(project, codeObjVariantMap, callableID)
-		if err != nil {
-			return readableSectionParamData{}, err
-		}
-		topLevelIDs := payloadStringArrayField(callablePayload, "children")
-		hierarchy, err := traverseReadableParamHierarchy(project, codeObjVariantMap, topLevelIDs, nil, true)
-		if err != nil {
-			return readableSectionParamData{}, err
-		}
-		return readableSectionParamData{
-			NamePaths:     hierarchy.NamePaths,
-			Values:        hierarchy.Values,
-			IncludeParams: true,
-		}, nil
-	default:
-		return readableSectionParamData{
+	if data, handled, err := collectReadableMetaControlParamData(project, payload, sectionType, codeObjVariantMap); handled || err != nil {
+		return data, err
+	}
+	if data, handled, err := collectReadableTopLevelParamData(project, payload, codeObjVariantMap); handled || err != nil {
+		return data, err
+	}
+	if data, handled := collectReadableStaticSectionParamData(payload, sectionType); handled {
+		return data, nil
+	}
+	if data, handled, err := collectReadableCallableParamData(project, payload, sectionType, codeObjVariantMap); handled || err != nil {
+		return data, err
+	}
+	return readableSectionParamData{NamePaths: map[string][]string{}}, nil
+}
+
+func collectReadableMetaControlParamData(
+	project Project,
+	payload map[string]any,
+	sectionType string,
+	codeObjVariantMap map[string]string,
+) (readableSectionParamData, bool, error) {
+	paramID := payloadStringField(payload, "metaControlParamId")
+	if strings.TrimSpace(paramID) == "" && sectionType != "MetaControl" {
+		return readableSectionParamData{}, false, nil
+	}
+	if paramID == "" {
+		return readableIncludedSectionParamData(readableParamHierarchy{
 			NamePaths: map[string][]string{},
-		}, nil
+			Values:    map[string]any{},
+		}), true, nil
+	}
+	hierarchy, err := traverseReadableParamHierarchy(project, codeObjVariantMap, []string{paramID}, nil, true)
+	if err != nil {
+		return readableSectionParamData{}, true, err
+	}
+	return readableIncludedSectionParamData(hierarchy), true, nil
+}
+
+func collectReadableTopLevelParamData(
+	project Project,
+	payload map[string]any,
+	codeObjVariantMap map[string]string,
+) (readableSectionParamData, bool, error) {
+	topLevelParamID := payloadStringField(payload, "topLevelParamId")
+	if strings.TrimSpace(topLevelParamID) == "" {
+		return readableSectionParamData{}, false, nil
+	}
+	rootPayload, _, _, _, err := effectiveCodeObjectPayload(project, codeObjVariantMap, topLevelParamID)
+	if err != nil {
+		return readableSectionParamData{}, true, err
+	}
+	topLevelIDs := payloadStringArrayField(rootPayload, "children")
+	if payloadBoolField(payload, "isJsonSource") {
+		hierarchy, err := traverseReadableParamHierarchy(
+			project,
+			codeObjVariantMap,
+			topLevelIDs,
+			payloadStringArrayField(payload, "jsonSourceKeys"),
+			false,
+		)
+		if err != nil {
+			return readableSectionParamData{}, true, err
+		}
+		return readableNamePathOnlySectionParamData(hierarchy), true, nil
+	}
+	hierarchy, err := traverseReadableParamHierarchy(project, codeObjVariantMap, topLevelIDs, nil, true)
+	if err != nil {
+		return readableSectionParamData{}, true, err
+	}
+	return readableIncludedSectionParamData(hierarchy), true, nil
+}
+
+func collectReadableStaticSectionParamData(payload map[string]any, sectionType string) (readableSectionParamData, bool) {
+	if sectionType != "Dict" && sectionType != "GlobalVariables" {
+		return readableSectionParamData{}, false
+	}
+	if payloadBoolField(payload, "isJsonSource") {
+		return readableSectionParamData{NamePaths: map[string][]string{}}, true
+	}
+	return readableIncludedSectionParamData(readableParamHierarchy{
+		NamePaths: map[string][]string{},
+		Values:    map[string]any{},
+	}), true
+}
+
+func collectReadableCallableParamData(
+	project Project,
+	payload map[string]any,
+	sectionType string,
+	codeObjVariantMap map[string]string,
+) (readableSectionParamData, bool, error) {
+	if sectionType != "Callable" {
+		return readableSectionParamData{}, false, nil
+	}
+	callableID := payloadStringField(payload, "callable")
+	if callableID == "" {
+		return readableIncludedSectionParamData(readableParamHierarchy{
+			NamePaths: map[string][]string{},
+			Values:    map[string]any{},
+		}), true, nil
+	}
+	callablePayload, _, _, _, err := effectiveCodeObjectPayload(project, codeObjVariantMap, callableID)
+	if err != nil {
+		return readableSectionParamData{}, true, err
+	}
+	topLevelIDs := payloadStringArrayField(callablePayload, "children")
+	hierarchy, err := traverseReadableParamHierarchy(project, codeObjVariantMap, topLevelIDs, nil, true)
+	if err != nil {
+		return readableSectionParamData{}, true, err
+	}
+	return readableIncludedSectionParamData(hierarchy), true, nil
+}
+
+func readableIncludedSectionParamData(hierarchy readableParamHierarchy) readableSectionParamData {
+	return readableSectionParamData{
+		NamePaths:     hierarchy.NamePaths,
+		Values:        hierarchy.Values,
+		IncludeParams: true,
+	}
+}
+
+func readableNamePathOnlySectionParamData(hierarchy readableParamHierarchy) readableSectionParamData {
+	return readableSectionParamData{
+		NamePaths: hierarchy.NamePaths,
 	}
 }
 
@@ -447,54 +545,16 @@ func buildReadableSectionExport(
 	}
 
 	sectionType := resolveReadableSectionType(payload, impl)
-	exported := ReadableSectionExport{
-		Path: sectionPath,
-		Type: sectionType,
-	}
+	exported := newReadableSectionExport(sectionPath, sectionType, variant, opts.IncludeVariants)
 
-	if opts.IncludeVariants {
-		exported.Variant = readableStringPointer(variant.Name)
+	if err := applyReadableCallableSectionExport(&exported, project, payload, sectionType); err != nil {
+		return ReadableSectionExport{}, err
 	}
-
-	if sectionType == "Callable" {
-		callableID := payloadStringField(payload, "callable")
-		if callableID != "" {
-			callable, ok := project.CodeObjs[callableID]
-			if !ok {
-				return ReadableSectionExport{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
-			}
-			exported.Callable = readableStringPointer(callable.Name)
-		}
+	applyReadableSectionParamExport(&exported, payload, paramData)
+	if err := applyReadableSectionChildrenExport(&exported, payload, sectionPathByID); err != nil {
+		return ReadableSectionExport{}, err
 	}
-
-	if paramData.IncludeParams {
-		params := cloneProjectObject(paramData.Values)
-		exported.Params = &params
-	} else if payloadBoolField(payload, "isJsonSource") {
-		exported.JSONSourceKeys = append([]string(nil), payloadStringArrayField(payload, "jsonSourceKeys")...)
-	}
-
-	children := payloadStringArrayField(payload, "children")
-	if len(children) > 0 {
-		exported.Children = make([]string, 0, len(children))
-		for _, childID := range children {
-			childPath, ok := sectionPathByID[childID]
-			if !ok {
-				return ReadableSectionExport{}, fmt.Errorf("missing child section path for %q", childID)
-			}
-			exported.Children = append(exported.Children, childPath)
-		}
-	}
-
-	switch sectionType {
-	case "TextBlock":
-		exported.Text = readableStringPointer(payloadRawStringField(payload, "text"))
-		exported.Format = readableStringPointer(payloadRawStringField(payload, "format"))
-	case "Social":
-		exported.URL = readableStringPointer(payloadRawStringField(payload, "url"))
-	case "Browser":
-		exported.Folder = readableStringPointer(payloadRawStringField(payload, "folder"))
-	}
+	applyReadableSectionTypeFields(&exported, payload, sectionType)
 
 	files, err := collectReadableSectionFiles(payload, impl, variant, opts)
 	if err != nil {
@@ -507,6 +567,90 @@ func buildReadableSectionExport(
 	return exported, nil
 }
 
+func newReadableSectionExport(
+	sectionPath string,
+	sectionType string,
+	variant SectionVariant,
+	includeVariants bool,
+) ReadableSectionExport {
+	exported := ReadableSectionExport{
+		Path: sectionPath,
+		Type: sectionType,
+	}
+	if includeVariants {
+		exported.Variant = readableStringPointer(variant.Name)
+	}
+	return exported
+}
+
+func applyReadableCallableSectionExport(
+	exported *ReadableSectionExport,
+	project Project,
+	payload map[string]any,
+	sectionType string,
+) error {
+	if sectionType != "Callable" {
+		return nil
+	}
+	callableID := payloadStringField(payload, "callable")
+	if callableID == "" {
+		return nil
+	}
+	callable, ok := project.CodeObjs[callableID]
+	if !ok {
+		return fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
+	}
+	exported.Callable = readableStringPointer(callable.Name)
+	return nil
+}
+
+func applyReadableSectionParamExport(
+	exported *ReadableSectionExport,
+	payload map[string]any,
+	paramData readableSectionParamData,
+) {
+	if paramData.IncludeParams {
+		params := cloneProjectObject(paramData.Values)
+		exported.Params = &params
+		return
+	}
+	if payloadBoolField(payload, "isJsonSource") {
+		exported.JSONSourceKeys = append([]string(nil), payloadStringArrayField(payload, "jsonSourceKeys")...)
+	}
+}
+
+func applyReadableSectionChildrenExport(
+	exported *ReadableSectionExport,
+	payload map[string]any,
+	sectionPathByID map[string]string,
+) error {
+	children := payloadStringArrayField(payload, "children")
+	if len(children) == 0 {
+		return nil
+	}
+	exported.Children = make([]string, 0, len(children))
+	for _, childID := range children {
+		childPath, ok := sectionPathByID[childID]
+		if !ok {
+			return fmt.Errorf("missing child section path for %q", childID)
+		}
+		exported.Children = append(exported.Children, childPath)
+	}
+	return nil
+}
+
+func applyReadableSectionTypeFields(exported *ReadableSectionExport, payload map[string]any, sectionType string) {
+	switch sectionType {
+	case "TextBlock":
+		exported.Text = readableStringPointer(payloadRawStringField(payload, "text"))
+		exported.Format = readableStringPointer(payloadRawStringField(payload, "format"))
+	case "Social":
+		exported.URL = readableStringPointer(payloadRawStringField(payload, "url"))
+	case "Browser":
+		exported.Folder = readableStringPointer(payloadRawStringField(payload, "folder"))
+	}
+}
+
 func collectReadableSectionFiles(
 	payload map[string]any,
 	impl SectionImpl,
@@ -515,50 +659,73 @@ func collectReadableSectionFiles(
 ) (map[string]any, error) {
 	files := map[string]any{}
 
-	if codePath := readableCodeFilePath(payload, impl); codePath != "" {
-		files["code"] = codePath
+	addReadableSectionFileIfPresent(files, "code", readableCodeFilePath(payload, impl))
+	if err := addReadableJSONSourceFile(files, payload, variant, opts); err != nil {
+		return nil, err
 	}
-	if payloadBoolField(payload, "isJsonSource") {
-		resolvedPath, err := statefs.NormalizePath(variant.Name, strings.TrimSpace(opts.WorkspaceRoot))
-		if err != nil {
-			return nil, fmt.Errorf("resolve readable json source path %q: %w", variant.Name, err)
-		}
-		files["jsonSource"] = resolvedPath
-	}
-	if imagePath := payloadRawStringField(payload, "imagePath"); imagePath != "" {
-		files["image"] = imagePath
-	}
-	if chartDataPath := payloadRawStringField(payload, "dataPath"); chartDataPath != "" {
-		files["chartData"] = chartDataPath
-	}
+	addReadableSectionFileIfPresent(files, "image", payloadRawStringField(payload, "imagePath"))
+	addReadableSectionFileIfPresent(files, "chartData", payloadRawStringField(payload, "dataPath"))
 	if drawAssets := collectReadableDrawAssets(payload); len(drawAssets) > 0 {
 		files["drawAssets"] = drawAssets
 	}
-
-	drawRenderPath := payloadRawStringField(payload, "renderedImagePath")
-	if drawRenderPath == "" && impl.Draw != nil {
-		drawRenderPath = strings.TrimSpace(impl.Draw.RenderedImagePath)
-	}
-	if drawRenderPath != "" {
-		files["drawRender"] = drawRenderPath
-	}
-
-	if chatID := payloadStringField(payload, "chatId"); chatID != "" {
-		settaFilesRoot := strings.TrimSpace(opts.SettaFilesRoot)
-		if settaFilesRoot == "" {
-			return nil, fmt.Errorf("missing setta files root for readable chat export")
-		}
-		chatPath, err := statefs.NormalizePath(filepath.Join(settaFilesRoot, "chats", chatID+".json"), "")
-		if err != nil {
-			return nil, fmt.Errorf("resolve readable chat path for %q: %w", chatID, err)
-		}
-		files["chat"] = chatPath
+	addReadableSectionFileIfPresent(files, "drawRender", readableDrawRenderPath(payload, impl))
+	if err := addReadableChatFile(files, payload, opts); err != nil {
+		return nil, err
 	}
 
 	if len(files) == 0 {
 		return nil, nil
 	}
 	return files, nil
+}
+
+func addReadableSectionFileIfPresent(files map[string]any, key string, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+	files[key] = value
+}
+
+func addReadableJSONSourceFile(
+	files map[string]any,
+	payload map[string]any,
+	variant SectionVariant,
+	opts ReadableExportOptions,
+) error {
+	if !payloadBoolField(payload, "isJsonSource") {
+		return nil
+	}
+	resolvedPath, err := statefs.NormalizePath(variant.Name, strings.TrimSpace(opts.WorkspaceRoot))
+	if err != nil {
+		return fmt.Errorf("resolve readable json source path %q: %w", variant.Name, err)
+	}
+	files["jsonSource"] = resolvedPath
+	return nil
+}
+
+func readableDrawRenderPath(payload map[string]any, impl SectionImpl) string {
+	drawRenderPath := payloadRawStringField(payload, "renderedImagePath")
+	if drawRenderPath == "" && impl.Draw != nil {
+		drawRenderPath = strings.TrimSpace(impl.Draw.RenderedImagePath)
+	}
+	return drawRenderPath
+}
+
+func addReadableChatFile(files map[string]any, payload map[string]any, opts ReadableExportOptions) error {
+	chatID := payloadStringField(payload, "chatId")
+	if chatID == "" {
+		return nil
+	}
+	settaFilesRoot := strings.TrimSpace(opts.SettaFilesRoot)
+	if settaFilesRoot == "" {
+		return fmt.Errorf("missing setta files root for readable chat export")
+	}
+	chatPath, err := statefs.NormalizePath(filepath.Join(settaFilesRoot, "chats", chatID+".json"), "")
+	if err != nil {
+		return fmt.Errorf("resolve readable chat path for %q: %w", chatID, err)
+	}
+	files["chat"] = chatPath
+	return nil
 }
 
 func readableCodeFilePath(payload map[string]any, impl SectionImpl) string {
