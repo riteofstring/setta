@@ -14,6 +14,34 @@ from pathlib import Path
 
 HEALTH_PATH = "/health"
 EVENT_PATH = "/event"
+APP_STATE_EVENT_TYPE = "app-state"
+CONSOLE_EVENT_TYPES = frozenset({"console", "page-error", "unhandledrejection"})
+TRANSPORT_EVENT_PREFIXES = ("network-", "websocket-")
+TRANSPORT_DETAIL_KEYS = (
+    "detailText",
+    "detailJson",
+    "detailBodyText",
+    "detailBodyJson",
+)
+TRANSPORT_DETAIL_EVENT_KEYS = (
+    "type",
+    "requestId",
+    "transport",
+    "method",
+    "url",
+    "status",
+    "direction",
+    "socketId",
+    "kind",
+    "size",
+)
+TRANSPORT_DETAIL_PAYLOAD_KEYS = (
+    "sequenceNumber",
+    "receivedAt",
+    "tabId",
+    "tabUrl",
+    "frameId",
+)
 
 
 def utc_now_iso() -> str:
@@ -50,15 +78,41 @@ class RecorderState:
             event_type = event_type_from_payload(normalized_payload)
             if event_type is not None:
                 self.event_counts_by_type[event_type] += 1
-            append_ndjson_line(self.events_file, normalized_payload)
-            if is_console_event(event_type):
-                append_ndjson_line(self.console_file, normalized_payload)
-            if is_transport_event(event_type):
-                append_ndjson_line(self.transport_file, normalized_payload)
-                if transport_detail is not None:
-                    append_ndjson_line(self.transport_details_file, transport_detail)
-            if event_type == "app-state":
-                append_ndjson_line(self.app_state_file, normalized_payload)
+            for path, line_payload in self._iter_event_artifact_writes(
+                event_type=event_type,
+                normalized_payload=normalized_payload,
+                transport_detail=transport_detail,
+            ):
+                append_ndjson_line(path, line_payload)
+
+    def _iter_event_artifact_writes(
+        self,
+        *,
+        event_type: str | None,
+        normalized_payload: dict,
+        transport_detail: dict | None,
+    ) -> list[tuple[Path, dict]]:
+        writes = [(self.events_file, normalized_payload)]
+        writes.extend(
+            (path, normalized_payload)
+            for path in self._extra_event_artifact_paths(event_type)
+        )
+        if transport_detail is not None and is_transport_event(event_type):
+            writes.append((self.transport_details_file, transport_detail))
+        return writes
+
+    def _extra_event_artifact_paths(self, event_type: str | None) -> list[Path]:
+        if event_type is None:
+            return []
+
+        paths: list[Path] = []
+        if is_console_event(event_type):
+            paths.append(self.console_file)
+        if is_transport_event(event_type):
+            paths.append(self.transport_file)
+        if event_type == APP_STATE_EVENT_TYPE:
+            paths.append(self.app_state_file)
+        return paths
 
     def write_session_files(self, stop_reason: str) -> None:
         with self.lock:
@@ -107,50 +161,36 @@ def append_ndjson_line(path: Path, payload: dict) -> None:
         handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
 
 
+def present_keys(source: dict, keys: tuple[str, ...]) -> list[str]:
+    return [key for key in keys if key in source]
+
+
+def copy_present_fields(source: dict, keys: tuple[str, ...]) -> dict:
+    return {key: source[key] for key in keys if key in source}
+
+
+def clone_payload_without_event_fields(payload: dict, event_fields: list[str]) -> dict:
+    normalized_payload = copy.deepcopy(payload)
+    normalized_event = normalized_payload["event"]
+    assert isinstance(normalized_event, dict)
+    for key in event_fields:
+        normalized_event.pop(key, None)
+    return normalized_payload
+
+
 def split_transport_details(payload: dict) -> tuple[dict, dict | None]:
     event = payload.get("event")
     if not isinstance(event, dict):
         return payload, None
 
-    detail_keys = [
-        key
-        for key in ("detailText", "detailJson", "detailBodyText", "detailBodyJson")
-        if key in event
-    ]
-    if len(detail_keys) == 0:
+    detail_keys = present_keys(event, TRANSPORT_DETAIL_KEYS)
+    if not detail_keys:
         return payload, None
 
-    normalized_payload = copy.deepcopy(payload)
-    normalized_event = normalized_payload.get("event")
-    if not isinstance(normalized_event, dict):
-        return normalized_payload, None
-    for key in detail_keys:
-        normalized_event.pop(key, None)
-
-    detail_event = {
-        key: event.get(key)
-        for key in (
-            "type",
-            "requestId",
-            "transport",
-            "method",
-            "url",
-            "status",
-            "direction",
-            "socketId",
-            "kind",
-            "size",
-        )
-        if key in event
-    }
-    for key in detail_keys:
-        detail_event[key] = event.get(key)
-
-    detail_payload = {
-        key: payload.get(key)
-        for key in ("sequenceNumber", "receivedAt", "tabId", "tabUrl", "frameId")
-        if key in payload
-    }
+    normalized_payload = clone_payload_without_event_fields(payload, detail_keys)
+    detail_event = copy_present_fields(event, TRANSPORT_DETAIL_EVENT_KEYS)
+    detail_event.update(copy_present_fields(event, tuple(detail_keys)))
+    detail_payload = copy_present_fields(payload, TRANSPORT_DETAIL_PAYLOAD_KEYS)
     detail_payload["event"] = detail_event
     return normalized_payload, detail_payload
 
@@ -167,13 +207,11 @@ def event_type_from_payload(payload: dict) -> str | None:
 
 
 def is_console_event(event_type: str | None) -> bool:
-    return event_type in {"console", "page-error", "unhandledrejection"}
+    return event_type in CONSOLE_EVENT_TYPES
 
 
 def is_transport_event(event_type: str | None) -> bool:
-    if event_type is None:
-        return False
-    return event_type.startswith("network-") or event_type.startswith("websocket-")
+    return bool(event_type) and event_type.startswith(TRANSPORT_EVENT_PREFIXES)
 
 
 def read_json_object_request(

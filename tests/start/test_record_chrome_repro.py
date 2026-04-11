@@ -29,6 +29,15 @@ def _load_collect_llm_artifacts_module() -> ModuleType:
     return module
 
 
+def _load_chrome_repro_collector_module() -> ModuleType:
+    script_path = repo_root() / "scripts" / "chrome_repro_collector.py"
+    spec = spec_from_file_location("chrome_repro_collector_script", script_path)
+    assert spec is not None and spec.loader is not None
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def pick_free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -176,6 +185,19 @@ def test_chrome_repro_collector_writes_recording_json_on_shutdown(tmp_path: Path
     ]
     assert session_payload["eventCount"] == 2
     assert len(events_lines) == 2
+
+
+def test_split_transport_details_keeps_transport_events_without_detail_fields() -> None:
+    module = _load_chrome_repro_collector_module()
+    payload = {
+        "sequenceNumber": 9,
+        "event": {"type": "network-response", "status": 204},
+    }
+
+    normalized_payload, detail_payload = module.split_transport_details(payload)
+
+    assert normalized_payload == payload
+    assert detail_payload is None
 
 
 def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -> None:
