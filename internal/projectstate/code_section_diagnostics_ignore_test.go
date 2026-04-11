@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 )
 
@@ -69,6 +70,61 @@ func TestProjectSetCodeSectionDiagnosticCodeSuppressionStoresPresetVariantModifi
 	}
 	if len(resolved.SuppressedCodes) != 1 || resolved.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected effective suppression to resolve from variant modifier, got %#v", resolved.SuppressedCodes)
+	}
+}
+
+func TestCodeSectionDiagnosticsIgnoreStateFromValueNormalizesSupportedSuppressedCodes(t *testing.T) {
+	t.Parallel()
+
+	state, err := codeSectionDiagnosticsIgnoreStateFromValue(map[string]any{
+		"suppressedCodes": []any{json.Number("7"), float64(9), "reportFoo"},
+	})
+	if err != nil {
+		t.Fatalf("decode ignore state: %v", err)
+	}
+
+	expected := []any{7, 9, "reportFoo"}
+	if len(state.SuppressedCodes) != len(expected) {
+		t.Fatalf("expected %#v suppressed codes, got %#v", expected, state.SuppressedCodes)
+	}
+	for index, want := range expected {
+		if state.SuppressedCodes[index] != want {
+			t.Fatalf("expected suppressed code %d to be %#v, got %#v", index, want, state.SuppressedCodes[index])
+		}
+	}
+}
+
+func TestCodeSectionDiagnosticsIgnoreStateFromValueRejectsInvalidSuppressedCode(t *testing.T) {
+	t.Parallel()
+
+	_, err := codeSectionDiagnosticsIgnoreStateFromValue(map[string]any{
+		"suppressedCodes": []any{json.Number("7.5")},
+	})
+	if !errors.Is(err, ErrInvalidCodeSectionDiagnosticCode) {
+		t.Fatalf("expected invalid code error, got %v", err)
+	}
+}
+
+func TestApplyCodeSectionDiagnosticsIgnoreMatchesEquivalentNumericCodes(t *testing.T) {
+	t.Parallel()
+
+	filtered := applyCodeSectionDiagnosticsIgnore(
+		[]LSPDiagnostic{
+			{Message: "string", Code: "reportFoo"},
+			{Message: "int64", Code: int64(7)},
+			{Message: "float", Code: float64(8)},
+			{Message: "keep", Code: json.Number("9")},
+		},
+		CodeSectionDiagnosticsIgnoreState{
+			SuppressedCodes: []any{"reportFoo", json.Number("7"), int8(8)},
+		},
+	)
+
+	if len(filtered) != 1 {
+		t.Fatalf("expected one remaining diagnostic, got %#v", filtered)
+	}
+	if filtered[0].Message != "keep" {
+		t.Fatalf("expected unmatched diagnostic to remain, got %#v", filtered[0])
 	}
 }
 

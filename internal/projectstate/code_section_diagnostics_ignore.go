@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 )
 
 var (
@@ -307,68 +308,59 @@ func normalizeCodeSectionDiagnosticsIgnoreState(state CodeSectionDiagnosticsIgno
 }
 
 func normalizeCodeSectionDiagnosticCode(value any) (any, error) {
-	switch typed := value.(type) {
-	case string:
-		return typed, nil
-	case int:
-		return typed, nil
-	case int8:
-		return int(typed), nil
-	case int16:
-		return int(typed), nil
-	case int32:
-		return int(typed), nil
-	case int64:
-		if typed > math.MaxInt || typed < math.MinInt {
-			return nil, ErrInvalidCodeSectionDiagnosticCode
-		}
-		return int(typed), nil
-	case float64:
-		if math.Trunc(typed) != typed || typed > float64(math.MaxInt) || typed < float64(math.MinInt) {
-			return nil, ErrInvalidCodeSectionDiagnosticCode
-		}
-		return int(typed), nil
-	case json.Number:
-		intValue, err := typed.Int64()
-		if err != nil {
-			return nil, ErrInvalidCodeSectionDiagnosticCode
-		}
-		if intValue > math.MaxInt || intValue < math.MinInt {
-			return nil, ErrInvalidCodeSectionDiagnosticCode
-		}
-		return int(intValue), nil
-	default:
+	if text, ok := value.(string); ok {
+		return text, nil
+	}
+	intValue, ok := codeSectionDiagnosticCodeIntValue(value)
+	if !ok {
 		return nil, ErrInvalidCodeSectionDiagnosticCode
 	}
+	return intValue, nil
 }
 
 func codeSectionDiagnosticCodeKey(value any) string {
+	if text, ok := value.(string); ok {
+		return "s:" + text
+	}
+	intValue, ok := codeSectionDiagnosticCodeIntValue(value)
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf("i:%d", intValue)
+}
+
+func codeSectionDiagnosticCodeIntValue(value any) (int, bool) {
 	switch typed := value.(type) {
-	case string:
-		return "s:" + typed
-	case int:
-		return fmt.Sprintf("i:%d", typed)
-	case int8:
-		return fmt.Sprintf("i:%d", typed)
-	case int16:
-		return fmt.Sprintf("i:%d", typed)
-	case int32:
-		return fmt.Sprintf("i:%d", typed)
-	case int64:
-		return fmt.Sprintf("i:%d", typed)
 	case float64:
 		if math.Trunc(typed) != typed || typed > float64(math.MaxInt) || typed < float64(math.MinInt) {
-			return ""
+			return 0, false
 		}
-		return fmt.Sprintf("i:%d", int(typed))
+		return int(typed), true
 	case json.Number:
 		intValue, err := typed.Int64()
-		if err != nil {
-			return ""
+		if err != nil || intValue > math.MaxInt || intValue < math.MinInt {
+			return 0, false
 		}
-		return fmt.Sprintf("i:%d", intValue)
+		return int(intValue), true
 	default:
-		return ""
+		return reflectedCodeSectionDiagnosticCodeIntValue(value)
+	}
+}
+
+func reflectedCodeSectionDiagnosticCodeIntValue(value any) (int, bool) {
+	typed := reflect.ValueOf(value)
+	if !typed.IsValid() {
+		return 0, false
+	}
+	switch typed.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		intValue := typed.Int()
+		if intValue > math.MaxInt || intValue < math.MinInt {
+			return 0, false
+		}
+		return int(intValue), true
+	default:
+		return 0, false
 	}
 }
 
