@@ -1,380 +1,150 @@
-import {
-  downloadBinary,
-  getFileBrowserDownloadUrls,
-  getFileBrowserFileContent,
-  type FilebrowserFileBrowserDownloadUrlEntry,
-  type FilebrowserFileContentResponse,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, type ReactNode } from "react";
 import { FiArchive, FiFileText, FiMusic } from "react-icons/fi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
-import { getAttachmentPreviewKind } from "utils/attachmentPreview";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
-import { isSpreadsheetPath } from "utils/spreadsheet";
 import type { FileNode } from "./FileBrowserPane";
+import {
+  isFileBrowserDownloadUrlPreviewKind,
+  isFileBrowserPreviewRequestStale,
+  resolveFileBrowserPreviewKind,
+  useFileBrowserPreviewState,
+  type FileBrowserDownloadUrlPreviewKind,
+  type SelectedPreviewFile,
+  type TextPreviewState,
+} from "./fileBrowserUniversalPreviewState";
+
 const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
   const module = await import("./FileBrowserSpreadsheetEditor");
   return { default: module.FileBrowserSpreadsheetEditor };
 });
-const TEXT_PREVIEW_CHAR_LIMIT = 4000;
-const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
-type FileBrowserDownloadURLsRouteResponse = ResponseDataAndStatus<
-  Array<FilebrowserFileBrowserDownloadUrlEntry>
->;
-type FileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<FilebrowserFileContentResponse>;
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
-export function resolveFileBrowserPreviewKind({
-  filePath,
-  fileName,
-}: {
-  filePath: string;
-  fileName: string;
-}): ReturnType<typeof getAttachmentPreviewKind> | "spreadsheet" {
-  if (isSpreadsheetPath(filePath)) {
-    return "spreadsheet";
-  }
-  return getAttachmentPreviewKind({
-    id: filePath,
-    name: fileName,
-    mimeType: null,
-    size: null,
-  });
+
+const DASHED_EMPTY_STATE_CLASSNAME =
+  "flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400";
+const PANEL_CLASSNAME =
+  "rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50";
+const CENTERED_PANEL_CLASSNAME = `flex h-full min-h-0 items-center justify-center ${PANEL_CLASSNAME}`;
+const MESSAGE_PANEL_CLASSNAME = `flex h-full min-h-0 flex-col items-center justify-center gap-2 ${PANEL_CLASSNAME} px-4 text-center text-xs text-setta-500 dark:text-setta-400`;
+
+const urlPreviewErrorIcons: Record<
+  FileBrowserDownloadUrlPreviewKind,
+  ReactNode
+> = {
+  audio: <FiMusic size={22} />,
+  image: <IoImageOutline size={22} />,
+  pdf: <FiFileText size={22} />,
+  video: <IoVideocam size={22} />,
+};
+
+function createSelectedPreviewFile(
+  selectedNode: Extract<FileNode, { type: "file" }>,
+): SelectedPreviewFile {
+  return {
+    name: selectedNode.name,
+    fullPath: selectedNode.fullPath,
+  };
 }
-export function isFileBrowserPreviewRequestStale(args: {
-  activeRequestId: number;
-  requestId: number;
-  currentSelectedPath: string | null;
-  requestedPath: string;
-}): boolean {
+
+function PreviewPlaceholder({ message }: { message: string }) {
+  return <div className={DASHED_EMPTY_STATE_CLASSNAME}>{message}</div>;
+}
+
+function LoadingPreview({ message }: { message: string }) {
   return (
-    args.activeRequestId !== args.requestId ||
-    args.currentSelectedPath !== args.requestedPath
+    <div
+      className={`${CENTERED_PANEL_CLASSNAME} text-xs text-setta-500 dark:text-setta-400`}
+    >
+      {message}
+    </div>
   );
 }
-export function FileBrowserUniversalPreview({
-  selectedNode,
+
+function UnavailablePreview({
+  icon,
+  message,
 }: {
-  selectedNode: FileNode | null;
+  icon: ReactNode;
+  message: string;
 }) {
-  const selectedFilePath =
-    selectedNode && selectedNode.type === "file" ? selectedNode.fullPath : null;
-  const selectedFileName =
-    selectedNode && selectedNode.type === "file" ? selectedNode.name : null;
-  const selectedFile =
-    selectedFilePath && selectedFileName
-      ? {
-          name: selectedFileName,
-          fullPath: selectedFilePath,
-        }
-      : null;
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [isUrlLoading, setIsUrlLoading] = useState(false);
-  const [urlError, setUrlError] = useState<string | null>(null);
-  const [textPreview, setTextPreview] = useState<{
-    text: string;
-    truncated: boolean;
-    isLoading: boolean;
-    error: string | null;
-  }>({
-    text: "",
-    truncated: false,
-    isLoading: false,
-    error: null,
-  });
-  const selectedFilePathRef = useRef<string | null>(selectedFilePath);
-  const textPreviewRequestIdRef = useRef(0);
-  const previewKind = useMemo(() => {
-    if (!selectedFilePath || !selectedFileName) {
-      return null;
-    }
-    return resolveFileBrowserPreviewKind({
-      filePath: selectedFilePath,
-      fileName: selectedFileName,
-    });
-  }, [selectedFileName, selectedFilePath]);
-  useEffect(() => {
-    selectedFilePathRef.current = selectedFilePath;
-  }, [selectedFilePath]);
-  useEffect(() => {
-    setFileUrl(null);
-    setIsUrlLoading(false);
-    setUrlError(null);
-    setTextPreview({
-      text: "",
-      truncated: false,
-      isLoading: false,
-      error: null,
-    });
-  }, [selectedFilePath]);
-  useEffect(() => {
-    if (!selectedFilePath) {
-      return;
-    }
-    if (
-      previewKind !== "image" &&
-      previewKind !== "pdf" &&
-      previewKind !== "audio" &&
-      previewKind !== "video"
-    ) {
-      return;
-    }
-    let isMounted = true;
-    setIsUrlLoading(true);
-    setUrlError(null);
-    const loadUrl = async () => {
-      try {
-        const response = (await callOpenAPI(
-          getFileBrowserDownloadUrls({
-            body: {
-              paths: [selectedFilePath],
-            },
-          } as Parameters<typeof getFileBrowserDownloadUrls>[0]),
-        )) as FileBrowserDownloadURLsRouteResponse;
-        if (!isMounted) {
-          return;
-        }
-        if (!res200(response)) {
-          setUrlError(getErrorDetail(response.data) ?? "Preview unavailable.");
-          setIsUrlLoading(false);
-          return;
-        }
-        const entry = response.data.find((x) => x.path === selectedFilePath);
-        if (!entry) {
-          setUrlError("Preview unavailable.");
-          setIsUrlLoading(false);
-          return;
-        }
-        setFileUrl(entry.url);
-        setIsUrlLoading(false);
-      } catch {
-        if (!isMounted) {
-          return;
-        }
-        setUrlError("Preview unavailable.");
-        setIsUrlLoading(false);
-      }
-    };
-    void loadUrl();
-    return () => {
-      isMounted = false;
-    };
-  }, [previewKind, selectedFilePath]);
-  useEffect(() => {
-    if (!selectedFilePath || previewKind !== "text") {
-      return;
-    }
-    const requestId = textPreviewRequestIdRef.current + 1;
-    textPreviewRequestIdRef.current = requestId;
-    const requestedPath = selectedFilePath;
-    const isStaleRequest = () =>
-      isFileBrowserPreviewRequestStale({
-        activeRequestId: textPreviewRequestIdRef.current,
-        requestId,
-        currentSelectedPath: selectedFilePathRef.current,
-        requestedPath,
-      });
-    let isMounted = true;
-    setTextPreview({
-      text: "",
-      truncated: false,
-      isLoading: true,
-      error: null,
-    });
-    const loadText = async () => {
-      try {
-        const response = (await callOpenAPI(
-          getFileBrowserFileContent({
-            body: {
-              path: selectedFilePath,
-              maxBytes: TEXT_PREVIEW_MAX_BYTES,
-            },
-          } as Parameters<typeof getFileBrowserFileContent>[0]),
-        )) as FileBrowserFileContentRouteResponse;
-        if (!isMounted || isStaleRequest()) {
-          return;
-        }
-        if (!res200(response)) {
-          setTextPreview({
-            text: "",
-            truncated: false,
-            isLoading: false,
-            error: getErrorDetail(response.data) ?? "Preview unavailable.",
-          });
-          return;
-        }
-        const binaryResponse = (await callOpenAPI(
-          downloadBinary({
-            path: {
-              contentId: response.data.contentId,
-            },
-          } as Parameters<typeof downloadBinary>[0]),
-        )) as BinaryDownloadRouteResponse;
-        if (!isMounted || isStaleRequest()) {
-          return;
-        }
-        if (!res200(binaryResponse) || !binaryResponse.data) {
-          setTextPreview({
-            text: "",
-            truncated: false,
-            isLoading: false,
-            error:
-              getErrorDetail(binaryResponse.data) ?? "Preview unavailable.",
-          });
-          return;
-        }
-        const text = new TextDecoder().decode(
-          await binaryResponse.data.arrayBuffer(),
-        );
-        const truncated = text.length > TEXT_PREVIEW_CHAR_LIMIT;
-        if (!isMounted || isStaleRequest()) {
-          return;
-        }
-        setTextPreview({
-          text: truncated ? text.slice(0, TEXT_PREVIEW_CHAR_LIMIT) : text,
-          truncated,
-          isLoading: false,
-          error: null,
-        });
-      } catch {
-        if (!isMounted || isStaleRequest()) {
-          return;
-        }
-        setTextPreview({
-          text: "",
-          truncated: false,
-          isLoading: false,
-          error: "Preview unavailable.",
-        });
-      }
-    };
-    void loadText();
-    return () => {
-      isMounted = false;
-    };
-  }, [previewKind, selectedFilePath]);
-  if (!selectedNode) {
+  return (
+    <div className={MESSAGE_PANEL_CLASSNAME}>
+      {icon}
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function SpreadsheetPreview({
+  selectedFile,
+}: {
+  selectedFile: SelectedPreviewFile;
+}) {
+  return (
+    <div
+      data-testid="file-browser-universal-preview"
+      className="h-full min-h-0"
+    >
+      <Suspense fallback={<LoadingPreview message="Loading spreadsheet..." />}>
+        <LazyFileBrowserSpreadsheetEditor selectedFile={selectedFile} />
+      </Suspense>
+    </div>
+  );
+}
+
+function TextFilePreview({
+  selectedFile,
+  textPreview,
+}: {
+  selectedFile: SelectedPreviewFile;
+  textPreview: TextPreviewState;
+}) {
+  if (textPreview.isLoading) {
+    return <LoadingPreview message="Loading preview…" />;
+  }
+  if (textPreview.error) {
     return (
-      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
-        Select a file to preview.
-      </div>
+      <UnavailablePreview
+        icon={<FiFileText size={22} />}
+        message={textPreview.error}
+      />
     );
   }
-  if (selectedNode.type === "folder") {
-    return (
-      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
-        Folder selected. Choose a file to preview.
+  return (
+    <div
+      data-testid="file-browser-universal-preview-text"
+      className={`flex h-full min-h-0 flex-col ${PANEL_CLASSNAME}`}
+    >
+      <div className="border-b border-setta-200 px-3 py-2 text-xs font-semibold text-setta-700 dark:border-setta-800 dark:text-setta-200">
+        {selectedFile.name}
       </div>
-    );
-  }
-  if (!selectedFile || !previewKind) {
-    return (
-      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
-        Preview unavailable.
-      </div>
-    );
-  }
-  if (previewKind === "spreadsheet") {
-    return (
-      <div
-        data-testid="file-browser-universal-preview"
-        className="h-full min-h-0"
-      >
-        <Suspense
-          fallback={
-            <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-setta-200 bg-white/70 text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
-              Loading spreadsheet...
-            </div>
-          }
-        >
-          <LazyFileBrowserSpreadsheetEditor selectedFile={selectedFile} />
-        </Suspense>
-      </div>
-    );
-  }
-  if (previewKind === "text") {
-    if (textPreview.isLoading) {
-      return (
-        <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-setta-200 bg-white/70 text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
-          Loading preview…
+      <pre className="min-h-0 flex-1 overflow-auto p-3 text-xs leading-relaxed text-setta-700 dark:text-setta-200">
+        {textPreview.text}
+      </pre>
+      {textPreview.truncated ? (
+        <div className="border-t border-setta-200 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800 dark:text-setta-400">
+          Preview truncated.
         </div>
-      );
-    }
-    if (textPreview.error) {
-      return (
-        <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 rounded-lg border border-setta-200 bg-white/70 px-4 text-center text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
-          <FiFileText size={22} />
-          <span>{textPreview.error}</span>
-        </div>
-      );
-    }
-    return (
-      <div
-        data-testid="file-browser-universal-preview-text"
-        className="flex h-full min-h-0 flex-col rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50"
-      >
-        <div className="border-b border-setta-200 px-3 py-2 text-xs font-semibold text-setta-700 dark:border-setta-800 dark:text-setta-200">
-          {selectedFile.name}
-        </div>
-        <pre className="min-h-0 flex-1 overflow-auto p-3 text-xs leading-relaxed text-setta-700 dark:text-setta-200">
-          {textPreview.text}
-        </pre>
-        {textPreview.truncated ? (
-          <div className="border-t border-setta-200 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800 dark:text-setta-400">
-            Preview truncated.
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-  if (previewKind === "archive") {
-    return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 rounded-lg border border-setta-200 bg-white/70 px-4 text-center text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
-        <FiArchive size={22} />
-        <span>Archive preview not available.</span>
-      </div>
-    );
-  }
-  if (previewKind === "other") {
-    return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 rounded-lg border border-setta-200 bg-white/70 px-4 text-center text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
-        <FiFileText size={22} />
-        <span>Preview not available.</span>
-      </div>
-    );
-  }
-  if (isUrlLoading) {
-    return (
-      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-setta-200 bg-white/70 text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
-        Loading preview…
-      </div>
-    );
-  }
-  if (urlError || !fileUrl) {
-    return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 rounded-lg border border-setta-200 bg-white/70 px-4 text-center text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
-        {previewKind === "image" && <IoImageOutline size={22} />}
-        {previewKind === "audio" && <FiMusic size={22} />}
-        {previewKind === "video" && <IoVideocam size={22} />}
-        {previewKind === "pdf" && <FiFileText size={22} />}
-        <span>{urlError ?? "Preview unavailable."}</span>
-      </div>
-    );
-  }
+      ) : null}
+    </div>
+  );
+}
+
+function FilePreviewContent({
+  previewKind,
+  fileUrl,
+  selectedFileName,
+}: {
+  previewKind: FileBrowserDownloadUrlPreviewKind;
+  fileUrl: string;
+  selectedFileName: string;
+}) {
   if (previewKind === "image") {
     return (
       <div
         data-testid="file-browser-universal-preview-image"
-        className="h-full min-h-0 overflow-hidden rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50"
+        className={`h-full min-h-0 overflow-hidden ${PANEL_CLASSNAME}`}
       >
         <img
           src={fileUrl}
-          alt={selectedFile.name}
+          alt={selectedFileName}
           className="h-full w-full object-contain"
         />
       </div>
@@ -384,11 +154,11 @@ export function FileBrowserUniversalPreview({
     return (
       <div
         data-testid="file-browser-universal-preview-pdf"
-        className="h-full min-h-0 overflow-hidden rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50"
+        className={`h-full min-h-0 overflow-hidden ${PANEL_CLASSNAME}`}
       >
         <iframe
           src={fileUrl}
-          title={selectedFile.name}
+          title={selectedFileName}
           className="h-full w-full"
         />
       </div>
@@ -398,7 +168,7 @@ export function FileBrowserUniversalPreview({
     return (
       <div
         data-testid="file-browser-universal-preview-audio"
-        className="flex h-full min-h-0 items-center justify-center rounded-lg border border-setta-200 bg-white/70 px-3 dark:border-setta-800 dark:bg-setta-950/50"
+        className={`flex h-full min-h-0 items-center justify-center px-3 ${PANEL_CLASSNAME}`}
       >
         <audio controls preload="metadata" className="w-full">
           <source src={fileUrl} />
@@ -406,21 +176,98 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
-  if (previewKind === "video") {
-    return (
-      <div
-        data-testid="file-browser-universal-preview-video"
-        className="h-full min-h-0 overflow-hidden rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50"
-      >
-        <video controls preload="metadata" className="h-full w-full">
-          <source src={fileUrl} />
-        </video>
-      </div>
-    );
-  }
   return (
-    <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
-      Preview unavailable.
+    <div
+      data-testid="file-browser-universal-preview-video"
+      className={`h-full min-h-0 overflow-hidden ${PANEL_CLASSNAME}`}
+    >
+      <video controls preload="metadata" className="h-full w-full">
+        <source src={fileUrl} />
+      </video>
     </div>
   );
 }
+
+function SelectedFilePreview({
+  selectedFile,
+}: {
+  selectedFile: SelectedPreviewFile;
+}) {
+  const previewKind = resolveFileBrowserPreviewKind({
+    filePath: selectedFile.fullPath,
+    fileName: selectedFile.name,
+  });
+  const { fileUrl, isUrlLoading, textPreview, urlError } =
+    useFileBrowserPreviewState({
+      selectedFilePath: selectedFile.fullPath,
+      previewKind,
+    });
+
+  if (previewKind === "spreadsheet") {
+    return <SpreadsheetPreview selectedFile={selectedFile} />;
+  }
+  if (previewKind === "text") {
+    return (
+      <TextFilePreview selectedFile={selectedFile} textPreview={textPreview} />
+    );
+  }
+  if (previewKind === "archive") {
+    return (
+      <UnavailablePreview
+        icon={<FiArchive size={22} />}
+        message="Archive preview not available."
+      />
+    );
+  }
+  if (previewKind === "other") {
+    return (
+      <UnavailablePreview
+        icon={<FiFileText size={22} />}
+        message="Preview not available."
+      />
+    );
+  }
+  if (!isFileBrowserDownloadUrlPreviewKind(previewKind)) {
+    return <PreviewPlaceholder message="Preview unavailable." />;
+  }
+  if (isUrlLoading) {
+    return <LoadingPreview message="Loading preview…" />;
+  }
+  if (urlError || !fileUrl) {
+    return (
+      <UnavailablePreview
+        icon={urlPreviewErrorIcons[previewKind]}
+        message={urlError ?? "Preview unavailable."}
+      />
+    );
+  }
+  return (
+    <FilePreviewContent
+      previewKind={previewKind}
+      fileUrl={fileUrl}
+      selectedFileName={selectedFile.name}
+    />
+  );
+}
+
+export function FileBrowserUniversalPreview({
+  selectedNode,
+}: {
+  selectedNode: FileNode | null;
+}) {
+  if (!selectedNode) {
+    return <PreviewPlaceholder message="Select a file to preview." />;
+  }
+  if (selectedNode.type === "folder") {
+    return (
+      <PreviewPlaceholder message="Folder selected. Choose a file to preview." />
+    );
+  }
+  return (
+    <SelectedFilePreview
+      selectedFile={createSelectedPreviewFile(selectedNode)}
+    />
+  );
+}
+
+export { isFileBrowserPreviewRequestStale, resolveFileBrowserPreviewKind };
