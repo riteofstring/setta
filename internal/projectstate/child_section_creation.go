@@ -41,6 +41,16 @@ type createdChildSectionState struct {
 	metaControlParamImpl *CodeObjectImpl
 }
 
+type createChildSectionsParentState struct {
+	section           Section
+	variant           SectionVariant
+	impl              SectionImpl
+	payload           map[string]any
+	children          []string
+	isBaseCodeSection bool
+	width             float64
+}
+
 func (d *Document) CreateChildSections(
 	projectID string,
 	input CreateChildSectionsInput,
@@ -104,126 +114,38 @@ func (p *Project) CreateChildSections(
 		return CreateChildSectionsResult{}, err
 	}
 
-	parentSection, parentVariant, parentImpl, err := p.ResolveSection(normalized.ParentID)
-	if err != nil {
-		return CreateChildSectionsResult{}, err
-	}
-	parentPayload, err := effectiveSectionPayload(*p, parentSection.ID, parentVariant.ID)
-	if err != nil {
-		return CreateChildSectionsResult{}, err
-	}
-	parentType := payloadStringField(parentPayload, "type")
-	if parentType == "" {
-		parentType = fallbackSectionType(parentImpl)
-	}
-	parentChildren, parentHasChildren := payloadChildren(parentPayload)
-	parentIsBaseCodeSection := supportsBaseCodeSectionSemantics(parentImpl, parentPayload)
-	if !parentIsBaseCodeSection && !parentHasChildren {
-		return CreateChildSectionsResult{}, fmt.Errorf("%w: parent=%q", ErrChildSectionParentUnsupported, parentSection.ID)
-	}
-	if err := validateCreateChildSectionsParent(parentSection.ID, parentImpl, parentPayload, parentChildren, normalized); err != nil {
-		return CreateChildSectionsResult{}, err
-	}
-
-	startIdx := len(parentChildren)
-	if normalized.StartIdx != nil {
-		startIdx = *normalized.StartIdx
-	}
-	if startIdx < 0 || startIdx > len(parentChildren) {
-		return CreateChildSectionsResult{}, fmt.Errorf("%w: startIdx=%d childCount=%d", ErrChildSectionStartIdxInvalid, startIdx, len(parentChildren))
-	}
-
-	parentWidth, err := resolveAutoLayoutDimension(
+	parentState, err := p.resolveCreateChildSectionsParent(
+		normalized,
 		normalizedSettings.SectionSizingPolicy,
-		parentSection.ID,
-		parentType,
-		"width",
-		nil,
-		parentPayload,
 	)
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
-	childNames, err := childSiblingNames(*p, parentChildren)
+	startIdx, err := resolveCreateChildSectionsStartIdx(parentState.children, normalized.StartIdx)
+	if err != nil {
+		return CreateChildSectionsResult{}, err
+	}
+	createdChildren, createdIDs, err := p.buildCreatedChildSections(
+		parentState,
+		normalized,
+		normalizedSettings,
+	)
+	if err != nil {
+		return CreateChildSectionsResult{}, err
+	}
+	updatedParentImpl, err := buildUpdatedCreateChildSectionsParentImpl(
+		parentState,
+		startIdx,
+		createdIDs,
+		normalizedSettings.SectionSizingPolicy,
+	)
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
 
-	createdChildren := make([]createdChildSectionState, 0, normalized.NumChildren)
-	createdIDs := make([]string, 0, normalized.NumChildren)
-	for range normalized.NumChildren {
-		created, err := newCreatedChildSectionState(
-			*p,
-			childNames,
-			parentSection.ID,
-			normalized.ImplType,
-			parentWidth,
-			parentIsBaseCodeSection,
-			normalizedSettings,
-		)
-		if err != nil {
-			return CreateChildSectionsResult{}, err
-		}
-		childNames = append(childNames, created.section.Name)
-		createdChildren = append(createdChildren, created)
-		createdIDs = append(createdIDs, created.section.ID)
-	}
-
-	if p.Sections == nil {
-		p.Sections = map[string]Section{}
-	}
-	if p.SectionVariants == nil {
-		p.SectionVariants = map[string]SectionVariant{}
-	}
-	if p.SectionImpls == nil {
-		p.SectionImpls = map[string]SectionImpl{}
-	}
-	if p.SectionVariantMap == nil {
-		p.SectionVariantMap = map[string]string{}
-	}
-	if p.CodeObjs == nil {
-		p.CodeObjs = map[string]CodeObject{}
-	}
-	if p.CodeObjVariants == nil {
-		p.CodeObjVariants = map[string]CodeObjectVariant{}
-	}
-	if p.CodeObjImpls == nil {
-		p.CodeObjImpls = map[string]CodeObjectImpl{}
-	}
-
-	for _, created := range createdChildren {
-		p.Sections[created.section.ID] = created.section
-		p.SectionVariants[created.variant.ID] = created.variant
-		p.SectionImpls[created.impl.ID] = created.impl
-		p.SectionVariantMap[created.section.ID] = created.variant.ID
-		if created.metaControlParamCore != nil && created.metaControlParamVar != nil && created.metaControlParamImpl != nil {
-			p.CodeObjs[created.metaControlParamCore.ID] = *created.metaControlParamCore
-			p.CodeObjVariants[created.metaControlParamVar.ID] = *created.metaControlParamVar
-			p.CodeObjImpls[created.metaControlParamImpl.ID] = *created.metaControlParamImpl
-		}
-	}
-
-	nextChildren := insertStringSlice(parentChildren, startIdx, createdIDs)
-	if parentIsBaseCodeSection {
-		updatedParentImpl := parentImpl.Clone()
-		setBaseCodeSectionAttachmentState(parentPayload, &updatedParentImpl, nextChildren)
-		if err := ensureEmbeddedCodeSectionPayloadSize(
-			parentSection.ID,
-			parentPayload,
-			normalizedSettings.SectionSizingPolicy,
-		); err != nil {
-			return CreateChildSectionsResult{}, err
-		}
-		parentImpl = updatedParentImpl
-	} else {
-		parentPayload["children"] = append([]string(nil), nextChildren...)
-	}
-	parentRaw, err := marshalProjectObject(parentPayload)
-	if err != nil {
-		return CreateChildSectionsResult{}, err
-	}
-	parentImpl.Payload = parentRaw
-	p.SectionImpls[parentVariant.ImplID] = parentImpl
+	p.ensureCreatedChildSectionsStorage()
+	p.applyCreatedChildSections(createdChildren)
+	p.SectionImpls[parentState.variant.ImplID] = updatedParentImpl
 
 	return CreateChildSectionsResult{SectionIDs: createdIDs}, nil
 }
@@ -293,6 +215,164 @@ func validateCreateChildSectionsParent(
 		return fmt.Errorf("%w: parent=%q", ErrCodeSectionAlreadyHasChild, parentID)
 	}
 	return nil
+}
+
+func (p *Project) resolveCreateChildSectionsParent(
+	input CreateChildSectionsInput,
+	policy AutoLayoutSectionSizingPolicy,
+) (createChildSectionsParentState, error) {
+	parentSection, parentVariant, parentImpl, err := p.ResolveSection(input.ParentID)
+	if err != nil {
+		return createChildSectionsParentState{}, err
+	}
+	parentPayload, err := effectiveSectionPayload(*p, parentSection.ID, parentVariant.ID)
+	if err != nil {
+		return createChildSectionsParentState{}, err
+	}
+	parentType := payloadStringField(parentPayload, "type")
+	if parentType == "" {
+		parentType = fallbackSectionType(parentImpl)
+	}
+	parentChildren, parentHasChildren := payloadChildren(parentPayload)
+	parentIsBaseCodeSection := supportsBaseCodeSectionSemantics(parentImpl, parentPayload)
+	if !parentIsBaseCodeSection && !parentHasChildren {
+		return createChildSectionsParentState{}, fmt.Errorf("%w: parent=%q", ErrChildSectionParentUnsupported, parentSection.ID)
+	}
+	if err := validateCreateChildSectionsParent(parentSection.ID, parentImpl, parentPayload, parentChildren, input); err != nil {
+		return createChildSectionsParentState{}, err
+	}
+	parentWidth, err := resolveAutoLayoutDimension(
+		policy,
+		parentSection.ID,
+		parentType,
+		"width",
+		nil,
+		parentPayload,
+	)
+	if err != nil {
+		return createChildSectionsParentState{}, err
+	}
+	return createChildSectionsParentState{
+		section:           parentSection,
+		variant:           parentVariant,
+		impl:              parentImpl,
+		payload:           parentPayload,
+		children:          parentChildren,
+		isBaseCodeSection: parentIsBaseCodeSection,
+		width:             parentWidth,
+	}, nil
+}
+
+func resolveCreateChildSectionsStartIdx(children []string, startIdx *int) (int, error) {
+	resolved := len(children)
+	if startIdx != nil {
+		resolved = *startIdx
+	}
+	if resolved < 0 || resolved > len(children) {
+		return 0, fmt.Errorf("%w: startIdx=%d childCount=%d", ErrChildSectionStartIdxInvalid, resolved, len(children))
+	}
+	return resolved, nil
+}
+
+func (p *Project) buildCreatedChildSections(
+	parentState createChildSectionsParentState,
+	input CreateChildSectionsInput,
+	settings StructuralMutationSettings,
+) ([]createdChildSectionState, []string, error) {
+	childNames, err := childSiblingNames(*p, parentState.children)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	createdChildren := make([]createdChildSectionState, 0, input.NumChildren)
+	createdIDs := make([]string, 0, input.NumChildren)
+	for range input.NumChildren {
+		created, err := newCreatedChildSectionState(
+			*p,
+			childNames,
+			parentState.section.ID,
+			input.ImplType,
+			parentState.width,
+			parentState.isBaseCodeSection,
+			settings,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		childNames = append(childNames, created.section.Name)
+		createdChildren = append(createdChildren, created)
+		createdIDs = append(createdIDs, created.section.ID)
+	}
+
+	return createdChildren, createdIDs, nil
+}
+
+func buildUpdatedCreateChildSectionsParentImpl(
+	parentState createChildSectionsParentState,
+	startIdx int,
+	createdIDs []string,
+	policy AutoLayoutSectionSizingPolicy,
+) (SectionImpl, error) {
+	nextChildren := insertStringSlice(parentState.children, startIdx, createdIDs)
+	parentPayload := cloneProjectObject(parentState.payload)
+	updatedParentImpl := parentState.impl
+	if parentState.isBaseCodeSection {
+		updatedParentImpl = parentState.impl.Clone()
+		setBaseCodeSectionAttachmentState(parentPayload, &updatedParentImpl, nextChildren)
+		if err := ensureEmbeddedCodeSectionPayloadSize(
+			parentState.section.ID,
+			parentPayload,
+			policy,
+		); err != nil {
+			return SectionImpl{}, err
+		}
+	} else {
+		parentPayload["children"] = append([]string(nil), nextChildren...)
+	}
+	parentRaw, err := marshalProjectObject(parentPayload)
+	if err != nil {
+		return SectionImpl{}, err
+	}
+	updatedParentImpl.Payload = parentRaw
+	return updatedParentImpl, nil
+}
+
+func (p *Project) ensureCreatedChildSectionsStorage() {
+	if p.Sections == nil {
+		p.Sections = map[string]Section{}
+	}
+	if p.SectionVariants == nil {
+		p.SectionVariants = map[string]SectionVariant{}
+	}
+	if p.SectionImpls == nil {
+		p.SectionImpls = map[string]SectionImpl{}
+	}
+	if p.SectionVariantMap == nil {
+		p.SectionVariantMap = map[string]string{}
+	}
+	if p.CodeObjs == nil {
+		p.CodeObjs = map[string]CodeObject{}
+	}
+	if p.CodeObjVariants == nil {
+		p.CodeObjVariants = map[string]CodeObjectVariant{}
+	}
+	if p.CodeObjImpls == nil {
+		p.CodeObjImpls = map[string]CodeObjectImpl{}
+	}
+}
+
+func (p *Project) applyCreatedChildSections(createdChildren []createdChildSectionState) {
+	for _, created := range createdChildren {
+		p.Sections[created.section.ID] = created.section
+		p.SectionVariants[created.variant.ID] = created.variant
+		p.SectionImpls[created.impl.ID] = created.impl
+		p.SectionVariantMap[created.section.ID] = created.variant.ID
+		if created.metaControlParamCore != nil && created.metaControlParamVar != nil && created.metaControlParamImpl != nil {
+			p.CodeObjs[created.metaControlParamCore.ID] = *created.metaControlParamCore
+			p.CodeObjVariants[created.metaControlParamVar.ID] = *created.metaControlParamVar
+			p.CodeObjImpls[created.metaControlParamImpl.ID] = *created.metaControlParamImpl
+		}
+	}
 }
 
 func newCreatedChildSectionState(
