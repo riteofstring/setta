@@ -211,72 +211,120 @@ func normalizeProjectChatWindowingState(
 	if state.NextInstanceNumber > 0 {
 		normalized.NextInstanceNumber = state.NextInstanceNumber
 	}
-	winningInstanceIDBySectionID := map[string]string{}
-
-	for instanceID, instance := range state.InstancesByID {
-		trimmedInstanceID := strings.TrimSpace(instanceID)
-		if trimmedInstanceID == "" {
-			continue
-		}
-		nextInstance := instance.Clone()
-		nextInstance.InstanceID = trimmedInstanceID
-		nextInstance.SectionIDOrNull = trimOptionalString(nextInstance.SectionIDOrNull)
-		nextInstance.Title = trimOptionalString(nextInstance.Title)
-		nextInstance.ChatID = trimOptionalString(nextInstance.ChatID)
-		nextInstance.Bounds = normalizeChatWindowBounds(nextInstance.Bounds)
-		nextInstance.DockMetrics = normalizeChatWindowDockMetrics(nextInstance.DockMetrics)
-		if nextInstance.Placement == "" {
-			nextInstance.Placement = ChatWindowPlacementBottomDocked
-		}
-		if nextInstance.Mode == "" {
-			nextInstance.Mode = ChatWindowModeProjectAI
-		}
-		if err := validateWindowingOwner(
-			nextInstance.Mode,
-			nextInstance.Placement,
-			nextInstance.SectionIDOrNull,
-		); err != nil {
-			return ProjectChatWindowingState{}, err
-		}
-		if nextInstance.Mode != ChatWindowModeProjectAI {
-			nextInstance.ChatID = nil
-		}
-		if nextInstance.Mode == ChatWindowModeGitGraph {
-			nextInstance.SectionIDOrNull = nil
-		}
-		if nextInstance.Mode == ChatWindowModeSection && nextInstance.SectionIDOrNull == nil {
-			continue
-		}
-		if nextInstance.SectionIDOrNull != nil {
-			if _, ok := sections[*nextInstance.SectionIDOrNull]; !ok {
-				continue
-			}
-			nextInstance.Title = nil
-
-			currentBestInstanceID := winningInstanceIDBySectionID[*nextInstance.SectionIDOrNull]
-			currentBestInstance, currentBestExists := normalized.InstancesByID[currentBestInstanceID]
-			if !shouldPreferProjectChatSectionBindingCandidate(
-				nextInstance,
-				trimmedInstanceID,
-				currentBestInstance,
-				currentBestInstanceID,
-				currentBestExists,
-			) {
-				continue
-			}
-			if currentBestExists {
-				delete(normalized.InstancesByID, currentBestInstanceID)
-			}
-			winningInstanceIDBySectionID[*nextInstance.SectionIDOrNull] = trimmedInstanceID
-		}
-		normalized.InstancesByID[trimmedInstanceID] = nextInstance
+	normalizedInstances, err := normalizeProjectChatWindowInstancesOnLoad(
+		state.InstancesByID,
+		sections,
+	)
+	if err != nil {
+		return ProjectChatWindowingState{}, err
 	}
+	normalized.InstancesByID = normalizedInstances
 
 	normalized.Order = normalizeOrderedKeys(state.Order, normalized.InstancesByID)
 	if normalized.NextInstanceNumber < 1 {
 		normalized.NextInstanceNumber = 1
 	}
 	return normalized, nil
+}
+
+func normalizeProjectChatWindowInstancesOnLoad(
+	instancesByID map[string]ProjectChatWindowInstance,
+	sections map[string]Section,
+) (map[string]ProjectChatWindowInstance, error) {
+	candidatesByID := make(map[string]ProjectChatWindowInstance, len(instancesByID))
+	for instanceID, instance := range instancesByID {
+		trimmedInstanceID, normalizedInstance, keep, err := normalizeProjectChatWindowCandidateOnLoad(
+			instanceID,
+			instance,
+			sections,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if !keep {
+			continue
+		}
+		candidatesByID[trimmedInstanceID] = normalizedInstance
+	}
+	return selectProjectChatWindowLoadCandidates(candidatesByID), nil
+}
+
+func normalizeProjectChatWindowCandidateOnLoad(
+	instanceID string,
+	instance ProjectChatWindowInstance,
+	sections map[string]Section,
+) (string, ProjectChatWindowInstance, bool, error) {
+	trimmedInstanceID := strings.TrimSpace(instanceID)
+	if trimmedInstanceID == "" {
+		return "", ProjectChatWindowInstance{}, false, nil
+	}
+
+	nextInstance := instance.Clone()
+	nextInstance.InstanceID = trimmedInstanceID
+	nextInstance.SectionIDOrNull = trimOptionalString(nextInstance.SectionIDOrNull)
+	nextInstance.Title = trimOptionalString(nextInstance.Title)
+	nextInstance.ChatID = trimOptionalString(nextInstance.ChatID)
+	nextInstance.Bounds = normalizeChatWindowBounds(nextInstance.Bounds)
+	nextInstance.DockMetrics = normalizeChatWindowDockMetrics(nextInstance.DockMetrics)
+	if nextInstance.Placement == "" {
+		nextInstance.Placement = ChatWindowPlacementBottomDocked
+	}
+	if nextInstance.Mode == "" {
+		nextInstance.Mode = ChatWindowModeProjectAI
+	}
+	if err := validateWindowingOwner(
+		nextInstance.Mode,
+		nextInstance.Placement,
+		nextInstance.SectionIDOrNull,
+	); err != nil {
+		return "", ProjectChatWindowInstance{}, false, err
+	}
+	if nextInstance.Mode != ChatWindowModeProjectAI {
+		nextInstance.ChatID = nil
+	}
+	if nextInstance.Mode == ChatWindowModeGitGraph {
+		nextInstance.SectionIDOrNull = nil
+	}
+	if nextInstance.SectionIDOrNull == nil {
+		return trimmedInstanceID, nextInstance, true, nil
+	}
+	if _, ok := sections[*nextInstance.SectionIDOrNull]; !ok {
+		return "", ProjectChatWindowInstance{}, false, nil
+	}
+	nextInstance.Title = nil
+	return trimmedInstanceID, nextInstance, true, nil
+}
+
+func selectProjectChatWindowLoadCandidates(
+	candidatesByID map[string]ProjectChatWindowInstance,
+) map[string]ProjectChatWindowInstance {
+	winningInstanceIDBySectionID := map[string]string{}
+	for instanceID, instance := range candidatesByID {
+		if instance.SectionIDOrNull == nil {
+			continue
+		}
+		sectionID := *instance.SectionIDOrNull
+		currentBestInstanceID, currentBestExists := winningInstanceIDBySectionID[sectionID]
+		if !currentBestExists || shouldPreferProjectChatSectionBindingCandidate(
+			instance,
+			instanceID,
+			candidatesByID[currentBestInstanceID],
+			currentBestInstanceID,
+			true,
+		) {
+			winningInstanceIDBySectionID[sectionID] = instanceID
+		}
+	}
+
+	selected := make(map[string]ProjectChatWindowInstance, len(candidatesByID))
+	for instanceID, instance := range candidatesByID {
+		if instance.SectionIDOrNull != nil &&
+			winningInstanceIDBySectionID[*instance.SectionIDOrNull] != instanceID {
+			continue
+		}
+		selected[instanceID] = instance
+	}
+	return selected
 }
 
 func normalizeWindowSpaces(
@@ -289,75 +337,139 @@ func normalizeWindowSpaces(
 
 	normalized := make(map[string]WindowSpaceConfig, len(windowSpaces))
 	for windowSpaceID, windowSpace := range windowSpaces {
-		trimmedID := strings.TrimSpace(windowSpaceID)
-		if trimmedID == "" {
+		trimmedID, normalizedWindowSpace, keep, err := normalizeWindowSpaceOnLoad(
+			windowSpaceID,
+			windowSpace,
+			sections,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if !keep {
 			continue
 		}
-		nextWindowSpace := windowSpace.Clone()
-		nextWindowSpace.ID = trimmedID
-		nextWindowSpace.Name = strings.TrimSpace(nextWindowSpace.Name)
-		nextWindows := make(map[string]WindowSpaceWindow, len(nextWindowSpace.WindowsByID))
-		winningWindowIDBySectionID := map[string]string{}
-		for instanceID, window := range nextWindowSpace.WindowsByID {
-			trimmedInstanceID := strings.TrimSpace(instanceID)
-			if trimmedInstanceID == "" {
-				continue
-			}
-			nextWindow := window.Clone()
-			nextWindow.SectionIDOrNull = trimOptionalString(nextWindow.SectionIDOrNull)
-			nextWindow.Title = trimOptionalString(nextWindow.Title)
-			nextWindow.ChatID = trimOptionalString(nextWindow.ChatID)
-			nextWindow.NormalizedBounds = normalizeNormalizedFloatingWindowBounds(
-				nextWindow.NormalizedBounds,
-			)
-			if nextWindow.SurfaceKind == "" {
-				nextWindow.SurfaceKind = WindowSpaceSurfaceKindProjectChat
-			}
-			if nextWindow.Mode == "" {
-				nextWindow.Mode = ChatWindowModeProjectAI
-			}
-			if err := validateWindowSpaceWindowOwnerOnLoad(
-				nextWindow.SurfaceKind,
-				nextWindow.Mode,
-				nextWindow.SectionIDOrNull,
-				nextWindow.ChatID,
-			); err != nil {
-				return nil, err
-			}
-			if nextWindow.SurfaceKind == WindowSpaceSurfaceKindSection {
-				if nextWindow.SectionIDOrNull == nil {
-					continue
-				}
-				if _, ok := sections[*nextWindow.SectionIDOrNull]; !ok {
-					continue
-				}
-				nextWindow.Title = nil
-
-				currentBestWindowID := winningWindowIDBySectionID[*nextWindow.SectionIDOrNull]
-				currentBestWindow, currentBestExists := nextWindows[currentBestWindowID]
-				if !shouldPreferWindowSpaceSectionBindingCandidate(
-					nextWindow,
-					trimmedInstanceID,
-					currentBestWindow,
-					currentBestWindowID,
-					currentBestExists,
-				) {
-					continue
-				}
-				if currentBestExists {
-					delete(nextWindows, currentBestWindowID)
-				}
-				winningWindowIDBySectionID[*nextWindow.SectionIDOrNull] = trimmedInstanceID
-			} else {
-				nextWindow.SectionIDOrNull = nil
-			}
-			nextWindows[trimmedInstanceID] = nextWindow
-		}
-		nextWindowSpace.WindowsByID = nextWindows
-		nextWindowSpace.Order = normalizeOrderedKeys(nextWindowSpace.Order, nextWindowSpace.WindowsByID)
-		normalized[trimmedID] = nextWindowSpace
+		normalized[trimmedID] = normalizedWindowSpace
 	}
 	return normalized, nil
+}
+
+func normalizeWindowSpaceOnLoad(
+	windowSpaceID string,
+	windowSpace WindowSpaceConfig,
+	sections map[string]Section,
+) (string, WindowSpaceConfig, bool, error) {
+	trimmedID := strings.TrimSpace(windowSpaceID)
+	if trimmedID == "" {
+		return "", WindowSpaceConfig{}, false, nil
+	}
+
+	nextWindowSpace := windowSpace.Clone()
+	nextWindowSpace.ID = trimmedID
+	nextWindowSpace.Name = strings.TrimSpace(nextWindowSpace.Name)
+
+	normalizedWindows, err := normalizeWindowSpaceWindowsOnLoad(nextWindowSpace.WindowsByID, sections)
+	if err != nil {
+		return "", WindowSpaceConfig{}, false, err
+	}
+	nextWindowSpace.WindowsByID = normalizedWindows
+	nextWindowSpace.Order = normalizeOrderedKeys(nextWindowSpace.Order, nextWindowSpace.WindowsByID)
+	return trimmedID, nextWindowSpace, true, nil
+}
+
+func normalizeWindowSpaceWindowsOnLoad(
+	windowsByID map[string]WindowSpaceWindow,
+	sections map[string]Section,
+) (map[string]WindowSpaceWindow, error) {
+	candidatesByID := make(map[string]WindowSpaceWindow, len(windowsByID))
+	for instanceID, window := range windowsByID {
+		trimmedInstanceID, normalizedWindow, keep, err := normalizeWindowSpaceWindowOnLoad(
+			instanceID,
+			window,
+			sections,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if !keep {
+			continue
+		}
+		candidatesByID[trimmedInstanceID] = normalizedWindow
+	}
+	return selectWindowSpaceLoadCandidates(candidatesByID), nil
+}
+
+func normalizeWindowSpaceWindowOnLoad(
+	instanceID string,
+	window WindowSpaceWindow,
+	sections map[string]Section,
+) (string, WindowSpaceWindow, bool, error) {
+	trimmedInstanceID := strings.TrimSpace(instanceID)
+	if trimmedInstanceID == "" {
+		return "", WindowSpaceWindow{}, false, nil
+	}
+
+	nextWindow := window.Clone()
+	nextWindow.SectionIDOrNull = trimOptionalString(nextWindow.SectionIDOrNull)
+	nextWindow.Title = trimOptionalString(nextWindow.Title)
+	nextWindow.ChatID = trimOptionalString(nextWindow.ChatID)
+	nextWindow.NormalizedBounds = normalizeNormalizedFloatingWindowBounds(
+		nextWindow.NormalizedBounds,
+	)
+	if nextWindow.SurfaceKind == "" {
+		nextWindow.SurfaceKind = WindowSpaceSurfaceKindProjectChat
+	}
+	if nextWindow.Mode == "" {
+		nextWindow.Mode = ChatWindowModeProjectAI
+	}
+	if err := validateWindowSpaceWindowOwnerOnLoad(
+		nextWindow.SurfaceKind,
+		nextWindow.Mode,
+		nextWindow.SectionIDOrNull,
+		nextWindow.ChatID,
+	); err != nil {
+		return "", WindowSpaceWindow{}, false, err
+	}
+	if nextWindow.SurfaceKind != WindowSpaceSurfaceKindSection {
+		nextWindow.SectionIDOrNull = nil
+		return trimmedInstanceID, nextWindow, true, nil
+	}
+	if _, ok := sections[*nextWindow.SectionIDOrNull]; !ok {
+		return "", WindowSpaceWindow{}, false, nil
+	}
+	nextWindow.Title = nil
+	return trimmedInstanceID, nextWindow, true, nil
+}
+
+func selectWindowSpaceLoadCandidates(
+	candidatesByID map[string]WindowSpaceWindow,
+) map[string]WindowSpaceWindow {
+	winningWindowIDBySectionID := map[string]string{}
+	for windowID, window := range candidatesByID {
+		if window.SectionIDOrNull == nil {
+			continue
+		}
+		sectionID := *window.SectionIDOrNull
+		currentBestWindowID, currentBestExists := winningWindowIDBySectionID[sectionID]
+		if !currentBestExists || shouldPreferWindowSpaceSectionBindingCandidate(
+			window,
+			windowID,
+			candidatesByID[currentBestWindowID],
+			currentBestWindowID,
+			true,
+		) {
+			winningWindowIDBySectionID[sectionID] = windowID
+		}
+	}
+
+	selected := make(map[string]WindowSpaceWindow, len(candidatesByID))
+	for windowID, window := range candidatesByID {
+		if window.SectionIDOrNull != nil &&
+			winningWindowIDBySectionID[*window.SectionIDOrNull] != windowID {
+			continue
+		}
+		selected[windowID] = window
+	}
+	return selected
 }
 
 func validateProjectChatWindowingStateOnLoad(
