@@ -54,54 +54,67 @@ func (d *Document) ApplyWatchCodeBoundSectionUpdate(
 }
 
 func (p Project) ResolveWatchCodeBoundSection(sectionID string, workspaceRoot string) (WatchCodeBoundSection, bool, error) {
+	section, bindingPath, ok, err := p.resolveWatchCodeBoundSectionTarget(sectionID)
+	if err != nil || !ok {
+		return WatchCodeBoundSection{}, ok, err
+	}
+	resolved, ok, err := resolveWatchCodeBoundSectionDetails(p, section.ID, workspaceRoot, bindingPath)
+	if err != nil || !ok {
+		return WatchCodeBoundSection{}, ok, err
+	}
+	ignoreState, err := p.CodeSectionDiagnosticsIgnoreStateForSection(section.ID)
+	if err != nil {
+		return WatchCodeBoundSection{}, false, err
+	}
+	resolved.IgnoreState = ignoreState
+	return resolved, true, nil
+}
+
+func (p Project) resolveWatchCodeBoundSectionTarget(sectionID string) (Section, string, bool, error) {
 	if !p.WatchCodeEnabled || !p.HasPythonCodegenTarget() {
-		return WatchCodeBoundSection{}, false, nil
+		return Section{}, "", false, nil
 	}
 
 	trimmedSectionID := strings.TrimSpace(sectionID)
 	if trimmedSectionID == "" {
-		return WatchCodeBoundSection{}, false, ErrSectionIDRequired
+		return Section{}, "", false, ErrSectionIDRequired
 	}
 
 	section, _, impl, err := p.ResolveSection(trimmedSectionID)
 	if err != nil {
-		return WatchCodeBoundSection{}, false, err
+		return Section{}, "", false, err
 	}
-	if !impl.IsCode() || impl.Code == nil || impl.Code.Language != CodeLanguagePython || impl.Code.Binding == nil {
-		return WatchCodeBoundSection{}, false, nil
+	if !isWatchCodePythonBoundSection(impl) {
+		return Section{}, "", false, nil
+	}
+	return section, impl.Code.Binding.Path, true, nil
+}
+
+func resolveWatchCodeBoundSectionDetails(
+	project Project,
+	sectionID string,
+	workspaceRoot string,
+	bindingPath string,
+) (WatchCodeBoundSection, bool, error) {
+	relativePath, ok, err := normalizeWatchCodeInputPath(workspaceRoot, bindingPath, "code binding")
+	if err != nil || !ok {
+		return WatchCodeBoundSection{}, ok, err
 	}
 
-	relativePath, ok, err := normalizeWatchCodeInputPath(workspaceRoot, impl.Code.Binding.Path, "code binding")
-	if err != nil {
-		return WatchCodeBoundSection{}, false, err
-	}
-	if !ok {
-		return WatchCodeBoundSection{}, false, nil
-	}
-
-	code, ok, err := watchCodeBoundSectionSource(p, section.ID, workspaceRoot, relativePath)
-	if err != nil {
-		return WatchCodeBoundSection{}, false, err
-	}
-	if !ok {
-		return WatchCodeBoundSection{}, false, nil
+	code, ok, err := watchCodeBoundSectionSource(project, sectionID, workspaceRoot, relativePath)
+	if err != nil || !ok {
+		return WatchCodeBoundSection{}, ok, err
 	}
 
 	sourcePath, err := resolveWatchCodeAbsolutePath(workspaceRoot, relativePath, "code binding")
 	if err != nil {
 		return WatchCodeBoundSection{}, false, err
 	}
-	ignoreState, err := p.CodeSectionDiagnosticsIgnoreStateForSection(section.ID)
-	if err != nil {
-		return WatchCodeBoundSection{}, false, err
-	}
-
 	return WatchCodeBoundSection{
-		SectionID:    section.ID,
+		SectionID:    sectionID,
 		RelativePath: relativePath,
 		SourcePath:   sourcePath,
 		Code:         code,
-		IgnoreState:  ignoreState,
 	}, true, nil
 }
 

@@ -3,6 +3,8 @@ package projectstate
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -61,4 +63,78 @@ func TestProjectApplyWatchCodeBoundSectionUpdateCreatesCallableWithoutWatchInput
 	if got := project.CodeObjs[callableID].Name; got != "added" {
 		t.Fatalf("expected callable object name added, got %q", got)
 	}
+}
+
+func TestProjectResolveWatchCodeBoundSectionLoadsBoundFileAndIgnoreState(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	project := codeUpdateTestProject(t, CodeFileAccessModeReadWrite)
+	project.WatchCodeEnabled = true
+	project.CodegenTargets = []ProjectCodegenTarget{
+		{
+			Language: string(CodeLanguagePython),
+			Payload:  json.RawMessage(`{"language":"python"}`),
+		},
+	}
+
+	if err := project.SetCodeSectionDiagnosticsMute("section-main", true); err != nil {
+		t.Fatalf("set diagnostics mute: %v", err)
+	}
+	clearWatchCodeTestInlineCode(t, &project, "impl-main")
+
+	boundPath := filepath.Join(workspaceRoot, "pkg", "bound.py")
+	if err := os.MkdirAll(filepath.Dir(boundPath), 0o755); err != nil {
+		t.Fatalf("mkdir bound file parent: %v", err)
+	}
+	const boundSource = "def bound(value):\n    return value\n"
+	if err := os.WriteFile(boundPath, []byte(boundSource), 0o644); err != nil {
+		t.Fatalf("write bound file: %v", err)
+	}
+
+	resolved, ok, err := project.ResolveWatchCodeBoundSection("section-main", workspaceRoot)
+	if err != nil {
+		t.Fatalf("resolve watch code bound section: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected watch code bound section to resolve")
+	}
+	if resolved.SectionID != "section-main" {
+		t.Fatalf("expected section-main, got %q", resolved.SectionID)
+	}
+	if resolved.RelativePath != "pkg/bound.py" {
+		t.Fatalf("expected pkg/bound.py, got %q", resolved.RelativePath)
+	}
+	if resolved.SourcePath != boundPath {
+		t.Fatalf("expected source path %q, got %q", boundPath, resolved.SourcePath)
+	}
+	if resolved.Code != boundSource {
+		t.Fatalf("expected bound source %q, got %q", boundSource, resolved.Code)
+	}
+	if !resolved.IgnoreState.Muted {
+		t.Fatalf("expected muted ignore state, got %#v", resolved.IgnoreState)
+	}
+}
+
+func clearWatchCodeTestInlineCode(t *testing.T, project *Project, implID string) {
+	t.Helper()
+
+	impl := project.SectionImpls[implID]
+	payload, err := rawObjectFromProjectPayload(impl.Payload)
+	if err != nil {
+		t.Fatalf("decode watch code impl payload: %v", err)
+	}
+	delete(payload, "code")
+	impl.Payload = mustWatchCodeTestRawJSON(t, payload)
+	project.SectionImpls[implID] = impl
+}
+
+func mustWatchCodeTestRawJSON(t *testing.T, value map[string]any) RawJSON {
+	t.Helper()
+
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal watch code payload: %v", err)
+	}
+	return RawJSON(raw)
 }
