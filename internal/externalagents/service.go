@@ -64,48 +64,89 @@ func (s *Service) GetChat(chatID string, projectConfigID *string) (HydratedChat,
 	if s == nil || s.runs == nil {
 		return HydratedChat{}, ErrRunStoreRequired
 	}
+	filter, err := buildChatRunFilter(chatID, projectConfigID)
+	if err != nil {
+		return HydratedChat{}, err
+	}
+	latestRun, err := s.loadLatestChatRun(filter)
+	if err != nil {
+		return HydratedChat{}, err
+	}
+	state, err := s.resolveChatState(latestRun)
+	if err != nil {
+		return HydratedChat{}, err
+	}
+	return hydrateChat(latestRun, state), nil
+}
+
+func buildChatRunFilter(chatID string, projectConfigID *string) (agentruns.RunFilter, error) {
 	trimmedChatID := strings.TrimSpace(chatID)
 	if trimmedChatID == "" {
-		return HydratedChat{}, fmt.Errorf("chat id is required")
+		return agentruns.RunFilter{}, fmt.Errorf("chat id is required")
 	}
 	filter := agentruns.RunFilter{
 		RunType: stringPtr(RunTypeExternalAgent),
 		ChatID:  &trimmedChatID,
 	}
-	if projectConfigID != nil {
-		trimmedProjectID := strings.TrimSpace(*projectConfigID)
-		if trimmedProjectID != "" {
-			filter.ProjectConfigID = &trimmedProjectID
-		}
+	if projectID := normalizeOptionalProjectConfigID(projectConfigID); projectID != nil {
+		filter.ProjectConfigID = projectID
 	}
+	return filter, nil
+}
+
+func normalizeOptionalProjectConfigID(projectConfigID *string) *string {
+	if projectConfigID == nil {
+		return nil
+	}
+	trimmedProjectID := strings.TrimSpace(*projectConfigID)
+	if trimmedProjectID == "" {
+		return nil
+	}
+	return stringPtr(trimmedProjectID)
+}
+
+func (s *Service) loadLatestChatRun(filter agentruns.RunFilter) (agentruns.Run, error) {
 	runs, err := s.runs.ListByMetadata(filter)
 	if err != nil {
-		return HydratedChat{}, err
+		return agentruns.Run{}, err
 	}
 	latestRun, ok := selectLatestRun(runs)
 	if !ok {
-		return HydratedChat{}, ErrChatNotFound
+		return agentruns.Run{}, ErrChatNotFound
 	}
-	state, err := buildChatStateFromRun(latestRun)
+	return latestRun, nil
+}
+
+func (s *Service) resolveChatState(run agentruns.Run) (*ChatState, error) {
+	state, err := buildChatStateFromRun(run)
 	if err != nil {
-		return HydratedChat{}, err
+		return nil, err
 	}
-	if latestRun.Status == agentruns.RunStatusRunning && s.live != nil {
-		liveState, err := s.live.GetLiveChatState(latestRun.ID)
-		if err != nil {
-			return HydratedChat{}, err
-		}
-		if liveState != nil {
-			state = liveState.Clone()
-		}
+	if !shouldOverlayLiveChat(run, s.live) {
+		return state, nil
 	}
+	liveState, err := s.live.GetLiveChatState(run.ID)
+	if err != nil {
+		return nil, err
+	}
+	if liveState == nil {
+		return state, nil
+	}
+	return liveState.Clone(), nil
+}
+
+func shouldOverlayLiveChat(run agentruns.Run, live LiveChatStateProvider) bool {
+	return run.Status == agentruns.RunStatusRunning && live != nil
+}
+
+func hydrateChat(run agentruns.Run, state *ChatState) HydratedChat {
 	return HydratedChat{
 		Messages:                 cloneMessageSlice(state.Messages),
 		WaitingForResponse:       state.WaitingForResponse,
 		ToolCallArguments:        cloneStringMap(state.ToolCallArguments),
-		ContextUsage:             resolveContextUsage(latestRun),
-		AppGenerationByMessageID: agentruns.ExtractAppGenerationByMessageID(latestRun.Inputs),
-	}, nil
+		ContextUsage:             resolveContextUsage(run),
+		AppGenerationByMessageID: agentruns.ExtractAppGenerationByMessageID(run.Inputs),
+	}
 }
 
 func (s ChatState) Clone() *ChatState {
@@ -402,42 +443,64 @@ func normalizeUsagePayload(raw any) map[string]int {
 	if !ok {
 		return nil
 	}
-	normalized := map[string]int{}
-	for key, aliases := range usageKeyAliases() {
-		for _, alias := range aliases {
-			value, ok := payload[alias]
-			if !ok {
-				continue
-			}
-			parsed := extractNonNegativeInt(value)
-			if parsed == nil {
-				continue
-			}
-			normalized[key] = *parsed
-			break
-		}
-	}
-	if _, ok := normalized["promptTokens"]; !ok {
-		if inputTokens, ok := normalized["inputTokens"]; ok {
-			normalized["promptTokens"] = inputTokens
-		}
-	}
-	if _, ok := normalized["completionTokens"]; !ok {
-		if outputTokens, ok := normalized["outputTokens"]; ok {
-			normalized["completionTokens"] = outputTokens
-		}
-	}
-	if _, ok := normalized["totalTokens"]; !ok {
-		promptTokens, hasPrompt := normalized["promptTokens"]
-		completionTokens, hasCompletion := normalized["completionTokens"]
-		if hasPrompt && hasCompletion {
-			normalized["totalTokens"] = promptTokens + completionTokens
-		}
-	}
+	normalized := collectUsageValues(payload)
+	applyDerivedUsageDefaults(normalized)
 	if len(normalized) == 0 {
 		return nil
 	}
 	return normalized
+}
+
+func collectUsageValues(payload map[string]any) map[string]int {
+	normalized := map[string]int{}
+	for key, aliases := range usageKeyAliases() {
+		if value := firstUsageValue(payload, aliases); value != nil {
+			normalized[key] = *value
+		}
+	}
+	return normalized
+}
+
+func firstUsageValue(payload map[string]any, aliases []string) *int {
+	for _, alias := range aliases {
+		value, ok := payload[alias]
+		if !ok {
+			continue
+		}
+		if parsed := extractNonNegativeInt(value); parsed != nil {
+			return parsed
+		}
+	}
+	return nil
+}
+
+func applyDerivedUsageDefaults(normalized map[string]int) {
+	setUsageDefault(normalized, "promptTokens", "inputTokens")
+	setUsageDefault(normalized, "completionTokens", "outputTokens")
+	setTotalTokensDefault(normalized)
+}
+
+func setUsageDefault(normalized map[string]int, key string, fallback string) {
+	if _, ok := normalized[key]; ok {
+		return
+	}
+	value, ok := normalized[fallback]
+	if !ok {
+		return
+	}
+	normalized[key] = value
+}
+
+func setTotalTokensDefault(normalized map[string]int) {
+	if _, ok := normalized["totalTokens"]; ok {
+		return
+	}
+	promptTokens, hasPrompt := normalized["promptTokens"]
+	completionTokens, hasCompletion := normalized["completionTokens"]
+	if !hasPrompt || !hasCompletion {
+		return
+	}
+	normalized["totalTokens"] = promptTokens + completionTokens
 }
 
 func usageKeyAliases() map[string][]string {
@@ -459,41 +522,44 @@ func extractNonNegativeInt(raw any) *int {
 	case bool:
 		return nil
 	case int:
-		if value < 0 {
-			return nil
-		}
-		return &value
+		return nonNegativeInt(value)
 	case int32:
-		converted := int(value)
-		if converted < 0 {
-			return nil
-		}
-		return &converted
+		return nonNegativeInt(int(value))
 	case int64:
-		converted := int(value)
-		if converted < 0 {
-			return nil
-		}
-		return &converted
+		return nonNegativeInt(int(value))
 	case float64:
-		if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || math.Trunc(value) != value {
-			return nil
-		}
-		converted := int(value)
-		return &converted
+		return parseWholeNonNegativeFloat(value)
 	case string:
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			return nil
-		}
-		parsed, err := strconv.Atoi(trimmed)
-		if err != nil || parsed < 0 {
-			return nil
-		}
-		return &parsed
+		return parseNonNegativeStringInt(value)
 	default:
 		return nil
 	}
+}
+
+func nonNegativeInt(value int) *int {
+	if value < 0 {
+		return nil
+	}
+	return intPtr(value)
+}
+
+func parseWholeNonNegativeFloat(value float64) *int {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || math.Trunc(value) != value {
+		return nil
+	}
+	return intPtr(int(value))
+}
+
+func parseNonNegativeStringInt(value string) *int {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	parsed, err := strconv.Atoi(trimmed)
+	if err != nil {
+		return nil
+	}
+	return nonNegativeInt(parsed)
 }
 
 func resolveContextWindowTokens(usagePayload map[string]int) *int {
