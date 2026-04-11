@@ -102,96 +102,33 @@ func (p *ProductionCandidateProvider) ResolveCandidate(ctx context.Context, spec
 }
 
 func (p *ProductionCandidateProvider) resolveGitHubCandidate(ctx context.Context, spec ParsedSourceSpec) (CandidatePlugin, error) {
-	if strings.TrimSpace(spec.Owner) == "" || strings.TrimSpace(spec.Repo) == "" {
-		return CandidatePlugin{}, newServiceError(ServiceErrorCodeSourceInvalid, "GitHub source must be github:<owner>/<repo>[#ref] or github:<owner>/<repo>@ref.")
-	}
-
-	tempRoot, err := os.MkdirTemp("", "setta-plugin-github-*")
-	if err != nil {
-		return CandidatePlugin{}, fmt.Errorf("create GitHub plugin temp root: %w", err)
-	}
-	cleanup := func() error {
-		return os.RemoveAll(tempRoot)
-	}
-
-	cloneRoot := filepath.Join(tempRoot, "repo")
-	cloneURL := buildGitHubCloneURL(p.gitHubBaseURL, spec.Owner, spec.Repo)
-	cloneArgs := []string{"clone", "--depth", "1"}
-	if strings.TrimSpace(spec.Ref) != "" {
-		cloneArgs = append(cloneArgs, "--branch", strings.TrimSpace(spec.Ref))
-	}
-	cloneArgs = append(cloneArgs, cloneURL, cloneRoot)
-
-	cloneCtx, cancel := context.WithTimeout(ctx, p.gitHubCloneTimeout)
-	defer cancel()
-
-	env := withEnvValue(p.baseEnv(), "GIT_TERMINAL_PROMPT", "0")
-	result, err := p.commandRunner()(cloneCtx, p.gitBinary, cloneArgs, env)
-	if err != nil {
-		_ = cleanup()
-		if errors.Is(cloneCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
-			return CandidatePlugin{}, newServiceError(
-				ServiceErrorCodeSourceFetchFailed,
-				"Failed to fetch GitHub plugin source: %s\nTimed out waiting for git clone.",
-				spec.Raw,
-			)
-		}
-		if isExecutableNotFoundError(err) {
-			return CandidatePlugin{}, newServiceError(
-				ServiceErrorCodeSourceFetchFailed,
-				"Failed to fetch GitHub plugin source: %s\ngit is not installed or not available on PATH.",
-				spec.Raw,
-			)
-		}
-		commandOutput := strings.TrimSpace(firstNonEmpty(result.Stderr, result.Stdout, err.Error()))
-		return CandidatePlugin{}, newServiceError(
-			ServiceErrorCodeSourceFetchFailed,
-			"Failed to fetch GitHub plugin source: %s\n%s",
-			spec.Raw,
-			commandOutput,
-		)
-	}
-
-	if err := stripGitMetadata(cloneRoot); err != nil {
-		_ = cleanup()
+	if err := validateGitHubSourceSpec(spec); err != nil {
 		return CandidatePlugin{}, err
 	}
 
-	manifestPath := filepath.Join(cloneRoot, pluginManifestFileName)
-	if _, err := os.Stat(manifestPath); err != nil {
-		_ = cleanup()
-		if os.IsNotExist(err) {
-			return CandidatePlugin{}, newServiceError(ServiceErrorCodeSourceManifestNotFound, "GitHub source root must contain setta.plugin.json.")
-		}
-		return CandidatePlugin{}, fmt.Errorf("stat plugin manifest %s: %w", manifestPath, err)
-	}
-	manifest, err := p.loadAndValidateCandidateManifest(cloneRoot, manifestPath)
+	tempRoot, cleanup, err := newCandidateTempRoot("setta-plugin-github-*", "GitHub plugin")
 	if err != nil {
-		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
-	if err := validateMetadataIdentityFromRoots(cloneRoot, cloneRoot, manifest); err != nil {
-		_ = cleanup()
-		return CandidatePlugin{}, err
-	}
-	finalRoot, err := relocateCandidateRoot(tempRoot, cloneRoot, manifest.ID)
+
+	cloneRoot, err := p.cloneGitHubSource(ctx, spec, tempRoot)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
 
-	digest, err := computeDirectoryDigest(finalRoot)
+	manifestPath, err := requireCandidateManifestPath(cloneRoot, "GitHub source root must contain setta.plugin.json.")
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
-	return CandidatePlugin{
-		Root:               finalRoot,
-		Manifest:           manifest,
-		CanonicalSourceKey: spec.CanonicalSourceKey,
-		SourceDigestSHA256: stringPtr(digest),
-		cleanup:            cleanup,
-	}, nil
+
+	candidate, err := p.finalizeCandidateFromManifestPath(tempRoot, cloneRoot, cloneRoot, manifestPath, spec.CanonicalSourceKey, cleanup)
+	if err != nil {
+		_ = cleanup()
+		return CandidatePlugin{}, err
+	}
+	return candidate, nil
 }
 
 func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, spec ParsedSourceSpec, requestedInstaller PluginInstallerBackend) (CandidatePlugin, error) {
@@ -202,18 +139,12 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 		return CandidatePlugin{}, newServiceError(ServiceErrorCodeSourceInvalid, "PyPI source must be pypi:<package>[==version].")
 	}
 
-	tempRoot, err := os.MkdirTemp("", "setta-plugin-pypi-*")
+	tempRoot, cleanup, err := newCandidateTempRoot("setta-plugin-pypi-*", "PyPI plugin")
 	if err != nil {
-		return CandidatePlugin{}, fmt.Errorf("create PyPI plugin temp root: %w", err)
-	}
-	cleanup := func() error {
-		return os.RemoveAll(tempRoot)
+		return CandidatePlugin{}, err
 	}
 
-	packageSpec := spec.Package
-	if strings.TrimSpace(spec.Version) != "" {
-		packageSpec = packageSpec + "==" + strings.TrimSpace(spec.Version)
-	}
+	packageSpec := buildPyPIPackageSpec(spec)
 	resolvedInstaller, err := p.resolveInstallerBackend(requestedInstaller)
 	if err != nil {
 		_ = cleanup()
@@ -221,34 +152,9 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 	}
 
 	extractRoot := filepath.Join(tempRoot, "extract")
-	if resolvedInstaller == PluginInstallerBackendPip {
-		if err := p.downloadWithPip(ctx, packageSpec, tempRoot, spec.Raw); err != nil {
-			_ = cleanup()
-			return CandidatePlugin{}, err
-		}
-		if err := extractFirstDownloadedArtifact(tempRoot, extractRoot); err != nil {
-			_ = cleanup()
-			return CandidatePlugin{}, err
-		}
-	} else {
-		if err := p.installWithUV(ctx, packageSpec, extractRoot, spec.Raw); err != nil {
-			if requestedInstaller != PluginInstallerBackendAuto {
-				_ = cleanup()
-				return CandidatePlugin{}, err
-			}
-			if removeErr := os.RemoveAll(extractRoot); removeErr != nil {
-				_ = cleanup()
-				return CandidatePlugin{}, fmt.Errorf("reset failed uv extract root: %w", removeErr)
-			}
-			if err := p.downloadWithPip(ctx, packageSpec, tempRoot, spec.Raw); err != nil {
-				_ = cleanup()
-				return CandidatePlugin{}, err
-			}
-			if err := extractFirstDownloadedArtifact(tempRoot, extractRoot); err != nil {
-				_ = cleanup()
-				return CandidatePlugin{}, err
-			}
-		}
+	if err := p.populatePyPIExtractRoot(ctx, packageSpec, tempRoot, extractRoot, spec.Raw, requestedInstaller, resolvedInstaller); err != nil {
+		_ = cleanup()
+		return CandidatePlugin{}, err
 	}
 
 	manifestPath, err := findSinglePluginManifestPath(extractRoot)
@@ -257,33 +163,12 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 		return CandidatePlugin{}, err
 	}
 	pluginRoot := filepath.Dir(manifestPath)
-	manifest, err := p.loadAndValidateCandidateManifest(pluginRoot, manifestPath)
+	candidate, err := p.finalizeCandidateFromManifestPath(tempRoot, extractRoot, pluginRoot, manifestPath, spec.CanonicalSourceKey, cleanup)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
-	if err := validateMetadataIdentityFromRoots(extractRoot, pluginRoot, manifest); err != nil {
-		_ = cleanup()
-		return CandidatePlugin{}, err
-	}
-	finalRoot, err := relocateCandidateRoot(tempRoot, pluginRoot, manifest.ID)
-	if err != nil {
-		_ = cleanup()
-		return CandidatePlugin{}, err
-	}
-
-	digest, err := computeDirectoryDigest(finalRoot)
-	if err != nil {
-		_ = cleanup()
-		return CandidatePlugin{}, err
-	}
-	return CandidatePlugin{
-		Root:               finalRoot,
-		Manifest:           manifest,
-		CanonicalSourceKey: spec.CanonicalSourceKey,
-		SourceDigestSHA256: stringPtr(digest),
-		cleanup:            cleanup,
-	}, nil
+	return candidate, nil
 }
 
 func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(pluginRoot string, manifestPath string) (PluginManifest, error) {
@@ -298,6 +183,17 @@ func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(pluginRoo
 		return PluginManifest{}, err
 	}
 	return manifest, nil
+}
+
+func (p *ProductionCandidateProvider) finalizeCandidateFromManifestPath(tempRoot string, packageMetadataRoot string, pluginRoot string, manifestPath string, canonicalSourceKey string, cleanup func() error) (CandidatePlugin, error) {
+	manifest, err := p.loadAndValidateCandidateManifest(pluginRoot, manifestPath)
+	if err != nil {
+		return CandidatePlugin{}, err
+	}
+	if err := validateMetadataIdentityFromRoots(packageMetadataRoot, pluginRoot, manifest); err != nil {
+		return CandidatePlugin{}, err
+	}
+	return buildCandidatePlugin(tempRoot, pluginRoot, manifest, canonicalSourceKey, cleanup)
 }
 
 func (p *ProductionCandidateProvider) resolveInstallerBackend(installer PluginInstallerBackend) (PluginInstallerBackend, error) {
@@ -316,6 +212,28 @@ func (p *ProductionCandidateProvider) resolveInstallerBackend(installer PluginIn
 		}
 		return PluginInstallerBackendPip, nil
 	}
+}
+
+func (p *ProductionCandidateProvider) populatePyPIExtractRoot(ctx context.Context, packageSpec string, tempRoot string, extractRoot string, sourceSpec string, requestedInstaller PluginInstallerBackend, resolvedInstaller PluginInstallerBackend) error {
+	if resolvedInstaller == PluginInstallerBackendPip {
+		return p.downloadAndExtractPyPIArtifact(ctx, packageSpec, tempRoot, extractRoot, sourceSpec)
+	}
+	if err := p.installWithUV(ctx, packageSpec, extractRoot, sourceSpec); err == nil {
+		return nil
+	} else if requestedInstaller != PluginInstallerBackendAuto {
+		return err
+	}
+	if err := resetCandidateExtractRoot(extractRoot); err != nil {
+		return err
+	}
+	return p.downloadAndExtractPyPIArtifact(ctx, packageSpec, tempRoot, extractRoot, sourceSpec)
+}
+
+func (p *ProductionCandidateProvider) downloadAndExtractPyPIArtifact(ctx context.Context, packageSpec string, tempRoot string, extractRoot string, sourceSpec string) error {
+	if err := p.downloadWithPip(ctx, packageSpec, tempRoot, sourceSpec); err != nil {
+		return err
+	}
+	return extractFirstDownloadedArtifact(tempRoot, extractRoot)
 }
 
 func (p *ProductionCandidateProvider) downloadWithPip(ctx context.Context, packageSpec string, tempRoot string, sourceSpec string) error {
@@ -372,6 +290,119 @@ func (p *ProductionCandidateProvider) installWithUV(ctx context.Context, package
 func buildGitHubCloneURL(baseURL string, owner string, repo string) string {
 	trimmedBase := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	return trimmedBase + "/" + strings.TrimSpace(owner) + "/" + strings.TrimSpace(repo) + ".git"
+}
+
+func buildGitHubCloneArgs(spec ParsedSourceSpec, cloneURL string, cloneRoot string) []string {
+	cloneArgs := []string{"clone", "--depth", "1"}
+	if ref := strings.TrimSpace(spec.Ref); ref != "" {
+		cloneArgs = append(cloneArgs, "--branch", ref)
+	}
+	return append(cloneArgs, cloneURL, cloneRoot)
+}
+
+func buildPyPIPackageSpec(spec ParsedSourceSpec) string {
+	packageSpec := spec.Package
+	if version := strings.TrimSpace(spec.Version); version != "" {
+		return packageSpec + "==" + version
+	}
+	return packageSpec
+}
+
+func validateGitHubSourceSpec(spec ParsedSourceSpec) error {
+	if strings.TrimSpace(spec.Owner) == "" || strings.TrimSpace(spec.Repo) == "" {
+		return newServiceError(ServiceErrorCodeSourceInvalid, "GitHub source must be github:<owner>/<repo>[#ref] or github:<owner>/<repo>@ref.")
+	}
+	return nil
+}
+
+func newCandidateTempRoot(pattern string, label string) (string, func() error, error) {
+	tempRoot, err := os.MkdirTemp("", pattern)
+	if err != nil {
+		return "", nil, fmt.Errorf("create %s temp root: %w", label, err)
+	}
+	return tempRoot, func() error {
+		return os.RemoveAll(tempRoot)
+	}, nil
+}
+
+func buildCandidatePlugin(tempRoot string, currentRoot string, manifest PluginManifest, canonicalSourceKey string, cleanup func() error) (CandidatePlugin, error) {
+	finalRoot, err := relocateCandidateRoot(tempRoot, currentRoot, manifest.ID)
+	if err != nil {
+		return CandidatePlugin{}, err
+	}
+
+	digest, err := computeDirectoryDigest(finalRoot)
+	if err != nil {
+		return CandidatePlugin{}, err
+	}
+	return CandidatePlugin{
+		Root:               finalRoot,
+		Manifest:           manifest,
+		CanonicalSourceKey: canonicalSourceKey,
+		SourceDigestSHA256: stringPtr(digest),
+		cleanup:            cleanup,
+	}, nil
+}
+
+func requireCandidateManifestPath(pluginRoot string, notFoundMessage string) (string, error) {
+	manifestPath := filepath.Join(pluginRoot, pluginManifestFileName)
+	if _, err := os.Stat(manifestPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", newServiceError(ServiceErrorCodeSourceManifestNotFound, "%s", notFoundMessage)
+		}
+		return "", fmt.Errorf("stat plugin manifest %s: %w", manifestPath, err)
+	}
+	return manifestPath, nil
+}
+
+func resetCandidateExtractRoot(extractRoot string) error {
+	if err := os.RemoveAll(extractRoot); err != nil {
+		return fmt.Errorf("reset failed uv extract root: %w", err)
+	}
+	return nil
+}
+
+func wrapGitHubCloneError(sourceSpec string, result commandResult, runErr error, contextErr error) error {
+	if errors.Is(contextErr, context.DeadlineExceeded) || errors.Is(runErr, context.DeadlineExceeded) {
+		return newServiceError(
+			ServiceErrorCodeSourceFetchFailed,
+			"Failed to fetch GitHub plugin source: %s\nTimed out waiting for git clone.",
+			sourceSpec,
+		)
+	}
+	if isExecutableNotFoundError(runErr) {
+		return newServiceError(
+			ServiceErrorCodeSourceFetchFailed,
+			"Failed to fetch GitHub plugin source: %s\ngit is not installed or not available on PATH.",
+			sourceSpec,
+		)
+	}
+	commandOutput := strings.TrimSpace(firstNonEmpty(result.Stderr, result.Stdout, runErr.Error()))
+	return newServiceError(
+		ServiceErrorCodeSourceFetchFailed,
+		"Failed to fetch GitHub plugin source: %s\n%s",
+		sourceSpec,
+		commandOutput,
+	)
+}
+
+func (p *ProductionCandidateProvider) cloneGitHubSource(ctx context.Context, spec ParsedSourceSpec, tempRoot string) (string, error) {
+	cloneRoot := filepath.Join(tempRoot, "repo")
+	cloneURL := buildGitHubCloneURL(p.gitHubBaseURL, spec.Owner, spec.Repo)
+	cloneArgs := buildGitHubCloneArgs(spec, cloneURL, cloneRoot)
+
+	cloneCtx, cancel := context.WithTimeout(ctx, p.gitHubCloneTimeout)
+	defer cancel()
+
+	env := withEnvValue(p.baseEnv(), "GIT_TERMINAL_PROMPT", "0")
+	result, err := p.commandRunner()(cloneCtx, p.gitBinary, cloneArgs, env)
+	if err != nil {
+		return "", wrapGitHubCloneError(spec.Raw, result, err, cloneCtx.Err())
+	}
+	if err := stripGitMetadata(cloneRoot); err != nil {
+		return "", err
+	}
+	return cloneRoot, nil
 }
 
 func relocateCandidateRoot(tempRoot string, currentRoot string, pluginID string) (string, error) {
@@ -484,55 +515,87 @@ func extractZipArtifact(artifactPath string, extractRoot string) error {
 }
 
 func extractTarGzArtifact(artifactPath string, extractRoot string) error {
-	file, err := os.Open(artifactPath)
+	reader, cleanup, err := openTarGzArtifactReader(artifactPath)
 	if err != nil {
-		return fmt.Errorf("open tar artifact %s: %w", artifactPath, err)
+		return err
 	}
-	defer file.Close()
-	gzipReader, err := gzip.NewReader(file)
-	if err != nil {
-		return fmt.Errorf("open gzip reader for %s: %w", artifactPath, err)
-	}
-	defer gzipReader.Close()
-	reader := tar.NewReader(gzipReader)
+	defer cleanup()
 
 	for {
-		header, err := reader.Next()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("read tar entry from %s: %w", artifactPath, err)
-		}
-		switch header.Typeflag {
-		case tar.TypeSymlink, tar.TypeLink:
-			return newServiceError(
-				ServiceErrorCodeSourceArchiveTraversal,
-				"Plugin archive contains symbolic/hard link entries which are not allowed: %q",
-				header.Name,
-			)
-		}
-		targetPath, skip, err := resolveArchiveMemberPath(extractRoot, header.Name, filepath.Base(artifactPath))
+		header, done, err := nextTarGzHeader(reader, artifactPath)
 		if err != nil {
 			return err
 		}
-		if skip {
-			continue
+		if done {
+			return nil
 		}
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(targetPath, 0o755); err != nil {
-				return fmt.Errorf("create extracted directory %s: %w", targetPath, err)
-			}
-		case tar.TypeReg, tar.TypeRegA:
-			if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-				return fmt.Errorf("create extracted parent directory %s: %w", filepath.Dir(targetPath), err)
-			}
-			if err := writeArchiveRegularFile(targetPath, reader); err != nil {
-				return err
-			}
+		if err := extractTarArchiveEntry(header, reader, extractRoot, filepath.Base(artifactPath)); err != nil {
+			return err
 		}
 	}
+}
+
+func openTarGzArtifactReader(artifactPath string) (*tar.Reader, func(), error) {
+	file, err := os.Open(artifactPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("open tar artifact %s: %w", artifactPath, err)
+	}
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		_ = file.Close()
+		return nil, nil, fmt.Errorf("open gzip reader for %s: %w", artifactPath, err)
+	}
+	return tar.NewReader(gzipReader), func() {
+		_ = gzipReader.Close()
+		_ = file.Close()
+	}, nil
+}
+
+func nextTarGzHeader(reader *tar.Reader, artifactPath string) (*tar.Header, bool, error) {
+	header, err := reader.Next()
+	if errors.Is(err, io.EOF) {
+		return nil, true, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("read tar entry from %s: %w", artifactPath, err)
+	}
+	return header, false, nil
+}
+
+func extractTarArchiveEntry(header *tar.Header, reader *tar.Reader, extractRoot string, sourceName string) error {
+	switch header.Typeflag {
+	case tar.TypeSymlink, tar.TypeLink:
+		return newServiceError(
+			ServiceErrorCodeSourceArchiveTraversal,
+			"Plugin archive contains symbolic/hard link entries which are not allowed: %q",
+			header.Name,
+		)
+	}
+	targetPath, skip, err := resolveArchiveMemberPath(extractRoot, header.Name, sourceName)
+	if err != nil {
+		return err
+	}
+	if skip {
+		return nil
+	}
+	return writeTarArchiveEntryTarget(header, reader, targetPath)
+}
+
+func writeTarArchiveEntryTarget(header *tar.Header, reader io.Reader, targetPath string) error {
+	switch header.Typeflag {
+	case tar.TypeDir:
+		if err := os.MkdirAll(targetPath, 0o755); err != nil {
+			return fmt.Errorf("create extracted directory %s: %w", targetPath, err)
+		}
+	case tar.TypeReg, tar.TypeRegA:
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			return fmt.Errorf("create extracted parent directory %s: %w", filepath.Dir(targetPath), err)
+		}
+		if err := writeArchiveRegularFile(targetPath, reader); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func writeArchiveRegularFile(targetPath string, reader io.Reader) error {
