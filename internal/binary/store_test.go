@@ -3,6 +3,8 @@ package binary
 import (
 	"bytes"
 	"errors"
+	"io"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -94,3 +96,53 @@ func TestStoreDeleteRemovesPayloadAndMetadata(t *testing.T) {
 		t.Fatal("expected missing payload after delete")
 	}
 }
+
+func TestStoreStreamCleansUpTempFileOnReadError(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join(t.TempDir(), "binary")
+	store, err := NewStore(root)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	expectedErr := errors.New("boom")
+	_, err = store.StoreStream(&failingReader{
+		chunks: [][]byte{[]byte("payload")},
+		err:    expectedErr,
+	}, "image/png", false, DefaultMaxUploadBytes)
+	if err == nil {
+		t.Fatal("expected read error")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected read error %v, got %v", expectedErr, err)
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("read dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected temp files to be cleaned up, found %d entries", len(entries))
+	}
+}
+
+type failingReader struct {
+	chunks [][]byte
+	err    error
+	index  int
+}
+
+func (r *failingReader) Read(p []byte) (int, error) {
+	if r.index >= len(r.chunks) {
+		return 0, r.err
+	}
+	n := copy(p, r.chunks[r.index])
+	r.index++
+	if r.index >= len(r.chunks) {
+		return n, r.err
+	}
+	return n, nil
+}
+
+var _ io.Reader = (*failingReader)(nil)

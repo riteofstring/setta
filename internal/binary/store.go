@@ -49,6 +49,12 @@ type Store struct {
 	root string
 }
 
+type pendingPayload struct {
+	file    *os.File
+	path    string
+	cleanup bool
+}
+
 type metadataPayload struct {
 	ByteLength int64  `json:"byteLength"`
 	MimeType   string `json:"mimeType,omitempty"`
@@ -87,84 +93,32 @@ func (s *Store) StoreBytes(payload []byte, mimeType string, durable bool) (Conte
 }
 
 func (s *Store) StoreStream(reader io.Reader, mimeType string, durable bool, maxBytes int64) (ContentRef, error) {
-	if s == nil {
-		return ContentRef{}, fmt.Errorf("binary store is required")
+	maxBytes, err := validateStoreStreamRequest(s, reader, maxBytes)
+	if err != nil {
+		return ContentRef{}, err
 	}
-	if reader == nil {
-		return ContentRef{}, fmt.Errorf("binary reader is required")
-	}
-	if maxBytes <= 0 {
-		maxBytes = DefaultMaxUploadBytes
-	}
-
 	contentID, err := newContentID()
 	if err != nil {
 		return ContentRef{}, err
 	}
-	targetPath := s.contentPath(contentID)
-
-	if err := os.MkdirAll(s.root, 0o755); err != nil {
-		return ContentRef{}, fmt.Errorf("create binary root: %w", err)
-	}
-
-	tmpFile, err := os.CreateTemp(s.root, ".setta-binary-*")
+	pending, err := s.createPendingPayload()
 	if err != nil {
-		return ContentRef{}, fmt.Errorf("create temp binary file: %w", err)
+		return ContentRef{}, err
 	}
-	tmpPath := tmpFile.Name()
-	cleanup := true
-	defer func() {
-		if cleanup {
-			_ = os.Remove(tmpPath)
-		}
-	}()
+	defer pending.cleanupTemp()
 
-	hasher := sha256.New()
-	writer := io.MultiWriter(tmpFile, hasher)
-
-	buffer := make([]byte, 64*1024)
-	var total int64
-	for {
-		n, readErr := reader.Read(buffer)
-		if n > 0 {
-			total += int64(n)
-			if total > maxBytes {
-				_ = tmpFile.Close()
-				return ContentRef{}, &PayloadTooLargeError{
-					MaxBytes:      maxBytes,
-					ObservedBytes: total,
-				}
-			}
-			if _, err := writer.Write(buffer[:n]); err != nil {
-				_ = tmpFile.Close()
-				return ContentRef{}, fmt.Errorf("write binary payload: %w", err)
-			}
-		}
-		if errors.Is(readErr, io.EOF) {
-			break
-		}
-		if readErr != nil {
-			_ = tmpFile.Close()
-			return ContentRef{}, fmt.Errorf("read binary payload: %w", readErr)
-		}
+	byteLength, sha256Value, err := writePayloadToTempFile(pending.file, reader, maxBytes)
+	if err != nil {
+		return ContentRef{}, err
 	}
-
-	if err := tmpFile.Close(); err != nil {
-		return ContentRef{}, fmt.Errorf("close temp binary file: %w", err)
+	if err := pending.finalize(s.contentPath(contentID)); err != nil {
+		return ContentRef{}, err
 	}
-	if err := os.Chmod(tmpPath, defaultPayloadFileMode); err != nil {
-		return ContentRef{}, fmt.Errorf("chmod temp binary file: %w", err)
-	}
-	if err := os.Rename(tmpPath, targetPath); err != nil {
-		return ContentRef{}, fmt.Errorf("store binary payload: %w", err)
-	}
-	cleanup = false
-
 	ref := ContentRef{
 		ContentID:  contentID,
-		ByteLength: total,
+		ByteLength: byteLength,
 		MimeType:   strings.TrimSpace(mimeType),
-		SHA256:     hex.EncodeToString(hasher.Sum(nil)),
+		SHA256:     sha256Value,
 	}
 	if err := s.writeMetadata(ref, durable); err != nil {
 		return ContentRef{}, err
@@ -272,6 +226,103 @@ func (s *Store) contentPath(contentID string) string {
 
 func (s *Store) metadataPath(contentID string) string {
 	return filepath.Join(s.root, contentID+".json")
+}
+
+func validateStoreStreamRequest(store *Store, reader io.Reader, maxBytes int64) (int64, error) {
+	if store == nil {
+		return 0, fmt.Errorf("binary store is required")
+	}
+	if reader == nil {
+		return 0, fmt.Errorf("binary reader is required")
+	}
+	if maxBytes <= 0 {
+		return DefaultMaxUploadBytes, nil
+	}
+	return maxBytes, nil
+}
+
+func (s *Store) createPendingPayload() (*pendingPayload, error) {
+	if err := os.MkdirAll(s.root, 0o755); err != nil {
+		return nil, fmt.Errorf("create binary root: %w", err)
+	}
+	file, err := os.CreateTemp(s.root, ".setta-binary-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp binary file: %w", err)
+	}
+	return &pendingPayload{
+		file:    file,
+		path:    file.Name(),
+		cleanup: true,
+	}, nil
+}
+
+func writePayloadToTempFile(file *os.File, reader io.Reader, maxBytes int64) (int64, string, error) {
+	hasher := sha256.New()
+	writer := io.MultiWriter(file, hasher)
+
+	buffer := make([]byte, 64*1024)
+	var total int64
+	for {
+		n, readErr := reader.Read(buffer)
+		if n > 0 {
+			total += int64(n)
+			if total > maxBytes {
+				return 0, "", &PayloadTooLargeError{
+					MaxBytes:      maxBytes,
+					ObservedBytes: total,
+				}
+			}
+			if _, err := writer.Write(buffer[:n]); err != nil {
+				return 0, "", fmt.Errorf("write binary payload: %w", err)
+			}
+		}
+		if readErr == nil {
+			continue
+		}
+		if errors.Is(readErr, io.EOF) {
+			return total, hex.EncodeToString(hasher.Sum(nil)), nil
+		}
+		return 0, "", fmt.Errorf("read binary payload: %w", readErr)
+	}
+}
+
+func (p *pendingPayload) cleanupTemp() {
+	if p == nil {
+		return
+	}
+	if p.file != nil {
+		_ = p.file.Close()
+		p.file = nil
+	}
+	if p.cleanup {
+		_ = os.Remove(p.path)
+	}
+}
+
+func (p *pendingPayload) finalize(targetPath string) error {
+	if err := p.close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(p.path, defaultPayloadFileMode); err != nil {
+		return fmt.Errorf("chmod temp binary file: %w", err)
+	}
+	if err := os.Rename(p.path, targetPath); err != nil {
+		return fmt.Errorf("store binary payload: %w", err)
+	}
+	p.cleanup = false
+	return nil
+}
+
+func (p *pendingPayload) close() error {
+	if p == nil || p.file == nil {
+		return nil
+	}
+	if err := p.file.Close(); err != nil {
+		p.file = nil
+		return fmt.Errorf("close temp binary file: %w", err)
+	}
+	p.file = nil
+	return nil
 }
 
 func normalizeContentID(raw string) (string, error) {
