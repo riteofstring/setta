@@ -170,6 +170,12 @@ type pollInput struct {
 	pendingValid bool
 }
 
+type fileObservation struct {
+	state     fileState
+	rawBytes  []byte
+	unchanged bool
+}
+
 func (s *Service) snapshotTracks() []pollInput {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -195,59 +201,33 @@ func (s *Service) snapshotTracks() []pollInput {
 }
 
 func (s *Service) pollFile(input pollInput) error {
-	info, err := os.Stat(input.path)
+	observed, err := captureObservedFile(input.path, input.state)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			s.recordState(input.path, fileState{
-				initialized: true,
-				exists:      false,
-			})
-			return nil
-		}
-		return fmt.Errorf("bound code file stat %q: %w", input.path, err)
+		return err
 	}
-	if info.IsDir() {
-		return fmt.Errorf("bound code file %q must be a file", input.path)
-	}
-
-	if input.state.initialized && input.state.exists && info.Size() == input.state.size && info.ModTime().Equal(input.state.modTime) {
+	if observed.unchanged {
 		return nil
 	}
+	return s.applyObservedFile(input, observed)
+}
 
-	rawBytes, err := os.ReadFile(input.path)
-	if err != nil {
-		return fmt.Errorf("bound code file read %q: %w", input.path, err)
-	}
-	hash := hashContent(rawBytes)
-	nextState := fileState{
-		initialized: true,
-		exists:      true,
-		size:        info.Size(),
-		modTime:     info.ModTime(),
-		hash:        hash,
-	}
-
-	if !input.state.initialized {
-		s.recordState(input.path, nextState)
+func (s *Service) applyObservedFile(input pollInput, observed fileObservation) error {
+	if shouldRecordObservedState(input, observed.state) {
+		s.recordState(input.path, observed.state)
 		return nil
 	}
-	if input.state.exists && input.state.hash == hash {
-		s.recordState(input.path, nextState)
+	if shouldWaitForStableObservedState(input, observed.state) {
+		s.recordPendingState(input.path, observed.state)
 		return nil
 	}
-	if !input.pendingValid || !sameObservedState(input.pendingState, nextState) {
-		s.recordPendingState(input.path, nextState)
-		return nil
-	}
-
 	if err := s.onFileUpdate(s.ctx, FileUpdate{
 		Path:     input.path,
-		Raw:      string(rawBytes),
+		Raw:      string(observed.rawBytes),
 		Bindings: append([]Binding(nil), input.bindings...),
 	}); err != nil {
 		return fmt.Errorf("bound code file update %q: %w", input.path, err)
 	}
-	s.recordState(input.path, nextState)
+	s.recordState(input.path, observed.state)
 	return nil
 }
 
@@ -314,9 +294,62 @@ func mergeBindings(existing []Binding, additions []Binding) []Binding {
 	return normalizeBindings(append(append([]Binding(nil), existing...), additions...))
 }
 
+func captureObservedFile(path string, currentState fileState) (fileObservation, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			nextState := missingFileState()
+			return fileObservation{
+				state:     nextState,
+				unchanged: sameObservedState(currentState, nextState),
+			}, nil
+		}
+		return fileObservation{}, fmt.Errorf("bound code file stat %q: %w", path, err)
+	}
+	if info.IsDir() {
+		return fileObservation{}, fmt.Errorf("bound code file %q must be a file", path)
+	}
+	if fileMetadataMatchesState(currentState, info) {
+		return fileObservation{unchanged: true}, nil
+	}
+
+	rawBytes, err := os.ReadFile(path)
+	if err != nil {
+		return fileObservation{}, fmt.Errorf("bound code file read %q: %w", path, err)
+	}
+	return fileObservation{
+		state:    observedFileState(info, rawBytes),
+		rawBytes: rawBytes,
+	}, nil
+}
+
 func hashContent(raw []byte) string {
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
+}
+
+func missingFileState() fileState {
+	return fileState{
+		initialized: true,
+		exists:      false,
+	}
+}
+
+func observedFileState(info os.FileInfo, rawBytes []byte) fileState {
+	return fileState{
+		initialized: true,
+		exists:      true,
+		size:        info.Size(),
+		modTime:     info.ModTime(),
+		hash:        hashContent(rawBytes),
+	}
+}
+
+func fileMetadataMatchesState(state fileState, info os.FileInfo) bool {
+	return state.initialized &&
+		state.exists &&
+		info.Size() == state.size &&
+		info.ModTime().Equal(state.modTime)
 }
 
 func sameObservedState(left fileState, right fileState) bool {
@@ -325,4 +358,14 @@ func sameObservedState(left fileState, right fileState) bool {
 		left.size == right.size &&
 		left.modTime.Equal(right.modTime) &&
 		left.hash == right.hash
+}
+
+func shouldRecordObservedState(input pollInput, nextState fileState) bool {
+	return !nextState.exists ||
+		!input.state.initialized ||
+		(input.state.exists && input.state.hash == nextState.hash)
+}
+
+func shouldWaitForStableObservedState(input pollInput, nextState fileState) bool {
+	return !input.pendingValid || !sameObservedState(input.pendingState, nextState)
 }
