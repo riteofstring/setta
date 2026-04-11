@@ -249,6 +249,81 @@ func TestListenerProducerEmitUIChangeIncludesRealtimeDependencyValues(t *testing
 	}
 }
 
+func TestGroupSectionBinaryDeltasGroupsSharedContentID(t *testing.T) {
+	t.Parallel()
+
+	groups, err := groupSectionBinaryDeltas([]BinarySectionDelta{
+		{
+			SectionID: "section-a",
+			Value: binarypayload.ContentRef{
+				ContentID:  "bin-1",
+				ByteLength: 7,
+				MimeType:   "text/plain",
+			},
+			BinaryPayload: []byte("payload"),
+		},
+		{
+			SectionID: "section-b",
+			Value: binarypayload.ContentRef{
+				ContentID:  "bin-1",
+				ByteLength: 7,
+				MimeType:   "text/plain",
+			},
+			BinaryPayload: []byte("payload"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("group section binary deltas: %v", err)
+	}
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+
+	group := groups[0]
+	if group.contentID != "bin-1" {
+		t.Fatalf("expected content id bin-1, got %q", group.contentID)
+	}
+	if string(group.payload) != "payload" {
+		t.Fatalf("expected group payload %q, got %q", "payload", string(group.payload))
+	}
+	if len(group.deltas) != 2 {
+		t.Fatalf("expected 2 grouped deltas, got %d", len(group.deltas))
+	}
+	if group.deltas[0].Dependency != "section-a" || group.deltas[1].Dependency != "section-b" {
+		t.Fatalf("unexpected grouped dependencies: %#v", group.deltas)
+	}
+	if string(group.deltas[0].BinaryPayload) != "payload" || string(group.deltas[1].BinaryPayload) != "payload" {
+		t.Fatalf("expected grouped delta payloads to be preserved, got %#v", group.deltas)
+	}
+}
+
+func TestGroupSectionBinaryDeltasRejectsConflictingPayloads(t *testing.T) {
+	t.Parallel()
+
+	_, err := groupSectionBinaryDeltas([]BinarySectionDelta{
+		{
+			SectionID: "section-a",
+			Value: binarypayload.ContentRef{
+				ContentID: "bin-1",
+			},
+			BinaryPayload: []byte("payload-a"),
+		},
+		{
+			SectionID: "section-b",
+			Value: binarypayload.ContentRef{
+				ContentID: "bin-1",
+			},
+			BinaryPayload: []byte("payload-b"),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected conflicting binary payload error")
+	}
+	if err.Error() != `listener producer: conflicting binary payload for content "bin-1"` {
+		t.Fatalf("expected conflicting payload error, got %v", err)
+	}
+}
+
 func newListenerProducerDeploymentRuntime(t *testing.T) *deployments.Runtime {
 	t.Helper()
 

@@ -66,6 +66,18 @@ type EmitSectionBinaryDeltasParams struct {
 	Deltas         []BinarySectionDelta
 }
 
+type listenerProducerScope struct {
+	projectID      string
+	shareSessionID string
+	project        projectstate.Project
+}
+
+type listenerSectionBinaryDeltaGroup struct {
+	contentID string
+	payload   []byte
+	deltas    []ListenerRealtimeDelta
+}
+
 func NewListenerProducer(options ListenerProducerOptions) *ListenerProducer {
 	broadcaster := options.Broadcaster
 	if broadcaster == nil {
@@ -197,83 +209,157 @@ func (p *ListenerProducer) EmitSectionBinaryDeltas(ctx context.Context, params E
 		return ErrEmptyRealtimeDeltas
 	}
 
-	projectID, err := p.requireProjectScope(params.ProjectID, params.ShareSessionID)
+	scope, err := p.resolveScope(params.ProjectID, params.ShareSessionID)
 	if err != nil {
 		return err
 	}
-	project, err := p.projectForScope(projectID, params.ShareSessionID)
+	groups, err := groupSectionBinaryDeltas(params.Deltas)
 	if err != nil {
 		return err
 	}
+	return p.emitSectionBinaryDeltaGroups(ctx, scope, groups)
+}
 
-	shareSessionID := strings.TrimSpace(params.ShareSessionID)
-	type groupedDeltas struct {
-		payload []byte
-		deltas  []ListenerRealtimeDelta
+func (p *ListenerProducer) resolveScope(projectID string, shareSessionID string) (listenerProducerScope, error) {
+	scopedProjectID, err := p.requireProjectScope(projectID, shareSessionID)
+	if err != nil {
+		return listenerProducerScope{}, err
 	}
+	project, err := p.projectForScope(scopedProjectID, shareSessionID)
+	if err != nil {
+		return listenerProducerScope{}, err
+	}
+	return listenerProducerScope{
+		projectID:      scopedProjectID,
+		shareSessionID: strings.TrimSpace(shareSessionID),
+		project:        project,
+	}, nil
+}
 
-	groupOrder := make([]string, 0, len(params.Deltas))
-	groups := make(map[string]*groupedDeltas, len(params.Deltas))
+func groupSectionBinaryDeltas(rawDeltas []BinarySectionDelta) ([]listenerSectionBinaryDeltaGroup, error) {
+	groupOrder := make([]string, 0, len(rawDeltas))
+	groups := make(map[string]*listenerSectionBinaryDeltaGroup, len(rawDeltas))
 
-	for _, delta := range params.Deltas {
-		sectionID := strings.TrimSpace(delta.SectionID)
-		if sectionID == "" {
-			return projectstate.ErrSectionIDRequired
-		}
-
-		contentID := strings.TrimSpace(delta.Value.ContentID)
-		if contentID == "" {
-			return binarypayload.ErrContentIDRequired
-		}
-
-		value, err := marshalBinaryDependencyValue(delta.Value)
+	for _, rawDelta := range rawDeltas {
+		contentID, groupPayload, delta, err := newListenerSectionBinaryDelta(rawDelta)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		group, ok := groups[contentID]
-		if !ok {
-			group = &groupedDeltas{
-				payload: cloneBytes(delta.BinaryPayload),
-				deltas:  make([]ListenerRealtimeDelta, 0, 1),
-			}
-			groups[contentID] = group
-			groupOrder = append(groupOrder, contentID)
-		} else if delta.BinaryPayload != nil && group.payload != nil && !bytes.Equal(group.payload, delta.BinaryPayload) {
-			return fmt.Errorf("listener producer: conflicting binary payload for content %q", contentID)
-		} else if group.payload == nil {
-			group.payload = cloneBytes(delta.BinaryPayload)
+		var appendErr error
+		groupOrder, appendErr = appendListenerSectionBinaryDelta(groups, groupOrder, contentID, groupPayload, delta)
+		if appendErr != nil {
+			return nil, appendErr
 		}
-
-		group.deltas = append(group.deltas, ListenerRealtimeDelta{
-			Dependency:    sectionID,
-			Value:         value,
-			BinaryPayload: cloneBytes(delta.BinaryPayload),
-		})
 	}
 
+	return orderedListenerSectionBinaryDeltaGroups(groups, groupOrder), nil
+}
+
+func newListenerSectionBinaryDelta(rawDelta BinarySectionDelta) (string, []byte, ListenerRealtimeDelta, error) {
+	sectionID := strings.TrimSpace(rawDelta.SectionID)
+	if sectionID == "" {
+		return "", nil, ListenerRealtimeDelta{}, projectstate.ErrSectionIDRequired
+	}
+
+	contentID := strings.TrimSpace(rawDelta.Value.ContentID)
+	if contentID == "" {
+		return "", nil, ListenerRealtimeDelta{}, binarypayload.ErrContentIDRequired
+	}
+
+	value, err := marshalBinaryDependencyValue(rawDelta.Value)
+	if err != nil {
+		return "", nil, ListenerRealtimeDelta{}, err
+	}
+
+	return contentID, cloneBytes(rawDelta.BinaryPayload), ListenerRealtimeDelta{
+		Dependency:    sectionID,
+		Value:         value,
+		BinaryPayload: cloneBytes(rawDelta.BinaryPayload),
+	}, nil
+}
+
+func appendListenerSectionBinaryDelta(
+	groups map[string]*listenerSectionBinaryDeltaGroup,
+	groupOrder []string,
+	contentID string,
+	payload []byte,
+	delta ListenerRealtimeDelta,
+) ([]string, error) {
+	group, ok := groups[contentID]
+	if !ok {
+		groups[contentID] = &listenerSectionBinaryDeltaGroup{
+			contentID: contentID,
+			payload:   payload,
+			deltas:    []ListenerRealtimeDelta{delta},
+		}
+		return append(groupOrder, contentID), nil
+	}
+	if err := group.setPayload(payload); err != nil {
+		return nil, err
+	}
+	group.deltas = append(group.deltas, delta)
+	return groupOrder, nil
+}
+
+func (g *listenerSectionBinaryDeltaGroup) setPayload(payload []byte) error {
+	switch {
+	case payload == nil:
+		return nil
+	case g.payload == nil:
+		g.payload = payload
+		return nil
+	case bytes.Equal(g.payload, payload):
+		return nil
+	default:
+		return fmt.Errorf("listener producer: conflicting binary payload for content %q", g.contentID)
+	}
+}
+
+func orderedListenerSectionBinaryDeltaGroups(
+	groups map[string]*listenerSectionBinaryDeltaGroup,
+	groupOrder []string,
+) []listenerSectionBinaryDeltaGroup {
+	ordered := make([]listenerSectionBinaryDeltaGroup, 0, len(groupOrder))
 	for _, contentID := range groupOrder {
-		group := groups[contentID]
-		dependencyValues, err := BuildListenerRealtimeDependencyValues(project, group.deltas)
-		if err != nil {
-			return err
-		}
-		if _, _, err := p.broadcaster.EmitRealtimeDeltasBinary(ctx, EmitRealtimeDeltasBinaryParams{
-			ProjectID:        projectID,
-			ShareSessionID:   shareSessionID,
-			Deltas:           group.deltas,
-			DependencyValues: dependencyValues,
-			MatchDependencies: listenerRealtimeMatchDependenciesForValues(
-				group.deltas,
-				dependencyValues,
-			),
-			BinaryPayload: cloneBytes(group.payload),
-		}); err != nil {
+		ordered = append(ordered, *groups[contentID])
+	}
+	return ordered
+}
+
+func (p *ListenerProducer) emitSectionBinaryDeltaGroups(
+	ctx context.Context,
+	scope listenerProducerScope,
+	groups []listenerSectionBinaryDeltaGroup,
+) error {
+	for _, group := range groups {
+		if err := p.emitSectionBinaryDeltaGroup(ctx, scope, group); err != nil {
 			return err
 		}
 	}
-
 	return nil
+}
+
+func (p *ListenerProducer) emitSectionBinaryDeltaGroup(
+	ctx context.Context,
+	scope listenerProducerScope,
+	group listenerSectionBinaryDeltaGroup,
+) error {
+	dependencyValues, err := BuildListenerRealtimeDependencyValues(scope.project, group.deltas)
+	if err != nil {
+		return err
+	}
+	_, _, err = p.broadcaster.EmitRealtimeDeltasBinary(ctx, EmitRealtimeDeltasBinaryParams{
+		ProjectID:        scope.projectID,
+		ShareSessionID:   scope.shareSessionID,
+		Deltas:           group.deltas,
+		DependencyValues: dependencyValues,
+		MatchDependencies: listenerRealtimeMatchDependenciesForValues(
+			group.deltas,
+			dependencyValues,
+		),
+		BinaryPayload: cloneBytes(group.payload),
+	})
+	return err
 }
 
 func (p *ListenerProducer) requireProjectScope(projectID string, shareSessionID string) (string, error) {
