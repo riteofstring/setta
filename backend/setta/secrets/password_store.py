@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from typing import cast
 
 from filelock import FileLock
 from setta.types.generated.go_shared_constants import (
@@ -30,23 +31,29 @@ def _lock_for_path(path: Path) -> FileLock:
     return FileLock(f"{path}.lock")
 
 
-def _read_password_store_unlocked(path: Path) -> dict[str, str]:
+def _load_password_store_payload(path: Path) -> dict[str, object] | None:
     if not path.exists():
-        return {}
+        return None
     raw = path.read_text(encoding="utf-8")
     if not raw.strip():
-        return {}
+        return None
     payload = json.loads(raw)
     if not isinstance(payload, dict):
         raise ValueError("Password store must be a JSON object.")
-    output: dict[str, str] = {}
-    for key, value in payload.items():
-        if not isinstance(key, str):
-            raise ValueError("Password store keys must be strings.")
-        if not isinstance(value, str):
-            raise ValueError(f"Password store value for {key} must be a string.")
-        output[key] = value
-    return output
+    return cast("dict[str, object]", payload)
+
+
+def _read_password_store_unlocked(path: Path) -> dict[str, str]:
+    payload = _load_password_store_payload(path)
+    if payload is None:
+        return {}
+    invalid_key = next(
+        (key for key, value in payload.items() if not isinstance(value, str)),
+        None,
+    )
+    if invalid_key is not None:
+        raise ValueError(f"Password store value for {invalid_key} must be a string.")
+    return cast("dict[str, str]", payload)
 
 
 def read_password_store() -> dict[str, str]:
