@@ -297,42 +297,72 @@ func overlayProjectShellState(
 	merged := fresh.Clone()
 	currentClone := current.Clone()
 
-	if currentClone.Viewport != nil || currentClone.ViewportInitialized {
-		merged.Viewport = currentClone.Viewport
-		merged.ViewportInitialized = currentClone.ViewportInitialized
-	}
-	if len(currentClone.ViewModes) > 0 {
-		merged.ViewModes = currentClone.ViewModes
-	}
-	if currentClone.ActiveViewModeID != "" {
-		merged.ActiveViewModeID = currentClone.ActiveViewModeID
-	}
-	if currentClone.IsEditingViewMode {
-		merged.IsEditingViewMode = true
-	}
-	if len(currentClone.TopLevelSections) > 0 {
-		merged.TopLevelSections = currentClone.TopLevelSections
-	}
-	if len(currentClone.WindowSpaces) > 0 {
-		merged.WindowSpaces = currentClone.WindowSpaces
-	}
-	if len(currentClone.ActiveIDs) > 0 {
-		merged.ActiveIDs = currentClone.ActiveIDs
-	}
-	if len(currentClone.Edges) > 0 {
-		merged.Edges = currentClone.Edges
-	}
-	if len(currentClone.AgenticEdges) > 0 {
-		merged.AgenticEdges = currentClone.AgenticEdges
-	}
-	if len(currentClone.StateMachineEdges) > 0 {
-		merged.StateMachineEdges = currentClone.StateMachineEdges
-	}
+	overlayProjectShellViewState(&merged, currentClone)
+	overlayProjectShellLayoutState(&merged, currentClone)
+	overlayProjectShellEdgeState(&merged, currentClone)
 	if currentClone.ProjectChatWindowing != nil {
 		merged.ProjectChatWindowing = currentClone.ProjectChatWindowing
 	}
 
 	return merged
+}
+
+func overlayProjectShellViewState(
+	merged *projectstate.Project,
+	current projectstate.Project,
+) {
+	if merged == nil {
+		return
+	}
+	if current.Viewport != nil || current.ViewportInitialized {
+		merged.Viewport = current.Viewport
+		merged.ViewportInitialized = current.ViewportInitialized
+	}
+	if len(current.ViewModes) > 0 {
+		merged.ViewModes = current.ViewModes
+	}
+	if current.ActiveViewModeID != "" {
+		merged.ActiveViewModeID = current.ActiveViewModeID
+	}
+	if current.IsEditingViewMode {
+		merged.IsEditingViewMode = true
+	}
+}
+
+func overlayProjectShellLayoutState(
+	merged *projectstate.Project,
+	current projectstate.Project,
+) {
+	if merged == nil {
+		return
+	}
+	if len(current.TopLevelSections) > 0 {
+		merged.TopLevelSections = current.TopLevelSections
+	}
+	if len(current.WindowSpaces) > 0 {
+		merged.WindowSpaces = current.WindowSpaces
+	}
+	if len(current.ActiveIDs) > 0 {
+		merged.ActiveIDs = current.ActiveIDs
+	}
+}
+
+func overlayProjectShellEdgeState(
+	merged *projectstate.Project,
+	current projectstate.Project,
+) {
+	if merged == nil {
+		return
+	}
+	if len(current.Edges) > 0 {
+		merged.Edges = current.Edges
+	}
+	if len(current.AgenticEdges) > 0 {
+		merged.AgenticEdges = current.AgenticEdges
+	}
+	if len(current.StateMachineEdges) > 0 {
+		merged.StateMachineEdges = current.StateMachineEdges
+	}
 }
 
 func preserveSettingsCodeObjectDisplayNames(
@@ -356,61 +386,103 @@ func settingsProjectShellStateIsValid(
 	current projectstate.Project,
 	canonical projectstate.Project,
 ) bool {
+	allSectionIDs, ok := settingsProjectShellSectionIDs(canonical)
+	if !ok {
+		return false
+	}
+	if !settingsProjectShellHasCompleteTopLevelLayout(current.TopLevelSections, allSectionIDs) {
+		return false
+	}
+	if !settingsProjectShellHasActiveViewMode(current) {
+		return false
+	}
+	return settingsProjectShellViewModesMatchSpecs(current.ViewModes, allSectionIDs)
+}
+
+func settingsProjectShellSectionIDs(canonical projectstate.Project) ([]string, bool) {
 	sectionIDByName := settingsSectionIDsByName(canonical)
 	sectionNames := orderedSettingsSectionNamesForProject(sectionIDByName)
 	allSectionIDs := resolveOrderedSettingsSectionIDs(sectionNames, sectionIDByName)
 	if len(allSectionIDs) == 0 {
-		return false
+		return nil, false
 	}
-	if len(current.TopLevelSections) == 0 {
+	return allSectionIDs, true
+}
+
+func settingsProjectShellHasCompleteTopLevelLayout(
+	topLevelSections map[string]projectstate.TopLevelSectionLayout,
+	allSectionIDs []string,
+) bool {
+	if len(topLevelSections) == 0 {
 		return false
 	}
 	for _, sectionID := range allSectionIDs {
-		if _, ok := current.TopLevelSections[sectionID]; ok {
+		if _, ok := topLevelSections[sectionID]; ok {
 			continue
 		}
 		return false
 	}
-	if current.ActiveViewModeID == "" {
+	return true
+}
+
+func settingsProjectShellHasActiveViewMode(project projectstate.Project) bool {
+	if project.ActiveViewModeID == "" {
 		return false
 	}
-	if _, ok := current.ViewModes[current.ActiveViewModeID]; !ok {
-		return false
-	}
+	_, ok := project.ViewModes[project.ActiveViewModeID]
+	return ok
+}
 
-	viewModesByName := make(map[string]projectstate.ViewMode, len(current.ViewModes))
-	for _, viewMode := range current.ViewModes {
-		viewModesByName[viewMode.Name] = viewMode
-	}
-
+func settingsProjectShellViewModesMatchSpecs(
+	viewModes map[string]projectstate.ViewMode,
+	allSectionIDs []string,
+) bool {
+	viewModesByName := settingsViewModesByName(viewModes)
 	for _, spec := range settingsViewModeSpecs {
 		viewMode, ok := viewModesByName[spec.Name]
 		if !ok {
 			return false
 		}
-		if len(viewMode.VisibilityBySectionID) == 0 || len(viewMode.TopLevelSections) == 0 {
-			return false
-		}
-		visibleCount := 0
-		for _, sectionID := range allSectionIDs {
-			visible, ok := viewMode.VisibilityBySectionID[sectionID]
-			if !ok {
-				return false
-			}
-			if !visible {
-				continue
-			}
-			visibleCount++
-			if _, ok := viewMode.TopLevelSections[sectionID]; ok {
-				continue
-			}
-			return false
-		}
-		if visibleCount == 0 {
+		if !settingsProjectShellViewModeIsValid(viewMode, allSectionIDs) {
 			return false
 		}
 	}
 	return true
+}
+
+func settingsViewModesByName(
+	viewModes map[string]projectstate.ViewMode,
+) map[string]projectstate.ViewMode {
+	viewModesByName := make(map[string]projectstate.ViewMode, len(viewModes))
+	for _, viewMode := range viewModes {
+		viewModesByName[viewMode.Name] = viewMode
+	}
+	return viewModesByName
+}
+
+func settingsProjectShellViewModeIsValid(
+	viewMode projectstate.ViewMode,
+	allSectionIDs []string,
+) bool {
+	if len(viewMode.VisibilityBySectionID) == 0 || len(viewMode.TopLevelSections) == 0 {
+		return false
+	}
+	visibleCount := 0
+	for _, sectionID := range allSectionIDs {
+		visible, ok := viewMode.VisibilityBySectionID[sectionID]
+		if !ok {
+			return false
+		}
+		if !visible {
+			continue
+		}
+		visibleCount++
+		if _, ok := viewMode.TopLevelSections[sectionID]; ok {
+			continue
+		}
+		return false
+	}
+	return visibleCount > 0
 }
 
 func addSettingsSection(
@@ -901,24 +973,44 @@ func splitSettingsIdentifier(identifier string) []string {
 	return tokens
 }
 
+type settingsIdentifierRuneClass uint8
+
+const (
+	settingsIdentifierRuneOther settingsIdentifierRuneClass = iota
+	settingsIdentifierRuneDigit
+	settingsIdentifierRuneLower
+	settingsIdentifierRuneUpper
+)
+
 func isSettingsWordBoundary(previous rune, current rune, runes []rune, index int) bool {
-	if previous >= '0' && previous <= '9' {
-		return (current < '0' || current > '9')
-	}
-	if current >= '0' && current <= '9' {
-		return previous < '0' || previous > '9'
-	}
-	if previous >= 'a' && previous <= 'z' && current >= 'A' && current <= 'Z' {
+	previousClass := classifySettingsIdentifierRune(previous)
+	currentClass := classifySettingsIdentifierRune(current)
+
+	switch {
+	case previousClass == settingsIdentifierRuneDigit || currentClass == settingsIdentifierRuneDigit:
+		return previousClass != currentClass
+	case previousClass == settingsIdentifierRuneLower && currentClass == settingsIdentifierRuneUpper:
 		return true
+	case previousClass != settingsIdentifierRuneUpper || currentClass != settingsIdentifierRuneUpper:
+		return false
+	case index+1 >= len(runes):
+		return false
+	default:
+		return classifySettingsIdentifierRune(runes[index+1]) == settingsIdentifierRuneLower
 	}
-	if previous >= 'A' && previous <= 'Z' && current >= 'A' && current <= 'Z' {
-		if index+1 >= len(runes) {
-			return false
-		}
-		next := runes[index+1]
-		return next >= 'a' && next <= 'z'
+}
+
+func classifySettingsIdentifierRune(value rune) settingsIdentifierRuneClass {
+	switch {
+	case value >= '0' && value <= '9':
+		return settingsIdentifierRuneDigit
+	case value >= 'a' && value <= 'z':
+		return settingsIdentifierRuneLower
+	case value >= 'A' && value <= 'Z':
+		return settingsIdentifierRuneUpper
+	default:
+		return settingsIdentifierRuneOther
 	}
-	return false
 }
 
 func IsSettingsProjectID(projectID string) bool {

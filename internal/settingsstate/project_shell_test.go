@@ -727,6 +727,88 @@ func TestRefreshProjectRuntimeFromSettingsLeavesValidViewModesUnchanged(t *testi
 	}
 }
 
+func TestSettingsProjectShellStateIsValid(t *testing.T) {
+	t.Parallel()
+
+	canonical := settingsProjectShellTestProject(t)
+	missingSectionID := settingsSectionID("buttonParamCodeObjDefault")
+
+	testCases := []struct {
+		name   string
+		mutate func(projectstate.Project) projectstate.Project
+		valid  bool
+	}{
+		{
+			name: "valid canonical project",
+			mutate: func(project projectstate.Project) projectstate.Project {
+				return project
+			},
+			valid: true,
+		},
+		{
+			name: "missing active view mode",
+			mutate: func(project projectstate.Project) projectstate.Project {
+				project.ActiveViewModeID = "missing-view-mode"
+				return project
+			},
+			valid: false,
+		},
+		{
+			name: "missing required top-level section layout",
+			mutate: func(project projectstate.Project) projectstate.Project {
+				delete(project.TopLevelSections, missingSectionID)
+				return project
+			},
+			valid: false,
+		},
+		{
+			name: "visible section missing from view mode layout",
+			mutate: func(project projectstate.Project) projectstate.Project {
+				viewMode := project.ViewModes["settings-param-defaults"]
+				delete(viewMode.TopLevelSections, missingSectionID)
+				project.ViewModes["settings-param-defaults"] = viewMode
+				return project
+			},
+			valid: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			current := testCase.mutate(canonical.Clone())
+			if got := settingsProjectShellStateIsValid(current, canonical); got != testCase.valid {
+				t.Fatalf("expected valid=%t, got %t", testCase.valid, got)
+			}
+		})
+	}
+}
+
+func TestHumanizeSettingsIdentifierHandlesAcronymsAndNumbers(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]string{
+		"gui":                         "GUI",
+		"languageServer":              "Language Server",
+		"iFrameSectionDefault":        "IFrame Section Default",
+		"genPythonCodeSectionDefault": "Generated Python Code Section Default",
+		"HTML5Parser":                 "HTML 5 Parser",
+	}
+
+	for identifier, expected := range testCases {
+		identifier, expected := identifier, expected
+		t.Run(identifier, func(t *testing.T) {
+			t.Parallel()
+
+			if got := humanizeSettingsIdentifier(identifier); got != expected {
+				t.Fatalf("expected %q, got %q", expected, got)
+			}
+		})
+	}
+}
+
 func TestEnsureProjectRuntimeBootstrappedRebuildsMissingRequiredSection(t *testing.T) {
 	t.Parallel()
 
@@ -1115,6 +1197,24 @@ func settingsProjectViewModeByName(
 	}
 	t.Fatalf("expected settings view mode %q", viewModeName)
 	return projectstate.ViewMode{}
+}
+
+func settingsProjectShellTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	projectDocument, err := BuildProjectDocument(settingsDocument)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	project, err := projectDocument.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id: %v", err)
+	}
+	return project
 }
 
 func assertSettingsViewModeSectionLayouts(
