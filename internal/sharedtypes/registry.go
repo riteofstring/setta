@@ -17,69 +17,115 @@ var sharedSchemaTimeType = reflect.TypeOf(time.Time{})
 var sharedSchemaRawJSONType = reflect.TypeOf(json.RawMessage{})
 
 func DiscoveredTypes() []reflect.Type {
-	visited := map[reflect.Type]struct{}{}
-	discovered := map[reflect.Type]struct{}{}
-	types := []reflect.Type{}
+	discovery := newSharedTypeDiscovery()
+	discovery.visitTypes(frontendbindings.DiscoveredConvertibleTypes())
+	discovery.visitValueExports(sharedvalueexports.DiscoveredValueExports())
+	discovery.visitTypes(discoveredAdditionalTypes())
+	discovery.record(sharedSchemaRawJSONType)
+	return discovery.sortedTypes()
+}
 
-	var visit func(reflect.Type)
-	visit = func(t reflect.Type) {
-		t = canonicalType(t)
-		if t == nil {
-			return
-		}
-		if _, ok := visited[t]; ok {
-			return
-		}
-		visited[t] = struct{}{}
+type sharedTypeDiscovery struct {
+	visited    map[reflect.Type]struct{}
+	discovered map[reflect.Type]struct{}
+	types      []reflect.Type
+}
 
-		if t != sharedSchemaTimeType &&
-			sharedSchemaTypeNameIsExported(t) &&
-			strings.TrimSpace(t.PkgPath()) != "" {
-			if _, ok := discovered[t]; !ok {
-				discovered[t] = struct{}{}
-				types = append(types, t)
-			}
-		}
+func newSharedTypeDiscovery() *sharedTypeDiscovery {
+	return &sharedTypeDiscovery{
+		visited:    map[reflect.Type]struct{}{},
+		discovered: map[reflect.Type]struct{}{},
+	}
+}
 
-		switch t.Kind() {
-		case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Chan:
-			visit(t.Elem())
-		case reflect.Map:
-			visit(t.Key())
-			visit(t.Elem())
-		case reflect.Struct:
-			for index := 0; index < t.NumField(); index++ {
-				visit(t.Field(index).Type)
-			}
-		case reflect.Func:
-			for index := 0; index < t.NumIn(); index++ {
-				visit(t.In(index))
-			}
-			for index := 0; index < t.NumOut(); index++ {
-				visit(t.Out(index))
-			}
-		case reflect.Interface:
-			for index := 0; index < t.NumMethod(); index++ {
-				visit(t.Method(index).Type)
-			}
-		}
+func (d *sharedTypeDiscovery) visitTypes(types []reflect.Type) {
+	for _, t := range types {
+		d.visit(t)
 	}
+}
 
-	for _, t := range frontendbindings.DiscoveredConvertibleTypes() {
-		visit(t)
+func (d *sharedTypeDiscovery) visitValueExports(exports []sharedvalueexports.ValueExport) {
+	for _, export := range exports {
+		d.visit(export.Type)
 	}
-	for _, export := range sharedvalueexports.DiscoveredValueExports() {
-		visit(export.Type)
-	}
-	for _, t := range discoveredAdditionalTypes() {
-		visit(t)
-	}
-	if _, ok := discovered[sharedSchemaRawJSONType]; !ok {
-		discovered[sharedSchemaRawJSONType] = struct{}{}
-		types = append(types, sharedSchemaRawJSONType)
-	}
-	types = preferredSharedSchemaTypes(types)
+}
 
+func (d *sharedTypeDiscovery) visit(t reflect.Type) {
+	t = canonicalType(t)
+	if t == nil || d.markVisited(t) {
+		return
+	}
+	if d.shouldRecord(t) {
+		d.record(t)
+	}
+	d.visitChildren(t)
+}
+
+func (d *sharedTypeDiscovery) markVisited(t reflect.Type) bool {
+	if _, ok := d.visited[t]; ok {
+		return true
+	}
+	d.visited[t] = struct{}{}
+	return false
+}
+
+func (d *sharedTypeDiscovery) shouldRecord(t reflect.Type) bool {
+	return t != sharedSchemaTimeType &&
+		sharedSchemaTypeNameIsExported(t) &&
+		strings.TrimSpace(t.PkgPath()) != ""
+}
+
+func (d *sharedTypeDiscovery) record(t reflect.Type) {
+	if _, ok := d.discovered[t]; ok {
+		return
+	}
+	d.discovered[t] = struct{}{}
+	d.types = append(d.types, t)
+}
+
+func (d *sharedTypeDiscovery) visitChildren(t reflect.Type) {
+	switch t.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Chan:
+		d.visit(t.Elem())
+	case reflect.Map:
+		d.visitMap(t)
+	case reflect.Struct:
+		d.visitStructFields(t)
+	case reflect.Func:
+		d.visitFuncSignature(t)
+	case reflect.Interface:
+		d.visitInterfaceMethods(t)
+	}
+}
+
+func (d *sharedTypeDiscovery) visitMap(t reflect.Type) {
+	d.visit(t.Key())
+	d.visit(t.Elem())
+}
+
+func (d *sharedTypeDiscovery) visitStructFields(t reflect.Type) {
+	for index := 0; index < t.NumField(); index++ {
+		d.visit(t.Field(index).Type)
+	}
+}
+
+func (d *sharedTypeDiscovery) visitFuncSignature(t reflect.Type) {
+	for index := 0; index < t.NumIn(); index++ {
+		d.visit(t.In(index))
+	}
+	for index := 0; index < t.NumOut(); index++ {
+		d.visit(t.Out(index))
+	}
+}
+
+func (d *sharedTypeDiscovery) visitInterfaceMethods(t reflect.Type) {
+	for index := 0; index < t.NumMethod(); index++ {
+		d.visit(t.Method(index).Type)
+	}
+}
+
+func (d *sharedTypeDiscovery) sortedTypes() []reflect.Type {
+	types := preferredSharedSchemaTypes(d.types)
 	sort.Slice(types, func(i int, j int) bool {
 		nameI := strings.TrimSpace(ContractNameForType(types[i]))
 		nameJ := strings.TrimSpace(ContractNameForType(types[j]))
