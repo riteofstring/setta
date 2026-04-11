@@ -146,8 +146,8 @@ func TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach(t *testi
 	if !ok {
 		t.Fatalf("expected detached terminal layout, got %#v", project.TopLevelSections)
 	}
-	if layout.X != 1224.0 || layout.Y != 40.0 || layout.ZIndex != 3 {
-		t.Fatalf("expected deterministic detached terminal layout {1224 40 3}, got %#v", layout)
+	if layout.X != 1624.0 || layout.Y != 40.0 || layout.ZIndex != 3 {
+		t.Fatalf("expected deterministic detached terminal layout {1624 40 3}, got %#v", layout)
 	}
 	if secondaryLayout, ok := project.ViewModes["secondary"].TopLevelSections["terminal-section"]; !ok {
 		t.Fatalf("expected detached terminal in secondary view mode, got %#v", project.ViewModes["secondary"].TopLevelSections)

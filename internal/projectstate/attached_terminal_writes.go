@@ -96,6 +96,67 @@ func normalizeOptionalSectionID(sectionID *string) string {
 	return strings.TrimSpace(*sectionID)
 }
 
+type codeSectionAttachmentState struct {
+	attachedTerminalID string
+	childTerminalID    string
+}
+
+func resolveCodeSectionAttachmentState(
+	sectionID string,
+	impl SectionImpl,
+	payload map[string]any,
+) (codeSectionAttachmentState, error) {
+	attachedTerminalID, currentChildren := baseCodeSectionAttachmentState(impl, payload)
+	switch len(currentChildren) {
+	case 0:
+		return codeSectionAttachmentState{
+			attachedTerminalID: attachedTerminalID,
+		}, nil
+	case 1:
+		return codeSectionAttachmentState{
+			attachedTerminalID: attachedTerminalID,
+			childTerminalID:    currentChildren[0],
+		}, nil
+	default:
+		return codeSectionAttachmentState{}, fmt.Errorf("%w: section=%q", ErrCodeSectionMultipleChildren, sectionID)
+	}
+}
+
+func (s codeSectionAttachmentState) terminalSectionID() string {
+	if s.childTerminalID != "" {
+		return s.childTerminalID
+	}
+	return s.attachedTerminalID
+}
+
+func validateCodeSectionTerminalAttachment(
+	sectionID string,
+	nextTerminalID string,
+	state codeSectionAttachmentState,
+) error {
+	if state.childTerminalID != "" && state.childTerminalID != nextTerminalID {
+		return fmt.Errorf(
+			"%w: section=%q current=%q next=%q",
+			ErrCodeSectionAttachedTerminalConflict,
+			sectionID,
+			state.childTerminalID,
+			nextTerminalID,
+		)
+	}
+	if state.attachedTerminalID != "" &&
+		state.attachedTerminalID != nextTerminalID &&
+		state.childTerminalID != "" {
+		return fmt.Errorf(
+			"%w: section=%q current=%q next=%q",
+			ErrCodeSectionAttachedTerminalConflict,
+			sectionID,
+			state.attachedTerminalID,
+			nextTerminalID,
+		)
+	}
+	return nil
+}
+
 func (p *Project) attachCodeSectionTerminal(
 	section Section,
 	variant SectionVariant,
@@ -116,28 +177,17 @@ func (p *Project) attachCodeSectionTerminal(
 	if err != nil {
 		return err
 	}
-	currentAttachedTerminalID, currentChildren := baseCodeSectionAttachmentState(impl, codePayload)
-	if len(currentChildren) > 1 {
-		return fmt.Errorf("%w: section=%q", ErrCodeSectionMultipleChildren, section.ID)
+	attachmentState, err := resolveCodeSectionAttachmentState(section.ID, impl, codePayload)
+	if err != nil {
+		return err
 	}
-	if len(currentChildren) == 1 && currentChildren[0] != terminalSectionID {
-		return fmt.Errorf("%w: section=%q current=%q next=%q", ErrCodeSectionAttachedTerminalConflict, section.ID, currentChildren[0], terminalSectionID)
-	}
-
-	if currentAttachedTerminalID != "" && currentAttachedTerminalID != terminalSectionID && len(currentChildren) != 0 {
-		return fmt.Errorf("%w: section=%q current=%q next=%q", ErrCodeSectionAttachedTerminalConflict, section.ID, currentAttachedTerminalID, terminalSectionID)
+	if err := validateCodeSectionTerminalAttachment(section.ID, terminalSectionID, attachmentState); err != nil {
+		return err
 	}
 
-	oldParentID := strings.TrimSpace(terminalSection.ParentSectionID)
-	if oldParentID != "" && oldParentID != section.ID {
-		if err := p.removeChildFromParent(oldParentID, terminalSectionID); err != nil {
-			return err
-		}
+	if err := p.reparentTerminalSection(section.ID, &terminalSection); err != nil {
+		return err
 	}
-	p.removeTopLevelSectionViewState(terminalSectionID)
-
-	terminalSection.ParentSectionID = section.ID
-	p.Sections[terminalSection.ID] = terminalSection
 
 	terminalPayload, err := effectiveSectionPayload(*p, terminalSection.ID, terminalVariant.ID)
 	if err != nil {
@@ -147,22 +197,18 @@ func (p *Project) attachCodeSectionTerminal(
 		return err
 	}
 
-	setBaseCodeSectionAttachmentState(codePayload, &impl, []string{terminalSectionID})
+	updatedCodeImpl := impl.Clone()
+	setBaseCodeSectionAttachmentState(codePayload, &updatedCodeImpl, []string{terminalSectionID})
 	if err := ensureEmbeddedCodeSectionPayloadSize(section.ID, codePayload, policy); err != nil {
 		return err
 	}
-
-	updatedCodeImpl := impl.Clone()
-	setBaseCodeSectionAttachmentState(codePayload, &updatedCodeImpl, []string{terminalSectionID})
-	updatedCodeImpl.Payload, err = marshalProjectObject(codePayload)
-	if err != nil {
+	if err := marshalSectionImplPayload(&updatedCodeImpl, codePayload); err != nil {
 		return err
 	}
 	p.SectionImpls[variant.ImplID] = updatedCodeImpl
 
 	updatedTerminalImpl := terminalImpl.Clone()
-	updatedTerminalImpl.Payload, err = marshalProjectObject(terminalPayload)
-	if err != nil {
+	if err := marshalSectionImplPayload(&updatedTerminalImpl, terminalPayload); err != nil {
 		return err
 	}
 	p.SectionImpls[terminalVariant.ImplID] = updatedTerminalImpl
@@ -179,19 +225,15 @@ func (p *Project) detachCodeSectionAttachedTerminal(
 	if err != nil {
 		return err
 	}
-	terminalSectionID, currentChildren := baseCodeSectionAttachmentState(impl, codePayload)
-	if len(currentChildren) > 1 {
-		return fmt.Errorf("%w: section=%q", ErrCodeSectionMultipleChildren, section.ID)
+	attachmentState, err := resolveCodeSectionAttachmentState(section.ID, impl, codePayload)
+	if err != nil {
+		return err
 	}
-
-	if len(currentChildren) == 1 {
-		terminalSectionID = currentChildren[0]
-	}
+	terminalSectionID := attachmentState.terminalSectionID()
 
 	updatedCodeImpl := impl.Clone()
 	setBaseCodeSectionAttachmentState(codePayload, &updatedCodeImpl, nil)
-	updatedCodeImpl.Payload, err = marshalProjectObject(codePayload)
-	if err != nil {
+	if err := marshalSectionImplPayload(&updatedCodeImpl, codePayload); err != nil {
 		return err
 	}
 	p.SectionImpls[variant.ImplID] = updatedCodeImpl
@@ -209,25 +251,7 @@ func (p *Project) detachCodeSectionAttachedTerminal(
 	if !terminalImpl.IsTerminal() {
 		return ErrTerminalSectionRequired
 	}
-
-	terminalSection.ParentSectionID = ""
-	p.Sections[terminalSection.ID] = terminalSection
-
-	if layout, ok := p.existingTopLevelSectionLayout(terminalSectionID); ok {
-		p.addTopLevelSectionViewState(terminalSectionID, layout)
-		return nil
-	}
-
-	position, err := p.resolveDeterministicCreateTopLevelSectionPosition(policy, "Terminal", terminalImpl.Payload)
-	if err != nil {
-		return err
-	}
-	p.addTopLevelSectionViewState(terminalSectionID, TopLevelSectionLayout{
-		X:      position.X,
-		Y:      position.Y,
-		ZIndex: p.nextCreateTopLevelSectionZIndex(),
-	})
-	return nil
+	return p.restoreDetachedTerminalTopLevel(terminalSectionID, &terminalSection, terminalImpl, policy)
 }
 
 func normalizeAttachedTerminalPayloadSize(codePayload map[string]any, terminalPayload map[string]any, terminalHeight float64) error {
@@ -261,6 +285,63 @@ func normalizeAttachedTerminalPayloadSize(codePayload map[string]any, terminalPa
 	return nil
 }
 
+func (p *Project) reparentTerminalSection(parentSectionID string, terminalSection *Section) error {
+	if terminalSection == nil {
+		return nil
+	}
+	oldParentID := strings.TrimSpace(terminalSection.ParentSectionID)
+	if oldParentID != "" && oldParentID != parentSectionID {
+		if err := p.removeChildFromParent(oldParentID, terminalSection.ID); err != nil {
+			return err
+		}
+	}
+	p.removeTopLevelSectionViewState(terminalSection.ID)
+	terminalSection.ParentSectionID = parentSectionID
+	p.Sections[terminalSection.ID] = *terminalSection
+	return nil
+}
+
+func marshalSectionImplPayload(impl *SectionImpl, payload map[string]any) error {
+	if impl == nil {
+		return nil
+	}
+	encodedPayload, err := marshalProjectObject(payload)
+	if err != nil {
+		return err
+	}
+	impl.Payload = encodedPayload
+	return nil
+}
+
+func (p *Project) restoreDetachedTerminalTopLevel(
+	terminalSectionID string,
+	terminalSection *Section,
+	terminalImpl SectionImpl,
+	policy AutoLayoutSectionSizingPolicy,
+) error {
+	if terminalSection == nil {
+		return nil
+	}
+	terminalSection.ParentSectionID = ""
+	p.Sections[terminalSection.ID] = *terminalSection
+
+	if layout, ok := p.existingTopLevelSectionLayout(terminalSectionID); ok {
+		p.addTopLevelSectionViewState(terminalSectionID, layout)
+		return nil
+	}
+
+	position, err := p.resolveDeterministicCreateTopLevelSectionPosition(policy, "Terminal", terminalImpl.Payload)
+	if err != nil {
+		return err
+	}
+	p.addTopLevelSectionViewState(terminalSectionID, TopLevelSectionLayout{
+		X:      position.X,
+		Y:      position.Y,
+		ZIndex: p.nextCreateTopLevelSectionZIndex(),
+	})
+	return nil
+}
+
 func (p *Project) removeChildFromParent(parentID string, childID string) error {
 	parentSection, parentVariant, parentImpl, err := p.ResolveSection(parentID)
 	if err != nil {
@@ -286,12 +367,9 @@ func (p *Project) removeChildFromParent(parentID string, childID string) error {
 	} else {
 		parentPayload["children"] = append([]string(nil), nextChildren...)
 	}
-
-	updatedPayload, err := marshalProjectObject(parentPayload)
-	if err != nil {
+	if err := marshalSectionImplPayload(&updatedParentImpl, parentPayload); err != nil {
 		return err
 	}
-	updatedParentImpl.Payload = updatedPayload
 	p.SectionImpls[parentVariant.ImplID] = updatedParentImpl
 	return nil
 }
