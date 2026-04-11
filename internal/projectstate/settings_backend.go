@@ -23,62 +23,17 @@ var (
 )
 
 func AutoRefetchCallableParamsOnLSPMismatchEnabled(document Document) (bool, error) {
-	settingsProject, ok, err := resolveSettingsProject(document)
+	rawValue, present, err := loadBackendSettingRawValue(document, "autoRefetchCallableParamsOnLSPMismatch")
 	if err != nil {
 		return false, err
 	}
-	if !ok {
-		return DefaultAutoRefetchCallableParamsOnLSPMismatch, nil
-	}
-
-	backendSectionID, ok, err := findSectionIDByName(settingsProject, "backend")
-	if err != nil {
-		return false, err
-	}
-	if !ok {
-		return DefaultAutoRefetchCallableParamsOnLSPMismatch, nil
-	}
-
-	_, backendVariant, _, err := settingsProject.ResolveSection(backendSectionID)
-	if err != nil {
-		return false, err
-	}
-	backendPayload, err := effectiveSectionPayload(settingsProject, backendSectionID, backendVariant.ID)
-	if err != nil {
-		return false, err
-	}
-	codeObjVariantMap := payloadStringMapField(backendPayload, "codeObjVariantMap")
-	backendTopLevelParamID := payloadStringField(backendPayload, "topLevelParamId")
-	if backendTopLevelParamID == "" {
-		return DefaultAutoRefetchCallableParamsOnLSPMismatch, nil
-	}
-
-	backendParamPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, backendTopLevelParamID)
-	if err != nil {
-		return false, err
-	}
-	settingCodeObjID, ok, err := findChildCodeObjectIDByName(
-		settingsProject,
-		codeObjVariantMap,
-		backendParamPayload,
-		"autoRefetchCallableParamsOnLSPMismatch",
-	)
-	if err != nil {
-		return false, err
-	}
-	if !ok {
-		return DefaultAutoRefetchCallableParamsOnLSPMismatch, nil
-	}
-
-	settingPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, settingCodeObjID)
-	if err != nil {
-		return false, err
-	}
-	rawValue, present := payloadRawStringFieldWithPresence(settingPayload, "value")
 	if !present {
 		return DefaultAutoRefetchCallableParamsOnLSPMismatch, nil
 	}
+	return parseAutoRefetchCallableParamsOnLSPMismatch(rawValue)
+}
 
+func parseAutoRefetchCallableParamsOnLSPMismatch(rawValue string) (bool, error) {
 	switch strings.ToLower(strings.TrimSpace(rawValue)) {
 	case "true":
 		return true, nil
@@ -90,62 +45,17 @@ func AutoRefetchCallableParamsOnLSPMismatchEnabled(document Document) (bool, err
 }
 
 func RenameRefactorModeForDocument(document Document) (RenameRefactorMode, error) {
-	settingsProject, ok, err := resolveSettingsProject(document)
+	rawValue, present, err := loadBackendSettingRawValue(document, "renameRefactorMode")
 	if err != nil {
 		return "", err
 	}
-	if !ok {
-		return DefaultRenameRefactorMode, nil
-	}
-
-	backendSectionID, ok, err := findSectionIDByName(settingsProject, "backend")
-	if err != nil {
-		return "", err
-	}
-	if !ok {
-		return DefaultRenameRefactorMode, nil
-	}
-
-	_, backendVariant, _, err := settingsProject.ResolveSection(backendSectionID)
-	if err != nil {
-		return "", err
-	}
-	backendPayload, err := effectiveSectionPayload(settingsProject, backendSectionID, backendVariant.ID)
-	if err != nil {
-		return "", err
-	}
-	codeObjVariantMap := payloadStringMapField(backendPayload, "codeObjVariantMap")
-	backendTopLevelParamID := payloadStringField(backendPayload, "topLevelParamId")
-	if backendTopLevelParamID == "" {
-		return DefaultRenameRefactorMode, nil
-	}
-
-	backendParamPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, backendTopLevelParamID)
-	if err != nil {
-		return "", err
-	}
-	settingCodeObjID, ok, err := findChildCodeObjectIDByName(
-		settingsProject,
-		codeObjVariantMap,
-		backendParamPayload,
-		"renameRefactorMode",
-	)
-	if err != nil {
-		return "", err
-	}
-	if !ok {
-		return DefaultRenameRefactorMode, nil
-	}
-
-	settingPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, settingCodeObjID)
-	if err != nil {
-		return "", err
-	}
-	rawValue, present := payloadRawStringFieldWithPresence(settingPayload, "value")
 	if !present {
 		return DefaultRenameRefactorMode, nil
 	}
+	return parseRenameRefactorMode(rawValue)
+}
 
+func parseRenameRefactorMode(rawValue string) (RenameRefactorMode, error) {
 	switch strings.ToUpper(strings.TrimSpace(rawValue)) {
 	case string(RenameRefactorModeAlwaysAsk):
 		return RenameRefactorModeAlwaysAsk, nil
@@ -156,6 +66,84 @@ func RenameRefactorModeForDocument(document Document) (RenameRefactorMode, error
 	default:
 		return "", fmt.Errorf("%w: renameRefactorMode=%q", ErrSettingsValueInvalid, rawValue)
 	}
+}
+
+type backendSettingsRoot struct {
+	project           Project
+	codeObjVariantMap map[string]string
+	topLevelPayload   map[string]any
+}
+
+func loadBackendSettingRawValue(document Document, settingName string) (string, bool, error) {
+	root, ok, err := loadBackendSettingsRoot(document)
+	if err != nil || !ok {
+		return "", false, err
+	}
+	return root.rawSettingValue(settingName)
+}
+
+func loadBackendSettingsRoot(document Document) (backendSettingsRoot, bool, error) {
+	settingsProject, ok, err := resolveSettingsProject(document)
+	if err != nil || !ok {
+		return backendSettingsRoot{}, ok, err
+	}
+
+	backendPayload, ok, err := resolveSettingsSectionPayload(settingsProject)
+	if err != nil || !ok {
+		return backendSettingsRoot{}, ok, err
+	}
+
+	codeObjVariantMap := payloadStringMapField(backendPayload, "codeObjVariantMap")
+	topLevelParamID := payloadStringField(backendPayload, "topLevelParamId")
+	if topLevelParamID == "" {
+		return backendSettingsRoot{}, false, nil
+	}
+
+	topLevelPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, topLevelParamID)
+	if err != nil {
+		return backendSettingsRoot{}, false, err
+	}
+	return backendSettingsRoot{
+		project:           settingsProject,
+		codeObjVariantMap: codeObjVariantMap,
+		topLevelPayload:   topLevelPayload,
+	}, true, nil
+}
+
+func resolveSettingsSectionPayload(settingsProject Project) (map[string]any, bool, error) {
+	backendSectionID, ok, err := findSectionIDByName(settingsProject, "backend")
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+
+	_, backendVariant, _, err := settingsProject.ResolveSection(backendSectionID)
+	if err != nil {
+		return nil, false, err
+	}
+	backendPayload, err := effectiveSectionPayload(settingsProject, backendSectionID, backendVariant.ID)
+	if err != nil {
+		return nil, false, err
+	}
+	return backendPayload, true, nil
+}
+
+func (root backendSettingsRoot) rawSettingValue(settingName string) (string, bool, error) {
+	settingCodeObjID, ok, err := findChildCodeObjectIDByName(
+		root.project,
+		root.codeObjVariantMap,
+		root.topLevelPayload,
+		settingName,
+	)
+	if err != nil || !ok {
+		return "", false, err
+	}
+
+	settingPayload, _, _, _, err := effectiveCodeObjectPayload(root.project, root.codeObjVariantMap, settingCodeObjID)
+	if err != nil {
+		return "", false, err
+	}
+	rawValue, present := payloadRawStringFieldWithPresence(settingPayload, "value")
+	return rawValue, present, nil
 }
 
 func resolveSettingsProject(document Document) (Project, bool, error) {
