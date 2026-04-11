@@ -74,6 +74,37 @@ type preflightCacheFingerprint struct {
 	CommandPathIssue string   `json:"commandPathIssue"`
 }
 
+type preflightIssues struct {
+	items         []string
+	blockingCount int
+}
+
+type preparedPreflightStatus struct {
+	normalized       Config
+	supported        bool
+	envVars          EnvVarResolution
+	workingDir       *string
+	workingDirIssue  string
+	baseURL          *string
+	baseURLIssue     string
+	commandPath      *string
+	commandPathIssue string
+	cacheFingerprint string
+	sdkVersion       *string
+	cliVersion       *string
+	issues           preflightIssues
+}
+
+func (i *preflightIssues) add(issue string, blocking bool) {
+	if strings.TrimSpace(issue) == "" {
+		return
+	}
+	i.items = append(i.items, issue)
+	if blocking {
+		i.blockingCount++
+	}
+}
+
 func cloneStatus(status Status) Status {
 	cloned := status
 	cloned.Issues = append([]string(nil), status.Issues...)
@@ -120,114 +151,139 @@ func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
 }
 
 func (c *SystemChecker) Check(config Config) (Status, error) {
-	normalized, err := normalizeConfig(config, 0)
+	prepared, err := c.prepareStatus(config)
 	if err != nil {
 		return Status{}, err
 	}
-	issues := []string{}
-	blockingIssueCount := 0
-	addIssue := func(issue string, blocking bool) {
-		if strings.TrimSpace(issue) == "" {
-			return
-		}
-		issues = append(issues, issue)
-		if blocking {
-			blockingIssueCount++
-		}
-	}
-	supported := isSupported(normalized.ToolType, normalized.RunMode)
-	effectiveEnvVarWhitelist := append([]string(nil), normalized.EnvVarWhitelist...)
-	if !supported {
-		addIssue(fmt.Sprintf("Run mode %s not supported for %s", normalized.RunMode, normalized.ToolType), true)
-	}
-	envVars := ResolveWhitelistedEnvVars(c.workspaceRoot, c.managedAPIKeysLockRoot, c.processEnv, effectiveEnvVarWhitelist)
-	managedStoreIssueBlocks := len(envVars.Status.Missing) > 0
-	if envVars.CorruptionIssue != "" {
-		addIssue(envVars.CorruptionIssue, managedStoreIssueBlocks)
-	}
-	if envVars.UnavailableIssue != "" {
-		addIssue(envVars.UnavailableIssue, managedStoreIssueBlocks)
-	}
-	if len(envVars.Status.Missing) > 0 {
-		addIssue(fmt.Sprintf("Missing env vars: %s", strings.Join(envVars.Status.Missing, ", ")), true)
-	}
-	workingDir, workingDirIssue := c.resolveWorkingDir(normalized)
-	baseURL, baseURLIssue := validateBaseURL(normalized)
-	commandPath, commandIssue := c.resolveCommandPath(normalized)
-	cacheFingerprint, err := buildPreflightCacheFingerprint(preflightCacheFingerprint{
-		Config:           cloneConfig(normalized),
-		PresentEnvVars:   append([]string(nil), envVars.Status.Present...),
-		MissingEnvVars:   append([]string(nil), envVars.Status.Missing...),
-		CorruptionIssue:  envVars.CorruptionIssue,
-		UnavailableIssue: envVars.UnavailableIssue,
-		WorkingDir:       cloneStringPtr(workingDir),
-		WorkingDirIssue:  workingDirIssue,
-		BaseURL:          cloneStringPtr(baseURL),
-		BaseURLIssue:     baseURLIssue,
-		CommandPath:      cloneStringPtr(commandPath),
-		CommandPathIssue: commandIssue,
-	})
-	if err != nil {
-		return Status{}, err
-	}
-	if cached, ok := c.loadCachedStatus(normalized.ID, cacheFingerprint); ok {
+	if cached, ok := c.loadCachedStatus(prepared.normalized.ID, prepared.cacheFingerprint); ok {
 		return cached, nil
 	}
-	if workingDirIssue != "" {
-		addIssue(workingDirIssue, true)
-	}
-	if baseURLIssue != "" {
-		addIssue(baseURLIssue, true)
-	}
-	if commandIssue != "" {
-		addIssue(commandIssue, true)
-	}
-	var (
-		sdkVersion *string
-		cliVersion *string
-	)
-	if normalized.ToolType == ToolTypeClaudeCode && normalized.RunMode == RunModeSDK {
-		pythonCommand, err := ResolveClaudePythonCommand()
-		if err != nil {
-			addIssue(fmt.Sprintf("Claude bridge python unavailable (%v)", err), true)
-		} else if version, issue := readClaudeSDKVersion(pythonCommand, c.workspaceRoot); issue != "" {
-			if err := CheckClaudeSDKImport(pythonCommand); err != nil {
-				addIssue(fmt.Sprintf("claude-agent-sdk not available for %s", pythonCommand), true)
-			} else {
-				addIssue(issue, true)
-			}
-		} else {
-			sdkVersion = version
-		}
-	}
-	if normalized.ToolType == ToolTypeCodex && normalized.RunMode == RunModeAppServer && commandPath != nil {
-		if version, issue := readVersionCommand(*commandPath, c.workspaceRoot, []string{"--version"}, "Failed to read codex CLI version"); issue != "" {
-			addIssue(issue, true)
-		} else {
-			cliVersion = version
-		}
-	}
+	prepared.probeRuntimeVersions(c.workspaceRoot)
+	status := prepared.status()
+	c.storeCachedStatus(prepared.normalized.ID, prepared.cacheFingerprint, status)
+	return status, nil
+}
 
-	status := Status{
-		ConfigID:    normalized.ID,
-		Name:        normalized.Name,
-		ToolType:    normalized.ToolType,
-		RunMode:     normalized.RunMode,
-		Supported:   supported,
-		Available:   supported && blockingIssueCount == 0,
-		Issues:      append([]string(nil), issues...),
-		BaseURL:     baseURL,
-		WorkingDir:  workingDir,
-		CommandPath: commandPath,
-		SDKVersion:  cloneStringPtr(sdkVersion),
-		CLIVersion:  cloneStringPtr(cliVersion),
+func (c *SystemChecker) prepareStatus(config Config) (preparedPreflightStatus, error) {
+	normalized, err := normalizeConfig(config, 0)
+	if err != nil {
+		return preparedPreflightStatus{}, err
+	}
+	prepared := preparedPreflightStatus{
+		normalized: normalized,
+		supported:  isSupported(normalized.ToolType, normalized.RunMode),
+	}
+	prepared.collectSupportAndEnvIssues(c)
+	prepared.resolvePaths(c)
+	fingerprint, err := prepared.buildCacheFingerprint()
+	if err != nil {
+		return preparedPreflightStatus{}, err
+	}
+	prepared.cacheFingerprint = fingerprint
+	return prepared, nil
+}
+
+func (p *preparedPreflightStatus) collectSupportAndEnvIssues(c *SystemChecker) {
+	if !p.supported {
+		p.issues.add(fmt.Sprintf("Run mode %s not supported for %s", p.normalized.RunMode, p.normalized.ToolType), true)
+	}
+	effectiveEnvVarWhitelist := append([]string(nil), p.normalized.EnvVarWhitelist...)
+	p.envVars = ResolveWhitelistedEnvVars(c.workspaceRoot, c.managedAPIKeysLockRoot, c.processEnv, effectiveEnvVarWhitelist)
+	managedStoreIssueBlocks := len(p.envVars.Status.Missing) > 0
+	if p.envVars.CorruptionIssue != "" {
+		p.issues.add(p.envVars.CorruptionIssue, managedStoreIssueBlocks)
+	}
+	if p.envVars.UnavailableIssue != "" {
+		p.issues.add(p.envVars.UnavailableIssue, managedStoreIssueBlocks)
+	}
+	if len(p.envVars.Status.Missing) > 0 {
+		p.issues.add(fmt.Sprintf("Missing env vars: %s", strings.Join(p.envVars.Status.Missing, ", ")), true)
+	}
+}
+
+func (p *preparedPreflightStatus) resolvePaths(c *SystemChecker) {
+	p.workingDir, p.workingDirIssue = c.resolveWorkingDir(p.normalized)
+	p.baseURL, p.baseURLIssue = validateBaseURL(p.normalized)
+	p.commandPath, p.commandPathIssue = c.resolveCommandPath(p.normalized)
+	p.issues.add(p.workingDirIssue, true)
+	p.issues.add(p.baseURLIssue, true)
+	p.issues.add(p.commandPathIssue, true)
+}
+
+func (p preparedPreflightStatus) buildCacheFingerprint() (string, error) {
+	return buildPreflightCacheFingerprint(preflightCacheFingerprint{
+		Config:           cloneConfig(p.normalized),
+		PresentEnvVars:   append([]string(nil), p.envVars.Status.Present...),
+		MissingEnvVars:   append([]string(nil), p.envVars.Status.Missing...),
+		CorruptionIssue:  p.envVars.CorruptionIssue,
+		UnavailableIssue: p.envVars.UnavailableIssue,
+		WorkingDir:       cloneStringPtr(p.workingDir),
+		WorkingDirIssue:  p.workingDirIssue,
+		BaseURL:          cloneStringPtr(p.baseURL),
+		BaseURLIssue:     p.baseURLIssue,
+		CommandPath:      cloneStringPtr(p.commandPath),
+		CommandPathIssue: p.commandPathIssue,
+	})
+}
+
+func (p *preparedPreflightStatus) probeRuntimeVersions(workspaceRoot string) {
+	switch {
+	case p.normalized.ToolType == ToolTypeClaudeCode && p.normalized.RunMode == RunModeSDK:
+		p.sdkVersion = probeClaudeSDKVersion(workspaceRoot, &p.issues)
+	case p.normalized.ToolType == ToolTypeCodex && p.normalized.RunMode == RunModeAppServer:
+		p.cliVersion = probeCodexCLIVersion(workspaceRoot, p.commandPath, &p.issues)
+	}
+}
+
+func probeClaudeSDKVersion(workspaceRoot string, issues *preflightIssues) *string {
+	pythonCommand, err := ResolveClaudePythonCommand()
+	if err != nil {
+		issues.add(fmt.Sprintf("Claude bridge python unavailable (%v)", err), true)
+		return nil
+	}
+	version, issue := readClaudeSDKVersion(pythonCommand, workspaceRoot)
+	if issue == "" {
+		return version
+	}
+	if err := CheckClaudeSDKImport(pythonCommand); err != nil {
+		issues.add(fmt.Sprintf("claude-agent-sdk not available for %s", pythonCommand), true)
+		return nil
+	}
+	issues.add(issue, true)
+	return nil
+}
+
+func probeCodexCLIVersion(workspaceRoot string, commandPath *string, issues *preflightIssues) *string {
+	if commandPath == nil {
+		return nil
+	}
+	version, issue := readVersionCommand(*commandPath, workspaceRoot, []string{"--version"}, "Failed to read codex CLI version")
+	if issue != "" {
+		issues.add(issue, true)
+		return nil
+	}
+	return version
+}
+
+func (p preparedPreflightStatus) status() Status {
+	return Status{
+		ConfigID:    p.normalized.ID,
+		Name:        p.normalized.Name,
+		ToolType:    p.normalized.ToolType,
+		RunMode:     p.normalized.RunMode,
+		Supported:   p.supported,
+		Available:   p.supported && p.issues.blockingCount == 0,
+		Issues:      append([]string(nil), p.issues.items...),
+		BaseURL:     p.baseURL,
+		WorkingDir:  p.workingDir,
+		CommandPath: p.commandPath,
+		SDKVersion:  cloneStringPtr(p.sdkVersion),
+		CLIVersion:  cloneStringPtr(p.cliVersion),
 		EnvVars: EnvVarStatus{
-			Present: append([]string(nil), envVars.Status.Present...),
-			Missing: append([]string(nil), envVars.Status.Missing...),
+			Present: append([]string(nil), p.envVars.Status.Present...),
+			Missing: append([]string(nil), p.envVars.Status.Missing...),
 		},
 	}
-	c.storeCachedStatus(normalized.ID, cacheFingerprint, status)
-	return status, nil
 }
 
 func (c *SystemChecker) loadCachedStatus(configID string, fingerprint string) (Status, bool) {
