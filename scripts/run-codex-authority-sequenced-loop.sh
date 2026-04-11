@@ -16,6 +16,7 @@ Defaults:
 - Model: `gpt-5.4`
 - Reasoning effort: `xhigh`
 - Yolo mode: on
+- Inactivity timeout: 1800 seconds without transcript updates
 - Stop when Codex explicitly reports either true audited completion or a documented sustained plateau
 - Require every non-stop iteration to leave a clean worktree and advance HEAD
 
@@ -27,6 +28,9 @@ Options:
                          Default: <output-dir>/state
   --model NAME           Model override passed to codex exec.
                          Default: gpt-5.4
+  --inactivity-timeout-seconds N
+                         Abort and retry an iteration if Codex produces no
+                         transcript output for N seconds. Default: 1800
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 
@@ -45,6 +49,7 @@ output_dir=""
 state_dir=""
 model="gpt-5.4"
 yolo_mode="1"
+inactivity_timeout_seconds="1800"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: AUTHORITY_SEQUENCE_AUDITED_STOP"
 codex_extra_args=()
@@ -130,6 +135,11 @@ while [[ $# -gt 0 ]]; do
       model="$2"
       shift 2
       ;;
+    --inactivity-timeout-seconds)
+      require_value "$1" "${2:-}"
+      inactivity_timeout_seconds="$2"
+      shift 2
+      ;;
     --no-yolo)
       yolo_mode="0"
       shift
@@ -153,6 +163,11 @@ done
 
 if [[ ! "${iterations}" =~ ^[0-9]+$ ]] || [[ "${iterations}" -lt 1 ]]; then
   echo "--iterations must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ ! "${inactivity_timeout_seconds}" =~ ^[0-9]+$ ]] || [[ "${inactivity_timeout_seconds}" -lt 1 ]]; then
+  echo "--inactivity-timeout-seconds must be a positive integer" >&2
   exit 1
 fi
 
@@ -332,6 +347,9 @@ Execution rules for every iteration:
 - Prefer Go-owned logic, metadata, and generation over duplicated Python or TypeScript logic.
 - Regenerate affected downstream artifacts before cleanup when Go-owned contracts, shared types, backend endpoints, or frontend generation inputs change.
 - Run focused verification for the behavior you changed.
+- Do not use Chrome DevTools, browser MCP, or other browser-driven verification unless the active change genuinely modifies frontend runtime behavior and non-browser verification is insufficient.
+- For duplication, polling, and hotspot cleanup, prefer code inspection, generation checks, focused tests, and scriptable verification over browser workflows.
+- If browser verification is genuinely required, use an already-running developer-started session only. Do not spend this loop iteration starting, waiting on, or debugging browser MCP processes.
 - Before every non-stop commit, run \`./gcf.sh\` and then \`./scripts/check_quality_for_git_changes.sh\`. If either fails, fix the failure or stop without committing.
 - Treat \`No supported files to check.\` from \`./scripts/check_quality_for_git_changes.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
@@ -408,6 +426,9 @@ loop_args=(
   --new-session-every "1"
   --output-dir "${output_dir}"
   --workdir "${ROOT_DIR}"
+  --inactivity-timeout-seconds "${inactivity_timeout_seconds}"
+  --watchdog-interval-seconds "30"
+  --continue-on-inactivity-timeout
   --pre-iteration-command "${pre_iteration_command}"
   --stop-on-pre-iteration-exit-code "${complete_exit_code}"
   --stop-on-error
@@ -441,6 +462,7 @@ echo "Iterations: ${iterations}"
 echo "New session every: 1"
 echo "Model: ${model}"
 echo 'Reasoning effort: xhigh'
+echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 if [[ "${yolo_mode}" == "1" ]]; then
   echo "Yolo mode: enabled"
 else

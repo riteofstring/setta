@@ -15,6 +15,8 @@ Runs `codex exec` in a loop.
 - The first iteration in each session batch uses `--prompt-file`.
 - Remaining iterations in the same batch use `--followup-prompt-file`.
 - `--pre-iteration-command` runs before every iteration.
+- `--inactivity-timeout-seconds N` aborts an iteration if Codex emits no new
+  transcript output for N seconds.
 - The loop continues on error by default. Use `--stop-on-error` to fail fast.
 
 Options:
@@ -30,6 +32,16 @@ Options:
   --pre-iteration-command CMD
                              Shell command to run before every iteration.
                              Runs in --workdir.
+  --inactivity-timeout-seconds N
+                             Abort an iteration if the transcript receives no
+                             new output for N seconds. Default: disabled
+  --watchdog-interval-seconds N
+                             Poll interval used by the inactivity watchdog.
+                             Default: 15
+  --continue-on-inactivity-timeout
+                             If an inactivity timeout occurs, record the
+                             failure and continue to the next iteration even
+                             when --stop-on-error is enabled.
   --stop-on-pre-iteration-exit-code N
                              Stop the loop cleanly if the pre-iteration
                              command exits with code N.
@@ -63,6 +75,9 @@ prompt_file=""
 followup_prompt_file=""
 pre_session_command=""
 pre_iteration_command=""
+inactivity_timeout_seconds="0"
+watchdog_interval_seconds="15"
+continue_on_inactivity_timeout="0"
 iterations="100"
 new_session_every="1"
 output_dir=""
@@ -100,6 +115,20 @@ while [[ $# -gt 0 ]]; do
       require_value "$1" "${2:-}"
       pre_iteration_command="$2"
       shift 2
+      ;;
+    --inactivity-timeout-seconds)
+      require_value "$1" "${2:-}"
+      inactivity_timeout_seconds="$2"
+      shift 2
+      ;;
+    --watchdog-interval-seconds)
+      require_value "$1" "${2:-}"
+      watchdog_interval_seconds="$2"
+      shift 2
+      ;;
+    --continue-on-inactivity-timeout)
+      continue_on_inactivity_timeout="1"
+      shift
       ;;
     --stop-on-pre-session-exit-code)
       require_value "$1" "${2:-}"
@@ -191,6 +220,16 @@ if [[ ! "${iterations}" =~ ^[0-9]+$ ]] || [[ "${iterations}" -lt 1 ]]; then
   exit 1
 fi
 
+if [[ ! "${inactivity_timeout_seconds}" =~ ^[0-9]+$ ]] || [[ "${inactivity_timeout_seconds}" -lt 0 ]]; then
+  echo "--inactivity-timeout-seconds must be a non-negative integer" >&2
+  exit 1
+fi
+
+if [[ ! "${watchdog_interval_seconds}" =~ ^[0-9]+$ ]] || [[ "${watchdog_interval_seconds}" -lt 1 ]]; then
+  echo "--watchdog-interval-seconds must be a positive integer" >&2
+  exit 1
+fi
+
 validate_stop_exit_code() {
   local flag_name="$1"
   local value="$2"
@@ -241,6 +280,9 @@ echo "Output directory: ${output_dir}"
 echo "Iterations: ${iterations}"
 echo "New session every: ${new_session_every}"
 echo "Workdir: ${workdir}"
+if [[ "${inactivity_timeout_seconds}" -gt 0 ]]; then
+  echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
+fi
 
 extract_thread_id() {
   local transcript_file="$1"
@@ -263,6 +305,137 @@ extract_thread_id() {
   fi
 
   printf '%s\n' "${thread_id}"
+}
+
+file_mtime_epoch() {
+  local path="$1"
+
+  if stat -f '%m' "${path}" >/dev/null 2>&1; then
+    stat -f '%m' "${path}"
+    return
+  fi
+
+  stat -c '%Y' "${path}"
+}
+
+collect_descendant_pids() {
+  local parent_pid="$1"
+  local child_pid=""
+
+  while IFS= read -r child_pid; do
+    if [[ -z "${child_pid}" ]]; then
+      continue
+    fi
+    collect_descendant_pids "${child_pid}"
+    printf '%s\n' "${child_pid}"
+  done < <(ps -axo pid=,ppid= | awk -v target="${parent_pid}" '$2 == target { print $1 }')
+}
+
+terminate_process_tree() {
+  local root_pid="$1"
+  local pid=""
+  local pids=()
+  local still_running=()
+
+  while IFS= read -r pid; do
+    if [[ -n "${pid}" ]]; then
+      pids+=("${pid}")
+    fi
+  done < <(collect_descendant_pids "${root_pid}")
+
+  if kill -0 "${root_pid}" 2>/dev/null; then
+    pids+=("${root_pid}")
+  fi
+
+  if [[ "${#pids[@]}" -eq 0 ]]; then
+    return
+  fi
+
+  kill -TERM "${pids[@]}" 2>/dev/null || true
+  sleep 2
+
+  for pid in "${pids[@]}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      still_running+=("${pid}")
+    fi
+  done
+
+  if [[ "${#still_running[@]}" -gt 0 ]]; then
+    kill -KILL "${still_running[@]}" 2>/dev/null || true
+  fi
+}
+
+codex_exit_code="0"
+codex_timed_out="0"
+
+run_codex_command() {
+  local prompt_path="$1"
+  local transcript_path="$2"
+  local fifo_path=""
+  local codex_pid=""
+  local tee_pid=""
+  local last_activity_epoch=""
+  local current_epoch=""
+  local transcript_epoch=""
+
+  codex_exit_code="0"
+  codex_timed_out="0"
+
+  if [[ "${inactivity_timeout_seconds}" -eq 0 ]]; then
+    set +e
+    codex "${codex_args[@]}" < "${prompt_path}" 2>&1 | tee "${transcript_path}"
+    codex_exit_code="${PIPESTATUS[0]}"
+    set -e
+    return
+  fi
+
+  fifo_path="${run_dir}/codex-output.fifo"
+  rm -f "${fifo_path}"
+  mkfifo "${fifo_path}"
+
+  tee "${transcript_path}" < "${fifo_path}" &
+  tee_pid="$!"
+
+  codex "${codex_args[@]}" < "${prompt_path}" > "${fifo_path}" 2>&1 &
+  codex_pid="$!"
+
+  last_activity_epoch="$(date +%s)"
+
+  while kill -0 "${codex_pid}" 2>/dev/null; do
+    if [[ -f "${transcript_path}" ]]; then
+      transcript_epoch="$(file_mtime_epoch "${transcript_path}")"
+      if [[ "${transcript_epoch}" -gt "${last_activity_epoch}" ]]; then
+        last_activity_epoch="${transcript_epoch}"
+      fi
+    fi
+
+    current_epoch="$(date +%s)"
+    if [[ "$((current_epoch - last_activity_epoch))" -ge "${inactivity_timeout_seconds}" ]]; then
+      codex_timed_out="1"
+      codex_exit_code="124"
+      echo "Iteration timed out after ${inactivity_timeout_seconds}s without transcript updates; terminating Codex process tree." >&2
+      terminate_process_tree "${codex_pid}"
+      break
+    fi
+
+    sleep "${watchdog_interval_seconds}"
+  done
+
+  if [[ "${codex_timed_out}" != "1" ]]; then
+    set +e
+    wait "${codex_pid}"
+    codex_exit_code="$?"
+    set -e
+  else
+    set +e
+    wait "${codex_pid}" >/dev/null 2>&1
+    set -e
+  fi
+
+  set +e
+  wait "${tee_pid}" >/dev/null 2>&1
+  set -e
+  rm -f "${fifo_path}"
 }
 
 run_hook_command() {
@@ -382,10 +555,8 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     codex_args+=(-)
   fi
 
-  set +e
-  codex "${codex_args[@]}" < "${prompt_for_iteration}" 2>&1 | tee "${transcript_file}"
-  exit_code="${PIPESTATUS[0]}"
-  set -e
+  run_codex_command "${prompt_for_iteration}" "${transcript_file}"
+  exit_code="${codex_exit_code}"
 
   if [[ "${mode}" == "start" ]] && [[ "${new_session_every}" -gt 1 ]] && [[ ! -s "${session_id_file}" ]]; then
     if thread_id="$(extract_thread_id "${transcript_file}")"; then
@@ -399,9 +570,17 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     continue
   fi
 
-  echo "failure:${exit_code}" > "${status_file}"
+  if [[ "${codex_timed_out}" == "1" ]]; then
+    echo "failure:inactivity-timeout:${exit_code}" > "${status_file}"
+  else
+    echo "failure:${exit_code}" > "${status_file}"
+  fi
   echo "[$iteration/$iterations] Codex failed with exit code ${exit_code}" >&2
   if [[ "${stop_on_error}" == "1" ]]; then
+    if [[ "${codex_timed_out}" == "1" ]] && [[ "${continue_on_inactivity_timeout}" == "1" ]]; then
+      echo "[$iteration/$iterations] Continuing after inactivity timeout"
+      continue
+    fi
     exit "${exit_code}"
   fi
 done
