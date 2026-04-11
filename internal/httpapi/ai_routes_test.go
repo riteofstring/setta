@@ -4831,6 +4831,65 @@ func TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel(t *te
 	}
 }
 
+func TestRegisterAIRoutesValidatesDependenciesByMode(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		name    string
+		router  chi.Router
+		deps    AIRouteDependencies
+		wantErr string
+	}{
+		{
+			name:    "nil_router",
+			deps:    AIRouteDependencies{},
+			wantErr: "router is required",
+		},
+		{
+			name:   "ide_missing_managed_chat_service",
+			router: chi.NewRouter(),
+			deps: AIRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+			},
+			wantErr: "managed chat service is required in ide mode",
+		},
+		{
+			name:   "deployment_missing_runtime",
+			router: chi.NewRouter(),
+			deps: AIRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeShare),
+			},
+			wantErr: "deployment runtime is required in deployment mode",
+		},
+		{
+			name:   "document_only_router_skips_runtime_requirements",
+			router: wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), newOpenAPIDocument()),
+			deps: AIRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+			},
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := RegisterAIRoutes(testCase.router, testCase.deps)
+			if testCase.wantErr == "" {
+				if err != nil {
+					t.Fatalf("RegisterAIRoutes returned error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error %q, got nil", testCase.wantErr)
+			}
+			if err.Error() != testCase.wantErr {
+				t.Fatalf("expected error %q, got %q", testCase.wantErr, err.Error())
+			}
+		})
+	}
+}
+
 func TestRegisterAIRoutesReturnsTypedMissingTranscriptionProfile(t *testing.T) {
 	t.Parallel()
 

@@ -117,37 +117,52 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	documentOnly := openAPIDocumentOnlyFromRouter(router)
-	if deps.ModePolicy.IsIDE() && !documentOnly {
-		if deps.ManagedChats == nil {
-			return fmt.Errorf("managed chat service is required in ide mode")
-		}
-		if deps.ExternalAgentSend == nil {
-			return fmt.Errorf("external agent send service is required in ide mode")
-		}
-		if deps.ExternalAgentChats == nil {
-			return fmt.Errorf("external agent chat service is required in ide mode")
-		}
-		if deps.ExternalAgentFollow == nil {
-			return fmt.Errorf("external agent ai follow service is required in ide mode")
-		}
-		if deps.ExternalAgentRuns == nil {
-			return fmt.Errorf("external agent runtime is required in ide mode")
-		}
-		if deps.TranscriptionProfiles == nil {
-			return fmt.Errorf("transcription profile service is required in ide mode")
-		}
-		if deps.TranscriptionSessions == nil {
-			return fmt.Errorf("transcription session service is required in ide mode")
-		}
-		if deps.Sessions == nil {
-			return fmt.Errorf("session provider is required in ide mode")
-		}
+	if err := validateAIRouteDependencies(deps, openAPIDocumentOnlyFromRouter(router)); err != nil {
+		return err
 	}
-	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil && !documentOnly {
+	registerManagedAIRoutes(router, deps)
+	registerTranscriptionAIRoutes(router, deps)
+	registerExternalAgentAIRoutes(router, deps)
+	return nil
+}
+
+type aiRouteDependencyRequirement struct {
+	Missing bool
+	Message string
+}
+
+func validateAIRouteDependencies(deps AIRouteDependencies, documentOnly bool) error {
+	if documentOnly {
+		return nil
+	}
+	if deps.ModePolicy.IsIDE() {
+		return validateRequiredAIRouteDependencies([]aiRouteDependencyRequirement{
+			{Missing: deps.ManagedChats == nil, Message: "managed chat service is required in ide mode"},
+			{Missing: deps.ExternalAgentSend == nil, Message: "external agent send service is required in ide mode"},
+			{Missing: deps.ExternalAgentChats == nil, Message: "external agent chat service is required in ide mode"},
+			{Missing: deps.ExternalAgentFollow == nil, Message: "external agent ai follow service is required in ide mode"},
+			{Missing: deps.ExternalAgentRuns == nil, Message: "external agent runtime is required in ide mode"},
+			{Missing: deps.TranscriptionProfiles == nil, Message: "transcription profile service is required in ide mode"},
+			{Missing: deps.TranscriptionSessions == nil, Message: "transcription session service is required in ide mode"},
+			{Missing: deps.Sessions == nil, Message: "session provider is required in ide mode"},
+		})
+	}
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
+	return nil
+}
 
+func validateRequiredAIRouteDependencies(requirements []aiRouteDependencyRequirement) error {
+	for _, requirement := range requirements {
+		if requirement.Missing {
+			return errors.New(requirement.Message)
+		}
+	}
+	return nil
+}
+
+func registerManagedAIRoutes(router chi.Router, deps AIRouteDependencies) {
 	registerAIPost[GetLLMResponseRequest, LLMChatIDResponse](
 		router,
 		"getLlmResponse",
@@ -169,6 +184,9 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 		"Stop an active managed AI chat run.",
 		stopLLMChatHandler(deps),
 	)
+}
+
+func registerTranscriptionAIRoutes(router chi.Router, deps AIRouteDependencies) {
 	registerAIPost[StartTranscriptionSessionRequest, StartTranscriptionSessionResponse](
 		router,
 		"startTranscriptionSession",
@@ -197,6 +215,9 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 		"Cancel an active transcription session.",
 		cancelTranscriptionSessionHandler(deps),
 	)
+}
+
+func registerExternalAgentAIRoutes(router chi.Router, deps AIRouteDependencies) {
 	registerAIPost[GetExternalAgentChatRequest, ExternalAgentChatResponse](
 		router,
 		"getExternalAgentChat",
@@ -232,7 +253,6 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 		"Submit answers for an external agent question prompt.",
 		respondExternalAgentQuestionHandler(deps),
 	)
-	return nil
 }
 
 func registerAIPost[Req, Resp any](
@@ -931,6 +951,24 @@ var getLLMResponseMessageRoles = map[string]struct{}{
 
 const getLLMResponseMessageRoleExpectedTags = "<ChatRole.system: 'system'>, <ChatRole.assistant: 'assistant'>, <ChatRole.user: 'user'>, <ChatRole.tool: 'tool'>"
 
+var getLLMResponseRequiredFields = []string{
+	"message",
+	"engineConfigId",
+	"thinking",
+	"projectConfigId",
+	"permissionMode",
+	"searchEnabled",
+}
+
+var getLLMResponseNullFieldValidationMessages = map[string]string{
+	"message":         "message: Input should be a valid dictionary",
+	"engineConfigId":  "engineConfigId: Input should be a valid string",
+	"thinking":        "thinking: Input should be a valid boolean",
+	"projectConfigId": "projectConfigId: Input should be a valid string",
+	"permissionMode":  "permissionMode: Input should be 'minimal', 'yolo' or 'config_toml_custom'",
+	"searchEnabled":   "searchEnabled: Input should be a valid boolean",
+}
+
 func (e *llmResponseValidationError) Error() string {
 	if e == nil {
 		return ""
@@ -957,61 +995,71 @@ func invalidGetLLMResponseMessageRoleError(value any) error {
 }
 
 func decodeGetLLMResponseRequest(r *http.Request) (GetLLMResponseRequest, error) {
-	var payload GetLLMResponseRequest
-	if r.Body == nil {
-		return payload, &strictJSONMissingFieldError{Field: "message"}
+	trimmedBody, err := readGetLLMResponseRequestBody(r)
+	if err != nil {
+		return GetLLMResponseRequest{}, err
 	}
+	fields, err := decodeGetLLMResponseRequestFields(trimmedBody)
+	if err != nil {
+		return GetLLMResponseRequest{}, err
+	}
+	if err := validateGetLLMResponseRequiredFields(fields); err != nil {
+		return GetLLMResponseRequest{}, err
+	}
+	if err := validateGetLLMResponseMessage(fields["message"]); err != nil {
+		return GetLLMResponseRequest{}, err
+	}
+	return decodeGetLLMResponsePayload(trimmedBody)
+}
 
+func readGetLLMResponseRequestBody(r *http.Request) ([]byte, error) {
+	if r.Body == nil {
+		return nil, &strictJSONMissingFieldError{Field: "message"}
+	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return payload, err
+		return nil, err
 	}
-	r.Body = io.NopCloser(bytes.NewReader(body))
-
 	trimmedBody := bytes.TrimSpace(body)
 	if len(trimmedBody) == 0 {
 		trimmedBody = []byte("{}")
 	}
-
 	if field, ok := detectUnknownTopLevelJSONField[GetLLMResponseRequest](trimmedBody); ok {
-		return payload, &strictJSONUnknownFieldError{Field: field}
+		return nil, &strictJSONUnknownFieldError{Field: field}
 	}
+	return trimmedBody, nil
+}
 
+func decodeGetLLMResponseRequestFields(trimmedBody []byte) (map[string]json.RawMessage, error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(trimmedBody, &fields); err != nil {
-		return payload, err
+		return nil, err
 	}
-	for _, field := range []string{"message", "engineConfigId", "thinking", "projectConfigId", "permissionMode", "searchEnabled"} {
-		value, ok := fields[field]
-		if !ok {
-			return payload, &strictJSONMissingFieldError{Field: field}
-		}
-		if !bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
-			continue
-		}
-		switch field {
-		case "message":
-			return payload, &llmResponseValidationError{
-				message: "message: Input should be a valid dictionary",
-			}
-		case "engineConfigId", "projectConfigId":
-			return payload, &llmResponseValidationError{
-				message: field + ": Input should be a valid string",
-			}
-		case "thinking", "searchEnabled":
-			return payload, &llmResponseValidationError{
-				message: field + ": Input should be a valid boolean",
-			}
-		case "permissionMode":
-			return payload, &llmResponseValidationError{
-				message: "permissionMode: Input should be 'minimal', 'yolo' or 'config_toml_custom'",
-			}
-		}
-	}
-	if err := validateGetLLMResponseMessage(fields["message"]); err != nil {
-		return payload, err
-	}
+	return fields, nil
+}
 
+func validateGetLLMResponseRequiredFields(fields map[string]json.RawMessage) error {
+	for _, field := range getLLMResponseRequiredFields {
+		if err := validateGetLLMResponseRequiredField(fields, field); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateGetLLMResponseRequiredField(fields map[string]json.RawMessage, field string) error {
+	value, ok := fields[field]
+	if !ok {
+		return &strictJSONMissingFieldError{Field: field}
+	}
+	if !bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return nil
+	}
+	return &llmResponseValidationError{message: getLLMResponseNullFieldValidationMessages[field]}
+}
+
+func decodeGetLLMResponsePayload(trimmedBody []byte) (GetLLMResponseRequest, error) {
+	var payload GetLLMResponseRequest
 	decoder := json.NewDecoder(bytes.NewReader(trimmedBody))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&payload); err != nil {
