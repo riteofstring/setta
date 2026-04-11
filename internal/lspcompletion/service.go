@@ -33,6 +33,36 @@ type Service struct {
 
 var tempSnapshotLabelPattern = regexp.MustCompile(`__[0-9a-f]{32}$`)
 
+var completionKindTypes = [...]string{
+	"",
+	"File",
+	"Module",
+	"Namespace",
+	"Package",
+	"Class",
+	"Method",
+	"Property",
+	"Field",
+	"Constructor",
+	"Enum",
+	"Interface",
+	"Function",
+	"Variable",
+	"Constant",
+	"String",
+	"Number",
+	"Boolean",
+	"Array",
+	"Object",
+	"Key",
+	"Null",
+	"EnumMember",
+	"Struct",
+	"Event",
+	"Operator",
+	"TypeParameter",
+}
+
 type snapshotCompleter interface {
 	CompleteSnapshot(context.Context, lsp.SnapshotCompletionRequest) (lsp.CompletionResult, error)
 }
@@ -249,60 +279,8 @@ func mapCodeMirrorCompletions(result lsp.CompletionResult) []CodeMirrorCompletio
 }
 
 func completionKindType(kind int) string {
-	switch kind {
-	case 1:
-		return "File"
-	case 2:
-		return "Module"
-	case 3:
-		return "Namespace"
-	case 4:
-		return "Package"
-	case 5:
-		return "Class"
-	case 6:
-		return "Method"
-	case 7:
-		return "Property"
-	case 8:
-		return "Field"
-	case 9:
-		return "Constructor"
-	case 10:
-		return "Enum"
-	case 11:
-		return "Interface"
-	case 12:
-		return "Function"
-	case 13:
-		return "Variable"
-	case 14:
-		return "Constant"
-	case 15:
-		return "String"
-	case 16:
-		return "Number"
-	case 17:
-		return "Boolean"
-	case 18:
-		return "Array"
-	case 19:
-		return "Object"
-	case 20:
-		return "Key"
-	case 21:
-		return "Null"
-	case 22:
-		return "EnumMember"
-	case 23:
-		return "Struct"
-	case 24:
-		return "Event"
-	case 25:
-		return "Operator"
-	case 26:
-		return "TypeParameter"
-	default:
+	if kind <= 0 || kind >= len(completionKindTypes) {
 		return ""
 	}
+	return completionKindTypes[kind]
 }

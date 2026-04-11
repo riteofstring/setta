@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -138,6 +139,28 @@ func TestServiceTextFieldCompletionDoesNotBlockRuntimeMutation(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for delayed completion")
+	}
+}
+
+func TestMapCodeMirrorCompletionsFiltersTempLabelsAndMapsKinds(t *testing.T) {
+	t.Parallel()
+
+	completions := mapCodeMirrorCompletions(lsp.CompletionResult{
+		Items: []lsp.CompletionItem{
+			{Label: "fixtureCompletion", Kind: 12},
+			{Label: "fixture__0123456789abcdef0123456789abcdef", Kind: 5},
+			{Label: "plainValue", Kind: 13},
+			{Label: "unknownKind", Kind: 999},
+		},
+	})
+
+	expected := []CodeMirrorCompletion{
+		{Label: "fixtureCompletion", Type: "Function"},
+		{Label: "plainValue", Type: "Variable"},
+		{Label: "unknownKind", Type: ""},
+	}
+	if !reflect.DeepEqual(completions, expected) {
+		t.Fatalf("unexpected mapped completions %#v, want %#v", completions, expected)
 	}
 }
 
