@@ -33,10 +33,16 @@ import {
 } from "utils/endpointUtils";
 import type {
   PluginBlockedCapability,
+  PluginInstallerBackend,
   PluginInstallResponse,
   PluginListEntry,
   PluginRestartCapability,
+  PluginScope,
   PluginStatusEntry,
+} from "utils/generatedTypes";
+import {
+  PluginInstallerBackendEnum,
+  PluginScopeEnum,
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
 import {
@@ -51,12 +57,12 @@ import {
   isLinkedLocalPluginSource,
   parsePluginConfigDraft,
 } from "./PluginsPane.helpers";
-type InstallScope = "workspace" | "setta_files" | "global";
-type InstallBackend = "auto" | "pip" | "uv";
 type PluginActionStatus = {
   type: "error" | "success" | "warning";
   message: string;
 };
+type InstallScope = PluginScope;
+type InstallBackend = PluginInstallerBackend;
 type PluginInstallSummary = PluginInstallResponse;
 type PluginPaneSummary = {
   id: string;
@@ -298,9 +304,15 @@ function PluginsPaneInstallSection({
             className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
             disabled={disabled}
           >
-            <option value="workspace">workspace</option>
-            <option value="setta_files">setta_files</option>
-            <option value="global">global</option>
+            <option value={PluginScopeEnum.workspace}>
+              {PluginScopeEnum.workspace}
+            </option>
+            <option value={PluginScopeEnum.setta_files}>
+              {PluginScopeEnum.setta_files}
+            </option>
+            <option value={PluginScopeEnum.global}>
+              {PluginScopeEnum.global}
+            </option>
           </select>
           <select
             value={installer}
@@ -311,9 +323,15 @@ function PluginsPaneInstallSection({
             className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
             disabled={disabled}
           >
-            <option value="auto">auto</option>
-            <option value="pip">pip</option>
-            <option value="uv">uv</option>
+            <option value={PluginInstallerBackendEnum.auto}>
+              {PluginInstallerBackendEnum.auto}
+            </option>
+            <option value={PluginInstallerBackendEnum.pip}>
+              {PluginInstallerBackendEnum.pip}
+            </option>
+            <option value={PluginInstallerBackendEnum.uv}>
+              {PluginInstallerBackendEnum.uv}
+            </option>
           </select>
           <label className="flex items-center gap-1 text-[11px] text-setta-600 dark:text-setta-300">
             <input
@@ -513,8 +531,10 @@ function PluginDiscoveryStatusSection({
 }
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
-  const [scope, setScope] = useState<InstallScope>("workspace");
-  const [installer, setInstaller] = useState<InstallBackend>("auto");
+  const [scope, setScope] = useState<InstallScope>(PluginScopeEnum.workspace);
+  const [installer, setInstaller] = useState<InstallBackend>(
+    PluginInstallerBackendEnum.auto,
+  );
   const [enableAfterInstall, setEnableAfterInstall] = useState(true);
   const [busyActionKeys, setBusyActionKeys] = useState<Set<string>>(
     () => new Set(),

@@ -3645,7 +3645,7 @@ export type PluginInstallResponse = {
 /**
  * PluginInstallerBackend
  */
-type PluginInstallerBackend = "auto" | "pip" | "uv";
+export type PluginInstallerBackend = "auto" | "pip" | "uv";
 
 /**
  * PluginListEntry
@@ -3847,7 +3847,7 @@ type PluginRuntimeState =
 /**
  * PluginScope
  */
-type PluginScope = "workspace" | "setta_files" | "global";
+export type PluginScope = "workspace" | "setta_files" | "global";
 
 /**
  * PluginSourceManager

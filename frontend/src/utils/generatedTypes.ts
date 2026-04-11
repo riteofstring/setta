@@ -3901,6 +3901,13 @@ export const ParameterPassingStyleEnum = {
   KEYWORD_ONLY: "KEYWORD_ONLY",
 } as const;
 
+export const PluginInstallerBackendEnum = {
+  auto: "auto",
+  pip: "pip",
+  uv: "uv",
+} as const;
+export type PluginInstallerBackend = gt.PluginInstallerBackend;
+
 export const PluginRuntimeStateEnum = {
   active: "active",
   disabled: "disabled",
@@ -3908,6 +3915,13 @@ export const PluginRuntimeStateEnum = {
   shadowed: "shadowed",
   pending_restart: "pending_restart",
 } as const;
+
+export const PluginScopeEnum = {
+  workspace: "workspace",
+  setta_files: "setta_files",
+  global: "global",
+} as const;
+export type PluginScope = gt.PluginScope;
 
 export const ProjectCodegenLanguageEnum = {
   python: "python",
