@@ -102,36 +102,52 @@ class ListenerHotReloader:
 
     async def _run_reload_cycle(self, *, reload_module: bool) -> None:
         async with self._reload_lock:
-            try:
-                if not reload_module:
-                    builder = self._builder
-                else:
-                    importlib.invalidate_caches()
-                    if self._module_name in sys.modules:
-                        module = importlib.reload(sys.modules[self._module_name])
-                    else:
-                        module = importlib.import_module(self._module_name)
-                    builder = getattr(module, self._builder_name, None)
-                    if builder is None:
-                        raise AttributeError(
-                            f"Module {self._module_name!r} lacks builder {self._builder_name!r}"
-                        )
-                    if not callable(builder):
-                        raise TypeError(
-                            f"Builder attribute {self._builder_name!r} in module {self._module_name!r} is not callable"
-                        )
-            except Exception:
-                logger.exception(
-                    "Failed to resolve listener callback builder %s in module %s",
-                    self._builder_name,
-                    self._module_name,
-                )
-                raise
+            builder = self._resolve_reload_builder(reload_module=reload_module)
             self._builder = builder
             await self._listener.reload_callbacks(
                 builder,
                 trigger_refresh=self._trigger_refresh,
             )
+
+    def _resolve_reload_builder(
+        self,
+        *,
+        reload_module: bool,
+    ) -> "ListenerCallbackBuilder":
+        if not reload_module:
+            return self._builder
+        try:
+            module = self._reload_builder_module()
+            return self._builder_from_module(module)
+        except Exception:
+            logger.exception(
+                "Failed to resolve listener callback builder %s in module %s",
+                self._builder_name,
+                self._module_name,
+            )
+            raise
+
+    def _reload_builder_module(self) -> ModuleType:
+        importlib.invalidate_caches()
+        module = sys.modules.get(self._module_name)
+        if module is not None:
+            return importlib.reload(module)
+        return importlib.import_module(self._module_name)
+
+    def _builder_from_module(
+        self,
+        module: ModuleType,
+    ) -> "ListenerCallbackBuilder":
+        builder = getattr(module, self._builder_name, None)
+        if builder is None:
+            raise AttributeError(
+                f"Module {self._module_name!r} lacks builder {self._builder_name!r}"
+            )
+        if not callable(builder):
+            raise TypeError(
+                f"Builder attribute {self._builder_name!r} in module {self._module_name!r} is not callable"
+            )
+        return builder
 
     @staticmethod
     def _resolve_builder_metadata(

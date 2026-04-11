@@ -51,21 +51,23 @@ class TestSettaListenerHotReload:
         os.utime(module_path, (new_mtime, new_mtime))
 
     def _write_listener_module(self, module_path: Path, version: str) -> None:
-        module_path.write_text(
-            textwrap.dedent(
-                f"""
-                def build_callbacks(listener):
-                    record = listener._test_invocations
+        self._write_module_text(
+            module_path,
+            f"""
+            def build_callbacks(listener):
+                record = listener._test_invocations
 
-                    @listener.listen(
-                        deps=("Welcome",),
-                        run_on_refresh=True,
-                    )
-                    def on_change(state, ctx):
-                        record.append("{version}")
-                """
-            )
+                @listener.listen(
+                    deps=("Welcome",),
+                    run_on_refresh=True,
+                )
+                def on_change(state, ctx):
+                    record.append("{version}")
+            """,
         )
+
+    def _write_module_text(self, module_path: Path, contents: str) -> None:
+        module_path.write_text(textwrap.dedent(contents))
         self._bump_mtime(module_path, self._mtime_offset)
         self._mtime_offset += 1.0
         importlib.invalidate_caches()
@@ -297,6 +299,70 @@ class TestSettaListenerHotReload:
 
         with pytest.raises(ValueError):
             listener.start(builder=builder)
+
+    async def test_reload_now_raises_when_reloaded_module_lacks_builder(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        with tempfile.TemporaryDirectory(
+            dir=_REPO_ROOT,
+            prefix="hot_reload_tmp_",
+        ) as tmp_dir:
+            module_dir = self._prepare_package_dir(tmp_dir)
+            module_name = f"{module_dir.name}.hot_reload_missing_builder"
+            module_path = module_dir / "hot_reload_missing_builder.py"
+            try:
+                self._write_listener_module(module_path, "v1")
+                module = importlib.import_module(module_name)
+                reloader = ListenerHotReloader(
+                    listener=listener,
+                    builder=module.build_callbacks,
+                )
+
+                self._write_module_text(
+                    module_path,
+                    """
+                    def replacement_callbacks(listener):
+                        return None
+                    """,
+                )
+                delattr(sys.modules[module_name], "build_callbacks")
+
+                with pytest.raises(AttributeError, match="lacks builder"):
+                    await reloader.reload_now(reload_module=True)
+            finally:
+                sys.modules.pop(module_name, None)
+                sys.modules.pop(module_dir.name, None)
+
+    async def test_reload_now_raises_when_reloaded_builder_is_not_callable(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        with tempfile.TemporaryDirectory(
+            dir=_REPO_ROOT,
+            prefix="hot_reload_tmp_",
+        ) as tmp_dir:
+            module_dir = self._prepare_package_dir(tmp_dir)
+            module_name = f"{module_dir.name}.hot_reload_invalid_builder"
+            module_path = module_dir / "hot_reload_invalid_builder.py"
+            try:
+                self._write_listener_module(module_path, "v1")
+                module = importlib.import_module(module_name)
+                reloader = ListenerHotReloader(
+                    listener=listener,
+                    builder=module.build_callbacks,
+                )
+
+                self._write_module_text(
+                    module_path,
+                    """
+                    build_callbacks = "not callable"
+                    """,
+                )
+
+                with pytest.raises(TypeError, match="is not callable"):
+                    await reloader.reload_now(reload_module=True)
+            finally:
+                sys.modules.pop(module_name, None)
+                sys.modules.pop(module_dir.name, None)
 
     @staticmethod
     def _init_listener_invocations(listener: SettaListener) -> list[str]:
