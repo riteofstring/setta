@@ -268,41 +268,73 @@ func (b *metadataRenderedListenerValueBuilder) render(key codegen.PythonDependen
 	if renderedValue, ok := b.rendered[key]; ok {
 		return renderedValue.value, renderedValue.ok
 	}
+	if immediate, ok := b.resolveImmediateValue(key); ok {
+		return b.cacheRenderedValue(key, immediate)
+	}
+	node, done, ok := b.beginNodeRender(key)
+	if !ok {
+		return b.cacheRenderedValue(key, renderedListenerValue{})
+	}
+	defer done()
+
+	childValues, ok := b.renderChildValues(node)
+	if !ok {
+		return b.cacheRenderedValue(key, renderedListenerValue{})
+	}
+	renderedValue, ok := b.formatNodeValue(node, childValues)
+	if !ok {
+		return b.cacheRenderedValue(key, renderedListenerValue{})
+	}
+	return b.cacheRenderedValue(
+		key,
+		renderedListenerValue{
+			value: renderedValue,
+			ok:    true,
+		},
+	)
+}
+
+func (b *metadataRenderedListenerValueBuilder) resolveImmediateValue(
+	key codegen.PythonDependencyKey,
+) (renderedListenerValue, bool) {
 	if override, ok := b.overrides[key]; ok {
-		b.rendered[key] = renderedListenerValue{
+		return renderedListenerValue{
 			value: override,
 			ok:    true,
-		}
-		return override, true
+		}, true
 	}
-	if _, ok := b.affected[key]; !ok {
-		if current, ok := b.current[key]; ok {
-			b.rendered[key] = renderedListenerValue{
-				value: current,
-				ok:    true,
-			}
-			return current, true
-		}
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
+	if _, ok := b.affected[key]; ok {
+		return renderedListenerValue{}, false
 	}
+	current, ok := b.current[key]
+	return renderedListenerValue{
+		value: current,
+		ok:    ok,
+	}, true
+}
+
+func (b *metadataRenderedListenerValueBuilder) beginNodeRender(
+	key codegen.PythonDependencyKey,
+) (codegen.PythonDependencyNode, func(), bool) {
 	if b.graph == nil {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
+		return nil, nil, false
 	}
 	if _, ok := b.visiting[key]; ok {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
+		return nil, nil, false
 	}
 	node, ok := b.graph.Node(key)
 	if !ok || !node.Base().IncludeInCodegen {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
+		return nil, nil, false
 	}
-
 	b.visiting[key] = struct{}{}
-	defer delete(b.visiting, key)
+	return node, func() {
+		delete(b.visiting, key)
+	}, true
+}
 
+func (b *metadataRenderedListenerValueBuilder) renderChildValues(
+	node codegen.PythonDependencyNode,
+) (map[codegen.PythonDependencyKey]string, bool) {
 	childValues := map[codegen.PythonDependencyKey]string{}
 	for _, depKey := range orderedRealtimeDependencyKeys(node.Base().Deps, node.Base().DepOrder) {
 		if !node.Base().Deps[depKey] {
@@ -310,12 +342,17 @@ func (b *metadataRenderedListenerValueBuilder) render(key codegen.PythonDependen
 		}
 		renderedValue, ok := b.render(depKey)
 		if !ok {
-			b.rendered[key] = renderedListenerValue{}
-			return "", false
+			return nil, false
 		}
 		childValues[depKey] = renderedValue
 	}
+	return childValues, true
+}
 
+func (b *metadataRenderedListenerValueBuilder) formatNodeValue(
+	node codegen.PythonDependencyNode,
+	childValues map[codegen.PythonDependencyKey]string,
+) (string, bool) {
 	codec := codegen.NewPythonValueCodec(
 		b.graph,
 		func(depKey codegen.PythonDependencyKey) string {
@@ -325,40 +362,35 @@ func (b *metadataRenderedListenerValueBuilder) render(key codegen.PythonDependen
 			Mode: codegen.PythonValueModeLiveRuntime,
 		},
 	)
-	var (
-		renderedValue string
-		err           error
-	)
+
 	switch typed := node.(type) {
 	case *codegen.PythonParamNode:
 		if typed.CodeObjectType == "PasswordParam" {
-			b.rendered[key] = renderedListenerValue{}
 			return "", false
 		}
-		renderedValue, err = codec.FormatParamExpression(typed)
+		renderedValue, err := codec.FormatParamExpression(typed)
+		if err != nil {
+			return "", false
+		}
+		return renderedValue, true
 	case *codegen.PythonSectionNode:
 		if typed.SectionType == "MetaControl" && typed.ControlCodeObjType == "PasswordParam" {
-			b.rendered[key] = renderedListenerValue{}
 			return "", false
 		}
-		var handled bool
-		renderedValue, handled, err = codec.FormatSection(typed)
-		if !handled {
-			b.rendered[key] = renderedListenerValue{}
+		renderedValue, handled, err := codec.FormatSection(typed)
+		if err != nil || !handled {
 			return "", false
 		}
+		return renderedValue, true
 	default:
-		b.rendered[key] = renderedListenerValue{}
 		return "", false
 	}
-	if err != nil {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
-	}
+}
 
-	b.rendered[key] = renderedListenerValue{
-		value: renderedValue,
-		ok:    true,
-	}
-	return renderedValue, true
+func (b *metadataRenderedListenerValueBuilder) cacheRenderedValue(
+	key codegen.PythonDependencyKey,
+	value renderedListenerValue,
+) (string, bool) {
+	b.rendered[key] = value
+	return value.value, value.ok
 }
