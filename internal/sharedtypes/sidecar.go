@@ -590,62 +590,113 @@ func marshalSemanticSidecarJSON(value any) ([]byte, error) {
 }
 
 func mergeSemanticSidecarStructFields(value reflect.Value, normalized any) (any, error) {
+	value, terminal, done := semanticSidecarTerminalMergeValue(value, normalized)
+	if done {
+		return terminal, nil
+	}
+
+	object, ok := terminal.(map[string]any)
+	if !ok {
+		return terminal, nil
+	}
+
+	return mergeSemanticSidecarObjectFields(value, object)
+}
+
+func semanticSidecarTerminalMergeValue(value reflect.Value, normalized any) (reflect.Value, any, bool) {
 	if !value.IsValid() {
-		return normalized, nil
+		return reflect.Value{}, normalized, true
 	}
 	for value.Kind() == reflect.Interface || value.Kind() == reflect.Pointer {
 		if value.IsNil() {
-			return nil, nil
+			return reflect.Value{}, nil, true
 		}
 		value = value.Elem()
 	}
 	if value.Kind() != reflect.Struct {
-		return normalized, nil
+		return reflect.Value{}, normalized, true
 	}
+	return value, normalized, false
+}
 
-	object, ok := normalized.(map[string]any)
-	if !ok {
-		return normalized, nil
-	}
-
+func mergeSemanticSidecarObjectFields(value reflect.Value, object map[string]any) (map[string]any, error) {
 	valueType := value.Type()
 	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
 		field := valueType.Field(fieldIndex)
 		if !field.IsExported() {
 			continue
 		}
-		fieldValue := value.Field(fieldIndex)
-		if field.Anonymous {
-			merged, err := mergeSemanticSidecarStructFields(fieldValue, object)
-			if err != nil {
-				return nil, err
-			}
-			if mergedObject, ok := merged.(map[string]any); ok {
-				object = mergedObject
-			}
-			continue
-		}
 
-		name, skip := semanticSidecarJSONFieldName(field)
-		if skip {
-			continue
+		updatedObject, err := mergeSemanticSidecarObjectField(
+			valueType,
+			field,
+			value.Field(fieldIndex),
+			object,
+		)
+		if err != nil {
+			return nil, err
 		}
-		existing, ok := object[name]
-		if !ok {
-			normalizedField, err := normalizeSemanticSidecarValue(fieldValue.Interface())
-			if err != nil {
-				return nil, fmt.Errorf("%s.%s: %w", valueType, field.Name, err)
-			}
-			object[name] = normalizedField
-			continue
-		}
-		mergedField, err := mergeSemanticSidecarStructFields(fieldValue, existing)
+		object = updatedObject
+	}
+	return object, nil
+}
+
+func mergeSemanticSidecarObjectField(
+	valueType reflect.Type,
+	field reflect.StructField,
+	fieldValue reflect.Value,
+	object map[string]any,
+) (map[string]any, error) {
+	if field.Anonymous {
+		return mergeSemanticSidecarEmbeddedObjectField(fieldValue, object)
+	}
+
+	name, skip := semanticSidecarJSONFieldName(field)
+	if skip {
+		return object, nil
+	}
+
+	existing, exists := object[name]
+	mergedField, err := mergeSemanticSidecarNamedField(valueType, field, fieldValue, existing, exists)
+	if err != nil {
+		return nil, err
+	}
+	object[name] = mergedField
+	return object, nil
+}
+
+func mergeSemanticSidecarEmbeddedObjectField(fieldValue reflect.Value, object map[string]any) (map[string]any, error) {
+	merged, err := mergeSemanticSidecarStructFields(fieldValue, object)
+	if err != nil {
+		return nil, err
+	}
+	mergedObject, ok := merged.(map[string]any)
+	if !ok {
+		return object, nil
+	}
+	return mergedObject, nil
+}
+
+func mergeSemanticSidecarNamedField(
+	valueType reflect.Type,
+	field reflect.StructField,
+	fieldValue reflect.Value,
+	existing any,
+	exists bool,
+) (any, error) {
+	if !exists {
+		normalizedField, err := normalizeSemanticSidecarValue(fieldValue.Interface())
 		if err != nil {
 			return nil, fmt.Errorf("%s.%s: %w", valueType, field.Name, err)
 		}
-		object[name] = mergedField
+		return normalizedField, nil
 	}
-	return object, nil
+
+	mergedField, err := mergeSemanticSidecarStructFields(fieldValue, existing)
+	if err != nil {
+		return nil, fmt.Errorf("%s.%s: %w", valueType, field.Name, err)
+	}
+	return mergedField, nil
 }
 
 func semanticSidecarJSONFieldName(field reflect.StructField) (string, bool) {
