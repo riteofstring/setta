@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"io/fs"
 	"os"
@@ -62,6 +63,18 @@ type reloadLoopDependencies struct {
 	stopTimeout         time.Duration
 }
 
+type reloadLoopRuntime struct {
+	deps           reloadLoopDependencies
+	poller         reloadPoller
+	root           string
+	stdin          io.Reader
+	stdout         io.Writer
+	stderr         io.Writer
+	restartArgs    []string
+	currentBinary  string
+	currentProcess reloadProcess
+}
+
 func defaultReloadLoopDependencies() reloadLoopDependencies {
 	return reloadLoopDependencies{
 		resolveCheckoutRoot: resolveReloadSourceCheckoutRoot,
@@ -80,80 +93,142 @@ func runDefaultStartReloadLoop(cwd string, args []string, stdin io.Reader, stdou
 }
 
 func runReloadLoopWithDeps(cwd string, args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, deps reloadLoopDependencies) error {
-	root, err := deps.resolveCheckoutRoot(cwd)
-	if err != nil {
-		return err
-	}
-
-	poller, err := deps.newPoller(root, deps.pollInterval)
+	loop, err := newReloadLoopRuntime(cwd, args, stdin, stdout, stderr, deps)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = poller.Close()
+		_ = loop.Close()
 	}()
-
-	currentBinary, err := deps.buildServerBinary(root)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = deps.cleanupBinary(currentBinary)
-	}()
-
-	currentProcess, err := deps.startBinary(currentBinary, args, stdin, stdout, stderr)
-	if err != nil {
-		return err
-	}
-
-	restartArgs := buildReloadRestartArgs(args)
 	signalCtx, stopSignals := deps.notifyContext(context.Background(), os.Interrupt)
 	defer stopSignals()
 
 	for {
 		select {
 		case <-signalCtx.Done():
-			_ = currentProcess.Stop(deps.stopTimeout)
+			loop.stopCurrentProcessQuietly()
 			return nil
-		case err := <-currentProcess.Done():
+		case err := <-loop.currentProcess.Done():
 			return normalizeReloadProcessExit(err)
-		case err := <-poller.Errs():
-			_ = currentProcess.Stop(deps.stopTimeout)
+		case err := <-loop.poller.Errs():
+			loop.stopCurrentProcessQuietly()
 			return err
-		case _, ok := <-poller.Events():
+		case _, ok := <-loop.poller.Events():
 			if !ok {
-				_ = currentProcess.Stop(deps.stopTimeout)
+				loop.stopCurrentProcessQuietly()
 				return fmt.Errorf("reload watcher closed")
 			}
-
-			nextBinary, err := deps.buildServerBinary(root)
-			if err != nil {
-				if stderr != nil {
-					_, _ = fmt.Fprintf(stderr, "Setta reload build failed; keeping current server running: %v\n", err)
-				}
-				continue
-			}
-
-			if stderr != nil {
-				_, _ = fmt.Fprintln(stderr, "Source change detected; restarting Setta server...")
-			}
-			if err := currentProcess.Stop(deps.stopTimeout); err != nil {
-				_ = deps.cleanupBinary(nextBinary)
+			if err := loop.handleSourceChange(); err != nil {
 				return err
 			}
-
-			nextProcess, err := deps.startBinary(nextBinary, restartArgs, stdin, stdout, stderr)
-			if err != nil {
-				_ = deps.cleanupBinary(nextBinary)
-				return err
-			}
-
-			previousBinary := currentBinary
-			currentBinary = nextBinary
-			currentProcess = nextProcess
-			_ = deps.cleanupBinary(previousBinary)
 		}
 	}
+}
+
+func newReloadLoopRuntime(cwd string, args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, deps reloadLoopDependencies) (*reloadLoopRuntime, error) {
+	root, err := deps.resolveCheckoutRoot(cwd)
+	if err != nil {
+		return nil, err
+	}
+
+	poller, err := deps.newPoller(root, deps.pollInterval)
+	if err != nil {
+		return nil, err
+	}
+
+	loop := &reloadLoopRuntime{
+		deps:        deps,
+		poller:      poller,
+		root:        root,
+		stdin:       stdin,
+		stdout:      stdout,
+		stderr:      stderr,
+		restartArgs: buildReloadRestartArgs(args),
+	}
+	if err := loop.startProcess(args); err != nil {
+		_ = poller.Close()
+		return nil, err
+	}
+	return loop, nil
+}
+
+func (loop *reloadLoopRuntime) Close() error {
+	if loop == nil {
+		return nil
+	}
+	if loop.poller != nil {
+		_ = loop.poller.Close()
+	}
+	return loop.deps.cleanupBinary(loop.currentBinary)
+}
+
+func (loop *reloadLoopRuntime) handleSourceChange() error {
+	nextBinary, err := loop.deps.buildServerBinary(loop.root)
+	if err != nil {
+		loop.writeBuildFailure(err)
+		return nil
+	}
+	return loop.restartProcess(nextBinary)
+}
+
+func (loop *reloadLoopRuntime) restartProcess(nextBinary string) error {
+	loop.writeRestartNotice()
+	if err := loop.stopCurrentProcess(); err != nil {
+		_ = loop.deps.cleanupBinary(nextBinary)
+		return err
+	}
+
+	nextProcess, err := loop.deps.startBinary(nextBinary, loop.restartArgs, loop.stdin, loop.stdout, loop.stderr)
+	if err != nil {
+		_ = loop.deps.cleanupBinary(nextBinary)
+		return err
+	}
+
+	previousBinary := loop.currentBinary
+	loop.currentBinary = nextBinary
+	loop.currentProcess = nextProcess
+	_ = loop.deps.cleanupBinary(previousBinary)
+	return nil
+}
+
+func (loop *reloadLoopRuntime) startProcess(args []string) error {
+	binaryPath, err := loop.deps.buildServerBinary(loop.root)
+	if err != nil {
+		return err
+	}
+	process, err := loop.deps.startBinary(binaryPath, args, loop.stdin, loop.stdout, loop.stderr)
+	if err != nil {
+		_ = loop.deps.cleanupBinary(binaryPath)
+		return err
+	}
+	loop.currentBinary = binaryPath
+	loop.currentProcess = process
+	return nil
+}
+
+func (loop *reloadLoopRuntime) stopCurrentProcess() error {
+	if loop == nil {
+		return nil
+	}
+	return loop.currentProcess.Stop(loop.deps.stopTimeout)
+}
+
+func (loop *reloadLoopRuntime) stopCurrentProcessQuietly() {
+	_ = loop.stopCurrentProcess()
+}
+
+func (loop *reloadLoopRuntime) writeBuildFailure(err error) {
+	if loop == nil || loop.stderr == nil {
+		return
+	}
+	_, _ = fmt.Fprintf(loop.stderr, "Setta reload build failed; keeping current server running: %v\n", err)
+}
+
+func (loop *reloadLoopRuntime) writeRestartNotice() {
+	if loop == nil || loop.stderr == nil {
+		return
+	}
+	_, _ = fmt.Fprintln(loop.stderr, "Source change detected; restarting Setta server...")
 }
 
 func resolveReloadSourceCheckoutRoot(start string) (string, error) {
@@ -277,64 +352,79 @@ func (p *reloadSourcePoller) Close() error {
 
 func computeReloadSourceSignature(root string) (string, error) {
 	hasher := sha256.New()
-	appendPathState := func(rel string, info fs.FileInfo) {
-		_, _ = hasher.Write([]byte(rel))
-		_, _ = hasher.Write([]byte{0})
-		_, _ = hasher.Write([]byte(strconv.FormatInt(info.Size(), 10)))
-		_, _ = hasher.Write([]byte{0})
-		_, _ = hasher.Write([]byte(strconv.FormatInt(info.ModTime().UnixNano(), 10)))
-		_, _ = hasher.Write([]byte{0})
-	}
-
 	for _, rel := range reloadSourceFiles {
-		absolute := filepath.Join(root, filepath.FromSlash(rel))
-		info, err := os.Stat(absolute)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return "", fmt.Errorf("stat reload source file %s: %w", rel, err)
+		if err := appendReloadSourceFileSignature(hasher, root, rel); err != nil {
+			return "", err
 		}
-		if info.IsDir() {
-			continue
-		}
-		appendPathState(rel, info)
 	}
 
 	for _, rel := range reloadSourceDirectories {
-		absolute := filepath.Join(root, filepath.FromSlash(rel))
-		if _, err := os.Stat(absolute); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return "", fmt.Errorf("stat reload source directory %s: %w", rel, err)
-		}
-		if err := filepath.WalkDir(absolute, func(path string, d fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if d.IsDir() {
-				return nil
-			}
-			if filepath.Ext(d.Name()) != ".go" {
-				return nil
-			}
-			info, err := d.Info()
-			if err != nil {
-				return err
-			}
-			relative, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			appendPathState(filepath.ToSlash(relative), info)
-			return nil
-		}); err != nil {
-			return "", fmt.Errorf("walk reload source directory %s: %w", rel, err)
+		if err := appendReloadSourceDirectorySignature(hasher, root, rel); err != nil {
+			return "", err
 		}
 	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+func appendReloadSourceFileSignature(hasher hash.Hash, root string, rel string) error {
+	absolute := filepath.Join(root, filepath.FromSlash(rel))
+	info, err := os.Stat(absolute)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat reload source file %s: %w", rel, err)
+	}
+	if info.IsDir() {
+		return nil
+	}
+	appendReloadPathState(hasher, rel, info)
+	return nil
+}
+
+func appendReloadSourceDirectorySignature(hasher hash.Hash, root string, rel string) error {
+	absolute := filepath.Join(root, filepath.FromSlash(rel))
+	if _, err := os.Stat(absolute); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat reload source directory %s: %w", rel, err)
+	}
+	if err := filepath.WalkDir(absolute, func(path string, d fs.DirEntry, walkErr error) error {
+		return appendReloadWalkEntry(hasher, root, path, d, walkErr)
+	}); err != nil {
+		return fmt.Errorf("walk reload source directory %s: %w", rel, err)
+	}
+	return nil
+}
+
+func appendReloadWalkEntry(hasher hash.Hash, root string, path string, d fs.DirEntry, walkErr error) error {
+	if walkErr != nil {
+		return walkErr
+	}
+	if d.IsDir() || filepath.Ext(d.Name()) != ".go" {
+		return nil
+	}
+	info, err := d.Info()
+	if err != nil {
+		return err
+	}
+	relative, err := filepath.Rel(root, path)
+	if err != nil {
+		return err
+	}
+	appendReloadPathState(hasher, filepath.ToSlash(relative), info)
+	return nil
+}
+
+func appendReloadPathState(hasher hash.Hash, rel string, info fs.FileInfo) {
+	_, _ = hasher.Write([]byte(rel))
+	_, _ = hasher.Write([]byte{0})
+	_, _ = hasher.Write([]byte(strconv.FormatInt(info.Size(), 10)))
+	_, _ = hasher.Write([]byte{0})
+	_, _ = hasher.Write([]byte(strconv.FormatInt(info.ModTime().UnixNano(), 10)))
+	_, _ = hasher.Write([]byte{0})
 }
 
 func buildReloadServerBinary(root string) (string, error) {

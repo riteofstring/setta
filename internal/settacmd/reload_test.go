@@ -1,10 +1,13 @@
 package settacmd
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -114,6 +117,69 @@ func TestRunReloadLoopRestartsServerOnChange(t *testing.T) {
 	}
 	if len(startArgs[1]) != 3 || startArgs[1][2] != "--no-open" {
 		t.Fatalf("expected restart args to append --no-open, got %#v", startArgs[1])
+	}
+}
+
+func TestRunReloadLoopKeepsCurrentServerWhenReloadBuildFails(t *testing.T) {
+	t.Parallel()
+
+	poller := &fakeReloadPoller{
+		events: make(chan struct{}, 1),
+		errs:   make(chan error, 1),
+	}
+	poller.events <- struct{}{}
+
+	currentProcess := newFakeReloadProcess()
+	reloadAttempted := make(chan struct{})
+	var buildCalls int
+	var startCalls int
+	var stderr bytes.Buffer
+	go func() {
+		<-reloadAttempted
+		currentProcess.finish(nil)
+	}()
+	err := runReloadLoopWithDeps("/repo", []string{"--mode", "ide"}, nil, io.Discard, &stderr, reloadLoopDependencies{
+		resolveCheckoutRoot: func(root string) (string, error) {
+			return root, nil
+		},
+		newPoller: func(string, time.Duration) (reloadPoller, error) {
+			return poller, nil
+		},
+		buildServerBinary: func(string) (string, error) {
+			buildCalls++
+			if buildCalls == 1 {
+				return "/tmp/server-1", nil
+			}
+			close(reloadAttempted)
+			return "", errors.New("build failed")
+		},
+		startBinary: func(string, []string, io.Reader, io.Writer, io.Writer) (reloadProcess, error) {
+			startCalls++
+			return currentProcess, nil
+		},
+		cleanupBinary: func(string) error {
+			return nil
+		},
+		notifyContext: func(parent context.Context, signals ...os.Signal) (context.Context, context.CancelFunc) {
+			return context.WithCancel(parent)
+		},
+		pollInterval: 10 * time.Millisecond,
+		stopTimeout:  10 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("run reload loop: %v", err)
+	}
+	if currentProcess.stopped {
+		t.Fatal("expected current process to keep running after reload build failure")
+	}
+	if buildCalls != 2 {
+		t.Fatalf("expected two build attempts, got %d", buildCalls)
+	}
+	if startCalls != 1 {
+		t.Fatalf("expected one process start, got %d", startCalls)
+	}
+	if !strings.Contains(stderr.String(), "Setta reload build failed; keeping current server running: build failed") {
+		t.Fatalf("expected reload build failure log, got %q", stderr.String())
 	}
 }
 
