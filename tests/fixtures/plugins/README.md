@@ -11,8 +11,18 @@ Principles:
 
 Current fixtures:
 
-- `backend/`: backend-only plugin shell with a minimal Go entrypoint.
-- `backend-mcp-tools/`: Go-backed backend plugin that exposes stdio MCP tools.
+- `backend/`: backend-only plugin with Python entrypoint that registers one plugin route and one MCP tool.
+- `backend-codegen/`: backend-only plugin that registers a worker-based codegen target.
+- `backend-external-agent/`: backend-only plugin that registers external agent adapters.
+- `backend-language-server/`: backend-only plugin that registers a language server.
+- `backend-language-server-e2e/`: backend-only plugin for end-to-end language server UI/behavior testing.
+- `backend-mcp-tools/`: backend-only plugin that registers multiple MCP tools.
+- `backend-static-router/`: backend-only plugin that registers both API router and static directory.
+- `backend-worker-failure-api-version/`: intentional failure fixture for worker handshake API-version mismatch.
+- `backend-worker-failure-missing-method/`: intentional failure fixture for worker handshake required-method mismatch.
+- `backend-worker-failure-transport/`: intentional failure fixture for worker transport/process-exit errors.
+- `backend-worker-failure-timeout-startup/`: intentional failure fixture for backend startup timeout.
+- `backend-worker-failure-timeout-register/`: intentional failure fixture for backend register timeout.
 - `frontend/`: frontend-only plugin with generated ESM/CSS and section/pane/command registration.
 - `frontend-react/`: frontend-only plugin with a React-rendered plugin section kind.
 - `frontend-topnav/`: frontend-only plugin focused on top-nav action registration.
@@ -28,17 +38,17 @@ Target fixture catalog (coverage baseline):
 
 - Maintain at least 15 fixture plugins under `tests/fixtures/plugins/`.
 - Include fixtures for each category:
-- backend success paths (minimal Go backend shells)
+- backend success paths (router/static/MCP/LSP/external-agent/codegen)
 - frontend success paths (sections/panes/commands/top-nav)
 - full-stack success paths
 - content-only paths
-- deterministic validation/runtime failures (manifest, metadata mismatch, frontend registration errors)
+- deterministic validation/runtime failures (manifest, metadata mismatch, worker handshake/timeouts, frontend registration errors)
 - precedence/scope scenarios (`workspace`, `setta_files`, `global`, shadowing)
 
 Current count:
 
-- 22 fixture directories are currently present under `tests/fixtures/plugins/`.
-- 16 are standalone plugin roots (`setta.plugin.json` at fixture root).
+- 23 fixture directories are currently present under `tests/fixtures/plugins/`.
+- 22 are standalone plugin roots (`setta.plugin.json` at fixture root).
 - 1 (`metadata-mismatch-layout`) is an intentional multi-root archive fixture.
 
 Each fixture should include:

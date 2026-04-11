@@ -1,17 +1,10 @@
 # Docs Overview
 
-Start with the Guides and Reference sections for normal contributor work.
-The `plans/` tree is for working notes, not the default contributor entrypoint.
-
 ## Guides
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
-- `guides/dev-scripts.md` – command map for setup, generation, cleanup, testing, and browser helpers.
-- `guides/dependency-audits.md` – dependency audit and remediation policy, including release-age enforcement.
+- `guides/aws-remote-devbox.md` – phase-1 AWS remote dev box setup and operator runbook.
 - `guides/worktree-dev-quickstart.md` – create worktrees and run isolated dev instances with predictable ports.
 - `guides/browser-mcp-quickstart.md` – quickstart for Chrome DevTools MCP.
-- `guides/verification-checklist.md` – task-level verification expectations, including CDP requirements for UI work.
-- `guides/playwright-e2e-run.md` – direct usage notes for the Playwright runner helper.
-- `guides/chrome-repro-recording.md` – record headed Chrome repro bundles and hand them to Codex.
 - `guides/install-setta-desktop.md` – beginner desktop install flow (no repo required).
 - `guides/install-setta-desktop-macos.md` – macOS desktop install quickstart.
 - `guides/install-setta-desktop-windows.md` – Windows desktop install quickstart.
@@ -36,7 +29,7 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `reference/listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
 - `reference/logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `reference/lsp-diagnostics.md` – how LSP diagnostics are collected, broadcast, and surfaced (generated code + code sections).
-- `reference/mcp-system-overview.md` – explains the MCP server, tool catalog, client bridge, managed chat runtime, and frontend chat loop (plus third-party access).
+- `reference/mcp-system-overview.md` – explains the FastMCP server, client bridge, tool decorators, chat manager, and frontend chat loop (plus third-party access).
 - `reference/meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
 - `reference/remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.
 - `reference/setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
@@ -80,6 +73,7 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `notes/setta-assessment.md` – product/market assessment and positioning notes.
 
 ## Plans
+- `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
 - `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
 - `plans/ralph-mode.md` – planning notes for ralph mode.

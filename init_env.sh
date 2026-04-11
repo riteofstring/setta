@@ -4,10 +4,15 @@ set -e
 # watchfiles==0.24.0 (PyO3 0.22.x) does not support Python 3.14 yet.
 SETTA_PYTHON_VERSION="${SETTA_PYTHON_VERSION:-3.13}"
 SETTA_INIT_ENV_UPDATE_LOCK="${SETTA_INIT_ENV_UPDATE_LOCK:-0}"
+SETTA_MIN_RELEASE_AGE_DAYS_OVERRIDE="${SETTA_MIN_RELEASE_AGE_DAYS:-}"
 
 if [ -f "./supply_chain_policy.env" ]; then
   # shellcheck source=/dev/null
   . "./supply_chain_policy.env"
+fi
+
+if [ -n "${SETTA_MIN_RELEASE_AGE_DAYS_OVERRIDE}" ]; then
+  SETTA_MIN_RELEASE_AGE_DAYS="${SETTA_MIN_RELEASE_AGE_DAYS_OVERRIDE}"
 fi
 
 SETTA_EXCLUDE_NEWER=""
@@ -46,14 +51,12 @@ fi
 if [ "${SETTA_INIT_ENV_NO_INSTALL_PROJECT:-}" = "1" ]; then
   uv sync \
     --frozen \
-    --extra source \
     --extra dev \
     --python "${SETTA_PYTHON_VERSION}" \
     --no-install-project
 else
   uv sync \
     --frozen \
-    --extra source \
     --extra dev \
     --python "${SETTA_PYTHON_VERSION}"
 fi
