@@ -1,4 +1,5 @@
 import { getAgentRuns, getLlmChat, getLlmResponse } from "openapi/http";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { resetProjectStores } from "state/utils";
 import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
@@ -39,9 +40,14 @@ vi.mock("state/actions/frontendWebsocketAffinity", () => ({
   waitForFrontendAffinityToken: vi.fn(async () => "frontend-test-id"),
 }));
 
+vi.mock("state/actions/notifications", () => ({
+  addTemporaryNotification: vi.fn(),
+}));
+
 const mockedRouteGetAgentRuns = vi.mocked(getAgentRuns);
 const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
 const mockedRouteGetLLMResponse = vi.mocked(getLlmResponse);
+const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
@@ -164,6 +170,10 @@ describe("submitMessage", () => {
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.messages).toHaveLength(0);
     expect(details?.waitingForResponse).toBe(false);
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Reference image notes exceed 5000 characters.",
+      "warning",
+    );
   });
 
   it("falls back to status-derived errors when backend detail is absent", async () => {
@@ -194,6 +204,10 @@ describe("submitMessage", () => {
         false,
       ),
     ).rejects.toThrow("Chat request failed (status 503).");
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Chat request failed (status 503).",
+      "warning",
+    );
   });
 
   it("passes app-generation mode context through to the backend request", async () => {
@@ -404,7 +418,7 @@ describe("submitMessage", () => {
     expect(payload.searchEnabled).toBe(false);
   });
 
-  it("refreshes agent runs after successful submit hydration", async () => {
+  it("does not refetch agent runs after successful submit hydration", async () => {
     const returnedChatId = "chat-submit-provenance-sync";
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
@@ -431,34 +445,6 @@ describe("submitMessage", () => {
         appGenerationByMessageId: {},
       },
     });
-    mockedRouteGetAgentRuns.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: [
-        {
-          id: "run-provenance-sync",
-          profileId: null,
-          status: "completed",
-          startedAt: "2026-06-10T00:00:00Z",
-          finishedAt: "2026-06-10T00:00:01Z",
-          events: [],
-          inputs: {
-            runType: "llm_chat",
-            chatId: returnedChatId,
-            engineConfigId: "engine-primary",
-            projectConfigId: "project-config-id",
-            messages: [],
-          },
-          outputs: {
-            name: "Synced",
-            nameSource: "llm",
-          },
-          toolCalls: [],
-          cost: null,
-        },
-      ],
-    });
-
     await expect(
       submitMessage(
         null,
@@ -473,14 +459,7 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBe(returnedChatId);
 
-    await expect.poll(() => mockedRouteGetAgentRuns.mock.calls.length).toBe(1);
-    await expect
-      .poll(() =>
-        useAIStore
-          .getState()
-          .agentRuns.some((run) => run.inputs?.chatId === returnedChatId),
-      )
-      .toBe(true);
+    expect(mockedRouteGetAgentRuns).not.toHaveBeenCalled();
   });
 
   it("hydrates app-generation provenance from the chat response immediately after submit", async () => {

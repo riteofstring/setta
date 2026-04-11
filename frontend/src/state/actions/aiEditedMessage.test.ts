@@ -282,4 +282,36 @@ describe("submitEditedMessage", () => {
       "msg-plain": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
     });
   });
+
+  it("does not refetch agent runs after a successful edited submit", async () => {
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: buildGetLLMResponseResponse("branch-chat-no-run-refetch"),
+    });
+
+    const result = await submitEditedMessage({
+      parentChatId: chatId,
+      messages: [
+        createUserChatMessage({
+          id: "msg-edit",
+          content: [createMessageTextContent({ text: "Original prompt" })],
+          attachments: [],
+        }),
+      ],
+      messageId: "msg-edit",
+      message: "Edited prompt",
+      attachments: [],
+      thinking: false,
+      engineConfigId: "engine-1",
+      isExternalEngine: false,
+      agentProfileId: null,
+      sectionId: null,
+      pendingSurfaceId: TARGET_SURFACE_ID,
+      appGeneration: null,
+    });
+
+    expect(result).toBe("branch-chat-no-run-refetch");
+    expect(mockedRouteGetAgentRuns).not.toHaveBeenCalled();
+  });
 });

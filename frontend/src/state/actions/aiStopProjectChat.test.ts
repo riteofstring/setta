@@ -904,12 +904,18 @@ describe("stopProjectChatResponse", () => {
     const stopped = await stopProjectChatResponse(chatId, true);
 
     expect(stopped).toBe(true);
-    expect(mockedRouteGetAgentRuns.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(mockedRouteGetAgentRuns).toHaveBeenCalledTimes(1);
     expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
       body: { runId: "run-refresh" },
     });
     expect(mockedRouteGetExternalAgentChat).not.toHaveBeenCalled();
     expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+    expect(useAIStore.getState().agentRuns).toEqual([
+      expect.objectContaining({
+        id: "run-refresh",
+        status: RunStatusEnum.cancelled,
+      }),
+    ]);
   });
 
   it("rehydrates and warns when external stop cannot find a running run after refresh", async () => {

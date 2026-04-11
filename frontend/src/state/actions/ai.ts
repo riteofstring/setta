@@ -113,7 +113,6 @@ import {
   ChatPermissionMode,
   ChatPermissionModeEnum,
   ChatRoleEnum,
-  ChatSectionState,
   createMessageTextContent,
   EngineConfig,
   ExternalAgentConfig,
@@ -156,6 +155,7 @@ import {
 type ExternalAgentHealthStatus = HttpapiExternalAgentPreflightStatus;
 type ManagedApiKeysSnapshot = HttpapiLlmapiKeysSnapshot;
 type APIKeys = ManagedApiKeysSnapshot["apiKeys"];
+type AIStateSnapshot = ReturnType<typeof useAIStore.getState>;
 export { persistChatSectionState };
 const scopeViolationToastTimeouts = new Map<
   string,
@@ -219,6 +219,12 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   permissionMode: ChatPermissionModeEnum.minimal,
   searchEnabled: true,
 };
+function valueOrNull<T>(value: T | null | undefined): T | null {
+  return value ?? null;
+}
+function arrayOrEmpty<T>(value: T[] | null | undefined): T[] {
+  return value ?? [];
+}
 function requireNonNull<T>(
   value: T | null | undefined,
   message: string,
@@ -271,17 +277,17 @@ function normalizeExternalAgentConfig(
 ): ExternalAgentConfig {
   return {
     ...config,
-    approvalPolicy: config.approvalPolicy ?? null,
-    baseUrl: config.baseUrl ?? null,
-    codexSkipGitRepoCheck: config.codexSkipGitRepoCheck ?? null,
-    commandPath: config.commandPath ?? null,
-    defaultModel: config.defaultModel ?? null,
-    envVarWhitelist: config.envVarWhitelist ?? [],
-    sandboxPolicy: config.sandboxPolicy ?? null,
-    settingsFilePath: config.settingsFilePath ?? null,
-    settingsManagedBlock: config.settingsManagedBlock ?? null,
-    settingsSources: config.settingsSources ?? [],
-    workingDir: config.workingDir ?? null,
+    approvalPolicy: valueOrNull(config.approvalPolicy),
+    baseUrl: valueOrNull(config.baseUrl),
+    codexSkipGitRepoCheck: valueOrNull(config.codexSkipGitRepoCheck),
+    commandPath: valueOrNull(config.commandPath),
+    defaultModel: valueOrNull(config.defaultModel),
+    envVarWhitelist: arrayOrEmpty(config.envVarWhitelist),
+    sandboxPolicy: valueOrNull(config.sandboxPolicy),
+    settingsFilePath: valueOrNull(config.settingsFilePath),
+    settingsManagedBlock: valueOrNull(config.settingsManagedBlock),
+    settingsSources: arrayOrEmpty(config.settingsSources),
+    workingDir: valueOrNull(config.workingDir),
   } as ExternalAgentConfig;
 }
 function normalizeExternalAgentHealth(
@@ -314,9 +320,6 @@ function normalizeTranscriptionProfile(
     ...profile,
     language: profile.language ?? null,
   } as TranscriptionProfile;
-}
-function refreshAgentRunsAfterSubmit(): void {
-  void loadAgentRuns();
 }
 function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -614,6 +617,7 @@ function asProviderDictationTranscriptionError(
     status: undefined,
   });
 }
+// eslint-disable-next-line complexity
 export async function transcribeChatAudioWithProfile(
   transcriptionProfileId: string,
   audioBlob: Blob,
@@ -931,6 +935,7 @@ async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
   applyManagedApiKeysReadFailure(res.data);
   return false;
 }
+// eslint-disable-next-line complexity
 async function persistLLMApiKeysMutation(
   mutation: APIKeysMutation,
 ): Promise<boolean> {
@@ -1768,6 +1773,39 @@ type StopChatResponseSnapshot = {
   followProjectConfigId: string | null;
   followToolArgumentIdsByType: AIFollowIdsByType | null;
 };
+function getStopChatSnapshotDetails(
+  state: AIStateSnapshot,
+  chatId: string | null | undefined,
+  pendingSurfaceId: string | null | undefined,
+): ChatDetails {
+  if (typeof chatId === "string") {
+    return state.chatDetails[chatId] ?? getDefaultChatDetails();
+  }
+  return (
+    getPendingChatDetailsForSurface(state, pendingSurfaceId) ??
+    getDefaultChatDetails()
+  );
+}
+function getInterruptedAssistantMessageSnapshot(
+  state: AIStateSnapshot,
+  chatId: string | null | undefined,
+): Record<string, true> {
+  if (typeof chatId !== "string") {
+    return {};
+  }
+  return {
+    ...(state.interruptedAssistantMessageIdsByChatId[chatId] ?? {}),
+  };
+}
+function getFollowToolArgumentSnapshot(
+  chatId: string | null | undefined,
+  followProjectConfigId: string | null,
+): AIFollowIdsByType | null {
+  if (typeof chatId !== "string" || !followProjectConfigId) {
+    return null;
+  }
+  return getAIFollowToolArgumentsSnapshot(followProjectConfigId, chatId);
+}
 function setStopEligibleAssistantMessageId(chatId: string, messageId: string) {
   const normalizedChatId = chatId.trim();
   const normalizedMessageId = messageId.trim();
@@ -1894,30 +1932,25 @@ function getStopChatResponseSnapshot(
   followProjectConfigId: string | null = null,
 ): StopChatResponseSnapshot {
   const state = useAIStore.getState();
-  const currentDetails =
-    typeof chatId === "string"
-      ? state.chatDetails[chatId] ?? getDefaultChatDetails()
-      : getPendingChatDetailsForSurface(state, pendingSurfaceId) ??
-        getDefaultChatDetails();
-  const interruptedAssistantMessageIdsByChat =
-    typeof chatId === "string"
-      ? {
-          ...(state.interruptedAssistantMessageIdsByChatId[chatId] ?? {}),
-        }
-      : {};
+  const currentDetails = getStopChatSnapshotDetails(
+    state,
+    chatId,
+    pendingSurfaceId,
+  );
   return {
     waitingForResponse: currentDetails.waitingForResponse,
     toolCallArguments: { ...currentDetails.toolCallArguments },
-    interruptedAssistantMessageIdsByChat,
+    interruptedAssistantMessageIdsByChat:
+      getInterruptedAssistantMessageSnapshot(state, chatId),
     stopEligibleAssistantMessageId:
       typeof chatId === "string"
         ? stopEligibleAssistantMessageIdByChatId.get(chatId) ?? null
         : null,
     followProjectConfigId,
-    followToolArgumentIdsByType:
-      typeof chatId === "string" && followProjectConfigId
-        ? getAIFollowToolArgumentsSnapshot(followProjectConfigId, chatId)
-        : null,
+    followToolArgumentIdsByType: getFollowToolArgumentSnapshot(
+      chatId,
+      followProjectConfigId,
+    ),
   };
 }
 function restoreStoppedChatResponseLocally(
@@ -2015,6 +2048,42 @@ async function resolveLatestRunningExternalRunIdWithRefresh(
   runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
   return runId;
 }
+type ExternalChatRefreshState = {
+  hydrated: boolean;
+  waitingForResponse: boolean;
+};
+async function refreshExternalChatState(
+  chatId: string,
+  projectConfigId: string | null,
+  sectionId?: string,
+): Promise<ExternalChatRefreshState> {
+  const hydrated = await getExternalAgentChat(
+    chatId,
+    projectConfigId,
+    sectionId,
+  );
+  const waitingForResponse = Boolean(
+    useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
+  );
+  return { hydrated, waitingForResponse };
+}
+function finalizeExternalStopRefreshResult(
+  chatId: string,
+  failureMessage: string,
+  localSnapshot: StopChatResponseSnapshot,
+  refreshState: ExternalChatRefreshState,
+): boolean {
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+  if (refreshState.hydrated && !refreshState.waitingForResponse) {
+    return true;
+  }
+  restoreStoppedChatFollowState(chatId, localSnapshot);
+  if (!refreshState.hydrated) {
+    restoreStoppedChatResponseLocally(chatId, localSnapshot);
+  }
+  addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
+  return false;
+}
 async function stopExternalChatResponse({
   chatId,
   projectConfigId,
@@ -2028,73 +2097,57 @@ async function stopExternalChatResponse({
   failureMessage: string;
   localSnapshot: StopChatResponseSnapshot;
 }): Promise<boolean> {
-  const refreshChatAndResolveWaiting = async (): Promise<{
-    hydrated: boolean;
-    waitingForResponse: boolean;
-  }> => {
-    const hydrated = await getExternalAgentChat(
-      chatId,
-      projectConfigId,
-      sectionId,
-    );
-    const waitingForResponse = Boolean(
-      useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
-    );
-    return { hydrated, waitingForResponse };
-  };
   const runId = await resolveLatestRunningExternalRunIdWithRefresh(
     chatId,
     projectConfigId,
   );
   if (!runId) {
-    const refreshState = await refreshChatAndResolveWaiting();
-    if (refreshState.hydrated && !refreshState.waitingForResponse) {
-      restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-      return true;
-    }
-    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-    restoreStoppedChatFollowState(chatId, localSnapshot);
-    if (!refreshState.hydrated) {
-      restoreStoppedChatResponseLocally(chatId, localSnapshot);
-    }
-    addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
-    return false;
+    const refreshState = await refreshExternalChatState(
+      chatId,
+      projectConfigId,
+      sectionId,
+    );
+    return finalizeExternalStopRefreshResult(
+      chatId,
+      failureMessage,
+      localSnapshot,
+      refreshState,
+    );
   }
   const response = await callOpenAPI(
     apiStopExternalAgentRun({
       body: { runId },
     } as Parameters<typeof apiStopExternalAgentRun>[0]),
   );
-  if (res200(response)) {
-    void loadAgentRuns();
-    if (response.data?.status === RunStatusEnum.cancelled) {
-      applyConfirmedExternalStopInterruption(chatId, localSnapshot);
-      return true;
-    }
-    const refreshState = await refreshChatAndResolveWaiting();
-    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-    if (refreshState.hydrated && !refreshState.waitingForResponse) {
-      return true;
-    }
-    restoreStoppedChatFollowState(chatId, localSnapshot);
-    if (!refreshState.hydrated) {
-      restoreStoppedChatResponseLocally(chatId, localSnapshot);
-    }
-    addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
-    return false;
+  if (!res200(response)) {
+    const refreshState = await refreshExternalChatState(
+      chatId,
+      projectConfigId,
+      sectionId,
+    );
+    return finalizeExternalStopRefreshResult(
+      chatId,
+      failureMessage,
+      localSnapshot,
+      refreshState,
+    );
   }
-  const refreshState = await refreshChatAndResolveWaiting();
-  if (refreshState.hydrated && !refreshState.waitingForResponse) {
-    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+  receiveAgentRunUpdate(response.data);
+  if (response.data?.status === RunStatusEnum.cancelled) {
+    applyConfirmedExternalStopInterruption(chatId, localSnapshot);
     return true;
   }
-  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-  restoreStoppedChatFollowState(chatId, localSnapshot);
-  if (!refreshState.hydrated) {
-    restoreStoppedChatResponseLocally(chatId, localSnapshot);
-  }
-  addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
-  return false;
+  const refreshState = await refreshExternalChatState(
+    chatId,
+    projectConfigId,
+    sectionId,
+  );
+  return finalizeExternalStopRefreshResult(
+    chatId,
+    failureMessage,
+    localSnapshot,
+    refreshState,
+  );
 }
 function reconcileStoppedLLMChatOutcome({
   chatId,
@@ -2576,23 +2629,61 @@ export async function getExternalAgentChat(
   );
   return outcome.outcome === "success";
 }
-export async function submitMessage(
+type SubmitMessageOptions = {
+  messageId?: string;
+  agentProfileId?: string | null;
+  sectionId?: string | null;
+  continueFromChatId?: string | null;
+  pendingSurfaceId?: string | null;
+  executionSettings?: ChatExecutionSettings | null;
+  appGeneration?: ChatAppGenerationContext | null;
+};
+type PreparedSubmitMessage = {
+  resolvedPendingSurfaceId: string | null;
+  resolvedExecutionSettings: ChatExecutionSettings;
+  appGeneration: ChatAppGenerationContext | null;
+  userMessage: BaseChatMessageUnion;
+  userMessageId: string;
+  nextAppGenerationDetails: ChatAppGenerationDetails;
+};
+function buildSubmittedUserMessage(
+  message: string,
+  attachments: ChatFileAttachment[],
+  messageId?: string,
+): BaseChatMessageUnion {
+  const content = [];
+  const trimmed = message.trim();
+  if (trimmed) {
+    content.push(createMessageTextContent({ text: message }));
+  }
+  return {
+    id: messageId ?? createNewId(),
+    role: ChatRoleEnum.user,
+    content,
+    attachments,
+    createdAt: Date.now(),
+  };
+}
+function getTargetChatMessages(
+  chatId: string | null,
+  resolvedPendingSurfaceId: string | null,
+): BaseChatMessageUnion[] {
+  const state = useAIStore.getState();
+  if (chatId === null) {
+    return [
+      ...(state.pendingChatDetailsBySurfaceId[resolvedPendingSurfaceId]
+        ?.messages ?? []),
+    ];
+  }
+  return [...(state.chatDetails[chatId]?.messages ?? [])];
+}
+function prepareSubmitMessage(
   chatId: string | null,
   message: string,
   attachments: ChatFileAttachment[],
-  thinking: boolean,
   engineConfigId: string,
-  isExternalEngine: boolean,
-  options: {
-    messageId?: string;
-    agentProfileId?: string | null;
-    sectionId?: string | null;
-    continueFromChatId?: string | null;
-    pendingSurfaceId?: string | null;
-    executionSettings?: ChatExecutionSettings | null;
-    appGeneration?: ChatAppGenerationContext | null;
-  } = {},
-): Promise<string | null> {
+  options: SubmitMessageOptions,
+): PreparedSubmitMessage | null {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
     return null;
@@ -2606,110 +2697,153 @@ export async function submitMessage(
   const appGeneration = normalizeChatAppGenerationContext(
     options.appGeneration ?? null,
   );
-  const existingAppGenerationDetails = getChatAppGenerationDetailsForTarget(
-    useAIStore.getState(),
-    chatId,
-    resolvedPendingSurfaceId,
-  );
-  // Add user message immediately for responsive UI
-  const content = [];
-  if (trimmed) {
-    content.push(createMessageTextContent({ text: message }));
-  }
-  const userMessage = {
-    id: options.messageId ?? createNewId(),
-    role: ChatRoleEnum.user,
-    content,
+  const userMessage = buildSubmittedUserMessage(
+    message,
     attachments,
-    createdAt: Date.now(),
-  };
-  const userMessageId = userMessage.id;
-  const nextMessages =
-    chatId === null
-      ? [
-          ...(useAIStore.getState().pendingChatDetailsBySurfaceId[
-            resolvedPendingSurfaceId
-          ]?.messages ?? []),
-          userMessage,
-        ]
-      : [
-          ...(useAIStore.getState().chatDetails[chatId]?.messages ?? []),
-          userMessage,
-        ];
+    options.messageId,
+  );
+  const nextMessages = [
+    ...getTargetChatMessages(chatId, resolvedPendingSurfaceId),
+    userMessage,
+  ];
   const nextAppGenerationDetails = setChatAppGenerationForMessage(
-    existingAppGenerationDetails,
+    getChatAppGenerationDetailsForTarget(
+      useAIStore.getState(),
+      chatId,
+      resolvedPendingSurfaceId,
+    ),
     nextMessages,
     userMessage.id,
     appGeneration,
   );
+  return {
+    resolvedPendingSurfaceId,
+    resolvedExecutionSettings,
+    appGeneration,
+    userMessage,
+    userMessageId: userMessage.id,
+    nextAppGenerationDetails,
+  };
+}
+async function hydrateSubmittedChat(
+  returnedChatId: string,
+  isExternalEngine: boolean,
+  projectConfigId: string,
+  sectionId?: string | null,
+): Promise<void> {
+  if (isExternalEngine) {
+    await getExternalAgentChat(
+      returnedChatId,
+      projectConfigId,
+      sectionId ?? undefined,
+    );
+    return;
+  }
+  await getLLMChat(returnedChatId, sectionId ?? undefined);
+}
+function resolveChatRequestFailureDetail(res: {
+  data: unknown;
+  status: number | undefined;
+}): string {
+  return (
+    getErrorDetail(res.data) ??
+    (typeof res.status === "number"
+      ? `Chat request failed (status ${res.status}).`
+      : "Chat request failed.")
+  );
+}
+function rollbackSubmittedMessage(
+  chatId: string | null,
+  userMessageId: string,
+  resolvedPendingSurfaceId: string | null,
+  err: unknown,
+): never {
+  const detail =
+    err instanceof Error && err.message.trim()
+      ? err.message
+      : "AI request failed.";
+  addTemporaryNotification(detail, NotificationTypeEnum.warning);
+  rollbackOptimisticUserMessage(
+    chatId,
+    userMessageId,
+    resolvedPendingSurfaceId,
+  );
+  throw err;
+}
+// eslint-disable-next-line max-params, complexity
+export async function submitMessage(
+  chatId: string | null,
+  message: string,
+  attachments: ChatFileAttachment[],
+  thinking: boolean,
+  engineConfigId: string,
+  isExternalEngine: boolean,
+  options: SubmitMessageOptions = {},
+): Promise<string | null> {
+  const prepared = prepareSubmitMessage(
+    chatId,
+    message,
+    attachments,
+    engineConfigId,
+    options,
+  );
+  if (!prepared) {
+    return null;
+  }
   applyOptimisticUserMessage(
     chatId,
-    userMessage,
-    resolvedPendingSurfaceId,
-    appGeneration,
+    prepared.userMessage,
+    prepared.resolvedPendingSurfaceId,
+    prepared.appGeneration,
   );
   try {
     const projectConfigId = getCurrProjectConfigId();
     const frontendAffinityToken = await waitForFrontendAffinityToken();
-    const appGenerationMode = appGeneration?.mode ?? null;
     const res = await callOpenAPI(
       apiGetLlmResponse({
         body: {
-          message: userMessage,
+          message: prepared.userMessage,
           thinking,
           chatId,
           continueFromChatId: options.continueFromChatId ?? null,
           engineConfigId,
           agentProfileId: options.agentProfileId ?? null,
-          appGenerationMode,
+          appGenerationMode: prepared.appGeneration?.mode ?? null,
           appGenerationByMessageId: serializeChatAppGenerationByMessageId(
-            nextAppGenerationDetails,
+            prepared.nextAppGenerationDetails,
           ),
           projectConfigId,
           sectionId: options.sectionId ?? null,
           frontendAffinityToken,
           allowUnscoped: options.sectionId == null,
-          permissionMode: resolvedExecutionSettings.permissionMode,
-          searchEnabled: resolvedExecutionSettings.searchEnabled,
+          permissionMode: prepared.resolvedExecutionSettings.permissionMode,
+          searchEnabled: prepared.resolvedExecutionSettings.searchEnabled,
         },
       } as Parameters<typeof apiGetLlmResponse>[0]),
     );
-    if (res200(res)) {
-      const returnedChatId = res.data;
-      if (returnedChatId) {
-        refreshAgentRunsAfterSubmit();
-        if (isExternalEngine) {
-          await getExternalAgentChat(
-            returnedChatId,
-            projectConfigId,
-            options.sectionId ?? undefined,
-          );
-        } else {
-          await getLLMChat(returnedChatId, options.sectionId ?? undefined);
-        }
-      }
-      return returnedChatId;
+    if (!res200(res)) {
+      throw new Error(resolveChatRequestFailureDetail(res));
     }
-    const failureDetail =
-      getErrorDetail(res.data) ??
-      (typeof res.status === "number"
-        ? `Chat request failed (status ${res.status}).`
-        : "Chat request failed.");
-    throw new Error(failureDetail);
+    const returnedChatId = res.data;
+    if (returnedChatId) {
+      await hydrateSubmittedChat(
+        returnedChatId,
+        isExternalEngine,
+        projectConfigId,
+        options.sectionId,
+      );
+    }
+    return returnedChatId;
   } catch (err) {
-    const detail =
-      err instanceof Error && err.message.trim()
-        ? err.message
-        : "AI request failed.";
-    addTemporaryNotification(detail, NotificationTypeEnum.warning);
-    rollbackOptimisticUserMessage(
+    return rollbackSubmittedMessage(
       chatId,
-      userMessageId,
-      resolvedPendingSurfaceId,
+      prepared.userMessageId,
+      prepared.resolvedPendingSurfaceId,
+      err,
     );
-    throw err;
   }
 }
+// eslint-disable-next-line complexity
 export async function submitEditedMessage({
   parentChatId,
   messages,
@@ -2748,17 +2882,11 @@ export async function submitEditedMessage({
   const resolvedAppGeneration = normalizeChatAppGenerationContext(
     appGeneration ?? null,
   );
-  const content = [];
-  if (trimmed) {
-    content.push(createMessageTextContent({ text: message }));
-  }
-  const editedMessage = {
-    id: messageId,
-    role: ChatRoleEnum.user,
-    content,
+  const editedMessage = buildSubmittedUserMessage(
+    message,
     attachments,
-    createdAt: Date.now(),
-  };
+    messageId,
+  );
   const nextMessages = buildEditedMessageHistory(messages, editedMessage);
   if (!nextMessages) {
     return null;
@@ -2845,11 +2973,10 @@ export async function submitEditedMessage({
       } as Parameters<typeof apiGetLlmResponse>[0]),
     );
     if (!res200(res)) {
-      const detail =
-        getErrorDetail(res.data) ??
-        (res.status
-          ? `AI request failed (status ${res.status}).`
-          : "AI request failed.");
+      const detail = resolveChatRequestFailureDetail({
+        data: res.data,
+        status: res.status,
+      });
       addTemporaryNotification(detail, NotificationTypeEnum.warning);
       clearPendingChatDetails(resolvedPendingSurfaceId);
       if (sectionId) {
@@ -2859,16 +2986,12 @@ export async function submitEditedMessage({
     }
     const returnedChatId = res.data;
     if (returnedChatId) {
-      refreshAgentRunsAfterSubmit();
-      if (isExternalEngine) {
-        await getExternalAgentChat(
-          returnedChatId,
-          projectConfigId,
-          sectionId ?? undefined,
-        );
-      } else {
-        await getLLMChat(returnedChatId, sectionId ?? undefined);
-      }
+      await hydrateSubmittedChat(
+        returnedChatId,
+        isExternalEngine,
+        projectConfigId,
+        sectionId,
+      );
       if (sectionId) {
         await setSectionChatId(returnedChatId);
         commitPendingChatDetails(returnedChatId, resolvedPendingSurfaceId);
@@ -3012,114 +3135,141 @@ function applyStreamingChunkToSection(
     });
   }
 }
-export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
-  const { chatId, chunk } = msg;
-  const projectConfigId = msg.projectConfigId ?? getCurrProjectConfigId();
-  let sectionId = msg.sectionId;
-  if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
-    return;
+function resolveResponseChunkSectionId(
+  chatId: string,
+  sectionId: string | undefined,
+): string | undefined {
+  if (sectionId) {
+    return sectionId;
   }
-  if (!sectionId && chatId) {
-    sectionId = resolveSectionIdForChatId(chatId);
+  return resolveSectionIdForChatId(chatId);
+}
+function shouldUpdateChatDetailsForChunk(
+  sectionId: string | undefined,
+): boolean {
+  if (!sectionId) {
+    return true;
   }
-  const isManagedSection = sectionId
-    ? isManagedChatSection(useProjectState.getState(), sectionId)
-    : false;
-  const shouldUpdateChatDetails = !sectionId || isManagedSection;
-  const shouldMarkActive =
+  return isManagedChatSection(useProjectState.getState(), sectionId);
+}
+function isActiveStreamingChunk(
+  chunk: LLMStreamingResponseContent["chunk"],
+): boolean {
+  return (
     chunk.type === StreamingEventTypeEnum.message_start ||
     chunk.type === StreamingEventTypeEnum.delta ||
     chunk.type === StreamingEventTypeEnum.tool_call_delta ||
-    chunk.type === StreamingEventTypeEnum.tool_argument_preview_delta;
-  if (shouldMarkActive) {
-    markChatStreamActive(chatId, sectionId);
-  }
-  if (
+    chunk.type === StreamingEventTypeEnum.tool_argument_preview_delta
+  );
+}
+function isTerminalStreamingChunk(
+  chunk: LLMStreamingResponseContent["chunk"],
+): boolean {
+  return (
     chunk.type === StreamingEventTypeEnum.message_stop ||
     chunk.type === StreamingEventTypeEnum.message_finalized
-  ) {
+  );
+}
+function handleLLMResponseChatDetailsChunk(
+  chatId: string,
+  chunk: LLMStreamingResponseContent["chunk"],
+  sectionId: string | undefined,
+  projectConfigId: string,
+): void {
+  switch (chunk.type) {
+    case StreamingEventTypeEnum.message_start:
+      handleMessageStart(chatId, chunk);
+      return;
+    case StreamingEventTypeEnum.delta:
+      handleMessageDelta(chatId, chunk);
+      return;
+    case StreamingEventTypeEnum.tool_call_delta:
+      handleToolCallDelta(chatId, chunk);
+      return;
+    case StreamingEventTypeEnum.tool_argument_preview_delta:
+      if (sectionId) {
+        applyStreamingChunkToChatDetails(chatId, chunk);
+        return;
+      }
+      handleToolArgumentPreviewDelta(chatId, chunk, projectConfigId);
+      return;
+    case StreamingEventTypeEnum.tool_result:
+      if (sectionId) {
+        applyStreamingChunkToChatDetails(chatId, chunk);
+        clearToolArgumentPreviewByToolCallId(
+          projectConfigId,
+          chunk.result.tool_call_id,
+        );
+        return;
+      }
+      handleToolResult(chatId, chunk, projectConfigId);
+      return;
+    case StreamingEventTypeEnum.message_stop:
+      handleMessageStop(chatId, projectConfigId);
+      return;
+    case StreamingEventTypeEnum.message_finalized:
+      handleMessageFinalized(chatId, chunk, projectConfigId);
+      return;
+    default:
+      return chunk satisfies never;
+  }
+}
+export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
+  const { chatId, chunk } = msg;
+  const projectConfigId = msg.projectConfigId ?? getCurrProjectConfigId();
+  if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
+    return;
+  }
+  const sectionId = resolveResponseChunkSectionId(chatId, msg.sectionId);
+  if (isActiveStreamingChunk(chunk)) {
+    markChatStreamActive(chatId, sectionId);
+  }
+  if (isTerminalStreamingChunk(chunk)) {
     clearChatStreamActive(chatId, sectionId);
   }
   if (sectionId) {
     applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
   }
-  if (shouldUpdateChatDetails) {
-    switch (chunk.type) {
-      case StreamingEventTypeEnum.message_start:
-        handleMessageStart(chatId, chunk);
-        return;
-      case StreamingEventTypeEnum.delta:
-        handleMessageDelta(chatId, chunk);
-        return;
-      case StreamingEventTypeEnum.tool_call_delta:
-        handleToolCallDelta(chatId, chunk);
-        return;
-      case StreamingEventTypeEnum.tool_argument_preview_delta:
-        if (sectionId) {
-          applyStreamingChunkToChatDetails(chatId, chunk);
-          return;
-        }
-        handleToolArgumentPreviewDelta(chatId, chunk, projectConfigId);
-        return;
-      case StreamingEventTypeEnum.tool_result:
-        if (sectionId) {
-          applyStreamingChunkToChatDetails(chatId, chunk);
-          clearToolArgumentPreviewByToolCallId(
-            projectConfigId,
-            chunk.result.tool_call_id,
-          );
-          return;
-        }
-        handleToolResult(chatId, chunk, projectConfigId);
-        return;
-      case StreamingEventTypeEnum.message_stop:
-        handleMessageStop(chatId, projectConfigId);
-        return;
-      case StreamingEventTypeEnum.message_finalized:
-        handleMessageFinalized(chatId, chunk, projectConfigId);
-        return;
-      default:
-        return chunk satisfies never;
-    }
+  if (!shouldUpdateChatDetailsForChunk(sectionId)) {
+    return;
   }
+  handleLLMResponseChatDetailsChunk(chatId, chunk, sectionId, projectConfigId);
 }
-type RunPayload = Record<string, unknown>;
-function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
-  const outputMessages = extractRunMessages(run.outputs);
-  if (outputMessages) {
-    return buildChatSectionState(
-      outputMessages,
-      run.status === RunStatusEnum.running,
-    );
-  }
-  const inputMessages = extractRunMessages(run.inputs) ?? [];
-  return buildChatSectionState(
-    inputMessages,
-    run.status === RunStatusEnum.running,
+function resolveEngineConfigIdFromRuns(
+  runs: AgentRun[],
+  chatId: string,
+): string | null {
+  const runsWithEngine = runs.filter(
+    (run) =>
+      getRunInputString(run, "chatId") === chatId &&
+      Boolean(getRunInputString(run, "engineConfigId")),
   );
-}
-function buildChatSectionState(
-  messages: Array<BaseChatMessageUnion>,
-  waitingForResponse: boolean,
-): ChatSectionState {
-  return {
-    messages: [...messages],
-    inputText: "",
-    waitingForResponse,
-    toolCallArguments: {},
-  };
-}
-function extractRunMessages(
-  payload: RunPayload | null,
-): Array<BaseChatMessageUnion> | null {
-  if (!payload) {
+  if (runsWithEngine.length === 0) {
     return null;
   }
-  const raw = payload.messages;
-  if (!Array.isArray(raw)) {
+  const [latestRun] = [...runsWithEngine].sort(
+    (a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a),
+  );
+  return latestRun ? getRunInputString(latestRun, "engineConfigId") : null;
+}
+async function ensureAgentRunsLoadedForChatResolution(): Promise<boolean> {
+  const { agentRunsInitialLoadComplete } = useAIStore.getState();
+  if (agentRunsInitialLoadComplete) {
+    return true;
+  }
+  await loadAgentRuns();
+  return useAIStore.getState().agentRunsInitialLoadComplete;
+}
+function resolveEngineConfigIdFromStoredChat(chatId: string): string | null {
+  const { chatDetails, engineConfigs } = useAIStore.getState();
+  const llmConfigId = chatDetails[chatId]?.llmConfig?.id ?? null;
+  if (!llmConfigId) {
     return null;
   }
-  return raw as Array<BaseChatMessageUnion>;
+  return (
+    engineConfigs.find((config) => config.settaLlmConfigId === llmConfigId)
+      ?.id ?? null
+  );
 }
 async function resolveEngineConfigIdForChat(
   chatId: string,
@@ -3128,47 +3278,20 @@ async function resolveEngineConfigIdForChat(
   if (engineConfigId) {
     return engineConfigId;
   }
-  const resolveFromRuns = (runs: AgentRun[]): string | null => {
-    const matchingRuns = runs.filter(
-      (run) => getRunInputString(run, "chatId") === chatId,
-    );
-    const runsWithEngine = matchingRuns.filter((run) =>
-      getRunInputString(run, "engineConfigId"),
-    );
-    if (runsWithEngine.length === 0) {
-      return null;
-    }
-    const [latestRun] = [...runsWithEngine].sort(
-      (a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a),
-    );
-    return latestRun ? getRunInputString(latestRun, "engineConfigId") : null;
-  };
-  let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
-  if (!agentRunsInitialLoadComplete) {
-    await loadAgentRuns();
-    ({ agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState());
-  }
-  if (!agentRunsInitialLoadComplete) {
+  if (!(await ensureAgentRunsLoadedForChatResolution())) {
     return null;
   }
-  let resolved = resolveFromRuns(agentRuns);
+  let { agentRuns } = useAIStore.getState();
+  let resolved = resolveEngineConfigIdFromRuns(agentRuns, chatId);
   if (!resolved) {
     await loadAgentRuns();
     ({ agentRuns } = useAIStore.getState());
-    resolved = resolveFromRuns(agentRuns);
+    resolved = resolveEngineConfigIdFromRuns(agentRuns, chatId);
   }
   if (resolved) {
     return resolved;
   }
-  const { chatDetails, engineConfigs } = useAIStore.getState();
-  const llmConfigId = chatDetails[chatId]?.llmConfig?.id ?? null;
-  if (!llmConfigId) {
-    return null;
-  }
-  const matchingEngine = engineConfigs.find(
-    (config) => config.settaLlmConfigId === llmConfigId,
-  );
-  return matchingEngine?.id ?? null;
+  return resolveEngineConfigIdFromStoredChat(chatId);
 }
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   if (chunk.message.role === ChatRoleEnum.assistant) {
@@ -3234,24 +3357,31 @@ function extractToolStructuredContent(
   }
   return structured;
 }
-function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
+function resolveAppDefinitionToolName(
+  toolMessage: ToolChatMessage,
+): string | null {
   const toolName =
     typeof toolMessage.tool_name === "string" ? toolMessage.tool_name : null;
   if (!toolName || !APP_DEFINITION_TOOL_NAMES.has(toolName)) {
-    return;
+    return null;
   }
-  if (toolMessage.is_error) {
-    if (toolName === "setta__stream_app_definition") {
-      clearAppSpecPatchStream(toolMessage.tool_call_id);
-      // Keep the last streamed preview visible even if the tool call fails validation.
-      // Otherwise the preview disappears while the AI iterates on fixes.
-    }
-    return;
+  return toolName;
+}
+function maybeClearFailedStreamAppDefinition(
+  toolMessage: ToolChatMessage,
+): void {
+  if (
+    toolMessage.tool_name === "setta__stream_app_definition" &&
+    toolMessage.is_error
+  ) {
+    clearAppSpecPatchStream(toolMessage.tool_call_id);
+    // Keep the last streamed preview visible even if the tool call fails validation.
+    // Otherwise the preview disappears while the AI iterates on fixes.
   }
-  const structured = extractToolStructuredContent(toolMessage.result);
-  if (!structured) {
-    return;
-  }
+}
+function applyAppDefinitionStructuredContent(
+  structured: Record<string, unknown>,
+): void {
   const hasSpec = Object.prototype.hasOwnProperty.call(structured, "appSpec");
   const hasDefinition = Object.prototype.hasOwnProperty.call(
     structured,
@@ -3277,10 +3407,25 @@ function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
     previewThemeOverride: undefined,
     previewAssetsOverride: undefined,
   });
+  addTemporaryNotification("App spec updated.");
+}
+function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
+  const toolName = resolveAppDefinitionToolName(toolMessage);
+  if (!toolName) {
+    return;
+  }
+  if (toolMessage.is_error) {
+    maybeClearFailedStreamAppDefinition(toolMessage);
+    return;
+  }
+  const structured = extractToolStructuredContent(toolMessage.result);
+  if (!structured) {
+    return;
+  }
+  applyAppDefinitionStructuredContent(structured);
   if (toolName === "setta__stream_app_definition") {
     clearAppSpecPatchStream(toolMessage.tool_call_id);
   }
-  addTemporaryNotification("App spec updated.");
 }
 function handleToolResult(
   chatId: string,
@@ -3427,6 +3572,7 @@ function applyToolArgumentPreviewDeltaToPreviewStore(
     return;
   }
   const resolvedProjectConfigId = projectConfigId ?? getCurrProjectConfigId();
+  // eslint-disable-next-line complexity
   useToolArgumentPreview.setState((state) => {
     const previewState =
       state.byProjectConfigId[resolvedProjectConfigId] ??
@@ -3519,6 +3665,7 @@ function clearToolArgumentPreviewByToolCallIds(
     return;
   }
   const toolCallIdSet = new Set(toolCallIds);
+  // eslint-disable-next-line complexity
   useToolArgumentPreview.setState((state) => {
     const previewState = state.byProjectConfigId[projectConfigId];
     if (!previewState) {
@@ -3704,6 +3851,7 @@ function applyOptimisticUserMessage(
 ) {
   const resolvedAppGeneration =
     normalizeChatAppGenerationContext(appGeneration);
+  // eslint-disable-next-line complexity
   useAIStore.setState((state) => {
     if (typeof chatId === "string") {
       clearStopEligibleAssistantMessageId(chatId);
