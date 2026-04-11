@@ -379,6 +379,57 @@ func TestServiceUpdateHandlesConflictsAndUnsupportedTypes(t *testing.T) {
 		t.Fatalf("expected backup file to exist: %v", err)
 	}
 
+	if err := os.WriteFile(filePath, []byte("external-again"), 0o644); err != nil {
+		t.Fatalf("write second external file contents: %v", err)
+	}
+	overwriteRef, err := paths.binaryStore.StoreBytes([]byte("overwrite"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store overwrite file payload: %v", err)
+	}
+	overwriteValue := mustRawJSON(t, overwriteRef)
+	overwrite := SaveConflictStrategyOverwrite
+	overwritten, err := service.Update(context.Background(), UpdateRequest{
+		Artifacts: []RawArtifact{{
+			Type:  ArtifactTypeFile,
+			ID:    "artifacts/notes.txt",
+			Value: &overwriteValue,
+		}},
+		ConflictStrategy: &overwrite,
+		UploadScope:      UploadScopeGeneric,
+	})
+	if err != nil {
+		t.Fatalf("update overwritten file artifact: %v", err)
+	}
+	if overwritten[0].Status != SaveStatusConflict || overwritten[0].Message == nil || !strings.Contains(*overwritten[0].Message, "Overwriting per requested strategy") {
+		t.Fatalf("expected overwrite conflict result, got %#v", overwritten)
+	}
+	if payload, err := os.ReadFile(filePath); err != nil || string(payload) != "overwrite" {
+		t.Fatalf("expected overwrite strategy to replace file, got %q err=%v", string(payload), err)
+	}
+
+	if err := os.WriteFile(filePath, []byte("external-invalid"), 0o644); err != nil {
+		t.Fatalf("write third external file contents: %v", err)
+	}
+	invalidRef, err := paths.binaryStore.StoreBytes([]byte("invalid"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store invalid strategy payload: %v", err)
+	}
+	invalidValue := mustRawJSON(t, invalidRef)
+	invalidStrategy := SaveConflictStrategy("invalid")
+	if _, err := service.Update(context.Background(), UpdateRequest{
+		Artifacts: []RawArtifact{{
+			Type:  ArtifactTypeFile,
+			ID:    "artifacts/notes.txt",
+			Value: &invalidValue,
+		}},
+		ConflictStrategy: &invalidStrategy,
+		UploadScope:      UploadScopeGeneric,
+	}); err == nil {
+		t.Fatalf("expected invalid conflict strategy error")
+	} else {
+		assertArtifactErrorKind(t, err, ErrorInvalidRequest)
+	}
+
 	brushValue := json.RawMessage(`{"strokeStyle":"#ffffff","lineWidth":1,"lineCap":"round","points":[[0,1]],"globalCompositeOperation":"source-over"}`)
 	transformValue := json.RawMessage(`{"transform":[1,0,0,1,10,12],"eraserStrokes":[]}`)
 	multiResults, err := service.Update(context.Background(), UpdateRequest{

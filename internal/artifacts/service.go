@@ -89,6 +89,11 @@ type importAction struct {
 	content    []byte
 }
 
+type preparedImport struct {
+	action importAction
+	result ImportFilesResponseItem
+}
+
 type updateAction struct {
 	artifactType ArtifactType
 	artifactID   string
@@ -99,6 +104,30 @@ type updateAction struct {
 	jsonValue    json.RawMessage
 	binaryRef    *binarypayload.ContentRef
 	chartValue   ChartDataValue
+}
+
+type artifactUpdateInput struct {
+	artifact   RawArtifact
+	artifactID string
+	targetPath string
+	scope      UploadScope
+}
+
+type updateActionBuilder func(*Service, artifactUpdateInput) (updateAction, error)
+
+type updateConflictResolution struct {
+	status     SaveStatus
+	backupPath *string
+	message    *string
+	skipWrite  bool
+}
+
+var updateActionBuilders = map[ArtifactType]updateActionBuilder{
+	ArtifactTypeFile:                       buildFileUpdateAction,
+	ArtifactTypeImage:                      buildImageUpdateAction,
+	ArtifactTypeChartData:                  buildChartUpdateAction,
+	ArtifactTypeBrushStroke:                buildJSONUpdateAction,
+	ArtifactTypeDrawAreaLayerItemTransform: buildJSONUpdateAction,
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -145,75 +174,20 @@ func (s *Service) ImportFiles(_ context.Context, request ImportFilesRequest) ([]
 	if len(request.Paths) == 0 {
 		return []ImportFilesResponseItem{}, nil
 	}
-	actions := make([]importAction, 0, len(request.Paths))
+	prepared := make([]preparedImport, 0, len(request.Paths))
 	results := make([]ImportFilesResponseItem, 0, len(request.Paths))
 	for _, rawPath := range request.Paths {
-		resolvedPath, err := s.resolveWorkspaceFile(rawPath)
+		imported, err := s.prepareImport(rawPath, request.UploadScope)
 		if err != nil {
 			return nil, err
 		}
-		info, err := os.Stat(resolvedPath)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return nil, &Error{
-					Kind:    ErrorPathNotFound,
-					Message: fmt.Sprintf("File does not exist: %s", rawPath),
-				}
-			}
-			return nil, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Failed to stat file: %s", rawPath),
-			}
-		}
-		if info.IsDir() {
-			return nil, &Error{
-				Kind:    ErrorPathNotFile,
-				Message: fmt.Sprintf("Path is not a file: %s", rawPath),
-			}
-		}
-		content, err := os.ReadFile(resolvedPath)
-		if err != nil {
-			return nil, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Failed to read file: %s", rawPath),
-			}
-		}
-		mimeType := guessMimeType(resolvedPath, "")
-		if err := EnforceUploadPolicy(s.uploadPolicies, request.UploadScope, filepath.Base(resolvedPath), mimeType, len(content)); err != nil {
-			return nil, err
-		}
-		artifactID, targetPath, err := s.newArtifactTargetPath(joinedExtensions(filepath.Base(resolvedPath)))
-		if err != nil {
-			return nil, err
-		}
-		actions = append(actions, importAction{
-			artifactID: artifactID,
-			targetPath: targetPath,
-			name:       filepath.Base(resolvedPath),
-			mimeType:   mimeType,
-			content:    content,
-		})
-		results = append(results, ImportFilesResponseItem{
-			Kind:     "file",
-			ID:       artifactID,
-			Name:     filepath.Base(resolvedPath),
-			MimeType: mimeType,
-			Size:     len(content),
-		})
+		prepared = append(prepared, imported)
+		results = append(results, imported.result)
 	}
-	for _, action := range actions {
-		if err := statefs.AtomicWriteFile(action.targetPath, action.content, defaultFileMode); err != nil {
-			return nil, fmt.Errorf("write imported artifact: %w", err)
-		}
-		ref, err := s.binaryStore.StoreBytes(action.content, action.mimeType, true)
-		if err != nil {
+	for _, imported := range prepared {
+		if err := s.persistImport(imported.action); err != nil {
 			return nil, err
 		}
-		s.storeFileCache(action.targetPath, FileArtifact{
-			Type:  ArtifactTypeFile,
-			ID:    action.artifactID,
-			Value: ref,
-		}, hashBytes(action.content))
 	}
 	return results, nil
 }
@@ -347,103 +321,16 @@ func (s *Service) buildUpdateAction(artifact RawArtifact, scope UploadScope) (up
 	if err != nil {
 		return updateAction{}, err
 	}
-	switch artifact.Type {
-	case ArtifactTypeFile:
-		ref, err := s.parseBinaryRef(artifactID, artifact, "file")
-		if err != nil {
-			return updateAction{}, err
-		}
-		content, err := s.readBinaryContent(ref)
-		if err != nil {
-			return updateAction{}, err
-		}
-		mimeType := guessMimeType(targetPath, ref.MimeType)
-		if err := EnforceUploadPolicy(s.uploadPolicies, scope, artifactID, mimeType, len(content)); err != nil {
-			return updateAction{}, err
-		}
-		return updateAction{
-			artifactType: artifact.Type,
-			artifactID:   artifactID,
-			targetPath:   targetPath,
-			mimeType:     mimeType,
-			payload:      content,
-			payloadHash:  hashBytes(content),
-			binaryRef:    &ref,
-		}, nil
-	case ArtifactTypeImage:
-		ref, err := s.parseBinaryRef(artifactID, artifact, "binary")
-		if err != nil {
-			return updateAction{}, err
-		}
-		content, err := s.readBinaryContent(ref)
-		if err != nil {
-			return updateAction{}, err
-		}
-		return updateAction{
-			artifactType: artifact.Type,
-			artifactID:   artifactID,
-			targetPath:   targetPath,
-			payload:      content,
-			payloadHash:  hashBytes(content),
-			binaryRef:    &ref,
-		}, nil
-	case ArtifactTypeChartData:
-		if artifact.Value == nil {
-			return updateAction{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
-			}
-		}
-		var value ChartDataValue
-		if err := json.Unmarshal(*artifact.Value, &value); err != nil {
-			return updateAction{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s has an invalid chart data payload.", artifactID),
-			}
-		}
-		csvContent, err := chartDataToCSV(value)
-		if err != nil {
-			return updateAction{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s has an invalid chart data payload.", artifactID),
-			}
-		}
-		return updateAction{
-			artifactType: artifact.Type,
-			artifactID:   artifactID,
-			targetPath:   targetPath,
-			payload:      csvContent,
-			payloadHash:  hashBytes(csvContent),
-			chartValue:   cloneChartDataValues(value),
-		}, nil
-	case ArtifactTypeBrushStroke, ArtifactTypeDrawAreaLayerItemTransform:
-		if artifact.Value == nil {
-			return updateAction{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
-			}
-		}
-		canonicalJSON, err := canonicalizeJSONObject(*artifact.Value)
-		if err != nil {
-			return updateAction{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s has an invalid JSON value.", artifactID),
-			}
-		}
-		return updateAction{
-			artifactType: artifact.Type,
-			artifactID:   artifactID,
-			targetPath:   targetPath,
-			payload:      canonicalJSON,
-			payloadHash:  hashBytes(canonicalJSON),
-			jsonValue:    canonicalJSON,
-		}, nil
-	default:
-		return updateAction{}, &Error{
-			Kind:    ErrorArtifactTypeUnsupported,
-			Message: fmt.Sprintf("Artifact type %s is not supported.", artifact.Type),
-		}
+	builder, ok := updateActionBuilders[artifact.Type]
+	if !ok {
+		return updateAction{}, unsupportedArtifactTypeError(artifact.Type)
 	}
+	return builder(s, artifactUpdateInput{
+		artifact:   artifact,
+		artifactID: artifactID,
+		targetPath: targetPath,
+		scope:      scope,
+	})
 }
 
 func (s *Service) parseBinaryRef(artifactID string, artifact RawArtifact, payloadLabel string) (binarypayload.ContentRef, error) {
@@ -485,10 +372,8 @@ func (s *Service) readBinaryContent(ref binarypayload.ContentRef) ([]byte, error
 }
 
 func (s *Service) applyUpdateAction(action updateAction, strategy SaveConflictStrategy) (ArtifactSaveResult, error) {
-	s.mu.RLock()
-	metadata := s.metadata[action.targetPath]
-	s.mu.RUnlock()
-	if metadata.LastKnownHash != "" && metadata.LastKnownHash == action.payloadHash {
+	lastKnownHash := s.lastKnownHash(action.targetPath)
+	if lastKnownHash != "" && lastKnownHash == action.payloadHash {
 		return ArtifactSaveResult{
 			ID:     action.artifactID,
 			Type:   action.artifactType,
@@ -501,78 +386,295 @@ func (s *Service) applyUpdateAction(action updateAction, strategy SaveConflictSt
 		return ArtifactSaveResult{}, err
 	}
 
-	var (
-		status     = SaveStatusSaved
-		backupPath *string
-		message    *string
-	)
-	if metadata.LastKnownHash != "" && currentHash != metadata.LastKnownHash {
-		switch strategy {
-		case SaveConflictStrategySkip:
-			skippedMessage := "Skipped save due to detected external changes."
-			return ArtifactSaveResult{
-				ID:      action.artifactID,
-				Type:    action.artifactType,
-				Status:  SaveStatusSkipped,
-				Message: &skippedMessage,
-			}, nil
-		case SaveConflictStrategyBackup:
-			if exists {
-				createdBackup, err := s.createConflictBackup(action.targetPath)
-				if err != nil {
-					return ArtifactSaveResult{}, err
-				}
-				normalizedBackup, err := s.normalizeResolvedArtifactID(createdBackup)
-				if err == nil {
-					backupPath = &normalizedBackup
-				}
-			}
-			conflictMessage := "External changes detected."
-			if backupPath != nil {
-				conflictMessage = fmt.Sprintf("External changes detected. Previous contents copied to %s.", *backupPath)
-			}
-			message = &conflictMessage
-			status = SaveStatusConflict
-		case SaveConflictStrategyOverwrite:
-			conflictMessage := "External changes detected. Overwriting per requested strategy."
-			message = &conflictMessage
-			status = SaveStatusConflict
-		default:
-			return ArtifactSaveResult{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Invalid conflict strategy: %q", strategy),
-			}
-		}
+	resolution, err := s.resolveUpdateConflict(action.targetPath, lastKnownHash, currentHash, exists, strategy)
+	if err != nil {
+		return ArtifactSaveResult{}, err
+	}
+	if resolution.skipWrite {
+		return buildArtifactSaveResult(action, resolution), nil
 	}
 
 	if err := statefs.AtomicWriteFile(action.targetPath, action.payload, defaultFileMode); err != nil {
 		return ArtifactSaveResult{}, fmt.Errorf("write artifact: %w", err)
 	}
+	if err := s.cacheUpdatedArtifact(action); err != nil {
+		return ArtifactSaveResult{}, err
+	}
 
+	return buildArtifactSaveResult(action, resolution), nil
+}
+
+func (s *Service) prepareImport(rawPath string, scope UploadScope) (preparedImport, error) {
+	resolvedPath, err := s.resolveWorkspaceFile(rawPath)
+	if err != nil {
+		return preparedImport{}, err
+	}
+	content, err := readImportContent(rawPath, resolvedPath)
+	if err != nil {
+		return preparedImport{}, err
+	}
+	name := filepath.Base(resolvedPath)
+	mimeType := guessMimeType(resolvedPath, "")
+	if err := EnforceUploadPolicy(s.uploadPolicies, scope, name, mimeType, len(content)); err != nil {
+		return preparedImport{}, err
+	}
+	artifactID, targetPath, err := s.newArtifactTargetPath(joinedExtensions(name))
+	if err != nil {
+		return preparedImport{}, err
+	}
+	return preparedImport{
+		action: importAction{
+			artifactID: artifactID,
+			targetPath: targetPath,
+			name:       name,
+			mimeType:   mimeType,
+			content:    content,
+		},
+		result: ImportFilesResponseItem{
+			Kind:     "file",
+			ID:       artifactID,
+			Name:     name,
+			MimeType: mimeType,
+			Size:     len(content),
+		},
+	}, nil
+}
+
+func readImportContent(rawPath string, resolvedPath string) ([]byte, error) {
+	info, err := os.Stat(resolvedPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, &Error{
+				Kind:    ErrorPathNotFound,
+				Message: fmt.Sprintf("File does not exist: %s", rawPath),
+			}
+		}
+		return nil, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to stat file: %s", rawPath),
+		}
+	}
+	if info.IsDir() {
+		return nil, &Error{
+			Kind:    ErrorPathNotFile,
+			Message: fmt.Sprintf("Path is not a file: %s", rawPath),
+		}
+	}
+	content, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		return nil, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to read file: %s", rawPath),
+		}
+	}
+	return content, nil
+}
+
+func (s *Service) persistImport(action importAction) error {
+	if err := statefs.AtomicWriteFile(action.targetPath, action.content, defaultFileMode); err != nil {
+		return fmt.Errorf("write imported artifact: %w", err)
+	}
+	ref, err := s.binaryStore.StoreBytes(action.content, action.mimeType, true)
+	if err != nil {
+		return err
+	}
+	s.storeFileCache(action.targetPath, FileArtifact{
+		Type:  ArtifactTypeFile,
+		ID:    action.artifactID,
+		Value: ref,
+	}, hashBytes(action.content))
+	return nil
+}
+
+func buildFileUpdateAction(s *Service, input artifactUpdateInput) (updateAction, error) {
+	return s.buildBinaryUpdateAction(input, "file", true)
+}
+
+func buildImageUpdateAction(s *Service, input artifactUpdateInput) (updateAction, error) {
+	return s.buildBinaryUpdateAction(input, "binary", false)
+}
+
+func (s *Service) buildBinaryUpdateAction(input artifactUpdateInput, payloadLabel string, enforcePolicy bool) (updateAction, error) {
+	ref, content, err := s.readUpdateBinaryContent(input.artifactID, input.artifact, payloadLabel)
+	if err != nil {
+		return updateAction{}, err
+	}
+	mimeType := guessMimeType(input.targetPath, ref.MimeType)
+	if enforcePolicy {
+		if err := EnforceUploadPolicy(s.uploadPolicies, input.scope, input.artifactID, mimeType, len(content)); err != nil {
+			return updateAction{}, err
+		}
+	}
+	return updateAction{
+		artifactType: input.artifact.Type,
+		artifactID:   input.artifactID,
+		targetPath:   input.targetPath,
+		mimeType:     mimeType,
+		payload:      content,
+		payloadHash:  hashBytes(content),
+		binaryRef:    &ref,
+	}, nil
+}
+
+func (s *Service) readUpdateBinaryContent(artifactID string, artifact RawArtifact, payloadLabel string) (binarypayload.ContentRef, []byte, error) {
+	ref, err := s.parseBinaryRef(artifactID, artifact, payloadLabel)
+	if err != nil {
+		return binarypayload.ContentRef{}, nil, err
+	}
+	content, err := s.readBinaryContent(ref)
+	if err != nil {
+		return binarypayload.ContentRef{}, nil, err
+	}
+	return ref, content, nil
+}
+
+func buildChartUpdateAction(_ *Service, input artifactUpdateInput) (updateAction, error) {
+	value, err := parseChartArtifactValue(input.artifactID, input.artifact.Value)
+	if err != nil {
+		return updateAction{}, err
+	}
+	csvContent, err := chartDataToCSV(value)
+	if err != nil {
+		return updateAction{}, invalidArtifactRequestf(input.artifactID, "has an invalid chart data payload.")
+	}
+	return updateAction{
+		artifactType: input.artifact.Type,
+		artifactID:   input.artifactID,
+		targetPath:   input.targetPath,
+		payload:      csvContent,
+		payloadHash:  hashBytes(csvContent),
+		chartValue:   cloneChartDataValues(value),
+	}, nil
+}
+
+func parseChartArtifactValue(artifactID string, rawValue *json.RawMessage) (ChartDataValue, error) {
+	if rawValue == nil {
+		return nil, missingArtifactValueError(artifactID)
+	}
+	var value ChartDataValue
+	if err := json.Unmarshal(*rawValue, &value); err != nil {
+		return nil, invalidArtifactRequestf(artifactID, "has an invalid chart data payload.")
+	}
+	return value, nil
+}
+
+func buildJSONUpdateAction(_ *Service, input artifactUpdateInput) (updateAction, error) {
+	canonicalJSON, err := parseJSONObjectValue(input.artifactID, input.artifact.Value)
+	if err != nil {
+		return updateAction{}, err
+	}
+	return updateAction{
+		artifactType: input.artifact.Type,
+		artifactID:   input.artifactID,
+		targetPath:   input.targetPath,
+		payload:      canonicalJSON,
+		payloadHash:  hashBytes(canonicalJSON),
+		jsonValue:    canonicalJSON,
+	}, nil
+}
+
+func parseJSONObjectValue(artifactID string, rawValue *json.RawMessage) (json.RawMessage, error) {
+	if rawValue == nil {
+		return nil, missingArtifactValueError(artifactID)
+	}
+	canonicalJSON, err := canonicalizeJSONObject(*rawValue)
+	if err != nil {
+		return nil, invalidArtifactRequestf(artifactID, "has an invalid JSON value.")
+	}
+	return canonicalJSON, nil
+}
+
+func (s *Service) lastKnownHash(targetPath string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.metadata[targetPath].LastKnownHash
+}
+
+func (s *Service) resolveUpdateConflict(targetPath string, lastKnownHash string, currentHash string, exists bool, strategy SaveConflictStrategy) (updateConflictResolution, error) {
+	resolution := updateConflictResolution{status: SaveStatusSaved}
+	if lastKnownHash == "" || currentHash == lastKnownHash {
+		return resolution, nil
+	}
+	switch strategy {
+	case SaveConflictStrategySkip:
+		return updateConflictResolution{
+			status:    SaveStatusSkipped,
+			message:   stringPtr("Skipped save due to detected external changes."),
+			skipWrite: true,
+		}, nil
+	case SaveConflictStrategyBackup:
+		backupPath, err := s.createResolvedConflictBackup(targetPath, exists)
+		if err != nil {
+			return updateConflictResolution{}, err
+		}
+		return updateConflictResolution{
+			status:     SaveStatusConflict,
+			backupPath: backupPath,
+			message:    conflictBackupMessage(backupPath),
+		}, nil
+	case SaveConflictStrategyOverwrite:
+		return updateConflictResolution{
+			status:  SaveStatusConflict,
+			message: stringPtr("External changes detected. Overwriting per requested strategy."),
+		}, nil
+	default:
+		return updateConflictResolution{}, invalidConflictStrategyError(strategy)
+	}
+}
+
+func (s *Service) createResolvedConflictBackup(targetPath string, exists bool) (*string, error) {
+	if !exists {
+		return nil, nil
+	}
+	createdBackup, err := s.createConflictBackup(targetPath)
+	if err != nil {
+		return nil, err
+	}
+	normalizedBackup, err := s.normalizeResolvedArtifactID(createdBackup)
+	if err != nil {
+		return nil, nil
+	}
+	return &normalizedBackup, nil
+}
+
+func conflictBackupMessage(backupPath *string) *string {
+	if backupPath == nil {
+		return stringPtr("External changes detected.")
+	}
+	return stringPtr(fmt.Sprintf("External changes detected. Previous contents copied to %s.", *backupPath))
+}
+
+func buildArtifactSaveResult(action updateAction, resolution updateConflictResolution) ArtifactSaveResult {
+	return ArtifactSaveResult{
+		ID:         action.artifactID,
+		Type:       action.artifactType,
+		Status:     resolution.status,
+		BackupPath: resolution.backupPath,
+		Message:    resolution.message,
+	}
+}
+
+func (s *Service) cacheUpdatedArtifact(action updateAction) error {
 	switch action.artifactType {
 	case ArtifactTypeFile:
-		if action.binaryRef == nil {
-			return ArtifactSaveResult{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s is missing a binary payload.", action.artifactID),
-			}
+		ref, err := requireBinaryUpdateRef(action)
+		if err != nil {
+			return err
 		}
 		s.storeFileCache(action.targetPath, FileArtifact{
 			Type:  ArtifactTypeFile,
 			ID:    action.artifactID,
-			Value: *action.binaryRef,
+			Value: ref,
 		}, action.payloadHash)
 	case ArtifactTypeImage:
-		if action.binaryRef == nil {
-			return ArtifactSaveResult{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s is missing a binary payload.", action.artifactID),
-			}
+		ref, err := requireBinaryUpdateRef(action)
+		if err != nil {
+			return err
 		}
 		s.storeImageCache(action.targetPath, ImageArtifact{
 			Type:  ArtifactTypeImage,
 			ID:    action.artifactID,
-			Value: *action.binaryRef,
+			Value: ref,
 		}, action.payloadHash)
 	case ArtifactTypeChartData:
 		s.storeChartCache(action.targetPath, ChartDataArtifact{
@@ -587,19 +689,49 @@ func (s *Service) applyUpdateAction(action updateAction, strategy SaveConflictSt
 			Value: cloneRawJSON(action.jsonValue),
 		}, action.payloadHash)
 	default:
-		return ArtifactSaveResult{}, &Error{
-			Kind:    ErrorArtifactTypeUnsupported,
-			Message: fmt.Sprintf("Artifact type %s is not supported.", action.artifactType),
-		}
+		return unsupportedArtifactTypeError(action.artifactType)
 	}
+	return nil
+}
 
-	return ArtifactSaveResult{
-		ID:         action.artifactID,
-		Type:       action.artifactType,
-		Status:     status,
-		BackupPath: backupPath,
-		Message:    message,
-	}, nil
+func requireBinaryUpdateRef(action updateAction) (binarypayload.ContentRef, error) {
+	if action.binaryRef == nil {
+		return binarypayload.ContentRef{}, missingArtifactBinaryPayloadError(action.artifactID)
+	}
+	return *action.binaryRef, nil
+}
+
+func missingArtifactValueError(artifactID string) error {
+	return invalidArtifactRequestf(artifactID, "is missing a value.")
+}
+
+func missingArtifactBinaryPayloadError(artifactID string) error {
+	return invalidArtifactRequestf(artifactID, "is missing a binary payload.")
+}
+
+func unsupportedArtifactTypeError(artifactType ArtifactType) error {
+	return &Error{
+		Kind:    ErrorArtifactTypeUnsupported,
+		Message: fmt.Sprintf("Artifact type %s is not supported.", artifactType),
+	}
+}
+
+func invalidConflictStrategyError(strategy SaveConflictStrategy) error {
+	return &Error{
+		Kind:    ErrorInvalidRequest,
+		Message: fmt.Sprintf("Invalid conflict strategy: %q", strategy),
+	}
+}
+
+func invalidArtifactRequestf(artifactID string, format string, args ...any) error {
+	return &Error{
+		Kind:    ErrorInvalidRequest,
+		Message: fmt.Sprintf("Artifact %s "+format, append([]any{artifactID}, args...)...),
+	}
+}
+
+func stringPtr(value string) *string {
+	return &value
 }
 
 func (s *Service) loadCachedImage(rawPath string) (*ImageArtifact, error) {
