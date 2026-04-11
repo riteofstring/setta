@@ -104,107 +104,178 @@ type realtimeRenderedListenerValueBuilder struct {
 }
 
 func (b *realtimeRenderedListenerValueBuilder) render(key codegen.PythonDependencyKey) (string, bool) {
-	if renderedValue, ok := b.rendered[key]; ok {
-		return renderedValue.value, renderedValue.ok
+	if cached, ok := b.cachedRenderedValue(key); ok {
+		return cached.value, cached.ok
 	}
-	if override, ok := b.overrides[key]; ok {
-		b.rendered[key] = renderedListenerValue{
-			value: override,
-			ok:    true,
-		}
-		return override, true
+	if override, ok := b.overrideValue(key); ok {
+		return b.rememberRenderedValue(key, override)
 	}
-	if b.graph == nil {
-		return "", false
+	if b.isVisiting(key) {
+		return b.rememberMissingValue(key)
 	}
-	if _, ok := b.visiting[key]; ok {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
+	node, ok := b.renderableNode(key)
+	if !ok {
+		return b.rememberMissingValue(key)
 	}
-	node, ok := b.graph.Node(key)
-	if !ok || !node.Base().IncludeInCodegen {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
-	}
-
-	switch typed := node.(type) {
-	case *codegen.PythonParamNode:
-		if typed.CodeObjectType == "PasswordParam" {
-			renderedValue := strconv.Quote(
-				b.graph.PasswordSecrets[strings.TrimSpace(typed.CodeObjectImplID)],
-			)
-			b.rendered[key] = renderedListenerValue{
-				value: renderedValue,
-				ok:    true,
-			}
-			return renderedValue, true
-		}
-	case *codegen.PythonSectionNode:
-		if typed.SectionType == "MetaControl" && typed.ControlCodeObjType == "PasswordParam" {
-			renderedValue := strconv.Quote(
-				b.graph.PasswordSecrets[strings.TrimSpace(typed.ControlCodeObjImplID)],
-			)
-			b.rendered[key] = renderedListenerValue{
-				value: renderedValue,
-				ok:    true,
-			}
-			return renderedValue, true
-		}
+	if immediateValue, ok := b.immediateNodeValue(node); ok {
+		return b.rememberRenderedValue(key, immediateValue)
 	}
 
 	b.visiting[key] = struct{}{}
 	defer delete(b.visiting, key)
 
+	childValues, ok := b.renderChildValues(node)
+	if !ok {
+		return b.rememberMissingValue(key)
+	}
+	renderedValue, ok := b.formatNodeValue(node, childValues)
+	if !ok {
+		return b.rememberMissingValue(key)
+	}
+	return b.rememberRenderedValue(key, renderedValue)
+}
+
+func (b *realtimeRenderedListenerValueBuilder) cachedRenderedValue(
+	key codegen.PythonDependencyKey,
+) (renderedListenerValue, bool) {
+	renderedValue, ok := b.rendered[key]
+	return renderedValue, ok
+}
+
+func (b *realtimeRenderedListenerValueBuilder) overrideValue(key codegen.PythonDependencyKey) (string, bool) {
+	override, ok := b.overrides[key]
+	return override, ok
+}
+
+func (b *realtimeRenderedListenerValueBuilder) isVisiting(key codegen.PythonDependencyKey) bool {
+	_, ok := b.visiting[key]
+	return ok
+}
+
+func (b *realtimeRenderedListenerValueBuilder) renderableNode(
+	key codegen.PythonDependencyKey,
+) (codegen.PythonDependencyNode, bool) {
+	if b.graph == nil {
+		return nil, false
+	}
+	node, ok := b.graph.Node(key)
+	if !ok || !node.Base().IncludeInCodegen {
+		return nil, false
+	}
+	return node, true
+}
+
+func (b *realtimeRenderedListenerValueBuilder) immediateNodeValue(
+	node codegen.PythonDependencyNode,
+) (string, bool) {
+	switch typed := node.(type) {
+	case *codegen.PythonParamNode:
+		return realtimePasswordSecretExpression(
+			b.graph.PasswordSecrets,
+			typed.CodeObjectType,
+			typed.CodeObjectImplID,
+		)
+	case *codegen.PythonSectionNode:
+		if typed.SectionType != "MetaControl" {
+			return "", false
+		}
+		return realtimePasswordSecretExpression(
+			b.graph.PasswordSecrets,
+			typed.ControlCodeObjType,
+			typed.ControlCodeObjImplID,
+		)
+	default:
+		return "", false
+	}
+}
+
+func (b *realtimeRenderedListenerValueBuilder) renderChildValues(
+	node codegen.PythonDependencyNode,
+) (map[codegen.PythonDependencyKey]string, bool) {
+	base := node.Base()
 	childValues := map[codegen.PythonDependencyKey]string{}
-	for _, depKey := range orderedRealtimeDependencyKeys(node.Base().Deps, node.Base().DepOrder) {
-		if !node.Base().Deps[depKey] {
+	for _, depKey := range orderedRealtimeDependencyKeys(base.Deps, base.DepOrder) {
+		if !base.Deps[depKey] {
 			continue
 		}
 		renderedValue, ok := b.render(depKey)
 		if !ok {
-			b.rendered[key] = renderedListenerValue{}
-			return "", false
+			return nil, false
 		}
 		childValues[depKey] = renderedValue
 	}
+	return childValues, true
+}
 
-	codec := codegen.NewPythonValueCodec(
-		b.graph,
-		func(depKey codegen.PythonDependencyKey) string {
+func (b *realtimeRenderedListenerValueBuilder) formatNodeValue(
+	node codegen.PythonDependencyNode,
+	childValues map[codegen.PythonDependencyKey]string,
+) (string, bool) {
+	codec := newRealtimeValueCodec(b.graph, childValues)
+	switch typed := node.(type) {
+	case *codegen.PythonParamNode:
+		renderedValue, err := codec.FormatParamExpression(typed)
+		if err != nil {
+			return "", false
+		}
+		return renderedValue, true
+	case *codegen.PythonSectionNode:
+		renderedValue, handled, err := codec.FormatSection(typed)
+		if err != nil || !handled {
+			return "", false
+		}
+		return renderedValue, true
+	default:
+		return "", false
+	}
+}
+
+func (b *realtimeRenderedListenerValueBuilder) rememberRenderedValue(
+	key codegen.PythonDependencyKey,
+	value string,
+) (string, bool) {
+	b.rendered[key] = renderedListenerValue{
+		value: value,
+		ok:    true,
+	}
+	return value, true
+}
+
+func (b *realtimeRenderedListenerValueBuilder) rememberMissingValue(
+	key codegen.PythonDependencyKey,
+) (string, bool) {
+	b.rendered[key] = renderedListenerValue{}
+	return "", false
+}
+
+func newRealtimeValueCodec(
+	graph *codegen.PythonDependencyGraph,
+	childValues map[codegen.PythonDependencyKey]string,
+) *codegen.PythonValueCodec {
+	var varLookup codegen.PythonVarLookup
+	if childValues != nil {
+		varLookup = func(depKey codegen.PythonDependencyKey) string {
 			return childValues[depKey]
-		},
+		}
+	}
+	return codegen.NewPythonValueCodec(
+		graph,
+		varLookup,
 		codegen.PythonValueCodecOptions{
 			Mode: codegen.PythonValueModeLiveRuntime,
 		},
 	)
-	var (
-		renderedValue string
-		err           error
-	)
-	switch typed := node.(type) {
-	case *codegen.PythonParamNode:
-		renderedValue, err = codec.FormatParamExpression(typed)
-	case *codegen.PythonSectionNode:
-		var handled bool
-		renderedValue, handled, err = codec.FormatSection(typed)
-		if !handled {
-			b.rendered[key] = renderedListenerValue{}
-			return "", false
-		}
-	default:
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
-	}
-	if err != nil {
-		b.rendered[key] = renderedListenerValue{}
-		return "", false
-	}
+}
 
-	b.rendered[key] = renderedListenerValue{
-		value: renderedValue,
-		ok:    true,
+func realtimePasswordSecretExpression(
+	passwordSecrets map[string]string,
+	codeObjectType string,
+	codeObjectImplID string,
+) (string, bool) {
+	if codeObjectType != "PasswordParam" {
+		return "", false
 	}
-	return renderedValue, true
+	return strconv.Quote(passwordSecrets[strings.TrimSpace(codeObjectImplID)]), true
 }
 
 func buildRealtimeAffectedDependencyKeys(
@@ -323,55 +394,90 @@ func renderRealtimeDeltaExpression(
 	if delta.BinaryPayload != nil {
 		return renderPythonBytesLiteral(delta.BinaryPayload), true
 	}
-
 	value, ok := decodeRealtimePythonDependencyValue(delta.Value)
 	if !ok {
 		return "", false
 	}
-
-	node, ok := graph.Node(key)
+	node, ok := renderRealtimeDeltaNode(graph, key)
 	if !ok {
 		return "", false
 	}
-	codec := codegen.NewPythonValueCodec(
-		graph,
-		nil,
-		codegen.PythonValueCodecOptions{
-			Mode: codegen.PythonValueModeLiveRuntime,
-		},
-	)
+	return renderRealtimeDeltaValueExpression(graph, node, value)
+}
 
+func renderRealtimeDeltaNode(
+	graph *codegen.PythonDependencyGraph,
+	key codegen.PythonDependencyKey,
+) (codegen.PythonDependencyNode, bool) {
+	if graph == nil {
+		return nil, false
+	}
+	node, ok := graph.Node(key)
+	return node, ok
+}
+
+func renderRealtimeDeltaValueExpression(
+	graph *codegen.PythonDependencyGraph,
+	node codegen.PythonDependencyNode,
+	value codegen.PythonDependencyValue,
+) (string, bool) {
+	codec := newRealtimeValueCodec(graph, nil)
 	switch typed := node.(type) {
 	case *codegen.PythonParamNode:
-		if typed.CodeObjectType == "NestedParam" || typed.CodeObjectType == "PasswordParam" {
-			return "", false
-		}
-		next := *typed
-		next.PythonDependencyNodeBase = typed.PythonDependencyNodeBase
-		next.PythonDependencyNodeBase.Value = value
-		renderedValue, err := codec.FormatParamExpression(&next)
-		if err != nil {
-			return "", false
-		}
-		return renderedValue, true
+		return renderRealtimeParamDeltaExpression(codec, typed, value)
 	case *codegen.PythonSectionNode:
-		if typed.SectionType == "Callable" || typed.SectionType == "ListRoot" || typed.SectionType == "Group" || typed.SectionType == "Dict" {
-			return "", false
-		}
-		if typed.SectionType == "MetaControl" && typed.ControlCodeObjType == "PasswordParam" {
-			return "", false
-		}
-		next := *typed
-		next.PythonDependencyNodeBase = typed.PythonDependencyNodeBase
-		next.PythonDependencyNodeBase.Value = value
-		renderedValue, handled, err := codec.FormatSection(&next)
-		if err != nil || !handled {
-			return "", false
-		}
-		return renderedValue, true
+		return renderRealtimeSectionDeltaExpression(codec, typed, value)
 	default:
 		return "", false
 	}
+}
+
+func renderRealtimeParamDeltaExpression(
+	codec *codegen.PythonValueCodec,
+	node *codegen.PythonParamNode,
+	value codegen.PythonDependencyValue,
+) (string, bool) {
+	if !supportsRealtimeParamDelta(node) {
+		return "", false
+	}
+	next := *node
+	next.PythonDependencyNodeBase = node.PythonDependencyNodeBase
+	next.PythonDependencyNodeBase.Value = value
+	renderedValue, err := codec.FormatParamExpression(&next)
+	if err != nil {
+		return "", false
+	}
+	return renderedValue, true
+}
+
+func supportsRealtimeParamDelta(node *codegen.PythonParamNode) bool {
+	return node.CodeObjectType != "NestedParam" && node.CodeObjectType != "PasswordParam"
+}
+
+func renderRealtimeSectionDeltaExpression(
+	codec *codegen.PythonValueCodec,
+	node *codegen.PythonSectionNode,
+	value codegen.PythonDependencyValue,
+) (string, bool) {
+	if !supportsRealtimeSectionDelta(node) {
+		return "", false
+	}
+	next := *node
+	next.PythonDependencyNodeBase = node.PythonDependencyNodeBase
+	next.PythonDependencyNodeBase.Value = value
+	renderedValue, handled, err := codec.FormatSection(&next)
+	if err != nil || !handled {
+		return "", false
+	}
+	return renderedValue, true
+}
+
+func supportsRealtimeSectionDelta(node *codegen.PythonSectionNode) bool {
+	switch node.SectionType {
+	case "Callable", "ListRoot", "Group", "Dict":
+		return false
+	}
+	return !(node.SectionType == "MetaControl" && node.ControlCodeObjType == "PasswordParam")
 }
 
 func decodeRealtimePythonDependencyValue(raw json.RawMessage) (codegen.PythonDependencyValue, bool) {

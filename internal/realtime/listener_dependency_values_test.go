@@ -124,3 +124,70 @@ func TestBuildListenerRealtimeDependencyValuesFromGraphUsesBinaryPayloadForDepen
 		t.Fatalf("expected parent rendered value %q, got %q", `{'draw': b'\x00A\xff'}`, got)
 	}
 }
+
+func TestRenderRealtimeDeltaExpressionRejectsUnsupportedTargets(t *testing.T) {
+	t.Parallel()
+
+	passwordKey := codegen.PythonCodeObjectDependencyKey("credentials", "token")
+	dictKey := codegen.PythonSectionDependencyKey("controls")
+	graph := &codegen.PythonDependencyGraph{
+		Nodes: map[codegen.PythonDependencyKey]codegen.PythonDependencyNode{
+			passwordKey: &codegen.PythonParamNode{
+				PythonDependencyNodeBase: codegen.PythonDependencyNodeBase{
+					Name:             "token",
+					FullPathName:     "credentials__token",
+					Deps:             map[codegen.PythonDependencyKey]bool{},
+					IncludeInCodegen: true,
+				},
+				CodeObjectType: "PasswordParam",
+			},
+			dictKey: &codegen.PythonSectionNode{
+				PythonDependencyNodeBase: codegen.PythonDependencyNodeBase{
+					Name:             "controls",
+					FullPathName:     "Controls",
+					Deps:             map[codegen.PythonDependencyKey]bool{},
+					IncludeInCodegen: true,
+				},
+				SectionType: "Dict",
+			},
+		},
+	}
+
+	testCases := []struct {
+		name  string
+		key   codegen.PythonDependencyKey
+		delta ListenerRealtimeDelta
+	}{
+		{
+			name: "password param",
+			key:  passwordKey,
+			delta: ListenerRealtimeDelta{
+				Dependency: "credentials.token",
+				Value:      json.RawMessage(`{"type":"Literal","payload":"secret"}`),
+			},
+		},
+		{
+			name: "dict section",
+			key:  dictKey,
+			delta: ListenerRealtimeDelta{
+				Dependency: "controls",
+				Value:      json.RawMessage(`{"type":"Literal","payload":"5"}`),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			renderedValue, ok := renderRealtimeDeltaExpression(graph, tc.key, tc.delta)
+			if ok {
+				t.Fatalf("expected unsupported target to be rejected, got %q", renderedValue)
+			}
+			if renderedValue != "" {
+				t.Fatalf("expected empty rendered value for unsupported target, got %q", renderedValue)
+			}
+		})
+	}
+}
