@@ -132,66 +132,25 @@ func sessionKey(session *sdkmcp.ServerSession) string {
 	return fmt.Sprintf("session:%p", session)
 }
 
+type agenticContextStringField struct {
+	metaKey      string
+	headerKey    string
+	sessionValue string
+	rejectBlank  bool
+	setValue     func(*AgenticContext, string)
+}
+
 func resolveAgenticContext(requestContext ToolRequestContext, sessionContext *AgenticContext) (*AgenticContext, error) {
-	projectConfigID, err := resolveAgenticContextString(
-		requestContext.Meta,
-		"projectConfigId",
-		requestContext.Headers,
-		AgenticContextProjectConfigIDHeader,
-		sessionContextField(sessionContext, func(value AgenticContext) string { return value.ProjectConfigID }),
-		false,
-	)
+	resolved, err := resolvePrimaryAgenticContext(requestContext, sessionContext)
 	if err != nil {
 		return nil, err
 	}
-	shareSessionID, err := resolveAgenticContextShareSessionID(
-		requestContext.Meta,
-		requestContext.Headers,
-		sessionContextField(sessionContext, func(value AgenticContext) string { return value.ShareSessionID }),
-		requestContext.AllowRequestMetaShareSession,
-	)
-	if err != nil {
-		return nil, err
-	}
-	chatID, err := resolveAgenticContextString(
-		requestContext.Meta,
-		"chatId",
-		requestContext.Headers,
-		AgenticContextChatIDHeader,
-		sessionContextField(sessionContext, func(value AgenticContext) string { return value.ChatID }),
-		false,
-	)
-	if err != nil {
-		return nil, err
-	}
-	runID, err := resolveAgenticContextString(
-		requestContext.Meta,
-		"runId",
-		requestContext.Headers,
-		AgenticContextRunIDHeader,
-		sessionContextField(sessionContext, func(value AgenticContext) string { return value.RunID }),
-		false,
-	)
-	if err != nil {
-		return nil, err
-	}
-	sectionID, err := resolveAgenticContextString(
-		requestContext.Meta,
-		"sectionId",
-		requestContext.Headers,
-		AgenticContextSectionIDHeader,
-		sessionContextField(sessionContext, func(value AgenticContext) string { return value.SectionID }),
-		false,
-	)
-	if err != nil {
-		return nil, err
-	}
-	frontendAffinityToken := resolveFrontendAffinityToken(
+	resolved.FrontendAffinityToken = resolveFrontendAffinityToken(
 		requestContext.Meta,
 		requestContext.Headers,
 		sessionContextField(sessionContext, func(value AgenticContext) string { return value.FrontendAffinityToken }),
 	)
-	allowUnscoped, err := resolveAllowUnscoped(
+	resolved.AllowUnscoped, err = resolveAllowUnscoped(
 		requestContext.Meta,
 		requestContext.Headers,
 		sessionContextBool(sessionContext, func(value AgenticContext) bool { return value.AllowUnscoped }),
@@ -199,19 +158,85 @@ func resolveAgenticContext(requestContext ToolRequestContext, sessionContext *Ag
 	if err != nil {
 		return nil, err
 	}
-
-	if projectConfigID == "" && shareSessionID == "" && chatID == "" && runID == "" && sectionID == "" && frontendAffinityToken == "" && !allowUnscoped {
+	if resolved.isEmpty() {
 		return nil, nil
 	}
-	return &AgenticContext{
-		ProjectConfigID:       projectConfigID,
-		ShareSessionID:        shareSessionID,
-		ChatID:                chatID,
-		RunID:                 runID,
-		SectionID:             sectionID,
-		FrontendAffinityToken: frontendAffinityToken,
-		AllowUnscoped:         allowUnscoped,
-	}, nil
+	return &resolved, nil
+}
+
+func resolvePrimaryAgenticContext(requestContext ToolRequestContext, sessionContext *AgenticContext) (AgenticContext, error) {
+	fields := []agenticContextStringField{
+		{
+			metaKey:      "projectConfigId",
+			headerKey:    AgenticContextProjectConfigIDHeader,
+			sessionValue: sessionContextField(sessionContext, func(value AgenticContext) string { return value.ProjectConfigID }),
+			setValue: func(context *AgenticContext, value string) {
+				context.ProjectConfigID = value
+			},
+		},
+		{
+			metaKey:      "chatId",
+			headerKey:    AgenticContextChatIDHeader,
+			sessionValue: sessionContextField(sessionContext, func(value AgenticContext) string { return value.ChatID }),
+			setValue: func(context *AgenticContext, value string) {
+				context.ChatID = value
+			},
+		},
+		{
+			metaKey:      "runId",
+			headerKey:    AgenticContextRunIDHeader,
+			sessionValue: sessionContextField(sessionContext, func(value AgenticContext) string { return value.RunID }),
+			setValue: func(context *AgenticContext, value string) {
+				context.RunID = value
+			},
+		},
+		{
+			metaKey:      "sectionId",
+			headerKey:    AgenticContextSectionIDHeader,
+			sessionValue: sessionContextField(sessionContext, func(value AgenticContext) string { return value.SectionID }),
+			setValue: func(context *AgenticContext, value string) {
+				context.SectionID = value
+			},
+		},
+	}
+
+	resolved := AgenticContext{}
+	for _, field := range fields {
+		value, err := resolveAgenticContextString(
+			requestContext.Meta,
+			field.metaKey,
+			requestContext.Headers,
+			field.headerKey,
+			field.sessionValue,
+			field.rejectBlank,
+		)
+		if err != nil {
+			return AgenticContext{}, err
+		}
+		field.setValue(&resolved, value)
+	}
+
+	shareSessionID, err := resolveAgenticContextShareSessionID(
+		requestContext.Meta,
+		requestContext.Headers,
+		sessionContextField(sessionContext, func(value AgenticContext) string { return value.ShareSessionID }),
+		requestContext.AllowRequestMetaShareSession,
+	)
+	if err != nil {
+		return AgenticContext{}, err
+	}
+	resolved.ShareSessionID = shareSessionID
+	return resolved, nil
+}
+
+func (context AgenticContext) isEmpty() bool {
+	return context.ProjectConfigID == "" &&
+		context.ShareSessionID == "" &&
+		context.ChatID == "" &&
+		context.RunID == "" &&
+		context.SectionID == "" &&
+		context.FrontendAffinityToken == "" &&
+		!context.AllowUnscoped
 }
 
 func resolveAgenticContextString(
@@ -479,139 +504,113 @@ func checkAgenticScope(
 	if err != nil {
 		return scopeCheckResult{}, err
 	}
-	targetSectionIDs := targets.sectionIDs
-	unmappedCodeObjIDs := targets.unmappedCodeObjIDs
-	switch metadata.AccessType {
+	return checkAgenticScopeForAccessType(metadata.AccessType, scope, targets), nil
+}
+
+func checkAgenticScopeForAccessType(
+	accessType tools.AccessType,
+	scope AgenticScope,
+	targets resolvedToolTargets,
+) scopeCheckResult {
+	switch accessType {
 	case tools.AccessTypeStructural:
-		if scope.StructuralAllowed {
-			return scopeCheckResult{
-				Allowed:            true,
-				Reason:             "structural",
-				TargetSectionIDs:   targetSectionIDs,
-				UnmappedCodeObjIDs: unmappedCodeObjIDs,
-			}, nil
-		}
-		return scopeCheckResult{
-			Allowed:            false,
-			Reason:             "structural_denied",
-			TargetSectionIDs:   targetSectionIDs,
-			BlockedSectionIDs:  targetSectionIDs,
-			UnmappedCodeObjIDs: unmappedCodeObjIDs,
-		}, nil
+		return checkStructuralAgenticScope(scope, targets)
 	case tools.AccessTypeWrite:
-		if len(targetSectionIDs) == 0 {
-			if len(unmappedCodeObjIDs) != 0 {
-				return scopeCheckResult{
-					Allowed:            false,
-					Reason:             "unmapped_code_obj",
-					UnmappedCodeObjIDs: unmappedCodeObjIDs,
-				}, nil
-			}
-			if scope.StructuralAllowed {
-				return scopeCheckResult{
-					Allowed:            true,
-					Reason:             "write_without_targets_allowed",
-					UnmappedCodeObjIDs: unmappedCodeObjIDs,
-				}, nil
-			}
-			return scopeCheckResult{
-				Allowed:            false,
-				Reason:             "write_without_targets",
-				UnmappedCodeObjIDs: unmappedCodeObjIDs,
-			}, nil
-		}
-		if len(scope.WriteSectionIDs) == 0 {
-			return scopeCheckResult{
-				Allowed:            false,
-				Reason:             "empty_scope",
-				TargetSectionIDs:   targetSectionIDs,
-				BlockedSectionIDs:  targetSectionIDs,
-				UnmappedCodeObjIDs: unmappedCodeObjIDs,
-			}, nil
-		}
-		blockedSectionIDs := blockedTargetSectionIDs(targetSectionIDs, scope.WriteSectionIDs)
-		return scopeCheckResult{
-			Allowed:            len(blockedSectionIDs) == 0 && len(unmappedCodeObjIDs) == 0,
-			Reason:             scopeReasonForTargets(blockedSectionIDs, unmappedCodeObjIDs, "allowed"),
-			TargetSectionIDs:   targetSectionIDs,
-			BlockedSectionIDs:  blockedSectionIDs,
-			UnmappedCodeObjIDs: unmappedCodeObjIDs,
-		}, nil
+		return checkWriteAgenticScope(scope, targets)
 	case tools.AccessTypeRead:
-		if len(targetSectionIDs) > 0 {
-			allowedSectionIDs := scope.ReadSectionIDs
-			if len(allowedSectionIDs) == 0 {
-				return scopeCheckResult{
-					Allowed:            false,
-					Reason:             "empty_scope",
-					TargetSectionIDs:   targetSectionIDs,
-					BlockedSectionIDs:  targetSectionIDs,
-					UnmappedCodeObjIDs: unmappedCodeObjIDs,
-				}, nil
-			}
-			blockedSectionIDs := blockedTargetSectionIDs(targetSectionIDs, allowedSectionIDs)
-			return scopeCheckResult{
-				Allowed:            len(blockedSectionIDs) == 0 && len(unmappedCodeObjIDs) == 0,
-				Reason:             scopeReasonForTargets(blockedSectionIDs, unmappedCodeObjIDs, "allowed"),
-				TargetSectionIDs:   targetSectionIDs,
-				BlockedSectionIDs:  blockedSectionIDs,
-				UnmappedCodeObjIDs: unmappedCodeObjIDs,
-			}, nil
-		}
-		if len(scope.ReadSectionIDs) == 0 {
-			return scopeCheckResult{
-				Allowed:            false,
-				Reason:             "empty_scope",
-				UnmappedCodeObjIDs: unmappedCodeObjIDs,
-			}, nil
-		}
-		if len(unmappedCodeObjIDs) != 0 {
-			return scopeCheckResult{
-				Allowed:            false,
-				Reason:             "unmapped_code_obj",
-				UnmappedCodeObjIDs: unmappedCodeObjIDs,
-			}, nil
-		}
-		return scopeCheckResult{
-			Allowed:            true,
-			Reason:             "read_without_targets",
-			UnmappedCodeObjIDs: unmappedCodeObjIDs,
-		}, nil
+		return checkReadAgenticScope(scope, targets)
 	case tools.AccessType(accessTypePeerChat):
-		if len(targetSectionIDs) == 0 {
-			if len(unmappedCodeObjIDs) != 0 {
-				return scopeCheckResult{
-					Allowed:            false,
-					Reason:             "unmapped_code_obj",
-					UnmappedCodeObjIDs: unmappedCodeObjIDs,
-				}, nil
-			}
-			return scopeCheckResult{
-				Allowed:            false,
-				Reason:             "peer_chat_without_targets",
-				UnmappedCodeObjIDs: unmappedCodeObjIDs,
-			}, nil
-		}
-		if len(scope.PeerChatSectionIDs) == 0 {
-			return scopeCheckResult{
-				Allowed:            false,
-				Reason:             "empty_scope",
-				TargetSectionIDs:   targetSectionIDs,
-				BlockedSectionIDs:  targetSectionIDs,
-				UnmappedCodeObjIDs: unmappedCodeObjIDs,
-			}, nil
-		}
-		blockedSectionIDs := blockedTargetSectionIDs(targetSectionIDs, scope.PeerChatSectionIDs)
-		return scopeCheckResult{
-			Allowed:            len(blockedSectionIDs) == 0 && len(unmappedCodeObjIDs) == 0,
-			Reason:             scopeReasonForTargets(blockedSectionIDs, unmappedCodeObjIDs, "allowed"),
-			TargetSectionIDs:   targetSectionIDs,
-			BlockedSectionIDs:  blockedSectionIDs,
-			UnmappedCodeObjIDs: unmappedCodeObjIDs,
-		}, nil
+		return checkPeerChatAgenticScope(scope, targets)
 	default:
-		return scopeCheckResult{Allowed: false, Reason: "invalid_access_type"}, nil
+		return scopeCheckResult{Allowed: false, Reason: "invalid_access_type"}
 	}
+}
+
+func checkStructuralAgenticScope(scope AgenticScope, targets resolvedToolTargets) scopeCheckResult {
+	if scope.StructuralAllowed {
+		return buildScopeCheckResult(true, "structural", targets, nil)
+	}
+	return buildScopeCheckResult(false, "structural_denied", targets, targets.sectionIDs)
+}
+
+func checkWriteAgenticScope(scope AgenticScope, targets resolvedToolTargets) scopeCheckResult {
+	if len(targets.sectionIDs) == 0 {
+		return checkUntargetedWriteAgenticScope(scope, targets)
+	}
+	return checkTargetedAgenticScope(scope.WriteSectionIDs, targets)
+}
+
+func checkUntargetedWriteAgenticScope(scope AgenticScope, targets resolvedToolTargets) scopeCheckResult {
+	if len(targets.unmappedCodeObjIDs) != 0 {
+		return buildScopeCheckResult(false, "unmapped_code_obj", targets, nil)
+	}
+	if scope.StructuralAllowed {
+		return buildScopeCheckResult(true, "write_without_targets_allowed", targets, nil)
+	}
+	return buildScopeCheckResult(false, "write_without_targets", targets, nil)
+}
+
+func checkReadAgenticScope(scope AgenticScope, targets resolvedToolTargets) scopeCheckResult {
+	if len(targets.sectionIDs) == 0 {
+		return checkUntargetedReadAgenticScope(scope, targets)
+	}
+	return checkTargetedAgenticScope(scope.ReadSectionIDs, targets)
+}
+
+func checkUntargetedReadAgenticScope(scope AgenticScope, targets resolvedToolTargets) scopeCheckResult {
+	if len(scope.ReadSectionIDs) == 0 {
+		return buildScopeCheckResult(false, "empty_scope", targets, nil)
+	}
+	if len(targets.unmappedCodeObjIDs) != 0 {
+		return buildScopeCheckResult(false, "unmapped_code_obj", targets, nil)
+	}
+	return buildScopeCheckResult(true, "read_without_targets", targets, nil)
+}
+
+func checkPeerChatAgenticScope(scope AgenticScope, targets resolvedToolTargets) scopeCheckResult {
+	if len(targets.sectionIDs) == 0 {
+		if len(targets.unmappedCodeObjIDs) != 0 {
+			return buildScopeCheckResult(false, "unmapped_code_obj", targets, nil)
+		}
+		return buildScopeCheckResult(false, "peer_chat_without_targets", targets, nil)
+	}
+	return checkTargetedAgenticScope(scope.PeerChatSectionIDs, targets)
+}
+
+func checkTargetedAgenticScope(
+	allowedSectionIDs map[string]struct{},
+	targets resolvedToolTargets,
+) scopeCheckResult {
+	if len(allowedSectionIDs) == 0 {
+		return buildScopeCheckResult(false, "empty_scope", targets, targets.sectionIDs)
+	}
+	blockedSectionIDs := blockedTargetSectionIDs(targets.sectionIDs, allowedSectionIDs)
+	return buildScopeCheckResult(
+		len(blockedSectionIDs) == 0 && len(targets.unmappedCodeObjIDs) == 0,
+		scopeReasonForTargets(blockedSectionIDs, targets.unmappedCodeObjIDs, "allowed"),
+		targets,
+		blockedSectionIDs,
+	)
+}
+
+func buildScopeCheckResult(
+	allowed bool,
+	reason string,
+	targets resolvedToolTargets,
+	blockedSectionIDs []string,
+) scopeCheckResult {
+	result := scopeCheckResult{
+		Allowed:            allowed,
+		Reason:             reason,
+		UnmappedCodeObjIDs: targets.unmappedCodeObjIDs,
+	}
+	if len(targets.sectionIDs) != 0 {
+		result.TargetSectionIDs = targets.sectionIDs
+	}
+	if len(blockedSectionIDs) != 0 {
+		result.BlockedSectionIDs = blockedSectionIDs
+	}
+	return result
 }
 
 func blockedTargetSectionIDs(targetSectionIDs []string, allowedSectionIDs map[string]struct{}) []string {
