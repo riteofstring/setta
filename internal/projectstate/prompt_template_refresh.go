@@ -20,48 +20,86 @@ func (d *Document) RefreshLinkedPromptSectionsForTemplate(promptTemplateID strin
 		return false, err
 	}
 
-	projectIDs := make([]string, 0, len(d.Projects))
-	for projectID := range d.Projects {
-		projectIDs = append(projectIDs, projectID)
-	}
-	sort.Strings(projectIDs)
-
 	updated := false
-	for _, projectID := range projectIDs {
-		project := d.Projects[projectID]
-		sectionIDs := make([]string, 0, len(project.Sections))
-		for sectionID := range project.Sections {
-			sectionIDs = append(sectionIDs, sectionID)
+	for _, projectID := range sortedPromptRefreshProjectIDs(d.Projects) {
+		project, projectUpdated, err := refreshLinkedPromptSectionsForProject(
+			d.Projects[projectID],
+			normalizedPromptTemplateID,
+			template,
+			normalizedFormat,
+		)
+		if err != nil {
+			return false, err
 		}
-		sort.Strings(sectionIDs)
-
-		projectUpdated := false
-		for _, sectionID := range sectionIDs {
-			source, err := project.PromptSectionSource(sectionID)
-			if err != nil {
-				if errors.Is(err, ErrPromptSectionRequired) {
-					continue
-				}
-				return false, err
-			}
-			if source.PromptTemplateID == nil || *source.PromptTemplateID != normalizedPromptTemplateID {
-				continue
-			}
-			if source.Template == template && source.Format == normalizedFormat {
-				continue
-			}
-			if err := project.SetPromptTemplateLink(sectionID, &normalizedPromptTemplateID, template, normalizedFormat); err != nil {
-				return false, err
-			}
-			projectUpdated = true
-			updated = true
+		if !projectUpdated {
+			continue
 		}
-		if projectUpdated {
-			d.Projects[project.ID] = project
-		}
+		d.Projects[project.ID] = project
+		updated = true
 	}
 
 	return updated, nil
+}
+
+func refreshLinkedPromptSectionsForProject(
+	project Project,
+	promptTemplateID string,
+	template string,
+	format prompttemplates.Format,
+) (Project, bool, error) {
+	updated := false
+	for _, sectionID := range sortedPromptRefreshSectionIDs(project.Sections) {
+		refreshNeeded, err := linkedPromptSectionRefreshNeeded(project, sectionID, promptTemplateID, template, format)
+		if err != nil {
+			if errors.Is(err, ErrPromptSectionRequired) {
+				continue
+			}
+			return Project{}, false, err
+		}
+		if !refreshNeeded {
+			continue
+		}
+		if err := project.SetPromptTemplateLink(sectionID, &promptTemplateID, template, format); err != nil {
+			return Project{}, false, err
+		}
+		updated = true
+	}
+	return project, updated, nil
+}
+
+func linkedPromptSectionRefreshNeeded(
+	project Project,
+	sectionID string,
+	promptTemplateID string,
+	template string,
+	format prompttemplates.Format,
+) (bool, error) {
+	source, err := project.PromptSectionSource(sectionID)
+	if err != nil {
+		return false, err
+	}
+	if source.PromptTemplateID == nil || *source.PromptTemplateID != promptTemplateID {
+		return false, nil
+	}
+	return source.Template != template || source.Format != format, nil
+}
+
+func sortedPromptRefreshProjectIDs(projects map[string]Project) []string {
+	ids := make([]string, 0, len(projects))
+	for projectID := range projects {
+		ids = append(ids, projectID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func sortedPromptRefreshSectionIDs(sections map[string]Section) []string {
+	ids := make([]string, 0, len(sections))
+	for sectionID := range sections {
+		ids = append(ids, sectionID)
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 func (r *Runtime) RefreshLinkedPromptSectionsForTemplate(
