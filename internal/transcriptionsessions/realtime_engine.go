@@ -258,58 +258,26 @@ func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Du
 	readySeen := false
 	deadline := time.Now().Add(timeout)
 	for {
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			if readySeen {
-				return nil
-			}
-			return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+		waitResult, err := waitForRealtimeEventBefore(ctx, e.events, deadline)
+		if err != nil {
+			return err
 		}
-		timer := time.NewTimer(remaining)
-		select {
-		case <-timer.C:
+		if waitResult.timedOut {
 			if readySeen {
 				return nil
 			}
-			return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
-		case <-ctx.Done():
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			return ctx.Err()
-		case result, ok := <-e.events:
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			if !ok {
-				return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
-			}
-			if result.closed {
-				return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
-			}
-			if result.err != nil {
-				if errors.Is(result.err, context.Canceled) && ctx.Err() != nil {
-					return ctx.Err()
-				}
-				return result.err
-			}
-			ready, err := e.handleStartupEvent(result.payload)
-			if err != nil {
-				return err
-			}
-			if ready && !readySeen {
-				// Keep draining a fixed post-ack startup window so immediate
-				// provider rejections do not escape into the first append while
-				// unrelated provider noise cannot extend startup indefinitely.
-				readySeen = true
-				deadline = time.Now().Add(timeout)
-			}
+			return realtimeProviderFailureError()
+		}
+		ready, err := e.handleStartupReadResult(ctx, waitResult.result)
+		if err != nil {
+			return err
+		}
+		if ready && !readySeen {
+			// Keep draining a fixed post-ack startup window so immediate
+			// provider rejections do not escape into the first append while
+			// unrelated provider noise cannot extend startup indefinitely.
+			readySeen = true
+			deadline = time.Now().Add(timeout)
 		}
 	}
 }
@@ -318,49 +286,101 @@ func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration,
 	startFullText := e.fullText
 	deadline := time.Now().Add(timeout)
 	for {
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
+		waitResult, err := waitForRealtimeEventBefore(ctx, e.events, deadline)
+		if err != nil {
+			return "", err
+		}
+		if waitResult.timedOut {
 			return appendOpenAIRealtimeTranscriptDelta(startFullText, e.fullText), nil
 		}
-		timer := time.NewTimer(remaining)
-		select {
-		case <-timer.C:
+		done, err := e.handleDrainReadResult(ctx, waitResult.result, allowCleanClose)
+		if err != nil {
+			return "", err
+		}
+		if done {
 			return appendOpenAIRealtimeTranscriptDelta(startFullText, e.fullText), nil
-		case <-ctx.Done():
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			return "", ctx.Err()
-		case result, ok := <-e.events:
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			if !ok {
-				return "", newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
-			}
-			if result.closed {
-				if allowCleanClose {
-					return appendOpenAIRealtimeTranscriptDelta(startFullText, e.fullText), nil
-				}
-				return "", newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
-			}
-			if result.err != nil {
-				if errors.Is(result.err, context.Canceled) && ctx.Err() != nil {
-					return "", ctx.Err()
-				}
-				return "", result.err
-			}
-			if _, err := e.handleEvent(result.payload); err != nil {
-				return "", err
-			}
 		}
 	}
+}
+
+type realtimeEventWaitResult struct {
+	result   realtimeReadResult
+	timedOut bool
+}
+
+func waitForRealtimeEventBefore(ctx context.Context, events <-chan realtimeReadResult, deadline time.Time) (realtimeEventWaitResult, error) {
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		return realtimeEventWaitResult{timedOut: true}, nil
+	}
+	timer := time.NewTimer(remaining)
+	defer stopRealtimeTimer(timer)
+	select {
+	case <-timer.C:
+		return realtimeEventWaitResult{timedOut: true}, nil
+	case <-ctx.Done():
+		return realtimeEventWaitResult{}, ctx.Err()
+	case result, ok := <-events:
+		if !ok {
+			return realtimeEventWaitResult{}, realtimeProviderFailureError()
+		}
+		return realtimeEventWaitResult{result: result}, nil
+	}
+}
+
+func stopRealtimeTimer(timer *time.Timer) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+}
+
+func realtimeProviderFailureError() error {
+	return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+}
+
+func normalizeRealtimeReadResult(ctx context.Context, result realtimeReadResult, allowCleanClose bool) ([]byte, bool, error) {
+	if result.closed {
+		if allowCleanClose {
+			return nil, true, nil
+		}
+		return nil, false, realtimeProviderFailureError()
+	}
+	if result.err != nil {
+		if errors.Is(result.err, context.Canceled) && ctx.Err() != nil {
+			return nil, false, ctx.Err()
+		}
+		return nil, false, result.err
+	}
+	return result.payload, false, nil
+}
+
+func (e *realtimeEngine) handleStartupReadResult(ctx context.Context, result realtimeReadResult) (bool, error) {
+	payload, _, err := normalizeRealtimeReadResult(ctx, result, false)
+	if err != nil {
+		return false, err
+	}
+	return e.handleStartupEvent(payload)
+}
+
+func (e *realtimeEngine) handleDrainReadResult(
+	ctx context.Context,
+	result realtimeReadResult,
+	allowCleanClose bool,
+) (bool, error) {
+	payload, cleanClose, err := normalizeRealtimeReadResult(ctx, result, allowCleanClose)
+	if err != nil {
+		return false, err
+	}
+	if cleanClose {
+		return true, nil
+	}
+	if _, err := e.handleEvent(payload); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (e *realtimeEngine) handleStartupEvent(payload []byte) (bool, error) {
@@ -664,61 +684,93 @@ func appendOpenAIRealtimeFallbackItemOrder(itemOrder []string, itemID string) []
 }
 
 func rebuildOpenAIRealtimeItemOrder(itemCommitOrder []string, itemPreviousIDs map[string]*string, fallbackOrder []string) []string {
+	builder := newRealtimeItemOrderBuilder(itemCommitOrder, fallbackOrder, itemPreviousIDs)
+	builder.appendAll(itemCommitOrder)
+	builder.appendAll(fallbackOrder)
+	return builder.ordered
+}
+
+type realtimeItemOrderBuilder struct {
+	knownItems      map[string]struct{}
+	itemPreviousIDs map[string]*string
+	ordered         []string
+	placed          map[string]struct{}
+	visiting        map[string]struct{}
+}
+
+func newRealtimeItemOrderBuilder(itemCommitOrder []string, fallbackOrder []string, itemPreviousIDs map[string]*string) *realtimeItemOrderBuilder {
+	return &realtimeItemOrderBuilder{
+		knownItems:      collectRealtimeKnownItems(itemCommitOrder, fallbackOrder),
+		itemPreviousIDs: itemPreviousIDs,
+		ordered:         make([]string, 0, len(itemCommitOrder)+len(fallbackOrder)),
+		placed:          map[string]struct{}{},
+		visiting:        map[string]struct{}{},
+	}
+}
+
+func collectRealtimeKnownItems(itemCommitOrder []string, fallbackOrder []string) map[string]struct{} {
 	knownItems := map[string]struct{}{}
-	for _, itemID := range itemCommitOrder {
+	appendRealtimeKnownItems(knownItems, itemCommitOrder)
+	appendRealtimeKnownItems(knownItems, fallbackOrder)
+	return knownItems
+}
+
+func appendRealtimeKnownItems(knownItems map[string]struct{}, itemIDs []string) {
+	for _, itemID := range itemIDs {
 		trimmedItemID := strings.TrimSpace(itemID)
 		if trimmedItemID == "" {
 			continue
 		}
 		knownItems[trimmedItemID] = struct{}{}
 	}
-	for _, itemID := range fallbackOrder {
-		trimmedItemID := strings.TrimSpace(itemID)
-		if trimmedItemID == "" {
-			continue
-		}
-		knownItems[trimmedItemID] = struct{}{}
-	}
+}
 
-	ordered := make([]string, 0, len(itemCommitOrder)+len(fallbackOrder))
-	placed := map[string]struct{}{}
-	visiting := map[string]struct{}{}
-	var placeWithKnownAncestors func(string)
-	placeWithKnownAncestors = func(itemID string) {
-		trimmedItemID := strings.TrimSpace(itemID)
-		if trimmedItemID == "" {
-			return
-		}
-		if _, ok := placed[trimmedItemID]; ok {
-			return
-		}
-		if _, ok := visiting[trimmedItemID]; ok {
-			return
-		}
-		visiting[trimmedItemID] = struct{}{}
-		if previousItemID, ok := itemPreviousIDs[trimmedItemID]; ok && previousItemID != nil {
-			trimmedPreviousItemID := strings.TrimSpace(*previousItemID)
-			if trimmedPreviousItemID != "" {
-				if _, known := knownItems[trimmedPreviousItemID]; known {
-					placeWithKnownAncestors(trimmedPreviousItemID)
-				}
-			}
-		}
-		delete(visiting, trimmedItemID)
-		if _, ok := placed[trimmedItemID]; ok {
-			return
-		}
-		placed[trimmedItemID] = struct{}{}
-		ordered = append(ordered, trimmedItemID)
+func (b *realtimeItemOrderBuilder) appendAll(itemIDs []string) {
+	for _, itemID := range itemIDs {
+		b.append(itemID)
 	}
+}
 
-	for _, itemID := range itemCommitOrder {
-		placeWithKnownAncestors(itemID)
+func (b *realtimeItemOrderBuilder) append(itemID string) {
+	trimmedItemID := strings.TrimSpace(itemID)
+	if trimmedItemID == "" || b.isPlaced(trimmedItemID) || b.isVisiting(trimmedItemID) {
+		return
 	}
-	for _, itemID := range fallbackOrder {
-		placeWithKnownAncestors(itemID)
+	b.visiting[trimmedItemID] = struct{}{}
+	defer delete(b.visiting, trimmedItemID)
+	if previousItemID, ok := b.knownPreviousItemID(trimmedItemID); ok {
+		b.append(previousItemID)
 	}
-	return ordered
+	if b.isPlaced(trimmedItemID) {
+		return
+	}
+	b.placed[trimmedItemID] = struct{}{}
+	b.ordered = append(b.ordered, trimmedItemID)
+}
+
+func (b *realtimeItemOrderBuilder) knownPreviousItemID(itemID string) (string, bool) {
+	previousItemID, ok := b.itemPreviousIDs[itemID]
+	if !ok || previousItemID == nil {
+		return "", false
+	}
+	trimmedPreviousItemID := strings.TrimSpace(*previousItemID)
+	if trimmedPreviousItemID == "" {
+		return "", false
+	}
+	if _, ok := b.knownItems[trimmedPreviousItemID]; !ok {
+		return "", false
+	}
+	return trimmedPreviousItemID, true
+}
+
+func (b *realtimeItemOrderBuilder) isPlaced(itemID string) bool {
+	_, ok := b.placed[itemID]
+	return ok
+}
+
+func (b *realtimeItemOrderBuilder) isVisiting(itemID string) bool {
+	_, ok := b.visiting[itemID]
+	return ok
 }
 
 func mergeOpenAIRealtimeItemText(existingText, rawText string, mode openAIRealtimeDeltaMode) string {
