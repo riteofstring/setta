@@ -3,6 +3,10 @@ import {
   gitFileStatusVisuals,
   type GitFileStatusCategory,
 } from "components/Git/gitFileStatusVisuals";
+import type {
+  GitreadGitWorktreeEntry as GitWorktreeEntry,
+  GitreadStatusEntry as StatusEntry,
+} from "openapi/http";
 import { useEffect, useMemo } from "react";
 import {
   openGitDiffOverlay,
@@ -11,7 +15,6 @@ import {
 } from "state/actions/git";
 import { useGitStore } from "state/git";
 import { useShareCapabilities } from "state/hooks/share";
-import type { GitStatusEntry, GitWorktreeEntry } from "utils/generatedTypes";
 
 export function GitPane({
   showGraphButton = true,
@@ -30,10 +33,10 @@ export function GitPane({
 
   const grouped = useMemo(() => {
     const entries = response?.entries ?? [];
-    const conflicts: GitStatusEntry[] = [];
-    const staged: GitStatusEntry[] = [];
-    const unstaged: GitStatusEntry[] = [];
-    const untracked: GitStatusEntry[] = [];
+    const conflicts: StatusEntry[] = [];
+    const staged: StatusEntry[] = [];
+    const unstaged: StatusEntry[] = [];
+    const untracked: StatusEntry[] = [];
     for (const entry of entries) {
       switch (entry.kind) {
         case "conflict":
@@ -49,7 +52,7 @@ export function GitPane({
           untracked.push(entry);
           break;
         default:
-          entry.kind satisfies never;
+          break;
       }
     }
     return { conflicts, staged, unstaged, untracked };
@@ -257,8 +260,8 @@ function GitGroup({
   onClickEntry,
 }: {
   title: string;
-  entries: GitStatusEntry[];
-  onClickEntry: (entry: GitStatusEntry) => void;
+  entries: StatusEntry[];
+  onClickEntry: (entry: StatusEntry) => void;
 }) {
   return (
     <section className="min-w-0">
@@ -326,7 +329,7 @@ function StatusBadge({
   entry,
   category,
 }: {
-  entry: GitStatusEntry;
+  entry: StatusEntry;
   category: GitFileStatusCategory;
 }) {
   let label = `${entry.indexStatus}${entry.worktreeStatus}`;
