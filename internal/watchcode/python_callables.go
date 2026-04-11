@@ -63,61 +63,7 @@ func ParsePythonCallables(code string, relativeSourcePath string) ([]CallableInf
 		return nil, false, nil
 	}
 
-	modulePath := modulePathFromRelativePath(relativeSourcePath)
-	output := make([]CallableInfo, 0, root.NamedChildCount())
-	for i := uint(0); i < root.NamedChildCount(); i++ {
-		definition := unwrapDefinition(root.NamedChild(i))
-		if definition == nil {
-			continue
-		}
-
-		switch definition.Kind() {
-		case "function_definition":
-			symbolName := nodeText(definition.ChildByFieldName("name"), source)
-			if strings.TrimSpace(symbolName) == "" {
-				continue
-			}
-			kind := CallableKindFunction
-			if isAsyncFunctionDefinition(definition) {
-				kind = CallableKindAsyncFunction
-			}
-			output = append(output, CallableInfo{
-				Identity:      buildIdentity(modulePath, symbolName, kind),
-				CanonicalName: buildCanonicalName(modulePath, symbolName),
-				ModulePath:    modulePath,
-				SymbolName:    symbolName,
-				Kind:          kind,
-				SignatureHash: hashParameterList(definition.ChildByFieldName("parameters"), source, false),
-				BodyHash:      hashNode(definition.ChildByFieldName("body"), source),
-				Params:        extractCallableParams(definition.ChildByFieldName("parameters"), source, false),
-			})
-		case "class_definition":
-			symbolName := nodeText(definition.ChildByFieldName("name"), source)
-			if strings.TrimSpace(symbolName) == "" {
-				continue
-			}
-			initDefinition := findClassInitDefinition(definition, source)
-			signatureHash := digestString("")
-			if initDefinition != nil {
-				signatureHash = hashParameterList(initDefinition.ChildByFieldName("parameters"), source, true)
-			}
-			output = append(output, CallableInfo{
-				Identity:      buildIdentity(modulePath, symbolName, CallableKindClassInit),
-				CanonicalName: buildCanonicalName(modulePath, symbolName),
-				ModulePath:    modulePath,
-				SymbolName:    symbolName,
-				Kind:          CallableKindClassInit,
-				SignatureHash: signatureHash,
-				BodyHash:      hashNode(definition.ChildByFieldName("body"), source),
-				Params:        extractCallableParams(initDefinitionParameters(initDefinition), source, true),
-			})
-		}
-	}
-
-	sort.Slice(output, func(i int, j int) bool {
-		return output[i].Identity < output[j].Identity
-	})
-	return output, true, nil
+	return collectPythonCallables(root, source, modulePathFromRelativePath(relativeSourcePath)), true, nil
 }
 
 func IdentityList(callables []CallableInfo) []string {
@@ -131,6 +77,93 @@ func IdentityList(callables []CallableInfo) []string {
 type callableParamToken struct {
 	proposal CallableParam
 	marker   string
+}
+
+type callableParamSeparators struct {
+	positionalOnlyIndex int
+	keywordOnlyIndex    int
+}
+
+func collectPythonCallables(root *tree_sitter.Node, source []byte, modulePath string) []CallableInfo {
+	output := make([]CallableInfo, 0, root.NamedChildCount())
+	for i := uint(0); i < root.NamedChildCount(); i++ {
+		definition := unwrapDefinition(root.NamedChild(i))
+		if definition == nil {
+			continue
+		}
+		callable, ok := callableInfoFromDefinition(definition, source, modulePath)
+		if ok {
+			output = append(output, callable)
+		}
+	}
+	sort.Slice(output, func(i int, j int) bool {
+		return output[i].Identity < output[j].Identity
+	})
+	return output
+}
+
+func callableInfoFromDefinition(definition *tree_sitter.Node, source []byte, modulePath string) (CallableInfo, bool) {
+	switch definition.Kind() {
+	case "function_definition":
+		return functionCallableInfo(definition, source, modulePath)
+	case "class_definition":
+		return classCallableInfo(definition, source, modulePath)
+	default:
+		return CallableInfo{}, false
+	}
+}
+
+func functionCallableInfo(definition *tree_sitter.Node, source []byte, modulePath string) (CallableInfo, bool) {
+	symbolName, ok := callableSymbolName(definition, source)
+	if !ok {
+		return CallableInfo{}, false
+	}
+	parameters := definition.ChildByFieldName("parameters")
+	kind := CallableKindFunction
+	if isAsyncFunctionDefinition(definition) {
+		kind = CallableKindAsyncFunction
+	}
+	return CallableInfo{
+		Identity:      buildIdentity(modulePath, symbolName, kind),
+		CanonicalName: buildCanonicalName(modulePath, symbolName),
+		ModulePath:    modulePath,
+		SymbolName:    symbolName,
+		Kind:          kind,
+		SignatureHash: hashParameterList(parameters, source, false),
+		BodyHash:      hashNode(definition.ChildByFieldName("body"), source),
+		Params:        extractCallableParams(parameters, source, false),
+	}, true
+}
+
+func classCallableInfo(definition *tree_sitter.Node, source []byte, modulePath string) (CallableInfo, bool) {
+	symbolName, ok := callableSymbolName(definition, source)
+	if !ok {
+		return CallableInfo{}, false
+	}
+	initDefinition := findClassInitDefinition(definition, source)
+	parameters := initDefinitionParameters(initDefinition)
+	signatureHash := digestString("")
+	if parameters != nil {
+		signatureHash = hashParameterList(parameters, source, true)
+	}
+	return CallableInfo{
+		Identity:      buildIdentity(modulePath, symbolName, CallableKindClassInit),
+		CanonicalName: buildCanonicalName(modulePath, symbolName),
+		ModulePath:    modulePath,
+		SymbolName:    symbolName,
+		Kind:          CallableKindClassInit,
+		SignatureHash: signatureHash,
+		BodyHash:      hashNode(definition.ChildByFieldName("body"), source),
+		Params:        extractCallableParams(parameters, source, true),
+	}, true
+}
+
+func callableSymbolName(definition *tree_sitter.Node, source []byte) (string, bool) {
+	symbolName := strings.TrimSpace(nodeText(definition.ChildByFieldName("name"), source))
+	if symbolName == "" {
+		return "", false
+	}
+	return symbolName, true
 }
 
 func modulePathFromRelativePath(relativeSourcePath string) string {
@@ -223,130 +256,155 @@ func initDefinitionParameters(initDefinition *tree_sitter.Node) *tree_sitter.Nod
 }
 
 func extractCallableParams(parameters *tree_sitter.Node, source []byte, dropFirstNamedParam bool) []CallableParam {
-	if parameters == nil {
+	tokens := collectCallableParamTokens(parameters, source, dropFirstNamedParam)
+	if len(tokens) == 0 {
 		return []CallableParam{}
+	}
+	return callableParamsFromTokens(tokens, resolveCallableParamSeparators(tokens))
+}
+
+func collectCallableParamTokens(parameters *tree_sitter.Node, source []byte, dropFirstNamedParam bool) []callableParamToken {
+	if parameters == nil {
+		return []callableParamToken{}
 	}
 
 	tokens := make([]callableParamToken, 0, parameters.NamedChildCount())
 	droppedFirstNamedParam := !dropFirstNamedParam
 	for i := uint(0); i < parameters.NamedChildCount(); i++ {
-		child := parameters.NamedChild(i)
-		if child == nil {
-			continue
-		}
-
-		token, ok := callableParamTokenFromNode(child, source)
+		token, ok := callableParamTokenFromNode(parameters.NamedChild(i), source)
 		if !ok {
 			continue
 		}
-		if token.marker == "" && !droppedFirstNamedParam {
+		if shouldDropFirstNamedCallableParam(token, droppedFirstNamedParam) {
 			droppedFirstNamedParam = true
 			continue
 		}
 		tokens = append(tokens, token)
 	}
+	return tokens
+}
 
-	positionalSeparatorIndex := -1
-	keywordOnlySeparatorIndex := -1
+func shouldDropFirstNamedCallableParam(token callableParamToken, alreadyDropped bool) bool {
+	return token.marker == "" && !alreadyDropped
+}
+
+func resolveCallableParamSeparators(tokens []callableParamToken) callableParamSeparators {
+	separators := callableParamSeparators{
+		positionalOnlyIndex: -1,
+		keywordOnlyIndex:    -1,
+	}
 	for index, token := range tokens {
-		switch token.marker {
-		case "/":
-			positionalSeparatorIndex = index
-		case "*":
-			keywordOnlySeparatorIndex = index
-		default:
-			if token.proposal.PassingStyle == "ARGS" {
-				keywordOnlySeparatorIndex = index
-			}
+		switch {
+		case token.marker == "/":
+			separators.positionalOnlyIndex = index
+		case token.marker == "*", token.proposal.PassingStyle == "ARGS":
+			separators.keywordOnlyIndex = index
 		}
 	}
+	return separators
+}
 
+func callableParamsFromTokens(tokens []callableParamToken, separators callableParamSeparators) []CallableParam {
 	params := make([]CallableParam, 0, len(tokens))
 	for index, token := range tokens {
 		if token.marker != "" {
 			continue
 		}
-
 		proposal := token.proposal
-		switch {
-		case proposal.PassingStyle == "ARGS" || proposal.PassingStyle == "KWARGS":
-		case positionalSeparatorIndex >= 0 && index < positionalSeparatorIndex:
-			proposal.PassingStyle = "POSITIONAL_ONLY"
-		case keywordOnlySeparatorIndex >= 0 && index > keywordOnlySeparatorIndex:
-			proposal.PassingStyle = "KEYWORD_ONLY"
-		default:
-			proposal.PassingStyle = "DEFAULT"
-		}
+		proposal.PassingStyle = resolveCallableParamPassingStyle(proposal, index, separators)
 		params = append(params, proposal)
 	}
 	return params
+}
+
+func resolveCallableParamPassingStyle(
+	proposal CallableParam,
+	index int,
+	separators callableParamSeparators,
+) string {
+	switch {
+	case proposal.PassingStyle == "ARGS" || proposal.PassingStyle == "KWARGS":
+		return proposal.PassingStyle
+	case separators.positionalOnlyIndex >= 0 && index < separators.positionalOnlyIndex:
+		return "POSITIONAL_ONLY"
+	case separators.keywordOnlyIndex >= 0 && index > separators.keywordOnlyIndex:
+		return "KEYWORD_ONLY"
+	default:
+		return "DEFAULT"
+	}
 }
 
 func callableParamTokenFromNode(node *tree_sitter.Node, source []byte) (callableParamToken, bool) {
 	if node == nil {
 		return callableParamToken{}, false
 	}
+	if marker, ok := callableParamMarker(node.Kind()); ok {
+		return callableParamToken{marker: marker}, true
+	}
 
 	switch node.Kind() {
 	case "identifier":
-		name := strings.TrimSpace(nodeText(node, source))
-		if name == "" {
-			return callableParamToken{}, false
-		}
-		return callableParamToken{proposal: CallableParam{Name: name}}, true
+		return namedCallableParamToken(nodeText(node, source), "", "", "")
 	case "typed_parameter":
-		nameNode := node.Child(0)
-		name, passingStyle, ok := callableParamNameAndStyle(nameNode, source)
-		if !ok {
-			return callableParamToken{}, false
-		}
-		return callableParamToken{proposal: CallableParam{
-			Name:           name,
-			TypeAnnotation: strings.TrimSpace(nodeText(node.ChildByFieldName("type"), source)),
-			PassingStyle:   passingStyle,
-		}}, true
+		return structuredCallableParamToken(node.Child(0), node.ChildByFieldName("type"), nil, source)
 	case "default_parameter":
-		nameNode := node.ChildByFieldName("name")
-		name, passingStyle, ok := callableParamNameAndStyle(nameNode, source)
-		if !ok {
-			return callableParamToken{}, false
-		}
-		return callableParamToken{proposal: CallableParam{
-			Name:         name,
-			DefaultValue: strings.TrimSpace(nodeText(node.ChildByFieldName("value"), source)),
-			PassingStyle: passingStyle,
-		}}, true
+		return structuredCallableParamToken(node.ChildByFieldName("name"), nil, node.ChildByFieldName("value"), source)
 	case "typed_default_parameter":
-		nameNode := node.ChildByFieldName("name")
-		name, passingStyle, ok := callableParamNameAndStyle(nameNode, source)
-		if !ok {
-			return callableParamToken{}, false
-		}
-		return callableParamToken{proposal: CallableParam{
-			Name:           name,
-			DefaultValue:   strings.TrimSpace(nodeText(node.ChildByFieldName("value"), source)),
-			TypeAnnotation: strings.TrimSpace(nodeText(node.ChildByFieldName("type"), source)),
-			PassingStyle:   passingStyle,
-		}}, true
+		return structuredCallableParamToken(node.ChildByFieldName("name"), node.ChildByFieldName("type"), node.ChildByFieldName("value"), source)
 	case "list_splat_pattern":
-		name := strings.TrimSpace(nodeText(node, source))
-		if name == "" {
-			return callableParamToken{}, false
-		}
-		return callableParamToken{proposal: CallableParam{Name: name, PassingStyle: "ARGS"}}, true
+		return namedCallableParamToken(nodeText(node, source), "", "", "ARGS")
 	case "dictionary_splat_pattern":
-		name := strings.TrimSpace(nodeText(node, source))
-		if name == "" {
-			return callableParamToken{}, false
-		}
-		return callableParamToken{proposal: CallableParam{Name: name, PassingStyle: "KWARGS"}}, true
-	case "positional_separator":
-		return callableParamToken{marker: "/"}, true
-	case "keyword_separator":
-		return callableParamToken{marker: "*"}, true
+		return namedCallableParamToken(nodeText(node, source), "", "", "KWARGS")
 	default:
 		return callableParamToken{}, false
 	}
+}
+
+func callableParamMarker(kind string) (string, bool) {
+	switch kind {
+	case "positional_separator":
+		return "/", true
+	case "keyword_separator":
+		return "*", true
+	default:
+		return "", false
+	}
+}
+
+func namedCallableParamToken(
+	name string,
+	typeAnnotation string,
+	defaultValue string,
+	passingStyle string,
+) (callableParamToken, bool) {
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		return callableParamToken{}, false
+	}
+	return callableParamToken{proposal: CallableParam{
+		Name:           trimmedName,
+		DefaultValue:   strings.TrimSpace(defaultValue),
+		TypeAnnotation: strings.TrimSpace(typeAnnotation),
+		PassingStyle:   passingStyle,
+	}}, true
+}
+
+func structuredCallableParamToken(
+	nameNode *tree_sitter.Node,
+	typeNode *tree_sitter.Node,
+	valueNode *tree_sitter.Node,
+	source []byte,
+) (callableParamToken, bool) {
+	name, passingStyle, ok := callableParamNameAndStyle(nameNode, source)
+	if !ok {
+		return callableParamToken{}, false
+	}
+	return namedCallableParamToken(
+		name,
+		nodeText(typeNode, source),
+		nodeText(valueNode, source),
+		passingStyle,
+	)
 }
 
 func callableParamNameAndStyle(node *tree_sitter.Node, source []byte) (string, string, bool) {
