@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/projectstate"
@@ -144,6 +145,88 @@ func TestBuildSectionSummarySourceUsesTopLevelParamValuesForDictSections(t *test
 	}
 	if source.ContentHash == "" {
 		t.Fatal("expected content hash")
+	}
+}
+
+func TestExtractSectionSummaryTextUsesChartMetadata(t *testing.T) {
+	t.Parallel()
+
+	project := newSummaryCacheTestProject()
+	summary, err := extractSectionSummaryText(project, map[string]any{
+		"dataPath": "sales.csv",
+		"chartSettings": map[string]any{
+			"type":        "bar",
+			"xAxisColumn": "month",
+		},
+	}, chartSectionType)
+	if err != nil {
+		t.Fatalf("extract summary: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		"dataPath: sales.csv",
+		"chartType: bar",
+		"xAxisColumn: month",
+	}, "\n")
+	if summary != expected {
+		t.Fatalf("expected chart summary %q, got %q", expected, summary)
+	}
+}
+
+func TestExtractSectionSummaryTextUsesRenderedPromptBeforeTemplate(t *testing.T) {
+	t.Parallel()
+
+	project := newSummaryCacheTestProject()
+	summary, err := extractSectionSummaryText(project, map[string]any{
+		"renderedText": "rendered prompt",
+		"template":     "template prompt",
+	}, promptSectionType)
+	if err != nil {
+		t.Fatalf("extract summary: %v", err)
+	}
+	if summary != "rendered prompt" {
+		t.Fatalf("expected rendered prompt summary, got %q", summary)
+	}
+}
+
+func TestBuildDrawSummaryTextDedupesAndLimitsOutput(t *testing.T) {
+	t.Parallel()
+
+	layers := make([]any, 0, drawLayerNameLimit+2)
+	for index := 0; index < drawLayerNameLimit+2; index++ {
+		layers = append(layers, map[string]any{
+			"name": "layer-" + string(rune('a'+index)),
+			"elements": []any{
+				map[string]any{"dataPath": "asset-a.png"},
+				map[string]any{"dataPath": "asset-b.png"},
+				map[string]any{"dataPath": "asset-a.png"},
+			},
+		})
+	}
+
+	summary := buildDrawSummaryText(map[string]any{
+		"renderedImagePath": "preview.png",
+		"layers":            layers,
+	})
+	expected := strings.Join([]string{
+		"layerCount: 10",
+		"renderedImagePath: preview.png",
+		"layers:",
+		"- layer-a",
+		"- layer-b",
+		"- layer-c",
+		"- layer-d",
+		"- layer-e",
+		"- layer-f",
+		"- layer-g",
+		"- layer-h",
+		"... (2 more)",
+		"assetPaths:",
+		"- asset-a.png",
+		"- asset-b.png",
+	}, "\n")
+	if summary != expected {
+		t.Fatalf("expected draw summary %q, got %q", expected, summary)
 	}
 }
 

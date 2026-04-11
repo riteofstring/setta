@@ -77,25 +77,10 @@ func (s *Service) Path() string {
 }
 
 func (s *Service) BuildStatusForChat(project projectstate.Project, chatSectionID string) (AgenticSummaryCacheStatus, error) {
-	status := AgenticSummaryCacheStatus{
-		MaxSummariesPerRun:     MaxSummariesPerRun,
-		SummarySectionIDs:      []string{},
-		CachedSectionIDs:       []string{},
-		MissingSectionIDs:      []string{},
-		EmptySourceSectionIDs:  []string{},
-		ConsideredSectionIDs:   []string{},
-		WouldAttemptSectionIDs: []string{},
-	}
-	if s == nil || strings.TrimSpace(s.path) == "" {
-		return status, ErrSettaFilesRootRequired
-	}
-
-	normalizedChatSectionID := strings.TrimSpace(chatSectionID)
-	if normalizedChatSectionID == "" {
-		return status, fmt.Errorf("%w: chat section id is required", ErrChatSectionNotFound)
-	}
-	if _, ok := project.Sections[normalizedChatSectionID]; !ok {
-		return status, fmt.Errorf("%w: %q", ErrChatSectionNotFound, normalizedChatSectionID)
+	status := newAgenticSummaryCacheStatus()
+	normalizedChatSectionID, err := validateChatStatusRequest(s, project, chatSectionID)
+	if err != nil {
+		return status, err
 	}
 
 	summarySectionIDs := resolveSummarySectionIDs(project, normalizedChatSectionID)
@@ -109,11 +94,83 @@ func (s *Service) BuildStatusForChat(project projectstate.Project, chatSectionID
 		return AgenticSummaryCacheStatus{}, err
 	}
 
+	emptyBySectionID, err := collectSummarySectionStatus(&status, project, summarySectionIDs, entries)
+	if err != nil {
+		return AgenticSummaryCacheStatus{}, err
+	}
+	populateAttemptStatus(&status, emptyBySectionID)
+
+	return status, nil
+}
+
+type sectionSummarySource struct {
+	VariantID   string
+	RawText     string
+	ContentHash string
+}
+
+type sectionSummaryExtractor func(projectstate.Project, map[string]any) (string, error)
+
+var sectionSummaryExtractors = map[string]sectionSummaryExtractor{
+	textBlockSectionType: func(_ projectstate.Project, payload map[string]any) (string, error) {
+		return rawStringValue(payload["text"]), nil
+	},
+	imageSectionType: func(_ projectstate.Project, payload map[string]any) (string, error) {
+		return prefixIfNonEmpty("imagePath: ", rawStringValue(payload["imagePath"])), nil
+	},
+	commandSectionType: func(_ projectstate.Project, payload map[string]any) (string, error) {
+		return rawStringValue(payload["code"]), nil
+	},
+	callableSectionType: extractCallableSummaryText,
+	chartSectionType:    extractChartSummaryText,
+	drawSectionType: func(_ projectstate.Project, payload map[string]any) (string, error) {
+		return buildDrawSummaryText(payload), nil
+	},
+	promptSectionType: extractPromptSummaryText,
+	socialSectionType: func(_ projectstate.Project, payload map[string]any) (string, error) {
+		return rawStringValue(payload["url"]), nil
+	},
+	browserSectionType: extractBrowserSummaryText,
+}
+
+func newAgenticSummaryCacheStatus() AgenticSummaryCacheStatus {
+	return AgenticSummaryCacheStatus{
+		MaxSummariesPerRun:     MaxSummariesPerRun,
+		SummarySectionIDs:      []string{},
+		CachedSectionIDs:       []string{},
+		MissingSectionIDs:      []string{},
+		EmptySourceSectionIDs:  []string{},
+		ConsideredSectionIDs:   []string{},
+		WouldAttemptSectionIDs: []string{},
+	}
+}
+
+func validateChatStatusRequest(s *Service, project projectstate.Project, chatSectionID string) (string, error) {
+	if s == nil || strings.TrimSpace(s.path) == "" {
+		return "", ErrSettaFilesRootRequired
+	}
+
+	normalizedChatSectionID := strings.TrimSpace(chatSectionID)
+	if normalizedChatSectionID == "" {
+		return "", fmt.Errorf("%w: chat section id is required", ErrChatSectionNotFound)
+	}
+	if _, ok := project.Sections[normalizedChatSectionID]; !ok {
+		return "", fmt.Errorf("%w: %q", ErrChatSectionNotFound, normalizedChatSectionID)
+	}
+	return normalizedChatSectionID, nil
+}
+
+func collectSummarySectionStatus(
+	status *AgenticSummaryCacheStatus,
+	project projectstate.Project,
+	summarySectionIDs []string,
+	entries map[string]any,
+) (map[string]bool, error) {
 	emptyBySectionID := make(map[string]bool, len(summarySectionIDs))
 	for _, sectionID := range summarySectionIDs {
 		source, err := buildSectionSummarySource(project, sectionID)
 		if err != nil {
-			return AgenticSummaryCacheStatus{}, err
+			return nil, err
 		}
 
 		isEmptySource := strings.TrimSpace(source.RawText) == ""
@@ -129,26 +186,24 @@ func (s *Service) BuildStatusForChat(project projectstate.Project, chatSectionID
 		}
 		status.MissingSectionIDs = append(status.MissingSectionIDs, sectionID)
 	}
+	return emptyBySectionID, nil
+}
 
-	if len(status.MissingSectionIDs) > MaxSummariesPerRun {
-		status.ConsideredSectionIDs = append([]string(nil), status.MissingSectionIDs[:MaxSummariesPerRun]...)
-	} else {
-		status.ConsideredSectionIDs = append([]string(nil), status.MissingSectionIDs...)
-	}
+func populateAttemptStatus(status *AgenticSummaryCacheStatus, emptyBySectionID map[string]bool) {
+	status.ConsideredSectionIDs = append([]string(nil), cappedSummarySectionIDs(status.MissingSectionIDs)...)
 	for _, sectionID := range status.ConsideredSectionIDs {
 		if emptyBySectionID[sectionID] {
 			continue
 		}
 		status.WouldAttemptSectionIDs = append(status.WouldAttemptSectionIDs, sectionID)
 	}
-
-	return status, nil
 }
 
-type sectionSummarySource struct {
-	VariantID   string
-	RawText     string
-	ContentHash string
+func cappedSummarySectionIDs(sectionIDs []string) []string {
+	if len(sectionIDs) <= MaxSummariesPerRun {
+		return sectionIDs
+	}
+	return sectionIDs[:MaxSummariesPerRun]
 }
 
 func buildSectionSummarySource(project projectstate.Project, sectionID string) (sectionSummarySource, error) {
@@ -181,90 +236,77 @@ func buildSectionSummarySource(project projectstate.Project, sectionID string) (
 }
 
 func extractSectionSummaryText(project projectstate.Project, payload map[string]any, sectionType string) (string, error) {
-	switch strings.TrimSpace(sectionType) {
-	case textBlockSectionType:
-		return rawStringValue(payload["text"]), nil
-	case imageSectionType:
-		imagePath := strings.TrimSpace(rawStringValue(payload["imagePath"]))
-		if imagePath == "" {
-			return "", nil
-		}
-		return "imagePath: " + imagePath, nil
-	case commandSectionType:
-		return rawStringValue(payload["code"]), nil
-	case callableSectionType:
-		callableID := strings.TrimSpace(stringValue(payload["callable"]))
-		callableLine := ""
-		if callableID != "" {
-			callableLine = "callable: " + callableID
-		}
-		paramLines, err := buildSectionParamLines(project, payload)
-		if err != nil {
-			return "", err
-		}
-		return joinNonEmptyLines(callableLine, paramLines), nil
-	case chartSectionType:
-		lines := make([]string, 0, 3)
-		chartSettings := nestedMapValue(payload["chartSettings"])
-		if dataPath := strings.TrimSpace(rawStringValue(payload["dataPath"])); dataPath != "" {
-			lines = append(lines, "dataPath: "+dataPath)
-		}
-		if chartType := strings.TrimSpace(stringValue(chartSettings["type"])); chartType != "" {
-			lines = append(lines, "chartType: "+chartType)
-		}
-		if xAxisColumn := strings.TrimSpace(rawStringValue(chartSettings["xAxisColumn"])); xAxisColumn != "" {
-			lines = append(lines, "xAxisColumn: "+xAxisColumn)
-		}
-		return strings.Join(lines, "\n"), nil
-	case drawSectionType:
-		return buildDrawSummaryText(payload), nil
-	case promptSectionType:
-		if rendered := rawStringValue(payload["renderedText"]); rendered != "" {
-			return rendered, nil
-		}
-		return rawStringValue(payload["template"]), nil
-	case socialSectionType:
-		return rawStringValue(payload["url"]), nil
-	case browserSectionType:
-		folder := rawStringValue(payload["folder"])
-		viewMode := stringValue(payload["viewMode"])
-		return joinNonEmptyLines(
-			prefixIfNonEmpty("folder: ", folder),
-			prefixIfNonEmpty("view: ", viewMode),
-		), nil
-	default:
-		paramLines, err := buildSectionParamLines(project, payload)
-		if err != nil {
-			return "", err
-		}
-		if paramLines != "" {
-			return paramLines, nil
-		}
-		if code := rawStringValue(payload["code"]); code != "" {
-			return code, nil
-		}
-		return "", nil
+	if extractor, ok := sectionSummaryExtractors[strings.TrimSpace(sectionType)]; ok {
+		return extractor(project, payload)
 	}
+	return extractDefaultSectionSummaryText(project, payload)
+}
+
+func extractCallableSummaryText(project projectstate.Project, payload map[string]any) (string, error) {
+	callableLine := prefixIfNonEmpty("callable: ", stringValue(payload["callable"]))
+	paramLines, err := buildSectionParamLines(project, payload)
+	if err != nil {
+		return "", err
+	}
+	return joinNonEmptyLines(callableLine, paramLines), nil
+}
+
+func extractChartSummaryText(_ projectstate.Project, payload map[string]any) (string, error) {
+	chartSettings := nestedMapValue(payload["chartSettings"])
+	return joinNonEmptyLines(
+		prefixIfNonEmpty("dataPath: ", rawStringValue(payload["dataPath"])),
+		prefixIfNonEmpty("chartType: ", stringValue(chartSettings["type"])),
+		prefixIfNonEmpty("xAxisColumn: ", rawStringValue(chartSettings["xAxisColumn"])),
+	), nil
+}
+
+func extractPromptSummaryText(_ projectstate.Project, payload map[string]any) (string, error) {
+	return firstNonEmptyRawString(payload["renderedText"], payload["template"]), nil
+}
+
+func extractBrowserSummaryText(_ projectstate.Project, payload map[string]any) (string, error) {
+	return joinNonEmptyLines(
+		prefixIfNonEmpty("folder: ", rawStringValue(payload["folder"])),
+		prefixIfNonEmpty("view: ", stringValue(payload["viewMode"])),
+	), nil
+}
+
+func extractDefaultSectionSummaryText(project projectstate.Project, payload map[string]any) (string, error) {
+	paramLines, err := buildSectionParamLines(project, payload)
+	if err != nil {
+		return "", err
+	}
+	if paramLines != "" {
+		return paramLines, nil
+	}
+	return rawStringValue(payload["code"]), nil
 }
 
 func buildDrawSummaryText(payload map[string]any) string {
-	lines := []string{}
 	layerObjects := mapListValue(payload["layers"])
-	lines = append(lines, fmt.Sprintf("layerCount: %d", len(layerObjects)))
+	lines := []string{fmt.Sprintf("layerCount: %d", len(layerObjects))}
 
-	if renderedImagePath := strings.TrimSpace(rawStringValue(payload["renderedImagePath"])); renderedImagePath != "" {
-		lines = append(lines, "renderedImagePath: "+renderedImagePath)
+	if renderedImageLine := prefixIfNonEmpty("renderedImagePath: ", rawStringValue(payload["renderedImagePath"])); renderedImageLine != "" {
+		lines = append(lines, renderedImageLine)
 	}
 
+	layerNames, assetPaths := collectDrawSummaryLists(layerObjects)
+	lines = appendLimitedSummaryList(lines, "layers:", layerNames, drawLayerNameLimit)
+	lines = appendLimitedSummaryList(lines, "assetPaths:", assetPaths, drawAssetPathLimit)
+
+	return strings.Join(lines, "\n")
+}
+
+func collectDrawSummaryLists(layerObjects []map[string]any) ([]string, []string) {
 	layerNames := make([]string, 0, len(layerObjects))
 	assetPaths := make([]string, 0)
 	seenAssetPaths := map[string]struct{}{}
 	for _, layer := range layerObjects {
-		if name := strings.TrimSpace(rawStringValue(layer["name"])); name != "" {
+		if name := stringValue(layer["name"]); name != "" {
 			layerNames = append(layerNames, name)
 		}
 		for _, element := range mapListValue(layer["elements"]) {
-			path := strings.TrimSpace(rawStringValue(element["dataPath"]))
+			path := stringValue(element["dataPath"])
 			if path == "" {
 				continue
 			}
@@ -275,30 +317,22 @@ func buildDrawSummaryText(payload map[string]any) string {
 			assetPaths = append(assetPaths, path)
 		}
 	}
+	return layerNames, assetPaths
+}
 
-	if len(layerNames) > 0 {
-		lines = append(lines, "layers:")
-		limit := min(len(layerNames), drawLayerNameLimit)
-		for _, name := range layerNames[:limit] {
-			lines = append(lines, "- "+name)
-		}
-		if len(layerNames) > drawLayerNameLimit {
-			lines = append(lines, fmt.Sprintf("... (%d more)", len(layerNames)-drawLayerNameLimit))
-		}
+func appendLimitedSummaryList(lines []string, header string, values []string, limit int) []string {
+	if len(values) == 0 {
+		return lines
 	}
-
-	if len(assetPaths) > 0 {
-		lines = append(lines, "assetPaths:")
-		limit := min(len(assetPaths), drawAssetPathLimit)
-		for _, path := range assetPaths[:limit] {
-			lines = append(lines, "- "+path)
-		}
-		if len(assetPaths) > drawAssetPathLimit {
-			lines = append(lines, fmt.Sprintf("... (%d more)", len(assetPaths)-drawAssetPathLimit))
-		}
+	lines = append(lines, header)
+	limitedCount := min(len(values), limit)
+	for _, value := range values[:limitedCount] {
+		lines = append(lines, "- "+value)
 	}
-
-	return strings.Join(lines, "\n")
+	if len(values) > limit {
+		lines = append(lines, fmt.Sprintf("... (%d more)", len(values)-limit))
+	}
+	return lines
 }
 
 func buildSectionParamLines(project projectstate.Project, sectionPayload map[string]any) (string, error) {
@@ -515,6 +549,15 @@ func rawStringValue(value any) string {
 		return ""
 	}
 	return typed
+}
+
+func firstNonEmptyRawString(values ...any) string {
+	for _, value := range values {
+		if rawValue := rawStringValue(value); rawValue != "" {
+			return rawValue
+		}
+	}
+	return ""
 }
 
 func stringValue(value any) string {
