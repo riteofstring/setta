@@ -161,6 +161,44 @@ func TestBuildTrackedFileSnapshotIgnoresConfiguredRootsByResolvedPath(t *testing
 	}
 }
 
+func TestBuildTrackedFileSnapshotNonRecursiveFolderKeepsOnlyTopLevelPythonFiles(t *testing.T) {
+	t.Parallel()
+
+	// Non-recursive scans should keep only top-level Python files in the watched folder.
+	workspaceRoot := t.TempDir()
+	projectDir := filepath.Join(workspaceRoot, "project")
+	nestedDir := filepath.Join(projectDir, "nested")
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("mkdir nested dir: %v", err)
+	}
+
+	topLevelPython := filepath.Join(projectDir, "tracked.py")
+	topLevelText := filepath.Join(projectDir, "notes.txt")
+	nestedPython := filepath.Join(nestedDir, "ignored.py")
+	for _, path := range []string{topLevelPython, topLevelText, nestedPython} {
+		if err := os.WriteFile(path, []byte("print('x')\n"), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	snapshot, err := BuildTrackedFileSnapshot(map[string]ConfigSnapshot{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: projectDir, Recursive: false}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tracked file snapshot: %v", err)
+	}
+
+	if len(snapshot.Files) != 1 {
+		t.Fatalf("expected one tracked file, got %#v", snapshot.Files)
+	}
+	if _, ok := snapshot.Files[topLevelPython]; !ok {
+		t.Fatalf("expected top-level Python file %q, got %#v", topLevelPython, snapshot.Files)
+	}
+}
+
 func TestDiffTrackedFileSnapshotsDetectsRenameWithoutHeuristics(t *testing.T) {
 	t.Parallel()
 

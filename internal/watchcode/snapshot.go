@@ -167,65 +167,92 @@ func trackedPythonFiles(configs map[string]ConfigSnapshot) ([]string, error) {
 }
 
 func pythonFilesInFolder(root string, recursive bool, ignoredRoots []string) ([]string, error) {
+	tracked, err := trackablePythonFolderRoot(root, ignoredRoots)
+	if err != nil || !tracked {
+		return nil, err
+	}
+	if recursive {
+		return recursivePythonFilesInFolder(root, ignoredRoots)
+	}
+	return directPythonFilesInFolder(root, ignoredRoots)
+}
+
+func trackablePythonFolderRoot(root string, ignoredRoots []string) (bool, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return false, nil
 		}
+		return false, err
+	}
+	if !info.IsDir() || shouldIgnorePath(root, ignoredRoots) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func directPythonFilesInFolder(root string, ignoredRoots []string) ([]string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
 		return nil, err
 	}
-	if !info.IsDir() {
-		return nil, nil
-	}
-	if shouldIgnorePath(root, ignoredRoots) {
-		return nil, nil
-	}
-
-	if !recursive {
-		entries, err := os.ReadDir(root)
-		if err != nil {
-			return nil, err
-		}
-		output := make([]string, 0, len(entries))
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			path := filepath.Join(root, entry.Name())
-			if !isPythonSourcePath(path) || shouldIgnorePath(path, ignoredRoots) {
-				continue
-			}
-			output = append(output, path)
-		}
-		sort.Strings(output)
-		return output, nil
-	}
-
-	output := make([]string, 0)
-	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			if os.IsNotExist(walkErr) {
-				return nil
-			}
-			return walkErr
-		}
-		if entry.IsDir() {
-			if path != root && shouldIgnorePath(path, ignoredRoots) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !isPythonSourcePath(path) || shouldIgnorePath(path, ignoredRoots) {
-			return nil
+	output := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		path, ok := directTrackedPythonFilePath(root, entry, ignoredRoots)
+		if !ok {
+			continue
 		}
 		output = append(output, path)
-		return nil
+	}
+	sort.Strings(output)
+	return output, nil
+}
+
+func directTrackedPythonFilePath(root string, entry os.DirEntry, ignoredRoots []string) (string, bool) {
+	if entry.IsDir() {
+		return "", false
+	}
+	path := filepath.Join(root, entry.Name())
+	if !trackablePythonFilePath(path, ignoredRoots) {
+		return "", false
+	}
+	return path, true
+}
+
+func recursivePythonFilesInFolder(root string, ignoredRoots []string) ([]string, error) {
+	output := make([]string, 0)
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		return appendRecursiveTrackedPythonFile(root, path, entry, walkErr, ignoredRoots, &output)
 	})
 	if err != nil {
 		return nil, err
 	}
 	sort.Strings(output)
 	return output, nil
+}
+
+func appendRecursiveTrackedPythonFile(root string, path string, entry fs.DirEntry, walkErr error, ignoredRoots []string, output *[]string) error {
+	if walkErr != nil {
+		if os.IsNotExist(walkErr) {
+			return nil
+		}
+		return walkErr
+	}
+	if entry.IsDir() {
+		if path != root && shouldIgnorePath(path, ignoredRoots) {
+			return filepath.SkipDir
+		}
+		return nil
+	}
+	if !trackablePythonFilePath(path, ignoredRoots) {
+		return nil
+	}
+	*output = append(*output, path)
+	return nil
+}
+
+func trackablePythonFilePath(path string, ignoredRoots []string) bool {
+	return isPythonSourcePath(path) && !shouldIgnorePath(path, ignoredRoots)
 }
 
 func fileContentHash(path string) (string, error) {
