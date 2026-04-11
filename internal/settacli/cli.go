@@ -152,6 +152,12 @@ type statusConnectInfoPayload struct {
 	bootstrapToken string
 }
 
+type authCommandContext struct {
+	authCookieName string
+	registry       *localsessions.Registry
+	sessions       []auth.SessionMetadata
+}
+
 type authJSON struct {
 	BaseURL              string      `json:"baseUrl"`
 	APIBaseURL           string      `json:"apiBaseUrl"`
@@ -164,59 +170,80 @@ type authJSON struct {
 	Source               string      `json:"source"`
 }
 
-func Run(args []string, options RunOptions) error {
-	stdout := options.Stdout
-	if stdout == nil {
-		stdout = io.Discard
-	}
-	stderr := options.Stderr
-	if stderr == nil {
-		stderr = io.Discard
-	}
-	stdin := options.Stdin
-	if stdin == nil {
-		stdin = os.Stdin
-	}
-	envLookup := options.EnvLookup
-	if envLookup == nil {
-		envLookup = os.LookupEnv
-	}
-	now := options.Now
-	if now == nil {
-		now = time.Now
-	}
-	cwd := options.CWD
-	if strings.TrimSpace(cwd) == "" {
-		resolvedCWD, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("resolve cwd: %w", err)
-		}
-		cwd = resolvedCWD
-	}
+type resolvedRunOptions struct {
+	stdout    io.Writer
+	stderr    io.Writer
+	stdin     io.Reader
+	envLookup func(string) (string, bool)
+	now       func() time.Time
+	cwd       string
+}
 
-	global, remaining, err := parseGlobalFlags(args, stderr)
+func Run(args []string, options RunOptions) error {
+	resolved, err := resolveRunOptions(options)
+	if err != nil {
+		return err
+	}
+	global, remaining, err := parseGlobalFlags(args, resolved.stderr)
 	if err != nil {
 		return err
 	}
 	if len(remaining) == 0 {
 		return fmt.Errorf("missing command (supported: status, auth, tools, api, stop, connect)")
 	}
+	return runSubcommand(remaining[0], remaining[1:], global, resolved)
+}
 
-	switch remaining[0] {
+func resolveRunOptions(options RunOptions) (resolvedRunOptions, error) {
+	resolved := resolvedRunOptions{
+		stdout:    options.Stdout,
+		stderr:    options.Stderr,
+		stdin:     options.Stdin,
+		envLookup: options.EnvLookup,
+		now:       options.Now,
+		cwd:       options.CWD,
+	}
+	if resolved.stdout == nil {
+		resolved.stdout = io.Discard
+	}
+	if resolved.stderr == nil {
+		resolved.stderr = io.Discard
+	}
+	if resolved.stdin == nil {
+		resolved.stdin = os.Stdin
+	}
+	if resolved.envLookup == nil {
+		resolved.envLookup = os.LookupEnv
+	}
+	if resolved.now == nil {
+		resolved.now = time.Now
+	}
+	if strings.TrimSpace(resolved.cwd) == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return resolvedRunOptions{}, fmt.Errorf("resolve cwd: %w", err)
+		}
+		resolved.cwd = cwd
+	}
+	return resolved, nil
+}
+
+func runSubcommand(command string, args []string, global globalFlags, options resolvedRunOptions) error {
+	switch command {
 	case "status":
-		return runStatus(remaining[1:], global, stdout, stderr, envLookup, now, cwd)
+		return runStatus(args, global, options.stdout, options.stderr, options.envLookup, options.now, options.cwd)
 	case "auth":
-		return runAuth(remaining[1:], global, stdout, stderr, envLookup, now, cwd)
+		return runAuth(args, global, options.stdout, options.stderr, options.envLookup, options.now, options.cwd)
 	case "tools":
-		return runTools(remaining[1:], stdout, stderr)
+		return runTools(args, options.stdout, options.stderr)
 	case "api":
-		return runAPI(remaining[1:], global, stdout, stderr, stdin, envLookup, now, cwd)
+		return runAPI(args, global, options.stdout, options.stderr, options.stdin, options.envLookup, options.now, options.cwd)
 	case "stop":
-		return runStop(remaining[1:], global, stdout, stderr, envLookup, cwd)
+		return runStop(args, global, options.stdout, options.stderr, options.envLookup, options.cwd)
 	case "connect", "c":
-		return runConnect(remaining[1:], global, stdout, stderr, stdin, envLookup, cwd)
+		return runConnect(args, global, options.stdout, options.stderr, options.stdin, options.envLookup, options.cwd)
 	default:
-		return fmt.Errorf("unknown command %q", remaining[0])
+		return fmt.Errorf("unknown command %q", command)
 	}
 }
 
@@ -455,6 +482,30 @@ func buildStatusConnectInfoPayload(launcherOrigin string, registry *localsession
 }
 
 func runAuth(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), now func() time.Time, cwd string) error {
+	parsed, err := parseAuthFlags(args, stderr)
+	if err != nil {
+		return err
+	}
+	if err := validateAuthSelectionFlags(parsed); err != nil {
+		return err
+	}
+
+	ctx, err := newAuthCommandContext(global, parsed.workspaceRoot, envLookup, cwd)
+	if err != nil {
+		return err
+	}
+	selected, err := selectSession(ctx.sessions, parsed.sessionID, parsed.latest)
+	if err != nil {
+		return err
+	}
+	response, err := buildAuthPayload(parsed, ctx, selected, now)
+	if err != nil {
+		return err
+	}
+	return emitAuthOutput(stdout, parsed.jsonOutput, response)
+}
+
+func parseAuthFlags(args []string, stderr io.Writer) (authFlags, error) {
 	var parsed authFlags
 	flags := flag.NewFlagSet("auth", flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -465,65 +516,72 @@ func runAuth(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 	flags.BoolVar(&parsed.latest, "latest", false, "Select the latest session.")
 	flags.StringVar(&parsed.baseURL, "base-url", "", "Override the backend base URL.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return authFlags{}, err
 	}
+	return parsed, nil
+}
+
+func validateAuthSelectionFlags(parsed authFlags) error {
 	if strings.TrimSpace(parsed.sessionID) != "" && parsed.latest {
 		return fmt.Errorf("use either --session or --latest, not both")
 	}
+	return nil
+}
 
-	commandCfg, err := resolveCommandConfig(global, parsed.workspaceRoot, "auth", cwd, envLookup)
+func newAuthCommandContext(global globalFlags, workspaceRoot string, envLookup func(string) (string, bool), cwd string) (authCommandContext, error) {
+	commandCfg, err := resolveCommandConfig(global, workspaceRoot, "auth", cwd, envLookup)
 	if err != nil {
-		return err
+		return authCommandContext{}, err
 	}
 	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
 		SessionsRoot: filepath.Join(commandCfg.Paths.RuntimeRoot, "sessions"),
 	})
 	if err != nil {
-		return err
+		return authCommandContext{}, err
 	}
+	sessions, err := loadAuthSessions(registry, commandCfg.Paths.WorkspaceRoot)
+	if err != nil {
+		return authCommandContext{}, err
+	}
+	return authCommandContext{
+		authCookieName: commandCfg.Paths.AuthCookieName,
+		registry:       registry,
+		sessions:       sessions,
+	}, nil
+}
+
+func loadAuthSessions(registry *localsessions.Registry, workspaceRoot string) ([]auth.SessionMetadata, error) {
 	sessions, err := registry.LoadSessions()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	sessions = filterSessionsForWorkspace(sessions, commandCfg.Paths.WorkspaceRoot)
+	sessions = filterSessionsForWorkspace(sessions, workspaceRoot)
 	sessions = filterSessionsByDefaultMode(sessions, "auth", false, "")
 	sessions = localsessions.FilterActiveSessions(sessions)
 	if len(sessions) == 0 {
-		return fmt.Errorf("no matching Setta sessions found")
+		return nil, fmt.Errorf("no matching Setta sessions found")
 	}
-	selected, err := selectSession(sessions, parsed.sessionID, parsed.latest)
-	if err != nil {
-		return err
-	}
-	secret, err := registry.LoadSecret(selected)
-	if err != nil {
-		return fmt.Errorf("secret file missing for session %s", selected.ID)
-	}
+	return sessions, nil
+}
 
-	baseURL := baseURLFromSession(selected)
-	if strings.TrimSpace(parsed.baseURL) != "" {
-		baseURL, err = normalizeBaseURL(parsed.baseURL)
-		if err != nil {
-			return err
-		}
-	}
-	cookieName, err := auth.CookieName(commandCfg.Paths.AuthCookieName, selected.ID)
+func buildAuthPayload(parsed authFlags, ctx authCommandContext, selected auth.SessionMetadata, now func() time.Time) (authJSON, error) {
+	secret, err := ctx.registry.LoadSecret(selected)
 	if err != nil {
-		return err
+		return authJSON{}, fmt.Errorf("secret file missing for session %s", selected.ID)
 	}
-	cookieValue, err := auth.NewAuthCookieManager(auth.DefaultAuthCookieTTL).Mint(selected.ID, secret, now())
+	baseURL, err := resolveAuthBaseURL(parsed.baseURL, selected)
 	if err != nil {
-		return err
+		return authJSON{}, err
 	}
-	bootstrapToken, err := auth.NewBootstrapTokenManager(auth.DefaultBootstrapTokenTTL, auth.NewNonceTracker()).Mint(selected.ID, secret, now())
+	cookieName, cookieValue, err := mintAuthCookie(ctx.authCookieName, selected.ID, secret, now)
 	if err != nil {
-		return err
+		return authJSON{}, err
 	}
-	bootstrapURLFragment, bootstrapURLPlain, err := buildBootstrapURLsFromBase(baseURL, bootstrapToken)
+	bootstrapURLFragment, bootstrapURLPlain, err := buildAuthBootstrapURLs(baseURL, selected.ID, secret, now)
 	if err != nil {
-		return err
+		return authJSON{}, err
 	}
-	response := authJSON{
+	return authJSON{
 		BaseURL:              baseURL,
 		APIBaseURL:           baseURL + apiPrefix,
 		CookieHeader:         "Cookie: " + cookieName + "=" + cookieValue,
@@ -533,8 +591,38 @@ func runAuth(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 		BootstrapURLFragment: bootstrapURLFragment,
 		BootstrapURLPlain:    bootstrapURLPlain,
 		Source:               "bootstrap",
+	}, nil
+}
+
+func resolveAuthBaseURL(override string, selected auth.SessionMetadata) (string, error) {
+	if strings.TrimSpace(override) == "" {
+		return baseURLFromSession(selected), nil
 	}
-	if parsed.jsonOutput {
+	return normalizeBaseURL(override)
+}
+
+func mintAuthCookie(authCookieName string, sessionID string, secret []byte, now func() time.Time) (string, string, error) {
+	cookieName, err := auth.CookieName(authCookieName, sessionID)
+	if err != nil {
+		return "", "", err
+	}
+	cookieValue, err := auth.NewAuthCookieManager(auth.DefaultAuthCookieTTL).Mint(sessionID, secret, now())
+	if err != nil {
+		return "", "", err
+	}
+	return cookieName, cookieValue, nil
+}
+
+func buildAuthBootstrapURLs(baseURL string, sessionID string, secret []byte, now func() time.Time) (string, string, error) {
+	bootstrapToken, err := auth.NewBootstrapTokenManager(auth.DefaultBootstrapTokenTTL, auth.NewNonceTracker()).Mint(sessionID, secret, now())
+	if err != nil {
+		return "", "", err
+	}
+	return buildBootstrapURLsFromBase(baseURL, bootstrapToken)
+}
+
+func emitAuthOutput(stdout io.Writer, jsonOutput bool, response authJSON) error {
+	if jsonOutput {
 		return emitJSON(stdout, response)
 	}
 	_, _ = fmt.Fprintf(stdout, "Base URL: %s\nAPI Base URL: %s\nCookie Header: %s\nBootstrap URL: %s\n", response.BaseURL, response.APIBaseURL, response.CookieHeader, response.BootstrapURLFragment)
