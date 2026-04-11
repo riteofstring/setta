@@ -168,76 +168,105 @@ func parseToolCallArguments(raw string) (map[string]any, error) {
 }
 
 func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) ([]map[string]any, map[string]mcpx.ToolDescriptor, *toolAllowlist, error) {
-	if len(request.MCPServerIDs) == 0 {
-		if err := requireCompletionStatusToolInPayload(request, nil, "managed LLM config resolved no MCP servers"); err != nil {
-			return nil, nil, nil, err
-		}
-		return nil, nil, nil, nil
+	if err := ensureToolDefinitionsRequestSupported(request, tools); err != nil {
+		return nil, nil, nil, err
 	}
-	if tools == nil {
-		if err := requireCompletionStatusToolInPayload(request, nil, "MCP tool client is unavailable"); err != nil {
-			return nil, nil, nil, err
-		}
-		return nil, nil, nil, fmt.Errorf("%w: MCP tool client is unavailable", ErrToolsUnsupported)
+	if len(request.MCPServerIDs) == 0 {
+		return nil, nil, nil, nil
 	}
 	allowlist, err := normalizeToolAllowlist(request)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	return buildResolvedToolDefinitions(request, tools, allowlist)
+}
+
+func ensureToolDefinitionsRequestSupported(request agentruns.ExecutionRequest, tools ToolClient) error {
+	if len(request.MCPServerIDs) == 0 {
+		return requireCompletionStatusToolInPayload(request, nil, "managed LLM config resolved no MCP servers")
+	}
+	if tools != nil {
+		return nil
+	}
+	if err := requireCompletionStatusToolInPayload(request, nil, "MCP tool client is unavailable"); err != nil {
+		return err
+	}
+	return fmt.Errorf("%w: MCP tool client is unavailable", ErrToolsUnsupported)
+}
+
+func buildResolvedToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient, allowlist *toolAllowlist) ([]map[string]any, map[string]mcpx.ToolDescriptor, *toolAllowlist, error) {
 	serverIDs := resolveAllowedServerIDs(request.MCPServerIDs, allowlist)
 	if len(serverIDs) == 0 {
-		if err := requireCompletionStatusToolInPayload(request, nil, "the active tool allowlist removed every available MCP server"); err != nil {
-			return nil, map[string]mcpx.ToolDescriptor{}, allowlist, err
-		}
-		return nil, map[string]mcpx.ToolDescriptor{}, allowlist, nil
+		return emptyResolvedToolDefinitions(request, allowlist, "the active tool allowlist removed every available MCP server")
 	}
+	combined := buildCombinedToolDescriptors(tools, serverIDs)
+	if len(combined) == 0 {
+		return emptyResolvedToolDefinitions(request, allowlist, "no MCP tools are available for the configured servers")
+	}
+	toolNames := selectAllowedToolNames(combined, allowlist, request.CompletionGuardEnabled)
+	payload, available := buildToolPayload(toolNames, combined)
+	if err := requireCompletionStatusToolInPayload(request, available, "the provider tool payload omitted the default Setta completion-report tool"); err != nil {
+		return nil, nil, allowlist, err
+	}
+	return payload, available, allowlist, nil
+}
 
-	serverSet := make(map[string]struct{}, len(serverIDs))
-	for _, serverID := range serverIDs {
-		serverSet[serverID] = struct{}{}
+func emptyResolvedToolDefinitions(request agentruns.ExecutionRequest, allowlist *toolAllowlist, reason string) ([]map[string]any, map[string]mcpx.ToolDescriptor, *toolAllowlist, error) {
+	emptyAvailable := map[string]mcpx.ToolDescriptor{}
+	if err := requireCompletionStatusToolInPayload(request, nil, reason); err != nil {
+		return nil, emptyAvailable, allowlist, err
 	}
+	return nil, emptyAvailable, allowlist, nil
+}
+
+func buildCombinedToolDescriptors(tools ToolClient, serverIDs []string) map[string]mcpx.ToolDescriptor {
+	serverSet := makeServerIDSet(serverIDs)
 	combined := tools.InitToolsForServers(serverSet)
 	for name, descriptor := range tools.DiscoverableToolsForServers(serverSet) {
 		combined[name] = descriptor
 	}
-	if len(combined) == 0 {
-		if err := requireCompletionStatusToolInPayload(request, nil, "no MCP tools are available for the configured servers"); err != nil {
-			return nil, map[string]mcpx.ToolDescriptor{}, allowlist, err
-		}
-		return nil, map[string]mcpx.ToolDescriptor{}, allowlist, nil
-	}
+	return combined
+}
 
+func makeServerIDSet(serverIDs []string) map[string]struct{} {
+	serverSet := make(map[string]struct{}, len(serverIDs))
+	for _, serverID := range serverIDs {
+		serverSet[serverID] = struct{}{}
+	}
+	return serverSet
+}
+
+func selectAllowedToolNames(combined map[string]mcpx.ToolDescriptor, allowlist *toolAllowlist, completionGuardEnabled bool) []string {
 	toolNames := make([]string, 0, len(combined))
 	for name := range combined {
-		if !isSupportedCompletionStatusToolName(name, request.CompletionGuardEnabled) {
+		if !isSupportedCompletionStatusToolName(name, completionGuardEnabled) {
 			continue
 		}
-		if !isToolAllowed(name, allowlist, request.CompletionGuardEnabled) {
+		if !isToolAllowed(name, allowlist, completionGuardEnabled) {
 			continue
 		}
 		toolNames = append(toolNames, name)
 	}
 	sort.Strings(toolNames)
+	return toolNames
+}
 
+func buildToolPayload(toolNames []string, combined map[string]mcpx.ToolDescriptor) ([]map[string]any, map[string]mcpx.ToolDescriptor) {
 	payload := make([]map[string]any, 0, len(toolNames))
 	available := make(map[string]mcpx.ToolDescriptor, len(toolNames))
 	for _, name := range toolNames {
 		descriptor := combined[name]
-		toolPayload := map[string]any{
+		payload = append(payload, map[string]any{
 			"type": "function",
 			"function": map[string]any{
 				"name":        descriptor.NamespacedName,
 				"description": descriptor.Description,
 				"parameters":  cloneJSONValue(descriptor.InputSchema),
 			},
-		}
-		payload = append(payload, toolPayload)
+		})
 		available[name] = descriptor
 	}
-	if err := requireCompletionStatusToolInPayload(request, available, "the provider tool payload omitted the default Setta completion-report tool"); err != nil {
-		return nil, nil, allowlist, err
-	}
-	return payload, available, allowlist, nil
+	return payload, available
 }
 
 func requireCompletionStatusToolInPayload(request agentruns.ExecutionRequest, available map[string]mcpx.ToolDescriptor, reason string) error {
@@ -255,53 +284,81 @@ func normalizeToolAllowlist(request agentruns.ExecutionRequest) (*toolAllowlist,
 	if len(request.Profile.ToolAllowlist) == 0 {
 		return nil, nil
 	}
-	availableServers := make(map[string]struct{}, len(request.MCPServerIDs))
-	for _, serverID := range request.MCPServerIDs {
-		trimmed := strings.TrimSpace(serverID)
-		if trimmed == "" {
-			continue
-		}
-		availableServers[trimmed] = struct{}{}
-	}
+	availableServers := buildAvailableServerSet(request.MCPServerIDs)
 	result := &toolAllowlist{
 		toolNames:           map[string]struct{}{},
 		toolBasenames:       map[string]struct{}{},
 		serverIDs:           map[string]struct{}{},
 		referencedServerIDs: map[string]struct{}{},
 	}
-	for _, entry := range request.Profile.ToolAllowlist {
-		normalized := strings.TrimSpace(entry)
-		if normalized == "" {
-			return nil, fmt.Errorf("%w: toolAllowlist entries must be non-empty strings", ErrToolsUnsupported)
-		}
-		if strings.Contains(normalized, mcpx.ToolNameSeparator) {
-			serverID, toolName, ok := mcpx.SplitNamespacedToolName(normalized)
-			if !ok || strings.TrimSpace(serverID) == "" || strings.TrimSpace(toolName) == "" {
-				return nil, fmt.Errorf("%w: invalid tool allowlist entry %q", ErrToolsUnsupported, entry)
-			}
-			if _, ok := availableServers[serverID]; !ok {
-				return nil, fmt.Errorf("%w: unavailable MCP server %q in toolAllowlist", ErrToolsUnsupported, serverID)
-			}
-			result.toolNames[normalized] = struct{}{}
-			result.referencedServerIDs[serverID] = struct{}{}
+	if err := populateToolAllowlist(result, request.Profile.ToolAllowlist, availableServers); err != nil {
+		return nil, err
+	}
+	addRequiredInternalToolsToAllowlist(result, availableServers, request.CompletionGuardEnabled)
+	return result, nil
+}
+
+func buildAvailableServerSet(serverIDs []string) map[string]struct{} {
+	availableServers := make(map[string]struct{}, len(serverIDs))
+	for _, serverID := range serverIDs {
+		trimmed := strings.TrimSpace(serverID)
+		if trimmed == "" {
 			continue
 		}
+		availableServers[trimmed] = struct{}{}
+	}
+	return availableServers
+}
+
+func populateToolAllowlist(result *toolAllowlist, entries []string, availableServers map[string]struct{}) error {
+	for _, entry := range entries {
+		if err := addToolAllowlistEntry(result, entry, availableServers); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addToolAllowlistEntry(result *toolAllowlist, entry string, availableServers map[string]struct{}) error {
+	normalized := strings.TrimSpace(entry)
+	if normalized == "" {
+		return fmt.Errorf("%w: toolAllowlist entries must be non-empty strings", ErrToolsUnsupported)
+	}
+	if !strings.Contains(normalized, mcpx.ToolNameSeparator) {
 		if _, ok := availableServers[normalized]; ok {
 			result.serverIDs[normalized] = struct{}{}
-			continue
+			return nil
 		}
 		result.toolBasenames[normalized] = struct{}{}
+		return nil
 	}
-	for _, requiredToolName := range requiredInternalToolNames(request.CompletionGuardEnabled) {
+	return addNamespacedToolAllowlistEntry(result, entry, normalized, availableServers)
+}
+
+func addNamespacedToolAllowlistEntry(result *toolAllowlist, entry string, normalized string, availableServers map[string]struct{}) error {
+	serverID, toolName, ok := mcpx.SplitNamespacedToolName(normalized)
+	if !ok || strings.TrimSpace(serverID) == "" || strings.TrimSpace(toolName) == "" {
+		return fmt.Errorf("%w: invalid tool allowlist entry %q", ErrToolsUnsupported, entry)
+	}
+	if _, ok := availableServers[serverID]; !ok {
+		return fmt.Errorf("%w: unavailable MCP server %q in toolAllowlist", ErrToolsUnsupported, serverID)
+	}
+	result.toolNames[normalized] = struct{}{}
+	result.referencedServerIDs[serverID] = struct{}{}
+	return nil
+}
+
+func addRequiredInternalToolsToAllowlist(result *toolAllowlist, availableServers map[string]struct{}, completionGuardEnabled bool) {
+	for _, requiredToolName := range requiredInternalToolNames(completionGuardEnabled) {
 		result.toolNames[requiredToolName] = struct{}{}
 		serverID, _, ok := mcpx.SplitNamespacedToolName(requiredToolName)
-		if ok {
-			if _, present := availableServers[serverID]; present {
-				result.referencedServerIDs[serverID] = struct{}{}
-			}
+		if !ok {
+			continue
+		}
+		if _, present := availableServers[serverID]; present {
+			result.referencedServerIDs[serverID] = struct{}{}
 		}
 	}
-	return result, nil
 }
 
 func resolveAllowedServerIDs(serverIDs []string, allowlist *toolAllowlist) []string {
@@ -378,39 +435,59 @@ func isToolAllowed(toolName string, allowlist *toolAllowlist, completionGuardEna
 
 func buildToolRequestMeta(request agentruns.ExecutionRequest, toolName string) map[string]any {
 	normalizedToolName := mcpx.NormalizeToolName(toolName)
-	if !strings.HasPrefix(normalizedToolName, mcpx.DefaultServerID+mcpx.ToolNameSeparator) {
+	if !isDefaultServerToolName(normalizedToolName) {
 		return nil
 	}
 	meta := map[string]any{
 		"projectConfigId": request.ProjectConfigID,
 	}
-	isWorkflowSignalTool := normalizedToolName == mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "report_state_machine_signal")
-	if trimmed := strings.TrimSpace(request.ChatID); trimmed != "" {
-		meta["chatId"] = trimmed
-	}
-	if trimmed := strings.TrimSpace(request.Run.ID); trimmed != "" {
-		meta["runId"] = trimmed
-	}
-	if shareSessionID, ok := request.Inputs["shareSessionId"].(string); ok {
-		if trimmed := strings.TrimSpace(shareSessionID); trimmed != "" {
-			meta["shareSessionId"] = trimmed
-		}
-	}
-	if !isWorkflowSignalTool && request.SectionID != nil && strings.TrimSpace(*request.SectionID) != "" {
-		meta["sectionId"] = strings.TrimSpace(*request.SectionID)
-	}
-	if affinity, ok := request.Inputs["frontendAffinityToken"].(string); ok {
-		if trimmed := strings.TrimSpace(affinity); trimmed != "" {
-			meta["frontendAffinityToken"] = trimmed
-		}
-	}
-	if allowUnscoped, ok := request.Inputs["allowUnscoped"].(bool); ok && allowUnscoped {
-		meta["allowUnscoped"] = true
-	}
-	if isWorkflowSignalTool {
+	isWorkflowSignalTool := isWorkflowSignalToolName(normalizedToolName)
+	addTrimmedMetaValue(meta, "chatId", request.ChatID)
+	addTrimmedMetaValue(meta, "runId", request.Run.ID)
+	addStringInputMetaValue(meta, request.Inputs, "shareSessionId")
+	addSectionMetaValue(meta, request.SectionID, isWorkflowSignalTool)
+	addStringInputMetaValue(meta, request.Inputs, "frontendAffinityToken")
+	if shouldAllowUnscopedToolRequest(request.Inputs, isWorkflowSignalTool) {
 		meta["allowUnscoped"] = true
 	}
 	return meta
+}
+
+func isDefaultServerToolName(toolName string) bool {
+	return strings.HasPrefix(toolName, mcpx.DefaultServerID+mcpx.ToolNameSeparator)
+}
+
+func isWorkflowSignalToolName(toolName string) bool {
+	return toolName == mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "report_state_machine_signal")
+}
+
+func addTrimmedMetaValue(meta map[string]any, key string, value string) {
+	if trimmed := strings.TrimSpace(value); trimmed != "" {
+		meta[key] = trimmed
+	}
+}
+
+func addStringInputMetaValue(meta map[string]any, inputs map[string]any, key string) {
+	value, ok := inputs[key].(string)
+	if !ok {
+		return
+	}
+	addTrimmedMetaValue(meta, key, value)
+}
+
+func addSectionMetaValue(meta map[string]any, sectionID *string, isWorkflowSignalTool bool) {
+	if isWorkflowSignalTool || sectionID == nil {
+		return
+	}
+	addTrimmedMetaValue(meta, "sectionId", *sectionID)
+}
+
+func shouldAllowUnscopedToolRequest(inputs map[string]any, isWorkflowSignalTool bool) bool {
+	if isWorkflowSignalTool {
+		return true
+	}
+	allowUnscoped, ok := inputs["allowUnscoped"].(bool)
+	return ok && allowUnscoped
 }
 
 func buildMissingToolResult(toolName string) mcpx.ToolCallResult {
