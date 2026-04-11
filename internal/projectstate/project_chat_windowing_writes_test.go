@@ -7,6 +7,111 @@ import (
 	"testing"
 )
 
+func TestNormalizeProjectChatWindowingStateForWriteDedupesAndPrunesCandidates(t *testing.T) {
+	t.Parallel()
+
+	normalized, err := normalizeProjectChatWindowingStateForWrite(
+		ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				" project-chat-window-1 ": {
+					Title:  stringPointer(" Project AI "),
+					ChatID: stringPointer(" chat-before "),
+					Bounds: ChatWindowBounds{},
+				},
+				"section-window-canvas": {
+					Placement:       ChatWindowPlacementCanvasSection,
+					Mode:            ChatWindowModeSection,
+					SectionIDOrNull: stringPointer(" section-a "),
+					Title:           stringPointer(" Canvas Section "),
+					ChatID:          stringPointer(" drop-me "),
+				},
+				"section-window-floating": {
+					Placement:       ChatWindowPlacementFloating,
+					Mode:            ChatWindowModeSection,
+					SectionIDOrNull: stringPointer("section-a"),
+					Title:           stringPointer(" Floating Section "),
+					ZIndex:          10,
+				},
+				"git-window": {
+					Placement: ChatWindowPlacementFloating,
+					Mode:      ChatWindowModeGitGraph,
+					ChatID:    stringPointer(" drop-me "),
+				},
+				"missing-section": {
+					Placement:       ChatWindowPlacementCanvasSection,
+					Mode:            ChatWindowModeSection,
+					SectionIDOrNull: stringPointer("missing"),
+				},
+				" ": {
+					Mode: ChatWindowModeProjectAI,
+				},
+			},
+			Order: []string{
+				"git-window",
+				"section-window-floating",
+				" section-window-canvas ",
+				"project-chat-window-1",
+				"missing-section",
+			},
+		},
+		map[string]Section{
+			"section-a": {
+				ID:   "section-a",
+				Name: "Section A",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("normalizeProjectChatWindowingStateForWrite returned error: %v", err)
+	}
+
+	if got := normalized.NextInstanceNumber; got != 1 {
+		t.Fatalf("expected default next instance number 1, got %d", got)
+	}
+	if got := normalized.Order; !reflect.DeepEqual(got, []string{"git-window", "section-window-canvas", "project-chat-window-1"}) {
+		t.Fatalf("expected normalized order, got %#v", got)
+	}
+	if got := len(normalized.InstancesByID); got != 3 {
+		t.Fatalf("expected three normalized instances, got %d", got)
+	}
+
+	projectAI := normalized.InstancesByID["project-chat-window-1"]
+	if projectAI.InstanceID != "project-chat-window-1" {
+		t.Fatalf("expected trimmed project chat window id, got %q", projectAI.InstanceID)
+	}
+	if projectAI.Placement != ChatWindowPlacementBottomDocked {
+		t.Fatalf("expected default placement bottom_docked, got %q", projectAI.Placement)
+	}
+	if projectAI.Mode != ChatWindowModeProjectAI {
+		t.Fatalf("expected default mode project_ai_mode, got %q", projectAI.Mode)
+	}
+	if projectAI.ChatID == nil || *projectAI.ChatID != "chat-before" {
+		t.Fatalf("expected trimmed project chat chatId, got %#v", projectAI.ChatID)
+	}
+
+	sectionWindow := normalized.InstancesByID["section-window-canvas"]
+	if sectionWindow.SectionIDOrNull == nil || *sectionWindow.SectionIDOrNull != "section-a" {
+		t.Fatalf("expected surviving section binding section-a, got %#v", sectionWindow.SectionIDOrNull)
+	}
+	if sectionWindow.Title != nil {
+		t.Fatalf("expected section-bound title to be cleared, got %#v", sectionWindow.Title)
+	}
+	if sectionWindow.ChatID != nil {
+		t.Fatalf("expected section-bound chatId to be cleared, got %#v", sectionWindow.ChatID)
+	}
+	if _, ok := normalized.InstancesByID["section-window-floating"]; ok {
+		t.Fatal("expected lower-priority duplicate section window to be dropped")
+	}
+	if _, ok := normalized.InstancesByID["missing-section"]; ok {
+		t.Fatal("expected missing section candidate to be dropped")
+	}
+
+	gitWindow := normalized.InstancesByID["git-window"]
+	if gitWindow.ChatID != nil {
+		t.Fatalf("expected git graph chatId to be cleared, got %#v", gitWindow.ChatID)
+	}
+}
+
 func TestRuntimeSetProjectChatWindowingStateRejectsThreadRebinding(t *testing.T) {
 	t.Parallel()
 

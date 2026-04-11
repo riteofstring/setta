@@ -491,50 +491,100 @@ func normalizeProjectChatWindowingStateForWrite(
 		normalized.NextInstanceNumber = state.NextInstanceNumber
 	}
 
-	candidatesByID := make(map[string]ProjectChatWindowInstance, len(state.InstancesByID))
-	for instanceID, instance := range state.InstancesByID {
-		trimmedInstanceID := strings.TrimSpace(instanceID)
-		if trimmedInstanceID == "" {
+	orderedCandidateIDs, candidatesByID, err := normalizeProjectChatWindowCandidatesForWrite(
+		state.InstancesByID,
+		sections,
+	)
+	if err != nil {
+		return ProjectChatWindowingState{}, err
+	}
+	normalized.InstancesByID = selectProjectChatWindowWriteCandidates(
+		orderedCandidateIDs,
+		candidatesByID,
+	)
+	normalized.Order = normalizeOrderedKeys(state.Order, normalized.InstancesByID)
+	if normalized.NextInstanceNumber < 1 {
+		normalized.NextInstanceNumber = 1
+	}
+	return normalized, nil
+}
+
+func normalizeProjectChatWindowCandidatesForWrite(
+	instancesByID map[string]ProjectChatWindowInstance,
+	sections map[string]Section,
+) ([]string, map[string]ProjectChatWindowInstance, error) {
+	candidatesByID := make(map[string]ProjectChatWindowInstance, len(instancesByID))
+	for instanceID, instance := range instancesByID {
+		trimmedInstanceID, normalizedInstance, keep, err := normalizeProjectChatWindowCandidateForWrite(
+			instanceID,
+			instance,
+			sections,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !keep {
 			continue
 		}
-		nextInstance := instance.Clone()
-		nextInstance.InstanceID = trimmedInstanceID
-		nextInstance.SectionIDOrNull = trimOptionalString(nextInstance.SectionIDOrNull)
-		nextInstance.Title = trimOptionalString(nextInstance.Title)
-		nextInstance.ChatID = trimOptionalString(nextInstance.ChatID)
-		nextInstance.Bounds = normalizeChatWindowBounds(nextInstance.Bounds)
-		nextInstance.DockMetrics = normalizeChatWindowDockMetrics(nextInstance.DockMetrics)
-		if nextInstance.Placement == "" {
-			nextInstance.Placement = ChatWindowPlacementBottomDocked
-		}
-		if nextInstance.Mode == "" {
-			nextInstance.Mode = ChatWindowModeProjectAI
-		}
-		if err := validateProjectChatWindowOwner(
-			nextInstance.Mode,
-			nextInstance.Placement,
-			nextInstance.SectionIDOrNull,
-		); err != nil {
-			return ProjectChatWindowingState{}, err
-		}
-		if nextInstance.Mode != ChatWindowModeProjectAI {
-			nextInstance.ChatID = nil
-		}
-		if nextInstance.SectionIDOrNull != nil {
-			if _, ok := sections[*nextInstance.SectionIDOrNull]; !ok {
-				continue
-			}
-			nextInstance.Title = nil
-		}
-		candidatesByID[trimmedInstanceID] = nextInstance
+		candidatesByID[trimmedInstanceID] = normalizedInstance
 	}
 
-	winningInstanceIDBySectionID := map[string]string{}
 	orderedCandidateIDs := make([]string, 0, len(candidatesByID))
 	for instanceID := range candidatesByID {
 		orderedCandidateIDs = append(orderedCandidateIDs, instanceID)
 	}
 	sort.Strings(orderedCandidateIDs)
+	return orderedCandidateIDs, candidatesByID, nil
+}
+
+func normalizeProjectChatWindowCandidateForWrite(
+	instanceID string,
+	instance ProjectChatWindowInstance,
+	sections map[string]Section,
+) (string, ProjectChatWindowInstance, bool, error) {
+	trimmedInstanceID := strings.TrimSpace(instanceID)
+	if trimmedInstanceID == "" {
+		return "", ProjectChatWindowInstance{}, false, nil
+	}
+
+	nextInstance := instance.Clone()
+	nextInstance.InstanceID = trimmedInstanceID
+	nextInstance.SectionIDOrNull = trimOptionalString(nextInstance.SectionIDOrNull)
+	nextInstance.Title = trimOptionalString(nextInstance.Title)
+	nextInstance.ChatID = trimOptionalString(nextInstance.ChatID)
+	nextInstance.Bounds = normalizeChatWindowBounds(nextInstance.Bounds)
+	nextInstance.DockMetrics = normalizeChatWindowDockMetrics(nextInstance.DockMetrics)
+	if nextInstance.Placement == "" {
+		nextInstance.Placement = ChatWindowPlacementBottomDocked
+	}
+	if nextInstance.Mode == "" {
+		nextInstance.Mode = ChatWindowModeProjectAI
+	}
+	if err := validateProjectChatWindowOwner(
+		nextInstance.Mode,
+		nextInstance.Placement,
+		nextInstance.SectionIDOrNull,
+	); err != nil {
+		return "", ProjectChatWindowInstance{}, false, err
+	}
+	if nextInstance.Mode != ChatWindowModeProjectAI {
+		nextInstance.ChatID = nil
+	}
+	if nextInstance.SectionIDOrNull == nil {
+		return trimmedInstanceID, nextInstance, true, nil
+	}
+	if _, ok := sections[*nextInstance.SectionIDOrNull]; !ok {
+		return "", ProjectChatWindowInstance{}, false, nil
+	}
+	nextInstance.Title = nil
+	return trimmedInstanceID, nextInstance, true, nil
+}
+
+func selectProjectChatWindowWriteCandidates(
+	orderedCandidateIDs []string,
+	candidatesByID map[string]ProjectChatWindowInstance,
+) map[string]ProjectChatWindowInstance {
+	winningInstanceIDBySectionID := map[string]string{}
 	for _, instanceID := range orderedCandidateIDs {
 		instance := candidatesByID[instanceID]
 		if instance.SectionIDOrNull == nil {
@@ -552,20 +602,16 @@ func normalizeProjectChatWindowingStateForWrite(
 		}
 	}
 
-	normalized.InstancesByID = make(map[string]ProjectChatWindowInstance, len(candidatesByID))
+	selected := make(map[string]ProjectChatWindowInstance, len(candidatesByID))
 	for _, instanceID := range orderedCandidateIDs {
 		instance := candidatesByID[instanceID]
 		if instance.SectionIDOrNull != nil &&
 			winningInstanceIDBySectionID[*instance.SectionIDOrNull] != instanceID {
 			continue
 		}
-		normalized.InstancesByID[instanceID] = instance
+		selected[instanceID] = instance
 	}
-	normalized.Order = normalizeOrderedKeys(state.Order, normalized.InstancesByID)
-	if normalized.NextInstanceNumber < 1 {
-		normalized.NextInstanceNumber = 1
-	}
-	return normalized, nil
+	return selected
 }
 
 func normalizeWindowSpaceStateForWrite(
