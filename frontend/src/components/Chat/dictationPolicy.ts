@@ -1,6 +1,7 @@
+import type { ChatDictationMode } from "utils/generatedTypes";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 
-type DictationMode = "auto" | "browser" | "provider";
+type DictationMode = ChatDictationMode;
 export type DictationProviderFailurePhase =
   | "capture_start"
   | "capture_runtime"

@@ -3671,6 +3671,13 @@ export const ChatAppGenerationMessageModeEnum = {
   mcp_server: "mcp_server",
 } as const;
 
+export const ChatDictationModeEnum = {
+  auto: "auto",
+  browser: "browser",
+  provider: "provider",
+} as const;
+export type ChatDictationMode = gt.ChatDictationMode;
+
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
   yolo: "yolo",

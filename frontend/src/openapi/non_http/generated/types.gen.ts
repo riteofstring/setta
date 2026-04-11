@@ -877,7 +877,7 @@ type ChatAppGenerationMessageMode =
 /**
  * ChatDictationMode
  */
-type ChatDictationMode = "auto" | "browser" | "provider";
+export type ChatDictationMode = "auto" | "browser" | "provider";
 
 /**
  * ChatFileAttachment

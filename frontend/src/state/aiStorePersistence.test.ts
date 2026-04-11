@@ -1,4 +1,5 @@
 import { resetProjectStores } from "state/utils";
+import type { ChatDictationMode } from "utils/generatedTypes";
 import {
   afterAll,
   afterEach,
@@ -17,7 +18,7 @@ type PersistedAIStoreSlice = {
   projectChatThreadsExplicitlyClosedAtLargeWidth?: boolean;
   projectChatActivityAccordionOpenByDefault?: boolean;
   projectChatActivityChildrenOpenByDefault?: boolean;
-  projectChatDictationMode?: "auto" | "browser" | "provider";
+  projectChatDictationMode?: ChatDictationMode;
   projectChatSelectedEngineId?: string | null;
   [key: string]: unknown;
 };
