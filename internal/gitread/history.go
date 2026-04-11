@@ -122,6 +122,11 @@ type numstat struct {
 	deletions *int
 }
 
+type gitShowNumstatEntry struct {
+	path  string
+	stats numstat
+}
+
 func (s *Service) Log(ctx context.Context, request LogRequest) (LogResponse, error) {
 	repoRoot, ok := s.repoRootOrNone(ctx)
 	if !ok {
@@ -456,25 +461,66 @@ func (s *Service) CommitFileDiff(ctx context.Context, request CommitFileDiffRequ
 		return CommitFileDiffResponse{}, err
 	}
 
-	relPath, err := normalizeRepoRelativePath(request.Path)
+	relPath, relOldPath, err := s.resolveCommitFileDiffPaths(ctx, repoRoot, commitHash, request)
 	if err != nil {
 		return CommitFileDiffResponse{}, err
 	}
-	if err := s.assertSingleFilePathspec(ctx, repoRoot, request.Path, relPath, commitHash); err != nil {
+
+	result, err := s.runGit(
+		ctx,
+		repoRoot,
+		buildCommitFileDiffArgs(commitHash, relPath, relOldPath),
+		showTimeout,
+		maxShowBytes,
+		maxCommandErrBytes,
+	)
+	if err != nil {
+		return CommitFileDiffResponse{}, err
+	}
+	if err := validateCommitFileDiffResult(result); err != nil {
 		return CommitFileDiffResponse{}, err
 	}
 
-	var relOldPath string
-	if request.OldPath != nil {
-		relOldPath, err = normalizeRepoRelativePath(*request.OldPath)
-		if err != nil {
-			return CommitFileDiffResponse{}, err
-		}
-		if err := s.assertSingleFilePathspec(ctx, repoRoot, *request.OldPath, relOldPath, commitHash); err != nil {
-			return CommitFileDiffResponse{}, err
-		}
-	}
+	return buildCommitFileDiffResponse(repoRoot, commitHash, relPath, result), nil
+}
 
+func (s *Service) resolveCommitFileDiffPaths(
+	ctx context.Context,
+	repoRoot string,
+	commitHash string,
+	request CommitFileDiffRequest,
+) (string, string, error) {
+	relPath, err := s.normalizeCommitFileDiffPath(ctx, repoRoot, commitHash, request.Path)
+	if err != nil {
+		return "", "", err
+	}
+	if request.OldPath == nil {
+		return relPath, "", nil
+	}
+	relOldPath, err := s.normalizeCommitFileDiffPath(ctx, repoRoot, commitHash, *request.OldPath)
+	if err != nil {
+		return "", "", err
+	}
+	return relPath, relOldPath, nil
+}
+
+func (s *Service) normalizeCommitFileDiffPath(
+	ctx context.Context,
+	repoRoot string,
+	commitHash string,
+	rawPath string,
+) (string, error) {
+	relPath, err := normalizeRepoRelativePath(rawPath)
+	if err != nil {
+		return "", err
+	}
+	if err := s.assertSingleFilePathspec(ctx, repoRoot, rawPath, relPath, commitHash); err != nil {
+		return "", err
+	}
+	return relPath, nil
+}
+
+func buildCommitFileDiffArgs(commitHash string, relPath string, relOldPath string) []string {
 	args := []string{
 		"--literal-pathspecs",
 		"show",
@@ -487,32 +533,32 @@ func (s *Service) CommitFileDiff(ctx context.Context, request CommitFileDiffRequ
 		"--",
 	}
 	if relOldPath != "" && relOldPath != relPath {
-		args = append(args, relOldPath, relPath)
-	} else {
-		args = append(args, relPath)
+		return append(args, relOldPath, relPath)
 	}
+	return append(args, relPath)
+}
 
-	result, err := s.runGit(ctx, repoRoot, args, showTimeout, maxShowBytes, maxCommandErrBytes)
-	if err != nil {
-		return CommitFileDiffResponse{}, err
-	}
+func validateCommitFileDiffResult(result commandResult) error {
 	if result.timedOut {
-		return CommitFileDiffResponse{}, &Error{Kind: ErrorTimedOut, Message: "Timed out running git show."}
+		return &Error{Kind: ErrorTimedOut, Message: "Timed out running git show."}
 	}
 	if result.returnCode != 0 && !result.stdoutTruncated {
-		return CommitFileDiffResponse{}, &Error{Kind: ErrorNotFound, Message: notFoundMessage(result.stderr, "Unknown commit hash.")}
+		return &Error{Kind: ErrorNotFound, Message: notFoundMessage(result.stderr, "Unknown commit hash.")}
 	}
 	if !result.stdoutTruncated && strings.TrimSpace(result.stdout) == "" {
-		return CommitFileDiffResponse{}, &Error{Kind: ErrorNotFound, Message: "File is not part of this commit diff."}
+		return &Error{Kind: ErrorNotFound, Message: "File is not part of this commit diff."}
 	}
+	return nil
+}
 
+func buildCommitFileDiffResponse(repoRoot string, commitHash string, relPath string, result commandResult) CommitFileDiffResponse {
 	return CommitFileDiffResponse{
 		RepoRoot:    repoRoot,
 		CommitHash:  commitHash,
 		Path:        relPath,
 		Diff:        result.stdout,
 		IsTruncated: result.stdoutTruncated,
-	}, nil
+	}
 }
 
 func (s *Service) verifyRevision(ctx context.Context, repoRoot string, revision string) error {
@@ -669,6 +715,18 @@ func (s *Service) loadCommitDecorationsFromRefs(ctx context.Context, repoRoot st
 		return map[string][]string{}
 	}
 
+	args := buildCommitDecorationRefArgs(commitHashes)
+	result, err := s.runGit(ctx, repoRoot, args, logTimeout, maxLogBytes, maxCommandErrBytes)
+	if err != nil || result.timedOut || result.returnCode != 0 || result.stdoutTruncated {
+		return nil
+	}
+
+	decorationsByHash := parseCommitDecorations(result.stdout, commitHashes)
+	s.prependHeadDecoration(ctx, repoRoot, commitHashes, headBranch, decorationsByHash)
+	return decorationsByHash
+}
+
+func buildCommitDecorationRefArgs(commitHashes map[string]struct{}) []string {
 	hashes := make([]string, 0, len(commitHashes))
 	for hash := range commitHashes {
 		hashes = append(hashes, hash)
@@ -682,49 +740,66 @@ func (s *Service) loadCommitDecorationsFromRefs(ctx context.Context, repoRoot st
 	for _, hash := range hashes {
 		args = append(args, "--points-at="+hash)
 	}
-	args = append(args, "refs/heads", "refs/remotes", "refs/tags")
+	return append(args, "refs/heads", "refs/remotes", "refs/tags")
+}
 
-	result, err := s.runGit(ctx, repoRoot, args, logTimeout, maxLogBytes, maxCommandErrBytes)
-	if err != nil || result.timedOut || result.returnCode != 0 || result.stdoutTruncated {
-		return nil
-	}
-
+func parseCommitDecorations(output string, commitHashes map[string]struct{}) map[string][]string {
 	decorationsByHash := make(map[string][]string)
-	for _, line := range strings.Split(strings.TrimSuffix(result.stdout, "\n"), "\n") {
-		if line == "" {
-			continue
-		}
-		fields := strings.Split(line, "\x00")
-		if len(fields) < 4 {
-			continue
-		}
-		targetHash := strings.TrimSpace(fields[1])
-		if targetHash == "" {
-			targetHash = strings.TrimSpace(fields[0])
-		}
-		if _, ok := commitHashes[targetHash]; !ok {
-			continue
-		}
-		label := buildRefDecorationLabel(strings.TrimSpace(fields[2]), strings.TrimSpace(fields[3]))
-		if label == "" {
+	for _, line := range strings.Split(strings.TrimSuffix(output, "\n"), "\n") {
+		targetHash, label, ok := parseCommitDecorationLine(line, commitHashes)
+		if !ok {
 			continue
 		}
 		decorationsByHash[targetHash] = appendUniqueString(decorationsByHash[targetHash], label)
 	}
-
-	if headBranch != nil && *headBranch != "" {
-		headHash := s.resolveHeadCommitHash(ctx, repoRoot)
-		if headHash != "" {
-			if _, ok := commitHashes[headHash]; ok {
-				headDecoration := "HEAD -> " + *headBranch
-				existing := decorationsByHash[headHash]
-				if !containsString(existing, headDecoration) {
-					decorationsByHash[headHash] = append([]string{headDecoration}, existing...)
-				}
-			}
-		}
-	}
 	return decorationsByHash
+}
+
+func parseCommitDecorationLine(line string, commitHashes map[string]struct{}) (string, string, bool) {
+	if line == "" {
+		return "", "", false
+	}
+	fields := strings.Split(line, "\x00")
+	if len(fields) < 4 {
+		return "", "", false
+	}
+	targetHash := strings.TrimSpace(fields[1])
+	if targetHash == "" {
+		targetHash = strings.TrimSpace(fields[0])
+	}
+	if _, ok := commitHashes[targetHash]; !ok {
+		return "", "", false
+	}
+	label := buildRefDecorationLabel(strings.TrimSpace(fields[2]), strings.TrimSpace(fields[3]))
+	if label == "" {
+		return "", "", false
+	}
+	return targetHash, label, true
+}
+
+func (s *Service) prependHeadDecoration(
+	ctx context.Context,
+	repoRoot string,
+	commitHashes map[string]struct{},
+	headBranch *string,
+	decorationsByHash map[string][]string,
+) {
+	if headBranch == nil || *headBranch == "" {
+		return
+	}
+	headHash := s.resolveHeadCommitHash(ctx, repoRoot)
+	if headHash == "" {
+		return
+	}
+	if _, ok := commitHashes[headHash]; !ok {
+		return
+	}
+	headDecoration := "HEAD -> " + *headBranch
+	existing := decorationsByHash[headHash]
+	if containsString(existing, headDecoration) {
+		return
+	}
+	decorationsByHash[headHash] = append([]string{headDecoration}, existing...)
 }
 
 func (s *Service) resolveHeadCommitHash(ctx context.Context, repoRoot string) string {
@@ -813,12 +888,20 @@ func parseNULDelimitedFields(output string, fieldCount int) ([]string, string, b
 }
 
 func parseGitShowRawAndNumstat(diffPayload string) ([]rawChangedFile, map[string]numstat) {
-	payload := strings.TrimLeft(diffPayload, "\r\n")
-	tokens := strings.Split(payload, "\x00")
-	if len(tokens) > 0 && tokens[len(tokens)-1] == "" {
-		tokens = tokens[:len(tokens)-1]
-	}
+	tokens := splitGitShowTokens(diffPayload)
+	files, index := parseGitShowRawFiles(tokens)
+	return files, parseGitShowNumstats(tokens, index)
+}
 
+func splitGitShowTokens(diffPayload string) []string {
+	tokens := strings.Split(strings.TrimLeft(diffPayload, "\r\n"), "\x00")
+	if len(tokens) > 0 && tokens[len(tokens)-1] == "" {
+		return tokens[:len(tokens)-1]
+	}
+	return tokens
+}
+
+func parseGitShowRawFiles(tokens []string) ([]rawChangedFile, int) {
 	files := make([]rawChangedFile, 0)
 	index := 0
 	for index < len(tokens) {
@@ -826,84 +909,122 @@ func parseGitShowRawAndNumstat(diffPayload string) ([]rawChangedFile, map[string
 		if header == "" || !strings.HasPrefix(header, ":") {
 			break
 		}
-		index++
-		parts := strings.Fields(header)
-		if len(parts) == 0 {
-			continue
-		}
-		statusCode := strings.TrimSpace(parts[len(parts)-1])
-		if statusCode == "" {
-			continue
-		}
 
-		var oldPath *string
-		var newPath string
-		if strings.HasPrefix(statusCode, "R") || strings.HasPrefix(statusCode, "C") {
-			if index+1 >= len(tokens) {
-				break
-			}
-			oldPath = optionalString(tokens[index])
-			newPath = tokens[index+1]
-			index += 2
-		} else {
-			if index >= len(tokens) {
-				break
-			}
-			newPath = tokens[index]
-			index++
+		file, nextIndex, ok := parseGitShowRawFile(tokens, index)
+		if !ok {
+			break
 		}
-		if newPath == "" {
+		index = nextIndex
+		if file == nil {
 			continue
 		}
-		files = append(files, rawChangedFile{
-			newPath:    newPath,
-			oldPath:    oldPath,
-			statusCode: statusCode,
-		})
+		files = append(files, *file)
+	}
+	return files, index
+}
+
+func parseGitShowRawFile(tokens []string, index int) (*rawChangedFile, int, bool) {
+	header := tokens[index]
+	index++
+
+	parts := strings.Fields(header)
+	if len(parts) == 0 {
+		return nil, index, true
+	}
+	statusCode := strings.TrimSpace(parts[len(parts)-1])
+	if statusCode == "" {
+		return nil, index, true
 	}
 
+	oldPath, newPath, nextIndex, ok := parseGitShowRawPaths(tokens, index, statusCode)
+	if !ok {
+		return nil, nextIndex, false
+	}
+	if newPath == "" {
+		return nil, nextIndex, true
+	}
+	return &rawChangedFile{
+		newPath:    newPath,
+		oldPath:    oldPath,
+		statusCode: statusCode,
+	}, nextIndex, true
+}
+
+func parseGitShowRawPaths(tokens []string, index int, statusCode string) (*string, string, int, bool) {
+	if strings.HasPrefix(statusCode, "R") || strings.HasPrefix(statusCode, "C") {
+		if index+1 >= len(tokens) {
+			return nil, "", index, false
+		}
+		return optionalString(tokens[index]), tokens[index+1], index + 2, true
+	}
+	if index >= len(tokens) {
+		return nil, "", index, false
+	}
+	return nil, tokens[index], index + 1, true
+}
+
+func parseGitShowNumstats(tokens []string, index int) map[string]numstat {
 	statsByPath := make(map[string]numstat)
 	for index < len(tokens) {
 		token := tokens[index]
 		index++
-		if token == "" {
-			continue
-		}
 
-		firstTab := strings.IndexByte(token, '\t')
-		if firstTab == -1 {
+		entry, nextIndex, ok := parseGitShowNumstatEntry(tokens, index, token)
+		index = nextIndex
+		if !ok {
 			continue
 		}
-		secondTab := strings.IndexByte(token[firstTab+1:], '\t')
-		if secondTab == -1 {
-			continue
-		}
-		secondTab += firstTab + 1
+		statsByPath[entry.path] = entry.stats
+	}
+	return statsByPath
+}
 
-		additionsText := token[:firstTab]
-		deletionsText := token[firstTab+1 : secondTab]
-		pathOrMarker := token[secondTab+1:]
-		if !isNumstatField(additionsText) || !isNumstatField(deletionsText) {
-			continue
-		}
-
-		additions := parseOptionalNumstat(additionsText)
-		deletions := parseOptionalNumstat(deletionsText)
-		newPath := pathOrMarker
-		if newPath == "" {
-			if index+1 >= len(tokens) {
-				continue
-			}
-			newPath = tokens[index+1]
-			index += 2
-		}
-		if newPath == "" {
-			continue
-		}
-		statsByPath[newPath] = numstat{additions: additions, deletions: deletions}
+func parseGitShowNumstatEntry(tokens []string, index int, token string) (gitShowNumstatEntry, int, bool) {
+	if token == "" {
+		return gitShowNumstatEntry{}, index, false
 	}
 
-	return files, statsByPath
+	firstTab := strings.IndexByte(token, '\t')
+	if firstTab == -1 {
+		return gitShowNumstatEntry{}, index, false
+	}
+	secondTab := strings.IndexByte(token[firstTab+1:], '\t')
+	if secondTab == -1 {
+		return gitShowNumstatEntry{}, index, false
+	}
+	secondTab += firstTab + 1
+
+	additionsText := token[:firstTab]
+	deletionsText := token[firstTab+1 : secondTab]
+	if !isNumstatField(additionsText) || !isNumstatField(deletionsText) {
+		return gitShowNumstatEntry{}, index, false
+	}
+
+	path, nextIndex, ok := resolveGitShowNumstatPath(tokens, index, token[secondTab+1:])
+	if !ok {
+		return gitShowNumstatEntry{}, nextIndex, false
+	}
+
+	return gitShowNumstatEntry{
+		path: path,
+		stats: numstat{
+			additions: parseOptionalNumstat(additionsText),
+			deletions: parseOptionalNumstat(deletionsText),
+		},
+	}, nextIndex, true
+}
+
+func resolveGitShowNumstatPath(tokens []string, index int, pathOrMarker string) (string, int, bool) {
+	if pathOrMarker != "" {
+		return pathOrMarker, index, true
+	}
+	if index+1 >= len(tokens) {
+		return "", index, false
+	}
+	if tokens[index+1] == "" {
+		return "", index + 2, false
+	}
+	return tokens[index+1], index + 2, true
 }
 
 func hasUnexpandedDecorateAtoms(commits []Commit) bool {
