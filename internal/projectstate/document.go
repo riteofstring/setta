@@ -118,51 +118,93 @@ func (d Document) withWatchCodeIgnoredRoots(roots []string) Document {
 }
 
 func (d Document) Normalized() (Document, error) {
-	if d.SchemaVersion != CurrentSchemaVersion {
-		return Document{}, fmt.Errorf("%w: %d", ErrUnsupportedSchemaVersion, d.SchemaVersion)
-	}
-
 	normalized := d
-	if normalized.Projects == nil {
-		normalized.Projects = map[string]Project{}
-	}
-	if normalized.AppDefinition != nil {
-		normalizedAppDefinition, err := normalized.AppDefinition.Normalized()
-		if err != nil {
-			return Document{}, fmt.Errorf("normalize app definition: %w", err)
-		}
-		normalized.AppDefinition = &normalizedAppDefinition
+	if err := validateDocumentSchemaVersion(normalized.SchemaVersion); err != nil {
+		return Document{}, err
 	}
 
-	for projectKey, project := range normalized.Projects {
-		if strings.TrimSpace(projectKey) == "" {
-			return Document{}, ErrProjectIDRequired
-		}
-		if strings.TrimSpace(project.ID) == "" {
-			return Document{}, ErrProjectIDRequired
-		}
-		if project.ID != projectKey {
-			return Document{}, fmt.Errorf("%w: key=%q id=%q", ErrProjectIDKeyMismatch, projectKey, project.ID)
-		}
-		if strings.TrimSpace(project.Name) == "" {
-			return Document{}, fmt.Errorf("%w: %q", ErrProjectNameRequired, project.ID)
+	normalized.Projects = normalizeDocumentProjectMap(normalized.Projects)
+	appDefinition, err := normalizeDocumentAppDefinition(normalized.AppDefinition)
+	if err != nil {
+		return Document{}, err
+	}
+	normalized.AppDefinition = appDefinition
+	if err := normalizeDocumentProjects(normalized.Projects); err != nil {
+		return Document{}, err
+	}
+	if err := validateDocumentDefaultProjectID(normalized.DefaultProjectID, normalized.Projects); err != nil {
+		return Document{}, err
+	}
+
+	return normalized, nil
+}
+
+func validateDocumentSchemaVersion(schemaVersion int) error {
+	if schemaVersion != CurrentSchemaVersion {
+		return fmt.Errorf("%w: %d", ErrUnsupportedSchemaVersion, schemaVersion)
+	}
+	return nil
+}
+
+func normalizeDocumentProjectMap(projects map[string]Project) map[string]Project {
+	if projects == nil {
+		return map[string]Project{}
+	}
+	return projects
+}
+
+func normalizeDocumentAppDefinition(appDefinition *AppDefinition) (*AppDefinition, error) {
+	if appDefinition == nil {
+		return nil, nil
+	}
+
+	normalized, err := appDefinition.Normalized()
+	if err != nil {
+		return nil, fmt.Errorf("normalize app definition: %w", err)
+	}
+	return &normalized, nil
+}
+
+func normalizeDocumentProjects(projects map[string]Project) error {
+	for projectKey, project := range projects {
+		if err := validateDocumentProjectEntry(projectKey, project); err != nil {
+			return err
 		}
 
 		normalizedProject, err := project.Normalized()
 		if err != nil {
-			return Document{}, fmt.Errorf("normalize project %q: %w", project.ID, err)
+			return fmt.Errorf("normalize project %q: %w", project.ID, err)
 		}
-		normalized.Projects[projectKey] = normalizedProject
+		projects[projectKey] = normalizedProject
 	}
+	return nil
+}
 
-	if normalized.DefaultProjectID != "" {
-		if strings.TrimSpace(normalized.DefaultProjectID) == "" {
-			return Document{}, ErrDefaultProjectIDRequired
-		}
-		if _, ok := normalized.Projects[normalized.DefaultProjectID]; !ok {
-			return Document{}, fmt.Errorf("%w: %q", ErrDefaultProjectNotFound, normalized.DefaultProjectID)
-		}
+func validateDocumentProjectEntry(projectKey string, project Project) error {
+	if strings.TrimSpace(projectKey) == "" {
+		return ErrProjectIDRequired
 	}
+	if strings.TrimSpace(project.ID) == "" {
+		return ErrProjectIDRequired
+	}
+	if project.ID != projectKey {
+		return fmt.Errorf("%w: key=%q id=%q", ErrProjectIDKeyMismatch, projectKey, project.ID)
+	}
+	if strings.TrimSpace(project.Name) == "" {
+		return fmt.Errorf("%w: %q", ErrProjectNameRequired, project.ID)
+	}
+	return nil
+}
 
-	return normalized, nil
+func validateDocumentDefaultProjectID(defaultProjectID string, projects map[string]Project) error {
+	if defaultProjectID == "" {
+		return nil
+	}
+	if strings.TrimSpace(defaultProjectID) == "" {
+		return ErrDefaultProjectIDRequired
+	}
+	if _, ok := projects[defaultProjectID]; !ok {
+		return fmt.Errorf("%w: %q", ErrDefaultProjectNotFound, defaultProjectID)
+	}
+	return nil
 }
