@@ -30,15 +30,17 @@ after the core request/response loop feels solid.
 - The right-side config pane exposes schema source, headers/auth, and refresh.
 
 ## Project state model
-- Add `SectionType.HttpRequest` in `backend/setta/types/section_impls.py`.
-- Add `HttpRequestSectionImpl` extending `BaseSectionWithParamsImpl` with:
+- Add `SectionType.HttpRequest` to the shared section contract and wire Go
+  runtime support through `internal/projectstate`.
+- Add `HttpRequestSectionImpl` to the shared section contract, extending
+  `BaseSectionWithParamsImpl`, with:
   - requestMethod, requestUrl, requestHeaders, requestAuth, bodyMode
   - topLevelParamId (parent code object for params)
   - paramBindings (param id -> HttpParamBinding)
   - schemaSource, schemaCacheKey, schemaUpdatedAt
   - lastResponsePreview (optional, for UI only)
-- Add `HttpParamBinding` in `backend/setta/types/code_obj_impls.py` (or a new
-  shared model) and attach it to param impls:
+- Add `HttpParamBinding` to the shared code-object contract and attach it to
+  param impls:
   - location: path, query, header, body
   - jsonPointer: for nested body fields
   - required: bool
@@ -90,9 +92,8 @@ Auth matters for real APIs, but we should keep the UI simple while avoiding secr
 ## Related code
 - `backend/setta/types/section_impls.py`
 - `backend/setta/types/code_obj_impls.py`
-- `backend/setta/project_state/project_code.py`
-- `backend/setta/project_state/base_project_manager.py`
-- `backend/setta/routers/project_manager.py`
+- `internal/projectstate/*`
+- `internal/httpapi/project_routes.go`
 - `frontend/src/components/Section/Layouts/HttpRequestArea.tsx`
 - `frontend/src/components/Panes/UiEditor/SectionConfig/HttpRequestSettings.tsx`
 - `frontend/src/state/actions/sections/createSectionsHelper.ts`

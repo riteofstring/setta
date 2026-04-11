@@ -1,11 +1,16 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type {
+  HttpapiExternalAgentPreflightStatus,
+  HttpapiLlmapiKeysSnapshot,
+} from "openapi/http";
 import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import type { AIFollowMode } from "state/types/aiFollow";
 import {
   parseAppGenerationMode,
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
+import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -29,35 +34,35 @@ import {
   AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
-  AllLLMConfigs,
+  AllConfigs,
   AllProjectMetadata,
-  APIKeys,
   AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  ChatDictationModeEnum,
+  Connection,
   createProjectChatWindowingState,
   createProjectConfig,
+  createSettingsState,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
   ExternalAgentConfig,
-  ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  ProjectStateSingleConfig,
-  PromptTemplate,
+  LSPDiagnostic,
+  Notification,
+  Policy,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
-  SettaLspDiagnostic,
-  SettaNotification,
-  SettaProjectNameValidationErrors,
   SettingsState,
-  SharePolicy,
+  SingleConfig,
+  Template,
   TranscriptionProfile,
-  WebsocketConnectionInfo,
+  type ChatDictationMode,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -66,6 +71,7 @@ import {
   DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
   DEFAULT_GIT_GRAPH_SPLIT_PCT,
 } from "utils/gitGraphLayoutDefaults";
+import type { ServerModeValue } from "utils/serverModeTypes";
 import {
   createJSONStorage,
   persist,
@@ -102,6 +108,9 @@ const getPersistStorage = <S>() =>
     }
     return localStorage;
   });
+
+type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
+type ExternalAgentHealthStatus = HttpapiExternalAgentPreflightStatus;
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
@@ -143,7 +152,7 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = ProjectStateSingleConfig & {
+export type ZustandProjectState = SingleConfig & {
   previewSectionVariantMap: Record<string, string>;
 };
 
@@ -157,6 +166,7 @@ export const useProjectState = withProjectState(
           projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
+          sectionCapabilities: {},
           sectionVariants: {},
           codeObjs: {},
           codeObjImpls: {},
@@ -206,7 +216,7 @@ type ShareSessionState = {
   isDeploymentMode: boolean;
   shareSessionId: string | null;
   sessionRunCount: number;
-  sharePolicy: SharePolicy | null;
+  sharePolicy: Policy | null;
   shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
   deploymentMode: "share" | "app" | null;
@@ -227,7 +237,7 @@ export const useShareSession = withProjectState(
 );
 
 type ServerModeState = {
-  mode: "ide" | "share" | "app" | "launcher" | null;
+  mode: ServerModeValue;
   modeResolved: boolean;
   modeError: string | null;
 };
@@ -474,7 +484,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<SettaNotification> };
+type ZustandNotificationState = { notifications: Array<Notification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
@@ -577,6 +587,32 @@ function isPersistedRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function normalizeTrimmedPersistedString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
+function normalizePersistedProjectChatSlashCommand(
+  value: unknown,
+): ProjectChatCustomSlashCommand | null {
+  if (!isPersistedRecord(value)) {
+    return null;
+  }
+  const command = normalizeTrimmedPersistedString(value.command);
+  const prompt = normalizeTrimmedPersistedString(value.prompt);
+  if (!command || !prompt) {
+    return null;
+  }
+  return {
+    command,
+    prompt,
+    appGenerationMode: parseAppGenerationMode(value.appGenerationMode),
+  };
+}
+
 function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
   value: unknown,
 ): Record<string, Array<ProjectChatCustomSlashCommand>> {
@@ -585,32 +621,19 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
   }
   const normalized: Record<string, Array<ProjectChatCustomSlashCommand>> = {};
   for (const [projectConfigId, rawCommands] of Object.entries(value)) {
-    const normalizedProjectConfigId = projectConfigId.trim();
+    const normalizedProjectConfigId =
+      normalizeTrimmedPersistedString(projectConfigId);
     if (!normalizedProjectConfigId || !Array.isArray(rawCommands)) {
       continue;
     }
     const normalizedCommands: Array<ProjectChatCustomSlashCommand> = [];
     for (const rawCommand of rawCommands) {
-      if (!isPersistedRecord(rawCommand)) {
+      const normalizedCommand =
+        normalizePersistedProjectChatSlashCommand(rawCommand);
+      if (!normalizedCommand) {
         continue;
       }
-      const commandValue = rawCommand.command;
-      const promptValue = rawCommand.prompt;
-      const appGenerationModeValue = rawCommand.appGenerationMode;
-      if (typeof commandValue !== "string" || typeof promptValue !== "string") {
-        continue;
-      }
-      const command = commandValue.trim();
-      const prompt = promptValue.trim();
-      if (!command || !prompt) {
-        continue;
-      }
-      const appGenerationMode = parseAppGenerationMode(appGenerationModeValue);
-      normalizedCommands.push({
-        command,
-        prompt,
-        appGenerationMode,
-      });
+      normalizedCommands.push(normalizedCommand);
     }
     if (normalizedCommands.length === 0) {
       continue;
@@ -638,6 +661,181 @@ function normalizePersistedProjectChatDraftMessageByProjectConfigId(
     normalized[normalizedProjectConfigId] = rawDraftMessage;
   }
   return normalized;
+}
+
+function normalizePersistedStringArray(
+  value: unknown,
+  fallback: string[],
+): string[] {
+  return Array.isArray(value) ? value : fallback;
+}
+
+function normalizePersistedBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function normalizePersistedNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" ? value : fallback;
+}
+
+function normalizePersistedObjectMap<T extends Record<string, unknown>>(
+  value: unknown,
+  fallback: T,
+): T {
+  return isPersistedRecord(value) ? (value as T) : fallback;
+}
+
+function normalizePersistedHomeProjectGalleryViewMode(
+  value: unknown,
+  fallback: HomeProjectGalleryViewMode,
+): HomeProjectGalleryViewMode {
+  return value === "thumbnails" || value === "list" ? value : fallback;
+}
+
+function normalizePersistedChatSharedEdgeMode(
+  value: unknown,
+  fallback: ChatSharedEdgeMode,
+): ChatSharedEdgeMode {
+  return value === "agentic" || value === "workflow" ? value : fallback;
+}
+
+function normalizePersistedOverviewTab(
+  value: unknown,
+  fallback: OverviewTabKey,
+): OverviewTabKey {
+  return isOverviewTabKey(value) ? value : fallback;
+}
+
+function normalizePersistedOverviewNotificationsPaneTab(
+  value: unknown,
+  fallback: OverviewNotificationsPaneTab,
+): OverviewNotificationsPaneTab {
+  return value === OverviewNotificationsPaneTabEnum.Notifications ||
+    value === OverviewNotificationsPaneTabEnum.BackendLogs
+    ? value
+    : fallback;
+}
+
+function resolvePersistedColorMode(
+  value: unknown,
+  darkMode: boolean,
+  hasPersistedValue: boolean,
+): ColorModePreference {
+  if (!hasPersistedValue) {
+    return darkMode ? "dark" : "light";
+  }
+  return value as ColorModePreference;
+}
+
+function normalizePersistedProjectChatThreadState(
+  merged: ZustandLocalStorage,
+  defaults: ZustandLocalStorage,
+): void {
+  merged.viewedProjectChatThreadIdsByProjectConfigId =
+    normalizePersistedObjectMap(
+      merged.viewedProjectChatThreadIdsByProjectConfigId,
+      defaults.viewedProjectChatThreadIdsByProjectConfigId,
+    );
+  merged.projectChatThreadGroupsByProjectConfigId = normalizePersistedObjectMap(
+    merged.projectChatThreadGroupsByProjectConfigId,
+    defaults.projectChatThreadGroupsByProjectConfigId,
+  );
+  merged.projectChatThreadAssignmentsByProjectConfigId =
+    normalizePersistedObjectMap(
+      merged.projectChatThreadAssignmentsByProjectConfigId,
+      defaults.projectChatThreadAssignmentsByProjectConfigId,
+    );
+  merged.projectChatThreadOrderByProjectConfigId = normalizePersistedObjectMap(
+    merged.projectChatThreadOrderByProjectConfigId,
+    defaults.projectChatThreadOrderByProjectConfigId,
+  );
+  merged.pinnedProjectChatThreadIdsByProjectConfigId =
+    normalizePersistedObjectMap(
+      merged.pinnedProjectChatThreadIdsByProjectConfigId,
+      defaults.pinnedProjectChatThreadIdsByProjectConfigId,
+    );
+  merged.trashedProjectChatThreadIdsByProjectConfigId =
+    normalizePersistedObjectMap(
+      merged.trashedProjectChatThreadIdsByProjectConfigId,
+      defaults.trashedProjectChatThreadIdsByProjectConfigId,
+    );
+}
+
+function normalizePersistedLocalStorageState(
+  merged: ZustandLocalStorage,
+  defaults: ZustandLocalStorage,
+  persisted: Partial<ZustandLocalStorage>,
+): ZustandLocalStorage {
+  merged.colorMode = resolvePersistedColorMode(
+    merged.colorMode,
+    merged.darkMode,
+    persisted.colorMode !== undefined,
+  );
+  merged.homeProjectGalleryViewMode =
+    normalizePersistedHomeProjectGalleryViewMode(
+      merged.homeProjectGalleryViewMode,
+      defaults.homeProjectGalleryViewMode,
+    );
+  merged.chatSharedEdgeMode = normalizePersistedChatSharedEdgeMode(
+    merged.chatSharedEdgeMode,
+    defaults.chatSharedEdgeMode,
+  );
+  merged.favoriteProjectConfigIds = normalizePersistedStringArray(
+    merged.favoriteProjectConfigIds,
+    defaults.favoriteProjectConfigIds,
+  );
+  merged.overviewProjectConfigOrder = normalizePersistedStringArray(
+    merged.overviewProjectConfigOrder,
+    defaults.overviewProjectConfigOrder,
+  );
+  merged.homeWorkspacePaneVis = normalizePersistedBoolean(
+    merged.homeWorkspacePaneVis,
+    defaults.homeWorkspacePaneVis,
+  );
+  merged.homeWorkspacePaneWidth = normalizePersistedNumber(
+    merged.homeWorkspacePaneWidth,
+    defaults.homeWorkspacePaneWidth,
+  );
+  merged.homeWorkspacePaneTrueWidth = normalizePersistedNumber(
+    merged.homeWorkspacePaneTrueWidth,
+    defaults.homeWorkspacePaneTrueWidth,
+  );
+  merged.homeSelectedProjectPaneVis = normalizePersistedBoolean(
+    merged.homeSelectedProjectPaneVis,
+    defaults.homeSelectedProjectPaneVis,
+  );
+  merged.homeSelectedProjectPaneWidth = normalizePersistedNumber(
+    merged.homeSelectedProjectPaneWidth,
+    defaults.homeSelectedProjectPaneWidth,
+  );
+  merged.homeSelectedProjectPaneTrueWidth = normalizePersistedNumber(
+    merged.homeSelectedProjectPaneTrueWidth,
+    defaults.homeSelectedProjectPaneTrueWidth,
+  );
+  merged.overviewTab = normalizePersistedOverviewTab(
+    merged.overviewTab,
+    defaults.overviewTab,
+  );
+  merged.overviewNotificationsPaneTab =
+    normalizePersistedOverviewNotificationsPaneTab(
+      merged.overviewNotificationsPaneTab,
+      defaults.overviewNotificationsPaneTab,
+    );
+  // Keep transient visibility session-local even though the store itself is
+  // persisted for durable preferences.
+  merged.watchCodePortalOpen = false;
+  merged.customProjectChatSlashCommandsByProjectConfigId =
+    normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
+      merged.customProjectChatSlashCommandsByProjectConfigId,
+    );
+  merged.projectChatDraftMessageByProjectConfigId =
+    normalizePersistedProjectChatDraftMessageByProjectConfigId(
+      merged.projectChatDraftMessageByProjectConfigId,
+    );
+  merged.projectChatAuxViewByProjectConfigId =
+    defaults.projectChatAuxViewByProjectConfigId;
+  normalizePersistedProjectChatThreadState(merged, defaults);
+  return merged;
 }
 
 type ZustandRunControl = {
@@ -686,12 +884,6 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
-const useArtifacts = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
-  ),
-);
-
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -731,17 +923,6 @@ export const useSectionRefs = withProjectState(
   ),
 );
 
-export type SectionElementSize = {
-  width: number;
-  height: number;
-};
-
-export const useSectionElementSizeRegistry = withProjectState(
-  createWithEqualityFn(
-    withResetFn<Record<string, SectionElementSize>>(() => ({})),
-  ),
-);
-
 export type EdgeHandleRecord = {
   sectionId: string;
   portId: string;
@@ -775,7 +956,9 @@ export const useEdgeHandleRegistry = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
+export const useSettings = createWithEqualityFn<SettingsState>(() =>
+  createSettingsState(),
+);
 
 type ZustandTypeErrors = {
   userRequested: boolean;
@@ -800,8 +983,8 @@ export const useTypeErrors = withProjectState(
 );
 
 type ZustandLspDiagnostics = {
-  codeSections: Record<string, Array<SettaLspDiagnostic>>;
-  unmappedGenCode: Array<SettaLspDiagnostic>;
+  codeSections: Record<string, Array<LSPDiagnostic>>;
+  unmappedGenCode: Array<LSPDiagnostic>;
 };
 
 export const useLspDiagnostics = withProjectState(
@@ -836,7 +1019,7 @@ export const useNameValidationErrors = withProjectState(
 );
 
 type ZustandWebsocketConnectionList = {
-  connections: Array<WebsocketConnectionInfo>;
+  connections: Array<Connection>;
 };
 
 export const useWebsocketConnectionList = createWithEqualityFn(
@@ -920,7 +1103,7 @@ type ZustandAIStore = {
   projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
   projectChatActivityAccordionOpenByDefault: boolean;
   projectChatActivityChildrenOpenByDefault: boolean;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
   agentProfiles: Array<AgentProfile>;
@@ -935,7 +1118,7 @@ type ZustandAIStore = {
     | "terminal_error";
   agentRunsInitialLoadComplete: boolean;
   agentRunsLoadError: string | null;
-  promptTemplates: Array<PromptTemplate>;
+  promptTemplates: Array<Template>;
   promptTemplatesInitialLoadComplete: boolean;
   promptTemplatesLoadError: string | null;
   promptTemplatesLoading: boolean;
@@ -943,7 +1126,7 @@ type ZustandAIStore = {
   externalAgentConfigsInitialLoadComplete: boolean;
   externalAgentConfigsLoadError: string | null;
   externalAgentConfigsLoading: boolean;
-  externalAgentHealth: Array<ExternalAgentPreflightStatus>;
+  externalAgentHealth: Array<ExternalAgentHealthStatus>;
   externalAgentHealthInitialLoadComplete: boolean;
   externalAgentHealthLoadError: string | null;
   externalAgentHealthLoading: boolean;
@@ -956,7 +1139,7 @@ type ZustandAIStore = {
   transcriptionProfilesLoadError: string | null;
   transcriptionProfilesLoading: boolean;
   pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: "auto" | "browser" | "provider";
+  projectChatDictationMode: ChatDictationMode;
   projectChatTranscriptionProfileId: string | null;
 };
 
@@ -1014,7 +1197,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         transcriptionProfilesLoadError: null,
         transcriptionProfilesLoading: false,
         pendingProjectChatPrompt: null,
-        projectChatDictationMode: "auto",
+        projectChatDictationMode: ChatDictationModeEnum.auto,
         projectChatTranscriptionProfileId: null,
       }),
       {
@@ -1264,121 +1447,14 @@ export const useLocalStorage = createWithEqualityFn(
       merge: (persistedState, currentState) => {
         const persisted =
           (persistedState as Partial<ZustandLocalStorage> | null) ?? {};
-        const merged = {
-          ...currentState,
-          ...persisted,
-        };
-
-        if (persisted.colorMode === undefined) {
-          merged.colorMode = merged.darkMode ? "dark" : "light";
-        }
-        if (
-          merged.homeProjectGalleryViewMode !== "thumbnails" &&
-          merged.homeProjectGalleryViewMode !== "list"
-        ) {
-          merged.homeProjectGalleryViewMode = "thumbnails";
-        }
-        if (
-          merged.chatSharedEdgeMode !== "agentic" &&
-          merged.chatSharedEdgeMode !== "workflow"
-        ) {
-          merged.chatSharedEdgeMode = "agentic";
-        }
-        if (!Array.isArray(merged.favoriteProjectConfigIds)) {
-          merged.favoriteProjectConfigIds = [];
-        }
-        if (!Array.isArray(merged.overviewProjectConfigOrder)) {
-          merged.overviewProjectConfigOrder = [];
-        }
-        if (typeof merged.homeWorkspacePaneVis !== "boolean") {
-          merged.homeWorkspacePaneVis = true;
-        }
-        if (typeof merged.homeWorkspacePaneWidth !== "number") {
-          merged.homeWorkspacePaneWidth = 320;
-        }
-        if (typeof merged.homeWorkspacePaneTrueWidth !== "number") {
-          merged.homeWorkspacePaneTrueWidth = 320;
-        }
-        if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
-          merged.homeSelectedProjectPaneVis = true;
-        }
-        if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
-          merged.homeSelectedProjectPaneWidth = 280;
-        }
-        if (typeof merged.homeSelectedProjectPaneTrueWidth !== "number") {
-          merged.homeSelectedProjectPaneTrueWidth = 280;
-        }
-        if (!isOverviewTabKey(merged.overviewTab)) {
-          merged.overviewTab = OverviewTabNameEnum.Overview;
-        }
-        if (
-          merged.overviewNotificationsPaneTab !==
-            OverviewNotificationsPaneTabEnum.Notifications &&
-          merged.overviewNotificationsPaneTab !==
-            OverviewNotificationsPaneTabEnum.BackendLogs
-        ) {
-          merged.overviewNotificationsPaneTab =
-            OverviewNotificationsPaneTabEnum.Notifications;
-        }
-        // Keep transient visibility session-local even though the store itself
-        // is persisted for durable preferences.
-        merged.watchCodePortalOpen = false;
-        merged.customProjectChatSlashCommandsByProjectConfigId =
-          normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
-            merged.customProjectChatSlashCommandsByProjectConfigId,
-          );
-        merged.projectChatDraftMessageByProjectConfigId =
-          normalizePersistedProjectChatDraftMessageByProjectConfigId(
-            merged.projectChatDraftMessageByProjectConfigId,
-          );
-        merged.projectChatAuxViewByProjectConfigId = {};
-        if (
-          !merged.viewedProjectChatThreadIdsByProjectConfigId ||
-          typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.viewedProjectChatThreadIdsByProjectConfigId)
-        ) {
-          merged.viewedProjectChatThreadIdsByProjectConfigId = {};
-        }
-        if (
-          !merged.projectChatThreadGroupsByProjectConfigId ||
-          typeof merged.projectChatThreadGroupsByProjectConfigId !== "object" ||
-          Array.isArray(merged.projectChatThreadGroupsByProjectConfigId)
-        ) {
-          merged.projectChatThreadGroupsByProjectConfigId = {};
-        }
-        if (
-          !merged.projectChatThreadAssignmentsByProjectConfigId ||
-          typeof merged.projectChatThreadAssignmentsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.projectChatThreadAssignmentsByProjectConfigId)
-        ) {
-          merged.projectChatThreadAssignmentsByProjectConfigId = {};
-        }
-        if (
-          !merged.projectChatThreadOrderByProjectConfigId ||
-          typeof merged.projectChatThreadOrderByProjectConfigId !== "object" ||
-          Array.isArray(merged.projectChatThreadOrderByProjectConfigId)
-        ) {
-          merged.projectChatThreadOrderByProjectConfigId = {};
-        }
-        if (
-          !merged.pinnedProjectChatThreadIdsByProjectConfigId ||
-          typeof merged.pinnedProjectChatThreadIdsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.pinnedProjectChatThreadIdsByProjectConfigId)
-        ) {
-          merged.pinnedProjectChatThreadIdsByProjectConfigId = {};
-        }
-        if (
-          !merged.trashedProjectChatThreadIdsByProjectConfigId ||
-          typeof merged.trashedProjectChatThreadIdsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.trashedProjectChatThreadIdsByProjectConfigId)
-        ) {
-          merged.trashedProjectChatThreadIdsByProjectConfigId = {};
-        }
-        return merged;
+        return normalizePersistedLocalStorageState(
+          {
+            ...currentState,
+            ...persisted,
+          },
+          currentState,
+          persisted,
+        );
       },
       partialize: (state) => ({
         snapToGrid: state.snapToGrid,
