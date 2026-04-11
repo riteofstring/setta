@@ -118,6 +118,20 @@ type StateMachinePromptTemplateLookup interface {
 	Get(templateID string) (prompttemplates.Template, error)
 }
 
+type stateMachineEdgeEndpoint struct {
+	sectionID   string
+	sectionType string
+	payload     map[string]any
+}
+
+type stateMachineSendPromptSourceKind string
+
+const (
+	stateMachineSendPromptSourceInline         stateMachineSendPromptSourceKind = "inline"
+	stateMachineSendPromptSourcePromptTemplate stateMachineSendPromptSourceKind = "prompt_template"
+	stateMachineSendPromptSourcePromptSection  stateMachineSendPromptSourceKind = "prompt_section"
+)
+
 func (s StateMachineGateUIState) Clone() StateMachineGateUIState {
 	return s
 }
@@ -741,6 +755,30 @@ func (p *Project) validateStateMachineEdges(
 	return nil
 }
 
+func resolveStateMachineSectionType(payload map[string]any, impl SectionImpl) string {
+	sectionType := payloadStringField(payload, "type")
+	if sectionType != "" {
+		return sectionType
+	}
+	return fallbackSectionType(impl)
+}
+
+func (p *Project) resolveStateMachineEdgeEndpoint(sectionID string) (stateMachineEdgeEndpoint, error) {
+	section, variant, impl, err := p.ResolveSection(sectionID)
+	if err != nil {
+		return stateMachineEdgeEndpoint{}, err
+	}
+	payload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
+	if err != nil {
+		return stateMachineEdgeEndpoint{}, err
+	}
+	return stateMachineEdgeEndpoint{
+		sectionID:   section.ID,
+		sectionType: resolveStateMachineSectionType(payload, impl),
+		payload:     payload,
+	}, nil
+}
+
 func (p *Project) validateStateMachineEdge(
 	edge StateMachineEdge,
 	machineGroupOverrides map[string]string,
@@ -749,31 +787,24 @@ func (p *Project) validateStateMachineEdge(
 	if err := validateStateMachineMachineGroupID(edge.MachineGroupID, "State machine edge "+edge.ID); err != nil {
 		return err
 	}
-	sourceSection, sourceVariant, sourceImpl, err := p.ResolveSection(edge.SourceSectionID)
+	sourceEndpoint, err := p.resolveStateMachineEdgeEndpoint(edge.SourceSectionID)
 	if err != nil {
 		return err
 	}
-	targetSection, targetVariant, targetImpl, err := p.ResolveSection(edge.TargetSectionID)
+	targetEndpoint, err := p.resolveStateMachineEdgeEndpoint(edge.TargetSectionID)
 	if err != nil {
 		return err
 	}
-	sourcePayload, err := effectiveSectionPayload(*p, sourceSection.ID, sourceVariant.ID)
-	if err != nil {
+	if err := validateStateMachineEdgeSectionTypes(edge, sourceEndpoint.sectionType, targetEndpoint.sectionType); err != nil {
 		return err
 	}
-	targetPayload, err := effectiveSectionPayload(*p, targetSection.ID, targetVariant.ID)
-	if err != nil {
+	if err := p.validateStateMachineEdgeRules(edge, sourceEndpoint.sectionType, targetEndpoint.sectionType, templates); err != nil {
 		return err
 	}
-	sourceType := payloadStringField(sourcePayload, "type")
-	if sourceType == "" {
-		sourceType = fallbackSectionType(sourceImpl)
-	}
-	targetType := payloadStringField(targetPayload, "type")
-	if targetType == "" {
-		targetType = fallbackSectionType(targetImpl)
-	}
+	return p.validateStateMachineEdgeMachineGroups(edge, sourceEndpoint, targetEndpoint, machineGroupOverrides)
+}
 
+func validateStateMachineEdgeSectionTypes(edge StateMachineEdge, sourceType string, targetType string) error {
 	if !isAllowedStateMachineSourceType(sourceType) {
 		return stateMachineEdgeInvalidf("State machine edge %s has unsupported source type %s.", edge.ID, sourceType)
 	}
@@ -783,6 +814,15 @@ func (p *Project) validateStateMachineEdge(
 	if edge.SourceSectionID == edge.TargetSectionID && !strings.EqualFold(sourceType, "Chat") {
 		return stateMachineEdgeInvalidf("State machine edge %s only supports self-loops on Chat sections.", edge.ID)
 	}
+	return nil
+}
+
+func (p *Project) validateStateMachineEdgeRules(
+	edge StateMachineEdge,
+	sourceType string,
+	targetType string,
+	templates StateMachinePromptTemplateLookup,
+) error {
 	if err := validateStateMachineEdgePortIDs(edge); err != nil {
 		return err
 	}
@@ -792,27 +832,33 @@ func (p *Project) validateStateMachineEdge(
 	if err := validateStateMachineSourceFilter(edge.ID, sourceType, edge.SourceFilter); err != nil {
 		return err
 	}
-	if err := p.validateStateMachineTargetAction(edge.ID, targetType, edge.TargetAction, templates); err != nil {
-		return err
-	}
+	return p.validateStateMachineTargetAction(edge.ID, targetType, edge.TargetAction, templates)
+}
 
+func (p *Project) validateStateMachineEdgeMachineGroups(
+	edge StateMachineEdge,
+	sourceEndpoint stateMachineEdgeEndpoint,
+	targetEndpoint stateMachineEdgeEndpoint,
+	machineGroupOverrides map[string]string,
+) error {
 	sourceMachineGroupID := p.resolveStateMachineSectionMachineGroupID(
-		sourceSection.ID,
-		sourceType,
-		sourcePayload,
-		machineGroupOverrides,
-		edge.MachineGroupID,
-	)
-	targetMachineGroupID := p.resolveStateMachineSectionMachineGroupID(
-		targetSection.ID,
-		targetType,
-		targetPayload,
+		sourceEndpoint.sectionID,
+		sourceEndpoint.sectionType,
+		sourceEndpoint.payload,
 		machineGroupOverrides,
 		edge.MachineGroupID,
 	)
 	if sourceMachineGroupID != edge.MachineGroupID {
 		return stateMachineEdgeInvalidf("State machine edge %s machine group does not match the source section.", edge.ID)
 	}
+
+	targetMachineGroupID := p.resolveStateMachineSectionMachineGroupID(
+		targetEndpoint.sectionID,
+		targetEndpoint.sectionType,
+		targetEndpoint.payload,
+		machineGroupOverrides,
+		edge.MachineGroupID,
+	)
 	if targetMachineGroupID != edge.MachineGroupID {
 		return stateMachineEdgeInvalidf("State machine edge %s machine group does not match the target section.", edge.ID)
 	}
@@ -854,50 +900,69 @@ func (p *Project) validateStateMachineSendPromptAction(
 	targetAction *StateMachineTargetAction,
 	templates StateMachinePromptTemplateLookup,
 ) error {
-	hasPromptTemplate := targetAction.PromptTemplateID != nil
-	hasPromptSection := targetAction.PromptSectionID != nil
-	hasInlinePrompt := targetAction.InlinePrompt != nil && strings.TrimSpace(*targetAction.InlinePrompt) != ""
-	configuredSourceCount := 0
-	if hasPromptTemplate {
-		configuredSourceCount++
+	sourceKind, err := resolveStateMachineSendPromptSource(edgeID, targetAction)
+	if err != nil {
+		return err
 	}
-	if hasPromptSection {
-		configuredSourceCount++
+	switch sourceKind {
+	case stateMachineSendPromptSourcePromptTemplate:
+		return validateStateMachinePromptTemplateAction(edgeID, targetAction, templates)
+	case stateMachineSendPromptSourcePromptSection:
+		return p.validateStateMachinePromptSectionAction(edgeID, targetAction, templates)
+	default:
+		return nil
 	}
-	if hasInlinePrompt {
-		configuredSourceCount++
+}
+
+func resolveStateMachineSendPromptSource(
+	edgeID string,
+	targetAction *StateMachineTargetAction,
+) (stateMachineSendPromptSourceKind, error) {
+	sourceKinds := make([]stateMachineSendPromptSourceKind, 0, 3)
+	if targetAction.PromptTemplateID != nil {
+		sourceKinds = append(sourceKinds, stateMachineSendPromptSourcePromptTemplate)
 	}
-	if configuredSourceCount != 1 {
-		return stateMachineEdgeInvalidf(
+	if targetAction.PromptSectionID != nil {
+		sourceKinds = append(sourceKinds, stateMachineSendPromptSourcePromptSection)
+	}
+	if targetAction.InlinePrompt != nil && strings.TrimSpace(*targetAction.InlinePrompt) != "" {
+		sourceKinds = append(sourceKinds, stateMachineSendPromptSourceInline)
+	}
+	if len(sourceKinds) != 1 {
+		return "", stateMachineEdgeInvalidf(
 			"State machine edge %s send_prompt actions require exactly one of promptTemplateId, promptSectionId, or inlinePrompt.",
 			edgeID,
 		)
 	}
-	if hasPromptTemplate {
-		if templates == nil {
-			return stateMachineEdgeInvalidf("State machine edge %s promptTemplateId validation requires prompt templates.", edgeID)
-		}
-		template, err := templates.Get(*targetAction.PromptTemplateID)
-		if err != nil {
-			return stateMachineEdgeInvalidf("Prompt template %s not found for state machine edge %s.", *targetAction.PromptTemplateID, edgeID)
-		}
-		result := renderPromptSection(template.Template, targetAction.PromptInputs, template.Format)
-		if result.RenderError != nil {
-			return stateMachineEdgeInvalidf(
-				"State machine edge %s prompt template %s failed to render: %s",
-				edgeID,
-				template.ID,
-				*result.RenderError,
-			)
-		}
-		if strings.TrimSpace(result.RenderedText) == "" {
-			return stateMachineEdgeInvalidf("State machine edge %s prompt template %s rendered an empty prompt.", edgeID, template.ID)
-		}
-		return nil
+	return sourceKinds[0], nil
+}
+
+func validateStateMachinePromptTemplateAction(
+	edgeID string,
+	targetAction *StateMachineTargetAction,
+	templates StateMachinePromptTemplateLookup,
+) error {
+	if templates == nil {
+		return stateMachineEdgeInvalidf("State machine edge %s promptTemplateId validation requires prompt templates.", edgeID)
 	}
-	if !hasPromptSection {
-		return nil
+	template, err := templates.Get(*targetAction.PromptTemplateID)
+	if err != nil {
+		return stateMachineEdgeInvalidf("Prompt template %s not found for state machine edge %s.", *targetAction.PromptTemplateID, edgeID)
 	}
+	result := renderPromptSection(template.Template, targetAction.PromptInputs, template.Format)
+	return validateStateMachineRenderedPrompt(
+		edgeID,
+		fmt.Sprintf("prompt template %s", template.ID),
+		result.RenderedText,
+		result.RenderError,
+	)
+}
+
+func (p *Project) validateStateMachinePromptSectionAction(
+	edgeID string,
+	targetAction *StateMachineTargetAction,
+	templates StateMachinePromptTemplateLookup,
+) error {
 	_, _, promptPayload, err := p.resolveTypedSectionMutationState(*targetAction.PromptSectionID, "Prompt", ErrPromptSectionRequired)
 	if err != nil {
 		return err
@@ -916,16 +981,30 @@ func (p *Project) validateStateMachineSendPromptAction(
 		promptFormat = template.Format
 	}
 	result := renderPromptSection(promptTemplate, targetAction.PromptInputs, promptFormat)
-	if result.RenderError != nil {
+	return validateStateMachineRenderedPrompt(
+		edgeID,
+		fmt.Sprintf("prompt section %s", *targetAction.PromptSectionID),
+		result.RenderedText,
+		result.RenderError,
+	)
+}
+
+func validateStateMachineRenderedPrompt(
+	edgeID string,
+	sourceDescription string,
+	renderedText string,
+	renderError *string,
+) error {
+	if renderError != nil {
 		return stateMachineEdgeInvalidf(
-			"State machine edge %s prompt section %s failed to render: %s",
+			"State machine edge %s %s failed to render: %s",
 			edgeID,
-			*targetAction.PromptSectionID,
-			*result.RenderError,
+			sourceDescription,
+			*renderError,
 		)
 	}
-	if strings.TrimSpace(result.RenderedText) == "" {
-		return stateMachineEdgeInvalidf("State machine edge %s prompt section %s rendered an empty prompt.", edgeID, *targetAction.PromptSectionID)
+	if strings.TrimSpace(renderedText) == "" {
+		return stateMachineEdgeInvalidf("State machine edge %s %s rendered an empty prompt.", edgeID, sourceDescription)
 	}
 	return nil
 }
@@ -976,29 +1055,49 @@ func validateStateMachineSourceFilter(
 		return nil
 	}
 	if sourceFilter.Type == StateMachineSourceFilterTypeSignal {
-		if sourceFilter.SignalName == nil || strings.TrimSpace(*sourceFilter.SignalName) == "" {
-			return stateMachineEdgeInvalidf("State machine edge %s signal filters require a signalName.", edgeID)
-		}
-		if *sourceFilter.SignalName != strings.TrimSpace(*sourceFilter.SignalName) {
-			return stateMachineEdgeInvalidf("State machine edge %s signalName must not start or end with whitespace.", edgeID)
-		}
-		if sourceFilter.PayloadField == nil && sourceFilter.Equals == nil {
-			return nil
-		}
-		if sourceFilter.PayloadField == nil || sourceFilter.Equals == nil {
-			return stateMachineEdgeInvalidf("State machine edge %s signal filters require payloadField and equals together.", edgeID)
-		}
-		if strings.TrimSpace(*sourceFilter.PayloadField) == "" {
-			return stateMachineEdgeInvalidf("State machine edge %s signal payloadField must not be empty.", edgeID)
-		}
-		if *sourceFilter.PayloadField != strings.TrimSpace(*sourceFilter.PayloadField) {
-			return stateMachineEdgeInvalidf("State machine edge %s signal payloadField must not start or end with whitespace.", edgeID)
-		}
-		if strings.TrimSpace(*sourceFilter.Equals) == "" {
-			return stateMachineEdgeInvalidf("State machine edge %s signal equals value must not be empty.", edgeID)
-		}
+		return validateStateMachineSignalSourceFilter(edgeID, sourceFilter)
+	}
+	return validateStateMachineNonSignalSourceFilter(edgeID, sourceFilter)
+}
+
+func validateStateMachineSignalSourceFilter(
+	edgeID string,
+	sourceFilter *StateMachineSourceFilter,
+) error {
+	if err := validateStateMachineRequiredTrimmedValue(
+		edgeID,
+		sourceFilter.SignalName,
+		"State machine edge %s signal filters require a signalName.",
+		"State machine edge %s signalName must not start or end with whitespace.",
+	); err != nil {
+		return err
+	}
+	if sourceFilter.PayloadField == nil && sourceFilter.Equals == nil {
 		return nil
 	}
+	if sourceFilter.PayloadField == nil || sourceFilter.Equals == nil {
+		return stateMachineEdgeInvalidf("State machine edge %s signal filters require payloadField and equals together.", edgeID)
+	}
+	if err := validateStateMachineRequiredTrimmedValue(
+		edgeID,
+		sourceFilter.PayloadField,
+		"State machine edge %s signal payloadField must not be empty.",
+		"State machine edge %s signal payloadField must not start or end with whitespace.",
+	); err != nil {
+		return err
+	}
+	return validateStateMachineRequiredTrimmedValue(
+		edgeID,
+		sourceFilter.Equals,
+		"State machine edge %s signal equals value must not be empty.",
+		"",
+	)
+}
+
+func validateStateMachineNonSignalSourceFilter(
+	edgeID string,
+	sourceFilter *StateMachineSourceFilter,
+) error {
 	if sourceFilter.SignalName != nil {
 		return stateMachineEdgeInvalidf("State machine edge %s non-signal source filters cannot set signalName.", edgeID)
 	}
@@ -1007,6 +1106,21 @@ func validateStateMachineSourceFilter(
 	}
 	if sourceFilter.Equals != nil {
 		return stateMachineEdgeInvalidf("State machine edge %s non-signal source filters cannot set equals.", edgeID)
+	}
+	return nil
+}
+
+func validateStateMachineRequiredTrimmedValue(
+	edgeID string,
+	value *string,
+	emptyFormat string,
+	whitespaceFormat string,
+) error {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return stateMachineEdgeInvalidf(emptyFormat, edgeID)
+	}
+	if whitespaceFormat != "" && *value != strings.TrimSpace(*value) {
+		return stateMachineEdgeInvalidf(whitespaceFormat, edgeID)
 	}
 	return nil
 }
@@ -1096,39 +1210,23 @@ func (p *Project) resolveExistingMachineGroupIDForStateMachineEndpoint(
 }
 
 func (p *Project) stateMachineGroupMergeReplacements(edge StateMachineEdge) (map[string]string, error) {
-	sourceSection, sourceVariant, sourceImpl, err := p.ResolveSection(edge.SourceSectionID)
+	sourceEndpoint, err := p.resolveStateMachineEdgeEndpoint(edge.SourceSectionID)
 	if err != nil {
 		return nil, err
 	}
-	targetSection, targetVariant, targetImpl, err := p.ResolveSection(edge.TargetSectionID)
+	targetEndpoint, err := p.resolveStateMachineEdgeEndpoint(edge.TargetSectionID)
 	if err != nil {
 		return nil, err
-	}
-	sourcePayload, err := effectiveSectionPayload(*p, sourceSection.ID, sourceVariant.ID)
-	if err != nil {
-		return nil, err
-	}
-	targetPayload, err := effectiveSectionPayload(*p, targetSection.ID, targetVariant.ID)
-	if err != nil {
-		return nil, err
-	}
-	sourceType := payloadStringField(sourcePayload, "type")
-	if sourceType == "" {
-		sourceType = fallbackSectionType(sourceImpl)
-	}
-	targetType := payloadStringField(targetPayload, "type")
-	if targetType == "" {
-		targetType = fallbackSectionType(targetImpl)
 	}
 	sourceMachineGroupID := p.resolveExistingMachineGroupIDForStateMachineEndpoint(
-		edge.SourceSectionID,
-		sourceType,
-		sourcePayload,
+		sourceEndpoint.sectionID,
+		sourceEndpoint.sectionType,
+		sourceEndpoint.payload,
 	)
 	targetMachineGroupID := p.resolveExistingMachineGroupIDForStateMachineEndpoint(
-		edge.TargetSectionID,
-		targetType,
-		targetPayload,
+		targetEndpoint.sectionID,
+		targetEndpoint.sectionType,
+		targetEndpoint.payload,
 	)
 
 	existingMachineGroupIDs := make(map[string]struct{}, 2)
