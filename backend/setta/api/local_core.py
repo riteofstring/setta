@@ -53,23 +53,10 @@ class LocalCoreClient:
 
     def close(self) -> None:
         state = self._state
+        self._state = None
         if state is None:
             return
-        self._state = None
-        process = state.process
-        if process.stdin is not None:
-            process.stdin.close()
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=1)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=1)
-        if process.stdout is not None:
-            process.stdout.close()
-        if process.stderr is not None:
-            process.stderr.close()
+        self._terminate_process(state.process)
 
     def __del__(self) -> None:
         self.close()
@@ -164,6 +151,8 @@ class LocalCoreClient:
             )
 
     def _terminate_process(self, process: subprocess.Popen[str]) -> None:
+        if process.stdin is not None:
+            process.stdin.close()
         if process.poll() is None:
             process.terminate()
             try:
@@ -171,8 +160,6 @@ class LocalCoreClient:
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait(timeout=1)
-        if process.stdin is not None:
-            process.stdin.close()
         if process.stdout is not None:
             process.stdout.close()
         if process.stderr is not None:
