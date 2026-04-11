@@ -162,6 +162,36 @@ func TestRegistryDeleteSessionRemovesExtraFiles(t *testing.T) {
 	}
 }
 
+func TestRegistryCreateSessionRetriesExistingSessionID(t *testing.T) {
+	t.Parallel()
+
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	if err := os.MkdirAll(filepath.Join(sessionsRoot, "616263"), 0o755); err != nil {
+		t.Fatalf("mkdir existing session dir: %v", err)
+	}
+	registry, err := NewRegistry(RegistryOptions{
+		SessionsRoot: sessionsRoot,
+		Random:       bytes.NewReader([]byte("abcdefuvwxyz0123456789abcdef0123456789abcdef")),
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	metadata, err := registry.CreateSession(CreateSessionInput{
+		WorkspaceRoot: filepath.Join(t.TempDir(), "workspace"),
+		Host:          "127.0.0.1",
+		Port:          61234,
+		PID:           43210,
+		ServerMode:    "launcher",
+	})
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	if metadata.ID != "646566" {
+		t.Fatalf("expected retried session id 646566, got %q", metadata.ID)
+	}
+}
+
 func TestRegistryLoadSessionsAndFindByWorkspaceAndMode(t *testing.T) {
 	t.Parallel()
 
