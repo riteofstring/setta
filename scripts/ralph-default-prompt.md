@@ -87,6 +87,7 @@ Sub-agent rules:
 - Use sub-agents for any Chrome DevTools MCP or CDP verification so the main chat context stays clean.
 - Those CDP sub-agents must start with fresh context.
 - Use sub-agents for other parallelizable, non-overlapping tasks when they materially help.
+- Do not treat an empty `list_mcp_resources` result as proof that Chrome DevTools MCP is missing or unusable. In this repo the MCP server may expose tools without resources, so only declare the CDP gate blocked after a real transport/tool failure or after the configured DevTools MCP path cannot actually be used.
 - If Chrome CDP is inaccessible after the one allowed self-recovery attempt, stop and say so plainly.
 
 Handoff rules:

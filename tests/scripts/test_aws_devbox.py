@@ -199,6 +199,51 @@ def test_profile_uses_sso_detects_modern_and_legacy_profile_config(
     assert aws_devbox.profile_uses_sso("missing") is False
 
 
+def test_build_aws_sso_login_command_defaults_to_device_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SETTA_AWS_DEVBOX_SSO_LOGIN_MODE", raising=False)
+
+    assert aws_devbox.build_aws_sso_login_command("setta-admin") == [
+        "aws",
+        "sso",
+        "login",
+        "--profile",
+        "setta-admin",
+        "--use-device-code",
+    ]
+
+
+def test_build_aws_sso_login_command_allows_browser_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SETTA_AWS_DEVBOX_SSO_LOGIN_MODE", "browser")
+
+    assert aws_devbox.build_aws_sso_login_command("setta-admin") == [
+        "aws",
+        "sso",
+        "login",
+        "--profile",
+        "setta-admin",
+    ]
+
+
+def test_build_aws_sso_login_command_allows_manual_device_code_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SETTA_AWS_DEVBOX_SSO_LOGIN_MODE", "device-code-no-browser")
+
+    assert aws_devbox.build_aws_sso_login_command("setta-admin") == [
+        "aws",
+        "sso",
+        "login",
+        "--profile",
+        "setta-admin",
+        "--use-device-code",
+        "--no-browser",
+    ]
+
+
 def test_resolve_remote_shell_command_prefers_cli_then_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

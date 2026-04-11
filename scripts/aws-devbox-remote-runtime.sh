@@ -649,6 +649,16 @@ sanitize_tmux_session_name() {
     printf 'setta-%s\n' "${sanitized_name}"
 }
 
+tmux_session_target() {
+    printf '=%s\n' "$1"
+}
+
+tmux_window_target() {
+    session_name="$1"
+    window_name="$2"
+    printf '=%s:%s\n' "${session_name}" "${window_name}"
+}
+
 ensure_origin_url() {
     repo_path="$1"
     if [ -z "${remote_repo_remote_url}" ]; then
@@ -916,33 +926,36 @@ ensure_tmux_session() {
     runtime_log="$4"
     runtime_info_script="$5"
     browser_mode="$6"
+    session_target="$(tmux_session_target "${session_name}")"
+    shell_target="$(tmux_window_target "${session_name}" shell)"
+    ai_target="$(tmux_window_target "${session_name}" ai)"
 
     tmux start-server >/dev/null 2>&1 || true
     tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true
 
-    if ! tmux has-session -t "${session_name}" 2>/dev/null; then
+    if ! tmux has-session -t "${session_target}" 2>/dev/null; then
         tmux new-session -d -s "${session_name}" -n shell "$(shell_window_command "${shell_start_dir}")"
     fi
 
-    tmux set-option -t "${session_name}" allow-rename off >/dev/null 2>&1 || true
+    tmux set-option -t "${session_target}" allow-rename off >/dev/null 2>&1 || true
     if [ -n "${SSH_AUTH_SOCK:-}" ]; then
-        tmux set-environment -t "${session_name}" SSH_AUTH_SOCK "${SSH_AUTH_SOCK}" >/dev/null 2>&1 || true
+        tmux set-environment -t "${session_target}" SSH_AUTH_SOCK "${SSH_AUTH_SOCK}" >/dev/null 2>&1 || true
     else
-        tmux set-environment -t "${session_name}" -r SSH_AUTH_SOCK >/dev/null 2>&1 || true
+        tmux set-environment -t "${session_target}" -r SSH_AUTH_SOCK >/dev/null 2>&1 || true
     fi
 
-    if ! tmux list-windows -t "${session_name}" -F '#{window_name}' 2>/dev/null | grep -Fxq shell; then
-        tmux new-window -d -t "${session_name}" -n shell "$(shell_window_command "${shell_start_dir}")"
+    if ! tmux list-windows -t "${session_target}" -F '#{window_name}' 2>/dev/null | grep -Fxq shell; then
+        tmux new-window -d -t "${session_target}" -n shell "$(shell_window_command "${shell_start_dir}")"
     else
-        tmux respawn-window -k -t "${session_name}:shell" "$(shell_window_command "${shell_start_dir}")"
+        tmux respawn-window -k -t "${shell_target}" "$(shell_window_command "${shell_start_dir}")"
     fi
 
     current_runtime_info="$("${runtime_info_script}" --workspace "${workspace_root}" --runtime-log "${runtime_log}" 2>/dev/null || true)"
     if [ "${lifecycle_mode}" = "aireset" ] || ! runtime_info_is_ready "${current_runtime_info}"; then
-        if tmux list-windows -t "${session_name}" -F '#{window_name}' 2>/dev/null | grep -Fxq ai; then
-            tmux respawn-window -k -t "${session_name}:ai" "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}")"
+        if tmux list-windows -t "${session_target}" -F '#{window_name}' 2>/dev/null | grep -Fxq ai; then
+            tmux respawn-window -k -t "${ai_target}" "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}")"
         else
-            tmux new-window -d -t "${session_name}" -n ai "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}")"
+            tmux new-window -d -t "${session_target}" -n ai "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}")"
         fi
     fi
 }
@@ -1225,28 +1238,31 @@ shell_window_command() {
     printf "bash -lc 'cd %q && exec bash'" "${remote_start_dir}"
 }
 
-if ! tmux has-session -t "${remote_session_name}" 2>/dev/null; then
+remote_session_target="=${remote_session_name}"
+remote_shell_target="=${remote_session_name}:shell"
+
+if ! tmux has-session -t "${remote_session_target}" 2>/dev/null; then
     echo "Remote tmux session not found: ${remote_session_name}" >&2
     exit 1
 fi
 
 tmux start-server >/dev/null 2>&1 || true
 tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true
-tmux set-option -t "${remote_session_name}" allow-rename off >/dev/null 2>&1 || true
+tmux set-option -t "${remote_session_target}" allow-rename off >/dev/null 2>&1 || true
 if [ -n "${SSH_AUTH_SOCK:-}" ]; then
-    tmux set-environment -t "${remote_session_name}" SSH_AUTH_SOCK "${SSH_AUTH_SOCK}" >/dev/null 2>&1 || true
+    tmux set-environment -t "${remote_session_target}" SSH_AUTH_SOCK "${SSH_AUTH_SOCK}" >/dev/null 2>&1 || true
 else
-    tmux set-environment -t "${remote_session_name}" -r SSH_AUTH_SOCK >/dev/null 2>&1 || true
+    tmux set-environment -t "${remote_session_target}" -r SSH_AUTH_SOCK >/dev/null 2>&1 || true
 fi
 
-if tmux list-windows -t "${remote_session_name}" -F '#{window_name}' 2>/dev/null | grep -Fxq shell; then
-    tmux respawn-window -k -t "${remote_session_name}:shell" "$(shell_window_command)"
+if tmux list-windows -t "${remote_session_target}" -F '#{window_name}' 2>/dev/null | grep -Fxq shell; then
+    tmux respawn-window -k -t "${remote_shell_target}" "$(shell_window_command)"
 else
-    tmux new-window -d -t "${remote_session_name}" -n shell "$(shell_window_command)"
+    tmux new-window -d -t "${remote_session_target}" -n shell "$(shell_window_command)"
 fi
 
-tmux select-window -t "${remote_session_name}:shell" >/dev/null 2>&1 || true
-exec tmux attach-session -t "${remote_session_name}"
+tmux select-window -t "${remote_shell_target}" >/dev/null 2>&1 || true
+exec tmux attach-session -t "${remote_session_target}"
 EOF
 )
 

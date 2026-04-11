@@ -4,6 +4,7 @@ import argparse
 import configparser
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -356,6 +357,35 @@ def auto_sso_login_enabled() -> bool:
     return raw_value.casefold() not in {"0", "false", "no", "off"}
 
 
+def resolve_sso_login_mode() -> str:
+    raw_value = getenv_nonempty("SETTA_AWS_DEVBOX_SSO_LOGIN_MODE")
+    if raw_value is None:
+        return "device-code"
+
+    normalized = raw_value.casefold()
+    if normalized in {"device-code", "device_code", "device"}:
+        return "device-code"
+    if normalized in {"device-code-no-browser", "device_code_no_browser", "manual"}:
+        return "device-code-no-browser"
+    if normalized == "browser":
+        return "browser"
+
+    raise SystemExit(
+        "Unsupported SETTA_AWS_DEVBOX_SSO_LOGIN_MODE. "
+        "Expected `device-code`, `device-code-no-browser`, or `browser`."
+    )
+
+
+def build_aws_sso_login_command(profile: str) -> list[str]:
+    command = ["aws", "sso", "login", "--profile", profile]
+    login_mode = resolve_sso_login_mode()
+    if login_mode == "device-code":
+        command.append("--use-device-code")
+    elif login_mode == "device-code-no-browser":
+        command.extend(["--use-device-code", "--no-browser"])
+    return command
+
+
 def resolve_remote_shell_command(args: argparse.Namespace) -> str:
     explicit_command = getattr(args, "command", None)
     if explicit_command:
@@ -517,13 +547,14 @@ def should_attempt_aws_sso_login(exc: Exception, profile: str | None) -> bool:
 
 
 def run_aws_sso_login(profile: str) -> int:
+    command = build_aws_sso_login_command(profile)
     print(
         f"AWS credentials are stale for profile `{profile}`. "
-        f"Running `aws sso login --profile {profile}`...",
+        f"Running `{shlex.join(command)}`...",
         file=sys.stderr,
     )
     result = subprocess.run(
-        ["aws", "sso", "login", "--profile", profile],
+        command,
         check=False,
     )
     return result.returncode

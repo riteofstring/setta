@@ -1279,7 +1279,14 @@ exit 0
         in ssh_runtime_args[-1]
     )
     assert "SETTA_REMOTE_SESSION_NAME=setta-setta-feature-auth" in ssh_runtime_args[-1]
+    assert "tmux_session_target() {" in ssh_runtime_args[-1]
+    assert "tmux_window_target() {" in ssh_runtime_args[-1]
+    assert 'session_target="$(tmux_session_target "${session_name}")"' in ssh_runtime_args[-1]
+    assert 'tmux has-session -t "${session_target}"' in ssh_runtime_args[-1]
+    assert 'tmux respawn-window -k -t "${ai_target}"' in ssh_runtime_args[-1]
     assert "SETTA_REMOTE_SESSION_NAME=setta-setta-feature-auth" in ssh_attach_args[-1]
+    assert 'remote_session_target="=${remote_session_name}"' in ssh_attach_args[-1]
+    assert 'exec tmux attach-session -t "${remote_session_target}"' in ssh_attach_args[-1]
     assert (
         "Remote main reference ai runtime ready: frontend http://127.0.0.1:3087/, backend http://127.0.0.1:8087, cdp 9309."
         in result.stderr
