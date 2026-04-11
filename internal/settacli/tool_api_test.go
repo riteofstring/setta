@@ -359,6 +359,57 @@ func TestCookieHeaderHelpersCoverHeaderCookieAndBaseURLForms(t *testing.T) {
 	}
 }
 
+func TestResolveAPIRequestTargetUsesExplicitCookieAndNormalizedBaseURL(t *testing.T) {
+	t.Parallel()
+
+	target, err := resolveAPIRequestTarget(
+		apiFlags{
+			baseURL:      "localhost:8123/api",
+			cookieHeader: "Cookie: settaAuth=abc123",
+		},
+		nil,
+		globalFlags{},
+		time.Now,
+		t.TempDir(),
+		func(string) (string, bool) { return "", false },
+	)
+	if err != nil {
+		t.Fatalf("resolve api request target with explicit auth: %v", err)
+	}
+	if target.baseURL != "http://localhost:8123" {
+		t.Fatalf("unexpected base url %q", target.baseURL)
+	}
+	if target.cookieValue != "settaAuth=abc123" {
+		t.Fatalf("unexpected cookie value %q", target.cookieValue)
+	}
+}
+
+func TestResolveAPIRequestTargetUsesAuthPayloadBaseURLAndCookie(t *testing.T) {
+	t.Parallel()
+
+	target, err := resolveAPIRequestTarget(
+		apiFlags{},
+		map[string]any{
+			"cookie":     "token",
+			"cookieName": "settaAuth",
+			"apiBaseUrl": "127.0.0.1:9999/api",
+		},
+		globalFlags{},
+		time.Now,
+		t.TempDir(),
+		func(string) (string, bool) { return "", false },
+	)
+	if err != nil {
+		t.Fatalf("resolve api request target with auth payload: %v", err)
+	}
+	if target.baseURL != "http://127.0.0.1:9999" {
+		t.Fatalf("unexpected base url %q", target.baseURL)
+	}
+	if target.cookieValue != "settaAuth=token" {
+		t.Fatalf("unexpected cookie value %q", target.cookieValue)
+	}
+}
+
 func TestNormalizeToolNameRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 

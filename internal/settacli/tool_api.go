@@ -203,71 +203,19 @@ func resolveAPIRequestTarget(parsed apiFlags, authPayload map[string]any, global
 		cwd:       cwd,
 		envLookup: envLookup,
 	}
-	target := apiRequestTarget{}
-
-	if strings.TrimSpace(parsed.baseURL) != "" {
-		baseURL, err := normalizeBaseURL(parsed.baseURL)
-		if err != nil {
-			return apiRequestTarget{}, err
-		}
-		target.baseURL = baseURL
+	target, err := newAPIRequestTarget(parsed.baseURL)
+	if err != nil {
+		return apiRequestTarget{}, err
 	}
 
 	switch {
-	case strings.TrimSpace(parsed.cookieHeader) != "" || strings.TrimSpace(parsed.cookie) != "":
-		cookieValue, err := explicitAPICookieValue(parsed)
-		if err != nil {
-			return apiRequestTarget{}, err
-		}
-		target.cookieValue = cookieValue
-		if target.baseURL == "" {
-			baseURL, err := resolver.baseURL()
-			if err != nil {
-				return apiRequestTarget{}, err
-			}
-			target.baseURL = baseURL
-		}
+	case hasExplicitAPICookie(parsed):
+		return resolveExplicitAPIRequestTarget(target, parsed, resolver)
 	case authPayload != nil:
-		cookieValue, err := cookieHeaderFromAuthPayload(authPayload)
-		if err != nil {
-			return apiRequestTarget{}, err
-		}
-		target.cookieValue = cookieValue
-		if target.baseURL == "" {
-			baseURL, err := baseURLFromAuthPayload(authPayload)
-			if err != nil {
-				return apiRequestTarget{}, err
-			}
-			if baseURL == "" {
-				baseURL, err = resolver.baseURL()
-				if err != nil {
-					return apiRequestTarget{}, err
-				}
-			}
-			target.baseURL = baseURL
-		}
+		return resolveAuthPayloadAPIRequestTarget(target, authPayload, resolver)
 	default:
-		cookieValue, err := resolver.cookieValue(now)
-		if err != nil {
-			return apiRequestTarget{}, err
-		}
-		target.cookieValue = cookieValue
-		if target.baseURL == "" {
-			baseURL, err := resolver.baseURL()
-			if err != nil {
-				return apiRequestTarget{}, err
-			}
-			target.baseURL = baseURL
-		}
+		return resolveSessionAPIRequestTarget(target, resolver, now)
 	}
-
-	if target.baseURL == "" {
-		return apiRequestTarget{}, fmt.Errorf("missing base URL. Use --base-url or --auth-json")
-	}
-	if strings.TrimSpace(target.cookieValue) == "" {
-		return apiRequestTarget{}, fmt.Errorf("missing auth cookie")
-	}
-	return target, nil
 }
 
 func explicitAPICookieValue(parsed apiFlags) (string, error) {
@@ -279,6 +227,92 @@ func explicitAPICookieValue(parsed apiFlags) (string, error) {
 		return "", fmt.Errorf("cookie must be provided in name=value form")
 	}
 	return cookieValue, nil
+}
+
+func hasExplicitAPICookie(parsed apiFlags) bool {
+	return strings.TrimSpace(parsed.cookieHeader) != "" || strings.TrimSpace(parsed.cookie) != ""
+}
+
+func newAPIRequestTarget(rawBaseURL string) (apiRequestTarget, error) {
+	if strings.TrimSpace(rawBaseURL) == "" {
+		return apiRequestTarget{}, nil
+	}
+	baseURL, err := normalizeBaseURL(rawBaseURL)
+	if err != nil {
+		return apiRequestTarget{}, err
+	}
+	return apiRequestTarget{baseURL: baseURL}, nil
+}
+
+func resolveExplicitAPIRequestTarget(target apiRequestTarget, parsed apiFlags, resolver *apiSessionResolver) (apiRequestTarget, error) {
+	cookieValue, err := explicitAPICookieValue(parsed)
+	if err != nil {
+		return apiRequestTarget{}, err
+	}
+	target.cookieValue = cookieValue
+	if err := populateMissingAPIRequestTargetBaseURL(&target, resolver.baseURL); err != nil {
+		return apiRequestTarget{}, err
+	}
+	return finalizeAPIRequestTarget(target)
+}
+
+func resolveAuthPayloadAPIRequestTarget(target apiRequestTarget, authPayload map[string]any, resolver *apiSessionResolver) (apiRequestTarget, error) {
+	cookieValue, err := cookieHeaderFromAuthPayload(authPayload)
+	if err != nil {
+		return apiRequestTarget{}, err
+	}
+	target.cookieValue = cookieValue
+	if err := populateMissingAPIRequestTargetBaseURL(&target, func() (string, error) {
+		return baseURLFromAuthPayloadOrSession(authPayload, resolver)
+	}); err != nil {
+		return apiRequestTarget{}, err
+	}
+	return finalizeAPIRequestTarget(target)
+}
+
+func resolveSessionAPIRequestTarget(target apiRequestTarget, resolver *apiSessionResolver, now func() time.Time) (apiRequestTarget, error) {
+	cookieValue, err := resolver.cookieValue(now)
+	if err != nil {
+		return apiRequestTarget{}, err
+	}
+	target.cookieValue = cookieValue
+	if err := populateMissingAPIRequestTargetBaseURL(&target, resolver.baseURL); err != nil {
+		return apiRequestTarget{}, err
+	}
+	return finalizeAPIRequestTarget(target)
+}
+
+func populateMissingAPIRequestTargetBaseURL(target *apiRequestTarget, load func() (string, error)) error {
+	if target.baseURL != "" {
+		return nil
+	}
+	baseURL, err := load()
+	if err != nil {
+		return err
+	}
+	target.baseURL = baseURL
+	return nil
+}
+
+func baseURLFromAuthPayloadOrSession(authPayload map[string]any, resolver *apiSessionResolver) (string, error) {
+	baseURL, err := baseURLFromAuthPayload(authPayload)
+	if err != nil {
+		return "", err
+	}
+	if baseURL != "" {
+		return baseURL, nil
+	}
+	return resolver.baseURL()
+}
+
+func finalizeAPIRequestTarget(target apiRequestTarget) (apiRequestTarget, error) {
+	if target.baseURL == "" {
+		return apiRequestTarget{}, fmt.Errorf("missing base URL. Use --base-url or --auth-json")
+	}
+	if strings.TrimSpace(target.cookieValue) == "" {
+		return apiRequestTarget{}, fmt.Errorf("missing auth cookie")
+	}
+	return target, nil
 }
 
 func buildAPIToolRequest(toolName string, arguments map[string]any, parsed apiFlags, target apiRequestTarget) (*http.Request, error) {
