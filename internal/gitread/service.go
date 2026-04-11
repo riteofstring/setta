@@ -198,34 +198,94 @@ func (s *Service) Status(ctx context.Context) (StatusResponse, error) {
 }
 
 func (s *Service) Diff(ctx context.Context, request DiffRequest) (DiffResponse, error) {
-	if request.Mode != DiffModeUnstaged && request.Mode != DiffModeStaged {
-		return DiffResponse{}, &Error{Kind: ErrorInvalidRequest, Message: "Invalid diff mode."}
+	prepared, err := s.prepareDiffRequest(ctx, request)
+	if err != nil {
+		return DiffResponse{}, err
+	}
+
+	result, err := s.runGit(ctx, prepared.repoRoot, prepared.args, diffTimeout, maxDiffBytes, maxCommandErrBytes)
+	if err != nil {
+		return DiffResponse{}, err
+	}
+	if err := validateDiffCommandResult(result); err != nil {
+		return DiffResponse{}, err
+	}
+
+	diffText, isTruncated, err := s.finalizeDiffOutput(ctx, prepared, result)
+	if err != nil {
+		return DiffResponse{}, err
+	}
+
+	return DiffResponse{
+		RepoRoot:    prepared.repoRoot,
+		Path:        prepared.relPath,
+		Mode:        request.Mode,
+		Diff:        diffText,
+		IsTruncated: isTruncated,
+	}, nil
+}
+
+type preparedDiffRequest struct {
+	repoRoot string
+	relPath  string
+	mode     DiffMode
+	args     []string
+}
+
+func (s *Service) prepareDiffRequest(ctx context.Context, request DiffRequest) (preparedDiffRequest, error) {
+	if err := validateDiffMode(request.Mode); err != nil {
+		return preparedDiffRequest{}, err
 	}
 
 	repoRoot, ok := s.repoRootOrNone(ctx)
 	if !ok {
-		return DiffResponse{}, &Error{Kind: ErrorNotGitRepo, Message: "Current workspace is not a git repository."}
+		return preparedDiffRequest{}, &Error{Kind: ErrorNotGitRepo, Message: "Current workspace is not a git repository."}
 	}
 
+	relPath, relOldPath, err := s.normalizeDiffPaths(ctx, repoRoot, request)
+	if err != nil {
+		return preparedDiffRequest{}, err
+	}
+
+	return preparedDiffRequest{
+		repoRoot: repoRoot,
+		relPath:  relPath,
+		mode:     request.Mode,
+		args:     buildGitDiffArgs(request.Mode, relPath, relOldPath),
+	}, nil
+}
+
+func validateDiffMode(mode DiffMode) error {
+	if mode == DiffModeUnstaged || mode == DiffModeStaged {
+		return nil
+	}
+	return &Error{Kind: ErrorInvalidRequest, Message: "Invalid diff mode."}
+}
+
+func (s *Service) normalizeDiffPaths(ctx context.Context, repoRoot string, request DiffRequest) (string, string, error) {
 	relPath, err := normalizeRepoRelativePath(request.Path)
 	if err != nil {
-		return DiffResponse{}, err
+		return "", "", err
 	}
 	if err := s.assertSingleFilePathspec(ctx, repoRoot, request.Path, relPath, ""); err != nil {
-		return DiffResponse{}, err
+		return "", "", err
 	}
 
-	var relOldPath string
-	if request.OldPath != nil {
-		relOldPath, err = normalizeRepoRelativePath(*request.OldPath)
-		if err != nil {
-			return DiffResponse{}, err
-		}
-		if err := s.assertSingleFilePathspec(ctx, repoRoot, *request.OldPath, relOldPath, ""); err != nil {
-			return DiffResponse{}, err
-		}
+	if request.OldPath == nil {
+		return relPath, "", nil
 	}
 
+	relOldPath, err := normalizeRepoRelativePath(*request.OldPath)
+	if err != nil {
+		return "", "", err
+	}
+	if err := s.assertSingleFilePathspec(ctx, repoRoot, *request.OldPath, relOldPath, ""); err != nil {
+		return "", "", err
+	}
+	return relPath, relOldPath, nil
+}
+
+func buildGitDiffArgs(mode DiffMode, relPath string, relOldPath string) []string {
 	diffPaths := []string{relPath}
 	if relOldPath != "" && relOldPath != relPath {
 		diffPaths = []string{relOldPath, relPath}
@@ -240,52 +300,46 @@ func (s *Service) Diff(ctx context.Context, request DiffRequest) (DiffResponse, 
 		"--no-ext-diff",
 		"--no-textconv",
 	}
-	if request.Mode == DiffModeStaged {
+	if mode == DiffModeStaged {
 		args = append(args, "--cached")
 	}
 	args = append(args, "--")
-	args = append(args, diffPaths...)
+	return append(args, diffPaths...)
+}
 
-	result, err := s.runGit(ctx, repoRoot, args, diffTimeout, maxDiffBytes, maxCommandErrBytes)
-	if err != nil {
-		return DiffResponse{}, err
-	}
+func validateDiffCommandResult(result commandResult) error {
 	if result.timedOut {
-		return DiffResponse{}, &Error{Kind: ErrorTimedOut, Message: "Timed out running git diff."}
+		return &Error{Kind: ErrorTimedOut, Message: "Timed out running git diff."}
 	}
-	if result.returnCode != 0 && result.returnCode != 1 && !result.stdoutTruncated {
-		return DiffResponse{}, &Error{
-			Kind:    ErrorCommandFailed,
-			Message: fmt.Sprintf("git diff failed: %s", commandErrorText(result.stderr)),
-		}
+	if result.returnCode == 0 || result.returnCode == 1 || result.stdoutTruncated {
+		return nil
 	}
+	return &Error{
+		Kind:    ErrorCommandFailed,
+		Message: fmt.Sprintf("git diff failed: %s", commandErrorText(result.stderr)),
+	}
+}
 
+func (s *Service) finalizeDiffOutput(ctx context.Context, prepared preparedDiffRequest, result commandResult) (string, bool, error) {
 	diffText := result.stdout
 	isTruncated := result.stdoutTruncated
-	if request.Mode == DiffModeUnstaged && strings.TrimSpace(diffText) == "" {
-		isUntracked, err := s.isUntrackedPath(ctx, repoRoot, relPath)
-		if err != nil {
-			return DiffResponse{}, err
-		}
-		if isUntracked {
-			absPath, err := resolvePathForUntrackedSynth(repoRoot, relPath)
-			if err != nil {
-				return DiffResponse{}, err
-			}
-			diffText, isTruncated, err = synthesizeUntrackedDiff(relPath, absPath, isTruncated)
-			if err != nil {
-				return DiffResponse{}, err
-			}
-		}
+	if prepared.mode != DiffModeUnstaged || strings.TrimSpace(diffText) != "" {
+		return diffText, isTruncated, nil
 	}
 
-	return DiffResponse{
-		RepoRoot:    repoRoot,
-		Path:        relPath,
-		Mode:        request.Mode,
-		Diff:        diffText,
-		IsTruncated: isTruncated,
-	}, nil
+	isUntracked, err := s.isUntrackedPath(ctx, prepared.repoRoot, prepared.relPath)
+	if err != nil {
+		return "", false, err
+	}
+	if !isUntracked {
+		return diffText, isTruncated, nil
+	}
+
+	absPath, err := resolvePathForUntrackedSynth(prepared.repoRoot, prepared.relPath)
+	if err != nil {
+		return "", false, err
+	}
+	return synthesizeUntrackedDiff(prepared.relPath, absPath, isTruncated)
 }
 
 func (s *Service) repoRootOrNone(ctx context.Context) (string, bool) {
@@ -481,48 +535,67 @@ func resolvePathForUntrackedSynth(repoRoot string, relPath string) (string, erro
 }
 
 func synthesizeUntrackedDiff(relPath string, absPath string, initialTruncated bool) (string, bool, error) {
+	info, err := statUntrackedDiffFile(relPath, absPath)
+	if err != nil {
+		return "", initialTruncated, err
+	}
+
+	data, isTruncated, err := readUntrackedDiffData(relPath, absPath, info.Size(), initialTruncated)
+	if err != nil {
+		return "", initialTruncated, err
+	}
+	if bytes.IndexByte(data, 0) >= 0 {
+		return renderBinaryUntrackedDiff(relPath), isTruncated, nil
+	}
+	return renderTextUntrackedDiff(relPath, data), isTruncated, nil
+}
+
+func statUntrackedDiffFile(relPath string, absPath string) (os.FileInfo, error) {
 	info, err := os.Stat(absPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return "", initialTruncated, &Error{Kind: ErrorPathNotFound, Message: fmt.Sprintf("File not found: %s", relPath)}
+			return nil, &Error{Kind: ErrorPathNotFound, Message: fmt.Sprintf("File not found: %s", relPath)}
 		}
-		return "", initialTruncated, fmt.Errorf("stat untracked path: %w", err)
+		return nil, fmt.Errorf("stat untracked path: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		return "", initialTruncated, &Error{Kind: ErrorPathNotFile, Message: "Path must point to a file."}
+		return nil, &Error{Kind: ErrorPathNotFile, Message: "Path must point to a file."}
 	}
+	return info, nil
+}
 
+func readUntrackedDiffData(relPath string, absPath string, fileSize int64, initialTruncated bool) ([]byte, bool, error) {
 	file, err := os.Open(absPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return "", initialTruncated, &Error{Kind: ErrorPathNotFound, Message: fmt.Sprintf("File not found: %s", relPath)}
+			return nil, initialTruncated, &Error{Kind: ErrorPathNotFound, Message: fmt.Sprintf("File not found: %s", relPath)}
 		}
-		return "", initialTruncated, fmt.Errorf("open untracked path: %w", err)
+		return nil, initialTruncated, fmt.Errorf("open untracked path: %w", err)
 	}
 	defer file.Close()
 
-	isTruncated := initialTruncated || info.Size() > maxUntrackedRead
+	isTruncated := initialTruncated || fileSize > maxUntrackedRead
 	data := make([]byte, maxUntrackedRead+1)
 	readCount, readErr := io.ReadFull(file, data)
-	switch {
-	case readErr == nil:
-		isTruncated = true
-		data = data[:maxUntrackedRead]
-	case errors.Is(readErr, io.ErrUnexpectedEOF), errors.Is(readErr, io.EOF):
-		data = data[:readCount]
-	default:
-		return "", initialTruncated, fmt.Errorf("read untracked path: %w", readErr)
+	if readErr == nil {
+		return data[:maxUntrackedRead], true, nil
 	}
-
-	if bytes.IndexByte(data, 0) >= 0 {
-		return strings.Join([]string{
-			fmt.Sprintf("diff --git a/%s b/%s", relPath, relPath),
-			"GIT binary patch",
-			"(binary file, diff omitted)",
-			"",
-		}, "\n"), isTruncated, nil
+	if errors.Is(readErr, io.ErrUnexpectedEOF) || errors.Is(readErr, io.EOF) {
+		return data[:readCount], isTruncated, nil
 	}
+	return nil, initialTruncated, fmt.Errorf("read untracked path: %w", readErr)
+}
 
+func renderBinaryUntrackedDiff(relPath string) string {
+	return strings.Join([]string{
+		fmt.Sprintf("diff --git a/%s b/%s", relPath, relPath),
+		"GIT binary patch",
+		"(binary file, diff omitted)",
+		"",
+	}, "\n")
+}
+
+func renderTextUntrackedDiff(relPath string, data []byte) string {
 	text := string(data)
 	hasTrailingNewline := strings.HasSuffix(text, "\n")
 	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
@@ -546,7 +619,7 @@ func synthesizeUntrackedDiff(relPath string, absPath string, initialTruncated bo
 		}
 	}
 	output = append(output, "")
-	return strings.Join(output, "\n"), isTruncated, nil
+	return strings.Join(output, "\n")
 }
 
 func parsePorcelainHeadBranch(output string) string {
@@ -582,104 +655,114 @@ func parsePorcelainHeadCommit(output string) string {
 }
 
 func parsePorcelainStatus(output string) []StatusEntry {
+	tokens := splitPorcelainStatusTokens(output)
+	entries := make([]StatusEntry, 0)
+	for index := 0; index < len(tokens); index++ {
+		nextToken := ""
+		if index+1 < len(tokens) {
+			nextToken = tokens[index+1]
+		}
+		record, ok := parsePorcelainStatusRecord(tokens[index], nextToken)
+		if !ok {
+			continue
+		}
+		if record.consumeNext {
+			index++
+		}
+		entries = append(entries, record.statusEntries()...)
+	}
+	return entries
+}
+
+func splitPorcelainStatusTokens(output string) []string {
 	tokens := strings.Split(output, "\x00")
 	if len(tokens) > 0 && tokens[len(tokens)-1] == "" {
 		tokens = tokens[:len(tokens)-1]
 	}
+	return tokens
+}
 
-	entries := make([]StatusEntry, 0)
-	for index := 0; index < len(tokens); index++ {
-		token := tokens[index]
-		if token == "" || strings.HasPrefix(token, "# ") {
-			continue
-		}
+type porcelainStatusRecord struct {
+	path           string
+	oldPath        *string
+	indexStatus    string
+	worktreeStatus string
+	kind           string
+	consumeNext    bool
+}
 
-		var (
-			oldPath        *string
-			indexStatus    string
-			worktreeStatus string
-			path           string
-			ok             bool
-		)
-
-		switch {
-		case strings.HasPrefix(token, "1 "):
-			parts := strings.SplitN(token, " ", 9)
-			if len(parts) != 9 || len(parts[1]) != 2 {
-				continue
-			}
-			indexStatus = string(parts[1][0])
-			worktreeStatus = string(parts[1][1])
-			path = parts[8]
-			ok = true
-		case strings.HasPrefix(token, "2 "):
-			parts := strings.SplitN(token, " ", 10)
-			if len(parts) != 10 || len(parts[1]) != 2 {
-				continue
-			}
-			indexStatus = string(parts[1][0])
-			worktreeStatus = string(parts[1][1])
-			path = parts[9]
-			if index+1 < len(tokens) {
-				oldPath = optionalString(tokens[index+1])
-				index++
-			}
-			ok = true
-		case strings.HasPrefix(token, "u "):
-			parts := strings.SplitN(token, " ", 11)
-			if len(parts) != 11 || len(parts[1]) != 2 {
-				continue
-			}
-			indexStatus = string(parts[1][0])
-			worktreeStatus = string(parts[1][1])
-			path = parts[10]
-			ok = true
-		case strings.HasPrefix(token, "? "):
-			entries = append(entries, StatusEntry{
-				Path:           token[2:],
-				OldPath:        nil,
-				IndexStatus:    "?",
-				WorktreeStatus: "?",
-				Kind:           "untracked",
-			})
-		}
+func parsePorcelainStatusRecord(token string, nextToken string) (porcelainStatusRecord, bool) {
+	if token == "" || strings.HasPrefix(token, "# ") {
+		return porcelainStatusRecord{}, false
+	}
+	switch {
+	case strings.HasPrefix(token, "1 "):
+		return parsePorcelainTrackedRecord(token, 9, 8)
+	case strings.HasPrefix(token, "2 "):
+		record, ok := parsePorcelainTrackedRecord(token, 10, 9)
 		if !ok {
-			continue
+			return porcelainStatusRecord{}, false
 		}
+		record.oldPath = optionalString(nextToken)
+		record.consumeNext = nextToken != ""
+		return record, true
+	case strings.HasPrefix(token, "u "):
+		return parsePorcelainTrackedRecord(token, 11, 10)
+	case strings.HasPrefix(token, "? "):
+		return porcelainStatusRecord{
+			path:           token[2:],
+			indexStatus:    "?",
+			worktreeStatus: "?",
+			kind:           "untracked",
+		}, true
+	default:
+		return porcelainStatusRecord{}, false
+	}
+}
 
-		statusPair := indexStatus + worktreeStatus
-		isConflict := strings.Contains(statusPair, "U") || statusPair == "DD" || statusPair == "AU" || statusPair == "UD" || statusPair == "UA" || statusPair == "DU" || statusPair == "AA"
-		if isConflict {
-			entries = append(entries, StatusEntry{
-				Path:           path,
-				OldPath:        oldPath,
-				IndexStatus:    indexStatus,
-				WorktreeStatus: worktreeStatus,
-				Kind:           "conflict",
-			})
-			continue
-		}
+func parsePorcelainTrackedRecord(token string, partCount int, pathIndex int) (porcelainStatusRecord, bool) {
+	parts := strings.SplitN(token, " ", partCount)
+	if len(parts) != partCount || len(parts[1]) != 2 {
+		return porcelainStatusRecord{}, false
+	}
+	return porcelainStatusRecord{
+		path:           parts[pathIndex],
+		indexStatus:    string(parts[1][0]),
+		worktreeStatus: string(parts[1][1]),
+	}, true
+}
 
-		if indexStatus != "." {
-			entries = append(entries, StatusEntry{
-				Path:           path,
-				OldPath:        oldPath,
-				IndexStatus:    indexStatus,
-				WorktreeStatus: worktreeStatus,
-				Kind:           "staged",
-			})
-		}
-		if worktreeStatus != "." {
-			entries = append(entries, StatusEntry{
-				Path:           path,
-				OldPath:        oldPath,
-				IndexStatus:    indexStatus,
-				WorktreeStatus: worktreeStatus,
-				Kind:           "unstaged",
-			})
-		}
+func (record porcelainStatusRecord) statusEntries() []StatusEntry {
+	if record.kind == "untracked" {
+		return []StatusEntry{record.statusEntry("untracked")}
+	}
+	if record.isConflict() {
+		return []StatusEntry{record.statusEntry("conflict")}
+	}
+
+	entries := make([]StatusEntry, 0, 2)
+	if record.indexStatus != "." {
+		entries = append(entries, record.statusEntry("staged"))
+	}
+	if record.worktreeStatus != "." {
+		entries = append(entries, record.statusEntry("unstaged"))
 	}
 	return entries
+}
+
+func (record porcelainStatusRecord) statusEntry(kind string) StatusEntry {
+	return StatusEntry{
+		Path:           record.path,
+		OldPath:        record.oldPath,
+		IndexStatus:    record.indexStatus,
+		WorktreeStatus: record.worktreeStatus,
+		Kind:           kind,
+	}
+}
+
+func (record porcelainStatusRecord) isConflict() bool {
+	statusPair := record.indexStatus + record.worktreeStatus
+	return strings.Contains(statusPair, "U") || statusPair == "AA" || statusPair == "DD"
 }
 
 func (s *Service) listWorktrees(ctx context.Context, repoRoot string) []GitWorktreeEntry {

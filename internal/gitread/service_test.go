@@ -116,6 +116,78 @@ func TestParsePorcelainStatusHandlesRenameAndCopy(t *testing.T) {
 	}
 }
 
+func TestParsePorcelainStatusHandlesConflicts(t *testing.T) {
+	t.Parallel()
+
+	output := strings.Join([]string{
+		"u DD N... 100644 100644 100644 100644 a b c conflicted.txt",
+		"",
+	}, "\x00")
+
+	entries := parsePorcelainStatus(output)
+	if len(entries) != 1 {
+		t.Fatalf("expected one parsed entry, got %#v", entries)
+	}
+	if entries[0].Kind != "conflict" || entries[0].Path != "conflicted.txt" || entries[0].IndexStatus != "D" || entries[0].WorktreeStatus != "D" {
+		t.Fatalf("unexpected conflict entry %#v", entries[0])
+	}
+}
+
+func TestParsePorcelainStatusSkipsMalformedTrackedRecords(t *testing.T) {
+	t.Parallel()
+
+	output := strings.Join([]string{
+		"1 M. too-short",
+		"2 R. too-short",
+		"old.txt",
+		"? loose.txt",
+		"",
+	}, "\x00")
+
+	entries := parsePorcelainStatus(output)
+	if len(entries) != 1 {
+		t.Fatalf("expected only untracked entry to survive malformed records, got %#v", entries)
+	}
+	if entries[0].Kind != "untracked" || entries[0].Path != "loose.txt" {
+		t.Fatalf("unexpected remaining entry %#v", entries[0])
+	}
+}
+
+func TestSynthesizeUntrackedDiffHandlesTextAndBinaryFiles(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	textPath := filepath.Join(root, "note.txt")
+	writeFile(t, textPath, "hello")
+
+	textDiff, isTruncated, err := synthesizeUntrackedDiff("note.txt", textPath, false)
+	if err != nil {
+		t.Fatalf("text synth diff: %v", err)
+	}
+	if isTruncated {
+		t.Fatalf("expected small text diff to avoid truncation")
+	}
+	if !strings.Contains(textDiff, "new file mode 100644") || !strings.Contains(textDiff, "+hello") || !strings.Contains(textDiff, "\\ No newline at end of file") {
+		t.Fatalf("unexpected text synth diff %q", textDiff)
+	}
+
+	binaryPath := filepath.Join(root, "blob.bin")
+	if err := os.WriteFile(binaryPath, []byte{0x00, 0x01, 0x02}, 0o644); err != nil {
+		t.Fatalf("write binary file: %v", err)
+	}
+
+	binaryDiff, isTruncated, err := synthesizeUntrackedDiff("blob.bin", binaryPath, false)
+	if err != nil {
+		t.Fatalf("binary synth diff: %v", err)
+	}
+	if isTruncated {
+		t.Fatalf("expected small binary diff to avoid truncation")
+	}
+	if !strings.Contains(binaryDiff, "GIT binary patch") || !strings.Contains(binaryDiff, "(binary file, diff omitted)") {
+		t.Fatalf("unexpected binary synth diff %q", binaryDiff)
+	}
+}
+
 func TestTrimToLastCompleteNULRecordDiscardsPartialTail(t *testing.T) {
 	t.Parallel()
 
