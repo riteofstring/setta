@@ -40,6 +40,13 @@ type LauncherControlsState = {
   launcherActionsDisabled: boolean;
   launcherSetupButtonLabel: string;
 };
+type LauncherUpdatePreflightResult =
+  | { kind: "ready" }
+  | {
+      kind: "error";
+      errorMessage: string;
+      showInstallerInstructions: boolean;
+    };
 type LauncherStatusRouteResponse =
   ResponseDataAndStatus<LauncherStatusResponse>;
 type LauncherUpdateRouteResponse =
@@ -202,6 +209,268 @@ export function resolveUpdateProgressLabel(
   }
   return null;
 }
+export function resolveLauncherUpdatePreflight(
+  launcherStatus: LauncherStatusResponse,
+): LauncherUpdatePreflightResult {
+  if (!launcherStatus.ok) {
+    return {
+      kind: "error",
+      errorMessage: resolveLauncherErrorMessage(
+        launcherStatus,
+        "Launcher update capability check failed.",
+      ),
+      showInstallerInstructions: false,
+    };
+  }
+  if (launcherStatus.updateCapability === "in_app") {
+    return { kind: "ready" };
+  }
+  return {
+    kind: "error",
+    errorMessage:
+      launcherStatus.updateGuidance ?? "In-app launcher update is unavailable.",
+    showInstallerInstructions:
+      launcherStatus.updateCapability === "installer_managed",
+  };
+}
+
+function applySuccessfulLauncherStatusRefresh({
+  launcherStatus,
+  setLauncherStatus,
+  setLauncherStatusError,
+}: {
+  launcherStatus: LauncherStatusResponse | null;
+  setLauncherStatus: (value: LauncherStatusResponse | null) => void;
+  setLauncherStatusError: (value: string | null) => void;
+}) {
+  if (!launcherStatus?.ok) {
+    return;
+  }
+  setLauncherStatus(launcherStatus);
+  setLauncherStatusError(null);
+}
+
+function LauncherStatusSummary({
+  launcherStatus,
+  launcherInstalled,
+  launcherTarget,
+}: {
+  launcherStatus: LauncherStatusResponse | null;
+  launcherInstalled: boolean;
+  launcherTarget: string | null;
+}) {
+  if (!launcherStatus) {
+    return null;
+  }
+  return (
+    <div className="grid gap-1 text-xs text-setta-600 dark:text-setta-300">
+      <span>
+        Status:{" "}
+        <span className="font-semibold">
+          {launcherInstalled ? "installed" : "not installed"}
+        </span>
+      </span>
+      {launcherStatus.channel && (
+        <span>
+          Channel:{" "}
+          <span className="font-semibold">{launcherStatus.channel}</span>
+        </span>
+      )}
+      {launcherStatus.updateCapability && (
+        <span>
+          Update capability:{" "}
+          <span className="font-semibold">
+            {launcherStatus.updateCapability}
+          </span>
+        </span>
+      )}
+      {launcherTarget && (
+        <span className="break-all">
+          Target: <span className="font-semibold">{launcherTarget}</span>
+        </span>
+      )}
+      {launcherStatus.targetError && (
+        <span className="text-red-700 dark:text-red-300">
+          Target error: {launcherStatus.targetError}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function LauncherArtifactsPanels({
+  launcherStatus,
+}: {
+  launcherStatus: LauncherStatusResponse | null;
+}) {
+  const managedArtifacts = Object.entries(
+    launcherStatus?.managedArtifacts ?? {},
+  );
+  const missingManagedArtifacts = launcherStatus?.missingManagedArtifacts ?? [];
+  return (
+    <>
+      {managedArtifacts.length > 0 && (
+        <div className="rounded-md border border-setta-200 bg-white px-3 py-2 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200">
+          <p className="font-semibold">Managed artifacts</p>
+          <ul className="mt-1 list-disc pl-4">
+            {managedArtifacts.map(([name, path]) => (
+              <li key={name} className="break-all">
+                <span className="font-semibold">{name}</span>: {path}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {missingManagedArtifacts.length > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/30 dark:text-amber-200">
+          Missing managed artifacts:
+          <ul className="mt-1 list-disc pl-4">
+            {missingManagedArtifacts.map((path) => (
+              <li key={path} className="break-all">
+                {path}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {launcherStatus?.updateGuidance && (
+        <div className="rounded-md border border-setta-200 bg-white px-3 py-2 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200">
+          {launcherStatus.updateGuidance}
+        </div>
+      )}
+    </>
+  );
+}
+
+function LauncherActionButtons({
+  launcherControlsDisabled,
+  launcherInstalled,
+  launcherActionInFlight,
+  launcherSetupButtonLabel,
+  canUpdateInApp,
+  installerManagedChannel,
+  showInstallerInstructions,
+  onSetup,
+  onRepair,
+  onUpdate,
+  onRemove,
+  onToggleInstallerInstructions,
+}: {
+  launcherControlsDisabled: boolean;
+  launcherInstalled: boolean;
+  launcherActionInFlight: LauncherActionState;
+  launcherSetupButtonLabel: string;
+  canUpdateInApp: boolean;
+  installerManagedChannel: boolean;
+  showInstallerInstructions: boolean;
+  onSetup: () => void | Promise<void>;
+  onRepair: () => void | Promise<void>;
+  onUpdate: () => void | Promise<void>;
+  onRemove: () => void | Promise<void>;
+  onToggleInstallerInstructions: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+        onClick={onSetup}
+        disabled={launcherControlsDisabled}
+      >
+        {launcherSetupButtonLabel}
+      </button>
+      <button
+        className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+        onClick={onRepair}
+        disabled={launcherControlsDisabled || !launcherInstalled}
+      >
+        {launcherActionInFlight === "repair"
+          ? "Repairing..."
+          : "Repair Desktop App"}
+      </button>
+      {canUpdateInApp && (
+        <button
+          className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+          onClick={onUpdate}
+          disabled={launcherControlsDisabled}
+        >
+          {launcherActionInFlight === "update" ? "Updating..." : "Update Setta"}
+        </button>
+      )}
+      {installerManagedChannel && (
+        <button
+          className="rounded-full border border-blue-300 px-3 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30"
+          onClick={onToggleInstallerInstructions}
+          disabled={launcherControlsDisabled}
+        >
+          {showInstallerInstructions
+            ? "Hide Update Instructions"
+            : "Show Update Instructions"}
+        </button>
+      )}
+      <button
+        className="rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+        onClick={onRemove}
+        disabled={launcherControlsDisabled || !launcherInstalled}
+      >
+        {launcherActionInFlight === "remove"
+          ? "Removing..."
+          : "Remove Desktop App"}
+      </button>
+    </div>
+  );
+}
+
+function LauncherFeedbackPanels({
+  showInstallerInstructions,
+  installerInstructions,
+  updateProgressLabel,
+  launcherStatusError,
+  launcherActionError,
+  launcherActionMessage,
+}: {
+  showInstallerInstructions: boolean;
+  installerInstructions: Array<string>;
+  updateProgressLabel: string | null;
+  launcherStatusError: string | null;
+  launcherActionError: string | null;
+  launcherActionMessage: string | null;
+}) {
+  return (
+    <>
+      {showInstallerInstructions && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900/60 dark:bg-blue-900/30 dark:text-blue-200">
+          <p className="font-semibold">Installer-managed update steps</p>
+          <ol className="mt-1 list-decimal pl-4">
+            {installerInstructions.map((instruction) => (
+              <li key={instruction}>{instruction}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {updateProgressLabel && (
+        <div className="rounded-md border border-setta-200 bg-white px-3 py-2 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200">
+          {updateProgressLabel}
+        </div>
+      )}
+      {launcherStatusError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
+          {launcherStatusError}
+        </div>
+      )}
+      {launcherActionError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
+          {launcherActionError}
+        </div>
+      )}
+      {launcherActionMessage && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/30 dark:text-emerald-200">
+          {launcherActionMessage}
+        </div>
+      )}
+    </>
+  );
+}
+
 export function DesktopLauncherSettingsSection({
   settaHome = null,
   requireSettaHome = false,
@@ -295,6 +564,11 @@ export function DesktopLauncherSettingsSection({
   const launcherTarget = formatLauncherTargetCommand(
     launcherStatus?.targetCommand,
   );
+  const refreshButtonLabel =
+    launcherActionInFlight === "refresh" ? "Refreshing..." : "Refresh";
+  const toggleInstallerInstructions = () => {
+    setShowInstallerInstructions((value) => !value);
+  };
   async function handleLauncherSetup() {
     if (missingRequiredSettaHome) {
       setLauncherActionError(missingSettaHomeErrorMessage);
@@ -388,9 +662,17 @@ export function DesktopLauncherSettingsSection({
     );
   }
   async function handleLauncherUpdate() {
-    if (missingRequiredSettaHome) {
-      setLauncherActionError(missingSettaHomeErrorMessage);
+    const failLauncherUpdate = (
+      errorMessage: string,
+      showInstructions = false,
+    ) => {
       setUpdateStage("failed");
+      setLauncherActionInFlight(null);
+      setShowInstallerInstructions(showInstructions);
+      setLauncherActionError(errorMessage);
+    };
+    if (missingRequiredSettaHome) {
+      failLauncherUpdate(missingSettaHomeErrorMessage);
       return;
     }
     setLauncherActionInFlight("update");
@@ -400,32 +682,15 @@ export function DesktopLauncherSettingsSection({
     setUpdateStage("checking");
     const currentStatus = await fetchLauncherStatus();
     if (!currentStatus) {
-      setUpdateStage("failed");
-      setLauncherActionInFlight(null);
-      setLauncherActionError("Failed to check launcher update capability.");
+      failLauncherUpdate("Failed to check launcher update capability.");
       return;
     }
     setLauncherStatus(currentStatus);
-    if (!currentStatus.ok) {
-      setUpdateStage("failed");
-      setLauncherActionInFlight(null);
-      setLauncherActionError(
-        resolveLauncherErrorMessage(
-          currentStatus,
-          "Launcher update capability check failed.",
-        ),
-      );
-      return;
-    }
-    if (currentStatus.updateCapability !== "in_app") {
-      setUpdateStage("failed");
-      setLauncherActionInFlight(null);
-      if (currentStatus.updateCapability === "installer_managed") {
-        setShowInstallerInstructions(true);
-      }
-      setLauncherActionError(
-        currentStatus.updateGuidance ??
-          "In-app launcher update is unavailable.",
+    const updatePreflight = resolveLauncherUpdatePreflight(currentStatus);
+    if (updatePreflight.kind !== "ready") {
+      failLauncherUpdate(
+        updatePreflight.errorMessage,
+        updatePreflight.showInstallerInstructions,
       );
       return;
     }
@@ -436,27 +701,23 @@ export function DesktopLauncherSettingsSection({
       } as Parameters<typeof updateLauncher>[0]),
     )) as LauncherUpdateRouteResponse;
     if (!res200(response) || !response.data) {
-      setUpdateStage("failed");
-      setLauncherActionInFlight(null);
-      setLauncherActionError("Setta update request failed.");
+      failLauncherUpdate("Setta update request failed.");
       return;
     }
     const payload = response.data;
     setLauncherStatus(payload);
     if (!payload.ok) {
-      setUpdateStage("failed");
-      setLauncherActionInFlight(null);
-      setLauncherActionError(
+      failLauncherUpdate(
         resolveLauncherErrorMessage(payload, "Setta update failed."),
       );
       return;
     }
     setUpdateStage("rebinding");
-    const refreshedStatus = await fetchLauncherStatus();
-    if (refreshedStatus && refreshedStatus.ok) {
-      setLauncherStatus(refreshedStatus);
-      setLauncherStatusError(null);
-    }
+    applySuccessfulLauncherStatusRefresh({
+      launcherStatus: await fetchLauncherStatus(),
+      setLauncherStatus,
+      setLauncherStatusError,
+    });
     const fromVersion = payload.fromVersion ?? "unknown";
     const toVersion = payload.toVersion ?? "unknown";
     setUpdateStage("done");
@@ -478,160 +739,40 @@ export function DesktopLauncherSettingsSection({
           onClick={refreshLauncherStatus}
           disabled={launcherControlsDisabled}
         >
-          {launcherActionInFlight === "refresh" ? "Refreshing..." : "Refresh"}
+          {refreshButtonLabel}
         </button>
       </div>
       <p className="text-xs text-setta-500 dark:text-setta-400">
         Manage launcher bindings and desktop artifacts from inside Setta.
       </p>
-      {launcherStatus && (
-        <div className="grid gap-1 text-xs text-setta-600 dark:text-setta-300">
-          <span>
-            Status:{" "}
-            <span className="font-semibold">
-              {launcherInstalled ? "installed" : "not installed"}
-            </span>
-          </span>
-          {launcherStatus.channel && (
-            <span>
-              Channel:{" "}
-              <span className="font-semibold">{launcherStatus.channel}</span>
-            </span>
-          )}
-          {launcherStatus.updateCapability && (
-            <span>
-              Update capability:{" "}
-              <span className="font-semibold">
-                {launcherStatus.updateCapability}
-              </span>
-            </span>
-          )}
-          {launcherTarget && (
-            <span className="break-all">
-              Target: <span className="font-semibold">{launcherTarget}</span>
-            </span>
-          )}
-          {launcherStatus.targetError && (
-            <span className="text-red-700 dark:text-red-300">
-              Target error: {launcherStatus.targetError}
-            </span>
-          )}
-        </div>
-      )}
-      {launcherStatus?.managedArtifacts &&
-        Object.keys(launcherStatus.managedArtifacts).length > 0 && (
-          <div className="rounded-md border border-setta-200 bg-white px-3 py-2 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200">
-            <p className="font-semibold">Managed artifacts</p>
-            <ul className="mt-1 list-disc pl-4">
-              {Object.entries(launcherStatus.managedArtifacts).map(
-                ([name, path]) => (
-                  <li key={name} className="break-all">
-                    <span className="font-semibold">{name}</span>: {path}
-                  </li>
-                ),
-              )}
-            </ul>
-          </div>
-        )}
-      {launcherStatus?.missingManagedArtifacts &&
-        launcherStatus.missingManagedArtifacts.length > 0 && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/30 dark:text-amber-200">
-            Missing managed artifacts:
-            <ul className="mt-1 list-disc pl-4">
-              {launcherStatus.missingManagedArtifacts.map((path) => (
-                <li key={path} className="break-all">
-                  {path}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      {launcherStatus?.updateGuidance && (
-        <div className="rounded-md border border-setta-200 bg-white px-3 py-2 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200">
-          {launcherStatus.updateGuidance}
-        </div>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <button
-          className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-          onClick={handleLauncherSetup}
-          disabled={launcherControlsDisabled}
-        >
-          {launcherSetupButtonLabel}
-        </button>
-        <button
-          className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-          onClick={handleLauncherRepair}
-          disabled={launcherControlsDisabled || !launcherInstalled}
-        >
-          {launcherActionInFlight === "repair"
-            ? "Repairing..."
-            : "Repair Desktop App"}
-        </button>
-        {canUpdateInApp && (
-          <button
-            className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-            onClick={handleLauncherUpdate}
-            disabled={launcherControlsDisabled}
-          >
-            {launcherActionInFlight === "update"
-              ? "Updating..."
-              : "Update Setta"}
-          </button>
-        )}
-        {installerManagedChannel && (
-          <button
-            className="rounded-full border border-blue-300 px-3 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30"
-            onClick={() => {
-              setShowInstallerInstructions((value) => !value);
-            }}
-            disabled={launcherControlsDisabled}
-          >
-            {showInstallerInstructions
-              ? "Hide Update Instructions"
-              : "Show Update Instructions"}
-          </button>
-        )}
-        <button
-          className="rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
-          onClick={handleLauncherRemove}
-          disabled={launcherControlsDisabled || !launcherInstalled}
-        >
-          {launcherActionInFlight === "remove"
-            ? "Removing..."
-            : "Remove Desktop App"}
-        </button>
-      </div>
-      {showInstallerInstructions && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900/60 dark:bg-blue-900/30 dark:text-blue-200">
-          <p className="font-semibold">Installer-managed update steps</p>
-          <ol className="mt-1 list-decimal pl-4">
-            {installerInstructions.map((instruction) => (
-              <li key={instruction}>{instruction}</li>
-            ))}
-          </ol>
-        </div>
-      )}
-      {updateProgressLabel && (
-        <div className="rounded-md border border-setta-200 bg-white px-3 py-2 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200">
-          {updateProgressLabel}
-        </div>
-      )}
-      {launcherStatusError && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
-          {launcherStatusError}
-        </div>
-      )}
-      {launcherActionError && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
-          {launcherActionError}
-        </div>
-      )}
-      {launcherActionMessage && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/30 dark:text-emerald-200">
-          {launcherActionMessage}
-        </div>
-      )}
+      <LauncherStatusSummary
+        launcherStatus={launcherStatus}
+        launcherInstalled={launcherInstalled}
+        launcherTarget={launcherTarget}
+      />
+      <LauncherArtifactsPanels launcherStatus={launcherStatus} />
+      <LauncherActionButtons
+        launcherControlsDisabled={launcherControlsDisabled}
+        launcherInstalled={launcherInstalled}
+        launcherActionInFlight={launcherActionInFlight}
+        launcherSetupButtonLabel={launcherSetupButtonLabel}
+        canUpdateInApp={canUpdateInApp}
+        installerManagedChannel={installerManagedChannel}
+        showInstallerInstructions={showInstallerInstructions}
+        onSetup={handleLauncherSetup}
+        onRepair={handleLauncherRepair}
+        onUpdate={handleLauncherUpdate}
+        onRemove={handleLauncherRemove}
+        onToggleInstallerInstructions={toggleInstallerInstructions}
+      />
+      <LauncherFeedbackPanels
+        showInstallerInstructions={showInstallerInstructions}
+        installerInstructions={installerInstructions}
+        updateProgressLabel={updateProgressLabel}
+        launcherStatusError={launcherStatusError}
+        launcherActionError={launcherActionError}
+        launcherActionMessage={launcherActionMessage}
+      />
     </section>
   );
 }

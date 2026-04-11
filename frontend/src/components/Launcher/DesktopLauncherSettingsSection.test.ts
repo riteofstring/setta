@@ -7,6 +7,7 @@ import {
   deriveLauncherControlsState,
   normalizeLauncherScopeSettaHome,
   resolveInstallerInstructionsForUserAgent,
+  resolveLauncherUpdatePreflight,
   resolveUpdateProgressLabel,
 } from "./DesktopLauncherSettingsSection";
 
@@ -91,6 +92,46 @@ describe("DesktopLauncherSettingsSection helpers", () => {
     expect(resolveUpdateProgressLabel("failed")).toBe(
       "Update progress: failed",
     );
+  });
+
+  it("allows in-app launcher updates after a successful preflight", () => {
+    const status = buildLauncherStatusResponse({
+      ok: true,
+      installed: true,
+      updateCapability: "in_app",
+    });
+
+    expect(resolveLauncherUpdatePreflight(status)).toEqual({ kind: "ready" });
+  });
+
+  it("returns installer-managed guidance from update preflight", () => {
+    const status = buildLauncherStatusResponse({
+      ok: true,
+      installed: true,
+      updateCapability: "installer_managed",
+      updateGuidance: "Use the installer to update Setta.",
+    });
+
+    expect(resolveLauncherUpdatePreflight(status)).toEqual({
+      kind: "error",
+      errorMessage: "Use the installer to update Setta.",
+      showInstallerInstructions: true,
+    });
+  });
+
+  it("returns launcher status errors from update preflight", () => {
+    const status = buildLauncherStatusResponse({
+      ok: false,
+      error: {
+        message: "Launcher status lookup failed.",
+      },
+    });
+
+    expect(resolveLauncherUpdatePreflight(status)).toEqual({
+      kind: "error",
+      errorMessage: "Launcher status lookup failed.",
+      showInstallerInstructions: false,
+    });
   });
 
   it("returns OS-specific installer instructions", () => {
