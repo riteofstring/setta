@@ -183,6 +183,33 @@ func (p *Project) CreateTopLevelSection(
 }
 
 func normalizeCreateTopLevelSectionInput(input CreateTopLevelSectionInput) (CreateTopLevelSectionInput, error) {
+	normalized, err := initializeCreateTopLevelSectionInput(input)
+	if err != nil {
+		return CreateTopLevelSectionInput{}, err
+	}
+	normalized.ControlCodeObjType, err = normalizeCreateTopLevelControlCodeObjType(
+		normalized.ImplType,
+		input.ControlCodeObjType,
+	)
+	if err != nil {
+		return CreateTopLevelSectionInput{}, err
+	}
+	normalized.Position, err = cloneCreateTopLevelSectionPosition(input.Position)
+	if err != nil {
+		return CreateTopLevelSectionInput{}, err
+	}
+	normalized.Name, err = normalizeCreateTopLevelSectionName(input.Name)
+	if err != nil {
+		return CreateTopLevelSectionInput{}, err
+	}
+	normalized.ViewportBounds, err = cloneCreateTopLevelSectionViewportBounds(input.ViewportBounds)
+	if err != nil {
+		return CreateTopLevelSectionInput{}, err
+	}
+	return normalized, nil
+}
+
+func initializeCreateTopLevelSectionInput(input CreateTopLevelSectionInput) (CreateTopLevelSectionInput, error) {
 	normalized := CreateTopLevelSectionInput{
 		ImplType:         strings.TrimSpace(input.ImplType),
 		ImplOverrides:    cloneProjectObject(input.ImplOverrides),
@@ -194,39 +221,54 @@ func normalizeCreateTopLevelSectionInput(input CreateTopLevelSectionInput) (Crea
 	if !isSupportedTopLevelSectionImplType(normalized.ImplType) {
 		return CreateTopLevelSectionInput{}, fmt.Errorf("%w: %q", ErrTopLevelSectionImplTypeUnsupported, normalized.ImplType)
 	}
-
-	if input.ControlCodeObjType != nil {
-		trimmed := strings.TrimSpace(*input.ControlCodeObjType)
-		if trimmed != "" {
-			normalized.ControlCodeObjType = &trimmed
-		}
-	}
-	if normalized.ImplType != "MetaControl" && normalized.ControlCodeObjType != nil {
-		return CreateTopLevelSectionInput{}, ErrTopLevelMetaControlCodeObjTypeNotAllowed
-	}
-
-	if input.Position != nil {
-		if !isFinitePosition(*input.Position) {
-			return CreateTopLevelSectionInput{}, ErrTopLevelSectionPositionInvalid
-		}
-		position := *input.Position
-		normalized.Position = &position
-	}
-	if input.Name != nil {
-		trimmed := strings.TrimSpace(*input.Name)
-		if formatError := sectionNameFormatError(trimmed); formatError != "" {
-			return CreateTopLevelSectionInput{}, &InvalidSectionNameError{Message: formatError}
-		}
-		normalized.Name = &trimmed
-	}
-	if input.ViewportBounds != nil {
-		if !isFiniteViewportBounds(*input.ViewportBounds) {
-			return CreateTopLevelSectionInput{}, ErrTopLevelSectionViewportBoundsInvalid
-		}
-		bounds := *input.ViewportBounds
-		normalized.ViewportBounds = &bounds
-	}
 	return normalized, nil
+}
+
+func normalizeCreateTopLevelControlCodeObjType(implType string, value *string) (*string, error) {
+	if value == nil {
+		return nil, nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil, nil
+	}
+	if implType != "MetaControl" {
+		return nil, ErrTopLevelMetaControlCodeObjTypeNotAllowed
+	}
+	return &trimmed, nil
+}
+
+func cloneCreateTopLevelSectionPosition(position *Position) (*Position, error) {
+	if position == nil {
+		return nil, nil
+	}
+	if !isFinitePosition(*position) {
+		return nil, ErrTopLevelSectionPositionInvalid
+	}
+	cloned := *position
+	return &cloned, nil
+}
+
+func normalizeCreateTopLevelSectionName(name *string) (*string, error) {
+	if name == nil {
+		return nil, nil
+	}
+	trimmed := strings.TrimSpace(*name)
+	if formatError := sectionNameFormatError(trimmed); formatError != "" {
+		return nil, &InvalidSectionNameError{Message: formatError}
+	}
+	return &trimmed, nil
+}
+
+func cloneCreateTopLevelSectionViewportBounds(bounds *ViewportBounds) (*ViewportBounds, error) {
+	if bounds == nil {
+		return nil, nil
+	}
+	if !isFiniteViewportBounds(*bounds) {
+		return nil, ErrTopLevelSectionViewportBoundsInvalid
+	}
+	cloned := *bounds
+	return &cloned, nil
 }
 
 func isFiniteViewportBounds(bounds ViewportBounds) bool {
@@ -313,6 +355,13 @@ func applyCreatedTopLevelSectionState(
 	if p == nil {
 		return nil
 	}
+	initializeCreatedTopLevelSectionMaps(p)
+	attachCreatedTopLevelSectionState(p, created, layout)
+	applyCreatedTopLevelSectionViewModes(p, created.section.ID, layout)
+	return applyCreatedTopLevelSectionMetaControlParam(p, created)
+}
+
+func initializeCreatedTopLevelSectionMaps(p *Project) {
 	if p.Sections == nil {
 		p.Sections = map[string]Section{}
 	}
@@ -337,7 +386,13 @@ func applyCreatedTopLevelSectionState(
 	if p.CodeObjImpls == nil {
 		p.CodeObjImpls = map[string]CodeObjectImpl{}
 	}
+}
 
+func attachCreatedTopLevelSectionState(
+	p *Project,
+	created createdTopLevelSectionState,
+	layout TopLevelSectionLayout,
+) {
 	p.Sections[created.section.ID] = created.section
 	p.SectionVariants[created.variant.ID] = created.variant
 	p.SectionImpls[created.impl.ID] = created.impl
@@ -346,18 +401,26 @@ func applyCreatedTopLevelSectionState(
 		p.TopLevelSectionIDs = append(p.TopLevelSectionIDs, created.section.ID)
 	}
 	p.TopLevelSections[created.section.ID] = layout.Clone()
+}
+
+func applyCreatedTopLevelSectionViewModes(p *Project, sectionID string, layout TopLevelSectionLayout) {
 	for viewModeID, viewMode := range p.ViewModes {
 		if viewMode.VisibilityBySectionID == nil {
 			viewMode.VisibilityBySectionID = map[string]bool{}
 		}
-		viewMode.VisibilityBySectionID[created.section.ID] = true
+		viewMode.VisibilityBySectionID[sectionID] = true
 		if viewMode.TopLevelSections == nil {
 			viewMode.TopLevelSections = map[string]TopLevelSectionLayout{}
 		}
-		viewMode.TopLevelSections[created.section.ID] = layout.Clone()
+		viewMode.TopLevelSections[sectionID] = layout.Clone()
 		p.ViewModes[viewModeID] = viewMode
 	}
+}
 
+func applyCreatedTopLevelSectionMetaControlParam(
+	p *Project,
+	created createdTopLevelSectionState,
+) *string {
 	if created.metaControlParamCore == nil || created.metaControlParamVar == nil || created.metaControlParamImpl == nil {
 		return nil
 	}
@@ -1098,58 +1161,14 @@ func (p Project) resolveCreateTopLevelSectionPosition(
 	rawPayload RawJSON,
 	viewportBounds *ViewportBounds,
 ) (Position, *Position, error) {
-	payload, err := rawObjectFromProjectPayload(rawPayload)
+	spec, err := p.resolveCreateTopLevelSectionPlacementSpec(policy, implType, rawPayload)
 	if err != nil {
 		return Position{}, nil, err
 	}
-	newWidth, err := resolveAutoLayoutDimension(policy, "new-section", implType, "width", nil, payload)
-	if err != nil {
-		return Position{}, nil, err
+	if position, panTo, ok := resolveCreateTopLevelSectionViewportPosition(spec, policy, implType, viewportBounds); ok {
+		return position, panTo, nil
 	}
-	newHeight, err := resolveAutoLayoutDimension(policy, "new-section", implType, "height", nil, payload)
-	if err != nil {
-		return Position{}, nil, err
-	}
-	if newWidth <= 0 || newHeight <= 0 {
-		return Position{}, nil, &InvalidAutoLayoutError{
-			Message: fmt.Sprintf("Section type %q has non-positive dimensions (%v, %v).", implType, newWidth, newHeight),
-		}
-	}
-
-	rects, err := p.buildCreateTopLevelSectionLayoutRects(policy)
-	if err != nil {
-		return Position{}, nil, err
-	}
-	padding := 24.0
-	step := gridStepForCreateTopLevelSection(newWidth, newHeight)
-
-	if viewportBounds != nil && viewportBounds.W > 0 && viewportBounds.H > 0 {
-		bounds := createTopLevelSectionLayoutRect{
-			X: viewportBounds.X,
-			Y: viewportBounds.Y,
-			W: viewportBounds.W,
-			H: viewportBounds.H,
-		}
-		useViewport := len(rects) == 0 || boundsIntersectAny(bounds, rects)
-		if useViewport {
-			if position, ok := findPositionInBounds(bounds, newWidth, newHeight, rects, padding, step); ok {
-				return position, nil, nil
-			}
-			position, ok := findPositionAdjacentToBounds(bounds, newWidth, newHeight, rects, padding, step)
-			if !ok {
-				position = findPositionAfterExisting(rects, newWidth, newHeight, padding, step)
-			}
-			panTo := resolveCreateTopLevelSectionPanTarget(policy, implType, position, newWidth, newHeight)
-			return position, &panTo, nil
-		}
-
-		position := findPositionAfterExisting(rects, newWidth, newHeight, padding, step)
-		panTo := resolveCreateTopLevelSectionPanTarget(policy, implType, position, newWidth, newHeight)
-		return position, &panTo, nil
-	}
-
-	position := findPositionAfterExisting(rects, newWidth, newHeight, padding, step)
-	return position, nil, nil
+	return findPositionAfterExisting(spec.rects, spec.width, spec.height, spec.padding, spec.step), nil, nil
 }
 
 func (p Project) resolveDeterministicCreateTopLevelSectionPosition(
@@ -1157,31 +1176,11 @@ func (p Project) resolveDeterministicCreateTopLevelSectionPosition(
 	implType string,
 	rawPayload RawJSON,
 ) (Position, error) {
-	payload, err := rawObjectFromProjectPayload(rawPayload)
+	spec, err := p.resolveCreateTopLevelSectionPlacementSpec(policy, implType, rawPayload)
 	if err != nil {
 		return Position{}, err
 	}
-	newWidth, err := resolveAutoLayoutDimension(policy, "new-section", implType, "width", nil, payload)
-	if err != nil {
-		return Position{}, err
-	}
-	newHeight, err := resolveAutoLayoutDimension(policy, "new-section", implType, "height", nil, payload)
-	if err != nil {
-		return Position{}, err
-	}
-	if newWidth <= 0 || newHeight <= 0 {
-		return Position{}, &InvalidAutoLayoutError{
-			Message: fmt.Sprintf("Section type %q has non-positive dimensions (%v, %v).", implType, newWidth, newHeight),
-		}
-	}
-
-	rects, err := p.buildCreateTopLevelSectionLayoutRects(policy)
-	if err != nil {
-		return Position{}, err
-	}
-	padding := 24.0
-	step := gridStepForCreateTopLevelSection(newWidth, newHeight)
-	return findDeterministicPositionAfterExisting(rects, newWidth, newHeight, padding, step), nil
+	return findDeterministicPositionAfterExisting(spec.rects, spec.width, spec.height, spec.padding, spec.step), nil
 }
 
 type createTopLevelSectionLayoutRect struct {
@@ -1189,6 +1188,61 @@ type createTopLevelSectionLayoutRect struct {
 	Y float64
 	W float64
 	H float64
+}
+
+type createTopLevelSectionPlacementSpec struct {
+	rects   []createTopLevelSectionLayoutRect
+	width   float64
+	height  float64
+	padding float64
+	step    float64
+}
+
+func (p Project) resolveCreateTopLevelSectionPlacementSpec(
+	policy AutoLayoutSectionSizingPolicy,
+	implType string,
+	rawPayload RawJSON,
+) (createTopLevelSectionPlacementSpec, error) {
+	payload, err := rawObjectFromProjectPayload(rawPayload)
+	if err != nil {
+		return createTopLevelSectionPlacementSpec{}, err
+	}
+	newWidth, newHeight, err := resolveCreateTopLevelSectionPlacementSize(policy, implType, payload)
+	if err != nil {
+		return createTopLevelSectionPlacementSpec{}, err
+	}
+	rects, err := p.buildCreateTopLevelSectionLayoutRects(policy)
+	if err != nil {
+		return createTopLevelSectionPlacementSpec{}, err
+	}
+	return createTopLevelSectionPlacementSpec{
+		rects:   rects,
+		width:   newWidth,
+		height:  newHeight,
+		padding: 24.0,
+		step:    gridStepForCreateTopLevelSection(newWidth, newHeight),
+	}, nil
+}
+
+func resolveCreateTopLevelSectionPlacementSize(
+	policy AutoLayoutSectionSizingPolicy,
+	implType string,
+	payload map[string]any,
+) (float64, float64, error) {
+	newWidth, err := resolveAutoLayoutDimension(policy, "new-section", implType, "width", nil, payload)
+	if err != nil {
+		return 0, 0, err
+	}
+	newHeight, err := resolveAutoLayoutDimension(policy, "new-section", implType, "height", nil, payload)
+	if err != nil {
+		return 0, 0, err
+	}
+	if newWidth <= 0 || newHeight <= 0 {
+		return 0, 0, &InvalidAutoLayoutError{
+			Message: fmt.Sprintf("Section type %q has non-positive dimensions (%v, %v).", implType, newWidth, newHeight),
+		}
+	}
+	return newWidth, newHeight, nil
 }
 
 func (p Project) buildCreateTopLevelSectionLayoutRects(policy AutoLayoutSectionSizingPolicy) ([]createTopLevelSectionLayoutRect, error) {
@@ -1290,69 +1344,47 @@ func findPositionAfterExisting(
 	padding float64,
 	step float64,
 ) Position {
-	if len(rects) == 0 {
-		return Position{X: padding, Y: padding}
-	}
 	bounds, ok := layoutBounds(rects)
 	if !ok {
-		return Position{X: padding, Y: padding}
+		return defaultCreateTopLevelSectionPosition(padding)
 	}
-
-	interiorBounds := createTopLevelSectionLayoutRect{
-		X: bounds.X - padding,
-		Y: bounds.Y - padding,
-		W: bounds.W + padding*2,
-		H: bounds.H + padding*2,
-	}
-	if position, ok := findPositionInBounds(interiorBounds, newWidth, newHeight, rects, padding, step); ok {
+	if position, ok := findPositionInBounds(
+		expandCreateTopLevelSectionRect(bounds, padding),
+		newWidth,
+		newHeight,
+		rects,
+		padding,
+		step,
+	); ok {
 		return position
 	}
-
-	rightBounds := createTopLevelSectionLayoutRect{
-		X: bounds.X + bounds.W,
-		Y: bounds.Y - padding,
-		W: newWidth + padding*2,
-		H: bounds.H + padding*2,
-	}
-	bottomBounds := createTopLevelSectionLayoutRect{
-		X: bounds.X - padding,
-		Y: bounds.Y + bounds.H,
-		W: bounds.W + padding*2,
-		H: newHeight + padding*2,
-	}
-	rightPosition, rightOK := findPositionInBounds(rightBounds, newWidth, newHeight, rects, padding, step)
-	bottomPosition, bottomOK := findPositionInBounds(bottomBounds, newWidth, newHeight, rects, padding, step)
-	if !rightOK && !bottomOK {
-		maxX := rects[0].X + rects[0].W
-		minY := rects[0].Y
-		for _, rect := range rects[1:] {
-			if rect.X+rect.W > maxX {
-				maxX = rect.X + rect.W
-			}
-			if rect.Y < minY {
-				minY = rect.Y
-			}
-		}
-		return Position{X: maxX + padding, Y: minY}
-	}
-	if !rightOK {
-		return bottomPosition
-	}
-	if !bottomOK {
-		return rightPosition
-	}
-	rightScore := candidateAspectScore(bounds, rightPosition, newWidth, newHeight)
-	bottomScore := candidateAspectScore(bounds, bottomPosition, newWidth, newHeight)
-	if bottomScore < rightScore {
-		return bottomPosition
-	}
-	if rightScore < bottomScore {
-		return rightPosition
-	}
-	if bounds.W < bounds.H {
-		return rightPosition
-	}
-	return bottomPosition
+	rightPosition, rightOK := findPositionInBounds(
+		rightCreateTopLevelSectionBounds(bounds, newWidth, padding),
+		newWidth,
+		newHeight,
+		rects,
+		padding,
+		step,
+	)
+	bottomPosition, bottomOK := findPositionInBounds(
+		bottomCreateTopLevelSectionBounds(bounds, newHeight, padding),
+		newWidth,
+		newHeight,
+		rects,
+		padding,
+		step,
+	)
+	return chooseCreateTopLevelSectionAdjacentPosition(
+		bounds,
+		rects,
+		newWidth,
+		newHeight,
+		padding,
+		rightPosition,
+		rightOK,
+		bottomPosition,
+		bottomOK,
+	)
 }
 
 func findDeterministicPositionAfterExisting(
@@ -1362,53 +1394,177 @@ func findDeterministicPositionAfterExisting(
 	padding float64,
 	step float64,
 ) Position {
-	if len(rects) == 0 {
-		return Position{X: padding, Y: padding}
-	}
 	bounds, ok := layoutBounds(rects)
 	if !ok {
-		return Position{X: padding, Y: padding}
+		return defaultCreateTopLevelSectionPosition(padding)
 	}
 
-	interiorBounds := createTopLevelSectionLayoutRect{
-		X: bounds.X - padding,
-		Y: bounds.Y - padding,
-		W: bounds.W + padding*2,
-		H: bounds.H + padding*2,
-	}
-	if position, ok := findPositionInBounds(interiorBounds, newWidth, newHeight, rects, padding, step); ok {
+	if position, ok := findPositionInBounds(
+		expandCreateTopLevelSectionRect(bounds, padding),
+		newWidth,
+		newHeight,
+		rects,
+		padding,
+		step,
+	); ok {
 		return position
 	}
+	if position, ok := findPositionInBounds(
+		rightCreateTopLevelSectionBounds(bounds, newWidth, padding),
+		newWidth,
+		newHeight,
+		rects,
+		padding,
+		step,
+	); ok {
+		return position
+	}
+	if position, ok := findPositionInBounds(
+		bottomCreateTopLevelSectionBounds(bounds, newHeight, padding),
+		newWidth,
+		newHeight,
+		rects,
+		padding,
+		step,
+	); ok {
+		return position
+	}
+	return fallbackCreateTopLevelSectionPosition(rects, padding)
+}
 
-	rightBounds := createTopLevelSectionLayoutRect{
+func resolveCreateTopLevelSectionViewportPosition(
+	spec createTopLevelSectionPlacementSpec,
+	policy AutoLayoutSectionSizingPolicy,
+	implType string,
+	viewportBounds *ViewportBounds,
+) (Position, *Position, bool) {
+	bounds, ok := createTopLevelSectionViewportRect(viewportBounds)
+	if !ok {
+		return Position{}, nil, false
+	}
+	if !shouldUseCreateTopLevelSectionViewport(bounds, spec.rects) {
+		position, panTo := createTopLevelSectionPositionWithPan(
+			policy,
+			implType,
+			findPositionAfterExisting(spec.rects, spec.width, spec.height, spec.padding, spec.step),
+			spec.width,
+			spec.height,
+		)
+		return position, panTo, true
+	}
+	if position, ok := findPositionInBounds(bounds, spec.width, spec.height, spec.rects, spec.padding, spec.step); ok {
+		return position, nil, true
+	}
+	position, ok := findPositionAdjacentToBounds(bounds, spec.width, spec.height, spec.rects, spec.padding, spec.step)
+	if !ok {
+		position = findPositionAfterExisting(spec.rects, spec.width, spec.height, spec.padding, spec.step)
+	}
+	position, panTo := createTopLevelSectionPositionWithPan(policy, implType, position, spec.width, spec.height)
+	return position, panTo, true
+}
+
+func createTopLevelSectionViewportRect(bounds *ViewportBounds) (createTopLevelSectionLayoutRect, bool) {
+	if bounds == nil || bounds.W <= 0 || bounds.H <= 0 {
+		return createTopLevelSectionLayoutRect{}, false
+	}
+	return createTopLevelSectionLayoutRect{
+		X: bounds.X,
+		Y: bounds.Y,
+		W: bounds.W,
+		H: bounds.H,
+	}, true
+}
+
+func shouldUseCreateTopLevelSectionViewport(
+	bounds createTopLevelSectionLayoutRect,
+	rects []createTopLevelSectionLayoutRect,
+) bool {
+	return len(rects) == 0 || boundsIntersectAny(bounds, rects)
+}
+
+func createTopLevelSectionPositionWithPan(
+	policy AutoLayoutSectionSizingPolicy,
+	implType string,
+	position Position,
+	newWidth float64,
+	newHeight float64,
+) (Position, *Position) {
+	panTo := resolveCreateTopLevelSectionPanTarget(policy, implType, position, newWidth, newHeight)
+	return position, &panTo
+}
+
+func defaultCreateTopLevelSectionPosition(padding float64) Position {
+	return Position{X: padding, Y: padding}
+}
+
+func rightCreateTopLevelSectionBounds(
+	bounds createTopLevelSectionLayoutRect,
+	newWidth float64,
+	padding float64,
+) createTopLevelSectionLayoutRect {
+	return createTopLevelSectionLayoutRect{
 		X: bounds.X + bounds.W,
 		Y: bounds.Y - padding,
 		W: newWidth + padding*2,
 		H: bounds.H + padding*2,
 	}
-	if position, ok := findPositionInBounds(rightBounds, newWidth, newHeight, rects, padding, step); ok {
-		return position
-	}
+}
 
-	bottomBounds := createTopLevelSectionLayoutRect{
+func bottomCreateTopLevelSectionBounds(
+	bounds createTopLevelSectionLayoutRect,
+	newHeight float64,
+	padding float64,
+) createTopLevelSectionLayoutRect {
+	return createTopLevelSectionLayoutRect{
 		X: bounds.X - padding,
 		Y: bounds.Y + bounds.H,
 		W: bounds.W + padding*2,
 		H: newHeight + padding*2,
 	}
-	if position, ok := findPositionInBounds(bottomBounds, newWidth, newHeight, rects, padding, step); ok {
-		return position
-	}
+}
 
+func chooseCreateTopLevelSectionAdjacentPosition(
+	bounds createTopLevelSectionLayoutRect,
+	rects []createTopLevelSectionLayoutRect,
+	newWidth float64,
+	newHeight float64,
+	padding float64,
+	rightPosition Position,
+	rightOK bool,
+	bottomPosition Position,
+	bottomOK bool,
+) Position {
+	switch {
+	case !rightOK && !bottomOK:
+		return fallbackCreateTopLevelSectionPosition(rects, padding)
+	case !rightOK:
+		return bottomPosition
+	case !bottomOK:
+		return rightPosition
+	}
+	rightScore := candidateAspectScore(bounds, rightPosition, newWidth, newHeight)
+	bottomScore := candidateAspectScore(bounds, bottomPosition, newWidth, newHeight)
+	if rightScore != bottomScore {
+		if bottomScore < rightScore {
+			return bottomPosition
+		}
+		return rightPosition
+	}
+	if bounds.W < bounds.H {
+		return rightPosition
+	}
+	return bottomPosition
+}
+
+func fallbackCreateTopLevelSectionPosition(
+	rects []createTopLevelSectionLayoutRect,
+	padding float64,
+) Position {
 	maxX := rects[0].X + rects[0].W
 	minY := rects[0].Y
 	for _, rect := range rects[1:] {
-		if rect.X+rect.W > maxX {
-			maxX = rect.X + rect.W
-		}
-		if rect.Y < minY {
-			minY = rect.Y
-		}
+		maxX = max(maxX, rect.X+rect.W)
+		minY = min(minY, rect.Y)
 	}
 	return Position{X: maxX + padding, Y: minY}
 }
@@ -1502,41 +1658,70 @@ func applyTopLevelSectionLayoutSnapshot(
 	if p == nil || layoutSnapshot == nil {
 		return
 	}
+	ensureProjectTopLevelSectionsMap(p)
+	activeViewModeID, activeViewMode, hasActiveViewMode := p.activeCreateTopLevelSectionLayoutSnapshotViewMode()
+	for sectionID, layout := range layoutSnapshot {
+		if !p.canApplyTopLevelSectionLayoutSnapshot(sectionID) {
+			continue
+		}
+		nextLayout := mergeTopLevelSectionLayoutSnapshot(p.TopLevelSections[sectionID], layout)
+		p.TopLevelSections[sectionID] = nextLayout
+		if hasActiveViewMode {
+			activeViewMode = applyTopLevelSectionLayoutSnapshotToViewMode(activeViewMode, sectionID, nextLayout)
+		}
+	}
+	if hasActiveViewMode {
+		p.ViewModes[activeViewModeID] = activeViewMode
+	}
+}
+
+func ensureProjectTopLevelSectionsMap(p *Project) {
 	if p.TopLevelSections == nil {
 		p.TopLevelSections = map[string]TopLevelSectionLayout{}
 	}
+}
 
-	for sectionID, layout := range layoutSnapshot {
-		section, ok := p.Sections[sectionID]
-		if !ok || strings.TrimSpace(section.ParentSectionID) != "" {
-			continue
-		}
-
-		nextLayout := layout.Clone()
-		if existing, ok := p.TopLevelSections[sectionID]; ok {
-			if nextLayout.W == nil {
-				nextLayout.W = cloneFloat64Pointer(existing.W)
-			}
-			if nextLayout.H == nil {
-				nextLayout.H = cloneFloat64Pointer(existing.H)
-			}
-		}
-		p.TopLevelSections[sectionID] = nextLayout
-
-		activeViewModeID := strings.TrimSpace(p.ActiveViewModeID)
-		if activeViewModeID == "" {
-			continue
-		}
-		viewMode, ok := p.ViewModes[activeViewModeID]
-		if !ok {
-			continue
-		}
-		if viewMode.TopLevelSections == nil {
-			viewMode.TopLevelSections = map[string]TopLevelSectionLayout{}
-		}
-		viewMode.TopLevelSections[sectionID] = nextLayout.Clone()
-		p.ViewModes[activeViewModeID] = viewMode
+func (p Project) activeCreateTopLevelSectionLayoutSnapshotViewMode() (string, ViewMode, bool) {
+	activeViewModeID := strings.TrimSpace(p.ActiveViewModeID)
+	if activeViewModeID == "" {
+		return "", ViewMode{}, false
 	}
+	viewMode, ok := p.ViewModes[activeViewModeID]
+	if !ok {
+		return "", ViewMode{}, false
+	}
+	return activeViewModeID, viewMode, true
+}
+
+func (p Project) canApplyTopLevelSectionLayoutSnapshot(sectionID string) bool {
+	section, ok := p.Sections[sectionID]
+	return ok && strings.TrimSpace(section.ParentSectionID) == ""
+}
+
+func mergeTopLevelSectionLayoutSnapshot(
+	existing TopLevelSectionLayout,
+	layout TopLevelSectionLayout,
+) TopLevelSectionLayout {
+	nextLayout := layout.Clone()
+	if nextLayout.W == nil {
+		nextLayout.W = cloneFloat64Pointer(existing.W)
+	}
+	if nextLayout.H == nil {
+		nextLayout.H = cloneFloat64Pointer(existing.H)
+	}
+	return nextLayout
+}
+
+func applyTopLevelSectionLayoutSnapshotToViewMode(
+	viewMode ViewMode,
+	sectionID string,
+	layout TopLevelSectionLayout,
+) ViewMode {
+	if viewMode.TopLevelSections == nil {
+		viewMode.TopLevelSections = map[string]TopLevelSectionLayout{}
+	}
+	viewMode.TopLevelSections[sectionID] = layout.Clone()
+	return viewMode
 }
 
 func (p Project) nextCreateTopLevelSectionZIndex() int {
@@ -1553,16 +1738,25 @@ func (p *Project) pruneTopLevelCreationViewState() {
 	if p == nil {
 		return
 	}
+	validSections := projectSectionIDSet(p.Sections)
+	validTopLevelSections := p.validTopLevelSectionIDs()
+	p.TopLevelSectionIDs = filterCreateTopLevelSectionIDs(p.TopLevelSectionIDs, validTopLevelSections)
+	deleteInvalidTopLevelSectionLayouts(p.TopLevelSections, validTopLevelSections)
+	pruneCreateTopLevelSectionViewModes(p.ViewModes, validSections, validTopLevelSections)
+}
 
-	validSections := map[string]struct{}{}
-	for sectionID := range p.Sections {
+func projectSectionIDSet(sections map[string]Section) map[string]struct{} {
+	validSections := make(map[string]struct{}, len(sections))
+	for sectionID := range sections {
 		validSections[sectionID] = struct{}{}
 	}
-	validTopLevelSections := p.validTopLevelSectionIDs()
+	return validSections
+}
 
+func filterCreateTopLevelSectionIDs(ids []string, validTopLevelSections map[string]struct{}) []string {
 	seenTopLevels := map[string]struct{}{}
-	filteredTopLevelIDs := make([]string, 0, len(p.TopLevelSectionIDs))
-	for _, sectionID := range p.TopLevelSectionIDs {
+	filteredTopLevelIDs := make([]string, 0, len(ids))
+	for _, sectionID := range ids {
 		if _, ok := validTopLevelSections[sectionID]; !ok {
 			continue
 		}
@@ -1572,29 +1766,54 @@ func (p *Project) pruneTopLevelCreationViewState() {
 		seenTopLevels[sectionID] = struct{}{}
 		filteredTopLevelIDs = append(filteredTopLevelIDs, sectionID)
 	}
-	p.TopLevelSectionIDs = filteredTopLevelIDs
+	return filteredTopLevelIDs
+}
 
-	for sectionID := range p.TopLevelSections {
+func deleteInvalidTopLevelSectionLayouts(
+	layouts map[string]TopLevelSectionLayout,
+	validTopLevelSections map[string]struct{},
+) {
+	for sectionID := range layouts {
 		if _, ok := validTopLevelSections[sectionID]; ok {
 			continue
 		}
-		delete(p.TopLevelSections, sectionID)
+		delete(layouts, sectionID)
 	}
+}
 
-	for viewModeID, viewMode := range p.ViewModes {
-		for sectionID := range viewMode.TopLevelSections {
-			if _, ok := validTopLevelSections[sectionID]; ok {
-				continue
-			}
-			delete(viewMode.TopLevelSections, sectionID)
+func pruneCreateTopLevelSectionViewModes(
+	viewModes map[string]ViewMode,
+	validSections map[string]struct{},
+	validTopLevelSections map[string]struct{},
+) {
+	for viewModeID, viewMode := range viewModes {
+		deleteInvalidViewModeTopLevelSections(viewMode.TopLevelSections, validTopLevelSections)
+		deleteInvalidViewModeVisibility(viewMode.VisibilityBySectionID, validSections)
+		viewModes[viewModeID] = viewMode
+	}
+}
+
+func deleteInvalidViewModeTopLevelSections(
+	topLevelSections map[string]TopLevelSectionLayout,
+	validTopLevelSections map[string]struct{},
+) {
+	for sectionID := range topLevelSections {
+		if _, ok := validTopLevelSections[sectionID]; ok {
+			continue
 		}
-		for sectionID := range viewMode.VisibilityBySectionID {
-			if _, ok := validSections[sectionID]; ok {
-				continue
-			}
-			delete(viewMode.VisibilityBySectionID, sectionID)
+		delete(topLevelSections, sectionID)
+	}
+}
+
+func deleteInvalidViewModeVisibility(
+	visibility map[string]bool,
+	validSections map[string]struct{},
+) {
+	for sectionID := range visibility {
+		if _, ok := validSections[sectionID]; ok {
+			continue
 		}
-		p.ViewModes[viewModeID] = viewMode
+		delete(visibility, sectionID)
 	}
 }
 
