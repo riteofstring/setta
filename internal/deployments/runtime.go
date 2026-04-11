@@ -60,52 +60,99 @@ type Runtime struct {
 	sessions map[string]Session
 }
 
+type openRuntimeResources struct {
+	paths    projectstate.DeploymentPathPolicy
+	manifest Manifest
+	policy   Policy
+	base     *projectstate.Runtime
+	overlays *projectstate.SessionOverlayRegistry
+	listener *deploymentListenerRuntime
+}
+
+type openRuntimeHooks struct {
+	idGenerator func() string
+	now         func() time.Time
+	sessionTTL  time.Duration
+}
+
 func Open(ctx context.Context, opts RuntimeOptions) (*Runtime, error) {
-	paths, err := projectstate.ResolveDeploymentPathPolicy(opts.DeploymentRoot, opts.RuntimeRoot)
+	resources, err := loadOpenRuntimeResources(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
+	hooks := normalizeOpenRuntimeHooks(opts)
 
+	return &Runtime{
+		paths:       resources.paths,
+		manifest:    resources.manifest,
+		policy:      resources.policy,
+		base:        resources.base,
+		overlays:    resources.overlays,
+		listener:    resources.listener,
+		idGenerator: hooks.idGenerator,
+		now:         hooks.now,
+		sessionTTL:  hooks.sessionTTL,
+		sessions:    map[string]Session{},
+	}, nil
+}
+
+func loadOpenRuntimeResources(ctx context.Context, opts RuntimeOptions) (openRuntimeResources, error) {
+	paths, manifest, policy, listener, err := loadOpenRuntimeConfig(opts)
+	if err != nil {
+		return openRuntimeResources{}, err
+	}
+	baseRuntime, overlayRegistry, err := openRuntimeProjectState(ctx, paths, manifest)
+	if err != nil {
+		return openRuntimeResources{}, err
+	}
+	return openRuntimeResources{
+		paths:    paths,
+		manifest: manifest,
+		policy:   policy,
+		base:     baseRuntime,
+		overlays: overlayRegistry,
+		listener: listener,
+	}, nil
+}
+
+func loadOpenRuntimeConfig(opts RuntimeOptions) (projectstate.DeploymentPathPolicy, Manifest, Policy, *deploymentListenerRuntime, error) {
+	paths, err := projectstate.ResolveDeploymentPathPolicy(opts.DeploymentRoot, opts.RuntimeRoot)
+	if err != nil {
+		return projectstate.DeploymentPathPolicy{}, Manifest{}, Policy{}, nil, err
+	}
 	manifest, err := LoadManifest(paths.DeploymentRoot)
 	if err != nil {
-		return nil, err
+		return projectstate.DeploymentPathPolicy{}, Manifest{}, Policy{}, nil, err
 	}
 	policy, err := LoadPolicy(paths.DeploymentRoot)
 	if err != nil {
-		return nil, err
+		return projectstate.DeploymentPathPolicy{}, Manifest{}, Policy{}, nil, err
 	}
 	listenerRuntime, err := newDeploymentListenerRuntime(paths.DeploymentRoot, paths.RuntimeRoot, opts, manifest)
 	if err != nil {
-		return nil, err
+		return projectstate.DeploymentPathPolicy{}, Manifest{}, Policy{}, nil, err
 	}
+	return paths, manifest, policy, listenerRuntime, nil
+}
 
-	projectPath := filepath.Join(paths.DeploymentRoot, projectstate.MainFileName)
-	if _, err := os.Stat(projectPath); err != nil {
-		return nil, fmt.Errorf("read deployment project document: %w", err)
-	}
-
-	store, err := projectstate.NewStore(projectPath, projectstate.StoreOptions{})
+func openRuntimeProjectState(
+	ctx context.Context,
+	paths projectstate.DeploymentPathPolicy,
+	manifest Manifest,
+) (*projectstate.Runtime, *projectstate.SessionOverlayRegistry, error) {
+	document, err := loadRuntimeProjectDocument(ctx, paths.DeploymentRoot, manifest)
 	if err != nil {
-		return nil, fmt.Errorf("open deployment project store: %w", err)
-	}
-	document, err := store.Load(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("load deployment project document: %w", err)
-	}
-	document, err = applyManifestDefaultProject(document, manifest)
-	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	passwordSecrets, err := projectstate.NewFilePasswordSecretStore(paths.RuntimeRoot)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
 	baseRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(document, projectstate.RuntimeOptions{
 		PasswordSecrets: passwordSecrets,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	overlayRegistry, err := projectstate.OpenSessionOverlayRegistry(baseRuntime, projectstate.OverlayRegistryOptions{
 		DeploymentRoot: paths.DeploymentRoot,
@@ -113,34 +160,43 @@ func Open(ctx context.Context, opts RuntimeOptions) (*Runtime, error) {
 	})
 	if err != nil {
 		_ = baseRuntime.Close()
-		return nil, err
+		return nil, nil, err
 	}
+	return baseRuntime, overlayRegistry, nil
+}
 
-	idGenerator := opts.IDGenerator
-	if idGenerator == nil {
-		idGenerator = newRandomSessionID
+func loadRuntimeProjectDocument(ctx context.Context, deploymentRoot string, manifest Manifest) (projectstate.Document, error) {
+	projectPath := filepath.Join(deploymentRoot, projectstate.MainFileName)
+	if _, err := os.Stat(projectPath); err != nil {
+		return projectstate.Document{}, fmt.Errorf("read deployment project document: %w", err)
 	}
-	now := opts.Now
-	if now == nil {
-		now = time.Now
+	store, err := projectstate.NewStore(projectPath, projectstate.StoreOptions{})
+	if err != nil {
+		return projectstate.Document{}, fmt.Errorf("open deployment project store: %w", err)
 	}
-	sessionTTL := opts.SessionTTL
-	if sessionTTL <= 0 {
-		sessionTTL = DefaultSessionTTL
+	document, err := store.Load(ctx)
+	if err != nil {
+		return projectstate.Document{}, fmt.Errorf("load deployment project document: %w", err)
 	}
+	return applyManifestDefaultProject(document, manifest)
+}
 
-	return &Runtime{
-		paths:       paths,
-		manifest:    manifest,
-		policy:      policy,
-		base:        baseRuntime,
-		overlays:    overlayRegistry,
-		listener:    listenerRuntime,
-		idGenerator: idGenerator,
-		now:         now,
-		sessionTTL:  sessionTTL,
-		sessions:    map[string]Session{},
-	}, nil
+func normalizeOpenRuntimeHooks(opts RuntimeOptions) openRuntimeHooks {
+	hooks := openRuntimeHooks{
+		idGenerator: opts.IDGenerator,
+		now:         opts.Now,
+		sessionTTL:  opts.SessionTTL,
+	}
+	if hooks.idGenerator == nil {
+		hooks.idGenerator = newRandomSessionID
+	}
+	if hooks.now == nil {
+		hooks.now = time.Now
+	}
+	if hooks.sessionTTL <= 0 {
+		hooks.sessionTTL = DefaultSessionTTL
+	}
+	return hooks
 }
 
 func (r *Runtime) Close() error {
