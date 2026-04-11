@@ -42,9 +42,13 @@ write_files:
     owner: ubuntu:ubuntu
     content: |
       set -g default-terminal "tmux-256color"
+      set -g mouse on
+      set -g history-limit 200000
       set -s extended-keys on
       set -s extended-keys-format csi-u
       set -as terminal-features ',xterm-ghostty:extkeys,RGB'
+      bind -n PageUp copy-mode -eu
+      bind -n S-Up if-shell -F '#{pane_in_mode}' 'send-keys -X scroll-up' 'copy-mode -eu'
       bind c new-window -c "#{?pane_current_path,#{pane_current_path},/home/ubuntu/dev}"
       bind '"' split-window -v -c "#{?pane_current_path,#{pane_current_path},/home/ubuntu/dev}"
       bind % split-window -h -c "#{?pane_current_path,#{pane_current_path},/home/ubuntu/dev}"

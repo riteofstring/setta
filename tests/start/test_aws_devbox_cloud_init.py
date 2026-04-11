@@ -51,7 +51,8 @@ def test_cloud_init_installs_codex_cli_with_file_based_auth_storage() -> None:
 def test_cloud_init_installs_ghostty_terminfo_and_enables_tmux_extended_keys() -> None:
     # Ghostty sends modified keys such as Shift+Enter via its own terminfo and
     # tmux needs extended-key support enabled to pass them through to apps on
-    # the devbox.
+    # the devbox. The devbox tmux profile should also allow trackpad scroll and
+    # a non-prefix scroll-up path for browsing pane history over SSH.
     cloud_init = (
         Path(__file__).resolve().parents[2]
         / "infra"
@@ -67,6 +68,13 @@ def test_cloud_init_installs_ghostty_terminfo_and_enables_tmux_extended_keys() -
     assert 'set -s extended-keys on' in cloud_init
     assert 'set -s extended-keys-format csi-u' in cloud_init
     assert "xterm-ghostty:extkeys,RGB" in cloud_init
+    assert 'set -g mouse on' in cloud_init
+    assert 'set -g history-limit 200000' in cloud_init
+    assert 'bind -n PageUp copy-mode -eu' in cloud_init
+    assert (
+        "bind -n S-Up if-shell -F '#{pane_in_mode}' 'send-keys -X scroll-up' 'copy-mode -eu'"
+        in cloud_init
+    )
     assert (
         'bind c new-window -c "#{?pane_current_path,#{pane_current_path},/home/ubuntu/dev}"'
         in cloud_init
