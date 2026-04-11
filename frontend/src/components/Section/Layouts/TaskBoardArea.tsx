@@ -22,6 +22,8 @@ import {
 } from "forks/dnd-kit/adapter/zoom";
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { setTaskBoardSectionState } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   Fragment,
   useCallback,
@@ -53,7 +55,6 @@ import {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
 } from "utils/constants";
-import { route_set_task_board_section_state } from "utils/generatedEndpoints";
 import {
   createTaskBoardColumn,
   createTaskBoardTask,
@@ -69,6 +70,7 @@ import {
   TaskBoardViewMode,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   applyTaskBoardMutation,
   buildTaskBoardLanes,
@@ -86,14 +88,12 @@ import {
   splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
 import { shallow } from "zustand/shallow";
-
 const TASK_DND_PREFIX = "task-board-task:";
 const COLUMN_DND_PREFIX = "task-board-column:";
 const TASK_BOARD_LIST_DROP_ID = "task-board-list-drop";
 const TASK_BOARD_NO_DRAG_CLASS_NAME = "task-board-no-drag";
 const TASK_BOARD_KANBAN_COLUMN_DEFAULT_WIDTH = 240;
 const TASK_BOARD_KANBAN_COLUMN_MIN_WIDTH = 180;
-
 const TASK_RECURRENCE_OPTIONS: Array<{
   value: TaskBoardTaskRecurrence;
   label: string;
@@ -114,7 +114,6 @@ const TASK_RECURRENCE_OPTIONS: Array<{
     label: "Repeat specified years",
   },
 ];
-
 const WEEKDAY_OPTIONS: Array<{
   value: TaskBoardRecurringWeekday;
   label: string;
@@ -127,7 +126,6 @@ const WEEKDAY_OPTIONS: Array<{
   { value: TaskBoardRecurringWeekdayEnum.saturday, label: "Sat" },
   { value: TaskBoardRecurringWeekdayEnum.sunday, label: "Sun" },
 ];
-
 const MONTH_OPTIONS: Array<{
   value: TaskBoardRecurringMonth;
   label: string;
@@ -145,27 +143,21 @@ const MONTH_OPTIONS: Array<{
   { value: TaskBoardRecurringMonthEnum.november, label: "Nov" },
   { value: TaskBoardRecurringMonthEnum.december, label: "Dec" },
 ];
-
 type TaskDueMode = "date" | "date_time";
-
 type TaskLane = {
   column: TaskBoardColumn;
   tasks: TaskBoardTask[];
 };
-
 type TaskDropPlacement = "before" | "after";
-
 type TaskDropTarget = {
   targetTaskId: string | null;
   targetColumnId: string | null;
   targetPlacement: TaskDropPlacement | null;
 };
-
 type TaskBoardDndSource = {
   element?: Element | null;
   handle?: Element | null;
 };
-
 function eventTargetsNoDragElement(event: Event): boolean {
   const target = event.target;
   if (!(target instanceof Element)) {
@@ -173,13 +165,11 @@ function eventTargetsNoDragElement(event: Event): boolean {
   }
   return target.closest(`.${TASK_BOARD_NO_DRAG_CLASS_NAME}`) !== null;
 }
-
 function useTaskBoardSensors(isDisabled: boolean) {
   return useMemo(() => {
     if (isDisabled) {
       return [];
     }
-
     const pointerSensor = PointerSensor.configure({
       activatorElements: (source: TaskBoardDndSource) => {
         const activator = source.handle ?? source.element;
@@ -197,23 +187,18 @@ function useTaskBoardSensors(isDisabled: boolean) {
       },
       preventActivation: (event) => eventTargetsNoDragElement(event),
     });
-
     const keyboardSensor = KeyboardSensor.configure({
       preventActivation: (event) => eventTargetsNoDragElement(event),
     });
-
     return [pointerSensor, keyboardSensor];
   }, [isDisabled]);
 }
-
 function toTaskDndId(taskId: string): string {
   return `${TASK_DND_PREFIX}${taskId}`;
 }
-
 function toColumnDndId(columnId: string): string {
   return `${COLUMN_DND_PREFIX}${columnId}`;
 }
-
 function getTaskIdFromDndIdentifier(id: UniqueIdentifier): string | null {
   const idText = String(id);
   if (!idText.startsWith(TASK_DND_PREFIX)) {
@@ -221,7 +206,6 @@ function getTaskIdFromDndIdentifier(id: UniqueIdentifier): string | null {
   }
   return idText.slice(TASK_DND_PREFIX.length);
 }
-
 function getColumnIdFromDndIdentifier(id: UniqueIdentifier): string | null {
   const idText = String(id);
   if (!idText.startsWith(COLUMN_DND_PREFIX)) {
@@ -229,29 +213,34 @@ function getColumnIdFromDndIdentifier(id: UniqueIdentifier): string | null {
   }
   return idText.slice(COLUMN_DND_PREFIX.length);
 }
-
 function getTaskIdFromDndData(data: unknown): string | null {
   if (!data || typeof data !== "object") {
     return null;
   }
-  const taskId = (data as { taskId?: unknown }).taskId;
+  const taskId = (
+    data as {
+      taskId?: unknown;
+    }
+  ).taskId;
   if (typeof taskId !== "string" || taskId.trim() === "") {
     return null;
   }
   return taskId;
 }
-
 function getColumnIdFromDndData(data: unknown): string | null {
   if (!data || typeof data !== "object") {
     return null;
   }
-  const columnId = (data as { columnId?: unknown }).columnId;
+  const columnId = (
+    data as {
+      columnId?: unknown;
+    }
+  ).columnId;
   if (typeof columnId !== "string" || columnId.trim() === "") {
     return null;
   }
   return columnId;
 }
-
 function resolveSourceTaskIdFromDragEvent(
   event: DragStartEvent | DragOverEvent | DragEndEvent,
 ): string | null {
@@ -260,7 +249,6 @@ function resolveSourceTaskIdFromDragEvent(
     getTaskIdFromDndData(event.active.data?.current)
   );
 }
-
 function resolveTaskDropPlacementFromCollisions({
   collisions,
   overId,
@@ -284,7 +272,6 @@ function resolveTaskDropPlacementFromCollisions({
       return "before";
     }
   }
-
   const matchingCollision = collisions?.find(
     (collision) => String(collision.id) === String(overId),
   );
@@ -298,7 +285,6 @@ function resolveTaskDropPlacementFromCollisions({
   }
   return "before";
 }
-
 function resolveTaskBoardOverId({
   sourceTaskId,
   overId,
@@ -322,29 +308,24 @@ function resolveTaskBoardOverId({
     }
     candidateIds.push(collision.id);
   });
-
   for (const candidateId of candidateIds) {
     const candidateTaskId = getTaskIdFromDndIdentifier(candidateId);
     if (candidateTaskId && candidateTaskId !== sourceTaskId) {
       return candidateId;
     }
   }
-
   for (const candidateId of candidateIds) {
     if (getColumnIdFromDndIdentifier(candidateId)) {
       return candidateId;
     }
   }
-
   for (const candidateId of candidateIds) {
     if (String(candidateId) === TASK_BOARD_LIST_DROP_ID) {
       return candidateId;
     }
   }
-
   return overId;
 }
-
 function resolveTaskBoardDropTarget({
   sourceTaskId,
   overId,
@@ -368,7 +349,6 @@ function resolveTaskBoardDropTarget({
   if (!resolvedOverId) {
     return null;
   }
-
   const targetTaskId =
     getTaskIdFromDndData(overData) ??
     getTaskIdFromDndIdentifier(resolvedOverId);
@@ -393,7 +373,6 @@ function resolveTaskBoardDropTarget({
       }),
     };
   }
-
   const targetColumnId =
     getColumnIdFromDndData(overData) ??
     getColumnIdFromDndIdentifier(resolvedOverId) ??
@@ -409,7 +388,6 @@ function resolveTaskBoardDropTarget({
     targetPlacement: null,
   };
 }
-
 function resolveTaskDropTargetFromDelta({
   tasks,
   sourceTaskId,
@@ -428,12 +406,10 @@ function resolveTaskDropTargetFromDelta({
   if (!Number.isFinite(deltaY) || Math.abs(deltaY) < 6) {
     return null;
   }
-
   const sourceTask = tasks.find((task) => task.id === sourceTaskId);
   if (!sourceTask) {
     return null;
   }
-
   let candidateTasks = tasks;
   let sourceColumnId: string | null = null;
   if (viewMode === TaskBoardViewModeEnum.kanban) {
@@ -445,18 +421,15 @@ function resolveTaskDropTargetFromDelta({
       (task) => (task.columnId ?? fallbackColumnId) === sourceColumnId,
     );
   }
-
   if (candidateTasks.length < 2) {
     return null;
   }
-
   const sourceIndex = candidateTasks.findIndex(
     (task) => task.id === sourceTaskId,
   );
   if (sourceIndex < 0) {
     return null;
   }
-
   const safeItemHeight = Math.max(
     24,
     itemHeight !== null && Number.isFinite(itemHeight) ? itemHeight * 0.8 : 36,
@@ -465,7 +438,6 @@ function resolveTaskDropTargetFromDelta({
   if (offset === 0) {
     return null;
   }
-
   const targetIndex = Math.max(
     0,
     Math.min(candidateTasks.length - 1, sourceIndex + offset),
@@ -473,12 +445,10 @@ function resolveTaskDropTargetFromDelta({
   if (targetIndex === sourceIndex) {
     return null;
   }
-
   const targetTask = candidateTasks[targetIndex];
   if (!targetTask) {
     return null;
   }
-
   return {
     targetTaskId: targetTask.id,
     targetColumnId:
@@ -488,18 +458,15 @@ function resolveTaskDropTargetFromDelta({
     targetPlacement: targetIndex > sourceIndex ? "after" : "before",
   };
 }
-
 function getTaskDueMode(dueDateIso: string): TaskDueMode {
   if (dueDateIso.includes("T")) {
     return "date_time";
   }
   return "date";
 }
-
 function isDoneColumnName(columnName: string): boolean {
   return columnName.trim().toLowerCase() === "done";
 }
-
 function shouldAutoCompleteColumnTask(
   columns: TaskBoardColumn[],
   targetColumnId: string | null,
@@ -513,7 +480,6 @@ function shouldAutoCompleteColumnTask(
   }
   return isDoneColumnName(targetColumn.name);
 }
-
 function findDoneColumnId(columns: TaskBoardColumn[]): string | null {
   const doneColumn = columns.find((column) => isDoneColumnName(column.name));
   if (!doneColumn) {
@@ -521,7 +487,6 @@ function findDoneColumnId(columns: TaskBoardColumn[]): string | null {
   }
   return doneColumn.id;
 }
-
 function resolveTaskDateValue(dueDateIso: string): string {
   const split = splitIsoDateAndTimeParts(dueDateIso);
   if (split) {
@@ -529,7 +494,6 @@ function resolveTaskDateValue(dueDateIso: string): string {
   }
   return normalizeDateToIso(dueDateIso, "iso");
 }
-
 function resolveTaskDateTimeValue(dueDateIso: string): string {
   const normalized = normalizeDateTimeToLocalIso(dueDateIso);
   if (normalized !== "") {
@@ -541,7 +505,6 @@ function resolveTaskDateTimeValue(dueDateIso: string): string {
   }
   return `${normalizedDate}T09:00`;
 }
-
 function toTaskBoardColumnId(
   task: TaskBoardTask,
   fallbackColumnId: string | null,
@@ -551,7 +514,6 @@ function toTaskBoardColumnId(
   }
   return fallbackColumnId;
 }
-
 function toTaskBoardState({
   viewMode,
   columns,
@@ -567,7 +529,6 @@ function toTaskBoardState({
     tasks,
   };
 }
-
 function sortEnumValuesByOptionOrder<T extends string>(
   values: T[],
   orderedValues: T[],
@@ -579,7 +540,6 @@ function sortEnumValuesByOptionOrder<T extends string>(
     return leftOrder - rightOrder;
   });
 }
-
 function getEffectiveRecurrenceDays(
   task: TaskBoardTask,
 ): TaskBoardRecurringWeekday[] {
@@ -588,7 +548,6 @@ function getEffectiveRecurrenceDays(
     WEEKDAY_OPTIONS.map((option) => option.value),
   );
 }
-
 function getEffectiveRecurrenceMonths(
   task: TaskBoardTask,
 ): TaskBoardRecurringMonth[] {
@@ -597,14 +556,12 @@ function getEffectiveRecurrenceMonths(
     MONTH_OPTIONS.map((option) => option.value),
   );
 }
-
 function getEffectiveRecurrenceYears(task: TaskBoardTask): number[] {
   if (task.recurrenceYears.length === 0) {
     return [];
   }
   return [...new Set(task.recurrenceYears)].sort((left, right) => left - right);
 }
-
 function areNumberArraysEqual(left: number[], right: number[]): boolean {
   if (left.length !== right.length) {
     return false;
@@ -616,7 +573,6 @@ function areNumberArraysEqual(left: number[], right: number[]): boolean {
   }
   return true;
 }
-
 function formatTaskDueSummary(dueDateIso: string): string | null {
   if (dueDateIso.trim() === "") {
     return null;
@@ -631,7 +587,6 @@ function formatTaskDueSummary(dueDateIso: string): string | null {
   const value = resolveTaskDateValue(dueDateIso);
   return value === "" ? null : value;
 }
-
 function formatTaskDueCardSummary(dueDateIso: string): string | null {
   if (dueDateIso.trim() === "") {
     return null;
@@ -649,7 +604,6 @@ function formatTaskDueCardSummary(dueDateIso: string): string | null {
   }
   return `Due: ${value}`;
 }
-
 function formatTaskRecurrenceSummary(task: TaskBoardTask): string | null {
   switch (task.recurrence) {
     case TaskBoardTaskRecurrenceEnum.none:
@@ -693,7 +647,6 @@ function formatTaskRecurrenceSummary(task: TaskBoardTask): string | null {
     }
   }
 }
-
 function formatTaskRecurrenceCardSummary(task: TaskBoardTask): string | null {
   const summary = formatTaskRecurrenceSummary(task);
   if (summary === null) {
@@ -701,7 +654,6 @@ function formatTaskRecurrenceCardSummary(task: TaskBoardTask): string | null {
   }
   return `Repeat: ${summary}`;
 }
-
 function parseRecurrenceYears(raw: string): number[] {
   if (raw.trim() === "") {
     return [];
@@ -712,7 +664,6 @@ function parseRecurrenceYears(raw: string): number[] {
     .filter((token) => Number.isInteger(token) && token > 0);
   return [...new Set(parsed)].sort((left, right) => left - right);
 }
-
 export function TaskBoardArea({ sectionId }: { sectionId: string }) {
   const { canEditLayout } = useShareCapabilities();
   const { viewMode, columns, tasks, isFrozen } = useProjectState((state) => {
@@ -728,7 +679,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       isFrozen: impl.isFrozen,
     };
   }, shallow);
-
   const isDisabled = isFrozen || !canEditLayout;
   const normalizedState = useMemo(
     () =>
@@ -751,7 +701,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
   >({});
   const kanbanResizeAnimationFrameRef = useRef<number | null>(null);
   const kanbanResizeCleanupRef = useRef<(() => void) | null>(null);
-
   const getKanbanColumnWidth = useCallback(
     (columnId: string): number => {
       const width = kanbanColumnWidthsById[columnId];
@@ -762,7 +711,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [kanbanColumnWidthsById],
   );
-
   useEffect(() => {
     setKanbanColumnWidthsById((current) => {
       const columnIds = new Set(
@@ -783,7 +731,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       return next;
     });
   }, [normalizedState.columns]);
-
   const cleanupKanbanResizeListeners = useCallback(() => {
     if (kanbanResizeCleanupRef.current !== null) {
       kanbanResizeCleanupRef.current();
@@ -794,13 +741,11 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       kanbanResizeAnimationFrameRef.current = null;
     }
   }, []);
-
   useEffect(() => {
     return () => {
       cleanupKanbanResizeListeners();
     };
   }, [cleanupKanbanResizeListeners]);
-
   const handleKanbanColumnResizeStart = useCallback(
     (columnId: string, event: React.MouseEvent<HTMLDivElement>) => {
       if (isDisabled) {
@@ -808,7 +753,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       }
       event.preventDefault();
       event.stopPropagation();
-
       const containerWidth =
         kanbanColumnsContainerRef.current?.clientWidth ?? 0;
       const maxWidth =
@@ -818,7 +762,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
               containerWidth - TASK_BOARD_KANBAN_COLUMN_MIN_WIDTH,
             )
           : TASK_BOARD_KANBAN_COLUMN_DEFAULT_WIDTH * 2;
-
       if (event.detail === 2) {
         setKanbanColumnWidthsById((current) => {
           if (!(columnId in current)) {
@@ -830,10 +773,8 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         });
         return;
       }
-
       const startX = event.clientX;
       const startWidth = getKanbanColumnWidth(columnId);
-
       const handleMouseMove = (moveEvent: MouseEvent) => {
         if (kanbanResizeAnimationFrameRef.current !== null) {
           cancelAnimationFrame(kanbanResizeAnimationFrameRef.current);
@@ -858,11 +799,9 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
           kanbanResizeAnimationFrameRef.current = null;
         });
       };
-
       const handleMouseUp = () => {
         cleanupKanbanResizeListeners();
       };
-
       cleanupKanbanResizeListeners();
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
@@ -873,7 +812,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [cleanupKanbanResizeListeners, getKanbanColumnWidth, isDisabled],
   );
-
   const persistState = useCallback(
     ({
       mutator,
@@ -916,20 +854,23 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
               "Task board update failed to compute next optimistic state.",
             );
           }
-          return route_set_task_board_section_state({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            viewMode: nextStateForSend.viewMode,
-            columns: nextStateForSend.columns,
-            tasks: nextStateForSend.tasks,
-            frontendOpId,
-          });
+          return callOpenAPI(
+            setTaskBoardSectionState({
+              body: {
+                projectConfigId: getCurrProjectConfigId(),
+                sectionId,
+                viewMode: nextStateForSend.viewMode,
+                columns: nextStateForSend.columns,
+                tasks: nextStateForSend.tasks,
+                frontendOpId,
+              },
+            } as Parameters<typeof setTaskBoardSectionState>[0]),
+          );
         },
       });
     },
     [sectionId],
   );
-
   const updateState = useCallback(
     (
       mutator: (state: TaskBoardState) => TaskBoardState,
@@ -939,7 +880,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [persistState],
   );
-
   const addTask = useCallback(
     (columnId?: string) => {
       if (isDisabled) {
@@ -952,6 +892,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         return;
       }
       const task = createTaskBoardTask({
+        id: createNewId(),
         title: title.length > 0 ? title : "New Task",
         columnId: defaultColumnId,
         completed: shouldAutoCompleteColumnTask(
@@ -975,7 +916,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       updateState,
     ],
   );
-
   const addColumn = useCallback(() => {
     if (isDisabled) {
       return;
@@ -985,6 +925,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       columns: [
         ...current.columns,
         createTaskBoardColumn({
+          id: createNewId(),
           name: `Column ${current.columns.length + 1}`,
           color: "#3b82f6",
           sortIndex: getNextColumnSortIndex(current.columns),
@@ -992,7 +933,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       ],
     }));
   }, [isDisabled, updateState]);
-
   const setViewMode = useCallback(
     (nextViewMode: TaskBoardViewMode) => {
       if (isDisabled || nextViewMode === normalizedState.viewMode) {
@@ -1008,7 +948,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [isDisabled, normalizedState.viewMode, updateState],
   );
-
   const updateTask = useCallback(
     (taskId: string, patch: Partial<TaskBoardTask>) => {
       if (isDisabled) {
@@ -1026,7 +965,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [isDisabled, updateState],
   );
-
   const removeTask = useCallback(
     (taskId: string) => {
       if (isDisabled) {
@@ -1047,7 +985,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [isDisabled, updateState],
   );
-
   const reorderTask = useCallback(
     ({
       sourceTaskId,
@@ -1135,7 +1072,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [isDisabled, updateState],
   );
-
   const updateColumn = useCallback(
     (columnId: string, patch: Partial<TaskBoardColumn>) => {
       if (isDisabled) {
@@ -1153,14 +1089,12 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [isDisabled, updateState],
   );
-
   const handleTaskBoardDragStart = useCallback((event: DragStartEvent) => {
     const taskId = resolveSourceTaskIdFromDragEvent(event);
     setDraggingTaskId(taskId);
     dragTaskHeightRef.current = event.activeRect.height;
     latestDropTargetRef.current = null;
   }, []);
-
   const handleTaskBoardDragOver = useCallback(
     (event: DragOverEvent) => {
       const sourceTaskId =
@@ -1180,13 +1114,11 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     },
     [draggingTaskId, fallbackColumnId, normalizedState.tasks],
   );
-
   const handleTaskBoardDragCancel = useCallback(() => {
     setDraggingTaskId(null);
     dragTaskHeightRef.current = null;
     latestDropTargetRef.current = null;
   }, []);
-
   const handleTaskBoardDragEnd = useCallback(
     (event: DragEndEvent) => {
       const sourceTaskId =
@@ -1197,7 +1129,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         latestDropTargetRef.current = null;
         return;
       }
-
       const dropTargetFromCollision = resolveTaskBoardDropTarget({
         sourceTaskId,
         overId: event.over?.id ?? null,
@@ -1226,7 +1157,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       if (!dropTarget) {
         return;
       }
-
       if (dropTarget.targetTaskId !== null) {
         reorderTask({
           sourceTaskId,
@@ -1240,7 +1170,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         });
         return;
       }
-
       if (dropTarget.targetColumnId !== null) {
         reorderTask({
           sourceTaskId,
@@ -1256,12 +1185,10 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       reorderTask,
     ],
   );
-
   const taskListItems = useMemo(
     () => normalizedState.tasks.map((task) => toTaskDndId(task.id)),
     [normalizedState.tasks],
   );
-
   const dndContextValue = useMemo(
     () => ({
       isMovingFree: false,
@@ -1269,7 +1196,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     }),
     [],
   );
-
   return (
     <div
       className={`section-main section-main-full-w flex h-full min-w-[320px] flex-col gap-2 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
@@ -1431,7 +1357,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     </div>
   );
 }
-
 function TaskBoardListDropZone({
   children,
   fallbackColumnId,
@@ -1459,7 +1384,6 @@ function TaskBoardListDropZone({
     </div>
   );
 }
-
 function TaskBoardTaskListRow({
   task,
   fallbackColumnId,
@@ -1511,14 +1435,11 @@ function TaskBoardTaskListRow({
   const [isDescriptionVisible, setIsDescriptionVisible] = useState(
     task.description.trim() !== "",
   );
-
   return (
     <div
       ref={setNodeRef}
       style={dndStyle}
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} mx-0.5 my-0.5 grid grid-cols-[24px_minmax(0,1fr)_132px] items-center gap-2 rounded-md border border-setta-100 bg-white/95 py-0.5 pl-0.5 pr-1.5 dark:border-setta-800 dark:bg-setta-900/60 ${
-        isDragging || isDraggingByDnd ? "opacity-60" : ""
-      } ${
+      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} mx-0.5 my-0.5 grid grid-cols-[24px_minmax(0,1fr)_132px] items-center gap-2 rounded-md border border-setta-100 bg-white/95 py-0.5 pl-0.5 pr-1.5 dark:border-setta-800 dark:bg-setta-900/60 ${isDragging || isDraggingByDnd ? "opacity-60" : ""} ${
         isOver && !isDraggingByDnd
           ? "ring-1 ring-blue-400 dark:ring-blue-500"
           : ""
@@ -1670,7 +1591,6 @@ function TaskBoardTaskListRow({
     </div>
   );
 }
-
 function TaskBoardKanbanColumnResizeHandle({
   dividerIndex,
   onMouseDown,
@@ -1689,7 +1609,6 @@ function TaskBoardKanbanColumnResizeHandle({
     </div>
   );
 }
-
 function TaskBoardKanbanLane({
   lane,
   columnWidth,
@@ -1717,13 +1636,10 @@ function TaskBoardKanbanLane({
     },
   });
   const laneItems = lane.tasks.map((task) => toTaskDndId(task.id));
-
   return (
     <article
       ref={setNodeRef}
-      className={`flex h-full shrink-0 flex-col rounded-md border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/30 ${
-        isOver ? "ring-1 ring-blue-400 dark:ring-blue-500" : ""
-      }`}
+      className={`flex h-full shrink-0 flex-col rounded-md border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/30 ${isOver ? "ring-1 ring-blue-400 dark:ring-blue-500" : ""}`}
       style={{ width: `${columnWidth}px` }}
       data-task-board-column-id={lane.column.id}
     >
@@ -1801,7 +1717,6 @@ function TaskBoardKanbanLane({
     </article>
   );
 }
-
 function TaskBoardKanbanTaskCard({
   task,
   laneColumnId,
@@ -1840,7 +1755,6 @@ function TaskBoardKanbanTaskCard({
       sortableOrientation: "vertical",
     },
   });
-
   const scaledTransform = applyZoomToTransform(transform);
   const dndStyle = {
     transform: transformToString(scaledTransform),
@@ -1858,14 +1772,11 @@ function TaskBoardKanbanTaskCard({
   const [isDescriptionVisible, setIsDescriptionVisible] = useState(
     task.description.trim() !== "",
   );
-
   return (
     <div
       ref={setNodeRef}
       style={dndStyle}
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} rounded-md border border-setta-200 bg-white py-2 pl-0.5 pr-2 dark:border-setta-700 dark:bg-setta-900 ${
-        isDragging || isDraggingByDnd ? "opacity-60" : ""
-      } ${
+      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} rounded-md border border-setta-200 bg-white py-2 pl-0.5 pr-2 dark:border-setta-700 dark:bg-setta-900 ${isDragging || isDraggingByDnd ? "opacity-60" : ""} ${
         isOver && !isDraggingByDnd
           ? "ring-1 ring-blue-400 dark:ring-blue-500"
           : ""
@@ -1987,7 +1898,6 @@ function TaskBoardKanbanTaskCard({
     </div>
   );
 }
-
 function TaskScheduleMenu({
   task,
   isDisabled,
@@ -2061,7 +1971,6 @@ function TaskScheduleMenu({
     </DropdownMenu.Root>
   );
 }
-
 function TaskDueInput({
   task,
   isDisabled,
@@ -2116,7 +2025,6 @@ function TaskDueInput({
     </div>
   );
 }
-
 function TaskRecurrenceInput({
   task,
   isDisabled,
@@ -2133,11 +2041,9 @@ function TaskRecurrenceInput({
   const recurrenceYearsText = recurrenceYears.join(", ");
   const [recurrenceYearsDraft, setRecurrenceYearsDraft] =
     useState(recurrenceYearsText);
-
   useEffect(() => {
     setRecurrenceYearsDraft(recurrenceYearsText);
   }, [recurrenceYearsText]);
-
   const setRecurrenceMode = (nextMode: TaskBoardTaskRecurrence) => {
     onChangePatch({
       recurrence: nextMode,
@@ -2155,7 +2061,6 @@ function TaskRecurrenceInput({
           : [],
     });
   };
-
   const commitRecurrenceYears = useCallback(
     (rawValue: string) => {
       const nextYears = parseRecurrenceYears(rawValue);
@@ -2173,7 +2078,6 @@ function TaskRecurrenceInput({
     },
     [onChangePatch, recurrenceYears],
   );
-
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">
       <select
@@ -2258,7 +2162,6 @@ function TaskRecurrenceInput({
     </div>
   );
 }
-
 function TaskRecurrenceChipSelector<T extends string>({
   testId,
   options,
@@ -2267,7 +2170,10 @@ function TaskRecurrenceChipSelector<T extends string>({
   onChange,
 }: {
   testId: string;
-  options: Array<{ value: T; label: string }>;
+  options: Array<{
+    value: T;
+    label: string;
+  }>;
   values: T[];
   disabled: boolean;
   onChange: (nextValues: T[]) => void;
