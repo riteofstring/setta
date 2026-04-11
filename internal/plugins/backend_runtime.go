@@ -141,6 +141,11 @@ type backendRouteMatch struct {
 	Method string
 }
 
+type backendRouteCandidate struct {
+	Entry DiscoveredPlugin
+	Route PluginRegisteredBackendRoute
+}
+
 type backendListenerEndpointMatch struct {
 	Entry    DiscoveredPlugin
 	Endpoint PluginRegisteredListenerEndpoint
@@ -342,70 +347,116 @@ func (s *Service) WriteBackendUISettingValue(ctx context.Context, options Backen
 }
 
 func findRegisteredBackendRouteMatch(entries []DiscoveredPlugin, method string, requestPath string) (backendRouteMatch, BackendRouteLookup, error) {
+	normalizedPath, methodsToCheck, validPath, err := normalizeBackendRouteLookup(method, requestPath)
+	if err != nil {
+		return backendRouteMatch{}, BackendRouteLookup{}, err
+	}
+	if !validPath {
+		return backendRouteMatch{}, BackendRouteLookup{}, nil
+	}
+
+	candidates, pathExists := collectRegisteredBackendRouteCandidates(entries, normalizedPath)
+	match, matched, err := resolveRegisteredBackendRouteMatch(candidates, methodsToCheck, normalizedPath)
+	if err != nil {
+		return backendRouteMatch{}, BackendRouteLookup{}, err
+	}
+	return match, BackendRouteLookup{
+		Matched:    matched,
+		PathExists: pathExists,
+	}, nil
+}
+
+func normalizeBackendRouteLookup(method string, requestPath string) (string, []string, bool, error) {
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
 	if normalizedMethod == "" {
-		return backendRouteMatch{}, BackendRouteLookup{}, fmt.Errorf("backend route method is required")
+		return "", nil, false, fmt.Errorf("backend route method is required")
 	}
 	normalizedPath, err := normalizeBackendRegistrationPath(requestPath, "path")
 	if err != nil {
 		// Request paths are caller input, not persisted plugin registrations.
 		// Invalid paths should miss route matching so static-dir and 404 handlers
 		// can fail closed without surfacing an internal error from the lookup step.
-		return backendRouteMatch{}, BackendRouteLookup{}, nil
+		return "", nil, false, nil
 	}
 
 	methodsToCheck := []string{normalizedMethod}
 	if normalizedMethod == http.MethodHead {
 		methodsToCheck = append(methodsToCheck, http.MethodGet)
 	}
+	return normalizedPath, methodsToCheck, true, nil
+}
 
-	var match backendRouteMatch
-	found := false
+func collectRegisteredBackendRouteCandidates(entries []DiscoveredPlugin, normalizedPath string) ([]backendRouteCandidate, bool) {
+	candidates := make([]backendRouteCandidate, 0)
 	pathExists := false
 	for _, entry := range entries {
-		if entry.Manifest == nil {
+		if !isRegisteredBackendRouteEntry(entry) {
 			continue
 		}
-		if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
-			continue
-		}
-		if !containsString(entry.EffectiveCapabilities, "registerRouter") {
-			continue
-		}
-
 		for _, route := range entry.RegisteredBackendRoutes {
 			if route.Path != normalizedPath {
 				continue
 			}
 			pathExists = true
-			for _, candidateMethod := range methodsToCheck {
-				if !containsString(route.Methods, candidateMethod) {
-					continue
-				}
-				if !found {
-					match = backendRouteMatch{
-						Entry:  entry,
-						Route:  route,
-						Method: candidateMethod,
-					}
-					found = true
-					break
-				}
-				return backendRouteMatch{}, BackendRouteLookup{}, newServiceError(
-					ServiceErrorCodeBackendRuntimeInvalid,
-					"Conflicting plugin backend route registration for %s %s: %s and %s",
-					candidateMethod,
-					normalizedPath,
-					match.Entry.PluginID,
-					entry.PluginID,
-				)
-			}
+			candidates = append(candidates, backendRouteCandidate{
+				Entry: entry,
+				Route: route,
+			})
 		}
 	}
-	return match, BackendRouteLookup{
-		Matched:    found,
-		PathExists: pathExists,
-	}, nil
+	return candidates, pathExists
+}
+
+func isRegisteredBackendRouteEntry(entry DiscoveredPlugin) bool {
+	if entry.Manifest == nil {
+		return false
+	}
+	if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
+		return false
+	}
+	return containsString(entry.EffectiveCapabilities, "registerRouter")
+}
+
+func resolveRegisteredBackendRouteMatch(
+	candidates []backendRouteCandidate,
+	methodsToCheck []string,
+	normalizedPath string,
+) (backendRouteMatch, bool, error) {
+	var match backendRouteMatch
+	found := false
+	for _, candidate := range candidates {
+		matchedMethod, ok := firstRegisteredBackendRouteMethod(candidate.Route, methodsToCheck)
+		if !ok {
+			continue
+		}
+		if !found {
+			match = backendRouteMatch{
+				Entry:  candidate.Entry,
+				Route:  candidate.Route,
+				Method: matchedMethod,
+			}
+			found = true
+			continue
+		}
+		return backendRouteMatch{}, false, newServiceError(
+			ServiceErrorCodeBackendRuntimeInvalid,
+			"Conflicting plugin backend route registration for %s %s: %s and %s",
+			matchedMethod,
+			normalizedPath,
+			match.Entry.PluginID,
+			candidate.Entry.PluginID,
+		)
+	}
+	return match, found, nil
+}
+
+func firstRegisteredBackendRouteMethod(route PluginRegisteredBackendRoute, methodsToCheck []string) (string, bool) {
+	for _, candidateMethod := range methodsToCheck {
+		if containsString(route.Methods, candidateMethod) {
+			return candidateMethod, true
+		}
+	}
+	return "", false
 }
 
 func findRegisteredListenerEndpointMatch(entries []DiscoveredPlugin, endpointName string) (backendListenerEndpointMatch, bool, error) {

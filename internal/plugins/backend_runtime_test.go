@@ -123,6 +123,46 @@ func TestServiceLookupRegisteredBackendRouteReportsPathMismatch(t *testing.T) {
 	}
 }
 
+func TestFindRegisteredBackendRouteMatchRejectsConflictingPlugins(t *testing.T) {
+	entries := []DiscoveredPlugin{
+		newBackendRouteTestPlugin("plugin-alpha", PluginRuntimeStateActive, "/items", http.MethodPost),
+		newBackendRouteTestPlugin("plugin-beta", PluginRuntimeStatePendingRestart, "/items", http.MethodPost),
+	}
+
+	_, _, err := findRegisteredBackendRouteMatch(entries, http.MethodPost, "/items")
+	if err == nil {
+		t.Fatal("expected conflicting backend route registration error")
+	}
+
+	var serviceErr *ServiceError
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected service error, got %T (%v)", err, err)
+	}
+	if serviceErr.Code != ServiceErrorCodeBackendRuntimeInvalid {
+		t.Fatalf("expected backend runtime invalid code, got %#v", serviceErr)
+	}
+	if !strings.Contains(serviceErr.Message, "plugin-alpha") || !strings.Contains(serviceErr.Message, "plugin-beta") {
+		t.Fatalf("expected conflicting plugin ids in error message, got %#v", serviceErr.Message)
+	}
+}
+
+func TestFindRegisteredBackendRouteMatchTreatsInvalidRequestPathAsMiss(t *testing.T) {
+	entries := []DiscoveredPlugin{
+		newBackendRouteTestPlugin("plugin-alpha", PluginRuntimeStateActive, "/items", http.MethodGet),
+	}
+
+	match, lookup, err := findRegisteredBackendRouteMatch(entries, http.MethodGet, "/items//bad")
+	if err != nil {
+		t.Fatalf("expected invalid caller path to miss without error, got %v", err)
+	}
+	if lookup.Matched || lookup.PathExists {
+		t.Fatalf("expected invalid path to miss route matching, got %#v", lookup)
+	}
+	if match.Entry.PluginID != "" {
+		t.Fatalf("expected no route match, got %#v", match)
+	}
+}
+
 func TestServiceDispatchRegisteredBackendRouteFallsBackFromHeadToGet(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
@@ -508,5 +548,22 @@ func fail(format string, args ...any) {
 
 	if err := os.WriteFile(filepath.Join(pluginRoot, "backend", "main.go"), []byte(source), 0o644); err != nil {
 		t.Fatalf("write backend ui setting fixture main.go: %v", err)
+	}
+}
+
+func newBackendRouteTestPlugin(pluginID string, state PluginRuntimeState, routePath string, methods ...string) DiscoveredPlugin {
+	return DiscoveredPlugin{
+		PluginID: pluginID,
+		Manifest: &PluginManifest{},
+		State:    state,
+		EffectiveCapabilities: []string{
+			"registerRouter",
+		},
+		RegisteredBackendRoutes: []PluginRegisteredBackendRoute{
+			{
+				Path:    routePath,
+				Methods: append([]string(nil), methods...),
+			},
+		},
 	}
 }
