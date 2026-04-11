@@ -230,7 +230,7 @@ packages:
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, format: str, *args: object) -> None:
+        def log_message(self, _format: str, *_args: object) -> None:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), RegistryHandler)
@@ -401,9 +401,9 @@ echo "pnpm $*" >> "{command_log}"
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 9 --lockfile ./uv.lock",
-        "uv run --frozen --python 3.13 --extra source --extra dev pip-audit",
-        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
-        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra dev pip-audit",
+        "uv run --frozen --python 3.13 --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm audit",
         "pnpm audit",
     ]
@@ -475,9 +475,9 @@ echo "pnpm $*" >> "{command_log}"
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 9 --lockfile ./uv.lock",
-        "uv run --frozen --python 3.13 --extra source --extra dev pip-audit",
-        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
-        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra dev pip-audit",
+        "uv run --frozen --python 3.13 --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm audit",
         "pnpm audit",
     ]
@@ -614,12 +614,12 @@ echo "python3 $*" >> "{command_log}"
         "python3 ./scripts/normalize_uv_lock.py ./uv.lock",
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 7 --lockfile ./uv.lock",
-        "uv sync --frozen --extra source --extra dev --python 3.13",
+        "uv sync --frozen --extra dev --python 3.13",
         "activate",
         "pnpm -C frontend install --lockfile-only",
-        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./frontend/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./frontend/pnpm-lock.yaml",
         "pnpm -C frontend install --frozen-lockfile",
         "pnpm -C backend/setta/agentic/external_adapters/sidecars install --lockfile-only",
-        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm -C backend/setta/agentic/external_adapters/sidecars install --frozen-lockfile --prefer-offline",
     ]

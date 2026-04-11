@@ -20,11 +20,11 @@ def _sandbox_env(sandbox_root: Path) -> dict[str, str]:
     return env
 
 
-def test_init_env_installs_explicit_source_and_dev_extras(
+def test_init_env_installs_explicit_dev_extra(
     tmp_path: Path,
 ) -> None:
-    # Repo-local setup should name the broader source/dev extras explicitly
-    # instead of relying on an implicit all-extras sync.
+    # Repo-local setup should name the checked-in dev extra explicitly instead
+    # of relying on an implicit all-extras sync.
     sandbox_root = tmp_path / "init_env_sandbox"
     bin_dir = sandbox_root / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -58,7 +58,7 @@ echo "uv $*" >> "{command_log}"
     assert result.returncode == 0, result.stderr
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "uv lock --check",
-        "uv sync --frozen --extra source --extra dev --python 3.13",
+        "uv sync --frozen --extra dev --python 3.13",
         "activate",
     ]
 
@@ -116,7 +116,67 @@ echo "python3 $*" >> "{command_log}"
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 7 --lockfile ./uv.lock",
-        "uv sync --frozen --extra source --extra dev --python 3.13",
+        "uv sync --frozen --extra dev --python 3.13",
+        "activate",
+    ]
+
+
+def test_init_env_allows_explicit_release_age_override(
+    tmp_path: Path,
+) -> None:
+    # An explicit environment override should beat the checked-in repo policy
+    # so one-off bootstrap flows can lower the cutoff without editing the file.
+    sandbox_root = tmp_path / "init_env_override_sandbox"
+    bin_dir = sandbox_root / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    command_log = sandbox_root / "command-log.txt"
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="init_env.sh")
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/check_uv_lock_release_age.py"
+    )
+    (sandbox_root / "supply_chain_policy.env").write_text(
+        "SETTA_MIN_RELEASE_AGE_DAYS=7\n",
+        encoding="utf-8",
+    )
+    write_stub_executable(
+        sandbox_root / "activate.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo activate >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "uv",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "uv $*" >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "python3",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "python3 $*" >> "{command_log}"
+""",
+    )
+
+    env = _sandbox_env(sandbox_root)
+    env["SETTA_MIN_RELEASE_AGE_DAYS"] = "0"
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "init_env.sh")],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "uv lock --check",
+        "uv sync --frozen --extra dev --python 3.13",
         "activate",
     ]
 
