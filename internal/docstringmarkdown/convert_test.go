@@ -2,6 +2,7 @@ package docstringmarkdown
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -33,6 +34,20 @@ func TestConvertMatchesGoogleMagicNameEscaping(t *testing.T) {
 	}
 }
 
+func TestConvertMatchesGoogleSectionContinuationWithoutInlineDescription(t *testing.T) {
+	t.Parallel()
+
+	output, err := Convert("Summary line.\n\nArgs:\n    options:\n        first line\n        second line\n")
+	if err != nil {
+		t.Fatalf("convert google continuation docstring: %v", err)
+	}
+
+	want := "Summary line.\n\n#### Args\n\n- `options`: first line\n" + strings.Repeat(" ", len("options")+6) + "second line\n"
+	if output != want {
+		t.Fatalf("unexpected google continuation conversion:\nwant: %q\ngot:  %q", want, output)
+	}
+}
+
 func TestConvertMatchesRSTSectionOutput(t *testing.T) {
 	t.Parallel()
 
@@ -44,6 +59,20 @@ func TestConvertMatchesRSTSectionOutput(t *testing.T) {
 	want := "Summary line.\n\n#### Parameters\n\n- `x`: int\n    value\n\n#### Returns\n\nint\n    result\n"
 	if output != want {
 		t.Fatalf("unexpected rst section conversion:\nwant: %q\ngot:  %q", want, output)
+	}
+}
+
+func TestConvertMatchesRSTNotesSectionOutput(t *testing.T) {
+	t.Parallel()
+
+	output, err := Convert("Summary line.\n\nNotes\n-----\nRemember this.\n")
+	if err != nil {
+		t.Fatalf("convert rst notes docstring: %v", err)
+	}
+
+	want := "Summary line.\n\n#### Notes\n\nRemember this.\n"
+	if output != want {
+		t.Fatalf("unexpected rst notes conversion:\nwant: %q\ngot:  %q", want, output)
 	}
 }
 

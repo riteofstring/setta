@@ -49,6 +49,15 @@ var rstSectionHeaders = map[string]struct{}{
 	"References": {},
 }
 
+var rstDirectivePatterns = []*regexp.Regexp{
+	rstParamTyped,
+	rstParam,
+	rstType,
+	rstReturn,
+	rstReturnType,
+	rstRaises,
+}
+
 func Convert(docstring string) (string, error) {
 	normalized := normalizeNewlines(docstring)
 	switch {
@@ -150,94 +159,148 @@ func formatGoogleSection(name string, lines []string) string {
 	if strings.TrimSpace(content) == "" {
 		return ""
 	}
-	trimmedLines := strings.Split(content, "\n")
-	parts := make([][]string, 0, len(trimmedLines))
+	var builder strings.Builder
+	for _, part := range splitGoogleSectionParts(content) {
+		rendered := formatGoogleSectionPart(part)
+		if rendered == "" {
+			continue
+		}
+		if builder.Len() != 0 {
+			builder.WriteString("\n")
+		}
+		builder.WriteString(rendered)
+	}
+	return builder.String()
+}
+
+func splitGoogleSectionParts(content string) [][]string {
+	lines := strings.Split(content, "\n")
+	parts := make([][]string, 0, len(lines))
 	current := make([]string, 0, 4)
-	for _, line := range trimmedLines {
+	flush := func() {
+		if len(current) == 0 {
+			return
+		}
+		parts = append(parts, current)
+		current = nil
+	}
+
+	for _, line := range lines {
 		line = strings.TrimPrefix(line, "    ")
 		if strings.HasPrefix(line, " ") {
 			current = append(current, line)
 			continue
 		}
-		if len(current) != 0 {
-			parts = append(parts, current)
-		}
+		flush()
 		current = []string{line}
 	}
-	if len(current) != 0 {
-		parts = append(parts, current)
+	flush()
+	return parts
+}
+
+func formatGoogleSectionPart(part []string) string {
+	if len(part) == 0 {
+		return ""
+	}
+	first := strings.TrimRight(part[0], " ")
+	if key, description, ok := strings.Cut(first, ":"); ok {
+		return formatGoogleKeyedPart(key, description, part[1:])
 	}
 
 	var builder strings.Builder
-	for _, part := range parts {
-		if len(part) == 0 {
-			continue
-		}
-		first := strings.TrimRight(part[0], " ")
-		indentation := ""
-		skipFirstContinuationIndent := false
-		if key, description, ok := strings.Cut(first, ":"); ok {
-			indentation = strings.Repeat(" ", len(key)+6)
-			description = strings.TrimLeft(description, " ")
-			if description != "" {
-				builder.WriteString("- `")
-				builder.WriteString(key)
-				builder.WriteString("`: ")
-				builder.WriteString(description)
-				builder.WriteString("\n")
-			} else {
-				builder.WriteString("- `")
-				builder.WriteString(key)
-				builder.WriteString("`: ")
-				skipFirstContinuationIndent = true
-			}
-		} else {
-			builder.WriteString("- ")
-			builder.WriteString(first)
-			builder.WriteString("\n")
-		}
-		for index, line := range part[1:] {
-			trimmed := strings.TrimLeft(line, " ")
-			if skipFirstContinuationIndent && index == 0 {
-				builder.WriteString(trimmed)
-				builder.WriteString("\n")
-				continue
-			}
-			builder.WriteString(indentation)
-			builder.WriteString(trimmed)
-			builder.WriteString("\n")
-		}
-	}
+	builder.WriteString("- ")
+	builder.WriteString(first)
+	builder.WriteString("\n")
+	writeGoogleContinuation(&builder, part[1:], "", false)
 	return strings.TrimRight(builder.String(), "\n")
 }
 
-func looksLikeRST(value string) bool {
-	dedented := dedent(value)
-	lines := strings.Split(dedented, "\n")
-	for index := 0; index+1 < len(lines); index++ {
-		name := strings.TrimSpace(lines[index])
-		if name == "" {
-			continue
-		}
-		if _, ok := rstSectionHeaders[name]; !ok {
-			continue
-		}
-		underline := strings.TrimSpace(lines[index+1])
-		if underline != "" && len(underline) >= len(name) && onlyRunes(underline, '-') {
-			return true
-		}
+func formatGoogleKeyedPart(key, description string, continuation []string) string {
+	var builder strings.Builder
+	builder.WriteString("- `")
+	builder.WriteString(key)
+	builder.WriteString("`:")
+	indentation := strings.Repeat(" ", len(key)+6)
+	trimmedDescription := strings.TrimLeft(description, " ")
+	if trimmedDescription != "" {
+		builder.WriteString(" ")
+		builder.WriteString(trimmedDescription)
+		builder.WriteString("\n")
+		writeGoogleContinuation(&builder, continuation, indentation, false)
+		return strings.TrimRight(builder.String(), "\n")
 	}
-	for _, line := range lines {
-		if rstParamTyped.MatchString(line) ||
-			rstParam.MatchString(line) ||
-			rstType.MatchString(line) ||
-			rstReturn.MatchString(line) ||
-			rstReturnType.MatchString(line) ||
-			rstRaises.MatchString(line) {
+
+	builder.WriteString(" ")
+	writeGoogleContinuation(&builder, continuation, indentation, true)
+	return strings.TrimRight(builder.String(), "\n")
+}
+
+func writeGoogleContinuation(builder *strings.Builder, continuation []string, indentation string, skipFirstIndent bool) {
+	for index, line := range continuation {
+		trimmed := strings.TrimLeft(line, " ")
+		if skipFirstIndent && index == 0 {
+			builder.WriteString(trimmed)
+			builder.WriteString("\n")
+			continue
+		}
+		builder.WriteString(indentation)
+		builder.WriteString(trimmed)
+		builder.WriteString("\n")
+	}
+}
+
+func looksLikeRST(value string) bool {
+	lines := strings.Split(dedent(value), "\n")
+	return hasRSTSectionHeaders(lines) || hasRSTDirectiveLines(lines)
+}
+
+func hasRSTSectionHeaders(lines []string) bool {
+	for index := 0; index+1 < len(lines); index++ {
+		if _, ok := rstSectionHeaderAt(lines, index); ok {
 			return true
 		}
 	}
 	return false
+}
+
+func hasRSTDirectiveLines(lines []string) bool {
+	for _, line := range lines {
+		if isRSTDirectiveLine(line) {
+			return true
+		}
+	}
+	return false
+}
+
+func isRSTDirectiveLine(line string) bool {
+	for _, pattern := range rstDirectivePatterns {
+		if pattern.MatchString(line) {
+			return true
+		}
+	}
+	return false
+}
+
+func rstSectionHeaderAt(lines []string, index int) (string, bool) {
+	if index+1 >= len(lines) {
+		return "", false
+	}
+	name := strings.TrimSpace(lines[index])
+	underline := strings.TrimSpace(lines[index+1])
+	if !isRSTSectionHeader(name, underline) {
+		return "", false
+	}
+	return name, true
+}
+
+func isRSTSectionHeader(name, underline string) bool {
+	if name == "" || underline == "" {
+		return false
+	}
+	if _, ok := rstSectionHeaders[name]; !ok {
+		return false
+	}
+	return len(underline) >= len(name) && onlyRunes(underline, '-')
 }
 
 func rstToMarkdown(text string) string {
@@ -251,7 +314,14 @@ func rstToMarkdown(text string) string {
 }
 
 func rstSectionsToMarkdown(text string) (string, bool) {
-	lines := strings.Split(text, "\n")
+	description, sections, foundSection := parseRSTSections(strings.Split(text, "\n"))
+	if !foundSection {
+		return "", false
+	}
+	return renderRSTSections(description, sections), true
+}
+
+func parseRSTSections(lines []string) ([]string, []rstSection, bool) {
 	description := make([]string, 0, len(lines))
 	sections := make([]rstSection, 0, 4)
 	currentName := ""
@@ -268,16 +338,12 @@ func rstSectionsToMarkdown(text string) (string, bool) {
 	}
 
 	for index := 0; index < len(lines); index++ {
-		if index+1 < len(lines) {
-			name := strings.TrimSpace(lines[index])
-			underline := strings.TrimSpace(lines[index+1])
-			if _, ok := rstSectionHeaders[name]; ok && name != "" && underline != "" && len(underline) >= len(name) && onlyRunes(underline, '-') {
-				foundSection = true
-				flushSection()
-				currentName = name
-				index++
-				continue
-			}
+		if name, ok := rstSectionHeaderAt(lines, index); ok {
+			foundSection = true
+			flushSection()
+			currentName = name
+			index++
+			continue
 		}
 		if currentName == "" {
 			description = append(description, lines[index])
@@ -286,11 +352,10 @@ func rstSectionsToMarkdown(text string) (string, bool) {
 		currentLines = append(currentLines, lines[index])
 	}
 	flushSection()
+	return description, sections, foundSection
+}
 
-	if !foundSection {
-		return "", false
-	}
-
+func renderRSTSections(description []string, sections []rstSection) string {
 	var builder strings.Builder
 	descriptionText := strings.TrimRight(strings.Join(description, "\n"), "\n")
 	if descriptionText != "" {
@@ -304,7 +369,7 @@ func rstSectionsToMarkdown(text string) (string, bool) {
 		builder.WriteString(formatRSTSection(section.name, section.lines))
 		builder.WriteString("\n\n")
 	}
-	return strings.TrimRight(builder.String(), "\n") + "\n", true
+	return strings.TrimRight(builder.String(), "\n") + "\n"
 }
 
 type rstSection struct {

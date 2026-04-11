@@ -44,6 +44,18 @@ var (
 	ErrProviderFailure    = errors.New("transcription provider failure")
 )
 
+var (
+	transcriptNoLeadingSpacePrefixes = []string{".", ",", "!", "?", ";", ":", ")", "]", "}"}
+	realtimeNoFallbackMarkers        = []string{"missing api key", "authentication", "unauthorized", "forbidden", "permission denied"}
+	realtimeFallbackMarkers          = []string{
+		"realtime transcription is unavailable",
+		"does not support realtime",
+		"realtime is not supported",
+		"input_audio_transcription",
+		"unsupported realtime",
+	}
+)
+
 type ServiceOptions struct {
 	LLM                *llmconfig.Runtime
 	HTTPClient         *http.Client
@@ -716,23 +728,27 @@ func appendTranscriptSegment(existing, rawSegment string) (string, string) {
 	if segment == "" {
 		return "", existing
 	}
-	needsSpace := existing != "" &&
-		!strings.HasSuffix(existing, " ") &&
-		!strings.HasSuffix(existing, "\n") &&
-		!strings.HasPrefix(segment, ".") &&
-		!strings.HasPrefix(segment, ",") &&
-		!strings.HasPrefix(segment, "!") &&
-		!strings.HasPrefix(segment, "?") &&
-		!strings.HasPrefix(segment, ";") &&
-		!strings.HasPrefix(segment, ":") &&
-		!strings.HasPrefix(segment, ")") &&
-		!strings.HasPrefix(segment, "]") &&
-		!strings.HasPrefix(segment, "}")
-	appendText := segment
-	if needsSpace {
-		appendText = " " + segment
+	if !needsTranscriptLeadingSpace(existing, segment) {
+		return segment, existing + segment
 	}
+	appendText := " " + segment
 	return appendText, existing + appendText
+}
+
+func needsTranscriptLeadingSpace(existing, segment string) bool {
+	if existing == "" || strings.HasSuffix(existing, " ") || strings.HasSuffix(existing, "\n") {
+		return false
+	}
+	return !stringHasAnyPrefix(segment, transcriptNoLeadingSpacePrefixes)
+}
+
+func stringHasAnyPrefix(value string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(value, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func pcm16ToWAV(audioPCM16 []byte, sampleRateHz, channels int) ([]byte, error) {
@@ -824,42 +840,41 @@ func isRealtimeFallbackError(err error) bool {
 	if errors.Is(err, ErrRuntimeUnavailable) || errors.Is(err, ErrUnsupportedModel) {
 		return true
 	}
-
-	var serviceErr *serviceError
-	if errors.As(err, &serviceErr) && serviceErr.status != 0 {
-		switch serviceErr.status {
-		case http.StatusUnauthorized, http.StatusForbidden:
-			return false
-		case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity:
-			return true
-		default:
-			return false
-		}
+	if decision, ok := realtimeFallbackDecisionFromStatus(err); ok {
+		return decision
 	}
+	return realtimeFallbackDecisionFromMessage(err.Error())
+}
 
-	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	if message == "" {
+func realtimeFallbackDecisionFromStatus(err error) (bool, bool) {
+	var serviceErr *serviceError
+	if !errors.As(err, &serviceErr) || serviceErr.status == 0 {
+		return false, false
+	}
+	switch serviceErr.status {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return false, true
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity:
+		return true, true
+	default:
+		return false, true
+	}
+}
+
+func realtimeFallbackDecisionFromMessage(message string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(message))
+	if normalized == "" {
 		return false
 	}
-	for _, marker := range []string{
-		"missing api key",
-		"authentication",
-		"unauthorized",
-		"forbidden",
-		"permission denied",
-	} {
-		if strings.Contains(message, marker) {
-			return false
-		}
+	if stringContainsAny(normalized, realtimeNoFallbackMarkers) {
+		return false
 	}
-	for _, marker := range []string{
-		"realtime transcription is unavailable",
-		"does not support realtime",
-		"realtime is not supported",
-		"input_audio_transcription",
-		"unsupported realtime",
-	} {
-		if strings.Contains(message, marker) {
+	return stringContainsAny(normalized, realtimeFallbackMarkers)
+}
+
+func stringContainsAny(value string, markers []string) bool {
+	for _, marker := range markers {
+		if strings.Contains(value, marker) {
 			return true
 		}
 	}

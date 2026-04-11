@@ -525,6 +525,71 @@ func TestIsRealtimeFallbackErrorFallsBackOnCapabilityMessage(t *testing.T) {
 	}
 }
 
+func TestIsRealtimeFallbackErrorDoesNotFallbackOnAuthenticationMessage(t *testing.T) {
+	t.Parallel()
+
+	err := newServiceError(
+		ErrProviderFailure,
+		"Authentication failed while opening realtime transcription session.",
+	)
+	if isRealtimeFallbackError(err) {
+		t.Fatal("expected authentication failures to fail closed without file fallback")
+	}
+}
+
+func TestAppendTranscriptSegmentSpacing(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name         string
+		existing     string
+		rawSegment   string
+		wantAppend   string
+		wantFullText string
+	}{
+		{
+			name:         "adds space between words",
+			existing:     "hello",
+			rawSegment:   "world",
+			wantAppend:   " world",
+			wantFullText: "hello world",
+		},
+		{
+			name:         "keeps punctuation tight",
+			existing:     "hello",
+			rawSegment:   "!",
+			wantAppend:   "!",
+			wantFullText: "hello!",
+		},
+		{
+			name:         "preserves newline separation",
+			existing:     "hello\n",
+			rawSegment:   "world",
+			wantAppend:   "world",
+			wantFullText: "hello\nworld",
+		},
+		{
+			name:         "drops empty segments",
+			existing:     "hello",
+			rawSegment:   "   ",
+			wantAppend:   "",
+			wantFullText: "hello",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			appendText, fullText := appendTranscriptSegment(tc.existing, tc.rawSegment)
+			if appendText != tc.wantAppend || fullText != tc.wantFullText {
+				t.Fatalf("appendTranscriptSegment(%q, %q) = (%q, %q), want (%q, %q)", tc.existing, tc.rawSegment, appendText, fullText, tc.wantAppend, tc.wantFullText)
+			}
+		})
+	}
+}
+
 func TestServiceStartRejectsRealtimeProfilesWithUnsupportedModel(t *testing.T) {
 	t.Parallel()
 
