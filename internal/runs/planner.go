@@ -165,73 +165,105 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 		return Plan{}, ErrProjectRuntimeRequired
 	}
 
-	snapshot := p.projectState.Snapshot()
-	document := snapshot.Document.Clone()
-
-	if err := applySectionVariantOverrides(&document, request.ProjectID, request.SectionVariantOverrides); err != nil {
-		return Plan{}, err
-	}
-	if err := applyParamOverrides(&document, request.ProjectID, request.ParamOverrides, request.DisallowParamOverrides, request.DisallowCodeParamOverrides); err != nil {
-		return Plan{}, err
-	}
-
-	target, err := document.ResolveRunTarget(request.ProjectID, request.SectionID)
+	revision, document, err := p.preparePlanDocument(request)
 	if err != nil {
 		return Plan{}, err
 	}
-	resolvedMode, err := p.resolveRunSnapshotMode(request)
+	target, resolvedMode, err := p.resolvePlanTarget(document, request)
 	if err != nil {
 		return Plan{}, err
 	}
 	if target.Kind == projectstate.RunTargetKindGeneratedEntry {
-		return p.planGeneratedEntry(target, resolvedMode, snapshot.Revision, hasOverrides(request))
+		return p.planGeneratedEntry(target, resolvedMode, revision, hasOverrides(request))
 	}
+	return p.planManualCode(target, resolvedMode, revision, hasOverrides(request))
+}
+
+func (p *Planner) preparePlanDocument(request PlanRequest) (uint64, projectstate.Document, error) {
+	snapshot := p.projectState.Snapshot()
+	document := snapshot.Document.Clone()
+
+	if err := applySectionVariantOverrides(&document, request.ProjectID, request.SectionVariantOverrides); err != nil {
+		return 0, projectstate.Document{}, err
+	}
+	if err := applyParamOverrides(&document, request.ProjectID, request.ParamOverrides, request.DisallowParamOverrides, request.DisallowCodeParamOverrides); err != nil {
+		return 0, projectstate.Document{}, err
+	}
+	return snapshot.Revision, document, nil
+}
+
+func (p *Planner) resolvePlanTarget(document projectstate.Document, request PlanRequest) (projectstate.ResolvedRunTarget, RunSnapshotMode, error) {
+	target, err := document.ResolveRunTarget(request.ProjectID, request.SectionID)
+	if err != nil {
+		return projectstate.ResolvedRunTarget{}, "", err
+	}
+	mode, err := p.resolveRunSnapshotMode(request)
+	if err != nil {
+		return projectstate.ResolvedRunTarget{}, "", err
+	}
+	return target, mode, nil
+}
+
+func (p *Planner) planManualCode(target projectstate.ResolvedRunTarget, mode RunSnapshotMode, revision uint64, overridesApplied bool) (Plan, error) {
+	if err := validateManualRunTarget(target); err != nil {
+		return Plan{}, err
+	}
+	if mode == RunSnapshotModeNever {
+		return p.planDirectManualCode(target, mode, revision)
+	}
+	return p.planSnapshotManualCode(target, mode, revision, overridesApplied)
+}
+
+func validateManualRunTarget(target projectstate.ResolvedRunTarget) error {
 	if target.Section.ID == "" {
-		return Plan{}, ErrRunTargetRequired
+		return ErrRunTargetRequired
 	}
 	if !target.Impl.IsRunnableCode() {
-		return Plan{}, ErrRunTargetNotRunnable
+		return ErrRunTargetNotRunnable
 	}
 	if target.Impl.Code == nil || target.Impl.Code.Binding == nil {
-		return Plan{}, fmt.Errorf("%w: section %q", ErrCodeBindingRequired, target.Section.ID)
+		return fmt.Errorf("%w: section %q", ErrCodeBindingRequired, target.Section.ID)
+	}
+	return nil
+}
+
+func (p *Planner) planDirectManualCode(target projectstate.ResolvedRunTarget, mode RunSnapshotMode, revision uint64) (Plan, error) {
+	entryPath, err := p.resolveBindingPath(target.Impl.Code.Binding.Path)
+	if err != nil {
+		return Plan{}, fmt.Errorf("resolve entry code binding: %w", err)
+	}
+	if _, err := os.Stat(entryPath); err != nil {
+		return Plan{}, fmt.Errorf("stat entry code file: %w", err)
 	}
 
-	if resolvedMode == RunSnapshotModeNever {
-		entryPath, err := p.resolveBindingPath(target.Impl.Code.Binding.Path)
-		if err != nil {
-			return Plan{}, fmt.Errorf("resolve entry code binding: %w", err)
-		}
-		if _, err := os.Stat(entryPath); err != nil {
-			return Plan{}, fmt.Errorf("stat entry code file: %w", err)
-		}
-
-		command, err := p.buildCommand(target.Impl.Code.Language, entryPath)
-		if err != nil {
-			return Plan{}, err
-		}
-		return Plan{
-			ProjectID:       target.Project.ID,
-			TargetKind:      projectstate.RunTargetKindManualCode,
-			SectionID:       target.Section.ID,
-			VariantID:       target.Variant.ID,
-			Language:        target.Impl.Code.Language,
-			Command:         command,
-			EntryPath:       entryPath,
-			RunSnapshotMode: resolvedMode,
-			Revision:        snapshot.Revision,
-		}, nil
+	command, err := p.buildCommand(target.Impl.Code.Language, entryPath)
+	if err != nil {
+		return Plan{}, err
 	}
+	return Plan{
+		ProjectID:       target.Project.ID,
+		TargetKind:      projectstate.RunTargetKindManualCode,
+		SectionID:       target.Section.ID,
+		VariantID:       target.Variant.ID,
+		Language:        target.Impl.Code.Language,
+		Command:         command,
+		EntryPath:       entryPath,
+		RunSnapshotMode: mode,
+		Revision:        revision,
+	}, nil
+}
 
+func (p *Planner) planSnapshotManualCode(target projectstate.ResolvedRunTarget, mode RunSnapshotMode, revision uint64, overridesApplied bool) (Plan, error) {
 	codeSections, err := p.collectCodeSections(target.Project)
 	if err != nil {
 		return Plan{}, err
 	}
-	generatedInputs, err := p.collectManualRunGeneratedInputs(target.Project, hasOverrides(request))
+	generatedInputs, err := p.collectManualRunGeneratedInputs(target.Project, overridesApplied)
 	if err != nil {
 		return Plan{}, err
 	}
 
-	snapshotDir, copiedPaths, err := p.writeSnapshot(append(codeSections, generatedInputs...), resolvedMode)
+	snapshotDir, copiedPaths, err := p.writeSnapshot(append(codeSections, generatedInputs...), mode)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -254,62 +286,92 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 		Language:          target.Impl.Code.Language,
 		Command:           command,
 		EntryPath:         entryPath,
-		RunSnapshotMode:   resolvedMode,
+		RunSnapshotMode:   mode,
 		SnapshotDirectory: snapshotDir,
-		Revision:          snapshot.Revision,
+		Revision:          revision,
 	}, nil
 }
 
 func (p *Planner) planGeneratedEntry(target projectstate.ResolvedRunTarget, mode RunSnapshotMode, revision uint64, overridesApplied bool) (Plan, error) {
-	if target.Generated == nil {
-		return Plan{}, ErrRunTargetRequired
-	}
-	if target.Generated.UsesPluginCodegen {
-		return Plan{}, ErrPluginCodegenRunUnsupported
-	}
-	if target.Generated.CodeBinding == nil {
-		return Plan{}, ErrGeneratedEntryBindingRequired
-	}
-
-	entryPath, err := p.resolveBindingPath(target.Generated.CodeBinding.Path)
-	if err != nil {
-		return Plan{}, fmt.Errorf("resolve generated entry binding: %w", err)
-	}
-	if _, err := os.Stat(entryPath); err != nil {
-		return Plan{}, fmt.Errorf("stat generated entry file: %w", err)
-	}
-
-	if target.Generated.MetadataBinding != nil {
-		metadataPath, err := p.resolveBindingPath(target.Generated.MetadataBinding.Path)
-		if err != nil {
-			return Plan{}, fmt.Errorf("resolve generated metadata binding: %w", err)
-		}
-		if _, err := os.Stat(metadataPath); err != nil {
-			return Plan{}, fmt.Errorf("stat generated metadata file: %w", err)
-		}
-	}
-
-	if mode == RunSnapshotModeNever {
-		command, err := p.buildCommand(projectstate.CodeLanguagePython, entryPath)
-		if err != nil {
-			return Plan{}, err
-		}
-		return Plan{
-			ProjectID:       target.Project.ID,
-			TargetKind:      projectstate.RunTargetKindGeneratedEntry,
-			Language:        projectstate.CodeLanguagePython,
-			Command:         command,
-			EntryPath:       entryPath,
-			RunSnapshotMode: mode,
-			Revision:        revision,
-		}, nil
-	}
-
-	codeSections, err := p.collectCodeSections(target.Project)
+	generated, err := resolvedGeneratedEntry(target)
 	if err != nil {
 		return Plan{}, err
 	}
-	generatedInputs, err := p.collectGeneratedEntryInputs(target.Project, *target.Generated, overridesApplied)
+
+	if mode == RunSnapshotModeNever {
+		return p.planDirectGeneratedEntry(target.Project.ID, generated, mode, revision)
+	}
+	return p.planSnapshotGeneratedEntry(target.Project, generated, mode, revision, overridesApplied)
+}
+
+func resolvedGeneratedEntry(target projectstate.ResolvedRunTarget) (projectstate.ResolvedGeneratedEntry, error) {
+	if target.Generated == nil {
+		return projectstate.ResolvedGeneratedEntry{}, ErrRunTargetRequired
+	}
+	if target.Generated.UsesPluginCodegen {
+		return projectstate.ResolvedGeneratedEntry{}, ErrPluginCodegenRunUnsupported
+	}
+	if target.Generated.CodeBinding == nil {
+		return projectstate.ResolvedGeneratedEntry{}, ErrGeneratedEntryBindingRequired
+	}
+	return *target.Generated, nil
+}
+
+func (p *Planner) planDirectGeneratedEntry(projectID string, target projectstate.ResolvedGeneratedEntry, mode RunSnapshotMode, revision uint64) (Plan, error) {
+	entryPath, _, err := p.resolveGeneratedEntryBindingPaths(target)
+	if err != nil {
+		return Plan{}, err
+	}
+
+	command, err := p.buildCommand(projectstate.CodeLanguagePython, entryPath)
+	if err != nil {
+		return Plan{}, err
+	}
+	return Plan{
+		ProjectID:       projectID,
+		TargetKind:      projectstate.RunTargetKindGeneratedEntry,
+		Language:        projectstate.CodeLanguagePython,
+		Command:         command,
+		EntryPath:       entryPath,
+		RunSnapshotMode: mode,
+		Revision:        revision,
+	}, nil
+}
+
+func (p *Planner) resolveGeneratedEntryBindingPaths(target projectstate.ResolvedGeneratedEntry) (string, string, error) {
+	entryPath, err := p.resolveBindingPath(target.CodeBinding.Path)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve generated entry binding: %w", err)
+	}
+	if _, err := os.Stat(entryPath); err != nil {
+		return "", "", fmt.Errorf("stat generated entry file: %w", err)
+	}
+	if target.MetadataBinding == nil {
+		return entryPath, "", nil
+	}
+
+	metadataPath, err := p.resolveBindingPath(target.MetadataBinding.Path)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve generated metadata binding: %w", err)
+	}
+	if _, err := os.Stat(metadataPath); err != nil {
+		return "", "", fmt.Errorf("stat generated metadata file: %w", err)
+	}
+	return entryPath, metadataPath, nil
+}
+
+func (p *Planner) planSnapshotGeneratedEntry(
+	project projectstate.Project,
+	target projectstate.ResolvedGeneratedEntry,
+	mode RunSnapshotMode,
+	revision uint64,
+	overridesApplied bool,
+) (Plan, error) {
+	codeSections, err := p.collectCodeSections(project)
+	if err != nil {
+		return Plan{}, err
+	}
+	generatedInputs, err := p.collectGeneratedEntryInputs(project, target, overridesApplied)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -328,7 +390,7 @@ func (p *Planner) planGeneratedEntry(target projectstate.ResolvedRunTarget, mode
 		return Plan{}, err
 	}
 	return Plan{
-		ProjectID:         target.Project.ID,
+		ProjectID:         project.ID,
 		TargetKind:        projectstate.RunTargetKindGeneratedEntry,
 		Language:          projectstate.CodeLanguagePython,
 		Command:           command,
@@ -574,29 +636,45 @@ func applyParamOverrides(
 		return err
 	}
 
-	for _, override := range parsedOverrides {
-		_, _, _, impl, err := project.ResolveSectionCodeObject(override.sectionID, override.codeObjID)
-		if err != nil {
-			return err
-		}
-
-		switch strings.TrimSpace(impl.Type) {
-		case "CodeParam":
-			if disallowCodeParamOverrides {
-				return ErrCodeParamOverridesDenied
-			}
-		case "PasswordParam":
-			return ErrPasswordParamOverrideUnsupported
-		case "DropzoneParam":
-			return ErrDropzoneParamOverrideUnsupported
-		}
-
-		if err := project.SetSectionCodeObjectValue(override.sectionID, override.codeObjID, override.value); err != nil {
-			return err
-		}
+	if err := applyParsedParamOverrides(&project, parsedOverrides, disallowCodeParamOverrides); err != nil {
+		return err
 	}
 
 	document.Projects[project.ID] = project
+	return nil
+}
+
+func applyParsedParamOverrides(project *projectstate.Project, overrides []parsedParamOverride, disallowCodeParamOverrides bool) error {
+	for _, override := range overrides {
+		if err := applySingleParamOverride(project, override, disallowCodeParamOverrides); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func applySingleParamOverride(project *projectstate.Project, override parsedParamOverride, disallowCodeParamOverrides bool) error {
+	_, _, _, impl, err := project.ResolveSectionCodeObject(override.sectionID, override.codeObjID)
+	if err != nil {
+		return err
+	}
+	if err := validateParamOverrideType(impl.Type, disallowCodeParamOverrides); err != nil {
+		return err
+	}
+	return project.SetSectionCodeObjectValue(override.sectionID, override.codeObjID, override.value)
+}
+
+func validateParamOverrideType(rawType string, disallowCodeParamOverrides bool) error {
+	switch strings.TrimSpace(rawType) {
+	case "CodeParam":
+		if disallowCodeParamOverrides {
+			return ErrCodeParamOverridesDenied
+		}
+	case "PasswordParam":
+		return ErrPasswordParamOverrideUnsupported
+	case "DropzoneParam":
+		return ErrDropzoneParamOverrideUnsupported
+	}
 	return nil
 }
 
