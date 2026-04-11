@@ -250,64 +250,80 @@ func runLauncherRoot(args []string, global globalFlags, stdout io.Writer, stderr
 }
 
 func prepareLauncherRootRequest(parsed launcherRootFlags, global globalFlags, envLookup func(string) (string, bool), cwd string, deps launcherRootDependencies) (launcherRootRequest, *launcherCommandFailure) {
-	if parsed.timeout <= 0 {
-		return launcherRootRequest{}, newLauncherCommandFailure("BadRequest", "--timeout must be greater than 0.", 2)
+	if failure := validateLauncherRootTimeout(parsed.timeout); failure != nil {
+		return launcherRootRequest{}, failure
 	}
+	baseConfig, resolvedWorkspaceOption, failure := loadLauncherRootBaseConfig(global, parsed.workspace, envLookup, cwd, deps)
+	if failure != nil {
+		return launcherRootRequest{}, failure
+	}
+	installedMetadata, failure := loadValidatedLauncherMetadata(baseConfig.Paths.SettaHome, deps)
+	if failure != nil {
+		return launcherRootRequest{}, failure
+	}
+	resolvedWorkspaceRoot, shouldOpenSwitcher, failure := resolveLauncherRootWorkspaceOption(resolvedWorkspaceOption, installedMetadata, deps.resolveUserHome)
+	if failure != nil {
+		return launcherRootRequest{}, failure
+	}
+	requestedOpenMode, failure := resolveRequestedLauncherOpenMode(parsed.openMode, installedMetadata)
+	if failure != nil {
+		return launcherRootRequest{}, failure
+	}
+	return buildLauncherRootRequest(parsed, global, baseConfig, installedMetadata, resolvedWorkspaceRoot, shouldOpenSwitcher, requestedOpenMode), nil
+}
 
+func validateLauncherRootTimeout(timeout float64) *launcherCommandFailure {
+	if timeout > 0 {
+		return nil
+	}
+	return newLauncherCommandFailure("BadRequest", "--timeout must be greater than 0.", 2)
+}
+
+func loadLauncherRootBaseConfig(global globalFlags, parsedWorkspace string, envLookup func(string) (string, bool), cwd string, deps launcherRootDependencies) (config.Config, string, *launcherCommandFailure) {
 	baseConfig, err := deps.loadBaseConfig(global, cwd, envLookup)
 	if err != nil {
-		return launcherRootRequest{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
+		return config.Config{}, "", newLauncherCommandFailure("BadRequest", err.Error(), 2)
 	}
-
-	resolvedWorkspaceOption, err := resolveLauncherWorkspaceOption(parsed.workspace, global.workspaceRoot)
+	resolvedWorkspaceOption, err := resolveLauncherWorkspaceOption(parsedWorkspace, global.workspaceRoot)
 	if err != nil {
-		return launcherRootRequest{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
+		return config.Config{}, "", newLauncherCommandFailure("BadRequest", err.Error(), 2)
 	}
+	return baseConfig, resolvedWorkspaceOption, nil
+}
 
-	installedMetadata, err := deps.loadMetadata(baseConfig.Paths.SettaHome)
+func loadValidatedLauncherMetadata(settaHome string, deps launcherRootDependencies) (*launcher.LauncherInstallMetadata, *launcherCommandFailure) {
+	installedMetadata, err := deps.loadMetadata(settaHome)
 	if err != nil {
-		return launcherRootRequest{}, launcherMetadataFailure(err)
+		return nil, launcherMetadataFailure(err)
 	}
-	if installedMetadata != nil {
-		targetError := deps.validateMetadataTarget(*installedMetadata)
-		if targetError != "" {
-			return launcherRootRequest{}, newLauncherCommandFailure("LauncherTargetMissing", targetError, 2)
-		}
+	if installedMetadata == nil {
+		return nil, nil
 	}
+	targetError := deps.validateMetadataTarget(*installedMetadata)
+	if targetError != "" {
+		return nil, newLauncherCommandFailure("LauncherTargetMissing", targetError, 2)
+	}
+	return installedMetadata, nil
+}
 
-	resolvedWorkspaceRoot, shouldOpenSwitcher, err := resolveLauncherWorkspaceRoot(
-		resolvedWorkspaceOption,
-		installedMetadata,
-		deps.resolveUserHome,
-	)
+func resolveLauncherRootWorkspaceOption(resolvedWorkspaceOption string, installedMetadata *launcher.LauncherInstallMetadata, resolveUserHome func() (string, error)) (string, bool, *launcherCommandFailure) {
+	resolvedWorkspaceRoot, shouldOpenSwitcher, err := resolveLauncherWorkspaceRoot(resolvedWorkspaceOption, installedMetadata, resolveUserHome)
 	if err != nil {
-		return launcherRootRequest{}, newLauncherCommandFailure("InvalidWorkspace", fmt.Sprintf("Failed to initialize launcher workspace: %v", err), 2)
+		return "", false, newLauncherCommandFailure("InvalidWorkspace", fmt.Sprintf("Failed to initialize launcher workspace: %v", err), 2)
 	}
+	return resolvedWorkspaceRoot, shouldOpenSwitcher, nil
+}
 
+func resolveRequestedLauncherOpenMode(rawOpenMode string, installedMetadata *launcher.LauncherInstallMetadata) (launcher.LauncherOpenMode, *launcherCommandFailure) {
+	requestedOpenMode, err := resolveLauncherRunOpenMode(rawOpenMode, installedMetadata)
+	if err != nil {
+		return "", newLauncherCommandFailure("BadRequest", err.Error(), 2)
+	}
+	return requestedOpenMode, nil
+}
+
+func buildLauncherRootRequest(parsed launcherRootFlags, global globalFlags, baseConfig config.Config, installedMetadata *launcher.LauncherInstallMetadata, resolvedWorkspaceRoot string, shouldOpenSwitcher bool, requestedOpenMode launcher.LauncherOpenMode) launcherRootRequest {
 	normalizedProfile := strings.TrimSpace(global.profile)
-	normalizedSettaFilesRoot := strings.TrimSpace(global.settaFilesRoot)
-	normalizedRuntimeRoot := strings.TrimSpace(global.runtimeRoot)
-	resolvedSettaFilesLocation := normalizeLauncherRunSettaFilesLocation(global.settaFilesLocation, normalizedSettaFilesRoot, normalizedProfile)
-	if shouldOpenSwitcher && resolvedSettaFilesLocation != nil && *resolvedSettaFilesLocation == string(config.FilesLocationAuto) {
-		globalLocation := string(config.FilesLocationGlobal)
-		resolvedSettaFilesLocation = &globalLocation
-	}
-
-	requestedOpenMode, err := resolveLauncherRunOpenMode(parsed.openMode, installedMetadata)
-	if err != nil {
-		return launcherRootRequest{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
-	}
-
-	serverMode := config.ModeIDE
-	if shouldOpenSwitcher {
-		serverMode = config.ModeLauncher
-	}
-
-	profileLookupHome := ""
-	if normalizedProfile != "" {
-		profileLookupHome = baseConfig.Paths.ProfileLookupHome
-	}
-
 	return launcherRootRequest{
 		flags:              parsed,
 		installedMetadata:  installedMetadata,
@@ -317,14 +333,38 @@ func prepareLauncherRootRequest(parsed launcherRootFlags, global globalFlags, en
 		sessionLaunchInput: launcher.IDELaunchInput{
 			WorkspaceRoot:      resolvedWorkspaceRoot,
 			SettaHome:          baseConfig.Paths.SettaHome,
-			ProfileLookupHome:  profileLookupHome,
+			ProfileLookupHome:  launcherProfileLookupHome(normalizedProfile, baseConfig),
 			Profile:            normalizedProfile,
-			SettaFilesRoot:     normalizedSettaFilesRoot,
-			SettaFilesLocation: resolvedSettaFilesLocation,
-			RuntimeRoot:        normalizedRuntimeRoot,
-			ServerMode:         serverMode,
+			SettaFilesRoot:     strings.TrimSpace(global.settaFilesRoot),
+			SettaFilesLocation: resolveLauncherRunSettaFilesLocationForRequest(global, shouldOpenSwitcher),
+			RuntimeRoot:        strings.TrimSpace(global.runtimeRoot),
+			ServerMode:         launcherServerMode(shouldOpenSwitcher),
 		},
-	}, nil
+	}
+}
+
+func launcherProfileLookupHome(normalizedProfile string, baseConfig config.Config) string {
+	if normalizedProfile == "" {
+		return ""
+	}
+	return baseConfig.Paths.ProfileLookupHome
+}
+
+func resolveLauncherRunSettaFilesLocationForRequest(global globalFlags, shouldOpenSwitcher bool) *string {
+	normalizedProfile := strings.TrimSpace(global.profile)
+	resolvedSettaFilesLocation := normalizeLauncherRunSettaFilesLocation(global.settaFilesLocation, strings.TrimSpace(global.settaFilesRoot), normalizedProfile)
+	if shouldOpenSwitcher && resolvedSettaFilesLocation != nil && *resolvedSettaFilesLocation == string(config.FilesLocationAuto) {
+		globalLocation := string(config.FilesLocationGlobal)
+		return &globalLocation
+	}
+	return resolvedSettaFilesLocation
+}
+
+func launcherServerMode(shouldOpenSwitcher bool) config.Mode {
+	if shouldOpenSwitcher {
+		return config.ModeLauncher
+	}
+	return config.ModeIDE
 }
 
 func executeLauncherRootRequest(request launcherRootRequest, envLookup func(string) (string, bool), deps launcherRootDependencies) (launcherRootResult, *launcherCommandFailure) {
@@ -458,66 +498,22 @@ func runLauncherSetup(args []string, global globalFlags, stdout io.Writer, stder
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher setup does not accept positional arguments")
 	}
-
-	if parsed.clearArtifactOptions && len(parsed.artifactOptionSpecs.values) != 0 {
-		return emitLauncherCommandError(
-			stdout,
-			stderr,
-			parsed.jsonOutput,
-			"BadRequest",
-			"Use either --artifact-option or --clear-artifact-options, not both.",
-			2,
-		)
+	setupInput, failure := prepareLauncherSetupInput(parsed)
+	if failure != nil {
+		return failure.emit(stdout, stderr, parsed.jsonOutput)
 	}
-
-	commandCfg, err := resolveLauncherCommandConfig(global, cwd, envLookup)
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
+	settaHome, manager, failure := loadLauncherManagementContext(global, cwd, envLookup)
+	if failure != nil {
+		return failure.emit(stdout, stderr, parsed.jsonOutput)
 	}
-	manager, err := newLauncherManagementService()
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", err.Error(), 1)
-	}
-
-	artifactOptions, err := parseLauncherArtifactOptionSpecs(parsed.artifactOptionSpecs.values, parsed.clearArtifactOptions)
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
-	}
-	installSource, err := normalizeLauncherInstallSource(parsed.installSource)
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
-	}
-	openMode, err := normalizeLauncherOpenMode(parsed.openMode)
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
-	}
-	workspaceBehavior, err := normalizeLauncherWorkspaceBehavior(parsed.workspaceBehavior)
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
-	}
-
-	setupInput := launcher.LauncherSetupInput{
-		Channel:           stringPointer(parsed.channel),
-		InstallSource:     installSource,
-		OpenMode:          openMode,
-		WorkspaceBehavior: workspaceBehavior,
-		InstallArtifacts:  parsed.installArtifacts.value,
-		ArtifactOptions:   artifactOptions,
-	}
-	if _, err := manager.Setup(commandCfg.Paths.SettaHome, setupInput); err != nil {
+	if _, err := manager.Setup(settaHome, setupInput); err != nil {
 		return emitLauncherSetupError(stdout, stderr, parsed.jsonOutput, err)
 	}
-	status, err := manager.CollectStatus(commandCfg.Paths.SettaHome)
+	status, err := manager.CollectStatus(settaHome)
 	if err != nil {
 		return emitLauncherSetupError(stdout, stderr, parsed.jsonOutput, err)
 	}
-	payload := launcherStatusPayloadFromSnapshot(status)
-	if parsed.jsonOutput {
-		return writeJSONPayload(stdout, payload)
-	}
-	fmt.Fprintf(stdout, "Launcher metadata written: %s\n", payload.MetadataPath)
-	fmt.Fprintf(stdout, "Target command: %s\n", shellJoin(payload.TargetCommand))
-	return nil
+	return writeLauncherSetupResponse(stdout, parsed.jsonOutput, launcherStatusPayloadFromSnapshot(status))
 }
 
 func runLauncherStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
@@ -530,16 +526,11 @@ func runLauncherStatus(args []string, global globalFlags, stdout io.Writer, stde
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher status does not accept positional arguments")
 	}
-
-	commandCfg, err := resolveLauncherCommandConfig(global, cwd, envLookup)
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, *jsonOutput, "BadRequest", err.Error(), 2)
+	settaHome, manager, failure := loadLauncherManagementContext(global, cwd, envLookup)
+	if failure != nil {
+		return failure.emit(stdout, stderr, *jsonOutput)
 	}
-	manager, err := newLauncherManagementService()
-	if err != nil {
-		return emitLauncherCommandError(stdout, stderr, *jsonOutput, "InternalError", err.Error(), 1)
-	}
-	status, err := manager.CollectStatus(commandCfg.Paths.SettaHome)
+	status, err := manager.CollectStatus(settaHome)
 	if err != nil {
 		return emitLauncherSetupError(stdout, stderr, *jsonOutput, err)
 	}
@@ -547,6 +538,49 @@ func runLauncherStatus(args []string, global globalFlags, stdout io.Writer, stde
 	if *jsonOutput {
 		return writeJSONPayload(stdout, payload)
 	}
+	return writeLauncherStatusText(stdout, payload)
+}
+
+func prepareLauncherSetupInput(parsed launcherSetupFlags) (launcher.LauncherSetupInput, *launcherCommandFailure) {
+	if parsed.clearArtifactOptions && len(parsed.artifactOptionSpecs.values) != 0 {
+		return launcher.LauncherSetupInput{}, newLauncherCommandFailure("BadRequest", "Use either --artifact-option or --clear-artifact-options, not both.", 2)
+	}
+	artifactOptions, err := parseLauncherArtifactOptionSpecs(parsed.artifactOptionSpecs.values, parsed.clearArtifactOptions)
+	if err != nil {
+		return launcher.LauncherSetupInput{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
+	}
+	installSource, err := normalizeLauncherInstallSource(parsed.installSource)
+	if err != nil {
+		return launcher.LauncherSetupInput{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
+	}
+	openMode, err := normalizeLauncherOpenMode(parsed.openMode)
+	if err != nil {
+		return launcher.LauncherSetupInput{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
+	}
+	workspaceBehavior, err := normalizeLauncherWorkspaceBehavior(parsed.workspaceBehavior)
+	if err != nil {
+		return launcher.LauncherSetupInput{}, newLauncherCommandFailure("BadRequest", err.Error(), 2)
+	}
+	return launcher.LauncherSetupInput{
+		Channel:           stringPointer(parsed.channel),
+		InstallSource:     installSource,
+		OpenMode:          openMode,
+		WorkspaceBehavior: workspaceBehavior,
+		InstallArtifacts:  parsed.installArtifacts.value,
+		ArtifactOptions:   artifactOptions,
+	}, nil
+}
+
+func writeLauncherSetupResponse(stdout io.Writer, jsonOutput bool, payload launcherStatusPayload) error {
+	if jsonOutput {
+		return writeJSONPayload(stdout, payload)
+	}
+	fmt.Fprintf(stdout, "Launcher metadata written: %s\n", payload.MetadataPath)
+	fmt.Fprintf(stdout, "Target command: %s\n", shellJoin(payload.TargetCommand))
+	return nil
+}
+
+func writeLauncherStatusText(stdout io.Writer, payload launcherStatusPayload) error {
 	if !payload.Installed {
 		fmt.Fprintln(stdout, "Launcher status: not installed")
 		fmt.Fprintln(stdout, "Run `setta launcher setup` to install launcher metadata.")
@@ -555,25 +589,36 @@ func runLauncherStatus(args []string, global globalFlags, stdout io.Writer, stde
 	fmt.Fprintln(stdout, "Launcher status: installed")
 	fmt.Fprintf(stdout, "Metadata: %s\n", payload.MetadataPath)
 	fmt.Fprintf(stdout, "Target: %s\n", shellJoin(payload.TargetCommand))
-	if payload.Channel != nil {
-		fmt.Fprintf(stdout, "Channel: %s\n", *payload.Channel)
-	}
-	if payload.UpdateCapability != "" {
-		fmt.Fprintf(stdout, "Update capability: %s\n", payload.UpdateCapability)
-	}
-	if payload.UpdateGuidance != nil {
-		fmt.Fprintf(stdout, "Update guidance: %s\n", *payload.UpdateGuidance)
-	}
-	if payload.TargetError != nil {
-		fmt.Fprintf(stdout, "Target error: %s\n", *payload.TargetError)
-	}
-	if len(payload.MissingManagedArtifacts) != 0 {
-		fmt.Fprintln(stdout, "Missing managed artifacts:")
-		for _, path := range payload.MissingManagedArtifacts {
-			fmt.Fprintf(stdout, "  - %s\n", path)
-		}
-	}
+	writeOptionalLauncherStatusLine(stdout, "Channel", payload.Channel)
+	writeOptionalLauncherStatusValue(stdout, "Update capability", payload.UpdateCapability)
+	writeOptionalLauncherStatusLine(stdout, "Update guidance", payload.UpdateGuidance)
+	writeOptionalLauncherStatusLine(stdout, "Target error", payload.TargetError)
+	writeLauncherStatusMissingArtifacts(stdout, payload.MissingManagedArtifacts)
 	return nil
+}
+
+func writeOptionalLauncherStatusLine(stdout io.Writer, label string, value *string) {
+	if value == nil {
+		return
+	}
+	fmt.Fprintf(stdout, "%s: %s\n", label, *value)
+}
+
+func writeOptionalLauncherStatusValue(stdout io.Writer, label string, value string) {
+	if value == "" {
+		return
+	}
+	fmt.Fprintf(stdout, "%s: %s\n", label, value)
+}
+
+func writeLauncherStatusMissingArtifacts(stdout io.Writer, missingPaths []string) {
+	if len(missingPaths) == 0 {
+		return
+	}
+	fmt.Fprintln(stdout, "Missing managed artifacts:")
+	for _, path := range missingPaths {
+		fmt.Fprintf(stdout, "  - %s\n", path)
+	}
 }
 
 func runLauncherRepair(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
@@ -741,48 +786,46 @@ func resolveLauncherWorkspaceOption(subcommandWorkspace string, globalWorkspace 
 }
 
 func resolveLauncherWorkspaceRoot(explicitWorkspace string, installedMetadata *launcher.LauncherInstallMetadata, resolveUserHome func() (string, error)) (string, bool, error) {
-	if strings.TrimSpace(explicitWorkspace) != "" {
-		resolvedWorkspace, err := resolveCLIPath(explicitWorkspace)
-		if err != nil {
-			return "", false, err
-		}
-		return resolvedWorkspace, false, nil
+	if resolvedWorkspace, ok, err := resolveExplicitLauncherWorkspaceRoot(explicitWorkspace); ok || err != nil {
+		return resolvedWorkspace, false, err
 	}
-
-	workspaceBehavior := launcher.LauncherWorkspaceBehaviorDefault
-	if installedMetadata != nil && strings.TrimSpace(installedMetadata.WorkspaceBehavior) != "" {
-		workspaceBehavior = launcher.LauncherWorkspaceBehavior(installedMetadata.WorkspaceBehavior)
+	if resolvedWorkspace, ok, err := resolveMetadataLauncherWorkspaceRoot(installedMetadata); ok || err != nil {
+		return resolvedWorkspace, false, err
 	}
-	if workspaceBehavior != launcher.LauncherWorkspaceBehaviorAlwaysPrompt &&
-		installedMetadata != nil &&
-		installedMetadata.LastUsedWorkspace != nil &&
-		strings.TrimSpace(*installedMetadata.LastUsedWorkspace) != "" {
-		candidate, err := resolveCLIPath(*installedMetadata.LastUsedWorkspace)
-		if err != nil {
-			return "", false, err
-		}
-		info, statErr := os.Stat(candidate)
-		if statErr == nil && info.IsDir() {
-			return candidate, false, nil
-		}
-	}
-
-	homeDir, err := resolveUserHome()
-	if err != nil {
-		return "", false, fmt.Errorf("resolve user home: %w", err)
-	}
-	resolvedHome, err := resolveCLIPath(homeDir)
+	resolvedHome, err := resolveLauncherHomeWorkspaceRoot(resolveUserHome)
 	if err != nil {
 		return "", false, err
-	}
-	info, err := os.Stat(resolvedHome)
-	if err != nil {
-		return "", false, err
-	}
-	if !info.IsDir() {
-		return "", false, fmt.Errorf("Home directory is not a directory: %s", resolvedHome)
 	}
 	return resolvedHome, true, nil
+}
+
+func resolveExplicitLauncherWorkspaceRoot(explicitWorkspace string) (string, bool, error) {
+	if strings.TrimSpace(explicitWorkspace) == "" {
+		return "", false, nil
+	}
+	resolvedWorkspace, err := resolveCLIPath(explicitWorkspace)
+	if err != nil {
+		return "", false, err
+	}
+	return resolvedWorkspace, true, nil
+}
+
+func resolveMetadataLauncherWorkspaceRoot(installedMetadata *launcher.LauncherInstallMetadata) (string, bool, error) {
+	if launcherWorkspaceBehavior(installedMetadata) == launcher.LauncherWorkspaceBehaviorAlwaysPrompt {
+		return "", false, nil
+	}
+	lastUsedWorkspace := launcherMetadataLastUsedWorkspace(installedMetadata)
+	if lastUsedWorkspace == "" {
+		return "", false, nil
+	}
+	candidate, err := resolveCLIPath(lastUsedWorkspace)
+	if err != nil {
+		return "", false, err
+	}
+	if !pathIsExistingDirectory(candidate) {
+		return "", false, nil
+	}
+	return candidate, true, nil
 }
 
 func resolveLauncherRunOpenMode(rawOpenMode string, installedMetadata *launcher.LauncherInstallMetadata) (launcher.LauncherOpenMode, error) {
@@ -800,10 +843,45 @@ func resolveLauncherRunOpenMode(rawOpenMode string, installedMetadata *launcher.
 }
 
 func effectiveLauncherWorkspaceBehavior(installedMetadata *launcher.LauncherInstallMetadata) string {
+	return string(launcherWorkspaceBehavior(installedMetadata))
+}
+
+func launcherWorkspaceBehavior(installedMetadata *launcher.LauncherInstallMetadata) launcher.LauncherWorkspaceBehavior {
 	if installedMetadata != nil && strings.TrimSpace(installedMetadata.WorkspaceBehavior) != "" {
-		return installedMetadata.WorkspaceBehavior
+		return launcher.LauncherWorkspaceBehavior(installedMetadata.WorkspaceBehavior)
 	}
-	return string(launcher.LauncherWorkspaceBehaviorDefault)
+	return launcher.LauncherWorkspaceBehaviorDefault
+}
+
+func launcherMetadataLastUsedWorkspace(installedMetadata *launcher.LauncherInstallMetadata) string {
+	if installedMetadata == nil || installedMetadata.LastUsedWorkspace == nil {
+		return ""
+	}
+	return strings.TrimSpace(*installedMetadata.LastUsedWorkspace)
+}
+
+func pathIsExistingDirectory(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+func resolveLauncherHomeWorkspaceRoot(resolveUserHome func() (string, error)) (string, error) {
+	homeDir, err := resolveUserHome()
+	if err != nil {
+		return "", fmt.Errorf("resolve user home: %w", err)
+	}
+	resolvedHome, err := resolveCLIPath(homeDir)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(resolvedHome)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("Home directory is not a directory: %s", resolvedHome)
+	}
+	return resolvedHome, nil
 }
 
 func normalizeLauncherRunSettaFilesLocation(rawLocation string, settaFilesRoot string, profile string) *string {
@@ -1082,6 +1160,18 @@ func resolveLauncherCommandConfig(global globalFlags, cwd string, envLookup func
 			Mode:               string(config.ModeLauncher),
 		},
 	})
+}
+
+func loadLauncherManagementContext(global globalFlags, cwd string, envLookup func(string) (string, bool)) (string, *launcher.ManagementService, *launcherCommandFailure) {
+	commandCfg, err := resolveLauncherCommandConfig(global, cwd, envLookup)
+	if err != nil {
+		return "", nil, newLauncherCommandFailure("BadRequest", err.Error(), 2)
+	}
+	manager, err := newLauncherManagementService()
+	if err != nil {
+		return "", nil, newLauncherCommandFailure("InternalError", err.Error(), 1)
+	}
+	return commandCfg.Paths.SettaHome, manager, nil
 }
 
 func newLauncherManagementService() (*launcher.ManagementService, error) {

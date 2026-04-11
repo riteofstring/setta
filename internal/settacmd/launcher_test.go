@@ -256,6 +256,73 @@ func decodeJSONPayload(t *testing.T, raw string) map[string]any {
 	return payload
 }
 
+func TestResolveLauncherWorkspaceRootUsesExplicitWorkspace(t *testing.T) {
+	t.Parallel()
+
+	explicitWorkspace := t.TempDir()
+	got, shouldOpenSwitcher, err := resolveLauncherWorkspaceRoot(explicitWorkspace, nil, func() (string, error) {
+		t.Fatal("resolveUserHome should not be called for explicit workspaces")
+		return "", nil
+	})
+	if err != nil {
+		t.Fatalf("resolve launcher workspace root: %v", err)
+	}
+	if shouldOpenSwitcher {
+		t.Fatal("expected explicit workspace to skip the workspace switcher")
+	}
+	if got != explicitWorkspace {
+		t.Fatalf("expected explicit workspace %q, got %q", explicitWorkspace, got)
+	}
+}
+
+func TestResolveLauncherWorkspaceRootFallsBackWhenStoredWorkspaceMissing(t *testing.T) {
+	t.Parallel()
+
+	homeDir := t.TempDir()
+	missingWorkspace := filepath.Join(t.TempDir(), "missing-workspace")
+	metadata := &launcher.LauncherInstallMetadata{
+		WorkspaceBehavior: string(launcher.LauncherWorkspaceBehaviorDefault),
+		LastUsedWorkspace: stringPointer(missingWorkspace),
+	}
+
+	got, shouldOpenSwitcher, err := resolveLauncherWorkspaceRoot("", metadata, func() (string, error) {
+		return homeDir, nil
+	})
+	if err != nil {
+		t.Fatalf("resolve launcher workspace root: %v", err)
+	}
+	if !shouldOpenSwitcher {
+		t.Fatal("expected home-directory fallback to request the workspace switcher")
+	}
+	if got != homeDir {
+		t.Fatalf("expected home directory fallback %q, got %q", homeDir, got)
+	}
+}
+
+func TestResolveLauncherWorkspaceRootRejectsHomeFileFallback(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	homeFile := filepath.Join(tempDir, "home.txt")
+	if err := os.WriteFile(homeFile, []byte("not-a-directory"), 0o644); err != nil {
+		t.Fatalf("write home file: %v", err)
+	}
+
+	_, shouldOpenSwitcher, err := resolveLauncherWorkspaceRoot("", nil, func() (string, error) {
+		return homeFile, nil
+	})
+	if err == nil {
+		t.Fatal("expected non-directory home fallback to fail")
+	}
+	if shouldOpenSwitcher {
+		t.Fatal("expected failed fallback to avoid claiming the workspace switcher should open")
+	}
+	expectedErr := "Home directory is not a directory: " + homeFile
+	if err.Error() != expectedErr {
+		t.Fatalf("expected error %q, got %q", expectedErr, err.Error())
+	}
+}
+
 func TestRunLauncherRootUsesHomeFallbackWorkspaceAndRequestsSwitcher(t *testing.T) {
 	t.Parallel()
 
