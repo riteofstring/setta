@@ -195,40 +195,19 @@ func (r *Runtime) StartRun(specInput SpecInput, inputs map[string]any) (agentrun
 }
 
 func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
-	if r == nil || (r.managed == nil && r.external == nil) {
-		return agentruns.Run{}, ErrStepRuntimeRequired
+	if err := r.requireStepRuntime(); err != nil {
+		return agentruns.Run{}, err
 	}
-	if r.Disabled() {
-		return agentruns.Run{}, ErrStepRuntimeRequired
+	trimmedRunID, err := normalizeChainRunID(runID)
+	if err != nil {
+		return agentruns.Run{}, err
 	}
-	trimmedRunID := strings.TrimSpace(runID)
-	if trimmedRunID == "" {
-		return agentruns.Run{}, fmt.Errorf("%w: run id is required", agentruns.ErrRunNotFound)
-	}
-
-	r.mu.RLock()
-	active, ok := r.active[trimmedRunID]
-	r.mu.RUnlock()
+	active, ok := r.lookupActiveRun(trimmedRunID)
 	if ok && active.cancel != nil {
 		active.cancel()
 	}
-	if ok && strings.TrimSpace(active.stepRunID) != "" {
-		switch active.stepEngineType {
-		case agentruns.EngineTypeExternalAgent:
-			if r.external == nil {
-				return agentruns.Run{}, ErrExternalRuntimeUnavailable
-			}
-			if _, err := r.external.StopRun(active.stepRunID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
-				return agentruns.Run{}, err
-			}
-		default:
-			if r.managed == nil {
-				return agentruns.Run{}, ErrManagedRuntimeRequired
-			}
-			if _, err := r.managed.StopRun(active.stepRunID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
-				return agentruns.Run{}, err
-			}
-		}
+	if err := r.stopActiveStepRun(active, ok); err != nil {
+		return agentruns.Run{}, err
 	}
 	return r.markCancelled(trimmedRunID)
 }
@@ -256,38 +235,8 @@ func (r *Runtime) WaitForRun(ctx context.Context, runID string) (agentruns.Run, 
 
 func (r *Runtime) validateSpec(spec Spec, chainInputs map[string]any) error {
 	for index, step := range spec.Steps {
-		engineConfig, err := r.engines.Get(step.EngineConfigID)
-		if err != nil {
+		if err := r.validateSpecStep(step, index, chainInputs); err != nil {
 			return err
-		}
-		profile, err := r.resolveStepProfile(step)
-		if err != nil {
-			return err
-		}
-		stepInputs, err := r.buildStepInputs(step, index, "validation-run", chainInputs, nil)
-		if err != nil {
-			return err
-		}
-		switch engineConfig.EngineType {
-		case agentruns.EngineTypeSettaLLM:
-			if r.managed == nil {
-				return ErrManagedRuntimeRequired
-			}
-			if r.managed.Disabled() {
-				return ErrManagedRuntimeUnavailable
-			}
-			if err := r.validateManagedStepInputs(stepInputs); err != nil {
-				return err
-			}
-		case agentruns.EngineTypeExternalAgent:
-			if r.external == nil || r.external.Disabled() {
-				return ErrExternalRuntimeUnavailable
-			}
-			if err := r.external.ValidateRun(profile, stepInputs); err != nil {
-				return normalizeExternalValidationError(err)
-			}
-		default:
-			return fmt.Errorf("%w: run chain step %d uses unsupported engine type %q", ErrSupportedStepEngineRequired, index, engineConfig.EngineType)
 		}
 	}
 	return nil
@@ -312,68 +261,27 @@ func (r *Runtime) prepareChainInputs(spec Spec, inputs map[string]any) (map[stri
 func (r *Runtime) executeChain(ctx context.Context, runID string, spec Spec, chainInputs map[string]any) {
 	stepSummaries := make([]map[string]any, 0, len(spec.Steps))
 	for index, step := range spec.Steps {
-		if ctx.Err() != nil {
-			_, _ = r.markCancelled(runID)
+		if r.cancelChainIfContextDone(ctx, runID) {
 			return
 		}
-		if err := r.appendEvent(runID, "step_started", map[string]any{
-			"stepIndex":      index,
-			"stepId":         step.ID,
-			"engineConfigId": step.EngineConfigID,
-			"agentProfileId": derefString(step.AgentProfileID),
-		}); err != nil {
-			_, _ = r.markFailed(runID, map[string]any{"error": err.Error()})
-			return
-		}
-
-		childRun, err := r.runStep(ctx, step, index, runID, chainInputs, stepSummaries)
+		childRun, err := r.startChainStep(ctx, runID, step, index, chainInputs, stepSummaries)
 		if err != nil {
-			if ctx.Err() != nil || errors.Is(err, context.Canceled) {
-				_, _ = r.markCancelled(runID)
+			if r.cancelChainIfStepRunStopped(ctx, runID, err) {
 				return
 			}
-			_, _ = r.markFailed(runID, map[string]any{"error": err.Error()})
+			r.failChainWithError(runID, err)
 			return
 		}
 
 		summary := buildStepSummary(step, childRun)
 		stepSummaries = append(stepSummaries, summary)
 		if err := r.updateOutputs(runID, spec, stepSummaries); err != nil {
-			_, _ = r.markFailed(runID, map[string]any{"error": err.Error()})
+			r.failChainWithError(runID, err)
 			return
 		}
-
-		if childRun.Status == agentruns.RunStatusCompleted {
-			if err := r.appendEvent(runID, "step_completed", map[string]any{
-				"stepIndex": index,
-				"stepId":    step.ID,
-				"runId":     childRun.ID,
-				"status":    string(childRun.Status),
-			}); err != nil {
-				_, _ = r.markFailed(runID, map[string]any{"error": err.Error()})
-				return
-			}
-			continue
-		}
-
-		if err := r.appendEvent(runID, "step_failed", map[string]any{
-			"stepIndex": index,
-			"stepId":    step.ID,
-			"runId":     childRun.ID,
-			"status":    string(childRun.Status),
-		}); err != nil {
-			_, _ = r.markFailed(runID, map[string]any{"error": err.Error()})
+		if r.finishChainAfterStep(runID, spec, step, index, childRun) {
 			return
 		}
-		if !spec.StopOnFailure {
-			continue
-		}
-		if childRun.Status == agentruns.RunStatusCancelled {
-			_, _ = r.markCancelled(runID)
-			return
-		}
-		_, _ = r.markFailed(runID, map[string]any{})
-		return
 	}
 
 	_, _ = r.markCompleted(runID, spec, stepSummaries)
@@ -391,54 +299,14 @@ func (r *Runtime) runStep(
 	if err != nil {
 		return agentruns.Run{}, err
 	}
-	if engineConfig.EngineType != agentruns.EngineTypeSettaLLM {
-		switch engineConfig.EngineType {
-		case agentruns.EngineTypeExternalAgent:
-		default:
-			return agentruns.Run{}, fmt.Errorf("%w: step %q uses unsupported engine type %q", ErrSupportedStepEngineRequired, step.ID, engineConfig.EngineType)
-		}
+	if err := validateSupportedStepEngine(step.ID, engineConfig.EngineType); err != nil {
+		return agentruns.Run{}, err
 	}
-	inputs, err := r.buildStepInputs(step, stepIndex, chainRunID, chainInputs, previousOutputs)
+	profile, inputs, err := r.prepareStepRun(step, stepIndex, chainRunID, chainInputs, previousOutputs)
 	if err != nil {
 		return agentruns.Run{}, err
 	}
-	profile, err := r.resolveStepProfile(step)
-	if err != nil {
-		return agentruns.Run{}, err
-	}
-	profile.EngineConfigID = cloneStringPtr(&step.EngineConfigID)
-	switch engineConfig.EngineType {
-	case agentruns.EngineTypeSettaLLM:
-		if r.managed == nil {
-			return agentruns.Run{}, ErrManagedRuntimeRequired
-		}
-		childRun, err := r.managed.StartRun(profile, inputs)
-		if err != nil {
-			return agentruns.Run{}, err
-		}
-		r.setActiveStep(chainRunID, childRun.ID, agentruns.EngineTypeSettaLLM)
-		defer r.clearActiveStep(chainRunID, childRun.ID)
-		if err := r.stopStepIfContextCancelled(ctx, childRun.ID, agentruns.EngineTypeSettaLLM); err != nil {
-			return agentruns.Run{}, err
-		}
-		return r.managed.WaitForRun(ctx, childRun.ID)
-	case agentruns.EngineTypeExternalAgent:
-		if r.external == nil {
-			return agentruns.Run{}, ErrExternalRuntimeUnavailable
-		}
-		childRun, err := r.external.StartRun(ctx, profile, inputs)
-		if err != nil {
-			return agentruns.Run{}, err
-		}
-		r.setActiveStep(chainRunID, childRun.ID, agentruns.EngineTypeExternalAgent)
-		defer r.clearActiveStep(chainRunID, childRun.ID)
-		if err := r.stopStepIfContextCancelled(ctx, childRun.ID, agentruns.EngineTypeExternalAgent); err != nil {
-			return agentruns.Run{}, err
-		}
-		return r.external.WaitForRun(ctx, childRun.ID)
-	default:
-		return agentruns.Run{}, fmt.Errorf("%w: step %q uses unsupported engine type %q", ErrSupportedStepEngineRequired, step.ID, engineConfig.EngineType)
-	}
+	return r.startStepRun(ctx, chainRunID, engineConfig.EngineType, profile, inputs, step)
 }
 
 func (r *Runtime) resolveStepProfile(step Step) (agentprofiles.Profile, error) {
@@ -472,37 +340,326 @@ func (r *Runtime) buildStepInputs(
 	chainInputs map[string]any,
 	previousOutputs []map[string]any,
 ) (map[string]any, error) {
+	payloadInputs := cloneChainStepInputs(chainInputs)
+	mergeStepInputOverrides(payloadInputs, step.Inputs)
+	ensureUnscopedStepInputs(payloadInputs)
+	if err := validateStepEngineInput(payloadInputs, step.EngineConfigID); err != nil {
+		return nil, err
+	}
+	attachStepRuntimeInputs(payloadInputs, step, stepIndex, chainRunID, previousOutputs)
+	applyOptionalStepPrompt(payloadInputs, step)
+	applyOptionalStepMessages(payloadInputs, step)
+	if err := prependPreviousOutputsContext(payloadInputs, step, previousOutputs); err != nil {
+		return nil, err
+	}
+	return payloadInputs, nil
+}
+
+func (r *Runtime) requireStepRuntime() error {
+	if r == nil || (r.managed == nil && r.external == nil) {
+		return ErrStepRuntimeRequired
+	}
+	if r.Disabled() {
+		return ErrStepRuntimeRequired
+	}
+	return nil
+}
+
+func normalizeChainRunID(runID string) (string, error) {
+	trimmedRunID := strings.TrimSpace(runID)
+	if trimmedRunID == "" {
+		return "", fmt.Errorf("%w: run id is required", agentruns.ErrRunNotFound)
+	}
+	return trimmedRunID, nil
+}
+
+func (r *Runtime) lookupActiveRun(runID string) (activeRunState, bool) {
+	r.mu.RLock()
+	active, ok := r.active[runID]
+	r.mu.RUnlock()
+	return active, ok
+}
+
+func (r *Runtime) stopActiveStepRun(active activeRunState, ok bool) error {
+	if !ok || strings.TrimSpace(active.stepRunID) == "" {
+		return nil
+	}
+	switch active.stepEngineType {
+	case agentruns.EngineTypeExternalAgent:
+		return r.stopExternalStepRun(active.stepRunID)
+	default:
+		return r.stopManagedStepRun(active.stepRunID)
+	}
+}
+
+func (r *Runtime) stopExternalStepRun(runID string) error {
+	if r.external == nil {
+		return ErrExternalRuntimeUnavailable
+	}
+	if _, err := r.external.StopRun(runID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
+		return err
+	}
+	return nil
+}
+
+func (r *Runtime) stopManagedStepRun(runID string) error {
+	if r.managed == nil {
+		return ErrManagedRuntimeRequired
+	}
+	if _, err := r.managed.StopRun(runID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
+		return err
+	}
+	return nil
+}
+
+func (r *Runtime) validateSpecStep(step Step, stepIndex int, chainInputs map[string]any) error {
+	engineConfig, stepInputs, profile, err := r.prepareStepValidation(step, stepIndex, chainInputs)
+	if err != nil {
+		return err
+	}
+	return r.validateStepRunner(engineConfig.EngineType, profile, stepInputs, stepIndex)
+}
+
+func (r *Runtime) prepareStepValidation(step Step, stepIndex int, chainInputs map[string]any) (agentruns.EngineConfig, map[string]any, agentprofiles.Profile, error) {
+	engineConfig, err := r.engines.Get(step.EngineConfigID)
+	if err != nil {
+		return agentruns.EngineConfig{}, nil, agentprofiles.Profile{}, err
+	}
+	profile, err := r.resolveStepProfile(step)
+	if err != nil {
+		return agentruns.EngineConfig{}, nil, agentprofiles.Profile{}, err
+	}
+	stepInputs, err := r.buildStepInputs(step, stepIndex, "validation-run", chainInputs, nil)
+	if err != nil {
+		return agentruns.EngineConfig{}, nil, agentprofiles.Profile{}, err
+	}
+	return engineConfig, stepInputs, profile, nil
+}
+
+func (r *Runtime) validateStepRunner(engineType agentruns.EngineType, profile agentprofiles.Profile, stepInputs map[string]any, stepIndex int) error {
+	switch engineType {
+	case agentruns.EngineTypeSettaLLM:
+		if r.managed == nil {
+			return ErrManagedRuntimeRequired
+		}
+		if r.managed.Disabled() {
+			return ErrManagedRuntimeUnavailable
+		}
+		return r.validateManagedStepInputs(stepInputs)
+	case agentruns.EngineTypeExternalAgent:
+		if r.external == nil || r.external.Disabled() {
+			return ErrExternalRuntimeUnavailable
+		}
+		if err := r.external.ValidateRun(profile, stepInputs); err != nil {
+			return normalizeExternalValidationError(err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("%w: run chain step %d uses unsupported engine type %q", ErrSupportedStepEngineRequired, stepIndex, engineType)
+	}
+}
+
+func (r *Runtime) cancelChainIfContextDone(ctx context.Context, runID string) bool {
+	if ctx.Err() == nil {
+		return false
+	}
+	_, _ = r.markCancelled(runID)
+	return true
+}
+
+func (r *Runtime) startChainStep(
+	ctx context.Context,
+	runID string,
+	step Step,
+	stepIndex int,
+	chainInputs map[string]any,
+	stepSummaries []map[string]any,
+) (agentruns.Run, error) {
+	if err := r.appendStepStartedEvent(runID, step, stepIndex); err != nil {
+		return agentruns.Run{}, err
+	}
+	return r.runStep(ctx, step, stepIndex, runID, chainInputs, stepSummaries)
+}
+
+func (r *Runtime) appendStepStartedEvent(runID string, step Step, stepIndex int) error {
+	return r.appendEvent(runID, "step_started", map[string]any{
+		"stepIndex":      stepIndex,
+		"stepId":         step.ID,
+		"engineConfigId": step.EngineConfigID,
+		"agentProfileId": derefString(step.AgentProfileID),
+	})
+}
+
+func (r *Runtime) cancelChainIfStepRunStopped(ctx context.Context, runID string, err error) bool {
+	if ctx.Err() == nil && !errors.Is(err, context.Canceled) {
+		return false
+	}
+	_, _ = r.markCancelled(runID)
+	return true
+}
+
+func (r *Runtime) failChainWithError(runID string, err error) {
+	_, _ = r.markFailed(runID, map[string]any{"error": err.Error()})
+}
+
+func (r *Runtime) finishChainAfterStep(runID string, spec Spec, step Step, stepIndex int, childRun agentruns.Run) bool {
+	if childRun.Status == agentruns.RunStatusCompleted {
+		if err := r.appendStepFinishedEvent(runID, "step_completed", step, stepIndex, childRun); err != nil {
+			r.failChainWithError(runID, err)
+			return true
+		}
+		return false
+	}
+	if err := r.appendStepFinishedEvent(runID, "step_failed", step, stepIndex, childRun); err != nil {
+		r.failChainWithError(runID, err)
+		return true
+	}
+	if !spec.StopOnFailure {
+		return false
+	}
+	if childRun.Status == agentruns.RunStatusCancelled {
+		_, _ = r.markCancelled(runID)
+		return true
+	}
+	_, _ = r.markFailed(runID, map[string]any{})
+	return true
+}
+
+func (r *Runtime) appendStepFinishedEvent(runID string, eventType string, step Step, stepIndex int, childRun agentruns.Run) error {
+	return r.appendEvent(runID, eventType, map[string]any{
+		"stepIndex": stepIndex,
+		"stepId":    step.ID,
+		"runId":     childRun.ID,
+		"status":    string(childRun.Status),
+	})
+}
+
+func validateSupportedStepEngine(stepID string, engineType agentruns.EngineType) error {
+	switch engineType {
+	case agentruns.EngineTypeSettaLLM, agentruns.EngineTypeExternalAgent:
+		return nil
+	default:
+		return fmt.Errorf("%w: step %q uses unsupported engine type %q", ErrSupportedStepEngineRequired, stepID, engineType)
+	}
+}
+
+func (r *Runtime) prepareStepRun(
+	step Step,
+	stepIndex int,
+	chainRunID string,
+	chainInputs map[string]any,
+	previousOutputs []map[string]any,
+) (agentprofiles.Profile, map[string]any, error) {
+	inputs, err := r.buildStepInputs(step, stepIndex, chainRunID, chainInputs, previousOutputs)
+	if err != nil {
+		return agentprofiles.Profile{}, nil, err
+	}
+	profile, err := r.resolveStepProfile(step)
+	if err != nil {
+		return agentprofiles.Profile{}, nil, err
+	}
+	profile.EngineConfigID = cloneStringPtr(&step.EngineConfigID)
+	return profile, inputs, nil
+}
+
+func (r *Runtime) startStepRun(
+	ctx context.Context,
+	chainRunID string,
+	engineType agentruns.EngineType,
+	profile agentprofiles.Profile,
+	inputs map[string]any,
+	step Step,
+) (agentruns.Run, error) {
+	switch engineType {
+	case agentruns.EngineTypeSettaLLM:
+		return r.startManagedStepRun(ctx, chainRunID, profile, inputs)
+	case agentruns.EngineTypeExternalAgent:
+		return r.startExternalStepRun(ctx, chainRunID, profile, inputs)
+	default:
+		return agentruns.Run{}, fmt.Errorf("%w: step %q uses unsupported engine type %q", ErrSupportedStepEngineRequired, step.ID, engineType)
+	}
+}
+
+func (r *Runtime) startManagedStepRun(ctx context.Context, chainRunID string, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error) {
+	if r.managed == nil {
+		return agentruns.Run{}, ErrManagedRuntimeRequired
+	}
+	childRun, err := r.managed.StartRun(profile, inputs)
+	if err != nil {
+		return agentruns.Run{}, err
+	}
+	r.setActiveStep(chainRunID, childRun.ID, agentruns.EngineTypeSettaLLM)
+	defer r.clearActiveStep(chainRunID, childRun.ID)
+	if err := r.stopStepIfContextCancelled(ctx, childRun.ID, agentruns.EngineTypeSettaLLM); err != nil {
+		return agentruns.Run{}, err
+	}
+	return r.managed.WaitForRun(ctx, childRun.ID)
+}
+
+func (r *Runtime) startExternalStepRun(ctx context.Context, chainRunID string, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error) {
+	if r.external == nil {
+		return agentruns.Run{}, ErrExternalRuntimeUnavailable
+	}
+	childRun, err := r.external.StartRun(ctx, profile, inputs)
+	if err != nil {
+		return agentruns.Run{}, err
+	}
+	r.setActiveStep(chainRunID, childRun.ID, agentruns.EngineTypeExternalAgent)
+	defer r.clearActiveStep(chainRunID, childRun.ID)
+	if err := r.stopStepIfContextCancelled(ctx, childRun.ID, agentruns.EngineTypeExternalAgent); err != nil {
+		return agentruns.Run{}, err
+	}
+	return r.external.WaitForRun(ctx, childRun.ID)
+}
+
+func cloneChainStepInputs(chainInputs map[string]any) map[string]any {
 	payloadInputs := map[string]any{}
 	for _, key := range chainInputKeys {
-		if value, ok := chainInputs[key]; ok {
-			payloadInputs[key] = deepCloneJSONValue(value)
-		}
+		copyStepInputValue(payloadInputs, chainInputs, key)
 	}
-	if value, ok := chainInputs["chainId"]; ok {
-		payloadInputs["chainId"] = deepCloneJSONValue(value)
+	copyStepInputValue(payloadInputs, chainInputs, "chainId")
+	copyStepInputValue(payloadInputs, chainInputs, "chainName")
+	return payloadInputs
+}
+
+func copyStepInputValue(target map[string]any, source map[string]any, key string) {
+	if value, ok := source[key]; ok {
+		target[key] = deepCloneJSONValue(value)
 	}
-	if value, ok := chainInputs["chainName"]; ok {
-		payloadInputs["chainName"] = deepCloneJSONValue(value)
+}
+
+func mergeStepInputOverrides(payloadInputs map[string]any, stepInputs map[string]any) {
+	for key, value := range stepInputs {
+		payloadInputs[key] = deepCloneJSONValue(value)
 	}
-	if step.Inputs != nil {
-		for key, value := range step.Inputs {
-			payloadInputs[key] = deepCloneJSONValue(value)
-		}
+}
+
+func ensureUnscopedStepInputs(payloadInputs map[string]any) {
+	if _, ok := payloadInputs["sectionId"]; ok {
+		return
 	}
-	if _, ok := payloadInputs["sectionId"]; !ok {
-		if _, ok := payloadInputs["allowUnscoped"]; !ok {
-			payloadInputs["allowUnscoped"] = true
-		}
+	if _, ok := payloadInputs["allowUnscoped"]; ok {
+		return
 	}
-	if rawEngineConfigID, ok := payloadInputs["engineConfigId"]; ok {
-		engineConfigID, ok := rawEngineConfigID.(string)
-		if !ok {
-			return nil, fmt.Errorf("%w: engineConfigId must be a string", ErrInvalidRunChainInput)
-		}
-		if strings.TrimSpace(engineConfigID) != step.EngineConfigID {
-			return nil, fmt.Errorf("%w: engineConfigId does not match run chain step engine config", ErrInvalidRunChainInput)
-		}
+	payloadInputs["allowUnscoped"] = true
+}
+
+func validateStepEngineInput(payloadInputs map[string]any, engineConfigID string) error {
+	rawEngineConfigID, ok := payloadInputs["engineConfigId"]
+	if !ok {
+		return nil
 	}
+	typedEngineConfigID, ok := rawEngineConfigID.(string)
+	if !ok {
+		return fmt.Errorf("%w: engineConfigId must be a string", ErrInvalidRunChainInput)
+	}
+	if strings.TrimSpace(typedEngineConfigID) != engineConfigID {
+		return fmt.Errorf("%w: engineConfigId does not match run chain step engine config", ErrInvalidRunChainInput)
+	}
+	return nil
+}
+
+func attachStepRuntimeInputs(payloadInputs map[string]any, step Step, stepIndex int, chainRunID string, previousOutputs []map[string]any) {
 	payloadInputs["engineConfigId"] = step.EngineConfigID
 	payloadInputs["runType"] = runTypeChainStep
 	payloadInputs["chainRunId"] = chainRunID
@@ -515,26 +672,40 @@ func (r *Runtime) buildStepInputs(
 	if len(previousOutputs) > 0 {
 		payloadInputs["previousOutputs"] = deepCloneJSONValue(previousOutputs)
 	}
-	if step.Prompt != nil && strings.TrimSpace(*step.Prompt) != "" {
-		if _, exists := payloadInputs["prompt"]; !exists {
-			payloadInputs["prompt"] = *step.Prompt
-		}
+}
+
+func applyOptionalStepPrompt(payloadInputs map[string]any, step Step) {
+	if step.Prompt == nil || strings.TrimSpace(*step.Prompt) == "" {
+		return
 	}
-	if len(step.Messages) > 0 {
-		if _, exists := payloadInputs["messages"]; !exists {
-			payloadInputs["messages"] = messagesToAnySlice(step.Messages)
-		}
+	if _, exists := payloadInputs["prompt"]; exists {
+		return
 	}
-	if step.IncludePreviousOutputs && len(previousOutputs) > 0 {
-		contextMessage, err := buildPreviousOutputsMessage(previousOutputs)
-		if err != nil {
-			return nil, err
-		}
-		messages := messagesFromValue(payloadInputs["messages"])
-		messages = append([]any{contextMessage}, messages...)
-		payloadInputs["messages"] = messages
+	payloadInputs["prompt"] = *step.Prompt
+}
+
+func applyOptionalStepMessages(payloadInputs map[string]any, step Step) {
+	if len(step.Messages) == 0 {
+		return
 	}
-	return payloadInputs, nil
+	if _, exists := payloadInputs["messages"]; exists {
+		return
+	}
+	payloadInputs["messages"] = messagesToAnySlice(step.Messages)
+}
+
+func prependPreviousOutputsContext(payloadInputs map[string]any, step Step, previousOutputs []map[string]any) error {
+	if !step.IncludePreviousOutputs || len(previousOutputs) == 0 {
+		return nil
+	}
+	contextMessage, err := buildPreviousOutputsMessage(previousOutputs)
+	if err != nil {
+		return err
+	}
+	messages := messagesFromValue(payloadInputs["messages"])
+	messages = append([]any{contextMessage}, messages...)
+	payloadInputs["messages"] = messages
+	return nil
 }
 
 func buildPreviousOutputsMessage(previousOutputs []map[string]any) (map[string]any, error) {
@@ -555,73 +726,124 @@ func buildPreviousOutputsMessage(previousOutputs []map[string]any) (map[string]a
 }
 
 func (r *Runtime) validateManagedStepInputs(inputs map[string]any) error {
-	projectSnapshot := r.projectState.Snapshot().Document
-	if strings.TrimSpace(projectSnapshot.DefaultProjectID) == "" {
-		return fmt.Errorf("%w: project state does not define a default project config", ErrInvalidRunChainInput)
+	project, err := r.managedStepProject(inputs)
+	if err != nil {
+		return err
 	}
-	projectConfigID := projectSnapshot.DefaultProjectID
-	if rawProjectConfigID, ok := inputs["projectConfigId"]; ok {
-		projectConfigIDValue, ok := rawProjectConfigID.(string)
-		if !ok {
-			return fmt.Errorf("%w: projectConfigId must be a string", ErrInvalidRunChainInput)
-		}
-		projectConfigID = strings.TrimSpace(projectConfigIDValue)
+	if err := validateOptionalStringInput(inputs, "chatId"); err != nil {
+		return err
+	}
+	sectionID, err := optionalTrimmedStringInput(inputs, "sectionId")
+	if err != nil {
+		return err
+	}
+	allowUnscoped, err := optionalBoolInputValue(inputs, "allowUnscoped")
+	if err != nil {
+		return err
+	}
+	if err := validateManagedStepScope(project, sectionID, allowUnscoped); err != nil {
+		return err
+	}
+	if err := validateOptionalBoolInput(inputs, "thinking"); err != nil {
+		return err
+	}
+	if err := validateOptionalStringInput(inputs, "prompt"); err != nil {
+		return err
+	}
+	return validateOptionalMessagesInput(inputs)
+}
+
+func (r *Runtime) managedStepProject(inputs map[string]any) (projectstate.Project, error) {
+	projectSnapshot := r.projectState.Snapshot().Document
+	defaultProjectID := strings.TrimSpace(projectSnapshot.DefaultProjectID)
+	if defaultProjectID == "" {
+		return projectstate.Project{}, fmt.Errorf("%w: project state does not define a default project config", ErrInvalidRunChainInput)
+	}
+	projectConfigID := defaultProjectID
+	configuredProjectID, err := optionalTrimmedStringInput(inputs, "projectConfigId")
+	if err != nil {
+		return projectstate.Project{}, err
+	}
+	if configuredProjectID != nil {
+		projectConfigID = *configuredProjectID
 	}
 	project, err := projectSnapshot.ProjectByID(projectConfigID)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidRunChainInput, err)
+		return projectstate.Project{}, fmt.Errorf("%w: %v", ErrInvalidRunChainInput, err)
 	}
-	if rawChatID, ok := inputs["chatId"]; ok {
-		if _, ok := rawChatID.(string); !ok {
-			return fmt.Errorf("%w: chatId must be a string", ErrInvalidRunChainInput)
+	return project, nil
+}
+
+func validateManagedStepScope(project projectstate.Project, sectionID *string, allowUnscoped bool) error {
+	if sectionID == nil {
+		if allowUnscoped {
+			return nil
 		}
-	}
-	var sectionID *string
-	if rawSectionID, ok := inputs["sectionId"]; ok {
-		sectionIDValue, ok := rawSectionID.(string)
-		if !ok {
-			return fmt.Errorf("%w: sectionId must be a string", ErrInvalidRunChainInput)
-		}
-		trimmed := strings.TrimSpace(sectionIDValue)
-		sectionID = &trimmed
-	}
-	allowUnscoped := false
-	if rawAllowUnscoped, ok := inputs["allowUnscoped"]; ok {
-		allowUnscopedValue, ok := rawAllowUnscoped.(bool)
-		if !ok {
-			return fmt.Errorf("%w: allowUnscoped must be a boolean", ErrInvalidRunChainInput)
-		}
-		allowUnscoped = allowUnscopedValue
-	}
-	if sectionID == nil && !allowUnscoped {
 		return fmt.Errorf("%w: sectionId is required unless allowUnscoped is true.", ErrInvalidRunChainInput)
 	}
-	if sectionID != nil && allowUnscoped {
+	if allowUnscoped {
 		return fmt.Errorf("%w: allowUnscoped requires sectionId to be omitted.", ErrInvalidRunChainInput)
 	}
-	if sectionID != nil {
-		if _, _, _, err := project.ResolveSection(*sectionID); err != nil {
-			return fmt.Errorf("%w: %v", ErrInvalidRunChainInput, err)
-		}
-	}
-	if rawThinking, ok := inputs["thinking"]; ok {
-		if _, ok := rawThinking.(bool); !ok {
-			return fmt.Errorf("%w: thinking must be a boolean", ErrInvalidRunChainInput)
-		}
-	}
-	if rawPrompt, ok := inputs["prompt"]; ok {
-		if _, ok := rawPrompt.(string); !ok {
-			return fmt.Errorf("%w: prompt must be a string", ErrInvalidRunChainInput)
-		}
-	}
-	if rawMessages, ok := inputs["messages"]; ok {
-		switch rawMessages.(type) {
-		case []any, []map[string]any:
-		default:
-			return fmt.Errorf("%w: messages must be a list", ErrInvalidRunChainInput)
-		}
+	if _, _, _, err := project.ResolveSection(*sectionID); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidRunChainInput, err)
 	}
 	return nil
+}
+
+func optionalTrimmedStringInput(inputs map[string]any, key string) (*string, error) {
+	value, err := optionalStringInput(inputs, key)
+	if err != nil || value == nil {
+		return value, err
+	}
+	trimmed := strings.TrimSpace(*value)
+	return &trimmed, nil
+}
+
+func optionalStringInput(inputs map[string]any, key string) (*string, error) {
+	rawValue, ok := inputs[key]
+	if !ok {
+		return nil, nil
+	}
+	value, ok := rawValue.(string)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s must be a string", ErrInvalidRunChainInput, key)
+	}
+	return &value, nil
+}
+
+func validateOptionalStringInput(inputs map[string]any, key string) error {
+	_, err := optionalStringInput(inputs, key)
+	return err
+}
+
+func optionalBoolInputValue(inputs map[string]any, key string) (bool, error) {
+	rawValue, ok := inputs[key]
+	if !ok {
+		return false, nil
+	}
+	value, ok := rawValue.(bool)
+	if !ok {
+		return false, fmt.Errorf("%w: %s must be a boolean", ErrInvalidRunChainInput, key)
+	}
+	return value, nil
+}
+
+func validateOptionalBoolInput(inputs map[string]any, key string) error {
+	_, err := optionalBoolInputValue(inputs, key)
+	return err
+}
+
+func validateOptionalMessagesInput(inputs map[string]any) error {
+	rawMessages, ok := inputs["messages"]
+	if !ok {
+		return nil
+	}
+	switch rawMessages.(type) {
+	case []any, []map[string]any:
+		return nil
+	default:
+		return fmt.Errorf("%w: messages must be a list", ErrInvalidRunChainInput)
+	}
 }
 
 func buildStepSummary(step Step, childRun agentruns.Run) map[string]any {

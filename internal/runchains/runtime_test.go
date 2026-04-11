@@ -613,6 +613,130 @@ func TestRuntimeRejectsMismatchedStepEngineConfigInput(t *testing.T) {
 	}
 }
 
+func TestValidateManagedStepInputs(t *testing.T) {
+	t.Parallel()
+
+	runtime := buildManagedStepValidationRuntime(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+
+	tests := []struct {
+		name    string
+		inputs  map[string]any
+		wantErr string
+	}{
+		{
+			name: "accepts unscoped managed step inputs",
+			inputs: map[string]any{
+				"allowUnscoped": true,
+				"chatId":        "chat-alpha",
+				"thinking":      true,
+				"prompt":        "hello",
+				"messages":      []any{map[string]any{"role": "user"}},
+			},
+		},
+		{
+			name:    "rejects non-string project config id",
+			inputs:  map[string]any{"projectConfigId": 123},
+			wantErr: "projectConfigId must be a string",
+		},
+		{
+			name:    "rejects non-string chat id",
+			inputs:  map[string]any{"allowUnscoped": true, "chatId": 123},
+			wantErr: "chatId must be a string",
+		},
+		{
+			name:    "requires section or allowUnscoped",
+			inputs:  map[string]any{},
+			wantErr: "sectionId is required unless allowUnscoped is true.",
+		},
+		{
+			name:    "rejects non-string section id",
+			inputs:  map[string]any{"sectionId": 123},
+			wantErr: "sectionId must be a string",
+		},
+		{
+			name:    "rejects non-boolean allowUnscoped",
+			inputs:  map[string]any{"allowUnscoped": "yes"},
+			wantErr: "allowUnscoped must be a boolean",
+		},
+		{
+			name:    "rejects section with allowUnscoped",
+			inputs:  map[string]any{"sectionId": "section-alpha", "allowUnscoped": true},
+			wantErr: "allowUnscoped requires sectionId to be omitted.",
+		},
+		{
+			name:    "rejects non-boolean thinking",
+			inputs:  map[string]any{"allowUnscoped": true, "thinking": "yes"},
+			wantErr: "thinking must be a boolean",
+		},
+		{
+			name:    "rejects non-string prompt",
+			inputs:  map[string]any{"allowUnscoped": true, "prompt": 123},
+			wantErr: "prompt must be a string",
+		},
+		{
+			name:    "rejects non-list messages",
+			inputs:  map[string]any{"allowUnscoped": true, "messages": "invalid"},
+			wantErr: "messages must be a list",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := runtime.validateManagedStepInputs(test.inputs)
+			if test.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validate managed step inputs: %v", err)
+				}
+				return
+			}
+			if !errors.Is(err, ErrInvalidRunChainInput) {
+				t.Fatalf("expected invalid run chain input, got %v", err)
+			}
+			if !strings.Contains(err.Error(), test.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", test.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidateManagedStepInputsRequiresDefaultProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	runtime := buildManagedStepValidationRuntime(t, projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+
+	err := runtime.validateManagedStepInputs(map[string]any{"allowUnscoped": true})
+	if !errors.Is(err, ErrInvalidRunChainInput) {
+		t.Fatalf("expected invalid run chain input, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "project state does not define a default project config") {
+		t.Fatalf("expected missing default project config error, got %v", err)
+	}
+}
+
+func buildManagedStepValidationRuntime(t *testing.T, document projectstate.Document) *Runtime {
+	t.Helper()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	return &Runtime{projectState: projectRuntime}
+}
+
 func buildRuntimeFixture(t *testing.T, executor agentruns.Executor, external externalStepRunner) (*Runtime, *agentruns.RunStore, *agentruns.EngineStore, *agentprofiles.Store) {
 	t.Helper()
 
