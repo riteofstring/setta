@@ -41,6 +41,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  ChatDictationModeEnum,
   Connection,
   createProjectChatWindowingState,
   createProjectConfig,
@@ -1196,7 +1197,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         transcriptionProfilesLoadError: null,
         transcriptionProfilesLoading: false,
         pendingProjectChatPrompt: null,
-        projectChatDictationMode: "auto",
+        projectChatDictationMode: ChatDictationModeEnum.auto,
         projectChatTranscriptionProfileId: null,
       }),
       {
