@@ -69,6 +69,27 @@ var defaultCatalogActionOrder = []string{
 	"openExternalLink",
 }
 
+var defaultCatalogComponentDescriptions = map[string]string{
+	"Stack":        "Layout container for vertical or horizontal stacks.",
+	"Box":          "Generic wrapper with optional padding, radius, border, and background role.",
+	"Grid":         "Grid container for multi-column layouts.",
+	"Container":    "Center content and constrain its max width.",
+	"Spacer":       "Fixed-size spacer for layout.",
+	"Motion":       "Animate children on mount using built-in motion presets.",
+	"Stagger":      "Animate direct children with incremental delays.",
+	"Card":         "Framed container for grouping related fields.",
+	"ConfigScope":  "Scope child components to a project config id.",
+	"Tabs":         "Tabbed container for grouping content.",
+	"Tab":          "Single tab panel within a Tabs container.",
+	"Heading":      "Section heading text.",
+	"Text":         "Paragraph or helper text.",
+	"ParamInput":   "Input bound to a Setta param.",
+	"ActionButton": "Button that triggers a named action.",
+	"TextOutput":   "Display a TextBlock section output.",
+	"ImageOutput":  "Display an image artifact by id.",
+	"Divider":      "Visual divider.",
+}
+
 func numberProp(min float64, max float64, required bool, responsive bool, enum ...any) PropSchema {
 	minValue := min
 	maxValue := max
@@ -393,46 +414,7 @@ func defaultCatalogPropJSON(prop PropSchema) map[string]any {
 }
 
 func defaultCatalogComponentDescription(componentType string) string {
-	switch componentType {
-	case "Stack":
-		return "Layout container for vertical or horizontal stacks."
-	case "Box":
-		return "Generic wrapper with optional padding, radius, border, and background role."
-	case "Grid":
-		return "Grid container for multi-column layouts."
-	case "Container":
-		return "Center content and constrain its max width."
-	case "Spacer":
-		return "Fixed-size spacer for layout."
-	case "Motion":
-		return "Animate children on mount using built-in motion presets."
-	case "Stagger":
-		return "Animate direct children with incremental delays."
-	case "Card":
-		return "Framed container for grouping related fields."
-	case "ConfigScope":
-		return "Scope child components to a project config id."
-	case "Tabs":
-		return "Tabbed container for grouping content."
-	case "Tab":
-		return "Single tab panel within a Tabs container."
-	case "Heading":
-		return "Section heading text."
-	case "Text":
-		return "Paragraph or helper text."
-	case "ParamInput":
-		return "Input bound to a Setta param."
-	case "ActionButton":
-		return "Button that triggers a named action."
-	case "TextOutput":
-		return "Display a TextBlock section output."
-	case "ImageOutput":
-		return "Display an image artifact by id."
-	case "Divider":
-		return "Visual divider."
-	default:
-		return ""
-	}
+	return defaultCatalogComponentDescriptions[componentType]
 }
 
 func defaultCatalogActionsJSON() []any {

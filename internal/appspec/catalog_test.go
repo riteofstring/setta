@@ -83,3 +83,17 @@ func TestDefaultCatalogJSONIncludesDefaultsAndDescriptions(t *testing.T) {
 		t.Fatalf("expected direction default column, got %#v", direction["default"])
 	}
 }
+
+func TestDefaultCatalogComponentDescriptionsCoverDefaultTypes(t *testing.T) {
+	t.Parallel()
+
+	for _, componentType := range defaultCatalogComponentOrder {
+		if description := defaultCatalogComponentDescription(componentType); description == "" {
+			t.Fatalf("expected description for default component %q", componentType)
+		}
+	}
+
+	if description := defaultCatalogComponentDescription("Unknown"); description != "" {
+		t.Fatalf("expected unknown component description to be empty, got %q", description)
+	}
+}
