@@ -281,6 +281,75 @@ func TestTranslateProjectStateSummaryToTemporaryTranslatesWindowSpaces(t *testin
 	}
 }
 
+func TestTranslateResultToTemporaryTranslatesProjectSummaryPointerStateMachineEdges(t *testing.T) {
+	t.Parallel()
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+		"start-section": "12",
+		"end-section":   "13",
+		"edge-sm-1":     "14",
+	})
+
+	store, err := NewTemporaryIDStore(temporaryIDMapPath)
+	if err != nil {
+		t.Fatalf("new temporary id store: %v", err)
+	}
+
+	payload := &projectStateSummary{
+		ProjectConfig: projectview.ProjectConfig{
+			ID: "project-alpha",
+			StateMachineEdges: []projectstate.StateMachineEdge{{
+				ID:              "edge-sm-1",
+				MachineGroupID:  "workflow-a",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					PromptSectionID: summaryTestStringPointer("start-section"),
+				},
+			}},
+		},
+	}
+
+	translatedResult, err := translateResultToTemporary(payload, tools.Metadata{
+		ResultFilter: tools.ResultFilterProjectStateSummary,
+	}, store)
+	if err != nil {
+		t.Fatalf("translate result to temporary: %v", err)
+	}
+
+	translated, ok := translatedResult.(*projectStateSummary)
+	if !ok {
+		t.Fatalf("expected *projectStateSummary, got %T", translatedResult)
+	}
+	if translated == payload {
+		t.Fatal("expected project summary translation to return a new pointer")
+	}
+	if len(translated.ProjectConfig.StateMachineEdges) != 1 {
+		t.Fatalf("expected one translated state machine edge, got %#v", translated.ProjectConfig.StateMachineEdges)
+	}
+
+	edge := translated.ProjectConfig.StateMachineEdges[0]
+	if edge.ID != "14" {
+		t.Fatalf("expected translated edge id 14, got %#v", edge)
+	}
+	if edge.SourceSectionID != "12" || edge.TargetSectionID != "13" {
+		t.Fatalf("expected translated section ids 12 -> 13, got %#v", edge)
+	}
+	if edge.MachineGroupID != "workflow-a" {
+		t.Fatalf("expected machine group id to remain unchanged, got %#v", edge)
+	}
+	if edge.TargetAction == nil || edge.TargetAction.PromptSectionID == nil || *edge.TargetAction.PromptSectionID != "12" {
+		t.Fatalf("expected translated prompt section id 12, got %#v", edge.TargetAction)
+	}
+	if payload.ProjectConfig.StateMachineEdges[0].ID != "edge-sm-1" {
+		t.Fatalf("expected original payload to remain unchanged, got %#v", payload.ProjectConfig.StateMachineEdges[0])
+	}
+}
+
 func summaryTestStringPointer(value string) *string {
 	return &value
 }

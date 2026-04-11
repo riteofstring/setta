@@ -80,48 +80,9 @@ func translateResultToTemporary(payload any, metadata tools.Metadata, store *Tem
 		return payload, nil
 	}
 
-	translatedPayload := payload
-	switch metadata.ResultFilter {
-	case tools.ResultFilterProjectStateSummary:
-		switch typed := translatedPayload.(type) {
-		case projectStateSummary:
-			nextPayload, err := translateProjectStateSummaryToTemporary(typed, store)
-			if err != nil {
-				return nil, err
-			}
-			translatedPayload = nextPayload
-		case *projectStateSummary:
-			if typed == nil {
-				return payload, nil
-			}
-			translated, err := translateProjectStateSummaryToTemporary(*typed, store)
-			if err != nil {
-				return nil, err
-			}
-			translatedPayload = &translated
-		default:
-			return nil, fmt.Errorf("mcpx: unsupported project-state summary result type %T", payload)
-		}
-	case tools.ResultFilterLSPDiagnostics:
-		switch typed := translatedPayload.(type) {
-		case projectstate.LSPDiagnosticsPayload:
-			nextPayload, err := translateLSPDiagnosticsPayloadToTemporary(typed, store)
-			if err != nil {
-				return nil, err
-			}
-			translatedPayload = nextPayload
-		case *projectstate.LSPDiagnosticsPayload:
-			if typed == nil {
-				return payload, nil
-			}
-			translated, err := translateLSPDiagnosticsPayloadToTemporary(*typed, store)
-			if err != nil {
-				return nil, err
-			}
-			translatedPayload = &translated
-		default:
-			return nil, fmt.Errorf("mcpx: unsupported lsp diagnostics result type %T", payload)
-		}
+	translatedPayload, err := translateFilteredResultToTemporary(payload, metadata.ResultFilter, store)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(metadata.ResultIDPathsByType) == 0 {
@@ -129,6 +90,53 @@ func translateResultToTemporary(payload any, metadata tools.Metadata, store *Tem
 	}
 
 	return translateResultIDsByTypeToTemporary(translatedPayload, metadata.ResultIDPathsByType, store)
+}
+
+func translateFilteredResultToTemporary(payload any, filter tools.ResultFilter, store *TemporaryIDStore) (any, error) {
+	switch filter {
+	case tools.ResultFilterProjectStateSummary:
+		return translateProjectStateSummaryResultToTemporary(payload, store)
+	case tools.ResultFilterLSPDiagnostics:
+		return translateLSPDiagnosticsResultToTemporary(payload, store)
+	default:
+		return payload, nil
+	}
+}
+
+func translateProjectStateSummaryResultToTemporary(payload any, store *TemporaryIDStore) (any, error) {
+	switch typed := payload.(type) {
+	case projectStateSummary:
+		return translateProjectStateSummaryToTemporary(typed, store)
+	case *projectStateSummary:
+		if typed == nil {
+			return payload, nil
+		}
+		translated, err := translateProjectStateSummaryToTemporary(*typed, store)
+		if err != nil {
+			return nil, err
+		}
+		return &translated, nil
+	default:
+		return nil, fmt.Errorf("mcpx: unsupported project-state summary result type %T", payload)
+	}
+}
+
+func translateLSPDiagnosticsResultToTemporary(payload any, store *TemporaryIDStore) (any, error) {
+	switch typed := payload.(type) {
+	case projectstate.LSPDiagnosticsPayload:
+		return translateLSPDiagnosticsPayloadToTemporary(typed, store)
+	case *projectstate.LSPDiagnosticsPayload:
+		if typed == nil {
+			return payload, nil
+		}
+		translated, err := translateLSPDiagnosticsPayloadToTemporary(*typed, store)
+		if err != nil {
+			return nil, err
+		}
+		return &translated, nil
+	default:
+		return nil, fmt.Errorf("mcpx: unsupported lsp diagnostics result type %T", payload)
+	}
 }
 
 func translateToolErrorToTemporary(err error, store *TemporaryIDStore) error {
@@ -429,98 +437,52 @@ func translateProjectStateSummaryToTemporary(summary projectStateSummary, store 
 }
 
 func translateProjectConfigToTemporary(config projectview.ProjectConfig, store *TemporaryIDStore) (projectview.ProjectConfig, error) {
-	projectID, err := translateStringValueToTemporary(config.ID, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	activeViewModeID, err := translateOptionalStringPointerToTemporary(config.ActiveViewModeID, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	entryCodeBlockID, err := translateOptionalStringPointerToTemporary(config.EntryCodeBlockID, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	runCapabilities, err := translateProjectRunCapabilitiesToTemporary(config.RunCapabilities, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	sectionPathSlugsByID, err := translateStringMapKeysToTemporaryStringValues(config.SectionPathSlugsByID, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	sectionIDsByPathSlug, err := translateStringSliceMapValuesToTemporary(config.SectionIDsByPathSlug, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	topLevelSections, err := translateStringMapKeysToTemporary(config.TopLevelSections, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	windowSpaceSlugsByID, err := translateStringMapKeysToTemporaryStringValues(config.WindowSpaceSlugsByID, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	windowSpaceIDsBySlug, err := translateStringSliceMapValuesToTemporary(config.WindowSpaceIDsBySlug, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	windowSpaces, err := translateWindowSpacesToTemporary(config.WindowSpaces, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	sectionVariantMap, err := translateSectionVariantMapToTemporary(config.SectionVariantMap, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	activeIDs, err := translateStringSliceToTemporary(config.ActiveIDs, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	edges, err := translateEdgesToTemporary(config.Edges, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	agenticEdges, err := translateAgenticEdgesToTemporary(config.AgenticEdges, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
-	viewModes, err := translateViewModesToTemporary(config.ViewModes, store)
-	if err != nil {
-		return projectview.ProjectConfig{}, err
-	}
+	var collector translationCollector
+	var err error
 
-	return projectview.ProjectConfig{
-		ID:                      projectID,
-		Name:                    config.Name,
-		ShowParamDisplayNames:   config.ShowParamDisplayNames,
-		AllowJSONSourceKeyEdits: config.AllowJSONSourceKeyEdits,
-		PreviewImgColor:         config.PreviewImgColor,
-		Viewport:                cloneViewport(config.Viewport),
-		ViewportInitialized:     config.ViewportInitialized,
-		ViewModes:               viewModes,
-		ActiveViewModeID:        activeViewModeID,
-		IsEditingViewMode:       config.IsEditingViewMode,
-		HasPythonCodegenTarget:  config.HasPythonCodegenTarget,
-		RunCapabilities:         runCapabilities,
-		CodegenTargets:          cloneProjectCodegenTargets(config.CodegenTargets),
-		WatchCodeEnabled:        config.WatchCodeEnabled,
-		WatchCodeFolders:        cloneWatchCodeFolders(config.WatchCodeFolders),
-		WatchCodeFiles:          append([]string(nil), config.WatchCodeFiles...),
-		WatchCodeRegistry:       cloneWatchCodeRegistry(config.WatchCodeRegistry),
-		WatchCodeBaselineByPath: cloneStringSliceMap(config.WatchCodeBaselineByPath),
-		EntryCodeBlockID:        entryCodeBlockID,
-		SectionPathSlugsByID:    sectionPathSlugsByID,
-		SectionIDsByPathSlug:    sectionIDsByPathSlug,
-		TopLevelSections:        topLevelSections,
-		WindowSpaceSlugsByID:    windowSpaceSlugsByID,
-		WindowSpaceIDsBySlug:    windowSpaceIDsBySlug,
-		WindowSpaces:            windowSpaces,
-		SectionVariantMap:       sectionVariantMap,
-		ActiveIDs:               activeIDs,
-		Edges:                   edges,
-		AgenticEdges:            agenticEdges,
-	}, nil
+	cloned := config
+	cloned.ID, err = translateStringValueToTemporary(config.ID, store)
+	collector.capture(err)
+	cloned.Viewport = cloneViewport(config.Viewport)
+	cloned.ViewModes, err = translateViewModesToTemporary(config.ViewModes, store)
+	collector.capture(err)
+	cloned.ActiveViewModeID, err = translateOptionalStringPointerToTemporary(config.ActiveViewModeID, store)
+	collector.capture(err)
+	cloned.RunCapabilities, err = translateProjectRunCapabilitiesToTemporary(config.RunCapabilities, store)
+	collector.capture(err)
+	cloned.CodegenTargets = cloneProjectCodegenTargets(config.CodegenTargets)
+	cloned.WatchCodeFolders = cloneWatchCodeFolders(config.WatchCodeFolders)
+	cloned.WatchCodeFiles = append([]string(nil), config.WatchCodeFiles...)
+	cloned.WatchCodeRegistry = cloneWatchCodeRegistry(config.WatchCodeRegistry)
+	cloned.WatchCodeBaselineByPath = cloneStringSliceMap(config.WatchCodeBaselineByPath)
+	cloned.EntryCodeBlockID, err = translateOptionalStringPointerToTemporary(config.EntryCodeBlockID, store)
+	collector.capture(err)
+	cloned.SectionPathSlugsByID, err = translateStringMapKeysToTemporaryStringValues(config.SectionPathSlugsByID, store)
+	collector.capture(err)
+	cloned.SectionIDsByPathSlug, err = translateStringSliceMapValuesToTemporary(config.SectionIDsByPathSlug, store)
+	collector.capture(err)
+	cloned.TopLevelSections, err = translateStringMapKeysToTemporary(config.TopLevelSections, store)
+	collector.capture(err)
+	cloned.WindowSpaceSlugsByID, err = translateStringMapKeysToTemporaryStringValues(config.WindowSpaceSlugsByID, store)
+	collector.capture(err)
+	cloned.WindowSpaceIDsBySlug, err = translateStringSliceMapValuesToTemporary(config.WindowSpaceIDsBySlug, store)
+	collector.capture(err)
+	cloned.WindowSpaces, err = translateWindowSpacesToTemporary(config.WindowSpaces, store)
+	collector.capture(err)
+	cloned.SectionVariantMap, err = translateSectionVariantMapToTemporary(config.SectionVariantMap, store)
+	collector.capture(err)
+	cloned.ActiveIDs, err = translateStringSliceToTemporary(config.ActiveIDs, store)
+	collector.capture(err)
+	cloned.Edges, err = translateEdgesToTemporary(config.Edges, store)
+	collector.capture(err)
+	cloned.AgenticEdges, err = translateAgenticEdgesToTemporary(config.AgenticEdges, store)
+	collector.capture(err)
+	cloned.StateMachineEdges, err = translateStateMachineEdgesToTemporary(config.StateMachineEdges, store)
+	collector.capture(err)
+	if err := collector.Err(); err != nil {
+		return projectview.ProjectConfig{}, err
+	}
+	return cloned, nil
 }
 
 func translateWindowSpacesToTemporary(values map[string]projectstate.WindowSpaceConfig, store *TemporaryIDStore) (map[string]projectstate.WindowSpaceConfig, error) {
@@ -711,6 +673,34 @@ func translateAgenticEdgesToTemporary(values []projectstate.AgenticEdge, store *
 	return translated, nil
 }
 
+func translateStateMachineEdgesToTemporary(values []projectstate.StateMachineEdge, store *TemporaryIDStore) ([]projectstate.StateMachineEdge, error) {
+	if values == nil {
+		return nil, nil
+	}
+	translated := make([]projectstate.StateMachineEdge, 0, len(values))
+	for _, edge := range values {
+		var collector translationCollector
+		var err error
+
+		cloned := edge.Clone()
+		cloned.ID, err = translateStringValueToTemporary(edge.ID, store)
+		collector.capture(err)
+		cloned.SourceSectionID, err = translateStringValueToTemporary(edge.SourceSectionID, store)
+		collector.capture(err)
+		cloned.TargetSectionID, err = translateStringValueToTemporary(edge.TargetSectionID, store)
+		collector.capture(err)
+		if cloned.TargetAction != nil {
+			cloned.TargetAction.PromptSectionID, err = translateOptionalStringPointerToTemporary(edge.TargetAction.PromptSectionID, store)
+			collector.capture(err)
+		}
+		if err := collector.Err(); err != nil {
+			return nil, err
+		}
+		translated = append(translated, cloned)
+	}
+	return translated, nil
+}
+
 func translateSingletonSectionsToTemporary(value projectview.SingletonSections, store *TemporaryIDStore) (projectview.SingletonSections, error) {
 	globalVariables, err := translateOptionalStringPointerToTemporary(value.GlobalVariables, store)
 	if err != nil {
@@ -835,6 +825,23 @@ func translateStringSliceValueToTemporary(value any, store *TemporaryIDStore) ([
 		}
 	}
 	return translateStringSliceToTemporary(rawValues, store)
+}
+
+type translationCollector struct {
+	err error
+}
+
+func (c *translationCollector) capture(err error) {
+	if err != nil && c != nil && c.err == nil {
+		c.err = err
+	}
+}
+
+func (c *translationCollector) Err() error {
+	if c == nil {
+		return nil
+	}
+	return c.err
 }
 
 func cloneTopLevelLayout(value *projectstate.TopLevelSectionLayout) *projectstate.TopLevelSectionLayout {
