@@ -137,61 +137,18 @@ func startTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc
 
 func appendTranscriptionAudioHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeStrictJSONBody[appendTranscriptionAudioPayload](r)
-		if err != nil {
-			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
-			return
-		}
-		if deps.TranscriptionSessions == nil || deps.Sessions == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-		if !ensureTranscriptionRoutesAllowed(w, r, deps) {
-			return
-		}
-
-		sessionID, ok := requireTranscriptionStringField(w, payload.SessionID, "sessionId")
+		payload, ok := decodeAppendTranscriptionAudioPayload(w, r)
 		if !ok {
 			return
 		}
-		audioPcm16Base64, ok := requireTranscriptionStringField(w, payload.AudioPcm16Base64, "audioPcm16Base64")
+		if !ensureAppendTranscriptionAudioAllowed(w, r, deps) {
+			return
+		}
+		appendRequest, ok := buildAppendTranscriptionAudioRequest(w, r, deps, payload)
 		if !ok {
 			return
 		}
-		sampleRateHz, ok := requireTranscriptionIntField(w, payload.SampleRateHz, "sampleRateHz")
-		if !ok {
-			return
-		}
-		channels := 1
-		if payload.Channels != nil {
-			channels = *payload.Channels
-		}
-		if sampleRateHz <= 0 {
-			writeError(w, r, http.StatusBadRequest, "invalid_request", "sampleRateHz must be greater than 0.")
-			return
-		}
-		if channels <= 0 {
-			writeError(w, r, http.StatusBadRequest, "invalid_request", "channels must be greater than 0.")
-			return
-		}
-		audioPCM16, routeErr := decodePCM16Payload(audioPcm16Base64)
-		if routeErr != nil {
-			writeError(w, r, routeErr.status, routeErr.code, routeErr.message)
-			return
-		}
-		scopeID, scopeErr := currentTranscriptionScopeID(deps)
-		if scopeErr != nil {
-			writeError(w, r, scopeErr.status, scopeErr.code, scopeErr.message)
-			return
-		}
-
-		delta, err := deps.TranscriptionSessions.AppendAudio(r.Context(), transcriptionsessions.AppendRequest{
-			ScopeID:      scopeID,
-			SessionID:    sessionID,
-			AudioPCM16:   audioPCM16,
-			SampleRateHz: sampleRateHz,
-			Channels:     channels,
-		})
+		delta, err := deps.TranscriptionSessions.AppendAudio(r.Context(), appendRequest)
 		if err != nil {
 			if writeTranscriptionServiceError(w, r, err) {
 				return
@@ -201,6 +158,90 @@ func appendTranscriptionAudioHandler(deps AIRouteDependencies) http.HandlerFunc 
 		}
 		writeJSON(w, http.StatusOK, delta)
 	}
+}
+
+func decodeAppendTranscriptionAudioPayload(w http.ResponseWriter, r *http.Request) (appendTranscriptionAudioPayload, bool) {
+	payload, err := decodeStrictJSONBody[appendTranscriptionAudioPayload](r)
+	if err != nil {
+		writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
+		return appendTranscriptionAudioPayload{}, false
+	}
+	return payload, true
+}
+
+func ensureAppendTranscriptionAudioAllowed(w http.ResponseWriter, r *http.Request, deps AIRouteDependencies) bool {
+	if deps.TranscriptionSessions == nil || deps.Sessions == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	return ensureTranscriptionRoutesAllowed(w, r, deps)
+}
+
+func buildAppendTranscriptionAudioRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps AIRouteDependencies,
+	payload appendTranscriptionAudioPayload,
+) (transcriptionsessions.AppendRequest, bool) {
+	sessionID, ok := requireTranscriptionStringField(w, payload.SessionID, "sessionId")
+	if !ok {
+		return transcriptionsessions.AppendRequest{}, false
+	}
+	audioPcm16Base64, ok := requireTranscriptionStringField(w, payload.AudioPcm16Base64, "audioPcm16Base64")
+	if !ok {
+		return transcriptionsessions.AppendRequest{}, false
+	}
+	sampleRateHz, ok := requireTranscriptionIntField(w, payload.SampleRateHz, "sampleRateHz")
+	if !ok {
+		return transcriptionsessions.AppendRequest{}, false
+	}
+	channels := transcriptionAppendChannels(payload.Channels)
+	if routeErr := validateAppendTranscriptionAudioSettings(sampleRateHz, channels); routeErr != nil {
+		writeError(w, r, routeErr.status, routeErr.code, routeErr.message)
+		return transcriptionsessions.AppendRequest{}, false
+	}
+	audioPCM16, routeErr := decodePCM16Payload(audioPcm16Base64)
+	if routeErr != nil {
+		writeError(w, r, routeErr.status, routeErr.code, routeErr.message)
+		return transcriptionsessions.AppendRequest{}, false
+	}
+	scopeID, scopeErr := currentTranscriptionScopeID(deps)
+	if scopeErr != nil {
+		writeError(w, r, scopeErr.status, scopeErr.code, scopeErr.message)
+		return transcriptionsessions.AppendRequest{}, false
+	}
+	return transcriptionsessions.AppendRequest{
+		ScopeID:      scopeID,
+		SessionID:    sessionID,
+		AudioPCM16:   audioPCM16,
+		SampleRateHz: sampleRateHz,
+		Channels:     channels,
+	}, true
+}
+
+func transcriptionAppendChannels(channels *int) int {
+	if channels == nil {
+		return 1
+	}
+	return *channels
+}
+
+func validateAppendTranscriptionAudioSettings(sampleRateHz int, channels int) *transcriptionRouteError {
+	if sampleRateHz <= 0 {
+		return &transcriptionRouteError{
+			status:  http.StatusBadRequest,
+			code:    "invalid_request",
+			message: "sampleRateHz must be greater than 0.",
+		}
+	}
+	if channels <= 0 {
+		return &transcriptionRouteError{
+			status:  http.StatusBadRequest,
+			code:    "invalid_request",
+			message: "channels must be greater than 0.",
+		}
+	}
+	return nil
 }
 
 func stopTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc {
