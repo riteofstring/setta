@@ -241,79 +241,87 @@ func decodeJSONSourceValue(decoder *json.Decoder) (JSONSourceValue, error) {
 	if err != nil {
 		return JSONSourceValue{}, err
 	}
+	if delimiter, ok := token.(json.Delim); ok {
+		return decodeJSONSourceDelimitedValue(decoder, delimiter)
+	}
+	return jsonSourceValueFromJSONToken(token)
+}
 
-	switch typed := token.(type) {
-	case json.Delim:
-		switch typed {
-		case '{':
-			object := JSONSourceObject{
-				Entries: []JSONSourceObjectEntry{},
-			}
-			for decoder.More() {
-				keyToken, err := decoder.Token()
-				if err != nil {
-					return JSONSourceValue{}, err
-				}
-				key, ok := keyToken.(string)
-				if !ok {
-					return JSONSourceValue{}, fmt.Errorf("expected object key, got %T", keyToken)
-				}
-				value, err := decodeJSONSourceValue(decoder)
-				if err != nil {
-					return JSONSourceValue{}, err
-				}
-				object.Entries = append(object.Entries, JSONSourceObjectEntry{
-					Key:   key,
-					Value: value,
-				})
-			}
-			endToken, err := decoder.Token()
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			if end, ok := endToken.(json.Delim); !ok || end != '}' {
-				return JSONSourceValue{}, fmt.Errorf("expected object terminator, got %v", endToken)
-			}
-			return JSONSourceValue{Object: &object}, nil
-		case '[':
-			elements := make([]string, 0)
-			for decoder.More() {
-				value, err := decodeJSONSourceValue(decoder)
-				if err != nil {
-					return JSONSourceValue{}, err
-				}
-				elements = append(elements, serializeJSONSourceValue(value))
-			}
-			endToken, err := decoder.Token()
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			if end, ok := endToken.(json.Delim); !ok || end != ']' {
-				return JSONSourceValue{}, fmt.Errorf("expected array terminator, got %v", endToken)
-			}
-			return JSONSourceValue{Serialized: "[" + strings.Join(elements, ",") + "]"}, nil
-		default:
-			return JSONSourceValue{}, fmt.Errorf("unsupported json delimiter %q", typed)
-		}
-	case nil:
-		return JSONSourceValue{Serialized: "null"}, nil
-	case bool:
-		if typed {
-			return JSONSourceValue{Serialized: "true"}, nil
-		}
-		return JSONSourceValue{Serialized: "false"}, nil
-	case string, json.Number:
-		bytes, err := json.Marshal(typed)
+func decodeJSONSourceDelimitedValue(decoder *json.Decoder, delimiter json.Delim) (JSONSourceValue, error) {
+	switch delimiter {
+	case '{':
+		return decodeJSONObjectSourceValue(decoder)
+	case '[':
+		return decodeJSONArraySourceValue(decoder)
+	default:
+		return JSONSourceValue{}, fmt.Errorf("unsupported json delimiter %q", delimiter)
+	}
+}
+
+func decodeJSONObjectSourceValue(decoder *json.Decoder) (JSONSourceValue, error) {
+	entries := make([]JSONSourceObjectEntry, 0)
+	for decoder.More() {
+		key, err := decodeJSONObjectSourceKey(decoder)
 		if err != nil {
 			return JSONSourceValue{}, err
 		}
-		return JSONSourceValue{Serialized: string(bytes)}, nil
-	case float64:
-		bytes, err := json.Marshal(typed)
+		value, err := decodeJSONSourceValue(decoder)
 		if err != nil {
 			return JSONSourceValue{}, err
 		}
-		return JSONSourceValue{Serialized: string(bytes)}, nil
+		entries = append(entries, JSONSourceObjectEntry{
+			Key:   key,
+			Value: value,
+		})
+	}
+	if err := expectJSONSourceDelimiter(decoder, '}', "object terminator"); err != nil {
+		return JSONSourceValue{}, err
+	}
+	return jsonSourceObjectValue(entries), nil
+}
+
+func decodeJSONObjectSourceKey(decoder *json.Decoder) (string, error) {
+	keyToken, err := decoder.Token()
+	if err != nil {
+		return "", err
+	}
+	key, ok := keyToken.(string)
+	if !ok {
+		return "", fmt.Errorf("expected object key, got %T", keyToken)
+	}
+	return key, nil
+}
+
+func decodeJSONArraySourceValue(decoder *json.Decoder) (JSONSourceValue, error) {
+	elements := make([]string, 0)
+	for decoder.More() {
+		value, err := decodeJSONSourceValue(decoder)
+		if err != nil {
+			return JSONSourceValue{}, err
+		}
+		elements = append(elements, serializeJSONSourceValue(value))
+	}
+	if err := expectJSONSourceDelimiter(decoder, ']', "array terminator"); err != nil {
+		return JSONSourceValue{}, err
+	}
+	return jsonSourceArrayValue(elements), nil
+}
+
+func expectJSONSourceDelimiter(decoder *json.Decoder, want json.Delim, description string) error {
+	endToken, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	if end, ok := endToken.(json.Delim); !ok || end != want {
+		return fmt.Errorf("expected %s, got %v", description, endToken)
+	}
+	return nil
+}
+
+func jsonSourceValueFromJSONToken(token any) (JSONSourceValue, error) {
+	switch token.(type) {
+	case nil, bool, string, json.Number, float64:
+		return jsonSourceScalarToJSONValue(token)
 	default:
 		return JSONSourceValue{}, fmt.Errorf("unsupported json token %T", token)
 	}
@@ -426,124 +434,147 @@ func setJSONSourceValueAtPath(target *JSONSourceObject, keyPath []string, value 
 func jsonSourceValueFromTOMLNode(node *unstable.Node) (JSONSourceValue, error) {
 	switch node.Kind {
 	case unstable.InlineTable:
-		object := JSONSourceObject{
-			Entries: []JSONSourceObjectEntry{},
-		}
-		children := node.Children()
-		for children.Next() {
-			entry := children.Node()
-			if entry.Kind != unstable.KeyValue {
-				return JSONSourceValue{}, fmt.Errorf("expected TOML inline table key/value, got %s", entry.Kind)
-			}
-			keyPath, err := tomlKeyPath(entry.Key())
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			value, err := jsonSourceValueFromTOMLNode(entry.Value())
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			if err := setJSONSourceValueAtPath(&object, keyPath, value); err != nil {
-				return JSONSourceValue{}, err
-			}
-		}
-		return JSONSourceValue{Object: &object}, nil
+		return jsonSourceValueFromTOMLInlineTable(node)
 	case unstable.Array:
-		elements := []string{}
-		children := node.Children()
-		for children.Next() {
-			value, err := jsonSourceValueFromTOMLNode(children.Node())
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			elements = append(elements, serializeJSONSourceValue(value))
-		}
-		return JSONSourceValue{Serialized: "[" + strings.Join(elements, ",") + "]"}, nil
+		return jsonSourceValueFromTOMLArray(node)
 	case unstable.String:
-		bytes, err := json.Marshal(string(node.Data))
-		if err != nil {
-			return JSONSourceValue{}, err
-		}
-		return JSONSourceValue{Serialized: string(bytes)}, nil
+		return jsonSourceScalarToJSONValue(string(node.Data))
 	case unstable.Bool, unstable.Float, unstable.Integer:
-		return JSONSourceValue{Serialized: string(node.Data)}, nil
+		return jsonSourceLiteralValue(string(node.Data)), nil
 	default:
 		return JSONSourceValue{}, fmt.Errorf("json source values must use JSON-compatible types, got TOML %s", node.Kind)
 	}
 }
 
+func jsonSourceValueFromTOMLInlineTable(node *unstable.Node) (JSONSourceValue, error) {
+	object := JSONSourceObject{
+		Entries: []JSONSourceObjectEntry{},
+	}
+	children := node.Children()
+	for children.Next() {
+		entry := children.Node()
+		if entry.Kind != unstable.KeyValue {
+			return JSONSourceValue{}, fmt.Errorf("expected TOML inline table key/value, got %s", entry.Kind)
+		}
+		keyPath, err := tomlKeyPath(entry.Key())
+		if err != nil {
+			return JSONSourceValue{}, err
+		}
+		value, err := jsonSourceValueFromTOMLNode(entry.Value())
+		if err != nil {
+			return JSONSourceValue{}, err
+		}
+		if err := setJSONSourceValueAtPath(&object, keyPath, value); err != nil {
+			return JSONSourceValue{}, err
+		}
+	}
+	return jsonSourceObjectValue(object.Entries), nil
+}
+
+func jsonSourceValueFromTOMLArray(node *unstable.Node) (JSONSourceValue, error) {
+	elements := []string{}
+	children := node.Children()
+	for children.Next() {
+		value, err := jsonSourceValueFromTOMLNode(children.Node())
+		if err != nil {
+			return JSONSourceValue{}, err
+		}
+		elements = append(elements, serializeJSONSourceValue(value))
+	}
+	return jsonSourceArrayValue(elements), nil
+}
+
 func jsonSourceValueFromYAMLNode(node *yaml.Node) (JSONSourceValue, error) {
 	if node == nil {
-		return JSONSourceValue{Serialized: "null"}, nil
+		return jsonSourceLiteralValue("null"), nil
 	}
 	switch node.Kind {
 	case yaml.DocumentNode:
-		if len(node.Content) == 0 {
-			return JSONSourceValue{Serialized: "null"}, nil
-		}
-		return jsonSourceValueFromYAMLNode(node.Content[0])
+		return jsonSourceValueFromYAMLDocument(node)
 	case yaml.MappingNode:
-		if node.Tag != "" && node.Tag != "!!map" {
-			return JSONSourceValue{}, fmt.Errorf("json source values must use JSON-compatible types, got yaml tag %s", node.Tag)
-		}
-		object := JSONSourceObject{
-			Entries: make([]JSONSourceObjectEntry, 0, len(node.Content)/2),
-		}
-		for index := 0; index+1 < len(node.Content); index += 2 {
-			keyNode := node.Content[index]
-			valueNode := node.Content[index+1]
-			if keyNode.Kind != yaml.ScalarNode {
-				return JSONSourceValue{}, fmt.Errorf("json source dict keys must be strings")
-			}
-			value, err := jsonSourceValueFromYAMLNode(valueNode)
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			object.Entries = append(object.Entries, JSONSourceObjectEntry{
-				Key:   keyNode.Value,
-				Value: value,
-			})
-		}
-		return JSONSourceValue{Object: &object}, nil
+		return jsonSourceValueFromYAMLMapping(node)
 	case yaml.SequenceNode:
-		if node.Tag != "" && node.Tag != "!!seq" {
-			return JSONSourceValue{}, fmt.Errorf("json source values must use JSON-compatible types, got yaml tag %s", node.Tag)
-		}
-		elements := make([]string, 0, len(node.Content))
-		for _, child := range node.Content {
-			value, err := jsonSourceValueFromYAMLNode(child)
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			elements = append(elements, serializeJSONSourceValue(value))
-		}
-		return JSONSourceValue{Serialized: "[" + strings.Join(elements, ",") + "]"}, nil
+		return jsonSourceValueFromYAMLSequence(node)
 	default:
-		var scalar any
-		if err := node.Decode(&scalar); err != nil {
+		return jsonSourceValueFromYAMLScalar(node)
+	}
+}
+
+func jsonSourceValueFromYAMLDocument(node *yaml.Node) (JSONSourceValue, error) {
+	if len(node.Content) == 0 {
+		return jsonSourceLiteralValue("null"), nil
+	}
+	return jsonSourceValueFromYAMLNode(node.Content[0])
+}
+
+func jsonSourceValueFromYAMLMapping(node *yaml.Node) (JSONSourceValue, error) {
+	if err := validateJSONSourceYAMLTag(node.Tag, "!!map"); err != nil {
+		return JSONSourceValue{}, err
+	}
+	entries := make([]JSONSourceObjectEntry, 0, len(node.Content)/2)
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		keyNode := node.Content[index]
+		valueNode := node.Content[index+1]
+		if keyNode.Kind != yaml.ScalarNode {
+			return JSONSourceValue{}, fmt.Errorf("json source dict keys must be strings")
+		}
+		value, err := jsonSourceValueFromYAMLNode(valueNode)
+		if err != nil {
 			return JSONSourceValue{}, err
 		}
-		return jsonSourceScalarToJSONValue(scalar)
+		entries = append(entries, JSONSourceObjectEntry{
+			Key:   keyNode.Value,
+			Value: value,
+		})
 	}
+	return jsonSourceObjectValue(entries), nil
+}
+
+func jsonSourceValueFromYAMLSequence(node *yaml.Node) (JSONSourceValue, error) {
+	if err := validateJSONSourceYAMLTag(node.Tag, "!!seq"); err != nil {
+		return JSONSourceValue{}, err
+	}
+	elements := make([]string, 0, len(node.Content))
+	for _, child := range node.Content {
+		value, err := jsonSourceValueFromYAMLNode(child)
+		if err != nil {
+			return JSONSourceValue{}, err
+		}
+		elements = append(elements, serializeJSONSourceValue(value))
+	}
+	return jsonSourceArrayValue(elements), nil
+}
+
+func jsonSourceValueFromYAMLScalar(node *yaml.Node) (JSONSourceValue, error) {
+	var scalar any
+	if err := node.Decode(&scalar); err != nil {
+		return JSONSourceValue{}, err
+	}
+	return jsonSourceScalarToJSONValue(scalar)
+}
+
+func validateJSONSourceYAMLTag(tag string, want string) error {
+	if tag == "" || tag == want {
+		return nil
+	}
+	return fmt.Errorf("json source values must use JSON-compatible types, got yaml tag %s", tag)
 }
 
 func jsonSourceValueFromGeneric(value any) (JSONSourceValue, error) {
 	switch typed := value.(type) {
 	case map[string]any:
-		object := JSONSourceObject{
-			Entries: make([]JSONSourceObjectEntry, 0, len(typed)),
-		}
+		entries := make([]JSONSourceObjectEntry, 0, len(typed))
 		for key, child := range typed {
 			childValue, err := jsonSourceValueFromGeneric(child)
 			if err != nil {
 				return JSONSourceValue{}, err
 			}
-			object.Entries = append(object.Entries, JSONSourceObjectEntry{
+			entries = append(entries, JSONSourceObjectEntry{
 				Key:   key,
 				Value: childValue,
 			})
 		}
-		return JSONSourceValue{Object: &object}, nil
+		return jsonSourceObjectValue(entries), nil
 	case []any:
 		elements := make([]string, 0, len(typed))
 		for _, child := range typed {
@@ -553,21 +584,38 @@ func jsonSourceValueFromGeneric(value any) (JSONSourceValue, error) {
 			}
 			elements = append(elements, serializeJSONSourceValue(childValue))
 		}
-		return JSONSourceValue{Serialized: "[" + strings.Join(elements, ",") + "]"}, nil
+		return jsonSourceArrayValue(elements), nil
 	default:
 		return jsonSourceScalarToJSONValue(typed)
 	}
 }
 
+func jsonSourceLiteralValue(serialized string) JSONSourceValue {
+	return JSONSourceValue{Serialized: serialized}
+}
+
+func jsonSourceObjectValue(entries []JSONSourceObjectEntry) JSONSourceValue {
+	object := JSONSourceObject{Entries: entries}
+	return JSONSourceValue{Object: &object}
+}
+
+func jsonSourceArrayValue(elements []string) JSONSourceValue {
+	return jsonSourceLiteralValue("[" + strings.Join(elements, ",") + "]")
+}
+
 func jsonSourceScalarToJSONValue(value any) (JSONSourceValue, error) {
 	switch typed := value.(type) {
-	case nil, string, bool, float32, float64, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		bytes, err := json.Marshal(typed)
-		if err != nil {
-			return JSONSourceValue{}, err
-		}
-		return JSONSourceValue{Serialized: string(bytes)}, nil
+	case nil, string, bool, json.Number, float32, float64, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return marshalJSONSourceScalarValue(typed)
 	default:
 		return JSONSourceValue{}, fmt.Errorf("json source values must use JSON-compatible types, got %T", value)
 	}
+}
+
+func marshalJSONSourceScalarValue(value any) (JSONSourceValue, error) {
+	bytes, err := json.Marshal(value)
+	if err != nil {
+		return JSONSourceValue{}, err
+	}
+	return jsonSourceLiteralValue(string(bytes)), nil
 }
