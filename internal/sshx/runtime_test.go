@@ -369,6 +369,24 @@ func TestServiceDeleteRemoteWorkspaceSessionReturnsRemoteRollbackOnFailure(t *te
 	}
 }
 
+func TestServiceDeleteRemoteWorkspaceSessionRequiresSessionID(t *testing.T) {
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	err = service.DeleteRemoteWorkspaceSession(DeleteRemoteWorkspaceSessionInput{
+		SSHTarget: "user@host",
+		Workspace: "/remote/workspace",
+	})
+	requireSSHErrorCode(t, err, "RemoteRollback")
+	if err.Error() != "Missing session id for rollback." {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
 func TestServicePrepareConnectWorkspaceSessionDoesNotCreateTunnelMetadata(t *testing.T) {
 	repoRoot := testRepoRoot(t)
 	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
@@ -539,6 +557,26 @@ func TestServicePrepareConnectWorkspaceSessionRejectsMultipleSessionsWithoutSele
 	})
 	requireSSHErrorCode(t, err, "RemoteConnectSelection")
 	if err.Error() != "Use --session or --latest for remote connect." {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
+func TestServicePrepareConnectWorkspaceSessionRejectsSessionAndLatestTogether(t *testing.T) {
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	_, err = service.PrepareConnectWorkspaceSession(PrepareConnectWorkspaceInput{
+		SSHTarget: "user@host",
+		Workspace: "/remote/workspace",
+		SessionID: "session-123",
+		Latest:    true,
+	})
+	requireSSHErrorCode(t, err, "RemoteConnectSelection")
+	if err.Error() != "Use either --session or --latest, not both." {
 		t.Fatalf("unexpected error %q", err.Error())
 	}
 }

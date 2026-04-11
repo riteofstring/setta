@@ -154,6 +154,50 @@ type sshCommandResult struct {
 	Stderr   string
 }
 
+type remoteCommandContextRequest struct {
+	sshTarget          string
+	workspace          string
+	profile            string
+	settaHome          string
+	settaFilesRoot     string
+	settaFilesLocation string
+	runtimeRoot        string
+	sshArgs            string
+	remoteCommand      string
+}
+
+type remoteCommandContext struct {
+	sshTarget          string
+	sshArgs            []string
+	sshPrefix          []string
+	shell              string
+	remoteWorkspace    string
+	remoteCommand      string
+	settaFilesArgs     string
+	settaFilesLocation string
+	settaFilesRoot     string
+	runtimeRoot        string
+}
+
+type prepareConnectRequest struct {
+	remoteCommandContextRequest
+	sessionID      string
+	latest         bool
+	launcherOrigin string
+	timeout        time.Duration
+}
+
+type deleteRemoteWorkspaceRequest struct {
+	remoteCommandContextRequest
+	sessionID string
+}
+
+type preparedSessionSelection struct {
+	session             RemoteSessionSummary
+	startedNew          bool
+	initialSessionCount int
+}
+
 func NewService(options ServiceOptions) (*Service, error) {
 	runtimeRoot, err := statefs.NormalizePath(strings.TrimSpace(options.RuntimeRoot), "")
 	if err != nil {
@@ -173,6 +217,301 @@ func NewService(options ServiceOptions) (*Service, error) {
 		now:         now,
 		sleep:       sleep,
 	}, nil
+}
+
+func normalizePrepareConnectRequest(input PrepareConnectWorkspaceInput) (prepareConnectRequest, error) {
+	request := prepareConnectRequest{
+		sessionID:      NormalizeOptionalArgument(input.SessionID),
+		latest:         input.Latest,
+		launcherOrigin: NormalizeOptionalArgument(input.LauncherOrigin),
+		timeout:        input.Timeout,
+	}
+	var err error
+	request.sshTarget = NormalizeOptionalArgument(input.SSHTarget)
+	if request.sshTarget == "" {
+		return prepareConnectRequest{}, &Error{
+			Code:    "InvalidSshTarget",
+			Message: "sshTarget must be a non-empty string.",
+		}
+	}
+	request.workspace = NormalizeOptionalArgument(input.Workspace)
+	if request.workspace == "" {
+		return prepareConnectRequest{}, &Error{
+			Code:    "InvalidWorkspace",
+			Message: "--workspace is required for SSH connect.",
+		}
+	}
+	if request.sessionID != "" && request.latest {
+		return prepareConnectRequest{}, &Error{
+			Code:    "RemoteConnectSelection",
+			Message: "Use either --session or --latest, not both.",
+		}
+	}
+	normalizedContext, err := normalizeRemoteCommandContextRequest(remoteCommandContextRequest{
+		sshTarget:          request.sshTarget,
+		workspace:          request.workspace,
+		profile:            input.Profile,
+		settaHome:          input.SettaHome,
+		settaFilesRoot:     input.SettaFilesRoot,
+		settaFilesLocation: input.SettaFilesLocation,
+		runtimeRoot:        input.RuntimeRoot,
+		sshArgs:            input.SSHArgs,
+		remoteCommand:      input.RemoteCommand,
+	})
+	if err != nil {
+		return prepareConnectRequest{}, err
+	}
+	request.remoteCommandContextRequest = normalizedContext
+	return request, nil
+}
+
+func normalizeDeleteRemoteWorkspaceRequest(input DeleteRemoteWorkspaceSessionInput) (deleteRemoteWorkspaceRequest, error) {
+	request := deleteRemoteWorkspaceRequest{
+		sessionID: NormalizeOptionalArgument(input.SessionID),
+	}
+	var err error
+	request.sshTarget = NormalizeOptionalArgument(input.SSHTarget)
+	if request.sshTarget == "" {
+		return deleteRemoteWorkspaceRequest{}, &Error{Code: "RemoteRollback", Message: "Missing sshTarget for rollback."}
+	}
+	request.workspace = NormalizeOptionalArgument(input.Workspace)
+	if request.workspace == "" {
+		return deleteRemoteWorkspaceRequest{}, &Error{Code: "RemoteRollback", Message: "Missing workspace for rollback."}
+	}
+	if request.sessionID == "" {
+		return deleteRemoteWorkspaceRequest{}, &Error{Code: "RemoteRollback", Message: "Missing session id for rollback."}
+	}
+	normalizedContext, err := normalizeRemoteCommandContextRequest(remoteCommandContextRequest{
+		sshTarget:          request.sshTarget,
+		workspace:          request.workspace,
+		profile:            input.Profile,
+		settaHome:          input.SettaHome,
+		settaFilesRoot:     input.SettaFilesRoot,
+		settaFilesLocation: input.SettaFilesLocation,
+		runtimeRoot:        input.RuntimeRoot,
+		sshArgs:            input.SSHArgs,
+		remoteCommand:      input.RemoteCommand,
+	})
+	if err != nil {
+		return deleteRemoteWorkspaceRequest{}, err
+	}
+	request.remoteCommandContextRequest = normalizedContext
+	return request, nil
+}
+
+func normalizeRemoteCommandContextRequest(input remoteCommandContextRequest) (remoteCommandContextRequest, error) {
+	request := remoteCommandContextRequest{
+		sshTarget:      NormalizeOptionalArgument(input.sshTarget),
+		workspace:      NormalizeOptionalArgument(input.workspace),
+		profile:        NormalizeOptionalArgument(input.profile),
+		settaHome:      NormalizeOptionalArgument(input.settaHome),
+		settaFilesRoot: NormalizeOptionalArgument(input.settaFilesRoot),
+		runtimeRoot:    NormalizeOptionalArgument(input.runtimeRoot),
+		sshArgs:        NormalizeOptionalArgument(input.sshArgs),
+		remoteCommand:  NormalizeOptionalArgument(input.remoteCommand),
+	}
+	settaFilesLocation, err := NormalizeSettaFilesLocation(input.settaFilesLocation)
+	if err != nil {
+		return remoteCommandContextRequest{}, err
+	}
+	request.settaFilesLocation = defaultRemoteSettaFilesLocation(
+		request.profile,
+		request.settaFilesRoot,
+		settaFilesLocation,
+	)
+	return request, nil
+}
+
+func defaultRemoteSettaFilesLocation(profile string, settaFilesRoot string, settaFilesLocation string) string {
+	if settaFilesRoot == "" && settaFilesLocation == "" && profile == "" {
+		return "auto"
+	}
+	return settaFilesLocation
+}
+
+func (s *Service) resolveRemoteCommandContext(input remoteCommandContextRequest) (remoteCommandContext, error) {
+	sshArgs, err := ParseSSHArgs(input.sshArgs)
+	if err != nil {
+		return remoteCommandContext{}, err
+	}
+	sshArgs = ApplyControlSocketArgs(sshArgs)
+
+	commandContext := remoteCommandContext{
+		sshTarget:          input.sshTarget,
+		sshArgs:            sshArgs,
+		sshPrefix:          SSHCommandPrefix(true, s.resolvedSSHBin()),
+		settaFilesLocation: input.settaFilesLocation,
+		settaFilesRoot:     input.settaFilesRoot,
+		runtimeRoot:        input.runtimeRoot,
+	}
+	commandContext.shell, err = s.resolveRemoteShell(commandContext.sshTarget, commandContext.sshArgs, commandContext.sshPrefix)
+	if err != nil {
+		return remoteCommandContext{}, err
+	}
+	commandContext.remoteWorkspace, err = s.resolveRemoteWorkspace(
+		commandContext.sshTarget,
+		commandContext.sshArgs,
+		commandContext.shell,
+		input.workspace,
+		commandContext.sshPrefix,
+	)
+	if err != nil {
+		return remoteCommandContext{}, err
+	}
+	commandContext.remoteCommand, err = s.resolveRemoteSettaCommand(
+		commandContext.sshTarget,
+		commandContext.sshArgs,
+		commandContext.shell,
+		commandContext.remoteWorkspace,
+		input.remoteCommand,
+		commandContext.sshPrefix,
+	)
+	if err != nil {
+		return remoteCommandContext{}, err
+	}
+	commandContext.settaFilesArgs, err = buildRemoteSettaPathArgs(
+		input.profile,
+		input.settaHome,
+		input.settaFilesRoot,
+		input.settaFilesLocation,
+		input.runtimeRoot,
+	)
+	if err != nil {
+		return remoteCommandContext{}, err
+	}
+	return commandContext, nil
+}
+
+func (s *Service) prepareRemoteSessionSelection(
+	commandContext remoteCommandContext,
+	request prepareConnectRequest,
+) (preparedSessionSelection, error) {
+	sessions, err := s.fetchRemoteSessions(
+		commandContext.sshTarget,
+		commandContext.sshArgs,
+		commandContext.shell,
+		commandContext.remoteWorkspace,
+		commandContext.remoteCommand,
+		commandContext.settaFilesArgs,
+		commandContext.sshPrefix,
+		RemoteServerModeIDE,
+	)
+	if err != nil {
+		return preparedSessionSelection{}, err
+	}
+	selection := preparedSessionSelection{
+		initialSessionCount: len(sessions),
+	}
+	session, hasSelection, err := selectConnectSession(sessions, request.sessionID, request.latest)
+	if err != nil {
+		return preparedSessionSelection{}, err
+	}
+	if hasSelection {
+		selection.session = session
+		return selection, nil
+	}
+	sessions, err = s.startAndWaitForRemoteSessions(commandContext, request.timeout)
+	if err != nil {
+		return preparedSessionSelection{}, err
+	}
+	selection.startedNew = true
+	selection.session = newestRemoteSession(sessions)
+	return selection, nil
+}
+
+func (s *Service) startAndWaitForRemoteSessions(
+	commandContext remoteCommandContext,
+	timeout time.Duration,
+) ([]RemoteSessionSummary, error) {
+	startTimedOut := false
+	if err := s.startRemoteSetta(
+		commandContext.sshTarget,
+		commandContext.sshArgs,
+		commandContext.shell,
+		commandContext.remoteWorkspace,
+		commandContext.remoteCommand,
+		commandContext.settaFilesArgs,
+		commandContext.sshPrefix,
+		commandContext.settaFilesLocation,
+		commandContext.settaFilesRoot,
+		commandContext.runtimeRoot,
+	); err != nil {
+		if errorCode(err) != "SshTimeout" {
+			return nil, err
+		}
+		startTimedOut = true
+	}
+	if timeout <= 0 {
+		timeout = defaultRemoteLaunchTimeout
+	}
+	sessions, err := s.waitForRemoteSessions(
+		commandContext.sshTarget,
+		commandContext.sshArgs,
+		commandContext.shell,
+		commandContext.remoteWorkspace,
+		commandContext.remoteCommand,
+		commandContext.settaFilesArgs,
+		commandContext.sshPrefix,
+		timeout,
+		commandContext.settaFilesLocation,
+		commandContext.settaFilesRoot,
+		commandContext.runtimeRoot,
+		RemoteServerModeIDE,
+	)
+	if err == nil {
+		return sessions, nil
+	}
+	if startTimedOut && errorCode(err) == "RemoteLaunchTimeout" {
+		return nil, &Error{
+			Code: "RemoteStart",
+			Message: "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. " +
+				"Check SSH connectivity/auth and try again. " + err.Error(),
+		}
+	}
+	return nil, err
+}
+
+func (s *Service) deleteRemoteSession(commandContext remoteCommandContext, sessionID string) error {
+	rootPrefix := ""
+	if commandContext.settaFilesArgs != "" {
+		rootPrefix = commandContext.settaFilesArgs + " "
+	}
+	result, err := s.runRemoteSettaCommand(
+		commandContext.sshTarget,
+		commandContext.sshArgs,
+		commandContext.shell,
+		commandContext.remoteWorkspace,
+		commandContext.remoteCommand,
+		rootPrefix+"status --delete-session "+shellQuote(sessionID),
+		commandContext.sshPrefix,
+		defaultRemoteCommandTimeout,
+	)
+	if err != nil {
+		return err
+	}
+	if result.ExitCode == 0 {
+		return nil
+	}
+	details := strings.TrimSpace(firstNonBlank(result.Stderr, result.Stdout))
+	message := fmt.Sprintf("Failed deleting remote session %s.", sessionID)
+	if details != "" {
+		message += " " + details
+	}
+	return &Error{
+		Code:    "RemoteRollback",
+		Message: message,
+	}
+}
+
+func extractRemoteConnectToken(connectInfo RemoteConnectInfo) (string, error) {
+	token, err := extractTokenFromBootstrapURL(connectInfo.BootstrapURLFragment)
+	if err != nil {
+		return "", &Error{
+			Code:    "RemoteToken",
+			Message: err.Error(),
+		}
+	}
+	return token, nil
 }
 
 func (s *Service) ListRemoteWorkspaceSessions(input ListRemoteWorkspaceSessionsInput) ([]RemoteSessionSummary, error) {
@@ -242,84 +581,15 @@ func (s *Service) ListRemoteWorkspaceSessions(input ListRemoteWorkspaceSessionsI
 }
 
 func (s *Service) DeleteRemoteWorkspaceSession(input DeleteRemoteWorkspaceSessionInput) error {
-	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
-	if sshTarget == "" {
-		return &Error{Code: "RemoteRollback", Message: "Missing sshTarget for rollback."}
-	}
-	workspace := NormalizeOptionalArgument(input.Workspace)
-	if workspace == "" {
-		return &Error{Code: "RemoteRollback", Message: "Missing workspace for rollback."}
-	}
-	sessionID := NormalizeOptionalArgument(input.SessionID)
-	if sessionID == "" {
-		return &Error{Code: "RemoteRollback", Message: "Missing session id for rollback."}
-	}
-	remoteCommand := NormalizeOptionalArgument(input.RemoteCommand)
-
-	profile := NormalizeOptionalArgument(input.Profile)
-	settaHome := NormalizeOptionalArgument(input.SettaHome)
-	settaFilesRoot := NormalizeOptionalArgument(input.SettaFilesRoot)
-	settaFilesLocation, err := NormalizeSettaFilesLocation(input.SettaFilesLocation)
+	request, err := normalizeDeleteRemoteWorkspaceRequest(input)
 	if err != nil {
 		return err
 	}
-	runtimeRoot := NormalizeOptionalArgument(input.RuntimeRoot)
-	if settaFilesRoot == "" && settaFilesLocation == "" && profile == "" {
-		settaFilesLocation = "auto"
-	}
-
-	sshArgs, err := ParseSSHArgs(input.SSHArgs)
+	commandContext, err := s.resolveRemoteCommandContext(request.remoteCommandContextRequest)
 	if err != nil {
 		return err
 	}
-	sshArgs = ApplyControlSocketArgs(sshArgs)
-	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
-
-	shell, err := s.resolveRemoteShell(sshTarget, sshArgs, sshPrefix)
-	if err != nil {
-		return err
-	}
-	remoteWorkspace, err := s.resolveRemoteWorkspace(sshTarget, sshArgs, shell, workspace, sshPrefix)
-	if err != nil {
-		return err
-	}
-	resolvedRemoteCommand, err := s.resolveRemoteSettaCommand(sshTarget, sshArgs, shell, remoteWorkspace, remoteCommand, sshPrefix)
-	if err != nil {
-		return err
-	}
-	settaFilesArgs, err := buildRemoteSettaPathArgs(profile, settaHome, settaFilesRoot, settaFilesLocation, runtimeRoot)
-	if err != nil {
-		return err
-	}
-	rootPrefix := ""
-	if settaFilesArgs != "" {
-		rootPrefix = settaFilesArgs + " "
-	}
-	result, err := s.runRemoteSettaCommand(
-		sshTarget,
-		sshArgs,
-		shell,
-		remoteWorkspace,
-		resolvedRemoteCommand,
-		rootPrefix+"status --delete-session "+shellQuote(sessionID),
-		sshPrefix,
-		defaultRemoteCommandTimeout,
-	)
-	if err != nil {
-		return err
-	}
-	if result.ExitCode != 0 {
-		details := strings.TrimSpace(firstNonBlank(result.Stderr, result.Stdout))
-		message := fmt.Sprintf("Failed deleting remote session %s.", sessionID)
-		if details != "" {
-			message += " " + details
-		}
-		return &Error{
-			Code:    "RemoteRollback",
-			Message: message,
-		}
-	}
-	return nil
+	return s.deleteRemoteSession(commandContext, request.sessionID)
 }
 
 func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteConnectResult, error) {
@@ -373,169 +643,43 @@ func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteCo
 }
 
 func (s *Service) PrepareConnectWorkspaceSession(input PrepareConnectWorkspaceInput) (PreparedConnectWorkspaceResult, error) {
-	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
-	if sshTarget == "" {
-		return PreparedConnectWorkspaceResult{}, &Error{
-			Code:    "InvalidSshTarget",
-			Message: "sshTarget must be a non-empty string.",
-		}
-	}
-	workspace := NormalizeOptionalArgument(input.Workspace)
-	if workspace == "" {
-		return PreparedConnectWorkspaceResult{}, &Error{
-			Code:    "InvalidWorkspace",
-			Message: "--workspace is required for SSH connect.",
-		}
-	}
-	sessionID := NormalizeOptionalArgument(input.SessionID)
-	if sessionID != "" && input.Latest {
-		return PreparedConnectWorkspaceResult{}, &Error{
-			Code:    "RemoteConnectSelection",
-			Message: "Use either --session or --latest, not both.",
-		}
-	}
-
-	profile := NormalizeOptionalArgument(input.Profile)
-	settaHome := NormalizeOptionalArgument(input.SettaHome)
-	settaFilesRoot := NormalizeOptionalArgument(input.SettaFilesRoot)
-	settaFilesLocation, err := NormalizeSettaFilesLocation(input.SettaFilesLocation)
+	request, err := normalizePrepareConnectRequest(input)
 	if err != nil {
 		return PreparedConnectWorkspaceResult{}, err
 	}
-	runtimeRoot := NormalizeOptionalArgument(input.RuntimeRoot)
-	sshArgsRaw := NormalizeOptionalArgument(input.SSHArgs)
-	remoteCommand := NormalizeOptionalArgument(input.RemoteCommand)
-	launcherOrigin := NormalizeOptionalArgument(input.LauncherOrigin)
-	if settaFilesRoot == "" && settaFilesLocation == "" && profile == "" {
-		settaFilesLocation = "auto"
-	}
-
-	sshArgs, err := ParseSSHArgs(sshArgsRaw)
+	commandContext, err := s.resolveRemoteCommandContext(request.remoteCommandContextRequest)
 	if err != nil {
 		return PreparedConnectWorkspaceResult{}, err
 	}
-	sshArgs = ApplyControlSocketArgs(sshArgs)
-	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
-
-	shell, err := s.resolveRemoteShell(sshTarget, sshArgs, sshPrefix)
+	selection, err := s.prepareRemoteSessionSelection(commandContext, request)
 	if err != nil {
 		return PreparedConnectWorkspaceResult{}, err
 	}
-	remoteWorkspace, err := s.resolveRemoteWorkspace(sshTarget, sshArgs, shell, workspace, sshPrefix)
-	if err != nil {
-		return PreparedConnectWorkspaceResult{}, err
-	}
-	resolvedRemoteCommand, err := s.resolveRemoteSettaCommand(sshTarget, sshArgs, shell, remoteWorkspace, remoteCommand, sshPrefix)
-	if err != nil {
-		return PreparedConnectWorkspaceResult{}, err
-	}
-	settaFilesArgs, err := buildRemoteSettaPathArgs(profile, settaHome, settaFilesRoot, settaFilesLocation, runtimeRoot)
-	if err != nil {
-		return PreparedConnectWorkspaceResult{}, err
-	}
-
-	sessions, err := s.fetchRemoteSessions(
-		sshTarget,
-		sshArgs,
-		shell,
-		remoteWorkspace,
-		resolvedRemoteCommand,
-		settaFilesArgs,
-		sshPrefix,
-		RemoteServerModeIDE,
-	)
-	if err != nil {
-		return PreparedConnectWorkspaceResult{}, err
-	}
-	initialSessionCount := len(sessions)
-
-	startedNew := false
-	startTimedOut := false
-	session, hasSelection, err := selectConnectSession(sessions, sessionID, input.Latest)
-	if err != nil {
-		return PreparedConnectWorkspaceResult{}, err
-	}
-	if !hasSelection {
-		startedNew = true
-		if err := s.startRemoteSetta(
-			sshTarget,
-			sshArgs,
-			shell,
-			remoteWorkspace,
-			resolvedRemoteCommand,
-			settaFilesArgs,
-			sshPrefix,
-			settaFilesLocation,
-			settaFilesRoot,
-			runtimeRoot,
-		); err != nil {
-			if errorCode(err) == "SshTimeout" {
-				startTimedOut = true
-			} else {
-				return PreparedConnectWorkspaceResult{}, err
-			}
-		}
-
-		timeout := input.Timeout
-		if timeout <= 0 {
-			timeout = defaultRemoteLaunchTimeout
-		}
-		sessions, err = s.waitForRemoteSessions(
-			sshTarget,
-			sshArgs,
-			shell,
-			remoteWorkspace,
-			resolvedRemoteCommand,
-			settaFilesArgs,
-			sshPrefix,
-			timeout,
-			settaFilesLocation,
-			settaFilesRoot,
-			runtimeRoot,
-			RemoteServerModeIDE,
-		)
-		if err != nil {
-			if startTimedOut && errorCode(err) == "RemoteLaunchTimeout" {
-				return PreparedConnectWorkspaceResult{}, &Error{
-					Code: "RemoteStart",
-					Message: "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. " +
-						"Check SSH connectivity/auth and try again. " + err.Error(),
-				}
-			}
-			return PreparedConnectWorkspaceResult{}, err
-		}
-		session = newestRemoteSession(sessions)
-	}
-
 	connectInfo, err := s.fetchRemoteConnectInfo(
-		sshTarget,
-		sshArgs,
-		shell,
-		remoteWorkspace,
-		resolvedRemoteCommand,
-		settaFilesArgs,
-		session.ID,
-		sshPrefix,
-		launcherOrigin,
+		commandContext.sshTarget,
+		commandContext.sshArgs,
+		commandContext.shell,
+		commandContext.remoteWorkspace,
+		commandContext.remoteCommand,
+		commandContext.settaFilesArgs,
+		selection.session.ID,
+		commandContext.sshPrefix,
+		request.launcherOrigin,
 	)
 	if err != nil {
 		return PreparedConnectWorkspaceResult{}, err
 	}
-	token, err := extractTokenFromBootstrapURL(connectInfo.BootstrapURLFragment)
+	token, err := extractRemoteConnectToken(connectInfo)
 	if err != nil {
-		return PreparedConnectWorkspaceResult{}, &Error{
-			Code:    "RemoteToken",
-			Message: err.Error(),
-		}
+		return PreparedConnectWorkspaceResult{}, err
 	}
-
 	return PreparedConnectWorkspaceResult{
-		Session:             session,
-		StartedNew:          startedNew,
-		InitialSessionCount: initialSessionCount,
-		RemoteShell:         shell,
-		RemoteWorkspace:     remoteWorkspace,
-		RemoteCommand:       resolvedRemoteCommand,
+		Session:             selection.session,
+		StartedNew:          selection.startedNew,
+		InitialSessionCount: selection.initialSessionCount,
+		RemoteShell:         commandContext.shell,
+		RemoteWorkspace:     commandContext.remoteWorkspace,
+		RemoteCommand:       commandContext.remoteCommand,
 		ConnectInfo:         connectInfo,
 		Token:               token,
 	}, nil
