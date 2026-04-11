@@ -36,6 +36,11 @@ type launchDependencies struct {
 	mintBootstrapToken       func(string, []byte, time.Time) (string, error)
 }
 
+type launchPreparedExecution struct {
+	resolvedInputs  resolvedLaunchInputs
+	sessionLauncher launcher.IDEWorkspaceSessionLauncher
+}
+
 type launchSessionPayload struct {
 	ID                     string    `json:"id"`
 	WorkspacePath          string    `json:"workspacePath"`
@@ -52,9 +57,39 @@ func runLaunch(args []string, global globalFlags, stdout io.Writer, stderr io.Wr
 }
 
 func runLaunchWithDeps(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string, deps launchDependencies) error {
+	parsed, err := parseLaunchFlags(args, stderr)
+	if err != nil {
+		return err
+	}
+	if !parsed.jsonOutput {
+		return &ExitError{
+			Code: 2,
+			Err:  fmt.Errorf("use --json with launch"),
+		}
+	}
+
+	payload, launchErr := buildLaunchJSONPayload(parsed, global, envLookup, cwd, deps)
+	if launchErr != nil {
+		return launchErr.emitJSON(stdout, stderr)
+	}
+	return writeJSONPayload(stdout, payload)
+}
+
+func parseLaunchFlags(args []string, stderr io.Writer) (launchFlags, error) {
 	flags := flag.NewFlagSet("launch", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	var parsed launchFlags
+	configureLaunchFlags(flags, &parsed)
+	if err := flags.Parse(args); err != nil {
+		return launchFlags{}, err
+	}
+	if len(flags.Args()) != 0 {
+		return launchFlags{}, fmt.Errorf("launch does not accept positional arguments")
+	}
+	return parsed, nil
+}
+
+func configureLaunchFlags(flags *flag.FlagSet, parsed *launchFlags) {
 	flags.BoolVar(&parsed.jsonOutput, "json", false, "Emit JSON payload only.")
 	flags.StringVar(&parsed.workspaceRoot, "workspace", "", "Workspace root.")
 	flags.StringVar(&parsed.workspaceRoot, "w", "", "Workspace root.")
@@ -64,69 +99,98 @@ func runLaunchWithDeps(args []string, global globalFlags, stdout io.Writer, stde
 	flags.StringVar(&parsed.settaFilesLocation, "setta-files-location", "", "setta_files location mode: auto, local, or global.")
 	flags.StringVar(&parsed.runtimeRoot, "runtime-root", "", "Runtime root.")
 	flags.Float64Var(&parsed.timeoutSeconds, "timeout", 30.0, "Seconds to wait for session startup.")
-	if err := flags.Parse(args); err != nil {
-		return err
-	}
-	if len(flags.Args()) != 0 {
-		return fmt.Errorf("launch does not accept positional arguments")
-	}
-	if !parsed.jsonOutput {
-		return &ExitError{
-			Code: 2,
-			Err:  fmt.Errorf("use --json with launch"),
-		}
-	}
+}
+
+func buildLaunchJSONPayload(parsed launchFlags, global globalFlags, envLookup func(string) (string, bool), cwd string, deps launchDependencies) (map[string]any, *launchCommandError) {
 	if parsed.timeoutSeconds <= 0 {
-		return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", "--timeout must be greater than 0.", 2)
+		return nil, badLaunchCommandRequest("--timeout must be greater than 0.")
 	}
 
+	prepared, launchErr := prepareLaunchExecution(parsed, global, envLookup, cwd, deps)
+	if launchErr != nil {
+		return nil, launchErr
+	}
+	launchResult, launchErr := ensureLaunchSession(prepared, global.profileLookupHome)
+	if launchErr != nil {
+		return nil, launchErr
+	}
+	bootstrapURLFragment, launchErr := buildLaunchBootstrapURLFragment(launchResult, deps)
+	if launchErr != nil {
+		return nil, launchErr
+	}
+	return launchPayload(launchResult, bootstrapURLFragment), nil
+}
+
+func prepareLaunchExecution(parsed launchFlags, global globalFlags, envLookup func(string) (string, bool), cwd string, deps launchDependencies) (launchPreparedExecution, *launchCommandError) {
 	resolved, err := resolveLaunchInputs(parsed, global, cwd)
 	if err != nil {
-		return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, "BadRequest", err.Error(), 2)
+		return launchPreparedExecution{}, badLaunchCommandRequest(err.Error())
 	}
+	serverExecutable, launchErr := resolveLaunchServerExecutable(envLookup, deps)
+	if launchErr != nil {
+		return launchPreparedExecution{}, launchErr
+	}
+	sessionLauncher, err := deps.newSessionLauncher(serverExecutable, time.Duration(parsed.timeoutSeconds*float64(time.Second)))
+	if err != nil {
+		return launchPreparedExecution{}, internalLaunchCommandError(err.Error())
+	}
+	return launchPreparedExecution{
+		resolvedInputs:  resolved,
+		sessionLauncher: sessionLauncher,
+	}, nil
+}
 
+func resolveLaunchServerExecutable(envLookup func(string) (string, bool), deps launchDependencies) (string, *launchCommandError) {
 	currentExecutable, err := deps.resolveCurrentExecutable()
 	if err != nil {
-		return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", fmt.Sprintf("resolve current executable: %v", err), 1)
+		return "", internalLaunchCommandError(fmt.Sprintf("resolve current executable: %v", err))
 	}
 	serverExecutable, err := deps.resolveServerExecutable(currentExecutable, envLookup)
 	if err != nil {
-		return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, "LaunchFailed", err.Error(), 2)
+		return "", launchFailedCommandError(err.Error())
 	}
+	return serverExecutable, nil
+}
 
-	sessionLauncher, err := deps.newSessionLauncher(serverExecutable, time.Duration(parsed.timeoutSeconds*float64(time.Second)))
-	if err != nil {
-		return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", err.Error(), 1)
-	}
-
-	launchResult, err := sessionLauncher.EnsureSession(launcher.IDELaunchInput{
-		WorkspaceRoot:      resolved.workspaceRoot,
-		SettaHome:          resolved.settaHome,
-		ProfileLookupHome:  strings.TrimSpace(global.profileLookupHome),
-		Profile:            resolved.profile,
-		SettaFilesRoot:     resolved.settaFilesRoot,
-		SettaFilesLocation: resolved.settaFilesLocation,
-		RuntimeRoot:        resolved.runtimeRoot,
+func ensureLaunchSession(prepared launchPreparedExecution, profileLookupHome string) (launcher.IDELaunchResult, *launchCommandError) {
+	launchResult, err := prepared.sessionLauncher.EnsureSession(launcher.IDELaunchInput{
+		WorkspaceRoot:      prepared.resolvedInputs.workspaceRoot,
+		SettaHome:          prepared.resolvedInputs.settaHome,
+		ProfileLookupHome:  strings.TrimSpace(profileLookupHome),
+		Profile:            prepared.resolvedInputs.profile,
+		SettaFilesRoot:     prepared.resolvedInputs.settaFilesRoot,
+		SettaFilesLocation: prepared.resolvedInputs.settaFilesLocation,
+		RuntimeRoot:        prepared.resolvedInputs.runtimeRoot,
 		ServerMode:         config.ModeIDE,
 	})
 	if err != nil {
 		var sessionLaunchErr *launcher.SessionLaunchError
 		if errors.As(err, &sessionLaunchErr) {
-			return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, sessionLaunchErr.Code, sessionLaunchErr.Message, 2)
+			return launcher.IDELaunchResult{}, &launchCommandError{
+				code:     sessionLaunchErr.Code,
+				message:  sessionLaunchErr.Message,
+				exitCode: 2,
+			}
 		}
-		return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", err.Error(), 1)
+		return launcher.IDELaunchResult{}, internalLaunchCommandError(err.Error())
 	}
+	return launchResult, nil
+}
 
+func buildLaunchBootstrapURLFragment(launchResult launcher.IDELaunchResult, deps launchDependencies) (string, *launchCommandError) {
 	token, err := deps.mintBootstrapToken(launchResult.Session.ID, launchResult.Secret, deps.now().UTC())
 	if err != nil {
-		return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", err.Error(), 1)
+		return "", internalLaunchCommandError(err.Error())
 	}
 	bootstrapURLFragment, err := launcher.BuildBootstrapURLFragment(launchResult.Session.Host, launchResult.Session.Port, token)
 	if err != nil {
-		return emitLaunchCommandError(stdout, stderr, parsed.jsonOutput, "InternalError", err.Error(), 1)
+		return "", internalLaunchCommandError(err.Error())
 	}
+	return bootstrapURLFragment, nil
+}
 
-	payload := map[string]any{
+func launchPayload(launchResult launcher.IDELaunchResult, bootstrapURLFragment string) map[string]any {
+	return map[string]any{
 		"ok":                   true,
 		"bootstrapUrlFragment": bootstrapURLFragment,
 		"workspaceRoot":        launchResult.Paths.WorkspaceRoot,
@@ -139,7 +203,6 @@ func runLaunchWithDeps(args []string, global globalFlags, stdout io.Writer, stde
 		"startedNew":           launchResult.StartedNew,
 		"session":              launchSessionPayloadFromSession(launchResult.Session),
 	}
-	return writeJSONPayload(stdout, payload)
 }
 
 func defaultLaunchDependencies() launchDependencies {
@@ -155,6 +218,43 @@ func defaultLaunchDependencies() launchDependencies {
 		},
 		now:                time.Now,
 		mintBootstrapToken: tokenManager.Mint,
+	}
+}
+
+type launchCommandError struct {
+	code     string
+	message  string
+	exitCode int
+}
+
+func (e *launchCommandError) emitJSON(stdout io.Writer, stderr io.Writer) error {
+	if e == nil {
+		return nil
+	}
+	return emitLaunchCommandError(stdout, stderr, true, e.code, e.message, e.exitCode)
+}
+
+func badLaunchCommandRequest(message string) *launchCommandError {
+	return &launchCommandError{
+		code:     "BadRequest",
+		message:  message,
+		exitCode: 2,
+	}
+}
+
+func launchFailedCommandError(message string) *launchCommandError {
+	return &launchCommandError{
+		code:     "LaunchFailed",
+		message:  message,
+		exitCode: 2,
+	}
+}
+
+func internalLaunchCommandError(message string) *launchCommandError {
+	return &launchCommandError{
+		code:     "InternalError",
+		message:  message,
+		exitCode: 1,
 	}
 }
 

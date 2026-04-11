@@ -6,6 +6,30 @@ import (
 	"io"
 )
 
+type usageSection struct {
+	title string
+	lines []string
+}
+
+var rootCommandSummaries = []string{
+	"  version       Print the installed Setta version.",
+	"  paths         Resolve active workspace/runtime paths.",
+	"  export-db     Export project state in readable YAML.",
+	"  backups       List and restore local backups.",
+	"  plugins       Manage plugin authoring and install state.",
+	"  mcp           Run the local stdio MCP bridge.",
+	"  launch        Start or reuse a local session and emit bootstrap JSON.",
+	"  share         Serve a share deployment.",
+	"  app           Serve an app deployment.",
+	"  status        Read local session registry.",
+	"  auth          Emit auth info for API calls.",
+	"  tools         Emit the MCP tool list.",
+	"  api           Call Setta MCP tools.",
+	"  launcher      Desktop launcher setup and status commands.",
+	"  stop          Stop a local or remote session.",
+	"  connect, c    Connect to a remote session over SSH.",
+}
+
 func configureGlobalFlags(flags *flag.FlagSet, parsed *globalFlags) {
 	flags.BoolVar(&parsed.reload, "reload", false, "Watch Go backend sources and restart the server on change (source checkouts only).")
 	flags.StringVar(&parsed.host, "host", "", "Listen host.")
@@ -22,65 +46,60 @@ func configureGlobalFlags(flags *flag.FlagSet, parsed *globalFlags) {
 	flags.BoolVar(&parsed.noOpen, "no-open", false, "Skip automatic browser opening.")
 }
 
-func writeRootUsage(w io.Writer) error {
-	if _, err := fmt.Fprintln(w, "Usage:"); err != nil {
-		return err
+func writeUsageSections(w io.Writer, sections ...usageSection) error {
+	for index, section := range sections {
+		if index > 0 {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
+		}
+		if err := writeLines(w, append([]string{section.title}, section.lines...)...); err != nil {
+			return err
+		}
 	}
-	if _, err := fmt.Fprintln(w, "  setta [global options]"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "  setta <command> [options]"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "Default behavior:"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "  Running `setta` without a command starts the server in the current workspace."); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "Commands:"); err != nil {
-		return err
-	}
-	for _, line := range []string{
-		"  version       Print the installed Setta version.",
-		"  paths         Resolve active workspace/runtime paths.",
-		"  export-db     Export project state in readable YAML.",
-		"  backups       List and restore local backups.",
-		"  plugins       Manage plugin authoring and install state.",
-		"  mcp           Run the local stdio MCP bridge.",
-		"  launch        Start or reuse a local session and emit bootstrap JSON.",
-		"  share         Serve a share deployment.",
-		"  app           Serve an app deployment.",
-		"  status        Read local session registry.",
-		"  auth          Emit auth info for API calls.",
-		"  tools         Emit the MCP tool list.",
-		"  api           Call Setta MCP tools.",
-		"  launcher      Desktop launcher setup and status commands.",
-		"  stop          Stop a local or remote session.",
-		"  connect, c    Connect to a remote session over SSH.",
-	} {
+	return nil
+}
+
+func writeLines(w io.Writer, lines ...string) error {
+	for _, line := range lines {
 		if _, err := fmt.Fprintln(w, line); err != nil {
 			return err
 		}
 	}
-	if _, err := fmt.Fprintln(w); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "Global options:"); err != nil {
-		return err
-	}
+	return nil
+}
+
+func writeGlobalOptionsUsage(w io.Writer) error {
 	flags := flag.NewFlagSet("setta", flag.ContinueOnError)
 	flags.SetOutput(w)
 	var parsed globalFlags
 	configureGlobalFlags(flags, &parsed)
 	flags.PrintDefaults()
 	return nil
+}
+
+func writeRootUsage(w io.Writer) error {
+	if err := writeUsageSections(
+		w,
+		usageSection{
+			title: "Usage:",
+			lines: []string{
+				"  setta [global options]",
+				"  setta <command> [options]",
+			},
+		},
+		usageSection{
+			title: "Default behavior:",
+			lines: []string{
+				"  Running `setta` without a command starts the server in the current workspace.",
+			},
+		},
+		usageSection{title: "Commands:", lines: rootCommandSummaries},
+		usageSection{title: "Global options:"},
+	); err != nil {
+		return err
+	}
+	return writeGlobalOptionsUsage(w)
 }
 
 func writePluginsUsage(w io.Writer) error {
