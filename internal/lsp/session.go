@@ -147,6 +147,13 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
+type sessionCloseResources struct {
+	cmd        *exec.Cmd
+	stdin      io.WriteCloser
+	readerDone chan struct{}
+	stderrDone chan struct{}
+}
+
 func NewSession(options SessionOptions) (*Session, error) {
 	if strings.TrimSpace(options.Command) == "" {
 		return nil, ErrSessionCommandRequired
@@ -187,7 +194,19 @@ func (s *Session) Start(ctx context.Context) error {
 		s.mu.Unlock()
 		return nil
 	}
+	if err := s.startProcessLocked(); err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	s.mu.Unlock()
+	if err := s.initializeStartedSession(ctx); err != nil {
+		_ = s.Close(context.Background())
+		return err
+	}
+	return nil
+}
 
+func (s *Session) startProcessLocked() error {
 	cmd := exec.Command(s.options.Command, s.options.Args...)
 	if len(s.options.Environment) > 0 {
 		cmd.Env = append([]string(nil), s.options.Environment...)
@@ -198,21 +217,17 @@ func (s *Session) Start(ctx context.Context) error {
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		s.mu.Unlock()
 		return fmt.Errorf("lsp: stdin pipe: %w", err)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		s.mu.Unlock()
 		return fmt.Errorf("lsp: stdout pipe: %w", err)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		s.mu.Unlock()
 		return fmt.Errorf("lsp: stderr pipe: %w", err)
 	}
 	if err := cmd.Start(); err != nil {
-		s.mu.Unlock()
 		return fmt.Errorf("lsp: start process: %w", err)
 	}
 
@@ -226,9 +241,32 @@ func (s *Session) Start(ctx context.Context) error {
 
 	go s.readLoop(stdout)
 	go s.captureStderr(stderr)
-	s.mu.Unlock()
+	return nil
+}
 
-	initializeParams := map[string]any{
+func (s *Session) initializeStartedSession(ctx context.Context) error {
+	initializeParams, err := s.buildInitializeParams()
+	if err != nil {
+		return err
+	}
+
+	var initializeResult map[string]any
+	if err := s.callStarted(ctx, "initialize", initializeParams, &initializeResult); err != nil {
+		return err
+	}
+	if err := s.notify("initialized", map[string]any{}); err != nil {
+		return err
+	}
+	if len(s.options.Settings) == 0 {
+		return nil
+	}
+	return s.notify("workspace/didChangeConfiguration", map[string]any{
+		"settings": s.options.Settings,
+	})
+}
+
+func (s *Session) buildInitializeParams() (map[string]any, error) {
+	params := map[string]any{
 		"capabilities": map[string]any{
 			"workspace": map[string]any{
 				"didChangeWatchedFiles": map[string]any{
@@ -237,36 +275,17 @@ func (s *Session) Start(ctx context.Context) error {
 			},
 		},
 	}
-	if strings.TrimSpace(s.options.WorkspaceRoot) != "" {
-		uri, err := pathToURI(s.options.WorkspaceRoot)
-		if err != nil {
-			return fmt.Errorf("lsp: workspace root uri: %w", err)
-		}
-		initializeParams["workspaceFolders"] = []map[string]string{
-			{"uri": uri},
-		}
+	if strings.TrimSpace(s.options.WorkspaceRoot) == "" {
+		return params, nil
 	}
-
-	var initializeResult map[string]any
-	if err := s.callStarted(ctx, "initialize", initializeParams, &initializeResult); err != nil {
-		_ = s.Close(context.Background())
-		return err
+	uri, err := pathToURI(s.options.WorkspaceRoot)
+	if err != nil {
+		return nil, fmt.Errorf("lsp: workspace root uri: %w", err)
 	}
-	if err := s.notify("initialized", map[string]any{}); err != nil {
-		_ = s.Close(context.Background())
-		return err
+	params["workspaceFolders"] = []map[string]string{
+		{"uri": uri},
 	}
-
-	if len(s.options.Settings) > 0 {
-		if err := s.notify("workspace/didChangeConfiguration", map[string]any{
-			"settings": s.options.Settings,
-		}); err != nil {
-			_ = s.Close(context.Background())
-			return err
-		}
-	}
-
-	return nil
+	return params, nil
 }
 
 func (s *Session) OpenDocument(ctx context.Context, path string, languageID string, content string, callback DiagnosticsCallback) error {
@@ -441,21 +460,8 @@ func (s *Session) Close(ctx context.Context) error {
 	if s == nil {
 		return nil
 	}
-
-	s.mu.Lock()
-	if s.closed || s.closing {
-		s.mu.Unlock()
-		return nil
-	}
-	s.closing = true
-	started := s.started
-	s.mu.Unlock()
-
+	resources, started := s.beginClose()
 	if !started {
-		s.mu.Lock()
-		s.closed = true
-		s.closing = false
-		s.mu.Unlock()
 		return nil
 	}
 
@@ -467,50 +473,80 @@ func (s *Session) Close(ctx context.Context) error {
 	shutdownCtx, cancel = context.WithTimeout(shutdownCtx, defaultShutdownTimeout)
 	defer cancel()
 
-	_ = s.callStartedWithMode(shutdownCtx, "shutdown", map[string]any{}, nil, true)
-	_ = s.notifyWithMode("exit", map[string]any{}, true)
+	s.sendShutdownSequence(shutdownCtx)
+	waitForCloseResources(resources, shutdownCtx)
+	s.finishClose()
+	return nil
+}
 
+func (s *Session) beginClose() (sessionCloseResources, bool) {
 	s.mu.Lock()
-	cmd := s.cmd
-	stdin := s.stdin
-	readerDone := s.readerDone
-	stderrDone := s.stderrDone
-	s.stdin = nil
-	s.mu.Unlock()
-
-	if stdin != nil {
-		_ = stdin.Close()
+	defer s.mu.Unlock()
+	if s.closed || s.closing {
+		return sessionCloseResources{}, false
+	}
+	s.closing = true
+	if !s.started {
+		s.closed = true
+		s.closing = false
+		return sessionCloseResources{}, false
 	}
 
-	if cmd != nil && cmd.Process != nil {
-		waitDone := make(chan error, 1)
-		go func() {
-			waitDone <- cmd.Wait()
-		}()
-		select {
-		case <-shutdownCtx.Done():
-			_ = cmd.Process.Kill()
-			<-waitDone
-		case <-waitDone:
-		}
+	resources := sessionCloseResources{
+		cmd:        s.cmd,
+		stdin:      s.stdin,
+		readerDone: s.readerDone,
+		stderrDone: s.stderrDone,
 	}
+	return resources, true
+}
 
-	if readerDone != nil {
-		<-readerDone
-	}
-	if stderrDone != nil {
-		<-stderrDone
-	}
+func (s *Session) sendShutdownSequence(ctx context.Context) {
+	_ = s.callStartedWithMode(ctx, "shutdown", map[string]any{}, nil, true)
+	_ = s.notifyWithMode("exit", map[string]any{}, true)
+}
 
+func waitForCloseResources(resources sessionCloseResources, shutdownCtx context.Context) {
+	if resources.stdin != nil {
+		_ = resources.stdin.Close()
+	}
+	waitForCommandExit(resources.cmd, shutdownCtx)
+	waitForCloseSignal(resources.readerDone)
+	waitForCloseSignal(resources.stderrDone)
+}
+
+func waitForCommandExit(cmd *exec.Cmd, shutdownCtx context.Context) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- cmd.Wait()
+	}()
+	select {
+	case <-shutdownCtx.Done():
+		_ = cmd.Process.Kill()
+		<-waitDone
+	case <-waitDone:
+	}
+}
+
+func waitForCloseSignal(done <-chan struct{}) {
+	if done != nil {
+		<-done
+	}
+}
+
+func (s *Session) finishClose() {
 	s.failPending(ErrSessionClosed)
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.closed = true
 	s.closing = false
 	s.cmd = nil
+	s.stdin = nil
 	s.readerDone = nil
 	s.stderrDone = nil
-	s.mu.Unlock()
-	return nil
 }
 
 func (s *Session) call(ctx context.Context, method string, params any, result any) error {
@@ -531,68 +567,92 @@ func (s *Session) callStartedWithMode(ctx context.Context, method string, params
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	requestID, responseCh, err := s.registerPendingRequest(allowClosing)
+	if err != nil {
+		return err
+	}
+	if err := s.sendRequestEnvelope(requestID, method, params, allowClosing); err != nil {
+		s.removePendingRequest(requestID)
+		return err
+	}
+	return s.waitForRequestResponse(ctx, method, requestID, responseCh, result)
+}
+
+func (s *Session) registerPendingRequest(allowClosing bool) (string, chan rpcEnvelope, error) {
 	requestID := strconv.FormatUint(atomic.AddUint64(&s.requestSeq, 1), 10)
 	responseCh := make(chan rpcEnvelope, 1)
-
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.closed || (s.closing && !allowClosing) {
-		s.mu.Unlock()
-		return ErrSessionClosed
+		return "", nil, ErrSessionClosed
 	}
 	s.pending[requestID] = responseCh
-	s.mu.Unlock()
+	return requestID, responseCh, nil
+}
 
-	if err := s.writeEnvelopeWithMode(map[string]any{
+func (s *Session) sendRequestEnvelope(requestID string, method string, params any, allowClosing bool) error {
+	return s.writeEnvelopeWithMode(map[string]any{
 		"jsonrpc": "2.0",
 		"id":      requestID,
 		"method":  method,
 		"params":  params,
-	}, allowClosing); err != nil {
-		s.mu.Lock()
-		delete(s.pending, requestID)
-		s.mu.Unlock()
-		return err
-	}
+	}, allowClosing)
+}
 
+func (s *Session) waitForRequestResponse(ctx context.Context, method string, requestID string, responseCh <-chan rpcEnvelope, result any) error {
+	timer := time.NewTimer(s.requestTimeoutForContext(ctx))
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		s.removePendingRequest(requestID)
+		return ctx.Err()
+	case <-timer.C:
+		s.removePendingRequest(requestID)
+		return s.requestTimeoutError(method)
+	case envelope := <-responseCh:
+		s.removePendingRequest(requestID)
+		return decodeCallResult(method, envelope, result)
+	}
+}
+
+func (s *Session) requestTimeoutForContext(ctx context.Context) time.Duration {
 	timeout := s.requestTimeout
 	if deadline, ok := ctx.Deadline(); ok {
 		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
 			timeout = remaining
 		}
 	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
+	return timeout
+}
 
-	select {
-	case <-ctx.Done():
-		s.mu.Lock()
-		delete(s.pending, requestID)
-		s.mu.Unlock()
-		return ctx.Err()
-	case <-timer.C:
-		s.mu.Lock()
-		delete(s.pending, requestID)
-		stderr := strings.TrimSpace(s.stderr.String())
-		s.mu.Unlock()
-		if stderr != "" {
-			return fmt.Errorf("%w: %s (%s)", ErrRequestTimedOut, method, stderr)
-		}
-		return fmt.Errorf("%w: %s", ErrRequestTimedOut, method)
-	case envelope := <-responseCh:
-		s.mu.Lock()
-		delete(s.pending, requestID)
-		s.mu.Unlock()
-		if envelope.Error != nil {
-			return fmt.Errorf("lsp: %s failed (%d): %s", method, envelope.Error.Code, envelope.Error.Message)
-		}
-		if result == nil || len(envelope.Result) == 0 || string(envelope.Result) == "null" {
-			return nil
-		}
-		if err := json.Unmarshal(envelope.Result, result); err != nil {
-			return fmt.Errorf("lsp: decode %s result: %w", method, err)
-		}
+func (s *Session) requestTimeoutError(method string) error {
+	s.mu.Lock()
+	stderr := strings.TrimSpace(s.stderr.String())
+	s.mu.Unlock()
+	if stderr != "" {
+		return fmt.Errorf("%w: %s (%s)", ErrRequestTimedOut, method, stderr)
+	}
+	return fmt.Errorf("%w: %s", ErrRequestTimedOut, method)
+}
+
+func (s *Session) removePendingRequest(requestID string) {
+	s.mu.Lock()
+	delete(s.pending, requestID)
+	s.mu.Unlock()
+}
+
+func decodeCallResult(method string, envelope rpcEnvelope, result any) error {
+	if envelope.Error != nil {
+		return fmt.Errorf("lsp: %s failed (%d): %s", method, envelope.Error.Code, envelope.Error.Message)
+	}
+	if result == nil || len(envelope.Result) == 0 || string(envelope.Result) == "null" {
 		return nil
 	}
+	if err := json.Unmarshal(envelope.Result, result); err != nil {
+		return fmt.Errorf("lsp: decode %s result: %w", method, err)
+	}
+	return nil
 }
 
 func (s *Service) SyncDocuments(ctx context.Context, desired map[string]SyncedDocument) error {
@@ -602,58 +662,16 @@ func (s *Service) SyncDocuments(ctx context.Context, desired map[string]SyncedDo
 	if err := s.session.Start(ctx); err != nil {
 		return err
 	}
-
-	s.mu.Lock()
-	current := cloneSyncedDocuments(s.tracked)
-	s.mu.Unlock()
-
-	desiredPaths := sortedDocumentPaths(desired)
-	currentPaths := sortedDocumentPaths(current)
-
-	desiredSet := make(map[string]struct{}, len(desiredPaths))
-	for _, path := range desiredPaths {
-		desiredSet[path] = struct{}{}
+	current := s.trackedDocumentsSnapshot()
+	if err := s.closeRemovedDocuments(current, desired); err != nil {
+		return err
 	}
-
-	for _, path := range currentPaths {
-		if _, ok := desiredSet[path]; ok {
-			continue
-		}
-		if err := s.session.CloseDocument(path); err != nil {
+	for _, path := range sortedDocumentPaths(desired) {
+		if err := s.applyDocumentSync(ctx, path, desired[path], current, false); err != nil {
 			return err
 		}
 	}
-
-	for _, path := range desiredPaths {
-		doc := desired[path]
-		existing, ok := current[path]
-		switch {
-		case !ok:
-			if err := s.session.OpenDocument(ctx, path, doc.LanguageID, doc.Content, doc.Callback); err != nil {
-				return err
-			}
-		case existing.LanguageID != doc.LanguageID:
-			if err := s.session.CloseDocument(path); err != nil {
-				return err
-			}
-			if err := s.session.OpenDocument(ctx, path, doc.LanguageID, doc.Content, doc.Callback); err != nil {
-				return err
-			}
-		default:
-			if err := s.session.SetDiagnosticsCallback(path, doc.Callback); err != nil {
-				return err
-			}
-			if existing.Content != doc.Content {
-				if err := s.session.UpdateDocument(ctx, path, doc.Content); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	s.mu.Lock()
-	s.tracked = cloneSyncedDocuments(desired)
-	s.mu.Unlock()
+	s.replaceTrackedDocuments(desired)
 	return nil
 }
 
@@ -664,44 +682,13 @@ func (s *Service) RefreshDocuments(ctx context.Context, desired map[string]Synce
 	if err := s.session.Start(ctx); err != nil {
 		return err
 	}
-
-	s.mu.Lock()
-	current := cloneSyncedDocuments(s.tracked)
-	s.mu.Unlock()
-
+	current := s.trackedDocumentsSnapshot()
 	for _, path := range sortedDocumentPaths(desired) {
-		doc := desired[path]
-		existing, ok := current[path]
-		switch {
-		case !ok:
-			if err := s.session.OpenDocument(ctx, path, doc.LanguageID, doc.Content, doc.Callback); err != nil {
-				return err
-			}
-		case existing.LanguageID != doc.LanguageID:
-			if err := s.session.CloseDocument(path); err != nil {
-				return err
-			}
-			if err := s.session.OpenDocument(ctx, path, doc.LanguageID, doc.Content, doc.Callback); err != nil {
-				return err
-			}
-		default:
-			if err := s.session.SetDiagnosticsCallback(path, doc.Callback); err != nil {
-				return err
-			}
-			if err := s.session.UpdateDocument(ctx, path, doc.Content); err != nil {
-				return err
-			}
+		if err := s.applyDocumentSync(ctx, path, desired[path], current, true); err != nil {
+			return err
 		}
 	}
-
-	s.mu.Lock()
-	if s.tracked == nil {
-		s.tracked = map[string]SyncedDocument{}
-	}
-	for path, doc := range desired {
-		s.tracked[path] = doc
-	}
-	s.mu.Unlock()
+	s.mergeTrackedDocuments(desired)
 	return nil
 }
 
@@ -717,40 +704,11 @@ func (s *Service) UpsertDocument(ctx context.Context, document SyncedDocument) e
 	if path == "" {
 		return fmt.Errorf("lsp: document path is required")
 	}
-
-	s.mu.Lock()
-	existing, ok := s.tracked[path]
-	s.mu.Unlock()
-
-	switch {
-	case !ok:
-		if err := s.session.OpenDocument(ctx, path, document.LanguageID, document.Content, document.Callback); err != nil {
-			return err
-		}
-	case existing.LanguageID != document.LanguageID:
-		if err := s.session.CloseDocument(path); err != nil {
-			return err
-		}
-		if err := s.session.OpenDocument(ctx, path, document.LanguageID, document.Content, document.Callback); err != nil {
-			return err
-		}
-	default:
-		if err := s.session.SetDiagnosticsCallback(path, document.Callback); err != nil {
-			return err
-		}
-		if existing.Content != document.Content {
-			if err := s.session.UpdateDocument(ctx, path, document.Content); err != nil {
-				return err
-			}
-		}
+	document.Path = path
+	if err := s.applyDocumentSync(ctx, path, document, s.trackedDocumentsSnapshot(), false); err != nil {
+		return err
 	}
-
-	s.mu.Lock()
-	if s.tracked == nil {
-		s.tracked = map[string]SyncedDocument{}
-	}
-	s.tracked[path] = document
-	s.mu.Unlock()
+	s.mergeTrackedDocuments(map[string]SyncedDocument{path: document})
 	return nil
 }
 
@@ -762,6 +720,66 @@ func (s *Service) Close(ctx context.Context) error {
 	s.tracked = map[string]SyncedDocument{}
 	s.mu.Unlock()
 	return s.session.Close(ctx)
+}
+
+func (s *Service) trackedDocumentsSnapshot() map[string]SyncedDocument {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return cloneSyncedDocuments(s.tracked)
+}
+
+func (s *Service) closeRemovedDocuments(current map[string]SyncedDocument, desired map[string]SyncedDocument) error {
+	desiredSet := make(map[string]struct{}, len(desired))
+	for path := range desired {
+		desiredSet[path] = struct{}{}
+	}
+	for _, path := range sortedDocumentPaths(current) {
+		if _, ok := desiredSet[path]; ok {
+			continue
+		}
+		if err := s.session.CloseDocument(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) applyDocumentSync(ctx context.Context, path string, document SyncedDocument, current map[string]SyncedDocument, forceUpdate bool) error {
+	existing, ok := current[path]
+	switch {
+	case !ok:
+		return s.session.OpenDocument(ctx, path, document.LanguageID, document.Content, document.Callback)
+	case existing.LanguageID != document.LanguageID:
+		if err := s.session.CloseDocument(path); err != nil {
+			return err
+		}
+		return s.session.OpenDocument(ctx, path, document.LanguageID, document.Content, document.Callback)
+	default:
+		if err := s.session.SetDiagnosticsCallback(path, document.Callback); err != nil {
+			return err
+		}
+		if !forceUpdate && existing.Content == document.Content {
+			return nil
+		}
+		return s.session.UpdateDocument(ctx, path, document.Content)
+	}
+}
+
+func (s *Service) replaceTrackedDocuments(documents map[string]SyncedDocument) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tracked = cloneSyncedDocuments(documents)
+}
+
+func (s *Service) mergeTrackedDocuments(documents map[string]SyncedDocument) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.tracked == nil {
+		s.tracked = map[string]SyncedDocument{}
+	}
+	for path, document := range documents {
+		s.tracked[path] = document
+	}
 }
 
 func (s *Session) notify(method string, params any) error {
