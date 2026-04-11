@@ -1736,7 +1736,7 @@ func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 			continue
 		}
 		role, _ := messageRole(message)
-		if role == "tool" && stringValue(message["tool_name"]) == codexApprovalToolName {
+		if role == "tool" && stringValue(message["tool_name"]) == ApprovalToolName {
 			toolResultFound = true
 		}
 		if role == "assistant" && extractMessageText(message) == "Approval granted" {

@@ -4630,9 +4630,11 @@ export const SettaFilesLocationPolicyConfig = {
 } satisfies gt.SettaFilesLocationPolicy;
 
 export const ToolNameNormalizationConfig = {
+  approvalToolName: "setta.approval",
   askUserQuestionToolName: "AskUserQuestion",
   doublePrefix: "setta__",
   singlePrefix: "setta_",
+  todoWriteToolName: "TodoWrite",
 } satisfies gt.ToolNameNormalization;
 
 export const TransportRouteConstants = {

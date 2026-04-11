@@ -45,6 +45,8 @@ type FrontendToolNameNormalization struct {
 	SinglePrefix            string `json:"singlePrefix"`
 	DoublePrefix            string `json:"doublePrefix"`
 	AskUserQuestionToolName string `json:"askUserQuestionToolName"`
+	ApprovalToolName        string `json:"approvalToolName"`
+	TodoWriteToolName       string `json:"todoWriteToolName"`
 }
 
 type FrontendLocalHostnamePolicy struct {
@@ -199,6 +201,8 @@ func FrontendValueToolNameNormalizationConfig() FrontendToolNameNormalization {
 		SinglePrefix:            mcpx.DefaultServerSingleTool,
 		DoublePrefix:            mcpx.DefaultServerDoubleTool,
 		AskUserQuestionToolName: mcpx.AskUserQuestionToolName,
+		ApprovalToolName:        externalagents.ApprovalToolName,
+		TodoWriteToolName:       externalagents.TodoWriteToolName,
 	}
 }
 

@@ -15228,6 +15228,9 @@
       "ToolNameNormalization": {
         "additionalProperties": false,
         "properties": {
+          "approvalToolName": {
+            "type": "string"
+          },
           "askUserQuestionToolName": {
             "type": "string"
           },
@@ -15236,9 +15239,18 @@
           },
           "singlePrefix": {
             "type": "string"
+          },
+          "todoWriteToolName": {
+            "type": "string"
           }
         },
-        "required": ["singlePrefix", "doublePrefix", "askUserQuestionToolName"],
+        "required": [
+          "singlePrefix",
+          "doublePrefix",
+          "askUserQuestionToolName",
+          "approvalToolName",
+          "todoWriteToolName"
+        ],
         "title": "ToolNameNormalization",
         "type": "object"
       },

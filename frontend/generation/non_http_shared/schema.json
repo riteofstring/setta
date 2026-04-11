@@ -17861,13 +17861,21 @@
         },
         "askUserQuestionToolName": {
           "type": "string"
+        },
+        "approvalToolName": {
+          "type": "string"
+        },
+        "todoWriteToolName": {
+          "type": "string"
         }
       },
       "title": "ToolNameNormalization",
       "required": [
         "singlePrefix",
         "doublePrefix",
-        "askUserQuestionToolName"
+        "askUserQuestionToolName",
+        "approvalToolName",
+        "todoWriteToolName"
       ],
       "additionalProperties": false
     },

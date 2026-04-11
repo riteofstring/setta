@@ -10708,9 +10708,11 @@
       "name": "ToolNameNormalizationConfig",
       "type": "ToolNameNormalization",
       "value": {
+        "approvalToolName": "setta.approval",
         "askUserQuestionToolName": "AskUserQuestion",
         "doublePrefix": "setta__",
-        "singlePrefix": "setta_"
+        "singlePrefix": "setta_",
+        "todoWriteToolName": "TodoWrite"
       }
     },
     {

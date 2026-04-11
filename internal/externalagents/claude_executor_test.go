@@ -292,7 +292,7 @@ func TestClaudeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 			continue
 		}
 		role, _ := messageRole(message)
-		if role == "tool" && stringValue(message["tool_name"]) == codexApprovalToolName {
+		if role == "tool" && stringValue(message["tool_name"]) == ApprovalToolName {
 			toolResultFound = true
 		}
 		if role == "assistant" && extractMessageText(message) == "Approval granted" {
@@ -933,7 +933,7 @@ func TestClaudeEventParserDocumentedToolsPersistToolCallsAndResults(t *testing.T
 		"NotebookEdit",
 		"Read",
 		"Task",
-		"TodoWrite",
+		TodoWriteToolName,
 		"WebFetch",
 		"WebSearch",
 		"Write",
@@ -1056,8 +1056,8 @@ func TestClaudeHandleEventApprovalRequestRegistersRuntimeApprovalAndPersistsTool
 		t.Fatalf("expected tool call payload, got %#v", toolCalls[0])
 	}
 	function, _ := mapValue(toolCall["function"])
-	if got := stringValue(function["name"]); got != codexApprovalToolName {
-		t.Fatalf("expected approval tool name %q, got %#v", codexApprovalToolName, function["name"])
+	if got := stringValue(function["name"]); got != ApprovalToolName {
+		t.Fatalf("expected approval tool name %q, got %#v", ApprovalToolName, function["name"])
 	}
 	arguments, _ := mapValue(function["arguments"])
 	if got := stringValue(arguments["approvalId"]); got != "approval-1" {

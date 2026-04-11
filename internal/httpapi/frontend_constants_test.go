@@ -10,6 +10,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/externalagents"
 	"setta/internal/managedchat"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/scriptablechat"
 	"setta/internal/transcriptionsessions"
@@ -116,6 +117,25 @@ func TestFrontendValueSettaFilesLocationPolicyConfigUsesAuthoritativeConfigValue
 	}
 	if !slices.Equal(got.Resolved, wantResolved) {
 		t.Fatalf("unexpected resolved setta files locations: got %v want %v", got.Resolved, wantResolved)
+	}
+}
+
+func TestFrontendValueToolNameNormalizationConfigUsesAuthoritativeToolNames(t *testing.T) {
+	got := FrontendValueToolNameNormalizationConfig()
+	if got.SinglePrefix != mcpx.DefaultServerSingleTool {
+		t.Fatalf("unexpected single prefix: got %q want %q", got.SinglePrefix, mcpx.DefaultServerSingleTool)
+	}
+	if got.DoublePrefix != mcpx.DefaultServerDoubleTool {
+		t.Fatalf("unexpected double prefix: got %q want %q", got.DoublePrefix, mcpx.DefaultServerDoubleTool)
+	}
+	if got.AskUserQuestionToolName != mcpx.AskUserQuestionToolName {
+		t.Fatalf("unexpected AskUserQuestion tool name: got %q want %q", got.AskUserQuestionToolName, mcpx.AskUserQuestionToolName)
+	}
+	if got.ApprovalToolName != externalagents.ApprovalToolName {
+		t.Fatalf("unexpected approval tool name: got %q want %q", got.ApprovalToolName, externalagents.ApprovalToolName)
+	}
+	if got.TodoWriteToolName != externalagents.TodoWriteToolName {
+		t.Fatalf("unexpected TodoWrite tool name: got %q want %q", got.TodoWriteToolName, externalagents.TodoWriteToolName)
 	}
 }
 

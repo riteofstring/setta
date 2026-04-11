@@ -251,7 +251,7 @@ func TestRuntimeRespondToApprovalDispatchesAndPersistsEvent(t *testing.T) {
 					map[string]any{
 						"id": "approval-1",
 						"function": map[string]any{
-							"name":      codexApprovalToolName,
+							"name":      ApprovalToolName,
 							"arguments": map[string]any{"approvalId": "approval-1"},
 						},
 					},
@@ -305,7 +305,7 @@ func TestRuntimeRespondToApprovalDispatchesAndPersistsEvent(t *testing.T) {
 	if lastMessage["role"] != "tool" {
 		t.Fatalf("expected tool role, got %#v", lastMessage)
 	}
-	if lastMessage["tool_name"] != codexApprovalToolName {
+	if lastMessage["tool_name"] != ApprovalToolName {
 		t.Fatalf("expected approval tool name, got %#v", lastMessage)
 	}
 	if err := runtime.RespondToApproval("approval-1", true); !errors.Is(err, ErrApprovalNotFound) {

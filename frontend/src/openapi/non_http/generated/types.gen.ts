@@ -6241,9 +6241,11 @@ export type ToolChatMessage = {
  * ToolNameNormalization
  */
 export type ToolNameNormalization = {
+  approvalToolName: string;
   askUserQuestionToolName: string;
   doublePrefix: string;
   singlePrefix: string;
+  todoWriteToolName: string;
 };
 
 /**
