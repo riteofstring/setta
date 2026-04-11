@@ -24,13 +24,29 @@ type stopFlags struct {
 }
 
 func runStop(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
-	sshTarget := ""
-	flagArgs := args
-	if len(args) > 0 && !strings.HasPrefix(strings.TrimSpace(args[0]), "-") {
-		sshTarget = strings.TrimSpace(args[0])
-		flagArgs = args[1:]
+	sshTarget, parsed, err := parseStopInvocation(args, stderr)
+	if err != nil {
+		return err
 	}
+	if sshTarget == "" {
+		return runLocalStop(parsed, global, stdout, envLookup, cwd)
+	}
+	return runRemoteStop(sshTarget, parsed, global, stdout, envLookup, cwd)
+}
 
+func parseStopInvocation(args []string, stderr io.Writer) (string, stopFlags, error) {
+	sshTarget, flagArgs := splitLeadingSSHTarget(args)
+	parsed, flags, err := parseStopFlags(flagArgs, stderr)
+	if err != nil {
+		return "", stopFlags{}, err
+	}
+	if err := validateStopInvocation(flags, parsed); err != nil {
+		return "", stopFlags{}, err
+	}
+	return sshTarget, parsed, nil
+}
+
+func parseStopFlags(args []string, stderr io.Writer) (stopFlags, *flag.FlagSet, error) {
 	var parsed stopFlags
 	flags := flag.NewFlagSet("stop", flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -42,9 +58,13 @@ func runStop(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 	flags.StringVar(&parsed.serverMode, "server-mode", "", "Filter sessions by server mode: ide or launcher.")
 	flags.StringVar(&parsed.sshArgs, "ssh-args", "", "Extra SSH arguments.")
 	flags.StringVar(&parsed.remoteCommand, "remote-cmd", "", "Override the remote Setta command.")
-	if err := flags.Parse(flagArgs); err != nil {
-		return err
+	if err := flags.Parse(args); err != nil {
+		return stopFlags{}, nil, err
 	}
+	return parsed, flags, nil
+}
+
+func validateStopInvocation(flags *flag.FlagSet, parsed stopFlags) error {
 	if strings.TrimSpace(parsed.sessionID) != "" && parsed.latest {
 		return fmt.Errorf("use either --session or --latest, not both")
 	}
@@ -54,10 +74,10 @@ func runStop(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 	if flags.NArg() != 0 {
 		return fmt.Errorf("stop accepts flags after a single ssh_target, not additional positional arguments")
 	}
-	if sshTarget == "" {
-		return runLocalStop(parsed, global, stdout, envLookup, cwd)
-	}
+	return nil
+}
 
+func runRemoteStop(sshTarget string, parsed stopFlags, global globalFlags, stdout io.Writer, envLookup func(string) (string, bool), cwd string) error {
 	workspaceRoot, err := resolveRemoteWorkspaceFlag(global.workspaceRoot, parsed.workspaceRoot, "stop")
 	if err != nil {
 		return err
