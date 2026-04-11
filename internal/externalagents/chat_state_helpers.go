@@ -19,88 +19,69 @@ func appendAssistantThinkingUpdate(
 	summary *string,
 	signature *string,
 ) {
+	entry := newAssistantThinkingEntry(thinking, summary, signature)
 	index := findMessageIndex(state.Messages, messageID)
 	if index == -1 {
-		entry := map[string]any{
-			"type":     "thinking",
-			"thinking": thinking,
-		}
-		if summary != nil {
-			entry["summary"] = *summary
-		}
-		if signature != nil {
-			entry["signature"] = *signature
-		}
-		state.Messages = append(state.Messages, map[string]any{
-			"id":      messageID,
-			"role":    "assistant",
-			"content": []any{entry},
-		})
+		state.Messages = append(state.Messages, newAssistantThinkingMessage(messageID, entry))
 		return
 	}
 	message := cloneMessageOrPanic(state.Messages[index])
-	content, _ := message["content"].([]any)
-	if len(content) == 0 {
-		entry := map[string]any{
-			"type":     "thinking",
-			"thinking": thinking,
-		}
-		if summary != nil {
-			entry["summary"] = *summary
-		}
-		if signature != nil {
-			entry["signature"] = *signature
-		}
-		message["content"] = []any{entry}
-		state.Messages[index] = message
-		return
+	message["content"] = appendAssistantThinkingContent(message["content"], entry, thinking)
+	state.Messages[index] = message
+}
+
+func newAssistantThinkingMessage(messageID string, entry map[string]any) map[string]any {
+	return map[string]any{
+		"id":      messageID,
+		"role":    "assistant",
+		"content": []any{entry},
 	}
-	lastEntry, ok := content[len(content)-1].(map[string]any)
-	if !ok {
-		entry := map[string]any{
-			"type":     "thinking",
-			"thinking": thinking,
-		}
-		if summary != nil {
-			entry["summary"] = *summary
-		}
-		if signature != nil {
-			entry["signature"] = *signature
-		}
-		content = append(content, entry)
-		message["content"] = content
-		state.Messages[index] = message
-		return
-	}
-	if strings.TrimSpace(stringValue(lastEntry["type"])) != "thinking" {
-		entry := map[string]any{
-			"type":     "thinking",
-			"thinking": thinking,
-		}
-		if summary != nil {
-			entry["summary"] = *summary
-		}
-		if signature != nil {
-			entry["signature"] = *signature
-		}
-		content = append(content, entry)
-		message["content"] = content
-		state.Messages[index] = message
-		return
-	}
-	lastEntry = cloneAnyMap(lastEntry)
-	if thinking != "" {
-		lastEntry["thinking"] = stringValue(lastEntry["thinking"]) + thinking
+}
+
+func newAssistantThinkingEntry(thinking string, summary *string, signature *string) map[string]any {
+	entry := map[string]any{
+		"type":     "thinking",
+		"thinking": thinking,
 	}
 	if summary != nil {
-		lastEntry["summary"] = *summary
+		entry["summary"] = *summary
 	}
 	if signature != nil {
-		lastEntry["signature"] = *signature
+		entry["signature"] = *signature
 	}
-	content[len(content)-1] = lastEntry
-	message["content"] = content
-	state.Messages[index] = message
+	return entry
+}
+
+func appendAssistantThinkingContent(rawContent any, entry map[string]any, thinking string) []any {
+	content, _ := rawContent.([]any)
+	if len(content) == 0 {
+		return []any{entry}
+	}
+	lastEntry, ok := content[len(content)-1].(map[string]any)
+	if !ok || !isThinkingContentEntry(lastEntry) {
+		return append(append([]any(nil), content...), entry)
+	}
+	nextContent := append([]any(nil), content...)
+	nextContent[len(nextContent)-1] = mergeAssistantThinkingEntry(lastEntry, entry, thinking)
+	return nextContent
+}
+
+func isThinkingContentEntry(entry map[string]any) bool {
+	return strings.TrimSpace(stringValue(entry["type"])) == "thinking"
+}
+
+func mergeAssistantThinkingEntry(current map[string]any, update map[string]any, thinking string) map[string]any {
+	nextEntry := cloneAnyMap(current)
+	if thinking != "" {
+		nextEntry["thinking"] = stringValue(nextEntry["thinking"]) + thinking
+	}
+	if summary, ok := update["summary"]; ok {
+		nextEntry["summary"] = summary
+	}
+	if signature, ok := update["signature"]; ok {
+		nextEntry["signature"] = signature
+	}
+	return nextEntry
 }
 
 func upsertAssistantToolCall(state *ChatState, messageID string, toolCallID string, toolName string, arguments map[string]any) {
@@ -237,43 +218,74 @@ func toolResultMessagePresent(state *ChatState, toolCallID string) bool {
 }
 
 func lookupToolCallContext(state *ChatState, toolCallID string) (string, map[string]any) {
-	if state == nil || strings.TrimSpace(toolCallID) == "" {
+	if state == nil {
 		return "", map[string]any{}
 	}
-	for _, message := range state.Messages {
-		rawToolCalls, ok := message["tool_calls"].([]any)
-		if !ok {
-			continue
-		}
-		for _, rawToolCall := range rawToolCalls {
-			toolCall, ok := rawToolCall.(map[string]any)
-			if !ok {
-				continue
-			}
-			if strings.TrimSpace(stringValue(toolCall["id"])) != toolCallID {
-				continue
-			}
-			function, _ := mapValue(toolCall["function"])
-			if function == nil {
-				return "", map[string]any{}
-			}
-			name := strings.TrimSpace(stringValue(function["name"]))
-			arguments, _ := mapValue(function["arguments"])
-			if arguments == nil {
-				arguments = map[string]any{}
-			}
-			return name, cloneAnyMap(arguments)
+	trimmedToolCallID := strings.TrimSpace(toolCallID)
+	if trimmedToolCallID == "" {
+		return "", map[string]any{}
+	}
+	if name, arguments, ok := lookupToolCallContextFromMessages(state.Messages, trimmedToolCallID); ok {
+		return name, arguments
+	}
+	return lookupToolCallContextFromEncodedArguments(state.ToolCallArguments, trimmedToolCallID)
+}
+
+func lookupToolCallContextFromMessages(messages []map[string]any, toolCallID string) (string, map[string]any, bool) {
+	for _, message := range messages {
+		if name, arguments, ok := lookupToolCallContextFromMessage(message, toolCallID); ok {
+			return name, arguments, true
 		}
 	}
-	if state.ToolCallArguments != nil {
-		if encoded := strings.TrimSpace(state.ToolCallArguments[toolCallID]); encoded != "" {
-			parsed := map[string]any{}
-			if err := json.Unmarshal([]byte(encoded), &parsed); err == nil {
-				return "", parsed
-			}
+	return "", nil, false
+}
+
+func lookupToolCallContextFromMessage(message map[string]any, toolCallID string) (string, map[string]any, bool) {
+	rawToolCalls, ok := message["tool_calls"].([]any)
+	if !ok {
+		return "", nil, false
+	}
+	for _, rawToolCall := range rawToolCalls {
+		if name, arguments, ok := lookupToolCallContextFromToolCall(rawToolCall, toolCallID); ok {
+			return name, arguments, true
 		}
 	}
-	return "", map[string]any{}
+	return "", nil, false
+}
+
+func lookupToolCallContextFromToolCall(rawToolCall any, toolCallID string) (string, map[string]any, bool) {
+	toolCall, ok := rawToolCall.(map[string]any)
+	if !ok {
+		return "", nil, false
+	}
+	if strings.TrimSpace(stringValue(toolCall["id"])) != toolCallID {
+		return "", nil, false
+	}
+	function, _ := mapValue(toolCall["function"])
+	if function == nil {
+		return "", map[string]any{}, true
+	}
+	name := strings.TrimSpace(stringValue(function["name"]))
+	arguments, _ := mapValue(function["arguments"])
+	if arguments == nil {
+		arguments = map[string]any{}
+	}
+	return name, cloneAnyMap(arguments), true
+}
+
+func lookupToolCallContextFromEncodedArguments(encodedByToolCallID map[string]string, toolCallID string) (string, map[string]any) {
+	if encodedByToolCallID == nil {
+		return "", map[string]any{}
+	}
+	encoded := strings.TrimSpace(encodedByToolCallID[toolCallID])
+	if encoded == "" {
+		return "", map[string]any{}
+	}
+	parsed := map[string]any{}
+	if err := json.Unmarshal([]byte(encoded), &parsed); err != nil {
+		return "", map[string]any{}
+	}
+	return "", parsed
 }
 
 func appendQuestionResultMessage(state *ChatState, toolCallID string, answers map[string]string) {
