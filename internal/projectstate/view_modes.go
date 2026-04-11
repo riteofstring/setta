@@ -518,102 +518,152 @@ func (p *Project) normalizeViewModesOnLoad() error {
 		return ErrProjectNotFound
 	}
 
+	sectionIDs := p.sectionIDsOnLoad()
+	p.pruneTopLevelSectionsOnLoad(sectionIDs)
+	if len(p.ViewModes) == 0 {
+		return p.bootstrapDefaultViewModeOnLoad()
+	}
+
+	if p.normalizeExistingViewModesOnLoad(sectionIDs) {
+		p.reindexViewModeSortOrderOnLoad()
+	}
+	p.ensureActiveViewModeOnLoad()
+	p.projectActiveViewModeOnLoad()
+	return nil
+}
+
+func (p Project) sectionIDsOnLoad() map[string]struct{} {
 	sectionIDs := make(map[string]struct{}, len(p.Sections))
 	for sectionID := range p.Sections {
 		sectionIDs[sectionID] = struct{}{}
 	}
+	return sectionIDs
+}
 
+func (p *Project) pruneTopLevelSectionsOnLoad(sectionIDs map[string]struct{}) {
 	for sectionID := range p.TopLevelSections {
 		if _, ok := sectionIDs[sectionID]; !ok {
 			delete(p.TopLevelSections, sectionID)
 		}
 	}
+}
 
-	if len(p.ViewModes) == 0 {
-		viewModeID, err := newProjectStateID()
-		if err != nil {
-			return err
-		}
-		viewModeName, err := nextAvailableViewModeName(*p)
-		if err != nil {
-			return err
-		}
-		visibilityBySectionID := make(map[string]bool, len(p.Sections))
-		for sectionID := range p.Sections {
-			visibilityBySectionID[sectionID] = true
-		}
-		p.ViewModes = map[string]ViewMode{
-			viewModeID: {
-				ID:                    viewModeID,
-				Name:                  viewModeName,
-				VisibilityBySectionID: visibilityBySectionID,
-				Viewport:              cloneViewport(p.Viewport),
-				ViewportInitialized:   p.ViewportInitialized,
-				TopLevelSections:      cloneTopLevelSectionsMap(p.TopLevelSections),
-			},
-		}
-		p.ActiveViewModeID = viewModeID
-		return nil
+func (p Project) defaultViewModeVisibilityOnLoad() map[string]bool {
+	visibilityBySectionID := make(map[string]bool, len(p.Sections))
+	for sectionID := range p.Sections {
+		visibilityBySectionID[sectionID] = true
+	}
+	return visibilityBySectionID
+}
+
+func (p *Project) bootstrapDefaultViewModeOnLoad() error {
+	viewModeID, err := newProjectStateID()
+	if err != nil {
+		return err
+	}
+	viewModeName, err := nextAvailableViewModeName(*p)
+	if err != nil {
+		return err
 	}
 
+	p.ViewModes = map[string]ViewMode{
+		viewModeID: {
+			ID:                    viewModeID,
+			Name:                  viewModeName,
+			VisibilityBySectionID: p.defaultViewModeVisibilityOnLoad(),
+			Viewport:              cloneViewport(p.Viewport),
+			ViewportInitialized:   p.ViewportInitialized,
+			TopLevelSections:      cloneTopLevelSectionsMap(p.TopLevelSections),
+		},
+	}
+	p.ActiveViewModeID = viewModeID
+	return nil
+}
+
+func (p *Project) normalizeExistingViewModesOnLoad(sectionIDs map[string]struct{}) bool {
 	sortIndexCounts := make(map[int]int, len(p.ViewModes))
 	for viewModeID, viewMode := range p.ViewModes {
-		if viewMode.VisibilityBySectionID == nil {
-			viewMode.VisibilityBySectionID = map[string]bool{}
-		}
-		for sectionID := range p.Sections {
-			if _, ok := viewMode.VisibilityBySectionID[sectionID]; !ok {
-				viewMode.VisibilityBySectionID[sectionID] = true
-			}
-		}
-		for sectionID := range viewMode.VisibilityBySectionID {
-			if _, ok := sectionIDs[sectionID]; !ok {
-				delete(viewMode.VisibilityBySectionID, sectionID)
-			}
-		}
-
-		if len(viewMode.TopLevelSections) == 0 {
-			viewMode.TopLevelSections = cloneTopLevelSectionsMap(p.TopLevelSections)
-		} else {
-			for sectionID, layout := range p.TopLevelSections {
-				if _, ok := viewMode.TopLevelSections[sectionID]; !ok {
-					viewMode.TopLevelSections[sectionID] = layout.Clone()
-				}
-			}
-			for sectionID := range viewMode.TopLevelSections {
-				if _, ok := p.TopLevelSections[sectionID]; !ok {
-					delete(viewMode.TopLevelSections, sectionID)
-				}
-			}
-		}
-
-		if viewMode.Viewport == nil {
-			viewMode.ViewportInitialized = false
-		}
+		viewMode = p.normalizeViewModeOnLoad(viewMode, sectionIDs)
 		sortIndexCounts[viewMode.SortIndex]++
 		p.ViewModes[viewModeID] = viewMode
 	}
+	return hasDuplicateSortIndexes(sortIndexCounts)
+}
 
+func (p Project) normalizeViewModeOnLoad(viewMode ViewMode, sectionIDs map[string]struct{}) ViewMode {
+	viewMode.VisibilityBySectionID = normalizeViewModeVisibilityOnLoad(viewMode.VisibilityBySectionID, sectionIDs)
+	viewMode.TopLevelSections = p.normalizeViewModeTopLevelSectionsOnLoad(viewMode.TopLevelSections)
+	if viewMode.Viewport == nil {
+		viewMode.ViewportInitialized = false
+	}
+	return viewMode
+}
+
+func normalizeViewModeVisibilityOnLoad(visibilityBySectionID map[string]bool, sectionIDs map[string]struct{}) map[string]bool {
+	if visibilityBySectionID == nil {
+		visibilityBySectionID = map[string]bool{}
+	}
+	for sectionID := range sectionIDs {
+		if _, ok := visibilityBySectionID[sectionID]; !ok {
+			visibilityBySectionID[sectionID] = true
+		}
+	}
+	for sectionID := range visibilityBySectionID {
+		if _, ok := sectionIDs[sectionID]; !ok {
+			delete(visibilityBySectionID, sectionID)
+		}
+	}
+	return visibilityBySectionID
+}
+
+func (p Project) normalizeViewModeTopLevelSectionsOnLoad(topLevelSections map[string]TopLevelSectionLayout) map[string]TopLevelSectionLayout {
+	if len(topLevelSections) == 0 {
+		return cloneTopLevelSectionsMap(p.TopLevelSections)
+	}
+
+	normalized := cloneTopLevelSectionsMap(topLevelSections)
+	for sectionID, layout := range p.TopLevelSections {
+		if _, ok := normalized[sectionID]; !ok {
+			normalized[sectionID] = layout.Clone()
+		}
+	}
+	for sectionID := range normalized {
+		if _, ok := p.TopLevelSections[sectionID]; !ok {
+			delete(normalized, sectionID)
+		}
+	}
+	return normalized
+}
+
+func hasDuplicateSortIndexes(sortIndexCounts map[int]int) bool {
 	for _, count := range sortIndexCounts {
-		if count < 2 {
-			continue
+		if count > 1 {
+			return true
 		}
-		for index, viewModeID := range sortedViewModeIDs(p.ViewModes) {
-			viewMode := p.ViewModes[viewModeID]
-			viewMode.SortIndex = index
-			p.ViewModes[viewModeID] = viewMode
-		}
-		break
 	}
+	return false
+}
 
-	if _, ok := p.ViewModes[p.ActiveViewModeID]; !ok {
-		p.ActiveViewModeID = sortedViewModeIDs(p.ViewModes)[0]
+func (p *Project) reindexViewModeSortOrderOnLoad() {
+	for index, viewModeID := range sortedViewModeIDs(p.ViewModes) {
+		viewMode := p.ViewModes[viewModeID]
+		viewMode.SortIndex = index
+		p.ViewModes[viewModeID] = viewMode
 	}
+}
+
+func (p *Project) ensureActiveViewModeOnLoad() {
+	if _, ok := p.ViewModes[p.ActiveViewModeID]; ok {
+		return
+	}
+	p.ActiveViewModeID = sortedViewModeIDs(p.ViewModes)[0]
+}
+
+func (p *Project) projectActiveViewModeOnLoad() {
 	activeViewMode := p.ViewModes[p.ActiveViewModeID]
 	p.TopLevelSections = cloneTopLevelSectionsMap(activeViewMode.TopLevelSections)
 	p.Viewport = cloneViewport(activeViewMode.Viewport)
 	p.ViewportInitialized = activeViewMode.ViewportInitialized
-	return nil
 }
 
 func (p Project) validateViewModesOnLoad() error {
@@ -670,22 +720,28 @@ func (p *Project) toggleViewModeBoolField(viewModeID string, update func(*ViewMo
 
 func validateViewModeName(project Project, viewModeID string, name string) (string, error) {
 	normalized := strings.TrimSpace(name)
-	if normalized == "" {
+	slug, err := validateViewModeNameSyntax(normalized)
+	if err != nil {
+		return "", err
+	}
+	if err := validateViewModeNameConflicts(project, viewModeID, normalized, slug); err != nil {
+		return "", err
+	}
+	return normalized, nil
+}
+
+func validateViewModeNameSyntax(normalized string) (string, error) {
+	switch {
+	case normalized == "":
 		return "", &InvalidViewModeNameError{Message: "View mode name cannot be empty."}
-	}
-	if containsControlChars(normalized) {
+	case containsControlChars(normalized):
 		return "", &InvalidViewModeNameError{Message: "View mode name cannot include control characters."}
-	}
-	if strings.Contains(normalized, "/") || strings.Contains(normalized, "\\") {
+	case strings.Contains(normalized, "/") || strings.Contains(normalized, "\\"):
 		return "", &InvalidViewModeNameError{Message: "View mode name cannot include path separators."}
-	}
-	if strings.Contains(normalized, "..") {
+	case strings.Contains(normalized, ".."):
 		return "", &InvalidViewModeNameError{Message: "View mode name cannot include '..' path segments."}
-	}
-	for _, char := range normalized {
-		if !isAllowedSimpleNameChar(char) {
-			return "", &InvalidViewModeNameError{Message: "View mode name can only contain letters, numbers, spaces, '_' and '-'."}
-		}
+	case containsInvalidViewModeNameChar(normalized):
+		return "", &InvalidViewModeNameError{Message: "View mode name can only contain letters, numbers, spaces, '_' and '-'."}
 	}
 	if _, reserved := projectReservedNames[strings.ToLower(normalized)]; reserved {
 		return "", &InvalidViewModeNameError{
@@ -696,17 +752,31 @@ func validateViewModeName(project Project, viewModeID string, name string) (stri
 	if slug == "" {
 		return "", &InvalidViewModeNameError{Message: "View mode name is invalid after sanitization."}
 	}
+	return slug, nil
+}
+
+func containsInvalidViewModeNameChar(name string) bool {
+	for _, char := range name {
+		if !isAllowedSimpleNameChar(char) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateViewModeNameConflicts(project Project, viewModeID string, normalized string, slug string) error {
+	trimmedViewModeID := strings.TrimSpace(viewModeID)
 	for existingID, viewMode := range project.ViewModes {
-		if strings.TrimSpace(existingID) == strings.TrimSpace(viewModeID) {
+		if strings.TrimSpace(existingID) == trimmedViewModeID {
 			continue
 		}
 		if sanitizeViewModeSlug(viewMode.Name) == slug {
-			return "", &InvalidViewModeNameError{
+			return &InvalidViewModeNameError{
 				Message: fmt.Sprintf("View mode name '%s' conflicts with existing view mode '%s'.", normalized, viewMode.Name),
 			}
 		}
 	}
-	return normalized, nil
+	return nil
 }
 
 func nextAvailableViewModeName(project Project) (string, error) {
