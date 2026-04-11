@@ -366,6 +366,63 @@ def test_import_from_records_star_submodule_and_symbol_bindings() -> None:
     ]
 
 
+def test_attribute_usage_marks_module_symbol_and_local_class_targets(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    api_dir = repo_root / "backend" / "setta" / "api"
+    utils_dir = repo_root / "backend" / "setta" / "utils"
+    api_dir.mkdir(parents=True, exist_ok=True)
+    utils_dir.mkdir(parents=True, exist_ok=True)
+
+    (api_dir / "__init__.py").write_text("", encoding="utf-8")
+    (api_dir / "client.py").write_text(
+        "from setta.utils import helpers\n"
+        "from setta.utils.constants import Config\n\n"
+        "class Local:\n"
+        "    VALUE = 3\n\n"
+        "class Client:\n"
+        "    def run(self) -> int:\n"
+        "        return helpers.live() + Config.LIVE + Local.VALUE\n",
+        encoding="utf-8",
+    )
+    (utils_dir / "__init__.py").write_text("", encoding="utf-8")
+    (utils_dir / "helpers.py").write_text(
+        "def live() -> int:\n"
+        "    return 1\n\n"
+        "def dead() -> int:\n"
+        "    return 0\n",
+        encoding="utf-8",
+    )
+    (utils_dir / "constants.py").write_text(
+        "class Config:\n"
+        "    LIVE = 1\n"
+        "    DEAD = 0\n",
+        encoding="utf-8",
+    )
+
+    module = _load_report_sdk_unused_module()
+    report = module.analyze_repo(
+        repo_root=repo_root,
+        target_dir=repo_root / "backend" / "setta",
+        root_paths=(repo_root / "backend" / "setta" / "api",),
+        excluded_dirs=(),
+    )
+
+    unused_top_level = {
+        (definition.module, definition.name) for definition in report.unused_top_level
+    }
+    member_names = {
+        (member.class_name, member.name) for member in report.potential_unused_members
+    }
+
+    assert ("setta.utils.helpers", "live") not in unused_top_level
+    assert ("setta.utils.helpers", "dead") in unused_top_level
+    assert ("Config", "LIVE") not in member_names
+    assert ("Config", "DEAD") in member_names
+    assert ("Local", "VALUE") not in member_names
+
+
 def test_render_text_report_formats_structured_sections() -> None:
     module = _load_report_sdk_unused_module()
     report = module.AnalysisReport(

@@ -297,6 +297,19 @@ class ModuleImportCollector(TypeCheckingAwareNodeVisitor):
             )
         )
 
+    def _record_from_import_alias(
+        self,
+        *,
+        base_module: str,
+        alias: ast.alias,
+    ) -> None:
+        if alias.name == "*":
+            self._record_star_import(base_module=base_module)
+            return
+        if self._record_submodule_import(base_module=base_module, alias=alias):
+            return
+        self._record_symbol_import(base_module=base_module, alias=alias)
+
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         base_module = resolve_from_import(
             current_module=self._current_module,
@@ -307,12 +320,13 @@ class ModuleImportCollector(TypeCheckingAwareNodeVisitor):
         if not base_module:
             return
         for alias in node.names:
-            if alias.name == "*":
-                self._record_star_import(base_module=base_module)
-                continue
-            if self._record_submodule_import(base_module=base_module, alias=alias):
-                continue
-            self._record_symbol_import(base_module=base_module, alias=alias)
+            self._record_from_import_alias(base_module=base_module, alias=alias)
+
+
+def attribute_root_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    return None
 
 
 class ClassMemberReferenceCollector(TypeCheckingAwareNodeVisitor):
@@ -370,13 +384,22 @@ class DefinitionUsageCollector(TypeCheckingAwareNodeVisitor):
         self.used_members: set[tuple[str, str, str]] = set()
         self._imported_modules: dict[str, str] = {}
         self._imported_symbols: dict[str, tuple[str, str]] = {}
+        self._attribute_member_targets: dict[str, tuple[tuple[str, str], ...]] = {
+            class_name: ((module_info.module, class_name),)
+            for class_name in module_info.classes
+        }
         for binding in module_info.import_bindings:
             if binding.kind == "module":
                 self._imported_modules[binding.local_name] = binding.target_module
             elif binding.target_name is not None:
-                self._imported_symbols[binding.local_name] = (
+                symbol_target = (
                     binding.target_module,
                     binding.target_name,
+                )
+                self._imported_symbols[binding.local_name] = symbol_target
+                self._attribute_member_targets[binding.local_name] = (
+                    *self._attribute_member_targets.get(binding.local_name, ()),
+                    symbol_target,
                 )
 
     def mark_root_reexports(self) -> None:
@@ -402,15 +425,9 @@ class DefinitionUsageCollector(TypeCheckingAwareNodeVisitor):
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        if isinstance(node.value, ast.Name):
-            imported_module = self._imported_modules.get(node.value.id)
-            if imported_module is not None:
-                self._mark_top_level(imported_module, node.attr)
-            imported_symbol = self._imported_symbols.get(node.value.id)
-            if imported_symbol is not None:
-                self._mark_member(*imported_symbol, node.attr)
-            if node.value.id in self._module_info.classes:
-                self._mark_member(self._module_info.module, node.value.id, node.attr)
+        root_name = attribute_root_name(node.value)
+        if root_name is not None:
+            self._mark_attribute_targets(root_name=root_name, attr_name=node.attr)
         self.generic_visit(node)
 
     def visit_Constant(self, node: ast.Constant) -> None:
@@ -447,6 +464,15 @@ class DefinitionUsageCollector(TypeCheckingAwareNodeVisitor):
             return
         if member_name in class_info.member_names:
             self.used_members.add((module_name, class_name, member_name))
+
+    def _mark_attribute_targets(self, *, root_name: str, attr_name: str) -> None:
+        imported_module = self._imported_modules.get(root_name)
+        if imported_module is not None:
+            self._mark_top_level(imported_module, attr_name)
+        for module_name, class_name in self._attribute_member_targets.get(
+            root_name, ()
+        ):
+            self._mark_member(module_name, class_name, attr_name)
 
 
 def build_method_member_definition(
