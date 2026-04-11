@@ -170,41 +170,57 @@ func fetchAuthoritativeContextWindow(
 	defer cancel()
 	switch prepared.provider {
 	case openAIProvider:
-		if isAzureOpenAIProvider(resolveProviderHint(request)) ||
-			isNormalizedProviderBaseURL(resolveOpenAIBaseURL(request), defaultOpenAIBaseURL) {
-			return nil, true
-		}
-		model, err := prepared.openAIClient.Models.Get(lookupCtx, prepared.model)
-		if err != nil || model == nil {
-			return nil, false
-		}
-		return extractTokenCountFromRawJSON(model.RawJSON(), contextWindowTokenAliases, false), true
+		return fetchOpenAIContextWindow(lookupCtx, prepared, request)
 	case anthropicProvider:
-		model, err := prepared.anthropicClient.Models.Get(
-			lookupCtx,
-			prepared.model,
-			anthropic.ModelGetParams{},
-		)
-		if err != nil || model == nil {
-			return nil, false
-		}
-		return extractTokenCountFromRawJSON(model.RawJSON(), contextWindowTokenAliases, false), true
+		return fetchAnthropicContextWindow(lookupCtx, prepared)
 	case geminiProvider:
-		if prepared.geminiClient == nil {
-			return nil, true
-		}
-		model, err := prepared.geminiClient.Models.Get(lookupCtx, prepared.model, &genai.GetModelConfig{})
-		if err != nil || model == nil {
-			return nil, false
-		}
-		if model.InputTokenLimit > 0 {
-			value := int(model.InputTokenLimit)
-			return &value, true
-		}
-		return extractTokenCountFromMap(cloneAnyMap(mustJSONMap(model)), contextWindowTokenAliases, false), true
+		return fetchGeminiContextWindow(lookupCtx, prepared)
 	default:
 		return nil, true
 	}
+}
+
+func fetchOpenAIContextWindow(
+	ctx context.Context,
+	prepared preparedExecution,
+	request agentruns.ExecutionRequest,
+) (*int, bool) {
+	if isAzureOpenAIProvider(resolveProviderHint(request)) ||
+		isNormalizedProviderBaseURL(resolveOpenAIBaseURL(request), defaultOpenAIBaseURL) {
+		return nil, true
+	}
+	model, err := prepared.openAIClient.Models.Get(ctx, prepared.model)
+	if err != nil || model == nil {
+		return nil, false
+	}
+	return extractTokenCountFromRawJSON(model.RawJSON(), contextWindowTokenAliases, false), true
+}
+
+func fetchAnthropicContextWindow(ctx context.Context, prepared preparedExecution) (*int, bool) {
+	model, err := prepared.anthropicClient.Models.Get(
+		ctx,
+		prepared.model,
+		anthropic.ModelGetParams{},
+	)
+	if err != nil || model == nil {
+		return nil, false
+	}
+	return extractTokenCountFromRawJSON(model.RawJSON(), contextWindowTokenAliases, false), true
+}
+
+func fetchGeminiContextWindow(ctx context.Context, prepared preparedExecution) (*int, bool) {
+	if prepared.geminiClient == nil {
+		return nil, true
+	}
+	model, err := prepared.geminiClient.Models.Get(ctx, prepared.model, &genai.GetModelConfig{})
+	if err != nil || model == nil {
+		return nil, false
+	}
+	if model.InputTokenLimit > 0 {
+		value := int(model.InputTokenLimit)
+		return &value, true
+	}
+	return extractTokenCountFromMap(cloneAnyMap(mustJSONMap(model)), contextWindowTokenAliases, false), true
 }
 
 func extractTokenCountFromRawJSON(rawJSON string, aliases []string, allowZero bool) *int {
@@ -245,41 +261,44 @@ func extractNonNegativeUsageInt(raw any) *int {
 	case bool:
 		return nil
 	case int:
-		if value < 0 {
-			return nil
-		}
-		return &value
+		return pointerIfNonNegative(value)
 	case int32:
-		converted := int(value)
-		if converted < 0 {
-			return nil
-		}
-		return &converted
+		return pointerIfNonNegative(int(value))
 	case int64:
-		converted := int(value)
-		if converted < 0 {
-			return nil
-		}
-		return &converted
+		return pointerIfNonNegative(int(value))
 	case float64:
-		if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || math.Trunc(value) != value {
-			return nil
-		}
-		converted := int(value)
-		return &converted
+		return nonNegativeIntegralFloat(value)
 	case string:
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			return nil
-		}
-		parsed, err := strconv.Atoi(trimmed)
-		if err != nil || parsed < 0 {
-			return nil
-		}
-		return &parsed
+		return nonNegativeStringInt(value)
 	default:
 		return nil
 	}
+}
+
+func pointerIfNonNegative(value int) *int {
+	if value < 0 {
+		return nil
+	}
+	return &value
+}
+
+func nonNegativeIntegralFloat(value float64) *int {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || math.Trunc(value) != value {
+		return nil
+	}
+	return pointerIfNonNegative(int(value))
+}
+
+func nonNegativeStringInt(value string) *int {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	parsed, err := strconv.Atoi(trimmed)
+	if err != nil {
+		return nil
+	}
+	return pointerIfNonNegative(parsed)
 }
 
 func cloneIntPointer(value *int) *int {

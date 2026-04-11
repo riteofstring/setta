@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,6 +33,48 @@ func TestAppendContextUsageFromRawJSONCanonicalizesProviderFields(t *testing.T) 
 	}
 	if got := int(payload["contextUsedTokens"].(int)); got != 24766 {
 		t.Fatalf("expected contextUsedTokens=24766, got %d", got)
+	}
+}
+
+func TestExtractNonNegativeUsageInt(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		raw  any
+		want *int
+	}{
+		{name: "bool", raw: true},
+		{name: "negative int", raw: -1},
+		{name: "int", raw: 7, want: testIntPtr(7)},
+		{name: "int32", raw: int32(9), want: testIntPtr(9)},
+		{name: "int64", raw: int64(11), want: testIntPtr(11)},
+		{name: "whole float", raw: 13.0, want: testIntPtr(13)},
+		{name: "negative float", raw: -13.0},
+		{name: "fractional float", raw: 13.5},
+		{name: "nan", raw: math.NaN()},
+		{name: "positive infinity", raw: math.Inf(1)},
+		{name: "blank string", raw: "   "},
+		{name: "numeric string", raw: " 15 ", want: testIntPtr(15)},
+		{name: "negative string", raw: "-15"},
+		{name: "invalid string", raw: "fifteen"},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := extractNonNegativeUsageInt(testCase.raw)
+			switch {
+			case testCase.want == nil && got != nil:
+				t.Fatalf("expected nil, got %d", *got)
+			case testCase.want != nil && got == nil:
+				t.Fatalf("expected %d, got nil", *testCase.want)
+			case testCase.want != nil && *got != *testCase.want:
+				t.Fatalf("expected %d, got %d", *testCase.want, *got)
+			}
+		})
 	}
 }
 
@@ -293,4 +336,8 @@ func managedExecutionRequest(
 			},
 		},
 	}
+}
+
+func testIntPtr(value int) *int {
+	return &value
 }
