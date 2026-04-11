@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"setta/internal/appspec"
 	"setta/internal/projectstate"
@@ -80,6 +81,16 @@ type AppPublisher struct {
 	share *SharePublisher
 }
 
+type preparedAppPublish struct {
+	project                projectstate.Project
+	appSpec                any
+	targetAppSpecPath      string
+	policy                 Policy
+	listenerConfig         *ListenerConfig
+	publishedDocument      projectstate.Document
+	structuredDataPayloads map[string]map[string]any
+}
+
 func NewAppPublisher(options AppPublisherOptions) (*AppPublisher, error) {
 	sharePublisher, err := NewSharePublisher(options)
 	if err != nil {
@@ -107,40 +118,81 @@ func (p *AppPublisher) Publish(ctx context.Context, request AppPublishRequest) (
 		}
 	}()
 
+	prepared, err := p.prepareAppPublish(ctx, request, allocation.DeploymentRoot)
+	if err != nil {
+		return AppPublishResult{}, err
+	}
+	manifest, err := p.newAppManifest(allocation, prepared.project, prepared.listenerConfig)
+	if err != nil {
+		return AppPublishResult{}, err
+	}
+	if err := p.writeAppPublishOutput(ctx, allocation.DeploymentRoot, prepared, manifest); err != nil {
+		return AppPublishResult{}, err
+	}
+
+	success = true
+	return AppPublishResult{
+		Metadata: p.buildAppPublishMetadata(allocation, prepared.project, manifest.CreatedAt),
+		Manifest: manifest,
+		Policy:   prepared.policy,
+		Snapshot: prepared.publishedDocument,
+	}, nil
+}
+
+func (p *AppPublisher) prepareAppPublish(
+	ctx context.Context,
+	request AppPublishRequest,
+	deploymentRoot string,
+) (preparedAppPublish, error) {
 	snapshot := request.ProjectState.Snapshot()
 	document := snapshot.Document.Clone()
 	project, err := document.ProjectByID(request.ProjectID)
 	if err != nil {
-		return AppPublishResult{}, err
+		return preparedAppPublish{}, err
 	}
 	document.DefaultProjectID = project.ID
 
 	appDefinition, appSpec, targetAppSpecPath, err := p.preparePublishedAppDefinition(ctx, request.ProjectState, document.AppDefinition)
 	if err != nil {
-		return AppPublishResult{}, err
+		return preparedAppPublish{}, err
 	}
 	document.AppDefinition = appDefinition
 
 	policy, err := applyAppPolicyOverrides(request.PolicyOverrides)
 	if err != nil {
-		return AppPublishResult{}, err
+		return preparedAppPublish{}, err
 	}
-
-	listenerConfig, err := p.share.copyListenerEntrypoint(strings.TrimSpace(request.ListenerEntrypoint), allocation.DeploymentRoot, request.ListenerEnabled)
+	listenerConfig, err := p.share.copyListenerEntrypoint(strings.TrimSpace(request.ListenerEntrypoint), deploymentRoot, request.ListenerEnabled)
 	if err != nil {
-		return AppPublishResult{}, err
+		return preparedAppPublish{}, err
 	}
 
 	publishedDocument := document.Clone()
-	structuredDataPayloads, err := p.share.rewriteDocumentForDeployment(&publishedDocument, allocation.DeploymentRoot)
+	structuredDataPayloads, err := p.share.rewriteDocumentForDeployment(&publishedDocument, deploymentRoot)
 	if err != nil {
-		return AppPublishResult{}, err
+		return preparedAppPublish{}, err
 	}
 	if err := stripPasswordValues(&publishedDocument); err != nil {
-		return AppPublishResult{}, err
+		return preparedAppPublish{}, err
 	}
 
-	manifest, err := Manifest{
+	return preparedAppPublish{
+		project:                project,
+		appSpec:                appSpec,
+		targetAppSpecPath:      targetAppSpecPath,
+		policy:                 policy,
+		listenerConfig:         listenerConfig,
+		publishedDocument:      publishedDocument,
+		structuredDataPayloads: structuredDataPayloads,
+	}, nil
+}
+
+func (p *AppPublisher) newAppManifest(
+	allocation Allocation,
+	project projectstate.Project,
+	listenerConfig *ListenerConfig,
+) (Manifest, error) {
+	return Manifest{
 		Version:           1,
 		DeploymentName:    allocation.DeploymentName,
 		DeploymentType:    TypeApp,
@@ -149,53 +201,58 @@ func (p *AppPublisher) Publish(ctx context.Context, request AppPublishRequest) (
 		CreatedAt:         p.share.now().UTC(),
 		Listener:          listenerConfig,
 	}.Normalized()
-	if err != nil {
-		return AppPublishResult{}, err
-	}
+}
 
-	store, err := projectstate.NewStore(filepath.Join(allocation.DeploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
+func (p *AppPublisher) writeAppPublishOutput(
+	ctx context.Context,
+	deploymentRoot string,
+	prepared preparedAppPublish,
+	manifest Manifest,
+) error {
+	store, err := projectstate.NewStore(filepath.Join(deploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
 	if err != nil {
-		return AppPublishResult{}, fmt.Errorf("create deployment project store: %w", err)
+		return fmt.Errorf("create deployment project store: %w", err)
 	}
-	if err := store.Save(ctx, publishedDocument); err != nil {
-		return AppPublishResult{}, fmt.Errorf("save deployment project: %w", err)
+	if err := store.Save(ctx, prepared.publishedDocument); err != nil {
+		return fmt.Errorf("save deployment project: %w", err)
 	}
-	if err := appspec.Write(allocation.DeploymentRoot, targetAppSpecPath, appSpec); err != nil {
-		return AppPublishResult{}, fmt.Errorf("write deployment app spec: %w", err)
+	if err := appspec.Write(deploymentRoot, prepared.targetAppSpecPath, prepared.appSpec); err != nil {
+		return fmt.Errorf("write deployment app spec: %w", err)
 	}
-	for relativePath, payload := range structuredDataPayloads {
-		targetPath, err := statefs.ResolveWithinRoot(allocation.DeploymentRoot, filepath.FromSlash(relativePath), "deployment structured data")
+	for relativePath, payload := range prepared.structuredDataPayloads {
+		targetPath, err := statefs.ResolveWithinRoot(deploymentRoot, filepath.FromSlash(relativePath), "deployment structured data")
 		if err != nil {
-			return AppPublishResult{}, err
+			return err
 		}
 		if err := writeStructuredDataPayload(targetPath, payload); err != nil {
-			return AppPublishResult{}, err
+			return err
 		}
 	}
-	if err := writeJSONFile(filepath.Join(allocation.DeploymentRoot, "manifest.json"), manifest); err != nil {
-		return AppPublishResult{}, fmt.Errorf("write deployment manifest: %w", err)
+	if err := writeJSONFile(filepath.Join(deploymentRoot, "manifest.json"), manifest); err != nil {
+		return fmt.Errorf("write deployment manifest: %w", err)
 	}
-	if err := writeJSONFile(filepath.Join(allocation.DeploymentRoot, "policy.json"), policy); err != nil {
-		return AppPublishResult{}, fmt.Errorf("write deployment policy: %w", err)
+	if err := writeJSONFile(filepath.Join(deploymentRoot, "policy.json"), prepared.policy); err != nil {
+		return fmt.Errorf("write deployment policy: %w", err)
 	}
+	return nil
+}
 
-	success = true
-	return AppPublishResult{
-		Metadata: Metadata{
-			DeploymentName:      allocation.DeploymentName,
-			DeploymentVersion:   allocation.DeploymentVersion,
-			DeploymentType:      TypeApp,
-			DefaultProjectID:    project.ID,
-			DefaultProjectName:  project.Name,
-			CreatedAt:           manifest.CreatedAt,
-			DeploymentRoot:      allocation.DeploymentRoot,
-			PolicyPath:          filepath.Join(allocation.DeploymentRoot, "policy.json"),
-			DeploymentVersionNo: mustParseDeploymentVersion(allocation.DeploymentVersion),
-		},
-		Manifest: manifest,
-		Policy:   policy,
-		Snapshot: publishedDocument,
-	}, nil
+func (p *AppPublisher) buildAppPublishMetadata(
+	allocation Allocation,
+	project projectstate.Project,
+	createdAt time.Time,
+) Metadata {
+	return Metadata{
+		DeploymentName:      allocation.DeploymentName,
+		DeploymentVersion:   allocation.DeploymentVersion,
+		DeploymentType:      TypeApp,
+		DefaultProjectID:    project.ID,
+		DefaultProjectName:  project.Name,
+		CreatedAt:           createdAt,
+		DeploymentRoot:      allocation.DeploymentRoot,
+		PolicyPath:          filepath.Join(allocation.DeploymentRoot, "policy.json"),
+		DeploymentVersionNo: mustParseDeploymentVersion(allocation.DeploymentVersion),
+	}
 }
 
 func (p *AppPublisher) preparePublishedAppDefinition(
