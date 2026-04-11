@@ -880,3 +880,119 @@ printf '%s\\n' "${{count}}" > "{repair_count_path}"
         encoding="utf-8"
     )
     assert "stalled_loop" not in supervisor_log
+
+
+def test_run_codex_supervisor_falls_back_to_codex_from_installed_nvm_bin(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "run-codex-supervisor.sh"
+
+    worktree_root = tmp_path / "worktree"
+    output_dir = tmp_path / "output"
+    stub_dir = tmp_path / "bin"
+    home_dir = tmp_path / "home"
+    nvm_alias_dir = home_dir / ".nvm" / "alias"
+    codex_bin_dir = home_dir / ".nvm" / "versions" / "node" / "v20.11.1" / "bin"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    nvm_alias_dir.mkdir(parents=True, exist_ok=True)
+    codex_bin_dir.mkdir(parents=True, exist_ok=True)
+    (nvm_alias_dir / "default").write_text("20.11.1\n", encoding="utf-8")
+
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "---\nworkdir: worktree\n---\n",
+        encoding="utf-8",
+    )
+
+    loop_stub_path = tmp_path / "loop-stub.sh"
+    _write_executable(
+        loop_stub_path,
+        """#!/usr/bin/env bash
+set -euo pipefail
+output_dir=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-dir)
+      output_dir="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+mkdir -p "${output_dir}/run-001"
+cat <<'EOF' > "${output_dir}/run-001/status.txt"
+status=success
+loop_status=SUBTASK_DONE
+EOF
+exit 0
+""",
+    )
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  cat <<'EOF'
+worktree {worktree_root}
+HEAD 1111111111111111111111111111111111111111
+branch refs/heads/pixijs-rewrite
+EOF
+  exit 0
+fi
+if [[ "$*" == *"rev-parse --absolute-git-dir"* ]]; then
+  printf '%s\\n' /tmp/fake-git-dir
+  exit 0
+fi
+exit 0
+""",
+    )
+
+    _write_executable(
+        codex_bin_dir / "codex",
+        """#!/usr/bin/env bash
+set -euo pipefail
+echo "unexpected repair codex invocation" >&2
+exit 1
+""",
+    )
+
+    env = os.environ.copy()
+    env["HOME"] = str(home_dir)
+    env["NVM_DIR"] = str(home_dir / ".nvm")
+    env["PATH"] = f"{stub_dir}:/usr/bin:/bin:/usr/sbin:/sbin"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--config-file",
+            str(config_path),
+            "--output-dir",
+            str(output_dir),
+            "--loop-script",
+            str(loop_stub_path),
+            "--poll-seconds",
+            "1",
+            "--stale-seconds",
+            "10",
+            "--repeat-failure-threshold",
+            "1",
+            "--",
+            "--no-yolo",
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "codex CLI not found on PATH" not in result.stderr

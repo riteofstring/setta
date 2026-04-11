@@ -2598,3 +2598,139 @@ cat "${{last_message}}"
     assert "Stop requested. Current iteration completed" in result.stdout
     assert (output_dir / "run-001").exists()
     assert not (output_dir / "run-002").exists()
+
+
+def test_run_codex_loop_falls_back_to_codex_from_installed_nvm_bin(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "run-codex-loop.sh"
+
+    worktree_root = tmp_path / "worktree"
+    output_dir = tmp_path / "output"
+    stub_dir = tmp_path / "bin"
+    home_dir = tmp_path / "home"
+    nvm_alias_dir = home_dir / ".nvm" / "alias"
+    codex_bin_dir = home_dir / ".nvm" / "versions" / "node" / "v20.11.1" / "bin"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    nvm_alias_dir.mkdir(parents=True, exist_ok=True)
+    codex_bin_dir.mkdir(parents=True, exist_ok=True)
+    (nvm_alias_dir / "default").write_text("20.11.1\n", encoding="utf-8")
+
+    prompt_path = tmp_path / "prompt.md"
+    prompt_path.write_text("Test prompt body.\n", encoding="utf-8")
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+    handoff_path = tmp_path / "handoff.md"
+    handoff_path.write_text("# Handoff\n", encoding="utf-8")
+    history_path = tmp_path / "history.md"
+    history_path.write_text("# History\n", encoding="utf-8")
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "plan_path: plan.md",
+                "handoff_path: handoff.md",
+                "history_path: history.md",
+                "prompt_file: prompt.md",
+                "workdir: .",
+                "iterations: 1",
+                "new_session_every: 1",
+                "codex_inactivity_timeout_seconds: 1",
+                "yolo: false",
+                "worktree_lifecycle: none",
+                "main_lifecycle: none",
+                "terminal_mode: background",
+                "---",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    _write_executable(
+        stub_dir / "git",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  exit 0
+fi
+if [[ "$*" == *"rev-parse --absolute-git-dir"* ]]; then
+  printf '%s\\n' /tmp/fake-git-dir
+  exit 0
+fi
+if [[ "$*" == *"rev-parse HEAD"* ]]; then
+  printf '%s\\n' 1111111111111111111111111111111111111111
+  exit 0
+fi
+exit 0
+""",
+    )
+
+    _write_executable(
+        codex_bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '\\n## Latest iteration\\n- Status: blocked\\n' >> "{handoff_path}"
+printf '\\n- nvm codex fallback\\n' >> "{history_path}"
+cat <<'EOF'
+LOOP_STATUS: BLOCKED
+LOOP_SUMMARY: fallback codex path worked
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: blocked
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+EOF
+exit 0
+""",
+    )
+
+    env = os.environ.copy()
+    env["HOME"] = str(home_dir)
+    env["NVM_DIR"] = str(home_dir / ".nvm")
+    env["PATH"] = f"{stub_dir}:/usr/bin:/bin:/usr/sbin:/sbin"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--config-file",
+            str(config_path),
+            "--prompt-file",
+            str(prompt_path),
+            "--followup-prompt-file",
+            str(prompt_path),
+            "--plan-file",
+            str(plan_path),
+            "--handoff-file",
+            str(handoff_path),
+            "--history-file",
+            str(history_path),
+            "--workdir",
+            str(worktree_root),
+            "--output-dir",
+            str(output_dir),
+            "--iterations",
+            "1",
+            "--worktree-lifecycle",
+            "none",
+            "--main-lifecycle",
+            "none",
+            "--terminal-mode",
+            "background",
+            "--no-yolo",
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "[1/1] LOOP_STATUS: BLOCKED" in result.stdout
+    assert "codex CLI not found on PATH" not in result.stderr

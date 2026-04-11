@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+. "${SCRIPT_DIR}/lib/codex_cli.sh"
 VISIBLE_LAUNCH_HEARTBEAT_SECONDS="${RALPH_VISIBLE_LAUNCH_HEARTBEAT_SECONDS:-15}"
 RALPH_ITERATION_CLEANUP="${RALPH_ITERATION_CLEANUP:-1}"
 RALPH_KILL_ALL_CHROME_ON_ITERATION_CLEANUP="${RALPH_KILL_ALL_CHROME_ON_ITERATION_CLEANUP:-1}"
@@ -321,6 +322,7 @@ run_codex_iteration() {
   local transcript_path="$2"
   local response_path="$3"
   local inactivity_timeout_seconds="$4"
+  local codex_bin="${SETTA_CODEX_BIN:-codex}"
   local pipe_path="${transcript_path}.pipe"
   local tee_pid=""
   local codex_pid=""
@@ -340,7 +342,7 @@ run_codex_iteration() {
   tee_pid="$!"
 
   start_ts="$(date +%s)"
-  codex "${codex_args[@]}" < "${prompt_path}" > "${pipe_path}" 2>&1 &
+  "${codex_bin}" "${codex_args[@]}" < "${prompt_path}" > "${pipe_path}" 2>&1 &
   codex_pid="$!"
 
   if [[ "${inactivity_timeout_seconds}" -gt 0 ]]; then
@@ -2706,7 +2708,7 @@ fi
 
 resolved_terminal_mode="$(resolve_terminal_mode "${terminal_mode}")"
 
-if [[ "${print_prompt_only}" != "1" ]] && ! command -v codex >/dev/null 2>&1; then
+if [[ "${print_prompt_only}" != "1" ]] && ! setta_ensure_codex_cli "${ROOT_DIR}"; then
   echo "codex CLI not found on PATH" >&2
   exit 1
 fi

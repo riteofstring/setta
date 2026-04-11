@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+. "${SCRIPT_DIR}/lib/codex_cli.sh"
 
 usage() {
   local program_name
@@ -505,10 +506,11 @@ run_codex_repair() {
   local failure_key="$3"
   local latest_run_path="$4"
   local latest_status_file="$5"
+  local codex_bin="${SETTA_CODEX_BIN:-codex}"
   local repair_prompt="${incident_dir}/repair-prompt.txt"
   local repair_last_message="${incident_dir}/repair-last-message.txt"
   local repair_transcript="${incident_dir}/repair-transcript.log"
-  local cmd=(codex exec --color never --cd "${workdir}" --output-last-message "${repair_last_message}" --ephemeral)
+  local cmd=("${codex_bin}" exec --color never --cd "${workdir}" --output-last-message "${repair_last_message}" --ephemeral)
 
   build_repair_prompt "${repair_prompt}" "${incident_reason}" "${failure_key}" "${latest_run_path}" "${latest_status_file}"
 
@@ -887,7 +889,7 @@ if [[ -z "${repair_command}" ]] && [[ -x "${workdir}/aireset.sh" ]]; then
   fi
 fi
 
-if [[ "${codex_repair_enabled}" == "1" ]] && ! command -v codex >/dev/null 2>&1; then
+if [[ "${codex_repair_enabled}" == "1" ]] && ! setta_ensure_codex_cli "${ROOT_DIR}"; then
   echo "codex CLI not found on PATH" >&2
   exit 1
 fi
