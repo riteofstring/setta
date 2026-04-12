@@ -142,23 +142,53 @@ function resolveSortPlan({
   over,
   collisions,
 }: Pick<DragEndEvent, "active" | "over" | "collisions">) {
-  const parentId = active.data?.current?.sortable?.containerId ?? null;
+  const parentId = resolveSortableParentId(active);
   if (!parentId) {
     return null;
   }
 
   const state = useProjectState.getState();
   const activeId = String(active.id);
+  return planSortingMove(
+    buildSortingMovePlanInput({
+      activeId,
+      collisions,
+      over,
+      parentId,
+      state,
+    }),
+  );
+}
+
+function resolveSortableParentId(
+  active: Pick<DragEndEvent, "active">["active"],
+): string | null {
+  const sortable = active.data?.current?.sortable;
+  return sortable?.containerId ?? null;
+}
+
+function buildSortingMovePlanInput({
+  activeId,
+  collisions,
+  over,
+  parentId,
+  state,
+}: {
+  activeId: string;
+  collisions: DragEndEvent["collisions"];
+  over: DragEndEvent["over"];
+  parentId: string;
+  state: ReturnType<typeof useProjectState.getState>;
+}) {
   const draggingIds = resolveDraggingIds(activeId);
   const draggingSet = new Set(draggingIds);
-  const sortingOverState = getSortingOverState(parentId);
-  return planSortingMove({
+
+  return {
     children: getSectionChildren(state, parentId),
     collisions,
     draggingIds,
     draggingSet,
-    fallbackOverId: sortingOverState?.overId ?? null,
-    fallbackPastHalfway: sortingOverState?.pastHalfway ?? null,
+    ...resolveSortingFallback(parentId),
     isInvalidTarget: isDescendantOfSectionSelection(
       state,
       parentId,
@@ -166,7 +196,15 @@ function resolveSortPlan({
     ),
     over,
     parentId,
-  });
+  };
+}
+
+function resolveSortingFallback(parentId: string) {
+  const sortingOverState = getSortingOverState(parentId);
+  return {
+    fallbackOverId: sortingOverState?.overId ?? null,
+    fallbackPastHalfway: sortingOverState?.pastHalfway ?? null,
+  };
 }
 
 function scheduleSelectionBoundsUpdate() {

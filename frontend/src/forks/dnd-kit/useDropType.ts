@@ -373,34 +373,95 @@ function resolveDragMoveUpdate({
 }: Pick<DragMoveEvent, "collisions" | "over"> & {
   dndState: DndStoreState;
 }) {
-  const overCandidate = collisions?.[0] ?? over;
-  const overCandidateId = overCandidate ? String(overCandidate.id) : null;
-  const resolvedOverId = getOverId(overCandidate, collisions);
-  const resolvedOverIdKey = normalizeOverId(resolvedOverId);
-  const pastHalfway = getOverCollisionPastHalfway(resolvedOverId, collisions);
-  const triggerDistCondition =
-    getCollisionTriggerDistCondition(resolvedOverId, collisions) ?? false;
-  const lastPastHalfway = getCachedPastHalfway(resolvedOverIdKey);
-  const triggerDistChanged =
-    triggerDistCondition !== dndState.triggerDistCondition;
+  const resolvedTarget = resolveDragMoveTarget(collisions, over);
+  const changeState = resolveDragMoveChangeState(resolvedTarget, dndState);
 
   return {
-    overCandidate,
-    resolvedOverIdKey,
-    pastHalfway,
-    triggerDistCondition,
-    triggerDistChanged,
-    overIdChanged: resolvedOverIdKey !== normalizeOverId(dndState.overId),
-    shouldUpdateForTrigger:
-      triggerDistChanged &&
-      overCandidateId !== null &&
-      overCandidateId === dndState.overId,
-    shouldUpdateForPastHalfway:
-      pastHalfway !== null &&
-      lastPastHalfway !== null &&
-      pastHalfway !== lastPastHalfway &&
-      resolvedOverIdKey === dndState.overId,
+    overCandidate: resolvedTarget.overCandidate,
+    resolvedOverIdKey: resolvedTarget.resolvedOverIdKey,
+    pastHalfway: resolvedTarget.pastHalfway,
+    triggerDistCondition: resolvedTarget.triggerDistCondition,
+    ...changeState,
   };
+}
+
+function resolveDragMoveTarget(
+  collisions: DragMoveEvent["collisions"],
+  over: DragMoveEvent["over"],
+) {
+  const overCandidate = collisions?.[0] ?? over;
+  const resolvedOverId = getOverId(overCandidate, collisions);
+  return {
+    overCandidate,
+    overCandidateId: overCandidate ? String(overCandidate.id) : null,
+    resolvedOverIdKey: normalizeOverId(resolvedOverId),
+    pastHalfway: getOverCollisionPastHalfway(resolvedOverId, collisions),
+    triggerDistCondition:
+      getCollisionTriggerDistCondition(resolvedOverId, collisions) ?? false,
+  };
+}
+
+function resolveDragMoveChangeState(
+  resolvedTarget: ReturnType<typeof resolveDragMoveTarget>,
+  dndState: DndStoreState,
+) {
+  const lastPastHalfway = getCachedPastHalfway(
+    resolvedTarget.resolvedOverIdKey,
+  );
+  const triggerDistChanged =
+    resolvedTarget.triggerDistCondition !== dndState.triggerDistCondition;
+
+  return {
+    triggerDistChanged,
+    overIdChanged:
+      resolvedTarget.resolvedOverIdKey !== normalizeOverId(dndState.overId),
+    shouldUpdateForTrigger: shouldUpdateDragMoveTrigger({
+      currentOverId: dndState.overId,
+      overCandidateId: resolvedTarget.overCandidateId,
+      triggerDistChanged,
+    }),
+    shouldUpdateForPastHalfway: shouldUpdatePastHalfwayChange({
+      currentOverId: dndState.overId,
+      lastPastHalfway,
+      pastHalfway: resolvedTarget.pastHalfway,
+      resolvedOverIdKey: resolvedTarget.resolvedOverIdKey,
+    }),
+  };
+}
+
+function shouldUpdateDragMoveTrigger({
+  currentOverId,
+  overCandidateId,
+  triggerDistChanged,
+}: {
+  currentOverId: string | number | null;
+  overCandidateId: string | null;
+  triggerDistChanged: boolean;
+}) {
+  return (
+    triggerDistChanged &&
+    overCandidateId !== null &&
+    overCandidateId === currentOverId
+  );
+}
+
+function shouldUpdatePastHalfwayChange({
+  currentOverId,
+  lastPastHalfway,
+  pastHalfway,
+  resolvedOverIdKey,
+}: {
+  currentOverId: string | number | null;
+  lastPastHalfway: boolean | null;
+  pastHalfway: boolean | null;
+  resolvedOverIdKey: string | null;
+}) {
+  return (
+    pastHalfway !== null &&
+    lastPastHalfway !== null &&
+    pastHalfway !== lastPastHalfway &&
+    resolvedOverIdKey === currentOverId
+  );
 }
 
 function shouldRunDragOverFromMove(
@@ -898,16 +959,10 @@ function resolveSectionPlaceholderSize({
   }
 
   const state = useProjectState.getState();
-  const parentId =
-    getSharedParentId(state, draggingIds) ??
-    state.parentSectionMap[draggingIds[0]] ??
-    null;
-  const orientation = resolveParentOrientation(parentId);
-
-  const children = parentId ? getSectionChildren(state, parentId) : null;
-  const indexById = children
-    ? new Map(children.map((childId, index) => [childId, index]))
-    : null;
+  const { indexById, orientation } = resolvePlaceholderLayout(
+    state,
+    draggingIds,
+  );
   const size = accumulateSectionSizes({
     draggingIds,
     rectsById,
@@ -915,6 +970,40 @@ function resolveSectionPlaceholderSize({
     indexById,
   });
 
+  return scalePlaceholderSize(size, zoom);
+}
+
+function resolvePlaceholderLayout(
+  state: ReturnType<typeof useProjectState.getState>,
+  draggingIds: string[],
+) {
+  const parentId = resolvePlaceholderParentId(state, draggingIds);
+  const children = parentId ? getSectionChildren(state, parentId) : null;
+  return {
+    indexById: children ? buildChildIndexMap(children) : null,
+    orientation: resolveParentOrientation(parentId),
+  };
+}
+
+function resolvePlaceholderParentId(
+  state: ReturnType<typeof useProjectState.getState>,
+  draggingIds: string[],
+) {
+  return (
+    getSharedParentId(state, draggingIds) ??
+    state.parentSectionMap[draggingIds[0]] ??
+    null
+  );
+}
+
+function buildChildIndexMap(children: string[]) {
+  return new Map(children.map((childId, index) => [childId, index]));
+}
+
+function scalePlaceholderSize(
+  size: PlaceholderSize,
+  zoom: number,
+): PlaceholderSize | null {
   if (size.width <= 0 || size.height <= 0) {
     return null;
   }
