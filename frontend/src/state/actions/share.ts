@@ -20,6 +20,11 @@ import {
 import type { SingleConfig } from "utils/generatedTypes";
 
 type ShareDeploymentSession = GetShareDeploymentCurrentSessionResponses[200];
+type ShareProjectConfigLoadSession = {
+  deploymentName: string;
+  deploymentVersion: string;
+  allowLLM: boolean;
+};
 
 const SHARE_SESSION_STORAGE_KEY = "settaShareSession";
 type ShareSessionOptions = {
@@ -234,54 +239,107 @@ type ShareProjectConfigLoadParams = {
   projectConfigId: string;
   allowRetry?: boolean;
 };
-export async function loadShareProjectConfig({
-  projectConfigId,
-  allowRetry = true,
-}: ShareProjectConfigLoadParams): Promise<boolean> {
+function getShareProjectConfigLoadSession(): ShareProjectConfigLoadSession | null {
   const shareSession = useShareSession.getState();
+  if (!shareSession.isDeploymentMode) {
+    return null;
+  }
   if (
-    !shareSession.isDeploymentMode ||
     !shareSession.shareDeploymentName ||
     !shareSession.shareDeploymentVersion
   ) {
-    return false;
+    return null;
   }
-  useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
-  const stateRes = (await callOpenAPI(
-    getShareDeploymentProjectConfig({
-      path: {
-        deploymentName: shareSession.shareDeploymentName,
-        version: shareSession.shareDeploymentVersion,
-      },
-      body: {
-        projectConfigId,
-      },
-    } as Parameters<typeof getShareDeploymentProjectConfig>[0]),
-  )) as ShareProjectConfigRouteResponse;
-  if (!res200(stateRes)) {
-    const errorCode = getErrorCode(stateRes.data);
-    if (
-      allowRetry &&
-      (errorCode === "missing_share_session" ||
-        errorCode === "unknown_share_session")
-    ) {
-      const session = await ensureShareSessionFromCurrentDeployment({
-        forceNewSession: true,
-      });
-      if (session) {
-        return await loadShareProjectConfig({
-          projectConfigId,
-          allowRetry: false,
-        });
-      }
-    }
-    useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
-    return false;
+  return {
+    deploymentName: shareSession.shareDeploymentName,
+    deploymentVersion: shareSession.shareDeploymentVersion,
+    allowLLM: Boolean(shareSession.sharePolicy?.allowLLM),
+  };
+}
+function buildShareProjectConfigRequest(
+  projectConfigId: string,
+  shareSession: ShareProjectConfigLoadSession,
+): Parameters<typeof getShareDeploymentProjectConfig>[0] {
+  return {
+    path: {
+      deploymentName: shareSession.deploymentName,
+      version: shareSession.deploymentVersion,
+    },
+    body: {
+      projectConfigId,
+    },
+  };
+}
+function shouldRetryShareProjectConfigLoad(
+  errorCode: string | null | undefined,
+  allowRetry: boolean,
+): boolean {
+  return (
+    allowRetry &&
+    (errorCode === "missing_share_session" ||
+      errorCode === "unknown_share_session")
+  );
+}
+async function retryShareProjectConfigLoad(
+  projectConfigId: string,
+  errorCode: string | null | undefined,
+  allowRetry: boolean,
+): Promise<boolean | null> {
+  if (!shouldRetryShareProjectConfigLoad(errorCode, allowRetry)) {
+    return null;
   }
-  await loadProjectState(stateRes.data.projectState);
-  if (shareSession.sharePolicy?.allowLLM) {
+  const session = await ensureShareSessionFromCurrentDeployment({
+    forceNewSession: true,
+  });
+  if (!session) {
+    return null;
+  }
+  return loadShareProjectConfig({
+    projectConfigId,
+    allowRetry: false,
+  });
+}
+async function finalizeShareProjectConfigLoad(
+  projectState: SingleConfig,
+  projectConfigId: string,
+  allowLLM: boolean,
+): Promise<boolean> {
+  await loadProjectState(projectState);
+  if (allowLLM) {
     await requestAIFollowSnapshot(projectConfigId);
   }
   useProjectLoading.setState({ projectIsLoading: false, projectIs404: false });
   return true;
+}
+export async function loadShareProjectConfig({
+  projectConfigId,
+  allowRetry = true,
+}: ShareProjectConfigLoadParams): Promise<boolean> {
+  const shareSession = getShareProjectConfigLoadSession();
+  if (!shareSession) {
+    return false;
+  }
+  useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
+  const stateRes = (await callOpenAPI(
+    getShareDeploymentProjectConfig(
+      buildShareProjectConfigRequest(projectConfigId, shareSession),
+    ),
+  )) as ShareProjectConfigRouteResponse;
+  if (res200(stateRes)) {
+    return finalizeShareProjectConfigLoad(
+      stateRes.data.projectState,
+      projectConfigId,
+      shareSession.allowLLM,
+    );
+  }
+  const retryResult = await retryShareProjectConfigLoad(
+    projectConfigId,
+    getErrorCode(stateRes.data),
+    allowRetry,
+  );
+  if (retryResult !== null) {
+    return retryResult;
+  }
+  useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
+  return false;
 }

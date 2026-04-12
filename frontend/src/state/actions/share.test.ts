@@ -283,6 +283,19 @@ describe("share deployment actions", () => {
     });
   });
 
+  it("refuses to load a share project config without an active share session", async () => {
+    const loaded = await loadShareProjectConfig({
+      projectConfigId: "project-beta",
+    });
+
+    expect(loaded).toBe(false);
+    expect(routeLoadShareProjectConfigMock).not.toHaveBeenCalled();
+    expect(useProjectLoading.getState()).toMatchObject({
+      projectIsLoading: false,
+      projectIs404: false,
+    });
+  });
+
   it("refreshes the share session when Go reports an unknown share session", async () => {
     const refreshedSession = buildShareSessionResponse({
       shareSessionId: "share-session-b",
