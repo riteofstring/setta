@@ -98,7 +98,7 @@ function normalizeWorkspaceRootCandidate(
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 }
-export function resolveLaunchedWorkspaceRoot(
+function resolveLaunchedWorkspaceRoot(
   response: WorkspaceRootResolutionSource,
   pendingWorkspaceRoot: string | null | undefined,
 ): string {
@@ -116,7 +116,7 @@ function formatElapsedMs(ms: number): string {
   }
   return `${Math.round(seconds)}s`;
 }
-export function resolveWorkspaceLaunchErrorMessage(
+function resolveWorkspaceLaunchErrorMessage(
   rawError: WorkspaceLaunchErrorPayload | null | undefined,
 ): string {
   if (rawError?.code === OUTDATED_PROJECT_SETTINGS_ERROR_CODE) {
