@@ -1,6 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import { clearTextFieldCompletion } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -8,14 +10,16 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type RefObject,
 } from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
+import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 import {
   getCodeObjCore,
-  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplIfPresent,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
@@ -35,13 +39,22 @@ import {
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import {
-  route_clear_text_field_completion,
-  route_set_callable,
-} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+
+type SectionSearchInputState = {
+  displayedCallableName: string;
+  valueNameInconsistent: boolean;
+  onBlur: () => void;
+  onChange: (value: string) => void;
+  onEscape: (completionResult: boolean) => void;
+  onTab: (value: string, completionResult: boolean) => void;
+  keyComboActions: {
+    Enter: (value: string) => void;
+    "Alt-Enter": (value: string) => void;
+  };
+  clearApplyIndicator: () => void;
+};
 
 export function SectionSearch({
   sectionId,
@@ -73,15 +86,12 @@ export function SectionSearch({
       : null,
   );
   const lspEnabled = !isDeploymentMode;
-
   function onEnter(value: string) {
     setCallable(sectionId, value, lspEnabled);
   }
-
   function onShiftEnter(value: string) {
     setCallable(sectionId, value, lspEnabled, true);
   }
-
   return (
     <SectionSearchCore
       divId={`${sectionId}-search`}
@@ -105,30 +115,11 @@ export function SectionSearch({
   );
 }
 
-function SectionSearchCore({
-  sectionId,
-  callable,
-  onEnter,
-  onShiftEnter,
-  dummyCodeClassName,
-  realCodeClassName,
-  isDisabled,
-  divId,
-  lspEnabled,
-}: {
-  sectionId: string;
-  callable: string | null;
-  onEnter: (x: string) => void;
-  onShiftEnter: (x: string) => void;
-  dummyCodeClassName: string;
-  realCodeClassName: string;
-  isDisabled: boolean;
-  divId: string;
-  lspEnabled: boolean;
-}) {
-  const searchRef = useRef<HTMLElement | null>(null);
-  const heightKey = getSectionSearchHeightKey(sectionId);
-
+function useSectionSearchMeasurements(
+  searchRef: RefObject<HTMLElement | null>,
+  sectionId: string,
+  heightKey: string,
+) {
   useLayoutEffect(() => {
     const node = searchRef.current;
     if (!node) {
@@ -209,8 +200,211 @@ function SectionSearchCore({
         scheduleEdgeHandlePositionUpdate([sectionId]);
       }
     };
-  }, [heightKey, sectionId]);
+  }, [heightKey, searchRef, sectionId]);
+}
 
+function buildSectionSearchTooltipContent(
+  hasCallableError: boolean,
+  callableErrorMessage: string,
+  codeInfoName: string,
+  description: string,
+): Parameters<typeof getFloatingBoxHandlers> {
+  if (!hasCallableError) {
+    return [{ title: codeInfoName, content: description }];
+  }
+  return [
+    {
+      content: callableErrorMessage,
+      wrapperClassName:
+        "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
+      contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
+    },
+    { title: codeInfoName, content: description },
+  ];
+}
+
+function useSectionSearchInputState({
+  codeInfoName,
+  lspEnabled,
+  onEnter,
+  onShiftEnter,
+  sectionId,
+}: {
+  codeInfoName: string;
+  lspEnabled: boolean;
+  onEnter: (x: string) => void;
+  onShiftEnter: (x: string) => void;
+  sectionId: string;
+}): SectionSearchInputState {
+  const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
+  const [draftCallableName, setDraftCallableName] = useState<string | null>(
+    null,
+  );
+  const shouldResetValueOnBlur = useRef(false);
+  const debouncedSetValueNameInconsistent = useCallback(
+    _.debounce((isInconsistent: boolean) => {
+      setValueNameInconsistent(isInconsistent);
+    }, 1000),
+    [setValueNameInconsistent],
+  );
+
+  function clearApplyIndicator() {
+    debouncedSetValueNameInconsistent.cancel();
+    setValueNameInconsistent(false);
+  }
+
+  function syncCallableName(value: string, cancelDebounced = false) {
+    if (cancelDebounced) {
+      clearApplyIndicator();
+      return;
+    }
+    debouncedSetValueNameInconsistent(value !== codeInfoName);
+  }
+
+  function resetCallableName() {
+    setDraftCallableName(null);
+    syncCallableName(codeInfoName, true);
+  }
+
+  useEffect(() => {
+    resetCallableName();
+  }, [codeInfoName]);
+
+  function onBlur() {
+    if (!shouldResetValueOnBlur.current) {
+      return;
+    }
+    resetCallableName();
+    shouldResetValueOnBlur.current = false;
+    if (!lspEnabled) {
+      return;
+    }
+    void callOpenAPI(
+      clearTextFieldCompletion({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId: null,
+        },
+      } as Parameters<typeof clearTextFieldCompletion>[0]),
+    );
+  }
+
+  function onEscape(completionResult: boolean) {
+    if (completionResult) {
+      return;
+    }
+    resetCallableName();
+    shouldResetValueOnBlur.current = true;
+    // TODO: Re-enable focusOnSection(null, sectionId, false) once tabbing logic is restored.
+  }
+
+  function onTab(value: string, completionResult: boolean) {
+    if (completionResult || !value) {
+      return;
+    }
+    shouldResetValueOnBlur.current = false;
+    clearApplyIndicator();
+    onEnter(value);
+  }
+
+  function onChange(value: string) {
+    setDraftCallableName(value);
+    syncCallableName(value);
+  }
+
+  const displayedCallableName =
+    draftCallableName !== null ? draftCallableName : codeInfoName;
+
+  return {
+    displayedCallableName,
+    valueNameInconsistent,
+    onBlur,
+    onChange,
+    onEscape,
+    onTab,
+    keyComboActions: {
+      Enter: (value: string) => {
+        clearApplyIndicator();
+        onEnter(value);
+      },
+      "Alt-Enter": (value: string) => {
+        clearApplyIndicator();
+        onShiftEnter(value);
+      },
+    },
+    clearApplyIndicator,
+  };
+}
+
+function SectionSearchRightIndicator({
+  onCallableErrorContextMenu,
+  showCallableErrorIndicator,
+  showStatusIndicator,
+  valueNameInconsistent,
+  waitingForResult,
+}: {
+  onCallableErrorContextMenu: (e: MouseEvent<HTMLSpanElement>) => void;
+  showCallableErrorIndicator: boolean;
+  showStatusIndicator: boolean;
+  valueNameInconsistent: boolean;
+  waitingForResult: boolean;
+}) {
+  if (!showCallableErrorIndicator && !showStatusIndicator) {
+    return null;
+  }
+  return (
+    <div className="single-cell-child pointer-events-none mr-2 flex items-center gap-1 self-center justify-self-end">
+      {showCallableErrorIndicator && (
+        <span
+          className="pointer-events-auto grid h-[18px] w-[18px] place-items-center rounded-full bg-red-500/80 text-white"
+          onContextMenu={onCallableErrorContextMenu}
+        >
+          <BiError className="h-[14px] w-[14px]" />
+        </span>
+      )}
+      {showStatusIndicator && (
+        <span className="relative grid h-[22px] w-[22px] place-items-center">
+          {valueNameInconsistent && (
+            <span className="setta-callable-ready-icon">
+              <i className="gg-corner-right-down" />
+            </span>
+          )}
+          {waitingForResult && (
+            <span className="absolute inset-0 grid place-items-center rounded bg-white dark:bg-setta-950">
+              <i className="gg-spinner text-blue-500/70" />
+            </span>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SectionSearchCore({
+  sectionId,
+  callable,
+  onEnter,
+  onShiftEnter,
+  dummyCodeClassName,
+  realCodeClassName,
+  isDisabled,
+  divId,
+  lspEnabled,
+}: {
+  sectionId: string;
+  callable: string | null;
+  onEnter: (x: string) => void;
+  onShiftEnter: (x: string) => void;
+  dummyCodeClassName: string;
+  realCodeClassName: string;
+  isDisabled: boolean;
+  divId: string;
+  lspEnabled: boolean;
+}) {
+  const searchRef = useRef<HTMLElement | null>(null);
+  const heightKey = getSectionSearchHeightKey(sectionId);
+  useSectionSearchMeasurements(searchRef, sectionId, heightKey);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {
     name: baseCodeInfoName,
@@ -221,11 +415,20 @@ function SectionSearchCore({
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
+      true,
     );
     const { configLanguage } = sectionImpl;
     if (callable) {
       const codeObj = getCodeObjCore(x, callable);
-      const impl = getCurrEffectiveCodeObjImpl(x, sectionId, callable);
+      const impl = getCurrEffectiveCodeObjImplIfPresent(
+        x,
+        sectionId,
+        callable,
+        true,
+      );
+      if (!impl) {
+        return { name: "", description: "", configLanguage };
+      }
       const { description } = impl;
       return { name: codeObj.name, description, configLanguage };
     }
@@ -240,12 +443,6 @@ function SectionSearchCore({
     return entry ? entry.value : null;
   });
   const codeInfoName = previewCallableName ?? baseCodeInfoName;
-
-  const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
-  const [draftCallableName, setDraftCallableName] = useState<string | null>(
-    null,
-  );
-  const shouldResetValueOnBlur = useRef(false);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
     paramInfoId: null,
@@ -255,115 +452,33 @@ function SectionSearchCore({
   );
   const callableErrorMessage = callableErrorMessages?.join("\n") ?? "";
   const hasCallableError = callableErrorMessage.length > 0;
-
-  const debouncedSetValueNameInconsistent = useCallback(
-    _.debounce((isInconsistent: boolean) => {
-      setValueNameInconsistent(isInconsistent);
-    }, 1000),
-    [setValueNameInconsistent],
-  );
-
-  function setValueAndCheckConsistency(value: string, cancelDebounced = false) {
-    if (cancelDebounced) {
-      debouncedSetValueNameInconsistent.cancel();
-      setValueNameInconsistent(false);
-    } else {
-      debouncedSetValueNameInconsistent(value !== codeInfoName);
-    }
-  }
-
-  useEffect(() => {
-    setValueAndCheckConsistency(codeInfoName, true);
-    setDraftCallableName((prev) => (prev !== null ? null : prev));
-  }, [codeInfoName]);
-
-  function onBlur() {
-    if (shouldResetValueOnBlur.current) {
-      setDraftCallableName(null);
-      setValueAndCheckConsistency(codeInfoName, true);
-      const projectConfigId = getCurrProjectConfigId();
-      if (lspEnabled) {
-        route_clear_text_field_completion({
-          projectConfigId,
-          sectionId,
-          paramInfoId: null,
-        });
-      }
-      shouldResetValueOnBlur.current = false;
-      return;
-    }
-    shouldResetValueOnBlur.current = false;
-  }
-
-  function onEscape(completionResult: boolean) {
-    if (!completionResult) {
-      setDraftCallableName(null);
-      setValueAndCheckConsistency(codeInfoName, true);
-      shouldResetValueOnBlur.current = true;
-      // TODO: Re-enable focusOnSection(null, sectionId, false) once tabbing logic is restored.
-    }
-  }
-
-  function onTab(value: string, completionResult: boolean) {
-    if (!completionResult && value) {
-      shouldResetValueOnBlur.current = false;
-      clearApplyIndicator();
-      onEnter(value);
-    }
-  }
-
-  function onChange(value: string) {
-    setDraftCallableName(value);
-    setValueAndCheckConsistency(value);
-  }
-
-  function clearApplyIndicator() {
-    debouncedSetValueNameInconsistent.cancel();
-    setValueNameInconsistent(false);
-  }
-
-  const keyComboActions = {
-    Enter: (value: string) => {
-      clearApplyIndicator();
-      onEnter(value);
-    },
-    "Alt-Enter": (value: string) => {
-      clearApplyIndicator();
-      onShiftEnter(value);
-    },
-  };
-
-  // TODO: Shouldn't use important for this, but ok for now. FIX.
-  const valueNameInconsistentStyle = valueNameInconsistent
+  const inputState = useSectionSearchInputState({
+    codeInfoName,
+    lspEnabled,
+    onEnter,
+    onShiftEnter,
+    sectionId,
+  });
+  const valueNameInconsistentStyle = inputState.valueNameInconsistent
     ? "setta-callable-ready"
     : "";
-  let callableErrorStyle = "";
-  if (hasCallableError && !valueNameInconsistent) {
-    callableErrorStyle =
-      "!bg-red-200 dark:!bg-red-800/30 !border-red-200 dark:!border-red-800/30";
-  }
-  const showStatusIndicator = valueNameInconsistent || waitingForResult;
-  const showCallableErrorIndicator = hasCallableError && !valueNameInconsistent;
-  const showRightIndicator = showStatusIndicator || showCallableErrorIndicator;
-
+  const callableErrorStyle =
+    hasCallableError && !inputState.valueNameInconsistent
+      ? "!bg-red-200 dark:!bg-red-800/30 !border-red-200 dark:!border-red-800/30"
+      : "";
+  const showStatusIndicator =
+    inputState.valueNameInconsistent || waitingForResult;
+  const showCallableErrorIndicator =
+    hasCallableError && !inputState.valueNameInconsistent;
   function onCallableErrorContextMenu(e: MouseEvent<HTMLSpanElement>) {
     openTypeErrorContextMenu(e, sectionId, null);
   }
-
-  const displayedCallableName =
-    draftCallableName !== null ? draftCallableName : codeInfoName;
-  const tooltipContentArray = hasCallableError
-    ? [
-        {
-          content: callableErrorMessage,
-          wrapperClassName:
-            "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
-          contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
-        },
-        { title: codeInfoName, content: description },
-      ]
-    : [{ title: codeInfoName, content: description }];
-
+  const tooltipContentArray = buildSectionSearchTooltipContent(
+    hasCallableError,
+    callableErrorMessage,
+    codeInfoName,
+    description,
+  );
   return (
     <search
       className="section-search single-cell-container relative w-full"
@@ -374,49 +489,29 @@ function SectionSearchCore({
         dummyDivId={divId}
         sectionId={sectionId}
         paramInfoId={null}
-        value={displayedCallableName}
-        onBlur={onBlur}
-        onChange={onChange}
+        value={inputState.displayedCallableName}
+        onBlur={inputState.onBlur}
+        onChange={inputState.onChange}
         dummyCodeClassName={`${dummyCodeClassName} ${valueNameInconsistentStyle} ${callableErrorStyle}`}
         realCodeClassName={`${realCodeClassName} ${valueNameInconsistentStyle} ${callableErrorStyle}`}
         singleLine={true}
-        keyComboActions={keyComboActions}
-        onTab={onTab}
-        onEscape={onEscape}
+        keyComboActions={inputState.keyComboActions}
+        onTab={inputState.onTab}
+        onEscape={inputState.onEscape}
         language={configLanguage}
         isDisabled={isDisabled}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
-      {showRightIndicator && (
-        <div className="single-cell-child pointer-events-none mr-2 flex items-center gap-1 self-center justify-self-end">
-          {showCallableErrorIndicator && (
-            <span
-              className="pointer-events-auto grid h-[18px] w-[18px] place-items-center rounded-full bg-red-500/80 text-white"
-              onContextMenu={onCallableErrorContextMenu}
-            >
-              <BiError className="h-[14px] w-[14px]" />
-            </span>
-          )}
-          {showStatusIndicator && (
-            <span className="relative grid h-[22px] w-[22px] place-items-center">
-              {valueNameInconsistent && (
-                <span className="setta-callable-ready-icon">
-                  <i className="gg-corner-right-down" />
-                </span>
-              )}
-              {waitingForResult && (
-                <span className="absolute inset-0 grid place-items-center rounded bg-white dark:bg-setta-950">
-                  <i className="gg-spinner text-blue-500/70" />
-                </span>
-              )}
-            </span>
-          )}
-        </div>
-      )}
+      <SectionSearchRightIndicator
+        onCallableErrorContextMenu={onCallableErrorContextMenu}
+        showCallableErrorIndicator={showCallableErrorIndicator}
+        showStatusIndicator={showStatusIndicator}
+        valueNameInconsistent={inputState.valueNameInconsistent}
+        waitingForResult={waitingForResult}
+      />
     </search>
   );
 }
-
 async function setCallable(
   sectionId: string,
   callableName: string,
@@ -434,9 +529,8 @@ async function setCallable(
     callableName,
     refetchParams,
   };
-  const res = await route_set_callable(payload);
-  if (res200(res)) {
-    // state update occurs by websocket
+  const updated = await setCallableAndRefreshProjectState(payload);
+  if (updated) {
     setToNotWaiting();
   }
 }

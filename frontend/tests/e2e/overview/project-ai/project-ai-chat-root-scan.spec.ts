@@ -9,12 +9,7 @@ import {
 } from "../../helpers";
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return {
-    chatId,
-    runId: `${chatId}-run`,
-    engineType: "setta_llm" as const,
-    sectionId: null,
-  };
+  return chatId;
 }
 
 type FolderContentsRequest = {
@@ -157,15 +152,31 @@ test("project chat skips workspace root scan when returning to an existing chat"
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
 
-  let getRootCalls = 0;
-  let getFolderCalls = 0;
-  // Count expensive root-scan endpoints while still serving real backend responses.
+  let workspaceRootPath: string | null = null;
+  let rootScanCalls = 0;
+  // `getFileBrowserRoot` is shared by other surfaces, so count only the
+  // project-chat-specific workspace scan signature on `getFolderContents`.
   await page.route("**/api/getFileBrowserRoot", async (route) => {
-    getRootCalls += 1;
-    await route.continue();
+    const response = await route.fetch();
+    const rootResponse = (await response.json()) as {
+      rootPath?: string;
+    } | null;
+    const nextRootPath = rootResponse?.rootPath?.trim() ?? "";
+    workspaceRootPath = nextRootPath || null;
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify(rootResponse),
+    });
   });
   await page.route("**/api/getFolderContents", async (route) => {
-    getFolderCalls += 1;
+    const request = route.request().postDataJSON() as FolderContentsRequest;
+    if (
+      workspaceRootPath !== null &&
+      isProjectChatWorkspaceRootScan(request, workspaceRootPath)
+    ) {
+      rootScanCalls += 1;
+    }
     await route.continue();
   });
 
@@ -258,8 +269,7 @@ test("project chat skips workspace root scan when returning to an existing chat"
     await input.press("Enter");
     await expect(projectChatWindow.getByText("hello from playwright")).toBeVisible();
 
-    const baselineRootCalls = getRootCalls;
-    const baselineFolderCalls = getFolderCalls;
+    const baselineRootScanCalls = rootScanCalls;
 
     // Re-mount Project AI Chat with an active chat to verify scans are skipped.
     await page.getByTestId("overview-tab-overview").click();
@@ -270,8 +280,7 @@ test("project chat skips workspace root scan when returning to an existing chat"
     await expect(projectChatWindow.getByText("hello from playwright")).toBeVisible();
 
     await page.waitForTimeout(300);
-    expect(getRootCalls).toBe(baselineRootCalls);
-    expect(getFolderCalls).toBe(baselineFolderCalls);
+    expect(rootScanCalls).toBe(baselineRootScanCalls);
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);

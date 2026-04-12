@@ -33,17 +33,10 @@ __all__ = [
     "LoggingContextInput",
     "LoggingContextPrimitive",
     "LoggingContextToken",
-    "get_logging_context",
     "logging_context",
     "push_logging_context",
     "reset_logging_context",
 ]
-
-
-def get_logging_context() -> LoggingContextData:
-    """Return a copy of the current logging context."""
-
-    return dict(_LOGGING_CONTEXT_VAR.get().data)
 
 
 def push_logging_context(
@@ -132,20 +125,18 @@ def _updated_context(
 
 
 def _normalize_value(value: LoggingContextInput) -> str:
-    if value is None:
-        raise ValueError("logging context values cannot be None")
-    if isinstance(value, bool):
-        return "true" if value else "false"
     sanitized = sanitize_for_logging_context(value)
     if sanitized is None:
         raise ValueError("logging context values cannot be None")
-    if isinstance(sanitized, bool):
-        return "true" if sanitized else "false"
-    if isinstance(sanitized, (int, float)):
-        return str(sanitized)
-    if isinstance(sanitized, str):
-        return sanitized
+    if isinstance(sanitized, (bool, int, float, str)):
+        return _stringify_scalar_context_value(sanitized)
     return to_compact_json(sanitized)
+
+
+def _stringify_scalar_context_value(value: LoggingContextPrimitive) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
 
 
 def _build_snapshot(values: LoggingContextData) -> _LoggingContextSnapshot:
