@@ -32,6 +32,7 @@ import {
   AgentProfile,
   FormatEnum,
   Template,
+  TranscriptionProfileUIConfig,
   createSettingsState,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -495,7 +496,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
                   }}
                 >
                   <p className="truncate font-semibold">
-                    {profile.name || "Untitled"}
+                    {profile.name || TranscriptionProfileUIConfig.defaultName}
                   </p>
                   {profile.description ? (
                     <p className="truncate text-[11px] opacity-80">

@@ -15752,6 +15752,77 @@
         "title": "TranscriptionProfile",
         "type": "object"
       },
+      "TranscriptionProfileTransportModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/TransportMode"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TranscriptionProfileTransportModeOption",
+        "type": "object"
+      },
+      "TranscriptionProfileTransportModesValue": {
+        "additionalProperties": false,
+        "properties": {
+          "auto": {
+            "$ref": "#/components/schemas/TransportMode"
+          },
+          "file": {
+            "$ref": "#/components/schemas/TransportMode"
+          },
+          "realtime": {
+            "$ref": "#/components/schemas/TransportMode"
+          }
+        },
+        "required": ["auto", "file", "realtime"],
+        "title": "TranscriptionProfileTransportModesValue",
+        "type": "object"
+      },
+      "TranscriptionProfileUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "defaultChunkMs": {
+            "type": "integer"
+          },
+          "defaultName": {
+            "type": "string"
+          },
+          "defaultTransportMode": {
+            "$ref": "#/components/schemas/TransportMode"
+          },
+          "maxChunkMs": {
+            "type": "integer"
+          },
+          "minChunkMs": {
+            "type": "integer"
+          },
+          "transportModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptionProfileTransportModeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "transportModes": {
+            "$ref": "#/components/schemas/TranscriptionProfileTransportModesValue"
+          }
+        },
+        "required": [
+          "defaultName",
+          "defaultTransportMode",
+          "defaultChunkMs",
+          "minChunkMs",
+          "maxChunkMs",
+          "transportModes",
+          "transportModeOptions"
+        ],
+        "title": "TranscriptionProfileUIConfigValue",
+        "type": "object"
+      },
       "TranscriptionProfilesUpdatedContent": {
         "additionalProperties": false,
         "properties": {

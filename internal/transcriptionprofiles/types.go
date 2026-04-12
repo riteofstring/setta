@@ -13,6 +13,13 @@ const (
 	TransportModeRealtime TransportMode = "realtime"
 )
 
+const (
+	DefaultProfileName = "Untitled"
+	DefaultChunkMs     = 1200
+	MinChunkMs         = 200
+	MaxChunkMs         = 10_000
+)
+
 type Profile struct {
 	ID                            string        `json:"id"`
 	Name                          string        `json:"name"`
@@ -46,8 +53,13 @@ func (p Profile) normalized() (Profile, error) {
 	default:
 		return Profile{}, fmt.Errorf("transcription profile %q transport mode %q is invalid", normalized.ID, p.TransportMode)
 	}
-	if normalized.ChunkMs < 200 || normalized.ChunkMs > 10_000 {
-		return Profile{}, fmt.Errorf("transcription profile %q chunkMs must be between 200 and 10000", normalized.ID)
+	if normalized.ChunkMs < MinChunkMs || normalized.ChunkMs > MaxChunkMs {
+		return Profile{}, fmt.Errorf(
+			"transcription profile %q chunkMs must be between %d and %d",
+			normalized.ID,
+			MinChunkMs,
+			MaxChunkMs,
+		)
 	}
 	normalized.Language = cloneStringPointer(p.Language)
 	if normalized.Language != nil {

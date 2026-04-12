@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/scriptablechat"
+	"setta/internal/transcriptionprofiles"
 	"setta/internal/transcriptionsessions"
 	"setta/internal/wsapi"
 )
@@ -159,6 +161,48 @@ func TestFrontendValueSettaAPIPresetConfigUsesAuthoritativePresetContracts(t *te
 	gotAgain := FrontendValueSettaAPIPresetConfig()
 	if gotAgain.Presets[0].BodyTemplate["projectConfigId"] != frontendSettaAPIPresetProjectConfigIDToken {
 		t.Fatalf("expected preset body template to be cloned, got %#v", gotAgain.Presets[0].BodyTemplate["projectConfigId"])
+	}
+}
+
+func TestFrontendValueTranscriptionProfileUIConfigUsesAuthoritativeProfileMetadata(t *testing.T) {
+	got := FrontendValueTranscriptionProfileUIConfig()
+
+	if got.DefaultName != transcriptionprofiles.DefaultProfileName {
+		t.Fatalf("unexpected default name: got %q want %q", got.DefaultName, transcriptionprofiles.DefaultProfileName)
+	}
+	if got.DefaultTransportMode != transcriptionprofiles.TransportModeAuto {
+		t.Fatalf("unexpected default transport mode: got %q want %q", got.DefaultTransportMode, transcriptionprofiles.TransportModeAuto)
+	}
+	if got.DefaultChunkMs != transcriptionprofiles.DefaultChunkMs {
+		t.Fatalf("unexpected default chunkMs: got %d want %d", got.DefaultChunkMs, transcriptionprofiles.DefaultChunkMs)
+	}
+	if got.MinChunkMs != transcriptionprofiles.MinChunkMs {
+		t.Fatalf("unexpected min chunkMs: got %d want %d", got.MinChunkMs, transcriptionprofiles.MinChunkMs)
+	}
+	if got.MaxChunkMs != transcriptionprofiles.MaxChunkMs {
+		t.Fatalf("unexpected max chunkMs: got %d want %d", got.MaxChunkMs, transcriptionprofiles.MaxChunkMs)
+	}
+	if got.TransportModes.Auto != transcriptionprofiles.TransportModeAuto {
+		t.Fatalf("unexpected auto transport mode: got %q want %q", got.TransportModes.Auto, transcriptionprofiles.TransportModeAuto)
+	}
+	if got.TransportModes.File != transcriptionprofiles.TransportModeFile {
+		t.Fatalf("unexpected file transport mode: got %q want %q", got.TransportModes.File, transcriptionprofiles.TransportModeFile)
+	}
+	if got.TransportModes.Realtime != transcriptionprofiles.TransportModeRealtime {
+		t.Fatalf("unexpected realtime transport mode: got %q want %q", got.TransportModes.Realtime, transcriptionprofiles.TransportModeRealtime)
+	}
+	if want := []TranscriptionProfileTransportModeOption{
+		{Value: transcriptionprofiles.TransportModeAuto, Label: "auto"},
+		{Value: transcriptionprofiles.TransportModeFile, Label: "file"},
+		{Value: transcriptionprofiles.TransportModeRealtime, Label: "realtime"},
+	}; !reflect.DeepEqual(got.TransportModeOptions, want) {
+		t.Fatalf("unexpected transport mode options: %#v", got.TransportModeOptions)
+	}
+
+	got.TransportModeOptions[0].Label = "mutated"
+	gotAgain := FrontendValueTranscriptionProfileUIConfig()
+	if gotAgain.TransportModeOptions[0].Label != "auto" {
+		t.Fatalf("expected transport mode options to be cloned, got %#v", gotAgain.TransportModeOptions)
 	}
 }
 

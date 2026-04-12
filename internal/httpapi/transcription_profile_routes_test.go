@@ -131,6 +131,41 @@ func TestRegisterTranscriptionProfileRoutesCreatesProfile(t *testing.T) {
 	}
 }
 
+func TestRegisterTranscriptionProfileRoutesDefaultsBlankNameAndFileChunkOnCreate(t *testing.T) {
+	t.Parallel()
+
+	service := newTranscriptionProfileRouteTestService(t, nil, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:       "openai-file",
+			Model:    "whisper-1",
+			Provider: "openai",
+		},
+	})
+	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeIDE, service)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateTranscriptionProfile,
+		strings.NewReader(`{"name":"   ","transcriptionLlmConfigId":"openai-file","transportMode":"file"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var created transcriptionprofiles.Profile
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created profile: %v", err)
+	}
+	if created.Name != transcriptionprofiles.DefaultProfileName {
+		t.Fatalf("expected default name, got %#v", created)
+	}
+	if created.ChunkMs != transcriptionprofiles.DefaultChunkMs {
+		t.Fatalf("expected default chunk size, got %#v", created)
+	}
+}
+
 func TestRegisterTranscriptionProfileRoutesUpdatesProfile(t *testing.T) {
 	t.Parallel()
 
@@ -176,6 +211,57 @@ func TestRegisterTranscriptionProfileRoutesUpdatesProfile(t *testing.T) {
 	}
 	if !updated.SupportsRealtimeTranscription {
 		t.Fatalf("expected realtime support, got %#v", updated)
+	}
+}
+
+func TestRegisterTranscriptionProfileRoutesDefaultsBlankNameAndFileChunkOnUpdate(t *testing.T) {
+	t.Parallel()
+
+	service := newTranscriptionProfileRouteTestService(t, []transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-1",
+			Name:                     "Realtime",
+			TranscriptionLLMConfigID: "openai-realtime",
+			TransportMode:            transcriptionprofiles.TransportModeRealtime,
+			ChunkMs:                  1600,
+		},
+	}, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:       "openai-file",
+			Model:    "whisper-1",
+			Provider: "openai",
+		},
+		"openai-realtime": {
+			ID:       "openai-realtime",
+			Model:    "gpt-4o-transcribe",
+			Provider: "openai",
+		},
+	})
+	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeIDE, service)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateTranscriptionProfile,
+		strings.NewReader(`{"profile":{"id":"profile-1","name":"   ","transcriptionLlmConfigId":"openai-file","transportMode":"file"}}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var updated transcriptionprofiles.Profile
+	if err := json.Unmarshal(response.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode updated profile: %v", err)
+	}
+	if updated.Name != transcriptionprofiles.DefaultProfileName {
+		t.Fatalf("expected default name, got %#v", updated)
+	}
+	if updated.TransportMode != transcriptionprofiles.TransportModeFile {
+		t.Fatalf("expected file transport, got %#v", updated)
+	}
+	if updated.ChunkMs != transcriptionprofiles.DefaultChunkMs {
+		t.Fatalf("expected default chunk size, got %#v", updated)
 	}
 }
 

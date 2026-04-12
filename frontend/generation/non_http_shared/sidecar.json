@@ -5826,6 +5826,21 @@
       "schemaRef": "#/$defs/TranscriptionProfile"
     },
     {
+      "name": "TranscriptionProfileTransportModeOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TranscriptionProfileTransportModeOption"
+    },
+    {
+      "name": "TranscriptionProfileTransportModesValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/TranscriptionProfileTransportModesValue"
+    },
+    {
+      "name": "TranscriptionProfileUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/TranscriptionProfileUIConfigValue"
+    },
+    {
       "name": "TranscriptionProfilesUpdatedContent",
       "kind": "model",
       "schemaRef": "#/$defs/TranscriptionProfilesUpdatedContent"
@@ -11254,6 +11269,36 @@
         "mcpPrefix": "mcp__",
         "singlePrefix": "setta_",
         "todoWriteToolName": "TodoWrite"
+      }
+    },
+    {
+      "name": "TranscriptionProfileUIConfig",
+      "type": "TranscriptionProfileUIConfigValue",
+      "value": {
+        "defaultChunkMs": 1200,
+        "defaultName": "Untitled",
+        "defaultTransportMode": "auto",
+        "maxChunkMs": 10000,
+        "minChunkMs": 200,
+        "transportModeOptions": [
+          {
+            "label": "auto",
+            "value": "auto"
+          },
+          {
+            "label": "file",
+            "value": "file"
+          },
+          {
+            "label": "realtime",
+            "value": "realtime"
+          }
+        ],
+        "transportModes": {
+          "auto": "auto",
+          "file": "file",
+          "realtime": "realtime"
+        }
       }
     },
     {

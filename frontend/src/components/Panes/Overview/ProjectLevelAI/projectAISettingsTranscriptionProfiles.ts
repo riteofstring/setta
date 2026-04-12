@@ -1,15 +1,7 @@
-import { type TranscriptionProfile } from "utils/generatedTypes";
-
-// The generated frontend surface exposes this as a type-only contract today, but
-// the UI needs runtime values for select options and default draft state.
-export const TranscriptionTransportModeEnum = {
-  auto: "auto",
-  file: "file",
-  realtime: "realtime",
-} as const satisfies Record<
-  TranscriptionProfile["transportMode"],
-  TranscriptionProfile["transportMode"]
->;
+import {
+  TranscriptionProfileUIConfig,
+  type TranscriptionProfile,
+} from "utils/generatedTypes";
 
 type TranscriptionTransportModeValue = TranscriptionProfile["transportMode"];
 
@@ -29,16 +21,14 @@ type TranscriptionProfileSaveInput = {
   language: string | null;
 };
 
-const TRANSCRIPTION_CHUNK_MS_DEFAULT = 1200;
-
 export function createTranscriptionProfileDraft(
   transcriptionLlmConfigId: string,
 ): TranscriptionProfileDraft {
   return {
     name: "",
     transcriptionLlmConfigId,
-    transportMode: TranscriptionTransportModeEnum.auto,
-    chunkMs: String(TRANSCRIPTION_CHUNK_MS_DEFAULT),
+    transportMode: TranscriptionProfileUIConfig.defaultTransportMode,
+    chunkMs: String(TranscriptionProfileUIConfig.defaultChunkMs),
     language: "",
   };
 }
@@ -66,7 +56,7 @@ export function buildTranscriptionProfileSaveInput(
     return null;
   }
   return {
-    name: draft.name.trim() || "Untitled",
+    name: draft.name.trim(),
     transcriptionLlmConfigId: draft.transcriptionLlmConfigId,
     transportMode: draft.transportMode,
     chunkMs,
@@ -81,14 +71,14 @@ export function resolveTranscriptionChunkMsForSave({
   transportMode: TranscriptionTransportModeValue;
   chunkMsInput: string;
 }): number | null {
-  if (transportMode === TranscriptionTransportModeEnum.file) {
-    return TRANSCRIPTION_CHUNK_MS_DEFAULT;
+  if (transportMode === TranscriptionProfileUIConfig.transportModes.file) {
+    return TranscriptionProfileUIConfig.defaultChunkMs;
   }
   const parsedChunkMs = Number.parseInt(chunkMsInput, 10);
   if (
     !Number.isInteger(parsedChunkMs) ||
-    parsedChunkMs < 200 ||
-    parsedChunkMs > 10000
+    parsedChunkMs < TranscriptionProfileUIConfig.minChunkMs ||
+    parsedChunkMs > TranscriptionProfileUIConfig.maxChunkMs
   ) {
     return null;
   }

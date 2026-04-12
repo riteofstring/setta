@@ -4849,6 +4849,20 @@ export const ToolNameNormalizationConfig = {
   todoWriteToolName: "TodoWrite",
 } satisfies gt.ToolNameNormalization;
 
+export const TranscriptionProfileUIConfig = {
+  defaultChunkMs: 1200,
+  defaultName: "Untitled",
+  defaultTransportMode: "auto",
+  maxChunkMs: 10000,
+  minChunkMs: 200,
+  transportModeOptions: [
+    { label: "auto", value: "auto" },
+    { label: "file", value: "file" },
+    { label: "realtime", value: "realtime" },
+  ],
+  transportModes: { auto: "auto", file: "file", realtime: "realtime" },
+} satisfies gt.TranscriptionProfileUIConfigValue;
+
 export const TransportRouteConstants = {
   apiPrefix: "/api",
   binary: { download: "/binary/{contentId}", upload: "/binary/upload" },

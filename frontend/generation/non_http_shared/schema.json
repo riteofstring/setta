@@ -18501,6 +18501,87 @@
       ],
       "additionalProperties": false
     },
+    "TranscriptionProfileTransportModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/TransportMode"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "TranscriptionProfileTransportModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "TranscriptionProfileTransportModesValue": {
+      "type": "object",
+      "properties": {
+        "auto": {
+          "$ref": "#/$defs/TransportMode"
+        },
+        "file": {
+          "$ref": "#/$defs/TransportMode"
+        },
+        "realtime": {
+          "$ref": "#/$defs/TransportMode"
+        }
+      },
+      "title": "TranscriptionProfileTransportModesValue",
+      "required": [
+        "auto",
+        "file",
+        "realtime"
+      ],
+      "additionalProperties": false
+    },
+    "TranscriptionProfileUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "defaultName": {
+          "type": "string"
+        },
+        "defaultTransportMode": {
+          "$ref": "#/$defs/TransportMode"
+        },
+        "defaultChunkMs": {
+          "type": "integer"
+        },
+        "minChunkMs": {
+          "type": "integer"
+        },
+        "maxChunkMs": {
+          "type": "integer"
+        },
+        "transportModes": {
+          "$ref": "#/$defs/TranscriptionProfileTransportModesValue"
+        },
+        "transportModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/TranscriptionProfileTransportModeOption"
+          }
+        }
+      },
+      "title": "TranscriptionProfileUIConfigValue",
+      "required": [
+        "defaultName",
+        "defaultTransportMode",
+        "defaultChunkMs",
+        "minChunkMs",
+        "maxChunkMs",
+        "transportModes",
+        "transportModeOptions"
+      ],
+      "additionalProperties": false
+    },
     "TranscriptionProfilesUpdatedContent": {
       "type": "object",
       "properties": {

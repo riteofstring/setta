@@ -6462,6 +6462,36 @@ export type TranscriptionProfile = {
 };
 
 /**
+ * TranscriptionProfileTransportModeOption
+ */
+type TranscriptionProfileTransportModeOption = {
+  label: string;
+  value: TransportMode;
+};
+
+/**
+ * TranscriptionProfileTransportModesValue
+ */
+type TranscriptionProfileTransportModesValue = {
+  auto: TransportMode;
+  file: TransportMode;
+  realtime: TransportMode;
+};
+
+/**
+ * TranscriptionProfileUIConfigValue
+ */
+export type TranscriptionProfileUIConfigValue = {
+  defaultChunkMs: number;
+  defaultName: string;
+  defaultTransportMode: TransportMode;
+  maxChunkMs: number;
+  minChunkMs: number;
+  transportModeOptions: null | Array<TranscriptionProfileTransportModeOption>;
+  transportModes: TranscriptionProfileTransportModesValue;
+};
+
+/**
  * TranscriptionProfilesUpdatedContent
  */
 type TranscriptionProfilesUpdatedContent = {

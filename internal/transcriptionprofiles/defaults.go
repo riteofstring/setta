@@ -34,7 +34,7 @@ func defaultProfiles() []Profile {
 			Name:                     "OpenAI Whisper 1",
 			TranscriptionLLMConfigID: "openai-whisper-1",
 			TransportMode:            TransportModeFile,
-			ChunkMs:                  1200,
+			ChunkMs:                  DefaultChunkMs,
 		},
 	}
 }

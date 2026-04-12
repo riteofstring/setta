@@ -133,6 +133,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "TranscriptionProfileUIConfig",
+			Type: reflect.TypeOf(httpapi.FrontendValueTranscriptionProfileUIConfig()),
+			Value: func() any {
+				return httpapi.FrontendValueTranscriptionProfileUIConfig()
+			},
+		},
+		{
 			Name: "TransportRouteConstants",
 			Type: reflect.TypeOf(httpapi.FrontendValueTransportRouteConstants()),
 			Value: func() any {

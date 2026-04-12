@@ -6,7 +6,10 @@ import {
   updateTranscriptionProfile,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
-import { type TranscriptionProfile } from "utils/generatedTypes";
+import {
+  TranscriptionProfileUIConfig,
+  type TranscriptionProfile,
+} from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { useSelectableDraftManager } from "./projectAISettingsManagerState";
 import {
@@ -21,12 +24,11 @@ import {
   resolveManagerItemClassName,
 } from "./projectAISettingsShared";
 import {
-  type TranscriptionProfileDraft,
-  TranscriptionTransportModeEnum,
   buildTranscriptionProfileDraft,
   buildTranscriptionProfileSaveInput,
   createTranscriptionProfileDraft,
   resolveTranscriptionChunkMsForSave,
+  type TranscriptionProfileDraft,
 } from "./projectAISettingsTranscriptionProfiles";
 
 export function TranscriptionProfilesManager({
@@ -43,10 +45,8 @@ export function TranscriptionProfilesManager({
     shallow,
   );
   const [isCreating, setIsCreating] = useState(false);
-  const transportModeOptions = useMemo(
-    () => Object.values(TranscriptionTransportModeEnum),
-    [],
-  );
+  const transportModeOptions =
+    TranscriptionProfileUIConfig.transportModeOptions;
   const configGroups = useMemo(
     () =>
       buildLLMConfigGroups(allLLMConfigs, apiKeys, {
@@ -229,7 +229,7 @@ function TranscriptionProfilesList({
             }}
           >
             <p className="truncate font-semibold">
-              {profile.name || "Untitled"}
+              {profile.name || TranscriptionProfileUIConfig.defaultName}
             </p>
             <p className="truncate text-[11px] opacity-80">
               {profile.transportMode}
@@ -258,7 +258,10 @@ function TranscriptionProfileEditor({
   canEdit: boolean;
   draft: TranscriptionProfileDraft | null;
   configGroups: ReturnType<typeof buildLLMConfigGroups>;
-  transportModeOptions: Array<string>;
+  transportModeOptions: ReadonlyArray<{
+    value: TranscriptionProfileDraft["transportMode"];
+    label: string;
+  }>;
   resolvedChunkMs: number | null;
   isSaveDisabled: boolean;
   isDeleteDisabled: boolean;
@@ -281,7 +284,7 @@ function TranscriptionProfileEditor({
     );
   }
   const usesFileTransport =
-    draft.transportMode === TranscriptionTransportModeEnum.file;
+    draft.transportMode === TranscriptionProfileUIConfig.transportModes.file;
   return (
     <div className={MANAGER_FORM_CLASS_NAME}>
       <Field label="Name">
@@ -331,8 +334,8 @@ function TranscriptionProfileEditor({
             disabled={!canEdit}
           >
             {transportModeOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -341,8 +344,8 @@ function TranscriptionProfileEditor({
           label="Chunk Length (ms)"
           hint={
             usesFileTransport
-              ? "File mode uses the backend default chunk size."
-              : "Must be between 200 and 10000 ms."
+              ? `File mode uses the backend default chunk size (${TranscriptionProfileUIConfig.defaultChunkMs} ms).`
+              : `Must be between ${TranscriptionProfileUIConfig.minChunkMs} and ${TranscriptionProfileUIConfig.maxChunkMs} ms.`
           }
           error={
             !usesFileTransport && resolvedChunkMs === null

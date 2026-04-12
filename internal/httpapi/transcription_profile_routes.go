@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -417,10 +418,6 @@ func validateTranscriptionProfileFields(
 	transportField string,
 	chunkField string,
 ) (string, string, transcriptionprofiles.TransportMode, int, bool) {
-	if name == nil {
-		writeValidationError(w, http.StatusUnprocessableEntity, nameField+": Field required")
-		return "", "", "", 0, false
-	}
 	if transcriptionLLMConfigID == nil {
 		writeValidationError(w, http.StatusUnprocessableEntity, configField+": Field required")
 		return "", "", "", 0, false
@@ -429,19 +426,62 @@ func validateTranscriptionProfileFields(
 		writeValidationError(w, http.StatusUnprocessableEntity, transportField+": Field required")
 		return "", "", "", 0, false
 	}
+	resolvedChunkMs, ok := resolveTranscriptionProfileChunkMs(w, *transportMode, chunkMs, chunkField)
+	if !ok {
+		return "", "", "", 0, false
+	}
+	return resolveTranscriptionProfileName(name), *transcriptionLLMConfigID, *transportMode, resolvedChunkMs, true
+}
+
+func resolveTranscriptionProfileName(name *string) string {
+	if name == nil {
+		return transcriptionprofiles.DefaultProfileName
+	}
+	trimmed := strings.TrimSpace(*name)
+	if trimmed == "" {
+		return transcriptionprofiles.DefaultProfileName
+	}
+	return trimmed
+}
+
+func resolveTranscriptionProfileChunkMs(
+	w http.ResponseWriter,
+	transportMode transcriptionprofiles.TransportMode,
+	chunkMs *int,
+	chunkField string,
+) (int, bool) {
+	if transportMode == transcriptionprofiles.TransportModeFile {
+		return transcriptionprofiles.DefaultChunkMs, true
+	}
 	if chunkMs == nil {
 		writeValidationError(w, http.StatusUnprocessableEntity, chunkField+": Field required")
-		return "", "", "", 0, false
+		return 0, false
 	}
-	if *chunkMs < 200 {
-		writeValidationError(w, http.StatusUnprocessableEntity, chunkField+": Input should be greater than or equal to 200")
-		return "", "", "", 0, false
+	if *chunkMs < transcriptionprofiles.MinChunkMs {
+		writeValidationError(
+			w,
+			http.StatusUnprocessableEntity,
+			fmt.Sprintf(
+				"%s: Input should be greater than or equal to %d",
+				chunkField,
+				transcriptionprofiles.MinChunkMs,
+			),
+		)
+		return 0, false
 	}
-	if *chunkMs > 10_000 {
-		writeValidationError(w, http.StatusUnprocessableEntity, chunkField+": Input should be less than or equal to 10000")
-		return "", "", "", 0, false
+	if *chunkMs > transcriptionprofiles.MaxChunkMs {
+		writeValidationError(
+			w,
+			http.StatusUnprocessableEntity,
+			fmt.Sprintf(
+				"%s: Input should be less than or equal to %d",
+				chunkField,
+				transcriptionprofiles.MaxChunkMs,
+			),
+		)
+		return 0, false
 	}
-	return *name, *transcriptionLLMConfigID, *transportMode, *chunkMs, true
+	return *chunkMs, true
 }
 
 func newTranscriptionProfileID() string {
