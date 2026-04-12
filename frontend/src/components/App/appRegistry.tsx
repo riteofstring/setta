@@ -11,6 +11,12 @@ import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import "katex/dist/katex.min.css";
 import _ from "lodash";
+import {
+  getPasswordParamValue,
+  loadCachedImageArtifacts,
+  setParamEnteredValue,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -19,9 +25,10 @@ import remarkMath from "remark-math";
 import { ensureAppProjectConfigLoaded } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrEffectiveSectionImpl,
-  getParamDisplayName,
+  getCurrSectionVariantId,
+  getParamDisplayNameIfPresent,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -31,7 +38,9 @@ import {
   useAppConfigs,
   useDecodedImages,
   useImages,
+  useProjectState,
   useServerMode,
+  type ZustandProjectState,
 } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
@@ -43,14 +52,10 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { res200 } from "utils/endpointUtils";
-import {
-  route_get_password_param_value,
-  route_load_cached_image_artifacts,
-  route_set_param_entered_value,
-} from "utils/generatedEndpoints";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import type {
   DateParamCodeObjImpl,
+  ImageArtifact,
   TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
@@ -91,41 +96,53 @@ import {
   useAppRuntime,
 } from "./appContext";
 import { resolveResponsiveValue, useAppBreakpoint } from "./appResponsive";
-
 type RawElementProps = {
   key?: unknown;
   type?: unknown;
   props?: Record<string, unknown>;
   children?: unknown;
 };
-
 type AppComponentProps = {
-  element: RawElementProps & { props?: Record<string, unknown> };
+  element: RawElementProps & {
+    props?: Record<string, unknown>;
+  };
   children?: React.ReactNode;
   onAction?: (action: Action) => void;
 };
-
+type AppConfigState = ZustandProjectState;
+type TabChildElement = React.ReactElement<AppComponentProps>;
+type NumberishStyleKey =
+  | "padding"
+  | "borderRadius"
+  | "fontSize"
+  | "lineHeight"
+  | "maxWidth"
+  | "width"
+  | "height";
+type ConfigLanguageValue =
+  (typeof ConfigLanguageEnum)[keyof typeof ConfigLanguageEnum];
+type CodeObjTypeValue = (typeof CodeObjTypeEnum)[keyof typeof CodeObjTypeEnum];
 const ALIGN_CLASS: Record<string, string> = {
   start: "items-start",
   center: "items-center",
   end: "items-end",
   stretch: "items-stretch",
 };
-
 const JUSTIFY_CLASS: Record<string, string> = {
   start: "justify-start",
   center: "justify-center",
   end: "justify-end",
   between: "justify-between",
 };
-
 const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
   background: "var(--app-background)",
   surface: "var(--app-surface)",
   surfaceAlt: "var(--app-surface-alt)",
   card: "var(--app-card-bg)",
 };
-
+type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
+  Array<ImageArtifact>
+>;
 function resolveConfigId(
   bindingConfigId: string | null,
   runtimeConfigId: string | null,
@@ -133,26 +150,697 @@ function resolveConfigId(
 ) {
   return bindingConfigId ?? scopeConfigId ?? runtimeConfigId ?? null;
 }
+function resolveElementProps(
+  element: AppComponentProps["element"],
+): Record<string, unknown> {
+  return element.props ?? {};
+}
+function resolveStringProp(raw: unknown, fallback = ""): string {
+  return typeof raw === "string" ? raw : fallback;
+}
+function resolveNullableStringProp(raw: unknown): string | null {
+  return typeof raw === "string" ? raw : null;
+}
+function resolveNumberish(raw: unknown): number | string | null {
+  return typeof raw === "number" || typeof raw === "string" ? raw : null;
+}
+function resolveResponsiveNumberish(
+  raw: unknown,
+  breakpoint: ReturnType<typeof useAppBreakpoint>,
+): number | string | null {
+  return resolveNumberish(resolveResponsiveValue(raw, breakpoint));
+}
+function resolveGapValue(
+  raw: unknown,
+  breakpoint: ReturnType<typeof useAppBreakpoint>,
+  themeGap: unknown,
+): number | string {
+  return (
+    resolveResponsiveNumberish(raw, breakpoint) ??
+    resolveNumberish(themeGap) ??
+    16
+  );
+}
+function assignNumberishStyle(
+  style: React.CSSProperties,
+  key: NumberishStyleKey,
+  value: number | string | null,
+): void {
+  if (value === null) {
+    return;
+  }
+  style[key] = typeof value === "number" ? `${value}px` : value;
+}
+function buildCardStyle(
+  cardPadding: unknown,
+  cardRadius: unknown,
+): React.CSSProperties {
+  const style: React.CSSProperties = {
+    boxShadow: "var(--app-card-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))",
+  };
+  assignNumberishStyle(style, "padding", resolveNumberish(cardPadding));
+  assignNumberishStyle(style, "borderRadius", resolveNumberish(cardRadius));
+  return style;
+}
+function buildTypographyStyle(args: {
+  fontFamily?: string | undefined;
+  fontSize: unknown;
+  lineHeight: unknown;
+}): React.CSSProperties | undefined {
+  const { fontFamily, fontSize, lineHeight } = args;
+  const style: React.CSSProperties = {};
+  if (fontFamily) {
+    style.fontFamily = fontFamily;
+  }
+  assignNumberishStyle(style, "fontSize", resolveNumberish(fontSize));
+  assignNumberishStyle(style, "lineHeight", resolveNumberish(lineHeight));
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+function resolveMotionSettings(args: {
+  delayMs: unknown;
+  durationMs: unknown;
+  easing: unknown;
+  preset: unknown;
+  themeMotion:
+    | {
+        delayMs?: number;
+        durationMs?: number;
+        easing?: string;
+        staggerMs?: number;
+      }
+    | null
+    | undefined;
+  staggerMs?: unknown;
+}) {
+  const { delayMs, durationMs, easing, preset, staggerMs, themeMotion } = args;
+  const fallbackEasing = themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
+  return {
+    delayMs: resolveNumber(delayMs, themeMotion?.delayMs ?? 0),
+    durationMs: resolveNumber(durationMs, themeMotion?.durationMs ?? 220),
+    easing: resolveEasing(easing, fallbackEasing),
+    preset: resolveMotionPreset(preset),
+    staggerMs: resolveNumber(staggerMs, themeMotion?.staggerMs ?? 70),
+  };
+}
+type ResolvedTabDefinition = {
+  child: TabChildElement;
+  hasContent: boolean;
+  key: string;
+  title: string;
+};
+function resolveTabKey(
+  child: TabChildElement,
+  index: number,
+  tabElement: RawElementProps | null,
+): string {
+  if (tabElement && typeof tabElement.key === "string" && tabElement.key) {
+    return tabElement.key;
+  }
+  return typeof child.key === "string" ? child.key : `tab-${index}`;
+}
+function resolveTabTitle(
+  index: number,
+  tabElement: RawElementProps | null,
+): string {
+  if (tabElement?.props && typeof tabElement.props.title === "string") {
+    return tabElement.props.title;
+  }
+  return `Tab ${index + 1}`;
+}
+function resolveTabDefinition(
+  child: TabChildElement,
+  index: number,
+): ResolvedTabDefinition {
+  const tabElement = child.props?.element ?? null;
+  return {
+    child,
+    hasContent:
+      hasNonEmptyChildrenMetadata(tabElement) ||
+      React.Children.count(child.props?.children) > 0,
+    key: resolveTabKey(child, index, tabElement),
+    title: resolveTabTitle(index, tabElement),
+  };
+}
+function CardHeader(props: {
+  description: string | null;
+  title: string | null;
+}) {
+  const { description, title } = props;
+  if (!title && !description) {
+    return null;
+  }
+  return (
+    <header className="flex flex-col gap-1">
+      {title ? (
+        <h3 className="font-semibold text-[color:var(--app-text)] [font-size:var(--app-text-sm)]">
+          {title}
+        </h3>
+      ) : null}
+      {description ? (
+        <p className="text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
+          {description}
+        </p>
+      ) : null}
+    </header>
+  );
+}
+const HEADING_KEY_BY_LEVEL = { 1: "h1", 2: "h2", 3: "h3", 4: "h4" } as const;
+const HEADING_SIZE_CLASS_BY_LEVEL: Record<number, string> = {
+  1: "[font-size:var(--app-text-2xl)]",
+  2: "[font-size:var(--app-text-xl)]",
+  3: "[font-size:var(--app-text-lg)]",
+  4: "[font-size:var(--app-text-base)]",
+};
+function resolveHeadingPresentation(level: number) {
+  const clampedLevel = Math.min(Math.max(level, 1), 4);
+  return {
+    clampedLevel,
+    headingSizeKey: HEADING_KEY_BY_LEVEL[clampedLevel],
+    sizeClass:
+      HEADING_SIZE_CLASS_BY_LEVEL[clampedLevel] ??
+      "[font-size:var(--app-text-base)]",
+  };
+}
+type ResolvedActionButtonState = {
+  actionName: string;
+  actionType: string | null;
+  disabledReason: string | null;
+  isDisabled: boolean;
+  isRunAction: boolean;
+  resolvedLabel: string;
+};
+type ActionButtonKind = "default" | "download" | "externalLink" | "run";
 
+function resolveActionButtonKind(
+  actionName: string,
+  actionType: string | null,
+): ActionButtonKind {
+  if (actionName === "run" || actionType === "run") {
+    return "run";
+  }
+  if (actionType === "downloadArtifact" || actionType === "downloadBinary") {
+    return "download";
+  }
+  if (actionType === "openExternalLink") {
+    return "externalLink";
+  }
+  return "default";
+}
+
+function resolveActionButtonAvailability(args: {
+  allowDownloads: boolean;
+  allowLinks: boolean;
+  canRun: boolean;
+  isRunning: boolean;
+  kind: ActionButtonKind;
+  runDisabledReason: string | null;
+}): Pick<
+  ResolvedActionButtonState,
+  "disabledReason" | "isDisabled" | "isRunAction"
+> {
+  switch (args.kind) {
+    case "run": {
+      const isDisabled = !args.canRun || args.isRunning;
+      return {
+        disabledReason: isDisabled
+          ? args.runDisabledReason ?? "Run disabled"
+          : null,
+        isDisabled,
+        isRunAction: true,
+      };
+    }
+    case "download":
+      return {
+        disabledReason: args.allowDownloads
+          ? null
+          : "File downloads are disabled by policy.",
+        isDisabled: !args.allowDownloads,
+        isRunAction: false,
+      };
+    case "externalLink":
+      return {
+        disabledReason: args.allowLinks
+          ? null
+          : "External links are disabled by policy.",
+        isDisabled: !args.allowLinks,
+        isRunAction: false,
+      };
+    default:
+      return {
+        disabledReason: null,
+        isDisabled: false,
+        isRunAction: false,
+      };
+  }
+}
+
+function resolveActionButtonState(args: {
+  action: string | null;
+  actionDefinition: unknown;
+  allowDownloads: boolean;
+  allowLinks: boolean;
+  canRun: boolean;
+  isRunning: boolean;
+  label: string | null;
+  runDisabledReason: string | null;
+}): ResolvedActionButtonState {
+  const {
+    action,
+    actionDefinition,
+    allowDownloads,
+    allowLinks,
+    canRun,
+    isRunning,
+    label,
+    runDisabledReason,
+  } = args;
+  const actionName = action ?? "";
+  const actionType = resolveActionType(
+    actionName,
+    actionDefinition ?? undefined,
+  );
+  const { disabledReason, isDisabled, isRunAction } =
+    resolveActionButtonAvailability({
+      allowDownloads,
+      allowLinks,
+      canRun,
+      isRunning,
+      kind: resolveActionButtonKind(actionName, actionType),
+      runDisabledReason,
+    });
+  return {
+    actionName,
+    actionType,
+    disabledReason,
+    isDisabled,
+    isRunAction,
+    resolvedLabel: label ?? "Run",
+  };
+}
+function buildActionParams(
+  resolvedConfigId: string | null,
+  sectionId: string | null,
+): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (sectionId) {
+    params.sectionId = sectionId;
+  }
+  if (resolvedConfigId) {
+    params.configId = resolvedConfigId;
+  }
+  return params;
+}
+type ResolvedParamBindingState = {
+  canRenderParam: boolean;
+  codeObjImpl: BaseChildlessCodeObjImplUnion | null;
+  displayName: string | null;
+  sectionImpl: BaseSectionImplUnion | null;
+};
+function getParamBindingFailureState(): ResolvedParamBindingState {
+  return {
+    canRenderParam: false,
+    codeObjImpl: null,
+    displayName: null,
+    sectionImpl: null,
+  };
+}
+function resolveCodeObjVariantIdForParam(args: {
+  paramId: string;
+  sectionImpl: BaseSectionImplUnion;
+}): string | null {
+  const { paramId, sectionImpl } = args;
+  if (sectionImpl.type === SectionTypeEnum.MetaControl) {
+    const controlParamId = sectionImpl.metaControlParamId;
+    if (!controlParamId || controlParamId !== paramId) {
+      return null;
+    }
+    return sectionImpl.codeObjVariantMap?.[paramId] ?? null;
+  }
+  if (!isBaseSectionWithParamsImpl(sectionImpl)) {
+    return null;
+  }
+  return sectionImpl.codeObjVariantMap[paramId] ?? null;
+}
+function resolveParamBindingState(args: {
+  configState: AppConfigState;
+  paramId: string;
+  sectionId: string;
+}): ResolvedParamBindingState {
+  const { configState, paramId, sectionId } = args;
+  const variantId =
+    configState.previewSectionVariantMap[sectionId] ??
+    configState.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    return getParamBindingFailureState();
+  }
+  const variant = configState.sectionVariants[variantId];
+  if (!variant) {
+    return getParamBindingFailureState();
+  }
+  const sectionImpl = configState.sectionImpls[variant.impl];
+  if (!sectionImpl || !configState.sections[sectionId]) {
+    return getParamBindingFailureState();
+  }
+  const codeObjVariantId = resolveCodeObjVariantIdForParam({
+    paramId,
+    sectionImpl,
+  });
+  if (!codeObjVariantId) {
+    return getParamBindingFailureState();
+  }
+  if (!hasValidParamCodeObjBinding(configState, codeObjVariantId, paramId)) {
+    return getParamBindingFailureState();
+  }
+  const previewActive =
+    configState.previewSectionVariantMap[sectionId] !== undefined;
+  const effectiveSectionImpl = getCurrEffectiveSectionImpl(
+    configState,
+    sectionId,
+    previewActive,
+  );
+  const effectiveCodeObjImpl =
+    getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+      configState,
+      sectionId,
+      paramId,
+      isBaseChildlessCodeObjImpl,
+      previewActive,
+    );
+  if (!effectiveCodeObjImpl) {
+    return getParamBindingFailureState();
+  }
+  return {
+    canRenderParam: true,
+    codeObjImpl: effectiveCodeObjImpl,
+    displayName: getParamDisplayNameIfPresent(configState, sectionId, paramId),
+    sectionImpl: effectiveSectionImpl,
+  };
+}
+function hasValidParamCodeObjBinding(
+  configState: AppConfigState,
+  codeObjVariantId: string,
+  paramId: string,
+): boolean {
+  const codeObjVariant = configState.codeObjVariants[codeObjVariantId];
+  return Boolean(
+    codeObjVariant &&
+      configState.codeObjImpls[codeObjVariant.impl] &&
+      configState.codeObjs[paramId],
+  );
+}
+function renderAppBindingMessage(message: string) {
+  return (
+    <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
+      {message}
+    </div>
+  );
+}
+function resolveActionButtonClassName(isDisabled: boolean): string {
+  return `rounded-full px-4 py-2 font-semibold transition-colors [font-size:var(--app-text-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-button-ring,_var(--app-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--app-background)] ${
+    isDisabled
+      ? "cursor-not-allowed bg-[color:var(--app-button-disabled-bg,_var(--app-surface-alt))] text-[color:var(--app-button-disabled-text,_var(--app-muted))]"
+      : "bg-[color:var(--app-button-bg,_var(--app-accent))] text-[color:var(--app-button-text,_var(--app-accent-text))] hover:bg-[color:var(--app-button-bg-hover,_var(--app-accent-hover))]"
+  }`;
+}
+function handleActionButtonClick(args: {
+  actionName: string;
+  isDisabled: boolean;
+  onAction: ((action: Action) => void) | undefined;
+  resolvedConfigId: string | null;
+  sectionId: string | null;
+}): void {
+  const { actionName, isDisabled, onAction, resolvedConfigId, sectionId } =
+    args;
+  if (!actionName || !onAction || isDisabled) {
+    return;
+  }
+  onAction({
+    name: actionName,
+    params: buildActionParams(resolvedConfigId, sectionId),
+  });
+}
+function resolveParamInputStatusMessage(args: {
+  canRenderParam: boolean;
+  codeObjImpl: BaseChildlessCodeObjImplUnion | null;
+  configState: AppConfigState | null;
+  resolvedConfigId: string | null;
+  sectionId: string | null;
+  sectionImpl: BaseSectionImplUnion | null;
+  paramId: string | null;
+}): string | null {
+  const {
+    canRenderParam,
+    codeObjImpl,
+    configState,
+    resolvedConfigId,
+    sectionId,
+    sectionImpl,
+    paramId,
+  } = args;
+  if (!resolvedConfigId) {
+    return "Missing config scope.";
+  }
+  if (!configState) {
+    return "Loading config…";
+  }
+  if (
+    !sectionId ||
+    !paramId ||
+    !canRenderParam ||
+    !sectionImpl ||
+    !codeObjImpl
+  ) {
+    return "Missing param binding.";
+  }
+  return null;
+}
+function resolveParamEditabilityMessage(args: {
+  canEditParams: boolean;
+  codeParamBlocked: boolean;
+}): string | null {
+  const { canEditParams, codeParamBlocked } = args;
+  if (!canEditParams) {
+    return "Param edits are disabled by policy.";
+  }
+  if (codeParamBlocked) {
+    return "Code params cannot be edited in app deployments. Bind a MetaControl param instead.";
+  }
+  return null;
+}
+function resolveParamInputRuntimeContext(
+  runtime: ReturnType<typeof useAppRuntime>,
+) {
+  return {
+    canEditParams: runtime?.canEditParams ?? true,
+    dataBindings: runtime?.dataBindings,
+    defaultConfigId: runtime?.defaultConfigId ?? null,
+  };
+}
+function useAppConfigLoadState(
+  resolvedConfigId: string | null,
+  configState: AppConfigState | null,
+) {
+  const serverMode = useServerMode((x) => x.mode);
+  const modeResolved = useServerMode((x) => x.modeResolved);
+  React.useEffect(() => {
+    if (!resolvedConfigId) {
+      return;
+    }
+    if (!modeResolved || serverMode !== "app" || configState) {
+      return;
+    }
+    void ensureAppProjectConfigLoaded(resolvedConfigId);
+  }, [configState, modeResolved, resolvedConfigId, serverMode]);
+  return { modeResolved, serverMode };
+}
+type ResolvedParamInputBindingResult = ResolvedParamBindingState & {
+  statusMessage: string | null;
+};
+function resolveParamInputBindingResult(args: {
+  configState: AppConfigState | null;
+  paramId: string | null;
+  resolvedConfigId: string | null;
+  sectionId: string | null;
+}): ResolvedParamInputBindingResult {
+  const { configState, paramId, resolvedConfigId, sectionId } = args;
+  if (!configState || !sectionId || !paramId) {
+    return {
+      ...getParamBindingFailureState(),
+      statusMessage: resolveParamInputStatusMessage({
+        canRenderParam: false,
+        codeObjImpl: null,
+        configState,
+        resolvedConfigId,
+        sectionId,
+        sectionImpl: null,
+        paramId,
+      }),
+    };
+  }
+  const bindingState = resolveParamBindingState({
+    configState,
+    paramId,
+    sectionId,
+  });
+  return {
+    ...bindingState,
+    statusMessage: resolveParamInputStatusMessage({
+      ...bindingState,
+      configState,
+      resolvedConfigId,
+      sectionId,
+      paramId,
+    }),
+  };
+}
+function resolveParamInputLabel(
+  label: string | null,
+  displayName: string | null,
+  paramId: string,
+): string {
+  return label ?? displayName ?? paramId;
+}
+function resolveCodeParamBlocked(args: {
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  modeResolved: boolean;
+  serverMode: string | null | undefined;
+}): boolean {
+  return (
+    args.modeResolved &&
+    args.serverMode === "app" &&
+    args.codeObjImpl.type === CodeObjTypeEnum.CodeParam
+  );
+}
+function resolveHeadingTheme(
+  runtime: ReturnType<typeof useAppRuntime>,
+  headingSizeKey: keyof AppThemeHeadingSizes,
+) {
+  const theme = runtime?.theme;
+  if (!theme) {
+    return {
+      headingFont: undefined,
+      headingLineHeight: undefined,
+      headingSize: undefined,
+    };
+  }
+  const typography = theme.typography;
+  return {
+    headingFont: theme.fonts?.heading ?? undefined,
+    headingLineHeight: typography?.headingLineHeight,
+    headingSize: typography?.headingSizes?.[headingSizeKey],
+  };
+}
+function resolveActionButtonRuntimeContext(
+  runtime: ReturnType<typeof useAppRuntime>,
+  actionName: string,
+) {
+  if (!runtime) {
+    return {
+      actionDefinition: null,
+      allowDownloads: false,
+      allowLinks: false,
+      dataBindings: undefined,
+      defaultConfigId: null,
+    };
+  }
+  return {
+    actionDefinition: runtime.actions[actionName] ?? null,
+    allowDownloads: runtime.allowFileDownloads,
+    allowLinks: runtime.allowExternalLinks,
+    dataBindings: runtime.dataBindings,
+    defaultConfigId: runtime.defaultConfigId ?? null,
+  };
+}
+function resolveActionButtonPresentation(args: {
+  disabledReason: string | null;
+  isDisabled: boolean;
+  isRunAction: boolean;
+  isRunning: boolean;
+  resolvedLabel: string;
+}) {
+  const { disabledReason, isDisabled, isRunAction, isRunning, resolvedLabel } =
+    args;
+  return {
+    buttonLabel: isRunning && isRunAction ? "Running..." : resolvedLabel,
+    buttonTitle: isDisabled ? disabledReason ?? undefined : undefined,
+  };
+}
+function ParamInputBlockContent(props: {
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  displayName: string | null;
+  editabilityMessage: string | null;
+  effectiveCanEditParams: boolean;
+  label: string | null;
+  paramId: string;
+  resolvedConfigId: string;
+  sectionId: string;
+  sectionImpl: BaseSectionImplUnion;
+  description: string | null;
+}) {
+  const {
+    codeObjImpl,
+    description,
+    displayName,
+    editabilityMessage,
+    effectiveCanEditParams,
+    label,
+    paramId,
+    resolvedConfigId,
+    sectionId,
+    sectionImpl,
+  } = props;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-semibold uppercase tracking-wide text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
+          {resolveParamInputLabel(label, displayName, paramId)}
+        </span>
+        {description ? (
+          <span className="text-[11px] text-[color:var(--app-muted)]">
+            {description}
+          </span>
+        ) : null}
+      </div>
+      <div className="rounded-md border border-[color:var(--app-input-border,_var(--app-border))] bg-[color:var(--app-input-bg,_var(--app-surface))] px-2 py-1">
+        <div
+          className={
+            effectiveCanEditParams ? "" : "pointer-events-none opacity-60"
+          }
+        >
+          <AppParamInput
+            configId={resolvedConfigId}
+            sectionId={sectionId}
+            paramInfoId={paramId}
+            codeObjImpl={codeObjImpl}
+            sectionImpl={sectionImpl}
+            baseValue={codeObjImpl.value ?? null}
+            canEditParams={effectiveCanEditParams}
+          />
+        </div>
+        {editabilityMessage ? (
+          <div className="mt-2 text-[11px] text-[color:var(--app-muted)]">
+            {editabilityMessage}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 function Stack({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
   const breakpoint = useAppBreakpoint();
   const direction = props.direction === "row" ? "flex-row" : "flex-col";
-  const themeGap = runtime?.theme?.spacing?.stackGap;
-  const resolvedGap = resolveResponsiveValue(props.gap, breakpoint);
-  const gap =
-    typeof resolvedGap === "number" || typeof resolvedGap === "string"
-      ? resolvedGap
-      : typeof themeGap === "number" || typeof themeGap === "string"
-        ? themeGap
-        : 16;
-  const align = typeof props.align === "string" ? props.align : "stretch";
-  const justify = typeof props.justify === "string" ? props.justify : "start";
-  const className = typeof props.className === "string" ? props.className : "";
+  const gap = resolveGapValue(
+    props.gap,
+    breakpoint,
+    runtime?.theme?.spacing?.stackGap,
+  );
+  const align = resolveStringProp(props.align, "stretch");
+  const justify = resolveStringProp(props.justify, "start");
+  const className = resolveStringProp(props.className);
   const alignClass = ALIGN_CLASS[align] ?? ALIGN_CLASS.stretch;
   const justifyClass = JUSTIFY_CLASS[justify] ?? JUSTIFY_CLASS.start;
-
   return (
     <div
       className={`flex ${direction} ${alignClass} ${justifyClass} ${className}`.trim()}
@@ -162,72 +850,48 @@ function Stack({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 function Box({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const breakpoint = useAppBreakpoint();
-  const className = typeof props.className === "string" ? props.className : "";
-  const resolvedPadding = resolveResponsiveValue(props.padding, breakpoint);
-  const padding =
-    typeof resolvedPadding === "number" || typeof resolvedPadding === "string"
-      ? resolvedPadding
-      : null;
-  const resolvedRadius = resolveResponsiveValue(props.radius, breakpoint);
-  const radius =
-    typeof resolvedRadius === "number" || typeof resolvedRadius === "string"
-      ? resolvedRadius
-      : null;
-  const background =
-    typeof props.background === "string" ? props.background : "none";
-  const border = typeof props.border === "string" ? props.border : "none";
-
+  const className = resolveStringProp(props.className);
+  const padding = resolveResponsiveNumberish(props.padding, breakpoint);
+  const radius = resolveResponsiveNumberish(props.radius, breakpoint);
+  const background = resolveStringProp(props.background, "none");
+  const border = resolveStringProp(props.border, "none");
   const style: React.CSSProperties = {};
-  if (padding !== null) {
-    style.padding = typeof padding === "number" ? `${padding}px` : padding;
-  }
-  if (radius !== null) {
-    style.borderRadius = typeof radius === "number" ? `${radius}px` : radius;
-  }
-
+  assignNumberishStyle(style, "padding", padding);
+  assignNumberishStyle(style, "borderRadius", radius);
   const resolvedBackground = BOX_BACKGROUND_BY_ROLE[background];
   if (resolvedBackground) {
     style.background = resolvedBackground;
   }
-
-  let borderClassName = "";
-  if (border === "border") {
-    borderClassName = "border border-[color:var(--app-border)]";
-  } else if (border === "card") {
-    borderClassName = "border border-[color:var(--app-card-border)]";
-  }
-
+  const borderClassName =
+    border === "border"
+      ? "border border-[color:var(--app-border)]"
+      : border === "card"
+        ? "border border-[color:var(--app-card-border)]"
+        : "";
   return (
     <div className={`${borderClassName} ${className}`.trim()} style={style}>
       {children}
     </div>
   );
 }
-
 function Grid({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
   const breakpoint = useAppBreakpoint();
-  const className = typeof props.className === "string" ? props.className : "";
-  const themeGap = runtime?.theme?.spacing?.stackGap;
-  const resolvedGap = resolveResponsiveValue(props.gap, breakpoint);
-  const gap =
-    typeof resolvedGap === "number" || typeof resolvedGap === "string"
-      ? resolvedGap
-      : typeof themeGap === "number" || typeof themeGap === "string"
-        ? themeGap
-        : 16;
-
-  const resolvedColumns = resolveResponsiveValue(props.columns, breakpoint);
+  const className = resolveStringProp(props.className);
+  const gap = resolveGapValue(
+    props.gap,
+    breakpoint,
+    runtime?.theme?.spacing?.stackGap,
+  );
+  const resolvedColumns = resolveResponsiveNumberish(props.columns, breakpoint);
   const rawColumns = typeof resolvedColumns === "number" ? resolvedColumns : 2;
   const columns = Math.min(Math.max(rawColumns, 1), 12);
-
-  const align = typeof props.align === "string" ? props.align : "stretch";
-  const justify = typeof props.justify === "string" ? props.justify : "stretch";
+  const align = resolveStringProp(props.align, "stretch");
+  const justify = resolveStringProp(props.justify, "stretch");
   const itemAlignment: Record<string, React.CSSProperties["alignItems"]> = {
     start: "start",
     center: "center",
@@ -240,130 +904,81 @@ function Grid({ element, children }: AppComponentProps) {
     end: "end",
     stretch: "stretch",
   };
-
   const style: React.CSSProperties = {
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
     gap,
     alignItems: itemAlignment[align] ?? "stretch",
     justifyItems: itemJustify[justify] ?? "stretch",
   };
-
   return (
     <div className={`grid ${className}`.trim()} style={style}>
       {children}
     </div>
   );
 }
-
 function Container({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const breakpoint = useAppBreakpoint();
-  const className = typeof props.className === "string" ? props.className : "";
-  const resolvedMaxWidth = resolveResponsiveValue(props.maxWidth, breakpoint);
-  const maxWidth =
-    typeof resolvedMaxWidth === "number" || typeof resolvedMaxWidth === "string"
-      ? resolvedMaxWidth
-      : null;
+  const className = resolveStringProp(props.className);
+  const maxWidth = resolveResponsiveNumberish(props.maxWidth, breakpoint);
   const style: React.CSSProperties = {};
-  if (maxWidth !== null) {
-    style.maxWidth = typeof maxWidth === "number" ? `${maxWidth}px` : maxWidth;
-  }
+  assignNumberishStyle(style, "maxWidth", maxWidth);
   return (
     <div className={`mx-auto w-full ${className}`.trim()} style={style}>
       {children}
     </div>
   );
 }
-
 function Spacer({ element }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const breakpoint = useAppBreakpoint();
-  const className = typeof props.className === "string" ? props.className : "";
-  const resolvedSize = resolveResponsiveValue(props.size, breakpoint);
-  const size =
-    typeof resolvedSize === "number" || typeof resolvedSize === "string"
-      ? resolvedSize
-      : 16;
+  const className = resolveStringProp(props.className);
+  const size = resolveResponsiveNumberish(props.size, breakpoint) ?? 16;
   const axis = props.axis === "x" ? "x" : "y";
   const style: React.CSSProperties = { flexShrink: 0 };
-  if (axis === "x") {
-    style.width = typeof size === "number" ? `${size}px` : size;
-  } else {
-    style.height = typeof size === "number" ? `${size}px` : size;
-  }
+  assignNumberishStyle(style, axis === "x" ? "width" : "height", size);
   return <div className={className} style={style} aria-hidden="true" />;
 }
-
 function Card({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
-  const title = typeof props.title === "string" ? props.title : null;
-  const description =
-    typeof props.description === "string" ? props.description : null;
-  const className = typeof props.className === "string" ? props.className : "";
-  const cardPadding = runtime?.theme?.spacing?.cardPadding;
-  const cardRadius = runtime?.theme?.spacing?.cardRadius;
-  const cardStyle: React.CSSProperties = {};
-  if (typeof cardPadding === "number") {
-    cardStyle.padding = `${cardPadding}px`;
-  } else if (typeof cardPadding === "string") {
-    cardStyle.padding = cardPadding;
-  }
-  if (typeof cardRadius === "number") {
-    cardStyle.borderRadius = `${cardRadius}px`;
-  } else if (typeof cardRadius === "string") {
-    cardStyle.borderRadius = cardRadius;
-  }
-  cardStyle.boxShadow = "var(--app-card-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))";
-
+  const title = resolveNullableStringProp(props.title);
+  const description = resolveNullableStringProp(props.description);
+  const className = resolveStringProp(props.className);
+  const cardStyle = buildCardStyle(
+    runtime?.theme?.spacing?.cardPadding,
+    runtime?.theme?.spacing?.cardRadius,
+  );
   return (
     <section
       className={`flex flex-col gap-3 rounded-xl border border-[color:var(--app-card-border)] bg-[color:var(--app-card-bg)] p-4 text-[color:var(--app-text)] ${className}`.trim()}
       style={cardStyle}
     >
-      {(title || description) && (
-        <header className="flex flex-col gap-1">
-          {title && (
-            <h3 className="font-semibold text-[color:var(--app-text)] [font-size:var(--app-text-sm)]">
-              {title}
-            </h3>
-          )}
-          {description && (
-            <p className="text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-              {description}
-            </p>
-          )}
-        </header>
-      )}
+      <CardHeader description={description} title={title} />
       {children}
     </section>
   );
 }
-
 function ConfigScope({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
-  const configId = typeof props.configId === "string" ? props.configId : null;
-  const className = typeof props.className === "string" ? props.className : "";
-
+  const props = resolveElementProps(element);
+  const configId = resolveNullableStringProp(props.configId);
+  const className = resolveStringProp(props.className);
   React.useEffect(() => {
     if (configId) {
       void ensureAppProjectConfigLoaded(configId);
     }
   }, [configId]);
-
   const content = className ? (
     <div className={className}>{children}</div>
   ) : (
     <>{children}</>
   );
-
   return (
     <AppConfigScopeContext.Provider value={{ configId }}>
       {content}
     </AppConfigScopeContext.Provider>
   );
 }
-
 function hasNonEmptyChildrenMetadata(element: RawElementProps | null): boolean {
   if (!element) {
     return false;
@@ -384,43 +999,27 @@ function hasNonEmptyChildrenMetadata(element: RawElementProps | null): boolean {
   }
   return true;
 }
-
 function Tabs({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
-  const defaultKey =
-    typeof props.defaultKey === "string" ? props.defaultKey : null;
-  const className = typeof props.className === "string" ? props.className : "";
+  const props = resolveElementProps(element);
+  const defaultKey = resolveNullableStringProp(props.defaultKey);
+  const className = resolveStringProp(props.className);
   const tabs = React.useMemo(() => {
-    return React.Children.toArray(children).filter(React.isValidElement);
+    return React.Children.toArray(children).filter(
+      (child): child is TabChildElement =>
+        React.isValidElement<AppComponentProps>(child),
+    );
   }, [children]);
   const resolvedTabs = React.useMemo(() => {
     return tabs
-      .map((child, index) => {
-        const tabElement = child.props?.element ?? null;
-        const tabKey =
-          (tabElement &&
-            typeof tabElement.key === "string" &&
-            tabElement.key) ||
-          (typeof child.key === "string" ? child.key : `tab-${index}`);
-        const title =
-          tabElement?.props && typeof tabElement.props.title === "string"
-            ? tabElement.props.title
-            : `Tab ${index + 1}`;
-        const hasContent =
-          hasNonEmptyChildrenMetadata(tabElement) ||
-          React.Children.count(child.props?.children) > 0;
-        return { key: tabKey, title, child, hasContent };
-      })
+      .map((child, index) => resolveTabDefinition(child, index))
       .filter((tab) => tab.hasContent);
   }, [tabs]);
-
   const [activeKey, setActiveKey] = React.useState(() => {
     if (defaultKey && resolvedTabs.some((tab) => tab.key === defaultKey)) {
       return defaultKey;
     }
     return resolvedTabs[0]?.key ?? null;
   });
-
   React.useEffect(() => {
     if (activeKey && resolvedTabs.some((tab) => tab.key === activeKey)) {
       return;
@@ -430,11 +1029,9 @@ function Tabs({ element, children }: AppComponentProps) {
       setActiveKey(fallbackKey);
     }
   }, [activeKey, resolvedTabs]);
-
   if (resolvedTabs.length === 0) {
     return null;
   }
-
   return (
     <div className={`flex flex-col gap-4 ${className}`.trim()}>
       <div className="flex flex-wrap gap-2 border-b border-[color:var(--app-border)] pb-2">
@@ -461,316 +1058,183 @@ function Tabs({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 function Tab({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
-  const className = typeof props.className === "string" ? props.className : "";
+  const props = resolveElementProps(element);
+  const className = resolveStringProp(props.className);
   return <div className={className}>{children}</div>;
 }
-
 function Heading({ element }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
-  const text = typeof props.text === "string" ? props.text : "";
-  const level = typeof props.level === "number" ? props.level : 2;
-  const className = typeof props.className === "string" ? props.className : "";
-  const headingFont = runtime?.theme?.fonts?.heading;
-  const typography = runtime?.theme?.typography;
-  const headingSizes = typography?.headingSizes;
-  const clampedLevel = Math.min(Math.max(level, 1), 4);
-  const headingKeyByLevel = { 1: "h1", 2: "h2", 3: "h3", 4: "h4" } as const;
-  const headingSizeKey = headingKeyByLevel[clampedLevel];
-  const headingSize = headingSizes?.[headingSizeKey];
-  const HeadingTag = `h${clampedLevel}` as keyof JSX.IntrinsicElements;
-  const sizeClassByLevel: Record<number, string> = {
-    1: "[font-size:var(--app-text-2xl)]",
-    2: "[font-size:var(--app-text-xl)]",
-    3: "[font-size:var(--app-text-lg)]",
-    4: "[font-size:var(--app-text-base)]",
-  };
-  const sizeClass =
-    sizeClassByLevel[clampedLevel] ?? "[font-size:var(--app-text-base)]";
-
-  const style: React.CSSProperties = {};
-  if (headingFont) {
-    style.fontFamily = headingFont;
-  }
-  if (typeof headingSize === "number" || typeof headingSize === "string") {
-    style.fontSize = headingSize;
-  }
-  if (
-    typeof typography?.headingLineHeight === "number" ||
-    typeof typography?.headingLineHeight === "string"
-  ) {
-    style.lineHeight = typography.headingLineHeight;
-  }
-
+  const text = resolveStringProp(props.text);
+  const level = resolveHeadingLevel(props.level);
+  const className = resolveStringProp(props.className);
+  const { clampedLevel, headingSizeKey, sizeClass } =
+    resolveHeadingPresentation(level);
+  const { headingFont, headingLineHeight, headingSize } = resolveHeadingTheme(
+    runtime,
+    headingSizeKey,
+  );
+  const HeadingTag = `h${clampedLevel}` as "h1" | "h2" | "h3" | "h4";
+  const style = buildTypographyStyle({
+    fontFamily: headingFont ?? undefined,
+    fontSize: headingSize,
+    lineHeight: headingLineHeight,
+  });
   return (
     <HeadingTag
       className={`font-semibold tracking-tight text-[color:var(--app-text)] ${sizeClass} ${className}`.trim()}
-      style={Object.keys(style).length > 0 ? style : undefined}
+      style={style}
     >
       {text}
     </HeadingTag>
   );
 }
-
+function resolveHeadingLevel(raw: unknown): number {
+  return typeof raw === "number" ? raw : 2;
+}
 function Text({ element }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
-  const text = typeof props.text === "string" ? props.text : "";
-  const className = typeof props.className === "string" ? props.className : "";
+  const text = resolveStringProp(props.text);
+  const className = resolveStringProp(props.className);
   const typography = runtime?.theme?.typography;
-  const style: React.CSSProperties = {};
-  if (
-    typeof typography?.bodySize === "number" ||
-    typeof typography?.bodySize === "string"
-  ) {
-    style.fontSize = typography.bodySize;
-  }
-  if (
-    typeof typography?.bodyLineHeight === "number" ||
-    typeof typography?.bodyLineHeight === "string"
-  ) {
-    style.lineHeight = typography.bodyLineHeight;
-  }
-
+  const style = buildTypographyStyle({
+    fontSize: typography?.bodySize,
+    lineHeight: typography?.bodyLineHeight,
+  });
   return (
     <p
       className={`text-[color:var(--app-muted)] [font-size:var(--app-text-sm)] ${className}`.trim()}
-      style={Object.keys(style).length > 0 ? style : undefined}
+      style={style}
     >
       {text}
     </p>
   );
 }
+type ParamInputBlockContentProps = {
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  description: string | null;
+  displayName: string | null;
+  editabilityMessage: string | null;
+  effectiveCanEditParams: boolean;
+  label: string | null;
+  paramId: string;
+  resolvedConfigId: string;
+  sectionId: string;
+  sectionImpl: BaseSectionImplUnion;
+};
+type ResolvedParamInputBlockState = {
+  contentProps: ParamInputBlockContentProps | null;
+  message: string | null;
+};
+
+function resolveParamInputBlockState(args: {
+  canEditParams: boolean;
+  codeObjImpl: BaseChildlessCodeObjImplUnion | null;
+  description: string | null;
+  displayName: string | null;
+  label: string | null;
+  modeResolved: boolean;
+  paramId: string | null;
+  resolvedConfigId: string | null;
+  sectionId: string | null;
+  sectionImpl: BaseSectionImplUnion | null;
+  serverMode: string | null | undefined;
+  statusMessage: string | null;
+}): ResolvedParamInputBlockState {
+  if (args.statusMessage) {
+    return { contentProps: null, message: args.statusMessage };
+  }
+  if (
+    !args.codeObjImpl ||
+    !args.paramId ||
+    !args.resolvedConfigId ||
+    !args.sectionId ||
+    !args.sectionImpl
+  ) {
+    return {
+      contentProps: null,
+      message: "Missing param binding.",
+    };
+  }
+  const codeParamBlocked = resolveCodeParamBlocked({
+    codeObjImpl: args.codeObjImpl,
+    modeResolved: args.modeResolved,
+    serverMode: args.serverMode,
+  });
+  const effectiveCanEditParams = args.canEditParams && !codeParamBlocked;
+  return {
+    contentProps: {
+      codeObjImpl: args.codeObjImpl,
+      description: args.description,
+      displayName: args.displayName,
+      editabilityMessage: resolveParamEditabilityMessage({
+        canEditParams: args.canEditParams,
+        codeParamBlocked,
+      }),
+      effectiveCanEditParams,
+      label: args.label,
+      paramId: args.paramId,
+      resolvedConfigId: args.resolvedConfigId,
+      sectionId: args.sectionId,
+      sectionImpl: args.sectionImpl,
+    },
+    message: null,
+  };
+}
 
 function ParamInputBlock({ element }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
   const scope = useAppConfigScope();
+  const runtimeContext = resolveParamInputRuntimeContext(runtime);
   const {
     configId: bindingConfigId,
     sectionId,
     paramId,
     label,
     description,
-  } = resolveParamBinding(props, runtime?.dataBindings);
+  } = resolveParamBinding(props, runtimeContext.dataBindings);
   const resolvedConfigId = resolveConfigId(
     bindingConfigId,
-    runtime?.defaultConfigId ?? null,
+    runtimeContext.defaultConfigId,
     scope.configId,
   );
   const configState = useAppConfigs((state) =>
-    resolvedConfigId ? state.configs[resolvedConfigId] : null,
+    resolvedConfigId ? state.configs[resolvedConfigId] ?? null : null,
   );
-  const serverMode = useServerMode((x) => x.mode);
-  const modeResolved = useServerMode((x) => x.modeResolved);
-  const canEditParams = runtime?.canEditParams ?? true;
-
-  React.useEffect(() => {
-    if (!resolvedConfigId) {
-      return;
-    }
-    if (!modeResolved || serverMode !== "app") {
-      return;
-    }
-    if (!configState) {
-      void ensureAppProjectConfigLoaded(resolvedConfigId);
-    }
-  }, [configState, modeResolved, resolvedConfigId, serverMode]);
-
-  if (!resolvedConfigId) {
-    return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        Missing config scope.
-      </div>
-    );
-  }
-
-  if (!configState) {
-    return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        Loading config…
-      </div>
-    );
-  }
-
-  if (!sectionId || !paramId) {
-    return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        Missing param binding.
-      </div>
-    );
-  }
-
-  const { canRenderParam, displayName, sectionImpl, codeObjImpl } = (() => {
-    const variantId =
-      configState.previewSectionVariantMap[sectionId] ??
-      configState.projectConfig.sectionVariantMap[sectionId];
-    if (variantId === undefined) {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
-    const variant = configState.sectionVariants[variantId];
-    if (!variant) {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
-    const sectionImpl = configState.sectionImpls[variant.impl];
-    if (!sectionImpl || !configState.sections[sectionId]) {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
-
-    let codeObjVariantId: string | null = null;
-    if (sectionImpl.type === SectionTypeEnum.MetaControl) {
-      const controlParamId = sectionImpl.metaControlParamId;
-      if (!controlParamId || controlParamId !== paramId) {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: null,
-          codeObjImpl: null,
-        };
-      }
-      codeObjVariantId = sectionImpl.codeObjVariantMap[paramId] ?? null;
-    } else if (isBaseSectionWithParamsImpl(sectionImpl)) {
-      codeObjVariantId = sectionImpl.codeObjVariantMap[paramId] ?? null;
-    } else {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
-
-    if (!codeObjVariantId) {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
-    const codeObjVariant = configState.codeObjVariants[codeObjVariantId];
-    if (!codeObjVariant) {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
-    if (!configState.codeObjImpls[codeObjVariant.impl]) {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
-    if (!configState.codeObjs[paramId]) {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
-    const previewActive =
-      configState.previewSectionVariantMap[sectionId] !== undefined;
-    const effectiveSectionImpl = getCurrEffectiveSectionImpl(
+  const { modeResolved, serverMode } = useAppConfigLoadState(
+    resolvedConfigId,
+    configState,
+  );
+  const { canEditParams } = runtimeContext;
+  const { codeObjImpl, displayName, sectionImpl, statusMessage } =
+    resolveParamInputBindingResult({
       configState,
-      sectionId,
-      previewActive,
-    );
-    const effectiveCodeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      configState,
-      sectionId,
       paramId,
-      isBaseChildlessCodeObjImpl,
-      previewActive,
-    );
-    return {
-      canRenderParam: true,
-      displayName: getParamDisplayName(configState, sectionId, paramId),
-      sectionImpl: effectiveSectionImpl,
-      codeObjImpl: effectiveCodeObjImpl,
-    };
-  })();
-
-  if (!canRenderParam || !sectionImpl || !codeObjImpl) {
-    return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        Missing param binding.
-      </div>
-    );
+      resolvedConfigId,
+      sectionId,
+    });
+  const { contentProps, message } = resolveParamInputBlockState({
+    canEditParams,
+    codeObjImpl,
+    description,
+    displayName,
+    label,
+    modeResolved,
+    paramId,
+    resolvedConfigId,
+    sectionId,
+    sectionImpl,
+    serverMode,
+    statusMessage,
+  });
+  if (!contentProps) {
+    return renderAppBindingMessage(message ?? "Missing param binding.");
   }
-
-  const codeParamBlocked =
-    modeResolved &&
-    serverMode === "app" &&
-    codeObjImpl.type === CodeObjTypeEnum.CodeParam;
-  const effectiveCanEditParams = canEditParams && !codeParamBlocked;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-col gap-0.5">
-        <span className="font-semibold uppercase tracking-wide text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-          {label ?? displayName ?? paramId}
-        </span>
-        {description && (
-          <span className="text-[11px] text-[color:var(--app-muted)]">
-            {description}
-          </span>
-        )}
-      </div>
-      <div className="rounded-md border border-[color:var(--app-input-border,_var(--app-border))] bg-[color:var(--app-input-bg,_var(--app-surface))] px-2 py-1">
-        <div
-          className={
-            effectiveCanEditParams ? "" : "pointer-events-none opacity-60"
-          }
-        >
-          <AppParamInput
-            configId={resolvedConfigId}
-            sectionId={sectionId}
-            paramInfoId={paramId}
-            codeObjImpl={codeObjImpl}
-            sectionImpl={sectionImpl}
-            baseValue={codeObjImpl.value}
-            canEditParams={effectiveCanEditParams}
-          />
-        </div>
-        {!canEditParams && (
-          <div className="mt-2 text-[11px] text-[color:var(--app-muted)]">
-            Param edits are disabled by policy.
-          </div>
-        )}
-        {codeParamBlocked && canEditParams && (
-          <div className="mt-2 text-[11px] text-[color:var(--app-muted)]">
-            Code params cannot be edited in app deployments. Bind a MetaControl
-            param instead.
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <ParamInputBlockContent {...contentProps} />;
 }
-
 type AppParamInputProps = {
   configId: string;
   sectionId: string;
@@ -780,7 +1244,6 @@ type AppParamInputProps = {
   sectionImpl: BaseSectionImplUnion;
   canEditParams: boolean;
 };
-
 function AppParamInput({
   configId,
   sectionId,
@@ -791,10 +1254,21 @@ function AppParamInput({
   canEditParams,
 }: AppParamInputProps) {
   const isPasswordParam = codeObjImpl.type === CodeObjTypeEnum.PasswordParam;
-  const [value, setPendingValue] = useLocalPendingValue(baseValue);
+  const sectionVariantId = useProjectState((x) =>
+    getCurrSectionVariantId(x, sectionId),
+  );
+  const [value, setPendingValue] = useLocalPendingValue(
+    baseValue,
+    undefined,
+    `${sectionVariantId}:${paramInfoId}`,
+  );
   const [isRevealing, setIsRevealing] = React.useState(false);
-
-  function onChange(nextValue, options?: { skipBackendUpdate?: boolean }) {
+  function onChange(
+    nextValue,
+    options?: {
+      skipBackendUpdate?: boolean;
+    },
+  ) {
     const nextValueStr = _.toString(nextValue);
     setPendingValue(nextValueStr);
     sendRealtimeSectionParamLiteral(
@@ -810,6 +1284,7 @@ function AppParamInput({
       debouncedSetPasswordParamValue(
         configId,
         sectionId,
+        sectionVariantId,
         paramInfoId,
         nextValueStr,
       );
@@ -818,21 +1293,25 @@ function AppParamInput({
     debouncedSetParamEnteredValue(
       configId,
       sectionId,
+      sectionVariantId,
       paramInfoId,
       nextValueStr,
     );
   }
-
   function onRevealPassword() {
     if (!isPasswordParam || isRevealing || value !== "") {
       return;
     }
     setIsRevealing(true);
-    route_get_password_param_value({
-      projectConfigId: configId,
-      sectionId,
-      paramInfoId,
-    })
+    callOpenAPI(
+      getPasswordParamValue({
+        body: {
+          projectConfigId: configId,
+          sectionId,
+          paramInfoId,
+        },
+      } as Parameters<typeof getPasswordParamValue>[0]),
+    )
       .then((response) => {
         if (res200(response)) {
           setPendingValue(response.data.value);
@@ -842,7 +1321,6 @@ function AppParamInput({
         setIsRevealing(false);
       });
   }
-
   function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
     if (attachments.length === 0) {
       return;
@@ -901,7 +1379,6 @@ function AppParamInput({
       );
     }
   }
-
   return (
     <AppParamUI
       sectionId={sectionId}
@@ -917,14 +1394,15 @@ function AppParamInput({
     />
   );
 }
-
 type AppParamUIProps = {
   sectionId: string;
   paramInfoId: string;
   value: string | number | boolean | null;
   onChange: (
     value: string | number | boolean | null,
-    options?: { skipBackendUpdate?: boolean },
+    options?: {
+      skipBackendUpdate?: boolean;
+    },
   ) => void;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
   onRevealPassword?: () => void;
@@ -933,358 +1411,460 @@ type AppParamUIProps = {
   sectionImpl: BaseSectionImplUnion;
   canEditParams: boolean;
 };
-
-function AppParamUI({
-  sectionId,
-  paramInfoId,
-  value,
-  onChange,
-  onDropzoneStateless,
-  onRevealPassword,
-  isPasswordRevealPending,
-  codeObjImpl,
-  sectionImpl,
-  canEditParams,
-}: AppParamUIProps) {
-  const codeObjType = codeObjImpl.type;
-  const configLanguage = isBaseSectionWithParamsImpl(sectionImpl)
-    ? sectionImpl.configLanguage ?? ConfigLanguageEnum.python
-    : ConfigLanguageEnum.python;
-  const isFrozen = isBaseSectionWithParamsImpl(sectionImpl)
-    ? sectionImpl.isFrozen
-    : false;
-  const defaultVal =
-    "defaultVal" in codeObjImpl ? codeObjImpl.defaultVal : null;
-  const isDisabled = !canEditParams || isFrozen;
-  const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
-  const passwordHasSecret =
-    isPasswordParam && "hasSecret" in codeObjImpl
-      ? codeObjImpl.hasSecret
-      : false;
-  const stringValue = _.toString(value ?? "");
-  const showPasswordReveal = shouldShowPasswordReveal({
-    value: stringValue,
-    hasSecret: passwordHasSecret,
-  });
-  const passwordPlaceholder =
-    passwordHasSecret && stringValue === "" ? "Saved" : undefined;
-
-  const onEscape = () => {};
-
-  const getDateParamImpl = (): DateParamCodeObjImpl => {
-    if (codeObjImpl.type !== CodeObjTypeEnum.DateParam) {
-      throw new TypeError(
-        `Expected DateParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
-      );
-    }
-    return codeObjImpl;
-  };
-
-  const getTimeParamImpl = (): TimeParamCodeObjImpl => {
-    if (codeObjImpl.type !== CodeObjTypeEnum.TimeParam) {
-      throw new TypeError(
-        `Expected TimeParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
-      );
-    }
-    return codeObjImpl;
-  };
-
-  switch (codeObjType) {
-    case CodeObjTypeEnum.CodeParam:
-    case CodeObjTypeEnum.TextAreaParam: {
-      return (
-        <>
-          <TextInputCodeMirror
-            dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
-            sectionId={sectionId}
-            paramInfoId={paramInfoId}
-            value={stringValue}
-            defaultVal={_.toString(defaultVal ?? "")}
-            onChange={onChange}
-            onEscape={(completionResult) => {
-              if (!completionResult) {
-                onEscape();
-              }
-            }}
-            dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-            realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-[color:var(--app-surface-alt)] [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
-            language={configLanguage}
-            isDisabled={isDisabled}
-            tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
-            autocomplete={false}
-          />
-          <span
-            className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
-          />
-        </>
-      );
-    }
-    case CodeObjTypeEnum.TextParam: {
-      return (
-        <>
-          <TextInputCodeMirror
-            dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
-            sectionId={sectionId}
-            paramInfoId={paramInfoId}
-            value={stringValue}
-            defaultVal={_.toString(defaultVal ?? "")}
-            onChange={onChange}
-            onEscape={(completionResult) => {
-              if (!completionResult) {
-                onEscape();
-              }
-            }}
-            dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-            realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-[color:var(--app-surface-alt)] [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
-            language={configLanguage}
-            isDisabled={isDisabled}
-            tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
-            autocomplete={false}
-          />
-          <span
-            className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
-          />
-        </>
-      );
-    }
-    case CodeObjTypeEnum.TimeParam: {
-      const timeParamImpl = getTimeParamImpl();
-      return (
-        <TextParamDateTimeInput
-          value={stringValue}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-          uiType={TextParamInputUITypeEnum.time}
-          timeControlMode={timeParamImpl.timeControlMode}
-          timeDisplayFormat={timeParamImpl.timeDisplayFormat}
-          timeDisplayTransparent={timeParamImpl.timeDisplayTransparent}
-          timeDisplayScale={timeParamImpl.timeDisplayScale}
-          timeDisplayFont={timeParamImpl.timeDisplayFont}
-          dateDisplayFormat={DateDisplayFormatEnum.iso}
-          dateControlMode={DateControlModeEnum.input}
-          dateSelectionMode={DateSelectionModeEnum.single}
-          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
-          dateIncludesTime={false}
-          inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
-          formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
-          borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"
-        />
-      );
-    }
-    case CodeObjTypeEnum.DateParam: {
-      const dateParamImpl = getDateParamImpl();
-      return (
-        <TextParamDateTimeInput
-          value={stringValue}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-          uiType={TextParamInputUITypeEnum.date}
-          timeControlMode={TimeControlModeEnum.display}
-          timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
-          timeDisplayTransparent={false}
-          timeDisplayScale={1}
-          timeDisplayFont={TimeDisplayFontEnum.monospace}
-          dateDisplayFormat={dateParamImpl.dateDisplayFormat}
-          dateControlMode={dateParamImpl.dateControlMode}
-          dateSelectionMode={dateParamImpl.dateSelectionMode}
-          dateCalendarWeekStart={dateParamImpl.dateCalendarWeekStart}
-          dateIncludesTime={dateParamImpl.dateIncludesTime}
-          inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
-          formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
-          borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"
-        />
-      );
-    }
-    case CodeObjTypeEnum.SliderParam: {
-      const min = "min" in codeObjImpl ? codeObjImpl.min ?? 0 : 0;
-      const max = "max" in codeObjImpl ? codeObjImpl.max ?? 100 : 100;
-      const step = "step" in codeObjImpl ? codeObjImpl.step ?? 1 : 1;
-      const numericValue = _.toNumber(value);
-      const resolvedValue = Number.isFinite(numericValue) ? numericValue : min;
-      return (
-        <SliderInput
-          value={resolvedValue}
-          onChange={(next) => onChange(next)}
-          onEscape={onEscape}
-          min={min}
-          max={max}
-          step={step}
-          isDisabled={isDisabled}
-          wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
-          sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
-          sliderTrackClassName="relative flex-grow rounded-full bg-[color:var(--app-surface-alt)] data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px]"
-          sliderRangeClassName="absolute h-full rounded-full bg-[color:var(--app-accent)]"
-          sliderThumbClassName={`${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} block h-3 w-3 cursor-pointer rounded-full border-2 border-[color:var(--app-border)] bg-[color:var(--app-surface)] shadow-sm drop-shadow-md hover:!bg-[color:var(--app-surface-alt)] focus-visible:!border-[color:var(--app-accent)] focus-visible:bg-[color:var(--app-accent)] focus-visible:outline-none data-[disabled]:pointer-events-none`}
-          textInputClassName="hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-2 text-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)] focus-visible:border-[color:var(--app-accent)] @[132px]/slider:block"
-        />
-      );
-    }
-    case CodeObjTypeEnum.RotaryParam: {
-      const min = "min" in codeObjImpl ? codeObjImpl.min ?? 0 : 0;
-      const max = "max" in codeObjImpl ? codeObjImpl.max ?? 100 : 100;
-      const step = "step" in codeObjImpl ? codeObjImpl.step ?? 1 : 1;
-      const numericValue = _.toNumber(value);
-      const resolvedValue = Number.isFinite(numericValue) ? numericValue : min;
-      return (
-        <RotaryInput
-          value={resolvedValue}
-          onChange={onChange}
-          onEscape={onEscape}
-          min={min}
-          max={max}
-          step={step}
-          isDisabled={isDisabled}
-          indicatorThemeClassName="bg-[color:var(--app-accent)]"
-        />
-      );
-    }
-    case CodeObjTypeEnum.SwitchParam: {
-      return (
-        <SwitchInput
-          value={value ?? false}
-          defaultVal={defaultVal ?? undefined}
-          onChange={(next) => onChange(next)}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-          outerDivClassName="section-value flex justify-self-start self-center"
-          rootThemeClassName="bg-[color:var(--app-surface-alt)] data-[state='checked']:bg-[color:var(--app-accent)] focus-visible:ring-[color:var(--app-accent)]"
-          thumbThemeClassName="bg-[color:var(--app-surface)]"
-        />
-      );
-    }
-    case CodeObjTypeEnum.ColorPickerParam: {
-      const colorChoices =
-        "colorChoices" in codeObjImpl ? codeObjImpl.colorChoices : [];
-      return (
-        <ColorPickerInput
-          colorChoices={colorChoices}
-          value={stringValue}
-          onChange={onChange}
-          onEscape={onEscape}
-          wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
-          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center"
-          isDisabled={isDisabled}
-          theme={{
-            inputBorderClassName: "!border-[color:var(--app-border)]",
-            triggerBorderClassName: "!border-[color:var(--app-border)]",
-            menuContentClassName:
-              "z-20 flex flex-col rounded border border-[color:var(--app-dropdown-border)] bg-[color:var(--app-dropdown-bg)] p-2 text-[color:var(--app-dropdown-text)] shadow-xl",
-            menuItemClassName:
-              "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-[color:var(--app-input-bg-hover)]",
-            menuItemTextClassName:
-              "max-w-48 truncate [font-size:var(--app-text-xs)] text-[color:var(--app-dropdown-text)]",
-          }}
-        />
-      );
-    }
-    case CodeObjTypeEnum.DropdownParam: {
-      const choices = "choices" in codeObjImpl ? codeObjImpl.choices : [];
-      let dropdownValue: string | null = null;
-      if (typeof value === "string") {
-        dropdownValue = value;
-      } else if (value !== null && value !== undefined) {
-        dropdownValue = stringValue;
-      }
-      return (
-        <DropdownInput
-          choices={choices}
-          value={dropdownValue}
-          onChange={onChange}
-          outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
-          comboboxInputThemeClassName="!bg-[color:var(--app-input-bg)] hover:!bg-[color:var(--app-input-bg-hover)] !border-[color:var(--app-input-border)] !text-[color:var(--app-input-text)] !placeholder:text-[color:var(--app-input-placeholder)] focus:!border-[color:var(--app-input-focus-border)] focus-visible:!ring-[color:var(--app-input-ring)]"
-          comboboxRightButtonThemeClassName="!text-[color:var(--app-dropdown-muted)] hover:!bg-[color:var(--app-input-bg-hover)] hover:!text-[color:var(--app-dropdown-text)] dark:!text-[color:var(--app-dropdown-muted)] dark:hover:!bg-[color:var(--app-input-bg-hover)] dark:hover:!text-[color:var(--app-dropdown-text)]"
-          comboboxListThemeClassName="!border-[color:var(--app-dropdown-border)] !bg-[color:var(--app-dropdown-bg)] !text-[color:var(--app-dropdown-text)]"
-          comboboxGroupHeaderThemeClassName="!border-[color:var(--app-dropdown-border)] !text-[color:var(--app-dropdown-muted)]"
-          comboboxItemThemeClassName="!text-[color:var(--app-dropdown-text)]"
-          comboboxItemHighlightedThemeClassName="bg-[color:var(--app-input-bg-hover)]"
-          isDisabled={isDisabled}
-        />
-      );
-    }
-    case CodeObjTypeEnum.PasswordParam: {
-      const revealDisabled =
-        isDisabled || isPasswordRevealPending || !onRevealPassword;
-      const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`;
-      const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-muted)] hover:text-[color:var(--app-text)]`;
-      const wrapperClassName = "section-value flex min-w-0 items-center gap-2";
-      return (
-        <>
-          <div className={wrapperClassName}>
-            <PasswordInput
-              className={inputClassName}
-              value={stringValue}
-              onChange={onChange}
-              onEscape={onEscape}
-              isDisabled={isDisabled}
-              placeholder={passwordPlaceholder}
-              toggleClassName="flex-none !text-[color:var(--app-muted)] hover:!text-[color:var(--app-text)] dark:!text-[color:var(--app-muted)] dark:hover:!text-[color:var(--app-text)]"
-            />
-            {showPasswordReveal ? (
-              <button
-                type="button"
-                className={revealClassName}
-                onClick={onRevealPassword}
-                disabled={revealDisabled}
-                aria-busy={isPasswordRevealPending}
-                title="Reveal saved password"
-              >
-                {isPasswordRevealPending ? "Revealing..." : "Reveal"}
-              </button>
-            ) : null}
-          </div>
-          <span
-            className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
-          />
-        </>
-      );
-    }
-    case CodeObjTypeEnum.DropzoneParam: {
-      const mode = "mode" in codeObjImpl ? codeObjImpl.mode : null;
-      const maxAttachments =
-        "maxAttachments" in codeObjImpl
-          ? codeObjImpl.maxAttachments ?? null
-          : null;
-      const placeholder =
-        "placeholder" in codeObjImpl ? codeObjImpl.placeholder ?? null : null;
-      return (
-        <DropzoneInput
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={stringValue}
-          onChange={onChange}
-          onStatelessDrop={onDropzoneStateless}
-          isDisabled={isDisabled}
-          mode={mode ?? DropzoneModeEnum.STATEFUL}
-          maxAttachments={maxAttachments}
-          placeholder={placeholder ?? undefined}
-          theme={{
-            wrapperBaseClassName:
-              "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-4 py-3 text-center [font-size:var(--app-text-xs)] font-bold uppercase tracking-widest text-[color:var(--app-muted)]",
-            dragActiveClassName:
-              "border-[color:var(--app-accent)] bg-[color:var(--app-surface-alt)] text-[color:var(--app-text)] ring-4 ring-[color:var(--app-accent)]",
-            controlsRowClassName:
-              "flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-[color:var(--app-muted)]",
-            controlButtonClassName:
-              "rounded-full border border-[color:var(--app-border)] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[color:var(--app-muted)] hover:border-[color:var(--app-accent)] hover:text-[color:var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50",
-            uploadingTextClassName:
-              "text-[10px] font-semibold uppercase tracking-widest text-[color:var(--app-muted)]",
-            attachmentsContainerClassName:
-              "flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-2 text-[11px] text-[color:var(--app-text)]",
-            attachmentSizeTextClassName:
-              "text-[10px] uppercase tracking-wide text-[color:var(--app-muted)]",
-            deleteButtonClassName:
-              "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[color:var(--app-muted)] hover:bg-[color:var(--app-surface-alt)] hover:text-[color:var(--app-text)]",
-          }}
-        />
-      );
-    }
-    default:
-      return null;
+const APP_PARAM_BORDER_CLASS =
+  "section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]";
+const APP_PARAM_TEXT_INPUT_CLASS =
+  "nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]";
+const APP_PARAM_TEXT_INPUT_ACTIVE_CLASS = "cursor-text select-text";
+type AppParamRenderContext = {
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  configLanguage: ConfigLanguageValue;
+  defaultVal: string | number | boolean | null;
+  isDisabled: boolean;
+  isPasswordRevealPending: boolean;
+  onChange: AppParamUIProps["onChange"];
+  onDropzoneStateless: AppParamUIProps["onDropzoneStateless"] | undefined;
+  onEscape: () => void;
+  onRevealPassword: AppParamUIProps["onRevealPassword"] | undefined;
+  paramInfoId: string;
+  passwordPlaceholder: string | undefined;
+  sectionId: string;
+  showPasswordReveal: boolean;
+  stringValue: string;
+  value: string | number | boolean | null;
+};
+function noopAppParamEscape() {}
+function expectDateParamImpl(
+  codeObjImpl: BaseChildlessCodeObjImplUnion,
+): DateParamCodeObjImpl {
+  if (codeObjImpl.type !== CodeObjTypeEnum.DateParam) {
+    throw new TypeError(
+      `Expected DateParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
+    );
   }
+  return codeObjImpl as DateParamCodeObjImpl;
+}
+function expectTimeParamImpl(
+  codeObjImpl: BaseChildlessCodeObjImplUnion,
+): TimeParamCodeObjImpl {
+  if (codeObjImpl.type !== CodeObjTypeEnum.TimeParam) {
+    throw new TypeError(
+      `Expected TimeParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
+    );
+  }
+  return codeObjImpl as TimeParamCodeObjImpl;
+}
+function resolveParamConfigLanguage(
+  sectionImpl: BaseSectionImplUnion,
+): ConfigLanguageValue {
+  if (!isBaseSectionWithParamsImpl(sectionImpl)) {
+    return ConfigLanguageEnum.python;
+  }
+  return sectionImpl.configLanguage === ConfigLanguageEnum.json
+    ? ConfigLanguageEnum.json
+    : ConfigLanguageEnum.python;
+}
+function resolveParamDefaultValue(
+  codeObjImpl: BaseChildlessCodeObjImplUnion,
+): string | number | boolean | null {
+  return "defaultVal" in codeObjImpl ? codeObjImpl.defaultVal : null;
 }
 
+function isParamSectionFrozen(sectionImpl: BaseSectionImplUnion): boolean {
+  return isBaseSectionWithParamsImpl(sectionImpl)
+    ? sectionImpl.isFrozen
+    : false;
+}
+
+function resolvePasswordParamState(args: {
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  stringValue: string;
+}) {
+  if (args.codeObjImpl.type !== CodeObjTypeEnum.PasswordParam) {
+    return {
+      passwordPlaceholder: undefined,
+      showPasswordReveal: false,
+    };
+  }
+  const hasSecret =
+    "hasSecret" in args.codeObjImpl &&
+    typeof args.codeObjImpl.hasSecret === "boolean"
+      ? args.codeObjImpl.hasSecret
+      : false;
+  return {
+    passwordPlaceholder:
+      hasSecret && args.stringValue === "" ? "Saved" : undefined,
+    showPasswordReveal: shouldShowPasswordReveal({
+      value: args.stringValue,
+      hasSecret,
+    }),
+  };
+}
+
+function resolveParamRenderContext(
+  props: AppParamUIProps,
+): AppParamRenderContext {
+  const {
+    canEditParams,
+    codeObjImpl,
+    isPasswordRevealPending,
+    onChange,
+    onDropzoneStateless,
+    onRevealPassword,
+    paramInfoId,
+    sectionId,
+    sectionImpl,
+    value,
+  } = props;
+  const stringValue = _.toString(value ?? "");
+  const { passwordPlaceholder, showPasswordReveal } = resolvePasswordParamState(
+    {
+      codeObjImpl,
+      stringValue,
+    },
+  );
+  return {
+    codeObjImpl,
+    configLanguage: resolveParamConfigLanguage(sectionImpl),
+    defaultVal: resolveParamDefaultValue(codeObjImpl),
+    isDisabled: !canEditParams || isParamSectionFrozen(sectionImpl),
+    isPasswordRevealPending: Boolean(isPasswordRevealPending),
+    onChange,
+    onDropzoneStateless,
+    onEscape: noopAppParamEscape,
+    onRevealPassword,
+    paramInfoId,
+    passwordPlaceholder,
+    sectionId,
+    showPasswordReveal,
+    stringValue,
+    value,
+  };
+}
+function resolveParamNumericRange(codeObjImpl: BaseChildlessCodeObjImplUnion) {
+  return {
+    min: "min" in codeObjImpl ? codeObjImpl.min ?? 0 : 0,
+    max: "max" in codeObjImpl ? codeObjImpl.max ?? 100 : 100,
+    step: "step" in codeObjImpl ? codeObjImpl.step ?? 1 : 1,
+  };
+}
+function resolveDropdownParamValue(
+  value: string | number | boolean | null,
+  stringValue: string,
+): string | null {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value !== null && value !== undefined) {
+    return stringValue;
+  }
+  return null;
+}
+function resolveDropzoneSettings(codeObjImpl: BaseChildlessCodeObjImplUnion) {
+  return {
+    mode:
+      "mode" in codeObjImpl
+        ? codeObjImpl.mode ?? DropzoneModeEnum.STATEFUL
+        : DropzoneModeEnum.STATEFUL,
+    maxAttachments:
+      "maxAttachments" in codeObjImpl
+        ? codeObjImpl.maxAttachments ?? null
+        : null,
+    placeholder:
+      "placeholder" in codeObjImpl
+        ? codeObjImpl.placeholder ?? undefined
+        : undefined,
+  };
+}
+function renderCodeMirrorParam(context: AppParamRenderContext) {
+  const {
+    configLanguage,
+    defaultVal,
+    isDisabled,
+    onChange,
+    onEscape,
+    paramInfoId,
+    sectionId,
+    stringValue,
+  } = context;
+  const cursorClass = !isDisabled ? APP_PARAM_TEXT_INPUT_ACTIVE_CLASS : "";
+  return (
+    <>
+      <TextInputCodeMirror
+        dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        value={stringValue}
+        defaultVal={_.toString(defaultVal ?? "")}
+        onChange={onChange}
+        onEscape={(completionResult) => {
+          if (!completionResult) {
+            onEscape();
+          }
+        }}
+        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${cursorClass} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-[color:var(--app-surface-alt)] [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+        language={configLanguage}
+        isDisabled={isDisabled}
+        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        autocomplete={false}
+      />
+      <span className={APP_PARAM_BORDER_CLASS} />
+    </>
+  );
+}
+function renderTimeParam(context: AppParamRenderContext) {
+  const timeParamImpl = expectTimeParamImpl(context.codeObjImpl);
+  const inputClassName = `${!context.isDisabled ? APP_PARAM_TEXT_INPUT_ACTIVE_CLASS : ""} ${APP_PARAM_TEXT_INPUT_CLASS}`;
+  return (
+    <TextParamDateTimeInput
+      value={context.stringValue}
+      onChange={context.onChange}
+      onEscape={context.onEscape}
+      isDisabled={context.isDisabled}
+      uiType={TextParamInputUITypeEnum.time}
+      timeControlMode={timeParamImpl.timeControlMode}
+      timeDisplayFormat={timeParamImpl.timeDisplayFormat}
+      timeDisplayTransparent={timeParamImpl.timeDisplayTransparent}
+      timeDisplayScale={timeParamImpl.timeDisplayScale}
+      timeDisplayFont={timeParamImpl.timeDisplayFont}
+      dateDisplayFormat={DateDisplayFormatEnum.iso}
+      dateControlMode={DateControlModeEnum.input}
+      dateSelectionMode={DateSelectionModeEnum.single}
+      dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+      dateIncludesTime={false}
+      inputClassName={inputClassName}
+      formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
+      borderClassName={APP_PARAM_BORDER_CLASS}
+    />
+  );
+}
+function renderDateParam(context: AppParamRenderContext) {
+  const dateParamImpl = expectDateParamImpl(context.codeObjImpl);
+  const inputClassName = `${!context.isDisabled ? APP_PARAM_TEXT_INPUT_ACTIVE_CLASS : ""} ${APP_PARAM_TEXT_INPUT_CLASS}`;
+  return (
+    <TextParamDateTimeInput
+      value={context.stringValue}
+      onChange={context.onChange}
+      onEscape={context.onEscape}
+      isDisabled={context.isDisabled}
+      uiType={TextParamInputUITypeEnum.date}
+      timeControlMode={TimeControlModeEnum.display}
+      timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+      timeDisplayTransparent={false}
+      timeDisplayScale={1}
+      timeDisplayFont={TimeDisplayFontEnum.monospace}
+      dateDisplayFormat={dateParamImpl.dateDisplayFormat}
+      dateControlMode={dateParamImpl.dateControlMode}
+      dateSelectionMode={dateParamImpl.dateSelectionMode}
+      dateCalendarWeekStart={dateParamImpl.dateCalendarWeekStart}
+      dateIncludesTime={dateParamImpl.dateIncludesTime}
+      inputClassName={inputClassName}
+      formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
+      borderClassName={APP_PARAM_BORDER_CLASS}
+    />
+  );
+}
+function renderSliderParam(context: AppParamRenderContext) {
+  const { max, min, step } = resolveParamNumericRange(context.codeObjImpl);
+  const numericValue = _.toNumber(context.value);
+  const resolvedValue = Number.isFinite(numericValue) ? numericValue : min;
+  return (
+    <SliderInput
+      value={resolvedValue}
+      onChange={(next) => context.onChange(next)}
+      onEscape={context.onEscape}
+      min={min}
+      max={max}
+      step={step}
+      isDisabled={context.isDisabled}
+      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
+      sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
+      sliderTrackClassName="relative flex-grow rounded-full bg-[color:var(--app-surface-alt)] data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px]"
+      sliderRangeClassName="absolute h-full rounded-full bg-[color:var(--app-accent)]"
+      sliderThumbClassName={`${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} block h-3 w-3 cursor-pointer rounded-full border-2 border-[color:var(--app-border)] bg-[color:var(--app-surface)] shadow-sm drop-shadow-md hover:!bg-[color:var(--app-surface-alt)] focus-visible:!border-[color:var(--app-accent)] focus-visible:bg-[color:var(--app-accent)] focus-visible:outline-none data-[disabled]:pointer-events-none`}
+      textInputClassName="hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-2 text-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)] focus-visible:border-[color:var(--app-accent)] @[132px]/slider:block"
+    />
+  );
+}
+function renderRotaryParam(context: AppParamRenderContext) {
+  const { max, min, step } = resolveParamNumericRange(context.codeObjImpl);
+  const numericValue = _.toNumber(context.value);
+  const resolvedValue = Number.isFinite(numericValue) ? numericValue : min;
+  return (
+    <RotaryInput
+      value={resolvedValue}
+      onChange={context.onChange}
+      onEscape={context.onEscape}
+      min={min}
+      max={max}
+      step={step}
+      isDisabled={context.isDisabled}
+      indicatorThemeClassName="bg-[color:var(--app-accent)]"
+    />
+  );
+}
+function renderSwitchParam(context: AppParamRenderContext) {
+  const defaultVal =
+    typeof context.defaultVal === "boolean" ||
+    typeof context.defaultVal === "string"
+      ? context.defaultVal
+      : undefined;
+  return (
+    <SwitchInput
+      value={context.value ?? false}
+      defaultVal={defaultVal}
+      onChange={(next) => context.onChange(next)}
+      onEscape={context.onEscape}
+      isDisabled={context.isDisabled}
+      outerDivClassName="section-value flex justify-self-start self-center"
+      rootThemeClassName="bg-[color:var(--app-surface-alt)] data-[state='checked']:bg-[color:var(--app-accent)] focus-visible:ring-[color:var(--app-accent)]"
+      thumbThemeClassName="bg-[color:var(--app-surface)]"
+    />
+  );
+}
+function renderColorPickerParam(context: AppParamRenderContext) {
+  const colorChoices =
+    "colorChoices" in context.codeObjImpl
+      ? context.codeObjImpl.colorChoices
+      : [];
+  return (
+    <ColorPickerInput
+      colorChoices={colorChoices}
+      value={context.stringValue}
+      onChange={context.onChange}
+      onEscape={context.onEscape}
+      wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
+      colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center"
+      isDisabled={context.isDisabled}
+      theme={{
+        inputBorderClassName: "!border-[color:var(--app-border)]",
+        triggerBorderClassName: "!border-[color:var(--app-border)]",
+        menuContentClassName:
+          "z-20 flex flex-col rounded border border-[color:var(--app-dropdown-border)] bg-[color:var(--app-dropdown-bg)] p-2 text-[color:var(--app-dropdown-text)] shadow-xl",
+        menuItemClassName:
+          "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-[color:var(--app-input-bg-hover)]",
+        menuItemTextClassName:
+          "max-w-48 truncate [font-size:var(--app-text-xs)] text-[color:var(--app-dropdown-text)]",
+      }}
+    />
+  );
+}
+function renderDropdownParam(context: AppParamRenderContext) {
+  const choices =
+    "choices" in context.codeObjImpl ? context.codeObjImpl.choices : [];
+  return (
+    <DropdownInput
+      choices={choices}
+      value={resolveDropdownParamValue(context.value, context.stringValue)}
+      onChange={context.onChange}
+      outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
+      comboboxInputThemeClassName="!bg-[color:var(--app-input-bg)] hover:!bg-[color:var(--app-input-bg-hover)] !border-[color:var(--app-input-border)] !text-[color:var(--app-input-text)] !placeholder:text-[color:var(--app-input-placeholder)] focus:!border-[color:var(--app-input-focus-border)] focus-visible:!ring-[color:var(--app-input-ring)]"
+      comboboxRightButtonThemeClassName="!text-[color:var(--app-dropdown-muted)] hover:!bg-[color:var(--app-input-bg-hover)] hover:!text-[color:var(--app-dropdown-text)] dark:!text-[color:var(--app-dropdown-muted)] dark:hover:!bg-[color:var(--app-input-bg-hover)] dark:hover:!text-[color:var(--app-dropdown-text)]"
+      comboboxListThemeClassName="!border-[color:var(--app-dropdown-border)] !bg-[color:var(--app-dropdown-bg)] !text-[color:var(--app-dropdown-text)]"
+      comboboxGroupHeaderThemeClassName="!border-[color:var(--app-dropdown-border)] !text-[color:var(--app-dropdown-muted)]"
+      comboboxItemThemeClassName="!text-[color:var(--app-dropdown-text)]"
+      comboboxItemHighlightedThemeClassName="bg-[color:var(--app-input-bg-hover)]"
+      isDisabled={context.isDisabled}
+    />
+  );
+}
+function renderPasswordParam(context: AppParamRenderContext) {
+  const revealDisabled =
+    context.isDisabled ||
+    context.isPasswordRevealPending ||
+    !context.onRevealPassword;
+  const inputClassName = `${!context.isDisabled ? APP_PARAM_TEXT_INPUT_ACTIVE_CLASS : ""} ${APP_PARAM_TEXT_INPUT_CLASS}`;
+  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-muted)] hover:text-[color:var(--app-text)]`;
+  return (
+    <>
+      <div className="section-value flex min-w-0 items-center gap-2">
+        <PasswordInput
+          className={inputClassName}
+          value={context.stringValue}
+          onChange={context.onChange}
+          onEscape={context.onEscape}
+          isDisabled={context.isDisabled}
+          placeholder={context.passwordPlaceholder}
+          toggleClassName="flex-none !text-[color:var(--app-muted)] hover:!text-[color:var(--app-text)] dark:!text-[color:var(--app-muted)] dark:hover:!text-[color:var(--app-text)]"
+        />
+        {context.showPasswordReveal ? (
+          <button
+            type="button"
+            className={revealClassName}
+            onClick={context.onRevealPassword}
+            disabled={revealDisabled}
+            aria-busy={context.isPasswordRevealPending}
+            title="Reveal saved password"
+          >
+            {context.isPasswordRevealPending ? "Revealing..." : "Reveal"}
+          </button>
+        ) : null}
+      </div>
+      <span className={APP_PARAM_BORDER_CLASS} />
+    </>
+  );
+}
+function renderDropzoneParam(context: AppParamRenderContext) {
+  const { maxAttachments, mode, placeholder } = resolveDropzoneSettings(
+    context.codeObjImpl,
+  );
+  return (
+    <DropzoneInput
+      sectionId={context.sectionId}
+      paramInfoId={context.paramInfoId}
+      value={context.stringValue}
+      onChange={context.onChange}
+      onStatelessDrop={context.onDropzoneStateless}
+      isDisabled={context.isDisabled}
+      mode={mode}
+      maxAttachments={maxAttachments}
+      placeholder={placeholder}
+      theme={{
+        wrapperBaseClassName:
+          "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-4 py-3 text-center [font-size:var(--app-text-xs)] font-bold uppercase tracking-widest text-[color:var(--app-muted)]",
+        dragActiveClassName:
+          "border-[color:var(--app-accent)] bg-[color:var(--app-surface-alt)] text-[color:var(--app-text)] ring-4 ring-[color:var(--app-accent)]",
+        controlsRowClassName:
+          "flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-[color:var(--app-muted)]",
+        controlButtonClassName:
+          "rounded-full border border-[color:var(--app-border)] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[color:var(--app-muted)] hover:border-[color:var(--app-accent)] hover:text-[color:var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50",
+        uploadingTextClassName:
+          "text-[10px] font-semibold uppercase tracking-widest text-[color:var(--app-muted)]",
+        attachmentsContainerClassName:
+          "flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-2 text-[11px] text-[color:var(--app-text)]",
+        attachmentSizeTextClassName:
+          "text-[10px] uppercase tracking-wide text-[color:var(--app-muted)]",
+        deleteButtonClassName:
+          "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[color:var(--app-muted)] hover:bg-[color:var(--app-surface-alt)] hover:text-[color:var(--app-text)]",
+      }}
+    />
+  );
+}
+const APP_PARAM_RENDERERS: Partial<
+  Record<CodeObjTypeValue, (context: AppParamRenderContext) => React.ReactNode>
+> = {
+  [CodeObjTypeEnum.CodeParam]: renderCodeMirrorParam,
+  [CodeObjTypeEnum.TextAreaParam]: renderCodeMirrorParam,
+  [CodeObjTypeEnum.TextParam]: renderCodeMirrorParam,
+  [CodeObjTypeEnum.TimeParam]: renderTimeParam,
+  [CodeObjTypeEnum.DateParam]: renderDateParam,
+  [CodeObjTypeEnum.SliderParam]: renderSliderParam,
+  [CodeObjTypeEnum.RotaryParam]: renderRotaryParam,
+  [CodeObjTypeEnum.SwitchParam]: renderSwitchParam,
+  [CodeObjTypeEnum.ColorPickerParam]: renderColorPickerParam,
+  [CodeObjTypeEnum.DropdownParam]: renderDropdownParam,
+  [CodeObjTypeEnum.PasswordParam]: renderPasswordParam,
+  [CodeObjTypeEnum.DropzoneParam]: renderDropzoneParam,
+};
+function AppParamUI(props: AppParamUIProps) {
+  const context = resolveParamRenderContext(props);
+  const renderer = APP_PARAM_RENDERERS[context.codeObjImpl.type];
+  if (!renderer) {
+    return null;
+  }
+  return renderer(context);
+}
 const notifyParamUpdateError = _.throttle(
   (message: string) => {
     addTemporaryNotification(message);
@@ -1292,15 +1872,25 @@ const notifyParamUpdateError = _.throttle(
   2500,
   { trailing: false },
 );
-
 const debouncedSetParamEnteredValue = _.debounce(
-  (configId: string, sectionId: string, paramInfoId: string, value: string) => {
-    route_set_param_entered_value({
-      projectConfigId: configId,
-      sectionId,
-      paramInfoId,
-      value,
-    }).then((response) => {
+  (
+    configId: string,
+    sectionId: string,
+    sectionVariantId: string,
+    paramInfoId: string,
+    value: string,
+  ) => {
+    callOpenAPI(
+      setParamEnteredValue({
+        body: {
+          projectConfigId: configId,
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          value,
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    ).then((response) => {
       if (res200(response)) {
         return;
       }
@@ -1313,15 +1903,25 @@ const debouncedSetParamEnteredValue = _.debounce(
   },
   50,
 );
-
 const debouncedSetPasswordParamValue = _.debounce(
-  (configId: string, sectionId: string, paramInfoId: string, value: string) => {
-    route_set_param_entered_value({
-      projectConfigId: configId,
-      sectionId,
-      paramInfoId,
-      value,
-    }).then((response) => {
+  (
+    configId: string,
+    sectionId: string,
+    sectionVariantId: string,
+    paramInfoId: string,
+    value: string,
+  ) => {
+    callOpenAPI(
+      setParamEnteredValue({
+        body: {
+          projectConfigId: configId,
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          value,
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    ).then((response) => {
       if (res200(response)) {
         return;
       }
@@ -1334,159 +1934,125 @@ const debouncedSetPasswordParamValue = _.debounce(
   },
   50,
 );
-
 function ActionButton({ element, onAction }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
   const scope = useAppConfigScope();
+  const runtimeContext = resolveActionButtonRuntimeContext(runtime, "");
   const { configId, action, sectionId, label } = resolveActionBinding(
     props,
-    runtime?.dataBindings,
+    runtimeContext.dataBindings,
   );
+  const actionName = action ?? "";
+  const actionRuntime = resolveActionButtonRuntimeContext(runtime, actionName);
   const resolvedConfigId = resolveConfigId(
     configId,
-    runtime?.defaultConfigId ?? null,
+    actionRuntime.defaultConfigId,
     scope.configId,
   );
-  const resolvedLabel = label ?? "Run";
-  const actionName = action ?? "";
-  const actionDefinition = runtime?.actions[actionName] ?? null;
-  const actionType = resolveActionType(
-    actionName,
-    actionDefinition ?? undefined,
-  );
   const { canRun, isRunning, runDisabledReason } = useAppActionState();
-  const isRunAction = actionName === "run" || actionType === "run";
-  const isDownloadAction =
-    actionType === "downloadArtifact" || actionType === "downloadBinary";
-  const isExternalLink = actionType === "openExternalLink";
-  const allowDownloads = runtime?.allowFileDownloads ?? false;
-  const allowLinks = runtime?.allowExternalLinks ?? false;
-  let isDisabled = false;
-  if (isRunAction) {
-    isDisabled = !canRun || isRunning;
-  } else if (isDownloadAction) {
-    isDisabled = !allowDownloads;
-  } else if (isExternalLink) {
-    isDisabled = !allowLinks;
-  }
-
-  let disabledReason: string | null = null;
-  if (isRunAction && isDisabled) {
-    disabledReason = runDisabledReason ?? "Run disabled";
-  } else if (isDownloadAction && isDisabled) {
-    disabledReason = "File downloads are disabled by policy.";
-  } else if (isExternalLink && isDisabled) {
-    disabledReason = "External links are disabled by policy.";
-  }
-
+  const {
+    actionName: resolvedActionName,
+    disabledReason,
+    isDisabled,
+    isRunAction,
+    resolvedLabel,
+  } = resolveActionButtonState({
+    action,
+    actionDefinition: actionRuntime.actionDefinition,
+    allowDownloads: actionRuntime.allowDownloads,
+    allowLinks: actionRuntime.allowLinks,
+    canRun,
+    isRunning,
+    label,
+    runDisabledReason,
+  });
+  const { buttonLabel, buttonTitle } = resolveActionButtonPresentation({
+    disabledReason,
+    isDisabled,
+    isRunAction,
+    isRunning,
+    resolvedLabel,
+  });
   return (
     <button
       type="button"
-      className={`rounded-full px-4 py-2 font-semibold transition-colors [font-size:var(--app-text-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-button-ring,_var(--app-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--app-background)] ${
-        isDisabled
-          ? "cursor-not-allowed bg-[color:var(--app-button-disabled-bg,_var(--app-surface-alt))] text-[color:var(--app-button-disabled-text,_var(--app-muted))]"
-          : "bg-[color:var(--app-button-bg,_var(--app-accent))] text-[color:var(--app-button-text,_var(--app-accent-text))] hover:bg-[color:var(--app-button-bg-hover,_var(--app-accent-hover))]"
-      }`}
-      title={isDisabled ? disabledReason ?? undefined : undefined}
-      onClick={() => {
-        if (!actionName || !onAction || isDisabled) {
-          return;
-        }
-        const params: Record<string, string> = {};
-        if (sectionId) {
-          params.sectionId = sectionId;
-        }
-        if (resolvedConfigId) {
-          params.configId = resolvedConfigId;
-        }
-        onAction({ name: actionName, params });
-      }}
+      className={resolveActionButtonClassName(isDisabled)}
+      title={buttonTitle}
+      onClick={() =>
+        handleActionButtonClick({
+          actionName: resolvedActionName,
+          isDisabled,
+          onAction,
+          resolvedConfigId,
+          sectionId,
+        })
+      }
       disabled={isDisabled}
     >
-      {isRunning && isRunAction ? "Running..." : resolvedLabel}
+      {buttonLabel}
     </button>
   );
 }
-
-function TextOutput({ element }: AppComponentProps) {
-  const props = element.props ?? {};
-  const runtime = useAppRuntime();
-  const scope = useAppConfigScope();
-  const { configId, sectionId, label } = resolveTextOutputBinding(
-    props,
-    runtime?.dataBindings,
-  );
-  const resolvedConfigId = resolveConfigId(
-    configId,
-    runtime?.defaultConfigId ?? null,
-    scope.configId,
-  );
-  const configState = useAppConfigs((state) =>
-    resolvedConfigId ? state.configs[resolvedConfigId] : null,
-  );
-  const serverMode = useServerMode((x) => x.mode);
-  const modeResolved = useServerMode((x) => x.modeResolved);
-
-  React.useEffect(() => {
-    if (!resolvedConfigId) {
-      return;
-    }
-    if (!modeResolved || serverMode !== "app") {
-      return;
-    }
-    if (!configState) {
-      void ensureAppProjectConfigLoaded(resolvedConfigId);
-    }
-  }, [configState, modeResolved, resolvedConfigId, serverMode]);
-
-  const textData = React.useMemo(() => {
-    if (!resolvedConfigId || !sectionId || !configState) {
-      return null;
-    }
-    const variantId =
-      configState.previewSectionVariantMap[sectionId] ??
-      configState.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return null;
-    }
-    const variant = configState.sectionVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = configState.sectionImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    const core = configState.sections[sectionId];
-    if (!core) {
-      return null;
-    }
-    const effectiveImpl: BaseSectionImplUnion = {
-      ...impl,
-      ...core.sharedModifier,
-      ...variant.modifier,
-    };
-    if (effectiveImpl.type !== SectionTypeEnum.TextBlock) {
-      return null;
-    }
+function resolveTextOutputRuntimeContext(
+  runtime: ReturnType<typeof useAppRuntime>,
+) {
+  if (!runtime) {
     return {
-      text: effectiveImpl.text,
-      format: effectiveImpl.format,
-      masterFontSizePx: effectiveImpl.masterFontSizePx,
+      dataBindings: undefined,
+      defaultConfigId: null,
     };
-  }, [configState, resolvedConfigId, sectionId]);
-
-  if (!resolvedConfigId || !sectionId || !textData) {
-    return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        Missing text output.
-      </div>
-    );
   }
+  return {
+    dataBindings: runtime.dataBindings,
+    defaultConfigId: runtime.defaultConfigId ?? null,
+  };
+}
 
-  const { text, format, masterFontSizePx } = textData;
-  const typography = buildTextBlockTypographyScale(masterFontSizePx);
+function resolveTextOutputData(
+  configState: AppConfigState | null,
+  sectionId: string | null,
+) {
+  if (!configState || !sectionId) {
+    return null;
+  }
+  const variantId =
+    configState.previewSectionVariantMap[sectionId] ??
+    configState.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = configState.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = configState.sectionImpls[variant.impl];
+  const core = configState.sections[sectionId];
+  if (!impl || !core) {
+    return null;
+  }
+  const effectiveImpl: BaseSectionImplUnion = {
+    ...impl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  };
+  if (effectiveImpl.type !== SectionTypeEnum.TextBlock) {
+    return null;
+  }
+  return {
+    format: effectiveImpl.format,
+    masterFontSizePx: effectiveImpl.masterFontSizePx,
+    text: effectiveImpl.text,
+  };
+}
+
+function TextOutputContent(props: {
+  format: TextBlockFormatValue;
+  label: string | null;
+  masterFontSizePx: number;
+  text: string;
+}) {
+  const typography = buildTextBlockTypographyScale(props.masterFontSizePx);
   const markdownTypographyStyle: React.CSSProperties = {
     "--setta-textblock-body-size": `${typography.bodyPx}px`,
     "--setta-textblock-code-size": `${typography.codePx}px`,
@@ -1497,15 +2063,14 @@ function TextOutput({ element }: AppComponentProps) {
     "--setta-textblock-h5-size": `${typography.h5Px}px`,
     "--setta-textblock-h6-size": `${typography.h6Px}px`,
   };
-
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
-      {label && (
+      {props.label && (
         <div className="font-semibold uppercase tracking-wide text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-          {label}
+          {props.label}
         </div>
       )}
-      {format === TextBlockFormatEnum.Markdown ? (
+      {props.format === TextBlockFormatEnum.Markdown ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
@@ -1513,25 +2078,58 @@ function TextOutput({ element }: AppComponentProps) {
           style={markdownTypographyStyle}
           components={{ code: CodeBlock }}
         >
-          {text}
+          {props.text}
         </ReactMarkdown>
       ) : (
         <pre
           className="whitespace-pre-wrap text-[color:var(--app-text)]"
           style={{ fontSize: `${typography.bodyPx}px` }}
         >
-          {text}
+          {props.text}
         </pre>
       )}
     </div>
   );
 }
 
+function TextOutput({ element }: AppComponentProps) {
+  const props = element.props ?? {};
+  const runtime = useAppRuntime();
+  const scope = useAppConfigScope();
+  const runtimeContext = resolveTextOutputRuntimeContext(runtime);
+  const { configId, sectionId, label } = resolveTextOutputBinding(
+    props,
+    runtimeContext.dataBindings,
+  );
+  const resolvedConfigId = resolveConfigId(
+    configId,
+    runtimeContext.defaultConfigId,
+    scope.configId,
+  );
+  const configState = useAppConfigs((state) =>
+    resolvedConfigId ? state.configs[resolvedConfigId] : null,
+  );
+  useAppConfigLoadState(resolvedConfigId, configState);
+  const textData = React.useMemo(
+    () => resolveTextOutputData(configState, sectionId),
+    [configState, sectionId],
+  );
+  if (!resolvedConfigId || !sectionId || !textData) {
+    return renderAppBindingMessage("Missing text output.");
+  }
+  return <TextOutputContent {...textData} label={label} />;
+}
 async function loadCachedImagesById(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = await route_load_cached_image_artifacts({ paths });
+  const res = (await callOpenAPI(
+    loadCachedImageArtifacts({
+      body: {
+        paths,
+      },
+    } as Parameters<typeof loadCachedImageArtifacts>[0]),
+  )) as LoadCachedImageArtifactsRouteResponse;
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
@@ -1562,7 +2160,6 @@ async function loadCachedImagesById(paths: Array<string>) {
     });
   }
 }
-
 function useImageArtifactById(artifactId: string | null) {
   const imageArtifact = useImages((state) =>
     artifactId ? state.x[artifactId] : null,
@@ -1575,7 +2172,6 @@ function useImageArtifactById(artifactId: string | null) {
   }, [artifactId, imageArtifact]);
   return imageArtifact;
 }
-
 function ImageOutput({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
@@ -1588,7 +2184,6 @@ function ImageOutput({ element }: AppComponentProps) {
   const decodedImage = useDecodedImages((state) =>
     imageArtifact ? state.x[imageArtifact.id] : null,
   );
-
   React.useEffect(() => {
     if (!imageArtifact) {
       return;
@@ -1598,7 +2193,6 @@ function ImageOutput({ element }: AppComponentProps) {
       void decodeExistingRawImages([imageArtifact.id]);
     }
   }, [imageArtifact, decodedImage]);
-
   if (!artifactId) {
     return (
       <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
@@ -1606,7 +2200,6 @@ function ImageOutput({ element }: AppComponentProps) {
       </div>
     );
   }
-
   return (
     <figure className="flex min-h-[120px] items-center justify-center rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
       {decodedImage ? (
@@ -1623,15 +2216,13 @@ function ImageOutput({ element }: AppComponentProps) {
     </figure>
   );
 }
-
 function Divider({ element }: AppComponentProps) {
-  const props = element.props ?? {};
-  const className = typeof props.className === "string" ? props.className : "";
+  const props = resolveElementProps(element);
+  const className = resolveStringProp(props.className);
   return (
     <hr className={`border-[color:var(--app-border)] ${className}`.trim()} />
   );
 }
-
 const MOTION_PRESETS = new Set([
   "none",
   "fadeIn",
@@ -1641,42 +2232,36 @@ const MOTION_PRESETS = new Set([
   "slideRight",
   "scaleIn",
 ]);
-
 function resolveMotionPreset(raw: unknown): string {
   if (typeof raw === "string" && MOTION_PRESETS.has(raw)) {
     return raw;
   }
   return "fadeIn";
 }
-
 function resolveNumber(raw: unknown, fallback: number): number {
   if (typeof raw !== "number" || Number.isNaN(raw) || !Number.isFinite(raw)) {
     return fallback;
   }
   return raw;
 }
-
 function resolveEasing(raw: unknown, fallback: string): string {
   if (typeof raw === "string" && raw.trim()) {
     return raw;
   }
   return fallback;
 }
-
 function Motion({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
-  const className = typeof props.className === "string" ? props.className : "";
+  const className = resolveStringProp(props.className);
   const themeMotion = runtime?.theme?.motion;
-  const fallbackEasing = themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
-  const preset = resolveMotionPreset(props.preset);
-  const durationMs = resolveNumber(
-    props.durationMs,
-    themeMotion?.durationMs ?? 220,
-  );
-  const delayMs = resolveNumber(props.delayMs, themeMotion?.delayMs ?? 0);
-  const easing = resolveEasing(props.easing, fallbackEasing);
-
+  const { delayMs, durationMs, easing, preset } = resolveMotionSettings({
+    delayMs: props.delayMs,
+    durationMs: props.durationMs,
+    easing: props.easing,
+    preset: props.preset,
+    themeMotion,
+  });
   const presetClass = `setta-app-motion--${preset}`;
   return (
     <div
@@ -1691,27 +2276,22 @@ function Motion({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 function Stagger({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
+  const props = resolveElementProps(element);
   const runtime = useAppRuntime();
-  const className = typeof props.className === "string" ? props.className : "";
+  const className = resolveStringProp(props.className);
   const themeMotion = runtime?.theme?.motion;
-  const fallbackEasing = themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
-  const preset = resolveMotionPreset(props.preset);
-  const durationMs = resolveNumber(
-    props.durationMs,
-    themeMotion?.durationMs ?? 220,
-  );
-  const delayMs = resolveNumber(props.delayMs, themeMotion?.delayMs ?? 0);
-  const staggerMs = resolveNumber(
-    props.staggerMs,
-    themeMotion?.staggerMs ?? 70,
-  );
-  const easing = resolveEasing(props.easing, fallbackEasing);
+  const { delayMs, durationMs, easing, preset, staggerMs } =
+    resolveMotionSettings({
+      delayMs: props.delayMs,
+      durationMs: props.durationMs,
+      easing: props.easing,
+      preset: props.preset,
+      staggerMs: props.staggerMs,
+      themeMotion,
+    });
   const items = React.Children.toArray(children);
   const presetClass = `setta-app-motion--${preset}`;
-
   return (
     <div className={`setta-app-stagger ${className}`.trim()}>
       {items.map((child, idx) => (
@@ -1730,7 +2310,6 @@ function Stagger({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 export const appRegistry: Record<
   string,
   React.ComponentType<AppComponentProps>

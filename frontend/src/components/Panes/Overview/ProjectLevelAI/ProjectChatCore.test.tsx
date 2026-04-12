@@ -9,7 +9,7 @@ import {
   clearProjectChatHydrationCacheEntriesForChat,
   hasRetainedImageAttachmentFromImageModeThread,
   resolveProjectChatSubmitAppGeneration,
-} from "./ProjectChatCore";
+} from "./projectChatCoreUtils";
 
 type HydrationCacheEntry = {
   attempt: number;

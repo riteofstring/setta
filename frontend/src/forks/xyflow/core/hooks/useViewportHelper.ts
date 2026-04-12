@@ -1,69 +1,34 @@
-import { centerViewportOnWorldPoint } from "components/Pages/Project/graphSubstrate/viewportTransform";
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { useReactFlow } from "../store";
-import type {
-  Viewport,
-  ViewportTransitionOptions,
-  ViewportZoomOptions,
-} from "../types";
-import {
-  getD3Transition,
-  hasActiveD3ViewportTarget,
-  pointToRendererPoint,
-} from "../utils/graph";
+import type { Viewport } from "../types";
+import { getD3Transition, pointToRendererPoint } from "../utils/graph";
+
+type TransitionOptions = {
+  duration?: number;
+};
+
+type ZoomOptions = TransitionOptions & {
+  zoom?: number;
+};
 
 type ViewportTransform = Partial<Viewport>;
 
-type ViewportOverrideState = {
-  domNode: HTMLDivElement | null;
-  viewport: Viewport;
-};
-
-let viewportOverrideState: ViewportOverrideState | null = null;
-
-function getViewportTransitionResources(options?: ViewportTransitionOptions) {
-  const { d3Zoom, d3Selection, domNode } = useReactFlow.getState();
-  if (
-    !d3Zoom ||
-    !d3Selection ||
-    !hasActiveD3ViewportTarget(d3Selection, domNode)
-  ) {
-    return null;
-  }
-  return {
-    d3Zoom,
-    transition: getD3Transition(d3Selection, options?.duration),
-  };
-}
-
-export const zoomIn = _.throttle((options?: ViewportTransitionOptions) => {
-  const resources = getViewportTransitionResources(options);
-  if (resources) {
-    resources.d3Zoom.scaleBy(resources.transition, 1.2);
-    return;
-  }
-  useReactFlow.getState().viewportController?.zoomBy(1.2, options);
+export const zoomIn = _.throttle((options?: TransitionOptions) => {
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom!.scaleBy(getD3Transition(d3Selection!, options?.duration), 1.2);
 }, 50);
 
-export const zoomOut = _.throttle((options?: ViewportTransitionOptions) => {
-  const resources = getViewportTransitionResources(options);
-  if (resources) {
-    resources.d3Zoom.scaleBy(resources.transition, 1 / 1.2);
-    return;
-  }
-  useReactFlow.getState().viewportController?.zoomBy(1 / 1.2, options);
+export const zoomOut = _.throttle((options?: TransitionOptions) => {
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom!.scaleBy(getD3Transition(d3Selection!, options?.duration), 1 / 1.2);
 }, 50);
 
-function zoomTo(zoomLevel: number, options?: ViewportTransitionOptions) {
-  const resources = getViewportTransitionResources(options);
-  if (resources) {
-    resources.d3Zoom.scaleTo(resources.transition, zoomLevel);
-    return;
-  }
-  useReactFlow.getState().viewportController?.zoomTo(zoomLevel, options);
+function zoomTo(zoomLevel: number, options?: TransitionOptions) {
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom!.scaleTo(getD3Transition(d3Selection!, options?.duration), zoomLevel);
 }
 
 export function resetZoom() {
@@ -72,78 +37,51 @@ export function resetZoom() {
 }
 
 export function getZoom() {
-  return getViewport().zoom;
+  return useReactFlow.getState().transform[2];
 }
 
 function setViewport(
   transform: ViewportTransform,
-  options?: ViewportTransitionOptions,
+  options?: TransitionOptions,
 ) {
-  const resources = getViewportTransitionResources(options);
-  if (resources) {
-    const {
-      transform: [x, y, zoom],
-    } = useReactFlow.getState();
-    const nextTransform = zoomIdentity
-      .translate(transform.x ?? x, transform.y ?? y)
-      .scale(transform.zoom ?? zoom);
-    resources.d3Zoom.transform(resources.transition, nextTransform);
-    return;
-  }
-  useReactFlow.getState().viewportController?.setViewport(transform, options);
+  const {
+    d3Zoom,
+    d3Selection,
+    transform: [x, y, zoom],
+  } = useReactFlow.getState();
+  const nextTransform = zoomIdentity
+    .translate(transform.x ?? x, transform.y ?? y)
+    .scale(transform.zoom ?? zoom);
+  d3Zoom!.transform(
+    getD3Transition(d3Selection!, options?.duration),
+    nextTransform,
+  );
 }
 
 export function getViewport(): Viewport {
-  if (viewportOverrideState) {
-    return viewportOverrideState.viewport;
-  }
   const [x, y, zoom] = useReactFlow.getState().transform;
   return { x, y, zoom };
 }
 
-export function setViewportOverride(
-  nextOverrideState: ViewportOverrideState | null,
-) {
-  viewportOverrideState = nextOverrideState;
-  if (
-    typeof window !== "undefined" &&
-    nextOverrideState !== null &&
-    nextOverrideState.viewport.zoom > 0
-  ) {
-    window.reactFlowZoom = nextOverrideState.viewport.zoom;
-  }
-}
-
-export function setCenter(x: number, y: number, options?: ViewportZoomOptions) {
-  const resources = getViewportTransitionResources(options);
-  if (!resources) {
-    useReactFlow.getState().viewportController?.setCenter(x, y, options);
-    return;
-  }
-  const { width, height } = useReactFlow.getState();
+export function setCenter(x: number, y: number, options?: ZoomOptions) {
+  const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
   const { maxZoom } = useSettings.getState().gui;
   const { overviewTrueWidth } = useLocalStorage.getState();
 
   const nextZoom = typeof options?.zoom === "number" ? options.zoom : maxZoom;
-  const nextViewport = centerViewportOnWorldPoint(
-    { x: 0, y: 0, zoom: nextZoom },
-    {
-      worldPoint: { x, y },
-      screenPoint: { x: width / 2 + overviewTrueWidth, y: height / 2 },
-      zoom: nextZoom,
-    },
-  );
-  const transform = zoomIdentity
-    .translate(nextViewport.x, nextViewport.y)
-    .scale(nextViewport.zoom);
+  const visibleCenterX = width / 2 + overviewTrueWidth;
+  const centerX = visibleCenterX - x * nextZoom;
+  const centerY = height / 2 - y * nextZoom;
+  const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
-  resources.d3Zoom.transform(resources.transition, transform);
+  d3Zoom!.transform(
+    getD3Transition(d3Selection!, options?.duration),
+    transform,
+  );
 }
 
 export function screenToFlowPosition(position: Position, ignoreGrid = false) {
-  const reactFlowState = useReactFlow.getState();
-  const domNode = viewportOverrideState?.domNode ?? reactFlowState.domNode;
-  const viewport = getViewport();
+  const { transform, domNode } = useReactFlow.getState();
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
 
@@ -159,7 +97,7 @@ export function screenToFlowPosition(position: Position, ignoreGrid = false) {
 
   return pointToRendererPoint(
     relativePosition,
-    [viewport.x, viewport.y, viewport.zoom],
+    transform,
     snapToGrid,
     snapGrid,
     ignoreGrid,
@@ -167,7 +105,9 @@ export function screenToFlowPosition(position: Position, ignoreGrid = false) {
 }
 
 export function updateMapPosition(widthDiff: number) {
-  const { x, y, zoom } = getViewport();
+  const {
+    transform: [x, y, zoom],
+  } = useReactFlow.getState();
   setViewport(
     { x: x + widthDiff, y, zoom },
     {
