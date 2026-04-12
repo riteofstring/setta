@@ -19854,6 +19854,36 @@ LOOP_TERMINAL_MARKER: none
       taking another product cut
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-14 15:17 UTC | progress review | runs `028`-`037` assessed for trajectory quality
+  - decision:
+    - `replan_and_continue`
+  - evidence that the stretch was still worthwhile:
+    - `run-031` landed a real live win on the canonical
+      `rotaryParamCodeObjDefault` lane by bypassing dormant row-level DnD child
+      subscriptions on the static path
+    - `run-034` landed the strongest verified win in the window by bypassing
+      the inactive top-level param DnD provider stack; live canary totals
+      improved materially (`averageFrameDurationMs 43.56 -> 37.21`,
+      `longTaskTotalDurationMs 1297 -> 986`) with a passing CDP check
+  - red herrings / diminishing returns:
+    - `run-028` through `run-030` stayed in the same
+      `ParamGroupContainer` / unpinned subtree neighborhood and were all
+      behavior-preserving cleanups or non-winning trims
+    - `run-036` and `run-037` spent two consecutive iterations in
+      `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`; they narrowed
+      the normalize-path blocker but did not restore the canonical perf probe
+    - per the lane-budget rule, a third default helper-only pass on the same
+      named lane would be churn rather than progress
+  - durable adjustment:
+    - the plan/handoff now cap the next pass at one bounded diagnosis of why
+      compare-pane chrome never settles after the persisted pane-state
+      write/reload path
+    - if that bounded diagnosis does not restore the canonical perf probe, the
+      loop must pivot back to product work from the last trustworthy live
+      baseline (`item 473`) or stop for human replan instead of continuing
+      probe-helper edits
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-14 15:00 UTC | item `475` | narrowed the live pane-state preflight blocker back to the longer perf-lane normalize path
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:
@@ -19956,4 +19986,45 @@ LOOP_TERMINAL_MARKER: none
       `UnpinnedParamsArea(...)` / scroll-shell boundary or another larger owner
       above the row seam; do not spend the next pass on more pane-state helper
       churn
+- LOOP_TERMINAL_MARKER: none
+- 2026-04-14 15:31 UTC | item `477` | closed the final helper-only normalize diagnosis without restoring the live lane
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now wraps post-reload compare-pane settle waits in
+      `runWithRecoverableSettingsGraphPageAction(...)` so recoverable page
+      closure during normalized chrome settling retries on a replacement page
+    - the same helper now attempts direct `browserContext.newPage()` recovery
+      before reporting context teardown, instead of probing
+      `browserContext.storageState()` first
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.test.ts`
+      -> passed (`3` files, `19` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live lane-health retry on the current runtime with a fresh bootstrap
+      token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --grep 'settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state' --reporter=line --timeout=180000`
+      -> failed at the outer test timeout
+      -> first retry after the settle-wrapper patch narrowed the failure to
+         `Worktree unhealthy: browser context closed before page recovery`
+         with `browserContext.storageState: Target page, context or browser has
+         been closed`
+      -> second retry after switching recovery to `browserContext.newPage()`
+         failed the same way, now with
+         `browserContext.newPage: Target page, context or browser has been
+         closed`
+      -> result stays `worktree_unhealthy`; the whole browser context is being
+         torn down during normalize
+    - CDP visual check:
+      -> not run; no production UI changed and the live lane never reached a
+         trustworthy normalized post-state
+  - reading:
+    - this consumes the one remaining allowed helper-only diagnosis pass from
+      the handoff
+    - the blocker is no longer a page-local normalize helper stall; it is
+      context teardown outside the helper's remaining recovery scope
+    - next: stop helper churn on this lane and pivot back to a broader product
+      reduction from item `473`, or stop for human replan if no broader owner
+      can be named
 - LOOP_TERMINAL_MARKER: none

@@ -232,7 +232,12 @@ async function reopenSettingsGraphPageIfRecoverable(page: Page): Promise<Page> {
   }
 
   try {
-    await page.context().storageState();
+    const replacementPage = await page.context().newPage();
+    await replacementPage.goto(diagnostic.pageUrl, {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForSettingsGraphAppReady(replacementPage);
+    return replacementPage;
   } catch (error) {
     if (isSettingsGraphPageLifecycleClosureError(error)) {
       throw new Error(
@@ -245,13 +250,6 @@ async function reopenSettingsGraphPageIfRecoverable(page: Page): Promise<Page> {
     }
     throw error;
   }
-
-  const replacementPage = await page.context().newPage();
-  await replacementPage.goto(diagnostic.pageUrl, {
-    waitUntil: "domcontentloaded",
-  });
-  await waitForSettingsGraphAppReady(replacementPage);
-  return replacementPage;
 }
 
 async function runWithRecoverableSettingsGraphPageAction<T>(args: {
@@ -970,9 +968,18 @@ export async function normalizeSettingsGraphComparePaneState(
     page,
     SETTINGS_GRAPH_COMPARE_PANE_STATE,
   );
-  await waitForSettingsGraphComparePaneChrome(activePage);
-  await waitForSettingsGraphCompareTransientChrome(activePage);
-  return activePage;
+
+  const { page: normalizedPage } =
+    await runWithRecoverableSettingsGraphPageAction({
+      description: "settling normalized compare pane state",
+      page: activePage,
+      action: async (targetPage) => {
+        await waitForSettingsGraphComparePaneChrome(targetPage);
+        await waitForSettingsGraphCompareTransientChrome(targetPage);
+      },
+    });
+
+  return normalizedPage;
 }
 
 export async function fitGraphViewportToSection(

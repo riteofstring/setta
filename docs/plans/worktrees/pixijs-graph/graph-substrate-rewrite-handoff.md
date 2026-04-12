@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 15:15 UTC
+Last updated: 2026-04-14 15:31 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,80 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+- progress review checkpoint (`run-028` through `run-037`):
+  - worthwhile progress did happen in this stretch:
+    - `run-031` landed a verified live win by bypassing dormant row-level DnD
+      child subscriptions on the static path
+    - `run-034` landed the strongest verified win in the window by bypassing
+      the inactive top-level param DnD provider stack and materially reducing
+      canonical live frame and long-task totals
+  - real red herrings / diminishing-return patterns also appeared:
+    - `run-028`, `run-029`, and `run-030` were behavior-preserving cleanups on
+      the same param-group neighborhood and did not change the dominant owner
+      order
+    - `run-036` and `run-037` were both probe-helper-only passes on the same
+      `rotaryParamCodeObjDefault` lane after the lane-health blocker had
+      already been narrowed; those passes improved diagnosis but did not
+      restore the canonical perf probe
+  - durable direction for the next iteration:
+    - allow at most one more bounded diagnosis of the normalize path, focused
+      strictly on why compare-pane chrome never settles after the persisted
+      pane-state write/reload path
+    - do not take a third default pass that only reshapes
+      `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - if that bounded diagnosis does not restore the canonical perf probe,
+      pivot back to product work using the last trustworthy live baseline from
+      item `473`, or stop for human replan instead of continuing helper churn
+
+- item `477` completed the one remaining bounded normalize-path diagnosis pass
+  on the canonical `rotaryParamCodeObjDefault` lane and closed helper-only
+  work on this blocker without restoring the live probe:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now treats the post-reload compare-pane settle waits as recoverable page
+      actions, so page closure during normalized chrome settling reruns the
+      settle sequence on a replacement page instead of failing immediately
+    - the same helper now attempts direct `browserContext.newPage()` recovery
+      first instead of probing `browserContext.storageState()` before
+      replacement-page recovery
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.test.ts`
+      -> passed (`3` files, `19` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live lane-health retry on the current runtime with a fresh bootstrap
+      token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --grep 'settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state' --reporter=line --timeout=180000`
+      -> still failed at the outer test timeout
+      -> first retry proved the new settle wrapper was active because the
+         failure moved from waiting to reopen into
+         `browserContext.storageState: Target page, context or browser has
+         been closed`
+      -> after switching recovery to `browserContext.newPage()`, the retry
+         still failed at the same outer timeout, now with
+         `browserContext.newPage: Target page, context or browser has been
+         closed`
+      -> the lane remains `worktree_unhealthy`; the browser context itself is
+         being torn down during normalize, so page-only recovery is no longer a
+         sufficient fix
+    - CDP visual check:
+      -> not run; this slice only changed probe recovery code and the live lane
+         never reached a trustworthy normalized post-state
+  - reading:
+    - this was the one remaining allowed helper-diagnosis pass on the
+      normalize blocker
+    - it produced a durable conclusion: the remaining failure is full browser
+      context teardown during normalize, not another page-local settle/read
+      issue inside `graphSubstrateParityProbe.ts`
+    - do not spend the next default pass on more helper-only recovery churn on
+      this lane
+    - next: pivot back to product work from the last trustworthy live baseline
+      in item `473` and choose one broader owner reduction
+      (`ParamGroupUnpinnedParams` DOM fanout or the first bounded
+      scene-owned static body slice), or stop for human replan if no broader
+      measurable owner can be named
+
 - item `476` completed one bounded normalize-path hardening pass on the
   canonical `rotaryParamCodeObjDefault` lane by removing two more fragile
   in-page module imports from the compare helper:
@@ -99,10 +173,12 @@ This section overrides older "next frontier" notes below when choosing the next 
     - the remaining blocker is later in normalize: after the storage-driven
       write path, the page never reaches normalized compare pane chrome before
       the long Playwright timeout tears the context down
-    - next: debug why normalized pane chrome never settles after the
-      storage-driven pane-state write/reload path; do not take another product
-      `ParamGroupContainer` / `ParamGroupUnpinnedParams` cut until the
-      canonical perf lane can complete again
+    - next: take at most one bounded diagnosis of why normalized pane chrome
+      never settles after the storage-driven pane-state write/reload path
+    - if that does not restore the canonical perf lane immediately, stop
+      spending default iterations in the helper and either pivot back to a
+      product slice from the last verified baseline (`473`) or stop for human
+      replan
 
 - item `475` completed one bounded live-probe hardening pass on the canonical
   `rotaryParamCodeObjDefault` lane so pane-state preflight can classify the
