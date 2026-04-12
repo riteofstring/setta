@@ -5,9 +5,9 @@ import { ProjectConfig } from "utils/generatedTypes";
 export function ProjectConfigPreview({
   topLevelSections,
 }: {
-  topLevelSections: ProjectConfig["topLevelSections"];
+  topLevelSections?: ProjectConfig["topLevelSections"] | null;
 }) {
-  const sectionLayouts = Object.values(topLevelSections);
+  const sectionLayouts = Object.values(topLevelSections ?? {});
   const nodes = sectionLayouts.map((section) => ({
     position: { x: section.x, y: section.y },
     width: section.w,
