@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 02:33 UTC
+Last updated: 2026-04-13 02:43 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,40 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `379` landed one bounded mounted kwargs action-strip subscription
+  reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+      so the mounted kwargs action strip now renders behind its own
+      `KwargsActionButtons` boundary and subscribes only to derived selection
+      state instead of the full effective params impl
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/SectionParts/KwargsControls.test.tsx`
+      to prove unrelated `paramFilter` writes do not re-commit the mounted
+      kwargs action strip while selected-param changes still do
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-kwargs-action-buttons-derived-selector-boundary.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/SectionParts/KwargsControls.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/SectionParts/KwargsControls.tsx src/components/Section/SectionParts/KwargsControls.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> settings surface hydrated, visible section cards/chrome rendered, and
+         bottom settings tabs were present with no obvious blank-screen or
+         missing-controls regression
+  - reading:
+    - this is a real mounted section-body control-strip subscription reduction
+      on the live canary, not a harness-only pass
+    - the previous `KwargsControls` subscription coupled the action strip to
+      unrelated params-impl writes like `paramFilter`, so mounted arg controls
+      could still re-commit when only the filter input needed to update
+  - next default frontier:
+    - stay on the earliest product-facing canary gate and identify the next
+      wider mounted params/body subscriber or shared write fan-out on the live
+      worktree rather than reopening probe-only or backend warm-load work
 
 - item `378` landed one bounded mounted delete/hide button selector
   reduction on the live canary lane:
