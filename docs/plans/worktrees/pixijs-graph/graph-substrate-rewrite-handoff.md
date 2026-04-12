@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 15:31 UTC
+Last updated: 2026-04-14 15:45 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,53 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `478` completed one broader product reduction on the param-group hot
+  path by stopping fixed-height reschedules from subtree-only row churn inside
+  `ParamGroupContainer`:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now observes only direct `outer` child-list mutations for fixed-height
+      recompute scheduling; nested row churn stays covered by the existing
+      fixed-element `ResizeObserver`s instead of rescheduling the full
+      fixed-height pass through subtree mutation noise
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now asserts the fixed-height mutation observer watches `{ childList:
+      true }` and does not subscribe with `subtree: true`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `8` tests)
+    - live normalized lane-health retry with a fresh runtime token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --grep 'settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state' --reporter=line --timeout=180000`
+      -> failed again with
+         `Worktree unhealthy: browser context closed before page recovery`
+         during `normalizeSettingsGraphComparePaneState(...)`
+      -> same durable normalize/context-teardown blocker as item `477`; do not
+         reopen helper-only work for this slice
+    - direct worktree canary drag probe retry with a fresh runtime token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps a widened body-heavy section attached during top-level drag' --reporter=line --timeout=180000`
+      -> failed before exercising the target slice because the `All Settings`
+         tab lookup timed out even though the worktree remained visually
+         healthy in CDP
+      -> treat this as an unstable live Playwright path, not evidence of a new
+         renderer regression in `GroupContainer`
+    - fresh-context CDP visual check:
+      -> passed
+      -> normal-zoom `/settings` showed the graph-substrate canary mounted,
+         repeated `graph-substrate-canary-section` nodes, the Pixi layer
+         present, and the `All Settings` tab visible in the bottom tab strip
+  - reading:
+    - this lands the broader `ParamGroupContainer` observer-scope reduction
+      that item `474` had left uncommitted
+    - the product slice is complete and visually healthy enough to keep, but
+      the canonical live Playwright normalize lane remains untrustworthy for
+      perf attribution because of browser-context teardown outside this code
+      path
+    - next: return to a product lane with a measurable owner boundary,
+      preferably `ParamGroupUnpinnedParams` DOM fanout or the first bounded
+      scene-owned static body slice; do not spend the next default pass on
+      normalizer recovery
 
 - progress review checkpoint (`run-028` through `run-037`):
   - worthwhile progress did happen in this stretch:

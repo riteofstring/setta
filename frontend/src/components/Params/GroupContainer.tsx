@@ -232,7 +232,9 @@ function _ParamGroupContainer({
       frameId = requestAnimationFrame(updateFixedHeight);
     };
 
-    mutationObserver.observe(outer, { childList: true, subtree: true });
+    // Fixed sections are direct children; nested row churn is already covered by
+    // per-element resize observers and should not reschedule fixed-height work.
+    mutationObserver.observe(outer, { childList: true });
     scheduleMeasure();
 
     return () => {

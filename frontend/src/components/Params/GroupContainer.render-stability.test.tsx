@@ -45,6 +45,7 @@ vi.mock("state/hooks/sectionSizes", async () => {
 });
 
 const resizeObserverCallbacks = new Set<ResizeObserverCallback>();
+const mutationObserverObserveCalls: MutationObserverInit[] = [];
 
 vi.stubGlobal(
   "ResizeObserver",
@@ -63,7 +64,9 @@ vi.stubGlobal(
 vi.stubGlobal(
   "MutationObserver",
   class {
-    observe() {}
+    observe(_target: Node, options?: MutationObserverInit) {
+      mutationObserverObserveCalls.push(options ?? {});
+    }
     disconnect() {}
     takeRecords() {
       return [];
@@ -270,6 +273,7 @@ describe("ParamGroupContainer render stability", () => {
   beforeEach(() => {
     resetProjectStores();
     resizeObserverCallbacks.clear();
+    mutationObserverObserveCalls.length = 0;
     useSettings.setState(createSettingsState());
     syncStoreInitialState(useSettings);
     syncStoreInitialState(useWaitingForLSPResult);
@@ -393,6 +397,26 @@ describe("ParamGroupContainer render stability", () => {
     });
 
     expect(resizeObserverCallbacks.size).toBe(3);
+  });
+
+  it("only watches direct child changes for fixed-height mutations", async () => {
+    const sectionId = seedParamGroupContainerState();
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(mutationObserverObserveCalls).toContainEqual({ childList: true });
+    expect(mutationObserverObserveCalls).not.toContainEqual({
+      childList: true,
+      subtree: true,
+    });
   });
 
   it("does not mount the unpinned area when it is hidden", async () => {

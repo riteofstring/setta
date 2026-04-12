@@ -19987,6 +19987,46 @@ LOOP_TERMINAL_MARKER: none
       above the row seam; do not spend the next pass on more pane-state helper
       churn
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-14 15:45 UTC | item `478` | narrowed `ParamGroupContainer` fixed-height observation to direct-child mutations
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now watches only direct child-list mutations on the fixed-height outer
+      shell; nested row churn remains covered by the existing per-element
+      `ResizeObserver`s instead of rescheduling fixed-height work through
+      subtree mutations
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now records mutation-observer options and asserts the observer uses
+      `{ childList: true }` without `subtree: true`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `8` tests)
+    - live normalized lane-health retry with a fresh runtime token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --grep 'settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state' --reporter=line --timeout=180000`
+      -> failed again with
+         `Worktree unhealthy: browser context closed before page recovery`
+         during `normalizeSettingsGraphComparePaneState(...)`
+      -> same normalize/context-teardown blocker as item `477`
+    - direct worktree canary drag probe retry with a fresh runtime token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps a widened body-heavy section attached during top-level drag' --reporter=line --timeout=180000`
+      -> failed before reaching the target drag path because the `All Settings`
+         tab lookup timed out
+      -> follow-up fresh-context CDP read showed the same live worktree page
+         with the graph canary mounted and the `All Settings` tab visible, so
+         treat this as probe instability rather than a new product regression
+    - fresh-context CDP visual check:
+      -> passed
+      -> normal-zoom `/settings` showed the graph-substrate canary mounted,
+         multiple canary sections, the Pixi layer present, and `All Settings`
+         visible in the bottom tab strip
+  - reading:
+    - this is the broader `ParamGroupContainer` owner reduction that had been
+      pending since item `474`; it is now landed and should stay committed
+    - do not reopen helper-only normalize work for this slice
+    - next: move to a new product owner boundary such as
+      `ParamGroupUnpinnedParams` DOM fanout or the first bounded scene-owned
+      static body slice
+- LOOP_TERMINAL_MARKER: none
 - 2026-04-14 15:31 UTC | item `477` | closed the final helper-only normalize diagnosis without restoring the live lane
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:
