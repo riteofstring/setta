@@ -12249,6 +12249,35 @@ LOOP_TERMINAL_MARKER: none
     canonical lane, so the next bounded slice should target product-side canary
     motion cost rather than more probe-health normalization
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 15:14 UTC | item 318 | align reference readiness poll with explicit open-settings budget
+  - Picked one bounded normalization slice on the canonical
+    `rotaryParamCodeObjDefault` lane after the read-only `main`
+    `reference: open settings` blocker repeated again on the fresh runtime.
+  - No product renderer code changed; updated
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so `bootstrapReferenceSettingsPage(...)` uses a shared
+    `referenceOpenSettingsTimeoutMs = 60000` constant for both:
+    - the outer `withSettingsGraphProbePhaseTimeout(...)` wrapper
+    - the inner readiness `expect.poll(...)`
+  - This closes the stale nested `SETTINGS_GRAPH_PROBE_PHASE_TIMEOUT_MS - 5000`
+    cap that was still limiting the readiness poll to `25000ms` even when the
+    phase itself claimed a `60000ms` budget.
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-007/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-007/main-ai.log`
+      -> advanced to `settings-graph-probe-phase-start reference: open settings`
+      and then never completed within a bounded manual wait window; terminated
+      with the read-only `main` renderer still busy, so canonical verification
+      remains blocked by live reference readiness on this runtime
+  - Result:
+    - the timeout-budget mismatch is now fixed in code and will not silently
+      reintroduce early `reference: open settings` failures on future reruns
+    - the active frontier is still the read-only `main` readiness path itself,
+      not the canary renderer; the next bounded pass should instrument or
+      classify where the reference startup is spending time inside
+      `reference: open settings`
+- LOOP_TERMINAL_MARKER: none
 - 2026-04-12 15:04 UTC | item 317 | split canonical perf-probe normalize phases
   - Picked one bounded probe-diagnostics slice after the fresh rerun replaced
     the old reference-inflation theory with an opaque

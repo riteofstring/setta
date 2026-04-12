@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 15:04 UTC
+Last updated: 2026-04-12 15:14 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,31 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+  - item `318` landed one bounded reference-bootstrap normalization slice on the
+    canonical `rotaryParamCodeObjDefault` lane instead of repeating another
+    product-side motion hypothesis while read-only `main` still stalls first:
+    - no product renderer code changed on this pass
+    - fixed `bootstrapReferenceSettingsPage(...)` in
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the inner readiness poll now uses the same explicit `60000ms` budget
+      as the surrounding `reference: open settings` phase instead of silently
+      falling back to the shared `30000ms` phase constant
+    - focused verification:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+        -> passed
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-007/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-007/main-ai.log`
+        -> reached `settings-graph-probe-phase-start reference: open settings`
+        and then never completed within a bounded manual wait window; the probe
+        had to be terminated with the read-only `main` renderer still busy, so
+        the canonical verification remains blocked by reference runtime
+        readiness rather than by the stale nested `30000ms` poll cap
+    - reading:
+      - the old timeout mismatch is now closed in code, so future runs will no
+        longer fail early on a healthy-but-slow `main` startup
+      - the active blocker is still live reference readiness on `main`; the
+        next bounded slice should instrument or classify where `reference: open
+        settings` is burning time on the current runtime rather than reopening
+        canary-side perf work
   - item `317` landed one bounded probe-diagnostics slice on the canonical
     `rotaryParamCodeObjDefault` lane instead of guessing at the opaque
     `worktree: normalize surface` timeout:

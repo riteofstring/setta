@@ -12800,6 +12800,8 @@ async function withSettingsGraphProbePhaseTimeout<T>(args: {
 }
 
 async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
+  const referenceOpenSettingsTimeoutMs = 60000;
+
   await withSettingsGraphProbePhaseTimeout({
     label: "reference: bootstrap page",
     operation: async () => {
@@ -12810,7 +12812,7 @@ async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
   });
   await withSettingsGraphProbePhaseTimeout({
     label: "reference: open settings",
-    timeoutMs: 60000,
+    timeoutMs: referenceOpenSettingsTimeoutMs,
     operation: async () => {
       await page.goto(
         new URL("/settings", MAIN_REFERENCE_FRONTEND_URL).toString(),
@@ -12840,7 +12842,7 @@ async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
               };
             });
           },
-          { timeout: SETTINGS_GRAPH_PROBE_PHASE_TIMEOUT_MS - 5000 },
+          { timeout: referenceOpenSettingsTimeoutMs - 5000 },
         )
         .toEqual({
           graphSurfaceMounted: true,
