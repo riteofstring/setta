@@ -319,60 +319,89 @@ func (p *Project) setCodeObjectName(codeObjID string, name string) error {
 	return nil
 }
 
+type codeObjectFieldStorageTarget uint8
+
+const (
+	codeObjectFieldStorageSharedModifier codeObjectFieldStorageTarget = iota
+	codeObjectFieldStorageImplPayload
+	codeObjectFieldStorageVariantModifier
+)
+
+type codeObjectVariantMutationState struct {
+	codeObj CodeObject
+	variant CodeObjectVariant
+	impl    CodeObjectImpl
+}
+
 func (p *Project) setCodeObjectFieldForVariant(codeObjID string, variantID string, fieldName string, fieldValue any) error {
+	state, err := p.loadCodeObjectVariantMutationState(codeObjID, variantID)
+	if err != nil {
+		return err
+	}
+	target, currentRaw := state.fieldStorageTarget(fieldName)
+	updatedRaw, err := rewriteProjectObjectField(currentRaw, fieldName, fieldValue)
+	if err != nil {
+		return err
+	}
+	p.storeCodeObjectFieldStorage(state, target, updatedRaw)
+	return nil
+}
+
+func (p *Project) loadCodeObjectVariantMutationState(codeObjID string, variantID string) (codeObjectVariantMutationState, error) {
 	codeObj, ok := p.CodeObjs[strings.TrimSpace(codeObjID)]
 	if !ok {
-		return fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
+		return codeObjectVariantMutationState{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
 	}
 	variant, ok := p.CodeObjVariants[strings.TrimSpace(variantID)]
 	if !ok {
-		return fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, variantID)
+		return codeObjectVariantMutationState{}, fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, variantID)
 	}
 	impl, ok := p.CodeObjImpls[variant.ImplID]
 	if !ok {
-		return fmt.Errorf("%w: %q", ErrCodeObjImplNotFound, variant.ImplID)
+		return codeObjectVariantMutationState{}, fmt.Errorf("%w: %q", ErrCodeObjImplNotFound, variant.ImplID)
 	}
+	return codeObjectVariantMutationState{
+		codeObj: codeObj,
+		variant: variant,
+		impl:    impl,
+	}, nil
+}
 
-	switch {
-	case !codeObjectFieldIsUnshared(codeObj, fieldName):
-		modifier, err := rawObjectFromProjectPayload(codeObj.SharedModifier)
-		if err != nil {
-			return err
-		}
-		modifier[fieldName] = cloneProjectValue(fieldValue)
-		raw, err := marshalProjectObject(modifier)
-		if err != nil {
-			return err
-		}
-		codeObj.SharedModifier = raw
-		p.CodeObjs[codeObj.ID] = codeObj
-	case !codeObjImplIsPreset(impl):
-		payload, err := rawObjectFromProjectPayload(codeObjImplPayloadUnchecked(impl))
-		if err != nil {
-			return err
-		}
-		payload[fieldName] = cloneProjectValue(fieldValue)
-		raw, err := marshalProjectObject(payload)
-		if err != nil {
-			return err
-		}
-		impl.Payload = raw
-		p.CodeObjImpls[impl.ID] = impl
+func (state codeObjectVariantMutationState) fieldStorageTarget(fieldName string) (codeObjectFieldStorageTarget, RawJSON) {
+	if !codeObjectFieldIsUnshared(state.codeObj, fieldName) {
+		return codeObjectFieldStorageSharedModifier, state.codeObj.SharedModifier
+	}
+	if !codeObjImplIsPreset(state.impl) {
+		return codeObjectFieldStorageImplPayload, codeObjImplPayloadUnchecked(state.impl)
+	}
+	return codeObjectFieldStorageVariantModifier, state.variant.Modifier
+}
+
+func rewriteProjectObjectField(raw RawJSON, fieldName string, fieldValue any) (RawJSON, error) {
+	object, err := rawObjectFromProjectPayload(raw)
+	if err != nil {
+		return nil, err
+	}
+	object[fieldName] = cloneProjectValue(fieldValue)
+	return marshalProjectObject(object)
+}
+
+func (p *Project) storeCodeObjectFieldStorage(
+	state codeObjectVariantMutationState,
+	target codeObjectFieldStorageTarget,
+	updatedRaw RawJSON,
+) {
+	switch target {
+	case codeObjectFieldStorageSharedModifier:
+		state.codeObj.SharedModifier = updatedRaw
+		p.CodeObjs[state.codeObj.ID] = state.codeObj
+	case codeObjectFieldStorageImplPayload:
+		state.impl.Payload = updatedRaw
+		p.CodeObjImpls[state.impl.ID] = state.impl
 	default:
-		modifier, err := rawObjectFromProjectPayload(variant.Modifier)
-		if err != nil {
-			return err
-		}
-		modifier[fieldName] = cloneProjectValue(fieldValue)
-		raw, err := marshalProjectObject(modifier)
-		if err != nil {
-			return err
-		}
-		variant.Modifier = raw
-		p.CodeObjVariants[variant.ID] = variant
+		state.variant.Modifier = updatedRaw
+		p.CodeObjVariants[state.variant.ID] = state.variant
 	}
-
-	return nil
 }
 
 func newJSONSourceLeafCodeObject(name string, value string) (CodeObject, CodeObjectVariant, CodeObjectImpl, error) {
