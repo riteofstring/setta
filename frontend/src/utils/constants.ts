@@ -70,6 +70,9 @@ export const OverviewTabNamePrettified = OverviewTabUIConfig.titles as Readonly<
   Record<OverviewTabName, string>
 >;
 
+// Keep this encode/decode logic aligned with Go's buildPluginPaneOverviewTabKey:
+// Go emits canonical reveal keys, while the frontend must build and parse the
+// same keys locally for routing and tab state without a round trip.
 export function buildPluginPaneOverviewTabName(
   pluginId: string,
   paneId: string,

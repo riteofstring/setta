@@ -1517,6 +1517,9 @@ func pluginHasRegisterPaneCapability(capabilities []string) bool {
 	return false
 }
 
+// Keep this key builder aligned with the frontend's buildPluginPaneOverviewTabName:
+// the backend emits canonical reveal keys, while the frontend must build and
+// parse identical keys locally for routing and tab state without a round trip.
 func buildPluginPaneOverviewTabKey(pluginID string, paneID string) string {
 	return string(PluginOverviewTabPrefixValue) + ":" + encodeURIComponent(pluginID) + ":" + encodeURIComponent(paneID)
 }

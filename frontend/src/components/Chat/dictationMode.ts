@@ -74,6 +74,11 @@ export function resolveProviderDictationAvailability({
   providerDictationAvailable: boolean;
   providerDictationUnavailableReason: string;
 } {
+  // This intentionally mirrors a narrow subset of backend transcription
+  // validation so the chat UI can gate provider dictation immediately from the
+  // already-hydrated profile/config/api-key snapshot. Go remains authoritative
+  // and revalidates the same constraints when profiles are saved or sessions
+  // start.
   if (!apiKeysAuthoritative) {
     return unavailableProviderDictation(
       "Provider dictation requires an authoritative API key snapshot.",
