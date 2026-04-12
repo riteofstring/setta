@@ -4293,6 +4293,25 @@ export const BootstrapProtocol = {
   workspaceHistoryStorageKey: "setta.workspaceHistoryHandoff",
 } satisfies gt.BootstrapHandoffProtocol;
 
+export const ButtonParamUIConfig = {
+  actionModeOptions: [
+    { label: "Websocket listener", value: "WEBSOCKET_LISTENER" },
+    { label: "HTTP request", value: "HTTP_REQUEST" },
+    { label: "Setta API", value: "SETTA_API" },
+  ],
+  defaultActionMode: "WEBSOCKET_LISTENER",
+  defaultRequestMethod: "POST",
+  requestMethodOptions: [
+    { label: "GET", value: "GET" },
+    { label: "POST", value: "POST" },
+    { label: "PUT", value: "PUT" },
+    { label: "PATCH", value: "PATCH" },
+    { label: "DELETE", value: "DELETE" },
+    { label: "HEAD", value: "HEAD" },
+    { label: "OPTIONS", value: "OPTIONS" },
+  ],
+} satisfies gt.ButtonParamUIConfigValue;
+
 export const C = {
   AUTH_COOKIE_REFRESH_WINDOW_SECONDS: 3600,
   CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES: [],

@@ -711,6 +711,14 @@ export type ButtonActionMode =
   | "SETTA_API";
 
 /**
+ * ButtonParamActionModeOption
+ */
+type ButtonParamActionModeOption = {
+  label: string;
+  value: ButtonActionMode;
+};
+
+/**
  * ButtonParamCodeObjImpl
  */
 export type ButtonParamCodeObjImpl = {
@@ -730,6 +738,24 @@ export type ButtonParamCodeObjImpl = {
   requestUrl: string;
   type: string;
   typeAnnotation: string;
+};
+
+/**
+ * ButtonParamRequestMethodOption
+ */
+type ButtonParamRequestMethodOption = {
+  label: string;
+  value: HTTPRequestMethod;
+};
+
+/**
+ * ButtonParamUIConfigValue
+ */
+export type ButtonParamUIConfigValue = {
+  actionModeOptions: null | Array<ButtonParamActionModeOption>;
+  defaultActionMode: ButtonActionMode;
+  defaultRequestMethod: HTTPRequestMethod;
+  requestMethodOptions: null | Array<ButtonParamRequestMethodOption>;
 };
 
 /**

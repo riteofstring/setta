@@ -16,29 +16,12 @@ import type {
 } from "utils/generatedTypes";
 import {
   ButtonActionModeEnum,
+  ButtonParamUIConfig,
   CodeObjTypeEnum,
-  HTTPRequestMethodEnum,
 } from "utils/generatedTypes";
 import { formatSettaApiBody, SETTA_API_PRESETS } from "utils/settaApiPresets";
-const ACTION_MODE_LABELS: Record<ButtonActionMode, string> = {
-  [ButtonActionModeEnum.WEBSOCKET_LISTENER]: "Websocket listener",
-  [ButtonActionModeEnum.HTTP_REQUEST]: "HTTP request",
-  [ButtonActionModeEnum.SETTA_API]: "Setta API",
-};
-const ACTION_MODE_OPTIONS: Array<ButtonActionMode> = [
-  ButtonActionModeEnum.WEBSOCKET_LISTENER,
-  ButtonActionModeEnum.HTTP_REQUEST,
-  ButtonActionModeEnum.SETTA_API,
-];
-const REQUEST_METHOD_OPTIONS: Array<HTTPRequestMethod> = [
-  HTTPRequestMethodEnum.GET,
-  HTTPRequestMethodEnum.POST,
-  HTTPRequestMethodEnum.PUT,
-  HTTPRequestMethodEnum.PATCH,
-  HTTPRequestMethodEnum.DELETE,
-  HTTPRequestMethodEnum.HEAD,
-  HTTPRequestMethodEnum.OPTIONS,
-];
+const ACTION_MODE_OPTIONS = ButtonParamUIConfig.actionModeOptions;
+const REQUEST_METHOD_OPTIONS = ButtonParamUIConfig.requestMethodOptions;
 const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";
 const LABEL_CLASS_NAME =
@@ -61,6 +44,58 @@ type ButtonConfigUpdate = Partial<
     | "requestBody"
   >
 >;
+
+type ButtonEditorState = {
+  actionMode: ButtonActionMode;
+  requestMethod: HTTPRequestMethod;
+  showRequestFields: boolean;
+  showSettaFields: boolean;
+  showRequestBodyEditor: boolean;
+  defaultSettaRoute: string;
+  settaRouteValue: string;
+  settaPresetValue: string;
+  requestBodyPlaceholder: string;
+};
+
+function resolveButtonEditorState({
+  actionMode: rawActionMode,
+  requestMethod: rawRequestMethod,
+  requestUrl,
+  urlInputValue,
+}: {
+  actionMode: ButtonActionMode | undefined;
+  requestMethod: HTTPRequestMethod | undefined;
+  requestUrl: string;
+  urlInputValue: string;
+}): ButtonEditorState {
+  const actionMode = rawActionMode ?? ButtonParamUIConfig.defaultActionMode;
+  const requestMethod =
+    rawRequestMethod ?? ButtonParamUIConfig.defaultRequestMethod;
+  const showRequestFields = actionMode === ButtonActionModeEnum.HTTP_REQUEST;
+  const showSettaFields = actionMode === ButtonActionModeEnum.SETTA_API;
+  const defaultSettaRoute = SETTA_API_PRESETS[0]?.route ?? "";
+  const settaRouteValue = showSettaFields ? urlInputValue : requestUrl;
+  const settaPresetValue = SETTA_API_PRESETS.some(
+    (preset) => preset.route === settaRouteValue,
+  )
+    ? settaRouteValue
+    : "custom";
+  const requestBodyPlaceholder = showSettaFields
+    ? '{ "projectConfigId": "...", "implType": "TextBlock" }'
+    : '{"projectConfigId":"...","implType":"TextBlock","implOverrides":null,"controlCodeObjType":null,"position":null,"topLevelSections":{},"viewportBounds":null}';
+  return {
+    actionMode,
+    requestMethod,
+    showRequestFields,
+    showSettaFields,
+    showRequestBodyEditor: showRequestFields || showSettaFields,
+    defaultSettaRoute,
+    settaRouteValue,
+    settaPresetValue,
+    requestBodyPlaceholder,
+  };
+}
+
 export function ButtonInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -115,27 +150,19 @@ export function ButtonInputConfigForParam({
     () => true,
     true,
   );
-  const actionMode =
-    config.actionMode ?? ButtonActionModeEnum.WEBSOCKET_LISTENER;
-  const requestMethod = config.requestMethod ?? HTTPRequestMethodEnum.POST;
-  const showRequestFields = actionMode === ButtonActionModeEnum.HTTP_REQUEST;
-  const showSettaFields = actionMode === ButtonActionModeEnum.SETTA_API;
-  const defaultSettaRoute = SETTA_API_PRESETS[0]?.route ?? "";
-  const settaRouteValue = showSettaFields
-    ? urlField.inputValue
-    : config.requestUrl;
-  const settaPresetValue = SETTA_API_PRESETS.some(
-    (preset) => preset.route === settaRouteValue,
-  )
-    ? settaRouteValue
-    : "custom";
+  const editorState = resolveButtonEditorState({
+    actionMode: config.actionMode,
+    requestMethod: config.requestMethod,
+    requestUrl: config.requestUrl,
+    urlInputValue: urlField.inputValue,
+  });
   function onActionModeChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextMode = event.target.value as ButtonActionMode;
     if (nextMode === ButtonActionModeEnum.SETTA_API) {
       const nextRoute =
         config.requestUrl && config.requestUrl !== ""
           ? config.requestUrl
-          : defaultSettaRoute;
+          : editorState.defaultSettaRoute;
       const nextBody =
         config.requestBody && config.requestBody.trim() !== ""
           ? config.requestBody
@@ -163,7 +190,7 @@ export function ButtonInputConfigForParam({
     });
   }
   function onSettaAutofill() {
-    const nextBody = formatSettaApiBody(settaRouteValue);
+    const nextBody = formatSettaApiBody(editorState.settaRouteValue);
     if (nextBody === "") {
       return;
     }
@@ -201,9 +228,6 @@ export function ButtonInputConfigForParam({
     }
     updateButtonConfig({ requestBody });
   }
-  const requestBodyPlaceholder = showSettaFields
-    ? '{ "projectConfigId": "...", "implType": "TextBlock" }'
-    : '{"projectConfigId":"...","implType":"TextBlock","implOverrides":null,"controlCodeObjType":null,"position":null,"topLevelSections":{},"viewportBounds":null}';
   return (
     <div className="mt-1 flex flex-col gap-2">
       <div className={ROW_CLASS_NAME}>
@@ -222,28 +246,28 @@ export function ButtonInputConfigForParam({
         <p className={LABEL_CLASS_NAME}>Mode</p>
         <select
           className={SELECT_CLASS_NAME}
-          value={actionMode}
+          value={editorState.actionMode}
           onChange={onActionModeChange}
         >
-          {ACTION_MODE_OPTIONS.map((mode) => (
-            <option key={mode} value={mode}>
-              {ACTION_MODE_LABELS[mode]}
+          {ACTION_MODE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
       </div>
-      {showRequestFields ? (
+      {editorState.showRequestFields ? (
         <>
           <div className={ROW_CLASS_NAME}>
             <p className={LABEL_CLASS_NAME}>Method</p>
             <select
               className={SELECT_CLASS_NAME}
-              value={requestMethod}
+              value={editorState.requestMethod}
               onChange={onRequestMethodChange}
             >
-              {REQUEST_METHOD_OPTIONS.map((method) => (
-                <option key={method} value={method}>
-                  {method}
+              {REQUEST_METHOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -283,13 +307,13 @@ export function ButtonInputConfigForParam({
           </div>
         </>
       ) : null}
-      {showSettaFields ? (
+      {editorState.showSettaFields ? (
         <>
           <div className={ROW_CLASS_NAME}>
             <p className={LABEL_CLASS_NAME}>Setta API</p>
             <select
               className={SELECT_CLASS_NAME}
-              value={settaPresetValue}
+              value={editorState.settaPresetValue}
               onChange={onSettaPresetChange}
             >
               {SETTA_API_PRESETS.map((preset) => (
@@ -308,16 +332,16 @@ export function ButtonInputConfigForParam({
               onChange={urlField.onChange}
               onBlur={urlField.onBlur}
               onKeyDown={urlField.onKeyDown}
-              placeholder={defaultSettaRoute}
+              placeholder={editorState.defaultSettaRoute}
             />
           </div>
         </>
       ) : null}
-      {showRequestFields || showSettaFields ? (
+      {editorState.showRequestBodyEditor ? (
         <div className="flex flex-col gap-1 px-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-setta-600">Body</p>
-            {showSettaFields ? (
+            {editorState.showSettaFields ? (
               <button
                 className="text-xs font-semibold text-setta-500 hover:text-setta-700"
                 type="button"
@@ -332,7 +356,7 @@ export function ButtonInputConfigForParam({
             value={requestBody}
             onChange={onRequestBodyChange}
             onBlur={onRequestBodyBlur}
-            placeholder={requestBodyPlaceholder}
+            placeholder={editorState.requestBodyPlaceholder}
             spellCheck="false"
           />
         </div>

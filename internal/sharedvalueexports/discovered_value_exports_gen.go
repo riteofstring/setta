@@ -28,6 +28,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "ButtonParamUIConfig",
+			Type: reflect.TypeOf(projectview.FrontendValueButtonParamUIConfig()),
+			Value: func() any {
+				return projectview.FrontendValueButtonParamUIConfig()
+			},
+		},
+		{
 			Name: "C",
 			Type: reflect.TypeOf(httpapi.FrontendValueC()),
 			Value: func() any {

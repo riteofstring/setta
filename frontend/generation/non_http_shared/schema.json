@@ -1944,6 +1944,23 @@
         "SETTA_API"
       ]
     },
+    "ButtonParamActionModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/ButtonActionMode"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ButtonParamActionModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
     "ButtonParamCodeObjImpl": {
       "type": "object",
       "properties": {
@@ -2014,6 +2031,60 @@
         "requestHeaderKey",
         "requestHeaderValue",
         "requestBody"
+      ],
+      "additionalProperties": false
+    },
+    "ButtonParamRequestMethodOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/HTTPRequestMethod"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ButtonParamRequestMethodOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "ButtonParamUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "defaultActionMode": {
+          "$ref": "#/$defs/ButtonActionMode"
+        },
+        "defaultRequestMethod": {
+          "$ref": "#/$defs/HTTPRequestMethod"
+        },
+        "actionModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ButtonParamActionModeOption"
+          }
+        },
+        "requestMethodOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ButtonParamRequestMethodOption"
+          }
+        }
+      },
+      "title": "ButtonParamUIConfigValue",
+      "required": [
+        "defaultActionMode",
+        "defaultRequestMethod",
+        "actionModeOptions",
+        "requestMethodOptions"
       ],
       "additionalProperties": false
     },

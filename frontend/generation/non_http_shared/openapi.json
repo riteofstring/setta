@@ -1687,6 +1687,20 @@
         "title": "ButtonActionMode",
         "type": "string"
       },
+      "ButtonParamActionModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/ButtonActionMode"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "ButtonParamActionModeOption",
+        "type": "object"
+      },
       "ButtonParamCodeObjImpl": {
         "additionalProperties": false,
         "properties": {
@@ -1758,6 +1772,51 @@
           "requestBody"
         ],
         "title": "ButtonParamCodeObjImpl",
+        "type": "object"
+      },
+      "ButtonParamRequestMethodOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/HTTPRequestMethod"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "ButtonParamRequestMethodOption",
+        "type": "object"
+      },
+      "ButtonParamUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "actionModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/ButtonParamActionModeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "defaultActionMode": {
+            "$ref": "#/components/schemas/ButtonActionMode"
+          },
+          "defaultRequestMethod": {
+            "$ref": "#/components/schemas/HTTPRequestMethod"
+          },
+          "requestMethodOptions": {
+            "items": {
+              "$ref": "#/components/schemas/ButtonParamRequestMethodOption"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "defaultActionMode",
+          "defaultRequestMethod",
+          "actionModeOptions",
+          "requestMethodOptions"
+        ],
+        "title": "ButtonParamUIConfigValue",
         "type": "object"
       },
       "CallableSectionImpl": {

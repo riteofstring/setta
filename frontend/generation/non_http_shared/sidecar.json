@@ -417,9 +417,24 @@
       ]
     },
     {
+      "name": "ButtonParamActionModeOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/ButtonParamActionModeOption"
+    },
+    {
       "name": "ButtonParamCodeObjImpl",
       "kind": "model",
       "schemaRef": "#/$defs/ButtonParamCodeObjImpl"
+    },
+    {
+      "name": "ButtonParamRequestMethodOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/ButtonParamRequestMethodOption"
+    },
+    {
+      "name": "ButtonParamUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/ButtonParamUIConfigValue"
     },
     {
       "name": "CallableSectionImpl",
@@ -10306,6 +10321,58 @@
         "workspaceHistoryHashParam": "wh",
         "workspaceHistoryQueryParam": "__setta_workspace_history",
         "workspaceHistoryStorageKey": "setta.workspaceHistoryHandoff"
+      }
+    },
+    {
+      "name": "ButtonParamUIConfig",
+      "type": "ButtonParamUIConfigValue",
+      "value": {
+        "actionModeOptions": [
+          {
+            "label": "Websocket listener",
+            "value": "WEBSOCKET_LISTENER"
+          },
+          {
+            "label": "HTTP request",
+            "value": "HTTP_REQUEST"
+          },
+          {
+            "label": "Setta API",
+            "value": "SETTA_API"
+          }
+        ],
+        "defaultActionMode": "WEBSOCKET_LISTENER",
+        "defaultRequestMethod": "POST",
+        "requestMethodOptions": [
+          {
+            "label": "GET",
+            "value": "GET"
+          },
+          {
+            "label": "POST",
+            "value": "POST"
+          },
+          {
+            "label": "PUT",
+            "value": "PUT"
+          },
+          {
+            "label": "PATCH",
+            "value": "PATCH"
+          },
+          {
+            "label": "DELETE",
+            "value": "DELETE"
+          },
+          {
+            "label": "HEAD",
+            "value": "HEAD"
+          },
+          {
+            "label": "OPTIONS",
+            "value": "OPTIONS"
+          }
+        ]
       }
     },
     {
