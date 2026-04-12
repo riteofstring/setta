@@ -549,16 +549,6 @@ func (s *Session) finishClose() {
 	s.stderrDone = nil
 }
 
-func (s *Session) call(ctx context.Context, method string, params any, result any) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := s.Start(ctx); err != nil {
-		return err
-	}
-	return s.callStarted(ctx, method, params, result)
-}
-
 func (s *Session) callStarted(ctx context.Context, method string, params any, result any) error {
 	return s.callStartedWithMode(ctx, method, params, result, false)
 }
@@ -792,10 +782,6 @@ func (s *Session) notifyWithMode(method string, params any, allowClosing bool) e
 		"method":  method,
 		"params":  params,
 	}, allowClosing)
-}
-
-func (s *Session) writeEnvelope(payload map[string]any) error {
-	return s.writeEnvelopeWithMode(payload, false)
 }
 
 func (s *Session) writeEnvelopeWithMode(payload map[string]any, allowClosing bool) error {
