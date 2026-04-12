@@ -367,6 +367,7 @@ function StaticRealParamSwitchRow(
       dndRef={undefined}
       dndStyle={undefined}
       dndClassName=""
+      useDndChildren={false}
     >
       {props.label}
     </ParamContainer>
@@ -436,6 +437,7 @@ function SortableRealParamSwitchRow({
       dndRef={setNodeRef}
       dndStyle={dndStyle}
       dndClassName={isDragging ? "opacity-80" : ""}
+      useDndChildren={true}
     >
       {label}
     </ParamContainer>

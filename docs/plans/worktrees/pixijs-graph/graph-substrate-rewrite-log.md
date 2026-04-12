@@ -19592,6 +19592,53 @@ LOOP_TERMINAL_MARKER: none
   `ParamGroupContainer` / `ParamGroupUnpinnedParams`, or human replan if no
   fresh evidence can justify one of those remaining broader product slices
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-14 13:30 UTC
+
+- item `471` completed one bounded non-drag row-path reduction on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Params/ParamContainer.tsx`
+    now splits nested child rendering into a static path and a DnD-aware path
+    so the normal lane forwards `paramChildren` directly to `GetParamSwitch`
+    and only the sortable path calls `useParamDndChildrenForParent(...)`
+  - `frontend/src/components/Params/ParamSwitch.tsx`
+    now tells `ParamContainer` whether the current row is on the static or
+    sortable path
+  - `frontend/src/components/Params/ParamContainer.render-stability.test.tsx`
+    now proves the static lane avoids the DnD child subscription while the
+    sortable lane still uses it
+  - perf note:
+    `perf/reports/frontend/2026-04-14_settings-graph-static-param-container-child-path.md`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.render-stability.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/ParamSwitch.test.tsx`
+    -> passed (`3` files, `11` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.render-stability.test.tsx src/components/Params/ParamSwitch.tsx`
+    -> passed
+  - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-031/worktree-ai.log`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-031/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.6m`)
+    -> live lane stayed dominated by `presentedSceneSectionSubtreeReactRender`
+    -> compared with item `470`, this slice was a live win overall:
+       `averageFrameDurationMs 47.73 -> 42.04`,
+       `longTaskTotalDurationMs 1447 -> 1200`
+    -> narrow owners improved while staying the same visible trio:
+       `ParamGroupContainer 671.7ms -> 554.1ms`,
+       `ParamGroupUnpinnedParams 586.6ms -> 493.3ms`,
+       `UnpinnedParamDndListRows 565.1ms -> 476.6ms`
+  - fresh-context CDP check:
+    -> passed
+    -> `/settings` showed `All Settings` with the
+       `rotaryParamCodeObjDefault` canary visually healthy; no obvious
+       blank-card, detached-body, clipping, or severe rendering artifact
+- reading:
+  - this closes the dormant non-drag DnD child-subscription trim as a real
+    product win on the canonical lane
+  - do not keep spending default passes on more dormant DnD cleanup at this
+    same row boundary
+- next frontier remains one broader owner cut inside
+  `ParamGroupContainer` / `ParamGroupUnpinnedParams`, or the first bounded
+  scene-owned static body slice if fresh evidence justifies it
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-14 13:15 UTC
 
 - item `470` completed one bounded `ParamGroupContainer` observer-fanout

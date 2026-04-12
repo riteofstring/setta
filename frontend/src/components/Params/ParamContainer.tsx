@@ -49,6 +49,7 @@ function _ParamContainer({
   dndStyle,
   dndClassName,
   listKey,
+  useDndChildren,
 }) {
   const { paramDescription, paramName } = useProjectState((state) => {
     const codeObjImpl = getCurrEffectiveCodeObjImpl(
@@ -90,11 +91,7 @@ function _ParamContainer({
       ]
     : [{ title: paramName, content: paramDescription }];
 
-  const renderChildren = useParamDndChildrenForParent(
-    paramInfoId,
-    paramChildren,
-  );
-  const hasChildRows = renderChildren.length > 0;
+  const hasChildRows = paramChildren.length > 0;
   const shouldRenderNestedChildSubtrees = hasChildRows;
   const useExplicitLeafGrid = !isNestedParam && !hasChildRows;
   const paramHoverClassName = hasSectionStyleTheme
@@ -193,16 +190,16 @@ function _ParamContainer({
         <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
       )}
       {shouldRenderNestedChildSubtrees && (
-        <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
-          <GetParamSwitch
-            sectionId={sectionId}
-            paramIds={renderChildren}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
+        <NestedParamChildren
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          paramChildren={paramChildren}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={onResizeStart}
+          listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          useDndChildren={useDndChildren}
+        />
       )}
     </article>
   ) : (
@@ -225,22 +222,130 @@ function _ParamContainer({
     >
       {children}
       {shouldRenderNestedChildSubtrees && (
-        <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
-          <GetParamSwitch
-            sectionId={sectionId}
-            paramIds={renderChildren}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
+        <NestedParamChildren
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          paramChildren={paramChildren}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={onResizeStart}
+          listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          useDndChildren={useDndChildren}
+        />
       )}
     </article>
   );
 }
 
 export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
+
+function NestedParamChildren({
+  sectionId,
+  paramInfoId,
+  paramChildren,
+  requiredParamIdsToPaths,
+  onResizeStart,
+  listKey,
+  hasSectionStyleTheme,
+  useDndChildren,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  paramChildren: string[];
+  requiredParamIdsToPaths: Record<string, string[]>;
+  onResizeStart: React.MouseEventHandler;
+  listKey: string;
+  hasSectionStyleTheme: boolean;
+  useDndChildren: boolean;
+}) {
+  if (useDndChildren) {
+    return (
+      <DndAwareNestedParamChildren
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        paramChildren={paramChildren}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        listKey={listKey}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    );
+  }
+
+  return (
+    <NestedParamChildrenContent
+      sectionId={sectionId}
+      paramIds={paramChildren}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      onResizeStart={onResizeStart}
+      listKey={listKey}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    />
+  );
+}
+
+function DndAwareNestedParamChildren({
+  sectionId,
+  paramInfoId,
+  paramChildren,
+  requiredParamIdsToPaths,
+  onResizeStart,
+  listKey,
+  hasSectionStyleTheme,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  paramChildren: string[];
+  requiredParamIdsToPaths: Record<string, string[]>;
+  onResizeStart: React.MouseEventHandler;
+  listKey: string;
+  hasSectionStyleTheme: boolean;
+}) {
+  const renderChildren = useParamDndChildrenForParent(
+    paramInfoId,
+    paramChildren,
+  );
+
+  return (
+    <NestedParamChildrenContent
+      sectionId={sectionId}
+      paramIds={renderChildren}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      onResizeStart={onResizeStart}
+      listKey={listKey}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    />
+  );
+}
+
+function NestedParamChildrenContent({
+  sectionId,
+  paramIds,
+  requiredParamIdsToPaths,
+  onResizeStart,
+  listKey,
+  hasSectionStyleTheme,
+}: {
+  sectionId: string;
+  paramIds: string[];
+  requiredParamIdsToPaths: Record<string, string[]>;
+  onResizeStart: React.MouseEventHandler;
+  listKey: string;
+  hasSectionStyleTheme: boolean;
+}) {
+  return (
+    <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
+      <GetParamSwitch
+        sectionId={sectionId}
+        paramIds={paramIds}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        listKey={listKey}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    </div>
+  );
+}
 
 function ErrorSection({
   sectionId,
