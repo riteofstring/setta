@@ -73,3 +73,36 @@ class TestLoadProjectConfigTiming:
         assert args[0] == project_config_id
         assert args[1] is False
         assert args[5] == 0.0
+
+    async def test_settings_warm_load_reuses_cached_name_validation_errors(
+        self,
+    ) -> None:
+        await self.manager.load_project_config(self.project_config_id)
+
+        # A no-op warm load should reuse the prior validation payload instead of
+        # recomputing the expensive name-validation collectors.
+        with patch(
+            "setta.project_state.base_project_manager.collect_section_name_conflicts",
+            return_value={},
+        ) as conflicts_mock:
+            await self.manager.load_project_config(self.project_config_id)
+
+        conflicts_mock.assert_not_called()
+
+    async def test_settings_name_validation_cache_invalidates_after_state_change(
+        self,
+    ) -> None:
+        project_state = await self.manager.load_project_config(self.project_config_id)
+        section_id = next(iter(project_state.sections))
+        project_state.sections[section_id].name += "_cache_bust"
+        await self.manager.update(project_state)
+
+        # A real backend revision change must force the validation collectors to
+        # recompute instead of serving the stale cached payload.
+        with patch(
+            "setta.project_state.base_project_manager.collect_section_name_conflicts",
+            return_value={},
+        ) as conflicts_mock:
+            await self.manager.load_project_config(self.project_config_id)
+
+        assert conflicts_mock.call_count == 1

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 00:13 UTC
+Last updated: 2026-04-13 00:19 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `366` landed one bounded backend name-validation cache slice for the
+  direct `/settings` load path:
+
+  - product code changed in:
+    - `backend/setta/project_state/base_project_manager.py`
+      so name-validation payloads are now cached by
+      `projectConfigId + history.revision` and reused on unchanged warm loads
+      instead of recomputing the full collector set every
+      `load_project_config(...)`
+    - deleting a project config now also clears the corresponding
+      name-validation cache entry
+  - focused regression coverage added in:
+    - `tests/project_state/test_load_project_config_timing.py`
+      to prove:
+      - a settings warm load reuses cached name-validation results when the
+        backend revision is unchanged
+      - a real backend state edit invalidates that cache and recomputes the
+        validation collectors on the next load
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`5` tests)
+    - `source activate.sh && python -m compileall backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - unchanged settings warm loads no longer need to recompute
+      `collect_section_name_conflicts(...)` and the rest of the validation
+      payload builder on every `load_project_config(...)`
+    - `History.revision` is already the robust invalidation source of truth
+      for this cache because it bumps whenever the current backend state may
+      have changed
+    - this closes the first "can unchanged settings loads reuse validation
+      work?" question from item `365`
+    - the remaining validation owner on the direct `/settings` path is now
+      narrowed to cache-miss computation and/or websocket broadcast send time,
+      not repeated warm-load recomputation
+  - next default frontier:
+    - split the remaining `validation_ms` bucket inside
+      `load_project_config(...)` between cached-payload resolution and the
+      frontend websocket broadcast/send path so the next backend owner on
+      direct `/settings` is explicitly named
 
 - item `365` landed one bounded settings warm-load init-sentinel fix for the
   direct `/settings` backend lane:

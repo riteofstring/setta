@@ -75,6 +75,40 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 00:19 UTC
+
+- item `366` landed one bounded backend name-validation cache slice on the
+  direct `/settings` load path:
+  - changed `backend/setta/project_state/base_project_manager.py` so
+    `load_project_config(...)` now reuses the computed
+    `SettaProjectNameValidationErrors` payload when the same
+    `projectConfigId` is loaded again without a `History.revision` change
+  - kept invalidation robust by keying the cache to `history.revision`
+    instead of heuristics, and by clearing the per-project-config cache entry
+    on delete
+  - extended `tests/project_state/test_load_project_config_timing.py` to prove:
+    - unchanged settings warm loads do not recompute
+      `collect_section_name_conflicts(...)`
+    - a real backend state edit invalidates the cache and recomputes the
+      validation collectors on the next load
+  - verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      - passed (`5` tests)
+    - `source activate.sh && python -m compileall backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      - passed
+  - reading:
+    - the direct `/settings` backend lane no longer burns validation compute on
+      every unchanged warm load
+    - this closes the first bounded reuse question left by item `365`
+    - the remaining `validation_ms` owner is now narrower: cache-miss
+      collection work and/or websocket broadcast send time
+  - next:
+    - split `validation_ms` into cached-payload resolution time versus
+      websocket send/broadcast time so the next direct `/settings` backend
+      owner is explicit
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 00:13 UTC
 
 - item `365` landed one bounded settings warm-load init-sentinel fix on the

@@ -700,6 +700,9 @@ class BaseProjectManager(ABC):
         self._plugin_codegen_project_state_hash_by_project_config_revision: dict[
             ID, tuple[int, str]
         ] = {}
+        self._name_validation_errors_by_project_config_revision: dict[
+            ID, tuple[int, SettaProjectNameValidationErrors]
+        ] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
         ] = {}
@@ -4301,6 +4304,9 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_project_state_hash_by_project_config_revision.pop(
                 project_config_id, None
             )
+            self._name_validation_errors_by_project_config_revision.pop(
+                project_config_id, None
+            )
         self.project_state_backend.validate_default_project_id()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()
@@ -5775,6 +5781,21 @@ class BaseProjectManager(ABC):
         self,
         project_state: ProjectStateSingleConfig,
     ) -> None:
+        content = self._resolve_name_validation_errors(project_state)
+        await self.websocket_msg_handler.broadcast_name_validation_errors(content)
+
+    def _resolve_name_validation_errors(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> SettaProjectNameValidationErrors:
+        project_config_id = project_state.projectConfig.id
+        history_revision = self.history.revision
+        cached_errors = self._name_validation_errors_by_project_config_revision.get(
+            project_config_id
+        )
+        if cached_errors is not None and cached_errors[0] == history_revision:
+            return cached_errors[1]
+
         section_errors = collect_section_name_conflicts(project_state)
         param_errors, param_format_errors = collect_param_name_errors(project_state)
         section_format_errors = collect_section_name_format_errors(project_state)
@@ -5792,7 +5813,11 @@ class BaseProjectManager(ABC):
             sectionErrors=section_errors,
             paramErrors=param_errors,
         )
-        await self.websocket_msg_handler.broadcast_name_validation_errors(content)
+        self._name_validation_errors_by_project_config_revision[project_config_id] = (
+            history_revision,
+            content,
+        )
+        return content
 
     def get_all_project_metadata(self):
         defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
