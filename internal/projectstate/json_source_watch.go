@@ -83,6 +83,17 @@ func (d *Document) reloadJSONSourceTargetsFromDisk(targets []jsonSourceLoadTarge
 		return ErrProjectNotFound
 	}
 
+	groupKeys, targetsByGroup := groupJSONSourceTargets(targets)
+	for _, groupKey := range groupKeys {
+		if err := d.reloadJSONSourceTargetGroup(targetsByGroup[groupKey]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func groupJSONSourceTargets(targets []jsonSourceLoadTarget) ([]string, map[string][]jsonSourceLoadTarget) {
 	targetsByGroup := map[string][]jsonSourceLoadTarget{}
 	groupKeys := make([]string, 0)
 	for _, target := range targets {
@@ -93,42 +104,49 @@ func (d *Document) reloadJSONSourceTargetsFromDisk(targets []jsonSourceLoadTarge
 		targetsByGroup[groupKey] = append(targetsByGroup[groupKey], target)
 	}
 	sort.Strings(groupKeys)
+	return groupKeys, targetsByGroup
+}
 
-	for _, groupKey := range groupKeys {
-		groupTargets := targetsByGroup[groupKey]
-		if len(groupTargets) == 0 {
-			continue
+func (d *Document) reloadJSONSourceTargetGroup(groupTargets []jsonSourceLoadTarget) error {
+	if len(groupTargets) == 0 {
+		return nil
+	}
+	sourceObject, missing := loadJSONSourceObjectFromDisk(
+		groupTargets[0].ResolvedPath,
+		groupTargets[0].JSONSourceKeys,
+	)
+	if missing {
+		return d.markJSONSourceTargetsMissing(groupTargets)
+	}
+	return d.refreshJSONSourceTargets(groupTargets, sourceObject)
+}
+
+func (d *Document) markJSONSourceTargetsMissing(targets []jsonSourceLoadTarget) error {
+	for _, target := range targets {
+		project, err := d.ProjectByID(target.ProjectID)
+		if err != nil {
+			return err
 		}
-		sourceObject, missing := loadJSONSourceObjectFromDisk(
-			groupTargets[0].ResolvedPath,
-			groupTargets[0].JSONSourceKeys,
-		)
-		if missing {
-			for _, target := range groupTargets {
-				project, err := d.ProjectByID(target.ProjectID)
-				if err != nil {
-					return err
-				}
-				if err := project.SetSectionFieldForVariant(target.SectionID, target.VariantID, "jsonSourceMissing", true); err != nil {
-					return err
-				}
-				d.Projects[project.ID] = project
-			}
-			continue
+		if err := project.SetSectionFieldForVariant(target.SectionID, target.VariantID, "jsonSourceMissing", true); err != nil {
+			return err
 		}
-		for _, target := range groupTargets {
-			if err := d.RefreshVariantJSONSourceLiveTree(
-				target.ProjectID,
-				target.SectionID,
-				target.VariantID,
-				target.JSONSourceKeys,
-				*sourceObject.Clone(),
-			); err != nil {
-				return err
-			}
+		d.Projects[project.ID] = project
+	}
+	return nil
+}
+
+func (d *Document) refreshJSONSourceTargets(targets []jsonSourceLoadTarget, sourceObject *JSONSourceObject) error {
+	for _, target := range targets {
+		if err := d.RefreshVariantJSONSourceLiveTree(
+			target.ProjectID,
+			target.SectionID,
+			target.VariantID,
+			target.JSONSourceKeys,
+			*sourceObject.Clone(),
+		); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
 

@@ -45,18 +45,9 @@ func (r *Runtime) StreamAppDefinition(ctx context.Context, input StreamAppDefini
 	if r == nil {
 		return Snapshot{}, AppDefinitionMutationResult{}, ErrRuntimeClosed
 	}
-	if strings.TrimSpace(input.Patches) == "" {
-		return Snapshot{}, AppDefinitionMutationResult{}, newAppSpecPatchInvalidError(errors.New("patches must be non-empty."))
-	}
-
-	projectRoot, err := r.projectRoot()
+	projectRoot, ops, err := prepareStreamAppDefinitionMutation(r, input)
 	if err != nil {
 		return Snapshot{}, AppDefinitionMutationResult{}, err
-	}
-
-	ops, err := appspec.ParsePatchLines(input.Patches)
-	if err != nil {
-		return Snapshot{}, AppDefinitionMutationResult{}, newAppSpecPatchInvalidError(err)
 	}
 
 	return mutateAppDefinitionAndSave(
@@ -64,40 +55,69 @@ func (r *Runtime) StreamAppDefinition(ctx context.Context, input StreamAppDefini
 		ctx,
 		projectRoot,
 		func(document Document) (Document, AppDefinitionMutationResult, string, error) {
-			initialSpec, err := resolveStreamAppDefinitionBaseSpec(projectRoot, effectiveAppDefinition(document), input.BaseAppSpec)
-			if err != nil {
-				return Document{}, AppDefinitionMutationResult{}, "", err
-			}
-
-			appSpec, err := appspec.ApplyPatchOps(ops, initialSpec)
-			if err != nil {
-				return Document{}, AppDefinitionMutationResult{}, "", newAppSpecPatchInvalidError(err)
-			}
-
-			targetPath := appspec.DefaultPath()
-			current := effectiveAppDefinition(document)
-			if trimmed := strings.TrimSpace(current.AppSpecPath); trimmed != "" {
-				targetPath = current.AppSpecPath
-			}
-			if input.AppSpecPath != nil && strings.TrimSpace(*input.AppSpecPath) != "" {
-				targetPath = *input.AppSpecPath
-			}
-
-			normalizedPath, err := appspec.NormalizePath(projectRoot, targetPath)
-			if err != nil {
-				return Document{}, AppDefinitionMutationResult{}, "", err
-			}
-
-			result, err := document.SetAppDefinition(SetAppDefinitionInput{
-				AppSpec:     appSpec,
-				AppSpecPath: input.AppSpecPath,
-			}, normalizedPath)
-			if err != nil {
-				return Document{}, AppDefinitionMutationResult{}, "", err
-			}
-			return document, result, normalizedPath, nil
+			return applyStreamAppDefinitionMutation(document, projectRoot, input, ops)
 		},
 	)
+}
+
+func prepareStreamAppDefinitionMutation(r *Runtime, input StreamAppDefinitionInput) (string, []appspec.PatchOp, error) {
+	if strings.TrimSpace(input.Patches) == "" {
+		return "", nil, newAppSpecPatchInvalidError(errors.New("patches must be non-empty."))
+	}
+
+	projectRoot, err := r.projectRoot()
+	if err != nil {
+		return "", nil, err
+	}
+
+	ops, err := appspec.ParsePatchLines(input.Patches)
+	if err != nil {
+		return "", nil, newAppSpecPatchInvalidError(err)
+	}
+	return projectRoot, ops, nil
+}
+
+func applyStreamAppDefinitionMutation(
+	document Document,
+	projectRoot string,
+	input StreamAppDefinitionInput,
+	ops []appspec.PatchOp,
+) (Document, AppDefinitionMutationResult, string, error) {
+	current := effectiveAppDefinition(document)
+	initialSpec, err := resolveStreamAppDefinitionBaseSpec(projectRoot, current, input.BaseAppSpec)
+	if err != nil {
+		return Document{}, AppDefinitionMutationResult{}, "", err
+	}
+
+	appSpec, err := appspec.ApplyPatchOps(ops, initialSpec)
+	if err != nil {
+		return Document{}, AppDefinitionMutationResult{}, "", newAppSpecPatchInvalidError(err)
+	}
+
+	normalizedPath, err := resolveStreamAppDefinitionTargetPath(projectRoot, current, input.AppSpecPath)
+	if err != nil {
+		return Document{}, AppDefinitionMutationResult{}, "", err
+	}
+
+	result, err := document.SetAppDefinition(SetAppDefinitionInput{
+		AppSpec:     appSpec,
+		AppSpecPath: input.AppSpecPath,
+	}, normalizedPath)
+	if err != nil {
+		return Document{}, AppDefinitionMutationResult{}, "", err
+	}
+	return document, result, normalizedPath, nil
+}
+
+func resolveStreamAppDefinitionTargetPath(projectRoot string, current AppDefinition, inputAppSpecPath *string) (string, error) {
+	targetPath := appspec.DefaultPath()
+	if trimmed := strings.TrimSpace(current.AppSpecPath); trimmed != "" {
+		targetPath = current.AppSpecPath
+	}
+	if inputAppSpecPath != nil && strings.TrimSpace(*inputAppSpecPath) != "" {
+		targetPath = *inputAppSpecPath
+	}
+	return appspec.NormalizePath(projectRoot, targetPath)
 }
 
 func resolveStreamAppDefinitionBaseSpec(projectRoot string, current AppDefinition, baseAppSpec *map[string]any) (map[string]any, error) {

@@ -101,6 +101,13 @@ type codeSectionAttachmentState struct {
 	childTerminalID    string
 }
 
+type codeSectionTerminalAttachTarget struct {
+	terminalVariant SectionVariant
+	terminalImpl    SectionImpl
+	codePayload     map[string]any
+	terminalPayload map[string]any
+}
+
 func resolveCodeSectionAttachmentState(
 	sectionID string,
 	impl SectionImpl,
@@ -165,54 +172,20 @@ func (p *Project) attachCodeSectionTerminal(
 	policy AutoLayoutSectionSizingPolicy,
 	terminalDefaultHeight float64,
 ) error {
-	terminalSection, terminalVariant, terminalImpl, err := p.ResolveSection(terminalSectionID)
+	target, err := p.resolveCodeSectionTerminalAttachTarget(
+		section,
+		variant,
+		impl,
+		terminalSectionID,
+		terminalDefaultHeight,
+	)
 	if err != nil {
 		return err
 	}
-	if !terminalImpl.IsTerminal() {
-		return ErrTerminalSectionRequired
-	}
-
-	codePayload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
-	if err != nil {
+	if err := p.persistAttachedCodeSection(section.ID, variant, impl, target.codePayload, policy, terminalSectionID); err != nil {
 		return err
 	}
-	attachmentState, err := resolveCodeSectionAttachmentState(section.ID, impl, codePayload)
-	if err != nil {
-		return err
-	}
-	if err := validateCodeSectionTerminalAttachment(section.ID, terminalSectionID, attachmentState); err != nil {
-		return err
-	}
-
-	if err := p.reparentTerminalSection(section.ID, &terminalSection); err != nil {
-		return err
-	}
-
-	terminalPayload, err := effectiveSectionPayload(*p, terminalSection.ID, terminalVariant.ID)
-	if err != nil {
-		return err
-	}
-	if err := normalizeAttachedTerminalPayloadSize(codePayload, terminalPayload, terminalDefaultHeight); err != nil {
-		return err
-	}
-
-	updatedCodeImpl := impl.Clone()
-	setBaseCodeSectionAttachmentState(codePayload, &updatedCodeImpl, []string{terminalSectionID})
-	if err := ensureEmbeddedCodeSectionPayloadSize(section.ID, codePayload, policy); err != nil {
-		return err
-	}
-	if err := marshalSectionImplPayload(&updatedCodeImpl, codePayload); err != nil {
-		return err
-	}
-	p.SectionImpls[variant.ImplID] = updatedCodeImpl
-
-	updatedTerminalImpl := terminalImpl.Clone()
-	if err := marshalSectionImplPayload(&updatedTerminalImpl, terminalPayload); err != nil {
-		return err
-	}
-	p.SectionImpls[terminalVariant.ImplID] = updatedTerminalImpl
-	return nil
+	return p.persistAttachedTerminalSection(target.terminalVariant, target.terminalImpl, target.terminalPayload)
 }
 
 func (p *Project) detachCodeSectionAttachedTerminal(
@@ -282,6 +255,93 @@ func normalizeAttachedTerminalPayloadSize(codePayload map[string]any, terminalPa
 
 	codePayload["size"] = codeSize
 	terminalPayload["size"] = terminalSize
+	return nil
+}
+
+func (p *Project) resolveCodeSectionTerminalAttachTarget(
+	section Section,
+	variant SectionVariant,
+	impl SectionImpl,
+	terminalSectionID string,
+	terminalDefaultHeight float64,
+) (codeSectionTerminalAttachTarget, error) {
+	terminalSection, terminalVariant, terminalImpl, err := p.resolveTerminalAttachmentSection(terminalSectionID)
+	if err != nil {
+		return codeSectionTerminalAttachTarget{}, err
+	}
+
+	codePayload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
+	if err != nil {
+		return codeSectionTerminalAttachTarget{}, err
+	}
+	attachmentState, err := resolveCodeSectionAttachmentState(section.ID, impl, codePayload)
+	if err != nil {
+		return codeSectionTerminalAttachTarget{}, err
+	}
+	if err := validateCodeSectionTerminalAttachment(section.ID, terminalSectionID, attachmentState); err != nil {
+		return codeSectionTerminalAttachTarget{}, err
+	}
+
+	if err := p.reparentTerminalSection(section.ID, &terminalSection); err != nil {
+		return codeSectionTerminalAttachTarget{}, err
+	}
+
+	terminalPayload, err := effectiveSectionPayload(*p, terminalSection.ID, terminalVariant.ID)
+	if err != nil {
+		return codeSectionTerminalAttachTarget{}, err
+	}
+	if err := normalizeAttachedTerminalPayloadSize(codePayload, terminalPayload, terminalDefaultHeight); err != nil {
+		return codeSectionTerminalAttachTarget{}, err
+	}
+	return codeSectionTerminalAttachTarget{
+		terminalVariant: terminalVariant,
+		terminalImpl:    terminalImpl,
+		codePayload:     codePayload,
+		terminalPayload: terminalPayload,
+	}, nil
+}
+
+func (p *Project) resolveTerminalAttachmentSection(terminalSectionID string) (Section, SectionVariant, SectionImpl, error) {
+	terminalSection, terminalVariant, terminalImpl, err := p.ResolveSection(terminalSectionID)
+	if err != nil {
+		return Section{}, SectionVariant{}, SectionImpl{}, err
+	}
+	if !terminalImpl.IsTerminal() {
+		return Section{}, SectionVariant{}, SectionImpl{}, ErrTerminalSectionRequired
+	}
+	return terminalSection, terminalVariant, terminalImpl, nil
+}
+
+func (p *Project) persistAttachedCodeSection(
+	sectionID string,
+	variant SectionVariant,
+	impl SectionImpl,
+	codePayload map[string]any,
+	policy AutoLayoutSectionSizingPolicy,
+	terminalSectionID string,
+) error {
+	updatedCodeImpl := impl.Clone()
+	setBaseCodeSectionAttachmentState(codePayload, &updatedCodeImpl, []string{terminalSectionID})
+	if err := ensureEmbeddedCodeSectionPayloadSize(sectionID, codePayload, policy); err != nil {
+		return err
+	}
+	if err := marshalSectionImplPayload(&updatedCodeImpl, codePayload); err != nil {
+		return err
+	}
+	p.SectionImpls[variant.ImplID] = updatedCodeImpl
+	return nil
+}
+
+func (p *Project) persistAttachedTerminalSection(
+	variant SectionVariant,
+	impl SectionImpl,
+	terminalPayload map[string]any,
+) error {
+	updatedTerminalImpl := impl.Clone()
+	if err := marshalSectionImplPayload(&updatedTerminalImpl, terminalPayload); err != nil {
+		return err
+	}
+	p.SectionImpls[variant.ImplID] = updatedTerminalImpl
 	return nil
 }
 
