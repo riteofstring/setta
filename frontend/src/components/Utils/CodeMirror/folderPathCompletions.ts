@@ -10,6 +10,7 @@ import {
   normalizeBrowserPath,
 } from "utils/browserPaths";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+
 type FolderPathCompletionOptions = {
   rootPath: string | null;
   pathSeparator?: string;
@@ -17,8 +18,18 @@ type FolderPathCompletionOptions = {
   maxEntries?: number;
   allowOutsideWorkspaceRoot?: boolean;
 };
+
 const WINDOWS_DRIVE_ROOT_REGEX = /^[A-Za-z]:$/;
 type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
+
+type FolderCompletionRequest = {
+  baseFolderPath: string | null;
+  targetFolderPath: string;
+  from: number;
+  to: number;
+  separator: string;
+};
+
 function resolveSeparator(text: string, fallback: string): string {
   const lastSlash = text.lastIndexOf("/");
   const lastBackslash = text.lastIndexOf("\\");
@@ -52,6 +63,71 @@ function resolveAbsoluteCompletionFolder(absoluteCandidate: string) {
   }
   return normalizedCandidate;
 }
+
+function resolveFolderCompletionRequest(
+  context: Parameters<CompletionSource>[0],
+  rootPath: string,
+  fallbackSeparator: string,
+): FolderCompletionRequest | null {
+  const textBefore = context.state.doc.sliceString(0, context.pos);
+  if (!context.explicit && textBefore.length === 0) {
+    return null;
+  }
+  const { dirPart, from, separator } = splitPathInput(
+    textBefore,
+    fallbackSeparator,
+  );
+  const useAbsolutePath = isAbsoluteBrowserPath(textBefore);
+  const targetFolderPath = useAbsolutePath
+    ? resolveAbsoluteCompletionFolder(dirPart || separator)
+    : dirPart;
+  const baseFolderPath = useAbsolutePath ? null : rootPath;
+  if (!targetFolderPath && !baseFolderPath) {
+    return null;
+  }
+  return {
+    baseFolderPath,
+    targetFolderPath,
+    from,
+    to: context.pos,
+    separator,
+  };
+}
+
+function buildFolderCompletionResult(
+  entries: FolderContentItem[],
+  request: FolderCompletionRequest,
+) {
+  const options: Completion[] = entries
+    .filter((entry) => entry.type === "folder")
+    .map((entry) => ({
+      label: entry.name,
+      type: "folder",
+      apply: `${entry.name}${request.separator}`,
+    }));
+  if (options.length === 0) {
+    return null;
+  }
+  return {
+    from: request.from,
+    to: request.to,
+    options,
+    filter: true,
+  };
+}
+
+function resolveFolderCompletionResult(
+  entries: FolderContentItem[] | Promise<FolderContentItem[]>,
+  request: FolderCompletionRequest,
+) {
+  if (Array.isArray(entries)) {
+    return buildFolderCompletionResult(entries, request);
+  }
+  return entries.then((resolvedEntries) =>
+    buildFolderCompletionResult(resolvedEntries, request),
+  );
+}
+
 async function loadFolderEntries({
   folderPath,
   baseFolderPath,
@@ -117,46 +193,19 @@ export function createFolderPathCompletionSource(
     return request;
   };
   return (context) => {
-    const textBefore = context.state.doc.sliceString(0, context.pos);
-    if (!context.explicit && textBefore.length === 0) {
-      return null;
-    }
-    const { dirPart, from, separator } = splitPathInput(
-      textBefore,
+    const request = resolveFolderCompletionRequest(
+      context,
+      options.rootPath,
       fallbackSeparator,
     );
-    const useAbsolutePath = isAbsoluteBrowserPath(textBefore);
-    const targetFolderPath = useAbsolutePath
-      ? resolveAbsoluteCompletionFolder(dirPart || separator)
-      : dirPart;
-    const baseFolderPath = useAbsolutePath ? null : options.rootPath;
-    if (!targetFolderPath && !baseFolderPath) {
+    if (!request) {
       return null;
     }
-    const to = context.pos;
-    const makeResult = (entries: FolderContentItem[]) => {
-      const optionsList: Completion[] = entries
-        .filter((entry) => entry.type === "folder")
-        .map((entry) => ({
-          label: entry.name,
-          type: "folder",
-          apply: `${entry.name}${separator}`,
-        }));
-      if (optionsList.length === 0) {
-        return null;
-      }
-      return {
-        from,
-        to,
-        options: optionsList,
-        filter: true,
-      };
-    };
-    const entries = getEntries(targetFolderPath, baseFolderPath);
-    if (Array.isArray(entries)) {
-      return makeResult(entries);
-    }
-    return entries.then(makeResult);
+    const entries = getEntries(
+      request.targetFolderPath,
+      request.baseFolderPath,
+    );
+    return resolveFolderCompletionResult(entries, request);
   };
 }
 export function createDynamicFolderPathCompletionSource(
@@ -210,45 +259,19 @@ export function createDynamicFolderPathCompletionSource(
     }
     const fallbackSeparator =
       options.pathSeparator ?? (options.rootPath.includes("\\") ? "\\" : "/");
-    const textBefore = context.state.doc.sliceString(0, context.pos);
-    if (!context.explicit && textBefore.length === 0) {
-      return null;
-    }
-    const { dirPart, from, separator } = splitPathInput(
-      textBefore,
+    const request = resolveFolderCompletionRequest(
+      context,
+      options.rootPath,
       fallbackSeparator,
     );
-    const useAbsolutePath = isAbsoluteBrowserPath(textBefore);
-    const targetFolderPath = useAbsolutePath
-      ? resolveAbsoluteCompletionFolder(dirPart || separator)
-      : dirPart;
-    const baseFolderPath = useAbsolutePath ? null : options.rootPath;
-    if (!targetFolderPath && !baseFolderPath) {
+    if (!request) {
       return null;
     }
-    const to = context.pos;
-    const makeResult = (entries: FolderContentItem[]) => {
-      const optionsList: Completion[] = entries
-        .filter((entry) => entry.type === "folder")
-        .map((entry) => ({
-          label: entry.name,
-          type: "folder",
-          apply: `${entry.name}${separator}`,
-        }));
-      if (optionsList.length === 0) {
-        return null;
-      }
-      return {
-        from,
-        to,
-        options: optionsList,
-        filter: true,
-      };
-    };
-    const entries = getEntries(options, targetFolderPath, baseFolderPath);
-    if (Array.isArray(entries)) {
-      return makeResult(entries);
-    }
-    return entries.then(makeResult);
+    const entries = getEntries(
+      options,
+      request.targetFolderPath,
+      request.baseFolderPath,
+    );
+    return resolveFolderCompletionResult(entries, request);
   };
 }
