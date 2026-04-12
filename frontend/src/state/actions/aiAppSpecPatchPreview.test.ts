@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { __resetAppSpecPatchStreamsForTests } from "state/appSpecPatchStreaming";
+import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
 import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -13,14 +13,14 @@ import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 describe("ai app spec patch preview streaming", () => {
   beforeEach(() => {
     resetProjectStores();
-    __resetAppSpecPatchStreamsForTests();
+    clearAllAppSpecPatchStreams();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
   });
 
   afterEach(() => {
-    __resetAppSpecPatchStreamsForTests();
+    clearAllAppSpecPatchStreams();
     resetProjectStores();
   });
 
@@ -35,7 +35,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
+        type: StreamingEventTypeEnum.tool_argument_preview_delta,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -63,7 +63,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
+        type: StreamingEventTypeEnum.tool_argument_preview_delta,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -103,7 +103,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
+        type: StreamingEventTypeEnum.tool_argument_preview_delta,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -118,7 +118,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
+        type: StreamingEventTypeEnum.tool_argument_preview_delta,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",

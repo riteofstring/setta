@@ -87,11 +87,3 @@ export function clearAppSpecPatchStream(toolCallId: string): void {
 export function clearAllAppSpecPatchStreams(): void {
   streamByToolCallId.clear();
 }
-
-export function __resetAppSpecPatchStreamsForTests(): void {
-  clearAllAppSpecPatchStreams();
-}
-
-export function __getAppSpecPatchStreamCountForTests(): number {
-  return streamByToolCallId.size;
-}
