@@ -138,6 +138,11 @@ type PluginRevealPendingResult = {
   stop: boolean;
   result: PluginRevealResult | null;
 };
+type PluginRevealIterationResult = {
+  latestErrorMessage: string | null;
+  result: PluginRevealResult | null;
+  waitMs: number | null;
+};
 type RevealActivationDraft = {
   nextRunInstructionsOpenValues: Array<string>;
   nextProjectAiOpenValues: Array<string>;
@@ -825,22 +830,49 @@ function captureRevealProjectStateSnapshot(): RevealProjectStateSnapshot {
   };
 }
 
+function setRevealMutationScalarOwnerIfTouched(
+  wasTouched: boolean,
+  leaseId: number,
+  assignOwner: (leaseId: number) => void,
+): void {
+  if (!wasTouched) {
+    return;
+  }
+  assignOwner(leaseId);
+}
+
 function recordRevealMutationOwnership({
   leaseId,
   mutationDiff,
 }: RevealMutationLease): void {
-  if (mutationDiff.touchedOverviewVis) {
-    revealMutationOwnerForOverviewVis = leaseId;
-  }
-  if (mutationDiff.touchedOverviewTab) {
-    revealMutationOwnerForOverviewTab = leaseId;
-  }
-  if (mutationDiff.touchedWatchCodePortalOpen) {
-    revealMutationOwnerForWatchCodePortalOpen = leaseId;
-  }
-  if (mutationDiff.touchedUiEditorVis) {
-    revealMutationOwnerForUiEditorVis = leaseId;
-  }
+  setRevealMutationScalarOwnerIfTouched(
+    mutationDiff.touchedOverviewVis,
+    leaseId,
+    (nextLeaseId) => {
+      revealMutationOwnerForOverviewVis = nextLeaseId;
+    },
+  );
+  setRevealMutationScalarOwnerIfTouched(
+    mutationDiff.touchedOverviewTab,
+    leaseId,
+    (nextLeaseId) => {
+      revealMutationOwnerForOverviewTab = nextLeaseId;
+    },
+  );
+  setRevealMutationScalarOwnerIfTouched(
+    mutationDiff.touchedWatchCodePortalOpen,
+    leaseId,
+    (nextLeaseId) => {
+      revealMutationOwnerForWatchCodePortalOpen = nextLeaseId;
+    },
+  );
+  setRevealMutationScalarOwnerIfTouched(
+    mutationDiff.touchedUiEditorVis,
+    leaseId,
+    (nextLeaseId) => {
+      revealMutationOwnerForUiEditorVis = nextLeaseId;
+    },
+  );
   for (const sectionType of mutationDiff.touchedUiEditorTabSectionTypes) {
     revealMutationOwnerByUiEditorTabSectionType.set(sectionType, leaseId);
   }
@@ -1512,42 +1544,20 @@ async function revealWithPluginHandler(
   }
   let latestErrorMessage: string | null = null;
   while (true) {
-    const loopContext = getPluginRevealLoopContext(
-      deadlineMs,
-      executionContext,
-    );
-    if (loopContext.result !== null) {
-      return loopContext.result;
-    }
-    if (loopContext.remainingMs <= 0) {
-      break;
-    }
-    const pendingResult = await attemptPendingPluginReveal({
+    const iterationResult = await runPluginRevealIteration({
       target,
-      remainingMs: loopContext.remainingMs,
-    });
-    if (pendingResult.result !== null) {
-      return pendingResult.result;
-    }
-    latestErrorMessage = pendingResult.latestErrorMessage ?? latestErrorMessage;
-    const postAttemptContext = getPluginRevealLoopContext(
       deadlineMs,
       executionContext,
-    );
-    if (postAttemptContext.result !== null) {
-      return postAttemptContext.result;
+    });
+    if (iterationResult.result !== null) {
+      return iterationResult.result;
     }
-    if (
-      !shouldContinuePluginRevealPolling(
-        pendingResult,
-        postAttemptContext.remainingMs,
-      )
-    ) {
+    latestErrorMessage =
+      iterationResult.latestErrorMessage ?? latestErrorMessage;
+    if (iterationResult.waitMs === null) {
       break;
     }
-    await sleep(
-      Math.min(FIND_TARGET_INTERVAL_MS, postAttemptContext.remainingMs),
-    );
+    await sleep(iterationResult.waitMs);
   }
   latestErrorMessage ??= `Plugin pane for ${target.settingId} did not become available before reveal timeout.`;
   return {
@@ -1565,6 +1575,71 @@ function shouldContinuePluginRevealPolling(
   remainingMs: number,
 ): boolean {
   return !pendingResult.stop && remainingMs > 0;
+}
+
+async function runPluginRevealIteration({
+  target,
+  deadlineMs,
+  executionContext,
+}: {
+  target: UISettingRevealTarget;
+  deadlineMs: number;
+  executionContext: UISettingRevealExecutionContext | null;
+}): Promise<PluginRevealIterationResult> {
+  const loopContext = getPluginRevealLoopContext(deadlineMs, executionContext);
+  if (loopContext.result !== null) {
+    return {
+      latestErrorMessage: null,
+      result: loopContext.result,
+      waitMs: null,
+    };
+  }
+  if (loopContext.remainingMs <= 0) {
+    return {
+      latestErrorMessage: null,
+      result: null,
+      waitMs: null,
+    };
+  }
+  const pendingResult = await attemptPendingPluginReveal({
+    target,
+    remainingMs: loopContext.remainingMs,
+  });
+  if (pendingResult.result !== null) {
+    return {
+      latestErrorMessage: pendingResult.latestErrorMessage,
+      result: pendingResult.result,
+      waitMs: null,
+    };
+  }
+  const postAttemptContext = getPluginRevealLoopContext(
+    deadlineMs,
+    executionContext,
+  );
+  if (postAttemptContext.result !== null) {
+    return {
+      latestErrorMessage: pendingResult.latestErrorMessage,
+      result: postAttemptContext.result,
+      waitMs: null,
+    };
+  }
+  if (
+    !shouldContinuePluginRevealPolling(
+      pendingResult,
+      postAttemptContext.remainingMs,
+    )
+  ) {
+    return {
+      latestErrorMessage: pendingResult.latestErrorMessage,
+      result: null,
+      waitMs: null,
+    };
+  }
+  return {
+    latestErrorMessage: pendingResult.latestErrorMessage,
+    result: null,
+    waitMs: Math.min(FIND_TARGET_INTERVAL_MS, postAttemptContext.remainingMs),
+  };
 }
 
 function getPluginRevealLoopContext(
