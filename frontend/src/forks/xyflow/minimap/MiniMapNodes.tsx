@@ -16,8 +16,22 @@ import type { Node } from "../core/types";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
+type RenderableMiniMapNode = Node & {
+  height: number;
+  width: number;
+};
+
+function isRenderableMiniMapNode(node: Node): node is RenderableMiniMapNode {
+  return (
+    node.width !== null &&
+    node.height !== null &&
+    node.width > 0 &&
+    node.height > 0
+  );
+}
+
 const selectorNodes = (s: ZustandNodeInternalsState) =>
-  getNodes(s).filter((node) => node.width && node.height);
+  getNodes(s).filter(isRenderableMiniMapNode);
 
 function areNodeStylesEqual(left: Node["style"], right: Node["style"]) {
   if (left === right) {
@@ -55,21 +69,31 @@ export function areMiniMapNodesRenderableInputsEqual(
     if (!leftNode || !rightNode) {
       return false;
     }
-    if (
-      leftNode.id !== rightNode.id ||
-      leftNode.position.x !== rightNode.position.x ||
-      leftNode.position.y !== rightNode.position.y ||
-      leftNode.width !== rightNode.width ||
-      leftNode.height !== rightNode.height ||
-      leftNode.zIndex !== rightNode.zIndex ||
-      leftNode.tempZIndex !== rightNode.tempZIndex ||
-      leftNode.type !== rightNode.type ||
-      !areNodeStylesEqual(leftNode.style, rightNode.style)
-    ) {
+    if (!areMiniMapNodeRenderableFieldsEqual(leftNode, rightNode)) {
       return false;
     }
   }
   return true;
+}
+
+const MINI_MAP_RENDERABLE_FIELD_SELECTORS = [
+  (node: Node) => node.id,
+  (node: Node) => node.position.x,
+  (node: Node) => node.position.y,
+  (node: Node) => node.width,
+  (node: Node) => node.height,
+  (node: Node) => node.zIndex,
+  (node: Node) => node.tempZIndex,
+  (node: Node) => node.type,
+] as const;
+
+function areMiniMapNodeRenderableFieldsEqual(left: Node, right: Node) {
+  for (const selector of MINI_MAP_RENDERABLE_FIELD_SELECTORS) {
+    if (selector(left) !== selector(right)) {
+      return false;
+    }
+  }
+  return areNodeStylesEqual(left.style, right.style);
 }
 
 type MiniMapNodeVisual = {
@@ -122,35 +146,64 @@ function getMiniMapNodeVisuals(
   for (const [sectionId, variantId] of Object.entries(
     state.projectConfig.sectionVariantMap,
   )) {
-    if ((state.parentSectionMap[sectionId] ?? null) !== null) {
-      continue;
+    const visual = resolveMiniMapNodeVisual(
+      state,
+      sectionId,
+      variantId,
+      darkMode,
+      previewStyleColors,
+    );
+    if (visual) {
+      visuals.push(visual);
     }
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      continue;
-    }
-    if (!state.sectionImpls[variant.impl] || !state.sections[sectionId]) {
-      continue;
-    }
-    const effectiveImpl = getCurrEffectiveSectionImpl(state, sectionId);
-    const resolvedStyleColor =
-      previewStyleColors[sectionId] === undefined
-        ? effectiveImpl.styleColor
-        : previewStyleColors[sectionId];
-    const theme =
-      resolvedStyleColor !== null &&
-      resolvedStyleColor !== undefined &&
-      resolvedStyleColor.trim() !== ""
-        ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-        : null;
-    visuals.push({
-      id: sectionId,
-      type: effectiveImpl.type,
-      background: theme?.bg ?? null,
-    });
   }
   visuals.sort((left, right) => left.id.localeCompare(right.id));
   return visuals;
+}
+
+function resolveMiniMapNodeVisual(
+  state: ZustandProjectState,
+  sectionId: string,
+  variantId: string,
+  darkMode: boolean,
+  previewStyleColors: MiniMapPreviewStyleColors,
+): MiniMapNodeVisual | null {
+  if ((state.parentSectionMap[sectionId] ?? null) !== null) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (
+    !variant ||
+    !state.sections[sectionId] ||
+    !state.sectionImpls[variant.impl]
+  ) {
+    return null;
+  }
+  const effectiveImpl = getCurrEffectiveSectionImpl(state, sectionId);
+  return {
+    id: sectionId,
+    type: effectiveImpl.type,
+    background: resolveMiniMapNodeBackground(
+      previewStyleColors[sectionId] === undefined
+        ? effectiveImpl.styleColor
+        : previewStyleColors[sectionId],
+      darkMode,
+    ),
+  };
+}
+
+function resolveMiniMapNodeBackground(
+  styleColor: string | null | undefined,
+  darkMode: boolean,
+) {
+  if (styleColor === null || styleColor === undefined) {
+    return null;
+  }
+  const normalizedStyleColor = styleColor.trim();
+  if (normalizedStyleColor === "") {
+    return null;
+  }
+  return deriveSectionStyleTheme(normalizedStyleColor, darkMode).bg;
 }
 
 function areMiniMapNodeVisualsEqual(
@@ -252,6 +305,7 @@ function _MiniMapNodes({
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
+  const renderableNodes = nodes.filter(isRenderableMiniMapNode);
 
   const isBrowser = typeof window !== "undefined";
   const isChrome = isBrowser && "chrome" in window;
@@ -260,7 +314,7 @@ function _MiniMapNodes({
 
   return (
     <>
-      {nodes.map((node, idx) => {
+      {renderableNodes.map((node, idx) => {
         const { x, y } = node.position;
 
         return (
@@ -268,8 +322,8 @@ function _MiniMapNodes({
             key={`${node.id ?? idx}`}
             x={x}
             y={y}
-            width={node.width!}
-            height={node.height!}
+            width={node.width}
+            height={node.height}
             dataMinimapNodeId={node.id}
             className={nodeClassNameFunc(node)}
             color={nodeColorFunc(node)}
