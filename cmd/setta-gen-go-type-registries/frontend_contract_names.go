@@ -12,6 +12,31 @@ import (
 
 const frontendContractNamesOutputPath = "internal/frontendbindings/discovered_contract_names_gen.go"
 
+var frontendContractReflectExprRenderers = map[reflect.Kind]func(string) string{
+	reflect.Array:   renderFrontendContractZeroCompositeExpr,
+	reflect.Bool:    renderFrontendContractZeroValueExpr,
+	reflect.Float32: renderFrontendContractZeroValueExpr,
+	reflect.Float64: renderFrontendContractZeroValueExpr,
+	reflect.Interface: func(qualifiedName string) string {
+		return fmt.Sprintf("reflect.TypeOf((*%s)(nil)).Elem()", qualifiedName)
+	},
+	reflect.Int:     renderFrontendContractZeroValueExpr,
+	reflect.Int8:    renderFrontendContractZeroValueExpr,
+	reflect.Int16:   renderFrontendContractZeroValueExpr,
+	reflect.Int32:   renderFrontendContractZeroValueExpr,
+	reflect.Int64:   renderFrontendContractZeroValueExpr,
+	reflect.Map:     renderFrontendContractNilExpr,
+	reflect.Slice:   renderFrontendContractNilExpr,
+	reflect.String:  renderFrontendContractStringExpr,
+	reflect.Struct:  renderFrontendContractZeroCompositeExpr,
+	reflect.Uint:    renderFrontendContractZeroValueExpr,
+	reflect.Uint8:   renderFrontendContractZeroValueExpr,
+	reflect.Uint16:  renderFrontendContractZeroValueExpr,
+	reflect.Uint32:  renderFrontendContractZeroValueExpr,
+	reflect.Uint64:  renderFrontendContractZeroValueExpr,
+	reflect.Uintptr: renderFrontendContractZeroValueExpr,
+}
+
 func writeFrontendContractNameRegistry(write bool) error {
 	entries := gotypediscovery.DiscoverFrontendContractNameEntries()
 	contents := renderFrontendContractNameRegistry(entries)
@@ -79,34 +104,34 @@ func renderFrontendContractReflectExpr(
 	t reflect.Type,
 	importAliases map[string]string,
 ) string {
+	qualifiedName := renderFrontendContractQualifiedName(t, importAliases)
+	if renderer, ok := frontendContractReflectExprRenderers[t.Kind()]; ok {
+		return renderer(qualifiedName)
+	}
+	fail("unsupported reflect kind %q for generated frontend contract name %s", t.Kind(), t)
+	return ""
+}
+
+func renderFrontendContractQualifiedName(t reflect.Type, importAliases map[string]string) string {
 	qualifiedName := t.Name()
 	if alias := importAliases[t.PkgPath()]; alias != "" {
-		qualifiedName = alias + "." + qualifiedName
+		return alias + "." + qualifiedName
 	}
+	return qualifiedName
+}
 
-	switch t.Kind() {
-	case reflect.Array:
-		return fmt.Sprintf("reflect.TypeOf(%s{})", qualifiedName)
-	case reflect.Bool:
-		return fmt.Sprintf("reflect.TypeOf(%s(false))", qualifiedName)
-	case reflect.Float32, reflect.Float64:
-		return fmt.Sprintf("reflect.TypeOf(%s(0))", qualifiedName)
-	case reflect.Struct:
-		return fmt.Sprintf("reflect.TypeOf(%s{})", qualifiedName)
-	case reflect.Interface:
-		return fmt.Sprintf("reflect.TypeOf((*%s)(nil)).Elem()", qualifiedName)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return fmt.Sprintf("reflect.TypeOf(%s(0))", qualifiedName)
-	case reflect.Map:
-		return fmt.Sprintf("reflect.TypeOf(%s(nil))", qualifiedName)
-	case reflect.Slice:
-		return fmt.Sprintf("reflect.TypeOf(%s(nil))", qualifiedName)
-	case reflect.String:
-		return fmt.Sprintf("reflect.TypeOf(%s(\"\"))", qualifiedName)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return fmt.Sprintf("reflect.TypeOf(%s(0))", qualifiedName)
-	default:
-		fail("unsupported reflect kind %q for generated frontend contract name %s", t.Kind(), t)
-		return ""
-	}
+func renderFrontendContractZeroCompositeExpr(qualifiedName string) string {
+	return fmt.Sprintf("reflect.TypeOf(%s{})", qualifiedName)
+}
+
+func renderFrontendContractZeroValueExpr(qualifiedName string) string {
+	return fmt.Sprintf("reflect.TypeOf(%s(0))", qualifiedName)
+}
+
+func renderFrontendContractNilExpr(qualifiedName string) string {
+	return fmt.Sprintf("reflect.TypeOf(%s(nil))", qualifiedName)
+}
+
+func renderFrontendContractStringExpr(qualifiedName string) string {
+	return fmt.Sprintf("reflect.TypeOf(%s(\"\"))", qualifiedName)
 }

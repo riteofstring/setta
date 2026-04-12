@@ -384,48 +384,101 @@ func discoverDefaultProviderEntries(
 
 	providersByTarget := map[string]defaultProviderEntry{}
 	for _, pkgPath := range frontendDefaultProviderSourcePackages(frontendEntries) {
-		functions, err := gotypediscovery.DiscoverPackageZeroArgFunctionsWithPrefix(
-			pkgPath,
-			functionPrefix,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("discover default providers in %s: %w", pkgPath, err)
-		}
-		for _, function := range functions {
-			suffix := strings.TrimPrefix(function.Name, functionPrefix)
-			key := normalizedRegistryName(suffix)
-			target, ok := selectFrontendLocalType(indexes.LocalNames[key], pkgPath)
-			if !ok {
-				targetsByPackage := indexes.TargetNames[pkgPath]
-				target, ok = targetsByPackage[key]
-			}
-			if !ok {
-				continue
-			}
-			if _, skipped := skippedFrontendDefaultProviderTypes[target.Type.Name]; skipped {
-				continue
-			}
-			entry := defaultProviderEntry{
-				Target:              target,
-				ProviderPackagePath: pkgPath,
-				ProviderFuncName:    function.Name,
-			}
-			if existing, ok := providersByTarget[target.Type.Name]; ok &&
-				(existing.ProviderPackagePath != entry.ProviderPackagePath ||
-					existing.ProviderFuncName != entry.ProviderFuncName) {
-				return nil, fmt.Errorf(
-					"multiple default providers discovered for %s: %s.%s and %s.%s",
-					target.Type.Name,
-					existing.ProviderPackagePath,
-					existing.ProviderFuncName,
-					entry.ProviderPackagePath,
-					entry.ProviderFuncName,
-				)
-			}
-			providersByTarget[target.Type.Name] = entry
+		if err := discoverPackageDefaultProviderEntries(providersByTarget, indexes, pkgPath, functionPrefix); err != nil {
+			return nil, err
 		}
 	}
+	return sortedDefaultProviderEntries(providersByTarget), nil
+}
 
+func discoverPackageDefaultProviderEntries(
+	providersByTarget map[string]defaultProviderEntry,
+	indexes frontendTypeIndexes,
+	pkgPath string,
+	functionPrefix string,
+) error {
+	functions, err := gotypediscovery.DiscoverPackageZeroArgFunctionsWithPrefix(
+		pkgPath,
+		functionPrefix,
+	)
+	if err != nil {
+		return fmt.Errorf("discover default providers in %s: %w", pkgPath, err)
+	}
+	for _, function := range functions {
+		entry, ok := buildDefaultProviderEntry(indexes, pkgPath, functionPrefix, function.Name)
+		if !ok {
+			continue
+		}
+		if err := recordDefaultProviderEntry(providersByTarget, entry); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func buildDefaultProviderEntry(
+	indexes frontendTypeIndexes,
+	pkgPath string,
+	functionPrefix string,
+	functionName string,
+) (defaultProviderEntry, bool) {
+	target, ok := resolveDefaultProviderTarget(
+		indexes,
+		pkgPath,
+		strings.TrimPrefix(functionName, functionPrefix),
+	)
+	if !ok {
+		return defaultProviderEntry{}, false
+	}
+	if _, skipped := skippedFrontendDefaultProviderTypes[target.Type.Name]; skipped {
+		return defaultProviderEntry{}, false
+	}
+	return defaultProviderEntry{
+		Target:              target,
+		ProviderPackagePath: pkgPath,
+		ProviderFuncName:    functionName,
+	}, true
+}
+
+func resolveDefaultProviderTarget(
+	indexes frontendTypeIndexes,
+	pkgPath string,
+	suffix string,
+) (registryEntry, bool) {
+	key := normalizedRegistryName(suffix)
+	target, ok := selectFrontendLocalType(indexes.LocalNames[key], pkgPath)
+	if ok {
+		return target, true
+	}
+	targetsByPackage := indexes.TargetNames[pkgPath]
+	target, ok = targetsByPackage[key]
+	return target, ok
+}
+
+func recordDefaultProviderEntry(
+	providersByTarget map[string]defaultProviderEntry,
+	entry defaultProviderEntry,
+) error {
+	existing, ok := providersByTarget[entry.Target.Type.Name]
+	if ok &&
+		(existing.ProviderPackagePath != entry.ProviderPackagePath ||
+			existing.ProviderFuncName != entry.ProviderFuncName) {
+		return fmt.Errorf(
+			"multiple default providers discovered for %s: %s.%s and %s.%s",
+			entry.Target.Type.Name,
+			existing.ProviderPackagePath,
+			existing.ProviderFuncName,
+			entry.ProviderPackagePath,
+			entry.ProviderFuncName,
+		)
+	}
+	providersByTarget[entry.Target.Type.Name] = entry
+	return nil
+}
+
+func sortedDefaultProviderEntries(
+	providersByTarget map[string]defaultProviderEntry,
+) []defaultProviderEntry {
 	providers := make([]defaultProviderEntry, 0, len(providersByTarget))
 	for _, entry := range providersByTarget {
 		providers = append(providers, entry)
@@ -433,7 +486,7 @@ func discoverDefaultProviderEntries(
 	sort.Slice(providers, func(i, j int) bool {
 		return providers[i].Target.Type.Name < providers[j].Target.Type.Name
 	})
-	return providers, nil
+	return providers
 }
 
 func normalizedFrontendTypeIndex(
@@ -915,45 +968,72 @@ func internalPackagePaths() ([]string, error) {
 		return nil, err
 	}
 	internalRoot := filepath.Join(repoRoot, "internal")
+	return walkInternalPackagePaths(repoRoot, internalRoot)
+}
 
+func walkInternalPackagePaths(repoRoot string, internalRoot string) ([]string, error) {
 	packages := []string{}
 	if err := filepath.WalkDir(internalRoot, func(current string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !entry.IsDir() {
-			return nil
-		}
-		name := entry.Name()
-		if name == "testdata" || strings.HasPrefix(name, ".") {
-			return filepath.SkipDir
-		}
-		matches, err := filepath.Glob(filepath.Join(current, "*.go"))
-		if err != nil {
-			return err
-		}
-		hasGoFiles := false
-		for _, match := range matches {
-			if strings.HasSuffix(match, "_test.go") {
-				continue
-			}
-			hasGoFiles = true
-			break
-		}
-		if !hasGoFiles {
-			return nil
-		}
-		relative, err := filepath.Rel(repoRoot, current)
-		if err != nil {
-			return err
-		}
-		packages = append(packages, "setta/"+filepath.ToSlash(relative))
-		return nil
+		return collectInternalPackagePath(repoRoot, current, entry, err, &packages)
 	}); err != nil {
 		return nil, err
 	}
 	sort.Strings(packages)
 	return packages, nil
+}
+
+func collectInternalPackagePath(
+	repoRoot string,
+	current string,
+	entry fs.DirEntry,
+	walkErr error,
+	packages *[]string,
+) error {
+	if walkErr != nil {
+		return walkErr
+	}
+	if !entry.IsDir() {
+		return nil
+	}
+	if shouldSkipInternalPackageDir(entry.Name()) {
+		return filepath.SkipDir
+	}
+	hasGoFiles, err := directoryHasNonTestGoFiles(current)
+	if err != nil || !hasGoFiles {
+		return err
+	}
+	packagePath, err := internalPackagePath(repoRoot, current)
+	if err != nil {
+		return err
+	}
+	*packages = append(*packages, packagePath)
+	return nil
+}
+
+func shouldSkipInternalPackageDir(name string) bool {
+	return name == "testdata" || strings.HasPrefix(name, ".")
+}
+
+func directoryHasNonTestGoFiles(dir string) (bool, error) {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		return false, err
+	}
+	for _, match := range matches {
+		if strings.HasSuffix(match, "_test.go") {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func internalPackagePath(repoRoot string, current string) (string, error) {
+	relative, err := filepath.Rel(repoRoot, current)
+	if err != nil {
+		return "", err
+	}
+	return "setta/" + filepath.ToSlash(relative), nil
 }
 
 func generatorRepoRoot() (string, error) {

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -85,5 +88,73 @@ func TestRenderFrontendContractNameRegistryEmitsReflectTypeMap(t *testing.T) {
 	}
 	if !strings.Contains(rendered, `reflect.TypeOf(agentprofiles.Profile{}): "AgentProfile"`) {
 		t.Fatalf("rendered frontend contract registry missing agent profile entry:\n%s", rendered)
+	}
+}
+
+func TestRenderFrontendContractReflectExprSupportsScalarAndInterfaceKinds(t *testing.T) {
+	t.Parallel()
+
+	if got := renderFrontendContractReflectExpr(reflect.TypeOf(""), nil); got != `reflect.TypeOf(string(""))` {
+		t.Fatalf("unexpected string reflect expression %q", got)
+	}
+	if got := renderFrontendContractReflectExpr(reflect.TypeOf((*error)(nil)).Elem(), nil); got != `reflect.TypeOf((*error)(nil)).Elem()` {
+		t.Fatalf("unexpected interface reflect expression %q", got)
+	}
+}
+
+func TestRecordDefaultProviderEntryRejectsConflictingProviders(t *testing.T) {
+	t.Parallel()
+
+	providersByTarget := map[string]defaultProviderEntry{
+		"ProjectConfig": {
+			Target: registryEntry{
+				Type: gotypediscovery.DiscoveredType{Name: "ProjectConfig"},
+			},
+			ProviderPackagePath: "setta/internal/projectview",
+			ProviderFuncName:    "DefaultProjectConfig",
+		},
+	}
+	err := recordDefaultProviderEntry(providersByTarget, defaultProviderEntry{
+		Target: registryEntry{
+			Type: gotypediscovery.DiscoveredType{Name: "ProjectConfig"},
+		},
+		ProviderPackagePath: "setta/internal/projectstate",
+		ProviderFuncName:    "DefaultProjectConfig",
+	})
+	if err == nil {
+		t.Fatal("expected conflicting default provider error")
+	}
+	if !strings.Contains(err.Error(), "multiple default providers discovered for ProjectConfig") {
+		t.Fatalf("unexpected conflict error %v", err)
+	}
+}
+
+func TestWalkInternalPackagePathsSkipsHiddenAndTestdata(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "internal", "alpha"), "alpha.go")
+	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "internal", "alpha"), "alpha_test.go")
+	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "internal", ".hidden"), "hidden.go")
+	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "internal", "testdata"), "fixture.go")
+	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "internal", "onlytests"), "only_test.go")
+
+	packages, err := walkInternalPackagePaths(repoRoot, filepath.Join(repoRoot, "internal"))
+	if err != nil {
+		t.Fatalf("walk internal package paths: %v", err)
+	}
+	if !reflect.DeepEqual(packages, []string{"setta/internal/alpha"}) {
+		t.Fatalf("unexpected internal packages %#v", packages)
+	}
+}
+
+func writeGeneratorPackageFile(t *testing.T, dir string, name string) {
+	t.Helper()
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", dir, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), []byte("package fixture\n"), fs.FileMode(0o644)); err != nil {
+		t.Fatalf("write %s: %v", name, err)
 	}
 }
