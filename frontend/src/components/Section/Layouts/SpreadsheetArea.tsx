@@ -51,7 +51,7 @@ type SpreadsheetDropTarget =
       file: File;
     };
 
-export function resolveSpreadsheetDropTarget(
+function resolveSpreadsheetDropTarget(
   payload: FileBrowserDragPayload | null,
   nativeFile: File | null,
 ): SpreadsheetDropTarget | null {
@@ -65,7 +65,7 @@ export function resolveSpreadsheetDropTarget(
   return nativeFile ? { kind: "native", file: nativeFile } : null;
 }
 
-export function isSupportedSpreadsheetDropTarget(
+function isSupportedSpreadsheetDropTarget(
   target: SpreadsheetDropTarget,
 ): boolean {
   return target.kind === "workspace"
