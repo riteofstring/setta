@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 13:48 UTC
+Last updated: 2026-04-13 13:52 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,82 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `431` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting the remaining
+  unpinned-params `ParamDndList` work into selector prep versus row-render
+  handoff:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and checked that the last few
+      passes were all attribution-only on the same lane before taking one
+      final deeper split rather than reopening shell/oracle work
+    - chose `ParamDndList` because the prior pass had already shown
+      `GetUnpinnedParams` was the dominant immediate owner and that pinned
+      params, edge strip, and `KwargsControls` were already too small to
+      justify another default pass
+    - kept the slice bounded to one instrumentation seam, focused regression
+      updates, one live worktree probe rerun, one perf note, and one
+      fresh-context headless CDP smoke check; no new oracle lane opened
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with three new motion owners:
+      `presentedSceneSectionParamDndListDuplicateIndexResolve`,
+      `presentedSceneSectionParamDndListRowsReactRender`, and
+      `presentedSceneSectionParamDndListTreeResolve`
+    - `frontend/src/components/Params/ParamDndList.tsx` so the mounted
+      `ParamDndList` path records duplicate-index resolution, optional tree
+      resolution, and the row-render handoff into `GetParamSwitch`
+    - `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`
+      and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      with focused regression coverage
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the existing perf probe allowlist accepts the new named attribution
+      owners
+    - `perf/reports/frontend/2026-04-13_settings-graph-param-dnd-list-attribution.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Params/GroupContainer.test.tsx`
+      -> passed (`3` files, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.instrumentation.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-056/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.4m`)
+      -> direct-open phase sequence on the worktree:
+         `52ms app_router_loading` -> `2187ms settings_loading` ->
+         `3713ms backend_loading` -> `4307ms app_shell_without_surface` ->
+         `7320ms project_loading` -> `13410ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+      -> new `ParamDndList` split on this motion lane:
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `391.5ms` total / `54.9ms` max,
+         `presentedSceneSectionParamDndListDuplicateIndexResolve`
+         `1.5ms` total / `0.2ms` max,
+         `presentedSceneSectionParamDndListTreeResolve`
+         `0ms` total / `0ms` max
+    - fresh-context headless CDP smoke check on direct
+      `http://127.0.0.1:3075/settings`
+      -> still observed the loading shell rather than a mounted settings graph
+         surface
+      -> visible text included `pixijs-graph`, `Loading project...`, and
+         `Waiting for project data to load.`
+      -> keep treating that direct unauthenticated `/settings` CDP state as a
+         smoke-only signal while the authenticated Playwright probe still
+         reaches the mounted canary on the same runtime
+  - reading:
+    - the remaining unpinned params cost on this lane is concentrated in the
+      row-render handoff rather than duplicate-index prep
+    - the DnD tree path is inactive on this canonical scenario and should not
+      be treated as the current hotspot
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - take one bounded attribution or production slice one level deeper inside
+      the row-render path on the same canonical lane, likely separating
+      `GetParamSwitch` filtering from `ParamSwitch` row rendering; do not
+      reopen DnD tree setup, duplicate-index work, edge-strip, pinned-param,
+      or `KwargsControls` lanes unless fresh evidence points back there
 
 - item `430` landed one bounded attribution slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by splitting the remaining

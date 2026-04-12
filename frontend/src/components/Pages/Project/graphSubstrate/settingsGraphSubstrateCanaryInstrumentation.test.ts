@@ -209,8 +209,20 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       2.75,
     );
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionParamDndListRowsReactRender",
+      2.5,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
       "presentedSceneSectionParamGroupUnpinnedParamsReactRender",
       3,
+    );
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "presentedSceneSectionParamDndListDuplicateIndexResolve",
+      () => {},
+    );
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "presentedSceneSectionParamDndListTreeResolve",
+      () => {},
     );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "pixiDrawableReuseCheck",
@@ -318,6 +330,27 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       totalDurationMs: 1.75,
     });
     expect(
+      motionAttribution.presentedSceneSectionParamDndListRowsReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 2.5,
+      totalDurationMs: 2.5,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionParamDndListDuplicateIndexResolve,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 3.75,
+      totalDurationMs: 3.75,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionParamDndListTreeResolve,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 5,
+      totalDurationMs: 5,
+    });
+    expect(
       motionAttribution.presentedSceneSectionParamGroupUnpinnedParamsReactRender,
     ).toEqual({
       count: 1,
@@ -326,13 +359,13 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
     });
     expect(motionAttribution.pixiDrawableReuseCheck).toEqual({
       count: 1,
-      maxDurationMs: 3.75,
-      totalDurationMs: 3.75,
+      maxDurationMs: 2,
+      totalDurationMs: 2,
     });
     expect(motionAttribution.pixiDrawableModelResolve).toEqual({
       count: 1,
-      maxDurationMs: 5,
-      totalDurationMs: 5,
+      maxDurationMs: 3.5,
+      totalDurationMs: 3.5,
     });
   });
 });

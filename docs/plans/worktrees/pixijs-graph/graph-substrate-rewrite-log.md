@@ -199,6 +199,67 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 13:52 UTC
+
+- item `431` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting the remaining
+  unpinned-params `ParamDndList` work into selector prep versus row-render
+  handoff
+- code changed in:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+    with three new motion owners:
+    `presentedSceneSectionParamDndListDuplicateIndexResolve`,
+    `presentedSceneSectionParamDndListRowsReactRender`, and
+    `presentedSceneSectionParamDndListTreeResolve`
+  - `frontend/src/components/Params/ParamDndList.tsx` so the mounted
+    `ParamDndList` path records duplicate-index resolution, optional tree
+    resolution, and the row-render handoff into `GetParamSwitch`
+  - `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`
+    and
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    with focused regression coverage
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so the existing perf probe allowlist accepts the new named attribution
+    owners
+  - `perf/reports/frontend/2026-04-13_settings-graph-param-dnd-list-attribution.md`
+    with the live readout
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Params/GroupContainer.test.tsx`
+    -> passed (`3` files, `12` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.instrumentation.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-056/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.4m`)
+    -> direct-open phase sequence:
+       `52ms app_router_loading` -> `2187ms settings_loading` ->
+       `3713ms backend_loading` -> `4307ms app_shell_without_surface` ->
+       `7320ms project_loading` -> `13410ms surface_ready`
+    -> canonical target stayed `rotaryParamCodeObjDefault`
+    -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+    -> new `ParamDndList` split:
+       `presentedSceneSectionParamDndListRowsReactRender`
+       `391.5ms` total / `54.9ms` max,
+       `presentedSceneSectionParamDndListDuplicateIndexResolve`
+       `1.5ms` total / `0.2ms` max,
+       `presentedSceneSectionParamDndListTreeResolve`
+       `0ms` total / `0ms` max
+  - fresh-context headless CDP smoke check on direct
+    `http://127.0.0.1:3075/settings`
+    -> shell only; visible text included `pixijs-graph`,
+       `Loading project...`, and `Waiting for project data to load.`
+    -> keep treating direct unauthenticated `/settings` CDP as smoke-only
+- reading:
+  - row rendering is the active owner inside this `ParamDndList` slice
+  - duplicate-index prep is effectively noise on the canonical lane
+  - the DnD tree path is inactive on this scenario
+- next:
+  - take one bounded slice one level deeper inside the row-render path on the
+    same canonical lane, likely `GetParamSwitch` filtering versus `ParamSwitch`
+    row rendering
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 13:30 UTC
 
 - reread the active plan/handoff first and closed the mistaken `CodeArea`
