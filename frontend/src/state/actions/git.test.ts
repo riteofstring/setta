@@ -1,21 +1,17 @@
+import {
+  getGitCommitDetails,
+  getGitCommitFileDiff,
+  getGitDiff,
+  getGitLog,
+  getGitStatus,
+  type GitreadCommit as Commit,
+  type GitreadCommitDetailsResponse as CommitDetailsResponse,
+  type GitreadLogResponse as LogResponse,
+  type GitreadStatusResponse as StatusResponse,
+} from "openapi/http";
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
-import {
-  route_get_git_commit_details,
-  route_get_git_commit_file_diff,
-  route_get_git_diff,
-  route_get_git_log,
-  route_get_git_status,
-} from "utils/generatedEndpoints";
-import {
-  createGetGitCommitDetailsResponse,
-  createGetGitLogResponse,
-  createGetGitStatusResponse,
-  createGitCommit,
-  type GetGitLogResponse,
-  type GitCommit,
-} from "utils/generatedTypes";
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -32,20 +28,26 @@ import {
   setGitDiffMode,
 } from "./git";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_git_commit_details: vi.fn(),
-  route_get_git_commit_file_diff: vi.fn(),
-  route_get_git_diff: vi.fn(),
-  route_get_git_log: vi.fn(),
-  route_get_git_status: vi.fn(),
+vi.mock("openapi/http", () => ({
+  getGitCommitDetails: vi.fn(),
+  getGitCommitFileDiff: vi.fn(),
+  getGitDiff: vi.fn(),
+  getGitLog: vi.fn(),
+  getGitStatus: vi.fn(),
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 vi.mock("state/actions/projectChatWindowing", () => ({
   ensureTrackedGitPaneGraphWindow: vi.fn(),
 }));
 
-function commit(hash: string, parents: string[]): GitCommit {
-  return createGitCommit({
+function commit(hash: string, parents: string[]): Commit {
+  return {
     hash,
     parents,
     authorName: "A",
@@ -53,7 +55,7 @@ function commit(hash: string, parents: string[]): GitCommit {
     authorTimeMs: 1,
     subject: hash,
     decorations: [],
-  });
+  };
 }
 
 function createLogResponse({
@@ -64,14 +66,14 @@ function createLogResponse({
   hasMore,
   isCapped,
 }: {
-  commits: GitCommit[];
+  commits: Commit[];
   offset: number;
   pageSize: number;
   nextOffset: number | null;
   hasMore: boolean;
   isCapped: boolean;
-}): GetGitLogResponse {
-  return createGetGitLogResponse({
+}): LogResponse {
+  return {
     repoRoot: "/repo",
     headBranch: "main",
     commits,
@@ -80,7 +82,44 @@ function createLogResponse({
     nextOffset,
     hasMore,
     isCapped,
-  });
+  };
+}
+
+function createCommitDetailsResponse(
+  overrides: Partial<CommitDetailsResponse> &
+    Pick<CommitDetailsResponse, "commitHash">,
+): CommitDetailsResponse {
+  return {
+    repoRoot: overrides.repoRoot ?? "/repo",
+    commitHash: overrides.commitHash,
+    parents: overrides.parents ?? [],
+    authorName: overrides.authorName ?? "A",
+    authorEmail: overrides.authorEmail ?? "a@example.com",
+    authorTimeMs: overrides.authorTimeMs ?? 1,
+    committerName: overrides.committerName ?? "A",
+    committerEmail: overrides.committerEmail ?? "a@example.com",
+    committerTimeMs: overrides.committerTimeMs ?? 1,
+    subject: overrides.subject ?? overrides.commitHash,
+    body: overrides.body ?? "",
+    files: overrides.files ?? [],
+    isTruncated: overrides.isTruncated ?? false,
+  };
+}
+
+function createStatusResponse(
+  entries: StatusResponse["entries"],
+): StatusResponse {
+  return {
+    repo: {
+      isGitRepo: true,
+      repoRoot: "/repo",
+      headBranch: "main",
+      headCommit: "abc123",
+    },
+    entries,
+    isTruncated: false,
+    worktrees: [],
+  };
 }
 
 function setGraphOverlayState({
@@ -90,18 +129,19 @@ function setGraphOverlayState({
   loadMoreError = null,
 }: {
   projectConfigId?: string;
-  response: GetGitLogResponse;
+  response: LogResponse;
   filterText?: string;
   loadMoreError?: string | null;
 }): void {
-  const rowResult = computeGitGraphRowsWithState(response.commits);
+  const commits = response.commits ?? [];
+  const rowResult = computeGitGraphRowsWithState(commits);
   useGitStore.setState((state) => ({
     ...state,
     graph: {
       projectConfigId,
       allRefs: true,
       response,
-      seenCommitHashes: new Set(response.commits.map((commit) => commit.hash)),
+      seenCommitHashes: new Set(commits.map((commit) => commit.hash)),
       rows: rowResult.rows,
       rowComputationState: rowResult.rowComputationState,
       filterText,
@@ -160,16 +200,7 @@ function setGitStatusResponse(
   useGitStore.setState((state) => ({
     ...state,
     status: {
-      response: createGetGitStatusResponse({
-        repo: {
-          isGitRepo: true,
-          repoRoot: "/repo",
-          headBranch: "main",
-          headCommit: "abc123",
-        },
-        entries,
-        isTruncated: false,
-      }),
+      response: createStatusResponse(entries),
       diffAvailabilityByPath,
       isLoading: false,
       error: null,
@@ -209,7 +240,7 @@ describe("git graph actions", () => {
     });
     setGraphOverlayState({ response: firstPage });
 
-    vi.mocked(route_get_git_log).mockResolvedValue({
+    vi.mocked(getGitLog).mockResolvedValue({
       status: 200,
       hasResponse: true,
       // Backend page intentionally repeats c2; client should dedupe by hash.
@@ -225,11 +256,13 @@ describe("git graph actions", () => {
 
     await loadMoreGitGraphCommits();
 
-    expect(route_get_git_log).toHaveBeenCalledWith({
-      rev: "HEAD",
-      allRefs: true,
-      offset: 2,
-      pageSize: 2,
+    expect(getGitLog).toHaveBeenCalledWith({
+      body: {
+        rev: "HEAD",
+        allRefs: true,
+        offset: 2,
+        pageSize: 2,
+      },
     });
 
     const graph = getGraphState();
@@ -269,7 +302,7 @@ describe("git graph actions", () => {
 
     await loadMoreGitGraphCommits();
 
-    expect(route_get_git_log).not.toHaveBeenCalled();
+    expect(getGitLog).not.toHaveBeenCalled();
     const graph = getGraphState();
     expect(graph.isLoadingMore).toBe(false);
     expect(graph.loadMoreError).toBeNull();
@@ -289,7 +322,7 @@ describe("git graph actions", () => {
         isCapped: false,
       }),
     });
-    vi.mocked(route_get_git_log).mockResolvedValue({
+    vi.mocked(getGitLog).mockResolvedValue({
       status: 500,
       hasResponse: true,
       data: { detail: "backend failed while loading more commits" },
@@ -321,7 +354,7 @@ describe("git graph actions", () => {
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-2";
     });
-    vi.mocked(route_get_git_log).mockResolvedValue({
+    vi.mocked(getGitLog).mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: createLogResponse({
@@ -336,11 +369,13 @@ describe("git graph actions", () => {
 
     await ensureGitGraphStateLoaded();
 
-    expect(route_get_git_log).toHaveBeenCalledWith({
-      rev: "HEAD",
-      allRefs: false,
-      offset: 0,
-      pageSize: 250,
+    expect(getGitLog).toHaveBeenCalledWith({
+      body: {
+        rev: "HEAD",
+        allRefs: false,
+        offset: 0,
+        pageSize: 250,
+      },
     });
     const graph = getGraphState();
     expect(graph.projectConfigId).toBe("project-config-2");
@@ -363,7 +398,7 @@ describe("git graph actions", () => {
       }),
       loadMoreError: "backend failed while loading more commits",
     });
-    vi.mocked(route_get_git_log).mockResolvedValue({
+    vi.mocked(getGitLog).mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: createLogResponse({
@@ -377,10 +412,10 @@ describe("git graph actions", () => {
     });
 
     await loadMoreGitGraphCommits();
-    expect(route_get_git_log).not.toHaveBeenCalled();
+    expect(getGitLog).not.toHaveBeenCalled();
 
     await loadMoreGitGraphCommits({ force: true });
-    expect(route_get_git_log).toHaveBeenCalledTimes(1);
+    expect(getGitLog).toHaveBeenCalledTimes(1);
   });
 
   it("preserves oldPath when requesting diffs across mode toggles", async () => {
@@ -400,7 +435,8 @@ describe("git graph actions", () => {
         kind: "unstaged",
       },
     ]);
-    vi.mocked(route_get_git_diff).mockImplementation(async ({ path, mode }) => {
+    vi.mocked(getGitDiff).mockImplementation(async ({ body }) => {
+      const { path, mode } = body!;
       return {
         status: 200,
         hasResponse: true,
@@ -420,18 +456,22 @@ describe("git graph actions", () => {
       mode: "staged",
     });
 
-    expect(route_get_git_diff).toHaveBeenNthCalledWith(1, {
-      path: "renamed.py",
-      oldPath: "legacy.py",
-      mode: "staged",
+    expect(getGitDiff).toHaveBeenNthCalledWith(1, {
+      body: {
+        path: "renamed.py",
+        oldPath: "legacy.py",
+        mode: "staged",
+      },
     });
 
     await setGitDiffMode("unstaged");
 
-    expect(route_get_git_diff).toHaveBeenNthCalledWith(2, {
-      path: "renamed.py",
-      oldPath: "legacy.py",
-      mode: "unstaged",
+    expect(getGitDiff).toHaveBeenNthCalledWith(2, {
+      body: {
+        path: "renamed.py",
+        oldPath: "legacy.py",
+        mode: "unstaged",
+      },
     });
 
     const overlay = useGitStore.getState().overlay;
@@ -452,7 +492,7 @@ describe("git graph actions", () => {
         kind: "staged",
       },
     ]);
-    vi.mocked(route_get_git_diff).mockResolvedValue({
+    vi.mocked(getGitDiff).mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -548,7 +588,7 @@ describe("git graph actions", () => {
         kind: "staged",
       },
     ]);
-    vi.mocked(route_get_git_status).mockResolvedValue({
+    vi.mocked(getGitStatus).mockResolvedValue({
       status: 500,
       hasResponse: true,
       data: { detail: "status backend failed" },
@@ -576,56 +616,28 @@ describe("git graph actions", () => {
       }),
     });
 
-    vi.mocked(route_get_git_commit_details).mockImplementation(
-      async ({ commitHash }) => {
-        if (commitHash === "a1b2c3") {
-          return {
-            status: 200,
-            hasResponse: true,
-            data: createGetGitCommitDetailsResponse({
-              repoRoot: "/repo",
-              commitHash,
-              parents: [],
-              authorName: "A",
-              authorEmail: "a@example.com",
-              authorTimeMs: 1,
-              committerName: "A",
-              committerEmail: "a@example.com",
-              committerTimeMs: 1,
-              subject: "A",
-              body: "",
-              isTruncated: false,
-              files: [
-                {
-                  path: "a.txt",
-                  oldPath: null,
-                  status: "M",
-                  additions: 1,
-                  deletions: 1,
-                },
-              ],
-            }),
-          };
-        }
+    vi.mocked(getGitCommitDetails).mockImplementation(async ({ body }) => {
+      const { commitHash } = body!;
+      if (commitHash === "a1b2c3") {
         return {
           status: 200,
           hasResponse: true,
-          data: createGetGitCommitDetailsResponse({
+          data: createCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash,
-            parents: ["a1b2c3"],
-            authorName: "B",
-            authorEmail: "b@example.com",
-            authorTimeMs: 2,
-            committerName: "B",
-            committerEmail: "b@example.com",
-            committerTimeMs: 2,
-            subject: "B",
+            parents: [],
+            authorName: "A",
+            authorEmail: "a@example.com",
+            authorTimeMs: 1,
+            committerName: "A",
+            committerEmail: "a@example.com",
+            committerTimeMs: 1,
+            subject: "A",
             body: "",
             isTruncated: false,
             files: [
               {
-                path: "b.txt",
+                path: "a.txt",
                 oldPath: null,
                 status: "M",
                 additions: 1,
@@ -634,9 +646,36 @@ describe("git graph actions", () => {
             ],
           }),
         };
-      },
-    );
-    vi.mocked(route_get_git_commit_file_diff).mockImplementation(() => {
+      }
+      return {
+        status: 200,
+        hasResponse: true,
+        data: createCommitDetailsResponse({
+          repoRoot: "/repo",
+          commitHash,
+          parents: ["a1b2c3"],
+          authorName: "B",
+          authorEmail: "b@example.com",
+          authorTimeMs: 2,
+          committerName: "B",
+          committerEmail: "b@example.com",
+          committerTimeMs: 2,
+          subject: "B",
+          body: "",
+          isTruncated: false,
+          files: [
+            {
+              path: "b.txt",
+              oldPath: null,
+              status: "M",
+              additions: 1,
+              deletions: 1,
+            },
+          ],
+        }),
+      };
+    });
+    vi.mocked(getGitCommitFileDiff).mockImplementation(() => {
       return new Promise((resolve) => {
         setTimeout(() => {
           resolve({
@@ -666,9 +705,9 @@ describe("git graph actions", () => {
       expect(graph.selectedCommitFileDiffResponse).toBeNull();
     });
 
-    const calls = vi.mocked(route_get_git_commit_file_diff).mock.calls;
+    const calls = vi.mocked(getGitCommitFileDiff).mock.calls;
     expect(calls).toEqual([
-      [{ commitHash: "a1b2c3", path: "a.txt", oldPath: null }],
+      [{ body: { commitHash: "a1b2c3", path: "a.txt", oldPath: null } }],
     ]);
   });
 
@@ -677,7 +716,7 @@ describe("git graph actions", () => {
     const detailsDeferred = createDeferred<{
       status: number;
       hasResponse: boolean;
-      data: ReturnType<typeof createGetGitCommitDetailsResponse>;
+      data: ReturnType<typeof createCommitDetailsResponse>;
     }>();
     setGraphOverlayState({
       projectConfigId: "project-a",
@@ -690,14 +729,13 @@ describe("git graph actions", () => {
         isCapped: false,
       }),
     });
-    vi.mocked(route_get_git_commit_details).mockImplementation(
-      ({ commitHash }) => {
-        if (commitHash !== "a1b2c3") {
-          throw new Error("Unexpected commit details request.");
-        }
-        return detailsDeferred.promise;
-      },
-    );
+    vi.mocked(getGitCommitDetails).mockImplementation(({ body }) => {
+      const { commitHash } = body!;
+      if (commitHash !== "a1b2c3") {
+        throw new Error("Unexpected commit details request.");
+      }
+      return detailsDeferred.promise;
+    });
 
     // Start a details request for project A, then replace the graph owner with
     // project B before the delayed response resolves.
@@ -721,7 +759,7 @@ describe("git graph actions", () => {
     detailsDeferred.resolve({
       status: 200,
       hasResponse: true,
-      data: createGetGitCommitDetailsResponse({
+      data: createCommitDetailsResponse({
         repoRoot: "/repo-a",
         commitHash: "a1b2c3",
         parents: [],
@@ -770,10 +808,10 @@ describe("git graph actions", () => {
         isCapped: false,
       }),
     });
-    vi.mocked(route_get_git_commit_details).mockResolvedValue({
+    vi.mocked(getGitCommitDetails).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createGetGitCommitDetailsResponse({
+      data: createCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -797,7 +835,7 @@ describe("git graph actions", () => {
         ],
       }),
     });
-    vi.mocked(route_get_git_commit_file_diff).mockImplementation(() => {
+    vi.mocked(getGitCommitFileDiff).mockImplementation(() => {
       return diffDeferred.promise;
     });
 
@@ -856,10 +894,10 @@ describe("git graph actions", () => {
         isCapped: false,
       }),
     });
-    vi.mocked(route_get_git_commit_details).mockResolvedValue({
+    vi.mocked(getGitCommitDetails).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createGetGitCommitDetailsResponse({
+      data: createCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -883,7 +921,7 @@ describe("git graph actions", () => {
         ],
       }),
     });
-    vi.mocked(route_get_git_commit_file_diff).mockResolvedValue({
+    vi.mocked(getGitCommitFileDiff).mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -896,16 +934,18 @@ describe("git graph actions", () => {
     });
 
     await selectGitCommit("a1b2c3");
-    expect(route_get_git_commit_file_diff).not.toHaveBeenCalled();
+    expect(getGitCommitFileDiff).not.toHaveBeenCalled();
 
     await selectGitCommitFile({
       path: "a.txt",
       oldPath: null,
     });
-    expect(route_get_git_commit_file_diff).toHaveBeenCalledWith({
-      commitHash: "a1b2c3",
-      path: "a.txt",
-      oldPath: null,
+    expect(getGitCommitFileDiff).toHaveBeenCalledWith({
+      body: {
+        commitHash: "a1b2c3",
+        path: "a.txt",
+        oldPath: null,
+      },
     });
   });
 
@@ -921,10 +961,10 @@ describe("git graph actions", () => {
         isCapped: false,
       }),
     });
-    vi.mocked(route_get_git_commit_details).mockResolvedValue({
+    vi.mocked(getGitCommitDetails).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createGetGitCommitDetailsResponse({
+      data: createCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -948,7 +988,7 @@ describe("git graph actions", () => {
         ],
       }),
     });
-    vi.mocked(route_get_git_commit_file_diff).mockResolvedValue({
+    vi.mocked(getGitCommitFileDiff).mockResolvedValue({
       status: 404,
       hasResponse: true,
       data: { detail: "File is not part of this commit diff." },
@@ -968,12 +1008,12 @@ describe("git graph actions", () => {
   });
 
   it("opens graph on branch-only mode and does not auto-select a commit", async () => {
-    vi.mocked(route_get_git_log).mockResolvedValue({
+    vi.mocked(getGitLog).mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: createLogResponse({
         commits: [
-          createGitCommit({
+          {
             hash: "abc123",
             parents: ["def456"],
             authorName: "A",
@@ -981,7 +1021,7 @@ describe("git graph actions", () => {
             authorTimeMs: 1,
             subject: "subject",
             decorations: ["HEAD -> main", "origin/main"],
-          }),
+          },
         ],
         offset: 0,
         pageSize: 250,
@@ -993,14 +1033,16 @@ describe("git graph actions", () => {
 
     await openGitGraphOverlay();
 
-    expect(route_get_git_log).toHaveBeenCalledWith({
-      rev: "HEAD",
-      allRefs: false,
-      offset: 0,
-      pageSize: 250,
+    expect(getGitLog).toHaveBeenCalledWith({
+      body: {
+        rev: "HEAD",
+        allRefs: false,
+        offset: 0,
+        pageSize: 250,
+      },
     });
-    expect(route_get_git_commit_details).not.toHaveBeenCalled();
-    expect(route_get_git_commit_file_diff).not.toHaveBeenCalled();
+    expect(getGitCommitDetails).not.toHaveBeenCalled();
+    expect(getGitCommitFileDiff).not.toHaveBeenCalled();
 
     const graph = getGraphState();
     const firstCommit = graph.response?.commits[0];
@@ -1010,12 +1052,12 @@ describe("git graph actions", () => {
   });
 
   it("does not duplicate preload state writes when opening git graph overlay", async () => {
-    vi.mocked(route_get_git_log).mockResolvedValue({
+    vi.mocked(getGitLog).mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: createLogResponse({
         commits: [
-          createGitCommit({
+          {
             hash: "abc123",
             parents: [],
             authorName: "A",
@@ -1023,7 +1065,7 @@ describe("git graph actions", () => {
             authorTimeMs: 1,
             subject: "subject",
             decorations: [],
-          }),
+          },
         ],
         offset: 0,
         pageSize: 250,
@@ -1063,7 +1105,7 @@ describe("git graph actions", () => {
         graph: {
           ...state.graph,
           selectedCommitHash: "b4c5d6",
-          selectedCommitDetails: createGetGitCommitDetailsResponse({
+          selectedCommitDetails: createCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash: "b4c5d6",
             parents: ["a1b2c3"],
@@ -1101,7 +1143,7 @@ describe("git graph actions", () => {
         },
       };
     });
-    vi.mocked(route_get_git_log).mockResolvedValue({
+    vi.mocked(getGitLog).mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: createLogResponse({
@@ -1149,7 +1191,7 @@ describe("git graph actions", () => {
         graph: {
           ...state.graph,
           selectedCommitHash: "b4c5d6",
-          selectedCommitDetails: createGetGitCommitDetailsResponse({
+          selectedCommitDetails: createCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash: "b4c5d6",
             parents: ["a1b2c3"],
@@ -1213,7 +1255,7 @@ describe("git graph actions", () => {
       isCapped: false,
     });
     setGraphOverlayState({ response: firstPage });
-    vi.mocked(route_get_git_log).mockResolvedValue({
+    vi.mocked(getGitLog).mockResolvedValue({
       status: 500,
       hasResponse: true,
       data: { detail: "git log failed on refresh" },
