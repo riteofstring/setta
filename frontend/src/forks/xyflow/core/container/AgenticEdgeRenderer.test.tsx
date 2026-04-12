@@ -14,8 +14,6 @@ import {
   createDictSectionImpl,
   createProjectConfig,
   createTopLevelSectionLayout,
-  createUserDefaultChatSectionImpl,
-  createUserDefaultDictSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -52,15 +50,14 @@ describe("AgenticEdgeRenderer", () => {
     useReactFlow.setState({ ...initialState, width: 900, height: 600 });
     syncStoreInitialState(useReactFlow);
 
-    const chatImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ waitingForResponse: true }),
-      { id: chatImplId, waitingForResponse: true },
-    );
-    const dictDefaults = createUserDefaultDictSectionImpl();
-    const contextImpl = createDictSectionImpl(dictDefaults, {
+    const chatImpl = createChatSectionImpl({
+      ...{ waitingForResponse: true },
+      ...{ id: chatImplId, waitingForResponse: true },
+    });
+    const contextImpl = createDictSectionImpl({
       id: contextImplId,
     });
-    const scopeImpl = createDictSectionImpl(dictDefaults, { id: scopeImplId });
+    const scopeImpl = createDictSectionImpl({ id: scopeImplId });
 
     const chatVariant = createVariant({
       id: chatVariantId,
