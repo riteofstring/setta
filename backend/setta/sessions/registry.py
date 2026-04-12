@@ -7,19 +7,49 @@ import stat
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 
 import psutil
-from pydantic import BaseModel, Field, ValidationError
-
-from setta.sessions.constants import IN_PROCESS_ENV_VAR
+from pydantic import BaseModel, Field, ValidationError, field_validator
+from setta.types.generated.go_shared_constants import (
+    DEFAULT_SESSION_SERVER_MODE,
+    IN_PROCESS_ENV_VAR,
+    SESSION_METADATA_FILENAME,
+    SESSION_PROCESS_BASENAMES,
+    SESSION_PROCESS_INVOCATION_ARGUMENTS,
+    SESSION_PROCESS_INVOCATION_PREFIXES,
+    SESSION_SECRET_FILENAME,
+    SESSION_SERVER_MODE_VALUES,
+)
 from setta.utils.constants import C
-from setta.utils.pid_identity import resolve_pid_create_time
-
-SESSION_METADATA_FILENAME = "session.json"
-SESSION_SECRET_FILENAME = "secret"
 
 logger = logging.getLogger(__name__)
+
+_SETTA_PROCESS_BASENAMES = SESSION_PROCESS_BASENAMES
+_SETTA_PROCESS_INVOCATION_ARGUMENTS = SESSION_PROCESS_INVOCATION_ARGUMENTS
+_SETTA_PROCESS_INVOCATION_PREFIXES = SESSION_PROCESS_INVOCATION_PREFIXES
+_ALLOWED_SESSION_SERVER_MODES = frozenset(SESSION_SERVER_MODE_VALUES)
+
+
+def _require_session_server_mode(value: str) -> str:
+    if value not in _ALLOWED_SESSION_SERVER_MODES:
+        allowed = ", ".join(repr(mode) for mode in SESSION_SERVER_MODE_VALUES)
+        raise ValueError(
+            f"Invalid session server mode {value!r}. Expected one of: {allowed}."
+        )
+    return value
+
+
+def resolve_pid_create_time(pid: int) -> float | None:
+    if pid <= 0:
+        return None
+    try:
+        process = psutil.Process(pid)
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
+        return None
+    try:
+        return process.create_time()
+    except psutil.Error:
+        return None
 
 
 class SessionMetadata(BaseModel):
@@ -37,7 +67,12 @@ class SessionMetadata(BaseModel):
     runtimeRoot: str | None = None
     settaHome: str | None = None
     profile: str | None = None
-    serverMode: Literal["ide", "launcher"]
+    serverMode: str
+
+    @field_validator("serverMode")
+    @classmethod
+    def validate_server_mode(cls, value: str) -> str:
+        return _require_session_server_mode(value)
 
 
 class SessionRegistry:
@@ -55,15 +90,11 @@ class SessionRegistry:
         metadata_path = session_dir / SESSION_METADATA_FILENAME
         if not metadata_path.exists():
             return None
-        metadata = self._read_metadata_path(metadata_path, prune_invalid=prune_stale)
-        if metadata is None:
-            return None
-        if prune_stale and self._is_session_stale(metadata):
-            self.delete_session(metadata.id)
-            return None
-        if track_suspicious and self._is_session_suspicious(metadata):
-            self._suspicious_session_ids.add(metadata.id)
-        return metadata
+        return self._load_active_metadata(
+            metadata_path,
+            prune_stale=prune_stale,
+            track_suspicious=track_suspicious,
+        )
 
     def create_session(
         self,
@@ -79,7 +110,7 @@ class SessionRegistry:
         runtime_root: str | None = None,
         setta_home: str | None = None,
         profile: str | None = None,
-        server_mode: Literal["ide", "launcher"] = "ide",
+        server_mode: str = DEFAULT_SESSION_SERVER_MODE,
     ) -> SessionMetadata:
         canonical_workspace = self._canonicalize_workspace_path(workspace_path)
         display_workspace = workspace_display_path or str(workspace_path)
@@ -122,27 +153,20 @@ class SessionRegistry:
         self, prune_stale: bool = True, track_suspicious: bool = False
     ) -> list[SessionMetadata]:
         self._suspicious_session_ids.clear()
-        sessions: list[SessionMetadata] = []
         if not self._sessions_root.exists():
-            return sessions
-        for session_dir in sorted(self._sessions_root.iterdir()):
-            if not session_dir.is_dir():
-                continue
-            metadata_path = session_dir / SESSION_METADATA_FILENAME
-            if not metadata_path.exists():
-                continue
-            metadata = self._read_metadata_path(
-                metadata_path, prune_invalid=prune_stale
+            return []
+        return [
+            metadata
+            for metadata_path in self._iter_session_metadata_paths()
+            if (
+                metadata := self._load_active_metadata(
+                    metadata_path,
+                    prune_stale=prune_stale,
+                    track_suspicious=track_suspicious,
+                )
             )
-            if metadata is None:
-                continue
-            if prune_stale and self._is_session_stale(metadata):
-                self.delete_session(metadata.id)
-                continue
-            if track_suspicious and self._is_session_suspicious(metadata):
-                self._suspicious_session_ids.add(metadata.id)
-            sessions.append(metadata)
-        return sessions
+            is not None
+        ]
 
     def find_sessions_by_workspace(
         self,
@@ -163,10 +187,11 @@ class SessionRegistry:
     def find_sessions_by_workspace_and_mode(
         self,
         workspace_path: Path | str,
-        server_mode: Literal["ide", "launcher"],
+        server_mode: str,
         prune_stale: bool = True,
         track_suspicious: bool = False,
     ) -> list[SessionMetadata]:
+        expected_server_mode = _require_session_server_mode(server_mode)
         return [
             session
             for session in self.find_sessions_by_workspace(
@@ -174,7 +199,7 @@ class SessionRegistry:
                 prune_stale=prune_stale,
                 track_suspicious=track_suspicious,
             )
-            if session.serverMode == server_mode
+            if session.serverMode == expected_server_mode
         ]
 
     def delete_session(self, session_id: str) -> None:
@@ -206,6 +231,8 @@ class SessionRegistry:
         process = self._get_process(metadata.pid)
         if process is None:
             return False
+        if not _process_create_time_matches_session(process, metadata.pidCreateTime):
+            return False
         return self._is_setta_process(process) is True
 
     def _canonicalize_workspace_path(self, workspace_path: Path | str) -> Path:
@@ -221,6 +248,31 @@ class SessionRegistry:
 
     def _session_dir(self, session_id: str) -> Path:
         return self._sessions_root / session_id
+
+    def _iter_session_metadata_paths(self) -> list[Path]:
+        return [
+            session_dir / SESSION_METADATA_FILENAME
+            for session_dir in sorted(self._sessions_root.iterdir())
+            if session_dir.is_dir()
+            and (session_dir / SESSION_METADATA_FILENAME).exists()
+        ]
+
+    def _load_active_metadata(
+        self,
+        metadata_path: Path,
+        *,
+        prune_stale: bool,
+        track_suspicious: bool,
+    ) -> SessionMetadata | None:
+        metadata = self._read_metadata_path(metadata_path, prune_invalid=prune_stale)
+        if metadata is None:
+            return None
+        if prune_stale and self._is_session_stale(metadata):
+            self.delete_session(metadata.id)
+            return None
+        if track_suspicious and self._is_session_suspicious(metadata):
+            self._suspicious_session_ids.add(metadata.id)
+        return metadata
 
     def _write_metadata(self, metadata: SessionMetadata) -> None:
         path = self._session_dir(metadata.id) / SESSION_METADATA_FILENAME
@@ -267,76 +319,121 @@ class SessionRegistry:
     def _read_metadata_path(
         self, path: Path, *, prune_invalid: bool
     ) -> SessionMetadata | None:
-        raw_text: str
+        raw_text = self._read_metadata_text(path)
+        if raw_text is None:
+            return None
+        raw = self._parse_metadata_text(
+            path,
+            raw_text,
+            prune_invalid=prune_invalid,
+        )
+        if raw is None:
+            return None
+        metadata = self._validate_metadata(
+            path,
+            raw,
+            prune_invalid=prune_invalid,
+        )
+        if metadata is None:
+            return None
+        if self._has_absolute_secret_path(metadata):
+            return metadata
+        self._handle_invalid_secret_path(path, metadata, prune_invalid=prune_invalid)
+        return None
+
+    def _read_metadata_text(self, path: Path) -> str | None:
         try:
-            raw_text = path.read_text(encoding="utf-8")
+            return path.read_text(encoding="utf-8")
         except OSError:
-            if self._is_recently_modified(path, seconds=2.0):
-                logger.debug(
-                    "Failed to read session metadata at %s (transient).",
-                    path,
-                    exc_info=True,
-                )
-            else:
-                logger.warning(
-                    "Failed to read session metadata at %s; skipping.",
-                    path,
-                    exc_info=True,
-                )
+            self._log_metadata_read_failure(path)
             return None
 
-        raw: dict
+    def _parse_metadata_text(
+        self, path: Path, raw_text: str, *, prune_invalid: bool
+    ) -> dict | None:
         try:
-            raw = json.loads(raw_text)
+            return json.loads(raw_text)
         except json.JSONDecodeError:
-            if self._is_recently_modified(path, seconds=2.0):
-                logger.debug(
-                    "Failed to parse session metadata JSON at %s (transient).",
-                    path,
-                    exc_info=True,
-                )
-            else:
-                if prune_invalid:
-                    self._prune_invalid_session_dir(path, reason="invalid session.json")
-                else:
-                    logger.warning(
-                        "Failed to parse session metadata JSON at %s; skipping.",
-                        path,
-                        exc_info=True,
-                    )
+            self._handle_invalid_metadata_json(path, prune_invalid=prune_invalid)
             return None
+
+    def _validate_metadata(
+        self, path: Path, raw: dict, *, prune_invalid: bool
+    ) -> SessionMetadata | None:
         try:
-            metadata = SessionMetadata.model_validate(raw)
+            return SessionMetadata.model_validate(raw)
         except ValidationError:
-            if prune_invalid and not self._is_recently_modified(path, seconds=2.0):
-                self._prune_invalid_session_dir(path, reason="invalid metadata schema")
-            else:
-                logger.warning(
-                    "Invalid session metadata at %s; skipping.",
-                    path,
-                    exc_info=True,
-                )
+            self._handle_invalid_metadata_schema(path, prune_invalid=prune_invalid)
             return None
-        secret_path = Path(metadata.secretPath)
-        if not secret_path.is_absolute():
-            if prune_invalid and not self._is_recently_modified(path, seconds=2.0):
-                self._prune_invalid_session_dir(
-                    path, reason="secretPath must be absolute"
-                )
-            else:
-                logger.warning(
-                    "Invalid session metadata for %s at %s (secretPath must be absolute); skipping.",
-                    metadata.id,
-                    path,
-                )
-            return None
-        return metadata
+
+    def _is_transient_metadata_path(self, path: Path) -> bool:
+        return self._is_recently_modified(path, seconds=2.0)
+
+    def _log_metadata_read_failure(self, path: Path) -> None:
+        if self._is_transient_metadata_path(path):
+            logger.debug(
+                "Failed to read session metadata at %s (transient).",
+                path,
+                exc_info=True,
+            )
+            return
+        logger.warning(
+            "Failed to read session metadata at %s; skipping.",
+            path,
+            exc_info=True,
+        )
+
+    def _handle_invalid_metadata_json(self, path: Path, *, prune_invalid: bool) -> None:
+        if self._is_transient_metadata_path(path):
+            logger.debug(
+                "Failed to parse session metadata JSON at %s (transient).",
+                path,
+                exc_info=True,
+            )
+            return
+        if prune_invalid:
+            self._prune_invalid_session_dir(path, reason="invalid session.json")
+            return
+        logger.warning(
+            "Failed to parse session metadata JSON at %s; skipping.",
+            path,
+            exc_info=True,
+        )
+
+    def _handle_invalid_metadata_schema(
+        self, path: Path, *, prune_invalid: bool
+    ) -> None:
+        if prune_invalid and not self._is_transient_metadata_path(path):
+            self._prune_invalid_session_dir(path, reason="invalid metadata schema")
+            return
+        logger.warning(
+            "Invalid session metadata at %s; skipping.",
+            path,
+            exc_info=True,
+        )
+
+    def _has_absolute_secret_path(self, metadata: SessionMetadata) -> bool:
+        return Path(metadata.secretPath).is_absolute()
+
+    def _handle_invalid_secret_path(
+        self, path: Path, metadata: SessionMetadata, *, prune_invalid: bool
+    ) -> None:
+        if prune_invalid and not self._is_transient_metadata_path(path):
+            self._prune_invalid_session_dir(path, reason="secretPath must be absolute")
+            return
+        logger.warning(
+            "Invalid session metadata for %s at %s (secretPath must be absolute); skipping.",
+            metadata.id,
+            path,
+        )
 
     def _is_session_stale(self, metadata: SessionMetadata) -> bool:
         if metadata.pid <= 0:
             return True
         process = self._get_process(metadata.pid)
         if process is None:
+            return True
+        if not _process_create_time_matches_session(process, metadata.pidCreateTime):
             return True
         is_setta = self._is_setta_process(process)
         if is_setta is False:
@@ -357,6 +454,8 @@ class SessionRegistry:
         process = self._get_process(metadata.pid)
         if process is None:
             return False
+        if not _process_create_time_matches_session(process, metadata.pidCreateTime):
+            return False
         is_setta = self._is_setta_process(process)
         if is_setta is False:
             return False
@@ -371,47 +470,89 @@ class SessionRegistry:
             return None
 
     def _is_setta_process(self, process: psutil.Process) -> bool | None:
+        cmdline = self._load_process_cmdline(process)
+        if cmdline is None:
+            return None
+        if not cmdline:
+            return False
+        return _cmdline_matches_setta_process(cmdline)
+
+    def _load_process_cmdline(self, process: psutil.Process) -> list[str] | None:
         try:
-            cmdline = process.cmdline()
+            return process.cmdline()
         except psutil.AccessDenied:
             return None
         except (psutil.NoSuchProcess, psutil.ZombieProcess):
-            return False
-        if not cmdline:
-            return False
-        script_basenames = {"setta", "setta.exe", "setta-script.py"}
-        first = cmdline[0].lower()
-        if os.path.basename(first) in script_basenames:
-            return True
-        for item in cmdline[1:]:
-            if os.path.basename(item).lower() in script_basenames:
-                return True
-        lowered = [item.lower() for item in cmdline]
-        for idx, item in enumerate(lowered):
-            if item == "-m" and idx + 1 < len(lowered) and lowered[idx + 1] == "setta":
-                return True
-            if item.startswith("setta.") or item.startswith("setta:"):
-                return True
-        return False
+            return []
 
     def _is_port_listening(self, process: psutil.Process, host: str, port: int) -> bool:
+        connections, fallback = self._load_process_listen_probe_connections(process)
+        if fallback is not None:
+            return fallback
+        return any(
+            self._connection_matches_listen_target(conn, host, port)
+            for conn in connections
+        )
+
+    def _load_process_listen_probe_connections(
+        self, process: psutil.Process
+    ) -> tuple[list, bool | None]:
         try:
-            connections = process.net_connections(kind="inet")
+            return process.net_connections(kind="inet"), None
         except psutil.AccessDenied:
-            return True
+            return [], True
         except (psutil.NoSuchProcess, psutil.ZombieProcess):
-            return False
-        for conn in connections:
-            if conn.status != psutil.CONN_LISTEN:
-                continue
-            if conn.laddr.port != port:
-                continue
-            if not self._host_matches_listen(host, conn.laddr.ip):
-                continue
-            return True
-        return False
+            return [], False
+
+    def _connection_matches_listen_target(self, conn, host: str, port: int) -> bool:
+        return (
+            conn.status == psutil.CONN_LISTEN
+            and conn.laddr.port == port
+            and self._host_matches_listen(host, conn.laddr.ip)
+        )
 
     def _host_matches_listen(self, host: str, listen_host: str) -> bool:
         if listen_host in {"0.0.0.0", "::"}:
             return True
         return host == listen_host
+
+
+def _cmdline_matches_setta_process(cmdline: list[str]) -> bool:
+    # Python session lookup needs a local psutil path before any Go runtime is
+    # available. Go owns the Setta process recognition tables via generated
+    # constants; Python only mirrors the minimal cmdline walk needed to apply
+    # those Go-owned rules to local process metadata.
+    if not cmdline:
+        return False
+    if _process_basename_matches_setta(cmdline[0]):
+        return True
+    return any(
+        _process_basename_matches_setta(item)
+        or _process_invocation_argument_matches_setta(item)
+        for item in cmdline[1:]
+    )
+
+
+def _process_create_time_matches_session(
+    process: psutil.Process,
+    expected_create_time: float | None,
+) -> bool:
+    if expected_create_time is None:
+        return True
+    try:
+        return process.create_time() == expected_create_time
+    except psutil.Error:
+        return False
+
+
+def _process_basename_matches_setta(value: str) -> bool:
+    return os.path.basename(value).lower() in _SETTA_PROCESS_BASENAMES
+
+
+def _process_invocation_argument_matches_setta(value: str) -> bool:
+    lowered = value.strip().lower()
+    if lowered in _SETTA_PROCESS_INVOCATION_ARGUMENTS:
+        return True
+    return any(
+        lowered.startswith(prefix) for prefix in _SETTA_PROCESS_INVOCATION_PREFIXES
+    )

@@ -1,7 +1,6 @@
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React from "react";
-import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
@@ -11,37 +10,12 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import {
-  measureSettingsGraphSubstrateCanaryMotionAttribution,
-  recordSettingsGraphSubstrateCanaryMotionAttributionDuration,
-  type SettingsGraphSubstrateCanaryMotionAttributionOwner,
-} from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { GetParamSwitch } from "./GetParamSwitch";
 import {
   ParamDndProvider,
   useParamDndChildrenForParent,
 } from "./ParamDndContext";
 import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
-
-function resolveParamDndListRowsOwner(
-  listKey: ParamListKey,
-): SettingsGraphSubstrateCanaryMotionAttributionOwner {
-  return listKey === "pinned"
-    ? "presentedSceneSectionPinnedParamDndListRowsReactRender"
-    : "presentedSceneSectionUnpinnedParamDndListRowsReactRender";
-}
-
-function handleParamDndListRowsRender(
-  listKey: ParamListKey,
-  _id: string,
-  _phase: "mount" | "nested-update" | "update",
-  actualDuration: number,
-) {
-  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
-    resolveParamDndListRowsOwner(listKey),
-    actualDuration,
-  );
-}
 
 type ParamDndListProps = {
   sectionId: string;
@@ -51,10 +25,9 @@ type ParamDndListProps = {
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
-  duplicateIndex: ParamDuplicateIndex;
 };
 
-function _ParamDndList({
+export function ParamDndList({
   sectionId,
   paramIds,
   requiredParamIdsToPaths,
@@ -62,8 +35,11 @@ function _ParamDndList({
   isTopLevel,
   listKey,
   hasSectionStyleTheme,
-  duplicateIndex,
 }: ParamDndListProps) {
+  const duplicateIndex = useProjectState(
+    (state) => buildParamDuplicateIndex(state, sectionId),
+    _.isEqual,
+  );
   const paramFilterActive = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
@@ -98,30 +74,26 @@ function _ParamDndList({
     } else {
       return null;
     }
-    return measureSettingsGraphSubstrateCanaryMotionAttribution(
-      "presentedSceneSectionParamDndListTreeResolve",
-      () =>
-        buildParamTreeView(state, sectionId, paramIds, requiredParamIdsToPaths),
+    return buildParamTreeView(
+      state,
+      sectionId,
+      paramIds,
+      requiredParamIdsToPaths,
     );
   }, _.isEqual);
 
   if (!tree) {
     return (
       <ParamDuplicateIndexProvider value={duplicateIndex}>
-        <React.Profiler
-          id={`param-dnd-list-rows:${sectionId}:${listKey}`}
-          onRender={handleParamDndListRowsRender.bind(null, listKey)}
-        >
-          <GetParamSwitch
-            sectionId={sectionId}
-            paramIds={paramIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            isTopLevel={isTopLevel}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </React.Profiler>
+        <GetParamSwitch
+          sectionId={sectionId}
+          paramIds={paramIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={onResizeStart}
+          isTopLevel={isTopLevel}
+          listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
       </ParamDuplicateIndexProvider>
     );
   }
@@ -149,26 +121,6 @@ function _ParamDndList({
   );
 }
 
-const MemoizedParamDndList = React.memo(_ParamDndList, _.isEqual);
-
-type ParamDndListWithStoreProps = Omit<ParamDndListProps, "duplicateIndex">;
-
-function ParamDndListWithStore(props: ParamDndListWithStoreProps) {
-  const duplicateIndex = useProjectState(
-    (state) =>
-      measureSettingsGraphSubstrateCanaryMotionAttribution(
-        "presentedSceneSectionParamDndListDuplicateIndexResolve",
-        () => buildParamDuplicateIndex(state, props.sectionId),
-      ),
-    _.isEqual,
-  );
-
-  return <MemoizedParamDndList {...props} duplicateIndex={duplicateIndex} />;
-}
-
-export const ParamDndList = React.memo(ParamDndListWithStore, _.isEqual);
-export const ParamDndListWithDuplicateIndex = MemoizedParamDndList;
-
 function ParamDndListBody({
   sectionId,
   rootId,
@@ -191,19 +143,14 @@ function ParamDndListBody({
   const renderParamIds = useParamDndChildrenForParent(rootId, paramIds);
 
   return (
-    <React.Profiler
-      id={`param-dnd-list-rows:${sectionId}:${listKey}`}
-      onRender={handleParamDndListRowsRender.bind(null, listKey)}
-    >
-      <GetParamSwitch
-        sectionId={sectionId}
-        paramIds={renderParamIds}
-        requiredParamIdsToPaths={requiredParamIdsToPaths}
-        onResizeStart={onResizeStart}
-        isTopLevel={isTopLevel}
-        listKey={listKey}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-      />
-    </React.Profiler>
+    <GetParamSwitch
+      sectionId={sectionId}
+      paramIds={renderParamIds}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      onResizeStart={onResizeStart}
+      isTopLevel={isTopLevel}
+      listKey={listKey}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    />
   );
 }

@@ -1,6 +1,7 @@
 import { SettaBackendLogEvent } from "utils/generatedTypes";
 
 export type BackendLogSeverity = SettaBackendLogEvent["severity"];
+export type BackendLogCopyStatus = "copied" | "failed";
 
 export type BackendLogColumnWidths = {
   timestamp: number;
@@ -35,10 +36,34 @@ const BACKEND_LOG_COLUMN_WIDTH_BOUNDS: Record<
   project: { min: 120, max: 380 },
 };
 
+const BACKEND_LOG_COPY_BUTTON_PRESENTATION_BY_STATUS = {
+  idle: {
+    title: "Copy message",
+    className: "text-setta-700 dark:text-setta-200",
+    iconName: "copy",
+  },
+  failed: {
+    title: "Copy failed",
+    className: "text-red-600 dark:text-red-400",
+    iconName: "copy",
+  },
+  copied: {
+    title: "Copied",
+    className: "text-blue-600 dark:text-blue-400",
+    iconName: "checkmark",
+  },
+} as const;
+
 export function isBackendLogSeverity(
   value: string,
 ): value is BackendLogSeverity {
   return Object.hasOwn(SEVERITY_ORDER, value);
+}
+
+export function getBackendLogCopyButtonPresentation(
+  copyStatus: BackendLogCopyStatus | null,
+) {
+  return BACKEND_LOG_COPY_BUTTON_PRESENTATION_BY_STATUS[copyStatus ?? "idle"];
 }
 
 export function clampBackendLogColumnWidth(

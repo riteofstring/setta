@@ -288,8 +288,3 @@ function ProjectPageAdvancedCore<T>({
     </>
   );
 }
-
-export const projectPageSearchTestApi = {
-  buildProjectCommandPaletteEntries,
-  runCommandPaletteAction,
-};
