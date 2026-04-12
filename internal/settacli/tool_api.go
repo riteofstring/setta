@@ -372,41 +372,79 @@ func doAPIToolRequest(request *http.Request, timeoutSeconds float64) (int, []byt
 
 func emitAPIToolResult(stdout io.Writer, jsonOutput bool, toolName string, statusCode int, body []byte, requestErr error) error {
 	if requestErr != nil {
-		if jsonOutput {
-			return emitJSONAndExit(stdout, map[string]any{
-				"error":   "RequestError",
-				"message": requestErr.Error(),
-				"tool":    toolName,
-			}, requestErr)
-		}
+		return emitAPIRequestError(stdout, jsonOutput, toolName, requestErr)
+	}
+	if httpErr := apiToolHTTPError(statusCode, body); httpErr != nil {
+		return emitAPIHTTPError(stdout, jsonOutput, toolName, statusCode, body, httpErr)
+	}
+	return emitAPIToolBody(stdout, jsonOutput, body)
+}
+
+func emitAPIRequestError(stdout io.Writer, jsonOutput bool, toolName string, requestErr error) error {
+	if !jsonOutput {
 		return requestErr
 	}
-	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
-		err := fmt.Errorf("%d %s", statusCode, strings.TrimSpace(string(body)))
-		if jsonOutput {
-			return emitJSONAndExit(stdout, map[string]any{
-				"error":  "HTTPError",
-				"status": statusCode,
-				"tool":   toolName,
-				"body":   decodeResponseBody(body),
-			}, err)
-		}
-		return err
-	}
-	if len(body) == 0 {
-		if jsonOutput {
-			return emitJSON(stdout, nil)
-		}
+	return emitJSONAndExit(stdout, map[string]any{
+		"error":   "RequestError",
+		"message": requestErr.Error(),
+		"tool":    toolName,
+	}, requestErr)
+}
+
+func apiToolHTTPError(statusCode int, body []byte) error {
+	if statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices {
 		return nil
 	}
+	return fmt.Errorf("%d %s", statusCode, strings.TrimSpace(string(body)))
+}
+
+func emitAPIHTTPError(stdout io.Writer, jsonOutput bool, toolName string, statusCode int, body []byte, requestErr error) error {
+	if !jsonOutput {
+		return requestErr
+	}
+	return emitJSONAndExit(stdout, map[string]any{
+		"error":  "HTTPError",
+		"status": statusCode,
+		"tool":   toolName,
+		"body":   decodeResponseBody(body),
+	}, requestErr)
+}
+
+func emitAPIToolBody(stdout io.Writer, jsonOutput bool, body []byte) error {
+	if len(body) == 0 {
+		return emitAPIEmptyBody(stdout, jsonOutput)
+	}
+	decoded, ok := decodeAPIResponseBody(body)
+	if !ok {
+		return emitAPIRawBody(stdout, jsonOutput, body)
+	}
+	return emitAPIDecodedBody(stdout, jsonOutput, decoded)
+}
+
+func emitAPIEmptyBody(stdout io.Writer, jsonOutput bool) error {
+	if !jsonOutput {
+		return nil
+	}
+	return emitJSON(stdout, nil)
+}
+
+func decodeAPIResponseBody(body []byte) (any, bool) {
 	var decoded any
 	if err := json.Unmarshal(body, &decoded); err != nil {
-		if jsonOutput {
-			return emitJSON(stdout, map[string]any{"raw": string(body)})
-		}
-		_, _ = fmt.Fprintln(stdout, string(body))
-		return nil
+		return nil, false
 	}
+	return decoded, true
+}
+
+func emitAPIRawBody(stdout io.Writer, jsonOutput bool, body []byte) error {
+	if jsonOutput {
+		return emitJSON(stdout, map[string]any{"raw": string(body)})
+	}
+	_, _ = fmt.Fprintln(stdout, string(body))
+	return nil
+}
+
+func emitAPIDecodedBody(stdout io.Writer, jsonOutput bool, decoded any) error {
 	if jsonOutput {
 		return emitJSON(stdout, decoded)
 	}

@@ -31,6 +31,16 @@ func mustAPIToolName(t *testing.T) string {
 	return payloads[0].Name
 }
 
+func decodeAPIToolJSONOutput(t *testing.T, stdout *bytes.Buffer) map[string]any {
+	t.Helper()
+
+	var payload map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatalf("decode api tool json output: %v", err)
+	}
+	return payload
+}
+
 func TestParseAPIInvocationSupportsToolBeforeOrAfterFlags(t *testing.T) {
 	t.Parallel()
 
@@ -65,6 +75,96 @@ func TestParseAPIInvocationSupportsToolBeforeOrAfterFlags(t *testing.T) {
 				t.Fatalf("unexpected base url %q", invocation.flags.baseURL)
 			}
 		})
+	}
+}
+
+func TestEmitAPIToolResultRequestErrorJSON(t *testing.T) {
+	t.Parallel()
+
+	requestErr := errors.New("dial tcp timeout")
+	var stdout bytes.Buffer
+	err := emitAPIToolResult(&stdout, true, "testTool", 0, nil, requestErr)
+
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected exit error, got %v", err)
+	}
+	if exitErr.Code != 1 || !exitErr.Silent || !errors.Is(exitErr.Err, requestErr) {
+		t.Fatalf("unexpected exit error %#v", exitErr)
+	}
+
+	payload := decodeAPIToolJSONOutput(t, &stdout)
+	if payload["error"] != "RequestError" || payload["message"] != requestErr.Error() || payload["tool"] != "testTool" {
+		t.Fatalf("unexpected request error payload %#v", payload)
+	}
+}
+
+func TestEmitAPIToolResultHTTPErrorJSON(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	err := emitAPIToolResult(&stdout, true, "testTool", http.StatusBadRequest, []byte(`{"reason":"bad input"}`), nil)
+
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected exit error, got %v", err)
+	}
+	if exitErr.Code != 1 || !exitErr.Silent {
+		t.Fatalf("unexpected exit error %#v", exitErr)
+	}
+
+	payload := decodeAPIToolJSONOutput(t, &stdout)
+	if payload["error"] != "HTTPError" || payload["tool"] != "testTool" {
+		t.Fatalf("unexpected http error payload %#v", payload)
+	}
+	status, ok := payload["status"].(float64)
+	if !ok || status != http.StatusBadRequest {
+		t.Fatalf("unexpected http status payload %#v", payload)
+	}
+	body, ok := payload["body"].(map[string]any)
+	if !ok || body["reason"] != "bad input" {
+		t.Fatalf("unexpected http error body %#v", payload)
+	}
+}
+
+func TestEmitAPIToolResultJSONOutputHandlesEmptyAndRawBodies(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty body", func(t *testing.T) {
+		t.Parallel()
+
+		var stdout bytes.Buffer
+		if err := emitAPIToolResult(&stdout, true, "testTool", http.StatusOK, nil, nil); err != nil {
+			t.Fatalf("emit empty body: %v", err)
+		}
+		if stdout.String() != "null\n" {
+			t.Fatalf("unexpected empty body output %q", stdout.String())
+		}
+	})
+
+	t.Run("raw body", func(t *testing.T) {
+		t.Parallel()
+
+		var stdout bytes.Buffer
+		if err := emitAPIToolResult(&stdout, true, "testTool", http.StatusOK, []byte("plain text"), nil); err != nil {
+			t.Fatalf("emit raw body: %v", err)
+		}
+		payload := decodeAPIToolJSONOutput(t, &stdout)
+		if payload["raw"] != "plain text" {
+			t.Fatalf("unexpected raw body payload %#v", payload)
+		}
+	})
+}
+
+func TestEmitAPIToolResultPrettyPrintsDecodedJSONWithoutJSONOutput(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	if err := emitAPIToolResult(&stdout, false, "testTool", http.StatusOK, []byte(`{"beta":2,"alpha":1}`), nil); err != nil {
+		t.Fatalf("emit decoded json: %v", err)
+	}
+	if stdout.String() != "{\n  \"alpha\": 1,\n  \"beta\": 2\n}\n" {
+		t.Fatalf("unexpected pretty output %q", stdout.String())
 	}
 }
 
