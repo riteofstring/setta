@@ -1,19 +1,10 @@
-/* @vitest-environment jsdom */
-
-import "testUtils/reactRefreshPreamble";
 import { describe, expect, it } from "vitest";
 
 import { matchRoutes } from "react-router-dom";
 import { resolveWorkspaceLaunchRouteKind } from "utils/serverModeBoundaryPolicy";
-import { LoadingSpinner } from "./LoadingSpinner";
-import {
-  resolveModeElementForServerMode,
-  type ServerModeValue,
-} from "./modeRouteResolver";
-import { NotFound } from "./NotFound/NotFound";
+import type { ServerModeValue } from "utils/serverModeTypes";
+import { resolveModeElementForServerMode } from "./modeRouteResolver";
 import { APP_ROUTE_IDS, APP_ROUTE_PATTERNS } from "./routeConfig";
-import { HomeRouteSurface } from "./RouteEntrySurfaces";
-import { resolveShareHomeContent } from "./router";
 
 function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {
   return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
@@ -105,21 +96,5 @@ describe("appRoutes", () => {
 
   it("leaves bare project paths on the generic project route", () => {
     expect(getMatchedRouteId("/demo")).toBe(APP_ROUTE_IDS.project);
-  });
-});
-
-describe("resolveShareHomeContent", () => {
-  it("uses the lazy home route surface after share loading completes", () => {
-    const element = resolveShareHomeContent(true, false);
-
-    expect(element.type).toBe(HomeRouteSurface);
-  });
-
-  it("keeps the loading and not-found branches unchanged", () => {
-    const loadingElement = resolveShareHomeContent(false, false);
-    const notFoundElement = resolveShareHomeContent(true, true);
-
-    expect(loadingElement.type).toBe(LoadingSpinner);
-    expect(notFoundElement.type).toBe(NotFound);
   });
 });

@@ -52,6 +52,41 @@ export function removeDndChild(childId: string) {
   });
 }
 
+function clearTempChildren(state: ZustandDndChildren) {
+  for (const [parentId, children] of Object.entries(state.x)) {
+    const nextChildren = children.filter((childId) => !isTempSection(childId));
+    if (nextChildren.length !== children.length) {
+      state.x[parentId] = nextChildren;
+    }
+  }
+
+  for (const childId of Object.keys(state.y)) {
+    if (isTempSection(childId)) {
+      delete state.y[childId];
+    }
+  }
+}
+
+function resolveTempInsertion(
+  children: string[],
+  sectionIds: string[],
+): { insertIndex: number; nextChildren: string[] } {
+  const sectionIdSet = new Set(sectionIds);
+  let insertIndex: number | null = null;
+  const nextChildren = children.filter((childId, index) => {
+    const shouldRemove = sectionIdSet.has(childId);
+    if (shouldRemove && insertIndex === null) {
+      insertIndex = index;
+    }
+    return !shouldRemove;
+  });
+
+  return {
+    insertIndex: insertIndex ?? nextChildren.length,
+    nextChildren,
+  };
+}
+
 export function replaceDndSectionsWithTemp(
   activeId: string,
   sectionIds: string[],
@@ -64,33 +99,13 @@ export function replaceDndSectionsWithTemp(
     if (!parentId) {
       return;
     }
+    clearTempChildren(state);
+
     const tempId = getDndSectionId(activeId);
-
-    for (const [key, children] of Object.entries(state.x)) {
-      const nextChildren = children.filter(
-        (childId) => !isTempSection(childId),
-      );
-      if (nextChildren.length !== children.length) {
-        state.x[key] = nextChildren;
-      }
-    }
-    for (const childId of Object.keys(state.y)) {
-      if (isTempSection(childId)) {
-        delete state.y[childId];
-      }
-    }
-
-    const sectionIdSet = new Set(sectionIds);
-    const currChildren = state.x[parentId] ?? [];
-    const indices = sectionIds
-      .map((sectionId) => currChildren.indexOf(sectionId))
-      .filter((idx) => idx >= 0);
-    const nextChildren = currChildren.filter(
-      (childId) => !sectionIdSet.has(childId),
+    const { insertIndex, nextChildren } = resolveTempInsertion(
+      state.x[parentId] ?? [],
+      sectionIds,
     );
-    const insertIndex =
-      indices.length > 0 ? Math.min(...indices) : nextChildren.length;
-
     state.x[parentId] = insertIntoArray(nextChildren, insertIndex, tempId);
     state.y[tempId] = parentId;
     for (const sectionId of sectionIds) {

@@ -1,8 +1,7 @@
 import react from "@vitejs/plugin-react";
-import path from "node:path";
+import { defineConfig } from "vitest/config";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
-import { defineConfig } from "vitest/config";
 import { C } from "./src/utils/c.js";
 
 const resolvePort = (value: string | undefined, fallback: number): number => {
@@ -25,23 +24,17 @@ const resolveHost = (value: string | undefined, fallback: string): string => {
 
 const devFrontendPort = resolvePort(
   process.env.SETTA_DEV_FRONTEND_PORT,
-  C.DEV_MODE_FRONTEND_PORT,
+  C.DEV_MODE_FRONTEND_PORT
 );
 const devFrontendHost = resolveHost(
   process.env.SETTA_DEV_FRONTEND_HOST ?? process.env.SETTA_HOST,
-  C.DEFAULT_HOST,
+  C.DEFAULT_HOST
 );
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), viteTsconfigPaths(), svgrPlugin()],
   resolve: {
-    alias: {
-      "@radix-ui/react-slot": path.resolve(
-        __dirname,
-        "./src/shims/radixReactSlotCompat.tsx",
-      ),
-    },
     dedupe: [
       "@codemirror/state",
       "@codemirror/view",
