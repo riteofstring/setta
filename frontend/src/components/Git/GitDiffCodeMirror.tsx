@@ -388,3 +388,11 @@ export function GitDiffCodeMirror({
     />
   );
 }
+
+export const gitDiffCodeMirrorTestApi = {
+  classifyDiffLine(text: string): string | null {
+    return analyzeDiffLine(text).lineClass;
+  },
+  parserForPath,
+  shouldSyntaxHighlightLine,
+};

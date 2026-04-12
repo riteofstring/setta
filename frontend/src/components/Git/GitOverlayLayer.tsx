@@ -68,3 +68,7 @@ export function GitOverlayLayer() {
     </div>
   );
 }
+
+export const gitOverlayLayerTestApi = {
+  isEditableEscapeTarget,
+};

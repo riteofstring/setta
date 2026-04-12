@@ -2838,3 +2838,15 @@ function GitGraphCell({
     </svg>
   );
 }
+
+export const gitGraphOverlayTestApi = {
+  buildGitGraphCommitDigest,
+  buildGitCommitLookupByHash,
+  buildGitCommitSearchBlob,
+  buildGitGraphRowHeightCacheKey,
+  collectRemoteDecorationPrefixes,
+  computeGitGraphColumnDoubleClickPatch,
+  computeGitGraphColumnWidthPatch,
+  shouldLoadMoreGitGraphCommits,
+  summarizeDecorationChips,
+};
