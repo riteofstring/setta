@@ -1,8 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { clearTextFieldCompletion } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -15,10 +13,9 @@ import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
-import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 import {
   getCodeObjCore,
-  getCurrEffectiveCodeObjImplIfPresent,
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
@@ -38,8 +35,14 @@ import {
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_clear_text_field_completion,
+  route_set_callable,
+} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+
 export function SectionSearch({
   sectionId,
   callable,
@@ -70,12 +73,15 @@ export function SectionSearch({
       : null,
   );
   const lspEnabled = !isDeploymentMode;
+
   function onEnter(value: string) {
     setCallable(sectionId, value, lspEnabled);
   }
+
   function onShiftEnter(value: string) {
     setCallable(sectionId, value, lspEnabled, true);
   }
+
   return (
     <SectionSearchCore
       divId={`${sectionId}-search`}
@@ -98,6 +104,7 @@ export function SectionSearch({
     />
   );
 }
+
 function SectionSearchCore({
   sectionId,
   callable,
@@ -121,6 +128,7 @@ function SectionSearchCore({
 }) {
   const searchRef = useRef<HTMLElement | null>(null);
   const heightKey = getSectionSearchHeightKey(sectionId);
+
   useLayoutEffect(() => {
     const node = searchRef.current;
     if (!node) {
@@ -202,6 +210,7 @@ function SectionSearchCore({
       }
     };
   }, [heightKey, sectionId]);
+
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {
     name: baseCodeInfoName,
@@ -212,20 +221,11 @@ function SectionSearchCore({
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
-      true,
     );
     const { configLanguage } = sectionImpl;
     if (callable) {
       const codeObj = getCodeObjCore(x, callable);
-      const impl = getCurrEffectiveCodeObjImplIfPresent(
-        x,
-        sectionId,
-        callable,
-        true,
-      );
-      if (!impl) {
-        return { name: "", description: "", configLanguage };
-      }
+      const impl = getCurrEffectiveCodeObjImpl(x, sectionId, callable);
       const { description } = impl;
       return { name: codeObj.name, description, configLanguage };
     }
@@ -240,6 +240,7 @@ function SectionSearchCore({
     return entry ? entry.value : null;
   });
   const codeInfoName = previewCallableName ?? baseCodeInfoName;
+
   const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
   const [draftCallableName, setDraftCallableName] = useState<string | null>(
     null,
@@ -254,12 +255,14 @@ function SectionSearchCore({
   );
   const callableErrorMessage = callableErrorMessages?.join("\n") ?? "";
   const hasCallableError = callableErrorMessage.length > 0;
+
   const debouncedSetValueNameInconsistent = useCallback(
     _.debounce((isInconsistent: boolean) => {
       setValueNameInconsistent(isInconsistent);
     }, 1000),
     [setValueNameInconsistent],
   );
+
   function setValueAndCheckConsistency(value: string, cancelDebounced = false) {
     if (cancelDebounced) {
       debouncedSetValueNameInconsistent.cancel();
@@ -268,31 +271,30 @@ function SectionSearchCore({
       debouncedSetValueNameInconsistent(value !== codeInfoName);
     }
   }
+
   useEffect(() => {
     setValueAndCheckConsistency(codeInfoName, true);
     setDraftCallableName((prev) => (prev !== null ? null : prev));
   }, [codeInfoName]);
+
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
       setDraftCallableName(null);
       setValueAndCheckConsistency(codeInfoName, true);
       const projectConfigId = getCurrProjectConfigId();
       if (lspEnabled) {
-        void callOpenAPI(
-          clearTextFieldCompletion({
-            body: {
-              projectConfigId,
-              sectionId,
-              paramInfoId: null,
-            },
-          } as Parameters<typeof clearTextFieldCompletion>[0]),
-        );
+        route_clear_text_field_completion({
+          projectConfigId,
+          sectionId,
+          paramInfoId: null,
+        });
       }
       shouldResetValueOnBlur.current = false;
       return;
     }
     shouldResetValueOnBlur.current = false;
   }
+
   function onEscape(completionResult: boolean) {
     if (!completionResult) {
       setDraftCallableName(null);
@@ -301,6 +303,7 @@ function SectionSearchCore({
       // TODO: Re-enable focusOnSection(null, sectionId, false) once tabbing logic is restored.
     }
   }
+
   function onTab(value: string, completionResult: boolean) {
     if (!completionResult && value) {
       shouldResetValueOnBlur.current = false;
@@ -308,14 +311,17 @@ function SectionSearchCore({
       onEnter(value);
     }
   }
+
   function onChange(value: string) {
     setDraftCallableName(value);
     setValueAndCheckConsistency(value);
   }
+
   function clearApplyIndicator() {
     debouncedSetValueNameInconsistent.cancel();
     setValueNameInconsistent(false);
   }
+
   const keyComboActions = {
     Enter: (value: string) => {
       clearApplyIndicator();
@@ -326,6 +332,7 @@ function SectionSearchCore({
       onShiftEnter(value);
     },
   };
+
   // TODO: Shouldn't use important for this, but ok for now. FIX.
   const valueNameInconsistentStyle = valueNameInconsistent
     ? "setta-callable-ready"
@@ -338,9 +345,11 @@ function SectionSearchCore({
   const showStatusIndicator = valueNameInconsistent || waitingForResult;
   const showCallableErrorIndicator = hasCallableError && !valueNameInconsistent;
   const showRightIndicator = showStatusIndicator || showCallableErrorIndicator;
+
   function onCallableErrorContextMenu(e: MouseEvent<HTMLSpanElement>) {
     openTypeErrorContextMenu(e, sectionId, null);
   }
+
   const displayedCallableName =
     draftCallableName !== null ? draftCallableName : codeInfoName;
   const tooltipContentArray = hasCallableError
@@ -354,6 +363,7 @@ function SectionSearchCore({
         { title: codeInfoName, content: description },
       ]
     : [{ title: codeInfoName, content: description }];
+
   return (
     <search
       className="section-search single-cell-container relative w-full"
@@ -406,6 +416,7 @@ function SectionSearchCore({
     </search>
   );
 }
+
 async function setCallable(
   sectionId: string,
   callableName: string,
@@ -423,8 +434,9 @@ async function setCallable(
     callableName,
     refetchParams,
   };
-  const updated = await setCallableAndRefreshProjectState(payload);
-  if (updated) {
+  const res = await route_set_callable(payload);
+  if (res200(res)) {
+    // state update occurs by websocket
     setToNotWaiting();
   }
 }
