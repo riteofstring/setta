@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act } from "react";
+import { act, Profiler, type ProfilerOnRenderCallback } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -191,5 +191,35 @@ describe("Pane", () => {
       });
       host.remove();
     }
+  });
+
+  it("does not rerender when pane dragging state changes without selection state changes", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    await act(async () => {
+      root.render(
+        <Profiler id="pane-profiler" onRender={onRender}>
+          <Pane isSelecting panOnDrag={false}>
+            <div />
+          </Pane>
+        </Profiler>,
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      useReactFlow.setState({ paneDragging: true });
+    });
+
+    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
   });
 });

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 16:59 UTC
+Last updated: 2026-04-12 17:05 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,37 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `328` landed one bounded product-side perf slice inside the measured
+  dominant motion owner `interactionReactFlowStateSync` on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the legacy xyflow pane subscriber path:
+    - `frontend/src/forks/xyflow/core/container/Pane.tsx`
+      no longer subscribes to `paneDragging`; it now selects only
+      `userSelectionActive`, which is the only React Flow field the component
+      actually reads
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/Pane.test.tsx`
+      using `React.Profiler` to assert that `Pane` does not commit when
+      `paneDragging` changes without a selection-state change
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-pane-subscription-prune.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/Pane.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed (`2` files, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/Pane.tsx src/forks/xyflow/core/container/Pane.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on explicit worktree/reference
+      `/settings` URLs
+      -> both surfaces mounted with the graph substrate area visible
+      -> no obvious visual drift observed for this slice
+  - reading:
+    - this removes one legacy React Flow subscriber invalidation from the same
+      interaction-state path that still dominates the canary perf attribution
+    - the next bounded frontier should stay in product-side
+      `interactionReactFlowStateSync` work or rerun the canonical perf lane
+      from a fresh healthy lifecycle if that lane becomes stable again
 
 - item `327` landed one bounded probe-helper slice on the canonical
   `rotaryParamCodeObjDefault` lane:

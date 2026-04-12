@@ -50,7 +50,6 @@ const wrapHandler = (
 
 const selector = (s: ReactFlowState) => ({
   userSelectionActive: s.userSelectionActive,
-  dragging: s.paneDragging,
 });
 
 const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {

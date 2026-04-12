@@ -12696,3 +12696,34 @@ settings graph probe phase: worktree: capture initial pane state.`
     - next default frontier: return to product-side perf work on
       `interactionReactFlowStateSync` instead of spending another iteration on
       this same pane-state capture shape
+- LOOP_TERMINAL_MARKER: none
+## 2026-04-12 17:05 UTC
+
+- item `328` removed one unused legacy pane subscription from the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/core/container/Pane.tsx` so the pane
+    subscribes only to `userSelectionActive` and no longer subscribes to the
+    unused `paneDragging` field
+  - added a focused profiler regression test in
+    `frontend/src/forks/xyflow/core/container/Pane.test.tsx` to prove the pane
+    does not commit when `paneDragging` changes without a selection-state
+    change
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-pane-subscription-prune.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/Pane.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed (`2` files, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/Pane.tsx src/forks/xyflow/core/container/Pane.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `3075` and read-only
+      `main` `3087`
+      -> both `/settings` surfaces mounted with the graph substrate area visible
+      -> no obvious visual drift observed for this slice
+  - result:
+    - this removes one no-op React Flow subscriber invalidation from the
+      product path currently attributed to `interactionReactFlowStateSync`
+    - next bounded frontier: stay in product-side interaction-state reduction
+      or rerun the canonical perf lane from a fresh healthy lifecycle if the
+      runtime stall clears
+- LOOP_TERMINAL_MARKER: none
