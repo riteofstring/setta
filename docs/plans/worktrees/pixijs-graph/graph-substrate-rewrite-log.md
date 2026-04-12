@@ -3346,6 +3346,33 @@ LOOP_TERMINAL_MARKER: none
 - Read-only `main` normalized to `All Settings` too, but that session did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`); treated as oracle limitation rather than remaining worktree drift.
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 16:30 UTC | item 325 | rerun canonical perf probe after Pixi resolution identity reuse
+  - Picked one bounded follow-up probe on the canonical
+    `rotaryParamCodeObjDefault` lane after the last two product-side Pixi
+    resolver slices changed `pixiDrawableModelResolve`.
+  - No product renderer code changed on this pass.
+  - Added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-pixi-resolution-identity-reuse-probe.md`
+    to record the post-slice numeric reading.
+  - Verification:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-014/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-014/main-ai.log`
+      -> completed the normalized probe on both read-only `main` and the
+      worktree canary
+      -> moved past the previous worktree `capture initial pane state` stall
+      -> emitted numeric perf payload before failing on the existing perf
+        assertions with:
+      - reference average frame duration `319.14ms`
+      - worktree average frame duration `46.37ms`
+      - worktree max frame duration `400ms`
+      - worktree dominant motion owner `interactionReactFlowStateSync`
+  - Result:
+    - the current Pixi resolver lane is effectively closed for now:
+      `pixiDrawableModelResolve` is no longer the measured dominant owner on
+      the canonical lane
+    - the next real frontier is one bounded product-side slice inside
+      `interactionReactFlowStateSync`, not another pass on the same Pixi
+      resolver code without fresh attribution
+- LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-12 14:33 UTC - Ralph item 314
 

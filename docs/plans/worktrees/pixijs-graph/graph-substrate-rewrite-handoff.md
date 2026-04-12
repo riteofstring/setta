@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 16:23 UTC
+Last updated: 2026-04-12 16:30 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,33 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `325` reran the canonical main-reference perf lane after the Pixi
+  resolution identity-reuse slice on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - no product renderer code changed on this pass
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-pixi-resolution-identity-reuse-probe.md`
+    to record the numeric post-slice reading
+  - focused verification:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-014/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-014/main-ai.log`
+      -> completed the normalized canonical probe on both sides and emitted
+      numeric perf output
+      -> moved past the previous worktree `capture initial pane state` stall
+      -> failed on the existing perf assertions with:
+      - reference average frame duration `319.14ms`
+      - worktree average frame duration `46.37ms`
+      - worktree max frame duration `400ms`
+      - worktree dominant motion owner `interactionReactFlowStateSync`
+  - reading:
+    - the latest Pixi resolver reuse slice appears to have worked on this
+      lane: `pixiDrawableModelResolve` is no longer the measured dominant
+      owner
+    - close the current Pixi resolver lane unless fresh evidence points back
+      to it
+    - the next default frontier is one bounded product-side attribution slice
+      inside `interactionReactFlowStateSync`
 
 - item `324` landed one bounded product-side reuse slice inside the measured
   dominant motion owner `pixiDrawableModelResolve` on the canonical
