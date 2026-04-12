@@ -39,7 +39,7 @@ function areIdArraysEqual(left: string[], right: string[]) {
   return left.every((id, index) => id === right[index]);
 }
 
-export function shouldShowProjectConfigHoverPreview({
+function shouldShowProjectConfigHoverPreview({
   previewEnabled,
   isEditing,
 }: {
@@ -49,7 +49,7 @@ export function shouldShowProjectConfigHoverPreview({
   return previewEnabled && !isEditing;
 }
 
-export function mergeProjectConfigOrder(
+function mergeProjectConfigOrder(
   incomingIds: string[],
   persistedIds: string[],
 ): string[] {
@@ -78,7 +78,7 @@ type ProjectConfigHoverPreviewState = Pick<
   "projectConfig" | "sections" | "sectionVariants"
 >;
 
-export function buildProjectConfigHoverPreviewMap(
+function buildProjectConfigHoverPreviewMap(
   currentState: ProjectConfigHoverPreviewState,
   candidateConfig: ProjectConfig,
 ): Record<string, string> | null {

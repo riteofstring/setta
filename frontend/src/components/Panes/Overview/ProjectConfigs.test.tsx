@@ -1,3 +1,6 @@
+/* @vitest-environment jsdom */
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import {
@@ -8,6 +11,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   createCore,
   createProjectConfig,
@@ -15,12 +19,7 @@ import {
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  buildProjectConfigHoverPreviewMap,
-  mergeProjectConfigOrder,
-  ProjectConfigs,
-  shouldShowProjectConfigHoverPreview,
-} from "./ProjectConfigs";
+import { ProjectConfigs } from "./ProjectConfigs";
 
 let latestOnReorder: ((orderedIds: string[]) => void) | null = null;
 let latestSortableEnabled: boolean | undefined;
@@ -65,6 +64,8 @@ function syncStoreInitialState(store: {
 }
 
 describe("ProjectConfigs", () => {
+  let host: HTMLDivElement;
+  let root: Root;
   const memoryStorage = (() => {
     let store = new Map<string, string>();
     return {
@@ -103,64 +104,62 @@ describe("ProjectConfigs", () => {
     syncStoreInitialState(useSettings);
     syncStoreInitialState(useLocalStorage);
     syncStoreInitialState(useShareSession);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
     resetProjectStores();
   });
 
-  it("merges persisted project-config order with incoming metadata ids", () => {
-    expect(
-      mergeProjectConfigOrder(
-        ["config-a", "config-b", "config-c"],
-        ["config-c", "config-a"],
-      ),
-    ).toEqual(["config-c", "config-a", "config-b"]);
-  });
+  async function renderProjectConfigs() {
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <ProjectConfigs />
+        </MemoryRouter>,
+      );
+    });
+  }
 
-  it("dedupes duplicate ids from persisted project-config order", () => {
-    expect(
-      mergeProjectConfigOrder(
-        ["config-a", "config-b"],
-        ["config-a", "config-a"],
-      ),
-    ).toEqual(["config-a", "config-b"]);
-  });
+  function getProjectConfigRow(projectConfigId: string): HTMLElement | null {
+    return host.querySelector(`[data-project-config-id="${projectConfigId}"]`);
+  }
 
-  it("disables hover preview while editing", () => {
-    expect(
-      shouldShowProjectConfigHoverPreview({
-        previewEnabled: true,
-        isEditing: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldShowProjectConfigHoverPreview({
-        previewEnabled: true,
-        isEditing: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("builds a hover preview map when the candidate config matches the current section graph", () => {
+  it("builds hover previews through the live project-config row hover path", async () => {
     const sectionId = "section-a";
     const currentVariantId = "variant-current";
     const previewVariantId = "variant-preview";
-    const currentState = {
-      projectConfig: createProjectConfig({
-        id: "config-current",
-        sectionVariantMap: {
-          [sectionId]: currentVariantId,
-        },
-      }),
-      sections: {
+    const previewConfig = createProjectConfig({
+      id: "config-preview",
+      name: "Preview Config",
+      sectionVariantMap: {
+        [sectionId]: previewVariantId,
+      },
+    });
+    const currentConfig = createProjectConfig({
+      id: "config-current",
+      name: "Current Config",
+      sectionVariantMap: {
+        [sectionId]: currentVariantId,
+      },
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = currentConfig;
+      state.sections = {
         [sectionId]: createCore({
           id: sectionId,
           variants: [currentVariantId, previewVariantId],
           defaultVariant: currentVariantId,
         }),
-      },
-      sectionVariants: {
+      };
+      state.sectionVariants = {
         [currentVariantId]: createVariant({
           id: currentVariantId,
           impl: "impl-current",
@@ -169,56 +168,152 @@ describe("ProjectConfigs", () => {
           id: previewVariantId,
           impl: "impl-preview",
         }),
+      };
+      state.previewSectionVariantMap = {};
+    });
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: currentConfig.id,
+      projectMetadata: [currentConfig, previewConfig],
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useAllProjectMetadata);
+
+    await renderProjectConfigs();
+
+    const previewRow = getProjectConfigRow(previewConfig.id);
+    expect(previewRow).not.toBeNull();
+
+    await act(async () => {
+      previewRow?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+
+    expect(useProjectState.getState().previewSectionVariantMap).toEqual({
+      [sectionId]: previewVariantId,
+    });
+  });
+
+  it("suppresses hover previews while editing", async () => {
+    const sectionId = "section-a";
+    const currentVariantId = "variant-current";
+    const previewVariantId = "variant-preview";
+    const currentConfig = createProjectConfig({
+      id: "config-current",
+      name: "Current Config",
+      sectionVariantMap: {
+        [sectionId]: currentVariantId,
       },
-    };
+    });
     const previewConfig = createProjectConfig({
       id: "config-preview",
+      name: "Preview Config",
       sectionVariantMap: {
         [sectionId]: previewVariantId,
       },
     });
 
-    expect(
-      buildProjectConfigHoverPreviewMap(currentState, previewConfig),
-    ).toEqual({
-      [sectionId]: previewVariantId,
-    });
-  });
-
-  it("rejects hover previews for configs from a different section graph", () => {
-    const sectionId = "section-a";
-    const currentVariantId = "variant-current";
-    const currentState = {
-      projectConfig: createProjectConfig({
-        id: "config-current",
-        sectionVariantMap: {
-          [sectionId]: currentVariantId,
-        },
-      }),
-      sections: {
+    useProjectState.setState((state) => {
+      state.projectConfig = currentConfig;
+      state.sections = {
         [sectionId]: createCore({
           id: sectionId,
-          variants: [currentVariantId],
+          variants: [currentVariantId, previewVariantId],
           defaultVariant: currentVariantId,
         }),
-      },
-      sectionVariants: {
+      };
+      state.sectionVariants = {
         [currentVariantId]: createVariant({
           id: currentVariantId,
           impl: "impl-current",
         }),
+        [previewVariantId]: createVariant({
+          id: previewVariantId,
+          impl: "impl-preview",
+        }),
+      };
+      state.previewSectionVariantMap = {};
+    });
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: currentConfig.id,
+      projectMetadata: [currentConfig, previewConfig],
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useAllProjectMetadata);
+
+    await renderProjectConfigs();
+
+    const editButton = host.querySelector(
+      'button[title="Edit project configs"]',
+    );
+    expect(editButton).not.toBeNull();
+
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const previewRow = getProjectConfigRow(previewConfig.id);
+    expect(previewRow).not.toBeNull();
+
+    await act(async () => {
+      previewRow?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+
+    expect(useProjectState.getState().previewSectionVariantMap).toEqual({});
+  });
+
+  it("rejects hover previews for configs from a different section graph", async () => {
+    const sectionId = "section-a";
+    const currentVariantId = "variant-current";
+    const currentConfig = createProjectConfig({
+      id: "config-current",
+      name: "Current Config",
+      sectionVariantMap: {
+        [sectionId]: currentVariantId,
       },
-    };
+    });
     const incompatibleConfig = createProjectConfig({
       id: "config-foreign",
+      name: "Foreign Config",
       sectionVariantMap: {
         "settings-section__backend": "settings-variant__backend",
       },
     });
 
-    expect(
-      buildProjectConfigHoverPreviewMap(currentState, incompatibleConfig),
-    ).toBeNull();
+    useProjectState.setState((state) => {
+      state.projectConfig = currentConfig;
+      state.sections = {
+        [sectionId]: createCore({
+          id: sectionId,
+          variants: [currentVariantId],
+          defaultVariant: currentVariantId,
+        }),
+      };
+      state.sectionVariants = {
+        [currentVariantId]: createVariant({
+          id: currentVariantId,
+          impl: "impl-current",
+        }),
+      };
+      state.previewSectionVariantMap = {};
+    });
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: currentConfig.id,
+      projectMetadata: [currentConfig, incompatibleConfig],
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useAllProjectMetadata);
+
+    await renderProjectConfigs();
+
+    const incompatibleRow = getProjectConfigRow(incompatibleConfig.id);
+    expect(incompatibleRow).not.toBeNull();
+
+    await act(async () => {
+      incompatibleRow?.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true }),
+      );
+    });
+
+    expect(useProjectState.getState().previewSectionVariantMap).toEqual({});
   });
 
   it("renders project config rows using persisted order", () => {
@@ -258,6 +353,38 @@ describe("ProjectConfigs", () => {
     expect(betaIndex).toBeLessThan(alphaIndex);
     expect(latestSortableEnabled).toBe(true);
     expect(sortableHookCallCount).toBeGreaterThan(0);
+  });
+
+  it("dedupes duplicate ids from persisted order through the live component state", async () => {
+    const configA = createProjectConfig({
+      id: "config-a",
+      name: "Config Alpha",
+    });
+    const configB = createProjectConfig({
+      id: "config-b",
+      name: "Config Beta",
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = configA;
+    });
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: configA.id,
+      projectMetadata: [configA, configB],
+    });
+    useLocalStorage.setState({
+      overviewProjectConfigOrder: [configA.id, configA.id],
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useAllProjectMetadata);
+    syncStoreInitialState(useLocalStorage);
+
+    await renderProjectConfigs();
+
+    expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([
+      configA.id,
+      configB.id,
+    ]);
   });
 
   it("ignores reorder callbacks in read-only mode", () => {
