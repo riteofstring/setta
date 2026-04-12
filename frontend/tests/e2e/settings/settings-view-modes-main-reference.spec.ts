@@ -12578,23 +12578,31 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     const perf = await runProbePhase("capture motion perf", async () => {
       const motionPoint = await findSettingsGraphPanePoint(args.targetPage);
 
-      await args.targetPage.bringToFront();
-      await startSettingsGraphMotionPerfCapture(args.targetPage);
-      await runSettingsGraphMotionPerfSequence(args.targetPage, {
-        modifierKey: MOD_KEY,
-        point: motionPoint,
-        settleFrameCount: 2,
-        steps: [
-          { deltaX: 160, deltaY: 120, modified: false, repeat: 6 },
-          { deltaX: -160, deltaY: -120, modified: false, repeat: 6 },
-          { deltaX: 0, deltaY: -180, modified: true, repeat: 4 },
-          { deltaX: 0, deltaY: 180, modified: true, repeat: 4 },
-        ],
+      await runProbePhase("capture motion perf: bring page to front", () => {
+        return args.targetPage.bringToFront();
       });
-      return stopSettingsGraphMotionPerfCapture(
-        args.targetPage,
-        args.sectionId,
-      );
+      await runProbePhase("capture motion perf: start capture", () => {
+        return startSettingsGraphMotionPerfCapture(args.targetPage);
+      });
+      await runProbePhase("capture motion perf: run motion sequence", () => {
+        return runSettingsGraphMotionPerfSequence(args.targetPage, {
+          modifierKey: MOD_KEY,
+          point: motionPoint,
+          settleFrameCount: 2,
+          steps: [
+            { deltaX: 160, deltaY: 120, modified: false, repeat: 6 },
+            { deltaX: -160, deltaY: -120, modified: false, repeat: 6 },
+            { deltaX: 0, deltaY: -180, modified: true, repeat: 4 },
+            { deltaX: 0, deltaY: 180, modified: true, repeat: 4 },
+          ],
+        });
+      });
+      return runProbePhase("capture motion perf: stop capture", () => {
+        return stopSettingsGraphMotionPerfCapture(
+          args.targetPage,
+          args.sectionId,
+        );
+      });
     });
 
     const afterMetrics = await runProbePhase(

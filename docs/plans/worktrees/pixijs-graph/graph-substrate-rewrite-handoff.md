@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 15:39 UTC
+Last updated: 2026-04-12 15:55 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,41 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+  - item `321` landed one bounded stall-classification slice on the canonical
+    `rotaryParamCodeObjDefault` lane instead of rerunning the same opaque probe
+    shape again:
+    - no product renderer code changed on this pass
+    - updated
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the existing `capture motion perf` probe phase now logs explicit inner
+      subphases for:
+      - bringing the target page to front
+      - starting motion capture
+      - running the wheel motion sequence
+      - stopping motion capture
+    - recorded the bounded result in
+      `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-readiness-stall-classification.md`
+    - focused verification:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+        -> passed
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/main-ai.log`
+        -> again progressed through `reference: open settings` and logged the
+        ready snapshot at about `29.7s`
+        -> after that ready snapshot, emitted no further
+        `settings-graph-probe-phase-start` lines for either side during a
+        bounded additional wait window, so the run was terminated manually
+        before numeric perf output
+    - reading:
+      - the recurring blocker is no longer generic read-only `main` readiness
+        and no longer looks like a wheel-replay / capture-stop hang
+      - on this runtime, the canonical probe is stalling after
+        `bootstrapReferenceSettingsPage(referencePage)` succeeds but before
+        `captureNormalizedMotionPerf(...)` logs its first phase, which narrows
+        the next investigation to project-config id lookup, project-state
+        fetch, or named-section resolution on the freshly opened reference page
+      - the next bounded frontier should instrument or timebox that
+        post-readiness setup boundary directly instead of reopening product-side
+        render hypotheses or more motion-capture subphases
   - item `320` landed one bounded product render-isolation slice on the
     canonical `rotaryParamCodeObjDefault` lane instead of reopening another
     reference-readiness probe:

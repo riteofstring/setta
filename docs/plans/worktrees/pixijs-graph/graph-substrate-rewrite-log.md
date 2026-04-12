@@ -12346,6 +12346,49 @@ LOOP_TERMINAL_MARKER: none
       performance probe on a fresh runtime pair and use the resulting owner
       attribution to choose the next product slice
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 15:55 UTC | item 321 | classify canonical probe stall after read-only `main` readiness
+  - Picked one bounded blocker-classification slice on the canonical
+    `rotaryParamCodeObjDefault` lane instead of rerunning the same opaque
+    `capture motion perf` hang shape without narrowing it.
+  - No product renderer code changed; updated
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so the existing `capture motion perf` phase now logs explicit inner
+    subphases for:
+    - bringing the target page to front
+    - starting motion capture
+    - running the motion sequence
+    - stopping motion capture
+  - Added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-readiness-stall-classification.md`
+    to record the bounded result.
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/main-ai.log`
+      -> logged:
+        - `settings-graph-probe-phase-start reference: bootstrap page`
+        - `settings-graph-probe-phase-start reference: open settings`
+        - `settings-graph-reference-open-settings-progress` at `69ms`,
+          `1618ms`, and `29677ms`
+      -> the final readiness snapshot still showed mounted `All Settings` on
+      read-only `main` with `graphSurfaceMounted=true`,
+      `settingsContentMounted=true`, `projectIsLoading=false`,
+      `legacyPaneCount=1`, and `visibleArticleCount=323`
+      -> after that, the probe emitted no new
+      `settings-graph-probe-phase-start` lines for either side during an
+      additional bounded wait window, so the run was terminated manually
+      before numeric perf output
+  - Reading:
+    - the current blocker is no longer coarse `capture motion perf` and no
+      longer `reference: open settings`
+    - on this runtime, the canonical lane is stalling after
+      `bootstrapReferenceSettingsPage(referencePage)` succeeds but before
+      `captureNormalizedMotionPerf(...)` logs its first phase
+    - next frontier: instrument or timebox the post-readiness setup work
+      immediately after reference bootstrap returns, especially project-config
+      id lookup, project-state fetch, and named-section resolution on the fresh
+      reference page
+- LOOP_TERMINAL_MARKER: none
 - 2026-04-12 14:57 UTC | item 316 | viewport-layer promotion on canonical `rotaryParamCodeObjDefault`
   - Picked one bounded product slice against the current motion-cost lane instead of another support-only rerun: promote the canary viewport transform layer itself so pan/zoom runs on a compositor-friendly path.
   - Product code changed in the canary surface:
