@@ -14,6 +14,8 @@ var (
 	ErrInvalidCodeSectionDiagnosticCode         = errors.New("code section diagnostic code must be a string or integer")
 )
 
+const codeSectionDiagnosticsIgnoreStateFieldName = "diagnosticsIgnoreState"
+
 type CodeSectionDiagnosticsIgnoreState struct {
 	Muted           bool  `json:"muted"`
 	SuppressedCodes []any `json:"suppressedCodes" ts_type:"Array<string | number>"`
@@ -208,52 +210,65 @@ func (p *Project) setCurrentCodeSectionDiagnosticsIgnoreState(sectionID string, 
 		return err
 	}
 
+	return p.storeCodeSectionDiagnosticsIgnoreState(section, variant, impl, normalizedState)
+}
+
+func (p *Project) storeCodeSectionDiagnosticsIgnoreState(
+	section Section,
+	variant SectionVariant,
+	impl SectionImpl,
+	state CodeSectionDiagnosticsIgnoreState,
+) error {
 	fieldValue := map[string]any{
-		"muted":           normalizedState.Muted,
-		"suppressedCodes": cloneCodeSectionDiagnosticCodes(normalizedState.SuppressedCodes),
+		"muted":           state.Muted,
+		"suppressedCodes": cloneCodeSectionDiagnosticCodes(state.SuppressedCodes),
 	}
-	fieldName := "diagnosticsIgnoreState"
-
-	switch {
-	case !sectionFieldIsUnshared(section, fieldName):
-		modifier, err := rawObjectFromProjectPayload(section.SharedModifier)
-		if err != nil {
-			return err
-		}
-		modifier[fieldName] = fieldValue
-		raw, err := marshalProjectObject(modifier)
-		if err != nil {
-			return err
-		}
-		section.SharedModifier = raw
-		p.Sections[section.ID] = section
-	case !sectionImplIsPreset(impl):
-		payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
-		if err != nil {
-			return err
-		}
-		payload[fieldName] = fieldValue
-		raw, err := marshalProjectObject(payload)
-		if err != nil {
-			return err
-		}
-		impl.Payload = raw
-		p.SectionImpls[impl.ID] = impl
-	default:
-		modifier, err := rawObjectFromProjectPayload(variant.Modifier)
-		if err != nil {
-			return err
-		}
-		modifier[fieldName] = fieldValue
-		raw, err := marshalProjectObject(modifier)
-		if err != nil {
-			return err
-		}
-		variant.Modifier = raw
-		p.SectionVariants[variant.ID] = variant
+	if !sectionFieldIsUnshared(section, codeSectionDiagnosticsIgnoreStateFieldName) {
+		return p.storeCodeSectionDiagnosticsIgnoreOnSection(section, fieldValue)
 	}
+	if !sectionImplIsPreset(impl) {
+		return p.storeCodeSectionDiagnosticsIgnoreOnImpl(impl, fieldValue)
+	}
+	return p.storeCodeSectionDiagnosticsIgnoreOnVariant(variant, fieldValue)
+}
 
+func (p *Project) storeCodeSectionDiagnosticsIgnoreOnSection(section Section, fieldValue map[string]any) error {
+	raw, err := withCodeSectionDiagnosticsIgnoreField(section.SharedModifier, fieldValue)
+	if err != nil {
+		return err
+	}
+	section.SharedModifier = raw
+	p.Sections[section.ID] = section
 	return nil
+}
+
+func (p *Project) storeCodeSectionDiagnosticsIgnoreOnImpl(impl SectionImpl, fieldValue map[string]any) error {
+	raw, err := withCodeSectionDiagnosticsIgnoreField(sectionImplPayloadUnchecked(impl), fieldValue)
+	if err != nil {
+		return err
+	}
+	impl.Payload = raw
+	p.SectionImpls[impl.ID] = impl
+	return nil
+}
+
+func (p *Project) storeCodeSectionDiagnosticsIgnoreOnVariant(variant SectionVariant, fieldValue map[string]any) error {
+	raw, err := withCodeSectionDiagnosticsIgnoreField(variant.Modifier, fieldValue)
+	if err != nil {
+		return err
+	}
+	variant.Modifier = raw
+	p.SectionVariants[variant.ID] = variant
+	return nil
+}
+
+func withCodeSectionDiagnosticsIgnoreField(raw RawJSON, fieldValue map[string]any) (RawJSON, error) {
+	object, err := rawObjectFromProjectPayload(raw)
+	if err != nil {
+		return nil, err
+	}
+	object[codeSectionDiagnosticsIgnoreStateFieldName] = fieldValue
+	return marshalProjectObject(object)
 }
 
 func codeSectionDiagnosticsIgnoreStateFromValue(value any) (CodeSectionDiagnosticsIgnoreState, error) {
