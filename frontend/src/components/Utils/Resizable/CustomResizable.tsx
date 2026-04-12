@@ -511,6 +511,12 @@ export function shouldEmitResizeEndEvent({
   }
   return true;
 }
+function clampNumericDimension(
+  value: SectionSize["height"] | undefined,
+  minValue: number,
+) {
+  return typeof value === "number" ? Math.max(value, minValue) : value;
+}
 export function clampChangedSize({
   changedSize,
   minHeight,
@@ -522,36 +528,21 @@ export function clampChangedSize({
   minWidth: number;
   aspectRatio: boolean;
 }) {
-  const clampedSize = { ...changedSize };
-  const hasHeight = typeof changedSize.height === "number";
-  const hasWidth = typeof changedSize.width === "number";
-  if (hasHeight && hasWidth) {
+  const { height, width } = changedSize;
+  if (typeof height === "number" && typeof width === "number") {
     if (aspectRatio) {
-      const adjusted = adjustSizeToBeAtLeastMin(
-        changedSize.height,
-        changedSize.width,
-        minHeight,
-        minWidth,
-      );
-      clampedSize.height = adjusted.height;
-      clampedSize.width = adjusted.width;
-      return clampedSize;
+      return adjustSizeToBeAtLeastMin(height, width, minHeight, minWidth);
     }
-    if (changedSize.height < minHeight) {
-      clampedSize.height = minHeight;
-    }
-    if (changedSize.width < minWidth) {
-      clampedSize.width = minWidth;
-    }
-    return clampedSize;
+    return {
+      height: Math.max(height, minHeight),
+      width: Math.max(width, minWidth),
+    };
   }
-  if (hasHeight && changedSize.height < minHeight) {
-    clampedSize.height = minHeight;
-  }
-  if (hasWidth && changedSize.width < minWidth) {
-    clampedSize.width = minWidth;
-  }
-  return clampedSize;
+  return {
+    ...changedSize,
+    height: clampNumericDimension(height, minHeight),
+    width: clampNumericDimension(width, minWidth),
+  };
 }
 function persistSectionSizeChange(
   sectionId: string,
