@@ -1,23 +1,22 @@
-import {
-  getAiFollowSnapshot,
-  type RealtimeAiFollowToolArgumentsUpdateContent,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
+import { route_get_ai_follow_snapshot } from "utils/generatedEndpoints";
 import {
   AIFollowToolArgumentsUpdateContent,
   AIFollowToolResultUpdateContent,
 } from "utils/generatedTypes";
+
 const TOOL_RESULT_HIGHLIGHT_TIMEOUT_MS = 2000;
 const toolResultTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 export const SCOPE_VIOLATION_TIMEOUT_MS = 5000;
 const scopeViolationTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 type AIFollowIdsByProjectConfig = Record<
   string,
   Record<string, Record<string, Array<string>>>
 >;
 export type AIFollowIdsByType = Record<string, Array<string>>;
+
 function cloneIdsByType(
   idsByType: AIFollowIdsByType | null | undefined,
 ): AIFollowIdsByType | null {
@@ -32,9 +31,7 @@ function cloneIdsByType(
     entries.map(([idType, ids]) => [idType, [...ids]]),
   ) as AIFollowIdsByType;
 }
-type AIFollowSnapshotRouteResponse = ResponseDataAndStatus<
-  Array<RealtimeAiFollowToolArgumentsUpdateContent>
->;
+
 function buildTimeoutKey(
   projectConfigId: string,
   chatId: string,
@@ -43,6 +40,7 @@ function buildTimeoutKey(
 ): string {
   return `${projectConfigId}:${chatId}:${idType}:${id}`;
 }
+
 function buildScopeViolationKey(
   projectConfigId: string,
   edge: AgenticScopeViolationEdge,
@@ -55,6 +53,7 @@ function buildScopeViolationKey(
   }
   return `${projectConfigId}:${edge.kind}:${edge.sourceSectionId}:${edge.targetSectionId}`;
 }
+
 function deleteChatEntry(
   idsByProjectConfigId: AIFollowIdsByProjectConfig,
   projectConfigId: string,
@@ -69,6 +68,7 @@ function deleteChatEntry(
     delete idsByProjectConfigId[projectConfigId];
   }
 }
+
 function deleteIdEntry(
   idsByProjectConfigId: AIFollowIdsByProjectConfig,
   projectConfigId: string,
@@ -98,6 +98,7 @@ function deleteIdEntry(
     deleteChatEntry(idsByProjectConfigId, projectConfigId, chatId);
   }
 }
+
 function deleteScopeViolationEdge(
   edgesByProjectConfigId: Record<string, Array<AgenticScopeViolationEdge>>,
   projectConfigId: string,
@@ -116,6 +117,7 @@ function deleteScopeViolationEdge(
   }
   delete edgesByProjectConfigId[projectConfigId];
 }
+
 export function receiveAIFollowToolArgumentsUpdate(
   payload: AIFollowToolArgumentsUpdateContent,
 ): void {
@@ -135,6 +137,7 @@ export function receiveAIFollowToolArgumentsUpdate(
     projectEntries[chatId] = idsByType;
   });
 }
+
 export function getAIFollowToolArgumentsSnapshot(
   projectConfigId: string,
   chatId: string,
@@ -145,6 +148,7 @@ export function getAIFollowToolArgumentsSnapshot(
     ] ?? null,
   );
 }
+
 export function clearAIFollowToolArgumentsForChat(
   projectConfigId: string,
   chatId: string,
@@ -157,6 +161,7 @@ export function clearAIFollowToolArgumentsForChat(
     );
   });
 }
+
 export function restoreAIFollowToolArgumentsSnapshot({
   projectConfigId,
   chatId,
@@ -182,6 +187,7 @@ export function restoreAIFollowToolArgumentsSnapshot({
     projectEntries[chatId] = nextIdsByType;
   });
 }
+
 export function receiveAIFollowToolResultUpdate(
   payload: AIFollowToolResultUpdateContent,
 ): void {
@@ -203,6 +209,7 @@ export function receiveAIFollowToolResultUpdate(
       }
     }
   });
+
   for (const [idType, ids] of Object.entries(idsByType)) {
     for (const id of ids) {
       const key = buildTimeoutKey(projectConfigId, chatId, idType, id);
@@ -210,6 +217,7 @@ export function receiveAIFollowToolResultUpdate(
       if (existingTimeout !== undefined) {
         globalThis.clearTimeout(existingTimeout);
       }
+
       const timeoutId = globalThis.setTimeout(() => {
         useAIFollow.setState((state) => {
           deleteIdEntry(
@@ -226,6 +234,7 @@ export function receiveAIFollowToolResultUpdate(
     }
   }
 }
+
 export function receiveAgenticScopeViolationEdges({
   projectConfigId,
   edges,
@@ -254,6 +263,7 @@ export function receiveAgenticScopeViolationEdges({
       projectEdges.push(edge);
     }
   });
+
   for (const edge of edges) {
     const key = buildScopeViolationKey(projectConfigId, edge);
     const existingTimeout = scopeViolationTimeouts.get(key);
@@ -273,18 +283,15 @@ export function receiveAgenticScopeViolationEdges({
     scopeViolationTimeouts.set(key, timeoutId);
   }
 }
+
 export async function requestAIFollowSnapshot(
   projectConfigId: string,
 ): Promise<void> {
-  const res = (await callOpenAPI(
-    getAiFollowSnapshot({
-      body: { projectConfigId },
-    } as Parameters<typeof getAiFollowSnapshot>[0]),
-  )) as AIFollowSnapshotRouteResponse;
+  const res = await route_get_ai_follow_snapshot({ projectConfigId });
   if (!res200(res)) {
     return;
   }
-  const snapshot: RealtimeAiFollowToolArgumentsUpdateContent[] = res.data;
+  const snapshot: AIFollowToolArgumentsUpdateContent[] = res.data;
   if (snapshot.length === 0) {
     return;
   }
