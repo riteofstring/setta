@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  ensureAppReady,
   loadProjectConfig,
   openIsolatedProject,
   postBackend,
@@ -19,7 +20,10 @@ type ProjectMetadataResponse = {
 type LoadProjectConfigWithViewModes = {
   projectConfig?: {
     activeViewModeId?: string | null;
-    viewModes?: Record<string, { id: string }>;
+    viewModes?: Record<
+      string,
+      { id: string; name?: string | null; sortIndex?: number | null }
+    >;
   };
 };
 
@@ -128,6 +132,77 @@ async function readOverviewViewModeOrder(page: Page): Promise<string[]> {
   );
 }
 
+type IncompatibleProjectConfigSummary = {
+  id: string;
+  name: string;
+};
+
+async function findIncompatibleOverviewProjectConfig(
+  page: Page,
+): Promise<IncompatibleProjectConfigSummary> {
+  let incompatible: IncompatibleProjectConfigSummary | null = null;
+  await expect
+    .poll(
+      async () => {
+        incompatible = await page.evaluate(async () => {
+          const { useAllProjectMetadata, useProjectState } = await import(
+            "/src/state/definitions.ts"
+          );
+          const currentState = useProjectState.getState();
+          const currentSectionIds = Object.keys(
+            currentState.projectConfig.sectionVariantMap ?? {},
+          );
+          if (currentSectionIds.length === 0) {
+            return null;
+          }
+          const currentSectionIdSet = new Set(currentSectionIds);
+          for (const config of useAllProjectMetadata.getState()
+            .projectMetadata) {
+            if (config.id === currentState.projectConfig.id) {
+              continue;
+            }
+            const candidateSectionIds = Object.keys(
+              config.sectionVariantMap ?? {},
+            );
+            if (candidateSectionIds.length !== currentSectionIds.length) {
+              return { id: config.id, name: config.name };
+            }
+            let isCompatible = true;
+            for (const sectionId of candidateSectionIds) {
+              if (!currentSectionIdSet.has(sectionId)) {
+                isCompatible = false;
+                break;
+              }
+            }
+            if (!isCompatible) {
+              return { id: config.id, name: config.name };
+            }
+          }
+          return null;
+        });
+        return incompatible?.id ?? null;
+      },
+      {
+        timeout: 5000,
+      },
+    )
+    .not.toBeNull();
+  if (!incompatible) {
+    throw new Error("Expected an incompatible project config row to exist.");
+  }
+  return incompatible;
+}
+
+async function readPersistedViewModeOrderById(page: Page): Promise<string[]> {
+  const payload = (await loadProjectConfig(
+    page,
+  )) as LoadProjectConfigWithViewModes;
+  const viewModes = Object.values(payload.projectConfig?.viewModes ?? {});
+  return viewModes
+    .sort((left, right) => (left.sortIndex ?? 0) - (right.sortIndex ?? 0))
+    .map((mode) => mode.id);
+}
+
 async function createProjectConfigAndResolveId(
   page: Page,
   previewImgColor: string,
@@ -187,6 +262,25 @@ async function readOverviewProjectConfigOrderById(
     );
 }
 
+async function readPersistedOverviewProjectConfigOrder(
+  page: Page,
+): Promise<string[]> {
+  return page.evaluate(() => {
+    const raw = window.localStorage.getItem("setta_data");
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as {
+      state?: { overviewProjectConfigOrder?: unknown };
+    };
+    const order = parsed.state?.overviewProjectConfigOrder;
+    if (!Array.isArray(order)) {
+      return [];
+    }
+    return order.filter((id): id is string => typeof id === "string");
+  });
+}
+
 test("tab drag reorder persists across reload", async ({ page }) => {
   const context = await openIsolatedProject(page);
   const tabAId = await createNamedViewMode(
@@ -237,6 +331,13 @@ test("tab drag reorder persists across reload", async ({ page }) => {
     .poll(async () => {
       const order = await readTabOrder(page);
       return order.indexOf("Tab C") < order.indexOf("Tab A");
+    })
+    .toBeTruthy();
+
+  await expect
+    .poll(async () => {
+      const order = await readPersistedViewModeOrderById(page);
+      return order.indexOf(tabCId) < order.indexOf(tabAId);
     })
     .toBeTruthy();
 
@@ -311,6 +412,13 @@ test("view mode pane drag reorder persists across reload", async ({ page }) => {
       return (
         order.join(" ").indexOf("Mode C") < order.join(" ").indexOf("Mode A")
       );
+    })
+    .toBeTruthy();
+
+  await expect
+    .poll(async () => {
+      const order = await readPersistedViewModeOrderById(page);
+      return order.indexOf(modeCId) < order.indexOf(modeAId);
     })
     .toBeTruthy();
 
@@ -506,8 +614,38 @@ test("project config drag reorder persists across reload", async ({ page }) => {
     })
     .toBeTruthy();
 
+  await expect
+    .poll(async () => {
+      const order = await readPersistedOverviewProjectConfigOrder(page);
+      return (
+        order.indexOf(secondaryConfig.id) <
+        order.indexOf(context.projectConfigId)
+      );
+    })
+    .toBeTruthy();
+
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+
+  await expect
+    .poll(async () => {
+      const order = await readPersistedOverviewProjectConfigOrder(page);
+      return (
+        order.indexOf(secondaryConfig.id) <
+        order.indexOf(context.projectConfigId)
+      );
+    })
+    .toBeTruthy();
+
+  await expect
+    .poll(async () => {
+      const order = await readOverviewProjectConfigOrderById(page);
+      return (
+        order.includes(secondaryConfig.id) &&
+        order.includes(context.projectConfigId)
+      );
+    })
+    .toBeTruthy();
 
   await expect
     .poll(async () => {
@@ -677,6 +815,38 @@ test("project config reorder is disabled in read-only mode", async ({
   await expect
     .poll(() => readOverviewProjectConfigOrderById(page))
     .toEqual(beforeOrder);
+});
+
+test("hovering an incompatible project config does not crash the view-modes pane", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto("/settings", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+  await page.getByTestId("overview-tab-view-modes").click();
+
+  const projectConfigRows = page.locator(OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR);
+  await expect(projectConfigRows.first()).toBeVisible();
+
+  const incompatibleConfig = await findIncompatibleOverviewProjectConfig(page);
+  const incompatibleRow = page
+    .locator(
+      `${OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR}[data-project-config-id="${incompatibleConfig.id}"]`,
+    )
+    .first();
+  await expect(incompatibleRow).toBeVisible();
+
+  await incompatibleRow.hover();
+
+  await expect(page.getByText("Unhandled Thrown Error!")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { useProjectState } = await import("/src/state/definitions.ts");
+        return Object.keys(useProjectState.getState().previewSectionVariantMap);
+      }),
+    )
+    .toEqual([]);
 });
 
 test("invalid persisted overview tab falls back to the Overview pane", async ({
