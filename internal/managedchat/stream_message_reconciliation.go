@@ -31,30 +31,48 @@ func resolveFinalizedAssistantMessageUpdate(messages []map[string]any, message m
 func findAssistantMessageForFinalizedUpdate(messages []map[string]any, message map[string]any) map[string]any {
 	messageIDValue, err := messageID(message)
 	if err == nil {
-		for _, entry := range messages {
-			entryID, entryErr := messageID(entry)
-			if entryErr != nil || entryID != messageIDValue {
-				continue
-			}
-			role, roleErr := messageRole(entry)
-			if roleErr == nil && role == "assistant" {
-				return cloneAnyMap(entry)
-			}
+		if assistant := findAssistantMessageByID(messages, messageIDValue); assistant != nil {
+			return assistant
 		}
 	}
-	for index := len(messages) - 1; index >= 0; index-- {
-		candidate := messages[index]
-		role, roleErr := messageRole(candidate)
-		if roleErr != nil || role != "assistant" {
-			continue
+	return findLatestAssistantPlaceholder(messages)
+}
+
+func findAssistantMessageByID(messages []map[string]any, targetID string) map[string]any {
+	for _, entry := range messages {
+		if assistantMessageMatchesID(entry, targetID) {
+			return cloneAnyMap(entry)
 		}
-		candidateID, idErr := messageID(candidate)
-		if idErr != nil || !isResponsePlaceholderID(candidateID) {
-			continue
-		}
-		return cloneAnyMap(candidate)
 	}
 	return nil
+}
+
+func assistantMessageMatchesID(entry map[string]any, targetID string) bool {
+	entryID, entryErr := messageID(entry)
+	if entryErr != nil || entryID != targetID {
+		return false
+	}
+	role, roleErr := messageRole(entry)
+	return roleErr == nil && role == "assistant"
+}
+
+func findLatestAssistantPlaceholder(messages []map[string]any) map[string]any {
+	for index := len(messages) - 1; index >= 0; index-- {
+		candidate := messages[index]
+		if assistantMessageIsPlaceholder(candidate) {
+			return cloneAnyMap(candidate)
+		}
+	}
+	return nil
+}
+
+func assistantMessageIsPlaceholder(candidate map[string]any) bool {
+	role, roleErr := messageRole(candidate)
+	if roleErr != nil || role != "assistant" {
+		return false
+	}
+	candidateID, idErr := messageID(candidate)
+	return idErr == nil && isResponsePlaceholderID(candidateID)
 }
 
 func mergeFinalizedAssistantMessage(message map[string]any, existingAssistant map[string]any) map[string]any {
