@@ -52,6 +52,7 @@ describe("frontendWebsocketAffinity", () => {
     setActiveFrontendWebsocketAffinityGeneration(2);
     const waitPromise = waitForFrontendAffinityToken({
       timeoutMs: 120,
+      pollIntervalMs: 10,
     });
 
     setTimeout(() => {
@@ -66,6 +67,7 @@ describe("frontendWebsocketAffinity", () => {
     await expect(
       waitForFrontendAffinityToken({
         timeoutMs: 15,
+        pollIntervalMs: 5,
       }),
     ).rejects.toThrow("Frontend identity not ready");
   });
@@ -74,6 +76,7 @@ describe("frontendWebsocketAffinity", () => {
     setActiveFrontendWebsocketAffinityGeneration(4);
     const waitPromise = waitForFrontendAffinityToken({
       timeoutMs: 120,
+      pollIntervalMs: 10,
     });
     setActiveFrontendWebsocketAffinityGeneration(5);
     setFrontendAffinityToken("affinity-token", 2);
