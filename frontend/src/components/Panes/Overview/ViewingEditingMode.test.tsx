@@ -91,12 +91,11 @@ describe("ViewingEditingMode", () => {
   });
   it("submits conflicting view-mode renames to the backend and shows the backend error", async () => {
     routeSetViewModeNameMock.mockResolvedValue({
-      data: {
+      error: {
         detail:
           "View mode name 'Details' conflicts with existing view mode 'Details'.",
       },
-      hasResponse: true,
-      status: 400,
+      response: new Response(null, { status: 400 }),
     });
     await act(async () => {
       root.render(<ViewingEditingMode />);
@@ -120,10 +119,12 @@ describe("ViewingEditingMode", () => {
     expect(routeSetViewModeNameMock).toHaveBeenCalledTimes(1);
     expect(routeSetViewModeNameMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        projectConfigId: "project-config-id",
-        viewModeId: "view-mode-a",
-        name: "Details",
-        frontendOpId: expect.any(String),
+        body: expect.objectContaining({
+          projectConfigId: "project-config-id",
+          viewModeId: "view-mode-a",
+          name: "Details",
+          frontendOpId: expect.any(String),
+        }),
       }),
     );
     expect(host.textContent).toContain(
