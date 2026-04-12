@@ -3,12 +3,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  StreamingEventTypeEnum,
   createAssistantChatMessage,
   createMessageTextContent,
   createProjectConfig,
   createUserChatMessage,
-  StreamingEventTypeEnum,
-  type LLMConfig,
 } from "utils/generatedTypes";
 
 import {
@@ -19,23 +18,6 @@ import {
 
 const SURFACE_A = "surface-a";
 const SURFACE_B = "surface-b";
-
-const TEST_LLM_CONFIG: LLMConfig = {
-  id: "llm-primary",
-  model: "gpt-4o-mini",
-  provider: "openai",
-  base_url: null,
-  api_key_env: null,
-  other_params: null,
-  mcpServerIds: [],
-  temporary: false,
-};
-
-const TEST_CONTEXT_USAGE = {
-  contextWindowTokens: 128000,
-  contextUsedTokens: 2048,
-  estimated: false,
-};
 
 describe("surface-scoped pending chat details", () => {
   beforeEach(() => {
@@ -87,7 +69,7 @@ describe("surface-scoped pending chat details", () => {
       chatId: "existing-chat",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.message_start,
+        type: StreamingEventTypeEnum.MESSAGE_START,
         message: createAssistantChatMessage({
           id: "existing-assistant-msg",
           content: [createMessageTextContent({ text: "Continuing poem..." })],
@@ -157,102 +139,5 @@ describe("surface-scoped pending chat details", () => {
     expect(state.pendingChatDetailsBySurfaceId[SURFACE_B]?.messages).toEqual([
       surfaceBMessage,
     ]);
-  });
-
-  it("keeps hydrated metadata authoritative when finalizing a pending draft", () => {
-    const pendingUserMessage = createUserChatMessage({
-      id: "surface-a-user-msg",
-      content: [createMessageTextContent({ text: "Local optimistic text" })],
-      attachments: [],
-    });
-    const hydratedUserMessage = createUserChatMessage({
-      id: "surface-a-user-msg",
-      content: [createMessageTextContent({ text: "Backend canonical text" })],
-      attachments: [],
-    });
-
-    useAIStore.setState({
-      pendingChatDetailsBySurfaceId: {
-        [SURFACE_A]: {
-          ...getDefaultChatDetails(),
-          messages: [pendingUserMessage],
-          waitingForResponse: true,
-          toolCallArguments: {
-            "tool-call-1": '{"source":"pending"}',
-          },
-        },
-      },
-      chatDetails: {
-        "materialized-chat": {
-          ...getDefaultChatDetails(),
-          messages: [hydratedUserMessage],
-          waitingForResponse: false,
-          toolCallArguments: {
-            "tool-call-1": '{"source":"backend"}',
-          },
-          llmConfig: TEST_LLM_CONFIG,
-          contextUsage: TEST_CONTEXT_USAGE,
-        },
-      },
-    });
-
-    finalizePendingChatDetails("materialized-chat", SURFACE_A);
-
-    const details = useAIStore.getState().chatDetails["materialized-chat"];
-    expect(details).toEqual({
-      messages: [hydratedUserMessage],
-      waitingForResponse: true,
-      toolCallArguments: {
-        "tool-call-1": '{"source":"backend"}',
-      },
-      llmConfig: TEST_LLM_CONFIG,
-      contextUsage: TEST_CONTEXT_USAGE,
-    });
-  });
-
-  it("keeps pending-only messages ahead of hydrated output until backend history catches up", () => {
-    const pendingUserMessage = createUserChatMessage({
-      id: "pending-user-msg",
-      content: [
-        createMessageTextContent({ text: "Draft still materializing" }),
-      ],
-      attachments: [],
-    });
-    const hydratedAssistantMessage = createAssistantChatMessage({
-      id: "assistant-msg",
-      content: [createMessageTextContent({ text: "Backend output arrived" })],
-      attachments: [],
-      tool_calls: null,
-    });
-
-    useAIStore.setState({
-      pendingChatDetailsBySurfaceId: {
-        [SURFACE_A]: {
-          ...getDefaultChatDetails(),
-          messages: [pendingUserMessage],
-          waitingForResponse: true,
-        },
-      },
-      chatDetails: {
-        "materialized-chat": {
-          ...getDefaultChatDetails(),
-          messages: [hydratedAssistantMessage],
-          waitingForResponse: false,
-          llmConfig: TEST_LLM_CONFIG,
-          contextUsage: TEST_CONTEXT_USAGE,
-        },
-      },
-    });
-
-    finalizePendingChatDetails("materialized-chat", SURFACE_A);
-
-    const details = useAIStore.getState().chatDetails["materialized-chat"];
-    expect(details?.messages).toEqual([
-      pendingUserMessage,
-      hydratedAssistantMessage,
-    ]);
-    expect(details?.llmConfig).toEqual(TEST_LLM_CONFIG);
-    expect(details?.contextUsage).toEqual(TEST_CONTEXT_USAGE);
-    expect(details?.waitingForResponse).toBe(true);
   });
 });

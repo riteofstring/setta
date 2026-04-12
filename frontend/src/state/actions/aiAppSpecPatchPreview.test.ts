@@ -35,7 +35,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.tool_argument_preview_delta,
+        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -63,7 +63,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.tool_argument_preview_delta,
+        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -103,7 +103,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.tool_argument_preview_delta,
+        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -118,7 +118,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.tool_argument_preview_delta,
+        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
