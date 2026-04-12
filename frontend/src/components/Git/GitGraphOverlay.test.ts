@@ -2,7 +2,17 @@ import type { GitreadCommit as Commit } from "openapi/http";
 import { DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX } from "utils/gitGraphLayoutDefaults";
 import { describe, expect, it } from "vitest";
 
-import { gitGraphOverlayTestApi } from "./GitGraphOverlay";
+import {
+  buildGitCommitLookupByHash,
+  buildGitCommitSearchBlob,
+  buildGitGraphCommitDigest,
+  buildGitGraphRowHeightCacheKey,
+  collectRemoteDecorationPrefixes,
+  computeGitGraphColumnDoubleClickPatch,
+  computeGitGraphColumnWidthPatch,
+  shouldLoadMoreGitGraphCommits,
+  summarizeDecorationChips,
+} from "./gitGraphOverlayUtils";
 
 function commit(
   hash: string,
@@ -27,24 +37,24 @@ function commit(
   };
 }
 
-describe("gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey", () => {
+describe("buildGitGraphRowHeightCacheKey", () => {
   it("changes when commit identities change even if commit count is unchanged", () => {
-    const firstDigest = gitGraphOverlayTestApi.buildGitGraphCommitDigest([
+    const firstDigest = buildGitGraphCommitDigest([
       commit("a1"),
       commit("b2"),
       commit("c3"),
     ]);
-    const secondDigest = gitGraphOverlayTestApi.buildGitGraphCommitDigest([
+    const secondDigest = buildGitGraphCommitDigest([
       commit("x1"),
       commit("y2"),
       commit("z3"),
     ]);
-    const firstKey = gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey({
+    const firstKey = buildGitGraphRowHeightCacheKey({
       commitDigest: firstDigest,
       allRefs: false,
       filterText: "",
     });
-    const secondKey = gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey({
+    const secondKey = buildGitGraphRowHeightCacheKey({
       commitDigest: secondDigest,
       allRefs: false,
       filterText: "",
@@ -54,15 +64,13 @@ describe("gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey", () => {
   });
 
   it("includes ref-mode and normalized filter text", () => {
-    const commitDigest = gitGraphOverlayTestApi.buildGitGraphCommitDigest([
-      commit("a1"),
-    ]);
-    const branchKey = gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey({
+    const commitDigest = buildGitGraphCommitDigest([commit("a1")]);
+    const branchKey = buildGitGraphRowHeightCacheKey({
       commitDigest,
       allRefs: false,
       filterText: "  Feature  ",
     });
-    const allRefsKey = gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey({
+    const allRefsKey = buildGitGraphRowHeightCacheKey({
       commitDigest,
       allRefs: true,
       filterText: "feature",
@@ -72,26 +80,26 @@ describe("gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey", () => {
   });
 
   it("changes when interior commits change with identical length and edge hashes", () => {
-    const firstDigest = gitGraphOverlayTestApi.buildGitGraphCommitDigest([
+    const firstDigest = buildGitGraphCommitDigest([
       commit("a1"),
       commit("b2"),
       commit("c3"),
       commit("d4"),
       commit("e5"),
     ]);
-    const secondDigest = gitGraphOverlayTestApi.buildGitGraphCommitDigest([
+    const secondDigest = buildGitGraphCommitDigest([
       commit("a1"),
       commit("x9"),
       commit("c3"),
       commit("y8"),
       commit("e5"),
     ]);
-    const firstKey = gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey({
+    const firstKey = buildGitGraphRowHeightCacheKey({
       commitDigest: firstDigest,
       allRefs: false,
       filterText: "",
     });
-    const secondKey = gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey({
+    const secondKey = buildGitGraphRowHeightCacheKey({
       commitDigest: secondDigest,
       allRefs: false,
       filterText: "",
@@ -101,10 +109,10 @@ describe("gitGraphOverlayTestApi.buildGitGraphRowHeightCacheKey", () => {
   });
 });
 
-describe("gitGraphOverlayTestApi.buildGitCommitLookupByHash", () => {
+describe("buildGitCommitLookupByHash", () => {
   it("builds a hash lookup map for O(1)-style access", () => {
     const commits = [commit("a1"), commit("b2"), commit("c3")];
-    const lookup = gitGraphOverlayTestApi.buildGitCommitLookupByHash(commits);
+    const lookup = buildGitCommitLookupByHash(commits);
 
     expect(lookup.get("a1")?.subject).toBe("a1");
     expect(lookup.get("b2")?.subject).toBe("b2");
@@ -112,9 +120,9 @@ describe("gitGraphOverlayTestApi.buildGitCommitLookupByHash", () => {
   });
 });
 
-describe("gitGraphOverlayTestApi.buildGitCommitSearchBlob", () => {
+describe("buildGitCommitSearchBlob", () => {
   it("normalizes commit fields for case-insensitive filtering", () => {
-    const blob = gitGraphOverlayTestApi.buildGitCommitSearchBlob(
+    const blob = buildGitCommitSearchBlob(
       commit("AbCd", {
         subject: "Fix Parser",
         authorName: "Jane Doe",
@@ -129,16 +137,14 @@ describe("gitGraphOverlayTestApi.buildGitCommitSearchBlob", () => {
   });
 });
 
-describe("gitGraphOverlayTestApi.collectRemoteDecorationPrefixes", () => {
+describe("collectRemoteDecorationPrefixes", () => {
   it("detects remote prefixes from remote-head and known remote names", () => {
-    const remotePrefixes = gitGraphOverlayTestApi.collectRemoteDecorationPrefixes(
-      [
-        "HEAD -> main",
-        "upstream/main",
-        "mirror/HEAD -> mirror/main",
-        "feature/main",
-      ],
-    );
+    const remotePrefixes = collectRemoteDecorationPrefixes([
+      "HEAD -> main",
+      "upstream/main",
+      "mirror/HEAD -> mirror/main",
+      "feature/main",
+    ]);
 
     expect(remotePrefixes.has("upstream")).toBe(true);
     expect(remotePrefixes.has("mirror")).toBe(true);
@@ -146,21 +152,19 @@ describe("gitGraphOverlayTestApi.collectRemoteDecorationPrefixes", () => {
   });
 });
 
-describe("gitGraphOverlayTestApi.summarizeDecorationChips", () => {
+describe("summarizeDecorationChips", () => {
   it("defaults remote-prefix context so fallback calls are safe", () => {
-    const summary = gitGraphOverlayTestApi.summarizeDecorationChips([
-      "feature/main",
-    ]);
+    const summary = summarizeDecorationChips(["feature/main"]);
 
     expect(summary.chips).toEqual([{ label: "feature/main", kind: "branch" }]);
     expect(summary.extraChipCount).toBe(0);
   });
 });
 
-describe("gitGraphOverlayTestApi.shouldLoadMoreGitGraphCommits", () => {
+describe("shouldLoadMoreGitGraphCommits", () => {
   it("requests more rows only when pagination is still active and near the end", () => {
     expect(
-      gitGraphOverlayTestApi.shouldLoadMoreGitGraphCommits({
+      shouldLoadMoreGitGraphCommits({
         graphState: {
           isLoading: false,
           isLoadingMore: false,
@@ -175,7 +179,7 @@ describe("gitGraphOverlayTestApi.shouldLoadMoreGitGraphCommits", () => {
     ).toBe(true);
 
     expect(
-      gitGraphOverlayTestApi.shouldLoadMoreGitGraphCommits({
+      shouldLoadMoreGitGraphCommits({
         graphState: {
           isLoading: false,
           isLoadingMore: false,
@@ -191,9 +195,9 @@ describe("gitGraphOverlayTestApi.shouldLoadMoreGitGraphCommits", () => {
   });
 });
 
-describe("gitGraphOverlayTestApi.computeGitGraphColumnWidthPatch", () => {
+describe("computeGitGraphColumnWidthPatch", () => {
   it("clamps shared author-date drags so the date column cannot shrink past its minimum", () => {
-    const patch = gitGraphOverlayTestApi.computeGitGraphColumnWidthPatch({
+    const patch = computeGitGraphColumnWidthPatch({
       boundary: "authorDate",
       deltaX: 100,
       start: {
@@ -212,9 +216,9 @@ describe("gitGraphOverlayTestApi.computeGitGraphColumnWidthPatch", () => {
   });
 });
 
-describe("gitGraphOverlayTestApi.computeGitGraphColumnDoubleClickPatch", () => {
+describe("computeGitGraphColumnDoubleClickPatch", () => {
   it("resets a single-column boundary to the persisted default width when space allows", () => {
-    const patch = gitGraphOverlayTestApi.computeGitGraphColumnDoubleClickPatch({
+    const patch = computeGitGraphColumnDoubleClickPatch({
       boundary: "messageAuthor",
       start: {
         graph: 120,
