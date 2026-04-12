@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 05:54 UTC
+Last updated: 2026-04-13 01:08 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,100 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- progress-review checkpoint after run `060`:
+  - the current trajectory is still worthwhile, but only with a sharper stop
+    rule on backend attribution
+  - runs `051` through `060` did land real forward progress:
+    - direct `/settings` now shows explicit loading state instead of an opaque
+      blank shell during slow project loads
+    - the settings warm-load init bug was fixed
+    - unchanged warm-load name-validation payloads are cached
+    - the remaining steady-state backend cost is now narrowed to
+      `get_param_ids_to_show(...)`
+  - the recent red-herring risk is clear:
+    - runs `057` through `060` were all bounded timing splits on the same warm
+      `/settings` path
+    - they named progressively smaller owners, but they are close to becoming
+      micro-attribution churn if the loop keeps splitting without either
+      reducing the owner or reconnecting it to end-to-end user-facing delay
+  - next default rule:
+    - allow at most one more backend attribution-only pass on the direct
+      `/settings` warm-load lane
+    - that pass should split `get_param_ids_to_show(...)` only if it is the
+      fastest way to land a real reduction or to prove the remaining backend
+      cost is still the dominant blocker on direct `/settings`
+    - otherwise pivot back to the earliest failing product-facing canary lane
+      rather than continuing internal timing splits
+
+- immediate next frontier after the review:
+  - the bounded `get_param_ids_to_show(...)` split is now landed and the
+    filter-side micro-lane is closed on the current fixture:
+    - `filter_for_ui_display(...)` was rewritten to avoid repeated subtree
+      rescans and the quadratic top-level-parent pass
+    - the fresh warm-load readout now shows `traverse_hierarchy(...)` as the
+      dominant sub-owner and `filter_for_ui_display(...)` as a small residual
+  - next default rule:
+    - do not spend another default iteration on `filter_for_ui_display(...)`
+      attribution or cleanup
+    - only continue backend-only work on this family if fresh end-to-end
+      evidence shows direct `/settings` warm-load backend cost is still the
+      active user-facing blocker, in which case the next bounded owner is
+      `traverse_hierarchy(...)`
+    - otherwise pivot back to the earliest product-facing gate on the rewrite
+      canary instead of extending backend micro-attribution
+
+- item `372` landed one bounded `get_param_ids_to_show(...)` internal split
+  plus a low-risk reduction for the direct `/settings` backend lane:
+
+  - product code changed in:
+    - `backend/setta/types/shown_params.py`
+      so:
+      - `get_param_ids_to_show_with_timing(...)` now reports
+        `traverse_hierarchy_ms` versus `filter_for_ui_display_ms`
+      - `filter_for_ui_display(...)` no longer repeatedly rescans the same
+        included subtrees and no longer does an `O(n^2)` included-parent scan
+        to derive top-level params
+    - `backend/setta/types/project_state.py`
+      so shown-param validation now carries the new traverse/filter sub-buckets
+      through the existing validation timing capture
+    - `backend/setta/types/helpers_lvl3.py`
+      and `backend/setta/project_state/base_project_manager.py`
+      so `load_project_config(...)` now logs:
+      - `convert_project_state_shown_param_ids_traverse_hierarchy_ms`
+      - `convert_project_state_shown_param_ids_filter_for_ui_display_ms`
+  - focused regression coverage added in:
+    - `tests/project_state/test_load_project_config_timing.py`
+      to assert the new timing fields are present and bounded by
+      `convert_project_state_shown_param_ids_get_param_ids_to_show_ms`
+    - `tests/types/test_shown_params.py`
+      to lock the pinned/unpinned path semantics on representative trees
+  - recorded the fresh fixture readout in:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-shown-param-get-param-ids-breakdown.md`
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py tests/types/test_shown_params.py`
+      -> passed (`9` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/shown_params.py backend/setta/types/project_state.py backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py tests/types/test_shown_params.py`
+      -> passed
+  - reading:
+    - on the current warm `/settings` fixture:
+      - `convert_project_state_shown_param_ids_ms` is about `113.9ms`
+      - `convert_project_state_shown_param_ids_get_param_ids_to_show_ms` is
+        about `89.1ms`
+      - `convert_project_state_shown_param_ids_traverse_hierarchy_ms` is
+        about `76.7ms`
+      - `convert_project_state_shown_param_ids_filter_for_ui_display_ms` is
+        about `3.9ms`
+    - compared with the prior handoff readout (`~104ms` inside
+      `get_param_ids_to_show(...)`), the aggregate bucket is lower and the
+      dominant remaining owner is now explicit: `traverse_hierarchy(...)`
+    - this closes the bounded "is the remaining owner traversal or filter?"
+      question for the current warm direct `/settings` fixture
+  - next default frontier:
+    - if direct `/settings` backend warm-load still needs another bounded pass,
+      target `traverse_hierarchy(...)` specifically
+    - otherwise stop backend micro-attribution here and return to the earliest
+      product-facing rewrite gate
 
 - item `371` landed one bounded `validate_shown_param_ids(...)` timing split
   for the direct `/settings` backend lane:

@@ -1849,6 +1849,8 @@ class BaseProjectManager(ABC):
             "convert_project_state_shown_param_ids_ms=%.1f "
             "convert_project_state_shown_param_ids_effective_section_lookup_ms=%.1f "
             "convert_project_state_shown_param_ids_get_param_ids_to_show_ms=%.1f "
+            "convert_project_state_shown_param_ids_traverse_hierarchy_ms=%.1f "
+            "convert_project_state_shown_param_ids_filter_for_ui_display_ms=%.1f "
             "convert_project_state_required_decoded_images_ms=%.1f "
             "convert_project_state_code_file_bindings_ms=%.1f "
             "convert_project_state_layout_validation_ms=%.1f "
@@ -1870,6 +1872,8 @@ class BaseProjectManager(ABC):
             convert_timing.project_state_shown_param_ids_ms,
             convert_timing.project_state_shown_param_ids_effective_section_lookup_ms,
             convert_timing.project_state_shown_param_ids_get_param_ids_to_show_ms,
+            convert_timing.project_state_shown_param_ids_traverse_hierarchy_ms,
+            convert_timing.project_state_shown_param_ids_filter_for_ui_display_ms,
             convert_timing.project_state_required_decoded_images_ms,
             convert_timing.project_state_code_file_bindings_ms,
             convert_timing.project_state_layout_validation_ms,

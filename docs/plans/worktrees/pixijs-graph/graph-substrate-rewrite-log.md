@@ -75,6 +75,80 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 01:08 UTC
+
+- item `372` landed one bounded `get_param_ids_to_show(...)` sub-owner split
+  plus a low-risk filter reduction on the direct `/settings` warm-load backend
+  lane:
+  - added `get_param_ids_to_show_with_timing(...)` in
+    `backend/setta/types/shown_params.py` so shown-param timing now splits
+    `traverse_hierarchy(...)` from `filter_for_ui_display(...)`
+  - rewrote `filter_for_ui_display(...)` to:
+    - memoize inclusion checks instead of rescanning the same subtree
+    - derive top-level params without the old quadratic included-parent scan
+  - threaded the new timing buckets through:
+    - `backend/setta/types/project_state.py`
+    - `backend/setta/types/helpers_lvl3.py`
+    - `backend/setta/project_state/base_project_manager.py`
+  - extended regression coverage in:
+    - `tests/project_state/test_load_project_config_timing.py`
+    - `tests/types/test_shown_params.py`
+  - recorded the fresh fixture readout in
+    `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-shown-param-get-param-ids-breakdown.md`
+- Verification:
+  - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py tests/types/test_shown_params.py`
+    - passed (`9` tests)
+  - `source activate.sh && python -m compileall backend/setta/types/shown_params.py backend/setta/types/project_state.py backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py tests/types/test_shown_params.py`
+    - passed
+  - fresh warm-load timing sample:
+    - `convert_project_state_shown_param_ids_ms=113.870950`
+    - `convert_project_state_shown_param_ids_get_param_ids_to_show_ms=89.138328`
+    - `convert_project_state_shown_param_ids_traverse_hierarchy_ms=76.719991`
+    - `convert_project_state_shown_param_ids_filter_for_ui_display_ms=3.891721`
+- Result:
+  - this closes the bounded "traverse versus filter?" question on the current
+    fixture
+  - `filter_for_ui_display(...)` is no longer the meaningful remaining owner
+  - the next backend-only pass, if any, should target `traverse_hierarchy(...)`
+    and only if fresh end-to-end evidence still says backend warm-load is the
+    active blocker; otherwise the loop should pivot back to the earliest
+    product-facing canary gate
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 00:59 UTC
+
+- progress review after run `060`:
+  - decision: `replan_and_continue`
+  - reading:
+    - runs `051` through `060` still produced real forward progress on the
+      direct `/settings` lane:
+      - explicit loading-state UI replaced the opaque blank-shell appearance
+      - a real warm-load init bug was fixed
+      - unchanged warm-load validation payloads are cached
+      - steady-state backend cost is now narrowed to
+        `get_param_ids_to_show(...)`
+    - the last four runs also show diminishing-return risk:
+      - they were all backend timing-split passes on the same warm-load path
+      - each pass named a smaller owner, but none yet reduced the remaining
+        owner directly
+  - durable-plan adjustment:
+    - allow at most one more backend attribution-only pass on this lane
+    - the next backend pass must either:
+      - land a concrete reduction on the dominant `get_param_ids_to_show(...)`
+        sub-owner, or
+      - prove with fresh end-to-end evidence that the remaining backend warm
+        cost still dominates the user-facing `/settings` delay
+    - otherwise pivot back to the earliest failing product-facing canary lane
+      instead of continuing internal timing splits
+  - next frontier:
+    - split `get_param_ids_to_show(...)` into `traverse_hierarchy(...)` versus
+      `filter_for_ui_display(...)` only as a bounded final attribution step,
+      then either optimize the dominant sub-owner or stop backend
+      micro-attribution on this lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 05:20 UTC
 
 - item `370` landed one bounded content-validator breakdown slice for the

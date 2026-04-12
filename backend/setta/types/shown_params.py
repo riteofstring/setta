@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+import time
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -24,9 +26,22 @@ class ShownParamIds(BaseModel, extra="forbid"):
     unpinned: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
 
 
+@dataclass(frozen=True)
+class GetParamIdsToShowTiming:
+    traverse_hierarchy_ms: float
+    filter_for_ui_display_ms: float
+
+
 def get_param_ids_to_show(
     p: "ProjectStateSingleConfig", impl: BaseSectionWithParamsImpl
 ) -> ShownParamIds:
+    shown_param_ids, _ = get_param_ids_to_show_with_timing(p, impl)
+    return shown_param_ids
+
+
+def get_param_ids_to_show_with_timing(
+    p: "ProjectStateSingleConfig", impl: BaseSectionWithParamsImpl
+) -> tuple[ShownParamIds, GetParamIdsToShowTiming]:
     """
     Get both pinned and unpinned parameter IDs for UI display.
     Uses a single traversal followed by filtering.
@@ -35,6 +50,7 @@ def get_param_ids_to_show(
     top_level_ids = get_top_level_param_ids(p, impl)
 
     # Single traversal to get all parameters and their relationships
+    traverse_start = time.perf_counter()
     result = traverse_hierarchy(
         p.codeObjs,
         p.codeObjImpls,
@@ -48,13 +64,20 @@ def get_param_ids_to_show(
             build_children_map=True,
         ),
     )
+    traverse_hierarchy_ms = (time.perf_counter() - traverse_start) * 1000
 
     # Filter into pinned/unpinned for UI display
-    return filter_for_ui_display(
+    filter_start = time.perf_counter()
+    shown_param_ids = filter_for_ui_display(
         param_ids=result.collected_ids,
         id_to_id_path=result.id_to_id_path,
         children_map=result.children_map,
         pinned_params=set(impl.pinnedParams),
+    )
+    filter_for_ui_display_ms = (time.perf_counter() - filter_start) * 1000
+    return shown_param_ids, GetParamIdsToShowTiming(
+        traverse_hierarchy_ms=traverse_hierarchy_ms,
+        filter_for_ui_display_ms=filter_for_ui_display_ms,
     )
 
 
@@ -112,27 +135,38 @@ def _add_descendants(
 ):
     """Recursively add all descendants of a parameter to the target set."""
     for child_id in children_map.get(param_id, []):
+        if child_id in target_set:
+            continue
         target_set.add(child_id)
         _add_descendants(child_id, children_map, target_set)
 
 
-def _should_include_param(
-    param_id: ID, candidates: set[ID], children_map: dict[ID, list[ID]]
-) -> bool:
-    """Check if a param should be included (is a leaf or has children in candidates)."""
-    if param_id not in candidates:
-        return False
+def _collect_included_param_ids(
+    param_ids: list[ID], candidates: set[ID], children_map: dict[ID, list[ID]]
+) -> set[ID]:
+    """Collect params that are leaves or have at least one included descendant."""
+    included_cache: dict[ID, bool] = {}
 
-    children = children_map.get(param_id, [])
-    if not children:  # Leaf node
-        return True
+    def should_include(param_id: ID) -> bool:
+        if param_id not in candidates:
+            return False
+        if param_id in included_cache:
+            return included_cache[param_id]
 
-    # Has children - include only if at least one child is also included
-    return any(
-        _should_include_param(child, candidates, children_map)
-        for child in children
-        if child in candidates
-    )
+        children = children_map.get(param_id, [])
+        if not children:
+            included_cache[param_id] = True
+            return True
+
+        include_param = False
+        for child_id in children:
+            if should_include(child_id):
+                include_param = True
+                break
+        included_cache[param_id] = include_param
+        return include_param
+
+    return {param_id for param_id in param_ids if should_include(param_id)}
 
 
 def _build_area(
@@ -143,25 +177,27 @@ def _build_area(
 ) -> ShownParamIdDetails:
     """Build a area including only params that are leaves or have children in the area."""
     result = ShownParamIdDetails()
-    included = set()
+    included = _collect_included_param_ids(param_ids, candidates, children_map)
 
     # Build the result for params that should be included
     for param_id in param_ids:
-        if _should_include_param(param_id, candidates, children_map):
-            path = id_to_id_path.get(param_id, [])
-            for path_param_id in path:
-                result.requiredParamIdsToPaths[path_param_id] = id_to_id_path.get(
-                    path_param_id, ()
-                )
-            included.add(param_id)
+        if param_id not in included:
+            continue
+        path = id_to_id_path.get(param_id, [])
+        for path_param_id in path:
+            result.requiredParamIdsToPaths[path_param_id] = id_to_id_path.get(
+                path_param_id, ()
+            )
 
     # Identify top-level params (those with no parents in the included set)
+    included_children = {
+        child_id
+        for param_id in included
+        for child_id in children_map.get(param_id, [])
+        if child_id in included
+    }
     for param_id in param_ids:
-        if param_id in included:
-            has_parent = any(
-                param_id in children_map.get(other, []) for other in included
-            )
-            if not has_parent:
-                result.topLevelParamIds.append(param_id)
+        if param_id in included and param_id not in included_children:
+            result.topLevelParamIds.append(param_id)
 
     return result
