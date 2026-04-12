@@ -1,13 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  addKwargFromFrontend,
+  createTopLevelSectionFromFrontend,
   cleanupIsolatedProject,
   ensureAppReady,
   getViewportBoundsForPlacement,
   openIsolatedProject,
-  postBackend,
+  setSectionEdgeInputsFromFrontend,
+  setSectionPinnedParamsFromFrontend,
 } from "../helpers";
-
-type CreateSectionResponse = { sectionId?: string };
 
 function getModKey(): "Control" | "Meta" {
   return process.platform === "darwin" ? "Meta" : "Control";
@@ -22,15 +23,11 @@ async function createDictSection(
     throw new Error("Unable to resolve viewport bounds for section placement.");
   }
 
-  const response = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Dict",
-      viewportBounds,
-    },
-  );
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Dict",
+    viewportBounds,
+  });
   const sectionId = response?.sectionId;
   if (!sectionId) {
     throw new Error("Missing sectionId when creating dict section.");
@@ -43,7 +40,7 @@ async function addSingleKwargAndReturnId(
   projectConfigId: string,
   sectionId: string,
 ): Promise<string> {
-  await postBackend(page, "/addKwarg", { projectConfigId, sectionId });
+  await addKwargFromFrontend(page, { projectConfigId, sectionId });
 
   const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
   const paramContainer = sectionNode.locator(
@@ -80,7 +77,7 @@ test.describe.serial("edge input args", () => {
         sectionId,
       );
 
-      await postBackend(page, "/setSectionEdgeInputs", {
+      await setSectionEdgeInputsFromFrontend(page, {
         projectConfigId,
         sectionId,
         edgeInputParams: [paramId],
@@ -135,7 +132,7 @@ test.describe.serial("edge input args", () => {
         sectionId,
       );
 
-      await postBackend(page, "/setSectionEdgeInputs", {
+      await setSectionEdgeInputsFromFrontend(page, {
         projectConfigId,
         sectionId,
         edgeInputParams: [paramId],
@@ -206,12 +203,12 @@ test.describe.serial("edge input args", () => {
 
       // Make the param pinned, then convert it into an edge input; unlink should move it
       // to the unpinned list (ie, also remove it from pinnedParams).
-      await postBackend(page, "/setSectionPinnedParams", {
+      await setSectionPinnedParamsFromFrontend(page, {
         projectConfigId,
         sectionId,
         pinnedParams: [paramId],
       });
-      await postBackend(page, "/setSectionEdgeInputs", {
+      await setSectionEdgeInputsFromFrontend(page, {
         projectConfigId,
         sectionId,
         edgeInputParams: [paramId],
