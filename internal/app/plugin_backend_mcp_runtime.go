@@ -119,34 +119,64 @@ func waitForPluginBackendMCPServers(ctx context.Context, client *mcpx.Client, se
 	defer ticker.Stop()
 
 	for {
-		statuses := client.RuntimeStatuses()
-		pending := 0
-		for serverID := range serverIDs {
-			status, ok := findPluginBackendRuntimeStatus(statuses, serverID)
-			if !ok {
-				pending++
-				continue
-			}
-			switch status.State {
-			case mcpx.RuntimeStateConnected:
-			case mcpx.RuntimeStateError:
-				if status.LastError != nil && strings.TrimSpace(*status.LastError) != "" {
-					return fmt.Errorf("plugin backend MCP runtime failed for %s: %s", serverID, strings.TrimSpace(*status.LastError))
-				}
-				return fmt.Errorf("plugin backend MCP runtime failed for %s", serverID)
-			default:
-				pending++
-			}
+		ready, err := pluginBackendMCPServersConnected(client.RuntimeStatuses(), serverIDs)
+		if err != nil {
+			return err
 		}
-		if pending == 0 {
+		if ready {
 			return nil
 		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
+		if err := waitForPluginBackendMCPPoll(ctx, ticker.C); err != nil {
+			return err
 		}
+	}
+}
+
+func pluginBackendMCPServersConnected(statuses []mcpx.ServerRuntimeStatus, serverIDs map[string]struct{}) (bool, error) {
+	statusesByID := indexPluginBackendRuntimeStatuses(statuses)
+	for serverID := range serverIDs {
+		connected, err := pluginBackendMCPServerConnected(statusesByID, serverID)
+		if err != nil {
+			return false, err
+		}
+		if !connected {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func pluginBackendMCPServerConnected(statusesByID map[string]mcpx.ServerRuntimeStatus, serverID string) (bool, error) {
+	status, ok := statusesByID[serverID]
+	if !ok {
+		return false, nil
+	}
+	if status.State == mcpx.RuntimeStateConnected {
+		return true, nil
+	}
+	if status.State == mcpx.RuntimeStateError {
+		return false, pluginBackendMCPRuntimeError(serverID, status.LastError)
+	}
+	return false, nil
+}
+
+func pluginBackendMCPRuntimeError(serverID string, lastError *string) error {
+	message := ""
+	if lastError != nil {
+		message = strings.TrimSpace(*lastError)
+	}
+	if message == "" {
+		return fmt.Errorf("plugin backend MCP runtime failed for %s", serverID)
+	}
+	return fmt.Errorf("plugin backend MCP runtime failed for %s: %s", serverID, message)
+}
+
+func waitForPluginBackendMCPPoll(ctx context.Context, ticker <-chan time.Time) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ticker:
+		return nil
 	}
 }
 
@@ -248,13 +278,12 @@ func pluginBackendMCPToolCallError(result mcpx.ToolCallResult) error {
 	return mcpx.NewToolError("internal_error", "%s", message)
 }
 
-func findPluginBackendRuntimeStatus(statuses []mcpx.ServerRuntimeStatus, serverID string) (mcpx.ServerRuntimeStatus, bool) {
+func indexPluginBackendRuntimeStatuses(statuses []mcpx.ServerRuntimeStatus) map[string]mcpx.ServerRuntimeStatus {
+	indexed := make(map[string]mcpx.ServerRuntimeStatus, len(statuses))
 	for _, status := range statuses {
-		if status.ServerID == serverID {
-			return status, true
-		}
+		indexed[status.ServerID] = status
 	}
-	return mcpx.ServerRuntimeStatus{}, false
+	return indexed
 }
 
 func pluginBackendMCPServerID(pluginID string) string {
