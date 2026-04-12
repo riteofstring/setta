@@ -12,6 +12,10 @@ type CollisionDroppableData = {
 };
 
 type ChildParentMap = Record<string, string | null>;
+type SortableDistanceMetrics = {
+  absDist: number;
+  rawDist: number;
+};
 
 function getCollisionSortableContainerId(
   collision: SettaCollision | null,
@@ -65,6 +69,57 @@ function getCollisionTriggerDist(
   return getCollisionNumber(value);
 }
 
+function hasSortableContainer(collision: SettaCollision | null): boolean {
+  return Boolean(getCollisionSortableContainerId(collision));
+}
+
+function getSortableDistanceMetrics(
+  collision: SettaCollision | null,
+): SortableDistanceMetrics | null {
+  const absDist = getCollisionAbsTriggerDist(collision);
+  const rawDist = getCollisionTriggerDist(collision);
+  if (absDist === null || rawDist === null) {
+    return null;
+  }
+
+  return { absDist, rawDist };
+}
+
+function pickHigherRatioCollision(
+  a: SettaCollision,
+  b: SettaCollision,
+): SettaCollision {
+  return getCollisionIntersectionRatio(b) > getCollisionIntersectionRatio(a)
+    ? b
+    : a;
+}
+
+function pickSortableDistanceCollision(
+  a: SettaCollision,
+  b: SettaCollision,
+): SettaCollision | null {
+  const metricsA = getSortableDistanceMetrics(a);
+  const metricsB = getSortableDistanceMetrics(b);
+  if (!metricsA || !metricsB) {
+    return null;
+  }
+
+  const absDelta = metricsA.absDist - metricsB.absDist;
+  if (absDelta === 0) {
+    return null;
+  }
+
+  if (metricsA.rawDist > 0 && metricsB.rawDist > 0) {
+    return absDelta > 0 ? b : a;
+  }
+
+  if (absDelta > 0) {
+    return metricsB.rawDist < 0 ? b : a;
+  }
+
+  return metricsA.rawDist < 0 ? a : b;
+}
+
 function getChildCollisionForParent(
   collisions: SettaCollision[] | null,
   parentCollision: SettaCollision | null,
@@ -105,56 +160,24 @@ function compareCollisions(
   a: SettaCollision | null,
   b: SettaCollision | null,
 ): SettaCollision | null {
-  if (!a) {
-    return b;
-  }
-  if (!b) {
-    return a;
+  if (!a || !b) {
+    return a ?? b;
   }
 
-  const containerIdA = getCollisionSortableContainerId(a);
-  const containerIdB = getCollisionSortableContainerId(b);
-  if (containerIdA && !containerIdB) {
-    return a;
-  }
-  if (!containerIdA && containerIdB) {
-    return b;
+  const hasSortableContainerA = hasSortableContainer(a);
+  const hasSortableContainerB = hasSortableContainer(b);
+  if (hasSortableContainerA !== hasSortableContainerB) {
+    return hasSortableContainerA ? a : b;
   }
 
-  const ratioA = getCollisionIntersectionRatio(a);
-  const ratioB = getCollisionIntersectionRatio(b);
-
-  if (containerIdA && containerIdB) {
-    const absDistA = getCollisionAbsTriggerDist(a);
-    const absDistB = getCollisionAbsTriggerDist(b);
-    const rawDistA = getCollisionTriggerDist(a);
-    const rawDistB = getCollisionTriggerDist(b);
-
-    if (
-      absDistA !== null &&
-      absDistB !== null &&
-      rawDistA !== null &&
-      rawDistB !== null
-    ) {
-      if (absDistA - absDistB === 0) {
-        return ratioB - ratioA > 0 ? b : a;
-      }
-
-      if (rawDistA > 0 && rawDistB > 0) {
-        return absDistA - absDistB > 0 ? b : a;
-      }
-
-      if (absDistA - absDistB > 0) {
-        return rawDistB < 0 ? b : a;
-      }
-
-      if (absDistB - absDistA > 0) {
-        return rawDistA < 0 ? a : b;
-      }
+  if (hasSortableContainerA && hasSortableContainerB) {
+    const sortableDistanceWinner = pickSortableDistanceCollision(a, b);
+    if (sortableDistanceWinner) {
+      return sortableDistanceWinner;
     }
   }
 
-  return ratioB - ratioA > 0 ? b : a;
+  return pickHigherRatioCollision(a, b);
 }
 
 function pickBestCollision(
