@@ -23,6 +23,8 @@ import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 import { getOutlineColor } from "./utils";
 
+type SectionDragListeners = React.HTMLAttributes<HTMLDivElement>;
+
 function _SectionContainer({
   sectionId,
   isTopLevel,
@@ -30,7 +32,7 @@ function _SectionContainer({
 }: {
   sectionId: string;
   isTopLevel: boolean;
-  dragListeners?: any;
+  dragListeners?: SectionDragListeners;
 }) {
   const {
     visibility,
@@ -42,7 +44,6 @@ function _SectionContainer({
     isGenPythonMetadata,
     hasPythonCodegen,
     hasMetadata,
-    sectionTypeName,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     attachedTerminalId,
@@ -76,7 +77,6 @@ function _SectionContainer({
       isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
       hasMetadata: Boolean(pythonTarget?.generateMetadata),
-      sectionTypeName: impl.type,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       attachedTerminalId,
@@ -89,14 +89,15 @@ function _SectionContainer({
   );
   const isJoinedGroupActive = isActiveSection || isAttachedTerminalActive;
 
-  if (isGenPython && !hasPythonCodegen) {
-    return null;
-  }
-  if (isGenPythonMetadata && !hasMetadata) {
-    return null;
-  }
-
-  if (!getSectionShouldRender(visibility, isEditingViewMode)) {
+  if (
+    shouldHideSection({
+      isGenPython,
+      hasPythonCodegen,
+      isGenPythonMetadata,
+      hasMetadata,
+    }) ||
+    !getSectionShouldRender(visibility, isEditingViewMode)
+  ) {
     return null;
   }
 
@@ -111,58 +112,16 @@ function _SectionContainer({
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
       >
-        <>
-          {!isGroup && isJoinedAttachedTerminalGroup ? (
-            <div
-              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
-                {
-                  isActiveSection: isJoinedGroupActive,
-                  isGlobalVariables: false,
-                  isInOtherProjectConfigs,
-                },
-              )}`}
-              data-joined-code-terminal-group
-            >
-              <AgenticEdgeHandles isUserView={isUserView} />
-              <SectionContainerCore
-                sectionId={sectionId}
-                isUserView={isUserView}
-                forceHideOutline={true}
-                hideAgenticEdgeHandles={true}
-                omitAgenticHandleScopeClass={true}
-                joinedCorners="code-terminal-parent"
-              />
-              <div className="-mt-px">
-                <MaybeManyNestedSections
-                  sectionId={sectionId}
-                  isGroup={isGroup}
-                  layoutVariant="tight"
-                />
-              </div>
-            </div>
-          ) : (
-            <>
-              {!isGroup && (
-                <SectionContainerCore
-                  sectionId={sectionId}
-                  isUserView={isUserView}
-                />
-              )}
-              {isCode ? (
-                <MaybeManyNestedSections
-                  sectionId={sectionId}
-                  isGroup={isGroup}
-                  layoutVariant="tight"
-                />
-              ) : (
-                <MaybeManyNestedSections
-                  sectionId={sectionId}
-                  isGroup={isGroup}
-                />
-              )}
-            </>
-          )}
-        </>
+        <SectionContainerContent
+          sectionId={sectionId}
+          isGroup={isGroup}
+          isCode={isCode}
+          isUserView={isUserView}
+          isJoinedAttachedTerminalGroup={isJoinedAttachedTerminalGroup}
+          positionAndSizeLocked={positionAndSizeLocked}
+          isJoinedGroupActive={isJoinedGroupActive}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+        />
       </ContainerSwitch>
     </NodeIdProvider>
   );
@@ -170,3 +129,159 @@ function _SectionContainer({
 export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
   _.isEqual(p.dragListeners, n.dragListeners),
 );
+
+function shouldHideSection({
+  isGenPython,
+  hasPythonCodegen,
+  isGenPythonMetadata,
+  hasMetadata,
+}: {
+  isGenPython: boolean;
+  hasPythonCodegen: boolean;
+  isGenPythonMetadata: boolean;
+  hasMetadata: boolean;
+}) {
+  return (
+    (isGenPython && !hasPythonCodegen) || (isGenPythonMetadata && !hasMetadata)
+  );
+}
+
+function SectionContainerContent({
+  sectionId,
+  isGroup,
+  isCode,
+  isUserView,
+  isJoinedAttachedTerminalGroup,
+  positionAndSizeLocked,
+  isJoinedGroupActive,
+  isInOtherProjectConfigs,
+}: {
+  sectionId: string;
+  isGroup: boolean;
+  isCode: boolean;
+  isUserView: boolean;
+  isJoinedAttachedTerminalGroup: boolean;
+  positionAndSizeLocked: boolean;
+  isJoinedGroupActive: boolean;
+  isInOtherProjectConfigs: boolean;
+}) {
+  if (!isGroup && isJoinedAttachedTerminalGroup) {
+    return (
+      <JoinedCodeTerminalGroup
+        sectionId={sectionId}
+        isUserView={isUserView}
+        positionAndSizeLocked={positionAndSizeLocked}
+        isJoinedGroupActive={isJoinedGroupActive}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+      />
+    );
+  }
+
+  return (
+    <>
+      <StandardSectionSurface
+        sectionId={sectionId}
+        isGroup={isGroup}
+        isUserView={isUserView}
+      />
+      <SectionNestedContent
+        sectionId={sectionId}
+        isGroup={isGroup}
+        layoutVariant={isCode ? "tight" : "default"}
+      />
+    </>
+  );
+}
+
+function JoinedCodeTerminalGroup({
+  sectionId,
+  isUserView,
+  positionAndSizeLocked,
+  isJoinedGroupActive,
+  isInOtherProjectConfigs,
+}: {
+  sectionId: string;
+  isUserView: boolean;
+  positionAndSizeLocked: boolean;
+  isJoinedGroupActive: boolean;
+  isInOtherProjectConfigs: boolean;
+}) {
+  return (
+    <div
+      className={getJoinedCodeTerminalGroupClassName({
+        positionAndSizeLocked,
+        isJoinedGroupActive,
+        isInOtherProjectConfigs,
+      })}
+      data-joined-code-terminal-group
+    >
+      <AgenticEdgeHandles isUserView={isUserView} />
+      <SectionContainerCore
+        sectionId={sectionId}
+        isUserView={isUserView}
+        forceHideOutline={true}
+        hideAgenticEdgeHandles={true}
+        omitAgenticHandleScopeClass={true}
+        joinedCorners="code-terminal-parent"
+      />
+      <div className="-mt-px">
+        <SectionNestedContent
+          sectionId={sectionId}
+          isGroup={false}
+          layoutVariant="tight"
+        />
+      </div>
+    </div>
+  );
+}
+
+function StandardSectionSurface({
+  sectionId,
+  isGroup,
+  isUserView,
+}: {
+  sectionId: string;
+  isGroup: boolean;
+  isUserView: boolean;
+}) {
+  if (isGroup) {
+    return null;
+  }
+  return <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />;
+}
+
+function SectionNestedContent({
+  sectionId,
+  isGroup,
+  layoutVariant,
+}: {
+  sectionId: string;
+  isGroup: boolean;
+  layoutVariant: "default" | "tight";
+}) {
+  return (
+    <MaybeManyNestedSections
+      sectionId={sectionId}
+      isGroup={isGroup}
+      layoutVariant={layoutVariant}
+    />
+  );
+}
+
+function getJoinedCodeTerminalGroupClassName({
+  positionAndSizeLocked,
+  isJoinedGroupActive,
+  isInOtherProjectConfigs,
+}: {
+  positionAndSizeLocked: boolean;
+  isJoinedGroupActive: boolean;
+  isInOtherProjectConfigs: boolean;
+}) {
+  return `agentic-handle-scope transition-radius relative flex w-min flex-col ${
+    positionAndSizeLocked ? "rounded-sm" : "rounded-lg"
+  } outline outline-4 ${getOutlineColor({
+    isActiveSection: isJoinedGroupActive,
+    isGlobalVariables: false,
+    isInOtherProjectConfigs,
+  })}`;
+}
