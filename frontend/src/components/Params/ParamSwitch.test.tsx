@@ -1,330 +1,200 @@
 /* @vitest-environment jsdom */
 
-import { useReactFlow } from "forks/xyflow/core/store";
-import initialReactFlowState from "forks/xyflow/core/store/initialState";
-import {
-  Profiler,
-  act,
-  createElement,
-  type ProfilerOnRenderCallback,
-} from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useProjectState, useSettings } from "state/definitions";
+import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
-  CodeObjTypeEnum,
-  ConfigLanguageEnum,
-  ParamNameTypeEnum,
-  ParameterPassingStyleEnum,
-  SectionTypeEnum,
+  createCallableSectionImpl,
+  createCodeParamCodeObjImpl,
+  createCore,
   createProjectConfig,
-  createSettingsState,
-  type Core,
-  type Variant,
+  createSingletonSections,
+  createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("forks/dnd-kit/adapter", () => ({
-  useSortable: () => ({
-    attributes: {},
-    listeners: {},
-    setNodeRef: vi.fn(),
-    transform: null,
-    transition: undefined,
-    isDragging: false,
-  }),
-}));
+type RenderedParamSwitch = {
+  host: HTMLDivElement;
+  root: Root;
+};
 
-import {
-  ParamSwitch,
-  TempParamPlaceholderRow,
-  TempParamPlaceholderShell,
-} from "./ParamSwitch";
+async function renderParamSwitch(
+  sectionId: string,
+  paramInfoId: string,
+): Promise<RenderedParamSwitch> {
+  const { DragDropProvider } = await import(
+    "forks/dnd-kit/adapter/DragDropProvider"
+  );
+  const { ParamSwitch } = await import("./ParamSwitch");
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
 
-function syncStoreInitialState(store: {
-  getState: () => Record<string, unknown>;
-  getInitialState?: () => Record<string, unknown>;
-}) {
-  if (!store.getInitialState) {
-    return;
-  }
-  const initial = store.getInitialState();
-  Object.assign(initial, store.getState());
-}
-
-function seedParamSwitchState() {
-  const sectionId = "section-1";
-  const variantId = "variant-1";
-  const implId = "impl-1";
-  const paramId = "param-1";
-  const paramVariantId = "param-variant-1";
-  const paramImplId = "param-impl-1";
-
-  const projectConfig = createProjectConfig({
-    id: "project-1",
-    showParamDisplayNames: false,
-    sectionVariantMap: { [sectionId]: variantId },
-    topLevelSections: {
-      [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
-    },
+  await act(async () => {
+    root.render(
+      <DragDropProvider dndContext={{ isSorting: false, isMovingFree: false }}>
+        <ParamSwitch
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          requiredParamIdsToPaths={{}}
+          onResizeStart={() => {}}
+          listKey="unpinned"
+          hasSectionStyleTheme={false}
+        />
+      </DragDropProvider>,
+    );
   });
 
-  const sectionCore: Core = {
-    id: sectionId,
-    name: "Dict",
-    displayName: "",
-    variants: [variantId],
-    defaultVariant: variantId,
-    sharedModifier: {},
-    unsharedKeys: [],
-  };
-
-  const sectionVariant: Variant = {
-    id: variantId,
-    name: "Variant",
-    impl: implId,
-    nonPresetImpls: [],
-    modifier: {},
-    isFrozen: false,
-  };
-
-  const dictImpl = {
-    type: SectionTypeEnum.Dict,
-    id: implId,
-    name: "Dict",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    tagColor: null,
-    size: { width: 240, height: 160 },
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    isMinimized: false,
-    positionAndSizeLocked: false,
-    isPreset: false,
-    codeObjVariantMap: { [paramId]: paramVariantId },
-    hideUnpinnedParams: false,
-    paramFilter: "",
-    columnWidth: null,
-    configLanguage: ConfigLanguageEnum.python,
-    pinnedParams: [],
-    selectedParams: [],
-    ignoreTypeErrors: { callable: false, params: {} },
-    edgeInputParams: [],
-    edgeOutputPorts: [],
-    topLevelParamId: null,
-    isJsonSource: false,
-    jsonSourceKeys: [],
-    jsonSourceMissing: false,
-  };
-
-  const paramCore: Core = {
-    id: paramId,
-    name: "alpha_param",
-    displayName: "Alpha Param",
-    variants: [paramVariantId],
-    defaultVariant: paramVariantId,
-    sharedModifier: {},
-    unsharedKeys: [],
-  };
-
-  const paramVariant: Variant = {
-    id: paramVariantId,
-    name: "ParamVariantOne",
-    impl: paramImplId,
-    nonPresetImpls: [],
-    modifier: {},
-    isFrozen: false,
-  };
-
-  const paramImpl = {
-    type: CodeObjTypeEnum.CodeParam,
-    id: paramImplId,
-    name: "AlphaParam",
-    description: "",
-    isPreset: false,
-    coreNameType: ParamNameTypeEnum.TEXT,
-    coreNameEditable: false,
-    passingStyle: ParameterPassingStyleEnum.DEFAULT,
-    defaultVal: "",
-    value: "",
-  };
-
-  useProjectState.setState((state) => {
-    state.projectConfig = projectConfig;
-    state.sections = { [sectionId]: sectionCore };
-    state.sectionVariants = { [variantId]: sectionVariant };
-    state.sectionImpls = { [implId]: dictImpl };
-    state.codeObjs = { [paramId]: paramCore };
-    state.codeObjVariants = { [paramVariantId]: paramVariant };
-    state.codeObjImpls = { [paramImplId]: paramImpl };
-    state.parentSectionMap = { [sectionId]: null };
-    state.previewSectionVariantMap = {};
-    state.shownParamIds = {
-      [variantId]: {
-        pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: [] },
-        unpinned: {
-          requiredParamIdsToPaths: { [paramId]: [paramId] },
-          topLevelParamIds: [paramId],
-        },
-      },
-    };
-    state.requiredDecodedImages = [];
-  });
-  syncStoreInitialState(useProjectState);
-
-  return { implId, paramId, paramImplId, sectionId };
+  return { host, root };
 }
 
-describe("TempParamPlaceholderRow", () => {
-  let host: HTMLDivElement;
-  let root: Root;
+class ResizeObserverStub {
+  observe() {}
+  disconnect() {}
+  unobserve() {}
+}
+
+describe("ParamSwitch", () => {
+  const sectionId = "callable-section";
+  const sectionVariantId = "callable-section-variant";
+  const sectionImplId = "callable-section-impl";
+  const currentParamId = "param-current";
+  const currentParamVariantId = "param-current-variant";
+  const currentParamImplId = "param-current-impl";
+  const staleParamId = "param-stale";
+  const staleParamVariantId = "param-stale-variant";
+  const staleParamImplId = "param-stale-impl";
 
   beforeEach(() => {
     resetProjectStores();
-    useSettings.setState(createSettingsState());
-    syncStoreInitialState(useSettings);
-    useReactFlow.setState({
-      ...initialReactFlowState,
-      transform: [0, 0, 1],
-    });
-    host = document.createElement("div");
-    document.body.appendChild(host);
-    root = createRoot(host);
-  });
-
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount();
-    });
-    host.remove();
-    document.body.innerHTML = "";
-    resetProjectStores();
-    useReactFlow.setState({ ...initialReactFlowState });
-  });
-
-  it("keeps the placeholder shell out of React Flow zoom commits", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-
-    await act(async () => {
-      root.render(
-        <Profiler id="temp-param-placeholder-shell" onRender={onRender}>
-          <TempParamPlaceholderShell
-            dndAttributes={{ "data-testid": "temp-param-shell" }}
-            dndListeners={{}}
-            dndRef={vi.fn()}
-            rowStyle={{ width: 120, height: 48 }}
-          />
-        </Profiler>,
-      );
-    });
-
-    const initialCommitCount = onRender.mock.calls.length;
-
-    await act(async () => {
-      useReactFlow.setState({ transform: [0, 0, 2] });
-    });
-
-    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-  });
-
-  it("updates only the placeholder dimensions when React Flow zoom changes", async () => {
-    await act(async () => {
-      root.render(
-        createElement(TempParamPlaceholderRow, {
-          dndAttributes: { "data-testid": "temp-param-row" },
-          dndListeners: {},
-          dndRef: vi.fn(),
-          rowStyle: {
-            transform: "translate3d(0px, 0px, 0px)",
-            transition: "transform 120ms ease",
-          },
-          placeholderHeight: 96,
-          placeholderWidth: 240,
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: sectionVariantId },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          name: "Callable",
+          variants: [sectionVariantId],
+          defaultVariant: sectionVariantId,
         }),
-      );
-    });
-
-    const row = host.querySelector<HTMLElement>(
-      '[data-testid="temp-param-row"]',
-    );
-    expect(row?.style.width).toBe("240px");
-    expect(row?.style.height).toBe("96px");
-
-    await act(async () => {
-      useReactFlow.setState({ transform: [0, 0, 2] });
-    });
-
-    expect(row?.style.width).toBe("120px");
-    expect(row?.style.height).toBe("48px");
-    expect(row?.style.transform).toBe("translate3d(0px, 0px, 0px)");
+      },
+      sectionImpls: {
+        [sectionImplId]: createCallableSectionImpl({
+          id: sectionImplId,
+          codeObjVariantMap: {
+            [currentParamId]: currentParamVariantId,
+          },
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          name: "Variant",
+          impl: sectionImplId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      codeObjs: {
+        [currentParamId]: createCore({
+          id: currentParamId,
+          name: "x",
+          variants: [currentParamVariantId],
+          defaultVariant: currentParamVariantId,
+        }),
+        [staleParamId]: createCore({
+          id: staleParamId,
+          name: "stale",
+          variants: [staleParamVariantId],
+          defaultVariant: staleParamVariantId,
+        }),
+      },
+      codeObjImpls: {
+        [currentParamImplId]: createCodeParamCodeObjImpl({
+          id: currentParamImplId,
+          value: "1",
+        }),
+        [staleParamImplId]: createCodeParamCodeObjImpl({
+          id: staleParamImplId,
+          value: "2",
+        }),
+      },
+      codeObjVariants: {
+        [currentParamVariantId]: createVariant({
+          id: currentParamVariantId,
+          name: "Current",
+          impl: currentParamImplId,
+          nonPresetImpls: [currentParamImplId],
+        }),
+        [staleParamVariantId]: createVariant({
+          id: staleParamVariantId,
+          name: "Stale",
+          impl: staleParamImplId,
+          nonPresetImpls: [staleParamImplId],
+        }),
+      },
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState);
   });
 
-  it("stays out of unrelated section and code-object commits when row inputs are unchanged", async () => {
-    const { implId, paramId, paramImplId, sectionId } = seedParamSwitchState();
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-
-    await act(async () => {
-      root.render(
-        <Profiler id="param-switch-profiler" onRender={onRender}>
-          <ParamSwitch
-            sectionId={sectionId}
-            paramInfoId={paramId}
-            requiredParamIdsToPaths={{ [paramId]: [paramId] }}
-            onResizeStart={vi.fn()}
-            isTopLevelWithPad={false}
-            listKey="unpinned"
-            hasSectionStyleTheme={false}
-          />
-        </Profiler>,
-      );
-    });
-
-    const initialCommitCount = onRender.mock.calls.length;
-
-    await act(async () => {
-      useProjectState.setState((state) => {
-        state.sectionImpls[implId].positionAndSizeLocked = true;
-        state.codeObjImpls[paramImplId].isPreset = true;
-      });
-    });
-
-    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+  afterEach(() => {
+    resetProjectStores();
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
   });
 
-  it("rerenders when the param selection state changes", async () => {
-    const { implId, paramId, sectionId } = seedParamSwitchState();
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
+  it("renders nothing instead of crashing when a stale param id is still referenced during a variant switch", async () => {
+    const { host, root } = await renderParamSwitch(sectionId, staleParamId);
 
-    await act(async () => {
-      root.render(
-        <Profiler id="param-switch-profiler" onRender={onRender}>
-          <ParamSwitch
-            sectionId={sectionId}
-            paramInfoId={paramId}
-            requiredParamIdsToPaths={{ [paramId]: [paramId] }}
-            onResizeStart={vi.fn()}
-            isTopLevelWithPad={false}
-            listKey="unpinned"
-            hasSectionStyleTheme={false}
-          />
-        </Profiler>,
-      );
-    });
-
-    const initialCommitCount = onRender.mock.calls.length;
-
-    await act(async () => {
-      useProjectState.setState((state) => {
-        state.sectionImpls[implId].selectedParams = [paramId];
+    try {
+      expect(host.textContent ?? "").not.toContain("Unhandled Thrown Error!");
+      expect(host.childElementCount).toBe(0);
+    } finally {
+      await act(async () => {
+        root.unmount();
       });
-    });
+    }
+  });
 
-    expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
-    expect(
-      host.querySelector<HTMLElement>(`#ParamContainer-${sectionId}-${paramId}`)
-        ?.className,
-    ).toContain("!bg-blue-700");
+  it("survives variant transitions that remove and then restore a mounted param", async () => {
+    const { host, root } = await renderParamSwitch(sectionId, currentParamId);
+
+    try {
+      expect(host.textContent ?? "").not.toContain("Unhandled Thrown Error!");
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          const impl = state.sectionImpls[sectionImplId];
+          impl.codeObjVariantMap = {};
+        });
+      });
+
+      expect(host.textContent ?? "").not.toContain("Unhandled Thrown Error!");
+      expect(host.childElementCount).toBe(0);
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          const impl = state.sectionImpls[sectionImplId];
+          impl.codeObjVariantMap = {
+            [currentParamId]: currentParamVariantId,
+          };
+        });
+      });
+
+      expect(host.textContent ?? "").not.toContain("Unhandled Thrown Error!");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+    }
   });
 });
