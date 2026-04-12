@@ -30,6 +30,16 @@ type UseDragParams = {
   nodeId?: string;
 };
 
+export function isNodeDragInteractionEnabled({
+  disabled,
+  panActivationKeyPressed,
+}: {
+  disabled: boolean;
+  panActivationKeyPressed: boolean;
+}) {
+  return !disabled && !panActivationKeyPressed;
+}
+
 function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
   const [dragging, setDragging] = useState<boolean>(false);
   const dragItems = useRef<NodeDragItem[]>([]);
@@ -225,7 +235,13 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           })
           .filter((event: MouseEvent) => {
             const target = event.target as HTMLDivElement;
+            const dragEnabled = isNodeDragInteractionEnabled({
+              disabled,
+              panActivationKeyPressed:
+                useReactFlow.getState().panActivationKeyPressed,
+            });
             const isDraggable =
+              dragEnabled &&
               !event.button &&
               !hasSelector(target, `.${NO_DRAG_CLASS_NAME}`, nodeRef);
 

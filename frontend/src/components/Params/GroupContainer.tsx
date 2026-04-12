@@ -16,7 +16,7 @@ import {
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
-  getParamDisplayNameIfPresent,
+  getParamDisplayName,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
@@ -45,7 +45,6 @@ import {
 import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
-  type SectionSizingPolicy,
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
@@ -59,475 +58,6 @@ import { ParamDndList } from "./ParamDndList";
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
-
-type ProjectStateSnapshot = Parameters<typeof getCurrShownParamIds>[0];
-
-type VerticalSpacingKey =
-  | "paddingTop"
-  | "paddingBottom"
-  | "marginTop"
-  | "marginBottom";
-
-type FilteredParamList = {
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-};
-
-type EdgePortView = {
-  id: string;
-  label: string;
-};
-
-type EdgeStripState = {
-  inputPorts: Array<EdgePortView>;
-  outputPorts: Array<EdgePortView>;
-  shouldRoundBottom: boolean;
-  positionAndSizeLocked: boolean;
-  selectedParams: Array<string>;
-  styleColor: string | null;
-};
-
-type EdgeStripAppearance = {
-  handlePreventSectionClassName: string;
-  handleSelectableClassName: string;
-  rowPreventSectionClassName: string;
-  stripBorderColorClassName: string;
-  edgeLabelColorClassName: string;
-  edgeRowHoverClassName: string;
-  edgeRowSelectedClassName: string;
-  edgeRowTextColorClassName: string;
-  dividerColorClassName: string;
-  edgeStripBgColorClassName: string;
-  roundedBottomClassName: string;
-};
-
-function getVerticalSpacing(
-  style: CSSStyleDeclaration,
-  topKey: VerticalSpacingKey,
-  bottomKey: VerticalSpacingKey,
-) {
-  return (
-    (Number.parseFloat(style[topKey]) || 0) +
-    (Number.parseFloat(style[bottomKey]) || 0)
-  );
-}
-
-function measureFixedParamsHeight(
-  outer: HTMLElement,
-  fixedElements: Array<HTMLElement>,
-) {
-  const outerStyle = window.getComputedStyle(outer);
-  let totalHeight =
-    getVerticalSpacing(outerStyle, "paddingTop", "paddingBottom") +
-    getVerticalSpacing(outerStyle, "marginTop", "marginBottom");
-  for (const element of fixedElements) {
-    totalHeight +=
-      element.offsetHeight +
-      getVerticalSpacing(
-        window.getComputedStyle(element),
-        "marginTop",
-        "marginBottom",
-      );
-  }
-  return Math.round(totalHeight);
-}
-
-function setStoredParamAreaHeight(heightKey: string, nextHeight: number) {
-  useTemporaryMiscState.setState({
-    [heightKey]: nextHeight,
-  });
-}
-
-function commitMeasuredFixedHeight({
-  nextFixedHeight,
-  heightKey,
-  waitingForResult,
-  pendingFixedHeightRef,
-  lastFixedHeightRef,
-}: {
-  nextFixedHeight: number;
-  heightKey: string;
-  waitingForResult: boolean;
-  pendingFixedHeightRef: React.MutableRefObject<number | null>;
-  lastFixedHeightRef: React.MutableRefObject<number | null>;
-}) {
-  if (waitingForResult) {
-    pendingFixedHeightRef.current = nextFixedHeight;
-    return;
-  }
-  if (lastFixedHeightRef.current === nextFixedHeight) {
-    return;
-  }
-  lastFixedHeightRef.current = nextFixedHeight;
-  setStoredParamAreaHeight(heightKey, nextFixedHeight);
-}
-
-function filterShownParamIds(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-  isPinned: boolean,
-  edgeInputParams: Array<string>,
-): FilteredParamList {
-  const shownParamIds = getCurrShownParamIds(state, sectionId, isPinned, true);
-  return filterEdgeInputs(
-    shownParamIds.requiredParamIdsToPaths,
-    shownParamIds.topLevelParamIds,
-    edgeInputParams,
-  );
-}
-
-function useHasSectionStyleTheme(sectionId: string, styleColor: string | null) {
-  const darkMode = useLocalStorage((x) => x.darkMode);
-  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
-  const previewStyleColor = useTemporaryMiscState(
-    (x) => x[styleColorPreviewKey] as string | null | undefined,
-  );
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? styleColor : previewStyleColor;
-  return Boolean(
-    resolvedStyleColor && deriveSectionStyleTheme(resolvedStyleColor, darkMode),
-  );
-}
-
-function resolveThemeClassName(
-  hasSectionStyleTheme: boolean,
-  themedClassName: string,
-  fallbackClassName: string,
-) {
-  return hasSectionStyleTheme ? themedClassName : fallbackClassName;
-}
-
-function getRoundedBottomClassName(
-  shouldRoundBottom: boolean,
-  positionAndSizeLocked: boolean,
-) {
-  if (!shouldRoundBottom) {
-    return "";
-  }
-  return positionAndSizeLocked ? "rounded-b-sm" : "rounded-b-xl";
-}
-
-function getEdgeInputPortLabel(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-  paramId: string,
-  requiredParamIdsToPaths: Record<string, Array<string>>,
-) {
-  const path = requiredParamIdsToPaths[paramId];
-  const rawLabel = path
-    ? paramNameFromPathArray(state, sectionId, path)
-    : getParamDisplayNameIfPresent(state, sectionId, paramId) ?? paramId;
-  return rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
-}
-
-function buildEdgeInputPorts(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-  edgeInputParams: Array<string>,
-  requiredParamIdsToPaths: Record<string, Array<string>>,
-): Array<EdgePortView> {
-  return edgeInputParams.map((paramId) => ({
-    id: paramId,
-    label: getEdgeInputPortLabel(
-      state,
-      sectionId,
-      paramId,
-      requiredParamIdsToPaths,
-    ),
-  }));
-}
-
-function buildEdgeOutputPorts(
-  edgeOutputPorts: Array<{ id: string; accessor: string }>,
-): Array<EdgePortView> {
-  return edgeOutputPorts.map((port) => ({
-    id: port.id,
-    label:
-      port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
-  }));
-}
-
-function selectEdgeStripState(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-): EdgeStripState {
-  const impl = getCurrEffectiveSectionImplWithTypeGuard(
-    state,
-    sectionId,
-    isBaseSectionWithParamsImpl,
-  );
-  const pinned = getCurrShownParamIds(state, sectionId, true, true);
-  const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-  const filteredPinned = filterEdgeInputs(
-    pinned.requiredParamIdsToPaths,
-    pinned.topLevelParamIds,
-    impl.edgeInputParams,
-  );
-  const requiredParamIdsToPaths = {
-    ...pinned.requiredParamIdsToPaths,
-    ...unpinned.requiredParamIdsToPaths,
-  };
-  return {
-    inputPorts: buildEdgeInputPorts(
-      state,
-      sectionId,
-      impl.edgeInputParams,
-      requiredParamIdsToPaths,
-    ),
-    outputPorts: buildEdgeOutputPorts(impl.edgeOutputPorts),
-    shouldRoundBottom:
-      filteredPinned.topLevelParamIds.length === 0 && impl.hideUnpinnedParams,
-    positionAndSizeLocked: impl.positionAndSizeLocked,
-    selectedParams: impl.selectedParams ?? [],
-    styleColor: impl.styleColor ?? null,
-  };
-}
-
-function getEdgeStripAppearance({
-  hasSectionStyleTheme,
-  bgColor,
-  isSelectingParams,
-  shouldRoundBottom,
-  positionAndSizeLocked,
-}: {
-  hasSectionStyleTheme: boolean;
-  bgColor: string;
-  isSelectingParams: boolean;
-  shouldRoundBottom: boolean;
-  positionAndSizeLocked: boolean;
-}): EdgeStripAppearance {
-  const handlePreventSectionClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
-  return {
-    handlePreventSectionClassName,
-    handleSelectableClassName: isSelectingParams
-      ? "arg-edge-handle--selecting"
-      : "",
-    rowPreventSectionClassName: isSelectingParams
-      ? handlePreventSectionClassName
-      : "",
-    stripBorderColorClassName: resolveThemeClassName(
-      hasSectionStyleTheme,
-      "border-[color:var(--setta-section-style-border)]",
-      "border-white dark:border-setta-700/30",
-    ),
-    edgeLabelColorClassName: resolveThemeClassName(
-      hasSectionStyleTheme,
-      "text-[color:var(--setta-section-style-muted-text)]",
-      "text-setta-300 dark:text-setta-500",
-    ),
-    edgeRowHoverClassName: resolveThemeClassName(
-      hasSectionStyleTheme,
-      "hover:bg-[color:var(--setta-section-style-border)]",
-      "hover:bg-setta-100/50 hover:dark:bg-setta-800/70",
-    ),
-    edgeRowSelectedClassName: resolveThemeClassName(
-      hasSectionStyleTheme,
-      "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]",
-      "!bg-blue-700 !text-white active:!bg-cyan-300",
-    ),
-    edgeRowTextColorClassName: resolveThemeClassName(
-      hasSectionStyleTheme,
-      "text-[color:var(--setta-section-style-muted-text)]",
-      "text-setta-600 dark:text-setta-200",
-    ),
-    dividerColorClassName: resolveThemeClassName(
-      hasSectionStyleTheme,
-      "bg-[color:var(--setta-section-style-border)]",
-      "bg-setta-200/80 dark:bg-setta-700/60",
-    ),
-    edgeStripBgColorClassName: resolveThemeClassName(
-      hasSectionStyleTheme,
-      "bg-[color:var(--setta-section-style-panel-bg)]",
-      bgColor,
-    ),
-    roundedBottomClassName: getRoundedBottomClassName(
-      shouldRoundBottom,
-      positionAndSizeLocked,
-    ),
-  };
-}
-
-function preventSelectingEdgeMouseDown(
-  event: React.MouseEvent<HTMLElement>,
-  isSelectingParams: boolean,
-) {
-  if (!isSelectingParams) {
-    return;
-  }
-  event.stopPropagation();
-  event.preventDefault();
-}
-
-function toggleSelectedEdgeParam(
-  event: React.MouseEvent<HTMLElement>,
-  isSelectingParams: boolean,
-  sectionId: string,
-  paramId: string,
-) {
-  if (!isSelectingParams) {
-    return;
-  }
-  event.stopPropagation();
-  toggleParamSelected(sectionId, paramId);
-}
-
-type EdgeInputPortRowProps = {
-  port: EdgePortView;
-  sectionId: string;
-  selected: boolean;
-  isSelectingParams: boolean;
-  canConnect: boolean;
-  appearance: EdgeStripAppearance;
-};
-
-function EdgeInputPortRow({
-  port,
-  sectionId,
-  selected,
-  isSelectingParams,
-  canConnect,
-  appearance,
-}: EdgeInputPortRowProps) {
-  const rowClassName = `relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${appearance.edgeRowHoverClassName} ${
-    selected
-      ? appearance.edgeRowSelectedClassName
-      : appearance.edgeRowTextColorClassName
-  } ${isSelectingParams ? "cursor-pointer" : ""} ${appearance.rowPreventSectionClassName}`;
-  const handleClassName = `arg-edge-handle arg-edge-handle--target ${appearance.handlePreventSectionClassName} ${appearance.handleSelectableClassName}`;
-
-  return (
-    <div
-      className={rowClassName}
-      onMouseDown={(event) =>
-        preventSelectingEdgeMouseDown(event, isSelectingParams)
-      }
-      onClick={(event) =>
-        toggleSelectedEdgeParam(event, isSelectingParams, sectionId, port.id)
-      }
-      data-edge-param-id={port.id}
-      data-edge-param-side="in"
-    >
-      <Handle
-        id={port.id}
-        type="target"
-        position={HandlePosition.Left}
-        onConnect={createEdgeFromConnection}
-        isValidConnection={isValidDataEdgeConnection}
-        isConnectable={canConnect}
-        isConnectableStart={canConnect}
-        isConnectableEnd={canConnect}
-        className={handleClassName}
-        onClick={(event) =>
-          toggleSelectedEdgeParam(event, isSelectingParams, sectionId, port.id)
-        }
-      />
-      <span className="truncate">{port.label}</span>
-    </div>
-  );
-}
-
-function EdgeOutputPortRow({
-  port,
-  canConnect,
-  appearance,
-}: {
-  port: EdgePortView;
-  canConnect: boolean;
-  appearance: EdgeStripAppearance;
-}) {
-  return (
-    <div
-      className={`relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${appearance.edgeRowTextColorClassName} ${appearance.edgeRowHoverClassName}`}
-    >
-      <span className="truncate">{port.label}</span>
-      <Handle
-        id={port.id}
-        type="source"
-        position={HandlePosition.Right}
-        onConnect={createEdgeFromConnection}
-        isValidConnection={isValidDataEdgeConnection}
-        isConnectable={canConnect}
-        isConnectableStart={canConnect}
-        isConnectableEnd={canConnect}
-        className={`arg-edge-handle arg-edge-handle--source ${appearance.handlePreventSectionClassName}`}
-      />
-    </div>
-  );
-}
-
-export function resolveUnpinnedParamsAreaMinHeight(
-  sizingPolicy: SectionSizingPolicy,
-  hasPinnedParams: boolean,
-) {
-  const baseUnpinnedMinHeight = Number.isFinite(
-    sizingPolicy.globals.unpinnedParamsAreaMinHeight,
-  )
-    ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
-    : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
-  const normalizedUnpinnedMinHeight =
-    baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-      ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-      : baseUnpinnedMinHeight;
-  if (
-    hasPinnedParams &&
-    normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-  ) {
-    return UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED;
-  }
-  return normalizedUnpinnedMinHeight;
-}
-
-function shouldApplyUnpinnedAreaMinHeight({
-  hideUnpinnedParams,
-  canEditLayout,
-  positionAndSizeLocked,
-}: {
-  hideUnpinnedParams: boolean;
-  canEditLayout: boolean;
-  positionAndSizeLocked: boolean;
-}) {
-  return !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
-}
-
-type UnpinnedParamsState = {
-  hideUnpinnedParams: boolean;
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-  hasPinnedParams: boolean;
-  positionAndSizeLocked: boolean;
-  styleColor: string | null;
-};
-
-function selectUnpinnedParamsState(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-): UnpinnedParamsState {
-  const impl = getCurrEffectiveSectionImplWithTypeGuard(
-    state,
-    sectionId,
-    isBaseSectionWithParamsImpl,
-  );
-  const filteredPinned = filterShownParamIds(
-    state,
-    sectionId,
-    true,
-    impl.edgeInputParams,
-  );
-  const filteredUnpinned = filterShownParamIds(
-    state,
-    sectionId,
-    false,
-    impl.edgeInputParams,
-  );
-  return {
-    hideUnpinnedParams: impl.hideUnpinnedParams,
-    requiredParamIdsToPaths: filteredUnpinned.requiredParamIdsToPaths,
-    topLevelParamIds: filteredUnpinned.topLevelParamIds,
-    hasPinnedParams: filteredPinned.topLevelParamIds.length > 0,
-    positionAndSizeLocked: impl.positionAndSizeLocked,
-    styleColor: impl.styleColor ?? null,
-  };
-}
 
 function _ParamGroupContainer({
   sectionId,
@@ -601,12 +131,32 @@ function _ParamGroupContainer({
         return;
       }
       const fixedElements = updateObserved();
-      commitMeasuredFixedHeight({
-        nextFixedHeight: measureFixedParamsHeight(outer, fixedElements),
-        heightKey: paramsFixedHeightKey,
-        waitingForResult: waitingForResultRef.current,
-        pendingFixedHeightRef,
-        lastFixedHeightRef,
+      const outerStyle = window.getComputedStyle(outer);
+      const paddingHeight =
+        (Number.parseFloat(outerStyle.paddingTop) || 0) +
+        (Number.parseFloat(outerStyle.paddingBottom) || 0);
+      const outerMarginHeight =
+        (Number.parseFloat(outerStyle.marginTop) || 0) +
+        (Number.parseFloat(outerStyle.marginBottom) || 0);
+      let totalHeight = paddingHeight + outerMarginHeight;
+      for (const element of fixedElements) {
+        const style = window.getComputedStyle(element);
+        const marginHeight =
+          (Number.parseFloat(style.marginTop) || 0) +
+          (Number.parseFloat(style.marginBottom) || 0);
+        totalHeight += element.offsetHeight + marginHeight;
+      }
+      const nextFixedHeight = Math.round(totalHeight);
+      if (waitingForResultRef.current) {
+        pendingFixedHeightRef.current = nextFixedHeight;
+        return;
+      }
+      if (lastFixedHeightRef.current === nextFixedHeight) {
+        return;
+      }
+      lastFixedHeightRef.current = nextFixedHeight;
+      useTemporaryMiscState.setState({
+        [paramsFixedHeightKey]: nextFixedHeight,
       });
     };
 
@@ -646,7 +196,9 @@ function _ParamGroupContainer({
       return;
     }
     lastFixedHeightRef.current = pendingHeight;
-    setStoredParamAreaHeight(paramsFixedHeightKey, pendingHeight);
+    useTemporaryMiscState.setState({
+      [paramsFixedHeightKey]: pendingHeight,
+    });
   }, [paramsFixedHeightKey, waitingForResult]);
 
   return (
@@ -827,22 +379,92 @@ function EdgesStrip({
     positionAndSizeLocked,
     selectedParams,
     styleColor,
-  } = useProjectState(
-    (state) => selectEdgeStripState(state, sectionId),
-    _.isEqual,
+  } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const selectedParams = impl.selectedParams ?? [];
+    const pinned = getCurrShownParamIds(state, sectionId, true, true);
+    const unpinned = getCurrShownParamIds(state, sectionId, false, true);
+    const requiredParamIdsToPaths = {
+      ...pinned.requiredParamIdsToPaths,
+      ...unpinned.requiredParamIdsToPaths,
+    };
+    const inputPorts = impl.edgeInputParams.map((paramId) => {
+      const path = requiredParamIdsToPaths[paramId];
+      const rawLabel = path
+        ? paramNameFromPathArray(state, sectionId, path)
+        : getParamDisplayName(state, sectionId, paramId);
+      const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
+      return { id: paramId, label };
+    });
+    const outputPorts = impl.edgeOutputPorts.map((port) => ({
+      id: port.id,
+      label:
+        port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
+    }));
+    const filteredPinned = filterEdgeInputs(
+      pinned.requiredParamIdsToPaths,
+      pinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
+    const showsUnpinnedParams = !impl.hideUnpinnedParams;
+    return {
+      inputPorts,
+      outputPorts,
+      shouldRoundBottom: !hasPinnedParams && !showsUnpinnedParams,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      selectedParams,
+      styleColor: impl.styleColor ?? null,
+    };
+  }, _.isEqual);
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
   );
-  const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
   const selectedParamIdSet = new Set(selectedParams);
   const canConnect = canEditStructure && !isSelectingParams;
-  const appearance = getEdgeStripAppearance({
-    hasSectionStyleTheme,
-    bgColor,
-    isSelectingParams,
-    shouldRoundBottom,
-    positionAndSizeLocked,
-  });
+  const handlePreventSectionClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
+  const rowPreventSectionClassName = isSelectingParams
+    ? handlePreventSectionClassName
+    : "";
+  const handleSelectableClassName = isSelectingParams
+    ? "arg-edge-handle--selecting"
+    : "";
+  const stripBorderColorClassName = hasSectionStyleTheme
+    ? "border-[color:var(--setta-section-style-border)]"
+    : "border-white dark:border-setta-700/30";
+  const edgeLabelColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-300 dark:text-setta-500";
+  const edgeRowHoverClassName = hasSectionStyleTheme
+    ? "hover:bg-[color:var(--setta-section-style-border)]"
+    : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+  const edgeRowSelectedClassName = hasSectionStyleTheme
+    ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
+    : "!bg-blue-700 !text-white active:!bg-cyan-300";
+  const edgeRowTextColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-600 dark:text-setta-200";
+  const dividerColorClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-border)]"
+    : "bg-setta-200/80 dark:bg-setta-700/60";
+  const edgeStripBgColorClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-panel-bg)]"
+    : bgColor;
 
   useLayoutEffect(() => {
     if (!hasEdges) {
@@ -919,30 +541,72 @@ function EdgesStrip({
     return null;
   }
 
+  let roundedBottomClassName = "";
+  if (shouldRoundBottom) {
+    roundedBottomClassName = positionAndSizeLocked
+      ? "rounded-b-sm"
+      : "rounded-b-xl";
+  }
+
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${stripBorderColorClassName} ${edgeStripBgColorClassName} ${roundedBottomClassName}`}
       ref={stripRef}
       data-params-fixed="true"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
         <div className="flex flex-col pl-2">
           <div
-            className={`text-[0.5rem] font-bold uppercase ${appearance.edgeLabelColorClassName}`}
+            className={`text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
           >
             In
           </div>
           <div className="-ml-2 flex flex-col gap-1 pt-1">
             {inputPorts.map((port) => (
-              <EdgeInputPortRow
+              <div
                 key={port.id}
-                port={port}
-                sectionId={sectionId}
-                selected={selectedParamIdSet.has(port.id)}
-                isSelectingParams={isSelectingParams}
-                canConnect={canConnect}
-                appearance={appearance}
-              />
+                className={`relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowHoverClassName} ${
+                  selectedParamIdSet.has(port.id)
+                    ? edgeRowSelectedClassName
+                    : edgeRowTextColorClassName
+                } ${isSelectingParams ? "cursor-pointer" : ""} ${rowPreventSectionClassName}`}
+                onMouseDown={(e) => {
+                  if (!isSelectingParams) {
+                    return;
+                  }
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                onClick={(e) => {
+                  if (!isSelectingParams) {
+                    return;
+                  }
+                  e.stopPropagation();
+                  toggleParamSelected(sectionId, port.id);
+                }}
+                data-edge-param-id={port.id}
+                data-edge-param-side="in"
+              >
+                <Handle
+                  id={port.id}
+                  type="target"
+                  position={HandlePosition.Left}
+                  onConnect={createEdgeFromConnection}
+                  isValidConnection={isValidDataEdgeConnection}
+                  isConnectable={canConnect}
+                  isConnectableStart={canConnect}
+                  isConnectableEnd={canConnect}
+                  className={`arg-edge-handle arg-edge-handle--target ${handlePreventSectionClassName} ${handleSelectableClassName}`}
+                  onClick={(e) => {
+                    if (!isSelectingParams) {
+                      return;
+                    }
+                    e.stopPropagation();
+                    toggleParamSelected(sectionId, port.id);
+                  }}
+                />
+                <span className="truncate">{port.label}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -950,22 +614,33 @@ function EdgesStrip({
           className="pointer-events-none flex items-stretch justify-center"
           aria-hidden="true"
         >
-          <div className={`h-full w-px ${appearance.dividerColorClassName}`} />
+          <div className={`h-full w-px ${dividerColorClassName}`} />
         </div>
         <div className="flex flex-col pr-2">
           <div
-            className={`text-right text-[0.5rem] font-bold uppercase ${appearance.edgeLabelColorClassName}`}
+            className={`text-right text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
           >
             Out
           </div>
           <div className="-mr-2 flex flex-col gap-1 pt-1">
             {outputPorts.map((port) => (
-              <EdgeOutputPortRow
+              <div
                 key={port.id}
-                port={port}
-                canConnect={canConnect}
-                appearance={appearance}
-              />
+                className={`relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowTextColorClassName} ${edgeRowHoverClassName}`}
+              >
+                <span className="truncate">{port.label}</span>
+                <Handle
+                  id={port.id}
+                  type="source"
+                  position={HandlePosition.Right}
+                  onConnect={createEdgeFromConnection}
+                  isValidConnection={isValidDataEdgeConnection}
+                  isConnectable={canConnect}
+                  isConnectableStart={canConnect}
+                  isConnectableEnd={canConnect}
+                  className={`arg-edge-handle arg-edge-handle--source ${handlePreventSectionClassName}`}
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -1019,25 +694,44 @@ function GetPinnedParams({
     positionAndSizeLocked,
     styleColor,
   } = useProjectState((x) => {
+    const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
+      x,
+      sectionId,
+      true,
+      true,
+    );
+    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const filteredPinned = filterShownParamIds(
-      x,
-      sectionId,
-      true,
+    const filteredPinned = filterEdgeInputs(
+      requiredParamIdsToPaths,
+      topLevelParamIds,
       impl.edgeInputParams,
     );
+    const showsUnpinnedParams = !impl.hideUnpinnedParams;
+    const shouldRoundBottom = !showsUnpinnedParams;
     return {
       ...filteredPinned,
-      shouldRoundBottom: !impl.hideUnpinnedParams,
+      shouldRoundBottom,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       styleColor: impl.styleColor ?? null,
     };
   }, _.isEqual);
-  const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -1160,24 +854,67 @@ function GetUnpinnedParams({
     hasPinnedParams,
     positionAndSizeLocked,
     styleColor,
-  } = useProjectState(
-    (x) => selectUnpinnedParamsState(x, sectionId),
-    _.isEqual,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const pinned = getCurrShownParamIds(x, sectionId, true, true);
+    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+    const filteredPinned = filterEdgeInputs(
+      pinned.requiredParamIdsToPaths,
+      pinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const filteredUnpinned = filterEdgeInputs(
+      unpinned.requiredParamIdsToPaths,
+      unpinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
+    return {
+      hideUnpinnedParams: impl.hideUnpinnedParams,
+      requiredParamIdsToPaths: filteredUnpinned.requiredParamIdsToPaths,
+      topLevelParamIds: filteredUnpinned.topLevelParamIds,
+      hasPinnedParams,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      styleColor: impl.styleColor ?? null,
+    };
+  }, _.isEqual);
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
   );
-  const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
 
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
   const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
-  const resolvedMinHeight = resolveUnpinnedParamsAreaMinHeight(
-    sizingPolicy,
-    hasPinnedParams,
-  );
-  const shouldApplyMinHeight = shouldApplyUnpinnedAreaMinHeight({
-    hideUnpinnedParams,
-    canEditLayout,
-    positionAndSizeLocked,
-  });
+  const baseUnpinnedMinHeight = Number.isFinite(
+    sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+  )
+    ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
+    : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+  const normalizedUnpinnedMinHeight =
+    baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      : baseUnpinnedMinHeight;
+  const resolvedPolicyMinHeight =
+    hasPinnedParams &&
+    normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
+      : normalizedUnpinnedMinHeight;
+  const resolvedMinHeight = resolvedPolicyMinHeight;
+  const shouldApplyMinHeight =
+    !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const containerRef = useRef<HTMLDivElement | null>(null);

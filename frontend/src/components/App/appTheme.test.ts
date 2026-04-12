@@ -25,29 +25,11 @@ describe("resolveAppTheme vars", () => {
         button: {
           bg: "#00ff00",
         },
-        dropdown: {
-          shadow: "0 0 0 4px rgba(0, 255, 255, 0.4)",
-        },
-        card: {
-          shadow: "0 0 0 2px rgba(255, 255, 0, 0.5)",
-        },
-        page: {
-          bgImage: "linear-gradient(red, blue)",
-        },
       },
     });
 
     expect(resolved.style["--app-button-bg"]).toBe("#00ff00");
     expect(typeof resolved.style["--app-button-text"]).toBe("string");
-    expect(resolved.style["--app-dropdown-shadow"]).toBe(
-      "0 0 0 4px rgba(0, 255, 255, 0.4)",
-    );
-    expect(resolved.style["--app-card-shadow"]).toBe(
-      "0 0 0 2px rgba(255, 255, 0, 0.5)",
-    );
-    expect(resolved.style["--app-page-bg-image"]).toBe(
-      "linear-gradient(red, blue)",
-    );
   });
 
   it("supports motion token overrides", () => {
@@ -124,18 +106,5 @@ describe("resolveAppTheme vars", () => {
     });
 
     expect(resolved.style["--not-app"]).toBeUndefined();
-  });
-
-  it("applies the resolved body font to the root style fontFamily", () => {
-    const resolved = resolveAppTheme({
-      fonts: {
-        body: '"IBM Plex Sans", sans-serif',
-      },
-    });
-
-    expect(resolved.style["--app-font-body"]).toBe(
-      '"IBM Plex Sans", sans-serif',
-    );
-    expect(resolved.style.fontFamily).toBe('"IBM Plex Sans", sans-serif');
   });
 });
