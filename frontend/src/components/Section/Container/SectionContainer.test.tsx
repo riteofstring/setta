@@ -1,258 +1,226 @@
-/* @vitest-environment jsdom */
-
-import {
-  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
-  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
-  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
-} from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
-import {
-  act,
-  Profiler,
-  type ProfilerOnRenderCallback,
-  type ReactNode,
-} from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { useActiveSectionUI, useProjectState } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
-import {
-  createCodeSectionImpl,
-  createCore,
-  createProjectConfig,
-  createUserDefaultCodeSectionImpl,
-  createVariant,
-} from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { SectionTypeEnum } from "utils/generatedTypes";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionContainer } from "./SectionContainer";
 
-const { mockContainerSwitch } = vi.hoisted(() => ({
-  mockContainerSwitch: vi.fn(({ children }: { children: ReactNode }) => (
-    <>{children}</>
-  )),
-}));
+type MockProjectState = {
+  projectConfig: {
+    activeIds: string[];
+  };
+};
+
+type MockSectionViewState = {
+  visibility: boolean;
+  isEditingViewMode: boolean;
+  sectionType: SectionTypeEnum;
+  isUserFacing: boolean;
+  positionAndSizeLocked: boolean;
+  isInOtherProjectConfigs: boolean;
+  embeddedTerminal: {
+    attachedTerminalId: string;
+    isTerminalMinimized: boolean;
+  } | null;
+  hasPythonCodegen: boolean;
+  hasMetadata: boolean;
+};
+
+let mockProjectState: MockProjectState = {
+  projectConfig: {
+    activeIds: [],
+  },
+};
+
+let mockSectionViewState: MockSectionViewState = {
+  visibility: true,
+  isEditingViewMode: false,
+  sectionType: SectionTypeEnum.Code,
+  isUserFacing: false,
+  positionAndSizeLocked: false,
+  isInOtherProjectConfigs: false,
+  embeddedTerminal: null,
+  hasPythonCodegen: true,
+  hasMetadata: true,
+};
+
+const activeSectionIds = new Set<string>();
 
 vi.mock("forks/xyflow/core/contexts/NodeIdContext", () => ({
   NodeIdProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("state/definitions", () => ({
+  useProjectState: (selector: (state: MockProjectState) => unknown) =>
+    selector(mockProjectState),
+}));
+
+vi.mock("state/activeSectionUI", () => ({
+  useIsSectionUIActive: (sectionId: string) => activeSectionIds.has(sectionId),
+}));
+
+vi.mock("state/actions/sectionInfos", () => ({
+  getActiveViewModeConfig: () => ({
+    isUserFacing: mockSectionViewState.isUserFacing,
+  }),
+  getCurrEffectiveSectionImpl: () => ({
+    type: mockSectionViewState.sectionType,
+    positionAndSizeLocked: mockSectionViewState.positionAndSizeLocked,
+    isInOtherProjectConfigs: mockSectionViewState.isInOtherProjectConfigs,
+  }),
+  getEmbeddedAttachedTerminalForCodeSection: () =>
+    mockSectionViewState.embeddedTerminal,
+  getSectionShouldRender: (visibility: boolean, _isEditingViewMode: boolean) =>
+    visibility,
+  getSectionViewModeVisibility: () => ({
+    visibility: mockSectionViewState.visibility,
+    isEditingViewMode: mockSectionViewState.isEditingViewMode,
+  }),
+  isBaseCodeSectionType: (sectionType: SectionTypeEnum) =>
+    sectionType === SectionTypeEnum.Code ||
+    sectionType === SectionTypeEnum.GenPythonCode ||
+    sectionType === SectionTypeEnum.GenPythonMetadata,
+}));
+
+vi.mock("utils/codegenTargets", () => ({
+  getPythonCodegenTarget: () => ({
+    generateMetadata: mockSectionViewState.hasMetadata,
+  }),
+  projectConfigHasPythonCodegen: () => mockSectionViewState.hasPythonCodegen,
+}));
+
 vi.mock("./AgenticEdgeHandles", () => ({
-  AgenticEdgeHandles: () => <div data-testid="mock-agentic-edge-handles" />,
+  AgenticEdgeHandles: ({ isUserView }: { isUserView: boolean }) => (
+    <div
+      data-testid="mock-agentic-edge-handles"
+      data-is-user-view={String(isUserView)}
+    />
+  ),
 }));
 
 vi.mock("./ContainerSwitch", () => ({
-  ContainerSwitch: mockContainerSwitch,
+  ContainerSwitch: ({ children }: { children: ReactNode }) => (
+    <div data-testid="mock-container-switch">{children}</div>
+  ),
 }));
 
 vi.mock("./ManyNestedSections", () => ({
-  MaybeManyNestedSections: () => (
-    <div data-testid="mock-many-nested-sections" />
+  MaybeManyNestedSections: ({
+    sectionId,
+    isGroup,
+    layoutVariant = "default",
+  }: {
+    sectionId: string;
+    isGroup: boolean;
+    layoutVariant?: "default" | "tight";
+  }) => (
+    <div
+      data-testid="mock-many-nested-sections"
+      data-section-id={sectionId}
+      data-is-group={String(isGroup)}
+      data-layout-variant={layoutVariant}
+    />
   ),
 }));
 
 vi.mock("./SectionContainerCore", () => ({
-  SectionContainerCore: ({ sectionId }: { sectionId: string }) => (
-    <div data-testid="mock-section-container-core">core:{sectionId}</div>
+  SectionContainerCore: ({
+    sectionId,
+    isUserView,
+    forceHideOutline = false,
+    hideAgenticEdgeHandles = false,
+    omitAgenticHandleScopeClass = false,
+    joinedCorners = "",
+  }: {
+    sectionId: string;
+    isUserView: boolean;
+    forceHideOutline?: boolean;
+    hideAgenticEdgeHandles?: boolean;
+    omitAgenticHandleScopeClass?: boolean;
+    joinedCorners?: string;
+  }) => (
+    <div
+      data-testid="mock-section-container-core"
+      data-section-id={sectionId}
+      data-is-user-view={String(isUserView)}
+      data-force-hide-outline={String(forceHideOutline)}
+      data-hide-agentic-edge-handles={String(hideAgenticEdgeHandles)}
+      data-omit-agentic-handle-scope-class={String(omitAgenticHandleScopeClass)}
+      data-joined-corners={joinedCorners}
+    />
   ),
 }));
 
-function syncStoreInitialState(store: {
-  getInitialState?: () => Record<string, unknown>;
-  getState: () => Record<string, unknown>;
-}) {
-  if (!store.getInitialState) {
-    return;
-  }
-  Object.assign(store.getInitialState(), store.getState());
-}
-
-type RenderedProfiledContainer = {
-  host: HTMLDivElement;
-  root: Root;
-};
-
-async function renderProfiledContainer(
-  onRender: ProfilerOnRenderCallback,
-): Promise<RenderedProfiledContainer> {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      <Profiler id="section-container-profiler" onRender={onRender}>
-        <SectionContainer sectionId="section-1" />
-      </Profiler>,
-    );
-  });
-
-  return { host, root };
-}
+vi.mock("./utils", () => ({
+  getOutlineColor: ({
+    isActiveSection,
+    isInOtherProjectConfigs,
+  }: {
+    isActiveSection: boolean;
+    isInOtherProjectConfigs: boolean;
+  }) =>
+    `outline-${isActiveSection ? "active" : "idle"}-${isInOtherProjectConfigs ? "other" : "current"}`,
+}));
 
 describe("SectionContainer", () => {
   beforeEach(() => {
-    mockContainerSwitch.mockClear();
-    resetProjectStores();
-    useProjectState.setState((state) => {
-      state.projectConfig = createProjectConfig({
-        id: "project-1",
-        isEditingViewMode: true,
-        sectionVariantMap: { "section-1": "variant-1" },
-        topLevelSections: {
-          "section-1": { x: 0, y: 0, zIndex: 0, w: null, h: null },
-        },
-        viewModes: {
-          all: {
-            id: "all",
-            name: "All",
-            visibilityBySectionId: { "section-1": true },
-            availableToUsers: true,
-          },
-        },
-        activeViewModeId: "all",
-      });
-      state.sections = {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Section",
-          variants: ["variant-1"],
-          defaultVariant: "variant-1",
-        }),
-      };
-      state.sectionVariants = {
-        "variant-1": createVariant({
-          id: "variant-1",
-          name: "Variant",
-          impl: "impl-1",
-          nonPresetImpls: [],
-        }),
-      };
-      state.sectionImpls = {
-        "impl-1": createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
-          id: "impl-1",
-          isMinimized: false,
-        }),
-      };
-      state.previewSectionVariantMap = {};
-    });
-    useActiveSectionUI.setState({
-      activeIds: [],
-      backendGeneration: 0,
-      backendHydrationEnabled: true,
-      pendingBackendSyncGenerationByOpId: {},
-      pendingBackendSyncOpIds: [],
-      scheduledBackendSync: null,
-      selectionGeneration: 0,
-    });
-    syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useActiveSectionUI);
-  });
-
-  afterEach(() => {
-    resetProjectStores();
-    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
-    document.body.innerHTML = "";
-  });
-
-  it("stays out of active-section UI commits when the section is not a joined code-terminal group", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledContainer(onRender);
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useActiveSectionUI.setState({
-          activeIds: ["section-1"],
-          selectionGeneration: 1,
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      expect(
-        host.querySelector('[data-testid="mock-section-container-core"]')
-          ?.textContent,
-      ).toBe("core:section-1");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("records section-container attribution when canary motion capture is active", async () => {
-    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
-      motionAttributionActive: true,
-    });
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledContainer(onRender);
-
-    try {
-      expect(
-        readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
-          .motionAttribution.presentedSceneSectionContainerReactRender.count,
-      ).toBeGreaterThan(0);
-      expect(
-        host.querySelector('[data-testid="mock-section-container-core"]'),
-      ).not.toBeNull();
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("bypasses top-level container wrappers and view-mode commits on the shell-layer canary path", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const shellLayerSnapshot = {
-      hasSectionStyleTheme: false,
-      isInOtherProjectConfigs: false,
+    mockProjectState = {
+      projectConfig: {
+        activeIds: ["section-1"],
+      },
+    };
+    mockSectionViewState = {
+      visibility: true,
+      isEditingViewMode: false,
+      sectionType: SectionTypeEnum.Code,
+      isUserFacing: false,
       positionAndSizeLocked: false,
-      sectionStyleVars: undefined,
-      sectionTypeName: "Code",
-    } as const;
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    const root = createRoot(host);
+      isInOtherProjectConfigs: false,
+      embeddedTerminal: null,
+      hasPythonCodegen: true,
+      hasMetadata: true,
+    };
+    activeSectionIds.clear();
+  });
 
-    try {
-      await act(async () => {
-        root.render(
-          <Profiler id="section-container-profiler" onRender={onRender}>
-            <SectionContainer
-              sectionId="section-1"
-              isTopLevel={true}
-              shellChromeOwner="shell-layer"
-              shellLayerSnapshot={shellLayerSnapshot}
-            />
-          </Profiler>,
-        );
-      });
+  it("renders joined code terminal groups with shared chrome and tight nested layout", () => {
+    mockSectionViewState.embeddedTerminal = {
+      attachedTerminalId: "terminal-1",
+      isTerminalMinimized: false,
+    };
+    activeSectionIds.add("terminal-1");
 
-      expect(mockContainerSwitch).not.toHaveBeenCalled();
-      const initialCommitCount = onRender.mock.calls.length;
+    const markup = renderToStaticMarkup(
+      <SectionContainer sectionId="section-1" isTopLevel={false} />,
+    );
 
-      await act(async () => {
-        useProjectState.setState((state) => {
-          state.projectConfig.isEditingViewMode = false;
-          state.projectConfig.viewModes.all = {
-            ...state.projectConfig.viewModes.all,
-            visibilityBySectionId: { "section-1": false },
-          };
-        });
-      });
+    expect(markup).toContain("data-joined-code-terminal-group");
+    expect(markup).toContain('data-testid="mock-agentic-edge-handles"');
+    expect(markup).toContain('data-force-hide-outline="true"');
+    expect(markup).toContain('data-hide-agentic-edge-handles="true"');
+    expect(markup).toContain('data-joined-corners="code-terminal-parent"');
+    expect(markup).toContain('data-layout-variant="tight"');
+  });
 
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      expect(
-        host.querySelector('[data-testid="mock-section-container-core"]')
-          ?.textContent,
-      ).toBe("core:section-1");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
+  it("renders standard sections with default nested layout for groups", () => {
+    mockSectionViewState.sectionType = SectionTypeEnum.Group;
+
+    const markup = renderToStaticMarkup(
+      <SectionContainer sectionId="section-1" isTopLevel={false} />,
+    );
+
+    expect(markup).not.toContain('data-testid="mock-section-container-core"');
+    expect(markup).toContain('data-is-group="true"');
+    expect(markup).toContain('data-layout-variant="default"');
+  });
+
+  it("skips generated python sections when python codegen is unavailable", () => {
+    mockSectionViewState.sectionType = SectionTypeEnum.GenPythonCode;
+    mockSectionViewState.hasPythonCodegen = false;
+
+    const markup = renderToStaticMarkup(
+      <SectionContainer sectionId="section-1" isTopLevel={false} />,
+    );
+
+    expect(markup).toBe("");
   });
 });

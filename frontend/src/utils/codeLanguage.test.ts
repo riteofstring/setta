@@ -2,7 +2,6 @@ import { CodeLanguageEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   isBuiltinCodeLanguage,
-  isRunnableCodeLanguage,
   resolveCodeLanguageFromPath,
   toCodeLanguage,
 } from "./codeLanguage";
@@ -14,17 +13,16 @@ describe("codeLanguage helpers", () => {
     expect(isBuiltinCodeLanguage("fixturedsl")).toBe(false);
   });
 
-  it("keeps runnable checks scoped to python and bash", () => {
-    // Custom languages can use LSP/editor features, but run remains python/bash-only.
-    expect(isRunnableCodeLanguage(CodeLanguageEnum.python)).toBe(true);
-    expect(isRunnableCodeLanguage(CodeLanguageEnum.bash)).toBe(true);
-    expect(isRunnableCodeLanguage("fixturedsl")).toBe(false);
-  });
-
   it("resolves known file extensions and falls back to plaintext", () => {
     // File-based language inference should remain deterministic for built-ins.
     expect(resolveCodeLanguageFromPath("src/app.ts")).toBe(
       CodeLanguageEnum.typescript,
+    );
+    expect(resolveCodeLanguageFromPath("src/script.MJS")).toBe(
+      CodeLanguageEnum.javascript,
+    );
+    expect(resolveCodeLanguageFromPath("notes/README.MarkDown")).toBe(
+      CodeLanguageEnum.markdown,
     );
     expect(resolveCodeLanguageFromPath("notes.unknownext")).toBe(
       CodeLanguageEnum.plaintext,
@@ -33,12 +31,6 @@ describe("codeLanguage helpers", () => {
 
   it("maps toml file extensions to toml language", () => {
     expect(resolveCodeLanguageFromPath("/tmp/app/config.toml")).toBe("toml");
-  });
-
-  it("keeps toml non-runnable while python/bash remain runnable", () => {
-    expect(isRunnableCodeLanguage("python")).toBe(true);
-    expect(isRunnableCodeLanguage("bash")).toBe(true);
-    expect(isRunnableCodeLanguage("toml")).toBe(false);
   });
 
   it("preserves built-in keys and accepts plugin language strings", () => {

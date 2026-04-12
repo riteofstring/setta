@@ -4,13 +4,287 @@ import _ from "lodash";
 import { useMemo } from "react";
 import { RiCheckLine, RiFocus2Line } from "react-icons/ri";
 import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
+import type { AIFollowMode } from "state/types/aiFollow";
 import { APP_MENU_Z_INDEX_CLASS_NAME } from "utils/constants";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  type BaseSectionImplUnion,
+  type ChatSectionImpl,
+  type Core,
+  type Variant,
+} from "utils/generatedTypes";
 
 type FollowAIToggleButtonProps = {
   labelMode?: "responsive" | "always";
   triggerClassName?: string;
 };
+
+type FollowEntryKind = "chat" | "section";
+
+type FollowEntry = {
+  id: string;
+  label: string;
+  kind: FollowEntryKind;
+  key: string;
+};
+
+type AIFollowState = ReturnType<typeof useAIFollow.getState>;
+type SectionVariantMap = Record<string, string>;
+type SectionVariantEntry = Pick<Variant, "impl">;
+type SectionImplEntry = Pick<BaseSectionImplUnion, "type"> &
+  Partial<Pick<ChatSectionImpl, "chatId">>;
+type SectionCoreEntry = Pick<Core, "displayName" | "name">;
+
+const DEFAULT_TRIGGER_CLASS_NAME =
+  "nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300";
+const ACTIVE_TRIGGER_CLASS_NAME =
+  "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500";
+const INACTIVE_TRIGGER_CLASS_NAME =
+  "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white";
+const MENU_ITEM_CLASSES =
+  "mx-1 flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs text-setta-700 hover:bg-setta-600 hover:text-white active:bg-blue-100 dark:text-setta-200 dark:hover:bg-setta-900 dark:hover:text-white active:dark:bg-blue-950";
+const MENU_DIVIDER_CLASS_NAME = "my-1 h-px bg-setta-100 dark:bg-setta-700/70";
+
+const FOLLOW_MODE_ITEMS: ReadonlyArray<{
+  label: string;
+  mode: AIFollowMode;
+}> = [
+  { label: "Off", mode: "off" },
+  { label: "Follow all", mode: "all" },
+  { label: "Follow selected", mode: "selected" },
+];
+
+function getTriggerClassName(
+  mode: AIFollowMode,
+  triggerClassName?: string,
+): string {
+  const stateClasses =
+    mode === "off" ? INACTIVE_TRIGGER_CLASS_NAME : ACTIVE_TRIGGER_CLASS_NAME;
+  return `${triggerClassName ?? DEFAULT_TRIGGER_CLASS_NAME} ${stateClasses}`;
+}
+
+function getFollowEntryCheckClassName(isSelected: boolean): string {
+  return `h-3 w-3 ${isSelected ? "opacity-100" : "opacity-0"}`;
+}
+
+function buildProjectChatEntry(
+  activeChatId: string | undefined,
+): FollowEntry | null {
+  if (typeof activeChatId !== "string" || !activeChatId.trim()) {
+    return null;
+  }
+  return {
+    id: activeChatId,
+    label: `Project chat (${activeChatId.slice(0, 8)})`,
+    kind: "chat",
+    key: `chat:${activeChatId}`,
+  };
+}
+
+function getSectionFollowLabel(
+  sectionId: string,
+  core: SectionCoreEntry,
+  chatId: string | undefined,
+): string {
+  const baseLabel = core.displayName?.trim() || core.name || "Chat";
+  const sectionLabel = `${baseLabel} (${sectionId.slice(0, 8)})`;
+  if (typeof chatId === "string" && chatId.trim()) {
+    return sectionLabel;
+  }
+  return `${sectionLabel} (not started)`;
+}
+
+function buildSectionFollowEntry(
+  sectionId: string,
+  core: SectionCoreEntry,
+  sectionVariantMap: SectionVariantMap,
+  sectionVariants: Record<string, SectionVariantEntry | undefined>,
+  sectionImpls: Record<string, SectionImplEntry | undefined>,
+): FollowEntry | null {
+  const variantId = sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = sectionImpls[variant.impl];
+  if (!impl || impl.type !== SectionTypeEnum.Chat) {
+    return null;
+  }
+  return {
+    id: sectionId,
+    label: getSectionFollowLabel(sectionId, core, impl.chatId),
+    kind: "section",
+    key: `section:${sectionId}`,
+  };
+}
+
+function buildFollowEntries(
+  activeChatId: string | undefined,
+  sections: Record<string, SectionCoreEntry>,
+  sectionVariantMap: SectionVariantMap,
+  sectionVariants: Record<string, SectionVariantEntry | undefined>,
+  sectionImpls: Record<string, SectionImplEntry | undefined>,
+): Array<FollowEntry> {
+  const entries: Array<FollowEntry> = [];
+  const projectChatEntry = buildProjectChatEntry(activeChatId);
+  if (projectChatEntry) {
+    entries.push(projectChatEntry);
+  }
+  for (const [sectionId, core] of Object.entries(sections)) {
+    const sectionEntry = buildSectionFollowEntry(
+      sectionId,
+      core,
+      sectionVariantMap,
+      sectionVariants,
+      sectionImpls,
+    );
+    if (sectionEntry) {
+      entries.push(sectionEntry);
+    }
+  }
+  return _.uniqBy(entries, (entry) => entry.key);
+}
+
+function buildSelectedEntrySets(
+  selectedChatIds: Array<string>,
+  selectedSectionIds: Array<string>,
+): Record<FollowEntryKind, Set<string>> {
+  return {
+    chat: new Set(selectedChatIds),
+    section: new Set(selectedSectionIds),
+  };
+}
+
+function getSelectedIdsForEntry(
+  state: AIFollowState,
+  projectConfigId: string,
+  kind: FollowEntryKind,
+): Array<string> {
+  if (kind === "chat") {
+    return (
+      state.selectedChatIdsByProjectConfigId[projectConfigId] ??
+      (state.selectedChatIdsByProjectConfigId[projectConfigId] = [])
+    );
+  }
+  return (
+    state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
+    (state.selectedSectionIdsByProjectConfigId[projectConfigId] = [])
+  );
+}
+
+function toggleSelectedId(selectedIds: Array<string>, id: string): void {
+  const existingIndex = selectedIds.indexOf(id);
+  if (existingIndex === -1) {
+    selectedIds.push(id);
+    return;
+  }
+  selectedIds.splice(existingIndex, 1);
+}
+
+function setFollowMode(mode: AIFollowMode): void {
+  useAIFollow.setState((state) => {
+    state.mode = mode;
+  });
+}
+
+function toggleFollowEntrySelection(
+  projectConfigId: string,
+  entry: FollowEntry,
+): void {
+  useAIFollow.setState((state) => {
+    const selectedIds = getSelectedIdsForEntry(
+      state,
+      projectConfigId,
+      entry.kind,
+    );
+    toggleSelectedId(selectedIds, entry.id);
+    state.mode = "selected";
+  });
+}
+
+function clearFollowSelection(projectConfigId: string): void {
+  useAIFollow.setState((state) => {
+    state.selectedChatIdsByProjectConfigId[projectConfigId] = [];
+    state.selectedSectionIdsByProjectConfigId[projectConfigId] = [];
+  });
+}
+
+function FollowMenuTrigger({
+  showResponsiveLabel,
+}: {
+  showResponsiveLabel: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <RiFocus2Line size={15} aria-hidden="true" />
+      <span
+        className={showResponsiveLabel ? "hidden @[31.25rem]:block" : undefined}
+        data-testid="follow-ai-visible-label"
+      >
+        Follow AI
+      </span>
+      <span
+        className={
+          showResponsiveLabel ? "sr-only @[31.25rem]:hidden" : "sr-only"
+        }
+      >
+        Follow AI
+      </span>
+    </span>
+  );
+}
+
+function FollowModeMenuItem({
+  currentMode,
+  mode,
+  label,
+  shortcut,
+}: {
+  currentMode: AIFollowMode;
+  mode: AIFollowMode;
+  label: string;
+  shortcut?: string;
+}) {
+  return (
+    <MenuItem
+      className={MENU_ITEM_CLASSES}
+      shortcut={shortcut ?? ""}
+      onClick={() => {
+        setFollowMode(mode);
+      }}
+    >
+      <RiCheckLine
+        className={getFollowEntryCheckClassName(currentMode === mode)}
+      />
+      {label}
+    </MenuItem>
+  );
+}
+
+function FollowEntryMenuItem({
+  entry,
+  isSelected,
+  projectConfigId,
+}: {
+  entry: FollowEntry;
+  isSelected: boolean;
+  projectConfigId: string;
+}) {
+  return (
+    <MenuItem
+      className={MENU_ITEM_CLASSES}
+      onClick={() => {
+        toggleFollowEntrySelection(projectConfigId, entry);
+      }}
+    >
+      <RiCheckLine className={getFollowEntryCheckClassName(isSelected)} />
+      {entry.label}
+    </MenuItem>
+  );
+}
 
 export function FollowAIToggleButton({
   labelMode = "responsive",
@@ -47,217 +321,66 @@ export function FollowAIToggleButton({
     selectedSectionIdsByProjectConfigId[projectConfigId] ?? [];
   const selectedChatIdsKey = selectedChatIds.join("|");
   const selectedSectionIdsKey = selectedSectionIds.join("|");
-  const selectedChatSet = useMemo(
-    () => new Set(selectedChatIds),
-    [selectedChatIdsKey],
-  );
-  const selectedSectionSet = useMemo(
-    () => new Set(selectedSectionIds),
-    [selectedSectionIdsKey],
+  const selectedEntrySets = useMemo(
+    () => buildSelectedEntrySets(selectedChatIds, selectedSectionIds),
+    [selectedChatIdsKey, selectedSectionIdsKey],
   );
   const selectedCount = selectedChatIds.length + selectedSectionIds.length;
-  const stateClasses =
-    mode !== "off"
-      ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500"
-      : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white";
-  const defaultTriggerClassName =
-    "nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300";
-  const resolvedTriggerClassName = triggerClassName
-    ? `${triggerClassName} ${stateClasses}`
-    : `${defaultTriggerClassName} ${stateClasses}`;
   const showResponsiveLabel = labelMode === "responsive";
-  const menuItemClasses =
-    "flex items-center gap-2 px-1.5 py-1.5 text-xs text-setta-700 dark:text-setta-200 mx-1 rounded-md text-left hover:bg-setta-600 hover:text-white dark:hover:bg-setta-900 dark:hover:text-white active:bg-blue-100 active:dark:bg-blue-950 cursor-pointer";
 
-  const followEntries = useMemo(() => {
-    type FollowEntry = {
-      id: string;
-      label: string;
-      kind: "chat" | "section";
-      key: string;
-    };
-    const entries: Array<FollowEntry> = [];
-    if (typeof activeChatId === "string" && activeChatId.trim()) {
-      entries.push({
-        id: activeChatId,
-        label: `Project chat (${activeChatId.slice(0, 8)})`,
-        kind: "chat",
-        key: `chat:${activeChatId}`,
-      });
-    }
-    for (const [sectionId, core] of Object.entries(sections)) {
-      const variantId = sectionVariantMap[sectionId];
-      if (!variantId) {
-        continue;
-      }
-      const variant = sectionVariants[variantId];
-      if (!variant) {
-        continue;
-      }
-      const impl = sectionImpls[variant.impl];
-      if (!impl || impl.type !== SectionTypeEnum.Chat) {
-        continue;
-      }
-      const chatId = impl.chatId;
-      let baseLabel = "Chat";
-      const displayName = core.displayName?.trim();
-      if (displayName) {
-        baseLabel = displayName;
-      } else if (core.name) {
-        baseLabel = core.name;
-      }
-      const shortSectionId = sectionId.slice(0, 8);
-      let label = `${baseLabel} (${shortSectionId})`;
-      if (typeof chatId !== "string" || !chatId.trim()) {
-        label = `${label} (not started)`;
-      }
-      entries.push({
-        id: sectionId,
-        label,
-        kind: "section",
-        key: `section:${sectionId}`,
-      });
-    }
-    return _.uniqBy(entries, (entry) => entry.key);
-  }, [
-    activeChatId,
-    sections,
-    sectionImpls,
-    sectionVariantMap,
-    sectionVariants,
-  ]);
+  const followEntries = useMemo(
+    () =>
+      buildFollowEntries(
+        activeChatId,
+        sections,
+        sectionVariantMap,
+        sectionVariants,
+        sectionImpls,
+      ),
+    [activeChatId, sections, sectionImpls, sectionVariantMap, sectionVariants],
+  );
 
   return (
     <NavbarMenuDropdown
-      trigger={
-        <span className="inline-flex items-center gap-1">
-          <RiFocus2Line size={15} aria-hidden="true" />
-          <span
-            className={
-              showResponsiveLabel ? "hidden @[31.25rem]:block" : undefined
-            }
-            data-testid="follow-ai-visible-label"
-          >
-            Follow AI
-          </span>
-          <span
-            className={
-              showResponsiveLabel ? "sr-only @[31.25rem]:hidden" : "sr-only"
-            }
-          >
-            Follow AI
-          </span>
-        </span>
-      }
-      triggerClassName={resolvedTriggerClassName}
+      trigger={<FollowMenuTrigger showResponsiveLabel={showResponsiveLabel} />}
+      triggerClassName={getTriggerClassName(mode, triggerClassName)}
       contentClassName={`${APP_MENU_Z_INDEX_CLASS_NAME} min-w-[220px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850`}
     >
-      <MenuItem
-        className={menuItemClasses}
-        onClick={() => {
-          useAIFollow.setState((state) => {
-            state.mode = "off";
-          });
-        }}
-      >
-        <RiCheckLine
-          className={`h-3 w-3 ${mode === "off" ? "opacity-100" : "opacity-0"}`}
+      {FOLLOW_MODE_ITEMS.map((item) => (
+        <FollowModeMenuItem
+          key={item.mode}
+          currentMode={mode}
+          mode={item.mode}
+          label={item.label}
+          shortcut={
+            item.mode === "selected" && selectedCount > 0
+              ? String(selectedCount)
+              : undefined
+          }
         />
-        Off
-      </MenuItem>
-      <MenuItem
-        className={menuItemClasses}
-        onClick={() => {
-          useAIFollow.setState((state) => {
-            state.mode = "all";
-          });
-        }}
-      >
-        <RiCheckLine
-          className={`h-3 w-3 ${mode === "all" ? "opacity-100" : "opacity-0"}`}
-        />
-        Follow all
-      </MenuItem>
-      <MenuItem
-        className={menuItemClasses}
-        shortcut={selectedCount ? String(selectedCount) : ""}
-        onClick={() => {
-          useAIFollow.setState((state) => {
-            state.mode = "selected";
-          });
-        }}
-      >
-        <RiCheckLine
-          className={`h-3 w-3 ${
-            mode === "selected" ? "opacity-100" : "opacity-0"
-          }`}
-        />
-        Follow selected
-      </MenuItem>
-      <div className="my-1 h-px bg-setta-100 dark:bg-setta-700/70" />
+      ))}
+      <div className={MENU_DIVIDER_CLASS_NAME} />
       {followEntries.length === 0 ? (
-        <MenuItem className={menuItemClasses} disabled>
+        <MenuItem className={MENU_ITEM_CLASSES} disabled>
           No chats yet
         </MenuItem>
       ) : (
-        followEntries.map((entry) => {
-          const isSelected =
-            entry.kind === "chat"
-              ? selectedChatSet.has(entry.id)
-              : selectedSectionSet.has(entry.id);
-          return (
-            <MenuItem
-              key={entry.key}
-              className={menuItemClasses}
-              onClick={() => {
-                useAIFollow.setState((state) => {
-                  let selected: Array<string>;
-                  if (entry.kind === "chat") {
-                    selected =
-                      state.selectedChatIdsByProjectConfigId[projectConfigId] ??
-                      (state.selectedChatIdsByProjectConfigId[projectConfigId] =
-                        []);
-                  } else {
-                    selected =
-                      state.selectedSectionIdsByProjectConfigId[
-                        projectConfigId
-                      ] ??
-                      (state.selectedSectionIdsByProjectConfigId[
-                        projectConfigId
-                      ] = []);
-                  }
-                  const existingIndex = selected.indexOf(entry.id);
-                  if (existingIndex === -1) {
-                    selected.push(entry.id);
-                  } else {
-                    selected.splice(existingIndex, 1);
-                  }
-                  if (state.mode !== "selected") {
-                    state.mode = "selected";
-                  }
-                });
-              }}
-            >
-              <RiCheckLine
-                className={`h-3 w-3 ${
-                  isSelected ? "opacity-100" : "opacity-0"
-                }`}
-              />
-              {entry.label}
-            </MenuItem>
-          );
-        })
+        followEntries.map((entry) => (
+          <FollowEntryMenuItem
+            key={entry.key}
+            entry={entry}
+            isSelected={selectedEntrySets[entry.kind].has(entry.id)}
+            projectConfigId={projectConfigId}
+          />
+        ))
       )}
       {selectedCount > 0 ? (
         <>
-          <div className="my-1 h-px bg-setta-100 dark:bg-setta-700/70" />
+          <div className={MENU_DIVIDER_CLASS_NAME} />
           <MenuItem
-            className={menuItemClasses}
+            className={MENU_ITEM_CLASSES}
             onClick={() => {
-              useAIFollow.setState((state) => {
-                state.selectedChatIdsByProjectConfigId[projectConfigId] = [];
-                state.selectedSectionIdsByProjectConfigId[projectConfigId] = [];
-              });
+              clearFollowSelection(projectConfigId);
             }}
           >
             Clear selection
