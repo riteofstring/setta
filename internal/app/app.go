@@ -1543,50 +1543,20 @@ func initializeIDEStateMachineServices(
 ) error {
 	var err error
 	services.stateMachineRuntime, err = statemachineruns.NewRuntime(statemachineruns.RuntimeOptions{
-		Runs:      services.agentRunStore,
-		Engines:   services.engineStore,
-		Profiles:  agentProfileStore,
-		Templates: promptTemplateStore,
-		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
-			if shareSessionID != nil && strings.TrimSpace(*shareSessionID) != "" {
-				if deploymentRuntime == nil {
-					return nil, fmt.Errorf("deployment runtime is required for workflow share session %s", strings.TrimSpace(*shareSessionID))
-				}
-				return deploymentRuntime.Overlay(strings.TrimSpace(*shareSessionID))
-			}
-			if projectRuntime == nil {
-				return nil, fmt.Errorf("project runtime is required")
-			}
-			return projectRuntime, nil
-		},
-		ManagedChats:  services.managedChatService,
-		ManagedRuns:   services.agentRunRuntime,
-		ExternalChats: services.externalAgentSend,
-		ExternalRuns:  services.externalAgentRuntime,
+		Runs:                  services.agentRunStore,
+		Engines:               services.engineStore,
+		Profiles:              agentProfileStore,
+		Templates:             promptTemplateStore,
+		ResolveProjectRuntime: newStateMachineProjectRuntimeResolver(projectRuntime, deploymentRuntime),
+		ManagedChats:          services.managedChatService,
+		ManagedRuns:           services.agentRunRuntime,
+		ExternalChats:         services.externalAgentSend,
+		ExternalRuns:          services.externalAgentRuntime,
 	})
 	if err != nil {
 		return err
 	}
-	services.agentRunStore.AddAfterSaveListener(func(run agentruns.Run) {
-		if services.stateMachineRuntime == nil {
-			return
-		}
-		switch run.Status {
-		case agentruns.RunStatusCompleted, agentruns.RunStatusFailed, agentruns.RunStatusCancelled:
-		default:
-			return
-		}
-		parentRunType, ok := run.Inputs["stateMachineParentRunType"].(string)
-		if !ok || strings.TrimSpace(parentRunType) != statemachineruns.RunTypeStateMachine {
-			return
-		}
-		savedRun := run.Clone()
-		go func() {
-			if _, err := services.stateMachineRuntime.HandleTerminalChildRunUpdate(savedRun); err != nil {
-				logger.Error("state machine runtime failed to process child run update", "runId", savedRun.ID, "error", err)
-			}
-		}()
-	})
+	registerStateMachineTerminalChildRunListener(logger, services)
 	externalAgentRunService, err := externalagents.NewRunService(externalagents.RunServiceOptions{
 		ProjectState: projectRuntime,
 		Engines:      services.engineStore,
@@ -1610,6 +1580,88 @@ func initializeIDEStateMachineServices(
 		TemporaryIDs: services.temporaryIDs,
 	})
 	return err
+}
+
+func newStateMachineProjectRuntimeResolver(
+	projectRuntime *projectstate.Runtime,
+	deploymentRuntime *deployments.Runtime,
+) func(*string) (*projectstate.Runtime, error) {
+	return func(shareSessionID *string) (*projectstate.Runtime, error) {
+		return resolveStateMachineProjectRuntime(projectRuntime, deploymentRuntime, shareSessionID)
+	}
+}
+
+func resolveStateMachineProjectRuntime(
+	projectRuntime *projectstate.Runtime,
+	deploymentRuntime *deployments.Runtime,
+	shareSessionID *string,
+) (*projectstate.Runtime, error) {
+	trimmedShareSessionID := ""
+	if shareSessionID != nil {
+		trimmedShareSessionID = strings.TrimSpace(*shareSessionID)
+	}
+	if trimmedShareSessionID == "" {
+		if projectRuntime == nil {
+			return nil, fmt.Errorf("project runtime is required")
+		}
+		return projectRuntime, nil
+	}
+	if deploymentRuntime == nil {
+		return nil, fmt.Errorf(
+			"deployment runtime is required for workflow share session %s",
+			trimmedShareSessionID,
+		)
+	}
+	return deploymentRuntime.Overlay(trimmedShareSessionID)
+}
+
+func registerStateMachineTerminalChildRunListener(
+	logger *slog.Logger,
+	services *ideAgentServices,
+) {
+	services.agentRunStore.AddAfterSaveListener(func(run agentruns.Run) {
+		if !shouldHandleStateMachineTerminalChildRun(services.stateMachineRuntime, run) {
+			return
+		}
+		savedRun := run.Clone()
+		go processStateMachineTerminalChildRun(logger, services.stateMachineRuntime, savedRun)
+	})
+}
+
+func shouldHandleStateMachineTerminalChildRun(
+	runtime *statemachineruns.Runtime,
+	run agentruns.Run,
+) bool {
+	if runtime == nil || !isTerminalAgentRunStatus(run.Status) {
+		return false
+	}
+	parentRunType, ok := run.Inputs["stateMachineParentRunType"].(string)
+	return ok && strings.TrimSpace(parentRunType) == statemachineruns.RunTypeStateMachine
+}
+
+func isTerminalAgentRunStatus(status agentruns.RunStatus) bool {
+	switch status {
+	case agentruns.RunStatusCompleted, agentruns.RunStatusFailed, agentruns.RunStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+func processStateMachineTerminalChildRun(
+	logger *slog.Logger,
+	runtime *statemachineruns.Runtime,
+	savedRun agentruns.Run,
+) {
+	if _, err := runtime.HandleTerminalChildRunUpdate(savedRun); err != nil {
+		logger.Error(
+			"state machine runtime failed to process child run update",
+			"runId",
+			savedRun.ID,
+			"error",
+			err,
+		)
+	}
 }
 
 type appHandlerDeps struct {
