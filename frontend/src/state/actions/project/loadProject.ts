@@ -49,19 +49,25 @@ export async function loadProjectConfig({ projectConfigName }) {
     const loadedProjectState = validateLoadedProjectState(res.data);
     const loaded = await loadProjectState(loadedProjectState);
     if (loaded) {
-      const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-        projectConfigId: loadedProjectState.projectConfig.id,
-      });
-      if (res200(diagnosticsRes)) {
-        processLspDiagnostics(diagnosticsRes.data);
-      }
-      await requestAIFollowSnapshot(loadedProjectState.projectConfig.id);
-      await fetchListenerCoverageSnapshot(loadedProjectState.projectConfig.id);
+      void hydrateLoadedProjectSideEffects(loadedProjectState.projectConfig.id);
     }
     return loaded;
   } else {
     return false;
   }
+}
+
+async function hydrateLoadedProjectSideEffects(
+  projectConfigId: string,
+): Promise<void> {
+  const diagnosticsRes = await route_get_latest_lsp_diagnostics({
+    projectConfigId,
+  });
+  if (res200(diagnosticsRes)) {
+    processLspDiagnostics(diagnosticsRes.data);
+  }
+  await requestAIFollowSnapshot(projectConfigId);
+  await fetchListenerCoverageSnapshot(projectConfigId);
 }
 
 function validateLoadedProjectState(

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 23:47 UTC
+Last updated: 2026-04-12 23:40 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,99 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `362` landed one bounded direct-`/settings` project-load tail split on
+  the canonical `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in:
+    - `frontend/src/state/actions/project/loadProject.ts`
+      so `loadProjectConfig(...)` now returns as soon as the core project state
+      is published and moves diagnostics, AI-follow snapshot hydration, and
+      listener-coverage hydration into a background follow-up instead of
+      keeping the route in the blank loading shell until those extra requests
+      settle
+    - `frontend/src/state/hooks/project.ts`
+      so `useLoadProjectConfig()` tracks its own in-flight route load instead
+      of treating a stale global `projectIsLoading` flag as a hard blocker
+  - focused regression coverage added in:
+    - `frontend/src/state/actions/project/loadProject.test.ts`
+      to prove the loaded project publishes before the deferred diagnostics /
+      follow-up fetch chain resolves
+    - `frontend/src/state/hooks/project.test.tsx`
+      to prove the current route still reloads when `projectIsLoading` starts
+      stale-true
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/hooks/project.test.tsx src/state/actions/project/loadProject.test.ts`
+      -> passed (`2` files, `15` tests)
+    - `pnpm -C frontend exec prettier --check src/state/hooks/project.ts src/state/hooks/project.test.tsx src/state/actions/project/loadProject.ts src/state/actions/project/loadProject.test.ts`
+      -> passed
+    - direct headless Playwright storageState probe on
+      `http://127.0.0.1:3075/settings`
+      with sessionStorage backend-origin override forced to
+      `http://127.0.0.1:8075`
+      -> still showed `projectIsLoading: true`, zero sections, and the loading
+         spinner after the observation window
+      -> the automatic mount path still did not emit an observed
+         `/api/loadProjectConfig` response during that probe
+    - fresh-context CDP check on `http://127.0.0.1:3075/settings`
+      via the live debug session
+      -> page was mounted, showed a `Settings` page with a `main` region, a
+         `/home` link, and visible `Connected to server` text rather than the
+         blank shell / spinner
+  - reading:
+    - the old project-load action was definitely holding visible route
+      readiness on trailing diagnostics / AI-follow / listener-coverage work,
+      and that critical-path coupling is now removed
+    - the remaining blocker is now narrower and explicitly split by runtime
+      context:
+      - the fresh Playwright storageState repro still stalls on the direct
+        auto-mount path before a healthy settings surface appears
+      - the attached live debug-session CDP path no longer shows the blank
+        shell, so the failure is not a simple always-broken product mount on
+        the running worktree
+    - do not reopen generic wait-helper churn from here; the next useful slice
+      is to trace why the fresh Playwright `/settings` path does not take the
+      same successful route-load path as the mounted live debug session
+  - next default frontier:
+    - trace the divergence between the fresh Playwright storageState path and
+      the mounted CDP/debug-session path for direct `/settings`, starting with
+      auth/session bootstrap and the first automatic `useLoadProjectConfig()`
+      trigger on the Playwright side
+    - specifically identify whether the missing automatic project load is
+      caused by stale bootstrap state, sessionStorage/backend-origin handoff,
+      or a hook/action path that still fails only in fresh browser contexts
+
+- progress review checkpoint for runs `041` through `050`:
+
+  - recent trajectory is still worth continuing, but only with a sharper
+    direction change
+  - real forward progress in this stretch:
+    - runs `042` through `044` removed three wide mounted transform
+      subscriptions from `interactionReactFlowStateSync`
+    - run `046` restored a trustworthy worktree-only numeric probe and showed
+      `interactionReactFlowStateSync` at `0`, moving the measured hotspot to
+      `interactionMiscStateSync`
+    - runs `047` and `049` landed two bounded product-side
+      `interactionMiscStateSync` reductions with focused tests
+  - real diminishing-return lane:
+    - after run `048` restored the numeric path, the final two passes spent
+      more time on readiness-helper churn than on new product evidence
+    - run `050` already proved the remaining blocker is not the old wait
+      heuristic; direct authenticated `/settings` can settle to a blank shell
+      with neither graph surface nor settings article mounted
+  - active Gate 0 blocker:
+    - direct authenticated `/settings` mount health on the worktree runtime
+  - hard next-step rule:
+    - do not edit `waitForInitialSettingsGraphReady(...)`, Playwright global
+      setup, or cross-worktree probe helpers again unless a direct `/settings`
+      mount trace proves one of those helpers is still misclassifying state
+  - next default frontier:
+    - trace the direct `/settings` path from `ensureAppReady(...)` through
+      `page.goto(SETTINGS_URL)` and the first settings-content mount decision
+      so the next iteration names the concrete owner of the blank-shell
+      outcome
+    - if one bounded trace cannot name that owner, stop for human direction
+      instead of reopening more probe/setup churn
 
 - item `361` landed one bounded direct-`/settings` readiness classification
   slice on the canonical `rotaryParamCodeObjDefault` lane:

@@ -1,3 +1,5 @@
+import { requestAIFollowSnapshot } from "state/actions/aiFollow";
+import { fetchListenerCoverageSnapshot } from "state/actions/listenerCoverage";
 import {
   buildProjectChatEphemeralWindowInstanceKey,
   getTrackedGitPaneGraphWindowInstanceIdForProject,
@@ -21,6 +23,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeLoadAllProjectMetadataMock = vi.fn();
 const initializeServerModeMock = vi.fn();
+const processLspDiagnosticsMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_create_project_config: vi.fn(),
@@ -35,7 +38,37 @@ vi.mock("../serverMode", () => ({
     initializeServerModeMock(...args),
 }));
 
-import { loadAllProjectMetadata, loadProjectState } from "./loadProject";
+vi.mock("../aiFollow", () => ({
+  requestAIFollowSnapshot: vi.fn(),
+}));
+
+vi.mock("../listenerCoverage", () => ({
+  fetchListenerCoverageSnapshot: vi.fn(),
+}));
+
+vi.mock("../lspDiagnostics", () => ({
+  processLspDiagnostics: (...args: unknown[]) =>
+    processLspDiagnosticsMock(...args),
+}));
+
+import {
+  route_get_latest_lsp_diagnostics,
+  route_load_project_config,
+} from "utils/generatedEndpoints";
+import {
+  loadAllProjectMetadata,
+  loadProjectConfig,
+  loadProjectState,
+} from "./loadProject";
+
+const routeLoadProjectConfigMock = vi.mocked(route_load_project_config);
+const routeGetLatestLspDiagnosticsMock = vi.mocked(
+  route_get_latest_lsp_diagnostics,
+);
+const requestAIFollowSnapshotMock = vi.mocked(requestAIFollowSnapshot);
+const fetchListenerCoverageSnapshotMock = vi.mocked(
+  fetchListenerCoverageSnapshot,
+);
 
 describe("loadAllProjectMetadata", () => {
   beforeEach(() => {
@@ -100,6 +133,11 @@ describe("loadAllProjectMetadata", () => {
 describe("loadProjectState", () => {
   beforeEach(() => {
     resetProjectStores();
+    routeLoadProjectConfigMock.mockReset();
+    routeGetLatestLspDiagnosticsMock.mockReset();
+    requestAIFollowSnapshotMock.mockReset();
+    fetchListenerCoverageSnapshotMock.mockReset();
+    processLspDiagnosticsMock.mockReset();
   });
 
   it("throws when loaded project config is missing window spaces", async () => {
@@ -305,5 +343,59 @@ describe("loadProjectState", () => {
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
     ).toEqual({});
+  });
+
+  it("publishes the loaded project before trailing diagnostics and follow-up fetches settle", async () => {
+    const loadedProjectState: ProjectStateSingleConfigInput = {
+      projectConfig: createProjectConfig({
+        id: "project-fast",
+        name: "settings",
+      }),
+      projectChatWindowing: createProjectChatWindowingState(),
+    };
+    let resolveDiagnostics: (() => void) | null = null;
+
+    routeLoadProjectConfigMock.mockResolvedValue({
+      data: loadedProjectState,
+      status: 200,
+      hasResponse: true,
+    });
+    routeGetLatestLspDiagnosticsMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveDiagnostics = () => {
+            resolve({
+              data: [],
+              status: 200,
+              hasResponse: true,
+            });
+          };
+        }),
+    );
+    requestAIFollowSnapshotMock.mockResolvedValue();
+    fetchListenerCoverageSnapshotMock.mockResolvedValue();
+
+    const loadPromise = loadProjectConfig({ projectConfigName: "settings" });
+
+    await vi.waitFor(() => {
+      expect(useProjectState.getState().projectConfig.name).toBe("settings");
+    });
+
+    await expect(loadPromise).resolves.toBe(true);
+    expect(routeGetLatestLspDiagnosticsMock).toHaveBeenCalledWith({
+      projectConfigId: "project-fast",
+    });
+    expect(requestAIFollowSnapshotMock).not.toHaveBeenCalled();
+    expect(fetchListenerCoverageSnapshotMock).not.toHaveBeenCalled();
+
+    resolveDiagnostics?.();
+
+    await vi.waitFor(() => {
+      expect(processLspDiagnosticsMock).toHaveBeenCalledWith([]);
+      expect(requestAIFollowSnapshotMock).toHaveBeenCalledWith("project-fast");
+      expect(fetchListenerCoverageSnapshotMock).toHaveBeenCalledWith(
+        "project-fast",
+      );
+    });
   });
 });

@@ -75,6 +75,83 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 23:40 UTC
+
+- item `362` landed one bounded direct-`/settings` project-load tail split on
+  the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/state/actions/project/loadProject.ts` so the route
+    publishes the loaded project state before trailing diagnostics,
+    AI-follow-snapshot hydration, and listener-coverage hydration finish
+  - changed `frontend/src/state/hooks/project.ts` so the hook tracks its own
+    in-flight load instead of letting a stale global `projectIsLoading` bit
+    block the current route forever
+  - added focused regressions in:
+    - `frontend/src/state/actions/project/loadProject.test.ts`
+    - `frontend/src/state/hooks/project.test.tsx`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/state/hooks/project.test.tsx src/state/actions/project/loadProject.test.ts`
+      -> passed (`2` files, `15` tests)
+    - `pnpm -C frontend exec prettier --check src/state/hooks/project.ts src/state/hooks/project.test.tsx src/state/actions/project/loadProject.ts src/state/actions/project/loadProject.test.ts`
+      -> passed
+    - direct headless Playwright storageState probe on `/settings` with forced
+      backend-origin sessionStorage override
+      -> still observed `projectIsLoading: true`, zero sections, and the
+         loading spinner after the observation window
+      -> the automatic mount path still did not show an observed
+         `/api/loadProjectConfig` response during that probe
+    - fresh-context CDP check on the live debug session at
+      `http://127.0.0.1:3075/settings`
+      -> page was mounted and showed a `Settings` page with a `main` region, a
+         `/home` link, and visible `Connected to server` text
+  - reading:
+    - this slice removes one real critical-path blocker from the direct
+      project-load action, but it does not fully explain the fresh Playwright
+      repro yet
+    - the active blocker is now the divergence between:
+      - a fresh Playwright storageState path that still stalls before the
+        automatic direct `/settings` mount completes
+      - the attached live debug-session CDP path that already mounts a visible
+        settings surface
+  - next:
+    - trace why the fresh Playwright `/settings` path is not taking the same
+      successful automatic route-load path as the live debug session, starting
+      with auth/session bootstrap plus the first `useLoadProjectConfig()`
+      trigger
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-12 23:22 UTC
+
+- progress review checkpoint for loop `001`, runs `041` through `050`:
+  - decision:
+    - continue, but only after a durable replan
+  - evidence of real forward progress:
+    - runs `042` through `044` landed three bounded product-side reductions on
+      the wide mounted `interactionReactFlowStateSync` path
+    - run `046` restored a trustworthy worktree-only numeric probe and showed
+      `interactionReactFlowStateSync` at `0`, moving the dominant owner to
+      `interactionMiscStateSync`
+    - runs `047` and `049` landed two bounded
+      `interactionMiscStateSync` reductions with focused tests
+  - evidence of diminishing returns:
+    - after run `048` recovered the numeric path, the remaining iterations
+      shifted back into probe/readiness churn
+    - run `050` already narrowed the active blocker to a blank authenticated
+      direct `/settings` shell, so reopening wait helpers or cross-worktree
+      probe setup again would be another rabbit hole
+  - durable direction change:
+    - treat the cross-worktree main-reference lane as closed for default
+      sequencing on this runtime
+    - treat direct authenticated `/settings` mount health as the active Gate 0
+      blocker for trustworthy live canary verification
+    - next bounded frontier is to trace the direct `/settings` mount path from
+      `ensureAppReady(...)` through route/content mount and name the concrete
+      owner of the blank-shell outcome
+    - if one bounded trace still cannot name that owner, stop for human
+      direction instead of continuing helper churn
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 23:47 UTC
 
 - item `361` landed one bounded direct-`/settings` readiness classification
