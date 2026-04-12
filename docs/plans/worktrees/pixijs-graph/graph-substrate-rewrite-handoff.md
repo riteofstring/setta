@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 04:08 UTC
+Last updated: 2026-04-13 04:18 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,57 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `389` landed one bounded mounted text-block body selector reduction on
+  the live `/settings` canary lane after a local ranking pass:
+  - local ranking/readout for this iteration:
+    - checked the remaining mounted section-body and section-shell owners still
+      using `lodash/isEqual` before taking another product slice
+    - `TextBlock` was the clearest remaining broad body-entry owner because it
+      is a common mounted section body and its `getTextBlockText(...)`
+      selector returns only primitive fields
+      (`format`, `masterFontSizePx`, `headingAsSectionName`,
+      `metaControlStyle`, `text`)
+    - narrower menu/control candidates were left for later passes
+  - product code changed in:
+    - `frontend/src/components/Section/Layouts/TextBlock.tsx`
+      so the mounted text-block body selector now uses `zustand/shallow`
+      equality instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/TextBlock.test.tsx`
+      to prove mounted text-block bodies stay out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when their
+      subscribed text changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-text-block-shallow-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/TextBlock.test.tsx`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/TextBlock.tsx src/components/Section/Layouts/TextBlock.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke after one bounded worktree lifecycle
+      recovery
+      -> first direct `http://127.0.0.1:3075/settings` check failed on a blank
+         root because the reset cleared auth cookies
+      -> `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+         restarted the worktree cleanly
+      -> refreshed runtime info via
+         `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-014/worktree-ai.log`
+      -> retrying CDP with the refreshed bootstrap URL passed; the app rendered
+         Settings chrome with `OVERVIEW`, `Project AI Settings`, and the
+         `Core` / `Section Defaults` / `Param Defaults` / `All Settings` tabs
+  - reading:
+    - this stayed on a mounted section-body owner rather than falling back to a
+      tiny control-only selector
+    - the subscribed source-of-truth fields stayed unchanged, so the slice only
+      reduced comparator overhead on unrelated project-state writes
+    - after `aireset`, do not treat a direct unauthenticated `/settings` blank
+      root as renderer drift; consume the fresh bootstrap URL first
+  - next default frontier:
+    - identify the next remaining broad mounted section-body, section-shell, or
+      shared write-fan-out owner on the live `/settings` worktree, preferring
+      another wrapper/body/shell path over control-only churn and stopping for
+      replan if the next ranked candidate is no longer broad
 
 - item `388` landed one bounded mounted workflow-node body snapshot selector
   reduction on the live `/settings` canary lane after a local ranking pass:
