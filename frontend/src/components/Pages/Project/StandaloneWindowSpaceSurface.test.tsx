@@ -17,6 +17,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   StandaloneWindowSpaceSurface,
   applyStandaloneWindowSpaceHydration,
+  createActiveStandaloneSnapResize,
   mergeHydratedStandaloneWindows,
 } from "./StandaloneWindowSpaceSurface";
 
@@ -567,6 +568,117 @@ describe("StandaloneWindowSpaceSurface", () => {
     );
     expect(markup).toContain('data-resize-axis="vertical"');
     expect(markup).toContain("z-index:24");
+  });
+
+  it("builds vertical snap-resize state from the snapped window bounds", () => {
+    expect(
+      createActiveStandaloneSnapResize({
+        windowsById: {
+          left: {
+            instanceId: "left",
+            surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+            sectionIdOrNull: null,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Left",
+            chatId: null,
+            embeddedGitPaneVisible: false,
+            zIndex: 1,
+            bounds: {
+              x: 0,
+              y: 0,
+              width: 400,
+              height: 600,
+            },
+          },
+          right: {
+            instanceId: "right",
+            surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+            sectionIdOrNull: null,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Right",
+            chatId: null,
+            embeddedGitPaneVisible: false,
+            zIndex: 2,
+            bounds: {
+              x: 400,
+              y: 0,
+              width: 600,
+              height: 600,
+            },
+          },
+        },
+        handle: {
+          axis: "vertical",
+          coordinate: 400,
+          start: 0,
+          end: 600,
+          leadingInstanceIds: ["left"],
+          trailingInstanceIds: ["right"],
+        },
+        pointerId: 9,
+        pointerX: 420,
+        pointerY: 120,
+      }),
+    ).toEqual({
+      pointerId: 9,
+      axis: "vertical",
+      startPointerPosition: 420,
+      startCoordinate: 400,
+      minCoordinate: 220,
+      maxCoordinate: 780,
+      leadingInstanceIds: ["left"],
+      trailingInstanceIds: ["right"],
+      startBoundsByInstanceId: {
+        left: {
+          x: 0,
+          y: 0,
+          width: 400,
+          height: 600,
+        },
+        right: {
+          x: 400,
+          y: 0,
+          width: 600,
+          height: 600,
+        },
+      },
+    });
+  });
+
+  it("returns null when a snap-resize handle references a missing window", () => {
+    expect(
+      createActiveStandaloneSnapResize({
+        windowsById: {
+          left: {
+            instanceId: "left",
+            surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+            sectionIdOrNull: null,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Left",
+            chatId: null,
+            embeddedGitPaneVisible: false,
+            zIndex: 1,
+            bounds: {
+              x: 0,
+              y: 0,
+              width: 400,
+              height: 600,
+            },
+          },
+        },
+        handle: {
+          axis: "horizontal",
+          coordinate: 300,
+          start: 0,
+          end: 800,
+          leadingInstanceIds: ["left"],
+          trailingInstanceIds: ["missing"],
+        },
+        pointerId: 4,
+        pointerX: 100,
+        pointerY: 300,
+      }),
+    ).toBeNull();
   });
 
   it("shows an empty-state message when the saved space has no windows", () => {
