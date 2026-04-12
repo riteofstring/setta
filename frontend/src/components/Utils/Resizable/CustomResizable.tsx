@@ -41,6 +41,59 @@ import {
   SIZE_MODE,
 } from "./utils";
 const AUTO_CLAMP_TOLERANCE = 2;
+const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
+const DEFAULT_HANDLE_CLASSES = {
+  right: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-right`,
+  bottom: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-bottom`,
+  bottomRight: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-bottom-right`,
+};
+const DEFAULT_HANDLE_STYLES = {
+  right: { right: "-8px" },
+  bottom: { bottom: "-8px" },
+};
+const ATTACHED_TERMINAL_HANDLE_STYLES = {
+  right: { right: "-4px", width: 16, top: 0, bottom: 0, height: "100%" },
+  bottom: {
+    bottom: "-4px",
+    height: 16,
+    left: 0,
+    right: 0,
+    width: "100%",
+  },
+  bottomRight: { right: "-4px", bottom: "-4px", width: 24, height: 24 },
+};
+const META_CONTROL_HANDLE_STYLES = {
+  right: { right: "-8px", width: 16, top: 0, bottom: 0, height: "100%" },
+  bottom: {
+    bottom: "-8px",
+    height: 16,
+    left: 0,
+    right: 0,
+    width: "100%",
+  },
+  bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
+};
+const DEFAULT_HANDLE_WRAPPER_CLASS_NAME =
+  "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20";
+const ATTACHED_TERMINAL_HANDLE_WRAPPER_CLASS_NAME =
+  "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-30";
+const META_CONTROL_HANDLE_BASE_CLASS_NAME =
+  "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
+const ACTIVE_META_CONTROL_HANDLE_CLASS_NAME =
+  "opacity-100 after:bg-blue-500/80 dark:after:bg-blue-400/80";
+const META_CONTROL_HANDLE_CURSOR_CLASSES = {
+  right:
+    "cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2",
+  bottom:
+    "cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2",
+  bottomRight: "cursor-nwse-resize after:inset-1",
+};
+const RESIZE_HANDLE_CLASS_NAMES = [
+  ["section-resize-handle-bottom-right", "bottomRight"],
+  ["section-resize-handle-bottom", "bottom"],
+  ["section-resize-handle-right", "right"],
+] as const satisfies ReadonlyArray<readonly [string, ResizeHandleDirection]>;
+
 export function CustomResizable({
   sectionId,
   bgColor,
@@ -121,6 +174,12 @@ function CustomResizableCore({
     lastDirection: ResizeHandleDirection | null;
   }>({ lastTimestampMs: null, lastDirection: null });
   const doubleClickPendingRef = useRef(false);
+  const resizeStateRefs = {
+    resizeStartedRef,
+    autoSizePromotedRef,
+    resizeAttemptedRef,
+    doubleClickPendingRef,
+  };
   function maybePromoteAutoSize(direction, ref) {
     if (
       !autoSizePromotedRef.current &&
@@ -135,26 +194,7 @@ function CustomResizableCore({
         });
         if (nextSize) {
           autoSizePromotedRef.current = true;
-          let updatedSectionSizes: Record<string, SectionSize> = {};
-          dispatchOptimisticProjectStateUpdate({
-            apply: (state) => {
-              updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-                sectionId,
-                nextSize,
-                state,
-              );
-            },
-            send: (frontendOpId) =>
-              callOpenAPI(
-                setSectionSizes({
-                  body: {
-                    projectConfigId: getCurrProjectConfigId(),
-                    sectionSizes: updatedSectionSizes,
-                    frontendOpId,
-                  },
-                } as Parameters<typeof setSectionSizes>[0]),
-              ),
-          });
+          persistSectionSizeChange(sectionId, nextSize);
         }
       }
     }
@@ -171,13 +211,14 @@ function CustomResizableCore({
     maybePromoteAutoSize(direction, ref);
     startResizeEvent(direction);
   }
-  function onResizeStart(_event, direction, _ref) {
+  function onResizeStart() {
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
     resizeAttemptedRef.current = false;
     useMisc.setState({ mouseDownDraggingSection: true });
   }
-  function onResize(_event, direction, ref, _delta) {
+  function onResize(...props) {
+    const [, direction, ref] = props;
     resizeAttemptedRef.current = true;
     doubleClickPendingRef.current = false;
     beginResize(direction, ref);
@@ -194,172 +235,62 @@ function CustomResizableCore({
     }
   }
   function onResizeStop(...props) {
-    const [event, direction, ref, delta] = props;
+    const [event, , ref, delta] = props;
     const isZeroDelta = delta.width === 0 && delta.height === 0;
+    const resizeAttempted = resizeAttemptedRef.current;
     const isDoubleClick = isResizeDoubleClick({
       isPending: doubleClickPendingRef.current,
       eventDetail: event.detail,
       isZeroDelta,
-      resizeAttempted: resizeAttemptedRef.current,
+      resizeAttempted,
     });
     const shouldEmitResizeEnd = shouldEmitResizeEndEvent({
       resizeStarted: resizeStartedRef.current,
-      resizeAttempted: resizeAttemptedRef.current,
+      resizeAttempted,
       isZeroDelta,
       isDoubleClick,
     });
-    if (isZeroDelta && !isDoubleClick && !resizeAttemptedRef.current) {
-      if (shouldEmitResizeEnd) {
-        useResizeEvent.setState((state) => {
-          setSectionResizeEvent(sectionId, "end", state);
-        });
-      }
-      useMisc.setState({ mouseDownDraggingSection: false });
-      resizeStartedRef.current = false;
-      autoSizePromotedRef.current = false;
-      resizeAttemptedRef.current = false;
-      doubleClickPendingRef.current = false;
+    if (
+      shouldSkipResizeStopUpdate({
+        isZeroDelta,
+        isDoubleClick,
+        resizeAttempted,
+      })
+    ) {
+      finishResizeStop({ sectionId, shouldEmitResizeEnd, resizeStateRefs });
       return;
     }
-    const changedSize = getChangedSize({
+    const changedSize = resolveResizeStopSize({
       props,
+      ref,
       sizeMode,
       aspectRatio,
-      isDoubleClickOverride: isDoubleClick,
+      isDoubleClick,
     });
-    if (
-      !isDoubleClick &&
-      ref &&
-      typeof ref.getBoundingClientRect === "function"
-    ) {
-      if (
-        changedSize.height === "auto" ||
-        (typeof changedSize.height === "number" &&
-          Number.isNaN(changedSize.height))
-      ) {
-        changedSize.height = Math.round(ref.offsetHeight);
-      }
-      if (
-        changedSize.width === "auto" ||
-        (typeof changedSize.width === "number" &&
-          Number.isNaN(changedSize.width))
-      ) {
-        changedSize.width = Math.round(ref.offsetWidth);
-      }
-    }
     const clampedSize = clampChangedSize({
       changedSize,
       minHeight,
       minWidth,
       aspectRatio,
     });
-    let updatedSectionSizes: Record<string, SectionSize> = {};
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-          sectionId,
-          clampedSize,
-          state,
-        );
-      },
-      send: (frontendOpId) =>
-        callOpenAPI(
-          setSectionSizes({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionSizes: updatedSectionSizes,
-              frontendOpId,
-            },
-          } as Parameters<typeof setSectionSizes>[0]),
-        ),
-    });
-    if (shouldEmitResizeEnd) {
-      useResizeEvent.setState((state) => {
-        setSectionResizeEvent(sectionId, "end", state);
-      });
-    }
-    useMisc.setState({ mouseDownDraggingSection: false });
-    resizeStartedRef.current = false;
-    autoSizePromotedRef.current = false;
-    resizeAttemptedRef.current = false;
-    doubleClickPendingRef.current = false;
+    persistSectionSizeChange(sectionId, clampedSize);
+    finishResizeStop({ sectionId, shouldEmitResizeEnd, resizeStateRefs });
   }
   useEffect(() => {
-    const hasHeight = typeof size.height === "number";
-    const hasWidth = typeof size.width === "number";
-    const heightDelta = hasHeight ? minHeight - size.height : null;
-    const widthDelta = hasWidth ? minWidth - size.width : null;
-    const shouldClampHeight =
-      sizeMode.height !== SIZE_MODE.auto_only &&
-      heightDelta !== null &&
-      heightDelta > AUTO_CLAMP_TOLERANCE;
-    const shouldClampWidth =
-      sizeMode.width !== SIZE_MODE.auto_only &&
-      widthDelta !== null &&
-      widthDelta > AUTO_CLAMP_TOLERANCE;
-    if (!shouldClampHeight && !shouldClampWidth) {
-      return;
-    }
-    const nextSize: Partial<SectionSize> = {};
-    if (
-      aspectRatio &&
-      hasHeight &&
-      hasWidth &&
-      sizeMode.height !== SIZE_MODE.auto_only &&
-      sizeMode.width !== SIZE_MODE.auto_only
-    ) {
-      const adjusted = adjustSizeToBeAtLeastMin(
-        size.height,
-        size.width,
-        minHeight,
-        minWidth,
-      );
-      if (
-        sizeMode.height !== SIZE_MODE.auto_only &&
-        adjusted.height !== size.height
-      ) {
-        nextSize.height = adjusted.height;
-      }
-      if (
-        sizeMode.width !== SIZE_MODE.auto_only &&
-        adjusted.width !== size.width
-      ) {
-        nextSize.width = adjusted.width;
-      }
-    } else {
-      if (shouldClampHeight) {
-        nextSize.height = minHeight;
-      }
-      if (shouldClampWidth) {
-        nextSize.width = minWidth;
-      }
-    }
-    if (_.size(nextSize) === 0) {
+    const nextSize = getAutoClampSize({
+      size,
+      minHeight,
+      minWidth,
+      sizeMode,
+      aspectRatio,
+    });
+    if (!nextSize) {
       return;
     }
     if (!canEditLayout || positionAndSizeLocked) {
       return;
     }
-    let updatedSectionSizes: Record<string, SectionSize> = {};
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-          sectionId,
-          nextSize,
-          state,
-        );
-      },
-      send: (frontendOpId) =>
-        callOpenAPI(
-          setSectionSizes({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionSizes: updatedSectionSizes,
-              frontendOpId,
-            },
-          } as Parameters<typeof setSectionSizes>[0]),
-        ),
-    });
+    persistSectionSizeChange(sectionId, nextSize);
   }, [
     minHeight,
     minWidth,
@@ -450,19 +381,12 @@ function CustomResizableSuperCore({
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
     null,
   );
-  const enable =
-    disablePointerEvents || positionAndSizeLocked
-      ? false
-      : {
-          top: false,
-          left: false,
-          bottom: heightResizable,
-          right: widthResizable,
-          topRight: false,
-          bottomRight: heightResizable && widthResizable,
-          topLeft: false,
-          bottomLeft: false,
-        };
+  const enable = getResizableEnable({
+    disablePointerEvents,
+    positionAndSizeLocked,
+    heightResizable,
+    widthResizable,
+  });
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
   // MetaControl sections render outboard controls near the agentic handles.
@@ -481,45 +405,12 @@ function CustomResizableSuperCore({
     layoutClassName: layoutClassNameToUse,
     metaHoverZIndexClassName: metaHoverZIndexClass,
   });
-  const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
-  const handleBaseClasses = {
-    right: `${handleBaseClassName} section-resize-handle section-resize-handle-right`,
-    bottom: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom`,
-    bottomRight: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom-right`,
-  };
-  const metaControlHandleBaseClassName =
-    "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
-  function getMetaControlHandleActiveClassName(direction: string) {
-    if (!isMetaControl) {
-      return "";
-    }
-    if (activeResizeHandle !== direction) {
-      return "";
-    }
-    return "opacity-100 after:bg-blue-500/80 dark:after:bg-blue-400/80";
-  }
-  const metaControlHandleRightClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("right")} cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2`;
-  const metaControlHandleBottomClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("bottom")} cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2`;
-  const metaControlHandleCornerClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("bottomRight")} cursor-nwse-resize after:inset-1`;
-  let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
-  let handleClasses = handleBaseClasses;
-  const handleWrapperClassName = isAttachedTerminalChild
-    ? "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-30"
-    : "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20";
-  if (isAttachedTerminalChild) {
-    // Keep handles inside the parent code section outline so they don't feel clipped.
-    handleStyles = {
-      right: { right: "-4px", width: 16, top: 0, bottom: 0, height: "100%" },
-      bottom: {
-        bottom: "-4px",
-        height: 16,
-        left: 0,
-        right: 0,
-        width: "100%",
-      },
-      bottomRight: { right: "-4px", bottom: "-4px", width: 24, height: 24 },
-    };
-  }
+  const { handleStyles, handleClasses, handleWrapperClassName } =
+    getResizableHandleConfig({
+      isMetaControl,
+      isAttachedTerminalChild,
+      activeResizeHandle,
+    });
   function handleResizeMouseDownCapture(event: MouseEvent<HTMLDivElement>) {
     if (!onResizePointerDown) {
       return;
@@ -528,26 +419,7 @@ function CustomResizableSuperCore({
     if (!(currentTarget instanceof HTMLElement)) {
       return;
     }
-    let direction: ResizeHandleDirection | null = null;
-    const target = event.target;
-    if (target instanceof HTMLElement) {
-      const handleElement = target.closest(".section-resize-handle");
-      if (handleElement) {
-        if (
-          handleElement.classList.contains("section-resize-handle-bottom-right")
-        ) {
-          direction = "bottomRight";
-        } else if (
-          handleElement.classList.contains("section-resize-handle-bottom")
-        ) {
-          direction = "bottom";
-        } else if (
-          handleElement.classList.contains("section-resize-handle-right")
-        ) {
-          direction = "right";
-        }
-      }
-    }
+    const direction = getResizeHandleDirection(event.target);
     if (!direction) {
       return;
     }
@@ -569,24 +441,6 @@ function CustomResizableSuperCore({
     if (onResizeStop) {
       onResizeStop(event, direction, ref, delta);
     }
-  }
-  if (isMetaControl) {
-    handleStyles = {
-      right: { right: "-8px", width: 16, top: 0, bottom: 0, height: "100%" },
-      bottom: {
-        bottom: "-8px",
-        height: 16,
-        left: 0,
-        right: 0,
-        width: "100%",
-      },
-      bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
-    };
-    handleClasses = {
-      right: `${handleBaseClassName} ${metaControlHandleRightClassName}`,
-      bottom: `${handleBaseClassName} ${metaControlHandleBottomClassName}`,
-      bottomRight: `${handleBaseClassName} ${metaControlHandleCornerClassName}`,
-    };
   }
   return (
     <ResizableWithScale
@@ -698,4 +552,294 @@ export function clampChangedSize({
     clampedSize.width = minWidth;
   }
   return clampedSize;
+}
+function persistSectionSizeChange(
+  sectionId: string,
+  nextSize: Partial<SectionSize>,
+) {
+  let updatedSectionSizes: Record<string, SectionSize> = {};
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      updatedSectionSizes = setSelfParentSiblingChildrenWidths(
+        sectionId,
+        nextSize,
+        state,
+      );
+    },
+    send: (frontendOpId) =>
+      callOpenAPI(
+        setSectionSizes({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionSizes: updatedSectionSizes,
+            frontendOpId,
+          },
+        } as Parameters<typeof setSectionSizes>[0]),
+      ),
+  });
+}
+function shouldSkipResizeStopUpdate({
+  isZeroDelta,
+  isDoubleClick,
+  resizeAttempted,
+}: {
+  isZeroDelta: boolean;
+  isDoubleClick: boolean;
+  resizeAttempted: boolean;
+}) {
+  return isZeroDelta && !isDoubleClick && !resizeAttempted;
+}
+function finishResizeStop({
+  sectionId,
+  shouldEmitResizeEnd,
+  resizeStateRefs,
+}: {
+  sectionId: string;
+  shouldEmitResizeEnd: boolean;
+  resizeStateRefs: {
+    resizeStartedRef: { current: boolean };
+    autoSizePromotedRef: { current: boolean };
+    resizeAttemptedRef: { current: boolean };
+    doubleClickPendingRef: { current: boolean };
+  };
+}) {
+  if (shouldEmitResizeEnd) {
+    useResizeEvent.setState((state) => {
+      setSectionResizeEvent(sectionId, "end", state);
+    });
+  }
+  useMisc.setState({ mouseDownDraggingSection: false });
+  resizeStateRefs.resizeStartedRef.current = false;
+  resizeStateRefs.autoSizePromotedRef.current = false;
+  resizeStateRefs.resizeAttemptedRef.current = false;
+  resizeStateRefs.doubleClickPendingRef.current = false;
+}
+function shouldReplaceMeasuredSize(
+  size: Partial<SectionSize>[keyof SectionSize],
+) {
+  return size === "auto" || (typeof size === "number" && Number.isNaN(size));
+}
+function resolveResizeStopSize({
+  props,
+  ref,
+  sizeMode,
+  aspectRatio,
+  isDoubleClick,
+}: {
+  props: Parameters<typeof getChangedSize>[0]["props"];
+  ref: {
+    offsetHeight: number;
+    offsetWidth: number;
+    getBoundingClientRect?: () => DOMRect;
+  } | null;
+  sizeMode: { width: string; height: string };
+  aspectRatio: boolean;
+  isDoubleClick: boolean;
+}) {
+  const changedSize = getChangedSize({
+    props,
+    sizeMode,
+    aspectRatio,
+    isDoubleClickOverride: isDoubleClick,
+  });
+  if (
+    isDoubleClick ||
+    !ref ||
+    typeof ref.getBoundingClientRect !== "function"
+  ) {
+    return changedSize;
+  }
+  if (shouldReplaceMeasuredSize(changedSize.height)) {
+    changedSize.height = Math.round(ref.offsetHeight);
+  }
+  if (shouldReplaceMeasuredSize(changedSize.width)) {
+    changedSize.width = Math.round(ref.offsetWidth);
+  }
+  return changedSize;
+}
+function shouldClampToMin(
+  currentSize: SectionSize["width"] | SectionSize["height"],
+  minSize: number,
+  mode: string,
+) {
+  return (
+    mode !== SIZE_MODE.auto_only &&
+    typeof currentSize === "number" &&
+    minSize - currentSize > AUTO_CLAMP_TOLERANCE
+  );
+}
+function getIndependentAutoClampSize({
+  shouldClampHeight,
+  shouldClampWidth,
+  minHeight,
+  minWidth,
+}: {
+  shouldClampHeight: boolean;
+  shouldClampWidth: boolean;
+  minHeight: number;
+  minWidth: number;
+}) {
+  const nextSize: Partial<SectionSize> = {};
+  if (shouldClampHeight) {
+    nextSize.height = minHeight;
+  }
+  if (shouldClampWidth) {
+    nextSize.width = minWidth;
+  }
+  return _.size(nextSize) > 0 ? nextSize : null;
+}
+function getAspectRatioAutoClampSize({
+  size,
+  minHeight,
+  minWidth,
+}: {
+  size: SectionSize;
+  minHeight: number;
+  minWidth: number;
+}) {
+  if (typeof size.height !== "number" || typeof size.width !== "number") {
+    return null;
+  }
+  const adjusted = adjustSizeToBeAtLeastMin(
+    size.height,
+    size.width,
+    minHeight,
+    minWidth,
+  );
+  const nextSize: Partial<SectionSize> = {};
+  if (adjusted.height !== size.height) {
+    nextSize.height = adjusted.height;
+  }
+  if (adjusted.width !== size.width) {
+    nextSize.width = adjusted.width;
+  }
+  return _.size(nextSize) > 0 ? nextSize : null;
+}
+function getAutoClampSize({
+  size,
+  minHeight,
+  minWidth,
+  sizeMode,
+  aspectRatio,
+}: {
+  size: SectionSize;
+  minHeight: number;
+  minWidth: number;
+  sizeMode: { width: string; height: string };
+  aspectRatio: boolean;
+}) {
+  const shouldClampHeight = shouldClampToMin(
+    size.height,
+    minHeight,
+    sizeMode.height,
+  );
+  const shouldClampWidth = shouldClampToMin(
+    size.width,
+    minWidth,
+    sizeMode.width,
+  );
+  if (!shouldClampHeight && !shouldClampWidth) {
+    return null;
+  }
+  const canKeepAspectRatio =
+    aspectRatio &&
+    sizeMode.height !== SIZE_MODE.auto_only &&
+    sizeMode.width !== SIZE_MODE.auto_only;
+  if (canKeepAspectRatio) {
+    return getAspectRatioAutoClampSize({ size, minHeight, minWidth });
+  }
+  return getIndependentAutoClampSize({
+    shouldClampHeight,
+    shouldClampWidth,
+    minHeight,
+    minWidth,
+  });
+}
+function getResizableEnable({
+  disablePointerEvents,
+  positionAndSizeLocked,
+  heightResizable,
+  widthResizable,
+}: {
+  disablePointerEvents: boolean;
+  positionAndSizeLocked: boolean;
+  heightResizable: boolean;
+  widthResizable: boolean;
+}) {
+  if (disablePointerEvents || positionAndSizeLocked) {
+    return false;
+  }
+  return {
+    top: false,
+    left: false,
+    bottom: heightResizable,
+    right: widthResizable,
+    topRight: false,
+    bottomRight: heightResizable && widthResizable,
+    topLeft: false,
+    bottomLeft: false,
+  };
+}
+function getMetaControlHandleClass(
+  direction: keyof typeof META_CONTROL_HANDLE_CURSOR_CLASSES,
+  activeResizeHandle: string | null,
+) {
+  const isActive = activeResizeHandle === direction;
+  return [
+    HANDLE_BASE_CLASS_NAME,
+    META_CONTROL_HANDLE_BASE_CLASS_NAME,
+    isActive ? ACTIVE_META_CONTROL_HANDLE_CLASS_NAME : "",
+    META_CONTROL_HANDLE_CURSOR_CLASSES[direction],
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+function getResizableHandleConfig({
+  isMetaControl,
+  isAttachedTerminalChild,
+  activeResizeHandle,
+}: {
+  isMetaControl: boolean;
+  isAttachedTerminalChild: boolean;
+  activeResizeHandle: string | null;
+}) {
+  const handleWrapperClassName = isAttachedTerminalChild
+    ? ATTACHED_TERMINAL_HANDLE_WRAPPER_CLASS_NAME
+    : DEFAULT_HANDLE_WRAPPER_CLASS_NAME;
+  if (isMetaControl) {
+    return {
+      handleStyles: META_CONTROL_HANDLE_STYLES,
+      handleClasses: {
+        right: getMetaControlHandleClass("right", activeResizeHandle),
+        bottom: getMetaControlHandleClass("bottom", activeResizeHandle),
+        bottomRight: getMetaControlHandleClass(
+          "bottomRight",
+          activeResizeHandle,
+        ),
+      },
+      handleWrapperClassName,
+    };
+  }
+  return {
+    handleStyles: isAttachedTerminalChild
+      ? ATTACHED_TERMINAL_HANDLE_STYLES
+      : DEFAULT_HANDLE_STYLES,
+    handleClasses: DEFAULT_HANDLE_CLASSES,
+    handleWrapperClassName,
+  };
+}
+function getResizeHandleDirection(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return null;
+  }
+  const handleElement = target.closest(".section-resize-handle");
+  if (!handleElement) {
+    return null;
+  }
+  for (const [className, direction] of RESIZE_HANDLE_CLASS_NAMES) {
+    if (handleElement.classList.contains(className)) {
+      return direction;
+    }
+  }
+  return null;
 }
