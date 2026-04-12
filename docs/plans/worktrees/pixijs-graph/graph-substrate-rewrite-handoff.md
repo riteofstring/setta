@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 05:57 UTC
+Last updated: 2026-04-15 06:10 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,54 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `475` completed one bounded live-runtime recovery slice on the canonical
+  `rotaryParamCodeObjDefault` lane by removing two non-product blockers from
+  the worktree verification path:
+  - code/test changes:
+    - `frontend/src/shims/radixReactSlotCompat.tsx`
+      now composes refs locally instead of importing
+      `@radix-ui/react-compose-refs`, which was not present in this workspace's
+      installed `node_modules` and was crashing the recovered Vite runtime
+    - `frontend/src/shims/radixReactSlotCompat.test.tsx`
+      now proves the compat `Slot` path keeps child and slot refs attached to
+      the same element and preserves child-first event handler order
+    - `scripts/dev-runtime-info.sh`
+      no longer contains unresolved merge markers and keeps the newer runtime
+      state / missing-connect-info fallback behavior, so probe/runtime refresh
+      paths can execute again
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/shims/radixReactSlotCompat.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/shims/radixReactSlotCompat.tsx src/shims/radixReactSlotCompat.test.tsx`
+      -> passed
+    - `bash ./scripts/dev-runtime-info.sh --workspace . --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-006/worktree-ai.log --allow-missing-connect-info`
+      -> passed and returned healthy runtime facts for frontend `3053`,
+         backend `8053`, and debug port `9275`
+    - one allowed bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; the restored runtime loaded frontend `http://127.0.0.1:3053/`
+         and backend `http://127.0.0.1:8053`
+    - canonical live probe rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-006/worktree-ai.log`
+      -> failed inside `ensureAppReady(...)` with
+         `Setta UI did not become ready. Check bootstrap auth. Current URL: http://127.0.0.1:3053/trout_fair`
+      -> this happened after runtime refresh was already healthy, so it is not
+         evidence of renderer drift on the checked lane
+    - required fresh-context CDP check:
+      -> passed
+      -> `/settings` loaded on the restored worktree runtime, `All Settings`
+         and the graph surface were visible, and there was no obvious
+         blank-card, detached-body, or severe artifact issue
+  - reading:
+    - this closes the Radix import crash and the broken runtime-info helper as
+      blockers on the live lane
+    - the remaining blocker moved forward into the canonical headless probe:
+      the live app is healthy in CDP, but the Playwright lane still fails its
+      readiness path while sitting on `/trout_fair`
+    - next: inspect the probe's post-bootstrap navigation / readiness oracle
+      around `ensureAppReady(...)` on the canonical lane before taking another
+      product-side perf hypothesis
 
 - item `474` completed one bounded `ParamGroupContainer` local-state cleanup on
   the canonical `rotaryParamCodeObjDefault` lane by deriving the resize-column
@@ -20385,19 +20433,21 @@ Do not use the next iteration for:
   - `frontend/pnpm-lock.yaml` locks the install to `pixi.js@8.17.1`
   - item `236` now uses those contracts to land the first local Pixi-owned shell border/outline layer while DOM editors remain intact; the only missing acceptance step is the blocked CDP visual gate
 - Keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage only:
-  - rerun it plus the required CDP spot-check first for item `236`, then keep using it as regression coverage for deeper scene-owned slices
-  - the repeated headless Playwright failure is still unchanged `ensureAppReady(...)` harness noise, not product evidence
+  - rerun it plus the required CDP spot-check first for the current live lane,
+    then keep using it as regression coverage for deeper scene-owned slices
+  - the current repeated headless Playwright failure is now the post-recovery
+    `ensureAppReady(...)` / `/trout_fair` readiness path, not product evidence
 - Do not reopen geometry-authority, parity-harness, or lifecycle-only lanes by default:
-  - this pass proved the headless Playwright harness can now get through global
-    setup on the live `3075` / `8075` worktree session, so bootstrap auth is no
-    longer the active blocker on this lane
-  - the current blocker moved forward into the live worktree probe phase:
-    `worktree: normalize compare pane state`
-  - before taking another product slice, inspect that normalization step on the
-    live worktree page and classify whether it is a real `worktree_unhealthy`
-    state, compare-pane oracle noise, or a product-side surface regression
-  - do not reopen global-setup auth/bootstrap cleanup by default unless the
-    probe falls back to failing before the spec body again
+  - this pass proved the recovered runtime and CDP session are healthy on the
+    live `3053` / `8053` worktree session
+  - the current blocker moved forward into the canonical probe body:
+    `ensureAppReady(...)` still fails even though `/settings` is healthy under
+    CDP
+  - before taking another product slice, inspect whether the probe is landing
+    on the wrong project route or using a stale readiness expectation around
+    `/trout_fair`
+  - do not reopen the earlier Radix import or runtime-info merge-conflict fixes
+    unless the runtime regresses again
 
 ## Explicit deferrals
 

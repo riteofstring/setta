@@ -1,4 +1,3 @@
-import { composeRefs } from "@radix-ui/react-compose-refs";
 import * as React from "react";
 
 const SLOTTABLE_IDENTIFIER = Symbol("radix.slottable");
@@ -7,6 +6,27 @@ type AnyProps = Record<string, unknown>;
 type SlottableComponent = React.FC<{ children?: React.ReactNode }> & {
   __radixId?: symbol;
 };
+
+function setRefValue<T>(ref: React.Ref<T> | undefined, value: T | null) {
+  if (!ref) {
+    return;
+  }
+
+  if (typeof ref === "function") {
+    ref(value);
+    return;
+  }
+
+  ref.current = value;
+}
+
+export function composeRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
+  return (value: T | null) => {
+    for (const ref of refs) {
+      setRefValue(ref, value);
+    }
+  };
+}
 
 export function createSlot(ownerName: string) {
   const SlotClone = createSlotClone(ownerName);

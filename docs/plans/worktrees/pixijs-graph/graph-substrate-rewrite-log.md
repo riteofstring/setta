@@ -235,6 +235,54 @@ LOOP_TERMINAL_MARKER: none
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 06:10 UTC | item `475` | completed live-runtime recovery on canonical `rotaryParamCodeObjDefault`
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - intent:
+    - remove the immediate non-product blockers that were preventing the
+      committed `474` slice from producing a trustworthy live readout:
+      the missing Radix compose-refs import in the slot compat shim and the
+      broken runtime-info helper used by the canonical probe scripts
+  - code/test changes:
+    - `frontend/src/shims/radixReactSlotCompat.tsx`
+      now uses a local `composeRefs(...)` helper instead of importing
+      `@radix-ui/react-compose-refs`, which is not installed in this workspace
+    - `frontend/src/shims/radixReactSlotCompat.test.tsx`
+      covers ref composition and child-first event handler ordering through the
+      actual compat `Slot` path
+    - `scripts/dev-runtime-info.sh`
+      no longer contains unresolved merge markers and keeps the newer runtime
+      state / missing-connect-info fallback logic intact
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/shims/radixReactSlotCompat.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/shims/radixReactSlotCompat.tsx src/shims/radixReactSlotCompat.test.tsx`
+      -> passed
+    - `bash ./scripts/dev-runtime-info.sh --workspace . --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-006/worktree-ai.log --allow-missing-connect-info`
+      -> passed and returned healthy runtime facts for frontend `3053`,
+         backend `8053`, bootstrap URL, and debug port `9275`
+    - one allowed worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; restored Vite and backend on `3053` / `8053`
+    - canonical live probe rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-006/worktree-ai.log`
+      -> failed in `ensureAppReady(...)` with
+         `Setta UI did not become ready. Check bootstrap auth. Current URL: http://127.0.0.1:3053/trout_fair`
+      -> classify this as probe/readiness debt, not renderer drift; the app was
+         already healthy enough for runtime refresh and CDP inspection
+    - fresh-context CDP check:
+      -> passed
+      -> `http://127.0.0.1:3053/settings` loaded, `All Settings` and the graph
+         surface were visible, and there was no obvious blank-card,
+         detached-body, or severe artifact issue
+  - reading:
+    - this iteration restored the live worktree verification path far enough to
+      remove the previous runtime crash and broken helper-script blockers
+    - the next bounded frontier is to inspect the canonical probe's
+      post-bootstrap navigation / readiness expectations around
+      `ensureAppReady(...)` and the `/trout_fair` route before taking another
+      product-side perf cut
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-15 05:57 UTC | item `474` | completed direct max-nested-depth derivation at `ParamGroupContainer`, blocked on runtime/CDP verification
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:
