@@ -190,6 +190,13 @@ function _SettingsGraphSubstrateCanarySectionEntryBody(
           return;
         }
         sectionBodyStateRef.current = nextState;
+        if (
+          previousState.sectionId === nextState.sectionId &&
+          previousState.shouldMountBody === false &&
+          nextState.shouldMountBody === false
+        ) {
+          return;
+        }
         forceRender((previousVersion) => previousVersion + 1);
       },
     }),

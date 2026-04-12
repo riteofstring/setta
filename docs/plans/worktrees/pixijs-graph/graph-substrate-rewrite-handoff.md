@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 12:25 UTC
+Last updated: 2026-04-15 12:32 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,41 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `500` landed a bounded production bailout on the hidden section-body
+  update path for the canonical `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now keeps the hidden section-body state ref current but skips the body
+      gate rerender when the same section stays unmounted on both sides of an
+      imperative `updateBody(...)` call
+    - focused regression:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      now proves hidden body-prop churn stays out of
+      `presentedSceneSectionEntryBodyGateReactRender` and
+      `presentedSceneSectionBodySubtreeReactRender` while the shell node stays
+      stable
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx`
+      -> passed (`3` files, `15` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+      -> settings graph surface mounted after startup
+      -> overview, graph chrome, and bottom view-mode tabs were visible
+      -> no obvious blank-card or detached-body artifact was visible on the
+         canary surface
+  - reading:
+    - this is another bounded product reduction inside the active
+      section-entry/body subtree path instead of more runner or probe-helper
+      churn
+    - the direct worktree Playwright runner remains explicit tooling debt, but
+      this slice removes hidden-body gate rerenders from the canary path even
+      when body props still churn while zoomed out
+    - next default frontier: continue with the next bounded production cut on
+      the remaining visible-body subtree path, or use an already-trusted live
+      motion probe if one is available without reopening direct-runner repair
 
 - item `499` landed a bounded production reduction on the remaining
   section-entry imperative flush path for the canonical

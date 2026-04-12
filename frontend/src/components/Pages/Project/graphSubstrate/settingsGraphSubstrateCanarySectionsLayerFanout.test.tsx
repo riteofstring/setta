@@ -188,6 +188,63 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     ).toHaveLength(1);
   });
 
+  it("keeps hidden body-prop updates out of the body gate render path", async () => {
+    const sceneSections = [createSceneSection()];
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={sceneSections}
+          viewport={{ x: 0, y: 0, zoom: 0.1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(0);
+    const initialShellElement = host.querySelector(
+      '[data-section-id="section-a"]',
+    );
+    expect(initialShellElement).not.toBeNull();
+
+    measureMotionAttribution.mockClear();
+    recordMotionAttributionDuration.mockClear();
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              styleColor: "blue",
+            }),
+          ]}
+          viewport={{ x: 0, y: 0, zoom: 0.1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(0);
+    expect(host.querySelector('[data-section-id="section-a"]')).toBe(
+      initialShellElement,
+    );
+    expect(recordMotionAttributionDuration).not.toHaveBeenCalledWith(
+      "presentedSceneSectionEntryBodyGateReactRender",
+      expect.any(Number),
+    );
+    expect(recordMotionAttributionDuration).not.toHaveBeenCalledWith(
+      "presentedSceneSectionBodySubtreeReactRender",
+      expect.any(Number),
+    );
+    expect(
+      measureMotionAttribution.mock.calls.filter(
+        ([owner]) => owner === "presentedSceneSectionEntryImperativeFlush",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("keeps the mounted body subtree stable through a small threshold-edge pan", async () => {
     const sceneSections = [
       createSceneSection({

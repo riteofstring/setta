@@ -21003,3 +21003,33 @@ LOOP_TERMINAL_MARKER: none
     without direct-runner repair, or another bounded product reduction inside
     the section-entry/body subtree path
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 12:32 UTC
+
+- item `500` reduced hidden-body rerender churn on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    now updates the hidden section-body state ref without forcing a React
+    rerender when the same section stays unmounted on both sides of
+    `updateBody(...)`
+  - updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    to prove hidden body-prop updates stay out of
+    `presentedSceneSectionEntryBodyGateReactRender` and
+    `presentedSceneSectionBodySubtreeReactRender` while the shell DOM node
+    stays stable
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx`
+    -> passed (`3` files, `15` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> settings graph surface mounted after startup
+    -> overview, graph chrome, and bottom view-mode tabs were visible
+    -> no obvious blank-card or detached-body artifact
+- reading:
+  - this is another bounded production cut on the active section-entry/body
+    subtree path, not a runner-repair pass
+  - the next real frontier is still product-side: either reduce the remaining
+    visible-body subtree work or use an already-trusted live motion probe that
+    does not require reopening the broken direct runner
+- LOOP_TERMINAL_MARKER: none
