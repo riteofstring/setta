@@ -1,35 +1,40 @@
 import _ from "lodash";
+import { setSocialUrl } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalPendingValue } from "state/hooks/utils";
-import { route_set_social_url } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
-
 export function SocialAreaSettings({ sectionId }) {
   const { canEditStructure } = useShareCapabilities();
-  const url = useProjectState((p) => {
+  const { url, sectionVariantId } = useProjectState((p) => {
     const impl = getCurrEffectiveSectionImplOfType(
       p,
       sectionId,
       SectionTypeEnum.Social,
     );
-    return impl.url;
+    return {
+      url: impl.url,
+      sectionVariantId: getCurrSectionVariantId(p, sectionId),
+    };
   });
-
-  const [value, setPendingValue] = useLocalPendingValue(url, (x) =>
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"SocialSection">(state, sectionId, {
-        url: x,
-      });
-    }),
+  const [value, setPendingValue] = useLocalPendingValue(
+    url,
+    (x) =>
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"SocialSection">(state, sectionId, {
+          url: x,
+        });
+      }),
+    sectionVariantId,
   );
-
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!canEditStructure) {
       return;
@@ -37,7 +42,6 @@ export function SocialAreaSettings({ sectionId }) {
     setPendingValue(e.target.value);
     debouncedSetSocialUrl(sectionId, e.target.value);
   }
-
   return (
     <div className="mb-2 mt-2 w-full select-text">
       <div className="flex w-full items-center gap-3">
@@ -56,7 +60,6 @@ export function SocialAreaSettings({ sectionId }) {
     </div>
   );
 }
-
 const debouncedSetSocialUrl = _.debounce((sectionId, url) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
@@ -65,11 +68,15 @@ const debouncedSetSocialUrl = _.debounce((sectionId, url) => {
       });
     },
     send: (frontendOpId) =>
-      route_set_social_url({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        url,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        setSocialUrl({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            url,
+            frontendOpId,
+          },
+        } as Parameters<typeof setSocialUrl>[0]),
+      ),
   });
 }, 500);
