@@ -68,7 +68,7 @@ export function windowSurfaceRequiresManagedChat(
   return standaloneSectionRequiresManagedChat(state, sectionId);
 }
 
-function standaloneWindowRequiresManagedChat(
+export function standaloneWindowRequiresManagedChat(
   window: StandaloneWindowSpaceWindowConfig,
   state: ManagedChatSurfaceAuthorityState,
 ): boolean {

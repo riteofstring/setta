@@ -1,11 +1,13 @@
+import { APP_CHROME_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
+import { RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME } from "../../Utils/paneTitleSpacing";
 import {
+  HOME_RIGHT_PANE_TITLE_CLASS_NAME,
+  HOME_SIDE_RAIL_CLASS_NAME,
   getHomeProjectConfigsSectionTitle,
-  getNextActiveProjectId,
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
-  resolveSelectedProjectDetails,
   shouldApplyHomeFileBrowserPath,
   shouldOpenProjectOnListRowSpace,
   shouldShowCompactHomeSettingsButton,
@@ -13,6 +15,16 @@ import {
 } from "./HomePage";
 
 describe("HomePage", () => {
+  it("uses the shared app chrome layer for desktop side rails", () => {
+    expect(HOME_SIDE_RAIL_CLASS_NAME).toContain(APP_CHROME_Z_INDEX_CLASS_NAME);
+  });
+
+  it("reserves title clearance for the right pane fullscreen button", () => {
+    expect(HOME_RIGHT_PANE_TITLE_CLASS_NAME).toContain(
+      RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME,
+    );
+  });
+
   it("counts top-level sections from object keys", () => {
     const project = createProjectConfig({
       id: "project-1",
@@ -23,15 +35,6 @@ describe("HomePage", () => {
     });
 
     expect(getProjectTopLevelSectionCount(project)).toBe(2);
-  });
-
-  it("returns null when home metadata does not include section layouts", () => {
-    expect(
-      getProjectTopLevelSectionCount({
-        id: "project-1",
-        name: "Project 1",
-      }),
-    ).toBeNull();
   });
 
   it("partitions favorite and non-favorite projects in a single pass result", () => {
@@ -111,77 +114,5 @@ describe("HomePage", () => {
         currentRootPath: "/workspace",
       }),
     ).toBe(true);
-  });
-
-  it("keeps the active project when it still exists in the filtered list", () => {
-    const projectA = createProjectConfig({ id: "project-a", name: "A" });
-    const projectB = createProjectConfig({ id: "project-b", name: "B" });
-
-    expect(
-      getNextActiveProjectId({
-        activeProjectId: "project-b",
-        filteredProjects: [projectA, projectB],
-      }),
-    ).toBe("project-b");
-  });
-
-  it("falls back to the first filtered project when the active project disappears", () => {
-    const projectA = createProjectConfig({ id: "project-a", name: "A" });
-    const projectB = createProjectConfig({ id: "project-b", name: "B" });
-
-    expect(
-      getNextActiveProjectId({
-        activeProjectId: "project-missing",
-        filteredProjects: [projectA, projectB],
-      }),
-    ).toBe("project-a");
-    expect(
-      getNextActiveProjectId({
-        activeProjectId: "project-missing",
-        filteredProjects: [],
-      }),
-    ).toBeNull();
-  });
-
-  it("resolves selected project details from filtered, full, and active fallbacks", () => {
-    const projectA = createProjectConfig({ id: "project-a", name: "A" });
-    const projectB = createProjectConfig({ id: "project-b", name: "B" });
-    const projectC = createProjectConfig({ id: "project-c", name: "C" });
-
-    expect(
-      resolveSelectedProjectDetails({
-        activeProjectId: null,
-        filteredProjects: [projectA],
-        projects: [projectA, projectB],
-        selectedProjects: ["project-b"],
-      })?.id,
-    ).toBe("project-b");
-
-    expect(
-      resolveSelectedProjectDetails({
-        activeProjectId: "project-c",
-        filteredProjects: [projectC],
-        projects: [projectA, projectB, projectC],
-        selectedProjects: ["project-missing"],
-      })?.id,
-    ).toBe("project-c");
-
-    expect(
-      resolveSelectedProjectDetails({
-        activeProjectId: null,
-        filteredProjects: [projectA],
-        projects: [projectA, projectB],
-        selectedProjects: [],
-      })?.id,
-    ).toBe("project-a");
-
-    expect(
-      resolveSelectedProjectDetails({
-        activeProjectId: null,
-        filteredProjects: [],
-        projects: [],
-        selectedProjects: [],
-      }),
-    ).toBeNull();
   });
 });

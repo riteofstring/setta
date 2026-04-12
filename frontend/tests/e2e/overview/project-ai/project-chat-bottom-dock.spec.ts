@@ -544,15 +544,13 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
     const minimizedPillBounds = await minimizedPill.boundingBox();
     const createButtonBoundsAfterMinimize = await createButton.boundingBox();
     const remainingDockPanelBounds = await dockPanels.first().boundingBox();
-    const stripBoundsAfterMinimize = await strip.boundingBox();
     if (
       !minimizedPillBounds ||
       !createButtonBoundsAfterMinimize ||
-      !remainingDockPanelBounds ||
-      !stripBoundsAfterMinimize
+      !remainingDockPanelBounds
     ) {
       throw new Error(
-        "Expected minimized pill, create button, strip, and dock panel bounds.",
+        "Expected minimized pill, create button, and dock panel bounds.",
       );
     }
     expect(
@@ -579,7 +577,7 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
       Math.abs(
         createButtonBoundsAfterMinimize.y +
           createButtonBoundsAfterMinimize.height -
-          (stripBoundsAfterMinimize.y + stripBoundsAfterMinimize.height),
+          (stripBounds.y + stripBounds.height),
       ),
     ).toBeLessThanOrEqual(3);
     expect(
@@ -1057,7 +1055,6 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
-  const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
     await page.reload();
@@ -1094,7 +1091,9 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
         "project-chat-floating-window-drag-handle",
       );
     const firstFloatingComposerBeforeSecondUndock =
-      firstFloatingWindowBeforeSecondUndock.getByTestId("chat-input-textarea");
+      firstFloatingWindowBeforeSecondUndock.getByPlaceholder(
+        "Type a message...",
+      );
     await expect(firstFloatingComposerBeforeSecondUndock).toBeVisible();
     const firstFloatingBoundsBeforeSecondUndock =
       await firstFloatingWindowBeforeSecondUndock.boundingBox();
@@ -1283,7 +1282,6 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
     const secondZAfterFocus = await getZIndex(secondWindow);
     expect(firstZAfterFocus).toBeGreaterThan(secondZAfterFocus);
   } finally {
-    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -1295,7 +1293,6 @@ test("project chat floating windows show inline threads and chat together when r
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
-  const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
     await page.reload();
@@ -1344,9 +1341,10 @@ test("project chat floating windows show inline threads and chat together when r
     );
     await expect(inlineThreadsPanel).toBeVisible();
     await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-    await expect(floatingWindow.getByTestId("chat-input-textarea")).toBeVisible();
+    await expect(
+      floatingWindow.getByPlaceholder("Type a message..."),
+    ).toBeVisible();
   } finally {
-    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -2308,25 +2306,19 @@ test("project chat windows reopen canvas-bound sections as centered floating win
 
     await page.evaluate(
       async ({ projectConfigId, sectionId: targetSectionId }) => {
-        const { deleteSections } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/src/openapi/http/result");
-        await callOpenAPI(
-          deleteSections({
-            body: {
-              projectConfigId,
-              sectionIds: [targetSectionId],
-            },
-          } as Parameters<typeof deleteSections>[0]),
+        const { route_delete_sections } = await import(
+          "/src/utils/generatedEndpoints.ts"
         );
+        await route_delete_sections({
+          projectConfigId,
+          sectionIds: [targetSectionId],
+        });
       },
       {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
       },
     );
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
-    await collapseSidePanesForWindowInteraction(page);
     await expect(reopenedFloatingWindow).toHaveCount(0);
     await expect(plainDockedWindow).toBeVisible();
     await expect(dockPanels).toHaveCount(1);
@@ -2335,29 +2327,17 @@ test("project chat windows reopen canvas-bound sections as centered floating win
       .getByTestId("view-mode-tab-button")
       .count();
     const createdViewModeId = await page.evaluate(async (projectConfigId) => {
-      const { createViewMode, toggleViewModeTab } = await import(
-        "/src/openapi/http"
-      );
-      const { callOpenAPI } = await import("/src/openapi/http/result");
-      const response = await callOpenAPI(
-        createViewMode({
-          body: {
-            projectConfigId,
-          },
-        } as Parameters<typeof createViewMode>[0]),
-      );
+      const { route_create_view_mode, route_toggle_view_mode_tab } =
+        await import("/src/utils/generatedEndpoints.ts");
+      const response = await route_create_view_mode({ projectConfigId });
       const viewModeId = response.data;
       if (!viewModeId) {
         throw new Error("Expected created view mode id.");
       }
-      await callOpenAPI(
-        toggleViewModeTab({
-          body: {
-            projectConfigId,
-            viewModeId,
-          },
-        } as Parameters<typeof toggleViewModeTab>[0]),
-      );
+      await route_toggle_view_mode_tab({
+        projectConfigId,
+        viewModeId,
+      });
       return viewModeId;
     }, projectContext.projectConfigId);
     await expect(page.getByTestId("view-mode-tab-button")).toHaveCount(
@@ -2365,16 +2345,13 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     );
     await page.evaluate(
       async ({ projectConfigId, activeViewModeId }) => {
-        const { setActiveViewMode } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/src/openapi/http/result");
-        await callOpenAPI(
-          setActiveViewMode({
-            body: {
-              projectConfigId,
-              activeViewModeId,
-            },
-          } as Parameters<typeof setActiveViewMode>[0]),
+        const { route_set_active_view_mode } = await import(
+          "/src/utils/generatedEndpoints.ts"
         );
+        await route_set_active_view_mode({
+          projectConfigId,
+          activeViewModeId,
+        });
       },
       {
         projectConfigId: projectContext.projectConfigId,
@@ -2570,7 +2547,6 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
-  const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
     await page.reload();
@@ -2687,18 +2663,14 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
       ),
     ).toHaveCount(0);
 
-    const canvasResizableSurface = page.locator(
-      `[id="${secondBinding.sectionId}-CustomResizable"]`,
-    );
-    await expect(canvasResizableSurface).toBeVisible();
-    const canvasResizableSurfaceBox = await canvasResizableSurface.boundingBox();
-    if (!canvasResizableSurfaceBox) {
-      throw new Error("Expected visible canvas section surface bounds.");
+    const canvasSectionBox = await canvasSection.boundingBox();
+    if (!canvasSectionBox) {
+      throw new Error("Expected visible canvas section bounds.");
     }
     const conversationFilterInput = canvasSection.getByTestId(
       "project-chat-conversation-filter-input",
     );
-    const composerInput = canvasSection.getByTestId("chat-input-textarea");
+    const composerInput = canvasSection.getByPlaceholder("Type a message...");
     await expect(conversationFilterInput).toBeVisible();
     await expect(composerInput).toBeVisible();
     const conversationFilterBox = await conversationFilterInput.boundingBox();
@@ -2706,37 +2678,27 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
     if (!conversationFilterBox || !composerInputBox) {
       throw new Error("Expected visible project chat controls in canvas mode.");
     }
-    const canvasEdgeTolerancePx = 4;
     expect(conversationFilterBox.width).toBeGreaterThan(
-      canvasResizableSurfaceBox.width * 0.45,
+      canvasSectionBox.width * 0.45,
     );
     expect(composerInputBox.width).toBeGreaterThan(
-      canvasResizableSurfaceBox.width * 0.45,
+      canvasSectionBox.width * 0.45,
     );
-    expect(canvasResizableSurfaceBox.x).toBeGreaterThanOrEqual(
-      canvasRect.left - canvasEdgeTolerancePx,
+    expect(canvasSectionBox.x).toBeGreaterThanOrEqual(canvasRect.left - 1);
+    expect(canvasSectionBox.y).toBeGreaterThanOrEqual(canvasRect.top - 1);
+    expect(canvasSectionBox.x + canvasSectionBox.width).toBeLessThanOrEqual(
+      canvasRect.right + 1,
     );
-    expect(canvasResizableSurfaceBox.y).toBeGreaterThanOrEqual(
-      canvasRect.top - canvasEdgeTolerancePx,
-    );
-    expect(
-      canvasResizableSurfaceBox.x + canvasResizableSurfaceBox.width,
-    ).toBeLessThanOrEqual(
-      canvasRect.right + canvasEdgeTolerancePx,
+    expect(canvasSectionBox.y + canvasSectionBox.height).toBeLessThanOrEqual(
+      canvasRect.bottom + 1,
     );
     expect(
-      canvasResizableSurfaceBox.y + canvasResizableSurfaceBox.height,
-    ).toBeLessThanOrEqual(
-      canvasRect.bottom + canvasEdgeTolerancePx,
-    );
-    expect(
-      Math.abs(canvasResizableSurfaceBox.width - sourceWindowBox.width),
+      Math.abs(canvasSectionBox.width - sourceWindowBox.width),
     ).toBeLessThanOrEqual(4);
     expect(
-      Math.abs(canvasResizableSurfaceBox.height - sourceWindowBox.height),
+      Math.abs(canvasSectionBox.height - sourceWindowBox.height),
     ).toBeLessThanOrEqual(4);
   } finally {
-    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });

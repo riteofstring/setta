@@ -3,7 +3,7 @@ import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
-  getParamDisplayNameIfPresent,
+  getParamDisplayName,
 } from "../sectionInfos";
 
 export function paramNameFromPathArray(
@@ -12,14 +12,11 @@ export function paramNameFromPathArray(
   currPath: Array<string>,
 ) {
   if (currPath.length === 1) {
-    return (
-      getParamDisplayNameIfPresent(state, sectionId, currPath[0]) ?? currPath[0]
-    );
+    return getParamDisplayName(state, sectionId, currPath[0]);
   }
   let name = "";
   for (const [pathIdx, currId] of currPath.entries()) {
-    const displayName =
-      getParamDisplayNameIfPresent(state, sectionId, currId) ?? currId;
+    const displayName = getParamDisplayName(state, sectionId, currId);
     if (pathIdx === 0) {
       name = displayName;
     } else {

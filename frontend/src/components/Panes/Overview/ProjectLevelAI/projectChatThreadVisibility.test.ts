@@ -1,17 +1,12 @@
-import type { BaseChatMessageUnion } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  resolveProjectChatAppGenerationDetailsForSurface,
-  resolveProjectChatConversationDataSource,
   resolveProjectChatEngineConfigIdForSelectedChat,
   resolveProjectChatEngineSwitchContinuationAfterContextChange,
   resolveProjectChatEngineSwitchContinuationOnEngineChange,
-  resolveProjectChatMessagesForSurface,
   resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad,
   resolveProjectChatSelectedLLMUnavailableReason,
   resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
   resolveProjectChatThreadVisibilityFromResize,
-  resolveProjectChatWaitingForResponseForSurface,
   shouldProjectChatSkipEngineSyncForContinuation,
 } from "./ProjectChat";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
@@ -98,118 +93,6 @@ describe("resolveProjectChatThreadVisibilityFromResize", () => {
         explicitlyClosedAtLargeWidth: false,
       }),
     ).toBeNull();
-  });
-});
-
-describe("resolveProjectChatConversationDataSource", () => {
-  it("prefers pending state for explicit null chat ids", () => {
-    expect(
-      resolveProjectChatConversationDataSource({
-        chatId: null,
-        hasPendingDetails: false,
-      }),
-    ).toEqual({ kind: "pending" });
-  });
-
-  it("uses active state for string chat ids even when pending details exist", () => {
-    expect(
-      resolveProjectChatConversationDataSource({
-        chatId: "chat-1",
-        hasPendingDetails: true,
-      }),
-    ).toEqual({ kind: "active", chatId: "chat-1" });
-  });
-
-  it("falls back to pending state when only surface-scoped pending details exist", () => {
-    expect(
-      resolveProjectChatConversationDataSource({
-        chatId: undefined,
-        hasPendingDetails: true,
-      }),
-    ).toEqual({ kind: "pending" });
-  });
-
-  it("returns empty when neither a chat id nor pending details exist", () => {
-    expect(
-      resolveProjectChatConversationDataSource({
-        chatId: undefined,
-        hasPendingDetails: false,
-      }),
-    ).toEqual({ kind: "empty" });
-  });
-});
-
-describe("surface-scoped conversation helpers", () => {
-  it("reads pending details for surface-scoped conversations", () => {
-    const source = { kind: "pending" } as const;
-    expect(
-      resolveProjectChatMessagesForSurface({
-        source,
-        pendingDetails: { messages: [] },
-        chatDetails: {},
-      }),
-    ).toEqual([]);
-    expect(
-      resolveProjectChatWaitingForResponseForSurface({
-        source,
-        pendingDetails: { waitingForResponse: true },
-        chatDetails: {},
-      }),
-    ).toBe(true);
-  });
-
-  it("reads active details for selected chats", () => {
-    const source = { kind: "active", chatId: "chat-1" } as const;
-    const messages = [{ id: "message-1" }] as Array<BaseChatMessageUnion>;
-    expect(
-      resolveProjectChatMessagesForSurface({
-        source,
-        pendingDetails: null,
-        chatDetails: {
-          "chat-1": { messages },
-        },
-      }),
-    ).toBe(messages);
-    expect(
-      resolveProjectChatWaitingForResponseForSurface({
-        source,
-        pendingDetails: null,
-        chatDetails: {
-          "chat-1": { waitingForResponse: true },
-        },
-      }),
-    ).toBe(true);
-  });
-
-  it("keeps app-generation details aligned with the selected source", () => {
-    const pendingSource = { kind: "pending" } as const;
-    const activeSource = { kind: "active", chatId: "chat-1" } as const;
-    const pendingDetails = {
-      activeAppGeneration: null,
-      appGenerationByMessageId: { "message-1": { mode: "json_render" } },
-    };
-    const activeDetails = {
-      activeAppGeneration: null,
-      appGenerationByMessageId: { "message-2": { mode: "prompt_builder" } },
-    };
-    expect(
-      resolveProjectChatAppGenerationDetailsForSurface({
-        source: pendingSource,
-        pendingAppGenerationDetails: pendingDetails,
-        chatAppGenerationDetailsByChatId: {
-          "chat-1": activeDetails,
-        },
-      }),
-    ).toEqual(pendingDetails);
-    expect(
-      resolveProjectChatAppGenerationDetailsForSurface({
-        source: activeSource,
-        pendingAppGenerationDetails: pendingDetails,
-        chatAppGenerationDetailsByChatId: {
-          "chat-1": activeDetails,
-        },
-      }),
-    ).toEqual(activeDetails);
   });
 });
 

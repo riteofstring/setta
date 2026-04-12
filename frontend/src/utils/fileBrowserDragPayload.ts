@@ -7,26 +7,6 @@ export type FileBrowserDragPayload = {
 export const FILE_BROWSER_DRAG_MIME_TYPE =
   "application/x-setta-file-browser-node";
 const FILE_BROWSER_DRAG_TEXT_PREFIX = "setta:file-browser-node:";
-type DragPayloadRecord = Record<string, unknown>;
-
-function parseJsonObject(value: string): DragPayloadRecord | null {
-  try {
-    const parsed = JSON.parse(value);
-    return typeof parsed === "object" && parsed !== null
-      ? (parsed as DragPayloadRecord)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function getStringField(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
-}
-
-function getPayloadType(value: unknown): FileBrowserDragPayload["type"] | null {
-  return value === "file" || value === "folder" ? value : null;
-}
 
 export function setFileBrowserDragPayload(
   dataTransfer: DataTransfer,
@@ -44,20 +24,37 @@ function parsePayload(value: string | null): FileBrowserDragPayload | null {
   if (!value) {
     return null;
   }
-  const parsed = parseJsonObject(value);
-  if (!parsed) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
     return null;
   }
-  const name = getStringField(parsed.name);
-  const fullPath = getStringField(parsed.fullPath);
-  const type = getPayloadType(parsed.type);
-  if (!name || !fullPath || !type) {
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("name" in parsed) ||
+    !("fullPath" in parsed) ||
+    !("type" in parsed)
+  ) {
+    return null;
+  }
+  const candidate = parsed as {
+    name?: unknown;
+    fullPath?: unknown;
+    type?: unknown;
+  };
+  if (
+    typeof candidate.name !== "string" ||
+    typeof candidate.fullPath !== "string" ||
+    (candidate.type !== "file" && candidate.type !== "folder")
+  ) {
     return null;
   }
   return {
-    name,
-    fullPath,
-    type,
+    name: candidate.name,
+    fullPath: candidate.fullPath,
+    type: candidate.type,
   };
 }
 

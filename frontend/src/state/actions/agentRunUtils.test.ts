@@ -1,4 +1,4 @@
-import { RunStatusEnum, type AgentRun } from "utils/generatedTypes";
+import { AgentRunStatusEnum, type AgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   filterRunsByProjectConfigId,
@@ -11,7 +11,7 @@ function buildRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
     id: "run-1",
     profileId: null,
-    status: RunStatusEnum.completed,
+    status: AgentRunStatusEnum.completed,
     startedAt: "2024-01-01T00:00:00Z",
     finishedAt: "2024-01-01T00:00:10Z",
     inputs: {},
