@@ -90,4 +90,22 @@ describe("Controls zoom buttons", () => {
     expect(zoomInButton?.disabled).toBe(false);
     expect(zoomOutButton?.disabled).toBe(true);
   });
+
+  it("updates the fit view button active styling when fitViewOnInit changes", async () => {
+    await act(async () => {
+      root.render(createElement(Controls));
+    });
+
+    const fitViewButton = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="fit view"]',
+    );
+    expect(fitViewButton?.className).toContain("text-setta-400");
+
+    await act(async () => {
+      useReactFlow.setState({ fitViewOnInit: true });
+    });
+
+    expect(fitViewButton?.className).toContain("bg-blue-500");
+    expect(fitViewButton?.className).toContain("text-white");
+  });
 });

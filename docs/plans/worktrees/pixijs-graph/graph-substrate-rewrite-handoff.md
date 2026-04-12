@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 17:39 UTC
+Last updated: 2026-04-12 17:53 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,63 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- progress review checkpoint for runs `011` through `020`:
+  - keep the loop going, but do not spend the next default pass on another
+    cross-worktree probe-only rerun or another helper tweak for
+    `worktree: capture initial pane state`
+  - that lane already produced numeric attribution in this stretch and item
+    `330` already closed the "fresh lifecycle rerun may clear it" hypothesis
+    for default sequencing
+  - the next two default passes should stay worktree-side inside
+    `interactionReactFlowStateSync` on the named
+    `rotaryParamCodeObjDefault` lane and isolate concrete mounted subscribers
+    with product code or focused local attribution
+  - preferred targets are:
+    - mounted controls or body/chrome surfaces that still subscribe to
+      motion-heavy React Flow state
+    - selectors/writes that fan out during pan/zoom even after items `328`
+      through `331`
+  - preferred evidence is:
+    - focused React profiler/render-count coverage
+    - the existing canary instrumentation on the worktree lane
+    - one new perf note under `perf/reports/frontend/`
+  - only reopen the canonical main-reference probe before those two
+    product-side passes if the next slice directly changes the pane-state
+    capture path or another explicit health signal changes that lane
+
+- item `332` landed one bounded product-side perf slice inside the measured
+  dominant motion owner `interactionReactFlowStateSync` on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the shared controls toolbar path:
+    - `frontend/src/forks/xyflow/controls/Controls.tsx`
+      now scopes the `fitViewOnInit` React Flow subscription to a memoized
+      `ControlsFitViewButton` child instead of subscribing the entire controls
+      toolbar to fit-view state
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/controls/Controls.test.ts`
+      to assert the fit-view button active styling still tracks
+      `fitViewOnInit` after the split
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-controls-fit-view-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/controls/Controls.test.ts`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/controls/Controls.tsx src/forks/xyflow/controls/Controls.test.ts`
+      -> passed
+    - headless CDP smoke on the worktree `/settings` session
+      -> left controls rail visible
+      -> `zoom in`, `zoom out`, and `fit view` present in the rail
+      -> no obvious overlap or broken layout in the toolbar area
+  - reading:
+    - this keeps fit-view state updates localized to the single control that
+      actually reflects `fitViewOnInit` instead of re-rendering the full
+      toolbar chrome for that state change
+    - the next bounded frontier should stay inside
+      `interactionReactFlowStateSync` and isolate another mounted
+      controls/body surface on the canonical lane that still subscribes to
+      motion-heavy React Flow state
 
 - item `331` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named

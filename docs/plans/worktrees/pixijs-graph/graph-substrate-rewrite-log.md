@@ -74,6 +74,36 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 17:53 UTC
+
+- item `332` narrowed one controls-toolbar fit-view subscription on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/controls/Controls.tsx` so the
+    `fitViewOnInit` React Flow subscription now lives in a memoized
+    `ControlsFitViewButton` child instead of the full controls toolbar
+  - added focused regression coverage in
+    `frontend/src/forks/xyflow/controls/Controls.test.ts`
+    to assert the fit-view button active styling still follows
+    `fitViewOnInit` after the split
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-controls-fit-view-split.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/controls/Controls.test.ts`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/controls/Controls.tsx src/forks/xyflow/controls/Controls.test.ts`
+      -> passed
+    - headless CDP smoke on worktree `/settings`
+      -> left controls rail visible
+      -> `zoom in`, `zoom out`, and `fit view` present
+      -> no obvious overlap or broken layout in the toolbar area
+  - result:
+    - this keeps `fitViewOnInit` updates scoped to the single fit-view control
+      instead of the full controls toolbar
+    - next bounded frontier: stay inside `interactionReactFlowStateSync` and
+      isolate another mounted controls/body surface on the canonical lane that
+      still subscribes to motion-heavy React Flow state
+- LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-12 312
 
@@ -12815,3 +12845,42 @@ settings graph probe phase: worktree: capture initial pane state.`
       or rerun the canonical perf lane from a fresh healthy lifecycle if the
       runtime stall clears
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-12 17:41 UTC
+
+- Item: progress review checkpoint after runs `011` through `020`.
+- Status: `done`
+- Details:
+  - Reviewed the durable plan/handoff plus recent run artifacts for
+    `run-011` through `run-020`.
+  - Conclusion:
+    - the stretch still shows meaningful forward progress toward the current
+      rewrite plan
+    - real product progress landed on the canonical
+      `rotaryParamCodeObjDefault` lane:
+      - item `324` plus item `325` reduced the previously dominant
+        `pixiDrawableModelResolve` owner enough that item `314` measured
+        `interactionReactFlowStateSync` as the next dominant owner
+      - items `326`, `328`, `329`, and `331` each landed bounded
+        product-side reductions inside `interactionReactFlowStateSync` with
+        focused tests and CDP smoke
+    - the main diminishing-return lane was probe churn around the same
+      `worktree: capture initial pane state` failure:
+      - item `327` closed one helper hypothesis
+      - item `330` then closed the "fresh lifecycle rerun may clear it"
+        hypothesis for default sequencing
+      - another default probe-only retry on that same shape would be churn
+        unless a later product slice changes the capture path or a new health
+        signal appears
+  - Durable adjustment made in this review:
+    - plan and handoff now explicitly demote the canonical cross-worktree
+      probe behind the next two worktree-side product/attribution passes on
+      `interactionReactFlowStateSync`
+    - next evidence should come from focused local attribution
+      (React profiler/render-count tests plus existing canary instrumentation)
+      on mounted controls or DOM-backed body/chrome surfaces
+- Next action:
+  - keep the loop running, but spend the next default pass isolating the next
+    concrete `interactionReactFlowStateSync` subscriber on the worktree lane
+    instead of reopening the same cross-worktree probe stall
+
+LOOP_TERMINAL_MARKER: none

@@ -101,9 +101,23 @@ const ControlsZoomButtons = memo(function ControlsZoomButtons() {
   );
 });
 
+const ControlsFitViewButton = memo(function ControlsFitViewButton() {
+  const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
+
+  return (
+    <button
+      className={`react-flow__controls-fitview cursor-pointer items-center justify-center overflow-clip rounded-md p-1  hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500  dark:hover:text-setta-500 ${fitViewOnInit ? "bg-blue-500 text-white dark:bg-transparent dark:text-blue-600" : "text-setta-400 dark:text-setta-600"}`}
+      onClick={onFitViewHandler}
+      aria-label="fit view"
+      {...getFloatingBoxHandlers({ content: "Fit view" })}
+    >
+      <TbArrowAutofitWidth size={15} />
+    </button>
+  );
+});
+
 const Controls = () => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
-  const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
@@ -384,14 +398,7 @@ const Controls = () => {
         </>
       ) : null}
       <ControlsZoomButtons />
-      <button
-        className={`react-flow__controls-fitview cursor-pointer items-center justify-center overflow-clip rounded-md p-1  hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500  dark:hover:text-setta-500 ${fitViewOnInit ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
-        onClick={onFitViewHandler}
-        aria-label="fit view"
-        {...getFloatingBoxHandlers({ content: "Fit view" })}
-      >
-        <TbArrowAutofitWidth size={15} />
-      </button>
+      <ControlsFitViewButton />
       <button
         onClick={toggleSnapToGrid}
         className={`cursor-pointer items-center justify-center overflow-clip rounded-md  p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${snapToGrid ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
