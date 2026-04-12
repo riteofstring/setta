@@ -1,10 +1,6 @@
-import {
-  ChatDictationModeEnum,
-  type ChatDictationMode,
-} from "utils/generatedTypes";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 
-type DictationMode = ChatDictationMode;
+type DictationMode = "auto" | "browser" | "provider";
 export type DictationProviderFailurePhase =
   | "capture_start"
   | "capture_runtime"
@@ -19,28 +15,18 @@ export type DictationProviderFailureClass =
   | "provider_failure"
   | "unknown";
 
-type DictationSource = Exclude<
-  DictationMode,
-  typeof ChatDictationModeEnum.auto
->;
+type DictationSource = "provider" | "browser";
 type ProviderFailureDecision = "fallback_to_browser" | "surface_error";
 type DictationProviderFailurePolicy = Record<
   DictationProviderFailurePhase,
   Record<DictationProviderFailureClass, ProviderFailureDecision>
 >;
 
-const BROWSER_DICTATION_SOURCE: DictationSource = ChatDictationModeEnum.browser;
-const PROVIDER_DICTATION_SOURCE: DictationSource =
-  ChatDictationModeEnum.provider;
-
 const DICTATION_SOURCE_CHAIN_BY_MODE: Record<DictationMode, DictationSource[]> =
   {
-    [ChatDictationModeEnum.auto]: [
-      PROVIDER_DICTATION_SOURCE,
-      BROWSER_DICTATION_SOURCE,
-    ],
-    [ChatDictationModeEnum.browser]: [BROWSER_DICTATION_SOURCE],
-    [ChatDictationModeEnum.provider]: [PROVIDER_DICTATION_SOURCE],
+    auto: ["provider", "browser"],
+    browser: ["browser"],
+    provider: ["provider"],
   };
 
 const ALL_PROVIDER_FAILURE_CLASSES: Array<DictationProviderFailureClass> = [
@@ -96,7 +82,7 @@ const DICTATION_PROVIDER_FAILURE_POLICY: Record<
 };
 
 function formatDictationSource(source: DictationSource): string {
-  if (source === PROVIDER_DICTATION_SOURCE) {
+  if (source === "provider") {
     return "provider";
   }
   return "browser/OS";
@@ -109,13 +95,13 @@ export function getProjectDictationModeOptionLabel({
   mode: DictationMode;
   providerModeAvailable: boolean;
 }): string {
-  if (mode === ChatDictationModeEnum.auto) {
-    const chain = DICTATION_SOURCE_CHAIN_BY_MODE[ChatDictationModeEnum.auto]
+  if (mode === "auto") {
+    const chain = DICTATION_SOURCE_CHAIN_BY_MODE.auto
       .map((source) => formatDictationSource(source))
       .join(", then ");
     return `Auto (${chain})`;
   }
-  if (mode === ChatDictationModeEnum.provider) {
+  if (mode === "provider") {
     return providerModeAvailable
       ? "Always provider"
       : "Always provider (requires transcription profile)";

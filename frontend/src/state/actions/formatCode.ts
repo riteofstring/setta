@@ -1,22 +1,16 @@
-import { formatCode } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { route_format_code } from "utils/generatedEndpoints";
 import {
   CodeFileAccessModeEnum,
   CodeLanguageEnum,
   SectionTypeEnum,
-  type BaseSectionImplUnion,
-  type LSPDiagnostic,
+  type SettaLspDiagnostic,
 } from "utils/generatedTypes";
 import {
   flushPendingCodeUpdate,
@@ -28,20 +22,12 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "./sectionInfos";
+
 const FORMATTER_SUCCESS_MESSAGE = "Ran formatter.";
 const FORMATTER_FAILURE_MESSAGE = "Failed to run formatter.";
-type FormatCodeRouteResponse = ResponseDataAndStatus<null>;
+
 const LOCATION_COLON_RE = /:(\d+):(\d+)(?::|\s)/;
 const LOCATION_TEXT_RE = /line\s+(\d+).*column\s+(\d+)/i;
-type CodeFormatTarget = {
-  sectionId: string;
-  impl: Extract<BaseSectionImplUnion, { type: SectionTypeEnum.Code }>;
-};
-type GeneratedCodeFormatTarget = {
-  sectionId: string;
-  impl: Extract<BaseSectionImplUnion, { type: SectionTypeEnum.GenPythonCode }>;
-};
-type FormatTarget = CodeFormatTarget | GeneratedCodeFormatTarget;
 
 function parseFormatterLocation(detail: string) {
   for (const line of detail.split("\n")) {
@@ -62,7 +48,8 @@ function parseFormatterLocation(detail: string) {
   }
   return { line: 0, character: 0 };
 }
-function buildFormatterDiagnostic(detail: string): LSPDiagnostic {
+
+function buildFormatterDiagnostic(detail: string): SettaLspDiagnostic {
   const message = detail.trim() || "Formatter failed.";
   const { line, character } = parseFormatterLocation(message);
   return {
@@ -77,9 +64,10 @@ function buildFormatterDiagnostic(detail: string): LSPDiagnostic {
     uri: null,
   };
 }
+
 function updateFormatterDiagnosticsForSection(
   sectionId: string,
-  diagnostic: LSPDiagnostic,
+  diagnostic: SettaLspDiagnostic,
 ) {
   useLspDiagnostics.setState((state) => {
     const existing = state.codeSections[sectionId] ?? [];
@@ -89,6 +77,7 @@ function updateFormatterDiagnosticsForSection(
     state.codeSections[sectionId] = [...filtered, diagnostic];
   });
 }
+
 function clearFormatterDiagnosticsForSection(sectionId: string) {
   useLspDiagnostics.setState((state) => {
     const existing = state.codeSections[sectionId];
@@ -105,7 +94,8 @@ function clearFormatterDiagnosticsForSection(sectionId: string) {
     state.codeSections[sectionId] = filtered;
   });
 }
-function updateFormatterDiagnosticsForGenCode(diagnostic: LSPDiagnostic) {
+
+function updateFormatterDiagnosticsForGenCode(diagnostic: SettaLspDiagnostic) {
   useLspDiagnostics.setState((state) => {
     const filtered = state.unmappedGenCode.filter(
       (entry) => entry.source !== FORMATTER_DIAGNOSTIC_SOURCE,
@@ -113,6 +103,7 @@ function updateFormatterDiagnosticsForGenCode(diagnostic: LSPDiagnostic) {
     state.unmappedGenCode = [...filtered, diagnostic];
   });
 }
+
 function clearFormatterDiagnosticsForGenCode() {
   useLspDiagnostics.setState((state) => {
     if (state.unmappedGenCode.length === 0) {
@@ -124,86 +115,69 @@ function clearFormatterDiagnosticsForGenCode() {
   });
 }
 
-function getActiveFormatTarget(): FormatTarget | null {
-  const sectionId = getActiveSectionUIIds()[0];
-  if (!sectionId) {
-    addTemporaryNotification("Select a code section to format.");
-    return null;
-  }
-  const impl = getCurrEffectiveSectionImpl(
-    useProjectState.getState(),
-    sectionId,
-  );
-  if (impl.type === SectionTypeEnum.GenPythonCode) {
-    return { sectionId, impl };
-  }
-  if (impl.type !== SectionTypeEnum.Code) {
-    addTemporaryNotification("Select a Python code section to format.");
-    return null;
-  }
-  if (impl.codeLanguage !== CodeLanguageEnum.python) {
-    addTemporaryNotification("Format is only available for Python code.");
-    return null;
-  }
-  if (impl.codeFileBinding?.access_mode === CodeFileAccessModeEnum.read_only) {
-    addTemporaryNotification("This code section is read-only.");
-    return null;
-  }
-  return { sectionId, impl };
-}
-
-async function flushPendingFormatTarget(target: FormatTarget): Promise<void> {
-  if (target.impl.type === SectionTypeEnum.GenPythonCode) {
-    await flushPendingGenCodeUpdates();
-    return;
-  }
-  await flushPendingCodeUpdate(target.sectionId);
-}
-
-function updateFormatFailureDiagnostics(
-  target: FormatTarget,
-  diagnostic: LSPDiagnostic,
-): void {
-  if (target.impl.type === SectionTypeEnum.GenPythonCode) {
-    updateFormatterDiagnosticsForGenCode(diagnostic);
-    return;
-  }
-  updateFormatterDiagnosticsForSection(target.sectionId, diagnostic);
-}
-
-function clearFormatDiagnostics(target: FormatTarget): void {
-  if (target.impl.type === SectionTypeEnum.GenPythonCode) {
-    clearFormatterDiagnosticsForGenCode();
-    return;
-  }
-  clearFormatterDiagnosticsForSection(target.sectionId);
-}
-
 export async function formatActiveCodeSection(): Promise<void> {
   const shareSession = useShareSession.getState();
   if (shareSession.isDeploymentMode) {
     addTemporaryNotification("Formatting is disabled in share mode.");
     return;
   }
-  const target = getActiveFormatTarget();
-  if (!target) {
+
+  const state = useProjectState.getState();
+  const sectionId = getActiveSectionUIIds()[0];
+  if (!sectionId) {
+    addTemporaryNotification("Select a code section to format.");
     return;
   }
-  await flushPendingFormatTarget(target);
-  const res = (await callOpenAPI(
-    formatCode({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId: target.sectionId,
-      },
-    } as Parameters<typeof formatCode>[0]),
-  )) as FormatCodeRouteResponse;
+
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  if (
+    impl.type !== SectionTypeEnum.Code &&
+    impl.type !== SectionTypeEnum.GenPythonCode
+  ) {
+    addTemporaryNotification("Select a Python code section to format.");
+    return;
+  }
+  if (
+    impl.type === SectionTypeEnum.Code &&
+    impl.codeLanguage !== CodeLanguageEnum.python
+  ) {
+    addTemporaryNotification("Format is only available for Python code.");
+    return;
+  }
+  if (
+    impl.type === SectionTypeEnum.Code &&
+    impl.codeFileBinding?.access_mode === CodeFileAccessModeEnum.read_only
+  ) {
+    addTemporaryNotification("This code section is read-only.");
+    return;
+  }
+
+  if (impl.type === SectionTypeEnum.GenPythonCode) {
+    await flushPendingGenCodeUpdates();
+  } else {
+    await flushPendingCodeUpdate(sectionId);
+  }
+
+  const res = await route_format_code({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId,
+  });
   if (!res200(res)) {
     const detail = getErrorDetail(res.data) ?? "Formatter failed.";
-    updateFormatFailureDiagnostics(target, buildFormatterDiagnostic(detail));
+    const diagnostic = buildFormatterDiagnostic(detail);
+    if (impl.type === SectionTypeEnum.GenPythonCode) {
+      updateFormatterDiagnosticsForGenCode(diagnostic);
+    } else {
+      updateFormatterDiagnosticsForSection(sectionId, diagnostic);
+    }
     addTemporaryNotification(FORMATTER_FAILURE_MESSAGE);
     return;
   }
-  clearFormatDiagnostics(target);
+
+  if (impl.type === SectionTypeEnum.GenPythonCode) {
+    clearFormatterDiagnosticsForGenCode();
+  } else {
+    clearFormatterDiagnosticsForSection(sectionId);
+  }
   addTemporaryNotification(FORMATTER_SUCCESS_MESSAGE);
 }

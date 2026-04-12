@@ -1,3 +1,4 @@
+import { measureSettingsGraphSubstrateCanaryMotionAttribution } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -16,10 +17,13 @@ import {
   updateNodeDimensions,
 } from "./actions/nodeInternals";
 import {
+  consumeViewportPersistenceForAuthoritativeFitViewSuppression,
   debouncedDispatchViewportUpdate,
-  dispatchViewportUpdateImmediately,
+  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
+  getSectionShouldRender,
+  getSectionViewModeVisibility,
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
@@ -31,6 +35,14 @@ export function subscribe() {
     },
     { equalityFn: _.isEqual },
   );
+
+  // useProjectState.subscribe(
+  //   topLevelSectionVisibilitySubscriptionFn,
+  //   (newVal) => {
+  //     updateNodeVisibility(newVal);
+  //   },
+  //   { equalityFn: _.isEqual },
+  // );
 
   useProjectState.subscribe(entryCodeBlockSubscriptionFn, (codeBlockIds) => {
     useProjectState.setState((state) => {
@@ -49,24 +61,39 @@ export function subscribe() {
   useReactFlow.subscribe(
     reactFlowTransformSubscriptionFn,
     (newState, prevState) => {
-      const autoFitTransition =
-        newState.fitViewOnInitDone &&
-        (newState.fitViewOnInit || prevState.fitViewOnInit);
-      if (autoFitTransition) {
-        if (newState.fitViewOnInit) {
-          useReactFlow.setState({ fitViewOnInit: false });
-        } else {
-          // Auto-fit chooses an authoritative camera for the current
-          // document, so persist it immediately instead of waiting on the
-          // gesture debounce.
-          dispatchViewportUpdateImmediately();
-        }
-      } else {
-        debouncedDispatchViewportUpdate();
-      }
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "reactFlowTransformSubscriptionCallback",
+        () => {
+          if (
+            consumeViewportPersistenceForAuthoritativeFitViewSuppression({
+              fitViewOnInit: newState.fitViewOnInit,
+              fitViewOnInitDone: newState.fitViewOnInitDone,
+            })
+          ) {
+            if (newState.fitViewOnInit && newState.fitViewOnInitDone) {
+              useReactFlow.setState({ fitViewOnInit: false });
+            }
+            return;
+          }
 
-      // used by forked xterm to make text appear correctly
-      window.reactFlowZoom = newState.transform[2];
+          if (
+            prevState.fitViewOnInit &&
+            prevState.fitViewOnInitDone &&
+            newState.fitViewOnInit &&
+            newState.fitViewOnInitDone
+          ) {
+            // set fitViewOnInit to false if it was and is true
+            // and fitViewOnInitDone was and is done (need to wait for it to execute the fitView function on project load)
+            // because that means zoom or x/y position must have changed
+            useReactFlow.setState({ fitViewOnInit: false });
+          }
+
+          // used by forked xterm to make text appear correctly
+          window.reactFlowZoom = newState.transform[2];
+
+          debouncedDispatchViewportUpdate();
+        },
+      );
     },
     { equalityFn: _.isEqual },
   );
@@ -134,6 +161,19 @@ function reactFlowTransformSubscriptionFn(state) {
 
 function updateNodeDimensionsSubscriptionFn(state) {
   return state.undoOrRedoWasTriggered || state.requestUpdateNodeDimensions;
+}
+
+function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
+  const output: Record<string, boolean> = {};
+  const topLevelSections = getActiveViewModeTopLevelSections(state);
+  for (const id of Object.keys(topLevelSections)) {
+    const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+      id,
+      state,
+    );
+    output[id] = getSectionShouldRender(visibility, isEditingViewMode);
+  }
+  return output;
 }
 
 function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {

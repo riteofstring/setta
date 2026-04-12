@@ -1,6 +1,5 @@
 import { expect, Locator, test } from "@playwright/test";
 import {
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getCurrentProjectConfigId,
   openProjectAiSettingsPopover,
@@ -9,12 +8,20 @@ import {
   setOverviewTab,
 } from "../../helpers";
 
+type CreateTopLevelSectionResponse = {
+  sectionId?: string;
+};
+
 async function focusCallableSection(page: import("@playwright/test").Page) {
   const projectConfigId = await getCurrentProjectConfigId(page);
-  const created = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType: "Callable",
-  });
+  const created = await postBackend<CreateTopLevelSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Callable",
+    },
+  );
   const sectionId = created?.sectionId;
   if (!sectionId) {
     throw new Error("Failed to create callable section for pane-scroll test.");
@@ -100,9 +107,7 @@ test("pane scroll regions reserve gutter and prevent horizontal content shift", 
   await ensureAppReady(page);
   await openProjectAiSettingsPopover(page);
 
-  const overviewTabContentShell = page.getByTestId(
-    "overview-tab-content-shell",
-  );
+  const overviewTabContentShell = page.getByTestId("overview-tab-content-shell");
   const llmKeysTrigger = overviewTabContentShell.getByTestId(
     "project-ai-settings-accordion-llm-api-keys",
   );
