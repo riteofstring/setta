@@ -28,30 +28,11 @@ func persistExternalAgentRunFailure(
 	if err != nil {
 		return agentruns.Run{}, err
 	}
-	if run.Status == agentruns.RunStatusCancelled ||
-		run.Status == agentruns.RunStatusCompleted ||
-		run.Status == agentruns.RunStatusFailed {
+	if externalAgentRunFinished(run.Status) {
 		return run, nil
 	}
-	now := time.Now().UTC()
-	if timeNow != nil {
-		now = timeNow().UTC()
-	}
-	run.Status = agentruns.RunStatusFailed
-	run.FinishedAt = &now
-	payload := map[string]any{}
-	if runErr != nil && strings.TrimSpace(runErr.Error()) != "" {
-		payload["error"] = strings.TrimSpace(runErr.Error())
-	} else {
-		payload["error"] = "external agent run failed"
-	}
-	if len(stderrLines) > 0 {
-		payload["cliStderr"] = append([]string(nil), stderrLines...)
-	}
-	if runtime != nil {
-		runtime.attachMCPStatusSnapshot(&run)
-	}
-	appendRunEvent(&run, "run_failed", payload, now)
+	now := resolveExternalAgentRunFailureTime(timeNow)
+	markExternalAgentRunFailed(&run, runtime, now, buildExternalAgentRunFailurePayload(runErr, stderrLines))
 	if err := runs.Save(run); err != nil {
 		return agentruns.Run{}, err
 	}
@@ -59,6 +40,55 @@ func persistExternalAgentRunFailure(
 		runtime.reportRunFailure(run, runErr, stderrLines)
 	}
 	return run, nil
+}
+
+func externalAgentRunFinished(status agentruns.RunStatus) bool {
+	switch status {
+	case agentruns.RunStatusCancelled, agentruns.RunStatusCompleted, agentruns.RunStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveExternalAgentRunFailureTime(timeNow func() time.Time) time.Time {
+	if timeNow == nil {
+		return time.Now().UTC()
+	}
+	return timeNow().UTC()
+}
+
+func buildExternalAgentRunFailurePayload(runErr error, stderrLines []string) map[string]any {
+	payload := map[string]any{
+		"error": resolveExternalAgentRunFailureMessage(runErr),
+	}
+	if len(stderrLines) > 0 {
+		payload["cliStderr"] = append([]string(nil), stderrLines...)
+	}
+	return payload
+}
+
+func resolveExternalAgentRunFailureMessage(runErr error) string {
+	if runErr == nil {
+		return "external agent run failed"
+	}
+	message := strings.TrimSpace(runErr.Error())
+	if message == "" {
+		return "external agent run failed"
+	}
+	return message
+}
+
+func markExternalAgentRunFailed(run *agentruns.Run, runtime *Runtime, now time.Time, payload map[string]any) {
+	if run == nil {
+		return
+	}
+	run.Status = agentruns.RunStatusFailed
+	run.FinishedAt = &now
+	if runtime != nil {
+		runtime.attachMCPStatusSnapshot(run)
+	}
+	appendRunEvent(run, "run_failed", payload, now)
 }
 
 func (r *Runtime) reportRunFailure(run agentruns.Run, runErr error, stderrLines []string) {

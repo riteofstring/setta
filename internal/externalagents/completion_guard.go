@@ -38,44 +38,64 @@ type completionGuardReport struct {
 }
 
 func applyCompletionGuardToState(state *ChatState, completionGuardEnabled bool) string {
-	if !completionGuardEnabled || state == nil || len(state.Messages) == 0 {
+	if !completionGuardEnabled {
 		return ""
+	}
+	assistantIndex, assistantMessage, ok := resolveCompletionGuardAssistant(state)
+	if !ok {
+		return ""
+	}
+	replacement := resolveCompletionGuardReplacement(resolveCompletionGuardReport(state.Messages, assistantIndex))
+	if replacement == "" {
+		return ""
+	}
+	replaceAssistantText(&assistantMessage, replacement)
+	state.Messages[assistantIndex] = assistantMessage
+	return replacement
+}
+
+func resolveCompletionGuardAssistant(state *ChatState) (int, map[string]any, bool) {
+	if state == nil || len(state.Messages) == 0 {
+		return -1, nil, false
 	}
 	assistantIndex := findGuardTargetAssistantIndex(state.Messages)
 	if assistantIndex == -1 {
-		return ""
+		return -1, nil, false
 	}
 	assistantMessage := cloneMessageOrPanic(state.Messages[assistantIndex])
 	assistantText := strings.TrimSpace(extractMessageText(assistantMessage))
 	if assistantText == "" || isBackendErrorText(assistantText) {
-		return ""
+		return -1, nil, false
 	}
+	return assistantIndex, assistantMessage, true
+}
 
-	reportSearchMessages := make([]map[string]any, 0, len(state.Messages)-1)
-	reportSearchMessages = append(reportSearchMessages, cloneMessageSlice(state.Messages[:assistantIndex])...)
-	reportSearchMessages = append(reportSearchMessages, resolveSameTurnToolResultMessages(state.Messages[assistantIndex+1:])...)
-	scopedMessages := resolveActiveTaskMessages(reportSearchMessages)
+func resolveCompletionGuardReport(messages []map[string]any, assistantIndex int) *completionGuardReport {
+	scopedMessages := resolveCompletionGuardScopedMessages(messages, assistantIndex)
 	if scopedMessages == nil {
-		return ""
+		return nil
 	}
+	return resolveLatestCompletionReport(scopedMessages)
+}
 
-	report := resolveLatestCompletionReport(scopedMessages)
+func resolveCompletionGuardScopedMessages(messages []map[string]any, assistantIndex int) []map[string]any {
+	reportSearchMessages := make([]map[string]any, 0, len(messages)-1)
+	reportSearchMessages = append(reportSearchMessages, cloneMessageSlice(messages[:assistantIndex])...)
+	reportSearchMessages = append(reportSearchMessages, resolveSameTurnToolResultMessages(messages[assistantIndex+1:])...)
+	return resolveActiveTaskMessages(reportSearchMessages)
+}
+
+func resolveCompletionGuardReplacement(report *completionGuardReport) string {
 	if report == nil {
-		replaceAssistantText(&assistantMessage, missingReportMessage)
-		state.Messages[assistantIndex] = assistantMessage
 		return missingReportMessage
 	}
 	if !report.CompletionIntent || !report.RequiresVerification || report.VerificationStatus == completionGuardVerificationPassed {
 		return ""
 	}
-
-	replacement := missingChecksMessage
 	if report.VerificationStatus == completionGuardVerificationFailed {
-		replacement = failedChecksMessage
+		return failedChecksMessage
 	}
-	replaceAssistantText(&assistantMessage, replacement)
-	state.Messages[assistantIndex] = assistantMessage
-	return replacement
+	return missingChecksMessage
 }
 
 func loadCompletionGuardEnabled(ctx context.Context, settaFilesRoot string) (bool, error) {
