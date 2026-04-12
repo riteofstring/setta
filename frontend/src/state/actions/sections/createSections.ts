@@ -56,6 +56,89 @@ type SmartPlacementContext = {
 };
 type CreateTopLevelSectionRouteResponse =
   ResponseDataAndStatus<CreateTopLevelSectionResult>;
+type ExistingSectionMatcher = (
+  impl: ReturnType<typeof getCurrEffectiveSectionImpl>,
+) => boolean;
+type CreateNamedFileSectionArgs = {
+  createArgs: CreateTopLevelSectionArgs;
+  fileName: string;
+  focusOnSection: boolean;
+};
+function isDeploymentModeEnabled() {
+  return useShareSession.getState().isDeploymentMode;
+}
+function resolveCreateTopLevelSectionPosition(
+  position: Position | null,
+  placement: SmartPlacementContext,
+) {
+  if (position !== null) {
+    return position;
+  }
+  if (
+    placement.viewportBounds !== null ||
+    Object.keys(placement.topLevelSections).length > 0
+  ) {
+    return null;
+  }
+  return getEmptySpacePosition();
+}
+function shouldFocusCreatedSectionTextInput(
+  implType: CreateTopLevelSectionRequest["implType"],
+) {
+  return [
+    SectionTypeEnum.TextBlock,
+    SectionTypeEnum.Code,
+    SectionTypeEnum.Terminal,
+  ].includes(implType);
+}
+async function requestTopLevelSectionCreation(
+  {
+    implType,
+    implOverrides,
+    controlCodeObjType,
+    position,
+    name,
+  }: CreateTopLevelSectionArgs,
+  placement: SmartPlacementContext,
+): Promise<CreateTopLevelSectionRouteResponse> {
+  return (await callOpenAPI(
+    createTopLevelSectionRequest({
+      body: {
+        projectConfigId: getCurrProjectConfigId(),
+        implType,
+        controlCodeObjType,
+        implOverrides: resolveTextBlockImplOverrides(implType, implOverrides),
+        position: resolveCreateTopLevelSectionPosition(
+          position ?? null,
+          placement,
+        ),
+        name,
+        topLevelSections: placement.topLevelSections,
+        viewportBounds: placement.viewportBounds,
+      },
+    } as Parameters<typeof createTopLevelSectionRequest>[0]),
+  )) as CreateTopLevelSectionRouteResponse;
+}
+function centerViewportOnCreatedSection(
+  panTo: CreateTopLevelSectionResult["panTo"],
+) {
+  if (!panTo) {
+    return;
+  }
+  const currentZoom = useReactFlow.getState().transform[2];
+  setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
+}
+function handleCreatedTopLevelSection(
+  sectionId: string,
+  implType: CreateTopLevelSectionRequest["implType"],
+  panTo: CreateTopLevelSectionResult["panTo"],
+) {
+  centerViewportOnCreatedSection(panTo);
+  ensureSectionOnTop(sectionId);
+  if (shouldFocusCreatedSectionTextInput(implType)) {
+    focusOnSectionTextInput(sectionId);
+  }
+}
 export async function createTopLevelSectionWithResult({
   implType,
   implOverrides,
@@ -63,50 +146,25 @@ export async function createTopLevelSectionWithResult({
   position = null,
   name = null,
 }: CreateTopLevelSectionArgs): Promise<CreatedTopLevelSection | null> {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (isDeploymentModeEnabled()) {
     return null;
   }
   const placement = getSmartPlacementContext();
-  const fallbackPosition =
-    position ??
-    (placement.viewportBounds === null &&
-    Object.keys(placement.topLevelSections).length === 0
-      ? getEmptySpacePosition()
-      : null);
-  const resolvedImplOverrides = resolveTextBlockImplOverrides(
-    implType,
-    implOverrides,
+  const res = await requestTopLevelSectionCreation(
+    {
+      implType,
+      implOverrides,
+      controlCodeObjType,
+      position,
+      name,
+    },
+    placement,
   );
-  const res = (await callOpenAPI(
-    createTopLevelSectionRequest({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-        implType,
-        controlCodeObjType,
-        implOverrides: resolvedImplOverrides,
-        position: fallbackPosition,
-        name,
-        topLevelSections: placement.topLevelSections,
-        viewportBounds: placement.viewportBounds,
-      },
-    } as Parameters<typeof createTopLevelSectionRequest>[0]),
-  )) as CreateTopLevelSectionRouteResponse;
   if (!res200(res)) {
     return null;
   }
   const { sectionId, panTo, metaControlParamId } = res.data;
-  if (panTo) {
-    const currentZoom = useReactFlow.getState().transform[2];
-    setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
-  }
-  ensureSectionOnTop(sectionId);
-  if (
-    implType === SectionTypeEnum.TextBlock ||
-    implType === SectionTypeEnum.Code ||
-    implType === SectionTypeEnum.Terminal
-  ) {
-    focusOnSectionTextInput(sectionId);
-  }
+  handleCreatedTopLevelSection(sectionId, implType, panTo);
   return {
     sectionId,
     metaControlParamId: metaControlParamId ?? null,
@@ -202,6 +260,66 @@ function getSmartPlacementContext(): SmartPlacementContext {
     viewportBounds: getViewportBoundsForPlacement(),
   };
 }
+function findExistingTopLevelSectionId(
+  matcher: ExistingSectionMatcher,
+): string | null {
+  const projectState = useProjectState.getState();
+  for (const sectionId of Object.keys(projectState.sections)) {
+    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
+    if (matcher(impl)) {
+      return sectionId;
+    }
+  }
+  return null;
+}
+function focusSectionIfNeeded(sectionId: string, focusOnSection: boolean) {
+  if (focusOnSection) {
+    goToSection(sectionId);
+  }
+}
+async function finalizeOpenedFileSection(
+  sectionId: string,
+  fileName: string,
+  focusOnSection: boolean,
+) {
+  await callOpenAPI(
+    setSectionName({
+      body: {
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        name: getValidSectionNameForOpenedFile(fileName),
+      },
+    } as Parameters<typeof setSectionName>[0]),
+  );
+  focusSectionIfNeeded(sectionId, focusOnSection);
+  return sectionId;
+}
+async function createNamedFileSection({
+  createArgs,
+  fileName,
+  focusOnSection,
+}: CreateNamedFileSectionArgs) {
+  const sectionId = await createTopLevelSection(createArgs);
+  if (!sectionId) {
+    return null;
+  }
+  return finalizeOpenedFileSection(sectionId, fileName, focusOnSection);
+}
+async function openExistingOrCreateNamedFileSection({
+  findExistingSectionId,
+  createArgs,
+  fileName,
+  focusOnSection,
+}: CreateNamedFileSectionArgs & {
+  findExistingSectionId: () => string | null;
+}) {
+  const existingSectionId = findExistingSectionId();
+  if (existingSectionId) {
+    focusSectionIfNeeded(existingSectionId, focusOnSection);
+    return existingSectionId;
+  }
+  return createNamedFileSection({ createArgs, fileName, focusOnSection });
+}
 export function getEmptySpacePosition() {
   const viewportBounds = getViewportBoundsForPlacement();
   const positionOffset = { x: 10, y: 10 };
@@ -262,54 +380,32 @@ export async function openFileInCodeSection({
   position = null,
   focusOnSection = true,
 }: OpenFileInCodeSectionArgs) {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (isDeploymentModeEnabled()) {
     return null;
   }
-  const projectState = useProjectState.getState();
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
-    if (impl.type !== SectionTypeEnum.Code) {
-      continue;
-    }
-    const binding = impl.codeFileBinding;
-    if (!binding) {
-      continue;
-    }
-    if (binding.canonical_path === filePath) {
-      if (focusOnSection) {
-        goToSection(sectionId);
-      }
-      return sectionId;
-    }
-  }
-  const newSectionId = await createTopLevelSection({
-    implType: SectionTypeEnum.Code,
-    implOverrides: {
-      type: SectionTypeEnum.Code,
-      codeLanguage,
-      codeFileBinding: {
-        canonical_path: filePath,
-        access_mode: CodeFileAccessModeEnum.read_write,
+  return openExistingOrCreateNamedFileSection({
+    findExistingSectionId: () =>
+      findExistingTopLevelSectionId((impl) => {
+        if (impl.type !== SectionTypeEnum.Code) {
+          return false;
+        }
+        return impl.codeFileBinding?.canonical_path === filePath;
+      }),
+    createArgs: {
+      implType: SectionTypeEnum.Code,
+      implOverrides: {
+        type: SectionTypeEnum.Code,
+        codeLanguage,
+        codeFileBinding: {
+          canonical_path: filePath,
+          access_mode: CodeFileAccessModeEnum.read_write,
+        },
       },
+      position,
     },
-    position,
+    fileName,
+    focusOnSection,
   });
-  if (!newSectionId) {
-    return null;
-  }
-  await callOpenAPI(
-    setSectionName({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId: newSectionId,
-        name: getValidSectionNameForOpenedFile(fileName),
-      },
-    } as Parameters<typeof setSectionName>[0]),
-  );
-  if (focusOnSection) {
-    goToSection(newSectionId);
-  }
-  return newSectionId;
 }
 type OpenFileInTextSectionArgs = {
   fileName: string;
@@ -327,35 +423,23 @@ export async function openFileInTextSection({
   position = null,
   focusOnSection = true,
 }: OpenFileInTextSectionArgs) {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (isDeploymentModeEnabled()) {
     return null;
   }
-  const newSectionId = await createTopLevelSection({
-    implType: SectionTypeEnum.TextBlock,
-    implOverrides: {
-      type: SectionTypeEnum.TextBlock,
-      format,
-      textDisplayMode,
-      text,
-    },
-    position,
-  });
-  if (!newSectionId) {
-    return null;
-  }
-  await callOpenAPI(
-    setSectionName({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId: newSectionId,
-        name: getValidSectionNameForOpenedFile(fileName),
+  return createNamedFileSection({
+    createArgs: {
+      implType: SectionTypeEnum.TextBlock,
+      implOverrides: {
+        type: SectionTypeEnum.TextBlock,
+        format,
+        textDisplayMode,
+        text,
       },
-    } as Parameters<typeof setSectionName>[0]),
-  );
-  if (focusOnSection) {
-    goToSection(newSectionId);
-  }
-  return newSectionId;
+      position,
+    },
+    fileName,
+    focusOnSection,
+  });
 }
 type OpenFileInImageSectionArgs = {
   filePath: string;
@@ -369,46 +453,26 @@ export async function openFileInImageSection({
   position = null,
   focusOnSection = true,
 }: OpenFileInImageSectionArgs) {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (isDeploymentModeEnabled()) {
     return null;
   }
-  const projectState = useProjectState.getState();
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
-    if (impl.type !== SectionTypeEnum.Image) {
-      continue;
-    }
-    if (impl.imagePath === filePath) {
-      if (focusOnSection) {
-        goToSection(sectionId);
-      }
-      return sectionId;
-    }
-  }
-  const newSectionId = await createTopLevelSection({
-    implType: SectionTypeEnum.Image,
-    implOverrides: {
-      type: SectionTypeEnum.Image,
-      imagePath: filePath,
-    },
-    position,
-  });
-  if (!newSectionId) {
-    return null;
-  }
-  await callOpenAPI(
-    setSectionName({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId: newSectionId,
-        name: getValidSectionNameForOpenedFile(fileName),
+  return openExistingOrCreateNamedFileSection({
+    findExistingSectionId: () =>
+      findExistingTopLevelSectionId(
+        (impl) =>
+          impl.type === SectionTypeEnum.Image && impl.imagePath === filePath,
+      ),
+    createArgs: {
+      implType: SectionTypeEnum.Image,
+      implOverrides: {
+        type: SectionTypeEnum.Image,
+        imagePath: filePath,
       },
-    } as Parameters<typeof setSectionName>[0]),
-  );
-  if (focusOnSection) {
-    goToSection(newSectionId);
-  }
-  return newSectionId;
+      position,
+    },
+    fileName,
+    focusOnSection,
+  });
 }
 type OpenFileInSpreadsheetSectionArgs = {
   filePath: string;
@@ -422,48 +486,29 @@ export async function openFileInSpreadsheetSection({
   position = null,
   focusOnSection = true,
 }: OpenFileInSpreadsheetSectionArgs) {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (isDeploymentModeEnabled()) {
     return null;
   }
-  const projectState = useProjectState.getState();
   const normalizedPath = filePath.trim();
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
-    if (impl.type !== SectionTypeEnum.Spreadsheet) {
-      continue;
-    }
-    if (impl.filePath.trim() === normalizedPath) {
-      if (focusOnSection) {
-        goToSection(sectionId);
-      }
-      return sectionId;
-    }
-  }
-  const newSectionId = await createTopLevelSection({
-    implType: SectionTypeEnum.Spreadsheet,
-    implOverrides: {
-      type: SectionTypeEnum.Spreadsheet,
-      filePath: normalizedPath,
-      activeSheet: null,
-    },
-    position,
-  });
-  if (!newSectionId) {
-    return null;
-  }
-  await callOpenAPI(
-    setSectionName({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId: newSectionId,
-        name: getValidSectionNameForOpenedFile(fileName),
+  return openExistingOrCreateNamedFileSection({
+    findExistingSectionId: () =>
+      findExistingTopLevelSectionId(
+        (impl) =>
+          impl.type === SectionTypeEnum.Spreadsheet &&
+          impl.filePath.trim() === normalizedPath,
+      ),
+    createArgs: {
+      implType: SectionTypeEnum.Spreadsheet,
+      implOverrides: {
+        type: SectionTypeEnum.Spreadsheet,
+        filePath: normalizedPath,
+        activeSheet: null,
       },
-    } as Parameters<typeof setSectionName>[0]),
-  );
-  if (focusOnSection) {
-    goToSection(newSectionId);
-  }
-  return newSectionId;
+      position,
+    },
+    fileName,
+    focusOnSection,
+  });
 }
 type OpenFileAsSectionResult =
   | {
