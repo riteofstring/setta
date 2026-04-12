@@ -81,6 +81,12 @@ export function updateMessageById(
   return { messages: nextMessages, changed: true };
 }
 
+type ChatMessageContent = Array<
+  MessageTextContent | MessageImageURLContent | MessageThinkingContent
+>;
+
+type MessageContentDelta = NonNullable<MessageDeltaEvent["content"]>[number];
+
 function upsertMessage(
   messages: Array<BaseChatMessageUnion>,
   message: BaseChatMessageUnion,
@@ -95,57 +101,6 @@ function upsertMessage(
   const nextMessages = [...messages];
   nextMessages[existingIndex] = mergeMessageCreatedAt(message, existingMessage);
   return nextMessages;
-}
-
-function applyToolCallDelta(
-  details: ChatDetails,
-  chunk: {
-    message_id: string;
-    tool_call_id: string;
-    tool_name: string | null;
-    arguments_delta: string;
-  },
-): ChatDetails {
-  const toolCallArguments = {
-    ...details.toolCallArguments,
-    [chunk.tool_call_id]:
-      (details.toolCallArguments?.[chunk.tool_call_id] ?? "") +
-      chunk.arguments_delta,
-  };
-  const { messages, changed } = updateMessageById(
-    details.messages,
-    chunk.message_id,
-    (message) => {
-      const toolCalls = [...(message.tool_calls ?? [])];
-      const existingIndex = toolCalls.findIndex(
-        (entry) => entry.id === chunk.tool_call_id,
-      );
-      if (existingIndex !== -1) {
-        if (!chunk.tool_name) {
-          return null;
-        }
-        const existingCall = toolCalls[existingIndex];
-        if (existingCall.function.name === chunk.tool_name) {
-          return null;
-        }
-        toolCalls[existingIndex] = {
-          ...existingCall,
-          function: {
-            ...existingCall.function,
-            name: chunk.tool_name,
-          },
-        };
-        return { ...message, tool_calls: toolCalls };
-      }
-      toolCalls.push(createToolCallPlaceholder(chunk));
-      return { ...message, tool_calls: toolCalls };
-    },
-  );
-  return {
-    ...details,
-    toolCallArguments,
-    ...(changed ? { messages } : {}),
-  };
 }
 
 export function applyStreamDeltaToChatDetails(
@@ -171,6 +126,68 @@ export function applyStreamDeltaToChatDetails(
   };
 }
 
+function syncActiveBranchMessages(
+  branches: ChatSectionState["branches"],
+  activeBranchId: string | null,
+  messages: Array<BaseChatMessageUnion>,
+): ChatSectionState["branches"] {
+  if (!activeBranchId) {
+    return branches;
+  }
+  const activeBranch = branches[activeBranchId];
+  if (!activeBranch) {
+    return branches;
+  }
+  return {
+    ...branches,
+    [activeBranchId]: {
+      ...activeBranch,
+      messages,
+    },
+  };
+}
+
+function createChatSectionStateResult(
+  state: ChatSectionState,
+  messages: Array<BaseChatMessageUnion>,
+  waitingForResponse: boolean,
+  toolCallArguments: Record<string, string>,
+): ChatSectionState {
+  const activeBranchId = state.activeBranchId ?? null;
+  return {
+    messages,
+    inputText: state.inputText,
+    waitingForResponse,
+    toolCallArguments,
+    activeBranchId,
+    branches: syncActiveBranchMessages(
+      { ...(state.branches ?? {}) },
+      activeBranchId,
+      messages,
+    ),
+  };
+}
+
+function resolveFinalizedMessageUpsert(
+  messages: Array<BaseChatMessageUnion>,
+  message: BaseChatMessageUnion,
+): { messageToUpsert: BaseChatMessageUnion; targetId: string } {
+  if (message.role !== ChatRoleEnum.assistant) {
+    return {
+      messageToUpsert: message,
+      targetId: message.id,
+    };
+  }
+  const finalized = resolveFinalizedAssistantMessageUpdate(
+    messages,
+    message as AssistantChatMessage,
+  );
+  return {
+    messageToUpsert: finalized.message,
+    targetId: finalized.targetId,
+  };
+}
+
 export function applyStreamDeltaToChatSectionState(
   state: ChatSectionState,
   chunk: ChatSectionStreamChunk,
@@ -178,55 +195,16 @@ export function applyStreamDeltaToChatSectionState(
   let messages = [...state.messages];
   let toolCallArguments = { ...state.toolCallArguments };
   let waitingForResponse = state.waitingForResponse;
-  const inputText = state.inputText;
-  const activeBranchId = state.activeBranchId ?? null;
-  const branches = { ...(state.branches ?? {}) };
-
-  const syncActiveBranchMessages = (
-    nextMessages: Array<BaseChatMessageUnion>,
-  ) => {
-    if (!activeBranchId) {
-      return branches;
-    }
-    const activeBranch = branches[activeBranchId];
-    if (!activeBranch) {
-      return branches;
-    }
-    return {
-      ...branches,
-      [activeBranchId]: {
-        ...activeBranch,
-        messages: nextMessages,
-      },
-    };
-  };
 
   switch (chunk.type) {
     case StreamingEventTypeEnum.message_start: {
       messages = upsertMessage(messages, chunk.message);
       waitingForResponse = true;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
+      break;
     }
-    case StreamingEventTypeEnum.delta: {
+    case StreamingEventTypeEnum.delta:
       messages = applyMessageDeltaToChatMessages(messages, chunk);
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
+      break;
     case StreamingEventTypeEnum.tool_call_delta: {
       const result = applyToolCallDeltaToChatMessages(
         messages,
@@ -235,15 +213,7 @@ export function applyStreamDeltaToChatSectionState(
       );
       messages = result.messages;
       toolCallArguments = result.toolCallArguments;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
+      break;
     }
     case StreamingEventTypeEnum.tool_argument_preview_delta: {
       const result = applyToolCallDeltaToChatMessages(
@@ -253,77 +223,35 @@ export function applyStreamDeltaToChatSectionState(
       );
       messages = result.messages;
       toolCallArguments = result.toolCallArguments;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
+      break;
     }
-    case StreamingEventTypeEnum.tool_result: {
+    case StreamingEventTypeEnum.tool_result:
       messages = upsertMessage(messages, chunk.result);
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-    case StreamingEventTypeEnum.message_stop: {
+      break;
+    case StreamingEventTypeEnum.message_stop:
       waitingForResponse = false;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
+      break;
     case StreamingEventTypeEnum.message_finalized: {
-      const { message: messageToUpsert, targetId } =
-        chunk.message.role === ChatRoleEnum.assistant
-          ? resolveFinalizedAssistantMessageUpdate(
-              messages,
-              chunk.message as AssistantChatMessage,
-            )
-          : {
-              message: chunk.message,
-              targetId: chunk.message.id,
-            };
+      const { messageToUpsert, targetId } = resolveFinalizedMessageUpsert(
+        messages,
+        chunk.message,
+      );
       messages = upsertMessage(messages, messageToUpsert, targetId);
       waitingForResponse = false;
       toolCallArguments = {};
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
+      break;
     }
-    default: {
+    default:
       chunk satisfies never;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
+      break;
   }
+
+  return createChatSectionStateResult(
+    state,
+    messages,
+    waitingForResponse,
+    toolCallArguments,
+  );
 }
 
 function isResponsePlaceholderId(
@@ -472,9 +400,7 @@ function stampMessageCreatedAtIfMissing(
 }
 
 function ensureTextContentBlock(
-  content: Array<
-    MessageTextContent | MessageImageURLContent | MessageThinkingContent
-  >,
+  content: ChatMessageContent,
   index: number,
 ): MessageTextContent {
   while (content.length <= index) {
@@ -490,9 +416,7 @@ function ensureTextContentBlock(
 }
 
 function ensureThinkingContentBlock(
-  content: Array<
-    MessageTextContent | MessageImageURLContent | MessageThinkingContent
-  >,
+  content: ChatMessageContent,
   index: number,
 ): MessageThinkingContent {
   while (content.length <= index) {
@@ -505,6 +429,67 @@ function ensureThinkingContentBlock(
     return nextBlock;
   }
   return block as MessageThinkingContent;
+}
+
+function resolveDeltaContentIndex(
+  delta: MessageContentDelta,
+  contentLength: number,
+): number {
+  return normalizeChatContentIndex(delta.index, contentLength);
+}
+
+function applyTextDeltaToContent(
+  content: ChatMessageContent,
+  delta: Extract<MessageContentDelta, { type: "text_delta" }>,
+): boolean {
+  if (!delta.text) {
+    return false;
+  }
+  const block = ensureTextContentBlock(
+    content,
+    resolveDeltaContentIndex(delta, content.length),
+  );
+  block.text += delta.text;
+  return true;
+}
+
+function applyThinkingDeltaToContent(
+  content: ChatMessageContent,
+  delta: Extract<MessageContentDelta, { type: "thinking_delta" }>,
+): boolean {
+  const block = ensureThinkingContentBlock(
+    content,
+    resolveDeltaContentIndex(delta, content.length),
+  );
+  let mutated = false;
+  if (delta.thinking) {
+    block.thinking += delta.thinking;
+    mutated = true;
+  }
+  if (delta.summary !== undefined && delta.summary !== null) {
+    block.summary = delta.summary;
+    mutated = true;
+  }
+  if (delta.signature !== undefined) {
+    block.signature = delta.signature ?? "";
+    mutated = true;
+  }
+  return mutated;
+}
+
+function applyMessageContentDelta(
+  content: ChatMessageContent,
+  delta: MessageContentDelta,
+): boolean {
+  switch (delta.type) {
+    case "text_delta":
+      return applyTextDeltaToContent(content, delta);
+    case "thinking_delta":
+      return applyThinkingDeltaToContent(content, delta);
+    default:
+      delta satisfies never;
+      return false;
+  }
 }
 
 function applyMessageDeltaToChatMessages(
@@ -521,40 +506,7 @@ function applyMessageDeltaToChatMessages(
   let mutated = false;
   const content = [...assistant.content];
   for (const delta of chunk.content ?? []) {
-    if (delta.type === "text_delta") {
-      const index = normalizeChatContentIndex(delta.index, content.length);
-      const block = ensureTextContentBlock(content, index);
-      if (delta.text) {
-        block.text += delta.text;
-        mutated = true;
-      }
-      continue;
-    }
-    if (delta.type === "thinking_delta") {
-      const index = normalizeChatContentIndex(delta.index, content.length);
-      const block = ensureThinkingContentBlock(content, index);
-      const thinkingUpdate = delta.thinking ?? "";
-      const summaryUpdate = delta.summary;
-      const signatureUpdate = delta.signature;
-      let blockMutated = false;
-      if (thinkingUpdate) {
-        block.thinking += thinkingUpdate;
-        blockMutated = true;
-      }
-      if (summaryUpdate !== undefined && summaryUpdate !== null) {
-        block.summary = summaryUpdate;
-        blockMutated = true;
-      }
-      if (signatureUpdate !== undefined) {
-        block.signature = signatureUpdate ?? "";
-        blockMutated = true;
-      }
-      if (blockMutated) {
-        mutated = true;
-      }
-      continue;
-    }
-    delta satisfies never;
+    mutated = applyMessageContentDelta(content, delta) || mutated;
   }
   if (!mutated) {
     return updatedMessages;
