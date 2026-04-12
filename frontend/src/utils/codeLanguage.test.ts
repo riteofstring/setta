@@ -18,6 +18,12 @@ describe("codeLanguage helpers", () => {
     expect(resolveCodeLanguageFromPath("src/app.ts")).toBe(
       CodeLanguageEnum.typescript,
     );
+    expect(resolveCodeLanguageFromPath("src/script.MJS")).toBe(
+      CodeLanguageEnum.javascript,
+    );
+    expect(resolveCodeLanguageFromPath("notes/README.MarkDown")).toBe(
+      CodeLanguageEnum.markdown,
+    );
     expect(resolveCodeLanguageFromPath("notes.unknownext")).toBe(
       CodeLanguageEnum.plaintext,
     );
