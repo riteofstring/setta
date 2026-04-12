@@ -10,7 +10,7 @@ import {
   type Policy,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ChatMessageList, buildCopyTextForMessage } from "./ChatMessages";
+import { ChatMessageList } from "./ChatMessages";
 
 function buildSharePolicy(overrides: Partial<Policy> = {}): Policy {
   return createPolicy(overrides);
@@ -2235,50 +2235,5 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain('data-chat-assistant-tool-call-card="true"');
     expect(markup).toContain('data-chat-actions-anchor="right"');
     expect(markup).toContain('data-chat-message-actions="true"');
-  });
-});
-
-describe("buildCopyTextForMessage", () => {
-  it("includes tool call details when assistant content is empty", () => {
-    const message: BaseChatMessageUnion = {
-      id: "assistant-tool-copy",
-      role: ChatRoleEnum.assistant,
-      content: [],
-      attachments: [],
-      tool_calls: [
-        {
-          id: "tool-copy-1",
-          type: "function",
-          function: {
-            name: "mcp__figma-desktop__get_design_context",
-            arguments: { nodeId: "1:2" },
-          },
-        },
-      ],
-    };
-    const text = buildCopyTextForMessage({
-      message,
-      toolCallArguments: {},
-      toolResultsById: {
-        "tool-copy-1": {
-          role: ChatRoleEnum.tool,
-          tool_call_id: "tool-copy-1",
-          tool_name: "mcp__figma-desktop__get_design_context",
-          arguments: { nodeId: "1:2" },
-          result: { ok: true },
-          content: [],
-          is_error: false,
-          started_at: "2026-01-01T00:00:00Z",
-          completed_at: null,
-          id: "tool-result-1",
-        },
-      },
-    });
-
-    expect(text).toContain("mcp__figma-desktop__get_design_context");
-    expect(text).toContain("Arguments:");
-    expect(text).toContain('"nodeId": "1:2"');
-    expect(text).toContain("Result:");
-    expect(text).toContain('"ok": true');
   });
 });

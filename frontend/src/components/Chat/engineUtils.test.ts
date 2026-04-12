@@ -2,7 +2,6 @@ import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
 import { type EngineConfig, EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  type ExternalEngineStatus,
   getExternalEngineIssueMessage,
   getExternalEngineStatus,
   resolveEffectiveThinking,
@@ -108,12 +107,12 @@ describe("getExternalEngineStatus", () => {
 describe("getExternalEngineIssueMessage", () => {
   it("returns null when the external engine is available or still loading", () => {
     // Healthy and loading states should not create warning notifications.
-    const available: ExternalEngineStatus = {
+    const available = {
       status: "available",
       issues: [],
       name: "Codex",
     };
-    const loading: ExternalEngineStatus = {
+    const loading = {
       status: "loading",
       issues: [],
       name: "Codex",
@@ -125,7 +124,7 @@ describe("getExternalEngineIssueMessage", () => {
 
   it("includes the engine name and issue list for unavailable states", () => {
     // The warning should provide enough detail for the notifications area.
-    const unavailable: ExternalEngineStatus = {
+    const unavailable = {
       status: "unavailable",
       issues: ["Could not resolve host", "Missing SDK binary"],
       name: "Codex",
@@ -138,7 +137,7 @@ describe("getExternalEngineIssueMessage", () => {
 
   it("falls back to a generic unavailable label when no details exist", () => {
     // Missing/invalid config states may not include a name or issue details.
-    const missing: ExternalEngineStatus = {
+    const missing = {
       status: "missing",
       issues: [],
       name: null,

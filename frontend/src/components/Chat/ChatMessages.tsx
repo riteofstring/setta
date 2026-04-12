@@ -5993,7 +5993,7 @@ function buildCopyTextForToolCall({
   return lines.join("\n");
 }
 
-export function buildCopyTextForMessage({
+function buildCopyTextForMessage({
   message,
   toolResultsById,
   toolCallArguments,

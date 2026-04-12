@@ -13,7 +13,7 @@ export type ChatContextTelemetry = {
   contextUsageIsEstimated: boolean;
 };
 
-export function normalizeContextTokenCount(
+function normalizeContextTokenCount(
   value: number | null | undefined,
 ): number | null {
   if (typeof value !== "number") {

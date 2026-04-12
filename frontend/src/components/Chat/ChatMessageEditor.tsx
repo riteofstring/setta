@@ -62,9 +62,7 @@ const DROPDOWN_ITEM_CLASS =
 const STATUS_MESSAGE_CLASS =
   "text-[10px] uppercase tracking-[0.2em] text-setta-900/70 dark:text-white/70";
 
-export function syncTextAreaHeight(
-  textArea: TextAreaHeightTarget | null,
-): void {
+function syncTextAreaHeight(textArea: TextAreaHeightTarget | null): void {
   if (!textArea) {
     return;
   }

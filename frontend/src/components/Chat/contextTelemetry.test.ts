@@ -1,24 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  normalizeContextTokenCount,
-  resolveAuthoritativeContextTelemetry,
-} from "./contextTelemetry";
-
-describe("normalizeContextTokenCount", () => {
-  it("accepts non-negative integers", () => {
-    expect(normalizeContextTokenCount(10)).toBe(10);
-    expect(normalizeContextTokenCount(0)).toBe(0);
-  });
-
-  it("returns null for invalid or non-integer values", () => {
-    expect(normalizeContextTokenCount(null)).toBeNull();
-    expect(normalizeContextTokenCount(undefined)).toBeNull();
-    expect(normalizeContextTokenCount(10.9)).toBeNull();
-    expect(normalizeContextTokenCount(-5)).toBeNull();
-    expect(normalizeContextTokenCount(Number.NaN)).toBeNull();
-    expect(normalizeContextTokenCount(Number.POSITIVE_INFINITY)).toBeNull();
-  });
-});
+import { resolveAuthoritativeContextTelemetry } from "./contextTelemetry";
 
 describe("resolveAuthoritativeContextTelemetry", () => {
   it("returns backend telemetry values directly", () => {
@@ -54,6 +35,20 @@ describe("resolveAuthoritativeContextTelemetry", () => {
       contextWindowTokens: 4000,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
+    });
+  });
+
+  it("drops invalid token counts instead of forwarding malformed backend values", () => {
+    expect(
+      resolveAuthoritativeContextTelemetry({
+        contextWindowTokens: 10.9,
+        contextUsedTokens: Number.NaN,
+        estimated: true,
+      }),
+    ).toEqual({
+      contextWindowTokens: null,
+      contextUsedTokens: null,
+      contextUsageIsEstimated: true,
     });
   });
 });

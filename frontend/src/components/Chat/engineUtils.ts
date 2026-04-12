@@ -5,7 +5,7 @@ type IdNameItem = { id: string; name: string };
 
 type IdNameGroup = { group: string; items: Array<IdNameItem> };
 
-export type ExternalEngineStatus = {
+type ExternalEngineStatus = {
   status: "loading" | "missing" | "available" | "unavailable";
   issues: Array<string>;
   name: string | null;
