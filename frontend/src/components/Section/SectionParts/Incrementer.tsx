@@ -1,9 +1,4 @@
 import _ from "lodash";
-import {
-  createChildSectionsViaIncrementer,
-  deleteChildSectionsViaDecrementer,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
 import {
@@ -12,7 +7,12 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import {
+  route_create_child_sections_via_incrementer,
+  route_delete_child_sections_via_decrementer,
+} from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+
 export function Incrementer({
   sectionId,
   isRoot,
@@ -35,7 +35,9 @@ export function Incrementer({
     };
   }, _.isEqual);
   const { canEditStructure } = useShareCapabilities();
+
   const [numSections, setNumSections] = useState<number | "">(1);
+
   const numSectionsOnChange = (value: string) => {
     if (value === "") {
       setNumSections("");
@@ -47,42 +49,38 @@ export function Incrementer({
       // Invalid input - don't update state
     }
   };
+
   const numSectionsOnBlur = () => {
     if (numSections === "" || numSections === 0) {
       setNumSections(1); // Reset to default/minimum value
     }
   };
+
   const addSections = () => {
     if (!canEditStructure) {
       return;
     }
     if (typeof numSections === "string") return;
-    callOpenAPI(
-      createChildSectionsViaIncrementer({
-        body: {
-          projectConfigId: getCurrProjectConfigId(),
-          calledBy: sectionId,
-          implType: defaultChildSectionType,
-          numChildren: numSections,
-        },
-      } as Parameters<typeof createChildSectionsViaIncrementer>[0]),
-    );
+    route_create_child_sections_via_incrementer({
+      projectConfigId: getCurrProjectConfigId(),
+      calledBy: sectionId,
+      implType: defaultChildSectionType,
+      numChildren: numSections,
+    });
   };
+
   const deleteChildren = () => {
     if (!canEditStructure) {
       return;
     }
     if (typeof numSections === "string") return;
-    callOpenAPI(
-      deleteChildSectionsViaDecrementer({
-        body: {
-          projectConfigId: getCurrProjectConfigId(),
-          calledBy: sectionId,
-          numChildren: numSections,
-        },
-      } as Parameters<typeof deleteChildSectionsViaDecrementer>[0]),
-    );
+    route_delete_child_sections_via_decrementer({
+      projectConfigId: getCurrProjectConfigId(),
+      calledBy: sectionId,
+      numChildren: numSections,
+    });
   };
+
   return (
     <div
       className={`section-key-value section-row-main -mx-2 flex items-center gap-1 rounded-lg  bg-setta-100 pl-2 pr-1 dark:bg-setta-950 ${popover ? "border border-solid border-white py-1 shadow-lg dark:border-setta-800" : ""}`}
