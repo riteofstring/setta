@@ -1947,29 +1947,6 @@ func runSortsAfter(left agentruns.Run, right agentruns.Run) bool {
 	return strings.Compare(left.ID, right.ID) > 0
 }
 
-func (r *Runtime) listChildRuns(parentRun agentruns.Run, projectConfigID string) ([]agentruns.Run, error) {
-	projectRuns, err := r.runs.ListByMetadata(agentruns.RunFilter{
-		ProjectConfigID: stringPointer(projectConfigID),
-	})
-	if err != nil {
-		return nil, err
-	}
-	childRuns := make([]agentruns.Run, 0)
-	for _, run := range projectRuns {
-		if run.ID == parentRun.ID {
-			continue
-		}
-		if runInputString(run, inputKeyStateMachineRunID) != parentRun.ID {
-			continue
-		}
-		if !runInputsStringEquals(run, inputKeyStateMachineParentRunType, RunTypeStateMachine) {
-			continue
-		}
-		childRuns = append(childRuns, run)
-	}
-	return childRuns, nil
-}
-
 func (r *Runtime) clearOwnedChatBindings(run agentruns.Run, projectConfigID string, shareSessionID *string) error {
 	projectRuntime, err := r.projectRuntime(shareSessionID)
 	if err != nil {

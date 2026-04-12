@@ -8,10 +8,6 @@ import (
 
 const askUserQuestionToolName = "AskUserQuestion"
 
-func appendAssistantThinkingDelta(state *ChatState, messageID string, delta string) {
-	appendAssistantThinkingUpdate(state, messageID, delta, nil, nil)
-}
-
 func appendAssistantThinkingUpdate(
 	state *ChatState,
 	messageID string,

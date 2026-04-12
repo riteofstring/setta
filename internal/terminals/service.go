@@ -1007,14 +1007,6 @@ func (session *session) waitForPromptReady() error {
 	return nil
 }
 
-func shellPrintfOctal(value string) string {
-	var builder strings.Builder
-	for index := 0; index < len(value); index++ {
-		fmt.Fprintf(&builder, "\\%03o", value[index])
-	}
-	return builder.String()
-}
-
 func findPromptReadyLineEndRawOffset(raw []byte, marker string) (int, bool) {
 	if len(raw) == 0 || marker == "" {
 		return 0, false
