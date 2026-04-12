@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 19:26 UTC
+Last updated: 2026-04-12 19:36 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,45 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `342` landed one bounded node-wrapper node-internals selector split
+  inside the measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the mounted section-body wrapper path:
+    - `frontend/src/forks/xyflow/core/components/wrapNode.tsx`
+      now subscribes to `useNodeInternals(...)` through a narrowed
+      `{ position, tempZIndex }` selector instead of the entire node entry
+    - this keeps the mounted top-level section wrapper from re-committing when
+      unrelated node-internals metadata such as measured size or handle bounds
+      changes
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/components/wrapNode.test.tsx`
+      to assert the wrapper does not commit when node internals only change
+      width/height/measured/handleBounds and still re-renders when position
+      changes
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-node-wrapper-node-internals-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/components/wrapNode.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/components/wrapNode.tsx src/forks/xyflow/core/components/wrapNode.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> the provided bootstrap token was rejected, but the live frontend at
+         `3075` was already healthy
+      -> `/settings` loaded successfully with title `Settings`
+      -> visible settings section area measured `780x457`
+      -> `svgCount=96`, `canvasCount=0`, largest graph surface SVG `5000x5000`
+      -> no obvious layout collapse or graph-surface regression was observed
+  - reading:
+    - this is the first worktree-side slice in this stretch that narrows the
+      mounted top-level section wrapper itself rather than another edge/control
+      surface
+    - the next bounded frontier should stay attribution-led and confirm which
+      remaining mounted section-body/chrome subscriber or shared write fan-out
+      now dominates after this wrapper split before taking another reduction
+      slice
 
 - item `341` landed one bounded edge-handle connecting-state split inside the
   measured `interactionReactFlowStateSync` owner on the named
@@ -204,6 +243,35 @@ This section overrides older "next frontier" notes below when choosing the next 
   - only reopen the canonical main-reference probe before those two
     product-side passes if the next slice directly changes the pane-state
     capture path or another explicit health signal changes that lane
+
+- progress review checkpoint for runs `021` through `030`:
+  - keep the loop going, but tighten target selection inside
+    `interactionReactFlowStateSync`
+  - this stretch still landed real product progress on the named
+    `rotaryParamCodeObjDefault` lane:
+    - controls fit-view subscription split
+    - spreadsheet shell zoom split
+    - temp placeholder zoom split
+    - selection-key pan gate split
+    - node drag/pan modifier split
+    - wheel-zoom modifier split
+    - workflow-edge and agentic-edge additive-selection splits
+    - workflow-edge node-geometry selector split
+    - edge-handle connect-start subscription removal
+  - the one blocked pass in this stretch was runtime-health churn after
+    bounded lifecycle recovery, not a new reason to stop the product lane
+  - the new red herring is defaulting to another arbitrary micro-split just
+    because it exists somewhere in the same measured owner
+  - next default pass should first use the existing canary instrumentation plus
+    focused React profiler/render-count evidence to name the largest remaining
+    mounted section-body / section-chrome subscriber or shared write fan-out
+  - prefer targets that still fan out across mounted DOM-backed section
+    surfaces during pan/zoom/drag on the canonical lane; do not default to
+    another controls or edge-shell split unless the local attribution points
+    there explicitly
+  - only rerun the broader canonical perf lane after that evidence-backed
+    slice if it plausibly changes the owner ranking or if local attribution no
+    longer yields a clear next target
 
 - item `338` landed one bounded workflow-edge selection split inside the
   measured `interactionReactFlowStateSync` owner on the named

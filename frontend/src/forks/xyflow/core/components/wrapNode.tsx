@@ -17,6 +17,11 @@ export const arrowKeyDiffs: Record<string, Position> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
+type NodeWrapperRenderState = {
+  position: Node["position"] | undefined;
+  tempZIndex: Node["tempZIndex"] | undefined;
+};
+
 const _NodeWrapper = ({
   id,
   resizeObserver,
@@ -25,7 +30,13 @@ const _NodeWrapper = ({
   resizeObserver: ResizeObserver | null;
   visibility: CSSProperties["visibility"];
 }) => {
-  const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
+  const node = useNodeInternals<NodeWrapperRenderState>((state) => {
+    const node = state.x.get(id);
+    return {
+      position: node?.position,
+      tempZIndex: node?.tempZIndex,
+    };
+  }, _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, id);

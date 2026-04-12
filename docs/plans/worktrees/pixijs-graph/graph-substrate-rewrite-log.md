@@ -13229,3 +13229,82 @@ LOOP_TERMINAL_MARKER: none
       selector/write fan-out still visible on the canonical lane
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 19:36 UTC
+
+- item `342` landed one bounded node-wrapper node-internals selector split
+  inside the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/core/components/wrapNode.tsx` so
+    `NodeWrapper` subscribes only to `{ position, tempZIndex }` from
+    `useNodeInternals(...)` instead of the full node entry
+  - added focused profiler regression coverage in
+    `frontend/src/forks/xyflow/core/components/wrapNode.test.tsx` to prove:
+    - the mounted section wrapper does not commit when node internals only
+      change width/height/measured/handleBounds
+    - the wrapper still re-renders when position changes
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-node-wrapper-node-internals-selector.md`
+    to record the slice and reasoning
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/components/wrapNode.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/components/wrapNode.tsx src/forks/xyflow/core/components/wrapNode.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> bootstrap token was rejected, but the live frontend session at
+         `http://127.0.0.1:3075/settings` was healthy
+      -> page title `Settings`, visible settings section area `780x457`,
+         `svgCount=96`, `canvasCount=0`, largest graph surface SVG `5000x5000`
+      -> no obvious layout collapse/regression observed on the graph surface
+  - reading:
+    - this moves the worktree-side reduction into the mounted top-level
+      section wrapper itself, which is a better section-body/chrome fan-out
+      boundary than another edge/control micro-split
+    - next default frontier: use the existing canary instrumentation plus
+      focused profiler evidence to name the next remaining mounted
+      section-body/chrome subscriber or shared write fan-out before another
+      reduction slice
+
+- LOOP_TERMINAL_MARKER: none
+## 2026-04-12 21:05 UTC
+
+- Item: progress review checkpoint after runs `021` through `030`.
+- Status: `done`
+- Details:
+  - Reviewed the durable plan/handoff plus recent run artifacts for
+    `run-021` through `run-030`.
+  - Conclusion:
+    - the stretch still shows meaningful forward progress toward the current
+      rewrite plan
+    - real product progress continued on the canonical
+      `rotaryParamCodeObjDefault` lane:
+      - runs `021` through `030` landed nine bounded product-side reductions
+        inside the measured `interactionReactFlowStateSync` owner
+      - the landed slices narrowed motion-heavy subscriptions across controls,
+        DOM-backed bodies, renderer shells, node drag/pan gating, edge
+        renderers, and section edge-handle chrome with focused tests and CDP
+        smoke
+      - the only blocked pass (`029`) was a bounded runtime-health failure
+        after allowed lifecycle recovery; the following run returned to mounted
+        product work instead of repeating recovery-only churn
+    - the new diminishing-return pattern is local micro-split churn:
+      - the loop is still making progress, but it is repeatedly taking small
+        selector/subscription wins inside the same measured owner without
+        first re-ranking the remaining dominant consumers
+      - another default "find any remaining subscriber" pass would risk
+        smaller and less certain payoffs
+  - Durable adjustment made in this review:
+    - plan and handoff now require the next default pass to use existing canary
+      instrumentation plus focused React profiler/render-count evidence to
+      identify the largest remaining mounted section-body / section-chrome
+      subscriber or shared write fan-out on the canonical lane
+    - controls/edge-shell micro-splits are no longer the default next target
+      unless local attribution explicitly points there
+    - the broader canonical perf lane should only be rerun after the next
+      evidence-backed slice if that slice could plausibly change the owner
+      ranking or if local attribution no longer yields a clear next target
+- Next action:
+  - keep the loop running, but make the next pass attribution-led on the
+    largest remaining mounted section-body/chrome fan-out rather than another
+    opportunistic micro-split
+
+LOOP_TERMINAL_MARKER: none
