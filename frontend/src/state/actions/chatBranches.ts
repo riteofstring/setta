@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { ChatBranchInfo } from "state/definitions";
 import {
   BaseChatMessageUnion,
@@ -9,10 +10,7 @@ import {
   buildChatBranchIndexFromInfos,
   type ChatBranchIndex,
 } from "./chatBranchIndex";
-import {
-  getMessageCompletenessScore,
-  mergeChatMessages,
-} from "./chatMergeUtils";
+import { reconcileHydratedChatMessages } from "./chatMergeUtils";
 
 type BranchInitializationResult = {
   nextState: ChatSectionState;
@@ -23,51 +21,61 @@ export function ensureChatBranchState(
   state: ChatSectionState,
 ): BranchInitializationResult {
   const branches = state.branches ?? {};
-  const branchIds = Object.keys(branches);
-  if (branchIds.length === 0) {
-    const rootBranchId = createNewId();
-    const rootBranch: ChatSectionBranch = {
-      messages: [...(state.messages ?? [])],
-      createdAt: Date.now(),
-      parentBranchId: null,
-      branchFromMessageId: null,
-    };
-    return {
-      nextState: {
-        ...state,
-        branches: { [rootBranchId]: rootBranch },
-        activeBranchId: rootBranchId,
-        messages: [...(state.messages ?? [])],
-      },
-      didInitialize: true,
-    };
+  if (Object.keys(branches).length === 0) {
+    return initializeRootBranchState(state);
   }
+  const activeBranchId = resolveActiveBranchId(state, branches);
+  if (activeBranchId) {
+    return reconcileActiveBranchState(state, branches, activeBranchId);
+  }
+  return initializeFallbackActiveBranchState(state, branches);
+}
+
+function initializeRootBranchState(
+  state: ChatSectionState,
+): BranchInitializationResult {
+  const initialMessages = [...(state.messages ?? [])];
+  const rootBranchId = createNewId();
+  const rootBranch: ChatSectionBranch = {
+    messages: initialMessages,
+    createdAt: Date.now(),
+    parentBranchId: null,
+    branchFromMessageId: null,
+  };
+  return {
+    nextState: {
+      ...state,
+      branches: { [rootBranchId]: rootBranch },
+      activeBranchId: rootBranchId,
+      messages: initialMessages,
+    },
+    didInitialize: true,
+  };
+}
+
+function resolveActiveBranchId(
+  state: ChatSectionState,
+  branches: Record<string, ChatSectionBranch>,
+): string | null {
   const activeBranchId = state.activeBranchId;
   if (activeBranchId && branches[activeBranchId]) {
-    const activeBranch = branches[activeBranchId];
-    const activeMessages = activeBranch?.messages ?? [];
-    const incomingMessages = state.messages ?? [];
-    if (shouldSyncBranchMessages(activeMessages, incomingMessages)) {
-      const mergedMessages = mergeChatMessages(
-        activeMessages,
-        incomingMessages,
-      );
-      const nextBranch: ChatSectionBranch = {
-        ...activeBranch,
-        messages: mergedMessages,
-      };
-      return {
-        nextState: {
-          ...state,
-          messages: [...mergedMessages],
-          branches: {
-            ...branches,
-            [activeBranchId]: nextBranch,
-          },
-        },
-        didInitialize: true,
-      };
-    }
+    return activeBranchId;
+  }
+  return null;
+}
+
+function reconcileActiveBranchState(
+  state: ChatSectionState,
+  branches: Record<string, ChatSectionBranch>,
+  activeBranchId: string,
+): BranchInitializationResult {
+  const activeBranch = branches[activeBranchId];
+  if (!activeBranch) {
+    return { nextState: state, didInitialize: false };
+  }
+  const activeMessages = activeBranch.messages ?? [];
+  const incomingMessages = state.messages ?? [];
+  if (!shouldSyncBranchMessages(activeMessages, incomingMessages)) {
     return {
       nextState: {
         ...state,
@@ -76,7 +84,56 @@ export function ensureChatBranchState(
       didInitialize: false,
     };
   }
-  const sortedBranchId = [...branchIds].sort((left, right) => {
+  const syncedMessages = reconcileHydratedChatMessages({
+    // The active branch is the visible source for this section chat. When
+    // the source messages change, the branch must mirror that authoritative
+    // list and only preserve local createdAt metadata for stable UI order.
+    backendMessages: incomingMessages,
+    localMessages: activeMessages,
+  });
+  const nextBranch: ChatSectionBranch = {
+    ...activeBranch,
+    messages: syncedMessages,
+  };
+  return {
+    nextState: {
+      ...state,
+      messages: [...syncedMessages],
+      branches: {
+        ...branches,
+        [activeBranchId]: nextBranch,
+      },
+    },
+    didInitialize: true,
+  };
+}
+
+function initializeFallbackActiveBranchState(
+  state: ChatSectionState,
+  branches: Record<string, ChatSectionBranch>,
+): BranchInitializationResult {
+  const fallbackBranchId = resolveFallbackBranchId(branches);
+  if (!fallbackBranchId) {
+    return { nextState: state, didInitialize: false };
+  }
+  return {
+    nextState: {
+      ...state,
+      activeBranchId: fallbackBranchId,
+      messages: [...(branches[fallbackBranchId]?.messages ?? [])],
+    },
+    didInitialize: true,
+  };
+}
+
+function resolveFallbackBranchId(
+  branches: Record<string, ChatSectionBranch>,
+): string | null {
+  const branchIds = Object.keys(branches);
+  if (branchIds.length === 0) {
+    return null;
+  }
+  return [...branchIds].sort((left, right) => {
     const leftCreated = branches[left]?.createdAt ?? 0;
     const rightCreated = branches[right]?.createdAt ?? 0;
     if (leftCreated === rightCreated) {
@@ -84,18 +141,6 @@ export function ensureChatBranchState(
     }
     return leftCreated - rightCreated;
   })[0];
-  if (!sortedBranchId) {
-    return { nextState: state, didInitialize: false };
-  }
-  const activeMessages = branches[sortedBranchId]?.messages ?? [];
-  return {
-    nextState: {
-      ...state,
-      activeBranchId: sortedBranchId,
-      messages: [...activeMessages],
-    },
-    didInitialize: true,
-  };
 }
 
 function shouldSyncBranchMessages(
@@ -106,25 +151,30 @@ function shouldSyncBranchMessages(
     return false;
   }
   if (branchMessages.length === 0) {
-    return incomingMessages.length > 0;
+    return true;
   }
-  const branchById = new Map<string, BaseChatMessageUnion>();
-  for (const message of branchMessages) {
-    branchById.set(message.id, message);
+  if (branchMessages.length !== incomingMessages.length) {
+    return true;
   }
-  for (const message of incomingMessages) {
-    const existing = branchById.get(message.id);
-    if (!existing) {
-      return true;
-    }
-    if (
-      getMessageCompletenessScore(message) >
-      getMessageCompletenessScore(existing)
-    ) {
+  for (let index = 0; index < incomingMessages.length; index += 1) {
+    if (branchMessages[index]?.id !== incomingMessages[index]?.id) {
       return true;
     }
   }
-  return false;
+  return !_.isEqual(
+    branchMessages.map(stripMessageCreatedAt),
+    incomingMessages.map(stripMessageCreatedAt),
+  );
+}
+
+function stripMessageCreatedAt(
+  message: BaseChatMessageUnion,
+): BaseChatMessageUnion {
+  const nextMessage = { ...message } as BaseChatMessageUnion & {
+    createdAt?: unknown;
+  };
+  delete nextMessage.createdAt;
+  return nextMessage as BaseChatMessageUnion;
 }
 
 export function buildEditedMessageHistory(
