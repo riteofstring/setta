@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 23:54 UTC
+Last updated: 2026-04-12 22:47 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,57 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `358` landed one bounded product-side redundant misc-store write guard
+  on the canonical `rotaryParamCodeObjDefault` lane inside the measured
+  `interactionMiscStateSync` owner:
+
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      so `syncViewportInteractionState(...)` now skips
+      `useMisc.setState({ isPanScrolling })` when the boolean is unchanged
+      while still mirroring the root interaction attribute exactly as before
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      to prove repeated interaction-sync calls only write the misc store on the
+      two real pan-state transitions
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-interaction-misc-state-sync-redundant-pan-write-guard.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed (`1` file, `11` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-047/worktree-ai.log`
+      -> failed before the spec body in Playwright global setup
+      -> blocker stayed `page.waitForSelector('.setta-titlebar-offset')`
+         with the page parked at
+         `http://127.0.0.1:3075/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+      -> one bounded self-recovery restarted the worktree lifecycle with
+         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> refreshed runtime facts with
+         `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-047/worktree-ai.log`
+      -> retry failed with the same unauthenticated-shell stall
+    - fresh-context headless CDP smoke:
+      -> passed on direct `http://127.0.0.1:3075/settings`
+      -> settings graph surface and surrounding settings chrome rendered with
+         no obvious blank/collapsed graph region
+  - reading:
+    - this is a real product-side reduction inside the current dominant owner,
+      not another harness-only pass
+    - the live numeric canary is still missing for this exact reduction because
+      the worktree-only Playwright bootstrap lane regressed after item `357`
+    - do not reopen generic cross-worktree or oracle-hygiene work here; either
+      repair the worktree-only bootstrap stall narrowly enough to recover a
+      numeric sample, or choose the next concrete `interactionMiscStateSync`
+      shared write only if it is directly visible from product code
+  - next default frontier:
+    - first choice: restore a trustworthy worktree-only motion probe on the
+      named `rotaryParamCodeObjDefault` lane and rerun attribution so item
+      `358` gets a numeric before/after readout
+    - fallback only if that path can be narrowed concretely in one slice:
+      inspect the remaining `interactionMiscStateSync` writes/subscribers and
+      remove another redundant shared write without reopening broad probe churn
 
 - item `357` landed one bounded worktree-only motion probe recovery on the
   canonical `rotaryParamCodeObjDefault` lane:

@@ -5,7 +5,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import initialReactFlowState from "forks/xyflow/core/store/initialState";
 import { act, useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useLocalStorage } from "state/definitions";
+import { useLocalStorage, useMisc } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -332,6 +332,69 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     expect(probe.getAttribute("data-viewport-interaction-active")).toBe(
       "false",
     );
+  });
+
+  it("skips redundant misc store writes when the viewport interaction pan state does not change", async () => {
+    let latestRuntime: ReturnType<
+      typeof useSettingsGraphSubstrateCanaryViewportRuntime
+    > | null = null;
+    const setMiscStateSpy = vi.spyOn(useMisc, "setState");
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          onRuntime={(runtime) => {
+            latestRuntime = runtime;
+          }}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(latestRuntime?.resolvedViewport).not.toBeNull();
+    });
+
+    await act(async () => {
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: true,
+        isWheelZooming: false,
+      });
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: true,
+        isWheelZooming: false,
+      });
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: false,
+        isWheelZooming: false,
+      });
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: false,
+        isWheelZooming: false,
+      });
+    });
+
+    expect(setMiscStateSpy).toHaveBeenCalledTimes(2);
+    expect(setMiscStateSpy).toHaveBeenNthCalledWith(1, {
+      isPanScrolling: true,
+    });
+    expect(setMiscStateSpy).toHaveBeenNthCalledWith(2, {
+      isPanScrolling: false,
+    });
   });
 
   it("does not mirror canary viewport interaction flags into the React Flow store", async () => {

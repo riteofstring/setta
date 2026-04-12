@@ -116,6 +116,56 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 22:47 UTC
+
+- item `358` landed one bounded product-side redundant misc-store write guard
+  on the canonical `rotaryParamCodeObjDefault` lane inside the measured
+  `interactionMiscStateSync` owner:
+  - changed
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    so `syncViewportInteractionState(...)` now skips
+    `useMisc.setState({ isPanScrolling })` when the next boolean already
+    matches the misc store
+  - added focused coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    proving repeated interaction-sync calls only write the misc store on the
+    real `false -> true` and `true -> false` transitions
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-misc-state-sync-redundant-pan-write-guard.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    - passed (`1` file, `11` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    - passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-047/worktree-ai.log`
+    - failed before the spec body in Playwright global setup waiting for
+      `.setta-titlebar-offset`
+    - current URL at failure stayed parked at
+      `http://127.0.0.1:3075/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+    - one bounded self-recovery restarted the worktree lifecycle with
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts with
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-047/worktree-ai.log`
+    - retry failed with the same stall
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context headless DevTools smoke on direct
+        `http://127.0.0.1:3075/settings`
+      - settings graph surface and surrounding settings chrome rendered with no
+        obvious blank/collapsed graph region
+- Result:
+  - this slice removes one concrete redundant shared write from the current
+    dominant `interactionMiscStateSync` owner
+  - numeric before/after attribution is still missing because the worktree-only
+    Playwright bootstrap lane regressed back to the unauthenticated shell stall
+- Next:
+  - restore a trustworthy worktree-only motion probe on the named
+    `rotaryParamCodeObjDefault` lane and rerun attribution so this reduction
+    gets a numeric readout before choosing the next residual owner
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 22:22 UTC
 
 - item `356` closed the canonical `rotaryParamCodeObjDefault` main-reference
