@@ -96,126 +96,6 @@ type MetaControlContentProps =
   | MetaControlContentButtonProps
   | MetaControlContentValueProps;
 
-type MetaControlTextInputCodeObjType =
-  | CodeObjTypeEnum.CodeParam
-  | CodeObjTypeEnum.TextParam
-  | CodeObjTypeEnum.TextAreaParam;
-
-type MetaControlDirectValueCodeObjType =
-  | CodeObjTypeEnum.SliderParam
-  | CodeObjTypeEnum.RotaryParam
-  | CodeObjTypeEnum.SwitchParam
-  | CodeObjTypeEnum.ColorPickerParam
-  | CodeObjTypeEnum.DropdownParam
-  | CodeObjTypeEnum.PasswordParam
-  | CodeObjTypeEnum.DropzoneParam;
-
-type TextInputControlConfig = {
-  language: "python" | "markdown";
-  singleLine: boolean;
-  minHeightClassName?: string;
-};
-
-type DirectValueControlRenderer = (
-  props: MetaControlContentValueProps,
-) => ReactNode;
-
-const TEXT_INPUT_CONTROL_CONFIG: Record<
-  MetaControlTextInputCodeObjType,
-  TextInputControlConfig
-> = {
-  [CodeObjTypeEnum.CodeParam]: {
-    language: "python",
-    singleLine: false,
-  },
-  [CodeObjTypeEnum.TextParam]: {
-    language: "python",
-    singleLine: false,
-  },
-  [CodeObjTypeEnum.TextAreaParam]: {
-    language: "python",
-    singleLine: false,
-    minHeightClassName: "min-h-24",
-  },
-};
-
-const DIRECT_VALUE_CONTROL_RENDERERS: Record<
-  MetaControlDirectValueCodeObjType,
-  DirectValueControlRenderer
-> = {
-  [CodeObjTypeEnum.SliderParam]: (props) => (
-    <SliderControl
-      sectionId={props.sectionId}
-      controlParamId={props.controlParamId}
-      sectionName={props.sectionName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-    />
-  ),
-  [CodeObjTypeEnum.RotaryParam]: (props) => (
-    <RotaryControl
-      sectionId={props.sectionId}
-      controlParamId={props.controlParamId}
-      sectionName={props.sectionName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-    />
-  ),
-  [CodeObjTypeEnum.SwitchParam]: (props) => (
-    <SwitchControl
-      sectionName={props.sectionName}
-      controlLabel={props.paramDisplayName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-    />
-  ),
-  [CodeObjTypeEnum.ColorPickerParam]: (props) => (
-    <ColorControl
-      sectionId={props.sectionId}
-      controlParamId={props.controlParamId}
-      sectionName={props.sectionName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-    />
-  ),
-  [CodeObjTypeEnum.DropdownParam]: (props) => (
-    <DropdownControl
-      sectionId={props.sectionId}
-      controlParamId={props.controlParamId}
-      sectionName={props.sectionName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-    />
-  ),
-  [CodeObjTypeEnum.PasswordParam]: (props) => (
-    <PasswordControl
-      sectionName={props.sectionName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-    />
-  ),
-  [CodeObjTypeEnum.DropzoneParam]: (props) => (
-    <DropzoneControl
-      sectionId={props.sectionId}
-      controlParamId={props.controlParamId}
-      sectionName={props.sectionName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-      mode={props.dropzoneMode ?? DropzoneModeEnum.STATEFUL}
-      maxAttachments={props.dropzoneMaxAttachments ?? null}
-      placeholder={props.dropzonePlaceholder}
-      onStatelessDrop={props.onDropzoneStateless}
-    />
-  ),
-};
-
 export function MetaControlContent(props: MetaControlContentProps) {
   if (props.codeObjType === CodeObjTypeEnum.ButtonParam) {
     return (
@@ -229,105 +109,193 @@ export function MetaControlContent(props: MetaControlContentProps) {
     );
   }
 
-  return renderValueMetaControl(props);
-}
-
-function renderValueMetaControl(props: MetaControlContentValueProps) {
-  if (isMetaControlTextInputCodeObjType(props.codeObjType)) {
-    return renderTextInputMetaControl(props);
-  }
-
-  if (props.codeObjType === CodeObjTypeEnum.DateParam) {
-    return renderDateMetaControl(props);
-  }
-
-  if (props.codeObjType === CodeObjTypeEnum.TimeParam) {
-    return renderTimeMetaControl(props);
-  }
-
-  const renderControl = DIRECT_VALUE_CONTROL_RENDERERS[props.codeObjType];
-  return renderControl ? renderControl(props) : null;
-}
-
-function isMetaControlTextInputCodeObjType(
-  codeObjType: MetaControlContentValueProps["codeObjType"],
-): codeObjType is MetaControlTextInputCodeObjType {
-  return Object.prototype.hasOwnProperty.call(
-    TEXT_INPUT_CONTROL_CONFIG,
+  const {
+    sectionId,
+    controlParamId,
     codeObjType,
-  );
-}
+    sectionName,
+    paramDisplayName,
+    value,
+    defaultVal,
+    onValueChange,
+    showSectionTitle,
+  } = props;
 
-function renderTextInputMetaControl(props: MetaControlContentValueProps) {
-  const config = TEXT_INPUT_CONTROL_CONFIG[props.codeObjType];
-  if (!config) {
-    return null;
+  switch (codeObjType) {
+    case CodeObjTypeEnum.CodeParam:
+      return (
+        <TextInputControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          defaultVal={defaultVal}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          language="python"
+          singleLine={false}
+        />
+      );
+    case CodeObjTypeEnum.TextParam:
+      return (
+        <TextInputControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          defaultVal={defaultVal}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          language="python"
+          singleLine={false}
+        />
+      );
+    case CodeObjTypeEnum.TextAreaParam:
+      return (
+        <TextInputControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          defaultVal={defaultVal}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          language="python"
+          singleLine={false}
+          minHeightClassName="min-h-24"
+        />
+      );
+    case CodeObjTypeEnum.DateParam:
+      return (
+        <DateTimeControl
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          uiType={TextParamInputUITypeEnum.date}
+          timeControlMode={TimeControlModeEnum.display}
+          timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+          timeDisplayTransparent={false}
+          timeDisplayScale={1}
+          timeDisplayFont={TimeDisplayFontEnum.monospace}
+          dateDisplayFormat={
+            props.dateDisplayFormat ?? DateDisplayFormatEnum.iso
+          }
+          dateControlMode={props.dateControlMode ?? DateControlModeEnum.input}
+          dateSelectionMode={
+            props.dateSelectionMode ?? DateSelectionModeEnum.single
+          }
+          dateCalendarWeekStart={
+            props.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday
+          }
+          dateIncludesTime={props.dateIncludesTime ?? false}
+        />
+      );
+    case CodeObjTypeEnum.TimeParam:
+      return (
+        <DateTimeControl
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          uiType={TextParamInputUITypeEnum.time}
+          timeControlMode={props.timeControlMode ?? TimeControlModeEnum.display}
+          timeDisplayFormat={
+            props.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour
+          }
+          timeDisplayTransparent={props.timeDisplayTransparent ?? false}
+          timeDisplayScale={props.timeDisplayScale ?? 1}
+          timeDisplayFont={
+            props.timeDisplayFont ?? TimeDisplayFontEnum.monospace
+          }
+          dateDisplayFormat={DateDisplayFormatEnum.iso}
+          dateControlMode={DateControlModeEnum.input}
+          dateSelectionMode={DateSelectionModeEnum.single}
+          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+          dateIncludesTime={false}
+        />
+      );
+    case CodeObjTypeEnum.SliderParam:
+      return (
+        <SliderControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.RotaryParam:
+      return (
+        <RotaryControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.SwitchParam:
+      return (
+        <SwitchControl
+          sectionName={sectionName}
+          controlLabel={paramDisplayName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.ColorPickerParam:
+      return (
+        <ColorControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.DropdownParam:
+      return (
+        <DropdownControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.PasswordParam:
+      return (
+        <PasswordControl
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.DropzoneParam:
+      return (
+        <DropzoneControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          mode={props.dropzoneMode ?? DropzoneModeEnum.STATEFUL}
+          maxAttachments={props.dropzoneMaxAttachments ?? null}
+          placeholder={props.dropzonePlaceholder}
+          onStatelessDrop={props.onDropzoneStateless}
+        />
+      );
+    default:
+      return null;
   }
-
-  return (
-    <TextInputControl
-      sectionId={props.sectionId}
-      controlParamId={props.controlParamId}
-      sectionName={props.sectionName}
-      value={props.value}
-      defaultVal={props.defaultVal}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-      language={config.language}
-      singleLine={config.singleLine}
-      minHeightClassName={config.minHeightClassName}
-    />
-  );
-}
-
-function renderDateMetaControl(props: MetaControlContentValueProps) {
-  return (
-    <DateTimeControl
-      sectionName={props.sectionName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-      uiType={TextParamInputUITypeEnum.date}
-      timeControlMode={TimeControlModeEnum.display}
-      timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
-      timeDisplayTransparent={false}
-      timeDisplayScale={1}
-      timeDisplayFont={TimeDisplayFontEnum.monospace}
-      dateDisplayFormat={props.dateDisplayFormat ?? DateDisplayFormatEnum.iso}
-      dateControlMode={props.dateControlMode ?? DateControlModeEnum.input}
-      dateSelectionMode={
-        props.dateSelectionMode ?? DateSelectionModeEnum.single
-      }
-      dateCalendarWeekStart={
-        props.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday
-      }
-      dateIncludesTime={props.dateIncludesTime ?? false}
-    />
-  );
-}
-
-function renderTimeMetaControl(props: MetaControlContentValueProps) {
-  return (
-    <DateTimeControl
-      sectionName={props.sectionName}
-      value={props.value}
-      showSectionTitle={props.showSectionTitle}
-      onValueChange={props.onValueChange}
-      uiType={TextParamInputUITypeEnum.time}
-      timeControlMode={props.timeControlMode ?? TimeControlModeEnum.display}
-      timeDisplayFormat={
-        props.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour
-      }
-      timeDisplayTransparent={props.timeDisplayTransparent ?? false}
-      timeDisplayScale={props.timeDisplayScale ?? 1}
-      timeDisplayFont={props.timeDisplayFont ?? TimeDisplayFontEnum.monospace}
-      dateDisplayFormat={DateDisplayFormatEnum.iso}
-      dateControlMode={DateControlModeEnum.input}
-      dateSelectionMode={DateSelectionModeEnum.single}
-      dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
-      dateIncludesTime={false}
-    />
-  );
 }
 
 function ButtonControl({

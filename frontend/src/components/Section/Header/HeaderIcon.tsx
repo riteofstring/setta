@@ -1,7 +1,6 @@
 import SettaSLogo from "assets/icons/s-logo-only-og.svg?react";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import type { ComponentType } from "react";
 import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaChartPie, FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
@@ -37,239 +36,21 @@ import {
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
 
-type HeaderIconProps = {
-  sectionId: string;
-  sectionTypeName: SectionType;
-  isInOtherProjectConfigs: boolean;
-  isListElement: boolean;
-  hasSectionStyleTheme?: boolean;
-};
-
-type HeaderIconRenderProps = {
-  sectionId: string;
-  hasSectionStyleTheme: boolean;
-  themedIconClassName: string | null;
-};
-
-type HeaderIconRenderer = (props: HeaderIconRenderProps) => JSX.Element;
-
-const themedHeaderIconClassName =
-  "text-[color:var(--setta-section-style-muted-text)] transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] group-hover/group-section:text-[color:var(--setta-section-style-outline)]";
-const defaultBlueHeaderIconClassName =
-  "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]";
-const defaultGlobalHeaderIconClassName =
-  "text-setta-300 transition-colors group-hover/card-section:text-green-500  dark:text-setta-500 ";
-const defaultChatHeaderIconClassName =
-  "text-setta-600 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-300 dark:group-hover/card-section:text-[#0084ff]";
-const defaultGroupHeaderIconClassName =
-  "[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]";
-const settaLogoClassName =
-  "h-[16px] w-[16px] transition-colors [&>g>path]:fill-current [&>g>rect]:fill-current";
-
-const renderSimpleHeaderIcon =
-  (
-    Icon: ComponentType<{
-      className?: string;
-    }>,
-    defaultClassName: string,
-  ): HeaderIconRenderer =>
-  ({ themedIconClassName }) => (
-    <Icon
-      className={resolveHeaderIconClassName(
-        themedIconClassName,
-        defaultClassName,
-      )}
-    />
-  );
-
-const renderSettaLogo: HeaderIconRenderer = ({ themedIconClassName }) => (
-  <SettaSLogo
-    className={`${settaLogoClassName} ${resolveHeaderIconClassName(
-      themedIconClassName,
-      defaultBlueHeaderIconClassName,
-    )}`}
-  />
-);
-
-const renderCodeLanguageIcon: HeaderIconRenderer = ({
-  sectionId,
-  themedIconClassName,
-}) => (
-  <CodeLanguageIcon
-    sectionId={sectionId}
-    classes={resolveHeaderIconClassName(
-      themedIconClassName,
-      defaultBlueHeaderIconClassName,
-    )}
-  />
-);
-
-const renderTextBlockIcon: HeaderIconRenderer = ({
-  sectionId,
-  hasSectionStyleTheme,
-}) => (
-  <TextBlockIcon
-    sectionId={sectionId}
-    hasSectionStyleTheme={hasSectionStyleTheme}
-  />
-);
-
-const renderPromptIcon: HeaderIconRenderer = ({ hasSectionStyleTheme }) => (
-  <PromptIcon hasSectionStyleTheme={hasSectionStyleTheme} />
-);
-
-const renderTerminalIcon: HeaderIconRenderer = ({ hasSectionStyleTheme }) => (
-  <TerminalIcon hasSectionStyleTheme={hasSectionStyleTheme} />
-);
-
-const renderSocialIcon: HeaderIconRenderer = ({
-  sectionId,
-  hasSectionStyleTheme,
-}) => (
-  <SocialIcon
-    sectionId={sectionId}
-    hasSectionStyleTheme={hasSectionStyleTheme}
-  />
-);
-
-const renderImageIcon: HeaderIconRenderer = ({ themedIconClassName }) => (
-  <div className="relative">
-    <i
-      className={
-        themedIconClassName
-          ? `gg-image absolute inset-0 !scale-50 ${themedIconClassName}`
-          : `gg-image absolute inset-0 !scale-50 ${defaultBlueHeaderIconClassName}`
-      }
-    />
-  </div>
-);
-
-const renderIFrameIcon: HeaderIconRenderer = ({ themedIconClassName }) => (
-  <div className="relative flex w-2 justify-center">
-    <i
-      className={
-        themedIconClassName
-          ? `gg-code-slash !rotate-[14deg] !scale-50 ${themedIconClassName}`
-          : `gg-code-slash !rotate-[14deg] !scale-50 ${defaultBlueHeaderIconClassName}`
-      }
-    />
-  </div>
-);
-
-const renderGroupIcon: HeaderIconRenderer = ({ themedIconClassName }) => (
-  <FaLayerGroup
-    className={
-      themedIconClassName
-        ? `[&_*]:!scale-120 ${themedIconClassName}`
-        : defaultGroupHeaderIconClassName
-    }
-  />
-);
-
-const renderDefaultHeaderIcon: HeaderIconRenderer = ({
-  themedIconClassName,
-}) => (
-  <i
-    className={
-      themedIconClassName
-        ? `gg-menu group/card-section:hover:bg !scale-110 ${themedIconClassName}`
-        : `gg-menu group/card-section:hover:bg !scale-110 ${defaultBlueHeaderIconClassName} `
-    }
-  />
-);
-
-const headerIconRenderers = {
-  [SectionTypeEnum.Code]: renderCodeLanguageIcon,
-  [SectionTypeEnum.GenPythonCode]: renderSettaLogo,
-  [SectionTypeEnum.GenPythonMetadata]: renderSettaLogo,
-  [SectionTypeEnum.Terminal]: renderTerminalIcon,
-  [SectionTypeEnum.GlobalVariables]: renderSimpleHeaderIcon(
-    RiGlobalFill,
-    defaultGlobalHeaderIconClassName,
-  ),
-  [SectionTypeEnum.TextBlock]: renderTextBlockIcon,
-  [SectionTypeEnum.Prompt]: renderPromptIcon,
-  [SectionTypeEnum.MetaControl]: renderSimpleHeaderIcon(
-    TbAdjustmentsHorizontal,
-    defaultBlueHeaderIconClassName,
-  ),
-  [SectionTypeEnum.Image]: renderImageIcon,
-  [SectionTypeEnum.Draw]: renderSimpleHeaderIcon(
-    BiPaint,
-    `p-0 ${defaultBlueHeaderIconClassName} `,
-  ),
-  [SectionTypeEnum.IFrame]: renderIFrameIcon,
-  [SectionTypeEnum.Social]: renderSocialIcon,
-  [SectionTypeEnum.Group]: renderGroupIcon,
-  [SectionTypeEnum.Chart]: renderSimpleHeaderIcon(
-    FaChartPie,
-    defaultBlueHeaderIconClassName,
-  ),
-  [SectionTypeEnum.Chat]: renderSimpleHeaderIcon(
-    IoChatbox,
-    defaultChatHeaderIconClassName,
-  ),
-  [SectionTypeEnum.Browser]: renderSimpleHeaderIcon(
-    TbFolderFilled,
-    defaultBlueHeaderIconClassName,
-  ),
-  [SectionTypeEnum.TaskBoard]: renderSimpleHeaderIcon(
-    MdViewKanban,
-    defaultBlueHeaderIconClassName,
-  ),
-  [SectionTypeEnum.Spreadsheet]: renderSimpleHeaderIcon(
-    FiColumns,
-    defaultBlueHeaderIconClassName,
-  ),
-  [SectionTypeEnum.StateMachineStart]: renderSimpleHeaderIcon(
-    FiPlay,
-    defaultBlueHeaderIconClassName,
-  ),
-  [SectionTypeEnum.StateMachineGate]: renderSimpleHeaderIcon(
-    FiGitMerge,
-    defaultBlueHeaderIconClassName,
-  ),
-  [SectionTypeEnum.StateMachineEnd]: renderSimpleHeaderIcon(
-    FiFlag,
-    defaultBlueHeaderIconClassName,
-  ),
-} satisfies Partial<Record<SectionType, HeaderIconRenderer>>;
-
-const codeLanguageIconComponents = {
-  [CodeLanguageEnum.python]: SiPython,
-  [CodeLanguageEnum.bash]: SiGnubash,
-  [CodeLanguageEnum.javascript]: SiJavascript,
-  [CodeLanguageEnum.typescript]: SiTypescript,
-  [CodeLanguageEnum.json]: SiJson,
-  [CodeLanguageEnum.yaml]: SiYaml,
-  [CodeLanguageEnum.toml]: SiToml,
-  [CodeLanguageEnum.markdown]: SiMarkdown,
-  [CodeLanguageEnum.plaintext]: PiTextTFill,
-} satisfies Partial<
-  Record<
-    CodeLanguageEnum,
-    ComponentType<{
-      className?: string;
-    }>
-  >
->;
-
-function resolveHeaderIconClassName(
-  themedIconClassName: string | null,
-  defaultClassName: string,
-) {
-  return themedIconClassName ?? defaultClassName;
-}
-
 export function HeaderIcon({
   sectionId,
   sectionTypeName,
   isInOtherProjectConfigs,
   isListElement,
   hasSectionStyleTheme = false,
-}: HeaderIconProps) {
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+  isInOtherProjectConfigs: boolean;
+  isListElement: boolean;
+  hasSectionStyleTheme?: boolean;
+}) {
   const themedIconClassName = hasSectionStyleTheme
-    ? themedHeaderIconClassName
+    ? "text-[color:var(--setta-section-style-muted-text)] transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] group-hover/group-section:text-[color:var(--setta-section-style-outline)]"
     : null;
 
   if (isListElement) {
@@ -290,13 +71,197 @@ export function HeaderIcon({
     );
   }
 
-  const renderIcon =
-    headerIconRenderers[sectionTypeName] ?? renderDefaultHeaderIcon;
-  return renderIcon({
-    sectionId,
-    hasSectionStyleTheme,
-    themedIconClassName,
-  });
+  switch (sectionTypeName) {
+    case SectionTypeEnum.Code:
+      return (
+        <CodeLanguageIcon
+          sectionId={sectionId}
+          classes={
+            themedIconClassName ??
+            "text-setta-300 group-hover/card-section:text-blue-500 dark:group-hover/card-section:text-[#0084ff] dark:text-setta-500 transition-colors"
+          }
+        />
+      );
+    case SectionTypeEnum.GenPythonCode:
+      return (
+        <SettaSLogo
+          className={`h-[16px] w-[16px] transition-colors [&>g>path]:fill-current [&>g>rect]:fill-current ${
+            themedIconClassName ??
+            "text-setta-300 group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }`}
+        />
+      );
+    case SectionTypeEnum.GenPythonMetadata:
+      return (
+        <SettaSLogo
+          className={`h-[16px] w-[16px] transition-colors [&>g>path]:fill-current [&>g>rect]:fill-current ${
+            themedIconClassName ??
+            "text-setta-300 group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }`}
+        />
+      );
+    case SectionTypeEnum.Terminal:
+      return <TerminalIcon hasSectionStyleTheme={hasSectionStyleTheme} />;
+    case SectionTypeEnum.GlobalVariables:
+      return (
+        <RiGlobalFill
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-green-500  dark:text-setta-500 "
+          }
+        />
+      );
+    case SectionTypeEnum.TextBlock:
+      return (
+        <TextBlockIcon
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      );
+    case SectionTypeEnum.Prompt:
+      return <PromptIcon hasSectionStyleTheme={hasSectionStyleTheme} />;
+    case SectionTypeEnum.MetaControl:
+      return (
+        <TbAdjustmentsHorizontal
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.Image:
+      return (
+        <div className="relative">
+          <i
+            className={
+              themedIconClassName
+                ? `gg-image absolute inset-0 !scale-50 ${themedIconClassName}`
+                : "gg-image absolute inset-0 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+            }
+          />
+        </div>
+      );
+    case SectionTypeEnum.Draw:
+      return (
+        <BiPaint
+          className={
+            themedIconClassName ??
+            "p-0 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] "
+          }
+        />
+      );
+    case SectionTypeEnum.IFrame:
+      return (
+        <div className="relative flex w-2 justify-center">
+          <i
+            className={
+              themedIconClassName
+                ? `gg-code-slash !rotate-[14deg] !scale-50 ${themedIconClassName}`
+                : "gg-code-slash !rotate-[14deg] !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+            }
+          />
+        </div>
+      );
+    case SectionTypeEnum.Social:
+      return (
+        <SocialIcon
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      );
+    case SectionTypeEnum.Group:
+      return (
+        <FaLayerGroup
+          className={
+            themedIconClassName
+              ? `[&_*]:!scale-120 ${themedIconClassName}`
+              : "[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.Chart:
+      return (
+        <FaChartPie
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.Chat:
+      return (
+        <IoChatbox
+          className={
+            themedIconClassName ??
+            "text-setta-600 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-300 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.Browser:
+      return (
+        <TbFolderFilled
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.TaskBoard:
+      return (
+        <MdViewKanban
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.Spreadsheet:
+      return (
+        <FiColumns
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.StateMachineStart:
+      return (
+        <FiPlay
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.StateMachineGate:
+      return (
+        <FiGitMerge
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.StateMachineEnd:
+      return (
+        <FiFlag
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    default:
+      return (
+        <i
+          className={
+            themedIconClassName
+              ? `gg-menu group/card-section:hover:bg !scale-110 ${themedIconClassName}`
+              : "gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] "
+          }
+        />
+      );
+  }
 }
 
 function IsInOtherProjectConfigsIcon({
@@ -375,13 +340,7 @@ function SocialIcon({
   }
 }
 
-function CodeLanguageIcon({
-  sectionId,
-  classes,
-}: {
-  sectionId: string;
-  classes: string;
-}) {
+function CodeLanguageIcon({ sectionId, classes }) {
   const language = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type === SectionTypeEnum.Code) {
@@ -392,8 +351,28 @@ function CodeLanguageIcon({
       throw new Error();
     }
   });
-  const Icon = codeLanguageIconComponents[language] ?? PiTextTFill;
-  return <Icon className={classes} />;
+  switch (language) {
+    case CodeLanguageEnum.python:
+      return <SiPython className={classes} />;
+    case CodeLanguageEnum.bash:
+      return <SiGnubash className={classes} />;
+    case CodeLanguageEnum.javascript:
+      return <SiJavascript className={classes} />;
+    case CodeLanguageEnum.typescript:
+      return <SiTypescript className={classes} />;
+    case CodeLanguageEnum.json:
+      return <SiJson className={classes} />;
+    case CodeLanguageEnum.yaml:
+      return <SiYaml className={classes} />;
+    case CodeLanguageEnum.toml:
+      return <SiToml className={classes} />;
+    case CodeLanguageEnum.markdown:
+      return <SiMarkdown className={classes} />;
+    case CodeLanguageEnum.plaintext:
+      return <PiTextTFill className={classes} />;
+    default:
+      return <PiTextTFill className={classes} />;
+  }
 }
 
 function ListElementIcon({

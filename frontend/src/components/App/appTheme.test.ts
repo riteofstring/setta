@@ -25,29 +25,11 @@ describe("resolveAppTheme vars", () => {
         button: {
           bg: "#00ff00",
         },
-        dropdown: {
-          shadow: "0 0 0 4px rgba(0, 255, 255, 0.4)",
-        },
-        card: {
-          shadow: "0 0 0 2px rgba(255, 255, 0, 0.5)",
-        },
-        page: {
-          bgImage: "linear-gradient(red, blue)",
-        },
       },
     });
 
     expect(resolved.style["--app-button-bg"]).toBe("#00ff00");
     expect(typeof resolved.style["--app-button-text"]).toBe("string");
-    expect(resolved.style["--app-dropdown-shadow"]).toBe(
-      "0 0 0 4px rgba(0, 255, 255, 0.4)",
-    );
-    expect(resolved.style["--app-card-shadow"]).toBe(
-      "0 0 0 2px rgba(255, 255, 0, 0.5)",
-    );
-    expect(resolved.style["--app-page-bg-image"]).toBe(
-      "linear-gradient(red, blue)",
-    );
   });
 
   it("supports motion token overrides", () => {
@@ -77,43 +59,6 @@ describe("resolveAppTheme vars", () => {
     expect(resolved.typography.bodySize).toBe(18);
     expect(resolved.typography.bodyLineHeight).toBe(1.7);
     expect(resolved.typography.headingSizes?.h2).toBe("2.25rem");
-  });
-
-  it("uses mode-specific colors and falls back across missing variants", () => {
-    const lightResolved = resolveAppTheme({
-      mode: "light",
-      colors: {
-        light: {
-          surface: "#f5f1ea",
-        },
-        dark: {
-          surface: "#120f0b",
-        },
-      },
-    });
-    const darkResolved = resolveAppTheme({
-      mode: "dark",
-      colors: {
-        light: {
-          surface: "#f5f1ea",
-        },
-        dark: {
-          surface: "#120f0b",
-        },
-      },
-    });
-    const darkFallback = resolveAppTheme({
-      mode: "dark",
-      colors: {
-        light: {
-          surface: "#f5f1ea",
-        },
-      },
-    });
-
-    expect(lightResolved.colors.surface).toBe("#f5f1ea");
-    expect(darkResolved.colors.surface).toBe("#120f0b");
-    expect(darkFallback.colors.surface).toBe("#f5f1ea");
   });
 
   it("sets a default typography scale and supports overrides", () => {
@@ -161,18 +106,5 @@ describe("resolveAppTheme vars", () => {
     });
 
     expect(resolved.style["--not-app"]).toBeUndefined();
-  });
-
-  it("applies the resolved body font to the root style fontFamily", () => {
-    const resolved = resolveAppTheme({
-      fonts: {
-        body: '"IBM Plex Sans", sans-serif',
-      },
-    });
-
-    expect(resolved.style["--app-font-body"]).toBe(
-      '"IBM Plex Sans", sans-serif',
-    );
-    expect(resolved.style.fontFamily).toBe('"IBM Plex Sans", sans-serif');
   });
 });

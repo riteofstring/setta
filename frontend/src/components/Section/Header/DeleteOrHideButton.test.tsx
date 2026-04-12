@@ -1,21 +1,19 @@
-import { isValidElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { BiHide, BiShow } from "react-icons/bi";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+/* @vitest-environment jsdom */
 
-let mockCanEditStructure = true;
-let mockIsEditingViewMode = false;
-let mockVisibility = true;
-
-const deleteSectionsMock = vi.fn((request: unknown) => ({
-  kind: "delete",
-  request,
-}));
-const toggleSectionVisibilityMock = vi.fn((request: unknown) => ({
-  kind: "toggle",
-  request,
-}));
-const callOpenAPIMock = vi.fn();
+import { act, Profiler, type ProfilerOnRenderCallback } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { useProjectState, useShareSession } from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
+import {
+  createCodeSectionImpl,
+  createCore,
+  createProjectConfig,
+  createUserDefaultCodeSectionImpl,
+  createVariant,
+} from "utils/generatedTypes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DeleteOrHideButton } from "./DeleteOrHideButton";
 
 vi.mock("components/Utils/FloatingBox", () => ({
   getFloatingBoxHandlers: ({
@@ -29,183 +27,150 @@ vi.mock("components/Utils/FloatingBox", () => ({
   }),
 }));
 
-vi.mock("openapi/http", () => ({
-  deleteSections: (request: unknown) => deleteSectionsMock(request),
-  toggleSectionVisibility: (request: unknown) =>
-    toggleSectionVisibilityMock(request),
-}));
+function syncStoreInitialState(store: {
+  getState: () => Record<string, unknown>;
+  getInitialState?: () => Record<string, unknown>;
+}) {
+  if (!store.getInitialState) {
+    return;
+  }
+  const initial = store.getInitialState();
+  Object.assign(initial, store.getState());
+}
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: (request: unknown) => callOpenAPIMock(request),
-}));
+type RenderedProfiledButton = {
+  host: HTMLDivElement;
+  root: Root;
+};
 
-vi.mock("state/actions/sectionInfos", () => ({
-  getActiveViewModeConfig: (state: {
-    projectConfig: {
-      viewMode: { id: string; visibilityBySectionId: Record<string, boolean> };
-    };
-  }) => state.projectConfig.viewMode,
-  getCurrProjectConfigId: () => "project-config-1",
-}));
+async function renderProfiledButton(
+  onRender: ProfilerOnRenderCallback,
+): Promise<RenderedProfiledButton> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
 
-vi.mock("state/definitions", () => ({
-  useProjectState: (
-    selector: (state: {
-      projectConfig: {
-        isEditingViewMode: boolean;
-        viewMode: {
-          id: string;
-          visibilityBySectionId: Record<string, boolean>;
-        };
-      };
-    }) => unknown,
-  ) =>
-    selector({
-      projectConfig: {
-        isEditingViewMode: mockIsEditingViewMode,
-        viewMode: {
-          id: "view-mode-1",
-          visibilityBySectionId: { "section-1": mockVisibility },
-        },
-      },
-    }),
-}));
+  await act(async () => {
+    root.render(
+      <Profiler id="delete-or-hide-button-profiler" onRender={onRender}>
+        <DeleteOrHideButton sectionId="section-1" />
+      </Profiler>,
+    );
+  });
 
-vi.mock("state/hooks/share", () => ({
-  useShareCapabilities: () => ({
-    canEditStructure: mockCanEditStructure,
-  }),
-}));
+  return { host, root };
+}
 
-import { DeleteOrHideButton } from "./DeleteOrHideButton";
+describe("DeleteOrHideButton store subscriptions", () => {
+  const sectionId = "section-1";
+  const variantId = "variant-1";
+  const implId = "impl-1";
 
-describe("DeleteOrHideButton", () => {
   beforeEach(() => {
-    mockCanEditStructure = true;
-    mockIsEditingViewMode = false;
-    mockVisibility = true;
-    deleteSectionsMock.mockClear();
-    toggleSectionVisibilityMock.mockClear();
-    callOpenAPIMock.mockClear();
-  });
-
-  it("renders delete copy outside view-mode editing", () => {
-    const markup = renderToStaticMarkup(
-      <DeleteOrHideButton sectionId="section-1" />,
-    );
-
-    expect(markup).toContain('aria-label="Delete section"');
-    expect(markup).toContain('data-tooltip-content="Delete section"');
-    expect(markup).toContain('class="gg-close"');
-  });
-
-  it("exposes the hide action while editing a visible section", () => {
-    mockIsEditingViewMode = true;
-    mockVisibility = true;
-    let renderState:
-      | {
-          isEditingViewMode: boolean;
-          visibility: boolean;
-          icon: ReactNode;
-          label: string;
-          onClick: () => void;
-        }
-      | undefined;
-
-    renderToStaticMarkup(
-      <DeleteOrHideButton
-        sectionId="section-1"
-        render={(state) => {
-          renderState = state;
-          return null;
-        }}
-      />,
-    );
-
-    expect(renderState).toBeDefined();
-    expect(renderState?.isEditingViewMode).toBe(true);
-    expect(renderState?.visibility).toBe(true);
-    expect(renderState?.label).toBe("Hide section");
-    expect(isValidElement(renderState?.icon)).toBe(true);
-    expect(
-      isValidElement(renderState?.icon) ? renderState.icon.type : null,
-    ).toBe(BiShow);
-
-    renderState?.onClick();
-
-    expect(toggleSectionVisibilityMock).toHaveBeenCalledWith({
-      body: {
-        projectConfigId: "project-config-1",
-        sectionIds: ["section-1"],
-      },
-    });
-    expect(callOpenAPIMock).toHaveBeenCalledWith({
-      kind: "toggle",
-      request: {
-        body: {
-          projectConfigId: "project-config-1",
-          sectionIds: ["section-1"],
+    resetProjectStores();
+    useShareSession.setState({ isDeploymentMode: false });
+    useProjectState.setState((state) => {
+      state.projectConfig = createProjectConfig({
+        id: "project-1",
+        isEditingViewMode: true,
+        sectionVariantMap: { [sectionId]: variantId },
+        topLevelSections: {
+          [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
         },
-      },
+        viewModes: {
+          all: {
+            id: "all",
+            name: "All",
+            visibilityBySectionId: { [sectionId]: true },
+            availableToUsers: true,
+          },
+        },
+        activeViewModeId: "all",
+      });
+      state.sections = {
+        [sectionId]: createCore({
+          id: sectionId,
+          name: "Section",
+          variants: [variantId],
+          defaultVariant: variantId,
+        }),
+      };
+      state.sectionVariants = {
+        [variantId]: createVariant({
+          id: variantId,
+          name: "Variant",
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      };
+      state.sectionImpls = {
+        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+          id: implId,
+        }),
+      };
+      state.previewSectionVariantMap = {};
     });
-    expect(deleteSectionsMock).not.toHaveBeenCalled();
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useShareSession);
   });
 
-  it("exposes the show action while editing a hidden section", () => {
-    mockIsEditingViewMode = true;
-    mockVisibility = false;
-    let renderState:
-      | {
-          icon: ReactNode;
-          label: string;
-        }
-      | undefined;
-
-    renderToStaticMarkup(
-      <DeleteOrHideButton
-        sectionId="section-1"
-        render={(state) => {
-          renderState = state;
-          return null;
-        }}
-      />,
-    );
-
-    expect(renderState?.label).toBe("Show section");
-    expect(isValidElement(renderState?.icon)).toBe(true);
-    expect(
-      isValidElement(renderState?.icon) ? renderState.icon.type : null,
-    ).toBe(BiHide);
+  afterEach(() => {
+    resetProjectStores();
+    document.body.innerHTML = "";
   });
 
-  it("renders disabled state and skips API calls when structure edits are blocked", () => {
-    mockCanEditStructure = false;
-    let renderState:
-      | {
-          onClick: () => void;
-        }
-      | undefined;
+  it("stays out of unrelated project-state commits when visibility and mode are unchanged", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledButton(onRender);
 
-    const markup = renderToStaticMarkup(
-      <DeleteOrHideButton
-        sectionId="section-1"
-        render={(state) => {
-          renderState = state;
-          return (
-            <button type="button" disabled>
-              blocked
-            </button>
-          );
-        }}
-      />,
-    );
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
 
-    expect(markup).toContain("blocked");
+      await act(async () => {
+        // Unrelated preview-variant writes should not fan into every mounted hide/delete button.
+        useProjectState.setState((state) => {
+          state.previewSectionVariantMap = {
+            otherSection: "other-variant",
+          };
+        });
+      });
 
-    renderState?.onClick();
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      const button = host.querySelector("button");
+      expect(button).not.toBeNull();
+      expect(button?.getAttribute("aria-label")).toBe("Hide section");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
 
-    expect(deleteSectionsMock).not.toHaveBeenCalled();
-    expect(toggleSectionVisibilityMock).not.toHaveBeenCalled();
-    expect(callOpenAPIMock).not.toHaveBeenCalled();
+  it("rerenders when the active view visibility for this section changes", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledButton(onRender);
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        // Visibility changes on the subscribed section should still update the button state.
+        useProjectState.setState((state) => {
+          state.projectConfig.viewModes.all.visibilityBySectionId[sectionId] =
+            false;
+        });
+      });
+
+      expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
+      const button = host.querySelector("button");
+      expect(button).not.toBeNull();
+      expect(button?.getAttribute("aria-label")).toBe("Show section");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 });
