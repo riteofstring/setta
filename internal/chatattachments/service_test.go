@@ -472,6 +472,15 @@ func TestBuildContentDispositionEncodesUnicodeFilename(t *testing.T) {
 	}
 }
 
+func TestBuildContentDispositionPercentEncodesSpacesInsteadOfPlus(t *testing.T) {
+	t.Parallel()
+
+	disposition := BuildContentDisposition("A B+C\u202f.txt")
+	if !strings.Contains(disposition, "filename*=UTF-8''A%20B%2B") {
+		t.Fatalf("expected RFC 5987 filename encoding with percent-escaped spaces, got %q", disposition)
+	}
+}
+
 func TestBuildDownloadURLNormalizesArtifactID(t *testing.T) {
 	t.Parallel()
 
@@ -528,6 +537,15 @@ func TestBuildDownloadURLNormalizesArtifactID(t *testing.T) {
 	}
 	if payload.ArtifactID != "artifacts/nested/notes.txt" {
 		t.Fatalf("expected normalized artifact id, got %#v", payload)
+	}
+}
+
+func TestBuildDefaultDownloadURLPercentEncodesShareSessionID(t *testing.T) {
+	t.Parallel()
+
+	downloadURL := buildDefaultDownloadURL("127.0.0.1", 8000, "token", "share session+1")
+	if !strings.HasSuffix(downloadURL, "shareSessionId=share%20session%2B1") {
+		t.Fatalf("expected percent-escaped share session query, got %q", downloadURL)
 	}
 }
 

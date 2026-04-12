@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"mime"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -926,16 +927,7 @@ func sanitizeASCIIFilename(filename string) string {
 }
 
 func urlQueryEscape(value string) string {
-	var builder strings.Builder
-	for i := 0; i < len(value); i++ {
-		b := value[i]
-		if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '-' || b == '_' || b == '.' || b == '~' {
-			builder.WriteByte(b)
-			continue
-		}
-		builder.WriteString(fmt.Sprintf("%%%02X", b))
-	}
-	return builder.String()
+	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
 }
 
 func anySlice(value any) []any {
