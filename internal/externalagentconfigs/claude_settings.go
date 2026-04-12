@@ -35,20 +35,50 @@ func PrepareClaudeSettings(workspaceRoot string, config Config) error {
 	if settingsPath == "" {
 		return nil
 	}
-	if _, err := os.Stat(settingsPath); err == nil && !config.SettingsAllowSettaEdits {
+	if shouldSkipClaudeSettingsWrite(settingsPath, config.SettingsAllowSettaEdits) {
 		return nil
 	}
+	payload, err := readClaudeSettingsPayload(settingsPath)
+	if err != nil {
+		return err
+	}
+	mergeClaudeSettingsManagedBlock(payload, config.SettingsManagedBlock)
+	return writeClaudeSettingsPayload(settingsPath, payload)
+}
+
+func shouldSkipClaudeSettingsWrite(settingsPath string, allowSettaEdits bool) bool {
+	if allowSettaEdits {
+		return false
+	}
+	_, err := os.Stat(settingsPath)
+	return err == nil
+}
+
+func readClaudeSettingsPayload(settingsPath string) (map[string]any, error) {
 	payload := map[string]any{}
-	if existing, err := os.ReadFile(settingsPath); err == nil {
-		if err := json.Unmarshal(existing, &payload); err != nil {
-			return fmt.Errorf("decode claude settings: %w", err)
-		}
+	existing, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return payload, nil
 	}
-	if config.SettingsManagedBlock != nil && config.SettingsManagedBlock.Claude != nil {
-		for key, value := range claudeSettingsManagedPayload(config.SettingsManagedBlock.Claude) {
-			payload[key] = cloneJSONValue(value)
-		}
+	if err := json.Unmarshal(existing, &payload); err != nil {
+		return nil, fmt.Errorf("decode claude settings: %w", err)
 	}
+	return payload, nil
+}
+
+func mergeClaudeSettingsManagedBlock(
+	payload map[string]any,
+	managedBlock *SettingsManagedBlock,
+) {
+	if managedBlock == nil || managedBlock.Claude == nil {
+		return
+	}
+	for key, value := range claudeSettingsManagedPayload(managedBlock.Claude) {
+		payload[key] = cloneJSONValue(value)
+	}
+}
+
+func writeClaudeSettingsPayload(settingsPath string, payload map[string]any) error {
 	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
 		return fmt.Errorf("create claude settings dir: %w", err)
 	}
