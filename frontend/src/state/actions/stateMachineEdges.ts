@@ -1,25 +1,21 @@
 import type { Connection } from "forks/xyflow/core/types";
-import {
-  createStateMachineEdge,
-  deleteStateMachineEdges,
-  setStateMachineEdges,
-  updateStateMachineEdge,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState, useShareSession } from "state/definitions";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
+import {
+  route_create_state_machine_edge,
+  route_delete_state_machine_edges,
+  route_set_state_machine_edges,
+  route_update_state_machine_edge,
+} from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
-  StateMachineUIConfig,
-  type SingleConfig,
+  type ProjectStateSingleConfig,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { clearActiveSectionIds } from "./activeSections";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
 import {
   dispatchOptimisticProjectStateUpdate,
-  dispatchOptimisticProjectStateUpdateWithResult,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
@@ -28,85 +24,35 @@ import {
   getConnectionDebugPayload,
   logWorkflowDebug,
 } from "./stateMachineDebug";
+
 export const STATE_MACHINE_EDGE_HANDLE_IDS = {
   source: "workflow-source",
   target: "workflow-target",
   reverseStart: "workflow-reverse-start",
 } as const;
-type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
+
+type WorkflowEdge =
+  ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
 type WorkflowSourceFilter = NonNullable<WorkflowEdge["sourceFilter"]>;
 type WorkflowTargetAction = NonNullable<WorkflowEdge["targetAction"]>;
+
 type WorkflowSectionInfo = {
   type: SectionTypeEnum | null;
   machineGroupId: string | null;
 };
+
 type WorkflowMachineGroupTransition = {
   machineGroupId: string | null;
   mergedMachineGroupIds: string[];
 };
+
 type WorkflowMachineGroupMergeSnapshot = {
   edgeMachineGroupById: Record<string, string>;
   sectionMachineGroupById: Record<string, string>;
 };
-type WorkflowEdgeMutationResponse = ResponseDataAndStatus<null>;
-const WORKFLOW_CONNECTION_SOURCE_TYPES = new Set(
-  StateMachineUIConfig.connectionSourceTypes,
-);
-const WORKFLOW_CONNECTION_TARGET_TYPES = new Set(
-  StateMachineUIConfig.connectionTargetTypes,
-);
-const WORKFLOW_SELF_LOOP_SECTION_TYPES = new Set(
-  StateMachineUIConfig.selfLoopSectionTypes,
-);
-
-function getWorkflowSectionMachineGroupId(
-  state: SingleConfig,
-  sectionId: string,
-): string | null {
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
-  switch (impl.type) {
-    case SectionTypeEnum.StateMachineStart:
-    case SectionTypeEnum.StateMachineGate:
-    case SectionTypeEnum.StateMachineEnd:
-      return impl.machineGroupId;
-    default:
-      return null;
-  }
-}
-
-function setWorkflowSectionMachineGroup(
-  state: SingleConfig,
-  sectionId: string,
-  machineGroupId: string,
-): void {
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
-  switch (impl.type) {
-    case SectionTypeEnum.StateMachineStart:
-      setCurrEffectiveSectionImplValue<"StateMachineStartSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
-      return;
-    case SectionTypeEnum.StateMachineGate:
-      setCurrEffectiveSectionImplValue<"StateMachineGateSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
-      return;
-    case SectionTypeEnum.StateMachineEnd:
-      setCurrEffectiveSectionImplValue<"StateMachineEndSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
-      return;
-  }
-}
 
 function getWorkflowSectionInfo(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   sectionId: string,
 ): WorkflowSectionInfo {
   if (!(sectionId in state.projectConfig.sectionVariantMap)) {
@@ -128,6 +74,7 @@ function getWorkflowSectionInfo(
     machineGroupId: null,
   };
 }
+
 function hasWorkflowHandles(connection: Connection): boolean {
   const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
   return (
@@ -136,6 +83,7 @@ function hasWorkflowHandles(connection: Connection): boolean {
     normalizedConnection.targetHandle === STATE_MACHINE_EDGE_HANDLE_IDS.target
   );
 }
+
 export function isWorkflowHandleId(
   handleId: string | null | undefined,
 ): boolean {
@@ -145,6 +93,7 @@ export function isWorkflowHandleId(
     handleId === STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart
   );
 }
+
 function normalizeReverseStartedWorkflowConnection(
   connection: Connection,
 ): Connection {
@@ -158,6 +107,7 @@ function normalizeReverseStartedWorkflowConnection(
     targetHandle: STATE_MACHINE_EDGE_HANDLE_IDS.target,
   };
 }
+
 export function normalizeWorkflowConnectionHandles(
   connection: Connection,
 ): Connection {
@@ -177,6 +127,7 @@ export function normalizeWorkflowConnectionHandles(
           : normalizedReverseConnection.targetHandle,
   };
 }
+
 function usesSharedChatHandleOnNormalizedSource(
   connection: Connection,
   normalizedConnection: Connection,
@@ -188,6 +139,7 @@ function usesSharedChatHandleOnNormalizedSource(
       normalizedConnection.source === connection.target)
   );
 }
+
 function usesSharedChatHandleOnNormalizedTarget(
   connection: Connection,
   normalizedConnection: Connection,
@@ -199,8 +151,9 @@ function usesSharedChatHandleOnNormalizedTarget(
       normalizedConnection.target === connection.target)
   );
 }
+
 function getUniqueConnectedMachineGroupId(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   sectionId: string,
 ): string | null {
   const machineGroupIds = new Set<string>();
@@ -218,8 +171,9 @@ function getUniqueConnectedMachineGroupId(
   const [machineGroupId] = machineGroupIds;
   return machineGroupId ?? null;
 }
+
 function resolveExistingMachineGroupIdForConnectionEndpoint(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   sectionId: string,
   sectionInfo: WorkflowSectionInfo,
 ): string | null {
@@ -228,9 +182,10 @@ function resolveExistingMachineGroupIdForConnectionEndpoint(
   }
   return getUniqueConnectedMachineGroupId(state, sectionId);
 }
+
 function resolveMachineGroupTransitionForConnection(
   connection: Connection,
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
 ): WorkflowMachineGroupTransition {
   if (!connection.source || !connection.target) {
     return {
@@ -279,8 +234,9 @@ function resolveMachineGroupTransitionForConnection(
     ),
   };
 }
+
 function captureWorkflowMachineGroupMergeSnapshot(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   mergedMachineGroupIds: string[],
 ): WorkflowMachineGroupMergeSnapshot {
   const mergedMachineGroupIdSet = new Set(mergedMachineGroupIds);
@@ -292,15 +248,14 @@ function captureWorkflowMachineGroupMergeSnapshot(
   }
   const sectionMachineGroupById: Record<string, string> = {};
   for (const sectionId of Object.keys(state.projectConfig.sectionVariantMap)) {
-    const currentMachineGroupId = getWorkflowSectionMachineGroupId(
-      state,
-      sectionId,
-    );
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
     if (
-      currentMachineGroupId &&
-      mergedMachineGroupIdSet.has(currentMachineGroupId)
+      (impl.type === SectionTypeEnum.StateMachineStart ||
+        impl.type === SectionTypeEnum.StateMachineGate ||
+        impl.type === SectionTypeEnum.StateMachineEnd) &&
+      mergedMachineGroupIdSet.has(impl.machineGroupId)
     ) {
-      sectionMachineGroupById[sectionId] = currentMachineGroupId;
+      sectionMachineGroupById[sectionId] = impl.machineGroupId;
     }
   }
   return {
@@ -308,8 +263,9 @@ function captureWorkflowMachineGroupMergeSnapshot(
     sectionMachineGroupById,
   };
 }
+
 function applyWorkflowMachineGroupMerge(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   machineGroupId: string,
   mergedMachineGroupIds: string[],
 ): void {
@@ -318,15 +274,38 @@ function applyWorkflowMachineGroupMerge(
   }
   const mergedMachineGroupIdSet = new Set(mergedMachineGroupIds);
   for (const sectionId of Object.keys(state.projectConfig.sectionVariantMap)) {
-    const currentMachineGroupId = getWorkflowSectionMachineGroupId(
-      state,
-      sectionId,
-    );
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
     if (
-      currentMachineGroupId &&
-      mergedMachineGroupIdSet.has(currentMachineGroupId)
+      impl.type === SectionTypeEnum.StateMachineStart &&
+      mergedMachineGroupIdSet.has(impl.machineGroupId)
     ) {
-      setWorkflowSectionMachineGroup(state, sectionId, machineGroupId);
+      setCurrEffectiveSectionImplValue<"StateMachineStartSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      continue;
+    }
+    if (
+      impl.type === SectionTypeEnum.StateMachineGate &&
+      mergedMachineGroupIdSet.has(impl.machineGroupId)
+    ) {
+      setCurrEffectiveSectionImplValue<"StateMachineGateSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      continue;
+    }
+    if (
+      impl.type === SectionTypeEnum.StateMachineEnd &&
+      mergedMachineGroupIdSet.has(impl.machineGroupId)
+    ) {
+      setCurrEffectiveSectionImplValue<"StateMachineEndSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
     }
   }
   for (const edge of state.projectConfig.stateMachineEdges) {
@@ -335,14 +314,38 @@ function applyWorkflowMachineGroupMerge(
     }
   }
 }
+
 function restoreWorkflowMachineGroupMergeSnapshot(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   snapshot: WorkflowMachineGroupMergeSnapshot,
 ): void {
   for (const [sectionId, machineGroupId] of Object.entries(
     snapshot.sectionMachineGroupById,
   )) {
-    setWorkflowSectionMachineGroup(state, sectionId, machineGroupId);
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    if (impl.type === SectionTypeEnum.StateMachineStart) {
+      setCurrEffectiveSectionImplValue<"StateMachineStartSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      continue;
+    }
+    if (impl.type === SectionTypeEnum.StateMachineGate) {
+      setCurrEffectiveSectionImplValue<"StateMachineGateSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      continue;
+    }
+    if (impl.type === SectionTypeEnum.StateMachineEnd) {
+      setCurrEffectiveSectionImplValue<"StateMachineEndSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+    }
   }
   for (const edge of state.projectConfig.stateMachineEdges) {
     const machineGroupId = snapshot.edgeMachineGroupById[edge.id];
@@ -351,6 +354,7 @@ function restoreWorkflowMachineGroupMergeSnapshot(
     }
   }
 }
+
 function isAllowedStateMachineConnection(
   sourceType: SectionTypeEnum | null,
   targetType: SectionTypeEnum | null,
@@ -360,20 +364,34 @@ function isAllowedStateMachineConnection(
   if (!sourceType || !targetType) {
     return false;
   }
-  if (
-    !WORKFLOW_CONNECTION_SOURCE_TYPES.has(sourceType) ||
-    !WORKFLOW_CONNECTION_TARGET_TYPES.has(targetType)
-  ) {
+  const sourceAllowed = new Set<SectionTypeEnum>([
+    SectionTypeEnum.Chat,
+    SectionTypeEnum.StateMachineStart,
+    SectionTypeEnum.StateMachineGate,
+  ]);
+  const targetAllowed = new Set<SectionTypeEnum>([
+    SectionTypeEnum.Chat,
+    SectionTypeEnum.StateMachineGate,
+    SectionTypeEnum.StateMachineEnd,
+  ]);
+  if (!sourceAllowed.has(sourceType) || !targetAllowed.has(targetType)) {
+    return false;
+  }
+  if (sourceType === SectionTypeEnum.StateMachineEnd) {
+    return false;
+  }
+  if (targetType === SectionTypeEnum.StateMachineStart) {
     return false;
   }
   if (
     sourceSectionId === targetSectionId &&
-    !WORKFLOW_SELF_LOOP_SECTION_TYPES.has(sourceType)
+    sourceType !== SectionTypeEnum.Chat
   ) {
     return false;
   }
   return true;
 }
+
 function createDefaultSourceFilter(
   sourceType: SectionTypeEnum | null,
 ): WorkflowSourceFilter | null {
@@ -387,6 +405,7 @@ function createDefaultSourceFilter(
     equals: null,
   };
 }
+
 function createDefaultTargetAction(
   targetType: SectionTypeEnum | null,
 ): WorkflowTargetAction | null {
@@ -407,9 +426,10 @@ function createDefaultTargetAction(
     searchEnabled: null,
   };
 }
+
 function buildStateMachineEdgeForConnection(
   connection: Connection,
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
 ): WorkflowEdge | null {
   const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
   if (
@@ -467,6 +487,7 @@ function buildStateMachineEdgeForConnection(
     selected: false,
   };
 }
+
 export function isValidStateMachineEdgeConnection(
   connection: Connection,
 ): boolean {
@@ -511,6 +532,7 @@ export function isValidStateMachineEdgeConnection(
       .machineGroupId !== null
   );
 }
+
 export function createStateMachineEdgeFromConnection(
   connection: Connection,
 ): void {
@@ -585,29 +607,25 @@ export function createStateMachineEdgeFromConnection(
       restoreWorkflowMachineGroupMergeSnapshot(draft, mergeSnapshot);
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        createStateMachineEdge({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            id: nextEdge.id,
-            machineGroupId: nextEdge.machineGroupId,
-            sourceSectionId: nextEdge.sourceSectionId,
-            sourcePortId: nextEdge.sourcePortId,
-            targetSectionId: nextEdge.targetSectionId,
-            targetPortId: nextEdge.targetPortId,
-            sourceFilter: nextEdge.sourceFilter,
-            sourceActivationCountCondition:
-              nextEdge.sourceActivationCountCondition,
-            targetAction: nextEdge.targetAction,
-            style: null,
-            hidden: false,
-            zIndex: 0,
-            frontendOpId,
-          },
-        } as Parameters<typeof createStateMachineEdge>[0]),
-      ),
+      route_create_state_machine_edge({
+        projectConfigId: getCurrProjectConfigId(),
+        id: nextEdge.id,
+        machineGroupId: nextEdge.machineGroupId,
+        sourceSectionId: nextEdge.sourceSectionId,
+        sourcePortId: nextEdge.sourcePortId,
+        targetSectionId: nextEdge.targetSectionId,
+        targetPortId: nextEdge.targetPortId,
+        sourceFilter: nextEdge.sourceFilter,
+        sourceActivationCountCondition: nextEdge.sourceActivationCountCondition,
+        targetAction: nextEdge.targetAction,
+        style: null,
+        hidden: false,
+        zIndex: 0,
+        frontendOpId,
+      }),
   });
 }
+
 export function toggleStateMachineEdgeSelection(
   edgeId: string,
   multiSelect: boolean,
@@ -633,28 +651,21 @@ export function toggleStateMachineEdgeSelection(
         if (!edge) {
           return;
         }
-        return callOpenAPI(
-          updateStateMachineEdge({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              edge,
-              frontendOpId,
-            },
-          } as Parameters<typeof updateStateMachineEdge>[0]),
-        );
+        return route_update_state_machine_edge({
+          projectConfigId: getCurrProjectConfigId(),
+          edge,
+          frontendOpId,
+        });
       }
-      return callOpenAPI(
-        setStateMachineEdges({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edges: useProjectState.getState().projectConfig.stateMachineEdges,
-            frontendOpId,
-          },
-        } as Parameters<typeof setStateMachineEdges>[0]),
-      );
+      return route_set_state_machine_edges({
+        projectConfigId: getCurrProjectConfigId(),
+        edges: useProjectState.getState().projectConfig.stateMachineEdges,
+        frontendOpId,
+      });
     },
   });
 }
+
 export function deleteSelectedStateMachineEdges(): boolean {
   if (useShareSession.getState().isDeploymentMode) {
     return false;
@@ -674,25 +685,20 @@ export function deleteSelectedStateMachineEdges(): boolean {
         );
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        deleteStateMachineEdges({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edgeIds: selectedIds,
-            frontendOpId,
-          },
-        } as Parameters<typeof deleteStateMachineEdges>[0]),
-      ),
+      route_delete_state_machine_edges({
+        projectConfigId: getCurrProjectConfigId(),
+        edgeIds: selectedIds,
+        frontendOpId,
+      }),
   });
   return true;
 }
-export function replaceStateMachineEdge(
-  nextEdge: WorkflowEdge,
-): Promise<WorkflowEdgeMutationResponse> | undefined {
+
+export function replaceStateMachineEdge(nextEdge: WorkflowEdge): void {
   if (useShareSession.getState().isDeploymentMode) {
-    return undefined;
+    return;
   }
-  const { result } = dispatchOptimisticProjectStateUpdateWithResult({
+  dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       const index = state.projectConfig.stateMachineEdges.findIndex(
         (edge) => edge.id === nextEdge.id,
@@ -703,15 +709,10 @@ export function replaceStateMachineEdge(
       state.projectConfig.stateMachineEdges[index] = nextEdge;
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        updateStateMachineEdge({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edge: nextEdge,
-            frontendOpId,
-          },
-        } as Parameters<typeof updateStateMachineEdge>[0]),
-      ),
+      route_update_state_machine_edge({
+        projectConfigId: getCurrProjectConfigId(),
+        edge: nextEdge,
+        frontendOpId,
+      }),
   });
-  return result;
 }

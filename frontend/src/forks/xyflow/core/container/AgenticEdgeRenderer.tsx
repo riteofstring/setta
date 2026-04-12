@@ -16,7 +16,6 @@ import { useShareCapabilities } from "state/hooks/share";
 import {
   AgenticEdgeKindEnum,
   SectionTypeEnum,
-  type AgenticEdge,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -27,20 +26,6 @@ import { HandlePosition, type Node } from "../types";
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
 type FallbackSectionSize = { w?: number; h?: number };
-type EdgeSections = Pick<
-  AgenticEdge,
-  "kind" | "sourceSectionId" | "targetSectionId"
->;
-type MissingAgenticEdge = EdgeSections & { id: string };
-type AgenticEdgeRenderContext = {
-  canEditStructure: boolean;
-  fallbackSectionSizes: Record<string, FallbackSectionSize>;
-  multiSelectionActive: boolean;
-  nodes: Map<string, Node>;
-  runningChatSectionIds: Set<string>;
-  toolArgSectionIds: Set<string>;
-  toolResultSectionIds: Set<string>;
-};
 
 function areNodeGeometryMapsEqual(
   left: Map<string, Node>,
@@ -84,33 +69,6 @@ function buildEdgeKey(
   return `${kind}:${sourceSectionId}:${targetSectionId}`;
 }
 
-function resolveNodeDimension(
-  primaryValue: number | undefined,
-  fallbackValue: number | undefined,
-): number | null {
-  return primaryValue ?? fallbackValue ?? null;
-}
-
-function resolveNodeDimensions(
-  node: Node,
-  fallbackLayout: FallbackSectionSize | undefined,
-): { width: number; height: number } | null {
-  const width = resolveNodeDimension(node.width, fallbackLayout?.w);
-  const height = resolveNodeDimension(node.height, fallbackLayout?.h);
-  if (width === null || height === null) {
-    return null;
-  }
-  return { width, height };
-}
-
-function resolveNodeAnchorX(
-  node: Node,
-  width: number,
-  side: NodeAnchorSide,
-): number {
-  return side === "left" ? node.position.x : node.position.x + width;
-}
-
 function resolveNodeAnchor(
   node: Node | undefined,
   fallbackLayout: FallbackSectionSize | undefined,
@@ -119,13 +77,14 @@ function resolveNodeAnchor(
   if (!node) {
     return null;
   }
-  const dimensions = resolveNodeDimensions(node, fallbackLayout);
-  if (!dimensions) {
+  const width = node.width ?? fallbackLayout?.w ?? null;
+  const height = node.height ?? fallbackLayout?.h ?? null;
+  if (!width || !height) {
     return null;
   }
   return {
-    x: resolveNodeAnchorX(node, dimensions.width, side),
-    y: node.position.y + dimensions.height / 2,
+    x: side === "left" ? node.position.x : node.position.x + width,
+    y: node.position.y + height / 2,
   };
 }
 
@@ -143,173 +102,6 @@ function getFallbackSectionSizes(
       sectionId,
       { w: layout.w, h: layout.h },
     ]),
-  );
-}
-
-function resolveAgenticEdgePath(
-  edge: EdgeSections,
-  nodes: Map<string, Node>,
-  fallbackSectionSizes: Record<string, FallbackSectionSize>,
-): string | null {
-  const sourceCenter = resolveNodeAnchor(
-    nodes.get(edge.sourceSectionId),
-    fallbackSectionSizes[edge.sourceSectionId],
-    "right",
-  );
-  const targetCenter = resolveNodeAnchor(
-    nodes.get(edge.targetSectionId),
-    fallbackSectionSizes[edge.targetSectionId],
-    "left",
-  );
-  if (!sourceCenter || !targetCenter) {
-    return null;
-  }
-
-  const [path] = getBezierPath({
-    sourceX: sourceCenter.x,
-    sourceY: sourceCenter.y,
-    sourcePosition: HandlePosition.Right,
-    targetX: targetCenter.x,
-    targetY: targetCenter.y,
-    targetPosition: HandlePosition.Left,
-  });
-  return path;
-}
-
-function edgeTouchesTrackedSections(
-  edge: EdgeSections,
-  trackedSectionIds: Set<string>,
-): boolean {
-  return (
-    trackedSectionIds.has(edge.sourceSectionId) ||
-    trackedSectionIds.has(edge.targetSectionId)
-  );
-}
-
-function buildAgenticEdgePathClassNames(
-  edge: EdgeSections,
-  options: {
-    isMissing?: boolean;
-    isRunningFromSource?: boolean;
-    isSelected?: boolean;
-    touchesToolArgs?: boolean;
-    touchesToolResults?: boolean;
-  },
-): string {
-  const classNames = [
-    "react-flow__agentic-edge-path",
-    `agentic-edge--${edge.kind.replaceAll("_", "-")}`,
-  ];
-  if (options.isSelected) {
-    classNames.push("agentic-edge--selected");
-  }
-  if (options.touchesToolArgs) {
-    classNames.push("agentic-edge--tool-args");
-  }
-  if (options.touchesToolResults) {
-    classNames.push("agentic-edge--tool-result");
-  }
-  if (options.isRunningFromSource) {
-    classNames.push("agentic-edge--run");
-  }
-  if (options.isMissing) {
-    classNames.push("agentic-edge--missing");
-  }
-  return classNames.join(" ");
-}
-
-function handleAgenticEdgeClick(
-  event: React.MouseEvent<SVGGElement>,
-  edgeId: string,
-  canEditStructure: boolean,
-  multiSelectionActive: boolean,
-) {
-  if (!canEditStructure) {
-    return;
-  }
-  event.stopPropagation();
-  toggleAgenticEdgeSelection(edgeId, multiSelectionActive);
-}
-
-function renderAgenticEdge(
-  edge: AgenticEdge,
-  context: AgenticEdgeRenderContext,
-) {
-  if (edge.hidden) {
-    return null;
-  }
-
-  const path = resolveAgenticEdgePath(
-    edge,
-    context.nodes,
-    context.fallbackSectionSizes,
-  );
-  if (!path) {
-    return null;
-  }
-
-  const pathClassNames = buildAgenticEdgePathClassNames(edge, {
-    isRunningFromSource: context.runningChatSectionIds.has(
-      edge.sourceSectionId,
-    ),
-    isSelected: edge.selected,
-    touchesToolArgs: edgeTouchesTrackedSections(
-      edge,
-      context.toolArgSectionIds,
-    ),
-    touchesToolResults: edgeTouchesTrackedSections(
-      edge,
-      context.toolResultSectionIds,
-    ),
-  });
-  const style = edge.style ? (edge.style as CSSProperties) : undefined;
-  const onClick = (event: React.MouseEvent<SVGGElement>) => {
-    handleAgenticEdgeClick(
-      event,
-      edge.id,
-      context.canEditStructure,
-      context.multiSelectionActive,
-    );
-  };
-
-  return (
-    <g
-      key={edge.id}
-      className="react-flow__agentic-edge"
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-    >
-      <path d={path} className={pathClassNames} style={style} fill="none" />
-      <path
-        d={path}
-        className="react-flow__agentic-edge-interaction"
-        fill="none"
-        strokeOpacity={0}
-        strokeWidth={16}
-      />
-    </g>
-  );
-}
-
-function renderMissingAgenticEdge(
-  edge: MissingAgenticEdge,
-  nodes: Map<string, Node>,
-  fallbackSectionSizes: Record<string, FallbackSectionSize>,
-) {
-  const path = resolveAgenticEdgePath(edge, nodes, fallbackSectionSizes);
-  if (!path) {
-    return null;
-  }
-
-  return (
-    <g key={edge.id} className="react-flow__agentic-edge">
-      <path
-        d={path}
-        className={buildAgenticEdgePathClassNames(edge, { isMissing: true })}
-        fill="none"
-      />
-    </g>
   );
 }
 
@@ -350,11 +142,10 @@ function AgenticScopeHighlightsUpdater() {
 }
 
 const _AgenticEdgeRenderer = () => {
-  const { width, height, multiSelectionActive } = useReactFlow(
+  const { width, height } = useReactFlow(
     (state) => ({
       width: state.width,
       height: state.height,
-      multiSelectionActive: state.multiSelectionActive,
     }),
     shallow,
   );
@@ -507,15 +298,6 @@ const _AgenticEdgeRenderer = () => {
     () => [...agenticEdges].sort((a, b) => a.zIndex - b.zIndex),
     [agenticEdges],
   );
-  const edgeRenderContext = {
-    canEditStructure,
-    fallbackSectionSizes,
-    multiSelectionActive,
-    nodes,
-    runningChatSectionIds,
-    toolArgSectionIds,
-    toolResultSectionIds,
-  };
 
   if (!width || !height) {
     return null;
@@ -528,10 +310,139 @@ const _AgenticEdgeRenderer = () => {
       className="react-flow__agentic-edges react-flow__container"
     >
       <g>
-        {sortedEdges.map((edge) => renderAgenticEdge(edge, edgeRenderContext))}
-        {missingEdges.map((edge) =>
-          renderMissingAgenticEdge(edge, nodes, fallbackSectionSizes),
-        )}
+        {sortedEdges.map((edge) => {
+          if (edge.hidden) {
+            return null;
+          }
+          const sourceCenter = resolveNodeAnchor(
+            nodes.get(edge.sourceSectionId),
+            fallbackSectionSizes[edge.sourceSectionId],
+            "right",
+          );
+          const targetCenter = resolveNodeAnchor(
+            nodes.get(edge.targetSectionId),
+            fallbackSectionSizes[edge.targetSectionId],
+            "left",
+          );
+          if (!sourceCenter || !targetCenter) {
+            return null;
+          }
+
+          const { x: sourceX, y: sourceY } = sourceCenter;
+          const { x: targetX, y: targetY } = targetCenter;
+          const [path] = getBezierPath({
+            sourceX,
+            sourceY,
+            sourcePosition: HandlePosition.Right,
+            targetX,
+            targetY,
+            targetPosition: HandlePosition.Left,
+          });
+
+          const touchesToolArgs =
+            toolArgSectionIds.has(edge.sourceSectionId) ||
+            toolArgSectionIds.has(edge.targetSectionId);
+          const touchesToolResults =
+            toolResultSectionIds.has(edge.sourceSectionId) ||
+            toolResultSectionIds.has(edge.targetSectionId);
+          const isRunningFromSource = runningChatSectionIds.has(
+            edge.sourceSectionId,
+          );
+
+          const kindClassName = `agentic-edge--${edge.kind.replaceAll(
+            "_",
+            "-",
+          )}`;
+          const pathClassNames = [
+            "react-flow__agentic-edge-path",
+            kindClassName,
+            edge.selected ? "agentic-edge--selected" : null,
+            touchesToolArgs ? "agentic-edge--tool-args" : null,
+            touchesToolResults ? "agentic-edge--tool-result" : null,
+            isRunningFromSource ? "agentic-edge--run" : null,
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          const onClick = (event: React.MouseEvent<SVGGElement>) => {
+            if (!canEditStructure) {
+              return;
+            }
+            event.stopPropagation();
+            toggleAgenticEdgeSelection(
+              edge.id,
+              useReactFlow.getState().multiSelectionActive,
+            );
+          };
+
+          return (
+            <g
+              key={edge.id}
+              className="react-flow__agentic-edge"
+              onClick={onClick}
+              role="button"
+              tabIndex={0}
+            >
+              <path
+                d={path}
+                className={pathClassNames}
+                style={edge.style ? (edge.style as CSSProperties) : undefined}
+                fill="none"
+              />
+              <path
+                d={path}
+                className="react-flow__agentic-edge-interaction"
+                fill="none"
+                strokeOpacity={0}
+                strokeWidth={16}
+              />
+            </g>
+          );
+        })}
+        {missingEdges.map((edge) => {
+          const sourceCenter = resolveNodeAnchor(
+            nodes.get(edge.sourceSectionId),
+            fallbackSectionSizes[edge.sourceSectionId],
+            "right",
+          );
+          const targetCenter = resolveNodeAnchor(
+            nodes.get(edge.targetSectionId),
+            fallbackSectionSizes[edge.targetSectionId],
+            "left",
+          );
+          if (!sourceCenter || !targetCenter) {
+            return null;
+          }
+
+          const { x: sourceX, y: sourceY } = sourceCenter;
+          const { x: targetX, y: targetY } = targetCenter;
+          const [path] = getBezierPath({
+            sourceX,
+            sourceY,
+            sourcePosition: HandlePosition.Right,
+            targetX,
+            targetY,
+            targetPosition: HandlePosition.Left,
+          });
+
+          const kindClassName = `agentic-edge--${edge.kind.replaceAll(
+            "_",
+            "-",
+          )}`;
+          const pathClassNames = [
+            "react-flow__agentic-edge-path",
+            kindClassName,
+            "agentic-edge--missing",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <g key={edge.id} className="react-flow__agentic-edge">
+              <path d={path} className={pathClassNames} fill="none" />
+            </g>
+          );
+        })}
       </g>
     </svg>
   );

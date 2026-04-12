@@ -1,24 +1,28 @@
 /* @vitest-environment jsdom */
-import * as endpoints from "openapi/http";
-import { act } from "react";
+
+import { act, Profiler, type ProfilerOnRenderCallback } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import "testUtils/reactRefreshPreamble";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   useActiveSectionUI,
   useProjectState,
   useSettings,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
+import * as endpoints from "utils/generatedEndpoints";
 import { createSettingsState } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useReactFlow } from "../store";
 import initialState from "../store/initialState";
 import Pane from "./Pane";
+
 type RenderedPane = {
   host: HTMLDivElement;
   pane: HTMLDivElement;
   root: Root;
 };
+
 async function dispatchMouseEvent(
   target: HTMLElement,
   type: "mousedown" | "mouseup" | "mouseout",
@@ -34,9 +38,11 @@ async function dispatchMouseEvent(
     );
   });
 }
+
 async function renderPane(): Promise<RenderedPane> {
   const host = document.createElement("div");
   document.body.appendChild(host);
+
   const root = createRoot(host);
   await act(async () => {
     root.render(
@@ -45,16 +51,20 @@ async function renderPane(): Promise<RenderedPane> {
       </Pane>,
     );
   });
+
   const pane = host.querySelector(".react-flow__pane");
   if (!(pane instanceof HTMLDivElement)) {
     throw new Error("Pane test failed to render the canvas pane.");
   }
+
   Object.defineProperty(pane, "getBoundingClientRect", {
     value: () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }),
   });
+
   useReactFlow.setState({ domNode: pane });
   return { host, pane, root };
 }
+
 describe("Pane", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -74,25 +84,32 @@ describe("Pane", () => {
       scheduledBackendSync: null,
     });
   });
+
   afterEach(async () => {
     vi.restoreAllMocks();
     resetProjectStores();
     useReactFlow.setState({ ...initialState });
     document.body.innerHTML = "";
   });
+
   it("durably commits a blank-pane deselect when selection mode ends without a drag", async () => {
-    const endpointSpy = vi.spyOn(endpoints, "setActiveIds").mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: undefined,
-    });
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
     let scheduledFrame: FrameRequestCallback | null = null;
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       scheduledFrame = callback;
       return 1;
     });
     vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
     const { host, pane, root } = await renderPane();
+
     try {
       await dispatchMouseEvent(pane, "mousedown", {
         button: 0,
@@ -104,11 +121,14 @@ describe("Pane", () => {
         clientX: 320,
         clientY: 240,
       });
+
       // The UI should clear immediately and then schedule exactly one durable publish.
       expect(useActiveSectionUI.getState().activeIds).toEqual([]);
       expect(scheduledFrame).not.toBeNull();
       expect(endpointSpy).not.toHaveBeenCalled();
+
       scheduledFrame?.(16);
+
       expect(endpointSpy).toHaveBeenCalledOnce();
       expect(endpointSpy).toHaveBeenCalledWith({
         activeIds: [],
@@ -122,19 +142,25 @@ describe("Pane", () => {
       host.remove();
     }
   });
+
   it("durably commits the cleared selection when a no-drag selection gesture leaves the pane", async () => {
-    const endpointSpy = vi.spyOn(endpoints, "setActiveIds").mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: undefined,
-    });
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
     let scheduledFrame: FrameRequestCallback | null = null;
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       scheduledFrame = callback;
       return 1;
     });
     vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
     const { host, pane, root } = await renderPane();
+
     try {
       await dispatchMouseEvent(pane, "mousedown", {
         button: 0,
@@ -145,11 +171,14 @@ describe("Pane", () => {
         clientX: 280,
         clientY: 200,
       });
+
       // Mouseleave should flush the same final selection instead of abandoning the UI-only state.
       expect(useActiveSectionUI.getState().activeIds).toEqual([]);
       expect(scheduledFrame).not.toBeNull();
       expect(endpointSpy).not.toHaveBeenCalled();
+
       scheduledFrame?.(16);
+
       expect(endpointSpy).toHaveBeenCalledOnce();
       expect(endpointSpy).toHaveBeenCalledWith({
         activeIds: [],
@@ -162,5 +191,35 @@ describe("Pane", () => {
       });
       host.remove();
     }
+  });
+
+  it("does not rerender when pane dragging state changes without selection state changes", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    await act(async () => {
+      root.render(
+        <Profiler id="pane-profiler" onRender={onRender}>
+          <Pane isSelecting panOnDrag={false}>
+            <div />
+          </Pane>
+        </Profiler>,
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      useReactFlow.setState({ paneDragging: true });
+    });
+
+    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
   });
 });
