@@ -12,8 +12,8 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
+  ChildDefaultsUIConfig,
   ListRootViewMode,
-  ListRootViewModeEnum,
   SectionType,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -27,14 +27,8 @@ const CHILD_SECTION_TYPE_OPTIONS = (
 )
   .filter((type) => !DISALLOWED_CHILD_DEFAULTS.has(type))
   .map((type) => ({ value: type, label: type }));
-const LIST_ROOT_VIEW_MODE_OPTIONS: Array<{
-  value: ListRootViewMode;
-  label: string;
-}> = [
-  { value: ListRootViewModeEnum.default, label: "Default Stack" },
-  { value: ListRootViewModeEnum.task_list, label: "Task List" },
-  { value: ListRootViewModeEnum.kanban, label: "Kanban Board" },
-];
+const LIST_ROOT_VIEW_MODE_OPTIONS =
+  ChildDefaultsUIConfig.listRootViewModeOptions;
 export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
   const { sectionType, defaultChildSectionType, listRootViewMode, isFrozen } =

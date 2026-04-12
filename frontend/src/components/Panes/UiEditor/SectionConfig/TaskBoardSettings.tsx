@@ -12,17 +12,11 @@ import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   SectionTypeEnum,
+  TaskBoardUIConfig,
   TaskBoardViewMode,
-  TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
 import { normalizeTaskBoardState } from "utils/taskBoard";
-const VIEW_MODE_OPTIONS: Array<{
-  value: TaskBoardViewMode;
-  label: string;
-}> = [
-  { value: TaskBoardViewModeEnum.task_list, label: "Task List" },
-  { value: TaskBoardViewModeEnum.kanban, label: "Kanban" },
-];
+const VIEW_MODE_OPTIONS = TaskBoardUIConfig.viewModeOptions;
 export function TaskBoardSettings({ sectionId }: { sectionId: string }) {
   const { canEditLayout } = useShareCapabilities();
   const { viewMode, columns, tasks, isFrozen } = useProjectState((state) => {

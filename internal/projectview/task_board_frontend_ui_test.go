@@ -10,6 +10,13 @@ import (
 func TestFrontendValueTaskBoardUIConfigUsesGoOwnedTaskBoardMetadata(t *testing.T) {
 	config := FrontendValueTaskBoardUIConfig()
 
+	if got, want := config.ViewModeOptions, []TaskBoardViewModeOption{
+		{Value: projectstate.TaskBoardViewModeTaskList, Label: "Task List"},
+		{Value: projectstate.TaskBoardViewModeKanban, Label: "Kanban"},
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected view mode options: %#v", got)
+	}
+
 	if got, want := config.RecurrenceOptions, []TaskBoardRecurrenceOption{
 		{Value: projectstate.FrontendTaskBoardTaskRecurrenceNone, Label: "No repeat"},
 		{Value: projectstate.FrontendTaskBoardTaskRecurrenceHourly, Label: "Hourly"},

@@ -2725,6 +2725,20 @@
         "title": "ChildCodeObjFields",
         "type": "object"
       },
+      "ChildDefaultsUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "listRootViewModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/ListRootViewModeOption"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["listRootViewModeOptions"],
+        "title": "ChildDefaultsUIConfigValue",
+        "type": "object"
+      },
       "ChildSectionFields": {
         "additionalProperties": false,
         "properties": {
@@ -6267,6 +6281,20 @@
         "enum": ["default", "task_list", "kanban"],
         "title": "ListRootViewMode",
         "type": "string"
+      },
+      "ListRootViewModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/ListRootViewMode"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "ListRootViewModeOption",
+        "type": "object"
       },
       "ListenerConfig": {
         "additionalProperties": false,
@@ -14842,6 +14870,12 @@
             },
             "type": ["null", "array"]
           },
+          "viewModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TaskBoardViewModeOption"
+            },
+            "type": ["null", "array"]
+          },
           "weekdayOptions": {
             "items": {
               "$ref": "#/components/schemas/TaskBoardRecurringWeekdayOption"
@@ -14849,7 +14883,12 @@
             "type": ["null", "array"]
           }
         },
-        "required": ["recurrenceOptions", "weekdayOptions", "monthOptions"],
+        "required": [
+          "viewModeOptions",
+          "recurrenceOptions",
+          "weekdayOptions",
+          "monthOptions"
+        ],
         "title": "TaskBoardUIConfigValue",
         "type": "object"
       },
@@ -14857,6 +14896,20 @@
         "enum": ["task_list", "kanban"],
         "title": "TaskBoardViewMode",
         "type": "string"
+      },
+      "TaskBoardViewModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/TaskBoardViewMode"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TaskBoardViewModeOption",
+        "type": "object"
       },
       "Template": {
         "additionalProperties": false,

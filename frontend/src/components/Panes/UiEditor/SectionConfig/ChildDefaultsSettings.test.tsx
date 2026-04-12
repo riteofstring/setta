@@ -39,6 +39,24 @@ const mockedRouteSetParentDefaultChildSectionType = vi.mocked(
   setParentDefaultChildSectionType,
 );
 const mockedRouteSetListRootViewMode = vi.mocked(setListRootViewMode);
+
+function createSuccessfulOpenAPIResponse() {
+  return {
+    data: null,
+    response: new Response("null", { status: 200 }),
+    status: 200,
+  };
+}
+
+function resetRouteMocks() {
+  mockedRouteSetParentDefaultChildSectionType
+    .mockReset()
+    .mockResolvedValue(createSuccessfulOpenAPIResponse());
+  mockedRouteSetListRootViewMode
+    .mockReset()
+    .mockResolvedValue(createSuccessfulOpenAPIResponse());
+}
+
 type RenderedChildDefaultsSettings = {
   host: HTMLDivElement;
   root: Root;
@@ -75,8 +93,7 @@ describe("ChildDefaultsSettings", () => {
   };
   beforeEach(() => {
     resetProjectStores();
-    mockedRouteSetParentDefaultChildSectionType.mockReset();
-    mockedRouteSetListRootViewMode.mockReset();
+    resetRouteMocks();
     useShareSession.setState({
       isDeploymentMode: false,
       sharePolicy: null,
@@ -126,9 +143,11 @@ describe("ChildDefaultsSettings", () => {
       });
       expect(mockedRouteSetParentDefaultChildSectionType).toHaveBeenCalledWith(
         expect.objectContaining({
-          projectConfigId: "project-1",
-          sectionId,
-          defaultChildSectionType: SectionTypeEnum.Dict,
+          body: expect.objectContaining({
+            projectConfigId: "project-1",
+            sectionId,
+            defaultChildSectionType: SectionTypeEnum.Dict,
+          }),
         }),
       );
       expect(
@@ -141,9 +160,11 @@ describe("ChildDefaultsSettings", () => {
       });
       expect(mockedRouteSetListRootViewMode).toHaveBeenCalledWith(
         expect.objectContaining({
-          projectConfigId: "project-1",
-          sectionId,
-          viewMode: ListRootViewModeEnum.kanban,
+          body: expect.objectContaining({
+            projectConfigId: "project-1",
+            sectionId,
+            viewMode: ListRootViewModeEnum.kanban,
+          }),
         }),
       );
       expect(

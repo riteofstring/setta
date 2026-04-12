@@ -4319,6 +4319,14 @@ export const ChatRunTypesByName = {
   scriptable_chat: true,
 } satisfies gt.ChatRunTypeSet;
 
+export const ChildDefaultsUIConfig = {
+  listRootViewModeOptions: [
+    { label: "Default Stack", value: "default" },
+    { label: "Task List", value: "task_list" },
+    { label: "Kanban Board", value: "kanban" },
+  ],
+} satisfies gt.ChildDefaultsUIConfigValue;
+
 export const DefaultAppPolicy = {
   allowExternalLinks: false,
   allowFileDownloads: false,
@@ -4798,6 +4806,10 @@ export const TaskBoardUIConfig = {
     { label: "Repeat specified days", value: "specified_days" },
     { label: "Repeat specified months", value: "specified_months" },
     { label: "Repeat specified years", value: "specified_years" },
+  ],
+  viewModeOptions: [
+    { label: "Task List", value: "task_list" },
+    { label: "Kanban", value: "kanban" },
   ],
   weekdayOptions: [
     { label: "Mon", value: "monday" },

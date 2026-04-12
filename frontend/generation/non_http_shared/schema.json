@@ -3208,6 +3208,25 @@
       ],
       "additionalProperties": false
     },
+    "ChildDefaultsUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "listRootViewModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ListRootViewModeOption"
+          }
+        }
+      },
+      "title": "ChildDefaultsUIConfigValue",
+      "required": [
+        "listRootViewModeOptions"
+      ],
+      "additionalProperties": false
+    },
     "ChildSectionFields": {
       "type": "object",
       "properties": {
@@ -7449,6 +7468,23 @@
         "task_list",
         "kanban"
       ]
+    },
+    "ListRootViewModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/ListRootViewMode"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ListRootViewModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
     },
     "ListenerConfig": {
       "type": "object",
@@ -17441,6 +17477,15 @@
     "TaskBoardUIConfigValue": {
       "type": "object",
       "properties": {
+        "viewModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/TaskBoardViewModeOption"
+          }
+        },
         "recurrenceOptions": {
           "type": [
             "null",
@@ -17471,6 +17516,7 @@
       },
       "title": "TaskBoardUIConfigValue",
       "required": [
+        "viewModeOptions",
         "recurrenceOptions",
         "weekdayOptions",
         "monthOptions"
@@ -17484,6 +17530,23 @@
         "task_list",
         "kanban"
       ]
+    },
+    "TaskBoardViewModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/TaskBoardViewMode"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "TaskBoardViewModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
     },
     "Template": {
       "type": "object",

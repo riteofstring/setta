@@ -699,6 +699,11 @@
       "schemaRef": "#/$defs/ChildCodeObjFields"
     },
     {
+      "name": "ChildDefaultsUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/ChildDefaultsUIConfigValue"
+    },
+    {
       "name": "ChildSectionFields",
       "kind": "model",
       "schemaRef": "#/$defs/ChildSectionFields"
@@ -1787,6 +1792,11 @@
           "value": "kanban"
         }
       ]
+    },
+    {
+      "name": "ListRootViewModeOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/ListRootViewModeOption"
     },
     {
       "name": "ListenerConfig",
@@ -5586,6 +5596,11 @@
           "value": "kanban"
         }
       ]
+    },
+    {
+      "name": "TaskBoardViewModeOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TaskBoardViewModeOption"
     },
     {
       "name": "Template",
@@ -10464,6 +10479,26 @@
       }
     },
     {
+      "name": "ChildDefaultsUIConfig",
+      "type": "ChildDefaultsUIConfigValue",
+      "value": {
+        "listRootViewModeOptions": [
+          {
+            "label": "Default Stack",
+            "value": "default"
+          },
+          {
+            "label": "Task List",
+            "value": "task_list"
+          },
+          {
+            "label": "Kanban Board",
+            "value": "kanban"
+          }
+        ]
+      }
+    },
+    {
       "name": "DefaultAppPolicy",
       "type": "Policy",
       "value": {
@@ -11248,6 +11283,16 @@
           {
             "label": "Repeat specified years",
             "value": "specified_years"
+          }
+        ],
+        "viewModeOptions": [
+          {
+            "label": "Task List",
+            "value": "task_list"
+          },
+          {
+            "label": "Kanban",
+            "value": "kanban"
           }
         ],
         "weekdayOptions": [

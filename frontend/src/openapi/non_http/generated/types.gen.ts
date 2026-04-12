@@ -1116,6 +1116,13 @@ type ChildCodeObjFields = {
 };
 
 /**
+ * ChildDefaultsUIConfigValue
+ */
+export type ChildDefaultsUIConfigValue = {
+  listRootViewModeOptions: null | Array<ListRootViewModeOption>;
+};
+
+/**
  * ChildSectionFields
  */
 type ChildSectionFields = {
@@ -2584,6 +2591,14 @@ export type ListRootSectionImpl = {
  * ListRootViewMode
  */
 export type ListRootViewMode = "default" | "task_list" | "kanban";
+
+/**
+ * ListRootViewModeOption
+ */
+type ListRootViewModeOption = {
+  label: string;
+  value: ListRootViewMode;
+};
 
 /**
  * ListenerConfig
@@ -6107,6 +6122,7 @@ export type TaskBoardTaskRecurrence =
 export type TaskBoardUIConfigValue = {
   monthOptions: null | Array<TaskBoardRecurringMonthOption>;
   recurrenceOptions: null | Array<TaskBoardRecurrenceOption>;
+  viewModeOptions: null | Array<TaskBoardViewModeOption>;
   weekdayOptions: null | Array<TaskBoardRecurringWeekdayOption>;
 };
 
@@ -6114,6 +6130,14 @@ export type TaskBoardUIConfigValue = {
  * TaskBoardViewMode
  */
 export type TaskBoardViewMode = "task_list" | "kanban";
+
+/**
+ * TaskBoardViewModeOption
+ */
+type TaskBoardViewModeOption = {
+  label: string;
+  value: TaskBoardViewMode;
+};
 
 /**
  * Template

@@ -49,6 +49,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "ChildDefaultsUIConfig",
+			Type: reflect.TypeOf(projectview.FrontendValueChildDefaultsUIConfig()),
+			Value: func() any {
+				return projectview.FrontendValueChildDefaultsUIConfig()
+			},
+		},
+		{
 			Name: "DefaultAppPolicy",
 			Type: reflect.TypeOf(deployments.FrontendValueDefaultAppPolicy()),
 			Value: func() any {

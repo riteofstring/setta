@@ -5,6 +5,10 @@ import "setta/internal/projectstate"
 // Keep task board recurrence option ordering and labels Go-owned so the
 // frontend does not hand-maintain recurrence enum metadata.
 var (
+	frontendTaskBoardViewModeOptions = []TaskBoardViewModeOption{
+		{Value: projectstate.TaskBoardViewModeTaskList, Label: "Task List"},
+		{Value: projectstate.TaskBoardViewModeKanban, Label: "Kanban"},
+	}
 	frontendTaskBoardRecurrenceOptions = []TaskBoardRecurrenceOption{
 		{Value: projectstate.FrontendTaskBoardTaskRecurrenceNone, Label: "No repeat"},
 		{Value: projectstate.FrontendTaskBoardTaskRecurrenceHourly, Label: "Hourly"},
@@ -38,6 +42,11 @@ var (
 	}
 )
 
+type TaskBoardViewModeOption struct {
+	Value projectstate.TaskBoardViewMode `json:"value"`
+	Label string                         `json:"label"`
+}
+
 type TaskBoardRecurrenceOption struct {
 	Value projectstate.FrontendTaskBoardTaskRecurrence `json:"value"`
 	Label string                                       `json:"label"`
@@ -54,6 +63,7 @@ type TaskBoardRecurringMonthOption struct {
 }
 
 type TaskBoardUIConfigValue struct {
+	ViewModeOptions   []TaskBoardViewModeOption         `json:"viewModeOptions"`
 	RecurrenceOptions []TaskBoardRecurrenceOption       `json:"recurrenceOptions"`
 	WeekdayOptions    []TaskBoardRecurringWeekdayOption `json:"weekdayOptions"`
 	MonthOptions      []TaskBoardRecurringMonthOption   `json:"monthOptions"`
@@ -61,6 +71,7 @@ type TaskBoardUIConfigValue struct {
 
 func FrontendValueTaskBoardUIConfig() TaskBoardUIConfigValue {
 	return TaskBoardUIConfigValue{
+		ViewModeOptions:   append([]TaskBoardViewModeOption(nil), frontendTaskBoardViewModeOptions...),
 		RecurrenceOptions: append([]TaskBoardRecurrenceOption(nil), frontendTaskBoardRecurrenceOptions...),
 		WeekdayOptions:    append([]TaskBoardRecurringWeekdayOption(nil), frontendTaskBoardWeekdayOptions...),
 		MonthOptions:      append([]TaskBoardRecurringMonthOption(nil), frontendTaskBoardMonthOptions...),
