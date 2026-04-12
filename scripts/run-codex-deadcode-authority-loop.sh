@@ -396,12 +396,14 @@ Phase-order rules:
 - If a later edit reopens an earlier-phase issue, set that earlier checklist item back to \`[ ]\` and return to that phase immediately.
 - Start each iteration by refreshing the checklist so it matches the actual repo state before you choose the next task.
 - Treat this session as standalone. Do not rely on follow-up prompts.
+- For any ad hoc Python or package-inspection command, explicitly activate the repo environment first with \`source activate.sh && ...\`. Do not assume bare \`python\` is available on PATH in this loop environment.
 
 Execution rules for every iteration:
 - Start with a fresh targeted audit of the active phase.
 - Pick one actionable issue or tightly-related cluster inside the active phase that you can complete confidently in this session.
 - Keep checklist and audit files compact and current-state only. Overwrite stale notes instead of appending a long running diary.
 - Cap \`## Latest report notes\` in each audit file to at most 8 bullets that describe the current repo state, not historical narration.
+- Prefer checked-in repo scripts and current saved summaries over ad hoc report-parsing snippets when they already expose the information you need.
 - Prefer deleting dead code or duplicated logic over moving it into wrappers, compatibility shims, tiny templates, or helper layers.
 - If a symbol is only referenced by tests, distinguish between a dead exported visibility/wrapper surface and still-live behavior. Prefer making the helper file-local or deleting only the dead wrapper surface before deleting coverage.
 - Never delete a focused test solely because the target helper became non-exported or file-local. Replace it in the same iteration with equal-or-stronger coverage through the owner API, component, runtime path, or an extracted non-exported helper module.
@@ -428,6 +430,7 @@ Phase 1 rules:
 - Refresh the saved candidate summary with:
   \`${deadcode_candidates_command} > ${deadcode_candidates_file}\`
 - Read the saved report at ${deadcode_report_file} and the saved summary at ${deadcode_candidates_file} before choosing work.
+- If you inspect ${deadcode_report_file} directly, use the current schema: top-level summary data is under \`.summary\` and individual findings are under \`.findings\`. Do not assume legacy keys such as \`.candidates\` or \`.items\`.
 - Update ${deadcode_audit_file} during every Phase 1 iteration.
 - The dead-code report is a candidate generator, not a blanket deletion order. Review candidates before deletion.
 - Respect prod, tooling, test, and public/package reachability. Do not treat "not imported in this repo" as sufficient proof that something is dead.
