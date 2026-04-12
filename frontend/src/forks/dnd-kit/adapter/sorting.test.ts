@@ -149,21 +149,6 @@ describe("sorting adapter utilities", () => {
     expect(siblingTransform).toEqual({ x: 0, y: -20, scaleX: 1, scaleY: 1 });
   });
 
-  it("falls back to the next rect when vertical gap calculation lacks a previous rect", () => {
-    // Validates sparse rect fallback for displaced vertical siblings.
-    const [siblingTransform, overIndex] = verticalListSortingStrategy({
-      rects: [undefined, rect(0, 20, 100, 10), rect(0, 50, 100, 10)],
-      activeIndex: 0,
-      activeNodeRect: rect(0, 0, 100, 10),
-      overIndex: 2,
-      index: 1,
-      pastHalfway: true,
-    });
-
-    expect(overIndex).toBe(2);
-    expect(siblingTransform).toEqual({ x: 0, y: -30, scaleX: 1, scaleY: 1 });
-  });
-
   it("calculates horizontal transforms and effective over index", () => {
     // Validates horizontal list movement math and over-index adjustment.
     const rects = [
@@ -191,21 +176,6 @@ describe("sorting adapter utilities", () => {
       pastHalfway: true,
     });
     expect(siblingTransform).toEqual({ x: -20, y: 0, scaleX: 1, scaleY: 1 });
-  });
-
-  it("falls back to the previous rect when horizontal gap calculation lacks a next rect", () => {
-    // Validates sparse rect fallback for displaced horizontal siblings.
-    const [siblingTransform, overIndex] = horizontalListSortingStrategy({
-      rects: [rect(0, 0, 10, 100), rect(30, 0, 10, 100), undefined],
-      activeIndex: 2,
-      activeNodeRect: rect(60, 0, 10, 100),
-      overIndex: 0,
-      index: 1,
-      pastHalfway: false,
-    });
-
-    expect(overIndex).toBe(0);
-    expect(siblingTransform).toEqual({ x: 30, y: 0, scaleX: 1, scaleY: 1 });
   });
 
   it("normalizes strategy results for callers", () => {

@@ -2,6 +2,7 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   getAllowedChatIdsForProject,
+  getAllowedChatIdsForSelection,
   getSectionIdsForProject,
   hasSectionIdInProject,
 } from "./aiFollowUtils";
@@ -92,6 +93,22 @@ describe("aiFollowUtils", () => {
       SECTION_IMPLS,
     );
     expect(Array.from(selected ?? [])).toEqual([]);
+  });
+
+  it("builds allowed chat ids from selected chat ids and resolved section chat ids", () => {
+    const off = getAllowedChatIdsForSelection("off", [CHAT_A], [CHAT_B]);
+    expect(off).not.toBeNull();
+    expect(Array.from(off ?? [])).toEqual([]);
+
+    const all = getAllowedChatIdsForSelection("all", [CHAT_A], [CHAT_B]);
+    expect(all).toBeNull();
+
+    const selected = getAllowedChatIdsForSelection(
+      "selected",
+      [CHAT_B],
+      [CHAT_A, "", CHAT_A],
+    );
+    expect(Array.from(selected ?? []).sort()).toEqual([CHAT_A, CHAT_B]);
   });
 
   it("filters section ids by allowed chat ids", () => {

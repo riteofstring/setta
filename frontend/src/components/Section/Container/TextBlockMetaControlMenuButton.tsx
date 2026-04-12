@@ -1,8 +1,6 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { toggleMinimized } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -13,6 +11,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import { route_toggle_minimized } from "utils/generatedEndpoints";
 import { type SectionType } from "utils/generatedTypes";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { HeaderIcon } from "../Header/HeaderIcon";
@@ -26,12 +25,14 @@ import {
 import { ToggleHeadingAsSectionName } from "../Header/MenuButton/ToggleHeadingAsSectionName";
 import { ToggleMetaControlLook } from "../Header/MenuButton/ToggleMetaControlLook";
 import { SectionTitle } from "../Header/SectionTitle";
+
 type TextBlockMetaControlMenuButtonProps = {
   sectionId: string;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
   isRoot: boolean;
 };
+
 export function TextBlockMetaControlMenuButton({
   sectionId,
   sectionTypeName,
@@ -39,6 +40,7 @@ export function TextBlockMetaControlMenuButton({
   isRoot,
 }: TextBlockMetaControlMenuButtonProps) {
   const isListElement = useIsListElement(sectionId);
+
   const triggerClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag flex h-[14px] w-[14px] cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto`;
   const titleBaseClasses =
     "block w-full min-w-0 max-w-full box-border rounded-md border border-solid border-transparent px-2 py-1 text-xs font-semibold leading-5 text-setta-700 focus-visible:border-blue-500 focus-visible:outline-none dark:text-setta-100";
@@ -48,6 +50,7 @@ export function TextBlockMetaControlMenuButton({
     fixed:
       "block w-full px-2 py-1 text-xs font-semibold text-setta-700 dark:text-setta-100",
   };
+
   return (
     <Menubar.Root className={SETTA_PREVENT_SECTION_ACTIVE_CSS}>
       <MenuDropdown
@@ -83,6 +86,7 @@ export function TextBlockMetaControlMenuButton({
     </Menubar.Root>
   );
 }
+
 function LockPositionMenuItem({ sectionId }: { sectionId: string }) {
   return (
     <LockPositionButton
@@ -105,11 +109,13 @@ function LockPositionMenuItem({ sectionId }: { sectionId: string }) {
     />
   );
 }
+
 function MinimizeMenuItem({ sectionId }: { sectionId: string }) {
   const isMinimized = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.isMinimized;
   });
+
   function onClick() {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -119,21 +125,19 @@ function MinimizeMenuItem({ sectionId }: { sectionId: string }) {
         });
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          toggleMinimized({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              frontendOpId,
-            },
-          } as Parameters<typeof toggleMinimized>[0]),
-        ),
+        route_toggle_minimized({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          frontendOpId,
+        }),
     });
   }
+
   const label = isMinimized ? "Expand" : "Minimize";
   const iconClassName = isMinimized
     ? "gg-maximize !scale-[.4]"
     : "gg-math-minus";
+
   return (
     <MenuItem onClick={onClick}>
       <span className="flex items-center gap-2">
@@ -145,6 +149,7 @@ function MinimizeMenuItem({ sectionId }: { sectionId: string }) {
     </MenuItem>
   );
 }
+
 function DeleteOrHideMenuItem({ sectionId }: { sectionId: string }) {
   return (
     <DeleteOrHideButton
@@ -160,6 +165,7 @@ function DeleteOrHideMenuItem({ sectionId }: { sectionId: string }) {
     />
   );
 }
+
 function MenuIcon({ children }: { children: ReactNode }) {
   return (
     <span className="flex h-4 w-4 items-center justify-center">{children}</span>
