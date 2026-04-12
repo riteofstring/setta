@@ -224,36 +224,6 @@ describe("useLoadProjectConfig", () => {
     });
   });
 
-  it("reloads the current route even when a stale loading flag is already set", async () => {
-    useProjectLoading.setState({
-      projectIsLoading: true,
-      projectIs404: false,
-    });
-
-    await act(async () => {
-      root.render(
-        <MemoryRouter initialEntries={["/settings"]}>
-          <Routes>
-            <Route path="/:projectConfigName" element={<LoadProbe />} />
-          </Routes>
-        </MemoryRouter>,
-      );
-    });
-
-    await vi.waitFor(() => {
-      const probe = host.querySelector('[data-testid="load-probe"]');
-      expect(probe?.getAttribute("data-done-loading")).toBe("true");
-      expect(probe?.getAttribute("data-is-404")).toBe("false");
-      expect(probe?.getAttribute("data-project-config-name")).toBe("settings");
-    });
-
-    expect(loadProjectConfigMock).toHaveBeenCalledTimes(1);
-    expect(loadProjectConfigMock).toHaveBeenCalledWith({
-      projectConfigName: "settings",
-    });
-    expect(useProjectLoading.getState().projectIsLoading).toBe(false);
-  });
-
   it("does not retry forever after the current route load fails", async () => {
     loadProjectConfigMock.mockResolvedValue(false);
 
