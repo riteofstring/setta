@@ -390,7 +390,10 @@ func TestDocumentCloneProjectKeepsCopiedGraphReferencesProjectScoped(t *testing.
 func TestDocumentCloneProjectClearsCopiedPasswordSecrets(t *testing.T) {
 	t.Parallel()
 
-	secrets := NewMemoryPasswordSecretStore()
+	secrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	sourceProject := passwordParamNameAndValueTestProject(t)
 	sourceProject.passwordSecrets = secrets
 	if err := sourceProject.SetSectionCodeObjectValue("dict-a", "shared-secret", "hunter2"); err != nil {
@@ -569,7 +572,10 @@ func TestDocumentSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingAndClearsCh
 func TestDocumentSaveAsNewProjectConfigClearsCopiedPasswordSecrets(t *testing.T) {
 	t.Parallel()
 
-	secrets := NewMemoryPasswordSecretStore()
+	secrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	sourceProject := passwordParamNameAndValueTestProject(t)
 	sourceProject.passwordSecrets = secrets
 	if err := sourceProject.SetSectionCodeObjectValue("dict-a", "shared-secret", "hunter2"); err != nil {

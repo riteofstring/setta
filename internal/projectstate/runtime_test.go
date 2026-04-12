@@ -341,7 +341,10 @@ func TestRuntimeMutateAndSavePreservesPasswordSecretStoreAcrossMutations(t *test
 	t.Parallel()
 
 	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
-	secrets := NewMemoryPasswordSecretStore()
+	secrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
 		PasswordSecrets: secrets,
 	})

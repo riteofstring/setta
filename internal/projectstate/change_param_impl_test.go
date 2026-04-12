@@ -115,7 +115,10 @@ func TestProjectChangeParamImplMigratesPasswordSecretsAndSupportsFollowOnWrites(
 	t.Parallel()
 
 	project := codeObjectNameTestProject(t)
-	secrets := NewMemoryPasswordSecretStore()
+	secrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	project.passwordSecrets = secrets
 
 	if err := project.SetSectionCodeObjectValue("dict-a", "shared-child", "open-sesame"); err != nil {
@@ -187,7 +190,10 @@ func TestProjectChangeParamImplTransfersPasswordSecretsBetweenPasswordImpls(t *t
 	t.Parallel()
 
 	project := codeObjectNameTestProject(t)
-	secrets := NewMemoryPasswordSecretStore()
+	secrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	project.passwordSecrets = secrets
 
 	if err := project.ChangeParamImpl("dict-a", "shared-child", "PasswordParam"); err != nil {

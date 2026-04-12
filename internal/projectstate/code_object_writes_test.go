@@ -64,7 +64,11 @@ func TestProjectSetSectionCodeObjectValueStoresPasswordSecretByImplID(t *testing
 	t.Parallel()
 
 	project := passwordParamNameAndValueTestProject(t)
-	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	passwordSecrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
+	project.passwordSecrets = passwordSecrets
 
 	if err := project.SetSectionCodeObjectValue("dict-a", "shared-secret", "hunter2"); err != nil {
 		t.Fatalf("set password param value: %v", err)

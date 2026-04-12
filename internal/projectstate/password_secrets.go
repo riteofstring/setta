@@ -23,11 +23,6 @@ type FilePasswordSecretStore struct {
 	mu   sync.Mutex
 }
 
-type MemoryPasswordSecretStore struct {
-	mu     sync.RWMutex
-	values map[string]string
-}
-
 func (p *Project) clearPasswordSecretForImpl(implID string) error {
 	if p == nil || p.passwordSecrets == nil {
 		return nil
@@ -47,12 +42,6 @@ func NewFilePasswordSecretStore(runtimeRoot string) (*FilePasswordSecretStore, e
 	return &FilePasswordSecretStore{
 		path: filepath.Join(resolvedRuntimeRoot, "secrets", PasswordStoreFileName),
 	}, nil
-}
-
-func NewMemoryPasswordSecretStore() *MemoryPasswordSecretStore {
-	return &MemoryPasswordSecretStore{
-		values: map[string]string{},
-	}
 }
 
 func (s *FilePasswordSecretStore) Path() string {
@@ -103,39 +92,6 @@ func (s *FilePasswordSecretStore) Set(implID string, value string) error {
 		values[trimmedImplID] = value
 	}
 	return writePasswordSecretsFile(s.path, values)
-}
-
-func (s *MemoryPasswordSecretStore) Get(implID string) (string, error) {
-	if s == nil {
-		return "", nil
-	}
-	trimmedImplID := strings.TrimSpace(implID)
-	if trimmedImplID == "" {
-		return "", ErrCodeObjImplIDRequired
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.values[trimmedImplID], nil
-}
-
-func (s *MemoryPasswordSecretStore) Set(implID string, value string) error {
-	if s == nil {
-		return nil
-	}
-	trimmedImplID := strings.TrimSpace(implID)
-	if trimmedImplID == "" {
-		return ErrCodeObjImplIDRequired
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if value == "" {
-		delete(s.values, trimmedImplID)
-		return nil
-	}
-	s.values[trimmedImplID] = value
-	return nil
 }
 
 func readPasswordSecretsFile(path string) (map[string]string, error) {

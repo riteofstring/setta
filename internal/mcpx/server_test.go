@@ -8509,6 +8509,11 @@ func TestServerHandlerServesSSETransport(t *testing.T) {
 func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 	t.Helper()
 
+	passwordSecrets, err := projectstate.NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
+
 	runtime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -8810,7 +8815,7 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 			},
 		},
 	}, projectstate.RuntimeOptions{
-		PasswordSecrets: projectstate.NewMemoryPasswordSecretStore(),
+		PasswordSecrets: passwordSecrets,
 	})
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)

@@ -134,7 +134,11 @@ func TestProjectDeleteKwargClearsRemovedPasswordSecret(t *testing.T) {
 	t.Parallel()
 
 	project := passwordParamNameAndValueTestProject(t)
-	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	passwordSecrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
+	project.passwordSecrets = passwordSecrets
 
 	if err := project.SetSectionCodeObjectValue("dict-a", "shared-secret", "cleanup"); err != nil {
 		t.Fatalf("seed password param value: %v", err)

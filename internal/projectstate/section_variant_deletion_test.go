@@ -94,7 +94,11 @@ func TestProjectDeleteSectionVariantClearsRemovedPasswordSecret(t *testing.T) {
 	t.Parallel()
 
 	project := sectionVariantDeletionTestProject(t)
-	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	passwordSecrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
+	project.passwordSecrets = passwordSecrets
 	project.CodeObjImpls["source-param-impl-b"] = CodeObjectImpl{
 		ID:      "source-param-impl-b",
 		Type:    "PasswordParam",
@@ -124,7 +128,11 @@ func TestProjectDeleteSectionVariantKeepsCodeObjectVariantStillUsedByRemainingVa
 	t.Parallel()
 
 	project := sectionVariantDeletionTestProject(t)
-	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	passwordSecrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
+	project.passwordSecrets = passwordSecrets
 
 	sourceImplA := project.SectionImpls["source-impl-a"]
 	sourceImplA.Payload = mustMarshalProjectObject(map[string]any{

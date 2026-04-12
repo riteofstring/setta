@@ -12,7 +12,11 @@ func TestProjectGetPasswordParamValueReadsStoredSecret(t *testing.T) {
 	// Password-param reads must return the stored secret rather than the masked
 	// visible payload value.
 	project := passwordParamNameAndValueTestProject(t)
-	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	passwordSecrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
+	project.passwordSecrets = passwordSecrets
 	if err := project.passwordSecrets.Set("shared-secret-impl", "topsecret"); err != nil {
 		t.Fatalf("seed password secret: %v", err)
 	}
@@ -32,9 +36,13 @@ func TestProjectGetPasswordParamValueRejectsNonPasswordParams(t *testing.T) {
 	// The owner should reject non-password params explicitly instead of reading
 	// arbitrary code-object values through the password-secret path.
 	project := passwordParamNameAndValueTestProject(t)
-	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	passwordSecrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
+	project.passwordSecrets = passwordSecrets
 
-	_, err := project.GetPasswordParamValue("dict-a", "shared-child")
+	_, err = project.GetPasswordParamValue("dict-a", "shared-child")
 	if !errors.Is(err, ErrPasswordParamRequired) {
 		t.Fatalf("expected ErrPasswordParamRequired, got %v", err)
 	}
@@ -45,7 +53,10 @@ func TestRuntimeGetPasswordParamValueUsesConfiguredSecretStore(t *testing.T) {
 
 	// Runtime reads must preserve the configured password-secret store when the
 	// document is served through the live project runtime.
-	passwordSecrets := NewMemoryPasswordSecretStore()
+	passwordSecrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	if err := passwordSecrets.Set("shared-secret-impl", "runtime-secret"); err != nil {
 		t.Fatalf("seed runtime password secret: %v", err)
 	}
@@ -85,7 +96,11 @@ func TestProjectPasswordSecretsSnapshotIncludesStoredSecretsByImplID(t *testing.
 	t.Parallel()
 
 	project := passwordParamNameAndValueTestProject(t)
-	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	passwordSecrets, err := NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
+	project.passwordSecrets = passwordSecrets
 	if err := project.passwordSecrets.Set("shared-secret-impl", "snapshot-secret"); err != nil {
 		t.Fatalf("seed password secret: %v", err)
 	}

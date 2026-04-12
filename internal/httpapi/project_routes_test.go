@@ -260,7 +260,10 @@ func TestRegisterProjectRoutesGetsPasswordParamValue(t *testing.T) {
 
 	// The Go project route should return the stored secret for active password
 	// params without relying on the Python project manager path.
-	passwordSecrets := projectstate.NewMemoryPasswordSecretStore()
+	passwordSecrets, err := projectstate.NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	if err := passwordSecrets.Set("shared-secret-impl", "topsecret"); err != nil {
 		t.Fatalf("seed password secret: %v", err)
 	}
@@ -309,7 +312,10 @@ func TestRegisterProjectRoutesGetPasswordParamValueRejectsNonPasswordParam(t *te
 
 	// Non-password params should fail with a typed caller error instead of
 	// falling through to a generic internal failure.
-	passwordSecrets := projectstate.NewMemoryPasswordSecretStore()
+	passwordSecrets, err := projectstate.NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
 		SchemaVersion: projectstate.CurrentSchemaVersion,
 		Projects: map[string]projectstate.Project{
@@ -347,7 +353,10 @@ func TestRegisterProjectRoutesGetPasswordParamValueRejectsNonPasswordParam(t *te
 func TestRegisterProjectRoutesParamValueAndConfigMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
-	passwordSecrets := projectstate.NewMemoryPasswordSecretStore()
+	passwordSecrets, err := projectstate.NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
 		SchemaVersion: projectstate.CurrentSchemaVersion,
 		Projects: map[string]projectstate.Project{
@@ -794,7 +803,10 @@ func TestRegisterProjectRoutesParamValueRejectsDeploymentCodeParamEdits(t *testi
 func TestRegisterProjectRoutesChangeParamImplPersistsAndHydrates(t *testing.T) {
 	t.Parallel()
 
-	passwordSecrets := projectstate.NewMemoryPasswordSecretStore()
+	passwordSecrets, err := projectstate.NewFilePasswordSecretStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new password secret store: %v", err)
+	}
 	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
 		SchemaVersion: projectstate.CurrentSchemaVersion,
 		Projects: map[string]projectstate.Project{
