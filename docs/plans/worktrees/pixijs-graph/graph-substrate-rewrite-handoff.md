@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 05:12 UTC
+Last updated: 2026-04-13 05:31 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,92 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- progress-review override at 2026-04-13 05:13 UTC:
+  - the last ten runs were still worthwhile overall, but the default lane has
+    started to drift away from the rewrite's canonical `/settings` target
+  - treat the per-component shallow-selector ranking lane as no longer the
+    default strategy unless fresh attribution shows one remaining broad owner
+    on live `/settings`
+  - treat the home/header and project-route React 19 menu-warning cleanup as
+    non-default follow-up work; do not keep spending autonomous iterations
+    there unless the same warning reproduces on the direct `/settings` startup
+    path or blocks the graph canary
+  - next default frontier:
+    - `/settings` fresh-bootstrap readiness is now materially healthy again:
+      fresh authenticated CDP reached visible Settings chrome instead of a
+      blank root on this runtime
+    - the default lane should stay on live `All Settings` product/perf work,
+      not on startup seam-lifts or home/project-menu warning cleanup
+    - target one bounded product slice on the new dominant owner named by the
+      live worktree probe: `presentedSceneSectionVisibilityFilter`
+  - explicit stop rules for the next pass:
+    - do not pick another tiny selector slice by inspection alone
+    - do not continue `/home` or project-menu warning cleanup without new
+      `/settings` evidence
+    - if the next reproducible blocker needs a product decision outside the
+      canonical `/settings` lane, stop for human replan instead of drifting
+      sideways again
+
+- item `396` landed one bounded live canary perf slice by gating the terminal
+  scroll guard to actual mounted terminal consumers:
+  - local ranking/readout for this iteration:
+    - revalidated the durable replan first with fresh-context CDP instead of
+      assuming the old blank-root startup blocker was still active
+    - fresh authenticated `/settings` smoke reached visible Settings chrome,
+      then the worktree-only perf probe re-ran the canonical
+      `rotaryParamCodeObjDefault` lane on live `All Settings`
+    - the previous dominant owner from the 2026-04-12 worktree-only probe was
+      `interactionMiscStateSync`, but the only synchronous consumer was the
+      terminal scroll-sensitivity guard
+    - selected the bounded product slice that removes those misc-store writes
+      when no terminal is mounted, so the next probe would expose the next real
+      owner instead of repeating the same store churn
+  - product code changed in:
+    - `frontend/src/state/hooks/terminals/utils.ts`
+      to register active terminal scroll-sensitivity consumers explicitly and
+      clear the shared `isPanScrolling` flag when the last consumer unmounts
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      so the canary skips `useMisc.isPanScrolling` writes entirely when no
+      terminal scroll guard is mounted
+  - focused regression coverage added in:
+    - `frontend/src/state/hooks/terminals/utils.test.ts`
+      for consumer registration, xterm sensitivity sync, and last-consumer
+      cleanup
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      for both no-consumer gating and active-consumer dedupe behavior
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/state/hooks/terminals/utils.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`3` files, `19` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/state/hooks/terminals/utils.ts src/state/hooks/terminals/utils.test.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-021/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.5m`)
+      -> dominant owner moved to `presentedSceneSectionVisibilityFilter`
+      -> `interactionMiscStateSync`: `0` calls, `0ms`
+      -> `presentedSceneSectionVisibilityFilter`: `40` calls, `3.9ms` total,
+         `3.4ms` max
+    - fresh-context headless CDP visual smoke on worktree `/settings`
+      -> passed
+      -> final URL `http://127.0.0.1:3075/settings`
+      -> visible text included `settings`, `All Settings`, `pixijs-graph`, and
+         populated graph-surface labels like `languageServer`, `backend`,
+         `shortcuts`, and `gui`
+      -> note: the bootstrap token page itself reported `Token rejected`, but
+         the already-mounted worktree settings page rendered normally
+  - reading:
+    - the canonical direct `/settings` startup lane should now be treated as
+      healthy on this runtime rather than as the default blocker
+    - this slice removed the previous dominant misc-store owner from the live
+      canary when no terminal is mounted
+    - the next product frontier is now the presentation path owner
+      `presentedSceneSectionVisibilityFilter`, not more startup routing churn
+  - next default frontier:
+    - land one bounded reduction inside
+      `presentedSceneSectionVisibilityFilter` on the canonical
+      `rotaryParamCodeObjDefault` lane, then re-run the same worktree probe to
+      see whether the dominant owner shifts again or whether the visibility
+      path still dominates
 
 - item `395` landed one bounded React 19 startup-path compatibility fix on the
   live home/header route after the repeated blank-root lane stopped reproducing

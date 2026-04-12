@@ -10,6 +10,7 @@ import {
 } from "react";
 import { debouncedDispatchViewportUpdate } from "state/actions/sectionInfos";
 import { useLocalStorage, useMisc, useSettings } from "state/definitions";
+import { hasActiveTerminalScrollSensitivityConsumers } from "state/hooks/terminals/utils";
 import {
   measureSettingsGraphSubstrateCanaryMotionAttribution,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
@@ -382,6 +383,9 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       isViewportInteractionActive ? "true" : "false",
     );
     const nextPanScrolling = isViewportPanning || isPanScrolling;
+    if (!hasActiveTerminalScrollSensitivityConsumers()) {
+      return;
+    }
     if (useMisc.getState().isPanScrolling === nextPanScrolling) {
       return;
     }

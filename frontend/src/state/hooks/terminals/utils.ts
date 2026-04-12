@@ -24,7 +24,14 @@ export const terminalTheme = {
   brightWhite: "#f9f8f5",
 };
 
+let activeTerminalScrollSensitivityConsumerCount = 0;
+
+export function hasActiveTerminalScrollSensitivityConsumers() {
+  return activeTerminalScrollSensitivityConsumerCount > 0;
+}
+
 export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
+  activeTerminalScrollSensitivityConsumerCount += 1;
   const renderDisposable = terminal.onRender(() => {
     setHasScrollbar(terminal.buffer.active.baseY > 0);
   });
@@ -46,5 +53,15 @@ export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
   return () => {
     renderDisposable.dispose();
     unsub();
+    activeTerminalScrollSensitivityConsumerCount = Math.max(
+      0,
+      activeTerminalScrollSensitivityConsumerCount - 1,
+    );
+    if (
+      activeTerminalScrollSensitivityConsumerCount === 0 &&
+      useMisc.getState().isPanScrolling
+    ) {
+      useMisc.setState({ isPanScrolling: false });
+    }
   };
 }

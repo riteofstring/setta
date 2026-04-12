@@ -6,6 +6,7 @@ import initialReactFlowState from "forks/xyflow/core/store/initialState";
 import { act, useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useLocalStorage, useMisc } from "state/definitions";
+import { scrollSensitivityUpdater } from "state/hooks/terminals/utils";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,6 +36,30 @@ type ResizeObserverController = {
     }>,
   ) => Promise<void>;
 };
+
+function createTerminalScrollSensitivityProbe() {
+  let onRenderCallback: (() => void) | null = null;
+
+  return {
+    terminal: {
+      buffer: { active: { baseY: 0 } },
+      onRender(callback: () => void) {
+        onRenderCallback = callback;
+        return {
+          dispose() {
+            onRenderCallback = null;
+          },
+        };
+      },
+      options: {
+        scrollSensitivity: 1,
+      },
+    },
+    triggerRender() {
+      onRenderCallback?.();
+    },
+  };
+}
 
 function ViewportRuntimeProbe({
   localViewport,
@@ -341,7 +366,7 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     );
   });
 
-  it("skips redundant misc store writes when the viewport interaction pan state does not change", async () => {
+  it("skips misc store writes when no terminal scroll-sensitivity consumers are active", async () => {
     let latestRuntime: ReturnType<
       typeof useSettingsGraphSubstrateCanaryViewportRuntime
     > | null = null;
@@ -397,6 +422,80 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
         isWheelZooming: false,
       });
     });
+
+    expect(setMiscStateSpy).not.toHaveBeenCalled();
+    expect(useMisc.getState().isPanScrolling).toBe(false);
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.interactionMiscStateSync.count,
+    ).toBe(0);
+  });
+
+  it("deduplicates misc store writes while an active terminal scroll-sensitivity consumer is mounted", async () => {
+    let latestRuntime: ReturnType<
+      typeof useSettingsGraphSubstrateCanaryViewportRuntime
+    > | null = null;
+    const setMiscStateSpy = vi.spyOn(useMisc, "setState");
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+    const terminalScrollProbe = createTerminalScrollSensitivityProbe();
+    const cleanupTerminalScrollSensitivity = scrollSensitivityUpdater(
+      terminalScrollProbe.terminal,
+      vi.fn(),
+    );
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          onRuntime={(runtime) => {
+            latestRuntime = runtime;
+          }}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(latestRuntime?.resolvedViewport).not.toBeNull();
+    });
+
+    try {
+      await act(async () => {
+        latestRuntime?.syncViewportInteractionState({
+          isPanScrolling: false,
+          isViewportPanning: true,
+          isWheelZooming: false,
+        });
+        latestRuntime?.syncViewportInteractionState({
+          isPanScrolling: false,
+          isViewportPanning: true,
+          isWheelZooming: false,
+        });
+        latestRuntime?.syncViewportInteractionState({
+          isPanScrolling: false,
+          isViewportPanning: false,
+          isWheelZooming: false,
+        });
+        latestRuntime?.syncViewportInteractionState({
+          isPanScrolling: false,
+          isViewportPanning: false,
+          isWheelZooming: false,
+        });
+      });
+    } finally {
+      cleanupTerminalScrollSensitivity();
+    }
 
     expect(setMiscStateSpy).toHaveBeenCalledTimes(2);
     expect(setMiscStateSpy).toHaveBeenNthCalledWith(1, {

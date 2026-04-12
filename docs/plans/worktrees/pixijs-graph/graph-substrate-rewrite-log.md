@@ -151,6 +151,90 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 05:13 UTC
+
+- progress review for loop `001` runs `011` through `020`:
+  - decision: keep the loop running, but only after tightening the durable
+    direction
+  - worthwhile progress in this stretch:
+    - multiple bounded live `/settings` mounted-owner reductions landed with
+      focused tests (`MetaControlArea`, `SectionHeader`, `StateMachineNodeArea`,
+      `TextBlock`, `SpreadsheetArea`)
+    - the startup lane moved from repeated blank-root failures to a visible
+      `app-router-loading-state` fallback and removed several eager route
+      imports from first paint
+    - one real React 19 runtime warning was fixed on a live route
+  - diminishing-return / rabbit-hole signals:
+    - the selector lane is now too close to inspection-driven micro-churn to
+      remain the default next step
+    - the latest warning cleanup was on `/home` rather than the canonical
+      `/settings` lane, so continuing there by default would be sideways drift
+  - durable replan applied:
+    - default next iteration must start on a fresh authenticated direct
+      `/settings` readiness check
+    - if `/settings` still fails before first paint, debug and reduce that
+      synchronous owner on `/settings` itself
+    - if `/settings` is healthy, pivot back to graph-substrate attribution or
+      product work on live `All Settings`
+    - do not spend the next default pass on another tiny selector slice or on
+      `/home` / project-menu React 19 warning cleanup without new `/settings`
+      evidence
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 05:31 UTC
+
+- picked one bounded subtask after rereading the durable replan: confirm the
+  direct `/settings` startup lane is healthy, then land one bounded live canary
+  product slice that removes the currently dominant `interactionMiscStateSync`
+  owner if it is only feeding non-mounted terminal work
+- fresh-context CDP on the authenticated worktree `/settings` path reached
+  visible Settings chrome instead of a blank root, so this iteration did not
+  continue startup seam-lifts
+- traced the live `interactionMiscStateSync` owner back to the shared
+  `useMisc.isPanScrolling` write used by the terminal scroll-sensitivity guard;
+  the canonical `All Settings` canary lane does not mount terminals by default
+- updated `frontend/src/state/hooks/terminals/utils.ts` to register active
+  terminal scroll-sensitivity consumers explicitly and clear the shared flag
+  when the last terminal unmounts
+- updated
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+  so the canary skips `useMisc.isPanScrolling` writes entirely when no terminal
+  scroll guard is mounted
+- added focused regressions in:
+  - `frontend/src/state/hooks/terminals/utils.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/state/hooks/terminals/utils.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> pass (`3` files, `19` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/state/hooks/terminals/utils.ts src/state/hooks/terminals/utils.test.ts`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-021/worktree-ai.log`
+    -> pass (`1` Playwright test, `1.5m`)
+    -> dominant owner: `presentedSceneSectionVisibilityFilter`
+    -> `interactionMiscStateSync`: `0` calls, `0ms`
+    -> `presentedSceneSectionVisibilityFilter`: `40` calls, `3.9ms` total,
+       `3.4ms` max
+    -> `pixiDrawableModelResolve`: `36` calls, `0.7ms` total
+  - fresh-context headless CDP visual smoke on worktree `/settings`
+    -> pass
+    -> final URL `http://127.0.0.1:3075/settings`
+    -> visible text included `settings`, `All Settings`, `pixijs-graph`, plus
+       populated graph labels like `languageServer`, `backend`, `shortcuts`,
+       and `gui`
+    -> note: the bootstrap token page itself showed `Token rejected`, but the
+       already-mounted worktree settings page rendered normally
+- reading:
+  - the direct `/settings` startup lane should now be treated as healthy again
+    on the current runtime rather than as the default blocker
+  - this pass removed the previous dominant `interactionMiscStateSync` owner
+    from the live canary when no terminal is mounted
+  - the next product frontier is now
+    `presentedSceneSectionVisibilityFilter` on the canonical
+    `rotaryParamCodeObjDefault` lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 04:56 UTC
 
 - item `394` landed one bounded startup-path reduction on the live worktree
@@ -15688,3 +15772,36 @@ LOOP_TERMINAL_MARKER: none
     -> no `Accessing element.ref was removed in React 19` warning on that path
 - next frontier: fix the remaining project-route `ProjectNav` menu path still
   emitting the same React 19 warning, then recheck that route live
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 05:13 UTC
+
+- progress review for loop `001` runs `011` through `020`:
+  - decision: keep the loop running, but only after tightening the durable
+    direction
+  - worthwhile progress in this stretch:
+    - multiple bounded live `/settings` mounted-owner reductions landed with
+      focused tests (`MetaControlArea`, `SectionHeader`, `StateMachineNodeArea`,
+      `TextBlock`, `SpreadsheetArea`)
+    - the startup lane moved from repeated blank-root failures to a visible
+      `app-router-loading-state` fallback and removed several eager route
+      imports from first paint
+    - one real React 19 runtime warning was fixed on a live route
+  - diminishing-return / rabbit-hole signals:
+    - the selector lane is now too close to inspection-driven micro-churn to
+      remain the default next step
+    - the latest warning cleanup was on `/home` rather than the canonical
+      `/settings` lane, so continuing there by default would be sideways drift
+  - durable replan applied:
+    - default next iteration must start on a fresh authenticated direct
+      `/settings` readiness check
+    - if `/settings` still fails before first paint, debug and reduce that
+      synchronous owner on `/settings` itself
+    - if `/settings` is healthy, pivot back to graph-substrate attribution or
+      product work on live `All Settings`
+    - do not spend the next default pass on another tiny selector slice or on
+      `/home` / project-menu React 19 warning cleanup without new `/settings`
+      evidence
+
+LOOP_TERMINAL_MARKER: none
