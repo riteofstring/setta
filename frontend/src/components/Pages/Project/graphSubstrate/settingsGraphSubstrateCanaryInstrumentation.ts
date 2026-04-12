@@ -13,6 +13,8 @@ export const SETTINGS_GRAPH_SUBSTRATE_CANARY_MOTION_ATTRIBUTION_OWNERS = [
   "presentedSceneSectionArrayReuseCheck",
   "presentedSceneSectionBodyContentReactRender",
   "presentedSceneSectionBodySubtreeReactRender",
+  "presentedSceneSectionEntryBodyGateReactRender",
+  "presentedSceneSectionEntryShellReactRender",
   "presentedSceneSectionHeaderReactRender",
   "presentedSceneSectionKwargsControlsReactRender",
   "presentedSceneSectionParamGroupEdgesStripReactRender",

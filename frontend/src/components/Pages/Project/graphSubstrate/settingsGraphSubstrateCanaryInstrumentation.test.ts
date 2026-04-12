@@ -185,6 +185,14 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       6.5,
     );
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionEntryBodyGateReactRender",
+      5.25,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionEntryShellReactRender",
+      2.5,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
       "presentedSceneSectionHeaderReactRender",
       1.75,
     );
@@ -316,6 +324,20 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 6.5,
       totalDurationMs: 6.5,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionEntryBodyGateReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 5.25,
+      totalDurationMs: 5.25,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionEntryShellReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 2.5,
+      totalDurationMs: 2.5,
     });
     expect(motionAttribution.presentedSceneSectionHeaderReactRender).toEqual({
       count: 1,

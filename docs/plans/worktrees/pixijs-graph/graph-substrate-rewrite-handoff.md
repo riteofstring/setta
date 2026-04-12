@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 11:36 UTC
+Last updated: 2026-04-15 11:43 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,48 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `496` landed the next bounded attribution seam inside
+  `SettingsGraphSubstrateCanarySectionsLayer` on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now records separate motion-attribution owners for section shell-entry
+      renders and the section body-mount gate path
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      recognizes:
+      - `presentedSceneSectionEntryShellReactRender`
+      - `presentedSceneSectionEntryBodyGateReactRender`
+    - focused tests prove the new owner split and keep the shared probe
+      allowlists aligned
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`2` files, `13` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - fresh-context CDP smoke via sub-agent:
+      -> `http://127.0.0.1:3053/settings` reached the app shell only
+      -> the graph surface did not mount during the smoke check; the page
+         stayed on startup loading with a centered spinner
+      -> no obvious blank-card or detached-body artifact was observable because
+         the canary surface itself never mounted
+  - reading:
+    - this closes the exact "split owner further inside sections layer / shell
+      rendering" step requested by the active handoff
+    - the focused fanout regression shows a small threshold-edge pan still
+      re-enters `presentedSceneSectionEntryShellReactRender` while keeping
+      `presentedSceneSectionEntryBodyGateReactRender` and
+      `presentedSceneSectionBodySubtreeReactRender` out of that rerender
+    - treat the shell-entry owner as the next production frontier inside the
+      remaining sections-layer path
+    - visual confirmation of the mounted graph surface is still pending because
+      the fresh CDP smoke only reached startup loading state in this iteration
+    - next default frontier:
+      - land one bounded production reduction on the shell-entry path above the
+        mounted body gate, or
+      - if a trusted live worktree probe becomes available as part of that same
+        slice, rerun the canonical motion probe to rank the new owners live
 
 - item `495` landed a real product-side reduction on the current canary
   section-subtree owner instead of reopening the closed

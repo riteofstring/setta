@@ -101,6 +101,28 @@ function handleSettingsGraphSubstrateCanarySectionBodyRender(
   );
 }
 
+function handleSettingsGraphSubstrateCanarySectionEntryBodyGateRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionEntryBodyGateReactRender",
+    actualDuration,
+  );
+}
+
+function handleSettingsGraphSubstrateCanarySectionEntryShellRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionEntryShellReactRender",
+    actualDuration,
+  );
+}
+
 type SettingsGraphSubstrateCanarySectionEntryBodyProps = {
   sectionBody: SettingsGraphSubstrateCanarySectionBody;
   sectionId: string;
@@ -112,18 +134,21 @@ function _SettingsGraphSubstrateCanarySectionEntryBody({
   sectionId,
   shouldMountBody,
 }: SettingsGraphSubstrateCanarySectionEntryBodyProps) {
-  if (!shouldMountBody) {
-    return null;
-  }
-
   return (
     <Profiler
-      id={`settings-graph-substrate-canary-section-body:${sectionId}`}
-      onRender={handleSettingsGraphSubstrateCanarySectionBodyRender}
+      id={`settings-graph-substrate-canary-section-entry-body-gate:${sectionId}`}
+      onRender={handleSettingsGraphSubstrateCanarySectionEntryBodyGateRender}
     >
-      <SettingsGraphSubstrateCanarySectionBodyDomAdapter
-        sectionBody={sectionBody}
-      />
+      {shouldMountBody ? (
+        <Profiler
+          id={`settings-graph-substrate-canary-section-body:${sectionId}`}
+          onRender={handleSettingsGraphSubstrateCanarySectionBodyRender}
+        >
+          <SettingsGraphSubstrateCanarySectionBodyDomAdapter
+            sectionBody={sectionBody}
+          />
+        </Profiler>
+      ) : null}
     </Profiler>
   );
 }
@@ -147,20 +172,25 @@ function _SettingsGraphSubstrateCanarySectionEntry({
   shouldMountBody,
 }: SettingsGraphSubstrateCanarySectionEntryProps) {
   return (
-    <SettingsGraphSubstrateCanarySectionShell
-      finishSectionDrag={finishSectionDrag}
-      handleSectionPointerDown={handleSectionPointerDown}
-      handleSectionPointerMove={handleSectionPointerMove}
-      isDragging={isDragging}
-      onHoveredSectionChange={onHoveredSectionChange}
-      section={section}
+    <Profiler
+      id={`settings-graph-substrate-canary-section-entry-shell:${section.sectionId}`}
+      onRender={handleSettingsGraphSubstrateCanarySectionEntryShellRender}
     >
-      <SettingsGraphSubstrateCanarySectionEntryBody
-        sectionBody={sectionBody}
-        sectionId={section.sectionId}
-        shouldMountBody={shouldMountBody}
-      />
-    </SettingsGraphSubstrateCanarySectionShell>
+      <SettingsGraphSubstrateCanarySectionShell
+        finishSectionDrag={finishSectionDrag}
+        handleSectionPointerDown={handleSectionPointerDown}
+        handleSectionPointerMove={handleSectionPointerMove}
+        isDragging={isDragging}
+        onHoveredSectionChange={onHoveredSectionChange}
+        section={section}
+      >
+        <SettingsGraphSubstrateCanarySectionEntryBody
+          sectionBody={sectionBody}
+          sectionId={section.sectionId}
+          shouldMountBody={shouldMountBody}
+        />
+      </SettingsGraphSubstrateCanarySectionShell>
+    </Profiler>
   );
 }
 

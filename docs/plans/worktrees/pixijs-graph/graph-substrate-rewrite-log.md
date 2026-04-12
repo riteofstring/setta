@@ -20860,3 +20860,37 @@ LOOP_TERMINAL_MARKER: none
       reading local pane state from the in-page store before normalized compare
       setup, not the old reference normalization timeout
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 11:43 UTC
+
+- item `496` split the remaining `SettingsGraphSubstrateCanarySectionsLayer`
+  entry work into two new owners on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - `presentedSceneSectionEntryShellReactRender`
+  - `presentedSceneSectionEntryBodyGateReactRender`
+- code/tests:
+  - added the new owners to
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  - profiled the shell-entry and body-gate paths separately in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  - updated:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed (`2` files, `13` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> app shell mounted, but the settings graph surface did not mount during
+       the smoke check
+    -> page stayed on startup loading with a centered spinner
+- reading:
+  - the new focused fanout regression shows threshold-edge pan still re-enters
+    the shell-entry owner while keeping the body-gate owner and mounted body
+    subtree out of that rerender
+  - treat shell-entry work above the mounted body gate as the next product
+    frontier
+  - visual gate for the mounted graph surface remains deferred in this
+    iteration because the fresh CDP smoke only reached startup loading state

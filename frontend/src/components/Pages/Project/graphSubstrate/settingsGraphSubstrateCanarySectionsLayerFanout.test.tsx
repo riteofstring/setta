@@ -103,6 +103,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
 
   beforeEach(() => {
     measureMotionAttribution.mockClear();
+    recordMotionAttributionDuration.mockClear();
     mockResolveSectionBody.mockClear();
     mockSectionBodyDomAdapter.mockClear();
     mockSectionShell.mockClear();
@@ -215,6 +216,20 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
     expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+    expect(recordMotionAttributionDuration).toHaveBeenCalledWith(
+      "presentedSceneSectionEntryShellReactRender",
+      expect.any(Number),
+    );
+    expect(recordMotionAttributionDuration).toHaveBeenCalledWith(
+      "presentedSceneSectionEntryBodyGateReactRender",
+      expect.any(Number),
+    );
+    expect(recordMotionAttributionDuration).toHaveBeenCalledWith(
+      "presentedSceneSectionBodySubtreeReactRender",
+      expect.any(Number),
+    );
+
+    recordMotionAttributionDuration.mockClear();
 
     await act(async () => {
       root.render(
@@ -234,6 +249,18 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
     expect(mockSectionShell).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+    expect(recordMotionAttributionDuration).toHaveBeenCalledWith(
+      "presentedSceneSectionEntryShellReactRender",
+      expect.any(Number),
+    );
+    expect(recordMotionAttributionDuration).not.toHaveBeenCalledWith(
+      "presentedSceneSectionEntryBodyGateReactRender",
+      expect.any(Number),
+    );
+    expect(recordMotionAttributionDuration).not.toHaveBeenCalledWith(
+      "presentedSceneSectionBodySubtreeReactRender",
+      expect.any(Number),
+    );
   });
 
   it("keeps the mounted body subtree out of position-only shell rerenders", async () => {
