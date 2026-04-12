@@ -188,47 +188,47 @@ type CodeBlockProps = React.HTMLAttributes<HTMLElement> & {
   wrapLines?: boolean;
 };
 
-export const CodeBlock = ({
-  node,
+function shouldRenderBlockCode({
   inline,
   className,
-  children,
-  wrapLines = false,
-  ...props
-}: CodeBlockProps) => {
-  const [copied, setCopied] = React.useState(false);
-  const codeMirrorTheme = useCodeMirrorStyle();
-  const codeText = React.useMemo(
-    () => stringifyCodeChildren(children),
-    [children],
-  );
+  node,
+  codeText,
+}: Pick<CodeBlockProps, "inline" | "className" | "node"> & {
+  codeText: string;
+}): boolean {
+  if (inline === false) {
+    return true;
+  }
+  if (inline === true) {
+    return false;
+  }
   const hasLanguageClass = /\blanguage-[a-z0-9_+-]+\b/iu.test(className ?? "");
   const startsAtColumnOne = node?.position?.start?.column === 1;
-  const containsLineBreak = codeText.includes("\n");
-  const isBlockCode =
-    inline === false ||
-    (inline === undefined &&
-      (hasLanguageClass || startsAtColumnOne || containsLineBreak));
-  const { language, useJsx } = React.useMemo(
-    () => resolveMarkdownCodeLanguage(className),
-    [className],
-  );
-  const normalizedClassName = stripLanguageClass(className);
+  return hasLanguageClass || startsAtColumnOne || codeText.includes("\n");
+}
 
-  if (!isBlockCode) {
-    return (
-      <code
-        data-setta-inline-code="true"
-        className={joinClassNames([
-          INLINE_CODE_CLASS_NAME,
-          normalizedClassName,
-        ])}
-        {...props}
-      >
-        {children}
-      </code>
-    );
-  }
+function InlineCode({
+  children,
+  normalizedClassName,
+  codeProps,
+}: {
+  children?: React.ReactNode;
+  normalizedClassName: string;
+  codeProps: React.HTMLAttributes<HTMLElement>;
+}) {
+  return (
+    <code
+      data-setta-inline-code="true"
+      className={joinClassNames([INLINE_CODE_CLASS_NAME, normalizedClassName])}
+      {...codeProps}
+    >
+      {children}
+    </code>
+  );
+}
+
+function CopyCodeButton({ codeText }: { codeText: string }) {
+  const [copied, setCopied] = React.useState(false);
 
   const handleCopy = async () => {
     try {
@@ -241,25 +241,44 @@ export const CodeBlock = ({
   };
 
   return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="absolute right-0 top-0.5 cursor-pointer rounded bg-transparent text-setta-300 opacity-0 transition-opacity 
+                   duration-200 hover:text-setta-600 focus:outline-none
+                   focus:ring-2 focus-visible:ring-blue-500 group-hover:opacity-100 dark:hover:text-white"
+      aria-label="Copy code"
+    >
+      {copied ? (
+        <HiCheck className="h-4 w-4 text-green-500" />
+      ) : (
+        <HiOutlineDuplicate className="h-4 w-4" />
+      )}
+    </button>
+  );
+}
+
+function BlockCode({
+  codeText,
+  normalizedClassName,
+  language,
+  useJsx,
+  wrapLines,
+}: {
+  codeText: string;
+  normalizedClassName: string;
+  language: CodeLanguage | null;
+  useJsx: boolean;
+  wrapLines: boolean;
+}) {
+  const codeMirrorTheme = useCodeMirrorStyle();
+
+  return (
     <div
       data-setta-code-block="true"
       className="not-prose group relative my-2 max-w-full overflow-hidden rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700 dark:bg-setta-900/60"
     >
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="absolute right-0 top-0.5 cursor-pointer rounded bg-transparent text-setta-300 opacity-0 transition-opacity 
-                   duration-200 hover:text-setta-600 focus:outline-none
-                   focus:ring-2 focus-visible:ring-blue-500 group-hover:opacity-100 dark:hover:text-white"
-        aria-label="Copy code"
-      >
-        {copied ? (
-          <HiCheck className="h-4 w-4 text-green-500" />
-        ) : (
-          <HiOutlineDuplicate className="h-4 w-4" />
-        )}
-      </button>
-
+      <CopyCodeButton codeText={codeText} />
       <DummyCodeMirror
         code={codeText}
         theme={codeMirrorTheme}
@@ -272,5 +291,48 @@ export const CodeBlock = ({
         wrapLines={wrapLines}
       />
     </div>
+  );
+}
+
+export const CodeBlock = ({
+  node,
+  inline,
+  className,
+  children,
+  wrapLines = false,
+  ...props
+}: CodeBlockProps) => {
+  const codeText = React.useMemo(
+    () => stringifyCodeChildren(children),
+    [children],
+  );
+  const isBlockCode = shouldRenderBlockCode({
+    inline,
+    className,
+    node,
+    codeText,
+  });
+  const { language, useJsx } = React.useMemo(
+    () => resolveMarkdownCodeLanguage(className),
+    [className],
+  );
+  const normalizedClassName = stripLanguageClass(className);
+
+  if (!isBlockCode) {
+    return (
+      <InlineCode normalizedClassName={normalizedClassName} codeProps={props}>
+        {children}
+      </InlineCode>
+    );
+  }
+
+  return (
+    <BlockCode
+      codeText={codeText}
+      normalizedClassName={normalizedClassName}
+      language={language}
+      useJsx={useJsx}
+      wrapLines={wrapLines}
+    />
   );
 };

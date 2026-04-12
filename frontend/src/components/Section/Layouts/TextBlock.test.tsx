@@ -10,7 +10,7 @@ import {
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { TextBlock } from "./TextBlock";
+import { CodeBlock, TextBlock } from "./TextBlock";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -108,5 +108,25 @@ describe("TextBlock typography scale", () => {
 
     expect(markup).toContain("<pre");
     expect(markup).toContain("font-size:22px");
+  });
+
+  it("renders inline and block markdown code with distinct wrappers", () => {
+    const inlineMarkup = renderToStaticMarkup(
+      <CodeBlock inline className="language-ts extra-class">
+        {"const value = 1;"}
+      </CodeBlock>,
+    );
+    const blockMarkup = renderToStaticMarkup(
+      <CodeBlock className="language-ts extra-class">
+        {"const value = 1;\nconsole.log(value);"}
+      </CodeBlock>,
+    );
+
+    expect(inlineMarkup).toContain('data-setta-inline-code="true"');
+    expect(inlineMarkup).toContain("extra-class");
+    expect(inlineMarkup).not.toContain("language-ts");
+    expect(blockMarkup).toContain('data-setta-code-block="true"');
+    expect(blockMarkup).toContain("extra-class");
+    expect(blockMarkup).not.toContain("language-ts");
   });
 });
