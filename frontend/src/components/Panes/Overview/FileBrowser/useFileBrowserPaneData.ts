@@ -47,6 +47,13 @@ type FileBrowserRootRouteResponse =
 type FolderContentsRouteResponse =
   ResponseDataAndStatus<FilebrowserListFolderResponse>;
 
+type FolderLoadRequestContext = {
+  activeIgnorePatterns: string[];
+  activeRootRequestId: number;
+  nextRequestId: number;
+  requestOwner: string;
+};
+
 function buildLoadedNodes(
   resolvedFolderPath: string,
   items: FilebrowserListFolderResponse["items"],
@@ -88,6 +95,67 @@ function clearFolderErrors(args: {
     delete next[args.folderPath];
     return next;
   });
+}
+
+function removeLoadingPath(
+  prev: Record<string, boolean>,
+  folderPath: string,
+): Record<string, boolean> {
+  if (!(folderPath in prev)) {
+    return prev;
+  }
+  const next = { ...prev };
+  delete next[folderPath];
+  return next;
+}
+
+function beginFolderLoadRequest(args: {
+  folderPath: string;
+  ignoreOverride?: string[];
+  rootRequestId?: number;
+  ignorePatterns: string[];
+  rootRequestIdRef: MutableRefObject<number>;
+  folderRequestIdRef: MutableRefObject<Record<string, number>>;
+  loadingPathOwnerByPathRef: MutableRefObject<Record<string, string>>;
+  setLoadingPaths: Dispatch<SetStateAction<Record<string, boolean>>>;
+}): FolderLoadRequestContext {
+  const activeIgnorePatterns = args.ignoreOverride ?? args.ignorePatterns;
+  const activeRootRequestId =
+    args.rootRequestId ?? args.rootRequestIdRef.current;
+  const nextRequestId =
+    (args.folderRequestIdRef.current[args.folderPath] ?? 0) + 1;
+  const requestOwner = buildFileBrowserLoadingPathOwner({
+    rootRequestId: activeRootRequestId,
+    folderRequestId: nextRequestId,
+  });
+  args.folderRequestIdRef.current[args.folderPath] = nextRequestId;
+  args.loadingPathOwnerByPathRef.current[args.folderPath] = requestOwner;
+  args.setLoadingPaths((prev) => ({ ...prev, [args.folderPath]: true }));
+  return {
+    activeIgnorePatterns,
+    activeRootRequestId,
+    nextRequestId,
+    requestOwner,
+  };
+}
+
+function clearOwnedFolderLoadingPath(args: {
+  folderPath: string;
+  requestOwner: string;
+  loadingPathOwnerByPathRef: MutableRefObject<Record<string, string>>;
+  setLoadingPaths: Dispatch<SetStateAction<Record<string, boolean>>>;
+}): void {
+  if (
+    !isOwnedFileBrowserLoadingPath({
+      loadingPathOwnerByPath: args.loadingPathOwnerByPathRef.current,
+      folderPath: args.folderPath,
+      requestOwner: args.requestOwner,
+    })
+  ) {
+    return;
+  }
+  delete args.loadingPathOwnerByPathRef.current[args.folderPath];
+  args.setLoadingPaths((prev) => removeLoadingPath(prev, args.folderPath));
 }
 
 function applyResolvedRootPath(args: {
@@ -137,6 +205,125 @@ function resolveFolderLoadError(res: FolderContentsRouteResponse): string {
     return `Failed to load folder contents (${res.status}).`;
   }
   return "Failed to load folder contents.";
+}
+
+function applyFolderLoadError(args: {
+  folderPath: string;
+  response: FolderContentsRouteResponse;
+  fileBrowserState: typeof import("state/definitions").useFileBrowserState;
+  setErrorByPath: Dispatch<SetStateAction<Record<string, string>>>;
+  setRootError: Dispatch<SetStateAction<string | null>>;
+}): null {
+  const errorMessage = resolveFolderLoadError(args.response);
+  args.setErrorByPath((prev) => ({ ...prev, [args.folderPath]: errorMessage }));
+  if (args.fileBrowserState.getState().rootPath === args.folderPath) {
+    args.setRootError(errorMessage);
+  }
+  return null;
+}
+
+function applyLoadedFolderState(args: {
+  folderPath: string;
+  resolvedFolderPath: string;
+  items: FilebrowserListFolderResponse["items"];
+  setNodesByPath: Dispatch<SetStateAction<Record<string, FileNode>>>;
+  setChildrenByPath: Dispatch<SetStateAction<Record<string, string[]>>>;
+  setErrorByPath: Dispatch<SetStateAction<Record<string, string>>>;
+}): FileNode[] {
+  const loadedNodes = buildLoadedNodes(args.resolvedFolderPath, args.items);
+  const childPaths = loadedNodes.map((node) => node.fullPath);
+  args.setNodesByPath((prev) => ({
+    ...prev,
+    ...Object.fromEntries(
+      loadedNodes.map((node) => [node.fullPath, node] as const),
+    ),
+  }));
+  args.setChildrenByPath((prev) => ({
+    ...prev,
+    [args.resolvedFolderPath]: childPaths,
+  }));
+  clearFolderErrors({
+    resolvedFolderPath: args.resolvedFolderPath,
+    folderPath: args.folderPath,
+    setErrorByPath: args.setErrorByPath,
+  });
+  return loadedNodes;
+}
+
+function clearResolvedRootError(args: {
+  folderPath: string;
+  resolvedFolderPath: string;
+  effectiveRootPath: string | null;
+  setRootError: Dispatch<SetStateAction<string | null>>;
+}): void {
+  if (
+    args.effectiveRootPath === args.resolvedFolderPath ||
+    args.effectiveRootPath === args.folderPath
+  ) {
+    args.setRootError(null);
+  }
+}
+
+async function applyFolderLoadSuccess(args: {
+  folderPath: string;
+  response: FolderContentsRouteResponse & {
+    data: FilebrowserListFolderResponse;
+  };
+  fileBrowserState: typeof import("state/definitions").useFileBrowserState;
+  appliedRootRef: MutableRefObject<string | null>;
+  includeSettaInitializedRef: MutableRefObject<boolean>;
+  allowOutsideWorkspaceRoot: boolean;
+  activeRootRequestId: number;
+  nextRequestId: number;
+  rootRequestIdRef: MutableRefObject<number>;
+  folderRequestIdRef: MutableRefObject<Record<string, number>>;
+  setNodesByPath: Dispatch<SetStateAction<Record<string, FileNode>>>;
+  setChildrenByPath: Dispatch<SetStateAction<Record<string, string[]>>>;
+  setErrorByPath: Dispatch<SetStateAction<Record<string, string>>>;
+  setRootError: Dispatch<SetStateAction<string | null>>;
+}): Promise<FileNode[]> {
+  const resolvedFolderPath = args.response.data.folderPath;
+  const loadedNodes = applyLoadedFolderState({
+    folderPath: args.folderPath,
+    resolvedFolderPath,
+    items: args.response.data.items,
+    setNodesByPath: args.setNodesByPath,
+    setChildrenByPath: args.setChildrenByPath,
+    setErrorByPath: args.setErrorByPath,
+  });
+  const effectiveRootPath = applyResolvedRootPath({
+    activeRootPath: args.fileBrowserState.getState().rootPath,
+    folderPath: args.folderPath,
+    resolvedFolderPath,
+    fileBrowserState: args.fileBrowserState,
+    appliedRootRef: args.appliedRootRef,
+    setNodesByPath: args.setNodesByPath,
+  });
+  clearResolvedRootError({
+    folderPath: args.folderPath,
+    resolvedFolderPath,
+    effectiveRootPath,
+    setRootError: args.setRootError,
+  });
+  if (
+    shouldLoadRootWorkspaceInitializationMetadata({
+      includeSettaInitializedFolders: args.includeSettaInitializedRef.current,
+      folderPath: resolvedFolderPath,
+      rootPath: effectiveRootPath,
+    })
+  ) {
+    await refreshWorkspaceInitialization({
+      folderPath: args.folderPath,
+      resolvedFolderPath,
+      allowOutsideWorkspaceRoot: args.allowOutsideWorkspaceRoot,
+      activeRootRequestId: args.activeRootRequestId,
+      nextRequestId: args.nextRequestId,
+      rootRequestIdRef: args.rootRequestIdRef,
+      folderRequestIdRef: args.folderRequestIdRef,
+      setNodesByPath: args.setNodesByPath,
+    });
+  }
+  return loadedNodes;
 }
 
 async function refreshWorkspaceInitialization(args: {
@@ -302,44 +489,23 @@ export function useFileBrowserPaneData({
       ignoreOverride?: string[],
       rootRequestId?: number,
     ): Promise<FileNode[] | null> => {
-      const activeIgnorePatterns = ignoreOverride ?? ignorePatterns;
-      const activeRootRequestId = rootRequestId ?? rootRequestIdRef.current;
-      const nextRequestId = (folderRequestIdRef.current[folderPath] ?? 0) + 1;
-      const requestOwner = buildFileBrowserLoadingPathOwner({
-        rootRequestId: activeRootRequestId,
-        folderRequestId: nextRequestId,
+      const requestContext = beginFolderLoadRequest({
+        folderPath,
+        ignoreOverride,
+        rootRequestId,
+        ignorePatterns,
+        rootRequestIdRef,
+        folderRequestIdRef,
+        loadingPathOwnerByPathRef,
+        setLoadingPaths,
       });
-      folderRequestIdRef.current[folderPath] = nextRequestId;
-      loadingPathOwnerByPathRef.current[folderPath] = requestOwner;
-      setLoadingPaths((prev) => ({ ...prev, [folderPath]: true }));
-
-      const clearLoadingPathForRequest = () => {
-        if (
-          !isOwnedFileBrowserLoadingPath({
-            loadingPathOwnerByPath: loadingPathOwnerByPathRef.current,
-            folderPath,
-            requestOwner,
-          })
-        ) {
-          return;
-        }
-        delete loadingPathOwnerByPathRef.current[folderPath];
-        setLoadingPaths((prev) => {
-          if (!(folderPath in prev)) {
-            return prev;
-          }
-          const next = { ...prev };
-          delete next[folderPath];
-          return next;
-        });
-      };
 
       try {
         const res = (await callOpenAPI(
           getFolderContents({
             body: {
               folderPath,
-              ignorePatterns: activeIgnorePatterns,
+              ignorePatterns: requestContext.activeIgnorePatterns,
               maxEntries: MAX_ENTRIES,
               includeMtime: true,
               includeSettaInitialized: includeSettaInitializedRef.current,
@@ -350,8 +516,8 @@ export function useFileBrowserPaneData({
         )) as FolderContentsRouteResponse;
         if (
           isStaleFolderResponse({
-            activeRootRequestId,
-            nextRequestId,
+            activeRootRequestId: requestContext.activeRootRequestId,
+            nextRequestId: requestContext.nextRequestId,
             folderPath,
             rootRequestIdRef,
             folderRequestIdRef,
@@ -360,68 +526,37 @@ export function useFileBrowserPaneData({
           return null;
         }
         if (!res200(res)) {
-          const errorMessage = resolveFolderLoadError(res);
-          setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
-          if (fileBrowserState.getState().rootPath === folderPath) {
-            setRootError(errorMessage);
-          }
-          return null;
-        }
-
-        const resolvedFolderPath = res.data.folderPath;
-        const loadedNodes = buildLoadedNodes(
-          resolvedFolderPath,
-          res.data.items,
-        );
-        const childPaths = loadedNodes.map((node) => node.fullPath);
-        setNodesByPath((prev) => ({
-          ...prev,
-          ...Object.fromEntries(
-            loadedNodes.map((node) => [node.fullPath, node] as const),
-          ),
-        }));
-        setChildrenByPath((prev) => ({
-          ...prev,
-          [resolvedFolderPath]: childPaths,
-        }));
-        clearFolderErrors({ resolvedFolderPath, folderPath, setErrorByPath });
-
-        const activeRootPath = fileBrowserState.getState().rootPath;
-        const effectiveRootPath = applyResolvedRootPath({
-          activeRootPath,
-          folderPath,
-          resolvedFolderPath,
-          fileBrowserState,
-          appliedRootRef,
-          setNodesByPath,
-        });
-        if (
-          effectiveRootPath === resolvedFolderPath ||
-          effectiveRootPath === folderPath
-        ) {
-          setRootError(null);
-        }
-        if (
-          shouldLoadRootWorkspaceInitializationMetadata({
-            includeSettaInitializedFolders: includeSettaInitializedRef.current,
-            folderPath: resolvedFolderPath,
-            rootPath: effectiveRootPath,
-          })
-        ) {
-          await refreshWorkspaceInitialization({
+          return applyFolderLoadError({
             folderPath,
-            resolvedFolderPath,
-            allowOutsideWorkspaceRoot,
-            activeRootRequestId,
-            nextRequestId,
-            rootRequestIdRef,
-            folderRequestIdRef,
-            setNodesByPath,
+            response: res,
+            fileBrowserState,
+            setErrorByPath,
+            setRootError,
           });
         }
-        return loadedNodes;
+        return await applyFolderLoadSuccess({
+          folderPath,
+          response: res,
+          fileBrowserState,
+          appliedRootRef,
+          includeSettaInitializedRef,
+          allowOutsideWorkspaceRoot,
+          activeRootRequestId: requestContext.activeRootRequestId,
+          nextRequestId: requestContext.nextRequestId,
+          rootRequestIdRef,
+          folderRequestIdRef,
+          setNodesByPath,
+          setChildrenByPath,
+          setErrorByPath,
+          setRootError,
+        });
       } finally {
-        clearLoadingPathForRequest();
+        clearOwnedFolderLoadingPath({
+          folderPath,
+          requestOwner: requestContext.requestOwner,
+          loadingPathOwnerByPathRef,
+          setLoadingPaths,
+        });
       }
     },
     [allowOutsideWorkspaceRoot, fileBrowserState, ignorePatterns],

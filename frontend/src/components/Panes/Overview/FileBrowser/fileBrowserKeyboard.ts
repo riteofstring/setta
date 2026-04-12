@@ -15,6 +15,8 @@ type ListRefShape = {
   } | null;
 };
 
+type ClipboardShortcutAction = "copy" | "move" | "paste";
+
 function selectIndex(args: {
   index: number;
   displayedItems: FlattenedNode[];
@@ -29,6 +31,50 @@ function selectIndex(args: {
   args.listRef.current?.scrollToRow({ index: args.index, align: "smart" });
 }
 
+function resolveClipboardShortcutAction(
+  event: ReactKeyboardEvent<HTMLDivElement>,
+): ClipboardShortcutAction | null {
+  const lowerKey = event.key.toLowerCase();
+  const hasModifier = event.metaKey || event.ctrlKey;
+  if (!hasModifier || !["c", "v", "x"].includes(lowerKey)) {
+    return null;
+  }
+  if (isEditableFileBrowserTarget(event.target)) {
+    return null;
+  }
+  if (lowerKey === "v") {
+    return "paste";
+  }
+  return lowerKey === "x" ? "move" : "copy";
+}
+
+function resolveClipboardSourceItem(args: {
+  selectedIndex: number;
+  displayedItems: FlattenedNode[];
+  rootPath: string | null;
+}): FlattenedNode | null {
+  if (args.selectedIndex < 0) {
+    return null;
+  }
+  const selectedItem = args.displayedItems[args.selectedIndex];
+  if (!selectedItem || selectedItem.fullPath === args.rootPath) {
+    return null;
+  }
+  return selectedItem;
+}
+
+function setClipboardEntry(args: {
+  clipboardEntryRef: MutableRefObject<FileBrowserClipboardEntry | null>;
+  selectedItem: FlattenedNode;
+  operation: Exclude<ClipboardShortcutAction, "paste">;
+}): void {
+  args.clipboardEntryRef.current = {
+    sourcePath: args.selectedItem.fullPath,
+    sourceType: args.selectedItem.type as NodeKind,
+    operation: args.operation,
+  };
+}
+
 function handleClipboardShortcut(args: {
   event: ReactKeyboardEvent<HTMLDivElement>;
   selectedIndex: number;
@@ -37,32 +83,29 @@ function handleClipboardShortcut(args: {
   clipboardEntryRef: MutableRefObject<FileBrowserClipboardEntry | null>;
   handlePasteClipboard: () => void;
 }): boolean {
-  const lowerKey = args.event.key.toLowerCase();
-  const hasModifier = args.event.metaKey || args.event.ctrlKey;
-  if (!hasModifier || !["c", "v", "x"].includes(lowerKey)) {
+  const action = resolveClipboardShortcutAction(args.event);
+  if (!action) {
     return false;
   }
-  if (isEditableFileBrowserTarget(args.event.target)) {
-    return false;
-  }
-  if (lowerKey === "v") {
+  if (action === "paste") {
     args.event.preventDefault();
     args.handlePasteClipboard();
     return true;
   }
-  if (args.selectedIndex < 0) {
-    return true;
-  }
-  const selectedItem = args.displayedItems[args.selectedIndex];
-  if (!selectedItem || selectedItem.fullPath === args.rootPath) {
+  const selectedItem = resolveClipboardSourceItem({
+    selectedIndex: args.selectedIndex,
+    displayedItems: args.displayedItems,
+    rootPath: args.rootPath,
+  });
+  if (!selectedItem) {
     return true;
   }
   args.event.preventDefault();
-  args.clipboardEntryRef.current = {
-    sourcePath: selectedItem.fullPath,
-    sourceType: selectedItem.type as NodeKind,
-    operation: lowerKey === "x" ? "move" : "copy",
-  };
+  setClipboardEntry({
+    clipboardEntryRef: args.clipboardEntryRef,
+    selectedItem,
+    operation: action,
+  });
   return true;
 }
 
@@ -118,7 +161,10 @@ function handleHorizontalNavigation(args: {
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
 }): boolean {
-  if (args.event.key === "ArrowRight" && args.currentItem.type === "folder") {
+  if (args.event.key === "ArrowRight") {
+    if (args.currentItem.type !== "folder") {
+      return false;
+    }
     args.event.preventDefault();
     if (args.expandedPaths[args.currentItem.fullPath] !== true) {
       args.onToggle(args.currentItem.fullPath);
