@@ -1,12 +1,10 @@
 import { ProjectChatWindowIcon } from "components/ChatWindowing/ProjectChatWindowIcon";
 import {
-  getSectionChromeTitleDomAdapter,
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
-  resolveSectionChromeShellDecorations,
-  resolveSectionChromeTitleDecorations,
 } from "components/Section/Container/sectionChrome";
 import { getBgColor } from "components/Section/Container/utils";
+import { getTitleStyles } from "components/Section/Header/SectionHeader";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   useEffect,
@@ -93,14 +91,12 @@ function ProjectChatWindowTitle({
   const errorClassName = validationError
     ? "text-red-500 dark:text-red-300 border-red-400"
     : "";
-  const titleProps = getSectionChromeTitleDomAdapter(
-    resolveSectionChromeTitleDecorations({
-      isActiveSection: false,
-      isInOtherProjectConfigs: false,
-      sectionTypeName: SectionTypeEnum.Chat,
-      hasSectionStyleTheme: false,
-    }),
-  );
+  const titleProps = getTitleStyles({
+    isActiveSection: false,
+    isInOtherProjectConfigs: false,
+    sectionTypeName: SectionTypeEnum.Chat,
+    hasSectionStyleTheme: false,
+  });
   const editingClassName =
     `${titleProps.editing ?? ""} ${errorClassName}`.trim();
   const notEditingClassName =
@@ -224,19 +220,11 @@ function ProjectChatWindowHeader({
         title={title}
         instanceId={instanceId}
         onActivate={onTitleClick}
-        {...(onTitleCommit !== undefined
-          ? { onCommitTitle: onTitleCommit }
-          : {})}
-        {...(dragHandleTestId !== undefined ? { dragHandleTestId } : {})}
-        {...(onTitlePointerDown !== undefined
-          ? { onPointerDown: onTitlePointerDown }
-          : {})}
-        {...(onTitlePointerMove !== undefined
-          ? { onPointerMove: onTitlePointerMove }
-          : {})}
-        {...(onTitlePointerUp !== undefined
-          ? { onPointerUp: onTitlePointerUp }
-          : {})}
+        onCommitTitle={onTitleCommit}
+        dragHandleTestId={dragHandleTestId}
+        onPointerDown={onTitlePointerDown}
+        onPointerMove={onTitlePointerMove}
+        onPointerUp={onTitlePointerUp}
       />
       <div className="z-10 ml-auto flex items-center">
         {actions.map((action) => (
@@ -312,18 +300,10 @@ export function ProjectChatWindowSurface({
   const onTitleDragPointerUp = allowLayoutMutations
     ? onTitlePointerUp
     : undefined;
-  const shellDecorations = resolveSectionChromeShellDecorations({
+  const outerShellClassName = getSectionContainerShellClassName({
     isActiveSection: false,
     isGlobalVariables: false,
     isInOtherProjectConfigs: false,
-    showAiHighlight: false,
-    isReadScope: false,
-    isWriteScope: false,
-  });
-  const outerShellClassName = getSectionContainerShellClassName({
-    outlineTone: shellDecorations.outlineTone,
-    scopeHighlight: shellDecorations.scopeHighlight,
-    showAiHighlight: shellDecorations.showAiHighlight,
     useMetaControlStyle: false,
     hasSectionStyleTheme: false,
     positionAndSizeLocked: false,
@@ -352,24 +332,12 @@ export function ProjectChatWindowSurface({
             instanceId={instanceId}
             actions={visibleActions}
             onTitleClick={onTitleClick}
-            {...(editableTitleCommit !== undefined
-              ? { onTitleCommit: editableTitleCommit }
-              : {})}
-            {...(draggableHeaderClassName !== undefined
-              ? { headerClassName: draggableHeaderClassName }
-              : {})}
-            {...(effectiveDragHandleTestId !== undefined
-              ? { dragHandleTestId: effectiveDragHandleTestId }
-              : {})}
-            {...(onTitleDragPointerDown !== undefined
-              ? { onTitlePointerDown: onTitleDragPointerDown }
-              : {})}
-            {...(onTitleDragPointerMove !== undefined
-              ? { onTitlePointerMove: onTitleDragPointerMove }
-              : {})}
-            {...(onTitleDragPointerUp !== undefined
-              ? { onTitlePointerUp: onTitleDragPointerUp }
-              : {})}
+            onTitleCommit={editableTitleCommit}
+            headerClassName={draggableHeaderClassName}
+            dragHandleTestId={effectiveDragHandleTestId}
+            onTitlePointerDown={onTitleDragPointerDown}
+            onTitlePointerMove={onTitleDragPointerMove}
+            onTitlePointerUp={onTitleDragPointerUp}
           />
         ) : null}
         <div

@@ -13,6 +13,7 @@ import {
   useAIFollowZIndexBoost,
 } from "state/hooks/aiFollow";
 import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
+import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
 import { AppPreview } from "./Project/AppPreview";
 import { UIPage } from "./Project/UiPage";
@@ -36,7 +37,7 @@ export function MainContainerCore({
   usePluginRuntimeBootstrap(doneLoading && !is404);
 
   if (!doneLoading) {
-    return <ProjectSurfaceLoadingState />;
+    return <LoadingSpinner />;
   }
 
   if (is404) {
@@ -55,24 +56,5 @@ export function MainContainerCore({
       <GitOverlayLayer />
       <FloatingBox />
     </>
-  );
-}
-
-function ProjectSurfaceLoadingState() {
-  return (
-    <section
-      className="flex h-full min-h-0 w-full items-center justify-center"
-      data-testid="project-surface-loading-state"
-    >
-      <div className="flex flex-col items-center gap-3 text-center text-xs text-setta-500 dark:text-setta-200">
-        <div className="gg-spinner !scale-150 before:!border-t-blue-500 after:!border-blue-500" />
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-setta-700 dark:text-setta-100">
-            Loading project...
-          </p>
-          <p>Waiting for project data to load.</p>
-        </div>
-      </div>
-    </section>
   );
 }

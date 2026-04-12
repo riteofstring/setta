@@ -6,8 +6,3 @@ args = [
   'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); "$ROOT/scripts/chrome-devtools-mcp.sh"'
 ]
 startup_timeout_sec = 20
-
-
-[mcp_servers.github_actions]
-url = "https://api.githubcopilot.com/mcp/x/actions/readonly"
-bearer_token_env_var = "GITHUB_MCP_PAT"
