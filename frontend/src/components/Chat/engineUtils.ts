@@ -18,6 +18,38 @@ type ChatPlaceholderOptions = {
   noLLMConfigsAvailable: boolean;
 };
 
+function buildMissingExternalEngineStatus(issue: string): ExternalEngineStatus {
+  return {
+    status: "missing",
+    issues: [issue],
+    name: null,
+  };
+}
+
+function buildResolvedExternalEngineStatus(
+  status: HttpapiExternalAgentPreflightStatus,
+): ExternalEngineStatus {
+  const issues = status.supported
+    ? [...status.issues]
+    : ["External agent is not supported", ...status.issues];
+  return {
+    status: status.available && status.supported ? "available" : "unavailable",
+    issues,
+    name: status.name ?? null,
+  };
+}
+
+function getLoadedExternalEngineStatus(
+  externalConfigId: string,
+  health: Array<HttpapiExternalAgentPreflightStatus>,
+): ExternalEngineStatus {
+  const status = health.find((entry) => entry.configId === externalConfigId);
+  if (!status) {
+    return buildMissingExternalEngineStatus("External agent config not found");
+  }
+  return buildResolvedExternalEngineStatus(status);
+}
+
 export function buildEngineGroups(
   engineConfigs: Array<EngineConfig>,
 ): Array<IdNameGroup> {
@@ -59,33 +91,9 @@ export function getExternalEngineStatus(
   }
   const externalConfigId = engineConfig.externalAgentConfigId;
   if (!externalConfigId) {
-    return {
-      status: "missing",
-      issues: ["Missing external agent config id"],
-      name: null,
-    };
+    return buildMissingExternalEngineStatus("Missing external agent config id");
   }
-  const status =
-    health.find((entry) => entry.configId === externalConfigId) ?? null;
-  if (!status) {
-    return {
-      status: "missing",
-      issues: ["External agent config not found"],
-      name: null,
-    };
-  }
-  const issues = [...status.issues];
-  if (!status.supported) {
-    issues.unshift("External agent is not supported");
-  }
-  if (!status.available || !status.supported) {
-    return {
-      status: "unavailable",
-      issues,
-      name: status.name ?? null,
-    };
-  }
-  return { status: "available", issues, name: status.name ?? null };
+  return getLoadedExternalEngineStatus(externalConfigId, health);
 }
 
 export function getExternalEngineIssueMessage(

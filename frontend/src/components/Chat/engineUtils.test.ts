@@ -1,8 +1,10 @@
+import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
 import { type EngineConfig, EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   type ExternalEngineStatus,
   getExternalEngineIssueMessage,
+  getExternalEngineStatus,
   resolveEffectiveThinking,
   supportsThinkingExecutionControl,
 } from "./engineUtils";
@@ -31,6 +33,77 @@ const externalEngine: EngineConfig = {
   defaults: { thinking: null },
   runtimeSupport: { thinking: false },
 };
+
+const availableExternalHealth: HttpapiExternalAgentPreflightStatus = {
+  configId: "external-codex",
+  name: "Codex",
+  supported: true,
+  available: true,
+  issues: [],
+};
+
+describe("getExternalEngineStatus", () => {
+  it("returns null for non-external engines and a loading state before health is ready", () => {
+    expect(
+      getExternalEngineStatus(managedEngineWithThinking, [], false),
+    ).toBeNull();
+    expect(getExternalEngineStatus(externalEngine, [], false)).toEqual({
+      status: "loading",
+      issues: [],
+      name: null,
+    });
+  });
+
+  it("returns a missing state when the external engine is misconfigured or absent from health", () => {
+    expect(
+      getExternalEngineStatus(
+        { ...externalEngine, externalAgentConfigId: null },
+        [availableExternalHealth],
+        true,
+      ),
+    ).toEqual({
+      status: "missing",
+      issues: ["Missing external agent config id"],
+      name: null,
+    });
+    expect(getExternalEngineStatus(externalEngine, [], true)).toEqual({
+      status: "missing",
+      issues: ["External agent config not found"],
+      name: null,
+    });
+  });
+
+  it("returns unavailable details when preflight reports an unsupported or unavailable engine", () => {
+    expect(
+      getExternalEngineStatus(
+        externalEngine,
+        [
+          {
+            ...availableExternalHealth,
+            supported: false,
+            available: false,
+            issues: ["Missing SDK binary"],
+          },
+        ],
+        true,
+      ),
+    ).toEqual({
+      status: "unavailable",
+      issues: ["External agent is not supported", "Missing SDK binary"],
+      name: "Codex",
+    });
+  });
+
+  it("returns the available status when preflight succeeds", () => {
+    expect(
+      getExternalEngineStatus(externalEngine, [availableExternalHealth], true),
+    ).toEqual({
+      status: "available",
+      issues: [],
+      name: "Codex",
+    });
+  });
+});
 
 describe("getExternalEngineIssueMessage", () => {
   it("returns null when the external engine is available or still loading", () => {
