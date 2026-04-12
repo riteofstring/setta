@@ -2,8 +2,8 @@
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Coroutine
-from typing import Any, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
 from setta.logging.context import LoggingContextInput, logging_context
 from setta.logging.context_sources import build_background_task_context
@@ -56,43 +56,18 @@ def spawn_background_task(
             )
 
     task_name = name or label
-    runner = _runner()
     # Avoid "coroutine was never awaited" warnings when task creation fails (for
     # example, if the loop is closing during teardown).
-    to_close = _resolve_unawaited_input_coroutine(coroutine_or_factory)
+    to_close = None
+    if not callable(coroutine_or_factory) and asyncio.iscoroutine(coroutine_or_factory):
+        to_close = coroutine_or_factory
+    runner = _runner()
     try:
-        return _create_background_task(runner, loop=loop, name=task_name)
+        if loop is not None:
+            return loop.create_task(runner, name=task_name)
+        return asyncio.create_task(runner, name=task_name)
     except Exception:
-        _close_unawaited_task_coroutines(runner, input_coroutine=to_close)
+        runner.close()
+        if to_close is not None:
+            to_close.close()
         raise
-
-
-def _resolve_unawaited_input_coroutine(
-    coroutine_or_factory: Awaitable[T] | Callable[[], Awaitable[T]],
-) -> Coroutine[Any, Any, T] | None:
-    if callable(coroutine_or_factory):
-        return None
-    if not asyncio.iscoroutine(coroutine_or_factory):
-        return None
-    return coroutine_or_factory
-
-
-def _create_background_task(
-    runner: Coroutine[Any, Any, T | None],
-    *,
-    loop: asyncio.AbstractEventLoop | None,
-    name: str,
-) -> asyncio.Task[T | None]:
-    if loop is None:
-        return asyncio.create_task(runner, name=name)
-    return loop.create_task(runner, name=name)
-
-
-def _close_unawaited_task_coroutines(
-    runner: Coroutine[Any, Any, T | None],
-    *,
-    input_coroutine: Coroutine[Any, Any, T] | None,
-) -> None:
-    runner.close()
-    if input_coroutine is not None:
-        input_coroutine.close()

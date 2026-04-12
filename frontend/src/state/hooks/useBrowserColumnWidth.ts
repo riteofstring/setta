@@ -1,5 +1,3 @@
-import { setBrowserColumnWidths } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -16,8 +14,11 @@ import {
 import { useProjectState } from "state/definitions";
 import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
+import { route_set_browser_column_widths } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+
 type BrowserColumnWidthKey = "columnWidth" | "typesColumnWidth";
+
 type UseBrowserColumnWidthArgs = {
   sectionId: string;
   outerRef: RefObject<HTMLDivElement>;
@@ -26,6 +27,7 @@ type UseBrowserColumnWidthArgs = {
   getBoundedWidth?: (width: number, containerWidth: number) => number;
   getDefaultWidth?: (containerWidth: number) => number;
 };
+
 export function useBrowserColumnWidth({
   sectionId,
   outerRef,
@@ -42,6 +44,7 @@ export function useBrowserColumnWidth({
     columnWidth: null,
     typesColumnWidth: null,
   });
+
   const applyWidth = useCallback(
     (width: number) => {
       if (!outerRef.current) {
@@ -51,6 +54,7 @@ export function useBrowserColumnWidth({
     },
     [cssVarName, outerRef],
   );
+
   const persistWidth = useCallback(
     (width: number) => {
       const nextWidths = { ...widthsRef.current };
@@ -69,21 +73,18 @@ export function useBrowserColumnWidth({
           );
         },
         send: (frontendOpId) =>
-          callOpenAPI(
-            setBrowserColumnWidths({
-              body: {
-                projectConfigId: getCurrProjectConfigId(),
-                sectionId,
-                columnWidth: nextWidths.columnWidth,
-                typesColumnWidth: nextWidths.typesColumnWidth,
-                frontendOpId,
-              },
-            } as Parameters<typeof setBrowserColumnWidths>[0]),
-          ),
+          route_set_browser_column_widths({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            columnWidth: nextWidths.columnWidth,
+            typesColumnWidth: nextWidths.typesColumnWidth,
+            frontendOpId,
+          }),
       });
     },
     [sectionId, widthKey],
   );
+
   const { handleResizeStart, setNewWidth, widthRef } = useColumnWidthDrag({
     outerRef,
     maxNestedDepthRef,
@@ -91,6 +92,7 @@ export function useBrowserColumnWidth({
     persistWidth,
     getBoundedWidth,
   });
+
   useEffect(() => {
     return useProjectState.subscribe(
       (state) => {
@@ -131,5 +133,6 @@ export function useBrowserColumnWidth({
       { fireImmediately: true },
     );
   }, [getDefaultWidth, outerRef, sectionId, setNewWidth, widthKey]);
+
   return handleResizeStart;
 }
