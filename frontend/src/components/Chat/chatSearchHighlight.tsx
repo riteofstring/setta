@@ -62,6 +62,31 @@ function buildConversationSearchHighlightNodes(
   return nodes;
 }
 
+function findConversationSearchReplacementNodes(
+  child: HastNode,
+  normalizedSearchTerms: Array<string>,
+): Array<HastNode> | null {
+  if (child.type !== "text" || typeof child.value !== "string") {
+    return null;
+  }
+  const ranges = findConversationSearchTextRanges(
+    child.value,
+    normalizedSearchTerms,
+  );
+  if (ranges.length === 0) {
+    return null;
+  }
+  return buildConversationSearchHighlightNodes(child.value, ranges);
+}
+
+function shouldSkipConversationSearchChild(child: HastNode): boolean {
+  return (
+    child.type === "element" &&
+    typeof child.tagName === "string" &&
+    CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS.has(child.tagName)
+  );
+}
+
 function highlightConversationSearchTextNodes(
   node: HastNode,
   normalizedSearchTerms: Array<string>,
@@ -75,27 +100,16 @@ function highlightConversationSearchTextNodes(
     if (!child) {
       continue;
     }
-    if (child.type === "text" && typeof child.value === "string") {
-      const ranges = findConversationSearchTextRanges(
-        child.value,
-        normalizedSearchTerms,
-      );
-      if (ranges.length === 0) {
-        continue;
-      }
-      const replacementNodes = buildConversationSearchHighlightNodes(
-        child.value,
-        ranges,
-      );
+    const replacementNodes = findConversationSearchReplacementNodes(
+      child,
+      normalizedSearchTerms,
+    );
+    if (replacementNodes) {
       children.splice(index, 1, ...replacementNodes);
       index += replacementNodes.length - 1;
       continue;
     }
-    if (
-      child.type === "element" &&
-      typeof child.tagName === "string" &&
-      CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS.has(child.tagName)
-    ) {
+    if (shouldSkipConversationSearchChild(child)) {
       continue;
     }
     highlightConversationSearchTextNodes(child, normalizedSearchTerms);

@@ -50,4 +50,48 @@ describe("chatSearchHighlight", () => {
       '"data-chat-search-highlight":"true"',
     );
   });
+
+  it("recurses through nested elements but still skips nested pre blocks", () => {
+    const plugins = getConversationSearchRehypePlugins(["alpha"]);
+    const transform = plugins?.[0]?.();
+    const tree = {
+      type: "root",
+      children: [
+        {
+          type: "element",
+          tagName: "div",
+          children: [
+            {
+              type: "element",
+              tagName: "span",
+              children: [{ type: "text", value: "alpha nested" }],
+            },
+          ],
+        },
+        {
+          type: "element",
+          tagName: "pre",
+          children: [
+            {
+              type: "element",
+              tagName: "span",
+              children: [{ type: "text", value: "alpha hidden" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    transform?.(tree);
+
+    expect(JSON.stringify(tree.children?.[0]?.children ?? [])).toContain(
+      '"data-chat-search-highlight":"true"',
+    );
+    expect(JSON.stringify(tree.children?.[1]?.children ?? [])).toContain(
+      "alpha hidden",
+    );
+    expect(JSON.stringify(tree.children?.[1]?.children ?? [])).not.toContain(
+      '"data-chat-search-highlight":"true"',
+    );
+  });
 });
