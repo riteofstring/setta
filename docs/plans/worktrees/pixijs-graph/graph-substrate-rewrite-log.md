@@ -193,6 +193,51 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 04:08 UTC
+
+- Item: Land one evidence-backed broad mounted owner reduction after the local
+  ranking pass, without falling back to another tiny control selector.
+- Status: `done`
+- Details:
+  - ranked the remaining mounted section-body and section-shell owners locally
+    before touching code again.
+  - `StateMachineNodeArea` was the clearest remaining broad body-entry owner
+    still paying `lodash/isEqual` on a mounted workflow snapshot containing
+    only primitive fields: `{ type, machineGroupId, label, gateType }`.
+  - changed `frontend/src/components/Section/Layouts/StateMachineNodeArea.tsx`
+    so that workflow-node snapshot selector now uses `zustand/shallow`
+    instead of `lodash/isEqual`, with no change to subscribed fields.
+  - added subscription coverage in
+    `frontend/src/components/Section/Layouts/StateMachineNodeArea.test.tsx`
+    to prove mounted workflow-node bodies stay out of unrelated
+    `previewSectionVariantMap` commits while still re-rendering when their own
+    workflow snapshot changes.
+  - stubbed `state/actions/stateMachineRuns` polling actions in the jsdom test
+    path so the new profiler coverage stays deterministic and does not depend
+    on a backend at `127.0.0.1:8000`.
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-13_settings-graph-state-machine-node-area-shallow-selector.md`.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Layouts/StateMachineNodeArea.test.tsx`
+    - result: passed (`1` file, `9` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/StateMachineNodeArea.tsx src/components/Section/Layouts/StateMachineNodeArea.test.tsx`
+    - result: passed
+  - CDP visual check:
+    - result: done
+    - note:
+      - fresh-context headless sub-agent navigated
+        `http://127.0.0.1:3075/settings`
+      - the page advanced from the busy/loading shell to document title
+        `Settings` with visible settings chrome/content, section list, and tabs
+        including `Core`, `Section Defaults`, `Param Defaults`, and
+        `All Settings`
+- Next action:
+  - rank the next remaining broad mounted section-body, section-shell, or
+    shared write-fan-out owner on the live `/settings` worktree and only take
+    another product slice if the next candidate is still broad
+
+LOOP_TERMINAL_MARKER: none
+
 - item `381` landed one bounded mounted section-title selector reduction on the
   live canary lane:
   - changed `frontend/src/components/Section/Header/SectionTitle.tsx` so

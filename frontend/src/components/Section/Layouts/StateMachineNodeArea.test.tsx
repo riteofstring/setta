@@ -1,6 +1,11 @@
+/* @vitest-environment jsdom */
+
+import { Profiler, act, type ProfilerOnRenderCallback } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   AgentRunStatusEnum,
   SectionTypeEnum,
@@ -14,8 +19,20 @@ import {
   createVariant,
   type BaseSectionImplUnion,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StateMachineNodeArea } from "./StateMachineNodeArea";
+
+vi.mock("state/actions/stateMachineRuns", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("state/actions/stateMachineRuns")>();
+  return {
+    ...actual,
+    resetStateMachineRun: vi.fn(async () => undefined),
+    startStateMachineRun: vi.fn(async () => undefined),
+    stopStateMachineRun: vi.fn(async () => undefined),
+    subscribeStateMachineRunPolling: vi.fn(() => undefined),
+  };
+});
 
 const COMMON_MACHINE_IMPL_FIELDS = {
   isFrozen: false,
@@ -79,6 +96,33 @@ function seedWorkflowSection({
     state.previewSectionVariantMap = {};
   });
   syncStoreInitialState(useProjectState);
+}
+
+type RenderedProfiledStateMachineNodeArea = {
+  host: HTMLDivElement;
+  root: Root;
+};
+
+async function renderProfiledStateMachineNodeArea({
+  onRender,
+  sectionId,
+}: {
+  onRender: ProfilerOnRenderCallback;
+  sectionId: string;
+}): Promise<RenderedProfiledStateMachineNodeArea> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+
+  await act(async () => {
+    root.render(
+      <Profiler id="state-machine-node-area-profiler" onRender={onRender}>
+        <StateMachineNodeArea sectionId={sectionId} />
+      </Profiler>,
+    );
+  });
+
+  return { host, root };
 }
 
 type WorkflowEdge = ReturnType<
@@ -147,6 +191,7 @@ describe("StateMachineNodeArea", () => {
 
   afterEach(() => {
     resetProjectStores();
+    document.body.innerHTML = "";
   });
 
   it("renders idle controls on start nodes", () => {
@@ -580,5 +625,99 @@ describe("StateMachineNodeArea", () => {
     expect(markup).toContain("Workflow blocked at gate Review Gate.");
     expect(markup).toContain("Workflow blocked");
     expect(markup).toContain("Workflow failed");
+  });
+});
+
+describe("StateMachineNodeArea store subscriptions", () => {
+  afterEach(() => {
+    resetProjectStores();
+    document.body.innerHTML = "";
+  });
+
+  it("stays out of unrelated project-state commits when node snapshot fields are unchanged", async () => {
+    seedWorkflowSection({
+      sectionId: "section-start",
+      variantId: "variant-start",
+      impl: {
+        id: "impl-start",
+        type: SectionTypeEnum.StateMachineStart,
+        name: "Start Node",
+        size: createSectionSize({ width: 240, height: 96 }),
+        machineGroupId: "workflow-main",
+        label: "Kickoff",
+        ...COMMON_MACHINE_IMPL_FIELDS,
+      },
+    });
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledStateMachineNodeArea({
+      onRender,
+      sectionId: "section-start",
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          state.previewSectionVariantMap = {
+            otherSection: "other-variant",
+          };
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      expect(host.textContent).toContain("Kickoff");
+      expect(host.textContent).toContain("workflow-main");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("rerenders when the subscribed workflow snapshot changes", async () => {
+    seedWorkflowSection({
+      sectionId: "section-gate",
+      variantId: "variant-gate",
+      impl: {
+        id: "impl-gate",
+        type: SectionTypeEnum.StateMachineGate,
+        name: "Gate Node",
+        size: createSectionSize({ width: 240, height: 120 }),
+        machineGroupId: "workflow-main",
+        gateType: StateMachineGateTypeEnum.AND,
+        label: "Review Gate",
+        ui: { showDetails: false },
+        ...COMMON_MACHINE_IMPL_FIELDS,
+      },
+    });
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledStateMachineNodeArea({
+      onRender,
+      sectionId: "section-gate",
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          const impl = state.sectionImpls["impl-gate"];
+          if (impl.type !== SectionTypeEnum.StateMachineGate) {
+            throw new Error("Expected StateMachineGate section impl.");
+          }
+          impl.label = "Approved";
+        });
+      });
+
+      expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
+      expect(host.textContent).toContain("Approved");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 });

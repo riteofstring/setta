@@ -18,6 +18,7 @@ import {
   SectionTypeEnum,
   StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { getStateMachineNodePresentation } from "./stateMachineNodePresentation";
 
 type StateMachineNodeAreaProps = {
@@ -92,7 +93,7 @@ function getNodeThemeClasses(type: StateMachineNodeSnapshot["type"]): string {
 }
 
 export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
-  const snapshot = useProjectState(() => getNodeSnapshot(sectionId), _.isEqual);
+  const snapshot = useProjectState(() => getNodeSnapshot(sectionId), shallow);
   const draftWarning = useProjectState(
     (state) => getStateMachineDraftWarning(state, snapshot.machineGroupId),
     _.isEqual,

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 04:03 UTC
+Last updated: 2026-04-13 04:08 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `388` landed one bounded mounted workflow-node body snapshot selector
+  reduction on the live `/settings` canary lane after a local ranking pass:
+  - local ranking/readout for this iteration:
+    - checked the remaining broad mounted section-body and section-shell owners
+      before taking another selector slice
+    - `StateMachineNodeArea` was the clearest remaining broad body-entry owner
+      still paying `lodash/isEqual` on a mounted four-field workflow snapshot
+      (`type`, `machineGroupId`, `label`, `gateType`)
+    - smaller menu/control candidates were left for later passes
+  - product code changed in:
+    - `frontend/src/components/Section/Layouts/StateMachineNodeArea.tsx`
+      so the mounted workflow-node snapshot selector now uses
+      `zustand/shallow` equality instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/StateMachineNodeArea.test.tsx`
+      to prove mounted workflow-node bodies stay out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when the
+      subscribed workflow snapshot changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-state-machine-node-area-shallow-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/StateMachineNodeArea.test.tsx`
+      -> passed (`1` file, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/StateMachineNodeArea.tsx src/components/Section/Layouts/StateMachineNodeArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the page moved past the loading shell into visible Settings chrome,
+         overview/settings content, and the Settings tabs rather than a blank
+         root
+  - reading:
+    - this stayed on a mounted section-body owner instead of falling back to a
+      tiny control-only selector
+    - the subscribed source-of-truth fields stayed unchanged, so the slice only
+      reduced comparator overhead on unrelated project-state writes
+  - next default frontier:
+    - identify the next remaining broad mounted section-body, section-shell, or
+      shared write-fan-out owner on the live `/settings` worktree, preferring
+      another wrapper/body/shell path over control-only churn and stopping for
+      replan if the next ranked candidate is no longer broad
 
 - item `387` landed one bounded mounted text-block header title-mode selector
   reduction on the live canary lane after a local ranking pass:
