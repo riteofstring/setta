@@ -309,6 +309,46 @@ LOOP_TERMINAL_MARKER: none
       isolate the next mounted DOM-backed body or chrome surface that still
       subscribes to motion-heavy React Flow state on the canonical lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-12 19:26 UTC
+
+- item `341` removed one mounted connection-start subscription fan-out from
+  the canonical `rotaryParamCodeObjDefault` lane:
+  - changed
+    `frontend/src/components/Section/Container/AgenticEdgeHandles.tsx`,
+    `frontend/src/components/Section/Container/ChatSharedEdgeHandles.tsx`,
+    and
+    `frontend/src/components/Section/Container/StateMachineEdgeHandles.tsx`
+    so those mounted section edge-handle surfaces no longer subscribe to
+    `connectionStartHandle !== null`
+  - changed `frontend/src/forks/xyflow/core/styles/style.css` to remove the
+    dead `.agentic-handle--selecting` selectors and keep connecting visibility
+    on the existing root `.react-flow[data-connecting="true"]` /
+    connection-line CSS path
+  - added focused profiler coverage in
+    `frontend/src/components/Section/Container/EdgeHandles.test.tsx` to prove
+    the mounted agentic, shared-chat, and workflow handle surfaces do not
+    commit when only `connectionStartHandle` changes
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-edge-handle-connecting-subscription-removal.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/EdgeHandles.test.tsx`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/AgenticEdgeHandles.tsx src/components/Section/Container/ChatSharedEdgeHandles.tsx src/components/Section/Container/StateMachineEdgeHandles.tsx src/components/Section/Container/EdgeHandles.test.tsx src/forks/xyflow/core/styles/style.css`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> bootstrap handoff succeeded
+      -> `/settings` mounted successfully
+      -> no obvious layout collapse or missing edge-handle chrome in the
+         visible graph surface
+  - result:
+    - this removes another mounted section-chrome subscriber inside the
+      measured `interactionReactFlowStateSync` owner by relying on the already
+      existing root connecting-state CSS instead of per-handle React updates
+    - next bounded frontier: stay inside `interactionReactFlowStateSync` and
+      isolate the next mounted section-body/chrome selector or write fan-out
+      still visible on the canonical lane
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 19:13 UTC
 
 - item `340` narrowed the workflow-edge node-internals subscription on the

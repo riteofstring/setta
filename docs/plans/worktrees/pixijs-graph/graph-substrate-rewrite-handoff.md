@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 19:13 UTC
+Last updated: 2026-04-12 19:26 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `341` landed one bounded edge-handle connecting-state split inside the
+  measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the mounted section-handle chrome path:
+    - `frontend/src/components/Section/Container/AgenticEdgeHandles.tsx`
+      no longer subscribes to `connectionStartHandle !== null`
+    - `frontend/src/components/Section/Container/ChatSharedEdgeHandles.tsx`
+      no longer subscribes to `connectionStartHandle !== null`
+    - `frontend/src/components/Section/Container/StateMachineEdgeHandles.tsx`
+      no longer subscribes to `connectionStartHandle !== null`
+    - `frontend/src/forks/xyflow/core/styles/style.css`
+      now relies on the already-existing root
+      `.react-flow[data-connecting="true"]` / connection-line selectors for
+      connecting handle visibility instead of per-handle
+      `agentic-handle--selecting` classes
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Container/EdgeHandles.test.tsx`
+      to assert the three mounted handle surfaces do not commit when only
+      `connectionStartHandle` changes
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-edge-handle-connecting-subscription-removal.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/EdgeHandles.test.tsx`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/AgenticEdgeHandles.tsx src/components/Section/Container/ChatSharedEdgeHandles.tsx src/components/Section/Container/StateMachineEdgeHandles.tsx src/components/Section/Container/EdgeHandles.test.tsx src/forks/xyflow/core/styles/style.css`
+      -> passed
+    - fresh-context headless CDP smoke on the worktree `/settings` session
+      -> bootstrap handoff succeeded
+      -> `/settings` mounted successfully
+      -> checked the visible graph surface and section edge-handle area
+      -> no obvious layout collapse or missing handle chrome was observed
+  - reading:
+    - this removes one more mounted section-chrome subscription fan-out from
+      `interactionReactFlowStateSync` by pushing connecting visuals fully onto
+      the existing root CSS state
+    - the next bounded frontier should stay worktree-side inside
+      `interactionReactFlowStateSync` and isolate the next mounted
+      section-body/chrome selector or write fan-out that still re-commits on
+      shared motion or interaction state
 
 - item `340` landed one bounded workflow-edge node-internals selector split
   inside the measured `interactionReactFlowStateSync` owner on the named
