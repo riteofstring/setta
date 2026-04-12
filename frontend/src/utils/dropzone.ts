@@ -47,53 +47,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function hasRequiredStringProperty(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  return typeof value[key] === "string";
-}
-
-function hasOptionalStringProperty(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  const property = value[key];
-  return property === undefined || typeof property === "string";
-}
-
-function hasOptionalNumberProperty(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  const property = value[key];
-  return (
-    property === undefined ||
-    (typeof property === "number" && !Number.isNaN(property))
-  );
-}
-
 function isStoredFileAttachment(
   value: Record<string, unknown>,
 ): value is DropzoneStoredFileAttachment {
-  return (
-    value.kind === "file" &&
-    hasRequiredStringProperty(value, "id") &&
-    hasRequiredStringProperty(value, "name") &&
-    hasOptionalStringProperty(value, "mimeType") &&
-    hasOptionalNumberProperty(value, "size")
-  );
+  if (value.kind !== "file") {
+    return false;
+  }
+  if (typeof value.id !== "string") {
+    return false;
+  }
+  if (typeof value.name !== "string") {
+    return false;
+  }
+  if ("mimeType" in value && value.mimeType !== undefined) {
+    if (typeof value.mimeType !== "string") {
+      return false;
+    }
+  }
+  if ("size" in value && value.size !== undefined) {
+    if (typeof value.size !== "number" || Number.isNaN(value.size)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isStoredTextAttachment(
   value: Record<string, unknown>,
 ): value is DropzoneStoredTextAttachment {
-  return (
-    value.kind === "text" &&
-    hasRequiredStringProperty(value, "id") &&
-    hasRequiredStringProperty(value, "name") &&
-    hasRequiredStringProperty(value, "text")
-  );
+  if (value.kind !== "text") {
+    return false;
+  }
+  if (typeof value.id !== "string") {
+    return false;
+  }
+  if (typeof value.name !== "string") {
+    return false;
+  }
+  if (typeof value.text !== "string") {
+    return false;
+  }
+  return true;
 }
 
 function isStoredAttachment(
