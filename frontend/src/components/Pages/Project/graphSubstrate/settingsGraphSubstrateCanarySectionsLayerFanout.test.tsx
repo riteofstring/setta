@@ -153,6 +153,11 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(0);
     expect(host.querySelector('[data-testid="body-section-a"]')).toBeNull();
+    const initialShellElement = host.querySelector(
+      '[data-section-id="section-a"]',
+    );
+    expect(initialShellElement).not.toBeNull();
+    recordMotionAttributionDuration.mockClear();
 
     await act(async () => {
       root.render(
@@ -167,6 +172,13 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
     expect(host.querySelector('[data-testid="body-section-a"]')).not.toBeNull();
+    expect(host.querySelector('[data-section-id="section-a"]')).toBe(
+      initialShellElement,
+    );
+    expect(recordMotionAttributionDuration).toHaveBeenCalledWith(
+      "presentedSceneSectionEntryBodyGateReactRender",
+      expect.any(Number),
+    );
   });
 
   it("keeps the mounted body subtree stable through a small threshold-edge pan", async () => {
@@ -295,6 +307,10 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+    const stableSectionBShellElement = host.querySelector(
+      '[data-section-id="section-b"]',
+    );
+    expect(stableSectionBShellElement).not.toBeNull();
 
     recordMotionAttributionDuration.mockClear();
 
@@ -318,6 +334,13 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(3);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(3);
+    expect(host.querySelector('[data-section-id="section-b"]')).toBe(
+      stableSectionBShellElement,
+    );
+    expect(recordMotionAttributionDuration).toHaveBeenCalledWith(
+      "presentedSceneSectionEntryBodyGateReactRender",
+      expect.any(Number),
+    );
   });
 
   it("rerenders only the dragged sibling when drag state flips", async () => {

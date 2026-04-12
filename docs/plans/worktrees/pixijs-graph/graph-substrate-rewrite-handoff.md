@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 12:02 UTC
+Last updated: 2026-04-15 12:13 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,44 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `498` landed a bounded production cut that keeps section-entry shells
+  mounted across body-gate and body-prop updates on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now keeps each section entry element alive by section id and flushes both
+      shell-state and body-state changes through imperative entry handles
+      instead of rebuilding the whole entry when only the body gate or body
+      inputs change
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      now proves:
+      - the section shell DOM node stays stable when the body mount gate flips
+      - the changed sibling shell DOM node stays stable when only one section's
+        body inputs change
+      - the body-gate attribution path still fires for those updates
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx`
+      -> passed (`3` files, `14` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - fresh-context CDP smoke via sub-agent:
+      -> `http://127.0.0.1:3053/settings` mounted the settings graph surface
+      -> no obvious blank-card or detached-body artifact was visible on the
+         canary surface during the smoke check
+  - reading:
+    - this closes one more real product coupling inside the remaining
+      section-entry path: body-only updates no longer require rebuilding the
+      section entry element or remounting the shell DOM node
+    - the `presentedSceneSectionEntryShellReactRender` profiler bucket still
+      includes subtree work, so use DOM-node stability plus live motion probes
+      as the next evidence source instead of treating that bucket as a
+      shell-only owner
+    - next default frontier: rerun the canonical live motion probe on the same
+      named lane now that both recent section-entry cuts are landed and the
+      live canary is mounting again, then rank the next dominant owner from
+      fresh runtime data
 
 - item `497` landed a bounded production reduction on the remaining
   shell-entry owner for the canonical `rotaryParamCodeObjDefault` lane:

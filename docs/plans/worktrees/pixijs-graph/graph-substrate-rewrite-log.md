@@ -20860,6 +20860,38 @@ LOOP_TERMINAL_MARKER: none
       reading local pane state from the in-page store before normalized compare
       setup, not the old reference normalization timeout
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 12:13 UTC
+
+- item `498` kept section-entry shells mounted across body-only updates on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    now reuses each section entry by id and flushes both shell-state and
+    body-state changes through imperative entry handles instead of rebuilding
+    the whole entry when only the body gate or body inputs change
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    now asserts the shell DOM node stays stable across:
+    - body mount-gate flips
+    - single-sibling body-input changes
+    while the body-gate attribution path still fires for those updates
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx`
+    -> passed (`3` files, `14` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> settings graph surface mounted successfully
+    -> no obvious blank-card or detached-body artifact on the visible canary
+       surface
+- reading:
+  - this is a real production cut on the active section-entry path, not another
+    probe-only pass
+  - the `presentedSceneSectionEntryShellReactRender` profiler bucket still
+    includes subtree work, so this iteration treats shell DOM-node stability as
+    the regression contract and leaves the next owner ranking to the live probe
+  - next: rerun the canonical live motion probe on
+    `rotaryParamCodeObjDefault` now that the canary is mounting again and rank
+    the next dominant owner from fresh runtime data
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-15 11:43 UTC
 
 - item `496` split the remaining `SettingsGraphSubstrateCanarySectionsLayer`
