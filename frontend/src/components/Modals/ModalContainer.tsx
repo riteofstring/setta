@@ -17,32 +17,6 @@ import { WorkspaceSwitcherModal } from "./WorkspaceSwitcherModal/WorkspaceSwitch
 import "./styles.css";
 import { ModalTypeEnum } from "./types";
 
-type ModalRenderer = (open: boolean) => JSX.Element;
-
-const MODAL_RENDERERS: Record<ModalTypeEnum, ModalRenderer> = {
-  [ModalTypeEnum.DELETE_PROJECT_WARNING]: () => <DeleteProjectWarningModal />,
-  [ModalTypeEnum.DELETE_JSON_SOURCE_FILE]: () => (
-    <DeleteJSONSourceVariantModal />
-  ),
-  [ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG]: (open) => (
-    <FileMenuLoadProjectConfigModal open={open} />
-  ),
-  [ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS]: (open) => (
-    <FileMenuSaveProjectConfigAsModal open={open} />
-  ),
-  [ModalTypeEnum.RENAME_REFERENCES]: () => <RenameReferencesModal />,
-  [ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT]: (open) => (
-    <PublishShareDeploymentModal open={open} />
-  ),
-  [ModalTypeEnum.PUBLISH_APP_DEPLOYMENT]: (open) => (
-    <PublishAppDeploymentModal open={open} />
-  ),
-  [ModalTypeEnum.DROPZONE_FILE_PICKER]: (open) => (
-    <DropzoneFilePickerModal open={open} />
-  ),
-  [ModalTypeEnum.WORKSPACE_SWITCHER]: () => <WorkspaceSwitcherModal />,
-};
-
 export function ModalContainer({ children }) {
   const location = useLocation();
   const open = useModal((x) => x.open);
@@ -84,5 +58,26 @@ function ModalContent({ open }: { open: boolean }) {
     return null;
   }
 
-  return MODAL_RENDERERS[modalInfo.type](open);
+  switch (modalInfo.type) {
+    case ModalTypeEnum.DELETE_PROJECT_WARNING:
+      return <DeleteProjectWarningModal />;
+    case ModalTypeEnum.DELETE_JSON_SOURCE_FILE:
+      return <DeleteJSONSourceVariantModal />;
+    case ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG:
+      return <FileMenuLoadProjectConfigModal open={open} />;
+    case ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS:
+      return <FileMenuSaveProjectConfigAsModal open={open} />;
+    case ModalTypeEnum.RENAME_REFERENCES:
+      return <RenameReferencesModal />;
+    case ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT:
+      return <PublishShareDeploymentModal open={open} />;
+    case ModalTypeEnum.PUBLISH_APP_DEPLOYMENT:
+      return <PublishAppDeploymentModal open={open} />;
+    case ModalTypeEnum.DROPZONE_FILE_PICKER:
+      return <DropzoneFilePickerModal open={open} />;
+    case ModalTypeEnum.WORKSPACE_SWITCHER:
+      return <WorkspaceSwitcherModal />;
+    default:
+      return modalInfo satisfies never;
+  }
 }
