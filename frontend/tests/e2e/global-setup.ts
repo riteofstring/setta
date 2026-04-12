@@ -1,32 +1,15 @@
-import type { ConsoleMessage, Page } from "@playwright/test";
+import type { ConsoleMessage } from "@playwright/test";
 import { chromium, type FullConfig } from "@playwright/test";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const PLAYWRIGHT_EXECUTABLE_PATH =
-  process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined;
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
   (process.env.SETTA_PROJECT_PATH
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
-
-function matchesExpectedProjectUrl(
-  candidateUrl: string,
-  expectedProjectUrl: URL,
-): boolean {
-  const parsedCandidateUrl = new URL(candidateUrl);
-  const expectedPathname = expectedProjectUrl.pathname;
-  return (
-    parsedCandidateUrl.origin === expectedProjectUrl.origin &&
-    (parsedCandidateUrl.pathname === expectedPathname ||
-      // Default bootstrap can settle on launcher home after the initial
-      // frontend-root handoff; treat that as a ready authenticated shell.
-      (expectedPathname === "/" && parsedCandidateUrl.pathname === "/home"))
-  );
-}
 
 async function globalSetup(config: FullConfig) {
   if (!BOOTSTRAP_TOKEN) {
@@ -35,17 +18,11 @@ async function globalSetup(config: FullConfig) {
     );
   }
   await waitForBackend(BACKEND_ORIGIN, 60000);
-  const storagePath = config.projects[0]?.use?.storageState as
-    | string
-    | undefined;
+  const storagePath = config.projects[0]?.use?.storageState as string | undefined;
   if (!storagePath) {
     throw new Error("storageState path missing in Playwright config.");
   }
-  const browser = await chromium.launch(
-    PLAYWRIGHT_EXECUTABLE_PATH
-      ? { executablePath: PLAYWRIGHT_EXECUTABLE_PATH }
-      : undefined,
-  );
+  const browser = await chromium.launch();
   const context = await browser.newContext();
   const page = await context.newPage();
   const pageErrors: string[] = [];
@@ -72,9 +49,12 @@ async function globalSetup(config: FullConfig) {
       `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
     );
     const expectedProjectUrl = new URL(PROJECT_URL);
-    if (!matchesExpectedProjectUrl(page.url(), expectedProjectUrl)) {
-      await waitForExpectedProjectUrl(page, expectedProjectUrl, 30000);
-    }
+    await page.waitForURL(
+      (url) =>
+        url.origin === expectedProjectUrl.origin &&
+        url.pathname === expectedProjectUrl.pathname,
+      { waitUntil: "domcontentloaded" },
+    );
     // `.app-shell` exists in static index.html, but `.setta-titlebar-offset` only
     // appears once React renders `AppShell`.
     await page.waitForSelector(".setta-titlebar-offset", { state: "attached" });
@@ -105,27 +85,7 @@ async function globalSetup(config: FullConfig) {
 
 export default globalSetup;
 
-async function waitForExpectedProjectUrl(
-  page: Page,
-  expectedProjectUrl: URL,
-  timeoutMs: number,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (matchesExpectedProjectUrl(page.url(), expectedProjectUrl)) {
-      return;
-    }
-    await page.waitForTimeout(250);
-  }
-  throw new Error(
-    `Timed out waiting for expected project URL. Current URL: ${page.url()}`,
-  );
-}
-
-async function waitForBackend(
-  origin: string,
-  timeoutMs: number,
-): Promise<void> {
+async function waitForBackend(origin: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown = null;
   while (Date.now() < deadline) {

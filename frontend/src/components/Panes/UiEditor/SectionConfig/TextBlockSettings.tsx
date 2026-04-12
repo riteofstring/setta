@@ -1,5 +1,12 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import {
+  docstringToMarkdown,
+  setTextBlockHeadingAsSectionName,
+  setTextBlockMasterFontSize,
+  setTextBlockMetaControlStyle,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   useEffect,
   useRef,
   useState,
@@ -14,20 +21,13 @@ import {
 import { useProjectState, useShareSession } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { useShareCapabilities } from "state/hooks/share";
-import { res200 } from "utils/endpointUtils";
-import {
-  route_docstring_to_markdown,
-  route_set_text_block_heading_as_section_name,
-  route_set_text_block_master_font_size,
-  route_set_text_block_meta_control_style,
-} from "utils/generatedEndpoints";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
 import { clampTextBlockMasterFontSize } from "utils/textBlockTypography";
-
 type TextBlockSettingsProps = {
   sectionId: string;
 };
-
+type DocstringToMarkdownRouteResponse = ResponseDataAndStatus<string>;
 export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   const {
     format,
@@ -45,21 +45,23 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   const [masterFontSizeDraft, setMasterFontSizeDraft] =
     useState(masterFontSizePx);
   const isMasterFontSizeDraggingRef = useRef(false);
-
   useEffect(() => {
     if (isMasterFontSizeDraggingRef.current) {
       return;
     }
     setMasterFontSizeDraft(masterFontSizePx);
   }, [masterFontSizePx]);
-
   async function onChangeRenderMarkdown(v: boolean) {
     if (!canToggleFormat) {
       return;
     }
     let newText = text;
     if (v) {
-      const res = await route_docstring_to_markdown({ docstring: text });
+      const res = (await callOpenAPI(
+        docstringToMarkdown({
+          body: { docstring: text },
+        } as Parameters<typeof docstringToMarkdown>[0]),
+      )) as DocstringToMarkdownRouteResponse;
       if (res200(res)) {
         newText = res.data;
       }
@@ -73,7 +75,6 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
       });
     });
   }
-
   function onChangeHeadingAsSectionName(v: boolean) {
     if (!canToggleHeading) {
       return;
@@ -85,15 +86,18 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
         });
       },
       send: (frontendOpId) =>
-        route_set_text_block_heading_as_section_name({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          headingAsSectionName: v,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setTextBlockHeadingAsSectionName({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              headingAsSectionName: v,
+              frontendOpId,
+            },
+          } as Parameters<typeof setTextBlockHeadingAsSectionName>[0]),
+        ),
     });
   }
-
   function onChangeMetaControlStyle(v: boolean) {
     if (!canToggleMetaControlStyle) {
       return;
@@ -105,15 +109,18 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
         });
       },
       send: (frontendOpId) =>
-        route_set_text_block_meta_control_style({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          metaControlStyle: v,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setTextBlockMetaControlStyle({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              metaControlStyle: v,
+              frontendOpId,
+            },
+          } as Parameters<typeof setTextBlockMetaControlStyle>[0]),
+        ),
     });
   }
-
   function updateMasterFontSize(v: number) {
     if (!canToggleMetaControlStyle) {
       return;
@@ -126,19 +133,21 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
         });
       },
       send: (frontendOpId) =>
-        route_set_text_block_master_font_size({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          masterFontSizePx: clamped,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setTextBlockMasterFontSize({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              masterFontSizePx: clamped,
+              frontendOpId,
+            },
+          } as Parameters<typeof setTextBlockMasterFontSize>[0]),
+        ),
     });
   }
-
   function onMasterFontSizeDragStart() {
     isMasterFontSizeDraggingRef.current = true;
   }
-
   function onMasterFontSizeInput(v: number) {
     const clamped = clampTextBlockMasterFontSize(v);
     setMasterFontSizeDraft(clamped);
@@ -146,7 +155,6 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
       updateMasterFontSize(clamped);
     }
   }
-
   function onMasterFontSizeDragEnd(
     event: PointerEvent<HTMLInputElement> | FocusEvent<HTMLInputElement>,
   ) {
@@ -160,7 +168,6 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
     setMasterFontSizeDraft(clamped);
     updateMasterFontSize(clamped);
   }
-
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="flex w-full items-center justify-between gap-4">

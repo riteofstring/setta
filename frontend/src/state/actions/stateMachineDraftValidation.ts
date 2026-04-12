@@ -1,7 +1,7 @@
 import {
   SectionTypeEnum,
   StateMachineGateTypeEnum,
-  type ProjectStateSingleConfig,
+  type SingleConfig,
 } from "utils/generatedTypes";
 import {
   getCurrEffectiveSectionImpl,
@@ -16,10 +16,10 @@ type StateMachineDraftWarning = {
 };
 
 type StateMachineEdge =
-  ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
+  SingleConfig["projectConfig"]["stateMachineEdges"][number];
 
 export function getStateMachineDraftWarning(
-  state: ProjectStateSingleConfig,
+  state: SingleConfig,
   machineGroupId: string,
 ): StateMachineDraftWarning | null {
   const normalizedMachineGroupId = machineGroupId.trim();
@@ -87,7 +87,7 @@ function buildDraftWarningDetail({
 }
 
 function collectMachineSections(
-  state: ProjectStateSingleConfig,
+  state: SingleConfig,
   machineGroupId: string,
 ): {
   endSectionIds: string[];
@@ -129,7 +129,7 @@ function getUnreachableEndWarning({
   startSectionId,
   endSectionIds,
 }: {
-  state: ProjectStateSingleConfig;
+  state: SingleConfig;
   machineGroupId: string;
   startSectionId: string;
   endSectionIds: Set<string>;
@@ -248,7 +248,7 @@ function canSourceActivateEdge({
   dispatchableChatSectionIds,
   possibleGateSectionIds,
 }: {
-  state: ProjectStateSingleConfig;
+  state: SingleConfig;
   edge: StateMachineEdge;
   startSectionId: string;
   dispatchableChatSectionIds: Set<string>;
@@ -295,7 +295,7 @@ function buildUnreachableEndDetail({
   reachableChatSectionIds,
   dispatchableChatSectionIds,
 }: {
-  state: ProjectStateSingleConfig;
+  state: SingleConfig;
   machineGroupId: string;
   machineEdges: StateMachineEdge[];
   startSectionId: string;
@@ -341,10 +341,7 @@ function buildUnreachableEndDetail({
   );
 }
 
-function getSectionDisplayName(
-  state: ProjectStateSingleConfig,
-  sectionId: string,
-): string {
+function getSectionDisplayName(state: SingleConfig, sectionId: string): string {
   const section = state.sections[sectionId];
   const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
   const shortSectionId = sectionId.slice(0, 8);

@@ -1,4 +1,8 @@
 import { resetProjectStores } from "state/utils";
+import {
+  ChatDictationModeEnum,
+  type ChatDictationMode,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useAIStore } from "./definitions";
 
@@ -14,7 +18,9 @@ describe("AI store dictation mode persistence", () => {
   });
 
   it("persists project chat dictation mode in local storage", () => {
-    useAIStore.setState({ projectChatDictationMode: "provider" });
+    useAIStore.setState({
+      projectChatDictationMode: ChatDictationModeEnum.provider,
+    });
 
     const persisted = useAIStore.persist
       .getOptions()
@@ -23,8 +29,10 @@ describe("AI store dictation mode persistence", () => {
     const parsed = (
       typeof persisted === "string" ? JSON.parse(persisted) : persisted
     ) as {
-      state?: { projectChatDictationMode?: string };
+      state?: { projectChatDictationMode?: ChatDictationMode };
     };
-    expect(parsed.state?.projectChatDictationMode).toBe("provider");
+    expect(parsed.state?.projectChatDictationMode).toBe(
+      ChatDictationModeEnum.provider,
+    );
   });
 });
