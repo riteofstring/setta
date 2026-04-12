@@ -1,10 +1,14 @@
 import _ from "lodash";
+import { getPasswordParamValue, setParamEnteredValue } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrCodeObjVariantIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrProjectConfigId,
-  setCurrEffectiveCodeObjImplValue,
+  getCurrSectionVariantId,
+  setCodeObjVariantImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -13,12 +17,8 @@ import {
 import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { res200 } from "utils/endpointUtils";
 import {
-  route_get_password_param_value,
-  route_set_param_entered_value,
-} from "utils/generatedEndpoints";
-import {
+  BaseChildlessCodeObjImplUnion,
   BinaryDependencyValue,
   CodeObjTypeEnum,
   DependencyKeyTypeEnum,
@@ -29,29 +29,41 @@ import {
 import { shouldEmitRealtimeValue } from "utils/paramValue";
 import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
 import { ParamUI } from "../ParamUIs/ParamUI";
-
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const baseValue = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
+  const previewParamState = useProjectState((x) => {
+    const impl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
       x,
       sectionId,
       paramInfoId,
       isBaseChildlessCodeObjImpl,
-      true, // preview
+      true,
     );
-    return impl.value;
-  });
-  const codeObjType = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
+    if (!impl) {
+      return null;
+    }
+    const codeObjVariant = getCurrCodeObjVariantIfPresent(
       x,
       sectionId,
       paramInfoId,
-      isBaseChildlessCodeObjImpl,
-      true, // preview
+      true,
     );
-    return impl.type;
-  });
+    if (!codeObjVariant) {
+      return null;
+    }
+    return {
+      baseValue: impl.value,
+      codeObjType: impl.type,
+      codeObjVariantId: codeObjVariant.id,
+      sectionVariantId: getCurrSectionVariantId(x, sectionId, true),
+    };
+  }, _.isEqual);
+  const hasPreviewParamState = previewParamState !== null;
+  const baseValue = previewParamState?.baseValue ?? "";
+  const codeObjType =
+    previewParamState?.codeObjType ?? CodeObjTypeEnum.TextParam;
+  const codeObjVariantId = previewParamState?.codeObjVariantId ?? null;
+  const sectionVariantId = previewParamState?.sectionVariantId ?? null;
   const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
   const previewValue = useToolArgumentPreview((state) => {
     const previewState = state.byProjectConfigId[projectConfigId];
@@ -67,69 +79,86 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     return entry ? entry.value : null;
   });
   const globalValue = previewValue ?? baseValue;
-
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,
     (pendingValue) => {
-      if (isPasswordParam) {
+      if (!hasPreviewParamState || isPasswordParam || !codeObjVariantId) {
         return;
       }
       useProjectState.setState((state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
-          sectionId,
           paramInfoId,
+          codeObjVariantId,
           {
             value: pendingValue,
           },
         );
       });
     },
+    codeObjVariantId,
   );
   const [isRevealing, setIsRevealing] = React.useState(false);
-
   // value and enteredValue should always be string
-  const onChange = React.useCallback(
-    (v: string, options?: ParamValueChangeOptions) => {
-      const vStr = _.toString(v);
-      setPendingValue(vStr);
-      if (
-        shouldEmitRealtimeValue({
-          previousValue: value,
-          nextValue: vStr,
-          codeObjType,
-        })
-      ) {
-        sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
-      }
-      if (!options?.skipBackendUpdate) {
-        if (isPasswordParam) {
-          debouncedSetPasswordParamValue(sectionId, paramInfoId, vStr);
-        } else {
-          debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+  function onChange(v, options?: ParamValueChangeOptions) {
+    if (!hasPreviewParamState) {
+      return;
+    }
+    const vStr = _.toString(v);
+    setPendingValue(vStr);
+    if (
+      shouldEmitRealtimeValue({
+        previousValue: value,
+        nextValue: vStr,
+        codeObjType,
+      })
+    ) {
+      sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
+    }
+    if (!options?.skipBackendUpdate) {
+      if (isPasswordParam) {
+        if (!sectionVariantId) {
+          return;
         }
+        debouncedSetPasswordParamValue(
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          vStr,
+        );
+      } else {
+        if (!sectionVariantId || !codeObjVariantId) {
+          return;
+        }
+        debouncedSetParamEnteredValue(
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          codeObjVariantId,
+          vStr,
+        );
       }
-    },
-    [
-      codeObjType,
-      isPasswordParam,
-      paramInfoId,
-      sectionId,
-      setPendingValue,
-      value,
-    ],
-  );
-
-  const onRevealPassword = React.useCallback(() => {
-    if (!isPasswordParam || isRevealing || value !== "") {
+    }
+  }
+  function onRevealPassword() {
+    if (
+      !hasPreviewParamState ||
+      !isPasswordParam ||
+      isRevealing ||
+      value !== ""
+    ) {
       return;
     }
     setIsRevealing(true);
-    route_get_password_param_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-    })
+    callOpenAPI(
+      getPasswordParamValue({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+        },
+      } as Parameters<typeof getPasswordParamValue>[0]),
+    )
       .then((response) => {
         if (res200(response)) {
           setPendingValue(response.data.value);
@@ -138,74 +167,66 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       .finally(() => {
         setIsRevealing(false);
       });
-  }, [
-    isPasswordParam,
-    isRevealing,
-    paramInfoId,
-    sectionId,
-    setPendingValue,
-    value,
-  ]);
-
-  const onDropzoneStateless = React.useCallback(
-    (attachments: DropzoneStatelessAttachment[]) => {
-      if (attachments.length === 0) {
-        return;
+  }
+  function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
+    if (!hasPreviewParamState || attachments.length === 0) {
+      return;
+    }
+    const dependencyKey = {
+      type: DependencyKeyTypeEnum.SectionParam,
+      sectionId,
+      codeObjId: paramInfoId,
+    };
+    const metadataAttachments = attachments.map((attachment) => {
+      if (attachment.kind === "file") {
+        return {
+          kind: attachment.kind,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+        };
       }
-      const dependencyKey = {
-        type: DependencyKeyTypeEnum.SectionParam,
+      return attachment;
+    });
+    const metadataPayload: LiteralDependencyValue = {
+      payload: JSON.stringify({
         sectionId,
-        codeObjId: paramInfoId,
-      };
-      const metadataAttachments = attachments.map((attachment) => {
-        if (attachment.kind === "file") {
-          return {
-            kind: attachment.kind,
-            name: attachment.name,
-            mimeType: attachment.mimeType,
-            size: attachment.size,
-            contentId: attachment.contentId,
-            byteLength: attachment.byteLength,
-          };
-        }
-        return attachment;
-      });
-      const metadataPayload: LiteralDependencyValue = {
-        payload: JSON.stringify({
-          sectionId,
-          paramInfoId,
-          attachments: metadataAttachments,
-        }),
-        type: DependencyValueTypeEnum.Literal,
+        paramInfoId,
+        attachments: metadataAttachments,
+      }),
+      type: DependencyValueTypeEnum.Literal,
+    };
+    sendRealtimeDependencyEvent({
+      dependencyKey,
+      payload: metadataPayload,
+    });
+    for (const attachment of attachments) {
+      if (attachment.kind !== "file") {
+        continue;
+      }
+      const binaryPayload: BinaryDependencyValue = {
+        payload: {
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+          mimeType: attachment.mimeType,
+        },
+        type: DependencyValueTypeEnum.Binary,
       };
       sendRealtimeDependencyEvent({
         dependencyKey,
-        payload: metadataPayload,
+        payload: binaryPayload,
+        binaryPayload: attachment.binaryPayload,
       });
-      for (const attachment of attachments) {
-        if (attachment.kind !== "file") {
-          continue;
-        }
-        const binaryPayload: BinaryDependencyValue = {
-          payload: {
-            contentId: attachment.contentId,
-            byteLength: attachment.byteLength,
-            mimeType: attachment.mimeType,
-          },
-          type: DependencyValueTypeEnum.Binary,
-        };
-        sendRealtimeDependencyEvent({
-          dependencyKey,
-          payload: binaryPayload,
-          binaryPayload: attachment.binaryPayload,
-        });
-      }
-    },
-    [paramInfoId, sectionId],
-  );
-
+    }
+  }
+  if (!hasPreviewParamState) {
+    return null;
+  }
   return (
     <ParamUI
+      key={codeObjVariantId}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -217,43 +238,50 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     />
   );
 }
-
 const debouncedSetParamEnteredValue = _.debounce(
-  (sectionId, paramInfoId, value) => {
+  (sectionId, sectionVariantId, paramInfoId, codeObjVariantId, value) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
-          sectionId,
           paramInfoId,
+          codeObjVariantId,
           {
             value,
           },
         );
       },
       send: (frontendOpId) =>
-        route_set_param_entered_value({
+        callOpenAPI(
+          setParamEnteredValue({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              sectionVariantId,
+              paramInfoId,
+              value,
+              frontendOpId,
+            },
+          } as Parameters<typeof setParamEnteredValue>[0]),
+        ),
+    });
+  },
+  50,
+);
+const debouncedSetPasswordParamValue = _.debounce(
+  (sectionId, sectionVariantId, paramInfoId, value) => {
+    callOpenAPI(
+      setParamEnteredValue({
+        body: {
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
+          sectionVariantId,
           paramInfoId,
           value,
-          frontendOpId,
-        }),
-    });
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    );
   },
   50,
 );
-
-const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId, paramInfoId, value) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      value,
-    });
-  },
-  50,
-);
-
 export const ParamInput = React.memo(_ParamInput);

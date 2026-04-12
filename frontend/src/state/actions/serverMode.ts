@@ -1,16 +1,15 @@
+import { getServerMode, type HttpapiServerModeResponse } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useServerMode } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
-import { route_get_server_mode } from "utils/generatedEndpoints";
-
-export async function initializeServerMode(): Promise<
-  "ide" | "share" | "app" | "launcher" | null
-> {
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import type { ServerModeValue } from "utils/serverModeTypes";
+type ServerModeRouteResponse = ResponseDataAndStatus<HttpapiServerModeResponse>;
+export async function initializeServerMode(): Promise<ServerModeValue> {
   const serverMode = useServerMode.getState();
   if (serverMode.modeResolved) {
     return serverMode.mode;
   }
-
-  const res = await route_get_server_mode();
+  const res = (await callOpenAPI(getServerMode())) as ServerModeRouteResponse;
   if (!res200(res)) {
     const message = res.hasResponse
       ? `Failed to check server mode (status ${res.status}).`
