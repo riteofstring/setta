@@ -234,7 +234,7 @@ function limitFilesToRemainingSlots(
   return files.slice(0, remainingSlots);
 }
 
-export function validateChatUploadFiles({
+function validateChatUploadFiles({
   allowedMimeLabel,
   chatPolicy,
   files,
