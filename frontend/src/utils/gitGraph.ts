@@ -1,7 +1,7 @@
-import type { GitreadCommit as Commit } from "openapi/http";
+import type { GitCommit } from "./generatedTypes";
 
 export type GitGraphRow = {
-  commit: Commit;
+  commit: GitCommit;
   laneIndex: number;
   laneColorIds: number[];
   laneStartIndices: number[];
@@ -36,163 +36,8 @@ function cloneGitGraphRowComputationState(
   };
 }
 
-type CommitLaneAssignments = {
-  laneIndex: number;
-  laneStartIndices: number[];
-  joinFromLaneIndices: number[];
-  mergeToLaneIndices: number[];
-};
-
-function allocateLane(
-  rowComputationState: GitGraphRowComputationState,
-  nextHash: string,
-): number {
-  const { lanes } = rowComputationState;
-  const emptySlot = lanes.findIndex((lane) => lane === null);
-  const lane = { nextHash, colorId: rowComputationState.nextColorId };
-  rowComputationState.nextColorId += 1;
-  if (emptySlot !== -1) {
-    lanes[emptySlot] = lane;
-    return emptySlot;
-  }
-  lanes.push(lane);
-  return lanes.length - 1;
-}
-
-function trimTrailingNulls(lanes: Array<Lane | null>) {
-  let last = lanes.length - 1;
-  while (last >= 0 && lanes[last] === null) {
-    last -= 1;
-  }
-  lanes.length = last + 1;
-}
-
-function findMatchingLaneIndices(
-  lanes: Array<Lane | null>,
-  hash: string,
-): number[] {
-  const matchingLaneIndices: number[] = [];
-  for (let idx = 0; idx < lanes.length; idx += 1) {
-    const lane = lanes[idx];
-    if (lane?.nextHash === hash) {
-      matchingLaneIndices.push(idx);
-    }
-  }
-  return matchingLaneIndices;
-}
-
-function findLaneIndex(
-  lanes: Array<Lane | null>,
-  nextHash: string,
-): number | null {
-  const laneIndex = lanes.findIndex((lane) => lane?.nextHash === nextHash);
-  return laneIndex === -1 ? null : laneIndex;
-}
-
-function resolveParentLaneIndices(
-  rowComputationState: GitGraphRowComputationState,
-  parents: readonly string[],
-  laneStartIndices: number[],
-): number[] {
-  const mergeToLaneIndices: number[] = [];
-  for (const parentHash of parents.slice(1)) {
-    let parentLaneIndex = findLaneIndex(rowComputationState.lanes, parentHash);
-    if (parentLaneIndex === null) {
-      parentLaneIndex = allocateLane(rowComputationState, parentHash);
-      laneStartIndices.push(parentLaneIndex);
-    }
-    mergeToLaneIndices.push(parentLaneIndex);
-  }
-  return mergeToLaneIndices;
-}
-
-function resolveCommitLaneAssignments(
-  rowComputationState: GitGraphRowComputationState,
-  commitHash: string,
-  parents: readonly string[],
-): CommitLaneAssignments {
-  const laneStartIndices: number[] = [];
-  const matchingLaneIndices = findMatchingLaneIndices(
-    rowComputationState.lanes,
-    commitHash,
-  );
-  const [matchingLaneIndex, ...joinFromLaneIndices] = matchingLaneIndices;
-  const laneIndex =
-    matchingLaneIndex ?? allocateLane(rowComputationState, commitHash);
-  if (matchingLaneIndex === undefined) {
-    laneStartIndices.push(laneIndex);
-  }
-
-  return {
-    laneIndex,
-    laneStartIndices,
-    joinFromLaneIndices,
-    mergeToLaneIndices: resolveParentLaneIndices(
-      rowComputationState,
-      parents,
-      laneStartIndices,
-    ),
-  };
-}
-
-function buildGitGraphRow(
-  commit: Commit,
-  lanes: Array<Lane | null>,
-  {
-    laneIndex,
-    laneStartIndices,
-    joinFromLaneIndices,
-    mergeToLaneIndices,
-  }: CommitLaneAssignments,
-  parents: readonly string[],
-): GitGraphRow {
-  return {
-    commit,
-    laneIndex,
-    laneColorIds: lanes.map((lane) => (lane ? lane.colorId : -1)),
-    laneStartIndices,
-    laneEndIndices:
-      parents.length === 0
-        ? [...joinFromLaneIndices, laneIndex]
-        : joinFromLaneIndices,
-    joinFromLaneIndices,
-    mergeToLaneIndices,
-  };
-}
-
-function advanceRowComputationState(
-  lanes: Array<Lane | null>,
-  { laneIndex, joinFromLaneIndices }: CommitLaneAssignments,
-  commitHash: string,
-  parents: readonly string[],
-) {
-  for (const fromIdx of joinFromLaneIndices) {
-    lanes[fromIdx] = null;
-  }
-
-  const [firstParentHash] = parents;
-  if (firstParentHash === undefined) {
-    lanes[laneIndex] = null;
-    trimTrailingNulls(lanes);
-    return;
-  }
-
-  const lane = lanes[laneIndex];
-  if (lane == null) {
-    throw new Error(
-      `Invariant violated: lane ${laneIndex} missing for commit ${commitHash}`,
-    );
-  }
-  lanes[laneIndex] = {
-    nextHash: firstParentHash,
-    colorId: lane.colorId,
-  };
-
-  trimTrailingNulls(lanes);
-}
-
 export function appendGitGraphRows(
-  commits: readonly Commit[],
+  commits: readonly GitCommit[],
   rowComputationState: GitGraphRowComputationState,
 ): {
   rows: GitGraphRow[];
@@ -208,21 +53,99 @@ export function appendGitGraphRows(
   //
   // To avoid this, keep a fixed-slot lane array and replace removed lanes with
   // `null` holes. When allocating a new lane, reuse the first `null` slot.
-  const { lanes } = nextState;
+  const lanes = nextState.lanes;
+
+  const allocateLane = (nextHash: string): number => {
+    const emptySlot = lanes.findIndex((lane) => lane === null);
+    const lane = { nextHash, colorId: nextState.nextColorId };
+    nextState.nextColorId += 1;
+    if (emptySlot !== -1) {
+      lanes[emptySlot] = lane;
+      return emptySlot;
+    }
+    lanes.push(lane);
+    return lanes.length - 1;
+  };
+
+  const trimTrailingNulls = () => {
+    let last = lanes.length - 1;
+    while (last >= 0 && lanes[last] === null) {
+      last -= 1;
+    }
+    lanes.length = last + 1;
+  };
 
   for (const commit of commits) {
-    const parents = commit.parents ?? [];
-    const laneAssignments = resolveCommitLaneAssignments(
-      nextState,
-      commit.hash,
-      parents,
-    );
+    const laneStartIndices: number[] = [];
+    const matchingLaneIndices: number[] = [];
+    for (let idx = 0; idx < lanes.length; idx += 1) {
+      const lane = lanes[idx];
+      if (lane && lane.nextHash === commit.hash) {
+        matchingLaneIndices.push(idx);
+      }
+    }
 
-    rows.push(buildGitGraphRow(commit, lanes, laneAssignments, parents));
+    const joinFromLaneIndices: number[] = [];
+    const laneIndex =
+      matchingLaneIndices.length > 0
+        ? matchingLaneIndices[0]!
+        : allocateLane(commit.hash);
+    if (matchingLaneIndices.length > 0) {
+      joinFromLaneIndices.push(...matchingLaneIndices.slice(1));
+    } else {
+      laneStartIndices.push(laneIndex);
+    }
+
+    const mergeToLaneIndices: number[] = [];
+    for (const parent of commit.parents.slice(1)) {
+      let parentLaneIndex = lanes.findIndex(
+        (lane) => lane?.nextHash === parent,
+      );
+      if (parentLaneIndex === -1) {
+        parentLaneIndex = allocateLane(parent);
+        laneStartIndices.push(parentLaneIndex);
+      }
+      mergeToLaneIndices.push(parentLaneIndex);
+    }
+
+    const laneColorIds = lanes.map((lane) => (lane ? lane.colorId : -1));
+    const laneEndIndices =
+      commit.parents.length === 0
+        ? [...joinFromLaneIndices, laneIndex]
+        : joinFromLaneIndices;
+
+    rows.push({
+      commit,
+      laneIndex,
+      laneColorIds,
+      laneStartIndices,
+      laneEndIndices,
+      joinFromLaneIndices,
+      mergeToLaneIndices,
+    });
 
     // Branch splits show up as multiple lanes pointing at the same next commit hash.
     // Keep them distinct until we render this commit, then merge the lanes here.
-    advanceRowComputationState(lanes, laneAssignments, commit.hash, parents);
+    for (const fromIdx of joinFromLaneIndices) {
+      lanes[fromIdx] = null;
+    }
+
+    if (commit.parents.length > 0) {
+      const lane = lanes[laneIndex];
+      if (!lane) {
+        throw new Error(
+          `Invariant violated: lane ${laneIndex} missing for commit ${commit.hash}`,
+        );
+      }
+      lanes[laneIndex] = {
+        nextHash: commit.parents[0]!,
+        colorId: lane.colorId,
+      };
+    } else {
+      lanes[laneIndex] = null;
+    }
+
+    trimTrailingNulls();
   }
 
   return {
@@ -231,7 +154,7 @@ export function appendGitGraphRows(
   };
 }
 
-export function computeGitGraphRowsWithState(commits: readonly Commit[]): {
+export function computeGitGraphRowsWithState(commits: readonly GitCommit[]): {
   rows: GitGraphRow[];
   rowComputationState: GitGraphRowComputationState;
 } {

@@ -8,15 +8,9 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  createCore,
-  createProjectConfig,
-  createSettingsState,
-  createVariant,
-} from "utils/generatedTypes";
+import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildProjectConfigHoverPreviewMap,
   mergeProjectConfigOrder,
   ProjectConfigs,
   shouldShowProjectConfigHoverPreview,
@@ -142,85 +136,6 @@ describe("ProjectConfigs", () => {
     ).toBe(false);
   });
 
-  it("builds a hover preview map when the candidate config matches the current section graph", () => {
-    const sectionId = "section-a";
-    const currentVariantId = "variant-current";
-    const previewVariantId = "variant-preview";
-    const currentState = {
-      projectConfig: createProjectConfig({
-        id: "config-current",
-        sectionVariantMap: {
-          [sectionId]: currentVariantId,
-        },
-      }),
-      sections: {
-        [sectionId]: createCore({
-          id: sectionId,
-          variants: [currentVariantId, previewVariantId],
-          defaultVariant: currentVariantId,
-        }),
-      },
-      sectionVariants: {
-        [currentVariantId]: createVariant({
-          id: currentVariantId,
-          impl: "impl-current",
-        }),
-        [previewVariantId]: createVariant({
-          id: previewVariantId,
-          impl: "impl-preview",
-        }),
-      },
-    };
-    const previewConfig = createProjectConfig({
-      id: "config-preview",
-      sectionVariantMap: {
-        [sectionId]: previewVariantId,
-      },
-    });
-
-    expect(
-      buildProjectConfigHoverPreviewMap(currentState, previewConfig),
-    ).toEqual({
-      [sectionId]: previewVariantId,
-    });
-  });
-
-  it("rejects hover previews for configs from a different section graph", () => {
-    const sectionId = "section-a";
-    const currentVariantId = "variant-current";
-    const currentState = {
-      projectConfig: createProjectConfig({
-        id: "config-current",
-        sectionVariantMap: {
-          [sectionId]: currentVariantId,
-        },
-      }),
-      sections: {
-        [sectionId]: createCore({
-          id: sectionId,
-          variants: [currentVariantId],
-          defaultVariant: currentVariantId,
-        }),
-      },
-      sectionVariants: {
-        [currentVariantId]: createVariant({
-          id: currentVariantId,
-          impl: "impl-current",
-        }),
-      },
-    };
-    const incompatibleConfig = createProjectConfig({
-      id: "config-foreign",
-      sectionVariantMap: {
-        "settings-section__backend": "settings-variant__backend",
-      },
-    });
-
-    expect(
-      buildProjectConfigHoverPreviewMap(currentState, incompatibleConfig),
-    ).toBeNull();
-  });
-
   it("renders project config rows using persisted order", () => {
     const configA = createProjectConfig({
       id: "config-a",
@@ -344,41 +259,5 @@ describe("ProjectConfigs", () => {
     );
 
     expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([]);
-  });
-
-  it("does not clear persisted order while project metadata is still loading", () => {
-    const configA = createProjectConfig({
-      id: "config-a",
-      name: "Config Alpha",
-    });
-    const configB = createProjectConfig({
-      id: "config-b",
-      name: "Config Beta",
-    });
-
-    useProjectState.setState((state) => {
-      state.projectConfig = configA;
-    });
-    useAllProjectMetadata.setState({
-      defaultProjectConfigId: configA.id,
-      projectMetadata: [],
-    });
-    useLocalStorage.setState({
-      overviewProjectConfigOrder: [configB.id, configA.id],
-    });
-    syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useAllProjectMetadata);
-    syncStoreInitialState(useLocalStorage);
-
-    renderToStaticMarkup(
-      <MemoryRouter>
-        <ProjectConfigs />
-      </MemoryRouter>,
-    );
-
-    expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([
-      configB.id,
-      configA.id,
-    ]);
   });
 });

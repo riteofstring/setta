@@ -88,48 +88,12 @@ export function handlePointerDown({
     handlePositions,
     `${nodeId}-${handleId}-${handleType}`,
   );
-  const fromType: HandleType = isTarget ? "target" : "source";
-  const validateHandle = (
-    handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
-  ) =>
-    isValidHandle({
-      handle,
-      connectionMode,
-      from: {
-        sectionId: nodeId,
-        handleId,
-        type: fromType,
-      },
-      isValidConnection,
-      doc,
-    });
   const shouldFilterByAgentic = handleId !== null;
   const allowHandle = shouldFilterByAgentic
     ? (handle: Pick<ConnectionHandle, "portId" | "type">) => {
         return canConnectHandleFamilies(handleId, handle.portId);
       }
     : null;
-
-  const getClosestHandleForEvent = ({
-    event,
-    position,
-    radius,
-    transform,
-  }: {
-    event: MouseEvent | TouchEvent;
-    position: { x: number; y: number };
-    radius: number;
-    transform: ReactFlowState["transform"];
-  }) =>
-    getClosestHandle({
-      event,
-      doc,
-      pos: pointToRendererPoint(position, transform, false, [1, 1], true),
-      connectionRadius: radius,
-      handles: handleLookup,
-      allowHandle,
-      validator: validateHandle,
-    });
 
   const autoPan = (): void => {
     if (!autoPanOnConnect) {
@@ -142,98 +106,6 @@ export function handlePointerDown({
 
     panBy({ x: xMovement, y: yMovement });
     autoPanId = requestAnimationFrame(autoPan);
-  };
-
-  const setConnectionPreview = ({
-    transform,
-    nextClosestHandle,
-    nextIsValid,
-    endHandle,
-  }: {
-    transform: ReactFlowState["transform"];
-    nextClosestHandle: ConnectionHandle | null;
-    nextIsValid: boolean;
-    endHandle: ReactFlowState["connectionEndHandle"];
-  }) => {
-    const nextConnectionPosition =
-      nextClosestHandle && nextIsValid
-        ? rendererPointToPoint(
-            {
-              x: nextClosestHandle.x,
-              y: nextClosestHandle.y,
-            },
-            transform,
-          )
-        : connectionPosition;
-
-    setState({
-      connectionPosition: nextConnectionPosition,
-      connectionStatus: getConnectionStatus(!!nextClosestHandle, nextIsValid),
-      connectionEndHandle: endHandle,
-    });
-  };
-
-  const updateActiveHandlePreview = ({
-    nextClosestHandle,
-    nextIsValid,
-    nextConnection,
-    nextHandleDomNode,
-  }: {
-    nextClosestHandle: ConnectionHandle | null;
-    nextIsValid: boolean;
-    nextConnection: Connection | null;
-    nextHandleDomNode: Element | null;
-  }) => {
-    if (!nextClosestHandle && !nextIsValid && !nextHandleDomNode) {
-      resetRecentHandle(prevActiveHandle);
-      return;
-    }
-
-    if (
-      nextConnection?.source === nextConnection?.target ||
-      !nextHandleDomNode
-    ) {
-      return;
-    }
-
-    resetRecentHandle(prevActiveHandle);
-    prevActiveHandle = nextHandleDomNode;
-    nextHandleDomNode.classList.add(
-      "connecting",
-      "react-flow__handle-connecting",
-    );
-    nextHandleDomNode.classList.toggle("valid", nextIsValid);
-    nextHandleDomNode.classList.toggle("react-flow__handle-valid", nextIsValid);
-  };
-
-  const resolvePointerUpState = (
-    event: MouseEvent | TouchEvent,
-  ): {
-    closestHandle: ConnectionHandle | null;
-    connection: Connection | null;
-    isValid: boolean;
-  } => {
-    if (closestHandle || !handleId?.includes("reverse")) {
-      return {
-        closestHandle,
-        connection,
-        isValid,
-      };
-    }
-
-    const { transform } = getState();
-    const fallback = getClosestHandleForEvent({
-      event,
-      position: getEventPosition(event, containerBounds),
-      radius: Math.max(connectionRadius, 80),
-      transform,
-    });
-
-    return {
-      closestHandle: fallback.handle,
-      connection: fallback.validHandleResult.connection,
-      isValid: fallback.validHandleResult.isValid,
-    };
   };
 
   setState({
@@ -252,12 +124,24 @@ export function handlePointerDown({
 
     connectionPosition = getEventPosition(event, containerBounds);
 
-    const { handle, validHandleResult } = getClosestHandleForEvent({
+    const { handle, validHandleResult } = getClosestHandle(
       event,
-      position: connectionPosition,
-      radius: connectionRadius,
-      transform,
-    });
+      doc,
+      pointToRendererPoint(connectionPosition, transform, false, [1, 1], true),
+      connectionRadius,
+      handleLookup,
+      allowHandle,
+      (handle) =>
+        isValidHandle(
+          handle,
+          connectionMode,
+          nodeId,
+          handleId,
+          isTarget ? "target" : "source",
+          isValidConnection,
+          doc,
+        ),
+    );
 
     closestHandle = handle;
 
@@ -270,11 +154,19 @@ export function handlePointerDown({
     connection = validHandleResult.connection;
     isValid = validHandleResult.isValid;
 
-    setConnectionPreview({
-      transform,
-      nextClosestHandle: closestHandle,
-      nextIsValid: isValid,
-      endHandle: validHandleResult.endHandle
+    setState({
+      connectionPosition:
+        closestHandle && isValid
+          ? rendererPointToPoint(
+              {
+                x: closestHandle.x,
+                y: closestHandle.y,
+              },
+              transform,
+            )
+          : connectionPosition,
+      connectionStatus: getConnectionStatus(!!closestHandle, isValid),
+      connectionEndHandle: validHandleResult.endHandle
         ? {
             sectionId: validHandleResult.endHandle.sectionId,
             handleId: validHandleResult.endHandle.handleId,
@@ -282,21 +174,58 @@ export function handlePointerDown({
           }
         : null,
     });
-    updateActiveHandlePreview({
-      nextClosestHandle: closestHandle,
-      nextIsValid: isValid,
-      nextConnection: connection,
-      nextHandleDomNode: handleDomNode,
-    });
+
+    if (!closestHandle && !isValid && !handleDomNode) {
+      return resetRecentHandle(prevActiveHandle);
+    }
+
+    if (connection?.source !== connection?.target && handleDomNode) {
+      resetRecentHandle(prevActiveHandle);
+      prevActiveHandle = handleDomNode;
+      handleDomNode.classList.add(
+        "connecting",
+        "react-flow__handle-connecting",
+      );
+      handleDomNode.classList.toggle("valid", isValid);
+      handleDomNode.classList.toggle("react-flow__handle-valid", isValid);
+    }
   }
 
   function onPointerUp(event: MouseEvent | TouchEvent) {
-    const {
-      closestHandle: resolvedClosestHandle,
-      connection: resolvedConnection,
-      isValid: resolvedIsValid,
-    } = resolvePointerUpState(event);
+    let resolvedClosestHandle = closestHandle;
+    let resolvedConnection = connection;
+    let resolvedIsValid = isValid;
 
+    if (!resolvedClosestHandle && handleId?.includes("reverse")) {
+      const { transform } = getState();
+      const fallback = getClosestHandle(
+        event,
+        doc,
+        pointToRendererPoint(
+          getEventPosition(event, containerBounds),
+          transform,
+          false,
+          [1, 1],
+          true,
+        ),
+        Math.max(connectionRadius, 80),
+        handleLookup,
+        allowHandle,
+        (handle) =>
+          isValidHandle(
+            handle,
+            connectionMode,
+            nodeId,
+            handleId,
+            isTarget ? "target" : "source",
+            isValidConnection,
+            doc,
+          ),
+      );
+      resolvedClosestHandle = fallback.handle;
+      resolvedConnection = fallback.validHandleResult.connection;
+      resolvedIsValid = fallback.validHandleResult.isValid;
+    }
     if (
       (resolvedClosestHandle || handleDomNode) &&
       resolvedConnection &&

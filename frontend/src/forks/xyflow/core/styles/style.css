@@ -266,7 +266,6 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
 .react-flow[data-connecting="true"] .react-flow__handle.agentic-handle,
 .react-flow:has(.react-flow__connectionline) .react-flow__handle.agentic-handle,
 .react-flow__handle.agentic-handle.agentic-handle--always-visible,
-.react-flow__handle.agentic-handle.agentic-handle--selecting,
 .react-flow__handle.agentic-handle.agentic-handle--connected {
   opacity: 1;
   visibility: visible;
@@ -297,7 +296,6 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
   ),
 .agentic-handle-safe-zone:hover
   + .react-flow__handle.agentic-handle:not(.connectable),
-.react-flow__handle.agentic-handle.agentic-handle--selecting:not(.connectable),
 .react-flow__handle.agentic-handle:hover:not(.connectable),
 .react-flow__handle.agentic-handle.agentic-handle--connected:not(.connectable) {
   opacity: 0.45;
@@ -330,8 +328,7 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
   + .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
 .react-flow__handle.agentic-handle.agentic-handle--reverse-start:hover,
 .react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--always-visible,
-.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--connected,
-.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--selecting {
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--connected {
   opacity: 0;
 }
 
