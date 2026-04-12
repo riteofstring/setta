@@ -1,8 +1,33 @@
+import { getAiFollowSnapshot } from "openapi/http";
 import { useAIFollow } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { AgenticEdgeKindEnum } from "utils/generatedTypes";
+import {
+  AgenticEdgeKindEnum,
+  createAIFollowToolArgumentsUpdateContent,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { receiveAgenticScopeViolationEdges } from "./aiFollow";
+
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getAiFollowSnapshot: vi.fn(),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+const mockedGetAiFollowSnapshot = vi.mocked(getAiFollowSnapshot);
+
+import {
+  receiveAgenticScopeViolationEdges,
+  requestAIFollowSnapshot,
+} from "./aiFollow";
 
 describe("useAIFollow defaults", () => {
   beforeEach(() => {
@@ -86,5 +111,75 @@ describe("receiveAgenticScopeViolationEdges", () => {
         projectConfigId
       ];
     expect(stored).toEqual([edgeForward]);
+  });
+});
+
+describe("requestAIFollowSnapshot", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    mockedGetAiFollowSnapshot.mockReset();
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("hydrates tool argument ids from the Go-owned AI follow snapshot route", async () => {
+    mockedGetAiFollowSnapshot.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [
+        createAIFollowToolArgumentsUpdateContent({
+          projectConfigId: "project-1",
+          chatId: "chat-1",
+          idsByType: {
+            callableName: ["callable-1"],
+          },
+        }),
+      ],
+    });
+
+    await requestAIFollowSnapshot("project-1");
+
+    expect(mockedGetAiFollowSnapshot).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-1",
+      },
+    });
+    expect(
+      useAIFollow.getState().toolArgumentsIdsByProjectConfigId["project-1"],
+    ).toEqual({
+      "chat-1": {
+        callableName: ["callable-1"],
+      },
+    });
+  });
+
+  it("ignores empty snapshots from the backend route", async () => {
+    mockedGetAiFollowSnapshot.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+
+    await requestAIFollowSnapshot("project-1");
+
+    expect(
+      useAIFollow.getState().toolArgumentsIdsByProjectConfigId["project-1"],
+    ).toBeUndefined();
+  });
+
+  it("ignores failed snapshot responses", async () => {
+    mockedGetAiFollowSnapshot.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: null,
+    });
+
+    await requestAIFollowSnapshot("project-1");
+
+    expect(
+      useAIFollow.getState().toolArgumentsIdsByProjectConfigId["project-1"],
+    ).toBeUndefined();
   });
 });
