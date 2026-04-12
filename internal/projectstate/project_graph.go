@@ -616,35 +616,75 @@ func (p *Project) normalizeSections() error {
 	}
 
 	for sectionKey, section := range p.Sections {
-		if strings.TrimSpace(sectionKey) == "" {
-			return ErrSectionIDRequired
-		}
-		if strings.TrimSpace(section.ID) == "" {
-			return ErrSectionIDRequired
-		}
-		if section.ID != sectionKey {
-			return fmt.Errorf("%w: key=%q id=%q", ErrSectionIDKeyMismatch, sectionKey, section.ID)
-		}
-		if strings.TrimSpace(section.Name) == "" {
-			return fmt.Errorf("%w: %q", ErrSectionNameRequired, section.ID)
-		}
-		if len(section.VariantIDs) > 0 && strings.TrimSpace(section.DefaultVariantID) == "" {
-			return fmt.Errorf("%w: %q", ErrSectionDefaultVariantMissing, section.ID)
-		}
-		parentID := strings.TrimSpace(section.ParentSectionID)
-		if parentID != "" {
-			if _, ok := p.Sections[parentID]; !ok {
-				return fmt.Errorf("%w: child=%q parent=%q", ErrParentSectionNotFound, section.ID, parentID)
-			}
-		}
-		sharedModifier, err := normalizeRawJSON(section.SharedModifier, fmt.Sprintf("section %q sharedModifier", section.ID))
+		normalizedSection, err := p.normalizeSection(sectionKey, section)
 		if err != nil {
 			return err
 		}
-		section.SharedModifier = sharedModifier
-		p.Sections[sectionKey] = section.Clone()
+		p.Sections[sectionKey] = normalizedSection
 	}
 	return nil
+}
+
+func (p *Project) normalizeSection(sectionKey string, section Section) (Section, error) {
+	if err := validateSectionKey(sectionKey, section); err != nil {
+		return Section{}, err
+	}
+	if err := validateSectionEntryName(section); err != nil {
+		return Section{}, err
+	}
+	if err := validateSectionDefaultVariant(section); err != nil {
+		return Section{}, err
+	}
+	if err := p.validateSectionParent(section); err != nil {
+		return Section{}, err
+	}
+	sharedModifier, err := normalizeRawJSON(
+		section.SharedModifier,
+		fmt.Sprintf("section %q sharedModifier", section.ID),
+	)
+	if err != nil {
+		return Section{}, err
+	}
+	section.SharedModifier = sharedModifier
+	return section.Clone(), nil
+}
+
+func validateSectionKey(sectionKey string, section Section) error {
+	if strings.TrimSpace(sectionKey) == "" {
+		return ErrSectionIDRequired
+	}
+	if strings.TrimSpace(section.ID) == "" {
+		return ErrSectionIDRequired
+	}
+	if section.ID != sectionKey {
+		return fmt.Errorf("%w: key=%q id=%q", ErrSectionIDKeyMismatch, sectionKey, section.ID)
+	}
+	return nil
+}
+
+func validateSectionEntryName(section Section) error {
+	if strings.TrimSpace(section.Name) == "" {
+		return fmt.Errorf("%w: %q", ErrSectionNameRequired, section.ID)
+	}
+	return nil
+}
+
+func validateSectionDefaultVariant(section Section) error {
+	if len(section.VariantIDs) > 0 && strings.TrimSpace(section.DefaultVariantID) == "" {
+		return fmt.Errorf("%w: %q", ErrSectionDefaultVariantMissing, section.ID)
+	}
+	return nil
+}
+
+func (p *Project) validateSectionParent(section Section) error {
+	parentID := strings.TrimSpace(section.ParentSectionID)
+	if parentID == "" {
+		return nil
+	}
+	if _, ok := p.Sections[parentID]; ok {
+		return nil
+	}
+	return fmt.Errorf("%w: child=%q parent=%q", ErrParentSectionNotFound, section.ID, parentID)
 }
 
 func (p *Project) normalizeSectionVariants() error {
@@ -806,33 +846,66 @@ func (p *Project) normalizeCodeObjects() error {
 	}
 
 	for codeObjKey, codeObj := range p.CodeObjs {
-		if strings.TrimSpace(codeObjKey) == "" {
-			return ErrCodeObjIDRequired
-		}
-		if strings.TrimSpace(codeObj.ID) == "" {
-			return ErrCodeObjIDRequired
-		}
-		if codeObj.ID != codeObjKey {
-			return fmt.Errorf("%w: key=%q id=%q", ErrCodeObjIDKeyMismatch, codeObjKey, codeObj.ID)
-		}
-		if strings.TrimSpace(codeObj.Name) == "" {
-			allowsEmptyName, allowErr := p.codeObjectAllowsEmptyName(codeObj.ID)
-			if allowErr != nil {
-				return allowErr
-			}
-			if !allowsEmptyName {
-				return fmt.Errorf("%w: %q", ErrCodeObjNameRequired, codeObj.ID)
-			}
-		}
-		if len(codeObj.VariantIDs) > 0 && strings.TrimSpace(codeObj.DefaultVariantID) == "" {
-			return fmt.Errorf("%w: %q", ErrCodeObjDefaultVariantMissing, codeObj.ID)
-		}
-		sharedModifier, err := normalizeRawJSON(codeObj.SharedModifier, fmt.Sprintf("code object %q sharedModifier", codeObj.ID))
+		normalizedCodeObj, err := p.normalizeCodeObject(codeObjKey, codeObj)
 		if err != nil {
 			return err
 		}
-		codeObj.SharedModifier = sharedModifier
-		p.CodeObjs[codeObjKey] = codeObj.Clone()
+		p.CodeObjs[codeObjKey] = normalizedCodeObj
+	}
+	return nil
+}
+
+func (p *Project) normalizeCodeObject(codeObjKey string, codeObj CodeObject) (CodeObject, error) {
+	if err := validateCodeObjectKey(codeObjKey, codeObj); err != nil {
+		return CodeObject{}, err
+	}
+	if err := p.validateCodeObjectName(codeObj); err != nil {
+		return CodeObject{}, err
+	}
+	if err := validateCodeObjectDefaultVariant(codeObj); err != nil {
+		return CodeObject{}, err
+	}
+	sharedModifier, err := normalizeRawJSON(
+		codeObj.SharedModifier,
+		fmt.Sprintf("code object %q sharedModifier", codeObj.ID),
+	)
+	if err != nil {
+		return CodeObject{}, err
+	}
+	codeObj.SharedModifier = sharedModifier
+	return codeObj.Clone(), nil
+}
+
+func validateCodeObjectKey(codeObjKey string, codeObj CodeObject) error {
+	if strings.TrimSpace(codeObjKey) == "" {
+		return ErrCodeObjIDRequired
+	}
+	if strings.TrimSpace(codeObj.ID) == "" {
+		return ErrCodeObjIDRequired
+	}
+	if codeObj.ID != codeObjKey {
+		return fmt.Errorf("%w: key=%q id=%q", ErrCodeObjIDKeyMismatch, codeObjKey, codeObj.ID)
+	}
+	return nil
+}
+
+func (p *Project) validateCodeObjectName(codeObj CodeObject) error {
+	if strings.TrimSpace(codeObj.Name) != "" {
+		return nil
+	}
+	allowsEmptyName, err := p.codeObjectAllowsEmptyName(codeObj.ID)
+	if err != nil {
+		return err
+	}
+	if allowsEmptyName {
+		return nil
+	}
+	return fmt.Errorf("%w: %q", ErrCodeObjNameRequired, codeObj.ID)
+}
+
+func validateCodeObjectDefaultVariant(codeObj CodeObject) error {
+	if len(codeObj.VariantIDs) > 0 && strings.TrimSpace(codeObj.DefaultVariantID) == "" {
+		return fmt.Errorf("%w: %q", ErrCodeObjDefaultVariantMissing, codeObj.ID)
 	}
 	return nil
 }
@@ -925,34 +998,68 @@ func (p *Project) validateTopLevelLayout() error {
 		return nil
 	}
 
+	if err := p.validateTopLevelSectionIDs(); err != nil {
+		return err
+	}
+	if err := p.validateStoredTopLevelSections(); err != nil {
+		return err
+	}
+	if err := p.validateViewModeTopLevelSections(); err != nil {
+		return err
+	}
+	return p.validateActiveViewMode()
+}
+
+func (p *Project) validateTopLevelSectionIDs() error {
 	topLevelSeen := make(map[string]struct{}, len(p.TopLevelSectionIDs))
 	for _, sectionID := range p.TopLevelSectionIDs {
-		if _, ok := p.Sections[sectionID]; !ok {
-			return fmt.Errorf("%w: %q", ErrTopLevelSectionNotFound, sectionID)
+		if err := p.validateTopLevelSectionExists(sectionID); err != nil {
+			return err
 		}
 		if _, ok := topLevelSeen[sectionID]; ok {
 			return fmt.Errorf("%w: %q", ErrDuplicateTopLevelSection, sectionID)
 		}
 		topLevelSeen[sectionID] = struct{}{}
 	}
+	return nil
+}
+
+func (p *Project) validateStoredTopLevelSections() error {
 	for sectionID := range p.TopLevelSections {
-		if _, ok := p.Sections[sectionID]; !ok {
-			return fmt.Errorf("%w: %q", ErrTopLevelSectionNotFound, sectionID)
-		}
-	}
-	for viewModeID, viewMode := range p.ViewModes {
-		for sectionID := range viewMode.TopLevelSections {
-			if _, ok := p.Sections[sectionID]; !ok {
-				return fmt.Errorf("%w: viewMode=%q section=%q", ErrTopLevelSectionNotFound, viewModeID, sectionID)
-			}
-		}
-	}
-	if p.ActiveViewModeID != "" {
-		if _, ok := p.ViewModes[p.ActiveViewModeID]; !ok {
-			return fmt.Errorf("%w: %q", ErrViewModeNotFound, p.ActiveViewModeID)
+		if err := p.validateTopLevelSectionExists(sectionID); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (p *Project) validateViewModeTopLevelSections() error {
+	for viewModeID, viewMode := range p.ViewModes {
+		for sectionID := range viewMode.TopLevelSections {
+			if _, ok := p.Sections[sectionID]; ok {
+				continue
+			}
+			return fmt.Errorf("%w: viewMode=%q section=%q", ErrTopLevelSectionNotFound, viewModeID, sectionID)
+		}
+	}
+	return nil
+}
+
+func (p *Project) validateActiveViewMode() error {
+	if p.ActiveViewModeID == "" {
+		return nil
+	}
+	if _, ok := p.ViewModes[p.ActiveViewModeID]; ok {
+		return nil
+	}
+	return fmt.Errorf("%w: %q", ErrViewModeNotFound, p.ActiveViewModeID)
+}
+
+func (p *Project) validateTopLevelSectionExists(sectionID string) error {
+	if _, ok := p.Sections[sectionID]; ok {
+		return nil
+	}
+	return fmt.Errorf("%w: %q", ErrTopLevelSectionNotFound, sectionID)
 }
 
 func (p *Project) validateActiveSectionVariants() error {
