@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/localsessions"
 	"setta/internal/projectstate"
+	"setta/internal/workspacelaunch"
 )
 
 func TestBuildIncludesGoOwnedMemorableNameWordLists(t *testing.T) {
@@ -60,6 +62,21 @@ func TestBuildIncludesGoOwnedSessionProcessRecognitionConstants(t *testing.T) {
 		if !strings.Contains(generated.PythonModule, snippet) {
 			t.Fatalf("generated constants missing %q", snippet)
 		}
+	}
+}
+
+func TestBuildIncludesGoOwnedLaunchIntentTTL(t *testing.T) {
+	generated, err := Build()
+	if err != nil {
+		t.Fatalf("build generated constants: %v", err)
+	}
+
+	expected := fmt.Sprintf(
+		"LAUNCH_INTENT_TOKEN_TTL_SECONDS = %d",
+		int(workspacelaunch.DefaultIntentTTL/time.Second),
+	)
+	if !strings.Contains(generated.PythonModule, expected) {
+		t.Fatalf("generated constants missing %q", expected)
 	}
 }
 

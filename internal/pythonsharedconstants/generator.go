@@ -17,6 +17,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdklocalcore"
 	"setta/internal/realtime"
+	"setta/internal/workspacelaunch"
 )
 
 const GeneratedPythonModulePath = "backend/setta/types/generated/go_shared_constants.py"
@@ -51,6 +52,7 @@ func Build() (GeneratedConstants, error) {
 		{Name: "DEFAULT_AUTH_COOKIE_NAME", PythonExpr: pythonStringLiteral(auth.DefaultAuthCookieName)},
 		{Name: "AUTH_COOKIE_MAX_AGE_SECONDS", PythonExpr: strconv.Itoa(int(auth.DefaultAuthCookieTTL / time.Second))},
 		{Name: "BOOTSTRAP_TOKEN_TTL_SECONDS", PythonExpr: strconv.Itoa(int(auth.DefaultBootstrapTokenTTL / time.Second))},
+		{Name: "LAUNCH_INTENT_TOKEN_TTL_SECONDS", PythonExpr: strconv.Itoa(int(workspacelaunch.DefaultIntentTTL / time.Second))},
 		{Name: "SESSION_SECRET_BYTES", PythonExpr: strconv.Itoa(localsessions.SessionSecretBytes)},
 		{Name: "SESSION_METADATA_FILENAME", PythonExpr: pythonStringLiteral(localsessions.SessionMetadataFileName)},
 		{Name: "SESSION_SECRET_FILENAME", PythonExpr: pythonStringLiteral(localsessions.SessionSecretFileName)},

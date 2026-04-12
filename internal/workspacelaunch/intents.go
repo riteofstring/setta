@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	defaultIntentTTLSeconds     = 10 * time.Minute
+	DefaultIntentTTL            = 10 * time.Minute
+	defaultIntentTTLSeconds     = DefaultIntentTTL
 	defaultMaxIntentsPerSession = 64
 	defaultMaxIntentsTotal      = 2048
 	launchIntentStoreFileName   = "workspace_launch_intents.json"
