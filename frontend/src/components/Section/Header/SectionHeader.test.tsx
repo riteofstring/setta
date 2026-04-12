@@ -632,3 +632,106 @@ describe("SectionHeader follow button", () => {
     }
   });
 });
+
+describe("SectionHeader diagnostics subscriptions", () => {
+  const sectionId = "section-code";
+  const variantId = "variant-code";
+  const implId = "impl-code";
+
+  beforeEach(() => {
+    const projectConfig = createProjectConfig({
+      id: "project-code",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    resetProjectStores();
+    useShareSession.setState({ isDeploymentMode: false });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {
+        [sectionId]: createCore({
+          id: sectionId,
+          name: "Code",
+          variants: [variantId],
+          defaultVariant: variantId,
+        }),
+      };
+      state.sectionVariants = {
+        [variantId]: createVariant({
+          id: variantId,
+          name: "Variant",
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      };
+      state.sectionImpls = {
+        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+          id: implId,
+          codeLanguage: CodeLanguageEnum.python,
+        }),
+      };
+      state.previewSectionVariantMap = {};
+    });
+    useLspDiagnostics.setState({
+      codeSections: {},
+      unmappedGenCode: [],
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useShareSession);
+    syncStoreInitialState(useLspDiagnostics);
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+    document.body.innerHTML = "";
+  });
+
+  it("keeps code headers without diagnostics out of unrelated diagnostics commits", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledHeader({
+      onRender,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Code,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useLspDiagnostics.setState((state) => {
+          state.codeSections = {
+            ...state.codeSections,
+            "other-section": [
+              {
+                message: "Other diagnostic",
+                severity: 1,
+                code: "reportOther",
+                source: "pyright",
+                range: {
+                  start: { line: 0, character: 0 },
+                  end: { line: 0, character: 1 },
+                },
+                uri: "file:///tmp/other.py",
+              },
+            ],
+          };
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      const followIndicator = host.querySelector("[data-follow-selected]");
+      expect(followIndicator).not.toBeNull();
+      expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
+        "false",
+      );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+});

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 01:27 UTC
+Last updated: 2026-04-13 01:36 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,40 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `375` landed one bounded mounted section-header diagnostics selector
+  reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+      so code headers with no diagnostics now reuse one shared empty
+      diagnostics array instead of allocating a fresh `[]` on every
+      `useLspDiagnostics` store update
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+      to prove a mounted code header with no diagnostics does not re-commit
+      when another section receives diagnostics
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-header-empty-diagnostics-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed (`1` file, `20` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> settings surface and section headers rendered normally with no
+         obvious blank-screen or missing-header regression
+  - reading:
+    - this is another real mounted section-chrome selector reduction on the
+      live canary, not a harness-only pass
+    - the old selector returned a fresh empty array whenever the current code
+      section had no diagnostics, so unrelated diagnostics churn could still
+      fan across mounted headers
+  - next default frontier:
+    - stay on the earliest product-facing canary gate and identify the next
+      larger mounted section-body/chrome subscriber or shared write fan-out
+      on the live worktree, using the existing normalized lane only as
+      regression coverage rather than reopening backend warm-load work
 
 - item `374` landed one bounded warm-load readout seam for the direct
   `/settings` backend lane and used it to close the "is backend still a

@@ -75,6 +75,50 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+# 2026-04-13 - Item 375
+
+- Item: land one bounded mounted section-header diagnostics selector
+  reduction on the live canary lane so code headers without diagnostics stop
+  re-committing on unrelated diagnostics-store updates.
+- Why this slice:
+  - item `374` closed the backend warm-load question on the current fixture,
+    so the next default pass needed to pivot back to a product-facing mounted
+    section-body/chrome subscriber instead of extending backend micro-work
+  - `SectionHeader` is always-mounted section chrome on the settings graph and
+    still returned a fresh empty diagnostics array for code sections with no
+    diagnostics, which could fan unrelated diagnostics churn across visible
+    headers
+- Changed:
+  - updated `frontend/src/components/Section/Header/SectionHeader.tsx` so the
+    empty diagnostics selector result is a shared constant instead of a fresh
+    `[]` allocation on every `useLspDiagnostics` store update
+  - added focused profiler coverage in
+    `frontend/src/components/Section/Header/SectionHeader.test.tsx` to assert
+    a mounted code header with no diagnostics does not re-commit when another
+    section receives diagnostics
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-13_settings-graph-section-header-empty-diagnostics-selector.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+    - passed (`1` file, `20` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+    - passed
+  - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+    - passed
+    - settings surface and section headers rendered normally with no obvious
+      blank-screen or missing-header regression
+- Result:
+  - mounted code section headers with no diagnostics now keep a stable empty
+    selector result until the current section actually gains diagnostics
+  - this is another real mounted section-chrome reduction on the live canary,
+    not a harness-only pass
+- Next:
+  - identify the next larger mounted section-body/chrome subscriber or shared
+    write fan-out on the live worktree canary instead of reopening the closed
+    backend warm-load lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 01:27 UTC
 
 - item `374` landed one bounded warm-load readout seam for the direct

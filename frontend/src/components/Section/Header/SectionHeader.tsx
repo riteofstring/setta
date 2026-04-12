@@ -115,6 +115,8 @@ type SectionHeaderProps = {
   >;
 };
 
+const EMPTY_SECTION_DIAGNOSTICS: Array<SettaLspDiagnostic> = [];
+
 function _SectionHeader({
   sectionId,
   sectionTypeName,
@@ -186,7 +188,7 @@ function _SectionHeader({
   );
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
-    return diagnostics ?? [];
+    return diagnostics ?? EMPTY_SECTION_DIAGNOSTICS;
   });
   const genCodeDiagnostics = useLspDiagnostics((x) => x.unmappedGenCode);
   const codeDiagnosticsInfo = useProjectState((x) => {
