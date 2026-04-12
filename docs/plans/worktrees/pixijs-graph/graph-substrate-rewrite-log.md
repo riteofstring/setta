@@ -74,6 +74,45 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 18:43 UTC
+
+- item `337` removed one more shared-surface React Flow modifier subscription
+  from the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx` so the
+    mounted flow shell no longer subscribes to `zoomActivationKeyPressed`
+  - changed `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` so
+    zoom-activation wheel behavior is resolved from live store state at
+    interaction time instead of through a parent render prop
+  - added focused regression coverage in:
+    - `frontend/src/forks/xyflow/core/container/FlowRenderer.test.tsx`
+      to prove the mounted flow shell does not commit when only
+      `zoomActivationKeyPressed` changes
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts`
+      to prove a pan-on-scroll surface switches to wheel zoom after the zoom
+      activation key turns on post-mount
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-zoom-activation-wheel-gate-split.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/FlowRenderer.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+      -> passed (`2` files, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/FlowRenderer.tsx src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/FlowRenderer.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> bootstrap handoff succeeded
+      -> `/settings` mounted successfully
+      -> visible settings graph surface, top controls, and section cards
+         showed no obvious layout regression from this slice
+  - result:
+    - this removes one more always-mounted flow-shell commit source from the
+      measured `interactionReactFlowStateSync` owner while preserving the same
+      modifier-driven wheel-zoom contract
+    - next bounded frontier: stay inside `interactionReactFlowStateSync` and
+      isolate the next mounted shared-surface selector or write fan-out on the
+      canonical lane instead of reopening the unstable cross-worktree probe by
+      default
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 18:35 UTC
 
 - item `336` removed the mounted-node list subscription to the hand-pan

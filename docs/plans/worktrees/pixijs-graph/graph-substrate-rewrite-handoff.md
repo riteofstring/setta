@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 18:35 UTC
+Last updated: 2026-04-12 18:43 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -219,6 +219,47 @@ This section overrides older "next frontier" notes below when choosing the next 
       canonical lane, with likely targets now in the remaining flow/node
       shell subscribers or shared motion-path store writes rather than
       another direct DOM-body zoom split
+
+- item `337` landed one bounded shared-surface wheel-gate split inside the
+  measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the mounted flow renderer path:
+    - `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`
+      no longer subscribes the full flow renderer shell to
+      `zoomActivationKeyPressed`
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+      now resolves zoom-activation wheel behavior from the current store state
+      at interaction time instead of taking a zoom-modifier prop from the
+      parent render path
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/FlowRenderer.test.tsx`
+      to assert the mounted flow shell does not commit when only
+      `zoomActivationKeyPressed` changes
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts`
+      to assert a pan-on-scroll surface switches to wheel zoom after the zoom
+      activation key turns on post-mount
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-zoom-activation-wheel-gate-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/FlowRenderer.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+      -> passed (`2` files, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/FlowRenderer.tsx src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/FlowRenderer.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+      -> passed
+    - fresh-context headless CDP smoke on the worktree `/settings` session
+      -> bootstrap handoff succeeded
+      -> `/settings` mounted successfully
+      -> visible settings graph surface, top controls, and section cards
+         showed no obvious layout regression from this slice
+  - reading:
+    - this keeps zoom-modifier churn off the always-mounted flow shell while
+      `ZoomPane` still resolves the same wheel intent from live store state at
+      gesture time
+    - the next bounded frontier inside `interactionReactFlowStateSync` should
+      keep isolating mounted shared-surface selector/write fan-out on the
+      canonical lane, with likely targets now in remaining flow/node shell
+      subscribers or shared motion-path store writes rather than another
+      direct DOM-body zoom split or a probe-only rerun
 
 - item `333` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named

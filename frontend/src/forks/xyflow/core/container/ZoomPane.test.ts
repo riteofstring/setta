@@ -280,4 +280,67 @@ describe("getViewportInteractionActiveValue", () => {
     });
     host.remove();
   });
+
+  it("switches wheel handling to zoom when the zoom activation key turns on after mount", async () => {
+    const { host, renderer, root } = await renderZoomPane();
+
+    try {
+      await act(async () => {
+        root.render(
+          createElement(
+            "div",
+            { className: "react-flow" },
+            createElement(
+              ZoomPane,
+              {
+                wrapperDimensions: { width: 800, height: 600 },
+                panOnScroll: true,
+                zoomOnScroll: false,
+              },
+              createElement("div"),
+            ),
+          ),
+        );
+      });
+
+      await act(async () => {
+        renderer.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaY: 120,
+            clientX: 240,
+            clientY: 180,
+          }),
+        );
+      });
+
+      const transformAfterPan = useReactFlow.getState().transform;
+      expect(transformAfterPan[2]).toBe(1);
+      expect(transformAfterPan[1]).not.toBe(0);
+
+      await act(async () => {
+        useReactFlow.setState({ zoomActivationKeyPressed: true });
+      });
+
+      await act(async () => {
+        renderer.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaY: -120,
+            clientX: 240,
+            clientY: 180,
+          }),
+        );
+      });
+
+      expect(useReactFlow.getState().transform[2]).toBeGreaterThan(1);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
 });

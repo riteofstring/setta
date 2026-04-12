@@ -1,5 +1,5 @@
 import { interpolate } from "d3-interpolate";
-import { pointer, select, type Selection as D3Selection } from "d3-selection";
+import { select, type Selection as D3Selection } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
@@ -27,7 +27,6 @@ type ZoomPaneProps = {
   panOnScrollMode?: PanOnScrollModeEnum;
   zoomOnDoubleClick?: boolean;
   panOnDrag?: boolean | number[];
-  zoomActivationKeyPressed?: boolean;
   translateExtent?: CoordinateExtent;
   preventScrolling?: boolean;
   children: ReactNode;
@@ -169,7 +168,6 @@ const ZoomPane = ({
   panOnScrollMode = PanOnScrollModeEnum.free,
   zoomOnDoubleClick = true,
   panOnDrag = true,
-  zoomActivationKeyPressed,
   translateExtent = infiniteExtent,
   preventScrolling = true,
   children,
@@ -233,10 +231,12 @@ const ZoomPane = ({
         }, 180);
       };
 
-      if (panOnScroll && !zoomActivationKeyPressed && !userSelectionActive) {
+      if (panOnScroll && !userSelectionActive) {
         d3Selection.on(
           "wheel.zoom",
-          (event: WheelEvent) => {
+          function (this: Element, event: WheelEvent, d: unknown) {
+            const zoomActivationKeyPressed =
+              useReactFlow.getState().zoomActivationKeyPressed;
             if (
               isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
               !zoomActivationKeyPressed &&
@@ -252,14 +252,13 @@ const ZoomPane = ({
             const _isMacOs = isMacOs();
 
             // macos sets ctrlKey=true for pinch gesture on a trackpad
-            if (event.ctrlKey && zoomOnPinch && _isMacOs) {
+            if (
+              zoomActivationKeyPressed ||
+              (event.ctrlKey && zoomOnPinch && _isMacOs)
+            ) {
               startWheelZoomBurst();
-              const point = pointer(event);
-              const pinchDelta = wheelDelta(event);
-              const zoom = currentZoom * Math.pow(2, pinchDelta);
-              scaleTo(d3Selection, zoom, point, event);
+              d3ZoomHandler?.call(this, event, d);
               scheduleWheelZoomBurstEnd();
-
               return;
             }
 
@@ -350,7 +349,6 @@ const ZoomPane = ({
     d3Selection,
     d3Zoom,
     d3ZoomHandler,
-    zoomActivationKeyPressed,
     zoomOnPinch,
     preventScrolling,
   ]);
@@ -432,6 +430,8 @@ const ZoomPane = ({
   useEffect(() => {
     if (d3Zoom) {
       d3Zoom.filter((event: ZoomFilterEvent) => {
+        const zoomActivationKeyPressed =
+          useReactFlow.getState().zoomActivationKeyPressed;
         const effectivePanOnDrag = getSelectionAwarePanOnDrag(
           panOnDrag,
           useReactFlow.getState().selectionKeyPressed,
@@ -552,7 +552,6 @@ const ZoomPane = ({
     panOnScroll,
     zoomOnDoubleClick,
     panOnDrag,
-    zoomActivationKeyPressed,
   ]);
 
   return (

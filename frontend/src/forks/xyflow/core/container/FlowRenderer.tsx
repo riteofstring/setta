@@ -37,10 +37,6 @@ const FlowRendererPane = memo(function FlowRendererPane({
 });
 
 const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
-  const zoomActivationKeyPressed = useReactFlow(
-    (state) => state.zoomActivationKeyPressed,
-  );
-
   const isFollowTransitioning = useAIFollow(
     (state) => state.isFollowTransitioning,
   );
@@ -74,9 +70,6 @@ const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
       panOnScrollMode={panOnScrollMode}
       zoomOnDoubleClick={!isFollowTransitioning && zoomOnDoubleClick}
       panOnDrag={!isFollowTransitioning && panOnDrag}
-      zoomActivationKeyPressed={
-        !isFollowTransitioning && zoomActivationKeyPressed
-      }
       wrapperDimensions={wrapperDimensions}
     >
       <FlowRendererPane panOnDrag={!isFollowTransitioning && panOnDrag}>
