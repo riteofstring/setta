@@ -18,7 +18,7 @@ export interface SerializerOptions<T> {
 }
 
 export type ArrayStyle = "form" | "spaceDelimited" | "pipeDelimited";
-type ArraySeparatorStyle = ArrayStyle | MatrixStyle;
+export type ArraySeparatorStyle = ArrayStyle | MatrixStyle;
 type MatrixStyle = "label" | "matrix" | "simple";
 export type ObjectStyle = "form" | "deepObject";
 type ObjectSeparatorStyle = ObjectStyle | MatrixStyle;
@@ -27,7 +27,7 @@ interface SerializePrimitiveParam extends SerializePrimitiveOptions {
   value: string;
 }
 
-const separatorArrayExplode = (style: ArraySeparatorStyle) => {
+export const separatorArrayExplode = (style: ArraySeparatorStyle) => {
   switch (style) {
     case "label":
       return ".";
@@ -40,7 +40,7 @@ const separatorArrayExplode = (style: ArraySeparatorStyle) => {
   }
 };
 
-const separatorArrayNoExplode = (style: ArraySeparatorStyle) => {
+export const separatorArrayNoExplode = (style: ArraySeparatorStyle) => {
   switch (style) {
     case "form":
       return ",";
@@ -53,7 +53,7 @@ const separatorArrayNoExplode = (style: ArraySeparatorStyle) => {
   }
 };
 
-const separatorObjectExplode = (style: ObjectSeparatorStyle) => {
+export const separatorObjectExplode = (style: ObjectSeparatorStyle) => {
   switch (style) {
     case "label":
       return ".";
@@ -137,7 +137,7 @@ export const serializeObjectParam = ({
   valueOnly,
 }: SerializeOptions<ObjectSeparatorStyle> & {
   value: Record<string, unknown> | Date;
-  valueOnly?: boolean;
+  valueOnly?: boolean | undefined;
 }) => {
   if (value instanceof Date) {
     return valueOnly ? value.toISOString() : `${name}=${value.toISOString()}`;

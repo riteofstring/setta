@@ -24,7 +24,16 @@ SCHEMA_VERSION = 1
 GO_GENERATED_FALLBACK_GLOBS = ["**/*_gen.go"]
 FRONTEND_TEST_MARKERS = (".test.", ".spec.", ".stories.")
 FRONTEND_TEST_PATH_PARTS = ("/testUtils/", "/tests/", "/__tests__/")
-FRONTEND_CODE_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts")
+FRONTEND_CODE_EXTENSIONS = (
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".mts",
+    ".cts",
+)
 FRONTEND_STATIC_IMPORT_RE = re.compile(
     r"""(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?["'](?P<module>[^"']+)["']""",
     re.MULTILINE,
@@ -49,7 +58,9 @@ PYTHON_VULTURE_RE = re.compile(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate dead code candidate reports.")
+    parser = argparse.ArgumentParser(
+        description="Generate dead code candidate reports."
+    )
     parser.add_argument(
         "--config",
         default=str(DEFAULT_CONFIG_PATH),
@@ -144,11 +155,17 @@ def build_go_reports(
     deadcode_version = go_config.get("deadcode_version", "v0.44.0")
     staticcheck_version = go_config.get("staticcheck_version", "2025.1.1")
     build_matrix = resolve_go_build_matrix(go_config.get("build_matrix"))
-    production_mains, production_root_sources, production_warnings = discover_go_production_mains(go_config)
+    production_mains, production_root_sources, production_warnings = (
+        discover_go_production_mains(go_config)
+    )
     discovered_mains = discover_go_main_packages()
     production_mains_set = set(production_mains)
-    tooling_mains = sorted(pkg for pkg in discovered_mains if pkg not in production_mains_set)
-    generated_globs = list(go_config.get("generated_globs", GO_GENERATED_FALLBACK_GLOBS))
+    tooling_mains = sorted(
+        pkg for pkg in discovered_mains if pkg not in production_mains_set
+    )
+    generated_globs = list(
+        go_config.get("generated_globs", GO_GENERATED_FALLBACK_GLOBS)
+    )
 
     warnings: list[str] = list(production_warnings)
     limitations: list[str] = []
@@ -157,7 +174,9 @@ def build_go_reports(
     raw_test_findings: list[dict[str, Any]] = []
     raw_tooling_findings: list[dict[str, Any]] = []
 
-    unknown_prod = sorted(pkg for pkg in production_mains_set if pkg not in discovered_mains)
+    unknown_prod = sorted(
+        pkg for pkg in production_mains_set if pkg not in discovered_mains
+    )
     if unknown_prod:
         warnings.append(
             "Configured Go production mains were not discovered under cmd/: "
@@ -201,7 +220,9 @@ def build_go_reports(
                 )
             )
 
-        deduped_findings = intersect_go_deadcode_findings(raw_findings, len(build_matrix))
+        deduped_findings = intersect_go_deadcode_findings(
+            raw_findings, len(build_matrix)
+        )
         report = {
             "schema_version": SCHEMA_VERSION,
             "generated_at": generated_at,
@@ -265,7 +286,9 @@ def build_go_reports(
     )
 
     if not tooling_mains:
-        limitations.append("No Go tooling mains were discovered under cmd/ beyond configured production mains.")
+        limitations.append(
+            "No Go tooling mains were discovered under cmd/ beyond configured production mains."
+        )
 
     return {
         "findings": go_findings,
@@ -306,7 +329,9 @@ def resolve_go_build_matrix(raw_matrix: Any) -> list[dict[str, Any]]:
 
 
 def current_go_platform() -> tuple[str, str]:
-    completed = run_command([str(ROOT_DIR / "scripts" / "go.sh"), "env", "GOOS", "GOARCH"])
+    completed = run_command(
+        [str(ROOT_DIR / "scripts" / "go.sh"), "env", "GOOS", "GOARCH"]
+    )
     lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
     if len(lines) != 2:
         raise RuntimeError(f"Unexpected GOOS/GOARCH output: {completed.stdout!r}")
@@ -339,7 +364,9 @@ def discover_go_production_mains(
 
     for source_name, path in source_paths.items():
         if not path.exists():
-            warnings.append(f"Go production-root source file was not found: {relative_path(path)}")
+            warnings.append(
+                f"Go production-root source file was not found: {relative_path(path)}"
+            )
             continue
         mains = discover_go_cmd_packages_in_text(path.read_text(encoding="utf-8"))
         if mains:
@@ -387,7 +414,9 @@ def normalize_go_deadcode_findings(
                     "path": path,
                     "line": int(position.get("Line", 0)),
                     "column": int(position.get("Col", 0)),
-                    "symbol": f"{package_path}.{symbol_name}" if package_path else symbol_name,
+                    "symbol": f"{package_path}.{symbol_name}"
+                    if package_path
+                    else symbol_name,
                     "symbol_name": symbol_name,
                     "generated": bool(func.get("Generated", False)),
                     "marker": bool(func.get("Marker", False)),
@@ -410,14 +439,16 @@ def intersect_go_deadcode_findings(
 
     intersected: list[dict[str, Any]] = []
     for entries in grouped.values():
-        configs = {
-            json.dumps(entry.get("config"), sort_keys=True)
-            for entry in entries
-        }
+        configs = {json.dumps(entry.get("config"), sort_keys=True) for entry in entries}
         if len(configs) != build_config_count:
             continue
         base = dict(entries[0])
-        base["configs"] = [entry["config"] for entry in sorted(entries, key=lambda item: json.dumps(item["config"], sort_keys=True))]
+        base["configs"] = [
+            entry["config"]
+            for entry in sorted(
+                entries, key=lambda item: json.dumps(item["config"], sort_keys=True)
+            )
+        ]
         intersected.append(base)
     return dedupe_findings(intersected)
 
@@ -581,7 +612,9 @@ def build_python_reports(
     lint_path = output_dir / "python.json"
     write_json(lint_path, lint_report)
 
-    public_import_modules, public_module_warnings = resolve_python_public_import_modules(public_modules)
+    public_import_modules, public_module_warnings = (
+        resolve_python_public_import_modules(public_modules)
+    )
     coverage_payload, coverage_commands = collect_python_root_coverage(
         root_import_modules=public_import_modules,
         generated_globs=generated_globs,
@@ -671,7 +704,9 @@ def normalize_python_ruff_findings(
     return dedupe_findings(findings)
 
 
-def resolve_python_public_import_modules(public_modules: list[str]) -> tuple[list[str], list[str]]:
+def resolve_python_public_import_modules(
+    public_modules: list[str],
+) -> tuple[list[str], list[str]]:
     import_modules: list[str] = []
     warnings: list[str] = []
     for module_path in public_modules:
@@ -685,11 +720,20 @@ def resolve_python_public_import_modules(public_modules: list[str]) -> tuple[lis
 def python_module_name_from_path(path: str) -> str:
     module_path = Path(path)
     parts = module_path.parts
-    if len(parts) < 3 or parts[0] != "backend" or parts[1] != "setta" or module_path.suffix != ".py":
-        raise ValueError(f"Python public module path must live under backend/setta and end with .py: {path}")
+    if (
+        len(parts) < 3
+        or parts[0] != "backend"
+        or parts[1] != "setta"
+        or module_path.suffix != ".py"
+    ):
+        raise ValueError(
+            f"Python public module path must live under backend/setta and end with .py: {path}"
+        )
     module_parts = list(module_path.with_suffix("").parts[2:])
     if not module_parts:
-        raise ValueError(f"Python public module path did not resolve to a module: {path}")
+        raise ValueError(
+            f"Python public module path did not resolve to a module: {path}"
+        )
     if module_parts[-1] == "__init__":
         module_parts = module_parts[:-1]
     return ".".join(["setta", *module_parts]) if module_parts else "setta"
@@ -703,7 +747,9 @@ def collect_python_root_coverage(
     coverage_base = [sys.executable, "-m", "coverage"]
     command_displays: list[str] = []
 
-    with tempfile.TemporaryDirectory(prefix="setta-deadcode-python-coverage-") as temp_dir:
+    with tempfile.TemporaryDirectory(
+        prefix="setta-deadcode-python-coverage-"
+    ) as temp_dir:
         temp_dir_path = Path(temp_dir)
         coverage_env = {**os.environ, "COVERAGE_FILE": str(temp_dir_path / ".coverage")}
         coverage_json_path = temp_dir_path / "coverage.json"
@@ -745,7 +791,9 @@ def collect_python_root_coverage(
 
         payload = json.loads(coverage_json_path.read_text(encoding="utf-8"))
     files = normalize_python_coverage_files(payload, generated_globs)
-    executed_file_count = sum(1 for record in files.values() if record["executed_lines"])
+    executed_file_count = sum(
+        1 for record in files.values() if record["executed_lines"]
+    )
     return (
         {
             "files": files,
@@ -790,11 +838,17 @@ def normalize_python_coverage_files(
     files: dict[str, dict[str, list[int]]] = {}
     for raw_path, record in payload.get("files", {}).items():
         path = normalize_tool_path(raw_path)
-        if not path.startswith("backend/setta/") or matches_any_glob(path, generated_globs):
+        if not path.startswith("backend/setta/") or matches_any_glob(
+            path, generated_globs
+        ):
             continue
         files[path] = {
-            "executed_lines": sorted(int(line) for line in record.get("executed_lines", [])),
-            "missing_lines": sorted(int(line) for line in record.get("missing_lines", [])),
+            "executed_lines": sorted(
+                int(line) for line in record.get("executed_lines", [])
+            ),
+            "missing_lines": sorted(
+                int(line) for line in record.get("missing_lines", [])
+            ),
         }
     return dict(sorted(files.items()))
 
@@ -824,14 +878,18 @@ def normalize_python_vulture_findings(
         ):
             continue
         line_number = int(match.group("line"))
-        coverage_record = coverage_files.get(path, {"executed_lines": [], "missing_lines": []})
+        coverage_record = coverage_files.get(
+            path, {"executed_lines": [], "missing_lines": []}
+        )
         executed_lines = set(coverage_record.get("executed_lines", []))
         if line_number in executed_lines:
             continue
         file_executed = bool(executed_lines)
         evidence = [f"reported by vulture ({match.group('confidence')}% confidence)"]
         if file_executed:
-            evidence.append("candidate line was not executed while exercising the Python roots")
+            evidence.append(
+                "candidate line was not executed while exercising the Python roots"
+            )
         else:
             evidence.append("file was not executed while exercising the Python roots")
         findings.append(
@@ -962,7 +1020,9 @@ def build_frontend_reports(
     ]
     eslint_completed = run_command(eslint_command, allowed_exit_codes={0, 1})
     eslint_payload = json.loads(eslint_completed.stdout or "[]")
-    eslint_findings = normalize_frontend_eslint_findings(eslint_payload, generated_globs)
+    eslint_findings = normalize_frontend_eslint_findings(
+        eslint_payload, generated_globs
+    )
     eslint_report = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at,
@@ -1006,8 +1066,12 @@ def build_frontend_reports(
             "app_roots": app_roots,
             "test_roots": frontend_scope_support["test_roots"],
             "tooling_roots": frontend_scope_support["tooling_roots"],
-            "test_reachable_file_count": len(frontend_scope_support["reachable_files"]["test"]),
-            "tooling_reachable_file_count": len(frontend_scope_support["reachable_files"]["tooling"]),
+            "test_reachable_file_count": len(
+                frontend_scope_support["reachable_files"]["test"]
+            ),
+            "tooling_reachable_file_count": len(
+                frontend_scope_support["reachable_files"]["tooling"]
+            ),
         },
     }
 
@@ -1023,7 +1087,11 @@ def normalize_knip_findings(
 
     for file_path in payload.get("files", []):
         path = normalize_tool_path(f"frontend/{file_path}")
-        if not path or matches_any_glob(path, generated_globs) or is_frontend_test_path(path):
+        if (
+            not path
+            or matches_any_glob(path, generated_globs)
+            or is_frontend_test_path(path)
+        ):
             continue
         findings.append(
             {
@@ -1069,7 +1137,9 @@ def normalize_knip_findings(
                         "column": item.get("col"),
                         "symbol": item.get("name"),
                         "issue_type": issue_type,
-                        "evidence": [f"reported by {issue_label} as unused {issue_type.rstrip('s')}"],
+                        "evidence": [
+                            f"reported by {issue_label} as unused {issue_type.rstrip('s')}"
+                        ],
                     }
                 )
     return dedupe_findings(findings)
@@ -1099,7 +1169,9 @@ def aggregate_frontend_findings(
                 evidence.append("reachable from frontend tooling roots")
             if not reachable_from:
                 reachable_from.append("non-prod")
-                evidence.append("reachable when frontend non-production roots are included")
+                evidence.append(
+                    "reachable when frontend non-production roots are included"
+                )
         else:
             evidence.append("dead when frontend non-production roots are included")
 
@@ -1176,7 +1248,9 @@ def discover_frontend_test_roots() -> list[str]:
     roots: list[str] = []
     for path in iter_frontend_code_files():
         relative = relative_path(path)
-        if relative == "frontend/playwright.config.ts" or is_frontend_test_path(relative):
+        if relative == "frontend/playwright.config.ts" or is_frontend_test_path(
+            relative
+        ):
             roots.append(relative)
     return sorted(dict.fromkeys(roots))
 
@@ -1185,8 +1259,10 @@ def discover_frontend_tooling_roots() -> list[str]:
     roots: list[str] = []
     for path in iter_frontend_code_files():
         relative = relative_path(path)
-        if relative == "frontend/vite.config.ts" or relative.startswith("frontend/scripts/") or relative.startswith(
-            "frontend/generation/"
+        if (
+            relative == "frontend/vite.config.ts"
+            or relative.startswith("frontend/scripts/")
+            or relative.startswith("frontend/generation/")
         ):
             roots.append(relative)
     return sorted(dict.fromkeys(roots))
@@ -1226,7 +1302,9 @@ def resolve_frontend_imports_for_file(path: Path) -> set[str]:
     return resolved
 
 
-def resolve_frontend_module_specifier(source_path: Path, module_specifier: str) -> str | None:
+def resolve_frontend_module_specifier(
+    source_path: Path, module_specifier: str
+) -> str | None:
     if not module_specifier or module_specifier.startswith("node:"):
         return None
 
@@ -1279,7 +1357,11 @@ def normalize_frontend_eslint_findings(
     findings: list[dict[str, Any]] = []
     for file_result in payload:
         path = normalize_tool_path(file_result.get("filePath", ""))
-        if not path or matches_any_glob(path, generated_globs) or is_frontend_test_path(path):
+        if (
+            not path
+            or matches_any_glob(path, generated_globs)
+            or is_frontend_test_path(path)
+        ):
             continue
         for message in file_result.get("messages", []):
             if message.get("ruleId") != "@typescript-eslint/no-unused-vars":

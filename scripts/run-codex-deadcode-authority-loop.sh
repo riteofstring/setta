@@ -235,11 +235,17 @@ deadcode_candidates_command="$(
     "./scripts/deadcode/list_candidates.sh" \
     --limit "400"
 )"
+alias_candidates_command="$(
+  shell_join \
+    "./scripts/report_pass_through_constant_aliases.sh" \
+    --limit "400"
+)"
 deadcode_report_file="${ROOT_DIR}/reports/deadcode/aggregate.json"
 checklist_file="${state_dir}/checklist.md"
 prompt_file="${state_dir}/prompt.md"
 deadcode_candidates_file="${state_dir}/deadcode-candidates.txt"
 deadcode_audit_file="${state_dir}/deadcode-audit.md"
+alias_candidates_file="${state_dir}/alias-constant-candidates.txt"
 alias_constant_audit_file="${state_dir}/alias-constant-audit.md"
 duplication_audit_file="${state_dir}/duplication-audit.md"
 status_file="${state_dir}/status.txt"
@@ -282,6 +288,15 @@ Update this file during Phase 2.
 EOF
 fi
 
+if [[ ! -f "${alias_candidates_file}" ]]; then
+  cat > "${alias_candidates_file}" <<EOF
+# Phase 2 Alias Constant Candidate Summary
+
+Refresh this file during Phase 2 with:
+${alias_candidates_command}
+EOF
+fi
+
 if [[ ! -f "${duplication_audit_file}" ]]; then
   cat > "${duplication_audit_file}" <<EOF
 # Phase 3 Duplication Audit
@@ -309,6 +324,7 @@ Rules:
 - Do not delete items.
 - The latest saved Phase 1 candidate summary should live at: ${deadcode_candidates_file}
 - The latest saved Phase 1 dead-code audit should live at: ${deadcode_audit_file}
+- The latest saved Phase 2 alias candidate summary should live at: ${alias_candidates_file}
 - The latest saved Phase 2 alias-constant audit should live at: ${alias_constant_audit_file}
 - The latest saved Phase 3 duplication audit should live at: ${duplication_audit_file}
 
@@ -322,6 +338,7 @@ Rules:
 - [ ] Mark Phase 1 complete only after a fresh report and audit find no remaining actionable dead-code deletions under the repo rules.
 
 ## Phase 2: Remove Pass-Through Constant Aliases
+- [ ] Refresh the Phase 2 alias candidate summary at ${alias_candidates_file} on every Phase 2 iteration.
 - [ ] Update the Phase 2 alias-constant audit at ${alias_constant_audit_file} on every Phase 2 iteration.
 - [ ] Audit for useless pass-through constant aliases only after Phase 1 is complete.
 - [ ] Remove aliases that merely restate another authoritative constant or variable, such as \`AUTH_COOKIE_MAX_AGE_SECONDS = go_shared_constants.AUTH_COOKIE_MAX_AGE_SECONDS\`.
@@ -360,6 +377,7 @@ Read first, in this order:
 - \`git log --oneline --decorate -n 15\`
 - ${checklist_file}
 - ${deadcode_audit_file} if it exists
+- ${alias_candidates_file} if it exists
 - ${alias_constant_audit_file} if it exists
 - ${duplication_audit_file} if it exists
 - the most recent prior session response under \`${output_dir}/run-*/last-message.txt\`, if any exist
@@ -406,6 +424,9 @@ Phase 1 rules:
 
 Phase 2 rules:
 - Enter Phase 2 only after Phase 1 is complete in the checklist.
+- Refresh the saved alias candidate summary with:
+  \`${alias_candidates_command} > ${alias_candidates_file}\`
+- Read the saved summary at ${alias_candidates_file} before choosing work.
 - Update ${alias_constant_audit_file} during every Phase 2 iteration.
 - Audit for useless pass-through constant aliases that merely restate another authoritative constant or variable.
 - Especially target class-level Python \`C.*\` aliases and TypeScript exported aliases like:
@@ -498,6 +519,7 @@ fi
 echo "Checklist: ${checklist_file}"
 echo "Phase 1 candidate summary: ${deadcode_candidates_file}"
 echo "Phase 1 dead-code audit file: ${deadcode_audit_file}"
+echo "Phase 2 alias candidate summary: ${alias_candidates_file}"
 echo "Phase 2 alias-constant audit file: ${alias_constant_audit_file}"
 echo "Phase 3 duplication audit file: ${duplication_audit_file}"
 echo "Dead-code report path: ${deadcode_report_file}"

@@ -11,7 +11,9 @@ DEFAULT_REPORT_PATH = ROOT_DIR / "reports" / "deadcode" / "aggregate.json"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Filter dead-code candidates from aggregate.json.")
+    parser = argparse.ArgumentParser(
+        description="Filter dead-code candidates from aggregate.json."
+    )
     parser.add_argument(
         "--report",
         default=str(DEFAULT_REPORT_PATH),
@@ -22,9 +24,15 @@ def main() -> int:
     parser.add_argument("--bucket", help="Filter by bucket.")
     parser.add_argument("--tool", help="Filter by tool.")
     parser.add_argument("--confidence", help="Filter by confidence.")
-    parser.add_argument("--path-contains", help="Keep only findings whose path contains this text.")
-    parser.add_argument("--symbol-contains", help="Keep only findings whose symbol contains this text.")
-    parser.add_argument("--limit", type=int, default=50, help="Maximum findings to print.")
+    parser.add_argument(
+        "--path-contains", help="Keep only findings whose path contains this text."
+    )
+    parser.add_argument(
+        "--symbol-contains", help="Keep only findings whose symbol contains this text."
+    )
+    parser.add_argument(
+        "--limit", type=int, default=50, help="Maximum findings to print."
+    )
     parser.add_argument(
         "--format",
         choices=("text", "json"),

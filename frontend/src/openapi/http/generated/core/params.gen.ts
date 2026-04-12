@@ -2,7 +2,7 @@
 
 type Slot = "body" | "headers" | "path" | "query";
 
-type Field =
+export type Field =
   | {
       in: Exclude<Slot, "body">;
       /**
@@ -20,16 +20,27 @@ type Field =
       /**
        * Key isn't required for bodies.
        */
-      key?: string;
+      key?: string | undefined;
       map?: string | undefined;
+    }
+  | {
+      /**
+       * Field name. This is the name we want the user to see and use.
+       */
+      key: string;
+      /**
+       * Field mapped name. This is the name we want to use in the request.
+       * If `in` is omitted, `map` aliases `key` to the transport layer.
+       */
+      map: Slot;
     };
 
-interface Fields {
-  allowExtra?: Partial<Record<Slot, boolean>>;
-  args?: ReadonlyArray<Field>;
+export interface Fields {
+  allowExtra?: Partial<Record<Slot, boolean>> | undefined;
+  args?: ReadonlyArray<Field> | undefined;
 }
 
-type FieldsConfig = ReadonlyArray<Field | Fields>;
+export type FieldsConfig = ReadonlyArray<Field | Fields>;
 
 const extraPrefixesMap: Record<string, Slot> = {
   $body_: "body",
@@ -41,10 +52,14 @@ const extraPrefixes = Object.entries(extraPrefixesMap);
 
 type KeyMap = Map<
   string,
-  {
-    in: Slot;
-    map?: string | undefined;
-  }
+  | {
+      in: Slot;
+      map?: string | undefined;
+    }
+  | {
+      in?: never | undefined;
+      map: Slot;
+    }
 >;
 
 const buildKeyMap = (fields: FieldsConfig, map?: KeyMap): KeyMap => {
@@ -60,6 +75,10 @@ const buildKeyMap = (fields: FieldsConfig, map?: KeyMap): KeyMap => {
           map: config.map,
         });
       }
+    } else if ("key" in config) {
+      map.set(config.key, {
+        map: config.map,
+      });
     } else if (config.args) {
       buildKeyMap(config.args, map);
     }
@@ -83,7 +102,7 @@ const stripEmptySlots = (params: Params) => {
   }
 };
 
-const buildClientParams = (
+export const buildClientParams = (
   args: ReadonlyArray<unknown>,
   fields: FieldsConfig,
 ) => {
@@ -111,7 +130,9 @@ const buildClientParams = (
       if (config.key) {
         const field = map.get(config.key)!;
         const name = field.map || config.key;
-        (params[field.in] as Record<string, unknown>)[name] = arg;
+        if (field.in) {
+          (params[field.in] as Record<string, unknown>)[name] = arg;
+        }
       } else {
         params.body = arg;
       }
@@ -120,8 +141,12 @@ const buildClientParams = (
         const field = map.get(key);
 
         if (field) {
-          const name = field.map || key;
-          (params[field.in] as Record<string, unknown>)[name] = value;
+          if (field.in) {
+            const name = field.map || key;
+            (params[field.in] as Record<string, unknown>)[name] = value;
+          } else {
+            params[field.map] = value;
+          }
         } else {
           const extra = extraPrefixes.find(([prefix]) =>
             key.startsWith(prefix),
@@ -132,10 +157,8 @@ const buildClientParams = (
             (params[slot] as Record<string, unknown>)[
               key.slice(prefix.length)
             ] = value;
-          } else {
-            for (const [slot, allowed] of Object.entries(
-              config.allowExtra ?? {},
-            )) {
+          } else if ("allowExtra" in config && config.allowExtra) {
+            for (const [slot, allowed] of Object.entries(config.allowExtra)) {
               if (allowed) {
                 (params[slot as Slot] as Record<string, unknown>)[key] = value;
                 break;

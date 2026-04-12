@@ -10,7 +10,11 @@ function resolveOpenAPIBaseURL(): string {
   return C_ADDRESSES.BACKEND_ORIGIN;
 }
 
-async function fetchOpenAPIRequest(request: Request): Promise<Response> {
+async function fetchOpenAPIRequest(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const request = input instanceof Request ? input : new Request(input, init);
   const requestURL = new URL(request.url);
   const resolvedURL = buildBackendURL(
     `${requestURL.pathname}${requestURL.search}`,

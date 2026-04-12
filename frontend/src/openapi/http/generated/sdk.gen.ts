@@ -2,11 +2,11 @@
 
 import {
   type Client,
-  type Options as ClientOptions,
-  type TDataShape,
   formDataBodySerializer,
+  type Options as Options2,
+  type TDataShape,
 } from "./client";
-import { client as _heyApiClient } from "./client.gen";
+import { client } from "./client.gen";
 import type {
   AcceptRenameRefactorData,
   AcceptRenameRefactorErrors,
@@ -50,12 +50,12 @@ import type {
   CodeAreaCompletionData,
   CodeAreaCompletionErrors,
   CodeAreaCompletionResponses,
-  CreateAgentProfileData,
-  CreateAgentProfileErrors,
-  CreateAgentProfileResponses,
   CreateAgenticEdgeData,
   CreateAgenticEdgeErrors,
   CreateAgenticEdgeResponses,
+  CreateAgentProfileData,
+  CreateAgentProfileErrors,
+  CreateAgentProfileResponses,
   CreateChildSectionsData,
   CreateChildSectionsErrors,
   CreateChildSectionsResponses,
@@ -104,12 +104,12 @@ import type {
   DeclineRenameRefactorData,
   DeclineRenameRefactorErrors,
   DeclineRenameRefactorResponses,
-  DeleteAgentProfileData,
-  DeleteAgentProfileErrors,
-  DeleteAgentProfileResponses,
   DeleteAgenticEdgesData,
   DeleteAgenticEdgesErrors,
   DeleteAgenticEdgesResponses,
+  DeleteAgentProfileData,
+  DeleteAgentProfileErrors,
+  DeleteAgentProfileResponses,
   DeleteArtifactsData,
   DeleteArtifactsErrors,
   DeleteArtifactsResponses,
@@ -140,12 +140,12 @@ import type {
   DeletePromptTemplateData,
   DeletePromptTemplateErrors,
   DeletePromptTemplateResponses,
-  DeleteSectionVariantOrAskData,
-  DeleteSectionVariantOrAskErrors,
-  DeleteSectionVariantOrAskResponses,
   DeleteSectionsData,
   DeleteSectionsErrors,
   DeleteSectionsResponses,
+  DeleteSectionVariantOrAskData,
+  DeleteSectionVariantOrAskErrors,
+  DeleteSectionVariantOrAskResponses,
   DeleteSelectedParamsData,
   DeleteSelectedParamsErrors,
   DeleteSelectedParamsResponses,
@@ -194,6 +194,9 @@ import type {
   GenCodeSuffixCompletionData,
   GenCodeSuffixCompletionErrors,
   GenCodeSuffixCompletionResponses,
+  GetAgenticSummaryCacheStatusData,
+  GetAgenticSummaryCacheStatusErrors,
+  GetAgenticSummaryCacheStatusResponses,
   GetAgentProfileData,
   GetAgentProfileErrors,
   GetAgentProfileResponses,
@@ -206,9 +209,6 @@ import type {
   GetAgentRunsData,
   GetAgentRunsErrors,
   GetAgentRunsResponses,
-  GetAgenticSummaryCacheStatusData,
-  GetAgenticSummaryCacheStatusErrors,
-  GetAgenticSummaryCacheStatusResponses,
   GetAiFollowSnapshotData,
   GetAiFollowSnapshotErrors,
   GetAiFollowSnapshotResponses,
@@ -347,12 +347,12 @@ import type {
   GetPromptTemplatesData,
   GetPromptTemplatesErrors,
   GetPromptTemplatesResponses,
-  GetRunStatusData,
-  GetRunStatusErrors,
-  GetRunStatusResponses,
   GetRunnerSummaryData,
   GetRunnerSummaryErrors,
   GetRunnerSummaryResponses,
+  GetRunStatusData,
+  GetRunStatusErrors,
+  GetRunStatusResponses,
   GetRuntimeInfoData,
   GetRuntimeInfoErrors,
   GetRuntimeInfoResponses,
@@ -404,21 +404,21 @@ import type {
   LinkPluginData,
   LinkPluginErrors,
   LinkPluginResponses,
-  ListAppDeploymentVersionsData,
-  ListAppDeploymentVersionsErrors,
-  ListAppDeploymentVersionsResponses,
   ListAppDeploymentsData,
   ListAppDeploymentsErrors,
   ListAppDeploymentsResponses,
+  ListAppDeploymentVersionsData,
+  ListAppDeploymentVersionsErrors,
+  ListAppDeploymentVersionsResponses,
   ListLauncherDirectoryData,
   ListLauncherDirectoryErrors,
   ListLauncherDirectoryResponses,
-  ListShareDeploymentVersionsData,
-  ListShareDeploymentVersionsErrors,
-  ListShareDeploymentVersionsResponses,
   ListShareDeploymentsData,
   ListShareDeploymentsErrors,
   ListShareDeploymentsResponses,
+  ListShareDeploymentVersionsData,
+  ListShareDeploymentVersionsErrors,
+  ListShareDeploymentVersionsResponses,
   LoadAllProjectMetadataData,
   LoadAllProjectMetadataErrors,
   LoadAllProjectMetadataResponses,
@@ -743,6 +743,9 @@ import type {
   SetTypeErrorIgnoreData,
   SetTypeErrorIgnoreErrors,
   SetTypeErrorIgnoreResponses,
+  SetupLauncherData,
+  SetupLauncherErrors,
+  SetupLauncherResponses,
   SetVariantJsonSourceKeysData,
   SetVariantJsonSourceKeysErrors,
   SetVariantJsonSourceKeysResponses,
@@ -767,9 +770,6 @@ import type {
   SetWindowSpaceSortOrderData,
   SetWindowSpaceSortOrderErrors,
   SetWindowSpaceSortOrderResponses,
-  SetupLauncherData,
-  SetupLauncherErrors,
-  SetupLauncherResponses,
   StartAgentRunData,
   StartAgentRunErrors,
   StartAgentRunResponses,
@@ -854,12 +854,12 @@ import type {
   UnselectAllParamsData,
   UnselectAllParamsErrors,
   UnselectAllParamsResponses,
-  UpdateAgentProfileData,
-  UpdateAgentProfileErrors,
-  UpdateAgentProfileResponses,
   UpdateAgenticEdgeData,
   UpdateAgenticEdgeErrors,
   UpdateAgenticEdgeResponses,
+  UpdateAgentProfileData,
+  UpdateAgentProfileErrors,
+  UpdateAgentProfileResponses,
   UpdateArtifactsData,
   UpdateArtifactsErrors,
   UpdateArtifactsResponses,
@@ -913,7 +913,7 @@ import type {
 export type Options<
   TData extends TDataShape = TDataShape,
   ThrowOnError extends boolean = boolean,
-> = ClientOptions<TData, ThrowOnError> & {
+> = Options2<TData, ThrowOnError> & {
   /**
    * You can provide a client instance returned by `createClient()` instead of
    * individual options. This might be also useful if you want to implement a
@@ -930,7 +930,7 @@ export type Options<
 export const acceptRenameRefactor = <ThrowOnError extends boolean = false>(
   options: Options<AcceptRenameRefactorData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     AcceptRenameRefactorResponses,
     AcceptRenameRefactorErrors,
     ThrowOnError
@@ -947,7 +947,7 @@ export const acceptRenameRefactor = <ThrowOnError extends boolean = false>(
 export const addKwarg = <ThrowOnError extends boolean = false>(
   options: Options<AddKwargData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     AddKwargResponses,
     AddKwargErrors,
     ThrowOnError
@@ -969,7 +969,7 @@ export const addLauncherRecentWorkspace = <
 >(
   options: Options<AddLauncherRecentWorkspaceData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     AddLauncherRecentWorkspaceResponses,
     AddLauncherRecentWorkspaceErrors,
     ThrowOnError
@@ -989,7 +989,7 @@ export const addLauncherRecentWorkspace = <
 export const listAppDeployments = <ThrowOnError extends boolean = false>(
   options?: Options<ListAppDeploymentsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     ListAppDeploymentsResponses,
     ListAppDeploymentsErrors,
     ThrowOnError
@@ -1005,7 +1005,7 @@ export const listAppDeployments = <ThrowOnError extends boolean = false>(
 export const publishAppDeployment = <ThrowOnError extends boolean = false>(
   options: Options<PublishAppDeploymentData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     PublishAppDeploymentResponses,
     PublishAppDeploymentErrors,
     ThrowOnError
@@ -1027,7 +1027,7 @@ export const getAppDeploymentCurrentSession = <
 >(
   options?: Options<GetAppDeploymentCurrentSessionData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     GetAppDeploymentCurrentSessionResponses,
     GetAppDeploymentCurrentSessionErrors,
     ThrowOnError
@@ -1043,7 +1043,7 @@ export const getAppDeploymentCurrentSession = <
 export const getAppDeploymentLatest = <ThrowOnError extends boolean = false>(
   options: Options<GetAppDeploymentLatestData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     GetAppDeploymentLatestResponses,
     GetAppDeploymentLatestErrors,
     ThrowOnError
@@ -1059,7 +1059,7 @@ export const getAppDeploymentLatest = <ThrowOnError extends boolean = false>(
 export const listAppDeploymentVersions = <ThrowOnError extends boolean = false>(
   options: Options<ListAppDeploymentVersionsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     ListAppDeploymentVersionsResponses,
     ListAppDeploymentVersionsErrors,
     ThrowOnError
@@ -1077,7 +1077,7 @@ export const getAppDeploymentProjectConfig = <
 >(
   options: Options<GetAppDeploymentProjectConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAppDeploymentProjectConfigResponses,
     GetAppDeploymentProjectConfigErrors,
     ThrowOnError
@@ -1097,7 +1097,7 @@ export const getAppDeploymentProjectConfig = <
 export const getAppDeploymentState = <ThrowOnError extends boolean = false>(
   options: Options<GetAppDeploymentStateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     GetAppDeploymentStateResponses,
     GetAppDeploymentStateErrors,
     ThrowOnError
@@ -1110,7 +1110,7 @@ export const getAppDeploymentState = <ThrowOnError extends boolean = false>(
 export const appendDrawAreaLayerItem = <ThrowOnError extends boolean = false>(
   options: Options<AppendDrawAreaLayerItemData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     AppendDrawAreaLayerItemResponses,
     AppendDrawAreaLayerItemErrors,
     ThrowOnError
@@ -1130,7 +1130,7 @@ export const appendDrawAreaLayerItem = <ThrowOnError extends boolean = false>(
 export const appendTranscriptionAudio = <ThrowOnError extends boolean = false>(
   options: Options<AppendTranscriptionAudioData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     AppendTranscriptionAudioResponses,
     AppendTranscriptionAudioErrors,
     ThrowOnError
@@ -1150,7 +1150,7 @@ export const appendTranscriptionAudio = <ThrowOnError extends boolean = false>(
 export const downloadAttachment = <ThrowOnError extends boolean = false>(
   options: Options<DownloadAttachmentData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     DownloadAttachmentResponses,
     DownloadAttachmentErrors,
     ThrowOnError
@@ -1166,7 +1166,7 @@ export const downloadAttachment = <ThrowOnError extends boolean = false>(
 export const getAuthRefreshStatus = <ThrowOnError extends boolean = false>(
   options?: Options<GetAuthRefreshStatusData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetAuthRefreshStatusResponses,
     GetAuthRefreshStatusErrors,
     ThrowOnError
@@ -1181,7 +1181,7 @@ export const autoLayoutTopLevelSections = <
 >(
   options: Options<AutoLayoutTopLevelSectionsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     AutoLayoutTopLevelSectionsResponses,
     AutoLayoutTopLevelSectionsErrors,
     ThrowOnError
@@ -1201,7 +1201,7 @@ export const autoLayoutTopLevelSections = <
 export const getBackendInitStatus = <ThrowOnError extends boolean = false>(
   options?: Options<GetBackendInitStatusData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetBackendInitStatusResponses,
     GetBackendInitStatusErrors,
     ThrowOnError
@@ -1217,7 +1217,7 @@ export const getBackendInitStatus = <ThrowOnError extends boolean = false>(
 export const uploadBinary = <ThrowOnError extends boolean = false>(
   options: Options<UploadBinaryData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UploadBinaryResponses,
     UploadBinaryErrors,
     ThrowOnError
@@ -1238,7 +1238,7 @@ export const uploadBinary = <ThrowOnError extends boolean = false>(
 export const downloadBinary = <ThrowOnError extends boolean = false>(
   options: Options<DownloadBinaryData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     DownloadBinaryResponses,
     DownloadBinaryErrors,
     ThrowOnError
@@ -1254,7 +1254,7 @@ export const downloadBinary = <ThrowOnError extends boolean = false>(
 export const cancelRun = <ThrowOnError extends boolean = false>(
   options: Options<CancelRunData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CancelRunResponses,
     CancelRunErrors,
     ThrowOnError
@@ -1276,7 +1276,7 @@ export const cancelTranscriptionSession = <
 >(
   options: Options<CancelTranscriptionSessionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CancelTranscriptionSessionResponses,
     CancelTranscriptionSessionErrors,
     ThrowOnError
@@ -1293,7 +1293,7 @@ export const cancelTranscriptionSession = <
 export const changeParamImpl = <ThrowOnError extends boolean = false>(
   options: Options<ChangeParamImplData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ChangeParamImplResponses,
     ChangeParamImplErrors,
     ThrowOnError
@@ -1313,7 +1313,7 @@ export const changeParamImpl = <ThrowOnError extends boolean = false>(
 export const checkIfFileExists = <ThrowOnError extends boolean = false>(
   options: Options<CheckIfFileExistsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CheckIfFileExistsResponses,
     CheckIfFileExistsErrors,
     ThrowOnError
@@ -1333,7 +1333,7 @@ export const checkIfFileExists = <ThrowOnError extends boolean = false>(
 export const checkWorkspaceInitialized = <ThrowOnError extends boolean = false>(
   options: Options<CheckWorkspaceInitializedData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CheckWorkspaceInitializedResponses,
     CheckWorkspaceInitializedErrors,
     ThrowOnError
@@ -1353,7 +1353,7 @@ export const checkWorkspaceInitialized = <ThrowOnError extends boolean = false>(
 export const clearTextFieldCompletion = <ThrowOnError extends boolean = false>(
   options: Options<ClearTextFieldCompletionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ClearTextFieldCompletionResponses,
     ClearTextFieldCompletionErrors,
     ThrowOnError
@@ -1373,7 +1373,7 @@ export const clearTextFieldCompletion = <ThrowOnError extends boolean = false>(
 export const codeAreaCompletion = <ThrowOnError extends boolean = false>(
   options: Options<CodeAreaCompletionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CodeAreaCompletionResponses,
     CodeAreaCompletionErrors,
     ThrowOnError
@@ -1393,7 +1393,7 @@ export const codeAreaCompletion = <ThrowOnError extends boolean = false>(
 export const createAgentProfile = <ThrowOnError extends boolean = false>(
   options: Options<CreateAgentProfileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateAgentProfileResponses,
     CreateAgentProfileErrors,
     ThrowOnError
@@ -1410,7 +1410,7 @@ export const createAgentProfile = <ThrowOnError extends boolean = false>(
 export const createAgenticEdge = <ThrowOnError extends boolean = false>(
   options: Options<CreateAgenticEdgeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateAgenticEdgeResponses,
     CreateAgenticEdgeErrors,
     ThrowOnError
@@ -1427,7 +1427,7 @@ export const createAgenticEdge = <ThrowOnError extends boolean = false>(
 export const createChildSections = <ThrowOnError extends boolean = false>(
   options: Options<CreateChildSectionsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateChildSectionsResponses,
     CreateChildSectionsErrors,
     ThrowOnError
@@ -1446,7 +1446,7 @@ export const createChildSectionsViaIncrementer = <
 >(
   options: Options<CreateChildSectionsViaIncrementerData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateChildSectionsViaIncrementerResponses,
     CreateChildSectionsViaIncrementerErrors,
     ThrowOnError
@@ -1463,7 +1463,7 @@ export const createChildSectionsViaIncrementer = <
 export const createEdge = <ThrowOnError extends boolean = false>(
   options: Options<CreateEdgeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateEdgeResponses,
     CreateEdgeErrors,
     ThrowOnError
@@ -1483,7 +1483,7 @@ export const createEdge = <ThrowOnError extends boolean = false>(
 export const createEngineConfig = <ThrowOnError extends boolean = false>(
   options: Options<CreateEngineConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateEngineConfigResponses,
     CreateEngineConfigErrors,
     ThrowOnError
@@ -1503,7 +1503,7 @@ export const createEngineConfig = <ThrowOnError extends boolean = false>(
 export const createExternalAgentConfig = <ThrowOnError extends boolean = false>(
   options: Options<CreateExternalAgentConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateExternalAgentConfigResponses,
     CreateExternalAgentConfigErrors,
     ThrowOnError
@@ -1523,7 +1523,7 @@ export const createExternalAgentConfig = <ThrowOnError extends boolean = false>(
 export const createFile = <ThrowOnError extends boolean = false>(
   options: Options<CreateFileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateFileResponses,
     CreateFileErrors,
     ThrowOnError
@@ -1540,7 +1540,7 @@ export const createFile = <ThrowOnError extends boolean = false>(
 export const createNewSectionVariant = <ThrowOnError extends boolean = false>(
   options: Options<CreateNewSectionVariantData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateNewSectionVariantResponses,
     CreateNewSectionVariantErrors,
     ThrowOnError
@@ -1560,7 +1560,7 @@ export const createNewSectionVariant = <ThrowOnError extends boolean = false>(
 export const createProjectConfig = <ThrowOnError extends boolean = false>(
   options: Options<CreateProjectConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateProjectConfigResponses,
     CreateProjectConfigErrors,
     ThrowOnError
@@ -1580,7 +1580,7 @@ export const createProjectConfig = <ThrowOnError extends boolean = false>(
 export const createPromptTemplate = <ThrowOnError extends boolean = false>(
   options: Options<CreatePromptTemplateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreatePromptTemplateResponses,
     CreatePromptTemplateErrors,
     ThrowOnError
@@ -1597,7 +1597,7 @@ export const createPromptTemplate = <ThrowOnError extends boolean = false>(
 export const createStateMachineEdge = <ThrowOnError extends boolean = false>(
   options: Options<CreateStateMachineEdgeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateStateMachineEdgeResponses,
     CreateStateMachineEdgeErrors,
     ThrowOnError
@@ -1614,7 +1614,7 @@ export const createStateMachineEdge = <ThrowOnError extends boolean = false>(
 export const createTopLevelSection = <ThrowOnError extends boolean = false>(
   options: Options<CreateTopLevelSectionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateTopLevelSectionResponses,
     CreateTopLevelSectionErrors,
     ThrowOnError
@@ -1636,7 +1636,7 @@ export const createTranscriptionProfile = <
 >(
   options: Options<CreateTranscriptionProfileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateTranscriptionProfileResponses,
     CreateTranscriptionProfileErrors,
     ThrowOnError
@@ -1653,7 +1653,7 @@ export const createTranscriptionProfile = <
 export const createViewMode = <ThrowOnError extends boolean = false>(
   options: Options<CreateViewModeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateViewModeResponses,
     CreateViewModeErrors,
     ThrowOnError
@@ -1670,7 +1670,7 @@ export const createViewMode = <ThrowOnError extends boolean = false>(
 export const createWindowSpace = <ThrowOnError extends boolean = false>(
   options: Options<CreateWindowSpaceData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateWindowSpaceResponses,
     CreateWindowSpaceErrors,
     ThrowOnError
@@ -1692,7 +1692,7 @@ export const createWorkspaceLaunchIntent = <
 >(
   options: Options<CreateWorkspaceLaunchIntentData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     CreateWorkspaceLaunchIntentResponses,
     CreateWorkspaceLaunchIntentErrors,
     ThrowOnError
@@ -1709,7 +1709,7 @@ export const createWorkspaceLaunchIntent = <
 export const declineRenameRefactor = <ThrowOnError extends boolean = false>(
   options: Options<DeclineRenameRefactorData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeclineRenameRefactorResponses,
     DeclineRenameRefactorErrors,
     ThrowOnError
@@ -1729,7 +1729,7 @@ export const declineRenameRefactor = <ThrowOnError extends boolean = false>(
 export const deleteAgentProfile = <ThrowOnError extends boolean = false>(
   options: Options<DeleteAgentProfileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteAgentProfileResponses,
     DeleteAgentProfileErrors,
     ThrowOnError
@@ -1746,7 +1746,7 @@ export const deleteAgentProfile = <ThrowOnError extends boolean = false>(
 export const deleteAgenticEdges = <ThrowOnError extends boolean = false>(
   options: Options<DeleteAgenticEdgesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteAgenticEdgesResponses,
     DeleteAgenticEdgesErrors,
     ThrowOnError
@@ -1766,7 +1766,7 @@ export const deleteAgenticEdges = <ThrowOnError extends boolean = false>(
 export const deleteArtifacts = <ThrowOnError extends boolean = false>(
   options: Options<DeleteArtifactsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteArtifactsResponses,
     DeleteArtifactsErrors,
     ThrowOnError
@@ -1785,7 +1785,7 @@ export const deleteChildSectionsViaDecrementer = <
 >(
   options: Options<DeleteChildSectionsViaDecrementerData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteChildSectionsViaDecrementerResponses,
     DeleteChildSectionsViaDecrementerErrors,
     ThrowOnError
@@ -1802,7 +1802,7 @@ export const deleteChildSectionsViaDecrementer = <
 export const deleteEdges = <ThrowOnError extends boolean = false>(
   options: Options<DeleteEdgesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteEdgesResponses,
     DeleteEdgesErrors,
     ThrowOnError
@@ -1822,7 +1822,7 @@ export const deleteEdges = <ThrowOnError extends boolean = false>(
 export const deleteEngineConfig = <ThrowOnError extends boolean = false>(
   options: Options<DeleteEngineConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteEngineConfigResponses,
     DeleteEngineConfigErrors,
     ThrowOnError
@@ -1842,7 +1842,7 @@ export const deleteEngineConfig = <ThrowOnError extends boolean = false>(
 export const deleteExternalAgentConfig = <ThrowOnError extends boolean = false>(
   options: Options<DeleteExternalAgentConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteExternalAgentConfigResponses,
     DeleteExternalAgentConfigErrors,
     ThrowOnError
@@ -1861,7 +1861,7 @@ export const deleteJsonSourceFileAndVariant = <
 >(
   options: Options<DeleteJsonSourceFileAndVariantData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteJsonSourceFileAndVariantResponses,
     DeleteJsonSourceFileAndVariantErrors,
     ThrowOnError
@@ -1878,7 +1878,7 @@ export const deleteJsonSourceFileAndVariant = <
 export const deleteKwarg = <ThrowOnError extends boolean = false>(
   options: Options<DeleteKwargData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteKwargResponses,
     DeleteKwargErrors,
     ThrowOnError
@@ -1898,7 +1898,7 @@ export const deleteKwarg = <ThrowOnError extends boolean = false>(
 export const deleteNotification = <ThrowOnError extends boolean = false>(
   options: Options<DeleteNotificationData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteNotificationResponses,
     DeleteNotificationErrors,
     ThrowOnError
@@ -1918,7 +1918,7 @@ export const deleteNotification = <ThrowOnError extends boolean = false>(
 export const deleteProjectConfigs = <ThrowOnError extends boolean = false>(
   options: Options<DeleteProjectConfigsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteProjectConfigsResponses,
     DeleteProjectConfigsErrors,
     ThrowOnError
@@ -1938,7 +1938,7 @@ export const deleteProjectConfigs = <ThrowOnError extends boolean = false>(
 export const deletePromptTemplate = <ThrowOnError extends boolean = false>(
   options: Options<DeletePromptTemplateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeletePromptTemplateResponses,
     DeletePromptTemplateErrors,
     ThrowOnError
@@ -1955,7 +1955,7 @@ export const deletePromptTemplate = <ThrowOnError extends boolean = false>(
 export const deleteSectionVariantOrAsk = <ThrowOnError extends boolean = false>(
   options: Options<DeleteSectionVariantOrAskData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteSectionVariantOrAskResponses,
     DeleteSectionVariantOrAskErrors,
     ThrowOnError
@@ -1972,7 +1972,7 @@ export const deleteSectionVariantOrAsk = <ThrowOnError extends boolean = false>(
 export const deleteSections = <ThrowOnError extends boolean = false>(
   options: Options<DeleteSectionsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteSectionsResponses,
     DeleteSectionsErrors,
     ThrowOnError
@@ -1989,7 +1989,7 @@ export const deleteSections = <ThrowOnError extends boolean = false>(
 export const deleteSelectedParams = <ThrowOnError extends boolean = false>(
   options: Options<DeleteSelectedParamsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteSelectedParamsResponses,
     DeleteSelectedParamsErrors,
     ThrowOnError
@@ -2006,7 +2006,7 @@ export const deleteSelectedParams = <ThrowOnError extends boolean = false>(
 export const deleteStateMachineEdges = <ThrowOnError extends boolean = false>(
   options: Options<DeleteStateMachineEdgesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteStateMachineEdgesResponses,
     DeleteStateMachineEdgesErrors,
     ThrowOnError
@@ -2026,7 +2026,7 @@ export const deleteStateMachineEdges = <ThrowOnError extends boolean = false>(
 export const deleteTerminals = <ThrowOnError extends boolean = false>(
   options: Options<DeleteTerminalsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteTerminalsResponses,
     DeleteTerminalsErrors,
     ThrowOnError
@@ -2048,7 +2048,7 @@ export const deleteTranscriptionProfile = <
 >(
   options: Options<DeleteTranscriptionProfileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteTranscriptionProfileResponses,
     DeleteTranscriptionProfileErrors,
     ThrowOnError
@@ -2065,7 +2065,7 @@ export const deleteTranscriptionProfile = <
 export const deleteViewMode = <ThrowOnError extends boolean = false>(
   options: Options<DeleteViewModeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteViewModeResponses,
     DeleteViewModeErrors,
     ThrowOnError
@@ -2082,7 +2082,7 @@ export const deleteViewMode = <ThrowOnError extends boolean = false>(
 export const deleteWindowSpace = <ThrowOnError extends boolean = false>(
   options: Options<DeleteWindowSpaceData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DeleteWindowSpaceResponses,
     DeleteWindowSpaceErrors,
     ThrowOnError
@@ -2102,7 +2102,7 @@ export const deleteWindowSpace = <ThrowOnError extends boolean = false>(
 export const docstringToMarkdown = <ThrowOnError extends boolean = false>(
   options: Options<DocstringToMarkdownData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DocstringToMarkdownResponses,
     DocstringToMarkdownErrors,
     ThrowOnError
@@ -2122,7 +2122,7 @@ export const docstringToMarkdown = <ThrowOnError extends boolean = false>(
 export const downloadFileBrowserEntry = <ThrowOnError extends boolean = false>(
   options: Options<DownloadFileBrowserEntryData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     DownloadFileBrowserEntryResponses,
     DownloadFileBrowserEntryErrors,
     ThrowOnError
@@ -2138,7 +2138,7 @@ export const downloadFileBrowserEntry = <ThrowOnError extends boolean = false>(
 export const forceRefreshListener = <ThrowOnError extends boolean = false>(
   options: Options<ForceRefreshListenerData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ForceRefreshListenerResponses,
     ForceRefreshListenerErrors,
     ThrowOnError
@@ -2155,7 +2155,7 @@ export const forceRefreshListener = <ThrowOnError extends boolean = false>(
 export const formatCode = <ThrowOnError extends boolean = false>(
   options: Options<FormatCodeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     FormatCodeResponses,
     FormatCodeErrors,
     ThrowOnError
@@ -2175,7 +2175,7 @@ export const formatCode = <ThrowOnError extends boolean = false>(
 export const genCodePrefixCompletion = <ThrowOnError extends boolean = false>(
   options: Options<GenCodePrefixCompletionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GenCodePrefixCompletionResponses,
     GenCodePrefixCompletionErrors,
     ThrowOnError
@@ -2195,7 +2195,7 @@ export const genCodePrefixCompletion = <ThrowOnError extends boolean = false>(
 export const genCodeSuffixCompletion = <ThrowOnError extends boolean = false>(
   options: Options<GenCodeSuffixCompletionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GenCodeSuffixCompletionResponses,
     GenCodeSuffixCompletionErrors,
     ThrowOnError
@@ -2215,7 +2215,7 @@ export const genCodeSuffixCompletion = <ThrowOnError extends boolean = false>(
 export const getAiFollowSnapshot = <ThrowOnError extends boolean = false>(
   options: Options<GetAiFollowSnapshotData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAiFollowSnapshotResponses,
     GetAiFollowSnapshotErrors,
     ThrowOnError
@@ -2235,7 +2235,7 @@ export const getAiFollowSnapshot = <ThrowOnError extends boolean = false>(
 export const getAgentProfile = <ThrowOnError extends boolean = false>(
   options: Options<GetAgentProfileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAgentProfileResponses,
     GetAgentProfileErrors,
     ThrowOnError
@@ -2255,7 +2255,7 @@ export const getAgentProfile = <ThrowOnError extends boolean = false>(
 export const getAgentProfiles = <ThrowOnError extends boolean = false>(
   options?: Options<GetAgentProfilesData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetAgentProfilesResponses,
     GetAgentProfilesErrors,
     ThrowOnError
@@ -2271,7 +2271,7 @@ export const getAgentProfiles = <ThrowOnError extends boolean = false>(
 export const getAgentRun = <ThrowOnError extends boolean = false>(
   options: Options<GetAgentRunData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAgentRunResponses,
     GetAgentRunErrors,
     ThrowOnError
@@ -2291,7 +2291,7 @@ export const getAgentRun = <ThrowOnError extends boolean = false>(
 export const getAgentRuns = <ThrowOnError extends boolean = false>(
   options?: Options<GetAgentRunsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetAgentRunsResponses,
     GetAgentRunsErrors,
     ThrowOnError
@@ -2309,7 +2309,7 @@ export const getAgenticSummaryCacheStatus = <
 >(
   options: Options<GetAgenticSummaryCacheStatusData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAgenticSummaryCacheStatusResponses,
     GetAgenticSummaryCacheStatusErrors,
     ThrowOnError
@@ -2329,7 +2329,7 @@ export const getAgenticSummaryCacheStatus = <
 export const getAppCatalog = <ThrowOnError extends boolean = false>(
   options?: Options<GetAppCatalogData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetAppCatalogResponses,
     GetAppCatalogErrors,
     ThrowOnError
@@ -2345,7 +2345,7 @@ export const getAppCatalog = <ThrowOnError extends boolean = false>(
 export const getAppDefinition = <ThrowOnError extends boolean = false>(
   options: Options<GetAppDefinitionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAppDefinitionResponses,
     GetAppDefinitionErrors,
     ThrowOnError
@@ -2365,7 +2365,7 @@ export const getAppDefinition = <ThrowOnError extends boolean = false>(
 export const getAppGenSkillContent = <ThrowOnError extends boolean = false>(
   options: Options<GetAppGenSkillContentData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAppGenSkillContentResponses,
     GetAppGenSkillContentErrors,
     ThrowOnError
@@ -2385,7 +2385,7 @@ export const getAppGenSkillContent = <ThrowOnError extends boolean = false>(
 export const getAppGenSkills = <ThrowOnError extends boolean = false>(
   options?: Options<GetAppGenSkillsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetAppGenSkillsResponses,
     GetAppGenSkillsErrors,
     ThrowOnError
@@ -2401,7 +2401,7 @@ export const getAppGenSkills = <ThrowOnError extends boolean = false>(
 export const getAttachmentDownloadUrl = <ThrowOnError extends boolean = false>(
   options: Options<GetAttachmentDownloadUrlData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAttachmentDownloadUrlResponses,
     GetAttachmentDownloadUrlErrors,
     ThrowOnError
@@ -2421,7 +2421,7 @@ export const getAttachmentDownloadUrl = <ThrowOnError extends boolean = false>(
 export const getAttachmentDownloadUrls = <ThrowOnError extends boolean = false>(
   options: Options<GetAttachmentDownloadUrlsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetAttachmentDownloadUrlsResponses,
     GetAttachmentDownloadUrlsErrors,
     ThrowOnError
@@ -2438,7 +2438,7 @@ export const getAttachmentDownloadUrls = <ThrowOnError extends boolean = false>(
 export const getChatSectionChatId = <ThrowOnError extends boolean = false>(
   options: Options<GetChatSectionChatIdData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetChatSectionChatIdResponses,
     GetChatSectionChatIdErrors,
     ThrowOnError
@@ -2458,7 +2458,7 @@ export const getChatSectionChatId = <ThrowOnError extends boolean = false>(
 export const getEngineConfig = <ThrowOnError extends boolean = false>(
   options: Options<GetEngineConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetEngineConfigResponses,
     GetEngineConfigErrors,
     ThrowOnError
@@ -2478,7 +2478,7 @@ export const getEngineConfig = <ThrowOnError extends boolean = false>(
 export const getEngineConfigs = <ThrowOnError extends boolean = false>(
   options?: Options<GetEngineConfigsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetEngineConfigsResponses,
     GetEngineConfigsErrors,
     ThrowOnError
@@ -2494,7 +2494,7 @@ export const getEngineConfigs = <ThrowOnError extends boolean = false>(
 export const getExternalAgentChat = <ThrowOnError extends boolean = false>(
   options: Options<GetExternalAgentChatData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetExternalAgentChatResponses,
     GetExternalAgentChatErrors,
     ThrowOnError
@@ -2514,7 +2514,7 @@ export const getExternalAgentChat = <ThrowOnError extends boolean = false>(
 export const getExternalAgentConfig = <ThrowOnError extends boolean = false>(
   options: Options<GetExternalAgentConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetExternalAgentConfigResponses,
     GetExternalAgentConfigErrors,
     ThrowOnError
@@ -2534,7 +2534,7 @@ export const getExternalAgentConfig = <ThrowOnError extends boolean = false>(
 export const getExternalAgentConfigs = <ThrowOnError extends boolean = false>(
   options?: Options<GetExternalAgentConfigsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetExternalAgentConfigsResponses,
     GetExternalAgentConfigsErrors,
     ThrowOnError
@@ -2550,7 +2550,7 @@ export const getExternalAgentConfigs = <ThrowOnError extends boolean = false>(
 export const getExternalAgentHealth = <ThrowOnError extends boolean = false>(
   options?: Options<GetExternalAgentHealthData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetExternalAgentHealthResponses,
     GetExternalAgentHealthErrors,
     ThrowOnError
@@ -2568,7 +2568,7 @@ export const getFileBrowserDownloadUrls = <
 >(
   options: Options<GetFileBrowserDownloadUrlsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetFileBrowserDownloadUrlsResponses,
     GetFileBrowserDownloadUrlsErrors,
     ThrowOnError
@@ -2588,7 +2588,7 @@ export const getFileBrowserDownloadUrls = <
 export const getFileBrowserFileContent = <ThrowOnError extends boolean = false>(
   options: Options<GetFileBrowserFileContentData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetFileBrowserFileContentResponses,
     GetFileBrowserFileContentErrors,
     ThrowOnError
@@ -2608,7 +2608,7 @@ export const getFileBrowserFileContent = <ThrowOnError extends boolean = false>(
 export const getFileBrowserFileStat = <ThrowOnError extends boolean = false>(
   options: Options<GetFileBrowserFileStatData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetFileBrowserFileStatResponses,
     GetFileBrowserFileStatErrors,
     ThrowOnError
@@ -2628,7 +2628,7 @@ export const getFileBrowserFileStat = <ThrowOnError extends boolean = false>(
 export const getFileBrowserRoot = <ThrowOnError extends boolean = false>(
   options?: Options<GetFileBrowserRootData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     GetFileBrowserRootResponses,
     GetFileBrowserRootErrors,
     ThrowOnError
@@ -2644,7 +2644,7 @@ export const getFileBrowserRoot = <ThrowOnError extends boolean = false>(
 export const getFolderContents = <ThrowOnError extends boolean = false>(
   options: Options<GetFolderContentsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetFolderContentsResponses,
     GetFolderContentsErrors,
     ThrowOnError
@@ -2664,7 +2664,7 @@ export const getFolderContents = <ThrowOnError extends boolean = false>(
 export const getLlmChat = <ThrowOnError extends boolean = false>(
   options: Options<GetLlmChatData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetLlmChatResponses,
     GetLlmChatErrors,
     ThrowOnError
@@ -2684,7 +2684,7 @@ export const getLlmChat = <ThrowOnError extends boolean = false>(
 export const getLlmResponse = <ThrowOnError extends boolean = false>(
   options: Options<GetLlmResponseData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetLlmResponseResponses,
     GetLlmResponseErrors,
     ThrowOnError
@@ -2704,7 +2704,7 @@ export const getLlmResponse = <ThrowOnError extends boolean = false>(
 export const getLatestLspDiagnostics = <ThrowOnError extends boolean = false>(
   options: Options<GetLatestLspDiagnosticsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetLatestLspDiagnosticsResponses,
     GetLatestLspDiagnosticsErrors,
     ThrowOnError
@@ -2721,7 +2721,7 @@ export const getLatestLspDiagnostics = <ThrowOnError extends boolean = false>(
 export const getLatestProjectState = <ThrowOnError extends boolean = false>(
   options: Options<GetLatestProjectStateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetLatestProjectStateResponses,
     GetLatestProjectStateErrors,
     ThrowOnError
@@ -2741,7 +2741,7 @@ export const getLatestProjectState = <ThrowOnError extends boolean = false>(
 export const getListenerCoverage = <ThrowOnError extends boolean = false>(
   options: Options<GetListenerCoverageData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetListenerCoverageResponses,
     GetListenerCoverageErrors,
     ThrowOnError
@@ -2761,7 +2761,7 @@ export const getListenerCoverage = <ThrowOnError extends boolean = false>(
 export const getNotifications = <ThrowOnError extends boolean = false>(
   options: Options<GetNotificationsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetNotificationsResponses,
     GetNotificationsErrors,
     ThrowOnError
@@ -2778,7 +2778,7 @@ export const getNotifications = <ThrowOnError extends boolean = false>(
 export const getPasswordParamValue = <ThrowOnError extends boolean = false>(
   options: Options<GetPasswordParamValueData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetPasswordParamValueResponses,
     GetPasswordParamValueErrors,
     ThrowOnError
@@ -2798,7 +2798,7 @@ export const getPasswordParamValue = <ThrowOnError extends boolean = false>(
 export const getPromptTemplate = <ThrowOnError extends boolean = false>(
   options: Options<GetPromptTemplateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetPromptTemplateResponses,
     GetPromptTemplateErrors,
     ThrowOnError
@@ -2818,7 +2818,7 @@ export const getPromptTemplate = <ThrowOnError extends boolean = false>(
 export const getPromptTemplates = <ThrowOnError extends boolean = false>(
   options?: Options<GetPromptTemplatesData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetPromptTemplatesResponses,
     GetPromptTemplatesErrors,
     ThrowOnError
@@ -2834,7 +2834,7 @@ export const getPromptTemplates = <ThrowOnError extends boolean = false>(
 export const getRunStatus = <ThrowOnError extends boolean = false>(
   options: Options<GetRunStatusData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetRunStatusResponses,
     GetRunStatusErrors,
     ThrowOnError
@@ -2854,7 +2854,7 @@ export const getRunStatus = <ThrowOnError extends boolean = false>(
 export const getRunnerSummary = <ThrowOnError extends boolean = false>(
   options: Options<GetRunnerSummaryData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetRunnerSummaryResponses,
     GetRunnerSummaryErrors,
     ThrowOnError
@@ -2874,7 +2874,7 @@ export const getRunnerSummary = <ThrowOnError extends boolean = false>(
 export const getStateMachineRun = <ThrowOnError extends boolean = false>(
   options: Options<GetStateMachineRunData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetStateMachineRunResponses,
     GetStateMachineRunErrors,
     ThrowOnError
@@ -2894,7 +2894,7 @@ export const getStateMachineRun = <ThrowOnError extends boolean = false>(
 export const getTranscriptionProfiles = <ThrowOnError extends boolean = false>(
   options?: Options<GetTranscriptionProfilesData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetTranscriptionProfilesResponses,
     GetTranscriptionProfilesErrors,
     ThrowOnError
@@ -2910,7 +2910,7 @@ export const getTranscriptionProfiles = <ThrowOnError extends boolean = false>(
 export const getWorkspacePythonSignal = <ThrowOnError extends boolean = false>(
   options: Options<GetWorkspacePythonSignalData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetWorkspacePythonSignalResponses,
     GetWorkspacePythonSignalErrors,
     ThrowOnError
@@ -2930,7 +2930,7 @@ export const getWorkspacePythonSignal = <ThrowOnError extends boolean = false>(
 export const getGitCommitDetails = <ThrowOnError extends boolean = false>(
   options: Options<GetGitCommitDetailsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetGitCommitDetailsResponses,
     GetGitCommitDetailsErrors,
     ThrowOnError
@@ -2950,7 +2950,7 @@ export const getGitCommitDetails = <ThrowOnError extends boolean = false>(
 export const getGitCommitFileDiff = <ThrowOnError extends boolean = false>(
   options: Options<GetGitCommitFileDiffData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetGitCommitFileDiffResponses,
     GetGitCommitFileDiffErrors,
     ThrowOnError
@@ -2970,7 +2970,7 @@ export const getGitCommitFileDiff = <ThrowOnError extends boolean = false>(
 export const getGitDiff = <ThrowOnError extends boolean = false>(
   options: Options<GetGitDiffData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetGitDiffResponses,
     GetGitDiffErrors,
     ThrowOnError
@@ -2990,7 +2990,7 @@ export const getGitDiff = <ThrowOnError extends boolean = false>(
 export const getGitLog = <ThrowOnError extends boolean = false>(
   options: Options<GetGitLogData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetGitLogResponses,
     GetGitLogErrors,
     ThrowOnError
@@ -3010,7 +3010,7 @@ export const getGitLog = <ThrowOnError extends boolean = false>(
 export const getGitStatus = <ThrowOnError extends boolean = false>(
   options?: Options<GetGitStatusData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     GetGitStatusResponses,
     GetGitStatusErrors,
     ThrowOnError
@@ -3023,7 +3023,7 @@ export const getGitStatus = <ThrowOnError extends boolean = false>(
 export const groupSections = <ThrowOnError extends boolean = false>(
   options: Options<GroupSectionsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GroupSectionsResponses,
     GroupSectionsErrors,
     ThrowOnError
@@ -3043,7 +3043,7 @@ export const groupSections = <ThrowOnError extends boolean = false>(
 export const importFilesToArtifacts = <ThrowOnError extends boolean = false>(
   options: Options<ImportFilesToArtifactsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ImportFilesToArtifactsResponses,
     ImportFilesToArtifactsErrors,
     ThrowOnError
@@ -3060,7 +3060,7 @@ export const importFilesToArtifacts = <ThrowOnError extends boolean = false>(
 export const indentParams = <ThrowOnError extends boolean = false>(
   options: Options<IndentParamsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     IndentParamsResponses,
     IndentParamsErrors,
     ThrowOnError
@@ -3082,7 +3082,7 @@ export const interruptTerminalProcesses = <
 >(
   options: Options<InterruptTerminalProcessesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     InterruptTerminalProcessesResponses,
     InterruptTerminalProcessesErrors,
     ThrowOnError
@@ -3102,7 +3102,7 @@ export const interruptTerminalProcesses = <
 export const launchWorkspace = <ThrowOnError extends boolean = false>(
   options: Options<LaunchWorkspaceData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     LaunchWorkspaceResponses,
     LaunchWorkspaceErrors,
     ThrowOnError
@@ -3124,7 +3124,7 @@ export const getLauncherFilesystemRoots = <
 >(
   options?: Options<GetLauncherFilesystemRootsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetLauncherFilesystemRootsResponses,
     GetLauncherFilesystemRootsErrors,
     ThrowOnError
@@ -3142,7 +3142,7 @@ export const getLauncherRecentWorkspaces = <
 >(
   options?: Options<GetLauncherRecentWorkspacesData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetLauncherRecentWorkspacesResponses,
     GetLauncherRecentWorkspacesErrors,
     ThrowOnError
@@ -3158,7 +3158,7 @@ export const getLauncherRecentWorkspaces = <
 export const getLauncherStatus = <ThrowOnError extends boolean = false>(
   options?: Options<GetLauncherStatusData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetLauncherStatusResponses,
     GetLauncherStatusErrors,
     ThrowOnError
@@ -3174,7 +3174,7 @@ export const getLauncherStatus = <ThrowOnError extends boolean = false>(
 export const listLauncherDirectory = <ThrowOnError extends boolean = false>(
   options: Options<ListLauncherDirectoryData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ListLauncherDirectoryResponses,
     ListLauncherDirectoryErrors,
     ThrowOnError
@@ -3194,7 +3194,7 @@ export const listLauncherDirectory = <ThrowOnError extends boolean = false>(
 export const getLlmApiKeys = <ThrowOnError extends boolean = false>(
   options?: Options<GetLlmApiKeysData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetLlmApiKeysResponses,
     GetLlmApiKeysErrors,
     ThrowOnError
@@ -3210,7 +3210,7 @@ export const getLlmApiKeys = <ThrowOnError extends boolean = false>(
 export const setLlmApiKeys = <ThrowOnError extends boolean = false>(
   options: Options<SetLlmApiKeysData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetLlmApiKeysResponses,
     SetLlmApiKeysErrors,
     ThrowOnError
@@ -3230,7 +3230,7 @@ export const setLlmApiKeys = <ThrowOnError extends boolean = false>(
 export const getLlmConfig = <ThrowOnError extends boolean = false>(
   options?: Options<GetLlmConfigData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetLlmConfigResponses,
     GetLlmConfigErrors,
     ThrowOnError
@@ -3246,7 +3246,7 @@ export const getLlmConfig = <ThrowOnError extends boolean = false>(
 export const setLlmConfig = <ThrowOnError extends boolean = false>(
   options: Options<SetLlmConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetLlmConfigResponses,
     SetLlmConfigErrors,
     ThrowOnError
@@ -3266,7 +3266,7 @@ export const setLlmConfig = <ThrowOnError extends boolean = false>(
 export const loadAllProjectMetadata = <ThrowOnError extends boolean = false>(
   options?: Options<LoadAllProjectMetadataData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     LoadAllProjectMetadataResponses,
     LoadAllProjectMetadataErrors,
     ThrowOnError
@@ -3282,7 +3282,7 @@ export const loadAllProjectMetadata = <ThrowOnError extends boolean = false>(
 export const loadCachedBrushStrokes = <ThrowOnError extends boolean = false>(
   options: Options<LoadCachedBrushStrokesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     LoadCachedBrushStrokesResponses,
     LoadCachedBrushStrokesErrors,
     ThrowOnError
@@ -3302,7 +3302,7 @@ export const loadCachedBrushStrokes = <ThrowOnError extends boolean = false>(
 export const loadCachedChartData = <ThrowOnError extends boolean = false>(
   options: Options<LoadCachedChartDataData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     LoadCachedChartDataResponses,
     LoadCachedChartDataErrors,
     ThrowOnError
@@ -3322,7 +3322,7 @@ export const loadCachedChartData = <ThrowOnError extends boolean = false>(
 export const loadCachedImageArtifacts = <ThrowOnError extends boolean = false>(
   options: Options<LoadCachedImageArtifactsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     LoadCachedImageArtifactsResponses,
     LoadCachedImageArtifactsErrors,
     ThrowOnError
@@ -3344,7 +3344,7 @@ export const loadCachedDrawAreaLayerItemTransform = <
 >(
   options: Options<LoadCachedDrawAreaLayerItemTransformData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     LoadCachedDrawAreaLayerItemTransformResponses,
     LoadCachedDrawAreaLayerItemTransformErrors,
     ThrowOnError
@@ -3364,7 +3364,7 @@ export const loadCachedDrawAreaLayerItemTransform = <
 export const loadProjectConfig = <ThrowOnError extends boolean = false>(
   options: Options<LoadProjectConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     LoadProjectConfigResponses,
     LoadProjectConfigErrors,
     ThrowOnError
@@ -3384,7 +3384,7 @@ export const loadProjectConfig = <ThrowOnError extends boolean = false>(
 export const loadSettings = <ThrowOnError extends boolean = false>(
   options?: Options<LoadSettingsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     LoadSettingsResponses,
     LoadSettingsErrors,
     ThrowOnError
@@ -3400,7 +3400,7 @@ export const loadSettings = <ThrowOnError extends boolean = false>(
 export const getMcpServerRuntimeStatus = <ThrowOnError extends boolean = false>(
   options: Options<GetMcpServerRuntimeStatusData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetMcpServerRuntimeStatusResponses,
     GetMcpServerRuntimeStatusErrors,
     ThrowOnError
@@ -3417,7 +3417,7 @@ export const getMcpServerRuntimeStatus = <ThrowOnError extends boolean = false>(
 export const moveParamGroups = <ThrowOnError extends boolean = false>(
   options: Options<MoveParamGroupsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     MoveParamGroupsResponses,
     MoveParamGroupsErrors,
     ThrowOnError
@@ -3434,7 +3434,7 @@ export const moveParamGroups = <ThrowOnError extends boolean = false>(
 export const moveParams = <ThrowOnError extends boolean = false>(
   options: Options<MoveParamsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     MoveParamsResponses,
     MoveParamsErrors,
     ThrowOnError
@@ -3451,7 +3451,7 @@ export const moveParams = <ThrowOnError extends boolean = false>(
 export const moveSections = <ThrowOnError extends boolean = false>(
   options: Options<MoveSectionsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     MoveSectionsResponses,
     MoveSectionsErrors,
     ThrowOnError
@@ -3471,7 +3471,7 @@ export const moveSections = <ThrowOnError extends boolean = false>(
 export const openLauncherWorkspace = <ThrowOnError extends boolean = false>(
   options: Options<OpenLauncherWorkspaceData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     OpenLauncherWorkspaceResponses,
     OpenLauncherWorkspaceErrors,
     ThrowOnError
@@ -3491,7 +3491,7 @@ export const openLauncherWorkspace = <ThrowOnError extends boolean = false>(
 export const outputAccessorCompletion = <ThrowOnError extends boolean = false>(
   options: Options<OutputAccessorCompletionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     OutputAccessorCompletionResponses,
     OutputAccessorCompletionErrors,
     ThrowOnError
@@ -3508,7 +3508,7 @@ export const outputAccessorCompletion = <ThrowOnError extends boolean = false>(
 export const pasteSections = <ThrowOnError extends boolean = false>(
   options: Options<PasteSectionsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     PasteSectionsResponses,
     PasteSectionsErrors,
     ThrowOnError
@@ -3530,7 +3530,7 @@ export const pinLauncherRecentWorkspace = <
 >(
   options: Options<PinLauncherRecentWorkspaceData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     PinLauncherRecentWorkspaceResponses,
     PinLauncherRecentWorkspaceErrors,
     ThrowOnError
@@ -3550,7 +3550,7 @@ export const pinLauncherRecentWorkspace = <
 export const writePluginConfig = <ThrowOnError extends boolean = false>(
   options: Options<WritePluginConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     WritePluginConfigResponses,
     WritePluginConfigErrors,
     ThrowOnError
@@ -3570,7 +3570,7 @@ export const writePluginConfig = <ThrowOnError extends boolean = false>(
 export const disablePlugin = <ThrowOnError extends boolean = false>(
   options: Options<DisablePluginData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     DisablePluginResponses,
     DisablePluginErrors,
     ThrowOnError
@@ -3590,7 +3590,7 @@ export const disablePlugin = <ThrowOnError extends boolean = false>(
 export const enablePlugin = <ThrowOnError extends boolean = false>(
   options: Options<EnablePluginData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     EnablePluginResponses,
     EnablePluginErrors,
     ThrowOnError
@@ -3610,7 +3610,7 @@ export const enablePlugin = <ThrowOnError extends boolean = false>(
 export const installPlugin = <ThrowOnError extends boolean = false>(
   options: Options<InstallPluginData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     InstallPluginResponses,
     InstallPluginErrors,
     ThrowOnError
@@ -3630,7 +3630,7 @@ export const installPlugin = <ThrowOnError extends boolean = false>(
 export const linkPlugin = <ThrowOnError extends boolean = false>(
   options: Options<LinkPluginData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     LinkPluginResponses,
     LinkPluginErrors,
     ThrowOnError
@@ -3650,7 +3650,7 @@ export const linkPlugin = <ThrowOnError extends boolean = false>(
 export const applyPluginLockfile = <ThrowOnError extends boolean = false>(
   options: Options<ApplyPluginLockfileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ApplyPluginLockfileResponses,
     ApplyPluginLockfileErrors,
     ThrowOnError
@@ -3670,7 +3670,7 @@ export const applyPluginLockfile = <ThrowOnError extends boolean = false>(
 export const writePluginLockfile = <ThrowOnError extends boolean = false>(
   options?: Options<WritePluginLockfileData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     WritePluginLockfileResponses,
     WritePluginLockfileErrors,
     ThrowOnError
@@ -3686,7 +3686,7 @@ export const writePluginLockfile = <ThrowOnError extends boolean = false>(
 export const rescanPlugins = <ThrowOnError extends boolean = false>(
   options?: Options<RescanPluginsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     RescanPluginsResponses,
     RescanPluginsErrors,
     ThrowOnError
@@ -3702,7 +3702,7 @@ export const rescanPlugins = <ThrowOnError extends boolean = false>(
 export const restartPlugins = <ThrowOnError extends boolean = false>(
   options?: Options<RestartPluginsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     RestartPluginsResponses,
     RestartPluginsErrors,
     ThrowOnError
@@ -3718,7 +3718,7 @@ export const restartPlugins = <ThrowOnError extends boolean = false>(
 export const rollbackPlugin = <ThrowOnError extends boolean = false>(
   options: Options<RollbackPluginData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RollbackPluginResponses,
     RollbackPluginErrors,
     ThrowOnError
@@ -3738,7 +3738,7 @@ export const rollbackPlugin = <ThrowOnError extends boolean = false>(
 export const getPluginsRuntime = <ThrowOnError extends boolean = false>(
   options?: Options<GetPluginsRuntimeData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetPluginsRuntimeResponses,
     GetPluginsRuntimeErrors,
     ThrowOnError
@@ -3754,7 +3754,7 @@ export const getPluginsRuntime = <ThrowOnError extends boolean = false>(
 export const uninstallPlugin = <ThrowOnError extends boolean = false>(
   options: Options<UninstallPluginData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UninstallPluginResponses,
     UninstallPluginErrors,
     ThrowOnError
@@ -3774,7 +3774,7 @@ export const uninstallPlugin = <ThrowOnError extends boolean = false>(
 export const updatePlugin = <ThrowOnError extends boolean = false>(
   options: Options<UpdatePluginData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdatePluginResponses,
     UpdatePluginErrors,
     ThrowOnError
@@ -3791,7 +3791,7 @@ export const updatePlugin = <ThrowOnError extends boolean = false>(
 export const prepareSectionsForCopy = <ThrowOnError extends boolean = false>(
   options: Options<PrepareSectionsForCopyData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     PrepareSectionsForCopyResponses,
     PrepareSectionsForCopyErrors,
     ThrowOnError
@@ -3808,7 +3808,7 @@ export const prepareSectionsForCopy = <ThrowOnError extends boolean = false>(
 export const reconnectEdge = <ThrowOnError extends boolean = false>(
   options: Options<ReconnectEdgeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ReconnectEdgeResponses,
     ReconnectEdgeErrors,
     ThrowOnError
@@ -3825,7 +3825,7 @@ export const reconnectEdge = <ThrowOnError extends boolean = false>(
 export const redo = <ThrowOnError extends boolean = false>(
   options: Options<RedoData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RedoResponses,
     RedoErrors,
     ThrowOnError
@@ -3845,7 +3845,7 @@ export const redo = <ThrowOnError extends boolean = false>(
 export const removeLauncher = <ThrowOnError extends boolean = false>(
   options: Options<RemoveLauncherData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RemoveLauncherResponses,
     RemoveLauncherErrors,
     ThrowOnError
@@ -3867,7 +3867,7 @@ export const removeLauncherRecentWorkspace = <
 >(
   options: Options<RemoveLauncherRecentWorkspaceData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RemoveLauncherRecentWorkspaceResponses,
     RemoveLauncherRecentWorkspaceErrors,
     ThrowOnError
@@ -3887,7 +3887,7 @@ export const removeLauncherRecentWorkspace = <
 export const repairLauncher = <ThrowOnError extends boolean = false>(
   options: Options<RepairLauncherData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RepairLauncherResponses,
     RepairLauncherErrors,
     ThrowOnError
@@ -3907,7 +3907,7 @@ export const repairLauncher = <ThrowOnError extends boolean = false>(
 export const resetStateMachine = <ThrowOnError extends boolean = false>(
   options: Options<ResetStateMachineData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ResetStateMachineResponses,
     ResetStateMachineErrors,
     ThrowOnError
@@ -3929,7 +3929,7 @@ export const respondExternalAgentApproval = <
 >(
   options: Options<RespondExternalAgentApprovalData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RespondExternalAgentApprovalResponses,
     RespondExternalAgentApprovalErrors,
     ThrowOnError
@@ -3951,7 +3951,7 @@ export const respondExternalAgentQuestion = <
 >(
   options: Options<RespondExternalAgentQuestionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RespondExternalAgentQuestionResponses,
     RespondExternalAgentQuestionErrors,
     ThrowOnError
@@ -3971,7 +3971,7 @@ export const respondExternalAgentQuestion = <
 export const restartLanguageServer = <ThrowOnError extends boolean = false>(
   options?: Options<RestartLanguageServerData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     RestartLanguageServerResponses,
     RestartLanguageServerErrors,
     ThrowOnError
@@ -3989,7 +3989,7 @@ export const revealPathInOsFileExplorer = <
 >(
   options: Options<RevealPathInOsFileExplorerData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RevealPathInOsFileExplorerResponses,
     RevealPathInOsFileExplorerErrors,
     ThrowOnError
@@ -4009,7 +4009,7 @@ export const revealPathInOsFileExplorer = <
 export const runCode = <ThrowOnError extends boolean = false>(
   options: Options<RunCodeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RunCodeResponses,
     RunCodeErrors,
     ThrowOnError
@@ -4029,7 +4029,7 @@ export const runCode = <ThrowOnError extends boolean = false>(
 export const runDetached = <ThrowOnError extends boolean = false>(
   options: Options<RunDetachedData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     RunDetachedResponses,
     RunDetachedErrors,
     ThrowOnError
@@ -4049,7 +4049,7 @@ export const runDetached = <ThrowOnError extends boolean = false>(
 export const getRuntimeInfo = <ThrowOnError extends boolean = false>(
   options?: Options<GetRuntimeInfoData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetRuntimeInfoResponses,
     GetRuntimeInfoErrors,
     ThrowOnError
@@ -4065,7 +4065,7 @@ export const getRuntimeInfo = <ThrowOnError extends boolean = false>(
 export const saveAsNewProjectConfig = <ThrowOnError extends boolean = false>(
   options: Options<SaveAsNewProjectConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SaveAsNewProjectConfigResponses,
     SaveAsNewProjectConfigErrors,
     ThrowOnError
@@ -4085,7 +4085,7 @@ export const saveAsNewProjectConfig = <ThrowOnError extends boolean = false>(
 export const saveProject = <ThrowOnError extends boolean = false>(
   options: Options<SaveProjectData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SaveProjectResponses,
     SaveProjectErrors,
     ThrowOnError
@@ -4105,7 +4105,7 @@ export const saveProject = <ThrowOnError extends boolean = false>(
 export const saveSettings = <ThrowOnError extends boolean = false>(
   options: Options<SaveSettingsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SaveSettingsResponses,
     SaveSettingsErrors,
     ThrowOnError
@@ -4125,7 +4125,7 @@ export const saveSettings = <ThrowOnError extends boolean = false>(
 export const sdkRuntimeHandshake = <ThrowOnError extends boolean = false>(
   options?: Options<SdkRuntimeHandshakeData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     SdkRuntimeHandshakeResponses,
     SdkRuntimeHandshakeErrors,
     ThrowOnError
@@ -4141,7 +4141,7 @@ export const sdkRuntimeHandshake = <ThrowOnError extends boolean = false>(
 export const getServerMode = <ThrowOnError extends boolean = false>(
   options?: Options<GetServerModeData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetServerModeResponses,
     GetServerModeErrors,
     ThrowOnError
@@ -4154,7 +4154,7 @@ export const getServerMode = <ThrowOnError extends boolean = false>(
 export const setActiveIds = <ThrowOnError extends boolean = false>(
   options: Options<SetActiveIdsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetActiveIdsResponses,
     SetActiveIdsErrors,
     ThrowOnError
@@ -4171,7 +4171,7 @@ export const setActiveIds = <ThrowOnError extends boolean = false>(
 export const setActiveViewMode = <ThrowOnError extends boolean = false>(
   options: Options<SetActiveViewModeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetActiveViewModeResponses,
     SetActiveViewModeErrors,
     ThrowOnError
@@ -4188,7 +4188,7 @@ export const setActiveViewMode = <ThrowOnError extends boolean = false>(
 export const setAgenticEdges = <ThrowOnError extends boolean = false>(
   options: Options<SetAgenticEdgesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetAgenticEdgesResponses,
     SetAgenticEdgesErrors,
     ThrowOnError
@@ -4208,7 +4208,7 @@ export const setAgenticEdges = <ThrowOnError extends boolean = false>(
 export const setAppDefinition = <ThrowOnError extends boolean = false>(
   options: Options<SetAppDefinitionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetAppDefinitionResponses,
     SetAppDefinitionErrors,
     ThrowOnError
@@ -4228,7 +4228,7 @@ export const setAppDefinition = <ThrowOnError extends boolean = false>(
 export const setAsDefaultProject = <ThrowOnError extends boolean = false>(
   options: Options<SetAsDefaultProjectData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetAsDefaultProjectResponses,
     SetAsDefaultProjectErrors,
     ThrowOnError
@@ -4245,7 +4245,7 @@ export const setAsDefaultProject = <ThrowOnError extends boolean = false>(
 export const setBrowserAreaViewMode = <ThrowOnError extends boolean = false>(
   options: Options<SetBrowserAreaViewModeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetBrowserAreaViewModeResponses,
     SetBrowserAreaViewModeErrors,
     ThrowOnError
@@ -4262,7 +4262,7 @@ export const setBrowserAreaViewMode = <ThrowOnError extends boolean = false>(
 export const setBrowserColumnWidths = <ThrowOnError extends boolean = false>(
   options: Options<SetBrowserColumnWidthsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetBrowserColumnWidthsResponses,
     SetBrowserColumnWidthsErrors,
     ThrowOnError
@@ -4279,7 +4279,7 @@ export const setBrowserColumnWidths = <ThrowOnError extends boolean = false>(
 export const setBrowserHideColumn = <ThrowOnError extends boolean = false>(
   options: Options<SetBrowserHideColumnData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetBrowserHideColumnResponses,
     SetBrowserHideColumnErrors,
     ThrowOnError
@@ -4296,7 +4296,7 @@ export const setBrowserHideColumn = <ThrowOnError extends boolean = false>(
 export const setBrowserSavedSearches = <ThrowOnError extends boolean = false>(
   options: Options<SetBrowserSavedSearchesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetBrowserSavedSearchesResponses,
     SetBrowserSavedSearchesErrors,
     ThrowOnError
@@ -4313,7 +4313,7 @@ export const setBrowserSavedSearches = <ThrowOnError extends boolean = false>(
 export const setCallable = <ThrowOnError extends boolean = false>(
   options: Options<SetCallableData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCallableResponses,
     SetCallableErrors,
     ThrowOnError
@@ -4330,7 +4330,7 @@ export const setCallable = <ThrowOnError extends boolean = false>(
 export const setCallableHideParams = <ThrowOnError extends boolean = false>(
   options: Options<SetCallableHideParamsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCallableHideParamsResponses,
     SetCallableHideParamsErrors,
     ThrowOnError
@@ -4347,7 +4347,7 @@ export const setCallableHideParams = <ThrowOnError extends boolean = false>(
 export const setChartAreaDataPath = <ThrowOnError extends boolean = false>(
   options: Options<SetChartAreaDataPathData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetChartAreaDataPathResponses,
     SetChartAreaDataPathErrors,
     ThrowOnError
@@ -4364,7 +4364,7 @@ export const setChartAreaDataPath = <ThrowOnError extends boolean = false>(
 export const setChartSettings = <ThrowOnError extends boolean = false>(
   options: Options<SetChartSettingsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetChartSettingsResponses,
     SetChartSettingsErrors,
     ThrowOnError
@@ -4381,7 +4381,7 @@ export const setChartSettings = <ThrowOnError extends boolean = false>(
 export const setChartType = <ThrowOnError extends boolean = false>(
   options: Options<SetChartTypeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetChartTypeResponses,
     SetChartTypeErrors,
     ThrowOnError
@@ -4398,7 +4398,7 @@ export const setChartType = <ThrowOnError extends boolean = false>(
 export const setChatSectionChatId = <ThrowOnError extends boolean = false>(
   options: Options<SetChatSectionChatIdData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetChatSectionChatIdResponses,
     SetChatSectionChatIdErrors,
     ThrowOnError
@@ -4415,7 +4415,7 @@ export const setChatSectionChatId = <ThrowOnError extends boolean = false>(
 export const setChatSectionSettings = <ThrowOnError extends boolean = false>(
   options: Options<SetChatSectionSettingsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetChatSectionSettingsResponses,
     SetChatSectionSettingsErrors,
     ThrowOnError
@@ -4432,7 +4432,7 @@ export const setChatSectionSettings = <ThrowOnError extends boolean = false>(
 export const setChatSectionState = <ThrowOnError extends boolean = false>(
   options: Options<SetChatSectionStateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetChatSectionStateResponses,
     SetChatSectionStateErrors,
     ThrowOnError
@@ -4449,7 +4449,7 @@ export const setChatSectionState = <ThrowOnError extends boolean = false>(
 export const setCode = <ThrowOnError extends boolean = false>(
   options: Options<SetCodeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCodeResponses,
     SetCodeErrors,
     ThrowOnError
@@ -4466,7 +4466,7 @@ export const setCode = <ThrowOnError extends boolean = false>(
 export const setCodeFileBinding = <ThrowOnError extends boolean = false>(
   options: Options<SetCodeFileBindingData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCodeFileBindingResponses,
     SetCodeFileBindingErrors,
     ThrowOnError
@@ -4483,7 +4483,7 @@ export const setCodeFileBinding = <ThrowOnError extends boolean = false>(
 export const setCodeObjDisplayName = <ThrowOnError extends boolean = false>(
   options: Options<SetCodeObjDisplayNameData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCodeObjDisplayNameResponses,
     SetCodeObjDisplayNameErrors,
     ThrowOnError
@@ -4500,7 +4500,7 @@ export const setCodeObjDisplayName = <ThrowOnError extends boolean = false>(
 export const setCodeObjName = <ThrowOnError extends boolean = false>(
   options: Options<SetCodeObjNameData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCodeObjNameResponses,
     SetCodeObjNameErrors,
     ThrowOnError
@@ -4519,7 +4519,7 @@ export const setCodeSectionAttachedTerminal = <
 >(
   options: Options<SetCodeSectionAttachedTerminalData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCodeSectionAttachedTerminalResponses,
     SetCodeSectionAttachedTerminalErrors,
     ThrowOnError
@@ -4541,7 +4541,7 @@ export const setCodeSectionDiagnosticCodeSuppression = <
 >(
   options: Options<SetCodeSectionDiagnosticCodeSuppressionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCodeSectionDiagnosticCodeSuppressionResponses,
     SetCodeSectionDiagnosticCodeSuppressionErrors,
     ThrowOnError
@@ -4563,7 +4563,7 @@ export const setCodeSectionDiagnosticsMute = <
 >(
   options: Options<SetCodeSectionDiagnosticsMuteData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetCodeSectionDiagnosticsMuteResponses,
     SetCodeSectionDiagnosticsMuteErrors,
     ThrowOnError
@@ -4580,7 +4580,7 @@ export const setCodeSectionDiagnosticsMute = <
 export const setDefaultSectionVariant = <ThrowOnError extends boolean = false>(
   options: Options<SetDefaultSectionVariantData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetDefaultSectionVariantResponses,
     SetDefaultSectionVariantErrors,
     ThrowOnError
@@ -4597,7 +4597,7 @@ export const setDefaultSectionVariant = <ThrowOnError extends boolean = false>(
 export const setEdges = <ThrowOnError extends boolean = false>(
   options: Options<SetEdgesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetEdgesResponses,
     SetEdgesErrors,
     ThrowOnError
@@ -4614,7 +4614,7 @@ export const setEdges = <ThrowOnError extends boolean = false>(
 export const setGenCodePrefix = <ThrowOnError extends boolean = false>(
   options: Options<SetGenCodePrefixData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetGenCodePrefixResponses,
     SetGenCodePrefixErrors,
     ThrowOnError
@@ -4631,7 +4631,7 @@ export const setGenCodePrefix = <ThrowOnError extends boolean = false>(
 export const setGenCodeSuffix = <ThrowOnError extends boolean = false>(
   options: Options<SetGenCodeSuffixData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetGenCodeSuffixResponses,
     SetGenCodeSuffixErrors,
     ThrowOnError
@@ -4648,7 +4648,7 @@ export const setGenCodeSuffix = <ThrowOnError extends boolean = false>(
 export const setGroupOverflowMode = <ThrowOnError extends boolean = false>(
   options: Options<SetGroupOverflowModeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetGroupOverflowModeResponses,
     SetGroupOverflowModeErrors,
     ThrowOnError
@@ -4665,7 +4665,7 @@ export const setGroupOverflowMode = <ThrowOnError extends boolean = false>(
 export const setImageAreaImagePath = <ThrowOnError extends boolean = false>(
   options: Options<SetImageAreaImagePathData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetImageAreaImagePathResponses,
     SetImageAreaImagePathErrors,
     ThrowOnError
@@ -4682,7 +4682,7 @@ export const setImageAreaImagePath = <ThrowOnError extends boolean = false>(
 export const setListRootViewMode = <ThrowOnError extends boolean = false>(
   options: Options<SetListRootViewModeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetListRootViewModeResponses,
     SetListRootViewModeErrors,
     ThrowOnError
@@ -4701,7 +4701,7 @@ export const setMetaControlShowSectionTitle = <
 >(
   options: Options<SetMetaControlShowSectionTitleData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetMetaControlShowSectionTitleResponses,
     SetMetaControlShowSectionTitleErrors,
     ThrowOnError
@@ -4718,7 +4718,7 @@ export const setMetaControlShowSectionTitle = <
 export const setParamEnteredValue = <ThrowOnError extends boolean = false>(
   options: Options<SetParamEnteredValueData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetParamEnteredValueResponses,
     SetParamEnteredValueErrors,
     ThrowOnError
@@ -4737,7 +4737,7 @@ export const setParentDefaultChildSectionType = <
 >(
   options: Options<SetParentDefaultChildSectionTypeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetParentDefaultChildSectionTypeResponses,
     SetParentDefaultChildSectionTypeErrors,
     ThrowOnError
@@ -4756,7 +4756,7 @@ export const setProjectChatWindowChatId = <
 >(
   options: Options<SetProjectChatWindowChatIdData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetProjectChatWindowChatIdResponses,
     SetProjectChatWindowChatIdErrors,
     ThrowOnError
@@ -4775,7 +4775,7 @@ export const setProjectChatWindowingState = <
 >(
   options: Options<SetProjectChatWindowingStateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetProjectChatWindowingStateResponses,
     SetProjectChatWindowingStateErrors,
     ThrowOnError
@@ -4794,7 +4794,7 @@ export const setProjectConfigCodegenTargets = <
 >(
   options: Options<SetProjectConfigCodegenTargetsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetProjectConfigCodegenTargetsResponses,
     SetProjectConfigCodegenTargetsErrors,
     ThrowOnError
@@ -4814,7 +4814,7 @@ export const setProjectConfigCodegenTargets = <
 export const setProjectConfigName = <ThrowOnError extends boolean = false>(
   options: Options<SetProjectConfigNameData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetProjectConfigNameResponses,
     SetProjectConfigNameErrors,
     ThrowOnError
@@ -4831,7 +4831,7 @@ export const setProjectConfigName = <ThrowOnError extends boolean = false>(
 export const setPromptFormat = <ThrowOnError extends boolean = false>(
   options: Options<SetPromptFormatData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetPromptFormatResponses,
     SetPromptFormatErrors,
     ThrowOnError
@@ -4848,7 +4848,7 @@ export const setPromptFormat = <ThrowOnError extends boolean = false>(
 export const setPromptInputs = <ThrowOnError extends boolean = false>(
   options: Options<SetPromptInputsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetPromptInputsResponses,
     SetPromptInputsErrors,
     ThrowOnError
@@ -4865,7 +4865,7 @@ export const setPromptInputs = <ThrowOnError extends boolean = false>(
 export const setPromptTemplate = <ThrowOnError extends boolean = false>(
   options: Options<SetPromptTemplateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetPromptTemplateResponses,
     SetPromptTemplateErrors,
     ThrowOnError
@@ -4882,7 +4882,7 @@ export const setPromptTemplate = <ThrowOnError extends boolean = false>(
 export const setPromptTemplateLink = <ThrowOnError extends boolean = false>(
   options: Options<SetPromptTemplateLinkData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetPromptTemplateLinkResponses,
     SetPromptTemplateLinkErrors,
     ThrowOnError
@@ -4899,7 +4899,7 @@ export const setPromptTemplateLink = <ThrowOnError extends boolean = false>(
 export const setSectionColumnWidth = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionColumnWidthData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionColumnWidthResponses,
     SetSectionColumnWidthErrors,
     ThrowOnError
@@ -4916,7 +4916,7 @@ export const setSectionColumnWidth = <ThrowOnError extends boolean = false>(
 export const setSectionEdgeInputs = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionEdgeInputsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionEdgeInputsResponses,
     SetSectionEdgeInputsErrors,
     ThrowOnError
@@ -4933,7 +4933,7 @@ export const setSectionEdgeInputs = <ThrowOnError extends boolean = false>(
 export const setSectionEdgeOutputs = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionEdgeOutputsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionEdgeOutputsResponses,
     SetSectionEdgeOutputsErrors,
     ThrowOnError
@@ -4952,7 +4952,7 @@ export const setSectionHideUnpinnedParams = <
 >(
   options: Options<SetSectionHideUnpinnedParamsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionHideUnpinnedParamsResponses,
     SetSectionHideUnpinnedParamsErrors,
     ThrowOnError
@@ -4969,7 +4969,7 @@ export const setSectionHideUnpinnedParams = <
 export const setSectionName = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionNameData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionNameResponses,
     SetSectionNameErrors,
     ThrowOnError
@@ -4986,7 +4986,7 @@ export const setSectionName = <ThrowOnError extends boolean = false>(
 export const setSectionParamFilter = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionParamFilterData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionParamFilterResponses,
     SetSectionParamFilterErrors,
     ThrowOnError
@@ -5003,7 +5003,7 @@ export const setSectionParamFilter = <ThrowOnError extends boolean = false>(
 export const setSectionPinnedParams = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionPinnedParamsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionPinnedParamsResponses,
     SetSectionPinnedParamsErrors,
     ThrowOnError
@@ -5020,7 +5020,7 @@ export const setSectionPinnedParams = <ThrowOnError extends boolean = false>(
 export const setSectionSizes = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionSizesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionSizesResponses,
     SetSectionSizesErrors,
     ThrowOnError
@@ -5037,7 +5037,7 @@ export const setSectionSizes = <ThrowOnError extends boolean = false>(
 export const setSectionStyleColor = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionStyleColorData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionStyleColorResponses,
     SetSectionStyleColorErrors,
     ThrowOnError
@@ -5054,7 +5054,7 @@ export const setSectionStyleColor = <ThrowOnError extends boolean = false>(
 export const setSectionTagColor = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionTagColorData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionTagColorResponses,
     SetSectionTagColorErrors,
     ThrowOnError
@@ -5071,7 +5071,7 @@ export const setSectionTagColor = <ThrowOnError extends boolean = false>(
 export const setSectionVariant = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionVariantData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionVariantResponses,
     SetSectionVariantErrors,
     ThrowOnError
@@ -5088,7 +5088,7 @@ export const setSectionVariant = <ThrowOnError extends boolean = false>(
 export const setSectionVariantName = <ThrowOnError extends boolean = false>(
   options: Options<SetSectionVariantNameData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionVariantNameResponses,
     SetSectionVariantNameErrors,
     ThrowOnError
@@ -5107,7 +5107,7 @@ export const setSectionVariantSortOrder = <
 >(
   options: Options<SetSectionVariantSortOrderData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSectionVariantSortOrderResponses,
     SetSectionVariantSortOrderErrors,
     ThrowOnError
@@ -5124,7 +5124,7 @@ export const setSectionVariantSortOrder = <
 export const setShowParamDisplayNames = <ThrowOnError extends boolean = false>(
   options: Options<SetShowParamDisplayNamesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetShowParamDisplayNamesResponses,
     SetShowParamDisplayNamesErrors,
     ThrowOnError
@@ -5141,7 +5141,7 @@ export const setShowParamDisplayNames = <ThrowOnError extends boolean = false>(
 export const setSocialUrl = <ThrowOnError extends boolean = false>(
   options: Options<SetSocialUrlData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSocialUrlResponses,
     SetSocialUrlErrors,
     ThrowOnError
@@ -5158,7 +5158,7 @@ export const setSocialUrl = <ThrowOnError extends boolean = false>(
 export const setSpreadsheetFilePath = <ThrowOnError extends boolean = false>(
   options: Options<SetSpreadsheetFilePathData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSpreadsheetFilePathResponses,
     SetSpreadsheetFilePathErrors,
     ThrowOnError
@@ -5177,7 +5177,7 @@ export const setSpreadsheetSectionSettings = <
 >(
   options: Options<SetSpreadsheetSectionSettingsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetSpreadsheetSectionSettingsResponses,
     SetSpreadsheetSectionSettingsErrors,
     ThrowOnError
@@ -5194,7 +5194,7 @@ export const setSpreadsheetSectionSettings = <
 export const setStateMachineEdges = <ThrowOnError extends boolean = false>(
   options: Options<SetStateMachineEdgesData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetStateMachineEdgesResponses,
     SetStateMachineEdgesErrors,
     ThrowOnError
@@ -5213,7 +5213,7 @@ export const setStateMachineSectionSettings = <
 >(
   options: Options<SetStateMachineSectionSettingsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetStateMachineSectionSettingsResponses,
     SetStateMachineSectionSettingsErrors,
     ThrowOnError
@@ -5230,7 +5230,7 @@ export const setStateMachineSectionSettings = <
 export const setTaskBoardSectionState = <ThrowOnError extends boolean = false>(
   options: Options<SetTaskBoardSectionStateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTaskBoardSectionStateResponses,
     SetTaskBoardSectionStateErrors,
     ThrowOnError
@@ -5247,7 +5247,7 @@ export const setTaskBoardSectionState = <ThrowOnError extends boolean = false>(
 export const setTextBlockDisplayMode = <ThrowOnError extends boolean = false>(
   options: Options<SetTextBlockDisplayModeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTextBlockDisplayModeResponses,
     SetTextBlockDisplayModeErrors,
     ThrowOnError
@@ -5264,7 +5264,7 @@ export const setTextBlockDisplayMode = <ThrowOnError extends boolean = false>(
 export const setTextBlockFormat = <ThrowOnError extends boolean = false>(
   options: Options<SetTextBlockFormatData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTextBlockFormatResponses,
     SetTextBlockFormatErrors,
     ThrowOnError
@@ -5283,7 +5283,7 @@ export const setTextBlockHeadingAsSectionName = <
 >(
   options: Options<SetTextBlockHeadingAsSectionNameData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTextBlockHeadingAsSectionNameResponses,
     SetTextBlockHeadingAsSectionNameErrors,
     ThrowOnError
@@ -5302,7 +5302,7 @@ export const setTextBlockMasterFontSize = <
 >(
   options: Options<SetTextBlockMasterFontSizeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTextBlockMasterFontSizeResponses,
     SetTextBlockMasterFontSizeErrors,
     ThrowOnError
@@ -5321,7 +5321,7 @@ export const setTextBlockMetaControlStyle = <
 >(
   options: Options<SetTextBlockMetaControlStyleData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTextBlockMetaControlStyleResponses,
     SetTextBlockMetaControlStyleErrors,
     ThrowOnError
@@ -5338,7 +5338,7 @@ export const setTextBlockMetaControlStyle = <
 export const setTextBlockText = <ThrowOnError extends boolean = false>(
   options: Options<SetTextBlockTextData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTextBlockTextResponses,
     SetTextBlockTextErrors,
     ThrowOnError
@@ -5355,7 +5355,7 @@ export const setTextBlockText = <ThrowOnError extends boolean = false>(
 export const setTopLevelSectionLayout = <ThrowOnError extends boolean = false>(
   options: Options<SetTopLevelSectionLayoutData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTopLevelSectionLayoutResponses,
     SetTopLevelSectionLayoutErrors,
     ThrowOnError
@@ -5372,7 +5372,7 @@ export const setTopLevelSectionLayout = <ThrowOnError extends boolean = false>(
 export const setTypeErrorIgnore = <ThrowOnError extends boolean = false>(
   options: Options<SetTypeErrorIgnoreData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetTypeErrorIgnoreResponses,
     SetTypeErrorIgnoreErrors,
     ThrowOnError
@@ -5389,7 +5389,7 @@ export const setTypeErrorIgnore = <ThrowOnError extends boolean = false>(
 export const setVariantJsonSourceKeys = <ThrowOnError extends boolean = false>(
   options: Options<SetVariantJsonSourceKeysData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetVariantJsonSourceKeysResponses,
     SetVariantJsonSourceKeysErrors,
     ThrowOnError
@@ -5406,7 +5406,7 @@ export const setVariantJsonSourceKeys = <ThrowOnError extends boolean = false>(
 export const setViewModeName = <ThrowOnError extends boolean = false>(
   options: Options<SetViewModeNameData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetViewModeNameResponses,
     SetViewModeNameErrors,
     ThrowOnError
@@ -5423,7 +5423,7 @@ export const setViewModeName = <ThrowOnError extends boolean = false>(
 export const setViewModeSortOrder = <ThrowOnError extends boolean = false>(
   options: Options<SetViewModeSortOrderData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetViewModeSortOrderResponses,
     SetViewModeSortOrderErrors,
     ThrowOnError
@@ -5440,7 +5440,7 @@ export const setViewModeSortOrder = <ThrowOnError extends boolean = false>(
 export const setViewport = <ThrowOnError extends boolean = false>(
   options: Options<SetViewportData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetViewportResponses,
     SetViewportErrors,
     ThrowOnError
@@ -5457,7 +5457,7 @@ export const setViewport = <ThrowOnError extends boolean = false>(
 export const setWatchCodeEnabled = <ThrowOnError extends boolean = false>(
   options: Options<SetWatchCodeEnabledData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetWatchCodeEnabledResponses,
     SetWatchCodeEnabledErrors,
     ThrowOnError
@@ -5474,7 +5474,7 @@ export const setWatchCodeEnabled = <ThrowOnError extends boolean = false>(
 export const setWatchCodeInputs = <ThrowOnError extends boolean = false>(
   options: Options<SetWatchCodeInputsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetWatchCodeInputsResponses,
     SetWatchCodeInputsErrors,
     ThrowOnError
@@ -5491,7 +5491,7 @@ export const setWatchCodeInputs = <ThrowOnError extends boolean = false>(
 export const setWindowSpaceName = <ThrowOnError extends boolean = false>(
   options: Options<SetWindowSpaceNameData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetWindowSpaceNameResponses,
     SetWindowSpaceNameErrors,
     ThrowOnError
@@ -5508,7 +5508,7 @@ export const setWindowSpaceName = <ThrowOnError extends boolean = false>(
 export const setWindowSpaceSortOrder = <ThrowOnError extends boolean = false>(
   options: Options<SetWindowSpaceSortOrderData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetWindowSpaceSortOrderResponses,
     SetWindowSpaceSortOrderErrors,
     ThrowOnError
@@ -5528,7 +5528,7 @@ export const setWindowSpaceSortOrder = <ThrowOnError extends boolean = false>(
 export const getSettaHomeInfo = <ThrowOnError extends boolean = false>(
   options?: Options<GetSettaHomeInfoData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     GetSettaHomeInfoResponses,
     GetSettaHomeInfoErrors,
     ThrowOnError
@@ -5544,7 +5544,7 @@ export const getSettaHomeInfo = <ThrowOnError extends boolean = false>(
 export const setupLauncher = <ThrowOnError extends boolean = false>(
   options: Options<SetupLauncherData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     SetupLauncherResponses,
     SetupLauncherErrors,
     ThrowOnError
@@ -5564,7 +5564,7 @@ export const setupLauncher = <ThrowOnError extends boolean = false>(
 export const listShareDeployments = <ThrowOnError extends boolean = false>(
   options?: Options<ListShareDeploymentsData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).get<
+  return (options?.client ?? client).get<
     ListShareDeploymentsResponses,
     ListShareDeploymentsErrors,
     ThrowOnError
@@ -5580,7 +5580,7 @@ export const listShareDeployments = <ThrowOnError extends boolean = false>(
 export const publishShareDeployment = <ThrowOnError extends boolean = false>(
   options: Options<PublishShareDeploymentData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     PublishShareDeploymentResponses,
     PublishShareDeploymentErrors,
     ThrowOnError
@@ -5602,7 +5602,7 @@ export const getShareDeploymentCurrentSession = <
 >(
   options?: Options<GetShareDeploymentCurrentSessionData, ThrowOnError>,
 ) => {
-  return (options?.client ?? _heyApiClient).post<
+  return (options?.client ?? client).post<
     GetShareDeploymentCurrentSessionResponses,
     GetShareDeploymentCurrentSessionErrors,
     ThrowOnError
@@ -5618,7 +5618,7 @@ export const getShareDeploymentCurrentSession = <
 export const getShareDeploymentLatest = <ThrowOnError extends boolean = false>(
   options: Options<GetShareDeploymentLatestData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     GetShareDeploymentLatestResponses,
     GetShareDeploymentLatestErrors,
     ThrowOnError
@@ -5636,7 +5636,7 @@ export const listShareDeploymentVersions = <
 >(
   options: Options<ListShareDeploymentVersionsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     ListShareDeploymentVersionsResponses,
     ListShareDeploymentVersionsErrors,
     ThrowOnError
@@ -5654,7 +5654,7 @@ export const getShareDeploymentProjectConfig = <
 >(
   options: Options<GetShareDeploymentProjectConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     GetShareDeploymentProjectConfigResponses,
     GetShareDeploymentProjectConfigErrors,
     ThrowOnError
@@ -5674,7 +5674,7 @@ export const getShareDeploymentProjectConfig = <
 export const getShareDeploymentState = <ThrowOnError extends boolean = false>(
   options: Options<GetShareDeploymentStateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).get<
+  return (options.client ?? client).get<
     GetShareDeploymentStateResponses,
     GetShareDeploymentStateErrors,
     ThrowOnError
@@ -5690,7 +5690,7 @@ export const getShareDeploymentState = <ThrowOnError extends boolean = false>(
 export const startAgentRun = <ThrowOnError extends boolean = false>(
   options: Options<StartAgentRunData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StartAgentRunResponses,
     StartAgentRunErrors,
     ThrowOnError
@@ -5710,7 +5710,7 @@ export const startAgentRun = <ThrowOnError extends boolean = false>(
 export const startRunChain = <ThrowOnError extends boolean = false>(
   options: Options<StartRunChainData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StartRunChainResponses,
     StartRunChainErrors,
     ThrowOnError
@@ -5730,7 +5730,7 @@ export const startRunChain = <ThrowOnError extends boolean = false>(
 export const startStateMachineRun = <ThrowOnError extends boolean = false>(
   options: Options<StartStateMachineRunData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StartStateMachineRunResponses,
     StartStateMachineRunErrors,
     ThrowOnError
@@ -5750,7 +5750,7 @@ export const startStateMachineRun = <ThrowOnError extends boolean = false>(
 export const startTranscriptionSession = <ThrowOnError extends boolean = false>(
   options: Options<StartTranscriptionSessionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StartTranscriptionSessionResponses,
     StartTranscriptionSessionErrors,
     ThrowOnError
@@ -5770,7 +5770,7 @@ export const startTranscriptionSession = <ThrowOnError extends boolean = false>(
 export const stopAgentRun = <ThrowOnError extends boolean = false>(
   options: Options<StopAgentRunData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StopAgentRunResponses,
     StopAgentRunErrors,
     ThrowOnError
@@ -5790,7 +5790,7 @@ export const stopAgentRun = <ThrowOnError extends boolean = false>(
 export const stopExternalAgentRun = <ThrowOnError extends boolean = false>(
   options: Options<StopExternalAgentRunData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StopExternalAgentRunResponses,
     StopExternalAgentRunErrors,
     ThrowOnError
@@ -5810,7 +5810,7 @@ export const stopExternalAgentRun = <ThrowOnError extends boolean = false>(
 export const stopLlmChat = <ThrowOnError extends boolean = false>(
   options: Options<StopLlmChatData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StopLlmChatResponses,
     StopLlmChatErrors,
     ThrowOnError
@@ -5830,7 +5830,7 @@ export const stopLlmChat = <ThrowOnError extends boolean = false>(
 export const stopRunChain = <ThrowOnError extends boolean = false>(
   options: Options<StopRunChainData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StopRunChainResponses,
     StopRunChainErrors,
     ThrowOnError
@@ -5850,7 +5850,7 @@ export const stopRunChain = <ThrowOnError extends boolean = false>(
 export const stopStateMachineRun = <ThrowOnError extends boolean = false>(
   options: Options<StopStateMachineRunData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StopStateMachineRunResponses,
     StopStateMachineRunErrors,
     ThrowOnError
@@ -5870,7 +5870,7 @@ export const stopStateMachineRun = <ThrowOnError extends boolean = false>(
 export const stopTranscriptionSession = <ThrowOnError extends boolean = false>(
   options: Options<StopTranscriptionSessionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     StopTranscriptionSessionResponses,
     StopTranscriptionSessionErrors,
     ThrowOnError
@@ -5890,7 +5890,7 @@ export const stopTranscriptionSession = <ThrowOnError extends boolean = false>(
 export const textFieldCompletion = <ThrowOnError extends boolean = false>(
   options: Options<TextFieldCompletionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     TextFieldCompletionResponses,
     TextFieldCompletionErrors,
     ThrowOnError
@@ -5907,7 +5907,7 @@ export const textFieldCompletion = <ThrowOnError extends boolean = false>(
 export const toggleGroupOrientation = <ThrowOnError extends boolean = false>(
   options: Options<ToggleGroupOrientationData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleGroupOrientationResponses,
     ToggleGroupOrientationErrors,
     ThrowOnError
@@ -5924,7 +5924,7 @@ export const toggleGroupOrientation = <ThrowOnError extends boolean = false>(
 export const toggleIsEditingViewMode = <ThrowOnError extends boolean = false>(
   options: Options<ToggleIsEditingViewModeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleIsEditingViewModeResponses,
     ToggleIsEditingViewModeErrors,
     ThrowOnError
@@ -5941,7 +5941,7 @@ export const toggleIsEditingViewMode = <ThrowOnError extends boolean = false>(
 export const toggleMinimized = <ThrowOnError extends boolean = false>(
   options: Options<ToggleMinimizedData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleMinimizedResponses,
     ToggleMinimizedErrors,
     ThrowOnError
@@ -5958,7 +5958,7 @@ export const toggleMinimized = <ThrowOnError extends boolean = false>(
 export const toggleParamSelected = <ThrowOnError extends boolean = false>(
   options: Options<ToggleParamSelectedData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleParamSelectedResponses,
     ToggleParamSelectedErrors,
     ThrowOnError
@@ -5975,7 +5975,7 @@ export const toggleParamSelected = <ThrowOnError extends boolean = false>(
 export const togglePositionLocks = <ThrowOnError extends boolean = false>(
   options: Options<TogglePositionLocksData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     TogglePositionLocksResponses,
     TogglePositionLocksErrors,
     ThrowOnError
@@ -5992,7 +5992,7 @@ export const togglePositionLocks = <ThrowOnError extends boolean = false>(
 export const toggleSectionVisibility = <ThrowOnError extends boolean = false>(
   options: Options<ToggleSectionVisibilityData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleSectionVisibilityResponses,
     ToggleSectionVisibilityErrors,
     ThrowOnError
@@ -6009,7 +6009,7 @@ export const toggleSectionVisibility = <ThrowOnError extends boolean = false>(
 export const toggleVariantFrozen = <ThrowOnError extends boolean = false>(
   options: Options<ToggleVariantFrozenData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleVariantFrozenResponses,
     ToggleVariantFrozenErrors,
     ThrowOnError
@@ -6026,7 +6026,7 @@ export const toggleVariantFrozen = <ThrowOnError extends boolean = false>(
 export const toggleVariantJsonSource = <ThrowOnError extends boolean = false>(
   options: Options<ToggleVariantJsonSourceData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleVariantJsonSourceResponses,
     ToggleVariantJsonSourceErrors,
     ThrowOnError
@@ -6043,7 +6043,7 @@ export const toggleVariantJsonSource = <ThrowOnError extends boolean = false>(
 export const toggleViewModeTab = <ThrowOnError extends boolean = false>(
   options: Options<ToggleViewModeTabData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleViewModeTabResponses,
     ToggleViewModeTabErrors,
     ThrowOnError
@@ -6060,7 +6060,7 @@ export const toggleViewModeTab = <ThrowOnError extends boolean = false>(
 export const toggleViewModeUserFacing = <ThrowOnError extends boolean = false>(
   options: Options<ToggleViewModeUserFacingData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ToggleViewModeUserFacingResponses,
     ToggleViewModeUserFacingErrors,
     ThrowOnError
@@ -6080,7 +6080,7 @@ export const toggleViewModeUserFacing = <ThrowOnError extends boolean = false>(
 export const transferFileBrowserEntry = <ThrowOnError extends boolean = false>(
   options: Options<TransferFileBrowserEntryData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     TransferFileBrowserEntryResponses,
     TransferFileBrowserEntryErrors,
     ThrowOnError
@@ -6100,7 +6100,7 @@ export const transferFileBrowserEntry = <ThrowOnError extends boolean = false>(
 export const typeCheck = <ThrowOnError extends boolean = false>(
   options: Options<TypeCheckData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     TypeCheckResponses,
     TypeCheckErrors,
     ThrowOnError
@@ -6117,7 +6117,7 @@ export const typeCheck = <ThrowOnError extends boolean = false>(
 export const undo = <ThrowOnError extends boolean = false>(
   options: Options<UndoData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UndoResponses,
     UndoErrors,
     ThrowOnError
@@ -6134,7 +6134,7 @@ export const undo = <ThrowOnError extends boolean = false>(
 export const ungroupGroups = <ThrowOnError extends boolean = false>(
   options: Options<UngroupGroupsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UngroupGroupsResponses,
     UngroupGroupsErrors,
     ThrowOnError
@@ -6151,7 +6151,7 @@ export const ungroupGroups = <ThrowOnError extends boolean = false>(
 export const unindentParams = <ThrowOnError extends boolean = false>(
   options: Options<UnindentParamsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UnindentParamsResponses,
     UnindentParamsErrors,
     ThrowOnError
@@ -6168,7 +6168,7 @@ export const unindentParams = <ThrowOnError extends boolean = false>(
 export const unselectAllParams = <ThrowOnError extends boolean = false>(
   options: Options<UnselectAllParamsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UnselectAllParamsResponses,
     UnselectAllParamsErrors,
     ThrowOnError
@@ -6188,7 +6188,7 @@ export const unselectAllParams = <ThrowOnError extends boolean = false>(
 export const updateAgentProfile = <ThrowOnError extends boolean = false>(
   options: Options<UpdateAgentProfileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateAgentProfileResponses,
     UpdateAgentProfileErrors,
     ThrowOnError
@@ -6205,7 +6205,7 @@ export const updateAgentProfile = <ThrowOnError extends boolean = false>(
 export const updateAgenticEdge = <ThrowOnError extends boolean = false>(
   options: Options<UpdateAgenticEdgeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateAgenticEdgeResponses,
     UpdateAgenticEdgeErrors,
     ThrowOnError
@@ -6225,7 +6225,7 @@ export const updateAgenticEdge = <ThrowOnError extends boolean = false>(
 export const updateArtifacts = <ThrowOnError extends boolean = false>(
   options: Options<UpdateArtifactsData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateArtifactsResponses,
     UpdateArtifactsErrors,
     ThrowOnError
@@ -6242,7 +6242,7 @@ export const updateArtifacts = <ThrowOnError extends boolean = false>(
 export const updateEdge = <ThrowOnError extends boolean = false>(
   options: Options<UpdateEdgeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateEdgeResponses,
     UpdateEdgeErrors,
     ThrowOnError
@@ -6262,7 +6262,7 @@ export const updateEdge = <ThrowOnError extends boolean = false>(
 export const updateEngineConfig = <ThrowOnError extends boolean = false>(
   options: Options<UpdateEngineConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateEngineConfigResponses,
     UpdateEngineConfigErrors,
     ThrowOnError
@@ -6282,7 +6282,7 @@ export const updateEngineConfig = <ThrowOnError extends boolean = false>(
 export const updateExternalAgentConfig = <ThrowOnError extends boolean = false>(
   options: Options<UpdateExternalAgentConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateExternalAgentConfigResponses,
     UpdateExternalAgentConfigErrors,
     ThrowOnError
@@ -6302,7 +6302,7 @@ export const updateExternalAgentConfig = <ThrowOnError extends boolean = false>(
 export const updateLauncher = <ThrowOnError extends boolean = false>(
   options: Options<UpdateLauncherData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateLauncherResponses,
     UpdateLauncherErrors,
     ThrowOnError
@@ -6319,7 +6319,7 @@ export const updateLauncher = <ThrowOnError extends boolean = false>(
 export const updateParamImplConfig = <ThrowOnError extends boolean = false>(
   options: Options<UpdateParamImplConfigData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateParamImplConfigResponses,
     UpdateParamImplConfigErrors,
     ThrowOnError
@@ -6339,7 +6339,7 @@ export const updateParamImplConfig = <ThrowOnError extends boolean = false>(
 export const updatePromptTemplate = <ThrowOnError extends boolean = false>(
   options: Options<UpdatePromptTemplateData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdatePromptTemplateResponses,
     UpdatePromptTemplateErrors,
     ThrowOnError
@@ -6356,7 +6356,7 @@ export const updatePromptTemplate = <ThrowOnError extends boolean = false>(
 export const updateStateMachineEdge = <ThrowOnError extends boolean = false>(
   options: Options<UpdateStateMachineEdgeData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateStateMachineEdgeResponses,
     UpdateStateMachineEdgeErrors,
     ThrowOnError
@@ -6378,7 +6378,7 @@ export const updateTranscriptionProfile = <
 >(
   options: Options<UpdateTranscriptionProfileData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpdateTranscriptionProfileResponses,
     UpdateTranscriptionProfileErrors,
     ThrowOnError
@@ -6398,7 +6398,7 @@ export const updateTranscriptionProfile = <
 export const upsertAppGenCustomSkill = <ThrowOnError extends boolean = false>(
   options: Options<UpsertAppGenCustomSkillData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     UpsertAppGenCustomSkillResponses,
     UpsertAppGenCustomSkillErrors,
     ThrowOnError
@@ -6418,7 +6418,7 @@ export const upsertAppGenCustomSkill = <ThrowOnError extends boolean = false>(
 export const validateAppDefinition = <ThrowOnError extends boolean = false>(
   options: Options<ValidateAppDefinitionData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     ValidateAppDefinitionResponses,
     ValidateAppDefinitionErrors,
     ThrowOnError
@@ -6440,7 +6440,7 @@ export const writeFileBrowserFileContent = <
 >(
   options: Options<WriteFileBrowserFileContentData, ThrowOnError>,
 ) => {
-  return (options.client ?? _heyApiClient).post<
+  return (options.client ?? client).post<
     WriteFileBrowserFileContentResponses,
     WriteFileBrowserFileContentErrors,
     ThrowOnError
