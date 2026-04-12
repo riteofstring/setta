@@ -28,7 +28,6 @@ import {
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   getProjectChatWindowBindingForSectionInState,
   getProjectChatWindowModeForSectionInState,
-  getVisibleProjectChatWindowInstances,
   maximizeProjectChatWindowInState,
   minimizeProjectChatWindowInState,
   moveProjectChatWindowToCanvasSectionInState,
@@ -512,41 +511,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(updated.instancesById[first.instanceId]?.bounds.width).toBe(560);
     expect(updated.instancesById[second.instanceId]?.bounds.x).toBe(600);
     expect(updated.instancesById[second.instanceId]?.bounds.width).toBe(800);
-  });
-  it("returns only visible windows in normalized order", () => {
-    // Visibility list should ignore closed and minimized windows and normalize duplicate order ids.
-    const first = createProjectChatWindowInstance({
-      instanceId: "chat-window-a",
-      isClosed: false,
-    });
-    const second = createProjectChatWindowInstance({
-      instanceId: "chat-window-b",
-      isClosed: true,
-    });
-    const third = createProjectChatWindowInstance({
-      instanceId: "chat-window-c",
-      isMinimized: true,
-      isClosed: false,
-    });
-    const fourth = createProjectChatWindowInstance({
-      instanceId: "chat-window-d",
-      isClosed: false,
-    });
-    const initial = createProjectChatWindowingState({
-      instancesById: {
-        [first.instanceId]: first,
-        [second.instanceId]: second,
-        [third.instanceId]: third,
-        [fourth.instanceId]: fourth,
-      },
-      order: [first.instanceId, first.instanceId, second.instanceId],
-      nextInstanceNumber: 5,
-    });
-    const visible = getVisibleProjectChatWindowInstances(initial);
-    expect(visible.map((instance) => instance.instanceId)).toEqual([
-      first.instanceId,
-      fourth.instanceId,
-    ]);
   });
   it("tracks previous placement when setting maximized placement directly", () => {
     // Direct placement updates to maximized should still preserve restore target.

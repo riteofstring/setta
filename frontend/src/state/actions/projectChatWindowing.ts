@@ -1384,20 +1384,6 @@ function setProjectChatWindowChatIdInState(
     };
   });
 }
-export function getVisibleProjectChatWindowInstances(
-  state: ProjectChatWindowingState,
-): ProjectChatWindowInstance[] {
-  const normalized = normalizeProjectChatWindowingOrder(state).state;
-  const visible: ProjectChatWindowInstance[] = [];
-  for (const instanceId of normalized.order) {
-    const instance = normalized.instancesById[instanceId];
-    if (!instance || instance.isClosed || instance.isMinimized) {
-      continue;
-    }
-    visible.push(instance);
-  }
-  return visible;
-}
 type ProjectChatWindowingStoreOptions = {
   syncActiveChatId?: string | undefined;
   nextGitPaneVisibleInstanceIds?: Array<string> | undefined;
