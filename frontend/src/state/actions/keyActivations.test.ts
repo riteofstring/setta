@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getIgnoreWhenInInputField,
   getShouldPreventDefault,
+  getTabParamActionForShortcuts,
   parseShortcut,
 } from "./keyActivations";
 
@@ -42,5 +43,30 @@ describe("key activation shortcut policy", () => {
     expect(getIgnoreWhenInInputField(parseShortcut("escape"), true)).toBe(
       false,
     );
+  });
+
+  it("prefers the shifted tab binding that matches the current key state", () => {
+    expect(getTabParamActionForShortcuts("tab", "shift + tab", false)).toBe(
+      "indent",
+    );
+    expect(getTabParamActionForShortcuts("tab", "shift + tab", true)).toBe(
+      "unindent",
+    );
+  });
+
+  it("falls back to the remaining matching tab binding when only one uses shift", () => {
+    expect(getTabParamActionForShortcuts("shift + tab", "tab", false)).toBe(
+      "unindent",
+    );
+    expect(getTabParamActionForShortcuts("shift + tab", "tab", true)).toBe(
+      "indent",
+    );
+  });
+
+  it("returns null when neither shortcut is tab-shaped for the current key state", () => {
+    expect(getTabParamActionForShortcuts("mod + ]", "mod + [", false)).toBe(
+      null,
+    );
+    expect(getTabParamActionForShortcuts("tab", "tab", true)).toBe(null);
   });
 });

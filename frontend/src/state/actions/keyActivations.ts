@@ -205,6 +205,8 @@ type ShortcutPattern = {
 };
 
 type ShortcutModifiers = Omit<ParsedShortcut, "keys">;
+type TabShortcutInfo = { shift: boolean };
+type TabParamAction = "indent" | "unindent";
 
 function getNormalizedEventCode(event: KeyboardEvent): string | null {
   if (event.code && event.code !== "Unidentified") {
@@ -300,24 +302,32 @@ function isParsedTabShortcut(parsedShortcut) {
   );
 }
 
-function isShortcutPressed(e, parsedShortcut, _isMacOs) {
-  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
-  if (_isMacOs) {
+function hasMatchingShortcutModifiers(
+  event: KeyboardEvent,
+  parsedShortcut: ParsedShortcut,
+  macOs: boolean,
+): boolean {
+  if (macOs) {
     return (
-      e.metaKey === mod &&
-      e.ctrlKey === ctrl &&
-      e.shiftKey === shift &&
-      e.altKey === alt &&
-      _.isEqual(keysPressed, keys)
-    );
-  } else {
-    return (
-      e.ctrlKey === (ctrl || mod) &&
-      e.shiftKey === shift &&
-      e.altKey === alt &&
-      _.isEqual(keysPressed, keys)
+      event.metaKey === parsedShortcut.mod &&
+      event.ctrlKey === parsedShortcut.ctrl &&
+      event.shiftKey === parsedShortcut.shift &&
+      event.altKey === parsedShortcut.alt
     );
   }
+
+  return (
+    event.ctrlKey === (parsedShortcut.ctrl || parsedShortcut.mod) &&
+    event.shiftKey === parsedShortcut.shift &&
+    event.altKey === parsedShortcut.alt
+  );
+}
+
+function isShortcutPressed(e, parsedShortcut, _isMacOs) {
+  return (
+    hasMatchingShortcutModifiers(e, parsedShortcut, _isMacOs) &&
+    _.isEqual(keysPressed, parsedShortcut.keys)
+  );
 }
 
 function keysMatch(keys, targetKeyList = []) {
@@ -1017,26 +1027,33 @@ function handleTabKeyDown(event: KeyboardEvent) {
   }
 }
 
+export function getTabParamActionForShortcuts(
+  indentShortcut,
+  unindentShortcut,
+  shiftKey: boolean,
+): TabParamAction | null {
+  const shortcutsByAction: Record<TabParamAction, TabShortcutInfo | null> = {
+    indent: getTabShortcutInfo(indentShortcut),
+    unindent: getTabShortcutInfo(unindentShortcut),
+  };
+  const actionOrder: TabParamAction[] = shiftKey
+    ? ["unindent", "indent"]
+    : ["indent", "unindent"];
+
+  return (
+    actionOrder.find(
+      (action) => shortcutsByAction[action]?.shift === shiftKey,
+    ) ?? null
+  );
+}
+
 function resolveTabParamAction(event: KeyboardEvent) {
   const shortcuts = useSettings.getState().shortcuts;
-  const indentTab = getTabShortcutInfo(shortcuts.paramIndentShortcut);
-  const unindentTab = getTabShortcutInfo(shortcuts.paramUnindentShortcut);
-  if (event.shiftKey) {
-    if (unindentTab?.shift) {
-      return "unindent";
-    }
-    if (indentTab?.shift) {
-      return "indent";
-    }
-    return null;
-  }
-  if (indentTab && !indentTab.shift) {
-    return "indent";
-  }
-  if (unindentTab && !unindentTab.shift) {
-    return "unindent";
-  }
-  return null;
+  return getTabParamActionForShortcuts(
+    shortcuts.paramIndentShortcut,
+    shortcuts.paramUnindentShortcut,
+    event.shiftKey,
+  );
 }
 
 function activeSectionHasSelectedParams(): boolean {
