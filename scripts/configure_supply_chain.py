@@ -78,40 +78,28 @@ def days_to_minutes(days: int) -> int:
     return days * MINUTES_PER_DAY
 
 
-def load_npmrc_lines(path: Path) -> list[str]:
-    if not path.exists():
-        return []
-    return path.read_text(encoding="utf-8").splitlines()
-
-
-def npmrc_key(line: str) -> str | None:
-    stripped = line.strip()
-    if "=" not in stripped:
-        return None
-    return stripped.split("=", 1)[0].strip()
-
-
-def normalize_release_age_npmrc_lines(lines: list[str], *, minutes: int) -> list[str]:
-    policy_line = f"minimum-release-age={minutes}"
-    kept_lines: list[str] = []
-    insert_at: int | None = None
-    for line in lines:
-        if npmrc_key(line) not in NPMRC_KEY_ALIASES:
-            kept_lines.append(line)
-            continue
-        if insert_at is None:
-            insert_at = len(kept_lines)
-    if insert_at is None:
-        kept_lines.append(policy_line)
-        return kept_lines
-    kept_lines.insert(insert_at, policy_line)
-    return kept_lines
-
-
 def upsert_npmrc(path: Path, *, days: int) -> None:
-    updated_lines = normalize_release_age_npmrc_lines(
-        load_npmrc_lines(path), minutes=days_to_minutes(days)
-    )
+    minutes = days_to_minutes(days)
+    if path.exists():
+        lines = path.read_text(encoding="utf-8").splitlines()
+    else:
+        lines = []
+
+    updated_lines: list[str] = []
+    replaced = False
+    for line in lines:
+        stripped = line.strip()
+        key = stripped.split("=", 1)[0].strip() if "=" in stripped else None
+        if key in NPMRC_KEY_ALIASES:
+            if not replaced:
+                updated_lines.append(f"minimum-release-age={minutes}")
+                replaced = True
+            continue
+        updated_lines.append(line)
+
+    if not replaced:
+        updated_lines.append(f"minimum-release-age={minutes}")
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(updated_lines).rstrip() + "\n", encoding="utf-8")
 
@@ -135,9 +123,6 @@ def configure_local(repo_root: Path, *, days: int) -> None:
         print(
             f"- Updated {(repo_root / project_dir / '.npmrc').relative_to(repo_root)}"
         )
-    print(
-        "Go has no native install-time release-age setting; use ./audit_supply_chain.sh for Go module age checks."
-    )
     print(
         "pnpm uses minimum-release-age in minutes, and this repo also verifies checked-in pnpm lockfiles with audit/update scripts."
     )
@@ -171,9 +156,6 @@ def configure_global(repo_root: Path, *, days: int) -> None:
     print(f"Configured global npm/pnpm minimum release age: {days} day(s).")
     print(
         "Skipped uv: current uv only supports an absolute exclude-newer date, not a rolling global minimum-age policy."
-    )
-    print(
-        "Skipped Go: Go modules do not expose a native install-time release-age setting."
     )
     print(
         "Use ./configure_supply_chain.sh --local-only if you want repo-local Python enforcement via init_env.sh."

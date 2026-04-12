@@ -1055,24 +1055,7 @@ test("project chat releases provider mic stream when recorder start fails", asyn
       throw new Error("Missing transcription profile id.");
     }
 
-    const engineConfigsResponse = await page.request.get(
-      `${backendOrigin}/api/getEngineConfigs`,
-    );
-    if (!engineConfigsResponse.ok()) {
-      throw new Error("Failed to load engine configs.");
-    }
-    const managedEngineName =
-      (
-        (await engineConfigsResponse.json()) as Array<{
-          name?: string;
-          engineType?: string;
-        }>
-      ).find((config) => config.engineType === "setta_llm")?.name ?? null;
-    if (!managedEngineName) {
-      throw new Error("Missing managed engine name.");
-    }
-
-    await setProjectChatEngine(page, managedEngineName);
+    await setProjectChatEngine(page, "Setta");
     await setProjectChatTranscriptionProfile(page, transcriptionProfileName);
     await setProjectChatMicrophoneSource(page, "Always provider");
 
