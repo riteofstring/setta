@@ -1,5 +1,6 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
+import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import type { SetStateAction } from "react";
 import React from "react";
@@ -82,6 +83,28 @@ type SectionContainerCoreResizableProps = {
   hideHeader?: boolean;
   forceHideTopDragHandle?: boolean;
 };
+
+function handleSectionContainerHeaderRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionHeaderReactRender",
+    actualDuration,
+  );
+}
+
+function handleSectionContainerBodyContentRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionBodyContentReactRender",
+    actualDuration,
+  );
+}
 
 function DefaultSectionContainerHeaderDomAdapter({
   hasSectionStyleTheme,
@@ -201,42 +224,52 @@ function _SectionContainerCoreResizable({
             <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
           </div>
         )}
-      {isMetaControl ? (
-        shouldRenderMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
-            <div className="flex h-12 w-10 items-center justify-end">
-              <MetaControlMenuButton
-                sectionId={sectionId}
-                sectionTypeName={sectionTypeName}
-                isInOtherProjectConfigs={isInOtherProjectConfigs}
-              />
+      <React.Profiler
+        id={`section-container-header:${sectionId}`}
+        onRender={handleSectionContainerHeaderRender}
+      >
+        {isMetaControl ? (
+          shouldRenderMetaMenu && (
+            <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
+              <div className="flex h-12 w-10 items-center justify-end">
+                <MetaControlMenuButton
+                  sectionId={sectionId}
+                  sectionTypeName={sectionTypeName}
+                  isInOtherProjectConfigs={isInOtherProjectConfigs}
+                />
+              </div>
             </div>
-          </div>
-        )
-      ) : textBlockMetaControlStyle ? (
-        shouldRenderTextBlockMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
-            <div className="flex h-12 w-10 items-center justify-end">
-              <TextBlockMetaControlMenuButton
-                sectionId={sectionId}
-                sectionTypeName={sectionTypeName}
-                isInOtherProjectConfigs={isInOtherProjectConfigs}
-                isRoot={isRoot}
-              />
+          )
+        ) : textBlockMetaControlStyle ? (
+          shouldRenderTextBlockMetaMenu && (
+            <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
+              <div className="flex h-12 w-10 items-center justify-end">
+                <TextBlockMetaControlMenuButton
+                  sectionId={sectionId}
+                  sectionTypeName={sectionTypeName}
+                  isInOtherProjectConfigs={isInOtherProjectConfigs}
+                  isRoot={isRoot}
+                />
+              </div>
             </div>
-          </div>
-        )
-      ) : !hideHeader ? (
-        <HeaderRenderer {...headerRenderProps} />
-      ) : null}
+          )
+        ) : !hideHeader ? (
+          <HeaderRenderer {...headerRenderProps} />
+        ) : null}
+      </React.Profiler>
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <CanvasSectionBody
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bodySurface.bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
+      <React.Profiler
+        id={`section-container-body-content:${sectionId}`}
+        onRender={handleSectionContainerBodyContentRender}
+      >
+        <CanvasSectionBody
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bodySurface.bgColor}
+          isMinimized={isMinimized}
+          isUserView={isUserView}
+        />
+      </React.Profiler>
     </CustomResizable>
   );
 }

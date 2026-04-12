@@ -1,6 +1,11 @@
 /* @vitest-environment jsdom */
 
 import {
+  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
+import {
   act,
   Profiler,
   type ProfilerOnRenderCallback,
@@ -234,6 +239,7 @@ describe("SectionContainerCoreResizable store subscriptions", () => {
 
   afterEach(() => {
     resetProjectStores();
+    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     document.body.innerHTML = "";
   });
 
@@ -284,6 +290,38 @@ describe("SectionContainerCoreResizable store subscriptions", () => {
 
       expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
       expect(host.querySelector('[data-testid="mock-code-area"]')).toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("records separate header and body-content attribution when canary motion capture is active", async () => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledContainer(onRender);
+
+    try {
+      const motionAttribution =
+        readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+          .motionAttribution;
+
+      expect(
+        motionAttribution.presentedSceneSectionHeaderReactRender.count,
+      ).toBeGreaterThan(0);
+      expect(
+        motionAttribution.presentedSceneSectionBodyContentReactRender.count,
+      ).toBeGreaterThan(0);
+      expect(
+        host.querySelector('[data-testid="mock-section-header"]'),
+      ).not.toBeNull();
+      expect(
+        host.querySelector('[data-testid="mock-code-area"]'),
+      ).not.toBeNull();
     } finally {
       await act(async () => {
         root.unmount();

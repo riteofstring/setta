@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 12:35 UTC
+Last updated: 2026-04-13 12:41 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,75 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `425` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting the mounted body
+  subtree render bucket into inner header vs body-content owners:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stopped the repeated
+      shallow-selector / subscription-prune pattern after items `423` and
+      `424` both failed to move the dominant owner
+    - chose the budgeted attribution step instead of forcing a third product
+      hypothesis of the same shape: name the next inner owner inside
+      `presentedSceneSectionBodySubtreeReactRender`
+    - kept the slice bounded to one instrumentation seam, one focused
+      component regression update, one live worktree probe rerun, and one
+      fresh headless CDP smoke check; no new oracle lane opened
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with two new canary motion owners:
+      `presentedSceneSectionHeaderReactRender` and
+      `presentedSceneSectionBodyContentReactRender`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      so the mounted header branch and mounted body-content branch each record
+      their own `React.Profiler` durations into the shared canary snapshot
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      and
+      `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      with focused regression coverage
+    - `perf/reports/frontend/2026-04-13_settings-graph-mounted-body-inner-owner-attribution.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed (`2` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-050/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> direct-open phase sequence on the worktree:
+         `32ms app_router_loading` -> `2345ms settings_loading` ->
+         `4384ms app_shell_without_surface` -> `8360ms project_loading` ->
+         `20366ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> worktree canary still reached `surfaceKind: "canary"` and kept the
+         same dominant outer owner family:
+         `presentedSceneSectionSubtreeReactRender`
+      -> the new inner split named body content as the larger mounted-body
+         owner:
+         `presentedSceneSectionBodyContentReactRender` `527.2ms` total /
+         `67.3ms` max vs
+         `presentedSceneSectionHeaderReactRender` `202.5ms` total /
+         `30.4ms` max
+    - fresh-context headless CDP visual check on direct
+      `http://127.0.0.1:3075/settings`
+      -> observed the loading shell rather than the mounted graph surface
+      -> visible text included `PREPARING SETTA`, `Loading settings…`, and
+         `Backend: Starting backend services`
+  - reading:
+    - this closed the repeated mounted-body selector-prune pattern without
+      taking a third blind product hypothesis
+    - the named next inner owner is now body content, not the header branch
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - land one bounded production cut inside mounted body content on the same
+      canonical lane; do not reopen header-only cleanup unless fresh
+      attribution changes the ranking
+    - if the next body-content cut also fails to move the dominant owner, add
+      one more inner attribution seam inside the code/body content branch
+      before another product hypothesis
+    - do not reopen direct `/settings` startup classification unless the phase
+      sequence changes or the authenticated Playwright lane stops reaching the
+      canary
 
 - item `424` landed one bounded mounted-body production slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by removing deep-equality comparator

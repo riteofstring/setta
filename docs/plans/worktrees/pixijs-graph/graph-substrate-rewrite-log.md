@@ -151,6 +151,62 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 12:41 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: stop repeating
+  the same mounted-body selector-prune shape after two non-winning passes and
+  land the budgeted attribution step that names the next inner body owner on
+  the canonical `rotaryParamCodeObjDefault` lane
+- extended canary motion attribution with
+  `presentedSceneSectionHeaderReactRender` and
+  `presentedSceneSectionBodyContentReactRender`
+- updated `SectionContainerCoreResizabe` so the mounted header branch and the
+  mounted body-content branch each report their own `React.Profiler` durations
+  into the shared canary instrumentation snapshot
+- added focused regressions in:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+- recorded the live readout in
+  `perf/reports/frontend/2026-04-13_settings-graph-mounted-body-inner-owner-attribution.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    -> passed (`2` files, `9` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-050/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.3m`)
+    -> direct-open phase sequence:
+       `32ms app_router_loading` -> `2345ms settings_loading` ->
+       `4384ms app_shell_without_surface` -> `8360ms project_loading` ->
+       `20366ms surface_ready`
+    -> canonical target stayed `rotaryParamCodeObjDefault`
+    -> dominant outer owner remained
+       `presentedSceneSectionSubtreeReactRender`
+       (`869.3ms` total / `208.3ms` max / `30` commits)
+    -> new inner mounted-body split:
+       `presentedSceneSectionBodyContentReactRender`
+       (`527.2ms` total / `67.3ms` max / `24` commits)
+       `presentedSceneSectionHeaderReactRender`
+       (`202.5ms` total / `30.4ms` max / `24` commits)
+  - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+    -> healthy loading shell, not the mounted graph surface
+    -> visible text: `PREPARING SETTA`, `Loading settings…`,
+       `Backend: Starting backend services`
+- reading:
+  - the next named owner inside the mounted body subtree is body content, not
+    the header branch
+  - this closes the repeated selector-prune pattern for now and gives the next
+    product slice a narrower owner target
+  - keep direct `/settings` loading shell observations classified as startup
+    state rather than renderer drift
+- next:
+  - land one bounded production cut inside mounted body content on the same
+    `rotaryParamCodeObjDefault` lane
+  - if that next body-content cut fails to move the dominant owner, add one
+    more inner body-content attribution seam before another product hypothesis
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 12:35 UTC
 
 - reread the plan/handoff first and kept the lane on the mounted body owner
