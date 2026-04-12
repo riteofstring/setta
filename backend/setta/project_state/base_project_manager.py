@@ -4628,6 +4628,8 @@ class BaseProjectManager(ABC):
             raise KeyError(f"View mode {active_view_mode_id} not found")
         view_mode.viewport = x.viewport
         view_mode.viewportInitialized = x.viewport is not None
+        project_state = self.get_single_config_state(x.projectConfigId)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:

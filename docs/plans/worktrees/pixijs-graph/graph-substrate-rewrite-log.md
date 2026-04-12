@@ -284,6 +284,40 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 09:12 UTC
+
+- Item: Progress review checkpoint after loop `001` run `014`.
+- Status: `done`
+- Details:
+  - Reviewed the durable plan/handoff plus run artifacts for `run-005`
+    through `run-014`.
+  - Real forward progress in the recent stretch:
+    - `run-008` restored the canonical live probe on
+      `rotaryParamCodeObjDefault`
+    - `run-009` landed the last clear product-side attribution slice by
+      collapsing duplicate-index resolution to the `GroupContainer` boundary
+    - `run-014` moved the repeated live blocker forward to a specific frontend
+      project-config store synchronization failure after `surface_ready`
+  - Diminishing-return pattern:
+    - `run-010` through `run-014` mostly iterated on probe request-path,
+      pane-state normalization, readiness recovery, and lane-health helper
+      work for the same named lane
+    - that is now probe churn rather than fresh product progress
+  - Durable adjustment:
+    - keep the loop running, but force the next pass onto the production
+      synchronization boundary behind
+      `waitForFrontendProjectConfigState(...)`
+    - if one more bounded iteration cannot turn that boundary into either a
+      production-code change or a precise ownership attribution, stop for
+      human review rather than continuing helper-only repair
+- Next action:
+  - inspect why the frontend project-config store does not reflect backend
+    `setActiveViewMode(All Settings)` and `setViewport(null)` writes on the
+    canonical `rotaryParamCodeObjDefault` lane, then rerun the same lane only
+    after that production-path inspection
+
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-15 08:47 UTC
 
 - Item: Harden the canonical `rotaryParamCodeObjDefault` lane-health startup so
@@ -20263,6 +20297,48 @@ LOOP_TERMINAL_MARKER: none
       `readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState(...)`
       on the recovered worktree runtime, then rerun this same live probe before
       taking another product cut
+- LOOP_TERMINAL_MARKER: none
+
+- 2026-04-15 09:05 UTC | item `484` | landed backend viewport broadcast on the canonical sync lane
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `backend/setta/project_state/base_project_manager.py`
+      `set_viewport(...)` now publishes the updated project state through
+      `_update_and_broadcast_project_state_no_name_validation(...)` after it
+      mutates the active view mode viewport fields
+    - `tests/project_state/test_project_config_view_modes.py`
+      now captures `broadcast_project_state(...)` and asserts that
+      `set_viewport(viewport=None)` emits the updated `projectConfig.viewport`,
+      `viewportInitialized`, and active view mode viewport fields
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_project_config_view_modes.py -k set_viewport_broadcasts_updated_project_state`
+      -> passed (`1` selected test)
+    - `source activate.sh && python -m pytest tests/project_state/test_project_config_view_modes.py -k 'switching_view_modes_swaps_layout_and_viewport or set_viewport_broadcasts_updated_project_state'`
+      -> passed (`2` selected tests)
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-015/worktree-ai.log`
+      -> passed; worktree session `43b3fc`, frontend `3053`, backend `8053`,
+         debug port `9275`
+    - live canonical lane rerun with fresh token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> direct-open again reached
+         `app_router_loading -> app_shell_without_surface -> settings_loading -> project_loading -> surface_ready`
+      -> still failed with the same live blocker:
+         `Worktree unhealthy: timed out after 5000ms while reading the frontend project config store`
+         from `waitForFrontendProjectConfigState(...)`
+    - fresh-context CDP check:
+      -> not run; the required sub-agent did not have `chrome-devtools-mcp`
+         available in its session, so no live page inspection happened this
+         iteration
+  - reading:
+    - the missing backend `/setViewport` broadcast was real production debt and
+      is now fixed + covered
+    - the live lane still fails after `surface_ready`, so the remaining owner
+      is further downstream in the frontend receive/apply path, not this
+      backend endpoint
+    - next: inspect why the live frontend `useProjectState` snapshot does not
+      observe the backend-published `projectConfig` update on the canonical
+      lane after `surface_ready`
 - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-14 14:08 UTC | item `472` | completed unpinned-area attribution split and hardened probe pane-state setup

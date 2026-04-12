@@ -1,3 +1,4 @@
+import types
 from typing import TYPE_CHECKING
 
 import pytest
@@ -6,6 +7,7 @@ from setta.project_state.project_manager_types import (
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     CreateViewModeRequest,
+    ProjectStateSingleConfigWithCompletedOpIds,
     DeleteSectionsRequest,
     DeleteViewModeRequest,
     MoveSectionsRequest,
@@ -347,6 +349,58 @@ class TestProjectConfigViewModes:
             assert state_back_to_second.projectConfig.viewport.zoom == pytest.approx(
                 1.6
             )
+
+    async def test_set_viewport_broadcasts_updated_project_state(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            project_state = manager.get_single_config_state(project_config_id)
+            active_view_mode_id = project_state.projectConfig.activeViewModeId
+            assert active_view_mode_id is not None
+
+            captured_broadcasts: list[ProjectStateSingleConfigWithCompletedOpIds] = []
+
+            async def capture_broadcast(
+                self,
+                projectState,
+                completedOpIds,
+                pendingOpIds,
+            ) -> None:
+                captured_broadcasts.append(
+                    ProjectStateSingleConfigWithCompletedOpIds(
+                        projectState=projectState,
+                        completedOpIds=list(completedOpIds),
+                        pendingOpIds=list(pendingOpIds),
+                    )
+                )
+
+            sender = manager.websocket_msg_handler
+            original_broadcast = sender.broadcast_project_state
+            sender.broadcast_project_state = types.MethodType(
+                capture_broadcast,
+                sender,
+            )
+            try:
+                await manager.set_viewport(
+                    SetViewportRequest(
+                        projectConfigId=project_config_id,
+                        viewport=None,
+                    )
+                )
+            finally:
+                sender.broadcast_project_state = original_broadcast
+
+            assert len(captured_broadcasts) == 1
+            broadcast = captured_broadcasts[0].projectState.projectConfig
+            assert broadcast.id == project_config_id
+            assert broadcast.viewport is None
+            assert broadcast.viewportInitialized is False
+            assert broadcast.activeViewModeId == active_view_mode_id
+            active_view_mode = broadcast.viewModes[active_view_mode_id]
+            assert active_view_mode.viewport is None
+            assert active_view_mode.viewportInitialized is False
 
     async def test_set_top_level_section_layout_ignores_deleted_sections(self) -> None:
         async with real_project_manager() as fixture:

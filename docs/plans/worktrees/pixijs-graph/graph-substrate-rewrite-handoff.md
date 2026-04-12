@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 08:47 UTC
+Last updated: 2026-04-15 09:05 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,84 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `484` landed the missing backend viewport broadcast on the canonical
+  `rotaryParamCodeObjDefault` lane, but the live blocker remains in frontend
+  project-state synchronization after `surface_ready`:
+  - code/test changes:
+    - `backend/setta/project_state/base_project_manager.py`
+      `set_viewport(...)` now calls
+      `_update_and_broadcast_project_state_no_name_validation(...)` after it
+      updates the active view mode's viewport fields, so backend
+      `/setViewport` writes publish the new project-config snapshot instead of
+      remaining backend-only
+    - `tests/project_state/test_project_config_view_modes.py`
+      now captures `broadcast_project_state(...)` and asserts that
+      `set_viewport(viewport=None)` emits the updated `projectConfig.viewport`,
+      `viewportInitialized`, and active view mode viewport fields
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_project_config_view_modes.py -k set_viewport_broadcasts_updated_project_state`
+      -> passed (`1` selected test)
+    - `source activate.sh && python -m pytest tests/project_state/test_project_config_view_modes.py -k 'switching_view_modes_swaps_layout_and_viewport or set_viewport_broadcasts_updated_project_state'`
+      -> passed (`2` selected tests)
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-015/worktree-ai.log`
+      -> passed; worktree session `43b3fc`, frontend `3053`, backend `8053`,
+         debug port `9275`
+    - live canonical lane rerun with fresh token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> still failed on the same live boundary after direct-open reached
+         `surface_ready`
+      -> failure remained:
+         `Worktree unhealthy: timed out after 5000ms while reading the frontend project config store`
+         from `waitForFrontendProjectConfigState(...)`
+    - fresh-context CDP check:
+      -> not run; the required sub-agent did not have `chrome-devtools-mcp`
+         available in its tool session, so no live page inspection was
+         possible this iteration
+  - reading:
+    - the missing `/setViewport` broadcast was a real production bug and is
+      now covered, but it was not the whole cause of the canonical live lane
+      failure
+    - the remaining frontier is now narrower: inspect why the live frontend
+      `useProjectState` snapshot still does not observe the backend-published
+      `projectConfig` update after `surface_ready`
+    - next: instrument or inspect the frontend receive/apply path on the live
+      canary boundary between websocket/initial state delivery and
+      `useProjectState.setState(...)`; do not spend the next pass on more
+      probe-helper normalization
+
+- progress review checkpoint after iteration `14`:
+  - recent work is still worth continuing, but only with a sharper boundary
+  - meaningful forward progress in this stretch:
+    - `run-008` restored the canonical `rotaryParamCodeObjDefault` live probe
+      to passing
+    - `run-009` landed the last clear product-side attribution slice on the
+      mounted param subtree
+    - `run-014` moved the live blocker forward to an explicit
+      `waitForFrontendProjectConfigState(...)` synchronization failure after
+      `surface_ready`
+  - repeated rabbit hole:
+    - `run-010` through `run-014` mostly stayed on probe-helper,
+      normalization, and runtime-health churn for the same named lane
+    - that is now diminishing returns for this lane
+  - next iteration constraint:
+    - do not spend another full iteration on generic readiness, pane-state,
+      recovery, or lane-health helper work unless it directly lands on the
+      production synchronization boundary named below
+    - inspect the production path behind
+      `waitForFrontendProjectConfigState(...)`: backend writes succeed, but the
+      frontend `useProjectState` snapshot for the active project config does
+      not reflect `activeViewModeId=All Settings`, `viewport=null`, and
+      `viewportInitialized=false` within the bounded wait
+    - acceptable outcomes next:
+      - a production-code fix for the dropped/delayed sync
+      - a precise attribution finding naming the owner that drops or delays the
+        update on the canary path
+      - a justified stop if this boundary requires human product direction
+    - unacceptable outcome next:
+      - another helper-only iteration on the same lane without moving the
+        blocker into product code or a precise ownership diagnosis
 
 - item `483` hardened the canonical worktree lane-health startup on the
   `rotaryParamCodeObjDefault` lane so the probe no longer fails at the weak
