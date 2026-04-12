@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 01:08 UTC
+Last updated: 2026-04-13 01:17 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,39 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `373` landed one bounded `traverse_hierarchy(...)` reduction on the
+  direct `/settings` warm-load backend lane:
+  - product code changed in:
+    - `backend/setta/types/hierarchy_traversal.py`
+      so `traverse_hierarchy(...)` now caches effective impl resolution by
+      code-object id instead of recomputing the same effective impl when:
+      - a node is checked for top-level or child traversal eligibility, then
+      - the same node is later popped and processed
+  - focused regression coverage added in:
+    - `tests/types/test_hierarchy_traversal.py`
+      to lock the caching-sensitive traversal contract by asserting a
+      filtered parent-plus-children walk resolves each effective impl only
+      once while still collecting the same child ids
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/types/test_hierarchy_traversal.py tests/project_state/test_load_project_config_timing.py tests/types/test_shown_params.py`
+      -> passed (`10` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/hierarchy_traversal.py tests/types/test_hierarchy_traversal.py tests/project_state/test_load_project_config_timing.py tests/types/test_shown_params.py`
+      -> passed
+  - reading:
+    - this is a real product reduction inside the currently named backend
+      owner, not another attribution-only split
+    - this pass did not take a fresh end-to-end direct `/settings` timing
+      readout, so there is not yet new evidence that backend warm-load is
+      still the dominant user-facing blocker after the cache landed
+  - next default frontier:
+    - do not spend another default iteration on backend-only shown-param
+      micro-work without a fresh end-to-end direct `/settings` readout
+    - if a fresh readout still shows backend warm-load as the active blocker,
+      use it to decide whether `traverse_hierarchy(...)` needs another bounded
+      reduction
+    - otherwise pivot back to the earliest product-facing rewrite gate on the
+      live canary instead of extending this backend lane
 
 - progress-review checkpoint after run `060`:
   - the current trajectory is still worthwhile, but only with a sharper stop

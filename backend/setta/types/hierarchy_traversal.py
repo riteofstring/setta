@@ -64,11 +64,16 @@ def traverse_hierarchy(
         options = TraversalOptions()
 
     result = HierarchyTraversalResult()
+    impl_cache: dict[ID, BaseCodeObjImplUnion] = {}
 
     def get_impl(id: ID) -> BaseCodeObjImplUnion:
+        if id in impl_cache:
+            return impl_cache[id]
         variant_id = codeObjVariantMap[id]
         variant = codeObjVariants[variant_id]
-        return get_effective_impl(codeObjImpls[variant.impl], codeObjs[id], variant)
+        impl = get_effective_impl(codeObjImpls[variant.impl], codeObjs[id], variant)
+        impl_cache[id] = impl
+        return impl
 
     # Build stack with optional filtering
     stack: list[

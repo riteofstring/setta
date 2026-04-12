@@ -75,6 +75,34 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 01:17 UTC
+
+- item `373` landed one bounded `traverse_hierarchy(...)` reduction on the
+  direct `/settings` warm-load backend lane:
+  - changed `backend/setta/types/hierarchy_traversal.py` so
+    `traverse_hierarchy(...)` caches effective impl lookup by code-object id
+    and reuses that result across traversal-filter checks and node processing
+  - added `tests/types/test_hierarchy_traversal.py` to prove the traversal
+    still collects the same filtered child ids while resolving each effective
+    impl only once on a representative parent-plus-children walk
+  - verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/types/test_hierarchy_traversal.py tests/project_state/test_load_project_config_timing.py tests/types/test_shown_params.py`
+      -> passed (`10` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/hierarchy_traversal.py tests/types/test_hierarchy_traversal.py tests/project_state/test_load_project_config_timing.py tests/types/test_shown_params.py`
+      -> passed
+  - reading:
+    - this was the remaining bounded backend owner named by the prior handoff
+      and it landed as a concrete reduction rather than more attribution
+    - no fresh end-to-end direct `/settings` timing sample was taken in this
+      pass, so the loop should not assume backend warm-load remains the active
+      blocker without new evidence
+  - next:
+    - take one fresh direct `/settings` warm-load readout before any further
+      backend-only pass on shown-param traversal, or pivot back to the
+      earliest product-facing rewrite gate if that readout is absent
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 01:08 UTC
 
 - item `372` landed one bounded `get_param_ids_to_show(...)` sub-owner split
