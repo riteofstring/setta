@@ -22,7 +22,7 @@ function firstStatusChar(statusCode: string): string {
   return trimmed[0] ?? " ";
 }
 
-export function gitFileStatusCategoryFromCode(
+function gitFileStatusCategoryFromCode(
   statusCode: string,
 ): GitFileStatusCategory {
   const code = firstStatusChar(statusCode).toUpperCase();
