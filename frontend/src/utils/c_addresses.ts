@@ -1,9 +1,9 @@
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride";
 import { C } from "utils/c";
+import { RouteEnum } from "utils/generatedTypes";
 import { getOrInitLauncherOrigin } from "utils/launcherOrigin";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
-import { API_ROUTE_PREFIX } from "utils/transportRouteConstants";
 
 export class C_ADDRESSES {
   static get DEV_MODE() {
@@ -41,7 +41,7 @@ export class C_ADDRESSES {
     return normalizeOrigin(override, "VITE_BACKEND_ORIGIN");
   }
 
-  // Resolve backend and launcher origins from Go-owned bindings plus runtime overrides.
+  // Computed properties that mirror the Python class
   static get BACKEND_ORIGIN() {
     if (this.DEV_MODE) {
       const sessionOverride = this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE;
@@ -83,11 +83,11 @@ export class C_ADDRESSES {
   }
 
   static get LAUNCHER() {
-    return `${this.LAUNCHER_ORIGIN}${API_ROUTE_PREFIX}`;
+    return `${this.LAUNCHER_ORIGIN}${RouteEnum.PREFIX}`;
   }
 
   static get BACKEND() {
-    return `${this.BACKEND_ORIGIN}${API_ROUTE_PREFIX}`;
+    return `${this.BACKEND_ORIGIN}${RouteEnum.PREFIX}`;
   }
 
   static get WEBSOCKET() {
@@ -96,6 +96,6 @@ export class C_ADDRESSES {
       originUrl.protocol === "https:" || originUrl.protocol === "wss:"
         ? "wss:"
         : "ws:";
-    return `${protocol}//${originUrl.host}${API_ROUTE_PREFIX}`;
+    return `${protocol}//${originUrl.host}${RouteEnum.PREFIX}`;
   }
 }

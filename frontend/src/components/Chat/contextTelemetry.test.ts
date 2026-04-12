@@ -32,18 +32,20 @@ describe("resolveAuthoritativeContextTelemetry", () => {
       contextWindowTokens: 200,
       contextUsedTokens: 150,
       contextUsageIsEstimated: true,
+      contextUsageUnavailable: false,
     });
   });
 
-  it("keeps missing backend usage as null telemetry without fallback state", () => {
+  it("marks telemetry unavailable when backend usage is missing", () => {
     expect(resolveAuthoritativeContextTelemetry(null)).toEqual({
       contextWindowTokens: null,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
+      contextUsageUnavailable: true,
     });
   });
 
-  it("keeps partial backend usage without inventing missing fields", () => {
+  it("marks telemetry unavailable when backend usage is partial", () => {
     expect(
       resolveAuthoritativeContextTelemetry({
         contextWindowTokens: 4000,
@@ -54,6 +56,7 @@ describe("resolveAuthoritativeContextTelemetry", () => {
       contextWindowTokens: 4000,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
+      contextUsageUnavailable: true,
     });
   });
 });
