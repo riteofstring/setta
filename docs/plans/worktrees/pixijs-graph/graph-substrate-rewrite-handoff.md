@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 16:10 UTC
+Last updated: 2026-04-13 16:31 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,82 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `439` closed one bounded product hypothesis on the canonical
+  `rotaryParamCodeObjDefault` canary lane by testing, then reverting, a
+  body-mount isolation split inside
+  `settingsGraphSubstrateCanarySectionsLayer.tsx`:
+  - local ranking/readout for this iteration:
+    - reread the active plan/handoff first and followed the handoff rule to
+      recheck runtime health on the canonical lane before taking another cut
+    - healthy pre-change probe on the existing runtime succeeded and again
+      named `presentedSceneSectionSubtreeReactRender` as the dominant owner,
+      with the container/body lanes still below it
+    - chose one bounded product hypothesis inside that subtree by trying to
+      keep the mounted DOM body subtree stable across shell-only motion, then
+      required the live canary to justify keeping the change
+    - the live canary did not show a win, so the product patch was reverted in
+      the same iteration and the slice was recorded as a closed negative result
+      instead of leaving unproven code behind
+  - code/doc changes kept in the tree:
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-body-mount-isolation-negative-result.md`
+      records the hypothesis, the failed first rerun, the allowed lifecycle
+      recovery, and the post-recovery regression numbers that closed the idea
+  - focused verification:
+    - pre-change health check:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-008/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+    - focused jsdom guardrails while the local hypothesis patch was in place:
+      `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      -> passed
+    - first post-change live rerun:
+      same probe command as above
+      -> failed with recurring lifecycle closure during pane normalization:
+         `Worktree unhealthy: page already closed before writing normalized compare pane state`
+    - allowed recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree to session `dbd377` on `3075` / `8075`
+    - refreshed runtime facts with:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-008/worktree-ai.log`
+    - healthy live rerun after recovery, still with the hypothesis patch:
+      same probe command as above
+      -> passed (`1` Playwright test, `1.9m`) but regressed versus the prior
+         healthy baseline:
+         `presentedSceneSectionSubtreeReactRender`
+         `901.3ms total` / `255.8ms max`
+         `presentedSceneSectionContainerReactRender`
+         `869.9ms total` / `116.6ms max`
+         `presentedSceneSectionBodySubtreeReactRender`
+         `880.0ms total` / `117.8ms max`
+         `averageFrameDurationMs 43.02`, `longTaskTotalDurationMs 1187`
+    - reverted the local product patch, reran the focused jsdom guardrails, and
+      checked formatting:
+      `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      -> passed
+      `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - fresh-context CDP smoke via sub-agent on the recovered runtime:
+      -> bootstrap `POST /consume` returned `401`, so the sub-agent verified
+         `http://127.0.0.1:3075/settings` directly instead
+      -> `Settings -> All Settings` was visible, the graph substrate canary
+         modules loaded, `rotaryParamCodeObjDefault` existed in the live
+         project config, and normal zoom was restored
+      -> console noise limited to the bootstrap `401`, favicon `401`, Vite /
+         React DevTools info, one React Router future-flag warning, and
+         accessibility warnings about missing `id`/`name` and mismatched
+         `aria-labelledby`; no new runtime JS errors
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - close the body-mount isolation idea unless fresh owner evidence points
+      back to it; it did not buy a measured live win on the canonical lane
+    - the worktree runtime can still require one recovery retry, but after
+      recovery the live probe and CDP smoke were both usable in this iteration
+  - next default frontier:
+    - keep the canonical lane and take the next bounded product or attribution
+      cut above the body-mount boundary, targeting the remaining
+      `presentedSceneSectionSubtreeReactRender` owner instead of reopening this
+      leaf hypothesis
 
 - item `438` landed one bounded production slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by trimming duplicate top-level

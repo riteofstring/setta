@@ -18042,3 +18042,75 @@ LOOP_TERMINAL_MARKER: none
     product cut; if the live canary becomes trustworthy again, rerun the
     canonical probe and CDP smoke before continuing deeper on the remaining
     section-subtree/container owner
+
+## 2026-04-13 16:31 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
+- selected one bounded canonical-lane subtask:
+  test whether isolating the mounted body subtree from shell-only motion inside
+  `settingsGraphSubstrateCanarySectionsLayer.tsx` reduces the dominant
+  `presentedSceneSectionSubtreeReactRender` owner for
+  `rotaryParamCodeObjDefault`
+- pre-change canonical health check:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-008/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.3m`)
+    -> lane baseline on the healthy pre-change run:
+       `presentedSceneSectionSubtreeReactRender`
+       `815.0ms total` / `237.9ms max`
+       `presentedSceneSectionContainerReactRender`
+       `790.8ms total` / `99.0ms max`
+       `presentedSceneSectionBodySubtreeReactRender`
+       `798.4ms total` / `99.9ms max`
+       `averageFrameDurationMs 37.98`, `longTaskTotalDurationMs 1003`
+- local hypothesis work:
+  - tried a bounded body-mount memo split in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    with matching fan-out test updates
+  - focused jsdom verification while that patch was present:
+    `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    -> passed
+- first post-change live rerun:
+  - same canonical probe command as above
+    -> failed with recurring lifecycle closure:
+       `Worktree unhealthy: page already closed before writing normalized compare pane state`
+- allowed recovery:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> restarted to session `dbd377` on `3075` / `8075`
+  - refreshed runtime:
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-008/worktree-ai.log`
+- healthy post-recovery live rerun with the hypothesis patch still present:
+  - same canonical probe command as above
+    -> passed (`1` Playwright test, `1.9m`) but regressed instead of improving:
+       `presentedSceneSectionSubtreeReactRender`
+       `901.3ms total` / `255.8ms max`
+       `presentedSceneSectionContainerReactRender`
+       `869.9ms total` / `116.6ms max`
+       `presentedSceneSectionBodySubtreeReactRender`
+       `880.0ms total` / `117.8ms max`
+       `averageFrameDurationMs 43.02`, `longTaskTotalDurationMs 1187`
+- decision:
+  - closed the hypothesis as a no-win and reverted the local product patch in
+    the same iteration
+  - kept only the append-only perf note:
+    `perf/reports/frontend/2026-04-13_settings-graph-section-body-mount-isolation-negative-result.md`
+- post-revert verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    -> passed (`2` files, `9` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on the recovered runtime:
+    -> bootstrap `POST /consume` returned `401`, so the check verified
+       `http://127.0.0.1:3075/settings` directly
+    -> `Settings -> All Settings` was visible, the canary modules loaded,
+       `rotaryParamCodeObjDefault` existed in the live config, and normal zoom
+       was restored
+    -> console noise was limited to bootstrap/favicon `401`s, Vite / React
+       DevTools info, one React Router future-flag warning, and a11y warnings;
+       no new runtime JS errors
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - do not reopen this exact body-mount isolation idea without fresh owner
+    evidence
+  - the next cut should stay above the body-mount boundary and target the
+    remaining `presentedSceneSectionSubtreeReactRender` owner
+- LOOP_TERMINAL_MARKER: none
