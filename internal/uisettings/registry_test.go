@@ -266,6 +266,9 @@ func TestRegistryReadValueReturnsDefaultedAppMetadataOnFreshProject(t *testing.T
 	if err != nil {
 		t.Fatalf("new core registry: %v", err)
 	}
+	expectedAppDefinition := projectstate.EffectiveAppDefinition(runtime.Snapshot().Document)
+	expectedAppSpecPath := projectstate.EffectiveAppSpecPath(runtime.Snapshot().Document)
+	expectedThemeMode := projectstate.EffectiveAppThemeMode(runtime.Snapshot().Document)
 
 	catalogID, err := registry.ReadValue(context.Background(), "project-alpha", "core.app.catalog_id")
 	if err != nil {
@@ -292,17 +295,17 @@ func TestRegistryReadValueReturnsDefaultedAppMetadataOnFreshProject(t *testing.T
 		t.Fatalf("read python codegen enabled: %v", err)
 	}
 
-	if catalogID != appspec.DefaultCatalogID {
-		t.Fatalf("expected default catalog id %q, got %#v", appspec.DefaultCatalogID, catalogID)
+	if catalogID != expectedAppDefinition.CatalogID {
+		t.Fatalf("expected default catalog id %q, got %#v", expectedAppDefinition.CatalogID, catalogID)
 	}
-	if specVersion != projectstate.DefaultAppSpecVersion() {
-		t.Fatalf("expected default app spec version %q, got %#v", projectstate.DefaultAppSpecVersion(), specVersion)
+	if specVersion != expectedAppDefinition.AppSpecVersion {
+		t.Fatalf("expected default app spec version %q, got %#v", expectedAppDefinition.AppSpecVersion, specVersion)
 	}
-	if specPath != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), specPath)
+	if specPath != expectedAppSpecPath {
+		t.Fatalf("expected default app spec path %q, got %#v", expectedAppSpecPath, specPath)
 	}
-	if themeMode != projectstate.DefaultAppThemeMode() {
-		t.Fatalf("expected default app theme mode %q, got %#v", projectstate.DefaultAppThemeMode(), themeMode)
+	if themeMode != expectedThemeMode {
+		t.Fatalf("expected default app theme mode %q, got %#v", expectedThemeMode, themeMode)
 	}
 	if projectName != "Alpha" {
 		t.Fatalf("expected project name Alpha, got %#v", projectName)
@@ -793,19 +796,20 @@ func TestRegistryWriteValueAppThemeModeRoundTripsOnFreshProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new core registry: %v", err)
 	}
+	expectedOldThemeMode := projectstate.EffectiveAppThemeMode(runtime.Snapshot().Document)
 
 	result, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
 		"core.app.theme_mode",
 		"  dark  ",
-		projectstate.DefaultAppThemeMode(),
+		expectedOldThemeMode,
 	)
 	if err != nil {
 		t.Fatalf("write app theme mode: %v", err)
 	}
-	if result.OldValue != projectstate.DefaultAppThemeMode() {
-		t.Fatalf("expected old app theme mode %q, got %#v", projectstate.DefaultAppThemeMode(), result.OldValue)
+	if result.OldValue != expectedOldThemeMode {
+		t.Fatalf("expected old app theme mode %q, got %#v", expectedOldThemeMode, result.OldValue)
 	}
 	if result.NewValue != "dark" || result.NormalizedValue != "dark" {
 		t.Fatalf("expected dark new/normalized app theme mode, got %#v", result)

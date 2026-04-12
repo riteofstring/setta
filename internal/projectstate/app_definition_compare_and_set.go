@@ -11,14 +11,6 @@ import (
 
 const defaultAppThemeMode = "auto"
 
-func DefaultAppSpecVersion() string {
-	return defaultAppSpecVersion
-}
-
-func DefaultAppThemeMode() string {
-	return defaultAppThemeMode
-}
-
 func EffectiveAppDefinition(document Document) AppDefinition {
 	return effectiveAppDefinition(document)
 }

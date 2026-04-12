@@ -30,9 +30,9 @@ func TestRuntimeCompareAndSetAppDefinitionMetadataNoopsAreSideEffectFreeOnFreshP
 	initialSnapshot := runtime.Snapshot()
 
 	defaultCatalogID := appspec.DefaultCatalogID
-	defaultSpecVersion := DefaultAppSpecVersion()
+	defaultSpecVersion := defaultAppSpecVersion
 	defaultSpecPath := appspec.DefaultPath()
-	defaultThemeMode := DefaultAppThemeMode()
+	defaultThemeMode := defaultAppThemeMode
 
 	catalogSnapshot, catalogResult, err := runtime.CompareAndSetAppDefinitionCatalogID(
 		context.Background(),
@@ -105,7 +105,7 @@ func TestRuntimeCompareAndSetAppDefinitionSpecVersionMaterializesMinimalSpec(t *
 
 	runtime := openTestRuntime(t, store)
 	initialSnapshot := runtime.Snapshot()
-	expectedOldValue := DefaultAppSpecVersion()
+	expectedOldValue := defaultAppSpecVersion
 
 	snapshot, result, err := runtime.CompareAndSetAppDefinitionSpecVersion(
 		context.Background(),
@@ -118,7 +118,7 @@ func TestRuntimeCompareAndSetAppDefinitionSpecVersionMaterializesMinimalSpec(t *
 	if snapshot.Revision != initialSnapshot.Revision+1 {
 		t.Fatalf("expected revision %d after app spec version write, got %d", initialSnapshot.Revision+1, snapshot.Revision)
 	}
-	if result.OldValue != DefaultAppSpecVersion() || result.NewValue != "v2" {
+	if result.OldValue != defaultAppSpecVersion || result.NewValue != "v2" {
 		t.Fatalf("unexpected app spec version result %#v", result)
 	}
 
