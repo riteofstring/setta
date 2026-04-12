@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 05:02 UTC
+Last updated: 2026-04-14 05:10 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,68 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `448` landed one bounded product cut on the canonical
+  `rotaryParamCodeObjDefault` lane by memoizing the `ParamDndList` boundary so
+  stable list props bail out before re-entering the duplicate-index / row
+  subtree:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and checked the recent run history before
+      choosing the next slice; the last two completed iterations were one
+      product cut (`446`) and one support recovery (`447`), so this pass
+      returned to production code instead of doing a third harness-only step
+    - chose the nearest still-unmemoized parent above the already-landed
+      `GetParamSwitch` / `ParamSwitch` row boundaries rather than opening a
+      new oracle lane or another pure forwarding seam
+    - kept the slice bounded to one memo boundary, one direct render-stability
+      test, one canonical live probe, one append-only perf report, and one
+      fresh-context CDP check
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Params/ParamDndList.tsx`
+      now exports `ParamDndList` through a memo boundary with deep prop
+      equality
+    - `frontend/src/components/Params/ParamDndList.render-stability.test.tsx`
+      mocks `GetParamSwitch` and proves a parent-only rerender does not
+      rematerialize the list boundary
+    - `perf/reports/frontend/2026-04-14_settings-graph-param-dnd-list-memo-boundary.md`
+      records the before/after metrics and lane reading
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamDndList.render-stability.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`4` files, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamDndList.tsx src/components/Params/ParamDndList.render-stability.test.tsx`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-002/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> fresh readout versus item `447`:
+         `presentedSceneSectionSubtreeReactRender`
+         `1351.1ms total` / `402.3ms max` -> `952.6ms total` / `321.9ms max`
+         `presentedSceneSectionBodySubtreeReactRender`
+         `1333.8ms total` / `153.0ms max` -> `933.3ms total` / `122.6ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `668.1ms total` / `89.8ms max` -> `444.9ms total` / `64.1ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `708.6ms total` / `93.8ms max` -> `465.8ms total` / `65.6ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `375.3ms total` / `13.0ms max` -> `235.5ms total` / `9.7ms max`
+         `longTaskTotalDurationMs`
+         `1811` -> `1261`
+         `averageFrameDurationMs`
+         `58.33` -> `43.80`
+    - fresh-context CDP verification via sub-agent:
+      -> `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+         at normal zoom
+      -> graph substrate canary was mounted and visible; the
+         `rotaryParamCodeObjDefault` lane was clearly present on the surface
+      -> no obvious visual corruption and no error-level console messages
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this is another real live win on the active unpinned param-body lane
+    - the remaining dominant owner is still the broader
+      `presentedSceneSectionSubtreeReactRender`, so the next pass should stay
+      on this lane and add one attribution seam that resolves that remaining
+      subtree owner into the next concrete product boundary before another
+      memoization hypothesis
 
 - item `447` landed one bounded probe-health recovery on the canonical
   `rotaryParamCodeObjDefault` lane after the shared worktree probe started

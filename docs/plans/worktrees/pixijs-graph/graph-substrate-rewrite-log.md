@@ -18152,3 +18152,63 @@ LOOP_TERMINAL_MARKER: none
     seam that resolves the remaining dominant
     `presentedSceneSectionSubtreeReactRender` owner before another hypothesis
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 - item 448 - ParamDndList memo boundary
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent run pattern before picking the next slice:
+  - the last few iterations were not repeating pure seam-lift churn; the
+    latest completed work was one real product cut (`446`) followed by one
+    probe-health recovery (`447`)
+  - that made the right next move another bounded production cut on the same
+    canonical lane instead of a third harness-only pass
+- selected one bounded product cut directly above the already-landed
+  `GetParamSwitch` / `ParamSwitch` row boundaries:
+  - wrap `ParamDndList` itself in a memo boundary so stable list props bail
+    out before re-running duplicate-index selection and rematerializing the
+    row subtree
+- code/doc changes kept in tree:
+  - `frontend/src/components/Params/ParamDndList.tsx`
+    - exports `ParamDndList` through a memo boundary with deep prop equality
+  - `frontend/src/components/Params/ParamDndList.render-stability.test.tsx`
+    - mocks `GetParamSwitch` and proves a parent-only rerender does not
+      rematerialize the list boundary
+  - `perf/reports/frontend/2026-04-14_settings-graph-param-dnd-list-memo-boundary.md`
+    - records the before/after probe data and lane reading
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamDndList.render-stability.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    -> passed (`4` files, `4` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamDndList.tsx src/components/Params/ParamDndList.render-stability.test.tsx`
+    -> passed
+- canonical live probe:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-002/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.3m`)
+    -> fresh readout versus item `447`:
+      - `presentedSceneSectionSubtreeReactRender`
+        `1351.1ms total` / `402.3ms max` -> `952.6ms total` / `321.9ms max`
+      - `presentedSceneSectionBodySubtreeReactRender`
+        `1333.8ms total` / `153.0ms max` -> `933.3ms total` / `122.6ms max`
+      - `presentedSceneSectionParamDndListRowsReactRender`
+        `668.1ms total` / `89.8ms max` -> `444.9ms total` / `64.1ms max`
+      - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+        `708.6ms total` / `93.8ms max` -> `465.8ms total` / `65.6ms max`
+      - `presentedSceneSectionParamInputReactRender`
+        `375.3ms total` / `13.0ms max` -> `235.5ms total` / `9.7ms max`
+      - `longTaskTotalDurationMs`
+        `1811` -> `1261`
+      - `averageFrameDurationMs`
+        `58.33` -> `43.80`
+- fresh-context CDP verification via sub-agent:
+  - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+    at normal zoom
+  - graph substrate canary was mounted and visible; the
+    `rotaryParamCodeObjDefault` lane was clearly present on the surface
+  - no obvious visual corruption and no error-level console messages
+- interpretation:
+  - this is another real live win on the active unpinned param-body lane
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - the next pass should stay on this lane and add one attribution seam that
+    resolves the remaining dominant
+    `presentedSceneSectionSubtreeReactRender` owner into the next concrete
+    product boundary before another memoization hypothesis
+- LOOP_TERMINAL_MARKER: none

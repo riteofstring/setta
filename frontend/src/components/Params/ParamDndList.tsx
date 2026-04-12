@@ -42,7 +42,7 @@ type ParamDndListProps = {
   hasSectionStyleTheme: boolean;
 };
 
-export function ParamDndList({
+function _ParamDndList({
   sectionId,
   paramIds,
   requiredParamIdsToPaths,
@@ -143,6 +143,8 @@ export function ParamDndList({
     </ParamDuplicateIndexProvider>
   );
 }
+
+export const ParamDndList = React.memo(_ParamDndList, _.isEqual);
 
 function ParamDndListBody({
   sectionId,
