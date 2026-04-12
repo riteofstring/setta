@@ -74,6 +74,19 @@ type BrowserThumbnailContentProps = {
   label: string;
 };
 
+type FilePreviewContentProps = {
+  item: FolderContentItem;
+  fileUrlMap: Record<string, FileUrlEntry>;
+  textPreviewMap: Record<string, FileTextPreview>;
+};
+
+type FilePreviewRendererArgs = {
+  item: FolderContentItem;
+  fileUrl: string;
+  textPreviewMap: Record<string, FileTextPreview>;
+  previewKind: BrowserPreviewKind;
+};
+
 type PreviewIcon = ComponentType<{
   className?: string;
   size?: number;
@@ -434,50 +447,80 @@ function GenericPreview({ item }: { item: FolderContentItem }) {
   return <FilePreviewCard item={item} icon={icon} />;
 }
 
+function ImagePreview({
+  item,
+  fileUrl,
+}: {
+  item: FolderContentItem;
+  fileUrl: string;
+}) {
+  return fileUrl ? (
+    <div className="relative h-full w-full">
+      <img
+        src={fileUrl}
+        alt={item.name}
+        className="h-full w-full object-contain"
+        loading="lazy"
+      />
+    </div>
+  ) : (
+    <LoadingPreview icon={<IoImageOutline size={40} />} />
+  );
+}
+
+function renderTextPreview({ item, textPreviewMap }: FilePreviewRendererArgs) {
+  return (
+    <TextPreviewContent item={item} preview={textPreviewMap[item.fullPath]} />
+  );
+}
+
+function renderSpreadsheetPreview({ item }: FilePreviewRendererArgs) {
+  return <SpreadsheetPreview item={item} />;
+}
+
+function renderPdfPreview({ item, fileUrl }: FilePreviewRendererArgs) {
+  return <PdfPreview item={item} fileUrl={fileUrl} />;
+}
+
+function renderMediaPreview({
+  item,
+  fileUrl,
+  previewKind,
+}: FilePreviewRendererArgs) {
+  return (
+    <MediaPreview item={item} fileUrl={fileUrl} previewKind={previewKind} />
+  );
+}
+
+function renderGenericPreview({ item }: FilePreviewRendererArgs) {
+  return <GenericPreview item={item} />;
+}
+
+const FILE_PREVIEW_RENDERERS: Partial<
+  Record<BrowserPreviewKind, (args: FilePreviewRendererArgs) => ReactNode>
+> = {
+  image: ({ item, fileUrl }) => <ImagePreview item={item} fileUrl={fileUrl} />,
+  text: renderTextPreview,
+  spreadsheet: renderSpreadsheetPreview,
+  pdf: renderPdfPreview,
+  audio: renderMediaPreview,
+  video: renderMediaPreview,
+};
+
 function FilePreviewContent({
   item,
   fileUrlMap,
   textPreviewMap,
-}: {
-  item: FolderContentItem;
-  fileUrlMap: Record<string, FileUrlEntry>;
-  textPreviewMap: Record<string, FileTextPreview>;
-}) {
+}: FilePreviewContentProps) {
   const previewKind = getBrowserPreviewKind(item);
-  const fileUrl = fileUrlMap[item.fullPath]?.url ?? "";
-  switch (previewKind) {
-    case "image":
-      return fileUrl ? (
-        <div className="relative h-full w-full">
-          <img
-            src={fileUrl}
-            alt={item.name}
-            className="h-full w-full object-contain"
-            loading="lazy"
-          />
-        </div>
-      ) : (
-        <LoadingPreview icon={<IoImageOutline size={40} />} />
-      );
-    case "text":
-      return (
-        <TextPreviewContent
-          item={item}
-          preview={textPreviewMap[item.fullPath]}
-        />
-      );
-    case "spreadsheet":
-      return <SpreadsheetPreview item={item} />;
-    case "pdf":
-      return <PdfPreview item={item} fileUrl={fileUrl} />;
-    case "audio":
-    case "video":
-      return (
-        <MediaPreview item={item} fileUrl={fileUrl} previewKind={previewKind} />
-      );
-    default:
-      return <GenericPreview item={item} />;
-  }
+  const renderPreview =
+    FILE_PREVIEW_RENDERERS[previewKind] ?? renderGenericPreview;
+  return renderPreview({
+    item,
+    fileUrl: fileUrlMap[item.fullPath]?.url ?? "",
+    textPreviewMap,
+    previewKind,
+  });
 }
 
 function CarouselPreview({

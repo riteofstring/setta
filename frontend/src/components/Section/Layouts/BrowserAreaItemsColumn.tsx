@@ -107,6 +107,23 @@ type HistoryState = {
   index: number;
 };
 
+type RecursiveFolderSearchArgs = {
+  queue: string[];
+  visited: Set<string>;
+  results: Array<FolderContentItem>;
+  seen: Set<string>;
+  filterText: string;
+  ignorePatterns: string[] | null;
+  activeRequestIdRef: React.MutableRefObject<number>;
+  requestId: number;
+  cache: Map<string, Array<FolderContentItem>>;
+  onResults: (nextResults: Array<FolderContentItem>) => void;
+};
+
+type FileUrlRequestOptions = {
+  force?: boolean;
+};
+
 function createTextPreviewEntry(
   overrides: Partial<FileTextPreview>,
 ): FileTextPreview {
@@ -258,6 +275,60 @@ async function loadRecursiveFolderListing(
   return res.data.items;
 }
 
+function shouldContinueRecursiveFolderSearch(args: RecursiveFolderSearchArgs) {
+  return (
+    args.queue.length > 0 &&
+    args.visited.size < FILTER_RECURSIVE_MAX_FOLDERS &&
+    args.results.length < FILTER_RECURSIVE_MAX_RESULTS &&
+    args.activeRequestIdRef.current === args.requestId
+  );
+}
+
+function takeNextRecursiveFolder(
+  queue: string[],
+  visited: Set<string>,
+): string | null {
+  while (queue.length > 0) {
+    const nextFolder = queue.shift();
+    if (!nextFolder || visited.has(nextFolder)) {
+      continue;
+    }
+    visited.add(nextFolder);
+    return nextFolder;
+  }
+  return null;
+}
+
+async function stepRecursiveFolderSearch(
+  args: RecursiveFolderSearchArgs,
+): Promise<"matched" | "continue" | "stale"> {
+  const nextFolder = takeNextRecursiveFolder(args.queue, args.visited);
+  if (!nextFolder) {
+    return "continue";
+  }
+  const listing = await loadRecursiveFolderListing(
+    nextFolder,
+    args.ignorePatterns,
+    args.cache,
+    args.activeRequestIdRef,
+    args.requestId,
+  );
+  if (!listing) {
+    return args.activeRequestIdRef.current !== args.requestId
+      ? "stale"
+      : "continue";
+  }
+  enqueueChildFolders(listing, args.queue);
+  return appendRecursiveMatches(
+    listing,
+    args.filterText,
+    args.seen,
+    args.results,
+  )
+    ? "matched"
+    : "continue";
+}
+
 function enqueueChildFolders(
   listing: Array<FolderContentItem>,
   queue: string[],
@@ -396,46 +467,13 @@ function resolveRecursiveFilterPlan(args: {
   return { kind: "search" as const, trimmedFolder };
 }
 
-async function crawlRecursiveFolders(args: {
-  queue: string[];
-  visited: Set<string>;
-  results: Array<FolderContentItem>;
-  seen: Set<string>;
-  filterText: string;
-  ignorePatterns: string[] | null;
-  activeRequestIdRef: React.MutableRefObject<number>;
-  requestId: number;
-  cache: Map<string, Array<FolderContentItem>>;
-  onResults: (nextResults: Array<FolderContentItem>) => void;
-}) {
-  while (
-    args.queue.length > 0 &&
-    args.visited.size < FILTER_RECURSIVE_MAX_FOLDERS &&
-    args.results.length < FILTER_RECURSIVE_MAX_RESULTS &&
-    args.activeRequestIdRef.current === args.requestId
-  ) {
-    const nextFolder = args.queue.shift();
-    if (!nextFolder || args.visited.has(nextFolder)) {
-      continue;
+async function crawlRecursiveFolders(args: RecursiveFolderSearchArgs) {
+  while (shouldContinueRecursiveFolderSearch(args)) {
+    const stepResult = await stepRecursiveFolderSearch(args);
+    if (stepResult === "stale") {
+      return;
     }
-    args.visited.add(nextFolder);
-    const listing = await loadRecursiveFolderListing(
-      nextFolder,
-      args.ignorePatterns,
-      args.cache,
-      args.activeRequestIdRef,
-      args.requestId,
-    );
-    if (!listing) {
-      if (args.activeRequestIdRef.current !== args.requestId) {
-        return;
-      }
-      continue;
-    }
-    enqueueChildFolders(listing, args.queue);
-    if (
-      appendRecursiveMatches(listing, args.filterText, args.seen, args.results)
-    ) {
+    if (stepResult === "matched") {
       args.onResults([...args.results]);
     }
   }
@@ -618,18 +656,10 @@ function useFolderCompletionSource(args: {
   browserStatePathSeparator: string;
   browserStateIgnorePatterns: string[];
 }) {
-  const folderCompletionOptionsRef = useRef<FolderCompletionOptions>({
-    rootPath: null,
-  });
-  const fallbackRootPath = args.effectiveFolder.trim();
-  folderCompletionOptionsRef.current.rootPath =
-    args.rootInfo?.rootPath ?? (fallbackRootPath ? fallbackRootPath : null);
-  folderCompletionOptionsRef.current.pathSeparator =
-    args.rootInfo?.pathSeparator ?? args.browserStatePathSeparator ?? undefined;
-  folderCompletionOptionsRef.current.ignorePatterns =
-    args.rootInfo?.ignorePatterns ??
-    args.browserStateIgnorePatterns ??
-    undefined;
+  const folderCompletionOptionsRef = useRef<FolderCompletionOptions>(
+    resolveFolderCompletionOptions(args),
+  );
+  folderCompletionOptionsRef.current = resolveFolderCompletionOptions(args);
   return useMemo(
     () =>
       createDynamicFolderPathCompletionSource(
@@ -637,6 +667,53 @@ function useFolderCompletionSource(args: {
       ),
     [],
   );
+}
+
+function resolveFolderCompletionOptions(args: {
+  effectiveFolder: string;
+  rootInfo: RootInfo | null;
+  browserStatePathSeparator: string;
+  browserStateIgnorePatterns: string[];
+}): FolderCompletionOptions {
+  return {
+    rootPath: resolveFolderCompletionRootPath(
+      args.rootInfo,
+      args.effectiveFolder,
+    ),
+    pathSeparator: resolveFolderCompletionPathSeparator(
+      args.rootInfo,
+      args.browserStatePathSeparator,
+    ),
+    ignorePatterns: resolveFolderCompletionIgnorePatterns(
+      args.rootInfo,
+      args.browserStateIgnorePatterns,
+    ),
+  };
+}
+
+function resolveFolderCompletionRootPath(
+  rootInfo: RootInfo | null,
+  effectiveFolder: string,
+) {
+  if (rootInfo?.rootPath) {
+    return rootInfo.rootPath;
+  }
+  const fallbackRootPath = effectiveFolder.trim();
+  return fallbackRootPath || null;
+}
+
+function resolveFolderCompletionPathSeparator(
+  rootInfo: RootInfo | null,
+  browserStatePathSeparator: string,
+) {
+  return rootInfo?.pathSeparator ?? browserStatePathSeparator ?? undefined;
+}
+
+function resolveFolderCompletionIgnorePatterns(
+  rootInfo: RootInfo | null,
+  browserStateIgnorePatterns: string[],
+) {
+  return rootInfo?.ignorePatterns ?? browserStateIgnorePatterns ?? undefined;
 }
 
 function resolveNextSelectedCarouselId(args: {
@@ -769,7 +846,7 @@ function useBrowserAreaFilePreviewState() {
     [],
   );
   const requestFileUrls = useCallback(
-    async (paths: string[], options: { force?: boolean } = {}) => {
+    async (paths: string[], options: FileUrlRequestOptions = {}) => {
       if (paths.length === 0) {
         return {};
       }
@@ -807,21 +884,21 @@ function useBrowserAreaFilePreviewState() {
     [ensureFileUrlPromise, settleFileUrlPromises],
   );
   const getFileUrlEntry = useCallback(
-    async (path: string, options: { force?: boolean } = {}) => {
-      const now = Date.now();
-      const existing = fileUrlMapRef.current[path];
-      if (!options.force && existing && !isFileUrlStale(existing, now)) {
-        return existing;
+    async (path: string, options: FileUrlRequestOptions = {}) => {
+      const cachedEntry = options.force
+        ? null
+        : getFreshFileUrlEntry(fileUrlMapRef.current[path], Date.now());
+      if (cachedEntry) {
+        return cachedEntry;
       }
-      const pendingPromise = fileUrlPromises.current.get(path);
-      if (pendingPromise) {
-        const resolved = await pendingPromise;
-        if (resolved && !isFileUrlStale(resolved, Date.now())) {
-          return resolved;
-        }
+      const pendingEntry = await waitForFreshFileUrlEntry(
+        path,
+        fileUrlPromises,
+      );
+      if (pendingEntry) {
+        return pendingEntry;
       }
-      const refreshed = await requestFileUrls([path], { force: true });
-      return refreshed[path] ?? fileUrlMapRef.current[path] ?? null;
+      return refreshFileUrlEntry(path, requestFileUrls, fileUrlMapRef);
     },
     [requestFileUrls],
   );
@@ -876,6 +953,38 @@ function useBrowserAreaFilePreviewState() {
     getFileUrlEntry,
     requestTextPreview,
   };
+}
+
+function getFreshFileUrlEntry(
+  entry: FileUrlEntry | null | undefined,
+  now: number,
+): FileUrlEntry | null {
+  return entry && !isFileUrlStale(entry, now) ? entry : null;
+}
+
+async function waitForFreshFileUrlEntry(
+  path: string,
+  fileUrlPromises: React.MutableRefObject<
+    Map<string, Promise<FileUrlEntry | null>>
+  >,
+): Promise<FileUrlEntry | null> {
+  const pendingPromise = fileUrlPromises.current.get(path);
+  if (!pendingPromise) {
+    return null;
+  }
+  return getFreshFileUrlEntry(await pendingPromise, Date.now());
+}
+
+async function refreshFileUrlEntry(
+  path: string,
+  requestFileUrls: (
+    paths: string[],
+    options?: FileUrlRequestOptions,
+  ) => Promise<Record<string, FileUrlEntry>>,
+  fileUrlMapRef: React.MutableRefObject<Record<string, FileUrlEntry>>,
+): Promise<FileUrlEntry | null> {
+  const refreshed = await requestFileUrls([path], { force: true });
+  return refreshed[path] ?? fileUrlMapRef.current[path] ?? null;
 }
 
 function useBrowserAreaSectionActions(args: {
