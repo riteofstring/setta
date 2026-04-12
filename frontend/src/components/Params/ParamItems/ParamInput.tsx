@@ -89,28 +89,38 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const [isRevealing, setIsRevealing] = React.useState(false);
 
   // value and enteredValue should always be string
-  function onChange(v, options?: ParamValueChangeOptions) {
-    const vStr = _.toString(v);
-    setPendingValue(vStr);
-    if (
-      shouldEmitRealtimeValue({
-        previousValue: value,
-        nextValue: vStr,
-        codeObjType,
-      })
-    ) {
-      sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
-    }
-    if (!options?.skipBackendUpdate) {
-      if (isPasswordParam) {
-        debouncedSetPasswordParamValue(sectionId, paramInfoId, vStr);
-      } else {
-        debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+  const onChange = React.useCallback(
+    (v: string, options?: ParamValueChangeOptions) => {
+      const vStr = _.toString(v);
+      setPendingValue(vStr);
+      if (
+        shouldEmitRealtimeValue({
+          previousValue: value,
+          nextValue: vStr,
+          codeObjType,
+        })
+      ) {
+        sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
       }
-    }
-  }
+      if (!options?.skipBackendUpdate) {
+        if (isPasswordParam) {
+          debouncedSetPasswordParamValue(sectionId, paramInfoId, vStr);
+        } else {
+          debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+        }
+      }
+    },
+    [
+      codeObjType,
+      isPasswordParam,
+      paramInfoId,
+      sectionId,
+      setPendingValue,
+      value,
+    ],
+  );
 
-  function onRevealPassword() {
+  const onRevealPassword = React.useCallback(() => {
     if (!isPasswordParam || isRevealing || value !== "") {
       return;
     }
@@ -128,61 +138,71 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       .finally(() => {
         setIsRevealing(false);
       });
-  }
+  }, [
+    isPasswordParam,
+    isRevealing,
+    paramInfoId,
+    sectionId,
+    setPendingValue,
+    value,
+  ]);
 
-  function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
-    if (attachments.length === 0) {
-      return;
-    }
-    const dependencyKey = {
-      type: DependencyKeyTypeEnum.SectionParam,
-      sectionId,
-      codeObjId: paramInfoId,
-    };
-    const metadataAttachments = attachments.map((attachment) => {
-      if (attachment.kind === "file") {
-        return {
-          kind: attachment.kind,
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          size: attachment.size,
-          contentId: attachment.contentId,
-          byteLength: attachment.byteLength,
-        };
+  const onDropzoneStateless = React.useCallback(
+    (attachments: DropzoneStatelessAttachment[]) => {
+      if (attachments.length === 0) {
+        return;
       }
-      return attachment;
-    });
-    const metadataPayload: LiteralDependencyValue = {
-      payload: JSON.stringify({
+      const dependencyKey = {
+        type: DependencyKeyTypeEnum.SectionParam,
         sectionId,
-        paramInfoId,
-        attachments: metadataAttachments,
-      }),
-      type: DependencyValueTypeEnum.Literal,
-    };
-    sendRealtimeDependencyEvent({
-      dependencyKey,
-      payload: metadataPayload,
-    });
-    for (const attachment of attachments) {
-      if (attachment.kind !== "file") {
-        continue;
-      }
-      const binaryPayload: BinaryDependencyValue = {
-        payload: {
-          contentId: attachment.contentId,
-          byteLength: attachment.byteLength,
-          mimeType: attachment.mimeType,
-        },
-        type: DependencyValueTypeEnum.Binary,
+        codeObjId: paramInfoId,
+      };
+      const metadataAttachments = attachments.map((attachment) => {
+        if (attachment.kind === "file") {
+          return {
+            kind: attachment.kind,
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            size: attachment.size,
+            contentId: attachment.contentId,
+            byteLength: attachment.byteLength,
+          };
+        }
+        return attachment;
+      });
+      const metadataPayload: LiteralDependencyValue = {
+        payload: JSON.stringify({
+          sectionId,
+          paramInfoId,
+          attachments: metadataAttachments,
+        }),
+        type: DependencyValueTypeEnum.Literal,
       };
       sendRealtimeDependencyEvent({
         dependencyKey,
-        payload: binaryPayload,
-        binaryPayload: attachment.binaryPayload,
+        payload: metadataPayload,
       });
-    }
-  }
+      for (const attachment of attachments) {
+        if (attachment.kind !== "file") {
+          continue;
+        }
+        const binaryPayload: BinaryDependencyValue = {
+          payload: {
+            contentId: attachment.contentId,
+            byteLength: attachment.byteLength,
+            mimeType: attachment.mimeType,
+          },
+          type: DependencyValueTypeEnum.Binary,
+        };
+        sendRealtimeDependencyEvent({
+          dependencyKey,
+          payload: binaryPayload,
+          binaryPayload: attachment.binaryPayload,
+        });
+      }
+    },
+    [paramInfoId, sectionId],
+  );
 
   return (
     <ParamUI

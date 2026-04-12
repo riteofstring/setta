@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 14:50 UTC
+Last updated: 2026-04-13 15:10 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,68 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `435` landed one bounded production slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by stabilizing the hot
+  `ParamInput -> ParamUI` prop path so unchanged input subtrees can bail out
+  before rebuilding their control path:
+  - local ranking/readout for this iteration:
+    - reread the active plan/handoff first and did not continue the recent
+      row-level selector churn now that item `434` had already isolated
+      `presentedSceneSectionParamInputReactRender` as the only material row
+      child
+    - chose one bounded product cut inside that child by fixing callback
+      identity churn and adding a memo bailout at the `ParamUI` boundary
+      instead of opening another attribution-only pass
+    - kept the slice bounded to the hot value-input path, one focused jsdom
+      regression, one canonical probe rerun, one allowed lifecycle recovery,
+      one perf note, and one fresh-context CDP smoke check
+  - code changed in:
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+      so `onChange`, `onRevealPassword`, and `onDropzoneStateless` now stay
+      stable across parent churn when their effective inputs are unchanged
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+      so `ParamUI` is memoized and its `onEscape` callback is stable
+    - `frontend/src/components/Params/ParamUIs/ParamUI.test.tsx`
+      with focused coverage proving the code/text input subtree stays out of
+      parent rerenders when props are unchanged and still rerenders when the
+      value changes
+    - `perf/reports/frontend/2026-04-13_settings-graph-param-input-stable-param-ui-props.md`
+      with the baseline and blocked live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.test.tsx src/components/Params/ParamSwitch.test.tsx`
+      -> passed (`2` files, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamItems/ParamInput.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.test.tsx`
+      -> passed
+    - first
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-004/worktree-ai.log`
+      -> failed before compare setup
+      -> `Worktree unhealthy: page already closed before writing normalized compare pane state`
+    - allowed recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree to session `fdaf7d` on `3075` / `8075`
+    - second probe retry on the refreshed runtime
+      -> reached `surface_ready` (`11636ms`) and then timed out in
+         `readSettingsGraphSurfacePresenceSnapshot(...)` during
+         `runSettingsGraphComparePreflight(...)`
+    - fresh-context headless CDP smoke check
+      -> passed
+      -> authenticated bootstrap loaded, `Settings` -> `All Settings` mounted,
+         the settings graph canary looked intact, and the sub-agent reported
+         no console errors beyond a React Router future-flag warning plus one
+         accessibility warning about missing form field `id` / `name`
+  - reading:
+    - the `ParamInput -> ParamUI` stabilization slice is landed and
+      unit-covered
+    - the canonical post-change measurement is still blocked by repeated
+      worktree preflight instability on the live compare helper, so do not
+      claim a live owner win from this slice yet
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - treat the repeated
+      `readSettingsGraphSurfacePresenceSnapshot(...)` / page-close failure as
+      the active blocker and fix that probe-health path before taking another
+      row-child product guess on the same lane
 
 - item `434` landed one bounded attribution slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by splitting the remaining

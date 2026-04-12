@@ -199,6 +199,54 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 15:10 UTC
+
+- reread the active plan/handoff first and stayed on the canonical
+  `rotaryParamCodeObjDefault` lane instead of extending the row attribution
+  pattern now that item `434` had already isolated
+  `presentedSceneSectionParamInputReactRender` as the only material row child
+- landed one bounded production cut inside that child:
+  - stabilized `ParamInput` callback props in
+    `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+  - wrapped `ParamUI` in `React.memo(...)` and stabilized `onEscape` in
+    `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+  - added `frontend/src/components/Params/ParamUIs/ParamUI.test.tsx` proving
+    the code/text input subtree stays out of parent rerenders when its
+    effective props are unchanged and still rerenders when the value changes
+  - wrote
+    `perf/reports/frontend/2026-04-13_settings-graph-param-input-stable-param-ui-props.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.test.tsx src/components/Params/ParamSwitch.test.tsx`
+    -> pass (`2` files, `8` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamItems/ParamInput.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.test.tsx`
+    -> pass
+  - first canonical worktree probe on the existing runtime:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-004/worktree-ai.log`
+    -> fail
+    -> `Worktree unhealthy: page already closed before writing normalized compare pane state`
+  - allowed recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> restarted the worktree to session `fdaf7d` on `3075` / `8075`
+  - second canonical worktree probe on the refreshed runtime:
+    -> fail after `surface_ready` (`11636ms`)
+    -> `page.evaluate: Test timeout of 180000ms exceeded` in
+       `readSettingsGraphSurfacePresenceSnapshot(...)` during
+       `runSettingsGraphComparePreflight(...)`
+  - fresh-context headless CDP smoke check:
+    -> pass
+    -> authenticated bootstrap loaded, `Settings` -> `All Settings` mounted,
+       the settings graph canary looked intact, and the console showed no
+       errors beyond a React Router future-flag warning plus one accessibility
+       warning about missing form field `id` / `name`
+- reading:
+  - the product slice is complete, but the live canonical compare helper is
+    now the blocker
+  - do not take another row-child product guess on this lane until the
+    repeated `readSettingsGraphSurfacePresenceSnapshot(...)` / page-close
+    instability is resolved
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 14:50 UTC
 
 - reread the active rewrite plan/handoff first and chose one bounded

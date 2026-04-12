@@ -1,5 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
+import React from "react";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -138,7 +139,7 @@ export function ParamUIConfig({
   }
 }
 
-export function ParamUI({
+function _ParamUI({
   sectionId,
   paramInfoId,
   value,
@@ -248,9 +249,9 @@ export function ParamUI({
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
 
-  function onEscape() {
+  const onEscape = React.useCallback(() => {
     focusOnSection(null, sectionId, false);
-  }
+  }, [sectionId]);
 
   // need to put the group/textinput in a higher div
 
@@ -428,6 +429,8 @@ export function ParamUI({
       return codeObjType satisfies never;
   }
 }
+
+export const ParamUI = React.memo(_ParamUI);
 
 function TextParamConfigured({
   sectionId,
