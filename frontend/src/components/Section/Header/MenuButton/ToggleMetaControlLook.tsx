@@ -1,7 +1,5 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
-import { setTextBlockMetaControlStyle } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -9,10 +7,13 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_set_text_block_meta_control_style } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+
 type ToggleMetaControlLookProps = {
   sectionId: string;
 };
+
 export function ToggleMetaControlLook({
   sectionId,
 }: ToggleMetaControlLookProps) {
@@ -27,6 +28,7 @@ export function ToggleMetaControlLook({
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
+
   function onClick() {
     const nextValue = !metaControlStyle;
     dispatchOptimisticProjectStateUpdate({
@@ -36,18 +38,15 @@ export function ToggleMetaControlLook({
         });
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setTextBlockMetaControlStyle({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              metaControlStyle: nextValue,
-              frontendOpId,
-            },
-          } as Parameters<typeof setTextBlockMetaControlStyle>[0]),
-        ),
+        route_set_text_block_meta_control_style({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          metaControlStyle: nextValue,
+          frontendOpId,
+        }),
     });
   }
+
   return (
     <MenuItem onClick={onClick} disabled={isFrozen}>
       <span
