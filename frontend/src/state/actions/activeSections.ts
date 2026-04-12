@@ -33,6 +33,19 @@ export type SetActiveSectionIdsOptions = {
   syncMode?: SetActiveSectionIdsSyncMode;
   forceDurableSync?: boolean;
 };
+
+type ActiveSectionSyncPlan =
+  | { kind: "ui-only" }
+  | { kind: "skip" }
+  | {
+      kind: "immediate";
+      projectConfigId: string | null | undefined;
+      generation: number;
+    }
+  | {
+      kind: "deferred";
+      projectConfigId: string;
+    };
 function sendProjectActiveSectionIdsToBackend(
   projectConfigId: string | null | undefined,
   ids: Array<string>,
@@ -137,6 +150,59 @@ function scheduleProjectActiveSectionIdsSync(
     flushPendingProjectActiveIdsSync();
   });
 }
+
+function resolveActiveSectionSyncPlan(
+  uiChanged: boolean,
+  syncMode: SetActiveSectionIdsSyncMode,
+  forceDurableSync: boolean,
+): ActiveSectionSyncPlan {
+  if (syncMode === "ui-only") {
+    return { kind: "ui-only" };
+  }
+  if (!uiChanged && !forceDurableSync) {
+    return { kind: "skip" };
+  }
+  const projectConfigId = getCurrProjectConfigId();
+  if (syncMode === "immediate" || !shouldDeferProjectActiveSectionIdsSync()) {
+    return {
+      kind: "immediate",
+      projectConfigId,
+      generation: getActiveSectionUISelectionGeneration(),
+    };
+  }
+  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    throw new Error("Deferred active-section sync requires a real project id.");
+  }
+  return { kind: "deferred", projectConfigId };
+}
+
+function runActiveSectionSyncPlan(
+  plan: ActiveSectionSyncPlan,
+  ids: Array<string>,
+) {
+  switch (plan.kind) {
+    case "ui-only":
+      cancelPendingProjectActiveIdsSync();
+      disableActiveSectionUIBackendHydration();
+      return;
+    case "skip":
+      return;
+    case "immediate":
+      cancelPendingProjectActiveIdsSync();
+      disableActiveSectionUIBackendHydration();
+      sendProjectActiveSectionIdsToBackend(
+        plan.projectConfigId,
+        ids,
+        plan.generation,
+      );
+      return;
+    case "deferred":
+      disableActiveSectionUIBackendHydration();
+      scheduleProjectActiveSectionIdsSync(plan.projectConfigId, ids);
+      return;
+  }
+}
+
 export function setActiveSectionIds(
   ids: Array<string>,
   options: SetActiveSectionIdsOptions = {},
@@ -147,37 +213,12 @@ export function setActiveSectionIds(
   if (uiChanged) {
     setActiveSectionUIIds(ids);
   }
-  if (syncMode === "ui-only") {
-    cancelPendingProjectActiveIdsSync();
-    disableActiveSectionUIBackendHydration();
-    return;
-  }
-  if (!uiChanged && !forceDurableSync) {
-    return;
-  }
-  const resolvedSyncMode =
-    syncMode === "immediate"
-      ? "immediate"
-      : shouldDeferProjectActiveSectionIdsSync()
-        ? "deferred"
-        : "immediate";
-  if (resolvedSyncMode === "immediate") {
-    const projectConfigId = getCurrProjectConfigId();
-    cancelPendingProjectActiveIdsSync();
-    disableActiveSectionUIBackendHydration();
-    sendProjectActiveSectionIdsToBackend(
-      projectConfigId,
-      ids,
-      getActiveSectionUISelectionGeneration(),
-    );
-    return;
-  }
-  const projectConfigId = getCurrProjectConfigId();
-  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    throw new Error("Deferred active-section sync requires a real project id.");
-  }
-  disableActiveSectionUIBackendHydration();
-  scheduleProjectActiveSectionIdsSync(projectConfigId, ids);
+  const plan = resolveActiveSectionSyncPlan(
+    uiChanged,
+    syncMode,
+    forceDurableSync,
+  );
+  runActiveSectionSyncPlan(plan, ids);
 }
 export function pruneActiveSectionIdsForViewMode(
   viewModeId: string | null | undefined,
