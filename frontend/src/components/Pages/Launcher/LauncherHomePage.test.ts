@@ -5,6 +5,7 @@ import {
   isReservedProjectName,
   joinLauncherPath,
   normalizeNewProjectName,
+  resolveDirectoryListingLoadResult,
 } from "./LauncherHomePage";
 
 describe("LauncherHomePage path helpers", () => {
@@ -135,5 +136,75 @@ describe("applyDirectoryListingPage", () => {
     expect(result.nextCursor).toBeNull();
     expect(result.truncated).toBe(false);
     expect(result.error).toMatch(/continuation cursor/i);
+  });
+});
+
+describe("resolveDirectoryListingLoadResult", () => {
+  it("returns a default error for missing route data", () => {
+    const result = resolveDirectoryListingLoadResult({
+      data: undefined,
+      status: 500,
+      hasResponse: true,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Failed to load launcher directory listing.",
+    });
+  });
+
+  it("returns the backend error message for a failed directory payload", () => {
+    const result = resolveDirectoryListingLoadResult({
+      data: {
+        ok: false,
+        currentPath: "/tmp",
+        parentPath: "/",
+        entries: [],
+        hasMore: false,
+        nextCursor: null,
+        truncated: false,
+        error: {
+          message: "Directory access denied.",
+        },
+      },
+      status: 200,
+      hasResponse: true,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Directory access denied.",
+    });
+  });
+
+  it("returns the successful payload for a valid directory response", () => {
+    const payload = {
+      ok: true,
+      currentPath: "/tmp",
+      parentPath: "/",
+      entries: [
+        {
+          name: "alpha",
+          path: "/tmp/alpha",
+          isDirectory: true,
+          isSymlink: false,
+        },
+      ],
+      hasMore: false,
+      nextCursor: null,
+      truncated: false,
+      error: null,
+    } as const;
+
+    const result = resolveDirectoryListingLoadResult({
+      data: payload,
+      status: 200,
+      hasResponse: true,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      payload,
+    });
   });
 });
