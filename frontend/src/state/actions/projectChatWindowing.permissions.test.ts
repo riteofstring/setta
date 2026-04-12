@@ -7,6 +7,17 @@ import {
   createProjectConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const routeSetProjectChatWindowingStateMock = vi.fn();
+const routeSetProjectChatWindowChatIdMock = vi.fn();
+
+vi.mock("utils/generatedEndpoints", () => ({
+  route_set_project_chat_windowing_state: (...args: unknown[]) =>
+    routeSetProjectChatWindowingStateMock(...args),
+  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
+    routeSetProjectChatWindowChatIdMock(...args),
+}));
+
 import {
   createProjectChatWindowInstance,
   flushPendingProjectChatWindowingWrites,
@@ -16,14 +27,7 @@ import {
   setProjectChatWindowChatId,
   showSectionInProjectChatWindow,
 } from "./projectChatWindowing";
-const routeSetProjectChatWindowingStateMock = vi.fn();
-const routeSetProjectChatWindowChatIdMock = vi.fn();
-vi.mock("openapi/http", () => ({
-  setProjectChatWindowingState: (...args: unknown[]) =>
-    routeSetProjectChatWindowingStateMock(...args),
-  setProjectChatWindowChatId: (...args: unknown[]) =>
-    routeSetProjectChatWindowChatIdMock(...args),
-}));
+
 describe("project chat windowing permissions", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -59,6 +63,7 @@ describe("project chat windowing permissions", () => {
       deploymentMode: null,
     });
   });
+
   it("blocks layout mutations when deployment policy disallows layout edits", () => {
     useShareSession.setState({
       isDeploymentMode: true,
@@ -76,11 +81,14 @@ describe("project chat windowing permissions", () => {
       shareDeploymentVersion: "v1",
       deploymentMode: "share",
     });
+
     expect(createProjectChatWindowInstance()).toBe("");
     showSectionInProjectChatWindow("section-1");
+
     expect(useProjectState.getState().projectChatWindowing.order).toEqual([]);
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
+
   it("allows project chat thread binding writes when LLM access is allowed but layout edits are blocked", async () => {
     // Thread selection should remain usable even when layout controls are removed.
     useShareSession.setState({
@@ -127,8 +135,10 @@ describe("project chat windowing permissions", () => {
       status: 200,
       hasResponse: true,
     }));
+
     setProjectChatWindowChatId("project-chat-window-1", "chat-after");
     await flushPendingProjectChatWindowingWrites();
+
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
@@ -143,6 +153,7 @@ describe("project chat windowing permissions", () => {
       }),
     );
   });
+
   it("updates focus locally when read-only deployments block layout edits", () => {
     // Visible windows still need usable z-order even when layout persistence is disabled.
     useShareSession.setState({
@@ -182,7 +193,9 @@ describe("project chat windowing permissions", () => {
         },
       }),
     });
+
     focusProjectChatWindow("project-chat-window-1", 1234);
+
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
@@ -194,6 +207,7 @@ describe("project chat windowing permissions", () => {
     );
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
+
   it("reopens hidden windows locally when read-only deployments block layout edits", () => {
     useShareSession.setState({
       isDeploymentMode: true,
@@ -226,7 +240,9 @@ describe("project chat windowing permissions", () => {
         },
       }),
     });
+
     reopenProjectChatWindow("project-chat-window-1");
+
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
@@ -237,6 +253,7 @@ describe("project chat windowing permissions", () => {
     });
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
+
   it("rolls back rejected layout writes", async () => {
     routeSetProjectChatWindowingStateMock.mockResolvedValue({
       data: { detail: "Deployment policy disallows layout changes." },
@@ -261,8 +278,10 @@ describe("project chat windowing permissions", () => {
         nextInstanceNumber: 2,
       }),
     });
+
     minimizeProjectChatWindow("project-chat-window-1");
     await flushPendingProjectChatWindowingWrites();
+
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
