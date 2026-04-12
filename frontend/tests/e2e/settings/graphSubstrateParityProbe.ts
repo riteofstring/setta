@@ -3,6 +3,8 @@ import { isSettingsGraphCompareTransientChromeSettled } from "components/Pages/P
 import {
   resolveDominantMotionAttributionOwner,
   resolveTopMotionAttributionOwners,
+  resolveTopMotionAttributionOwnersExcluding,
+  SETTINGS_GRAPH_SUBSTRATE_CANARY_CUMULATIVE_SECTION_RENDER_OWNERS,
   type SettingsGraphMotionPerfTopOwner,
 } from "components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking";
 import {
@@ -139,6 +141,7 @@ export type SettingsGraphMotionPerfCapture = {
   slowFramesOver33_3Ms: number;
   slowFramesOver50Ms: number;
   surfaceKind: SettingsGraphSurfaceKind | null;
+  topCanaryNarrowMotionAttributionOwners: Array<SettingsGraphMotionPerfTopOwner>;
   topCanaryMotionAttributionOwners: Array<SettingsGraphMotionPerfTopOwner>;
   transform: SettingsGraphViewportTransform | null;
   visibilityLossCount: number;
@@ -1476,6 +1479,12 @@ export async function stopSettingsGraphMotionPerfCapture(
   const topCanaryMotionAttributionOwners = capture.motionAttribution
     ? resolveTopMotionAttributionOwners(capture.motionAttribution)
     : [];
+  const topCanaryNarrowMotionAttributionOwners = capture.motionAttribution
+    ? resolveTopMotionAttributionOwnersExcluding(
+        capture.motionAttribution,
+        SETTINGS_GRAPH_SUBSTRATE_CANARY_CUMULATIVE_SECTION_RENDER_OWNERS,
+      )
+    : [];
 
   return {
     ...capture,
@@ -1484,6 +1493,7 @@ export async function stopSettingsGraphMotionPerfCapture(
     dominantCanaryMotionAttributionOwner: capture.motionAttribution
       ? resolveDominantMotionAttributionOwner(capture.motionAttribution)
       : null,
+    topCanaryNarrowMotionAttributionOwners,
     topCanaryMotionAttributionOwners,
   };
 }

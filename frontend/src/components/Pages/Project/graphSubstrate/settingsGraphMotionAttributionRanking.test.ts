@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   resolveDominantMotionAttributionOwner,
   resolveTopMotionAttributionOwners,
+  resolveTopMotionAttributionOwnersExcluding,
+  SETTINGS_GRAPH_SUBSTRATE_CANARY_CUMULATIVE_SECTION_RENDER_OWNERS,
 } from "./settingsGraphMotionAttributionRanking";
 import {
   createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
@@ -69,6 +71,51 @@ describe("settingsGraphMotionAttributionRanking", () => {
         maxDurationMs: 7,
         owner: "presentedSceneSectionParamInputReactRender",
         totalDurationMs: 20,
+      },
+    ]);
+  });
+
+  it("can exclude cumulative section owners to surface narrower descendants", () => {
+    const motionAttribution = createMotionAttribution();
+    motionAttribution.presentedSceneSectionSubtreeReactRender = {
+      count: 3,
+      maxDurationMs: 40,
+      totalDurationMs: 120,
+    };
+    motionAttribution.presentedSceneSectionBodyContentReactRender = {
+      count: 4,
+      maxDurationMs: 28,
+      totalDurationMs: 90,
+    };
+    motionAttribution.presentedSceneSectionParamGroupContainerReactRender = {
+      count: 6,
+      maxDurationMs: 20,
+      totalDurationMs: 72,
+    };
+    motionAttribution.presentedSceneSectionParamDndListRowsReactRender = {
+      count: 8,
+      maxDurationMs: 12,
+      totalDurationMs: 61,
+    };
+
+    expect(
+      resolveTopMotionAttributionOwnersExcluding(
+        motionAttribution,
+        SETTINGS_GRAPH_SUBSTRATE_CANARY_CUMULATIVE_SECTION_RENDER_OWNERS,
+        3,
+      ),
+    ).toEqual([
+      {
+        count: 6,
+        maxDurationMs: 20,
+        owner: "presentedSceneSectionParamGroupContainerReactRender",
+        totalDurationMs: 72,
+      },
+      {
+        count: 8,
+        maxDurationMs: 12,
+        owner: "presentedSceneSectionParamDndListRowsReactRender",
+        totalDurationMs: 61,
       },
     ]);
   });

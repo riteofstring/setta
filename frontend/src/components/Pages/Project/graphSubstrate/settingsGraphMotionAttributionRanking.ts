@@ -10,6 +10,17 @@ export type SettingsGraphMotionPerfTopOwner = {
   totalDurationMs: number;
 };
 
+export const SETTINGS_GRAPH_SUBSTRATE_CANARY_CUMULATIVE_SECTION_RENDER_OWNERS: ReadonlySet<SettingsGraphSubstrateCanaryMotionAttributionOwner> =
+  new Set([
+    "presentedSceneSectionSubtreeReactRender",
+    "presentedSceneSectionBodySubtreeReactRender",
+    "presentedSceneSectionContainerReactRender",
+    "presentedSceneSectionCoreShellLayerReactRender",
+    "presentedSceneSectionBodyContentReactRender",
+    "presentedSceneSectionCanvasSectionBodyReactRender",
+    "presentedSceneSectionAreaSwitchReactRender",
+  ]);
+
 export function resolveDominantMotionAttributionOwner(
   motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution,
 ): SettingsGraphSubstrateCanaryMotionAttributionOwner | null {
@@ -19,6 +30,18 @@ export function resolveDominantMotionAttributionOwner(
 
 export function resolveTopMotionAttributionOwners(
   motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution,
+  limit = 5,
+): Array<SettingsGraphMotionPerfTopOwner> {
+  return resolveTopMotionAttributionOwnersExcluding(
+    motionAttribution,
+    new Set<SettingsGraphSubstrateCanaryMotionAttributionOwner>(),
+    limit,
+  );
+}
+
+export function resolveTopMotionAttributionOwnersExcluding(
+  motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution,
+  excludedOwners: ReadonlySet<SettingsGraphSubstrateCanaryMotionAttributionOwner>,
   limit = 5,
 ): Array<SettingsGraphMotionPerfTopOwner> {
   if (limit <= 0) {
@@ -33,7 +56,10 @@ export function resolveTopMotionAttributionOwners(
       ]
     >
   )
-    .filter(([, entry]) => entry.totalDurationMs > 0)
+    .filter(
+      ([owner, entry]) =>
+        !excludedOwners.has(owner) && entry.totalDurationMs > 0,
+    )
     .sort((left, right) => {
       if (right[1].totalDurationMs !== left[1].totalDurationMs) {
         return right[1].totalDurationMs - left[1].totalDurationMs;

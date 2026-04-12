@@ -18283,6 +18283,180 @@ LOOP_TERMINAL_MARKER: none
     or another support-only probe pass
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 - item 451 - Shell-layer resizable override bypass
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent lane pattern before choosing the next slice:
+  - the last two completed iterations were one attribution readout (`449`) and
+    one non-winning product cut (`450`), so the next bounded move stayed on the
+    same canonical lane but took one different production boundary inside the
+    ranked section container/body path rather than repeating the same memo
+    pattern
+  - chose the shell-layer snapshot override seam because the canary body
+    adapter already had `hasEmbeddedTerminal`, `isMinimized`, and
+    `textBlockMetaControlStyle` available while `SectionContainerCoreResizable`
+    was still subscribing to those same impl fields locally
+- selected one bounded product slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - bypass the `SectionContainerCoreResizable` store selector on the
+    shell-owned canary path when the shell-layer snapshot already supplies the
+    body-wrapper inputs
+- code/doc changes kept in tree:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+    and
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+    now carry `hasEmbeddedTerminal` and `isMinimized` through the shell-owned
+    canary section model
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+    now threads those fields plus `textBlockMetaControlStyle` into
+    `SectionContainer`
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx` and
+    `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    now let the shell-layer path pass those values as overrides so the
+    resizable body wrapper can skip its local project-state selector when the
+    shell snapshot already owns the data
+  - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    now proves the override-backed path stays out of impl commits while the
+    subscribed path still rerenders on minimization changes
+  - `perf/reports/frontend/2026-04-14_settings-graph-shell-layer-resizable-override-bypass.md`
+    records the canonical readout and closes this as a regressed live
+    hypothesis
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed (`4` files, `19` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    -> passed
+- canonical live probe:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-011/worktree-ai.log`
+    -> passed (`1` Playwright test, `2.5m`)
+    -> fresh readout versus item `450`:
+      - `presentedSceneSectionSubtreeReactRender`
+        `933.6ms total` / `342.3ms max` / `30` samples -> `1707.7ms total` /
+        `506.6ms max` / `30` samples
+      - `presentedSceneSectionBodySubtreeReactRender`
+        `915.7ms total` / `152.4ms max` / `32` samples -> `1681.0ms total` /
+        `318.6ms max` / `32` samples
+      - `presentedSceneSectionContainerReactRender`
+        `906.4ms total` / `151.5ms max` / `32` samples -> `1670.8ms total` /
+        `317.7ms max` / `32` samples
+      - `presentedSceneSectionCoreShellLayerReactRender`
+        `897.8ms total` / `150.9ms max` / `32` samples -> `1662.1ms total` /
+        `314.9ms max` / `32` samples
+      - `presentedSceneSectionBodyContentReactRender`
+        `579.8ms total` / `118.1ms max` / `24` samples -> `1123.8ms total` /
+        `236.8ms max` / `24` samples
+      - `longTaskTotalDurationMs`
+        `1151` -> `2395`
+      - `averageFrameDurationMs`
+        `39.00` -> `69.62`
+- CDP verification:
+  - fresh-context sub-agent check against `http://127.0.0.1:3076/settings`
+    confirmed the page settled on `Settings -> All Settings`
+  - `graph-substrate-canary` was mounted and `rotaryParamCodeObjDefault`
+    remained visible at normal zoom
+  - no obvious visual corruption and no error-level console messages were
+    reported
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - this closes the shell-layer resizable override idea as another non-winning
+    live cut; do not spend the next pass on another production boundary guess
+    inside the same ranked section container/body path
+  - because items `450` and `451` are now two successive non-winning product
+    hypotheses after the last measured win (`448`), the next real frontier
+    must be a fresh attribution split inside the remaining
+    `presentedSceneSectionSubtreeReactRender` path before any further product
+    cut on this lane
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 - item 452 - Narrow owner ranking attribution
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent lane pattern before choosing the next slice:
+  - the last two completed product iterations (`450` and `451`) were both
+    non-winning section container/body guesses, so the next bounded move had
+    to switch back to attribution instead of taking a third guess on the same
+    broad boundary
+  - chose a narrow ranking readout rather than a new profiler owner because the
+    existing live motion table already contained enough inner owners; the
+    missing durable seam was a shared way to filter out the already-known
+    cumulative section render buckets
+- selected one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - surface `topCanaryNarrowMotionAttributionOwners` from the shared motion
+    probe so the next product cut can target the actual inner param-group body
+    path instead of another shell/container memo guess
+- code/doc changes kept in tree:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.ts`
+    - now exports the cumulative section render owner set plus an
+      exclusion-aware ranking helper
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+    - now proves the exclusion path filters out the broad section render
+      owners and surfaces the next narrow descendants
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - now returns `topCanaryNarrowMotionAttributionOwners`
+  - `perf/reports/frontend/2026-04-14_settings-graph-narrow-owner-ranking-attribution.md`
+    - records the canonical live readout and the next product boundary
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+    -> passed (`1` file, `3` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> passed
+- bounded lifecycle recovery:
+  - initial canonical probe attempt failed because the current worktree runtime
+    had backend/bootstrap data but no resolved `frontendUrl`
+  - ran
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    to recover the current worktree runtime
+  - refreshed runtime facts with
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-012/worktree-ai.log`
+    -> recovered frontend `http://127.0.0.1:3075/`, backend
+       `http://127.0.0.1:8075`, debug port `9297`, session `e304d2`
+- canonical live probe:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep "settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary" --reporter=line --timeout=180000`
+    -> passed (`1` Playwright test, `1.7m`)
+    -> fresh readout:
+      - `topCanaryNarrowMotionAttributionOwners`
+        - `presentedSceneSectionParamGroupContainerReactRender`
+          `1034.6ms total` / `134.6ms max` / `24` samples
+        - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+          `921.8ms total` / `127.8ms max` / `24` samples
+        - `presentedSceneSectionParamDndListRowsReactRender`
+          `863.1ms total` / `119.4ms max` / `24` samples
+        - `presentedSceneSectionParamInputReactRender`
+          `510.1ms total` / `24.1ms max` / `82` samples
+        - `presentedSceneSectionHeaderReactRender`
+          `455.7ms total` / `65.3ms max` / `24` samples
+      - broad context:
+        - `presentedSceneSectionSubtreeReactRender`
+          `1794.6ms total` / `476.8ms max` / `30` samples
+        - `presentedSceneSectionBodySubtreeReactRender`
+          `1769.9ms total` / `218.6ms max` / `32` samples
+        - `averageFrameDurationMs`
+          `73.19`
+        - `longTaskTotalDurationMs`
+          `2467`
+- CDP verification:
+  - first fresh-context sub-agent check against `http://127.0.0.1:3075/settings`
+    confirmed `Settings -> All Settings` at normal zoom with no obvious visual
+    corruption and no error-level console output, but it could not confirm
+    `graph-substrate-canary` or `rotaryParamCodeObjDefault` from that direct
+    page state
+  - second fresh-context sub-agent check against the refreshed authenticated
+    bootstrap URL confirmed `Settings -> All Settings`, reported
+    `rotaryParamCodeObjDefault` visible at normal zoom, and found no
+    error-level console output
+  - the authenticated CDP pass still timed out on the explicit
+    `graph-substrate-canary` DOM lookup in the large tree, so the Playwright
+    probe remains the authoritative canary-surface proof for this iteration
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - the next real product frontier is the param-group body path, not another
+    broad section container/body memo or override guess
+  - the next bounded product cut should target
+    `presentedSceneSectionParamGroupContainerReactRender` or one of its
+    immediate row/input descendants
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-14 - item 450 - Section entry body memo boundary
 
 - reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
