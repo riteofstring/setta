@@ -151,6 +151,50 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 04:44 UTC
+
+- item `392` landed one bounded startup-path reduction on the live worktree
+  runtime by splitting the heaviest project-route surfaces out of the eager
+  router chunk:
+  - local ranking/readout for this iteration:
+    - stayed on the startup lane instead of returning to the closed
+      shallow-selector pattern
+    - inspected `frontend/src/components/Pages/router.tsx` and found the router
+      still importing the project surfaces eagerly even after `App.tsx` moved
+      the router behind a lazy boundary
+    - selected the bounded split that directly affects the active bootstrap
+      lane: defer the project, standalone-project, and share-project route
+      surfaces until those routes actually render
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/ProjectRouteSurfaces.tsx`
+      to hold the lazy wrappers for `MainContainer`,
+      `StandaloneProjectSurfacePage`, and `ShareMainContainer`
+    - `frontend/src/components/Pages/router.tsx`
+      so the router now mounts those project surfaces through the lazy wrappers
+      instead of importing them eagerly during router startup
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/ProjectRouteSurfaces.test.tsx`
+      to prove the project-route surface shows the loading spinner while the
+      route chunk is unresolved and swaps to the resolved surface afterward
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/ProjectRouteSurfaces.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --write src/components/Pages/router.tsx src/components/Pages/Project/ProjectRouteSurfaces.tsx src/components/Pages/Project/ProjectRouteSurfaces.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on the current worktree bootstrap URL
+      -> final URL `http://127.0.0.1:3075/`
+      -> visible text `Loading Setta...` and `Preparing the app surface.`
+         rendered instead of an empty root
+- reading:
+  - this reduces the eager router chunk on the active startup lane without
+    changing route behavior, but it does not yet remove the remaining loading
+    time before the full app surface appears
+  - the next startup pass should attribute or split the remaining eager
+    router-chunk imports after `AppRouterProvider` resolves, starting with the
+    wrappers/pages still imported directly by `router.tsx`
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 04:31 UTC
 
 - item `390` landed one bounded mounted spreadsheet body selector reduction on

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 04:37 UTC
+Last updated: 2026-04-13 04:44 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,51 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `392` landed one bounded startup-path reduction on the live worktree
+  runtime by splitting the heaviest project-route surfaces out of the eager
+  router chunk:
+  - local ranking/readout for this iteration:
+    - stayed on the startup lane instead of returning to the closed
+      shallow-selector pattern
+    - inspected `frontend/src/components/Pages/router.tsx` and found the router
+      still importing the project surfaces eagerly even after `App.tsx` moved
+      the router behind a lazy boundary
+    - selected the bounded split that directly affects the active bootstrap
+      lane: defer the project, standalone-project, and share-project route
+      surfaces until those routes actually render
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/ProjectRouteSurfaces.tsx`
+      to hold the lazy wrappers for `MainContainer`,
+      `StandaloneProjectSurfacePage`, and `ShareMainContainer`
+    - `frontend/src/components/Pages/router.tsx`
+      so the router now mounts those project surfaces through the lazy wrappers
+      instead of importing them eagerly during router startup
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/ProjectRouteSurfaces.test.tsx`
+      to prove the project-route surface shows the loading spinner while the
+      route chunk is unresolved and swaps to the resolved surface afterward
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/ProjectRouteSurfaces.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --write src/components/Pages/router.tsx src/components/Pages/Project/ProjectRouteSurfaces.tsx src/components/Pages/Project/ProjectRouteSurfaces.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on the current worktree bootstrap URL
+      -> passed for this slice
+      -> final URL `http://127.0.0.1:3075/`
+      -> visible text `Loading Setta...` and `Preparing the app surface.`
+         rendered instead of an empty root
+  - reading:
+    - this reduces the eager router chunk on the active startup lane without
+      changing route behavior, but the app still spends time on the loading
+      fallback before the full surface appears
+    - the remaining startup owner is now whatever still sits inside the eager
+      router chunk or its immediate initialization path after these project
+      surfaces are deferred
+  - next default frontier:
+    - keep the startup lane active and attribute or split the remaining eager
+      router-chunk imports after `AppRouterProvider` resolves, starting with
+      the wrappers/pages still imported directly by `router.tsx`
 
 - item `391` landed one bounded startup-path fix for the repeated blank-root
   bootstrap blocker on the live worktree runtime:
