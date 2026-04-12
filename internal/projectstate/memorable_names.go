@@ -407,6 +407,24 @@ var memorableNameWordLists = [][]string{
 	memorableNameVerbs,
 }
 
+// MemorableNameAdjectives returns the Go-owned adjective vocabulary used for
+// generated memorable names.
+func MemorableNameAdjectives() []string {
+	return append([]string(nil), memorableNameAdjectives...)
+}
+
+// MemorableNameNouns returns the Go-owned noun vocabulary used for generated
+// memorable names.
+func MemorableNameNouns() []string {
+	return append([]string(nil), memorableNameNouns...)
+}
+
+// MemorableNameVerbs returns the Go-owned verb vocabulary used for generated
+// memorable names.
+func MemorableNameVerbs() []string {
+	return append([]string(nil), memorableNameVerbs...)
+}
+
 type generatedNameValidator func(string) (bool, error)
 
 func generateMemorableString() (string, error) {
