@@ -1,13 +1,5 @@
 import { blobToImageObj } from "components/Section/Layouts/DrawArea/binaryConversion";
 import _ from "lodash";
-import {
-  downloadBinary,
-  loadCachedBrushStrokes as loadCachedBrushStrokesApi,
-  loadCachedChartData as loadCachedChartDataApi,
-  loadCachedDrawAreaLayerItemTransform as loadCachedDrawAreaLayerItemTransformApi,
-  loadCachedImageArtifacts,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
@@ -17,42 +9,30 @@ import {
   useDrawAreaLayerItemTransform,
   useImages,
   useProjectState,
+  useShareSession,
   ZustandDecodedImages,
   ZustandProjectState,
 } from "state/definitions";
 import { bumpRemoteRevisions } from "state/utils/revisions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { C_ADDRESSES } from "utils/c_addresses";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_load_cached_brush_strokes,
+  route_load_cached_chart_data,
+  route_load_cached_draw_area_layer_item_transform,
+  route_load_cached_image_artifacts,
+} from "utils/generatedEndpoints";
 import {
   ArtifactTypeEnum,
-  type ChartDataArtifact,
-  type ImageArtifact,
-  type JSONArtifact,
+  RouteEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
-type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
-  Array<ImageArtifact>
->;
-type LoadCachedChartDataRouteResponse = ResponseDataAndStatus<
-  Array<ChartDataArtifact>
->;
-type LoadCachedBrushStrokesRouteResponse = ResponseDataAndStatus<
-  Array<JSONArtifact>
->;
-type LoadCachedDrawAreaLayerItemTransformRouteResponse = ResponseDataAndStatus<
-  Array<JSONArtifact>
->;
+
 async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = (await callOpenAPI(
-    loadCachedImageArtifacts({
-      body: {
-        paths,
-      },
-    } as Parameters<typeof loadCachedImageArtifacts>[0]),
-  )) as LoadCachedImageArtifactsRouteResponse;
+  const res = await route_load_cached_image_artifacts({ paths });
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
@@ -83,17 +63,27 @@ async function loadCachedImages(paths: Array<string>) {
     });
   }
 }
+
 async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
-  const res = (await callOpenAPI(
-    downloadBinary({
-      path: { contentId },
-    } as Parameters<typeof downloadBinary>[0]),
-  )) as BinaryDownloadRouteResponse;
-  if (!res200(res) || !res.data) {
+  const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
+    "{contentId}",
+    encodeURIComponent(contentId),
+  );
+  const shareSession = useShareSession.getState();
+  const headers: HeadersInit = {};
+  if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
+    headers["X-Share-Session-Id"] = shareSession.shareSessionId;
+  }
+  const res = await fetch(`${C_ADDRESSES.BACKEND}${endpoint}`, {
+    credentials: "include",
+    headers,
+  });
+  if (!res.ok) {
     return null;
   }
-  return res.data;
+  return await res.blob();
 }
+
 export function useImageArtifact(sectionId: string) {
   const imagePath = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -103,25 +93,23 @@ export function useImageArtifact(sectionId: string) {
     );
     return impl.imagePath;
   });
+
   const imageArtifact = useImages((state) => state.x[imagePath]);
+
   useEffect(() => {
     if (!imageArtifact && imagePath) {
       void loadCachedImages([imagePath]);
     }
   }, [imageArtifact, imagePath]);
+
   return imageArtifact;
 }
+
 async function loadCachedChartData(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = (await callOpenAPI(
-    loadCachedChartDataApi({
-      body: {
-        paths,
-      },
-    } as Parameters<typeof loadCachedChartDataApi>[0]),
-  )) as LoadCachedChartDataRouteResponse;
+  const res = await route_load_cached_chart_data({ paths });
   if (res200(res)) {
     useChartData.setState((state) => {
       const next = { ...state.x };
@@ -152,6 +140,7 @@ async function loadCachedChartData(paths: Array<string>) {
     });
   }
 }
+
 export function useLoadedChartData(sectionId: string) {
   const dataPath = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -161,25 +150,23 @@ export function useLoadedChartData(sectionId: string) {
     );
     return impl.dataPath;
   });
+
   const data = useChartData((state) => state.x[dataPath]);
+
   useEffect(() => {
     if (!data && dataPath) {
       void loadCachedChartData([dataPath]);
     }
   }, [data, dataPath]);
+
   return data?.value ?? {};
 }
+
 async function loadCachedBrushStrokes(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = (await callOpenAPI(
-    loadCachedBrushStrokesApi({
-      body: {
-        paths,
-      },
-    } as Parameters<typeof loadCachedBrushStrokesApi>[0]),
-  )) as LoadCachedBrushStrokesRouteResponse;
+  const res = await route_load_cached_brush_strokes({ paths });
   if (res200(res)) {
     useBrushStrokes.setState((state) => {
       const next = { ...state.x };
@@ -210,17 +197,12 @@ async function loadCachedBrushStrokes(paths: Array<string>) {
     });
   }
 }
+
 async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = (await callOpenAPI(
-    loadCachedDrawAreaLayerItemTransformApi({
-      body: {
-        paths,
-      },
-    } as Parameters<typeof loadCachedDrawAreaLayerItemTransformApi>[0]),
-  )) as LoadCachedDrawAreaLayerItemTransformRouteResponse;
+  const res = await route_load_cached_draw_area_layer_item_transform({ paths });
   if (res200(res)) {
     useDrawAreaLayerItemTransform.setState((state) => {
       const next = { ...state.x };
@@ -251,6 +233,7 @@ async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
     });
   }
 }
+
 export async function decodeExistingRawImages(needToDecode: Array<string>) {
   if (needToDecode.length === 0) {
     return;
@@ -307,11 +290,13 @@ export async function decodeExistingRawImages(needToDecode: Array<string>) {
     });
   }
 }
+
 type DrawAreaArtifactRefs = {
   imagePaths: Array<string>;
   brushStrokeIds: Array<string>;
   transformIds: Array<string>;
 };
+
 function collectDrawAreaArtifactRefs(
   state: ZustandProjectState,
   sectionId: string,
@@ -321,9 +306,11 @@ function collectDrawAreaArtifactRefs(
     sectionId,
     SectionTypeEnum.Draw,
   );
+
   const imagePaths = new Set<string>();
   const brushStrokeIds = new Set<string>();
   const transformIds = new Set<string>();
+
   for (const layer of impl.layers) {
     for (const element of layer.elements) {
       transformIds.add(element.transformId);
@@ -334,18 +321,21 @@ function collectDrawAreaArtifactRefs(
       }
     }
   }
+
   return {
     imagePaths: Array.from(imagePaths),
     brushStrokeIds: Array.from(brushStrokeIds),
     transformIds: Array.from(transformIds),
   };
 }
+
 function useDrawAreaElementRefs(sectionId: string) {
   return useProjectState(
     (state) => collectDrawAreaArtifactRefs(state, sectionId),
     _.isEqual,
   );
 }
+
 function buildRevisionStamp(ids: Array<string>, revisions: Array<number>) {
   if (ids.length === 0 || revisions.length === 0) {
     return "";
@@ -354,8 +344,10 @@ function buildRevisionStamp(ids: Array<string>, revisions: Array<number>) {
   pairs.sort((a, b) => a[0].localeCompare(b[0]));
   return pairs.map(([id, revision]) => `${id}:${revision}`).join("|");
 }
+
 export function useDrawAreaArtifactRevisionStamps(sectionId: string) {
   const refs = useDrawAreaElementRefs(sectionId);
+
   const imageRevisions = useImages(
     (state) =>
       refs.imagePaths.map((id) => {
@@ -392,6 +384,7 @@ export function useDrawAreaArtifactRevisionStamps(sectionId: string) {
       }),
     _.isEqual,
   );
+
   const images = useMemo(
     () => buildRevisionStamp(refs.imagePaths, imageRevisions),
     [refs.imagePaths, imageRevisions],
@@ -408,15 +401,20 @@ export function useDrawAreaArtifactRevisionStamps(sectionId: string) {
     () => buildRevisionStamp(refs.transformIds, transformRevisions),
     [refs.transformIds, transformRevisions],
   );
+
   return { images, decodedImages, brushStrokes, transforms };
 }
+
 export function useDrawAreaArtifactLoader(sectionId: string) {
   const refs = useDrawAreaElementRefs(sectionId);
+
   useEffect(() => {
     if (sectionId === "") {
       return;
     }
+
     const { imagePaths, brushStrokeIds, transformIds } = refs;
+
     const imagesState = useImages.getState();
     const decodedState = useDecodedImages.getState();
     const brushState = useBrushStrokes.getState();
@@ -439,6 +437,7 @@ export function useDrawAreaArtifactLoader(sectionId: string) {
       }
       return decodedImage.dataset.contentId !== rawImage.value.contentId;
     });
+
     void loadCachedImages(missingImages);
     void loadCachedBrushStrokes(missingBrushStrokes);
     void loadCachedDrawAreaLayerItemTransforms(missingTransforms);
