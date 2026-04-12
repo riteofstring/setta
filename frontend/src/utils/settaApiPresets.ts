@@ -1,6 +1,10 @@
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  createTopLevelSectionLayoutDict,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { getEmptySpacePosition } from "state/actions/sections/createSections";
-import { SettaAPIPresetConfig } from "utils/generatedTypes";
+import { useNodeInternals, useProjectState } from "state/definitions";
+import { RouteEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 type SettaApiPreset = {
   label: string;
@@ -8,57 +12,43 @@ type SettaApiPreset = {
   buildBody: () => Record<string, unknown>;
 };
 
-const SETTA_API_RUNTIME_VALUE_TOKENS = SettaAPIPresetConfig.runtimeValueTokens;
-
-function buildSettaApiRuntimeValuesByToken(): Record<string, unknown> {
-  return {
-    [SETTA_API_RUNTIME_VALUE_TOKENS.projectConfigId]: getCurrProjectConfigId(),
-    [SETTA_API_RUNTIME_VALUE_TOKENS.emptySpacePosition]:
-      getEmptySpacePosition(),
-  };
-}
-
-function resolveSettaApiPresetTemplateValue(
-  value: unknown,
-  runtimeValuesByToken: Record<string, unknown>,
-): unknown {
-  if (
-    typeof value === "string" &&
-    Object.prototype.hasOwnProperty.call(runtimeValuesByToken, value)
-  ) {
-    return runtimeValuesByToken[value];
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) =>
-      resolveSettaApiPresetTemplateValue(entry, runtimeValuesByToken),
-    );
-  }
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-        key,
-        resolveSettaApiPresetTemplateValue(entry, runtimeValuesByToken),
-      ]),
-    );
-  }
-  return value;
-}
-
-function buildSettaApiPresetBody(
-  bodyTemplate: Record<string, unknown>,
-): Record<string, unknown> {
-  return resolveSettaApiPresetTemplateValue(
-    bodyTemplate,
-    buildSettaApiRuntimeValuesByToken(),
-  ) as Record<string, unknown>;
-}
-
-export const SETTA_API_PRESETS: Array<SettaApiPreset> =
-  SettaAPIPresetConfig.presets.map((preset) => ({
-    label: preset.label,
-    route: preset.route,
-    buildBody: () => buildSettaApiPresetBody(preset.bodyTemplate),
-  }));
+export const SETTA_API_PRESETS: Array<SettaApiPreset> = [
+  {
+    label: "Create top-level section",
+    route: RouteEnum.CREATE_TOP_LEVEL_SECTION,
+    buildBody: () => {
+      const projectState = useProjectState.getState();
+      const topLevelSections = createTopLevelSectionLayoutDict(
+        projectState.sections,
+        useNodeInternals.getState().x,
+        projectState.projectConfig.topLevelSections,
+      );
+      return {
+        projectConfigId: getCurrProjectConfigId(),
+        implType: SectionTypeEnum.TextBlock,
+        controlCodeObjType: null,
+        implOverrides: { type: SectionTypeEnum.TextBlock, text: "Hello" },
+        position: getEmptySpacePosition(),
+        topLevelSections,
+        viewportBounds: null,
+      };
+    },
+  },
+  {
+    label: "Get latest project state",
+    route: RouteEnum.GET_LATEST_PROJECT_STATE,
+    buildBody: () => ({
+      projectConfigId: getCurrProjectConfigId(),
+    }),
+  },
+  {
+    label: "Save project",
+    route: RouteEnum.SAVE_PROJECT,
+    buildBody: () => ({
+      projectConfigId: getCurrProjectConfigId(),
+    }),
+  },
+];
 
 function getSettaApiPreset(route: string): SettaApiPreset | undefined {
   return SETTA_API_PRESETS.find((preset) => preset.route === route);
