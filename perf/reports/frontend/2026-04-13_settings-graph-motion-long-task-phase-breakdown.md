@@ -218,6 +218,71 @@ aggregate long-task totals.
   - `panReturn`: `1` task, `391ms` total, `391ms` max
   - `zoomIn`: `1` task, `186ms` total, `186ms` max
   - `zoomOut`: `1` task, `149ms` total, `149ms` max
+
+## 2026-04-13 Drag-Entry Fanout Reduction
+
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+  so each section shell receives a local `isDragging` flag instead of the
+  global `draggingSectionId`, which stops unchanged siblings from rerendering
+  just because one section entered or exited drag state
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  so the sections layer:
+  - passes the per-entry `isDragging` flag at the shell boundary
+  - reuses the prior resolved section body immediately when the
+    `SettingsGraphSubstrateCanarySceneSection` object is unchanged, instead of
+    re-resolving body metadata during drag-only churn
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  with a regression proving only the dragged sibling shell rerenders when drag
+  state flips, while unchanged siblings keep their existing entry/body model
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  - passed (`3` files, `24` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  - passed
+- live worktree probe on run `036`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-036/worktree-ai.log`
+  - result:
+    - passed (`1` Playwright test, `2.0m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state held steady before and after the motion burst:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-change motion breakdown:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1195ms`
+  - `longTaskMaxDurationMs`: `412ms`
+  - `measurementWindowMs`: `1881.4ms`
+  - `averageFrameDurationMs`: `42.42ms`
+  - dominant named canary owner stayed
+    `presentedSceneSectionSubtreeReactRender`
+    (`935.0ms` total, `255.3ms` max, `30` commits)
+  - `presentedSceneSectionEntriesResolve`: `8.4ms` total, `1.3ms` max
+  - `panForward`: `2` tasks, `399ms` total, `247ms` max
+  - `panReturn`: `1` task, `412ms` total, `412ms` max
+  - `zoomIn`: `1` task, `189ms` total, `189ms` max
+  - `zoomOut`: `1` task, `195ms` total, `195ms` max
+
+### Reading
+
+- this slice cut one concrete drag-state fanout seam inside the same dominant
+  `presentedSceneSectionSubtreeReactRender` owner chain
+- the live lane still reports the same dominant owner, so the frontier remains
+  inside the mounted presented-sections subtree rather than shifting back to
+  probes or shell-only seam work
+- the next bounded product cut should target remaining unchanged sibling commit
+  fanout below the shell boundary, most likely around entry-local handlers or
+  shell/body composition that still commits during the normalized motion burst
 - dominant named canary owner on the same run:
   - `presentedSceneSectionEntriesResolve`: `8.3ms` total, `2.2ms` max
 - reuse-check owners stayed effectively zero on the passing run:

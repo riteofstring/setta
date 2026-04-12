@@ -151,6 +151,58 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 09:36 UTC
+
+- item `411` landed one bounded production reduction on the canonical
+  `rotaryParamCodeObjDefault` worktree lane by localizing drag-state churn at
+  the section-shell boundary
+- re-read the plan/handoff first and stayed on the named owner
+  `presentedSceneSectionSubtreeReactRender`; did not open another probe-only or
+  seam-lift slice
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+  so each shell receives a local `isDragging` prop instead of the global
+  `draggingSectionId`
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  so unchanged sibling entries keep stable drag props and unchanged
+  `SettingsGraphSubstrateCanarySceneSection` objects reuse their prior resolved
+  section body metadata immediately
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  with a regression proving only the dragged sibling shell rerenders when drag
+  state flips
+- appended the fresh run-`036` live readout to
+  `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    -> passed (`3` files, `24` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-036/worktree-ai.log`
+    -> passed (`1` Playwright test, `2.0m`)
+    -> fresh canonical readout:
+       `longTaskCount` `5`, `longTaskTotalDurationMs` `1195ms`,
+       `longTaskMaxDurationMs` `412ms`, `averageFrameDurationMs` `42.42ms`
+    -> dominant named canary owner stayed
+       `presentedSceneSectionSubtreeReactRender`
+       (`935.0ms` total, `255.3ms` max, `30` commits)
+  - fresh-context headless CDP on the authenticated bootstrap URL
+    -> passed
+    -> bootstrap resolved to `http://127.0.0.1:3075/settings`
+    -> populated `All Settings` canary surface was visible with sections
+       including `languageServer`, `gui`, `shortcuts`,
+       `sectionSizingPolicy`, and `backend`
+- reading:
+  - this slice removed one real drag-state fanout seam, but the live lane still
+    points at `presentedSceneSectionSubtreeReactRender`
+  - no lifecycle recovery was needed on run `036`
+  - next frontier stays inside the mounted presented-sections subtree, with the
+    next bounded product cut aimed at remaining unchanged sibling commit fanout
+    below the shell boundary
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 09:26 UTC
 
 - reread the active plan/handoff first and kept the iteration on the canonical

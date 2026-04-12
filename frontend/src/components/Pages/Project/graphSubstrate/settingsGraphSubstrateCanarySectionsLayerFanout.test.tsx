@@ -28,17 +28,15 @@ const { mockResolveSectionBody, mockSectionBodyDomAdapter, mockSectionShell } =
     mockSectionShell: vi.fn(
       ({
         children,
-        draggingSectionId,
+        isDragging,
         section,
       }: {
         children: ReactNode;
-        draggingSectionId: string | null;
+        isDragging: boolean;
         section: SettingsGraphSubstrateCanarySceneSection;
       }) => (
         <div
-          data-dragging={
-            draggingSectionId === section.sectionId ? "true" : "false"
-          }
+          data-dragging={isDragging ? "true" : "false"}
           data-testid={`shell-${section.sectionId}`}
         >
           {children}
@@ -235,7 +233,46 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
       );
     });
 
-    expect(mockResolveSectionBody).toHaveBeenCalledTimes(4);
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(3);
+    expect(mockSectionShell).toHaveBeenCalledTimes(3);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(3);
+  });
+
+  it("rerenders only the dragged sibling when drag state flips", async () => {
+    const sceneSections = [
+      createSceneSection({ sectionId: "section-a" }),
+      createSceneSection({
+        position: { x: 420, y: 80 },
+        renderedPosition: { x: 420, y: 80 },
+        sectionId: "section-b",
+      }),
+    ];
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={sceneSections}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
+    expect(mockSectionShell).toHaveBeenCalledTimes(2);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={"section-b"}
+          sceneSections={sceneSections}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
     expect(mockSectionShell).toHaveBeenCalledTimes(3);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(3);
   });

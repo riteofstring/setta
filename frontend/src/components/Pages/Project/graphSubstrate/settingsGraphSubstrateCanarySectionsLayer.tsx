@@ -38,8 +38,12 @@ type SettingsGraphSubstrateCanarySectionsLayerProps = {
   visibleViewportRect: GraphRect | null;
 };
 
+type StableSectionBodyEntry = {
+  sceneSection: SettingsGraphSubstrateCanarySceneSection;
+  sectionBody: SettingsGraphSubstrateCanarySectionBody;
+};
+
 type SettingsGraphSubstrateCanarySectionEntryProps = {
-  draggingSectionId: string | null;
   finishSectionDrag: (
     event: ReactPointerEvent<HTMLDivElement>,
     persistLayout: boolean,
@@ -49,6 +53,7 @@ type SettingsGraphSubstrateCanarySectionEntryProps = {
     event: ReactPointerEvent<HTMLDivElement>,
   ) => void;
   handleSectionPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  isDragging: boolean;
   onHoveredSectionChange: (sectionId: string | null) => void;
   section: SettingsGraphSubstrateCanarySceneSection;
   sectionBody: SettingsGraphSubstrateCanarySectionBody;
@@ -56,10 +61,10 @@ type SettingsGraphSubstrateCanarySectionEntryProps = {
 };
 
 function _SettingsGraphSubstrateCanarySectionEntry({
-  draggingSectionId,
   finishSectionDrag,
   handleSectionPointerDown,
   handleSectionPointerMove,
+  isDragging,
   onHoveredSectionChange,
   section,
   sectionBody,
@@ -67,10 +72,10 @@ function _SettingsGraphSubstrateCanarySectionEntry({
 }: SettingsGraphSubstrateCanarySectionEntryProps) {
   return (
     <SettingsGraphSubstrateCanarySectionShell
-      draggingSectionId={draggingSectionId}
       finishSectionDrag={finishSectionDrag}
       handleSectionPointerDown={handleSectionPointerDown}
       handleSectionPointerMove={handleSectionPointerMove}
+      isDragging={isDragging}
       onHoveredSectionChange={onHoveredSectionChange}
       section={section}
     >
@@ -103,7 +108,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   >([]);
   const stableMountedSectionBodyIdsRef = useRef<ReadonlySet<string>>(new Set());
   const stableSectionBodiesByIdRef = useRef<
-    Map<string, SettingsGraphSubstrateCanarySectionBody>
+    Map<string, StableSectionBodyEntry>
   >(new Map());
   const resolvedPresentedSceneSections = useMemo(() => {
     if (presentedSceneSections) {
@@ -199,12 +204,16 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
 
   const sectionBodiesById = useMemo(() => {
     const previousSectionBodiesById = stableSectionBodiesByIdRef.current;
-    const nextSectionBodiesById = new Map<
-      string,
-      SettingsGraphSubstrateCanarySectionBody
-    >();
+    const nextSectionBodiesById = new Map<string, StableSectionBodyEntry>();
 
     for (const section of resolvedPresentedSceneSections) {
+      const previousSectionBodyEntry = previousSectionBodiesById.get(
+        section.sectionId,
+      );
+      if (previousSectionBodyEntry?.sceneSection === section) {
+        nextSectionBodiesById.set(section.sectionId, previousSectionBodyEntry);
+        continue;
+      }
       const nextSectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
         positionAndSizeLocked: section.positionAndSizeLocked,
         sectionId: section.sectionId,
@@ -213,9 +222,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         styleColor: section.styleColor ?? null,
         textBlockMetaControlStyle: section.textBlockMetaControlStyle ?? false,
       });
-      const previousSectionBody = previousSectionBodiesById.get(
-        section.sectionId,
-      );
+      const previousSectionBody = previousSectionBodyEntry?.sectionBody;
       nextSectionBodiesById.set(
         section.sectionId,
         previousSectionBody &&
@@ -223,8 +230,11 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
             previousSectionBody,
             nextSectionBody,
           )
-          ? previousSectionBody
-          : nextSectionBody,
+          ? previousSectionBodyEntry
+          : {
+              sceneSection: section,
+              sectionBody: nextSectionBody,
+            },
       );
     }
 
@@ -296,19 +306,22 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
           const shouldMountBody = resolvedMountedSectionBodyIds.has(
             section.sectionId,
           );
-          const sectionBody = sectionBodiesById.get(section.sectionId);
-          if (!sectionBody) {
+          const stableSectionBodyEntry = sectionBodiesById.get(
+            section.sectionId,
+          );
+          if (!stableSectionBodyEntry) {
             throw new Error(
               `Missing graph substrate section body for ${section.sectionId}.`,
             );
           }
+          const sectionBody = stableSectionBodyEntry.sectionBody;
           return (
             <SettingsGraphSubstrateCanarySectionEntry
               key={section.sectionId}
-              draggingSectionId={draggingSectionId}
               finishSectionDrag={finishSectionDrag}
               handleSectionPointerDown={handleSectionPointerDown}
               handleSectionPointerMove={handleSectionPointerMove}
+              isDragging={draggingSectionId === section.sectionId}
               onHoveredSectionChange={onHoveredSectionChange}
               section={section}
               sectionBody={sectionBody}

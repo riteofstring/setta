@@ -7,7 +7,6 @@ import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSu
 
 type SettingsGraphSubstrateCanarySectionShellProps = {
   children: ReactNode;
-  draggingSectionId: string | null;
   finishSectionDrag: (
     event: ReactPointerEvent<HTMLDivElement>,
     persistLayout: boolean,
@@ -17,23 +16,24 @@ type SettingsGraphSubstrateCanarySectionShellProps = {
     event: ReactPointerEvent<HTMLDivElement>,
   ) => void;
   handleSectionPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  isDragging: boolean;
   onHoveredSectionChange: (sectionId: string | null) => void;
   section: SettingsGraphSubstrateCanarySceneSection;
 };
 
 function _SettingsGraphSubstrateCanarySectionShell({
   children,
-  draggingSectionId,
   finishSectionDrag,
   handleSectionPointerDown,
   handleSectionPointerMove,
+  isDragging,
   onHoveredSectionChange,
   section,
 }: SettingsGraphSubstrateCanarySectionShellProps) {
   let sectionCursor: CSSProperties["cursor"] = "grab";
   if (section.positionAndSizeLocked) {
     sectionCursor = "default";
-  } else if (draggingSectionId === section.sectionId) {
+  } else if (isDragging) {
     sectionCursor = "grabbing";
   }
 
@@ -52,7 +52,7 @@ function _SettingsGraphSubstrateCanarySectionShell({
       }}
       data-id={section.sectionId}
       data-section-id={section.sectionId}
-      data-dragging={draggingSectionId === section.sectionId ? "true" : "false"}
+      data-dragging={isDragging ? "true" : "false"}
       data-testid="graph-substrate-canary-section"
       onPointerEnter={() => onHoveredSectionChange(section.sectionId)}
       onPointerLeave={() => onHoveredSectionChange(null)}

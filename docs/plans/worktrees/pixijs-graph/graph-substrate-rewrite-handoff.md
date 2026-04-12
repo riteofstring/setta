@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 09:26 UTC
+Last updated: 2026-04-13 09:36 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,66 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `411` landed one bounded production reduction against the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane by localizing drag-state
+  churn at the section-shell boundary:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the named owner
+      `presentedSceneSectionSubtreeReactRender` instead of reopening probe or
+      seam-lift work
+    - checked the next remaining sections-layer fanout seam and found every
+      sibling shell still received the global `draggingSectionId`
+    - kept the slice bounded to the section-entry / shell seam and one nearby
+      body-cache reuse rule for unchanged scene-section objects
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      with a local `isDragging` prop instead of the global
+      `draggingSectionId`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      so unchanged siblings keep stable shell props on drag-state flips and
+      unchanged scene-section objects reuse their prior resolved body metadata
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      with a regression proving only the dragged sibling shell rerenders on a
+      drag-state flip
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the fresh run-`036` live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      -> passed (`3` files, `24` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-036/worktree-ai.log`
+      -> passed (`1` Playwright test, `2.0m`)
+      -> fresh canonical readout:
+         `longTaskCount` `5`, `longTaskTotalDurationMs` `1195ms`,
+         `longTaskMaxDurationMs` `412ms`, `averageFrameDurationMs` `42.42ms`
+      -> dominant named canary owner stayed
+         `presentedSceneSectionSubtreeReactRender`
+         (`935.0ms` total, `255.3ms` max, `30` commits)
+    - headless CDP visual check on the authenticated worktree bootstrap URL
+      -> passed in a fresh-context sub-agent
+      -> bootstrap resolved to `/settings` and rendered the populated
+         `All Settings` canary surface with visible sections including
+         `languageServer`, `gui`, `shortcuts`, `sectionSizingPolicy`, and
+         `backend`
+      -> treat this as a canary-surface / named-section health assertion, not a
+         side-by-side parity claim versus `main`
+  - reading:
+    - this slice removed one real drag-state fanout seam from the same
+      dominant owner chain without reopening harness work
+    - the live lane still reports
+      `presentedSceneSectionSubtreeReactRender` as the dominant consumer, so
+      the product frontier remains inside the mounted presented-sections
+      subtree
+    - the fresh CDP pass confirms the worktree canary surface is healthy on the
+      authenticated `/settings` route for follow-on slices
+  - next default frontier:
+    - stay on `presentedSceneSectionSubtreeReactRender` with one more bounded
+      production cut aimed at remaining unchanged sibling commit fanout below
+      the shell boundary, preferably around entry-local hover/pointer handler
+      props or shell/body composition that still commits during the normalized
+      motion burst
 
 - item `410` landed one bounded production reduction against the canonical
   `rotaryParamCodeObjDefault` worktree perf lane by reusing unchanged
