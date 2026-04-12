@@ -12456,8 +12456,10 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
         operation,
       });
 
-    await runProbePhase("normalize surface", async () => {
+    await runProbePhase("bring target page to front", async () => {
       await args.targetPage.bringToFront();
+    });
+    await runProbePhase("restore initial view mode layout", async () => {
       await restoreInitialViewModeLayout({
         activeViewModeId: args.activeViewModeId,
         backendOrigin: args.backendOrigin,
@@ -12466,8 +12468,14 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
         page: args.targetPage,
         projectConfigId: args.projectConfigId,
       });
+    });
+    await runProbePhase("normalize compare pane state", async () => {
       await normalizeSettingsGraphComparePaneState(args.targetPage);
+    });
+    await runProbePhase("clear durable active section ids", async () => {
       await setDurableActiveSectionIds(args.targetPage, []);
+    });
+    await runProbePhase("set active view mode and clear viewport", async () => {
       await setPageViewModeAndClearViewport(
         args.targetPage,
         args.backendOrigin,

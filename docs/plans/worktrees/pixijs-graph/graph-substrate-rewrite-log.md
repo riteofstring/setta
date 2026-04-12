@@ -12249,6 +12249,36 @@ LOOP_TERMINAL_MARKER: none
     canonical lane, so the next bounded slice should target product-side canary
     motion cost rather than more probe-health normalization
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 15:04 UTC | item 317 | split canonical perf-probe normalize phases
+  - Picked one bounded probe-diagnostics slice after the fresh rerun replaced
+    the old reference-inflation theory with an opaque
+    `worktree: normalize surface` timeout.
+  - No product renderer code changed; updated
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so `captureNormalizedMotionPerf(...)` now reports distinct setup phases for:
+    - bringing the target page to front
+    - restoring the initial view-mode layout
+    - normalizing compare-pane state
+    - clearing durable active section ids
+    - setting the active view mode and clearing viewport
+  - Added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-probe-phase-granularity.md`
+    to record the slice and rerun outcome.
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-006/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-006/main-ai.log`
+      -> failed before motion capture at `reference: open settings`; readiness
+      stayed `graphSurfaceMounted=false`, `settingsContentMounted=false`,
+      `projectIsLoading=true`
+  - Result:
+    - the new phase split is landed for the next fresh runtime and will make
+      any future worktree setup stall concrete instead of opaque
+    - the active blocker on `run-006` is once again read-only `main`
+      startup/readiness, so the next bounded slice should resolve or normalize
+      that recurring reference-side regression before choosing another canary
+      motion-cost hypothesis
+- LOOP_TERMINAL_MARKER: none
 - 2026-04-12 14:57 UTC | item 316 | viewport-layer promotion on canonical `rotaryParamCodeObjDefault`
   - Picked one bounded product slice against the current motion-cost lane instead of another support-only rerun: promote the canary viewport transform layer itself so pan/zoom runs on a compositor-friendly path.
   - Product code changed in the canary surface:

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 14:57 UTC
+Last updated: 2026-04-12 15:04 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,37 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+  - item `317` landed one bounded probe-diagnostics slice on the canonical
+    `rotaryParamCodeObjDefault` lane instead of guessing at the opaque
+    `worktree: normalize surface` timeout:
+    - no product renderer code changed on this pass
+    - split `captureNormalizedMotionPerf(...)` setup in
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      into distinct probe phases for:
+      - bringing the target page to front
+      - restoring the initial view-mode layout
+      - normalizing compare-pane state
+      - clearing durable active section ids
+      - setting the active view mode and clearing viewport
+    - recorded the bounded result in
+      `perf/reports/frontend/2026-04-12_settings-graph-main-reference-probe-phase-granularity.md`
+    - focused verification:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+        -> passed
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-006/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-006/main-ai.log`
+        -> did not reach the new worktree normalize phases because
+        read-only `main` regressed first at `reference: open settings`
+        while the readiness poll stayed at:
+        `graphSurfaceMounted=false`, `settingsContentMounted=false`,
+        `projectIsLoading=true`
+    - reading:
+      - the fresh blocker is not another canary perf verdict and not the older
+        reference DOM-inflation theory; the canonical lane is blocked again by
+        read-only `main` startup/readiness before motion capture starts
+      - if the next fresh runtime clears `reference: open settings`, the probe
+        will now name the exact worktree normalize step if setup stalls there
+      - next frontier: resolve or normalize the recurring read-only `main`
+        readiness regression before returning to canary-side motion-cost work
   - item `316` landed one bounded product slice on the canonical
     `rotaryParamCodeObjDefault` lane instead of reopening another already-closed
     JS-attribution seam:
