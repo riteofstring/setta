@@ -584,47 +584,75 @@ type rawDropzoneAttachment struct {
 }
 
 func parseDropzoneAttachments(literalValue string) ([]dropzoneAttachment, bool) {
-	var payload dropzoneStoredValue
-	if err := json.Unmarshal([]byte(literalValue), &payload); err != nil {
+	payload, ok := parseDropzoneStoredAttachments(literalValue)
+	if !ok {
 		return nil, false
 	}
-	if len(payload.Attachments) == 0 {
+	rawAttachments, ok := parseRawDropzoneAttachments(payload.Attachments)
+	if !ok {
+		return nil, false
+	}
+	return decodeDropzoneAttachments(rawAttachments)
+}
+
+func parseDropzoneStoredAttachments(literalValue string) (dropzoneStoredValue, bool) {
+	var payload dropzoneStoredValue
+	if err := json.Unmarshal([]byte(literalValue), &payload); err != nil {
+		return dropzoneStoredValue{}, false
+	}
+	return payload, true
+}
+
+func parseRawDropzoneAttachments(raw json.RawMessage) ([]json.RawMessage, bool) {
+	if len(raw) == 0 {
 		return nil, true
 	}
-	if bytes.Equal(bytes.TrimSpace(payload.Attachments), []byte("null")) {
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return nil, false
 	}
 	var rawAttachments []json.RawMessage
-	if err := json.Unmarshal(payload.Attachments, &rawAttachments); err != nil {
+	if err := json.Unmarshal(raw, &rawAttachments); err != nil {
 		return nil, false
 	}
+	return rawAttachments, true
+}
+
+func decodeDropzoneAttachments(rawAttachments []json.RawMessage) ([]dropzoneAttachment, bool) {
 	attachments := make([]dropzoneAttachment, 0, len(rawAttachments))
 	for _, rawAttachment := range rawAttachments {
-		var attachment rawDropzoneAttachment
-		if err := json.Unmarshal(rawAttachment, &attachment); err != nil {
+		attachment, ok := decodeDropzoneAttachment(rawAttachment)
+		if !ok {
 			return nil, false
 		}
-		if attachment.ID == nil || attachment.Name == nil {
-			return nil, false
-		}
-		switch attachment.Kind {
-		case "file":
-			attachments = append(attachments, dropzoneAttachment{
-				Kind: attachment.Kind,
-				ID:   *attachment.ID,
-			})
-		case "text":
-			if attachment.Text == nil {
-				return nil, false
-			}
-			attachments = append(attachments, dropzoneAttachment{
-				Kind: attachment.Kind,
-				ID:   *attachment.ID,
-				Text: *attachment.Text,
-			})
-		default:
-			return nil, false
-		}
+		attachments = append(attachments, attachment)
 	}
 	return attachments, true
+}
+
+func decodeDropzoneAttachment(rawAttachment json.RawMessage) (dropzoneAttachment, bool) {
+	var attachment rawDropzoneAttachment
+	if err := json.Unmarshal(rawAttachment, &attachment); err != nil {
+		return dropzoneAttachment{}, false
+	}
+	if attachment.ID == nil || attachment.Name == nil {
+		return dropzoneAttachment{}, false
+	}
+	switch attachment.Kind {
+	case "file":
+		return dropzoneAttachment{
+			Kind: attachment.Kind,
+			ID:   *attachment.ID,
+		}, true
+	case "text":
+		if attachment.Text == nil {
+			return dropzoneAttachment{}, false
+		}
+		return dropzoneAttachment{
+			Kind: attachment.Kind,
+			ID:   *attachment.ID,
+			Text: *attachment.Text,
+		}, true
+	default:
+		return dropzoneAttachment{}, false
+	}
 }

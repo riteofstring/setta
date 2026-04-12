@@ -787,6 +787,54 @@ func TestPythonValueCodecFormatsDropzoneRepresentations(t *testing.T) {
 			t.Fatalf("unexpected invalid dropzone fallback %q", rendered)
 		}
 	})
+
+	for _, testCase := range []struct {
+		name    string
+		payload string
+	}{
+		{
+			name:    "null attachments fallback",
+			payload: `{"attachments":null}`,
+		},
+		{
+			name:    "missing attachment name fallback",
+			payload: `{"attachments":[{"kind":"file","id":"artifacts/test.txt"}]}`,
+		},
+		{
+			name:    "text attachment missing text fallback",
+			payload: `{"attachments":[{"kind":"text","id":"text:abc","name":"Dropped text"}]}`,
+		},
+		{
+			name:    "unknown attachment kind fallback",
+			payload: `{"attachments":[{"kind":"url","id":"https://example.com","name":"Example"}]}`,
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			node := &PythonParamNode{
+				PythonDependencyNodeBase: PythonDependencyNodeBase{
+					ID:               "dropzone-invalid-shape",
+					Name:             "dropzone",
+					FullPathName:     "section__dropzone",
+					Deps:             map[PythonDependencyKey]bool{},
+					IncludeInCodegen: true,
+					Value:            LiteralDependencyValue{Payload: testCase.payload},
+				},
+				CodeObjectType:      "DropzoneParam",
+				ValueRepresentation: projectstate.PythonCodeObjValueRepresentationFilePath,
+			}
+			rendered, err := liveCodec.FormatParamExpression(node)
+			if err != nil {
+				t.Fatalf("format malformed dropzone: %v", err)
+			}
+			want := "'" + testCase.payload + "'"
+			if rendered != want {
+				t.Fatalf("unexpected malformed dropzone fallback:\nwant: %q\ngot:  %q", want, rendered)
+			}
+		})
+	}
 }
 
 func TestPythonValueCodecFormatsMultilineCollections(t *testing.T) {
