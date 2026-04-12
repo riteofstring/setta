@@ -5,9 +5,9 @@ function formatGeneratedOriginHost(hostname: string): string {
   return hostname;
 }
 
-export function normalizeGeneratedOrigin(
+function parseGeneratedOrigin(
   rawOrigin: string | null | undefined,
-): string | null {
+): URL | null {
   if (typeof rawOrigin !== "string") {
     return null;
   }
@@ -15,36 +15,43 @@ export function normalizeGeneratedOrigin(
   if (!trimmedOrigin) {
     return null;
   }
-  let parsedOrigin: URL;
   try {
-    parsedOrigin = new URL(trimmedOrigin);
+    return new URL(trimmedOrigin);
   } catch {
     return null;
   }
+}
+
+function isGeneratedHttpOrigin(parsedOrigin: URL): boolean {
   if (parsedOrigin.protocol !== "http:" && parsedOrigin.protocol !== "https:") {
-    return null;
+    return false;
   }
   if (!parsedOrigin.hostname) {
-    return null;
+    return false;
   }
-  if (parsedOrigin.username || parsedOrigin.password) {
-    return null;
-  }
+  return !parsedOrigin.username && !parsedOrigin.password;
+}
+
+function formatNormalizedGeneratedOrigin(parsedOrigin: URL): string {
+  const formattedHost = formatGeneratedOriginHost(parsedOrigin.hostname);
   const port = parsedOrigin.port.trim();
   if (!port) {
-    return (
-      parsedOrigin.protocol +
-      "//" +
-      formatGeneratedOriginHost(parsedOrigin.hostname)
-    );
+    return parsedOrigin.protocol + "//" + formattedHost;
   }
-  return (
-    parsedOrigin.protocol +
-    "//" +
-    formatGeneratedOriginHost(parsedOrigin.hostname) +
-    ":" +
-    port
-  );
+  return parsedOrigin.protocol + "//" + formattedHost + ":" + port;
+}
+
+export function normalizeGeneratedOrigin(
+  rawOrigin: string | null | undefined,
+): string | null {
+  const parsedOrigin = parseGeneratedOrigin(rawOrigin);
+  if (!parsedOrigin) {
+    return null;
+  }
+  if (!isGeneratedHttpOrigin(parsedOrigin)) {
+    return null;
+  }
+  return formatNormalizedGeneratedOrigin(parsedOrigin);
 }
 
 export function normalizeGeneratedToolName(
