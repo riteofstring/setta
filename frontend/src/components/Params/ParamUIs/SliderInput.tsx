@@ -188,7 +188,6 @@ export function SliderInput({
         onEscape={onEscape}
         min={min}
         max={max}
-        step={step}
       />
     </div>
   );
@@ -201,7 +200,6 @@ function SliderTextField({
   onEscape,
   min,
   max,
-  step,
 }: {
   className?: string | undefined;
   value: string | number;
@@ -210,7 +208,6 @@ function SliderTextField({
   onEscape?: (() => void) | undefined;
   min: number;
   max: number;
-  step: number;
 }) {
   const [tempValue, setTempValue] = useState(value);
   function localOnChange(e: React.ChangeEvent<HTMLInputElement>) {
