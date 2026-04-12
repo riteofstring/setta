@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 13:20 UTC
+Last updated: 2026-04-13 11:58 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,68 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `421` landed one bounded direct `/settings` startup-attribution slice so
+  fresh worktree/CDP checks can classify the live loading owner instead of
+  treating the transient shell as unexplained drift:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and did not reopen the older
+      pane-state or generic verifier-hardening lanes after item `420`
+    - chose one narrow instrumentation seam directly on the current blocker:
+      expose explicit startup-phase markers for direct `/settings` open and log
+      the same phase model in the existing worktree readiness helper
+    - kept the slice bounded to app-shell loading markers, one shared pure
+      phase resolver, focused tests, one live worktree probe rerun, and one
+      frontend perf report; no renderer motion logic changed
+  - code changed in:
+    - `frontend/src/App.tsx` and `frontend/src/App.test.tsx` so the suspense
+      fallback exposes `data-setta-open-phase="app_router_loading"`
+    - `frontend/src/components/Pages/GlobalWrapper.tsx` so the direct app
+      loading shell exposes `data-testid="global-app-loading-state"` plus
+      source-of-truth `data-settings-loaded`, `data-backend-ready`, and
+      `data-setta-open-phase`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphDirectOpenState.ts`
+      and `.test.ts` with the shared direct-open phase model
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so
+      `waitForInitialSettingsGraphReady(...)` logs phase transitions and
+      reports the last classified phase on timeout
+    - `perf/reports/frontend/2026-04-13_direct-settings-open-phase-classification.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/App.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphDirectOpenState.test.ts`
+      -> passed (`7` tests)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-046/worktree-ai.log`
+      -> passed (`1` Playwright test, `58.1s`)
+      -> direct-open phase sequence on the worktree:
+         `67ms app_router_loading` -> `2456ms settings_loading` ->
+         `4000ms app_shell_without_surface` -> `7938ms project_loading` ->
+         `22362ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> worktree canary still reached `surfaceKind: "canary"` and kept the
+         same dominant owner family:
+         `presentedSceneSectionSubtreeReactRender`
+    - fresh-context headless CDP visual check after bootstrap on direct
+      `http://127.0.0.1:3075/settings`
+      -> first visible loading surface showed `PREPARING SETTA`,
+         `Loading settings…`, and `Backend: Starting backend services`
+      -> during that first phase the page exposed
+         `data-setta-open-phase="settings_loading"`
+      -> after a few seconds the route progressed to the project-loading
+         surface with visible `pixijs-graph`, `Loading project...`, and
+         `Waiting for project data to load`
+  - reading:
+    - the fresh direct `/settings` path is no longer an unexplained
+      app-router-only stall on this runtime; it moves through explicit startup
+      owners and does eventually reach the canary
+    - the longest visible pre-surface gap now sits after `project_loading`
+      begins and before `surface_ready`, not in the initial suspense fallback
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - use the new startup-phase evidence to avoid reopening generic
+      startup-shell diagnostics, then pivot back to the measured canary owner
+      `presentedSceneSectionSubtreeReactRender`
+    - if a fresh CDP check stalls again, classify it against the explicit
+      phase markers before treating it as renderer or oracle debt
 
 - item `420` landed one bounded production change on the direct `/settings`
   startup blocker by splitting backend init-status readiness from the slower

@@ -18,6 +18,7 @@ export function AppLoadingFallback() {
   return (
     <section
       data-testid="app-router-loading-state"
+      data-setta-open-phase="app_router_loading"
       className="flex min-h-screen w-screen items-center justify-center bg-white px-6 py-10 text-setta-900 dark:bg-setta-950 dark:text-setta-50"
     >
       <div className="flex flex-col items-center gap-3 text-center">

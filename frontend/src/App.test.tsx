@@ -57,6 +57,9 @@ describe("App", () => {
       '[data-testid="app-router-loading-state"]',
     );
     expect(loadingState).not.toBeNull();
+    expect(loadingState?.getAttribute("data-setta-open-phase")).toBe(
+      "app_router_loading",
+    );
     expect(loadingState?.textContent).toContain("Loading Setta...");
     expect(loadingState?.textContent).toContain("Preparing the app surface.");
 

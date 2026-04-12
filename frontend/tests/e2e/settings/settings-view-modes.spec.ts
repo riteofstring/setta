@@ -1,4 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
+import {
+  isSettingsGraphDirectOpenReady,
+  resolveSettingsGraphDirectOpenPhase,
+  type SettingsGraphDirectOpenSnapshot,
+} from "components/Pages/Project/graphSubstrate/settingsGraphDirectOpenState";
+import { type SettingsGraphPageLifecycleDiagnostic } from "components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle";
 import { ensureAppReady, postBackend } from "../helpers";
 import {
   applyAuthoritativeViewportFromBackend,
@@ -5130,29 +5136,90 @@ async function waitForNodeCount(page: Page, expected: number): Promise<void> {
 }
 
 async function waitForInitialSettingsGraphReady(page: Page): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        return page.evaluate(() => {
-          const snapshot = {
-            appShellMounted:
-              document.querySelector(".setta-titlebar-offset") !== null,
-            graphSurfaceMounted:
-              document.querySelector(".react-flow__pane") !== null ||
-              document.querySelector(
-                '[data-testid="graph-substrate-canary"]',
-              ) !== null,
-            settingsContentMounted: document.querySelector("article") !== null,
-          };
-          return (
-            snapshot.appShellMounted &&
-            (snapshot.graphSurfaceMounted || snapshot.settingsContentMounted)
-          );
-        });
-      },
-      { timeout: 30000 },
-    )
-    .toBe(true);
+  const timeoutMs = 30000;
+  const pollIntervalMs = 500;
+  const startTimeMs = Date.now();
+  let lastSnapshot: SettingsGraphDirectOpenSnapshot | null = null;
+
+  while (true) {
+    const snapshot = await page.evaluate(() => {
+      const globalLoadingState = document.querySelector<HTMLElement>(
+        '[data-testid="global-app-loading-state"]',
+      );
+      return {
+        appRouterLoadingMounted:
+          document.querySelector('[data-testid="app-router-loading-state"]') !==
+          null,
+        appShellMounted:
+          document.querySelector(".setta-titlebar-offset") !== null,
+        backendReady:
+          globalLoadingState?.dataset.backendReady === undefined
+            ? null
+            : globalLoadingState.dataset.backendReady === "true",
+        globalLoadingMounted: globalLoadingState !== null,
+        graphSurfaceMounted:
+          document.querySelector(".react-flow__pane") !== null ||
+          document.querySelector('[data-testid="graph-substrate-canary"]') !==
+            null,
+        projectSurfaceLoadingMounted:
+          document.querySelector(
+            '[data-testid="project-surface-loading-state"]',
+          ) !== null,
+        settingsContentMounted: document.querySelector("article") !== null,
+        settingsLoaded:
+          globalLoadingState?.dataset.settingsLoaded === undefined
+            ? null
+            : globalLoadingState.dataset.settingsLoaded === "true",
+      } satisfies SettingsGraphDirectOpenSnapshot;
+    });
+
+    const elapsedMs = Date.now() - startTimeMs;
+    if (JSON.stringify(snapshot) !== JSON.stringify(lastSnapshot)) {
+      console.info(
+        "settings-graph-worktree-direct-open-progress",
+        JSON.stringify({
+          elapsedMs,
+          phase: resolveSettingsGraphDirectOpenPhase(snapshot),
+          snapshot,
+        }),
+      );
+      lastSnapshot = snapshot;
+    }
+
+    if (isSettingsGraphDirectOpenReady(snapshot)) {
+      return;
+    }
+
+    if (elapsedMs >= timeoutMs) {
+      throw new Error(
+        `Timed out waiting for initial settings graph readiness after ${timeoutMs}ms. ${JSON.stringify(
+          {
+            elapsedMs,
+            lifecycle: readSettingsGraphPageLifecycleDiagnostic(page),
+            phase: resolveSettingsGraphDirectOpenPhase(snapshot),
+            snapshot,
+          },
+          null,
+          2,
+        )}`,
+      );
+    }
+
+    await page.waitForTimeout(pollIntervalMs);
+  }
+}
+
+function readSettingsGraphPageLifecycleDiagnostic(
+  page: Page,
+): SettingsGraphPageLifecycleDiagnostic {
+  const context = page.context();
+  const browser = context.browser();
+  return {
+    browserConnected: browser ? browser.isConnected() : null,
+    openPageCount: context.pages().length,
+    pageClosed: page.isClosed(),
+    pageUrl: page.url(),
+  };
 }
 
 async function waitForOverviewCount(

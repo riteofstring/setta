@@ -16,6 +16,7 @@ import {
 } from "utils/generatedEndpoints";
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
 import { AppShell } from "./AppShell";
+import { resolveSettingsGraphGlobalLoadingPhase } from "./Project/graphSubstrate/settingsGraphDirectOpenState";
 
 const THEME_COLOR_LIGHT = "#dce1ea";
 const THEME_COLOR_DARK = "#0b0e13";
@@ -34,6 +35,7 @@ export function GlobalWrapper({ children }) {
       isLoading={shouldShowLoading}
       loadingContent={
         <LoadingScreen
+          backendReady={backendReady}
           initStatus={initStatus}
           settingsLoaded={settingsLoaded}
         />
@@ -186,19 +188,34 @@ function useBackendInitStatus() {
 }
 
 type LoadingScreenProps = {
+  backendReady: boolean;
   initStatus: BackendInitStatusResponse | null;
   settingsLoaded: boolean;
 };
 
-function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
+function LoadingScreen({
+  backendReady,
+  initStatus,
+  settingsLoaded,
+}: LoadingScreenProps) {
   const events = initStatus?.events ?? [];
   const lastEvent = events.length > 0 ? events[events.length - 1] : undefined;
   const backendMessage = lastEvent?.message ?? "Starting backend services";
   const errorMessage = initStatus?.error;
   const history = useMemo(() => events.slice(-3).reverse(), [events]);
+  const loadingPhase = resolveSettingsGraphGlobalLoadingPhase({
+    backendReady,
+    settingsLoaded,
+  });
 
   return (
-    <section className="flex flex-col items-center justify-center gap-4 text-setta-600 dark:text-setta-100">
+    <section
+      data-testid="global-app-loading-state"
+      data-backend-ready={backendReady ? "true" : "false"}
+      data-settings-loaded={settingsLoaded ? "true" : "false"}
+      data-setta-open-phase={loadingPhase}
+      className="flex flex-col items-center justify-center gap-4 text-setta-600 dark:text-setta-100"
+    >
       <div className="h-12 w-12 animate-spin rounded-full border-2 border-setta-500/70 border-t-transparent dark:border-setta-600 dark:border-t-transparent" />
       <div className="text-sm uppercase tracking-[0.3em] text-setta-500 dark:text-setta-200">
         Preparing setta

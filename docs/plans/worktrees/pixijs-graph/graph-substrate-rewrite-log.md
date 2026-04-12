@@ -151,6 +151,55 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 11:58 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: classify the
+  fresh direct `/settings` loading owner that item `420` left unresolved,
+  instead of reopening pane-state or generic verifier-hardening work
+- added explicit startup-phase markers to the live app-router fallback and
+  global app loading shell:
+  - `data-setta-open-phase="app_router_loading"` on the suspense fallback
+  - `data-testid="global-app-loading-state"` plus
+    `data-settings-loaded`, `data-backend-ready`, and
+    `data-setta-open-phase` on the global loading shell
+- added
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphDirectOpenState.ts`
+  and `.test.ts` so direct-open phase classification uses one shared
+  source-of-truth model instead of inferring from loading copy
+- updated `waitForInitialSettingsGraphReady(...)` in
+  `frontend/tests/e2e/settings/settings-view-modes.spec.ts` to log direct-open
+  phase transitions and report the last classified phase on timeout
+- added perf report
+  `perf/reports/frontend/2026-04-13_direct-settings-open-phase-classification.md`
+  with the live startup sequence and the unchanged motion-owner readout
+- verification:
+  - `pnpm -C frontend exec vitest run src/App.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphDirectOpenState.test.ts`
+    -> pass (`7` tests)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-046/worktree-ai.log`
+    -> pass (`1` test, `58.1s`)
+    -> startup sequence:
+       `67ms app_router_loading` -> `2456ms settings_loading` ->
+       `4000ms app_shell_without_surface` -> `7938ms project_loading` ->
+       `22362ms surface_ready`
+    -> canary still mounted on `rotaryParamCodeObjDefault`
+    -> dominant owner still `presentedSceneSectionSubtreeReactRender`
+  - fresh-context headless CDP visual check after bootstrap on direct
+    `http://127.0.0.1:3075/settings`
+    -> first visible loading surface showed `PREPARING SETTA`,
+       `Loading settings…`, `Backend: Starting backend services`
+    -> observed `data-setta-open-phase="settings_loading"` on that surface
+    -> page then progressed to the project-loading surface with visible
+       `pixijs-graph`, `Loading project...`, and
+       `Waiting for project data to load`
+- reading:
+  - the remaining fresh-open delay is no longer opaque and should not reopen
+    the generic startup-shell diagnostic lane by default
+  - the next real frontier is back on the measured canary owner
+    `presentedSceneSectionSubtreeReactRender`, using the new markers only to
+    classify future direct-open CDP stalls
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 13:20 UTC
 
 - reread `RALPH.md`, the rewrite plan, and the handoff first; did not continue
