@@ -1,5 +1,6 @@
+import { restartLanguageServer as restartLanguageServerRequest } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useShareSession, useWaitingForLSPResult } from "state/definitions";
-import { route_restart_language_server } from "utils/generatedEndpoints";
 import { addTemporaryNotification } from "./notifications";
 
 function setWaitingForLSP({ category, id, delay = 200 }) {
@@ -40,5 +41,5 @@ export function restartLanguageServer() {
     return;
   }
   addTemporaryNotification("Restarting Language Server");
-  route_restart_language_server();
+  void callOpenAPI(restartLanguageServerRequest());
 }

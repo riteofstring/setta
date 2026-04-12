@@ -12,6 +12,11 @@ type RectLike = Partial<{
   y: number;
 }>;
 
+type RectDimensions = {
+  width: number;
+  height: number;
+};
+
 export function rectFromBoundingRect(
   rect: Rectangle["boundingRectangle"],
 ): ClientRect {
@@ -25,41 +30,72 @@ export function rectFromBoundingRect(
   };
 }
 
+function getRectDimensions(rect: RectLike): RectDimensions | null {
+  if (typeof rect.width !== "number" || typeof rect.height !== "number") {
+    return null;
+  }
+
+  return {
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function coerceFromLeftTop(
+  rect: RectLike,
+  dimensions: RectDimensions,
+): ClientRect | null {
+  if (typeof rect.left !== "number" || typeof rect.top !== "number") {
+    return null;
+  }
+
+  return {
+    top: rect.top,
+    left: rect.left,
+    right:
+      typeof rect.right === "number"
+        ? rect.right
+        : rect.left + dimensions.width,
+    bottom:
+      typeof rect.bottom === "number"
+        ? rect.bottom
+        : rect.top + dimensions.height,
+    width: dimensions.width,
+    height: dimensions.height,
+  };
+}
+
+function coerceFromCoordinates(
+  rect: RectLike,
+  dimensions: RectDimensions,
+): ClientRect | null {
+  if (typeof rect.x !== "number" || typeof rect.y !== "number") {
+    return null;
+  }
+
+  return {
+    top: rect.y,
+    left: rect.x,
+    right: rect.x + dimensions.width,
+    bottom: rect.y + dimensions.height,
+    width: dimensions.width,
+    height: dimensions.height,
+  };
+}
+
 export function coerceClientRect(value: unknown): ClientRect | null {
   if (!value || typeof value !== "object") {
     return null;
   }
 
   const rect = value as RectLike;
-  if (typeof rect.width !== "number" || typeof rect.height !== "number") {
+  const dimensions = getRectDimensions(rect);
+  if (!dimensions) {
     return null;
   }
 
-  if (typeof rect.left === "number" && typeof rect.top === "number") {
-    const right =
-      typeof rect.right === "number" ? rect.right : rect.left + rect.width;
-    const bottom =
-      typeof rect.bottom === "number" ? rect.bottom : rect.top + rect.height;
-    return {
-      top: rect.top,
-      left: rect.left,
-      right,
-      bottom,
-      width: rect.width,
-      height: rect.height,
-    };
-  }
-
-  if (typeof rect.x === "number" && typeof rect.y === "number") {
-    return {
-      top: rect.y,
-      left: rect.x,
-      right: rect.x + rect.width,
-      bottom: rect.y + rect.height,
-      width: rect.width,
-      height: rect.height,
-    };
-  }
-
-  return null;
+  return (
+    coerceFromLeftTop(rect, dimensions) ??
+    coerceFromCoordinates(rect, dimensions)
+  );
 }
