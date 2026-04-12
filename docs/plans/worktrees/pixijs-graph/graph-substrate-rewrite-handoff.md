@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 05:20 UTC
+Last updated: 2026-04-13 05:54 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `371` landed one bounded `validate_shown_param_ids(...)` timing split
+  for the direct `/settings` backend lane:
+
+  - product code changed in:
+    - `backend/setta/types/project_state.py`
+      so `validate_shown_param_ids(...)` now records optional sub-step timing
+      into the existing scoped validation timing capture for:
+      - effective section/variant impl lookup
+      - `get_param_ids_to_show(...)`
+    - `backend/setta/types/helpers_lvl3.py`
+      so the convert timing result carries those new shown-param sub-buckets
+    - `backend/setta/project_state/base_project_manager.py`
+      so `load_project_config(...)` logs:
+      - `convert_project_state_shown_param_ids_effective_section_lookup_ms`
+      - `convert_project_state_shown_param_ids_get_param_ids_to_show_ms`
+    - `tests/project_state/test_load_project_config_timing.py`
+      so the timing regression now asserts the new fields by label and proves
+      their sum stays bounded by `convert_project_state_shown_param_ids_ms`
+  - recorded the fixture readout in:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-shown-param-ids-breakdown.md`
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`7` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/project_state.py backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - on the current settings warm-load fixture, most shown-param validation
+      cost sits inside `get_param_ids_to_show(...)`, not effective impl lookup:
+      - `convert_project_state_shown_param_ids_ms` is about `133.6ms`
+      - `convert_project_state_shown_param_ids_get_param_ids_to_show_ms` is
+        about `104.0ms`
+      - `convert_project_state_shown_param_ids_effective_section_lookup_ms` is
+        about `28.9ms`
+    - this closes the bounded "is shown-param time mostly lookup or show-set
+      construction?" question for the current warm direct `/settings` fixture
+    - the next backend owner to isolate is now explicit:
+      the work inside `get_param_ids_to_show(...)`
+  - next default frontier:
+    - split `get_param_ids_to_show(...)` into one bounded internal breakdown,
+      starting with `traverse_hierarchy(...)` versus `filter_for_ui_display(...)`
 
 - item `370` landed one bounded content-validator breakdown slice for the
   direct `/settings` backend lane:

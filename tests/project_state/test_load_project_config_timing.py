@@ -7,6 +7,40 @@ import pytest_asyncio
 from tests.utils.manager_fixture import real_project_manager, real_settings_manager
 
 
+TIMING_LOG_LABELS = [
+    "project_config_id",
+    "did_init",
+    "section_count",
+    "convert_ms",
+    "convert_collect_ids_ms",
+    "convert_slice_state_ms",
+    "convert_project_state_ms",
+    "convert_project_state_model_overhead_ms",
+    "convert_project_state_content_validation_ms",
+    "convert_project_state_singleton_sections_ms",
+    "convert_project_state_active_ids_ms",
+    "convert_project_state_parent_section_map_ms",
+    "convert_project_state_shown_param_ids_ms",
+    "convert_project_state_shown_param_ids_effective_section_lookup_ms",
+    "convert_project_state_shown_param_ids_get_param_ids_to_show_ms",
+    "convert_project_state_required_decoded_images_ms",
+    "convert_project_state_code_file_bindings_ms",
+    "convert_project_state_layout_validation_ms",
+    "init_ms",
+    "init_update_ms",
+    "validation_cache_hit",
+    "validation_resolve_ms",
+    "validation_broadcast_ms",
+    "validation_ms",
+    "total_ms",
+]
+
+
+def get_timing_log_values(info_mock) -> dict[str, object]:
+    _message, *args = info_mock.call_args.args
+    return dict(zip(TIMING_LOG_LABELS, args, strict=True))
+
+
 @pytest.mark.asyncio
 class TestLoadProjectConfigTiming:
     @pytest_asyncio.fixture(autouse=True)
@@ -34,27 +68,34 @@ class TestLoadProjectConfigTiming:
                 await manager.load_project_config(project_config_id)
 
         assert info_mock.call_count == 1
-        message, *args = info_mock.call_args.args
+        message, *_args = info_mock.call_args.args
+        timing = get_timing_log_values(info_mock)
         assert "load_project_config_timing" in message
-        assert args[0] == project_config_id
-        assert args[1] is True
-        assert args[3] >= 0
-        assert args[4] >= 0
-        assert args[5] >= 0
-        assert args[6] >= 0
-        assert args[7] >= 0
-        assert args[8] >= 0
-        assert args[9] >= 0
-        assert args[10] >= 0
-        assert args[11] >= 0
-        assert args[12] >= 0
-        assert args[13] >= 0
-        assert args[14] >= 0
-        assert args[15] >= 0
-        assert args[18] is False
-        assert args[19] >= 0
-        assert args[20] >= 0
-        assert args[21] >= 0
+        assert timing["project_config_id"] == project_config_id
+        assert timing["did_init"] is True
+        assert timing["convert_ms"] >= 0
+        assert timing["convert_collect_ids_ms"] >= 0
+        assert timing["convert_slice_state_ms"] >= 0
+        assert timing["convert_project_state_ms"] >= 0
+        assert timing["convert_project_state_model_overhead_ms"] >= 0
+        assert timing["convert_project_state_content_validation_ms"] >= 0
+        assert timing["convert_project_state_singleton_sections_ms"] >= 0
+        assert timing["convert_project_state_active_ids_ms"] >= 0
+        assert timing["convert_project_state_parent_section_map_ms"] >= 0
+        assert timing["convert_project_state_shown_param_ids_ms"] >= 0
+        assert timing[
+            "convert_project_state_shown_param_ids_effective_section_lookup_ms"
+        ] >= 0
+        assert timing[
+            "convert_project_state_shown_param_ids_get_param_ids_to_show_ms"
+        ] >= 0
+        assert timing["convert_project_state_required_decoded_images_ms"] >= 0
+        assert timing["convert_project_state_code_file_bindings_ms"] >= 0
+        assert timing["convert_project_state_layout_validation_ms"] >= 0
+        assert timing["validation_cache_hit"] is False
+        assert timing["validation_resolve_ms"] >= 0
+        assert timing["validation_broadcast_ms"] >= 0
+        assert timing["validation_ms"] >= 0
 
     async def test_settings_load_logs_convert_breakdown_on_warm_load(self) -> None:
         await self.manager.load_project_config(self.project_config_id)
@@ -63,36 +104,88 @@ class TestLoadProjectConfigTiming:
             await self.manager.load_project_config(self.project_config_id)
 
         assert info_mock.call_count == 1
-        _message, *args = info_mock.call_args.args
-        assert args[3] >= 0
-        assert args[4] >= 0
-        assert args[5] >= 0
-        assert args[6] >= 0
-        assert args[7] >= 0
-        assert args[8] >= 0
-        assert args[9] >= 0
-        assert args[10] >= 0
-        assert args[11] >= 0
-        assert args[12] >= 0
-        assert args[13] >= 0
-        assert args[14] >= 0
-        assert args[15] >= 0
-        assert args[3] >= args[4]
-        assert args[3] >= args[5]
-        assert args[3] >= args[6]
-        assert args[6] >= args[7]
-        assert args[6] >= args[8]
-        assert args[6] >= args[15]
-        assert args[8] >= args[9]
-        assert args[8] >= args[10]
-        assert args[8] >= args[11]
-        assert args[8] >= args[12]
-        assert args[8] >= args[13]
-        assert args[8] >= args[14]
-        assert args[8] + 1e-6 >= (
-            args[9] + args[10] + args[11] + args[12] + args[13] + args[14]
+        timing = get_timing_log_values(info_mock)
+        assert timing["convert_ms"] >= 0
+        assert timing["convert_collect_ids_ms"] >= 0
+        assert timing["convert_slice_state_ms"] >= 0
+        assert timing["convert_project_state_ms"] >= 0
+        assert timing["convert_project_state_model_overhead_ms"] >= 0
+        assert timing["convert_project_state_content_validation_ms"] >= 0
+        assert timing["convert_project_state_singleton_sections_ms"] >= 0
+        assert timing["convert_project_state_active_ids_ms"] >= 0
+        assert timing["convert_project_state_parent_section_map_ms"] >= 0
+        assert timing["convert_project_state_shown_param_ids_ms"] >= 0
+        assert timing[
+            "convert_project_state_shown_param_ids_effective_section_lookup_ms"
+        ] >= 0
+        assert timing[
+            "convert_project_state_shown_param_ids_get_param_ids_to_show_ms"
+        ] >= 0
+        assert timing["convert_project_state_required_decoded_images_ms"] >= 0
+        assert timing["convert_project_state_code_file_bindings_ms"] >= 0
+        assert timing["convert_project_state_layout_validation_ms"] >= 0
+        assert timing["convert_ms"] >= timing["convert_collect_ids_ms"]
+        assert timing["convert_ms"] >= timing["convert_slice_state_ms"]
+        assert timing["convert_ms"] >= timing["convert_project_state_ms"]
+        assert (
+            timing["convert_project_state_ms"]
+            >= timing["convert_project_state_model_overhead_ms"]
         )
-        assert args[6] + 1e-6 >= (args[7] + args[8] + args[15])
+        assert (
+            timing["convert_project_state_ms"]
+            >= timing["convert_project_state_content_validation_ms"]
+        )
+        assert (
+            timing["convert_project_state_ms"]
+            >= timing["convert_project_state_layout_validation_ms"]
+        )
+        assert (
+            timing["convert_project_state_content_validation_ms"]
+            >= timing["convert_project_state_singleton_sections_ms"]
+        )
+        assert (
+            timing["convert_project_state_content_validation_ms"]
+            >= timing["convert_project_state_active_ids_ms"]
+        )
+        assert (
+            timing["convert_project_state_content_validation_ms"]
+            >= timing["convert_project_state_parent_section_map_ms"]
+        )
+        assert (
+            timing["convert_project_state_content_validation_ms"]
+            >= timing["convert_project_state_shown_param_ids_ms"]
+        )
+        assert (
+            timing["convert_project_state_content_validation_ms"]
+            >= timing["convert_project_state_required_decoded_images_ms"]
+        )
+        assert (
+            timing["convert_project_state_content_validation_ms"]
+            >= timing["convert_project_state_code_file_bindings_ms"]
+        )
+        assert timing["convert_project_state_shown_param_ids_ms"] >= timing[
+            "convert_project_state_shown_param_ids_effective_section_lookup_ms"
+        ]
+        assert timing["convert_project_state_shown_param_ids_ms"] >= timing[
+            "convert_project_state_shown_param_ids_get_param_ids_to_show_ms"
+        ]
+        assert timing["convert_project_state_shown_param_ids_ms"] + 1e-6 >= (
+            timing["convert_project_state_shown_param_ids_effective_section_lookup_ms"]
+            + timing["convert_project_state_shown_param_ids_get_param_ids_to_show_ms"]
+        )
+        assert timing["convert_project_state_content_validation_ms"] + 1e-6 >= (
+            timing["convert_project_state_singleton_sections_ms"]
+            + timing["convert_project_state_active_ids_ms"]
+            + timing["convert_project_state_parent_section_map_ms"]
+            + timing["convert_project_state_shown_param_ids_ms"]
+            + timing["convert_project_state_required_decoded_images_ms"]
+            + timing["convert_project_state_code_file_bindings_ms"]
+        )
+        assert timing["convert_project_state_ms"] + 1e-6 >= (
+            timing["convert_project_state_model_overhead_ms"]
+            + timing["convert_project_state_content_validation_ms"]
+            + timing["convert_project_state_layout_validation_ms"]
+        )
 
     async def test_settings_load_skips_init_after_first_warm_load(self) -> None:
         await self.manager.load_project_config(self.project_config_id)
@@ -101,12 +194,13 @@ class TestLoadProjectConfigTiming:
             await self.manager.load_project_config(self.project_config_id)
 
         assert info_mock.call_count == 1
-        message, *args = info_mock.call_args.args
+        message, *_args = info_mock.call_args.args
+        timing = get_timing_log_values(info_mock)
         assert "load_project_config_timing" in message
-        assert args[0] == self.project_config_id
-        assert args[1] is False
-        assert args[17] == 0.0
-        assert args[18] is True
+        assert timing["project_config_id"] == self.project_config_id
+        assert timing["did_init"] is False
+        assert timing["init_update_ms"] == 0.0
+        assert timing["validation_cache_hit"] is True
 
     async def test_logs_when_subsequent_project_load_skips_init(self) -> None:
         async with AsyncExitStack() as exit_stack:
@@ -122,12 +216,13 @@ class TestLoadProjectConfigTiming:
                 await manager.load_project_config(project_config_id)
 
         assert info_mock.call_count == 1
-        message, *args = info_mock.call_args.args
+        message, *_args = info_mock.call_args.args
+        timing = get_timing_log_values(info_mock)
         assert "load_project_config_timing" in message
-        assert args[0] == project_config_id
-        assert args[1] is False
-        assert args[17] == 0.0
-        assert args[18] is True
+        assert timing["project_config_id"] == project_config_id
+        assert timing["did_init"] is False
+        assert timing["init_update_ms"] == 0.0
+        assert timing["validation_cache_hit"] is True
 
     async def test_settings_warm_load_logs_validation_split_as_cache_hit(
         self,
@@ -138,11 +233,11 @@ class TestLoadProjectConfigTiming:
             await self.manager.load_project_config(self.project_config_id)
 
         assert info_mock.call_count == 1
-        _message, *args = info_mock.call_args.args
-        assert args[18] is True
-        assert args[19] >= 0
-        assert args[20] >= 0
-        assert args[21] >= 0
+        timing = get_timing_log_values(info_mock)
+        assert timing["validation_cache_hit"] is True
+        assert timing["validation_resolve_ms"] >= 0
+        assert timing["validation_broadcast_ms"] >= 0
+        assert timing["validation_ms"] >= 0
 
     async def test_settings_warm_load_reuses_cached_name_validation_errors(
         self,

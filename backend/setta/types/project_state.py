@@ -107,6 +107,8 @@ class ProjectStateSingleConfigValidationTiming:
     active_ids_ms: float = 0.0
     parent_section_map_ms: float = 0.0
     shown_param_ids_ms: float = 0.0
+    shown_param_ids_effective_section_lookup_ms: float = 0.0
+    shown_param_ids_get_param_ids_to_show_ms: float = 0.0
     required_decoded_images_ms: float = 0.0
     code_file_bindings_ms: float = 0.0
     view_modes_ms: float = 0.0
@@ -466,14 +468,40 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self
 
     def validate_shown_param_ids(self):
+        timing = _project_state_single_config_validation_timing.get()
+        if timing is None:
+            output: dict[ID, ShownParamIds] = {}
+            for s in self.sections.values():
+                for v in s.variants:
+                    _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)
+                    if not isinstance(impl, BaseSectionWithParamsImpl):
+                        continue
+                    output[v] = get_param_ids_to_show(self, impl)
+            self.shownParamIds = output
+            return self
+
         output: dict[ID, ShownParamIds] = {}
+        effective_section_lookup_ms = 0.0
+        get_param_ids_to_show_ms = 0.0
         for s in self.sections.values():
             for v in s.variants:
+                lookup_start = time.perf_counter()
                 _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)
+                effective_section_lookup_ms += (
+                    time.perf_counter() - lookup_start
+                ) * 1000
                 if not isinstance(impl, BaseSectionWithParamsImpl):
                     continue
+                shown_params_start = time.perf_counter()
                 output[v] = get_param_ids_to_show(self, impl)
+                get_param_ids_to_show_ms += (
+                    time.perf_counter() - shown_params_start
+                ) * 1000
         self.shownParamIds = output
+        timing.shown_param_ids_effective_section_lookup_ms = (
+            effective_section_lookup_ms
+        )
+        timing.shown_param_ids_get_param_ids_to_show_ms = get_param_ids_to_show_ms
         return self
 
     def validate_required_decoded_images(self):

@@ -14365,6 +14365,41 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 05:54 UTC
+
+- item `371` landed one bounded `validate_shown_param_ids(...)` timing split
+  for the direct `/settings` backend lane:
+  - changed `backend/setta/types/project_state.py` so
+    `validate_shown_param_ids(...)` records optional timing for:
+    - effective section/variant impl lookup
+    - `get_param_ids_to_show(...)`
+  - changed `backend/setta/types/helpers_lvl3.py` and
+    `backend/setta/project_state/base_project_manager.py` so the new shown-param
+    sub-buckets flow through the existing convert timing result and
+    `load_project_config_timing` log line
+  - updated `tests/project_state/test_load_project_config_timing.py` to assert
+    timing fields by label instead of brittle positional indexes and to prove
+    the shown-param sub-buckets stay bounded by
+    `convert_project_state_shown_param_ids_ms`
+  - recorded the warm-load fixture readout in
+    `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-shown-param-ids-breakdown.md`
+  - verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`7` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/project_state.py backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - on the current warm direct `/settings` fixture,
+      `convert_project_state_shown_param_ids_ms` is about `133.6ms`
+    - `get_param_ids_to_show(...)` is the dominant owner inside that bucket at
+      about `104.0ms`
+    - effective impl lookup is smaller at about `28.9ms`
+  - next frontier:
+    - keep the backend attribution lane inside `get_param_ids_to_show(...)` and
+      split `traverse_hierarchy(...)` from `filter_for_ui_display(...)`
+
+LOOP_TERMINAL_MARKER: none
+
 # 2026-04-12 - Item 349
 
 - Item: land one bounded Playwright global-setup bootstrap-url fallback so the
