@@ -91,6 +91,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "ProjectChatUIConfig",
+			Type: reflect.TypeOf(projectview.FrontendValueProjectChatUIConfig()),
+			Value: func() any {
+				return projectview.FrontendValueProjectChatUIConfig()
+			},
+		},
+		{
 			Name: "PythonCodegenPolicyUIConfig",
 			Type: reflect.TypeOf(projectview.FrontendValuePythonCodegenPolicyUIConfig()),
 			Value: func() any {

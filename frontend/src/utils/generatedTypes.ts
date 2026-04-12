@@ -4586,6 +4586,41 @@ export const NameValidationRules = {
   slugReplacementChars: ["[", "]", '"', "'", " "],
 } satisfies gt.NameValidationContract;
 
+export const ProjectChatUIConfig = {
+  agenticEdgeContextModeOptions: [
+    { label: "Reference only", value: "reference_only" },
+    { label: "Inline text", value: "inline_text" },
+    { label: "Summary", value: "summary" },
+  ],
+  customSlashCommandModeOptions: [
+    { label: "Plain chat", value: "plain_chat" },
+    { label: "JSON Render", value: "json_render" },
+    { label: "Image to JSON Render", value: "json_render_with_image" },
+    { label: "Prompt Builder", value: "prompt_builder" },
+    { label: "MCP Server", value: "mcp_server" },
+  ],
+  defaultCustomSlashCommandMode: "plain_chat",
+  permissionModeOptions: [
+    { label: "minimal", value: "minimal" },
+    { label: "yolo", value: "yolo" },
+    { label: "config.toml custom", value: "config_toml_custom" },
+  ],
+  projectDictationModeOptions: [
+    { label: "Auto", value: "auto" },
+    { label: "Provider", value: "provider" },
+    { label: "Browser", value: "browser" },
+  ],
+  sectionChatWindowModeOptions: [
+    { label: "Section mode (edge scoped)", value: "section_mode" },
+    { label: "Project AI mode (full project)", value: "project_ai_mode" },
+  ],
+  sectionDictationModeOptions: [
+    { label: "Auto", value: "auto" },
+    { label: "Browser", value: "browser" },
+    { label: "Provider", value: "provider" },
+  ],
+} satisfies gt.ProjectChatUIConfigValue;
+
 export const PythonCodegenPolicyUIConfig = {
   codeObjRepresentationOptionsByType: {
     ButtonParam: ["expression"],

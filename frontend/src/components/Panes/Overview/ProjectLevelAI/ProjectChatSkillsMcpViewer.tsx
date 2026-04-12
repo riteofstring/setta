@@ -43,11 +43,10 @@ import {
 } from "state/types/appGenerationMode";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  AppGenerationModeEnum,
   type BaseChatMessageUnion,
-  ChatAppGenerationMessageModeEnum,
   type EngineConfig,
   EngineTypeEnum,
+  ProjectChatUIConfig,
   type SkillContent,
   type SkillEntry,
 } from "utils/generatedTypes";
@@ -121,26 +120,15 @@ const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
   prompt: "",
   appGenerationMode: null,
 };
-const CUSTOM_SLASH_COMMAND_MODE_ITEMS = [
-  {
-    id: ChatAppGenerationMessageModeEnum.plain_chat,
-    name: "Plain chat",
-  },
-  { id: AppGenerationModeEnum.json_render, name: "JSON Render" },
-  {
-    id: AppGenerationModeEnum.json_render_with_image,
-    name: "Image to JSON Render",
-  },
-  {
-    id: AppGenerationModeEnum.prompt_builder,
-    name: "Prompt Builder",
-  },
-  { id: AppGenerationModeEnum.mcp_server, name: "MCP Server" },
-] as const;
+const CUSTOM_SLASH_COMMAND_MODE_ITEMS =
+  ProjectChatUIConfig.customSlashCommandModeOptions.map((option) => ({
+    id: option.value,
+    name: option.label,
+  }));
 function getCustomSlashCommandModeLabel(
   mode: AppGenerationMode | null,
 ): string | null {
-  const resolvedId = mode ?? ChatAppGenerationMessageModeEnum.plain_chat;
+  const resolvedId = mode ?? ProjectChatUIConfig.defaultCustomSlashCommandMode;
   return (
     CUSTOM_SLASH_COMMAND_MODE_ITEMS.find((item) => item.id === resolvedId)
       ?.name ?? null
@@ -1837,7 +1825,7 @@ function CustomSlashCommandsPanel({
           ]}
           value={
             newCustomSlashAppGenerationMode ??
-            ChatAppGenerationMessageModeEnum.plain_chat
+            ProjectChatUIConfig.defaultCustomSlashCommandMode
           }
           small={false}
           onSelectedItemChange={onSetNewCustomSlashAppGenerationMode}

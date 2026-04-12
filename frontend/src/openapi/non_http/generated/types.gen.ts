@@ -4033,6 +4033,51 @@ export type Position = {
 type PreviewKind = "code" | "paramValue" | "callableName" | "appSpecPatch";
 
 /**
+ * ProjectChatAgenticEdgeContextModeOption
+ */
+type ProjectChatAgenticEdgeContextModeOption = {
+  label: string;
+  value: AgenticEdgeContextMode;
+};
+
+/**
+ * ProjectChatAppGenerationModeOption
+ */
+type ProjectChatAppGenerationModeOption = {
+  label: string;
+  value: string;
+};
+
+/**
+ * ProjectChatDictationModeOption
+ */
+type ProjectChatDictationModeOption = {
+  label: string;
+  value: ChatDictationMode;
+};
+
+/**
+ * ProjectChatPermissionModeOption
+ */
+type ProjectChatPermissionModeOption = {
+  label: string;
+  value: ChatPermissionMode;
+};
+
+/**
+ * ProjectChatUIConfigValue
+ */
+export type ProjectChatUIConfigValue = {
+  agenticEdgeContextModeOptions: null | Array<ProjectChatAgenticEdgeContextModeOption>;
+  customSlashCommandModeOptions: null | Array<ProjectChatAppGenerationModeOption>;
+  defaultCustomSlashCommandMode: string;
+  permissionModeOptions: null | Array<ProjectChatPermissionModeOption>;
+  projectDictationModeOptions: null | Array<ProjectChatDictationModeOption>;
+  sectionChatWindowModeOptions: null | Array<ProjectChatWindowModeOption>;
+  sectionDictationModeOptions: null | Array<ProjectChatDictationModeOption>;
+};
+
+/**
  * ProjectChatWindowInstance
  */
 export type ProjectChatWindowInstance = {
@@ -4050,6 +4095,14 @@ export type ProjectChatWindowInstance = {
   sectionIdOrNull?: null | string;
   title?: null | string;
   zIndex?: number;
+};
+
+/**
+ * ProjectChatWindowModeOption
+ */
+type ProjectChatWindowModeOption = {
+  label: string;
+  value: ChatWindowMode;
 };
 
 /**

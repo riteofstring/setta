@@ -55,6 +55,7 @@ import {
   AgenticEdgeKindEnum,
   ChatWindowModeEnum,
   EngineTypeEnum,
+  ProjectChatUIConfig,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 type ChatAreaSettingsProps = {
@@ -143,6 +144,20 @@ type AgenticScopeBlock = {
   labelClassName: string;
   emptyText: string;
 };
+const CHAT_MODE_ITEMS: AllItemsType<string> = [
+  {
+    group: "Chat Modes",
+    items: ProjectChatUIConfig.sectionChatWindowModeOptions.map((option) => ({
+      id: option.value,
+      name: option.label,
+    })),
+  },
+];
+const CONTEXT_MODE_OPTIONS: ContextModeOption[] =
+  ProjectChatUIConfig.agenticEdgeContextModeOptions.map((option) => ({
+    id: option.value as AgenticEdgeContextModeEnum,
+    label: option.label,
+  }));
 type ChatModeFieldProps = {
   modeItems: AllItemsType<string>;
   value: string | null | undefined;
@@ -1050,24 +1065,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
   const canEditSettings = !isDeploymentMode || canEditParams;
   const isDisabled = isFrozen || !canEditSettings;
-  const modeItems = useMemo<AllItemsType<string>>(
-    () => [
-      {
-        group: "Chat Modes",
-        items: [
-          {
-            id: ChatWindowModeEnum.section_mode,
-            name: "Section mode (edge scoped)",
-          },
-          {
-            id: ChatWindowModeEnum.project_ai_mode,
-            name: "Project AI mode (full project)",
-          },
-        ],
-      },
-    ],
-    [],
-  );
   const isChatModeControlDisabled = isDisabled || !canEditLayout;
   const effectiveEngineConfigId =
     engineConfigId ?? selectedProfile?.engineConfigId ?? null;
@@ -1164,17 +1161,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     sectionVariantMap,
     sectionVariants,
   ]);
-  const contextModeOptions = useMemo<ContextModeOption[]>(
-    () => [
-      {
-        id: AgenticEdgeContextModeEnum.reference_only,
-        label: "Reference only",
-      },
-      { id: AgenticEdgeContextModeEnum.inline_text, label: "Inline text" },
-      { id: AgenticEdgeContextModeEnum.summary, label: "Summary" },
-    ],
-    [],
-  );
   const contextEdges = useMemo(
     () =>
       agenticEdges.filter(
@@ -1648,7 +1634,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   return (
     <div className="flex w-full flex-col gap-2">
       <ChatModeField
-        modeItems={modeItems}
+        modeItems={CHAT_MODE_ITEMS}
         value={sectionChatWindowMode}
         isDisabled={isChatModeControlDisabled}
         onChange={handleChatModeChange}
@@ -1692,7 +1678,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         onAddContextSection={handleAddContextSection}
         onAddScopeSection={handleAddScopeSection}
         onAddAgentLink={handleAddAgentLink}
-        contextModeOptions={contextModeOptions}
+        contextModeOptions={CONTEXT_MODE_OPTIONS}
         onContextModeChange={handleContextModeChange}
         onRemoveEdge={handleRemoveEdge}
         showSummaryCacheStatus={summaryContextEdgeCount > 0}

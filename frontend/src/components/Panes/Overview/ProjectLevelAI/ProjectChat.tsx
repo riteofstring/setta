@@ -75,6 +75,7 @@ import {
   EngineConfig,
   EngineTypeEnum,
   NotificationTypeEnum,
+  ProjectChatUIConfig,
   type ChatDictationMode,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
@@ -512,29 +513,13 @@ function buildProjectDictationModeOptions(
   return [
     {
       group: "Microphone Source",
-      items: [
-        {
-          id: ChatDictationModeEnum.auto,
-          name: getProjectDictationModeOptionLabel({
-            mode: ChatDictationModeEnum.auto,
-            providerModeAvailable,
-          }),
-        },
-        {
-          id: ChatDictationModeEnum.provider,
-          name: getProjectDictationModeOptionLabel({
-            mode: ChatDictationModeEnum.provider,
-            providerModeAvailable,
-          }),
-        },
-        {
-          id: ChatDictationModeEnum.browser,
-          name: getProjectDictationModeOptionLabel({
-            mode: ChatDictationModeEnum.browser,
-            providerModeAvailable,
-          }),
-        },
-      ],
+      items: ProjectChatUIConfig.projectDictationModeOptions.map((option) => ({
+        id: option.value,
+        name: getProjectDictationModeOptionLabel({
+          mode: option.value,
+          providerModeAvailable,
+        }),
+      })),
     },
   ];
 }

@@ -11341,6 +11341,147 @@
         "appSpecPatch"
       ]
     },
+    "ProjectChatAgenticEdgeContextModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/AgenticEdgeContextMode"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ProjectChatAgenticEdgeContextModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "ProjectChatAppGenerationModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ProjectChatAppGenerationModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "ProjectChatDictationModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/ChatDictationMode"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ProjectChatDictationModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "ProjectChatPermissionModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/ChatPermissionMode"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ProjectChatPermissionModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "ProjectChatUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "sectionChatWindowModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ProjectChatWindowModeOption"
+          }
+        },
+        "agenticEdgeContextModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ProjectChatAgenticEdgeContextModeOption"
+          }
+        },
+        "sectionDictationModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ProjectChatDictationModeOption"
+          }
+        },
+        "projectDictationModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ProjectChatDictationModeOption"
+          }
+        },
+        "permissionModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ProjectChatPermissionModeOption"
+          }
+        },
+        "customSlashCommandModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ProjectChatAppGenerationModeOption"
+          }
+        },
+        "defaultCustomSlashCommandMode": {
+          "type": "string"
+        }
+      },
+      "title": "ProjectChatUIConfigValue",
+      "required": [
+        "sectionChatWindowModeOptions",
+        "agenticEdgeContextModeOptions",
+        "sectionDictationModeOptions",
+        "projectDictationModeOptions",
+        "permissionModeOptions",
+        "customSlashCommandModeOptions",
+        "defaultCustomSlashCommandMode"
+      ],
+      "additionalProperties": false
+    },
     "ProjectChatWindowInstance": {
       "type": "object",
       "properties": {
@@ -11406,6 +11547,23 @@
       "title": "ProjectChatWindowInstance",
       "required": [
         "instanceId"
+      ],
+      "additionalProperties": false
+    },
+    "ProjectChatWindowModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/ChatWindowMode"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ProjectChatWindowModeOption",
+      "required": [
+        "value",
+        "label"
       ],
       "additionalProperties": false
     },

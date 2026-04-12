@@ -32,6 +32,7 @@ import { formatBytes } from "utils/attachments";
 import {
   type ChatDictationMode,
   ChatFileAttachment,
+  ProjectChatUIConfig,
 } from "utils/generatedTypes";
 import {
   CHAT_SLASH_COMMANDS,
@@ -93,17 +94,11 @@ const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
 const UNKNOWN_SLASH_COMMAND_FEEDBACK =
   "Unknown or unavailable command. Use /help.";
-const CHAT_PERMISSION_MODE_OPTIONS: Array<{
-  value: ChatPermissionModeValue;
-  label: string;
-}> = [
-  { value: "minimal", label: "minimal" },
-  { value: "yolo", label: "yolo" },
-  {
-    value: "config_toml_custom",
-    label: "config.toml custom",
-  },
-];
+const CHAT_PERMISSION_MODE_OPTIONS =
+  ProjectChatUIConfig.permissionModeOptions as Array<{
+    value: ChatPermissionModeValue;
+    label: string;
+  }>;
 const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
   activeBackgroundTerminals: 0,
   activeSubagents: 0,

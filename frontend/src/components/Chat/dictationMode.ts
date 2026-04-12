@@ -1,7 +1,7 @@
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import type { HttpapiLlmapiKeysSnapshot } from "openapi/http";
 import {
-  ChatDictationModeEnum,
+  ProjectChatUIConfig,
   type AllConfigs,
   type ChatDictationMode,
   type TranscriptionProfile,
@@ -14,11 +14,10 @@ const INVALID_TRANSCRIPTION_CONFIG_REASON =
 export const DICTATION_MODE_ITEMS: AllItemsType<ChatDictationMode> = [
   {
     group: "Dictation Modes",
-    items: [
-      { id: ChatDictationModeEnum.auto, name: "Auto" },
-      { id: ChatDictationModeEnum.browser, name: "Browser" },
-      { id: ChatDictationModeEnum.provider, name: "Provider" },
-    ],
+    items: ProjectChatUIConfig.sectionDictationModeOptions.map((option) => ({
+      id: option.value,
+      name: option.label,
+    })),
   },
 ];
 
