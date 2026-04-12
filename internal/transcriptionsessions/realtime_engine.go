@@ -141,21 +141,9 @@ func realtimeProviderEventError(event openAIRealtimeEvent) error {
 }
 
 func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realtimeEngine, error) {
-	model := strings.TrimSpace(opts.LLMConfig.Model)
-	if model == "" {
-		return nil, newServiceError(
-			ErrInvalidRequest,
-			"Transcription config is missing or invalid for this transcription profile.",
-		)
-	}
-	// Keep runtime admission aligned with the profile capability helper so
-	// empty-provider default OpenAI configs do not get advertised as supported
-	// and then rejected by the session runtime.
-	if !transcriptionprofiles.SupportsRealtimeTranscriptionConfig(opts.LLMConfig) {
-		return nil, newServiceError(
-			ErrRuntimeUnavailable,
-			"Transcription provider is not supported by the Go runtime yet.",
-		)
+	model, err := validateRealtimeEngineConfig(opts.LLMConfig)
+	if err != nil {
+		return nil, err
 	}
 	apiKey, err := resolveAPIKey(opts.APIKeys, opts.LLMConfig.APIKeyEnv)
 	if err != nil {
@@ -165,32 +153,75 @@ func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realti
 	if err != nil {
 		return nil, err
 	}
-	httpClient := opts.HTTPClient
+	conn, err := dialRealtimeProvider(ctx, endpoint, opts.HTTPClient, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	return bootstrapRealtimeEngine(ctx, conn, model, opts.Language)
+}
+
+func validateRealtimeEngineConfig(config llmconfig.Config) (string, error) {
+	model := strings.TrimSpace(config.Model)
+	if model == "" {
+		return "", newServiceError(
+			ErrInvalidRequest,
+			"Transcription config is missing or invalid for this transcription profile.",
+		)
+	}
+	// Keep runtime admission aligned with the profile capability helper so
+	// empty-provider default OpenAI configs do not get advertised as supported
+	// and then rejected by the session runtime.
+	if !transcriptionprofiles.SupportsRealtimeTranscriptionConfig(config) {
+		return "", newServiceError(
+			ErrRuntimeUnavailable,
+			"Transcription provider is not supported by the Go runtime yet.",
+		)
+	}
+	return model, nil
+}
+
+func dialRealtimeProvider(
+	ctx context.Context,
+	endpoint string,
+	httpClient *http.Client,
+	apiKey string,
+) (*websocket.Conn, error) {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	headers := http.Header{}
-	headers.Set("OpenAI-Beta", "realtime=v1")
-	if apiKey != "" {
-		headers.Set("Authorization", "Bearer "+apiKey)
-	}
-
 	conn, response, err := websocket.Dial(ctx, endpoint, &websocket.DialOptions{
 		HTTPClient: httpClient,
-		HTTPHeader: headers,
+		HTTPHeader: buildRealtimeDialHeaders(apiKey),
 	})
 	if err != nil {
-		if response != nil && response.Body != nil {
-			defer response.Body.Close()
-			return nil, newServiceErrorWithStatus(
-				ErrProviderFailure,
-				readProviderErrorMessage(response.Body),
-				response.StatusCode,
-			)
+		if response == nil || response.Body == nil {
+			return nil, newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 		}
-		return nil, newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+		defer response.Body.Close()
+		return nil, newServiceErrorWithStatus(
+			ErrProviderFailure,
+			readProviderErrorMessage(response.Body),
+			response.StatusCode,
+		)
 	}
+	return conn, nil
+}
 
+func buildRealtimeDialHeaders(apiKey string) http.Header {
+	headers := http.Header{}
+	headers.Set("OpenAI-Beta", "realtime=v1")
+	if strings.TrimSpace(apiKey) != "" {
+		headers.Set("Authorization", "Bearer "+apiKey)
+	}
+	return headers
+}
+
+func bootstrapRealtimeEngine(
+	ctx context.Context,
+	conn *websocket.Conn,
+	model string,
+	language *string,
+) (*realtimeEngine, error) {
 	engine := &realtimeEngine{
 		conn:              conn,
 		events:            make(chan realtimeReadResult, 32),
@@ -200,7 +231,7 @@ func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realti
 		processedEventIDs: map[string]struct{}{},
 	}
 	go engine.readLoop()
-	if err := engine.writeMessage(ctx, buildOpenAIRealtimeSessionUpdate(model, opts.Language)); err != nil {
+	if err := engine.writeMessage(ctx, buildOpenAIRealtimeSessionUpdate(model, language)); err != nil {
 		_ = engine.Close()
 		return nil, err
 	}
