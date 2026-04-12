@@ -176,7 +176,7 @@ function buildParamTooltipContents({
   ];
 }
 
-export function resolveParamContainerLayout({
+function resolveParamContainerLayout({
   hasChildRows,
   isNestedParam,
 }: {
