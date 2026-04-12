@@ -74,6 +74,13 @@ type normalizedBackendUISetting struct {
 	writeHandlerID *string
 }
 
+type normalizedBackendUISettingRequiredFields struct {
+	title       string
+	description string
+	paneID      string
+	revealKey   string
+}
+
 func backendProbeRequired(capabilities []string) bool {
 	for _, capability := range capabilities {
 		switch capability {
@@ -480,44 +487,19 @@ func normalizeBackendLanguageServerRegistration(pluginRoot string, pluginID stri
 		return PluginRegisteredLanguageServer{}, fmt.Errorf("name is required")
 	}
 
-	language := strings.ToLower(strings.TrimSpace(registration.Language))
-	if language == "" {
-		return PluginRegisteredLanguageServer{}, fmt.Errorf("language is required")
+	language, err := normalizeBackendLanguageServerLanguage(registration.Language)
+	if err != nil {
+		return PluginRegisteredLanguageServer{}, err
 	}
-	if language == string(projectstate.CodeLanguagePython) {
-		return PluginRegisteredLanguageServer{}, fmt.Errorf("language servers cannot target python")
+	command, err := normalizeBackendLanguageServerCommand(pluginRoot, registration.Command)
+	if err != nil {
+		return PluginRegisteredLanguageServer{}, err
 	}
-
-	command := strings.TrimSpace(registration.Command)
-	if command == "" {
-		return PluginRegisteredLanguageServer{}, fmt.Errorf("command is required")
+	args, err := normalizeBackendLanguageServerArgs(registration.Args)
+	if err != nil {
+		return PluginRegisteredLanguageServer{}, err
 	}
-	if strings.HasPrefix(command, "./") || strings.HasPrefix(command, "../") {
-		resolved, err := statefs.ResolveWithinRoot(pluginRoot, filepath.FromSlash(command), "plugin language server command")
-		if err != nil {
-			return PluginRegisteredLanguageServer{}, err
-		}
-		command = resolved
-	}
-
-	args := make([]string, 0, len(registration.Args))
-	for _, rawArg := range registration.Args {
-		arg := strings.TrimSpace(rawArg)
-		if arg == "" {
-			return PluginRegisteredLanguageServer{}, fmt.Errorf("args must be non-empty")
-		}
-		args = append(args, arg)
-	}
-
-	settingsKey := cloneOptionalString(registration.SettingsKey)
-	if settingsKey != nil {
-		trimmed := strings.TrimSpace(*settingsKey)
-		if trimmed == "" {
-			settingsKey = nil
-		} else {
-			settingsKey = &trimmed
-		}
-	}
+	settingsKey := normalizeBackendLanguageServerSettingsKey(registration.SettingsKey)
 
 	return PluginRegisteredLanguageServer{
 		PluginID:    strings.TrimSpace(pluginID),
@@ -527,6 +509,55 @@ func normalizeBackendLanguageServerRegistration(pluginRoot string, pluginID stri
 		Args:        append([]string(nil), args...),
 		SettingsKey: cloneOptionalString(settingsKey),
 	}, nil
+}
+
+func normalizeBackendLanguageServerLanguage(raw string) (string, error) {
+	language := strings.ToLower(strings.TrimSpace(raw))
+	if language == "" {
+		return "", fmt.Errorf("language is required")
+	}
+	if language == string(projectstate.CodeLanguagePython) {
+		return "", fmt.Errorf("language servers cannot target python")
+	}
+	return language, nil
+}
+
+func normalizeBackendLanguageServerCommand(pluginRoot string, raw string) (string, error) {
+	command := strings.TrimSpace(raw)
+	if command == "" {
+		return "", fmt.Errorf("command is required")
+	}
+	if !strings.HasPrefix(command, "./") && !strings.HasPrefix(command, "../") {
+		return command, nil
+	}
+	resolved, err := statefs.ResolveWithinRoot(pluginRoot, filepath.FromSlash(command), "plugin language server command")
+	if err != nil {
+		return "", err
+	}
+	return resolved, nil
+}
+
+func normalizeBackendLanguageServerArgs(rawArgs []string) ([]string, error) {
+	args := make([]string, 0, len(rawArgs))
+	for _, rawArg := range rawArgs {
+		arg := strings.TrimSpace(rawArg)
+		if arg == "" {
+			return nil, fmt.Errorf("args must be non-empty")
+		}
+		args = append(args, arg)
+	}
+	return args, nil
+}
+
+func normalizeBackendLanguageServerSettingsKey(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func normalizeBackendRouteRegistration(route PluginRegisteredBackendRoute) (PluginRegisteredBackendRoute, error) {
@@ -631,23 +662,11 @@ func normalizeBackendUISetting(raw map[string]any) (normalizedBackendUISetting, 
 	if err != nil {
 		return normalizedBackendUISetting{}, err
 	}
+	requiredFields, err := normalizeBackendUISettingRequiredFieldsFromRaw(raw)
+	if err != nil {
+		return normalizedBackendUISetting{}, err
+	}
 
-	title, err := backendProbeRequiredString(raw["title"], "title")
-	if err != nil {
-		return normalizedBackendUISetting{}, err
-	}
-	description, err := backendProbeRequiredString(raw["description"], "description")
-	if err != nil {
-		return normalizedBackendUISetting{}, err
-	}
-	paneID, err := backendProbeRequiredString(raw["paneId"], "paneId")
-	if err != nil {
-		return normalizedBackendUISetting{}, err
-	}
-	revealKey, err := backendProbeRequiredString(raw["revealKey"], "revealKey")
-	if err != nil {
-		return normalizedBackendUISetting{}, err
-	}
 	synonyms, err := backendProbeStringArray(raw["synonyms"], "synonyms")
 	if err != nil {
 		return normalizedBackendUISetting{}, err
@@ -655,15 +674,40 @@ func normalizeBackendUISetting(raw map[string]any) (normalizedBackendUISetting, 
 
 	return normalizedBackendUISetting{
 		localSettingID: localSettingID,
-		title:          title,
-		description:    description,
+		title:          requiredFields.title,
+		description:    requiredFields.description,
 		synonyms:       synonyms,
-		paneID:         paneID,
-		revealKey:      revealKey,
+		paneID:         requiredFields.paneID,
+		revealKey:      requiredFields.revealKey,
 		mutability:     mutability,
 		valueSchema:    valueSchema,
 		readHandlerID:  readHandlerID,
 		writeHandlerID: writeHandlerID,
+	}, nil
+}
+
+func normalizeBackendUISettingRequiredFieldsFromRaw(raw map[string]any) (normalizedBackendUISettingRequiredFields, error) {
+	title, err := backendProbeRequiredString(raw["title"], "title")
+	if err != nil {
+		return normalizedBackendUISettingRequiredFields{}, err
+	}
+	description, err := backendProbeRequiredString(raw["description"], "description")
+	if err != nil {
+		return normalizedBackendUISettingRequiredFields{}, err
+	}
+	paneID, err := backendProbeRequiredString(raw["paneId"], "paneId")
+	if err != nil {
+		return normalizedBackendUISettingRequiredFields{}, err
+	}
+	revealKey, err := backendProbeRequiredString(raw["revealKey"], "revealKey")
+	if err != nil {
+		return normalizedBackendUISettingRequiredFields{}, err
+	}
+	return normalizedBackendUISettingRequiredFields{
+		title:       title,
+		description: description,
+		paneID:      paneID,
+		revealKey:   revealKey,
 	}, nil
 }
 
@@ -777,32 +821,45 @@ func normalizeBackendRegistrationPath(raw string, label string) (string, error) 
 	if !strings.HasPrefix(trimmed, "/") {
 		return "", fmt.Errorf("%s must start with /", label)
 	}
-	segments := strings.Split(trimmed, "/")
-	for index := 1; index < len(segments); index++ {
-		segment := segments[index]
-		if segment == "" {
-			if index == len(segments)-1 {
-				continue
-			}
-			return "", fmt.Errorf("%s must not contain empty path segments", label)
-		}
-		decodedSegment, err := url.PathUnescape(segment)
-		if err != nil {
-			return "", fmt.Errorf("%s contains invalid escape sequence", label)
-		}
-		if decodedSegment == "." || decodedSegment == ".." {
-			return "", fmt.Errorf("%s must not contain traversal segments", label)
-		}
-		if strings.ContainsAny(decodedSegment, `/\`) {
-			return "", fmt.Errorf("%s must not contain escaped path separators", label)
-		}
-		if strings.IndexFunc(decodedSegment, unicode.IsSpace) >= 0 {
-			return "", fmt.Errorf("%s must not contain whitespace", label)
-		}
+	if err := validateBackendRegistrationPathSegments(strings.Split(trimmed, "/"), label); err != nil {
+		return "", err
 	}
 	normalized := path.Clean(trimmed)
 	if !strings.HasPrefix(normalized, "/") {
 		normalized = "/" + normalized
 	}
 	return normalized, nil
+}
+
+func validateBackendRegistrationPathSegments(segments []string, label string) error {
+	lastIndex := len(segments) - 1
+	for index := 1; index < len(segments); index++ {
+		if err := validateBackendRegistrationPathSegment(segments[index], index == lastIndex, label); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateBackendRegistrationPathSegment(segment string, isLastSegment bool, label string) error {
+	if segment == "" {
+		if isLastSegment {
+			return nil
+		}
+		return fmt.Errorf("%s must not contain empty path segments", label)
+	}
+	decodedSegment, err := url.PathUnescape(segment)
+	if err != nil {
+		return fmt.Errorf("%s contains invalid escape sequence", label)
+	}
+	if decodedSegment == "." || decodedSegment == ".." {
+		return fmt.Errorf("%s must not contain traversal segments", label)
+	}
+	if strings.ContainsAny(decodedSegment, `/\`) {
+		return fmt.Errorf("%s must not contain escaped path separators", label)
+	}
+	if strings.IndexFunc(decodedSegment, unicode.IsSpace) >= 0 {
+		return fmt.Errorf("%s must not contain whitespace", label)
+	}
+	return nil
 }
