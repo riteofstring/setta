@@ -6,7 +6,7 @@ import {
   Plugin,
   Tooltip,
 } from "chart.js";
-import { ChartDataType, LineChartSettings } from "utils/generatedTypes";
+import { ChartDataArtifact, LineChartSettings } from "utils/generatedTypes";
 import {
   getAxisType,
   getOnLegendClickSetDatasetHidden,
@@ -82,17 +82,19 @@ type LineChartData = ChartData<
   string | number
 >;
 
-export function updateLineChartWithNewData(
-  chart: Chart,
-  data: ChartDataType,
-  datasetHidden: Record<string, boolean>,
-  darkMode: boolean,
+function buildLineChartDatasets(
+  data: ChartDataArtifact["value"],
   chartSettings: LineChartSettings,
-): LineChartData {
+  datasetHidden: Record<string, boolean>,
+  secondYAxisColumns: string[],
+): { datasets: LineChartData["datasets"]; labels?: LineChartData["labels"] } {
   const datasets: LineChartData["datasets"] = [];
-
   let labels: LineChartData["labels"];
+
   for (const [columnName, values] of Object.entries(data)) {
+    if (!Array.isArray(values)) {
+      continue;
+    }
     if (columnName === chartSettings.xAxisColumn) {
       labels = values;
       continue;
@@ -100,21 +102,31 @@ export function updateLineChartWithNewData(
     datasets.push({
       label: columnName,
       data: values,
-      yAxisID: chartSettings.secondYAxisColumns.includes(columnName)
-        ? "y2"
-        : "y1",
+      yAxisID: secondYAxisColumns.includes(columnName) ? "y2" : "y1",
       hidden: datasetHidden[columnName],
     });
   }
 
-  if (datasets.length > 0 && datasets[0] && !labels) {
-    // The xAxisColumn can be made empty in the side pane.
-    // In this case, none of the columns are used for the x axis.
-    // So we use row count.
-    const numRows = datasets[0].data.length;
-    labels = [...Array(numRows).keys()];
-  }
+  return { datasets, labels: labels ?? getDefaultLineChartLabels(datasets) };
+}
 
+function getDefaultLineChartLabels(
+  datasets: LineChartData["datasets"],
+): LineChartData["labels"] | undefined {
+  const firstDataset = datasets[0];
+  if (!firstDataset || !Array.isArray(firstDataset.data)) {
+    return undefined;
+  }
+  return Array.from({ length: firstDataset.data.length }, (_, index) => index);
+}
+
+function applyLineChartScales(
+  chart: Chart,
+  darkMode: boolean,
+  chartSettings: LineChartSettings,
+  secondYAxisColumns: string[],
+  labels?: LineChartData["labels"],
+) {
   chart.verticalLinePlugin.color = darkMode ? "white" : "black";
 
   const scaleOptions = chart.options.scales;
@@ -126,8 +138,34 @@ export function updateLineChartWithNewData(
   }
   if (scaleOptions?.y2) {
     scaleOptions.y2.type = getAxisType(chartSettings.y2AxisLog);
-    scaleOptions.y2.display = chartSettings.secondYAxisColumns.length > 0;
+    scaleOptions.y2.display = secondYAxisColumns.length > 0;
   }
+}
+
+export function updateLineChartWithNewData(
+  chart: Chart,
+  data: ChartDataArtifact["value"],
+  datasetHidden: Record<string, boolean>,
+  darkMode: boolean,
+  chartSettings: LineChartSettings,
+): LineChartData {
+  const secondYAxisColumns = Array.isArray(chartSettings.secondYAxisColumns)
+    ? chartSettings.secondYAxisColumns
+    : [];
+  const { datasets, labels } = buildLineChartDatasets(
+    data,
+    chartSettings,
+    datasetHidden,
+    secondYAxisColumns,
+  );
+
+  applyLineChartScales(
+    chart,
+    darkMode,
+    chartSettings,
+    secondYAxisColumns,
+    labels,
+  );
 
   if (labels) {
     return { labels, datasets };
