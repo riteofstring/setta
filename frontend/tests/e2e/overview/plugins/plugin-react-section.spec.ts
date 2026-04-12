@@ -3,15 +3,12 @@ import path from "path";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
   setOverviewTab,
 } from "../../helpers";
-
-type CreateTopLevelSectionResponse = {
-  sectionId?: string;
-};
 
 test("frontend react fixture registers a React-rendered section kind", async ({
   page,
@@ -43,33 +40,29 @@ test("frontend react fixture registers a React-rendered section kind", async ({
       );
     }
 
-    const created = await postBackend<CreateTopLevelSectionResponse>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Plugin",
-        controlCodeObjType: null,
-        implOverrides: {
-          type: "Plugin",
-          pluginId: "setta-fixture-frontend-react",
-          kind: "fixture-react-card",
-          data: {
-            title: "React Fixture",
-            details: "React section fixture active.",
-            tags: ["react", "plugin"],
-            pinned: false,
-            pulses: 0,
-          },
+    const created = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Plugin",
+      controlCodeObjType: null,
+      implOverrides: {
+        type: "Plugin",
+        pluginId: "setta-fixture-frontend-react",
+        kind: "fixture-react-card",
+        data: {
+          title: "React Fixture",
+          details: "React section fixture active.",
+          tags: ["react", "plugin"],
+          pinned: false,
+          pulses: 0,
         },
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.48,
-          y: viewportBounds.y + viewportBounds.h * 0.28,
-        },
-        topLevelSections: null,
-        viewportBounds,
       },
-    );
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.48,
+        y: viewportBounds.y + viewportBounds.h * 0.28,
+      },
+      topLevelSections: null,
+      viewportBounds,
+    });
 
     expect(created?.sectionId).toBeTruthy();
 
@@ -138,33 +131,29 @@ test("plugin runtime failures replace stale section renderer output with runtime
       );
     }
 
-    const created = await postBackend<CreateTopLevelSectionResponse>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Plugin",
-        controlCodeObjType: null,
-        implOverrides: {
-          type: "Plugin",
-          pluginId: "setta-fixture-frontend-react",
-          kind: "fixture-react-card",
-          data: {
-            title: "React Fixture",
-            details: "React section fixture active.",
-            tags: ["react", "plugin"],
-            pinned: false,
-            pulses: 0,
-          },
+    const created = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Plugin",
+      controlCodeObjType: null,
+      implOverrides: {
+        type: "Plugin",
+        pluginId: "setta-fixture-frontend-react",
+        kind: "fixture-react-card",
+        data: {
+          title: "React Fixture",
+          details: "React section fixture active.",
+          tags: ["react", "plugin"],
+          pinned: false,
+          pulses: 0,
         },
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.35,
-          y: viewportBounds.y + viewportBounds.h * 0.2,
-        },
-        topLevelSections: null,
-        viewportBounds,
       },
-    );
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.35,
+        y: viewportBounds.y + viewportBounds.h * 0.2,
+      },
+      topLevelSections: null,
+      viewportBounds,
+    });
 
     expect(created?.sectionId).toBeTruthy();
     await expect(page.getByTestId("fixture-react-card").first()).toBeVisible();
@@ -185,7 +174,9 @@ test("plugin runtime failures replace stale section renderer output with runtime
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    await expect(page.getByText("Plugin Runtime Error", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Plugin Runtime Error", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByText("Failed to fetch plugins runtime: status 500.").first(),
     ).toBeVisible();

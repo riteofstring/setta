@@ -5,7 +5,6 @@ import {
   createCodeSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultCodeSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -82,7 +81,7 @@ describe("VariantList drag handle visibility", () => {
         }),
       };
       state.sectionImpls = {
-        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        [implId]: createCodeSectionImpl({
           id: implId,
           name: "quiet_code",
         }),
