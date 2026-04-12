@@ -31,18 +31,18 @@ import {
   isChatSectionWaitingForResponse,
 } from "./aiActivity";
 import { ProjectName } from "./ProjectName";
+import {
+  buildColorChoiceByColor,
+  getSelectedTagFilterDisplay,
+  getTagFilterOptionLabel,
+  TAG_FILTER_ALL,
+  TAG_FILTER_UNTAGGED,
+  type TagFilterValue,
+} from "./ProjectOverview.utils";
 import { OverviewListingType, SectionListItems } from "./SectionListItems";
 
 const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =
   createSettingsState().gui.sectionTagColorChoices;
-
-const TAG_FILTER_ALL = "__all__" as const;
-const TAG_FILTER_UNTAGGED = "__untagged__" as const;
-
-type TagFilterValue =
-  | typeof TAG_FILTER_ALL
-  | typeof TAG_FILTER_UNTAGGED
-  | string;
 
 export function ProjectOverview() {
   const sectionList = useOverviewListing();
@@ -135,31 +135,11 @@ function TagFilterDropdown({
   value: TagFilterValue;
   onChange: (nextValue: TagFilterValue) => void;
 }) {
-  const choiceByColor = useMemo(() => {
-    const next: Record<string, ColorPickerChoice> = {};
-    for (const choice of colorChoices) {
-      next[choice.color] = choice;
-    }
-    return next;
-  }, [colorChoices]);
-
-  const selectedChoice = value in choiceByColor ? choiceByColor[value] : null;
-  const selectedLabel =
-    value === TAG_FILTER_ALL
-      ? "All"
-      : value === TAG_FILTER_UNTAGGED
-        ? "Untagged"
-        : selectedChoice?.description || value;
-  const selectedDotColor =
-    value === TAG_FILTER_ALL
-      ? "transparent"
-      : value === TAG_FILTER_UNTAGGED
-        ? "rgba(148, 163, 184, 0.7)"
-        : selectedChoice?.color || value;
-  const selectedDotRingClassName =
-    value === TAG_FILTER_ALL
-      ? "ring-setta-300/60 dark:ring-setta-700/60"
-      : "ring-black/10 dark:ring-white/10";
+  const choiceByColor = useMemo(
+    () => buildColorChoiceByColor(colorChoices),
+    [colorChoices],
+  );
+  const selectedDisplay = getSelectedTagFilterDisplay(value, choiceByColor);
   const [isOpen, setIsOpen] = useState(false);
   const triggerClassName =
     "flex items-center gap-2 rounded-md border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-600 shadow-sm transition hover:bg-setta-50 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
@@ -169,6 +149,10 @@ function TagFilterDropdown({
     "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700";
   const menuItemTextClassName =
     "max-w-48 truncate text-xs text-setta-700 dark:text-setta-200";
+  const closeWithValue = (nextValue: TagFilterValue) => {
+    onChange(nextValue);
+    setIsOpen(false);
+  };
 
   return (
     <StandardPopover
@@ -188,11 +172,11 @@ function TagFilterDropdown({
           className={triggerClassName}
         >
           <span
-            className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ${selectedDotRingClassName}`}
-            style={{ backgroundColor: selectedDotColor }}
+            className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ${selectedDisplay.dotRingClassName}`}
+            style={{ backgroundColor: selectedDisplay.dotColor }}
             aria-hidden="true"
           />
-          <span className="max-w-28 truncate">{selectedLabel}</span>
+          <span className="max-w-28 truncate">{selectedDisplay.label}</span>
           <i
             className="gg-chevron-down !scale-75 opacity-70"
             aria-hidden="true"
@@ -210,10 +194,7 @@ function TagFilterDropdown({
           role="option"
           aria-selected={value === TAG_FILTER_ALL}
           className={`${menuItemClassName} ${menuItemTextClassName}`}
-          onClick={() => {
-            onChange(TAG_FILTER_ALL);
-            setIsOpen(false);
-          }}
+          onClick={() => closeWithValue(TAG_FILTER_ALL)}
         >
           All
         </button>
@@ -222,10 +203,7 @@ function TagFilterDropdown({
           role="option"
           aria-selected={value === TAG_FILTER_UNTAGGED}
           className={`${menuItemClassName} ${menuItemTextClassName}`}
-          onClick={() => {
-            onChange(TAG_FILTER_UNTAGGED);
-            setIsOpen(false);
-          }}
+          onClick={() => closeWithValue(TAG_FILTER_UNTAGGED)}
         >
           Untagged
         </button>
@@ -238,10 +216,7 @@ function TagFilterDropdown({
             role="option"
             aria-selected={value === item.color}
             className={menuItemClassName}
-            onClick={() => {
-              onChange(item.color);
-              setIsOpen(false);
-            }}
+            onClick={() => closeWithValue(item.color)}
           >
             <span
               className="mr-2 h-4 w-4 rounded-full ring-1 ring-black/10 dark:ring-white/10"
@@ -249,7 +224,7 @@ function TagFilterDropdown({
               aria-hidden="true"
             ></span>
             <span className={menuItemTextClassName}>
-              {item.description || item.color}
+              {getTagFilterOptionLabel(item)}
             </span>
           </button>
         ))}
@@ -259,26 +234,27 @@ function TagFilterDropdown({
 }
 
 export function useOverviewListing() {
-  return useProjectState((x) => {
+  return useProjectState((projectState) => {
     const outputList: Array<OverviewListingType> = [];
-    const viewMode = getActiveViewModeConfig(x);
-    const { isEditingViewMode } = x.projectConfig;
-    const topLevelSectionIds = getTopLevelSectionIdsForDisplay(x);
+    const viewMode = getActiveViewModeConfig(projectState);
+    const { isEditingViewMode } = projectState.projectConfig;
+    const topLevelSectionIds = getTopLevelSectionIdsForDisplay(projectState);
+    const listingContext = {
+      isEditingViewMode,
+      outputList,
+      projectState,
+      viewMode,
+    };
     for (const sectionId of topLevelSectionIds) {
-      const sectionImpl = getCurrEffectiveSectionImplIfPresent(x, sectionId);
-      const sectionCore = x.sections[sectionId];
+      const sectionImpl = getCurrEffectiveSectionImplIfPresent(
+        projectState,
+        sectionId,
+      );
+      const sectionCore = projectState.sections[sectionId];
       if (!sectionImpl || !sectionCore) {
         continue;
       }
-      getDepthListingHelper(
-        sectionCore,
-        sectionImpl,
-        0,
-        x,
-        viewMode,
-        isEditingViewMode,
-        outputList,
-      );
+      getDepthListingHelper(sectionCore, sectionImpl, 0, listingContext);
     }
     return outputList;
   }, _.isEqual);
@@ -312,20 +288,25 @@ function getDepthListingHelper(
   section: Core,
   sectionImpl: BaseSectionImplUnion,
   depth: number,
-  x: ZustandProjectState,
-  viewMode: ViewMode,
-  isEditingViewMode: boolean,
-  outputList: Array<OverviewListingType>,
+  context: {
+    isEditingViewMode: boolean;
+    outputList: Array<OverviewListingType>;
+    projectState: ZustandProjectState;
+    viewMode: ViewMode;
+  },
 ) {
-  const visibility = viewMode.visibilityBySectionId[section.id];
+  const visibility = context.viewMode.visibilityBySectionId[section.id];
   if (visibility === undefined) {
     return;
   }
-  const shouldRender = getSectionShouldRender(visibility, isEditingViewMode);
+  const shouldRender = getSectionShouldRender(
+    visibility,
+    context.isEditingViewMode,
+  );
   if (!shouldRender) {
     return;
   }
-  outputList.push({
+  context.outputList.push({
     id: section.id,
     name: section.name,
     depth: depth,
@@ -335,23 +316,18 @@ function getDepthListingHelper(
 
   if (isBaseParentSectionImpl(sectionImpl)) {
     for (const childId of getSectionImplChildren(sectionImpl)) {
-      const childSection = x.sections[childId];
+      const childSection = context.projectState.sections[childId];
       if (!childSection) {
         continue;
       }
-      const childSectionImpl = getCurrEffectiveSectionImplIfPresent(x, childId);
+      const childSectionImpl = getCurrEffectiveSectionImplIfPresent(
+        context.projectState,
+        childId,
+      );
       if (!childSectionImpl) {
         continue;
       }
-      getDepthListingHelper(
-        childSection,
-        childSectionImpl,
-        depth + 1,
-        x,
-        viewMode,
-        isEditingViewMode,
-        outputList,
-      );
+      getDepthListingHelper(childSection, childSectionImpl, depth + 1, context);
     }
   }
 }
