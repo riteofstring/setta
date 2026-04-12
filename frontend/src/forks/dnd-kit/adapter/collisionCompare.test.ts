@@ -138,6 +138,28 @@ describe("collision comparison", () => {
     );
   });
 
+  it("prefers an exactly-at-trigger sortable collision over a farther post-trigger candidate", () => {
+    // Validates trigger-state priority outranks absolute distance when signs differ.
+    const fartherPassed = collision({
+      id: "farther-passed",
+      containerId: "container",
+      intersectionRatio: 100,
+      absTriggerDist: 30,
+      triggerDist: 30,
+    });
+    const nearerAtTrigger = collision({
+      id: "nearer-at-trigger",
+      containerId: "container",
+      intersectionRatio: 1,
+      absTriggerDist: 10,
+      triggerDist: 0,
+    });
+
+    expect(resolveOverCollision([fartherPassed, nearerAtTrigger])?.id).toBe(
+      "nearer-at-trigger",
+    );
+  });
+
   it("falls back to ratio when sortable distances tie", () => {
     // Validates equal-distance sortable collisions use overlap as the tie-breaker.
     const lowRatio = collision({

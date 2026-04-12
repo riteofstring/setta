@@ -2,9 +2,10 @@ import { Rectangle, type BoundingRectangle } from "@dnd-kit/geometry";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { effects } from "@dnd-kit/state";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 import { useDndProviderContext } from "./adapter/DndProviderContext";
 import { useDndState } from "./dndState";
+import { resolveRectBoundsById, type DragRectLike } from "./dragRectBounds";
 import { useParamDndState } from "./paramDndState";
 
 type DragOperationShapeSyncProps = {
@@ -41,53 +42,29 @@ export function DragOperationShapeSync({
 
   useEffect(() => {
     if (!manager || !shouldSync) {
-      baseRectRef.current = null;
-      activeIdRef.current = null;
+      resetDragBaseRefs(baseRectRef, activeIdRef);
       return;
     }
 
     return effects(() => {
-      const active = manager.dragOperation.source;
-      const isDragging = manager.dragOperation.status.dragging;
-      if (!isDragging || !active) {
-        baseRectRef.current = null;
-        activeIdRef.current = null;
-        return;
-      }
-
-      const activeId = active.id;
-      const droppable = manager.registry.droppables.get(activeId);
-      const isParamDrag = activeDragType === "param";
-      const fallbackRect = isParamDrag ? paramActiveRect : sectionActiveRect;
-      const selectionRect = resolveSelectionBoundingRect({
+      const nextShape = resolveNextDragOperationShape({
+        manager,
+        activeDragType,
+        paramActiveRect,
+        sectionActiveRect,
         draggingIds,
         draggingRectsById,
         isMovingFree,
-        isParamDrag,
-      });
-
-      const { baseRect, refreshedBaseRect } = resolveDragBaseRect({
-        activeId,
         previousActiveId: activeIdRef.current,
         previousBaseRect: baseRectRef.current,
-        selectionRect,
-        droppable,
-        fallbackRect,
       });
-      if (!baseRect) {
+      if (!nextShape) {
+        resetDragBaseRefs(baseRectRef, activeIdRef);
         return;
       }
 
-      if (refreshedBaseRect) {
-        baseRectRef.current = refreshedBaseRect;
-        activeIdRef.current = activeId;
-      }
-
-      const transform = manager.dragOperation.transform;
-      manager.dragOperation.shape = Rectangle.from(baseRect).translate(
-        transform?.x ?? 0,
-        transform?.y ?? 0,
-      );
+      updateDragBaseRefs(baseRectRef, activeIdRef, nextShape);
+      manager.dragOperation.shape = nextShape.shape;
     });
   }, [
     manager,
@@ -103,14 +80,8 @@ export function DragOperationShapeSync({
   return null;
 }
 
-type DragRect = {
-  top: number;
-  left: number;
-  right: number;
-  bottom: number;
-  width: number;
-  height: number;
-};
+type DragDropManager = NonNullable<ReturnType<typeof useDragDropManager>>;
+type DragRect = DragRectLike;
 
 type DragShape = {
   boundingRectangle: BoundingRectangle;
@@ -137,6 +108,91 @@ type ResolveDragBaseRectResult = {
   baseRect: BoundingRectangle | null;
   refreshedBaseRect: BoundingRectangle | null;
 };
+
+type ResolveNextDragOperationShapeArgs = {
+  manager: DragDropManager;
+  activeDragType: string | null;
+  paramActiveRect: BoundingRectangle | null;
+  sectionActiveRect: BoundingRectangle | null;
+  draggingIds: string[];
+  draggingRectsById: Record<string, DragRect> | null;
+  isMovingFree: boolean;
+  previousActiveId: string | number | null;
+  previousBaseRect: BoundingRectangle | null;
+};
+
+type ResolvedDragOperationShape = {
+  activeId: string | number;
+  refreshedBaseRect: BoundingRectangle | null;
+  shape: BoundingRectangle;
+};
+
+function resetDragBaseRefs(
+  baseRectRef: MutableRefObject<BoundingRectangle | null>,
+  activeIdRef: MutableRefObject<string | number | null>,
+) {
+  baseRectRef.current = null;
+  activeIdRef.current = null;
+}
+
+function updateDragBaseRefs(
+  baseRectRef: MutableRefObject<BoundingRectangle | null>,
+  activeIdRef: MutableRefObject<string | number | null>,
+  shape: ResolvedDragOperationShape,
+) {
+  if (!shape.refreshedBaseRect) {
+    return;
+  }
+
+  baseRectRef.current = shape.refreshedBaseRect;
+  activeIdRef.current = shape.activeId;
+}
+
+function resolveNextDragOperationShape({
+  manager,
+  activeDragType,
+  paramActiveRect,
+  sectionActiveRect,
+  draggingIds,
+  draggingRectsById,
+  isMovingFree,
+  previousActiveId,
+  previousBaseRect,
+}: ResolveNextDragOperationShapeArgs): ResolvedDragOperationShape | null {
+  const active = manager.dragOperation.source;
+  if (!manager.dragOperation.status.dragging || !active) {
+    return null;
+  }
+
+  const activeId = active.id;
+  const isParamDrag = activeDragType === "param";
+  const { baseRect, refreshedBaseRect } = resolveDragBaseRect({
+    activeId,
+    previousActiveId,
+    previousBaseRect,
+    selectionRect: resolveSelectionBoundingRect({
+      draggingIds,
+      draggingRectsById,
+      isMovingFree,
+      isParamDrag,
+    }),
+    droppable: manager.registry.droppables.get(activeId),
+    fallbackRect: isParamDrag ? paramActiveRect : sectionActiveRect,
+  });
+  if (!baseRect) {
+    return null;
+  }
+
+  const transform = manager.dragOperation.transform;
+  return {
+    activeId,
+    refreshedBaseRect,
+    shape: Rectangle.from(baseRect).translate(
+      transform?.x ?? 0,
+      transform?.y ?? 0,
+    ),
+  };
+}
 
 export function resolveDragBaseRect({
   activeId,
@@ -198,37 +254,9 @@ export function resolveSelectionBoundingRect({
     return null;
   }
 
-  if (!draggingRectsById || draggingIds.length < 2) {
+  if (draggingIds.length < 2) {
     return null;
   }
 
-  let left = Infinity;
-  let top = Infinity;
-  let right = -Infinity;
-  let bottom = -Infinity;
-
-  for (const sectionId of draggingIds) {
-    const rect = draggingRectsById[sectionId];
-    if (!rect) {
-      return null;
-    }
-
-    left = Math.min(left, rect.left);
-    top = Math.min(top, rect.top);
-    right = Math.max(right, rect.right);
-    bottom = Math.max(bottom, rect.bottom);
-  }
-
-  if (!Number.isFinite(left) || !Number.isFinite(top)) {
-    return null;
-  }
-
-  return {
-    top,
-    left,
-    right,
-    bottom,
-    width: right - left,
-    height: bottom - top,
-  };
+  return resolveRectBoundsById(draggingIds, draggingRectsById);
 }

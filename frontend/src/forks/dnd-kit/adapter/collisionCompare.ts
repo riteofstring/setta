@@ -104,20 +104,27 @@ function pickSortableDistanceCollision(
     return null;
   }
 
-  const absDelta = metricsA.absDist - metricsB.absDist;
-  if (absDelta === 0) {
+  if (metricsA.absDist === metricsB.absDist) {
     return null;
   }
 
-  if (metricsA.rawDist > 0 && metricsB.rawDist > 0) {
-    return absDelta > 0 ? b : a;
+  const priorityA = getSortableTriggerPriority(metricsA.rawDist);
+  const priorityB = getSortableTriggerPriority(metricsB.rawDist);
+  if (priorityA !== priorityB) {
+    return priorityA < priorityB ? a : b;
   }
 
-  if (absDelta > 0) {
-    return metricsB.rawDist < 0 ? b : a;
-  }
+  return metricsA.absDist < metricsB.absDist ? a : b;
+}
 
-  return metricsA.rawDist < 0 ? a : b;
+function getSortableTriggerPriority(rawDist: number): number {
+  if (rawDist < 0) {
+    return 0;
+  }
+  if (rawDist === 0) {
+    return 1;
+  }
+  return 2;
 }
 
 function getChildCollisionForParent(
