@@ -78,79 +78,129 @@ type ScatterChartData = ChartData<
   string | number
 >;
 
-export function updateScatterChartWithNewData(
-  chart: Chart,
+type ScatterColumnValues = ChartDataArtifact["value"][string];
+
+type ScatterChartColumns = {
+  categoryValues?: ScatterColumnValues;
+  rowCount: number;
+  xValues: ScatterColumnValues;
+  yAxisColumn: string;
+  yValues: ScatterColumnValues;
+};
+
+type ScatterPoint = {
+  x: number;
+  y: number;
+};
+
+function getFirstColumnKey(
   data: ChartDataArtifact["value"],
-  datasetHidden: Record<string, boolean>,
-  darkMode: boolean,
-  chartSettings: ScatterChartSettings,
-): ScatterChartData {
-  let categoryValue: string | number = "No Category";
-  const firstColumnLength = Object.values(data)[0]?.length;
+): string | undefined {
+  return Object.keys(data)[0];
+}
 
-  if (!firstColumnLength) {
-    return { datasets: [] };
+function getScatterRowCount(data: ChartDataArtifact["value"]): number {
+  const firstColumnKey = getFirstColumnKey(data);
+  if (!firstColumnKey) {
+    return 0;
   }
+  return data[firstColumnKey]?.length ?? 0;
+}
 
-  const categoryColumn = chartSettings.categoryColumn;
-  let xAxisColumn = Object.keys(data)[0];
-  if (chartSettings.xAxisColumn) {
-    xAxisColumn = chartSettings.xAxisColumn;
-  }
-  if (!xAxisColumn) {
-    return { datasets: [] };
-  }
-  const yAxisColumn = Object.keys(data).find(
-    (a) => ![categoryColumn, xAxisColumn].includes(a),
+function getScatterYAxisColumn(
+  data: ChartDataArtifact["value"],
+  categoryColumn: string | null,
+  xAxisColumn: string,
+): string | undefined {
+  return Object.keys(data).find(
+    (columnName) => ![categoryColumn, xAxisColumn].includes(columnName),
   );
+}
 
-  // yAxisColumn might be undefined if categoryColumn and xAxisColumn
-  // are using the only available columns
-  // TODO: maybe this should be guaranteed to be avoided by
-  // updating axis column names in processChartArtifacts
+function getScatterCategoryValues(
+  data: ChartDataArtifact["value"],
+  categoryColumn: string | null,
+): ScatterColumnValues | undefined {
+  if (!categoryColumn) {
+    return undefined;
+  }
+  return data[categoryColumn];
+}
+
+function getScatterChartColumns(
+  data: ChartDataArtifact["value"],
+  chartSettings: ScatterChartSettings,
+): ScatterChartColumns | null {
+  const rowCount = getScatterRowCount(data);
+  if (!rowCount) {
+    return null;
+  }
+
+  const xAxisColumn = chartSettings.xAxisColumn || getFirstColumnKey(data);
+  if (!xAxisColumn) {
+    return null;
+  }
+
+  const yAxisColumn = getScatterYAxisColumn(
+    data,
+    chartSettings.categoryColumn,
+    xAxisColumn,
+  );
   if (!yAxisColumn) {
-    return { datasets: [] };
+    return null;
   }
 
-  const catColumn = data[categoryColumn];
-  const xColumn = data[xAxisColumn];
-  const yColumn = data[yAxisColumn];
-
-  if (!xColumn || !yColumn) {
-    return { datasets: [] };
+  const xValues = data[xAxisColumn];
+  const yValues = data[yAxisColumn];
+  if (!xValues || !yValues) {
+    return null;
   }
 
-  const groupedData: Record<
-    string | number,
-    Array<{ x: number; y: number; columnName: string }>
-  > = {};
-  for (let i = 0; i < firstColumnLength; i++) {
-    if (catColumn) {
-      const cv = catColumn[i];
-      if (cv === undefined) {
-        throw new Error();
+  return {
+    categoryValues: getScatterCategoryValues(
+      data,
+      chartSettings.categoryColumn,
+    ),
+    rowCount,
+    xValues,
+    yAxisColumn,
+    yValues,
+  };
+}
+
+function groupScatterDataByCategory(
+  columns: ScatterChartColumns,
+): Record<string | number, ScatterPoint[]> {
+  const groupedData: Record<string | number, ScatterPoint[]> = {};
+  let categoryValue: string | number = "No Category";
+
+  for (let index = 0; index < columns.rowCount; index++) {
+    if (columns.categoryValues) {
+      const nextCategoryValue = columns.categoryValues[index];
+      if (nextCategoryValue === undefined) {
+        throw new Error("Scatter chart category value is missing");
       }
-      categoryValue = cv;
+      categoryValue = nextCategoryValue;
     }
-    if (!(categoryValue in groupedData)) {
-      groupedData[categoryValue] = [];
-    }
-    const x = xColumn[i];
-    const y = yColumn[i];
 
+    const x = columns.xValues[index];
+    const y = columns.yValues[index];
     if (typeof x !== "number" || typeof y !== "number") {
       continue;
     }
 
-    groupedData[categoryValue].push({
-      x,
-      y,
-      columnName: yAxisColumn,
-    });
+    groupedData[categoryValue] ??= [];
+    groupedData[categoryValue].push({ x, y });
   }
 
-  // Create dataset for each category
-  const datasets = Object.entries(groupedData).map(([category, points]) => ({
+  return groupedData;
+}
+
+function getScatterDatasets(
+  groupedData: Record<string | number, ScatterPoint[]>,
+  datasetHidden: Record<string, boolean>,
+): ScatterChartData["datasets"] {
+  return Object.entries(groupedData).map(([category, points]) => ({
     label: category,
     data: points,
     yAxisID: "y",
@@ -158,7 +208,13 @@ export function updateScatterChartWithNewData(
     pointRadius: 4,
     pointHoverRadius: 6,
   }));
+}
 
+function applyScatterChartScales(
+  chart: Chart,
+  darkMode: boolean,
+  chartSettings: ScatterChartSettings,
+) {
   chart.crosshairPlugin.color = darkMode ? "white" : "black";
 
   const scaleOptions = chart.options.scales;
@@ -168,6 +224,24 @@ export function updateScatterChartWithNewData(
   if (scaleOptions?.y) {
     scaleOptions.y.type = getAxisType(chartSettings.yAxisLog);
   }
+}
+
+export function updateScatterChartWithNewData(
+  chart: Chart,
+  data: ChartDataArtifact["value"],
+  datasetHidden: Record<string, boolean>,
+  darkMode: boolean,
+  chartSettings: ScatterChartSettings,
+): ScatterChartData {
+  const columns = getScatterChartColumns(data, chartSettings);
+  if (!columns) {
+    return { datasets: [] };
+  }
+
+  const groupedData = groupScatterDataByCategory(columns);
+  const datasets = getScatterDatasets(groupedData, datasetHidden);
+
+  applyScatterChartScales(chart, darkMode, chartSettings);
 
   return { datasets };
 }
