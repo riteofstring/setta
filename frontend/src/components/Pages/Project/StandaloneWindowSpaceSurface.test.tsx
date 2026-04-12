@@ -14,12 +14,11 @@ import {
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
 import {
-  StandaloneWindowSpaceSurface,
   applyStandaloneWindowSpaceHydration,
   createActiveStandaloneSnapResize,
-  mergeHydratedStandaloneWindows,
-} from "./StandaloneWindowSpaceSurface";
+} from "./standaloneWindowSpaceSurfaceCore";
 
 type MockProjectState = {
   projectConfig: {
@@ -106,6 +105,20 @@ function createManagedChatAuthorityState() {
     managedSectionId,
     scriptableSectionId,
   };
+}
+
+function mergeHydratedWindowsForTest(
+  currentWindowsById: Record<string, unknown>,
+  previousHydratedWindowsById: Record<string, unknown>,
+  nextHydratedWindowsById: Record<string, unknown>,
+): Record<string, unknown> {
+  return applyStandaloneWindowSpaceHydration({
+    currentWindowsById,
+    previousHydratedWindowsById,
+    nextHydratedWindowsById,
+    previousHydrationKey: "same-layout",
+    nextHydrationKey: "same-layout",
+  }).nextLocalWindowsById;
 }
 
 vi.mock("state/definitions", () => ({
@@ -982,7 +995,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     };
 
     expect(
-      mergeHydratedStandaloneWindows(
+      mergeHydratedWindowsForTest(
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
@@ -1039,7 +1052,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     };
 
     expect(
-      mergeHydratedStandaloneWindows(
+      mergeHydratedWindowsForTest(
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
@@ -1083,7 +1096,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     };
 
     expect(
-      mergeHydratedStandaloneWindows(
+      mergeHydratedWindowsForTest(
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
@@ -1127,7 +1140,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     };
 
     expect(
-      mergeHydratedStandaloneWindows(
+      mergeHydratedWindowsForTest(
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
@@ -1172,7 +1185,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     };
 
     expect(
-      mergeHydratedStandaloneWindows(
+      mergeHydratedWindowsForTest(
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
@@ -1232,7 +1245,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     };
 
     expect(
-      mergeHydratedStandaloneWindows(
+      mergeHydratedWindowsForTest(
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
