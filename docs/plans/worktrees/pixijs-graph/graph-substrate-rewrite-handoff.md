@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 18:43 UTC
+Last updated: 2026-04-12 18:55 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -84,6 +84,46 @@ This section overrides older "next frontier" notes below when choosing the next 
   - only reopen the canonical main-reference probe before those two
     product-side passes if the next slice directly changes the pane-state
     capture path or another explicit health signal changes that lane
+
+- item `338` landed one bounded workflow-edge selection split inside the
+  measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the mounted workflow-edge renderer path:
+    - `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx`
+      no longer subscribes the mounted workflow-edge SVG to
+      `multiSelectionActive`
+    - the renderer now reads `multiSelectionActive` from
+      `useReactFlow.getState()` at click time so additive edge selection keeps
+      the same behavior without a render-path subscription
+    - the width/height selector in that renderer now uses `shallow`
+      equality instead of an unguarded object selector
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      to assert the renderer does not commit when only
+      `multiSelectionActive` changes and workflow-edge clicks still see the
+      live modifier state
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-state-machine-edge-multi-select-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on the worktree `/settings` session
+      -> the provided bootstrap token was rejected, but navigating through the
+         live app shell still mounted `/settings`
+      -> checked the visible settings graph surface, section cards, tab strip,
+         and workflow/state-machine edge area
+      -> no obvious layout collapse or regression was observed for this slice
+  - reading:
+    - this removes one mounted shared-surface invalidation from the workflow
+      edge layer inside `interactionReactFlowStateSync` while keeping additive
+      selection behavior at interaction time
+    - the next bounded frontier inside `interactionReactFlowStateSync` should
+      keep isolating remaining mounted shared-surface selector/write fan-out;
+      the next likely target is the analogous `multiSelectionActive`
+      subscription in `AgenticEdgeRenderer`
 
 - item `334` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named

@@ -126,11 +126,13 @@ function resolveRelativeAnchorSides(
 }
 
 const StateMachineEdgeRenderer = () => {
-  const { width, height, multiSelectionActive } = useReactFlow((state) => ({
-    width: state.width,
-    height: state.height,
-    multiSelectionActive: state.multiSelectionActive,
-  }));
+  const { width, height } = useReactFlow(
+    (state) => ({
+      width: state.width,
+      height: state.height,
+    }),
+    shallow,
+  );
   const {
     stateMachineEdges,
     topLevelSections,
@@ -218,7 +220,10 @@ const StateMachineEdgeRenderer = () => {
               return;
             }
             event.stopPropagation();
-            toggleStateMachineEdgeSelection(edge.id, multiSelectionActive);
+            toggleStateMachineEdgeSelection(
+              edge.id,
+              useReactFlow.getState().multiSelectionActive,
+            );
           };
           const promptSectionId =
             edge.targetAction?.type === "send_prompt"

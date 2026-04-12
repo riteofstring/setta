@@ -74,6 +74,45 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 18:55 UTC
+
+- item `338` removed one mounted workflow-edge React Flow subscription from
+  the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx`
+    so the mounted workflow-edge SVG no longer subscribes to
+    `multiSelectionActive`
+  - tightened that renderer's React Flow selector to `width` / `height` with
+    `shallow` equality instead of an unguarded object selector
+  - preserved additive workflow-edge selection by reading
+    `multiSelectionActive` from `useReactFlow.getState()` at click time
+  - added focused profiler/click regression coverage in
+    `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+    to prove:
+    - the renderer does not commit when only `multiSelectionActive` changes
+    - clicking a workflow edge still reads the live modifier state
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-state-machine-edge-multi-select-split.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> provided bootstrap token was rejected
+      -> navigating through the live app shell still mounted `/settings`
+      -> visible settings graph surface, section cards, tab strip, and
+         workflow/state-machine edge area showed no obvious layout collapse or
+         regression from this slice
+  - result:
+    - this removes one mounted shared-surface invalidation from
+      `interactionReactFlowStateSync` while keeping workflow-edge additive
+      selection behavior
+    - next bounded frontier: stay inside product-side interaction-state
+      reduction and isolate the analogous `multiSelectionActive`
+      subscription in `AgenticEdgeRenderer`
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 18:43 UTC
 
 - item `337` removed one more shared-surface React Flow modifier subscription
