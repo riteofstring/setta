@@ -4,8 +4,7 @@ export type FileBrowserDragPayload = {
   type: "file" | "folder";
 };
 
-export const FILE_BROWSER_DRAG_MIME_TYPE =
-  "application/x-setta-file-browser-node";
+const FILE_BROWSER_DRAG_MIME_TYPE = "application/x-setta-file-browser-node";
 const FILE_BROWSER_DRAG_TEXT_PREFIX = "setta:file-browser-node:";
 type DragPayloadRecord = Record<string, unknown>;
 

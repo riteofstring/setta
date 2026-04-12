@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  FILE_BROWSER_DRAG_MIME_TYPE,
   getFileBrowserDragPayload,
   setFileBrowserDragPayload,
 } from "./fileBrowserDragPayload";
@@ -35,10 +34,11 @@ describe("fileBrowserDragPayload", () => {
       ...payload,
     });
 
-    const serialized = JSON.stringify(payload);
-    expect(transfer.getData(FILE_BROWSER_DRAG_MIME_TYPE)).toBe(serialized);
+    expect(
+      getFileBrowserDragPayload(transfer as unknown as DataTransfer),
+    ).toEqual(payload);
     expect(transfer.getData("text/plain")).toBe(
-      `setta:file-browser-node:${serialized}`,
+      `setta:file-browser-node:${JSON.stringify(payload)}`,
     );
   });
 
@@ -62,7 +62,7 @@ describe("fileBrowserDragPayload", () => {
 
   it("returns null for invalid payloads", () => {
     const transfer = createMockDataTransfer();
-    transfer.setData(FILE_BROWSER_DRAG_MIME_TYPE, '{"name":1}');
+    transfer.setData("text/plain", 'setta:file-browser-node:{"name":1}');
 
     expect(
       getFileBrowserDragPayload(transfer as unknown as DataTransfer),

@@ -8,10 +8,6 @@ type PluginCodeLanguage = string & {
 };
 export type CodeLanguage = BuiltinCodeLanguage | PluginCodeLanguage;
 
-const BUILTIN_CODE_LANGUAGES = new Set<BuiltinCodeLanguage>(
-  Object.values(CodeLanguageEnum),
-);
-
 const FILE_EXTENSION_LANGUAGES: ReadonlyArray<
   readonly [ReadonlyArray<string>, BuiltinCodeLanguage]
 > = [
@@ -24,19 +20,6 @@ const FILE_EXTENSION_LANGUAGES: ReadonlyArray<
   [[".toml"], CodeLanguageEnum.toml],
   [[".md", ".markdown"], CodeLanguageEnum.markdown],
 ];
-
-export function toCodeLanguage(language: string): CodeLanguage {
-  if (isBuiltinCodeLanguage(language)) {
-    return language;
-  }
-  return language as PluginCodeLanguage;
-}
-
-export function isBuiltinCodeLanguage(
-  language: string,
-): language is BuiltinCodeLanguage {
-  return BUILTIN_CODE_LANGUAGES.has(language as BuiltinCodeLanguage);
-}
 
 export function resolveCodeLanguageFromPath(path: string): BuiltinCodeLanguage {
   const normalized = path.toLowerCase();

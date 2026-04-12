@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export function resolveEditableOnBlurRawValue({
+function resolveEditableOnBlurRawValue({
   latestValue,
   eventOrValue,
 }: {
