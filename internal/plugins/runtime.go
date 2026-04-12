@@ -136,56 +136,91 @@ func (s *Service) ResolveAssetPath(pluginID string, assetPath string) (string, e
 		return "", ErrWorkspaceRootRequired
 	}
 
-	trimmedPluginID := strings.TrimSpace(pluginID)
-	if trimmedPluginID == "" {
-		return "", newServiceError(ServiceErrorCodeNotFound, "Plugin not active: %s", pluginID)
+	trimmedPluginID, err := validateRuntimePluginID(pluginID)
+	if err != nil {
+		return "", err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	entry, err := s.runtimeActiveEntryLocked(trimmedPluginID)
+	if err != nil {
+		return "", err
+	}
+	return resolveRuntimeAssetPath(entry, assetPath)
+}
+
+func validateRuntimePluginID(pluginID string) (string, error) {
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" {
+		return "", newServiceError(ServiceErrorCodeNotFound, "Plugin not active: %s", pluginID)
+	}
+	return trimmedPluginID, nil
+}
+
+func (s *Service) runtimeActiveEntryLocked(pluginID string) (DiscoveredPlugin, error) {
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return "", err
+		return DiscoveredPlugin{}, err
 	}
 
-	entry, ok := findRuntimeActiveEntry(snapshot.Plugins, trimmedPluginID)
+	entry, ok := findRuntimeActiveEntry(snapshot.Plugins, pluginID)
 	if !ok {
-		return "", newServiceError(ServiceErrorCodeNotFound, "Plugin not active: %s", trimmedPluginID)
+		return DiscoveredPlugin{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not active: %s", pluginID)
 	}
+	return entry, nil
+}
 
+func resolveRuntimeAssetPath(entry DiscoveredPlugin, assetPath string) (string, error) {
 	resolvedPath, err := statefs.ResolveWithinRoot(entry.SourcePath, assetPath, "plugin asset path")
 	if err != nil {
-		return "", newServiceError(ServiceErrorCodeAssetInvalidPath, "Invalid plugin asset path: %s", strings.TrimSpace(assetPath))
+		return "", invalidRuntimeAssetPathError(assetPath)
 	}
 
-	allowedRoots, err := pluginFrontendAssetRoots(entry)
-	if err != nil {
+	if err := ensureRuntimeAssetWithinFrontendRoots(entry, resolvedPath, assetPath); err != nil {
 		return "", err
 	}
 
-	allowed := false
+	if err := ensureRuntimeAssetIsRegularFile(resolvedPath, assetPath); err != nil {
+		return "", err
+	}
+	return resolvedPath, nil
+}
+
+func ensureRuntimeAssetWithinFrontendRoots(entry DiscoveredPlugin, resolvedPath string, assetPath string) error {
+	allowedRoots, err := pluginFrontendAssetRoots(entry)
+	if err != nil {
+		return err
+	}
 	for _, root := range allowedRoots {
 		if _, err := statefs.EnsureWithinRoot(root, resolvedPath, "plugin asset path"); err == nil {
-			allowed = true
-			break
+			return nil
 		}
 	}
-	if !allowed {
-		return "", newServiceError(ServiceErrorCodeAssetNotFound, "Plugin asset not found: %s", strings.TrimSpace(assetPath))
-	}
+	return runtimeAssetNotFoundError(assetPath)
+}
 
+func ensureRuntimeAssetIsRegularFile(resolvedPath string, assetPath string) error {
 	info, err := os.Stat(resolvedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", newServiceError(ServiceErrorCodeAssetNotFound, "Plugin asset not found: %s", strings.TrimSpace(assetPath))
+			return runtimeAssetNotFoundError(assetPath)
 		}
-		return "", err
+		return err
 	}
 	if !info.Mode().IsRegular() {
-		return "", newServiceError(ServiceErrorCodeAssetNotFound, "Plugin asset not found: %s", strings.TrimSpace(assetPath))
+		return runtimeAssetNotFoundError(assetPath)
 	}
-	return resolvedPath, nil
+	return nil
+}
+
+func invalidRuntimeAssetPathError(assetPath string) error {
+	return newServiceError(ServiceErrorCodeAssetInvalidPath, "Invalid plugin asset path: %s", strings.TrimSpace(assetPath))
+}
+
+func runtimeAssetNotFoundError(assetPath string) error {
+	return newServiceError(ServiceErrorCodeAssetNotFound, "Plugin asset not found: %s", strings.TrimSpace(assetPath))
 }
 
 func (s *Service) buildRuntimeListEntries(
