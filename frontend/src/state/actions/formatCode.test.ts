@@ -7,6 +7,7 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  CodeFileAccessModeEnum,
   CodeLanguageEnum,
   createProjectConfig,
   SectionTypeEnum,
@@ -29,6 +30,21 @@ vi.mock("./notifications", () => ({
 const mockedRouteFormatCode = vi.mocked(formatCode);
 const mockedRouteSetCode = vi.mocked(setCode);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
+
+function createSuccessResult(status: number = 200) {
+  return {
+    data: null,
+    response: new Response(null, { status }),
+  };
+}
+
+function createDetailErrorResult(status: number, detail: string) {
+  return {
+    error: { detail },
+    response: new Response(null, { status }),
+  };
+}
+
 describe("formatActiveCodeSection", () => {
   const sectionId = "section-1";
   const variantId = "variant-1";
@@ -115,15 +131,15 @@ describe("formatActiveCodeSection", () => {
       codeSections: { [sectionId]: [baseDiagnostic] },
       unmappedGenCode: [],
     });
-    mockedRouteFormatCode.mockResolvedValue({
-      status: 422,
-      data: { detail: "stdin:2:5: invalid syntax" },
-      hasResponse: true,
-    });
+    mockedRouteFormatCode.mockResolvedValue(
+      createDetailErrorResult(422, "stdin:2:5: invalid syntax"),
+    );
     await formatActiveCodeSection();
     expect(formatCode).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
+      body: {
+        projectConfigId: "project-1",
+        sectionId,
+      },
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to run formatter.",
@@ -136,6 +152,72 @@ describe("formatActiveCodeSection", () => {
     expect(formatterDiagnostic?.range.start.line).toBe(1);
     expect(formatterDiagnostic?.range.start.character).toBe(4);
     expect(diagnostics).toHaveLength(2);
+  });
+  it("stops in share mode before touching formatter state", async () => {
+    setupProject({
+      type: SectionTypeEnum.Code,
+      id: implId,
+      name: "Code",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      tagColor: null,
+      size: { width: 500, height: 300 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      code: "print('hi')",
+      codeFileBinding: null,
+      codeLanguage: CodeLanguageEnum.python,
+      diagnosticsIgnoreState: {
+        muted: false,
+        suppressedCodes: [],
+      },
+    });
+    useShareSession.setState({ isDeploymentMode: true });
+
+    await formatActiveCodeSection();
+
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Formatting is disabled in share mode.",
+    );
+    expect(formatCode).not.toHaveBeenCalled();
+  });
+  it("rejects read-only Python code sections before calling the route", async () => {
+    setupProject({
+      type: SectionTypeEnum.Code,
+      id: implId,
+      name: "Code",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      tagColor: null,
+      size: { width: 500, height: 300 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      code: "print('hi')",
+      codeFileBinding: {
+        access_mode: CodeFileAccessModeEnum.read_only,
+        path: "main.py",
+      },
+      codeLanguage: CodeLanguageEnum.python,
+      diagnosticsIgnoreState: {
+        muted: false,
+        suppressedCodes: [],
+      },
+    });
+
+    await formatActiveCodeSection();
+
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "This code section is read-only.",
+    );
+    expect(formatCode).not.toHaveBeenCalled();
   });
   it("waits for pending code updates before formatting", async () => {
     vi.useFakeTimers();
@@ -162,38 +244,34 @@ describe("formatActiveCodeSection", () => {
           suppressedCodes: [],
         },
       });
-      let resolveSetCode: (value: {
-        status: number;
-        data: null;
-        hasResponse: boolean;
-      }) => void = () => {};
-      const setCodePromise = new Promise<{
-        status: number;
-        data: null;
-        hasResponse: boolean;
-      }>((resolve) => {
+      let resolveSetCode: (
+        value: ReturnType<typeof createSuccessResult>,
+      ) => void = () => {};
+      const setCodePromise = new Promise<
+        ReturnType<typeof createSuccessResult>
+      >((resolve) => {
         resolveSetCode = resolve;
       });
       mockedRouteSetCode.mockReturnValue(setCodePromise);
-      mockedRouteFormatCode.mockResolvedValue({
-        status: 200,
-        data: null,
-        hasResponse: true,
-      });
+      mockedRouteFormatCode.mockResolvedValue(createSuccessResult());
       queueCodeUpdate(sectionId, "print('latest')");
       const formatPromise = formatActiveCodeSection();
       expect(setCode).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        sectionId,
-        code: "print('latest')",
-        frontendOpId: expect.any(String),
+        body: {
+          projectConfigId: "project-1",
+          sectionId,
+          code: "print('latest')",
+          frontendOpId: expect.any(String),
+        },
       });
       expect(formatCode).not.toHaveBeenCalled();
-      resolveSetCode({ status: 200, data: null, hasResponse: true });
+      resolveSetCode(createSuccessResult());
       await formatPromise;
       expect(formatCode).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        sectionId,
+        body: {
+          projectConfigId: "project-1",
+          sectionId,
+        },
       });
     } finally {
       vi.useRealTimers();
@@ -222,11 +300,9 @@ describe("formatActiveCodeSection", () => {
         suppressedCodes: [],
       },
     });
-    mockedRouteFormatCode.mockResolvedValue({
-      status: 422,
-      data: { detail: "Formatting failed on line 3, column 6." },
-      hasResponse: true,
-    });
+    mockedRouteFormatCode.mockResolvedValue(
+      createDetailErrorResult(422, "Formatting failed on line 3, column 6."),
+    );
     await formatActiveCodeSection();
     const diagnostics = useLspDiagnostics.getState().codeSections[sectionId];
     const formatterDiagnostic = diagnostics?.find(
@@ -273,11 +349,7 @@ describe("formatActiveCodeSection", () => {
       codeSections: { [sectionId]: [formatterDiagnostic, baseDiagnostic] },
       unmappedGenCode: [],
     });
-    mockedRouteFormatCode.mockResolvedValue({
-      status: 200,
-      data: null,
-      hasResponse: true,
-    });
+    mockedRouteFormatCode.mockResolvedValue(createSuccessResult());
     await formatActiveCodeSection();
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Ran formatter.",
@@ -307,11 +379,9 @@ describe("formatActiveCodeSection", () => {
       codeSections: {},
       unmappedGenCode: [baseDiagnostic],
     });
-    mockedRouteFormatCode.mockResolvedValue({
-      status: 422,
-      data: { detail: "Gen code prefix: invalid syntax" },
-      hasResponse: true,
-    });
+    mockedRouteFormatCode.mockResolvedValue(
+      createDetailErrorResult(422, "Gen code prefix: invalid syntax"),
+    );
     await formatActiveCodeSection();
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to run formatter.",
