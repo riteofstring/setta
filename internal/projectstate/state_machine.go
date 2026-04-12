@@ -642,36 +642,55 @@ func (p *Project) SetStateMachineSectionSettings(
 	if err := validateStateMachineMachineGroupID(settings.MachineGroupID, "State machine section "+section.ID); err != nil {
 		return err
 	}
-	if err := p.validateStateMachineEdges(
+	if err := p.validateStateMachineSectionSettingsMachineGroup(section.ID, settings.MachineGroupID); err != nil {
+		return err
+	}
+	if err := p.applyStateMachineSectionSharedSettings(section.ID, settings); err != nil {
+		return err
+	}
+	return p.applyStateMachineSectionGateSettings(section.ID, sectionType, settings.GateType)
+}
+
+func (p *Project) validateStateMachineSectionSettingsMachineGroup(
+	sectionID string,
+	machineGroupID string,
+) error {
+	return p.validateStateMachineEdges(
 		p.StateMachineEdges,
-		map[string]string{section.ID: settings.MachineGroupID},
+		map[string]string{sectionID: machineGroupID},
 		nil,
-	); err != nil {
+	)
+}
+
+func (p *Project) applyStateMachineSectionSharedSettings(
+	sectionID string,
+	settings StateMachineSectionSettings,
+) error {
+	if err := p.setCurrentSectionField(sectionID, "machineGroupId", settings.MachineGroupID); err != nil {
 		return err
 	}
-	if err := p.setCurrentSectionField(section.ID, "machineGroupId", settings.MachineGroupID); err != nil {
-		return err
-	}
-	if err := p.setCurrentSectionField(section.ID, "label", settings.Label); err != nil {
-		return err
-	}
-	if strings.EqualFold(sectionType, "StateMachineGate") {
-		if settings.GateType == nil {
-			return fmt.Errorf("%w: gate sections require a gate type", ErrStateMachineGateTypeInvalid)
-		}
-		gateType, err := normalizeStateMachineGateType(*settings.GateType)
-		if err != nil {
-			return err
-		}
-		if err := p.setCurrentSectionField(section.ID, "gateType", string(gateType)); err != nil {
-			return err
+	return p.setCurrentSectionField(sectionID, "label", settings.Label)
+}
+
+func (p *Project) applyStateMachineSectionGateSettings(
+	sectionID string,
+	sectionType string,
+	gateType *StateMachineGateType,
+) error {
+	if !strings.EqualFold(sectionType, "StateMachineGate") {
+		if gateType != nil {
+			return fmt.Errorf("%w: only gate sections accept a gate type", ErrStateMachineGateTypeInvalid)
 		}
 		return nil
 	}
-	if settings.GateType != nil {
-		return fmt.Errorf("%w: only gate sections accept a gate type", ErrStateMachineGateTypeInvalid)
+	if gateType == nil {
+		return fmt.Errorf("%w: gate sections require a gate type", ErrStateMachineGateTypeInvalid)
 	}
-	return nil
+	normalized, err := normalizeStateMachineGateType(*gateType)
+	if err != nil {
+		return err
+	}
+	return p.setCurrentSectionField(sectionID, "gateType", string(normalized))
 }
 
 func normalizeStateMachineEdgeForCreate(edge StateMachineEdge) (StateMachineEdge, error) {
