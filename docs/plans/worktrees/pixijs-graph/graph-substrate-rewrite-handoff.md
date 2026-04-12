@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 16:30 UTC
+Last updated: 2026-04-12 16:44 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,53 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `326` landed one bounded product-side attribution slice inside the
+  measured dominant motion owner `interactionReactFlowStateSync` on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the canary interaction/state-sync path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      now mirrors viewport-interaction activity onto the canary root as a DOM
+      attribute and skips redundant `useReactFlow.setState(...)` writes when
+      the requested interaction flags are already current
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      no longer subscribes every mounted section shell to
+      `useReactFlow((state) => state.viewportInteractionActive)` and instead
+      marks shell roots with a stable data attribute
+    - `frontend/src/index.css`
+      now reapplies the canary-only transform/backface/isolation shell hint via
+      a scoped root-attribute selector so the motion styling remains unchanged
+  - focused tests updated in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      to assert that the canary root toggles the
+      `data-viewport-interaction-active` attribute during interaction state
+      sync
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-root-attribute.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+      -> passed (`3` files, `19` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Section/Container/SectionContainerCore.tsx src/index.css`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-015/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-015/main-ai.log`
+      -> failed again on `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+    - fresh-context headless CDP smoke on explicit worktree/reference URLs
+      -> both worktree and read-only `main` `/settings` surfaces mounted
+      visibly
+      -> no obvious visual drift observed for this slice
+  - reading:
+    - this slice removes section-wide ReactFlow subscription fan-out from the
+      canary viewport-interaction motion hint while preserving the shell
+      transform/backface/isolation styling
+    - the repeated `capture initial pane state` timeout is back on the current
+      runtime, so the next pass should retry the canonical probe from a fresh
+      lifecycle before opening another product-side perf hypothesis
+    - once the probe is healthy again, rerun the canonical lane and check
+      whether `interactionReactFlowStateSync` still dominates; if it does,
+      split the remaining owner cost inside the compare-pane-state or
+      interaction-flag publication path rather than reopening Pixi resolver
+      work
 
 - item `325` reran the canonical main-reference perf lane after the Pixi
   resolution identity-reuse slice on the named

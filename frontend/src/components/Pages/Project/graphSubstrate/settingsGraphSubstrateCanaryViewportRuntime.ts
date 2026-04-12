@@ -375,6 +375,10 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     isPanScrolling: boolean;
     isWheelZooming: boolean;
   }) {
+    rootRef.current?.setAttribute(
+      "data-viewport-interaction-active",
+      isViewportPanning || isPanScrolling || isWheelZooming ? "true" : "false",
+    );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "interactionMiscStateSync",
       () => {
@@ -386,10 +390,19 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "interactionReactFlowStateSync",
       () => {
+        const nextViewportInteractionActive =
+          isViewportPanning || isPanScrolling || isWheelZooming;
+        const currentReactFlowState = useReactFlow.getState();
+        if (
+          currentReactFlowState.paneDragging === isViewportPanning &&
+          currentReactFlowState.viewportInteractionActive ===
+            nextViewportInteractionActive
+        ) {
+          return;
+        }
         useReactFlow.setState({
           paneDragging: isViewportPanning,
-          viewportInteractionActive:
-            isViewportPanning || isPanScrolling || isWheelZooming,
+          viewportInteractionActive: nextViewportInteractionActive,
         });
       },
     );

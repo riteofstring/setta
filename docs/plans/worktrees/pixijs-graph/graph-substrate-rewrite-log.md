@@ -3346,6 +3346,49 @@ LOOP_TERMINAL_MARKER: none
 - Read-only `main` normalized to `All Settings` too, but that session did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`); treated as oracle limitation rather than remaining worktree drift.
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 16:44 UTC | item 326 | move canary viewport-interaction shell hints to the root attribute path
+  - Picked one bounded product-side attribution slice on the canonical
+    `rotaryParamCodeObjDefault` lane after item `325` moved the measured owner
+    to `interactionReactFlowStateSync`.
+  - Product code changed in the canary interaction/state-sync path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      now mirrors viewport-interaction activity onto the canary root as
+      `data-viewport-interaction-active` and skips redundant ReactFlow store
+      writes when the requested interaction flags are already current
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      no longer subscribes every mounted shell to
+      `useReactFlow((state) => state.viewportInteractionActive)` and instead
+      marks shell roots with `data-setta-viewport-interaction-shell="true"`
+    - `frontend/src/index.css`
+      now reapplies the canary-only transform/backface/isolation shell hint
+      through a scoped root-attribute selector
+  - Updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    to verify the canary root attribute toggles during interaction-state sync.
+  - Added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-root-attribute.md`
+    to record the slice and its verification state.
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+      -> passed (`3` files, `19` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Section/Container/SectionContainerCore.tsx src/index.css`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-015/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-015/main-ai.log`
+      -> failed on the repeated runtime stall:
+      `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+    - fresh-context headless CDP smoke against explicit worktree/reference URLs
+      -> both worktree and read-only `main` `/settings` surfaces mounted
+      visibly
+      -> no obvious visual drift observed for this slice
+  - Result:
+    - this slice removes section-wide ReactFlow subscription fan-out from the
+      canary viewport-interaction hint while keeping the same shell motion
+      styling
+    - the next real frontier is to refresh the worktree lifecycle and rerun the
+      canonical perf lane on `rotaryParamCodeObjDefault`; if the probe becomes
+      healthy again, use that readout to decide whether more product work is
+      still needed inside `interactionReactFlowStateSync`
+- LOOP_TERMINAL_MARKER: none
 - 2026-04-12 16:30 UTC | item 325 | rerun canonical perf probe after Pixi resolution identity reuse
   - Picked one bounded follow-up probe on the canonical
     `rotaryParamCodeObjDefault` lane after the last two product-side Pixi

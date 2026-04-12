@@ -34,11 +34,15 @@ type ResizeObserverController = {
 function ViewportRuntimeProbe({
   localViewport,
   onRender,
+  onRuntime,
   sceneSnapshot,
   sharedProjectViewport,
 }: {
   localViewport: GraphViewport | null;
   onRender?: () => void;
+  onRuntime?: (
+    runtime: ReturnType<typeof useSettingsGraphSubstrateCanaryViewportRuntime>,
+  ) => void;
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
   sharedProjectViewport: GraphViewport | null;
 }) {
@@ -54,6 +58,10 @@ function ViewportRuntimeProbe({
     sharedProjectViewport,
     uiEditorTrueWidth: 260,
   });
+
+  useEffect(() => {
+    onRuntime?.(runtime);
+  }, [onRuntime, runtime]);
 
   useEffect(() => {
     if (!localViewport) {
@@ -268,6 +276,62 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
       sharedViewport.zoom,
     ]);
     expect(reactFlowState.viewportPersistenceEnabled).toBe(true);
+  });
+
+  it("mirrors viewport interaction activity onto the canary root attribute", async () => {
+    let latestRuntime: ReturnType<
+      typeof useSettingsGraphSubstrateCanaryViewportRuntime
+    > | null = null;
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          onRuntime={(runtime) => {
+            latestRuntime = runtime;
+          }}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    const probe = readViewportProbe(host);
+    await resizeObserverController.trigger([
+      {
+        element: probe,
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(latestRuntime?.resolvedViewport).not.toBeNull();
+    });
+
+    expect(probe.getAttribute("data-viewport-interaction-active")).toBe(null);
+
+    await act(async () => {
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: true,
+        isWheelZooming: false,
+      });
+    });
+
+    expect(probe.getAttribute("data-viewport-interaction-active")).toBe("true");
+
+    await act(async () => {
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: false,
+        isWheelZooming: false,
+      });
+    });
+
+    expect(probe.getAttribute("data-viewport-interaction-active")).toBe(
+      "false",
+    );
   });
 
   it("seeds the canary viewport from the current React Flow transform without auto-fitting over it", async () => {
