@@ -323,6 +323,25 @@ async function runWithRecoverableSettingsGraphPageAction<T>(args: {
   }
 }
 
+async function waitForRecoverableSettingsGraphAppReady(
+  page: Page,
+): Promise<Page> {
+  const activePage = await reopenSettingsGraphPageIfRecoverable(page);
+
+  try {
+    await waitForSettingsGraphAppReady(activePage);
+    return activePage;
+  } catch (error) {
+    const recoveredPage =
+      await reopenSettingsGraphPageIfRecoverable(activePage);
+    if (recoveredPage === activePage) {
+      throw error;
+    }
+    await waitForSettingsGraphAppReady(recoveredPage);
+    return recoveredPage;
+  }
+}
+
 async function runWithSettingsGraphPageLifecycleGuard<T>(
   page: Page,
   description: string,
@@ -1053,8 +1072,7 @@ export async function setLocalPaneState(
     },
   });
 
-  await waitForSettingsGraphAppReady(activePage);
-  return activePage;
+  return waitForRecoverableSettingsGraphAppReady(activePage);
 }
 
 export async function normalizeSettingsGraphComparePaneState(

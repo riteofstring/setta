@@ -284,6 +284,54 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 08:47 UTC
+
+- Item: Harden the canonical `rotaryParamCodeObjDefault` lane-health startup so
+  the live worktree probe gets past weak `/settings` readiness and post-reload
+  page-close handling.
+- Status: `done`
+- Details:
+  - Re-read `RALPH.md`, the rewrite plan, and the durable handoff before
+    selecting the next subtask.
+  - Chose one bounded blocker-resolution slice because the last few iterations
+    kept classifying the lane as `worktree_unhealthy` before the canonical
+    normalization path became the active boundary.
+  - Added `waitForRecoverableSettingsGraphAppReady(...)` in
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` and routed
+    `setLocalPaneState(...)` through it so a page close between reload and
+    app-ready can reopen and continue the same lane.
+  - Replaced the lane-health spec's weak initial readiness poll with the
+    trusted direct-open phase snapshot logic already used in
+    `settings-view-modes.spec.ts`, including progress logs for
+    `app_router_loading`, `settings_loading`, `app_shell_without_surface`,
+    `project_loading`, and `surface_ready`.
+  - Live worktree verification with a runtime-refreshed bootstrap token no
+    longer failed at the initial `/settings` readiness gate:
+    - the lane reached `surface_ready` on the live canary
+    - the next blocker moved forward to
+      `Worktree unhealthy: timed out after 5000ms while reading the frontend project config store`
+      in `waitForFrontendProjectConfigState(...)`
+  - Reading:
+    - the canonical `rotaryParamCodeObjDefault` lane is no longer blocked by
+      weak direct-open readiness or the immediate post-reload page-close seam
+    - the remaining blocker is frontend store synchronization after the backend
+      view-mode / viewport writes during normalization
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+    - result: passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=<runtime frontend> SETTA_BACKEND_ORIGIN=<runtime backend> SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+    - result: failed later, but with the intended narrower boundary
+    - note:
+      - direct-open progress reached `surface_ready`
+      - failure moved to `waitForFrontendProjectConfigState(...)` after
+        normalization rather than the earlier `/settings` readiness gate
+- Next action:
+  - inspect why the live frontend project-config store does not reflect the
+    backend `All Settings` / `viewport=null` writes within `5000ms` on the
+    canonical `rotaryParamCodeObjDefault` lane, then rerun the same lane-health
+    probe before taking another attribution or renderer slice
+
+- LOOP_TERMINAL_MARKER: none
 
 - 2026-04-15 08:29 UTC | item `482` | completed persisted-pane-state normalization reload path; live proof blocked by unhealthy worktree runtime
   - canonical target section: `rotaryParamCodeObjDefault`

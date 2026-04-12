@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 08:29 UTC
+Last updated: 2026-04-15 08:47 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,46 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `483` hardened the canonical worktree lane-health startup on the
+  `rotaryParamCodeObjDefault` lane so the probe no longer fails at the weak
+  initial `/settings` readiness check and can recover a page close during the
+  post-reload compare-pane-state wait:
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now routes the post-reload `setLocalPaneState(...)` readiness wait
+      through a recoverable `waitForRecoverableSettingsGraphAppReady(...)`
+      helper so a page close between reload and app-ready can reopen and keep
+      the lane alive instead of immediately classifying the step as terminal
+    - `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      now uses the same direct-open phase snapshot logic already trusted by
+      `settings-view-modes.spec.ts` to wait for `/settings` readiness, with
+      progress logging via `resolveSettingsGraphDirectOpenPhase(...)`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      -> passed
+    - live worktree lane-health rerun with runtime-refreshed bootstrap token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=<runtime frontend> SETTA_BACKEND_ORIGIN=<runtime backend> SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+      -> no longer failed at the initial `/settings` readiness gate
+      -> logged direct-open progress through
+         `app_router_loading -> settings_loading -> app_shell_without_surface -> project_loading -> surface_ready`
+      -> advanced to the next live blocker:
+         `Worktree unhealthy: timed out after 5000ms while reading the frontend project config store`
+         from `waitForFrontendProjectConfigState(...)`
+    - fresh-context CDP check:
+      -> not run; this iteration only changed probe readiness / recovery code
+         and did not modify production UI behavior
+  - reading:
+    - item `482`'s pane-state persistence change is no longer masked by the
+      weak lane-health startup gate
+    - the canonical worktree still reaches a mounted graph surface on the live
+      canary; the remaining blocker has moved forward to frontend project-config
+      store synchronization after normalization, not bootstrap/direct-open
+      readiness and not the post-reload page-close path
+    - next: inspect why the live page does not satisfy
+      `waitForFrontendProjectConfigState(...)` within `5000ms` after the
+      backend `/setActiveViewMode` + `/setViewport(null)` writes, then rerun
+      the same canonical lane before taking another attribution slice
 
 - item `482` hardened compare-pane normalization on the canonical
   `rotaryParamCodeObjDefault` lane so `setLocalPaneState(...)` now writes the

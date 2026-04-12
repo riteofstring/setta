@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  isSettingsGraphDirectOpenReady,
+  resolveSettingsGraphDirectOpenPhase,
+  type SettingsGraphDirectOpenSnapshot,
+} from "components/Pages/Project/graphSubstrate/settingsGraphDirectOpenState";
+import {
   ensureAppReady,
   getActiveProjectConfigIdFromPageStore,
   postBackend,
@@ -19,31 +24,76 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 
 async function waitForInitialSettingsGraphReady(page: Page) {
-  await expect
-    .poll(
-      async () => {
-        const snapshot = await page.evaluate(async () => {
-          const { useProjectLoading } = await import(
-            "/src/state/definitions.ts"
-          );
-          return {
-            canaryRootMounted:
-              document.querySelector(
-                '[data-testid="graph-substrate-canary"]',
-              ) !== null,
-            legacyPaneMounted:
-              document.querySelector(".react-flow__pane") !== null,
-            projectIsLoading: useProjectLoading.getState().projectIsLoading,
-          };
-        });
-        return (
-          (snapshot.canaryRootMounted || snapshot.legacyPaneMounted) &&
-          snapshot.projectIsLoading === false
-        );
-      },
-      { timeout: 30000 },
-    )
-    .toBe(true);
+  const timeoutMs = 30000;
+  const pollIntervalMs = 500;
+  const startTimeMs = Date.now();
+  let lastSnapshot: SettingsGraphDirectOpenSnapshot | null = null;
+
+  while (true) {
+    const snapshot = await page.evaluate(() => {
+      const globalLoadingState = document.querySelector<HTMLElement>(
+        '[data-testid="global-app-loading-state"]',
+      );
+      return {
+        appRouterLoadingMounted:
+          document.querySelector('[data-testid="app-router-loading-state"]') !==
+          null,
+        appShellMounted:
+          document.querySelector(".setta-titlebar-offset") !== null,
+        backendReady:
+          globalLoadingState?.dataset.backendReady === undefined
+            ? null
+            : globalLoadingState.dataset.backendReady === "true",
+        globalLoadingMounted: globalLoadingState !== null,
+        graphSurfaceMounted:
+          document.querySelector(".react-flow__pane") !== null ||
+          document.querySelector('[data-testid="graph-substrate-canary"]') !==
+            null,
+        projectSurfaceLoadingMounted:
+          document.querySelector(
+            '[data-testid="project-surface-loading-state"]',
+          ) !== null,
+        settingsContentMounted: document.querySelector("article") !== null,
+        settingsLoaded:
+          globalLoadingState?.dataset.settingsLoaded === undefined
+            ? null
+            : globalLoadingState.dataset.settingsLoaded === "true",
+      } satisfies SettingsGraphDirectOpenSnapshot;
+    });
+
+    const elapsedMs = Date.now() - startTimeMs;
+    if (JSON.stringify(snapshot) !== JSON.stringify(lastSnapshot)) {
+      console.info(
+        "settings-graph-lane-health-direct-open-progress",
+        JSON.stringify({
+          elapsedMs,
+          phase: resolveSettingsGraphDirectOpenPhase(snapshot),
+          snapshot,
+        }),
+      );
+      lastSnapshot = snapshot;
+    }
+
+    if (isSettingsGraphDirectOpenReady(snapshot)) {
+      return;
+    }
+
+    if (elapsedMs >= timeoutMs) {
+      throw new Error(
+        `Timed out waiting for initial settings graph readiness after ${timeoutMs}ms. ${JSON.stringify(
+          {
+            elapsedMs,
+            phase: resolveSettingsGraphDirectOpenPhase(snapshot),
+            snapshot,
+          },
+          null,
+          2,
+        )}`,
+      );
+    }
+
+    await page.waitForTimeout(pollIntervalMs);
+  }
 }
 
 async function getProjectConfigIdFromBackend(page: Page) {
