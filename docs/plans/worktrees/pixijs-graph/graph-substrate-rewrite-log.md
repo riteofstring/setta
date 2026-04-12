@@ -74,6 +74,45 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 18:24 UTC
+
+- item `335` narrowed one more shared renderer subscription on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx` so
+    `selectionKeyPressed` now lives in a memoized `FlowRendererPane` child
+    instead of the full flow renderer shell
+  - changed `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` so the
+    selection-aware drag gate is resolved at interaction time through
+    `getSelectionAwarePanOnDrag(...)` rather than by re-rendering `ZoomPane`
+    with a selection-gated `panOnDrag` prop
+  - added focused regression coverage in
+    `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts` to prove:
+    - selection mode still disables drag panning
+    - `ZoomPane` does not commit when only `selectionKeyPressed` changes
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-selection-key-pan-gate-split.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/ZoomPane.test.ts`
+      -> passed (`1` file, `7` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/FlowRenderer.tsx src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+      -> passed
+    - the first fresh-context CDP sub-agent could not attach to the current
+      headless DevTools session, so one allowed lifecycle recovery was used:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts after restart, then reran headless CDP smoke on
+      worktree `/settings`
+      -> `/settings` mounted successfully
+      -> no obvious controls / graph layout regression was observed
+  - result:
+    - this removes one always-mounted renderer rerender path for
+      `selectionKeyPressed` while keeping the same selection-mode pan-drag
+      behavior
+    - next bounded frontier: stay inside `interactionReactFlowStateSync` and
+      isolate the next mounted shared-surface selector or write fan-out on the
+      worktree lane instead of reopening the unstable cross-worktree probe
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 18:04 UTC
 
 - item `333` removed one motion-heavy React Flow zoom subscription from the

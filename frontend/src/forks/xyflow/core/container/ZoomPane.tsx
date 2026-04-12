@@ -57,6 +57,16 @@ type ViewportInteractionCleanupRefs = ViewportInteractionRefs & {
   wheelZoomTimeout: { current: ReturnType<typeof setTimeout> | undefined };
 };
 
+export function getSelectionAwarePanOnDrag(
+  panOnDrag: boolean | number[],
+  selectionKeyPressed: boolean,
+): boolean | number[] {
+  if (selectionKeyPressed) {
+    return false;
+  }
+  return panOnDrag;
+}
+
 const isWrappedWithClass = (event: Event, className?: string): boolean => {
   if (!className) {
     return false;
@@ -396,13 +406,18 @@ const ZoomPane = ({
   useEffect(() => {
     if (d3Zoom) {
       d3Zoom.filter((event: ZoomFilterEvent) => {
+        const effectivePanOnDrag = getSelectionAwarePanOnDrag(
+          panOnDrag,
+          useReactFlow.getState().selectionKeyPressed,
+        );
         const zoomScroll = zoomActivationKeyPressed || zoomOnScroll;
         const pinchZoom = zoomOnPinch && event.ctrlKey;
         const eventButton = getEventButton(event);
 
         if (
-          (panOnDrag === true ||
-            (Array.isArray(panOnDrag) && panOnDrag.includes(1))) &&
+          (effectivePanOnDrag === true ||
+            (Array.isArray(effectivePanOnDrag) &&
+              effectivePanOnDrag.includes(1))) &&
           eventButton === 1 &&
           event.type === "mousedown" &&
           isWrappedWithClass(event, "react-flow__node")
@@ -412,7 +427,7 @@ const ZoomPane = ({
 
         // if all interactions are disabled, we prevent all zoom events
         if (
-          !panOnDrag &&
+          !effectivePanOnDrag &&
           !zoomScroll &&
           !panOnScroll &&
           !zoomOnDoubleClick &&
@@ -468,7 +483,7 @@ const ZoomPane = ({
 
         // if the pane is not movable, we prevent dragging it with mousestart or touchstart
         if (
-          !panOnDrag &&
+          !effectivePanOnDrag &&
           (event.type === "mousedown" || event.type === "touchstart")
         ) {
           return false;
@@ -476,8 +491,8 @@ const ZoomPane = ({
 
         // if the pane is only movable using allowed clicks
         if (
-          Array.isArray(panOnDrag) &&
-          !panOnDrag.includes(eventButton) &&
+          Array.isArray(effectivePanOnDrag) &&
+          !effectivePanOnDrag.includes(eventButton) &&
           (event.type === "mousedown" || event.type === "touchstart")
         ) {
           return false;
@@ -492,7 +507,8 @@ const ZoomPane = ({
 
         // We only allow right clicks if pan on drag is set to right click
         const buttonAllowed =
-          (Array.isArray(panOnDrag) && panOnDrag.includes(eventButton)) ||
+          (Array.isArray(effectivePanOnDrag) &&
+            effectivePanOnDrag.includes(eventButton)) ||
           !eventButton ||
           eventButton <= 1;
 

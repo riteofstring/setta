@@ -1,7 +1,12 @@
 /* @vitest-environment jsdom */
 
 import { useReactFlow } from "forks/xyflow/core/store";
-import { act, createElement } from "react";
+import {
+  act,
+  createElement,
+  Profiler,
+  type ProfilerOnRenderCallback,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useMisc, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -10,6 +15,7 @@ import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import initialState from "../store/initialState";
 import ZoomPane, {
+  getSelectionAwarePanOnDrag,
   getViewportInteractionActiveValue,
   resetViewportInteractionState,
 } from "./ZoomPane";
@@ -125,6 +131,12 @@ describe("getViewportInteractionActiveValue", () => {
     expect(useReactFlow.getState().paneDragging).toBe(false);
   });
 
+  it("disables drag panning whenever the selection key is active", () => {
+    expect(getSelectionAwarePanOnDrag(true, true)).toBe(false);
+    expect(getSelectionAwarePanOnDrag([0, 2], true)).toBe(false);
+    expect(getSelectionAwarePanOnDrag([0, 2], false)).toEqual([0, 2]);
+  });
+
   it("keeps wheel-burst interaction active until the burst timeout settles after drag end", async () => {
     const { host, renderer, root } = await renderZoomPane();
 
@@ -199,5 +211,43 @@ describe("getViewportInteractionActiveValue", () => {
       });
       host.remove();
     }
+  });
+
+  it("does not rerender when selection key state changes without a selection drag", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(
+          "div",
+          { className: "react-flow" },
+          createElement(
+            Profiler,
+            { id: "zoom-pane-profiler", onRender },
+            createElement(
+              ZoomPane,
+              { wrapperDimensions: { width: 800, height: 600 } },
+              createElement("div"),
+            ),
+          ),
+        ),
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      useReactFlow.setState({ selectionKeyPressed: true });
+    });
+
+    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
   });
 });

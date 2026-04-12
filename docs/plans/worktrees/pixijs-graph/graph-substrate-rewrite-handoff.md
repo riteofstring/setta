@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 18:15 UTC
+Last updated: 2026-04-12 18:24 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -124,6 +124,49 @@ This section overrides older "next frontier" notes below when choosing the next 
     - good next candidates are mounted param/body/chrome surfaces or shared
       selectors that still re-render during pan/zoom even after the direct
       zoom-subscriber splits
+
+- item `335` landed one bounded shared-surface selector split inside the
+  measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the shared flow renderer path:
+    - `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`
+      now keeps the `selectionKeyPressed` subscription inside a memoized
+      `FlowRendererPane` child instead of subscribing the full flow renderer
+      shell
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+      now resolves selection-aware `panOnDrag` behavior at gesture time via
+      `getSelectionAwarePanOnDrag(...)` instead of taking a
+      selection-gated `panOnDrag` prop from the parent render path
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts`
+      to assert selection mode still disables drag panning and `ZoomPane`
+      does not commit when only `selectionKeyPressed` changes
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-selection-key-pan-gate-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/ZoomPane.test.ts`
+      -> passed (`1` file, `7` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/FlowRenderer.tsx src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+      -> passed
+    - one allowed lifecycle recovery was used for the required CDP gate:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime facts then restored the worktree session on
+        frontend `3075`, backend `8075`, session `f2ab9e`, debug port `9297`
+    - fresh-context headless CDP smoke on the restarted worktree `/settings`
+      session
+      -> `/settings` mounted successfully
+      -> checked the visible settings graph/controls area including the left
+         settings list, top control strip, bottom view-mode tabs, and graph
+         section cards
+      -> no obvious layout regression was observed for this slice
+  - reading:
+    - this keeps selection-key churn localized to the pane-selection surface
+      that actually needs it while `ZoomPane` preserves the same pan gate via
+      an interaction-time store read
+    - the next bounded frontier inside `interactionReactFlowStateSync` should
+      keep isolating mounted shared-surface selector fan-out on the worktree
+      lane, not reopen the unstable cross-worktree probe by default
 
 - item `333` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named
