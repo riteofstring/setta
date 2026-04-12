@@ -149,33 +149,50 @@ func normalizeParamImplConfigPatch(codeObjType string, currentPayload map[string
 	if len(newConfig) == 0 {
 		return map[string]any{}, nil
 	}
-	switch codeObjType {
-	case "SliderParam":
-		return normalizeSliderParamImplConfigPatch(codeObjType, currentPayload, newConfig)
-	case "RotaryParam":
-		return normalizeRotaryParamImplConfigPatch(codeObjType, currentPayload, newConfig)
-	case "TextParam":
-		return normalizeTextParamImplConfigPatch(codeObjType, newConfig)
-	case "DateParam":
-		return normalizeDateParamImplConfigPatch(codeObjType, currentPayload, newConfig)
-	case "TimeParam":
-		return normalizeTimeParamImplConfigPatch(codeObjType, newConfig)
-	case "ButtonParam":
-		return normalizeButtonParamImplConfigPatch(codeObjType, newConfig)
-	case "ColorPickerParam":
-		return normalizeColorPickerParamImplConfigPatch(codeObjType, newConfig)
-	case "DropdownParam":
-		return normalizeDropdownParamImplConfigPatch(codeObjType, newConfig)
-	case "DropzoneParam":
-		return normalizeDropzoneParamImplConfigPatch(codeObjType, newConfig)
-	case "NestedParam", codeParamType, "SwitchParam", "PasswordParam", "TextAreaParam":
-		return normalizeDescriptionOnlyParamImplConfigPatch(codeObjType, newConfig)
-	default:
+	normalizer, ok := paramImplConfigPatchNormalizers[codeObjType]
+	if !ok {
 		return nil, fmt.Errorf("%w: type=%q", ErrUpdateParamImplConfigUnsupported, codeObjType)
 	}
+	return normalizer(codeObjType, currentPayload, newConfig)
 }
 
 type paramImplConfigFieldHandler func(rawValue any) error
+
+type paramImplConfigPatchNormalizer func(
+	codeObjType string,
+	currentPayload map[string]any,
+	newConfig map[string]any,
+) (map[string]any, error)
+
+type paramImplConfigPatchNormalizerWithoutPayload func(
+	codeObjType string,
+	newConfig map[string]any,
+) (map[string]any, error)
+
+var paramImplConfigPatchNormalizers = map[string]paramImplConfigPatchNormalizer{
+	"SliderParam":      normalizeSliderParamImplConfigPatch,
+	"RotaryParam":      normalizeRotaryParamImplConfigPatch,
+	"TextParam":        paramImplConfigPatchWithoutPayload(normalizeTextParamImplConfigPatch),
+	"DateParam":        normalizeDateParamImplConfigPatch,
+	"TimeParam":        paramImplConfigPatchWithoutPayload(normalizeTimeParamImplConfigPatch),
+	"ButtonParam":      paramImplConfigPatchWithoutPayload(normalizeButtonParamImplConfigPatch),
+	"ColorPickerParam": paramImplConfigPatchWithoutPayload(normalizeColorPickerParamImplConfigPatch),
+	"DropdownParam":    paramImplConfigPatchWithoutPayload(normalizeDropdownParamImplConfigPatch),
+	"DropzoneParam":    paramImplConfigPatchWithoutPayload(normalizeDropzoneParamImplConfigPatch),
+	"NestedParam":      paramImplConfigPatchWithoutPayload(normalizeDescriptionOnlyParamImplConfigPatch),
+	codeParamType:      paramImplConfigPatchWithoutPayload(normalizeDescriptionOnlyParamImplConfigPatch),
+	"SwitchParam":      paramImplConfigPatchWithoutPayload(normalizeDescriptionOnlyParamImplConfigPatch),
+	"PasswordParam":    paramImplConfigPatchWithoutPayload(normalizeDescriptionOnlyParamImplConfigPatch),
+	"TextAreaParam":    paramImplConfigPatchWithoutPayload(normalizeDescriptionOnlyParamImplConfigPatch),
+}
+
+func paramImplConfigPatchWithoutPayload(
+	normalizer paramImplConfigPatchNormalizerWithoutPayload,
+) paramImplConfigPatchNormalizer {
+	return func(codeObjType string, _ map[string]any, newConfig map[string]any) (map[string]any, error) {
+		return normalizer(codeObjType, newConfig)
+	}
+}
 
 func normalizeParamImplConfigFields(
 	codeObjType string,
@@ -743,52 +760,77 @@ func readStringListConfigValue(rawValue any) ([]string, error) {
 }
 
 func readColorChoicesConfigValue(rawValue any) ([]map[string]any, error) {
-	var rawEntries []any
-	switch typed := rawValue.(type) {
-	case []any:
-		rawEntries = typed
-	case []map[string]any:
-		rawEntries = make([]any, 0, len(typed))
-		for _, entry := range typed {
-			rawEntries = append(rawEntries, entry)
-		}
-	default:
-		return nil, errors.New("must be an array of color choice objects")
+	rawEntries, err := readColorChoiceEntries(rawValue)
+	if err != nil {
+		return nil, err
 	}
 
 	choices := make([]map[string]any, 0, len(rawEntries))
-	for _, rawEntry := range rawEntries {
-		entry, ok := rawEntry.(map[string]any)
-		if !ok {
-			return nil, errors.New("must be an array of color choice objects")
+	for _, entry := range rawEntries {
+		choice, err := readColorChoiceEntry(entry)
+		if err != nil {
+			return nil, err
 		}
-		colorRaw, ok := entry["color"]
-		if !ok {
-			return nil, errors.New("each color choice must include color")
-		}
-		color, ok := colorRaw.(string)
-		if !ok {
-			return nil, errors.New("color choice color must be a string")
-		}
-		if !isColorHex(color) {
-			return nil, fmt.Errorf("color choice color %q must be a hex color", color)
-		}
-
-		description := ""
-		if rawDescription, ok := entry["description"]; ok && rawDescription != nil {
-			value, ok := rawDescription.(string)
-			if !ok {
-				return nil, errors.New("color choice description must be a string")
-			}
-			description = value
-		}
-
-		choices = append(choices, map[string]any{
-			"color":       color,
-			"description": description,
-		})
+		choices = append(choices, choice)
 	}
 	return choices, nil
+}
+
+func readColorChoiceEntries(rawValue any) ([]map[string]any, error) {
+	switch typed := rawValue.(type) {
+	case []map[string]any:
+		entries := make([]map[string]any, len(typed))
+		copy(entries, typed)
+		return entries, nil
+	case []any:
+		entries := make([]map[string]any, 0, len(typed))
+		for _, rawEntry := range typed {
+			entry, ok := rawEntry.(map[string]any)
+			if !ok {
+				return nil, errors.New("must be an array of color choice objects")
+			}
+			entries = append(entries, entry)
+		}
+		return entries, nil
+	default:
+		return nil, errors.New("must be an array of color choice objects")
+	}
+}
+
+func readColorChoiceEntry(entry map[string]any) (map[string]any, error) {
+	colorRaw, ok := entry["color"]
+	if !ok {
+		return nil, errors.New("each color choice must include color")
+	}
+	color, ok := colorRaw.(string)
+	if !ok {
+		return nil, errors.New("color choice color must be a string")
+	}
+	if !isColorHex(color) {
+		return nil, fmt.Errorf("color choice color %q must be a hex color", color)
+	}
+
+	description, err := readOptionalStringMapField(entry, "description", "color choice description must be a string")
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"color":       color,
+		"description": description,
+	}, nil
+}
+
+func readOptionalStringMapField(entry map[string]any, fieldName string, invalidTypeMessage string) (string, error) {
+	rawValue, ok := entry[fieldName]
+	if !ok || rawValue == nil {
+		return "", nil
+	}
+	value, ok := rawValue.(string)
+	if !ok {
+		return "", errors.New(invalidTypeMessage)
+	}
+	return value, nil
 }
 
 func validateNumericRangeConfig(minimum float64, maximum float64, step float64) error {

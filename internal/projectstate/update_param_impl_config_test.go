@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -208,5 +209,102 @@ func TestProjectUpdateParamImplConfigRejectsInvalidSliderRange(t *testing.T) {
 	err := project.UpdateParamImplConfig("dict-a", "shared-child", map[string]any{"min": 10, "max": 5})
 	if !errors.Is(err, ErrUpdateParamImplConfigFieldInvalid) {
 		t.Fatalf("expected ErrUpdateParamImplConfigFieldInvalid, got %v", err)
+	}
+}
+
+func TestNormalizeParamImplConfigPatchSupportsDescriptionOnlyTypes(t *testing.T) {
+	t.Parallel()
+
+	normalized, err := normalizeParamImplConfigPatch(codeParamType, nil, map[string]any{"description": "Updated description"})
+	if err != nil {
+		t.Fatalf("normalize description-only config: %v", err)
+	}
+	if got := normalized["description"]; got != "Updated description" {
+		t.Fatalf("expected normalized description, got %#v", got)
+	}
+}
+
+func TestNormalizeParamImplConfigPatchRejectsUnsupportedType(t *testing.T) {
+	t.Parallel()
+
+	_, err := normalizeParamImplConfigPatch("UnsupportedParam", nil, map[string]any{"description": "ignored"})
+	if !errors.Is(err, ErrUpdateParamImplConfigUnsupported) {
+		t.Fatalf("expected ErrUpdateParamImplConfigUnsupported, got %v", err)
+	}
+}
+
+func TestReadColorChoicesConfigValueNormalizesEntries(t *testing.T) {
+	t.Parallel()
+
+	choices, err := readColorChoicesConfigValue([]any{
+		map[string]any{"color": "#112233", "description": "Primary"},
+		map[string]any{"color": "#445566", "description": nil},
+	})
+	if err != nil {
+		t.Fatalf("read color choices: %v", err)
+	}
+	if len(choices) != 2 {
+		t.Fatalf("expected 2 color choices, got %d", len(choices))
+	}
+	if got := choices[0]["color"]; got != "#112233" {
+		t.Fatalf("expected first color to stay normalized, got %#v", got)
+	}
+	if got := choices[0]["description"]; got != "Primary" {
+		t.Fatalf("expected first description to stay normalized, got %#v", got)
+	}
+	if got := choices[1]["description"]; got != "" {
+		t.Fatalf("expected nil description to normalize to empty string, got %#v", got)
+	}
+}
+
+func TestReadColorChoicesConfigValueRejectsInvalidEntries(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		rawValue    any
+		messagePart string
+	}{
+		{
+			name:        "non array",
+			rawValue:    "invalid",
+			messagePart: "must be an array of color choice objects",
+		},
+		{
+			name: "missing color",
+			rawValue: []any{
+				map[string]any{"description": "missing"},
+			},
+			messagePart: "each color choice must include color",
+		},
+		{
+			name: "invalid hex",
+			rawValue: []any{
+				map[string]any{"color": "red"},
+			},
+			messagePart: "must be a hex color",
+		},
+		{
+			name: "invalid description",
+			rawValue: []any{
+				map[string]any{"color": "#112233", "description": 1},
+			},
+			messagePart: "color choice description must be a string",
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := readColorChoicesConfigValue(tc.rawValue)
+			if err == nil {
+				t.Fatal("expected color choice validation error")
+			}
+			if !strings.Contains(err.Error(), tc.messagePart) {
+				t.Fatalf("expected error containing %q, got %v", tc.messagePart, err)
+			}
+		})
 	}
 }
