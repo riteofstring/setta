@@ -18,6 +18,79 @@ type AgenticScopeHighlightInputs = {
   sectionImpls: ZustandProjectState["sectionImpls"];
 };
 
+type AgenticScopeSectionLookup = Pick<
+  AgenticScopeHighlightInputs,
+  "sectionVariantMap" | "sectionVariants" | "sectionImpls"
+>;
+
+type AgenticScopeSectionImpl =
+  | ZustandProjectState["sectionImpls"][string]
+  | null;
+
+function resolveAgenticScopeSectionImpl(
+  sectionId: string,
+  lookup: AgenticScopeSectionLookup,
+): AgenticScopeSectionImpl {
+  const variantId = lookup.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = lookup.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  return lookup.sectionImpls[variant.impl] ?? null;
+}
+
+function isChatSectionImpl(impl: AgenticScopeSectionImpl): boolean {
+  return impl?.type === SectionTypeEnum.Chat;
+}
+
+function isWaitingChatSectionImpl(impl: AgenticScopeSectionImpl): boolean {
+  return impl?.type === SectionTypeEnum.Chat && impl.waitingForResponse;
+}
+
+function collectMatchingSectionIds(
+  sectionIds: Array<string>,
+  lookup: AgenticScopeSectionLookup,
+  predicate: (impl: AgenticScopeSectionImpl) => boolean,
+): Array<string> {
+  const matchingSectionIds: Array<string> = [];
+  for (const sectionId of sectionIds) {
+    if (predicate(resolveAgenticScopeSectionImpl(sectionId, lookup))) {
+      matchingSectionIds.push(sectionId);
+    }
+  }
+  return matchingSectionIds;
+}
+
+export function resolveActiveChatSectionIds(
+  inputs: Pick<
+    AgenticScopeHighlightInputs,
+    | "activeIds"
+    | "topLevelSectionIds"
+    | "sectionVariantMap"
+    | "sectionVariants"
+    | "sectionImpls"
+  >,
+): Array<string> {
+  const lookup: AgenticScopeSectionLookup = {
+    sectionVariantMap: inputs.sectionVariantMap,
+    sectionVariants: inputs.sectionVariants,
+    sectionImpls: inputs.sectionImpls,
+  };
+  return Array.from(
+    new Set([
+      ...collectMatchingSectionIds(inputs.activeIds, lookup, isChatSectionImpl),
+      ...collectMatchingSectionIds(
+        inputs.topLevelSectionIds,
+        lookup,
+        isWaitingChatSectionImpl,
+      ),
+    ]),
+  );
+}
+
 export function useUpdateAgenticScopeHighlights(
   inputs: AgenticScopeHighlightInputs,
 ): void {
@@ -31,50 +104,23 @@ export function useUpdateAgenticScopeHighlights(
     sectionImpls,
   } = inputs;
 
-  const activeChatSectionIds = useMemo(() => {
-    const chatSectionIds = new Set<string>();
-    const resolveImpl = (sectionId: string) => {
-      const variantId = sectionVariantMap[sectionId];
-      if (!variantId) {
-        return null;
-      }
-      const variant = sectionVariants[variantId];
-      if (!variant) {
-        return null;
-      }
-      return sectionImpls[variant.impl] ?? null;
-    };
-    for (const sectionId of activeIds) {
-      const impl = resolveImpl(sectionId);
-      if (impl?.type === SectionTypeEnum.Chat) {
-        chatSectionIds.add(sectionId);
-      }
-    }
-    for (const sectionId of topLevelSectionIds) {
-      const variantId = sectionVariantMap[sectionId];
-      if (!variantId) {
-        continue;
-      }
-      const variant = sectionVariants[variantId];
-      if (!variant) {
-        continue;
-      }
-      const impl = sectionImpls[variant.impl];
-      if (!impl) {
-        continue;
-      }
-      if (impl.type === SectionTypeEnum.Chat && impl.waitingForResponse) {
-        chatSectionIds.add(sectionId);
-      }
-    }
-    return Array.from(chatSectionIds);
-  }, [
-    activeIds,
-    sectionImpls,
-    sectionVariantMap,
-    sectionVariants,
-    topLevelSectionIds,
-  ]);
+  const activeChatSectionIds = useMemo(
+    () =>
+      resolveActiveChatSectionIds({
+        activeIds,
+        topLevelSectionIds,
+        sectionVariantMap,
+        sectionVariants,
+        sectionImpls,
+      }),
+    [
+      activeIds,
+      sectionImpls,
+      sectionVariantMap,
+      sectionVariants,
+      topLevelSectionIds,
+    ],
+  );
 
   const highlightMaps = useMemo(() => {
     return buildAgenticScopeHighlightMaps(agenticEdges, activeChatSectionIds);
