@@ -3,17 +3,7 @@ import {
   ViewModeSortableProvider,
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
-import {
-  createViewMode,
-  setActiveViewMode,
-  setViewModeName,
-  toggleIsEditingViewMode,
-  toggleViewModeTab,
-  toggleViewModeUserFacing,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { Resizable } from "re-resizable";
-import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   FiBookmark,
@@ -27,23 +17,50 @@ import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbUser } from "react-icons/tb";
 import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
-import { dispatchOptimisticProjectStateUpdateWithResult } from "state/actions/sectionInfos";
 import {
-  deleteViewMode,
-  persistViewModeSortOrder,
-} from "state/actions/viewModes";
+  dispatchOptimisticProjectStateUpdate,
+  persistCurrentViewportImmediately,
+} from "state/actions/sectionInfos";
+import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { ViewMode } from "utils/generatedTypes";
-import { validateViewModeNameInput } from "utils/nameValidation";
+import {
+  route_create_view_mode,
+  route_delete_view_mode,
+  route_set_active_view_mode,
+  route_set_view_mode_name,
+  route_toggle_is_editing_view_mode,
+  route_toggle_view_mode_tab,
+  route_toggle_view_mode_user_facing,
+} from "utils/generatedEndpoints";
+import { ViewModeConfig } from "utils/generatedTypes";
+import {
+  sanitizeNameForSlug,
+  validateViewModeNameInput,
+} from "utils/nameValidation";
 import { sortViewModes } from "utils/viewModeOrdering";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { WindowSpacesPane } from "./WindowSpacesPane";
+
 const PROJECT_CONFIGS_MIN_HEIGHT = 140;
 const VIEW_MODES_MIN_HEIGHT = 120;
 const PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT = 12;
+
+export function compactViewModeSortIndices(
+  viewModes: Record<string, ViewModeConfig>,
+): Array<ViewModeConfig> {
+  const sortedViewModes = sortViewModes(Object.values(viewModes));
+  for (let index = 0; index < sortedViewModes.length; index += 1) {
+    const sortedViewMode = sortedViewModes[index];
+    if (!sortedViewMode) {
+      continue;
+    }
+    sortedViewMode.sortIndex = index;
+  }
+  return sortedViewModes;
+}
+
 export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
     useProjectState((x) => {
@@ -66,6 +83,7 @@ export function ViewingEditingMode() {
   const [projectConfigsHeight, setProjectConfigsHeight] = useState(280);
   const [panesHeight, setPanesHeight] = useState<number | null>(null);
   const panesContainerRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") {
       return;
@@ -84,6 +102,7 @@ export function ViewingEditingMode() {
       observer.disconnect();
     };
   }, []);
+
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
     ? "Done editing view modes"
@@ -95,68 +114,56 @@ export function ViewingEditingMode() {
   const hasViewModes = viewModeList.length > 0;
   const canDeleteViewModes = viewModeList.length > 1;
   const sortableEnabled = canEditStructure && viewModeList.length > 1;
+
   useEffect(() => {
     pruneActiveSectionIdsForViewMode(activeViewModeId, isEditingViewMode);
   }, [activeViewModeId, isEditingViewMode]);
-  const handleModeChange = (modeId: string) => {
+
+  const handleModeChange = async (modeId: string) => {
     if (!canEditVariants) {
       return;
     }
-    void callOpenAPI(
-      setActiveViewMode({
-        body: {
-          projectConfigId,
-          activeViewModeId: modeId,
-        },
-      } as Parameters<typeof setActiveViewMode>[0]),
-    );
+    await persistCurrentViewportImmediately();
+    await route_set_active_view_mode({
+      projectConfigId,
+      activeViewModeId: modeId,
+    });
   };
+
   const handleToggleEdit = () => {
     if (!canEditStructure) {
       return;
     }
-    void callOpenAPI(
-      toggleIsEditingViewMode({ body: { projectConfigId } } as Parameters<
-        typeof toggleIsEditingViewMode
-      >[0]),
-    );
+    void route_toggle_is_editing_view_mode({ projectConfigId });
   };
+
   const handleCreateMode = (): void => {
     if (!canEditStructure) {
       return;
     }
-    void callOpenAPI(
-      createViewMode({ body: { projectConfigId } } as Parameters<
-        typeof createViewMode
-      >[0]),
-    );
+    void route_create_view_mode({ projectConfigId });
   };
+
   const handleToggleUserFacing = (modeId: string): void => {
     if (!canEditStructure) {
       return;
     }
-    void callOpenAPI(
-      toggleViewModeUserFacing({
-        body: {
-          projectConfigId,
-          viewModeId: modeId,
-        },
-      } as Parameters<typeof toggleViewModeUserFacing>[0]),
-    );
+    void route_toggle_view_mode_user_facing({
+      projectConfigId,
+      viewModeId: modeId,
+    });
   };
+
   const handleToggleTab = (modeId: string): void => {
     if (!canEditStructure) {
       return;
     }
-    void callOpenAPI(
-      toggleViewModeTab({
-        body: {
-          projectConfigId,
-          viewModeId: modeId,
-        },
-      } as Parameters<typeof toggleViewModeTab>[0]),
-    );
+    void route_toggle_view_mode_tab({
+      projectConfigId,
+      viewModeId: modeId,
+    });
   };
+
   const handleReorder = (nextOrderedIds: Array<string>): void => {
     if (!sortableEnabled) {
       return;
@@ -178,6 +185,7 @@ export function ViewingEditingMode() {
     PROJECT_CONFIGS_MIN_HEIGHT,
     availableProjectConfigsHeight,
   );
+
   useEffect(() => {
     setProjectConfigsHeight((currentHeight) => {
       if (currentHeight <= projectConfigsMaxHeight) {
@@ -186,6 +194,7 @@ export function ViewingEditingMode() {
       return projectConfigsMaxHeight;
     });
   }, [projectConfigsMaxHeight]);
+
   function updateProjectConfigsHeight(rawHeight: number) {
     const clampedHeight = Math.max(
       PROJECT_CONFIGS_MIN_HEIGHT,
@@ -193,6 +202,7 @@ export function ViewingEditingMode() {
     );
     setProjectConfigsHeight(clampedHeight);
   }
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -235,7 +245,9 @@ export function ViewingEditingMode() {
       >
         <section
           data-testid="view-modes-pane"
-          className={`overflow-hidden rounded border border-setta-200/60 p-2 dark:border-setta-800/70 ${isViewModesCollapsed ? "" : "min-h-[8rem] flex-1"}`}
+          className={`overflow-hidden rounded border border-setta-200/60 p-2 dark:border-setta-800/70 ${
+            isViewModesCollapsed ? "" : "min-h-[8rem] flex-1"
+          }`}
         >
           <div className="mb-1 flex items-center gap-2">
             <button
@@ -251,7 +263,9 @@ export function ViewingEditingMode() {
               }
             >
               <FiChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${isViewModesCollapsed ? "-rotate-90" : "rotate-0"}`}
+                className={`h-3.5 w-3.5 transition-transform ${
+                  isViewModesCollapsed ? "-rotate-90" : "rotate-0"
+                }`}
               />
               <span>View Modes</span>
             </button>
@@ -292,6 +306,7 @@ export function ViewingEditingMode() {
                         />
                       );
                     }
+
                     return (
                       <ViewModeRow
                         key={mode.id}
@@ -431,19 +446,22 @@ export function ViewingEditingMode() {
     </div>
   );
 }
+
 type ViewModeRowProps = {
-  mode: ViewMode;
+  mode: ViewModeConfig;
   isActive: boolean;
   onSelect: (modeId: string) => void;
   disabled: boolean;
   sortableEnabled: boolean;
 };
+
 function ViewModeRow({ sortableEnabled, ...props }: ViewModeRowProps) {
   if (!sortableEnabled) {
     return <ViewModeRowContent {...props} sortable={null} />;
   }
   return <ViewModeRowSortable {...props} sortableEnabled />;
 }
+
 function ViewModeRowSortable({
   mode,
   isActive,
@@ -461,7 +479,9 @@ function ViewModeRowSortable({
     />
   );
 }
+
 type ViewModeSortableItem = ReturnType<typeof useViewModeSortableItem>;
+
 function ViewModeRowContent({
   mode,
   isActive,
@@ -521,8 +541,9 @@ function ViewModeRowContent({
     </button>
   );
 }
+
 type ViewModeEditingRowProps = {
-  mode: ViewMode;
+  mode: ViewModeConfig;
   isActive: boolean;
   isDeletable: boolean;
   projectConfigId: string;
@@ -533,6 +554,7 @@ type ViewModeEditingRowProps = {
   canEditStructure: boolean;
   sortableEnabled: boolean;
 };
+
 function ViewModeEditingRow({
   sortableEnabled,
   ...props
@@ -542,6 +564,7 @@ function ViewModeEditingRow({
   }
   return <ViewModeEditingRowSortable {...props} sortableEnabled />;
 }
+
 function ViewModeEditingRowSortable({
   mode,
   isActive,
@@ -569,6 +592,7 @@ function ViewModeEditingRowSortable({
     />
   );
 }
+
 function ViewModeEditingRowContent({
   mode,
   isActive,
@@ -583,39 +607,29 @@ function ViewModeEditingRowContent({
 }: Omit<ViewModeEditingRowProps, "sortableEnabled"> & {
   sortable: ViewModeSortableItem | null;
 }) {
-  const [serverError, setServerError] = useState<string | null>(null);
   const normalizeName = (value: string) => value.trim();
-  async function conditionToSetName(name: string) {
+
+  function onSetName(name: string) {
     if (!canEditStructure) {
-      return false;
-    }
-    const normalized = normalizeName(name);
-    const validationError = validateViewModeNameInput(normalized);
-    if (validationError) {
-      setServerError(null);
-      return false;
+      return;
     }
     const previousName =
       useProjectState.getState().projectConfig.viewModes[mode.id]?.name ??
       mode.name;
-    const { result } = dispatchOptimisticProjectStateUpdateWithResult({
+    dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         if (!(mode.id in state.projectConfig.viewModes)) {
           throw new Error(`View mode ${mode.id} not found`);
         }
-        state.projectConfig.viewModes[mode.id].name = normalized;
+        state.projectConfig.viewModes[mode.id].name = name;
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setViewModeName({
-            body: {
-              projectConfigId,
-              viewModeId: mode.id,
-              name: normalized,
-              frontendOpId,
-            },
-          } as Parameters<typeof setViewModeName>[0]),
-        ),
+        route_set_view_mode_name({
+          projectConfigId,
+          viewModeId: mode.id,
+          name,
+          frontendOpId,
+        }),
       rollback: (state) => {
         if (!(mode.id in state.projectConfig.viewModes)) {
           throw new Error(`View mode ${mode.id} not found`);
@@ -623,29 +637,35 @@ function ViewModeEditingRowContent({
         state.projectConfig.viewModes[mode.id].name = previousName;
       },
     });
-    const response = await result;
-    if (res200(response)) {
-      setServerError(null);
-      return true;
-    }
-    setServerError(
-      getErrorDetail(response.data) ?? "Unable to rename view mode.",
-    );
-    return false;
   }
-  const editable = useEditableOnSubmit(
+
+  function conditionToSetName(name: string) {
+    const normalized = normalizeName(name);
+    const validationError = validateViewModeNameInput(normalized);
+    if (validationError) {
+      return false;
+    }
+    const nextSlug = sanitizeNameForSlug(normalized);
+    const state = useProjectState.getState();
+    for (const viewMode of Object.values(state.projectConfig.viewModes)) {
+      if (viewMode.id === mode.id) {
+        continue;
+      }
+      if (sanitizeNameForSlug(viewMode.name) === nextSlug) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
     mode.name,
-    () => {},
+    onSetName,
     conditionToSetName,
     false,
     normalizeName,
   );
-  function onChange(event: ChangeEvent<HTMLInputElement> | string) {
-    setServerError(null);
-    editable.onChange(event);
-  }
-  const { inputValue, onBlur, onKeyDown } = editable;
-  const validationError = validateViewModeNameInput(inputValue) ?? serverError;
+
   const handleToggleUserFacing = (
     event: React.MouseEvent<HTMLButtonElement>,
   ) => {
@@ -655,6 +675,7 @@ function ViewModeEditingRowContent({
     }
     onToggleUserFacing(mode.id);
   };
+
   const handleToggleTab = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (!canEditStructure) {
@@ -662,19 +683,61 @@ function ViewModeEditingRowContent({
     }
     onToggleTab(mode.id);
   };
+
   const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (!canEditStructure) {
       return;
     }
-    deleteViewMode(projectConfigId, mode.id);
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        const { viewModes } = state.projectConfig;
+        if (!(mode.id in viewModes)) {
+          throw new Error(`View mode ${mode.id} not found`);
+        }
+        if (Object.keys(viewModes).length < 2) {
+          return;
+        }
+        delete viewModes[mode.id];
+        const sortedViewModes = compactViewModeSortIndices(viewModes);
+        if (state.projectConfig.activeViewModeId === mode.id) {
+          const nextViewMode = sortedViewModes[0] ?? null;
+          state.projectConfig.activeViewModeId = nextViewMode?.id ?? null;
+          if (nextViewMode) {
+            if (Object.keys(nextViewMode.topLevelSections).length === 0) {
+              const clonedTopLevelSections: typeof state.projectConfig.topLevelSections =
+                {};
+              for (const sectionId in state.projectConfig.topLevelSections) {
+                clonedTopLevelSections[sectionId] = {
+                  ...state.projectConfig.topLevelSections[sectionId],
+                };
+              }
+              nextViewMode.topLevelSections = clonedTopLevelSections;
+            }
+            state.projectConfig.topLevelSections =
+              nextViewMode.topLevelSections;
+            state.projectConfig.viewport = nextViewMode.viewport;
+            state.projectConfig.viewportInitialized =
+              nextViewMode.viewportInitialized;
+          }
+        }
+      },
+      send: (frontendOpId) =>
+        route_delete_view_mode({
+          projectConfigId,
+          viewModeId: mode.id,
+          frontendOpId,
+        }),
+    });
   };
+
   const handleInputClick = (event: React.MouseEvent<HTMLInputElement>) => {
     event.stopPropagation();
   };
   const stopDragPointerDown = (event: React.PointerEvent<HTMLElement>) => {
     event.stopPropagation();
   };
+
   const baseClasses =
     "section-key-value group/viewmode box-border flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded border px-2 text-xs transition-colors";
   const activeClasses =
@@ -687,6 +750,7 @@ function ViewModeEditingRowContent({
   const inputClasses = isActive
     ? "flex-1 truncate bg-transparent text-blue-700 focus:text-blue-700 focus:outline-none focus:ring-0 dark:text-blue-300 dark:focus:text-blue-200"
     : "flex-1 truncate bg-transparent text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-100";
+
   let userFacingClasses = "text-setta-400 hover:text-setta-600";
   let userFacingIcon = <HiCode size={16} />;
   let userFacingTitle = "Developer-facing";
@@ -695,81 +759,78 @@ function ViewModeEditingRowContent({
     userFacingIcon = <TbUser size={16} />;
     userFacingTitle = "User-facing";
   }
+
   let tabClasses = "text-setta-400 hover:text-setta-600";
   let tabTitle = "Not shown as a tab";
   if (mode.isTab) {
     tabClasses = "text-blue-500 hover:text-blue-400";
     tabTitle = "Shown as a tab";
   }
+
   const rowClick = canEditVariants ? () => onSelect(mode.id) : undefined;
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <div
-        ref={sortable?.setNodeRef}
-        data-testid="overview-view-mode-edit-row"
-        data-view-mode-id={mode.id}
-        style={sortable?.style}
-        className={`${rowClasses} ${canEditVariants ? "" : "cursor-not-allowed opacity-60"} ${validationError ? "border-red-400/80 text-red-700 dark:text-red-300" : ""}`}
-        onClick={rowClick}
+    <div
+      ref={sortable?.setNodeRef}
+      data-testid="overview-view-mode-edit-row"
+      data-view-mode-id={mode.id}
+      style={sortable?.style}
+      className={`${rowClasses} ${
+        canEditVariants ? "" : "cursor-not-allowed opacity-60"
+      }`}
+      onClick={rowClick}
+    >
+      {sortable && (
+        <span
+          ref={sortable.setActivatorNodeRef}
+          data-testid="overview-view-mode-edit-drag-handle"
+          className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
+          {...sortable.attributes}
+          {...sortable.listeners}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
+        </span>
+      )}
+      <input
+        value={inputValue}
+        onChange={onChange}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        onClick={handleInputClick}
+        onPointerDown={stopDragPointerDown}
+        placeholder="View mode name"
+        className={inputClasses}
+        disabled={!canEditStructure}
+      />
+      <button
+        className={`cursor-pointer bg-transparent ${tabClasses}`}
+        onClick={handleToggleTab}
+        onPointerDown={stopDragPointerDown}
+        title={tabTitle}
+        disabled={!canEditStructure}
       >
-        {sortable && (
-          <span
-            ref={sortable.setActivatorNodeRef}
-            data-testid="overview-view-mode-edit-drag-handle"
-            className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-            {...sortable.attributes}
-            {...sortable.listeners}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
-          </span>
-        )}
-        <input
-          value={inputValue}
-          onChange={onChange}
-          onBlur={onBlur}
-          onKeyDown={onKeyDown}
-          onClick={handleInputClick}
-          onPointerDown={stopDragPointerDown}
-          placeholder="View mode name"
-          className={`${inputClasses} ${validationError ? "text-red-700 focus:text-red-700 dark:text-red-300 dark:focus:text-red-200" : ""}`}
-          disabled={!canEditStructure}
-        />
+        <FiBookmark size={16} />
+      </button>
+      <button
+        className={`cursor-pointer bg-transparent ${userFacingClasses}`}
+        onClick={handleToggleUserFacing}
+        onPointerDown={stopDragPointerDown}
+        title={userFacingTitle}
+        disabled={!canEditStructure}
+      >
+        {userFacingIcon}
+      </button>
+      {isDeletable && (
         <button
-          className={`cursor-pointer bg-transparent ${tabClasses}`}
-          onClick={handleToggleTab}
+          className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
+          onClick={handleDelete}
           onPointerDown={stopDragPointerDown}
-          title={tabTitle}
+          title="Delete view mode"
           disabled={!canEditStructure}
         >
-          <FiBookmark size={16} />
+          <i className="gg-trash" />
         </button>
-        <button
-          className={`cursor-pointer bg-transparent ${userFacingClasses}`}
-          onClick={handleToggleUserFacing}
-          onPointerDown={stopDragPointerDown}
-          title={userFacingTitle}
-          disabled={!canEditStructure}
-        >
-          {userFacingIcon}
-        </button>
-        {isDeletable && (
-          <button
-            className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
-            onClick={handleDelete}
-            onPointerDown={stopDragPointerDown}
-            title="Delete view mode"
-            disabled={!canEditStructure}
-          >
-            <i className="gg-trash" />
-          </button>
-        )}
-      </div>
-      {validationError ? (
-        <p className="px-2 text-[10px] font-medium text-red-500 dark:text-red-300">
-          {validationError}
-        </p>
-      ) : null}
+      )}
     </div>
   );
 }

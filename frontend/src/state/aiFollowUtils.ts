@@ -1,10 +1,5 @@
 import type { AIFollowMode } from "state/types/aiFollow";
-import {
-  SectionTypeEnum,
-  type BaseSectionImplUnion,
-  type ChatSectionImpl,
-  type Variant,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 type AIFollowIdsByProject = Record<
   string,
@@ -39,9 +34,11 @@ export function getSectionIdsForProject(
 }
 
 type SectionVariantMap = Record<string, string>;
-type SectionVariantEntry = Pick<Variant, "impl">;
-type SectionImplEntry = Pick<BaseSectionImplUnion, "type"> &
-  Partial<Pick<ChatSectionImpl, "chatId">>;
+type SectionVariantEntry = { impl: string };
+type SectionImplEntry = {
+  type?: SectionTypeEnum;
+  chatId?: string | null;
+};
 
 export function getAllowedChatIdsForProject(
   mode: AIFollowMode,
@@ -78,6 +75,26 @@ export function getAllowedChatIdsForProject(
     }
     const chatId = impl.chatId;
     if (typeof chatId === "string" && chatId.trim()) {
+      merged.add(chatId);
+    }
+  }
+  return merged;
+}
+
+export function getAllowedChatIdsForSelection(
+  mode: AIFollowMode,
+  selectedChatIds: Array<string>,
+  selectedSectionChatIds: Array<string>,
+): Set<string> | null {
+  if (mode === "off") {
+    return new Set();
+  }
+  if (mode === "all") {
+    return null;
+  }
+  const merged = new Set(selectedChatIds);
+  for (const chatId of selectedSectionChatIds) {
+    if (chatId.trim()) {
       merged.add(chatId);
     }
   }
