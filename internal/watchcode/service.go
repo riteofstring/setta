@@ -86,26 +86,6 @@ func (s *Service) SyncConfigs(configs map[string]ConfigInputs) error {
 	return nil
 }
 
-func (s *Service) ConfigSnapshots() map[string]ConfigSnapshot {
-	if s == nil {
-		return map[string]ConfigSnapshot{}
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	output := make(map[string]ConfigSnapshot, len(s.manager.configSnapshots))
-	for configID, snapshot := range s.manager.configSnapshots {
-		output[configID] = ConfigSnapshot{
-			Enabled:      snapshot.Enabled,
-			Files:        append([]string(nil), snapshot.Files...),
-			Folders:      append([]FolderInput(nil), snapshot.Folders...),
-			IgnoredRoots: append([]string(nil), snapshot.IgnoredRoots...),
-		}
-	}
-	return output
-}
-
 func (s *Service) Close() error {
 	if s == nil {
 		return nil

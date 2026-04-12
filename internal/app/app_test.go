@@ -39,7 +39,6 @@ import (
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
-	"setta/internal/watchcode"
 )
 
 func TestAppServesFoundationRoutes(t *testing.T) {
@@ -8703,6 +8702,7 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
@@ -8715,6 +8715,12 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 				WatchCodeFiles:   []string{"pkg/watch.py"},
 				WatchCodeFolders: []projectstate.WatchCodeFolder{
 					{Path: "pkg", Recursive: true},
+				},
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
 				},
 			},
 		},
@@ -8736,30 +8742,23 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 		t.Fatal("expected IDE app to start watch code service")
 	}
 
-	expected := map[string]watchcode.ConfigSnapshot{
-		"project-alpha": {
-			Enabled: true,
-			Files: []string{
-				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "watch.py"),
-			},
-			Folders: []watchcode.FolderInput{
-				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg"), Recursive: true},
-			},
-			IgnoredRoots: []string{
-				cfg.Paths.SettaFilesRoot,
-				cfg.Paths.RuntimeRoot,
-			},
-		},
+	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
 	}
-	if !reflect.DeepEqual(app.watchCode.ConfigSnapshots(), expected) {
-		t.Fatalf("expected synced watch code config snapshots %#v, got %#v", expected, app.watchCode.ConfigSnapshots())
+	watchFile := filepath.Join(watchDir, "watch.py")
+	if err := os.WriteFile(watchFile, []byte("def watch(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watched file: %v", err)
 	}
+
+	waitForAppWatchCodeCallable(t, app, "project-alpha", "pkg.watch.watch:function", watchFile)
 }
 
 func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
 	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
 		payload["capabilities"] = []string{"registerCodegenTarget"}
@@ -8789,6 +8788,12 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 			WatchCodeFolders: []projectstate.WatchCodeFolder{
 				{Path: "pkg/nested", Recursive: false},
 			},
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: string(projectstate.CodeLanguagePython),
+					Payload:  json.RawMessage(`{"language":"python"}`),
+				},
+			},
 		}
 		return document, nil
 	}); err != nil {
@@ -8799,24 +8804,16 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 		t.Fatalf("save main runtime: %v", err)
 	}
 
-	expected := map[string]watchcode.ConfigSnapshot{
-		"project-alpha": {
-			Enabled: true,
-			Files: []string{
-				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "watch.py"),
-			},
-			Folders: []watchcode.FolderInput{
-				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "nested"), Recursive: false},
-			},
-			IgnoredRoots: []string{
-				cfg.Paths.SettaFilesRoot,
-				cfg.Paths.RuntimeRoot,
-			},
-		},
+	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "nested")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
 	}
-	if !reflect.DeepEqual(app.watchCode.ConfigSnapshots(), expected) {
-		t.Fatalf("expected watch code configs after save %#v, got %#v", expected, app.watchCode.ConfigSnapshots())
+	watchFile := filepath.Join(watchDir, "nested_watch.py")
+	if err := os.WriteFile(watchFile, []byte("def nested_watch(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watched file: %v", err)
 	}
+
+	waitForAppWatchCodeCallable(t, app, "project-alpha", "pkg.nested.nested_watch.nested_watch:function", watchFile)
 }
 
 func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
@@ -10867,6 +10864,40 @@ func waitForAppWatchCodeProject(t *testing.T, app *App, projectID string, predic
 		select {
 		case <-timeout:
 			t.Fatalf("timed out waiting for watch code project state for %q; latest snapshot %#v", projectID, snapshot.Document.Projects[projectID])
+		case <-ticker.C:
+		}
+	}
+}
+
+func waitForAppWatchCodeCallable(t *testing.T, app *App, projectID string, entryKey string, sourcePath string) {
+	t.Helper()
+
+	waitForAppWatchCodeProject(t, app, projectID, func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry[entryKey]
+		if !ok || entry.SourcePath != sourcePath || len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
+			return false
+		}
+		_, _, _, err := project.ResolveSection(entry.SectionIDs[0])
+		return err == nil
+	})
+}
+
+func waitForAppProjectMissing(t *testing.T, app *App, projectID string) {
+	t.Helper()
+
+	timeout := time.After(15 * time.Second)
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		snapshot := app.ProjectStates().Main().Snapshot()
+		if _, ok := snapshot.Document.Projects[projectID]; !ok {
+			return
+		}
+
+		select {
+		case <-timeout:
+			t.Fatalf("timed out waiting for project %q to be removed; latest snapshot %#v", projectID, snapshot.Document.Projects[projectID])
 		case <-ticker.C:
 		}
 	}

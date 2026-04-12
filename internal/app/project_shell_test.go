@@ -28,7 +28,6 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
-	"setta/internal/watchcode"
 	"setta/internal/wsapi"
 )
 
@@ -3374,6 +3373,7 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
@@ -3384,6 +3384,12 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 				Name:             "Alpha",
 				WatchCodeEnabled: true,
 				WatchCodeFiles:   []string{"pkg/alpha.py"},
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
 			},
 			"project-beta": {
 				ID:               "project-beta",
@@ -3391,6 +3397,12 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 				WatchCodeEnabled: true,
 				WatchCodeFolders: []projectstate.WatchCodeFolder{
 					{Path: "pkg/beta", Recursive: true},
+				},
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
 				},
 			},
 		},
@@ -3408,31 +3420,16 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 		}
 	})
 
-	expectedBefore := map[string]watchcode.ConfigSnapshot{
-		"project-alpha": {
-			Enabled: true,
-			Files: []string{
-				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "alpha.py"),
-			},
-			IgnoredRoots: []string{
-				cfg.Paths.SettaFilesRoot,
-				cfg.Paths.RuntimeRoot,
-			},
-		},
-		"project-beta": {
-			Enabled: true,
-			Folders: []watchcode.FolderInput{
-				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "beta"), Recursive: true},
-			},
-			IgnoredRoots: []string{
-				cfg.Paths.SettaFilesRoot,
-				cfg.Paths.RuntimeRoot,
-			},
-		},
+	betaDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "beta")
+	if err := os.MkdirAll(betaDir, 0o755); err != nil {
+		t.Fatalf("mkdir beta dir: %v", err)
 	}
-	if got := app.watchCode.ConfigSnapshots(); !reflect.DeepEqual(got, expectedBefore) {
-		t.Fatalf("expected initial watch code configs %#v, got %#v", expectedBefore, got)
+	betaFile := filepath.Join(betaDir, "beta.py")
+	if err := os.WriteFile(betaFile, []byte("def beta(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write beta watched file: %v", err)
 	}
+
+	waitForAppWatchCodeCallable(t, app, "project-beta", "pkg.beta.beta.beta:function", betaFile)
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -3455,21 +3452,18 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 		t.Fatalf("expected delete 200, got %d with body %q", deleteResponse.StatusCode, string(body))
 	}
 
-	expectedAfter := map[string]watchcode.ConfigSnapshot{
-		"project-alpha": {
-			Enabled: true,
-			Files: []string{
-				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "alpha.py"),
-			},
-			IgnoredRoots: []string{
-				cfg.Paths.SettaFilesRoot,
-				cfg.Paths.RuntimeRoot,
-			},
-		},
+	waitForAppProjectMissing(t, app, "project-beta")
+
+	alphaDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
+	if err := os.MkdirAll(alphaDir, 0o755); err != nil {
+		t.Fatalf("mkdir alpha dir: %v", err)
 	}
-	if got := app.watchCode.ConfigSnapshots(); !reflect.DeepEqual(got, expectedAfter) {
-		t.Fatalf("expected watch code configs after delete %#v, got %#v", expectedAfter, got)
+	alphaFile := filepath.Join(alphaDir, "alpha.py")
+	if err := os.WriteFile(alphaFile, []byte("def alpha(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write alpha watched file: %v", err)
 	}
+
+	waitForAppWatchCodeCallable(t, app, "project-alpha", "pkg.alpha.alpha:function", alphaFile)
 }
 
 func appProjectShellTestProjectWithWindowing() projectstate.Project {
