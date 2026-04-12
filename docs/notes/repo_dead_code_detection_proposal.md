@@ -60,9 +60,8 @@ The current first-pass reports include:
 
 Current first-pass caveats:
 
-- Python reachability is advisory and comes from `vulture` filtered by smoke
-  coverage gathered through repo-managed dev dependencies plus repo-owned smoke
-  import roots.
+- Python reachability is advisory and comes from `vulture` filtered by coverage
+  gathered from real package/public roots through repo-managed dev dependencies.
 - Frontend reachability compares Knip `--production` against Knip's full graph,
   then uses a repo-local import graph to classify many `prod-dead` findings as
   `test`-live or `tooling`-live. Some package/dependency findings still remain
@@ -170,7 +169,11 @@ Source-checkout Python roots should be derived from:
 
 - documented SDK/public modules
 - runtime helper flows documented in `docs/reference/go-backed-python.md`
-- smoke and integration execution from real entrypoints
+- integration or coverage execution from real entrypoints
+
+Do not add internal helper packages as extra roots just to reduce noise. If an
+internal Python module stays live, it should be because the real supported roots
+need it.
 
 Public Python modules should be explicit. Any module treated as public should
 define `__all__`. In the current tree, the most obvious public module surfaces
@@ -178,7 +181,7 @@ are re-export modules such as `backend/setta/api/__init__.py` and
 `backend/setta/llm/chat_toolkit/__init__.py`.
 
 Dynamic Python import paths must be treated as first-class retained edges or
-smoke-rooted flows. The current repo has real examples:
+flows exercised from real roots. The current repo has real examples:
 
 - `backend/setta/api/hot_reload.py` uses `importlib.reload` and
   `importlib.import_module`
@@ -260,12 +263,12 @@ not treat them as handwritten cleanup targets.
 Use three evidence sources, not one.
 
 - Ruff for unused imports, locals, arguments, and bad `__all__` references
-- targeted smoke/integration execution under Coverage.py from real roots
+- targeted integration or coverage execution under Coverage.py from real roots
 - Vulture as report-only candidate generation
 
-Coverage is supporting evidence, not proof of deadness. A line not executed by a
-smoke suite is only weak evidence. For Python, stronger candidates are modules
-or symbols that satisfy all of these:
+Coverage is supporting evidence, not proof of deadness. A line not executed
+while exercising the real roots is only weak evidence. For Python, stronger
+candidates are modules or symbols that satisfy all of these:
 
 - not part of a declared public module surface
 - not part of a documented source-checkout runtime flow

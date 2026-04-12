@@ -547,7 +547,6 @@ def build_python_reports(
     coverage_version = installed_python_package_version("coverage")
     generated_globs = list(python_config.get("generated_globs", []))
     public_modules = list(python_config.get("public_modules", []))
-    smoke_package_roots = list(python_config.get("smoke_package_roots", []))
     vulture_min_confidence = int(python_config.get("vulture_min_confidence", 80))
     vulture_version = installed_python_package_version("vulture")
     command = [
@@ -583,13 +582,8 @@ def build_python_reports(
     write_json(lint_path, lint_report)
 
     public_import_modules, public_module_warnings = resolve_python_public_import_modules(public_modules)
-    smoke_import_modules, smoke_module_warnings = resolve_python_smoke_import_modules(
-        smoke_package_roots,
-        generated_globs,
-    )
-    smoke_modules = sorted(dict.fromkeys(public_import_modules + smoke_import_modules))
-    coverage_payload, coverage_commands = collect_python_smoke_coverage(
-        smoke_import_modules=smoke_modules,
+    coverage_payload, coverage_commands = collect_python_root_coverage(
+        root_import_modules=public_import_modules,
         generated_globs=generated_globs,
     )
     vulture_command = [
@@ -608,7 +602,7 @@ def build_python_reports(
         public_modules=public_modules,
     )
     reachability_limitations = [
-        "Python reachability is advisory: findings come from vulture candidates filtered by smoke coverage, not from a full static call graph.",
+        "Python reachability is advisory: findings come from vulture candidates filtered by coverage from real package/public roots, not from a full static call graph.",
     ]
     reachability_report = {
         "schema_version": SCHEMA_VERSION,
@@ -622,9 +616,7 @@ def build_python_reports(
         "vulture_min_confidence": vulture_min_confidence,
         "public_modules": public_modules,
         "public_import_modules": public_import_modules,
-        "smoke_package_roots": smoke_package_roots,
-        "smoke_import_modules": smoke_modules,
-        "warnings": sorted(dict.fromkeys(public_module_warnings + smoke_module_warnings)),
+        "warnings": public_module_warnings,
         "limitations": reachability_limitations,
         "coverage_summary": coverage_payload["summary"],
         "findings": reachability_findings,
@@ -634,7 +626,7 @@ def build_python_reports(
 
     return {
         "findings": dedupe_findings(lint_findings + reachability_findings),
-        "warnings": sorted(dict.fromkeys(public_module_warnings + smoke_module_warnings)),
+        "warnings": public_module_warnings,
         "limitations": reachability_limitations,
         "report_paths": [
             {"language": "python", "path": relative_path(lint_path)},
@@ -645,8 +637,6 @@ def build_python_reports(
             "reachability": "ok",
             "public_modules": public_modules,
             "public_import_modules": public_import_modules,
-            "smoke_package_roots": smoke_package_roots,
-            "smoke_import_modules": smoke_modules,
             "coverage_version": coverage_version,
             "vulture_version": vulture_version,
         },
@@ -692,28 +682,6 @@ def resolve_python_public_import_modules(public_modules: list[str]) -> tuple[lis
     return sorted(dict.fromkeys(import_modules)), sorted(dict.fromkeys(warnings))
 
 
-def resolve_python_smoke_import_modules(
-    smoke_package_roots: list[str],
-    generated_globs: list[str],
-) -> tuple[list[str], list[str]]:
-    modules: list[str] = []
-    warnings: list[str] = []
-    for package_root in smoke_package_roots:
-        root_path = ROOT_DIR / package_root
-        if not root_path.exists() or not root_path.is_dir():
-            warnings.append(f"Python smoke package root was not found: {package_root}")
-            continue
-        for path in sorted(root_path.rglob("*.py")):
-            relative = relative_path(path)
-            if matches_any_glob(relative, generated_globs) or path.name == "__main__.py":
-                continue
-            try:
-                modules.append(python_module_name_from_path(relative))
-            except ValueError as exc:
-                warnings.append(str(exc))
-    return sorted(dict.fromkeys(modules)), sorted(dict.fromkeys(warnings))
-
-
 def python_module_name_from_path(path: str) -> str:
     module_path = Path(path)
     parts = module_path.parts
@@ -727,9 +695,9 @@ def python_module_name_from_path(path: str) -> str:
     return ".".join(["setta", *module_parts]) if module_parts else "setta"
 
 
-def collect_python_smoke_coverage(
+def collect_python_root_coverage(
     *,
-    smoke_import_modules: list[str],
+    root_import_modules: list[str],
     generated_globs: list[str],
 ) -> tuple[dict[str, Any], list[str]]:
     coverage_base = [sys.executable, "-m", "coverage"]
@@ -739,9 +707,9 @@ def collect_python_smoke_coverage(
         temp_dir_path = Path(temp_dir)
         coverage_env = {**os.environ, "COVERAGE_FILE": str(temp_dir_path / ".coverage")}
         coverage_json_path = temp_dir_path / "coverage.json"
-        import_smoke_path = temp_dir_path / "python_import_smoke.py"
-        import_smoke_path.write_text(
-            "".join(f"import {module_name}\n" for module_name in smoke_import_modules),
+        root_import_path = temp_dir_path / "python_root_imports.py"
+        root_import_path.write_text(
+            "".join(f"import {module_name}\n" for module_name in root_import_modules),
             encoding="utf-8",
         )
 
@@ -749,7 +717,7 @@ def collect_python_smoke_coverage(
             [*coverage_base, "erase"],
             [*coverage_base, "run", "--append", "-m", "setta", "--help"],
             [*coverage_base, "run", "--append", "-m", "setta", "version"],
-            [*coverage_base, "run", "--append", str(import_smoke_path)],
+            [*coverage_base, "run", "--append", str(root_import_path)],
             [
                 *coverage_base,
                 "json",
@@ -770,7 +738,7 @@ def collect_python_smoke_coverage(
             command_displays.append(
                 display_python_coverage_command(
                     command,
-                    import_smoke_path=import_smoke_path,
+                    root_import_path=root_import_path,
                     coverage_json_path=coverage_json_path,
                 )
             )
@@ -782,8 +750,8 @@ def collect_python_smoke_coverage(
         {
             "files": files,
             "summary": {
-                "smoke_root_count": 3,
-                "smoke_import_module_count": len(smoke_import_modules),
+                "executed_root_command_count": 3,
+                "root_import_module_count": len(root_import_modules),
                 "covered_file_count": len(files),
                 "executed_file_count": executed_file_count,
             },
@@ -795,11 +763,11 @@ def collect_python_smoke_coverage(
 def display_python_coverage_command(
     command: list[str],
     *,
-    import_smoke_path: Path,
+    root_import_path: Path,
     coverage_json_path: Path,
 ) -> str:
     replacements = {
-        str(import_smoke_path): "<temp-python-import-smoke.py>",
+        str(root_import_path): "<temp-python-root-imports.py>",
         str(coverage_json_path): "<temp-coverage.json>",
     }
     return command_display([replacements.get(part, part) for part in command])
@@ -863,9 +831,9 @@ def normalize_python_vulture_findings(
         file_executed = bool(executed_lines)
         evidence = [f"reported by vulture ({match.group('confidence')}% confidence)"]
         if file_executed:
-            evidence.append("candidate line was not executed by Python smoke roots")
+            evidence.append("candidate line was not executed while exercising the Python roots")
         else:
-            evidence.append("file was not executed by Python smoke roots")
+            evidence.append("file was not executed while exercising the Python roots")
         findings.append(
             {
                 "language": "python",
@@ -873,14 +841,14 @@ def normalize_python_vulture_findings(
                 "bucket": "prod-dead",
                 "tool": "vulture",
                 "confidence": "medium",
-                "root_scope": "smoke",
+                "root_scope": "prod",
                 "path": path,
                 "line": line_number,
                 "column": None,
                 "symbol": match.group("symbol"),
                 "kind": match.group("kind"),
                 "vulture_confidence": int(match.group("confidence")),
-                "file_executed_in_smoke": file_executed,
+                "file_executed_in_root_coverage": file_executed,
                 "evidence": evidence,
             }
         )
