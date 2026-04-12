@@ -172,6 +172,97 @@ export function getLatestStateMachineRun(
 export function loadStateMachineRuns(): void {
   void loadAgentRuns();
 }
+type StateMachineMutationRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
+  startSectionId: string | null;
+};
+type StateMachineMutationContext = StateMachineMutationRequest & {
+  failureMessage: string;
+};
+type StateMachineMutationResponse<TSuccess> = {
+  data: TSuccess;
+  status: number;
+  hasResponse: boolean;
+};
+function resolveStateMachineMutationContext({
+  machineGroupId,
+  startSectionId,
+  failureMessage,
+}: {
+  machineGroupId: string;
+  startSectionId?: string | null;
+  failureMessage: string;
+}): StateMachineMutationContext | null {
+  if (useShareSession.getState().isDeploymentMode) {
+    return null;
+  }
+  const projectConfigId = getCurrProjectConfigId();
+  const normalizedMachineGroupId = machineGroupId.trim();
+  const normalizedStartSectionId = startSectionId?.trim() ?? null;
+  if (
+    projectConfigId === NULL_PROJECT_CONFIG_ID ||
+    normalizedMachineGroupId === ""
+  ) {
+    logWorkflowDebug("workflow mutation rejected before request", {
+      projectConfigId,
+      machineGroupId: normalizedMachineGroupId,
+      startSectionId: normalizedStartSectionId,
+      failureMessage,
+    });
+    return null;
+  }
+  return {
+    projectConfigId,
+    machineGroupId: normalizedMachineGroupId,
+    startSectionId: normalizedStartSectionId,
+    failureMessage,
+  };
+}
+function logStateMachineMutationRequest(
+  context: StateMachineMutationContext,
+): void {
+  logWorkflowDebug("workflow mutation request", context);
+}
+function logStateMachineMutationResponse<TSuccess>(
+  context: StateMachineMutationContext,
+  response: StateMachineMutationResponse<TSuccess>,
+): void {
+  logWorkflowDebug("workflow mutation response", {
+    ...context,
+    status: response.status,
+    hasResponse: response.hasResponse,
+    ok: res200(response),
+    errorDetail: res200(response) ? null : getErrorDetail(response.data),
+  });
+}
+async function finalizeStateMachineMutationSuccess<TSuccess>(
+  context: StateMachineMutationContext,
+  data: TSuccess,
+  onSuccess:
+    | ((
+        data: TSuccess,
+        context: {
+          projectConfigId: string;
+          machineGroupId: string;
+        },
+      ) => void)
+    | undefined,
+  skipDirectRefresh: boolean,
+): Promise<boolean> {
+  onSuccess?.(data, {
+    projectConfigId: context.projectConfigId,
+    machineGroupId: context.machineGroupId,
+  });
+  if (skipDirectRefresh) {
+    return true;
+  }
+  await refreshStateMachineRunForMachineGroup(
+    context.projectConfigId,
+    context.machineGroupId,
+  );
+  return true;
+}
 async function runStateMachineMutation<TSuccess>({
   machineGroupId,
   startSectionId,
@@ -187,11 +278,7 @@ async function runStateMachineMutation<TSuccess>({
     projectConfigId: string;
     machineGroupId: string;
     startSectionId: string | null;
-  }) => Promise<{
-    data: TSuccess;
-    status: number;
-    hasResponse: boolean;
-  }>;
+  }) => Promise<StateMachineMutationResponse<TSuccess>>;
   onSuccess?: (
     data: TSuccess,
     context: {
@@ -201,45 +288,17 @@ async function runStateMachineMutation<TSuccess>({
   ) => void;
   skipDirectRefresh?: boolean;
 }): Promise<boolean> {
-  if (useShareSession.getState().isDeploymentMode) {
-    return false;
-  }
-  const projectConfigId = getCurrProjectConfigId();
-  const normalizedMachineGroupId = machineGroupId.trim();
-  const normalizedStartSectionId = startSectionId?.trim() ?? null;
-  if (
-    projectConfigId === NULL_PROJECT_CONFIG_ID ||
-    normalizedMachineGroupId === ""
-  ) {
-    logWorkflowDebug("workflow mutation rejected before request", {
-      projectConfigId,
-      machineGroupId: normalizedMachineGroupId,
-      startSectionId: normalizedStartSectionId,
-      failureMessage,
-    });
-    return false;
-  }
-  logWorkflowDebug("workflow mutation request", {
-    projectConfigId,
-    machineGroupId: normalizedMachineGroupId,
-    startSectionId: normalizedStartSectionId,
+  const context = resolveStateMachineMutationContext({
+    machineGroupId,
+    startSectionId,
     failureMessage,
   });
-  const res = await send({
-    projectConfigId,
-    machineGroupId: normalizedMachineGroupId,
-    startSectionId: normalizedStartSectionId,
-  });
-  logWorkflowDebug("workflow mutation response", {
-    projectConfigId,
-    machineGroupId: normalizedMachineGroupId,
-    startSectionId: normalizedStartSectionId,
-    failureMessage,
-    status: res.status,
-    hasResponse: res.hasResponse,
-    ok: res200(res),
-    errorDetail: res200(res) ? null : getErrorDetail(res.data),
-  });
+  if (context === null) {
+    return false;
+  }
+  logStateMachineMutationRequest(context);
+  const res = await send(context);
+  logStateMachineMutationResponse(context, res);
   if (!res200(res)) {
     addTemporaryNotification(
       getErrorDetail(res.data) ?? failureMessage,
@@ -247,17 +306,12 @@ async function runStateMachineMutation<TSuccess>({
     );
     return false;
   }
-  onSuccess?.(res.data, {
-    projectConfigId,
-    machineGroupId: normalizedMachineGroupId,
-  });
-  if (!skipDirectRefresh) {
-    await refreshStateMachineRunForMachineGroup(
-      projectConfigId,
-      normalizedMachineGroupId,
-    );
-  }
-  return true;
+  return await finalizeStateMachineMutationSuccess(
+    context,
+    res.data,
+    onSuccess,
+    skipDirectRefresh ?? false,
+  );
 }
 export async function startStateMachineRun(
   machineGroupId: string,
