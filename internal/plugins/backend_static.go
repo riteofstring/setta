@@ -52,50 +52,86 @@ type registeredStaticAssetMatch struct {
 	RelativePath string
 }
 
+type registeredStaticAssetSearch struct {
+	match        registeredStaticAssetMatch
+	prefixLength int
+	found        bool
+}
+
 func findRegisteredStaticAssetMatch(entries []DiscoveredPlugin, requestPath string) (registeredStaticAssetMatch, bool, error) {
-	bestMatch := registeredStaticAssetMatch{}
-	bestMatchLength := -1
-	found := false
+	search := registeredStaticAssetSearch{prefixLength: -1}
 	for _, entry := range entries {
-		if entry.Manifest == nil {
+		if !canServeRegisteredStaticAssets(entry) {
 			continue
 		}
-		if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
-			continue
+		nextSearch, err := searchRegisteredStaticAssetEntry(search, entry, requestPath)
+		if err != nil {
+			return registeredStaticAssetMatch{}, false, err
 		}
-		if !containsString(entry.EffectiveCapabilities, "registerStaticDir") {
-			continue
-		}
+		search = nextSearch
+	}
+	return search.match, search.found, nil
+}
 
-		for _, registration := range entry.RegisteredStaticDirs {
-			relativePath, ok := matchRegisteredStaticDirPath(registration.RoutePrefix, requestPath)
-			if !ok {
-				continue
-			}
+func canServeRegisteredStaticAssets(entry DiscoveredPlugin) bool {
+	if entry.Manifest == nil {
+		return false
+	}
+	if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
+		return false
+	}
+	return containsString(entry.EffectiveCapabilities, "registerStaticDir")
+}
 
-			prefixLength := len(registration.RoutePrefix)
-			if !found || prefixLength > bestMatchLength {
-				bestMatch = registeredStaticAssetMatch{
-					Entry:        entry,
-					Registration: registration,
-					RelativePath: relativePath,
-				}
-				bestMatchLength = prefixLength
-				found = true
-				continue
-			}
-			if prefixLength == bestMatchLength && registration.RoutePrefix == bestMatch.Registration.RoutePrefix {
-				return registeredStaticAssetMatch{}, false, newServiceError(
-					ServiceErrorCodeBackendRuntimeInvalid,
-					"Conflicting plugin static dir registrations for %s: %s and %s",
-					registration.RoutePrefix,
-					bestMatch.Entry.PluginID,
-					entry.PluginID,
-				)
-			}
+func searchRegisteredStaticAssetEntry(
+	search registeredStaticAssetSearch,
+	entry DiscoveredPlugin,
+	requestPath string,
+) (registeredStaticAssetSearch, error) {
+	for _, registration := range entry.RegisteredStaticDirs {
+		relativePath, ok := matchRegisteredStaticDirPath(registration.RoutePrefix, requestPath)
+		if !ok {
+			continue
+		}
+		nextSearch, matched, err := selectRegisteredStaticAssetMatch(search, entry, registration, relativePath)
+		if err != nil {
+			return registeredStaticAssetSearch{}, err
+		}
+		if matched {
+			search = nextSearch
 		}
 	}
-	return bestMatch, found, nil
+	return search, nil
+}
+
+func selectRegisteredStaticAssetMatch(
+	search registeredStaticAssetSearch,
+	entry DiscoveredPlugin,
+	registration PluginRegisteredStaticDir,
+	relativePath string,
+) (registeredStaticAssetSearch, bool, error) {
+	prefixLength := len(registration.RoutePrefix)
+	if !search.found || prefixLength > search.prefixLength {
+		return registeredStaticAssetSearch{
+			match: registeredStaticAssetMatch{
+				Entry:        entry,
+				Registration: registration,
+				RelativePath: relativePath,
+			},
+			prefixLength: prefixLength,
+			found:        true,
+		}, true, nil
+	}
+	if prefixLength == search.prefixLength && registration.RoutePrefix == search.match.Registration.RoutePrefix {
+		return registeredStaticAssetSearch{}, false, newServiceError(
+			ServiceErrorCodeBackendRuntimeInvalid,
+			"Conflicting plugin static dir registrations for %s: %s and %s",
+			registration.RoutePrefix,
+			search.match.Entry.PluginID,
+			entry.PluginID,
+		)
+	}
+	return search, false, nil
 }
 
 func matchRegisteredStaticDirPath(routePrefix string, requestPath string) (string, bool) {
