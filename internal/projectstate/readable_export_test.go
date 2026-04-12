@@ -3,6 +3,7 @@ package projectstate
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -123,6 +124,69 @@ func TestBuildReadableProjectExportEdgesUsePathsAndIgnoreAgenticEdges(t *testing
 	}
 	if config.EntrySection != "Script" {
 		t.Fatalf("expected entry section Script, got %q", config.EntrySection)
+	}
+}
+
+func TestBuildReadableProjectExportOrdersDefaultConfigFirst(t *testing.T) {
+	t.Parallel()
+
+	document, workspaceRoot, settaFilesRoot := readableExportTestDocument(t)
+	defaultProject := document.Projects[document.DefaultProjectID]
+
+	alphaProject := defaultProject
+	alphaProject.ID = "00000000-0000-0000-0000-000000000030"
+	alphaProject.Name = "Alpha"
+
+	betaProject := defaultProject
+	betaProject.ID = "00000000-0000-0000-0000-000000000031"
+	betaProject.Name = "Beta"
+
+	document.Projects[alphaProject.ID] = alphaProject
+	document.Projects[betaProject.ID] = betaProject
+
+	payload, err := document.BuildReadableProjectExport(ReadableExportOptions{
+		IncludeVariants: true,
+		WorkspaceRoot:   workspaceRoot,
+		SettaFilesRoot:  settaFilesRoot,
+	})
+	if err != nil {
+		t.Fatalf("build readable export: %v", err)
+	}
+
+	configNames := make([]string, 0, len(payload.Configs))
+	for _, config := range payload.Configs {
+		configNames = append(configNames, config.Name)
+	}
+	if !slices.Equal(configNames, []string{"Export Project", "Alpha", "Beta"}) {
+		t.Fatalf("unexpected config order %#v", configNames)
+	}
+}
+
+func TestCollectReadableDrawAssetsDeduplicatesPaths(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"layers": []any{
+			map[string]any{
+				"elements": []any{
+					map[string]any{"dataPath": " assets/first.png "},
+					map[string]any{"dataPath": "assets/first.png"},
+					map[string]any{"dataPath": ""},
+					"invalid element",
+				},
+			},
+			map[string]any{
+				"elements": []any{
+					map[string]any{"dataPath": "assets/second.png"},
+				},
+			},
+			map[string]any{"elements": "invalid elements"},
+			"invalid layer",
+		},
+	}
+
+	if got := collectReadableDrawAssets(payload); !slices.Equal(got, []string{"assets/first.png", "assets/second.png"}) {
+		t.Fatalf("unexpected draw assets %#v", got)
 	}
 }
 

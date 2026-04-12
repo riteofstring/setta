@@ -70,49 +70,28 @@ type readableProjectConfigSections struct {
 	OutputPortsBySection    map[string]map[string]string
 }
 
-func (d Document) BuildReadableProjectExport(opts ReadableExportOptions) (ReadableProjectExport, error) {
-	defaultProjectID := strings.TrimSpace(d.DefaultProjectID)
-	if defaultProjectID == "" {
-		return ReadableProjectExport{}, fmt.Errorf("missing default project id")
-	}
+type readableProjectExportSource struct {
+	ID        string
+	Name      string
+	Project   Project
+	IsDefault bool
+}
 
-	defaultProject, err := d.ProjectByID(defaultProjectID)
+type readableResolvedEdgeExport struct {
+	SourcePath     string
+	TargetPath     string
+	SourceAccessor string
+	TargetNamePath []string
+}
+
+func (d Document) BuildReadableProjectExport(opts ReadableExportOptions) (ReadableProjectExport, error) {
+	defaultProject, orderedProjects, err := d.readableProjectExportSources()
 	if err != nil {
 		return ReadableProjectExport{}, err
 	}
-
-	projectIDs := make([]string, 0, len(d.Projects))
-	for projectID := range d.Projects {
-		projectIDs = append(projectIDs, projectID)
-	}
-	sort.Slice(projectIDs, func(leftIndex int, rightIndex int) bool {
-		leftID := projectIDs[leftIndex]
-		rightID := projectIDs[rightIndex]
-		if leftID == defaultProjectID && rightID != defaultProjectID {
-			return true
-		}
-		if rightID == defaultProjectID && leftID != defaultProjectID {
-			return false
-		}
-		leftProject := d.Projects[leftID]
-		rightProject := d.Projects[rightID]
-		if leftProject.Name != rightProject.Name {
-			return leftProject.Name < rightProject.Name
-		}
-		return leftID < rightID
-	})
-
-	configs := make([]ReadableProjectConfigExport, 0, len(projectIDs))
-	for _, projectID := range projectIDs {
-		project, err := d.ProjectByID(projectID)
-		if err != nil {
-			return ReadableProjectExport{}, err
-		}
-		configExport, err := buildReadableProjectConfigExport(project, opts)
-		if err != nil {
-			return ReadableProjectExport{}, err
-		}
-		configs = append(configs, configExport)
+	configs, err := buildReadableProjectConfigExports(orderedProjects, opts)
+	if err != nil {
+		return ReadableProjectExport{}, err
 	}
 
 	return ReadableProjectExport{
@@ -122,6 +101,56 @@ func (d Document) BuildReadableProjectExport(opts ReadableExportOptions) (Readab
 		},
 		Configs: configs,
 	}, nil
+}
+
+func (d Document) readableProjectExportSources() (Project, []readableProjectExportSource, error) {
+	defaultProjectID := strings.TrimSpace(d.DefaultProjectID)
+	if defaultProjectID == "" {
+		return Project{}, nil, fmt.Errorf("missing default project id")
+	}
+	defaultProject, err := d.ProjectByID(defaultProjectID)
+	if err != nil {
+		return Project{}, nil, err
+	}
+
+	sources := make([]readableProjectExportSource, 0, len(d.Projects))
+	for projectID, project := range d.Projects {
+		sources = append(sources, readableProjectExportSource{
+			ID:        projectID,
+			Name:      project.Name,
+			Project:   project,
+			IsDefault: projectID == defaultProjectID,
+		})
+	}
+	sort.Slice(sources, func(leftIndex int, rightIndex int) bool {
+		return readableProjectExportSourceLess(sources[leftIndex], sources[rightIndex])
+	})
+	return defaultProject, sources, nil
+}
+
+func readableProjectExportSourceLess(left readableProjectExportSource, right readableProjectExportSource) bool {
+	if left.IsDefault != right.IsDefault {
+		return left.IsDefault
+	}
+	if left.Name != right.Name {
+		return left.Name < right.Name
+	}
+	return left.ID < right.ID
+}
+
+func buildReadableProjectConfigExports(
+	sources []readableProjectExportSource,
+	opts ReadableExportOptions,
+) ([]ReadableProjectConfigExport, error) {
+	configs := make([]ReadableProjectConfigExport, 0, len(sources))
+	for _, source := range sources {
+		configExport, err := buildReadableProjectConfigExport(source.Project, opts)
+		if err != nil {
+			return nil, err
+		}
+		configs = append(configs, configExport)
+	}
+	return configs, nil
 }
 
 func buildReadableProjectConfigExport(project Project, opts ReadableExportOptions) (ReadableProjectConfigExport, error) {
@@ -744,42 +773,19 @@ func readableCodeFilePath(payload map[string]any, impl SectionImpl) string {
 }
 
 func collectReadableDrawAssets(payload map[string]any) []string {
-	rawLayers, ok := payload["layers"]
-	if !ok {
-		return nil
-	}
-	layers, ok := rawLayers.([]any)
+	layers, ok := payload["layers"].([]any)
 	if !ok {
 		return nil
 	}
 	seen := map[string]struct{}{}
 	assets := make([]string, 0)
 	for _, rawLayer := range layers {
-		layer, ok := rawLayer.(map[string]any)
-		if !ok {
-			continue
-		}
-		rawElements, ok := layer["elements"]
-		if !ok {
-			continue
-		}
-		elements, ok := rawElements.([]any)
-		if !ok {
-			continue
-		}
-		for _, rawElement := range elements {
-			element, ok := rawElement.(map[string]any)
-			if !ok {
+		for _, rawElement := range readableLayerElements(rawLayer) {
+			dataPath := readableDrawAssetPath(rawElement)
+			if dataPath == "" || readableStringSetHas(seen, dataPath) {
 				continue
 			}
-			dataPath := strings.TrimSpace(payloadRawStringField(element, "dataPath"))
-			if dataPath == "" {
-				continue
-			}
-			if _, exists := seen[dataPath]; exists {
-				continue
-			}
-			seen[dataPath] = struct{}{}
+			readableStringSetAdd(seen, dataPath)
 			assets = append(assets, dataPath)
 		}
 	}
@@ -787,6 +793,32 @@ func collectReadableDrawAssets(payload map[string]any) []string {
 		return nil
 	}
 	return assets
+}
+
+func readableLayerElements(rawLayer any) []any {
+	layer, ok := rawLayer.(map[string]any)
+	if !ok {
+		return nil
+	}
+	elements, _ := layer["elements"].([]any)
+	return elements
+}
+
+func readableDrawAssetPath(rawElement any) string {
+	element, ok := rawElement.(map[string]any)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(payloadRawStringField(element, "dataPath"))
+}
+
+func readableStringSetHas(values map[string]struct{}, key string) bool {
+	_, exists := values[key]
+	return exists
+}
+
+func readableStringSetAdd(values map[string]struct{}, key string) {
+	values[key] = struct{}{}
 }
 
 func buildReadableEdgeExports(
@@ -797,51 +829,106 @@ func buildReadableEdgeExports(
 ) ([]ReadableEdgeExport, error) {
 	output := make([]ReadableEdgeExport, 0, len(project.Edges))
 	for _, edge := range project.Edges {
-		activeSourceVariantID, ok := project.SectionVariantMap[edge.SourceSectionID]
-		if !ok {
-			return nil, fmt.Errorf("%w: %q", ErrSectionActiveVariantNotFound, edge.SourceSectionID)
+		resolved, include, err := resolveReadableEdgeExport(
+			project,
+			edge,
+			sectionPathByID,
+			paramNamePathsBySection,
+			outputPortsBySection,
+		)
+		if err != nil {
+			return nil, err
 		}
-		activeTargetVariantID, ok := project.SectionVariantMap[edge.TargetSectionID]
-		if !ok {
-			return nil, fmt.Errorf("%w: %q", ErrSectionActiveVariantNotFound, edge.TargetSectionID)
-		}
-		if activeSourceVariantID != edge.SourceVariantID || activeTargetVariantID != edge.TargetVariantID {
+		if !include {
 			continue
 		}
-
-		sourcePath, ok := sectionPathByID[edge.SourceSectionID]
-		if !ok {
-			return nil, fmt.Errorf("%w: %q", ErrSectionNotFound, edge.SourceSectionID)
-		}
-		targetPath, ok := sectionPathByID[edge.TargetSectionID]
-		if !ok {
-			return nil, fmt.Errorf("%w: %q", ErrSectionNotFound, edge.TargetSectionID)
-		}
-
-		outputPorts, ok := outputPortsBySection[edge.SourceSectionID]
-		if !ok {
-			return nil, fmt.Errorf("missing output ports for %q", edge.SourceSectionID)
-		}
-		accessor, ok := outputPorts[edge.SourcePortID]
-		if !ok {
-			return nil, fmt.Errorf("missing edge output port %q for %q", edge.SourcePortID, edge.SourceSectionID)
-		}
-
-		namePaths, ok := paramNamePathsBySection[edge.TargetSectionID]
-		if !ok {
-			return nil, fmt.Errorf("missing params for %q", edge.TargetSectionID)
-		}
-		namePath, ok := namePaths[edge.TargetPortID]
-		if !ok {
-			return nil, fmt.Errorf("missing edge target param %q for %q", edge.TargetPortID, edge.TargetSectionID)
-		}
-
 		output = append(output, ReadableEdgeExport{
-			From: formatReadableEdgeSource(sourcePath, accessor),
-			To:   formatReadableEdgeTarget(targetPath, namePath),
+			From: formatReadableEdgeSource(resolved.SourcePath, resolved.SourceAccessor),
+			To:   formatReadableEdgeTarget(resolved.TargetPath, resolved.TargetNamePath),
 		})
 	}
 	return output, nil
+}
+
+func resolveReadableEdgeExport(
+	project Project,
+	edge Edge,
+	sectionPathByID map[string]string,
+	paramNamePathsBySection map[string]map[string][]string,
+	outputPortsBySection map[string]map[string]string,
+) (readableResolvedEdgeExport, bool, error) {
+	active, err := readableEdgeUsesActiveVariants(project.SectionVariantMap, edge)
+	if err != nil || !active {
+		return readableResolvedEdgeExport{}, active, err
+	}
+
+	sourcePath, err := readableSectionPathForEdge(sectionPathByID, edge.SourceSectionID)
+	if err != nil {
+		return readableResolvedEdgeExport{}, false, err
+	}
+	targetPath, err := readableSectionPathForEdge(sectionPathByID, edge.TargetSectionID)
+	if err != nil {
+		return readableResolvedEdgeExport{}, false, err
+	}
+	accessor, err := readableEdgeSourceAccessor(outputPortsBySection, edge)
+	if err != nil {
+		return readableResolvedEdgeExport{}, false, err
+	}
+	namePath, err := readableEdgeTargetNamePath(paramNamePathsBySection, edge)
+	if err != nil {
+		return readableResolvedEdgeExport{}, false, err
+	}
+
+	return readableResolvedEdgeExport{
+		SourcePath:     sourcePath,
+		TargetPath:     targetPath,
+		SourceAccessor: accessor,
+		TargetNamePath: namePath,
+	}, true, nil
+}
+
+func readableEdgeUsesActiveVariants(sectionVariantMap map[string]string, edge Edge) (bool, error) {
+	activeSourceVariantID, ok := sectionVariantMap[edge.SourceSectionID]
+	if !ok {
+		return false, fmt.Errorf("%w: %q", ErrSectionActiveVariantNotFound, edge.SourceSectionID)
+	}
+	activeTargetVariantID, ok := sectionVariantMap[edge.TargetSectionID]
+	if !ok {
+		return false, fmt.Errorf("%w: %q", ErrSectionActiveVariantNotFound, edge.TargetSectionID)
+	}
+	return activeSourceVariantID == edge.SourceVariantID && activeTargetVariantID == edge.TargetVariantID, nil
+}
+
+func readableSectionPathForEdge(sectionPathByID map[string]string, sectionID string) (string, error) {
+	sectionPath, ok := sectionPathByID[sectionID]
+	if !ok {
+		return "", fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
+	}
+	return sectionPath, nil
+}
+
+func readableEdgeSourceAccessor(outputPortsBySection map[string]map[string]string, edge Edge) (string, error) {
+	outputPorts, ok := outputPortsBySection[edge.SourceSectionID]
+	if !ok {
+		return "", fmt.Errorf("missing output ports for %q", edge.SourceSectionID)
+	}
+	accessor, ok := outputPorts[edge.SourcePortID]
+	if !ok {
+		return "", fmt.Errorf("missing edge output port %q for %q", edge.SourcePortID, edge.SourceSectionID)
+	}
+	return accessor, nil
+}
+
+func readableEdgeTargetNamePath(paramNamePathsBySection map[string]map[string][]string, edge Edge) ([]string, error) {
+	namePaths, ok := paramNamePathsBySection[edge.TargetSectionID]
+	if !ok {
+		return nil, fmt.Errorf("missing params for %q", edge.TargetSectionID)
+	}
+	namePath, ok := namePaths[edge.TargetPortID]
+	if !ok {
+		return nil, fmt.Errorf("missing edge target param %q for %q", edge.TargetPortID, edge.TargetSectionID)
+	}
+	return namePath, nil
 }
 
 func formatReadableEdgeSource(sectionPath string, accessor string) string {
