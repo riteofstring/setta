@@ -1,3 +1,5 @@
+import { getShareDeploymentProjectConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
@@ -7,11 +9,13 @@ import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
-import { route_load_share_project_config } from "utils/generatedEndpoints";
-import type { ProjectConfig } from "utils/generatedTypes";
-
+import type {
+  Policy,
+  ProjectConfigMetadata,
+  SingleConfig,
+} from "utils/generatedTypes";
 function resolveProjectConfigId(
-  projectMetadata: ProjectConfig[],
+  projectMetadata: ProjectConfigMetadata[],
   requestedConfigName: string | undefined,
   defaultProjectConfigId: string | null,
 ): string | null {
@@ -26,6 +30,87 @@ function resolveProjectConfigId(
   return defaultProjectConfigId;
 }
 
+type ShareDeploymentSession = NonNullable<
+  Awaited<ReturnType<typeof ensureShareSessionFromCurrentDeployment>>
+>;
+
+function completeShareDeploymentLoad(
+  projectIs404: boolean,
+  isMounted: boolean,
+  setDoneLoading: (value: boolean) => void,
+): void {
+  useProjectLoading.setState({
+    projectIsLoading: false,
+    projectIs404,
+  });
+  if (isMounted) {
+    setDoneLoading(true);
+  }
+}
+
+async function loadShareDeploymentProject({
+  session,
+  projectConfigName,
+}: {
+  session: ShareDeploymentSession;
+  projectConfigName: string | undefined;
+}): Promise<boolean> {
+  const resolvedConfigId = resolveProjectConfigId(
+    session.projectMetadata ?? [],
+    projectConfigName,
+    session.defaultProjectConfigId,
+  );
+  if (!resolvedConfigId) {
+    return false;
+  }
+  const stateRes = await callOpenAPI(
+    getShareDeploymentProjectConfig({
+      path: {
+        deploymentName: session.deploymentName,
+        version: session.deploymentVersion,
+      },
+      body: {
+        projectConfigId: resolvedConfigId,
+      },
+    } as Parameters<typeof getShareDeploymentProjectConfig>[0]),
+  );
+  if (!res200(stateRes)) {
+    return false;
+  }
+  await loadProjectState(
+    (
+      stateRes.data as {
+        projectState: SingleConfig;
+      }
+    ).projectState,
+  );
+  await fetchListenerCoverageSnapshot(resolvedConfigId);
+  if (session.sharePolicy.allowLLM) {
+    await requestAIFollowSnapshot(resolvedConfigId);
+  }
+  return true;
+}
+
+async function loadShareDeploymentState({
+  loadProject,
+  projectConfigName,
+}: {
+  loadProject: boolean;
+  projectConfigName: string | undefined;
+}): Promise<boolean> {
+  const session = await ensureShareSessionFromCurrentDeployment();
+  if (!session) {
+    return false;
+  }
+  if (!loadProject) {
+    return true;
+  }
+  return await loadShareDeploymentProject({
+    session,
+    projectConfigName,
+  });
+}
+
 export function useLoadShareDeployment(loadProject: boolean = true) {
   const { projectConfigName } = useParams();
   const [doneLoading, setDoneLoading] = useState(false);
@@ -35,11 +120,9 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
   const isStaleLoadKey = loadKeyRef.current !== loadKey;
   const resolvedDoneLoading = isStaleLoadKey ? false : doneLoading;
   const resolvedIs404 = isStaleLoadKey ? false : is404;
-
   useEffect(() => {
     let isMounted = true;
     loadKeyRef.current = loadKey;
-
     async function load() {
       setDoneLoading(false);
       resetProjectStores();
@@ -47,73 +130,19 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
         projectIsLoading: true,
         projectIs404: false,
       });
-      const session = await ensureShareSessionFromCurrentDeployment();
-      if (!session) {
-        useProjectLoading.setState({
-          projectIsLoading: false,
-          projectIs404: true,
-        });
-        if (isMounted) {
-          setDoneLoading(true);
-        }
-        return;
-      }
-      if (loadProject) {
-        const resolvedConfigId = resolveProjectConfigId(
-          session.projectMetadata,
-          projectConfigName,
-          session.defaultProjectConfigId,
-        );
-        if (!resolvedConfigId) {
-          useProjectLoading.setState({
-            projectIsLoading: false,
-            projectIs404: true,
-          });
-          if (isMounted) {
-            setDoneLoading(true);
-          }
-          return;
-        }
-        const stateRes = await route_load_share_project_config(
-          session.deploymentName,
-          session.deploymentVersion,
-          { projectConfigId: resolvedConfigId },
-        );
-        if (!res200(stateRes)) {
-          useProjectLoading.setState({
-            projectIsLoading: false,
-            projectIs404: true,
-          });
-          if (isMounted) {
-            setDoneLoading(true);
-          }
-          return;
-        }
-        await loadProjectState(stateRes.data.projectState);
-        await fetchListenerCoverageSnapshot(resolvedConfigId);
-        if (session.sharePolicy.allowLLM) {
-          await requestAIFollowSnapshot(resolvedConfigId);
-        }
-      }
-      useProjectLoading.setState({
-        projectIsLoading: false,
-        projectIs404: false,
+      const didLoad = await loadShareDeploymentState({
+        loadProject,
+        projectConfigName,
       });
-      if (!isMounted) {
-        return;
-      }
-      setDoneLoading(true);
+      completeShareDeploymentLoad(!didLoad, isMounted, setDoneLoading);
     }
-
     void load();
     return () => {
       isMounted = false;
     };
   }, [loadProject, projectConfigName]);
-
   return [resolvedDoneLoading, resolvedIs404] as const;
 }
-
 type ShareCapabilities = {
   canEditParams: boolean;
   canEditVariants: boolean;
@@ -122,20 +151,48 @@ type ShareCapabilities = {
   canEditStructure: boolean;
 };
 
+const EDIT_SHARE_CAPABILITIES: ShareCapabilities = {
+  canEditParams: true,
+  canEditVariants: true,
+  canEditLayout: true,
+  canRun: true,
+  canEditStructure: true,
+};
+
+const DEFAULT_DEPLOYMENT_POLICY_CAPABILITIES = {
+  allowParamChanges: true,
+  allowVariantChanges: true,
+  allowLayoutChanges: true,
+  allowRun: false,
+} satisfies Pick<
+  Policy,
+  | "allowParamChanges"
+  | "allowVariantChanges"
+  | "allowLayoutChanges"
+  | "allowRun"
+>;
+
+function resolveDeploymentShareCapabilities(
+  sharePolicy: Policy | null,
+): ShareCapabilities {
+  const resolvedPolicy = {
+    ...DEFAULT_DEPLOYMENT_POLICY_CAPABILITIES,
+    ...sharePolicy,
+  };
+  return {
+    canEditParams: resolvedPolicy.allowParamChanges,
+    canEditVariants: resolvedPolicy.allowVariantChanges,
+    canEditLayout: resolvedPolicy.allowLayoutChanges,
+    canRun: resolvedPolicy.allowRun,
+    canEditStructure: false,
+  };
+}
+
 export function useShareCapabilities(): ShareCapabilities {
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const sharePolicy = useShareSession((x) => x.sharePolicy);
-  const allowParamChanges = sharePolicy?.allowParamChanges ?? true;
-  const allowVariantChanges = sharePolicy?.allowVariantChanges ?? true;
-  const allowLayoutChanges = sharePolicy?.allowLayoutChanges ?? true;
-  const allowRun = sharePolicy?.allowRun ?? false;
-  const canEditStructure = !isDeploymentMode;
-
-  return {
-    canEditParams: canEditStructure || allowParamChanges,
-    canEditVariants: canEditStructure || allowVariantChanges,
-    canEditLayout: canEditStructure || allowLayoutChanges,
-    canRun: canEditStructure || allowRun,
-    canEditStructure,
-  };
+  if (!isDeploymentMode) {
+    return EDIT_SHARE_CAPABILITIES;
+  }
+  return resolveDeploymentShareCapabilities(sharePolicy);
 }
