@@ -118,7 +118,7 @@ function normalizeAssets(assets: unknown): NormalizedAsset[] {
   return output;
 }
 
-export function resolveAppAssets(
+function resolveAppAssets(
   assets: unknown,
   options: { allowExternalLinks: boolean },
 ): NormalizedAsset[] {

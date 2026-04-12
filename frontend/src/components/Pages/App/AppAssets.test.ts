@@ -1,87 +1,156 @@
-import { describe, expect, it } from "vitest";
+/* @vitest-environment jsdom */
 
-import { resolveAppAssets } from "./AppAssets";
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-describe("resolveAppAssets", () => {
-  it("filters external assets when allowExternalLinks is false", () => {
-    const assets = [
-      { href: "/static/app.css" },
-      { url: "https://example.com/external.css" },
-      { path: "http://example.com/font.css" },
-      { href: "//cdn.example.com/theme.css" },
-      { href: "data:text/css;base64,Zm9v" },
-    ];
+import { AppAssets } from "./AppAssets";
 
-    const resolved = resolveAppAssets(assets, { allowExternalLinks: false });
+type RenderedAssets = {
+  host: HTMLDivElement;
+  root: Root;
+};
 
-    expect(resolved.map((asset) => asset.href)).toEqual(["/static/app.css"]);
+const originalReactActEnvironment = (
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT;
+
+function setReactActEnvironment(value: boolean | undefined) {
+  const target = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  };
+  if (value === undefined) {
+    delete target.IS_REACT_ACT_ENVIRONMENT;
+    return;
+  }
+  target.IS_REACT_ACT_ENVIRONMENT = value;
+}
+
+function getInjectedAssetLinks(): HTMLLinkElement[] {
+  return Array.from(
+    document.head.querySelectorAll("link[data-setta-app-asset]"),
+  );
+}
+
+async function renderAssets(props: {
+  assets: unknown[] | null | undefined;
+  allowExternalLinks?: boolean;
+}): Promise<RenderedAssets> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+
+  await act(async () => {
+    root.render(createElement(AppAssets, props));
   });
 
-  it("keeps external assets when allowExternalLinks is true", () => {
-    const assets = [
-      { href: "/static/app.css" },
-      { href: "https://example.com/external.css" },
-    ];
+  return { host, root };
+}
 
-    const resolved = resolveAppAssets(assets, { allowExternalLinks: true });
+async function unmountRenderedAssets(rendered: RenderedAssets): Promise<void> {
+  await act(async () => {
+    rendered.root.unmount();
+  });
+  rendered.host.remove();
+}
 
-    expect(resolved.map((asset) => asset.href)).toEqual([
-      "/static/app.css",
-      "https://example.com/external.css",
-    ]);
+afterEach(() => {
+  getInjectedAssetLinks().forEach((link) => link.remove());
+  document.body.innerHTML = "";
+});
+
+describe("AppAssets", () => {
+  beforeEach(() => {
+    setReactActEnvironment(true);
   });
 
-  it("applies type-based defaults for rel and as values", () => {
-    const assets = [
-      { href: "/favicon.ico", type: "icon", sizes: "32x32" },
-      { path: "/font.woff2", type: "font", mimeType: "font/woff2" },
-      { url: "/module.js", type: "preload", as: "script" },
-    ];
+  afterEach(() => {
+    setReactActEnvironment(originalReactActEnvironment);
+  });
 
-    expect(resolveAppAssets(assets, { allowExternalLinks: true })).toEqual([
+  it("filters external assets unless external links are explicitly allowed", async () => {
+    const rendered = await renderAssets({
+      assets: [
+        { href: "/static/app.css" },
+        { url: "https://example.com/external.css" },
+        { path: "http://example.com/font.css" },
+        { href: "//cdn.example.com/theme.css" },
+        { href: "data:text/css;base64,Zm9v" },
+        null,
+        "bad",
+      ],
+    });
+
+    expect(
+      getInjectedAssetLinks().map((link) => link.getAttribute("href")),
+    ).toEqual(["/static/app.css"]);
+
+    await unmountRenderedAssets(rendered);
+    expect(getInjectedAssetLinks()).toHaveLength(0);
+  });
+
+  it("normalizes supported asset metadata when mounting links", async () => {
+    const rendered = await renderAssets({
+      allowExternalLinks: true,
+      assets: [
+        { href: "/favicon.ico", type: "icon", sizes: "32x32" },
+        {
+          path: "/font.woff2",
+          type: "font",
+          mimeType: "font/woff2",
+          crossOrigin: "anonymous",
+        },
+        { url: "/module.js", type: "preload", as: "script" },
+        { rel: "stylesheet" },
+        { href: "https://example.com/external.css" },
+      ],
+    });
+
+    const links = getInjectedAssetLinks();
+    expect(links).toHaveLength(4);
+
+    expect(
+      links.map((link) => ({
+        rel: link.getAttribute("rel"),
+        href: link.getAttribute("href"),
+        type: link.getAttribute("type"),
+        as:
+          ("as" in link
+            ? (link as HTMLLinkElement & { as?: string }).as
+            : "") || null,
+        crossOrigin: link.getAttribute("crossorigin"),
+      })),
+    ).toEqual([
       {
-        key: "asset:icon:/favicon.ico:0",
         rel: "icon",
         href: "/favicon.ico",
-        sizes: "32x32",
-        type: undefined,
-        as: undefined,
-        crossOrigin: undefined,
+        type: null,
+        as: null,
+        crossOrigin: null,
       },
       {
-        key: "asset:stylesheet:/font.woff2:1",
         rel: "stylesheet",
         href: "/font.woff2",
-        sizes: undefined,
         type: "font/woff2",
         as: "font",
-        crossOrigin: undefined,
+        crossOrigin: "anonymous",
       },
       {
-        key: "asset:preload:/module.js:2",
         rel: "preload",
         href: "/module.js",
-        sizes: undefined,
-        type: undefined,
+        type: null,
         as: "script",
-        crossOrigin: undefined,
+        crossOrigin: null,
       },
-    ]);
-  });
-
-  it("drops non-record assets and records without a path-like field", () => {
-    const assets = [null, "bad", { rel: "stylesheet" }, { href: "/valid.css" }];
-
-    expect(resolveAppAssets(assets, { allowExternalLinks: true })).toEqual([
       {
-        key: "asset:stylesheet:/valid.css:3",
         rel: "stylesheet",
-        href: "/valid.css",
-        sizes: undefined,
-        type: undefined,
-        as: undefined,
-        crossOrigin: undefined,
+        href: "https://example.com/external.css",
+        type: null,
+        as: null,
+        crossOrigin: null,
       },
     ]);
+
+    await unmountRenderedAssets(rendered);
   });
 });
