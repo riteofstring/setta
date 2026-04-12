@@ -2524,27 +2524,20 @@ func newChangeParamImplHandler(projectState projectStateProvider) tools.Handler 
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+			return nil, err
 		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Scoped param impl invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, err := projectState.ChangeParamImpl(ctx, projectConfigID, sectionID, paramInfoID, selectedID); err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Scoped param impl invocation context is unavailable.",
+			func() (any, error) {
+				if _, err := projectState.ChangeParamImpl(ctx, projectConfigID, sectionID, paramInfoID, selectedID); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
@@ -2566,27 +2559,20 @@ func newUpdateParamImplConfigHandler(projectState projectStateProvider) tools.Ha
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+			return nil, err
 		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Scoped param impl config invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, err := projectState.UpdateParamImplConfig(ctx, projectConfigID, sectionID, paramInfoID, newConfig); err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Scoped param impl config invocation context is unavailable.",
+			func() (any, error) {
+				if _, err := projectState.UpdateParamImplConfig(ctx, projectConfigID, sectionID, paramInfoID, newConfig); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
@@ -2650,27 +2636,20 @@ func newSetParamEnteredValueHandler(projectState projectStateProvider) tools.Han
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+			return nil, err
 		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Scoped parameter-value invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, err := projectState.SetSectionCodeObjectValue(ctx, projectConfigID, sectionID, paramInfoID, value); err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Scoped parameter-value invocation context is unavailable.",
+			func() (any, error) {
+				if _, err := projectState.SetSectionCodeObjectValue(ctx, projectConfigID, sectionID, paramInfoID, value); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
