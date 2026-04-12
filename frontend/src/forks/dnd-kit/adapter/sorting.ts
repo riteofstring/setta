@@ -6,6 +6,8 @@ const defaultScale = {
   scaleY: 1,
 };
 
+type Orientation = "vertical" | "horizontal";
+
 export function itemsEqual(
   a: UniqueIdentifier[],
   b: UniqueIdentifier[],
@@ -63,47 +65,13 @@ export function computeNewIndex(
   pastHalfway: boolean,
   maxIdx: number,
 ): number {
-  if (activeIdx === 0) {
-    if (overIdx === 0) {
-      return 0;
-    }
+  const movingUp = overIdx < activeIdx;
+  const offset = movingUp ? Number(pastHalfway) : Number(pastHalfway) - 1;
+  const candidateIndex = overIdx + offset;
+  const lowerBound = movingUp ? 0 : activeIdx;
+  const upperBound = movingUp ? activeIdx : maxIdx;
 
-    if (pastHalfway) {
-      return overIdx;
-    }
-
-    return Math.max(0, overIdx - 1);
-  }
-
-  if (activeIdx === maxIdx) {
-    if (overIdx === maxIdx) {
-      return maxIdx;
-    }
-
-    if (pastHalfway) {
-      return Math.min(maxIdx, overIdx + 1);
-    }
-
-    return overIdx;
-  }
-
-  if (overIdx < activeIdx) {
-    if (pastHalfway) {
-      return Math.min(activeIdx, overIdx + 1);
-    }
-
-    return overIdx;
-  }
-
-  if (overIdx > activeIdx) {
-    if (pastHalfway) {
-      return overIdx;
-    }
-
-    return Math.max(activeIdx, overIdx - 1);
-  }
-
-  return activeIdx;
+  return Math.min(upperBound, Math.max(lowerBound, candidateIndex));
 }
 
 export const rectSortingStrategy: SortingStrategy = ({
@@ -128,161 +96,11 @@ export const rectSortingStrategy: SortingStrategy = ({
   };
 };
 
-export const verticalListSortingStrategy: SortingStrategy = ({
-  activeIndex,
-  activeNodeRect: fallbackActiveRect,
-  index,
-  rects,
-  overIndex,
-  pastHalfway,
-}) => {
-  const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect ?? null;
-  const effectiveOverIndex = getEffectiveOverIndex({
-    activeIndex,
-    overIndex,
-    pastHalfway,
-    rectsLength: rects.length,
-  });
+export const verticalListSortingStrategy =
+  createListSortingStrategy("vertical");
 
-  if (!activeNodeRect) {
-    return [null, effectiveOverIndex];
-  }
-
-  if (index === activeIndex) {
-    const overIndexRect = rects[effectiveOverIndex];
-
-    if (!overIndexRect) {
-      return [null, effectiveOverIndex];
-    }
-
-    const delta =
-      activeIndex < effectiveOverIndex
-        ? overIndexRect.top +
-          overIndexRect.height -
-          (activeNodeRect.top + activeNodeRect.height)
-        : overIndexRect.top - activeNodeRect.top;
-
-    return [
-      {
-        x: 0,
-        y: delta,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
-  }
-
-  const itemGap = getItemGap(rects, index, activeIndex);
-
-  if (index > activeIndex && index <= effectiveOverIndex) {
-    return [
-      {
-        x: 0,
-        y: -activeNodeRect.height - itemGap,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
-  }
-
-  if (index < activeIndex && index >= effectiveOverIndex) {
-    return [
-      {
-        x: 0,
-        y: activeNodeRect.height + itemGap,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
-  }
-
-  return [
-    {
-      x: 0,
-      y: 0,
-      ...defaultScale,
-    },
-    effectiveOverIndex,
-  ];
-};
-
-export const horizontalListSortingStrategy: SortingStrategy = ({
-  activeIndex,
-  activeNodeRect: fallbackActiveRect,
-  index,
-  rects,
-  overIndex,
-  pastHalfway,
-}) => {
-  const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect ?? null;
-  const effectiveOverIndex = getEffectiveOverIndex({
-    activeIndex,
-    overIndex,
-    pastHalfway,
-    rectsLength: rects.length,
-  });
-
-  if (!activeNodeRect) {
-    return [null, effectiveOverIndex];
-  }
-
-  if (index === activeIndex) {
-    const overIndexRect = rects[effectiveOverIndex];
-
-    if (!overIndexRect) {
-      return [null, effectiveOverIndex];
-    }
-
-    const delta =
-      activeIndex < effectiveOverIndex
-        ? overIndexRect.left +
-          overIndexRect.width -
-          (activeNodeRect.left + activeNodeRect.width)
-        : overIndexRect.left - activeNodeRect.left;
-
-    return [
-      {
-        x: delta,
-        y: 0,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
-  }
-
-  const itemGap = getItemGap(rects, index, activeIndex, "horizontal");
-
-  if (index > activeIndex && index <= effectiveOverIndex) {
-    return [
-      {
-        x: -activeNodeRect.width - itemGap,
-        y: 0,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
-  }
-
-  if (index < activeIndex && index >= effectiveOverIndex) {
-    return [
-      {
-        x: activeNodeRect.width + itemGap,
-        y: 0,
-        ...defaultScale,
-      },
-      effectiveOverIndex,
-    ];
-  }
-
-  return [
-    {
-      x: 0,
-      y: 0,
-      ...defaultScale,
-    },
-    effectiveOverIndex,
-  ];
-};
+export const horizontalListSortingStrategy =
+  createListSortingStrategy("horizontal");
 
 export function resolveStrategyResult(
   result: ReturnType<SortingStrategy>,
@@ -323,49 +141,181 @@ function getEffectiveOverIndex({
   return computeNewIndex(activeIndex, overIndex, pastHalfway, rectsLength);
 }
 
+function createListSortingStrategy(orientation: Orientation): SortingStrategy {
+  return ({
+    activeIndex,
+    activeNodeRect: fallbackActiveRect,
+    index,
+    rects,
+    overIndex,
+    pastHalfway,
+  }) => {
+    const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect ?? null;
+    const effectiveOverIndex = getEffectiveOverIndex({
+      activeIndex,
+      overIndex,
+      pastHalfway,
+      rectsLength: rects.length,
+    });
+
+    if (!activeNodeRect) {
+      return [null, effectiveOverIndex];
+    }
+
+    return [
+      index === activeIndex
+        ? getActiveItemTransform(
+            activeNodeRect,
+            rects[effectiveOverIndex],
+            activeIndex,
+            effectiveOverIndex,
+            orientation,
+          )
+        : getSiblingItemTransform({
+            activeNodeRect,
+            rects,
+            activeIndex,
+            effectiveOverIndex,
+            index,
+            orientation,
+          }),
+      effectiveOverIndex,
+    ];
+  };
+}
+
+function getActiveItemTransform(
+  activeNodeRect: ClientRect,
+  overIndexRect: ClientRect | undefined,
+  activeIndex: number,
+  effectiveOverIndex: number,
+  orientation: Orientation,
+): Transform | null {
+  if (!overIndexRect) {
+    return null;
+  }
+
+  const activeStart = getRectStart(activeNodeRect, orientation);
+  const activeEnd = getRectEnd(activeNodeRect, orientation);
+  const overStart = getRectStart(overIndexRect, orientation);
+  const overEnd = getRectEnd(overIndexRect, orientation);
+  const delta =
+    activeIndex < effectiveOverIndex
+      ? overEnd - activeEnd
+      : overStart - activeStart;
+
+  return createTransform(orientation, delta);
+}
+
+function getSiblingItemTransform({
+  activeNodeRect,
+  rects,
+  activeIndex,
+  effectiveOverIndex,
+  index,
+  orientation,
+}: {
+  activeNodeRect: ClientRect;
+  rects: Array<ClientRect | undefined>;
+  activeIndex: number;
+  effectiveOverIndex: number;
+  index: number;
+  orientation: Orientation;
+}): Transform {
+  const isDisplacedAfterActive =
+    index > activeIndex && index <= effectiveOverIndex;
+  const isDisplacedBeforeActive =
+    index < activeIndex && index >= effectiveOverIndex;
+
+  if (!isDisplacedAfterActive && !isDisplacedBeforeActive) {
+    return createTransform(orientation, 0);
+  }
+
+  const delta =
+    getRectSize(activeNodeRect, orientation) +
+    getItemGap(rects, index, activeIndex, orientation);
+
+  return createTransform(orientation, isDisplacedAfterActive ? -delta : delta);
+}
+
 function getItemGap(
   clientRects: Array<ClientRect | undefined>,
   index: number,
   activeIndex: number,
-  orientation: "vertical" | "horizontal" = "vertical",
+  orientation: Orientation = "vertical",
 ): number {
   const currentRect = clientRects[index];
-  const previousRect = clientRects[index - 1];
-  const nextRect = clientRects[index + 1];
 
   if (!currentRect) {
     return 0;
   }
 
-  if (activeIndex < index) {
-    if (previousRect) {
-      return orientation === "vertical"
-        ? currentRect.top - (previousRect.top + previousRect.height)
-        : currentRect.left - (previousRect.left + previousRect.width);
-    }
+  const prefersPreviousRect = activeIndex < index;
 
-    if (nextRect) {
-      return orientation === "vertical"
-        ? nextRect.top - (currentRect.top + currentRect.height)
-        : nextRect.left - (currentRect.left + currentRect.width);
-    }
+  return (
+    getGapToAdjacentRect(
+      currentRect,
+      prefersPreviousRect ? clientRects[index - 1] : clientRects[index + 1],
+      orientation,
+      prefersPreviousRect ? "previous" : "next",
+    ) ??
+    getGapToAdjacentRect(
+      currentRect,
+      prefersPreviousRect ? clientRects[index + 1] : clientRects[index - 1],
+      orientation,
+      prefersPreviousRect ? "next" : "previous",
+    ) ??
+    0
+  );
+}
 
-    return 0;
+function getGapToAdjacentRect(
+  currentRect: ClientRect,
+  adjacentRect: ClientRect | undefined,
+  orientation: Orientation,
+  position: "previous" | "next",
+): number | null {
+  if (!adjacentRect) {
+    return null;
   }
 
-  if (nextRect) {
-    return orientation === "vertical"
-      ? nextRect.top - (currentRect.top + currentRect.height)
-      : nextRect.left - (currentRect.left + currentRect.width);
+  if (position === "previous") {
+    return (
+      getRectStart(currentRect, orientation) -
+      getRectEnd(adjacentRect, orientation)
+    );
   }
 
-  if (previousRect) {
-    return orientation === "vertical"
-      ? currentRect.top - (previousRect.top + previousRect.height)
-      : currentRect.left - (previousRect.left + previousRect.width);
-  }
+  return (
+    getRectStart(adjacentRect, orientation) -
+    getRectEnd(currentRect, orientation)
+  );
+}
 
-  return 0;
+function getRectStart(rect: ClientRect, orientation: Orientation): number {
+  return orientation === "vertical" ? rect.top : rect.left;
+}
+
+function getRectSize(rect: ClientRect, orientation: Orientation): number {
+  return orientation === "vertical" ? rect.height : rect.width;
+}
+
+function getRectEnd(rect: ClientRect, orientation: Orientation): number {
+  return getRectStart(rect, orientation) + getRectSize(rect, orientation);
+}
+
+function createTransform(orientation: Orientation, delta: number): Transform {
+  return orientation === "vertical"
+    ? {
+        x: 0,
+        y: delta,
+        ...defaultScale,
+      }
+    : {
+        x: delta,
+        y: 0,
+        ...defaultScale,
+      };
 }
 
 function arrayMove<T>(array: T[], from: number, to: number): T[] {
