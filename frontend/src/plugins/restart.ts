@@ -1,10 +1,9 @@
-import { restartPlugins } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   getErrorDetail,
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
+import { route_plugins_restart } from "utils/generatedEndpoints";
 import type {
   PluginListEntry,
   PluginRestartCapability,
@@ -140,10 +139,7 @@ export function mapPluginRestartResponse(
 export async function requestPluginRestart(
   runRestartRequest: () => Promise<
     ResponseDataAndStatus<PluginRestartResponse>
-  > = () =>
-    callOpenAPI(restartPlugins()) as Promise<
-      ResponseDataAndStatus<PluginRestartResponse>
-    >,
+  > = () => route_plugins_restart(),
 ): Promise<PluginRestartRequestResult> {
   const response = await runRestartRequest();
   return mapPluginRestartResponse(response);
