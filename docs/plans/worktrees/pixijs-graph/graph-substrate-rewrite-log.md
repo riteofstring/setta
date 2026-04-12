@@ -151,6 +151,48 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 10:18 UTC
+
+- re-read the active plan/handoff and stayed on the named
+  `presentedSceneSectionSubtreeReactRender` owner instead of repeating harness
+  work or another forwarding seam hop
+- landed one bounded product cut in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`:
+  stable section-body entries now reuse on matching body-facing fields
+  (`sectionId`, `sectionTypeName`, lock state, color/meta-control style) rather
+  than requiring full `sceneSection` object identity, so position-only scene
+  churn no longer rebuilds the cached body model
+- added a regression in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  proving position-only section motion keeps the cached body model while the
+  shell still rerenders for transform updates
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    -> pass (`3` files, `26` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> pass
+  - first live worktree probe:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-039/worktree-ai.log`
+    -> fail; timed out in `runSettingsGraphComparePreflight(...)` while reading
+       `getSettingsGraphSurfaceKind(...)`
+  - first fresh-context CDP sub-agent -> fail; Chrome DevTools MCP/page access
+    unavailable
+  - bounded recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> pass; refreshed runtime to session `6a1487`
+  - post-recovery fresh-context CDP sub-agent -> fail as canary health check:
+    reached `http://127.0.0.1:3075/settings` but only saw
+    `Loading Setta...` / `Preparing the app surface.`
+- classification:
+  - `worktree_unhealthy` after the allowed recovery attempt
+  - treat the loading surface as runtime-health debt, not as renderer drift on
+    the canonical `All Settings` lane
+- next:
+  - restart the worktree lifecycle on the next iteration and re-establish an
+    authenticated populated `/settings` canary before resuming perf-lane work
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 09:58 UTC
 
 - item `413` landed one bounded production reduction on the canonical

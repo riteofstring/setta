@@ -42,6 +42,22 @@ type StableSectionBodyEntry = {
   sectionBody: SettingsGraphSubstrateCanarySectionBody;
 };
 
+function doSettingsGraphSubstrateCanarySectionBodyInputsMatchSceneSection(
+  sectionBody: SettingsGraphSubstrateCanarySectionBody,
+  sceneSection: SettingsGraphSubstrateCanarySceneSection,
+) {
+  return (
+    sectionBody.positionAndSizeLocked === sceneSection.positionAndSizeLocked &&
+    sectionBody.sectionId === sceneSection.sectionId &&
+    sectionBody.sectionTypeName ===
+      (sceneSection.sectionTypeName ?? SectionTypeEnum.Code) &&
+    sectionBody.shellChromeOwner === "shell-layer" &&
+    sectionBody.styleColor === (sceneSection.styleColor ?? null) &&
+    sectionBody.textBlockMetaControlStyle ===
+      (sceneSection.textBlockMetaControlStyle ?? false)
+  );
+}
+
 type SettingsGraphSubstrateCanarySectionEntryProps = {
   finishSectionDrag: (
     event: ReactPointerEvent<HTMLDivElement>,
@@ -203,7 +219,14 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
       const previousSectionBodyEntry = previousSectionBodiesById.get(
         section.sectionId,
       );
-      if (previousSectionBodyEntry?.sceneSection === section) {
+      if (
+        previousSectionBodyEntry &&
+        (previousSectionBodyEntry.sceneSection === section ||
+          doSettingsGraphSubstrateCanarySectionBodyInputsMatchSceneSection(
+            previousSectionBodyEntry.sectionBody,
+            section,
+          ))
+      ) {
         nextSectionBodiesById.set(section.sectionId, previousSectionBodyEntry);
         continue;
       }

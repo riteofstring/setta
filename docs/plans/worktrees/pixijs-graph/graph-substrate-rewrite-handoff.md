@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 09:58 UTC
+Last updated: 2026-04-13 10:18 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,58 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `414` landed one bounded production reduction inside the canonical
+  `presentedSceneSectionSubtreeReactRender` lane, but the live worktree canary
+  regressed into `worktree_unhealthy` during verification:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the same named owner
+      instead of reopening probe or seam-lift work
+    - chose one visible-subtree cut at the section-body cache seam:
+      position-only `sceneSection` churn should keep updating shell transforms,
+      but it should not force body-model resolution when the body-facing fields
+      are unchanged
+    - kept the slice bounded to the sections-layer body cache rather than
+      widening into shell or Pixi ownership changes
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      so stable body entries now reuse on matching body-relevant section fields
+      instead of requiring full `sceneSection` object identity
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      with a regression proving position-only scene churn reuses the cached
+      body model
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      -> passed (`3` files, `26` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - first live probe attempt:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-039/worktree-ai.log`
+      -> failed after timeout in `runSettingsGraphComparePreflight(...)`
+      while reading `getSettingsGraphSurfaceKind(...)`; treat as runtime health
+      noise, not renderer drift
+    - fresh-context CDP sub-agent before recovery:
+      -> failed to access Chrome DevTools MCP/page at all
+    - bounded self-recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded and refreshed runtime to session `6a1487`
+    - post-recovery fresh-context CDP sub-agent:
+      -> reached `http://127.0.0.1:3075/settings`
+      -> visible content was only `Loading Setta...` /
+         `Preparing the app surface.`
+      -> classify as `worktree_unhealthy`, not a canary-surface pass
+  - reading:
+    - the code slice is landed and covered, but this iteration did not produce a
+      trustworthy live canary readout after the allowed recovery attempt
+    - the blocker is now runtime health on authenticated `/settings`, not a
+      fresh renderer regression claim on the canonical `All Settings` lane
+    - do not treat the current loading surface as evidence about
+      `presentedSceneSectionSubtreeReactRender`; recover the worktree canary
+      first
+  - next default frontier:
+    - start the next iteration with a fresh worktree lifecycle and re-run the
+      authenticated `/settings` canary health check before spending another pass
+      inside the visible mounted-section subtree
 
 - item `413` landed one bounded production reduction against the canonical
   `rotaryParamCodeObjDefault` worktree perf lane by closing an unnecessary

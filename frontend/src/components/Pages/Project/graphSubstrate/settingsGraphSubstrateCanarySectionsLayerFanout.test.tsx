@@ -188,6 +188,44 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(host.querySelector('[data-testid="body-section-a"]')).not.toBeNull();
   });
 
+  it("reuses the cached body model when only a section position changes", async () => {
+    const sceneSections = [createSceneSection({ sectionId: "section-a" })];
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={sceneSections}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
+    expect(mockSectionShell).toHaveBeenCalledTimes(1);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              position: { x: 180, y: 120 },
+              renderedPosition: { x: 180, y: 120 },
+              sectionId: "section-a",
+            }),
+          ]}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
+    expect(mockSectionShell).toHaveBeenCalledTimes(2);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+  });
+
   it("rerenders only the changed sibling when one section body input changes", async () => {
     const sceneSections = [
       createSceneSection({ sectionId: "section-a" }),
