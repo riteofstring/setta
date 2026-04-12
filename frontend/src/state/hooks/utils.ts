@@ -1,10 +1,7 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { checkIfFileExists } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { res200 } from "utils/endpointUtils";
-import { asyncDebounce } from "utils/utils";
+
 export function useMatchSorterFilter<T>(
   completeList: Array<T>,
   keys: Array<string>,
@@ -54,25 +51,6 @@ export function useWindowSize() {
     return () => window.removeEventListener("resize", handleResize);
   }, []); // Empty array ensures that effect is only run on mount
   return windowSize;
-}
-function useFileExists(delay) {
-  const [fileExists, setFileExists] = useState(false);
-  const debouncedCheckIfFileExists = useCallback(
-    asyncDebounce(async (f) => {
-      const res = await callOpenAPI(
-        checkIfFileExists({
-          body: {
-            filepath: f,
-          },
-        } as Parameters<typeof checkIfFileExists>[0]),
-      );
-      if (res200(res)) {
-        setFileExists(res.data);
-      }
-    }, delay),
-    [setFileExists],
-  );
-  return { fileExists, debouncedCheckIfFileExists };
 }
 export function useLocalValue<T>(globalValue: T) {
   const [localValue, setLocalValue] = useState<T>(globalValue);

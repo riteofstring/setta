@@ -1304,7 +1304,7 @@ export function createProjectChatWindowingState(
   };
 }
 
-export type ProjectCodegenPluginTarget = gt.ProjectCodegenPluginTarget;
+type ProjectCodegenPluginTarget = gt.ProjectCodegenPluginTarget;
 
 export function createProjectCodegenPluginTarget(
   options: Partial<ProjectCodegenPluginTarget> = {},
