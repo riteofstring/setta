@@ -51,6 +51,28 @@ describe("getKwargsControlsActionState", () => {
       "Convert selected args to edge connectors",
     );
   });
+
+  it("keeps selection metadata but disables edits when the variant is frozen", () => {
+    const state = getKwargsControlsActionState({
+      selectedParams: ["param-1"],
+      edgeInputParams: ["param-1"],
+      pinnedParams: ["param-1"],
+      deletableSelectedParamIds: ["param-1"],
+      canEditLayout: true,
+      canEditStructure: true,
+      variantIsFrozen: true,
+    });
+
+    expect(state.selectedAreAllEdgeInputs).toBe(true);
+    expect(state.selectedHasAnyEdgeInputs).toBe(true);
+    expect(state.shouldUnpinSelected).toBe(true);
+    expect(state.pinParamsDisabled).toBe(true);
+    expect(state.convertToEdgeDisabled).toBe(true);
+    expect(state.deleteSelectedDisabled).toBe(true);
+    expect(state.convertToEdgeTooltip).toBe(
+      "Move selected edge args back to unpinned",
+    );
+  });
 });
 
 describe("getKwargsControlsThemeState", () => {

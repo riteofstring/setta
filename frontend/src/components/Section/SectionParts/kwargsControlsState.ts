@@ -52,23 +52,36 @@ export function getKwargsControlsActionState({
   canEditStructure,
   variantIsFrozen,
 }: KwargsActionStateArgs) {
-  const selectedAreAllEdgeInputs =
-    selectedParams.length > 0 &&
-    selectedParams.every((paramId) => edgeInputParams.includes(paramId));
+  if (selectedParams.length === 0) {
+    return {
+      selectedAreAllEdgeInputs: false,
+      selectedHasAnyEdgeInputs: false,
+      shouldUnpinSelected: false,
+      canPinParams: false,
+      pinParamsDisabled: true,
+      pinButtonLabel: "Pin selected args",
+      canConvertToEdge: false,
+      convertToEdgeDisabled: true,
+      deleteSelectedDisabled: true,
+      ...getConvertToEdgePresentation(false, canEditLayout),
+    };
+  }
+
+  const selectedAreAllEdgeInputs = selectedParams.every((paramId) =>
+    edgeInputParams.includes(paramId),
+  );
   const selectedHasAnyEdgeInputs = selectedParams.some((paramId) =>
     edgeInputParams.includes(paramId),
   );
-  const shouldUnpinSelected =
-    selectedParams.length > 0 &&
-    selectedParams.every((paramId) => pinnedParams.includes(paramId));
-  const canPinParams =
-    selectedParams.length > 0 && !variantIsFrozen && canEditLayout;
-  const canConvertToEdge =
-    selectedParams.length > 0 && !variantIsFrozen && canEditStructure;
+  const shouldUnpinSelected = selectedParams.every((paramId) =>
+    pinnedParams.includes(paramId),
+  );
+  const canPinParams = !variantIsFrozen && canEditLayout;
+  const canConvertToEdge = !variantIsFrozen && canEditStructure;
   const canDeleteSelected =
-    deletableSelectedParamIds.length > 0 &&
     !variantIsFrozen &&
-    canEditStructure;
+    canEditStructure &&
+    deletableSelectedParamIds.length > 0;
 
   return {
     selectedAreAllEdgeInputs,
