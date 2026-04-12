@@ -501,6 +501,15 @@ export function findSharedVisibleSettingsGraphSection(
 export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
+  const persistedPaneState = readPersistedSettingsGraphLocalPaneState(
+    await page.evaluate(() => {
+      return window.localStorage.getItem("setta_data");
+    }),
+  );
+  if (persistedPaneState) {
+    return persistedPaneState;
+  }
+
   return page.evaluate(async () => {
     const { useLocalStorage } = await import("/src/state/definitions.ts");
     const state = useLocalStorage.getState();
@@ -512,6 +521,58 @@ export async function getLocalPaneState(
       uiEditorTrueWidth: state.uiEditorTrueWidth,
     };
   });
+}
+
+export function readPersistedSettingsGraphLocalPaneState(
+  rawPersistedState: string | null,
+): SettingsGraphLocalPaneState | null {
+  if (!rawPersistedState) {
+    return null;
+  }
+
+  let parsedPersistedState: unknown;
+  try {
+    parsedPersistedState = JSON.parse(rawPersistedState);
+  } catch {
+    return null;
+  }
+
+  if (
+    !parsedPersistedState ||
+    typeof parsedPersistedState !== "object" ||
+    Array.isArray(parsedPersistedState)
+  ) {
+    return null;
+  }
+
+  const persistedContainer = parsedPersistedState as {
+    state?: unknown;
+  };
+  const persistedState =
+    persistedContainer.state &&
+    typeof persistedContainer.state === "object" &&
+    !Array.isArray(persistedContainer.state)
+      ? persistedContainer.state
+      : parsedPersistedState;
+
+  const paneState = persistedState as Record<string, unknown>;
+  if (
+    typeof paneState.overviewVis !== "boolean" ||
+    typeof paneState.overviewTrueWidth !== "number" ||
+    typeof paneState.snapToGrid !== "boolean" ||
+    typeof paneState.uiEditorVis !== "boolean" ||
+    typeof paneState.uiEditorTrueWidth !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    overviewVisible: paneState.overviewVis,
+    overviewTrueWidth: paneState.overviewTrueWidth,
+    snapToGrid: paneState.snapToGrid,
+    uiEditorVisible: paneState.uiEditorVis,
+    uiEditorTrueWidth: paneState.uiEditorTrueWidth,
+  };
 }
 
 export async function setLocalPaneState(

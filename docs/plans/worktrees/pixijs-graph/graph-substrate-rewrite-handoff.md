@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 16:44 UTC
+Last updated: 2026-04-12 16:59 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,39 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `327` landed one bounded probe-helper slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+
+  - product renderer code did not change on this pass
+  - probe helper changed in:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now parses the persisted `setta_data` payload first via
+      `readPersistedSettingsGraphLocalPaneState(...)` before falling back to
+      the page-side Zustand import when `getLocalPaneState(...)` captures the
+      initial compare-pane state
+  - focused parser coverage added in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-pane-state-persisted-read-probe.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-016/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-016/main-ai.log`
+      -> still failed on the same phase:
+      `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+  - reading:
+    - this closes the narrow hypothesis that the repeated canonical-lane stall
+      was caused by the page-side local-storage module import used inside
+      `getLocalPaneState(...)`
+    - do not spend the next default iteration on another pane-state-helper or
+      probe-timeout tweak for this same shape
+    - sequencing should pivot back to product-side perf work on the already
+      measured dominant owner `interactionReactFlowStateSync` unless a future
+      fresh-runtime rerun produces new evidence that the capture path itself
+      changed
 
 - item `326` landed one bounded product-side attribution slice inside the
   measured dominant motion owner `interactionReactFlowStateSync` on the named

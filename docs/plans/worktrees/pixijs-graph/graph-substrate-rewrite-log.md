@@ -12668,3 +12668,31 @@ settings graph probe phase: worktree: capture initial pane state.`
       probe and see whether the dominant owner or average motion cost moved
       after this resolver reuse path landed
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-12 16:59 UTC
+
+- item `327` landed one bounded probe-helper slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so
+    `getLocalPaneState(...)` reads the persisted `setta_data` payload first via
+    `readPersistedSettingsGraphLocalPaneState(...)` and only falls back to the
+    page-side Zustand import when the persisted payload is unavailable
+  - added focused parser coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-pane-state-persisted-read-probe.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-016/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-016/main-ai.log`
+      -> still failed on the same phase:
+      `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+  - reading:
+    - this pass closes the helper hypothesis that the repeated stall was caused
+      by the `getLocalPaneState(...)` page-side dynamic import
+    - the canonical cross-worktree perf lane remains unstable on the current
+      runtime
+    - next default frontier: return to product-side perf work on
+      `interactionReactFlowStateSync` instead of spending another iteration on
+      this same pane-state capture shape
