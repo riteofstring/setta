@@ -1,16 +1,17 @@
 # Playwright E2E Runner Notes
 
-Run the Playwright E2E helper from the repo root. The script sources
-`./activate.sh` itself, so you do not need to pre-activate the venv in your shell.
+This repo expects the Playwright E2E helper to be run from the repo root with the
+Python venv active.
 
 ## Working command (from repo root)
 
 ```
-./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.spec.ts
+source activate.sh
+scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.spec.ts
 ```
 
 What this does:
-- Sources `./activate.sh` and uses the repo `.venv` Python.
+- Activates the repo's `.venv` so `python` is on PATH.
 - Always creates a disposable `SETTA_WORKSPACE_ROOT` and seeds temporary `setta_files`.
 - Always creates a disposable `SETTA_HOME` so tests never touch your real user config (`~/.setta/config.json`).
 - Uses a temp test cache root for plugin fixture/artifact caching (`${TMPDIR:-/tmp}/setta-test-cache/<repo-key>` by default). Override with `SETTA_TEST_CACHE_DIR` when needed.
@@ -21,9 +22,17 @@ What this does:
 
 ## Common failure modes
 
+- `python: command not found`
+  - The venv is not activated (or does not exist). Run `source activate.sh` from
+    the repo root.
+
 - `activate.sh: no such file or directory: .venv/bin/activate`
   - The repo venv is missing. Create it with:
     - `./init_env.sh`
-    - `./dev_install_python.sh`
-- `Missing <repo>/.venv/bin/python after sourcing activate.sh.`
-  - The repo venv is incomplete or broken. Recreate it with `./init_env.sh` or `./dev_install_python.sh`.
+    - `./dev_install.sh`
+
+## Notes from this run
+
+The runner initially failed because it was invoked from the `frontend/` working
+folder without `activate.sh`, so `python` was not in PATH. Running from the repo
+root with `source activate.sh` fixed it.

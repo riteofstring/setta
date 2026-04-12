@@ -4,7 +4,7 @@ import { useNodeInternals, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   SectionTypeEnum,
-  type SingleConfig,
+  type ProjectStateSingleConfig,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -14,10 +14,11 @@ import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
-type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
+type WorkflowEdge =
+  ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
 
 function getSectionTypeById(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   sectionId: string,
 ): SectionTypeEnum | null {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
@@ -125,11 +126,13 @@ function resolveRelativeAnchorSides(
 }
 
 const StateMachineEdgeRenderer = () => {
-  const { width, height, multiSelectionActive } = useReactFlow((state) => ({
-    width: state.width,
-    height: state.height,
-    multiSelectionActive: state.multiSelectionActive,
-  }));
+  const { width, height } = useReactFlow(
+    (state) => ({
+      width: state.width,
+      height: state.height,
+    }),
+    shallow,
+  );
   const {
     stateMachineEdges,
     topLevelSections,
@@ -217,7 +220,10 @@ const StateMachineEdgeRenderer = () => {
               return;
             }
             event.stopPropagation();
-            toggleStateMachineEdgeSelection(edge.id, multiSelectionActive);
+            toggleStateMachineEdgeSelection(
+              edge.id,
+              useReactFlow.getState().multiSelectionActive,
+            );
           };
           const promptSectionId =
             edge.targetAction?.type === "send_prompt"
