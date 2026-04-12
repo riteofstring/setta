@@ -13514,15 +13514,7 @@ func newProjectRouteTestHandlerWithRouteOptions(
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
-	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
-	if err != nil {
-		t.Fatalf("open settings overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := settingsRuntime.Close(); err != nil {
-			t.Fatalf("close settings overlay runtime: %v", err)
-		}
-	})
+	settingsRuntime, _ := newSettingsRouteTestRuntimeWithDocument(t, settingsDocument)
 
 	promptTemplatesRoot := workspaceRoot
 	if strings.TrimSpace(promptTemplatesRoot) == "" {

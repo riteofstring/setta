@@ -22,6 +22,28 @@ import (
 	"github.com/shirou/gopsutil/v4/process"
 )
 
+func newLauncherTestSettingsRuntime(t *testing.T, document settingsstate.Document) *settingsstate.Runtime {
+	t.Helper()
+
+	store, err := settingsstate.NewStore(filepath.Join(t.TempDir(), settingsstate.DefaultFileName), settingsstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new settings store: %v", err)
+	}
+	if err := store.Save(t.Context(), document); err != nil {
+		t.Fatalf("save settings document: %v", err)
+	}
+	runtime, err := settingsstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	return runtime
+}
+
 func TestLocalIDESessionLauncherBuildLaunchArgsIncludeExecutablePath(t *testing.T) {
 	t.Parallel()
 
@@ -1129,15 +1151,7 @@ func writeCorruptedSettingsProjectForLauncher(t *testing.T, settaFilesRoot strin
 	if err != nil {
 		t.Fatalf("default settings document: %v", err)
 	}
-	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
-	if err != nil {
-		t.Fatalf("open settings runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := settingsRuntime.Close(); err != nil {
-			t.Fatalf("close settings runtime: %v", err)
-		}
-	})
+	settingsRuntime := newLauncherTestSettingsRuntime(t, settingsDocument)
 	settingsProjectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
 	if err != nil {
 		t.Fatalf("open settings project runtime: %v", err)

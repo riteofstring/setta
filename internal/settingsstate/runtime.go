@@ -43,17 +43,6 @@ func OpenRuntime(ctx context.Context, store *Store) (*Runtime, error) {
 	}, nil
 }
 
-func OpenOverlayRuntime(document Document) (*Runtime, error) {
-	normalized, err := document.Normalized()
-	if err != nil {
-		return nil, err
-	}
-	return &Runtime{
-		current:  normalized,
-		revision: 1,
-	}, nil
-}
-
 func (r *Runtime) Snapshot() Snapshot {
 	if r == nil {
 		return Snapshot{}

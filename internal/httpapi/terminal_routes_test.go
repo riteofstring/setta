@@ -2085,15 +2085,7 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 		"width":  736.0,
 		"height": 228.0,
 	}
-	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
-	if err != nil {
-		t.Fatalf("open settings runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := settingsRuntime.Close(); err != nil {
-			t.Fatalf("close settings runtime: %v", err)
-		}
-	})
+	settingsRuntime, _ := newSettingsRouteTestRuntimeWithDocument(t, settingsDocument)
 
 	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,

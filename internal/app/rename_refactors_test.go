@@ -4,11 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
 )
+
+func newAppTestSettingsRuntime(t *testing.T, document settingsstate.Document) *settingsstate.Runtime {
+	t.Helper()
+
+	store, err := settingsstate.NewStore(filepath.Join(t.TempDir(), settingsstate.DefaultFileName), settingsstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new settings store: %v", err)
+	}
+	if err := store.Save(t.Context(), document); err != nil {
+		t.Fatalf("save settings document: %v", err)
+	}
+	runtime, err := settingsstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	return runtime
+}
 
 // ALWAYS_ASK should rename the section immediately but hold dependent value
 // edits in pending storage until the user accepts the prompt.
@@ -154,15 +177,7 @@ func openRenameRefactorTestRuntimes(
 		}
 	})
 
-	settingsRuntime, err := settingsstate.OpenOverlayRuntime(renameRefactorSettingsDocument(t, mode))
-	if err != nil {
-		t.Fatalf("open settings runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := settingsRuntime.Close(); err != nil {
-			t.Fatalf("close settings runtime: %v", err)
-		}
-	})
+	settingsRuntime := newAppTestSettingsRuntime(t, renameRefactorSettingsDocument(t, mode))
 
 	return projectRuntime, settingsRuntime
 }

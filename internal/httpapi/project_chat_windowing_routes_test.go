@@ -727,15 +727,7 @@ func newProjectRouteDeploymentTestHandler(
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
-	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
-	if err != nil {
-		t.Fatalf("open settings runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := settingsRuntime.Close(); err != nil {
-			t.Fatalf("close settings runtime: %v", err)
-		}
-	})
+	settingsRuntime, _ := newSettingsRouteTestRuntimeWithDocument(t, settingsDocument)
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),

@@ -20,10 +20,7 @@ func TestAppShutdownClosesSettingsStateEvenWhenRuntimeShutdownFails(t *testing.T
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
-	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
-	if err != nil {
-		t.Fatalf("open overlay settings runtime: %v", err)
-	}
+	settingsRuntime := newAppTestSettingsRuntime(t, settingsDocument)
 	terminalService, err := terminals.New(terminals.Options{})
 	if err != nil {
 		t.Fatalf("new terminals service: %v", err)

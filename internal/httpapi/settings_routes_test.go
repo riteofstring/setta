@@ -647,6 +647,29 @@ func newSettingsRouteTestRuntimeWithPaths(t *testing.T, settingsPath string, set
 	return runtime, settingsPath
 }
 
+func newSettingsRouteTestRuntimeWithDocument(t *testing.T, document settingsstate.Document) (*settingsstate.Runtime, string) {
+	t.Helper()
+
+	settingsPath := filepath.Join(t.TempDir(), settingsstate.DefaultFileName)
+	store, err := settingsstate.NewStore(settingsPath, settingsstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new settings store: %v", err)
+	}
+	if err := store.Save(t.Context(), document); err != nil {
+		t.Fatalf("save settings document: %v", err)
+	}
+	runtime, err := settingsstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	return runtime, settingsPath
+}
+
 func writeSettingsRouteProjectClaim(
 	t *testing.T,
 	settingsProjectPath string,
@@ -655,19 +678,8 @@ func writeSettingsRouteProjectClaim(
 ) {
 	t.Helper()
 
-	defaults, err := settingsstate.DefaultDocument()
-	if err != nil {
-		t.Fatalf("default settings document: %v", err)
-	}
-	settingsRuntime, err := settingsstate.OpenOverlayRuntime(defaults)
-	if err != nil {
-		t.Fatalf("open settings runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := settingsRuntime.Close(); err != nil {
-			t.Fatalf("close settings runtime: %v", err)
-		}
-	})
+	sharedSettingsPath := filepath.Join(filepath.Dir(settingsProjectPath), settingsstate.DefaultFileName)
+	settingsRuntime, _ := newSettingsRouteTestRuntimeWithPaths(t, sharedSettingsPath, "")
 	settingsProjectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
 	if err != nil {
 		t.Fatalf("open settings project runtime: %v", err)
