@@ -3,35 +3,33 @@ package realtime
 import (
 	"encoding/json"
 	"testing"
-
-	"setta/internal/pythonsdkcontracts"
 )
 
-func TestBuildListenerRealtimeDependencyValuesFromSDKContractsRendersAffectedDependents(t *testing.T) {
+func TestBuildListenerRealtimeDependencyValuesFromCatalogRendersAffectedDependents(t *testing.T) {
 	t.Helper()
 
-	catalog := pythonsdkcontracts.ListenerDependencyCatalog{
-		Entries: []pythonsdkcontracts.ListenerDependencyCatalogEntry{
+	catalog := ListenerDependencyCatalog{
+		Entries: []ListenerDependencyCatalogEntry{
 			{
 				DependencyKey:    "section-config",
 				Name:             "Config",
 				FullPathName:     "Config",
 				Dependencies:     []string{"section-config.param-count"},
 				IncludeInCodegen: true,
-				SectionType:      stringPointer("Dict"),
+				SectionType:      "Dict",
 			},
 			{
 				DependencyKey:       "section-config.param-count",
 				Name:                "count",
 				FullPathName:        "Config.count",
 				IncludeInCodegen:    true,
-				CodeObjType:         stringPointer("CodeParam"),
-				ValueRepresentation: stringPointer("expression"),
+				CodeObjType:         "CodeParam",
+				ValueRepresentation: "expression",
 			},
 		},
 	}
-	current := pythonsdkcontracts.ListenerRenderedDependencyValues{
-		Entries: []pythonsdkcontracts.ListenerRenderedDependencyValue{
+	current := ListenerRenderedDependencyValues{
+		Entries: []ListenerRenderedDependencyValue{
 			{
 				DependencyKey: "section-config",
 				RenderedValue: "{'count': 1}",
@@ -50,10 +48,10 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsRendersAffectedDep
 		t.Fatalf("marshal delta value: %v", err)
 	}
 
-	values, err := BuildListenerRealtimeDependencyValuesFromSDKContracts(
+	values, err := BuildListenerRealtimeDependencyValuesFromCatalog(
 		catalog,
 		current,
-		[]pythonsdkcontracts.LocalCoreListenerRealtimeDelta{
+		[]ListenerRealtimeDelta{
 			{
 				Dependency: "section-config.param-count",
 				Value:      deltaValue,
@@ -61,7 +59,7 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsRendersAffectedDep
 		},
 	)
 	if err != nil {
-		t.Fatalf("BuildListenerRealtimeDependencyValuesFromSDKContracts() error = %v", err)
+		t.Fatalf("BuildListenerRealtimeDependencyValuesFromCatalog() error = %v", err)
 	}
 
 	if len(values.Entries) != 2 {
@@ -81,39 +79,39 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsRendersAffectedDep
 	}
 }
 
-func TestBuildListenerRealtimeDependencyValuesFromSDKContractsUsesCurrentValuesForUnaffectedChildren(t *testing.T) {
+func TestBuildListenerRealtimeDependencyValuesFromCatalogUsesCurrentValuesForUnaffectedChildren(t *testing.T) {
 	t.Parallel()
 
-	catalog := pythonsdkcontracts.ListenerDependencyCatalog{
-		Entries: []pythonsdkcontracts.ListenerDependencyCatalogEntry{
+	catalog := ListenerDependencyCatalog{
+		Entries: []ListenerDependencyCatalogEntry{
 			{
 				DependencyKey:    "section-config",
 				Name:             "Config",
 				FullPathName:     "Config",
 				Dependencies:     []string{"section-config.param-count", "section-config.param-limit"},
 				IncludeInCodegen: true,
-				SectionType:      stringPointer("Dict"),
+				SectionType:      "Dict",
 			},
 			{
 				DependencyKey:       "section-config.param-count",
 				Name:                "count",
 				FullPathName:        "Config.count",
 				IncludeInCodegen:    true,
-				CodeObjType:         stringPointer("CodeParam"),
-				ValueRepresentation: stringPointer("expression"),
+				CodeObjType:         "CodeParam",
+				ValueRepresentation: "expression",
 			},
 			{
 				DependencyKey:       "section-config.param-limit",
 				Name:                "limit",
 				FullPathName:        "Config.limit",
 				IncludeInCodegen:    true,
-				CodeObjType:         stringPointer("CodeParam"),
-				ValueRepresentation: stringPointer("expression"),
+				CodeObjType:         "CodeParam",
+				ValueRepresentation: "expression",
 			},
 		},
 	}
-	current := pythonsdkcontracts.ListenerRenderedDependencyValues{
-		Entries: []pythonsdkcontracts.ListenerRenderedDependencyValue{
+	current := ListenerRenderedDependencyValues{
+		Entries: []ListenerRenderedDependencyValue{
 			{
 				DependencyKey: "section-config",
 				RenderedValue: "{'count': 1, 'limit': 3}",
@@ -136,10 +134,10 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsUsesCurrentValuesF
 		t.Fatalf("marshal delta value: %v", err)
 	}
 
-	values, err := BuildListenerRealtimeDependencyValuesFromSDKContracts(
+	values, err := BuildListenerRealtimeDependencyValuesFromCatalog(
 		catalog,
 		current,
-		[]pythonsdkcontracts.LocalCoreListenerRealtimeDelta{
+		[]ListenerRealtimeDelta{
 			{
 				Dependency: "section-config.param-count",
 				Value:      deltaValue,
@@ -147,7 +145,7 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsUsesCurrentValuesF
 		},
 	)
 	if err != nil {
-		t.Fatalf("BuildListenerRealtimeDependencyValuesFromSDKContracts() error = %v", err)
+		t.Fatalf("BuildListenerRealtimeDependencyValuesFromCatalog() error = %v", err)
 	}
 
 	if len(values.Entries) != 2 {
@@ -161,18 +159,18 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsUsesCurrentValuesF
 	}
 }
 
-func TestBuildListenerRealtimeDependencyValuesFromSDKContractsSkipsCyclicDependents(t *testing.T) {
+func TestBuildListenerRealtimeDependencyValuesFromCatalogSkipsCyclicDependents(t *testing.T) {
 	t.Parallel()
 
-	catalog := pythonsdkcontracts.ListenerDependencyCatalog{
-		Entries: []pythonsdkcontracts.ListenerDependencyCatalogEntry{
+	catalog := ListenerDependencyCatalog{
+		Entries: []ListenerDependencyCatalogEntry{
 			{
 				DependencyKey:       "section-config.param-count",
 				Name:                "count",
 				FullPathName:        "Config.count",
 				IncludeInCodegen:    true,
-				CodeObjType:         stringPointer("CodeParam"),
-				ValueRepresentation: stringPointer("expression"),
+				CodeObjType:         "CodeParam",
+				ValueRepresentation: "expression",
 			},
 			{
 				DependencyKey:    "section-config-a",
@@ -180,7 +178,7 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsSkipsCyclicDepende
 				FullPathName:     "ConfigA",
 				Dependencies:     []string{"section-config.param-count", "section-config-b"},
 				IncludeInCodegen: true,
-				SectionType:      stringPointer("Dict"),
+				SectionType:      "Dict",
 			},
 			{
 				DependencyKey:    "section-config-b",
@@ -188,7 +186,7 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsSkipsCyclicDepende
 				FullPathName:     "ConfigB",
 				Dependencies:     []string{"section-config-a"},
 				IncludeInCodegen: true,
-				SectionType:      stringPointer("Dict"),
+				SectionType:      "Dict",
 			},
 		},
 	}
@@ -200,10 +198,10 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsSkipsCyclicDepende
 		t.Fatalf("marshal delta value: %v", err)
 	}
 
-	values, err := BuildListenerRealtimeDependencyValuesFromSDKContracts(
+	values, err := BuildListenerRealtimeDependencyValuesFromCatalog(
 		catalog,
-		pythonsdkcontracts.ListenerRenderedDependencyValues{},
-		[]pythonsdkcontracts.LocalCoreListenerRealtimeDelta{
+		ListenerRenderedDependencyValues{},
+		[]ListenerRealtimeDelta{
 			{
 				Dependency: "section-config.param-count",
 				Value:      deltaValue,
@@ -211,7 +209,7 @@ func TestBuildListenerRealtimeDependencyValuesFromSDKContractsSkipsCyclicDepende
 		},
 	)
 	if err != nil {
-		t.Fatalf("BuildListenerRealtimeDependencyValuesFromSDKContracts() error = %v", err)
+		t.Fatalf("BuildListenerRealtimeDependencyValuesFromCatalog() error = %v", err)
 	}
 
 	if len(values.Entries) != 1 {

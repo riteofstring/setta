@@ -1,39 +1,12 @@
 package realtime
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"setta/internal/codegen"
 	"setta/internal/projectstate"
-	"setta/internal/pythonsdkcontracts"
 )
-
-func BuildListenerRealtimeDependencyValuesFromSDKContracts(
-	catalog pythonsdkcontracts.ListenerDependencyCatalog,
-	currentDependencyValues pythonsdkcontracts.ListenerRenderedDependencyValues,
-	deltas []pythonsdkcontracts.LocalCoreListenerRealtimeDelta,
-) (pythonsdkcontracts.ListenerRenderedDependencyValues, error) {
-	realtimeCatalog := realtimeListenerDependencyCatalogFromContract(catalog)
-	realtimeCurrentValues := realtimeListenerRenderedDependencyValuesFromContract(
-		currentDependencyValues,
-	)
-	realtimeDeltas, err := realtimeDeltasFromSDKContracts(deltas)
-	if err != nil {
-		return pythonsdkcontracts.ListenerRenderedDependencyValues{}, err
-	}
-	values, err := BuildListenerRealtimeDependencyValuesFromCatalog(
-		realtimeCatalog,
-		realtimeCurrentValues,
-		realtimeDeltas,
-	)
-	if err != nil {
-		return pythonsdkcontracts.ListenerRenderedDependencyValues{}, err
-	}
-	return contractListenerRenderedDependencyValuesFromRealtime(values), nil
-}
 
 func BuildListenerRealtimeDependencyValuesFromCatalog(
 	catalog ListenerDependencyCatalog,
@@ -169,33 +142,6 @@ func realtimeCurrentDependencyValues(
 		rendered[key] = entry.RenderedValue
 	}
 	return rendered, nil
-}
-
-func realtimeDeltasFromSDKContracts(
-	deltas []pythonsdkcontracts.LocalCoreListenerRealtimeDelta,
-) ([]ListenerRealtimeDelta, error) {
-	converted := make([]ListenerRealtimeDelta, 0, len(deltas))
-	for _, delta := range deltas {
-		next := ListenerRealtimeDelta{
-			Dependency: delta.Dependency,
-			Value:      append(json.RawMessage(nil), delta.Value...),
-		}
-		if delta.BinaryPayloadBase64 != nil {
-			payload, err := base64.StdEncoding.DecodeString(
-				strings.TrimSpace(*delta.BinaryPayloadBase64),
-			)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"listener local core: decode binary payload for %q: %w",
-					delta.Dependency,
-					err,
-				)
-			}
-			next.BinaryPayload = payload
-		}
-		converted = append(converted, next)
-	}
-	return converted, nil
 }
 
 func buildListenerRealtimeDependencyValuesFromMetadataGraph(

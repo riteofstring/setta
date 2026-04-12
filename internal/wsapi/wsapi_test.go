@@ -261,7 +261,9 @@ func newWebsocketServer(t *testing.T, deps Dependencies, handler Handler) *httpt
 	t.Helper()
 
 	mux := http.NewServeMux()
-	mux.Handle("/ws", AuthenticatedHandler(deps, handler))
+	mux.Handle("/ws", AuthenticatedRequestHandler(deps, func(ctx context.Context, _ *http.Request, conn *websocket.Conn, info ConnectionInfo) error {
+		return handler(ctx, conn, info)
+	}))
 	return httptest.NewServer(mux)
 }
 

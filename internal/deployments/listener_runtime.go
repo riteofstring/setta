@@ -324,33 +324,6 @@ func (r *deploymentListenerRuntime) startupError(handle *deploymentListenerHandl
 	return err
 }
 
-func (r *deploymentListenerRuntime) stopSessionListener(sessionID string, projectID string) error {
-	if r == nil {
-		return nil
-	}
-
-	key := deploymentListenerHandleKey{
-		SessionID: strings.TrimSpace(sessionID),
-		ProjectID: strings.TrimSpace(projectID),
-	}
-	if key.SessionID == "" {
-		return ErrDeploymentListenerSessionRequired
-	}
-	if key.ProjectID == "" {
-		return ErrDeploymentListenerProjectRequired
-	}
-
-	r.mu.Lock()
-	handle := r.handles[key]
-	r.mu.Unlock()
-	if handle == nil {
-		return fmt.Errorf("%w: %s/%s", ErrUnknownSession, key.SessionID, key.ProjectID)
-	}
-
-	r.stopHandle(handle)
-	return nil
-}
-
 func (r *deploymentListenerRuntime) dropSession(sessionID string) {
 	if r == nil {
 		return

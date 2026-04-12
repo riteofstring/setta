@@ -45,12 +45,6 @@ func (e *CloseError) Error() string {
 type Handler func(context.Context, *websocket.Conn, ConnectionInfo) error
 type RequestHandler func(context.Context, *http.Request, *websocket.Conn, ConnectionInfo) error
 
-func AuthenticatedHandler(deps Dependencies, handler Handler) http.HandlerFunc {
-	return AuthenticatedRequestHandler(deps, func(ctx context.Context, _ *http.Request, conn *websocket.Conn, info ConnectionInfo) error {
-		return handler(ctx, conn, info)
-	})
-}
-
 func AuthenticatedRequestHandler(deps Dependencies, handler RequestHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, acceptOptionsForRequest(r, deps))

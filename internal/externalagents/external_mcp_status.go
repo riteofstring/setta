@@ -707,7 +707,3 @@ func resolveExternalStatusStateValue(server map[string]any) (mcpx.RuntimeState, 
 	}
 	return mcpx.RuntimeStateUnknown, false
 }
-
-func resolveCodexMCPRuntimeState(server map[string]any) mcpx.RuntimeState {
-	return resolveExternalRuntimeState(server)
-}

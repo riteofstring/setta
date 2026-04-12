@@ -643,22 +643,3 @@ func newRandomSessionID() string {
 	}
 	return hex.EncodeToString(buffer)
 }
-
-func isEmptyJSONValue(value any) bool {
-	switch typed := value.(type) {
-	case nil:
-		return true
-	case bool:
-		return !typed
-	case string:
-		return strings.TrimSpace(typed) == ""
-	case []any:
-		return len(typed) == 0
-	case map[string]any:
-		return len(typed) == 0
-	case float64:
-		return typed == 0
-	default:
-		return false
-	}
-}

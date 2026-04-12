@@ -539,13 +539,6 @@ func NewUISettingRevealMessage(content UISettingRevealContent) UISettingRevealMe
 	}
 }
 
-func NewUISettingRevealResultMessage(content UISettingRevealResultContent) UISettingRevealResultMessage {
-	return UISettingRevealResultMessage{
-		MessageType: MessageTypeUISettingRevealResult,
-		Content:     content,
-	}
-}
-
 func NewNotificationMessage(content NotificationContent) NotificationMessage {
 	return NotificationMessage{
 		MessageType: WebsocketMessageTypeNotification,

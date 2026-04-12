@@ -605,18 +605,21 @@ func ackNextAppUISettingReveal(t *testing.T, conn *websocket.Conn, expectedSecti
 		return io.ErrUnexpectedEOF
 	}
 
-	payload, err := json.Marshal(realtime.NewUISettingRevealResultMessage(realtime.UISettingRevealResultContent{
-		ProjectConfigID: content.ProjectConfigID,
-		RequestID:       content.RequestID,
-		Statuses: []realtime.UISettingRevealResultStatus{
-			{
-				SettingID:    "core.project.show_param_display_names",
-				Status:       "revealed",
-				ErrorCode:    nil,
-				ErrorMessage: nil,
+	payload, err := json.Marshal(realtime.UISettingRevealResultMessage{
+		MessageType: realtime.MessageTypeUISettingRevealResult,
+		Content: realtime.UISettingRevealResultContent{
+			ProjectConfigID: content.ProjectConfigID,
+			RequestID:       content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID:    "core.project.show_param_display_names",
+					Status:       "revealed",
+					ErrorCode:    nil,
+					ErrorMessage: nil,
+				},
 			},
 		},
-	}))
+	})
 	if err != nil {
 		return err
 	}

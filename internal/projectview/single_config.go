@@ -1406,14 +1406,6 @@ func decodeFrontendBinding(payload map[string]any) (*CodeFileBinding, error) {
 	}, nil
 }
 
-func bindingObject(binding *projectstate.CodeFileBinding) map[string]any {
-	return map[string]any{
-		"canonical_path": binding.Path,
-		"access_mode":    bindingAccessMode(binding.AccessMode),
-		"autoBinding":    false,
-	}
-}
-
 func bindingAccessMode(mode projectstate.CodeFileAccessMode) projectstate.CodeFileAccessMode {
 	if strings.TrimSpace(string(mode)) == "" {
 		return projectstate.CodeFileAccessModeReadWrite

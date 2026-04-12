@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 )
 
 type TrackedFileSnapshot struct {
@@ -275,8 +274,4 @@ func sortSnapshotEvents(events []SnapshotEvent) {
 
 func unsupportedFileIdentityError(path string) error {
 	return fmt.Errorf("watchcode: stable file identity unsupported for %q on this platform", path)
-}
-
-func cleanTrackedPath(path string) string {
-	return filepath.Clean(strings.TrimSpace(path))
 }
