@@ -20508,6 +20508,49 @@ LOOP_TERMINAL_MARKER: none
       more helper cleanup
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 10:33 UTC | item `489` | completed server-mode bootstrap request dedupe on the canonical reload lane
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/state/actions/serverMode.ts`
+      `initializeServerMode()` now shares one in-flight promise while
+      unresolved so concurrent callers do not stampede `/api/serverMode`
+      during the same reload/open cycle
+    - `frontend/src/state/actions/serverMode.test.ts`
+      now asserts the unresolved concurrent case only calls
+      `route_get_server_mode()` once and both callers resolve to the same mode
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/actions/serverMode.test.ts`
+      -> passed (`1` file, `5` tests)
+    - `pnpm -C frontend exec prettier --check src/state/actions/serverMode.ts src/state/actions/serverMode.test.ts`
+      -> passed
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-020/worktree-ai.log`
+      -> passed; refreshed bootstrap token for session `0fa4ad`
+    - live canonical lane rerun with fresh token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> progressed through
+         `app_router_loading -> settings_loading -> app_shell_without_surface -> project_loading -> surface_ready`
+      -> improved initial readiness to `surface_ready` at ~`8.9s`
+      -> still stalled after `surface_ready` until the outer `timeout 180s`
+         killed the process, so the remaining blocker stays post-
+         `surface_ready`
+    - fresh-context CDP check:
+      -> passed
+      -> `/settings` resolved to the normal Settings shell after a brief
+         `Checking server mode...` phase; console was clean aside from the
+         existing React Router future-flag warning, and network showed no
+         meaningful bootstrap/auth failures
+  - reading:
+    - this trims one real production-side reload owner rather than extending
+      the probe helpers again
+    - the canonical lane is now re-confirmed as a post-`surface_ready`
+      compare-pane normalization / frontend store-sync problem, not a backend
+      auth/bootstrap transport failure
+    - next: inspect the first post-`surface_ready` owner in the lane-health
+      path and capture whether the frontend project-config store reflects the
+      backend `All Settings` + `viewport=null` writes before the outer timeout
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-14 14:08 UTC | item `472` | completed unpinned-area attribution split and hardened probe pane-state setup
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:

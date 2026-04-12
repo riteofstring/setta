@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 10:14 UTC
+Last updated: 2026-04-15 10:33 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,52 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `489` deduped concurrent frontend server-mode bootstrap requests so the
+  canonical `rotaryParamCodeObjDefault` lane no longer re-enters multiple
+  overlapping `/api/serverMode` waits during reload/open:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/state/actions/serverMode.ts`
+      `initializeServerMode()` now shares one in-flight promise until the
+      backend response resolves instead of issuing duplicate concurrent
+      `route_get_server_mode()` calls while `modeResolved=false`
+    - `frontend/src/state/actions/serverMode.test.ts`
+      now covers the concurrent unresolved case and asserts the backend route
+      is called exactly once while both callers resolve to the same mode
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/actions/serverMode.test.ts`
+      -> passed (`1` file, `5` tests)
+    - `pnpm -C frontend exec prettier --check src/state/actions/serverMode.ts src/state/actions/serverMode.test.ts`
+      -> passed
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-020/worktree-ai.log`
+      -> passed; refreshed bootstrap token for session `0fa4ad`
+    - live canonical lane rerun with fresh token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> reached
+         `app_router_loading -> settings_loading -> app_shell_without_surface -> project_loading -> surface_ready`
+      -> initial direct-open readiness improved materially versus the prior
+         rerun (`surface_ready` at ~`8.9s` here vs ~`16.0s` on the prior same
+         lane rerun)
+      -> still hit the outer `timeout 180s` after `surface_ready`, so the
+         canonical lane remains blocked on a post-`surface_ready`
+         normalization/store-sync owner
+    - fresh-context CDP check:
+      -> done via sub-agent
+      -> `/settings` briefly showed `Checking server mode...` on reload but
+         resolved to the normal Settings shell with no console errors and no
+         meaningful network failures; this does not look like an auth/bootstrap
+         transport failure
+  - reading:
+    - this is a real production-side cut on the first reload/open owner that
+      still showed visible blank/loading time
+    - it reduced the front edge of the canonical lane, but did not clear the
+      actual live blocker
+    - next: inspect the first owner after real `surface_ready` in the
+      lane-health path, starting with compare-pane normalization and the
+      frontend project-config/store shape after the backend
+      `setActiveViewMode(All Settings)` + `setViewport(null)` writes
 
 - item `488` normalized the canonical
   `waitForFrontendProjectConfigState(...)` lane-health oracle so it no longer
