@@ -64,32 +64,12 @@ func (p *Project) SetSectionEdgeInputs(sectionID string, edgeInputParams []strin
 
 	currentEdgeInputs := payloadStringArrayField(payload, "edgeInputParams")
 	currentEdgeInputSet := stringSetFromSlice(currentEdgeInputs)
+	if err := p.promoteNewSectionEdgeInputs(trimmedSectionID, normalized, currentEdgeInputSet); err != nil {
+		return err
+	}
+
 	nextEdgeInputSet := stringSetFromSlice(normalized)
-
-	for _, paramInfoID := range normalized {
-		if _, ok := currentEdgeInputSet[paramInfoID]; ok {
-			continue
-		}
-
-		paramPayload, _, _, paramImpl, err := p.ResolveSectionCodeObject(trimmedSectionID, paramInfoID)
-		if err != nil {
-			return err
-		}
-		if effectiveCodeObjType(paramPayload, paramImpl) == codeParamType {
-			continue
-		}
-		if err := p.ChangeParamImpl(trimmedSectionID, paramInfoID, codeParamType); err != nil {
-			return err
-		}
-	}
-
-	removedPorts := map[string]struct{}{}
-	for _, paramInfoID := range currentEdgeInputs {
-		if _, ok := nextEdgeInputSet[paramInfoID]; ok {
-			continue
-		}
-		removedPorts[paramInfoID] = struct{}{}
-	}
+	removedPorts := collectRemovedStrings(currentEdgeInputs, nextEdgeInputSet)
 	if err := p.removeDeletedParamEdgeTargets(trimmedSectionID, removedPorts); err != nil {
 		return err
 	}
@@ -98,6 +78,41 @@ func (p *Project) SetSectionEdgeInputs(sectionID string, edgeInputParams []strin
 		return nil
 	}
 	return p.setCurrentSectionField(trimmedSectionID, "edgeInputParams", append([]string(nil), normalized...))
+}
+
+func (p *Project) promoteNewSectionEdgeInputs(
+	sectionID string,
+	edgeInputParams []string,
+	currentEdgeInputSet map[string]struct{},
+) error {
+	for _, paramInfoID := range edgeInputParams {
+		if _, ok := currentEdgeInputSet[paramInfoID]; ok {
+			continue
+		}
+
+		paramPayload, _, _, paramImpl, err := p.ResolveSectionCodeObject(sectionID, paramInfoID)
+		if err != nil {
+			return err
+		}
+		if effectiveCodeObjType(paramPayload, paramImpl) == codeParamType {
+			continue
+		}
+		if err := p.ChangeParamImpl(sectionID, paramInfoID, codeParamType); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func collectRemovedStrings(current []string, keep map[string]struct{}) map[string]struct{} {
+	removed := make(map[string]struct{})
+	for _, value := range current {
+		if _, ok := keep[value]; ok {
+			continue
+		}
+		removed[value] = struct{}{}
+	}
+	return removed
 }
 
 func (d *Document) SetSectionEdgeOutputs(

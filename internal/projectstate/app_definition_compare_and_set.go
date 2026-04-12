@@ -238,59 +238,118 @@ func compareAndSetAppDefinitionStringSetting(
 	snapshot, err := r.submit(operation{
 		frontendOpID: frontendOpIDFromContext(ctx),
 		run: func(state *runtimeState) (Snapshot, error) {
-			oldValue := readValue(state.current)
-			if err := assertUISettingExpectedOldValueMatches(settingID, optionalStringAny(expectedOldValue), oldValue); err != nil {
-				return snapshotFromState(*state), err
-			}
-			if oldValue == requestedNewValue {
-				result = CompareAndSetResult[string]{OldValue: oldValue, NewValue: oldValue}
-				return snapshotFromState(*state), nil
-			}
-
-			nextDocument, nextAppSpec, appSpecPath, err := mutate(state.current.Clone(), projectRoot)
+			nextSnapshot, nextResult, err := runCompareAndSetAppDefinitionStringSetting(
+				r,
+				ctx,
+				projectRoot,
+				state,
+				settingID,
+				expectedOldValue,
+				requestedNewValue,
+				readValue,
+				mutate,
+			)
 			if err != nil {
-				return snapshotFromState(*state), err
+				return nextSnapshot, err
 			}
-
-			normalized, err := nextDocument.Normalized()
-			if err != nil {
-				return snapshotFromState(*state), err
-			}
-
-			nextState := runtimeState{
-				current:  state.current.Clone(),
-				revision: state.revision,
-			}
-			if !reflect.DeepEqual(state.current, normalized) {
-				nextState.current = normalized.Clone()
-				nextState.revision++
-			}
-			nextSnapshot := snapshotFromState(nextState)
-
-			previousAppSpec, err := appspec.Read(projectRoot, appSpecPath)
-			if err != nil {
-				return snapshotFromState(*state), err
-			}
-			if err := appspec.Write(projectRoot, appSpecPath, nextAppSpec); err != nil {
-				return snapshotFromState(*state), err
-			}
-			if err := r.persistSnapshot(ctx, nextSnapshot); err != nil {
-				rollbackErr := rollbackAppSpecWrite(projectRoot, appSpecPath, previousAppSpec)
-				if rollbackErr != nil {
-					return snapshotFromState(*state), errors.Join(err, rollbackErr)
-				}
-				return snapshotFromState(*state), err
-			}
-
-			*state = nextState
-			result = CompareAndSetResult[string]{
-				OldValue: oldValue,
-				NewValue: readValue(nextSnapshot.Document),
-			}
+			result = nextResult
 			return nextSnapshot, nil
 		},
 	})
 	return snapshot, result, err
+}
+
+func runCompareAndSetAppDefinitionStringSetting(
+	r *Runtime,
+	ctx context.Context,
+	projectRoot string,
+	state *runtimeState,
+	settingID string,
+	expectedOldValue *string,
+	requestedNewValue string,
+	readValue func(Document) string,
+	mutate func(Document, string) (Document, any, string, error),
+) (Snapshot, CompareAndSetResult[string], error) {
+	currentSnapshot := snapshotFromState(*state)
+	oldValue := readValue(state.current)
+	if err := assertUISettingExpectedOldValueMatches(settingID, optionalStringAny(expectedOldValue), oldValue); err != nil {
+		return currentSnapshot, CompareAndSetResult[string]{}, err
+	}
+	if oldValue == requestedNewValue {
+		return currentSnapshot, CompareAndSetResult[string]{
+			OldValue: oldValue,
+			NewValue: oldValue,
+		}, nil
+	}
+
+	nextDocument, nextAppSpec, appSpecPath, err := mutate(state.current.Clone(), projectRoot)
+	if err != nil {
+		return currentSnapshot, CompareAndSetResult[string]{}, err
+	}
+	nextState, nextSnapshot, err := nextAppDefinitionRuntimeState(state.current, state.revision, nextDocument)
+	if err != nil {
+		return currentSnapshot, CompareAndSetResult[string]{}, err
+	}
+	if err := persistAppDefinitionMutationSnapshot(r, ctx, projectRoot, appSpecPath, nextAppSpec, nextSnapshot); err != nil {
+		return currentSnapshot, CompareAndSetResult[string]{}, err
+	}
+
+	*state = nextState
+	return nextSnapshot, CompareAndSetResult[string]{
+		OldValue: oldValue,
+		NewValue: readValue(nextSnapshot.Document),
+	}, nil
+}
+
+func nextAppDefinitionRuntimeState(current Document, revision uint64, nextDocument Document) (runtimeState, Snapshot, error) {
+	normalized, err := nextDocument.Normalized()
+	if err != nil {
+		return runtimeState{}, Snapshot{}, err
+	}
+
+	nextState := runtimeState{
+		current:  current.Clone(),
+		revision: revision,
+	}
+	if !reflect.DeepEqual(current, normalized) {
+		nextState.current = normalized.Clone()
+		nextState.revision++
+	}
+	return nextState, snapshotFromState(nextState), nil
+}
+
+func persistAppDefinitionMutationSnapshot(
+	r *Runtime,
+	ctx context.Context,
+	projectRoot string,
+	appSpecPath string,
+	nextAppSpec any,
+	nextSnapshot Snapshot,
+) error {
+	previousAppSpec, err := appspec.Read(projectRoot, appSpecPath)
+	if err != nil {
+		return err
+	}
+	if err := appspec.Write(projectRoot, appSpecPath, nextAppSpec); err != nil {
+		return err
+	}
+	if err := r.persistSnapshot(ctx, nextSnapshot); err != nil {
+		return rollbackAppDefinitionMutationSnapshot(projectRoot, appSpecPath, previousAppSpec, err)
+	}
+	return nil
+}
+
+func rollbackAppDefinitionMutationSnapshot(
+	projectRoot string,
+	appSpecPath string,
+	previousAppSpec any,
+	persistErr error,
+) error {
+	rollbackErr := rollbackAppSpecWrite(projectRoot, appSpecPath, previousAppSpec)
+	if rollbackErr != nil {
+		return errors.Join(persistErr, rollbackErr)
+	}
+	return persistErr
 }
 
 func resolveCurrentAppSpecForMetadataUpdate(projectRoot string, appDefinition AppDefinition) (string, any, error) {

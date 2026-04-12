@@ -245,6 +245,13 @@ func normalizeJSONSourceKeys(jsonSourceKeys []string) []string {
 	return normalized
 }
 
+type variantSectionFieldTarget struct {
+	payload        map[string]any
+	variant        SectionVariant
+	impl           SectionImpl
+	writeToVariant bool
+}
+
 func (p *Project) resolveVariantDictSectionMutationState(sectionID string, variantID string) (Section, SectionVariant, SectionImpl, map[string]any, error) {
 	section, variant, impl, err := p.ResolveSectionWithVariant(sectionID, variantID)
 	if err != nil {
@@ -271,50 +278,60 @@ func (p *Project) setVariantSectionFields(sectionID string, variantID string, fi
 		return err
 	}
 
-	switch {
-	case fieldsContainUnsharedSectionField(section, fields):
-		modifier, err := rawObjectFromProjectPayload(variant.Modifier)
+	target, err := p.resolveVariantSectionFieldTarget(section, variant, impl, fields)
+	if err != nil {
+		return err
+	}
+	applyProjectFields(target.payload, fields)
+	return p.persistVariantSectionFieldTarget(target)
+}
+
+func (p *Project) resolveVariantSectionFieldTarget(
+	section Section,
+	variant SectionVariant,
+	impl SectionImpl,
+	fields map[string]any,
+) (variantSectionFieldTarget, error) {
+	if fieldsContainUnsharedSectionField(section, fields) || sectionImplIsPreset(impl) {
+		payload, err := rawObjectFromProjectPayload(variant.Modifier)
 		if err != nil {
-			return err
+			return variantSectionFieldTarget{}, err
 		}
-		for fieldName, fieldValue := range fields {
-			modifier[fieldName] = cloneProjectValue(fieldValue)
-		}
-		raw, err := marshalProjectObject(modifier)
-		if err != nil {
-			return err
-		}
-		variant.Modifier = raw
-		p.SectionVariants[variant.ID] = variant
-	case !sectionImplIsPreset(impl):
-		payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
-		if err != nil {
-			return err
-		}
-		for fieldName, fieldValue := range fields {
-			payload[fieldName] = cloneProjectValue(fieldValue)
-		}
-		raw, err := marshalProjectObject(payload)
-		if err != nil {
-			return err
-		}
-		impl.Payload = raw
-		p.SectionImpls[impl.ID] = impl
-	default:
-		modifier, err := rawObjectFromProjectPayload(variant.Modifier)
-		if err != nil {
-			return err
-		}
-		for fieldName, fieldValue := range fields {
-			modifier[fieldName] = cloneProjectValue(fieldValue)
-		}
-		raw, err := marshalProjectObject(modifier)
-		if err != nil {
-			return err
-		}
-		variant.Modifier = raw
-		p.SectionVariants[variant.ID] = variant
+		return variantSectionFieldTarget{
+			payload:        payload,
+			variant:        variant,
+			writeToVariant: true,
+		}, nil
 	}
 
+	payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
+	if err != nil {
+		return variantSectionFieldTarget{}, err
+	}
+	return variantSectionFieldTarget{
+		payload: payload,
+		impl:    impl,
+	}, nil
+}
+
+func applyProjectFields(target map[string]any, fields map[string]any) {
+	for fieldName, fieldValue := range fields {
+		target[fieldName] = cloneProjectValue(fieldValue)
+	}
+}
+
+func (p *Project) persistVariantSectionFieldTarget(target variantSectionFieldTarget) error {
+	raw, err := marshalProjectObject(target.payload)
+	if err != nil {
+		return err
+	}
+	if target.writeToVariant {
+		target.variant.Modifier = raw
+		p.SectionVariants[target.variant.ID] = target.variant
+		return nil
+	}
+
+	target.impl.Payload = raw
+	p.SectionImpls[target.impl.ID] = target.impl
 	return nil
 }

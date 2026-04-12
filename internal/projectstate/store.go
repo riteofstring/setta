@@ -59,48 +59,78 @@ func (s *Store) loadDocument(ctx context.Context, normalize bool) (Document, err
 		return Document{}, fmt.Errorf("project store is required")
 	}
 
+	content, missing, err := s.readLockedContent(ctx)
+	if err != nil {
+		return Document{}, err
+	}
+	if missing {
+		return NewDocument(), nil
+	}
+	return decodeStoreDocument(content, normalize)
+}
+
+func (s *Store) readLockedContent(ctx context.Context) ([]byte, bool, error) {
 	unlock, err := s.locker.Lock(ctx, s.path)
 	if err != nil {
-		return Document{}, fmt.Errorf("lock project store for load: %w", err)
+		return nil, false, fmt.Errorf("lock project store for load: %w", err)
 	}
 	defer unlock()
 
 	content, err := os.ReadFile(s.path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewDocument(), nil
+			return nil, true, nil
 		}
-		return Document{}, fmt.Errorf("read project document: %w", err)
+		return nil, false, fmt.Errorf("read project document: %w", err)
 	}
+	return content, false, nil
+}
 
-	var rawPayload any
-	if err := json.Unmarshal(content, &rawPayload); err != nil {
-		return Document{}, fmt.Errorf("decode project document: %w", err)
-	}
-	if _, ok := rawPayload.(map[string]any); !ok {
-		return Document{}, ErrProjectPayloadNotObject
+func decodeStoreDocument(content []byte, normalize bool) (Document, error) {
+	payloadObject, err := decodeStorePayloadObject(content)
+	if err != nil {
+		return Document{}, err
 	}
 	if normalize {
-		payloadObject := rawPayload.(map[string]any)
 		if err := validatePersistedProjectChatWindowingPresence(payloadObject); err != nil {
 			return Document{}, err
 		}
 	}
-	var document Document
-	if err := json.Unmarshal(content, &document); err != nil {
-		return Document{}, fmt.Errorf("decode project document: %w", err)
+	document, err := decodeStoreDocumentValue(content)
+	if err != nil {
+		return Document{}, err
 	}
 	if !normalize {
 		return document, nil
 	}
+	return normalizeLoadedDocument(document)
+}
+
+func decodeStorePayloadObject(content []byte) (map[string]any, error) {
+	var rawPayload any
+	if err := json.Unmarshal(content, &rawPayload); err != nil {
+		return nil, fmt.Errorf("decode project document: %w", err)
+	}
+	payloadObject, ok := rawPayload.(map[string]any)
+	if !ok {
+		return nil, ErrProjectPayloadNotObject
+	}
+	return payloadObject, nil
+}
+
+func decodeStoreDocumentValue(content []byte) (Document, error) {
+	var document Document
+	if err := json.Unmarshal(content, &document); err != nil {
+		return Document{}, fmt.Errorf("decode project document: %w", err)
+	}
+	return document, nil
+}
+
+func normalizeLoadedDocument(document Document) (Document, error) {
 	if err := validateLoadedDocumentRequiresNoRepair(document); err != nil {
 		return Document{}, err
 	}
-	normalized, err := document.Normalized()
-	if err != nil {
-		return Document{}, err
-	}
-	return normalized, nil
+	return document.Normalized()
 }
 
 func (s *Store) Save(ctx context.Context, document Document) error {
