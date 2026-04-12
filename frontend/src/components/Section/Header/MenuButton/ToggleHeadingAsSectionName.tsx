@@ -1,7 +1,5 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
-import { setTextBlockHeadingAsSectionName } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -9,10 +7,13 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_set_text_block_heading_as_section_name } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+
 type ToggleHeadingAsSectionNameProps = {
   sectionId: string;
 };
+
 export function ToggleHeadingAsSectionName({
   sectionId,
 }: ToggleHeadingAsSectionNameProps) {
@@ -27,6 +28,7 @@ export function ToggleHeadingAsSectionName({
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
+
   function onClick() {
     const nextValue = !headingAsSectionName;
     dispatchOptimisticProjectStateUpdate({
@@ -36,21 +38,19 @@ export function ToggleHeadingAsSectionName({
         });
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setTextBlockHeadingAsSectionName({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              headingAsSectionName: nextValue,
-              frontendOpId,
-            },
-          } as Parameters<typeof setTextBlockHeadingAsSectionName>[0]),
-        ),
+        route_set_text_block_heading_as_section_name({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          headingAsSectionName: nextValue,
+          frontendOpId,
+        }),
     });
   }
+
   const textClassName = headingAsSectionName
     ? "text-blue-600 dark:text-blue-400"
     : undefined;
+
   return (
     <MenuItem onClick={onClick} disabled={isFrozen}>
       <span className={textClassName}>Heading as Section Name</span>

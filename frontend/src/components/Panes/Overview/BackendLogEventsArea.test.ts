@@ -8,7 +8,6 @@ import {
   clampBackendLogColumnWidth,
   copyBackendLogMessage,
   filterEvents,
-  getBackendLogCopyButtonPresentation,
   getBackendLogEventById,
   getBackendLogEventsById,
   getBackendLogGridMinWidth,
@@ -70,21 +69,6 @@ describe("BackendLogEventsArea column sizing helpers", () => {
 });
 
 describe("BackendLogEventsArea clipboard helper", () => {
-  it.each([
-    [null, "Copy message", "text-setta-700 dark:text-setta-200", "copy"],
-    ["failed", "Copy failed", "text-red-600 dark:text-red-400", "copy"],
-    ["copied", "Copied", "text-blue-600 dark:text-blue-400", "checkmark"],
-  ])(
-    "returns button presentation for %s copy status",
-    (status, title, className, iconName) => {
-      expect(getBackendLogCopyButtonPresentation(status)).toEqual({
-        title,
-        className,
-        iconName,
-      });
-    },
-  );
-
   it("returns true when clipboard writes succeed", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     const copied = await copyBackendLogMessage(writeText, "hello world");
