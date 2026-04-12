@@ -1,13 +1,49 @@
+/* @vitest-environment jsdom */
+
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useAppDefinition, useAppPreview } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useAllProjectMetadata,
+  useAppConfigs,
+  useAppDefinition,
+  useAppPreview,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { createAppDefinition } from "utils/generatedTypes";
+import "testUtils/reactRefreshPreamble";
+import {
+  createAppDefinition,
+  createProjectConfig,
+  createSingleConfig,
+} from "utils/generatedTypes";
 
 import { AppPreview } from "./AppPreview";
 
 let latestProps: Record<string, unknown> | null = null;
+const routeLoadProjectConfigMock = vi.fn();
+
+const originalReactActEnvironment = (
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT;
+
+function setReactActEnvironment(value: boolean | undefined) {
+  const target = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  };
+  if (value === undefined) {
+    delete target.IS_REACT_ACT_ENVIRONMENT;
+    return;
+  }
+  target.IS_REACT_ACT_ENVIRONMENT = value;
+}
+
+function resetAppPreviewState() {
+  useAppPreview.getState().reset?.();
+}
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -32,6 +68,22 @@ vi.mock("components/App/AppRenderer", async () => {
   };
 });
 
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    loadProjectConfig: (options?: unknown) =>
+      routeLoadProjectConfigMock(options),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
 function renderPreview() {
   latestProps = null;
   syncStoreInitialState(useAppDefinition);
@@ -39,14 +91,51 @@ function renderPreview() {
   return renderToStaticMarkup(<AppPreview />);
 }
 
+type RenderedPreview = {
+  host: HTMLDivElement;
+  root: Root;
+};
+
+async function renderPreviewInDom(): Promise<RenderedPreview> {
+  latestProps = null;
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+
+  await act(async () => {
+    root.render(<AppPreview />);
+  });
+
+  return { host, root };
+}
+
+async function flushEffects(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe("AppPreview", () => {
   beforeEach(() => {
     resetProjectStores();
+    resetAppPreviewState();
+    routeLoadProjectConfigMock.mockReset();
   });
 
   afterEach(() => {
     resetProjectStores();
+    resetAppPreviewState();
     latestProps = null;
+    document.body.innerHTML = "";
+  });
+
+  beforeEach(() => {
+    setReactActEnvironment(true);
+  });
+
+  afterEach(() => {
+    setReactActEnvironment(originalReactActEnvironment);
   });
 
   it("passes through the persisted app spec when no override exists", () => {
@@ -58,11 +147,7 @@ describe("AppPreview", () => {
       appSpec: persistedSpec,
       appDefinition: createAppDefinition(),
     });
-    useAppPreview.setState({
-      previewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    });
+    useAppPreview.setState({});
 
     renderPreview();
 
@@ -82,11 +167,7 @@ describe("AppPreview", () => {
       appSpec: persistedSpec,
       appDefinition: createAppDefinition(),
     });
-    useAppPreview.setState({
-      previewSpecOverride: draftSpec,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    });
+    useAppPreview.setState({ previewSpecOverride: draftSpec });
 
     renderPreview();
 
@@ -102,11 +183,7 @@ describe("AppPreview", () => {
       appSpec: persistedSpec,
       appDefinition: createAppDefinition(),
     });
-    useAppPreview.setState({
-      previewSpecOverride: null,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    });
+    useAppPreview.setState({ previewSpecOverride: null });
 
     renderPreview();
 
@@ -122,7 +199,6 @@ describe("AppPreview", () => {
       }),
     });
     useAppPreview.setState({
-      previewSpecOverride: undefined,
       previewThemeOverride: { mode: "dark" },
       previewAssetsOverride: [{ rel: "stylesheet", href: "/static/b.css" }],
     });
@@ -145,7 +221,6 @@ describe("AppPreview", () => {
       appDefinition: null,
     });
     useAppPreview.setState({
-      previewSpecOverride: undefined,
       previewThemeOverride: { mode: "dark" },
       previewAssetsOverride: [],
     });
@@ -153,5 +228,61 @@ describe("AppPreview", () => {
     renderPreview();
 
     expect(latestProps?.appDefinition).not.toBeNull();
+  });
+
+  it("loads a preview config through the Go project-load route when previewing another project", async () => {
+    routeLoadProjectConfigMock.mockResolvedValue({
+      data: createSingleConfig({
+        projectConfig: createProjectConfig({
+          id: "preview-config",
+          name: "Preview Project",
+        }),
+      }),
+      status: 200,
+      hasResponse: true,
+    });
+    useProjectState.setState((state) => ({
+      ...state,
+      projectConfig: createProjectConfig({
+        id: NULL_PROJECT_CONFIG_ID,
+        name: "Current Project",
+      }),
+    }));
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: null,
+      projectMetadata: [
+        createProjectConfig({
+          id: "preview-config",
+          name: "Preview Project",
+        }),
+      ],
+    });
+    useAppPreview.setState({ previewConfigId: "preview-config" });
+
+    const { host, root } = await renderPreviewInDom();
+
+    try {
+      await flushEffects();
+
+      // Previewing a different project should hydrate the preview cache from
+      // the Go-owned load-project contract rather than assuming local state.
+      expect(routeLoadProjectConfigMock).toHaveBeenCalledWith({
+        body: {
+          projectConfigName: "Preview Project",
+        },
+      });
+      expect(useAppConfigs.getState().configs["preview-config"]).toMatchObject({
+        projectConfig: {
+          id: "preview-config",
+          name: "Preview Project",
+        },
+      });
+      expect(latestProps?.defaultConfigId).toBe("preview-config");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 });
