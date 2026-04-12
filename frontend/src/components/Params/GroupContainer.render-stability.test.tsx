@@ -86,7 +86,13 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-function seedParamGroupContainerState() {
+function seedParamGroupContainerState({
+  hideUnpinnedParams = false,
+  includeUnpinnedParam = true,
+}: {
+  hideUnpinnedParams?: boolean;
+  includeUnpinnedParam?: boolean;
+} = {}) {
   const sectionId = "section-1";
   const variantId = "variant-1";
   const implId = "impl-1";
@@ -138,9 +144,11 @@ function seedParamGroupContainerState() {
     isPreset: false,
     codeObjVariantMap: {
       [pinnedParamId]: pinnedParamVariantId,
-      [unpinnedParamId]: unpinnedParamVariantId,
+      ...(includeUnpinnedParam
+        ? { [unpinnedParamId]: unpinnedParamVariantId }
+        : {}),
     },
-    hideUnpinnedParams: false,
+    hideUnpinnedParams,
     paramFilter: "",
     columnWidth: null,
     configLanguage: ConfigLanguageEnum.python,
@@ -220,15 +228,19 @@ function seedParamGroupContainerState() {
     state.sectionImpls = { [implId]: dictImpl };
     state.codeObjs = {
       [pinnedParamId]: pinnedParamCore,
-      [unpinnedParamId]: unpinnedParamCore,
+      ...(includeUnpinnedParam ? { [unpinnedParamId]: unpinnedParamCore } : {}),
     };
     state.codeObjVariants = {
       [pinnedParamVariantId]: pinnedParamVariant,
-      [unpinnedParamVariantId]: unpinnedParamVariant,
+      ...(includeUnpinnedParam
+        ? { [unpinnedParamVariantId]: unpinnedParamVariant }
+        : {}),
     };
     state.codeObjImpls = {
       [pinnedParamImplId]: pinnedParamImpl,
-      [unpinnedParamImplId]: unpinnedParamImpl,
+      ...(includeUnpinnedParam
+        ? { [unpinnedParamImplId]: unpinnedParamImpl }
+        : {}),
     };
     state.parentSectionMap = { [sectionId]: null };
     state.previewSectionVariantMap = {};
@@ -239,8 +251,10 @@ function seedParamGroupContainerState() {
           topLevelParamIds: [pinnedParamId],
         },
         unpinned: {
-          requiredParamIdsToPaths: { [unpinnedParamId]: [unpinnedParamId] },
-          topLevelParamIds: [unpinnedParamId],
+          requiredParamIdsToPaths: includeUnpinnedParam
+            ? { [unpinnedParamId]: [unpinnedParamId] }
+            : {},
+          topLevelParamIds: includeUnpinnedParam ? [unpinnedParamId] : [],
         },
       },
     };
@@ -388,5 +402,51 @@ describe("ParamGroupContainer render stability", () => {
     });
 
     expect(renderCalls.useIsScrollable).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not mount the unpinned area when it is hidden", async () => {
+    const sectionId = seedParamGroupContainerState({
+      hideUnpinnedParams: true,
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(renderCalls.useIsScrollable).not.toHaveBeenCalled();
+    expect(vi.mocked(ParamDndList)).not.toHaveBeenCalled();
+  });
+
+  it("does not mount the unpinned area when there are no unpinned params and no editable empty state", async () => {
+    const sectionId = seedParamGroupContainerState({
+      includeUnpinnedParam: false,
+    });
+
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls["impl-1"];
+      if (!impl || impl.type !== SectionTypeEnum.Dict) {
+        throw new Error("Expected seeded dict impl.");
+      }
+      impl.positionAndSizeLocked = true;
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(renderCalls.useIsScrollable).not.toHaveBeenCalled();
+    expect(vi.mocked(ParamDndList)).not.toHaveBeenCalled();
   });
 });

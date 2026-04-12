@@ -1025,12 +1025,19 @@ function GetUnpinnedParams({
   const resolvedMinHeight = resolvedPolicyMinHeight;
   const shouldApplyMinHeight =
     !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
+  const shouldRenderUnpinnedArea =
+    !hideUnpinnedParams &&
+    (topLevelParamIds.length > 0 || shouldApplyMinHeight);
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
 
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
   }, [maxNestedDepth]);
+
+  if (!shouldRenderUnpinnedArea) {
+    return null;
+  }
 
   return (
     <MemoizedUnpinnedParamsArea

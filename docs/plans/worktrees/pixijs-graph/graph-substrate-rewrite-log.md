@@ -19542,3 +19542,52 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-14 12:56 UTC
+
+- item `469` completed one bounded `ParamGroupUnpinnedParams` mount-reduction
+  slice on the canonical `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Params/GroupContainer.tsx`
+    now skips mounting the unpinned scroll/observer wrapper when the area is
+    hidden or when there are no unpinned params and no editable empty-state
+    shell should remain
+  - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+    now proves those hidden / no-unpinned-param branches do not mount
+    `useIsScrollable()` or `ParamDndList`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    -> passed (`2` files, `7` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+    -> passed
+  - first live probe run:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-029/worktree-ai.log`
+    -> failed with
+       `Worktree unhealthy: page closed while writing normalized compare pane state`
+  - bounded recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> succeeded
+    -> refreshed runtime facts with
+       `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-029/worktree-ai.log`
+  - retrying the same live probe after recovery:
+    -> passed (`1` Playwright test, `2.0m`)
+    -> live lane stayed dominated by `presentedSceneSectionSubtreeReactRender`
+    -> compared with item `468`, this slice was non-winning overall:
+       `averageFrameDurationMs 41.29 -> 44.44`,
+       `longTaskTotalDurationMs 1162 -> 1293`
+    -> narrow owners improved slightly but remained the same visible trio:
+       `ParamGroupContainer 530.0ms -> 513.1ms`,
+       `ParamGroupUnpinnedParams 466.9ms -> 452.8ms`,
+       `UnpinnedParamDndListRows 447.5ms -> 433.4ms`
+  - fresh-context CDP check:
+    -> passed on the restarted worktree runtime
+    -> `/settings` showed `All Settings` with the
+       `rotaryParamCodeObjDefault` canary visually healthy after minimizing
+       non-target chat chrome; no obvious blank-card, detached-body, or severe
+       rendering artifact
+- reading:
+  - this closes the hidden/empty-state unpinned mount trim as
+    behavior-preserving but non-winning on the canonical populated lane
+  - do not keep spending default passes on more hidden/empty-state cleanup at
+    this same boundary
+  - next frontier remains one broader populated-lane owner cut at
+    `ParamGroupContainer` / `ParamGroupUnpinnedParams`, or human replan if no
+    fresh evidence can justify one of those remaining broader product slices

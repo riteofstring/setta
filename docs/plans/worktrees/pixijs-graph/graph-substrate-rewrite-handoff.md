@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 12:40 UTC
+Last updated: 2026-04-14 12:56 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,65 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `469` completed one bounded `ParamGroupUnpinnedParams` mount-reduction
+  slice on the canonical `rotaryParamCodeObjDefault` lane by skipping the
+  unpinned wrapper entirely when it would render neither visible rows nor an
+  editable empty-state drop area:
+  - code/test changes kept in the tree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now returns `null` from `GetUnpinnedParams(...)` when the unpinned area is
+      hidden or when there are no unpinned params and no editable min-height
+      shell needs to stay mounted
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now seeds hidden / no-unpinned-param cases and proves those branches do
+      not mount the unpinned scrollability observer or row list
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `7` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+    - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-029/worktree-ai.log`
+      -> refreshed runtime facts before live verification
+    - first live probe run:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-029/worktree-ai.log`
+      -> failed with
+         `Worktree unhealthy: page closed while writing normalized compare pane state`
+    - bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+      -> refreshed runtime facts again with
+         `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-029/worktree-ai.log`
+    - retrying the same probe after recovery:
+      -> passed (`1` Playwright test, `2.0m`)
+      -> canonical live readout stayed
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+      -> top narrow owners remained
+         `presentedSceneSectionParamGroupContainerReactRender`,
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`, and
+         `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+      -> compared with item `468`, this hidden/empty-state mount trim was
+         non-winning on the live lane:
+         `averageFrameDurationMs 41.29 -> 44.44`,
+         `longTaskTotalDurationMs 1162 -> 1293`,
+         `ParamGroupContainer 530.0ms -> 513.1ms`,
+         `ParamGroupUnpinnedParams 466.9ms -> 452.8ms`,
+         `UnpinnedParamDndListRows 447.5ms -> 433.4ms`
+    - required fresh-context CDP check:
+      -> passed on the restarted runtime
+      -> `/settings` loaded with `All Settings` active, the
+         `rotaryParamCodeObjDefault` canary stayed visually intact, and there
+         was no obvious blank-card, detached-body, or severe rendering artifact
+         after minimizing non-target chat chrome
+  - reading:
+    - this closes the hidden/empty unpinned-area mount trim as
+      behavior-preserving but non-winning on the canonical hot lane
+    - the next slice should not stay on more hidden-state cleanup at this same
+      boundary
+    - the next pass should either cut a broader `ParamGroupContainer` /
+      `ParamGroupUnpinnedParams` owner source that still affects the visible
+      populated lane, or stop for human replan if fresh evidence cannot justify
+      one of the remaining broader product cuts
 
 - item `468` completed one bounded `ParamGroupContainer`-boundary cleanup on the
   canonical `rotaryParamCodeObjDefault` lane by collapsing the repeated
