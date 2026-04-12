@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 09:04 UTC
+Last updated: 2026-04-13 09:18 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,69 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `409` landed one bounded production reduction against the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane by preserving scene snapshot
+  identity for unchanged sections:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stopped the recent
+      product-support-support rhythm; the next slice had to be production code
+      on the named owner `presentedSceneSectionSubtreeReactRender`
+    - chose the narrowest subtree-fan-out cut below the sections layer:
+      keep unchanged scene sections on the same object identity when a sibling
+      section changes, and reuse the previous full snapshot on no-op rebuilds
+    - kept the change inside the existing scene snapshot/runtime seam instead
+      of opening another probe lane or forwarding seam
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      with previous-snapshot structural reuse for unchanged section objects and
+      full-snapshot reuse when scene bounds plus ordered sections stay equal
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+      so the runtime passes the previous snapshot into the resolver
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      with focused regressions for unchanged-sibling reuse and full-snapshot
+      reuse
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the fresh run-`034` live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`4` files, `31` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-034/worktree-ai.log`
+      -> first attempt timed out inside
+         `waitForSettingsGraphComparePaneChrome(...)` at
+         `overview-pane-fullscreen-button`
+      -> bounded lifecycle recovery used once:
+         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> refreshed runtime facts via
+         `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-034/worktree-ai.log`
+      -> retry after recovery passed (`1` Playwright test, `2.5m`)
+      -> fresh canonical readout:
+         `longTaskCount` `5`, `longTaskTotalDurationMs` `1160ms`,
+         `longTaskMaxDurationMs` `420ms`, `averageFrameDurationMs` `41.29ms`
+      -> dominant named canary owner stayed
+         `presentedSceneSectionSubtreeReactRender`
+         (`899.5ms` total, `264.5ms` max, `30` commits)
+    - headless CDP visual check on the authenticated worktree bootstrap URL
+      -> passed in a fresh-context sub-agent as a surface-health smoke
+      -> `/settings` rendered the populated All Settings canary surface rather
+         than a blank/loading shell
+      -> note: the exact `rotaryParamCodeObjDefault` target was not visibly in
+         frame during the CDP smoke, so treat this as a canary-surface check
+         rather than a named-section visual parity assertion
+  - reading:
+    - this slice produced a real live reduction on the same canonical lane:
+      `presentedSceneSectionSubtreeReactRender` dropped from
+      `1128.5ms` / `327.8ms` to `899.5ms` / `264.5ms`
+    - the owner still dominates the motion burst, so the lane remains open
+    - the retry-only runtime blocker was compare-pane chrome normalization, not
+      a renderer drift claim
+  - next default frontier:
+    - stay on `presentedSceneSectionSubtreeReactRender` with one more bounded
+      production cut aimed at the remaining mounted section-body / shell commit
+      fan-out, preferably where unchanged visible bodies still subscribe and
+      commit during the normalized motion burst
 
 - item `408` landed one bounded verifier hardening slice on the canonical
   `rotaryParamCodeObjDefault` worktree perf lane and immediately reran the same

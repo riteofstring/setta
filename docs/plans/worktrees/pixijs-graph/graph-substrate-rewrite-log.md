@@ -151,6 +151,56 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 09:18 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: stop the recent
+  product-support-support pattern and land a real production reduction on the
+  named dominant owner `presentedSceneSectionSubtreeReactRender`
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+  to reuse unchanged scene-section objects from the previous snapshot and to
+  reuse the previous full snapshot when the ordered sections plus scene bounds
+  stay equal
+- updated
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+  so the runtime passes the previous snapshot into the resolver
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+  with regressions proving unchanged siblings keep identity and no-op rebuilds
+  return the prior snapshot
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> pass (`4` files, `31` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    -> pass
+  - canonical worktree probe:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-034/worktree-ai.log`
+    -> first attempt timed out in `waitForSettingsGraphComparePaneChrome(...)`
+       at `overview-pane-fullscreen-button`
+    -> bounded lifecycle recovery:
+       `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> refreshed runtime facts via
+       `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-034/worktree-ai.log`
+    -> retry pass (`1` Playwright test, `2.5m`)
+    -> fresh canonical readout:
+       `longTaskCount` `5`, `longTaskTotalDurationMs` `1160ms`,
+       `longTaskMaxDurationMs` `420ms`, `averageFrameDurationMs` `41.29ms`
+    -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+       but dropped to `899.5ms` total, `264.5ms` max, `30` commits
+  - headless CDP visual check in a fresh-context sub-agent -> pass
+    -> `/settings` showed the populated All Settings canary surface rather
+       than a blank/loading shell
+    -> the exact `rotaryParamCodeObjDefault` target was not visibly in frame,
+       so this was a surface-health smoke rather than a named-section parity
+       assertion
+- reading:
+  - this slice produced a real live reduction on the canonical lane without
+    reopening another probe-only family
+  - the same owner still dominates, so the next pass should stay on mounted
+    section-body / shell commit fan-out rather than more verifier hardening
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 09:04 UTC
 
 - item `408` chose one bounded verifier-hardening subtask after rereading the

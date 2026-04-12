@@ -276,4 +276,97 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     });
     expect(snapshot.sceneBounds).toBeNull();
   });
+
+  it("reuses unchanged section objects when another section geometry changes", () => {
+    const previousSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: 240,
+          height: 160,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+        {
+          sectionId: "section-b",
+          position: { x: 400, y: 220 },
+          width: 280,
+          height: 190,
+          zIndex: 1,
+          tempZIndex: 1,
+          positionAndSizeLocked: false,
+        },
+      ],
+      null,
+      null,
+    );
+
+    const nextSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: 240,
+          height: 160,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+        {
+          sectionId: "section-b",
+          position: { x: 420, y: 260 },
+          width: 280,
+          height: 190,
+          zIndex: 1,
+          tempZIndex: 1,
+          positionAndSizeLocked: false,
+        },
+      ],
+      null,
+      null,
+      previousSnapshot,
+    );
+
+    expect(nextSnapshot.sections[0]).toBe(previousSnapshot.sections[0]);
+    expect(nextSnapshot.sections[1]).not.toBe(previousSnapshot.sections[1]);
+  });
+
+  it("reuses the previous snapshot object when every scene section stays equal", () => {
+    const previousSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: 240,
+          height: 160,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+      ],
+      null,
+      null,
+    );
+
+    const nextSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: 240,
+          height: 160,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+      ],
+      null,
+      null,
+      previousSnapshot,
+    );
+
+    expect(nextSnapshot).toBe(previousSnapshot);
+  });
 });

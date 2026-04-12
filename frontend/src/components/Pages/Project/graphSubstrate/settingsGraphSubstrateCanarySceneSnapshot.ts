@@ -32,24 +32,50 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   sections: Array<GraphSubstrateCanarySection>,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
   draggingSectionId: string | null = null,
+  previousSnapshot: SettingsGraphSubstrateCanarySceneSnapshot | null = null,
 ): SettingsGraphSubstrateCanarySceneSnapshot {
+  const previousSectionsById = previousSnapshot?.sectionsById;
   const sceneSections = sections.map((section) => {
     const geometry = resolveSettingsGraphSubstrateCanarySectionGeometry(
       section,
       sectionPositionOverride,
     );
-    const sceneSection: SettingsGraphSubstrateCanarySceneSection = {
+    const nextSceneSection: SettingsGraphSubstrateCanarySceneSection = {
       ...section,
       renderedPosition: geometry.renderedPosition,
       sceneBoundsSize: geometry.sceneBoundsSize,
       tempZIndex: getRenderedSectionTempZIndex(section, draggingSectionId),
     };
-    return sceneSection;
+    const previousSceneSection = previousSectionsById?.get(section.sectionId);
+    if (
+      previousSceneSection &&
+      areSceneSectionsEqual(previousSceneSection, nextSceneSection)
+    ) {
+      return previousSceneSection;
+    }
+    return nextSceneSection;
   });
+  const nextSceneBounds =
+    getSettingsGraphSubstrateCanarySceneBoundsForSections(sceneSections);
+  if (
+    previousSnapshot &&
+    areGraphRectsEqual(previousSnapshot.sceneBounds, nextSceneBounds) &&
+    previousSnapshot.sections.length === sceneSections.length
+  ) {
+    let allSectionsReused = true;
+    for (let index = 0; index < sceneSections.length; index += 1) {
+      if (previousSnapshot.sections[index] !== sceneSections[index]) {
+        allSectionsReused = false;
+        break;
+      }
+    }
+    if (allSectionsReused) {
+      return previousSnapshot;
+    }
+  }
 
   return {
-    sceneBounds:
-      getSettingsGraphSubstrateCanarySceneBoundsForSections(sceneSections),
+    sceneBounds: nextSceneBounds,
     sections: sceneSections,
     sectionsById: new Map(
       sceneSections.map((section) => [section.sectionId, section]),

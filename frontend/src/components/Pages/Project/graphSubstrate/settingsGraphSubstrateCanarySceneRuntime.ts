@@ -51,6 +51,7 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
       sections,
       sectionPositionOverride,
       draggingSectionId,
+      stableSceneSnapshotRef.current,
     );
     const currentSceneSnapshot = stableSceneSnapshotRef.current;
     if (

@@ -418,6 +418,85 @@ aggregate long-task totals.
   should resolve or narrow that runtime blocker before drawing new perf
   conclusions from this lane
 
+## 2026-04-13 Scene-Snapshot Structural Reuse
+
+### What changed
+
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+  so scene snapshot rebuilds now reuse unchanged per-section scene objects from
+  the previous snapshot instead of cloning every section whenever any geometry
+  changes
+- the resolver now also returns the previous full snapshot object when every
+  section and the scene bounds stay equal, keeping downstream presented-section
+  consumers on the same reference during no-op scene syncs
+- updated
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+  to pass the previous snapshot into the resolver
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+  with regressions proving unchanged section refs survive a sibling geometry
+  update and that a fully equal rebuild reuses the prior snapshot object
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  - passed (`4` files, `31` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+  - passed
+- live worktree probe on run `034`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-034/worktree-ai.log`
+  - first attempt:
+    - failed after `180000ms`
+    - timeout site:
+      `waitForSettingsGraphComparePaneChrome(...)`
+      at `overview-pane-fullscreen-button`
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-034/worktree-ai.log`
+    - fresh worktree session: `ed4e7d`
+  - retry after recovery:
+    - passed (`1` Playwright test, `2.5m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state held steady before and after the motion
+  sequence:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-change motion breakdown:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1160ms`
+  - `longTaskMaxDurationMs`: `420ms`
+  - `measurementWindowMs`: `1828.8ms`
+  - `averageFrameDurationMs`: `41.29ms`
+  - `panForward`: `2` tasks, `406ms` total, `271ms` max
+  - `panReturn`: `1` task, `420ms` total, `420ms` max
+  - `zoomIn`: `1` task, `190ms` total, `190ms` max
+  - `zoomOut`: `1` task, `144ms` total, `144ms` max
+- dominant named canary owner on the same run:
+  - `presentedSceneSectionSubtreeReactRender`: `899.5ms` total,
+    `264.5ms` max, `30` commits
+- previously measured pure-function owners stayed small on the passing run:
+  - `presentedSceneSectionEntriesResolve`: `7.9ms` total
+  - `presentedSceneBodyMountFilter`: `0.9ms` total
+  - `pixiDrawableModelResolve`: `1.5ms` total
+
+### Updated Reading
+
+- this is a real product reduction on the canonical lane:
+  `presentedSceneSectionSubtreeReactRender` dropped from the last passing
+  `1128.5ms` / `327.8ms` readout to `899.5ms` / `264.5ms` on the same named
+  lane after the retry
+- the same owner still dominates the motion burst, so the next bounded product
+  slice should stay on subtree commit fan-out rather than reopening verifier
+  hardening
+
 ## 2026-04-13 Persisted Pane-State Read Fallback
 
 ### What changed
