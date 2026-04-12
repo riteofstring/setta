@@ -726,37 +726,80 @@ func (p *Project) resolveEdgeEndpointSection(sectionID string, variantID string)
 }
 
 func (p *Project) validateAgenticEdgeEndpoints(edge AgenticEdge) error {
-	if _, ok := p.Sections[edge.SourceSectionID]; !ok {
-		return fmt.Errorf("%w: %q", ErrSectionNotFound, edge.SourceSectionID)
-	}
-	if _, ok := p.Sections[edge.TargetSectionID]; !ok {
-		return fmt.Errorf("%w: %q", ErrSectionNotFound, edge.TargetSectionID)
+	if err := p.requireAgenticEdgeSections(edge); err != nil {
+		return err
 	}
 
 	kind, err := normalizeAgenticEdgeKind(edge.Kind)
 	if err != nil {
 		return err
 	}
-	sourceType, err := p.resolveCurrentSectionPresentationType(edge.SourceSectionID)
+	sourceType, targetType, err := p.resolveAgenticEdgeEndpointPresentationTypes(edge)
 	if err != nil {
 		return err
+	}
+	requireChatSource, requireChatTarget := agenticEdgeKindChatEndpointRequirements(kind)
+	if err := validateAgenticEdgeSectionType(
+		edge.SourceSectionID,
+		sourceType,
+		requireChatSource,
+		ErrAgenticEdgeSourceSectionType,
+	); err != nil {
+		return err
+	}
+	return validateAgenticEdgeSectionType(
+		edge.TargetSectionID,
+		targetType,
+		requireChatTarget,
+		ErrAgenticEdgeTargetSectionType,
+	)
+}
+
+func (p *Project) requireAgenticEdgeSections(edge AgenticEdge) error {
+	if _, ok := p.Sections[edge.SourceSectionID]; !ok {
+		return fmt.Errorf("%w: %q", ErrSectionNotFound, edge.SourceSectionID)
+	}
+	if _, ok := p.Sections[edge.TargetSectionID]; !ok {
+		return fmt.Errorf("%w: %q", ErrSectionNotFound, edge.TargetSectionID)
+	}
+	return nil
+}
+
+func (p *Project) resolveAgenticEdgeEndpointPresentationTypes(edge AgenticEdge) (string, string, error) {
+	sourceType, err := p.resolveCurrentSectionPresentationType(edge.SourceSectionID)
+	if err != nil {
+		return "", "", err
 	}
 	targetType, err := p.resolveCurrentSectionPresentationType(edge.TargetSectionID)
 	if err != nil {
-		return err
+		return "", "", err
 	}
+	return sourceType, targetType, nil
+}
 
-	if kind == "chat_chat" || kind == "chat_section" {
-		if sourceType != "Chat" {
-			return fmt.Errorf("%w: section=%q type=%q", ErrAgenticEdgeSourceSectionType, edge.SourceSectionID, sourceType)
-		}
+func agenticEdgeKindChatEndpointRequirements(kind AgenticEdgeKind) (bool, bool) {
+	switch kind {
+	case AgenticEdgeKindChatChat:
+		return true, true
+	case AgenticEdgeKindChatSection:
+		return true, false
+	case AgenticEdgeKindSectionChat:
+		return false, true
+	default:
+		return false, false
 	}
-	if kind == "chat_chat" || kind == "section_chat" {
-		if targetType != "Chat" {
-			return fmt.Errorf("%w: section=%q type=%q", ErrAgenticEdgeTargetSectionType, edge.TargetSectionID, targetType)
-		}
+}
+
+func validateAgenticEdgeSectionType(
+	sectionID string,
+	sectionType string,
+	requireChat bool,
+	errType error,
+) error {
+	if !requireChat || sectionType == "Chat" {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("%w: section=%q type=%q", errType, sectionID, sectionType)
 }
 
 func normalizeEdgeForCreate(edge Edge) (Edge, error) {

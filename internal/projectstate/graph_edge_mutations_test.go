@@ -362,6 +362,15 @@ func TestProjectCreateAgenticEdgeRejectsInvalidTargetAndMissingEndpoints(t *test
 		want error
 	}{
 		{
+			name: "chat chat requires chat target",
+			edge: AgenticEdge{
+				SourceSectionID: "chat-source",
+				TargetSectionID: "plain-section",
+				Kind:            "chat_chat",
+			},
+			want: ErrAgenticEdgeTargetSectionType,
+		},
+		{
 			name: "section chat requires chat target",
 			edge: AgenticEdge{
 				SourceSectionID: "source-section",
