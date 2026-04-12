@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 15:14 UTC
+Last updated: 2026-04-12 15:22 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,37 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+  - item `319` landed one bounded reference-readiness classification slice on
+    the canonical `rotaryParamCodeObjDefault` lane instead of repeating another
+    opaque rerun of `reference: open settings`:
+    - no product renderer code changed on this pass
+    - replaced the inner read-only `main` readiness `expect.poll(...)` in
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      with an explicit progress tracker that:
+      - captures readiness snapshots for pathname, ready state, titlebar
+        attachment, graph-surface mount, settings-content mount,
+        `projectIsLoading`, and visible article count
+      - records first-seen milestone timings for graph-surface mount,
+        settings-content mount, and project-loaded state
+      - logs the last snapshot plus milestone summary if the phase times out
+    - recorded the bounded result in
+      `perf/reports/frontend/2026-04-12_settings-graph-main-reference-open-settings-readiness-progress.md`
+    - focused verification:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+        -> passed
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/main-ai.log`
+        -> logged progress at `91ms`, `1644ms`, and `25028ms`; read-only
+        `main` reached mounted `All Settings` at about `25.0s`, so the lane no
+        longer failed inside `reference: open settings`
+        -> the probe then failed on the existing perf thresholds with
+        reference average `40.37ms` and worktree average `48.11ms`
+    - reading:
+      - the recurring read-only `main` blocker is no longer opaque readiness on
+        this runtime; the canonical lane is back to a measurable perf-threshold
+        failure after startup completes
+      - do not spend the next pass on another reference-startup probe-only
+        slice; the next bounded frontier should be product-side perf work
+        against the measured owners on this lane
   - item `318` landed one bounded reference-bootstrap normalization slice on the
     canonical `rotaryParamCodeObjDefault` lane instead of repeating another
     product-side motion hypothesis while read-only `main` still stalls first:

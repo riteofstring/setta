@@ -12338,3 +12338,44 @@ LOOP_TERMINAL_MARKER: none
       reference root DOM rose to `9527` and editable controls to `129`
     - next frontier: explain or normalize the recurring reference-side motion
       probe inflation before another canary-side product reduction
+- LOOP_TERMINAL_MARKER: none
+- 2026-04-12 15:22 UTC | item 319 | classify read-only `main` open-settings readiness
+  - Picked one bounded blocker-classification slice on the canonical
+    `rotaryParamCodeObjDefault` lane after two probe-only passes kept dying in
+    `reference: open settings` without naming how far read-only `main` was
+    actually getting.
+  - No product renderer code changed; updated
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so `bootstrapReferenceSettingsPage(...)` now uses an explicit readiness
+    tracker instead of a bare `expect.poll(...).toEqual(...)`.
+  - The new tracker records:
+    - pathname, ready state, titlebar attachment, graph-surface mount,
+      settings-content mount, `projectIsLoading`, and visible article count
+    - first-seen elapsed times for graph-surface mount, settings-content mount,
+      and project-loaded state
+    - the last snapshot plus milestone summary if the phase times out
+  - Added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-open-settings-readiness-progress.md`
+    to record the slice and the current runtime reading.
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/main-ai.log`
+      -> logged progress snapshots at:
+        - `91ms`: titlebar attached, no graph surface, no settings content,
+          `projectIsLoading=false`
+        - `1644ms`: no graph surface, no settings content,
+          `projectIsLoading=true`
+        - `25028ms`: graph surface mounted, settings content mounted,
+          `projectIsLoading=false`, `legacyPaneCount=1`,
+          `visibleArticleCount=323`
+      -> progressed past `reference: open settings`, then failed on the
+      existing perf assertions with reference average `40.37ms` and worktree
+      average `48.11ms`
+  - Result:
+    - the recurring read-only `main` blocker is no longer an opaque readiness
+      timeout on this runtime; startup completed in about `25s`
+    - the canonical lane is back to a measurable perf-threshold failure, so the
+      next bounded pass should return to product-side perf work instead of
+      another reference-startup probe-only iteration
+- LOOP_TERMINAL_MARKER: none

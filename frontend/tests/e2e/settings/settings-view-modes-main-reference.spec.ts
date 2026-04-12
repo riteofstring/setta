@@ -60,6 +60,27 @@ type TopLevelSectionLayout = {
   zIndex: number;
 };
 
+type ReferenceSettingsOpenSnapshot = {
+  canaryRootCount: number;
+  documentReadyState: string;
+  elapsedMs: number;
+  graphSurfaceMounted: boolean;
+  legacyPaneCount: number;
+  pathname: string;
+  projectIsLoading: boolean;
+  settingsContentMounted: boolean;
+  titlebarAttached: boolean;
+  visibleArticleCount: number;
+};
+
+type ReferenceSettingsOpenProgress = {
+  attempts: number;
+  firstGraphSurfaceMountedElapsedMs: number | null;
+  firstProjectLoadedElapsedMs: number | null;
+  firstSettingsContentMountedElapsedMs: number | null;
+  lastSnapshot: ReferenceSettingsOpenSnapshot | null;
+};
+
 function hasSettledSectionMetrics(
   metrics: SettingsGraphSectionMetrics,
   expectedSurfaceKind: "legacy" | "canary",
@@ -12799,6 +12820,155 @@ async function withSettingsGraphProbePhaseTimeout<T>(args: {
   }
 }
 
+function createReferenceSettingsOpenProgress(): ReferenceSettingsOpenProgress {
+  return {
+    attempts: 0,
+    firstGraphSurfaceMountedElapsedMs: null,
+    firstProjectLoadedElapsedMs: null,
+    firstSettingsContentMountedElapsedMs: null,
+    lastSnapshot: null,
+  };
+}
+
+function updateReferenceSettingsOpenProgress(
+  progress: ReferenceSettingsOpenProgress,
+  snapshot: ReferenceSettingsOpenSnapshot,
+): void {
+  progress.attempts += 1;
+  progress.lastSnapshot = snapshot;
+
+  if (
+    progress.firstGraphSurfaceMountedElapsedMs === null &&
+    snapshot.graphSurfaceMounted
+  ) {
+    progress.firstGraphSurfaceMountedElapsedMs = snapshot.elapsedMs;
+  }
+  if (
+    progress.firstSettingsContentMountedElapsedMs === null &&
+    snapshot.settingsContentMounted
+  ) {
+    progress.firstSettingsContentMountedElapsedMs = snapshot.elapsedMs;
+  }
+  if (
+    progress.firstProjectLoadedElapsedMs === null &&
+    !snapshot.projectIsLoading
+  ) {
+    progress.firstProjectLoadedElapsedMs = snapshot.elapsedMs;
+  }
+}
+
+function isReferenceSettingsOpenReady(
+  snapshot: ReferenceSettingsOpenSnapshot,
+): boolean {
+  return (
+    snapshot.graphSurfaceMounted &&
+    snapshot.settingsContentMounted &&
+    !snapshot.projectIsLoading
+  );
+}
+
+function formatReferenceSettingsOpenProgress(
+  progress: ReferenceSettingsOpenProgress,
+): string {
+  return JSON.stringify(
+    {
+      attempts: progress.attempts,
+      firstGraphSurfaceMountedElapsedMs:
+        progress.firstGraphSurfaceMountedElapsedMs,
+      firstProjectLoadedElapsedMs: progress.firstProjectLoadedElapsedMs,
+      firstSettingsContentMountedElapsedMs:
+        progress.firstSettingsContentMountedElapsedMs,
+      lastSnapshot: progress.lastSnapshot,
+    },
+    null,
+    2,
+  );
+}
+
+async function captureReferenceSettingsOpenSnapshot(
+  page: Page,
+  startTimeMs: number,
+): Promise<ReferenceSettingsOpenSnapshot> {
+  return page.evaluate(
+    async ({ startTimeMs: startTimestampMs }) => {
+      const { useProjectLoading } = await import("/src/state/definitions.ts");
+      const legacyPaneCount =
+        document.querySelectorAll(".react-flow__pane").length;
+      const canaryRootCount = document.querySelectorAll(
+        '[data-testid="graph-substrate-canary"]',
+      ).length;
+      const articleElements = Array.from(document.querySelectorAll("article"));
+      return {
+        canaryRootCount,
+        documentReadyState: document.readyState,
+        elapsedMs: Math.round(performance.now() - startTimestampMs),
+        graphSurfaceMounted: legacyPaneCount > 0 || canaryRootCount > 0,
+        legacyPaneCount,
+        pathname: window.location.pathname,
+        projectIsLoading: useProjectLoading.getState().projectIsLoading,
+        settingsContentMounted: articleElements.length > 0,
+        titlebarAttached:
+          document.querySelector(".setta-titlebar-offset") !== null,
+        visibleArticleCount: articleElements.filter((element) => {
+          const htmlElement =
+            element instanceof HTMLElement ? element : element.parentElement;
+          return htmlElement?.offsetParent !== null;
+        }).length,
+      };
+    },
+    { startTimeMs },
+  );
+}
+
+async function waitForReferenceSettingsOpenReady(args: {
+  page: Page;
+  timeoutMs: number;
+}): Promise<void> {
+  const pollIntervalMs = 500;
+  const startTimeMs = await args.page.evaluate(() => performance.now());
+  const progress = createReferenceSettingsOpenProgress();
+  let lastLoggedSnapshot: ReferenceSettingsOpenSnapshot | null = null;
+
+  while (true) {
+    const snapshot = await captureReferenceSettingsOpenSnapshot(
+      args.page,
+      startTimeMs,
+    );
+    updateReferenceSettingsOpenProgress(progress, snapshot);
+
+    const shouldLogSnapshot =
+      lastLoggedSnapshot === null ||
+      lastLoggedSnapshot.graphSurfaceMounted !== snapshot.graphSurfaceMounted ||
+      lastLoggedSnapshot.settingsContentMounted !==
+        snapshot.settingsContentMounted ||
+      lastLoggedSnapshot.projectIsLoading !== snapshot.projectIsLoading;
+    if (shouldLogSnapshot) {
+      console.info(
+        "settings-graph-reference-open-settings-progress",
+        JSON.stringify(snapshot),
+      );
+      lastLoggedSnapshot = snapshot;
+    }
+
+    if (isReferenceSettingsOpenReady(snapshot)) {
+      return;
+    }
+
+    if (snapshot.elapsedMs >= args.timeoutMs) {
+      const formattedProgress = formatReferenceSettingsOpenProgress(progress);
+      console.info(
+        "settings-graph-reference-open-settings-timeout",
+        formattedProgress,
+      );
+      throw new Error(
+        `Timed out waiting for read-only main settings readiness after ${args.timeoutMs}ms. ${formattedProgress}`,
+      );
+    }
+
+    await args.page.waitForTimeout(pollIntervalMs);
+  }
+}
+
 async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
   const referenceOpenSettingsTimeoutMs = 60000;
 
@@ -12823,32 +12993,10 @@ async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
       await page.waitForSelector(".setta-titlebar-offset", {
         state: "attached",
       });
-      await expect
-        .poll(
-          async () => {
-            return page.evaluate(async () => {
-              const { useProjectLoading } = await import(
-                "/src/state/definitions.ts"
-              );
-              return {
-                graphSurfaceMounted:
-                  document.querySelector(".react-flow__pane") !== null ||
-                  document.querySelector(
-                    '[data-testid="graph-substrate-canary"]',
-                  ) !== null,
-                settingsContentMounted:
-                  document.querySelector("article") !== null,
-                projectIsLoading: useProjectLoading.getState().projectIsLoading,
-              };
-            });
-          },
-          { timeout: referenceOpenSettingsTimeoutMs - 5000 },
-        )
-        .toEqual({
-          graphSurfaceMounted: true,
-          settingsContentMounted: true,
-          projectIsLoading: false,
-        });
+      await waitForReferenceSettingsOpenReady({
+        page,
+        timeoutMs: referenceOpenSettingsTimeoutMs - 5000,
+      });
     },
   });
 }
