@@ -1,8 +1,5 @@
 import { defineConfig } from "@playwright/test";
 
-const PLAYWRIGHT_EXECUTABLE_PATH =
-  process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined;
-
 export default defineConfig({
   testDir: "./tests/e2e",
   workers: 1,
@@ -14,9 +11,6 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
     headless: true,
-    launchOptions: PLAYWRIGHT_EXECUTABLE_PATH
-      ? { executablePath: PLAYWRIGHT_EXECUTABLE_PATH }
-      : undefined,
     viewport: { width: 1400, height: 900 },
     storageState: "./tests/e2e/.storageState.json",
   },
