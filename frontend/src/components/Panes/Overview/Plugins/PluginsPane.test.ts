@@ -6,19 +6,13 @@ import {
   buildPluginListEntryCardKey,
   buildPluginSourceIdentityToken,
   buildSourceManagerGuidanceMessage,
-  formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
   getBlockedCapabilityReason,
-  getLanguageServerSettingsValue,
+  getPluginActionErrorDetail,
   getPluginCapabilityStatus,
-  getRegisteredCodegenTargets,
-  getRegisteredExternalAgentAdapters,
-  getRegisteredLanguageServers,
   isLinkedLocalPluginSource,
-  parseLanguageServerSettingsDraft,
   parsePluginConfigDraft,
-  setLanguageServerSettingsValue,
-  validateInstallSourceSpec,
+  resolvePluginConfigFieldPresentation,
 } from "components/Panes/Overview/Plugins/PluginsPane.helpers";
 import {
   buildPluginRestartActionPlan,
@@ -41,23 +35,17 @@ const pluginsPaneTestApi = {
   buildBusyPluginIdSet,
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
+  getPluginActionErrorDetail,
   buildRestartActionPlan: buildPluginRestartActionPlan,
   buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
-  formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
   getBlockedCapabilityReason,
-  getRegisteredCodegenTargets,
-  getRegisteredExternalAgentAdapters,
-  getLanguageServerSettingsValue,
   getPluginCapabilityStatus,
-  getRegisteredLanguageServers,
   getRestartRequiredPluginIds,
   parsePluginConfigDraft,
-  parseLanguageServerSettingsDraft,
-  setLanguageServerSettingsValue,
+  resolvePluginConfigFieldPresentation,
   isLinkedLocalPluginSource,
-  validateInstallSourceSpec,
 };
 
 function buildPluginListEntry(
@@ -84,9 +72,13 @@ function buildPluginListEntry(
     },
     config: {
       hasSchema: false,
-      schemaJson: null,
+      schemaJson: {},
+      schemaJsonDigestSha256: null,
+      currentConfig: {},
+      currentConfigDigestSha256: null,
     },
     effectiveCapabilities: [],
+    enablementSource: null,
     restartRequired: false,
     ...overrides,
   });
@@ -111,9 +103,7 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
-    registeredLanguageServers: [],
-    registeredExternalAgentAdapters: [],
-    registeredCodegenTargets: [],
+    enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
     errors: [],
@@ -122,31 +112,6 @@ function buildPluginStatusEntry(
 }
 
 describe("plugins pane helpers", () => {
-  it("validates supported install source schemes", () => {
-    expect(pluginsPaneTestApi.validateInstallSourceSpec("")).toBe(
-      "Source spec is required.",
-    );
-    expect(
-      pluginsPaneTestApi.validateInstallSourceSpec("file:/tmp/plugin"),
-    ).toBe("Unsupported source spec. Use github: or pypi:.");
-    expect(pluginsPaneTestApi.validateInstallSourceSpec("github:acme")).toBe(
-      "Invalid github source spec. Expected github:owner/repo[#ref] or github:owner/repo@ref.",
-    );
-    expect(pluginsPaneTestApi.validateInstallSourceSpec("pypi:   ")).toBe(
-      "Invalid pypi source spec. Expected pypi:package or pypi:package==version.",
-    );
-
-    expect(
-      pluginsPaneTestApi.validateInstallSourceSpec("github:acme/plugin#v1"),
-    ).toBeNull();
-    expect(
-      pluginsPaneTestApi.validateInstallSourceSpec("github:acme/plugin@v1"),
-    ).toBeNull();
-    expect(
-      pluginsPaneTestApi.validateInstallSourceSpec("pypi:setta-fixture==0.1.0"),
-    ).toBeNull();
-  });
-
   it("detects linked local plugin sources for action disablement", () => {
     expect(
       pluginsPaneTestApi.isLinkedLocalPluginSource(
@@ -335,7 +300,7 @@ describe("plugins pane helpers", () => {
         requestedCapabilities: [
           "registerCommand",
           "registerPane",
-          "registerLanguageServer",
+          "writeWorkspacePlugins",
         ],
         effectiveCapabilities: ["registerPane"],
         blockedCapabilities: [
@@ -347,8 +312,8 @@ describe("plugins pane helpers", () => {
         capabilityList: [
           "registerCommand",
           "registerPane",
-          "registerLanguageServer",
-          "registerCodegenTarget",
+          "writeWorkspacePlugins",
+          "registerTopNavBarItem",
         ],
       },
     );
@@ -361,12 +326,12 @@ describe("plugins pane helpers", () => {
     ).toBe("effective");
     expect(
       capabilityStatusIndex.capabilityStatusByCapability.get(
-        "registerLanguageServer",
+        "writeWorkspacePlugins",
       ),
     ).toBe("requested_unavailable");
     expect(
       capabilityStatusIndex.capabilityStatusByCapability.get(
-        "registerCodegenTarget",
+        "registerTopNavBarItem",
       ),
     ).toBe("not_requested");
     expect(
@@ -399,220 +364,6 @@ describe("plugins pane helpers", () => {
         serverMode: "ide",
       }),
     ).toBe("registerContextMenu is blocked (host_policy).");
-  });
-
-  it("extracts and sorts registered language servers from plugin status", () => {
-    const statusEntry = {
-      ...buildPluginStatusEntry({}),
-      registeredLanguageServers: [
-        {
-          name: "plugin:typescript",
-          language: "typescript",
-          command: "ts-lsp",
-          args: ["--stdio"],
-          settingsKey: "typescriptLanguageServer",
-        },
-        {
-          name: "plugin:javascript",
-          language: "javascript",
-          command: "js-lsp",
-          args: [],
-          settingsKey: null,
-        },
-      ],
-    } as PluginStatusEntry;
-
-    const registrations =
-      pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry);
-
-    expect(registrations.map((entry) => entry.language)).toEqual([
-      "javascript",
-      "typescript",
-    ]);
-    expect(registrations[1].settingsKey).toBe("typescriptLanguageServer");
-  });
-
-  it("reuses cached sorted registration arrays for unchanged plugin status objects", () => {
-    const statusEntry = {
-      ...buildPluginStatusEntry({}),
-      registeredLanguageServers: [
-        {
-          name: "plugin:typescript",
-          language: "typescript",
-          command: "ts-lsp",
-          args: ["--stdio"],
-          settingsKey: "typescriptLanguageServer",
-        },
-      ],
-      registeredExternalAgentAdapters: [
-        {
-          adapterId: "plugin:alpha",
-          pluginId: "plugin",
-          name: "Alpha Adapter",
-          runModes: ["sdk"],
-          command: "alpha",
-          args: [],
-          envVarWhitelist: [],
-          defaultModel: null,
-        },
-      ],
-      registeredCodegenTargets: [
-        {
-          targetId: "plugin:alpha",
-          pluginId: "plugin",
-          language: "typescript",
-          name: "TypeScript",
-          defaultFileName: "setta_gen.ts",
-        },
-      ],
-    } as PluginStatusEntry;
-
-    const firstLanguageServers =
-      pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry);
-    const secondLanguageServers =
-      pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry);
-    const firstAdapters =
-      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
-    const secondAdapters =
-      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
-    const firstCodegenTargets =
-      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
-    const secondCodegenTargets =
-      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
-
-    expect(firstLanguageServers).toBe(secondLanguageServers);
-    expect(firstAdapters).toBe(secondAdapters);
-    expect(firstCodegenTargets).toBe(secondCodegenTargets);
-  });
-
-  it("returns no language servers when status payload omits registrations", () => {
-    const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
-    delete (
-      statusEntry as PluginStatusEntry & {
-        registeredLanguageServers?: unknown;
-      }
-    ).registeredLanguageServers;
-
-    expect(
-      pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry),
-    ).toEqual([]);
-  });
-
-  it("extracts and sorts registered external agent adapters from plugin status", () => {
-    const statusEntry = {
-      ...buildPluginStatusEntry({}),
-      registeredExternalAgentAdapters: [
-        {
-          adapterId: "plugin:beta",
-          pluginId: "plugin",
-          name: "Beta Adapter",
-          runModes: ["sdk"],
-          command: "beta",
-          args: [],
-          envVarWhitelist: [],
-          defaultModel: null,
-        },
-        {
-          adapterId: "plugin:alpha",
-          pluginId: "plugin",
-          name: "Alpha Adapter",
-          runModes: ["sdk", "server"],
-          command: "alpha",
-          args: ["--stdio"],
-          envVarWhitelist: ["OPENHANDS_API_KEY"],
-          defaultModel: "openhands/default",
-        },
-      ],
-    } as PluginStatusEntry;
-
-    const registrations =
-      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
-
-    expect(registrations.map((entry) => entry.name)).toEqual([
-      "Alpha Adapter",
-      "Beta Adapter",
-    ]);
-    expect(registrations[0].defaultModel).toBe("openhands/default");
-  });
-
-  it("returns no external agent adapters when status payload omits registrations", () => {
-    const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
-    delete (
-      statusEntry as PluginStatusEntry & {
-        registeredExternalAgentAdapters?: unknown;
-      }
-    ).registeredExternalAgentAdapters;
-
-    expect(
-      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry),
-    ).toEqual([]);
-  });
-
-  it("extracts and sorts registered codegen targets from plugin status", () => {
-    const statusEntry = {
-      ...buildPluginStatusEntry({}),
-      registeredCodegenTargets: [
-        {
-          targetId: "plugin:beta",
-          pluginId: "plugin",
-          language: "zig",
-          name: "Zig",
-          defaultFileName: "setta_gen.zig",
-        },
-        {
-          targetId: "plugin:alpha",
-          pluginId: "plugin",
-          language: "typescript",
-          name: "TypeScript",
-          defaultFileName: "setta_gen.ts",
-        },
-      ],
-    } as PluginStatusEntry;
-
-    const registrations =
-      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
-
-    expect(registrations.map((entry) => entry.name)).toEqual([
-      "TypeScript",
-      "Zig",
-    ]);
-    expect(registrations[0].defaultFileName).toBe("setta_gen.ts");
-  });
-
-  it("returns no codegen targets when status payload omits registrations", () => {
-    const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
-    delete (
-      statusEntry as PluginStatusEntry & {
-        registeredCodegenTargets?: unknown;
-      }
-    ).registeredCodegenTargets;
-
-    expect(pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry)).toEqual(
-      [],
-    );
-  });
-
-  it("parses language server settings drafts as JSON objects", () => {
-    expect(pluginsPaneTestApi.parseLanguageServerSettingsDraft("")).toEqual({
-      value: {},
-      error: null,
-    });
-    expect(
-      pluginsPaneTestApi.parseLanguageServerSettingsDraft('{"a": 1}'),
-    ).toEqual({
-      value: { a: 1 },
-      error: null,
-    });
-    expect(
-      pluginsPaneTestApi.parseLanguageServerSettingsDraft("[1, 2, 3]"),
-    ).toEqual({
-      value: {},
-      error: "Language server settings must be a JSON object.",
-    });
-    expect(pluginsPaneTestApi.parseLanguageServerSettingsDraft("{")).toEqual({
-      value: {},
-      error: "Language server settings JSON is invalid.",
-    });
   });
 
   it("parses plugin config drafts as JSON objects", () => {
@@ -648,56 +399,69 @@ describe("plugins pane helpers", () => {
     );
   });
 
-  it("gets and sets nested language server settings values by key path", () => {
-    const initial = {
-      basedpyright: {
-        analysis: {
-          typeCheckingMode: "basic",
+  it("resolves plugin config field presentation from schema defaults and text", () => {
+    expect(
+      pluginsPaneTestApi.resolvePluginConfigFieldPresentation(
+        {
+          key: "enabled",
+          required: true,
+          schema: {
+            default: true,
+            title: " Enabled ",
+            description: " Turns the plugin on. ",
+          },
         },
-      },
-    };
+        {},
+      ),
+    ).toEqual({
+      value: true,
+      displayLabelText: "Enabled *",
+      descriptionText: "Turns the plugin on.",
+    });
 
-    const next = pluginsPaneTestApi.setLanguageServerSettingsValue(
-      initial,
-      "fixtureTypescriptLanguageServer",
-      {
-        analysis: {
-          strictNullChecks: true,
-        },
-      },
-    );
-    expect(initial).toEqual({
-      basedpyright: {
-        analysis: {
-          typeCheckingMode: "basic",
-        },
-      },
-    });
     expect(
-      pluginsPaneTestApi.getLanguageServerSettingsValue(next, "basedpyright"),
-    ).toEqual({
-      analysis: {
-        typeCheckingMode: "basic",
-      },
-    });
-    expect(
-      pluginsPaneTestApi.getLanguageServerSettingsValue(
-        next,
-        "fixtureTypescriptLanguageServer",
+      pluginsPaneTestApi.resolvePluginConfigFieldPresentation(
+        {
+          key: "mode",
+          required: false,
+          schema: {
+            title: "   ",
+            description: "",
+          },
+        },
+        { mode: "manual" },
       ),
     ).toEqual({
-      analysis: {
-        strictNullChecks: true,
-      },
+      value: "manual",
+      displayLabelText: "mode",
+      descriptionText: null,
     });
+  });
+
+  it("extracts plugin action error detail from standard and structured fallback payloads", () => {
     expect(
-      pluginsPaneTestApi.formatLanguageServerSettingsDraft(
-        pluginsPaneTestApi.getLanguageServerSettingsValue(
-          next,
-          "fixtureTypescriptLanguageServer",
-        ),
-      ),
-    ).toContain("strictNullChecks");
+      pluginsPaneTestApi.getPluginActionErrorDetail({
+        detail: "Plugin install failed.",
+      }),
+    ).toBe("Plugin install failed.");
+
+    expect(
+      pluginsPaneTestApi.getPluginActionErrorDetail({
+        detail: {
+          code: "plugin_conflict",
+          message: "",
+        },
+      }),
+    ).toBe("plugin_conflict - ");
+
+    expect(
+      pluginsPaneTestApi.getPluginActionErrorDetail({
+        detail: {
+          code: "plugin_conflict",
+          message: 42,
+        },
+      }),
+    ).toBeNull();
   });
 
   it("builds install trust summary messaging", () => {

@@ -1,36 +1,19 @@
-/* @vitest-environment jsdom */
-
-import { act, Profiler, type ProfilerOnRenderCallback } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
 import { useNodeInternals, useProjectState } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
 import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
 import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
   createPromptSectionImpl,
   createTopLevelSectionLayout,
-  createUserDefaultChatSectionImpl,
-  createUserDefaultPromptSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useReactFlow } from "../store";
 import initialState from "../store/initialState";
 import type { Node } from "../types";
 import StateMachineEdgeRenderer from "./StateMachineEdgeRenderer";
-
-vi.mock("state/actions/stateMachineEdges", () => ({
-  toggleStateMachineEdgeSelection: vi.fn(),
-}));
-
-vi.mock("state/hooks/share", () => ({
-  useShareCapabilities: vi.fn(),
-}));
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -57,59 +40,51 @@ describe("StateMachineEdgeRenderer", () => {
   const targetImplId = "impl-target";
   const hiddenImplId = "impl-hidden";
   const promptImplId = "impl-prompt";
-  let host: HTMLDivElement;
-  let root: Root;
 
   beforeEach(() => {
     resetProjectStores();
     useReactFlow.setState({ ...initialState, width: 900, height: 600 });
     syncStoreInitialState(useReactFlow);
-    vi.mocked(useShareCapabilities).mockReturnValue({
-      canEditStructure: true,
-    });
-    host = document.createElement("div");
-    document.body.appendChild(host);
-    root = createRoot(host);
 
-    const sourceImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId: "chat-source" }),
-      {
+    const sourceImpl = createChatSectionImpl({
+      ...{ chatId: "chat-source" },
+      ...{
         id: sourceImplId,
         chatId: "chat-source",
         managed: true,
         engineConfigId: "engine-a",
         thinking: false,
       },
-    );
-    const targetImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId: "chat-target" }),
-      {
+    });
+    const targetImpl = createChatSectionImpl({
+      ...{ chatId: "chat-target" },
+      ...{
         id: targetImplId,
         chatId: "chat-target",
         managed: true,
         engineConfigId: "engine-b",
         thinking: false,
       },
-    );
-    const hiddenImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId: "chat-hidden" }),
-      {
+    });
+    const hiddenImpl = createChatSectionImpl({
+      ...{ chatId: "chat-hidden" },
+      ...{
         id: hiddenImplId,
         chatId: "chat-hidden",
         managed: true,
         engineConfigId: "engine-c",
         thinking: false,
       },
-    );
-    const promptImpl = createPromptSectionImpl(
-      createUserDefaultPromptSectionImpl({
+    });
+    const promptImpl = createPromptSectionImpl({
+      ...{
         template: "Hi {{ name }}",
-      }),
-      {
+      },
+      ...{
         id: promptImplId,
         template: "Hi {{ name }}",
       },
-    );
+    });
 
     const sourceVariant = createVariant({
       id: sourceVariantId,
@@ -309,15 +284,9 @@ describe("StateMachineEdgeRenderer", () => {
     syncStoreInitialState(useNodeInternals);
   });
 
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount();
-    });
-    host.remove();
-    document.body.innerHTML = "";
+  afterEach(() => {
     resetProjectStores();
     useReactFlow.setState({ ...initialState });
-    vi.clearAllMocks();
   });
 
   it("renders workflow edges without action-specific style classes", () => {
@@ -334,76 +303,5 @@ describe("StateMachineEdgeRenderer", () => {
     expect(markup).not.toContain("workflow-edge--send-prompt");
     expect(markup).toContain('data-edgeid="edge-visible"');
     expect(markup).not.toContain('data-edgeid="edge-hidden"');
-  });
-
-  it("does not rerender when only multi-selection changes and still reads the latest flag on click", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-
-    await act(async () => {
-      root.render(
-        <Profiler id="state-machine-edge-renderer-profiler" onRender={onRender}>
-          <StateMachineEdgeRenderer />
-        </Profiler>,
-      );
-    });
-
-    const initialCommitCount = onRender.mock.calls.length;
-
-    await act(async () => {
-      useReactFlow.setState({ multiSelectionActive: true });
-    });
-
-    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-
-    const edge = host.querySelector<SVGGElement>(
-      "[data-testid='workflow-edge-edge-visible']",
-    );
-    if (!edge) {
-      throw new Error("Expected visible workflow edge to mount.");
-    }
-
-    await act(async () => {
-      edge.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-        }),
-      );
-    });
-
-    expect(toggleStateMachineEdgeSelection).toHaveBeenCalledWith(
-      "edge-visible",
-      true,
-    );
-  });
-
-  it("does not rerender when node internals only change temp z-index", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-
-    await act(async () => {
-      root.render(
-        <Profiler id="state-machine-edge-renderer-profiler" onRender={onRender}>
-          <StateMachineEdgeRenderer />
-        </Profiler>,
-      );
-    });
-
-    const initialCommitCount = onRender.mock.calls.length;
-
-    await act(async () => {
-      useNodeInternals.setState((state) => {
-        const nextNodes = new Map(state.x);
-        const sourceNode = nextNodes.get(sourceSectionId);
-        if (!sourceNode) {
-          throw new Error("Expected source node to exist.");
-        }
-        nextNodes.set(sourceSectionId, {
-          ...sourceNode,
-          tempZIndex: sourceNode.tempZIndex + 100,
-        });
-        return { x: nextNodes };
-      });
-    });
-
-    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
   });
 });

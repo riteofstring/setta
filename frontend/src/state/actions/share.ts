@@ -1,3 +1,9 @@
+import {
+  getShareDeploymentCurrentSession,
+  getShareDeploymentProjectConfig,
+  type GetShareDeploymentCurrentSessionResponses,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { loadProjectState } from "state/actions/project/loadProject";
 import {
@@ -6,39 +12,56 @@ import {
   useServerMode,
   useShareSession,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
 import {
-  route_create_share_session_current,
-  route_load_share_project_config,
-} from "utils/generatedEndpoints";
-import type { ShareDeploymentSessionResponse } from "utils/generatedTypes";
+  getErrorCode,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
+import type { SingleConfig } from "utils/generatedTypes";
+
+type ShareDeploymentSession = GetShareDeploymentCurrentSessionResponses[200];
+type ShareProjectConfigLoadSession = {
+  deploymentName: string;
+  deploymentVersion: string;
+  allowLLM: boolean;
+};
 
 const SHARE_SESSION_STORAGE_KEY = "settaShareSession";
 type ShareSessionOptions = {
   forceNewSession?: boolean;
 };
-
+type ShareDeploymentSessionRouteResponse =
+  ResponseDataAndStatus<ShareDeploymentSession>;
+type ShareProjectConfigRouteResponse = ResponseDataAndStatus<{
+  projectState: SingleConfig;
+}>;
+function normalizeShareSessionResponse(
+  session: ShareDeploymentSession,
+): ShareDeploymentSession {
+  return {
+    ...session,
+    manifest: session.manifest ?? null,
+    projectMetadata: session.projectMetadata ?? [],
+  };
+}
 function clearShareSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
 }
-
 function clearShareSessionStorage() {
   if (typeof window === "undefined") {
     return;
   }
   window.sessionStorage.removeItem(SHARE_SESSION_STORAGE_KEY);
 }
-
 export function resetShareSessionState() {
   clearShareSessionCookie();
   clearShareSessionStorage();
   useShareSession.getState().reset?.();
   useAllProjectMetadata.getState().reset?.();
 }
-
 function isShareSessionResponse(
   value: unknown,
-): value is ShareDeploymentSessionResponse {
+): value is ShareDeploymentSession {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -63,8 +86,7 @@ function isShareSessionResponse(
   }
   return true;
 }
-
-function readShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
+function readShareSessionFromStorage(): ShareDeploymentSession | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -83,8 +105,7 @@ function readShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
     return null;
   }
 }
-
-function storeShareSession(session: ShareDeploymentSessionResponse): void {
+function storeShareSession(session: ShareDeploymentSession): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -97,8 +118,7 @@ function storeShareSession(session: ShareDeploymentSessionResponse): void {
     console.warn("Failed to persist share session:", error);
   }
 }
-
-function hydrateShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
+function hydrateShareSessionFromStorage(): ShareDeploymentSession | null {
   const stored = readShareSessionFromStorage();
   if (!stored) {
     return null;
@@ -106,8 +126,7 @@ function hydrateShareSessionFromStorage(): ShareDeploymentSessionResponse | null
   setShareSessionFromResponse(stored);
   return stored;
 }
-
-function getCachedShareSession(): ShareDeploymentSessionResponse | null {
+function getCachedShareSession(): ShareDeploymentSession | null {
   const shareSession = useShareSession.getState();
   const metadata = useAllProjectMetadata.getState();
   if (!shareSession.isDeploymentMode) {
@@ -138,8 +157,7 @@ function getCachedShareSession(): ShareDeploymentSessionResponse | null {
     manifest: null,
   };
 }
-
-function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
+function setShareSessionFromResponse(session: ShareDeploymentSession) {
   clearShareSessionCookie();
   storeShareSession(session);
   useShareSession.setState({
@@ -158,13 +176,12 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
   });
   useAllProjectMetadata.setState({
     defaultProjectConfigId: session.defaultProjectConfigId,
-    projectMetadata: session.projectMetadata,
+    projectMetadata: session.projectMetadata ?? [],
   });
 }
-
 export async function ensureShareSessionFromCurrentDeployment(
   options: ShareSessionOptions = {},
-): Promise<ShareDeploymentSessionResponse | null> {
+): Promise<ShareDeploymentSession | null> {
   const forceNewSession = options.forceNewSession ?? false;
   if (forceNewSession) {
     resetShareSessionState();
@@ -181,15 +198,16 @@ export async function ensureShareSessionFromCurrentDeployment(
       }
     }
   }
-  const sessionRes = await route_create_share_session_current();
+  const sessionRes = (await callOpenAPI(
+    getShareDeploymentCurrentSession(),
+  )) as ShareDeploymentSessionRouteResponse;
   if (!res200(sessionRes)) {
     return null;
   }
-  const session = sessionRes.data;
+  const session = normalizeShareSessionResponse(sessionRes.data);
   setShareSessionFromResponse(session);
   return session;
 }
-
 export async function initializeShareSessionFromCurrentDeployment(
   options: ShareSessionOptions = {},
 ): Promise<boolean> {
@@ -217,51 +235,111 @@ export async function initializeShareSessionFromCurrentDeployment(
   resetShareSessionState();
   return false;
 }
-
 type ShareProjectConfigLoadParams = {
   projectConfigId: string;
   allowRetry?: boolean;
 };
-
-export async function loadShareProjectConfig({
-  projectConfigId,
-  allowRetry = true,
-}: ShareProjectConfigLoadParams): Promise<boolean> {
+function getShareProjectConfigLoadSession(): ShareProjectConfigLoadSession | null {
   const shareSession = useShareSession.getState();
+  if (!shareSession.isDeploymentMode) {
+    return null;
+  }
   if (
-    !shareSession.isDeploymentMode ||
     !shareSession.shareDeploymentName ||
     !shareSession.shareDeploymentVersion
   ) {
-    return false;
+    return null;
   }
-
-  useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
-  const stateRes = await route_load_share_project_config(
-    shareSession.shareDeploymentName,
-    shareSession.shareDeploymentVersion,
-    { projectConfigId },
+  return {
+    deploymentName: shareSession.shareDeploymentName,
+    deploymentVersion: shareSession.shareDeploymentVersion,
+    allowLLM: Boolean(shareSession.sharePolicy?.allowLLM),
+  };
+}
+function buildShareProjectConfigRequest(
+  projectConfigId: string,
+  shareSession: ShareProjectConfigLoadSession,
+): Parameters<typeof getShareDeploymentProjectConfig>[0] {
+  return {
+    path: {
+      deploymentName: shareSession.deploymentName,
+      version: shareSession.deploymentVersion,
+    },
+    body: {
+      projectConfigId,
+    },
+  };
+}
+function shouldRetryShareProjectConfigLoad(
+  errorCode: string | null | undefined,
+  allowRetry: boolean,
+): boolean {
+  return (
+    allowRetry &&
+    (errorCode === "missing_share_session" ||
+      errorCode === "unknown_share_session")
   );
-  if (!res200(stateRes)) {
-    if (allowRetry && stateRes.status === 404) {
-      const session = await ensureShareSessionFromCurrentDeployment({
-        forceNewSession: true,
-      });
-      if (session) {
-        return await loadShareProjectConfig({
-          projectConfigId,
-          allowRetry: false,
-        });
-      }
-    }
-    useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
-    return false;
+}
+async function retryShareProjectConfigLoad(
+  projectConfigId: string,
+  errorCode: string | null | undefined,
+  allowRetry: boolean,
+): Promise<boolean | null> {
+  if (!shouldRetryShareProjectConfigLoad(errorCode, allowRetry)) {
+    return null;
   }
-
-  await loadProjectState(stateRes.data.projectState);
-  if (shareSession.sharePolicy?.allowLLM) {
+  const session = await ensureShareSessionFromCurrentDeployment({
+    forceNewSession: true,
+  });
+  if (!session) {
+    return null;
+  }
+  return loadShareProjectConfig({
+    projectConfigId,
+    allowRetry: false,
+  });
+}
+async function finalizeShareProjectConfigLoad(
+  projectState: SingleConfig,
+  projectConfigId: string,
+  allowLLM: boolean,
+): Promise<boolean> {
+  await loadProjectState(projectState);
+  if (allowLLM) {
     await requestAIFollowSnapshot(projectConfigId);
   }
   useProjectLoading.setState({ projectIsLoading: false, projectIs404: false });
   return true;
+}
+export async function loadShareProjectConfig({
+  projectConfigId,
+  allowRetry = true,
+}: ShareProjectConfigLoadParams): Promise<boolean> {
+  const shareSession = getShareProjectConfigLoadSession();
+  if (!shareSession) {
+    return false;
+  }
+  useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
+  const stateRes = (await callOpenAPI(
+    getShareDeploymentProjectConfig(
+      buildShareProjectConfigRequest(projectConfigId, shareSession),
+    ),
+  )) as ShareProjectConfigRouteResponse;
+  if (res200(stateRes)) {
+    return finalizeShareProjectConfigLoad(
+      stateRes.data.projectState,
+      projectConfigId,
+      shareSession.allowLLM,
+    );
+  }
+  const retryResult = await retryShareProjectConfigLoad(
+    projectConfigId,
+    getErrorCode(stateRes.data),
+    allowRetry,
+  );
+  if (retryResult !== null) {
+    return retryResult;
+  }
+  useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
+  return false;
 }
