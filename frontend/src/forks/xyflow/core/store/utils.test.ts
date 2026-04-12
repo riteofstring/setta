@@ -1,93 +1,127 @@
-import { useSettings } from "state/definitions";
+/* @vitest-environment jsdom */
+
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useSettings,
+} from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useReactFlow } from ".";
-import { fitView, onFitViewHandler } from "./utils";
+import type { Node } from "../types";
+import * as graphUtils from "../utils/graph";
+import initialState from "./initialState";
+import { fitView } from "./utils";
 
-describe("store utils", () => {
-  const initialState = useReactFlow.getState();
+function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
+  return {
+    id: overrides.id,
+    position: overrides.position ?? { x: 0, y: 0 },
+    width: overrides.width === undefined ? 100 : overrides.width,
+    height: overrides.height === undefined ? 80 : overrides.height,
+    zIndex: overrides.zIndex === undefined ? 0 : overrides.zIndex,
+    tempZIndex: overrides.tempZIndex === undefined ? 0 : overrides.tempZIndex,
+    type: overrides.type,
+    style: overrides.style,
+  };
+}
 
-  beforeEach(() => {
-    useSettings.setState(createSettingsState());
-    useReactFlow.setState({
-      ...initialState,
-      d3Zoom: null,
-      d3Selection: null,
-      height: 600,
-      transform: [10, 20, 1.5],
-      width: 900,
-    });
+function setNodes(nodes: Node[]) {
+  useNodeInternals.setState({
+    x: new Map(nodes.map((node) => [node.id, node])),
+  });
+}
+
+function setupFitViewState(overrides: Partial<typeof initialState> = {}) {
+  const transform = vi.fn();
+  const d3Selection = { id: "selection" } as unknown as NonNullable<
+    typeof initialState.d3Selection
+  >;
+  const d3Zoom = { transform } as unknown as NonNullable<
+    typeof initialState.d3Zoom
+  >;
+
+  useReactFlow.setState({
+    ...initialState,
+    width: 800,
+    height: 600,
+    d3Selection,
+    d3Zoom,
+    ...overrides,
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+  return { d3Selection, transform };
+}
+
+describe("fitView", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    useSettings.setState(createSettingsState());
+    useLocalStorage.setState({ overviewTrueWidth: 0 });
     useReactFlow.setState({ ...initialState });
   });
 
-  it("delegates to the custom viewport controller when the legacy d3 viewport is absent", () => {
-    // Validates fit-view toolbar actions stay functional on the canary surface.
-    const fitViewSpy = vi.fn(() => true);
-
-    useReactFlow.setState({
-      viewportController: {
-        panBy: vi.fn(() => true),
-        zoomBy: vi.fn(),
-        zoomTo: vi.fn(),
-        setViewport: vi.fn(),
-        setCenter: vi.fn(),
-        fitView: fitViewSpy,
-      },
-    });
-
-    expect(fitView({ duration: 100 })).toBe(true);
-    expect(fitViewSpy).toHaveBeenCalledWith({ duration: 100 });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetProjectStores();
+    useReactFlow.setState({ ...initialState });
   });
 
-  it("delegates to the custom viewport controller when legacy d3 state has no active viewport target", () => {
-    // Validates custom-surface fit view ignores stale d3 viewport state.
-    const fitViewSpy = vi.fn(() => true);
-
-    useReactFlow.setState({
-      d3Zoom: { transform: vi.fn() } as never,
-      d3Selection: { node: () => null } as never,
-      viewportController: {
-        panBy: vi.fn(() => true),
-        zoomBy: vi.fn(),
-        zoomTo: vi.fn(),
-        setViewport: vi.fn(),
-        setCenter: vi.fn(),
-        fitView: fitViewSpy,
-      },
-    });
-
-    expect(fitView({ duration: 100 })).toBe(true);
-    expect(fitViewSpy).toHaveBeenCalledWith({ duration: 100 });
-  });
-
-  it("lets explicit fit-view clicks run on the custom substrate even when fitViewOnInit is still true", () => {
-    // Validates the canary toolbar is not blocked by the legacy init guard.
-    vi.useFakeTimers();
-    const fitViewSpy = vi.fn(() => true);
-
-    useReactFlow.setState({
+  it("caps initial fit zoom to the default zoom level", () => {
+    const { transform } = setupFitViewState({
       fitViewOnInit: true,
-      fitViewOnInitDone: true,
-      viewportController: {
-        panBy: vi.fn(() => true),
-        zoomBy: vi.fn(),
-        zoomTo: vi.fn(),
-        setViewport: vi.fn(),
-        setCenter: vi.fn(),
-        fitView: fitViewSpy,
-      },
+      fitViewOnInitDone: false,
     });
+    setNodes([createNode({ id: "section-a", width: 100, height: 100 })]);
 
-    onFitViewHandler();
+    expect(fitView({ initial: true, maxZoom: 3 })).toBe(true);
 
-    expect(fitViewSpy).toHaveBeenCalledWith({
-      duration: useSettings.getState().gui.transitionDuration,
-    });
-    vi.runAllTimers();
-    expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+    expect(transform).toHaveBeenCalledTimes(1);
+    expect(transform.mock.calls[0][1]).toMatchObject({ k: 1 });
+  });
+
+  it("filters to explicit fitView targets before checking node measurement", () => {
+    const { transform } = setupFitViewState();
+    setNodes([
+      createNode({ id: "target" }),
+      createNode({ id: "unmeasured", width: null, height: null }),
+    ]);
+
+    expect(fitView({ nodes: [{ id: "target" }] })).toBe(true);
+    expect(transform).toHaveBeenCalledTimes(1);
+
+    transform.mockClear();
+
+    expect(fitView()).toBe(false);
+    expect(transform).not.toHaveBeenCalled();
+  });
+
+  it("uses a transition wrapper only for positive durations", () => {
+    const { d3Selection, transform } = setupFitViewState();
+    const transition = { id: "transition" } as ReturnType<
+      typeof graphUtils.getD3Transition
+    >;
+    const getD3TransitionSpy = vi
+      .spyOn(graphUtils, "getD3Transition")
+      .mockReturnValue(transition);
+    setNodes([createNode({ id: "section-a" })]);
+
+    expect(fitView({ duration: 120 })).toBe(true);
+    expect(getD3TransitionSpy).toHaveBeenCalledWith(d3Selection, 120);
+    expect(transform).toHaveBeenCalledWith(
+      transition,
+      expect.objectContaining({ k: expect.any(Number) }),
+    );
+
+    transform.mockClear();
+    getD3TransitionSpy.mockClear();
+
+    expect(fitView({ duration: 0 })).toBe(true);
+    expect(getD3TransitionSpy).not.toHaveBeenCalled();
+    expect(transform).toHaveBeenCalledWith(
+      d3Selection,
+      expect.objectContaining({ k: expect.any(Number) }),
+    );
   });
 });

@@ -1,4 +1,5 @@
 import { HandlePosition, type HandleType } from "forks/xyflow/core/types";
+import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
 import {
   registerEdgeHandlesWithSharedElement,
@@ -12,38 +13,9 @@ import {
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 
-type MinimizedDataEdgeHandlesState = {
-  isMinimized: boolean;
-  inputPortIds: string[];
-  outputPortIds: string[];
-};
-
-function arePortIdsEqual(previousIds: string[], nextIds: string[]) {
-  if (previousIds.length !== nextIds.length) {
-    return false;
-  }
-  for (let index = 0; index < previousIds.length; index += 1) {
-    if (previousIds[index] !== nextIds[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function areMinimizedDataEdgeHandlesStateEqual(
-  previousState: MinimizedDataEdgeHandlesState,
-  nextState: MinimizedDataEdgeHandlesState,
-) {
-  return (
-    previousState.isMinimized === nextState.isMinimized &&
-    arePortIdsEqual(previousState.inputPortIds, nextState.inputPortIds) &&
-    arePortIdsEqual(previousState.outputPortIds, nextState.outputPortIds)
-  );
-}
-
 export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
   const { isMinimized, inputPortIds, outputPortIds } = useProjectState(
-    (state): MinimizedDataEdgeHandlesState => {
+    (state) => {
       const impl = getCurrEffectiveSectionImpl(state, sectionId);
       if (!isBaseSectionWithParamsImpl(impl)) {
         return {
@@ -58,7 +30,7 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
         outputPortIds: impl.edgeOutputPorts.map((port) => port.id),
       };
     },
-    areMinimizedDataEdgeHandlesStateEqual,
+    _.isEqual,
   );
 
   const leftDotRef = useRef<HTMLDivElement | null>(null);

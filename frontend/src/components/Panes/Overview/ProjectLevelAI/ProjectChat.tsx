@@ -13,6 +13,7 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
+  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
@@ -23,6 +24,7 @@ import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReduce
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
 import { Resizable } from "re-resizable";
 import {
   SetStateAction,
@@ -67,21 +69,23 @@ import {
 import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
-  AllLLMConfigs,
+  AllConfigs,
   BaseChatMessageUnion,
+  ChatDictationModeEnum,
   EngineConfig,
   EngineTypeEnum,
-  ExternalAgentPreflightStatus,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
+  ProjectChatUIConfig,
+  type ChatDictationMode,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import { ProjectAISettings } from "./ProjectAISettings";
+import { ProjectChatCore } from "./ProjectChatCore";
 import {
   getDefaultProjectChatPermissionMode,
-  ProjectChatCore,
   type ProjectChatBlockedErrorCode,
-} from "./ProjectChatCore";
+} from "./projectChatCoreUtils";
 import {
   focusInputWithoutSelectionById,
   PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
@@ -105,7 +109,7 @@ type ProjectAISettingsPopoverProps = {
   defaultLLMConfigId: string | null;
   engineType: EngineTypeEnum | null;
   noConfigsAvailable: boolean;
-  dictationMode: ProjectDictationMode;
+  dictationMode: ChatDictationMode;
   activityAccordionOpenByDefault: boolean;
   activityChildrenOpenByDefault: boolean;
   providerDictationLikelySupported: boolean;
@@ -118,12 +122,11 @@ type ProjectAISettingsPopoverProps = {
   onLLMConfigChange: (value: string | null) => void;
   onTranscriptionProfileChange: (value: string | null) => void;
   onPinDefaultModel: () => void;
-  onDictationModeChange: (value: ProjectDictationMode) => void;
+  onDictationModeChange: (value: ChatDictationMode) => void;
   onActivityAccordionOpenByDefaultChange: (value: boolean) => void;
   onActivityChildrenOpenByDefaultChange: (value: boolean) => void;
 };
 
-type ProjectDictationMode = "auto" | "browser" | "provider";
 type ProjectChatAuxTabId = Exclude<ProjectChatAuxView, "none">;
 const INLINE_THREADS_BREAKPOINT_PX = 760;
 const INLINE_THREADS_MIN_WIDTH_PX = 220;
@@ -147,6 +150,16 @@ type ResolveProjectChatThreadVisibilityFromResizeInput = {
   explicitlyClosedAtLargeWidth: boolean;
 };
 
+type ResolveProjectChatConversationDataSourceInput = {
+  chatId: string | null | undefined;
+  hasPendingDetails: boolean;
+};
+
+type ProjectChatConversationDataSource =
+  | { kind: "active"; chatId: string }
+  | { kind: "pending" }
+  | { kind: "empty" };
+
 type ResolveProjectChatEngineConfigIdForSelectedChatInput = {
   chatId: string | null | undefined;
   selectedEngineId: string | null;
@@ -164,7 +177,7 @@ type ResolveProjectChatSelectedEngineIdAfterEngineConfigsLoadInput = {
 type ResolveProjectChatSelectedLLMUnavailableReasonInput = {
   engineType: EngineTypeEnum | null;
   selectedLLMConfigId: string | null;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
 };
 
@@ -202,6 +215,27 @@ type ResolveProjectChatDraftMessageByProjectConfigIdUpdateInput = {
   projectConfigId: string;
   nextDraftMessage: string;
 };
+type DraftThreadHistoryEntry = {
+  nameSource: string | null;
+};
+type ResolveDraftThreadStateAfterChatContextChangeInput = {
+  current: DraftProjectThreadState;
+  chatId: string | null | undefined;
+  chatHistoryEntriesById: Map<string, DraftThreadHistoryEntry>;
+};
+type BuildProjectChatHydrationMetadataRevisionInput = {
+  chatId: string | null | undefined;
+  chatProvenanceByChatIdMap: Map<string, { engineConfigId: string | null }>;
+  engineConfigById: Map<string, EngineConfig>;
+  selectedChatHydrationAuthorityStatus: string;
+  selectedChatHydrationRunType: string | null;
+  selectedChatBlockedErrorCode: string | null;
+  selectedChatRunWatermark: number;
+  agentRunsAuthorityState: string;
+  agentRunsLoadError: string | null;
+  engineConfigsInitialLoadComplete: boolean;
+  engineConfigsLoadError: string | null;
+};
 
 type ProjectChatProps = {
   surfaceId?: string;
@@ -219,31 +253,101 @@ export function resolveProjectChatThreadVisibilityFromResize({
   viewThreads,
   explicitlyClosedAtLargeWidth,
 }: ResolveProjectChatThreadVisibilityFromResizeInput): boolean | null {
-  if (isInitialRun) {
-    if (!isLargeEnoughForInlineThreads) {
-      if (!viewThreads) {
-        return null;
-      }
-      return false;
-    }
-    if (viewThreads || explicitlyClosedAtLargeWidth) {
-      return null;
-    }
+  const preserveWideLayoutPreference =
+    viewThreads || explicitlyClosedAtLargeWidth;
+  const shouldReactToResize =
+    isInitialRun ||
+    wasLargeEnoughForInlineThreads !== isLargeEnoughForInlineThreads;
+  if (!shouldReactToResize) {
+    return null;
+  }
+  if (isLargeEnoughForInlineThreads && !preserveWideLayoutPreference) {
     return true;
   }
-  if (wasLargeEnoughForInlineThreads === isLargeEnoughForInlineThreads) {
-    return null;
-  }
-  if (!isLargeEnoughForInlineThreads) {
-    if (!viewThreads) {
-      return null;
-    }
+  if (!isLargeEnoughForInlineThreads && viewThreads) {
     return false;
   }
-  if (viewThreads || explicitlyClosedAtLargeWidth) {
-    return null;
+  return null;
+}
+
+export function resolveProjectChatConversationDataSource({
+  chatId,
+  hasPendingDetails,
+}: ResolveProjectChatConversationDataSourceInput): ProjectChatConversationDataSource {
+  if (chatId === null) {
+    return { kind: "pending" };
   }
-  return true;
+  if (typeof chatId === "string") {
+    return { kind: "active", chatId };
+  }
+  if (hasPendingDetails) {
+    return { kind: "pending" };
+  }
+  return { kind: "empty" };
+}
+
+const EMPTY_CHAT_MESSAGES: Array<BaseChatMessageUnion> = [];
+
+export function resolveProjectChatMessagesForSurface({
+  source,
+  pendingDetails,
+  chatDetails,
+}: {
+  source: ProjectChatConversationDataSource;
+  pendingDetails: { messages: Array<BaseChatMessageUnion> } | null;
+  chatDetails: Record<string, { messages: Array<BaseChatMessageUnion> }>;
+}): Array<BaseChatMessageUnion> {
+  if (source.kind === "pending") {
+    return pendingDetails?.messages ?? EMPTY_CHAT_MESSAGES;
+  }
+  if (source.kind === "active") {
+    return chatDetails[source.chatId]?.messages ?? EMPTY_CHAT_MESSAGES;
+  }
+  return EMPTY_CHAT_MESSAGES;
+}
+
+export function resolveProjectChatAppGenerationDetailsForSurface({
+  source,
+  pendingAppGenerationDetails,
+  chatAppGenerationDetailsByChatId,
+}: {
+  source: ProjectChatConversationDataSource;
+  pendingAppGenerationDetails: ReturnType<
+    typeof getDefaultChatAppGenerationDetails
+  > | null;
+  chatAppGenerationDetailsByChatId: Record<
+    string,
+    ReturnType<typeof getDefaultChatAppGenerationDetails>
+  >;
+}): ReturnType<typeof getDefaultChatAppGenerationDetails> {
+  if (source.kind === "pending") {
+    return pendingAppGenerationDetails ?? getDefaultChatAppGenerationDetails();
+  }
+  if (source.kind === "active") {
+    return (
+      chatAppGenerationDetailsByChatId[source.chatId] ??
+      getDefaultChatAppGenerationDetails()
+    );
+  }
+  return getDefaultChatAppGenerationDetails();
+}
+
+export function resolveProjectChatWaitingForResponseForSurface({
+  source,
+  pendingDetails,
+  chatDetails,
+}: {
+  source: ProjectChatConversationDataSource;
+  pendingDetails: { waitingForResponse: boolean } | null;
+  chatDetails: Record<string, { waitingForResponse: boolean }>;
+}): boolean {
+  if (source.kind === "pending") {
+    return Boolean(pendingDetails?.waitingForResponse);
+  }
+  if (source.kind === "active") {
+    return Boolean(chatDetails[source.chatId]?.waitingForResponse);
+  }
+  return false;
 }
 
 export function resolveProjectChatEngineConfigIdForSelectedChat({
@@ -418,6 +522,98 @@ export function resolveProjectChatDraftMessageByProjectConfigIdUpdate({
   return nextByProjectConfigId;
 }
 
+// eslint-disable-next-line complexity
+function resolveDraftThreadStateAfterChatContextChange({
+  current,
+  chatId,
+  chatHistoryEntriesById,
+}: ResolveDraftThreadStateAfterChatContextChangeInput): DraftProjectThreadState {
+  if (current.phase === "none") {
+    return current;
+  }
+  if (current.phase === "idle") {
+    return typeof chatId === "string" ? { phase: "none" } : current;
+  }
+  if (current.phase === "pending_chat_id") {
+    if (typeof chatId === "string") {
+      return { phase: "awaiting_title", chatId };
+    }
+    return chatId === undefined ? { phase: "idle" } : current;
+  }
+  if (typeof chatId === "string" && chatId !== current.chatId) {
+    return { phase: "none" };
+  }
+  const historyEntry = chatHistoryEntriesById.get(current.chatId);
+  if (historyEntry && historyEntry.nameSource !== null) {
+    return { phase: "none" };
+  }
+  return current;
+}
+
+// eslint-disable-next-line complexity
+function buildProjectChatHydrationMetadataRevision({
+  chatId,
+  chatProvenanceByChatIdMap,
+  engineConfigById,
+  selectedChatHydrationAuthorityStatus,
+  selectedChatHydrationRunType,
+  selectedChatBlockedErrorCode,
+  selectedChatRunWatermark,
+  agentRunsAuthorityState,
+  agentRunsLoadError,
+  engineConfigsInitialLoadComplete,
+  engineConfigsLoadError,
+}: BuildProjectChatHydrationMetadataRevisionInput): string {
+  if (typeof chatId !== "string" || chatId.trim() === "") {
+    return "no-selected-chat";
+  }
+  const normalizedChatId = chatId.trim();
+  const selectedProvenance =
+    chatProvenanceByChatIdMap.get(normalizedChatId) ?? null;
+  const selectedProvenanceEngineConfigId =
+    selectedProvenance?.engineConfigId ?? null;
+  const selectedProvenanceEngineConfig = selectedProvenanceEngineConfigId
+    ? engineConfigById.get(selectedProvenanceEngineConfigId) ?? null
+    : null;
+  const selectedEngineRevision = selectedProvenanceEngineConfig
+    ? [
+        selectedProvenanceEngineConfig.id,
+        selectedProvenanceEngineConfig.engineType,
+        selectedProvenanceEngineConfig.settaLlmConfigId ?? "",
+        selectedProvenanceEngineConfig.externalAgentConfigId ?? "",
+      ].join(":")
+    : "missing_engine_config";
+  return [
+    selectedChatHydrationAuthorityStatus,
+    selectedChatHydrationRunType ?? "missing_run_type",
+    selectedChatBlockedErrorCode ?? "not_blocked",
+    selectedProvenanceEngineConfigId ?? "missing_engine_config_id",
+    selectedEngineRevision,
+    selectedChatRunWatermark,
+    `runs_${agentRunsAuthorityState}`,
+    agentRunsLoadError ?? "runs_ok",
+    engineConfigsInitialLoadComplete ? "engines_ready" : "engines_loading",
+    engineConfigsLoadError ?? "engines_ok",
+  ].join("|");
+}
+
+function buildProjectDictationModeOptions(
+  providerModeAvailable: boolean,
+): AllItemsType<ChatDictationMode> {
+  return [
+    {
+      group: "Microphone Source",
+      items: ProjectChatUIConfig.projectDictationModeOptions.map((option) => ({
+        id: option.value,
+        name: getProjectDictationModeOptionLabel({
+          mode: option.value,
+          providerModeAvailable,
+        }),
+      })),
+    },
+  ];
+}
+
 export function setProjectChatAuxViewForActiveProject(
   nextAuxView: ProjectChatAuxView,
 ): void {
@@ -516,6 +712,7 @@ export function ProjectChat({
   );
 }
 
+// eslint-disable-next-line complexity
 function ProjectChatSurface({
   resolvedSurfaceId,
   controlledChatId,
@@ -568,49 +765,45 @@ function ProjectChatSurface({
   useHydrateLLMState();
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
-    if (chatId === null) {
-      const pendingMessages =
-        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]?.messages;
-      if (Array.isArray(pendingMessages)) {
-        return pendingMessages as Array<BaseChatMessageUnion>;
-      }
-      return [];
-    }
-    if (typeof chatId !== "string") {
-      return [];
-    }
-    const activeMessages = state.chatDetails[chatId]?.messages;
-    if (Array.isArray(activeMessages)) {
-      return activeMessages as Array<BaseChatMessageUnion>;
-    }
-    return [];
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    const source = resolveProjectChatConversationDataSource({
+      chatId,
+      hasPendingDetails: pendingDetails !== null,
+    });
+    return resolveProjectChatMessagesForSurface({
+      source,
+      pendingDetails,
+      chatDetails: state.chatDetails,
+    });
   });
   const activeConversationAppGenerationDetails = useAIStore((state) => {
-    if (chatId === null) {
-      return (
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    const source = resolveProjectChatConversationDataSource({
+      chatId,
+      hasPendingDetails: pendingDetails !== null,
+    });
+    return resolveProjectChatAppGenerationDetailsForSurface({
+      source,
+      pendingAppGenerationDetails:
         state.pendingChatAppGenerationDetailsBySurfaceId[resolvedSurfaceId] ??
-        getDefaultChatAppGenerationDetails()
-      );
-    }
-    if (typeof chatId !== "string") {
-      return getDefaultChatAppGenerationDetails();
-    }
-    return (
-      state.chatAppGenerationDetailsByChatId[chatId] ??
-      getDefaultChatAppGenerationDetails()
-    );
+        null,
+      chatAppGenerationDetailsByChatId: state.chatAppGenerationDetailsByChatId,
+    });
   });
   const selectedChatWaitingForResponse = useAIStore((state) => {
-    if (chatId === null) {
-      return Boolean(
-        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]
-          ?.waitingForResponse,
-      );
-    }
-    if (typeof chatId !== "string") {
-      return false;
-    }
-    return Boolean(state.chatDetails[chatId]?.waitingForResponse);
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    const source = resolveProjectChatConversationDataSource({
+      chatId,
+      hasPendingDetails: pendingDetails !== null,
+    });
+    return resolveProjectChatWaitingForResponseForSurface({
+      source,
+      pendingDetails,
+      chatDetails: state.chatDetails,
+    });
   });
 
   const {
@@ -871,6 +1064,11 @@ function ProjectChatSurface({
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );
+  const selectableLLMConfigId = useMemo(
+    () =>
+      resolveSelectableLLMConfigId(availableConfigGroups, selectedLLMConfigId),
+    [availableConfigGroups, selectedLLMConfigId],
+  );
   const llmSelectionUnavailableReason = useMemo(
     () =>
       resolveProjectChatSelectedLLMUnavailableReason({
@@ -1038,40 +1236,22 @@ function ProjectChatSurface({
     return nextWatermark;
   }, [agentRuns, chatId]);
   const selectedChatHydrationMetadataRevision = useMemo(() => {
-    if (typeof chatId !== "string") {
-      return "no-selected-chat";
-    }
-    const normalizedChatId = chatId.trim();
-    if (!normalizedChatId) {
-      return "no-selected-chat";
-    }
-    const selectedProvenance =
-      chatProvenanceByChatIdMap.get(normalizedChatId) ?? null;
-    const selectedProvenanceEngineConfigId =
-      selectedProvenance?.engineConfigId ?? null;
-    const selectedProvenanceEngineConfig = selectedProvenanceEngineConfigId
-      ? engineConfigById.get(selectedProvenanceEngineConfigId) ?? null
-      : null;
-    const selectedEngineRevision = selectedProvenanceEngineConfig
-      ? [
-          selectedProvenanceEngineConfig.id,
-          selectedProvenanceEngineConfig.engineType,
-          selectedProvenanceEngineConfig.settaLlmConfigId ?? "",
-          selectedProvenanceEngineConfig.externalAgentConfigId ?? "",
-        ].join(":")
-      : "missing_engine_config";
-    return [
-      selectedChatHydrationAuthority.status,
-      selectedChatHydrationAuthority.hydrationRunType ?? "missing_run_type",
-      selectedChatHydrationAuthority.blockedErrorCode ?? "not_blocked",
-      selectedProvenanceEngineConfigId ?? "missing_engine_config_id",
-      selectedEngineRevision,
+    return buildProjectChatHydrationMetadataRevision({
+      chatId,
+      chatProvenanceByChatIdMap,
+      engineConfigById,
+      selectedChatHydrationAuthorityStatus:
+        selectedChatHydrationAuthority.status,
+      selectedChatHydrationRunType:
+        selectedChatHydrationAuthority.hydrationRunType,
+      selectedChatBlockedErrorCode:
+        selectedChatHydrationAuthority.blockedErrorCode,
       selectedChatRunWatermark,
-      `runs_${agentRunsAuthorityState}`,
-      agentRunsLoadError ?? "runs_ok",
-      engineConfigsInitialLoadComplete ? "engines_ready" : "engines_loading",
-      engineConfigsLoadError ?? "engines_ok",
-    ].join("|");
+      agentRunsAuthorityState,
+      agentRunsLoadError,
+      engineConfigsInitialLoadComplete,
+      engineConfigsLoadError,
+    });
   }, [
     agentRunsAuthorityState,
     agentRunsLoadError,
@@ -1103,34 +1283,13 @@ function ProjectChatSurface({
   }, [draftThreadState, draftThreadTargetGroupId]);
 
   useEffect(() => {
-    setDraftThreadState((current) => {
-      if (current.phase === "none") {
-        return current;
-      }
-      if (current.phase === "idle") {
-        if (typeof chatId === "string") {
-          return { phase: "none" };
-        }
-        return current;
-      }
-      if (current.phase === "pending_chat_id") {
-        if (typeof chatId === "string") {
-          return { phase: "awaiting_title", chatId };
-        }
-        if (chatId === undefined) {
-          return { phase: "idle" };
-        }
-        return current;
-      }
-      if (typeof chatId === "string" && chatId !== current.chatId) {
-        return { phase: "none" };
-      }
-      const historyEntry = chatHistoryEntriesById.get(current.chatId);
-      if (historyEntry && historyEntry.nameSource !== null) {
-        return { phase: "none" };
-      }
-      return current;
-    });
+    setDraftThreadState((current) =>
+      resolveDraftThreadStateAfterChatContextChange({
+        current,
+        chatId,
+        chatHistoryEntriesById,
+      }),
+    );
   }, [chatHistoryEntriesById, chatId]);
   useEffect(() => {
     if (draftThreadState.phase !== "none") {
@@ -1208,7 +1367,7 @@ function ProjectChatSurface({
     notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
     addPersistentNotification(
       externalEngineIssueMessage,
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   }, [externalEngineIssueMessage]);
 
@@ -1280,12 +1439,9 @@ function ProjectChatSurface({
     },
     [],
   );
-  const handleDictationModeChange = useCallback(
-    (value: ProjectDictationMode) => {
-      useAIStore.setState({ projectChatDictationMode: value });
-    },
-    [],
-  );
+  const handleDictationModeChange = useCallback((value: ChatDictationMode) => {
+    useAIStore.setState({ projectChatDictationMode: value });
+  }, []);
   const handleActivityAccordionOpenByDefaultChange = useCallback(
     (value: boolean) => {
       useAIStore.setState({
@@ -1341,13 +1497,15 @@ function ProjectChatSurface({
     transcriptionProfilesInitialLoadComplete,
   ]);
   useEffect(() => {
-    if (projectChatDictationMode !== "provider") {
+    if (projectChatDictationMode !== ChatDictationModeEnum.provider) {
       return;
     }
     if (providerDictationAvailable) {
       return;
     }
-    useAIStore.setState({ projectChatDictationMode: "auto" });
+    useAIStore.setState({
+      projectChatDictationMode: ChatDictationModeEnum.auto,
+    });
   }, [projectChatDictationMode, providerDictationAvailable]);
   useEffect(() => {
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
@@ -1965,7 +2123,7 @@ function ProjectChatSurface({
                         transcriptionProfileGroups={transcriptionProfileGroups}
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
-                        selectedLLMConfigId={selectedLLMConfigId}
+                        selectedLLMConfigId={selectableLLMConfigId}
                         llmSelectionUnavailableReason={
                           llmSelectionUnavailableReason
                         }
@@ -2192,6 +2350,7 @@ function ProjectChatSurface({
                   }
                   thinking={thinking}
                   engineConfigId={effectiveEngineId}
+                  engineConfig={selectedEngineConfig}
                   engineType={engineType}
                   hasLLMConfig={hasLLMConfig}
                   externalEngineAvailable={externalEngineAvailable}
@@ -2265,6 +2424,7 @@ function ProjectChatSurface({
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
+              engineConfig={selectedEngineConfig}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
@@ -2302,9 +2462,9 @@ function findPreferredEngineId({
   externalAgentHealthInitialLoadComplete,
 }: {
   engineConfigs: EngineConfig[];
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
+  externalAgentHealth: HttpapiExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;
 }): string | null {
   for (const config of engineConfigs) {
@@ -2350,9 +2510,9 @@ function isEngineUsable({
   externalAgentHealthInitialLoadComplete,
 }: {
   config: EngineConfig;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
+  externalAgentHealth: HttpapiExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;
 }): boolean {
   if (config.engineType === EngineTypeEnum.setta_llm) {
@@ -2373,6 +2533,7 @@ function isEngineUsable({
   return false;
 }
 
+// eslint-disable-next-line complexity
 function ProjectAISettingsContent({
   engineGroups,
   transcriptionProfileGroups,
@@ -2412,46 +2573,20 @@ function ProjectAISettingsContent({
       : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
   const providerModeAvailable = providerDictationLikelySupported;
   const autoFallsBackToBrowser =
-    dictationMode === "auto" && !providerDictationLikelySupported;
+    dictationMode === ChatDictationModeEnum.auto &&
+    !providerDictationLikelySupported;
   const selectedModelPinnedAsDefault =
     selectedLLMConfigId !== null && selectedLLMConfigId === defaultLLMConfigId;
-  const dictationModeOptions = useMemo<AllItemsType<ProjectDictationMode>>(
-    () => [
-      {
-        group: "Microphone Source",
-        items: [
-          {
-            id: "auto",
-            name: getProjectDictationModeOptionLabel({
-              mode: "auto",
-              providerModeAvailable,
-            }),
-          },
-          {
-            id: "provider",
-            name: getProjectDictationModeOptionLabel({
-              mode: "provider",
-              providerModeAvailable,
-            }),
-          },
-          {
-            id: "browser",
-            name: getProjectDictationModeOptionLabel({
-              mode: "browser",
-              providerModeAvailable,
-            }),
-          },
-        ],
-      },
-    ],
+  const dictationModeOptions = useMemo(
+    () => buildProjectDictationModeOptions(providerModeAvailable),
     [providerModeAvailable],
   );
   const handleDictationModeOptionChange = useCallback(
-    (value: ProjectDictationMode | null) => {
+    (value: ChatDictationMode | null) => {
       if (!value) {
         return;
       }
-      if (value === "provider" && !providerModeAvailable) {
+      if (value === ChatDictationModeEnum.provider && !providerModeAvailable) {
         return;
       }
       onDictationModeChange(value);

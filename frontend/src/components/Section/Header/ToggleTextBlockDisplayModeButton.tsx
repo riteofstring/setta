@@ -1,5 +1,7 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import { setTextBlockDisplayMode } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { HiOutlineDocumentText, HiOutlinePencil } from "react-icons/hi";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -9,16 +11,13 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_set_text_block_display_mode } from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
 } from "utils/generatedTypes";
-
 type ToggleTextBlockDisplayModeButtonProps = {
   sectionId: string;
 };
-
 export function ToggleTextBlockDisplayModeButton({
   sectionId,
 }: ToggleTextBlockDisplayModeButtonProps) {
@@ -36,12 +35,10 @@ export function ToggleTextBlockDisplayModeButton({
   }, _.isEqual);
   const { canEditLayout } = useShareCapabilities();
   const isDisabled = implIsFrozen || !canEditLayout;
-
   const isRenderMode = textDisplayMode === TextBlockDisplayModeEnum.Render;
   const nextDisplayMode = isRenderMode
     ? TextBlockDisplayModeEnum.Edit
     : TextBlockDisplayModeEnum.Render;
-
   function onClick() {
     if (isDisabled) {
       return;
@@ -53,15 +50,18 @@ export function ToggleTextBlockDisplayModeButton({
         });
       },
       send: (frontendOpId) =>
-        route_set_text_block_display_mode({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          textDisplayMode: nextDisplayMode,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setTextBlockDisplayMode({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              textDisplayMode: nextDisplayMode,
+              frontendOpId,
+            },
+          } as Parameters<typeof setTextBlockDisplayMode>[0]),
+        ),
     });
   }
-
   const label = `${nextDisplayMode} ${format}`;
   const icon = isRenderMode ? (
     <HiOutlinePencil className="h-3 w-3" />
@@ -77,7 +77,6 @@ export function ToggleTextBlockDisplayModeButton({
   const cursorClassName = isDisabled
     ? "cursor-not-allowed opacity-50"
     : "cursor-pointer";
-
   return (
     <button
       className={`nodrag flex inline-flex items-center justify-center focus-visible:ring-2 ${backgroundClassName} ${colorClassName} ${cursorClassName} mr-1 h-4 w-4 rounded-full p-0`}
