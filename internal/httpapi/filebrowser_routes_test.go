@@ -252,8 +252,57 @@ func TestRegisterFileBrowserRoutesCheckIfFileExistsAllowsShareDeploymentRootsOnl
 	if blockedResponse.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", blockedResponse.Code, blockedResponse.Body.String())
 	}
-	if !strings.Contains(blockedResponse.Body.String(), `"detail":"Deployment mode file access is restricted to the deployment artifacts/json_sources/code paths."`) {
+	if !strings.Contains(blockedResponse.Body.String(), `"detail":"`+deploymentFileAccessRestrictionDetail+`"`) {
 		t.Fatalf("expected deployment path restriction detail, got %q", blockedResponse.Body.String())
+	}
+}
+
+func TestResolveDeploymentCheckPathRestrictsDeploymentRoots(t *testing.T) {
+	t.Parallel()
+
+	deploymentRoot := t.TempDir()
+	allowedPaths := []string{
+		filepath.Join(deploymentRoot, "artifacts", "bundle.zip"),
+		filepath.Join(deploymentRoot, "json_sources", "data.json"),
+		filepath.Join(deploymentRoot, "code", "run.py"),
+	}
+	for _, path := range allowedPaths {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	for _, rawPath := range []string{
+		"artifacts/bundle.zip",
+		filepath.Join(deploymentRoot, "json_sources", "data.json"),
+		"code/run.py",
+	} {
+		resolved, status, detail, err := resolveDeploymentCheckPath(rawPath, deploymentRoot)
+		if err != nil {
+			t.Fatalf("resolve deployment path %q: %v", rawPath, err)
+		}
+		if status != 0 || detail != "" {
+			t.Fatalf("expected allowed deployment path for %q, got status=%d detail=%q", rawPath, status, detail)
+		}
+		if filepath.Base(resolved) == "" {
+			t.Fatalf("expected resolved path for %q, got %q", rawPath, resolved)
+		}
+	}
+
+	_, status, detail, err := resolveDeploymentCheckPath("manifest.json", deploymentRoot)
+	if err != nil {
+		t.Fatalf("resolve blocked deployment path: %v", err)
+	}
+	if status != http.StatusForbidden || detail != deploymentFileAccessRestrictionDetail {
+		t.Fatalf("expected blocked deployment path, got status=%d detail=%q", status, detail)
+	}
+
+	_, status, detail, err = resolveDeploymentCheckPath("code/run.py", "   ")
+	if err != nil {
+		t.Fatalf("resolve blank deployment root: %v", err)
+	}
+	if status != http.StatusBadRequest || detail != "Deployment root is not configured." {
+		t.Fatalf("expected blank deployment root rejection, got status=%d detail=%q", status, detail)
 	}
 }
 
@@ -816,6 +865,39 @@ func TestRegisterFileBrowserRoutesDownloadTokenMissesMatchSourceTransport(t *tes
 	notFileResponse := httptest.NewRecorder()
 	handler.ServeHTTP(notFileResponse, notFileRequest)
 	assertFileBrowserRouteError(t, notFileResponse, http.StatusBadRequest, "path_not_file", "File path is not a file.")
+}
+
+func TestWriteFileBrowserRouteErrorMapsKnownKindsAndFallsBack(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetFileBrowserRoot, nil)
+	for kind, expected := range map[filebrowser.ErrorKind]struct {
+		status int
+		code   string
+	}{
+		filebrowser.ErrorInvalidRequest:       {status: http.StatusBadRequest, code: "invalid_request"},
+		filebrowser.ErrorPathForbidden:        {status: http.StatusForbidden, code: "path_forbidden"},
+		filebrowser.ErrorPathNotFound:         {status: http.StatusNotFound, code: "path_not_found"},
+		filebrowser.ErrorPathNotFile:          {status: http.StatusBadRequest, code: "path_not_file"},
+		filebrowser.ErrorPathNotDirectory:     {status: http.StatusBadRequest, code: "path_not_directory"},
+		filebrowser.ErrorConflict:             {status: http.StatusConflict, code: "file_conflict"},
+		filebrowser.ErrorTooLarge:             {status: http.StatusRequestEntityTooLarge, code: "file_too_large"},
+		filebrowser.ErrorBinaryPayloadInvalid: {status: http.StatusBadRequest, code: "invalid_binary_content_payload"},
+		filebrowser.ErrorTokenUnavailable:     {status: http.StatusInternalServerError, code: "file_browser_token_unavailable"},
+		filebrowser.ErrorInvalidDownloadToken: {status: http.StatusForbidden, code: "invalid_file_browser_token"},
+	} {
+		response := httptest.NewRecorder()
+		writeFileBrowserRouteError(response, request, &filebrowser.Error{Kind: kind, Message: "mapped message"})
+		assertFileBrowserRouteError(t, response, expected.status, expected.code, "mapped message")
+	}
+
+	internalResponse := httptest.NewRecorder()
+	writeFileBrowserRouteError(internalResponse, request, &filebrowser.Error{Kind: filebrowser.ErrorKind("unexpected"), Message: "ignored"})
+	assertFileBrowserRouteError(t, internalResponse, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+
+	plainResponse := httptest.NewRecorder()
+	writeFileBrowserRouteError(plainResponse, request, os.ErrPermission)
+	assertFileBrowserRouteError(t, plainResponse, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 }
 
 func TestRegisterFileBrowserRoutesBlocksLauncherMode(t *testing.T) {

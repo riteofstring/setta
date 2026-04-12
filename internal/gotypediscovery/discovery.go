@@ -545,36 +545,58 @@ func evalStringConstExpr(
 	cache map[string]string,
 	resolving map[string]bool,
 ) (string, bool, error) {
+	expr = unwrapParenExpr(expr)
 	switch typed := expr.(type) {
 	case *ast.BasicLit:
-		if typed.Kind != token.STRING {
-			return "", false, nil
-		}
-		value, err := strconv.Unquote(typed.Value)
-		if err != nil {
-			return "", false, fmt.Errorf("unquote %s: %w", typed.Value, err)
-		}
-		return value, true, nil
+		return evalBasicStringConstExpr(typed)
 	case *ast.BinaryExpr:
-		if typed.Op != token.ADD {
-			return "", false, nil
-		}
-		left, ok, err := evalStringConstExpr(typed.X, constExprs, cache, resolving)
-		if err != nil || !ok {
-			return "", ok, err
-		}
-		right, ok, err := evalStringConstExpr(typed.Y, constExprs, cache, resolving)
-		if err != nil || !ok {
-			return "", ok, err
-		}
-		return left + right, true, nil
+		return evalConcatenatedStringConstExpr(typed, constExprs, cache, resolving)
 	case *ast.Ident:
 		return resolveStringConstant(typed.Name, constExprs, cache, resolving)
-	case *ast.ParenExpr:
-		return evalStringConstExpr(typed.X, constExprs, cache, resolving)
 	default:
 		return "", false, nil
 	}
+}
+
+func unwrapParenExpr(expr ast.Expr) ast.Expr {
+	for {
+		typed, ok := expr.(*ast.ParenExpr)
+		if !ok {
+			return expr
+		}
+		expr = typed.X
+	}
+}
+
+func evalBasicStringConstExpr(literal *ast.BasicLit) (string, bool, error) {
+	if literal == nil || literal.Kind != token.STRING {
+		return "", false, nil
+	}
+	value, err := strconv.Unquote(literal.Value)
+	if err != nil {
+		return "", false, fmt.Errorf("unquote %s: %w", literal.Value, err)
+	}
+	return value, true, nil
+}
+
+func evalConcatenatedStringConstExpr(
+	expr *ast.BinaryExpr,
+	constExprs map[string]ast.Expr,
+	cache map[string]string,
+	resolving map[string]bool,
+) (string, bool, error) {
+	if expr == nil || expr.Op != token.ADD {
+		return "", false, nil
+	}
+	left, ok, err := evalStringConstExpr(expr.X, constExprs, cache, resolving)
+	if err != nil || !ok {
+		return "", ok, err
+	}
+	right, ok, err := evalStringConstExpr(expr.Y, constExprs, cache, resolving)
+	if err != nil || !ok {
+		return "", ok, err
+	}
+	return left + right, true, nil
 }
 
 func classifyType(
@@ -712,19 +734,26 @@ func fieldHasEmbeddedExportedType(field *ast.Field) bool {
 }
 
 func exprHasExportedTypeName(expr ast.Expr) bool {
-	switch typed := expr.(type) {
-	case *ast.Ident:
-		return typed != nil && typed.IsExported()
-	case *ast.SelectorExpr:
-		return typed != nil && typed.Sel != nil && ast.IsExported(typed.Sel.Name)
-	case *ast.StarExpr:
-		return typed != nil && exprHasExportedTypeName(typed.X)
-	case *ast.IndexExpr:
-		return typed != nil && exprHasExportedTypeName(typed.X)
-	case *ast.IndexListExpr:
-		return typed != nil && exprHasExportedTypeName(typed.X)
-	default:
-		return false
+	baseExpr := unwrapExportedTypeExpr(expr)
+	if ident, ok := baseExpr.(*ast.Ident); ok && ident != nil {
+		return ident.IsExported()
+	}
+	selector, ok := baseExpr.(*ast.SelectorExpr)
+	return ok && selector != nil && selector.Sel != nil && ast.IsExported(selector.Sel.Name)
+}
+
+func unwrapExportedTypeExpr(expr ast.Expr) ast.Expr {
+	for {
+		switch typed := expr.(type) {
+		case *ast.StarExpr:
+			expr = typed.X
+		case *ast.IndexExpr:
+			expr = typed.X
+		case *ast.IndexListExpr:
+			expr = typed.X
+		default:
+			return expr
+		}
 	}
 }
 

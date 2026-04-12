@@ -2,6 +2,7 @@ package gotypediscovery
 
 import (
 	"go/ast"
+	"go/token"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -314,6 +315,100 @@ func TestClassifyTypeFollowsLocalNamedTypeChains(t *testing.T) {
 	)
 	if !ok || got != TypeKindStruct {
 		t.Fatalf("classifyType(local alias) = (%q, %t), want (%q, true)", got, ok, TypeKindStruct)
+	}
+}
+
+func TestEvalStringConstExprResolvesConcatenationAndCycles(t *testing.T) {
+	t.Helper()
+
+	constExprs := map[string]ast.Expr{
+		"RouteBase": &ast.BasicLit{Kind: token.STRING, Value: `"/api"`},
+		"RouteTools": &ast.BinaryExpr{
+			X:  ast.NewIdent("RouteBase"),
+			Op: token.ADD,
+			Y:  &ast.BasicLit{Kind: token.STRING, Value: `"/tools"`},
+		},
+	}
+	value, ok, err := evalStringConstExpr(
+		&ast.ParenExpr{X: ast.NewIdent("RouteTools")},
+		constExprs,
+		map[string]string{},
+		map[string]bool{},
+	)
+	if err != nil || !ok || value != "/api/tools" {
+		t.Fatalf("evalStringConstExpr(concat) = (%q, %t, %v), want (%q, true, nil)", value, ok, err, "/api/tools")
+	}
+
+	_, ok, err = evalStringConstExpr(
+		&ast.BasicLit{Kind: token.INT, Value: "1"},
+		constExprs,
+		map[string]string{},
+		map[string]bool{},
+	)
+	if err != nil || ok {
+		t.Fatalf("evalStringConstExpr(non-string) = (_, %t, %v), want (_, false, nil)", ok, err)
+	}
+
+	cyclic := map[string]ast.Expr{
+		"A": ast.NewIdent("B"),
+		"B": ast.NewIdent("A"),
+	}
+	_, _, err = evalStringConstExpr(ast.NewIdent("A"), cyclic, map[string]string{}, map[string]bool{})
+	if err == nil {
+		t.Fatal("expected cyclic string constant error")
+	}
+}
+
+func TestExprHasExportedTypeNameHandlesWrappers(t *testing.T) {
+	t.Helper()
+
+	cases := []struct {
+		name string
+		expr ast.Expr
+		want bool
+	}{
+		{
+			name: "exported ident",
+			expr: ast.NewIdent("Widget"),
+			want: true,
+		},
+		{
+			name: "selector through pointer and index list",
+			expr: &ast.IndexListExpr{
+				X: &ast.StarExpr{
+					X: &ast.SelectorExpr{
+						X:   ast.NewIdent("frontend"),
+						Sel: ast.NewIdent("Widget"),
+					},
+				},
+				Indices: []ast.Expr{ast.NewIdent("T")},
+			},
+			want: true,
+		},
+		{
+			name: "unexported selector",
+			expr: &ast.SelectorExpr{
+				X:   ast.NewIdent("frontend"),
+				Sel: ast.NewIdent("widget"),
+			},
+			want: false,
+		},
+		{
+			name: "unexported ident behind pointer",
+			expr: &ast.StarExpr{X: ast.NewIdent("widget")},
+			want: false,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Helper()
+
+			if got := exprHasExportedTypeName(tc.expr); got != tc.want {
+				t.Fatalf("exprHasExportedTypeName(%s) = %t, want %t", tc.name, got, tc.want)
+			}
+		})
 	}
 }
 

@@ -15,6 +15,8 @@ import (
 	"setta/internal/modes"
 )
 
+const deploymentFileAccessRestrictionDetail = "Deployment mode file access is restricted to the deployment artifacts/json_sources/code paths."
+
 const (
 	RouteCreateFile                = "/createFile"
 	RouteCheckIfFileExists         = "/checkIfFileExists"
@@ -29,6 +31,26 @@ const (
 	RouteTransferFileBrowserEntry  = "/transferFileBrowserEntry"
 	RouteFileBrowserDownload       = "/fileBrowser/{token}"
 )
+
+var deploymentFileBrowserAllowedSubfolders = []string{"artifacts", "json_sources", "code"}
+
+type fileBrowserRouteErrorResponse struct {
+	status int
+	code   string
+}
+
+var fileBrowserRouteErrorsByKind = map[filebrowser.ErrorKind]fileBrowserRouteErrorResponse{
+	filebrowser.ErrorInvalidRequest:       {status: http.StatusBadRequest, code: "invalid_request"},
+	filebrowser.ErrorPathForbidden:        {status: http.StatusForbidden, code: "path_forbidden"},
+	filebrowser.ErrorPathNotFound:         {status: http.StatusNotFound, code: "path_not_found"},
+	filebrowser.ErrorPathNotFile:          {status: http.StatusBadRequest, code: "path_not_file"},
+	filebrowser.ErrorPathNotDirectory:     {status: http.StatusBadRequest, code: "path_not_directory"},
+	filebrowser.ErrorConflict:             {status: http.StatusConflict, code: "file_conflict"},
+	filebrowser.ErrorTooLarge:             {status: http.StatusRequestEntityTooLarge, code: "file_too_large"},
+	filebrowser.ErrorBinaryPayloadInvalid: {status: http.StatusBadRequest, code: "invalid_binary_content_payload"},
+	filebrowser.ErrorTokenUnavailable:     {status: http.StatusInternalServerError, code: "file_browser_token_unavailable"},
+	filebrowser.ErrorInvalidDownloadToken: {status: http.StatusForbidden, code: "invalid_file_browser_token"},
+}
 
 type FileBrowserRouteDependencies struct {
 	ModePolicy     modes.Policy
@@ -620,73 +642,95 @@ func checkIfDeploymentFileExists(rawPath string, deploymentRoot string) (bool, i
 }
 
 func resolveDeploymentCheckPath(rawPath string, deploymentRoot string) (string, int, string, error) {
-	resolvedDeploymentRoot, err := filepath.Abs(strings.TrimSpace(deploymentRoot))
+	resolvedDeploymentRoot, status, detail, err := resolveDeploymentRootPath(deploymentRoot)
+	if err != nil || status != 0 {
+		return "", status, detail, err
+	}
+
+	resolvedCandidate, err := resolveDeploymentCandidatePath(rawPath, resolvedDeploymentRoot)
 	if err != nil {
 		return "", 0, "", err
 	}
-	if strings.TrimSpace(resolvedDeploymentRoot) == "" || strings.TrimSpace(deploymentRoot) == "" {
+	allowed, err := deploymentPathAllowed(resolvedCandidate, resolvedDeploymentRoot)
+	if err != nil {
+		return "", 0, "", err
+	}
+	if allowed {
+		return resolvedCandidate, 0, "", nil
+	}
+
+	return "", http.StatusForbidden, deploymentFileAccessRestrictionDetail, nil
+}
+
+func resolveDeploymentRootPath(deploymentRoot string) (string, int, string, error) {
+	trimmedRoot := strings.TrimSpace(deploymentRoot)
+	if trimmedRoot == "" {
 		return "", http.StatusBadRequest, "Deployment root is not configured.", nil
 	}
 
-	resolvedCandidate := resolvedDeploymentRoot
+	resolvedDeploymentRoot, err := filepath.Abs(trimmedRoot)
+	if err != nil {
+		return "", 0, "", err
+	}
+	if strings.TrimSpace(resolvedDeploymentRoot) == "" {
+		return "", http.StatusBadRequest, "Deployment root is not configured.", nil
+	}
+	return resolvedDeploymentRoot, 0, "", nil
+}
+
+func resolveDeploymentCandidatePath(rawPath string, resolvedDeploymentRoot string) (string, error) {
 	trimmedPath := strings.TrimSpace(rawPath)
-	if trimmedPath != "" {
-		if filepath.IsAbs(trimmedPath) {
-			resolvedCandidate, err = filepath.Abs(trimmedPath)
-		} else {
-			resolvedCandidate, err = filepath.Abs(filepath.Join(resolvedDeploymentRoot, trimmedPath))
-		}
+	if trimmedPath == "" {
+		return filepath.Clean(resolvedDeploymentRoot), nil
+	}
+
+	if filepath.IsAbs(trimmedPath) {
+		return filepath.Abs(trimmedPath)
+	}
+	return filepath.Abs(filepath.Join(resolvedDeploymentRoot, trimmedPath))
+}
+
+func deploymentPathAllowed(resolvedCandidate string, resolvedDeploymentRoot string) (bool, error) {
+	for _, subfolder := range deploymentFileBrowserAllowedSubfolders {
+		withinRoot, err := pathWithinRoot(filepath.Join(resolvedDeploymentRoot, subfolder), resolvedCandidate)
 		if err != nil {
-			return "", 0, "", err
+			return false, err
+		}
+		if withinRoot {
+			return true, nil
 		}
 	}
-	resolvedCandidate = filepath.Clean(resolvedCandidate)
+	return false, nil
+}
 
-	for _, subfolder := range []string{"artifacts", "json_sources", "code"} {
-		allowedRoot := filepath.Join(resolvedDeploymentRoot, subfolder)
-		relative, relErr := filepath.Rel(allowedRoot, resolvedCandidate)
-		if relErr != nil {
-			return "", 0, "", relErr
-		}
-		if relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
-			return resolvedCandidate, 0, "", nil
-		}
+func pathWithinRoot(root string, candidate string) (bool, error) {
+	relative, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false, err
 	}
+	return relative == "." || !pathEscapesRoot(relative), nil
+}
 
-	return "", http.StatusForbidden, "Deployment mode file access is restricted to the deployment artifacts/json_sources/code paths.", nil
+func pathEscapesRoot(relative string) bool {
+	return relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func writeFileBrowserRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	var routeErr *filebrowser.Error
 	if !errors.As(err, &routeErr) {
-		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		writeFileBrowserInternalError(w, r)
 		return
 	}
-
-	switch routeErr.Kind {
-	case filebrowser.ErrorInvalidRequest:
-		writeError(w, r, http.StatusBadRequest, "invalid_request", routeErr.Message)
-	case filebrowser.ErrorPathForbidden:
-		writeError(w, r, http.StatusForbidden, "path_forbidden", routeErr.Message)
-	case filebrowser.ErrorPathNotFound:
-		writeError(w, r, http.StatusNotFound, "path_not_found", routeErr.Message)
-	case filebrowser.ErrorPathNotFile:
-		writeError(w, r, http.StatusBadRequest, "path_not_file", routeErr.Message)
-	case filebrowser.ErrorPathNotDirectory:
-		writeError(w, r, http.StatusBadRequest, "path_not_directory", routeErr.Message)
-	case filebrowser.ErrorConflict:
-		writeError(w, r, http.StatusConflict, "file_conflict", routeErr.Message)
-	case filebrowser.ErrorTooLarge:
-		writeError(w, r, http.StatusRequestEntityTooLarge, "file_too_large", routeErr.Message)
-	case filebrowser.ErrorBinaryPayloadInvalid:
-		writeError(w, r, http.StatusBadRequest, "invalid_binary_content_payload", routeErr.Message)
-	case filebrowser.ErrorTokenUnavailable:
-		writeError(w, r, http.StatusInternalServerError, "file_browser_token_unavailable", routeErr.Message)
-	case filebrowser.ErrorInvalidDownloadToken:
-		writeError(w, r, http.StatusForbidden, "invalid_file_browser_token", routeErr.Message)
-	default:
-		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	response, ok := fileBrowserRouteErrorsByKind[routeErr.Kind]
+	if !ok {
+		writeFileBrowserInternalError(w, r)
+		return
 	}
+	writeError(w, r, response.status, response.code, routeErr.Message)
+}
+
+func writeFileBrowserInternalError(w http.ResponseWriter, r *http.Request) {
+	writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 }
 
 func buildAbsoluteAPIRouteURL(r *http.Request, route string, pathParams map[string]string) string {
