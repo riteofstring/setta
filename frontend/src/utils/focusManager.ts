@@ -23,30 +23,42 @@ let focusTrackingInitialized = false;
 
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"]):not([role="menubar"])';
+const CODE_MIRROR_ROOT_SELECTORS = [
+  ".cm-editor",
+  "[id^='CodeMirror-']",
+  ".cm-theme",
+] as const;
+const TAB_NAVIGABLE_SELECTOR = "[tabindex]:not([tabindex='-1'])";
 
-function normalizeFocusableElement(element: HTMLElement): HTMLElement {
-  const isCodeMirrorContent =
-    element.classList.contains("cm-content") || element.isContentEditable;
-  if (isCodeMirrorContent) {
-    const cmEditor = element.closest(".cm-editor");
-    if (cmEditor instanceof HTMLElement && cmEditor.tabIndex >= 0) {
-      return cmEditor;
-    }
-    const codeMirrorRoot =
-      element.closest("[id^='CodeMirror-']") ??
-      element.closest(".cm-theme") ??
-      element.closest(".cm-editor");
-    if (codeMirrorRoot instanceof HTMLElement && codeMirrorRoot.tabIndex >= 0) {
-      return codeMirrorRoot;
-    }
-    const focusableAncestor = element.closest(
-      "[tabindex]:not([tabindex='-1'])",
-    );
-    if (focusableAncestor instanceof HTMLElement) {
-      return focusableAncestor;
+function isCodeMirrorContentElement(element: HTMLElement): boolean {
+  return element.classList.contains("cm-content") || element.isContentEditable;
+}
+
+function findClosestTabNavigableAncestor(
+  element: HTMLElement,
+  selectors: readonly string[],
+): HTMLElement | null {
+  for (const selector of selectors) {
+    const candidate = element.closest(selector);
+    if (candidate instanceof HTMLElement && candidate.tabIndex >= 0) {
+      return candidate;
     }
   }
-  return element;
+  return null;
+}
+
+function getCodeMirrorFocusableRoot(element: HTMLElement): HTMLElement | null {
+  return (
+    findClosestTabNavigableAncestor(element, CODE_MIRROR_ROOT_SELECTORS) ??
+    findClosestTabNavigableAncestor(element, [TAB_NAVIGABLE_SELECTOR])
+  );
+}
+
+function normalizeFocusableElement(element: HTMLElement): HTMLElement {
+  if (!isCodeMirrorContentElement(element)) {
+    return element;
+  }
+  return getCodeMirrorFocusableRoot(element) ?? element;
 }
 
 export function useTabScope({

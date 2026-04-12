@@ -183,6 +183,50 @@ describe("focusManager", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("normalizes CodeMirror content to the nearest tab-navigable root", async () => {
+    await act(async () => {
+      root.render(
+        <>
+          <Scope scopeId="editor" order={1}>
+            <div id="CodeMirror-1" tabIndex={0}>
+              <div className="cm-editor" tabIndex={-1}>
+                <div
+                  className="cm-content"
+                  contentEditable
+                  data-testid="cm-content"
+                />
+              </div>
+            </div>
+          </Scope>
+          <Scope scopeId="next" order={2}>
+            <button type="button" data-testid="next-button">
+              Next
+            </button>
+          </Scope>
+        </>,
+      );
+    });
+
+    const editorRoot = host.querySelector("#CodeMirror-1") as HTMLDivElement;
+    const editorContent = host.querySelector(
+      '[data-testid="cm-content"]',
+    ) as HTMLElement;
+    const nextButton = host.querySelector(
+      '[data-testid="next-button"]',
+    ) as HTMLButtonElement;
+    markVisible(editorRoot);
+    markVisible(editorContent);
+    markVisible(nextButton);
+    editorContent.focus();
+
+    const movedForward = moveFocus({ direction: 1, from: editorContent });
+    const movedBackward = moveFocus({ direction: -1, from: nextButton });
+
+    expect(movedForward).toBe(true);
+    expect(movedBackward).toBe(true);
+    expect(document.activeElement).toBe(editorRoot);
+  });
+
   it("focuses the next top-level section and marks it active", () => {
     const canvasScope = document.createElement("div");
     canvasScope.setAttribute("data-tab-scope", "canvas");

@@ -11,6 +11,7 @@ export type FileBrowserSearchScope = ObjectValues<
 >;
 
 type FileBrowserTypeFilter = keyof BrowserSavedSearchTypeFilters;
+type AttachmentPreviewKind = ReturnType<typeof getAttachmentPreviewKind>;
 
 export const DEFAULT_FILE_BROWSER_TYPE_FILTERS: BrowserSavedSearchTypeFilters =
   {
@@ -40,6 +41,17 @@ const DATA_EXTENSIONS = new Set([
   ".xls",
   ".xlsx",
 ]);
+
+const FILE_BROWSER_TYPE_FILTER_BY_PREVIEW_KIND = {
+  archive: "data",
+  audio: "audio",
+  image: "image",
+  other: "data",
+  video: "video",
+} as const satisfies Record<
+  Exclude<AttachmentPreviewKind, "pdf" | "text">,
+  FileBrowserTypeFilter
+>;
 
 type FileBrowserItemLike = {
   name: string;
@@ -85,27 +97,11 @@ function getNonFolderFileBrowserTypeFilter(
     size: item.size ?? null,
   });
 
-  switch (previewKind) {
-    case "image":
-      return "image";
-
-    case "video":
-      return "video";
-
-    case "audio":
-      return "audio";
-
-    case "text":
-    case "pdf":
-      return getTextLikeFileBrowserTypeFilter(item);
-
-    case "archive":
-    case "other":
-      return "data";
-
-    default:
-      return previewKind satisfies never;
+  if (previewKind === "text" || previewKind === "pdf") {
+    return getTextLikeFileBrowserTypeFilter(item);
   }
+
+  return FILE_BROWSER_TYPE_FILTER_BY_PREVIEW_KIND[previewKind];
 }
 
 function getFileBrowserTypeFilterForItem(
