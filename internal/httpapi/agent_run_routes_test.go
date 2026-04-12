@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/config"
+	"setta/internal/externalagentconfigs"
+	"setta/internal/externalagents"
 	"setta/internal/llmconfig"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -689,6 +692,93 @@ func TestRegisterAgentRunRoutesBlocksShareMode(t *testing.T) {
 		if payload.Error.Code != "mode_forbidden" {
 			t.Fatalf("expected mode_forbidden, got %#v", payload)
 		}
+	}
+}
+
+func TestWriteRunChainError(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		err         error
+		handled     bool
+		status      int
+		code        string
+		message     string
+		expectEmpty bool
+	}{
+		{
+			name:    "maps wrapped unsupported engine",
+			err:     fmt.Errorf("wrapped: %w", runchains.ErrSupportedStepEngineRequired),
+			handled: true,
+			status:  http.StatusBadRequest,
+			code:    "run_chain_engine_unsupported",
+			message: "Run chain steps must use a Setta LLM or external-agent engine config.",
+		},
+		{
+			name:    "preserves invalid input detail",
+			err:     fmt.Errorf("%w: inputs.allowUnscoped must be a boolean", runchains.ErrInvalidRunChainInput),
+			handled: true,
+			status:  http.StatusBadRequest,
+			code:    "invalid_run_chain_inputs",
+			message: "inputs.allowUnscoped must be a boolean",
+		},
+		{
+			name:    "falls back for blank invalid input detail",
+			err:     fmt.Errorf("%w: ", runchains.ErrInvalidRunChainInput),
+			handled: true,
+			status:  http.StatusBadRequest,
+			code:    "invalid_run_chain_inputs",
+			message: "Invalid run chain inputs.",
+		},
+		{
+			name: "writes preflight issue message",
+			err: &externalagents.PreflightUnavailableError{
+				Status: externalagentconfigs.Status{Issues: []string{"Missing credential"}},
+			},
+			handled: true,
+			status:  http.StatusServiceUnavailable,
+			code:    "external_agent_preflight_failed",
+			message: "External agent config is not available: Missing credential",
+		},
+		{
+			name:        "ignores unknown errors",
+			err:         fmt.Errorf("boom"),
+			handled:     false,
+			expectEmpty: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteStartRunChain, nil)
+			response := httptest.NewRecorder()
+
+			handled := writeRunChainError(response, request, testCase.err)
+			if handled != testCase.handled {
+				t.Fatalf("expected handled=%v, got %v", testCase.handled, handled)
+			}
+			if testCase.expectEmpty {
+				if response.Body.Len() != 0 {
+					t.Fatalf("expected empty body for unhandled error, got %q", response.Body.String())
+				}
+				return
+			}
+			if response.Code != testCase.status {
+				t.Fatalf("expected %d, got %d with body %q", testCase.status, response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != testCase.code || payload.Error.Message != testCase.message {
+				t.Fatalf("unexpected payload %#v", payload)
+			}
+		})
 	}
 }
 

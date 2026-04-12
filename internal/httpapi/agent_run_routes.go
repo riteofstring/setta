@@ -313,6 +313,75 @@ func stopRunChainHandler(runtime *runchains.Runtime) http.HandlerFunc {
 	}
 }
 
+type routeErrorMapping struct {
+	targets []error
+	status  int
+	code    string
+	message string
+}
+
+var runChainRouteErrorMappings = []routeErrorMapping{
+	{
+		targets: []error{runchains.ErrStepRuntimeRequired},
+		status:  http.StatusServiceUnavailable,
+		code:    "run_chain_unavailable",
+		message: "Run chains are not available.",
+	},
+	{
+		targets: []error{runchains.ErrManagedRuntimeUnavailable, runchains.ErrManagedRuntimeRequired},
+		status:  http.StatusServiceUnavailable,
+		code:    "managed_run_chain_unavailable",
+		message: "Managed run-chain steps are not available.",
+	},
+	{
+		targets: []error{runchains.ErrExternalRuntimeUnavailable},
+		status:  http.StatusServiceUnavailable,
+		code:    "external_run_chain_unavailable",
+		message: "External-agent run-chain steps are not available.",
+	},
+	{
+		targets: []error{runchains.ErrSupportedStepEngineRequired, externalagents.ErrExternalAgentEngineRequired},
+		status:  http.StatusBadRequest,
+		code:    "run_chain_engine_unsupported",
+		message: "Run chain steps must use a Setta LLM or external-agent engine config.",
+	},
+	{
+		targets: []error{agentprofiles.ErrProfileNotFound},
+		status:  http.StatusNotFound,
+		code:    "agent_profile_not_found",
+		message: "Agent profile not found.",
+	},
+	{
+		targets: []error{agentruns.ErrEngineConfigNotFound},
+		status:  http.StatusBadRequest,
+		code:    "engine_config_not_found",
+		message: "Engine config not found.",
+	},
+	{
+		targets: []error{externalagentconfigs.ErrConfigNotFound},
+		status:  http.StatusBadRequest,
+		code:    "external_agent_config_not_found",
+		message: "External agent config not found.",
+	},
+	{
+		targets: []error{agentruns.ErrRunNotFound},
+		status:  http.StatusNotFound,
+		code:    "run_chain_not_found",
+		message: "Run chain not found.",
+	},
+}
+
+func resolveRouteErrorMapping(err error, mappings []routeErrorMapping) (routeErrorMapping, bool) {
+	for _, mapping := range mappings {
+		for _, target := range mapping.targets {
+			if errors.Is(err, target) {
+				return mapping, true
+			}
+		}
+	}
+	return routeErrorMapping{}, false
+}
+
 func writeManagedAgentRunError(w http.ResponseWriter, r *http.Request, err error) bool {
 	switch {
 	case errors.Is(err, agentruns.ErrManagedExecutorUnavailable), errors.Is(err, agentruns.ErrRuntimeServiceRequired):
@@ -339,47 +408,29 @@ func writeManagedAgentRunError(w http.ResponseWriter, r *http.Request, err error
 	}
 }
 
+func runChainInvalidInputMessage(err error) string {
+	message := strings.TrimSpace(err.Error())
+	message = strings.TrimPrefix(message, runchains.ErrInvalidRunChainInput.Error())
+	message = strings.TrimSpace(strings.TrimPrefix(message, ":"))
+	if message == "" {
+		return "Invalid run chain inputs."
+	}
+	return message
+}
+
 func writeRunChainError(w http.ResponseWriter, r *http.Request, err error) bool {
 	var preflightErr *externalagents.PreflightUnavailableError
-	switch {
-	case errors.Is(err, runchains.ErrStepRuntimeRequired):
-		writeError(w, r, http.StatusServiceUnavailable, "run_chain_unavailable", "Run chains are not available.")
+	if mapping, ok := resolveRouteErrorMapping(err, runChainRouteErrorMappings); ok {
+		writeError(w, r, mapping.status, mapping.code, mapping.message)
 		return true
-	case errors.Is(err, runchains.ErrManagedRuntimeUnavailable), errors.Is(err, runchains.ErrManagedRuntimeRequired):
-		writeError(w, r, http.StatusServiceUnavailable, "managed_run_chain_unavailable", "Managed run-chain steps are not available.")
+	}
+	if errors.Is(err, runchains.ErrInvalidRunChainInput) {
+		writeError(w, r, http.StatusBadRequest, "invalid_run_chain_inputs", runChainInvalidInputMessage(err))
 		return true
-	case errors.Is(err, runchains.ErrExternalRuntimeUnavailable):
-		writeError(w, r, http.StatusServiceUnavailable, "external_run_chain_unavailable", "External-agent run-chain steps are not available.")
-		return true
-	case errors.Is(err, runchains.ErrSupportedStepEngineRequired):
-		writeError(w, r, http.StatusBadRequest, "run_chain_engine_unsupported", "Run chain steps must use a Setta LLM or external-agent engine config.")
-		return true
-	case errors.Is(err, runchains.ErrInvalidRunChainInput):
-		message := strings.TrimPrefix(strings.TrimSpace(err.Error()), runchains.ErrInvalidRunChainInput.Error()+": ")
-		if message == "" {
-			message = "Invalid run chain inputs."
-		}
-		writeError(w, r, http.StatusBadRequest, "invalid_run_chain_inputs", message)
-		return true
-	case errors.As(err, &preflightErr):
+	}
+	if errors.As(err, &preflightErr) {
 		writeError(w, r, http.StatusServiceUnavailable, "external_agent_preflight_failed", preflightErr.Error())
 		return true
-	case errors.Is(err, agentprofiles.ErrProfileNotFound):
-		writeError(w, r, http.StatusNotFound, "agent_profile_not_found", "Agent profile not found.")
-		return true
-	case errors.Is(err, agentruns.ErrEngineConfigNotFound):
-		writeError(w, r, http.StatusBadRequest, "engine_config_not_found", "Engine config not found.")
-		return true
-	case errors.Is(err, externalagentconfigs.ErrConfigNotFound):
-		writeError(w, r, http.StatusBadRequest, "external_agent_config_not_found", "External agent config not found.")
-		return true
-	case errors.Is(err, externalagents.ErrExternalAgentEngineRequired):
-		writeError(w, r, http.StatusBadRequest, "run_chain_engine_unsupported", "Run chain steps must use a Setta LLM or external-agent engine config.")
-		return true
-	case errors.Is(err, agentruns.ErrRunNotFound):
-		writeError(w, r, http.StatusNotFound, "run_chain_not_found", "Run chain not found.")
-		return true
-	default:
-		return false
 	}
+	return false
 }
