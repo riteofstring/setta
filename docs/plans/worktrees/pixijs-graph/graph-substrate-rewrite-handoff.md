@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 11:43 UTC
+Last updated: 2026-04-15 12:02 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,53 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `497` landed a bounded production reduction on the remaining
+  shell-entry owner for the canonical `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      now keeps each shell DOM node alive behind an imperative handle so
+      cursor, transform, z-index, hover target, and drag-start section data
+      update without forcing a React rerender on position-only motion
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now reuses section-entry elements across shell-only motion/drag-state
+      changes and flushes the latest shell state through a layout effect
+      instead of rebuilding the section entry
+    - focused regressions:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      now prove the shell DOM updates imperatively and that threshold-edge
+      motion / drag-state flips no longer re-enter the shell React render path
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`3` files, `14` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - bounded lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        -> restarted the worktree runtime and debug Chrome successfully
+    - fresh-context CDP smoke via sub-agent after the restart:
+      -> `http://127.0.0.1:3053/settings` mounted only the loading shell
+      -> visible text stayed at `Preparing Setta / Loading settings... / Backend: Starting backend services.`
+      -> graph surface not visible yet
+      -> no obvious blank-card or detached-body artifact was observable because
+         the canary surface itself never mounted
+  - reading:
+    - this is the first real product reduction on the
+      `presentedSceneSectionEntryShellReactRender` owner instead of another
+      attribution split
+    - the focused fanout lane now keeps
+      `presentedSceneSectionEntryShellReactRender` out of:
+      - small threshold-edge position-only motion
+      - drag-state flips on an already-mounted sibling set
+    - the next default frontier is to rerun the canonical live motion probe on
+      the same named lane once a trustworthy mounted canary is available, so
+      the next dominant owner can be ranked from live data instead of unit-only
+      evidence
+    - if the live worktree still refuses to mount the graph surface on the next
+      pass, treat that as runtime health debt around the canary session, not as
+      evidence against this shell-entry reduction
 
 - item `496` landed the next bounded attribution seam inside
   `SettingsGraphSubstrateCanarySectionsLayer` on the canonical

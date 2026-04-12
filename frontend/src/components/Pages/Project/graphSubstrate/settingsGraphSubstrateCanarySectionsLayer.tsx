@@ -2,6 +2,7 @@ import React, {
   Profiler,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   type PointerEvent as ReactPointerEvent,
@@ -25,7 +26,11 @@ import {
   resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds,
   resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
 } from "./settingsGraphSubstrateCanarySectionPresentation";
-import { SettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionShell";
+import {
+  SettingsGraphSubstrateCanarySectionShell,
+  type SettingsGraphSubstrateCanarySectionShellHandle,
+  type SettingsGraphSubstrateCanarySectionShellState,
+} from "./settingsGraphSubstrateCanarySectionShell";
 import type { GraphRect, GraphViewport } from "./viewportTransform";
 
 type SettingsGraphSubstrateCanarySectionsLayerProps = {
@@ -46,9 +51,9 @@ type StableSectionBodyEntry = {
 
 type StableSectionEntryElement = {
   element: React.ReactElement;
-  isDragging: boolean;
-  section: SettingsGraphSubstrateCanarySceneSection;
   sectionBody: SettingsGraphSubstrateCanarySectionBody;
+  sectionId: string;
+  shellState: SettingsGraphSubstrateCanarySectionShellState;
   shouldMountBody: boolean;
 };
 
@@ -89,6 +94,8 @@ type SettingsGraphSubstrateCanarySectionEntryProps = {
   sectionBody: SettingsGraphSubstrateCanarySectionBody;
   shouldMountBody: boolean;
 };
+type SettingsGraphSubstrateCanarySectionEntryHandle =
+  SettingsGraphSubstrateCanarySectionShellHandle;
 
 function handleSettingsGraphSubstrateCanarySectionBodyRender(
   _id: string,
@@ -161,28 +168,34 @@ const SettingsGraphSubstrateCanarySectionEntryBody = React.memo(
     previousProps.shouldMountBody === nextProps.shouldMountBody,
 );
 
-function _SettingsGraphSubstrateCanarySectionEntry({
-  finishSectionDrag,
-  handleSectionPointerDown,
-  handleSectionPointerMove,
-  isDragging,
-  onHoveredSectionChange,
-  section,
-  sectionBody,
-  shouldMountBody,
-}: SettingsGraphSubstrateCanarySectionEntryProps) {
+function _SettingsGraphSubstrateCanarySectionEntry(
+  {
+    finishSectionDrag,
+    handleSectionPointerDown,
+    handleSectionPointerMove,
+    isDragging,
+    onHoveredSectionChange,
+    section,
+    sectionBody,
+    shouldMountBody,
+  }: SettingsGraphSubstrateCanarySectionEntryProps,
+  forwardedRef: React.ForwardedRef<SettingsGraphSubstrateCanarySectionEntryHandle>,
+) {
   return (
     <Profiler
       id={`settings-graph-substrate-canary-section-entry-shell:${section.sectionId}`}
       onRender={handleSettingsGraphSubstrateCanarySectionEntryShellRender}
     >
       <SettingsGraphSubstrateCanarySectionShell
+        ref={forwardedRef}
+        initialState={{
+          isDragging,
+          section,
+        }}
         finishSectionDrag={finishSectionDrag}
         handleSectionPointerDown={handleSectionPointerDown}
         handleSectionPointerMove={handleSectionPointerMove}
-        isDragging={isDragging}
         onHoveredSectionChange={onHoveredSectionChange}
-        section={section}
       >
         <SettingsGraphSubstrateCanarySectionEntryBody
           sectionBody={sectionBody}
@@ -195,7 +208,7 @@ function _SettingsGraphSubstrateCanarySectionEntry({
 }
 
 const SettingsGraphSubstrateCanarySectionEntry = React.memo(
-  _SettingsGraphSubstrateCanarySectionEntry,
+  React.forwardRef(_SettingsGraphSubstrateCanarySectionEntry),
 );
 
 function _SettingsGraphSubstrateCanarySectionsLayer({
@@ -217,6 +230,9 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   >(new Map());
   const stableSectionEntryElementsByIdRef = useRef<
     Map<string, StableSectionEntryElement>
+  >(new Map());
+  const stableSectionShellHandlesByIdRef = useRef<
+    Map<string, SettingsGraphSubstrateCanarySectionShellHandle>
   >(new Map());
   const stableSectionEntriesRef = useRef<Array<React.ReactElement>>([]);
   const resolvedPresentedSceneSections = useMemo(() => {
@@ -414,6 +430,20 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     },
     [sectionDragController],
   );
+
+  const registerSectionShellHandle = useCallback(
+    (
+      sectionId: string,
+      shellHandle: SettingsGraphSubstrateCanarySectionShellHandle | null,
+    ) => {
+      if (shellHandle) {
+        stableSectionShellHandlesByIdRef.current.set(sectionId, shellHandle);
+        return;
+      }
+      stableSectionShellHandlesByIdRef.current.delete(sectionId);
+    },
+    [],
+  );
   const sectionEntries = useMemo(() => {
     const previousSectionEntryElementsById =
       stableSectionEntryElementsByIdRef.current;
@@ -445,10 +475,14 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
           const isDragging = draggingSectionId === section.sectionId;
           const previousSectionEntryElement =
             previousSectionEntryElementsById.get(section.sectionId);
+          const nextShellState: SettingsGraphSubstrateCanarySectionShellState =
+            {
+              isDragging,
+              section,
+            };
           const canReuseSectionEntryElement =
             previousSectionEntryElement !== undefined &&
-            previousSectionEntryElement.isDragging === isDragging &&
-            previousSectionEntryElement.section === section &&
+            previousSectionEntryElement.sectionId === section.sectionId &&
             previousSectionEntryElement.sectionBody === sectionBody &&
             previousSectionEntryElement.shouldMountBody === shouldMountBody;
           const nextSectionEntryElement = canReuseSectionEntryElement
@@ -457,6 +491,9 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
                 element: (
                   <SettingsGraphSubstrateCanarySectionEntry
                     key={section.sectionId}
+                    ref={(shellHandle) =>
+                      registerSectionShellHandle(section.sectionId, shellHandle)
+                    }
                     finishSectionDrag={finishSectionDrag}
                     handleSectionPointerDown={handleSectionPointerDown}
                     handleSectionPointerMove={handleSectionPointerMove}
@@ -467,11 +504,12 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
                     shouldMountBody={shouldMountBody}
                   />
                 ),
-                isDragging,
-                section,
                 sectionBody,
+                sectionId: section.sectionId,
+                shellState: nextShellState,
                 shouldMountBody,
               };
+          nextSectionEntryElement.shellState = nextShellState;
           nextSectionEntryElementsById.set(
             section.sectionId,
             nextSectionEntryElement,
@@ -503,8 +541,23 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     onHoveredSectionChange,
     resolvedMountedSectionBodyIds,
     resolvedPresentedSceneSections,
+    registerSectionShellHandle,
     sectionBodiesById,
   ]);
+
+  useLayoutEffect(() => {
+    for (const [
+      sectionId,
+      sectionEntryElement,
+    ] of stableSectionEntryElementsByIdRef.current) {
+      const shellHandle =
+        stableSectionShellHandlesByIdRef.current.get(sectionId) ?? null;
+      if (!shellHandle) {
+        continue;
+      }
+      shellHandle.update(sectionEntryElement.shellState);
+    }
+  }, [sectionEntries]);
 
   return <>{sectionEntries}</>;
 }

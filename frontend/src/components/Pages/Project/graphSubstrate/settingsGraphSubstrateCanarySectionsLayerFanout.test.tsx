@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act, useRef, type ReactNode } from "react";
+import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -9,8 +9,8 @@ import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSu
 import type { SettingsGraphSubstrateCanarySectionBody } from "./settingsGraphSubstrateCanarySectionBodyAdapter";
 import type { GraphRect, GraphViewport } from "./viewportTransform";
 
-const { mockResolveSectionBody, mockSectionBodyDomAdapter, mockSectionShell } =
-  vi.hoisted(() => ({
+const { mockResolveSectionBody, mockSectionBodyDomAdapter } = vi.hoisted(
+  () => ({
     mockResolveSectionBody: vi.fn(
       (sectionBody: SettingsGraphSubstrateCanarySectionBody) => sectionBody,
     ),
@@ -25,25 +25,8 @@ const { mockResolveSectionBody, mockSectionBodyDomAdapter, mockSectionShell } =
         </div>
       ),
     ),
-    mockSectionShell: vi.fn(
-      ({
-        children,
-        isDragging,
-        section,
-      }: {
-        children: ReactNode;
-        isDragging: boolean;
-        section: SettingsGraphSubstrateCanarySceneSection;
-      }) => (
-        <div
-          data-dragging={isDragging ? "true" : "false"}
-          data-testid={`shell-${section.sectionId}`}
-        >
-          {children}
-        </div>
-      ),
-    ),
-  }));
+  }),
+);
 const { measureMotionAttribution, recordMotionAttributionDuration } =
   vi.hoisted(() => ({
     measureMotionAttribution: vi.fn((_owner: string, fn: () => unknown) =>
@@ -55,10 +38,6 @@ const { measureMotionAttribution, recordMotionAttributionDuration } =
 vi.mock("./settingsGraphSubstrateCanarySectionBodyAdapter", () => ({
   resolveSettingsGraphSubstrateCanarySectionBody: mockResolveSectionBody,
   SettingsGraphSubstrateCanarySectionBodyDomAdapter: mockSectionBodyDomAdapter,
-}));
-
-vi.mock("./settingsGraphSubstrateCanarySectionShell", () => ({
-  SettingsGraphSubstrateCanarySectionShell: mockSectionShell,
 }));
 vi.mock("./settingsGraphSubstrateCanaryInstrumentation", () => ({
   measureSettingsGraphSubstrateCanaryMotionAttribution:
@@ -106,7 +85,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     recordMotionAttributionDuration.mockClear();
     mockResolveSectionBody.mockClear();
     mockSectionBodyDomAdapter.mockClear();
-    mockSectionShell.mockClear();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -134,7 +112,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
     expect(measureMotionAttribution).toHaveBeenCalledWith(
       "presentedSceneSectionEntriesResolve",
@@ -152,7 +129,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
     expect(
       measureMotionAttribution.mock.calls.filter(
@@ -175,7 +151,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(0);
     expect(host.querySelector('[data-testid="body-section-a"]')).toBeNull();
 
@@ -190,7 +165,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
     expect(host.querySelector('[data-testid="body-section-a"]')).not.toBeNull();
   });
@@ -214,7 +188,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
     expect(recordMotionAttributionDuration).toHaveBeenCalledWith(
       "presentedSceneSectionEntryShellReactRender",
@@ -247,9 +220,8 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
-    expect(recordMotionAttributionDuration).toHaveBeenCalledWith(
+    expect(recordMotionAttributionDuration).not.toHaveBeenCalledWith(
       "presentedSceneSectionEntryShellReactRender",
       expect.any(Number),
     );
@@ -277,8 +249,9 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+
+    recordMotionAttributionDuration.mockClear();
 
     await act(async () => {
       root.render(
@@ -297,7 +270,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
   });
 
@@ -322,8 +294,9 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
-    expect(mockSectionShell).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+
+    recordMotionAttributionDuration.mockClear();
 
     await act(async () => {
       root.render(
@@ -344,7 +317,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(3);
-    expect(mockSectionShell).toHaveBeenCalledTimes(3);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(3);
   });
 
@@ -369,8 +341,8 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
-    expect(mockSectionShell).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+    recordMotionAttributionDuration.mockClear();
 
     await act(async () => {
       root.render(
@@ -383,8 +355,11 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
-    expect(mockSectionShell).toHaveBeenCalledTimes(3);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+    expect(recordMotionAttributionDuration).not.toHaveBeenCalledWith(
+      "presentedSceneSectionEntryShellReactRender",
+      expect.any(Number),
+    );
   });
 
   it("skips body resolution and shell work for offscreen inactive sections", async () => {
@@ -406,13 +381,12 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     });
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
-    expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
     expect(
-      host.querySelector('[data-testid="shell-visible-section"]'),
+      host.querySelector('[data-section-id="visible-section"]'),
     ).not.toBeNull();
     expect(
-      host.querySelector('[data-testid="shell-offscreen-section"]'),
+      host.querySelector('[data-section-id="offscreen-section"]'),
     ).toBeNull();
   });
 });

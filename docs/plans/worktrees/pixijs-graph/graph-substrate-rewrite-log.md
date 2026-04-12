@@ -20894,3 +20894,41 @@ LOOP_TERMINAL_MARKER: none
     frontier
   - visual gate for the mounted graph surface remains deferred in this
     iteration because the fresh CDP smoke only reached startup loading state
+- LOOP_TERMINAL_MARKER: none
+## 2026-04-15 12:02 UTC
+
+- item `497` landed a bounded production reduction on the remaining
+  `presentedSceneSectionEntryShellReactRender` path for the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+    now exposes an imperative shell handle so transform, z-index, cursor, and
+    drag-start section data can update without a React rerender on shell-only
+    motion
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    now reuses section-entry elements across position-only motion / drag-state
+    flips and pushes the latest shell state through a layout effect
+  - added
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx`
+    and updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    to lock down the imperative update path plus the reduced shell rerender
+    fan-out
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`3` files, `14` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed
+  - bounded recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree lifecycle successfully
+  - fresh-context CDP smoke via sub-agent after the restart:
+    -> app mounted only the loading shell
+    -> text stayed at `Preparing Setta / Loading settings... / Backend: Starting backend services.`
+    -> graph surface was still not visible, so the visual gate stays deferred
+- reading:
+  - the focused fanout lane now keeps shell-entry React renders out of
+    threshold-edge position-only motion and drag-state flips
+  - next real frontier: rerun the canonical live motion probe on
+    `rotaryParamCodeObjDefault` once the mounted canary is trustworthy again,
+    then rank the next dominant owner from live attribution
+- LOOP_TERMINAL_MARKER: none
