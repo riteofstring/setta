@@ -95,6 +95,31 @@ describe("promptSectionSource", () => {
     });
   });
 
+  it("keeps preview sizing and local editability for unlinked prompt sections", () => {
+    const resolvedSource = resolveSource(null, []);
+
+    expect(
+      resolvePromptAreaUiState({
+        canEditParams: true,
+        isDeploymentMode: false,
+        isFrozen: false,
+        maxHeight: "240px",
+        promptTemplateId: null,
+        promptTemplatesInitialLoadComplete: true,
+        renderError: "Render failed",
+        resolvedSource,
+        templateValue: "local draft",
+        viewMode: "preview",
+      }),
+    ).toMatchObject({
+      editorMaxHeight: "240px",
+      editorValue: "local draft",
+      errorText: "Render failed",
+      isReadOnly: false,
+      linkedTemplateInfo: "",
+    });
+  });
+
   it("disables settings editing when deployment sharing blocks parameter changes", () => {
     const resolvedSource = resolveSource(linkedTemplate.id, [linkedTemplate]);
 

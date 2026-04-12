@@ -13,6 +13,7 @@ describe("appSpecPatchStream", () => {
       op: "remove",
       path: "/root",
     });
+    expect(parsePatchLine('{"op":"set","path":"/root"}')).toBeNull();
     expect(
       parsePatchLine('{"op":"set","path":"/not-allowed","value":1}'),
     ).toBeNull();

@@ -29,22 +29,28 @@ export function createEmptySpec(): Spec {
 
 export function parsePatchLine(line: string): AppSpecPatchOp | null {
   const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith(AppSpecPatchPolicyConfig.commentPrefix)) {
+  if (shouldIgnorePatchLine(trimmed)) {
     return null;
   }
   const record = parsePatchObject(trimmed);
-  const op = record ? parsePatchOp(record) : null;
-  const path = record ? parsePatchPath(record.path) : null;
-  if (!record || !op || !path) {
+  if (!record) {
     return null;
   }
-  if (
-    !VALUE_OPTIONAL_OPS.has(op) &&
-    !Object.prototype.hasOwnProperty.call(record, "value")
-  ) {
+  const parsedShape = parsePatchShape(record);
+  if (!parsedShape) {
     return null;
   }
-  return { ...record, op, path } as AppSpecPatchOp;
+  if (!hasRequiredPatchValue(record, parsedShape.op)) {
+    return null;
+  }
+  return { ...record, ...parsedShape } as AppSpecPatchOp;
+}
+
+function shouldIgnorePatchLine(trimmed: string): boolean {
+  return (
+    trimmed.length === 0 ||
+    trimmed.startsWith(AppSpecPatchPolicyConfig.commentPrefix)
+  );
 }
 
 export function applyPatchOp(spec: Spec, patch: AppSpecPatchOp): void {
@@ -103,6 +109,27 @@ function parsePatchPath(value: unknown): string | null {
     return null;
   }
   return value;
+}
+
+function parsePatchShape(
+  record: Record<string, unknown>,
+): Pick<AppSpecPatchOp, "op" | "path"> | null {
+  const op = parsePatchOp(record);
+  const path = parsePatchPath(record.path);
+  if (!op || !path) {
+    return null;
+  }
+  return { op, path };
+}
+
+function hasRequiredPatchValue(
+  record: Record<string, unknown>,
+  op: AppSpecPatchOp["op"],
+): boolean {
+  return (
+    VALUE_OPTIONAL_OPS.has(op) ||
+    Object.prototype.hasOwnProperty.call(record, "value")
+  );
 }
 
 function applyRootPatch(spec: Spec, patch: AppSpecPatchOp): boolean {

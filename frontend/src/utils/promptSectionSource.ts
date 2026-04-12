@@ -132,21 +132,21 @@ export function resolvePromptAreaUiState({
   viewMode,
 }: ResolvePromptAreaUiStateParams) {
   return {
-    editorMaxHeight:
-      viewMode === "template" && maxHeight
-        ? `calc(${maxHeight} - 32px)`
-        : maxHeight,
+    editorMaxHeight: resolvePromptAreaMaxHeight(viewMode, maxHeight),
     editorValue: resolvedSource.isLinked
       ? resolvedSource.templateText
       : templateValue,
-    errorText:
-      resolvedSource.linkedTemplateMissing && promptTemplatesInitialLoadComplete
-        ? "Linked prompt template could not be found."
-        : renderError ?? "",
-    isReadOnly:
-      resolvedSource.isLinked ||
-      isFrozen ||
-      (isDeploymentMode && !canEditParams),
+    errorText: resolvePromptAreaErrorText(
+      resolvedSource,
+      promptTemplatesInitialLoadComplete,
+      renderError,
+    ),
+    isReadOnly: isPromptAreaReadOnly(
+      resolvedSource,
+      isFrozen,
+      isDeploymentMode,
+      canEditParams,
+    ),
     linkedTemplateInfo: resolvePromptLinkedTemplateNotice({
       promptTemplateId,
       promptTemplatesInitialLoadComplete,
@@ -154,6 +154,42 @@ export function resolvePromptAreaUiState({
       variant: "layout",
     }),
   };
+}
+
+function resolvePromptAreaMaxHeight(
+  viewMode: ResolvePromptAreaUiStateParams["viewMode"],
+  maxHeight: string | null,
+): string | null {
+  if (viewMode !== "template" || !maxHeight) {
+    return maxHeight;
+  }
+  return `calc(${maxHeight} - 32px)`;
+}
+
+function resolvePromptAreaErrorText(
+  resolvedSource: ResolvedPromptSectionSource,
+  promptTemplatesInitialLoadComplete: boolean,
+  renderError: string | null,
+): string {
+  if (
+    resolvedSource.linkedTemplateMissing &&
+    promptTemplatesInitialLoadComplete
+  ) {
+    return "Linked prompt template could not be found.";
+  }
+  return renderError ?? "";
+}
+
+function isPromptAreaReadOnly(
+  resolvedSource: ResolvedPromptSectionSource,
+  isFrozen: boolean,
+  isDeploymentMode: boolean,
+  canEditParams: boolean,
+): boolean {
+  if (resolvedSource.isLinked || isFrozen) {
+    return true;
+  }
+  return isDeploymentMode && !canEditParams;
 }
 
 export function resolvePromptSettingsUiState({
