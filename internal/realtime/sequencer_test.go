@@ -79,17 +79,17 @@ func TestSequencerDropShareSessionClearsMatchingSessionScopes(t *testing.T) {
 
 	sequencer.DropShareSession("session-a")
 
-	if current, ok := sequencer.Current(keepScope); !ok || current != 1 {
-		t.Fatalf("expected keep scope to remain at 1, got %d ok=%t", current, ok)
+	if next, err := sequencer.Next(keepScope); err != nil || next != 2 {
+		t.Fatalf("expected keep scope next sequence to be 2 after drop, got %d err=%v", next, err)
 	}
-	if current, ok := sequencer.Current(otherScope); !ok || current != 1 {
-		t.Fatalf("expected other session scope to remain at 1, got %d ok=%t", current, ok)
+	if next, err := sequencer.Next(otherScope); err != nil || next != 2 {
+		t.Fatalf("expected other session next sequence to be 2 after drop, got %d err=%v", next, err)
 	}
-	if current, ok := sequencer.Current(dropScopeA); ok || current != 0 {
-		t.Fatalf("expected drop scope A to be removed, got %d ok=%t", current, ok)
+	if next, err := sequencer.Next(dropScopeA); err != nil || next != 1 {
+		t.Fatalf("expected dropped scope A to restart at 1, got %d err=%v", next, err)
 	}
-	if current, ok := sequencer.Current(dropScopeB); ok || current != 0 {
-		t.Fatalf("expected drop scope B to be removed, got %d ok=%t", current, ok)
+	if next, err := sequencer.Next(dropScopeB); err != nil || next != 1 {
+		t.Fatalf("expected dropped scope B to restart at 1, got %d err=%v", next, err)
 	}
 }
 

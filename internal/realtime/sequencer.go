@@ -38,19 +38,6 @@ func (s *Sequencer) Next(scope Scope) (uint64, error) {
 	return next, nil
 }
 
-func (s *Sequencer) Current(scope Scope) (uint64, bool) {
-	scope, err := normalizeScope(scope)
-	if err != nil {
-		return 0, false
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	current, ok := s.sequenceByScope[scope]
-	return current, ok
-}
-
 func (s *Sequencer) Reset(scope Scope) error {
 	scope, err := normalizeScope(scope)
 	if err != nil {

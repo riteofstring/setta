@@ -530,11 +530,11 @@ func TestCleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState(t *testin
 	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-b", "share-b")); !ok {
 		t.Fatal("expected active share-session terminal to remain")
 	}
-	if current, ok := sequencer.Current(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-a"}); ok || current != 0 {
-		t.Fatalf("expected expired share-session sequence to be removed, got %d ok=%t", current, ok)
+	if next, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-a"}); err != nil || next != 1 {
+		t.Fatalf("expected expired share-session sequence to restart at 1, got %d err=%v", next, err)
 	}
-	if current, ok := sequencer.Current(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-b"}); !ok || current != 1 {
-		t.Fatalf("expected active share-session sequence to remain, got %d ok=%t", current, ok)
+	if next, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-b"}); err != nil || next != 2 {
+		t.Fatalf("expected active share-session sequence next value to be 2, got %d err=%v", next, err)
 	}
 
 	loaded, err := shareArtifactService.LoadCachedBrushStrokes(context.Background(), "share-a", artifacts.LoadCachedPathsRequest{

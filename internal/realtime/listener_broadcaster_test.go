@@ -460,11 +460,11 @@ func TestListenerBroadcasterDropShareSessionRemovesRegistrationsAndSequences(t *
 	if got := broadcaster.Registry().MatchingConnectionIDs("project-a", []string{"section-a.param-a"}, "session-a"); len(got) != 0 {
 		t.Fatalf("expected no registrations for dropped share session, got %#v", got)
 	}
-	if current, ok := sequencer.Current(Scope{ProjectID: "project-a", ShareSessionID: "session-a"}); ok || current != 0 {
-		t.Fatalf("expected dropped share-session sequence to be removed, got %d ok=%t", current, ok)
+	if next, err := sequencer.Next(Scope{ProjectID: "project-a", ShareSessionID: "session-a"}); err != nil || next != 1 {
+		t.Fatalf("expected dropped share-session sequence to restart at 1, got %d err=%v", next, err)
 	}
-	if current, ok := sequencer.Current(Scope{ProjectID: "project-a", ShareSessionID: "session-b"}); !ok || current != 1 {
-		t.Fatalf("expected other session sequence to remain, got %d ok=%t", current, ok)
+	if next, err := sequencer.Next(Scope{ProjectID: "project-a", ShareSessionID: "session-b"}); err != nil || next != 2 {
+		t.Fatalf("expected other session sequence next value to remain at 2, got %d err=%v", next, err)
 	}
 }
 
