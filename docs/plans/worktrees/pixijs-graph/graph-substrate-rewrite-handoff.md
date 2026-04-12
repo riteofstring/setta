@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 20:29 UTC
+Last updated: 2026-04-12 20:48 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,32 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `349` landed one bounded Playwright global-setup bootstrap-url fallback
+  on the canonical `rotaryParamCodeObjDefault` main-reference perf lane:
+
+  - harness code changed in:
+    - `frontend/tests/e2e/global-setup.ts`
+      now treats bootstrap as already landed when the page is already on the
+      expected frontend origin+pathname before waiting for another URL change
+    - the existing `.setta-titlebar-offset` app-shell readiness check remains
+      in place, so this does not loosen the actual shell-ready requirement
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-main-reference-global-setup-bootstrap-url-match-fallback.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/global-setup.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-038/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-038/main-ai.log`
+      -> passed Playwright global setup and reached the canonical probe spec
+         body
+      -> reference bootstrap plus `open settings` completed
+      -> current blocker moved to
+         `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
+  - reading:
+    - this closes the repeated auth/bootstrap wait churn that was failing
+      before the canonical perf lane even started
+    - the next bounded frontier should inspect the live worktree compare-pane
+      normalization path directly instead of reopening global-setup auth logic
 
 - item `348` landed one bounded section-shell AI-follow highlight selected-chat
   subscription reduction on the settings graph section-chrome path:
@@ -13175,11 +13201,16 @@ Do not use the next iteration for:
   - rerun it plus the required CDP spot-check first for item `236`, then keep using it as regression coverage for deeper scene-owned slices
   - the repeated headless Playwright failure is still unchanged `ensureAppReady(...)` harness noise, not product evidence
 - Do not reopen geometry-authority, parity-harness, or lifecycle-only lanes by default:
-  - this pass proved the raw browser debug target and `chrome-devtools-mcp` can recover on a fresh `3075` / `8075` worktree session, so browser tooling is no longer the active blocker on this lane
-  - the current blocker is live worktree state: after the in-pass `aireset`, `All Settings` mounted but the named target `rotaryParamCodeObjDefault` was absent on the worktree while still present on read-only `main`
-  - after the in-pass `aireset`, trust the live worktree frontend `3075` / backend `8075` over the stale `3076` frontend value echoed from the runtime log if the same mismatch appears again
-  - before rerunning the visual gate, hard-preflight the worktree for `All Settings` plus named-target existence; if the target is still absent, treat that as `worktree_unhealthy` and recover/narrow the session instead of claiming renderer drift
-  - the failing headless Playwright path still dies before the spec body with `browserContext.cookies: Target page, context or browser has been closed`, so another iteration spent only on auth/bootstrap cleanup would be churn
+  - this pass proved the headless Playwright harness can now get through global
+    setup on the live `3075` / `8075` worktree session, so bootstrap auth is no
+    longer the active blocker on this lane
+  - the current blocker moved forward into the live worktree probe phase:
+    `worktree: normalize compare pane state`
+  - before taking another product slice, inspect that normalization step on the
+    live worktree page and classify whether it is a real `worktree_unhealthy`
+    state, compare-pane oracle noise, or a product-side surface regression
+  - do not reopen global-setup auth/bootstrap cleanup by default unless the
+    probe falls back to failing before the spec body again
 
 ## Explicit deferrals
 

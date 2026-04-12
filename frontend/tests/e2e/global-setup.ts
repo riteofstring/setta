@@ -13,6 +13,17 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 
+function matchesExpectedProjectUrl(
+  candidateUrl: string,
+  expectedProjectUrl: URL,
+): boolean {
+  const parsedCandidateUrl = new URL(candidateUrl);
+  return (
+    parsedCandidateUrl.origin === expectedProjectUrl.origin &&
+    parsedCandidateUrl.pathname === expectedProjectUrl.pathname
+  );
+}
+
 async function globalSetup(config: FullConfig) {
   if (!BOOTSTRAP_TOKEN) {
     throw new Error(
@@ -57,12 +68,14 @@ async function globalSetup(config: FullConfig) {
       `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
     );
     const expectedProjectUrl = new URL(PROJECT_URL);
-    await page.waitForURL(
-      (url) =>
-        url.origin === expectedProjectUrl.origin &&
-        url.pathname === expectedProjectUrl.pathname,
-      { waitUntil: "domcontentloaded" },
-    );
+    if (!matchesExpectedProjectUrl(page.url(), expectedProjectUrl)) {
+      await page.waitForURL(
+        (url) => {
+          return matchesExpectedProjectUrl(url.toString(), expectedProjectUrl);
+        },
+        { waitUntil: "domcontentloaded" },
+      );
+    }
     // `.app-shell` exists in static index.html, but `.setta-titlebar-offset` only
     // appears once React renders `AppShell`.
     await page.waitForSelector(".setta-titlebar-offset", { state: "attached" });

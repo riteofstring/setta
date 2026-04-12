@@ -13514,6 +13514,42 @@ LOOP_TERMINAL_MARKER: none
       payoff than another opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none
+# 2026-04-12 - Item 349
+
+- Item: land one bounded Playwright global-setup bootstrap-url fallback so the
+  canonical `rotaryParamCodeObjDefault` main-reference perf lane reaches its
+  spec body instead of failing before the probe starts.
+- Why this slice:
+  - the current active blocker on the canonical attribution lane was still the
+    repeated Playwright global-setup timeout after bootstrap had already landed
+    on the frontend root
+  - this is one narrow harness fix that directly unblocks the concrete perf
+    question; it is not another generic bootstrap cleanup pass
+- Changed:
+  - updated `frontend/tests/e2e/global-setup.ts` to treat bootstrap as already
+    landed when `page.url()` already matches the expected frontend
+    origin+pathname
+  - kept the existing `.setta-titlebar-offset` readiness wait so the auth seed
+    still requires the React shell to mount
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/global-setup.ts`
+    - passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-038/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-038/main-ai.log`
+    - passed global setup and reached the canonical perf spec body
+    - reference bootstrap and `open settings` completed
+    - failed later in the live worktree probe at
+      `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
+- Result:
+  - the old pre-spec global-setup blocker is closed on the current runtime
+  - the active blocker moved forward to worktree-side compare-pane
+    normalization inside the canonical perf lane
+- Next:
+  - inspect the worktree-side `normalize compare pane state` step on the live
+    canonical `rotaryParamCodeObjDefault` probe and classify it as
+    `worktree_unhealthy`, oracle normalization noise, or a product-side
+    surface/state regression before taking another selector/perf slice
+
+LOOP_TERMINAL_MARKER: none
 # 2026-04-12 - Item 348
 
 - Item: land one bounded section-shell AI-follow highlight selected-chat
