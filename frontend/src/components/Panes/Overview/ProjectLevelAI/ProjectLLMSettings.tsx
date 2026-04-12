@@ -17,7 +17,7 @@ const API_KEY_INPUT_CLASS_NAME =
 const API_KEY_BUTTON_CLASS_NAME =
   "h-8 rounded-md border border-setta-200 bg-white px-3 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200";
 
-export function normalizeApiKeyMutationValue(value: string): string {
+function normalizeApiKeyMutationValue(value: string): string {
   return value.trim();
 }
 
@@ -326,7 +326,7 @@ function compareApiKeyEntries(left: ApiKeyEntry, right: ApiKeyEntry): number {
   return left.envKey.localeCompare(right.envKey);
 }
 
-export function buildApiKeyEntries(
+function buildApiKeyEntries(
   allLLMConfigs: AllConfigs | null,
   apiKeys: APIKeys,
 ): ApiKeyEntry[] {
