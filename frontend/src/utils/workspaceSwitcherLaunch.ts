@@ -1,9 +1,10 @@
+import type { HttpapiLaunchRequest as LaunchRequest } from "openapi/http";
 import { HOME_ROUTER_PATH } from "utils/constants";
-import type { LaunchRequestInput } from "utils/generatedTypes";
+import { BootstrapProtocol } from "utils/generatedTypes";
 import { safeSessionStorage } from "utils/storage";
 
 export type PendingWorkspaceLaunch = {
-  request: LaunchRequestInput;
+  request: LaunchRequest;
   returnUrl: string;
   requestedAt: number;
   sshTarget?: string | null;
@@ -13,60 +14,70 @@ export type PendingWorkspaceLaunch = {
 const PENDING_LAUNCH_STORAGE_KEY = "setta.pendingWorkspaceLaunch";
 const SWITCHER_DRAFT_STORAGE_KEY = "setta.workspaceSwitcherDraft";
 const OPEN_SWITCHER_ON_LOAD_KEY = "setta.openWorkspaceSwitcherOnLoad";
-const OPEN_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
+const OPEN_SWITCHER_QUERY_PARAM =
+  BootstrapProtocol.openWorkspaceSwitcherQueryParam;
 const LEGACY_PENDING_LAUNCH_PAYLOAD_HASH_KEY = "pl";
 const LEGACY_PENDING_LAUNCH_RETURN_URL_HASH_KEY = "plr";
 const PENDING_LAUNCH_INTENT_HASH_KEY = "plt";
 const PENDING_LAUNCH_REQUESTED_AT_HASH_KEY = "pla";
+const INVALID_OPTIONAL_STRING = Symbol("invalidOptionalString");
+
+function asObjectRecord(candidate: unknown): Record<string, unknown> | null {
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+  return candidate as Record<string, unknown>;
+}
+
+function parseRequiredNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  return value.trim() ? value : null;
+}
+
+function parseRequiredNumber(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
+
+function parseOptionalNullableString(
+  value: unknown,
+): string | null | undefined | typeof INVALID_OPTIONAL_STRING {
+  if (value === undefined || value === null || typeof value === "string") {
+    return value;
+  }
+  return INVALID_OPTIONAL_STRING;
+}
 
 function parsePendingWorkspaceLaunch(
   candidate: unknown,
 ): PendingWorkspaceLaunch | null {
-  if (!candidate || typeof candidate !== "object") {
+  const record = asObjectRecord(candidate);
+  if (!record) {
     return null;
   }
-  const record = candidate as {
-    request?: unknown;
-    returnUrl?: unknown;
-    requestedAt?: unknown;
-    sshTarget?: unknown;
-    settaFilesLocation?: unknown;
-  };
-  if (!record.request || typeof record.request !== "object") {
-    return null;
-  }
-  if (typeof record.returnUrl !== "string" || !record.returnUrl.trim()) {
-    return null;
-  }
-  if (typeof record.requestedAt !== "number") {
+  const request = asObjectRecord(record.request);
+  const returnUrl = parseRequiredNonEmptyString(record.returnUrl);
+  const requestedAt = parseRequiredNumber(record.requestedAt);
+  const sshTarget = parseOptionalNullableString(record.sshTarget);
+  const settaFilesLocation = parseOptionalNullableString(
+    record.settaFilesLocation,
+  );
+  if (!request || !returnUrl || requestedAt === null) {
     return null;
   }
   if (
-    record.sshTarget !== undefined &&
-    record.sshTarget !== null &&
-    typeof record.sshTarget !== "string"
-  ) {
-    return null;
-  }
-  if (
-    record.settaFilesLocation !== undefined &&
-    record.settaFilesLocation !== null &&
-    typeof record.settaFilesLocation !== "string"
+    sshTarget === INVALID_OPTIONAL_STRING ||
+    settaFilesLocation === INVALID_OPTIONAL_STRING
   ) {
     return null;
   }
   return {
-    request: record.request as LaunchRequestInput,
-    returnUrl: record.returnUrl,
-    requestedAt: record.requestedAt,
-    sshTarget:
-      typeof record.sshTarget === "string"
-        ? record.sshTarget
-        : record.sshTarget ?? null,
-    settaFilesLocation:
-      typeof record.settaFilesLocation === "string"
-        ? record.settaFilesLocation
-        : record.settaFilesLocation ?? null,
+    request: request as LaunchRequest,
+    returnUrl,
+    requestedAt,
+    sshTarget: sshTarget ?? null,
+    settaFilesLocation: settaFilesLocation ?? null,
   };
 }
 
@@ -171,7 +182,7 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
     return {
       request: {
         launchIntentToken,
-      } as LaunchRequestInput,
+      } as LaunchRequest,
       returnUrl: getDefaultLaunchReturnUrl(),
       requestedAt,
     };
@@ -181,7 +192,7 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
   }
 }
 
-export function writeWorkspaceSwitcherDraft(request: LaunchRequestInput): void {
+export function writeWorkspaceSwitcherDraft(request: LaunchRequest): void {
   const storage = safeSessionStorage();
   if (!storage) {
     return;
@@ -193,7 +204,7 @@ export function writeWorkspaceSwitcherDraft(request: LaunchRequestInput): void {
   }
 }
 
-export function readWorkspaceSwitcherDraft(): LaunchRequestInput | null {
+export function readWorkspaceSwitcherDraft(): LaunchRequest | null {
   const storage = safeSessionStorage();
   if (!storage) {
     return null;
@@ -207,7 +218,7 @@ export function readWorkspaceSwitcherDraft(): LaunchRequestInput | null {
     if (!parsed || typeof parsed !== "object") {
       return null;
     }
-    return parsed as LaunchRequestInput;
+    return parsed as LaunchRequest;
   } catch (error) {
     console.warn("Failed to read workspace switcher draft", error);
     return null;

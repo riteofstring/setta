@@ -12,11 +12,6 @@ export type ParamDuplicateIndex = {
   namesByParent: Record<string, Record<string, string[]>>;
 };
 
-const duplicateIndexCacheBySectionImpl = new WeakMap<
-  object,
-  WeakMap<object, WeakMap<object, WeakMap<object, ParamDuplicateIndex>>>
->();
-
 function getRootParamId(sectionImpl: BaseSectionWithParamsImpl): string | null {
   if (sectionImpl.type === SectionTypeEnum.Callable) {
     return sectionImpl.callable ?? null;
@@ -39,26 +34,9 @@ export function buildParamDuplicateIndex(
     sectionId,
     isBaseSectionWithParamsImpl,
   );
-  const cachedIndex = readCachedParamDuplicateIndex({
-    codeObjImpls: state.codeObjImpls,
-    codeObjVariants: state.codeObjVariants,
-    codeObjs: state.codeObjs,
-    sectionImpl,
-  });
-  if (cachedIndex) {
-    return cachedIndex;
-  }
   const rootId = getRootParamId(sectionImpl);
   if (!rootId) {
-    const emptyIndex = { parentById: {}, namesByParent: {} };
-    writeCachedParamDuplicateIndex({
-      codeObjImpls: state.codeObjImpls,
-      codeObjVariants: state.codeObjVariants,
-      codeObjs: state.codeObjs,
-      duplicateIndex: emptyIndex,
-      sectionImpl,
-    });
-    return emptyIndex;
+    return { parentById: {}, namesByParent: {} };
   }
   const parentById = buildParamParentMap(state, sectionId, rootId);
   const namesByParent: Record<string, Record<string, string[]>> = {};
@@ -79,76 +57,5 @@ export function buildParamDuplicateIndex(
     }
     namesForParent[paramName].push(paramId);
   }
-  const duplicateIndex = { parentById, namesByParent };
-  writeCachedParamDuplicateIndex({
-    codeObjImpls: state.codeObjImpls,
-    codeObjVariants: state.codeObjVariants,
-    codeObjs: state.codeObjs,
-    duplicateIndex,
-    sectionImpl,
-  });
-  return duplicateIndex;
-}
-
-function readCachedParamDuplicateIndex({
-  codeObjImpls,
-  codeObjVariants,
-  codeObjs,
-  sectionImpl,
-}: {
-  codeObjImpls: object;
-  codeObjVariants: object;
-  codeObjs: object;
-  sectionImpl: object;
-}): ParamDuplicateIndex | null {
-  const cacheByCodeObjs = duplicateIndexCacheBySectionImpl.get(sectionImpl);
-  if (!cacheByCodeObjs) {
-    return null;
-  }
-  const cacheByCodeObjVariants = cacheByCodeObjs.get(codeObjs);
-  if (!cacheByCodeObjVariants) {
-    return null;
-  }
-  const cacheByCodeObjImpls = cacheByCodeObjVariants.get(codeObjVariants);
-  if (!cacheByCodeObjImpls) {
-    return null;
-  }
-  return cacheByCodeObjImpls.get(codeObjImpls) ?? null;
-}
-
-function writeCachedParamDuplicateIndex({
-  codeObjImpls,
-  codeObjVariants,
-  codeObjs,
-  duplicateIndex,
-  sectionImpl,
-}: {
-  codeObjImpls: object;
-  codeObjVariants: object;
-  codeObjs: object;
-  duplicateIndex: ParamDuplicateIndex;
-  sectionImpl: object;
-}) {
-  let cacheByCodeObjs = duplicateIndexCacheBySectionImpl.get(sectionImpl);
-  if (!cacheByCodeObjs) {
-    cacheByCodeObjs = new WeakMap<
-      object,
-      WeakMap<object, WeakMap<object, ParamDuplicateIndex>>
-    >();
-    duplicateIndexCacheBySectionImpl.set(sectionImpl, cacheByCodeObjs);
-  }
-  let cacheByCodeObjVariants = cacheByCodeObjs.get(codeObjs);
-  if (!cacheByCodeObjVariants) {
-    cacheByCodeObjVariants = new WeakMap<
-      object,
-      WeakMap<object, ParamDuplicateIndex>
-    >();
-    cacheByCodeObjs.set(codeObjs, cacheByCodeObjVariants);
-  }
-  let cacheByCodeObjImpls = cacheByCodeObjVariants.get(codeObjVariants);
-  if (!cacheByCodeObjImpls) {
-    cacheByCodeObjImpls = new WeakMap<object, ParamDuplicateIndex>();
-    cacheByCodeObjVariants.set(codeObjVariants, cacheByCodeObjImpls);
-  }
-  cacheByCodeObjImpls.set(codeObjImpls, duplicateIndex);
+  return { parentById, namesByParent };
 }
