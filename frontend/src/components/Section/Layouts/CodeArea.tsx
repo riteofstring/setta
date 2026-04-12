@@ -7,6 +7,7 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
+import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
@@ -211,6 +212,17 @@ const INVALID_GEN_PYTHON_DOC_PARTS: GenPythonDocParts = {
 };
 const EMPTY_CODE_SECTION_DIAGNOSTICS: Array<SettaLspDiagnostic> = [];
 
+function handleCodeAreaRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionCodeAreaReactRender",
+    actualDuration,
+  );
+}
+
 function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
   if (!generated) {
     return INVALID_GEN_PYTHON_DOC_PARTS;
@@ -308,9 +320,23 @@ function _CodeArea({ sectionId }: { sectionId: string }) {
     return impl.codeLanguage;
   });
   if (language === CodeLanguageEnum.python) {
-    return <PythonCodeArea sectionId={sectionId} language={language} />;
+    return (
+      <React.Profiler
+        id={`code-area:${sectionId}`}
+        onRender={handleCodeAreaRender}
+      >
+        <PythonCodeArea sectionId={sectionId} language={language} />
+      </React.Profiler>
+    );
   }
-  return <BasicCodeArea sectionId={sectionId} language={language} />;
+  return (
+    <React.Profiler
+      id={`code-area:${sectionId}`}
+      onRender={handleCodeAreaRender}
+    >
+      <BasicCodeArea sectionId={sectionId} language={language} />
+    </React.Profiler>
+  );
 }
 
 export const CodeArea = React.memo(_CodeArea);

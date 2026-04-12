@@ -1,5 +1,10 @@
 /* @vitest-environment jsdom */
 
+import {
+  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
 import { act, Profiler, type ProfilerOnRenderCallback } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -195,6 +200,7 @@ describe("CodeArea LSP diagnostics wiring", () => {
 
   afterEach(() => {
     resetProjectStores();
+    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     lastCodeMirrorProps = null;
   });
 
@@ -282,6 +288,26 @@ describe("CodeArea LSP diagnostics wiring", () => {
       });
 
       expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("records code-area attribution while motion attribution capture is active", async () => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    const { host, root } = await renderProfiledCodeArea(vi.fn());
+
+    try {
+      expect(
+        readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+          .motionAttribution.presentedSceneSectionCodeAreaReactRender.count,
+      ).toBe(1);
     } finally {
       await act(async () => {
         root.unmount();

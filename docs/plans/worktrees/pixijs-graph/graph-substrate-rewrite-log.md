@@ -151,6 +151,63 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 13:05 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: follow item
+  `426`'s explicit next step and split the mounted body-content owner one
+  level deeper at the `CodeArea` boundary instead of taking another blind
+  optimization pass on the same lane
+- added canary motion owner
+  `presentedSceneSectionCodeAreaReactRender` in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  and wrapped the mounted `CodeArea` branch with `React.Profiler` in
+  `frontend/src/components/Section/Layouts/CodeArea.tsx`
+- updated focused regression coverage in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  and `frontend/src/components/Section/Layouts/CodeArea.test.tsx`, including a
+  check that the new owner records attribution only while motion capture is
+  active
+- wrote
+  `perf/reports/frontend/2026-04-13_settings-graph-code-area-motion-attribution.md`
+  with the live probe readout
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Layouts/CodeArea.test.tsx`
+    -> pass (`2` files, `12` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Layouts/CodeArea.tsx src/components/Section/Layouts/CodeArea.test.tsx`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-052/worktree-ai.log`
+    -> pass (`1` Playwright test, `1.3m`)
+    -> direct-open phase sequence:
+       `46ms app_router_loading` -> `2254ms settings_loading` ->
+       `3935ms app_shell_without_surface` -> `7466ms project_loading` ->
+       `12690ms surface_ready`
+    -> canonical target stayed `rotaryParamCodeObjDefault`
+    -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+       (`857.3ms` total / `248.8ms` max)
+    -> new inner owner stayed inactive on this motion lane:
+       `presentedSceneSectionCodeAreaReactRender` `0` count / `0ms` total /
+       `0ms` max
+    -> remaining larger owners:
+       `presentedSceneSectionBodyContentReactRender` `515.7ms` total /
+       `62.9ms` max,
+       `presentedSceneSectionBodySubtreeReactRender` `838.3ms` total /
+       `101.5ms` max,
+       `presentedSceneSectionHeaderReactRender` `205.4ms` total /
+       `35.2ms` max
+  - fresh-context headless CDP smoke check after bootstrap on direct
+    `http://127.0.0.1:3075/settings`
+    -> still showed only the loading shell, not the mounted graph surface
+    -> visible text: `Loading Setta...`, `Preparing the app surface.`
+- reading:
+  - this closes the immediate "is the motion cost inside `CodeArea` itself?"
+    question on the canonical lane with live evidence: no
+  - do not spend the next iteration on another inner code-editor optimization
+    pass unless fresh evidence points back to that owner
+  - the next real frontier remains above the editor, inside the broader
+    mounted body subtree / shell-body-content path
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 12:58 UTC
 
 - picked one bounded subtask after rereading the plan/handoff: stay on the

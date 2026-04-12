@@ -161,6 +161,10 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       () => {},
     );
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionCodeAreaReactRender",
+      3.25,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
       "presentedSceneSectionSubtreeReactRender",
       2.25,
     );
@@ -214,6 +218,11 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 2.25,
       totalDurationMs: 2.25,
+    });
+    expect(motionAttribution.presentedSceneSectionCodeAreaReactRender).toEqual({
+      count: 1,
+      maxDurationMs: 3.25,
+      totalDurationMs: 3.25,
     });
     expect(
       motionAttribution.presentedSceneSectionBodySubtreeReactRender,

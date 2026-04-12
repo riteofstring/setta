@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 12:58 UTC
+Last updated: 2026-04-13 13:05 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,79 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `427` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting mounted body-content
+  motion one level deeper at the `CodeArea` boundary:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and followed the explicit next
+      step from item `426` instead of taking another blind production cut on
+      the same mounted body-content lane
+    - chose one deeper attribution seam inside the mounted code/body-content
+      branch so the canary can answer whether motion cost still reaches the
+      inner code editor subtree on the canonical code section
+    - kept the slice bounded to one instrumentation seam, one focused
+      component regression update, one live worktree probe rerun, and one
+      fresh headless CDP smoke check; no new oracle lane opened
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with a new canary motion owner:
+      `presentedSceneSectionCodeAreaReactRender`
+    - `frontend/src/components/Section/Layouts/CodeArea.tsx` so the mounted
+      `CodeArea` branch records `React.Profiler` durations into the shared
+      canary snapshot
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      and `frontend/src/components/Section/Layouts/CodeArea.test.tsx` with
+      focused regression coverage
+    - `perf/reports/frontend/2026-04-13_settings-graph-code-area-motion-attribution.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed (`2` files, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Layouts/CodeArea.tsx src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-052/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> direct-open phase sequence on the worktree:
+         `46ms app_router_loading` -> `2254ms settings_loading` ->
+         `3935ms app_shell_without_surface` -> `7466ms project_loading` ->
+         `12690ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> worktree canary reached `surfaceKind: "canary"` and still kept the
+         same dominant outer owner family:
+         `presentedSceneSectionSubtreeReactRender`
+      -> inner code-area split readout on this motion lane:
+         `presentedSceneSectionCodeAreaReactRender` `0` count /
+         `0ms` total / `0ms` max,
+         `presentedSceneSectionBodyContentReactRender` `515.7ms` total /
+         `62.9ms` max,
+         `presentedSceneSectionBodySubtreeReactRender` `838.3ms` total /
+         `101.5ms` max,
+         `presentedSceneSectionHeaderReactRender` `205.4ms` total /
+         `35.2ms` max
+    - fresh-context headless CDP visual check on direct
+      `http://127.0.0.1:3075/settings`
+      after bootstrap
+      -> still observed the loading shell rather than the mounted graph
+         surface
+      -> visible text included `Loading Setta...` and
+         `Preparing the app surface.`
+  - reading:
+    - this is a real attribution pass on the active mounted body-content lane,
+      not another repeated production hypothesis
+    - the canonical motion lane is not spending measurable time re-rendering
+      `CodeArea` itself, so do not take another inner editor optimization pass
+      on this lane without fresh contrary evidence
+    - the remaining motion cost is still above the editor, inside the broader
+      mounted body subtree / shell-body-content path
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - take the next bounded product or attribution slice above `CodeArea`
+      inside the remaining mounted body subtree owner chain; do not reopen the
+      inner code-editor lane unless fresh evidence points back to it
+    - keep treating the direct `/settings` CDP loading shell as a smoke-check
+      state only while the authenticated Playwright probe still reaches the
+      mounted canary on the same runtime
 
 - item `426` landed one bounded mounted-body-content production slice on the
   canonical `rotaryParamCodeObjDefault` canary lane by memoizing the body
