@@ -27,6 +27,9 @@ import {
   moveSelectedParamsDown,
   unindentSelectedParams,
 } from "./moveParams";
+
+const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
+
 vi.mock("openapi/http", async () => {
   const actual =
     await vi.importActual<typeof import("openapi/http")>("openapi/http");
@@ -38,6 +41,9 @@ vi.mock("openapi/http", async () => {
     unindentParams: vi.fn(),
   };
 });
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+}));
 const mockedRouteMoveParams = vi.mocked(moveParams);
 const mockedRouteMoveParamGroups = vi.mocked(moveParamGroups);
 const mockedRouteIndentParams = vi.mocked(indentParams);
@@ -203,6 +209,7 @@ describe("moveParams", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
+    callOpenAPIMock.mockClear();
     mockedRouteMoveParams.mockResolvedValue({
       data: null,
       status: 200,
@@ -239,12 +246,14 @@ describe("moveParams", () => {
       newIndex: 0,
     });
     expect(mockedRouteMoveParams).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
-      paramIds: ["param-b"],
-      newParentId: rootParamId,
-      newIndex: 0,
-      frontendOpId: expect.any(String),
+      body: {
+        projectConfigId: "project-1",
+        sectionId,
+        paramIds: ["param-b"],
+        newParentId: rootParamId,
+        newIndex: 0,
+        frontendOpId: expect.any(String),
+      },
     });
     const rootImpl = getCurrEffectiveCodeObjImpl(
       useProjectState.getState(),
@@ -263,9 +272,11 @@ describe("moveParams", () => {
     });
     expect(indentSelectedParams()).toBe(true);
     expect(mockedRouteIndentParams).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
-      paramIds: ["param-b", "param-c"],
+      body: {
+        projectConfigId: "project-1",
+        sectionId,
+        paramIds: ["param-b", "param-c"],
+      },
     });
   });
   it("posts unindentParams for the selected nested param ids", () => {
@@ -278,9 +289,11 @@ describe("moveParams", () => {
     });
     expect(unindentSelectedParams()).toBe(true);
     expect(mockedRouteUnindentParams).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
-      paramIds: ["nested-child"],
+      body: {
+        projectConfigId: "project-1",
+        sectionId,
+        paramIds: ["nested-child"],
+      },
     });
   });
   it("posts moveParamGroups for visible keyboard moves and reapplies the optimistic order", () => {
@@ -290,16 +303,18 @@ describe("moveParams", () => {
     });
     expect(moveSelectedParamsDown()).toBe(true);
     expect(mockedRouteMoveParamGroups).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
-      moves: [
-        {
-          paramIds: ["param-a"],
-          newParentId: rootParamId,
-          newIndex: 1,
-        },
-      ],
-      frontendOpId: expect.any(String),
+      body: {
+        projectConfigId: "project-1",
+        sectionId,
+        moves: [
+          {
+            paramIds: ["param-a"],
+            newParentId: rootParamId,
+            newIndex: 1,
+          },
+        ],
+        frontendOpId: expect.any(String),
+      },
     });
     const rootImpl = getCurrEffectiveCodeObjImpl(
       useProjectState.getState(),
@@ -310,5 +325,45 @@ describe("moveParams", () => {
       throw new Error("expected root param impl to stay nested");
     }
     expect(rootImpl.children).toEqual(["param-b", "param-a", "param-c"]);
+  });
+  it("moves discontiguous visible selections downward in reverse group order", () => {
+    seedDictParamState({
+      rootChildren: ["param-a", "param-b", "param-c", "param-d"],
+      selectedParams: ["param-a", "param-c"],
+    });
+    expect(moveSelectedParamsDown()).toBe(true);
+    expect(mockedRouteMoveParamGroups).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-1",
+        sectionId,
+        moves: [
+          {
+            paramIds: ["param-c"],
+            newParentId: rootParamId,
+            newIndex: 3,
+          },
+          {
+            paramIds: ["param-a"],
+            newParentId: rootParamId,
+            newIndex: 1,
+          },
+        ],
+        frontendOpId: expect.any(String),
+      },
+    });
+    const rootImpl = getCurrEffectiveCodeObjImpl(
+      useProjectState.getState(),
+      sectionId,
+      rootParamId,
+    );
+    if (rootImpl.type !== CodeObjTypeEnum.NestedParam) {
+      throw new Error("expected root param impl to stay nested");
+    }
+    expect(rootImpl.children).toEqual([
+      "param-b",
+      "param-a",
+      "param-d",
+      "param-c",
+    ]);
   });
 });
