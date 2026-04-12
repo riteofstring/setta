@@ -1,11 +1,18 @@
+/* @vitest-environment jsdom */
+
+import { act, Profiler, type ProfilerOnRenderCallback } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import {
   useAgenticScopeHighlights,
   useAIFollow,
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   AgenticEdgeKindEnum,
   createAgenticEdge,
@@ -18,11 +25,19 @@ import {
   createUserDefaultDictSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useReactFlow } from "../store";
 import initialState from "../store/initialState";
 import type { Node } from "../types";
 import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
+
+vi.mock("state/actions/agenticEdges", () => ({
+  toggleAgenticEdgeSelection: vi.fn(),
+}));
+
+vi.mock("state/hooks/share", () => ({
+  useShareCapabilities: vi.fn(),
+}));
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -46,11 +61,19 @@ describe("AgenticEdgeRenderer", () => {
   const chatImplId = "impl-chat";
   const contextImplId = "impl-context";
   const scopeImplId = "impl-scope";
+  let host: HTMLDivElement;
+  let root: Root;
 
   beforeEach(() => {
     resetProjectStores();
     useReactFlow.setState({ ...initialState, width: 900, height: 600 });
     syncStoreInitialState(useReactFlow);
+    vi.mocked(useShareCapabilities).mockReturnValue({
+      canEditStructure: true,
+    });
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
 
     const chatImpl = createChatSectionImpl(
       createUserDefaultChatSectionImpl({ waitingForResponse: true }),
@@ -223,9 +246,15 @@ describe("AgenticEdgeRenderer", () => {
     syncStoreInitialState(useAgenticScopeHighlights);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+    document.body.innerHTML = "";
     resetProjectStores();
     useReactFlow.setState({ ...initialState });
+    vi.clearAllMocks();
   });
 
   it("highlights edges based on run and AIFollow updates", () => {
@@ -238,5 +267,40 @@ describe("AgenticEdgeRenderer", () => {
     expect(markup).toContain("agentic-edge--missing");
     expect(markup).not.toContain("agentic-edge--chat_chat");
     expect(markup).not.toContain("agentic-edge-chat");
+  });
+
+  it("does not rerender when only multi-selection changes and still reads the latest flag on click", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+
+    await act(async () => {
+      root.render(
+        <Profiler id="agentic-edge-renderer-profiler" onRender={onRender}>
+          <AgenticEdgeRenderer />
+        </Profiler>,
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      useReactFlow.setState({ multiSelectionActive: true });
+    });
+
+    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+
+    const edge = host.querySelector<SVGGElement>(".react-flow__agentic-edge");
+    if (!edge) {
+      throw new Error("Expected visible agentic edge to mount.");
+    }
+
+    await act(async () => {
+      edge.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+        }),
+      );
+    });
+
+    expect(toggleAgenticEdgeSelection).toHaveBeenCalledWith("edge-run", true);
   });
 });

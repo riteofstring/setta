@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 18:55 UTC
+Last updated: 2026-04-12 19:00 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,44 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `339` landed one bounded agentic-edge selection split inside the
+  measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the mounted agentic-edge renderer path:
+    - `frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx`
+      no longer subscribes the mounted agentic-edge SVG to
+      `multiSelectionActive`
+    - additive edge selection now reads `multiSelectionActive` from
+      `useReactFlow.getState()` at click time so modifier flips do not force a
+      render-path subscription
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.test.tsx`
+      to assert the renderer does not commit when only
+      `multiSelectionActive` changes and agentic-edge clicks still see the
+      live modifier state
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-agentic-edge-multi-select-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/AgenticEdgeRenderer.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx src/forks/xyflow/core/container/AgenticEdgeRenderer.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on the worktree `/settings` session
+      -> bootstrap handoff succeeded
+      -> `/settings` mounted successfully
+      -> checked the visible settings graph surface and edge area
+      -> no obvious layout collapse or broken agentic/workflow edge area was
+         observed for this slice
+  - reading:
+    - this removes another mounted shared-surface invalidation from the edge
+      layer inside `interactionReactFlowStateSync` while keeping additive
+      selection behavior at interaction time
+    - the next bounded frontier should stay worktree-side inside
+      `interactionReactFlowStateSync` and isolate the next mounted
+      selector/write fan-out on controls, node/edge shells, or shared motion
+      state rather than reopening the cross-worktree probe by default
 
 - progress review checkpoint for runs `011` through `020`:
   - keep the loop going, but do not spend the next default pass on another

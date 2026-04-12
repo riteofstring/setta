@@ -74,6 +74,44 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 19:00 UTC
+
+- item `339` removed one more motion-heavy React Flow selection subscription
+  from the canonical `rotaryParamCodeObjDefault` lane:
+  - changed
+    `frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx` so the
+    mounted agentic-edge renderer no longer subscribes to
+    `multiSelectionActive`
+  - additive edge selection now reads the live modifier state from
+    `useReactFlow.getState()` inside the click handler instead of the render
+    path
+  - added focused render-boundary regression coverage in
+    `frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.test.tsx`
+    to prove:
+    - the mounted renderer does not commit when only
+      `multiSelectionActive` changes
+    - agentic-edge clicks still use the live additive-selection flag
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-agentic-edge-multi-select-split.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/AgenticEdgeRenderer.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx src/forks/xyflow/core/container/AgenticEdgeRenderer.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> bootstrap handoff succeeded
+      -> `/settings` mounted successfully
+      -> no obvious layout collapse, missing graph surface, or broken edge
+         area was observed
+  - result:
+    - this removes another mounted shared-surface invalidation from
+      `interactionReactFlowStateSync`
+    - next bounded frontier: stay worktree-side and isolate the next mounted
+      selector/write fan-out on controls, node/edge shells, or shared motion
+      state instead of reopening the cross-worktree probe by default
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 18:55 UTC
 
 - item `338` removed one mounted workflow-edge React Flow subscription from
