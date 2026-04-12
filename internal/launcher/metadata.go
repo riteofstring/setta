@@ -56,8 +56,6 @@ type LauncherInstallMetadata struct {
 	ManagedArtifacts       map[string]string `json:"managedArtifacts"`
 }
 
-type launcherInstallMetadata = LauncherInstallMetadata
-
 type LauncherInstallMetadataInput struct {
 	TargetCommand          []string
 	Channel                string
@@ -103,20 +101,12 @@ func (e *LauncherMetadataError) Error() string {
 	return e.Message
 }
 
-func ResolveLauncherDir(settaHome string) (string, error) {
-	return resolveLauncherDir(settaHome)
-}
-
 func resolveLauncherDir(settaHome string) (string, error) {
 	resolvedSettaHome, err := resolvePathLoose(settaHome)
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(resolvedSettaHome, "launcher"), nil
-}
-
-func ResolveLauncherMetadataPath(settaHome string) (string, error) {
-	return resolveLauncherMetadataPath(settaHome)
 }
 
 func resolveLauncherMetadataPath(settaHome string) (string, error) {

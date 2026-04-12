@@ -153,7 +153,7 @@ func TestOpenWorkspaceServiceCreatesWorkspaceLaunchesSessionAndPersistsState(t *
 	if err != nil {
 		t.Fatalf("read launcher metadata: %v", err)
 	}
-	var metadata launcherInstallMetadata
+	var metadata LauncherInstallMetadata
 	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 		t.Fatalf("decode launcher metadata: %v", err)
 	}
@@ -815,7 +815,7 @@ func assertOpenWorkspacePersistenceUnchanged(t *testing.T, home *HomeService, se
 	if err != nil {
 		t.Fatalf("read launcher metadata: %v", err)
 	}
-	var metadata launcherInstallMetadata
+	var metadata LauncherInstallMetadata
 	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 		t.Fatalf("decode launcher metadata: %v", err)
 	}

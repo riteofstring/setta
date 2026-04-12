@@ -62,10 +62,11 @@ func TestRunLauncherSetupStatusAndRemoveRoundTrip(t *testing.T) {
 	if installed := statusPayload["installed"].(bool); !installed {
 		t.Fatalf("expected installed launcher, got %#v", statusPayload)
 	}
-	expectedMetadataPath, err := launcher.ResolveLauncherMetadataPath(settaHome)
+	resolvedSettaHome, err := filepath.EvalSymlinks(settaHome)
 	if err != nil {
-		t.Fatalf("resolve launcher metadata path: %v", err)
+		t.Fatalf("resolve setta home: %v", err)
 	}
+	expectedMetadataPath := filepath.Join(resolvedSettaHome, "launcher", "launcher-install.json")
 	if got := statusPayload["metadataPath"]; got != expectedMetadataPath {
 		t.Fatalf("expected metadataPath %q, got %#v", expectedMetadataPath, got)
 	}

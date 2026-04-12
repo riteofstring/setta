@@ -44,7 +44,7 @@ func TestBuildLauncherInstallMetadataDefaultsWorkspaceBehaviorAndRoundTripsField
 	if err != nil {
 		t.Fatalf("write launcher metadata: %v", err)
 	}
-	expectedMetadataPath, err := ResolveLauncherMetadataPath(settaHome)
+	expectedMetadataPath, err := resolveLauncherMetadataPath(settaHome)
 	if err != nil {
 		t.Fatalf("resolve launcher metadata path: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestLoadLauncherInstallMetadataRejectsNonObjectPayload(t *testing.T) {
 	t.Parallel()
 
 	settaHome := filepath.Join(t.TempDir(), ".setta")
-	metadataPath, err := ResolveLauncherMetadataPath(settaHome)
+	metadataPath, err := resolveLauncherMetadataPath(settaHome)
 	if err != nil {
 		t.Fatalf("resolve launcher metadata path: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestLoadLauncherInstallMetadataRejectsMissingSettaHome(t *testing.T) {
 	t.Parallel()
 
 	settaHome := filepath.Join(t.TempDir(), ".setta")
-	metadataPath, err := ResolveLauncherMetadataPath(settaHome)
+	metadataPath, err := resolveLauncherMetadataPath(settaHome)
 	if err != nil {
 		t.Fatalf("resolve launcher metadata path: %v", err)
 	}
