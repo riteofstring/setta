@@ -33,6 +33,10 @@ Options:
   --inactivity-timeout-seconds N
                          Abort and retry an iteration if Codex produces no
                          transcript output for N seconds. Default: 1800
+  --post-commit-settle-seconds N
+                         Wait N seconds after each successful iteration and
+                         verify the repo is still clean before marking that
+                         iteration successful. Default: 20
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 
@@ -52,6 +56,7 @@ state_dir=""
 model="gpt-5.4"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
+post_commit_settle_seconds="20"
 hotspot_python_min="10"
 hotspot_frontend_min="10"
 hotspot_go_min="12"
@@ -145,6 +150,11 @@ while [[ $# -gt 0 ]]; do
       inactivity_timeout_seconds="$2"
       shift 2
       ;;
+    --post-commit-settle-seconds)
+      require_value "$1" "${2:-}"
+      post_commit_settle_seconds="$2"
+      shift 2
+      ;;
     --no-yolo)
       yolo_mode="0"
       shift
@@ -173,6 +183,11 @@ fi
 
 if [[ ! "${inactivity_timeout_seconds}" =~ ^[0-9]+$ ]] || [[ "${inactivity_timeout_seconds}" -lt 1 ]]; then
   echo "--inactivity-timeout-seconds must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ ! "${post_commit_settle_seconds}" =~ ^[0-9]+$ ]]; then
+  echo "--post-commit-settle-seconds must be a non-negative integer" >&2
   exit 1
 fi
 
@@ -368,6 +383,7 @@ Execution rules for every iteration:
 - For duplication, polling, and hotspot cleanup, prefer code inspection, generation checks, focused tests, and scriptable verification over browser workflows.
 - If browser verification is genuinely required, use an already-running developer-started session only. Do not spend this loop iteration starting, waiting on, or debugging browser MCP processes.
 - Before every non-stop commit, run \`./gcf.sh\` and then \`./scripts/check_quality_for_git_changes.sh\`. If either fails, fix the failure or stop without committing.
+- When you launch a long-running shell command such as \`./gcf.sh\`, treat partial streamed output as still in progress. Do not inspect diffs, run follow-up commands, or commit until that command has fully exited successfully.
 - Treat \`No supported files to check.\` from \`./scripts/check_quality_for_git_changes.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 - Do not create a commit if you made no repo changes.
@@ -445,6 +461,13 @@ pre_iteration_command="$(
     --allow-clean-failures "3"
 )"
 
+post_iteration_command="$(
+  shell_join \
+    "${ROOT_DIR}/scripts/codex-authority-post-iteration-clean-check.sh" \
+    --root-dir "${ROOT_DIR}" \
+    --settle-seconds "${post_commit_settle_seconds}"
+)"
+
 loop_args=(
   "${ROOT_DIR}/scripts/run-codex-loop.sh"
   --prompt-file "${prompt_file}"
@@ -457,6 +480,7 @@ loop_args=(
   --watchdog-interval-seconds "30"
   --continue-on-inactivity-timeout
   --pre-iteration-command "${pre_iteration_command}"
+  --post-iteration-command "${post_iteration_command}"
   --stop-on-pre-iteration-exit-code "${complete_exit_code}"
   --stop-on-error
 )
@@ -490,6 +514,7 @@ echo "New session every: 1"
 echo "Model: ${model}"
 echo 'Reasoning effort: xhigh'
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
+echo "Post-commit settle check: ${post_commit_settle_seconds}s"
 echo "Phase 3 hotspot thresholds: python=${hotspot_python_min} frontend=${hotspot_frontend_min} go=${hotspot_go_min}"
 if [[ "${yolo_mode}" == "1" ]]; then
   echo "Yolo mode: enabled"

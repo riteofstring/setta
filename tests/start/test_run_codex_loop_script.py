@@ -160,3 +160,130 @@ printf 'second pass\\n'
         encoding="utf-8",
     ).strip() == "success"
     assert calls_file.read_text(encoding="utf-8").strip() == "2"
+
+
+def test_run_codex_loop_runs_post_iteration_command_after_success(
+    tmp_path: Path,
+) -> None:
+    workdir = tmp_path / "workdir"
+    output_dir = tmp_path / "output"
+    prompt_file = tmp_path / "prompt.md"
+    bin_dir = tmp_path / "bin"
+    post_file = tmp_path / "post.txt"
+
+    workdir.mkdir()
+    output_dir.mkdir()
+    bin_dir.mkdir()
+    prompt_file.write_text("test prompt\n", encoding="utf-8")
+
+    _write_executable(
+        bin_dir / "codex",
+        """#!/usr/bin/env bash
+set -euo pipefail
+
+response_file=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--output-last-message" ]]; then
+    response_file="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+
+if [[ -n "${response_file}" ]]; then
+  printf 'success\\n' > "${response_file}"
+fi
+printf 'success\\n'
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--prompt-file",
+            str(prompt_file),
+            "--iterations",
+            "1",
+            "--output-dir",
+            str(output_dir),
+            "--workdir",
+            str(workdir),
+            "--post-iteration-command",
+            f"printf 'post-iteration\\n' > {post_file}",
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (
+        output_dir / "run-001" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "success"
+    assert post_file.read_text(encoding="utf-8") == "post-iteration\n"
+
+
+def test_run_codex_loop_stops_on_post_iteration_failure(tmp_path: Path) -> None:
+    workdir = tmp_path / "workdir"
+    output_dir = tmp_path / "output"
+    prompt_file = tmp_path / "prompt.md"
+    bin_dir = tmp_path / "bin"
+
+    workdir.mkdir()
+    output_dir.mkdir()
+    bin_dir.mkdir()
+    prompt_file.write_text("test prompt\n", encoding="utf-8")
+
+    _write_executable(
+        bin_dir / "codex",
+        """#!/usr/bin/env bash
+set -euo pipefail
+
+response_file=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--output-last-message" ]]; then
+    response_file="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+
+if [[ -n "${response_file}" ]]; then
+  printf 'success\\n' > "${response_file}"
+fi
+printf 'success\\n'
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--prompt-file",
+            str(prompt_file),
+            "--iterations",
+            "1",
+            "--output-dir",
+            str(output_dir),
+            "--workdir",
+            str(workdir),
+            "--post-iteration-command",
+            "exit 7",
+            "--stop-on-error",
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 7, result.stderr
+    assert (
+        output_dir / "run-001" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "post-iteration-failure:7"

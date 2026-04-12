@@ -2,13 +2,15 @@
 
 from typing import Awaitable, Callable, NotRequired, TypedDict
 
-from setta.types.generated.go_shared_types import BaseChatMessageUnion
-from setta.types.generated.go_shared_types import Chat
-from setta.types.generated.go_shared_types import ChatMetadata
-from setta.types.generated.go_shared_types import ChatSectionState
-from setta.types.generated.go_shared_types import LLMStreamingResponseChunk
-from setta.types.generated.go_shared_types import ToolCall
-from setta.types.generated.go_shared_types import ToolChatMessage
+from setta.types.generated.go_shared_types import (
+    BaseChatMessageUnion,
+    Chat,
+    ChatMetadata,
+    ChatSectionState,
+    LLMStreamingResponseChunk,
+    ToolCall,
+    ToolChatMessage,
+)
 from setta.types.id import ID
 
 ListenerEndpointCaller = Callable[[str, object], Awaitable[object]]
@@ -90,54 +92,57 @@ class ListenerSetChatSectionStateRequestPayload(TypedDict):
     state: ChatSectionState
 
 
-
 class RouterEndpointAPI:
     """Thin Python client for the active Go-owned listener endpoint set."""
 
     def __init__(self, caller: ListenerEndpointCaller) -> None:
         self._caller = caller
 
-
     async def create_chat(self, payload: ListenerCreateChatRequestPayload) -> Chat:
         return await self._caller(ROUTER_ENDPOINT_CREATE_CHAT, payload)
-
 
     async def get_chat(self, payload: ListenerGetChatRequestPayload) -> Chat:
         return await self._caller(ROUTER_ENDPOINT_GET_CHAT, payload)
 
-
-    async def append_chat_messages(self, payload: ListenerAppendChatMessagesRequestPayload) -> Chat:
+    async def append_chat_messages(
+        self, payload: ListenerAppendChatMessagesRequestPayload
+    ) -> Chat:
         return await self._caller(ROUTER_ENDPOINT_APPEND_CHAT_MESSAGES, payload)
-
 
     async def delete_chat(self, payload: ListenerDeleteChatRequestPayload) -> None:
         return await self._caller(ROUTER_ENDPOINT_DELETE_CHAT, payload)
 
-
-    async def set_chat_system_prompt(self, payload: ListenerSetChatSystemPromptRequestPayload) -> Chat:
+    async def set_chat_system_prompt(
+        self, payload: ListenerSetChatSystemPromptRequestPayload
+    ) -> Chat:
         return await self._caller(ROUTER_ENDPOINT_SET_CHAT_SYSTEM_PROMPT, payload)
 
-
-    async def get_all_chat_metadata(self, payload: ListenerGetAllChatMetadataRequestPayload) -> list[ChatMetadata]:
+    async def get_all_chat_metadata(
+        self, payload: ListenerGetAllChatMetadataRequestPayload
+    ) -> list[ChatMetadata]:
         return await self._caller(ROUTER_ENDPOINT_GET_ALL_CHAT_METADATA, payload)
 
-
-    async def get_chat_section_chat_id(self, payload: ListenerGetChatSectionChatIDRequestPayload) -> str | None:
+    async def get_chat_section_chat_id(
+        self, payload: ListenerGetChatSectionChatIDRequestPayload
+    ) -> str | None:
         return await self._caller(ROUTER_ENDPOINT_GET_CHAT_SECTION_CHAT_ID, payload)
 
-
-    async def set_chat_section_chat_id(self, payload: ListenerSetChatSectionChatIDRequestPayload) -> None:
+    async def set_chat_section_chat_id(
+        self, payload: ListenerSetChatSectionChatIDRequestPayload
+    ) -> None:
         return await self._caller(ROUTER_ENDPOINT_SET_CHAT_SECTION_CHAT_ID, payload)
 
-
-    async def emit_chat_stream_delta(self, payload: ListenerEmitChatStreamDeltaRequestPayload) -> None:
+    async def emit_chat_stream_delta(
+        self, payload: ListenerEmitChatStreamDeltaRequestPayload
+    ) -> None:
         return await self._caller(ROUTER_ENDPOINT_EMIT_CHAT_STREAM_DELTA, payload)
 
-
-    async def run_mcp_tools(self, payload: ListenerRunMCPToolsRequestPayload) -> list[ToolChatMessage]:
+    async def run_mcp_tools(
+        self, payload: ListenerRunMCPToolsRequestPayload
+    ) -> list[ToolChatMessage]:
         return await self._caller(ROUTER_ENDPOINT_RUN_MCP_TOOLS, payload)
 
-
-    async def set_chat_section_state(self, payload: ListenerSetChatSectionStateRequestPayload) -> None:
+    async def set_chat_section_state(
+        self, payload: ListenerSetChatSectionStateRequestPayload
+    ) -> None:
         return await self._caller(ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE, payload)
-

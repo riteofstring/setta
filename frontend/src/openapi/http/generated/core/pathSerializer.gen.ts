@@ -18,7 +18,7 @@ export interface SerializerOptions<T> {
 }
 
 export type ArrayStyle = "form" | "spaceDelimited" | "pipeDelimited";
-export type ArraySeparatorStyle = ArrayStyle | MatrixStyle;
+type ArraySeparatorStyle = ArrayStyle | MatrixStyle;
 type MatrixStyle = "label" | "matrix" | "simple";
 export type ObjectStyle = "form" | "deepObject";
 type ObjectSeparatorStyle = ObjectStyle | MatrixStyle;
@@ -27,7 +27,7 @@ interface SerializePrimitiveParam extends SerializePrimitiveOptions {
   value: string;
 }
 
-export const separatorArrayExplode = (style: ArraySeparatorStyle) => {
+const separatorArrayExplode = (style: ArraySeparatorStyle) => {
   switch (style) {
     case "label":
       return ".";
@@ -40,7 +40,7 @@ export const separatorArrayExplode = (style: ArraySeparatorStyle) => {
   }
 };
 
-export const separatorArrayNoExplode = (style: ArraySeparatorStyle) => {
+const separatorArrayNoExplode = (style: ArraySeparatorStyle) => {
   switch (style) {
     case "form":
       return ",";
@@ -53,7 +53,7 @@ export const separatorArrayNoExplode = (style: ArraySeparatorStyle) => {
   }
 };
 
-export const separatorObjectExplode = (style: ObjectSeparatorStyle) => {
+const separatorObjectExplode = (style: ObjectSeparatorStyle) => {
   switch (style) {
     case "label":
       return ".";

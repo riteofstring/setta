@@ -32,6 +32,9 @@ Options:
   --pre-iteration-command CMD
                              Shell command to run before every iteration.
                              Runs in --workdir.
+  --post-iteration-command CMD
+                             Shell command to run after each successful Codex
+                             iteration. Runs in --workdir.
   --inactivity-timeout-seconds N
                              Abort an iteration if the transcript receives no
                              new output for N seconds. Default: disabled
@@ -44,6 +47,9 @@ Options:
                              when --stop-on-error is enabled.
   --stop-on-pre-iteration-exit-code N
                              Stop the loop cleanly if the pre-iteration
+                             command exits with code N.
+  --stop-on-post-iteration-exit-code N
+                             Stop the loop cleanly if the post-iteration
                              command exits with code N.
   --iterations N             Total number of loop iterations. Default: 100
   --new-session-every N      Start a new Codex session every N iterations.
@@ -75,6 +81,7 @@ prompt_file=""
 followup_prompt_file=""
 pre_session_command=""
 pre_iteration_command=""
+post_iteration_command=""
 inactivity_timeout_seconds="0"
 watchdog_interval_seconds="15"
 continue_on_inactivity_timeout="0"
@@ -87,6 +94,7 @@ yolo_mode="0"
 stop_on_error="0"
 stop_on_pre_session_exit_code=""
 stop_on_pre_iteration_exit_code=""
+stop_on_post_iteration_exit_code=""
 codex_extra_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -116,6 +124,11 @@ while [[ $# -gt 0 ]]; do
       pre_iteration_command="$2"
       shift 2
       ;;
+    --post-iteration-command)
+      require_value "$1" "${2:-}"
+      post_iteration_command="$2"
+      shift 2
+      ;;
     --inactivity-timeout-seconds)
       require_value "$1" "${2:-}"
       inactivity_timeout_seconds="$2"
@@ -138,6 +151,11 @@ while [[ $# -gt 0 ]]; do
     --stop-on-pre-iteration-exit-code)
       require_value "$1" "${2:-}"
       stop_on_pre_iteration_exit_code="$2"
+      shift 2
+      ;;
+    --stop-on-post-iteration-exit-code)
+      require_value "$1" "${2:-}"
+      stop_on_post_iteration_exit_code="$2"
       shift 2
       ;;
     --new-session-every)
@@ -250,6 +268,7 @@ validate_stop_exit_code() {
 
 validate_stop_exit_code "--stop-on-pre-session-exit-code" "${stop_on_pre_session_exit_code}"
 validate_stop_exit_code "--stop-on-pre-iteration-exit-code" "${stop_on_pre_iteration_exit_code}"
+validate_stop_exit_code "--stop-on-post-iteration-exit-code" "${stop_on_post_iteration_exit_code}"
 
 if [[ ! "${new_session_every}" =~ ^[0-9]+$ ]] || [[ "${new_session_every}" -lt 1 ]]; then
   echo "--new-session-every must be a positive integer" >&2
@@ -565,6 +584,27 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   if [[ "${exit_code}" -eq 0 ]]; then
+    if [[ -n "${post_iteration_command}" ]]; then
+      post_iteration_log="${run_dir}/post-iteration.log"
+      echo "[$iteration/$iterations] Running post-iteration command"
+      set +e
+      run_hook_command "${workdir}" "${post_iteration_command}" "${post_iteration_log}"
+      post_iteration_exit_code="$?"
+      set -e
+      if [[ "${post_iteration_exit_code}" -ne 0 ]]; then
+        if [[ -n "${stop_on_post_iteration_exit_code}" ]] && [[ "${post_iteration_exit_code}" == "${stop_on_post_iteration_exit_code}" ]]; then
+          echo "stopped:post-iteration-exit:${post_iteration_exit_code}" > "${status_file}"
+          echo "[$iteration/$iterations] Stopping loop after post-iteration command exit code ${post_iteration_exit_code}"
+          break
+        fi
+        echo "post-iteration-failure:${post_iteration_exit_code}" > "${status_file}"
+        echo "[$iteration/$iterations] Post-iteration command failed with exit code ${post_iteration_exit_code}" >&2
+        if [[ "${stop_on_error}" == "1" ]]; then
+          exit "${post_iteration_exit_code}"
+        fi
+        continue
+      fi
+    fi
     echo "success" > "${status_file}"
     echo "[$iteration/$iterations] Codex session ended"
     continue
