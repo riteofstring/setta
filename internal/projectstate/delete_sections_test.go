@@ -659,6 +659,239 @@ func TestProjectDeleteSectionsClearsTargetValueWhenRemovingLastIncomingEdge(t *t
 	}
 }
 
+func TestProjectDeleteSectionsKeepsTargetValueWhenAnotherIncomingEdgeRemains(t *testing.T) {
+	project := mustNormalizedDeleteProject(t, Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"source-section-a",
+			"source-section-b",
+			"target-section",
+		},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"source-section-a": {X: 10, Y: 20},
+			"source-section-b": {X: 30, Y: 40},
+			"target-section":   {X: 50, Y: 60},
+		},
+		Edges: []Edge{
+			{
+				ID:              "edge-1",
+				SourceSectionID: "source-section-a",
+				SourceVariantID: "source-variant-a",
+				TargetSectionID: "target-section",
+				TargetVariantID: "target-variant",
+				TargetPortID:    "target-param",
+			},
+			{
+				ID:              "edge-2",
+				SourceSectionID: "source-section-b",
+				SourceVariantID: "source-variant-b",
+				TargetSectionID: "target-section",
+				TargetVariantID: "target-variant",
+				TargetPortID:    "target-param",
+			},
+		},
+		Sections: map[string]Section{
+			"source-section-a": {
+				ID:               "source-section-a",
+				Name:             "Source A",
+				VariantIDs:       []string{"source-variant-a"},
+				DefaultVariantID: "source-variant-a",
+			},
+			"source-section-b": {
+				ID:               "source-section-b",
+				Name:             "Source B",
+				VariantIDs:       []string{"source-variant-b"},
+				DefaultVariantID: "source-variant-b",
+			},
+			"target-section": {
+				ID:               "target-section",
+				Name:             "Target",
+				VariantIDs:       []string{"target-variant"},
+				DefaultVariantID: "target-variant",
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"source-section-a": "source-variant-a",
+			"source-section-b": "source-variant-b",
+			"target-section":   "target-variant",
+		},
+		SectionVariants: map[string]SectionVariant{
+			"source-variant-a": {ID: "source-variant-a", ImplID: "source-impl-a"},
+			"source-variant-b": {ID: "source-variant-b", ImplID: "source-impl-b"},
+			"target-variant":   {ID: "target-variant", ImplID: "target-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"source-impl-a": {
+				ID:      "source-impl-a",
+				Kind:    SectionKind("chat"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "source-impl-a", "type": "Chat"}),
+			},
+			"source-impl-b": {
+				ID:      "source-impl-b",
+				Kind:    SectionKind("chat"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "source-impl-b", "type": "Chat"}),
+			},
+			"target-impl": {
+				ID:      "target-impl",
+				Kind:    SectionKind("dict"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "target-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"target-param": "target-param-variant"}}),
+			},
+		},
+		CodeObjs: map[string]CodeObject{
+			"target-param": {
+				ID:               "target-param",
+				Name:             "target_param",
+				VariantIDs:       []string{"target-param-variant"},
+				DefaultVariantID: "target-param-variant",
+			},
+		},
+		CodeObjVariants: map[string]CodeObjectVariant{
+			"target-param-variant": {ID: "target-param-variant", ImplID: "target-param-impl"},
+		},
+		CodeObjImpls: map[string]CodeObjectImpl{
+			"target-param-impl": {
+				ID:      "target-param-impl",
+				Type:    "TextParam",
+				Payload: mustMarshalProjectObject(map[string]any{"id": "target-param-impl", "type": "TextParam", "value": "seed"}),
+			},
+		},
+	})
+
+	if _, err := project.DeleteSections(DeleteSectionsInput{
+		SectionIDs: []string{"source-section-a"},
+	}); err != nil {
+		t.Fatalf("DeleteSections returned error: %v", err)
+	}
+
+	if len(project.Edges) != 1 {
+		t.Fatalf("expected one remaining incoming edge, got %#v", project.Edges)
+	}
+
+	payload, _, _, _, err := project.ResolveSectionCodeObject("target-section", "target-param")
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObject returned error: %v", err)
+	}
+	if got := payload["value"]; got != "seed" {
+		t.Fatalf("expected target value to stay seeded while another edge remains, got %#v", got)
+	}
+}
+
+func TestProjectDeleteSectionsKeepsTargetValueForInactiveTargetVariant(t *testing.T) {
+	project := mustNormalizedDeleteProject(t, Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"source-section",
+			"target-section",
+		},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"source-section": {X: 10, Y: 20},
+			"target-section": {X: 30, Y: 40},
+		},
+		Edges: []Edge{
+			{
+				ID:              "edge-1",
+				SourceSectionID: "source-section",
+				SourceVariantID: "source-variant",
+				TargetSectionID: "target-section",
+				TargetVariantID: "target-variant-inactive",
+				TargetPortID:    "target-param",
+			},
+		},
+		Sections: map[string]Section{
+			"source-section": {
+				ID:               "source-section",
+				Name:             "Source",
+				VariantIDs:       []string{"source-variant"},
+				DefaultVariantID: "source-variant",
+			},
+			"target-section": {
+				ID:               "target-section",
+				Name:             "Target",
+				VariantIDs:       []string{"target-variant-active", "target-variant-inactive"},
+				DefaultVariantID: "target-variant-active",
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"source-section": "source-variant",
+			"target-section": "target-variant-active",
+		},
+		SectionVariants: map[string]SectionVariant{
+			"source-variant":          {ID: "source-variant", ImplID: "source-impl"},
+			"target-variant-active":   {ID: "target-variant-active", ImplID: "target-impl-active"},
+			"target-variant-inactive": {ID: "target-variant-inactive", ImplID: "target-impl-inactive"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"source-impl": {
+				ID:      "source-impl",
+				Kind:    SectionKind("chat"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "source-impl", "type": "Chat"}),
+			},
+			"target-impl-active": {
+				ID:      "target-impl-active",
+				Kind:    SectionKind("dict"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "target-impl-active", "type": "Dict", "codeObjVariantMap": map[string]string{"target-param": "target-param-variant-active"}}),
+			},
+			"target-impl-inactive": {
+				ID:      "target-impl-inactive",
+				Kind:    SectionKind("dict"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "target-impl-inactive", "type": "Dict", "codeObjVariantMap": map[string]string{"target-param": "target-param-variant-inactive"}}),
+			},
+		},
+		CodeObjs: map[string]CodeObject{
+			"target-param": {
+				ID:               "target-param",
+				Name:             "target_param",
+				VariantIDs:       []string{"target-param-variant-active", "target-param-variant-inactive"},
+				DefaultVariantID: "target-param-variant-active",
+			},
+		},
+		CodeObjVariants: map[string]CodeObjectVariant{
+			"target-param-variant-active":   {ID: "target-param-variant-active", ImplID: "target-param-impl-active"},
+			"target-param-variant-inactive": {ID: "target-param-variant-inactive", ImplID: "target-param-impl-inactive"},
+		},
+		CodeObjImpls: map[string]CodeObjectImpl{
+			"target-param-impl-active": {
+				ID:      "target-param-impl-active",
+				Type:    "TextParam",
+				Payload: mustMarshalProjectObject(map[string]any{"id": "target-param-impl-active", "type": "TextParam", "value": "active-seed"}),
+			},
+			"target-param-impl-inactive": {
+				ID:      "target-param-impl-inactive",
+				Type:    "TextParam",
+				Payload: mustMarshalProjectObject(map[string]any{"id": "target-param-impl-inactive", "type": "TextParam", "value": "inactive-seed"}),
+			},
+		},
+	})
+
+	if _, err := project.DeleteSections(DeleteSectionsInput{
+		SectionIDs: []string{"source-section"},
+	}); err != nil {
+		t.Fatalf("DeleteSections returned error: %v", err)
+	}
+
+	activePayload, _, _, _, err := project.ResolveSectionCodeObject("target-section", "target-param")
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObject returned error: %v", err)
+	}
+	if got := activePayload["value"]; got != "active-seed" {
+		t.Fatalf("expected active target value to stay intact, got %#v", got)
+	}
+
+	inactivePayload, _, _, _, err := project.ResolveSectionCodeObjectForVariant(
+		"target-section",
+		"target-variant-inactive",
+		"target-param",
+	)
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObjectForVariant returned error: %v", err)
+	}
+	if got := inactivePayload["value"]; got != "inactive-seed" {
+		t.Fatalf("expected inactive target variant value to stay intact, got %#v", got)
+	}
+}
+
 func mustNormalizedDeleteProject(t *testing.T, project Project) Project {
 	t.Helper()
 

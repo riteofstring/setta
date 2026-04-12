@@ -256,42 +256,78 @@ func (p *Project) clearEdgeTargetsForDeletedSections(removed map[string]struct{}
 }
 
 func (p *Project) maybeClearEdgeTargetValue(edge Edge) error {
+	target, err := p.edgeTargetValueToClear(edge)
+	if err != nil || target == nil {
+		return err
+	}
+	return p.SetSectionCodeObjectValue(target.sectionID, target.portID, "")
+}
+
+type edgeTargetValueRef struct {
+	sectionID string
+	portID    string
+}
+
+func (p *Project) edgeTargetValueToClear(edge Edge) (*edgeTargetValueRef, error) {
 	if p == nil {
-		return ErrProjectNotFound
+		return nil, ErrProjectNotFound
 	}
 
 	targetSectionID := strings.TrimSpace(edge.TargetSectionID)
 	if targetSectionID == "" {
-		return nil
+		return nil, nil
 	}
 	if _, ok := p.Sections[targetSectionID]; !ok {
-		return nil
+		return nil, nil
 	}
 
-	activeVariantID, ok := p.SectionVariantMap[targetSectionID]
-	if !ok {
-		return fmt.Errorf("%w: %q", ErrSectionActiveVariantNotFound, targetSectionID)
+	if p.edgeTargetHasRemainingIncomingValue(edge) {
+		return nil, nil
 	}
 
+	activeTarget, err := p.edgeTargetsActiveVariant(targetSectionID, edge.TargetVariantID)
+	if err != nil || !activeTarget {
+		return nil, err
+	}
+
+	targetPortID, err := p.normalizeEdgeTargetPortID(edge.TargetPortID)
+	if err != nil || targetPortID == "" {
+		return nil, err
+	}
+	return &edgeTargetValueRef{
+		sectionID: targetSectionID,
+		portID:    targetPortID,
+	}, nil
+}
+
+func (p *Project) edgeTargetHasRemainingIncomingValue(edge Edge) bool {
 	for _, existing := range p.Edges {
 		if existing.TargetSectionID == edge.TargetSectionID &&
 			existing.TargetVariantID == edge.TargetVariantID &&
 			existing.TargetPortID == edge.TargetPortID {
-			return nil
+			return true
 		}
 	}
-	if activeVariantID != edge.TargetVariantID {
-		return nil
-	}
+	return false
+}
 
-	targetPortID := strings.TrimSpace(edge.TargetPortID)
+func (p *Project) edgeTargetsActiveVariant(sectionID string, targetVariantID string) (bool, error) {
+	activeVariantID, ok := p.SectionVariantMap[sectionID]
+	if !ok {
+		return false, fmt.Errorf("%w: %q", ErrSectionActiveVariantNotFound, sectionID)
+	}
+	return activeVariantID == targetVariantID, nil
+}
+
+func (p *Project) normalizeEdgeTargetPortID(rawTargetPortID string) (string, error) {
+	targetPortID := strings.TrimSpace(rawTargetPortID)
 	if targetPortID == "" {
-		return nil
+		return "", nil
 	}
 	if _, ok := p.CodeObjs[targetPortID]; !ok {
-		return fmt.Errorf("%w: %q", ErrCodeObjNotFound, targetPortID)
+		return "", fmt.Errorf("%w: %q", ErrCodeObjNotFound, targetPortID)
 	}
-	return p.SetSectionCodeObjectValue(targetSectionID, targetPortID, "")
+	return targetPortID, nil
 }
 
 func (p *Project) removeDeletedSectionReferences(removed map[string]struct{}) error {
