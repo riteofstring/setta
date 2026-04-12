@@ -1,7 +1,7 @@
 import React from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { BrowserAreaSettings } from "./BrowserAreaSettings";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
@@ -28,109 +28,6 @@ const SECTION_CONFIG_APPEARANCE_VALUE = "section-config-appearance";
 type SectionConfigPanelValue =
   | typeof SECTION_CONFIG_MAIN_VALUE
   | typeof SECTION_CONFIG_APPEARANCE_VALUE;
-
-type SectionSettingsComponent = React.ComponentType<{ sectionId: string }>;
-
-type SectionConfigEntry = {
-  appearanceEnabled: boolean;
-  mainComponent?: SectionSettingsComponent;
-};
-
-const SECTION_CONFIG_BY_TYPE = new Map<SectionType, SectionConfigEntry>([
-  [
-    SectionTypeEnum.Callable,
-    { appearanceEnabled: true, mainComponent: EdgePortsSettings },
-  ],
-  [
-    SectionTypeEnum.Dict,
-    { appearanceEnabled: true, mainComponent: EdgePortsSettings },
-  ],
-  [
-    SectionTypeEnum.GlobalVariables,
-    { appearanceEnabled: true, mainComponent: EdgePortsSettings },
-  ],
-  [
-    SectionTypeEnum.ListRoot,
-    { appearanceEnabled: true, mainComponent: ChildDefaultsSettings },
-  ],
-  [
-    SectionTypeEnum.Group,
-    { appearanceEnabled: true, mainComponent: ChildDefaultsSettings },
-  ],
-  [
-    SectionTypeEnum.Code,
-    { appearanceEnabled: true, mainComponent: CodeAreaSettings },
-  ],
-  [
-    SectionTypeEnum.TextBlock,
-    { appearanceEnabled: true, mainComponent: TextBlockSettings },
-  ],
-  [
-    SectionTypeEnum.Prompt,
-    { appearanceEnabled: true, mainComponent: PromptSettings },
-  ],
-  [
-    SectionTypeEnum.MetaControl,
-    { appearanceEnabled: true, mainComponent: MetaControlSettings },
-  ],
-  [
-    SectionTypeEnum.Draw,
-    { appearanceEnabled: true, mainComponent: DrawAreaSettings },
-  ],
-  [
-    SectionTypeEnum.Image,
-    { appearanceEnabled: true, mainComponent: ImageAreaSettings },
-  ],
-  [
-    SectionTypeEnum.Chart,
-    { appearanceEnabled: true, mainComponent: ChartAreaSettings },
-  ],
-  [
-    SectionTypeEnum.Social,
-    { appearanceEnabled: true, mainComponent: SocialAreaSettings },
-  ],
-  [
-    SectionTypeEnum.IFrame,
-    { appearanceEnabled: true, mainComponent: IframeSettings },
-  ],
-  [
-    SectionTypeEnum.Chat,
-    { appearanceEnabled: true, mainComponent: ChatAreaSettings },
-  ],
-  [
-    SectionTypeEnum.Browser,
-    { appearanceEnabled: true, mainComponent: BrowserAreaSettings },
-  ],
-  [
-    SectionTypeEnum.TaskBoard,
-    { appearanceEnabled: true, mainComponent: TaskBoardSettings },
-  ],
-  [
-    SectionTypeEnum.Spreadsheet,
-    { appearanceEnabled: true, mainComponent: SpreadsheetSectionSettings },
-  ],
-  [
-    SectionTypeEnum.StateMachineStart,
-    { appearanceEnabled: true, mainComponent: StateMachineSectionSettings },
-  ],
-  [
-    SectionTypeEnum.StateMachineGate,
-    { appearanceEnabled: true, mainComponent: StateMachineSectionSettings },
-  ],
-  [
-    SectionTypeEnum.StateMachineEnd,
-    { appearanceEnabled: true, mainComponent: StateMachineSectionSettings },
-  ],
-  [SectionTypeEnum.GenPythonCode, { appearanceEnabled: true }],
-  [SectionTypeEnum.GenPythonMetadata, { appearanceEnabled: true }],
-  [SectionTypeEnum.Terminal, { appearanceEnabled: true }],
-]);
-
-function getSectionConfigEntry(
-  sectionType: SectionType,
-): SectionConfigEntry | null {
-  return SECTION_CONFIG_BY_TYPE.get(sectionType) ?? null;
-}
 
 export function getDefaultSectionConfigOpenValues(
   mainSectionDisabled: boolean,
@@ -276,7 +173,7 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
 export const SectionConfig = React.memo(_SectionConfig);
 
 function getAppearanceConfigurationContent(
-  sectionType: SectionType,
+  sectionType: SectionTypeEnum,
   sectionId: string,
 ): React.ReactNode | null {
   if (!sectionTypeSupportsAppearanceSettings(sectionType)) {
@@ -291,15 +188,82 @@ function getAppearanceConfigurationContent(
 }
 
 export function sectionTypeSupportsAppearanceSettings(
-  sectionType: SectionType,
+  sectionType: SectionTypeEnum,
 ): boolean {
-  return getSectionConfigEntry(sectionType)?.appearanceEnabled ?? false;
+  switch (sectionType) {
+    case SectionTypeEnum.Callable:
+    case SectionTypeEnum.Dict:
+    case SectionTypeEnum.GlobalVariables:
+    case SectionTypeEnum.Code:
+    case SectionTypeEnum.TextBlock:
+    case SectionTypeEnum.Prompt:
+    case SectionTypeEnum.MetaControl:
+    case SectionTypeEnum.Draw:
+    case SectionTypeEnum.Image:
+    case SectionTypeEnum.Chart:
+    case SectionTypeEnum.Social:
+    case SectionTypeEnum.IFrame:
+    case SectionTypeEnum.Chat:
+    case SectionTypeEnum.Browser:
+    case SectionTypeEnum.ListRoot:
+    case SectionTypeEnum.Group:
+    case SectionTypeEnum.GenPythonCode:
+    case SectionTypeEnum.GenPythonMetadata:
+    case SectionTypeEnum.Terminal:
+    case SectionTypeEnum.TaskBoard:
+    case SectionTypeEnum.Spreadsheet:
+    case SectionTypeEnum.StateMachineStart:
+    case SectionTypeEnum.StateMachineGate:
+    case SectionTypeEnum.StateMachineEnd:
+      return true;
+  }
 }
 
 function getSpecializedConfigurationContent(
-  sectionType: SectionType,
+  sectionType: SectionTypeEnum,
   sectionId: string,
 ): React.ReactNode | null {
-  const SettingsComponent = getSectionConfigEntry(sectionType)?.mainComponent;
-  return SettingsComponent ? <SettingsComponent sectionId={sectionId} /> : null;
+  switch (sectionType) {
+    case SectionTypeEnum.Callable:
+    case SectionTypeEnum.Dict:
+    case SectionTypeEnum.GlobalVariables:
+      return <EdgePortsSettings sectionId={sectionId} />;
+    case SectionTypeEnum.ListRoot:
+    case SectionTypeEnum.Group:
+      return <ChildDefaultsSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Code:
+      return <CodeAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.TextBlock:
+      return <TextBlockSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Prompt:
+      return <PromptSettings sectionId={sectionId} />;
+    case SectionTypeEnum.MetaControl:
+      return <MetaControlSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Draw:
+      return <DrawAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Image:
+      return <ImageAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Chart:
+      return <ChartAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Social:
+      return <SocialAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.IFrame:
+      return <IframeSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Chat:
+      return <ChatAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Browser:
+      return <BrowserAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.TaskBoard:
+      return <TaskBoardSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Spreadsheet:
+      return <SpreadsheetSectionSettings sectionId={sectionId} />;
+    case SectionTypeEnum.StateMachineStart:
+    case SectionTypeEnum.StateMachineGate:
+    case SectionTypeEnum.StateMachineEnd:
+      return <StateMachineSectionSettings sectionId={sectionId} />;
+    case SectionTypeEnum.GenPythonCode:
+    case SectionTypeEnum.GenPythonMetadata:
+    case SectionTypeEnum.Terminal:
+      return null;
+  }
 }

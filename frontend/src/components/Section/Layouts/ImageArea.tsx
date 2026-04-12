@@ -30,12 +30,22 @@ function _ImageArea({ sectionId }: { sectionId: string }) {
       className={`section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1 ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
       // {...getRootProps()}
     >
-      {!!decodedImage && <ImageAreaCore imageSrc={decodedImage.src} />}
+      {!!decodedImage && (
+        <ImageAreaCore sectionId={sectionId} imageSrc={decodedImage.src} />
+      )}
     </figure>
   );
 }
 
-function ImageAreaCore({ imageSrc }: { imageSrc: string }) {
+function ImageAreaCore({
+  sectionId,
+  imageSrc,
+}: {
+  sectionId: string;
+  imageSrc: string;
+}) {
+  // const imgSizeLoaded = useImgArtifactAreaSize(sectionId, image);
+
   const imgSizeLoaded = true;
 
   return (
