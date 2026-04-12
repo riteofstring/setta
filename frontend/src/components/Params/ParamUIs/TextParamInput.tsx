@@ -125,7 +125,7 @@ function normalizeCalendarSelectionCandidate(
     : candidate;
   return normalizeDateToIso(dateCandidate, DateDisplayFormatEnum.iso);
 }
-export function parseCalendarSelectedDates(
+function parseCalendarSelectedDates(
   rawValue: string,
   selectionMode: DateSelectionMode,
   includeTime = false,
@@ -149,7 +149,7 @@ export function parseCalendarSelectedDates(
     left.localeCompare(right),
   );
 }
-export function serializeCalendarSelectedDates(
+function serializeCalendarSelectedDates(
   selectedDates: Array<string>,
   selectionMode: DateSelectionMode,
 ): string {

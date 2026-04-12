@@ -1,3 +1,7 @@
+/* @vitest-environment jsdom */
+
+import { act, type ComponentProps } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   DateCalendarWeekStartEnum,
@@ -9,14 +13,52 @@ import {
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
-import { describe, expect, it, vi } from "vitest";
-import {
-  parseCalendarSelectedDates,
-  serializeCalendarSelectedDates,
-  TextParamDateTimeInput,
-} from "./TextParamInput";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { TextParamDateTimeInput } from "./TextParamInput";
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+function createDateTimeInput(
+  overrideProps: Partial<ComponentProps<typeof TextParamDateTimeInput>> = {},
+) {
+  return (
+    <TextParamDateTimeInput
+      value=""
+      onChange={vi.fn()}
+      isDisabled={false}
+      uiType={TextParamInputUITypeEnum.date}
+      timeControlMode={TimeControlModeEnum.display}
+      timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+      dateDisplayFormat={DateDisplayFormatEnum.iso}
+      dateControlMode={DateControlModeEnum.calendar}
+      dateSelectionMode={DateSelectionModeEnum.single}
+      dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+      dateIncludesTime={false}
+      {...overrideProps}
+    />
+  );
+}
+
+async function renderDateTimeInput(
+  props: Partial<ComponentProps<typeof TextParamDateTimeInput>> = {},
+): Promise<{
+  host: HTMLDivElement;
+  root: Root;
+}> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(createDateTimeInput(props));
+  });
+  return { host, root };
+}
 
 describe("TextParamDateTimeInput", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
   it("renders time input with formatted display text", () => {
     const markup = renderToStaticMarkup(
       <TextParamDateTimeInput
@@ -172,17 +214,44 @@ describe("TextParamDateTimeInput", () => {
   });
 
   it("parses and serializes multi-date calendar values as JSON arrays", () => {
-    const parsed = parseCalendarSelectedDates(
-      '["2026-02-01","2026-02-03"]',
-      DateSelectionModeEnum.multiple,
+    const markup = renderToStaticMarkup(
+      createDateTimeInput({
+        value: '["2026-02-17","2026-02-19"]',
+        dateSelectionMode: DateSelectionModeEnum.multiple,
+      }),
     );
-    expect(parsed).toEqual(["2026-02-01", "2026-02-03"]);
 
-    const serialized = serializeCalendarSelectedDates(
-      ["2026-02-03", "2026-02-01"],
-      DateSelectionModeEnum.multiple,
+    expect(markup).toContain("2 selected");
+  });
+
+  it("serializes multi-date calendar selections through the live input", async () => {
+    const onChange = vi.fn();
+    const { host, root } = await renderDateTimeInput({
+      value: '["2026-02-17"]',
+      onChange,
+      dateSelectionMode: DateSelectionModeEnum.multiple,
+    });
+    const nextDateButton = Array.from(host.querySelectorAll("button")).find(
+      (button) => button.textContent === "18",
     );
-    expect(serialized).toBe('["2026-02-01","2026-02-03"]');
+
+    if (!nextDateButton) {
+      throw new Error("Expected to find the February 18 calendar button.");
+    }
+
+    await act(async () => {
+      nextDateButton.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+        }),
+      );
+    });
+
+    expect(onChange).toHaveBeenCalledWith('["2026-02-17","2026-02-18"]');
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 
   it("renders datetime-local input when date includes time", () => {
