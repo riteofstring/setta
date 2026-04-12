@@ -96,9 +96,7 @@ const HOME_PROJECT_GALLERY_CLASS_NAMES = {
 } as const;
 type HomeProject = ProjectConfigMetadata &
   Partial<Pick<ProjectConfig, "previewImgColor" | "topLevelSections">>;
-export function shouldUseCompactHomeLayout(
-  winWidth: number | undefined,
-): boolean {
+function shouldUseCompactHomeLayout(winWidth: number | undefined): boolean {
   if (typeof winWidth === "number") {
     return winWidth < HOME_COMPACT_LAYOUT_BREAKPOINT_PX;
   }
@@ -107,7 +105,7 @@ export function shouldUseCompactHomeLayout(
   }
   return false;
 }
-export function shouldApplyHomeFileBrowserPath({
+function shouldApplyHomeFileBrowserPath({
   nextPath,
   currentRootPath,
 }: {
@@ -119,7 +117,7 @@ export function shouldApplyHomeFileBrowserPath({
   }
   return nextPath !== currentRootPath;
 }
-export function partitionProjectsByFavoriteStatus({
+function partitionProjectsByFavoriteStatus({
   projects,
   favoriteProjectConfigIds,
 }: {
@@ -145,20 +143,16 @@ export function partitionProjectsByFavoriteStatus({
     totalProjectsCount: projects.length,
   };
 }
-export function getHomeProjectConfigsSectionTitle(
-  hasFavorites: boolean,
-): string {
+function getHomeProjectConfigsSectionTitle(hasFavorites: boolean): string {
   if (hasFavorites) {
     return "Other Projects";
   }
   return "All Projects";
 }
-export function shouldOpenProjectOnListRowSpace(
-  selectionEnabled: boolean,
-): boolean {
+function shouldOpenProjectOnListRowSpace(selectionEnabled: boolean): boolean {
   return !selectionEnabled;
 }
-export function shouldShowCompactHomeSettingsButton({
+function shouldShowCompactHomeSettingsButton({
   isCompactLayout,
   isDeploymentMode,
 }: {
@@ -167,7 +161,7 @@ export function shouldShowCompactHomeSettingsButton({
 }): boolean {
   return isCompactLayout && !isDeploymentMode;
 }
-export function getNextActiveProjectId({
+function getNextActiveProjectId({
   activeProjectId,
   filteredProjects,
 }: {
@@ -185,7 +179,7 @@ export function getNextActiveProjectId({
   }
   return filteredProjects[0]?.id ?? null;
 }
-export function resolveSelectedProjectDetails({
+function resolveSelectedProjectDetails({
   activeProjectId,
   filteredProjects,
   projects,
@@ -1966,7 +1960,7 @@ function SelectedProjectDetails({
     </aside>
   );
 }
-export function getProjectTopLevelSectionCount(
+function getProjectTopLevelSectionCount(
   project: Pick<HomeProject, "topLevelSections">,
 ): number | null {
   if (!project.topLevelSections) {
