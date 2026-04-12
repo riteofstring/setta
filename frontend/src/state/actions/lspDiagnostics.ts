@@ -1,33 +1,26 @@
 import {
-  setCodeSectionDiagnosticCodeSuppression as setCodeSectionDiagnosticCodeSuppressionRequest,
-  setCodeSectionDiagnosticsMute as setCodeSectionDiagnosticsMuteRequest,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
-  useTypeErrors,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
 import {
-  LSPDiagnosticsPayload,
-  SectionTypeEnum,
-  type LSPDiagnostic,
+  route_set_code_section_diagnostic_code_suppression,
+  route_set_code_section_diagnostics_mute,
+} from "utils/generatedEndpoints";
+import {
+  SettaLspDiagnosticsPayload,
+  type SettaLspDiagnostic,
 } from "utils/generatedTypes";
-import { postChromeReproEvent } from "./chromeRepro";
-import {
-  getCurrEffectiveSectionImpl,
-  getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
-} from "./sectionInfos";
+import { getCurrProjectConfigId } from "./sectionInfos";
 import { processTypeErrors } from "./typeCheck";
+
 export const FORMATTER_DIAGNOSTIC_SOURCE = "Formatter";
-function getFormatterDiagnostics(diagnostics: Array<LSPDiagnostic>) {
+
+function getFormatterDiagnostics(diagnostics: Array<SettaLspDiagnostic>) {
   if (diagnostics.length === 0) {
     return [];
   }
-  const formatter: Array<LSPDiagnostic> = [];
+  const formatter: Array<SettaLspDiagnostic> = [];
   for (const diagnostic of diagnostics) {
     if (diagnostic.source === FORMATTER_DIAGNOSTIC_SOURCE) {
       formatter.push(diagnostic);
@@ -35,9 +28,10 @@ function getFormatterDiagnostics(diagnostics: Array<LSPDiagnostic>) {
   }
   return formatter;
 }
+
 function areDiagnosticRangesEqual(
-  left: LSPDiagnostic["range"],
-  right: LSPDiagnostic["range"],
+  left: SettaLspDiagnostic["range"],
+  right: SettaLspDiagnostic["range"],
 ) {
   return (
     left.start.line === right.start.line &&
@@ -46,7 +40,11 @@ function areDiagnosticRangesEqual(
     left.end.character === right.end.character
   );
 }
-function areDiagnosticsEqual(left: LSPDiagnostic, right: LSPDiagnostic) {
+
+function areDiagnosticsEqual(
+  left: SettaLspDiagnostic,
+  right: SettaLspDiagnostic,
+) {
   if (left === right) {
     return true;
   }
@@ -59,9 +57,10 @@ function areDiagnosticsEqual(left: LSPDiagnostic, right: LSPDiagnostic) {
     areDiagnosticRangesEqual(left.range, right.range)
   );
 }
+
 function areDiagnosticsListEqual(
-  left: Array<LSPDiagnostic>,
-  right: Array<LSPDiagnostic>,
+  left: Array<SettaLspDiagnostic>,
+  right: Array<SettaLspDiagnostic>,
 ) {
   if (left === right) {
     return true;
@@ -76,85 +75,82 @@ function areDiagnosticsListEqual(
   }
   return true;
 }
-function mergeFormatterDiagnostics(
-  previous: Array<LSPDiagnostic>,
-  incoming: Array<LSPDiagnostic>,
-) {
-  if (incoming.length === 0) {
-    return [];
-  }
-  if (getFormatterDiagnostics(incoming).length > 0) {
-    return incoming;
-  }
-  const previousFormatter = getFormatterDiagnostics(previous);
-  if (previousFormatter.length === 0) {
-    return incoming;
-  }
-  return incoming.concat(previousFormatter);
-}
-function mergeDiagnosticsList(
-  previous: Array<LSPDiagnostic> | undefined,
-  incoming: Array<LSPDiagnostic>,
-) {
-  const previousDiagnostics = previous ?? [];
-  const mergedDiagnostics = mergeFormatterDiagnostics(
-    previousDiagnostics,
-    incoming,
-  );
-  if (mergedDiagnostics.length === 0) {
-    return {
-      diagnostics: mergedDiagnostics,
-      changed: previousDiagnostics.length > 0,
-    };
-  }
-  if (previous && areDiagnosticsListEqual(previous, mergedDiagnostics)) {
-    return { diagnostics: previous, changed: false };
-  }
-  return { diagnostics: mergedDiagnostics, changed: true };
-}
-function hasRemovedSectionDiagnostics(
-  previous: Record<string, Array<LSPDiagnostic>>,
-  incoming: Record<string, Array<LSPDiagnostic>>,
-) {
-  for (const [sectionId, diagnostics] of Object.entries(previous)) {
-    if (
-      !Object.prototype.hasOwnProperty.call(incoming, sectionId) &&
-      diagnostics.length > 0
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
+
 function mergeDiagnosticsBySection(
-  previous: Record<string, Array<LSPDiagnostic>>,
-  incoming: Record<string, Array<LSPDiagnostic>>,
+  previous: Record<string, Array<SettaLspDiagnostic>>,
+  incoming: Record<string, Array<SettaLspDiagnostic>>,
 ) {
-  let changed = hasRemovedSectionDiagnostics(previous, incoming);
-  const codeSections: Record<string, Array<LSPDiagnostic>> = {};
+  let changed = false;
+  const merged: Record<string, Array<SettaLspDiagnostic>> = {};
+  const seen = new Set<string>();
+
   for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
-    const merged = mergeDiagnosticsList(previous[sectionId], nextDiagnostics);
-    if (merged.changed) {
-      changed = true;
+    seen.add(sectionId);
+    const prevDiagnostics = previous[sectionId];
+    const prevFormatter = getFormatterDiagnostics(prevDiagnostics ?? []);
+    const incomingFormatter = getFormatterDiagnostics(nextDiagnostics);
+    let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
+    if (nextDiagnostics.length > 0) {
+      if (incomingFormatter.length > 0) {
+        mergedDiagnostics = nextDiagnostics;
+      } else {
+        mergedDiagnostics = nextDiagnostics.concat(prevFormatter);
+      }
     }
-    if (merged.diagnostics.length === 0) {
+    if (mergedDiagnostics.length === 0) {
+      if (prevDiagnostics?.length) {
+        changed = true;
+      }
       continue;
     }
-    codeSections[sectionId] = merged.diagnostics;
+
+    if (
+      prevDiagnostics &&
+      areDiagnosticsListEqual(prevDiagnostics, mergedDiagnostics)
+    ) {
+      merged[sectionId] = prevDiagnostics;
+      continue;
+    }
+    merged[sectionId] = mergedDiagnostics;
+    if (!prevDiagnostics || prevDiagnostics !== mergedDiagnostics) {
+      changed = true;
+    }
   }
-  return { codeSections, changed };
+
+  for (const sectionId of Object.keys(previous)) {
+    if (seen.has(sectionId)) {
+      continue;
+    }
+    const prevDiagnostics = previous[sectionId] ?? [];
+    if (prevDiagnostics.length > 0) {
+      changed = true;
+    }
+  }
+
+  return { codeSections: merged, changed };
 }
+
 function mergeUnmappedGenCode(
-  previous: Array<LSPDiagnostic>,
-  incoming: Array<LSPDiagnostic>,
+  previous: Array<SettaLspDiagnostic>,
+  incoming: Array<SettaLspDiagnostic>,
 ) {
-  const merged = mergeDiagnosticsList(previous, incoming);
-  return {
-    unmappedGenCode: merged.diagnostics,
-    changed: merged.changed,
-  };
+  const prevFormatter = getFormatterDiagnostics(previous);
+  const incomingFormatter = getFormatterDiagnostics(incoming);
+  let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
+  if (incoming.length > 0) {
+    if (incomingFormatter.length > 0) {
+      mergedDiagnostics = incoming;
+    } else {
+      mergedDiagnostics = incoming.concat(prevFormatter);
+    }
+  }
+  if (areDiagnosticsListEqual(previous, mergedDiagnostics)) {
+    return { unmappedGenCode: previous, changed: false };
+  }
+  return { unmappedGenCode: mergedDiagnostics, changed: true };
 }
-export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
+
+export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
   if (useShareSession.getState().isDeploymentMode) {
     return;
   }
@@ -162,6 +158,7 @@ export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
   if (payload.projectConfigId !== projectConfigId) {
     return;
   }
+
   processTypeErrors(payload.genCode);
   const prevState = useLspDiagnostics.getState();
   const merged = mergeDiagnosticsBySection(
@@ -172,24 +169,15 @@ export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
     prevState.unmappedGenCode,
     payload.unmappedGenCode,
   );
-  if (merged.changed || mergedUnmapped.changed) {
-    useLspDiagnostics.setState({
-      codeSections: merged.codeSections,
-      unmappedGenCode: mergedUnmapped.unmappedGenCode,
-    });
+  if (!merged.changed && !mergedUnmapped.changed) {
+    return;
   }
-  const lspState = useLspDiagnostics.getState();
-  postChromeReproEvent("lsp-diagnostics", {
-    projectConfigId: payload.projectConfigId,
-    stateChanged: merged.changed || mergedUnmapped.changed,
-    incoming: payload,
-    applied: {
-      codeSections: lspState.codeSections,
-      unmappedGenCode: lspState.unmappedGenCode,
-      typeErrors: useTypeErrors.getState().errors,
-    },
+  useLspDiagnostics.setState({
+    codeSections: merged.codeSections,
+    unmappedGenCode: mergedUnmapped.unmappedGenCode,
   });
 }
+
 export function setCodeSectionDiagnosticsMuted(
   sectionId: string,
   mute: boolean,
@@ -198,27 +186,16 @@ export function setCodeSectionDiagnosticsMuted(
     return;
   }
   const projectConfigId = getCurrProjectConfigId();
-  return callOpenAPI(
-    setCodeSectionDiagnosticsMuteRequest({
-      body: {
-        projectConfigId,
-        sectionId,
-        mute,
-      },
-    } as Parameters<typeof setCodeSectionDiagnosticsMuteRequest>[0]),
-  ).then((res) => {
-    if (res200(res)) {
-      updateLocalCodeSectionDiagnosticsIgnoreState(sectionId, (curr) => ({
-        muted: mute,
-        suppressedCodes: [...curr.suppressedCodes],
-      }));
-    }
-    return res;
+  return route_set_code_section_diagnostics_mute({
+    projectConfigId,
+    sectionId,
+    mute,
   });
 }
+
 export function setCodeSectionDiagnosticCodeSuppression(
   sectionId: string,
-  code: LSPDiagnostic["code"],
+  code: SettaLspDiagnostic["code"],
   suppress: boolean,
 ) {
   if (useShareSession.getState().isDeploymentMode) {
@@ -228,66 +205,10 @@ export function setCodeSectionDiagnosticCodeSuppression(
     return;
   }
   const projectConfigId = getCurrProjectConfigId();
-  return callOpenAPI(
-    setCodeSectionDiagnosticCodeSuppressionRequest({
-      body: {
-        projectConfigId,
-        sectionId,
-        code,
-        suppress,
-      },
-    } as Parameters<typeof setCodeSectionDiagnosticCodeSuppressionRequest>[0]),
-  ).then((res) => {
-    if (res200(res)) {
-      updateLocalCodeSectionDiagnosticsIgnoreState(sectionId, (curr) => {
-        const nextCodes = curr.suppressedCodes.filter(
-          (entry) => entry !== code,
-        );
-        if (suppress) {
-          nextCodes.push(code);
-        }
-        return {
-          muted: curr.muted,
-          suppressedCodes: nextCodes,
-        };
-      });
-    }
-    return res;
-  });
-}
-function updateLocalCodeSectionDiagnosticsIgnoreState(
-  sectionId: string,
-  update: (curr: {
-    muted: boolean;
-    suppressedCodes: Array<string | number>;
-  }) => {
-    muted: boolean;
-    suppressedCodes: Array<string | number>;
-  },
-) {
-  useProjectState.setState((state) => {
-    const variantId = state.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return;
-    }
-    const section = state.sections[sectionId];
-    if (!section) {
-      return;
-    }
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      return;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl) {
-      return;
-    }
-    const effective = getCurrEffectiveSectionImpl(state, sectionId);
-    if (effective.type !== SectionTypeEnum.Code) {
-      return;
-    }
-    setCurrEffectiveSectionImplValue(state, sectionId, {
-      diagnosticsIgnoreState: (curr) => update(curr),
-    });
+  return route_set_code_section_diagnostic_code_suppression({
+    projectConfigId,
+    sectionId,
+    code,
+    suppress,
   });
 }
