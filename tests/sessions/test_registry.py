@@ -9,7 +9,10 @@ from pathlib import Path
 
 import psutil
 import pytest
-from setta.sessions.registry import SessionRegistry
+from setta.sessions.registry import (
+    SessionRegistry,
+    _cmdline_matches_setta_process,
+)
 from setta.types.generated.go_shared_constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
 
@@ -520,6 +523,20 @@ def test_is_session_process_setta_detects_python_module_invocation() -> None:
             process.wait()
 
 
+@pytest.mark.parametrize(
+    ("cmdline",),
+    [
+        ([sys.executable, "-m", "setta"],),
+        ([sys.executable, "setta.api.listener"],),
+        ([sys.executable, "setta:launcher"],),
+    ],
+)
+def test_cmdline_matches_setta_process_uses_go_owned_invocation_rules(
+    cmdline: list[str],
+) -> None:
+    assert _cmdline_matches_setta_process(cmdline)
+
+
 def test_is_session_process_setta_detects_server_binary_name() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -764,6 +781,26 @@ def test_load_sessions_prunes_current_pid_without_in_process_flag(
         else:
             assert sessions == []
             assert not (sessions_root / session.id).exists()
+
+
+def test_load_session_prunes_mismatched_pid_create_time(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    registry = SessionRegistry(sessions_root=sessions_root)
+
+    session = registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=os.getpid(),
+        pid_create_time=0.0,
+    )
+
+    loaded = registry.load_session(session.id, prune_stale=True)
+
+    assert loaded is None
+    assert not (sessions_root / session.id).exists()
 
 
 def test_load_sessions_keeps_current_pid_with_in_process_flag(

@@ -14,6 +14,9 @@ from setta.types.generated.go_shared_constants import (
     DEFAULT_SESSION_SERVER_MODE,
     IN_PROCESS_ENV_VAR,
     SESSION_METADATA_FILENAME,
+    SESSION_PROCESS_BASENAMES,
+    SESSION_PROCESS_INVOCATION_ARGUMENTS,
+    SESSION_PROCESS_INVOCATION_PREFIXES,
     SESSION_SECRET_FILENAME,
     SESSION_SERVER_MODE_VALUES,
 )
@@ -21,15 +24,9 @@ from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
 
-_SETTA_PROCESS_BASENAMES = frozenset(
-    {
-        "setta",
-        "setta.exe",
-        "setta-script.py",
-        "setta-server",
-        "setta-server.exe",
-    }
-)
+_SETTA_PROCESS_BASENAMES = SESSION_PROCESS_BASENAMES
+_SETTA_PROCESS_INVOCATION_ARGUMENTS = SESSION_PROCESS_INVOCATION_ARGUMENTS
+_SETTA_PROCESS_INVOCATION_PREFIXES = SESSION_PROCESS_INVOCATION_PREFIXES
 _ALLOWED_SESSION_SERVER_MODES = frozenset(SESSION_SERVER_MODE_VALUES)
 
 
@@ -234,6 +231,8 @@ class SessionRegistry:
         process = self._get_process(metadata.pid)
         if process is None:
             return False
+        if not _process_create_time_matches_session(process, metadata.pidCreateTime):
+            return False
         return self._is_setta_process(process) is True
 
     def _canonicalize_workspace_path(self, workspace_path: Path | str) -> Path:
@@ -434,6 +433,8 @@ class SessionRegistry:
         process = self._get_process(metadata.pid)
         if process is None:
             return True
+        if not _process_create_time_matches_session(process, metadata.pidCreateTime):
+            return True
         is_setta = self._is_setta_process(process)
         if is_setta is False:
             if metadata.pid == os.getpid() and self._is_in_process_backend():
@@ -452,6 +453,8 @@ class SessionRegistry:
             return False
         process = self._get_process(metadata.pid)
         if process is None:
+            return False
+        if not _process_create_time_matches_session(process, metadata.pidCreateTime):
             return False
         is_setta = self._is_setta_process(process)
         if is_setta is False:
@@ -515,10 +518,41 @@ class SessionRegistry:
 
 
 def _cmdline_matches_setta_process(cmdline: list[str]) -> bool:
-    normalized = [os.path.basename(item).lower() for item in cmdline]
-    if any(item in _SETTA_PROCESS_BASENAMES for item in normalized):
+    # Python session lookup needs a local psutil path before any Go runtime is
+    # available. Go owns the Setta process recognition tables via generated
+    # constants; Python only mirrors the minimal cmdline walk needed to apply
+    # those Go-owned rules to local process metadata.
+    if not cmdline:
+        return False
+    if _process_basename_matches_setta(cmdline[0]):
         return True
-    lowered = [item.lower() for item in cmdline]
     return any(
-        flag == "-m" and module == "setta" for flag, module in zip(lowered, lowered[1:])
+        _process_basename_matches_setta(item)
+        or _process_invocation_argument_matches_setta(item)
+        for item in cmdline[1:]
+    )
+
+
+def _process_create_time_matches_session(
+    process: psutil.Process,
+    expected_create_time: float | None,
+) -> bool:
+    if expected_create_time is None:
+        return True
+    try:
+        return process.create_time() == expected_create_time
+    except psutil.Error:
+        return False
+
+
+def _process_basename_matches_setta(value: str) -> bool:
+    return os.path.basename(value).lower() in _SETTA_PROCESS_BASENAMES
+
+
+def _process_invocation_argument_matches_setta(value: str) -> bool:
+    lowered = value.strip().lower()
+    if lowered in _SETTA_PROCESS_INVOCATION_ARGUMENTS:
+        return True
+    return any(
+        lowered.startswith(prefix) for prefix in _SETTA_PROCESS_INVOCATION_PREFIXES
     )

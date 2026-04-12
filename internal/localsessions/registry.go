@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -52,12 +53,35 @@ type CreateSessionInput struct {
 	ServerMode         string
 }
 
-var recognizedSessionProcessBasenames = map[string]struct{}{
-	"setta":            {},
-	"setta.exe":        {},
-	"setta-script.py":  {},
-	"setta-server":     {},
-	"setta-server.exe": {},
+var recognizedSessionProcessBasenames = []string{
+	"setta",
+	"setta.exe",
+	"setta-script.py",
+	"setta-server",
+	"setta-server.exe",
+}
+
+var recognizedSessionProcessBasenameSet = buildLowercaseStringSet(recognizedSessionProcessBasenames)
+
+var recognizedSessionInvocationArguments = []string{
+	"setta",
+}
+
+var recognizedSessionInvocationPrefixes = []string{
+	"setta.",
+	"setta:",
+}
+
+func RecognizedSessionProcessBasenames() []string {
+	return slices.Clone(recognizedSessionProcessBasenames)
+}
+
+func RecognizedSessionInvocationArguments() []string {
+	return slices.Clone(recognizedSessionInvocationArguments)
+}
+
+func RecognizedSessionInvocationPrefixes() []string {
+	return slices.Clone(recognizedSessionInvocationPrefixes)
 }
 
 func NewRegistry(options RegistryOptions) (*Registry, error) {
@@ -447,6 +471,14 @@ func isCurrentInProcessSession(pid int) bool {
 	return pid == os.Getpid() && inProcessBackendEnabled()
 }
 
+func buildLowercaseStringSet(values []string) map[string]struct{} {
+	result := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		result[strings.ToLower(strings.TrimSpace(value))] = struct{}{}
+	}
+	return result
+}
+
 func sessionCommandLineLooksLikeSetta(cmdline []string) bool {
 	if len(cmdline) == 0 {
 		return false
@@ -463,11 +495,19 @@ func sessionCommandLineLooksLikeSetta(cmdline []string) bool {
 }
 
 func sessionProcessBasenameRecognized(value string) bool {
-	_, ok := recognizedSessionProcessBasenames[strings.ToLower(filepath.Base(value))]
+	_, ok := recognizedSessionProcessBasenameSet[strings.ToLower(filepath.Base(value))]
 	return ok
 }
 
 func sessionInvocationArgumentRecognized(value string) bool {
 	lowered := strings.ToLower(strings.TrimSpace(value))
-	return lowered == "setta" || strings.HasPrefix(lowered, "setta.") || strings.HasPrefix(lowered, "setta:")
+	if slices.Contains(recognizedSessionInvocationArguments, lowered) {
+		return true
+	}
+	for _, prefix := range recognizedSessionInvocationPrefixes {
+		if strings.HasPrefix(lowered, prefix) {
+			return true
+		}
+	}
+	return false
 }

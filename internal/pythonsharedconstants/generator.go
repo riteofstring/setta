@@ -54,6 +54,9 @@ func Build() (GeneratedConstants, error) {
 		{Name: "SESSION_SECRET_BYTES", PythonExpr: strconv.Itoa(localsessions.SessionSecretBytes)},
 		{Name: "SESSION_METADATA_FILENAME", PythonExpr: pythonStringLiteral(localsessions.SessionMetadataFileName)},
 		{Name: "SESSION_SECRET_FILENAME", PythonExpr: pythonStringLiteral(localsessions.SessionSecretFileName)},
+		{Name: "SESSION_PROCESS_BASENAMES", PythonExpr: pythonFrozenStringSetExpr(localsessions.RecognizedSessionProcessBasenames())},
+		{Name: "SESSION_PROCESS_INVOCATION_ARGUMENTS", PythonExpr: pythonFrozenStringSetExpr(localsessions.RecognizedSessionInvocationArguments())},
+		{Name: "SESSION_PROCESS_INVOCATION_PREFIXES", PythonExpr: pythonStringTupleExpr(localsessions.RecognizedSessionInvocationPrefixes())},
 		{Name: "SESSION_SERVER_MODE_VALUES", PythonExpr: pythonStringTupleExpr(modeValuesToStrings([]config.Mode{config.ModeIDE, config.ModeLauncher}))},
 		{Name: "DEFAULT_SESSION_SERVER_MODE", PythonExpr: pythonStringLiteral(string(config.ModeIDE))},
 		{Name: "PASSWORD_STORE_FILENAME", PythonExpr: pythonStringLiteral(projectstate.PasswordStoreFileName)},
@@ -103,6 +106,9 @@ func pythonFrozenStringSetExpr(values []string) string {
 	parts := make([]string, 0, len(values))
 	for _, value := range values {
 		parts = append(parts, pythonStringLiteral(value))
+	}
+	if len(parts) == 1 {
+		return fmt.Sprintf("frozenset((%s,))", parts[0])
 	}
 	return fmt.Sprintf("frozenset((%s))", strings.Join(parts, ", "))
 }

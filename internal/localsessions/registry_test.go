@@ -530,6 +530,38 @@ func TestIsSessionActiveRecognizesSettaProcessSignatures(t *testing.T) {
 	}
 }
 
+func TestSessionCommandLineLooksLikeSettaRecognizesInvocationArguments(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		cmdline []string
+	}{
+		{
+			name:    "python module",
+			cmdline: []string{"/usr/bin/python3", "-m", "setta"},
+		},
+		{
+			name:    "package submodule",
+			cmdline: []string{"/usr/bin/python3", "setta.api.listener"},
+		},
+		{
+			name:    "launcher prefix",
+			cmdline: []string{"/usr/bin/python3", "setta:launcher"},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if !sessionCommandLineLooksLikeSetta(testCase.cmdline) {
+				t.Fatalf("expected cmdline %#v to count as Setta", testCase.cmdline)
+			}
+		})
+	}
+}
+
 func TestFilterActiveSessionsPrunesNonSettaProcesses(t *testing.T) {
 	settaSession := startRegistryHelperProcess(t, registryRecognizedProcessNames()[0])
 	otherSession := startRegistryHelperProcess(t, registryProcessName("unit-test"))
@@ -577,10 +609,21 @@ func TestRegistryProcessHelper(t *testing.T) {
 }
 
 func registryRecognizedProcessNames() []string {
-	if runtime.GOOS == "windows" {
-		return []string{"setta.exe", "setta-server.exe"}
+	names := RecognizedSessionProcessBasenames()
+	filtered := make([]string, 0, len(names))
+	for _, name := range names {
+		isWindowsExecutable := strings.HasSuffix(name, ".exe")
+		if runtime.GOOS == "windows" {
+			if isWindowsExecutable {
+				filtered = append(filtered, name)
+			}
+			continue
+		}
+		if !isWindowsExecutable {
+			filtered = append(filtered, name)
+		}
 	}
-	return []string{"setta", "setta-script.py", "setta-server"}
+	return filtered
 }
 
 func registryProcessName(base string) string {

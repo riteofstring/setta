@@ -19,6 +19,11 @@ BOOTSTRAP_TOKEN_TTL_SECONDS = 600
 SESSION_SECRET_BYTES = 32
 SESSION_METADATA_FILENAME = "session.json"
 SESSION_SECRET_FILENAME = "secret"
+SESSION_PROCESS_BASENAMES = frozenset(
+    ("setta", "setta.exe", "setta-script.py", "setta-server", "setta-server.exe")
+)
+SESSION_PROCESS_INVOCATION_ARGUMENTS = frozenset(("setta",))
+SESSION_PROCESS_INVOCATION_PREFIXES = ("setta.", "setta:")
 SESSION_SERVER_MODE_VALUES = ("ide", "launcher")
 DEFAULT_SESSION_SERVER_MODE = "ide"
 PASSWORD_STORE_FILENAME = "passwords.json"
