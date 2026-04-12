@@ -75,6 +75,17 @@ type TerminalScanContext = {
   scanEnd: number;
 };
 
+function getFirstPresentValue<T>(
+  ...candidates: Array<T | null | undefined>
+): T | null {
+  for (const candidate of candidates) {
+    if (candidate !== null && candidate !== undefined) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 function getActiveBuffer(terminal: Terminal): TerminalActiveBufferLike | null {
   const active = terminal.buffer
     .active as unknown as Partial<TerminalActiveBufferLike>;
@@ -131,15 +142,11 @@ function getInternalBufferLines(
   terminal: Terminal,
   internalBuffer: TerminalBufferLike | null,
 ): TerminalBufferLinesLike | null {
-  if (internalBuffer?.lines) {
-    return internalBuffer.lines;
-  }
-  if (internalBuffer?._lines) {
-    return internalBuffer._lines;
-  }
-  return (
+  return getFirstPresentValue(
+    internalBuffer?.lines,
+    internalBuffer?._lines,
     (terminal as TerminalInternalsLike)._core?._bufferService?.buffers?.active
-      ?.lines ?? null
+      ?.lines,
   );
 }
 
@@ -182,12 +189,11 @@ function readInternalLine(
   if (!lineView) {
     return null;
   }
-  return (
-    lineView._line ??
-    lineView._bufferLine ??
-    context.internalLines?.get?.(y) ??
-    context.internalBuffer?.getLine?.(y) ??
-    null
+  return getFirstPresentValue(
+    lineView._line,
+    lineView._bufferLine,
+    context.internalLines?.get?.(y),
+    context.internalBuffer?.getLine?.(y),
   );
 }
 

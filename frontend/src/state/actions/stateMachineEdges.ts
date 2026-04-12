@@ -44,9 +44,21 @@ type WorkflowMachineGroupTransition = {
   machineGroupId: string | null;
   mergedMachineGroupIds: string[];
 };
+type ResolvedWorkflowMachineGroupTransition = WorkflowMachineGroupTransition & {
+  machineGroupId: string;
+};
 type WorkflowMachineGroupMergeSnapshot = {
   edgeMachineGroupById: Record<string, string>;
   sectionMachineGroupById: Record<string, string>;
+};
+type WorkflowEvaluatedConnection = {
+  normalizedConnection: Connection & {
+    source: string;
+    target: string;
+  };
+  sourceInfo: WorkflowSectionInfo;
+  targetInfo: WorkflowSectionInfo;
+  machineGroupTransition: ResolvedWorkflowMachineGroupTransition;
 };
 type WorkflowEdgeMutationResponse = ResponseDataAndStatus<null>;
 const WORKFLOW_CONNECTION_SOURCE_TYPES = new Set(
@@ -198,6 +210,42 @@ function usesSharedChatHandleOnNormalizedTarget(
     (isSharedChatHandleId(connection.targetHandle) &&
       normalizedConnection.target === connection.target)
   );
+}
+function getNormalizedWorkflowConnectionWithEndpoints(
+  connection: Connection,
+): (Connection & { source: string; target: string }) | null {
+  const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
+  if (
+    !normalizedConnection.source ||
+    !normalizedConnection.target ||
+    !hasWorkflowHandles(normalizedConnection)
+  ) {
+    return null;
+  }
+  return normalizedConnection as Connection & {
+    source: string;
+    target: string;
+  };
+}
+function usesInvalidSharedChatHandleForConnection(
+  connection: Connection,
+  normalizedConnection: Connection,
+  sourceInfo: WorkflowSectionInfo,
+  targetInfo: WorkflowSectionInfo,
+): boolean {
+  if (
+    usesSharedChatHandleOnNormalizedSource(connection, normalizedConnection) &&
+    sourceInfo.type !== SectionTypeEnum.Chat
+  ) {
+    return true;
+  }
+  if (
+    usesSharedChatHandleOnNormalizedTarget(connection, normalizedConnection) &&
+    targetInfo.type !== SectionTypeEnum.Chat
+  ) {
+    return true;
+  }
+  return false;
 }
 function getUniqueConnectedMachineGroupId(
   state: SingleConfig,
@@ -407,29 +455,24 @@ function createDefaultTargetAction(
     searchEnabled: null,
   };
 }
-function buildStateMachineEdgeForConnection(
+function evaluateWorkflowConnection(
   connection: Connection,
   state: SingleConfig,
-): WorkflowEdge | null {
-  const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
-  if (
-    !normalizedConnection.source ||
-    !normalizedConnection.target ||
-    !hasWorkflowHandles(normalizedConnection)
-  ) {
+): WorkflowEvaluatedConnection | null {
+  const normalizedConnection =
+    getNormalizedWorkflowConnectionWithEndpoints(connection);
+  if (!normalizedConnection) {
     return null;
   }
   const sourceInfo = getWorkflowSectionInfo(state, normalizedConnection.source);
   const targetInfo = getWorkflowSectionInfo(state, normalizedConnection.target);
   if (
-    usesSharedChatHandleOnNormalizedSource(connection, normalizedConnection) &&
-    sourceInfo.type !== SectionTypeEnum.Chat
-  ) {
-    return null;
-  }
-  if (
-    usesSharedChatHandleOnNormalizedTarget(connection, normalizedConnection) &&
-    targetInfo.type !== SectionTypeEnum.Chat
+    usesInvalidSharedChatHandleForConnection(
+      connection,
+      normalizedConnection,
+      sourceInfo,
+      targetInfo,
+    )
   ) {
     return null;
   }
@@ -447,13 +490,36 @@ function buildStateMachineEdgeForConnection(
     normalizedConnection,
     state,
   );
-  const machineGroupId = machineGroupTransition.machineGroupId;
-  if (!machineGroupId) {
+  if (!machineGroupTransition.machineGroupId) {
     return null;
   }
   return {
+    normalizedConnection,
+    sourceInfo,
+    targetInfo,
+    machineGroupTransition: {
+      ...machineGroupTransition,
+      machineGroupId: machineGroupTransition.machineGroupId,
+    },
+  };
+}
+function buildStateMachineEdgeForConnection(
+  connection: Connection,
+  state: SingleConfig,
+): WorkflowEdge | null {
+  const evaluatedConnection = evaluateWorkflowConnection(connection, state);
+  if (!evaluatedConnection) {
+    return null;
+  }
+  const {
+    normalizedConnection,
+    sourceInfo,
+    targetInfo,
+    machineGroupTransition,
+  } = evaluatedConnection;
+  return {
     id: createNewId(),
-    machineGroupId,
+    machineGroupId: machineGroupTransition.machineGroupId,
     sourceSectionId: normalizedConnection.source,
     sourcePortId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
     targetSectionId: normalizedConnection.target,
@@ -470,45 +536,11 @@ function buildStateMachineEdgeForConnection(
 export function isValidStateMachineEdgeConnection(
   connection: Connection,
 ): boolean {
-  const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
-  if (
-    !normalizedConnection.source ||
-    !normalizedConnection.target ||
-    !hasWorkflowHandles(normalizedConnection)
-  ) {
-    return false;
-  }
   if (useShareSession.getState().isDeploymentMode) {
     return false;
   }
-  const state = useProjectState.getState();
-  const sourceInfo = getWorkflowSectionInfo(state, normalizedConnection.source);
-  const targetInfo = getWorkflowSectionInfo(state, normalizedConnection.target);
-  if (
-    usesSharedChatHandleOnNormalizedSource(connection, normalizedConnection) &&
-    sourceInfo.type !== SectionTypeEnum.Chat
-  ) {
-    return false;
-  }
-  if (
-    usesSharedChatHandleOnNormalizedTarget(connection, normalizedConnection) &&
-    targetInfo.type !== SectionTypeEnum.Chat
-  ) {
-    return false;
-  }
-  if (
-    !isAllowedStateMachineConnection(
-      sourceInfo.type,
-      targetInfo.type,
-      normalizedConnection.source,
-      normalizedConnection.target,
-    )
-  ) {
-    return false;
-  }
   return (
-    resolveMachineGroupTransitionForConnection(normalizedConnection, state)
-      .machineGroupId !== null
+    evaluateWorkflowConnection(connection, useProjectState.getState()) !== null
   );
 }
 export function createStateMachineEdgeFromConnection(
