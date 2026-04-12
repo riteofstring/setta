@@ -1,15 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  SpreadsheetRow,
+  getSpreadsheetDensityMetrics,
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
-  SPREADSHEET_ROW_HEIGHT,
-  SpreadsheetRow,
-} from "./FileBrowserSpreadsheetEditor";
+} from "./fileBrowserSpreadsheetEditorCore";
 
 describe("FileBrowserSpreadsheetEditor (perf)", () => {
   it("renders wide spreadsheet rows within budget", () => {
     const columnCount = 180;
+    const compact = getSpreadsheetDensityMetrics("compact");
     const rows = [
       Array.from({ length: columnCount }, (_value, index) => `cell-${index}`),
     ];
@@ -22,7 +23,7 @@ describe("FileBrowserSpreadsheetEditor (perf)", () => {
           top: 0,
           left: 0,
           width: getSpreadsheetGridWidth(columnCount),
-          height: SPREADSHEET_ROW_HEIGHT,
+          height: compact.rowHeight,
         }}
         sourceRows={rows}
         displayedRowIndexes={[0]}
