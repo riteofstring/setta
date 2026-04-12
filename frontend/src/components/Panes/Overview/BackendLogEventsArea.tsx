@@ -24,10 +24,12 @@ import {
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
   type BackendLogColumnWidthName,
   type BackendLogColumnWidths,
+  type BackendLogCopyStatus,
   type BackendLogSeverity,
   buildBackendLogGridTemplateColumns,
   copyBackendLogMessage,
   filterEvents,
+  getBackendLogCopyButtonPresentation,
   getBackendLogEventById,
   getBackendLogEventsById,
   getBackendLogGridMinWidth,
@@ -48,8 +50,13 @@ type BackendLogResizeHandlers = {
 
 type CopyFeedback = {
   eventId: string;
-  status: "copied" | "failed";
+  status: BackendLogCopyStatus;
 };
+
+const BACKEND_LOG_COPY_STATUS_ICON = {
+  copy: IoCopyOutline,
+  checkmark: IoCheckmark,
+} as const;
 
 export function BackendLogEventsArea() {
   const { events, filter } = useBackendLogEvents(
@@ -680,15 +687,11 @@ function BackendLogRow({
     projectNameById,
   );
   const singleLineMessage = formatSingleLineMessage(event.message);
-  let copyStatusTitle = "Copy message";
-  let copyButtonClassName = "text-setta-700 dark:text-setta-200";
-  if (copyStatus === "failed") {
-    copyStatusTitle = "Copy failed";
-    copyButtonClassName = "text-red-600 dark:text-red-400";
-  } else if (copyStatus === "copied") {
-    copyStatusTitle = "Copied";
-    copyButtonClassName = "text-blue-600 dark:text-blue-400";
-  }
+  const copyButtonPresentation =
+    getBackendLogCopyButtonPresentation(copyStatus);
+  const CopyStatusIcon =
+    BACKEND_LOG_COPY_STATUS_ICON[copyButtonPresentation.iconName];
+  const showCopyButton = copyStatus !== null || isSelected;
 
   return (
     <div
@@ -715,21 +718,17 @@ function BackendLogRow({
         type="button"
         data-testid="backend-log-copy-message"
         data-copy-status={copyStatus ?? "idle"}
-        className={`inline-flex items-center justify-end rounded p-1 opacity-0 transition-opacity duration-100 hover:bg-setta-100 hover:text-setta-950 focus-visible:opacity-100 group-hover/backend-log-row:opacity-100 dark:hover:bg-setta-700 dark:hover:text-setta-50 ${copyButtonClassName} ${
-          copyStatus || isSelected ? "opacity-100" : ""
+        className={`inline-flex items-center justify-end rounded p-1 opacity-0 transition-opacity duration-100 hover:bg-setta-100 hover:text-setta-950 focus-visible:opacity-100 group-hover/backend-log-row:opacity-100 dark:hover:bg-setta-700 dark:hover:text-setta-50 ${copyButtonPresentation.className} ${
+          showCopyButton ? "opacity-100" : ""
         }`}
         onClick={(buttonEvent) => {
           buttonEvent.stopPropagation();
           onCopyMessage(event.id, event.message);
         }}
-        title={copyStatusTitle}
-        aria-label={copyStatusTitle}
+        title={copyButtonPresentation.title}
+        aria-label={copyButtonPresentation.title}
       >
-        {copyStatus === "copied" ? (
-          <IoCheckmark size={14} />
-        ) : (
-          <IoCopyOutline size={14} />
-        )}
+        <CopyStatusIcon size={14} />
       </button>
     </div>
   );

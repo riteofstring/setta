@@ -1,17 +1,20 @@
 import {
+  setCodeSectionDiagnosticCodeSuppression as setCodeSectionDiagnosticCodeSuppressionRequest,
+  setCodeSectionDiagnosticsMute as setCodeSectionDiagnosticsMuteRequest,
+} from "openapi/http";
+import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  route_set_code_section_diagnostic_code_suppression,
-  route_set_code_section_diagnostics_mute,
-} from "utils/generatedEndpoints";
-import {
   createProjectConfig,
-  SettaLspDiagnosticsPayload,
-  type SettaLspDiagnostic,
+  LSPDiagnosticsPayload,
+  SectionTypeEnum,
+  type Core,
+  type LSPDiagnostic,
+  type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -20,11 +23,18 @@ import {
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
 } from "./lspDiagnostics";
+import { getCurrEffectiveSectionImpl } from "./sectionInfos";
 import { processTypeErrors } from "./typeCheck";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_set_code_section_diagnostics_mute: vi.fn(),
-  route_set_code_section_diagnostic_code_suppression: vi.fn(),
+vi.mock("openapi/http", () => ({
+  setCodeSectionDiagnosticsMute: vi.fn(),
+  setCodeSectionDiagnosticCodeSuppression: vi.fn(),
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 vi.mock("./typeCheck", () => ({
@@ -32,12 +42,79 @@ vi.mock("./typeCheck", () => ({
 }));
 
 describe("lspDiagnostics actions", () => {
+  const sectionId = "section-1";
+  const variantId = "variant-1";
+  const implId = "impl-1";
+
+  function setupProjectState() {
+    const sectionCore: Core = {
+      id: sectionId,
+      name: "Section",
+      displayName: "",
+      variants: [variantId],
+      defaultVariant: variantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+    const sectionVariant: Variant = {
+      id: variantId,
+      name: "Variant",
+      impl: implId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+    useProjectState.setState((state) => {
+      state.projectConfig = createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: variantId },
+      });
+      state.sections = { [sectionId]: sectionCore };
+      state.sectionVariants = { [variantId]: sectionVariant };
+      state.sectionImpls = {
+        [implId]: {
+          type: SectionTypeEnum.Code,
+          id: implId,
+          name: "Code",
+          isFrozen: false,
+          isInOtherProjectConfigs: false,
+          tagColor: null,
+          size: { width: 500, height: 300 },
+          aspectRatio: false,
+          aspectRatioExtraHeight: 0,
+          aspectRatioExtraWidth: 0,
+          isMinimized: false,
+          positionAndSizeLocked: false,
+          isPreset: false,
+          code: "print('hello')",
+          codeFileBinding: null,
+          codeLanguage: "python",
+          diagnosticsIgnoreState: {
+            muted: false,
+            suppressedCodes: [],
+          },
+        },
+      };
+      state.previewSectionVariantMap = {};
+    });
+  }
+
   beforeEach(() => {
     resetProjectStores();
-    useProjectState.setState({
-      projectConfig: createProjectConfig({ id: "project-1" }),
-    });
+    setupProjectState();
     useShareSession.setState({ isDeploymentMode: false });
+    vi.mocked(setCodeSectionDiagnosticsMuteRequest).mockResolvedValue({
+      status: 200,
+      data: null,
+      hasResponse: true,
+    });
+    vi.mocked(setCodeSectionDiagnosticCodeSuppressionRequest).mockResolvedValue(
+      {
+        status: 200,
+        data: null,
+        hasResponse: true,
+      },
+    );
     vi.clearAllMocks();
   });
 
@@ -45,13 +122,22 @@ describe("lspDiagnostics actions", () => {
     resetProjectStores();
   });
 
-  it("sends mute toggle when not in share mode", () => {
-    setCodeSectionDiagnosticsMuted("section-1", true);
+  it("sends mute toggle when not in share mode and updates local state", async () => {
+    await setCodeSectionDiagnosticsMuted("section-1", true);
 
-    expect(route_set_code_section_diagnostics_mute).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId: "section-1",
-      mute: true,
+    expect(setCodeSectionDiagnosticsMuteRequest).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        mute: true,
+      },
+    });
+    expect(
+      getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
+        .diagnosticsIgnoreState,
+    ).toEqual({
+      muted: true,
+      suppressedCodes: [],
     });
   });
 
@@ -60,7 +146,7 @@ describe("lspDiagnostics actions", () => {
 
     setCodeSectionDiagnosticsMuted("section-1", true);
 
-    expect(route_set_code_section_diagnostics_mute).not.toHaveBeenCalled();
+    expect(setCodeSectionDiagnosticsMuteRequest).not.toHaveBeenCalled();
   });
 
   it("skips suppression for null or undefined codes", () => {
@@ -68,26 +154,57 @@ describe("lspDiagnostics actions", () => {
     setCodeSectionDiagnosticCodeSuppression("section-1", undefined, true);
 
     expect(
-      route_set_code_section_diagnostic_code_suppression,
+      setCodeSectionDiagnosticCodeSuppressionRequest,
     ).not.toHaveBeenCalled();
   });
 
-  it("sends suppression update when code is provided", () => {
-    setCodeSectionDiagnosticCodeSuppression("section-1", "reportFoo", true);
+  it("sends suppression update when code is provided and updates local state", async () => {
+    await setCodeSectionDiagnosticCodeSuppression(
+      "section-1",
+      "reportFoo",
+      true,
+    );
+
+    expect(setCodeSectionDiagnosticCodeSuppressionRequest).toHaveBeenCalledWith(
+      {
+        body: {
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          code: "reportFoo",
+          suppress: true,
+        },
+      },
+    );
+    expect(
+      getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
+        .diagnosticsIgnoreState,
+    ).toEqual({
+      muted: false,
+      suppressedCodes: ["reportFoo"],
+    });
+  });
+
+  it("does not mutate local ignore state when the backend rejects the mute update", async () => {
+    vi.mocked(setCodeSectionDiagnosticsMuteRequest).mockResolvedValue({
+      status: 500,
+      data: null,
+      hasResponse: true,
+    });
+
+    await setCodeSectionDiagnosticsMuted("section-1", true);
 
     expect(
-      route_set_code_section_diagnostic_code_suppression,
-    ).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId: "section-1",
-      code: "reportFoo",
-      suppress: true,
+      getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
+        .diagnosticsIgnoreState,
+    ).toEqual({
+      muted: false,
+      suppressedCodes: [],
     });
   });
 });
 
 describe("processLspDiagnostics", () => {
-  const baseDiagnostic: SettaLspDiagnostic = {
+  const baseDiagnostic: LSPDiagnostic = {
     message: "Bad code",
     severity: 1,
     code: "reportFoo",
@@ -98,7 +215,7 @@ describe("processLspDiagnostics", () => {
     },
     uri: "file:///tmp/section.py",
   };
-  const formatterDiagnostic: SettaLspDiagnostic = {
+  const formatterDiagnostic: LSPDiagnostic = {
     message: "Formatter failed.",
     severity: 1,
     code: null,
@@ -125,7 +242,7 @@ describe("processLspDiagnostics", () => {
   });
 
   it("updates diagnostics state and forwards gen-code errors", () => {
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -153,14 +270,14 @@ describe("processLspDiagnostics", () => {
     });
     const prevState = useLspDiagnostics.getState();
     const prevArray = prevState.codeSections["section-1"];
-    const nextDiagnostic: SettaLspDiagnostic = {
+    const nextDiagnostic: LSPDiagnostic = {
       ...baseDiagnostic,
       range: {
         start: { ...baseDiagnostic.range.start },
         end: { ...baseDiagnostic.range.end },
       },
     };
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -184,7 +301,7 @@ describe("processLspDiagnostics", () => {
       codeSections: { "section-1": [formatterDiagnostic] },
       unmappedGenCode: [],
     });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -203,8 +320,32 @@ describe("processLspDiagnostics", () => {
     expect(diagnostics).toEqual([baseDiagnostic, formatterDiagnostic]);
   });
 
+  it("merges formatter diagnostics with incoming unmapped gen-code diagnostics", () => {
+    useLspDiagnostics.setState({
+      codeSections: {},
+      unmappedGenCode: [formatterDiagnostic],
+    });
+    const payload: LSPDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {},
+      unmappedGenCode: [baseDiagnostic],
+    };
+
+    processLspDiagnostics(payload);
+
+    expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([
+      baseDiagnostic,
+      formatterDiagnostic,
+    ]);
+  });
+
   it("keeps incoming formatter diagnostics without duplicating previous ones", () => {
-    const incomingFormatter: SettaLspDiagnostic = {
+    const incomingFormatter: LSPDiagnostic = {
       ...formatterDiagnostic,
       message: "Fresh formatter error",
     };
@@ -212,7 +353,7 @@ describe("processLspDiagnostics", () => {
       codeSections: { "section-1": [formatterDiagnostic] },
       unmappedGenCode: [],
     });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -236,7 +377,7 @@ describe("processLspDiagnostics", () => {
       codeSections: { "section-1": [formatterDiagnostic] },
       unmappedGenCode: [],
     });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -259,7 +400,7 @@ describe("processLspDiagnostics", () => {
       codeSections: {},
       unmappedGenCode: [formatterDiagnostic],
     });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -275,13 +416,43 @@ describe("processLspDiagnostics", () => {
     expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([]);
   });
 
+  it("preserves existing unmapped gen-code arrays when unchanged", () => {
+    useLspDiagnostics.setState({
+      codeSections: {},
+      unmappedGenCode: [baseDiagnostic],
+    });
+    const prevArray = useLspDiagnostics.getState().unmappedGenCode;
+    const payload: LSPDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {},
+      unmappedGenCode: [
+        {
+          ...baseDiagnostic,
+          range: {
+            start: { ...baseDiagnostic.range.start },
+            end: { ...baseDiagnostic.range.end },
+          },
+        },
+      ],
+    };
+
+    processLspDiagnostics(payload);
+
+    expect(useLspDiagnostics.getState().unmappedGenCode).toBe(prevArray);
+  });
+
   describe("immediate clears", () => {
     it("clears diagnostics when a section disappears", () => {
       useLspDiagnostics.setState({
         codeSections: { "section-1": [baseDiagnostic] },
         unmappedGenCode: [],
       });
-      const payload: SettaLspDiagnosticsPayload = {
+      const payload: LSPDiagnosticsPayload = {
         projectConfigId: "project-1",
         genCode: {
           projectConfigId: "project-1",
@@ -304,7 +475,7 @@ describe("processLspDiagnostics", () => {
         codeSections: { "section-1": [baseDiagnostic] },
         unmappedGenCode: [],
       });
-      const payload: SettaLspDiagnosticsPayload = {
+      const payload: LSPDiagnosticsPayload = {
         projectConfigId: "project-1",
         genCode: {
           projectConfigId: "project-1",
@@ -329,7 +500,7 @@ describe("processLspDiagnostics", () => {
         codeSections: { "section-1": [formatterDiagnostic] },
         unmappedGenCode: [],
       });
-      const payload: SettaLspDiagnosticsPayload = {
+      const payload: LSPDiagnosticsPayload = {
         projectConfigId: "project-1",
         genCode: {
           projectConfigId: "project-1",
@@ -354,7 +525,7 @@ describe("processLspDiagnostics", () => {
         codeSections: {},
         unmappedGenCode: [baseDiagnostic],
       });
-      const emptyPayload: SettaLspDiagnosticsPayload = {
+      const emptyPayload: LSPDiagnosticsPayload = {
         projectConfigId: "project-1",
         genCode: {
           projectConfigId: "project-1",
@@ -373,7 +544,7 @@ describe("processLspDiagnostics", () => {
 
   it("ignores diagnostics in share mode", () => {
     useShareSession.setState({ isDeploymentMode: true });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -395,7 +566,7 @@ describe("processLspDiagnostics", () => {
   });
 
   it("ignores diagnostics for other project configs", () => {
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-2",
       genCode: {
         projectConfigId: "project-2",
