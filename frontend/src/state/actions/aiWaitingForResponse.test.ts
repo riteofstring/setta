@@ -1,3 +1,4 @@
+import { getLlmChat } from "openapi/http";
 import { markChatStreamActive } from "state/aiStreamingTracker";
 import type {
   useAIStore as useAIStoreType,
@@ -21,15 +22,22 @@ import {
   vi,
 } from "vitest";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_llm_chat: vi.fn(),
+    getLlmChat: vi.fn(),
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
 
 const projectConfigId = "project-1";
 const chatId = "chat-1";
@@ -107,13 +115,12 @@ describe("chat hydration waitingForResponse", () => {
       },
     });
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
         messages: [],
+        toolCallArguments: {},
         waitingForResponse: false,
         llmConfig: null,
         appGenerationByMessageId: {},
@@ -137,13 +144,12 @@ describe("chat hydration waitingForResponse", () => {
     });
     markChatStreamActive(chatId, null);
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
         messages: [],
+        toolCallArguments: {},
         waitingForResponse: false,
         llmConfig: null,
         appGenerationByMessageId: {},
@@ -156,11 +162,91 @@ describe("chat hydration waitingForResponse", () => {
     expect(details.waitingForResponse).toBe(true);
   });
 
-  it("preserves backend message order when local assistant arrives before hydration during an active stream", async () => {
+  it("hydrates backend tool call arguments while preserving the active-stream overlay", async () => {
     useAIStore.setState({
       chatDetails: {
         [chatId]: {
           ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          toolCallArguments: {
+            local: `{"task":"Local overlay"}`,
+          },
+        },
+      },
+    });
+    markChatStreamActive(chatId, null);
+
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        toolCallArguments: {
+          remote: `{"task":"Backend authoritative"}`,
+        },
+        waitingForResponse: false,
+        llmConfig: null,
+        appGenerationByMessageId: {},
+      },
+    });
+
+    await getLLMChat(chatId);
+
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.waitingForResponse).toBe(true);
+    expect(details.toolCallArguments).toEqual({
+      remote: `{"task":"Backend authoritative"}`,
+      local: `{"task":"Local overlay"}`,
+    });
+  });
+
+  it("keeps local-only tool call arguments but lets backend win for overlapping ids during active-stream hydrate", async () => {
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          toolCallArguments: {
+            shared: `{"task":"Local stale overlay"}`,
+            localOnly: `{"task":"Still local only"}`,
+          },
+        },
+      },
+    });
+    markChatStreamActive(chatId, null);
+
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        toolCallArguments: {
+          shared: `{"task":"Backend canonical"}`,
+          remoteOnly: `{"task":"Backend only"}`,
+        },
+        waitingForResponse: false,
+        llmConfig: null,
+        appGenerationByMessageId: {},
+      },
+    });
+
+    await getLLMChat(chatId);
+
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.waitingForResponse).toBe(true);
+    expect(details.toolCallArguments).toEqual({
+      shared: `{"task":"Backend canonical"}`,
+      remoteOnly: `{"task":"Backend only"}`,
+      localOnly: `{"task":"Still local only"}`,
+    });
+  });
+
+  it("keeps backend message order and backend-authored content during an active stream hydrate", async () => {
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
           messages: [
             {
               id: "assistant-1",
@@ -177,9 +263,7 @@ describe("chat hydration waitingForResponse", () => {
     });
     markChatStreamActive(chatId, null);
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -207,6 +291,7 @@ describe("chat hydration waitingForResponse", () => {
     await getLLMChat(chatId);
 
     const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.waitingForResponse).toBe(true);
     const ids = details.messages.map((message) => message.id);
     expect(ids).toEqual(["user-1", "assistant-1"]);
 
@@ -216,14 +301,12 @@ describe("chat hydration waitingForResponse", () => {
     expect(assistant?.role).toBe(ChatRoleEnum.assistant);
     expect(assistant?.content?.[0]?.type).toBe("text");
     if (assistant?.content?.[0]?.type === "text") {
-      expect(assistant.content[0].text).toBe("Hello there streaming");
+      expect(assistant.content[0].text).toBe("Hello");
     }
   });
 
   it("hydrates app-generation provenance with the chat response", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -260,9 +343,7 @@ describe("chat hydration waitingForResponse", () => {
   });
 
   it("hydrates explicit plain-chat provenance without reviving an older app-generation mode", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -318,9 +399,7 @@ describe("chat hydration waitingForResponse", () => {
       },
     });
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -347,11 +426,12 @@ describe("chat hydration waitingForResponse", () => {
     ]);
   });
 
-  it("keeps local-only messages while stream is active during hydrate", async () => {
+  it("drops local-only messages while preserving the active waiting overlay during hydrate", async () => {
     useAIStore.setState({
       chatDetails: {
         [chatId]: {
           ...getDefaultChatDetails(),
+          waitingForResponse: true,
           messages: [
             {
               id: "assistant-local-only",
@@ -368,9 +448,7 @@ describe("chat hydration waitingForResponse", () => {
     });
     markChatStreamActive(chatId, null);
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -392,9 +470,9 @@ describe("chat hydration waitingForResponse", () => {
     await getLLMChat(chatId);
 
     const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.waitingForResponse).toBe(true);
     expect(details.messages.map((message) => message.id)).toEqual([
       "assistant-remote",
-      "assistant-local-only",
     ]);
   });
 });

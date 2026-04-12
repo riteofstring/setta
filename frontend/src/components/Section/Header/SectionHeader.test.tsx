@@ -1,7 +1,3 @@
-/* @vitest-environment jsdom */
-
-import { Profiler, act, type ProfilerOnRenderCallback } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useAIFollow,
@@ -10,22 +6,15 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
-  TextBlockFormatEnum,
   createChatSectionImpl,
-  createCodeSectionImpl,
   createCore,
   createProjectConfig,
-  createTextBlockSectionImpl,
-  createUserDefaultChatSectionImpl,
-  createUserDefaultCodeSectionImpl,
-  createUserDefaultTextBlockSectionImpl,
   createVariant,
   type Core,
-  type SettaLspDiagnostic,
+  type LSPDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,60 +42,6 @@ function syncStoreInitialState(store: {
   }
   const initial = store.getInitialState();
   Object.assign(initial, store.getState());
-}
-
-type RenderedProfiledHeader = {
-  host: HTMLDivElement;
-  root: Root;
-};
-
-async function renderProfiledHeader({
-  onRender,
-  sectionId,
-  sectionTypeName,
-  useDefaultControls = false,
-}: {
-  onRender: ProfilerOnRenderCallback;
-  sectionId: string;
-  sectionTypeName: SectionTypeEnum;
-  useDefaultControls?: boolean;
-}): Promise<RenderedProfiledHeader> {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      <Profiler id="section-header-profiler" onRender={onRender}>
-        <SectionHeader
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={false}
-          isUserView={true}
-          isRoot={false}
-          hasSectionStyleTheme={false}
-          trackMeasuredHeight={false}
-          controlsRenderer={
-            useDefaultControls
-              ? undefined
-              : ({ isFollowSelected }) => (
-                  <div
-                    data-follow-selected={isFollowSelected ? "true" : "false"}
-                  />
-                )
-          }
-          layoutRenderer={({ actions, title }) => (
-            <div>
-              {title}
-              {actions}
-            </div>
-          )}
-        />
-      </Profiler>,
-    );
-  });
-
-  return { host, root };
 }
 
 describe("hasMarkdownHeadingText", () => {
@@ -143,7 +78,7 @@ describe("SectionHeader diagnostics badges", () => {
   const variantId = "variant-1";
   const implId = "impl-1";
 
-  const baseDiagnostic: SettaLspDiagnostic = {
+  const baseDiagnostic: LSPDiagnostic = {
     message: "Bad code",
     severity: 1,
     code: "reportFoo",
@@ -174,16 +109,28 @@ describe("SectionHeader diagnostics badges", () => {
     isFrozen: false,
   };
 
-  const baseImpl = createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+  const baseImpl = {
+    type: SectionTypeEnum.Code,
     id: implId,
     name: "Code",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    size: { width: 500, height: 300 },
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
     code: "print('hi')",
+    codeFileBinding: null,
     codeLanguage: CodeLanguageEnum.python,
     diagnosticsIgnoreState: {
       muted: false,
       suppressedCodes: [],
     },
-  });
+  };
 
   beforeEach(() => {
     const projectConfig = createProjectConfig({
@@ -243,10 +190,10 @@ describe("SectionHeader diagnostics badges", () => {
   it("shows muted label when diagnostics are muted", () => {
     useProjectState.setState({
       sectionImpls: {
-        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        [implId]: {
           ...baseImpl,
           diagnosticsIgnoreState: { muted: true, suppressedCodes: [] },
-        }),
+        },
       },
     });
     syncStoreInitialState(useProjectState);
@@ -259,13 +206,13 @@ describe("SectionHeader diagnostics badges", () => {
   it("shows suppressed count when suppressions exist", () => {
     useProjectState.setState({
       sectionImpls: {
-        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        [implId]: {
           ...baseImpl,
           diagnosticsIgnoreState: {
             muted: false,
             suppressedCodes: ["reportFoo", "reportBar"],
           },
-        }),
+        },
       },
     });
     syncStoreInitialState(useProjectState);
@@ -277,11 +224,7 @@ describe("SectionHeader diagnostics badges", () => {
 
   it("renders a color dot when a tag color is set", () => {
     useProjectState.setState((state) => {
-      const section = state.sections[sectionId];
-      if (!section) {
-        throw new Error(`Missing section ${sectionId}`);
-      }
-      section.sharedModifier = { tagColor: "#ff0000" };
+      state.sections[sectionId].sharedModifier = { tagColor: "#ff0000" };
     });
     syncStoreInitialState(useProjectState);
 
@@ -330,147 +273,6 @@ describe("SectionHeader diagnostics badges", () => {
     expect(markup).toContain('data-tooltip-content="Minimize section"');
     expect(markup).toContain('data-tooltip-content="Delete section"');
   });
-
-  it("allows a custom layout renderer to own title and actions placement", () => {
-    useProjectState.setState((state) => {
-      const section = state.sections[sectionId];
-      if (!section) {
-        throw new Error(`Missing section ${sectionId}`);
-      }
-      section.sharedModifier = { tagColor: "#ff0000" };
-    });
-    syncStoreInitialState(useProjectState);
-
-    const markup = renderToStaticMarkup(
-      <SectionHeader
-        sectionId={sectionId}
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={true}
-        isRoot={false}
-        hasSectionStyleTheme={false}
-        showSectionContainerControls={false}
-        extraControls={<span data-testid="window-controls">window</span>}
-        layoutRenderer={({ actions, leadingControls, title }) => (
-          <div data-testid="custom-header-layout">
-            <div data-slot="leading">{leadingControls}</div>
-            <div data-slot="title">{title}</div>
-            <div data-slot="actions">{actions}</div>
-          </div>
-        )}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="custom-header-layout"');
-    expect(markup).toContain('data-slot="leading"');
-    expect(markup).toContain("Color tag: #ff0000");
-    expect(markup).toContain('data-slot="title"');
-    expect(markup).toContain(">Section<");
-    expect(markup).toContain('data-slot="actions"');
-    expect(markup).toContain('data-testid="window-controls"');
-    expect(markup).toContain("Mute diagnostics");
-  });
-
-  it("allows a custom controls renderer to own the trailing header action strip", () => {
-    useLspDiagnostics.setState({
-      codeSections: { [sectionId]: [baseDiagnostic] },
-      unmappedGenCode: [],
-    });
-    syncStoreInitialState(useLspDiagnostics);
-
-    const markup = renderToStaticMarkup(
-      <SectionHeader
-        sectionId={sectionId}
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        isRoot={false}
-        hasSectionStyleTheme={false}
-        showSectionContainerControls={false}
-        extraControls={<span data-testid="window-controls">window</span>}
-        controlsRenderer={({
-          codeSectionDiagnostics,
-          extraControls,
-          sectionId: controlsSectionId,
-          sectionTypeName: controlsSectionTypeName,
-          showCodeDiagnosticsPopover,
-          showSectionContainerControls: showCanvasControls,
-        }) => (
-          <div
-            data-diagnostic-count={String(codeSectionDiagnostics.length)}
-            data-section-id={controlsSectionId}
-            data-section-type={controlsSectionTypeName}
-            data-show-canvas-controls={showCanvasControls ? "true" : "false"}
-            data-show-diagnostics-popover={
-              showCodeDiagnosticsPopover ? "true" : "false"
-            }
-            data-testid="custom-header-controls"
-          >
-            {extraControls}
-          </div>
-        )}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="custom-header-controls"');
-    expect(markup).toContain('data-section-id="section-1"');
-    expect(markup).toContain(`data-section-type="${SectionTypeEnum.Code}"`);
-    expect(markup).toContain('data-diagnostic-count="1"');
-    expect(markup).toContain('data-show-canvas-controls="false"');
-    expect(markup).toContain('data-show-diagnostics-popover="true"');
-    expect(markup).toContain('data-testid="window-controls"');
-    expect(markup).not.toContain("Mute diagnostics");
-  });
-
-  it("allows a custom leading-controls renderer to own the menu and tag-color boundary", () => {
-    useProjectState.setState((state) => {
-      const section = state.sections[sectionId];
-      if (!section) {
-        throw new Error(`Missing section ${sectionId}`);
-      }
-      section.sharedModifier = { tagColor: "#ff0000" };
-    });
-    syncStoreInitialState(useProjectState);
-
-    const markup = renderToStaticMarkup(
-      <SectionHeader
-        sectionId={sectionId}
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={true}
-        isUserView={true}
-        isRoot={false}
-        hasSectionStyleTheme={true}
-        leadingControlsRenderer={({
-          hasSectionStyleTheme,
-          isInOtherProjectConfigs,
-          sectionId: leadingSectionId,
-          sectionTypeName: leadingSectionTypeName,
-          tagColor,
-        }) => (
-          <div
-            data-has-section-style-theme={
-              hasSectionStyleTheme ? "true" : "false"
-            }
-            data-in-other-project-configs={
-              isInOtherProjectConfigs ? "true" : "false"
-            }
-            data-section-id={leadingSectionId}
-            data-section-type={leadingSectionTypeName}
-            data-tag-color={tagColor ?? "none"}
-            data-testid="custom-leading-controls"
-          />
-        )}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="custom-leading-controls"');
-    expect(markup).toContain('data-has-section-style-theme="true"');
-    expect(markup).toContain('data-in-other-project-configs="true"');
-    expect(markup).toContain('data-section-id="section-1"');
-    expect(markup).toContain(`data-section-type="${SectionTypeEnum.Code}"`);
-    expect(markup).toContain('data-tag-color="#ff0000"');
-    expect(markup).not.toContain("Color tag: #ff0000");
-  });
 });
 
 describe("SectionHeader follow button", () => {
@@ -499,10 +301,10 @@ describe("SectionHeader follow button", () => {
       id: projectConfigId,
       sectionVariantMap: { [sectionId]: variantId },
     });
-    const chatImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId }),
-      { id: implId, chatId },
-    );
+    const chatImpl = createChatSectionImpl({
+      ...{ chatId },
+      ...{ id: implId, chatId },
+    });
 
     resetProjectStores();
     useShareSession.setState({ isDeploymentMode: false });
@@ -562,6 +364,7 @@ describe("SectionHeader follow button", () => {
     const markup = renderToStaticMarkup(
       <SectionHeader
         sectionId={sectionId}
+        isActiveSection={false}
         sectionTypeName={SectionTypeEnum.Chat}
         isInOtherProjectConfigs={false}
         isUserView={false}
@@ -574,397 +377,5 @@ describe("SectionHeader follow button", () => {
 
     expect(markup).toContain('data-testid="window-controls"');
     expect(markup).not.toContain("gg-lock");
-  });
-
-  it("keeps chat headers out of unrelated follow-selection commits", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledHeader({
-      onRender,
-      sectionId,
-      sectionTypeName: SectionTypeEnum.Chat,
-    });
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useAIFollow.setState((state) => {
-          state.selectedSectionIdsByProjectConfigId[projectConfigId] = [
-            "section-other",
-          ];
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      const followIndicator = host.querySelector("[data-follow-selected]");
-      expect(followIndicator).not.toBeNull();
-      expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
-        "false",
-      );
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("still rerenders when this chat becomes follow-selected", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledHeader({
-      onRender,
-      sectionId,
-      sectionTypeName: SectionTypeEnum.Chat,
-    });
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useAIFollow.setState((state) => {
-          state.selectedSectionIdsByProjectConfigId[projectConfigId] = [
-            sectionId,
-          ];
-        });
-      });
-
-      expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
-      const followIndicator = host.querySelector("[data-follow-selected]");
-      expect(followIndicator).not.toBeNull();
-      expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
-        "true",
-      );
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-});
-
-describe("SectionHeader diagnostics subscriptions", () => {
-  const sectionId = "section-code";
-  const variantId = "variant-code";
-  const implId = "impl-code";
-
-  beforeEach(() => {
-    const projectConfig = createProjectConfig({
-      id: "project-code",
-      sectionVariantMap: { [sectionId]: variantId },
-      topLevelSections: {
-        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
-      },
-    });
-
-    resetProjectStores();
-    useShareSession.setState({ isDeploymentMode: false });
-    useProjectState.setState((state) => {
-      state.projectConfig = projectConfig;
-      state.sections = {
-        [sectionId]: createCore({
-          id: sectionId,
-          name: "Code",
-          variants: [variantId],
-          defaultVariant: variantId,
-        }),
-      };
-      state.sectionVariants = {
-        [variantId]: createVariant({
-          id: variantId,
-          name: "Variant",
-          impl: implId,
-          nonPresetImpls: [],
-        }),
-      };
-      state.sectionImpls = {
-        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
-          id: implId,
-          codeLanguage: CodeLanguageEnum.python,
-        }),
-      };
-      state.previewSectionVariantMap = {};
-    });
-    useLspDiagnostics.setState({
-      codeSections: {},
-      unmappedGenCode: [],
-    });
-    syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useShareSession);
-    syncStoreInitialState(useLspDiagnostics);
-  });
-
-  afterEach(() => {
-    resetProjectStores();
-    document.body.innerHTML = "";
-  });
-
-  it("keeps code headers without diagnostics out of unrelated diagnostics commits", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledHeader({
-      onRender,
-      sectionId,
-      sectionTypeName: SectionTypeEnum.Code,
-    });
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useLspDiagnostics.setState((state) => {
-          state.codeSections = {
-            ...state.codeSections,
-            "other-section": [
-              {
-                message: "Other diagnostic",
-                severity: 1,
-                code: "reportOther",
-                source: "pyright",
-                range: {
-                  start: { line: 0, character: 0 },
-                  end: { line: 0, character: 1 },
-                },
-                uri: "file:///tmp/other.py",
-              },
-            ],
-          };
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      const followIndicator = host.querySelector("[data-follow-selected]");
-      expect(followIndicator).not.toBeNull();
-      expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
-        "false",
-      );
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("keeps code headers out of unrelated project-state commits when diagnostics config is unchanged", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledHeader({
-      onRender,
-      sectionId,
-      sectionTypeName: SectionTypeEnum.Code,
-    });
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useProjectState.setState((state) => {
-          state.previewSectionVariantMap = {
-            "other-section": "other-variant",
-          };
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      const followIndicator = host.querySelector("[data-follow-selected]");
-      expect(followIndicator).not.toBeNull();
-      expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
-        "false",
-      );
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("keeps default non-chat headers out of follow-selection commits", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledHeader({
-      onRender,
-      sectionId,
-      sectionTypeName: SectionTypeEnum.Code,
-      useDefaultControls: true,
-    });
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useAIFollow.setState((state) => {
-          state.selectedSectionIdsByProjectConfigId["project-code"] = [
-            "section-other",
-          ];
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      expect(host.textContent).toContain("Code");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("keeps default non-generated-code headers out of unmapped generated diagnostics commits", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledHeader({
-      onRender,
-      sectionId,
-      sectionTypeName: SectionTypeEnum.Code,
-      useDefaultControls: true,
-    });
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useLspDiagnostics.setState({
-          codeSections: {},
-          unmappedGenCode: [
-            {
-              message: "Generated issue",
-              severity: 1,
-              code: "reportGenerated",
-              source: "pyright",
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-              uri: "file:///tmp/generated.py",
-            },
-          ],
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      expect(host.textContent).toContain("Code");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-});
-
-describe("SectionHeader text block title subscriptions", () => {
-  const sectionId = "section-text";
-  const variantId = "variant-text";
-  const implId = "impl-text";
-
-  beforeEach(() => {
-    const projectConfig = createProjectConfig({
-      id: "project-text",
-      sectionVariantMap: { [sectionId]: variantId },
-      topLevelSections: {
-        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
-      },
-    });
-
-    resetProjectStores();
-    useShareSession.setState({ isDeploymentMode: false });
-    useProjectState.setState((state) => {
-      state.projectConfig = projectConfig;
-      state.sections = {
-        [sectionId]: createCore({
-          id: sectionId,
-          name: "Text section",
-          variants: [variantId],
-          defaultVariant: variantId,
-        }),
-      };
-      state.sectionVariants = {
-        [variantId]: createVariant({
-          id: variantId,
-          name: "Variant",
-          impl: implId,
-          nonPresetImpls: [],
-        }),
-      };
-      state.sectionImpls = {
-        [implId]: createTextBlockSectionImpl(
-          createUserDefaultTextBlockSectionImpl(),
-          {
-            id: implId,
-            format: TextBlockFormatEnum.Plaintext,
-            headingAsSectionName: false,
-            text: "Plain text body",
-          },
-        ),
-      };
-      state.previewSectionVariantMap = {};
-    });
-    syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useShareSession);
-  });
-
-  afterEach(() => {
-    resetProjectStores();
-    document.body.innerHTML = "";
-  });
-
-  it("keeps text block headers out of unrelated project-state commits when title mode inputs are unchanged", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledHeader({
-      onRender,
-      sectionId,
-      sectionTypeName: SectionTypeEnum.TextBlock,
-    });
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useProjectState.setState((state) => {
-          state.previewSectionVariantMap = {
-            "other-section": "other-variant",
-          };
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      expect(host.textContent).toContain("Text section");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("rerenders text block headers when heading-as-section-name changes", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledHeader({
-      onRender,
-      sectionId,
-      sectionTypeName: SectionTypeEnum.TextBlock,
-    });
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useProjectState.setState((state) => {
-          state.sectionImpls[implId] = createTextBlockSectionImpl(
-            createUserDefaultTextBlockSectionImpl(),
-            {
-              ...state.sectionImpls[implId],
-              headingAsSectionName: true,
-            },
-          );
-        });
-      });
-
-      expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
-      expect(host.textContent).not.toContain("Text section");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
   });
 });

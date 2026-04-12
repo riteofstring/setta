@@ -5,8 +5,6 @@ import {
   createCore,
   createProjectConfig,
   createTextBlockSectionImpl,
-  createUserDefaultChatSectionImpl,
-  createUserDefaultTextBlockSectionImpl,
   createVariant,
   createWindowSpaceConfig,
   createWindowSpaceWindow,
@@ -89,26 +87,17 @@ function createManagedChatAuthorityState(): {
         }),
       },
       sectionImpls: {
-        [managedImplId]: createChatSectionImpl(
-          createUserDefaultChatSectionImpl(),
-          {
-            id: managedImplId,
-            managed: true,
-          },
-        ),
-        [scriptableImplId]: createChatSectionImpl(
-          createUserDefaultChatSectionImpl(),
-          {
-            id: scriptableImplId,
-            managed: false,
-          },
-        ),
-        [textImplId]: createTextBlockSectionImpl(
-          createUserDefaultTextBlockSectionImpl(),
-          {
-            id: textImplId,
-          },
-        ),
+        [managedImplId]: createChatSectionImpl({
+          id: managedImplId,
+          managed: true,
+        }),
+        [scriptableImplId]: createChatSectionImpl({
+          id: scriptableImplId,
+          managed: false,
+        }),
+        [textImplId]: createTextBlockSectionImpl({
+          id: textImplId,
+        }),
       },
     },
     managedSectionId,
