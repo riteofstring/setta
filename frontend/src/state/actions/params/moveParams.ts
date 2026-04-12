@@ -1,3 +1,10 @@
+import {
+  indentParams,
+  moveParamGroups,
+  moveParams,
+  unindentParams,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   buildParamParentMap,
@@ -23,17 +30,10 @@ import { getActiveSectionUIIds } from "state/activeSectionUI";
 import type { ZustandProjectState } from "state/definitions";
 import { useProjectState, useShareSession } from "state/definitions";
 import {
-  route_indent_params,
-  route_move_param_groups,
-  route_move_params,
-  route_unindent_params,
-} from "utils/generatedEndpoints";
-import {
   CodeObjTypeEnum,
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-
 type ParamSelectionBase = {
   sectionId: string;
   rootId: string;
@@ -41,30 +41,58 @@ type ParamSelectionBase = {
   parentById: Record<string, string | null>;
   visibleIds: Set<string>;
 };
-
 type ParamMoveGroup = {
   paramIds: string[];
   newParentId: string;
   newIndex: number;
 };
-
+type PreparedParamMove = {
+  oldParentId: string;
+  orderedParamIds: string[];
+  remainingOldChildren: string[];
+};
+type ParamOffsetState = {
+  visibleSiblings: string[];
+  fullChildren: string[];
+};
+type ResolvedParamOffsetMove = {
+  paramIds: string[];
+  remainingVisible: string[];
+  targetVisibleIndex: number;
+  remainingFullChildren: string[];
+  newIndex: number;
+};
 function insertItems<T>(arr: T[], index: number, items: T[]): T[] {
   return [...arr.slice(0, index), ...items, ...arr.slice(index)];
 }
-
 function applyParamMove(
   state: ZustandProjectState,
   sectionId: string,
   move: ParamMoveGroup,
 ) {
-  if (move.paramIds.length === 0) {
+  const prepared = prepareParamMove(state, sectionId, move);
+  if (!prepared) {
     return;
+  }
+  if (move.newParentId === prepared.oldParentId) {
+    applySameParentParamMove(state, sectionId, prepared, move.newIndex);
+    return;
+  }
+  applyCrossParentParamMove(state, sectionId, move, prepared);
+}
+function prepareParamMove(
+  state: ZustandProjectState,
+  sectionId: string,
+  move: ParamMoveGroup,
+): PreparedParamMove | null {
+  if (move.paramIds.length === 0) {
+    return null;
   }
   const rootId = getParamRootId(state, sectionId);
   const parentById = buildParamParentMap(state, sectionId, rootId);
   const oldParentId = parentById[move.paramIds[0]] ?? null;
   if (!oldParentId) {
-    return;
+    return null;
   }
   const oldParentImpl = getCurrEffectiveCodeObjImpl(
     state,
@@ -72,7 +100,7 @@ function applyParamMove(
     oldParentId,
   );
   if (!isBaseParentCodeObjImpl(oldParentImpl)) {
-    return;
+    return null;
   }
   const orderedParamIds = orderParamIdsByParent(
     state,
@@ -81,20 +109,38 @@ function applyParamMove(
     move.paramIds,
   );
   const paramSet = new Set(orderedParamIds);
-  const remaining = oldParentImpl.children.filter((id) => !paramSet.has(id));
-
-  if (move.newParentId === oldParentId) {
-    if (move.newIndex < 0 || move.newIndex > remaining.length) {
-      return;
-    }
-    const nextChildren = insertItems(remaining, move.newIndex, orderedParamIds);
-    setCurrEffectiveCodeObjImplValue(state, sectionId, oldParentId, {
-      children: nextChildren,
-    });
-    syncShownParamTopLevelOrder(state, sectionId);
+  return {
+    oldParentId,
+    orderedParamIds,
+    remainingOldChildren: oldParentImpl.children.filter(
+      (id) => !paramSet.has(id),
+    ),
+  };
+}
+function applySameParentParamMove(
+  state: ZustandProjectState,
+  sectionId: string,
+  move: PreparedParamMove,
+  newIndex: number,
+) {
+  if (newIndex < 0 || newIndex > move.remainingOldChildren.length) {
     return;
   }
-
+  setCurrEffectiveCodeObjImplValue(state, sectionId, move.oldParentId, {
+    children: insertItems(
+      move.remainingOldChildren,
+      newIndex,
+      move.orderedParamIds,
+    ),
+  });
+  syncShownParamTopLevelOrder(state, sectionId);
+}
+function applyCrossParentParamMove(
+  state: ZustandProjectState,
+  sectionId: string,
+  move: ParamMoveGroup,
+  prepared: PreparedParamMove,
+) {
   const newParentImpl = getCurrEffectiveCodeObjImpl(
     state,
     sectionId,
@@ -109,26 +155,25 @@ function applyParamMove(
   if (!resolvedNewParentImpl) {
     return;
   }
-  const newRemaining = resolvedNewParentImpl.children.filter(
-    (id) => !paramSet.has(id),
+  const movingIds = new Set(prepared.orderedParamIds);
+  const remainingNewChildren = resolvedNewParentImpl.children.filter(
+    (id) => !movingIds.has(id),
   );
-  if (move.newIndex < 0 || move.newIndex > newRemaining.length) {
+  if (move.newIndex < 0 || move.newIndex > remainingNewChildren.length) {
     return;
   }
-  const nextNewChildren = insertItems(
-    newRemaining,
-    move.newIndex,
-    orderedParamIds,
-  );
-  setCurrEffectiveCodeObjImplValue(state, sectionId, oldParentId, {
-    children: remaining,
+  setCurrEffectiveCodeObjImplValue(state, sectionId, prepared.oldParentId, {
+    children: prepared.remainingOldChildren,
   });
   setCurrEffectiveCodeObjImplValue(state, sectionId, move.newParentId, {
-    children: nextNewChildren,
+    children: insertItems(
+      remainingNewChildren,
+      move.newIndex,
+      prepared.orderedParamIds,
+    ),
   });
   syncShownParamTopLevelOrder(state, sectionId);
 }
-
 function ensureParentParamImpl(
   state: ZustandProjectState,
   sectionId: string,
@@ -148,7 +193,6 @@ function ensureParentParamImpl(
   }
   return nextImpl;
 }
-
 export function selectOnlyParam(sectionId: string, paramId: string) {
   const state = useProjectState.getState();
   const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -162,7 +206,6 @@ export function selectOnlyParam(sectionId: string, paramId: string) {
   unselectAllParams();
   toggleParamSelected(sectionId, paramId);
 }
-
 export function orderParamIdsByParent(
   state: ZustandProjectState,
   sectionId: string,
@@ -176,7 +219,6 @@ export function orderParamIdsByParent(
   const paramSet = new Set(paramIds);
   return parentImpl.children.filter((id) => paramSet.has(id));
 }
-
 function syncShownParamTopLevelOrder(
   state: ZustandProjectState,
   sectionId: string,
@@ -201,7 +243,6 @@ function syncShownParamTopLevelOrder(
     shown.unpinned.requiredParamIdsToPaths,
   );
 }
-
 function filterTopLevelIds(
   rootChildren: string[],
   requiredParamIdsToPaths: Record<string, string[]>,
@@ -212,7 +253,6 @@ function filterTopLevelIds(
   const included = new Set(Object.keys(requiredParamIdsToPaths));
   return rootChildren.filter((id) => included.has(id));
 }
-
 export function moveParamsWithBackend({
   sectionId,
   paramIds,
@@ -236,17 +276,20 @@ export function moveParamsWithBackend({
       });
     },
     send: (frontendOpId) =>
-      route_move_params({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        paramIds,
-        newParentId,
-        newIndex,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        moveParams({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            paramIds,
+            newParentId,
+            newIndex,
+            frontendOpId,
+          },
+        } as Parameters<typeof moveParams>[0]),
+      ),
   });
 }
-
 function moveParamGroupsWithBackend({
   sectionId,
   moves,
@@ -264,49 +307,56 @@ function moveParamGroupsWithBackend({
       }
     },
     send: (frontendOpId) =>
-      route_move_param_groups({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        moves,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        moveParamGroups({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            moves,
+            frontendOpId,
+          },
+        } as Parameters<typeof moveParamGroups>[0]),
+      ),
   });
 }
-
 export function indentSelectedParams(): boolean {
   const context = getParamMovementContext();
   if (!context) {
     return false;
   }
-  route_indent_params({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId: context.sectionId,
-    paramIds: context.rootSelected,
-  });
+  callOpenAPI(
+    indentParams({
+      body: {
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId: context.sectionId,
+        paramIds: context.rootSelected,
+      },
+    } as Parameters<typeof indentParams>[0]),
+  );
   return true;
 }
-
 export function unindentSelectedParams(): boolean {
   const context = getParamUnindentContext();
   if (!context) {
     return false;
   }
-  route_unindent_params({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId: context.sectionId,
-    paramIds: context.rootSelected,
-  });
+  callOpenAPI(
+    unindentParams({
+      body: {
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId: context.sectionId,
+        paramIds: context.rootSelected,
+      },
+    } as Parameters<typeof unindentParams>[0]),
+  );
   return true;
 }
-
 export function moveSelectedParamsUp(): boolean {
   return moveSelectedParamsByOffset(-1);
 }
-
 export function moveSelectedParamsDown(): boolean {
   return moveSelectedParamsByOffset(1);
 }
-
 function buildVisibleSelectionGroups(
   visibleSiblings: string[],
   selectedSet: Set<string>,
@@ -328,113 +378,174 @@ function buildVisibleSelectionGroups(
   }
   return groups;
 }
-
+function getParamOffsetState(context: {
+  sectionId: string;
+  sharedParent: string;
+  tree: ReturnType<typeof buildParamTreeView>;
+}): ParamOffsetState | null {
+  const visibleSiblings = [
+    ...(context.tree.visibleChildrenByParent[context.sharedParent] ?? []),
+  ];
+  if (visibleSiblings.length === 0) {
+    return null;
+  }
+  const state = useProjectState.getState();
+  const parentImpl = getCurrEffectiveCodeObjImpl(
+    state,
+    context.sectionId,
+    context.sharedParent,
+  );
+  if (!isBaseParentCodeObjImpl(parentImpl)) {
+    return null;
+  }
+  return {
+    visibleSiblings,
+    fullChildren: [...parentImpl.children],
+  };
+}
+function getOffsetMoveGroups(
+  direction: -1 | 1,
+  visibleSiblings: string[],
+  selectedSet: Set<string>,
+): string[][] {
+  const groups = buildVisibleSelectionGroups(visibleSiblings, selectedSet);
+  return direction < 0 ? groups : [...groups].reverse();
+}
+function findTargetVisibleIndex({
+  direction,
+  group,
+  visibleSiblings,
+  remainingVisible,
+  selectedSet,
+}: {
+  direction: -1 | 1;
+  group: string[];
+  visibleSiblings: string[];
+  remainingVisible: string[];
+  selectedSet: Set<string>;
+}): number | null {
+  const boundaryId = direction < 0 ? group[0] : group[group.length - 1];
+  const boundaryIndex = visibleSiblings.indexOf(boundaryId);
+  if (boundaryIndex < 0) {
+    return null;
+  }
+  const step = direction < 0 ? -1 : 1;
+  for (
+    let i = boundaryIndex + step;
+    i >= 0 && i < visibleSiblings.length;
+    i += step
+  ) {
+    const candidate = visibleSiblings[i];
+    if (selectedSet.has(candidate)) {
+      continue;
+    }
+    const candidateIndex = remainingVisible.indexOf(candidate);
+    return direction < 0 ? candidateIndex : candidateIndex + 1;
+  }
+  return null;
+}
+function resolveParamOffsetMove({
+  direction,
+  group,
+  selectedSet,
+  visibleSiblings,
+  fullChildren,
+}: {
+  direction: -1 | 1;
+  group: string[];
+  selectedSet: Set<string>;
+  visibleSiblings: string[];
+  fullChildren: string[];
+}): ResolvedParamOffsetMove | null {
+  const movingIds = new Set(group);
+  const remainingVisible = visibleSiblings.filter((id) => !movingIds.has(id));
+  const targetVisibleIndex = findTargetVisibleIndex({
+    direction,
+    group,
+    visibleSiblings,
+    remainingVisible,
+    selectedSet,
+  });
+  if (targetVisibleIndex === null) {
+    return null;
+  }
+  const remainingFullChildren = fullChildren.filter((id) => !movingIds.has(id));
+  const paramIds = fullChildren.filter((id) => movingIds.has(id));
+  const newIndex = resolveFullIndexForVisibleInsertion({
+    targetVisibleIndex,
+    movingIds,
+    visibleSiblings,
+    fullChildren,
+  });
+  if (newIndex === null) {
+    return null;
+  }
+  return {
+    paramIds,
+    remainingVisible,
+    targetVisibleIndex,
+    remainingFullChildren,
+    newIndex,
+  };
+}
+function applyResolvedParamOffsetMove(
+  state: ParamOffsetState,
+  move: ResolvedParamOffsetMove,
+) {
+  state.visibleSiblings = insertItems(
+    move.remainingVisible,
+    move.targetVisibleIndex,
+    move.paramIds,
+  );
+  state.fullChildren = insertItems(
+    move.remainingFullChildren,
+    move.newIndex,
+    move.paramIds,
+  );
+}
 function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
   const context = getParamMovementContext();
   if (!context) {
     return false;
   }
-  const { sectionId, rootSelected, sharedParent, tree } = context;
-  let visibleSiblings = tree.visibleChildrenByParent[sharedParent] ?? [];
-  if (visibleSiblings.length === 0) {
+  const moveState = getParamOffsetState(context);
+  if (!moveState) {
     return false;
   }
-  const selectedSet = new Set(rootSelected);
-  const groups = buildVisibleSelectionGroups(visibleSiblings, selectedSet);
+  const selectedSet = new Set(context.rootSelected);
+  const groups = getOffsetMoveGroups(
+    direction,
+    moveState.visibleSiblings,
+    selectedSet,
+  );
   if (groups.length === 0) {
     return false;
   }
-  const state = useProjectState.getState();
-  const parentImpl = getCurrEffectiveCodeObjImpl(
-    state,
-    sectionId,
-    sharedParent,
-  );
-  if (!isBaseParentCodeObjImpl(parentImpl)) {
-    return false;
-  }
-  let fullChildren = [...parentImpl.children];
-  const groupsToProcess = direction < 0 ? groups : [...groups].reverse();
   const moves: ParamMoveGroup[] = [];
-
-  for (const group of groupsToProcess) {
-    const movingIds = new Set(group);
-    const firstId = group[0];
-    const lastId = group[group.length - 1];
-    const firstIndex = visibleSiblings.indexOf(firstId);
-    const lastIndex = visibleSiblings.indexOf(lastId);
-    if (firstIndex < 0 || lastIndex < 0) {
-      continue;
-    }
-
-    const remainingVisible = visibleSiblings.filter((id) => !movingIds.has(id));
-    let targetVisibleIndex: number | null = null;
-    if (direction < 0) {
-      let prevId: string | null = null;
-      for (let i = firstIndex - 1; i >= 0; i -= 1) {
-        const candidate = visibleSiblings[i];
-        if (!selectedSet.has(candidate)) {
-          prevId = candidate;
-          break;
-        }
-      }
-      if (!prevId) {
-        continue;
-      }
-      targetVisibleIndex = remainingVisible.indexOf(prevId);
-    } else {
-      let nextId: string | null = null;
-      for (let i = lastIndex + 1; i < visibleSiblings.length; i += 1) {
-        const candidate = visibleSiblings[i];
-        if (!selectedSet.has(candidate)) {
-          nextId = candidate;
-          break;
-        }
-      }
-      if (!nextId) {
-        continue;
-      }
-      targetVisibleIndex = remainingVisible.indexOf(nextId) + 1;
-    }
-    if (targetVisibleIndex === null) {
-      continue;
-    }
-
-    const orderedGroupIds = fullChildren.filter((id) => movingIds.has(id));
-    const newIndex = resolveFullIndexForVisibleInsertion({
-      targetVisibleIndex,
-      movingIds,
-      visibleSiblings,
-      fullChildren,
+  for (const group of groups) {
+    const resolvedMove = resolveParamOffsetMove({
+      direction,
+      group,
+      selectedSet,
+      visibleSiblings: moveState.visibleSiblings,
+      fullChildren: moveState.fullChildren,
     });
-    if (newIndex === null) {
+    if (!resolvedMove) {
       continue;
     }
-
     moves.push({
-      paramIds: orderedGroupIds,
-      newParentId: sharedParent,
-      newIndex,
+      paramIds: resolvedMove.paramIds,
+      newParentId: context.sharedParent,
+      newIndex: resolvedMove.newIndex,
     });
-    visibleSiblings = insertItems(
-      remainingVisible,
-      targetVisibleIndex,
-      orderedGroupIds,
-    );
-    fullChildren = insertItems(
-      fullChildren.filter((id) => !movingIds.has(id)),
-      newIndex,
-      orderedGroupIds,
-    );
+    applyResolvedParamOffsetMove(moveState, resolvedMove);
   }
-
   if (moves.length === 0) {
     return false;
   }
-  moveParamGroupsWithBackend({ sectionId, moves });
+  moveParamGroupsWithBackend({ sectionId: context.sectionId, moves });
   return true;
 }
-
 function getParamSelectionBase(): ParamSelectionBase | null {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -478,7 +589,6 @@ function getParamSelectionBase(): ParamSelectionBase | null {
     visibleIds,
   };
 }
-
 function getParamMovementContext(): {
   sectionId: string;
   rootSelected: string[];
@@ -494,7 +604,6 @@ function getParamMovementContext(): {
     addTemporaryNotification("Param selection spans multiple parents.");
     return null;
   }
-
   const state = useProjectState.getState();
   const rootImpl = getCurrEffectiveCodeObjImpl(
     state,
@@ -521,7 +630,6 @@ function getParamMovementContext(): {
     tree,
   };
 }
-
 function getParamUnindentContext(): {
   sectionId: string;
   rootSelected: string[];
@@ -532,7 +640,6 @@ function getParamUnindentContext(): {
   }
   return { sectionId: base.sectionId, rootSelected: base.rootSelected };
 }
-
 function resolveSectionWithSelectedParams(
   state: ZustandProjectState,
 ): string | null {
@@ -551,7 +658,6 @@ function resolveSectionWithSelectedParams(
   }
   return null;
 }
-
 function buildVisibleParamIdSet(
   state: ZustandProjectState,
   sectionId: string,

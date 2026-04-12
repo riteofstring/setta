@@ -1,4 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { setMetaControlShowSectionTitle } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { BiCheck, BiHide, BiShow } from "react-icons/bi";
 import {
@@ -10,19 +12,16 @@ import {
 import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { route_set_meta_control_show_section_title } from "utils/generatedEndpoints";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { HeaderIcon } from "../Header/HeaderIcon";
 import { LockPositionButton } from "../Header/LockPositionButton";
 import { SectionTitle } from "../Header/SectionTitle";
-
 type MetaControlMenuButtonProps = {
   sectionId: string;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
 };
-
 export function MetaControlMenuButton({
   sectionId,
   sectionTypeName,
@@ -37,7 +36,6 @@ export function MetaControlMenuButton({
     );
     return impl.showSectionTitle ?? false;
   });
-
   const triggerClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag flex h-[14px] w-[14px] cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto`;
   const titleBaseClasses =
     "block w-full min-w-0 max-w-full box-border rounded-md border border-solid border-transparent px-2 py-1 text-xs font-semibold leading-5 text-setta-700 focus-visible:border-blue-500 focus-visible:outline-none dark:text-setta-100";
@@ -47,7 +45,6 @@ export function MetaControlMenuButton({
     fixed:
       "block w-full px-2 py-1 text-xs font-semibold text-setta-700 dark:text-setta-100",
   };
-
   function onToggleShowSectionTitle() {
     const nextValue = !showSectionTitle;
     dispatchOptimisticProjectStateUpdate({
@@ -61,15 +58,18 @@ export function MetaControlMenuButton({
         );
       },
       send: (frontendOpId) =>
-        route_set_meta_control_show_section_title({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          showSectionTitle: nextValue,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setMetaControlShowSectionTitle({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              showSectionTitle: nextValue,
+              frontendOpId,
+            },
+          } as Parameters<typeof setMetaControlShowSectionTitle>[0]),
+        ),
     });
   }
-
   return (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger className={triggerClassName} type="button">
@@ -106,7 +106,6 @@ export function MetaControlMenuButton({
               if (positionAndSizeLocked) {
                 lockLabel = "Unlock position";
               }
-
               return (
                 <DropdownMenuItem onClick={onClick}>
                   <span className="flex items-center gap-2">
@@ -145,7 +144,6 @@ export function MetaControlMenuButton({
                   );
                 }
               }
-
               return (
                 <DropdownMenuItem onClick={onClick}>
                   <span className="flex items-center gap-2">
@@ -161,7 +159,6 @@ export function MetaControlMenuButton({
     </DropdownMenu.Root>
   );
 }
-
 function DropdownMenuItem({
   children,
   onClick,
@@ -191,7 +188,6 @@ function DropdownMenuItem({
     </DropdownMenu.Item>
   );
 }
-
 function MenuIcon({ children }: { children: ReactNode }) {
   return (
     <span className="flex h-4 w-4 items-center justify-center">{children}</span>
