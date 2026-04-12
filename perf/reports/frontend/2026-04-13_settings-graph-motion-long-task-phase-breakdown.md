@@ -695,3 +695,81 @@ aggregate long-task totals.
   `presentedSceneSectionSubtreeReactRender`
 - default sequencing should stop on verifier repair here and return to product
   work that reduces section-subtree rerender fan-out on the same lane
+
+## 2026-04-13 Hover-State Hoist From DOM Sections Subtree
+
+### What changed
+
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  so stale hovered-section cleanup now runs at the canary boundary instead of
+  flowing `hoveredSectionId` through the profiled DOM sections subtree
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  to remove `hoveredSectionId` from the sections-layer render contract
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  with a regression proving hover-only updates do not rerender the profiled
+  sections subtree
+- updated
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+  and
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  to match the narrowed sections-layer contract
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  - passed (`3` files, `24` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  - passed
+- live worktree probe on run `037`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-037/worktree-ai.log`
+  - passed (`1` Playwright test, `2.0m`)
+- headless CDP smoke on the authenticated worktree bootstrap URL
+  - passed in a fresh-context sub-agent
+  - bootstrap resolved to `http://127.0.0.1:3075/settings`
+  - visible populated `All Settings` surface included `Core`,
+    `Section Defaults Structure and Code`, `Section Defaults Content and
+    Media`, `Param Defaults`, and `All Settings`
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state held steady before and after the motion
+  sequence:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-change motion breakdown:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1121ms`
+  - `longTaskMaxDurationMs`: `401ms`
+  - `measurementWindowMs`: `1796.1ms`
+  - `averageFrameDurationMs`: `40.15ms`
+  - `panForward`: `2` tasks, `363ms` total, `220ms` max
+  - `panReturn`: `1` task, `401ms` total, `401ms` max
+  - `zoomIn`: `1` task, `164ms` total, `164ms` max
+  - `zoomOut`: `1` task, `193ms` total, `193ms` max
+- dominant named canary owner on the same run:
+  - `presentedSceneSectionSubtreeReactRender`: `841.9ms` total,
+    `220.9ms` max, `30` commits
+- smaller owners stayed small on the same run:
+  - `presentedSceneSectionEntriesResolve`: `6.9ms` total
+  - `presentedSceneBodyMountFilter`: `0.3ms` total
+  - `pixiDrawableModelResolve`: `2.5ms` total
+
+### Updated Reading
+
+- this is a real live win on the same canonical lane:
+  `presentedSceneSectionSubtreeReactRender` moved from run `036`
+  `935.0ms` / `255.3ms` to run `037` `841.9ms` / `220.9ms`
+- the dominant owner still sits inside the mounted presented-sections subtree,
+  but hover-state churn no longer needs to pass through that subtree just to
+  keep stale hover cleanup correct
+- the next bounded product slice should stay on
+  `presentedSceneSectionSubtreeReactRender`, preferably by cutting another
+  sibling-commit source below the canary boundary rather than reopening probe
+  or lifecycle work

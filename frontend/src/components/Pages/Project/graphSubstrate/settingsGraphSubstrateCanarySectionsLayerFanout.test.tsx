@@ -68,13 +68,11 @@ const NOOP_HOVERED_SECTION_CHANGE = () => {};
 
 function SectionsLayerProbe({
   draggingSectionId,
-  hoveredSectionId = null,
   sceneSections,
   viewport,
   visibleViewportRect = DEFAULT_VISIBLE_VIEWPORT_RECT,
 }: {
   draggingSectionId: string | null;
-  hoveredSectionId?: string | null;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   viewport: GraphViewport | null;
   visibleViewportRect?: GraphRect | null;
@@ -84,7 +82,6 @@ function SectionsLayerProbe({
   return (
     <SettingsGraphSubstrateCanarySectionsLayer
       draggingSectionId={draggingSectionId}
-      hoveredSectionId={hoveredSectionId}
       onHoveredSectionChange={NOOP_HOVERED_SECTION_CHANGE}
       sceneSections={sceneSections}
       sectionDragController={sectionDragController}

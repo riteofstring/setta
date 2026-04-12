@@ -88,7 +88,6 @@ vi.mock("./settingsGraphSubstrateCanaryInstrumentation", () => ({
 
 function SectionsLayerProbe({
   draggingSectionId,
-  hoveredSectionId = null,
   mountedSectionBodyIds,
   onHoveredSectionChange = () => {},
   presentedSceneSections,
@@ -98,7 +97,6 @@ function SectionsLayerProbe({
   visibleViewportRect = DEFAULT_VISIBLE_VIEWPORT_RECT,
 }: {
   draggingSectionId: string | null;
-  hoveredSectionId?: string | null;
   mountedSectionBodyIds?: ReadonlySet<string>;
   onHoveredSectionChange?: (sectionId: string | null) => void;
   presentedSceneSections?: Array<SettingsGraphSubstrateCanarySceneSection>;
@@ -113,7 +111,6 @@ function SectionsLayerProbe({
     <div data-viewport-tick={viewportTick}>
       <SettingsGraphSubstrateCanarySectionsLayer
         draggingSectionId={draggingSectionId}
-        hoveredSectionId={hoveredSectionId}
         mountedSectionBodyIds={mountedSectionBodyIds}
         onHoveredSectionChange={onHoveredSectionChange}
         presentedSceneSections={presentedSceneSections}
@@ -283,32 +280,6 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
       ),
     ).not.toBeNull();
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
-  });
-
-  it("clears stale hover state when the hovered shell leaves the presented viewport", async () => {
-    const onHoveredSectionChange = vi.fn();
-
-    await act(async () => {
-      root.render(
-        <SectionsLayerProbe
-          draggingSectionId={null}
-          hoveredSectionId={"section-a"}
-          onHoveredSectionChange={onHoveredSectionChange}
-          sceneSections={[
-            createSceneSection({
-              renderedPosition: { x: 1280, y: 80 },
-              position: { x: 1280, y: 80 },
-            }),
-          ]}
-          viewportTick={0}
-        />,
-      );
-    });
-
-    expect(onHoveredSectionChange).toHaveBeenCalledWith(null);
-    expect(
-      host.querySelectorAll('[data-testid="graph-substrate-canary-section"]'),
-    ).toHaveLength(0);
   });
 
   it("keeps active tiny visible section bodies mounted for interaction continuity", async () => {

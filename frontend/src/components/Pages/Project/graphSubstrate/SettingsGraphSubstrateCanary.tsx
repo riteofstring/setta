@@ -36,7 +36,6 @@ const ROOT_STYLE: CSSProperties = {
 
 type SettingsGraphSubstrateCanaryPresentedSectionsProps = {
   draggingSectionId: string | null;
-  hoveredSectionId: string | null;
   mountedSectionBodyIds: ReadonlySet<string>;
   onHoveredSectionChange: (sectionId: string | null) => void;
   onSectionsLayerRender: (
@@ -53,7 +52,6 @@ type SettingsGraphSubstrateCanaryPresentedSectionsProps = {
 
 function _SettingsGraphSubstrateCanaryPresentedSections({
   draggingSectionId,
-  hoveredSectionId,
   mountedSectionBodyIds,
   onHoveredSectionChange,
   onSectionsLayerRender,
@@ -68,7 +66,6 @@ function _SettingsGraphSubstrateCanaryPresentedSections({
     >
       <SettingsGraphSubstrateCanarySectionsLayer
         draggingSectionId={draggingSectionId}
-        hoveredSectionId={hoveredSectionId}
         mountedSectionBodyIds={mountedSectionBodyIds}
         onHoveredSectionChange={onHoveredSectionChange}
         presentedSceneSections={presentedSceneSections}
@@ -83,7 +80,6 @@ const SettingsGraphSubstrateCanaryPresentedSections = React.memo(
   _SettingsGraphSubstrateCanaryPresentedSections,
   (previousProps, nextProps) =>
     previousProps.draggingSectionId === nextProps.draggingSectionId &&
-    previousProps.hoveredSectionId === nextProps.hoveredSectionId &&
     previousProps.mountedSectionBodyIds === nextProps.mountedSectionBodyIds &&
     previousProps.onHoveredSectionChange === nextProps.onHoveredSectionChange &&
     previousProps.onSectionsLayerRender === nextProps.onSectionsLayerRender &&
@@ -185,6 +181,10 @@ export function SettingsGraphSubstrateCanary() {
     presentedSceneSections,
     visibleViewportWorldRect,
   ]);
+  const presentedSectionIds = useMemo(
+    () => new Set(presentedSceneSections.map((section) => section.sectionId)),
+    [presentedSceneSections],
+  );
 
   useEffect(() => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
@@ -202,6 +202,15 @@ export function SettingsGraphSubstrateCanary() {
       mountedSectionBodyCount: mountedSectionBodyIds.size,
     });
   }, [mountedSectionBodyIds]);
+
+  useEffect(() => {
+    if (
+      hoveredSectionId !== null &&
+      !presentedSectionIds.has(hoveredSectionId)
+    ) {
+      setHoveredSectionId(null);
+    }
+  }, [hoveredSectionId, presentedSectionIds]);
 
   return (
     <div
@@ -253,7 +262,6 @@ export function SettingsGraphSubstrateCanary() {
         {controller.sceneSections.length > 0 ? (
           <SettingsGraphSubstrateCanaryPresentedSections
             draggingSectionId={controller.draggingSectionId}
-            hoveredSectionId={hoveredSectionId}
             mountedSectionBodyIds={mountedSectionBodyIds}
             onHoveredSectionChange={handleHoveredSectionChange}
             onSectionsLayerRender={handleSectionsLayerRender}

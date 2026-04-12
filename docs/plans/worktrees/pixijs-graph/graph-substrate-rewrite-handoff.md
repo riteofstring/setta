@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 09:36 UTC
+Last updated: 2026-04-13 09:48 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,73 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `412` landed one bounded production reduction against the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane by hoisting stale
+  hovered-section cleanup out of the profiled DOM sections subtree:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the named owner
+      `presentedSceneSectionSubtreeReactRender` instead of reopening probe or
+      seam-lift work
+    - checked the next remaining section-subtree render inputs and found
+      `hoveredSectionId` still flowed through
+      `SettingsGraphSubstrateCanaryPresentedSections` into
+      `SettingsGraphSubstrateCanarySectionsLayer` even though entries did not
+      need it for rendering
+    - kept the slice bounded to one real decision boundary: stale hover cleanup
+      now lives at the canary boundary, so hover-only updates no longer rerender
+      the profiled DOM sections subtree
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      with `presentedSectionIds`-driven stale hover cleanup and a narrower
+      profiled sections-subtree prop contract
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      so the sections layer no longer takes `hoveredSectionId`
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      with a regression proving hover-only updates do not rerender the profiled
+      sections subtree
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      to match the narrowed sections-layer contract
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the fresh run-`037` live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`3` files, `24` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-037/worktree-ai.log`
+      -> passed (`1` Playwright test, `2.0m`)
+      -> fresh canonical readout:
+         `longTaskCount` `5`, `longTaskTotalDurationMs` `1121ms`,
+         `longTaskMaxDurationMs` `401ms`, `averageFrameDurationMs` `40.15ms`
+      -> dominant named canary owner stayed
+         `presentedSceneSectionSubtreeReactRender`
+         (`841.9ms` total, `220.9ms` max, `30` commits)
+    - headless CDP visual check on the authenticated worktree bootstrap URL
+      -> passed in a fresh-context sub-agent
+      -> bootstrap resolved to `/settings` and rendered the populated
+         `All Settings` canary surface with visible sections including `Core`,
+         `Section Defaults Structure and Code`,
+         `Section Defaults Content and Media`, `Param Defaults`, and
+         `All Settings`
+      -> treat this as a canary-surface / named-section health assertion, not a
+         side-by-side parity claim versus `main`
+  - reading:
+    - this slice removed one real hover-only rerender input from the same
+      dominant owner chain without reopening harness work
+    - the live lane still reports
+      `presentedSceneSectionSubtreeReactRender` as the dominant consumer, so
+      the product frontier remains inside the mounted presented-sections
+      subtree
+    - the fresh CDP pass confirms the worktree canary surface is healthy on the
+      authenticated `/settings` route for follow-on slices
+  - next default frontier:
+    - stay on `presentedSceneSectionSubtreeReactRender` with one more bounded
+      production cut aimed at remaining unchanged sibling commit fanout below
+      the canary boundary, preferably by stabilizing another per-entry shell /
+      body input that still changes during the normalized motion burst
 
 - item `411` landed one bounded production reduction against the canonical
   `rotaryParamCodeObjDefault` worktree perf lane by localizing drag-state

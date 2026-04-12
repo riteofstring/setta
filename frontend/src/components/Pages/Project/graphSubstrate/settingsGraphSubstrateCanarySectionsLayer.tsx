@@ -28,7 +28,6 @@ import type { GraphRect, GraphViewport } from "./viewportTransform";
 
 type SettingsGraphSubstrateCanarySectionsLayerProps = {
   draggingSectionId: string | null;
-  hoveredSectionId: string | null;
   mountedSectionBodyIds?: ReadonlySet<string>;
   onHoveredSectionChange: (sectionId: string | null) => void;
   presentedSceneSections?: Array<SettingsGraphSubstrateCanarySceneSection>;
@@ -94,7 +93,6 @@ const SettingsGraphSubstrateCanarySectionEntry = React.memo(
 
 function _SettingsGraphSubstrateCanarySectionsLayer({
   draggingSectionId,
-  hoveredSectionId,
   mountedSectionBodyIds,
   onHoveredSectionChange,
   presentedSceneSections,
@@ -143,21 +141,6 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     viewport,
     visibleViewportRect,
   ]);
-  const presentedSectionIds = useMemo(() => {
-    return new Set(
-      resolvedPresentedSceneSections.map((section) => section.sectionId),
-    );
-  }, [resolvedPresentedSceneSections]);
-
-  useEffect(() => {
-    if (
-      hoveredSectionId !== null &&
-      !presentedSectionIds.has(hoveredSectionId)
-    ) {
-      onHoveredSectionChange(null);
-    }
-  }, [hoveredSectionId, onHoveredSectionChange, presentedSectionIds]);
-
   const resolvedMountedSectionBodyIds = useMemo(() => {
     if (mountedSectionBodyIds) {
       stableMountedSectionBodyIdsRef.current = mountedSectionBodyIds;

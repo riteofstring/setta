@@ -151,6 +151,59 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 09:48 UTC
+
+- item `412` landed one bounded production reduction on the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane by hoisting stale hover
+  cleanup out of the profiled DOM sections subtree:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on
+      `presentedSceneSectionSubtreeReactRender`
+    - checked the next remaining subtree render inputs and found
+      `hoveredSectionId` still flowed through the profiled presented-sections
+      subtree even though entries did not need it for rendering
+    - kept the slice bounded to one real decision boundary instead of another
+      forwarding hop: stale hover cleanup now lives at the canary boundary
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`3` files, `24` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-037/worktree-ai.log`
+      -> passed (`1` Playwright test, `2.0m`)
+      -> canonical readout:
+         `longTaskTotalDurationMs` `1121ms`,
+         `longTaskMaxDurationMs` `401ms`,
+         `averageFrameDurationMs` `40.15ms`
+      -> dominant owner remained
+         `presentedSceneSectionSubtreeReactRender`
+         (`841.9ms` total, `220.9ms` max, `30` commits)
+    - headless CDP visual check on the authenticated worktree bootstrap URL
+      -> passed in a fresh-context sub-agent
+      -> bootstrap resolved to `http://127.0.0.1:3075/settings`
+      -> visible populated `All Settings` surface included `Core`,
+         `Section Defaults Structure and Code`,
+         `Section Defaults Content and Media`, `Param Defaults`, and
+         `All Settings`
+  - reading:
+    - this removed one real hover-only rerender input from the dominant owner
+      chain and produced another live win on the same lane
+    - run `037` improved over run `036` on the same owner:
+      `935.0ms` / `255.3ms` -> `841.9ms` / `220.9ms`
+    - the next default frontier stays on
+      `presentedSceneSectionSubtreeReactRender`, targeting another remaining
+      sibling commit source below the canary boundary rather than reopening
+      probe or lifecycle work
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 09:36 UTC
 
 - item `411` landed one bounded production reduction on the canonical

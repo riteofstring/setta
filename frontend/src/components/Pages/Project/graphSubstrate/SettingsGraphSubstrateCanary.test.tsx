@@ -55,10 +55,12 @@ vi.mock("./settingsGraphSubstrateCanarySectionsLayer", () => ({
   SettingsGraphSubstrateCanarySectionsLayer: vi.fn(
     ({
       mountedSectionBodyIds,
+      onHoveredSectionChange,
       presentedSceneSections,
       sceneSections,
     }: {
       mountedSectionBodyIds?: ReadonlySet<string>;
+      onHoveredSectionChange?: (sectionId: string | null) => void;
       presentedSceneSections?: Array<{ sectionId: string }>;
       sceneSections: Array<{ sectionId: string }>;
     }) => (
@@ -66,6 +68,8 @@ vi.mock("./settingsGraphSubstrateCanarySectionsLayer", () => ({
         data-mounted-body-count={String(mountedSectionBodyIds?.size ?? 0)}
         data-testid="graph-substrate-canary-sections-layer"
         data-count={String((presentedSceneSections ?? sceneSections).length)}
+        onPointerEnter={() => onHoveredSectionChange?.("section-a")}
+        onPointerLeave={() => onHoveredSectionChange?.(null)}
       />
     ),
   ),
@@ -252,6 +256,39 @@ describe("SettingsGraphSubstrateCanary", () => {
 
     await act(async () => {
       root.render(<SettingsGraphSubstrateCanary />);
+    });
+
+    expect(mockedSectionsLayer.mock.calls.length).toBe(
+      initialSectionsLayerCallCount,
+    );
+  });
+
+  it("keeps the profiled sections subtree stable across hover-only updates", async () => {
+    await act(async () => {
+      root.render(<SettingsGraphSubstrateCanary />);
+    });
+
+    const mockedSectionsLayer = vi.mocked(
+      (await import("./settingsGraphSubstrateCanarySectionsLayer"))
+        .SettingsGraphSubstrateCanarySectionsLayer,
+    );
+    const initialSectionsLayerCallCount = mockedSectionsLayer.mock.calls.length;
+    expect(initialSectionsLayerCallCount).toBeGreaterThan(0);
+
+    const sectionsLayer = host.querySelector<HTMLElement>(
+      "[data-testid='graph-substrate-canary-sections-layer']",
+    );
+    expect(sectionsLayer).not.toBeNull();
+
+    await act(async () => {
+      sectionsLayer?.dispatchEvent(
+        new PointerEvent("pointerenter", { bubbles: true }),
+      );
+    });
+    await act(async () => {
+      sectionsLayer?.dispatchEvent(
+        new PointerEvent("pointerleave", { bubbles: true }),
+      );
     });
 
     expect(mockedSectionsLayer.mock.calls.length).toBe(
