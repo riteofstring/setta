@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 15:55 UTC
+Last updated: 2026-04-13 16:10 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,63 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `438` landed one bounded production slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by trimming duplicate top-level
+  section-container work on the shell-layer DOM path:
+  - local ranking/readout for this iteration:
+    - reread the active plan/handoff first and did not continue the recent
+      attribution-only pattern now that the remaining owner was still the
+      section subtree / container lane above `AreaSwitch`
+    - chose one bounded production cut on that exact lane by treating the
+      canary shell-layer top-level path as already-visible `All Settings`
+      state and bypassing the generic top-level container/DnD wrapper stack
+      instead of opening another selector split
+    - kept the slice bounded to `SectionContainer`, one focused regression
+      test, narrow unit verification, one allowed lifecycle recovery, and one
+      fresh-context CDP smoke attempt
+  - code changed in:
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+      so the top-level shell-layer canary path now skips duplicate
+      view-mode gating and bypasses `ContainerSwitch` / top-level wrapper work
+      while leaving the default section-body path unchanged
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+      with a regression test that proves the shell-layer canary path no longer
+      re-enters `ContainerSwitch` or rerenders on view-mode visibility churn
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      -> passed (`2` files, `6` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainer.test.tsx`
+      -> passed
+    - canonical live rerun first attempt:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-007/worktree-ai.log`
+      -> failed with recurring lifecycle closure during pane normalization:
+         `Worktree unhealthy: page already closed before writing normalized compare pane state`
+    - allowed recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree to session `13a928` on `3075` / `8075`
+    - refreshed runtime facts with:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-007/worktree-ai.log`
+    - canonical live rerun after recovery:
+      same probe command as above
+      -> failed again, this time on preflight evaluation timeout inside
+         `readSettingsGraphSurfacePresenceSnapshot(...)`
+    - fresh-context CDP smoke attempt via sub-agent:
+      -> transport attached and opened `http://127.0.0.1:3075/settings`
+      -> `wait_for("All Settings")` timed out after `120s`, so the visual gate
+         could not confirm a mounted graph surface or attached normal-zoom body
+  - reading:
+    - the product slice is landed and unit-covered, but the required live
+      canary verification is currently unstable after the allowed restart
+    - treat this as tooling/runtime instability for the lane, not renderer
+      drift evidence
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - start the next iteration by rechecking runtime health on the canonical
+      lane before taking another product cut
+    - if the live canary becomes trustworthy again, rerun the canonical probe
+      and CDP smoke first, then continue with the next bounded section-subtree
+      / container reduction only after fresh evidence names the remaining owner
 
 - item `437` landed one bounded production slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by reusing the canary-resolved

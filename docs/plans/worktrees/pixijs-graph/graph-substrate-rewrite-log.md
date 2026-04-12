@@ -17992,3 +17992,53 @@ LOOP_TERMINAL_MARKER: none
     `~215ms` max commit instead of reopening param-row leaves
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-13 16:10 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the active handoff before choosing
+  the next slice; did not continue the recent attribution-only pattern because
+  the remaining hot path was still the section subtree / container lane above
+  `AreaSwitch`
+- landed one bounded production cut on the canonical
+  `rotaryParamCodeObjDefault` lane in
+  `frontend/src/components/Section/Container/SectionContainer.tsx` by treating
+  the top-level shell-layer canary path as already-normalized `All Settings`
+  state:
+  - skipped duplicate `getSectionViewModeVisibility(...)` /
+    `getActiveViewModeConfig(...)` work on that path
+  - bypassed `ContainerSwitch` and the generic top-level wrapper stack for the
+    canary shell-layer route while leaving the default section-body path alone
+- added focused regression coverage in
+  `frontend/src/components/Section/Container/SectionContainer.test.tsx` proving
+  the shell-layer canary path no longer enters `ContainerSwitch` or rerenders
+  on view-mode visibility churn
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    -> passed (`2` files, `6` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainer.test.tsx`
+    -> passed
+  - canonical probe first attempt:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-007/worktree-ai.log`
+    -> failed with `Worktree unhealthy: page already closed before writing normalized compare pane state`
+  - allowed recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> restarted to session `13a928`
+  - refreshed runtime:
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-007/worktree-ai.log`
+  - canonical probe retry:
+    same command as above
+    -> failed again on preflight evaluation timeout in
+       `readSettingsGraphSurfacePresenceSnapshot(...)`
+  - fresh-context CDP smoke via sub-agent:
+    transport attached and opened `http://127.0.0.1:3075/settings`, but
+    `wait_for("All Settings")` timed out after `120s`, so the visual gate
+    remained untrusted
+- interpretation:
+  - product code slice is complete and unit-covered
+  - live Playwright/CDP verification is currently blocked by runtime/tooling
+    instability on the recovered worktree session rather than fresh renderer
+    drift evidence
+- next action:
+  - recheck worktree runtime health on the canonical lane before the next
+    product cut; if the live canary becomes trustworthy again, rerun the
+    canonical probe and CDP smoke before continuing deeper on the remaining
+    section-subtree/container owner

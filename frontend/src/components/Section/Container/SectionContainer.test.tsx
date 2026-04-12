@@ -25,6 +25,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionContainer } from "./SectionContainer";
 
+const { mockContainerSwitch } = vi.hoisted(() => ({
+  mockContainerSwitch: vi.fn(({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  )),
+}));
+
 vi.mock("forks/xyflow/core/contexts/NodeIdContext", () => ({
   NodeIdProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
@@ -34,7 +40,7 @@ vi.mock("./AgenticEdgeHandles", () => ({
 }));
 
 vi.mock("./ContainerSwitch", () => ({
-  ContainerSwitch: ({ children }: { children: ReactNode }) => <>{children}</>,
+  ContainerSwitch: mockContainerSwitch,
 }));
 
 vi.mock("./ManyNestedSections", () => ({
@@ -84,6 +90,7 @@ async function renderProfiledContainer(
 
 describe("SectionContainer", () => {
   beforeEach(() => {
+    mockContainerSwitch.mockClear();
     resetProjectStores();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({
@@ -188,6 +195,59 @@ describe("SectionContainer", () => {
       expect(
         host.querySelector('[data-testid="mock-section-container-core"]'),
       ).not.toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("bypasses top-level container wrappers and view-mode commits on the shell-layer canary path", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const shellLayerSnapshot = {
+      hasSectionStyleTheme: false,
+      isInOtherProjectConfigs: false,
+      positionAndSizeLocked: false,
+      sectionStyleVars: undefined,
+      sectionTypeName: "Code",
+    } as const;
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    try {
+      await act(async () => {
+        root.render(
+          <Profiler id="section-container-profiler" onRender={onRender}>
+            <SectionContainer
+              sectionId="section-1"
+              isTopLevel={true}
+              shellChromeOwner="shell-layer"
+              shellLayerSnapshot={shellLayerSnapshot}
+            />
+          </Profiler>,
+        );
+      });
+
+      expect(mockContainerSwitch).not.toHaveBeenCalled();
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          state.projectConfig.isEditingViewMode = false;
+          state.projectConfig.viewModes.all = {
+            ...state.projectConfig.viewModes.all,
+            visibilityBySectionId: { "section-1": false },
+          };
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      expect(
+        host.querySelector('[data-testid="mock-section-container-core"]')
+          ?.textContent,
+      ).toBe("core:section-1");
     } finally {
       await act(async () => {
         root.unmount();
