@@ -3,6 +3,7 @@ import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
+  getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
@@ -28,11 +29,14 @@ import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 export type SectionContainerShellLayerSnapshot = {
+  hasEmbeddedTerminal: boolean;
   hasSectionStyleTheme: boolean;
+  isMinimized: boolean;
   isInOtherProjectConfigs: boolean;
   positionAndSizeLocked: boolean;
   sectionStyleVars: React.CSSProperties | undefined;
   sectionTypeName: SectionType;
+  textBlockMetaControlStyle: boolean;
 };
 
 function handleSectionContainerCoreShellLayerRender(
@@ -93,11 +97,14 @@ function SectionContainerCoreShellLayerLayout({
   );
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const {
+    hasEmbeddedTerminal,
     hasSectionStyleTheme,
+    isMinimized,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
     sectionStyleVars,
     sectionTypeName,
+    textBlockMetaControlStyle,
   } = shellLayerSnapshot;
 
   return (
@@ -124,7 +131,10 @@ function SectionContainerCoreShellLayerLayout({
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
+          hasEmbeddedTerminal={hasEmbeddedTerminal}
+          isMinimized={isMinimized}
           positionAndSizeLocked={positionAndSizeLocked}
+          textBlockMetaControlStyle={textBlockMetaControlStyle}
           hideHeader={isAttachedTerminalChild}
           hasSectionStyleTheme={hasSectionStyleTheme}
           forceHideFrameBorder={forceHideFrameBorder}
@@ -140,15 +150,24 @@ function SectionContainerCoreShellLayerWithStore(
 ) {
   const { sectionId } = props;
   const {
+    hasEmbeddedTerminal,
     isInOtherProjectConfigs,
+    isMinimized,
     positionAndSizeLocked,
     sectionTypeName,
     styleColor,
     textBlockMetaControlStyle,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+      x,
+      sectionId,
+    );
     return {
+      hasEmbeddedTerminal:
+        embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+      isMinimized: impl.isMinimized,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       sectionTypeName: impl.type,
       styleColor: impl.styleColor,
@@ -169,11 +188,14 @@ function SectionContainerCoreShellLayerWithStore(
     <SectionContainerCoreShellLayerLayout
       {...props}
       shellLayerSnapshot={{
+        hasEmbeddedTerminal,
         hasSectionStyleTheme,
+        isMinimized,
         isInOtherProjectConfigs,
         positionAndSizeLocked,
         sectionStyleVars,
         sectionTypeName,
+        textBlockMetaControlStyle,
       }}
     />
   );

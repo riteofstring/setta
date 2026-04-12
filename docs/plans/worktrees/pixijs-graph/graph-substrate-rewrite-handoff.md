@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 10:20 UTC
+Last updated: 2026-04-14 10:29 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,61 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `461` completed one bounded hot-subtree product slice above the earlier
+  row micro-cuts by threading shell-layer snapshot state through the canary
+  body adapter and the shell-owned `SectionContainerCore` path, while also
+  splitting pinned versus unpinned param-row attribution buckets:
+  - code/test changes kept in the tree:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+      plus `settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now carry `hasEmbeddedTerminal`, `isMinimized`, and
+      `textBlockMetaControlStyle` in the canary section-body contract so the
+      shell-layer path can reuse scene-owned state instead of reopening those
+      section impl subscriptions inside the mounted body subtree
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      and `SectionContainerCoreResizabe.tsx`
+      now accept those shell-layer snapshot inputs and skip the corresponding
+      project-state subscription when the shell-owned canary already provided
+      them
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      plus its tests/ranking coverage now split
+      `presentedSceneSectionPinnedParamDndListRowsReactRender`
+      from `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+      instead of keeping one combined `ParamDndList` row bucket
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed (`6` files, `28` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 SETTA_BACKEND_ORIGIN='http://127.0.0.1:8075' SETTA_BOOTSTRAP_TOKEN='<fresh runtime token>' PLAYWRIGHT_BASE_URL='http://127.0.0.1:3075/' pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+      -> passed (`1` test, `47.0s`)
+      -> lane snapshot stayed `classification: healthy`,
+         `surfacePresence.legacyPaneMounted: false`,
+         `targetSectionName: rotaryParamCodeObjDefault`,
+         `targetSectionVisible: true`,
+         `instrumentation.mountedSceneSectionCount: 46`,
+         `instrumentation.mountedSectionBodyCount: 1`,
+         `instrumentation.pixiDrawableCount: 1`
+    - required CDP visual confirmation:
+      -> fresh-context sub-agent succeeded on live worktree
+         `http://127.0.0.1:3075/`
+      -> `All Settings` showed `rotaryParamCodeObjDefault` visible at normal
+         zoom with no obvious blank, mixed-surface, or detached-body
+         regression
+  - reading:
+    - this closes one larger ownership hop above the prior row-level cuts:
+      the shell-owned canary no longer needs to reopen those section impl
+      subscriptions inside `SectionContainerCoreResizable` when equivalent
+      state is already present in the scene snapshot
+    - the canonical lane remains healthy after the slice, so the next frontier
+      should stay on measured product work rather than reopening lane-health or
+      selector hygiene
+    - the broad worktree performance probe in
+      `tests/e2e/settings/settings-view-modes.spec.ts`
+      still hit the known compare-pane page/context closure path during this
+      iteration, so use the dedicated lane-health canary as the trusted live
+      verification lane until that broader lifecycle path is fixed
 
 - item `460` stabilized the dedicated lane-health probe on the canonical
   `rotaryParamCodeObjDefault` lane so it now carries any recovered Playwright

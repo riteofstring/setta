@@ -73,15 +73,18 @@ type SectionContainerCoreResizableProps = {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   forceTransparentBackground?: boolean;
   forceHideFrameBorder?: boolean;
+  hasEmbeddedTerminal?: boolean;
   headerRenderer?: SectionContainerHeaderRenderer | undefined;
   sectionId: string;
   sectionTypeName: SectionType;
+  isMinimized?: boolean;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
   forceHideTopDragHandle?: boolean;
+  textBlockMetaControlStyle?: boolean;
 };
 
 function handleSectionContainerHeaderRender(
@@ -161,9 +164,11 @@ function DefaultSectionContainerHeaderDomAdapter({
 function _SectionContainerCoreResizable({
   bodySurfaceOverride,
   forceTransparentBackground = false,
+  hasEmbeddedTerminal: hasEmbeddedTerminalOverride,
   headerRenderer,
   sectionId,
   sectionTypeName,
+  isMinimized: isMinimizedOverride,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
@@ -171,27 +176,40 @@ function _SectionContainerCoreResizable({
   hideHeader = false,
   forceHideFrameBorder = false,
   forceHideTopDragHandle = false,
+  textBlockMetaControlStyle: textBlockMetaControlStyleOverride,
 }: SectionContainerCoreResizableProps) {
-  const {
-    isMinimized,
-    isYouTube,
-    textBlockMetaControlStyle,
-    hasEmbeddedTerminal,
-  } = useProjectState((x) => {
+  const resizableStoreState = useProjectState((x) => {
+    if (
+      hasEmbeddedTerminalOverride !== undefined &&
+      isMinimizedOverride !== undefined &&
+      textBlockMetaControlStyleOverride !== undefined
+    ) {
+      return null;
+    }
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
       x,
       sectionId,
     );
     return {
-      isMinimized: impl.isMinimized,
-      isYouTube: false,
-      textBlockMetaControlStyle:
-        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
       hasEmbeddedTerminal:
         embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
+      isMinimized: impl.isMinimized,
+      textBlockMetaControlStyle:
+        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
     };
   }, shallow);
+  const hasEmbeddedTerminal =
+    hasEmbeddedTerminalOverride ??
+    resizableStoreState?.hasEmbeddedTerminal ??
+    false;
+  const isMinimized =
+    isMinimizedOverride ?? resizableStoreState?.isMinimized ?? false;
+  const textBlockMetaControlStyle =
+    textBlockMetaControlStyleOverride ??
+    resizableStoreState?.textBlockMetaControlStyle ??
+    false;
+  const isYouTube = false;
 
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);

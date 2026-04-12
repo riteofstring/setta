@@ -28,11 +28,12 @@ describe("settingsGraphMotionAttributionRanking", () => {
       maxDurationMs: 55,
       totalDurationMs: 120,
     };
-    motionAttribution.presentedSceneSectionParamDndListRowsReactRender = {
-      count: 4,
-      maxDurationMs: 18,
-      totalDurationMs: 60,
-    };
+    motionAttribution.presentedSceneSectionUnpinnedParamDndListRowsReactRender =
+      {
+        count: 4,
+        maxDurationMs: 18,
+        totalDurationMs: 60,
+      };
 
     expect(resolveDominantMotionAttributionOwner(motionAttribution)).toBe(
       "presentedSceneSectionBodySubtreeReactRender",
@@ -92,11 +93,12 @@ describe("settingsGraphMotionAttributionRanking", () => {
       maxDurationMs: 20,
       totalDurationMs: 72,
     };
-    motionAttribution.presentedSceneSectionParamDndListRowsReactRender = {
-      count: 8,
-      maxDurationMs: 12,
-      totalDurationMs: 61,
-    };
+    motionAttribution.presentedSceneSectionUnpinnedParamDndListRowsReactRender =
+      {
+        count: 8,
+        maxDurationMs: 12,
+        totalDurationMs: 61,
+      };
 
     expect(
       resolveTopMotionAttributionOwnersExcluding(
@@ -114,7 +116,7 @@ describe("settingsGraphMotionAttributionRanking", () => {
       {
         count: 8,
         maxDurationMs: 12,
-        owner: "presentedSceneSectionParamDndListRowsReactRender",
+        owner: "presentedSceneSectionUnpinnedParamDndListRowsReactRender",
         totalDurationMs: 61,
       },
     ]);

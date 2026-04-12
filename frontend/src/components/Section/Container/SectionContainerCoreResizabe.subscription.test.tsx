@@ -7,6 +7,7 @@ import {
 } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import {
   act,
+  type ComponentProps,
   Profiler,
   type ProfilerOnRenderCallback,
   type ReactNode,
@@ -163,6 +164,7 @@ type RenderedProfiledContainer = {
 
 async function renderProfiledContainer(
   onRender: ProfilerOnRenderCallback,
+  props: Partial<ComponentProps<typeof SectionContainerCoreResizable>> = {},
 ): Promise<RenderedProfiledContainer> {
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -181,6 +183,7 @@ async function renderProfiledContainer(
           isUserView={false}
           positionAndSizeLocked={false}
           hasSectionStyleTheme={false}
+          {...props}
         />
       </Profiler>,
     );
@@ -295,6 +298,39 @@ describe("SectionContainerCoreResizable store subscriptions", () => {
 
       expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
       expect(host.querySelector('[data-testid="mock-code-area"]')).toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("stays out of impl commits when shell-layer snapshot props provide the resizable inputs", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledContainer(onRender, {
+      hasEmbeddedTerminal: false,
+      isMinimized: false,
+      textBlockMetaControlStyle: false,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          const impl = state.sectionImpls[implId];
+          if (!impl || impl.type !== SectionTypeEnum.Code) {
+            throw new Error(`Missing code impl ${implId}`);
+          }
+          impl.isMinimized = true;
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      expect(
+        host.querySelector('[data-testid="mock-code-area"]')?.textContent,
+      ).toBe("code:section-1");
     } finally {
       await act(async () => {
         root.unmount();

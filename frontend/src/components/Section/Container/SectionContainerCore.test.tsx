@@ -359,11 +359,14 @@ describe("SectionContainerCore", () => {
     const { host, root } = await renderSectionContainerCore(onRender, {
       shellChromeOwner: "shell-layer",
       shellLayerSnapshot: {
+        hasEmbeddedTerminal: false,
         hasSectionStyleTheme: false,
+        isMinimized: false,
         isInOtherProjectConfigs: false,
         positionAndSizeLocked: false,
         sectionStyleVars: undefined,
         sectionTypeName: SectionTypeEnum.Code,
+        textBlockMetaControlStyle: false,
       },
     });
 

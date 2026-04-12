@@ -42,10 +42,13 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       headerRenderer?: unknown;
       isTopLevel?: boolean;
       shellLayerSnapshot?: {
+        hasEmbeddedTerminal: boolean;
         hasSectionStyleTheme: boolean;
+        isMinimized: boolean;
         isInOtherProjectConfigs: boolean;
         positionAndSizeLocked: boolean;
         sectionTypeName: string;
+        textBlockMetaControlStyle: boolean;
       };
       shellChromeOwner?: string;
       sectionId: string;
@@ -132,6 +135,8 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
 
   it("suppresses duplicate DOM shell chrome when the shell layer owns the shell visuals", async () => {
     const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+      hasEmbeddedTerminal: false,
+      isMinimized: false,
       isInOtherProjectConfigs: true,
       positionAndSizeLocked: false,
       sectionId: "section-a",
@@ -167,11 +172,14 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
       headerRenderer: SettingsGraphSubstrateCanarySectionHeaderDomAdapter,
       shellChromeOwner: "shell-layer",
       shellLayerSnapshot: {
+        hasEmbeddedTerminal: false,
         hasSectionStyleTheme: false,
+        isMinimized: false,
         isInOtherProjectConfigs: true,
         positionAndSizeLocked: false,
         sectionStyleVars: undefined,
         sectionTypeName: SectionTypeEnum.Code,
+        textBlockMetaControlStyle: false,
       },
       sectionId: "section-a",
     });
@@ -179,6 +187,8 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
 
   it("keeps the DOM body chrome enabled when the section body owns the shell chrome", async () => {
     const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+      hasEmbeddedTerminal: false,
+      isMinimized: false,
       isInOtherProjectConfigs: false,
       positionAndSizeLocked: false,
       sectionId: "section-b",

@@ -14,6 +14,8 @@ export type SettingsGraphSubstrateCanarySectionBodyShellChromeOwner =
   | "shell-layer";
 
 export type SettingsGraphSubstrateCanarySectionBody = {
+  hasEmbeddedTerminal: boolean;
+  isMinimized: boolean;
   isInOtherProjectConfigs: boolean;
   positionAndSizeLocked: boolean;
   sectionId: string;
@@ -24,6 +26,8 @@ export type SettingsGraphSubstrateCanarySectionBody = {
 };
 
 export function resolveSettingsGraphSubstrateCanarySectionBody({
+  hasEmbeddedTerminal,
+  isMinimized,
   isInOtherProjectConfigs,
   positionAndSizeLocked,
   sectionId,
@@ -33,6 +37,8 @@ export function resolveSettingsGraphSubstrateCanarySectionBody({
   textBlockMetaControlStyle,
 }: SettingsGraphSubstrateCanarySectionBody): SettingsGraphSubstrateCanarySectionBody {
   return {
+    hasEmbeddedTerminal,
+    isMinimized,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
     sectionId,
@@ -110,15 +116,20 @@ function useSettingsGraphSubstrateCanarySectionBodySurface(
         useMetaControlStyle: sectionChromeAppearance.useMetaControlStyle,
       }),
       shellLayerSnapshot: {
+        hasEmbeddedTerminal: sectionBody.hasEmbeddedTerminal,
         hasSectionStyleTheme: sectionChromeAppearance.hasSectionStyleTheme,
+        isMinimized: sectionBody.isMinimized,
         isInOtherProjectConfigs: sectionBody.isInOtherProjectConfigs,
         positionAndSizeLocked: sectionBody.positionAndSizeLocked,
         sectionStyleVars: sectionChromeAppearance.sectionStyleVars,
         sectionTypeName: sectionBody.sectionTypeName,
+        textBlockMetaControlStyle: sectionBody.textBlockMetaControlStyle,
       },
       shellLayerOwnsBackground,
     };
   }, [
+    sectionBody.hasEmbeddedTerminal,
+    sectionBody.isMinimized,
     sectionChromeAppearance.hasSectionStyleTheme,
     sectionBody.shellChromeOwner,
     sectionBody.isInOtherProjectConfigs,
@@ -128,6 +139,7 @@ function useSettingsGraphSubstrateCanarySectionBodySurface(
     sectionChromeAppearance.useMetaControlStyle,
     sectionBody.positionAndSizeLocked,
     sectionBody.sectionTypeName,
+    sectionBody.textBlockMetaControlStyle,
   ]);
 }
 
@@ -165,6 +177,10 @@ function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
 export const SettingsGraphSubstrateCanarySectionBodyDomAdapter = React.memo(
   _SettingsGraphSubstrateCanarySectionBodyDomAdapter,
   (previousProps, nextProps) =>
+    previousProps.sectionBody.hasEmbeddedTerminal ===
+      nextProps.sectionBody.hasEmbeddedTerminal &&
+    previousProps.sectionBody.isMinimized ===
+      nextProps.sectionBody.isMinimized &&
     previousProps.sectionBody.isInOtherProjectConfigs ===
       nextProps.sectionBody.isInOtherProjectConfigs &&
     previousProps.sectionBody.positionAndSizeLocked ===

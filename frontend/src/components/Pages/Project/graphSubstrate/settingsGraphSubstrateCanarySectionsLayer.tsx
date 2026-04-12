@@ -57,6 +57,9 @@ function doSettingsGraphSubstrateCanarySectionBodyInputsMatchSceneSection(
   sceneSection: SettingsGraphSubstrateCanarySceneSection,
 ) {
   return (
+    sectionBody.hasEmbeddedTerminal ===
+      (sceneSection.hasEmbeddedTerminal ?? false) &&
+    sectionBody.isMinimized === (sceneSection.isMinimized ?? false) &&
     sectionBody.isInOtherProjectConfigs ===
       (sceneSection.isInOtherProjectConfigs ?? false) &&
     sectionBody.positionAndSizeLocked === sceneSection.positionAndSizeLocked &&
@@ -293,6 +296,8 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         continue;
       }
       const nextSectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+        hasEmbeddedTerminal: section.hasEmbeddedTerminal ?? false,
+        isMinimized: section.isMinimized ?? false,
         isInOtherProjectConfigs: section.isInOtherProjectConfigs ?? false,
         positionAndSizeLocked: section.positionAndSizeLocked,
         sectionId: section.sectionId,
@@ -481,6 +486,8 @@ function areSettingsGraphSubstrateCanarySectionBodiesEqual(
   right: SettingsGraphSubstrateCanarySectionBody,
 ) {
   return (
+    left.hasEmbeddedTerminal === right.hasEmbeddedTerminal &&
+    left.isMinimized === right.isMinimized &&
     left.isInOtherProjectConfigs === right.isInOtherProjectConfigs &&
     left.positionAndSizeLocked === right.positionAndSizeLocked &&
     left.sectionId === right.sectionId &&

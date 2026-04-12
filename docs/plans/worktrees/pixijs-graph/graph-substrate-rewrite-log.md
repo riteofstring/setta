@@ -19077,3 +19077,54 @@ LOOP_TERMINAL_MARKER: none
   - close the lane-health support lane here and move the next iteration back to
     measured product work on the hot subtree above the already-closed row
     micro-cuts
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 10:29 UTC
+
+- item `461` threaded shell-layer snapshot state through the canary body
+  adapter and shell-owned `SectionContainerCore` path, and split the remaining
+  combined `ParamDndList` row attribution bucket into pinned versus unpinned
+  owners
+- changed `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+  and `settingsGraphSubstrateCanarySectionsLayer.tsx` so canary section bodies
+  now carry `hasEmbeddedTerminal`, `isMinimized`, and
+  `textBlockMetaControlStyle` from the scene snapshot
+- changed `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  and `SectionContainerCoreResizabe.tsx` so the shell-owned path can consume
+  those snapshot props and skip the corresponding impl subscription when the
+  shell layer already supplied them
+- changed `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  plus ranking/tests so row render attribution is now reported as
+  `presentedSceneSectionPinnedParamDndListRowsReactRender` versus
+  `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    -> pass (`6` files, `28` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    -> pass
+  - refreshed runtime values with `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-021/worktree-ai.log`
+    after the original bootstrap token expired
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 SETTA_BACKEND_ORIGIN='http://127.0.0.1:8075' SETTA_BOOTSTRAP_TOKEN='<fresh runtime token>' PLAYWRIGHT_BASE_URL='http://127.0.0.1:3075/' pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+    -> pass (`1` test, `47.0s`)
+    -> lane snapshot stayed `classification=healthy`,
+       `legacyPaneMounted=false`, `targetSectionVisible=true`
+  - fresh-context CDP sub-agent on live worktree `http://127.0.0.1:3075/`
+    -> pass; `All Settings` showed `rotaryParamCodeObjDefault` visible at
+       normal zoom with no obvious blank, mixed-surface, or detached-body
+       regression
+- note:
+  - the broader canonical worktree performance probe in
+    `tests/e2e/settings/settings-view-modes.spec.ts`
+    still hit the known compare-pane page/context closure path
+    (`Worktree unhealthy: browser context closed before page recovery`) during
+    this iteration, so do not treat that as evidence against this product slice
+    and do not reopen lane-health work because of it
+- reading:
+  - this is a real product slice above the earlier row micro-cuts: the
+    shell-owned canary now reuses scene-owned state for shell/body rendering
+    instead of reopening those impl subscriptions inside the mounted body path
+  - the next measured frontier should use the healthier attribution split to
+    decide whether pinned or unpinned param rows still dominate below
+    `presentedSceneSectionParamGroupContainerReactRender`, or whether the next
+    hot owner is elsewhere in the section body subtree
+- LOOP_TERMINAL_MARKER: none

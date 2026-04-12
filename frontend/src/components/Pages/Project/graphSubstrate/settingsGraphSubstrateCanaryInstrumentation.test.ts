@@ -217,8 +217,12 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       2.75,
     );
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
-      "presentedSceneSectionParamDndListRowsReactRender",
+      "presentedSceneSectionPinnedParamDndListRowsReactRender",
       2.5,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionUnpinnedParamDndListRowsReactRender",
+      2.75,
     );
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
       "presentedSceneSectionParamInputReactRender",
@@ -364,11 +368,18 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       totalDurationMs: 1.75,
     });
     expect(
-      motionAttribution.presentedSceneSectionParamDndListRowsReactRender,
+      motionAttribution.presentedSceneSectionPinnedParamDndListRowsReactRender,
     ).toEqual({
       count: 1,
       maxDurationMs: 2.5,
       totalDurationMs: 2.5,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionUnpinnedParamDndListRowsReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 2.75,
+      totalDurationMs: 2.75,
     });
     expect(
       motionAttribution.presentedSceneSectionParamInputReactRender,

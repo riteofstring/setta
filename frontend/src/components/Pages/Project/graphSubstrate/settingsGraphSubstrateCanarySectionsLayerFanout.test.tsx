@@ -357,8 +357,10 @@ function createSceneSection(
     overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
 
   return {
+    hasEmbeddedTerminal: false,
     height,
     isActiveSection: false,
+    isMinimized: false,
     isInOtherProjectConfigs: false,
     position: { x: 120, y: 80 },
     positionAndSizeLocked: false,
