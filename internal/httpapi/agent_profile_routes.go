@@ -70,6 +70,17 @@ type agentProfileRouteError struct {
 	Message string
 }
 
+type agentProfileFields struct {
+	Name                        *string
+	Description                 *string
+	SystemPrompt                *string
+	EnableBackgroundSummaryFill *bool
+	EnableLlmChatTitles         *bool
+	EngineConfigID              *string
+	ToolAllowlist               []string
+	MemoryScope                 *string
+}
+
 func RegisterAgentProfileRoutes(router chi.Router, deps AgentProfileRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -378,39 +389,20 @@ func broadcastAgentProfilesUpdated(
 }
 
 func buildCreatedAgentProfile(payload CreateAgentProfileRequest) (agentprofiles.Profile, *agentProfileRouteError) {
-	if payload.Name == nil || strings.TrimSpace(*payload.Name) == "" {
-		return agentprofiles.Profile{}, &agentProfileRouteError{
-			Status:  http.StatusBadRequest,
-			Code:    "agent_profile_name_required",
-			Message: "Agent profile name is required.",
-		}
+	profile, routeErr := buildAgentProfileFields(agentProfileFields{
+		Name:                        payload.Name,
+		Description:                 payload.Description,
+		SystemPrompt:                payload.SystemPrompt,
+		EnableBackgroundSummaryFill: payload.EnableBackgroundSummaryFill,
+		EnableLlmChatTitles:         payload.EnableLlmChatTitles,
+		EngineConfigID:              payload.EngineConfigID,
+		ToolAllowlist:               payload.ToolAllowlist,
+		MemoryScope:                 payload.MemoryScope,
+	})
+	if routeErr != nil {
+		return agentprofiles.Profile{}, routeErr
 	}
-
-	profile := agentprofiles.Profile{
-		ID:   newAgentProfileID(),
-		Name: *payload.Name,
-	}
-	if payload.Description != nil {
-		profile.Description = *payload.Description
-	}
-	if payload.SystemPrompt != nil {
-		profile.SystemPrompt = *payload.SystemPrompt
-	}
-	if payload.EnableBackgroundSummaryFill != nil {
-		profile.EnableBackgroundSummaryFill = *payload.EnableBackgroundSummaryFill
-	}
-	if payload.EnableLlmChatTitles != nil {
-		profile.EnableLlmChatTitles = *payload.EnableLlmChatTitles
-	}
-	if payload.EngineConfigID != nil {
-		profile.EngineConfigID = cloneAgentProfileOptionalString(payload.EngineConfigID)
-	}
-	if payload.ToolAllowlist != nil {
-		profile.ToolAllowlist = append([]string(nil), payload.ToolAllowlist...)
-	}
-	if payload.MemoryScope != nil {
-		profile.MemoryScope = cloneAgentProfileOptionalString(payload.MemoryScope)
-	}
+	profile.ID = newAgentProfileID()
 	return profile, nil
 }
 
@@ -436,33 +428,62 @@ func buildUpdatedAgentProfile(payload UpdateAgentProfileRequest) (agentprofiles.
 			Message: "Agent profile name is required.",
 		}
 	}
-
-	profile := agentprofiles.Profile{
-		ID:   strings.TrimSpace(*payload.Profile.ID),
-		Name: *payload.Profile.Name,
+	profile, routeErr := buildAgentProfileFields(agentProfileFields{
+		Name:                        payload.Profile.Name,
+		Description:                 payload.Profile.Description,
+		SystemPrompt:                payload.Profile.SystemPrompt,
+		EnableBackgroundSummaryFill: payload.Profile.EnableBackgroundSummaryFill,
+		EnableLlmChatTitles:         payload.Profile.EnableLlmChatTitles,
+		EngineConfigID:              payload.Profile.EngineConfigID,
+		ToolAllowlist:               payload.Profile.ToolAllowlist,
+		MemoryScope:                 payload.Profile.MemoryScope,
+	})
+	if routeErr != nil {
+		return agentprofiles.Profile{}, routeErr
 	}
-	if payload.Profile.Description != nil {
-		profile.Description = *payload.Profile.Description
-	}
-	if payload.Profile.SystemPrompt != nil {
-		profile.SystemPrompt = *payload.Profile.SystemPrompt
-	}
-	if payload.Profile.EnableBackgroundSummaryFill != nil {
-		profile.EnableBackgroundSummaryFill = *payload.Profile.EnableBackgroundSummaryFill
-	}
-	if payload.Profile.EnableLlmChatTitles != nil {
-		profile.EnableLlmChatTitles = *payload.Profile.EnableLlmChatTitles
-	}
-	if payload.Profile.EngineConfigID != nil {
-		profile.EngineConfigID = cloneAgentProfileOptionalString(payload.Profile.EngineConfigID)
-	}
-	if payload.Profile.ToolAllowlist != nil {
-		profile.ToolAllowlist = append([]string(nil), payload.Profile.ToolAllowlist...)
-	}
-	if payload.Profile.MemoryScope != nil {
-		profile.MemoryScope = cloneAgentProfileOptionalString(payload.Profile.MemoryScope)
-	}
+	profile.ID = strings.TrimSpace(*payload.Profile.ID)
 	return profile, nil
+}
+
+func buildAgentProfileFields(fields agentProfileFields) (agentprofiles.Profile, *agentProfileRouteError) {
+	if fields.Name == nil || strings.TrimSpace(*fields.Name) == "" {
+		return agentprofiles.Profile{}, &agentProfileRouteError{
+			Status:  http.StatusBadRequest,
+			Code:    "agent_profile_name_required",
+			Message: "Agent profile name is required.",
+		}
+	}
+
+	profile := agentprofiles.Profile{Name: *fields.Name}
+	applyAgentProfileFields(&profile, fields)
+	return profile, nil
+}
+
+func applyAgentProfileFields(profile *agentprofiles.Profile, fields agentProfileFields) {
+	if profile == nil {
+		return
+	}
+	if fields.Description != nil {
+		profile.Description = *fields.Description
+	}
+	if fields.SystemPrompt != nil {
+		profile.SystemPrompt = *fields.SystemPrompt
+	}
+	if fields.EnableBackgroundSummaryFill != nil {
+		profile.EnableBackgroundSummaryFill = *fields.EnableBackgroundSummaryFill
+	}
+	if fields.EnableLlmChatTitles != nil {
+		profile.EnableLlmChatTitles = *fields.EnableLlmChatTitles
+	}
+	if fields.EngineConfigID != nil {
+		profile.EngineConfigID = cloneAgentProfileOptionalString(fields.EngineConfigID)
+	}
+	if fields.ToolAllowlist != nil {
+		profile.ToolAllowlist = append([]string(nil), fields.ToolAllowlist...)
+	}
+	if fields.MemoryScope != nil {
+		profile.MemoryScope = cloneAgentProfileOptionalString(fields.MemoryScope)
+	}
 }
 
 func writeAgentProfileStoreError(w http.ResponseWriter, r *http.Request, err error) bool {
