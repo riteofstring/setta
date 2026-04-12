@@ -1,16 +1,10 @@
 import type { AIFollowMode } from "state/types/aiFollow";
-import {
-  SectionTypeEnum,
-  type BaseSectionImplUnion,
-  type ChatSectionImpl,
-  type Variant,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 type AIFollowIdsByProject = Record<
   string,
   Record<string, Record<string, Array<string>>>
 >;
-type SelectedIdsByProjectConfigId = Record<string, Array<string>>;
 
 function getSectionIdsFromIdsByType(
   idsByType: Record<string, Array<string>> | undefined,
@@ -40,64 +34,20 @@ export function getSectionIdsForProject(
 }
 
 type SectionVariantMap = Record<string, string>;
-type SectionVariantEntry = Pick<Variant, "impl">;
-type SectionImplEntry = Pick<BaseSectionImplUnion, "type"> &
-  Partial<Pick<ChatSectionImpl, "chatId">>;
-type SectionChatLookup = {
-  sectionVariantMap: SectionVariantMap;
-  sectionVariants: Record<string, SectionVariantEntry | undefined>;
-  sectionImpls: Record<string, SectionImplEntry | undefined>;
+type SectionVariantEntry = { impl: string };
+type SectionImplEntry = {
+  type?: SectionTypeEnum;
+  chatId?: string | null;
 };
-type AllowedChatIdsArgs = [
+
+export function getAllowedChatIdsForProject(
   mode: AIFollowMode,
-  selectedChatIdsByProjectConfigId: SelectedIdsByProjectConfigId,
-  selectedSectionIdsByProjectConfigId: SelectedIdsByProjectConfigId,
+  selectedChatIdsByProjectConfigId: Record<string, Array<string>>,
+  selectedSectionIdsByProjectConfigId: Record<string, Array<string>>,
   projectConfigId: string,
   sectionVariantMap: SectionVariantMap,
   sectionVariants: Record<string, SectionVariantEntry | undefined>,
   sectionImpls: Record<string, SectionImplEntry | undefined>,
-];
-
-function getSelectedIdsForProject(
-  idsByProjectConfigId: SelectedIdsByProjectConfigId,
-  projectConfigId: string,
-): Array<string> {
-  return idsByProjectConfigId[projectConfigId] ?? [];
-}
-
-function resolveChatIdForSection(
-  sectionId: string,
-  { sectionVariantMap, sectionVariants, sectionImpls }: SectionChatLookup,
-): string | null {
-  const variantId = sectionVariantMap[sectionId];
-  if (!variantId) {
-    return null;
-  }
-  const variant = sectionVariants[variantId];
-  if (!variant) {
-    return null;
-  }
-  const impl = sectionImpls[variant.impl];
-  if (!impl || impl.type !== SectionTypeEnum.Chat) {
-    return null;
-  }
-  const chatId = impl.chatId;
-  if (typeof chatId === "string" && chatId.trim()) {
-    return chatId;
-  }
-  return null;
-}
-
-export function getAllowedChatIdsForProject(
-  ...[
-    mode,
-    selectedChatIdsByProjectConfigId,
-    selectedSectionIdsByProjectConfigId,
-    projectConfigId,
-    sectionVariantMap,
-    sectionVariants,
-    sectionImpls,
-  ]: AllowedChatIdsArgs
 ): Set<string> | null {
   if (mode === "off") {
     return new Set();
@@ -105,20 +55,46 @@ export function getAllowedChatIdsForProject(
   if (mode === "all") {
     return null;
   }
-  const merged = new Set(
-    getSelectedIdsForProject(selectedChatIdsByProjectConfigId, projectConfigId),
-  );
-  const selectedSectionIds = getSelectedIdsForProject(
-    selectedSectionIdsByProjectConfigId,
-    projectConfigId,
-  );
+  const selectedChatIds =
+    selectedChatIdsByProjectConfigId[projectConfigId] ?? [];
+  const selectedSectionIds =
+    selectedSectionIdsByProjectConfigId[projectConfigId] ?? [];
+  const merged = new Set(selectedChatIds);
   for (const sectionId of selectedSectionIds) {
-    const chatId = resolveChatIdForSection(sectionId, {
-      sectionVariantMap,
-      sectionVariants,
-      sectionImpls,
-    });
-    if (chatId) {
+    const variantId = sectionVariantMap[sectionId];
+    if (!variantId) {
+      continue;
+    }
+    const variant = sectionVariants[variantId];
+    if (!variant) {
+      continue;
+    }
+    const impl = sectionImpls[variant.impl];
+    if (!impl || impl.type !== SectionTypeEnum.Chat) {
+      continue;
+    }
+    const chatId = impl.chatId;
+    if (typeof chatId === "string" && chatId.trim()) {
+      merged.add(chatId);
+    }
+  }
+  return merged;
+}
+
+export function getAllowedChatIdsForSelection(
+  mode: AIFollowMode,
+  selectedChatIds: Array<string>,
+  selectedSectionChatIds: Array<string>,
+): Set<string> | null {
+  if (mode === "off") {
+    return new Set();
+  }
+  if (mode === "all") {
+    return null;
+  }
+  const merged = new Set(selectedChatIds);
+  for (const chatId of selectedSectionChatIds) {
+    if (chatId.trim()) {
       merged.add(chatId);
     }
   }
