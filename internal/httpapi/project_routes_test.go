@@ -13510,7 +13510,7 @@ func newProjectRouteTestHandlerWithRouteOptions(
 			chatSectionChatID = chatSectionService.GetChatID
 		}
 	}
-	settingsDocument, err := settingsstate.NewDocument()
+	settingsDocument, err := settingsstate.DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}

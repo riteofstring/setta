@@ -15,10 +15,6 @@ var (
 
 type Document map[string]any
 
-func NewDocument() (Document, error) {
-	return DefaultDocument()
-}
-
 func NormalizeRaw(raw any) (Document, error) {
 	object, ok := raw.(map[string]any)
 	if !ok {

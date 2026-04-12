@@ -2077,7 +2077,7 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 	if err := os.WriteFile(filepath.Join(codeRoot, "setta_gen_meta.py"), []byte("META = True\n"), 0o644); err != nil {
 		t.Fatalf("write setta_gen_meta.py: %v", err)
 	}
-	settingsDocument, err := settingsstate.NewDocument()
+	settingsDocument, err := settingsstate.DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}

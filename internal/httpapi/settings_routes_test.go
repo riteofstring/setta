@@ -230,9 +230,9 @@ func TestRegisterSettingsRoutesLoadReadsClaimedSlicesFromDedicatedSettingsFiles(
 	dedicatedGUIPath := filepath.Join(root, "gui-settings.json")
 	settingsProjectPath := filepath.Join(root, projectstate.SettingsFileName)
 
-	defaults, err := settingsstate.NewDocument()
+	defaults, err := settingsstate.DefaultDocument()
 	if err != nil {
-		t.Fatalf("new settings document: %v", err)
+		t.Fatalf("default settings document: %v", err)
 	}
 
 	sharedDocument := defaults.Clone()
@@ -576,9 +576,9 @@ func TestRegisterSettingsRoutesSaveRejectsTypedInvalidNestedSettings(t *testing.
 			runtime, _ := newSettingsRouteTestRuntime(t)
 			handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
 			before := runtime.Snapshot()
-			document, err := settingsstate.NewDocument()
+			document, err := settingsstate.DefaultDocument()
 			if err != nil {
-				t.Fatalf("new settings document: %v", err)
+				t.Fatalf("default settings document: %v", err)
 			}
 			testCase.mutate(document)
 			body, err := json.Marshal(map[string]any{"settings": document})
@@ -655,14 +655,32 @@ func writeSettingsRouteProjectClaim(
 ) {
 	t.Helper()
 
-	defaults, err := settingsstate.NewDocument()
+	defaults, err := settingsstate.DefaultDocument()
 	if err != nil {
-		t.Fatalf("new settings document: %v", err)
+		t.Fatalf("default settings document: %v", err)
 	}
-	settingsProjectDocument, err := settingsstate.BuildProjectDocument(defaults)
+	settingsRuntime, err := settingsstate.OpenOverlayRuntime(defaults)
 	if err != nil {
-		t.Fatalf("build settings project document: %v", err)
+		t.Fatalf("open settings runtime: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	settingsProjectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsProjectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+	if err := settingsstate.EnsureProjectRuntimeBootstrapped(context.Background(), settingsRuntime, settingsProjectRuntime); err != nil {
+		t.Fatalf("bootstrap settings project runtime: %v", err)
+	}
+	settingsProjectDocument := settingsProjectRuntime.Snapshot().Document
 	project, err := settingsProjectDocument.ProjectByID(settingsstate.SettingsProjectID)
 	if err != nil {
 		t.Fatalf("settings project by id: %v", err)

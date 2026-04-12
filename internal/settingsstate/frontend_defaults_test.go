@@ -3,7 +3,7 @@ package settingsstate
 import "testing"
 
 func TestFrontendSettingsStateFromDocumentUsesOwnerContract(t *testing.T) {
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}

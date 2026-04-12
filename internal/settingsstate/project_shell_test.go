@@ -52,7 +52,7 @@ var expectedSettingsParamImplContractSamples = []settingsParamImplContractSample
 func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 func TestEnsureProjectRuntimeBootstrappedSeedsDedicatedSettingsProject(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestEnsureProjectRuntimeBootstrappedSeedsDedicatedSettingsProject(t *testin
 func TestRefreshProjectRuntimeFromSettingsHydratesLiveValuesAndPreservesActiveViewMode(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestRefreshProjectRuntimeFromSettingsHydratesLiveValuesAndPreservesActiveVi
 func TestRefreshProjectRuntimeFromSettingsRepairsLegacyQuotedDropdownChoices(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestRefreshProjectRuntimeFromSettingsRepairsLegacyQuotedDropdownChoices(t *
 func TestRefreshProjectRuntimeFromSettingsRepairsLegacyMissingSectionAutoHeight(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestRefreshProjectRuntimeFromSettingsRepairsLegacyMissingSectionAutoHeight(
 func TestRefreshProjectRuntimeFromSettingsPreservesExistingDisplayNamesAndBackfillsNewCodeObjs(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -481,7 +481,7 @@ func TestRefreshProjectRuntimeFromSettingsPreservesExistingDisplayNamesAndBackfi
 func TestRefreshProjectRuntimeFromSettingsRepairsMissingRequiredViewMode(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -559,7 +559,7 @@ func TestRefreshProjectRuntimeFromSettingsRepairsMissingVisibleSectionLayout(
 ) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -619,7 +619,7 @@ func TestRefreshProjectRuntimeFromSettingsRepairsMissingVisibleSectionLayout(
 func TestRefreshProjectRuntimeFromSettingsRepairsMissingTopLevelSections(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -681,7 +681,7 @@ func TestRefreshProjectRuntimeFromSettingsRepairsMissingTopLevelSections(t *test
 func TestRefreshProjectRuntimeFromSettingsLeavesValidViewModesUnchanged(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -812,7 +812,7 @@ func TestHumanizeSettingsIdentifierHandlesAcronymsAndNumbers(t *testing.T) {
 func TestEnsureProjectRuntimeBootstrappedRebuildsMissingRequiredSection(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -865,7 +865,7 @@ func TestEnsureProjectRuntimeBootstrappedRebuildsMissingRequiredSection(t *testi
 func TestRefreshProjectRuntimeFromSettingsRebuildsMissingRequiredSection(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -918,7 +918,7 @@ func TestRefreshProjectRuntimeFromSettingsRebuildsMissingRequiredSection(t *test
 func TestEnsureProjectRuntimeBootstrappedBackfillsMissingCodeObjsWithinExistingSections(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -1202,11 +1202,11 @@ func settingsProjectViewModeByName(
 func settingsProjectShellTestProject(t *testing.T) projectstate.Project {
 	t.Helper()
 
-	settingsDocument, err := NewDocument()
+	settingsDocument, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
-	projectDocument, err := BuildProjectDocument(settingsDocument)
+	projectDocument, err := buildProjectDocumentWithSharedSettingsPath(settingsDocument, DefaultFileName)
 	if err != nil {
 		t.Fatalf("build settings project document: %v", err)
 	}

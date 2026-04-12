@@ -1129,10 +1129,28 @@ func writeCorruptedSettingsProjectForLauncher(t *testing.T, settaFilesRoot strin
 	if err != nil {
 		t.Fatalf("default settings document: %v", err)
 	}
-	projectDocument, err := settingsstate.BuildProjectDocument(settingsDocument)
+	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
 	if err != nil {
-		t.Fatalf("build settings project document: %v", err)
+		t.Fatalf("open settings runtime: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	settingsProjectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsProjectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+	if err := settingsstate.EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, settingsProjectRuntime); err != nil {
+		t.Fatalf("bootstrap settings project runtime: %v", err)
+	}
+	projectDocument := settingsProjectRuntime.Snapshot().Document
 	settingsProject := projectDocument.Projects[settingsstate.SettingsProjectID]
 	removeLauncherSettingsProjectSectionByName(&settingsProject, "spreadsheetSectionDefault")
 	projectDocument.Projects[settingsstate.SettingsProjectID] = settingsProject

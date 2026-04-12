@@ -9,7 +9,7 @@ import (
 func TestApplySettingsProjectDocumentOverlaysJSONSourceSections(t *testing.T) {
 	t.Parallel()
 
-	base, err := NewDocument()
+	base, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestApplySettingsProjectDocumentOverlaysJSONSourceSections(t *testing.T) {
 func TestApplySettingsProjectDocumentReturnsBaseForEmptySettingsProject(t *testing.T) {
 	t.Parallel()
 
-	base, err := NewDocument()
+	base, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestApplySettingsProjectDocumentReturnsBaseForEmptySettingsProject(t *testi
 func TestApplySettingsProjectDocumentSkipsInvalidEnumValues(t *testing.T) {
 	t.Parallel()
 
-	base, err := NewDocument()
+	base, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}

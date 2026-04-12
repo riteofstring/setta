@@ -1632,7 +1632,7 @@ func writeSendCompletionGuardSetting(t *testing.T, root string, enabled bool) {
 	if err != nil {
 		t.Fatalf("open settings store: %v", err)
 	}
-	document, err := settingsstate.NewDocument()
+	document, err := settingsstate.DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}

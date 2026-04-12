@@ -148,10 +148,6 @@ var settingsViewModeSpecs = []settingsViewModeSpec{
 	},
 }
 
-func BuildProjectDocument(document Document) (projectstate.Document, error) {
-	return buildProjectDocumentWithSharedSettingsPath(document, DefaultFileName)
-}
-
 func buildProjectDocumentWithSharedSettingsPath(
 	document Document,
 	sharedSettingsPath string,

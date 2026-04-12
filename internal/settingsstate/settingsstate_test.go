@@ -42,7 +42,7 @@ func TestNormalizeRawRejectsMissingRequiredFields(t *testing.T) {
 func TestQueriesReadDefaultsAndExplicitValues(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestQueriesReadDefaultsAndExplicitValues(t *testing.T) {
 func TestQueriesRejectInvalidValues(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestQueriesRejectInvalidValues(t *testing.T) {
 func TestAutoBackupPolicyForDocumentReadsDefaultsAndExplicitValues(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestAutoBackupPolicyForDocumentReadsDefaultsAndExplicitValues(t *testing.T)
 func TestAutoBackupPolicyForDocumentRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestAutoBackupPolicyForDocumentRejectsInvalidValues(t *testing.T) {
 func TestValidateDirectSaveDocumentAcceptsCurrentSupportedBranches(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues(t *testin
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			document, err := NewDocument()
+			document, err := DefaultDocument()
 			if err != nil {
 				t.Fatalf("NewDocument returned error: %v", err)
 			}
@@ -282,7 +282,7 @@ func TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues(t *testin
 func TestValidateDirectSaveDocumentRejectsUnknownTopLevelBranch(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestValidateDirectSaveDocumentRejectsUnknownTopLevelBranch(t *testing.T) {
 func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testi
 func TestStructuralMutationSettingsForDocumentRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -369,7 +369,7 @@ func TestStructuralMutationSettingsForDocumentRejectsInvalidValues(t *testing.T)
 		t.Fatalf("expected ErrSettingsValueInvalid for section sizing policy, got %v", err)
 	}
 
-	document, err = NewDocument()
+	document, err = DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestStructuralMutationSettingsForDocumentRejectsInvalidValues(t *testing.T)
 func TestStructuralMutationSettingsForDocumentPreservesTaskBoardNilColumnsSentinelAcrossJSONRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	document, err := NewDocument()
+	document, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("NewDocument returned error: %v", err)
 	}
@@ -489,7 +489,7 @@ func TestStoreLoadResolvesClaimedSlicesFromSettingsProjectAndFallsBackToSharedFi
 	dedicatedGUIPath := filepath.Join(root, "gui-settings.json")
 	settingsProjectPath := filepath.Join(root, projectstate.SettingsFileName)
 
-	defaults, err := NewDocument()
+	defaults, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -553,7 +553,7 @@ func TestStoreLoadCreatesMissingClaimedTargetWithFullDefaultsBeforeRead(t *testi
 	missingGUIPath := filepath.Join(root, "gui-settings.json")
 	settingsProjectPath := filepath.Join(root, projectstate.SettingsFileName)
 
-	defaults, err := NewDocument()
+	defaults, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -620,7 +620,7 @@ func TestStoreFindPathForSettingsSliceResolvesDedicatedJSONSourcePath(t *testing
 	sharedSettingsPath := filepath.Join(root, DefaultFileName)
 	dedicatedGUIPath := filepath.Join(root, "gui-settings.json")
 
-	defaults, err := NewDocument()
+	defaults, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}
@@ -660,7 +660,7 @@ func TestStoreFindPathForSettingsSliceRejectsMissingActiveVariant(t *testing.T) 
 	root := t.TempDir()
 	sharedSettingsPath := filepath.Join(root, DefaultFileName)
 
-	defaults, err := NewDocument()
+	defaults, err := DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}

@@ -285,7 +285,7 @@ func renameRefactorServiceTestProject(t *testing.T) projectstate.Project {
 func renameRefactorSettingsDocument(t *testing.T, mode projectstate.RenameRefactorMode) settingsstate.Document {
 	t.Helper()
 
-	document, err := settingsstate.NewDocument()
+	document, err := settingsstate.DefaultDocument()
 	if err != nil {
 		t.Fatalf("default settings document: %v", err)
 	}

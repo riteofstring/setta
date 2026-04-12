@@ -723,7 +723,7 @@ func newProjectRouteDeploymentTestHandler(
 ) http.Handler {
 	t.Helper()
 
-	settingsDocument, err := settingsstate.NewDocument()
+	settingsDocument, err := settingsstate.DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}

@@ -500,14 +500,32 @@ func TestLoadCompletionGuardEnabledUsesRemappedBackendSlice(t *testing.T) {
 	root := t.TempDir()
 	writeCodexCompletionGuardSetting(t, root, true)
 
-	defaultDocument, err := settingsstate.NewDocument()
+	defaultDocument, err := settingsstate.DefaultDocument()
 	if err != nil {
-		t.Fatalf("new settings document: %v", err)
+		t.Fatalf("default settings document: %v", err)
 	}
-	settingsProjectDocument, err := settingsstate.BuildProjectDocument(defaultDocument)
+	settingsRuntime, err := settingsstate.OpenOverlayRuntime(defaultDocument)
 	if err != nil {
-		t.Fatalf("build settings project document: %v", err)
+		t.Fatalf("open settings runtime: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	settingsProjectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsProjectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+	if err := settingsstate.EnsureProjectRuntimeBootstrapped(context.Background(), settingsRuntime, settingsProjectRuntime); err != nil {
+		t.Fatalf("bootstrap settings project runtime: %v", err)
+	}
+	settingsProjectDocument := settingsProjectRuntime.Snapshot().Document
 	settingsProject, err := settingsProjectDocument.ProjectByID(settingsstate.SettingsProjectID)
 	if err != nil {
 		t.Fatalf("settings project by id: %v", err)
@@ -540,9 +558,9 @@ func TestLoadCompletionGuardEnabledUsesRemappedBackendSlice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open remapped backend settings store: %v", err)
 	}
-	remappedDocument, err := settingsstate.NewDocument()
+	remappedDocument, err := settingsstate.DefaultDocument()
 	if err != nil {
-		t.Fatalf("new remapped settings document: %v", err)
+		t.Fatalf("default remapped settings document: %v", err)
 	}
 	remappedDocument["backend"].(map[string]any)["completionGuardEnabled"] = false
 	if err := remappedStore.Save(context.Background(), remappedDocument); err != nil {

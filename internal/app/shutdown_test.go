@@ -16,7 +16,7 @@ import (
 func TestAppShutdownClosesSettingsStateEvenWhenRuntimeShutdownFails(t *testing.T) {
 	t.Parallel()
 
-	settingsDocument, err := settingsstate.NewDocument()
+	settingsDocument, err := settingsstate.DefaultDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
 	}

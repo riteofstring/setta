@@ -109,27 +109,39 @@ func TestServiceLoadProjectConfigLoadsDedicatedSettingsProjectByName(t *testing.
 		}
 	})
 
-	settingsDocument, err := settingsstate.NewDocument()
+	settingsDocument, err := settingsstate.DefaultDocument()
 	if err != nil {
-		t.Fatalf("new settings document: %v", err)
+		t.Fatalf("default settings document: %v", err)
 	}
-	settingsProjectDocument, err := settingsstate.BuildProjectDocument(settingsDocument)
-	if err != nil {
-		t.Fatalf("build settings project document: %v", err)
-	}
-	settingsRuntime, err := projectstate.OpenOverlayRuntime(settingsProjectDocument)
+	settingsDefaultsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
 	if err != nil {
 		t.Fatalf("open settings overlay runtime: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := settingsRuntime.Close(); err != nil {
+		if err := settingsDefaultsRuntime.Close(); err != nil {
 			t.Fatalf("close settings overlay runtime: %v", err)
 		}
 	})
+	settingsProjectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsProjectRuntime.Close(); err != nil {
+			t.Fatalf("close settings overlay runtime: %v", err)
+		}
+	})
+	if err := settingsstate.EnsureProjectRuntimeBootstrapped(
+		context.Background(),
+		settingsDefaultsRuntime,
+		settingsProjectRuntime,
+	); err != nil {
+		t.Fatalf("bootstrap settings project runtime: %v", err)
+	}
 
 	service, err := NewService(ServiceOptions{
 		ProjectState:         mainRuntime,
-		SettingsProjectState: settingsRuntime,
+		SettingsProjectState: settingsProjectRuntime,
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
