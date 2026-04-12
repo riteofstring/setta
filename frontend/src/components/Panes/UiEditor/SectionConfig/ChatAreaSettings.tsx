@@ -265,12 +265,83 @@ type ContextAndLinksCardProps = {
 type AgenticScopeCardProps = {
   blocks: AgenticScopeBlock[];
 };
+type SectionCoreSummary = {
+  displayName?: string | null;
+  name?: string | null;
+};
+type SectionVariantSummary = {
+  impl: string;
+};
+type SectionImplSummary = {
+  type: SectionTypeEnum;
+};
+type SectionOptionsLookup = {
+  sectionId: string;
+  sections: Record<string, SectionCoreSummary>;
+  sectionVariants: Record<string, SectionVariantSummary>;
+  sectionImpls: Record<string, SectionImplSummary>;
+  sectionVariantMap: Record<string, string>;
+};
 
 function resolveSectionLabel(
   labelsById: Record<string, string>,
   sectionId: string,
 ): string {
   return labelsById[sectionId] ?? sectionId;
+}
+
+function resolveSectionDisplayName(
+  core: SectionCoreSummary,
+  sectionId: string,
+): string {
+  const displayName = core.displayName?.trim();
+  return displayName && displayName.length > 0
+    ? displayName
+    : core.name || sectionId;
+}
+
+function buildSectionLabelsById(
+  sections: Record<string, SectionCoreSummary>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(sections).map(([id, core]) => [
+      id,
+      resolveSectionDisplayName(core, id),
+    ]),
+  );
+}
+
+function buildSectionOptions({
+  sectionId,
+  sections,
+  sectionVariants,
+  sectionImpls,
+  sectionVariantMap,
+}: SectionOptionsLookup): SectionOption[] {
+  const options: SectionOption[] = [];
+  for (const [id, core] of Object.entries(sections)) {
+    if (id === sectionId) {
+      continue;
+    }
+    const variantId = sectionVariantMap[id];
+    if (!variantId) {
+      continue;
+    }
+    const variant = sectionVariants[variantId];
+    if (!variant) {
+      continue;
+    }
+    const impl = sectionImpls[variant.impl];
+    if (!impl) {
+      continue;
+    }
+    options.push({
+      id,
+      name: resolveSectionDisplayName(core, id),
+      type: impl.type,
+    });
+  }
+  return _.sortBy(options, (entry) => entry.name.toLowerCase());
 }
 
 function resolveExecutableLinkedChatEngineConfig(
@@ -1094,43 +1165,21 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       resolveSelectableLLMConfigId(availableConfigGroups, selectedLLMConfigId),
     [availableConfigGroups, selectedLLMConfigId],
   );
-  const sectionLabelsById = useMemo(() => {
-    const labels: Record<string, string> = {};
-    for (const [id, core] of Object.entries(sections)) {
-      const display = core.displayName?.trim();
-      labels[id] = display && display.length > 0 ? display : core.name || id;
-    }
-    return labels;
-  }, [sections]);
-  const sectionOptions = useMemo(() => {
-    const options: Array<{
-      id: string;
-      name: string;
-      type: SectionTypeEnum;
-    }> = [];
-    for (const [id, core] of Object.entries(sections)) {
-      if (id === sectionId) {
-        continue;
-      }
-      const variantId = sectionVariantMap[id];
-      if (!variantId) {
-        continue;
-      }
-      const variant = sectionVariants[variantId];
-      if (!variant) {
-        continue;
-      }
-      const impl = sectionImpls[variant.impl];
-      if (!impl) {
-        continue;
-      }
-      const displayName = core.displayName?.trim();
-      const name =
-        displayName && displayName.length > 0 ? displayName : core.name || id;
-      options.push({ id, name, type: impl.type });
-    }
-    return _.sortBy(options, (entry) => entry.name.toLowerCase());
-  }, [sectionId, sectionImpls, sectionVariantMap, sectionVariants, sections]);
+  const sectionLabelsById = useMemo(
+    () => buildSectionLabelsById(sections),
+    [sections],
+  );
+  const sectionOptions = useMemo(
+    () =>
+      buildSectionOptions({
+        sectionId,
+        sections,
+        sectionVariants,
+        sectionImpls,
+        sectionVariantMap,
+      }),
+    [sectionId, sectionImpls, sectionVariantMap, sectionVariants, sections],
+  );
   const nonChatSectionItems = useMemo<AllItemsType<string>>(() => {
     const items = sectionOptions
       .filter((entry) => entry.type !== SectionTypeEnum.Chat)

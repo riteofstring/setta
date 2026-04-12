@@ -23,8 +23,164 @@ import {
   createSettingsState,
   type ColorPickerChoice,
 } from "utils/generatedTypes";
+
 const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =
   createSettingsState().gui.sectionTagColorChoices;
+const SECTION_TAG_ACTION_BUTTON_CLASS_NAME =
+  "rounded-full border border-setta-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-setta-600 shadow-sm transition hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
+
+type SectionTagColorActionsProps = {
+  canEditCategories: boolean;
+  isResetDisabled: boolean;
+  onResetTagColor: () => void;
+  colorChoices: ColorPickerChoice[];
+  onChangeChoices: (nextChoices: ColorPickerChoice[]) => void;
+};
+type SectionTagColorValueProps = {
+  value: string | null;
+};
+
+function appendSectionTagColorChoice(
+  colorChoices: ColorPickerChoice[],
+): ColorPickerChoice[] {
+  return [...colorChoices, { color: "#3b82f6", description: "" }];
+}
+
+function removeSectionTagColorChoice(
+  colorChoices: ColorPickerChoice[],
+  removeIdx: number,
+): ColorPickerChoice[] {
+  return colorChoices.filter((_, idx) => idx !== removeIdx);
+}
+
+function updateSectionTagColorChoiceColor(
+  colorChoices: ColorPickerChoice[],
+  updateIdx: number,
+  newColor: string,
+): ColorPickerChoice[] {
+  return colorChoices.map((choice, idx) =>
+    idx === updateIdx ? { ...choice, color: newColor } : choice,
+  );
+}
+
+function updateSectionTagColorChoiceDescription(
+  colorChoices: ColorPickerChoice[],
+  updateIdx: number,
+  description: string,
+): ColorPickerChoice[] {
+  return colorChoices.map((choice, idx) =>
+    idx === updateIdx ? { ...choice, description } : choice,
+  );
+}
+
+function SectionTagColorActions({
+  canEditCategories,
+  isResetDisabled,
+  onResetTagColor,
+  colorChoices,
+  onChangeChoices,
+}: SectionTagColorActionsProps) {
+  const categoriesTitle = canEditCategories
+    ? "Edit reusable color categories"
+    : "Color categories can only be edited in IDE mode";
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        className={SECTION_TAG_ACTION_BUTTON_CLASS_NAME}
+        onClick={onResetTagColor}
+        disabled={isResetDisabled}
+        title="Reset to default (no tag color)"
+      >
+        Reset
+      </button>
+
+      <StandardPopover
+        arrowClasses="fill-white dark:fill-setta-800"
+        contentClasses="z-50"
+        trigger={
+          <button
+            type="button"
+            className={SECTION_TAG_ACTION_BUTTON_CLASS_NAME}
+            disabled={!canEditCategories}
+            title={categoriesTitle}
+          >
+            Categories
+          </button>
+        }
+      >
+        <div className="w-[320px] max-w-[min(90vw,320px)] rounded-lg bg-white p-3 shadow-md dark:bg-setta-800">
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wide text-setta-600 dark:text-setta-300">
+              Color Categories
+            </h4>
+            <button
+              type="button"
+              className={SECTION_TAG_ACTION_BUTTON_CLASS_NAME}
+              onClick={() => onChangeChoices(DEFAULT_SECTION_TAG_COLOR_CHOICES)}
+              disabled={!canEditCategories}
+              title="Reset categories to defaults"
+            >
+              Reset
+            </button>
+          </div>
+          <AvailableColors
+            colorChoices={colorChoices}
+            addColor={() =>
+              onChangeChoices(appendSectionTagColorChoice(colorChoices))
+            }
+            removeColor={(removeIdx) =>
+              onChangeChoices(
+                removeSectionTagColorChoice(colorChoices, removeIdx),
+              )
+            }
+            updateColor={(updateIdx, newColor) =>
+              onChangeChoices(
+                updateSectionTagColorChoiceColor(
+                  colorChoices,
+                  updateIdx,
+                  newColor,
+                ),
+              )
+            }
+            updateDescription={(updateIdx, description) =>
+              onChangeChoices(
+                updateSectionTagColorChoiceDescription(
+                  colorChoices,
+                  updateIdx,
+                  description,
+                ),
+              )
+            }
+            isDisabled={!canEditCategories}
+          />
+        </div>
+      </StandardPopover>
+    </div>
+  );
+}
+
+function SectionTagColorValue({ value }: SectionTagColorValueProps) {
+  if (!value) {
+    return (
+      <p className="text-[11px] font-semibold text-setta-500 dark:text-setta-500">
+        None
+      </p>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10 dark:ring-white/10"
+        style={{ backgroundColor: value }}
+      />
+      <p className="truncate font-mono text-[11px] text-setta-600 dark:text-setta-400">
+        {value}
+      </p>
+    </div>
+  );
+}
+
 export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
   const projectConfigId = getCurrProjectConfigId();
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -114,88 +270,13 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
         <h3 className="text-xs font-bold uppercase tracking-wide text-setta-600 dark:text-setta-400">
           Color Tag
         </h3>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-full border border-setta-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-setta-600 shadow-sm transition hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850"
-            onClick={() => setTagColor(null)}
-            disabled={isResetDisabled}
-            title="Reset to default (no tag color)"
-          >
-            Reset
-          </button>
-
-          <StandardPopover
-            arrowClasses="fill-white dark:fill-setta-800"
-            contentClasses="z-50"
-            trigger={
-              <button
-                type="button"
-                className="rounded-full border border-setta-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-setta-600 shadow-sm transition hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850"
-                disabled={!canEditCategories}
-                title={
-                  canEditCategories
-                    ? "Edit reusable color categories"
-                    : "Color categories can only be edited in IDE mode"
-                }
-              >
-                Categories
-              </button>
-            }
-          >
-            <div className="w-[320px] max-w-[min(90vw,320px)] rounded-lg bg-white p-3 shadow-md dark:bg-setta-800">
-              <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wide text-setta-600 dark:text-setta-300">
-                  Color Categories
-                </h4>
-                <button
-                  type="button"
-                  className="rounded-full border border-setta-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-setta-600 shadow-sm transition hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850"
-                  onClick={() =>
-                    setSectionTagColorChoices(DEFAULT_SECTION_TAG_COLOR_CHOICES)
-                  }
-                  disabled={!canEditCategories}
-                  title="Reset categories to defaults"
-                >
-                  Reset
-                </button>
-              </div>
-              <AvailableColors
-                colorChoices={sectionTagColorChoices}
-                addColor={() =>
-                  setSectionTagColorChoices([
-                    ...sectionTagColorChoices,
-                    { color: "#3b82f6", description: "" },
-                  ])
-                }
-                removeColor={(removeIdx) =>
-                  setSectionTagColorChoices(
-                    sectionTagColorChoices.filter(
-                      (_, idx) => idx !== removeIdx,
-                    ),
-                  )
-                }
-                updateColor={(updateIdx, newColor) =>
-                  setSectionTagColorChoices(
-                    sectionTagColorChoices.map((choice, idx) =>
-                      idx === updateIdx
-                        ? { ...choice, color: newColor }
-                        : choice,
-                    ),
-                  )
-                }
-                updateDescription={(updateIdx, description) =>
-                  setSectionTagColorChoices(
-                    sectionTagColorChoices.map((choice, idx) =>
-                      idx === updateIdx ? { ...choice, description } : choice,
-                    ),
-                  )
-                }
-                isDisabled={!canEditCategories}
-              />
-            </div>
-          </StandardPopover>
-        </div>
+        <SectionTagColorActions
+          canEditCategories={canEditCategories}
+          isResetDisabled={isResetDisabled}
+          onResetTagColor={() => setTagColor(null)}
+          colorChoices={sectionTagColorChoices}
+          onChangeChoices={setSectionTagColorChoices}
+        />
       </div>
 
       <div className="flex items-center gap-2">
@@ -213,21 +294,7 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
         </div>
 
         <div className="min-w-0">
-          {localTagColor ? (
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10 dark:ring-white/10"
-                style={{ backgroundColor: localTagColor }}
-              />
-              <p className="truncate font-mono text-[11px] text-setta-600 dark:text-setta-400">
-                {localTagColor}
-              </p>
-            </div>
-          ) : (
-            <p className="text-[11px] font-semibold text-setta-500 dark:text-setta-500">
-              None
-            </p>
-          )}
+          <SectionTagColorValue value={localTagColor} />
         </div>
       </div>
     </div>

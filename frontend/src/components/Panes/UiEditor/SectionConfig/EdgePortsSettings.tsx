@@ -35,7 +35,11 @@ import {
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   BaseDictSectionImplUnion,
   isBaseDictSectionImpl,
@@ -50,6 +54,32 @@ type EdgeOutputPort = {
   id: string;
   accessor: string;
 };
+type JsonSourcePathSetter = (value: string) => void;
+type JsonSourceErrorSetter = (value: string | null) => void;
+type JsonSourcePathUpdateResponse = ResponseDataAndStatus<unknown>;
+type JsonSourcePathFailureArgs = {
+  frontendOpId: string;
+  sectionId: string;
+  targetVariantId: string;
+  nextKeys: string[];
+  previousKeys: string[];
+  previousPath: string;
+  response: JsonSourcePathUpdateResponse;
+  setJsonSourcePath: JsonSourcePathSetter;
+  setJsonSourceError: JsonSourceErrorSetter;
+};
+type JsonSourcePathUpdateArgs = {
+  frontendOpId: string;
+  projectConfigId: string;
+  sectionId: string;
+  targetVariantId: string;
+  nextKeys: string[];
+  previousKeys: string[];
+  previousPath: string;
+  setJsonSourcePath: JsonSourcePathSetter;
+  setJsonSourceError: JsonSourceErrorSetter;
+};
+
 function formatJsonSourcePath(keys: string[]) {
   return keys.join(".");
 }
@@ -104,8 +134,131 @@ function buildParamLabels(
     return { id: paramId, label };
   });
 }
+
+function clearPendingOperation(frontendOpId: string) {
+  usePendingOperations.setState((state) => ({
+    pending: state.pending.filter((op) => op.opId !== frontendOpId),
+  }));
+}
+
+function resolveJsonSourcePathErrorMessage(
+  response: JsonSourcePathUpdateResponse,
+): string {
+  if (!response.hasResponse) {
+    return "Could not reach the backend.";
+  }
+  if (response.status === 400) {
+    return getErrorDetail(response.data) ?? "Invalid JSON source path.";
+  }
+  if (response.status === 403) {
+    return getErrorDetail(response.data) ?? "JSON source keys are read-only.";
+  }
+  return "Failed to update JSON source path.";
+}
+
+function rollbackJsonSourceKeysUpdate({
+  sectionId,
+  targetVariantId,
+  previousKeys,
+  previousPath,
+  response,
+  setJsonSourcePath,
+  setJsonSourceError,
+}: Omit<JsonSourcePathFailureArgs, "frontendOpId" | "nextKeys">) {
+  useProjectState.setState((state) => {
+    setSectionVariantImplValue<BaseDictSectionImplUnion>(
+      state,
+      sectionId,
+      targetVariantId,
+      {
+        jsonSourceKeys: previousKeys,
+      },
+    );
+  });
+  if (
+    getCurrSectionVariantId(useProjectState.getState(), sectionId) !==
+    targetVariantId
+  ) {
+    return;
+  }
+  setJsonSourcePath(previousPath);
+  setJsonSourceError(resolveJsonSourcePathErrorMessage(response));
+}
+
+function handleJsonSourcePathUpdateFailure({
+  frontendOpId,
+  sectionId,
+  targetVariantId,
+  nextKeys,
+  previousKeys,
+  previousPath,
+  response,
+  setJsonSourcePath,
+  setJsonSourceError,
+}: JsonSourcePathFailureArgs) {
+  clearPendingOperation(frontendOpId);
+  if (!shouldRollbackJsonSourceKeys(sectionId, targetVariantId, nextKeys)) {
+    return;
+  }
+  rollbackJsonSourceKeysUpdate({
+    sectionId,
+    targetVariantId,
+    previousKeys,
+    previousPath,
+    response,
+    setJsonSourcePath,
+    setJsonSourceError,
+  });
+}
+
+async function sendJsonSourcePathUpdate({
+  frontendOpId,
+  projectConfigId,
+  sectionId,
+  targetVariantId,
+  nextKeys,
+  previousKeys,
+  previousPath,
+  setJsonSourcePath,
+  setJsonSourceError,
+}: JsonSourcePathUpdateArgs): Promise<JsonSourcePathUpdateResponse> {
+  const response = await callOpenAPI(
+    setVariantJsonSourceKeys({
+      body: {
+        projectConfigId,
+        sectionId,
+        variantId: targetVariantId,
+        jsonSourceKeys: nextKeys,
+        frontendOpId,
+      },
+    } as Parameters<typeof setVariantJsonSourceKeys>[0]),
+  );
+  if (!res200(response)) {
+    handleJsonSourcePathUpdateFailure({
+      frontendOpId,
+      sectionId,
+      targetVariantId,
+      nextKeys,
+      previousKeys,
+      previousPath,
+      response,
+      setJsonSourcePath,
+      setJsonSourceError,
+    });
+    return response;
+  }
+  if (
+    getCurrSectionVariantId(useProjectState.getState(), sectionId) ===
+    targetVariantId
+  ) {
+    setJsonSourceError(null);
+  }
+  return response;
+}
+
 export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
   const { canEditStructure, canEditVariants } = useShareCapabilities();
+  const projectConfigId = getCurrProjectConfigId();
   const { edgeInputParams, edgeOutputPorts, jsonSourceKeys, isJsonSource } =
     useProjectState((state) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -300,67 +453,18 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
           },
         );
       },
-      send: async (frontendOpId) => {
-        const res = await callOpenAPI(
-          setVariantJsonSourceKeys({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              variantId: targetVariantId,
-              jsonSourceKeys: nextKeys,
-              frontendOpId,
-            },
-          } as Parameters<typeof setVariantJsonSourceKeys>[0]),
-        );
-        if (!res200(res)) {
-          usePendingOperations.setState((state) => ({
-            pending: state.pending.filter((op) => op.opId !== frontendOpId),
-          }));
-          const shouldRollback = shouldRollbackJsonSourceKeys(
-            sectionId,
-            targetVariantId,
-            nextKeys,
-          );
-          if (shouldRollback) {
-            useProjectState.setState((state) => {
-              setSectionVariantImplValue<BaseDictSectionImplUnion>(
-                state,
-                sectionId,
-                targetVariantId,
-                {
-                  jsonSourceKeys: previousKeys,
-                },
-              );
-            });
-            const activeVariantId = getCurrSectionVariantId(
-              useProjectState.getState(),
-              sectionId,
-            );
-            if (activeVariantId === targetVariantId) {
-              setJsonSourcePath(previousPath);
-              if (!res.hasResponse) {
-                setJsonSourceError("Could not reach the backend.");
-              } else if (res.status === 400) {
-                setJsonSourceError(
-                  getErrorDetail(res.data) ?? "Invalid JSON source path.",
-                );
-              } else if (res.status === 403) {
-                setJsonSourceError(
-                  getErrorDetail(res.data) ?? "JSON source keys are read-only.",
-                );
-              } else {
-                setJsonSourceError("Failed to update JSON source path.");
-              }
-            }
-          }
-        } else if (
-          getCurrSectionVariantId(useProjectState.getState(), sectionId) ===
-          targetVariantId
-        ) {
-          setJsonSourceError(null);
-        }
-        return res;
-      },
+      send: (frontendOpId) =>
+        sendJsonSourcePathUpdate({
+          frontendOpId,
+          projectConfigId,
+          sectionId,
+          targetVariantId,
+          nextKeys,
+          previousKeys,
+          previousPath,
+          setJsonSourcePath,
+          setJsonSourceError,
+        }),
     });
     return opId;
   }
@@ -403,7 +507,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         const res = await callOpenAPI(
           outputAccessorCompletion({
             body: {
-              projectConfigId: getCurrProjectConfigId(),
+              projectConfigId,
               sectionId,
               fullText,
               position,
@@ -415,7 +519,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         }
         return [];
       }),
-    [sectionId],
+    [projectConfigId, sectionId],
   );
   const tooltipParentDivId = `edge-output-ports-${sectionId}`;
   const edgeInputParamIdSet = useMemo(
