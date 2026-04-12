@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 02:23 UTC
+Last updated: 2026-04-13 02:33 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,42 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `378` landed one bounded mounted delete/hide button selector
+  reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Header/DeleteOrHideButton.tsx`
+      so the selector for `{ visibility, isEditingViewMode }` now uses
+      `zustand/shallow` equality instead of returning a fresh object with no
+      equality guard on every `useProjectState` write
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Header/DeleteOrHideButton.test.tsx`
+      to prove a mounted `DeleteOrHideButton` stays out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when the
+      subscribed section visibility changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-delete-or-hide-button-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/DeleteOrHideButton.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/DeleteOrHideButton.tsx src/components/Section/Header/DeleteOrHideButton.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> settings shell, visible section surfaces, and bottom settings tabs
+         rendered normally with no obvious blank-screen or missing-chrome
+         regression after bootstrap and load
+  - reading:
+    - this is another real mounted section-chrome selector reduction on the
+      live canary, not a harness-only pass
+    - the old selector rebuilt a new object on every project-state write, so
+      unrelated store churn could still fan into every mounted hide/delete
+      control
+  - next default frontier:
+    - stay on the earliest product-facing canary gate and identify the next
+      larger mounted section-body/chrome subscriber or shared write fan-out on
+      the live worktree, using the normalized lane only as regression coverage
+      rather than reopening backend warm-load work
 
 - item `377` landed one bounded mounted code-area diagnostics selector
   reduction on the live canary lane:

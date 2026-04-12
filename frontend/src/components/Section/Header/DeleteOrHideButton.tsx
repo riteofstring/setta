@@ -11,6 +11,7 @@ import {
   route_delete_sections,
   route_toggle_section_visibility,
 } from "utils/generatedEndpoints";
+import { shallow } from "zustand/shallow";
 
 type DeleteOrHideButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   sectionId: string;
@@ -52,7 +53,7 @@ export function DeleteOrHideButton({
       visibility,
       isEditingViewMode: state.projectConfig.isEditingViewMode,
     };
-  });
+  }, shallow);
 
   const canToggleVisibility = canEditStructure;
 
