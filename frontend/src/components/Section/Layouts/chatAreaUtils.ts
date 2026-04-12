@@ -14,6 +14,38 @@ import {
   EngineTypeEnum,
 } from "utils/generatedTypes";
 
+type ComparableChatState = Pick<
+  ChatSectionState,
+  "messages" | "waitingForResponse"
+> & {
+  inputText: string;
+  toolCallArguments: NonNullable<ChatSectionState["toolCallArguments"]>;
+};
+
+function getComparableChatState(state: ChatSectionState): ComparableChatState {
+  return {
+    messages: state.messages ?? [],
+    inputText: state.inputText ?? "",
+    waitingForResponse: state.waitingForResponse,
+    toolCallArguments: state.toolCallArguments ?? {},
+  };
+}
+
+function getNormalizedActiveBranchId(state: ChatSectionState): string | null {
+  if (typeof state.activeBranchId !== "string") {
+    return null;
+  }
+  const activeBranchId = state.activeBranchId.trim();
+  return activeBranchId === "" ? null : activeBranchId;
+}
+
+function hasPersistedBranchState(state: ChatSectionState): boolean {
+  return (
+    Object.keys(state.branches ?? {}).length > 0 ||
+    getNormalizedActiveBranchId(state) !== null
+  );
+}
+
 export function shouldPersistInitializedChatState({
   currentState,
   initializedState,
@@ -21,31 +53,12 @@ export function shouldPersistInitializedChatState({
   currentState: ChatSectionState;
   initializedState: ChatSectionState;
 }): boolean {
-  const currentBranches = currentState.branches ?? {};
-  if (Object.keys(currentBranches).length > 0) {
-    return false;
-  }
-  const currentActiveBranchId =
-    typeof currentState.activeBranchId === "string" &&
-    currentState.activeBranchId.trim() !== ""
-      ? currentState.activeBranchId.trim()
-      : null;
-  if (currentActiveBranchId !== null) {
+  if (hasPersistedBranchState(currentState)) {
     return false;
   }
   return _.isEqual(
-    {
-      messages: currentState.messages ?? [],
-      inputText: currentState.inputText ?? "",
-      waitingForResponse: currentState.waitingForResponse,
-      toolCallArguments: currentState.toolCallArguments ?? {},
-    },
-    {
-      messages: initializedState.messages ?? [],
-      inputText: initializedState.inputText ?? "",
-      waitingForResponse: initializedState.waitingForResponse,
-      toolCallArguments: initializedState.toolCallArguments ?? {},
-    },
+    getComparableChatState(currentState),
+    getComparableChatState(initializedState),
   );
 }
 

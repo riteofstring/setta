@@ -232,6 +232,57 @@ describe("shouldPersistInitializedChatState", () => {
     ).toBe(false);
   });
 
+  it("treats blank active branch ids as still branchless", () => {
+    expect(
+      shouldPersistInitializedChatState({
+        currentState: {
+          messages: [
+            {
+              id: "message-1",
+              role: "user",
+              content: [createMessageTextContent({ text: "hello" })],
+              attachments: [],
+            },
+          ],
+          inputText: "Draft input",
+          waitingForResponse: false,
+          toolCallArguments: {},
+          activeBranchId: "   ",
+          branches: {},
+        },
+        initializedState: {
+          messages: [
+            {
+              id: "message-1",
+              role: "user",
+              content: [createMessageTextContent({ text: "hello" })],
+              attachments: [],
+            },
+          ],
+          inputText: "Draft input",
+          waitingForResponse: false,
+          toolCallArguments: {},
+          activeBranchId: "branch-1",
+          branches: {
+            "branch-1": {
+              messages: [
+                {
+                  id: "message-1",
+                  role: "user",
+                  content: [createMessageTextContent({ text: "hello" })],
+                  attachments: [],
+                },
+              ],
+              createdAt: 42,
+              parentBranchId: null,
+              branchFromMessageId: null,
+            },
+          },
+        },
+      }),
+    ).toBe(true);
+  });
+
   it("skips stale auto-initialized state after the source messages change", () => {
     expect(
       shouldPersistInitializedChatState({
