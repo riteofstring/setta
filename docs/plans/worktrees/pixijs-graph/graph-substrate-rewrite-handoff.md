@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 23:40 UTC
+Last updated: 2026-04-12 23:49 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,52 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `363` landed one bounded direct-`/settings` loading-state surfacing
+  slice on the canonical `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in:
+    - `frontend/src/components/Pages/MainContainerCore.tsx`
+      so the project-route loading phase now renders an explicit
+      `project-surface-loading-state` with `Loading project...` /
+      `Waiting for project data to load.` instead of the effectively blank
+      shell from the generic absolute spinner
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/MainContainerCore.test.tsx`
+      to prove the explicit loading state renders while `doneLoading` is false
+      and that the ready / 404 branches still render correctly
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/MainContainerCore.test.tsx`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/MainContainerCore.tsx src/components/Pages/MainContainerCore.test.tsx`
+      -> passed
+    - one-off fresh-context headless Playwright trace on direct
+      `http://127.0.0.1:3075/settings?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+      -> observed `POST /api/loadProjectConfig` issued promptly but not
+         returned until roughly `10s` after navigation
+      -> page showed `PREPARING SETTA Loading settings…`, then an empty-looking
+         project surface window before the project load resolved
+      -> once `loadProjectConfig` returned `200`, the settings graph mounted
+         and the canary became visible
+    - fresh-context headless CDP check on the same direct `/settings` path
+      -> visible loading copy was
+         `Connected to server Loading project... Waiting for project data to load.`
+      -> loading state cleared after roughly `26.6s`
+      -> graph surface mounted afterward with canvas + canary selectors present
+  - reading:
+    - the current worktree runtime is not stuck forever on direct `/settings`
+      in this session; the earlier blank-shell classification was masking a
+      slow but eventually successful project-load path
+    - the concrete owner named by this pass is direct `/settings`
+      `loadProjectConfig` latency, not another missed frontend route trigger
+    - this slice makes the Gate 0 wait state explicit so later passes can
+      distinguish slow project load from renderer failure during live checks
+  - next default frontier:
+    - trace the backend-side `load_project_config(...)` path for the direct
+      `/settings` canary to identify which step is consuming the current
+      `~8-10s` before the first successful project payload returns
+    - keep the focus on the direct `/settings` path; do not reopen wait-helper
+      or bootstrap-helper churn unless that backend trace points back there
 
 - item `362` landed one bounded direct-`/settings` project-load tail split on
   the canonical `rotaryParamCodeObjDefault` lane:

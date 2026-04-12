@@ -75,6 +75,51 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 23:49 UTC
+
+- item `363` landed one bounded direct-`/settings` loading-state surfacing
+  slice on the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/components/Pages/MainContainerCore.tsx` so the
+    project route now renders an explicit
+    `project-surface-loading-state` with
+    `Loading project...` / `Waiting for project data to load.`
+    while `useLoadProjectConfig()` is still resolving instead of showing the
+    effectively blank shell from the generic absolute spinner
+  - added focused coverage in
+    `frontend/src/components/Pages/MainContainerCore.test.tsx`
+    for the loading, ready, and 404 branches
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/MainContainerCore.test.tsx`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/MainContainerCore.tsx src/components/Pages/MainContainerCore.test.tsx`
+      -> passed
+    - one-off fresh-context headless Playwright trace on direct
+      `http://127.0.0.1:3075/settings?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+      -> observed `POST /api/loadProjectConfig` start promptly but not return
+         until about `10s`
+      -> page showed the global loading screen first, then an empty-looking
+         project surface window until the project payload returned
+      -> after the `200` response, the settings canary mounted
+    - fresh-context headless CDP check on the same direct `/settings` path
+      -> visible loading copy was
+         `Connected to server Loading project... Waiting for project data to load.`
+      -> loading state cleared after roughly `26.6s`
+      -> graph surface mounted afterward with canvas + canary selectors present
+  - reading:
+    - this runtime is slow on direct `/settings`, but not permanently blank in
+      the checked session
+    - the concrete owner named by this pass is backend
+      `load_project_config(...)` latency on the direct canary path, not
+      another missed frontend route trigger
+    - surfacing the wait state keeps future Gate 0 checks from misclassifying
+      slow load as renderer failure
+  - next:
+    - trace backend `load_project_config(...)` on the direct `/settings`
+      canary and identify the blocking step that is consuming the current
+      `~8-10s` before the first project payload returns
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 23:40 UTC
 
 - item `362` landed one bounded direct-`/settings` project-load tail split on
