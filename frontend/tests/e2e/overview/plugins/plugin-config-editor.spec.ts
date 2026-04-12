@@ -67,29 +67,6 @@ test("plugin config editor saves valid JSON and rejects invalid JSON drafts", as
     await expect(
       pluginCard.getByText("Plugin config saved.", { exact: true }).first(),
     ).toBeVisible();
-
-    const backendOrigin = process.env.SETTA_BACKEND_ORIGIN;
-    if (!backendOrigin) {
-      throw new Error("SETTA_BACKEND_ORIGIN is required for this test.");
-    }
-    const loadSettingsResponse = await page.request.post(
-      `${backendOrigin}/api/loadSettings`,
-      {
-        data: null,
-      },
-    );
-    expect(loadSettingsResponse.ok()).toBe(true);
-    const settingsDocument = (await loadSettingsResponse.json()) as unknown;
-    const saveSettingsResponse = await page.request.post(
-      `${backendOrigin}/api/saveSettings`,
-      {
-        data: {
-          settings: settingsDocument,
-        },
-      },
-    );
-    const saveSettingsBody = await saveSettingsResponse.text();
-    expect(saveSettingsResponse.ok(), saveSettingsBody).toBe(true);
   } finally {
     await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-full",

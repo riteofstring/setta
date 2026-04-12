@@ -1,17 +1,17 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { textFieldCompletion } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
+import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
+
 export function TextInputCodeMirror({
   sectionId,
   paramInfoId,
@@ -39,6 +39,7 @@ export function TextInputCodeMirror({
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
+
   function localOnBlur() {
     // hack to prevent codemirror from
     // blocking other inputs on blur
@@ -49,6 +50,7 @@ export function TextInputCodeMirror({
     }, 0);
     onBlur?.();
   }
+
   // Has to be onMouseDownCapture to avoid section outline flashing
   // when section is locked.
   function localOnMouseDownCapture(event) {
@@ -62,6 +64,7 @@ export function TextInputCodeMirror({
     }
     onMouseDown?.(event);
   }
+
   // focused via tab key
   function onFocus() {
     if (isDisabled) {
@@ -71,6 +74,7 @@ export function TextInputCodeMirror({
       setActivationEvent("tab");
     }
   }
+
   return (
     <>
       {!realIsInitialized && (
@@ -115,7 +119,8 @@ export function TextInputCodeMirror({
     </>
   );
 }
-function resolveTooltipParentDivId(
+
+export function resolveTooltipParentDivId(
   tooltipParentDivId: string | null | undefined,
 ): string | null {
   if (tooltipParentDivId === undefined) {
@@ -123,6 +128,7 @@ function resolveTooltipParentDivId(
   }
   return tooltipParentDivId;
 }
+
 function CoreCodeMirror({
   sectionId,
   paramInfoId,
@@ -153,12 +159,14 @@ function CoreCodeMirror({
   const resolvedTooltipParentDivId =
     resolveTooltipParentDivId(tooltipParentDivId);
   const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
+
   const resolvedCompletionsFn = useCallback(
     shouldAutocomplete
       ? completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId)
       : () => null,
     [sectionId, paramInfoId, shouldAutocomplete, completionsFn],
   );
+
   const extensions = getExtensions({
     parent: tooltipParent,
     language,
@@ -170,6 +178,7 @@ function CoreCodeMirror({
     onTab,
     onEscape,
   });
+
   const onCreateEditor = getOnCreateEditor({
     initialEvent,
     setRealIsInitialized,
@@ -177,6 +186,7 @@ function CoreCodeMirror({
     value,
     defaultVal,
   });
+
   return (
     <CodeMirror
       id={divId}
@@ -199,6 +209,7 @@ function CoreCodeMirror({
     />
   );
 }
+
 function getTextFieldCompletionsFn(
   sectionId: string,
   paramInfoId: string | null,
@@ -208,23 +219,23 @@ function getTextFieldCompletionsFn(
       sectionId,
       paramInfoId,
     });
+
     const projectConfigId = getCurrProjectConfigId();
-    const res = await callOpenAPI(
-      textFieldCompletion({
-        body: {
-          projectConfigId,
-          sectionId,
-          paramInfoId,
-          fullText,
-          position,
-        },
-      } as Parameters<typeof textFieldCompletion>[0]),
-    );
+
+    const res = await route_text_field_completion({
+      projectConfigId,
+      sectionId,
+      paramInfoId,
+      fullText,
+      position,
+    });
+
     setToNotWaiting();
     if (res200(res)) {
       return res.data;
     }
     return [];
   };
+
   return wrappedCompletionsFn(fn);
 }
