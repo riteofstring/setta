@@ -3,19 +3,26 @@ import {
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
 import {
+  ProjectChatUIConfig,
+  type ChatPermissionMode,
+} from "utils/generatedTypes";
+import {
   buildAppGenerationSlashCommandDefinitions,
   getAppGenerationSlashCommandByAction,
   resolveAppGenerationModeForSlashAction,
   type AppGenerationSlashCommandAction,
 } from "./appGenerationSlashCommands";
 
-const CHAT_PERMISSION_MODES = [
-  "minimal",
-  "yolo",
-  "config_toml_custom",
-] as const;
+const CHAT_PERMISSION_MODES = ProjectChatUIConfig.permissionModeOptions.map(
+  (option) => option.value,
+);
+const CHAT_PERMISSION_MODE_USAGE = CHAT_PERMISSION_MODES.join("|");
+const CHAT_PERMISSION_MODE_SUMMARY =
+  CHAT_PERMISSION_MODES.length > 1
+    ? `${CHAT_PERMISSION_MODES.slice(0, -1).join(", ")}, or ${CHAT_PERMISSION_MODES.at(-1)}`
+    : CHAT_PERMISSION_MODES[0] ?? "";
 
-export type ChatPermissionModeValue = (typeof CHAT_PERMISSION_MODES)[number];
+export type ChatPermissionModeValue = ChatPermissionMode;
 
 export type ManagedChatExecutionSettings = {
   permissionMode: ChatPermissionModeValue;
@@ -54,26 +61,17 @@ export function createManagedExecutionControlHandlers(
   };
 }
 
-export function resolvePermissionModeArg(
+function resolvePermissionModeArg(
   rawArg: string | undefined,
 ): ChatPermissionModeValue | null {
   if (!rawArg) {
     return null;
   }
   const normalized = rawArg.trim().toLowerCase().replaceAll(".", "_");
-  if (normalized === "config_toml_custom") {
-    return "config_toml_custom";
-  }
-  if (normalized === "minimal") {
-    return "minimal";
-  }
-  if (normalized === "yolo") {
-    return "yolo";
-  }
-  return null;
+  return CHAT_PERMISSION_MODES.find((mode) => mode === normalized) ?? null;
 }
 
-export function resolveToggleArg(
+function resolveToggleArg(
   rawArg: string | undefined,
   currentValue: boolean,
 ): boolean | null {
@@ -187,7 +185,7 @@ const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
   permissions: {
     command: "/permissions",
     action: "permissions",
-    summary: "Set permissions mode: minimal, yolo, or config_toml_custom.",
+    summary: `Set permissions mode: ${CHAT_PERMISSION_MODE_SUMMARY}.`,
   },
   search: {
     command: "/search",
@@ -201,29 +199,53 @@ const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
   },
 };
 
+function appendSlashCommandIfEnabled(
+  commands: ChatSlashCommandDefinition[],
+  enabled: boolean,
+  command: ChatSlashCommandDefinition,
+) {
+  if (enabled) {
+    commands.push(command);
+  }
+}
+
+function appendSlashCommandsIfEnabled(
+  commands: ChatSlashCommandDefinition[],
+  enabled: boolean,
+  nextCommands: ChatSlashCommandDefinition[],
+) {
+  if (enabled) {
+    commands.push(...nextCommands);
+  }
+}
+
 export function buildChatSlashCommands(
   capabilities: ChatSlashCommandCapabilities = {},
 ): ChatSlashCommandDefinition[] {
-  const includeModel = capabilities.model ?? true;
-  const includePermissions = capabilities.permissions ?? true;
-  const includeSearch = capabilities.search ?? true;
-  const includeAppGenerationModes = capabilities.appGenerationModes ?? false;
   const commands: ChatSlashCommandDefinition[] = [
     CHAT_SLASH_COMMAND_DEFINITIONS.new,
     CHAT_SLASH_COMMAND_DEFINITIONS.resume,
   ];
-  if (includeAppGenerationModes) {
-    commands.push(...buildAppGenerationSlashCommandDefinitions());
-  }
-  if (includeModel) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.model);
-  }
-  if (includePermissions) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.permissions);
-  }
-  if (includeSearch) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.search);
-  }
+  appendSlashCommandsIfEnabled(
+    commands,
+    capabilities.appGenerationModes ?? false,
+    buildAppGenerationSlashCommandDefinitions(),
+  );
+  appendSlashCommandIfEnabled(
+    commands,
+    capabilities.model ?? true,
+    CHAT_SLASH_COMMAND_DEFINITIONS.model,
+  );
+  appendSlashCommandIfEnabled(
+    commands,
+    capabilities.permissions ?? true,
+    CHAT_SLASH_COMMAND_DEFINITIONS.permissions,
+  );
+  appendSlashCommandIfEnabled(
+    commands,
+    capabilities.search ?? true,
+    CHAT_SLASH_COMMAND_DEFINITIONS.search,
+  );
   commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.help);
   return commands;
 }
@@ -233,6 +255,105 @@ export function formatSlashCommandHelp(
 ): string {
   const commandList = commands.map((entry) => entry.command).join(", ");
   return `Commands: ${commandList}.`;
+}
+
+async function executeResumeSlashCommand({
+  onResumeLatestChat,
+  resumeFeedback,
+}: Pick<
+  ManagedChatSlashCommandArgs,
+  "onResumeLatestChat" | "resumeFeedback"
+>): Promise<ChatSlashCommandExecutionResult> {
+  const resumed = await onResumeLatestChat();
+  return resumed
+    ? { feedback: resumeFeedback.success }
+    : {
+        feedback: resumeFeedback.notFound,
+        keepInput: true,
+      };
+}
+
+function executePermissionsSlashCommand({
+  command,
+  onSetPermissionMode,
+}: Pick<
+  ManagedChatSlashCommandArgs,
+  "command" | "onSetPermissionMode"
+>): ChatSlashCommandExecutionResult {
+  const nextMode = resolvePermissionModeArg(command.args[0]);
+  if (!nextMode) {
+    return {
+      feedback: `Usage: /permissions ${CHAT_PERMISSION_MODE_USAGE}`,
+      keepInput: true,
+    };
+  }
+  onSetPermissionMode(nextMode);
+  return { feedback: `Permissions set to ${nextMode}.` };
+}
+
+function executeSearchSlashCommand({
+  command,
+  searchEnabled,
+  onSetSearchEnabled,
+}: Pick<
+  ManagedChatSlashCommandArgs,
+  "command" | "searchEnabled" | "onSetSearchEnabled"
+>): ChatSlashCommandExecutionResult {
+  if (
+    typeof searchEnabled !== "boolean" ||
+    typeof onSetSearchEnabled !== "function"
+  ) {
+    return false;
+  }
+  const nextValue = resolveToggleArg(command.args[0], searchEnabled);
+  if (nextValue === null) {
+    return {
+      feedback: "Usage: /search on|off",
+      keepInput: true,
+    };
+  }
+  onSetSearchEnabled(nextValue);
+  return { feedback: `Search ${nextValue ? "enabled" : "disabled"}.` };
+}
+
+function executeAppGenerationSlashCommand(
+  command: ChatSlashCommandInput,
+): ChatSlashCommandExecutionResult {
+  const nextMode = resolveAppGenerationModeForSlashAction(command.action);
+  const appGenerationCommand = getAppGenerationSlashCommandByAction(
+    command.action,
+  );
+  if (!nextMode || !appGenerationCommand || !command.promptTemplate?.trim()) {
+    return false;
+  }
+  return {
+    appGenerationMode: nextMode,
+    feedback: `Submitted ${appGenerationCommand.command}.`,
+    submitPromptTemplate: true,
+  };
+}
+
+function executeModelSlashCommand(
+  modelFeedback: string | null | undefined,
+): ChatSlashCommandExecutionResult {
+  if (!modelFeedback) {
+    return false;
+  }
+  return {
+    feedback: modelFeedback,
+    keepInput: true,
+  };
+}
+
+function isAppGenerationSlashCommandAction(
+  action: ChatSlashCommandAction,
+): action is AppGenerationSlashCommandAction {
+  return (
+    action === "app_json_render" ||
+    action === "app_json_render_with_image" ||
+    action === "app_prompt_builder" ||
+    action === "app_mcp_server"
+  );
 }
 
 export async function executeManagedChatSlashCommand({
@@ -247,81 +368,50 @@ export async function executeManagedChatSlashCommand({
   searchEnabled,
   onSetSearchEnabled,
 }: ManagedChatSlashCommandArgs): Promise<ChatSlashCommandExecutionResult> {
-  if (command.action === "new") {
-    onStartNewChat();
-    return { feedback: newFeedback ?? "Started a new chat thread." };
+  if (isAppGenerationSlashCommandAction(command.action)) {
+    return executeAppGenerationSlashCommand(command);
   }
-  if (command.action === "resume") {
-    const resumed = await onResumeLatestChat();
-    return resumed
-      ? { feedback: resumeFeedback.success }
-      : {
-          feedback: resumeFeedback.notFound,
-          keepInput: true,
-        };
-  }
-  if (command.action === "permissions") {
-    const nextMode = resolvePermissionModeArg(command.args[0]);
-    if (!nextMode) {
-      return {
-        feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
-        keepInput: true,
-      };
-    }
-    onSetPermissionMode(nextMode);
-    return { feedback: `Permissions set to ${nextMode}.` };
-  }
-  if (command.action === "search") {
-    if (
-      typeof searchEnabled !== "boolean" ||
-      typeof onSetSearchEnabled !== "function"
-    ) {
-      return false;
-    }
-    const nextValue = resolveToggleArg(command.args[0], searchEnabled);
-    if (nextValue === null) {
-      return {
-        feedback: "Usage: /search on|off",
-        keepInput: true,
-      };
-    }
-    onSetSearchEnabled(nextValue);
-    return { feedback: `Search ${nextValue ? "enabled" : "disabled"}.` };
-  }
-  if (
-    command.action === "app_json_render" ||
-    command.action === "app_json_render_with_image" ||
-    command.action === "app_prompt_builder" ||
-    command.action === "app_mcp_server"
-  ) {
-    const nextMode = resolveAppGenerationModeForSlashAction(command.action);
-    const appGenerationCommand = getAppGenerationSlashCommandByAction(
-      command.action,
-    );
-    if (!nextMode || !appGenerationCommand || !command.promptTemplate?.trim()) {
-      return false;
-    }
-    return {
-      appGenerationMode: nextMode,
-      feedback: `Submitted ${appGenerationCommand.command}.`,
-      submitPromptTemplate: true,
-    };
-  }
-  if (command.action === "model") {
-    if (!modelFeedback) {
-      return false;
-    }
-    return {
-      feedback: modelFeedback,
-      keepInput: true,
-    };
-  }
+
+  const handlers: Record<
+    Exclude<ManagedNonAppSlashCommandAction, "help">,
+    () =>
+      | Promise<ChatSlashCommandExecutionResult>
+      | ChatSlashCommandExecutionResult
+  > = {
+    model: () => executeModelSlashCommand(modelFeedback),
+    new: () => {
+      onStartNewChat();
+      return { feedback: newFeedback ?? "Started a new chat thread." };
+    },
+    permissions: () =>
+      executePermissionsSlashCommand({
+        command,
+        onSetPermissionMode,
+      }),
+    resume: () =>
+      executeResumeSlashCommand({
+        onResumeLatestChat,
+        resumeFeedback,
+      }),
+    search: () =>
+      executeSearchSlashCommand({
+        command,
+        searchEnabled,
+        onSetSearchEnabled,
+      }),
+  };
+
   if (command.action === "help") {
     return {
       feedback: formatSlashCommandHelp(slashCommands),
     };
   }
-  return false;
+
+  const handler = handlers[command.action];
+  if (!handler) {
+    return false;
+  }
+  return await handler();
 }
 
 export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
@@ -414,32 +504,13 @@ function resolveSlashCommandDefinition(
   return prefixMatch;
 }
 
-export function shouldTreatInputAsSlashCommand(
-  text: string,
-  commands: ChatSlashCommandDefinition[] = CHAT_SLASH_COMMANDS,
-): boolean {
-  return shouldTreatInputAsSlashCommandWithCommands(text, commands);
-}
+type ParsedSlashCommandParts = {
+  rawCommand: string;
+  rawSuffix: string;
+  args: string[];
+};
 
-function shouldTreatInputAsSlashCommandWithCommands(
-  text: string,
-  commands: ChatSlashCommandDefinition[],
-): boolean {
-  const trimmedStart = text.trimStart();
-  if (!trimmedStart.startsWith("/")) {
-    return false;
-  }
-  const firstToken = trimmedStart.split(/\s+/u)[0] ?? "";
-  if (!SLASH_COMMAND_TOKEN_RE.test(firstToken)) {
-    return false;
-  }
-  return resolveSlashCommandDefinition(firstToken, commands) !== null;
-}
-
-export function parseSlashCommand(
-  text: string,
-  commands: ChatSlashCommandDefinition[] = CHAT_SLASH_COMMANDS,
-): ParsedSlashCommand | null {
+function parseSlashCommandParts(text: string): ParsedSlashCommandParts | null {
   const trimmedStart = text.trimStart();
   if (!trimmedStart.startsWith("/")) {
     return null;
@@ -449,29 +520,30 @@ export function parseSlashCommand(
     firstWhitespaceIndex < 0
       ? trimmedStart
       : trimmedStart.slice(0, firstWhitespaceIndex);
-  if (!rawCommand) {
+  if (!rawCommand || !SLASH_COMMAND_TOKEN_RE.test(rawCommand)) {
     return null;
   }
-  if (!SLASH_COMMAND_TOKEN_RE.test(rawCommand)) {
-    return null;
-  }
-  const normalizedTail =
+  const rawSuffix =
     firstWhitespaceIndex < 0
       ? ""
       : trimmedStart.slice(firstWhitespaceIndex).replace(/^\s/u, "");
-  const args =
-    normalizedTail.trim().length === 0
-      ? []
-      : normalizedTail.trim().split(/\s+/u);
-  const definition = resolveSlashCommandDefinition(rawCommand, commands);
-  if (!definition) {
-    return null;
-  }
+  const trimmedSuffix = rawSuffix.trim();
+  return {
+    rawCommand,
+    rawSuffix,
+    args: trimmedSuffix.length === 0 ? [] : trimmedSuffix.split(/\s+/u),
+  };
+}
+
+function buildParsedSlashCommand(
+  definition: ChatSlashCommandDefinition,
+  parsedParts: ParsedSlashCommandParts,
+): ParsedSlashCommand {
   const parsedCommand: ParsedSlashCommand = {
     command: definition.command,
     action: definition.action,
-    args,
-    rawSuffix: normalizedTail,
+    args: parsedParts.args,
+    rawSuffix: parsedParts.rawSuffix,
   };
   if (definition.promptTemplate) {
     parsedCommand.promptTemplate = definition.promptTemplate;
@@ -483,6 +555,24 @@ export function parseSlashCommand(
     parsedCommand.unavailableFeedback = definition.unavailableFeedback;
   }
   return parsedCommand;
+}
+
+export function parseSlashCommand(
+  text: string,
+  commands: ChatSlashCommandDefinition[] = CHAT_SLASH_COMMANDS,
+): ParsedSlashCommand | null {
+  const parsedParts = parseSlashCommandParts(text);
+  if (!parsedParts) {
+    return null;
+  }
+  const definition = resolveSlashCommandDefinition(
+    parsedParts.rawCommand,
+    commands,
+  );
+  if (!definition) {
+    return null;
+  }
+  return buildParsedSlashCommand(definition, parsedParts);
 }
 
 export function getSlashCommandSuggestions(

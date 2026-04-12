@@ -39,6 +39,53 @@ export const UI_EDITOR_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500",
 );
 
+function getSelectedStateMachineEdgeIds(
+  state: ReturnType<typeof useProjectState.getState>,
+): string[] {
+  return state.projectConfig.stateMachineEdges
+    .filter((edge) => edge.selected)
+    .map((edge) => edge.id);
+}
+
+function resolveUIEditorTabClickHandler(
+  sectionType: ReturnType<typeof useUIEditorTab>["sectionType"],
+) {
+  return sectionType
+    ? getOnUIEditorTabClick(sectionType)
+    : getOnUIEditorTabClickNoSectionSelected;
+}
+
+function renderUIEditorPaneContent({
+  activeSectionId,
+  selectedStateMachineEdgeIds,
+  selectedTabName,
+  vis,
+}: {
+  activeSectionId: string | null;
+  selectedStateMachineEdgeIds: string[];
+  selectedTabName: UIEditorTabName | null;
+  vis: boolean;
+}) {
+  if (!vis) {
+    return <Placeholder />;
+  }
+  if (activeSectionId && selectedTabName) {
+    return (
+      <TabsVisible
+        sectionId={activeSectionId}
+        selectedTabName={selectedTabName}
+      />
+    );
+  }
+  if (selectedStateMachineEdgeIds.length === 1) {
+    return <WorkflowEdgeVisible edgeId={selectedStateMachineEdgeIds[0]} />;
+  }
+  if (selectedStateMachineEdgeIds.length > 1) {
+    return <Placeholder title="Select One Workflow Edge" />;
+  }
+  return <Placeholder />;
+}
+
 export function UiEditor() {
   const uiEditorRef = useRef<HTMLDivElement>(null);
   useTabScope({
@@ -50,9 +97,7 @@ export function UiEditor() {
   const activeSectionId = useSolelyActiveSectionUIId();
   const selectedStateMachineEdgeIds = useProjectState(
     (state) => ({
-      selectedStateMachineEdgeIds: state.projectConfig.stateMachineEdges
-        .filter((edge) => edge.selected)
-        .map((edge) => edge.id),
+      selectedStateMachineEdgeIds: getSelectedStateMachineEdgeIds(state),
     }),
     _.isEqual,
   ).selectedStateMachineEdgeIds;
@@ -66,9 +111,7 @@ export function UiEditor() {
   const commonProps = {
     vis,
     selectedTabName,
-    onTabClick: sectionType
-      ? getOnUIEditorTabClick(sectionType)
-      : getOnUIEditorTabClickNoSectionSelected,
+    onTabClick: resolveUIEditorTabClickHandler(sectionType),
     className:
       "flex h-8 w-8 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
@@ -140,19 +183,12 @@ export function UiEditor() {
         vis={vis}
         width={width}
       >
-        {activeSectionId && vis && selectedTabName ? (
-          <TabsVisible
-            sectionId={activeSectionId}
-            selectedTabName={selectedTabName}
-            // inputTitle={inputTitle}
-          />
-        ) : selectedStateMachineEdgeIds.length === 1 && vis ? (
-          <WorkflowEdgeVisible edgeId={selectedStateMachineEdgeIds[0]} />
-        ) : selectedStateMachineEdgeIds.length > 1 && vis ? (
-          <Placeholder title="Select One Workflow Edge" />
-        ) : (
-          <Placeholder />
-        )}
+        {renderUIEditorPaneContent({
+          activeSectionId,
+          selectedStateMachineEdgeIds,
+          selectedTabName,
+          vis,
+        })}
       </PaneContainer>
     </div>
   );
