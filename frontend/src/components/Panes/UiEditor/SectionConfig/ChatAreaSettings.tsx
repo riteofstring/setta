@@ -4,6 +4,7 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
+  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
@@ -12,6 +13,14 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
+import {
+  getAgenticSummaryCacheStatus,
+  setChatSectionChatId,
+  setChatSectionSettings,
+  type AgenticsummarycacheAgenticSummaryCacheStatus as AgenticSummaryCacheStatus,
+  type SetChatSectionSettingsData,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createAgenticEdgeFromSections,
@@ -36,46 +45,49 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_get_agentic_summary_cache_status,
-  route_set_chat_section_chat_id,
-  route_set_chat_section_settings,
-} from "utils/generatedEndpoints";
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
-  AgenticSummaryCacheStatus,
   ChatWindowModeEnum,
   EngineTypeEnum,
+  ProjectChatUIConfig,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-
 type ChatAreaSettingsProps = {
   sectionId: string;
 };
-
-type ChatSectionSettingsPayload = {
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  thinking: boolean;
-  permissionMode: "minimal" | "yolo" | "config_toml_custom";
-  searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
-};
-
+type ChatSectionSettingsPayload = Pick<
+  SetChatSectionSettingsData["body"],
+  | "managed"
+  | "engineConfigId"
+  | "transcriptionProfileId"
+  | "agentProfileId"
+  | "thinking"
+  | "permissionMode"
+  | "searchEnabled"
+  | "dictationMode"
+>;
 type SectionOption = {
   id: string;
   name: string;
   type: SectionTypeEnum;
 };
-
+type AgenticSummaryCacheStatusRouteResponse =
+  ResponseDataAndStatus<AgenticSummaryCacheStatus>;
 type LinkedChatTargetFilterArgs = {
   sectionOptions: Array<SectionOption>;
   sectionVariantMap: Record<string, string>;
-  sectionVariants: Record<string, { impl: string }>;
+  sectionVariants: Record<
+    string,
+    {
+      impl: string;
+    }
+  >;
   sectionImpls: Record<
     string,
     {
@@ -85,19 +97,334 @@ type LinkedChatTargetFilterArgs = {
       agentProfileId?: string | null;
     }
   >;
-  agentProfiles: Array<{ id: string; engineConfigId: string | null }>;
+  agentProfiles: Array<{
+    id: string;
+    engineConfigId: string | null;
+  }>;
   engineConfigs: Array<{
     id: string;
     engineType: EngineTypeEnum;
     settaLlmConfigId?: string | null;
     externalAgentConfigId?: string | null;
   }>;
-  externalAgentConfigs: Array<{ id: string }>;
+  externalAgentConfigs: Array<{
+    id: string;
+  }>;
   allLLMConfigs: {
     configs: Record<string, unknown>;
     default_config_id?: string | null;
   };
 };
+type LinkedChatTargetLookup = Omit<
+  LinkedChatTargetFilterArgs,
+  "sectionOptions"
+> & {
+  externalAgentConfigIds: Set<string>;
+};
+type ContextModeOption = {
+  id: AgenticEdgeContextModeEnum;
+  label: string;
+};
+type ContextLinkRow = {
+  id: string;
+  label: string;
+  contextMode: AgenticEdgeContextModeEnum;
+};
+type SimpleLinkRow = {
+  id: string;
+  label: string;
+};
+type AgenticScopeEntry = {
+  id: string;
+  label: string;
+};
+type AgenticScopeBlock = {
+  label: string;
+  entries: AgenticScopeEntry[];
+  labelClassName: string;
+  emptyText: string;
+};
+const CHAT_MODE_ITEMS: AllItemsType<string> = [
+  {
+    group: "Chat Modes",
+    items: ProjectChatUIConfig.sectionChatWindowModeOptions.map((option) => ({
+      id: option.value,
+      name: option.label,
+    })),
+  },
+];
+const CONTEXT_MODE_OPTIONS: ContextModeOption[] =
+  ProjectChatUIConfig.agenticEdgeContextModeOptions.map((option) => ({
+    id: option.value as AgenticEdgeContextModeEnum,
+    label: option.label,
+  }));
+type ChatModeFieldProps = {
+  modeItems: AllItemsType<string>;
+  value: string | null | undefined;
+  isDisabled: boolean;
+  onChange: (value: string | null) => void;
+};
+type ManagedModeToggleProps = {
+  isDisabled: boolean;
+  managed: boolean;
+  onChange: (value: boolean) => void;
+};
+type ManagedChatSettingsProps = {
+  managed: boolean;
+  isDisabled: boolean;
+  canManageManagedChatThreads: boolean;
+  engineGroups: AllItemsType<string>;
+  selectedEngineConfig: {
+    id: string;
+    engineType: EngineTypeEnum;
+  } | null;
+  onEngineChange: (value: string | null) => void;
+  agentProfileGroups: AllItemsType<string>;
+  agentProfileId: string | null | undefined;
+  onAgentProfileChange: (value: string | null) => void;
+  thinking: boolean | undefined;
+  onThinkingChange: (value: boolean) => void;
+  availableConfigGroups: AllItemsType<string>;
+  selectableLLMConfigId: string | null;
+  onLLMConfigChange: (value: string | null) => void;
+  noConfigsAvailable: boolean;
+  transcriptionProfileGroups: AllItemsType<string>;
+  transcriptionProfileId: string | null | undefined;
+  onTranscriptionProfileChange: (value: string | null) => void;
+  dictationMode: string | undefined;
+  onDictationModeChange: (value: string | null) => void;
+  onNewChat: () => void;
+};
+type SummaryCacheStatusPanelProps = {
+  loading: boolean;
+  error: string | null;
+  status: AgenticSummaryCacheStatus | null;
+  onRefresh: () => void;
+};
+type ManagedChatLLMSettingsProps = {
+  engineType: EngineTypeEnum | null;
+  isDisabled: boolean;
+  thinking: boolean | undefined;
+  onThinkingChange: (value: boolean) => void;
+  availableConfigGroups: AllItemsType<string>;
+  selectableLLMConfigId: string | null;
+  onLLMConfigChange: (value: string | null) => void;
+  noConfigsAvailable: boolean;
+};
+type ContextLinksSectionProps = {
+  items: AllItemsType<string>;
+  canEditLinks: boolean;
+  rows: ContextLinkRow[];
+  onAdd: (value: string | null) => void;
+  contextModeOptions: ContextModeOption[];
+  onContextModeChange: (
+    edgeId: string,
+    value: AgenticEdgeContextModeEnum,
+  ) => void;
+  onRemove: (edgeId: string) => void;
+  showSummaryCacheStatus: boolean;
+  summaryCacheStatusLoading: boolean;
+  summaryCacheStatusError: string | null;
+  summaryCacheStatus: AgenticSummaryCacheStatus | null;
+  onRefreshSummaryCacheStatus: () => void;
+};
+type SimpleLinkSectionProps = {
+  title: string;
+  items: AllItemsType<string>;
+  canEditLinks: boolean;
+  rows: SimpleLinkRow[];
+  onAdd: (value: string | null) => void;
+  onRemove: (edgeId: string) => void;
+  addPlaceholder: string;
+  emptyPlaceholder: string;
+  emptyText: string;
+};
+type ContextAndLinksCardProps = {
+  contextItems: AllItemsType<string>;
+  scopeItems: AllItemsType<string>;
+  agentItems: AllItemsType<string>;
+  canEditLinks: boolean;
+  contextRows: ContextLinkRow[];
+  scopeRows: SimpleLinkRow[];
+  linkedAgentRows: SimpleLinkRow[];
+  onAddContextSection: (value: string | null) => void;
+  onAddScopeSection: (value: string | null) => void;
+  onAddAgentLink: (value: string | null) => void;
+  contextModeOptions: ContextModeOption[];
+  onContextModeChange: (
+    edgeId: string,
+    value: AgenticEdgeContextModeEnum,
+  ) => void;
+  onRemoveEdge: (edgeId: string) => void;
+  showSummaryCacheStatus: boolean;
+  summaryCacheStatusLoading: boolean;
+  summaryCacheStatusError: string | null;
+  summaryCacheStatus: AgenticSummaryCacheStatus | null;
+  onRefreshSummaryCacheStatus: () => void;
+};
+type AgenticScopeCardProps = {
+  blocks: AgenticScopeBlock[];
+};
+type SectionCoreSummary = {
+  displayName?: string | null;
+  name?: string | null;
+};
+type SectionVariantSummary = {
+  impl: string;
+};
+type SectionImplSummary = {
+  type: SectionTypeEnum;
+};
+type SectionOptionsLookup = {
+  sectionId: string;
+  sections: Record<string, SectionCoreSummary>;
+  sectionVariants: Record<string, SectionVariantSummary>;
+  sectionImpls: Record<string, SectionImplSummary>;
+  sectionVariantMap: Record<string, string>;
+};
+
+function resolveSectionLabel(
+  labelsById: Record<string, string>,
+  sectionId: string,
+): string {
+  return labelsById[sectionId] ?? sectionId;
+}
+
+function resolveSectionDisplayName(
+  core: SectionCoreSummary,
+  sectionId: string,
+): string {
+  const displayName = core.displayName?.trim();
+  return displayName && displayName.length > 0
+    ? displayName
+    : core.name || sectionId;
+}
+
+function buildSectionLabelsById(
+  sections: Record<string, SectionCoreSummary>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(sections).map(([id, core]) => [
+      id,
+      resolveSectionDisplayName(core, id),
+    ]),
+  );
+}
+
+function buildSectionOptions({
+  sectionId,
+  sections,
+  sectionVariants,
+  sectionImpls,
+  sectionVariantMap,
+}: SectionOptionsLookup): SectionOption[] {
+  const options: SectionOption[] = [];
+  for (const [id, core] of Object.entries(sections)) {
+    if (id === sectionId) {
+      continue;
+    }
+    const variantId = sectionVariantMap[id];
+    if (!variantId) {
+      continue;
+    }
+    const variant = sectionVariants[variantId];
+    if (!variant) {
+      continue;
+    }
+    const impl = sectionImpls[variant.impl];
+    if (!impl) {
+      continue;
+    }
+    options.push({
+      id,
+      name: resolveSectionDisplayName(core, id),
+      type: impl.type,
+    });
+  }
+  return _.sortBy(options, (entry) => entry.name.toLowerCase());
+}
+
+function resolveExecutableLinkedChatEngineConfig(
+  impl: {
+    engineConfigId?: string | null;
+    agentProfileId?: string | null;
+  },
+  lookup: LinkedChatTargetLookup,
+) {
+  let effectiveEngineConfigId = impl.engineConfigId ?? null;
+  if (effectiveEngineConfigId == null && impl.agentProfileId != null) {
+    const selectedProfile =
+      lookup.agentProfiles.find(
+        (profile) => profile.id === impl.agentProfileId,
+      ) ?? null;
+    effectiveEngineConfigId = selectedProfile?.engineConfigId ?? null;
+  }
+  if (effectiveEngineConfigId == null) {
+    return null;
+  }
+  return (
+    lookup.engineConfigs.find(
+      (config) => config.id === effectiveEngineConfigId,
+    ) ?? null
+  );
+}
+
+function isExecutableLinkedChatTarget(
+  entry: SectionOption,
+  lookup: LinkedChatTargetLookup,
+): boolean {
+  if (entry.type !== SectionTypeEnum.Chat) {
+    return false;
+  }
+  const variantId = lookup.sectionVariantMap[entry.id];
+  if (!variantId) {
+    return false;
+  }
+  const variant = lookup.sectionVariants[variantId];
+  if (!variant) {
+    return false;
+  }
+  const impl = lookup.sectionImpls[variant.impl];
+  if (!impl) {
+    return false;
+  }
+  if (impl.type !== SectionTypeEnum.Chat) {
+    return false;
+  }
+  if (impl.managed !== true) {
+    return false;
+  }
+  const engineConfig = resolveExecutableLinkedChatEngineConfig(impl, lookup);
+  if (!engineConfig) {
+    return false;
+  }
+  return isExecutableLinkedChatEngineConfigReady(engineConfig, lookup);
+}
+
+function isExecutableLinkedChatEngineConfigReady(
+  engineConfig: {
+    engineType: EngineTypeEnum;
+    settaLlmConfigId?: string | null;
+    externalAgentConfigId?: string | null;
+  },
+  lookup: LinkedChatTargetLookup,
+): boolean {
+  if (engineConfig.engineType === EngineTypeEnum.external_agent) {
+    if (!engineConfig.externalAgentConfigId) {
+      return false;
+    }
+    return lookup.externalAgentConfigIds.has(
+      engineConfig.externalAgentConfigId,
+    );
+  }
+  if (engineConfig.engineType === EngineTypeEnum.setta_llm) {
+    return Boolean(
+      engineConfig.settaLlmConfigId ??
+        pickDefaultConfigId(lookup.allLLMConfigs),
+    );
+  }
+  return true;
+}
 
 export function filterExecutableLinkedChatTargets({
   sectionOptions,
@@ -112,51 +439,580 @@ export function filterExecutableLinkedChatTargets({
   const externalAgentConfigIds = new Set(
     externalAgentConfigs.map((config) => config.id),
   );
-  return sectionOptions.filter((entry) => {
-    if (entry.type !== SectionTypeEnum.Chat) {
-      return false;
-    }
-    const variantId = sectionVariantMap[entry.id];
-    if (!variantId) {
-      return false;
-    }
-    const variant = sectionVariants[variantId];
-    if (!variant) {
-      return false;
-    }
-    const impl = sectionImpls[variant.impl];
-    if (!impl || impl.type !== SectionTypeEnum.Chat || impl.managed !== true) {
-      return false;
-    }
-    const selectedProfile =
-      impl.agentProfileId == null
-        ? null
-        : agentProfiles.find((profile) => profile.id === impl.agentProfileId) ??
-          null;
-    const effectiveEngineConfigId =
-      impl.engineConfigId ?? selectedProfile?.engineConfigId ?? null;
-    if (!effectiveEngineConfigId) {
-      return false;
-    }
-    const engineConfig =
-      engineConfigs.find((config) => config.id === effectiveEngineConfigId) ??
-      null;
-    if (!engineConfig) {
-      return false;
-    }
-    if (engineConfig.engineType === EngineTypeEnum.external_agent) {
-      return Boolean(
-        engineConfig.externalAgentConfigId &&
-          externalAgentConfigIds.has(engineConfig.externalAgentConfigId),
-      );
-    }
-    if (engineConfig.engineType === EngineTypeEnum.setta_llm) {
-      return Boolean(
-        engineConfig.settaLlmConfigId ?? pickDefaultConfigId(allLLMConfigs),
-      );
-    }
-    return true;
-  });
+  return sectionOptions.filter((entry) =>
+    isExecutableLinkedChatTarget(entry, {
+      sectionVariantMap,
+      sectionVariants,
+      sectionImpls,
+      agentProfiles,
+      engineConfigs,
+      externalAgentConfigs,
+      allLLMConfigs,
+      externalAgentConfigIds,
+    }),
+  );
+}
+
+function ChatModeField({
+  modeItems,
+  value,
+  isDisabled,
+  onChange,
+}: ChatModeFieldProps) {
+  return (
+    <div
+      className="flex w-full flex-col gap-2"
+      data-testid="chat-area-settings-chat-mode"
+    >
+      <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+        Chat Mode
+      </p>
+      <IdNameCombobox
+        allItems={modeItems}
+        value={value}
+        small={false}
+        onSelectedItemChange={onChange}
+        placeholder="Select chat mode"
+        outerDivClasses="justify-center"
+        isDisabled={isDisabled}
+      />
+    </div>
+  );
+}
+
+function ManagedModeToggle({
+  isDisabled,
+  managed,
+  onChange,
+}: ManagedModeToggleProps) {
+  return (
+    <div className="flex w-full items-center justify-between gap-4">
+      <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+        Managed Mode
+      </p>
+      <SwitchInput
+        isDisabled={isDisabled}
+        value={managed}
+        onChange={onChange}
+        outerDivClassName="flex items-center"
+      />
+    </div>
+  );
+}
+
+function ManagedChatSettings({
+  managed,
+  isDisabled,
+  canManageManagedChatThreads,
+  engineGroups,
+  selectedEngineConfig,
+  onEngineChange,
+  agentProfileGroups,
+  agentProfileId,
+  onAgentProfileChange,
+  thinking,
+  onThinkingChange,
+  availableConfigGroups,
+  selectableLLMConfigId,
+  onLLMConfigChange,
+  noConfigsAvailable,
+  transcriptionProfileGroups,
+  transcriptionProfileId,
+  onTranscriptionProfileChange,
+  dictationMode,
+  onDictationModeChange,
+  onNewChat,
+}: ManagedChatSettingsProps) {
+  if (!managed) {
+    return null;
+  }
+  const selectedEngineId = selectedEngineConfig?.id ?? null;
+  const engineType = selectedEngineConfig?.engineType ?? null;
+  return (
+    <>
+      <div className="flex w-full flex-col gap-2">
+        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+          Engine
+        </p>
+        <IdNameCombobox
+          allItems={engineGroups}
+          value={selectedEngineId}
+          small={false}
+          onSelectedItemChange={onEngineChange}
+          placeholder="Select an engine"
+          outerDivClasses="justify-center"
+          isDisabled={isDisabled}
+        />
+      </div>
+      <div className="flex w-full flex-col gap-2">
+        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+          Agent Profile
+        </p>
+        <IdNameCombobox
+          allItems={agentProfileGroups}
+          value={agentProfileId}
+          small={false}
+          onSelectedItemChange={onAgentProfileChange}
+          placeholder="Select a profile (optional)"
+          outerDivClasses="justify-center"
+          isDisabled={isDisabled}
+          selectedItemCanBeNull
+        />
+        {agentProfileId ? (
+          <p className="text-[11px] text-setta-500 dark:text-setta-400">
+            Engine config overrides the profile when set.
+          </p>
+        ) : null}
+      </div>
+      <ManagedChatLLMSettings
+        engineType={engineType}
+        isDisabled={isDisabled}
+        thinking={thinking}
+        onThinkingChange={onThinkingChange}
+        availableConfigGroups={availableConfigGroups}
+        selectableLLMConfigId={selectableLLMConfigId}
+        onLLMConfigChange={onLLMConfigChange}
+        noConfigsAvailable={noConfigsAvailable}
+      />
+      <div className="flex w-full flex-col gap-2">
+        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+          Transcription Profile
+        </p>
+        <IdNameCombobox
+          allItems={transcriptionProfileGroups}
+          value={transcriptionProfileId}
+          small={false}
+          onSelectedItemChange={onTranscriptionProfileChange}
+          placeholder="Select a transcription profile"
+          outerDivClasses="justify-center"
+          isDisabled={isDisabled}
+          selectedItemCanBeNull
+        />
+      </div>
+      <div className="flex w-full flex-col gap-2">
+        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+          Dictation Mode
+        </p>
+        <IdNameCombobox
+          allItems={DICTATION_MODE_ITEMS}
+          value={dictationMode}
+          small={false}
+          onSelectedItemChange={onDictationModeChange}
+          placeholder="Select dictation mode"
+          outerDivClasses="justify-center"
+          isDisabled={isDisabled}
+        />
+      </div>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          disabled={isDisabled || !canManageManagedChatThreads}
+          className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          onClick={onNewChat}
+        >
+          New Chat
+        </button>
+      </div>
+    </>
+  );
+}
+
+function ManagedChatLLMSettings({
+  engineType,
+  isDisabled,
+  thinking,
+  onThinkingChange,
+  availableConfigGroups,
+  selectableLLMConfigId,
+  onLLMConfigChange,
+  noConfigsAvailable,
+}: ManagedChatLLMSettingsProps) {
+  if (engineType !== EngineTypeEnum.setta_llm) {
+    return null;
+  }
+  const configPlaceholder = noConfigsAvailable
+    ? "Add an LLM config or API key"
+    : "Select an LLM";
+  const highlightMissingConfig = !selectableLLMConfigId && !noConfigsAvailable;
+  return (
+    <>
+      <div className="flex w-full items-center justify-between gap-4">
+        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+          Thinking
+        </p>
+        <SwitchInput
+          isDisabled={isDisabled}
+          value={thinking}
+          onChange={onThinkingChange}
+          outerDivClassName="flex items-center"
+        />
+      </div>
+      <div className="flex w-full flex-col gap-2">
+        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+          LLM Config
+        </p>
+        <IdNameCombobox
+          allItems={availableConfigGroups}
+          value={selectableLLMConfigId}
+          small={false}
+          onSelectedItemChange={onLLMConfigChange}
+          placeholder={configPlaceholder}
+          bg={
+            highlightMissingConfig
+              ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500"
+              : ""
+          }
+          outerDivClasses="justify-center"
+          isDisabled={isDisabled}
+          selectedItemCanBeNull
+        />
+      </div>
+    </>
+  );
+}
+
+function SummaryCacheStatusPanel({
+  loading,
+  error,
+  status,
+  onRefresh,
+}: SummaryCacheStatusPanelProps) {
+  let content = (
+    <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+      Summary cache status unavailable.
+    </p>
+  );
+  if (loading) {
+    content = (
+      <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+        Loading summary cache status...
+      </p>
+    );
+  } else if (error) {
+    content = (
+      <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
+        Failed to load summary cache status: {error}
+      </p>
+    );
+  } else if (status) {
+    content = (
+      <div className="mt-1 flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
+        <p>
+          Cached: {status.cachedSectionIds.length}/
+          {status.summarySectionIds.length}. Missing:{" "}
+          {status.missingSectionIds.length}. Deferred due to cap (
+          {status.maxSummariesPerRun}):{" "}
+          {Math.max(
+            status.missingSectionIds.length -
+              status.consideredSectionIds.length,
+            0,
+          )}
+          .
+        </p>
+        {status.emptySourceSectionIds.length > 0 ? (
+          <p>
+            Empty deterministic sources: {status.emptySourceSectionIds.length}.
+          </p>
+        ) : null}
+        <p>
+          Missing summaries fall back to a deterministic excerpt in the Agentic
+          Context message until cached.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 rounded-md border border-setta-200/80 bg-white/80 p-2 text-[11px] text-setta-700 shadow-sm dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold text-setta-600 dark:text-setta-300">
+          Summary cache
+        </span>
+        <button
+          type="button"
+          className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-70 dark:text-setta-400 dark:hover:text-setta-200"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          Refresh
+        </button>
+      </div>
+      {content}
+    </div>
+  );
+}
+
+function ContextLinksSection({
+  items,
+  canEditLinks,
+  rows,
+  onAdd,
+  contextModeOptions,
+  onContextModeChange,
+  onRemove,
+  showSummaryCacheStatus,
+  summaryCacheStatusLoading,
+  summaryCacheStatusError,
+  summaryCacheStatus,
+  onRefreshSummaryCacheStatus,
+}: ContextLinksSectionProps) {
+  const optionCount = items[0]?.items.length ?? 0;
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
+        Context sources
+      </p>
+      <IdNameCombobox
+        allItems={items}
+        value={null}
+        small={true}
+        onSelectedItemChange={onAdd}
+        placeholder={
+          optionCount > 0 ? "Add a section" : "No sections available"
+        }
+        outerDivClasses="justify-center"
+        inputOuterClasses="!h-7"
+        isDisabled={!canEditLinks || optionCount === 0}
+        selectedItemCanBeNull
+        clearInputAfterSelection
+      />
+      {rows.length === 0 ? (
+        <p className="text-[11px] text-setta-500 dark:text-setta-500">
+          No context links yet.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className="flex items-center gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+            >
+              <span className="min-w-0 flex-1 truncate">{row.label}</span>
+              <select
+                value={row.contextMode}
+                onChange={(event) =>
+                  onContextModeChange(
+                    row.id,
+                    event.target.value as AgenticEdgeContextModeEnum,
+                  )
+                }
+                disabled={!canEditLinks}
+                className="h-6 rounded border border-setta-200 bg-white px-1 text-[10px] text-setta-600 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+              >
+                {contextModeOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
+                onClick={() => onRemove(row.id)}
+                disabled={!canEditLinks}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {showSummaryCacheStatus ? (
+        <SummaryCacheStatusPanel
+          loading={summaryCacheStatusLoading}
+          error={summaryCacheStatusError}
+          status={summaryCacheStatus}
+          onRefresh={onRefreshSummaryCacheStatus}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function SimpleLinkSection({
+  title,
+  items,
+  canEditLinks,
+  rows,
+  onAdd,
+  onRemove,
+  addPlaceholder,
+  emptyPlaceholder,
+  emptyText,
+}: SimpleLinkSectionProps) {
+  const optionCount = items[0]?.items.length ?? 0;
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
+        {title}
+      </p>
+      <IdNameCombobox
+        allItems={items}
+        value={null}
+        small={true}
+        onSelectedItemChange={onAdd}
+        placeholder={optionCount > 0 ? addPlaceholder : emptyPlaceholder}
+        outerDivClasses="justify-center"
+        inputOuterClasses="!h-7"
+        isDisabled={!canEditLinks || optionCount === 0}
+        selectedItemCanBeNull
+        clearInputAfterSelection
+      />
+      {rows.length === 0 ? (
+        <p className="text-[11px] text-setta-500 dark:text-setta-500">
+          {emptyText}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+            >
+              <span className="truncate">{row.label}</span>
+              <button
+                type="button"
+                className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
+                onClick={() => onRemove(row.id)}
+                disabled={!canEditLinks}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContextAndLinksCard({
+  contextItems,
+  scopeItems,
+  agentItems,
+  canEditLinks,
+  contextRows,
+  scopeRows,
+  linkedAgentRows,
+  onAddContextSection,
+  onAddScopeSection,
+  onAddAgentLink,
+  contextModeOptions,
+  onContextModeChange,
+  onRemoveEdge,
+  showSummaryCacheStatus,
+  summaryCacheStatusLoading,
+  summaryCacheStatusError,
+  summaryCacheStatus,
+  onRefreshSummaryCacheStatus,
+}: ContextAndLinksCardProps) {
+  return (
+    <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+          Context & Links
+        </p>
+        <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+          Add context sources, scope boundaries, or linked agents for this chat.
+        </p>
+      </div>
+      <div className="mt-3 flex flex-col gap-4">
+        <ContextLinksSection
+          items={contextItems}
+          canEditLinks={canEditLinks}
+          rows={contextRows}
+          onAdd={onAddContextSection}
+          contextModeOptions={contextModeOptions}
+          onContextModeChange={onContextModeChange}
+          onRemove={onRemoveEdge}
+          showSummaryCacheStatus={showSummaryCacheStatus}
+          summaryCacheStatusLoading={summaryCacheStatusLoading}
+          summaryCacheStatusError={summaryCacheStatusError}
+          summaryCacheStatus={summaryCacheStatus}
+          onRefreshSummaryCacheStatus={onRefreshSummaryCacheStatus}
+        />
+        <SimpleLinkSection
+          title="Scope sections"
+          items={scopeItems}
+          canEditLinks={canEditLinks}
+          rows={scopeRows}
+          onAdd={onAddScopeSection}
+          onRemove={onRemoveEdge}
+          addPlaceholder="Add a section"
+          emptyPlaceholder="No sections available"
+          emptyText="No scope links yet."
+        />
+        <SimpleLinkSection
+          title="Linked agents"
+          items={agentItems}
+          canEditLinks={canEditLinks}
+          rows={linkedAgentRows}
+          onAdd={onAddAgentLink}
+          onRemove={onRemoveEdge}
+          addPlaceholder="Link a chat"
+          emptyPlaceholder="No other chats"
+          emptyText="No linked agents yet."
+        />
+      </div>
+    </div>
+  );
+}
+
+function AgenticScopeCard({ blocks }: AgenticScopeCardProps) {
+  const hasEntries = blocks.some((block) => block.entries.length > 0);
+  return (
+    <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+          Agentic Scope
+        </p>
+        <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+          Edges define what this chat can read, write, and use as context.
+        </p>
+      </div>
+      <div className="mt-2 flex flex-col gap-1">
+        {!hasEntries ? (
+          <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+            No outgoing scope links = no access.
+          </p>
+        ) : null}
+        <p className="text-[11px] text-setta-500 dark:text-setta-400">
+          Use Project Chat for full access.
+        </p>
+      </div>
+      <div className="mt-3 grid gap-3">
+        {blocks.map((block) => (
+          <div key={block.label} className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className={`text-[11px] font-semibold ${block.labelClassName}`}
+              >
+                {block.label}
+              </span>
+              <span className="text-[10px] text-setta-500 dark:text-setta-400">
+                {block.entries.length}
+              </span>
+            </div>
+            {block.entries.length === 0 ? (
+              <p className="text-[11px] text-setta-500 dark:text-setta-500">
+                {block.emptyText}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {block.entries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+                  >
+                    <span className="truncate">{entry.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
@@ -173,7 +1029,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     isDeploymentMode,
     allowLLM,
   });
-
   const {
     managed,
     engineConfigId,
@@ -221,7 +1076,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       }),
       _.isEqual,
     );
-
   const {
     apiKeys,
     allLLMConfigs,
@@ -240,7 +1094,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }),
     _.isEqual,
   );
-
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [allLLMConfigs, apiKeys],
@@ -283,24 +1136,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
   const canEditSettings = !isDeploymentMode || canEditParams;
   const isDisabled = isFrozen || !canEditSettings;
-  const modeItems = useMemo<AllItemsType<string>>(
-    () => [
-      {
-        group: "Chat Modes",
-        items: [
-          {
-            id: ChatWindowModeEnum.section_mode,
-            name: "Section mode (edge scoped)",
-          },
-          {
-            id: ChatWindowModeEnum.project_ai_mode,
-            name: "Project AI mode (full project)",
-          },
-        ],
-      },
-    ],
-    [],
-  );
   const isChatModeControlDisabled = isDisabled || !canEditLayout;
   const effectiveEngineConfigId =
     engineConfigId ?? selectedProfile?.engineConfigId ?? null;
@@ -313,8 +1148,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       null
     );
   }, [effectiveEngineConfigId, engineConfigs]);
-  const selectedEngineId = selectedEngineConfig?.id ?? null;
-  const engineType = selectedEngineConfig?.engineType ?? null;
   const selectedLLMConfigId = useMemo(() => {
     if (!selectedEngineConfig) {
       return null;
@@ -327,56 +1160,34 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
-
-  const sectionLabelsById = useMemo(() => {
-    const labels: Record<string, string> = {};
-    for (const [id, core] of Object.entries(sections)) {
-      const display = core.displayName?.trim();
-      labels[id] = display && display.length > 0 ? display : core.name || id;
-    }
-    return labels;
-  }, [sections]);
-
-  const sectionOptions = useMemo(() => {
-    const options: Array<{
-      id: string;
-      name: string;
-      type: SectionTypeEnum;
-    }> = [];
-    for (const [id, core] of Object.entries(sections)) {
-      if (id === sectionId) {
-        continue;
-      }
-      const variantId = sectionVariantMap[id];
-      if (!variantId) {
-        continue;
-      }
-      const variant = sectionVariants[variantId];
-      if (!variant) {
-        continue;
-      }
-      const impl = sectionImpls[variant.impl];
-      if (!impl) {
-        continue;
-      }
-      const displayName = core.displayName?.trim();
-      const name =
-        displayName && displayName.length > 0 ? displayName : core.name || id;
-      options.push({ id, name, type: impl.type });
-    }
-    return _.sortBy(options, (entry) => entry.name.toLowerCase());
-  }, [sectionId, sectionImpls, sectionVariantMap, sectionVariants, sections]);
-
+  const selectableLLMConfigId = useMemo(
+    () =>
+      resolveSelectableLLMConfigId(availableConfigGroups, selectedLLMConfigId),
+    [availableConfigGroups, selectedLLMConfigId],
+  );
+  const sectionLabelsById = useMemo(
+    () => buildSectionLabelsById(sections),
+    [sections],
+  );
+  const sectionOptions = useMemo(
+    () =>
+      buildSectionOptions({
+        sectionId,
+        sections,
+        sectionVariants,
+        sectionImpls,
+        sectionVariantMap,
+      }),
+    [sectionId, sectionImpls, sectionVariantMap, sectionVariants, sections],
+  );
   const nonChatSectionItems = useMemo<AllItemsType<string>>(() => {
     const items = sectionOptions
       .filter((entry) => entry.type !== SectionTypeEnum.Chat)
       .map((entry) => ({ id: entry.id, name: entry.name }));
     return [{ group: "Sections", items }];
   }, [sectionOptions]);
-
   const contextItems = nonChatSectionItems;
   const scopeItems = nonChatSectionItems;
-
   const agentItems = useMemo<AllItemsType<string>>(() => {
     const items = filterExecutableLinkedChatTargets({
       sectionOptions,
@@ -399,19 +1210,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     sectionVariantMap,
     sectionVariants,
   ]);
-
-  const contextModeOptions = useMemo(
-    () => [
-      {
-        id: AgenticEdgeContextModeEnum.reference_only,
-        label: "Reference only",
-      },
-      { id: AgenticEdgeContextModeEnum.inline_text, label: "Inline text" },
-      { id: AgenticEdgeContextModeEnum.summary, label: "Summary" },
-    ],
-    [],
-  );
-
   const contextEdges = useMemo(
     () =>
       agenticEdges.filter(
@@ -428,15 +1226,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       ).length,
     [contextEdges],
   );
-  const scopeEdges = useMemo(
-    () =>
-      agenticEdges.filter(
-        (edge) =>
-          edge.kind === AgenticEdgeKindEnum.chat_section &&
-          edge.sourceSectionId === sectionId,
-      ),
-    [agenticEdges, sectionId],
-  );
+  const scopeEdges = contextEdges;
   const linkedAgentEdges = useMemo(
     () =>
       agenticEdges.filter(
@@ -446,12 +1236,10 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       ),
     [agenticEdges, sectionId],
   );
-
   const agenticScope = useMemo(
     () => resolveAgenticScopeFromEdges(agenticEdges, sectionId),
     [agenticEdges, sectionId],
   );
-
   const buildScopeEntries = useCallback(
     (ids: Iterable<string>) => {
       const entries = Array.from(ids).map((id) => ({
@@ -462,21 +1250,72 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [sectionLabelsById],
   );
-
   const scopeReadEntries = useMemo(() => {
     return buildScopeEntries(agenticScope.readSectionIds);
   }, [agenticScope, buildScopeEntries]);
-
   const scopeWriteEntries = useMemo(
     () => buildScopeEntries(agenticScope.writeSectionIds),
     [agenticScope, buildScopeEntries],
   );
-
   const scopeContextEntries = useMemo(
     () => buildScopeEntries(agenticScope.contextSectionIds),
     [agenticScope, buildScopeEntries],
   );
-
+  const contextRows = useMemo<ContextLinkRow[]>(
+    () =>
+      contextEdges.map((edge) => ({
+        id: edge.id,
+        label: resolveSectionLabel(sectionLabelsById, edge.targetSectionId),
+        contextMode:
+          edge.contextMode ?? AgenticEdgeContextModeEnum.reference_only,
+      })),
+    [contextEdges, sectionLabelsById],
+  );
+  const scopeRows = useMemo<SimpleLinkRow[]>(
+    () =>
+      scopeEdges.map((edge) => ({
+        id: edge.id,
+        label: resolveSectionLabel(sectionLabelsById, edge.targetSectionId),
+      })),
+    [scopeEdges, sectionLabelsById],
+  );
+  const linkedAgentRows = useMemo<SimpleLinkRow[]>(
+    () =>
+      linkedAgentEdges.map((edge) => {
+        const otherId =
+          edge.sourceSectionId === sectionId
+            ? edge.targetSectionId
+            : edge.sourceSectionId;
+        return {
+          id: edge.id,
+          label: resolveSectionLabel(sectionLabelsById, otherId),
+        };
+      }),
+    [linkedAgentEdges, sectionId, sectionLabelsById],
+  );
+  const scopeBlocks = useMemo<AgenticScopeBlock[]>(
+    () => [
+      {
+        label: "Read",
+        entries: scopeReadEntries,
+        labelClassName: "text-emerald-600 dark:text-emerald-300",
+        emptyText: "No readable sections.",
+      },
+      {
+        label: "Write",
+        entries: scopeWriteEntries,
+        labelClassName: "text-amber-600 dark:text-amber-300",
+        emptyText: "No writable sections.",
+      },
+      {
+        label: "Context",
+        entries: scopeContextEntries,
+        labelClassName: "text-sky-600 dark:text-sky-300",
+        emptyText: "No context sections.",
+      },
+    ],
+    [scopeContextEntries, scopeReadEntries, scopeWriteEntries],
+  );
   const [summaryCacheStatus, setSummaryCacheStatus] =
     useState<AgenticSummaryCacheStatus | null>(null);
   const [summaryCacheStatusLoading, setSummaryCacheStatusLoading] =
@@ -484,7 +1323,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const [summaryCacheStatusError, setSummaryCacheStatusError] = useState<
     string | null
   >(null);
-
   const fetchSummaryCacheStatus = useCallback(async () => {
     if (summaryContextEdgeCount === 0) {
       setSummaryCacheStatus(null);
@@ -493,10 +1331,14 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }
     setSummaryCacheStatusLoading(true);
     try {
-      const response = await route_get_agentic_summary_cache_status({
-        projectConfigId,
-        chatSectionId: sectionId,
-      });
+      const response = (await callOpenAPI(
+        getAgenticSummaryCacheStatus({
+          body: {
+            projectConfigId,
+            chatSectionId: sectionId,
+          },
+        } as Parameters<typeof getAgenticSummaryCacheStatus>[0]),
+      )) as AgenticSummaryCacheStatusRouteResponse;
       if (!res200(response)) {
         const detail = getErrorDetail(response.data as unknown);
         const status =
@@ -519,11 +1361,9 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       setSummaryCacheStatusLoading(false);
     }
   }, [projectConfigId, sectionId, summaryContextEdgeCount]);
-
   useEffect(() => {
     void fetchSummaryCacheStatus();
   }, [fetchSummaryCacheStatus]);
-
   const updateSettings = useCallback(
     (nextSettings: ChatSectionSettingsPayload) => {
       if (isDisabled) {
@@ -543,24 +1383,27 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           });
         },
         send: (frontendOpId) =>
-          route_set_chat_section_settings({
-            projectConfigId,
-            sectionId,
-            managed: nextSettings.managed,
-            engineConfigId: nextSettings.engineConfigId,
-            transcriptionProfileId: nextSettings.transcriptionProfileId,
-            agentProfileId: nextSettings.agentProfileId,
-            thinking: nextSettings.thinking,
-            permissionMode: nextSettings.permissionMode,
-            searchEnabled: nextSettings.searchEnabled,
-            dictationMode: nextSettings.dictationMode,
-            frontendOpId,
-          }),
+          callOpenAPI(
+            setChatSectionSettings({
+              body: {
+                projectConfigId,
+                sectionId,
+                managed: nextSettings.managed,
+                engineConfigId: nextSettings.engineConfigId,
+                transcriptionProfileId: nextSettings.transcriptionProfileId,
+                agentProfileId: nextSettings.agentProfileId,
+                thinking: nextSettings.thinking,
+                permissionMode: nextSettings.permissionMode,
+                searchEnabled: nextSettings.searchEnabled,
+                dictationMode: nextSettings.dictationMode,
+                frontendOpId,
+              },
+            } as Parameters<typeof setChatSectionSettings>[0]),
+          ),
       });
     },
     [isDisabled, projectConfigId, sectionId],
   );
-
   const handleManagedChange = useCallback(
     (value: boolean) => {
       updateSettings({
@@ -585,7 +1428,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
-
   const handleChatModeChange = useCallback(
     (value: string | null) => {
       if (isChatModeControlDisabled) {
@@ -604,7 +1446,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [isChatModeControlDisabled, sectionId],
   );
-
   const handleThinkingChange = useCallback(
     (value: boolean) => {
       updateSettings({
@@ -629,7 +1470,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
-
   const handleLLMConfigChange = useCallback(
     (value: string | null) => {
       if (isDisabled) {
@@ -649,7 +1489,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [isDisabled, selectedEngineConfig],
   );
-
   const handleAgentProfileChange = useCallback(
     (value: string | null) => {
       updateSettings({
@@ -674,7 +1513,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
-
   const handleTranscriptionProfileChange = useCallback(
     (value: string | null) => {
       updateSettings({
@@ -699,7 +1537,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
-
   const handleDictationModeChange = useCallback(
     (value: string | null) => {
       const nextMode =
@@ -727,9 +1564,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
-
   const canEditLinks = canEditStructure;
-
   const handleAddContextSection = useCallback(
     (value: string | null) => {
       if (!value || !canEditLinks) {
@@ -743,7 +1578,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [canEditLinks, sectionId],
   );
-
   const handleAddScopeSection = useCallback(
     (value: string | null) => {
       if (!value || !canEditLinks) {
@@ -757,7 +1591,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [canEditLinks, sectionId],
   );
-
   const handleAddAgentLink = useCallback(
     (value: string | null) => {
       if (!value || !canEditLinks) {
@@ -771,7 +1604,24 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [canEditLinks, sectionId],
   );
-
+  const handleRemoveEdge = useCallback(
+    (edgeId: string) => {
+      if (!canEditLinks) {
+        return;
+      }
+      deleteAgenticEdgesById([edgeId]);
+    },
+    [canEditLinks],
+  );
+  const handleContextModeChange = useCallback(
+    (edgeId: string, value: AgenticEdgeContextModeEnum) => {
+      if (!canEditLinks) {
+        return;
+      }
+      updateAgenticEdgeContextMode(edgeId, value);
+    },
+    [canEditLinks],
+  );
   const handleNewChat = useCallback(() => {
     if (isDisabled || !managed || !canManageManagedChatThreads) {
       return;
@@ -783,11 +1633,15 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         });
       },
       send: () =>
-        route_set_chat_section_chat_id({
-          projectConfigId,
-          sectionId,
-          chatId: null,
-        }),
+        callOpenAPI(
+          setChatSectionChatId({
+            body: {
+              projectConfigId,
+              sectionId,
+              chatId: null,
+            },
+          } as Parameters<typeof setChatSectionChatId>[0]),
+        ),
     });
   }, [
     canManageManagedChatThreads,
@@ -796,7 +1650,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     projectConfigId,
     sectionId,
   ]);
-
   const handleEngineChange = useCallback(
     (value: string | null) => {
       const nextEngineId = value ?? null;
@@ -810,7 +1663,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         searchEnabled,
         dictationMode,
       });
-      if (nextEngineId !== selectedEngineId) {
+      if (nextEngineId !== (selectedEngineConfig?.id ?? null)) {
         handleNewChat();
       }
     },
@@ -820,486 +1673,70 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       managed,
       permissionMode,
       searchEnabled,
-      selectedEngineId,
+      selectedEngineConfig,
       transcriptionProfileId,
       dictationMode,
       thinking,
       updateSettings,
     ],
   );
-
-  const configPlaceholder = noConfigsAvailable
-    ? "Add an LLM config or API key"
-    : "Select an LLM";
-  const highlightMissingConfig =
-    engineType === EngineTypeEnum.setta_llm &&
-    !selectedLLMConfigId &&
-    !noConfigsAvailable;
-  const contextOptionCount = contextItems[0]?.items.length ?? 0;
-  const scopeOptionCount = scopeItems[0]?.items.length ?? 0;
-  const agentOptionCount = agentItems[0]?.items.length ?? 0;
-  const hasAgenticScope =
-    agenticScope.readSectionIds.size > 0 ||
-    agenticScope.writeSectionIds.size > 0 ||
-    agenticScope.contextSectionIds.size > 0 ||
-    agenticScope.peerChatSectionIds.size > 0;
-
   return (
     <div className="flex w-full flex-col gap-2">
-      <div
-        className="flex w-full flex-col gap-2"
-        data-testid="chat-area-settings-chat-mode"
-      >
-        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-          Chat Mode
-        </p>
-        <IdNameCombobox
-          allItems={modeItems}
-          value={sectionChatWindowMode}
-          small={false}
-          onSelectedItemChange={handleChatModeChange}
-          placeholder="Select chat mode"
-          outerDivClasses="justify-center"
-          isDisabled={isChatModeControlDisabled}
-        />
-      </div>
-
-      <div className="flex w-full items-center justify-between gap-4">
-        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-          Managed Mode
-        </p>
-        <SwitchInput
-          isDisabled={isDisabled}
-          value={managed}
-          onChange={handleManagedChange}
-          outerDivClassName="flex items-center"
-        />
-      </div>
-
-      {managed ? (
-        <>
-          <div className="flex w-full flex-col gap-2">
-            <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-              Engine
-            </p>
-            <IdNameCombobox
-              allItems={engineGroups}
-              value={selectedEngineId}
-              small={false}
-              onSelectedItemChange={handleEngineChange}
-              placeholder="Select an engine"
-              outerDivClasses="justify-center"
-              isDisabled={isDisabled}
-            />
-          </div>
-          <div className="flex w-full flex-col gap-2">
-            <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-              Agent Profile
-            </p>
-            <IdNameCombobox
-              allItems={agentProfileGroups}
-              value={agentProfileId}
-              small={false}
-              onSelectedItemChange={handleAgentProfileChange}
-              placeholder="Select a profile (optional)"
-              outerDivClasses="justify-center"
-              isDisabled={isDisabled}
-              selectedItemCanBeNull
-            />
-            {agentProfileId ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                Engine config overrides the profile when set.
-              </p>
-            ) : null}
-          </div>
-          {engineType === EngineTypeEnum.setta_llm ? (
-            <>
-              <div className="flex w-full items-center justify-between gap-4">
-                <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-                  Thinking
-                </p>
-                <SwitchInput
-                  isDisabled={isDisabled}
-                  value={thinking}
-                  onChange={handleThinkingChange}
-                  outerDivClassName="flex items-center"
-                />
-              </div>
-              <div className="flex w-full flex-col gap-2">
-                <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-                  LLM Config
-                </p>
-                <IdNameCombobox
-                  allItems={availableConfigGroups}
-                  value={selectedLLMConfigId}
-                  small={false}
-                  onSelectedItemChange={handleLLMConfigChange}
-                  placeholder={configPlaceholder}
-                  bg={
-                    highlightMissingConfig
-                      ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500"
-                      : ""
-                  }
-                  outerDivClasses="justify-center"
-                  isDisabled={isDisabled}
-                  selectedItemCanBeNull
-                />
-              </div>
-            </>
-          ) : null}
-          <div className="flex w-full flex-col gap-2">
-            <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-              Transcription Profile
-            </p>
-            <IdNameCombobox
-              allItems={transcriptionProfileGroups}
-              value={transcriptionProfileId}
-              small={false}
-              onSelectedItemChange={handleTranscriptionProfileChange}
-              placeholder="Select a transcription profile"
-              outerDivClasses="justify-center"
-              isDisabled={isDisabled}
-              selectedItemCanBeNull
-            />
-          </div>
-          <div className="flex w-full flex-col gap-2">
-            <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-              Dictation Mode
-            </p>
-            <IdNameCombobox
-              allItems={DICTATION_MODE_ITEMS}
-              value={dictationMode}
-              small={false}
-              onSelectedItemChange={handleDictationModeChange}
-              placeholder="Select dictation mode"
-              outerDivClasses="justify-center"
-              isDisabled={isDisabled}
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              disabled={isDisabled || !canManageManagedChatThreads}
-              className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              onClick={handleNewChat}
-            >
-              New Chat
-            </button>
-          </div>
-        </>
-      ) : null}
-
-      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-            Context & Links
-          </p>
-          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-            Add context sources, scope boundaries, or linked agents for this
-            chat.
-          </p>
-        </div>
-
-        <div className="mt-3 flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Context sources
-            </p>
-            <IdNameCombobox
-              allItems={contextItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddContextSection}
-              placeholder={
-                contextOptionCount > 0
-                  ? "Add a section"
-                  : "No sections available"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || contextOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {contextEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No context links yet.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {contextEdges.map((edge) => (
-                  <div
-                    key={edge.id}
-                    className="flex items-center gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                  >
-                    <span className="min-w-0 flex-1 truncate">
-                      {sectionLabelsById[edge.targetSectionId] ??
-                        edge.targetSectionId}
-                    </span>
-                    <select
-                      value={
-                        edge.contextMode ??
-                        AgenticEdgeContextModeEnum.reference_only
-                      }
-                      onChange={(event) =>
-                        updateAgenticEdgeContextMode(
-                          edge.id,
-                          event.target.value as AgenticEdgeContextModeEnum,
-                        )
-                      }
-                      disabled={!canEditLinks}
-                      className="h-6 rounded border border-setta-200 bg-white px-1 text-[10px] text-setta-600 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
-                    >
-                      {contextModeOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                      onClick={() => deleteAgenticEdgesById([edge.id])}
-                      disabled={!canEditLinks}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {summaryContextEdgeCount > 0 ? (
-              <div className="mt-2 rounded-md border border-setta-200/80 bg-white/80 p-2 text-[11px] text-setta-700 shadow-sm dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-setta-600 dark:text-setta-300">
-                    Summary cache
-                  </span>
-                  <button
-                    type="button"
-                    className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-70 dark:text-setta-400 dark:hover:text-setta-200"
-                    onClick={fetchSummaryCacheStatus}
-                    disabled={summaryCacheStatusLoading}
-                  >
-                    Refresh
-                  </button>
-                </div>
-                {summaryCacheStatusLoading ? (
-                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    Loading summary cache status...
-                  </p>
-                ) : summaryCacheStatusError ? (
-                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
-                    Failed to load summary cache status:{" "}
-                    {summaryCacheStatusError}
-                  </p>
-                ) : summaryCacheStatus ? (
-                  <div className="mt-1 flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    <p>
-                      Cached: {summaryCacheStatus.cachedSectionIds.length}/
-                      {summaryCacheStatus.summarySectionIds.length}. Missing:{" "}
-                      {summaryCacheStatus.missingSectionIds.length}. Deferred
-                      due to cap ({summaryCacheStatus.maxSummariesPerRun}):{" "}
-                      {Math.max(
-                        summaryCacheStatus.missingSectionIds.length -
-                          summaryCacheStatus.consideredSectionIds.length,
-                        0,
-                      )}
-                      .
-                    </p>
-                    {summaryCacheStatus.emptySourceSectionIds.length > 0 ? (
-                      <p>
-                        Empty deterministic sources:{" "}
-                        {summaryCacheStatus.emptySourceSectionIds.length}.
-                      </p>
-                    ) : null}
-                    <p>
-                      Missing summaries fall back to a deterministic excerpt in
-                      the Agentic Context message until cached.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    Summary cache status unavailable.
-                  </p>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Scope sections
-            </p>
-            <IdNameCombobox
-              allItems={scopeItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddScopeSection}
-              placeholder={
-                scopeOptionCount > 0 ? "Add a section" : "No sections available"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || scopeOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {scopeEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No scope links yet.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {scopeEdges.map((edge) => (
-                  <div
-                    key={edge.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                  >
-                    <span className="truncate">
-                      {sectionLabelsById[edge.targetSectionId] ??
-                        edge.targetSectionId}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                      onClick={() => deleteAgenticEdgesById([edge.id])}
-                      disabled={!canEditLinks}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Linked agents
-            </p>
-            <IdNameCombobox
-              allItems={agentItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddAgentLink}
-              placeholder={
-                agentOptionCount > 0 ? "Link a chat" : "No other chats"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || agentOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {linkedAgentEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No linked agents yet.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {linkedAgentEdges.map((edge) => {
-                  const otherId =
-                    edge.sourceSectionId === sectionId
-                      ? edge.targetSectionId
-                      : edge.sourceSectionId;
-                  return (
-                    <div
-                      key={edge.id}
-                      className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                    >
-                      <span className="truncate">
-                        {sectionLabelsById[otherId] ?? otherId}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                        onClick={() => deleteAgenticEdgesById([edge.id])}
-                        disabled={!canEditLinks}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-            Agentic Scope
-          </p>
-          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-            Edges define what this chat can read, write, and use as context.
-          </p>
-        </div>
-
-        <div className="mt-2 flex flex-col gap-1">
-          {!hasAgenticScope ? (
-            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-              No outgoing scope links = no access.
-            </p>
-          ) : null}
-          <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            Use Project Chat for full access.
-          </p>
-        </div>
-
-        <div className="mt-3 grid gap-3">
-          {[
-            {
-              label: "Read",
-              entries: scopeReadEntries,
-              labelClassName: "text-emerald-600 dark:text-emerald-300",
-              emptyText: "No readable sections.",
-            },
-            {
-              label: "Write",
-              entries: scopeWriteEntries,
-              labelClassName: "text-amber-600 dark:text-amber-300",
-              emptyText: "No writable sections.",
-            },
-            {
-              label: "Context",
-              entries: scopeContextEntries,
-              labelClassName: "text-sky-600 dark:text-sky-300",
-              emptyText: "No context sections.",
-            },
-          ].map((block) => (
-            <div key={block.label} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={`text-[11px] font-semibold ${block.labelClassName}`}
-                >
-                  {block.label}
-                </span>
-                <span className="text-[10px] text-setta-500 dark:text-setta-400">
-                  {block.entries.length}
-                </span>
-              </div>
-              {block.entries.length === 0 ? (
-                <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                  {block.emptyText}
-                </p>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {block.entries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                    >
-                      <span className="truncate">{entry.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <ChatModeField
+        modeItems={CHAT_MODE_ITEMS}
+        value={sectionChatWindowMode}
+        isDisabled={isChatModeControlDisabled}
+        onChange={handleChatModeChange}
+      />
+      <ManagedModeToggle
+        isDisabled={isDisabled}
+        managed={managed}
+        onChange={handleManagedChange}
+      />
+      <ManagedChatSettings
+        managed={managed}
+        isDisabled={isDisabled}
+        canManageManagedChatThreads={canManageManagedChatThreads}
+        engineGroups={engineGroups}
+        selectedEngineConfig={selectedEngineConfig}
+        onEngineChange={handleEngineChange}
+        agentProfileGroups={agentProfileGroups}
+        agentProfileId={agentProfileId}
+        onAgentProfileChange={handleAgentProfileChange}
+        thinking={thinking}
+        onThinkingChange={handleThinkingChange}
+        availableConfigGroups={availableConfigGroups}
+        selectableLLMConfigId={selectableLLMConfigId}
+        onLLMConfigChange={handleLLMConfigChange}
+        noConfigsAvailable={noConfigsAvailable}
+        transcriptionProfileGroups={transcriptionProfileGroups}
+        transcriptionProfileId={transcriptionProfileId}
+        onTranscriptionProfileChange={handleTranscriptionProfileChange}
+        dictationMode={dictationMode}
+        onDictationModeChange={handleDictationModeChange}
+        onNewChat={handleNewChat}
+      />
+      <ContextAndLinksCard
+        contextItems={contextItems}
+        scopeItems={scopeItems}
+        agentItems={agentItems}
+        canEditLinks={canEditLinks}
+        contextRows={contextRows}
+        scopeRows={scopeRows}
+        linkedAgentRows={linkedAgentRows}
+        onAddContextSection={handleAddContextSection}
+        onAddScopeSection={handleAddScopeSection}
+        onAddAgentLink={handleAddAgentLink}
+        contextModeOptions={CONTEXT_MODE_OPTIONS}
+        onContextModeChange={handleContextModeChange}
+        onRemoveEdge={handleRemoveEdge}
+        showSummaryCacheStatus={summaryContextEdgeCount > 0}
+        summaryCacheStatusLoading={summaryCacheStatusLoading}
+        summaryCacheStatusError={summaryCacheStatusError}
+        summaryCacheStatus={summaryCacheStatus}
+        onRefreshSummaryCacheStatus={fetchSummaryCacheStatus}
+      />
+      <AgenticScopeCard blocks={scopeBlocks} />
     </div>
   );
 }

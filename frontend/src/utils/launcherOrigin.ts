@@ -1,8 +1,9 @@
+import { BootstrapProtocol } from "utils/generatedTypes";
 import { isLocalHostname } from "utils/hostnames";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
 
-const LAUNCHER_ORIGIN_STORAGE_KEY = "setta.launcherOrigin";
+const LAUNCHER_ORIGIN_STORAGE_KEY = BootstrapProtocol.launcherOriginStorageKey;
 
 function launcherOriginStorage(): Storage | undefined {
   return safeSessionStorage();
@@ -91,31 +92,4 @@ export function getOrInitLauncherOrigin(fallbackOrigin: string): string {
   const resolved = normalized ?? fallbackOrigin;
   writeLauncherOrigin(resolved);
   return resolved;
-}
-
-export function appendLauncherOriginToBootstrapUrlFragment(
-  bootstrapUrlFragment: string,
-  launcherOrigin: string,
-): string {
-  if (typeof window === "undefined") {
-    return bootstrapUrlFragment;
-  }
-  const normalized = normalizeOrigin(launcherOrigin, "launcher origin");
-  if (!normalized) {
-    return bootstrapUrlFragment;
-  }
-  let url: URL;
-  try {
-    url = new URL(bootstrapUrlFragment, window.location.href);
-  } catch {
-    return bootstrapUrlFragment;
-  }
-  const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
-  const params = new URLSearchParams(hash);
-  if (params.get("lo") && params.get("lop")) {
-    return url.toString();
-  }
-  params.set("lo", normalized);
-  url.hash = params.toString();
-  return url.toString();
 }

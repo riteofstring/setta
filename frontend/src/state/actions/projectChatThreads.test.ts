@@ -321,6 +321,19 @@ describe("project chat thread storage helpers", () => {
     ).toBeUndefined();
   });
 
+  it("refuses to soft delete the same thread twice", () => {
+    const firstDelete = deleteProjectChatThread("project-a", "chat-1");
+    const secondDelete = deleteProjectChatThread("project-a", "chat-1");
+
+    expect(firstDelete).toBe(true);
+    expect(secondDelete).toBe(false);
+    expect(
+      useLocalStorage.getState().trashedProjectChatThreadIdsByProjectConfigId[
+        "project-a"
+      ],
+    ).toEqual(["chat-1"]);
+  });
+
   it("undoes the most recent thread storage mutation for the active project", () => {
     const groupId = createProjectChatThreadGroup("project-a", "Backend");
     if (!groupId) {
