@@ -40,7 +40,11 @@ import {
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects,
   reconcileProjectChatWindowingEphemeralState,
 } from "../projectChatWindowingEphemeral";
-import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
+import {
+  beginViewportPersistenceForAuthoritativeFitViewSuppression as beginAuthoritativeFitViewViewportPersistenceSuppression,
+  createNodesMapFromProjectConfigChildren,
+  resetViewportPersistenceForAuthoritativeFitViewSuppression as resetAuthoritativeFitViewViewportPersistenceSuppression,
+} from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
 export async function loadProjectConfig({ projectConfigName }) {
@@ -92,8 +96,10 @@ export async function loadProjectState(
     normalizedProjectState.projectConfig;
   cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
+    beginAuthoritativeFitViewViewportPersistenceSuppression();
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
+    resetAuthoritativeFitViewViewportPersistenceSuppression();
     const { x, y, zoom } = viewport;
     useReactFlow.setState({
       fitViewOnInit: false,

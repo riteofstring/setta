@@ -20551,6 +20551,61 @@ LOOP_TERMINAL_MARKER: none
       backend `All Settings` + `viewport=null` writes before the outer timeout
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 10:47 UTC | item `490` | suppressed authoritative fit-view viewport persistence so the canonical lane-health store sync now settles
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/state/actions/sectionInfos.ts`
+      now sets a narrow suppression flag whenever an authoritative backend
+      update or initial project load schedules `fitViewOnInit` from
+      `viewport=null`
+    - `frontend/src/state/subscriptions.ts`
+      consumes that suppression in the global React Flow transform subscriber
+      so the authoritative fit does not immediately persist a concrete
+      transform back over the backend's intended `viewport=null` state
+    - `frontend/src/state/actions/project/loadProject.ts`
+      applies the same suppression on load when the project config has no
+      authoritative viewport
+    - `frontend/src/state/actions/sectionInfos.test.ts`
+      now covers the suppression lifecycle directly
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts`
+      -> passed (`1` file, `31` tests)
+    - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/state/actions/project/loadProject.ts src/state/subscriptions.ts`
+      -> passed
+    - recovered `ENOSPC` during verification by deleting stale
+      `/tmp/codex-supervisor.*` artifacts; this was an environment cleanup, not
+      part of the product slice
+    - refreshed the expired bootstrap token with
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-021/worktree-ai.log`
+    - when the worktree frontend on `3053` had died, used the one allowed
+      lifecycle recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      then refreshed runtime info again
+    - reran:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> passed (`1` test, `1.7m`)
+      -> final snapshot reported
+         `classification: "healthy"`,
+         `preflight.status: "ok"`,
+         `activeViewModeName: "All Settings"`,
+         `surfaceKind: "canary"`,
+         `targetSectionVisible: true`
+    - fresh-context CDP check:
+      -> done via sub-agent
+      -> settings surface was visibly populated and
+         `rotaryParamCodeObjDefault` was visible, but the manual session did
+         not confirm the expected canary `data-testid`; keep the Playwright
+         lane-health run as the trusted oracle for this slice
+  - reading:
+    - this resolves the post-`surface_ready`
+      `waitForFrontendProjectConfigState(...)` blocker named in items `486`
+      through `489`
+    - the canonical worktree lane is green again, so the next iteration should
+      stop spending time on store-sync repair and move to the next real
+      frontier: normalized worktree-vs-`main` evidence on the same named lane
+      or the next production cut on `reactFlowViewportPublish`
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-14 14:08 UTC | item `472` | completed unpinned-area attribution split and hardened probe pane-state setup
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:

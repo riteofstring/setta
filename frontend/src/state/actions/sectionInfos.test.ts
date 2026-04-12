@@ -2,6 +2,8 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
+  beginViewportPersistenceForAuthoritativeFitViewSuppression,
+  consumeViewportPersistenceForAuthoritativeFitViewSuppression,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   debouncedDispatchViewportUpdate,
@@ -14,6 +16,7 @@ import {
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
   processProjectStateUpdateFromBackend,
+  resetViewportPersistenceForAuthoritativeFitViewSuppression,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
@@ -49,7 +52,11 @@ import {
   type ShownParamIds,
   type ViewModeConfig,
 } from "utils/generatedTypes";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+afterEach(() => {
+  resetViewportPersistenceForAuthoritativeFitViewSuppression();
+});
 
 describe("getSectionIsHorizontalOrientation", () => {
   it("treats list root kanban view as horizontal", () => {
@@ -2306,5 +2313,28 @@ describe("processProjectStateUpdateFromBackend", () => {
     );
     expect(usePendingOperations.getState().pending).toEqual([]);
     expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+  });
+
+  it("suppresses transform persistence until authoritative fit view finishes", () => {
+    beginViewportPersistenceForAuthoritativeFitViewSuppression();
+
+    expect(
+      consumeViewportPersistenceForAuthoritativeFitViewSuppression({
+        fitViewOnInit: true,
+        fitViewOnInitDone: false,
+      }),
+    ).toBe(true);
+    expect(
+      consumeViewportPersistenceForAuthoritativeFitViewSuppression({
+        fitViewOnInit: true,
+        fitViewOnInitDone: true,
+      }),
+    ).toBe(true);
+    expect(
+      consumeViewportPersistenceForAuthoritativeFitViewSuppression({
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+      }),
+    ).toBe(false);
   });
 });

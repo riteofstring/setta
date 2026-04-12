@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 10:33 UTC
+Last updated: 2026-04-15 10:47 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,66 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `490` stopped authoritative `viewport=null` fit-view setup from
+  immediately re-persisting a concrete viewport back into the frontend store,
+  which unblocked the canonical `rotaryParamCodeObjDefault` lane-health probe
+  after `surface_ready`:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/state/actions/sectionInfos.ts`
+      now tracks a narrow authoritative-fit-view suppression flag so backend-
+      driven `fitViewOnInit` setup can skip the automatic transform persistence
+      path until that fit completes
+    - `frontend/src/state/subscriptions.ts`
+      consumes that suppression in the global React Flow transform
+      subscription, preventing the first authoritative fit from writing a
+      concrete viewport over the backend's intended `viewport=null` state
+    - `frontend/src/state/actions/project/loadProject.ts`
+      applies the same suppression on initial project load when the backend
+      project config has no authoritative viewport
+    - `frontend/src/state/actions/sectionInfos.test.ts`
+      now covers the suppression lifecycle directly in addition to the existing
+      stale viewport replay coverage
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts`
+      -> passed (`1` file, `31` tests)
+    - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/state/actions/project/loadProject.ts src/state/subscriptions.ts`
+      -> passed
+    - environment repair during verification:
+      - freed stale `/tmp/codex-supervisor.*` artifacts after `vitest` hit
+        `ENOSPC`
+      - refreshed the expired bootstrap token with
+        `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-021/worktree-ai.log`
+      - when the worktree frontend on `3053` was down, used the one allowed
+        lifecycle recovery:
+        `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        then refreshed runtime info again
+    - live canonical lane rerun after recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> passed (`1` test, `1.7m`)
+      -> progressed through
+         `app_router_loading -> settings_loading -> app_shell_without_surface -> project_loading -> surface_ready`
+      -> final lane health was `classification: "healthy"` with
+         `preflight.status: "ok"`, `activeViewModeName: "All Settings"`,
+         `surfaceKind: "canary"`, and `targetSectionVisible: true`
+    - fresh-context CDP check:
+      -> done via sub-agent
+      -> the settings graph surface was visually populated and
+         `rotaryParamCodeObjDefault` was visible in the viewport, but the
+         sub-agent did not confirm the expected canary `data-testid` mount in
+         that manual session; treat the automated Playwright lane-health pass
+         as the trustworthy oracle for surface kind on this slice
+  - reading:
+    - this is the first concrete production fix on the post-`surface_ready`
+      store-sync owner named by item `489`, not another probe-helper pass
+    - the canonical worktree lane is now green again on the named
+      `rotaryParamCodeObjDefault` target after authoritative
+      `All Settings` + `viewport=null` normalization
+    - next: use this restored canonical lane as regression coverage and move
+      back to the next real frontier, either a normalized worktree-vs-`main`
+      compare on the same named target or the next production cut on the
+      measured dominant owner (`reactFlowViewportPublish`)
 
 - item `489` deduped concurrent frontend server-mode bootstrap requests so the
   canonical `rotaryParamCodeObjDefault` lane no longer re-enters multiple

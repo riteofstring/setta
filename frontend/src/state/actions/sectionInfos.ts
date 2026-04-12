@@ -1041,6 +1041,31 @@ function reconcileAuthoritativeViewportPendingOperations(
   );
 }
 
+let suppressViewportPersistenceForAuthoritativeFitView = false;
+
+export function resetViewportPersistenceForAuthoritativeFitViewSuppression() {
+  suppressViewportPersistenceForAuthoritativeFitView = false;
+}
+
+export function beginViewportPersistenceForAuthoritativeFitViewSuppression() {
+  suppressViewportPersistenceForAuthoritativeFitView = true;
+}
+
+export function consumeViewportPersistenceForAuthoritativeFitViewSuppression(args: {
+  fitViewOnInit: boolean;
+  fitViewOnInitDone: boolean;
+}): boolean {
+  if (!suppressViewportPersistenceForAuthoritativeFitView) {
+    return false;
+  }
+
+  if (args.fitViewOnInitDone) {
+    suppressViewportPersistenceForAuthoritativeFitView = false;
+  }
+
+  return true;
+}
+
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1174,6 +1199,7 @@ function applyViewportFromProjectState(
   }
   debouncedDispatchViewportUpdate.cancel();
   if (!viewport || !viewportInitialized) {
+    beginViewportPersistenceForAuthoritativeFitViewSuppression();
     useReactFlow.setState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
@@ -1181,6 +1207,7 @@ function applyViewportFromProjectState(
     });
     return true;
   }
+  resetViewportPersistenceForAuthoritativeFitViewSuppression();
   useReactFlow.setState({
     fitViewOnInit: false,
     fitViewOnInitDone: true,

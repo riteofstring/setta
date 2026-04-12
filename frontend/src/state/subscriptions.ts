@@ -17,6 +17,7 @@ import {
   updateNodeDimensions,
 } from "./actions/nodeInternals";
 import {
+  consumeViewportPersistenceForAuthoritativeFitViewSuppression,
   debouncedDispatchViewportUpdate,
   getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
@@ -63,6 +64,18 @@ export function subscribe() {
       measureSettingsGraphSubstrateCanaryMotionAttribution(
         "reactFlowTransformSubscriptionCallback",
         () => {
+          if (
+            consumeViewportPersistenceForAuthoritativeFitViewSuppression({
+              fitViewOnInit: newState.fitViewOnInit,
+              fitViewOnInitDone: newState.fitViewOnInitDone,
+            })
+          ) {
+            if (newState.fitViewOnInit && newState.fitViewOnInitDone) {
+              useReactFlow.setState({ fitViewOnInit: false });
+            }
+            return;
+          }
+
           if (
             prevState.fitViewOnInit &&
             prevState.fitViewOnInitDone &&
