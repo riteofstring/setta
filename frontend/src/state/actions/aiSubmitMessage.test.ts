@@ -1,7 +1,10 @@
-import { getAgentRuns, getLlmChat, getLlmResponse } from "openapi/http";
-import { addTemporaryNotification } from "state/actions/notifications";
 import { resetProjectStores } from "state/utils";
 import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
+import {
+  route_get_agent_runs,
+  route_get_llm_chat,
+  route_get_llm_response,
+} from "utils/generatedEndpoints";
 import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
@@ -19,35 +22,25 @@ import {
   vi,
 } from "vitest";
 
-vi.mock("openapi/http", async () => {
-  const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+vi.mock("utils/generatedEndpoints", async () => {
+  const actual = await vi.importActual<
+    typeof import("utils/generatedEndpoints")
+  >("utils/generatedEndpoints");
   return {
     ...actual,
-    getAgentRuns: vi.fn(),
-    getLlmChat: vi.fn(),
-    getLlmResponse: vi.fn(),
+    route_get_agent_runs: vi.fn(),
+    route_get_llm_chat: vi.fn(),
+    route_get_llm_response: vi.fn(),
   };
 });
-
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
 
 vi.mock("state/actions/frontendWebsocketAffinity", () => ({
   waitForFrontendAffinityToken: vi.fn(async () => "frontend-test-id"),
 }));
 
-vi.mock("state/actions/notifications", () => ({
-  addTemporaryNotification: vi.fn(),
-}));
-
-const mockedRouteGetAgentRuns = vi.mocked(getAgentRuns);
-const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
-const mockedRouteGetLLMResponse = vi.mocked(getLlmResponse);
-const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
+const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
+const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
+const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
@@ -57,7 +50,12 @@ let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "submit-draft-surface";
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return chatId;
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
 }
 
 describe("submitMessage", () => {
@@ -170,10 +168,6 @@ describe("submitMessage", () => {
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.messages).toHaveLength(0);
     expect(details?.waitingForResponse).toBe(false);
-    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
-      "Reference image notes exceed 5000 characters.",
-      "warning",
-    );
   });
 
   it("falls back to status-derived errors when backend detail is absent", async () => {
@@ -204,10 +198,6 @@ describe("submitMessage", () => {
         false,
       ),
     ).rejects.toThrow("Chat request failed (status 503).");
-    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
-      "Chat request failed (status 503).",
-      "warning",
-    );
   });
 
   it("passes app-generation mode context through to the backend request", async () => {
@@ -236,16 +226,13 @@ describe("submitMessage", () => {
     ).resolves.toBe(returnedChatId);
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        body: {
-          appGenerationMode: string | null;
-          appGenerationByMessageId: Record<string, string>;
-          message: { id: string };
-        };
+        appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        message: { id: string };
       },
     ];
-    const payload = request.body;
     expect(payload.appGenerationMode).toBe("mcp_server");
     expect(payload.appGenerationByMessageId).toEqual({
       [payload.message.id]: "mcp_server",
@@ -314,16 +301,13 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBe(chatId);
 
-    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        body: {
-          appGenerationMode: string | null;
-          appGenerationByMessageId: Record<string, string>;
-          message: { id: string; attachments: unknown[] };
-        };
+        appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        message: { id: string; attachments: unknown[] };
       },
     ];
-    const payload = request.body;
     expect(payload.appGenerationMode).toBe("json_render_with_image");
     expect(payload.message.attachments).toEqual([]);
     expect(payload.appGenerationByMessageId).toEqual({
@@ -359,16 +343,13 @@ describe("submitMessage", () => {
     ).resolves.toBe(returnedChatId);
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        body: {
-          appGenerationMode: string | null;
-          appGenerationByMessageId: Record<string, string>;
-          message: { id: string };
-        };
+        appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        message: { id: string };
       },
     ];
-    const payload = request.body;
     expect(payload.appGenerationMode).toBeNull();
     expect(payload.appGenerationByMessageId).toEqual({
       [payload.message.id]: PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
@@ -405,20 +386,17 @@ describe("submitMessage", () => {
     ).resolves.toBe(returnedChatId);
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        body: {
-          permissionMode: string;
-          searchEnabled: boolean;
-        };
+        permissionMode: string;
+        searchEnabled: boolean;
       },
     ];
-    const payload = request.body;
     expect(payload.permissionMode).toBe("yolo");
     expect(payload.searchEnabled).toBe(false);
   });
 
-  it("does not refetch agent runs after successful submit hydration", async () => {
+  it("refreshes agent runs after successful submit hydration", async () => {
     const returnedChatId = "chat-submit-provenance-sync";
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
@@ -445,6 +423,34 @@ describe("submitMessage", () => {
         appGenerationByMessageId: {},
       },
     });
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [
+        {
+          id: "run-provenance-sync",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-06-10T00:00:00Z",
+          finishedAt: "2026-06-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            chatId: returnedChatId,
+            engineConfigId: "engine-primary",
+            projectConfigId: "project-config-id",
+            messages: [],
+          },
+          outputs: {
+            name: "Synced",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ],
+    });
+
     await expect(
       submitMessage(
         null,
@@ -459,7 +465,14 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBe(returnedChatId);
 
-    expect(mockedRouteGetAgentRuns).not.toHaveBeenCalled();
+    await expect.poll(() => mockedRouteGetAgentRuns.mock.calls.length).toBe(1);
+    await expect
+      .poll(() =>
+        useAIStore
+          .getState()
+          .agentRuns.some((run) => run.inputs?.chatId === returnedChatId),
+      )
+      .toBe(true);
   });
 
   it("hydrates app-generation provenance from the chat response immediately after submit", async () => {
@@ -542,10 +555,9 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBe(returnedChatId);
 
-    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
-      { body: { frontendAffinityToken: string } },
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      { frontendAffinityToken: string },
     ];
-    const payload = request.body;
     expect(payload.frontendAffinityToken).toBe("frontend-test-id");
   });
 
@@ -725,7 +737,7 @@ describe("submitMessage", () => {
       chatId: existingChatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.message_start,
+        type: StreamingEventTypeEnum.MESSAGE_START,
         message: createAssistantChatMessage({
           id: "existing-assistant-msg",
           content: [createMessageTextContent({ text: "Continuing poem..." })],
