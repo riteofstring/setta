@@ -20,6 +20,7 @@ import type {
 } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import {
   isSettingsGraphAppReady,
+  isSettingsGraphProjectSurfaceLoading,
   resolveSettingsGraphSurfaceKind,
 } from "components/Pages/Project/graphSubstrate/settingsGraphSurfaceState";
 import { postBackend } from "../helpers";
@@ -39,6 +40,7 @@ export type SettingsGraphComparePreflightStatus =
 
 export type SettingsGraphComparePreflightIssueCode =
   | "surface_missing"
+  | "project_loading"
   | "wrong_surface_kind"
   | "pane_state_mismatch"
   | "active_view_mode_mismatch"
@@ -159,6 +161,8 @@ const CANARY_SETTINGS_GRAPH_VIEWPORT_SELECTOR =
 const LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR = ".react-flow";
 const LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR = ".react-flow__node";
 const LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR = ".react-flow__viewport";
+const PROJECT_SURFACE_LOADING_SELECTOR =
+  '[data-testid="project-surface-loading-state"]';
 const LOCAL_PANE_STATE_STORE_READ_TIMEOUT_MS = 2000;
 
 type SettingsGraphMotionPerfCaptureState = {
@@ -392,11 +396,12 @@ export async function runSettingsGraphComparePreflight(args: {
           frontendOrigin: args.frontendOrigin,
         }
       : undefined;
-  const [payload, paneState, surfaceKind] = await Promise.all([
+  const [payload, paneState, surfacePresence] = await Promise.all([
     getLatestProjectState(args.page, args.projectConfigId, requestOptions),
     getLocalPaneState(args.page),
-    getSettingsGraphSurfaceKind(args.page),
+    readSettingsGraphSurfacePresenceSnapshot(args.page),
   ]);
+  const surfaceKind = resolveSettingsGraphSurfaceKind(surfacePresence);
 
   const issues: Array<SettingsGraphComparePreflightIssue> = [];
   const activeViewModeName = findViewModeName(
@@ -405,10 +410,17 @@ export async function runSettingsGraphComparePreflight(args: {
   );
 
   if (!surfaceKind) {
-    issues.push({
-      code: "surface_missing",
-      detail: `${args.side} surface did not mount a legacy or canary graph root.`,
-    });
+    issues.push(
+      isSettingsGraphProjectSurfaceLoading(surfacePresence)
+        ? {
+            code: "project_loading",
+            detail: `${args.side} surface remained on project loading state without mounting a legacy or canary graph root.`,
+          }
+        : {
+            code: "surface_missing",
+            detail: `${args.side} surface did not mount a legacy or canary graph root.`,
+          },
+    );
   } else if (surfaceKind !== args.expectedSurfaceKind) {
     issues.push({
       code: "wrong_surface_kind",
@@ -673,24 +685,9 @@ export async function fitGraphViewportToSection(
 export async function getSettingsGraphSurfaceKind(
   page: Page,
 ): Promise<SettingsGraphSurfaceKind | null> {
-  const snapshot = await page.evaluate(
-    ({
-      canaryRootSelector,
-      legacyRootSelector,
-    }: {
-      canaryRootSelector: string;
-      legacyRootSelector: string;
-    }) => ({
-      canaryRootMounted: document.querySelector(canaryRootSelector) !== null,
-      legacyPaneMounted: document.querySelector(legacyRootSelector) !== null,
-    }),
-    {
-      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
-      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
-    },
+  return resolveSettingsGraphSurfaceKind(
+    await readSettingsGraphSurfacePresenceSnapshot(page),
   );
-
-  return resolveSettingsGraphSurfaceKind(snapshot);
 }
 
 export async function getSettingsGraphSectionBoundingBox(
@@ -1353,46 +1350,67 @@ async function waitForSettingsGraphComparePaneChrome(
 }
 
 async function waitForSettingsGraphAppReady(page: Page): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        isSettingsGraphAppReady(
-          await page.evaluate(
-            ({
-              canaryRootSelector,
-              legacyRootSelector,
-            }: {
-              canaryRootSelector: string;
-              legacyRootSelector: string;
-            }) => {
-              const articleElements = Array.from(
-                document.querySelectorAll("article"),
-              );
-              return {
-                appShellMounted:
-                  document.querySelector(".setta-titlebar-offset") !== null,
-                canaryRootMounted:
-                  document.querySelector(canaryRootSelector) !== null,
-                legacyPaneMounted:
-                  document.querySelector(legacyRootSelector) !== null,
-                settingsContentMounted: articleElements.some((element) => {
-                  const htmlElement =
-                    element instanceof HTMLElement
-                      ? element
-                      : element.parentElement;
-                  return htmlElement?.offsetParent !== null;
-                }),
-              };
-            },
-            {
-              canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
-              legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
-            },
-          ),
-        ),
-      { timeout: 30000 },
-    )
-    .toBe(true);
+  const timeoutMs = 30000;
+  const pollIntervalMs = 250;
+  const deadline = Date.now() + timeoutMs;
+  let lastSnapshot = await readSettingsGraphSurfacePresenceSnapshot(page);
+
+  while (Date.now() < deadline) {
+    if (isSettingsGraphAppReady(lastSnapshot)) {
+      return;
+    }
+    await page.waitForTimeout(pollIntervalMs);
+    lastSnapshot = await readSettingsGraphSurfacePresenceSnapshot(page);
+  }
+
+  const loadingDetail = isSettingsGraphProjectSurfaceLoading(lastSnapshot)
+    ? "project loading surface remained mounted"
+    : "project loading surface was not the blocker";
+  throw new Error(
+    `Timed out waiting for settings graph app readiness after ${timeoutMs}ms. ${loadingDetail}. ${JSON.stringify(
+      lastSnapshot,
+    )}`,
+  );
+}
+
+async function readSettingsGraphSurfacePresenceSnapshot(page: Page): Promise<{
+  appShellMounted: boolean;
+  canaryRootMounted: boolean;
+  legacyPaneMounted: boolean;
+  projectSurfaceLoadingMounted: boolean;
+  settingsContentMounted: boolean;
+}> {
+  return page.evaluate(
+    ({
+      canaryRootSelector,
+      legacyRootSelector,
+      projectSurfaceLoadingSelector,
+    }: {
+      canaryRootSelector: string;
+      legacyRootSelector: string;
+      projectSurfaceLoadingSelector: string;
+    }) => {
+      const articleElements = Array.from(document.querySelectorAll("article"));
+      return {
+        appShellMounted:
+          document.querySelector(".setta-titlebar-offset") !== null,
+        canaryRootMounted: document.querySelector(canaryRootSelector) !== null,
+        legacyPaneMounted: document.querySelector(legacyRootSelector) !== null,
+        projectSurfaceLoadingMounted:
+          document.querySelector(projectSurfaceLoadingSelector) !== null,
+        settingsContentMounted: articleElements.some((element) => {
+          const htmlElement =
+            element instanceof HTMLElement ? element : element.parentElement;
+          return htmlElement?.offsetParent !== null;
+        }),
+      };
+    },
+    {
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      projectSurfaceLoadingSelector: PROJECT_SURFACE_LOADING_SELECTOR,
+    },
+  );
 }
 
 async function waitForSettingsGraphCompareTransientChrome(

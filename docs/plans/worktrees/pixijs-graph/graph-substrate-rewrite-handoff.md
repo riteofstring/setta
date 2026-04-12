@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 10:56 UTC
+Last updated: 2026-04-13 11:09 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,58 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `417` landed one bounded verifier hardening slice for the repeated direct
+  `/settings` runtime-health blocker on the canonical `rotaryParamCodeObjDefault`
+  lane:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and did not continue the recent
+      mounted-body refactor shape after item `416`; the same live blocker had
+      repeated across the last two iterations, so this pass pivoted directly to
+      the runtime-health classification seam
+    - chose one narrow support change that is explicitly justified by the
+      current blocker: when the authenticated `/settings` page never mounts a
+      graph root, the shared parity probe should say whether the page is still
+      stuck on `project-surface-loading-state` instead of collapsing that state
+      into a generic missing-surface timeout
+    - kept the slice bounded to shared readiness/preflight helpers used by the
+      existing worktree/reference parity probes; no production renderer or pane
+      behavior changed
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts`
+      with `projectSurfaceLoadingMounted` support and
+      `isSettingsGraphProjectSurfaceLoading(...)`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      with loading-state regression coverage
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so readiness/preflight share one surface-presence snapshot, preflight can
+      emit `project_loading`, and app-readiness timeouts now report the last
+      snapshot plus whether the loading surface was still mounted
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      -> passed (`1` file, `6` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live worktree probe retry:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-042/worktree-ai.log`
+      -> still failed before the new `project_loading` branch was reached
+      because the Playwright page/context closed during
+      `normalizeSettingsGraphComparePaneState(...)` while writing local pane
+      state
+      -> treat the live lane as `worktree_unhealthy`, not renderer drift
+  - reading:
+    - the verifier now distinguishes a persistent direct `/settings` loading
+      surface from a plain missing graph root and will report the last observed
+      surface snapshot on readiness timeouts
+    - this iteration still did not produce a trustworthy live canary readout on
+      the current runtime because the page/browser died earlier in pane-state
+      normalization
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - recover the live worktree runtime first, then rerun the authenticated
+      `/settings` health check so the new readiness/preflight diagnostics can
+      classify whether the blocker is persistent `project_loading` or another
+      worktree-lifecycle failure before more mounted-body work
 
 - item `416` landed one bounded production reduction inside the canonical
   mounted body subtree by giving shell-owned canary bodies a narrower shared

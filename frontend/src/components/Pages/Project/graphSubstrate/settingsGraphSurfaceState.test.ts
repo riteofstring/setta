@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isSettingsGraphAppReady,
+  isSettingsGraphProjectSurfaceLoading,
   resolveSettingsGraphSurfaceKind,
 } from "./settingsGraphSurfaceState";
 
@@ -29,6 +30,7 @@ describe("settingsGraphSurfaceState", () => {
         appShellMounted: true,
         canaryRootMounted: false,
         legacyPaneMounted: false,
+        projectSurfaceLoadingMounted: false,
         settingsContentMounted: true,
       }),
     ).toBe(true);
@@ -40,6 +42,31 @@ describe("settingsGraphSurfaceState", () => {
         appShellMounted: false,
         canaryRootMounted: true,
         legacyPaneMounted: false,
+        projectSurfaceLoadingMounted: false,
+        settingsContentMounted: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("detects the direct settings loading surface before a graph root mounts", () => {
+    expect(
+      isSettingsGraphProjectSurfaceLoading({
+        appShellMounted: true,
+        canaryRootMounted: false,
+        legacyPaneMounted: false,
+        projectSurfaceLoadingMounted: true,
+        settingsContentMounted: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not treat the loading surface as active once graph content mounts", () => {
+    expect(
+      isSettingsGraphProjectSurfaceLoading({
+        appShellMounted: true,
+        canaryRootMounted: true,
+        legacyPaneMounted: false,
+        projectSurfaceLoadingMounted: true,
         settingsContentMounted: true,
       }),
     ).toBe(false);

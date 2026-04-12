@@ -151,6 +151,49 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 11:09 UTC
+
+- Item: Land one bounded verifier slice so the repeated direct `/settings`
+  runtime-health blocker reports persistent project loading explicitly instead
+  of falling back to generic missing-surface/readiness timeouts.
+- Status: `done`
+- Details:
+  - re-read `RALPH.md`, the durable plan, and the active handoff first
+  - did not continue the recent mounted-body refactor pattern after item `416`
+    because the same live verifier blocker had repeated; this pass pivoted to
+    the blocker itself
+  - added `projectSurfaceLoadingMounted` and
+    `isSettingsGraphProjectSurfaceLoading(...)` to the shared graph-surface
+    state helper
+  - updated the shared parity probe helpers so they reuse one surface-presence
+    snapshot, emit a dedicated `project_loading` preflight issue when direct
+    `/settings` stays on `project-surface-loading-state`, and include the last
+    surface snapshot in readiness timeout errors
+  - added unit coverage for the new loading-state classification
+  - live probe retry on the current runtime still failed before the new
+    `project_loading` branch was reached:
+    the Playwright page/context closed during
+    `normalizeSettingsGraphComparePaneState(...)` while writing local pane
+    state, so the lane remains `worktree_unhealthy`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+    - result: passed (`1` file, `6` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - result: passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-042/worktree-ai.log`
+    - result: failed
+    - note:
+      - the page/browser closed during pane-state normalization before the
+        probe could reach the new readiness/preflight branch
+      - classify this as `worktree_unhealthy`, not renderer drift
+- Next action:
+  - restart or otherwise recover the live worktree runtime, then rerun the
+    authenticated `/settings` health check so the new diagnostics can decide
+    whether the blocker is persistent project loading or another lifecycle
+    failure
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 10:56 UTC
 
 - picked one bounded subtask after rereading the plan/handoff: land a real
