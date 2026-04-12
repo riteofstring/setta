@@ -117,44 +117,17 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 }
 
 func ResolveCurrentProcessInterpreter(lookupEnv func(string) (string, bool)) (string, error) {
-	if lookupEnv == nil {
-		lookupEnv = os.LookupEnv
+	lookupEnv = defaultLookupEnv(lookupEnv)
+	if interpreter, err := resolveConfiguredInterpreter(lookupEnv); interpreter != "" || err != nil {
+		return interpreter, err
 	}
-
-	if explicit, ok := lookupEnv(InterpreterEnv); ok && strings.TrimSpace(explicit) != "" {
-		return resolveBinary(strings.TrimSpace(explicit))
+	if interpreter, ok := resolveCurrentDirectoryInterpreter(); ok {
+		return interpreter, nil
 	}
-
-	if virtualEnv, ok := lookupEnv(virtualEnvEnv); ok && strings.TrimSpace(virtualEnv) != "" {
-		virtualEnvRoot, err := statefs.NormalizePath(strings.TrimSpace(virtualEnv), "")
-		if err != nil {
-			return "", fmt.Errorf("pythonenv: resolve virtualenv: %w", err)
-		}
-		pythonPath := filepath.Join(virtualEnvRoot, "bin", "python")
-		if runtime.GOOS == "windows" {
-			pythonPath = filepath.Join(virtualEnvRoot, "Scripts", "python.exe")
-		}
-		return resolveBinary(pythonPath)
+	if interpreter, ok := resolvePathInterpreter(); ok {
+		return interpreter, nil
 	}
-
-	if cwd, err := os.Getwd(); err == nil {
-		if interpreter, ok := resolveRepoLocalVirtualEnvInterpreter(cwd); ok {
-			return interpreter, nil
-		}
-	}
-
-	for _, candidate := range []string{"python3", "python"} {
-		resolved, err := exec.LookPath(candidate)
-		if err == nil {
-			return resolved, nil
-		}
-	}
-
-	return "", fmt.Errorf(
-		"%w; set %s or activate a virtualenv",
-		ErrInterpreterUnavailable,
-		InterpreterEnv,
-	)
+	return "", interpreterUnavailableError()
 }
 
 func resolveRepoLocalVirtualEnvInterpreter(startDir string) (string, bool) {
@@ -163,10 +136,7 @@ func resolveRepoLocalVirtualEnvInterpreter(startDir string) (string, bool) {
 		return "", false
 	}
 
-	pythonRelativePath := filepath.Join(".venv", "bin", "python")
-	if runtime.GOOS == "windows" {
-		pythonRelativePath = filepath.Join(".venv", "Scripts", "python.exe")
-	}
+	pythonRelativePath := virtualEnvInterpreterRelativePath(".venv")
 
 	currentDir := normalizedDir
 	for {
@@ -324,6 +294,86 @@ func (r *Runtime) interpreterCommandContext(ctx context.Context) context.Context
 		return context.Background()
 	}
 	return ctx
+}
+
+func defaultLookupEnv(lookupEnv func(string) (string, bool)) func(string) (string, bool) {
+	if lookupEnv == nil {
+		return os.LookupEnv
+	}
+	return lookupEnv
+}
+
+func resolveConfiguredInterpreter(lookupEnv func(string) (string, bool)) (string, error) {
+	for _, resolver := range []struct {
+		key     string
+		resolve func(string) (string, error)
+	}{
+		{key: InterpreterEnv, resolve: resolveBinary},
+		{key: virtualEnvEnv, resolve: resolveVirtualEnvInterpreter},
+	} {
+		interpreter, err, ok := resolveEnvInterpreter(lookupEnv, resolver.key, resolver.resolve)
+		if ok || err != nil {
+			return interpreter, err
+		}
+	}
+	return "", nil
+}
+
+func resolveEnvInterpreter(
+	lookupEnv func(string) (string, bool),
+	key string,
+	resolve func(string) (string, error),
+) (string, error, bool) {
+	value, ok := lookupEnv(key)
+	if !ok {
+		return "", nil, false
+	}
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", nil, false
+	}
+	resolved, err := resolve(trimmed)
+	if err != nil {
+		return "", err, true
+	}
+	return resolved, nil, true
+}
+
+func resolveVirtualEnvInterpreter(virtualEnvRoot string) (string, error) {
+	normalizedRoot, err := statefs.NormalizePath(virtualEnvRoot, "")
+	if err != nil {
+		return "", fmt.Errorf("pythonenv: resolve virtualenv: %w", err)
+	}
+	return resolveBinary(virtualEnvInterpreterRelativePath(normalizedRoot))
+}
+
+func resolveCurrentDirectoryInterpreter() (string, bool) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", false
+	}
+	return resolveRepoLocalVirtualEnvInterpreter(cwd)
+}
+
+func resolvePathInterpreter() (string, bool) {
+	for _, candidate := range []string{"python3", "python"} {
+		resolved, err := exec.LookPath(candidate)
+		if err == nil {
+			return resolved, true
+		}
+	}
+	return "", false
+}
+
+func interpreterUnavailableError() error {
+	return fmt.Errorf("%w; set %s or activate a virtualenv", ErrInterpreterUnavailable, InterpreterEnv)
+}
+
+func virtualEnvInterpreterRelativePath(virtualEnvRoot string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(virtualEnvRoot, "Scripts", "python.exe")
+	}
+	return filepath.Join(virtualEnvRoot, "bin", "python")
 }
 
 func resolveBinary(candidate string) (string, error) {

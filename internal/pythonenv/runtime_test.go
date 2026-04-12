@@ -52,6 +52,56 @@ func TestResolveCurrentProcessInterpreterUsesVirtualEnvFallback(t *testing.T) {
 	}
 }
 
+func TestResolveCurrentProcessInterpreterUsesRepoLocalVirtualEnvFallback(t *testing.T) {
+	repoRoot := t.TempDir()
+	workspaceRoot := filepath.Join(repoRoot, "internal", "pythonenv")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+
+	pythonPath := filepath.Join(repoRoot, ".venv", "bin", "python")
+	if runtime.GOOS == "windows" {
+		pythonPath = filepath.Join(repoRoot, ".venv", "Scripts", "python.exe")
+	}
+	if err := os.MkdirAll(filepath.Dir(pythonPath), 0o755); err != nil {
+		t.Fatalf("mkdir virtualenv bin dir: %v", err)
+	}
+	if err := os.WriteFile(pythonPath, []byte(""), 0o755); err != nil {
+		t.Fatalf("write virtualenv interpreter: %v", err)
+	}
+
+	previousDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd before chdir: %v", err)
+	}
+	if err := os.Chdir(workspaceRoot); err != nil {
+		t.Fatalf("chdir to workspace root: %v", err)
+	}
+	t.Cleanup(func() {
+		if chdirErr := os.Chdir(previousDir); chdirErr != nil {
+			t.Fatalf("restore cwd: %v", chdirErr)
+		}
+	})
+
+	resolved, err := ResolveCurrentProcessInterpreter(func(string) (string, bool) {
+		return "", false
+	})
+	if err != nil {
+		t.Fatalf("resolve interpreter from repo-local virtualenv: %v", err)
+	}
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd after chdir: %v", err)
+	}
+	expected := filepath.Join(filepath.Dir(filepath.Dir(currentDir)), ".venv", "bin", "python")
+	if runtime.GOOS == "windows" {
+		expected = filepath.Join(filepath.Dir(filepath.Dir(currentDir)), ".venv", "Scripts", "python.exe")
+	}
+	if resolved != expected {
+		t.Fatalf("expected %q, got %q", expected, resolved)
+	}
+}
+
 func TestResolveRepoLocalVirtualEnvInterpreterSearchesParentDirectories(t *testing.T) {
 	t.Parallel()
 
