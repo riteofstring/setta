@@ -3,7 +3,6 @@ import {
   type PluginBlockedCapability,
   type PluginInstallResponse,
   type PluginListEntry,
-  type PluginStatusEntry,
 } from "utils/generatedTypes";
 
 type PluginCapabilityStatus =
@@ -158,40 +157,6 @@ export function getPluginActionErrorDetail(data: unknown): string | null {
     return null;
   }
   return `${code} - ${message}`;
-}
-
-export function getPluginCapabilityStatus(
-  pluginStatus: PluginStatusEntry | null,
-  pluginListEntry: PluginListEntry,
-  capability: string,
-): PluginCapabilityStatus {
-  const capabilityStatusIndex = buildCapabilityStatusIndex({
-    requestedCapabilities: pluginStatus?.requestedCapabilities ?? [],
-    effectiveCapabilities:
-      pluginStatus?.effectiveCapabilities ??
-      pluginListEntry.effectiveCapabilities,
-    blockedCapabilities: pluginStatus?.blockedCapabilities ?? [],
-    capabilityList: [capability],
-  });
-  return (
-    capabilityStatusIndex.capabilityStatusByCapability.get(capability) ??
-    "not_requested"
-  );
-}
-
-export function getBlockedCapabilityReason(
-  blockedCapabilities: PluginBlockedCapability[],
-  capability: string,
-): string | null {
-  const capabilityStatusIndex = buildCapabilityStatusIndex({
-    requestedCapabilities: [],
-    effectiveCapabilities: [],
-    blockedCapabilities,
-    capabilityList: [capability],
-  });
-  return (
-    capabilityStatusIndex.blockedReasonByCapability.get(capability) ?? null
-  );
 }
 
 export function buildCapabilityUnavailableMessage({

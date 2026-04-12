@@ -7,9 +7,7 @@ import {
   buildPluginSourceIdentityToken,
   buildSourceManagerGuidanceMessage,
   formatPluginConfigDraft,
-  getBlockedCapabilityReason,
   getPluginActionErrorDetail,
-  getPluginCapabilityStatus,
   isLinkedLocalPluginSource,
   parsePluginConfigDraft,
   resolvePluginConfigFieldPresentation,
@@ -40,8 +38,6 @@ const pluginsPaneTestApi = {
   buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
   formatPluginConfigDraft,
-  getBlockedCapabilityReason,
-  getPluginCapabilityStatus,
   getRestartRequiredPluginIds,
   parsePluginConfigDraft,
   resolvePluginConfigFieldPresentation,
@@ -254,9 +250,6 @@ describe("plugins pane helpers", () => {
   });
 
   it("reports blocked and requested-unavailable capability statuses", () => {
-    const plugin = buildPluginListEntry({
-      effectiveCapabilities: ["registerSectionKinds"],
-    });
     const blockedStatusEntry = buildPluginStatusEntry({
       requestedCapabilities: ["registerCommand", "registerPane"],
       effectiveCapabilities: [],
@@ -267,17 +260,17 @@ describe("plugins pane helpers", () => {
         },
       ],
     });
-    const blockedStatus = pluginsPaneTestApi.getPluginCapabilityStatus(
-      blockedStatusEntry,
-      plugin,
-      "registerCommand",
-    );
-    expect(blockedStatus).toBe("blocked");
+    const blockedStatusIndex = pluginsPaneTestApi.buildCapabilityStatusIndex({
+      requestedCapabilities: blockedStatusEntry.requestedCapabilities,
+      effectiveCapabilities: blockedStatusEntry.effectiveCapabilities,
+      blockedCapabilities: blockedStatusEntry.blockedCapabilities,
+      capabilityList: ["registerCommand"],
+    });
     expect(
-      pluginsPaneTestApi.getBlockedCapabilityReason(
-        blockedStatusEntry.blockedCapabilities,
-        "registerCommand",
-      ),
+      blockedStatusIndex.capabilityStatusByCapability.get("registerCommand"),
+    ).toBe("blocked");
+    expect(
+      blockedStatusIndex.blockedReasonByCapability.get("registerCommand"),
     ).toBe("mode_policy");
 
     const requestedUnavailableStatusEntry = buildPluginStatusEntry({
@@ -285,13 +278,21 @@ describe("plugins pane helpers", () => {
       effectiveCapabilities: [],
       blockedCapabilities: [],
     });
-    const requestedUnavailableStatus =
-      pluginsPaneTestApi.getPluginCapabilityStatus(
-        requestedUnavailableStatusEntry,
-        plugin,
+    const requestedUnavailableStatusIndex =
+      pluginsPaneTestApi.buildCapabilityStatusIndex({
+        requestedCapabilities:
+          requestedUnavailableStatusEntry.requestedCapabilities,
+        effectiveCapabilities:
+          requestedUnavailableStatusEntry.effectiveCapabilities,
+        blockedCapabilities:
+          requestedUnavailableStatusEntry.blockedCapabilities,
+        capabilityList: ["registerPane"],
+      });
+    expect(
+      requestedUnavailableStatusIndex.capabilityStatusByCapability.get(
         "registerPane",
-      );
-    expect(requestedUnavailableStatus).toBe("requested_unavailable");
+      ),
+    ).toBe("requested_unavailable");
   });
 
   it("builds capability status indexes with shared blocked-reason mapping", () => {
