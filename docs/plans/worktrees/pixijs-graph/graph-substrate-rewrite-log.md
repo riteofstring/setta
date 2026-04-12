@@ -3834,6 +3834,52 @@ LOOP_TERMINAL_MARKER: none
       subscribes to motion-heavy React Flow state on the canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 10:52 UTC
+
+- item `462` cut one bounded prop-fanout seam inside the canonical
+  `rotaryParamCodeObjDefault` param-row lane by scoping
+  `requiredParamIdsToPaths` per row subtree inside `GetParamSwitch` instead of
+  forwarding the full section-wide map through every `ParamSwitch`
+- changed `frontend/src/components/Params/GetParamSwitch.tsx` to build one
+  ancestor-to-subtree required-path map and pass each rendered row only the
+  entries for that row's own subtree
+- changed
+  `frontend/src/components/Params/GetParamSwitch.render-stability.test.tsx`
+  to assert sibling rows receive subtree-scoped maps rather than the same
+  section-wide required-path object
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx`
+    -> pass (`4` files, `8` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/GetParamSwitch.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
+    -> pass
+  - broad canonical worktree performance probe:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-022/worktree-ai.log`
+    -> fail after `surface_ready` with
+       `Worktree unhealthy: browser context closed before page recovery`
+       during `normalizeSettingsGraphComparePaneState(...)`
+  - bounded lifecycle recovery attempt:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> pass; worktree restarted on `http://127.0.0.1:3075/`,
+       backend `http://127.0.0.1:8075`, debug port `9297`,
+       session `91a256`
+    -> refreshed with
+       `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-022/worktree-ai.log`
+  - retrying the narrower Playwright lane-health probe after the restart did
+    not yield a usable result before the timeout window expired
+  - fresh-context CDP sub-agents after the restart:
+    - first pass reached `Settings -> All Settings` and confirmed the DOM
+      contained `rotaryParamCodeObjDefault`, but timed out before finishing the
+      exact visible-node confirmation
+    - second pass was blocked before inspection because DevTools `list_pages`
+      and `take_snapshot` were aborted before returning
+- reading:
+  - this is a real production slice on the active param-row lane, but the
+    iteration ended blocked on live verification after the one allowed restart
+  - next iteration should start from a fresh worktree lifecycle and rerun the
+    canonical live verification on the same named lane before drawing any
+    performance conclusion from this subtree-scoped map cut
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-14 09:58 UTC
 
 - item `459` fixed one bounded oracle-normalization bug on the canonical
@@ -19127,4 +19173,62 @@ LOOP_TERMINAL_MARKER: none
     decide whether pinned or unpinned param rows still dominate below
     `presentedSceneSectionParamGroupContainerReactRender`, or whether the next
     hot owner is elsewhere in the section body subtree
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 11:14 UTC
+
+- item `463` hardened the shared compare-pane normalization waits so the live
+  canonical worktree probe no longer depends on open-ended raw-page polling
+  during readiness/transient-chrome settling
+- changed `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so
+  `waitForSettingsGraphComparePaneChrome(...)`,
+  `waitForSettingsGraphAppReady(...)`, and
+  `waitForSettingsGraphCompareTransientChrome(...)` all run under
+  `runWithSettingsGraphPageLifecycleGuard(...)`
+- changed the app-ready and transient-chrome waits to use bounded manual
+  polling with explicit timeout snapshots instead of default `expect.poll(...)`
+  retries on an unguarded page handle
+- verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> pass
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+    -> pass (`1` file, `4` tests)
+  - refreshed runtime facts with
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-023/worktree-ai.log`
+    after the original bootstrap token expired
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 SETTA_BACKEND_ORIGIN='http://127.0.0.1:8075' SETTA_BOOTSTRAP_TOKEN='<fresh runtime token>' PLAYWRIGHT_BASE_URL='http://127.0.0.1:3075/' pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+    -> pass (`1` test, `45.5s`)
+    -> lane snapshot stayed `classification=healthy`,
+       `legacyPaneMounted=false`, `targetSectionVisible=true`
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-023/worktree-ai.log`
+    -> pass (`1` test, `1.1m`)
+    -> restored canonical live metrics for `rotaryParamCodeObjDefault`:
+       `surfaceKind=canary`, `visibleSectionCount=1`,
+       `dominantCanaryMotionAttributionOwner=presentedSceneSectionSubtreeReactRender`
+    -> top narrow owners were
+       `presentedSceneSectionParamGroupContainerReactRender`,
+       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`, and
+       `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+- note:
+  - one parallel lane-health run during this iteration failed with
+    `browser context closed before page recovery`, but that run overlapped the
+    live worktree performance probe against the same shared runtime and is not
+    valid product evidence; the sequential lane-health rerun above is the
+    trustworthy result
+  - required CDP visual confirmation stayed blocked even after the one allowed
+    lifecycle restart:
+    - first fresh-context sub-agent timed out on the loading shell before
+      snapshot/screenshot verification
+    - after `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      and refreshed runtime values, the retry reached `/settings` with
+      `All Settings` mounted but never surfaced `rotaryParamCodeObjDefault`,
+      and `mcp__chrome_devtools__take_screenshot` timed out after 120s
+    - keep that blocker explicit as an untrusted visual gate rather than
+      treating it as new renderer-drift evidence yet
+- reading:
+  - the repeated probe blocker is closed enough to stop spending default
+    iterations on compare-pane recovery once the live CDP gate is runnable
+  - the next fresh iteration should retry the post-restart CDP gate on the
+    canonical `rotaryParamCodeObjDefault` lane before taking another product
+    cut, then return to the restored body/subtree owner hotspot
 - LOOP_TERMINAL_MARKER: none

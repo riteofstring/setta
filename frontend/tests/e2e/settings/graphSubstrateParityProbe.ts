@@ -1586,35 +1586,47 @@ export async function stopSettingsGraphMotionPerfCapture(
 async function waitForSettingsGraphComparePaneChrome(
   page: Page,
 ): Promise<void> {
-  await expect(page.getByTestId("overview-pane-fullscreen-button")).toHaveCount(
-    0,
-  );
-  await expect(page.getByTestId("uiEditor-pane-fullscreen-button")).toHaveCount(
-    0,
+  await runWithSettingsGraphPageLifecycleGuard(
+    page,
+    "waiting for normalized compare pane chrome",
+    async () => {
+      await expect(
+        page.getByTestId("overview-pane-fullscreen-button"),
+      ).toHaveCount(0);
+      await expect(
+        page.getByTestId("uiEditor-pane-fullscreen-button"),
+      ).toHaveCount(0);
+    },
   );
 }
 
 async function waitForSettingsGraphAppReady(page: Page): Promise<void> {
   const timeoutMs = 30000;
   const pollIntervalMs = 250;
-  const deadline = Date.now() + timeoutMs;
-  let lastSnapshot = await readSettingsGraphSurfacePresenceSnapshot(page);
+  await runWithSettingsGraphPageLifecycleGuard(
+    page,
+    "waiting for settings graph app readiness",
+    async () => {
+      const deadline = Date.now() + timeoutMs;
+      let lastSnapshot = await readSettingsGraphSurfacePresenceSnapshot(page);
 
-  while (Date.now() < deadline) {
-    if (isSettingsGraphAppReady(lastSnapshot)) {
-      return;
-    }
-    await page.waitForTimeout(pollIntervalMs);
-    lastSnapshot = await readSettingsGraphSurfacePresenceSnapshot(page);
-  }
+      while (Date.now() < deadline) {
+        if (isSettingsGraphAppReady(lastSnapshot)) {
+          return;
+        }
+        await page.waitForTimeout(pollIntervalMs);
+        lastSnapshot = await readSettingsGraphSurfacePresenceSnapshot(page);
+      }
 
-  const loadingDetail = isSettingsGraphProjectSurfaceLoading(lastSnapshot)
-    ? "project loading surface remained mounted"
-    : "project loading surface was not the blocker";
-  throw new Error(
-    `Timed out waiting for settings graph app readiness after ${timeoutMs}ms. ${loadingDetail}. ${JSON.stringify(
-      lastSnapshot,
-    )}`,
+      const loadingDetail = isSettingsGraphProjectSurfaceLoading(lastSnapshot)
+        ? "project loading surface remained mounted"
+        : "project loading surface was not the blocker";
+      throw new Error(
+        `Timed out waiting for settings graph app readiness after ${timeoutMs}ms. ${loadingDetail}. ${JSON.stringify(
+          lastSnapshot,
+        )}`,
+      );
+    },
   );
 }
 
@@ -1658,16 +1670,22 @@ async function waitForSettingsGraphCompareTransientChrome(
   page: Page,
 ): Promise<void> {
   await waitForSettingsGraphAppReady(page);
-  await page.evaluate(() => {
-    const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement) {
-      activeElement.blur();
-    }
-  });
+  const timeoutMs = 30000;
+  const pollIntervalMs = 250;
 
-  await expect
-    .poll(async () => {
-      const snapshot = await page.evaluate(async () => {
+  await runWithSettingsGraphPageLifecycleGuard(
+    page,
+    "waiting for compare transient chrome to settle",
+    async () => {
+      await page.evaluate(() => {
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLElement) {
+          activeElement.blur();
+        }
+      });
+
+      const deadline = Date.now() + timeoutMs;
+      let lastSnapshot = await page.evaluate(async () => {
         const { useProjectLoading } = await import("/src/state/definitions.ts");
         const legacyPaneCount =
           document.querySelectorAll(".react-flow__pane").length;
@@ -1689,9 +1707,47 @@ async function waitForSettingsGraphCompareTransientChrome(
           }),
         };
       });
-      return isSettingsGraphCompareTransientChromeSettled(snapshot);
-    })
-    .toBe(true);
+
+      while (Date.now() < deadline) {
+        if (isSettingsGraphCompareTransientChromeSettled(lastSnapshot)) {
+          return;
+        }
+        await page.waitForTimeout(pollIntervalMs);
+        lastSnapshot = await page.evaluate(async () => {
+          const { useProjectLoading } = await import(
+            "/src/state/definitions.ts"
+          );
+          const legacyPaneCount =
+            document.querySelectorAll(".react-flow__pane").length;
+          const canaryRootCount = document.querySelectorAll(
+            '[data-testid="graph-substrate-canary"]',
+          ).length;
+          const articleElements = Array.from(
+            document.querySelectorAll("article"),
+          );
+          return {
+            graphSurfaceMounted: legacyPaneCount > 0 || canaryRootCount > 0,
+            headerNotificationVisible:
+              document.querySelector(".header-notification-fade") !== null,
+            projectIsLoading: useProjectLoading.getState().projectIsLoading,
+            settingsContentMounted: articleElements.some((element) => {
+              const htmlElement =
+                element instanceof HTMLElement
+                  ? element
+                  : element.parentElement;
+              return htmlElement?.offsetParent !== null;
+            }),
+          };
+        });
+      }
+
+      throw new Error(
+        `Timed out waiting for compare transient chrome after ${timeoutMs}ms. ${JSON.stringify(
+          lastSnapshot,
+        )}`,
+      );
+    },
+  );
 }
 
 export async function findSettingsGraphPanePoint(
