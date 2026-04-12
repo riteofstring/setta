@@ -118,6 +118,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
           darkMode,
           draggingSectionId,
           hoveredSectionId,
+          previousDrawables: stableDrawablesRef.current,
           previousCacheBySectionId: drawableCacheRef.current,
           previewStyleColors,
           sceneSections: resolvedPresentedSceneSections,

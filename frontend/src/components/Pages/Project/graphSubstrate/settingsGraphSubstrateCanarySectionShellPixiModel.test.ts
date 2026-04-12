@@ -250,6 +250,37 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
     expect(secondResolution.drawables[0]).toBe(firstResolution.drawables[0]);
   });
 
+  it("reuses the previous resolution identities when every presented drawable input is unchanged", () => {
+    const firstResolution =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previewStyleColors: {},
+        sceneSections: [createSceneSection()],
+        sectionSeedNodes: new Map(),
+      });
+
+    const secondResolution =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previousCacheBySectionId: firstResolution.cacheBySectionId,
+        previousDrawables: firstResolution.drawables,
+        previewStyleColors: {},
+        sceneSections: [createSceneSection()],
+        sectionSeedNodes: new Map(),
+      });
+
+    expect(secondResolution.drawables).toBe(firstResolution.drawables);
+    expect(secondResolution.cacheBySectionId).toBe(
+      firstResolution.cacheBySectionId,
+    );
+  });
+
   it("invalidates the cached drawable for sections whose drawable inputs changed", () => {
     const firstResolution =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
@@ -289,6 +320,45 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
     expect(secondResolution.drawables[0]).toBe(firstResolution.drawables[0]);
     expect(secondResolution.drawables[1]).not.toBe(
       firstResolution.drawables[1],
+    );
+  });
+
+  it("reuses unchanged cache entries when only one section invalidates", () => {
+    const firstResolution =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previewStyleColors: {},
+        sceneSections: [
+          createSceneSection({ sectionId: "section-a" }),
+          createSceneSection({ sectionId: "section-b" }),
+        ],
+        sectionSeedNodes: new Map(),
+      });
+
+    const secondResolution =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previousCacheBySectionId: firstResolution.cacheBySectionId,
+        previousDrawables: firstResolution.drawables,
+        previewStyleColors: {},
+        sceneSections: [
+          createSceneSection({ sectionId: "section-a" }),
+          createSceneSection({ sectionId: "section-b", styleColor: "#22c55e" }),
+        ],
+        sectionSeedNodes: new Map(),
+      });
+
+    expect(secondResolution.cacheBySectionId.get("section-a")).toBe(
+      firstResolution.cacheBySectionId.get("section-a"),
+    );
+    expect(secondResolution.cacheBySectionId.get("section-b")).not.toBe(
+      firstResolution.cacheBySectionId.get("section-b"),
     );
   });
 });

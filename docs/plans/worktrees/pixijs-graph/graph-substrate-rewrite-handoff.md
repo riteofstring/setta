@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 16:24 UTC
+Last updated: 2026-04-12 16:23 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,42 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `324` landed one bounded product-side reuse slice inside the measured
+  dominant motion owner `pixiDrawableModelResolve` on the canonical
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the Pixi shell drawable resolver path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+      now accepts the previous drawable array, reuses prior per-section cache
+      entries when a section's drawable inputs are unchanged, and returns the
+      prior drawable-array/cache-map identities when the full presented
+      resolution is unchanged
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+      now passes the prior drawable array into that resolver
+  - focused tests updated in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-pixi-resolution-identity-reuse.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`3` files, `20` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+      -> passed
+    - fresh-context CDP visual smoke on worktree `3075` and read-only
+      `main` `3087`
+      -> both `/settings` surfaces mounted cleanly with the graph substrate
+      area visible
+      -> no obvious new visual drift observed for this slice
+  - reading:
+    - the resolver was still paying allocation and identity churn even when
+      every presented shell drawable was semantically unchanged
+    - this slice removes that no-op churn path before reopening the canonical
+      numeric perf lane
+    - next default frontier: rerun the canonical main-reference perf probe to
+      see whether `pixiDrawableModelResolve` still dominates after this reuse
+      path; if it does, split the remaining owner cost inside chrome/shell
+      appearance resolution rather than reopening general harness work
 
 - item `323` landed one bounded product-side perf slice on the canonical
   `rotaryParamCodeObjDefault` lane:

@@ -12562,3 +12562,39 @@ settings graph probe phase: worktree: capture initial pane state.`
       next bounded pass should return to product-side perf work instead of
       another reference-startup probe-only iteration
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 16:23 UTC | item 324 | reuse full Pixi shell resolution identities when inputs are unchanged
+  - Picked one bounded product-side perf slice on the canonical
+    `rotaryParamCodeObjDefault` lane instead of reopening another probe-only
+    pass.
+  - Product code changed in the Pixi shell drawable resolver path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+      now accepts the previous drawable array, reuses unchanged per-section
+      cache entries, and returns the previous drawable-array/cache-map
+      identities when the entire presented resolution is unchanged
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+      now passes the previous drawable array into the resolver
+  - Updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+    to cover:
+    - full-resolution identity reuse
+    - selective cache-entry reuse when only one section invalidates
+  - Added
+    `perf/reports/frontend/2026-04-12_settings-graph-pixi-resolution-identity-reuse.md`
+    to record the slice and verification.
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`3` files, `20` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+      -> passed
+    - fresh-context CDP visual smoke on worktree `3075` and read-only
+      `main` `3087`
+      -> both `/settings` surfaces mounted cleanly with the graph substrate
+      area visible
+      -> no obvious new visual drift observed for this slice
+  - Result:
+    - this removes no-op allocation and identity churn inside the currently
+      measured dominant owner `pixiDrawableModelResolve`
+    - the next bounded frontier is to rerun the canonical main-reference perf
+      probe and see whether the dominant owner or average motion cost moved
+      after this resolver reuse path landed
+- LOOP_TERMINAL_MARKER: none

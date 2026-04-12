@@ -141,6 +141,7 @@ export function areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual(
 }
 
 export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+  previousDrawables,
   previousCacheBySectionId,
   activeSectionIds,
   darkMode,
@@ -150,6 +151,7 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   sceneSections,
   sectionSeedNodes,
 }: {
+  previousDrawables?: ReadonlyArray<SettingsGraphSubstrateCanarySectionShellPixiDrawable>;
   previousCacheBySectionId?: ReadonlyMap<
     string,
     SettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry
@@ -169,6 +171,9 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
     string,
     SettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry
   >();
+  let nextDrawableIndex = 0;
+  let canReusePreviousResolution =
+    previousDrawables !== undefined && previousCacheBySectionId !== undefined;
 
   for (const section of sceneSections) {
     const isHoveredSection =
@@ -180,7 +185,7 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
       section.isActiveSection === true;
     const previewStyleColor = previewStyleColors[section.sectionId];
     const previousCacheEntry = previousCacheBySectionId?.get(section.sectionId);
-    const drawable =
+    const canReuseCacheEntry =
       isSettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntryReusable(
         previousCacheEntry,
         {
@@ -192,33 +197,57 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
           section,
           sectionSeedNode,
         },
-      )
-        ? previousCacheEntry.drawable
-        : resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
-            darkMode,
-            isActiveSection,
-            isSurfaceFrameHovered: isHoveredSection,
-            isTopDragHandleVisible: isHoveredSection,
-            previewStyleColor,
-            section,
-            sectionSeedNode,
-          });
-    cacheBySectionId.set(
-      section.sectionId,
-      createSettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry({
-        darkMode,
-        drawable,
-        isActiveSection,
-        isSurfaceFrameHovered: isHoveredSection,
-        isTopDragHandleVisible: isHoveredSection,
-        previewStyleColor,
-        section,
-        sectionSeedNode,
-      }),
-    );
+      );
+    const drawable = canReuseCacheEntry
+      ? previousCacheEntry.drawable
+      : resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
+          darkMode,
+          isActiveSection,
+          isSurfaceFrameHovered: isHoveredSection,
+          isTopDragHandleVisible: isHoveredSection,
+          previewStyleColor,
+          section,
+          sectionSeedNode,
+        });
+    const cacheEntry = canReuseCacheEntry
+      ? previousCacheEntry
+      : createSettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry({
+          darkMode,
+          drawable,
+          isActiveSection,
+          isSurfaceFrameHovered: isHoveredSection,
+          isTopDragHandleVisible: isHoveredSection,
+          previewStyleColor,
+          section,
+          sectionSeedNode,
+        });
+    cacheBySectionId.set(section.sectionId, cacheEntry);
     if (drawable) {
+      if (previousDrawables?.[nextDrawableIndex] !== drawable) {
+        canReusePreviousResolution = false;
+      }
       drawables.push(drawable);
+      nextDrawableIndex += 1;
     }
+    if (!canReuseCacheEntry) {
+      canReusePreviousResolution = false;
+    }
+  }
+
+  if (
+    canReusePreviousResolution &&
+    previousDrawables &&
+    drawables.length === previousDrawables.length &&
+    cacheBySectionId.size === previousCacheBySectionId.size
+  ) {
+    return {
+      cacheBySectionId:
+        previousCacheBySectionId instanceof Map
+          ? previousCacheBySectionId
+          : cacheBySectionId,
+      drawables:
+        previousDrawables as Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>,
+    };
   }
 
   return {
