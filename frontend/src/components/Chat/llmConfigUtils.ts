@@ -1,7 +1,4 @@
-import type { HttpapiLlmapiKeysSnapshot } from "openapi/http";
-import { AllConfigs } from "utils/generatedTypes";
-
-type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
+import { AllLLMConfigs, APIKeys } from "utils/generatedTypes";
 
 type LLMConfigGroup = {
   group: string;
@@ -9,7 +6,7 @@ type LLMConfigGroup = {
 };
 
 export function buildLLMConfigGroups(
-  allLLMConfigs: AllConfigs | null,
+  allLLMConfigs: AllLLMConfigs | null,
   apiKeys: APIKeys | null | undefined,
   options: { includeConfigsWithoutApiKey?: boolean } = {},
 ): Array<LLMConfigGroup> {
@@ -58,24 +55,9 @@ export function countLLMConfigs(groups: Array<LLMConfigGroup>): number {
   return groups.reduce((sum, group) => sum + group.items.length, 0);
 }
 
-export function resolveSelectableLLMConfigId(
-  groups: Array<LLMConfigGroup>,
-  configId: string | null,
+export function pickDefaultConfigId(
+  config: AllLLMConfigs | null,
 ): string | null {
-  if (!configId) {
-    return null;
-  }
-  for (const group of groups) {
-    for (const item of group.items) {
-      if (item.id === configId) {
-        return configId;
-      }
-    }
-  }
-  return null;
-}
-
-export function pickDefaultConfigId(config: AllConfigs | null): string | null {
   if (!config) {
     return null;
   }
