@@ -21,14 +21,6 @@ import {
 } from "state/actions/sections/createSectionsHelper";
 import { useContextMenus } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
-import {
-  getFilterEditingKey,
-  getFilterInputState,
-  getNextFilterInputState,
-  isMenuNavigationKey,
-  shouldDispatchFilterInputEvent,
-  shouldEditableTargetHandleMenuKey,
-} from "./paneContextMenuKeyboard";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
@@ -63,40 +55,79 @@ export function PaneContextMenu() {
     if (!input) {
       return;
     }
-    const nextState = getNextFilterInputState(
-      getFilterInputState(input, resetInput),
-      key,
-    );
-    input.focus({ preventScroll: true });
-    input.value = nextState.nextValue;
-    input.setSelectionRange(nextState.nextSelection, nextState.nextSelection);
-    if (shouldDispatchFilterInputEvent(resetInput, nextState)) {
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+    let value = input.value;
+    let start = input.selectionStart ?? value.length;
+    let end = input.selectionEnd ?? value.length;
+    if (resetInput) {
+      input.value = "";
+      value = "";
+      start = 0;
+      end = 0;
     }
+
+    if (resetInput && (key === "Backspace" || key === "Delete")) {
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(0, 0);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+
+    if (key === "Backspace") {
+      if (start === end && start === 0) {
+        input.focus({ preventScroll: true });
+        return;
+      }
+      const deleteFrom = start === end ? start - 1 : start;
+      const nextValue = value.slice(0, deleteFrom) + value.slice(end);
+      input.value = nextValue;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(deleteFrom, deleteFrom);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+
+    if (key === "Delete") {
+      if (start === end && start === value.length) {
+        input.focus({ preventScroll: true });
+        return;
+      }
+      const deleteTo = start === end ? end + 1 : end;
+      const nextValue = value.slice(0, start) + value.slice(deleteTo);
+      input.value = nextValue;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(start, start);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+
+    const nextValue = value.slice(0, start) + key + value.slice(end);
+    const nextCursor = start + key.length;
+    input.value = nextValue;
+    input.focus({ preventScroll: true });
+    input.setSelectionRange(nextCursor, nextCursor);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
   function onMenuKeyDownCapture(event: KeyboardEvent<HTMLDivElement>) {
-    if (
-      shouldEditableTargetHandleMenuKey(
-        isEditableTarget(event.target),
-        didNavigateListRef.current,
-      )
-    ) {
+    const isEditable = isEditableTarget(event.target);
+    if (isEditable && !didNavigateListRef.current) {
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) {
       return;
     }
-    const editingKey = getFilterEditingKey(event.key);
-    if (!editingKey) {
-      if (isMenuNavigationKey(event.key)) {
+    const isPrintableKey = event.key.length === 1;
+    const isEditingKey =
+      isPrintableKey || event.key === "Backspace" || event.key === "Delete";
+    if (!isEditingKey) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         didNavigateListRef.current = true;
       }
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    applyKeyToFilterInput(editingKey, didNavigateListRef.current);
+    applyKeyToFilterInput(event.key, didNavigateListRef.current);
     didNavigateListRef.current = false;
   }
 
@@ -111,15 +142,17 @@ export function PaneContextMenu() {
       event.stopPropagation();
       return;
     }
-    const editingKey = getFilterEditingKey(event.key);
-    if (editingKey && didNavigateListRef.current) {
+    const isPrintableKey = event.key.length === 1;
+    const isEditingKey =
+      isPrintableKey || event.key === "Backspace" || event.key === "Delete";
+    if (isEditingKey && didNavigateListRef.current) {
       event.preventDefault();
       event.stopPropagation();
-      applyKeyToFilterInput(editingKey, true);
+      applyKeyToFilterInput(event.key, true);
       didNavigateListRef.current = false;
       return;
     }
-    if (editingKey) {
+    if (isEditingKey) {
       didNavigateListRef.current = false;
     }
     event.stopPropagation();

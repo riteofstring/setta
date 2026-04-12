@@ -7,13 +7,10 @@ import {
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
-import { setPromptTemplate } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
-  getCurrSectionVariantId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
@@ -27,18 +24,18 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { FormatEnum, SectionTypeEnum } from "utils/generatedTypes";
-import {
-  resolvePromptAreaUiState,
-  resolvePromptSectionSource,
-} from "utils/promptSectionSource";
+import { route_set_prompt_template } from "utils/generatedEndpoints";
+import { PromptFormatEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { resolvePromptSectionSource } from "utils/promptSectionSource";
+import { shallow } from "zustand/shallow";
+
 type PromptViewMode = "template" | "preview";
+
 export function PromptArea({ sectionId }: { sectionId: string }) {
   useHydrateAgenticState();
   const {
     projectConfigId,
     promptTemplateId,
-    sectionVariantId,
     template,
     format,
     isFrozen,
@@ -53,14 +50,13 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     return {
       projectConfigId: state.projectConfig.id,
       promptTemplateId: impl.promptTemplateId ?? null,
-      sectionVariantId: getCurrSectionVariantId(state, sectionId),
       template: impl.template,
       format: impl.format,
       isFrozen: impl.isFrozen,
       renderedText: impl.renderedText,
       renderError: impl.renderError,
     };
-  }, _.isEqual);
+  }, shallow);
   const { promptTemplates, promptTemplatesInitialLoadComplete } = useAIStore(
     (state) => ({
       promptTemplates: state.promptTemplates,
@@ -81,7 +77,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
         });
       });
     },
-    sectionVariantId,
   );
   const resolvedSource = useMemo(
     () =>
@@ -95,48 +90,66 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
       ),
     [format, promptTemplateId, promptTemplates, template],
   );
+  const isReadOnly =
+    resolvedSource.isLinked || isFrozen || (isDeploymentMode && !canEditParams);
+  const editorValue = resolvedSource.isLinked
+    ? resolvedSource.templateText
+    : value;
+  const linkedTemplateName =
+    resolvedSource.linkedTemplate?.name || promptTemplateId || "";
+
+  const errorText = useMemo(() => {
+    if (
+      resolvedSource.linkedTemplateMissing &&
+      promptTemplatesInitialLoadComplete
+    ) {
+      return "Linked prompt template could not be found.";
+    }
+    return renderError ?? "";
+  }, [
+    promptTemplatesInitialLoadComplete,
+    renderError,
+    resolvedSource.linkedTemplateMissing,
+  ]);
+  const linkedTemplateInfo = useMemo(() => {
+    if (!resolvedSource.isLinked) {
+      return "";
+    }
+    if (
+      resolvedSource.linkedTemplateMissing &&
+      !promptTemplatesInitialLoadComplete
+    ) {
+      return "Loading linked prompt template...";
+    }
+    if (resolvedSource.linkedTemplateMissing) {
+      return "This section is linked to a prompt template that could not be loaded. Choose a different prompt template in section settings.";
+    }
+    return `Linked to prompt template "${linkedTemplateName}". Edit it in Project AI Settings or make a local copy in section settings.`;
+  }, [
+    linkedTemplateName,
+    promptTemplatesInitialLoadComplete,
+    resolvedSource.isLinked,
+    resolvedSource.linkedTemplateMissing,
+  ]);
+
   useEffect(() => {
     setViewMode("template");
   }, [sectionId]);
+
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
-  const promptUiState = useMemo(
-    () =>
-      resolvePromptAreaUiState({
-        canEditParams,
-        isDeploymentMode,
-        isFrozen,
-        maxHeight,
-        promptTemplateId,
-        promptTemplatesInitialLoadComplete,
-        renderError,
-        resolvedSource,
-        templateValue: value,
-        viewMode,
-      }),
-    [
-      canEditParams,
-      isDeploymentMode,
-      isFrozen,
-      maxHeight,
-      promptTemplateId,
-      promptTemplatesInitialLoadComplete,
-      renderError,
-      resolvedSource,
-      value,
-      viewMode,
-    ],
-  );
   const theme = useCodeMirrorStyle();
   const extensions = getExtensions({
-    language: resolvedSource.format === FormatEnum.Jinja ? "markdown" : null,
+    language:
+      resolvedSource.format === PromptFormatEnum.Jinja ? "markdown" : null,
     tabToAutocomplete: true,
     indentWithTab: true,
-    isDisabled: promptUiState.isReadOnly,
+    isDisabled: isReadOnly,
     onEscape: onEscapeFocusOnArticleDiv,
   });
+
   const debouncedSetTemplate = useCallback(
     _.debounce((nextTemplate: string) => {
       dispatchOptimisticProjectStateUpdate({
@@ -147,27 +160,30 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
         },
         projectConfigId,
         send: (frontendOpId) =>
-          callOpenAPI(
-            setPromptTemplate({
-              body: {
-                projectConfigId,
-                sectionId,
-                template: nextTemplate,
-                frontendOpId,
-              },
-            } as Parameters<typeof setPromptTemplate>[0]),
-          ),
+          route_set_prompt_template({
+            projectConfigId,
+            sectionId,
+            template: nextTemplate,
+            frontendOpId,
+          }),
       });
     }, 50),
     [projectConfigId, sectionId],
   );
+
   function onChange(nextValue: string) {
-    if (promptUiState.isReadOnly) {
+    if (isReadOnly) {
       return;
     }
     setPendingValue(nextValue);
     debouncedSetTemplate(nextValue);
   }
+
+  const editorMaxHeight =
+    viewMode === "template" && maxHeight
+      ? `calc(${maxHeight} - 32px)`
+      : maxHeight;
+
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
@@ -199,17 +215,17 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
           onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
           tabIndex={0}
         >
-          {promptUiState.linkedTemplateInfo ? (
+          {linkedTemplateInfo ? (
             <div
               data-testid={`prompt-linked-template-note-${sectionId}`}
               className="mx-2 mt-2 rounded-md border border-blue-200/80 bg-blue-50/80 px-2 py-1 text-[11px] text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-200"
             >
-              {promptUiState.linkedTemplateInfo}
+              {linkedTemplateInfo}
             </div>
           ) : null}
           <CodeMirror
-            maxHeight={promptUiState.editorMaxHeight}
-            value={promptUiState.editorValue}
+            maxHeight={editorMaxHeight}
+            value={editorValue}
             theme={theme}
             extensions={extensions}
             onChange={onChange}
@@ -222,12 +238,13 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
         <PromptPreview
           sectionId={sectionId}
           previewText={renderedText}
-          errorText={promptUiState.errorText}
+          errorText={errorText}
         />
       )}
     </div>
   );
 }
+
 function PromptModeButton({
   sectionId,
   label,
@@ -257,6 +274,7 @@ function PromptModeButton({
     </button>
   );
 }
+
 function PromptPreview({
   sectionId,
   previewText,

@@ -12,47 +12,6 @@ type GitGraphWindowContentProps = {
   onEmbeddedGitPaneVisibleChange?: (visible: boolean) => void;
 };
 
-function resolveEmbeddedGitPaneKey(
-  projectConfigId: string,
-  instanceId: string | null,
-): string | null {
-  if (!instanceId) {
-    return null;
-  }
-  return buildProjectChatEphemeralWindowInstanceKey(
-    projectConfigId,
-    instanceId,
-  );
-}
-
-function isStoredEmbeddedGitPaneVisible(
-  visibilityByInstanceId: Record<string, boolean>,
-  embeddedGitPaneKey: string | null,
-): boolean {
-  if (!embeddedGitPaneKey) {
-    return false;
-  }
-  return visibilityByInstanceId[embeddedGitPaneKey] === true;
-}
-
-function toggleStoredEmbeddedGitPane(embeddedGitPaneKey: string): void {
-  useMisc.setState((state) => {
-    const nextVisibilityByInstanceId = {
-      ...state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
-    };
-    if (nextVisibilityByInstanceId[embeddedGitPaneKey]) {
-      delete nextVisibilityByInstanceId[embeddedGitPaneKey];
-    } else {
-      nextVisibilityByInstanceId[embeddedGitPaneKey] = true;
-    }
-    return {
-      ...state,
-      projectChatGitGraphEmbeddedPaneVisibleByInstanceId:
-        nextVisibilityByInstanceId,
-    };
-  });
-}
-
 export function GitGraphWindowContent({
   instanceId = null,
   showEmbeddedGitPaneToggle = false,
@@ -60,21 +19,24 @@ export function GitGraphWindowContent({
   onEmbeddedGitPaneVisibleChange,
 }: GitGraphWindowContentProps) {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const embeddedGitPaneKey = resolveEmbeddedGitPaneKey(
-    projectConfigId,
-    instanceId,
-  );
 
   useEffect(() => {
     void ensureGitGraphStateLoaded();
   }, [projectConfigId]);
 
-  const storedEmbeddedGitPaneVisible = useMisc((state) =>
-    isStoredEmbeddedGitPaneVisible(
-      state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
-      embeddedGitPaneKey,
-    ),
-  );
+  const storedEmbeddedGitPaneVisible = useMisc((state) => {
+    if (!instanceId) {
+      return false;
+    }
+    const ephemeralKey = buildProjectChatEphemeralWindowInstanceKey(
+      projectConfigId,
+      instanceId,
+    );
+    return (
+      state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId[ephemeralKey] ===
+      true
+    );
+  });
   const isControlledEmbeddedGitPane =
     embeddedGitPaneVisible !== undefined &&
     onEmbeddedGitPaneVisibleChange !== undefined;
@@ -82,14 +44,32 @@ export function GitGraphWindowContent({
     embeddedGitPaneVisible ?? storedEmbeddedGitPaneVisible;
 
   function toggleEmbeddedGitPane(): void {
-    if (!embeddedGitPaneKey) {
+    if (!instanceId) {
       return;
     }
     if (isControlledEmbeddedGitPane) {
       onEmbeddedGitPaneVisibleChange?.(!isEmbeddedGitPaneVisible);
       return;
     }
-    toggleStoredEmbeddedGitPane(embeddedGitPaneKey);
+    const ephemeralKey = buildProjectChatEphemeralWindowInstanceKey(
+      projectConfigId,
+      instanceId,
+    );
+    useMisc.setState((state) => {
+      const nextVisibilityByInstanceId = {
+        ...state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+      };
+      if (nextVisibilityByInstanceId[ephemeralKey]) {
+        delete nextVisibilityByInstanceId[ephemeralKey];
+      } else {
+        nextVisibilityByInstanceId[ephemeralKey] = true;
+      }
+      return {
+        ...state,
+        projectChatGitGraphEmbeddedPaneVisibleByInstanceId:
+          nextVisibilityByInstanceId,
+      };
+    });
   }
 
   return (
