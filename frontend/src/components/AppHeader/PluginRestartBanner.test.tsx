@@ -1,5 +1,4 @@
 import { OverviewTabNameEnum } from "utils/constants";
-import type { ServerModeValue } from "utils/serverModeTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginRestartBanner } from "./PluginRestartBanner";
 
@@ -29,43 +28,31 @@ let restartCapability: Record<string, unknown> | null = {
   command: null,
   reason: null,
 };
-let runtimeServerMode: ServerModeValue = "ide";
+let runtimeServerMode: "ide" | "share" | "app" | "launcher" | null = "ide";
 let isDeploymentMode = false;
 
-const {
-  addTemporaryNotificationMock,
-  routePluginsRestartMock,
-  onOverviewTabClickMock,
-  refreshPluginRuntimeMock,
-  usePluginListEntriesMock,
-  usePluginStatusEntriesMock,
-  usePluginRuntimeStoreMock,
-  getRestartRequiredPluginIdsMock,
-  buildPluginRestartActionPlanMock,
-} = vi.hoisted(() => ({
-  addTemporaryNotificationMock: vi.fn(),
-  routePluginsRestartMock: vi.fn(),
-  onOverviewTabClickMock: vi.fn(),
-  refreshPluginRuntimeMock: vi.fn(async () => undefined),
-  usePluginListEntriesMock: vi.fn(() => []),
-  usePluginStatusEntriesMock: vi.fn(() => []),
-  usePluginRuntimeStoreMock: vi.fn(
-    (
-      selector?: (state: {
-        restartCapability: unknown;
-        serverMode: ServerModeValue;
-      }) => unknown,
-    ) => {
-      const state = { restartCapability, serverMode: runtimeServerMode };
-      if (typeof selector === "function") {
-        return selector(state);
-      }
-      return state;
-    },
-  ),
-  getRestartRequiredPluginIdsMock: vi.fn(() => restartRequiredPluginIds),
-  buildPluginRestartActionPlanMock: vi.fn(() => restartActionPlan),
-}));
+const addTemporaryNotificationMock = vi.fn();
+const routePluginsRestartMock = vi.fn();
+const onOverviewTabClickMock = vi.fn();
+const refreshPluginRuntimeMock = vi.fn(async () => undefined);
+const usePluginListEntriesMock = vi.fn(() => []);
+const usePluginStatusEntriesMock = vi.fn(() => []);
+const usePluginRuntimeStoreMock = vi.fn(
+  (
+    selector?: (state: {
+      restartCapability: unknown;
+      serverMode: "ide" | "share" | "app" | "launcher" | null;
+    }) => unknown,
+  ) => {
+    const state = { restartCapability, serverMode: runtimeServerMode };
+    if (typeof selector === "function") {
+      return selector(state);
+    }
+    return state;
+  },
+);
+const getRestartRequiredPluginIdsMock = vi.fn(() => restartRequiredPluginIds);
+const buildPluginRestartActionPlanMock = vi.fn(() => restartActionPlan);
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -93,20 +80,27 @@ vi.mock("plugins/restart", async () => {
     await vi.importActual<typeof import("plugins/restart")>("plugins/restart");
   return {
     ...actual,
-    getRestartRequiredPluginIds: getRestartRequiredPluginIdsMock,
-    buildPluginRestartActionPlan: buildPluginRestartActionPlanMock,
+    getRestartRequiredPluginIds: (...args: unknown[]) =>
+      getRestartRequiredPluginIdsMock(...args),
+    buildPluginRestartActionPlan: (...args: unknown[]) =>
+      buildPluginRestartActionPlanMock(...args),
   };
 });
 
 vi.mock("plugins/runtime", () => ({
-  refreshPluginRuntime: refreshPluginRuntimeMock,
-  usePluginListEntries: usePluginListEntriesMock,
-  usePluginStatusEntries: usePluginStatusEntriesMock,
-  usePluginRuntimeStore: usePluginRuntimeStoreMock,
+  refreshPluginRuntime: (...args: unknown[]) =>
+    refreshPluginRuntimeMock(...args),
+  usePluginListEntries: (...args: unknown[]) =>
+    usePluginListEntriesMock(...args),
+  usePluginStatusEntries: (...args: unknown[]) =>
+    usePluginStatusEntriesMock(...args),
+  usePluginRuntimeStore: (...args: unknown[]) =>
+    usePluginRuntimeStoreMock(...args),
 }));
 
 vi.mock("state/actions/notifications", () => ({
-  addTemporaryNotification: addTemporaryNotificationMock,
+  addTemporaryNotification: (...args: unknown[]) =>
+    addTemporaryNotificationMock(...args),
 }));
 
 vi.mock("state/definitions", () => ({
@@ -118,8 +112,9 @@ vi.mock("state/definitions", () => ({
     }),
 }));
 
-vi.mock("openapi/http", () => ({
-  restartPlugins: routePluginsRestartMock,
+vi.mock("utils/generatedEndpoints", () => ({
+  route_plugins_restart: (...args: unknown[]) =>
+    routePluginsRestartMock(...args),
 }));
 
 function isElementNode(value: unknown): value is ElementNode {
@@ -215,14 +210,15 @@ describe("PluginRestartBanner", () => {
     expect(PluginRestartBanner()).toBeNull();
   });
 
-  it("sends restart request and refreshes runtime when restart is accepted", async () => {
-    // Accepted in-process restarts should rehydrate plugin runtime so pending banners clear.
+  it("sends restart request and does not force refresh when restart is accepted", async () => {
+    // Programmatic restart acceptance should avoid immediate runtime refresh races.
     routePluginsRestartMock.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
       data: {
         accepted: true,
         command: null,
       },
-      response: new Response(null, { status: 200 }),
     });
 
     const banner = PluginRestartBanner();
@@ -235,17 +231,18 @@ describe("PluginRestartBanner", () => {
       "Restart request accepted.",
       "info",
     );
-    expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(1);
+    expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(0);
   });
 
   it("shows manual restart warning when restart endpoint rejects request", async () => {
     // A non-accepted programmatic response should fall back to manual command guidance.
     routePluginsRestartMock.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
       data: {
         accepted: false,
         command: "setta --restart",
       },
-      response: new Response(null, { status: 200 }),
     });
 
     const banner = PluginRestartBanner();
@@ -263,10 +260,11 @@ describe("PluginRestartBanner", () => {
   it("surfaces restart request failure and still refreshes runtime", async () => {
     // Failed restart responses must notify the user and still trigger runtime refresh in finally.
     routePluginsRestartMock.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
       data: {
         detail: "restart failed",
       },
-      response: new Response(null, { status: 500 }),
     });
 
     const banner = PluginRestartBanner();
