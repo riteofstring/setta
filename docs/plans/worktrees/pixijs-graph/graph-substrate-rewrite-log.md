@@ -3347,6 +3347,56 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 14:33 UTC - Ralph item 314
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded blocker-resolution subtask forced by items `312` and
+  `313`: close the repeated read-only `main` `reference: open settings`
+  timeout instead of opening another product hypothesis.
+- Landed:
+  - no product renderer code changed on this pass
+  - updated `bootstrapReferenceSettingsPage(...)` in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so the reference `open settings` phase:
+    - uses `timeoutMs: 60000`
+    - waits for mounted settings-surface/content readiness plus
+      `projectIsLoading === false` instead of waiting for an `All Settings`
+      button
+- Verification:
+  - `cd frontend && pnpm exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - one-off headless Playwright timing probe on read-only `main`
+    `3087/8087` with `/usr/bin/google-chrome`
+    - result: passed
+    - `bootstrapReferenceSettingsPage(...)` stayed on bootstrap/loading shell
+      until about `30.5s`, then mounted the legacy settings graph normally
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-003/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-003/main-ai.log --timeout-ms 180000`
+    - result: fail, but advanced past the old blocker
+    - phase output now continued through:
+      - `reference: normalize surface`
+      - `reference: mount target surface`
+      - `reference: run compare preflight`
+      - `reference: capture baseline metrics`
+      - `reference: capture motion perf`
+      - `worktree: normalize surface`
+      - `worktree: mount target surface`
+      - `worktree: run compare preflight`
+      - `worktree: capture baseline metrics`
+      - `worktree: capture motion perf`
+    - fresh perf payloads printed before the assertion failure:
+      - reference legacy: average `295.17ms`, max `850ms`, root DOM `9527`,
+        target section DOM `132`, visible sections `46`
+      - worktree canary: average `43.18ms`, max `450ms`, root DOM `135`,
+        target section DOM `132`, visible sections `1`
+    - terminal failure moved to the real perf assertion:
+      - `expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40)`
+- Result:
+  - the canonical lane is no longer blocked by read-only `main`
+    `reference: open settings`
+  - the next frontier is to explain or normalize the unexpectedly slow
+    legacy-reference perf baseline now that motion capture runs end-to-end
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 14:23 UTC - Ralph item 313
 
 - Canonical target section: `rotaryParamCodeObjDefault`

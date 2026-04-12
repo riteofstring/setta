@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 14:23 UTC
+Last updated: 2026-04-12 14:33 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,43 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `314` landed one bounded probe-bootstrap unblocker on the canonical
+    `rotaryParamCodeObjDefault` lane instead of repeating another support-only
+    rerun against the same `reference: open settings` timeout:
+    - no product renderer code changed on this pass
+    - updated `bootstrapReferenceSettingsPage(...)` in
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the read-only `main` `reference: open settings` phase:
+      - uses a `60000ms` phase budget instead of the shared `30000ms` default
+      - waits for the mounted settings surface (`.react-flow__pane` or canary
+        root), settings content (`article`), and
+        `useProjectLoading.getState().projectIsLoading === false` instead of
+        waiting for an `All Settings` button that is not a stable readiness
+        signal on the reference path
+    - focused verification:
+      - `cd frontend && pnpm exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+        -> passed
+      - one-off headless Playwright probe against read-only `main`
+        `3087/8087` with `/usr/bin/google-chrome`
+        -> showed `bootstrapReferenceSettingsPage(...)` stayed on bootstrap /
+        loading shell until about `30.5s`, then mounted the legacy settings
+        graph normally; the old `30000ms` phase budget was too short for a
+        healthy reference startup
+      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-003/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-003/main-ai.log`
+        -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
+        `/usr/bin/google-chrome`, advanced past the old
+        `reference: open settings` blocker, ran both reference and worktree
+        motion capture phases, printed fresh perf payloads, then failed on the
+        real assertion:
+        `expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40)`
+        because reference averaged `295.17ms`
+    - reading:
+      - the repeated reference-side bootstrap timeout is closed on the
+        canonical lane; the probe now reaches real motion/perf assertions
+      - the next frontier is no longer startup readiness on read-only `main`
+      - the next bounded slice should explain or normalize the unexpectedly
+        slow legacy-reference perf numbers before opening another renderer
+        hypothesis
   - item `313` landed one bounded motion-attribution follow-up slice on the
     canonical `rotaryParamCodeObjDefault` lane instead of guessing at another
     reduction against the now-negligible

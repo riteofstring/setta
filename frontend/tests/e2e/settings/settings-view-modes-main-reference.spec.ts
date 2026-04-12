@@ -12792,6 +12792,7 @@ async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
   });
   await withSettingsGraphProbePhaseTimeout({
     label: "reference: open settings",
+    timeoutMs: 60000,
     operation: async () => {
       await page.goto(
         new URL("/settings", MAIN_REFERENCE_FRONTEND_URL).toString(),
@@ -12799,9 +12800,35 @@ async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
           waitUntil: "domcontentloaded",
         },
       );
-      await page
-        .getByRole("button", { exact: true, name: "All Settings" })
-        .waitFor();
+      await page.waitForSelector(".setta-titlebar-offset", {
+        state: "attached",
+      });
+      await expect
+        .poll(
+          async () => {
+            return page.evaluate(async () => {
+              const { useProjectLoading } = await import(
+                "/src/state/definitions.ts"
+              );
+              return {
+                graphSurfaceMounted:
+                  document.querySelector(".react-flow__pane") !== null ||
+                  document.querySelector(
+                    '[data-testid="graph-substrate-canary"]',
+                  ) !== null,
+                settingsContentMounted:
+                  document.querySelector("article") !== null,
+                projectIsLoading: useProjectLoading.getState().projectIsLoading,
+              };
+            });
+          },
+          { timeout: SETTINGS_GRAPH_PROBE_PHASE_TIMEOUT_MS - 5000 },
+        )
+        .toEqual({
+          graphSurfaceMounted: true,
+          settingsContentMounted: true,
+          projectIsLoading: false,
+        });
     },
   });
 }
