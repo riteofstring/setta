@@ -955,7 +955,7 @@ function TextBlockCardTitle({
   );
 }
 
-export function hasMarkdownHeadingText(markdown: string) {
+function hasMarkdownHeadingText(markdown: string) {
   const match = markdown.match(/(^ {0,3}#{1,6}(?!#)\s*(\S.*)$)/m);
   if (!match) {
     return false;

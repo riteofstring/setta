@@ -1,3 +1,7 @@
+/* @vitest-environment jsdom */
+
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useAIFollow,
@@ -9,15 +13,30 @@ import { resetProjectStores } from "state/utils";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
+  TextBlockFormatEnum,
   createChatSectionImpl,
   createCore,
   createProjectConfig,
+  createTextBlockSectionImpl,
   createVariant,
   type Core,
   type LSPDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+(
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
+vi.stubGlobal(
+  "ResizeObserver",
+  class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+);
 
 vi.mock("components/Utils/FloatingBox", () => ({
   getFloatingBoxHandlers: ({
@@ -31,7 +50,7 @@ vi.mock("components/Utils/FloatingBox", () => ({
   }),
 }));
 
-import { SectionHeader, hasMarkdownHeadingText } from "./SectionHeader";
+import { SectionHeader } from "./SectionHeader";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -44,33 +63,116 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-describe("hasMarkdownHeadingText", () => {
-  it("returns true for h1-h6 headings", () => {
-    expect(hasMarkdownHeadingText("# Title")).toBe(true);
-    expect(hasMarkdownHeadingText("## Tasks")).toBe(true);
-    expect(hasMarkdownHeadingText("### Notes")).toBe(true);
-    expect(hasMarkdownHeadingText("###### Deep")).toBe(true);
+describe("SectionHeader markdown heading-as-title", () => {
+  const sectionId = "text-section-1";
+  const variantId = "text-variant-1";
+  const implId = "text-impl-1";
+  const sectionName = "Fallback text section";
+
+  beforeEach(() => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    resetProjectStores();
+    useShareSession.setState({ isDeploymentMode: false });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {
+        [sectionId]: createCore({
+          id: sectionId,
+          name: sectionName,
+          variants: [variantId],
+          defaultVariant: variantId,
+        }),
+      };
+      state.sectionVariants = {
+        [variantId]: createVariant({
+          id: variantId,
+          name: "Variant",
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      };
+      state.sectionImpls = {
+        [implId]: createTextBlockSectionImpl({
+          id: implId,
+          text: "",
+          format: TextBlockFormatEnum.Markdown,
+          headingAsSectionName: true,
+        }),
+      };
+      state.previewSectionVariantMap = {};
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useShareSession);
   });
 
-  it("accepts up to three leading spaces", () => {
-    expect(hasMarkdownHeadingText("  ## Indented")).toBe(true);
+  afterEach(() => {
+    resetProjectStores();
   });
 
-  it("rejects four-space code block headings", () => {
-    expect(hasMarkdownHeadingText("    # Not a heading")).toBe(false);
-  });
+  function renderTextBlockHeader(text: string) {
+    useProjectState.setState((state) => {
+      state.sectionImpls = {
+        [implId]: createTextBlockSectionImpl({
+          id: implId,
+          text,
+          format: TextBlockFormatEnum.Markdown,
+          headingAsSectionName: true,
+        }),
+      };
+    });
+    syncStoreInitialState(useProjectState);
 
-  it("detects headings after leading text", () => {
-    expect(hasMarkdownHeadingText("Intro\n# Heading\nMore")).toBe(true);
-  });
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
 
-  it("returns false when there is no heading text", () => {
-    expect(hasMarkdownHeadingText("#   ")).toBe(false);
-  });
+    try {
+      act(() => {
+        root.render(
+          <SectionHeader
+            sectionId={sectionId}
+            sectionTypeName={SectionTypeEnum.TextBlock}
+            isInOtherProjectConfigs={false}
+            isUserView={true}
+            isRoot={false}
+            hasSectionStyleTheme={false}
+          />,
+        );
+      });
 
-  it("returns false for seven hashes", () => {
-    expect(hasMarkdownHeadingText("####### Too deep")).toBe(false);
-  });
+      return host.textContent ?? "";
+    } finally {
+      act(() => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  }
+
+  it.each([
+    ["# Title", false],
+    ["  ## Indented", false],
+    ["Intro\n# Heading\nMore", false],
+    ["    # Not a heading", true],
+    ["#   ", true],
+    ["####### Too deep", true],
+  ])(
+    "shows fallback section title=%s state correctly",
+    (text, showsFallbackSectionTitle) => {
+      const renderedText = renderTextBlockHeader(text);
+
+      expect(renderedText.includes(sectionName)).toBe(
+        showsFallbackSectionTitle,
+      );
+    },
+  );
 });
 
 describe("SectionHeader diagnostics badges", () => {
