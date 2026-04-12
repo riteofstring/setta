@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 04:56 UTC
+Last updated: 2026-04-13 05:12 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,60 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `395` landed one bounded React 19 startup-path compatibility fix on the
+  live home/header route after the repeated blank-root lane stopped reproducing
+  on fresh CDP bootstrap:
+  - local ranking/readout for this iteration:
+    - revalidated the active startup blocker with fresh-context CDP instead of
+      repeating another router/startup seam split
+    - the worktree no longer reproduced the blank-root failure and instead
+      loaded `http://127.0.0.1:3075/home` with visible header content
+    - fresh CDP narrowed the live startup-facing console noise to a concrete
+      React 19 warning on the header nav path:
+      `Accessing element.ref was removed in React 19`
+    - stack evidence pointed to `ProjectNav` on the home/header route flowing
+      through Radix `@radix-ui/react-menubar` -> `@radix-ui/react-slot`
+  - product code changed in:
+    - `frontend/src/shims/radixReactSlotCompat.tsx`
+      to provide a source-controlled `@radix-ui/react-slot` compatibility shim
+      that reads `element.props.ref` without touching the deprecated
+      `element.ref` field
+    - `frontend/vite.config.ts`
+      to alias `@radix-ui/react-slot` to that compatibility shim during app and
+      Vitest resolution
+  - focused regression coverage added in:
+    - `frontend/src/components/AppHeader/ProjectNav.test.tsx`
+      with a jsdom render on the home nav path that asserts the React 19
+      `element.ref` warning is not emitted during mount
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/AppHeader/ProjectNav.test.tsx`
+      -> passed (`1` file, `3` tests)
+      -> note: the existing project-route static-markup test still prints the
+         warning in Vitest, so this slice should be treated as fixing the live
+         home/header owner rather than all Radix menu paths
+    - `pnpm -C frontend exec prettier --check src/components/AppHeader/ProjectNav.test.tsx src/shims/radixReactSlotCompat.tsx vite.config.ts`
+      -> passed
+    - fresh-context headless CDP smoke on the worktree bootstrap URL
+      -> passed
+      -> final URL `http://127.0.0.1:3075/home`
+      -> visible content rendered on the home/header surface
+      -> the React 19 `Accessing element.ref was removed in React 19` warning
+         no longer appeared on that path; only the React Router future-flag
+         warning remained
+  - reading:
+    - the active startup lane is no longer blocked by the live home/header
+      React 19 console noise that CDP surfaced first
+    - the prior blank-root bootstrap symptom should be treated as not
+      currently reproducible on the fresh runtime rather than as the default
+      active blocker
+    - residual Radix/menu warning scope likely remains on project-route
+      menubar paths, which is now the next bounded owner if the loop continues
+      on React 19 warning cleanup
+  - next default frontier:
+    - fix the remaining project-route header/menu owner still emitting the same
+      React 19 `element.ref` warning in `ProjectNav`'s project-menu path, then
+      recheck that route live before returning to deeper startup/perf work
 
 - item `394` landed one bounded startup-path reduction on the live worktree
   runtime by removing the last direct share-home reference to `HomePage` from

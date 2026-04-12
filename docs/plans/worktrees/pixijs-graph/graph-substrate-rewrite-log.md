@@ -15657,3 +15657,34 @@ LOOP_TERMINAL_MARKER: none
     replan if the next ranked candidate is no longer broad
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-13 05:12 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: stop repeating
+  the startup seam-lift pattern and instead resolve the concrete live
+  startup-facing React 19 warning once fresh CDP showed the blank-root blocker
+  was no longer reproducing
+- fresh-context CDP on the worktree bootstrap URL landed on
+  `http://127.0.0.1:3075/home` with visible content; captured the first live
+  app stack for `Accessing element.ref was removed in React 19`
+- stack evidence pointed to the home/header `ProjectNav` path through
+  `@radix-ui/react-menubar` -> `@radix-ui/react-slot`
+- added `frontend/src/shims/radixReactSlotCompat.tsx` and aliased
+  `@radix-ui/react-slot` in `frontend/vite.config.ts` so the app reads
+  `element.props.ref` instead of touching deprecated `element.ref`
+- extended `frontend/src/components/AppHeader/ProjectNav.test.tsx` with a jsdom
+  regression that mounts the home nav path and asserts the React 19
+  `element.ref` warning is absent
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/AppHeader/ProjectNav.test.tsx`
+    -> pass
+    -> note: the existing project-route static-markup test in that file still
+       prints the same warning, so this iteration fixes the live home/header
+       owner only
+  - `pnpm -C frontend exec prettier --check src/components/AppHeader/ProjectNav.test.tsx src/shims/radixReactSlotCompat.tsx vite.config.ts`
+    -> pass
+  - headless CDP recheck on the worktree bootstrap URL -> pass
+    -> final URL `http://127.0.0.1:3075/home`
+    -> visible content rendered
+    -> no `Accessing element.ref was removed in React 19` warning on that path
+- next frontier: fix the remaining project-route `ProjectNav` menu path still
+  emitting the same React 19 warning, then recheck that route live
