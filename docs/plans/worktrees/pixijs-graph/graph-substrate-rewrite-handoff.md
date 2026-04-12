@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 06:45 UTC
+Last updated: 2026-04-15 07:12 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,64 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `478` completed one bounded `ParamGroupContainer` duplicate-index
+  collapse on the canonical `rotaryParamCodeObjDefault` lane so the mounted
+  pinned/unpinned param branches can share one section-level duplicate-index
+  subscription instead of each `ParamDndList` resolving the same store-derived
+  index independently:
+  - code/test changes:
+    - `frontend/src/components/Params/ParamDndList.tsx`
+      now splits the row-list boundary into a pure
+      `ParamDndListWithDuplicateIndex` path plus the existing store-backed
+      `ParamDndList`, so callers that already own the section duplicate index
+      can bypass the extra selector
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now resolves `buildParamDuplicateIndex(state, sectionId)` once at the
+      `ParamGroupContainer` boundary and passes that shared value to both the
+      pinned and unpinned list branches
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves the mounted pinned+unpinned lane resolves the duplicate index
+      once while keeping the existing row-rematerialization guards green
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx`
+      -> passed (`2` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+    - first canonical live probe attempt:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-009/worktree-ai.log`
+      -> failed before surface mount with
+         `Timed out waiting for initial settings graph readiness after 30000ms`
+         while the worktree sat in `project_loading`; classify this as
+         `worktree_unhealthy`, not renderer drift
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-009/worktree-ai.log`
+      -> passed; refreshed worktree frontend `3053`, backend `8053`, debug
+         port `9275`
+    - retrying the same canonical probe after recovery:
+      -> reached `surface_ready` but then failed on a closed Playwright
+         page/context during the post-load backend helper call
+         `api/getLatestProjectState`
+      -> treat this as post-`surface_ready` harness/browser instability on the
+         worktree probe, not as evidence that the duplicate-index slice
+         regressed the renderer
+    - required fresh-context CDP check:
+      -> not run; fresh-context sub-agent reported Chrome DevTools MCP was not
+         exposed in this session
+  - reading:
+    - this lands one real product seam above the row boundary: the section
+      duplicate index is now owned once by `ParamGroupContainer` instead of
+      being subscribed/resolved independently per mounted list branch
+    - focused regressions are green, but this iteration does not yet have a
+      trustworthy live attribution delta because the canonical worktree probe
+      is failing after `surface_ready` for a browser/page-lifecycle reason
+      outside the new product seam and CDP was unavailable
+    - next: restore the post-`surface_ready` worktree probe/backend-helper path
+      or CDP availability, then rerun this same canonical
+      `rotaryParamCodeObjDefault` slice once before choosing another product
+      cut inside `presentedSceneSectionSubtreeReactRender`
 
 - item `477` completed one bounded settings-probe project-config-id fix on the
   canonical `rotaryParamCodeObjDefault` lane so the worktree probes stop doing

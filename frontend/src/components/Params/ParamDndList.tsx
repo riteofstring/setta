@@ -1,6 +1,7 @@
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React from "react";
+import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
@@ -50,6 +51,7 @@ type ParamDndListProps = {
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  duplicateIndex: ParamDuplicateIndex;
 };
 
 function _ParamDndList({
@@ -60,15 +62,8 @@ function _ParamDndList({
   isTopLevel,
   listKey,
   hasSectionStyleTheme,
+  duplicateIndex,
 }: ParamDndListProps) {
-  const duplicateIndex = useProjectState(
-    (state) =>
-      measureSettingsGraphSubstrateCanaryMotionAttribution(
-        "presentedSceneSectionParamDndListDuplicateIndexResolve",
-        () => buildParamDuplicateIndex(state, sectionId),
-      ),
-    _.isEqual,
-  );
   const paramFilterActive = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
@@ -154,7 +149,25 @@ function _ParamDndList({
   );
 }
 
-export const ParamDndList = React.memo(_ParamDndList, _.isEqual);
+const MemoizedParamDndList = React.memo(_ParamDndList, _.isEqual);
+
+type ParamDndListWithStoreProps = Omit<ParamDndListProps, "duplicateIndex">;
+
+function ParamDndListWithStore(props: ParamDndListWithStoreProps) {
+  const duplicateIndex = useProjectState(
+    (state) =>
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "presentedSceneSectionParamDndListDuplicateIndexResolve",
+        () => buildParamDuplicateIndex(state, props.sectionId),
+      ),
+    _.isEqual,
+  );
+
+  return <MemoizedParamDndList {...props} duplicateIndex={duplicateIndex} />;
+}
+
+export const ParamDndList = React.memo(ParamDndListWithStore, _.isEqual);
+export const ParamDndListWithDuplicateIndex = MemoizedParamDndList;
 
 function ParamDndListBody({
   sectionId,

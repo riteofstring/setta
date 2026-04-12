@@ -13,6 +13,8 @@ import {
   createEdgeFromConnection,
   isValidDataEdgeConnection,
 } from "state/actions/edges";
+import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
+import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
@@ -46,7 +48,7 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
-import { ParamDndList } from "./ParamDndList";
+import { ParamDndListWithDuplicateIndex } from "./ParamDndList";
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
@@ -128,6 +130,10 @@ function _ParamGroupContainer({
     _.isEqual,
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
+  const duplicateIndex = useProjectState(
+    (state) => buildParamDuplicateIndex(state, sectionId),
+    _.isEqual,
+  );
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
     (x) => x[styleColorPreviewKey] as string | null | undefined,
@@ -306,6 +312,7 @@ function _ParamGroupContainer({
               shouldRoundBottom={pinnedParamsShouldRoundBottom}
               positionAndSizeLocked={positionAndSizeLocked}
               sectionTypeName={sectionTypeName}
+              duplicateIndex={duplicateIndex}
             />
           </React.Profiler>
           <React.Profiler
@@ -321,6 +328,7 @@ function _ParamGroupContainer({
               handleColumnResizeStart={handleColumnResizeStart}
               hasSectionStyleTheme={hasSectionStyleTheme}
               positionAndSizeLocked={positionAndSizeLocked}
+              duplicateIndex={duplicateIndex}
             />
           </React.Profiler>
         </>
@@ -617,6 +625,7 @@ type GetPinnedParamsProps = {
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
+  duplicateIndex: ParamDuplicateIndex;
 };
 
 type PinnedParamsAreaProps = {
@@ -628,6 +637,7 @@ type PinnedParamsAreaProps = {
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
+  duplicateIndex: ParamDuplicateIndex;
   contentRef: React.RefObject<HTMLDivElement>;
   headerRef: React.RefObject<HTMLElement>;
   rowsRef: React.RefObject<HTMLDivElement>;
@@ -642,6 +652,7 @@ type GetUnpinnedParamsProps = {
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   hasSectionStyleTheme: boolean;
   positionAndSizeLocked: boolean;
+  duplicateIndex: ParamDuplicateIndex;
 };
 
 type UnpinnedParamsAreaProps = {
@@ -653,6 +664,7 @@ type UnpinnedParamsAreaProps = {
   hasSectionStyleTheme: boolean;
   shouldApplyMinHeight: boolean;
   resolvedMinHeight: number;
+  duplicateIndex: ParamDuplicateIndex;
 };
 
 type UnpinnedParamsRowsProps = {
@@ -662,6 +674,7 @@ type UnpinnedParamsRowsProps = {
   requiredParamIdsToPaths: ParamPathMap;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   hasSectionStyleTheme: boolean;
+  duplicateIndex: ParamDuplicateIndex;
 };
 
 function buildParamGroupContainerSectionData(
@@ -731,6 +744,7 @@ function GetPinnedParams({
   shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
+  duplicateIndex,
 }: GetPinnedParamsProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -747,6 +761,7 @@ function GetPinnedParams({
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
+        duplicateIndex={duplicateIndex}
         contentRef={contentRef}
         headerRef={headerRef}
         rowsRef={rowsRef}
@@ -766,6 +781,7 @@ function PinnedParamsArea({
   shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
+  duplicateIndex,
   contentRef,
   headerRef,
   rowsRef,
@@ -813,7 +829,7 @@ function PinnedParamsArea({
           className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
           ref={rowsRef}
         >
-          <ParamDndList
+          <ParamDndListWithDuplicateIndex
             sectionId={sectionId}
             paramIds={topLevelParamIds}
             requiredParamIdsToPaths={requiredParamIdsToPaths}
@@ -821,6 +837,7 @@ function PinnedParamsArea({
             isTopLevel={true}
             listKey="pinned"
             hasSectionStyleTheme={hasSectionStyleTheme}
+            duplicateIndex={duplicateIndex}
           />
         </div>
       </div>
@@ -839,6 +856,7 @@ function GetUnpinnedParams({
   handleColumnResizeStart,
   hasSectionStyleTheme,
   positionAndSizeLocked,
+  duplicateIndex,
 }: GetUnpinnedParamsProps) {
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
@@ -877,6 +895,7 @@ function GetUnpinnedParams({
       hasSectionStyleTheme={hasSectionStyleTheme}
       shouldApplyMinHeight={shouldApplyMinHeight}
       resolvedMinHeight={resolvedMinHeight}
+      duplicateIndex={duplicateIndex}
     />
   );
 }
@@ -892,6 +911,7 @@ function UnpinnedParamsArea({
   hasSectionStyleTheme,
   shouldApplyMinHeight,
   resolvedMinHeight,
+  duplicateIndex,
 }: UnpinnedParamsAreaProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { ref: scrollRef, isScrollable } = useIsScrollable();
@@ -926,6 +946,7 @@ function UnpinnedParamsArea({
             requiredParamIdsToPaths={requiredParamIdsToPaths}
             handleColumnResizeStart={handleColumnResizeStart}
             hasSectionStyleTheme={hasSectionStyleTheme}
+            duplicateIndex={duplicateIndex}
           />
         </div>
       </div>
@@ -942,13 +963,14 @@ function UnpinnedParamsRows({
   requiredParamIdsToPaths,
   handleColumnResizeStart,
   hasSectionStyleTheme,
+  duplicateIndex,
 }: UnpinnedParamsRowsProps) {
   if (hideUnpinnedParams) {
     return null;
   }
 
   return (
-    <ParamDndList
+    <ParamDndListWithDuplicateIndex
       sectionId={sectionId}
       paramIds={topLevelParamIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
@@ -956,6 +978,7 @@ function UnpinnedParamsRows({
       isTopLevel={true}
       listKey="unpinned"
       hasSectionStyleTheme={hasSectionStyleTheme}
+      duplicateIndex={duplicateIndex}
     />
   );
 }

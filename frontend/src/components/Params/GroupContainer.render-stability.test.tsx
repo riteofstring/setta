@@ -23,6 +23,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const renderCalls = vi.hoisted(() => ({
+  buildParamDuplicateIndex: vi.fn(() => ({
+    namesByParent: {},
+    parentById: {},
+  })),
   useIsScrollable: vi.fn(() => ({
     ref: { current: null },
     isScrollable: false,
@@ -33,7 +37,21 @@ const renderCalls = vi.hoisted(() => ({
 
 vi.mock("./ParamDndList", () => ({
   ParamDndList: vi.fn(() => <div data-testid="param-dnd-list" />),
+  ParamDndListWithDuplicateIndex: vi.fn(() => (
+    <div data-testid="param-dnd-list" />
+  )),
 }));
+
+vi.mock("state/actions/params/paramDuplicateIndex", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/actions/params/paramDuplicateIndex")
+  >("state/actions/params/paramDuplicateIndex");
+
+  return {
+    ...actual,
+    buildParamDuplicateIndex: renderCalls.buildParamDuplicateIndex,
+  };
+});
 
 vi.mock("state/hooks/sectionSizes", async () => {
   const actual = await vi.importActual<
@@ -78,7 +96,7 @@ vi.stubGlobal(
 );
 
 const { ParamGroupContainer } = await import("./GroupContainer");
-const { ParamDndList } = await import("./ParamDndList");
+const { ParamDndListWithDuplicateIndex } = await import("./ParamDndList");
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -284,7 +302,8 @@ describe("ParamGroupContainer render stability", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
-    vi.mocked(ParamDndList).mockClear();
+    vi.mocked(ParamDndListWithDuplicateIndex).mockClear();
+    renderCalls.buildParamDuplicateIndex.mockClear();
     renderCalls.useIsScrollable.mockClear();
     renderCalls.useParamColumnWidth.mockClear();
     vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation((cb) => {
@@ -317,7 +336,7 @@ describe("ParamGroupContainer render stability", () => {
       );
     });
 
-    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ParamDndListWithDuplicateIndex)).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       useWaitingForLSPResult.setState((state) => {
@@ -325,7 +344,7 @@ describe("ParamGroupContainer render stability", () => {
       });
     });
 
-    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ParamDndListWithDuplicateIndex)).toHaveBeenCalledTimes(1);
   });
 
   it("does not rematerialize param rows when scrollability observers update", async () => {
@@ -341,7 +360,7 @@ describe("ParamGroupContainer render stability", () => {
       );
     });
 
-    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ParamDndListWithDuplicateIndex)).toHaveBeenCalledTimes(1);
 
     const scrollContainer = host.querySelector<HTMLDivElement>(
       ".section-args-nested",
@@ -369,7 +388,7 @@ describe("ParamGroupContainer render stability", () => {
       }
     });
 
-    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ParamDndListWithDuplicateIndex)).toHaveBeenCalledTimes(1);
   });
 
   it("subscribes to unpinned scrollability once per rendered container", async () => {
@@ -443,7 +462,7 @@ describe("ParamGroupContainer render stability", () => {
     });
 
     expect(renderCalls.useIsScrollable).not.toHaveBeenCalled();
-    expect(vi.mocked(ParamDndList)).not.toHaveBeenCalled();
+    expect(vi.mocked(ParamDndListWithDuplicateIndex)).not.toHaveBeenCalled();
   });
 
   it("does not mount the unpinned area when there are no unpinned params and no editable empty state", async () => {
@@ -470,6 +489,30 @@ describe("ParamGroupContainer render stability", () => {
     });
 
     expect(renderCalls.useIsScrollable).not.toHaveBeenCalled();
-    expect(vi.mocked(ParamDndList)).not.toHaveBeenCalled();
+    expect(vi.mocked(ParamDndListWithDuplicateIndex)).not.toHaveBeenCalled();
+  });
+
+  it("resolves the duplicate index once for the mounted pinned and unpinned lists", async () => {
+    const sectionId = seedParamGroupContainerState();
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls["impl-1"];
+      if (!impl || impl.type !== SectionTypeEnum.Dict) {
+        throw new Error("Expected seeded dict impl.");
+      }
+      impl.edgeInputParams = [];
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(renderCalls.buildParamDuplicateIndex).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ParamDndListWithDuplicateIndex)).toHaveBeenCalledTimes(2);
   });
 });

@@ -285,6 +285,60 @@ LOOP_TERMINAL_MARKER: none
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 07:12 UTC | item `478` | completed ParamGroupContainer duplicate-index collapse
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Params/ParamDndList.tsx`
+      now splits the row-list boundary into a pure
+      `ParamDndListWithDuplicateIndex` path plus the existing store-backed
+      `ParamDndList`, so callers that already own the section duplicate index
+      can bypass a second store selector
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now resolves `buildParamDuplicateIndex(state, sectionId)` once at the
+      `ParamGroupContainer` boundary and passes that shared value to both the
+      pinned and unpinned list branches
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves the mounted pinned+unpinned lane resolves the duplicate index
+      once while keeping the existing row-rematerialization guards green
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx`
+      -> passed (`2` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+    - first canonical live probe attempt:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-009/worktree-ai.log`
+      -> failed before surface mount with
+         `Timed out waiting for initial settings graph readiness after 30000ms`
+         while the worktree sat in `project_loading`; classify this as
+         `worktree_unhealthy`
+    - one allowed worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-009/worktree-ai.log`
+      -> passed; refreshed frontend `3053`, backend `8053`, debug port `9275`
+    - retrying the same canonical probe after recovery:
+      -> reached `surface_ready` but then failed on a closed Playwright
+         page/context during the post-load backend helper call
+         `api/getLatestProjectState`
+      -> treat this as post-`surface_ready` harness/browser instability, not
+         as renderer drift from the duplicate-index slice
+    - fresh-context CDP check:
+      -> not run; fresh-context sub-agent reported Chrome DevTools MCP was not
+         exposed in this session
+  - reading:
+    - this lands one broader product seam above the row path by collapsing the
+      section duplicate-index subscription to the `ParamGroupContainer`
+      boundary
+    - focused regressions are green, but the iteration does not yet have a
+      trustworthy live attribution delta because the canonical worktree probe
+      is failing after `surface_ready` for a browser/page-lifecycle reason and
+      CDP was unavailable in this Codex session
+    - next: restore the post-`surface_ready` worktree probe/backend-helper path
+      or CDP availability, then rerun this same canonical slice once before
+      choosing another product cut inside
+      `presentedSceneSectionSubtreeReactRender`
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-15 06:45 UTC | item `477` | completed settings-probe project-config-id fix on canonical `rotaryParamCodeObjDefault`
   - canonical target section: `rotaryParamCodeObjDefault`
   - intent:
