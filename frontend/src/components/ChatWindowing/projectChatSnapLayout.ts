@@ -20,8 +20,6 @@ export type FloatingWindowBoundaryInsets = {
   bottom: number;
 };
 
-type BoundaryEdge = "left" | "right" | "top" | "bottom";
-
 type SnappedFloatingWindow = {
   instanceId: string;
   bounds: ChatWindowBounds;
@@ -53,11 +51,6 @@ type SnapResizeCandidate = {
   trailingInstanceId: string;
 };
 
-type SnapResizeCandidateGroup = {
-  coordinate: number;
-  candidates: SnapResizeCandidate[];
-};
-
 type BoundaryRect = {
   minX: number;
   maxX: number;
@@ -65,95 +58,8 @@ type BoundaryRect = {
   maxY: number;
 };
 
-type BoundaryEdgeState = Record<BoundaryEdge, boolean>;
-
-type FloatingSnapPresetDescriptor = {
-  xStartFraction: number;
-  yStartFraction: number;
-  widthFraction: number;
-  heightFraction: number;
-  requiredEdges: readonly BoundaryEdge[];
-  blockedEdges: readonly BoundaryEdge[];
-};
-
 const SNAP_BOUNDS_TOLERANCE_PX = 2;
 const SNAP_RESIZE_MIN_SPAN_PX = 24;
-const FLOATING_SNAP_PRESET_ORDER = [
-  "left",
-  "right",
-  "top",
-  "bottom",
-  "top_left",
-  "top_right",
-  "bottom_left",
-  "bottom_right",
-] as const satisfies readonly FloatingSnapPreset[];
-const FLOATING_SNAP_PRESET_DESCRIPTORS = {
-  left: {
-    xStartFraction: 0,
-    yStartFraction: 0,
-    widthFraction: 0.5,
-    heightFraction: 1,
-    requiredEdges: ["left", "top", "bottom"],
-    blockedEdges: ["right"],
-  },
-  right: {
-    xStartFraction: 0.5,
-    yStartFraction: 0,
-    widthFraction: 0.5,
-    heightFraction: 1,
-    requiredEdges: ["right", "top", "bottom"],
-    blockedEdges: ["left"],
-  },
-  top: {
-    xStartFraction: 0,
-    yStartFraction: 0,
-    widthFraction: 1,
-    heightFraction: 0.5,
-    requiredEdges: ["top", "left", "right"],
-    blockedEdges: ["bottom"],
-  },
-  bottom: {
-    xStartFraction: 0,
-    yStartFraction: 0.5,
-    widthFraction: 1,
-    heightFraction: 0.5,
-    requiredEdges: ["bottom", "left", "right"],
-    blockedEdges: ["top"],
-  },
-  top_left: {
-    xStartFraction: 0,
-    yStartFraction: 0,
-    widthFraction: 0.5,
-    heightFraction: 0.5,
-    requiredEdges: ["left", "top"],
-    blockedEdges: ["right", "bottom"],
-  },
-  top_right: {
-    xStartFraction: 0.5,
-    yStartFraction: 0,
-    widthFraction: 0.5,
-    heightFraction: 0.5,
-    requiredEdges: ["right", "top"],
-    blockedEdges: ["left", "bottom"],
-  },
-  bottom_left: {
-    xStartFraction: 0,
-    yStartFraction: 0.5,
-    widthFraction: 0.5,
-    heightFraction: 0.5,
-    requiredEdges: ["left", "bottom"],
-    blockedEdges: ["right", "top"],
-  },
-  bottom_right: {
-    xStartFraction: 0.5,
-    yStartFraction: 0.5,
-    widthFraction: 0.5,
-    heightFraction: 0.5,
-    requiredEdges: ["right", "bottom"],
-    blockedEdges: ["left", "top"],
-  },
-} satisfies Record<FloatingSnapPreset, FloatingSnapPresetDescriptor>;
 
 function getBoundaryRect(
   viewportWidthPx: number,
@@ -207,32 +113,13 @@ function rangesOverlap(
   );
 }
 
-function resolveBoundaryEdgeState(
-  bounds: ChatWindowBounds,
-  rect: BoundaryRect,
-): BoundaryEdgeState {
-  return {
-    left: areClose(bounds.x, rect.minX),
-    right: areClose(bounds.x + bounds.width, rect.maxX),
-    top: areClose(bounds.y, rect.minY),
-    bottom: areClose(bounds.y + bounds.height, rect.maxY),
-  };
-}
-
-function matchesFloatingSnapPreset(
-  boundaryEdgeState: BoundaryEdgeState,
-  descriptor: FloatingSnapPresetDescriptor,
-): boolean {
-  return (
-    descriptor.requiredEdges.every((edge) => boundaryEdgeState[edge]) &&
-    descriptor.blockedEdges.every((edge) => !boundaryEdgeState[edge])
-  );
-}
-
-function groupResizeCandidates(
+function mergeCandidates(
   candidates: SnapResizeCandidate[],
-): SnapResizeCandidateGroup[] {
-  const groups: SnapResizeCandidateGroup[] = [];
+): FloatingSnapResizeHandle[] {
+  const groups: Array<{
+    coordinate: number;
+    candidates: SnapResizeCandidate[];
+  }> = [];
 
   for (const candidate of candidates) {
     const existingGroup = groups.find((group) =>
@@ -252,200 +139,59 @@ function groupResizeCandidates(
     });
   }
 
-  return groups;
-}
-
-function buildResizeHandle(
-  axis: FloatingSnapResizeHandle["axis"],
-  coordinate: number,
-  start: number,
-  end: number,
-  segmentCandidates: SnapResizeCandidate[],
-): FloatingSnapResizeHandle | null {
-  if (segmentCandidates.length === 0 || end - start < SNAP_RESIZE_MIN_SPAN_PX) {
-    return null;
-  }
-
-  return {
-    axis,
-    coordinate,
-    start,
-    end,
-    leadingInstanceIds: Array.from(
-      new Set(
-        segmentCandidates.map((candidate) => candidate.leadingInstanceId),
-      ),
-    ),
-    trailingInstanceIds: Array.from(
-      new Set(
-        segmentCandidates.map((candidate) => candidate.trailingInstanceId),
-      ),
-    ),
-  };
-}
-
-function mergeCandidateGroup(
-  group: SnapResizeCandidateGroup,
-  axis: FloatingSnapResizeHandle["axis"],
-): FloatingSnapResizeHandle[] {
-  const [firstCandidate, ...remainingCandidates] = [...group.candidates].sort(
-    (a, b) => a.start - b.start,
-  );
-  if (!firstCandidate) {
-    return [];
-  }
-
   const handles: FloatingSnapResizeHandle[] = [];
-  let currentStart = firstCandidate.start;
-  let currentEnd = firstCandidate.end;
-  let segmentCandidates = [firstCandidate];
-
-  const commitSegment = () => {
-    const handle = buildResizeHandle(
-      axis,
-      group.coordinate,
-      currentStart,
-      currentEnd,
-      segmentCandidates,
+  for (const group of groups) {
+    const sortedCandidates = [...group.candidates].sort(
+      (a, b) => a.start - b.start,
     );
-    if (handle) {
-      handles.push(handle);
-    }
-  };
+    let currentStart = sortedCandidates[0]?.start ?? 0;
+    let currentEnd = sortedCandidates[0]?.end ?? 0;
+    let segmentCandidates = sortedCandidates[0] ? [sortedCandidates[0]] : [];
 
-  for (const candidate of remainingCandidates) {
-    if (candidate.start <= currentEnd + SNAP_BOUNDS_TOLERANCE_PX) {
-      currentEnd = Math.max(currentEnd, candidate.end);
-      segmentCandidates.push(candidate);
-      continue;
-    }
-    commitSegment();
-    currentStart = candidate.start;
-    currentEnd = candidate.end;
-    segmentCandidates = [candidate];
-  }
-  commitSegment();
-
-  return handles;
-}
-
-function mergeCandidates(
-  candidates: SnapResizeCandidate[],
-  axis: FloatingSnapResizeHandle["axis"],
-): FloatingSnapResizeHandle[] {
-  return groupResizeCandidates(candidates).flatMap((group) =>
-    mergeCandidateGroup(group, axis),
-  );
-}
-
-function buildVerticalResizeCandidate(
-  windowA: SnappedFloatingWindow,
-  windowB: SnappedFloatingWindow,
-): SnapResizeCandidate | null {
-  const rightA = windowA.bounds.x + windowA.bounds.width;
-  const bottomA = windowA.bounds.y + windowA.bounds.height;
-  const rightB = windowB.bounds.x + windowB.bounds.width;
-  const bottomB = windowB.bounds.y + windowB.bounds.height;
-
-  if (!rangesOverlap(windowA.bounds.y, bottomA, windowB.bounds.y, bottomB)) {
-    return null;
-  }
-  if (areClose(rightA, windowB.bounds.x)) {
-    return {
-      coordinate: (rightA + windowB.bounds.x) / 2,
-      start: Math.max(windowA.bounds.y, windowB.bounds.y),
-      end: Math.min(bottomA, bottomB),
-      leadingInstanceId: windowA.instanceId,
-      trailingInstanceId: windowB.instanceId,
+    const commitSegment = () => {
+      if (
+        segmentCandidates.length === 0 ||
+        currentEnd - currentStart < SNAP_RESIZE_MIN_SPAN_PX
+      ) {
+        return;
+      }
+      handles.push({
+        axis: "vertical",
+        coordinate: group.coordinate,
+        start: currentStart,
+        end: currentEnd,
+        leadingInstanceIds: Array.from(
+          new Set(
+            segmentCandidates.map((candidate) => candidate.leadingInstanceId),
+          ),
+        ),
+        trailingInstanceIds: Array.from(
+          new Set(
+            segmentCandidates.map((candidate) => candidate.trailingInstanceId),
+          ),
+        ),
+      });
     };
-  }
-  if (areClose(rightB, windowA.bounds.x)) {
-    return {
-      coordinate: (rightB + windowA.bounds.x) / 2,
-      start: Math.max(windowA.bounds.y, windowB.bounds.y),
-      end: Math.min(bottomA, bottomB),
-      leadingInstanceId: windowB.instanceId,
-      trailingInstanceId: windowA.instanceId,
-    };
-  }
-  return null;
-}
 
-function buildHorizontalResizeCandidate(
-  windowA: SnappedFloatingWindow,
-  windowB: SnappedFloatingWindow,
-): SnapResizeCandidate | null {
-  const rightA = windowA.bounds.x + windowA.bounds.width;
-  const bottomA = windowA.bounds.y + windowA.bounds.height;
-  const rightB = windowB.bounds.x + windowB.bounds.width;
-  const bottomB = windowB.bounds.y + windowB.bounds.height;
-
-  if (!rangesOverlap(windowA.bounds.x, rightA, windowB.bounds.x, rightB)) {
-    return null;
-  }
-  if (areClose(bottomA, windowB.bounds.y)) {
-    return {
-      coordinate: (bottomA + windowB.bounds.y) / 2,
-      start: Math.max(windowA.bounds.x, windowB.bounds.x),
-      end: Math.min(rightA, rightB),
-      leadingInstanceId: windowA.instanceId,
-      trailingInstanceId: windowB.instanceId,
-    };
-  }
-  if (areClose(bottomB, windowA.bounds.y)) {
-    return {
-      coordinate: (bottomB + windowA.bounds.y) / 2,
-      start: Math.max(windowA.bounds.x, windowB.bounds.x),
-      end: Math.min(rightA, rightB),
-      leadingInstanceId: windowB.instanceId,
-      trailingInstanceId: windowA.instanceId,
-    };
-  }
-  return null;
-}
-
-function collectResizeCandidates(windows: SnappedFloatingWindow[]): {
-  verticalCandidates: SnapResizeCandidate[];
-  horizontalCandidates: SnapResizeCandidate[];
-} {
-  const verticalCandidates: SnapResizeCandidate[] = [];
-  const horizontalCandidates: SnapResizeCandidate[] = [];
-
-  for (let index = 0; index < windows.length; index += 1) {
-    const windowA = windows[index];
-    if (!windowA) {
-      continue;
-    }
-
-    for (
-      let pairIndex = index + 1;
-      pairIndex < windows.length;
-      pairIndex += 1
-    ) {
-      const windowB = windows[pairIndex];
-      if (!windowB) {
+    for (let index = 1; index < sortedCandidates.length; index += 1) {
+      const candidate = sortedCandidates[index];
+      if (!candidate) {
         continue;
       }
-
-      const verticalCandidate = buildVerticalResizeCandidate(windowA, windowB);
-      if (verticalCandidate) {
-        verticalCandidates.push(verticalCandidate);
+      if (candidate.start <= currentEnd + SNAP_BOUNDS_TOLERANCE_PX) {
+        currentEnd = Math.max(currentEnd, candidate.end);
+        segmentCandidates.push(candidate);
+        continue;
       }
-
-      const horizontalCandidate = buildHorizontalResizeCandidate(
-        windowA,
-        windowB,
-      );
-      if (horizontalCandidate) {
-        horizontalCandidates.push(horizontalCandidate);
-      }
+      commitSegment();
+      currentStart = candidate.start;
+      currentEnd = candidate.end;
+      segmentCandidates = [candidate];
     }
+    commitSegment();
   }
 
-  return {
-    verticalCandidates,
-    horizontalCandidates,
-  };
+  return handles;
 }
 
 export function buildFloatingSnapBounds(
@@ -461,12 +207,70 @@ export function buildFloatingSnapBounds(
   );
   const availableWidthPx = maxX - minX;
   const availableHeightPx = maxY - minY;
-  const descriptor = FLOATING_SNAP_PRESET_DESCRIPTORS[preset];
+  const halfWidth = availableWidthPx / 2;
+  const halfHeight = availableHeightPx / 2;
+
+  if (preset === "left") {
+    return {
+      x: minX,
+      y: minY,
+      width: halfWidth,
+      height: availableHeightPx,
+    };
+  }
+  if (preset === "right") {
+    return {
+      x: minX + halfWidth,
+      y: minY,
+      width: halfWidth,
+      height: availableHeightPx,
+    };
+  }
+  if (preset === "top") {
+    return {
+      x: minX,
+      y: minY,
+      width: availableWidthPx,
+      height: halfHeight,
+    };
+  }
+  if (preset === "bottom") {
+    return {
+      x: minX,
+      y: minY + halfHeight,
+      width: availableWidthPx,
+      height: halfHeight,
+    };
+  }
+  if (preset === "top_left") {
+    return {
+      x: minX,
+      y: minY,
+      width: halfWidth,
+      height: halfHeight,
+    };
+  }
+  if (preset === "top_right") {
+    return {
+      x: minX + halfWidth,
+      y: minY,
+      width: halfWidth,
+      height: halfHeight,
+    };
+  }
+  if (preset === "bottom_left") {
+    return {
+      x: minX,
+      y: minY + halfHeight,
+      width: halfWidth,
+      height: halfHeight,
+    };
+  }
   return {
-    x: minX + availableWidthPx * descriptor.xStartFraction,
-    y: minY + availableHeightPx * descriptor.yStartFraction,
-    width: availableWidthPx * descriptor.widthFraction,
-    height: availableHeightPx * descriptor.heightFraction,
+    x: minX + halfWidth,
+    y: minY + halfHeight,
+    width: halfWidth,
+    height: halfHeight,
   };
 }
 
@@ -524,30 +328,125 @@ export function resolveFloatingSnapPresetFromBounds(
   viewportHeightPx: number,
   insets: FloatingWindowBoundaryInsets,
 ): FloatingSnapPreset | null {
-  const boundaryEdgeState = resolveBoundaryEdgeState(
-    bounds,
-    getBoundaryRect(viewportWidthPx, viewportHeightPx, insets),
+  const { minX, maxX, minY, maxY } = getBoundaryRect(
+    viewportWidthPx,
+    viewportHeightPx,
+    insets,
   );
+  const touchesLeft = areClose(bounds.x, minX);
+  const touchesRight = areClose(bounds.x + bounds.width, maxX);
+  const touchesTop = areClose(bounds.y, minY);
+  const touchesBottom = areClose(bounds.y + bounds.height, maxY);
 
-  return (
-    FLOATING_SNAP_PRESET_ORDER.find((preset) =>
-      matchesFloatingSnapPreset(
-        boundaryEdgeState,
-        FLOATING_SNAP_PRESET_DESCRIPTORS[preset],
-      ),
-    ) ?? null
-  );
+  if (touchesLeft && touchesTop && touchesBottom && !touchesRight) {
+    return "left";
+  }
+  if (touchesRight && touchesTop && touchesBottom && !touchesLeft) {
+    return "right";
+  }
+  if (touchesTop && touchesLeft && touchesRight && !touchesBottom) {
+    return "top";
+  }
+  if (touchesBottom && touchesLeft && touchesRight && !touchesTop) {
+    return "bottom";
+  }
+  if (touchesLeft && touchesTop && !touchesRight && !touchesBottom) {
+    return "top_left";
+  }
+  if (touchesRight && touchesTop && !touchesLeft && !touchesBottom) {
+    return "top_right";
+  }
+  if (touchesLeft && touchesBottom && !touchesRight && !touchesTop) {
+    return "bottom_left";
+  }
+  if (touchesRight && touchesBottom && !touchesLeft && !touchesTop) {
+    return "bottom_right";
+  }
+  return null;
 }
 
 export function buildFloatingSnapResizeHandles(
   windows: SnappedFloatingWindow[],
 ): FloatingSnapResizeHandle[] {
-  const { verticalCandidates, horizontalCandidates } =
-    collectResizeCandidates(windows);
+  const verticalCandidates: SnapResizeCandidate[] = [];
+  const horizontalCandidates: SnapResizeCandidate[] = [];
+
+  for (let index = 0; index < windows.length; index += 1) {
+    const windowA = windows[index];
+    if (!windowA) {
+      continue;
+    }
+    const rightA = windowA.bounds.x + windowA.bounds.width;
+    const bottomA = windowA.bounds.y + windowA.bounds.height;
+
+    for (
+      let pairIndex = index + 1;
+      pairIndex < windows.length;
+      pairIndex += 1
+    ) {
+      const windowB = windows[pairIndex];
+      if (!windowB) {
+        continue;
+      }
+      const rightB = windowB.bounds.x + windowB.bounds.width;
+      const bottomB = windowB.bounds.y + windowB.bounds.height;
+
+      if (
+        areClose(rightA, windowB.bounds.x) &&
+        rangesOverlap(windowA.bounds.y, bottomA, windowB.bounds.y, bottomB)
+      ) {
+        verticalCandidates.push({
+          coordinate: (rightA + windowB.bounds.x) / 2,
+          start: Math.max(windowA.bounds.y, windowB.bounds.y),
+          end: Math.min(bottomA, bottomB),
+          leadingInstanceId: windowA.instanceId,
+          trailingInstanceId: windowB.instanceId,
+        });
+      } else if (
+        areClose(rightB, windowA.bounds.x) &&
+        rangesOverlap(windowA.bounds.y, bottomA, windowB.bounds.y, bottomB)
+      ) {
+        verticalCandidates.push({
+          coordinate: (rightB + windowA.bounds.x) / 2,
+          start: Math.max(windowA.bounds.y, windowB.bounds.y),
+          end: Math.min(bottomA, bottomB),
+          leadingInstanceId: windowB.instanceId,
+          trailingInstanceId: windowA.instanceId,
+        });
+      }
+
+      if (
+        areClose(bottomA, windowB.bounds.y) &&
+        rangesOverlap(windowA.bounds.x, rightA, windowB.bounds.x, rightB)
+      ) {
+        horizontalCandidates.push({
+          coordinate: (bottomA + windowB.bounds.y) / 2,
+          start: Math.max(windowA.bounds.x, windowB.bounds.x),
+          end: Math.min(rightA, rightB),
+          leadingInstanceId: windowA.instanceId,
+          trailingInstanceId: windowB.instanceId,
+        });
+      } else if (
+        areClose(bottomB, windowA.bounds.y) &&
+        rangesOverlap(windowA.bounds.x, rightA, windowB.bounds.x, rightB)
+      ) {
+        horizontalCandidates.push({
+          coordinate: (bottomB + windowA.bounds.y) / 2,
+          start: Math.max(windowA.bounds.x, windowB.bounds.x),
+          end: Math.min(rightA, rightB),
+          leadingInstanceId: windowB.instanceId,
+          trailingInstanceId: windowA.instanceId,
+        });
+      }
+    }
+  }
 
   return [
-    ...mergeCandidates(verticalCandidates, "vertical"),
-    ...mergeCandidates(horizontalCandidates, "horizontal"),
+    ...mergeCandidates(verticalCandidates),
+    ...mergeCandidates(horizontalCandidates).map((handle) => ({
+      ...handle,
+      axis: "horizontal" as const,
+    })),
   ].sort((a, b) => {
     if (a.axis === b.axis) {
       return a.coordinate - b.coordinate;

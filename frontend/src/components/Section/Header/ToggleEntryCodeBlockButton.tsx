@@ -1,36 +1,45 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { FaFlag, FaRegFlag } from "react-icons/fa";
 import { useProjectState } from "state/definitions";
-import {
-  canSelectSectionAsEntryCodeBlock,
-  getSectionEntryCodeBlockValue,
-} from "utils/runCapabilities";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
+import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
 export function ToggleEntryCodeBlockButton({
   sectionId,
+  sectionTypeName,
 }: {
   sectionId: string;
+  sectionTypeName: SectionType;
 }) {
-  const canSelectAsEntryCodeBlock = useProjectState((state) =>
-    canSelectSectionAsEntryCodeBlock(state, sectionId),
-  );
-  const entryCodeBlockValue = useProjectState((state) =>
-    getSectionEntryCodeBlockValue(state, sectionId),
+  const pythonCodegenEnabled = useProjectState((x) =>
+    projectConfigHasPythonCodegen(x.projectConfig),
   );
   const isEntryCodeBlock = useProjectState(
-    (state) => state.projectConfig.entryCodeBlockId === entryCodeBlockValue,
+    (x) =>
+      // null sectionId corresponds to gen python code block
+      (sectionTypeName === SectionTypeEnum.GenPythonCode &&
+        pythonCodegenEnabled &&
+        !x.projectConfig.entryCodeBlockId) ||
+      sectionId === x.projectConfig.entryCodeBlockId,
   );
 
   function onClick() {
-    if (!canSelectAsEntryCodeBlock) {
+    if (
+      sectionTypeName === SectionTypeEnum.GenPythonCode &&
+      !pythonCodegenEnabled
+    ) {
       return;
     }
     useProjectState.setState((state) => {
-      state.projectConfig.entryCodeBlockId = entryCodeBlockValue;
+      state.projectConfig.entryCodeBlockId =
+        sectionTypeName === SectionTypeEnum.GenPythonCode ? null : sectionId;
     });
   }
 
-  if (!canSelectAsEntryCodeBlock) {
+  if (
+    sectionTypeName === SectionTypeEnum.GenPythonCode &&
+    !pythonCodegenEnabled
+  ) {
     return null;
   }
 
