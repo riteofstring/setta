@@ -1,3 +1,4 @@
+import { getAgentRuns, getLlmChat, getLlmResponse } from "openapi/http";
 import { resetProjectStores } from "state/utils";
 import {
   afterAll,
@@ -10,15 +11,26 @@ import {
   vi,
 } from "vitest";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_llm_response: vi.fn(),
+    getAgentRuns: vi.fn(),
+    getLlmChat: vi.fn(),
+    getLlmResponse: vi.fn(),
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+const mockedRouteGetLLMResponse = vi.mocked(getLlmResponse);
+const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
+const mockedRouteGetAgentRuns = vi.mocked(getAgentRuns);
 
 let submitMessage: typeof import("state/actions/ai").submitMessage;
 let memoryStorage: Storage;
@@ -59,6 +71,22 @@ describe("submitMessage websocket affinity", () => {
       },
     });
     vi.clearAllMocks();
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+        appGenerationByMessageId: {},
+      },
+    });
   });
 
   afterEach(() => {
@@ -71,22 +99,15 @@ describe("submitMessage websocket affinity", () => {
   });
 
   it("blocks llm requests until the current websocket generation receives identity", async () => {
-    const route_get_llm_response = (await import("utils/generatedEndpoints"))
-      .route_get_llm_response as unknown as vi.Mock;
     const {
       setActiveFrontendWebsocketAffinityGeneration,
       setFrontendAffinityToken,
     } = await import("state/actions/frontendWebsocketAffinity");
     const returnedChatId = "chat-affinity-refresh";
-    route_get_llm_response.mockResolvedValue({
+    mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: {
-        chatId: returnedChatId,
-        runId: "run-affinity-refresh",
-        engineType: "setta_llm",
-        sectionId: null,
-      },
+      data: returnedChatId,
     });
 
     setActiveFrontendWebsocketAffinityGeneration(1);
@@ -104,7 +125,7 @@ describe("submitMessage websocket affinity", () => {
         { pendingSurfaceId: DRAFT_SURFACE_ID },
       ),
     ).rejects.toThrow("Frontend identity not ready");
-    expect(route_get_llm_response).toHaveBeenCalledTimes(0);
+    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(0);
 
     setFrontendAffinityToken("frontend-new", 2);
     await expect(
@@ -118,9 +139,9 @@ describe("submitMessage websocket affinity", () => {
         { pendingSurfaceId: DRAFT_SURFACE_ID },
       ),
     ).resolves.toBe(returnedChatId);
-    const [secondPayload] = route_get_llm_response.mock.calls[0] as [
-      { frontendAffinityToken: string },
+    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      { body: { frontendAffinityToken: string } },
     ];
-    expect(secondPayload.frontendAffinityToken).toBe("frontend-new");
+    expect(request.body.frontendAffinityToken).toBe("frontend-new");
   });
 });

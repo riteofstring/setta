@@ -1,13 +1,4 @@
-/* @vitest-environment jsdom */
-
-import {
-  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
-  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
-  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
-} from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
-import { act, Profiler, type ProfilerOnRenderCallback } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useLspDiagnostics,
@@ -15,18 +6,16 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
 import {
   CodeLanguageEnum,
-  createProjectCodegenPythonTarget,
   createProjectConfig,
   SectionTypeEnum,
   type Core,
-  type SettaLspDiagnostic,
+  type LSPDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CodeArea, GenPythonCodeArea } from "./CodeArea";
+import { CodeArea } from "./CodeArea";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -40,11 +29,6 @@ function syncStoreInitialState(store: {
 }
 
 let lastCodeMirrorProps: Record<string, unknown> | null = null;
-
-type RenderedProfiledCodeArea = {
-  host: HTMLDivElement;
-  root: Root;
-};
 
 vi.mock("@uiw/react-codemirror", async () => {
   const React = await import("react");
@@ -78,48 +62,12 @@ vi.mock("state/hooks/sectionSizes", () => ({
   getMinSectionHeight: () => 120,
 }));
 
-async function renderProfiledCodeArea(
-  onRender: ProfilerOnRenderCallback,
-): Promise<RenderedProfiledCodeArea> {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      <Profiler id="code-area-profiler" onRender={onRender}>
-        <CodeArea sectionId="section-1" />
-      </Profiler>,
-    );
-  });
-
-  return { host, root };
-}
-
-async function renderProfiledGenPythonCodeArea(
-  onRender: ProfilerOnRenderCallback,
-): Promise<RenderedProfiledCodeArea> {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      <Profiler id="gen-python-code-area-profiler" onRender={onRender}>
-        <GenPythonCodeArea sectionId="section-1" />
-      </Profiler>,
-    );
-  });
-
-  return { host, root };
-}
-
 describe("CodeArea LSP diagnostics wiring", () => {
   const sectionId = "section-1";
   const variantId = "variant-1";
   const implId = "impl-1";
 
-  const baseDiagnostic: SettaLspDiagnostic = {
+  const baseDiagnostic: LSPDiagnostic = {
     message: "Bad code",
     severity: 1,
     code: "reportFoo",
@@ -200,7 +148,6 @@ describe("CodeArea LSP diagnostics wiring", () => {
 
   afterEach(() => {
     resetProjectStores();
-    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     lastCodeMirrorProps = null;
   });
 
@@ -245,137 +192,5 @@ describe("CodeArea LSP diagnostics wiring", () => {
       ? props?.extensions
       : [];
     expect(extensions.length).toBe(1);
-  });
-
-  it("keeps code areas without diagnostics out of unrelated diagnostics commits", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledCodeArea(onRender);
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useLspDiagnostics.setState({
-          codeSections: {
-            "other-section": [baseDiagnostic],
-          },
-          unmappedGenCode: [],
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("keeps code areas out of unrelated project-state commits", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledCodeArea(onRender);
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useProjectState.setState({
-          previewSectionVariantMap: {
-            "other-section": "other-variant",
-          },
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("records code-area attribution while motion attribution capture is active", async () => {
-    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
-      motionAttributionActive: true,
-    });
-
-    const { host, root } = await renderProfiledCodeArea(vi.fn());
-
-    try {
-      expect(
-        readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
-          .motionAttribution.presentedSceneSectionCodeAreaReactRender.count,
-      ).toBe(1);
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("keeps generated code areas out of unrelated project-state commits", async () => {
-    const projectConfig = createProjectConfig({
-      id: "project-1",
-      codegenTargets: [
-        createProjectCodegenPythonTarget({
-          genCodePrefix: "# prefix",
-          genCodeSuffix: "# suffix",
-        }),
-      ],
-      sectionVariantMap: { [sectionId]: variantId },
-      topLevelSections: {
-        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
-      },
-    });
-
-    useProjectState.setState((state) => {
-      state.projectConfig = projectConfig;
-      state.sectionImpls = {
-        [implId]: {
-          type: SectionTypeEnum.GenPythonCode,
-          id: implId,
-          name: "Generated",
-          isFrozen: false,
-          isInOtherProjectConfigs: false,
-          tagColor: null,
-          size: { width: 500, height: 300 },
-          aspectRatio: false,
-          aspectRatioExtraHeight: 0,
-          aspectRatioExtraWidth: 0,
-          isMinimized: false,
-          positionAndSizeLocked: false,
-          isPreset: false,
-          code: "print('hi')",
-          codeFileBinding: null,
-        },
-      };
-      state.previewSectionVariantMap = {};
-    });
-    syncStoreInitialState(useProjectState);
-
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledGenPythonCodeArea(onRender);
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        useProjectState.setState({
-          previewSectionVariantMap: {
-            "other-section": "other-variant",
-          },
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
   });
 });
