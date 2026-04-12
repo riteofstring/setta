@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 17:58 UTC
+Last updated: 2026-04-14 05:02 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,68 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `447` landed one bounded probe-health recovery on the canonical
+  `rotaryParamCodeObjDefault` lane after the shared worktree probe started
+  timing out inside `getLocalPaneState(...)` while waiting for
+  `page.context().storageState()`:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and did not open another speculative row
+      memo or sortable split without a fresh live owner read
+    - selected one narrow support slice only because the canonical probe was
+      blocked before compare-pane preflight could complete on the live canary
+    - kept the scope to one pane-state read-path reorder, one existing parser
+      regression suite, one canonical live probe rerun, and one append-only
+      perf note
+  - code/doc changes kept in the tree:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now reads persisted pane state directly from page `localStorage` before
+      falling back to the in-page zustand store and only touches
+      `page.context().storageState()` as the last fallback
+    - `perf/reports/frontend/2026-04-14_settings-graph-pane-state-local-storage-fast-path.md`
+      records the blocker, the read-path change, the stale-token rerun miss,
+      and the recovered live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `11` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed
+    - bounded lifecycle recovery used this iteration before rerunning the lane:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> refreshed live frontend to `http://127.0.0.1:3075/`, backend to
+         `http://127.0.0.1:8075`, debug port `9297`, session `9995a3`
+    - first canonical probe rerun after the code change:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<stale token>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary' --reporter=line --timeout=180000`
+      -> failed in Playwright global setup with `401 Unauthorized`
+      -> classified as stale session facts, not renderer drift
+    - canonical probe rerun with a fresh token from the live session:
+      `source activate.sh && env SETTA_FILES_ROOT=/home/ubuntu/dev/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /home/ubuntu/dev/setta.pixijs-graph/.`
+      then
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh token>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary' --reporter=line --timeout=180000`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> fresh readout:
+         `presentedSceneSectionSubtreeReactRender`
+         `1351.1ms total` / `402.3ms max`
+         `presentedSceneSectionBodySubtreeReactRender`
+         `1333.8ms total` / `153.0ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `708.6ms total` / `93.8ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `668.1ms total` / `89.8ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `375.3ms total` / `13.0ms max`
+         `longTaskTotalDurationMs`
+         `1811`
+         `averageFrameDurationMs`
+         `58.33`
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this closes the current pane-state probe blocker; do not spend the next
+      default pass on more pane-state recovery unless the recovered lane fails
+      again for a new reason
+    - the remaining dominant owner is still
+      `presentedSceneSectionSubtreeReactRender`, so the next pass should
+      return to attribution or a bounded production cut inside that subtree
 
 - item `446` landed one bounded product cut on the canonical
   `rotaryParamCodeObjDefault` lane by memoizing the row-level `ParamSwitch`

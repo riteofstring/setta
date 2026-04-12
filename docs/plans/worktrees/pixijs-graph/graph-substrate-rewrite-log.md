@@ -3778,6 +3778,62 @@ LOOP_TERMINAL_MARKER: none
       subscribes to motion-heavy React Flow state on the canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 - item 447 - pane-state local-storage fast path
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then stayed on
+  the canonical `rotaryParamCodeObjDefault` lane instead of reopening another
+  speculative row memo while the shared probe itself was blocked
+- selected one bounded support slice only because the canonical worktree probe
+  was timing out in `getLocalPaneState(...)` before compare-pane preflight:
+  - read persisted pane state from live page `localStorage` first
+  - keep the in-page zustand store read as the main fallback
+  - demote `page.context().storageState()` to the final fallback path
+- code/doc changes kept in tree:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - reorders `getLocalPaneState(...)` so the cheap direct `localStorage`
+      read happens before the expensive browser-context snapshot path
+  - `perf/reports/frontend/2026-04-14_settings-graph-pane-state-local-storage-fast-path.md`
+    - records the blocker, the read-path change, and the recovered live
+      canary readout
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+    -> passed (`1` file, `11` tests)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+    -> passed
+- canonical live probe:
+  - one bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - recovered frontend `http://127.0.0.1:3075/`, backend
+      `http://127.0.0.1:8075`, session `9995a3`, debug port `9297`
+  - first rerun after the code change:
+    - used a stale bootstrap token and failed in Playwright global setup with
+      `401 Unauthorized`
+    - treated as stale session facts, not renderer drift
+  - rerun with a fresh token from the live session:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh token>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary' --reporter=line --timeout=180000`
+    - passed (`1` Playwright test, `1.3m`)
+    - fresh readout:
+      - `presentedSceneSectionSubtreeReactRender`
+        `1351.1ms total` / `402.3ms max`
+      - `presentedSceneSectionBodySubtreeReactRender`
+        `1333.8ms total` / `153.0ms max`
+      - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+        `708.6ms total` / `93.8ms max`
+      - `presentedSceneSectionParamDndListRowsReactRender`
+        `668.1ms total` / `89.8ms max`
+      - `presentedSceneSectionParamInputReactRender`
+        `375.3ms total` / `13.0ms max`
+      - `longTaskTotalDurationMs`
+        `1811`
+      - `averageFrameDurationMs`
+        `58.33`
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - this recovers probe trust; it is not a new accepted product perf win
+  - the next pass should return to attribution or one bounded production cut
+    under the still-dominant `presentedSceneSectionSubtreeReactRender` owner
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 17:40 UTC
 
 - reread `RALPH.md`, the rewrite plan, and the handoff before picking work

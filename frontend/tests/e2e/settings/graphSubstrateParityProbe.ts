@@ -8,6 +8,7 @@ import {
 } from "components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases";
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
+  readPersistedSettingsGraphLocalPaneState,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
   resolveSettingsGraphLocalPaneStateStorePatch,
   writePersistedSettingsGraphLocalPaneState,
@@ -648,13 +649,12 @@ export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
   const pageOrigin = new URL(page.url()).origin;
-  const storageState = await page.context().storageState();
-  const persistedPaneState =
-    readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
-      key: "setta_data",
-      origin: pageOrigin,
-      origins: storageState.origins,
-    });
+  const rawPersistedPaneState = await page.evaluate(() =>
+    window.localStorage.getItem("setta_data"),
+  );
+  const persistedPaneState = readPersistedSettingsGraphLocalPaneState(
+    rawPersistedPaneState,
+  );
   if (persistedPaneState) {
     return persistedPaneState;
   }
@@ -743,6 +743,17 @@ export async function getLocalPaneState(
 
   if (paneStateReadResult.kind === "success") {
     return paneStateReadResult.paneState;
+  }
+
+  const storageState = await page.context().storageState();
+  const browserContextPersistedPaneState =
+    readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
+      key: "setta_data",
+      origin: pageOrigin,
+      origins: storageState.origins,
+    });
+  if (browserContextPersistedPaneState) {
+    return browserContextPersistedPaneState;
   }
 
   if (paneStateReadResult.kind === "timeout") {
