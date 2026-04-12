@@ -12,6 +12,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { SectionTypeEnum } from "utils/generatedTypes";
+
 type LockPositionButtonRenderState = {
   isGroup: boolean;
   positionAndSizeLocked: boolean;
@@ -19,11 +20,105 @@ type LockPositionButtonRenderState = {
   label: string;
   onClick: () => void;
 };
+
+type LockPositionButtonStyleState = {
+  canEditLayout: boolean;
+  hasSectionStyleTheme: boolean;
+  isGroup: boolean;
+  positionAndSizeLocked: boolean;
+};
+
 type LockPositionButtonProps = {
   sectionId: string;
   hasSectionStyleTheme?: boolean;
   render?: (state: LockPositionButtonRenderState) => ReactNode;
 };
+
+function getIconSizeClassName({
+  isGroup,
+  positionAndSizeLocked,
+}: Pick<
+  LockPositionButtonStyleState,
+  "isGroup" | "positionAndSizeLocked"
+>): string {
+  if (!isGroup) {
+    return "[&>i]:!scale-[.4]";
+  }
+  return positionAndSizeLocked
+    ? "[&>i]:!-mt-[6px]"
+    : "[&>i]:!scale-50 [&>i]:!-mt-[9px]";
+}
+
+function getToneClassNames({
+  hasSectionStyleTheme,
+  isGroup,
+  positionAndSizeLocked,
+}: Pick<
+  LockPositionButtonStyleState,
+  "hasSectionStyleTheme" | "isGroup" | "positionAndSizeLocked"
+>) {
+  if (hasSectionStyleTheme) {
+    return positionAndSizeLocked
+      ? {
+          backgroundClassName: "bg-[color:var(--setta-section-style-bg)]",
+          focusRingClassName:
+            "focus-visible:ring-[var(--setta-section-style-outline)]",
+          hoverClassName: "",
+          textClassName: "text-[color:var(--setta-section-style-outline)]",
+        }
+      : {
+          backgroundClassName:
+            "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]",
+          focusRingClassName:
+            "focus-visible:ring-[var(--setta-section-style-outline)]",
+          hoverClassName: "",
+          textClassName:
+            "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]",
+        };
+  }
+  if (positionAndSizeLocked) {
+    return {
+      backgroundClassName:
+        "shadow-[inset_0_1px_1px_0_rgb(0_0_0_/_0.1)] hover:bg-orange-500 dark:border-transparent dark:bg-transparent dark:shadow-none dark:hover:bg-orange-500",
+      focusRingClassName: "",
+      hoverClassName: "hover:text-orange-500 dark:hover:text-orange-700",
+      textClassName:
+        "text-orange-600 hover:!text-orange-100 dark:text-orange-500 dark:hover:!text-orange-100",
+    };
+  }
+  return {
+    backgroundClassName: "bg-transparent",
+    focusRingClassName: "",
+    hoverClassName: "hover:text-orange-500 dark:hover:text-orange-700",
+    textClassName: isGroup
+      ? "text-setta-400 dark:text-setta-600"
+      : "text-setta-600",
+  };
+}
+
+function getButtonClassName(styleState: LockPositionButtonStyleState): string {
+  const {
+    backgroundClassName,
+    focusRingClassName,
+    hoverClassName,
+    textClassName,
+  } = getToneClassNames(styleState);
+  const sizeClassName = styleState.isGroup ? "h-5 w-5" : "h-4 w-4";
+  return [
+    "nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2",
+    focusRingClassName,
+    backgroundClassName,
+    getIconSizeClassName(styleState),
+    textClassName,
+    "mr-1 rounded-full p-0",
+    hoverClassName,
+    sizeClassName,
+    styleState.canEditLayout ? "" : "cursor-not-allowed opacity-50",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function LockPositionButton({
   sectionId,
   hasSectionStyleTheme = false,
@@ -41,14 +136,13 @@ export function LockPositionButton({
   const label = positionAndSizeLocked
     ? "Unlock position and size"
     : "Lock position and size";
-  let iconSize = "[&>i]:!scale-[.4]"; // when !isGroup
-  if (isGroup) {
-    if (positionAndSizeLocked) {
-      iconSize = "[&>i]:!-mt-[6px]"; // when isGroup && positionAndSizeLocked
-    } else {
-      iconSize = "[&>i]:!scale-50 [&>i]:!-mt-[9px]"; // when isGroup && !positionAndSizeLocked
-    }
-  }
+  const buttonClassName = getButtonClassName({
+    canEditLayout,
+    hasSectionStyleTheme,
+    isGroup,
+    positionAndSizeLocked,
+  });
+
   function onClick() {
     if (!canEditLayout) {
       return;
@@ -81,37 +175,9 @@ export function LockPositionButton({
       onClick,
     });
   }
-  let backgroundClassName = "bg-transparent";
-  let textClassName = "text-setta-600";
-  if (hasSectionStyleTheme) {
-    if (positionAndSizeLocked) {
-      backgroundClassName = "bg-[color:var(--setta-section-style-bg)]";
-      textClassName = "text-[color:var(--setta-section-style-outline)]";
-    } else {
-      backgroundClassName =
-        "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]";
-      textClassName =
-        "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]";
-    }
-  } else if (positionAndSizeLocked) {
-    backgroundClassName =
-      "shadow-[inset_0_1px_1px_0_rgb(0_0_0_/_0.1)] hover:bg-orange-500 dark:border-transparent  dark:bg-transparent  dark:shadow-none dark:hover:bg-orange-500";
-    textClassName =
-      "text-orange-600 hover:!text-orange-100 dark:text-orange-500 dark:hover:!text-orange-100";
-  } else if (isGroup) {
-    textClassName = "text-setta-400 dark:text-setta-600";
-  }
   return (
     <button
-      className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${
-        hasSectionStyleTheme
-          ? "focus-visible:ring-[var(--setta-section-style-outline)]"
-          : ""
-      } ${backgroundClassName} ${iconSize} ${textClassName} mr-1 rounded-full p-0 ${
-        hasSectionStyleTheme
-          ? ""
-          : "hover:text-orange-500 dark:hover:text-orange-700"
-      } ${isGroup ? "h-5 w-5" : "h-4 w-4"} ${canEditLayout ? "" : "cursor-not-allowed opacity-50"}`}
+      className={buttonClassName}
       aria-label={label}
       onClick={onClick}
       disabled={!canEditLayout}
