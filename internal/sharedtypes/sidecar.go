@@ -120,59 +120,87 @@ func BuildSemanticSidecar() (SemanticSidecar, error) {
 
 func NormalizeSemanticSidecarForJSON(sidecar SemanticSidecar) (SemanticSidecar, error) {
 	normalized := sidecar
-
-	if len(sidecar.Defaults) > 0 {
-		normalized.Defaults = make([]DefaultEntry, len(sidecar.Defaults))
-		for index, entry := range sidecar.Defaults {
-			value, err := normalizeSemanticSidecarValue(entry.Value)
-			if err != nil {
-				return SemanticSidecar{}, fmt.Errorf(
-					"shared sidecar default %s profile %s: %w",
-					entry.Type,
-					entry.Profile,
-					err,
-				)
-			}
-			entry.Value = value
-			normalized.Defaults[index] = entry
-		}
+	var err error
+	if normalized.Defaults, err = normalizeSidecarEntries(
+		sidecar.Defaults,
+		normalizeSemanticSidecarDefaultEntry,
+	); err != nil {
+		return SemanticSidecar{}, err
+	}
+	if normalized.ExportedValues, err = normalizeSidecarEntries(
+		sidecar.ExportedValues,
+		normalizeSemanticSidecarExportedValueEntry,
+	); err != nil {
+		return SemanticSidecar{}, err
+	}
+	if normalized.DiscriminatedFamilies, err = normalizeSidecarEntries(
+		sidecar.DiscriminatedFamilies,
+		normalizeSemanticSidecarDiscriminatedFamilyEntry,
+	); err != nil {
+		return SemanticSidecar{}, err
 	}
 
-	if len(sidecar.ExportedValues) > 0 {
-		normalized.ExportedValues = make([]ExportedValueEntry, len(sidecar.ExportedValues))
-		for index, entry := range sidecar.ExportedValues {
-			value, err := normalizeSemanticSidecarValue(entry.Value)
-			if err != nil {
-				return SemanticSidecar{}, fmt.Errorf("shared sidecar export %s: %w", entry.Name, err)
-			}
-			entry.Value = value
-			normalized.ExportedValues[index] = entry
-		}
-	}
+	return normalized, nil
+}
 
-	if len(sidecar.DiscriminatedFamilies) > 0 {
-		normalized.DiscriminatedFamilies = make([]DiscriminatedFamilyEntry, len(sidecar.DiscriminatedFamilies))
-		for index, family := range sidecar.DiscriminatedFamilies {
-			if len(family.DefaultValuesByDiscriminator) > 0 {
-				defaults := make(map[string]any, len(family.DefaultValuesByDiscriminator))
-				for discriminatorValue, value := range family.DefaultValuesByDiscriminator {
-					normalizedValue, err := normalizeSemanticSidecarValue(value)
-					if err != nil {
-						return SemanticSidecar{}, fmt.Errorf(
-							"shared sidecar family %s discriminator %q default: %w",
-							family.BaseType,
-							discriminatorValue,
-							err,
-						)
-					}
-					defaults[discriminatorValue] = normalizedValue
-				}
-				family.DefaultValuesByDiscriminator = defaults
-			}
-			normalized.DiscriminatedFamilies[index] = family
-		}
+func normalizeSemanticSidecarDefaultEntry(entry DefaultEntry) (DefaultEntry, error) {
+	value, err := normalizeSemanticSidecarValue(entry.Value)
+	if err != nil {
+		return DefaultEntry{}, fmt.Errorf(
+			"shared sidecar default %s profile %s: %w",
+			entry.Type,
+			entry.Profile,
+			err,
+		)
 	}
+	entry.Value = value
+	return entry, nil
+}
 
+func normalizeSemanticSidecarExportedValueEntry(entry ExportedValueEntry) (ExportedValueEntry, error) {
+	value, err := normalizeSemanticSidecarValue(entry.Value)
+	if err != nil {
+		return ExportedValueEntry{}, fmt.Errorf("shared sidecar export %s: %w", entry.Name, err)
+	}
+	entry.Value = value
+	return entry, nil
+}
+
+func normalizeSemanticSidecarDiscriminatedFamilyEntry(
+	family DiscriminatedFamilyEntry,
+) (DiscriminatedFamilyEntry, error) {
+	if len(family.DefaultValuesByDiscriminator) == 0 {
+		return family, nil
+	}
+	defaults := make(map[string]any, len(family.DefaultValuesByDiscriminator))
+	for discriminatorValue, value := range family.DefaultValuesByDiscriminator {
+		normalizedValue, err := normalizeSemanticSidecarValue(value)
+		if err != nil {
+			return DiscriminatedFamilyEntry{}, fmt.Errorf(
+				"shared sidecar family %s discriminator %q default: %w",
+				family.BaseType,
+				discriminatorValue,
+				err,
+			)
+		}
+		defaults[discriminatorValue] = normalizedValue
+	}
+	family.DefaultValuesByDiscriminator = defaults
+	return family, nil
+}
+
+func normalizeSidecarEntries[T any](entries []T, normalize func(T) (T, error)) ([]T, error) {
+	if len(entries) == 0 {
+		return entries, nil
+	}
+	normalized := make([]T, len(entries))
+	for index, entry := range entries {
+		next, err := normalize(entry)
+		if err != nil {
+			return nil, err
+		}
+		normalized[index] = next
+	}
 	return normalized, nil
 }
 
