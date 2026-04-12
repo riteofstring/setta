@@ -419,8 +419,21 @@ func validatePersistedPluginConfigRoot(entry *DiscoveredPlugin, pluginsState Plu
 }
 
 func (s *DiscoveryService) populateBackendRegistrations(entry *DiscoveredPlugin) error {
-	if entry == nil {
+	resetBackendRegistrations(entry)
+	if !shouldPopulateBackendRegistrations(entry) {
 		return nil
+	}
+	probe, err := s.probeBackendRegistrations(entry)
+	if err != nil {
+		return err
+	}
+	applyBackendProbeRegistrations(entry, probe)
+	return nil
+}
+
+func resetBackendRegistrations(entry *DiscoveredPlugin) {
+	if entry == nil {
+		return
 	}
 	entry.RegisteredCodegenTargets = []PluginRegisteredCodegenTarget{}
 	entry.RegisteredLanguageServers = []PluginRegisteredLanguageServer{}
@@ -428,21 +441,26 @@ func (s *DiscoveryService) populateBackendRegistrations(entry *DiscoveredPlugin)
 	entry.RegisteredBackendRoutes = []PluginRegisteredBackendRoute{}
 	entry.RegisteredStaticDirs = []PluginRegisteredStaticDir{}
 	entry.RegisteredListenerEndpoints = []PluginRegisteredListenerEndpoint{}
+}
 
-	if entry.Manifest == nil || !entry.HasBackend() || len(entry.Errors) != 0 {
-		return nil
+func shouldPopulateBackendRegistrations(entry *DiscoveredPlugin) bool {
+	if entry == nil || entry.Manifest == nil || !entry.HasBackend() || len(entry.Errors) != 0 {
+		return false
 	}
-	if !backendProbeRequired(entry.RequestedCapabilities) {
-		return nil
-	}
+	return backendProbeRequired(entry.RequestedCapabilities)
+}
 
-	probe, err := probeGoBackendRegistrations(
+func (s *DiscoveryService) probeBackendRegistrations(entry *DiscoveredPlugin) (backendProbeResponse, error) {
+	return probeGoBackendRegistrations(
 		entry.SourcePath,
 		*entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, backendProbeBuildRootName),
 	)
-	if err != nil {
-		return err
+}
+
+func applyBackendProbeRegistrations(entry *DiscoveredPlugin, probe backendProbeResponse) {
+	if entry == nil {
+		return
 	}
 	if containsString(entry.EffectiveCapabilities, "registerCodegenTarget") {
 		entry.RegisteredCodegenTargets = probe.CodegenTargets
@@ -460,7 +478,6 @@ func (s *DiscoveryService) populateBackendRegistrations(entry *DiscoveredPlugin)
 	if containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
 		entry.RegisteredListenerEndpoints = probe.ListenerEndpoints
 	}
-	return nil
 }
 
 func resolveFilesystemPluginEnabledWithSource(

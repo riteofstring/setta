@@ -232,6 +232,61 @@ func TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid(t *t
 	}
 }
 
+func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T) {
+	t.Parallel()
+
+	entry := &DiscoveredPlugin{
+		EffectiveCapabilities: []string{"registerRouter", "registerStaticDir"},
+	}
+	probe := backendProbeResponse{
+		CodegenTargets: []PluginRegisteredCodegenTarget{
+			{PluginID: "setta-fixture-backend", TargetID: "typescript"},
+		},
+		LanguageServers: []PluginRegisteredLanguageServer{
+			{PluginID: "setta-fixture-backend", Name: "fixture-language-server"},
+		},
+		UISettings: []PluginRegisteredUISetting{
+			{PluginID: "setta-fixture-backend", LocalSettingID: "fixture-setting"},
+		},
+		Routes: []PluginRegisteredBackendRoute{
+			{Path: "/health", Methods: []string{"GET"}},
+		},
+		StaticDirs: []PluginRegisteredStaticDir{
+			{RoutePrefix: "/static", Dir: "backend/static"},
+		},
+		ListenerEndpoints: []PluginRegisteredListenerEndpoint{
+			{Name: "route_backend_fixture_ping"},
+		},
+	}
+
+	resetBackendRegistrations(entry)
+	applyBackendProbeRegistrations(entry, probe)
+
+	if len(entry.RegisteredCodegenTargets) != 0 {
+		t.Fatalf("expected codegen targets to stay empty without effective capability, got %#v", entry.RegisteredCodegenTargets)
+	}
+	if len(entry.RegisteredLanguageServers) != 0 {
+		t.Fatalf("expected language servers to stay empty without effective capability, got %#v", entry.RegisteredLanguageServers)
+	}
+	if len(entry.RegisteredBackendRoutes) != 1 || entry.RegisteredBackendRoutes[0].Path != "/health" {
+		t.Fatalf("expected backend routes to be populated, got %#v", entry.RegisteredBackendRoutes)
+	}
+	if len(entry.RegisteredStaticDirs) != 1 || entry.RegisteredStaticDirs[0].RoutePrefix != "/static" {
+		t.Fatalf("expected static dirs to be populated, got %#v", entry.RegisteredStaticDirs)
+	}
+	if len(entry.RegisteredListenerEndpoints) != 0 {
+		t.Fatalf("expected listener endpoints to stay empty without effective capability, got %#v", entry.RegisteredListenerEndpoints)
+	}
+	if len(entry.RegisteredUISettings) != 1 || entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
+		t.Fatalf("expected ui settings to be copied from the probe, got %#v", entry.RegisteredUISettings)
+	}
+
+	probe.UISettings[0].LocalSettingID = "mutated"
+	if entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
+		t.Fatalf("expected registered ui settings to be cloned, got %#v", entry.RegisteredUISettings)
+	}
+}
+
 // Package-manager discovery should surface environment-managed plugins in setta_files precedence ahead of global Setta-managed copies.
 func TestDiscoveryServiceRescanIncludesPackageManagerEntriesAndPrecedence(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
