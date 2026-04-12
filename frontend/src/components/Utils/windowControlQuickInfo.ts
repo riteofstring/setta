@@ -28,8 +28,6 @@ type WindowControlQuickInfoArgs = {
   title?: string | null;
 };
 
-type WindowControlQuickInfoBuilder = (title?: string | null) => string;
-
 function withOptionalTitle(
   prefix: string,
   fallback: string,
@@ -42,61 +40,56 @@ function withOptionalTitle(
   return `${prefix} ${normalizedTitle}`;
 }
 
-function buildStaticQuickInfo(text: string): WindowControlQuickInfoBuilder {
-  return () => text;
-}
-
-function buildWindowActionQuickInfo(
-  prefix: string,
-  fallback: string,
-): WindowControlQuickInfoBuilder {
-  return (title) => withOptionalTitle(prefix, fallback, title);
-}
-
-function buildShowInCanvasQuickInfo(title?: string | null): string {
-  const normalizedTitle = title?.trim();
-  if (!normalizedTitle) {
-    return "Show in canvas";
-  }
-  return `Show ${normalizedTitle} in canvas`;
-}
-
-const windowControlQuickInfoBuilders: Record<
-  WindowControlQuickInfoAction,
-  WindowControlQuickInfoBuilder
-> = {
-  close_window: buildWindowActionQuickInfo("Close", "Close window"),
-  create_chat_window: buildStaticQuickInfo("Create chat window"),
-  dock_window: buildWindowActionQuickInfo("Dock", "Dock window"),
-  float_window: buildWindowActionQuickInfo("Float", "Float window"),
-  focus_window: buildWindowActionQuickInfo("Focus", "Focus window"),
-  hide_window: buildWindowActionQuickInfo("Hide", "Hide window"),
-  maximize_window: buildWindowActionQuickInfo("Maximize", "Maximize window"),
-  minimize_window: buildWindowActionQuickInfo("Minimize", "Minimize window"),
-  open_section_in_window: buildStaticQuickInfo(
-    "Open section in floating window",
-  ),
-  reopen_window: buildWindowActionQuickInfo("Reopen", "Reopen window"),
-  restore_window: buildWindowActionQuickInfo("Restore", "Restore window"),
-  show_canvas: buildStaticQuickInfo("Show canvas"),
-  show_chats: buildStaticQuickInfo("Show chats"),
-  show_chat_windows: buildStaticQuickInfo("Show chat windows"),
-  show_in_canvas: buildShowInCanvasQuickInfo,
-  show_more_chat_windows: buildStaticQuickInfo("Show more chat windows"),
-  show_next_docked_chat: buildStaticQuickInfo("Show next docked chat"),
-  show_previous_chat_windows: buildStaticQuickInfo(
-    "Show previous chat windows",
-  ),
-  show_previous_docked_chat: buildStaticQuickInfo("Show previous docked chat"),
-  show_section_in_canvas: buildStaticQuickInfo("Show section in canvas"),
-  undock_window: buildWindowActionQuickInfo("Undock", "Undock window"),
-};
-
 export function getWindowControlQuickInfoText({
   action,
   title,
 }: WindowControlQuickInfoArgs): string {
-  return windowControlQuickInfoBuilders[action](title);
+  switch (action) {
+    case "close_window":
+      return withOptionalTitle("Close", "Close window", title);
+    case "create_chat_window":
+      return "Create chat window";
+    case "dock_window":
+      return withOptionalTitle("Dock", "Dock window", title);
+    case "float_window":
+      return withOptionalTitle("Float", "Float window", title);
+    case "focus_window":
+      return withOptionalTitle("Focus", "Focus window", title);
+    case "hide_window":
+      return withOptionalTitle("Hide", "Hide window", title);
+    case "maximize_window":
+      return withOptionalTitle("Maximize", "Maximize window", title);
+    case "minimize_window":
+      return withOptionalTitle("Minimize", "Minimize window", title);
+    case "open_section_in_window":
+      return "Open section in floating window";
+    case "reopen_window":
+      return withOptionalTitle("Reopen", "Reopen window", title);
+    case "restore_window":
+      return withOptionalTitle("Restore", "Restore window", title);
+    case "show_canvas":
+      return "Show canvas";
+    case "show_chats":
+      return "Show chats";
+    case "show_chat_windows":
+      return "Show chat windows";
+    case "show_in_canvas":
+      return title?.trim()
+        ? `Show ${title.trim()} in canvas`
+        : "Show in canvas";
+    case "show_more_chat_windows":
+      return "Show more chat windows";
+    case "show_next_docked_chat":
+      return "Show next docked chat";
+    case "show_previous_chat_windows":
+      return "Show previous chat windows";
+    case "show_previous_docked_chat":
+      return "Show previous docked chat";
+    case "show_section_in_canvas":
+      return "Show section in canvas";
+    case "undock_window":
+      return withOptionalTitle("Undock", "Undock window", title);
+  }
 }
 
 export function getWindowControlQuickInfoHandlers(

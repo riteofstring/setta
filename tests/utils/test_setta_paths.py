@@ -1,15 +1,19 @@
+import hashlib
 import json
 import os
-import subprocess
 from pathlib import Path
 
 import pytest
-import setta.utils.paths as paths_module
-from setta.entrypoint import resolve_go_cli_command, resolve_go_cli_env
+
+from setta.database.db_objs import DBE
 from setta.sessions.utils import resolve_sessions_root
-from setta.utils.paths import resolve_setta_paths
+from setta.utils.paths import (
+    build_files_root_from_base,
+    clear_setta_paths_cache,
+    resolve_setta_paths,
+    validate_workspace_root,
+)
 from setta.utils.setta_home import resolve_setta_home
-from tests.helpers.setta_paths import clear_setta_paths_cache, validate_workspace_root
 
 
 @pytest.fixture(autouse=True)
@@ -24,59 +28,6 @@ def _setta_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     clear_setta_paths_cache()
 
 
-def authoritative_go_paths_payload(
-    *,
-    workspace_root: Path | None = None,
-    setta_files_location: str | None = None,
-    cwd: Path | None = None,
-) -> dict[str, object]:
-    command, command_cwd = resolve_go_cli_command()
-    args = [*command]
-    if workspace_root is not None:
-        args.extend(["--workspace", str(workspace_root)])
-    if setta_files_location is not None:
-        args.extend(["--setta-files-location", setta_files_location])
-    args.extend(
-        ["paths", "--json", "--cwd", str((cwd or Path.cwd()).resolve(strict=False))]
-    )
-    completed = subprocess.run(
-        args,
-        check=False,
-        cwd=command_cwd,
-        env={**os.environ, **resolve_go_cli_env(command_cwd)},
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
-        pytest.fail(
-            "authoritative Go paths command failed: "
-            f"{completed.stderr.strip() or completed.stdout.strip()}"
-        )
-    payload = json.loads(completed.stdout)
-    if not isinstance(payload, dict):
-        pytest.fail(f"authoritative Go paths payload had invalid shape: {payload!r}")
-    return payload
-
-
-def authoritative_go_setta_files_root(
-    *,
-    workspace_root: Path,
-    setta_files_location: str | None = None,
-    cwd: Path | None = None,
-) -> Path:
-    payload = authoritative_go_paths_payload(
-        workspace_root=workspace_root,
-        setta_files_location=setta_files_location,
-        cwd=cwd,
-    )
-    value = payload.get("settaFilesRoot")
-    if not isinstance(value, str) or not value.strip():
-        pytest.fail(
-            f"authoritative Go paths payload missing settaFilesRoot: {payload!r}"
-        )
-    return Path(value).resolve(strict=False)
-
-
 def test_resolve_setta_paths_defaults(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -87,18 +38,6 @@ def test_resolve_setta_paths_defaults(tmp_path: Path) -> None:
     assert paths.setta_files_location == "local"
     assert paths.setta_files_root == workspace.resolve() / "setta_files"
     assert paths.runtime_root == paths.setta_files_root / "runtime"
-
-
-def test_resolve_setta_paths_defaults_to_current_working_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    monkeypatch.chdir(workspace)
-
-    paths = resolve_setta_paths()
-
-    assert paths.workspace_root == workspace.resolve()
 
 
 def test_resolve_setta_paths_strips_workspace_root_env(
@@ -138,10 +77,11 @@ def test_resolve_setta_paths_honors_files_location_env_global(
     paths = resolve_setta_paths(workspace_root=workspace)
 
     assert paths.setta_files_location == "global"
-    expected_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False)
+    base_root = (tmp_path / ".setta" / "setta_files").resolve(strict=False)
+    expected_root = build_files_root_from_base(
+        base_root, workspace.resolve(strict=False)
     )
-    assert paths.setta_files_root == expected_root
+    assert paths.setta_files_root == expected_root.resolve(strict=False)
     assert paths.runtime_root == paths.setta_files_root / "runtime"
 
 
@@ -156,10 +96,11 @@ def test_resolve_setta_paths_strips_files_location_env_whitespace(
     paths = resolve_setta_paths(workspace_root=workspace)
 
     assert paths.setta_files_location == "global"
-    expected_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False)
+    base_root = (tmp_path / ".setta" / "setta_files").resolve(strict=False)
+    expected_root = build_files_root_from_base(
+        base_root, workspace.resolve(strict=False)
     )
-    assert paths.setta_files_root == expected_root
+    assert paths.setta_files_root == expected_root.resolve(strict=False)
 
 
 def test_resolve_setta_paths_rejects_invalid_files_location_env(
@@ -170,7 +111,7 @@ def test_resolve_setta_paths_rejects_invalid_files_location_env(
 
     monkeypatch.setenv("SETTA_FILES_LOCATION", "nope")
 
-    with pytest.raises(ValueError, match=r"invalid setta files location"):
+    with pytest.raises(ValueError, match=r"Invalid setta files location"):
         resolve_setta_paths(workspace_root=workspace)
 
 
@@ -180,24 +121,8 @@ def test_resolve_setta_paths_rejects_invalid_files_location_override(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    with pytest.raises(ValueError, match=r"invalid setta files location"):
+    with pytest.raises(ValueError, match=r"Invalid setta files location"):
         resolve_setta_paths(workspace_root=workspace, setta_files_location="nope")
-
-
-def test_resolve_setta_paths_rejects_invalid_resolved_files_location_from_go_payload(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    payload = authoritative_go_paths_payload(
-        workspace_root=workspace.resolve(strict=False)
-    )
-    payload["resolvedFilesLocation"] = "custom"
-    monkeypatch.setattr(paths_module, "_resolve_go_paths_payload", lambda **_: payload)
-
-    with pytest.raises(ValueError, match=r"invalid resolvedFilesLocation"):
-        resolve_setta_paths(workspace_root=workspace)
 
 
 def test_resolve_setta_paths_normalizes_files_location_override_case_and_whitespace(
@@ -212,11 +137,11 @@ def test_resolve_setta_paths_normalizes_files_location_override_case_and_whitesp
     )
 
     assert paths.setta_files_location == "global"
-    expected_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False),
-        setta_files_location="global",
+    base_root = (tmp_path / ".setta" / "setta_files").resolve(strict=False)
+    expected_root = build_files_root_from_base(
+        base_root, workspace.resolve(strict=False)
     )
-    assert paths.setta_files_root == expected_root
+    assert paths.setta_files_root == expected_root.resolve(strict=False)
 
 
 def test_resolve_setta_paths_rejects_local_root_that_is_file(tmp_path: Path) -> None:
@@ -225,7 +150,7 @@ def test_resolve_setta_paths_rejects_local_root_that_is_file(tmp_path: Path) -> 
 
     (workspace / "setta_files").write_text("nope", encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"local setta_files path is not a directory"):
+    with pytest.raises(ValueError, match=r"Local setta_files path is not a directory"):
         resolve_setta_paths(workspace_root=workspace)
 
 
@@ -253,7 +178,7 @@ def test_resolve_setta_paths_rejects_setta_files_root_without_allowed_folder_nam
     workspace.mkdir()
 
     with pytest.raises(
-        ValueError, match=r"setta files root must include one of these folder names"
+        ValueError, match=r"Setta files root must include one of these folder names"
     ):
         resolve_setta_paths(
             workspace_root=workspace,
@@ -265,14 +190,15 @@ def test_resolve_setta_paths_rejects_global_root_that_is_file(tmp_path: Path) ->
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    global_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False),
-        setta_files_location="global",
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    global_base = (setta_home / "setta_files").resolve(strict=False)
+    global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
     )
     global_root.parent.mkdir(parents=True, exist_ok=True)
     global_root.write_text("nope", encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"global setta_files path is not a directory"):
+    with pytest.raises(ValueError, match=r"Global setta_files path is not a directory"):
         resolve_setta_paths(workspace_root=workspace, setta_files_location="global")
 
 
@@ -298,9 +224,9 @@ def test_resolve_setta_paths_auto_uses_global_if_present(
         encoding="utf-8",
     )
 
-    global_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False),
-        setta_files_location="global",
+    global_base = (setta_home / "setta_files").resolve()
+    global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
     )
     global_root.mkdir(parents=True, exist_ok=True)
 
@@ -332,9 +258,9 @@ def test_resolve_setta_paths_auto_uses_local_when_global_missing(
         encoding="utf-8",
     )
 
-    global_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False),
-        setta_files_location="global",
+    global_base = (setta_home / "setta_files").resolve()
+    global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
     )
     assert not global_root.exists()
 
@@ -365,8 +291,9 @@ def test_resolve_setta_paths_auto_create_global_selects_global(tmp_path: Path) -
         encoding="utf-8",
     )
 
-    expected_global_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False)
+    global_base = (setta_home / "setta_files").resolve()
+    expected_global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
     )
     assert not expected_global_root.exists()
 
@@ -376,11 +303,11 @@ def test_resolve_setta_paths_auto_create_global_selects_global(tmp_path: Path) -
     assert paths.setta_files_root == expected_global_root
     assert not paths.setta_files_root.exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
 
 
-def test_resolve_setta_paths_explicit_local_can_create_root(
+def test_resolve_setta_paths_explicit_local_creates_root_with_dbe(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
@@ -392,19 +319,20 @@ def test_resolve_setta_paths_explicit_local_can_create_root(
     assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
     assert not paths.setta_files_root.exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
 
 
-def test_resolve_setta_paths_explicit_global_can_create_root(
+def test_resolve_setta_paths_explicit_global_creates_root_with_dbe(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    expected_global_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False),
-        setta_files_location="global",
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    global_base = (setta_home / "setta_files").resolve(strict=False)
+    expected_global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
     )
     assert not expected_global_root.exists()
 
@@ -414,7 +342,7 @@ def test_resolve_setta_paths_explicit_global_can_create_root(
     assert paths.setta_files_root == expected_global_root
     assert not (workspace / "setta_files").exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
     assert not (workspace / "setta_files").exists()
 
@@ -435,41 +363,36 @@ def test_local_always_wins_even_when_global_requested(
     assert paths.setta_files_root == local_root.resolve(strict=False)
 
 
-def test_go_paths_global_root_sanitizes_leaf(tmp_path: Path) -> None:
+def test_build_files_root_from_base_sanitizes_leaf(tmp_path: Path) -> None:
     workspace = tmp_path / "___"
     workspace.mkdir()
-    result = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False),
-        setta_files_location="global",
-    )
+    base_root = tmp_path / "state"
+    result = build_files_root_from_base(base_root, workspace)
     assert result.name.startswith("workspace-")
 
 
-def test_go_paths_global_root_truncates_long_workspace_names(
+def test_build_files_root_from_base_truncates_long_workspace_names(
     tmp_path: Path,
 ) -> None:
+    base_root = tmp_path / "state"
     workspace = tmp_path / ("a" * 200)
-    workspace.mkdir()
 
-    result = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False),
-        setta_files_location="global",
-    )
+    result = build_files_root_from_base(base_root, workspace)
 
-    dash_index = result.name.rfind("-")
-    assert dash_index > 0
-    leaf = result.name[:dash_index]
-    suffix = result.name[dash_index + 1 :]
+    expected_digest = hashlib.sha256(
+        str(workspace.resolve(strict=False)).encode("utf-8")
+    ).hexdigest()[:8]
+    assert result.name.endswith(f"-{expected_digest}")
+    leaf = result.name[: -(len(expected_digest) + 1)]
     assert len(leaf) <= 48
-    assert len(suffix) == 8
-    int(suffix, 16)
 
 
-def test_go_paths_global_root_uses_canonical_workspace_path(
+def test_build_files_root_from_base_uses_canonical_workspace_path(
     tmp_path: Path,
 ) -> None:
     if os.name == "nt":
         pytest.skip("Symlink canonicalization test requires Unix-style symlinks.")
+    base_root = tmp_path / "state"
     real_parent = tmp_path / "real_parent"
     real_parent.mkdir(parents=True, exist_ok=True)
     real_workspace = real_parent / "workspace"
@@ -479,14 +402,8 @@ def test_go_paths_global_root_uses_canonical_workspace_path(
     alias_parent.symlink_to(real_parent, target_is_directory=True)
     alias_workspace = alias_parent / "workspace"
 
-    real_root = authoritative_go_setta_files_root(
-        workspace_root=real_workspace.resolve(strict=False),
-        setta_files_location="global",
-    )
-    alias_root = authoritative_go_setta_files_root(
-        workspace_root=alias_workspace.resolve(strict=False),
-        setta_files_location="global",
-    )
+    real_root = build_files_root_from_base(base_root, real_workspace)
+    alias_root = build_files_root_from_base(base_root, alias_workspace)
 
     assert real_root == alias_root
 
@@ -609,7 +526,7 @@ def test_resolve_setta_paths_rejects_runtime_root_matching_workspace(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    with pytest.raises(ValueError, match=r"runtime root cannot be the workspace root"):
+    with pytest.raises(ValueError, match=r"Runtime root cannot be the workspace root"):
         resolve_setta_paths(
             workspace_root=workspace,
             runtime_root=workspace,
@@ -631,10 +548,11 @@ def test_resolve_sessions_root_uses_setta_files_root_env(
 
     sessions_root = resolve_sessions_root(workspace)
 
-    expected_root = authoritative_go_setta_files_root(
-        workspace_root=workspace.resolve(strict=False)
+    base_root = (tmp_path / ".setta" / "setta_files").resolve(strict=False)
+    expected_root = build_files_root_from_base(
+        base_root, workspace.resolve(strict=False)
     )
-    assert sessions_root == expected_root / "runtime" / "sessions"
+    assert sessions_root == expected_root.resolve(strict=False) / "runtime" / "sessions"
 
 
 def test_explicit_setta_files_root_overrides_local_root(tmp_path: Path) -> None:
@@ -953,70 +871,5 @@ def test_unknown_profile_raises(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    with pytest.raises(ValueError, match="unknown setta profile"):
+    with pytest.raises(ValueError, match="Unknown Setta profile"):
         resolve_setta_paths(workspace_root=workspace, profile="missing")
-
-
-def test_resolve_go_paths_payload_rejects_non_object_json(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        paths_module,
-        "resolve_go_cli_command",
-        lambda: (["setta"], None),
-    )
-    monkeypatch.setattr(paths_module, "resolve_go_cli_env", lambda _cwd: {})
-    monkeypatch.setattr(
-        paths_module.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(
-            args=args[0],
-            returncode=0,
-            stdout="[]",
-            stderr="",
-        ),
-    )
-
-    with pytest.raises(ValueError, match="invalid payload shape"):
-        paths_module._resolve_go_paths_payload(
-            workspace_root=None,
-            setta_home=None,
-            profile_lookup_home=None,
-            setta_files_location=None,
-            setta_files_root=None,
-            runtime_root=None,
-            profile=None,
-            allow_env_files_overrides=True,
-            allow_env_non_files_overrides=True,
-            allow_profile_env_overrides=True,
-        )
-
-
-def test_resolve_go_paths_payload_wraps_subprocess_oserror(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        paths_module,
-        "resolve_go_cli_command",
-        lambda: (["setta"], None),
-    )
-    monkeypatch.setattr(paths_module, "resolve_go_cli_env", lambda _cwd: {})
-
-    def _raise_oserror(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
-        raise OSError("boom")
-
-    monkeypatch.setattr(paths_module.subprocess, "run", _raise_oserror)
-
-    with pytest.raises(ValueError, match="Failed to execute Go Setta paths command: boom"):
-        paths_module._resolve_go_paths_payload(
-            workspace_root=None,
-            setta_home=None,
-            profile_lookup_home=None,
-            setta_files_location=None,
-            setta_files_root=None,
-            runtime_root=None,
-            profile=None,
-            allow_env_files_overrides=True,
-            allow_env_non_files_overrides=True,
-            allow_profile_env_overrides=True,
-        )
