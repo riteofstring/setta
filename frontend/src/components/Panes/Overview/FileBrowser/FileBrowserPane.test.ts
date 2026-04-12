@@ -12,25 +12,22 @@ import { useFileBrowserState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FileBrowserPane, type FileNode } from "./FileBrowserPane";
 import {
   buildFileBrowserLoadingPathOwner,
-  FileBrowserPane,
-  flattenFileBrowserTree,
   forEachWithConcurrencyLimit,
   getResolvedFileBrowserRootState,
   getSettaBadgeRefreshFolderPaths,
   isEditableFileBrowserTarget,
   isOwnedFileBrowserLoadingPath,
-  shouldCheckRootWorkspaceInitialization,
   shouldLoadRootWorkspaceInitializationMetadata,
   shouldRefreshMovedExpandedFolder,
   shouldRefreshRootAfterFileBrowserTransfer,
   shouldRefreshSettaBadgeDataOnToggleChange,
   shouldShowSettaInitializedFolderIcon,
   shouldSkipFileBrowserTransfer,
-  sortChildPaths,
-  type FileNode,
-} from "./FileBrowserPane";
+} from "./fileBrowserPaneCore";
+import { flattenFileBrowserTree, sortChildPaths } from "./fileBrowserPaneTree";
 
 const openAPI = vi.hoisted(() => ({
   getFileBrowserRoot: vi.fn(),
@@ -654,29 +651,6 @@ describe("shouldShowSettaInitializedFolderIcon", () => {
   });
 });
 
-describe("shouldCheckRootWorkspaceInitialization", () => {
-  it("checks initialization only for the active root", () => {
-    expect(
-      shouldCheckRootWorkspaceInitialization({
-        folderPath: "/workspace",
-        rootPath: "/workspace",
-      }),
-    ).toBe(true);
-    expect(
-      shouldCheckRootWorkspaceInitialization({
-        folderPath: "/workspace/child",
-        rootPath: "/workspace",
-      }),
-    ).toBe(false);
-    expect(
-      shouldCheckRootWorkspaceInitialization({
-        folderPath: "/workspace",
-        rootPath: null,
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("shouldLoadRootWorkspaceInitializationMetadata", () => {
   it("requires both Setta metadata mode and root folder context", () => {
     expect(
@@ -698,6 +672,13 @@ describe("shouldLoadRootWorkspaceInitializationMetadata", () => {
         includeSettaInitializedFolders: true,
         folderPath: "/workspace/child",
         rootPath: "/workspace",
+      }),
+    ).toBe(false);
+    expect(
+      shouldLoadRootWorkspaceInitializationMetadata({
+        includeSettaInitializedFolders: true,
+        folderPath: "/workspace",
+        rootPath: null,
       }),
     ).toBe(false);
   });

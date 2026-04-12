@@ -56,7 +56,7 @@ export function shouldShowSettaInitializedFolderIcon({
   return isFolder && isSettaInitialized;
 }
 
-export function shouldCheckRootWorkspaceInitialization({
+function shouldCheckRootWorkspaceInitialization({
   folderPath,
   rootPath,
 }: {

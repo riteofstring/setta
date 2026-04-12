@@ -3,25 +3,9 @@ import { useFileBrowserState } from "state/definitions";
 import { FileBrowserFilter } from "./FileBrowserFilter";
 import { FileBrowserPaneView } from "./FileBrowserPaneView";
 import {
-  buildFileBrowserLoadingPathOwner,
-  forEachWithConcurrencyLimit,
-  getResolvedFileBrowserRootState,
-  getSettaBadgeRefreshFolderPaths,
-  isEditableFileBrowserTarget,
-  isOwnedFileBrowserLoadingPath,
-  shouldCheckRootWorkspaceInitialization,
-  shouldLoadRootWorkspaceInitializationMetadata,
-  shouldRefreshMovedExpandedFolder,
-  shouldRefreshRootAfterFileBrowserTransfer,
-  shouldRefreshSettaBadgeDataOnToggleChange,
-  shouldShowSettaInitializedFolderIcon,
-  shouldSkipFileBrowserTransfer,
-} from "./fileBrowserPaneCore";
-import {
   type FileBrowserPaneProps,
   type FileNode,
 } from "./fileBrowserPaneShared";
-import { flattenFileBrowserTree, sortChildPaths } from "./fileBrowserPaneTree";
 import { useFileBrowserPaneData } from "./useFileBrowserPaneData";
 import { useFileBrowserPaneDerivedState } from "./useFileBrowserPaneDerivedState";
 import { useFileBrowserPaneHandlers } from "./useFileBrowserPaneHandlers";
@@ -29,24 +13,7 @@ import { useFileBrowserPaneLayout } from "./useFileBrowserPaneLayout";
 import { useFileBrowserPreviewUrls } from "./useFileBrowserPreviewUrls";
 import { useFileBrowserTransfer } from "./useFileBrowserTransfer";
 
-export {
-  buildFileBrowserLoadingPathOwner,
-  FileBrowserFilter,
-  flattenFileBrowserTree,
-  forEachWithConcurrencyLimit,
-  getResolvedFileBrowserRootState,
-  getSettaBadgeRefreshFolderPaths,
-  isEditableFileBrowserTarget,
-  isOwnedFileBrowserLoadingPath,
-  shouldCheckRootWorkspaceInitialization,
-  shouldLoadRootWorkspaceInitializationMetadata,
-  shouldRefreshMovedExpandedFolder,
-  shouldRefreshRootAfterFileBrowserTransfer,
-  shouldRefreshSettaBadgeDataOnToggleChange,
-  shouldShowSettaInitializedFolderIcon,
-  shouldSkipFileBrowserTransfer,
-  sortChildPaths,
-};
+export { FileBrowserFilter };
 export type { FileNode };
 
 function resolveFileBrowserStateHook(
