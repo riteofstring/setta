@@ -14,6 +14,7 @@ import {
   readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
   resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  type SettingsGraphSubstrateCanaryReactFlowViewportPublishReason,
 } from "./settingsGraphSubstrateCanaryInstrumentation";
 import {
   resolveSettingsGraphSubstrateCanarySceneSnapshot,
@@ -26,7 +27,6 @@ import {
 } from "./settingsGraphSubstrateCanaryViewport";
 import {
   resolveReactFlowViewportPublishReason,
-  type SettingsGraphSubstrateCanaryReactFlowViewportPublishReason,
   useSettingsGraphSubstrateCanaryViewportRuntime,
 } from "./settingsGraphSubstrateCanaryViewportRuntime";
 import type { GraphViewport } from "./viewportTransform";
@@ -435,6 +435,10 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
       readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
         .motionAttribution.reactFlowViewportPublish.count,
     ).toBe(1);
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .reactFlowViewportPublishAttribution.initialTransformDiff.count,
+    ).toBe(1);
 
     const transformPublishCallsAfterFirstRender =
       setReactFlowStateSpy.mock.calls
@@ -463,6 +467,10 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     expect(
       readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
         .motionAttribution.reactFlowViewportPublish.count,
+    ).toBe(1);
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .reactFlowViewportPublishAttribution.initialTransformDiff.count,
     ).toBe(1);
 
     const transformPublishCallsAfterRerender = setReactFlowStateSpy.mock.calls
@@ -998,6 +1006,9 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
   it("keeps pan-only canary motion authoritative without republishing the React Flow transform", async () => {
     const initialViewport = { x: 40, y: -20, zoom: 1.25 };
     const panOnlyViewport = { x: 180, y: 60, zoom: 1.25 };
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
 
     await act(async () => {
       root.render(
@@ -1046,6 +1057,10 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
       initialViewport.zoom,
     ]);
     expect(getViewport()).toEqual(panOnlyViewport);
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .reactFlowViewportPublishAttribution.nonLocalPanDiff.count,
+    ).toBe(0);
   });
 
   it("defers local zoom transform publishes until viewport interaction settles", async () => {
@@ -1054,6 +1069,9 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     let latestRuntime: ReturnType<
       typeof useSettingsGraphSubstrateCanaryViewportRuntime
     > | null = null;
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
 
     await act(async () => {
       root.render(
@@ -1130,6 +1148,10 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
         zoomedViewport.zoom,
       ]);
     });
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .reactFlowViewportPublishAttribution.zoomDiff.count,
+    ).toBe(1);
   });
 });
 

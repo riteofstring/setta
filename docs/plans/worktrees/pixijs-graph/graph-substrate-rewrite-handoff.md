@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 13:10 UTC
+Last updated: 2026-04-15 13:44 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,46 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `506` landed reason-level live-capture plumbing for the remaining
+  `reactFlowViewportPublish` owner on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      now exposes `reactFlowViewportPublishAttribution` and a dedicated
+      measurement helper so `reactFlowViewportPublish` can be ranked by reason
+      without losing the existing owner-level totals
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      now records `initialTransformDiff`, `zoomDiff`, and
+      `nonLocalPanDiff` into that shared reason map whenever the runtime
+      publishes a React Flow transform
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now clones and diffs the reason map across motion-perf capture windows so
+      the existing normalized live probe can surface the breakdown directly
+    - `perf/reports/frontend/2026-04-15_settings-graph-reactflow-viewport-publish-reason-attribution-seam.md`
+      records the seam and the blocked direct-runner attempts from this pass
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed (`2` files, `25` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+      -> `All Settings` mounted with visible section cards
+      -> no obvious blank-card or detached-body artifact was visible
+  - blocked live-readout attempts:
+    - direct `playwright test` against the current worktree runtime hit
+      existing runner drift (`SETTA_BOOTSTRAP_TOKEN` / JSON import attribute
+      issues) before a trusted probe result was produced
+    - a one-off browser script against the same runtime hit
+      bootstrap/session friction before the normalized canary lane mounted
+  - reading:
+    - this pass is the last support-only move justified on this owner; the
+      existing live motion probe now has the field it needs
+    - the next pass must use that already-landed normalized live probe to read
+      `reactFlowViewportPublishAttribution` on `rotaryParamCodeObjDefault`, or
+      stop for replan if the trusted live capture path still cannot produce the
+      new field
 
 - item `505` recorded the remaining `reactFlowViewportPublish` write map on the
   canonical `rotaryParamCodeObjDefault` lane:

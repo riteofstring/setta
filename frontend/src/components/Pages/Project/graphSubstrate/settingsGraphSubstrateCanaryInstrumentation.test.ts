@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
   measureSettingsGraphSubstrateCanaryMotionAttribution,
+  measureSettingsGraphSubstrateCanaryReactFlowViewportPublish,
   readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
   recordSettingsGraphSubstrateCanaryMotionAttributionDuration,
   resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
@@ -42,6 +43,9 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       motionAttributionActive: false,
       pixiDrawableCount: 18,
       pixiSyncCount: 0,
+      reactFlowViewportPublishAttribution:
+        createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot()
+          .reactFlowViewportPublishAttribution,
       sceneSyncCount: 0,
       unresolvedSectionSeedFallbackCount: 0,
       viewportZoom: 0.24,
@@ -92,6 +96,56 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 3.5,
       totalDurationMs: 3.5,
+    });
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .reactFlowViewportPublishAttribution.initialTransformDiff,
+    ).toEqual({
+      count: 0,
+      maxDurationMs: 0,
+      totalDurationMs: 0,
+    });
+  });
+
+  it("records React Flow viewport publish reasons alongside owner attribution", () => {
+    measureSettingsGraphSubstrateCanaryReactFlowViewportPublish(
+      "zoomDiff",
+      () => {},
+    );
+
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    const performanceNowSpy = vi
+      .spyOn(globalThis.performance, "now")
+      .mockReturnValueOnce(41)
+      .mockReturnValueOnce(46.25);
+
+    measureSettingsGraphSubstrateCanaryReactFlowViewportPublish(
+      "zoomDiff",
+      () => {},
+    );
+
+    performanceNowSpy.mockRestore();
+
+    const snapshot = readSettingsGraphSubstrateCanaryInstrumentationSnapshot();
+    expect(snapshot.motionAttribution.reactFlowViewportPublish).toEqual({
+      count: 1,
+      maxDurationMs: 5.25,
+      totalDurationMs: 5.25,
+    });
+    expect(snapshot.reactFlowViewportPublishAttribution.zoomDiff).toEqual({
+      count: 1,
+      maxDurationMs: 5.25,
+      totalDurationMs: 5.25,
+    });
+    expect(
+      snapshot.reactFlowViewportPublishAttribution.initialTransformDiff,
+    ).toEqual({
+      count: 0,
+      maxDurationMs: 0,
+      totalDurationMs: 0,
     });
   });
 

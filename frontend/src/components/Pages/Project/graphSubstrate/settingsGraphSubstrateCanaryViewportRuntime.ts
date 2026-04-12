@@ -13,7 +13,9 @@ import { useLocalStorage, useMisc, useSettings } from "state/definitions";
 import { hasActiveTerminalScrollSensitivityConsumers } from "state/hooks/terminals/utils";
 import {
   measureSettingsGraphSubstrateCanaryMotionAttribution,
+  measureSettingsGraphSubstrateCanaryReactFlowViewportPublish,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  type SettingsGraphSubstrateCanaryReactFlowViewportPublishReason,
 } from "./settingsGraphSubstrateCanaryInstrumentation";
 import {
   createEmptySettingsGraphSubstrateCanarySceneSnapshot,
@@ -64,11 +66,6 @@ export type SettingsGraphSubstrateCanaryViewportRuntime = {
   }) => void;
   visibleViewportRect: GraphRect | null;
 };
-
-export type SettingsGraphSubstrateCanaryReactFlowViewportPublishReason =
-  | "initialTransformDiff"
-  | "nonLocalPanDiff"
-  | "zoomDiff";
 
 export function resolveReactFlowViewportPublishReason(args: {
   currentTransform: [number, number, number];
@@ -555,8 +552,8 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       return;
     }
 
-    measureSettingsGraphSubstrateCanaryMotionAttribution(
-      "reactFlowViewportPublish",
+    measureSettingsGraphSubstrateCanaryReactFlowViewportPublish(
+      publishReason,
       () => {
         useReactFlow.setState({
           fitViewOnInit: false,

@@ -21237,3 +21237,45 @@ LOOP_TERMINAL_MARKER: none
     one bounded product cut against exactly one of those remaining real
     branches
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 13:44 UTC
+
+- item `506` landed reason-level live-capture plumbing for the remaining
+  `reactFlowViewportPublish` owner on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+    now exposes `reactFlowViewportPublishAttribution` plus a dedicated
+    measurement helper so the runtime can record owner-level and reason-level
+    publish totals from the same duration sample
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    now records `initialTransformDiff`, `zoomDiff`, and
+    `nonLocalPanDiff` into that shared reason map whenever the runtime
+    publishes a React Flow transform
+  - updated
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    so the existing motion-perf capture clones and diffs the new reason map
+    across the measurement window
+  - added
+    `perf/reports/frontend/2026-04-15_settings-graph-reactflow-viewport-publish-reason-attribution-seam.md`
+    to record the landed seam and the blocked direct-runner attempts from this
+    pass
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    -> passed (`2` files, `25` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> `All Settings` mounted with visible section cards
+    -> no obvious blank-card or detached-body artifact was visible
+- blocked live-readout attempts:
+  - direct `playwright test` against the current worktree runtime hit existing
+    runner drift (`SETTA_BOOTSTRAP_TOKEN` / JSON import attribute issues)
+  - a one-off browser script against the same runtime hit bootstrap/session
+    friction before the normalized canary lane mounted
+- reading:
+  - this pass lands the final missing attribution seam for the active viewport
+    owner; it does not yet claim the dominant live reason
+  - the next real frontier must use the already-landed normalized live motion
+    probe to read `reactFlowViewportPublishAttribution` on
+    `rotaryParamCodeObjDefault`, or stop for replan if that trusted live path
+    still cannot produce the new field
+- LOOP_TERMINAL_MARKER: none

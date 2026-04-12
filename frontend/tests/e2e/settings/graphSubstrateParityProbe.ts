@@ -37,6 +37,7 @@ import type {
   SettingsGraphSubstrateCanaryInstrumentationSnapshot,
   SettingsGraphSubstrateCanaryMotionAttribution,
   SettingsGraphSubstrateCanaryMotionAttributionOwner,
+  SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution,
 } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import {
   isSettingsGraphAppReady,
@@ -150,6 +151,7 @@ export type SettingsGraphMotionPerfCapture = {
   measurementWindowMs: number;
   motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution | null;
   pageHiddenDuringCapture: boolean;
+  reactFlowViewportPublishAttribution: SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution | null;
   rootDomNodeCount: number;
   sampleCount: number;
   sectionDomNodeCount: number | null;
@@ -232,6 +234,7 @@ const LOCAL_PANE_STATE_STORE_READ_TIMEOUT_MS = 2000;
 
 type SettingsGraphMotionPerfCaptureState = {
   canaryMotionAttributionBaseline: SettingsGraphSubstrateCanaryMotionAttribution | null;
+  canaryReactFlowViewportPublishAttributionBaseline: SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution | null;
   currentLongTaskPhase: SettingsGraphMotionPerfLongTaskPhase;
   frameDurations: Array<number>;
   focusLossCount: number;
@@ -465,6 +468,11 @@ export async function readSettingsGraphCanaryInstrumentationSnapshot(
           { ...entry },
         ]),
       ) as SettingsGraphSubstrateCanaryMotionAttribution,
+      reactFlowViewportPublishAttribution: Object.fromEntries(
+        Object.entries(snapshot.reactFlowViewportPublishAttribution).map(
+          ([reason, entry]) => [reason, { ...entry }],
+        ),
+      ) as SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution,
       visibleViewportSize: snapshot.visibleViewportSize
         ? { ...snapshot.visibleViewportSize }
         : null,
@@ -1429,11 +1437,26 @@ export async function startSettingsGraphMotionPerfCapture(
         ]),
       ) as SettingsGraphSubstrateCanaryMotionAttribution;
     };
+    const cloneReactFlowViewportPublishAttribution = (
+      reactFlowViewportPublishAttribution: SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution,
+    ): SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution => {
+      return Object.fromEntries(
+        Object.entries(reactFlowViewportPublishAttribution).map(
+          ([reason, entry]) => [reason, { ...entry }],
+        ),
+      ) as SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution;
+    };
 
     const capture: SettingsGraphMotionPerfCaptureState = {
       canaryMotionAttributionBaseline: existingSnapshot?.motionAttribution
         ? cloneMotionAttribution(existingSnapshot.motionAttribution)
         : null,
+      canaryReactFlowViewportPublishAttributionBaseline:
+        existingSnapshot?.reactFlowViewportPublishAttribution
+          ? cloneReactFlowViewportPublishAttribution(
+              existingSnapshot.reactFlowViewportPublishAttribution,
+            )
+          : null,
       currentLongTaskPhase: "captureWarmup",
       frameDurations: [],
       focusLossCount: 0,
@@ -1688,6 +1711,38 @@ export async function stopSettingsGraphMotionPerfCapture(
           ]),
         ) as SettingsGraphSubstrateCanaryMotionAttribution;
       };
+      const cloneReactFlowViewportPublishAttribution = (
+        reactFlowViewportPublishAttribution: SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution,
+      ): SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution => {
+        return Object.fromEntries(
+          Object.entries(reactFlowViewportPublishAttribution).map(
+            ([reason, entry]) => [reason, { ...entry }],
+          ),
+        ) as SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution;
+      };
+      const diffReactFlowViewportPublishAttribution = (
+        after: SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution,
+        before: SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution,
+      ): SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution => {
+        return Object.fromEntries(
+          Object.entries(after).map(([reason, entry]) => [
+            reason,
+            {
+              count:
+                entry.count -
+                before[
+                  reason as keyof SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution
+                ].count,
+              maxDurationMs: Math.max(entry.maxDurationMs, 0),
+              totalDurationMs:
+                entry.totalDurationMs -
+                before[
+                  reason as keyof SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution
+                ].totalDurationMs,
+            },
+          ]),
+        ) as SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution;
+      };
       const surfaceKind = document.querySelector(canaryRootSelector)
         ? "canary"
         : document.querySelector(legacyRootSelector)
@@ -1752,6 +1807,18 @@ export async function stopSettingsGraphMotionPerfCapture(
           : canaryInstrumentation?.motionAttribution
             ? cloneMotionAttribution(canaryInstrumentation.motionAttribution)
             : null;
+      const reactFlowViewportPublishAttribution =
+        canaryInstrumentation?.reactFlowViewportPublishAttribution &&
+        capture.canaryReactFlowViewportPublishAttributionBaseline
+          ? diffReactFlowViewportPublishAttribution(
+              canaryInstrumentation.reactFlowViewportPublishAttribution,
+              capture.canaryReactFlowViewportPublishAttributionBaseline,
+            )
+          : canaryInstrumentation?.reactFlowViewportPublishAttribution
+            ? cloneReactFlowViewportPublishAttribution(
+                canaryInstrumentation.reactFlowViewportPublishAttribution,
+              )
+            : null;
       const transform = !viewport
         ? null
         : (() => {
@@ -1792,6 +1859,7 @@ export async function stopSettingsGraphMotionPerfCapture(
         measurementWindowMs: performance.now() - capture.startTimestamp,
         motionAttribution,
         pageHiddenDuringCapture: capture.pageHiddenDuringCapture,
+        reactFlowViewportPublishAttribution,
         rootDomNodeCount: root ? root.querySelectorAll("*").length + 1 : 0,
         sampleCount: frameDurations.length,
         sectionDomNodeCount: section

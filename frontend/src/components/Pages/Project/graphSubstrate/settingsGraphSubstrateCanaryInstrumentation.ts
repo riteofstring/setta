@@ -50,10 +50,22 @@ export type SettingsGraphSubstrateCanaryMotionAttributionEntry = {
   totalDurationMs: number;
 };
 
+export const SETTINGS_GRAPH_SUBSTRATE_CANARY_REACT_FLOW_VIEWPORT_PUBLISH_REASONS =
+  ["initialTransformDiff", "nonLocalPanDiff", "zoomDiff"] as const;
+
+export type SettingsGraphSubstrateCanaryReactFlowViewportPublishReason =
+  (typeof SETTINGS_GRAPH_SUBSTRATE_CANARY_REACT_FLOW_VIEWPORT_PUBLISH_REASONS)[number];
+
 export type SettingsGraphSubstrateCanaryMotionAttribution = Record<
   SettingsGraphSubstrateCanaryMotionAttributionOwner,
   SettingsGraphSubstrateCanaryMotionAttributionEntry
 >;
+
+export type SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution =
+  Record<
+    SettingsGraphSubstrateCanaryReactFlowViewportPublishReason,
+    SettingsGraphSubstrateCanaryMotionAttributionEntry
+  >;
 
 export type SettingsGraphSubstrateCanaryInstrumentationSnapshot = {
   mounted: boolean;
@@ -63,6 +75,7 @@ export type SettingsGraphSubstrateCanaryInstrumentationSnapshot = {
   motionAttributionActive: boolean;
   pixiDrawableCount: number;
   pixiSyncCount: number;
+  reactFlowViewportPublishAttribution: SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution;
   sceneSyncCount: number;
   unresolvedSectionSeedFallbackCount: number;
   viewportZoom: number | null;
@@ -83,6 +96,8 @@ export function createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot()
     motionAttributionActive: false,
     pixiDrawableCount: 0,
     pixiSyncCount: 0,
+    reactFlowViewportPublishAttribution:
+      createEmptySettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution(),
     sceneSyncCount: 0,
     unresolvedSectionSeedFallbackCount: 0,
     viewportZoom: null,
@@ -136,6 +151,30 @@ export function measureSettingsGraphSubstrateCanaryMotionAttribution<T>(
   return result;
 }
 
+export function measureSettingsGraphSubstrateCanaryReactFlowViewportPublish<T>(
+  reason: SettingsGraphSubstrateCanaryReactFlowViewportPublishReason,
+  fn: () => T,
+): T {
+  const scope = getSettingsGraphSubstrateCanaryInstrumentationScope();
+  const snapshot = scope.__settaSettingsGraphSubstrateCanaryInstrumentation;
+  if (!snapshot?.motionAttributionActive) {
+    return fn();
+  }
+
+  const startTimestamp = performance.now();
+  const result = fn();
+  const durationMs = performance.now() - startTimestamp;
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "reactFlowViewportPublish",
+    durationMs,
+  );
+  recordSettingsGraphSubstrateCanaryReactFlowViewportPublishDuration(
+    reason,
+    durationMs,
+  );
+  return result;
+}
+
 export function recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
   owner: SettingsGraphSubstrateCanaryMotionAttributionOwner,
   durationMs: number,
@@ -147,6 +186,23 @@ export function recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
   }
   const currentEntry = snapshot.motionAttribution[owner];
   snapshot.motionAttribution[owner] = {
+    count: currentEntry.count + 1,
+    maxDurationMs: Math.max(currentEntry.maxDurationMs, durationMs),
+    totalDurationMs: currentEntry.totalDurationMs + durationMs,
+  };
+}
+
+export function recordSettingsGraphSubstrateCanaryReactFlowViewportPublishDuration(
+  reason: SettingsGraphSubstrateCanaryReactFlowViewportPublishReason,
+  durationMs: number,
+) {
+  const scope = getSettingsGraphSubstrateCanaryInstrumentationScope();
+  const snapshot = scope.__settaSettingsGraphSubstrateCanaryInstrumentation;
+  if (!snapshot?.motionAttributionActive) {
+    return;
+  }
+  const currentEntry = snapshot.reactFlowViewportPublishAttribution[reason];
+  snapshot.reactFlowViewportPublishAttribution[reason] = {
     count: currentEntry.count + 1,
     maxDurationMs: Math.max(currentEntry.maxDurationMs, durationMs),
     totalDurationMs: currentEntry.totalDurationMs + durationMs,
@@ -165,6 +221,10 @@ function cloneSettingsGraphSubstrateCanaryInstrumentationSnapshot(
     motionAttribution: cloneSettingsGraphSubstrateCanaryMotionAttribution(
       snapshot.motionAttribution,
     ),
+    reactFlowViewportPublishAttribution:
+      cloneSettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution(
+        snapshot.reactFlowViewportPublishAttribution,
+      ),
     visibleViewportSize: snapshot.visibleViewportSize
       ? { ...snapshot.visibleViewportSize }
       : null,
@@ -193,4 +253,29 @@ function cloneSettingsGraphSubstrateCanaryMotionAttribution(
       { ...motionAttribution[owner] },
     ]),
   ) as SettingsGraphSubstrateCanaryMotionAttribution;
+}
+
+function createEmptySettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution(): SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution {
+  return Object.fromEntries(
+    SETTINGS_GRAPH_SUBSTRATE_CANARY_REACT_FLOW_VIEWPORT_PUBLISH_REASONS.map(
+      (reason) => [
+        reason,
+        {
+          count: 0,
+          maxDurationMs: 0,
+          totalDurationMs: 0,
+        },
+      ],
+    ),
+  ) as SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution;
+}
+
+function cloneSettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution(
+  reactFlowViewportPublishAttribution: SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution,
+): SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution {
+  return Object.fromEntries(
+    SETTINGS_GRAPH_SUBSTRATE_CANARY_REACT_FLOW_VIEWPORT_PUBLISH_REASONS.map(
+      (reason) => [reason, { ...reactFlowViewportPublishAttribution[reason] }],
+    ),
+  ) as SettingsGraphSubstrateCanaryReactFlowViewportPublishAttribution;
 }
