@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 02:53 UTC
+Last updated: 2026-04-13 03:08 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,43 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `381` landed one bounded mounted section-title selector reduction on the
+  live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Header/SectionTitle.tsx`
+      so `useTitleIsEditable(...)` now subscribes to
+      `{ sectionName, titleIsEditable }` behind `zustand/shallow` equality
+      instead of returning a fresh object on every unrelated `useProjectState`
+      write
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Header/SectionTitle.test.tsx`
+      to prove a mounted `SectionTitle` stays out of unrelated
+      `previewSectionVariantMap` commits while a real section rename still
+      re-commits the heading
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-title-shallow-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionTitle.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionTitle.tsx src/components/Section/Header/SectionTitle.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the `/settings` page mounted past shell/loading and showed real
+         settings content, including visible section titles/chrome, with no
+         obvious blank-screen regression after the title selector change
+  - reading:
+    - this is a real mounted section-header chrome selector reduction on the
+      live canary, not a harness-only pass
+    - the previous title selector rebuilt a new object for every project-state
+      write, so unrelated store churn could still fan into every mounted
+      section title across the settings surface
+  - next default frontier:
+    - stay on the earliest product-facing canary gate and identify the next
+      mounted section-body/chrome subscriber or shared write fan-out that still
+      accepts unrelated `useProjectState` churn on the live worktree, rather
+      than reopening probe-only or backend warm-load work
 
 - item `380` landed one bounded mounted generated-code body selector
   reduction on the live canary lane:

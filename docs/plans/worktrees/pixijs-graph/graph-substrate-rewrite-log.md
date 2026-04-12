@@ -73,6 +73,36 @@ Record:
 - Next action:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
+## 2026-04-13 03:08 UTC
+
+- item `381` landed one bounded mounted section-title selector reduction on the
+  live canary lane:
+  - changed `frontend/src/components/Section/Header/SectionTitle.tsx` so
+    `useTitleIsEditable(...)` now uses `zustand/shallow` for its
+    `{ sectionName, titleIsEditable }` selector result instead of returning a
+    fresh object on every unrelated project-state write
+  - added `frontend/src/components/Section/Header/SectionTitle.test.tsx`
+    to prove unrelated `previewSectionVariantMap` writes do not re-commit a
+    mounted title while a real section rename still does
+  - added
+    `perf/reports/frontend/2026-04-13_settings-graph-section-title-shallow-selector.md`
+    to record the slice
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionTitle.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionTitle.tsx src/components/Section/Header/SectionTitle.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the `/settings` page mounted real settings content with visible
+         section titles/chrome and no obvious blank-screen regression
+- reading:
+  - `SectionTitle` is mounted on every section header, so this removes one
+    wide fresh-object selector from the live settings canary
+  - next frontier remains the same family: find the next mounted
+    section-body/chrome subscriber or shared write fan-out still taking
+    unrelated `useProjectState` churn on the live worktree
+
 LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-13 02:33 UTC

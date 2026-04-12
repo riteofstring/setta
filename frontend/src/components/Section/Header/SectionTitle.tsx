@@ -31,6 +31,7 @@ import {
   getSectionSlugIndex,
   resolveSectionFullPathName,
 } from "utils/sectionSlugPaths";
+import { shallow } from "zustand/shallow";
 
 type SectionTitleClassNames = {
   editing?: string;
@@ -270,7 +271,7 @@ function useTitleIsEditable(sectionId: string) {
       sectionName: s.name,
       titleIsEditable: canEditStructure && !uneditableTypes.includes(impl.type),
     };
-  });
+  }, shallow);
 }
 
 function getSectionSlugConflictError(sectionId: string, value: string) {
