@@ -55,6 +55,118 @@ type MediaCarouselProps<T = unknown> = {
   footer?: ReactNode;
 };
 
+type ThumbnailRowLayout = {
+  thumbnailSizePx: number;
+  labelMode: "wrap" | "compact";
+  rowHeightPx: number | null;
+};
+
+type ThumbnailRowHeightOptions = {
+  hasSubLabel: boolean;
+  resolvedThumbnailRowMinScale: number;
+  showThumbnailLabels: boolean;
+  thumbnailSize: number;
+};
+
+type MediaCarouselPreviewFrameProps = {
+  hasNavButtons: boolean;
+  onNext: () => void;
+  onPrev: () => void;
+  previewClassName?: string;
+  previewContent: ReactNode;
+};
+
+type MediaCarouselNavButtonProps = {
+  ariaLabel: string;
+  children: ReactNode;
+  className: string;
+  onClick: () => void;
+};
+
+type MediaCarouselThumbnailButtonProps<T> = {
+  isSelected: boolean;
+  item: MediaCarouselItem<T>;
+  labelMode: ThumbnailRowLayout["labelMode"];
+  onSelect: (id: string) => void;
+  onThumbnailDoubleClick?: (item: MediaCarouselItem<T>) => void;
+  onThumbnailDragStart?: (
+    item: MediaCarouselItem<T>,
+    event: ReactDragEvent<HTMLButtonElement>,
+  ) => void;
+  renderThumbnail?: (item: MediaCarouselItem<T>) => ReactNode;
+  renderThumbnailOverlay?: (item: MediaCarouselItem<T>) => ReactNode;
+  resolvedSelectedThumbnailClassName: string;
+  resolvedThumbnailClassName: string;
+  showThumbnailLabels: boolean;
+  thumbnailSizePx: number;
+  isThumbnailDraggable?: (item: MediaCarouselItem<T>) => boolean;
+};
+
+type MediaCarouselThumbnailStripProps<T> = {
+  isThumbnailDraggable?: (item: MediaCarouselItem<T>) => boolean;
+  items: Array<MediaCarouselItem<T>>;
+  labelMode: ThumbnailRowLayout["labelMode"];
+  onSelect: (id: string) => void;
+  onThumbnailDoubleClick?: (item: MediaCarouselItem<T>) => void;
+  onThumbnailDragStart?: (
+    item: MediaCarouselItem<T>,
+    event: ReactDragEvent<HTMLButtonElement>,
+  ) => void;
+  renderThumbnail?: (item: MediaCarouselItem<T>) => ReactNode;
+  renderThumbnailOverlay?: (item: MediaCarouselItem<T>) => ReactNode;
+  resolvedSelectedThumbnailClassName: string;
+  resolvedThumbnailClassName: string;
+  rowHeightPx: number | null;
+  selectedItemId: string | null;
+  showThumbnailLabels: boolean;
+  thumbnailRowClassName?: string;
+  thumbnailRowMinHeightPx: number;
+  thumbnailRowResizable: boolean;
+  thumbnailSizePx: number;
+};
+
+type MediaCarouselSelectionState<T> = {
+  handleKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+  handleNext: () => void;
+  handlePrev: () => void;
+  handleSelect: (id: string) => void;
+  selectedItem: MediaCarouselItem<T> | null;
+};
+
+type MediaCarouselThumbnailRowState = {
+  handleThumbnailRowResizePointerDown: (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => void;
+  thumbnailRowLayout: ThumbnailRowLayout;
+  thumbnailRowMinHeightPx: number;
+};
+
+type NormalizedMediaCarouselProps<T> = {
+  containerClassName?: string;
+  footer?: ReactNode;
+  isThumbnailDraggable?: (item: MediaCarouselItem<T>) => boolean;
+  items: Array<MediaCarouselItem<T>>;
+  onSelect?: (id: string) => void;
+  onThumbnailDoubleClick?: (item: MediaCarouselItem<T>) => void;
+  onThumbnailDragStart?: (
+    item: MediaCarouselItem<T>,
+    event: ReactDragEvent<HTMLButtonElement>,
+  ) => void;
+  previewClassName?: string;
+  renderPreview?: (item: MediaCarouselItem<T>) => ReactNode;
+  renderThumbnail?: (item: MediaCarouselItem<T>) => ReactNode;
+  renderThumbnailOverlay?: (item: MediaCarouselItem<T>) => ReactNode;
+  selectedId?: string | null;
+  selectedThumbnailClassName?: string;
+  showNavButtons: boolean;
+  showThumbnailLabels: boolean;
+  thumbnailClassName?: string;
+  thumbnailRowClassName?: string;
+  thumbnailRowMinScale: number;
+  thumbnailRowResizable: boolean;
+  thumbnailSize: number;
+};
+
 const DEFAULT_THUMBNAIL_SIZE = 96;
 const DEFAULT_THUMBNAIL_ROW_MIN_SCALE = 0.5;
 const THUMBNAIL_ROW_PADDING_Y_PX = 8;
@@ -65,30 +177,580 @@ const THUMBNAIL_LABEL_NORMAL_LINES = 1;
 const THUMBNAIL_ROW_MIN_PREVIEW_HEIGHT_PX = 140;
 const THUMBNAIL_ROW_COMPACT_LABEL_SCALE_THRESHOLD = 0.75;
 
-export function MediaCarousel<T>({
-  items,
-  selectedId,
-  onSelect,
-  renderPreview,
+function getThumbnailRowHeights({
+  hasSubLabel,
+  resolvedThumbnailRowMinScale,
+  showThumbnailLabels,
+  thumbnailSize,
+}: ThumbnailRowHeightOptions) {
+  const minThumbnailSizePx = Math.max(
+    1,
+    Math.round(thumbnailSize * resolvedThumbnailRowMinScale),
+  );
+  const minLabelHeight = showThumbnailLabels
+    ? THUMBNAIL_LABEL_GAP_PX + THUMBNAIL_LABEL_LINE_HEIGHT_PX
+    : 0;
+  const defaultLabelHeight = showThumbnailLabels
+    ? THUMBNAIL_LABEL_GAP_PX +
+      THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES +
+      (hasSubLabel ? THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX : 0)
+    : 0;
+
+  return {
+    defaultHeightPx:
+      THUMBNAIL_ROW_PADDING_Y_PX * 2 + thumbnailSize + defaultLabelHeight,
+    minHeightPx:
+      THUMBNAIL_ROW_PADDING_Y_PX * 2 + minThumbnailSizePx + minLabelHeight,
+  };
+}
+
+function normalizeMediaCarouselProps<T>(
+  props: MediaCarouselProps<T>,
+): NormalizedMediaCarouselProps<T> {
+  return {
+    ...props,
+    showNavButtons: props.showNavButtons ?? false,
+    showThumbnailLabels: props.showThumbnailLabels ?? true,
+    thumbnailRowMinScale:
+      props.thumbnailRowMinScale ?? DEFAULT_THUMBNAIL_ROW_MIN_SCALE,
+    thumbnailRowResizable: props.thumbnailRowResizable ?? false,
+    thumbnailSize: props.thumbnailSize ?? DEFAULT_THUMBNAIL_SIZE,
+  };
+}
+
+function getThumbnailRowLayout({
+  hasSubLabel,
+  resolvedThumbnailRowMinScale,
+  showThumbnailLabels,
+  thumbnailRowHeightPx,
+  thumbnailRowResizable,
+  thumbnailSize,
+}: ThumbnailRowHeightOptions & {
+  thumbnailRowHeightPx: number;
+  thumbnailRowResizable: boolean;
+}): ThumbnailRowLayout {
+  if (!thumbnailRowResizable) {
+    return {
+      thumbnailSizePx: thumbnailSize,
+      labelMode: "wrap",
+      rowHeightPx: null,
+    };
+  }
+
+  const availableHeight = thumbnailRowHeightPx - THUMBNAIL_ROW_PADDING_Y_PX * 2;
+  const normalLabelHeight = showThumbnailLabels
+    ? THUMBNAIL_LABEL_GAP_PX +
+      THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES +
+      (hasSubLabel ? THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX : 0)
+    : 0;
+  const compactLabelHeight = showThumbnailLabels
+    ? THUMBNAIL_LABEL_GAP_PX + THUMBNAIL_LABEL_LINE_HEIGHT_PX
+    : 0;
+  const normalScale = (availableHeight - normalLabelHeight) / thumbnailSize;
+  if (normalScale >= THUMBNAIL_ROW_COMPACT_LABEL_SCALE_THRESHOLD) {
+    const scale = Math.min(
+      1,
+      Math.max(resolvedThumbnailRowMinScale, normalScale),
+    );
+    return {
+      thumbnailSizePx: Math.max(1, Math.round(thumbnailSize * scale)),
+      labelMode: "wrap",
+      rowHeightPx: thumbnailRowHeightPx,
+    };
+  }
+
+  const compactScale = (availableHeight - compactLabelHeight) / thumbnailSize;
+  const scale = Math.min(
+    1,
+    Math.max(resolvedThumbnailRowMinScale, compactScale),
+  );
+  return {
+    thumbnailSizePx: Math.max(1, Math.round(thumbnailSize * scale)),
+    labelMode: "compact",
+    rowHeightPx: thumbnailRowHeightPx,
+  };
+}
+
+function renderDefaultPreview<T>(item: MediaCarouselItem<T> | null): ReactNode {
+  if (!item) {
+    return (
+      <div className="flex flex-col items-center justify-center text-setta-400 dark:text-setta-600">
+        <IoImageOutline size={48} />
+        <p className="mt-2 text-sm">Select an item to preview</p>
+      </div>
+    );
+  }
+  if (item.imageUrl) {
+    return (
+      <div className="relative h-full w-full">
+        <img
+          src={item.imageUrl}
+          className="h-full w-full object-contain"
+          alt={item.label}
+        />
+      </div>
+    );
+  }
+  if (item.text) {
+    return (
+      <div className="max-w-lg p-4 text-sm text-setta-700 dark:text-setta-200">
+        {item.text}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-center justify-center text-setta-400 dark:text-setta-600">
+      <IoImageOutline size={48} />
+      <p className="mt-2 text-sm">Select an item to preview</p>
+    </div>
+  );
+}
+
+function isTextEntryTarget(target: EventTarget | null): target is HTMLElement {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  return (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT"
+  );
+}
+
+function handleThumbnailStripWheel(event: React.WheelEvent<HTMLElement>): void {
+  const container = event.currentTarget;
+  if (
+    event.ctrlKey ||
+    container.scrollWidth <= container.clientWidth ||
+    Math.abs(event.deltaY) <= Math.abs(event.deltaX)
+  ) {
+    return;
+  }
+  event.preventDefault();
+  container.scrollLeft += event.deltaY;
+}
+
+function shouldShowNavButtons(showNavButtons: boolean, itemCount: number) {
+  return showNavButtons && itemCount > 1;
+}
+
+function useHasThumbnailSubLabel<T>(items: Array<MediaCarouselItem<T>>) {
+  return useMemo(
+    () => items.some((item) => (item.subLabel ?? "").trim().length > 0),
+    [items],
+  );
+}
+
+function getPreviewContent<T>(
+  selectedItem: MediaCarouselItem<T> | null,
+  renderPreview?: (item: MediaCarouselItem<T>) => ReactNode,
+) {
+  const resolvedPreview = selectedItem ? renderPreview?.(selectedItem) : null;
+  return resolvedPreview ?? renderDefaultPreview(selectedItem);
+}
+
+function getThumbnailClassNames(
+  thumbnailClassName: string | undefined,
+  selectedThumbnailClassName: string | undefined,
+) {
+  const defaultThumbnailClassName =
+    "border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800";
+  const defaultSelectedThumbnailClassName = "border-blue-500 shadow-md";
+  return {
+    resolvedSelectedThumbnailClassName:
+      selectedThumbnailClassName ?? defaultSelectedThumbnailClassName,
+    resolvedThumbnailClassName: thumbnailClassName ?? defaultThumbnailClassName,
+  };
+}
+
+function renderOptionalNode(node: ReactNode | undefined) {
+  return node ? node : null;
+}
+
+function getSelectedItemId<T>(selectedItem: MediaCarouselItem<T> | null) {
+  return selectedItem?.id ?? null;
+}
+
+function MediaCarouselNavButton({
+  ariaLabel,
+  children,
+  className,
+  onClick,
+}: MediaCarouselNavButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={className}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MediaCarouselPreviewFrame({
+  hasNavButtons,
+  onNext,
+  onPrev,
+  previewClassName,
+  previewContent,
+}: MediaCarouselPreviewFrameProps) {
+  const previewContainerClasses = [
+    "relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-lg",
+    "bg-transparent dark:bg-setta-860",
+    NO_WHEEL_CLASS_NAME,
+    previewClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const previewInnerClasses = [
+    "flex h-full w-full items-center justify-center",
+    hasNavButtons ? "px-14" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <section className={previewContainerClasses}>
+      {hasNavButtons ? (
+        <MediaCarouselNavButton
+          ariaLabel="Previous item"
+          onClick={onPrev}
+          className="absolute left-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-setta-500 shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:bg-setta-800/80 dark:text-setta-200"
+        >
+          <FiChevronLeft />
+        </MediaCarouselNavButton>
+      ) : null}
+      <div className={previewInnerClasses}>{previewContent}</div>
+      {hasNavButtons ? (
+        <MediaCarouselNavButton
+          ariaLabel="Next item"
+          onClick={onNext}
+          className="absolute right-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-setta-500 shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:bg-setta-800/80 dark:text-setta-200"
+        >
+          <FiChevronRight />
+        </MediaCarouselNavButton>
+      ) : null}
+    </section>
+  );
+}
+
+function MediaCarouselThumbnailResizeHandle({
+  onPointerDown,
+}: {
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      role="separator"
+      aria-label="Resize thumbnail strip"
+      aria-orientation="horizontal"
+      onPointerDown={onPointerDown}
+      className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME} nodrag flex h-3 cursor-row-resize touch-none select-none items-center justify-center`}
+    >
+      <div className="h-1 w-12 rounded-full bg-setta-200/80 opacity-70 transition-opacity group-hover/media-carousel:opacity-100 dark:bg-setta-700/70" />
+    </div>
+  );
+}
+
+function MediaCarouselThumbnailResizeSlot({
+  onPointerDown,
+  thumbnailRowResizable,
+}: {
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+  thumbnailRowResizable: boolean;
+}) {
+  if (!thumbnailRowResizable) {
+    return null;
+  }
+  return <MediaCarouselThumbnailResizeHandle onPointerDown={onPointerDown} />;
+}
+
+function splitFileLabel(label: string) {
+  const dotIndex = label.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex >= label.length - 1) {
+    return { fileExtension: null, fileStem: label };
+  }
+  return {
+    fileExtension: label.slice(dotIndex),
+    fileStem: label.slice(0, dotIndex),
+  };
+}
+
+function getThumbnailTooltipHandlers<T>(item: MediaCarouselItem<T>) {
+  const tooltipContent = item.tooltipContent?.trim() ?? "";
+  if (tooltipContent.length === 0) {
+    return null;
+  }
+  return getFloatingBoxHandlers({
+    title: item.tooltipTitle ?? "File path",
+    content: tooltipContent,
+  });
+}
+
+function getThumbnailContainerClassName(
+  isSelected: boolean,
+  resolvedSelectedThumbnailClassName: string,
+  resolvedThumbnailClassName: string,
+) {
+  return [
+    "single-cell-container shrink-0 overflow-clip rounded-md border border-solid",
+    isSelected
+      ? resolvedSelectedThumbnailClassName
+      : resolvedThumbnailClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getThumbnailDragState<T>(
+  item: MediaCarouselItem<T>,
+  isThumbnailDraggable: MediaCarouselThumbnailButtonProps<T>["isThumbnailDraggable"],
+  onThumbnailDragStart: MediaCarouselThumbnailButtonProps<T>["onThumbnailDragStart"],
+) {
+  const isDraggable = isThumbnailDraggable?.(item) === true;
+  const onDragStart =
+    isDraggable && onThumbnailDragStart
+      ? (event: ReactDragEvent<HTMLButtonElement>) =>
+          onThumbnailDragStart(item, event)
+      : undefined;
+  return { isDraggable, onDragStart };
+}
+
+function renderThumbnailFallback<T>(item: MediaCarouselItem<T>) {
+  if (item.thumbnailUrl) {
+    return (
+      <>
+        <img
+          src={item.thumbnailUrl}
+          className="single-cell-child z-10 h-full w-full object-cover"
+          alt={item.label}
+        />
+        <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
+      </>
+    );
+  }
+  return (
+    <FiFileText
+      size={20}
+      className="single-cell-child place-self-center text-setta-200 dark:text-setta-600"
+    />
+  );
+}
+
+function MediaCarouselThumbnailVisual<T>({
+  item,
   renderThumbnail,
   renderThumbnailOverlay,
+  thumbnailContainerClassName,
+  thumbnailSizePx,
+}: {
+  item: MediaCarouselItem<T>;
+  renderThumbnail?: (item: MediaCarouselItem<T>) => ReactNode;
+  renderThumbnailOverlay?: (item: MediaCarouselItem<T>) => ReactNode;
+  thumbnailContainerClassName: string;
+  thumbnailSizePx: number;
+}) {
+  const customThumbnail = renderThumbnail?.(item);
+  return (
+    <div
+      className={thumbnailContainerClassName}
+      style={{
+        width: `${thumbnailSizePx}px`,
+        height: `${thumbnailSizePx}px`,
+      }}
+    >
+      {customThumbnail ?? renderThumbnailFallback(item)}
+      {renderThumbnailOverlay ? renderThumbnailOverlay(item) : null}
+    </div>
+  );
+}
+
+function MediaCarouselThumbnailLabels({
+  fileExtension,
+  fileStem,
+  labelMode,
+  showThumbnailLabels,
+  subLabel,
+}: {
+  fileExtension: string | null;
+  fileStem: string;
+  labelMode: ThumbnailRowLayout["labelMode"];
+  showThumbnailLabels: boolean;
+  subLabel?: string | null;
+}) {
+  if (!showThumbnailLabels) {
+    return null;
+  }
+
+  return (
+    <div className="w-full">
+      <p className="flex w-full justify-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
+        <span className="flex min-w-0 max-w-full items-baseline gap-0.5">
+          <span className="min-w-0 flex-1 truncate">{fileStem}</span>
+          {fileExtension ? (
+            <span className="shrink-0">{fileExtension}</span>
+          ) : null}
+        </span>
+      </p>
+      {subLabel && labelMode !== "compact" ? (
+        <p className="w-full truncate text-center text-[10px] text-setta-400 dark:text-setta-500">
+          {subLabel}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MediaCarouselThumbnailButton<T>({
+  isSelected,
+  item,
+  labelMode,
+  onSelect,
   onThumbnailDoubleClick,
-  isThumbnailDraggable,
   onThumbnailDragStart,
-  showThumbnailLabels = true,
-  thumbnailSize = DEFAULT_THUMBNAIL_SIZE,
-  showNavButtons = false,
-  containerClassName,
-  previewClassName,
+  renderThumbnail,
+  renderThumbnailOverlay,
+  resolvedSelectedThumbnailClassName,
+  resolvedThumbnailClassName,
+  showThumbnailLabels,
+  thumbnailSizePx,
+  isThumbnailDraggable,
+}: MediaCarouselThumbnailButtonProps<T>) {
+  const tooltipHandlers = getThumbnailTooltipHandlers(item);
+  const thumbnailContainerClassName = getThumbnailContainerClassName(
+    isSelected,
+    resolvedSelectedThumbnailClassName,
+    resolvedThumbnailClassName,
+  );
+  const { fileExtension, fileStem } = splitFileLabel(item.label);
+  const { isDraggable, onDragStart } = getThumbnailDragState(
+    item,
+    isThumbnailDraggable,
+    onThumbnailDragStart,
+  );
+
+  return (
+    <button
+      type="button"
+      aria-label={item.label}
+      title={item.label}
+      data-media-carousel-item-id={item.id}
+      onClick={() => onSelect(item.id)}
+      onDoubleClick={() => onThumbnailDoubleClick?.(item)}
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      {...(tooltipHandlers ?? {})}
+      className={`group/thumbnail flex cursor-pointer flex-col items-center gap-1 bg-transparent p-0 text-left ${
+        isSelected ? "scale-105" : ""
+      }`}
+      style={{ width: `${thumbnailSizePx}px` }}
+    >
+      <span className="sr-only">{item.label}</span>
+      <MediaCarouselThumbnailVisual
+        item={item}
+        renderThumbnail={renderThumbnail}
+        renderThumbnailOverlay={renderThumbnailOverlay}
+        thumbnailContainerClassName={thumbnailContainerClassName}
+        thumbnailSizePx={thumbnailSizePx}
+      />
+      <MediaCarouselThumbnailLabels
+        fileExtension={fileExtension}
+        fileStem={fileStem}
+        labelMode={labelMode}
+        showThumbnailLabels={showThumbnailLabels}
+        subLabel={item.subLabel}
+      />
+    </button>
+  );
+}
+
+function MediaCarouselThumbnailStrip<T>({
+  isThumbnailDraggable,
+  items,
+  labelMode,
+  onSelect,
+  onThumbnailDoubleClick,
+  onThumbnailDragStart,
+  renderThumbnail,
+  renderThumbnailOverlay,
+  resolvedSelectedThumbnailClassName,
+  resolvedThumbnailClassName,
+  rowHeightPx,
+  selectedItemId,
+  showThumbnailLabels,
   thumbnailRowClassName,
-  thumbnailClassName,
-  selectedThumbnailClassName,
-  thumbnailRowResizable = false,
-  thumbnailRowMinScale = DEFAULT_THUMBNAIL_ROW_MIN_SCALE,
-  footer,
-}: MediaCarouselProps<T>) {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const hasExternalSelection = selectedId !== undefined;
+  thumbnailRowMinHeightPx,
+  thumbnailRowResizable,
+  thumbnailSizePx,
+}: MediaCarouselThumbnailStripProps<T>) {
+  const thumbnailRowClasses = [
+    thumbnailRowResizable
+      ? "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 py-2 [scrollbar-gutter:stable]"
+      : "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 pb-4 pt-[4px] [scrollbar-gutter:stable]",
+    NO_PAN_CLASS_NAME,
+    NO_WHEEL_CLASS_NAME,
+    thumbnailRowClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <article
+      className={thumbnailRowClasses}
+      style={
+        thumbnailRowResizable && rowHeightPx
+          ? {
+              height: rowHeightPx,
+              minHeight: thumbnailRowMinHeightPx,
+            }
+          : undefined
+      }
+      onWheel={handleThumbnailStripWheel}
+    >
+      {items.map((item) => (
+        <MediaCarouselThumbnailButton
+          key={item.id}
+          item={item}
+          isSelected={selectedItemId === item.id}
+          labelMode={labelMode}
+          onSelect={onSelect}
+          onThumbnailDoubleClick={onThumbnailDoubleClick}
+          onThumbnailDragStart={onThumbnailDragStart}
+          renderThumbnail={renderThumbnail}
+          renderThumbnailOverlay={renderThumbnailOverlay}
+          resolvedSelectedThumbnailClassName={
+            resolvedSelectedThumbnailClassName
+          }
+          resolvedThumbnailClassName={resolvedThumbnailClassName}
+          showThumbnailLabels={showThumbnailLabels}
+          thumbnailSizePx={thumbnailSizePx}
+          isThumbnailDraggable={isThumbnailDraggable}
+        />
+      ))}
+    </article>
+  );
+}
+
+function useMediaCarouselSelectionState<T>({
+  hasExternalSelection,
+  items,
+  onSelect,
+  selectedId,
+}: {
+  hasExternalSelection: boolean;
+  items: Array<MediaCarouselItem<T>>;
+  onSelect?: (id: string) => void;
+  selectedId?: string | null;
+}): Omit<
+  MediaCarouselSelectionState<T>,
+  "handleKeyDown" | "handleNext" | "handlePrev"
+> & {
+  selectedIndex: number;
+} {
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(
     selectedId ?? null,
   );
@@ -109,32 +771,135 @@ export function MediaCarousel<T>({
     }
     return items.findIndex((item) => item.id === selectedItem.id);
   }, [items, selectedItem]);
-  const hasNavButtons = showNavButtons && items.length > 1;
-  const hasSubLabel = useMemo(
-    () => items.some((item) => (item.subLabel ?? "").trim().length > 0),
-    [items],
+
+  useEffect(() => {
+    if (items.length === 0) {
+      if (!hasExternalSelection) {
+        setInternalSelectedId(null);
+      }
+      return;
+    }
+
+    const isValid =
+      resolvedSelectedId &&
+      items.some((item) => item.id === resolvedSelectedId);
+    if (isValid) {
+      return;
+    }
+    const preferred =
+      items.find((item) => item.imageUrl || item.thumbnailUrl) ?? items[0];
+    if (!preferred) {
+      return;
+    }
+    if (hasExternalSelection) {
+      if (onSelect) {
+        onSelect(preferred.id);
+      }
+      return;
+    }
+    setInternalSelectedId(preferred.id);
+    if (onSelect) {
+      onSelect(preferred.id);
+    }
+  }, [hasExternalSelection, items, onSelect, resolvedSelectedId]);
+
+  const handleSelect = useCallback(
+    (id: string) => {
+      if (!hasExternalSelection) {
+        setInternalSelectedId(id);
+      }
+      if (onSelect) {
+        onSelect(id);
+      }
+    },
+    [hasExternalSelection, onSelect],
   );
 
-  const resolvedThumbnailRowMinScale =
-    thumbnailRowMinScale ?? DEFAULT_THUMBNAIL_ROW_MIN_SCALE;
-  const minThumbnailSizePx = Math.max(
-    1,
-    Math.round(thumbnailSize * resolvedThumbnailRowMinScale),
+  return {
+    handleSelect,
+    selectedIndex,
+    selectedItem,
+  };
+}
+
+function useMediaCarouselNavigation<T>({
+  handleSelect,
+  items,
+  selectedIndex,
+}: {
+  handleSelect: (id: string) => void;
+  items: Array<MediaCarouselItem<T>>;
+  selectedIndex: number;
+}): Pick<
+  MediaCarouselSelectionState<T>,
+  "handleKeyDown" | "handleNext" | "handlePrev"
+> {
+  const handlePrev = useCallback(() => {
+    if (items.length < 2 || selectedIndex < 0) {
+      return;
+    }
+    const nextIndex = (selectedIndex - 1 + items.length) % items.length;
+    const nextItem = items[nextIndex];
+    if (nextItem) {
+      handleSelect(nextItem.id);
+    }
+  }, [handleSelect, items, selectedIndex]);
+
+  const handleNext = useCallback(() => {
+    if (items.length < 2 || selectedIndex < 0) {
+      return;
+    }
+    const nextIndex = (selectedIndex + 1) % items.length;
+    const nextItem = items[nextIndex];
+    if (nextItem) {
+      handleSelect(nextItem.id);
+    }
+  }, [handleSelect, items, selectedIndex]);
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (isTextEntryTarget(event.target)) {
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        handlePrev();
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        handleNext();
+      }
+    },
+    [handleNext, handlePrev],
   );
-  const thumbnailRowMinHeightPx =
-    THUMBNAIL_ROW_PADDING_Y_PX * 2 +
-    minThumbnailSizePx +
-    (showThumbnailLabels
-      ? THUMBNAIL_LABEL_GAP_PX + THUMBNAIL_LABEL_LINE_HEIGHT_PX
-      : 0);
-  const thumbnailRowDefaultHeightPx =
-    THUMBNAIL_ROW_PADDING_Y_PX * 2 +
-    thumbnailSize +
-    (showThumbnailLabels
-      ? THUMBNAIL_LABEL_GAP_PX +
-        THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES +
-        (hasSubLabel ? THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX : 0)
-      : 0);
+
+  return {
+    handleKeyDown,
+    handleNext,
+    handlePrev,
+  };
+}
+
+function useMediaCarouselThumbnailRowState({
+  hasSubLabel,
+  resolvedThumbnailRowMinScale,
+  showThumbnailLabels,
+  thumbnailRowResizable,
+  thumbnailSize,
+  wrapperRef,
+}: ThumbnailRowHeightOptions & {
+  thumbnailRowResizable: boolean;
+  wrapperRef: React.RefObject<HTMLDivElement>;
+}): MediaCarouselThumbnailRowState {
+  const {
+    defaultHeightPx: thumbnailRowDefaultHeightPx,
+    minHeightPx: thumbnailRowMinHeightPx,
+  } = getThumbnailRowHeights({
+    hasSubLabel,
+    resolvedThumbnailRowMinScale,
+    showThumbnailLabels,
+    thumbnailSize,
+  });
   const [thumbnailRowHeightPx, setThumbnailRowHeightPx] = useState<number>(
     thumbnailRowDefaultHeightPx,
   );
@@ -172,8 +937,6 @@ export function MediaCarousel<T>({
           : startHeight + 400;
 
       function handlePointerMove(moveEvent: PointerEvent) {
-        // The handle sits above the thumbnail row, so dragging up should grow the
-        // row (and dragging down should shrink it).
         const delta = startY - moveEvent.clientY;
         const next = Math.max(
           thumbnailRowMinHeightPx,
@@ -188,7 +951,9 @@ export function MediaCarousel<T>({
 
       window.addEventListener("pointermove", handlePointerMove);
       window.addEventListener("pointerup", handlePointerUp, { once: true });
-      window.addEventListener("pointercancel", handlePointerUp, { once: true });
+      window.addEventListener("pointercancel", handlePointerUp, {
+        once: true,
+      });
     },
     [
       thumbnailRowHeightPx,
@@ -198,233 +963,98 @@ export function MediaCarousel<T>({
     ],
   );
 
-  const thumbnailRowLayout = useMemo(() => {
-    if (!thumbnailRowResizable) {
-      return {
-        thumbnailSizePx: thumbnailSize,
-        labelMode: "wrap" as const,
-        rowHeightPx: null as number | null,
-      };
-    }
-    const availableHeight =
-      thumbnailRowHeightPx - THUMBNAIL_ROW_PADDING_Y_PX * 2;
-    const normalLabelHeight = showThumbnailLabels
-      ? THUMBNAIL_LABEL_GAP_PX +
-        THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES +
-        (hasSubLabel ? THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX : 0)
-      : 0;
-    // Sub-labels are hidden in compact mode to keep thumbnails square at
-    // minimal heights.
-    const compactLabelHeight = showThumbnailLabels
-      ? THUMBNAIL_LABEL_GAP_PX + THUMBNAIL_LABEL_LINE_HEIGHT_PX
-      : 0;
+  const thumbnailRowLayout = useMemo(
+    () =>
+      getThumbnailRowLayout({
+        hasSubLabel,
+        resolvedThumbnailRowMinScale,
+        showThumbnailLabels,
+        thumbnailRowHeightPx,
+        thumbnailRowResizable,
+        thumbnailSize,
+      }),
+    [
+      hasSubLabel,
+      resolvedThumbnailRowMinScale,
+      showThumbnailLabels,
+      thumbnailRowHeightPx,
+      thumbnailRowResizable,
+      thumbnailSize,
+    ],
+  );
 
-    const normalScale = (availableHeight - normalLabelHeight) / thumbnailSize;
-    if (normalScale >= THUMBNAIL_ROW_COMPACT_LABEL_SCALE_THRESHOLD) {
-      const scale = Math.min(
-        1,
-        Math.max(resolvedThumbnailRowMinScale, normalScale),
-      );
-      return {
-        thumbnailSizePx: Math.max(1, Math.round(thumbnailSize * scale)),
-        labelMode: "wrap" as const,
-        rowHeightPx: thumbnailRowHeightPx,
-      };
-    }
+  return {
+    handleThumbnailRowResizePointerDown,
+    thumbnailRowLayout,
+    thumbnailRowMinHeightPx,
+  };
+}
 
-    const compactScale = (availableHeight - compactLabelHeight) / thumbnailSize;
-    const scale = Math.min(
-      1,
-      Math.max(resolvedThumbnailRowMinScale, compactScale),
-    );
-    return {
-      thumbnailSizePx: Math.max(1, Math.round(thumbnailSize * scale)),
-      labelMode: "compact" as const,
-      rowHeightPx: thumbnailRowHeightPx,
-    };
-  }, [
-    hasSubLabel,
-    resolvedThumbnailRowMinScale,
+export function MediaCarousel<T>(props: MediaCarouselProps<T>) {
+  const {
+    containerClassName,
+    footer,
+    isThumbnailDraggable,
+    items,
+    onSelect,
+    onThumbnailDoubleClick,
+    onThumbnailDragStart,
+    previewClassName,
+    renderPreview,
+    renderThumbnail,
+    renderThumbnailOverlay,
+    selectedId,
+    selectedThumbnailClassName,
+    showNavButtons,
     showThumbnailLabels,
-    thumbnailRowHeightPx,
+    thumbnailClassName,
+    thumbnailRowClassName,
+    thumbnailRowMinScale,
     thumbnailRowResizable,
     thumbnailSize,
-  ]);
-
-  useEffect(() => {
-    if (items.length === 0) {
-      if (!hasExternalSelection) {
-        setInternalSelectedId(null);
-      }
-      return;
-    }
-    const isValid =
-      resolvedSelectedId &&
-      items.some((item) => item.id === resolvedSelectedId);
-    if (isValid) {
-      return;
-    }
-    const preferred =
-      items.find((item) => item.imageUrl || item.thumbnailUrl) ?? items[0];
-    if (!preferred) {
-      return;
-    }
-    if (hasExternalSelection) {
-      if (onSelect) {
-        onSelect(preferred.id);
-      }
-      return;
-    }
-    setInternalSelectedId(preferred.id);
-    if (onSelect) {
-      onSelect(preferred.id);
-    }
-  }, [hasExternalSelection, items, onSelect, resolvedSelectedId]);
-
-  const handleSelect = useCallback(
-    (id: string) => {
-      if (!hasExternalSelection) {
-        setInternalSelectedId(id);
-      }
-      if (onSelect) {
-        onSelect(id);
-      }
-    },
-    [hasExternalSelection, onSelect],
-  );
-
-  const handlePrev = useCallback(() => {
-    if (items.length < 2 || selectedIndex < 0) {
-      return;
-    }
-    const nextIndex = (selectedIndex - 1 + items.length) % items.length;
-    const nextItem = items[nextIndex];
-    if (nextItem) {
-      handleSelect(nextItem.id);
-    }
-  }, [handleSelect, items, selectedIndex]);
-
-  const handleNext = useCallback(() => {
-    if (items.length < 2 || selectedIndex < 0) {
-      return;
-    }
-    const nextIndex = (selectedIndex + 1) % items.length;
-    const nextItem = items[nextIndex];
-    if (nextItem) {
-      handleSelect(nextItem.id);
-    }
-  }, [handleSelect, items, selectedIndex]);
-
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.isContentEditable ||
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT")
-      ) {
-        return;
-      }
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        handlePrev();
-      }
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        handleNext();
-      }
-    },
-    [handleNext, handlePrev],
-  );
+  } = normalizeMediaCarouselProps(props);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const hasExternalSelection = selectedId !== undefined;
+  const hasNavButtons = shouldShowNavButtons(showNavButtons, items.length);
+  const hasSubLabel = useHasThumbnailSubLabel(items);
+  const { handleSelect, selectedIndex, selectedItem } =
+    useMediaCarouselSelectionState({
+      hasExternalSelection,
+      items,
+      onSelect,
+      selectedId,
+    });
+  const { handleKeyDown, handleNext, handlePrev } = useMediaCarouselNavigation({
+    handleSelect,
+    items,
+    selectedIndex,
+  });
+  const {
+    handleThumbnailRowResizePointerDown,
+    thumbnailRowLayout,
+    thumbnailRowMinHeightPx,
+  } = useMediaCarouselThumbnailRowState({
+    hasSubLabel,
+    resolvedThumbnailRowMinScale: thumbnailRowMinScale,
+    showThumbnailLabels,
+    thumbnailRowResizable,
+    thumbnailSize,
+    wrapperRef,
+  });
 
   if (items.length === 0) {
     return null;
   }
 
-  const resolvedPreview = selectedItem ? renderPreview?.(selectedItem) : null;
-  const previewContent = resolvedPreview ?? renderDefaultPreview(selectedItem);
-
-  const previewContainerClasses = [
-    "relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-lg",
-    "bg-transparent dark:bg-setta-860",
-    NO_WHEEL_CLASS_NAME,
-    previewClassName,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const previewInnerClasses = [
-    "flex h-full w-full items-center justify-center",
-    // Keep carousel controls off interactive previews (audio/video controls).
-    hasNavButtons ? "px-14" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
+  const previewContent = getPreviewContent(selectedItem, renderPreview);
   const wrapperClasses = [
     "group/media-carousel flex min-h-0 flex-1 flex-col gap-2",
     containerClassName,
   ]
     .filter(Boolean)
     .join(" ");
-
-  const thumbnailRowClasses = [
-    // `px-2` prevents selected thumbnails (scale + shadow) from being clipped.
-    thumbnailRowResizable
-      ? "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 py-2 [scrollbar-gutter:stable]"
-      : "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 pb-4 pt-[4px] [scrollbar-gutter:stable]",
-    NO_PAN_CLASS_NAME,
-    // Keep wheel events from being intercepted by the canvas zoom handler.
-    NO_WHEEL_CLASS_NAME,
-    thumbnailRowClassName,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const defaultThumbnailClassName =
-    "border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800";
-  const defaultSelectedThumbnailClassName = "border-blue-500 shadow-md";
-  const resolvedThumbnailClassName =
-    thumbnailClassName ?? defaultThumbnailClassName;
-  const resolvedSelectedThumbnailClassName =
-    selectedThumbnailClassName ?? defaultSelectedThumbnailClassName;
-
-  function renderDefaultPreview(item: MediaCarouselItem<T> | null): ReactNode {
-    if (!item) {
-      return (
-        <div className="flex flex-col items-center justify-center text-setta-400 dark:text-setta-600">
-          <IoImageOutline size={48} />
-          <p className="mt-2 text-sm">Select an item to preview</p>
-        </div>
-      );
-    }
-    if (item.imageUrl) {
-      return (
-        <div className="relative h-full w-full">
-          <img
-            src={item.imageUrl}
-            className="h-full w-full object-contain"
-            alt={item.label}
-          />
-        </div>
-      );
-    }
-    if (item.text) {
-      return (
-        <div className="max-w-lg p-4 text-sm text-setta-700 dark:text-setta-200">
-          {item.text}
-        </div>
-      );
-    }
-    return (
-      <div className="flex flex-col items-center justify-center text-setta-400 dark:text-setta-600">
-        <IoImageOutline size={48} />
-        <p className="mt-2 text-sm">Select an item to preview</p>
-      </div>
-    );
-  }
+  const { resolvedSelectedThumbnailClassName, resolvedThumbnailClassName } =
+    getThumbnailClassNames(thumbnailClassName, selectedThumbnailClassName);
 
   return (
     <div
@@ -433,173 +1063,37 @@ export function MediaCarousel<T>({
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
-      <section className={previewContainerClasses}>
-        {hasNavButtons ? (
-          <button
-            type="button"
-            onClick={handlePrev}
-            aria-label="Previous item"
-            className="absolute left-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-setta-500 shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:bg-setta-800/80 dark:text-setta-200"
-          >
-            <FiChevronLeft />
-          </button>
-        ) : null}
-        <div className={previewInnerClasses}>{previewContent}</div>
-        {hasNavButtons ? (
-          <button
-            type="button"
-            onClick={handleNext}
-            aria-label="Next item"
-            className="absolute right-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-setta-500 shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:bg-setta-800/80 dark:text-setta-200"
-          >
-            <FiChevronRight />
-          </button>
-        ) : null}
-      </section>
-      {footer ? footer : null}
-
-      {thumbnailRowResizable ? (
-        <div
-          role="separator"
-          aria-label="Resize thumbnail strip"
-          aria-orientation="horizontal"
-          onPointerDown={handleThumbnailRowResizePointerDown}
-          className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME} nodrag flex h-3 cursor-row-resize touch-none select-none items-center justify-center`}
-        >
-          <div className="h-1 w-12 rounded-full bg-setta-200/80 opacity-70 transition-opacity group-hover/media-carousel:opacity-100 dark:bg-setta-700/70" />
-        </div>
-      ) : null}
-
-      <article
-        className={thumbnailRowClasses}
-        style={
-          thumbnailRowResizable && thumbnailRowLayout.rowHeightPx
-            ? {
-                height: thumbnailRowLayout.rowHeightPx,
-                minHeight: thumbnailRowMinHeightPx,
-              }
-            : undefined
-        }
-        onWheel={(event) => {
-          // Make vertical trackpad scrolling move the horizontal thumbnail strip.
-          // This also avoids needing to grab the scrollbar on platforms where
-          // horizontal wheel deltas are inconsistent.
-          if (event.ctrlKey) {
-            return;
-          }
-          const container = event.currentTarget;
-          if (container.scrollWidth <= container.clientWidth) {
-            return;
-          }
-          const absX = Math.abs(event.deltaX);
-          const absY = Math.abs(event.deltaY);
-          if (absY <= absX) {
-            return;
-          }
-          event.preventDefault();
-          container.scrollLeft += event.deltaY;
-        }}
-      >
-        {items.map((item) => {
-          const isSelected = selectedItem?.id === item.id;
-          const tooltipContent = item.tooltipContent?.trim() ?? "";
-          const tooltipHandlers =
-            tooltipContent.length > 0
-              ? getFloatingBoxHandlers({
-                  title: item.tooltipTitle ?? "File path",
-                  content: tooltipContent,
-                })
-              : null;
-          const thumbnailContainerClassName = [
-            "single-cell-container shrink-0 overflow-clip rounded-md border border-solid",
-            isSelected
-              ? resolvedSelectedThumbnailClassName
-              : resolvedThumbnailClassName,
-          ]
-            .filter(Boolean)
-            .join(" ");
-          const customThumbnail = renderThumbnail?.(item);
-          const dotIndex = item.label.lastIndexOf(".");
-          const fileStem =
-            dotIndex > 0 && dotIndex < item.label.length - 1
-              ? item.label.slice(0, dotIndex)
-              : item.label;
-          const fileExtension =
-            dotIndex > 0 && dotIndex < item.label.length - 1
-              ? item.label.slice(dotIndex)
-              : null;
-          const isDraggable = isThumbnailDraggable?.(item) === true;
-          return (
-            <button
-              type="button"
-              key={item.id}
-              aria-label={item.label}
-              title={item.label}
-              data-media-carousel-item-id={item.id}
-              onClick={() => handleSelect(item.id)}
-              onDoubleClick={() => onThumbnailDoubleClick?.(item)}
-              draggable={isDraggable}
-              onDragStart={
-                isDraggable && onThumbnailDragStart
-                  ? (event) => onThumbnailDragStart(item, event)
-                  : undefined
-              }
-              {...(tooltipHandlers ?? {})}
-              className={`group/thumbnail flex cursor-pointer flex-col items-center gap-1 bg-transparent p-0 text-left ${
-                isSelected ? "scale-105" : ""
-              }`}
-              style={{ width: `${thumbnailRowLayout.thumbnailSizePx}px` }}
-            >
-              <span className="sr-only">{item.label}</span>
-              <div
-                className={thumbnailContainerClassName}
-                style={{
-                  width: `${thumbnailRowLayout.thumbnailSizePx}px`,
-                  height: `${thumbnailRowLayout.thumbnailSizePx}px`,
-                }}
-              >
-                {customThumbnail ??
-                  (item.thumbnailUrl ? (
-                    <>
-                      <img
-                        src={item.thumbnailUrl}
-                        className="single-cell-child z-10 h-full w-full object-cover"
-                        alt={item.label}
-                      />
-                      <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
-                    </>
-                  ) : (
-                    <FiFileText
-                      size={20}
-                      className="single-cell-child place-self-center text-setta-200 dark:text-setta-600"
-                    />
-                  ))}
-                {renderThumbnailOverlay ? renderThumbnailOverlay(item) : null}
-              </div>
-              {showThumbnailLabels ? (
-                <div className="w-full">
-                  <p className="flex w-full justify-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
-                    <span className="flex min-w-0 max-w-full items-baseline gap-0.5">
-                      <span className="min-w-0 flex-1 truncate">
-                        {fileStem}
-                      </span>
-                      {fileExtension ? (
-                        <span className="shrink-0">{fileExtension}</span>
-                      ) : null}
-                    </span>
-                  </p>
-                  {item.subLabel &&
-                  thumbnailRowLayout.labelMode !== "compact" ? (
-                    <p className="w-full truncate text-center text-[10px] text-setta-400 dark:text-setta-500">
-                      {item.subLabel}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </button>
-          );
-        })}
-      </article>
+      <MediaCarouselPreviewFrame
+        hasNavButtons={hasNavButtons}
+        onNext={handleNext}
+        onPrev={handlePrev}
+        previewClassName={previewClassName}
+        previewContent={previewContent}
+      />
+      {renderOptionalNode(footer)}
+      <MediaCarouselThumbnailResizeSlot
+        onPointerDown={handleThumbnailRowResizePointerDown}
+        thumbnailRowResizable={thumbnailRowResizable}
+      />
+      <MediaCarouselThumbnailStrip
+        isThumbnailDraggable={isThumbnailDraggable}
+        items={items}
+        labelMode={thumbnailRowLayout.labelMode}
+        onSelect={handleSelect}
+        onThumbnailDoubleClick={onThumbnailDoubleClick}
+        onThumbnailDragStart={onThumbnailDragStart}
+        renderThumbnail={renderThumbnail}
+        renderThumbnailOverlay={renderThumbnailOverlay}
+        resolvedSelectedThumbnailClassName={resolvedSelectedThumbnailClassName}
+        resolvedThumbnailClassName={resolvedThumbnailClassName}
+        rowHeightPx={thumbnailRowLayout.rowHeightPx}
+        selectedItemId={getSelectedItemId(selectedItem)}
+        showThumbnailLabels={showThumbnailLabels}
+        thumbnailRowClassName={thumbnailRowClassName}
+        thumbnailRowMinHeightPx={thumbnailRowMinHeightPx}
+        thumbnailRowResizable={thumbnailRowResizable}
+        thumbnailSizePx={thumbnailRowLayout.thumbnailSizePx}
+      />
     </div>
   );
 }
