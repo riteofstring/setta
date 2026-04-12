@@ -1,4 +1,5 @@
 import type { AppGenerationMode } from "state/types/appGenerationMode";
+import { AppGenerationModeEnum } from "utils/generatedTypes";
 
 export type AppGenerationSlashCommandAction =
   | "app_json_render"
@@ -14,11 +15,11 @@ type AppGenerationSlashCommandEntry = {
   promptTemplate: string;
 };
 
-export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
+const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-json",
     action: "app_json_render",
-    mode: "json_render",
+    mode: AppGenerationModeEnum.json_render,
     summary: "Generate a standalone app spec through JSON render.",
     promptTemplate: [
       "Generate a polished standalone JSON-render app spec.",
@@ -29,7 +30,7 @@ export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-image",
     action: "app_json_render_with_image",
-    mode: "json_render_with_image",
+    mode: AppGenerationModeEnum.json_render_with_image,
     summary: "Generate an app spec using attached image guidance.",
     promptTemplate: [
       "Generate a JSON-render app spec that matches the attached reference image as closely as possible.",
@@ -40,7 +41,7 @@ export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-prompt",
     action: "app_prompt_builder",
-    mode: "prompt_builder",
+    mode: AppGenerationModeEnum.prompt_builder,
     summary: "Generate an app-definition plan for chat-driven iteration.",
     promptTemplate: [
       "Generate a practical, polished JSON-render app spec for this project.",
@@ -51,7 +52,7 @@ export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-mcp",
     action: "app_mcp_server",
-    mode: "mcp_server",
+    mode: AppGenerationModeEnum.mcp_server,
     summary: "Route app generation through MCP-capable tools.",
     promptTemplate: [
       "Use MCP tools to produce a high-fidelity UI implementation for this project.",

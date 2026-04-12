@@ -3,14 +3,13 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
+import spinners from "unicode-animations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME,
-  BRAILLE_SPINNER_FRAMES,
-  BRAILLE_SPINNER_INTERVAL_MS,
-  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
-  BrailleSpinner,
-} from "./BrailleSpinner";
+import { BrailleSpinner } from "./BrailleSpinner";
+
+const BRAILLE_SPINNER = spinners.braille;
+const BRAILLE_SPINNER_FRAMES = [...BRAILLE_SPINNER.frames];
+const BRAILLE_SPINNER_INTERVAL_MS = BRAILLE_SPINNER.interval;
 
 describe("BrailleSpinner", () => {
   let host: HTMLDivElement;
@@ -86,10 +85,5 @@ describe("BrailleSpinner", () => {
         (spinner) => spinner.textContent === BRAILLE_SPINNER_FRAMES[1],
       ),
     ).toBe(true);
-  });
-
-  it("exports the shared runtime and compact size contracts for braille loader call sites", () => {
-    expect(BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME).toBe("text-[13px]");
-    expect(BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME).toBe("text-[11px]");
   });
 });
