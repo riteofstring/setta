@@ -304,6 +304,33 @@ describe("resolveProjectChatComposerSlashCommandSets", () => {
     ).toBe("native_prompt");
   });
 
+  it("deduplicates reserved and repeated native slash commands across recognized and executable sets", () => {
+    const resolved = resolveProjectChatComposerSlashCommandSets({
+      customProjectChatSlashCommands: [],
+      discoveredAgentNativeSlashCommands: ["/search", "/deploy", "/deploy"],
+      executableAgentNativeSlashCommands: ["/search", "/deploy", "/deploy"],
+      showPermissionExecutionControl: true,
+      showSearchExecutionControl: false,
+    });
+
+    expect(
+      resolved.recognizedSlashCommands.filter(
+        (entry) => entry.command === "/search",
+      ),
+    ).toHaveLength(1);
+    expect(
+      resolved.recognizedSlashCommands.filter(
+        (entry) => entry.command === "/deploy",
+      ),
+    ).toHaveLength(1);
+    expect(
+      resolved.slashCommands.filter((entry) => entry.command === "/search"),
+    ).toHaveLength(0);
+    expect(
+      resolved.slashCommands.filter((entry) => entry.command === "/deploy"),
+    ).toHaveLength(1);
+  });
+
   it("keeps custom slash commands recognized but non-executable before native authority resolves", () => {
     const resolved = resolveProjectChatComposerSlashCommandSets({
       customProjectChatSlashCommands: [

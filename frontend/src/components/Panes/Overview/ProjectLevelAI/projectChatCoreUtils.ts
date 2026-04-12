@@ -200,6 +200,55 @@ export function resolveProjectChatRuntimeNativeSlashCommandTokens({
   );
 }
 
+function buildProjectChatNativePromptSlashCommand(
+  command: string,
+): ChatSlashCommandDefinition {
+  return {
+    command,
+    action: "native_prompt",
+    appGenerationMode: null,
+    summary: "Submit this native external-agent command verbatim.",
+  };
+}
+
+function resolveProjectChatRecognizedCustomSlashCommands({
+  customCommandDefinitions,
+  customCommandsExecutable,
+  customCommandUnavailableFeedback,
+}: {
+  customCommandDefinitions: ChatSlashCommandDefinition[];
+  customCommandsExecutable: boolean;
+  customCommandUnavailableFeedback: string | null;
+}): ChatSlashCommandDefinition[] {
+  if (customCommandsExecutable) {
+    return customCommandDefinitions;
+  }
+  return customCommandDefinitions.map((command) => ({
+    ...command,
+    unavailableFeedback:
+      customCommandUnavailableFeedback ??
+      `${command.command} is unavailable in the current context. Use /help.`,
+  }));
+}
+
+function appendUniqueSlashCommands({
+  target,
+  seenCommandTokens,
+  commands,
+}: {
+  target: ChatSlashCommandDefinition[];
+  seenCommandTokens: Set<string>;
+  commands: ChatSlashCommandDefinition[];
+}): void {
+  for (const command of commands) {
+    if (seenCommandTokens.has(command.command)) {
+      continue;
+    }
+    seenCommandTokens.add(command.command);
+    target.push(command);
+  }
+}
+
 export function resolveProjectChatComposerSlashCommandSets({
   customProjectChatSlashCommands,
   discoveredAgentNativeSlashCommands,
@@ -244,59 +293,39 @@ export function resolveProjectChatComposerSlashCommandSets({
     customCommands: customCommandDefinitions,
     reservedTokens: reservedCommandSet,
   });
-  const nativeCommands: ChatSlashCommandDefinition[] = [];
   const recognizedCommands: ChatSlashCommandDefinition[] = [
     ...globallyReservedManagedCommands,
   ];
-  const recognizedCustomCommands = customCommandsExecutable
-    ? customCommandDefinitions
-    : customCommandDefinitions.map((command) => ({
-        ...command,
-        unavailableFeedback:
-          customCommandUnavailableFeedback ??
-          `${command.command} is unavailable in the current context. Use /help.`,
-      }));
-  const globallyReservedManagedCommandTokens = new Set(
-    globallyReservedManagedCommands.map((entry) => entry.command),
-  );
-  const nativeCommandTokens = new Set<string>();
   const recognizedCommandTokens = new Set(
     recognizedCommands.map((entry) => entry.command),
   );
-  for (const token of discoveredAgentNativeSlashCommands) {
-    if (recognizedCommandTokens.has(token)) {
-      continue;
-    }
-    recognizedCommandTokens.add(token);
-    recognizedCommands.push({
-      command: token,
-      action: "native_prompt",
-      appGenerationMode: null,
-      summary: "Submit this native external-agent command verbatim.",
-    });
-  }
-  for (const token of executableAgentNativeSlashCommands) {
-    if (
-      nativeCommandTokens.has(token) ||
-      globallyReservedManagedCommandTokens.has(token)
-    ) {
-      continue;
-    }
-    nativeCommandTokens.add(token);
-    nativeCommands.push({
-      command: token,
-      action: "native_prompt",
-      appGenerationMode: null,
-      summary: "Submit this native external-agent command verbatim.",
-    });
-  }
-  for (const customCommand of recognizedCustomCommands) {
-    if (recognizedCommandTokens.has(customCommand.command)) {
-      continue;
-    }
-    recognizedCommandTokens.add(customCommand.command);
-    recognizedCommands.push(customCommand);
-  }
+  appendUniqueSlashCommands({
+    target: recognizedCommands,
+    seenCommandTokens: recognizedCommandTokens,
+    commands: discoveredAgentNativeSlashCommands.map(
+      buildProjectChatNativePromptSlashCommand,
+    ),
+  });
+  appendUniqueSlashCommands({
+    target: recognizedCommands,
+    seenCommandTokens: recognizedCommandTokens,
+    commands: resolveProjectChatRecognizedCustomSlashCommands({
+      customCommandDefinitions,
+      customCommandsExecutable,
+      customCommandUnavailableFeedback,
+    }),
+  });
+  const nativeCommands: ChatSlashCommandDefinition[] = [];
+  const executableCommandTokens = new Set(
+    globallyReservedManagedCommands.map((entry) => entry.command),
+  );
+  appendUniqueSlashCommands({
+    target: nativeCommands,
+    seenCommandTokens: executableCommandTokens,
+    commands: executableAgentNativeSlashCommands.map(
+      buildProjectChatNativePromptSlashCommand,
+    ),
+  });
   return {
     slashCommands: [
       ...managedCommands,
@@ -660,6 +689,47 @@ function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
   };
 }
 
+function collectCompletedProjectChatToolCallIds(
+  messages: Array<BaseChatMessageUnion>,
+): Set<string> {
+  const completedToolCallIds = new Set<string>();
+  for (const message of messages) {
+    if (message.role === ChatRoleEnum.tool && message.tool_call_id) {
+      completedToolCallIds.add(message.tool_call_id);
+    }
+  }
+  return completedToolCallIds;
+}
+
+function collectActiveProjectChatRuntimeActivityDetails({
+  toolCalls,
+  completedToolCallIds,
+}: {
+  toolCalls: ToolCall[];
+  completedToolCallIds: Set<string>;
+}): ProjectChatRuntimeActivityDetails {
+  const details: ProjectChatRuntimeActivityDetails = {
+    activeBackgroundTerminals: [],
+    activeSubagents: [],
+  };
+  for (const toolCall of toolCalls) {
+    if (completedToolCallIds.has(toolCall.id)) {
+      continue;
+    }
+    const runtimeActivityEntry =
+      resolveProjectChatRuntimeActivityEntry(toolCall);
+    if (!runtimeActivityEntry) {
+      continue;
+    }
+    const targetEntries =
+      runtimeActivityEntry.category === "background_terminal"
+        ? details.activeBackgroundTerminals
+        : details.activeSubagents;
+    targetEntries.push(runtimeActivityEntry.entry);
+  }
+  return details;
+}
+
 export function resolveProjectChatRuntimeActivityDetails({
   messages,
   waitingForResponse,
@@ -674,41 +744,10 @@ export function resolveProjectChatRuntimeActivityDetails({
   if (!streamingAssistantMessage) {
     return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS;
   }
-  const completedToolCallIds = new Set<string>();
-  for (const message of messages) {
-    if (message.role !== ChatRoleEnum.tool) {
-      continue;
-    }
-    const toolCallId = message.tool_call_id;
-    if (!toolCallId) {
-      continue;
-    }
-    completedToolCallIds.add(toolCallId);
-  }
-  const activeBackgroundTerminals: Array<ProjectChatRuntimeActivityEntry> = [];
-  const activeSubagents: Array<ProjectChatRuntimeActivityEntry> = [];
-  const toolCalls = streamingAssistantMessage.tool_calls ?? [];
-  for (const toolCall of toolCalls) {
-    if (completedToolCallIds.has(toolCall.id)) {
-      continue;
-    }
-    const runtimeActivityEntry =
-      resolveProjectChatRuntimeActivityEntry(toolCall);
-    if (!runtimeActivityEntry) {
-      continue;
-    }
-    if (runtimeActivityEntry.category === "background_terminal") {
-      activeBackgroundTerminals.push(runtimeActivityEntry.entry);
-      continue;
-    }
-    if (runtimeActivityEntry.category === "subagent") {
-      activeSubagents.push(runtimeActivityEntry.entry);
-    }
-  }
-  return {
-    activeBackgroundTerminals,
-    activeSubagents,
-  };
+  return collectActiveProjectChatRuntimeActivityDetails({
+    toolCalls: streamingAssistantMessage.tool_calls ?? [],
+    completedToolCallIds: collectCompletedProjectChatToolCallIds(messages),
+  });
 }
 
 export function resolveProjectChatProviderDictationTranscribeEnabled({
