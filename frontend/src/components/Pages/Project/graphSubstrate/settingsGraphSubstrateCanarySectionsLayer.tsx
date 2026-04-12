@@ -243,6 +243,8 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         () =>
           resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
             draggingSectionId,
+            previousMountedSectionBodyIds:
+              stableMountedSectionBodyIdsRef.current,
             presentedSceneSections: resolvedPresentedSceneSections,
             viewport,
             visibleViewportRect,

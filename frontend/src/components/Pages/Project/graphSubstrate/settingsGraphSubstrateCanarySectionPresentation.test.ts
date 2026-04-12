@@ -167,6 +167,42 @@ describe("settingsGraphSubstrateCanarySectionPresentation", () => {
     ).toBe(true);
   });
 
+  it("keeps an already-mounted body through a small below-threshold pan", () => {
+    const thresholdEdgeSection = createSceneSection({
+      position: { x: 307, y: 80 },
+      renderedPosition: { x: 307, y: 80 },
+      sectionId: "sticky-mounted-section",
+    });
+
+    expect(
+      shouldMountSettingsGraphSubstrateCanarySectionBody({
+        draggingSectionId: null,
+        isBodyAlreadyMounted: true,
+        section: thresholdEdgeSection,
+        viewport: { x: 0, y: 0, zoom: 2 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      }),
+    ).toBe(true);
+  });
+
+  it("still unmounts an already-mounted body once it is fully offscreen", () => {
+    const offscreenSection = createSceneSection({
+      position: { x: 480, y: 80 },
+      renderedPosition: { x: 480, y: 80 },
+      sectionId: "offscreen-mounted-section",
+    });
+
+    expect(
+      shouldMountSettingsGraphSubstrateCanarySectionBody({
+        draggingSectionId: null,
+        isBodyAlreadyMounted: true,
+        section: offscreenSection,
+        viewport: { x: 0, y: 0, zoom: 2 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      }),
+    ).toBe(false);
+  });
+
   it("resolves a stable mounted-body id set from the presented subset", () => {
     const visibleSection = createSceneSection({
       sectionId: "visible-section",
@@ -185,6 +221,24 @@ describe("settingsGraphSubstrateCanarySectionPresentation", () => {
         visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
       }),
     ).toEqual(new Set(["visible-section"]));
+  });
+
+  it("preserves a previously mounted body until it falls below the sticky threshold", () => {
+    const nearEdgeSection = createSceneSection({
+      position: { x: 307, y: 80 },
+      renderedPosition: { x: 307, y: 80 },
+      sectionId: "sticky-visible-section",
+    });
+
+    expect(
+      resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
+        draggingSectionId: null,
+        previousMountedSectionBodyIds: new Set(["sticky-visible-section"]),
+        presentedSceneSections: [nearEdgeSection],
+        viewport: { x: 0, y: 0, zoom: 2 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      }),
+    ).toEqual(new Set(["sticky-visible-section"]));
   });
 
   it("treats section id sets with the same members as equal", () => {

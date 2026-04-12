@@ -8,6 +8,8 @@ import {
 
 const MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH = 120;
 const MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT = 24;
+const MIN_MOUNTED_SECTION_BODY_VISIBLE_SCREEN_WIDTH = 96;
+const MIN_MOUNTED_SECTION_BODY_VISIBLE_SCREEN_HEIGHT = 16;
 
 export function resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
   draggingSectionId,
@@ -153,12 +155,14 @@ export function shouldPresentSettingsGraphSubstrateCanarySectionShell({
 
 export function shouldMountSettingsGraphSubstrateCanarySectionBody({
   draggingSectionId,
+  isBodyAlreadyMounted = false,
   section,
   viewport,
   visibleViewportRect,
   visibleViewportWorldRect,
 }: {
   draggingSectionId: string | null;
+  isBodyAlreadyMounted?: boolean;
   section: SettingsGraphSubstrateCanarySceneSection;
   viewport: GraphViewport | null;
   visibleViewportRect: GraphRect | null;
@@ -198,20 +202,26 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
 
   return (
     visibleSectionWorldRect.width * viewport.zoom >=
-      MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH &&
+      (isBodyAlreadyMounted
+        ? MIN_MOUNTED_SECTION_BODY_VISIBLE_SCREEN_WIDTH
+        : MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH) &&
     visibleSectionWorldRect.height * viewport.zoom >=
-      MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT
+      (isBodyAlreadyMounted
+        ? MIN_MOUNTED_SECTION_BODY_VISIBLE_SCREEN_HEIGHT
+        : MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT)
   );
 }
 
 export function resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
   draggingSectionId,
+  previousMountedSectionBodyIds,
   presentedSceneSections,
   viewport,
   visibleViewportRect,
   visibleViewportWorldRect,
 }: {
   draggingSectionId: string | null;
+  previousMountedSectionBodyIds?: ReadonlySet<string>;
   presentedSceneSections: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>;
   viewport: GraphViewport | null;
   visibleViewportRect: GraphRect | null;
@@ -228,6 +238,8 @@ export function resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
       .filter((section) =>
         shouldMountSettingsGraphSubstrateCanarySectionBody({
           draggingSectionId,
+          isBodyAlreadyMounted:
+            previousMountedSectionBodyIds?.has(section.sectionId) ?? false,
           section,
           viewport,
           visibleViewportRect,

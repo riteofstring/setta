@@ -194,6 +194,48 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(host.querySelector('[data-testid="body-section-a"]')).not.toBeNull();
   });
 
+  it("keeps the mounted body subtree stable through a small threshold-edge pan", async () => {
+    const sceneSections = [
+      createSceneSection({
+        position: { x: 300, y: 80 },
+        renderedPosition: { x: 300, y: 80 },
+      }),
+    ];
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={sceneSections}
+          viewport={{ x: 0, y: 0, zoom: 2 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
+    expect(mockSectionShell).toHaveBeenCalledTimes(1);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              position: { x: 307, y: 80 },
+              renderedPosition: { x: 307, y: 80 },
+            }),
+          ]}
+          viewport={{ x: 0, y: 0, zoom: 2 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
+    expect(mockSectionShell).toHaveBeenCalledTimes(2);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the mounted body subtree out of position-only shell rerenders", async () => {
     const sceneSections = [createSceneSection({ sectionId: "section-a" })];
 

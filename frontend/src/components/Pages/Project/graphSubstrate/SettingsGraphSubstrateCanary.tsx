@@ -150,6 +150,8 @@ export function SettingsGraphSubstrateCanary() {
         () =>
           resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
             draggingSectionId: controller.draggingSectionId,
+            previousMountedSectionBodyIds:
+              stableMountedSectionBodyIdsRef.current,
             presentedSceneSections,
             viewport: controller.resolvedViewport,
             visibleViewportRect: controller.visibleViewportRect,

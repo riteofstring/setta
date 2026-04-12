@@ -284,6 +284,53 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-15 11:36 UTC | item `495` | reduce viewport-edge body mount churn on the canonical canary lane
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+      now applies mounted-body hysteresis: first mounts still require the full
+      visible-screen threshold, but bodies already mounted on the previous pass
+      can survive a smaller still-visible slice before unmounting
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now pass the previous mounted-body set back into mount resolution so the
+      sticky threshold affects the live canary path rather than only unit code
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+      now covers sticky mounting through a small below-threshold pan, eventual
+      unmount once fully offscreen, and stable mounted-id resolution with the
+      previous body set
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      now proves the body subtree stays out of rerenders for the small
+      threshold-edge motion this slice is meant to stabilize
+    - perf note appended:
+      `perf/reports/frontend/2026-04-15_settings-graph-mounted-body-hysteresis.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`2` files, `20` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - attempted live worktree probe:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-025/worktree-ai.log`
+      -> failed before test discovery with the existing direct-runner/tooling
+         drift:
+         `section_ui_editor_tab_compatibility.json needs an import attribute of type "json"`
+      -> do not treat that as product evidence for or against this slice
+    - fresh-context CDP smoke via sub-agent:
+      -> passed
+      -> `http://127.0.0.1:3053/settings` mounted the settings graph surface in
+         normal view with no obvious blank-card or detached-body artifact
+  - reading:
+    - this is a product reduction on the current section-subtree lane, not
+      another runner/helper pass
+    - the intended payoff is less viewport-edge body churn during small pan and
+      zoom motions while still unmounting fully offscreen bodies
+    - next: keep the frontier on
+      `presentedSceneSectionSubtreeReactRender`; either split that owner
+      further inside the section shell/entry layer or confirm the reduction on
+      a trusted live runner path if one is already available as part of the
+      same product slice
+- LOOP_TERMINAL_MARKER: none
 - item `492` made the canonical pane-state probe fall back to the real
   `useLocalStorage` defaults when no persisted `setta_data` exists yet:
   - timestamp: `2026-04-15 11:16:33 UTC`
@@ -20706,6 +20753,32 @@ LOOP_TERMINAL_MARKER: none
       `UnpinnedParamsArea(...)` / scroll-shell boundary or another larger owner
       above the row seam; do not spend the next pass on more pane-state helper
       churn
+- LOOP_TERMINAL_MARKER: none
+- 2026-04-15 12:03 UTC | item `494` | progress review checkpoint forced the next pass back onto the measured product hotspot
+  - evidence:
+    - `run-015` through `run-021` landed real product fixes on the canonical
+      `rotaryParamCodeObjDefault` lane, including backend viewport broadcast,
+      frontend authoritative project-config fast path, optimistic viewport
+      replay suppression, and the final authoritative fit-view persistence
+      suppression that restored the lane-health probe to green
+    - `run-022` through `run-024` then spent three passes on normalized
+      cross-worktree parity helper / runner work
+    - item `493` closed the originally suspected frontend store-sync owner, so
+      the remaining cross-worktree blocker is direct Playwright
+      launcher/tooling drift rather than product state synchronization
+  - reading:
+    - recent trajectory still shows meaningful forward progress overall, so the
+      loop should continue
+    - the immediate direction needs a sharper constraint because the most
+      recent three-pass stretch was a real rabbit hole with diminishing returns
+    - do not spend the next default iteration on more direct-runner repair,
+      pane-state helper churn, or re-proving the same normalized store-sync
+      lane
+    - next mandatory frontier: production attribution or reduction on the
+      measured hotspot `reactFlowViewportPublish`
+    - if the next iteration cannot land a production change or a precise
+      attribution cut on that owner, stop for human review instead of reopening
+      the cross-worktree parity lane
 - LOOP_TERMINAL_MARKER: none
 - item `493` closed the suspected frontend project-config store-sync blocker on
   the canonical normalized `rotaryParamCodeObjDefault` lane:

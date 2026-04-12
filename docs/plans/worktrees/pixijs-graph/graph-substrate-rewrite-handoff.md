@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 11:22 UTC
+Last updated: 2026-04-15 11:36 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,82 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `495` landed a real product-side reduction on the current canary
+  section-subtree owner instead of reopening the closed
+  `reactFlowViewportPublish` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+      now keeps an already-mounted section body alive through a small
+      below-threshold viewport-edge motion by using a lower sticky unmount
+      threshold than the initial mount threshold
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now feed the previous mounted-body set back into that body-mount
+      resolution so the hysteresis applies on the live canary path
+    - focused tests cover sticky mounting, eventual offscreen unmount, and the
+      threshold-edge fan-out case where the body subtree should stay out of a
+      small-motion rerender
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`2` files, `20` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - attempted live worktree probe:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-025/worktree-ai.log`
+      -> failed before test discovery with the same known runner/tooling drift:
+         `section_ui_editor_tab_compatibility.json needs an import attribute of type "json"`
+      -> treat this as the existing unsupported runner path, not as evidence
+         against the product slice
+    - fresh-context CDP smoke via sub-agent:
+      -> `http://127.0.0.1:3053/settings` mounted successfully
+      -> graph surface visible in normal view
+      -> no obvious blank-card or detached-body artifact
+  - reading:
+    - the closed `reactFlowViewportPublish` owner stays closed; do not reopen
+      that lane as the default next step
+    - this slice directly targets the currently measured
+      `presentedSceneSectionSubtreeReactRender` owner by reducing viewport-edge
+      body mount/unmount churn
+    - live before/after motion numbers are still pending because the trusted
+      worktree Playwright runner path remains blocked by the JSON-import drift
+    - next default frontier:
+      - keep working on product attribution/reduction under
+        `presentedSceneSectionSubtreeReactRender`
+      - the next bounded pass should either split that owner further inside
+        `SettingsGraphSubstrateCanarySectionsLayer` / section shell rendering,
+        or, if a trusted runner path is already available as part of that same
+        slice, rerun the canonical worktree motion probe to confirm whether the
+        sticky body-mount cut lowered pan-phase cost
+
+- progress review checkpoint after `run-024`:
+  - recent trajectory is still worthwhile overall because `run-015` through
+    `run-021` landed real backend/frontend production fixes and restored the
+    canonical `rotaryParamCodeObjDefault` lane-health probe to green
+  - the red-herring stretch is `run-022` through `run-024`: three successive
+    passes on normalized cross-worktree probe support and direct Playwright
+    launcher drift after the plan had already warned against another helper-
+    only loop on this named lane
+  - item `493` is the closure point for that rabbit hole: the suspected
+    frontend store-sync owner is disproven, and the remaining blocker on that
+    cross-worktree lane is the unsupported direct runner path
+  - do not spend the next automated iteration on:
+    - direct Playwright launcher repair for
+      `settings-view-modes-main-reference.spec.ts`
+    - more `graphSubstrateParityProbe.ts` pane-state normalization churn
+    - more live repro attempts of the same `activeViewModeId` /
+      `viewport=null` store-sync lane
+  - the next mandatory slice is production attribution or reduction on the
+    measured hotspot `reactFlowViewportPublish`
+  - preferred next action:
+    - inspect and instrument the code path that publishes React Flow viewport
+      changes on the canary lane
+    - land either a production cut with focused tests/perf evidence or a
+      bounded attribution note that names the next downstream owner
+  - only reopen the normalized cross-worktree parity lane later if a trusted
+    runner path is already available as part of that product slice
 
 - item `493` closed the suspected frontend project-config store-sync blocker on
   the canonical normalized `rotaryParamCodeObjDefault` lane:
