@@ -99,7 +99,7 @@ const defaultPathSerializer = ({ path, url: _url }: PathSerializer) => {
   return url;
 };
 
-const createQuerySerializer = <T = unknown>({
+export const createQuerySerializer = <T = unknown>({
   allowReserved,
   array,
   object,
@@ -264,7 +264,7 @@ export const buildUrl: Client["buildUrl"] = (options) => {
   return url;
 };
 
-const getUrl = ({
+export const getUrl = ({
   baseUrl,
   path,
   query,

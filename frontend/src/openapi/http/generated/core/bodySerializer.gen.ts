@@ -70,7 +70,7 @@ export const jsonBodySerializer = {
     ),
 };
 
-const urlSearchParamsBodySerializer = {
+export const urlSearchParamsBodySerializer = {
   bodySerializer: <T extends Record<string, any> | Array<Record<string, any>>>(
     body: T,
   ): string => {

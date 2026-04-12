@@ -2,6 +2,7 @@
 import type * as gt from "../openapi/non_http/generated/types.gen";
 import {
   createCsvArtifactId,
+  createFileArtifactId,
   createJsonArtifactId,
   createPngArtifactId,
   createRandomName,
@@ -52,10 +53,64 @@ export function createAIFollowToolArgumentsUpdateContent(
   return options as AIFollowToolArgumentsUpdateContent;
 }
 
+export type AIFollowToolArgumentsUpdateMessage =
+  gt.AIFollowToolArgumentsUpdateMessage;
+
+export function createAIFollowToolArgumentsUpdateMessage(
+  options: Partial<AIFollowToolArgumentsUpdateMessage> = {},
+): AIFollowToolArgumentsUpdateMessage {
+  return options as AIFollowToolArgumentsUpdateMessage;
+}
+
 export type AIFollowToolResultUpdateContent =
   gt.AIFollowToolResultUpdateContent;
 
+export function createAIFollowToolResultUpdateContent(
+  options: Partial<AIFollowToolResultUpdateContent> = {},
+): AIFollowToolResultUpdateContent {
+  return options as AIFollowToolResultUpdateContent;
+}
+
+export type AIFollowToolResultUpdateMessage =
+  gt.AIFollowToolResultUpdateMessage;
+
+export function createAIFollowToolResultUpdateMessage(
+  options: Partial<AIFollowToolResultUpdateMessage> = {},
+): AIFollowToolResultUpdateMessage {
+  return options as AIFollowToolResultUpdateMessage;
+}
+
+export type AddKwargResult = gt.AddKwargResult;
+
+export function createAddKwargResult(
+  options: Partial<AddKwargResult> = {},
+): AddKwargResult {
+  return options as AddKwargResult;
+}
+
 export type AgentProfile = gt.AgentProfile;
+
+export function createAgentProfile(
+  options: Partial<AgentProfile> = {},
+): AgentProfile {
+  return options as AgentProfile;
+}
+
+export type AgentProfilesUpdatedContent = gt.AgentProfilesUpdatedContent;
+
+export function createAgentProfilesUpdatedContent(
+  options: Partial<AgentProfilesUpdatedContent> = {},
+): AgentProfilesUpdatedContent {
+  return options as AgentProfilesUpdatedContent;
+}
+
+export type AgentProfilesUpdatedMessage = gt.AgentProfilesUpdatedMessage;
+
+export function createAgentProfilesUpdatedMessage(
+  options: Partial<AgentProfilesUpdatedMessage> = {},
+): AgentProfilesUpdatedMessage {
+  return options as AgentProfilesUpdatedMessage;
+}
 
 export type AgentRun = gt.AgentRun;
 
@@ -75,6 +130,14 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
   return {
     ...mergeGeneratedOptions<AgentRun>(defaults, options),
   };
+}
+
+export type AgentRunUpdatedMessage = gt.AgentRunUpdatedMessage;
+
+export function createAgentRunUpdatedMessage(
+  options: Partial<AgentRunUpdatedMessage> = {},
+): AgentRunUpdatedMessage {
+  return options as AgentRunUpdatedMessage;
 }
 
 export type AgenticEdge = gt.AgenticEdge;
@@ -98,7 +161,7 @@ export function createAgenticEdge(
   };
 }
 
-type AgenticSummaryCacheStatus = gt.AgenticSummaryCacheStatus;
+export type AgenticSummaryCacheStatus = gt.AgenticSummaryCacheStatus;
 
 export function createAgenticSummaryCacheStatus(
   options: Partial<AgenticSummaryCacheStatus> = {},
@@ -114,7 +177,53 @@ export function createAllConfigs(
   return options as AllConfigs;
 }
 
+export type AllConnectionsMessage = gt.AllConnectionsMessage;
+
+export function createAllConnectionsMessage(
+  options: Partial<AllConnectionsMessage> = {},
+): AllConnectionsMessage {
+  return options as AllConnectionsMessage;
+}
+
 export type AllProjectMetadata = gt.AllProjectMetadata;
+
+export function createAllProjectMetadata(
+  options: Partial<AllProjectMetadata> = {},
+): AllProjectMetadata {
+  return options as AllProjectMetadata;
+}
+
+export type AllProjectMetadataContent = gt.AllProjectMetadataContent;
+
+export function createAllProjectMetadataContent(
+  options: Partial<AllProjectMetadataContent> = {},
+): AllProjectMetadataContent {
+  return options as AllProjectMetadataContent;
+}
+
+export type AllProjectMetadataMessage = gt.AllProjectMetadataMessage;
+
+export function createAllProjectMetadataMessage(
+  options: Partial<AllProjectMetadataMessage> = {},
+): AllProjectMetadataMessage {
+  return options as AllProjectMetadataMessage;
+}
+
+export type Allocation = gt.Allocation;
+
+export function createAllocation(
+  options: Partial<Allocation> = {},
+): Allocation {
+  return options as Allocation;
+}
+
+export type AppCapabilities = gt.AppCapabilities;
+
+export function createAppCapabilities(
+  options: Partial<AppCapabilities> = {},
+): AppCapabilities {
+  return options as AppCapabilities;
+}
 
 export type AppDefinition = gt.AppDefinition;
 
@@ -124,7 +233,59 @@ export function createAppDefinition(
   return options as AppDefinition;
 }
 
+export type AppDefinitionMutationResult = gt.AppDefinitionMutationResult;
+
+export function createAppDefinitionMutationResult(
+  options: Partial<AppDefinitionMutationResult> = {},
+): AppDefinitionMutationResult {
+  return options as AppDefinitionMutationResult;
+}
+
+export type AppDefinitionReadResult = gt.AppDefinitionReadResult;
+
+export function createAppDefinitionReadResult(
+  options: Partial<AppDefinitionReadResult> = {},
+): AppDefinitionReadResult {
+  return options as AppDefinitionReadResult;
+}
+
+export type AppDefinitionValidationResult = gt.AppDefinitionValidationResult;
+
+export function createAppDefinitionValidationResult(
+  options: Partial<AppDefinitionValidationResult> = {},
+): AppDefinitionValidationResult {
+  return options as AppDefinitionValidationResult;
+}
+
 export type AppRoute = gt.AppRoute;
+
+export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
+  return options as AppRoute;
+}
+
+export type AppValidationIssue = gt.AppValidationIssue;
+
+export function createAppValidationIssue(
+  options: Partial<AppValidationIssue> = {},
+): AppValidationIssue {
+  return options as AppValidationIssue;
+}
+
+export type AppendMessagesRequest = gt.AppendMessagesRequest;
+
+export function createAppendMessagesRequest(
+  options: Partial<AppendMessagesRequest> = {},
+): AppendMessagesRequest {
+  return options as AppendMessagesRequest;
+}
+
+export type ArtifactSaveResult = gt.ArtifactSaveResult;
+
+export function createArtifactSaveResult(
+  options: Partial<ArtifactSaveResult> = {},
+): ArtifactSaveResult {
+  return options as ArtifactSaveResult;
+}
 
 export type AssistantChatMessage = gt.AssistantChatMessage;
 
@@ -144,21 +305,232 @@ export function createAssistantChatMessage(
   };
 }
 
+export type BackendCodegenTargetRequest = gt.BackendCodegenTargetRequest;
+
+export function createBackendCodegenTargetRequest(
+  options: Partial<BackendCodegenTargetRequest> = {},
+): BackendCodegenTargetRequest {
+  return options as BackendCodegenTargetRequest;
+}
+
+export type BackendHTTPRequest = gt.BackendHTTPRequest;
+
+export function createBackendHTTPRequest(
+  options: Partial<BackendHTTPRequest> = {},
+): BackendHTTPRequest {
+  return options as BackendHTTPRequest;
+}
+
+export type BackendHTTPResponse = gt.BackendHTTPResponse;
+
+export function createBackendHTTPResponse(
+  options: Partial<BackendHTTPResponse> = {},
+): BackendHTTPResponse {
+  return options as BackendHTTPResponse;
+}
+
+export type BackendListenerEndpointRequest = gt.BackendListenerEndpointRequest;
+
+export function createBackendListenerEndpointRequest(
+  options: Partial<BackendListenerEndpointRequest> = {},
+): BackendListenerEndpointRequest {
+  return options as BackendListenerEndpointRequest;
+}
+
+export type BackendRequestContext = gt.BackendRequestContext;
+
+export function createBackendRequestContext(
+  options: Partial<BackendRequestContext> = {},
+): BackendRequestContext {
+  return options as BackendRequestContext;
+}
+
+export type BaseArtifactUnion = gt.BaseArtifactUnion;
+
+export function createBaseArtifactUnion(
+  options: Partial<BaseArtifactUnion> = {},
+): BaseArtifactUnion {
+  return options as BaseArtifactUnion;
+}
+
 export type BaseChartSettingsUnion = gt.BaseChartSettingsUnion;
+
+export function createBaseChartSettingsUnion(
+  options: Partial<BaseChartSettingsUnion> = {},
+): BaseChartSettingsUnion {
+  return options as BaseChartSettingsUnion;
+}
 
 export type BaseChatMessageUnion = gt.BaseChatMessageUnion;
 
-type BaseCodeObjImpl = gt.BaseCodeObjImpl;
+export function createBaseChatMessageUnion(
+  options: Partial<BaseChatMessageUnion> = {},
+): BaseChatMessageUnion {
+  return options as BaseChatMessageUnion;
+}
+
+export type BaseCodeObjImpl = gt.BaseCodeObjImpl;
+
+export function createBaseCodeObjImpl(
+  options: Partial<BaseCodeObjImpl> = {},
+): BaseCodeObjImpl {
+  return options as BaseCodeObjImpl;
+}
 
 export type BaseDependencyKeyUnion = gt.BaseDependencyKeyUnion;
 
+export function createBaseDependencyKeyUnion(
+  options: Partial<BaseDependencyKeyUnion> = {},
+): BaseDependencyKeyUnion {
+  return options as BaseDependencyKeyUnion;
+}
+
 export type BaseDependencyValueUnion = gt.BaseDependencyValueUnion;
+
+export function createBaseDependencyValueUnion(
+  options: Partial<BaseDependencyValueUnion> = {},
+): BaseDependencyValueUnion {
+  return options as BaseDependencyValueUnion;
+}
+
+export type BaseParamCodeObjImpl = gt.BaseParamCodeObjImpl;
+
+export function createBaseParamCodeObjImpl(
+  options: Partial<BaseParamCodeObjImpl> = {},
+): BaseParamCodeObjImpl {
+  return options as BaseParamCodeObjImpl;
+}
+
+export type BaseSectionImpl = gt.BaseSectionImpl;
+
+export function createBaseSectionImpl(
+  options: Partial<BaseSectionImpl> = {},
+): BaseSectionImpl {
+  return options as BaseSectionImpl;
+}
+
+export type BaseValueParamCodeObjImpl = gt.BaseValueParamCodeObjImpl;
+
+export function createBaseValueParamCodeObjImpl(
+  options: Partial<BaseValueParamCodeObjImpl> = {},
+): BaseValueParamCodeObjImpl {
+  return options as BaseValueParamCodeObjImpl;
+}
 
 export type BinaryDependencyValue = gt.BinaryDependencyValue;
 
+export function createBinaryDependencyValue(
+  options: Partial<BinaryDependencyValue> = {},
+): BinaryDependencyValue {
+  return options as BinaryDependencyValue;
+}
+
+export type BinaryTransportRoutes = gt.BinaryTransportRoutes;
+
+export function createBinaryTransportRoutes(
+  options: Partial<BinaryTransportRoutes> = {},
+): BinaryTransportRoutes {
+  return options as BinaryTransportRoutes;
+}
+
+export type BootstrapHandoffProtocol = gt.BootstrapHandoffProtocol;
+
+export function createBootstrapHandoffProtocol(
+  options: Partial<BootstrapHandoffProtocol> = {},
+): BootstrapHandoffProtocol {
+  return options as BootstrapHandoffProtocol;
+}
+
 export type BrowserSavedSearch = gt.BrowserSavedSearch;
 
+export function createBrowserSavedSearch(
+  options: Partial<BrowserSavedSearch> = {},
+): BrowserSavedSearch {
+  const defaults: BrowserSavedSearch = {
+    color: "#3b82f6",
+    id: "",
+    name: "",
+    query: "",
+    quickInfo: "",
+    searchScope: "recursive",
+    typeFilters: {
+      audio: true,
+      data: true,
+      image: true,
+      text: true,
+      video: true,
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<BrowserSavedSearch>(defaults, options),
+    typeFilters:
+      options["typeFilters"] === null
+        ? null
+        : (options["typeFilters"] ?? defaults["typeFilters"]) === null
+          ? null
+          : createBrowserSavedSearchTypeFilters(
+              options["typeFilters"] === null
+                ? null
+                : ((options["typeFilters"] ??
+                    defaults[
+                      "typeFilters"
+                    ]) as Partial<BrowserSavedSearchTypeFilters>),
+            ),
+  };
+}
+
 export type BrowserSavedSearchTypeFilters = gt.BrowserSavedSearchTypeFilters;
+
+export function createBrowserSavedSearchTypeFilters(
+  options: Partial<BrowserSavedSearchTypeFilters> = {},
+): BrowserSavedSearchTypeFilters {
+  const defaults: BrowserSavedSearchTypeFilters = {
+    audio: true,
+    data: true,
+    image: true,
+    text: true,
+    video: true,
+  };
+  return {
+    ...mergeGeneratedOptions<BrowserSavedSearchTypeFilters>(defaults, options),
+  };
+}
+
+export type BrowserSectionImpl = gt.BrowserSectionImpl;
+
+export function createBrowserSectionImpl(
+  options: Partial<BrowserSectionImpl> = {},
+): BrowserSectionImpl {
+  const defaults: BrowserSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    columnWidth: null,
+    folder: "",
+    hideColumn: false,
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    positionAndSizeLocked: false,
+    savedSearches: [],
+    size: {
+      height: 460,
+      width: 720,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "Browser",
+    typesColumnWidth: null,
+    viewMode: "list",
+  };
+  return {
+    ...mergeGeneratedOptions<BrowserSectionImpl>(defaults, options),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
+  };
+}
 
 export type BrushStroke = gt.BrushStroke;
 
@@ -202,9 +574,45 @@ export function createBrushStrokeArtifact(
 
 export type BrushStrokeWithTransform = gt.BrushStrokeWithTransform;
 
+export function createBrushStrokeWithTransform(
+  options: Partial<BrushStrokeWithTransform> = {},
+): BrushStrokeWithTransform {
+  return options as BrushStrokeWithTransform;
+}
+
+export type ButtonParamActionModeOption = gt.ButtonParamActionModeOption;
+
+export function createButtonParamActionModeOption(
+  options: Partial<ButtonParamActionModeOption> = {},
+): ButtonParamActionModeOption {
+  return options as ButtonParamActionModeOption;
+}
+
 export type ButtonParamCodeObjImpl = gt.ButtonParamCodeObjImpl;
 
-type CallableSectionImpl = gt.CallableSectionImpl;
+export function createButtonParamCodeObjImpl(
+  options: Partial<ButtonParamCodeObjImpl> = {},
+): ButtonParamCodeObjImpl {
+  return options as ButtonParamCodeObjImpl;
+}
+
+export type ButtonParamRequestMethodOption = gt.ButtonParamRequestMethodOption;
+
+export function createButtonParamRequestMethodOption(
+  options: Partial<ButtonParamRequestMethodOption> = {},
+): ButtonParamRequestMethodOption {
+  return options as ButtonParamRequestMethodOption;
+}
+
+export type ButtonParamUIConfigValue = gt.ButtonParamUIConfigValue;
+
+export function createButtonParamUIConfigValue(
+  options: Partial<ButtonParamUIConfigValue> = {},
+): ButtonParamUIConfigValue {
+  return options as ButtonParamUIConfigValue;
+}
+
+export type CallableSectionImpl = gt.CallableSectionImpl;
 
 export function createCallableSectionImpl(
   options: Partial<CallableSectionImpl> = {},
@@ -270,7 +678,9 @@ export function createChartDataArtifact(
   };
 }
 
-type ChartSectionImpl = gt.ChartSectionImpl;
+export type ChartDataValue = gt.ChartDataValue;
+
+export type ChartSectionImpl = gt.ChartSectionImpl;
 
 export function createChartSectionImpl(
   options: Partial<ChartSectionImpl> = {},
@@ -308,9 +718,45 @@ export function createChartSectionImpl(
   };
 }
 
+export type ChartSettingsUpdate = gt.ChartSettingsUpdate;
+
+export function createChartSettingsUpdate(
+  options: Partial<ChartSettingsUpdate> = {},
+): ChartSettingsUpdate {
+  return options as ChartSettingsUpdate;
+}
+
+export type Chat = gt.Chat;
+
+export function createChat(options: Partial<Chat> = {}): Chat {
+  return options as Chat;
+}
+
 export type ChatFileAttachment = gt.ChatFileAttachment;
 
+export function createChatFileAttachment(
+  options: Partial<ChatFileAttachment> = {},
+): ChatFileAttachment {
+  return options as ChatFileAttachment;
+}
+
+export type ChatMetadata = gt.ChatMetadata;
+
+export function createChatMetadata(
+  options: Partial<ChatMetadata> = {},
+): ChatMetadata {
+  return options as ChatMetadata;
+}
+
+export type ChatRunTypeSet = gt.ChatRunTypeSet;
+
 export type ChatSectionBranch = gt.ChatSectionBranch;
+
+export function createChatSectionBranch(
+  options: Partial<ChatSectionBranch> = {},
+): ChatSectionBranch {
+  return options as ChatSectionBranch;
+}
 
 export type ChatSectionImpl = gt.ChatSectionImpl;
 
@@ -357,15 +803,41 @@ export function createChatSectionImpl(
   };
 }
 
+export type ChatSectionSettings = gt.ChatSectionSettings;
+
+export function createChatSectionSettings(
+  options: Partial<ChatSectionSettings> = {},
+): ChatSectionSettings {
+  return options as ChatSectionSettings;
+}
+
 export type ChatSectionState = gt.ChatSectionState;
+
+export function createChatSectionState(
+  options: Partial<ChatSectionState> = {},
+): ChatSectionState {
+  return options as ChatSectionState;
+}
 
 export type ChatSendEvent = gt.ChatSendEvent;
 
+export function createChatSendEvent(
+  options: Partial<ChatSendEvent> = {},
+): ChatSendEvent {
+  return options as ChatSendEvent;
+}
+
 export type ChatStopEvent = gt.ChatStopEvent;
+
+export function createChatStopEvent(
+  options: Partial<ChatStopEvent> = {},
+): ChatStopEvent {
+  return options as ChatStopEvent;
+}
 
 export type ChatWindowBounds = gt.ChatWindowBounds;
 
-function createChatWindowBounds(
+export function createChatWindowBounds(
   options: Partial<ChatWindowBounds> = {},
 ): ChatWindowBounds {
   const defaults: ChatWindowBounds = {
@@ -379,9 +851,9 @@ function createChatWindowBounds(
   };
 }
 
-type ChatWindowDockMetrics = gt.ChatWindowDockMetrics;
+export type ChatWindowDockMetrics = gt.ChatWindowDockMetrics;
 
-function createChatWindowDockMetrics(
+export function createChatWindowDockMetrics(
   options: Partial<ChatWindowDockMetrics> = {},
 ): ChatWindowDockMetrics {
   const defaults: ChatWindowDockMetrics = {
@@ -393,19 +865,117 @@ function createChatWindowDockMetrics(
   };
 }
 
-type CodeCallableCodeObjImpl = gt.CodeCallableCodeObjImpl;
+export type ChildCodeObjFields = gt.ChildCodeObjFields;
+
+export function createChildCodeObjFields(
+  options: Partial<ChildCodeObjFields> = {},
+): ChildCodeObjFields {
+  return options as ChildCodeObjFields;
+}
+
+export type ChildDefaultsUIConfigValue = gt.ChildDefaultsUIConfigValue;
+
+export function createChildDefaultsUIConfigValue(
+  options: Partial<ChildDefaultsUIConfigValue> = {},
+): ChildDefaultsUIConfigValue {
+  return options as ChildDefaultsUIConfigValue;
+}
+
+export type ChildSectionFields = gt.ChildSectionFields;
+
+export function createChildSectionFields(
+  options: Partial<ChildSectionFields> = {},
+): ChildSectionFields {
+  return options as ChildSectionFields;
+}
+
+export type ClaudeSettingsManaged = gt.ClaudeSettingsManaged;
+
+export function createClaudeSettingsManaged(
+  options: Partial<ClaudeSettingsManaged> = {},
+): ClaudeSettingsManaged {
+  return options as ClaudeSettingsManaged;
+}
+
+export type ClaudeSettingsPermissions = gt.ClaudeSettingsPermissions;
+
+export function createClaudeSettingsPermissions(
+  options: Partial<ClaudeSettingsPermissions> = {},
+): ClaudeSettingsPermissions {
+  return options as ClaudeSettingsPermissions;
+}
+
+export type ClipboardProjectStateCore = gt.ClipboardProjectStateCore;
+
+export function createClipboardProjectStateCore(
+  options: Partial<ClipboardProjectStateCore> = {},
+): ClipboardProjectStateCore {
+  const defaults: ClipboardProjectStateCore = {
+    codeObjImpls: {},
+    codeObjVariants: {},
+    codeObjs: {},
+    sectionImpls: {},
+    sectionVariants: {},
+    sections: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ClipboardProjectStateCore>(defaults, options),
+  };
+}
+
+export type ClipboardProjectStateCoreWithSectionVariantMap =
+  gt.ClipboardProjectStateCoreWithSectionVariantMap;
+
+export function createClipboardProjectStateCoreWithSectionVariantMap(
+  options: Partial<ClipboardProjectStateCoreWithSectionVariantMap> = {},
+): ClipboardProjectStateCoreWithSectionVariantMap {
+  const defaults: ClipboardProjectStateCoreWithSectionVariantMap = {
+    core: {
+      codeObjImpls: {},
+      codeObjVariants: {},
+      codeObjs: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      sections: {},
+    },
+    sectionVariantMap: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ClipboardProjectStateCoreWithSectionVariantMap>(
+      defaults,
+      options,
+    ),
+    core: createClipboardProjectStateCore(options["core"] ?? defaults["core"]),
+  };
+}
+
+export type CodeCallableCodeObjImpl = gt.CodeCallableCodeObjImpl;
+
+export function createCodeCallableCodeObjImpl(
+  options: Partial<CodeCallableCodeObjImpl> = {},
+): CodeCallableCodeObjImpl {
+  return options as CodeCallableCodeObjImpl;
+}
 
 export type CodeFileBinding = gt.CodeFileBinding;
 
-function createCodeFileBinding(
+export function createCodeFileBinding(
   options: Partial<CodeFileBinding> = {},
 ): CodeFileBinding {
   return options as CodeFileBinding;
 }
 
-type CodeObjTypeValuePolicy = gt.CodeObjTypeValuePolicy;
+export type CodeMirrorCompletion = gt.CodeMirrorCompletion;
 
-function createCodeObjTypeValuePolicy(
+export function createCodeMirrorCompletion(
+  options: Partial<CodeMirrorCompletion> = {},
+): CodeMirrorCompletion {
+  return options as CodeMirrorCompletion;
+}
+
+export type CodeObjTypeValuePolicy = gt.CodeObjTypeValuePolicy;
+
+export function createCodeObjTypeValuePolicy(
   options: Partial<CodeObjTypeValuePolicy> = {},
 ): CodeObjTypeValuePolicy {
   const defaults: CodeObjTypeValuePolicy = {
@@ -416,9 +986,9 @@ function createCodeObjTypeValuePolicy(
   };
 }
 
-type CodeObjValueOverride = gt.CodeObjValueOverride;
+export type CodeObjValueOverride = gt.CodeObjValueOverride;
 
-function createCodeObjValueOverride(
+export function createCodeObjValueOverride(
   options: Partial<CodeObjValueOverride> = {},
 ): CodeObjValueOverride {
   const defaults: CodeObjValueOverride = {
@@ -429,7 +999,7 @@ function createCodeObjValueOverride(
   };
 }
 
-type CodeObjValuePolicy = gt.CodeObjValuePolicy;
+export type CodeObjValuePolicy = gt.CodeObjValuePolicy;
 
 export function createCodeObjValuePolicy(
   options: Partial<CodeObjValuePolicy> = {},
@@ -507,7 +1077,31 @@ export function createCodeObjValuePolicy(
   };
 }
 
-type CodeParamCodeObjImpl = gt.CodeParamCodeObjImpl;
+export type CodeObject = gt.CodeObject;
+
+export function createCodeObject(
+  options: Partial<CodeObject> = {},
+): CodeObject {
+  return options as CodeObject;
+}
+
+export type CodeObjectImpl = gt.CodeObjectImpl;
+
+export function createCodeObjectImpl(
+  options: Partial<CodeObjectImpl> = {},
+): CodeObjectImpl {
+  return options as CodeObjectImpl;
+}
+
+export type CodeObjectVariant = gt.CodeObjectVariant;
+
+export function createCodeObjectVariant(
+  options: Partial<CodeObjectVariant> = {},
+): CodeObjectVariant {
+  return options as CodeObjectVariant;
+}
+
+export type CodeParamCodeObjImpl = gt.CodeParamCodeObjImpl;
 
 export function createCodeParamCodeObjImpl(
   options: Partial<CodeParamCodeObjImpl> = {},
@@ -530,15 +1124,16 @@ export function createCodeParamCodeObjImpl(
   };
 }
 
-type CodeSectionDiagnosticsIgnoreState = gt.CodeSectionDiagnosticsIgnoreState;
+export type CodeSectionDiagnosticsIgnoreState =
+  gt.CodeSectionDiagnosticsIgnoreState;
 
-function createCodeSectionDiagnosticsIgnoreState(
+export function createCodeSectionDiagnosticsIgnoreState(
   options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
 ): CodeSectionDiagnosticsIgnoreState {
   return options as CodeSectionDiagnosticsIgnoreState;
 }
 
-type CodeSectionImpl = gt.CodeSectionImpl;
+export type CodeSectionImpl = gt.CodeSectionImpl;
 
 export function createCodeSectionImpl(
   options: Partial<CodeSectionImpl> = {},
@@ -593,7 +1188,19 @@ export function createCodeSectionImpl(
 
 export type ColorPickerChoice = gt.ColorPickerChoice;
 
+export function createColorPickerChoice(
+  options: Partial<ColorPickerChoice> = {},
+): ColorPickerChoice {
+  return options as ColorPickerChoice;
+}
+
 export type ColorPickerParamCodeObjImpl = gt.ColorPickerParamCodeObjImpl;
+
+export function createColorPickerParamCodeObjImpl(
+  options: Partial<ColorPickerParamCodeObjImpl> = {},
+): ColorPickerParamCodeObjImpl {
+  return options as ColorPickerParamCodeObjImpl;
+}
 
 export type Connection = gt.Connection;
 
@@ -609,6 +1216,12 @@ export function createConnection(
   return {
     ...mergeGeneratedOptions<Connection>(defaults, options),
   };
+}
+
+export type Constants = gt.Constants;
+
+export function createConstants(options: Partial<Constants> = {}): Constants {
+  return options as Constants;
 }
 
 export type ContentRef = gt.ContentRef;
@@ -636,9 +1249,70 @@ export function createCore(options: Partial<Core> = {}): Core {
   };
 }
 
+export type CreateChatRequest = gt.CreateChatRequest;
+
+export function createCreateChatRequest(
+  options: Partial<CreateChatRequest> = {},
+): CreateChatRequest {
+  return options as CreateChatRequest;
+}
+
+export type CreateChildSectionsInput = gt.CreateChildSectionsInput;
+
+export function createCreateChildSectionsInput(
+  options: Partial<CreateChildSectionsInput> = {},
+): CreateChildSectionsInput {
+  return options as CreateChildSectionsInput;
+}
+
 export type CreateChildSectionsResult = gt.CreateChildSectionsResult;
 
+export function createCreateChildSectionsResult(
+  options: Partial<CreateChildSectionsResult> = {},
+): CreateChildSectionsResult {
+  return options as CreateChildSectionsResult;
+}
+
+export type CreateChildSectionsViaIncrementerInput =
+  gt.CreateChildSectionsViaIncrementerInput;
+
+export function createCreateChildSectionsViaIncrementerInput(
+  options: Partial<CreateChildSectionsViaIncrementerInput> = {},
+): CreateChildSectionsViaIncrementerInput {
+  return options as CreateChildSectionsViaIncrementerInput;
+}
+
+export type CreateNewSectionVariantInput = gt.CreateNewSectionVariantInput;
+
+export function createCreateNewSectionVariantInput(
+  options: Partial<CreateNewSectionVariantInput> = {},
+): CreateNewSectionVariantInput {
+  return options as CreateNewSectionVariantInput;
+}
+
+export type CreateNewSectionVariantResult = gt.CreateNewSectionVariantResult;
+
+export function createCreateNewSectionVariantResult(
+  options: Partial<CreateNewSectionVariantResult> = {},
+): CreateNewSectionVariantResult {
+  return options as CreateNewSectionVariantResult;
+}
+
+export type CreateTopLevelSectionInput = gt.CreateTopLevelSectionInput;
+
+export function createCreateTopLevelSectionInput(
+  options: Partial<CreateTopLevelSectionInput> = {},
+): CreateTopLevelSectionInput {
+  return options as CreateTopLevelSectionInput;
+}
+
 export type CreateTopLevelSectionResult = gt.CreateTopLevelSectionResult;
+
+export function createCreateTopLevelSectionResult(
+  options: Partial<CreateTopLevelSectionResult> = {},
+): CreateTopLevelSectionResult {
+  return options as CreateTopLevelSectionResult;
+}
 
 export type CurrentAddressUpdateMessage = gt.CurrentAddressUpdateMessage;
 
@@ -657,9 +1331,102 @@ export function createCurrentAddressUpdateMessage(
 
 export type DateParamCodeObjImpl = gt.DateParamCodeObjImpl;
 
+export function createDateParamCodeObjImpl(
+  options: Partial<DateParamCodeObjImpl> = {},
+): DateParamCodeObjImpl {
+  return options as DateParamCodeObjImpl;
+}
+
+export type DeleteChatRequest = gt.DeleteChatRequest;
+
+export function createDeleteChatRequest(
+  options: Partial<DeleteChatRequest> = {},
+): DeleteChatRequest {
+  return options as DeleteChatRequest;
+}
+
+export type DeleteChildSectionsViaDecrementerInput =
+  gt.DeleteChildSectionsViaDecrementerInput;
+
+export function createDeleteChildSectionsViaDecrementerInput(
+  options: Partial<DeleteChildSectionsViaDecrementerInput> = {},
+): DeleteChildSectionsViaDecrementerInput {
+  return options as DeleteChildSectionsViaDecrementerInput;
+}
+
+export type DeleteKwargResult = gt.DeleteKwargResult;
+
+export function createDeleteKwargResult(
+  options: Partial<DeleteKwargResult> = {},
+): DeleteKwargResult {
+  return options as DeleteKwargResult;
+}
+
+export type DeleteRequest = gt.DeleteRequest;
+
+export function createDeleteRequest(
+  options: Partial<DeleteRequest> = {},
+): DeleteRequest {
+  return options as DeleteRequest;
+}
+
+export type DeleteRequestItem = gt.DeleteRequestItem;
+
+export function createDeleteRequestItem(
+  options: Partial<DeleteRequestItem> = {},
+): DeleteRequestItem {
+  return options as DeleteRequestItem;
+}
+
+export type DeleteSectionsInput = gt.DeleteSectionsInput;
+
+export function createDeleteSectionsInput(
+  options: Partial<DeleteSectionsInput> = {},
+): DeleteSectionsInput {
+  return options as DeleteSectionsInput;
+}
+
+export type DeleteSectionsResult = gt.DeleteSectionsResult;
+
+export function createDeleteSectionsResult(
+  options: Partial<DeleteSectionsResult> = {},
+): DeleteSectionsResult {
+  return options as DeleteSectionsResult;
+}
+
+export type DeleteSelectedParamsInput = gt.DeleteSelectedParamsInput;
+
+export function createDeleteSelectedParamsInput(
+  options: Partial<DeleteSelectedParamsInput> = {},
+): DeleteSelectedParamsInput {
+  return options as DeleteSelectedParamsInput;
+}
+
+export type DeleteSelectedParamsResult = gt.DeleteSelectedParamsResult;
+
+export function createDeleteSelectedParamsResult(
+  options: Partial<DeleteSelectedParamsResult> = {},
+): DeleteSelectedParamsResult {
+  return options as DeleteSelectedParamsResult;
+}
+
 export type DependencyEvent = gt.DependencyEvent;
 
-type DictSectionImpl = gt.DictSectionImpl;
+export function createDependencyEvent(
+  options: Partial<DependencyEvent> = {},
+): DependencyEvent {
+  return options as DependencyEvent;
+}
+
+export type DetachedRun = gt.DetachedRun;
+
+export function createDetachedRun(
+  options: Partial<DetachedRun> = {},
+): DetachedRun {
+  return options as DetachedRun;
+}
+
+export type DictSectionImpl = gt.DictSectionImpl;
 
 export function createDictSectionImpl(
   options: Partial<DictSectionImpl> = {},
@@ -709,6 +1476,8 @@ export function createDictSectionImpl(
   };
 }
 
+export type Document = gt.Document;
+
 export type DrawAreaLayer = gt.DrawAreaLayer;
 
 export function createDrawAreaLayer(
@@ -741,7 +1510,7 @@ export function createDrawAreaLayerItem(
   };
 }
 
-type DrawAreaLayerItemTransform = gt.DrawAreaLayerItemTransform;
+export type DrawAreaLayerItemTransform = gt.DrawAreaLayerItemTransform;
 
 export function createDrawAreaLayerItemTransform(
   options: Partial<DrawAreaLayerItemTransform> = {},
@@ -781,11 +1550,51 @@ export function createDrawAreaLayerItemTransformArtifact(
 
 export type DrawAreaTransform = gt.DrawAreaTransform;
 
+export type DrawSectionImpl = gt.DrawSectionImpl;
+
+export function createDrawSectionImpl(
+  options: Partial<DrawSectionImpl> = {},
+): DrawSectionImpl {
+  return options as DrawSectionImpl;
+}
+
 export type DropdownParamCodeObjImpl = gt.DropdownParamCodeObjImpl;
+
+export function createDropdownParamCodeObjImpl(
+  options: Partial<DropdownParamCodeObjImpl> = {},
+): DropdownParamCodeObjImpl {
+  return options as DropdownParamCodeObjImpl;
+}
 
 export type DropzoneParamCodeObjImpl = gt.DropzoneParamCodeObjImpl;
 
+export function createDropzoneParamCodeObjImpl(
+  options: Partial<DropzoneParamCodeObjImpl> = {},
+): DropzoneParamCodeObjImpl {
+  return options as DropzoneParamCodeObjImpl;
+}
+
 export type Edge = gt.Edge;
+
+export function createEdge(options: Partial<Edge> = {}): Edge {
+  return options as Edge;
+}
+
+export type EdgePort = gt.EdgePort;
+
+export function createEdgePort(options: Partial<EdgePort> = {}): EdgePort {
+  return options as EdgePort;
+}
+
+export type EmitStreamDeltaRequest = gt.EmitStreamDeltaRequest;
+
+export function createEmitStreamDeltaRequest(
+  options: Partial<EmitStreamDeltaRequest> = {},
+): EmitStreamDeltaRequest {
+  return options as EmitStreamDeltaRequest;
+}
+
+export type EndpointOriginPolicy = gt.EndpointOriginPolicy;
 
 export type EngineConfig = gt.EngineConfig;
 
@@ -824,9 +1633,9 @@ export function createEngineConfig(
   };
 }
 
-type EngineConfigDefaults = gt.EngineConfigDefaults;
+export type EngineConfigDefaults = gt.EngineConfigDefaults;
 
-function createEngineConfigDefaults(
+export function createEngineConfigDefaults(
   options: Partial<EngineConfigDefaults> = {},
 ): EngineConfigDefaults {
   const defaults: EngineConfigDefaults = {
@@ -837,9 +1646,25 @@ function createEngineConfigDefaults(
   };
 }
 
-type EngineRuntimeSupport = gt.EngineRuntimeSupport;
+export type EngineConfigsUpdatedContent = gt.EngineConfigsUpdatedContent;
 
-function createEngineRuntimeSupport(
+export function createEngineConfigsUpdatedContent(
+  options: Partial<EngineConfigsUpdatedContent> = {},
+): EngineConfigsUpdatedContent {
+  return options as EngineConfigsUpdatedContent;
+}
+
+export type EngineConfigsUpdatedMessage = gt.EngineConfigsUpdatedMessage;
+
+export function createEngineConfigsUpdatedMessage(
+  options: Partial<EngineConfigsUpdatedMessage> = {},
+): EngineConfigsUpdatedMessage {
+  return options as EngineConfigsUpdatedMessage;
+}
+
+export type EngineRuntimeSupport = gt.EngineRuntimeSupport;
+
+export function createEngineRuntimeSupport(
   options: Partial<EngineRuntimeSupport> = {},
 ): EngineRuntimeSupport {
   const defaults: EngineRuntimeSupport = {
@@ -850,17 +1675,152 @@ function createEngineRuntimeSupport(
   };
 }
 
+export type EnvVarStatus = gt.EnvVarStatus;
+
+export function createEnvVarStatus(
+  options: Partial<EnvVarStatus> = {},
+): EnvVarStatus {
+  return options as EnvVarStatus;
+}
+
+export type ExternalAgentApprovalPolicyOption =
+  gt.ExternalAgentApprovalPolicyOption;
+
+export function createExternalAgentApprovalPolicyOption(
+  options: Partial<ExternalAgentApprovalPolicyOption> = {},
+): ExternalAgentApprovalPolicyOption {
+  return options as ExternalAgentApprovalPolicyOption;
+}
+
 export type ExternalAgentConfig = gt.ExternalAgentConfig;
+
+export function createExternalAgentConfig(
+  options: Partial<ExternalAgentConfig> = {},
+): ExternalAgentConfig {
+  return options as ExternalAgentConfig;
+}
+
+export type ExternalAgentConfigsUpdatedContent =
+  gt.ExternalAgentConfigsUpdatedContent;
+
+export function createExternalAgentConfigsUpdatedContent(
+  options: Partial<ExternalAgentConfigsUpdatedContent> = {},
+): ExternalAgentConfigsUpdatedContent {
+  return options as ExternalAgentConfigsUpdatedContent;
+}
+
+export type ExternalAgentConfigsUpdatedMessage =
+  gt.ExternalAgentConfigsUpdatedMessage;
+
+export function createExternalAgentConfigsUpdatedMessage(
+  options: Partial<ExternalAgentConfigsUpdatedMessage> = {},
+): ExternalAgentConfigsUpdatedMessage {
+  return options as ExternalAgentConfigsUpdatedMessage;
+}
+
+export type ExternalAgentStatus = gt.ExternalAgentStatus;
+
+export function createExternalAgentStatus(
+  options: Partial<ExternalAgentStatus> = {},
+): ExternalAgentStatus {
+  return options as ExternalAgentStatus;
+}
+
+export type ExternalAgentUIConfigValue = gt.ExternalAgentUIConfigValue;
+
+export function createExternalAgentUIConfigValue(
+  options: Partial<ExternalAgentUIConfigValue> = {},
+): ExternalAgentUIConfigValue {
+  return options as ExternalAgentUIConfigValue;
+}
 
 export type FileArtifact = gt.FileArtifact;
 
-type GenPythonCodeSectionImpl = gt.GenPythonCodeSectionImpl;
+export function createFileArtifact(
+  options: Partial<FileArtifact> = {},
+): FileArtifact {
+  const defaults: FileArtifact = {
+    id: "",
+    type: "File",
+    value: {
+      byteLength: 0,
+      contentId: "",
+      mimeType: "",
+      sha256: "",
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<FileArtifact>(defaults, options),
+    id: options["id"] ?? createFileArtifactId(),
+    value: options["value"] ?? createContentRef(),
+  };
+}
 
-type GenPythonMetadataSectionImpl = gt.GenPythonMetadataSectionImpl;
+export type FileBrowserTransportRoutes = gt.FileBrowserTransportRoutes;
 
-type GlobalVariablesSectionImpl = gt.GlobalVariablesSectionImpl;
+export function createFileBrowserTransportRoutes(
+  options: Partial<FileBrowserTransportRoutes> = {},
+): FileBrowserTransportRoutes {
+  return options as FileBrowserTransportRoutes;
+}
 
-type GroupSectionImpl = gt.GroupSectionImpl;
+export type FileReadDependencyValue = gt.FileReadDependencyValue;
+
+export function createFileReadDependencyValue(
+  options: Partial<FileReadDependencyValue> = {},
+): FileReadDependencyValue {
+  return options as FileReadDependencyValue;
+}
+
+export type GenPythonCodeSectionImpl = gt.GenPythonCodeSectionImpl;
+
+export function createGenPythonCodeSectionImpl(
+  options: Partial<GenPythonCodeSectionImpl> = {},
+): GenPythonCodeSectionImpl {
+  return options as GenPythonCodeSectionImpl;
+}
+
+export type GenPythonMetadataSectionImpl = gt.GenPythonMetadataSectionImpl;
+
+export function createGenPythonMetadataSectionImpl(
+  options: Partial<GenPythonMetadataSectionImpl> = {},
+): GenPythonMetadataSectionImpl {
+  return options as GenPythonMetadataSectionImpl;
+}
+
+export type GeneratedSectionImpl = gt.GeneratedSectionImpl;
+
+export function createGeneratedSectionImpl(
+  options: Partial<GeneratedSectionImpl> = {},
+): GeneratedSectionImpl {
+  return options as GeneratedSectionImpl;
+}
+
+export type GetAllMetadataRequest = gt.GetAllMetadataRequest;
+
+export function createGetAllMetadataRequest(
+  options: Partial<GetAllMetadataRequest> = {},
+): GetAllMetadataRequest {
+  return options as GetAllMetadataRequest;
+}
+
+export type GetChatRequest = gt.GetChatRequest;
+
+export function createGetChatRequest(
+  options: Partial<GetChatRequest> = {},
+): GetChatRequest {
+  return options as GetChatRequest;
+}
+
+export type GlobalVariablesSectionImpl = gt.GlobalVariablesSectionImpl;
+
+export function createGlobalVariablesSectionImpl(
+  options: Partial<GlobalVariablesSectionImpl> = {},
+): GlobalVariablesSectionImpl {
+  return options as GlobalVariablesSectionImpl;
+}
+
+export type GroupSectionImpl = gt.GroupSectionImpl;
 
 export function createGroupSectionImpl(
   options: Partial<GroupSectionImpl> = {},
@@ -894,6 +1854,30 @@ export function createGroupSectionImpl(
   };
 }
 
+export type GroupSectionsInput = gt.GroupSectionsInput;
+
+export function createGroupSectionsInput(
+  options: Partial<GroupSectionsInput> = {},
+): GroupSectionsInput {
+  return options as GroupSectionsInput;
+}
+
+export type IdentityContent = gt.IdentityContent;
+
+export function createIdentityContent(
+  options: Partial<IdentityContent> = {},
+): IdentityContent {
+  return options as IdentityContent;
+}
+
+export type IdentityMessage = gt.IdentityMessage;
+
+export function createIdentityMessage(
+  options: Partial<IdentityMessage> = {},
+): IdentityMessage {
+  return options as IdentityMessage;
+}
+
 export type ImageArtifact = gt.ImageArtifact;
 
 export function createImageArtifact(
@@ -916,7 +1900,45 @@ export function createImageArtifact(
   };
 }
 
+export type ImportFilesRequest = gt.ImportFilesRequest;
+
+export function createImportFilesRequest(
+  options: Partial<ImportFilesRequest> = {},
+): ImportFilesRequest {
+  return options as ImportFilesRequest;
+}
+
+export type ImportFilesResponseItem = gt.ImportFilesResponseItem;
+
+export function createImportFilesResponseItem(
+  options: Partial<ImportFilesResponseItem> = {},
+): ImportFilesResponseItem {
+  return options as ImportFilesResponseItem;
+}
+
+export type IndentParamsInput = gt.IndentParamsInput;
+
+export function createIndentParamsInput(
+  options: Partial<IndentParamsInput> = {},
+): IndentParamsInput {
+  return options as IndentParamsInput;
+}
+
 export type JSONArtifact = gt.JSONArtifact;
+
+export function createJSONArtifact(
+  options: Partial<JSONArtifact> = {},
+): JSONArtifact {
+  return options as JSONArtifact;
+}
+
+export type LLMAPIKeysUpdatedMessage = gt.LLMAPIKeysUpdatedMessage;
+
+export function createLLMAPIKeysUpdatedMessage(
+  options: Partial<LLMAPIKeysUpdatedMessage> = {},
+): LLMAPIKeysUpdatedMessage {
+  return options as LLMAPIKeysUpdatedMessage;
+}
 
 export type LLMConfig = gt.LLMConfig;
 
@@ -924,9 +1946,69 @@ export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
   return options as LLMConfig;
 }
 
+export type LLMConfigUpdatedMessage = gt.LLMConfigUpdatedMessage;
+
+export function createLLMConfigUpdatedMessage(
+  options: Partial<LLMConfigUpdatedMessage> = {},
+): LLMConfigUpdatedMessage {
+  return options as LLMConfigUpdatedMessage;
+}
+
+export type LLMStreamingResponseChunk = gt.LLMStreamingResponseChunk;
+
+export function createLLMStreamingResponseChunk(
+  options: Partial<LLMStreamingResponseChunk> = {},
+): LLMStreamingResponseChunk {
+  return options as LLMStreamingResponseChunk;
+}
+
 export type LLMStreamingResponseContent = gt.LLMStreamingResponseContent;
 
+export function createLLMStreamingResponseContent(
+  options: Partial<LLMStreamingResponseContent> = {},
+): LLMStreamingResponseContent {
+  return options as LLMStreamingResponseContent;
+}
+
+export type LLMStreamingResponseMessage = gt.LLMStreamingResponseMessage;
+
+export function createLLMStreamingResponseMessage(
+  options: Partial<LLMStreamingResponseMessage> = {},
+): LLMStreamingResponseMessage {
+  return options as LLMStreamingResponseMessage;
+}
+
 export type LSPDiagnostic = gt.LSPDiagnostic;
+
+export function createLSPDiagnostic(
+  options: Partial<LSPDiagnostic> = {},
+): LSPDiagnostic {
+  return options as LSPDiagnostic;
+}
+
+export type LSPDiagnosticPosition = gt.LSPDiagnosticPosition;
+
+export function createLSPDiagnosticPosition(
+  options: Partial<LSPDiagnosticPosition> = {},
+): LSPDiagnosticPosition {
+  return options as LSPDiagnosticPosition;
+}
+
+export type LSPDiagnosticRange = gt.LSPDiagnosticRange;
+
+export function createLSPDiagnosticRange(
+  options: Partial<LSPDiagnosticRange> = {},
+): LSPDiagnosticRange {
+  return options as LSPDiagnosticRange;
+}
+
+export type LSPDiagnosticsMessage = gt.LSPDiagnosticsMessage;
+
+export function createLSPDiagnosticsMessage(
+  options: Partial<LSPDiagnosticsMessage> = {},
+): LSPDiagnosticsMessage {
+  return options as LSPDiagnosticsMessage;
+}
 
 export type LSPDiagnosticsPayload = gt.LSPDiagnosticsPayload;
 
@@ -934,6 +2016,15 @@ export function createLSPDiagnosticsPayload(
   options: Partial<LSPDiagnosticsPayload> = {},
 ): LSPDiagnosticsPayload {
   return options as LSPDiagnosticsPayload;
+}
+
+export type LauncherManagementTransportRoutes =
+  gt.LauncherManagementTransportRoutes;
+
+export function createLauncherManagementTransportRoutes(
+  options: Partial<LauncherManagementTransportRoutes> = {},
+): LauncherManagementTransportRoutes {
+  return options as LauncherManagementTransportRoutes;
 }
 
 export type LineChartSettings = gt.LineChartSettings;
@@ -954,7 +2045,7 @@ export function createLineChartSettings(
   };
 }
 
-type ListRootSectionImpl = gt.ListRootSectionImpl;
+export type ListRootSectionImpl = gt.ListRootSectionImpl;
 
 export function createListRootSectionImpl(
   options: Partial<ListRootSectionImpl> = {},
@@ -987,6 +2078,30 @@ export function createListRootSectionImpl(
   };
 }
 
+export type ListRootViewModeOption = gt.ListRootViewModeOption;
+
+export function createListRootViewModeOption(
+  options: Partial<ListRootViewModeOption> = {},
+): ListRootViewModeOption {
+  return options as ListRootViewModeOption;
+}
+
+export type ListenerConfig = gt.ListenerConfig;
+
+export function createListenerConfig(
+  options: Partial<ListenerConfig> = {},
+): ListenerConfig {
+  return options as ListenerConfig;
+}
+
+export type ListenerCoverageDependency = gt.ListenerCoverageDependency;
+
+export function createListenerCoverageDependency(
+  options: Partial<ListenerCoverageDependency> = {},
+): ListenerCoverageDependency {
+  return options as ListenerCoverageDependency;
+}
+
 export type ListenerCoverageSnapshot = gt.ListenerCoverageSnapshot;
 
 export function createListenerCoverageSnapshot(
@@ -995,15 +2110,486 @@ export function createListenerCoverageSnapshot(
   return options as ListenerCoverageSnapshot;
 }
 
+export type ListenerCoverageSnapshotMessage =
+  gt.ListenerCoverageSnapshotMessage;
+
+export function createListenerCoverageSnapshotMessage(
+  options: Partial<ListenerCoverageSnapshotMessage> = {},
+): ListenerCoverageSnapshotMessage {
+  return options as ListenerCoverageSnapshotMessage;
+}
+
+export type ListenerDependencyCatalog = gt.ListenerDependencyCatalog;
+
+export function createListenerDependencyCatalog(
+  options: Partial<ListenerDependencyCatalog> = {},
+): ListenerDependencyCatalog {
+  return options as ListenerDependencyCatalog;
+}
+
+export type ListenerDependencyCatalogEntry = gt.ListenerDependencyCatalogEntry;
+
+export function createListenerDependencyCatalogEntry(
+  options: Partial<ListenerDependencyCatalogEntry> = {},
+): ListenerDependencyCatalogEntry {
+  return options as ListenerDependencyCatalogEntry;
+}
+
+export type ListenerDependencyEvent = gt.ListenerDependencyEvent;
+
+export function createListenerDependencyEvent(
+  options: Partial<ListenerDependencyEvent> = {},
+): ListenerDependencyEvent {
+  return options as ListenerDependencyEvent;
+}
+
+export type ListenerDependencyEventContent = gt.ListenerDependencyEventContent;
+
+export function createListenerDependencyEventContent(
+  options: Partial<ListenerDependencyEventContent> = {},
+): ListenerDependencyEventContent {
+  return options as ListenerDependencyEventContent;
+}
+
+export type ListenerDependencyEventEntry = gt.ListenerDependencyEventEntry;
+
+export function createListenerDependencyEventEntry(
+  options: Partial<ListenerDependencyEventEntry> = {},
+): ListenerDependencyEventEntry {
+  return options as ListenerDependencyEventEntry;
+}
+
+export type ListenerDependencyEventMessage = gt.ListenerDependencyEventMessage;
+
+export function createListenerDependencyEventMessage(
+  options: Partial<ListenerDependencyEventMessage> = {},
+): ListenerDependencyEventMessage {
+  return options as ListenerDependencyEventMessage;
+}
+
+export type ListenerErrorContent = gt.ListenerErrorContent;
+
+export function createListenerErrorContent(
+  options: Partial<ListenerErrorContent> = {},
+): ListenerErrorContent {
+  return options as ListenerErrorContent;
+}
+
+export type ListenerErrorEvent = gt.ListenerErrorEvent;
+
+export function createListenerErrorEvent(
+  options: Partial<ListenerErrorEvent> = {},
+): ListenerErrorEvent {
+  return options as ListenerErrorEvent;
+}
+
+export type ListenerErrorMessage = gt.ListenerErrorMessage;
+
+export function createListenerErrorMessage(
+  options: Partial<ListenerErrorMessage> = {},
+): ListenerErrorMessage {
+  return options as ListenerErrorMessage;
+}
+
+export type ListenerForceRefreshContent = gt.ListenerForceRefreshContent;
+
+export function createListenerForceRefreshContent(
+  options: Partial<ListenerForceRefreshContent> = {},
+): ListenerForceRefreshContent {
+  return options as ListenerForceRefreshContent;
+}
+
+export type ListenerForceRefreshEvent = gt.ListenerForceRefreshEvent;
+
+export function createListenerForceRefreshEvent(
+  options: Partial<ListenerForceRefreshEvent> = {},
+): ListenerForceRefreshEvent {
+  return options as ListenerForceRefreshEvent;
+}
+
+export type ListenerForceRefreshMessage = gt.ListenerForceRefreshMessage;
+
+export function createListenerForceRefreshMessage(
+  options: Partial<ListenerForceRefreshMessage> = {},
+): ListenerForceRefreshMessage {
+  return options as ListenerForceRefreshMessage;
+}
+
+export type ListenerFrontendEmitContent = gt.ListenerFrontendEmitContent;
+
+export function createListenerFrontendEmitContent(
+  options: Partial<ListenerFrontendEmitContent> = {},
+): ListenerFrontendEmitContent {
+  return options as ListenerFrontendEmitContent;
+}
+
+export type ListenerFrontendEmitMessage = gt.ListenerFrontendEmitMessage;
+
+export function createListenerFrontendEmitMessage(
+  options: Partial<ListenerFrontendEmitMessage> = {},
+): ListenerFrontendEmitMessage {
+  return options as ListenerFrontendEmitMessage;
+}
+
+export type ListenerFrontendEmitRequest = gt.ListenerFrontendEmitRequest;
+
+export function createListenerFrontendEmitRequest(
+  options: Partial<ListenerFrontendEmitRequest> = {},
+): ListenerFrontendEmitRequest {
+  return options as ListenerFrontendEmitRequest;
+}
+
+export type ListenerInitContent = gt.ListenerInitContent;
+
+export function createListenerInitContent(
+  options: Partial<ListenerInitContent> = {},
+): ListenerInitContent {
+  return options as ListenerInitContent;
+}
+
+export type ListenerInitMessage = gt.ListenerInitMessage;
+
+export function createListenerInitMessage(
+  options: Partial<ListenerInitMessage> = {},
+): ListenerInitMessage {
+  return options as ListenerInitMessage;
+}
+
+export type ListenerInitRequest = gt.ListenerInitRequest;
+
+export function createListenerInitRequest(
+  options: Partial<ListenerInitRequest> = {},
+): ListenerInitRequest {
+  return options as ListenerInitRequest;
+}
+
+export type ListenerRealtimeDelta = gt.ListenerRealtimeDelta;
+
+export function createListenerRealtimeDelta(
+  options: Partial<ListenerRealtimeDelta> = {},
+): ListenerRealtimeDelta {
+  return options as ListenerRealtimeDelta;
+}
+
+export type ListenerRealtimeEvent = gt.ListenerRealtimeEvent;
+
+export function createListenerRealtimeEvent(
+  options: Partial<ListenerRealtimeEvent> = {},
+): ListenerRealtimeEvent {
+  return options as ListenerRealtimeEvent;
+}
+
+export type ListenerRealtimeEventContent = gt.ListenerRealtimeEventContent;
+
+export function createListenerRealtimeEventContent(
+  options: Partial<ListenerRealtimeEventContent> = {},
+): ListenerRealtimeEventContent {
+  return options as ListenerRealtimeEventContent;
+}
+
+export type ListenerRealtimeEventMessage = gt.ListenerRealtimeEventMessage;
+
+export function createListenerRealtimeEventMessage(
+  options: Partial<ListenerRealtimeEventMessage> = {},
+): ListenerRealtimeEventMessage {
+  return options as ListenerRealtimeEventMessage;
+}
+
+export type ListenerRegisterAckContent = gt.ListenerRegisterAckContent;
+
+export function createListenerRegisterAckContent(
+  options: Partial<ListenerRegisterAckContent> = {},
+): ListenerRegisterAckContent {
+  return options as ListenerRegisterAckContent;
+}
+
+export type ListenerRegisterAckEvent = gt.ListenerRegisterAckEvent;
+
+export function createListenerRegisterAckEvent(
+  options: Partial<ListenerRegisterAckEvent> = {},
+): ListenerRegisterAckEvent {
+  return options as ListenerRegisterAckEvent;
+}
+
+export type ListenerRegisterAckMessage = gt.ListenerRegisterAckMessage;
+
+export function createListenerRegisterAckMessage(
+  options: Partial<ListenerRegisterAckMessage> = {},
+): ListenerRegisterAckMessage {
+  return options as ListenerRegisterAckMessage;
+}
+
+export type ListenerRegisterAckStatus = gt.ListenerRegisterAckStatus;
+
+export function createListenerRegisterAckStatus(
+  options: Partial<ListenerRegisterAckStatus> = {},
+): ListenerRegisterAckStatus {
+  return options as ListenerRegisterAckStatus;
+}
+
+export type ListenerRegisterCallbackSpec = gt.ListenerRegisterCallbackSpec;
+
+export function createListenerRegisterCallbackSpec(
+  options: Partial<ListenerRegisterCallbackSpec> = {},
+): ListenerRegisterCallbackSpec {
+  return options as ListenerRegisterCallbackSpec;
+}
+
+export type ListenerRegisterContent = gt.ListenerRegisterContent;
+
+export function createListenerRegisterContent(
+  options: Partial<ListenerRegisterContent> = {},
+): ListenerRegisterContent {
+  return options as ListenerRegisterContent;
+}
+
+export type ListenerRegisterMessage = gt.ListenerRegisterMessage;
+
+export function createListenerRegisterMessage(
+  options: Partial<ListenerRegisterMessage> = {},
+): ListenerRegisterMessage {
+  return options as ListenerRegisterMessage;
+}
+
+export type ListenerRegisterRequest = gt.ListenerRegisterRequest;
+
+export function createListenerRegisterRequest(
+  options: Partial<ListenerRegisterRequest> = {},
+): ListenerRegisterRequest {
+  return options as ListenerRegisterRequest;
+}
+
+export type ListenerRenderedDependencyValue =
+  gt.ListenerRenderedDependencyValue;
+
+export function createListenerRenderedDependencyValue(
+  options: Partial<ListenerRenderedDependencyValue> = {},
+): ListenerRenderedDependencyValue {
+  return options as ListenerRenderedDependencyValue;
+}
+
+export type ListenerRenderedDependencyValues =
+  gt.ListenerRenderedDependencyValues;
+
+export function createListenerRenderedDependencyValues(
+  options: Partial<ListenerRenderedDependencyValues> = {},
+): ListenerRenderedDependencyValues {
+  return options as ListenerRenderedDependencyValues;
+}
+
+export type ListenerRouterEndpointCall = gt.ListenerRouterEndpointCall;
+
+export function createListenerRouterEndpointCall(
+  options: Partial<ListenerRouterEndpointCall> = {},
+): ListenerRouterEndpointCall {
+  return options as ListenerRouterEndpointCall;
+}
+
+export type ListenerRouterEndpointCallContent =
+  gt.ListenerRouterEndpointCallContent;
+
+export function createListenerRouterEndpointCallContent(
+  options: Partial<ListenerRouterEndpointCallContent> = {},
+): ListenerRouterEndpointCallContent {
+  return options as ListenerRouterEndpointCallContent;
+}
+
+export type ListenerRouterEndpointCallMessage =
+  gt.ListenerRouterEndpointCallMessage;
+
+export function createListenerRouterEndpointCallMessage(
+  options: Partial<ListenerRouterEndpointCallMessage> = {},
+): ListenerRouterEndpointCallMessage {
+  return options as ListenerRouterEndpointCallMessage;
+}
+
+export type ListenerRouterEndpointResult = gt.ListenerRouterEndpointResult;
+
+export function createListenerRouterEndpointResult(
+  options: Partial<ListenerRouterEndpointResult> = {},
+): ListenerRouterEndpointResult {
+  return options as ListenerRouterEndpointResult;
+}
+
+export type ListenerRouterEndpointResultContent =
+  gt.ListenerRouterEndpointResultContent;
+
+export function createListenerRouterEndpointResultContent(
+  options: Partial<ListenerRouterEndpointResultContent> = {},
+): ListenerRouterEndpointResultContent {
+  return options as ListenerRouterEndpointResultContent;
+}
+
+export type ListenerRouterEndpointResultMessage =
+  gt.ListenerRouterEndpointResultMessage;
+
+export function createListenerRouterEndpointResultMessage(
+  options: Partial<ListenerRouterEndpointResultMessage> = {},
+): ListenerRouterEndpointResultMessage {
+  return options as ListenerRouterEndpointResultMessage;
+}
+
+export type ListenerSnapshot = gt.ListenerSnapshot;
+
+export function createListenerSnapshot(
+  options: Partial<ListenerSnapshot> = {},
+): ListenerSnapshot {
+  return options as ListenerSnapshot;
+}
+
 export type LiteralDependencyValue = gt.LiteralDependencyValue;
+
+export function createLiteralDependencyValue(
+  options: Partial<LiteralDependencyValue> = {},
+): LiteralDependencyValue {
+  return options as LiteralDependencyValue;
+}
+
+export type LoadCachedPathsRequest = gt.LoadCachedPathsRequest;
+
+export function createLoadCachedPathsRequest(
+  options: Partial<LoadCachedPathsRequest> = {},
+): LoadCachedPathsRequest {
+  return options as LoadCachedPathsRequest;
+}
+
+export type LocalCoreCommandEnvelope = gt.LocalCoreCommandEnvelope;
+
+export function createLocalCoreCommandEnvelope(
+  options: Partial<LocalCoreCommandEnvelope> = {},
+): LocalCoreCommandEnvelope {
+  return options as LocalCoreCommandEnvelope;
+}
+
+export type LocalCoreListenerRealtimeDelta = gt.LocalCoreListenerRealtimeDelta;
+
+export function createLocalCoreListenerRealtimeDelta(
+  options: Partial<LocalCoreListenerRealtimeDelta> = {},
+): LocalCoreListenerRealtimeDelta {
+  return options as LocalCoreListenerRealtimeDelta;
+}
+
+export type LocalCoreRenderRealtimeDependencyValuesRequest =
+  gt.LocalCoreRenderRealtimeDependencyValuesRequest;
+
+export function createLocalCoreRenderRealtimeDependencyValuesRequest(
+  options: Partial<LocalCoreRenderRealtimeDependencyValuesRequest> = {},
+): LocalCoreRenderRealtimeDependencyValuesRequest {
+  return options as LocalCoreRenderRealtimeDependencyValuesRequest;
+}
+
+export type LocalCoreRenderRealtimeDependencyValuesResult =
+  gt.LocalCoreRenderRealtimeDependencyValuesResult;
+
+export function createLocalCoreRenderRealtimeDependencyValuesResult(
+  options: Partial<LocalCoreRenderRealtimeDependencyValuesResult> = {},
+): LocalCoreRenderRealtimeDependencyValuesResult {
+  return options as LocalCoreRenderRealtimeDependencyValuesResult;
+}
+
+export type LocalCoreResultEnvelope = gt.LocalCoreResultEnvelope;
+
+export function createLocalCoreResultEnvelope(
+  options: Partial<LocalCoreResultEnvelope> = {},
+): LocalCoreResultEnvelope {
+  return options as LocalCoreResultEnvelope;
+}
+
+export type LocalCoreVersionHandshake = gt.LocalCoreVersionHandshake;
+
+export function createLocalCoreVersionHandshake(
+  options: Partial<LocalCoreVersionHandshake> = {},
+): LocalCoreVersionHandshake {
+  return options as LocalCoreVersionHandshake;
+}
+
+export type LocalHostnamePolicy = gt.LocalHostnamePolicy;
+
+export function createLocalHostnamePolicy(
+  options: Partial<LocalHostnamePolicy> = {},
+): LocalHostnamePolicy {
+  return options as LocalHostnamePolicy;
+}
+
+export type Location = gt.Location;
+
+export type ManagedAPIKeysSnapshot = gt.ManagedAPIKeysSnapshot;
+
+export function createManagedAPIKeysSnapshot(
+  options: Partial<ManagedAPIKeysSnapshot> = {},
+): ManagedAPIKeysSnapshot {
+  return options as ManagedAPIKeysSnapshot;
+}
+
+export type Manifest = gt.Manifest;
+
+export function createManifest(options: Partial<Manifest> = {}): Manifest {
+  return options as Manifest;
+}
+
+export type MessageContent = gt.MessageContent;
+
+export function createMessageContent(
+  options: Partial<MessageContent> = {},
+): MessageContent {
+  return options as MessageContent;
+}
+
+export type MessageContentDelta = gt.MessageContentDelta;
+
+export function createMessageContentDelta(
+  options: Partial<MessageContentDelta> = {},
+): MessageContentDelta {
+  return options as MessageContentDelta;
+}
 
 export type MessageDeltaEvent = gt.MessageDeltaEvent;
 
+export function createMessageDeltaEvent(
+  options: Partial<MessageDeltaEvent> = {},
+): MessageDeltaEvent {
+  return options as MessageDeltaEvent;
+}
+
 export type MessageFinalizedEvent = gt.MessageFinalizedEvent;
+
+export function createMessageFinalizedEvent(
+  options: Partial<MessageFinalizedEvent> = {},
+): MessageFinalizedEvent {
+  return options as MessageFinalizedEvent;
+}
+
+export type MessageImageURL = gt.MessageImageURL;
+
+export function createMessageImageURL(
+  options: Partial<MessageImageURL> = {},
+): MessageImageURL {
+  return options as MessageImageURL;
+}
 
 export type MessageImageURLContent = gt.MessageImageURLContent;
 
+export function createMessageImageURLContent(
+  options: Partial<MessageImageURLContent> = {},
+): MessageImageURLContent {
+  return options as MessageImageURLContent;
+}
+
 export type MessageStartEvent = gt.MessageStartEvent;
+
+export function createMessageStartEvent(
+  options: Partial<MessageStartEvent> = {},
+): MessageStartEvent {
+  return options as MessageStartEvent;
+}
+
+export type MessageStopEvent = gt.MessageStopEvent;
+
+export function createMessageStopEvent(
+  options: Partial<MessageStopEvent> = {},
+): MessageStopEvent {
+  return options as MessageStopEvent;
+}
 
 export type MessageTextContent = gt.MessageTextContent;
 
@@ -1017,6 +2603,14 @@ export function createMessageTextContent(
   return {
     ...mergeGeneratedOptions<MessageTextContent>(defaults, options),
   };
+}
+
+export type MessageTextDelta = gt.MessageTextDelta;
+
+export function createMessageTextDelta(
+  options: Partial<MessageTextDelta> = {},
+): MessageTextDelta {
+  return options as MessageTextDelta;
 }
 
 export type MessageThinkingContent = gt.MessageThinkingContent;
@@ -1035,9 +2629,17 @@ export function createMessageThinkingContent(
   };
 }
 
-type MetaControlSizingPolicyByType = gt.MetaControlSizingPolicyByType;
+export type MessageThinkingDelta = gt.MessageThinkingDelta;
 
-function createMetaControlSizingPolicyByType(
+export function createMessageThinkingDelta(
+  options: Partial<MessageThinkingDelta> = {},
+): MessageThinkingDelta {
+  return options as MessageThinkingDelta;
+}
+
+export type MetaControlSizingPolicyByType = gt.MetaControlSizingPolicyByType;
+
+export function createMetaControlSizingPolicyByType(
   options: Partial<MetaControlSizingPolicyByType> = {},
 ): MetaControlSizingPolicyByType {
   const defaults: MetaControlSizingPolicyByType = {
@@ -1185,19 +2787,87 @@ function createMetaControlSizingPolicyByType(
 export type MetaControlSizingPolicyTypeEntry =
   gt.MetaControlSizingPolicyTypeEntry;
 
-function createMetaControlSizingPolicyTypeEntry(
+export function createMetaControlSizingPolicyTypeEntry(
   options: Partial<MetaControlSizingPolicyTypeEntry> = {},
 ): MetaControlSizingPolicyTypeEntry {
   return options as MetaControlSizingPolicyTypeEntry;
 }
 
+export type Metadata = gt.Metadata;
+
+export function createMetadata(options: Partial<Metadata> = {}): Metadata {
+  return options as Metadata;
+}
+
+export type ModeScopedLauncherRoutes = gt.ModeScopedLauncherRoutes;
+
+export type MoveParamGroupInput = gt.MoveParamGroupInput;
+
+export function createMoveParamGroupInput(
+  options: Partial<MoveParamGroupInput> = {},
+): MoveParamGroupInput {
+  return options as MoveParamGroupInput;
+}
+
+export type MoveParamGroupsInput = gt.MoveParamGroupsInput;
+
+export function createMoveParamGroupsInput(
+  options: Partial<MoveParamGroupsInput> = {},
+): MoveParamGroupsInput {
+  return options as MoveParamGroupsInput;
+}
+
+export type MoveParamsInput = gt.MoveParamsInput;
+
+export function createMoveParamsInput(
+  options: Partial<MoveParamsInput> = {},
+): MoveParamsInput {
+  return options as MoveParamsInput;
+}
+
+export type MoveSectionsInput = gt.MoveSectionsInput;
+
+export function createMoveSectionsInput(
+  options: Partial<MoveSectionsInput> = {},
+): MoveSectionsInput {
+  return options as MoveSectionsInput;
+}
+
 export type NameValidationContract = gt.NameValidationContract;
 
-type NestedParamCodeObjImpl = gt.NestedParamCodeObjImpl;
+export function createNameValidationContract(
+  options: Partial<NameValidationContract> = {},
+): NameValidationContract {
+  return options as NameValidationContract;
+}
+
+export type NameValidationErrors = gt.NameValidationErrors;
+
+export function createNameValidationErrors(
+  options: Partial<NameValidationErrors> = {},
+): NameValidationErrors {
+  return options as NameValidationErrors;
+}
+
+export type NameValidationErrorsMessage = gt.NameValidationErrorsMessage;
+
+export function createNameValidationErrorsMessage(
+  options: Partial<NameValidationErrorsMessage> = {},
+): NameValidationErrorsMessage {
+  return options as NameValidationErrorsMessage;
+}
+
+export type NestedParamCodeObjImpl = gt.NestedParamCodeObjImpl;
+
+export function createNestedParamCodeObjImpl(
+  options: Partial<NestedParamCodeObjImpl> = {},
+): NestedParamCodeObjImpl {
+  return options as NestedParamCodeObjImpl;
+}
 
 export type NormalizedFloatingWindowBounds = gt.NormalizedFloatingWindowBounds;
 
-function createNormalizedFloatingWindowBounds(
+export function createNormalizedFloatingWindowBounds(
   options: Partial<NormalizedFloatingWindowBounds> = {},
 ): NormalizedFloatingWindowBounds {
   const defaults: NormalizedFloatingWindowBounds = {
@@ -1211,11 +2881,200 @@ function createNormalizedFloatingWindowBounds(
   };
 }
 
-type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
+export type NotificationContent = gt.NotificationContent;
+
+export function createNotificationContent(
+  options: Partial<NotificationContent> = {},
+): NotificationContent {
+  return options as NotificationContent;
+}
+
+export type NotificationMessage = gt.NotificationMessage;
+
+export function createNotificationMessage(
+  options: Partial<NotificationMessage> = {},
+): NotificationMessage {
+  return options as NotificationMessage;
+}
+
+export type OpenAIRealtimeTranscriptionStreamMode =
+  gt.OpenAIRealtimeTranscriptionStreamMode;
+
+export type OverviewTabNamesValue = gt.OverviewTabNamesValue;
+
+export function createOverviewTabNamesValue(
+  options: Partial<OverviewTabNamesValue> = {},
+): OverviewTabNamesValue {
+  return options as OverviewTabNamesValue;
+}
+
+export type OverviewTabTitlesValue = gt.OverviewTabTitlesValue;
+
+export function createOverviewTabTitlesValue(
+  options: Partial<OverviewTabTitlesValue> = {},
+): OverviewTabTitlesValue {
+  return options as OverviewTabTitlesValue;
+}
+
+export type OverviewTabUIConfigValue = gt.OverviewTabUIConfigValue;
+
+export function createOverviewTabUIConfigValue(
+  options: Partial<OverviewTabUIConfigValue> = {},
+): OverviewTabUIConfigValue {
+  return options as OverviewTabUIConfigValue;
+}
+
+export type ParamCodeObjFields = gt.ParamCodeObjFields;
+
+export function createParamCodeObjFields(
+  options: Partial<ParamCodeObjFields> = {},
+): ParamCodeObjFields {
+  return options as ParamCodeObjFields;
+}
+
+export type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
+
+export function createPasswordParamCodeObjImpl(
+  options: Partial<PasswordParamCodeObjImpl> = {},
+): PasswordParamCodeObjImpl {
+  return options as PasswordParamCodeObjImpl;
+}
+
+export type PasteSectionsInput = gt.PasteSectionsInput;
+
+export function createPasteSectionsInput(
+  options: Partial<PasteSectionsInput> = {},
+): PasteSectionsInput {
+  return options as PasteSectionsInput;
+}
+
+export type PatchPolicy = gt.PatchPolicy;
+
+export function createPatchPolicy(
+  options: Partial<PatchPolicy> = {},
+): PatchPolicy {
+  return options as PatchPolicy;
+}
+
+export type PluginBackendManifest = gt.PluginBackendManifest;
+
+export function createPluginBackendManifest(
+  options: Partial<PluginBackendManifest> = {},
+): PluginBackendManifest {
+  return options as PluginBackendManifest;
+}
 
 export type PluginBlockedCapability = gt.PluginBlockedCapability;
 
+export function createPluginBlockedCapability(
+  options: Partial<PluginBlockedCapability> = {},
+): PluginBlockedCapability {
+  return options as PluginBlockedCapability;
+}
+
+export type PluginConfigDescriptor = gt.PluginConfigDescriptor;
+
+export function createPluginConfigDescriptor(
+  options: Partial<PluginConfigDescriptor> = {},
+): PluginConfigDescriptor {
+  return options as PluginConfigDescriptor;
+}
+
+export type PluginConfigValidationResult = gt.PluginConfigValidationResult;
+
+export function createPluginConfigValidationResult(
+  options: Partial<PluginConfigValidationResult> = {},
+): PluginConfigValidationResult {
+  return options as PluginConfigValidationResult;
+}
+
+export type PluginConfigWriteResponse = gt.PluginConfigWriteResponse;
+
+export function createPluginConfigWriteResponse(
+  options: Partial<PluginConfigWriteResponse> = {},
+): PluginConfigWriteResponse {
+  return options as PluginConfigWriteResponse;
+}
+
+export type PluginContentDescriptor = gt.PluginContentDescriptor;
+
+export function createPluginContentDescriptor(
+  options: Partial<PluginContentDescriptor> = {},
+): PluginContentDescriptor {
+  return options as PluginContentDescriptor;
+}
+
+export type PluginContentManifest = gt.PluginContentManifest;
+
+export function createPluginContentManifest(
+  options: Partial<PluginContentManifest> = {},
+): PluginContentManifest {
+  return options as PluginContentManifest;
+}
+
+export type PluginEnableDisableResponse = gt.PluginEnableDisableResponse;
+
+export function createPluginEnableDisableResponse(
+  options: Partial<PluginEnableDisableResponse> = {},
+): PluginEnableDisableResponse {
+  return options as PluginEnableDisableResponse;
+}
+
+export type PluginErrorInfo = gt.PluginErrorInfo;
+
+export function createPluginErrorInfo(
+  options: Partial<PluginErrorInfo> = {},
+): PluginErrorInfo {
+  return options as PluginErrorInfo;
+}
+
+export type PluginFrontendDescriptor = gt.PluginFrontendDescriptor;
+
+export function createPluginFrontendDescriptor(
+  options: Partial<PluginFrontendDescriptor> = {},
+): PluginFrontendDescriptor {
+  return options as PluginFrontendDescriptor;
+}
+
+export type PluginFrontendManifest = gt.PluginFrontendManifest;
+
+export function createPluginFrontendManifest(
+  options: Partial<PluginFrontendManifest> = {},
+): PluginFrontendManifest {
+  return options as PluginFrontendManifest;
+}
+
+export type PluginInstallHistoryEntry = gt.PluginInstallHistoryEntry;
+
+export function createPluginInstallHistoryEntry(
+  options: Partial<PluginInstallHistoryEntry> = {},
+): PluginInstallHistoryEntry {
+  return options as PluginInstallHistoryEntry;
+}
+
+export type PluginInstallMetadataEntry = gt.PluginInstallMetadataEntry;
+
+export function createPluginInstallMetadataEntry(
+  options: Partial<PluginInstallMetadataEntry> = {},
+): PluginInstallMetadataEntry {
+  return options as PluginInstallMetadataEntry;
+}
+
+export type PluginInstallMetadataFile = gt.PluginInstallMetadataFile;
+
+export function createPluginInstallMetadataFile(
+  options: Partial<PluginInstallMetadataFile> = {},
+): PluginInstallMetadataFile {
+  return options as PluginInstallMetadataFile;
+}
+
 export type PluginInstallResponse = gt.PluginInstallResponse;
+
+export function createPluginInstallResponse(
+  options: Partial<PluginInstallResponse> = {},
+): PluginInstallResponse {
+  return options as PluginInstallResponse;
+}
 
 export type PluginListEntry = gt.PluginListEntry;
 
@@ -1227,11 +3086,124 @@ export function createPluginListEntry(
 
 export type PluginListResponse = gt.PluginListResponse;
 
+export function createPluginListResponse(
+  options: Partial<PluginListResponse> = {},
+): PluginListResponse {
+  return options as PluginListResponse;
+}
+
+export type PluginLockApplyResponse = gt.PluginLockApplyResponse;
+
+export function createPluginLockApplyResponse(
+  options: Partial<PluginLockApplyResponse> = {},
+): PluginLockApplyResponse {
+  return options as PluginLockApplyResponse;
+}
+
+export type PluginLockEntry = gt.PluginLockEntry;
+
+export function createPluginLockEntry(
+  options: Partial<PluginLockEntry> = {},
+): PluginLockEntry {
+  return options as PluginLockEntry;
+}
+
+export type PluginLockWriteResponse = gt.PluginLockWriteResponse;
+
+export function createPluginLockWriteResponse(
+  options: Partial<PluginLockWriteResponse> = {},
+): PluginLockWriteResponse {
+  return options as PluginLockWriteResponse;
+}
+
+export type PluginManifest = gt.PluginManifest;
+
+export function createPluginManifest(
+  options: Partial<PluginManifest> = {},
+): PluginManifest {
+  return options as PluginManifest;
+}
+
+export type PluginRegisteredBackendRoute = gt.PluginRegisteredBackendRoute;
+
+export function createPluginRegisteredBackendRoute(
+  options: Partial<PluginRegisteredBackendRoute> = {},
+): PluginRegisteredBackendRoute {
+  return options as PluginRegisteredBackendRoute;
+}
+
+export type PluginRegisteredCodegenTarget = gt.PluginRegisteredCodegenTarget;
+
+export function createPluginRegisteredCodegenTarget(
+  options: Partial<PluginRegisteredCodegenTarget> = {},
+): PluginRegisteredCodegenTarget {
+  return options as PluginRegisteredCodegenTarget;
+}
+
+export type PluginRegisteredLanguageServer = gt.PluginRegisteredLanguageServer;
+
+export function createPluginRegisteredLanguageServer(
+  options: Partial<PluginRegisteredLanguageServer> = {},
+): PluginRegisteredLanguageServer {
+  return options as PluginRegisteredLanguageServer;
+}
+
+export type PluginRegisteredListenerEndpoint =
+  gt.PluginRegisteredListenerEndpoint;
+
+export function createPluginRegisteredListenerEndpoint(
+  options: Partial<PluginRegisteredListenerEndpoint> = {},
+): PluginRegisteredListenerEndpoint {
+  return options as PluginRegisteredListenerEndpoint;
+}
+
+export type PluginRegisteredStaticDir = gt.PluginRegisteredStaticDir;
+
+export function createPluginRegisteredStaticDir(
+  options: Partial<PluginRegisteredStaticDir> = {},
+): PluginRegisteredStaticDir {
+  return options as PluginRegisteredStaticDir;
+}
+
+export type PluginRegisteredUISetting = gt.PluginRegisteredUISetting;
+
+export function createPluginRegisteredUISetting(
+  options: Partial<PluginRegisteredUISetting> = {},
+): PluginRegisteredUISetting {
+  return options as PluginRegisteredUISetting;
+}
+
 export type PluginRestartCapability = gt.PluginRestartCapability;
+
+export function createPluginRestartCapability(
+  options: Partial<PluginRestartCapability> = {},
+): PluginRestartCapability {
+  return options as PluginRestartCapability;
+}
 
 export type PluginRestartResponse = gt.PluginRestartResponse;
 
+export function createPluginRestartResponse(
+  options: Partial<PluginRestartResponse> = {},
+): PluginRestartResponse {
+  return options as PluginRestartResponse;
+}
+
+export type PluginRollbackResponse = gt.PluginRollbackResponse;
+
+export function createPluginRollbackResponse(
+  options: Partial<PluginRollbackResponse> = {},
+): PluginRollbackResponse {
+  return options as PluginRollbackResponse;
+}
+
 export type PluginRuntimeResponse = gt.PluginRuntimeResponse;
+
+export function createPluginRuntimeResponse(
+  options: Partial<PluginRuntimeResponse> = {},
+): PluginRuntimeResponse {
+  return options as PluginRuntimeResponse;
+}
 
 export type PluginStatusEntry = gt.PluginStatusEntry;
 
@@ -1243,6 +3215,52 @@ export function createPluginStatusEntry(
 
 export type PluginStatusResponse = gt.PluginStatusResponse;
 
+export function createPluginStatusResponse(
+  options: Partial<PluginStatusResponse> = {},
+): PluginStatusResponse {
+  return options as PluginStatusResponse;
+}
+
+export type PluginUninstallResponse = gt.PluginUninstallResponse;
+
+export function createPluginUninstallResponse(
+  options: Partial<PluginUninstallResponse> = {},
+): PluginUninstallResponse {
+  return options as PluginUninstallResponse;
+}
+
+export type PluginUpdateResponse = gt.PluginUpdateResponse;
+
+export function createPluginUpdateResponse(
+  options: Partial<PluginUpdateResponse> = {},
+): PluginUpdateResponse {
+  return options as PluginUpdateResponse;
+}
+
+export type PluginsGlobalStateFile = gt.PluginsGlobalStateFile;
+
+export function createPluginsGlobalStateFile(
+  options: Partial<PluginsGlobalStateFile> = {},
+): PluginsGlobalStateFile {
+  return options as PluginsGlobalStateFile;
+}
+
+export type PluginsLockFile = gt.PluginsLockFile;
+
+export function createPluginsLockFile(
+  options: Partial<PluginsLockFile> = {},
+): PluginsLockFile {
+  return options as PluginsLockFile;
+}
+
+export type PluginsStateFile = gt.PluginsStateFile;
+
+export function createPluginsStateFile(
+  options: Partial<PluginsStateFile> = {},
+): PluginsStateFile {
+  return options as PluginsStateFile;
+}
+
 export type Policy = gt.Policy;
 
 export function createPolicy(options: Partial<Policy> = {}): Policy {
@@ -1250,6 +3268,53 @@ export function createPolicy(options: Partial<Policy> = {}): Policy {
 }
 
 export type Position = gt.Position;
+
+export function createPosition(options: Partial<Position> = {}): Position {
+  return options as Position;
+}
+
+export type ProjectChatAgenticEdgeContextModeOption =
+  gt.ProjectChatAgenticEdgeContextModeOption;
+
+export function createProjectChatAgenticEdgeContextModeOption(
+  options: Partial<ProjectChatAgenticEdgeContextModeOption> = {},
+): ProjectChatAgenticEdgeContextModeOption {
+  return options as ProjectChatAgenticEdgeContextModeOption;
+}
+
+export type ProjectChatAppGenerationModeOption =
+  gt.ProjectChatAppGenerationModeOption;
+
+export function createProjectChatAppGenerationModeOption(
+  options: Partial<ProjectChatAppGenerationModeOption> = {},
+): ProjectChatAppGenerationModeOption {
+  return options as ProjectChatAppGenerationModeOption;
+}
+
+export type ProjectChatDictationModeOption = gt.ProjectChatDictationModeOption;
+
+export function createProjectChatDictationModeOption(
+  options: Partial<ProjectChatDictationModeOption> = {},
+): ProjectChatDictationModeOption {
+  return options as ProjectChatDictationModeOption;
+}
+
+export type ProjectChatPermissionModeOption =
+  gt.ProjectChatPermissionModeOption;
+
+export function createProjectChatPermissionModeOption(
+  options: Partial<ProjectChatPermissionModeOption> = {},
+): ProjectChatPermissionModeOption {
+  return options as ProjectChatPermissionModeOption;
+}
+
+export type ProjectChatUIConfigValue = gt.ProjectChatUIConfigValue;
+
+export function createProjectChatUIConfigValue(
+  options: Partial<ProjectChatUIConfigValue> = {},
+): ProjectChatUIConfigValue {
+  return options as ProjectChatUIConfigValue;
+}
 
 export type ProjectChatWindowInstance = gt.ProjectChatWindowInstance;
 
@@ -1287,6 +3352,14 @@ export function createProjectChatWindowInstance(
       options["dockMetrics"] ?? defaults["dockMetrics"],
     ),
   };
+}
+
+export type ProjectChatWindowModeOption = gt.ProjectChatWindowModeOption;
+
+export function createProjectChatWindowModeOption(
+  options: Partial<ProjectChatWindowModeOption> = {},
+): ProjectChatWindowModeOption {
+  return options as ProjectChatWindowModeOption;
 }
 
 export type ProjectChatWindowingState = gt.ProjectChatWindowingState;
@@ -1595,7 +3668,13 @@ export function createProjectConfigDiagnostics(
 
 export type ProjectConfigMetadata = gt.ProjectConfigMetadata;
 
-type ProjectRunCapabilities = gt.ProjectRunCapabilities;
+export function createProjectConfigMetadata(
+  options: Partial<ProjectConfigMetadata> = {},
+): ProjectConfigMetadata {
+  return options as ProjectConfigMetadata;
+}
+
+export type ProjectRunCapabilities = gt.ProjectRunCapabilities;
 
 export function createProjectRunCapabilities(
   options: Partial<ProjectRunCapabilities> = {},
@@ -1608,6 +3687,38 @@ export function createProjectRunCapabilities(
   return {
     ...mergeGeneratedOptions<ProjectRunCapabilities>(defaults, options),
   };
+}
+
+export type ProjectStateItem = gt.ProjectStateItem;
+
+export function createProjectStateItem(
+  options: Partial<ProjectStateItem> = {},
+): ProjectStateItem {
+  return options as ProjectStateItem;
+}
+
+export type ProjectStateSummary = gt.ProjectStateSummary;
+
+export function createProjectStateSummary(
+  options: Partial<ProjectStateSummary> = {},
+): ProjectStateSummary {
+  return options as ProjectStateSummary;
+}
+
+export type ProjectStateUpdateContent = gt.ProjectStateUpdateContent;
+
+export function createProjectStateUpdateContent(
+  options: Partial<ProjectStateUpdateContent> = {},
+): ProjectStateUpdateContent {
+  return options as ProjectStateUpdateContent;
+}
+
+export type ProjectStateUpdateMessage = gt.ProjectStateUpdateMessage;
+
+export function createProjectStateUpdateMessage(
+  options: Partial<ProjectStateUpdateMessage> = {},
+): ProjectStateUpdateMessage {
+  return options as ProjectStateUpdateMessage;
 }
 
 export type PromptSectionImpl = gt.PromptSectionImpl;
@@ -1647,17 +3758,263 @@ export function createPromptSectionImpl(
   };
 }
 
+export type PromptTemplatesUpdatedContent = gt.PromptTemplatesUpdatedContent;
+
+export function createPromptTemplatesUpdatedContent(
+  options: Partial<PromptTemplatesUpdatedContent> = {},
+): PromptTemplatesUpdatedContent {
+  return options as PromptTemplatesUpdatedContent;
+}
+
+export type PromptTemplatesUpdatedMessage = gt.PromptTemplatesUpdatedMessage;
+
+export function createPromptTemplatesUpdatedMessage(
+  options: Partial<PromptTemplatesUpdatedMessage> = {},
+): PromptTemplatesUpdatedMessage {
+  return options as PromptTemplatesUpdatedMessage;
+}
+
+export type PythonCodegenPolicyCodeObjOption =
+  gt.PythonCodegenPolicyCodeObjOption;
+
+export function createPythonCodegenPolicyCodeObjOption(
+  options: Partial<PythonCodegenPolicyCodeObjOption> = {},
+): PythonCodegenPolicyCodeObjOption {
+  return options as PythonCodegenPolicyCodeObjOption;
+}
+
+export type PythonCodegenPolicyUIConfigValue =
+  gt.PythonCodegenPolicyUIConfigValue;
+
+export function createPythonCodegenPolicyUIConfigValue(
+  options: Partial<PythonCodegenPolicyUIConfigValue> = {},
+): PythonCodegenPolicyUIConfigValue {
+  return options as PythonCodegenPolicyUIConfigValue;
+}
+
+export type RawArtifact = gt.RawArtifact;
+
+export function createRawArtifact(
+  options: Partial<RawArtifact> = {},
+): RawArtifact {
+  return options as RawArtifact;
+}
+
+export type RawMessage = gt.RawMessage;
+
+export type RealtimeDependencyEventContent = gt.RealtimeDependencyEventContent;
+
+export function createRealtimeDependencyEventContent(
+  options: Partial<RealtimeDependencyEventContent> = {},
+): RealtimeDependencyEventContent {
+  return options as RealtimeDependencyEventContent;
+}
+
 export type RealtimeDependencyEventMessage = gt.RealtimeDependencyEventMessage;
+
+export function createRealtimeDependencyEventMessage(
+  options: Partial<RealtimeDependencyEventMessage> = {},
+): RealtimeDependencyEventMessage {
+  return options as RealtimeDependencyEventMessage;
+}
+
+export type RealtimeDependencyEventPayload = gt.RealtimeDependencyEventPayload;
+
+export function createRealtimeDependencyEventPayload(
+  options: Partial<RealtimeDependencyEventPayload> = {},
+): RealtimeDependencyEventPayload {
+  return options as RealtimeDependencyEventPayload;
+}
+
+export type RealtimeUIChangeContent = gt.RealtimeUIChangeContent;
+
+export function createRealtimeUIChangeContent(
+  options: Partial<RealtimeUIChangeContent> = {},
+): RealtimeUIChangeContent {
+  return options as RealtimeUIChangeContent;
+}
 
 export type RealtimeUIChangeMessage = gt.RealtimeUIChangeMessage;
 
+export function createRealtimeUIChangeMessage(
+  options: Partial<RealtimeUIChangeMessage> = {},
+): RealtimeUIChangeMessage {
+  return options as RealtimeUIChangeMessage;
+}
+
 export type RenameRefactorBroadcastContent = gt.RenameRefactorBroadcastContent;
+
+export function createRenameRefactorBroadcastContent(
+  options: Partial<RenameRefactorBroadcastContent> = {},
+): RenameRefactorBroadcastContent {
+  return options as RenameRefactorBroadcastContent;
+}
+
+export type RenameRefactorResultsMessage = gt.RenameRefactorResultsMessage;
+
+export function createRenameRefactorResultsMessage(
+  options: Partial<RenameRefactorResultsMessage> = {},
+): RenameRefactorResultsMessage {
+  return options as RenameRefactorResultsMessage;
+}
 
 export type RenameReferenceChangedValue = gt.RenameReferenceChangedValue;
 
+export function createRenameReferenceChangedValue(
+  options: Partial<RenameReferenceChangedValue> = {},
+): RenameReferenceChangedValue {
+  return options as RenameReferenceChangedValue;
+}
+
+export type RenameReferenceDependencyKey = gt.RenameReferenceDependencyKey;
+
+export function createRenameReferenceDependencyKey(
+  options: Partial<RenameReferenceDependencyKey> = {},
+): RenameReferenceDependencyKey {
+  return options as RenameReferenceDependencyKey;
+}
+
+export type RequiredUIEditorTabMap = gt.RequiredUIEditorTabMap;
+
+export type RestartRequiredResponse = gt.RestartRequiredResponse;
+
+export function createRestartRequiredResponse(
+  options: Partial<RestartRequiredResponse> = {},
+): RestartRequiredResponse {
+  return options as RestartRequiredResponse;
+}
+
+export type RootTransportRoutes = gt.RootTransportRoutes;
+
+export function createRootTransportRoutes(
+  options: Partial<RootTransportRoutes> = {},
+): RootTransportRoutes {
+  return options as RootTransportRoutes;
+}
+
 export type RotaryParamCodeObjImpl = gt.RotaryParamCodeObjImpl;
 
+export function createRotaryParamCodeObjImpl(
+  options: Partial<RotaryParamCodeObjImpl> = {},
+): RotaryParamCodeObjImpl {
+  return options as RotaryParamCodeObjImpl;
+}
+
+export type RunEvent = gt.RunEvent;
+
+export function createRunEvent(options: Partial<RunEvent> = {}): RunEvent {
+  const defaults: RunEvent = {
+    id: "",
+    payload: {},
+    timestamp: "0001-01-01T00:00:00Z",
+    type: "",
+  };
+  return {
+    ...mergeGeneratedOptions<RunEvent>(defaults, options),
+    timestamp: options["timestamp"] ?? "",
+  };
+}
+
+export type RunIndex = gt.RunIndex;
+
+export function createRunIndex(options: Partial<RunIndex> = {}): RunIndex {
+  return options as RunIndex;
+}
+
+export type RunIndexEntry = gt.RunIndexEntry;
+
+export function createRunIndexEntry(
+  options: Partial<RunIndexEntry> = {},
+): RunIndexEntry {
+  return options as RunIndexEntry;
+}
+
+export type RunSnapshotModeOption = gt.RunSnapshotModeOption;
+
+export function createRunSnapshotModeOption(
+  options: Partial<RunSnapshotModeOption> = {},
+): RunSnapshotModeOption {
+  return options as RunSnapshotModeOption;
+}
+
+export type RunSnapshotModeUIConfigValue = gt.RunSnapshotModeUIConfigValue;
+
+export function createRunSnapshotModeUIConfigValue(
+  options: Partial<RunSnapshotModeUIConfigValue> = {},
+): RunSnapshotModeUIConfigValue {
+  return options as RunSnapshotModeUIConfigValue;
+}
+
+export type RunToolsRequest = gt.RunToolsRequest;
+
+export function createRunToolsRequest(
+  options: Partial<RunToolsRequest> = {},
+): RunToolsRequest {
+  return options as RunToolsRequest;
+}
+
+export type RunnerSummaryParam = gt.RunnerSummaryParam;
+
+export function createRunnerSummaryParam(
+  options: Partial<RunnerSummaryParam> = {},
+): RunnerSummaryParam {
+  return options as RunnerSummaryParam;
+}
+
+export type RunnerSummarySection = gt.RunnerSummarySection;
+
+export function createRunnerSummarySection(
+  options: Partial<RunnerSummarySection> = {},
+): RunnerSummarySection {
+  return options as RunnerSummarySection;
+}
+
+export type RunnerSummarySnapshot = gt.RunnerSummarySnapshot;
+
+export function createRunnerSummarySnapshot(
+  options: Partial<RunnerSummarySnapshot> = {},
+): RunnerSummarySnapshot {
+  return options as RunnerSummarySnapshot;
+}
+
+export type RunnerSummaryVariant = gt.RunnerSummaryVariant;
+
+export function createRunnerSummaryVariant(
+  options: Partial<RunnerSummaryVariant> = {},
+): RunnerSummaryVariant {
+  return options as RunnerSummaryVariant;
+}
+
+export type RunningBackendVersionHandshake = gt.RunningBackendVersionHandshake;
+
+export function createRunningBackendVersionHandshake(
+  options: Partial<RunningBackendVersionHandshake> = {},
+): RunningBackendVersionHandshake {
+  return options as RunningBackendVersionHandshake;
+}
+
 export type ScatterChartSettings = gt.ScatterChartSettings;
+
+export function createScatterChartSettings(
+  options: Partial<ScatterChartSettings> = {},
+): ScatterChartSettings {
+  const defaults: ScatterChartSettings = {
+    categoryColumn: null,
+    type: "scatter",
+    xAxisColumn: null,
+    xAxisLog: false,
+    yAxisLog: false,
+  };
+  return {
+    ...mergeGeneratedOptions<ScatterChartSettings>(defaults, options),
+  };
+}
+
+export type Section = gt.Section;
+
+export function createSection(options: Partial<Section> = {}): Section {
+  return options as Section;
+}
 
 export type SectionCapabilities = gt.SectionCapabilities;
 
@@ -1676,9 +4033,9 @@ export function createSectionCapabilities(
   };
 }
 
-type SectionCodegenOverride = gt.SectionCodegenOverride;
+export type SectionCodegenOverride = gt.SectionCodegenOverride;
 
-function createSectionCodegenOverride(
+export function createSectionCodegenOverride(
   options: Partial<SectionCodegenOverride> = {},
 ): SectionCodegenOverride {
   const defaults: SectionCodegenOverride = {
@@ -1690,7 +4047,7 @@ function createSectionCodegenOverride(
   };
 }
 
-type SectionCodegenPolicy = gt.SectionCodegenPolicy;
+export type SectionCodegenPolicy = gt.SectionCodegenPolicy;
 
 export function createSectionCodegenPolicy(
   options: Partial<SectionCodegenPolicy> = {},
@@ -1855,7 +4212,27 @@ export function createSectionCodegenPolicy(
 
 export type SectionDependencyKey = gt.SectionDependencyKey;
 
+export function createSectionDependencyKey(
+  options: Partial<SectionDependencyKey> = {},
+): SectionDependencyKey {
+  return options as SectionDependencyKey;
+}
+
+export type SectionImpl = gt.SectionImpl;
+
+export function createSectionImpl(
+  options: Partial<SectionImpl> = {},
+): SectionImpl {
+  return options as SectionImpl;
+}
+
 export type SectionParamDependencyKey = gt.SectionParamDependencyKey;
+
+export function createSectionParamDependencyKey(
+  options: Partial<SectionParamDependencyKey> = {},
+): SectionParamDependencyKey {
+  return options as SectionParamDependencyKey;
+}
 
 export type SectionSize = gt.SectionSize;
 
@@ -1873,9 +4250,17 @@ export function createSectionSize(
   };
 }
 
+export type SectionSizeValue = gt.SectionSizeValue;
+
+export function createSectionSizeValue(
+  options: Partial<SectionSizeValue> = {},
+): SectionSizeValue {
+  return options as SectionSizeValue;
+}
+
 export type SectionSizingPolicy = gt.SectionSizingPolicy;
 
-function createSectionSizingPolicy(
+export function createSectionSizingPolicy(
   options: Partial<SectionSizingPolicy> = {},
 ): SectionSizingPolicy {
   const defaults: SectionSizingPolicy = {
@@ -2148,9 +4533,9 @@ function createSectionSizingPolicy(
   };
 }
 
-type SectionSizingPolicyByType = gt.SectionSizingPolicyByType;
+export type SectionSizingPolicyByType = gt.SectionSizingPolicyByType;
 
-function createSectionSizingPolicyByType(
+export function createSectionSizingPolicyByType(
   options: Partial<SectionSizingPolicyByType> = {},
 ): SectionSizingPolicyByType {
   const defaults: SectionSizingPolicyByType = {
@@ -2387,18 +4772,18 @@ function createSectionSizingPolicyByType(
   };
 }
 
-type SectionSizingPolicyCallableTypeEntry =
+export type SectionSizingPolicyCallableTypeEntry =
   gt.SectionSizingPolicyCallableTypeEntry;
 
-function createSectionSizingPolicyCallableTypeEntry(
+export function createSectionSizingPolicyCallableTypeEntry(
   options: Partial<SectionSizingPolicyCallableTypeEntry> = {},
 ): SectionSizingPolicyCallableTypeEntry {
   return options as SectionSizingPolicyCallableTypeEntry;
 }
 
-type SectionSizingPolicyGlobals = gt.SectionSizingPolicyGlobals;
+export type SectionSizingPolicyGlobals = gt.SectionSizingPolicyGlobals;
 
-function createSectionSizingPolicyGlobals(
+export function createSectionSizingPolicyGlobals(
   options: Partial<SectionSizingPolicyGlobals> = {},
 ): SectionSizingPolicyGlobals {
   const defaults: SectionSizingPolicyGlobals = {
@@ -2414,17 +4799,17 @@ function createSectionSizingPolicyGlobals(
   };
 }
 
-type SectionSizingPolicyTypeEntry = gt.SectionSizingPolicyTypeEntry;
+export type SectionSizingPolicyTypeEntry = gt.SectionSizingPolicyTypeEntry;
 
-function createSectionSizingPolicyTypeEntry(
+export function createSectionSizingPolicyTypeEntry(
   options: Partial<SectionSizingPolicyTypeEntry> = {},
 ): SectionSizingPolicyTypeEntry {
   return options as SectionSizingPolicyTypeEntry;
 }
 
-type SectionTypeCodegenPolicy = gt.SectionTypeCodegenPolicy;
+export type SectionTypeCodegenPolicy = gt.SectionTypeCodegenPolicy;
 
-function createSectionTypeCodegenPolicy(
+export function createSectionTypeCodegenPolicy(
   options: Partial<SectionTypeCodegenPolicy> = {},
 ): SectionTypeCodegenPolicy {
   const defaults: SectionTypeCodegenPolicy = {
@@ -2436,13 +4821,166 @@ function createSectionTypeCodegenPolicy(
   };
 }
 
+export type SectionTypeErrors = gt.SectionTypeErrors;
+
+export function createSectionTypeErrors(
+  options: Partial<SectionTypeErrors> = {},
+): SectionTypeErrors {
+  return options as SectionTypeErrors;
+}
+
+export type SectionVariant = gt.SectionVariant;
+
+export function createSectionVariant(
+  options: Partial<SectionVariant> = {},
+): SectionVariant {
+  return options as SectionVariant;
+}
+
+export type SectionWithParamsCommon = gt.SectionWithParamsCommon;
+
+export function createSectionWithParamsCommon(
+  options: Partial<SectionWithParamsCommon> = {},
+): SectionWithParamsCommon {
+  return options as SectionWithParamsCommon;
+}
+
+export type SectionWithParamsLeadingFields = gt.SectionWithParamsLeadingFields;
+
+export function createSectionWithParamsLeadingFields(
+  options: Partial<SectionWithParamsLeadingFields> = {},
+): SectionWithParamsLeadingFields {
+  return options as SectionWithParamsLeadingFields;
+}
+
+export type SectionWithParamsTrailingFields =
+  gt.SectionWithParamsTrailingFields;
+
+export function createSectionWithParamsTrailingFields(
+  options: Partial<SectionWithParamsTrailingFields> = {},
+): SectionWithParamsTrailingFields {
+  return options as SectionWithParamsTrailingFields;
+}
+
 export type SectionsClipboardData = gt.SectionsClipboardData;
+
+export function createSectionsClipboardData(
+  options: Partial<SectionsClipboardData> = {},
+): SectionsClipboardData {
+  const defaults: SectionsClipboardData = {
+    data: {
+      core: {
+        codeObjImpls: {},
+        codeObjVariants: {},
+        codeObjs: {},
+        sectionImpls: {},
+        sectionVariants: {},
+        sections: {},
+      },
+      sectionVariantMap: {},
+    },
+    type: "Sections",
+  };
+  return {
+    ...mergeGeneratedOptions<SectionsClipboardData>(defaults, options),
+    data: createClipboardProjectStateCoreWithSectionVariantMap(
+      options["data"] ?? defaults["data"],
+    ),
+  };
+}
+
+export type ServerConfig = gt.ServerConfig;
+
+export function createServerConfig(
+  options: Partial<ServerConfig> = {},
+): ServerConfig {
+  return options as ServerConfig;
+}
+
+export type ServerModeBoundary = gt.ServerModeBoundary;
+
+export function createServerModeBoundary(
+  options: Partial<ServerModeBoundary> = {},
+): ServerModeBoundary {
+  return options as ServerModeBoundary;
+}
+
+export type ServerModeBoundaryPolicy = gt.ServerModeBoundaryPolicy;
+
+export type ServerModeBoundaryRoutes = gt.ServerModeBoundaryRoutes;
+
+export function createServerModeBoundaryRoutes(
+  options: Partial<ServerModeBoundaryRoutes> = {},
+): ServerModeBoundaryRoutes {
+  return options as ServerModeBoundaryRoutes;
+}
 
 export type ServerModeCapabilities = gt.ServerModeCapabilities;
 
-type SettingsBackend = gt.SettingsBackend;
+export function createServerModeCapabilities(
+  options: Partial<ServerModeCapabilities> = {},
+): ServerModeCapabilities {
+  return options as ServerModeCapabilities;
+}
 
-function createSettingsBackend(
+export type Session = gt.Session;
+
+export function createSession(options: Partial<Session> = {}): Session {
+  return options as Session;
+}
+
+export type SetSystemPromptRequest = gt.SetSystemPromptRequest;
+
+export function createSetSystemPromptRequest(
+  options: Partial<SetSystemPromptRequest> = {},
+): SetSystemPromptRequest {
+  return options as SetSystemPromptRequest;
+}
+
+export type SettaAPIPreset = gt.SettaAPIPreset;
+
+export function createSettaAPIPreset(
+  options: Partial<SettaAPIPreset> = {},
+): SettaAPIPreset {
+  return options as SettaAPIPreset;
+}
+
+export type SettaAPIPresetConfigValue = gt.SettaAPIPresetConfigValue;
+
+export function createSettaAPIPresetConfigValue(
+  options: Partial<SettaAPIPresetConfigValue> = {},
+): SettaAPIPresetConfigValue {
+  return options as SettaAPIPresetConfigValue;
+}
+
+export type SettaAPIPresetRoutes = gt.SettaAPIPresetRoutes;
+
+export function createSettaAPIPresetRoutes(
+  options: Partial<SettaAPIPresetRoutes> = {},
+): SettaAPIPresetRoutes {
+  return options as SettaAPIPresetRoutes;
+}
+
+export type SettaAPIPresetRuntimeValueTokens =
+  gt.SettaAPIPresetRuntimeValueTokens;
+
+export function createSettaAPIPresetRuntimeValueTokens(
+  options: Partial<SettaAPIPresetRuntimeValueTokens> = {},
+): SettaAPIPresetRuntimeValueTokens {
+  return options as SettaAPIPresetRuntimeValueTokens;
+}
+
+export type SettaFilesLocationPolicy = gt.SettaFilesLocationPolicy;
+
+export function createSettaFilesLocationPolicy(
+  options: Partial<SettaFilesLocationPolicy> = {},
+): SettaFilesLocationPolicy {
+  return options as SettaFilesLocationPolicy;
+}
+
+export type SettingsBackend = gt.SettingsBackend;
+
+export function createSettingsBackend(
   options: Partial<SettingsBackend> = {},
 ): SettingsBackend {
   const defaults: SettingsBackend = {
@@ -2470,9 +5008,11 @@ function createSettingsBackend(
   };
 }
 
-type SettingsGUI = gt.SettingsGUI;
+export type SettingsGUI = gt.SettingsGUI;
 
-function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
+export function createSettingsGUI(
+  options: Partial<SettingsGUI> = {},
+): SettingsGUI {
   const defaults: SettingsGUI = {
     defaultZoomLevel: 1,
     gridColor: "#afbacf",
@@ -2535,9 +5075,17 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
   };
 }
 
-type SettingsShortcuts = gt.SettingsShortcuts;
+export type SettingsManagedBlock = gt.SettingsManagedBlock;
 
-function createSettingsShortcuts(
+export function createSettingsManagedBlock(
+  options: Partial<SettingsManagedBlock> = {},
+): SettingsManagedBlock {
+  return options as SettingsManagedBlock;
+}
+
+export type SettingsShortcuts = gt.SettingsShortcuts;
+
+export function createSettingsShortcuts(
   options: Partial<SettingsShortcuts> = {},
 ): SettingsShortcuts {
   const defaults: SettingsShortcuts = {
@@ -3034,7 +5582,59 @@ export function createSettingsState(
   };
 }
 
+export type SettingsUpdateMessage = gt.SettingsUpdateMessage;
+
+export function createSettingsUpdateMessage(
+  options: Partial<SettingsUpdateMessage> = {},
+): SettingsUpdateMessage {
+  return options as SettingsUpdateMessage;
+}
+
+export type SharePolicyOverrides = gt.SharePolicyOverrides;
+
+export function createSharePolicyOverrides(
+  options: Partial<SharePolicyOverrides> = {},
+): SharePolicyOverrides {
+  return options as SharePolicyOverrides;
+}
+
+export type ShownParamIDDetails = gt.ShownParamIDDetails;
+
+export function createShownParamIDDetails(
+  options: Partial<ShownParamIDDetails> = {},
+): ShownParamIDDetails {
+  const defaults: ShownParamIDDetails = {
+    requiredParamIdsToPaths: {},
+    topLevelParamIds: [],
+  };
+  return {
+    ...mergeGeneratedOptions<ShownParamIDDetails>(defaults, options),
+  };
+}
+
 export type ShownParamIDs = gt.ShownParamIDs;
+
+export function createShownParamIDs(
+  options: Partial<ShownParamIDs> = {},
+): ShownParamIDs {
+  const defaults: ShownParamIDs = {
+    pinned: {
+      requiredParamIdsToPaths: {},
+      topLevelParamIds: [],
+    },
+    unpinned: {
+      requiredParamIdsToPaths: {},
+      topLevelParamIds: [],
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<ShownParamIDs>(defaults, options),
+    pinned: createShownParamIDDetails(options["pinned"] ?? defaults["pinned"]),
+    unpinned: createShownParamIDDetails(
+      options["unpinned"] ?? defaults["unpinned"],
+    ),
+  };
+}
 
 export type SingleConfig = gt.SingleConfig;
 
@@ -3126,7 +5726,7 @@ export function createSingleConfig(
   };
 }
 
-type SingletonSections = gt.SingletonSections;
+export type SingletonSections = gt.SingletonSections;
 
 export function createSingletonSections(
   options: Partial<SingletonSections> = {},
@@ -3143,7 +5743,13 @@ export function createSingletonSections(
 
 export type SliderParamCodeObjImpl = gt.SliderParamCodeObjImpl;
 
-type SpreadsheetSectionImpl = gt.SpreadsheetSectionImpl;
+export function createSliderParamCodeObjImpl(
+  options: Partial<SliderParamCodeObjImpl> = {},
+): SliderParamCodeObjImpl {
+  return options as SliderParamCodeObjImpl;
+}
+
+export type SpreadsheetSectionImpl = gt.SpreadsheetSectionImpl;
 
 export function createSpreadsheetSectionImpl(
   options: Partial<SpreadsheetSectionImpl> = {},
@@ -3179,7 +5785,248 @@ export function createSpreadsheetSectionImpl(
   };
 }
 
-type StateMachineStartSectionImpl = gt.StateMachineStartSectionImpl;
+export type StateMachineCountOperatorOption =
+  gt.StateMachineCountOperatorOption;
+
+export function createStateMachineCountOperatorOption(
+  options: Partial<StateMachineCountOperatorOption> = {},
+): StateMachineCountOperatorOption {
+  return options as StateMachineCountOperatorOption;
+}
+
+export type StateMachineEdge = gt.StateMachineEdge;
+
+export function createStateMachineEdge(
+  options: Partial<StateMachineEdge> = {},
+): StateMachineEdge {
+  const defaults: StateMachineEdge = {
+    hidden: false,
+    id: "",
+    machineGroupId: "",
+    selected: false,
+    sourceActivationCountCondition: null,
+    sourceFilter: null,
+    sourcePortId: "workflow-source",
+    sourceSectionId: "",
+    style: null,
+    targetAction: null,
+    targetPortId: "workflow-target",
+    targetSectionId: "",
+    zIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineEdge>(defaults, options),
+    sourceFilter:
+      options["sourceFilter"] === null
+        ? null
+        : (options["sourceFilter"] ?? defaults["sourceFilter"]) === null
+          ? null
+          : createStateMachineSourceFilter(
+              options["sourceFilter"] === null
+                ? null
+                : ((options["sourceFilter"] ??
+                    defaults[
+                      "sourceFilter"
+                    ]) as Partial<StateMachineSourceFilter>),
+            ),
+    sourceActivationCountCondition:
+      options["sourceActivationCountCondition"] === null
+        ? null
+        : (options["sourceActivationCountCondition"] ??
+              defaults["sourceActivationCountCondition"]) === null
+          ? null
+          : createStateMachineSourceActivationCountCondition(
+              options["sourceActivationCountCondition"] === null
+                ? null
+                : ((options["sourceActivationCountCondition"] ??
+                    defaults[
+                      "sourceActivationCountCondition"
+                    ]) as Partial<StateMachineSourceActivationCountCondition>),
+            ),
+    targetAction:
+      options["targetAction"] === null
+        ? null
+        : (options["targetAction"] ?? defaults["targetAction"]) === null
+          ? null
+          : createStateMachineTargetAction(
+              options["targetAction"] === null
+                ? null
+                : ((options["targetAction"] ??
+                    defaults[
+                      "targetAction"
+                    ]) as Partial<StateMachineTargetAction>),
+            ),
+  };
+}
+
+export type StateMachineEndSectionImpl = gt.StateMachineEndSectionImpl;
+
+export function createStateMachineEndSectionImpl(
+  options: Partial<StateMachineEndSectionImpl> = {},
+): StateMachineEndSectionImpl {
+  const defaults: StateMachineEndSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    label: "End",
+    machineGroupId: "",
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 96,
+      width: 240,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "StateMachineEnd",
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineEndSectionImpl>(defaults, options),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
+  };
+}
+
+export type StateMachineGateSectionImpl = gt.StateMachineGateSectionImpl;
+
+export function createStateMachineGateSectionImpl(
+  options: Partial<StateMachineGateSectionImpl> = {},
+): StateMachineGateSectionImpl {
+  const defaults: StateMachineGateSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    gateType: "AND",
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    label: "",
+    machineGroupId: "",
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 120,
+      width: 240,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "StateMachineGate",
+    ui: {
+      showDetails: false,
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineGateSectionImpl>(defaults, options),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
+    ui: createStateMachineGateUIState(options["ui"] ?? defaults["ui"]),
+  };
+}
+
+export type StateMachineGateTypeOption = gt.StateMachineGateTypeOption;
+
+export function createStateMachineGateTypeOption(
+  options: Partial<StateMachineGateTypeOption> = {},
+): StateMachineGateTypeOption {
+  return options as StateMachineGateTypeOption;
+}
+
+export type StateMachineGateUIState = gt.StateMachineGateUIState;
+
+export function createStateMachineGateUIState(
+  options: Partial<StateMachineGateUIState> = {},
+): StateMachineGateUIState {
+  const defaults: StateMachineGateUIState = {
+    showDetails: false,
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineGateUIState>(defaults, options),
+  };
+}
+
+export type StateMachinePermissionModeOption =
+  gt.StateMachinePermissionModeOption;
+
+export function createStateMachinePermissionModeOption(
+  options: Partial<StateMachinePermissionModeOption> = {},
+): StateMachinePermissionModeOption {
+  return options as StateMachinePermissionModeOption;
+}
+
+export type StateMachinePromptSourceOption = gt.StateMachinePromptSourceOption;
+
+export function createStateMachinePromptSourceOption(
+  options: Partial<StateMachinePromptSourceOption> = {},
+): StateMachinePromptSourceOption {
+  return options as StateMachinePromptSourceOption;
+}
+
+export type StateMachinePromptSourceTypesValue =
+  gt.StateMachinePromptSourceTypesValue;
+
+export function createStateMachinePromptSourceTypesValue(
+  options: Partial<StateMachinePromptSourceTypesValue> = {},
+): StateMachinePromptSourceTypesValue {
+  return options as StateMachinePromptSourceTypesValue;
+}
+
+export type StateMachineSectionSettings = gt.StateMachineSectionSettings;
+
+export function createStateMachineSectionSettings(
+  options: Partial<StateMachineSectionSettings> = {},
+): StateMachineSectionSettings {
+  return options as StateMachineSectionSettings;
+}
+
+export type StateMachineSourceActivationCountCondition =
+  gt.StateMachineSourceActivationCountCondition;
+
+export function createStateMachineSourceActivationCountCondition(
+  options: Partial<StateMachineSourceActivationCountCondition> = {},
+): StateMachineSourceActivationCountCondition {
+  const defaults: StateMachineSourceActivationCountCondition = {
+    operator: "eq",
+    value: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineSourceActivationCountCondition>(
+      defaults,
+      options,
+    ),
+  };
+}
+
+export type StateMachineSourceFilter = gt.StateMachineSourceFilter;
+
+export function createStateMachineSourceFilter(
+  options: Partial<StateMachineSourceFilter> = {},
+): StateMachineSourceFilter {
+  const defaults: StateMachineSourceFilter = {
+    equals: null,
+    payloadField: null,
+    signalName: null,
+    type: "run_completed",
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineSourceFilter>(defaults, options),
+  };
+}
+
+export type StateMachineSourceFilterTypeOption =
+  gt.StateMachineSourceFilterTypeOption;
+
+export function createStateMachineSourceFilterTypeOption(
+  options: Partial<StateMachineSourceFilterTypeOption> = {},
+): StateMachineSourceFilterTypeOption {
+  return options as StateMachineSourceFilterTypeOption;
+}
+
+export type StateMachineStartSectionImpl = gt.StateMachineStartSectionImpl;
 
 export function createStateMachineStartSectionImpl(
   options: Partial<StateMachineStartSectionImpl> = {},
@@ -3212,7 +6059,87 @@ export function createStateMachineStartSectionImpl(
   };
 }
 
-type SwitchParamCodeObjImpl = gt.SwitchParamCodeObjImpl;
+export type StateMachineTargetAction = gt.StateMachineTargetAction;
+
+export function createStateMachineTargetAction(
+  options: Partial<StateMachineTargetAction> = {},
+): StateMachineTargetAction {
+  const defaults: StateMachineTargetAction = {
+    agentProfileId: null,
+    engineConfigId: null,
+    inlinePrompt: null,
+    permissionMode: null,
+    promptInputs: {},
+    promptSectionId: null,
+    promptTemplateId: null,
+    searchEnabled: null,
+    stopIfRunning: false,
+    threadStrategy: "continue_current_thread",
+    type: "send_prompt",
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineTargetAction>(defaults, options),
+  };
+}
+
+export type StateMachineTargetActionTypeOption =
+  gt.StateMachineTargetActionTypeOption;
+
+export function createStateMachineTargetActionTypeOption(
+  options: Partial<StateMachineTargetActionTypeOption> = {},
+): StateMachineTargetActionTypeOption {
+  return options as StateMachineTargetActionTypeOption;
+}
+
+export type StateMachineThreadStrategyOption =
+  gt.StateMachineThreadStrategyOption;
+
+export function createStateMachineThreadStrategyOption(
+  options: Partial<StateMachineThreadStrategyOption> = {},
+): StateMachineThreadStrategyOption {
+  return options as StateMachineThreadStrategyOption;
+}
+
+export type StateMachineUIConfigValue = gt.StateMachineUIConfigValue;
+
+export function createStateMachineUIConfigValue(
+  options: Partial<StateMachineUIConfigValue> = {},
+): StateMachineUIConfigValue {
+  return options as StateMachineUIConfigValue;
+}
+
+export type StatusTransportRoutes = gt.StatusTransportRoutes;
+
+export function createStatusTransportRoutes(
+  options: Partial<StatusTransportRoutes> = {},
+): StatusTransportRoutes {
+  return options as StatusTransportRoutes;
+}
+
+export type SwitchParamCodeObjImpl = gt.SwitchParamCodeObjImpl;
+
+export function createSwitchParamCodeObjImpl(
+  options: Partial<SwitchParamCodeObjImpl> = {},
+): SwitchParamCodeObjImpl {
+  return options as SwitchParamCodeObjImpl;
+}
+
+export type SystemChatMessage = gt.SystemChatMessage;
+
+export function createSystemChatMessage(
+  options: Partial<SystemChatMessage> = {},
+): SystemChatMessage {
+  const defaults: SystemChatMessage = {
+    attachments: [],
+    content: [],
+    createdAt: 0,
+    id: "",
+    role: "system",
+  };
+  return {
+    ...mergeGeneratedOptions<SystemChatMessage>(defaults, options),
+  };
+}
 
 export type TaskBoardColumn = gt.TaskBoardColumn;
 
@@ -3230,7 +6157,32 @@ export function createTaskBoardColumn(
   };
 }
 
-type TaskBoardSectionImpl = gt.TaskBoardSectionImpl;
+export type TaskBoardRecurrenceOption = gt.TaskBoardRecurrenceOption;
+
+export function createTaskBoardRecurrenceOption(
+  options: Partial<TaskBoardRecurrenceOption> = {},
+): TaskBoardRecurrenceOption {
+  return options as TaskBoardRecurrenceOption;
+}
+
+export type TaskBoardRecurringMonthOption = gt.TaskBoardRecurringMonthOption;
+
+export function createTaskBoardRecurringMonthOption(
+  options: Partial<TaskBoardRecurringMonthOption> = {},
+): TaskBoardRecurringMonthOption {
+  return options as TaskBoardRecurringMonthOption;
+}
+
+export type TaskBoardRecurringWeekdayOption =
+  gt.TaskBoardRecurringWeekdayOption;
+
+export function createTaskBoardRecurringWeekdayOption(
+  options: Partial<TaskBoardRecurringWeekdayOption> = {},
+): TaskBoardRecurringWeekdayOption {
+  return options as TaskBoardRecurringWeekdayOption;
+}
+
+export type TaskBoardSectionImpl = gt.TaskBoardSectionImpl;
 
 export function createTaskBoardSectionImpl(
   options: Partial<TaskBoardSectionImpl> = {},
@@ -3286,9 +6238,29 @@ export function createTaskBoardTask(
   };
 }
 
+export type TaskBoardUIConfigValue = gt.TaskBoardUIConfigValue;
+
+export function createTaskBoardUIConfigValue(
+  options: Partial<TaskBoardUIConfigValue> = {},
+): TaskBoardUIConfigValue {
+  return options as TaskBoardUIConfigValue;
+}
+
+export type TaskBoardViewModeOption = gt.TaskBoardViewModeOption;
+
+export function createTaskBoardViewModeOption(
+  options: Partial<TaskBoardViewModeOption> = {},
+): TaskBoardViewModeOption {
+  return options as TaskBoardViewModeOption;
+}
+
 export type Template = gt.Template;
 
-type TerminalSectionImpl = gt.TerminalSectionImpl;
+export function createTemplate(options: Partial<Template> = {}): Template {
+  return options as Template;
+}
+
+export type TerminalSectionImpl = gt.TerminalSectionImpl;
 
 export function createTerminalSectionImpl(
   options: Partial<TerminalSectionImpl> = {},
@@ -3318,9 +6290,15 @@ export function createTerminalSectionImpl(
   };
 }
 
-type TextAreaParamCodeObjImpl = gt.TextAreaParamCodeObjImpl;
+export type TextAreaParamCodeObjImpl = gt.TextAreaParamCodeObjImpl;
 
-type TextBlockSectionImpl = gt.TextBlockSectionImpl;
+export function createTextAreaParamCodeObjImpl(
+  options: Partial<TextAreaParamCodeObjImpl> = {},
+): TextAreaParamCodeObjImpl {
+  return options as TextAreaParamCodeObjImpl;
+}
+
+export type TextBlockSectionImpl = gt.TextBlockSectionImpl;
 
 export function createTextBlockSectionImpl(
   options: Partial<TextBlockSectionImpl> = {},
@@ -3356,11 +6334,113 @@ export function createTextBlockSectionImpl(
   };
 }
 
-type TextParamCodeObjImpl = gt.TextParamCodeObjImpl;
+export type TextParamCodeObjImpl = gt.TextParamCodeObjImpl;
+
+export function createTextParamCodeObjImpl(
+  options: Partial<TextParamCodeObjImpl> = {},
+): TextParamCodeObjImpl {
+  return options as TextParamCodeObjImpl;
+}
+
+export type TextParamDateCalendarWeekStartOption =
+  gt.TextParamDateCalendarWeekStartOption;
+
+export function createTextParamDateCalendarWeekStartOption(
+  options: Partial<TextParamDateCalendarWeekStartOption> = {},
+): TextParamDateCalendarWeekStartOption {
+  return options as TextParamDateCalendarWeekStartOption;
+}
+
+export type TextParamDateControlModeOption = gt.TextParamDateControlModeOption;
+
+export function createTextParamDateControlModeOption(
+  options: Partial<TextParamDateControlModeOption> = {},
+): TextParamDateControlModeOption {
+  return options as TextParamDateControlModeOption;
+}
+
+export type TextParamDateDisplayFormatOption =
+  gt.TextParamDateDisplayFormatOption;
+
+export function createTextParamDateDisplayFormatOption(
+  options: Partial<TextParamDateDisplayFormatOption> = {},
+): TextParamDateDisplayFormatOption {
+  return options as TextParamDateDisplayFormatOption;
+}
+
+export type TextParamDateSelectionModeOption =
+  gt.TextParamDateSelectionModeOption;
+
+export function createTextParamDateSelectionModeOption(
+  options: Partial<TextParamDateSelectionModeOption> = {},
+): TextParamDateSelectionModeOption {
+  return options as TextParamDateSelectionModeOption;
+}
+
+export type TextParamTimeControlModeOption = gt.TextParamTimeControlModeOption;
+
+export function createTextParamTimeControlModeOption(
+  options: Partial<TextParamTimeControlModeOption> = {},
+): TextParamTimeControlModeOption {
+  return options as TextParamTimeControlModeOption;
+}
+
+export type TextParamTimeDisplayFontOption = gt.TextParamTimeDisplayFontOption;
+
+export function createTextParamTimeDisplayFontOption(
+  options: Partial<TextParamTimeDisplayFontOption> = {},
+): TextParamTimeDisplayFontOption {
+  return options as TextParamTimeDisplayFontOption;
+}
+
+export type TextParamTimeDisplayFormatOption =
+  gt.TextParamTimeDisplayFormatOption;
+
+export function createTextParamTimeDisplayFormatOption(
+  options: Partial<TextParamTimeDisplayFormatOption> = {},
+): TextParamTimeDisplayFormatOption {
+  return options as TextParamTimeDisplayFormatOption;
+}
+
+export type TextParamUIConfigValue = gt.TextParamUIConfigValue;
+
+export function createTextParamUIConfigValue(
+  options: Partial<TextParamUIConfigValue> = {},
+): TextParamUIConfigValue {
+  return options as TextParamUIConfigValue;
+}
 
 export type TimeParamCodeObjImpl = gt.TimeParamCodeObjImpl;
 
+export function createTimeParamCodeObjImpl(
+  options: Partial<TimeParamCodeObjImpl> = {},
+): TimeParamCodeObjImpl {
+  return options as TimeParamCodeObjImpl;
+}
+
+export type ToggleParamSelectedInput = gt.ToggleParamSelectedInput;
+
+export function createToggleParamSelectedInput(
+  options: Partial<ToggleParamSelectedInput> = {},
+): ToggleParamSelectedInput {
+  return options as ToggleParamSelectedInput;
+}
+
 export type ToolArgumentPreviewDeltaEvent = gt.ToolArgumentPreviewDeltaEvent;
+
+export function createToolArgumentPreviewDeltaEvent(
+  options: Partial<ToolArgumentPreviewDeltaEvent> = {},
+): ToolArgumentPreviewDeltaEvent {
+  return options as ToolArgumentPreviewDeltaEvent;
+}
+
+export type ToolArgumentPreviewTargetIDs = gt.ToolArgumentPreviewTargetIDs;
+
+export function createToolArgumentPreviewTargetIDs(
+  options: Partial<ToolArgumentPreviewTargetIDs> = {},
+): ToolArgumentPreviewTargetIDs {
+  return options as ToolArgumentPreviewTargetIDs;
+}
 
 export type ToolCall = gt.ToolCall;
 
@@ -3383,7 +6463,13 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
 
 export type ToolCallDeltaEvent = gt.ToolCallDeltaEvent;
 
-type ToolCallFunction = gt.ToolCallFunction;
+export function createToolCallDeltaEvent(
+  options: Partial<ToolCallDeltaEvent> = {},
+): ToolCallDeltaEvent {
+  return options as ToolCallDeltaEvent;
+}
+
+export type ToolCallFunction = gt.ToolCallFunction;
 
 export function createToolCallFunction(
   options: Partial<ToolCallFunction> = {},
@@ -3421,7 +6507,29 @@ export function createToolChatMessage(
   };
 }
 
+export type ToolNameNormalization = gt.ToolNameNormalization;
+
+export function createToolNameNormalization(
+  options: Partial<ToolNameNormalization> = {},
+): ToolNameNormalization {
+  return options as ToolNameNormalization;
+}
+
+export type ToolReferenceContent = gt.ToolReferenceContent;
+
+export function createToolReferenceContent(
+  options: Partial<ToolReferenceContent> = {},
+): ToolReferenceContent {
+  return options as ToolReferenceContent;
+}
+
 export type ToolResultEvent = gt.ToolResultEvent;
+
+export function createToolResultEvent(
+  options: Partial<ToolResultEvent> = {},
+): ToolResultEvent {
+  return options as ToolResultEvent;
+}
 
 export type TopLevelSectionLayout = gt.TopLevelSectionLayout;
 
@@ -3442,9 +6550,68 @@ export function createTopLevelSectionLayout(
 
 export type TranscriptionProfile = gt.TranscriptionProfile;
 
-type TypeErrorIgnoreState = gt.TypeErrorIgnoreState;
+export function createTranscriptionProfile(
+  options: Partial<TranscriptionProfile> = {},
+): TranscriptionProfile {
+  return options as TranscriptionProfile;
+}
 
-function createTypeErrorIgnoreState(
+export type TranscriptionProfileTransportModeOption =
+  gt.TranscriptionProfileTransportModeOption;
+
+export function createTranscriptionProfileTransportModeOption(
+  options: Partial<TranscriptionProfileTransportModeOption> = {},
+): TranscriptionProfileTransportModeOption {
+  return options as TranscriptionProfileTransportModeOption;
+}
+
+export type TranscriptionProfileTransportModesValue =
+  gt.TranscriptionProfileTransportModesValue;
+
+export function createTranscriptionProfileTransportModesValue(
+  options: Partial<TranscriptionProfileTransportModesValue> = {},
+): TranscriptionProfileTransportModesValue {
+  return options as TranscriptionProfileTransportModesValue;
+}
+
+export type TranscriptionProfileUIConfigValue =
+  gt.TranscriptionProfileUIConfigValue;
+
+export function createTranscriptionProfileUIConfigValue(
+  options: Partial<TranscriptionProfileUIConfigValue> = {},
+): TranscriptionProfileUIConfigValue {
+  return options as TranscriptionProfileUIConfigValue;
+}
+
+export type TranscriptionProfilesUpdatedContent =
+  gt.TranscriptionProfilesUpdatedContent;
+
+export function createTranscriptionProfilesUpdatedContent(
+  options: Partial<TranscriptionProfilesUpdatedContent> = {},
+): TranscriptionProfilesUpdatedContent {
+  return options as TranscriptionProfilesUpdatedContent;
+}
+
+export type TranscriptionProfilesUpdatedMessage =
+  gt.TranscriptionProfilesUpdatedMessage;
+
+export function createTranscriptionProfilesUpdatedMessage(
+  options: Partial<TranscriptionProfilesUpdatedMessage> = {},
+): TranscriptionProfilesUpdatedMessage {
+  return options as TranscriptionProfilesUpdatedMessage;
+}
+
+export type TransportRoutes = gt.TransportRoutes;
+
+export function createTransportRoutes(
+  options: Partial<TransportRoutes> = {},
+): TransportRoutes {
+  return options as TransportRoutes;
+}
+
+export type TypeErrorIgnoreState = gt.TypeErrorIgnoreState;
+
+export function createTypeErrorIgnoreState(
   options: Partial<TypeErrorIgnoreState> = {},
 ): TypeErrorIgnoreState {
   const defaults: TypeErrorIgnoreState = {
@@ -3456,15 +6623,127 @@ function createTypeErrorIgnoreState(
   };
 }
 
+export type UIEditorTabNamesValue = gt.UIEditorTabNamesValue;
+
+export function createUIEditorTabNamesValue(
+  options: Partial<UIEditorTabNamesValue> = {},
+): UIEditorTabNamesValue {
+  return options as UIEditorTabNamesValue;
+}
+
+export type UIEditorTabTitlesValue = gt.UIEditorTabTitlesValue;
+
+export function createUIEditorTabTitlesValue(
+  options: Partial<UIEditorTabTitlesValue> = {},
+): UIEditorTabTitlesValue {
+  return options as UIEditorTabTitlesValue;
+}
+
+export type UIEditorTabUIConfigValue = gt.UIEditorTabUIConfigValue;
+
+export function createUIEditorTabUIConfigValue(
+  options: Partial<UIEditorTabUIConfigValue> = {},
+): UIEditorTabUIConfigValue {
+  return options as UIEditorTabUIConfigValue;
+}
+
+export type UISettingRevealActivationStep = gt.UISettingRevealActivationStep;
+
+export function createUISettingRevealActivationStep(
+  options: Partial<UISettingRevealActivationStep> = {},
+): UISettingRevealActivationStep {
+  return options as UISettingRevealActivationStep;
+}
+
 export type UISettingRevealContent = gt.UISettingRevealContent;
+
+export function createUISettingRevealContent(
+  options: Partial<UISettingRevealContent> = {},
+): UISettingRevealContent {
+  return options as UISettingRevealContent;
+}
+
+export type UISettingRevealMessage = gt.UISettingRevealMessage;
+
+export function createUISettingRevealMessage(
+  options: Partial<UISettingRevealMessage> = {},
+): UISettingRevealMessage {
+  return options as UISettingRevealMessage;
+}
+
+export type UISettingRevealResultContent = gt.UISettingRevealResultContent;
+
+export function createUISettingRevealResultContent(
+  options: Partial<UISettingRevealResultContent> = {},
+): UISettingRevealResultContent {
+  return options as UISettingRevealResultContent;
+}
 
 export type UISettingRevealResultMessage = gt.UISettingRevealResultMessage;
 
+export function createUISettingRevealResultMessage(
+  options: Partial<UISettingRevealResultMessage> = {},
+): UISettingRevealResultMessage {
+  return options as UISettingRevealResultMessage;
+}
+
 export type UISettingRevealResultStatus = gt.UISettingRevealResultStatus;
+
+export function createUISettingRevealResultStatus(
+  options: Partial<UISettingRevealResultStatus> = {},
+): UISettingRevealResultStatus {
+  return options as UISettingRevealResultStatus;
+}
 
 export type UISettingRevealTarget = gt.UISettingRevealTarget;
 
-type UserChatMessage = gt.UserChatMessage;
+export function createUISettingRevealTarget(
+  options: Partial<UISettingRevealTarget> = {},
+): UISettingRevealTarget {
+  return options as UISettingRevealTarget;
+}
+
+export type UngroupGroupsInput = gt.UngroupGroupsInput;
+
+export function createUngroupGroupsInput(
+  options: Partial<UngroupGroupsInput> = {},
+): UngroupGroupsInput {
+  return options as UngroupGroupsInput;
+}
+
+export type UnindentParamsInput = gt.UnindentParamsInput;
+
+export function createUnindentParamsInput(
+  options: Partial<UnindentParamsInput> = {},
+): UnindentParamsInput {
+  return options as UnindentParamsInput;
+}
+
+export type UpdateArtifactsContent = gt.UpdateArtifactsContent;
+
+export function createUpdateArtifactsContent(
+  options: Partial<UpdateArtifactsContent> = {},
+): UpdateArtifactsContent {
+  return options as UpdateArtifactsContent;
+}
+
+export type UpdateArtifactsMessage = gt.UpdateArtifactsMessage;
+
+export function createUpdateArtifactsMessage(
+  options: Partial<UpdateArtifactsMessage> = {},
+): UpdateArtifactsMessage {
+  return options as UpdateArtifactsMessage;
+}
+
+export type UpdateRequest = gt.UpdateRequest;
+
+export function createUpdateRequest(
+  options: Partial<UpdateRequest> = {},
+): UpdateRequest {
+  return options as UpdateRequest;
+}
+
+export type UserChatMessage = gt.UserChatMessage;
 
 export function createUserChatMessage(
   options: Partial<UserChatMessage> = {},
@@ -3529,7 +6808,7 @@ export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
 
 export type Viewport = gt.Viewport;
 
-function createViewport(options: Partial<Viewport> = {}): Viewport {
+export function createViewport(options: Partial<Viewport> = {}): Viewport {
   const defaults: Viewport = {
     x: 0,
     y: 0,
@@ -3542,7 +6821,35 @@ function createViewport(options: Partial<Viewport> = {}): Viewport {
 
 export type ViewportBounds = gt.ViewportBounds;
 
+export function createViewportBounds(
+  options: Partial<ViewportBounds> = {},
+): ViewportBounds {
+  return options as ViewportBounds;
+}
+
 export type WatchCodeFolder = gt.WatchCodeFolder;
+
+export function createWatchCodeFolder(
+  options: Partial<WatchCodeFolder> = {},
+): WatchCodeFolder {
+  return options as WatchCodeFolder;
+}
+
+export type WatchCodeRegistryEntry = gt.WatchCodeRegistryEntry;
+
+export function createWatchCodeRegistryEntry(
+  options: Partial<WatchCodeRegistryEntry> = {},
+): WatchCodeRegistryEntry {
+  return options as WatchCodeRegistryEntry;
+}
+
+export type WebsocketTransportRoutes = gt.WebsocketTransportRoutes;
+
+export function createWebsocketTransportRoutes(
+  options: Partial<WebsocketTransportRoutes> = {},
+): WebsocketTransportRoutes {
+  return options as WebsocketTransportRoutes;
+}
 
 export type WindowSpaceConfig = gt.WindowSpaceConfig;
 
@@ -3575,7 +6882,7 @@ export function createWindowSpaceState(
   };
 }
 
-type WindowSpaceWindow = gt.WindowSpaceWindow;
+export type WindowSpaceWindow = gt.WindowSpaceWindow;
 
 export function createWindowSpaceWindow(
   options: Partial<WindowSpaceWindow> = {},
@@ -3603,17 +6910,21 @@ export function createWindowSpaceWindow(
   };
 }
 
+export type JSONValue = gt.RawMessage;
+
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",
   inline_text: "inline_text",
   summary: "summary",
 } as const;
+export type AgenticEdgeContextMode = gt.AgenticEdgeContextMode;
 
 export const AgenticEdgeKindEnum = {
   chat_chat: "chat_chat",
   section_chat: "section_chat",
   chat_section: "chat_section",
 } as const;
+export type AgenticEdgeKind = gt.AgenticEdgeKind;
 
 export const AppGenerationModeEnum = {
   json_render: "json_render",
@@ -3637,6 +6948,7 @@ export const BackgroundVariantEnum = {
   dots: "dots",
   cross: "cross",
 } as const;
+export type BackgroundVariant = gt.BackgroundVariant;
 
 export const BrowserAreaViewModeEnum = {
   list: "list",
@@ -3649,6 +6961,7 @@ export const BrowserSearchScopeEnum = {
   recursive: "recursive",
   local: "local",
 } as const;
+export type BrowserSearchScope = gt.BrowserSearchScope;
 
 export const ButtonActionModeEnum = {
   WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
@@ -3670,6 +6983,7 @@ export const ChatAppGenerationMessageModeEnum = {
   prompt_builder: "prompt_builder",
   mcp_server: "mcp_server",
 } as const;
+export type ChatAppGenerationMessageMode = gt.ChatAppGenerationMessageMode;
 
 export const ChatDictationModeEnum = {
   auto: "auto",
@@ -3691,6 +7005,17 @@ export const ChatRoleEnum = {
   assistant: "assistant",
   tool: "tool",
 } as const;
+export type ChatRole = gt.ChatRole;
+
+export const ChatSendActionEnum = {
+  send: "send",
+} as const;
+export type ChatSendAction = gt.ChatSendAction;
+
+export const ChatStopActionEnum = {
+  stop: "stop",
+} as const;
+export type ChatStopAction = gt.ChatStopAction;
 
 export const ChatWindowModeEnum = {
   project_ai_mode: "project_ai_mode",
@@ -3712,10 +7037,12 @@ export const ClaudeSettingsSourceEnum = {
   project: "project",
   local: "local",
 } as const;
+export type ClaudeSettingsSource = gt.ClaudeSettingsSource;
 
 export const ClipboardDataTypeEnum = {
   Sections: "Sections",
 } as const;
+export type ClipboardDataType = gt.ClipboardDataType;
 
 export const CodeFileAccessModeEnum = {
   read_write: "read_write",
@@ -3735,6 +7062,7 @@ export const CodeLanguageEnum = {
   markdown: "markdown",
   plaintext: "plaintext",
 } as const;
+export type CodeLanguage = gt.CodeLanguage;
 
 export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
@@ -3768,6 +7096,7 @@ export const ConfigLanguageEnum = {
   python: "python",
   json: "json",
 } as const;
+export type ConfigLanguage = gt.ConfigLanguage;
 
 export const ConnectionTypeEnum = {
   frontend: "frontend",
@@ -3775,6 +7104,7 @@ export const ConnectionTypeEnum = {
   SERVER: "SERVER",
   terminal: "terminal",
 } as const;
+export type ConnectionType = gt.ConnectionType;
 
 export const DateCalendarWeekStartEnum = {
   sunday: "sunday",
@@ -3806,12 +7136,24 @@ export const DependencyKeyTypeEnum = {
   Section: "Section",
   SectionParam: "SectionParam",
 } as const;
+export type DependencyKeyType = gt.DependencyKeyType;
 
 export const DependencyValueTypeEnum = {
   Literal: "Literal",
   Binary: "Binary",
   FileRead: "FileRead",
 } as const;
+export type DependencyValueType = gt.DependencyValueType;
+
+export const DetachedStatusEnum = {
+  queued: "queued",
+  running: "running",
+  exited: "exited",
+  failed: "failed",
+  canceled: "canceled",
+  lost: "lost",
+} as const;
+export type DetachedStatus = gt.DetachedStatus;
 
 export const DrawAreaBrushShapeEnum = {
   butt: "butt",
@@ -3819,6 +7161,12 @@ export const DrawAreaBrushShapeEnum = {
   square: "square",
 } as const;
 export type DrawAreaBrushShape = gt.DrawAreaBrushShape;
+
+export const DrawAreaLayerItemTypeEnum = {
+  Image: "Image",
+  BrushStroke: "BrushStroke",
+} as const;
+export type DrawAreaLayerItemType = gt.DrawAreaLayerItemType;
 
 export const DrawAreaModeEnum = {
   draw: "draw",
@@ -3831,6 +7179,7 @@ export const DropzoneModeEnum = {
   STATEFUL: "STATEFUL",
   STATELESS: "STATELESS",
 } as const;
+export type DropzoneMode = gt.DropzoneMode;
 
 export const EndpointOriginEnum = {
   backend: "backend",
@@ -3843,11 +7192,33 @@ export const EngineTypeEnum = {
   setta_llm: "setta_llm",
   external_agent: "external_agent",
 } as const;
+export type EngineType = gt.EngineType;
+
+export const ErrorKindEnum = {
+  invalid_request: "invalid_request",
+  path_forbidden: "path_forbidden",
+  path_not_found: "path_not_found",
+  path_not_file: "path_not_file",
+  binary_payload_invalid: "binary_payload_invalid",
+  binary_payload_not_found: "binary_payload_not_found",
+  artifact_type_unsupported: "artifact_type_unsupported",
+  policy_denied: "policy_denied",
+  too_large: "too_large",
+  mime_not_allowed: "mime_not_allowed",
+} as const;
+export type ErrorKind = gt.ErrorKind;
 
 export const FormatEnum = {
   Jinja: "Jinja",
 } as const;
 export type Format = gt.Format;
+
+export const GeneratedSectionKindEnum = {
+  python_code: "python_code",
+  python_metadata: "python_metadata",
+  plugin: "plugin",
+} as const;
+export type GeneratedSectionKind = gt.GeneratedSectionKind;
 
 export const HTTPRequestMethodEnum = {
   GET: "GET",
@@ -3867,12 +7238,57 @@ export const ListRootViewModeEnum = {
 } as const;
 export type ListRootViewMode = gt.ListRootViewMode;
 
+export const ListenerDependencyModeEnum = {
+  always: "always",
+  realtime_only: "realtime_only",
+  refresh_only: "refresh_only",
+} as const;
+export type ListenerDependencyMode = gt.ListenerDependencyMode;
+
+export const ListenerMessageTypeEnum = {
+  ListenerInit: "ListenerInit",
+  ListenerRegister: "ListenerRegister",
+  ListenerRegisterAck: "ListenerRegisterAck",
+  ListenerFrontendEmit: "ListenerFrontendEmit",
+  ListenerRouterEndpointCall: "ListenerRouterEndpointCall",
+  ListenerRouterEndpointResult: "ListenerRouterEndpointResult",
+  ListenerRealtimeEvent: "ListenerRealtimeEvent",
+  ListenerDependencyEvent: "ListenerDependencyEvent",
+  ListenerForceRefresh: "ListenerForceRefresh",
+  ListenerError: "ListenerError",
+} as const;
+export type ListenerMessageType = gt.ListenerMessageType;
+
+export const ManagedAPIKeysWriteStatusEnum = {
+  success: "success",
+  revision_conflict: "revision_conflict",
+  corrupt_store: "corrupt_store",
+  store_unavailable: "store_unavailable",
+} as const;
+export type ManagedAPIKeysWriteStatus = gt.ManagedAPIKeysWriteStatus;
+
 export const MessageTypeEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   UISettingRevealResult: "UISettingRevealResult",
   RealtimeUIChange: "RealtimeUIChange",
   RealtimeDependencyEvent: "RealtimeDependencyEvent",
 } as const;
+export type MessageType = gt.MessageType;
+
+export const MetaControlSizeModeEnum = {
+  any: "any",
+  auto_only: "auto_only",
+  manual_only: "manual_only",
+} as const;
+export type MetaControlSizeMode = gt.MetaControlSizeMode;
+
+export const ModeEnum = {
+  ide: "ide",
+  share: "share",
+  app: "app",
+  launcher: "launcher",
+} as const;
+export type Mode = gt.Mode;
 
 export const NotificationTypeEnum = {
   error: "error",
@@ -3881,6 +7297,19 @@ export const NotificationTypeEnum = {
   save: "save",
 } as const;
 export type NotificationType = gt.NotificationType;
+
+export const OverviewTabNameEnum = {
+  Overview: "Overview",
+  Plugins: "Plugins",
+  FileBrowser: "FileBrowser",
+  Git: "Git",
+  App: "App",
+  RunInstructions: "RunInstructions",
+  ViewModes: "ViewModes",
+  Notifications: "Notifications",
+  ProjectAIChat: "ProjectAIChat",
+  ProjectAISettings: "ProjectAISettings",
+} as const;
 export type OverviewTabName = gt.OverviewTabName;
 
 export const PanOnScrollModeEnum = {
@@ -3888,11 +7317,13 @@ export const PanOnScrollModeEnum = {
   vertical: "vertical",
   horizontal: "horizontal",
 } as const;
+export type PanOnScrollMode = gt.PanOnScrollMode;
 
 export const ParamNameTypeEnum = {
   CODE: "CODE",
   TEXT: "TEXT",
 } as const;
+export type ParamNameType = gt.ParamNameType;
 
 export const ParameterPassingStyleEnum = {
   DEFAULT: "DEFAULT",
@@ -3901,6 +7332,22 @@ export const ParameterPassingStyleEnum = {
   POSITIONAL_ONLY: "POSITIONAL_ONLY",
   KEYWORD_ONLY: "KEYWORD_ONLY",
 } as const;
+export type ParameterPassingStyle = gt.ParameterPassingStyle;
+
+export const PluginBlockedCapabilityReasonEnum = {
+  mode_policy: "mode_policy",
+  host_policy: "host_policy",
+  manifest_invalid: "manifest_invalid",
+} as const;
+export type PluginBlockedCapabilityReason = gt.PluginBlockedCapabilityReason;
+
+export const PluginEnablementSourceEnum = {
+  workspace_disabled: "workspace_disabled",
+  workspace_enabled: "workspace_enabled",
+  global_auto_enabled: "global_auto_enabled",
+  manifest_default: "manifest_default",
+} as const;
+export type PluginEnablementSource = gt.PluginEnablementSource;
 
 export const PluginInstallerBackendEnum = {
   auto: "auto",
@@ -3908,7 +7355,17 @@ export const PluginInstallerBackendEnum = {
   uv: "uv",
 } as const;
 export type PluginInstallerBackend = gt.PluginInstallerBackend;
+
+export const PluginOverviewTabPrefixEnum = {
+  PluginPane: "PluginPane",
+} as const;
 export type PluginOverviewTabPrefix = gt.PluginOverviewTabPrefix;
+
+export const PluginRestartCapabilityModeEnum = {
+  manual: "manual",
+  programmatic: "programmatic",
+} as const;
+export type PluginRestartCapabilityMode = gt.PluginRestartCapabilityMode;
 
 export const PluginRuntimeStateEnum = {
   active: "active",
@@ -3917,6 +7374,7 @@ export const PluginRuntimeStateEnum = {
   shadowed: "shadowed",
   pending_restart: "pending_restart",
 } as const;
+export type PluginRuntimeState = gt.PluginRuntimeState;
 
 export const PluginScopeEnum = {
   workspace: "workspace",
@@ -3925,9 +7383,60 @@ export const PluginScopeEnum = {
 } as const;
 export type PluginScope = gt.PluginScope;
 
+export const PluginSourceManagerEnum = {
+  setta: "setta",
+  package_manager: "package_manager",
+} as const;
+export type PluginSourceManager = gt.PluginSourceManager;
+
+export const PluginSourceSchemeEnum = {
+  github: "github",
+  pypi: "pypi",
+} as const;
+export type PluginSourceScheme = gt.PluginSourceScheme;
+
+export const PluginSourceTrustStatusEnum = {
+  unverified: "unverified",
+} as const;
+export type PluginSourceTrustStatus = gt.PluginSourceTrustStatus;
+
+export const PreviewKindEnum = {
+  code: "code",
+  paramValue: "paramValue",
+  callableName: "callableName",
+  appSpecPatch: "appSpecPatch",
+} as const;
+export type PreviewKind = gt.PreviewKind;
+
 export const ProjectCodegenLanguageEnum = {
   python: "python",
 } as const;
+export type ProjectCodegenLanguage = gt.ProjectCodegenLanguage;
+
+export const PythonCodeObjValueRepresentationModeEnum = {
+  expression: "expression",
+  json_parsed: "json_parsed",
+  string: "string",
+  file_path: "file_path",
+  file_read: "file_read",
+} as const;
+export type PythonCodeObjValueRepresentationMode =
+  gt.PythonCodeObjValueRepresentationMode;
+
+export const PythonSectionCodegenModeEnum = {
+  inherit: "inherit",
+  include: "include",
+  exclude: "exclude",
+} as const;
+export type PythonSectionCodegenMode = gt.PythonSectionCodegenMode;
+
+export const PythonSectionRepresentationModeEnum = {
+  expression: "expression",
+  file_path: "file_path",
+  file_read: "file_read",
+} as const;
+export type PythonSectionRepresentationMode =
+  gt.PythonSectionRepresentationMode;
 
 export const RenameRefactorModeEnum = {
   ALWAYS_ASK: "ALWAYS_ASK",
@@ -3936,11 +7445,334 @@ export const RenameRefactorModeEnum = {
 } as const;
 export type RenameRefactorMode = gt.RenameRefactorMode;
 
+export const ResolvedSettaFilesLocationEnum = {
+  local: "local",
+  global: "global",
+} as const;
+export type ResolvedSettaFilesLocation = gt.ResolvedSettaFilesLocation;
+
+export const RouteEnum = {
+  ACCEPT_RENAME_REFACTOR: "/acceptRenameRefactor",
+  ADD_KWARG: "/addKwarg",
+  ADD_LAUNCHER_RECENT_WORKSPACE: "/addLauncherRecentWorkspace",
+  API_PREFIX: "/api",
+  APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
+  APPEND_TRANSCRIPTION_AUDIO: "/appendTranscriptionAudio",
+  APP_DEPLOYMENTS: "/app/deployments",
+  APP_DEPLOYMENT_CURRENT_SESSION: "/app/deployments/current/session",
+  APP_DEPLOYMENT_LATEST: "/app/deployments/{deploymentName}/latest",
+  APP_DEPLOYMENT_PROJECT_CONFIG:
+    "/app/deployments/{deploymentName}/{version}/project_config",
+  APP_DEPLOYMENT_STATE: "/app/deployments/{deploymentName}/{version}/state",
+  APP_DEPLOYMENT_VERSIONS: "/app/deployments/{deploymentName}/versions",
+  ATTACHMENT_DOWNLOAD: "/attachments/{token}",
+  AUTO_LAYOUT_TOP_LEVEL_SECTIONS: "/autoLayoutTopLevelSections",
+  BINARY_DOWNLOAD: "/binary/{contentId}",
+  BINARY_UPLOAD: "/binary/upload",
+  BOOTSTRAP_CONSUME: "/__setta__/bootstrap/consume",
+  BOOTSTRAP_PAGE: "/__setta__/bootstrap",
+  CANCEL_RUN: "/cancelRun",
+  CANCEL_TRANSCRIPTION_SESSION: "/cancelTranscriptionSession",
+  CHANGE_PARAM_IMPL: "/changeParamImpl",
+  CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
+  CHECK_WORKSPACE_INITIALIZED: "/checkWorkspaceInitialized",
+  CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
+  CODE_AREA_COMPLETION: "/codeAreaCompletion",
+  CREATE_AGENTIC_EDGE: "/createAgenticEdge",
+  CREATE_AGENT_PROFILE: "/createAgentProfile",
+  CREATE_CHILD_SECTIONS: "/createChildSections",
+  CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
+  CREATE_EDGE: "/createEdge",
+  CREATE_ENGINE_CONFIG: "/createEngineConfig",
+  CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
+  CREATE_FILE: "/createFile",
+  CREATE_NEW_SECTION_VARIANT: "/createNewSectionVariant",
+  CREATE_PROJECT_CONFIG: "/createProjectConfig",
+  CREATE_PROMPT_TEMPLATE: "/createPromptTemplate",
+  CREATE_STATE_MACHINE_EDGE: "/createStateMachineEdge",
+  CREATE_TOP_LEVEL_SECTION: "/createTopLevelSection",
+  CREATE_TRANSCRIPTION_PROFILE: "/createTranscriptionProfile",
+  CREATE_VIEW_MODE: "/createViewMode",
+  CREATE_WINDOW_SPACE: "/createWindowSpace",
+  CREATE_WORKSPACE_LAUNCH_INTENT: "/createWorkspaceLaunchIntent",
+  DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
+  DELETE_AGENTIC_EDGES: "/deleteAgenticEdges",
+  DELETE_AGENT_PROFILE: "/deleteAgentProfile",
+  DELETE_ARTIFACTS: "/deleteArtifacts",
+  DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
+  DELETE_EDGES: "/deleteEdges",
+  DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
+  DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
+  DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
+  DELETE_KWARG: "/deleteKwarg",
+  DELETE_NOTIFICATION: "/deleteNotification",
+  DELETE_PROJECT_CONFIGS: "/deleteProjectConfigs",
+  DELETE_PROMPT_TEMPLATE: "/deletePromptTemplate",
+  DELETE_SECTIONS: "/deleteSections",
+  DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
+  DELETE_SELECTED_PARAMS: "/deleteSelectedParams",
+  DELETE_STATE_MACHINE_EDGES: "/deleteStateMachineEdges",
+  DELETE_TERMINALS: "/deleteTerminals",
+  DELETE_TRANSCRIPTION_PROFILE: "/deleteTranscriptionProfile",
+  DELETE_VIEW_MODE: "/deleteViewMode",
+  DELETE_WINDOW_SPACE: "/deleteWindowSpace",
+  DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
+  FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
+  FORCE_REFRESH_LISTENER: "/forceRefreshListener",
+  FORMAT_CODE: "/formatCode",
+  FRONTEND: "/ws/frontend",
+  GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
+  GEN_CODE_SUFFIX_COMPLETION: "/genCodeSuffixCompletion",
+  GET_AGENTIC_SUMMARY_CACHE_STATUS: "/getAgenticSummaryCacheStatus",
+  GET_AGENT_PROFILE: "/getAgentProfile",
+  GET_AGENT_PROFILES: "/getAgentProfiles",
+  GET_AGENT_RUN: "/getAgentRun",
+  GET_AGENT_RUNS: "/getAgentRuns",
+  GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  GET_APP_CATALOG: "/getAppCatalog",
+  GET_APP_DEFINITION: "/getAppDefinition",
+  GET_APP_GEN_SKILLS: "/getAppGenSkills",
+  GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
+  GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
+  GET_ATTACHMENT_DOWNLOAD_UR_LS: "/getAttachmentDownloadUrls",
+  GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
+  GET_BACKEND_INIT_STATUS: "/backendInitStatus",
+  GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
+  GET_ENGINE_CONFIG: "/getEngineConfig",
+  GET_ENGINE_CONFIGS: "/getEngineConfigs",
+  GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
+  GET_EXTERNAL_AGENT_CONFIG: "/getExternalAgentConfig",
+  GET_EXTERNAL_AGENT_CONFIGS: "/getExternalAgentConfigs",
+  GET_EXTERNAL_AGENT_HEALTH: "/getExternalAgentHealth",
+  GET_FILE_BROWSER_DOWNLOAD_URL: "/getFileBrowserDownloadUrls",
+  GET_FILE_BROWSER_FILE_CONTENT: "/getFileBrowserFileContent",
+  GET_FILE_BROWSER_FILE_STAT: "/getFileBrowserFileStat",
+  GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
+  GET_FOLDER_CONTENTS: "/getFolderContents",
+  GET_GIT_COMMIT_DETAILS: "/git/commitDetails",
+  GET_GIT_COMMIT_FILE_DIFF: "/git/commitFileDiff",
+  GET_GIT_DIFF: "/git/diff",
+  GET_GIT_LOG: "/git/log",
+  GET_GIT_STATUS: "/git/status",
+  GET_LATEST_LSP_DIAGNOSTICS: "/getLatestLspDiagnostics",
+  GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
+  GET_LAUNCHER_FILESYSTEM_ROOTS: "/launcherFilesystemRoots",
+  GET_LAUNCHER_RECENT_WORKSPACES: "/launcherRecentWorkspaces",
+  GET_LAUNCHER_STATUS: "/launcherStatus",
+  GET_LISTENER_COVERAGE: "/getListenerCoverage",
+  GET_LLM_CHAT: "/getLLMChat",
+  GET_LLM_RESPONSE: "/getLLMResponse",
+  GET_NOTIFICATIONS: "/getNotifications",
+  GET_PASSWORD_PARAM_VALUE: "/getPasswordParamValue",
+  GET_PROMPT_TEMPLATE: "/getPromptTemplate",
+  GET_PROMPT_TEMPLATES: "/getPromptTemplates",
+  GET_RUNNER_SUMMARY: "/getRunnerSummary",
+  GET_RUN_STATUS: "/getRunStatus",
+  GET_SERVER_MODE: "/serverMode",
+  GET_SETTA_HOME_INFO: "/settaHomeInfo",
+  GET_STATE_MACHINE_RUN: "/getStateMachineRun",
+  GET_TRANSCRIPTION_PROFILES: "/getTranscriptionProfiles",
+  GET_WORKSPACE_PYTHON_SIGNAL: "/getWorkspacePythonSignal",
+  GROUP_SECTIONS: "/groupSections",
+  IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
+  INDENT_PARAMS: "/indentParams",
+  INTERRUPT_TERMINAL_PROCESSES: "/interruptTerminalProcesses",
+  LAUNCH: "/launch",
+  LISTENER_BY_ID: "/ws/listeners/{listenerID}",
+  LIST_LAUNCHER_DIRECTORY: "/listLauncherDirectory",
+  LLMAPI_KEYS: "/llm/apiKeys",
+  LLM_CONFIG: "/llm/config",
+  LOAD_ALL_PROJECT_METADATA: "/loadAllProjectMetadata",
+  LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
+  LOAD_CACHED_CHART_DATA: "/loadCachedChartData",
+  LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANSFORM: "/loadDrawAreaLayerItemTransform",
+  LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
+  LOAD_PROJECT_CONFIG: "/loadProjectConfig",
+  LOAD_SETTINGS: "/loadSettings",
+  MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
+  MCP_TOOL_CALL: "/__setta__/tools/call",
+  MOVE_PARAMS: "/moveParams",
+  MOVE_PARAM_GROUPS: "/moveParamGroups",
+  MOVE_SECTIONS: "/moveSections",
+  OPEN_LAUNCHER_WORKSPACE: "/openLauncherWorkspace",
+  OUTPUT_ACCESSOR_COMPLETION: "/outputAccessorCompletion",
+  PASTE_SECTIONS: "/pasteSections",
+  PIN_LAUNCHER_RECENT_WORKSPACE: "/pinLauncherRecentWorkspace",
+  PLUGINS_ASSET_WILDCARD: "/plugins/{pluginId}/*",
+  PLUGINS_CONFIG: "/plugins/config",
+  PLUGINS_DISABLE: "/plugins/disable",
+  PLUGINS_ENABLE: "/plugins/enable",
+  PLUGINS_INSTALL: "/plugins/install",
+  PLUGINS_LINK: "/plugins/link",
+  PLUGINS_LOCK_APPLY: "/plugins/lock/apply",
+  PLUGINS_LOCK_WRITE: "/plugins/lock/write",
+  PLUGINS_RESCAN: "/plugins/rescan",
+  PLUGINS_RESTART: "/plugins/restart",
+  PLUGINS_ROLLBACK: "/plugins/rollback",
+  PLUGINS_RUNTIME: "/plugins/runtime",
+  PLUGINS_UNINSTALL: "/plugins/uninstall",
+  PLUGINS_UPDATE: "/plugins/update",
+  PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
+  RECONNECT_EDGE: "/reconnectEdge",
+  REDO: "/redo",
+  REMOVE_LAUNCHER: "/removeLauncher",
+  REMOVE_LAUNCHER_RECENT_WORKSPACE: "/removeLauncherRecentWorkspace",
+  REPAIR_LAUNCHER: "/repairLauncher",
+  RESET_STATE_MACHINE: "/resetStateMachine",
+  RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
+  RESPOND_EXTERNAL_AGENT_QUESTION: "/respondExternalAgentQuestion",
+  RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
+  REVEAL_PATH_IN_OS_FILE_EXPLORER: "/revealPathInOsFileExplorer",
+  RUN_CODE: "/runCode",
+  RUN_DETACHED: "/runDetached",
+  SAVE_AS_NEW_PROJECT_CONFIG: "/saveAsNewProjectConfig",
+  SAVE_PROJECT: "/saveProject",
+  SAVE_SETTINGS: "/saveSettings",
+  SDK_RUNTIME_HANDSHAKE: "/sdkRuntimeHandshake",
+  SETUP_LAUNCHER: "/setupLauncher",
+  SET_ACTIVE_I_DS: "/setActiveIds",
+  SET_ACTIVE_VIEW_MODE: "/setActiveViewMode",
+  SET_AGENTIC_EDGES: "/setAgenticEdges",
+  SET_APP_DEFINITION: "/setAppDefinition",
+  SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
+  SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
+  SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
+  SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
+  SET_BROWSER_SAVED_SEARCHES: "/setBrowserSavedSearches",
+  SET_CALLABLE: "/setCallable",
+  SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
+  SET_CHART_AREA_DATA_PATH: "/setChartAreaDataPath",
+  SET_CHART_SETTINGS: "/setChartSettings",
+  SET_CHART_TYPE: "/setChartType",
+  SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
+  SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
+  SET_CHAT_SECTION_STATE: "/setChatSectionState",
+  SET_CODE: "/setCode",
+  SET_CODE_FILE_BINDING: "/setCodeFileBinding",
+  SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
+  SET_CODE_OBJ_NAME: "/setCodeObjName",
+  SET_CODE_SECTION_ATTACHED_TERMINAL: "/setCodeSectionAttachedTerminal",
+  SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
+  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
+    "/setCodeSectionDiagnosticCodeSuppression",
+  SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
+  SET_EDGES: "/setEdges",
+  SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
+  SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
+  SET_GROUP_OVERFLOW_MODE: "/setGroupOverflowMode",
+  SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
+  SET_LIST_ROOT_VIEW_MODE: "/setListRootViewMode",
+  SET_META_CONTROL_SHOW_SECTION_TITLE: "/setMetaControlShowSectionTitle",
+  SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  SET_PARENT_DEFAULT_CHILD_SECTION_TYPE: "/setParentDefaultChildSectionType",
+  SET_PROJECT_CHAT_WINDOWING_STATE: "/setProjectChatWindowingState",
+  SET_PROJECT_CHAT_WINDOW_CHAT_ID: "/setProjectChatWindowChatId",
+  SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
+  SET_PROJECT_CONFIG_NAME: "/setProjectConfigName",
+  SET_PROMPT_FORMAT: "/setPromptFormat",
+  SET_PROMPT_INPUTS: "/setPromptInputs",
+  SET_PROMPT_TEMPLATE: "/setPromptTemplate",
+  SET_PROMPT_TEMPLATE_LINK: "/setPromptTemplateLink",
+  SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
+  SET_SECTION_EDGE_INPUTS: "/setSectionEdgeInputs",
+  SET_SECTION_EDGE_OUTPUTS: "/setSectionEdgeOutputs",
+  SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
+  SET_SECTION_NAME: "/setSectionName",
+  SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
+  SET_SECTION_PINNED_PARAMS: "/setSectionPinnedParams",
+  SET_SECTION_SIZES: "/setSectionSizes",
+  SET_SECTION_STYLE_COLOR: "/setSectionStyleColor",
+  SET_SECTION_TAG_COLOR: "/setSectionTagColor",
+  SET_SECTION_VARIANT: "/setSectionVariant",
+  SET_SECTION_VARIANT_NAME: "/setSectionVariantName",
+  SET_SECTION_VARIANT_SORT_ORDER: "/setSectionVariantSortOrder",
+  SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
+  SET_SOCIAL_URL: "/setSocialUrl",
+  SET_SPREADSHEET_FILE_PATH: "/setSpreadsheetFilePath",
+  SET_SPREADSHEET_SECTION_SETTINGS: "/setSpreadsheetSectionSettings",
+  SET_STATE_MACHINE_EDGES: "/setStateMachineEdges",
+  SET_STATE_MACHINE_SECTION_SETTINGS: "/setStateMachineSectionSettings",
+  SET_TASK_BOARD_SECTION_STATE: "/setTaskBoardSectionState",
+  SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
+  SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
+  SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
+  SET_TEXT_BLOCK_MASTER_FONT_SIZE: "/setTextBlockMasterFontSize",
+  SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
+  SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
+  SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
+  SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
+  SET_VARIANT_JSON_SOURCE_KEYS: "/setVariantJsonSourceKeys",
+  SET_VIEWPORT: "/setViewport",
+  SET_VIEW_MODE_NAME: "/setViewModeName",
+  SET_VIEW_MODE_SORT_ORDER: "/setViewModeSortOrder",
+  SET_WATCH_CODE_ENABLED: "/setWatchCodeEnabled",
+  SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
+  SET_WINDOW_SPACE_NAME: "/setWindowSpaceName",
+  SET_WINDOW_SPACE_SORT_ORDER: "/setWindowSpaceSortOrder",
+  SHARE_DEPLOYMENTS: "/share/deployments",
+  SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
+  SHARE_DEPLOYMENT_LATEST: "/share/deployments/{deploymentName}/latest",
+  SHARE_DEPLOYMENT_PROJECT_CONFIG:
+    "/share/deployments/{deploymentName}/{version}/project_config",
+  SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
+  SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{deploymentName}/versions",
+  START_AGENT_RUN: "/startAgentRun",
+  START_RUN_CHAIN: "/startRunChain",
+  START_STATE_MACHINE_RUN: "/startStateMachineRun",
+  START_TRANSCRIPTION_SESSION: "/startTranscriptionSession",
+  STOP_AGENT_RUN: "/stopAgentRun",
+  STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
+  STOP_LLM_CHAT: "/stopLLMChat",
+  STOP_RUN_CHAIN: "/stopRunChain",
+  STOP_STATE_MACHINE_RUN: "/stopStateMachineRun",
+  STOP_TRANSCRIPTION_SESSION: "/stopTranscriptionSession",
+  TERMINAL_BY_SECTION: "/ws/terminals/{projectID}/{sectionID}",
+  TEXT_FIELD_COMPLETION: "/textFieldCompletion",
+  TOGGLE_GROUP_ORIENTATION: "/toggleGroupOrientation",
+  TOGGLE_IS_EDITING_VIEW_MODE: "/toggleIsEditingViewMode",
+  TOGGLE_MINIMIZED: "/toggleMinimized",
+  TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
+  TOGGLE_POSITION_LOCKS: "/togglePositionLocks",
+  TOGGLE_SECTION_VISIBILITY: "/toggleSectionVisibility",
+  TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
+  TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
+  TOGGLE_VIEW_MODE_TAB: "/toggleViewModeTab",
+  TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
+  TRANSFER_FILE_BROWSER_ENTRY: "/transferFileBrowserEntry",
+  TYPE_CHECK: "/typeCheck",
+  UNDO: "/undo",
+  UNGROUP_GROUPS: "/ungroupGroups",
+  UNINDENT_PARAMS: "/unindentParams",
+  UNSELECT_ALL_PARAMS: "/unselectAllParams",
+  UPDATE_AGENTIC_EDGE: "/updateAgenticEdge",
+  UPDATE_AGENT_PROFILE: "/updateAgentProfile",
+  UPDATE_ARTIFACTS: "/updateArtifacts",
+  UPDATE_EDGE: "/updateEdge",
+  UPDATE_ENGINE_CONFIG: "/updateEngineConfig",
+  UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
+  UPDATE_LAUNCHER: "/updateLauncher",
+  UPDATE_PARAM_IMPL_CONFIG: "/updateParamImplConfig",
+  UPDATE_PROMPT_TEMPLATE: "/updatePromptTemplate",
+  UPDATE_STATE_MACHINE_EDGE: "/updateStateMachineEdge",
+  UPDATE_TRANSCRIPTION_PROFILE: "/updateTranscriptionProfile",
+  UPSERT_APP_GEN_CUSTOM_SKILL: "/upsertAppGenCustomSkill",
+  VALIDATE_APP_DEFINITION: "/validateAppDefinition",
+  WRITE_FILE_BROWSER_CONTENT: "/writeFileBrowserFileContent",
+} as const;
+export type Route = gt.Route;
+
 export const RunModeEnum = {
   mcp: "mcp",
   server: "server",
   sdk: "sdk",
   app_server: "app_server",
+} as const;
+export type RunMode = gt.RunMode;
+
+export const RunSnapshotModeEnum = {
+  ephemeral: "ephemeral",
+  always: "always",
+  never: "never",
 } as const;
 export type RunSnapshotMode = gt.RunSnapshotMode;
 
@@ -3951,6 +7783,49 @@ export const RunStatusEnum = {
   failed: "failed",
   cancelled: "cancelled",
 } as const;
+export type RunStatus = gt.RunStatus;
+
+export const RunTargetKindEnum = {
+  manual_code: "manual_code",
+  generated_entry: "generated_entry",
+} as const;
+export type RunTargetKind = gt.RunTargetKind;
+
+export const SaveConflictStrategyEnum = {
+  skip: "skip",
+  backup: "backup",
+  overwrite: "overwrite",
+} as const;
+export type SaveConflictStrategy = gt.SaveConflictStrategy;
+
+export const SavePolicyEnum = {
+  persist: "persist",
+  in_memory: "in_memory",
+} as const;
+export type SavePolicy = gt.SavePolicy;
+
+export const SaveStatusEnum = {
+  saved: "saved",
+  unchanged: "unchanged",
+  skipped: "skipped",
+  conflict: "conflict",
+} as const;
+export type SaveStatus = gt.SaveStatus;
+
+export const SectionCodegenModeEnum = {
+  inherit: "inherit",
+  include: "include",
+  exclude: "exclude",
+} as const;
+export type SectionCodegenMode = gt.SectionCodegenMode;
+
+export const SectionKindEnum = {
+  code: "code",
+  terminal: "terminal",
+  draw: "draw",
+  generated: "generated",
+} as const;
+export type SectionKind = gt.SectionKind;
 
 export const SectionRepresentationModeEnum = {
   expression: "expression",
@@ -3959,9 +7834,10 @@ export const SectionRepresentationModeEnum = {
 } as const;
 export type SectionRepresentationMode = gt.SectionRepresentationMode;
 
-const SectionSizeModeEnum = {
+export const SectionSizeModeEnum = {
   auto: "auto",
 } as const;
+export type SectionSizeMode = gt.SectionSizeMode;
 
 export const SectionTypeEnum = {
   Callable: "Callable",
@@ -3996,6 +7872,61 @@ export const SelectionModeEnum = {
   partial: "partial",
   full: "full",
 } as const;
+export type SelectionMode = gt.SelectionMode;
+
+export const ServiceErrorCodeEnum = {
+  PLUGIN_BACKEND_BUILD_FAILED: "PLUGIN_BACKEND_BUILD_FAILED",
+  PLUGIN_BACKEND_RUNTIME_INVALID: "PLUGIN_BACKEND_RUNTIME_INVALID",
+  PLUGIN_ASSET_INVALID_PATH: "PLUGIN_ASSET_INVALID_PATH",
+  PLUGIN_ASSET_NOT_FOUND: "PLUGIN_ASSET_NOT_FOUND",
+  PLUGIN_CONFIG_CHANGED: "PLUGIN_CONFIG_CHANGED",
+  PLUGIN_CONFIG_INVALID: "PLUGIN_CONFIG_INVALID",
+  PLUGIN_CONFIG_SCHEMA_INVALID: "PLUGIN_CONFIG_SCHEMA_INVALID",
+  PLUGIN_INSTALLER_BACKEND_UNAVAILABLE: "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE",
+  PLUGIN_INSTALL_METADATA_INVALID: "PLUGIN_INSTALL_METADATA_INVALID",
+  PLUGIN_MANAGED_EXTERNALLY: "PLUGIN_MANAGED_EXTERNALLY",
+  PLUGIN_GLOBAL_STATE_INVALID: "PLUGIN_GLOBAL_STATE_INVALID",
+  PLUGIN_HOST_VERSION_INVALID: "PLUGIN_HOST_VERSION_INVALID",
+  PLUGIN_INIT_INVALID_ID: "PLUGIN_INIT_INVALID_ID",
+  PLUGIN_INIT_TARGET_EXISTS: "PLUGIN_INIT_TARGET_EXISTS",
+  PLUGIN_INSTALL_FAILED: "PLUGIN_INSTALL_FAILED",
+  PLUGIN_LINK_FAILED: "PLUGIN_LINK_FAILED",
+  PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE: "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE",
+  PLUGIN_LOCKFILE_INVALID: "PLUGIN_LOCKFILE_INVALID",
+  PLUGIN_LOCKFILE_NOT_FOUND: "PLUGIN_LOCKFILE_NOT_FOUND",
+  PLUGIN_MANIFEST_DUPLICATE_CAPABILITY: "PLUGIN_MANIFEST_DUPLICATE_CAPABILITY",
+  PLUGIN_MANIFEST_INVALID: "PLUGIN_MANIFEST_INVALID",
+  PLUGIN_MANIFEST_INVALID_CAPABILITY: "PLUGIN_MANIFEST_INVALID_CAPABILITY",
+  PLUGIN_MANIFEST_PATH_NOT_FOUND: "PLUGIN_MANIFEST_PATH_NOT_FOUND",
+  PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA: "PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA",
+  PLUGIN_MANIFEST_VERSION_INCOMPATIBLE: "PLUGIN_MANIFEST_VERSION_INCOMPATIBLE",
+  PLUGIN_NOT_FOUND: "PLUGIN_NOT_FOUND",
+  PLUGIN_RESTART_FAILED: "PLUGIN_RESTART_FAILED",
+  PLUGIN_ROLLBACK_UNAVAILABLE: "PLUGIN_ROLLBACK_UNAVAILABLE",
+  PLUGIN_SCOPE_INVALID: "PLUGIN_SCOPE_INVALID",
+  PLUGIN_STATE_INVALID: "PLUGIN_STATE_INVALID",
+  PLUGIN_SOURCE_ARCHIVE_TRAVERSAL: "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL",
+  PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT: "PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT",
+  PLUGIN_SOURCE_FETCH_FAILED: "PLUGIN_SOURCE_FETCH_FAILED",
+  PLUGIN_SOURCE_IDENTITY_MISMATCH: "PLUGIN_SOURCE_IDENTITY_MISMATCH",
+  PLUGIN_SOURCE_INVALID: "PLUGIN_SOURCE_INVALID",
+  PLUGIN_SOURCE_MANIFEST_NOT_FOUND: "PLUGIN_SOURCE_MANIFEST_NOT_FOUND",
+  PLUGIN_SOURCE_NOT_FOUND: "PLUGIN_SOURCE_NOT_FOUND",
+  PLUGIN_SOURCE_SCHEME_UNSUPPORTED: "PLUGIN_SOURCE_SCHEME_UNSUPPORTED",
+  PLUGIN_SOURCE_VERSION_MISMATCH: "PLUGIN_SOURCE_VERSION_MISMATCH",
+  PLUGIN_TARGET_EXISTS: "PLUGIN_TARGET_EXISTS",
+  PLUGIN_TARGET_PATH_TRAVERSAL: "PLUGIN_TARGET_PATH_TRAVERSAL",
+  PLUGIN_UNINSTALL_SCOPE_REQUIRED: "PLUGIN_UNINSTALL_SCOPE_REQUIRED",
+  PLUGIN_UPDATE_UNAVAILABLE: "PLUGIN_UPDATE_UNAVAILABLE",
+} as const;
+export type ServiceErrorCode = gt.ServiceErrorCode;
+
+export const SettaFilesLocationEnum = {
+  auto: "auto",
+  local: "local",
+  global: "global",
+} as const;
+export type SettaFilesLocation = gt.SettaFilesLocation;
 
 export const SettingsModeEnum = {
   read_only: "read_only",
@@ -4003,12 +7934,28 @@ export const SettingsModeEnum = {
   managed_project: "managed_project",
   explicit_path: "explicit_path",
 } as const;
+export type SettingsMode = gt.SettingsMode;
+
+export const SignatureHelpStatusEnum = {
+  matched: "matched",
+  no_match: "no_match",
+  skipped: "skipped",
+} as const;
+export type SignatureHelpStatus = gt.SignatureHelpStatus;
 
 export const SpreadsheetGridDensityEnum = {
   compact: "compact",
   comfortable: "comfortable",
 } as const;
 export type SpreadsheetGridDensity = gt.SpreadsheetGridDensity;
+
+export const StateMachineCountOperatorEnum = {
+  lt: "lt",
+  lte: "lte",
+  eq: "eq",
+  gte: "gte",
+  gt: "gt",
+} as const;
 export type StateMachineCountOperator = gt.StateMachineCountOperator;
 
 export const StateMachineGateTypeEnum = {
@@ -4017,6 +7964,32 @@ export const StateMachineGateTypeEnum = {
   XOR: "XOR",
 } as const;
 export type StateMachineGateType = gt.StateMachineGateType;
+
+export const StateMachinePromptSourceTypeEnum = {
+  inline_prompt: "inline_prompt",
+  prompt_template: "prompt_template",
+  prompt_section: "prompt_section",
+} as const;
+export type StateMachinePromptSourceType = gt.StateMachinePromptSourceType;
+
+export const StateMachineSourceFilterTypeEnum = {
+  run_completed: "run_completed",
+  run_failed: "run_failed",
+  signal: "signal",
+} as const;
+export type StateMachineSourceFilterType = gt.StateMachineSourceFilterType;
+
+export const StateMachineTargetActionTypeEnum = {
+  send_prompt: "send_prompt",
+  reset_thread: "reset_thread",
+} as const;
+export type StateMachineTargetActionType = gt.StateMachineTargetActionType;
+
+export const StateMachineThreadStrategyEnum = {
+  continue_current_thread: "continue_current_thread",
+  new_thread_before_send: "new_thread_before_send",
+} as const;
+export type StateMachineThreadStrategy = gt.StateMachineThreadStrategy;
 
 export const StreamingEventTypeEnum = {
   message_start: "message_start",
@@ -4027,7 +8000,39 @@ export const StreamingEventTypeEnum = {
   message_stop: "message_stop",
   message_finalized: "message_finalized",
 } as const;
+export type StreamingEventType = gt.StreamingEventType;
+
+export const TargetEnum = {
+  main: "main",
+  settings: "settings",
+} as const;
+export type Target = gt.Target;
+
+export const TaskBoardRecurringMonthEnum = {
+  january: "january",
+  february: "february",
+  march: "march",
+  april: "april",
+  may: "may",
+  june: "june",
+  july: "july",
+  august: "august",
+  september: "september",
+  october: "october",
+  november: "november",
+  december: "december",
+} as const;
 export type TaskBoardRecurringMonth = gt.TaskBoardRecurringMonth;
+
+export const TaskBoardRecurringWeekdayEnum = {
+  monday: "monday",
+  tuesday: "tuesday",
+  wednesday: "wednesday",
+  thursday: "thursday",
+  friday: "friday",
+  saturday: "saturday",
+  sunday: "sunday",
+} as const;
 export type TaskBoardRecurringWeekday = gt.TaskBoardRecurringWeekday;
 
 export const TaskBoardTaskRecurrenceEnum = {
@@ -4046,15 +8051,23 @@ export const TaskBoardViewModeEnum = {
 } as const;
 export type TaskBoardViewMode = gt.TaskBoardViewMode;
 
+export const TerminalSessionModeEnum = {
+  Interactive: "",
+  managed_console: "managed_console",
+} as const;
+export type TerminalSessionMode = gt.TerminalSessionMode;
+
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
   Edit: "Edit",
 } as const;
+export type TextBlockDisplayMode = gt.TextBlockDisplayMode;
 
 export const TextBlockFormatEnum = {
   Plaintext: "Plaintext",
   Markdown: "Markdown",
 } as const;
+export type TextBlockFormat = gt.TextBlockFormat;
 
 export const TextParamInputUITypeEnum = {
   plain: "plain",
@@ -4086,7 +8099,49 @@ export const ToolTypeEnum = {
   claude_code: "claude_code",
   codex: "codex",
 } as const;
+export type ToolType = gt.ToolType;
+
+export const TransportEnum = {
+  sse: "sse",
+  streamable_http: "streamable_http",
+  stdio: "stdio",
+} as const;
+export type Transport = gt.Transport;
+
+export const TransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+export type TransportMode = gt.TransportMode;
+
+export const TypeEnum = {
+  share: "share",
+  app: "app",
+} as const;
+export type Type = gt.Type;
+
+export const UIEditorTabNameEnum = {
+  SectionConfig: "SectionConfig",
+  QuickInfoConfig: "QuickInfoConfig",
+  UIConfig: "UIConfig",
+  InfoConfig: "InfoConfig",
+  SectionVariantsConfig: "SectionVariantsConfig",
+} as const;
 export type UIEditorTabName = gt.UIEditorTabName;
+
+export const UploadScopeEnum = {
+  chat: "chat",
+  generic: "generic",
+} as const;
+export type UploadScope = gt.UploadScope;
+
+export const WatchCodeCallableKindEnum = {
+  function: "function",
+  async_function: "async_function",
+  class_init: "class_init",
+} as const;
+export type WatchCodeCallableKind = gt.WatchCodeCallableKind;
 
 export const WebsocketMessageTypeEnum = {
   Notification: "Notification",
@@ -4120,12 +8175,14 @@ export const WindowSpaceSurfaceKindEnum = {
   project_chat: "project_chat",
   section: "section",
 } as const;
+export type WindowSpaceSurfaceKind = gt.WindowSpaceSurfaceKind;
 
 export const WorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
   custom: "custom",
 } as const;
+export type WorkingDirStrategy = gt.WorkingDirStrategy;
 
 export const WorkspaceLaunchRouteKindEnum = {
   ide: "ide",

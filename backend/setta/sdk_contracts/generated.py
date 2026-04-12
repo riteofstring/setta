@@ -3,11 +3,11 @@
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-from setta.types.generated.go_shared_types import (
-    BaseArtifactUnion,
-    BaseDependencyKeyUnion,
-    BaseDependencyValueUnion,
-)
+
+
+from setta.types.generated.go_shared_types import BaseArtifactUnion
+from setta.types.generated.go_shared_types import BaseDependencyKeyUnion
+from setta.types.generated.go_shared_types import BaseDependencyValueUnion
 
 SETTA_SDK_CONTRACT_VERSION = 2
 
