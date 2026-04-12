@@ -17,6 +17,33 @@ type NodeAnchorSide = "left" | "right";
 type WorkflowEdge =
   ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
 
+function areNodeGeometryMapsEqual(
+  left: Map<string, Node>,
+  right: Map<string, Node>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const [sectionId, leftNode] of left) {
+    const rightNode = right.get(sectionId);
+    if (!rightNode) {
+      return false;
+    }
+    if (
+      leftNode.position.x !== rightNode.position.x ||
+      leftNode.position.y !== rightNode.position.y ||
+      leftNode.width !== rightNode.width ||
+      leftNode.height !== rightNode.height
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function getSectionTypeById(
   state: ProjectStateSingleConfig,
   sectionId: string,
@@ -149,7 +176,7 @@ const StateMachineEdgeRenderer = () => {
     }),
     shallow,
   );
-  const nodes = useNodeInternals((state) => state.x);
+  const nodes = useNodeInternals((state) => state.x, areNodeGeometryMapsEqual);
   const { canEditStructure } = useShareCapabilities();
 
   const sectionTypesById = useMemo(() => {

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 19:00 UTC
+Last updated: 2026-04-12 19:13 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `340` landed one bounded workflow-edge node-internals selector split
+  inside the measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the mounted workflow-edge renderer path:
+    - `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx`
+      now subscribes to `useNodeInternals` through a geometry-only comparator
+      instead of the raw node-internals map identity
+    - this keeps the mounted workflow-edge surface from re-committing when
+      unrelated node-internals fields such as `tempZIndex` change
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      to assert the renderer does not commit when node internals only change
+      `tempZIndex`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-state-machine-edge-node-geometry-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      -> passed
+    - one allowed lifecycle recovery was used for the required CDP gate:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime facts then restored the worktree session on
+        frontend `3075`, backend `8075`, session `6b7cb7`, debug port `9297`
+    - fresh-context headless CDP retry on the restarted worktree session:
+      - bootstrap consumed cleanly via the refreshed token
+      - the live `/settings` page stayed stuck on `PREPARING SETTA` /
+        `Loading settings…`
+      - `POST /api/loadProjectConfig` remained pending, so the settings graph
+        surface and workflow/state-machine edge area never mounted for visual
+        inspection
+  - reading:
+    - the code slice is landed and the narrow automated verifier is green
+    - the current blocker is worktree runtime health after restart, not a new
+      renderer regression claim
+    - next iteration should retry from a fresh lifecycle bootstrap, re-run the
+      required CDP smoke for this same slice first, and only then continue to
+      the next mounted selector/write fan-out inside
+      `interactionReactFlowStateSync`
 
 - item `339` landed one bounded agentic-edge selection split inside the
   measured `interactionReactFlowStateSync` owner on the named

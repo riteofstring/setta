@@ -375,4 +375,35 @@ describe("StateMachineEdgeRenderer", () => {
       true,
     );
   });
+
+  it("does not rerender when node internals only change temp z-index", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+
+    await act(async () => {
+      root.render(
+        <Profiler id="state-machine-edge-renderer-profiler" onRender={onRender}>
+          <StateMachineEdgeRenderer />
+        </Profiler>,
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      useNodeInternals.setState((state) => {
+        const nextNodes = new Map(state.x);
+        const sourceNode = nextNodes.get(sourceSectionId);
+        if (!sourceNode) {
+          throw new Error("Expected source node to exist.");
+        }
+        nextNodes.set(sourceSectionId, {
+          ...sourceNode,
+          tempZIndex: sourceNode.tempZIndex + 100,
+        });
+        return { x: nextNodes };
+      });
+    });
+
+    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+  });
 });

@@ -309,6 +309,43 @@ LOOP_TERMINAL_MARKER: none
       isolate the next mounted DOM-backed body or chrome surface that still
       subscribes to motion-heavy React Flow state on the canonical lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-12 19:13 UTC
+
+- item `340` narrowed the workflow-edge node-internals subscription on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx`
+    so the renderer subscribes to `useNodeInternals` through a geometry-only
+    comparator instead of the raw node-internals map identity
+  - added focused profiler coverage in
+    `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+    to prove the workflow-edge renderer does not commit when node internals
+    only change `tempZIndex`
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-state-machine-edge-node-geometry-selector.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+      -> passed
+    - one allowed lifecycle recovery was used for the required CDP gate:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime facts then restored the worktree session on
+        frontend `3075`, backend `8075`, session `6b7cb7`, debug port `9297`
+    - fresh-context headless CDP retries on the restarted worktree session:
+      - direct `/settings` inspection only showed the shell + centered loading
+        spinner
+      - bootstrap consumed cleanly, but `/settings` remained stuck on
+        `PREPARING SETTA` / `Loading settings…`
+      - `POST /api/loadProjectConfig` stayed pending, so the graph surface and
+        workflow/state-machine edge area never mounted
+  - result:
+    - the code slice is complete and committed locally, but the required live
+      visual gate is blocked by the restarted worktree loading state
+    - next iteration should begin from a fresh lifecycle bootstrap, rerun the
+      CDP smoke for item `340`, and only continue to the next
+      `interactionReactFlowStateSync` reduction after `/settings` mounts again
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 17:53 UTC
 
 - item `332` narrowed one controls-toolbar fit-view subscription on the
