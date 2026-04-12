@@ -118,43 +118,22 @@ func (r *Runtime) ValidateAppDefinition(ctx context.Context, input ValidateAppDe
 
 func applyValidateAppDefinitionInput(current AppDefinition, input ValidateAppDefinitionInput) (AppDefinition, error) {
 	updated := current.Clone()
-
-	if input.AppSpecVersion != nil {
-		updated.AppSpecVersion = *input.AppSpecVersion
+	applyOptionalAppDefinitionMetadata(&updated, appDefinitionOptionalMetadata{
+		AppSpecVersion: input.AppSpecVersion,
+		CatalogID:      input.CatalogID,
+		Routes:         input.Routes,
+	})
+	if err := applyOptionalAppDefinitionJSONField(&updated.DataBindings, input.DataBindings, "appDefinition.dataBindings"); err != nil {
+		return AppDefinition{}, err
 	}
-	if input.CatalogID != nil {
-		updated.CatalogID = *input.CatalogID
+	if err := applyOptionalAppDefinitionJSONField(&updated.Actions, input.Actions, "appDefinition.actions"); err != nil {
+		return AppDefinition{}, err
 	}
-	if input.Routes != nil {
-		updated.Routes = append([]AppRoute(nil), (*input.Routes)...)
+	if err := applyOptionalAppDefinitionJSONField(&updated.Theme, input.Theme, "appDefinition.theme"); err != nil {
+		return AppDefinition{}, err
 	}
-	if input.DataBindings != nil {
-		raw, err := marshalAppDefinitionRawJSON(*input.DataBindings, "appDefinition.dataBindings")
-		if err != nil {
-			return AppDefinition{}, err
-		}
-		updated.DataBindings = raw
-	}
-	if input.Actions != nil {
-		raw, err := marshalAppDefinitionRawJSON(*input.Actions, "appDefinition.actions")
-		if err != nil {
-			return AppDefinition{}, err
-		}
-		updated.Actions = raw
-	}
-	if input.Theme != nil {
-		raw, err := marshalAppDefinitionRawJSON(*input.Theme, "appDefinition.theme")
-		if err != nil {
-			return AppDefinition{}, err
-		}
-		updated.Theme = raw
-	}
-	if input.Assets != nil {
-		raw, err := marshalAppDefinitionRawJSON(*input.Assets, "appDefinition.assets")
-		if err != nil {
-			return AppDefinition{}, err
-		}
-		updated.Assets = raw
+	if err := applyOptionalAppDefinitionJSONField(&updated.Assets, input.Assets, "appDefinition.assets"); err != nil {
+		return AppDefinition{}, err
 	}
 
 	return updated.Normalized()
