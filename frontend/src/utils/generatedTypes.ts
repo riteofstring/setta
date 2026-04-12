@@ -4766,6 +4766,36 @@ export const ServerModeBoundaryPolicyByMode = {
   },
 } satisfies gt.ServerModeBoundaryPolicy;
 
+export const SettaAPIPresetConfig = {
+  presets: [
+    {
+      bodyTemplate: {
+        controlCodeObjType: null,
+        implOverrides: { text: "Hello", type: "TextBlock" },
+        implType: "TextBlock",
+        position: "__SETTA_RUNTIME_EMPTY_SPACE_POSITION__",
+        projectConfigId: "__SETTA_RUNTIME_PROJECT_CONFIG_ID__",
+      },
+      label: "Create top-level section",
+      route: "/createTopLevelSection",
+    },
+    {
+      bodyTemplate: { projectConfigId: "__SETTA_RUNTIME_PROJECT_CONFIG_ID__" },
+      label: "Get latest project state",
+      route: "/getLatestProjectState",
+    },
+    {
+      bodyTemplate: { projectConfigId: "__SETTA_RUNTIME_PROJECT_CONFIG_ID__" },
+      label: "Save project",
+      route: "/saveProject",
+    },
+  ],
+  runtimeValueTokens: {
+    emptySpacePosition: "__SETTA_RUNTIME_EMPTY_SPACE_POSITION__",
+    projectConfigId: "__SETTA_RUNTIME_PROJECT_CONFIG_ID__",
+  },
+} satisfies gt.SettaAPIPresetConfigValue;
+
 export const SettaFilesLocationPolicyConfig = {
   requested: ["auto", "local", "global"],
   resolved: ["local", "global"],

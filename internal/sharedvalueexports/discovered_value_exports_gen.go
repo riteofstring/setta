@@ -105,6 +105,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "SettaAPIPresetConfig",
+			Type: reflect.TypeOf(httpapi.FrontendValueSettaAPIPresetConfig()),
+			Value: func() any {
+				return httpapi.FrontendValueSettaAPIPresetConfig()
+			},
+		},
+		{
 			Name: "SettaFilesLocationPolicyConfig",
 			Type: reflect.TypeOf(httpapi.FrontendValueSettaFilesLocationPolicyConfig()),
 			Value: func() any {

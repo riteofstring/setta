@@ -5046,9 +5046,24 @@
       "schemaRef": "#/$defs/SetSystemPromptRequest"
     },
     {
+      "name": "SettaAPIPreset",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettaAPIPreset"
+    },
+    {
+      "name": "SettaAPIPresetConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettaAPIPresetConfigValue"
+    },
+    {
       "name": "SettaAPIPresetRoutes",
       "kind": "model",
       "schemaRef": "#/$defs/SettaAPIPresetRoutes"
+    },
+    {
+      "name": "SettaAPIPresetRuntimeValueTokens",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettaAPIPresetRuntimeValueTokens"
     },
     {
       "name": "SettaFilesLocation",
@@ -11062,6 +11077,46 @@
             "canManageDesktopLauncher": false
           },
           "workspaceLaunchRouteKind": "blocked"
+        }
+      }
+    },
+    {
+      "name": "SettaAPIPresetConfig",
+      "type": "SettaAPIPresetConfigValue",
+      "value": {
+        "presets": [
+          {
+            "bodyTemplate": {
+              "controlCodeObjType": null,
+              "implOverrides": {
+                "text": "Hello",
+                "type": "TextBlock"
+              },
+              "implType": "TextBlock",
+              "position": "__SETTA_RUNTIME_EMPTY_SPACE_POSITION__",
+              "projectConfigId": "__SETTA_RUNTIME_PROJECT_CONFIG_ID__"
+            },
+            "label": "Create top-level section",
+            "route": "/createTopLevelSection"
+          },
+          {
+            "bodyTemplate": {
+              "projectConfigId": "__SETTA_RUNTIME_PROJECT_CONFIG_ID__"
+            },
+            "label": "Get latest project state",
+            "route": "/getLatestProjectState"
+          },
+          {
+            "bodyTemplate": {
+              "projectConfigId": "__SETTA_RUNTIME_PROJECT_CONFIG_ID__"
+            },
+            "label": "Save project",
+            "route": "/saveProject"
+          }
+        ],
+        "runtimeValueTokens": {
+          "emptySpacePosition": "__SETTA_RUNTIME_EMPTY_SPACE_POSITION__",
+          "projectConfigId": "__SETTA_RUNTIME_PROJECT_CONFIG_ID__"
         }
       }
     },

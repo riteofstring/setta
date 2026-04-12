@@ -23,23 +23,19 @@ describe("settaApiPresets", () => {
 
   it("formats preset request bodies from live project state helpers", () => {
     expect(
-      formatSettaApiBody(SETTA_API_PRESET_ROUTES.createTopLevelSection),
-    ).toBe(
-      JSON.stringify(
-        {
-          projectConfigId: "project-alpha",
-          implType: SectionTypeEnum.TextBlock,
-          controlCodeObjType: null,
-          implOverrides: {
-            type: SectionTypeEnum.TextBlock,
-            text: "Hello",
-          },
-          position: { x: 120, y: 240 },
-        },
-        null,
-        2,
+      JSON.parse(
+        formatSettaApiBody(SETTA_API_PRESET_ROUTES.createTopLevelSection),
       ),
-    );
+    ).toEqual({
+      projectConfigId: "project-alpha",
+      implType: SectionTypeEnum.TextBlock,
+      controlCodeObjType: null,
+      implOverrides: {
+        type: SectionTypeEnum.TextBlock,
+        text: "Hello",
+      },
+      position: { x: 120, y: 240 },
+    });
   });
 
   it("merges preset defaults with user-provided overrides", () => {

@@ -5345,12 +5345,39 @@ type SetSystemPromptRequest = {
 };
 
 /**
+ * SettaAPIPreset
+ */
+type SettaAPIPreset = {
+  bodyTemplate: {
+    [key: string]: unknown;
+  };
+  label: string;
+  route: string;
+};
+
+/**
+ * SettaAPIPresetConfigValue
+ */
+export type SettaAPIPresetConfigValue = {
+  presets: null | Array<SettaAPIPreset>;
+  runtimeValueTokens: SettaAPIPresetRuntimeValueTokens;
+};
+
+/**
  * SettaAPIPresetRoutes
  */
 type SettaAPIPresetRoutes = {
   createTopLevelSection: string;
   getLatestProjectState: string;
   saveProject: string;
+};
+
+/**
+ * SettaAPIPresetRuntimeValueTokens
+ */
+type SettaAPIPresetRuntimeValueTokens = {
+  emptySpacePosition: string;
+  projectConfigId: string;
 };
 
 /**

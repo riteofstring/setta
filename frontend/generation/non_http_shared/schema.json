@@ -15120,6 +15120,51 @@
       ],
       "additionalProperties": false
     },
+    "SettaAPIPreset": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        },
+        "bodyTemplate": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "title": "SettaAPIPreset",
+      "required": [
+        "label",
+        "route",
+        "bodyTemplate"
+      ],
+      "additionalProperties": false
+    },
+    "SettaAPIPresetConfigValue": {
+      "type": "object",
+      "properties": {
+        "runtimeValueTokens": {
+          "$ref": "#/$defs/SettaAPIPresetRuntimeValueTokens"
+        },
+        "presets": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SettaAPIPreset"
+          }
+        }
+      },
+      "title": "SettaAPIPresetConfigValue",
+      "required": [
+        "runtimeValueTokens",
+        "presets"
+      ],
+      "additionalProperties": false
+    },
     "SettaAPIPresetRoutes": {
       "type": "object",
       "properties": {
@@ -15138,6 +15183,23 @@
         "createTopLevelSection",
         "getLatestProjectState",
         "saveProject"
+      ],
+      "additionalProperties": false
+    },
+    "SettaAPIPresetRuntimeValueTokens": {
+      "type": "object",
+      "properties": {
+        "projectConfigId": {
+          "type": "string"
+        },
+        "emptySpacePosition": {
+          "type": "string"
+        }
+      },
+      "title": "SettaAPIPresetRuntimeValueTokens",
+      "required": [
+        "projectConfigId",
+        "emptySpacePosition"
       ],
       "additionalProperties": false
     },

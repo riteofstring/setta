@@ -12800,6 +12800,41 @@
         "title": "SetSystemPromptRequest",
         "type": "object"
       },
+      "SettaAPIPreset": {
+        "additionalProperties": false,
+        "properties": {
+          "bodyTemplate": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "label": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          }
+        },
+        "required": ["label", "route", "bodyTemplate"],
+        "title": "SettaAPIPreset",
+        "type": "object"
+      },
+      "SettaAPIPresetConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/SettaAPIPreset"
+            },
+            "type": ["null", "array"]
+          },
+          "runtimeValueTokens": {
+            "$ref": "#/components/schemas/SettaAPIPresetRuntimeValueTokens"
+          }
+        },
+        "required": ["runtimeValueTokens", "presets"],
+        "title": "SettaAPIPresetConfigValue",
+        "type": "object"
+      },
       "SettaAPIPresetRoutes": {
         "additionalProperties": false,
         "properties": {
@@ -12819,6 +12854,20 @@
           "saveProject"
         ],
         "title": "SettaAPIPresetRoutes",
+        "type": "object"
+      },
+      "SettaAPIPresetRuntimeValueTokens": {
+        "additionalProperties": false,
+        "properties": {
+          "emptySpacePosition": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "emptySpacePosition"],
+        "title": "SettaAPIPresetRuntimeValueTokens",
         "type": "object"
       },
       "SettaFilesLocation": {

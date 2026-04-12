@@ -101,6 +101,67 @@ func TestFrontendValueTransportRouteConstantsUsesAuthoritativeRouteConstants(t *
 	}
 }
 
+func TestFrontendValueSettaAPIPresetConfigUsesAuthoritativePresetContracts(t *testing.T) {
+	got := FrontendValueSettaAPIPresetConfig()
+
+	if got.RuntimeValueTokens.ProjectConfigID != frontendSettaAPIPresetProjectConfigIDToken {
+		t.Fatalf("unexpected project-config token: got %q want %q", got.RuntimeValueTokens.ProjectConfigID, frontendSettaAPIPresetProjectConfigIDToken)
+	}
+	if got.RuntimeValueTokens.EmptySpacePosition != frontendSettaAPIPresetEmptySpacePositionToken {
+		t.Fatalf("unexpected empty-space token: got %q want %q", got.RuntimeValueTokens.EmptySpacePosition, frontendSettaAPIPresetEmptySpacePositionToken)
+	}
+	if len(got.Presets) != 3 {
+		t.Fatalf("unexpected preset count: got %d want %d", len(got.Presets), 3)
+	}
+
+	createPreset := got.Presets[0]
+	if createPreset.Route != RouteCreateTopLevelSection {
+		t.Fatalf("unexpected create preset route: got %q want %q", createPreset.Route, RouteCreateTopLevelSection)
+	}
+	if createPreset.Label != "Create top-level section" {
+		t.Fatalf("unexpected create preset label: got %q", createPreset.Label)
+	}
+	if gotValue, ok := createPreset.BodyTemplate["projectConfigId"].(string); !ok || gotValue != frontendSettaAPIPresetProjectConfigIDToken {
+		t.Fatalf("unexpected create preset projectConfigId: %#v", createPreset.BodyTemplate["projectConfigId"])
+	}
+	if gotValue, ok := createPreset.BodyTemplate["implType"].(projectstate.FrontendSectionType); !ok || gotValue != projectstate.FrontendSectionTypeTextBlock {
+		t.Fatalf("unexpected create preset implType: %#v", createPreset.BodyTemplate["implType"])
+	}
+	implOverrides, ok := createPreset.BodyTemplate["implOverrides"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected create preset implOverrides type: %#v", createPreset.BodyTemplate["implOverrides"])
+	}
+	if gotValue, ok := implOverrides["type"].(projectstate.FrontendSectionType); !ok || gotValue != projectstate.FrontendSectionTypeTextBlock {
+		t.Fatalf("unexpected create preset implOverrides.type: %#v", implOverrides["type"])
+	}
+	if gotValue, ok := implOverrides["text"].(string); !ok || gotValue != "Hello" {
+		t.Fatalf("unexpected create preset implOverrides.text: %#v", implOverrides["text"])
+	}
+	if gotValue, ok := createPreset.BodyTemplate["position"].(string); !ok || gotValue != frontendSettaAPIPresetEmptySpacePositionToken {
+		t.Fatalf("unexpected create preset position token: %#v", createPreset.BodyTemplate["position"])
+	}
+
+	projectConfigOnlyRoutes := []string{RouteGetLatestProjectState, RouteSaveProject}
+	for idx, route := range projectConfigOnlyRoutes {
+		preset := got.Presets[idx+1]
+		if preset.Route != route {
+			t.Fatalf("unexpected project-config preset route at %d: got %q want %q", idx, preset.Route, route)
+		}
+		if len(preset.BodyTemplate) != 1 {
+			t.Fatalf("unexpected project-config preset body size at %d: got %d want %d", idx, len(preset.BodyTemplate), 1)
+		}
+		if gotValue, ok := preset.BodyTemplate["projectConfigId"].(string); !ok || gotValue != frontendSettaAPIPresetProjectConfigIDToken {
+			t.Fatalf("unexpected project-config preset token at %d: %#v", idx, preset.BodyTemplate["projectConfigId"])
+		}
+	}
+
+	got.Presets[0].BodyTemplate["projectConfigId"] = "mutated"
+	gotAgain := FrontendValueSettaAPIPresetConfig()
+	if gotAgain.Presets[0].BodyTemplate["projectConfigId"] != frontendSettaAPIPresetProjectConfigIDToken {
+		t.Fatalf("expected preset body template to be cloned, got %#v", gotAgain.Presets[0].BodyTemplate["projectConfigId"])
+	}
+}
+
 func TestFrontendValueSettaFilesLocationPolicyConfigUsesAuthoritativeConfigValues(t *testing.T) {
 	got := FrontendValueSettaFilesLocationPolicyConfig()
 
