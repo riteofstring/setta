@@ -6,8 +6,9 @@ const emptyIndex: ParamDuplicateIndex = {
   namesByParent: {},
 };
 
-const ParamDuplicateIndexContext =
-  createContext<ParamDuplicateIndex>(emptyIndex);
+const ParamDuplicateIndexContext = createContext<ParamDuplicateIndex | null>(
+  null,
+);
 
 export function ParamDuplicateIndexProvider({
   value,
@@ -24,5 +25,9 @@ export function ParamDuplicateIndexProvider({
 }
 
 export function useParamDuplicateIndex(): ParamDuplicateIndex {
+  return useContext(ParamDuplicateIndexContext) ?? emptyIndex;
+}
+
+export function useOptionalParamDuplicateIndex(): ParamDuplicateIndex | null {
   return useContext(ParamDuplicateIndexContext);
 }

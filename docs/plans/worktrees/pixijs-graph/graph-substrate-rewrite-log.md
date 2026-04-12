@@ -20068,3 +20068,40 @@ LOOP_TERMINAL_MARKER: none
       reduction from item `473`, or stop for human replan if no broader owner
       can be named
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-14 15:58 UTC | item `479` | completed section-scoped duplicate-index hoist at `ParamGroupContainer`
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - why:
+    - the active handoff still pointed at broader product work in
+      `ParamGroupContainer` / `ParamGroupUnpinnedParams`
+    - `ParamDndList` still resolved the same section-scoped duplicate-name
+      index separately in the pinned and unpinned branches even though both
+      lists share one section boundary
+  - changes:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now resolves `buildParamDuplicateIndex(...)` once at the container level
+      and provides it around both list branches
+    - `frontend/src/components/Params/ParamDndList.tsx`
+      now consumes an optional inherited duplicate-index context and skips the
+      local duplicate-index selector path when the parent already owns it
+    - `frontend/src/components/Params/ParamDuplicateIndexContext.tsx`
+      now exposes `useOptionalParamDuplicateIndex()` while preserving the
+      existing empty-index fallback for current consumers
+    - `frontend/src/components/Params/ParamDndList.render-stability.test.tsx`
+      now proves the provided-context path avoids local
+      `buildParamDuplicateIndex(...)` calls and keeps rows stable across
+      unrelated viewport churn
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx`
+      -> passed (`3` files, `10` tests)
+    - `pnpm -C frontend exec prettier --write src/components/Params/ParamDuplicateIndexContext.tsx src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx`
+      -> passed
+    - fresh-context CDP visual check
+      -> passed
+      -> `/settings` loaded and the graph/settings surface looked healthy with
+         no obvious blank-card or detached-body regression
+  - reading:
+    - this keeps the active lane on a broader owner boundary instead of
+      reopening row-local memo seams
+    - the normalized live Playwright perf lane remains blocked by the known
+      compare-pane browser-context teardown, so the next default pass should
+      continue product work rather than helper-only recovery

@@ -20,7 +20,10 @@ import {
   ParamDndProvider,
   useParamDndChildrenForParent,
 } from "./ParamDndContext";
-import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
+import {
+  ParamDuplicateIndexProvider,
+  useOptionalParamDuplicateIndex,
+} from "./ParamDuplicateIndexContext";
 
 function resolveParamDndListRowsOwner(
   listKey: ParamListKey,
@@ -61,14 +64,19 @@ function _ParamDndList({
   listKey,
   hasSectionStyleTheme,
 }: ParamDndListProps) {
-  const duplicateIndex = useProjectState(
+  const providedDuplicateIndex = useOptionalParamDuplicateIndex();
+  const resolvedDuplicateIndex = useProjectState(
     (state) =>
-      measureSettingsGraphSubstrateCanaryMotionAttribution(
-        "presentedSceneSectionParamDndListDuplicateIndexResolve",
-        () => buildParamDuplicateIndex(state, sectionId),
-      ),
+      providedDuplicateIndex
+        ? null
+        : measureSettingsGraphSubstrateCanaryMotionAttribution(
+            "presentedSceneSectionParamDndListDuplicateIndexResolve",
+            () => buildParamDuplicateIndex(state, sectionId),
+          ),
     _.isEqual,
   );
+  const duplicateIndex =
+    providedDuplicateIndex ?? resolvedDuplicateIndex ?? EMPTY_DUPLICATE_INDEX;
   const paramFilterActive = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
@@ -155,6 +163,11 @@ function _ParamDndList({
 }
 
 export const ParamDndList = React.memo(_ParamDndList, _.isEqual);
+
+const EMPTY_DUPLICATE_INDEX = {
+  parentById: {},
+  namesByParent: {},
+};
 
 function ParamDndListBody({
   sectionId,

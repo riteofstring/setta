@@ -13,6 +13,7 @@ import {
   createEdgeFromConnection,
   isValidDataEdgeConnection,
 } from "state/actions/edges";
+import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
@@ -44,9 +45,13 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
+import {
+  measureSettingsGraphSubstrateCanaryMotionAttribution,
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration,
+} from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import { ParamDndList } from "./ParamDndList";
+import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
@@ -129,6 +134,14 @@ function _ParamGroupContainer({
     unpinnedParams,
   } = useProjectState(
     (state) => buildParamGroupContainerSectionData(state, sectionId),
+    _.isEqual,
+  );
+  const duplicateIndex = useProjectState(
+    (state) =>
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "presentedSceneSectionParamDndListDuplicateIndexResolve",
+        () => buildParamDuplicateIndex(state, sectionId),
+      ),
     _.isEqual,
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
@@ -279,7 +292,7 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        <>
+        <ParamDuplicateIndexProvider value={duplicateIndex}>
           <React.Profiler
             id={`param-group-edges-strip:${sectionId}`}
             onRender={handleEdgesStripRender}
@@ -327,7 +340,7 @@ function _ParamGroupContainer({
               positionAndSizeLocked={positionAndSizeLocked}
             />
           </React.Profiler>
-        </>
+        </ParamDuplicateIndexProvider>
       </div>
     </ParamDndContext>
   );

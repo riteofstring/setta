@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 15:45 UTC
+Last updated: 2026-04-14 15:58 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,48 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `479` completed one bounded `ParamGroupContainer` fanout reduction on
+  the canonical `rotaryParamCodeObjDefault` lane by hoisting the section-scoped
+  duplicate-name index above the pinned/unpinned list split:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now resolves the param duplicate index once per section render and
+      provides it around the pinned/unpinned list branches
+    - `frontend/src/components/Params/ParamDndList.tsx`
+      now reuses an optional parent-provided duplicate index and only falls
+      back to local resolution for callers outside that boundary
+    - `frontend/src/components/Params/ParamDuplicateIndexContext.tsx`
+      now exposes an optional duplicate-index read path so nested lists can
+      detect an inherited section-scoped provider without changing existing
+      consumers
+    - `frontend/src/components/Params/ParamDndList.render-stability.test.tsx`
+      now proves a parent-provided duplicate index prevents local
+      `buildParamDuplicateIndex(...)` calls while keeping row materialization
+      stable across unrelated viewport churn
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx`
+      -> passed (`3` files, `10` tests)
+    - `pnpm -C frontend exec prettier --write src/components/Params/ParamDuplicateIndexContext.tsx src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx`
+      -> passed
+    - fresh-context CDP visual check:
+      -> passed
+      -> opened `http://127.0.0.1:3075/settings`, waited for the settings shell
+         to load, and verified the main graph/settings surface populated with
+         no obvious blank-card, detached-body, or gross rendering regression
+  - reading:
+    - this is a real product reduction at the `ParamGroupContainer` boundary,
+      not another pure row-level forwarding cut
+    - it removes duplicated duplicate-index resolution fanout between the
+      pinned and unpinned list branches while keeping `ParamDndList` behavior
+      unchanged for other callers
+    - the live normalized Playwright perf lane is still not trustworthy because
+      of the existing browser-context teardown blocker during compare-pane
+      normalization; do not reopen helper-only recovery work for this slice
+    - next: stay on product work above the unpinned row seam and choose the
+      next broader `ParamGroupContainer` / `ParamGroupUnpinnedParams`
+      reduction, or take the first justified scene-owned static body slice
 
 - item `478` completed one broader product reduction on the param-group hot
   path by stopping fixed-height reschedules from subtree-only row churn inside

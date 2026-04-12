@@ -17,10 +17,31 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
+
+const renderCalls = vi.hoisted(() => ({
+  buildParamDuplicateIndex: vi.fn(),
+}));
 
 vi.mock("./GetParamSwitch", () => ({
   GetParamSwitch: vi.fn(() => <div data-testid="get-param-switch" />),
 }));
+
+vi.mock("state/actions/params/paramDuplicateIndex", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/actions/params/paramDuplicateIndex")
+  >("state/actions/params/paramDuplicateIndex");
+
+  return {
+    ...actual,
+    buildParamDuplicateIndex: (
+      ...args: Parameters<typeof actual.buildParamDuplicateIndex>
+    ) => {
+      renderCalls.buildParamDuplicateIndex(...args);
+      return actual.buildParamDuplicateIndex(...args);
+    },
+  };
+});
 
 vi.stubGlobal(
   "ResizeObserver",
@@ -228,6 +249,7 @@ describe("ParamDndList render stability", () => {
     document.body.appendChild(host);
     root = createRoot(host);
     vi.mocked(GetParamSwitch).mockClear();
+    renderCalls.buildParamDuplicateIndex.mockClear();
   });
 
   afterEach(async () => {
@@ -280,5 +302,43 @@ describe("ParamDndList render stability", () => {
     expect(vi.mocked(GetParamSwitch).mock.calls.length).toBe(
       initialMaterializationCount,
     );
+  });
+
+  it("keeps row materialization stable when a parent provides the duplicate index", async () => {
+    const { sectionId, paramIds, requiredParamIdsToPaths } =
+      seedParamDndListState();
+
+    await act(async () => {
+      root.render(
+        <ParamDuplicateIndexProvider
+          value={{ parentById: {}, namesByParent: {} }}
+        >
+          <ParamDndList
+            sectionId={sectionId}
+            paramIds={paramIds}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={vi.fn()}
+            isTopLevel={true}
+            listKey="unpinned"
+            hasSectionStyleTheme={false}
+          />
+        </ParamDuplicateIndexProvider>,
+      );
+    });
+
+    expect(vi.mocked(GetParamSwitch)).toHaveBeenCalledTimes(1);
+    expect(renderCalls.buildParamDuplicateIndex).not.toHaveBeenCalled();
+
+    await act(async () => {
+      useProjectState.setState((state) => {
+        state.projectConfig = {
+          ...state.projectConfig,
+          viewport: { x: 12, y: 24, zoom: 1.1 },
+        };
+      });
+    });
+
+    expect(vi.mocked(GetParamSwitch)).toHaveBeenCalledTimes(1);
+    expect(renderCalls.buildParamDuplicateIndex).not.toHaveBeenCalled();
   });
 });
