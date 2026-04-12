@@ -12098,6 +12098,118 @@
         "file_read"
       ]
     },
+    "PythonCodegenPolicyCodeObjOption": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/CodeObjType"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "PythonCodegenPolicyCodeObjOption",
+      "required": [
+        "type",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "PythonCodegenPolicyUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "sectionModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SectionCodegenMode"
+          }
+        },
+        "sectionTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SectionType"
+          }
+        },
+        "metaControlCodeObjTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/PythonCodegenPolicyCodeObjOption"
+          }
+        },
+        "codeObjTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/CodeObjType"
+          }
+        },
+        "defaultSectionRepresentationOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SectionRepresentationMode"
+          }
+        },
+        "defaultCodeObjRepresentationOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/CodeObjValueRepresentationMode"
+          }
+        },
+        "sectionRepresentationOptionsByType": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/$defs/SectionRepresentationMode"
+            }
+          }
+        },
+        "codeObjRepresentationOptionsByType": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/$defs/CodeObjValueRepresentationMode"
+            }
+          }
+        }
+      },
+      "title": "PythonCodegenPolicyUIConfigValue",
+      "required": [
+        "sectionModeOptions",
+        "sectionTypes",
+        "metaControlCodeObjTypes",
+        "codeObjTypes",
+        "defaultSectionRepresentationOptions",
+        "defaultCodeObjRepresentationOptions",
+        "sectionRepresentationOptionsByType",
+        "codeObjRepresentationOptionsByType"
+      ],
+      "additionalProperties": false
+    },
     "PythonSectionCodegenMode": {
       "type": "string",
       "title": "PythonSectionCodegenMode",

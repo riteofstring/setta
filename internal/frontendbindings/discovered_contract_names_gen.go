@@ -411,6 +411,8 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(realtime.PromptTemplatesUpdatedContent{}):                            "PromptTemplatesUpdatedContent",
 	reflect.TypeOf(realtime.PromptTemplatesUpdatedMessage{}):                            "PromptTemplatesUpdatedMessage",
 	reflect.TypeOf(projectstate.PythonCodeObjValueRepresentationMode("")):               "PythonCodeObjValueRepresentationMode",
+	reflect.TypeOf(projectview.PythonCodegenPolicyCodeObjOption{}):                      "PythonCodegenPolicyCodeObjOption",
+	reflect.TypeOf(projectview.PythonCodegenPolicyUIConfigValue{}):                      "PythonCodegenPolicyUIConfigValue",
 	reflect.TypeOf(projectstate.PythonSectionCodegenMode("")):                           "PythonSectionCodegenMode",
 	reflect.TypeOf(projectstate.PythonSectionRepresentationMode("")):                    "PythonSectionRepresentationMode",
 	reflect.TypeOf(artifacts.RawArtifact{}):                                             "RawArtifact",

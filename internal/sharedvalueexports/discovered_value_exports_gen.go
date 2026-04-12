@@ -7,6 +7,7 @@ import (
 	deployments "setta/internal/deployments"
 	httpapi "setta/internal/httpapi"
 	projectstate "setta/internal/projectstate"
+	projectview "setta/internal/projectview"
 	uisettings "setta/internal/uisettings"
 )
 
@@ -73,6 +74,13 @@ func DiscoveredValueExports() []ValueExport {
 			Type: reflect.TypeOf(projectstate.FrontendValueNameValidationRules()),
 			Value: func() any {
 				return projectstate.FrontendValueNameValidationRules()
+			},
+		},
+		{
+			Name: "PythonCodegenPolicyUIConfig",
+			Type: reflect.TypeOf(projectview.FrontendValuePythonCodegenPolicyUIConfig()),
+			Value: func() any {
+				return projectview.FrontendValuePythonCodegenPolicyUIConfig()
 			},
 		},
 		{

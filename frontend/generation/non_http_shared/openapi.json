@@ -10140,6 +10140,91 @@
         "title": "PythonCodeObjValueRepresentationMode",
         "type": "string"
       },
+      "PythonCodegenPolicyCodeObjOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CodeObjType"
+          }
+        },
+        "required": ["type", "label"],
+        "title": "PythonCodegenPolicyCodeObjOption",
+        "type": "object"
+      },
+      "PythonCodegenPolicyUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "codeObjRepresentationOptionsByType": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/CodeObjValueRepresentationMode"
+              },
+              "type": ["null", "array"]
+            },
+            "type": "object"
+          },
+          "codeObjTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          },
+          "defaultCodeObjRepresentationOptions": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjValueRepresentationMode"
+            },
+            "type": ["null", "array"]
+          },
+          "defaultSectionRepresentationOptions": {
+            "items": {
+              "$ref": "#/components/schemas/SectionRepresentationMode"
+            },
+            "type": ["null", "array"]
+          },
+          "metaControlCodeObjTypes": {
+            "items": {
+              "$ref": "#/components/schemas/PythonCodegenPolicyCodeObjOption"
+            },
+            "type": ["null", "array"]
+          },
+          "sectionModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/SectionCodegenMode"
+            },
+            "type": ["null", "array"]
+          },
+          "sectionRepresentationOptionsByType": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/SectionRepresentationMode"
+              },
+              "type": ["null", "array"]
+            },
+            "type": "object"
+          },
+          "sectionTypes": {
+            "items": {
+              "$ref": "#/components/schemas/SectionType"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "sectionModeOptions",
+          "sectionTypes",
+          "metaControlCodeObjTypes",
+          "codeObjTypes",
+          "defaultSectionRepresentationOptions",
+          "defaultCodeObjRepresentationOptions",
+          "sectionRepresentationOptionsByType",
+          "codeObjRepresentationOptionsByType"
+        ],
+        "title": "PythonCodegenPolicyUIConfigValue",
+        "type": "object"
+      },
       "PythonSectionCodegenMode": {
         "enum": ["inherit", "include", "exclude"],
         "title": "PythonSectionCodegenMode",

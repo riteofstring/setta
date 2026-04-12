@@ -49,6 +49,8 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 		{typ: reflect.TypeOf(CodeObjValuePolicy{}), field: "CodeObjOverrides", tagName: "ts_type", tagValue: "Record<string, CodeObjValueOverride>"},
 		{typ: reflect.TypeOf(CodeObjValuePolicy{}), field: "CodeObjOverrides", tagName: "ts_create_map_values", tagValue: "true"},
 		{typ: reflect.TypeOf(ProjectCodegenPythonTarget{}), field: "Language", tagName: "ts_type", tagValue: "typeof ProjectCodegenLanguageEnum.python"},
+		{typ: reflect.TypeOf(PythonCodegenPolicyUIConfigValue{}), field: "SectionRepresentationOptionsByType", tagName: "ts_type", tagValue: "Record<SectionType, SectionRepresentationMode[]>"},
+		{typ: reflect.TypeOf(PythonCodegenPolicyUIConfigValue{}), field: "CodeObjRepresentationOptionsByType", tagName: "ts_type", tagValue: "Record<CodeObjType, CodeObjValueRepresentationMode[]>"},
 	}
 
 	for _, expectation := range expectations {

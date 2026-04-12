@@ -363,6 +363,8 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(scriptablechat.GetAllMetadataRequest{}),
 		reflect.TypeOf(scriptablechat.EmitStreamDeltaRequest{}),
 		reflect.TypeOf(scriptablechat.RunToolsRequest{}),
+		reflect.TypeOf(projectview.PythonCodegenPolicyCodeObjOption{}),
+		reflect.TypeOf(projectview.PythonCodegenPolicyUIConfigValue{}),
 		reflect.TypeOf(projectview.ProjectCodegenLanguage("")),
 		reflect.TypeOf(projectview.SectionCodegenMode("")),
 		reflect.TypeOf(projectview.SectionRepresentationMode("")),

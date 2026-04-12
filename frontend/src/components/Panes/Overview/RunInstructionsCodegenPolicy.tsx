@@ -2,14 +2,19 @@ import * as Switch from "@radix-ui/react-switch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import React from "react";
 import {
-  CodeObjTypeEnum,
-  CodeObjValueRepresentationModeEnum,
   SectionTypeEnum,
   type CodeObjType,
   type CodeObjValueRepresentationMode,
   type ProjectCodegenPythonTarget,
   type SectionType,
 } from "utils/generatedTypes";
+import {
+  getRunInstructionsCodeObjRepresentationOptions,
+  getRunInstructionsSectionRepresentationOptions,
+  RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES,
+  RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES,
+  RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES,
+} from "./runInstructionsCodegenPolicyConfig";
 
 type SectionPolicy = ProjectCodegenPythonTarget["sectionPolicy"];
 type CodeObjValuePolicy = ProjectCodegenPythonTarget["codeObjValuePolicy"];
@@ -86,165 +91,6 @@ type RunInstructionsCodegenPolicyProps = {
   updateSectionPolicy: (nextPolicy: SectionPolicy) => void;
   updateCodeObjValuePolicy: (nextPolicy: CodeObjValuePolicy) => void;
 };
-
-const CODEGEN_SECTION_TYPES: SectionType[] = [
-  SectionTypeEnum.Callable,
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.ListRoot,
-  SectionTypeEnum.Group,
-  SectionTypeEnum.GlobalVariables,
-  SectionTypeEnum.TextBlock,
-  SectionTypeEnum.Draw,
-  SectionTypeEnum.Image,
-  SectionTypeEnum.MetaControl,
-  SectionTypeEnum.Chat,
-];
-
-const META_CONTROL_CODE_OBJ_TYPES: CodeObjType[] = [
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.DropzoneParam,
-];
-
-type MetaControlCodeObjType = (typeof META_CONTROL_CODE_OBJ_TYPES)[number];
-
-const META_CONTROL_CODE_OBJ_LABELS: Record<MetaControlCodeObjType, string> = {
-  [CodeObjTypeEnum.DropdownParam]: "Dropdown",
-  [CodeObjTypeEnum.SliderParam]: "Slider",
-  [CodeObjTypeEnum.RotaryParam]: "Rotary",
-  [CodeObjTypeEnum.SwitchParam]: "Switch",
-  [CodeObjTypeEnum.TextParam]: "Text Input",
-  [CodeObjTypeEnum.DateParam]: "Date Input",
-  [CodeObjTypeEnum.TimeParam]: "Time Input",
-  [CodeObjTypeEnum.TextAreaParam]: "Text Area",
-  [CodeObjTypeEnum.CodeParam]: "Code Input",
-  [CodeObjTypeEnum.PasswordParam]: "Password Field",
-  [CodeObjTypeEnum.ColorPickerParam]: "Color Picker",
-  [CodeObjTypeEnum.ButtonParam]: "Button",
-  [CodeObjTypeEnum.DropzoneParam]: "Dropzone",
-};
-
-const CODEGEN_CODE_OBJ_TYPES: CodeObjType[] = [
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-];
-
-const SECTION_CODEGEN_MODE_OPTIONS: Array<{
-  value: SectionCodegenMode;
-  label: string;
-}> = [
-  { value: "inherit", label: "inherit" },
-  { value: "include", label: "include" },
-  { value: "exclude", label: "exclude" },
-];
-
-const DEFAULT_SECTION_REPRESENTATION_OPTIONS: readonly SectionRepresentationMode[] =
-  ["expression"];
-
-const SECTION_REPRESENTATION_OPTIONS_BY_TYPE: Partial<
-  Record<SectionType, readonly SectionRepresentationMode[]>
-> = {
-  [SectionTypeEnum.Chat]: ["expression", "file_path", "file_read"],
-  [SectionTypeEnum.Draw]: ["file_path", "file_read"],
-  [SectionTypeEnum.Image]: ["file_path", "file_read"],
-  [SectionTypeEnum.Chart]: ["expression", "file_path"],
-};
-
-const DEFAULT_CODE_OBJ_REPRESENTATION_OPTIONS: readonly CodeObjValueRepresentationMode[] =
-  [CodeObjValueRepresentationModeEnum.expression];
-
-const CODE_OBJ_REPRESENTATION_OPTIONS_BY_TYPE: Partial<
-  Record<CodeObjType, readonly CodeObjValueRepresentationMode[]>
-> = {
-  [CodeObjTypeEnum.DropzoneParam]: [
-    CodeObjValueRepresentationModeEnum.file_path,
-    CodeObjValueRepresentationModeEnum.file_read,
-  ],
-  [CodeObjTypeEnum.ButtonParam]: [
-    CodeObjValueRepresentationModeEnum.expression,
-  ],
-  [CodeObjTypeEnum.CodeCallable]: [
-    CodeObjValueRepresentationModeEnum.expression,
-  ],
-  [CodeObjTypeEnum.NestedParam]: [
-    CodeObjValueRepresentationModeEnum.expression,
-  ],
-  [CodeObjTypeEnum.TextParam]: [CodeObjValueRepresentationModeEnum.string],
-  [CodeObjTypeEnum.DateParam]: [CodeObjValueRepresentationModeEnum.string],
-  [CodeObjTypeEnum.TimeParam]: [CodeObjValueRepresentationModeEnum.string],
-  [CodeObjTypeEnum.TextAreaParam]: [CodeObjValueRepresentationModeEnum.string],
-  [CodeObjTypeEnum.PasswordParam]: [CodeObjValueRepresentationModeEnum.string],
-  [CodeObjTypeEnum.ColorPickerParam]: [
-    CodeObjValueRepresentationModeEnum.string,
-  ],
-  [CodeObjTypeEnum.CodeParam]: [
-    CodeObjValueRepresentationModeEnum.expression,
-    CodeObjValueRepresentationModeEnum.string,
-  ],
-  [CodeObjTypeEnum.RotaryParam]: [
-    CodeObjValueRepresentationModeEnum.expression,
-    CodeObjValueRepresentationModeEnum.string,
-  ],
-  [CodeObjTypeEnum.SwitchParam]: [
-    CodeObjValueRepresentationModeEnum.expression,
-    CodeObjValueRepresentationModeEnum.string,
-  ],
-  [CodeObjTypeEnum.DropdownParam]: [
-    CodeObjValueRepresentationModeEnum.expression,
-    CodeObjValueRepresentationModeEnum.string,
-  ],
-  [CodeObjTypeEnum.SliderParam]: [
-    CodeObjValueRepresentationModeEnum.expression,
-    CodeObjValueRepresentationModeEnum.json_parsed,
-    CodeObjValueRepresentationModeEnum.string,
-  ],
-};
-
-function getSectionRepresentationOptions(
-  sectionType: SectionType | null,
-): readonly SectionRepresentationMode[] {
-  if (!sectionType) {
-    return DEFAULT_SECTION_REPRESENTATION_OPTIONS;
-  }
-  return (
-    SECTION_REPRESENTATION_OPTIONS_BY_TYPE[sectionType] ??
-    DEFAULT_SECTION_REPRESENTATION_OPTIONS
-  );
-}
-
-function getCodeObjRepresentationOptions(
-  codeObjType: CodeObjType | null,
-): readonly CodeObjValueRepresentationMode[] {
-  if (!codeObjType) {
-    return DEFAULT_CODE_OBJ_REPRESENTATION_OPTIONS;
-  }
-  return (
-    CODE_OBJ_REPRESENTATION_OPTIONS_BY_TYPE[codeObjType] ??
-    DEFAULT_CODE_OBJ_REPRESENTATION_OPTIONS
-  );
-}
 
 function prependFallbackOption<T>(
   options: readonly T[],
@@ -453,7 +299,7 @@ function SectionAllowlistCard({
       </div>
       {allowlistEnabled ? (
         <div className="mt-2 grid grid-cols-1 gap-y-1">
-          {CODEGEN_SECTION_TYPES.map((sectionType) => {
+          {RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES.map((sectionType) => {
             const isChecked = allowlist.includes(sectionType);
             const isMetaControl = sectionType === SectionTypeEnum.MetaControl;
             return (
@@ -479,30 +325,32 @@ function SectionAllowlistCard({
                 </label>
                 {isChecked && isMetaControl ? (
                   <div className="ml-6 grid grid-cols-1 gap-y-1">
-                    {META_CONTROL_CODE_OBJ_TYPES.map((codeObjType) => (
-                      <label
-                        key={codeObjType}
-                        className="flex items-center gap-2 text-[11px] text-setta-500 dark:text-setta-400"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={metaControlAllowlist.includes(codeObjType)}
-                          disabled={isDeploymentMode}
-                          onChange={(event) => {
-                            updateSectionPolicy({
-                              ...sectionPolicy,
-                              metaControlAllowlist: toggleArrayValue(
-                                metaControlAllowlist,
-                                codeObjType,
-                                event.target.checked,
-                              ),
-                            });
-                          }}
-                          className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
-                        />
-                        <span>{META_CONTROL_CODE_OBJ_LABELS[codeObjType]}</span>
-                      </label>
-                    ))}
+                    {RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES.map(
+                      ({ type: codeObjType, label }) => (
+                        <label
+                          key={codeObjType}
+                          className="flex items-center gap-2 text-[11px] text-setta-500 dark:text-setta-400"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={metaControlAllowlist.includes(codeObjType)}
+                            disabled={isDeploymentMode}
+                            onChange={(event) => {
+                              updateSectionPolicy({
+                                ...sectionPolicy,
+                                metaControlAllowlist: toggleArrayValue(
+                                  metaControlAllowlist,
+                                  codeObjType,
+                                  event.target.checked,
+                                ),
+                              });
+                            }}
+                            className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ),
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -535,12 +383,12 @@ function SectionTypeDefaultsCard({
         Section Type Defaults
       </div>
       <div className="mt-1 space-y-1">
-        {CODEGEN_SECTION_TYPES.map((sectionType) => {
+        {RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES.map((sectionType) => {
           const typePolicy = sectionPolicy.typePolicies[sectionType];
           const isMetaControl = sectionType === SectionTypeEnum.MetaControl;
           const representationOptions = isMetaControl
             ? []
-            : getSectionRepresentationOptions(sectionType);
+            : getRunInstructionsSectionRepresentationOptions(sectionType);
           const representationOptionsWithFallback = isMetaControl
             ? []
             : prependFallbackOption(
@@ -707,7 +555,7 @@ function SectionOverridesCard({
             const isMetaControl = entry.type === SectionTypeEnum.MetaControl;
             const representationOptions = isMetaControl
               ? []
-              : getSectionRepresentationOptions(entry.type);
+              : getRunInstructionsSectionRepresentationOptions(entry.type);
             const overrideRepresentationOptions = isMetaControl
               ? []
               : prependFallbackOption(
@@ -834,7 +682,7 @@ function CodeObjTypeDefaultsCard({
         Choose how param values are formatted by default.
       </div>
       <div className="mt-1 space-y-1">
-        {CODEGEN_CODE_OBJ_TYPES.map((codeObjType) => {
+        {RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES.map((codeObjType) => {
           const typePolicy =
             codeObjValuePolicy.typePolicies[codeObjType] ??
             defaultCodeObjValuePolicy.typePolicies[codeObjType];
@@ -842,7 +690,7 @@ function CodeObjTypeDefaultsCard({
             return null;
           }
           const representationOptionsWithFallback = prependFallbackOption(
-            getCodeObjRepresentationOptions(codeObjType),
+            getRunInstructionsCodeObjRepresentationOptions(codeObjType),
             typePolicy.representation,
           );
           return (
@@ -980,7 +828,7 @@ function CodeObjOverridesCard({
         <div className="mt-2 space-y-1">
           {codeObjOverrideEntries.map((entry) => {
             const representationOptionsWithFallback = prependFallbackOption(
-              getCodeObjRepresentationOptions(entry.type),
+              getRunInstructionsCodeObjRepresentationOptions(entry.type),
               entry.override.representation,
             );
             return (

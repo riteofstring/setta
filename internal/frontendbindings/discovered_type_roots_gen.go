@@ -335,6 +335,8 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(artifacts.ChartDataArtifact{}),
 		reflect.TypeOf(artifacts.JSONArtifact{}),
 		reflect.TypeOf(artifacts.FileArtifact{}),
+		reflect.TypeOf(projectview.PythonCodegenPolicyCodeObjOption{}),
+		reflect.TypeOf(projectview.PythonCodegenPolicyUIConfigValue{}),
 		reflect.TypeOf(projectview.ProjectCodegenLanguage("")),
 		reflect.TypeOf(projectview.SectionCodegenMode("")),
 		reflect.TypeOf(projectview.SectionRepresentationMode("")),

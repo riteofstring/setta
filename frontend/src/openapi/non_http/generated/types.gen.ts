@@ -4248,6 +4248,32 @@ type PythonCodeObjValueRepresentationMode =
   | "file_read";
 
 /**
+ * PythonCodegenPolicyCodeObjOption
+ */
+type PythonCodegenPolicyCodeObjOption = {
+  label: string;
+  type: CodeObjType;
+};
+
+/**
+ * PythonCodegenPolicyUIConfigValue
+ */
+export type PythonCodegenPolicyUIConfigValue = {
+  codeObjRepresentationOptionsByType: {
+    [key: string]: null | Array<CodeObjValueRepresentationMode>;
+  };
+  codeObjTypes: null | Array<CodeObjType>;
+  defaultCodeObjRepresentationOptions: null | Array<CodeObjValueRepresentationMode>;
+  defaultSectionRepresentationOptions: null | Array<SectionRepresentationMode>;
+  metaControlCodeObjTypes: null | Array<PythonCodegenPolicyCodeObjOption>;
+  sectionModeOptions: null | Array<SectionCodegenMode>;
+  sectionRepresentationOptionsByType: {
+    [key: string]: null | Array<SectionRepresentationMode>;
+  };
+  sectionTypes: null | Array<SectionType>;
+};
+
+/**
  * PythonSectionCodegenMode
  */
 type PythonSectionCodegenMode = "inherit" | "include" | "exclude";
@@ -4950,7 +4976,10 @@ export type SectionParamDependencyKey = {
 /**
  * SectionRepresentationMode
  */
-type SectionRepresentationMode = "expression" | "file_path" | "file_read";
+export type SectionRepresentationMode =
+  | "expression"
+  | "file_path"
+  | "file_read";
 
 /**
  * SectionSize

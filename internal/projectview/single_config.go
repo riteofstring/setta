@@ -24,74 +24,14 @@ const (
 )
 
 var (
-	pythonSectionTypeOrder = []string{
-		"Callable",
-		"Dict",
-		"ListRoot",
-		"Group",
-		"Image",
-		"Chart",
-		"Draw",
-		"TextBlock",
-		"Prompt",
-		"MetaControl",
-		"Social",
-		"GlobalVariables",
-		"Code",
-		"GenPythonCode",
-		"GenPythonMetadata",
-		"Terminal",
-		"IFrame",
-		"Chat",
-		"Browser",
-		"Plugin",
-		"TaskBoard",
-		"Spreadsheet",
-	}
-	defaultPythonSectionAllowlistOrder = []projectstate.FrontendSectionType{
-		projectstate.FrontendSectionTypeCallable,
-		projectstate.FrontendSectionTypeDict,
-		projectstate.FrontendSectionTypeListRoot,
-		projectstate.FrontendSectionTypeGroup,
-		projectstate.FrontendSectionTypeGlobalVariables,
-		projectstate.FrontendSectionTypeTextBlock,
-		projectstate.FrontendSectionTypeDraw,
-		projectstate.FrontendSectionTypeMetaControl,
-		projectstate.FrontendSectionTypeTaskBoard,
-		projectstate.FrontendSectionTypeSpreadsheet,
-	}
-	pythonCodeObjTypeOrder = []string{
-		"CodeCallable",
-		"CodeParam",
-		"TextParam",
-		"DateParam",
-		"TimeParam",
-		"ButtonParam",
-		"SliderParam",
-		"RotaryParam",
-		"SwitchParam",
-		"ColorPickerParam",
-		"DropdownParam",
-		"PasswordParam",
-		"TextAreaParam",
-		"DropzoneParam",
-		"NestedParam",
-	}
-	defaultPythonMetaControlAllowlistOrder = []projectstate.FrontendCodeObjType{
-		projectstate.FrontendCodeObjTypeCodeParam,
-		projectstate.FrontendCodeObjTypeTextParam,
-		projectstate.FrontendCodeObjTypeDateParam,
-		projectstate.FrontendCodeObjTypeTimeParam,
-		projectstate.FrontendCodeObjTypeTextAreaParam,
-		projectstate.FrontendCodeObjTypeSliderParam,
-		projectstate.FrontendCodeObjTypeRotaryParam,
-		projectstate.FrontendCodeObjTypeSwitchParam,
-		projectstate.FrontendCodeObjTypeColorPickerParam,
-		projectstate.FrontendCodeObjTypeDropdownParam,
-		projectstate.FrontendCodeObjTypePasswordParam,
-		projectstate.FrontendCodeObjTypeButtonParam,
-		projectstate.FrontendCodeObjTypeDropzoneParam,
-	}
+	pythonSectionTypeOrder             = projectstate.AllPythonSectionTypes()
+	defaultPythonSectionAllowlistOrder = convertStringSlice[projectstate.FrontendSectionType](
+		projectstate.DefaultPythonSectionAllowlistOrder(),
+	)
+	pythonCodeObjTypeOrder                 = projectstate.AllPythonCodeObjTypes()
+	defaultPythonMetaControlAllowlistOrder = convertStringSlice[projectstate.FrontendCodeObjType](
+		projectstate.DefaultPythonMetaControlAllowlistOrder(),
+	)
 )
 
 type SingleConfig struct {
