@@ -18,9 +18,13 @@ function matchesExpectedProjectUrl(
   expectedProjectUrl: URL,
 ): boolean {
   const parsedCandidateUrl = new URL(candidateUrl);
+  const expectedPathname = expectedProjectUrl.pathname;
   return (
     parsedCandidateUrl.origin === expectedProjectUrl.origin &&
-    parsedCandidateUrl.pathname === expectedProjectUrl.pathname
+    (parsedCandidateUrl.pathname === expectedPathname ||
+      // Default bootstrap can settle on launcher home after the initial
+      // frontend-root handoff; treat that as a ready authenticated shell.
+      (expectedPathname === "/" && parsedCandidateUrl.pathname === "/home"))
   );
 }
 

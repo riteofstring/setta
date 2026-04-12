@@ -13599,3 +13599,30 @@ LOOP_TERMINAL_MARKER: none
     plus focused profiler/render-count evidence to name the next larger
     mounted section-body/chrome subscriber or shared write fan-out before
     another reduction slice
+## 2026-04-12 21:01 UTC
+
+- item `350` landed one bounded Playwright global-setup stable-home landing
+  fallback on the canonical `rotaryParamCodeObjDefault` main-reference lane:
+  - changed `frontend/tests/e2e/global-setup.ts` so the default bootstrap case
+    accepts `/home` on the expected frontend origin in addition to the brief
+    frontend-root handoff
+  - kept explicit non-root project-path runs strict by only applying the
+    fallback when the expected pathname is `/`
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-global-setup-home-landing-fallback.md`
+    to record the slice and the observed root-to-home transition
+  - verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/global-setup.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-039/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-039/main-ai.log`
+      -> passed global setup and reached the canonical probe body
+      -> reference bootstrap plus the reference motion capture completed
+      -> failed later at
+         `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
+  - reading:
+    - this re-closes bootstrap churn on the current runtime and restores the
+      intended blocker
+    - next frontier: inspect the worktree-side `normalize compare pane state`
+      phase directly instead of spending another pass on global setup
+
+LOOP_TERMINAL_MARKER: none

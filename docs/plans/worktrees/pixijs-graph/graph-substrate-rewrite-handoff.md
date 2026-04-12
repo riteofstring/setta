@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 20:48 UTC
+Last updated: 2026-04-12 21:01 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,35 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `350` landed one bounded Playwright global-setup stable-home landing
+  fallback on the canonical `rotaryParamCodeObjDefault` main-reference perf
+  lane:
+
+  - harness code changed in:
+    - `frontend/tests/e2e/global-setup.ts`
+      now treats `/home` on the expected frontend origin as a valid default
+      bootstrap landing in addition to the transient frontend-root pathname
+    - explicit non-root project-path runs still require an exact pathname match
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-main-reference-global-setup-home-landing-fallback.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/global-setup.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-039/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-039/main-ai.log`
+      -> passed Playwright global setup and reached the canonical probe spec
+         body on the current runtime
+      -> reference bootstrap, `open settings`, and the reference motion lane
+         completed
+      -> current blocker stayed at
+         `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
+  - reading:
+    - this closes the current runtime's root-to-home bootstrap race instead of
+      reopening generic auth/bootstrap work
+    - the next bounded frontier should inspect the live worktree
+      `normalize compare pane state` step directly and classify whether the
+      worktree is stuck on pane chrome, local-storage convergence, or another
+      worktree-only preflight issue
 
 - item `349` landed one bounded Playwright global-setup bootstrap-url fallback
   on the canonical `rotaryParamCodeObjDefault` main-reference perf lane:
