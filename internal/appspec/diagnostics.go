@@ -539,6 +539,17 @@ func collectValidatePropsAgainstCatalog(
 	binding map[string]any,
 	issues *[]AppValidationIssue,
 ) {
+	collectProvidedPropIssues(elementKey, componentType, componentSchema, props, issues)
+	collectRequiredPropIssues(elementKey, componentType, componentSchema, props, binding, issues)
+}
+
+func collectProvidedPropIssues(
+	elementKey string,
+	componentType string,
+	componentSchema ComponentSchema,
+	props map[string]any,
+	issues *[]AppValidationIssue,
+) {
 	for propKey, propValue := range props {
 		propSchema, ok := componentSchema.Props[propKey]
 		if !ok {
@@ -553,43 +564,60 @@ func collectValidatePropsAgainstCatalog(
 			*issues = append(*issues, collectValidationIssue(err.Error(), elementKey, componentType))
 		}
 	}
+}
 
+func collectRequiredPropIssues(
+	elementKey string,
+	componentType string,
+	componentSchema ComponentSchema,
+	props map[string]any,
+	binding map[string]any,
+	issues *[]AppValidationIssue,
+) {
 	for _, propKey := range orderedComponentPropKeys(componentSchema) {
 		propSchema := componentSchema.Props[propKey]
 		if !propSchema.Required {
 			continue
 		}
-		if value, ok := props[propKey]; ok {
-			if isMissingRequiredValue(value) {
-				*issues = append(*issues, collectValidationIssue(
-					"App spec element "+quote(elementKey)+" missing required prop "+quote(propKey)+" for component "+quote(componentType)+".",
-					elementKey,
-					componentType,
-				))
-			}
-			continue
-		}
-		if binding != nil {
-			if value, ok := binding[propKey]; ok {
-				if err := validatePropValue(elementKey, componentType, propKey, value, propSchema); err != nil {
-					*issues = append(*issues, collectValidationIssue(err.Error(), elementKey, componentType))
-				}
-				if isMissingRequiredValue(value) {
-					*issues = append(*issues, collectValidationIssue(
-						"App spec element "+quote(elementKey)+" missing required prop "+quote(propKey)+" for component "+quote(componentType)+".",
-						elementKey,
-						componentType,
-					))
-				}
-				continue
-			}
-		}
-		*issues = append(*issues, collectValidationIssue(
-			"App spec element "+quote(elementKey)+" missing required prop "+quote(propKey)+" for component "+quote(componentType)+".",
-			elementKey,
-			componentType,
-		))
+		collectRequiredPropIssue(elementKey, componentType, propKey, propSchema, props, binding, issues)
 	}
+}
+
+func collectRequiredPropIssue(
+	elementKey string,
+	componentType string,
+	propKey string,
+	propSchema PropSchema,
+	props map[string]any,
+	binding map[string]any,
+	issues *[]AppValidationIssue,
+) {
+	valueState := resolveRequiredCatalogPropValue(props, binding, propKey)
+	if !valueState.present {
+		appendMissingRequiredPropIssue(elementKey, componentType, propKey, issues)
+		return
+	}
+	if valueState.fromBinding {
+		if err := validatePropValue(elementKey, componentType, propKey, valueState.value, propSchema); err != nil {
+			*issues = append(*issues, collectValidationIssue(err.Error(), elementKey, componentType))
+		}
+	}
+	if isMissingRequiredValue(valueState.value) {
+		appendMissingRequiredPropIssue(elementKey, componentType, propKey, issues)
+	}
+}
+
+func appendMissingRequiredPropIssue(
+	elementKey string,
+	componentType string,
+	propKey string,
+	issues *[]AppValidationIssue,
+) {
+	*issues = append(*issues, collectValidationIssue(
+		missingRequiredPropError(elementKey, componentType, propKey).Error(),
+		elementKey,
+		componentType,
+	))
 }
 
 func collectPushChildren(
@@ -673,38 +701,52 @@ func collectThemeColorIssues(raw any, warnings *[]AppValidationIssue) []AppValid
 	if !ok {
 		return []AppValidationIssue{{Message: "theme.colors must be an object."}}
 	}
-
-	errors := make([]AppValidationIssue, 0)
-	if _, hasLight := themeColors["light"]; hasLight || hasMapKey(themeColors, "dark") {
-		extraVariantKeys := make([]string, 0)
-		for key := range themeColors {
-			if key != "light" && key != "dark" {
-				extraVariantKeys = append(extraVariantKeys, key)
-			}
-		}
-		if len(extraVariantKeys) > 0 {
-			preview, suffix := previewSorted(extraVariantKeys, 6)
-			*warnings = append(*warnings, AppValidationIssue{
-				Message: "theme.colors contains unknown keys and they will be ignored: " + preview + suffix,
-			})
-		}
-		for _, variantName := range []string{"light", "dark"} {
-			if !hasMapKey(themeColors, variantName) {
-				continue
-			}
-			variant, ok := themeColors[variantName].(map[string]any)
-			if !ok {
-				errors = append(errors, AppValidationIssue{
-					Message: "theme.colors." + variantName + " must be an object.",
-				})
-				continue
-			}
-			errors = append(errors, collectThemeColorMapIssues(variant, "theme.colors."+variantName, warnings)...)
-		}
-		return errors
+	if !themeColorsUseVariants(themeColors) {
+		return collectThemeColorMapIssues(themeColors, "theme.colors", warnings)
 	}
+	warnUnknownThemeColorVariants(themeColors, warnings)
+	return collectThemeColorVariantIssues(themeColors, warnings)
+}
 
-	return collectThemeColorMapIssues(themeColors, "theme.colors", warnings)
+func themeColorsUseVariants(themeColors map[string]any) bool {
+	return hasMapKey(themeColors, "light") || hasMapKey(themeColors, "dark")
+}
+
+func warnUnknownThemeColorVariants(themeColors map[string]any, warnings *[]AppValidationIssue) {
+	extraVariantKeys := make([]string, 0)
+	for key := range themeColors {
+		if key != "light" && key != "dark" {
+			extraVariantKeys = append(extraVariantKeys, key)
+		}
+	}
+	if len(extraVariantKeys) == 0 {
+		return
+	}
+	preview, suffix := previewSorted(extraVariantKeys, 6)
+	*warnings = append(*warnings, AppValidationIssue{
+		Message: "theme.colors contains unknown keys and they will be ignored: " + preview + suffix,
+	})
+}
+
+func collectThemeColorVariantIssues(themeColors map[string]any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	errors := make([]AppValidationIssue, 0)
+	for _, variantName := range []string{"light", "dark"} {
+		if !hasMapKey(themeColors, variantName) {
+			continue
+		}
+		errors = append(errors, collectSingleThemeColorVariantIssues(themeColors[variantName], variantName, warnings)...)
+	}
+	return errors
+}
+
+func collectSingleThemeColorVariantIssues(raw any, variantName string, warnings *[]AppValidationIssue) []AppValidationIssue {
+	variant, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{
+			Message: "theme.colors." + variantName + " must be an object.",
+		}}
+	}
+	return collectThemeColorMapIssues(variant, "theme.colors."+variantName, warnings)
 }
 
 func collectThemeColorMapIssues(raw map[string]any, prefix string, warnings *[]AppValidationIssue) []AppValidationIssue {

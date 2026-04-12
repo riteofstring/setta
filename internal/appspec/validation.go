@@ -454,6 +454,18 @@ func validatePropsAgainstCatalog(
 	props map[string]any,
 	binding map[string]any,
 ) error {
+	if err := validateProvidedPropsAgainstCatalog(elementKey, componentType, componentSchema, props); err != nil {
+		return err
+	}
+	return validateRequiredPropsAgainstCatalog(elementKey, componentType, componentSchema, props, binding)
+}
+
+func validateProvidedPropsAgainstCatalog(
+	elementKey string,
+	componentType string,
+	componentSchema ComponentSchema,
+	props map[string]any,
+) error {
 	for propKey, propValue := range props {
 		propSchema, ok := componentSchema.Props[propKey]
 		if !ok {
@@ -463,33 +475,80 @@ func validatePropsAgainstCatalog(
 			return err
 		}
 	}
+	return nil
+}
 
+func validateRequiredPropsAgainstCatalog(
+	elementKey string,
+	componentType string,
+	componentSchema ComponentSchema,
+	props map[string]any,
+	binding map[string]any,
+) error {
 	for _, propKey := range orderedComponentPropKeys(componentSchema) {
 		propSchema := componentSchema.Props[propKey]
 		if !propSchema.Required {
 			continue
 		}
-		if value, ok := props[propKey]; ok {
-			if isMissingRequiredValue(value) {
-				return fmt.Errorf("App spec element %q missing required prop %q for component %q", elementKey, propKey, componentType)
-			}
-			continue
+		if err := validateRequiredPropAgainstCatalog(
+			elementKey,
+			componentType,
+			propKey,
+			propSchema,
+			props,
+			binding,
+		); err != nil {
+			return err
 		}
-		if binding != nil {
-			if value, ok := binding[propKey]; ok {
-				if err := validatePropValue(elementKey, componentType, propKey, value, propSchema); err != nil {
-					return err
-				}
-				if isMissingRequiredValue(value) {
-					return fmt.Errorf("App spec element %q missing required prop %q for component %q", elementKey, propKey, componentType)
-				}
-				continue
-			}
-		}
-		return fmt.Errorf("App spec element %q missing required prop %q for component %q", elementKey, propKey, componentType)
 	}
-
 	return nil
+}
+
+type requiredCatalogPropValue struct {
+	value       any
+	present     bool
+	fromBinding bool
+}
+
+func resolveRequiredCatalogPropValue(
+	props map[string]any,
+	binding map[string]any,
+	propKey string,
+) requiredCatalogPropValue {
+	if value, ok := props[propKey]; ok {
+		return requiredCatalogPropValue{value: value, present: true}
+	}
+	if value, ok := binding[propKey]; ok {
+		return requiredCatalogPropValue{value: value, present: true, fromBinding: true}
+	}
+	return requiredCatalogPropValue{}
+}
+
+func validateRequiredPropAgainstCatalog(
+	elementKey string,
+	componentType string,
+	propKey string,
+	propSchema PropSchema,
+	props map[string]any,
+	binding map[string]any,
+) error {
+	valueState := resolveRequiredCatalogPropValue(props, binding, propKey)
+	if !valueState.present {
+		return missingRequiredPropError(elementKey, componentType, propKey)
+	}
+	if valueState.fromBinding {
+		if err := validatePropValue(elementKey, componentType, propKey, valueState.value, propSchema); err != nil {
+			return err
+		}
+	}
+	if isMissingRequiredValue(valueState.value) {
+		return missingRequiredPropError(elementKey, componentType, propKey)
+	}
+	return nil
+}
+
+func missingRequiredPropError(elementKey string, componentType string, propKey string) error {
+	return fmt.Errorf("App spec element %q missing required prop %q for component %q", elementKey, propKey, componentType)
 }
 
 func validatePropValue(
