@@ -3,25 +3,20 @@ import type React from "react";
 import type { SetStateAction } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import {
-  useLocalStorage,
-  useProjectState,
-  useTemporaryMiscState,
-} from "state/definitions";
-import { getSectionStylePreviewColorKey } from "utils/constants";
+import { useProjectState } from "state/definitions";
 import {
   SectionTypeEnum,
   type ChatWindowMode,
   type ChatWindowPlacement,
 } from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { SectionHeader } from "../Header/SectionHeader";
 import { AreaSwitch } from "./SectionContainerCoreResizabe";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
+  resolveSectionChromeShellDecorations,
 } from "./sectionChrome";
-import { getBgColor } from "./utils";
+import { useSectionChromeAppearance } from "./sectionChromeAppearance";
 
 type SectionWindowSurfaceProps = {
   sectionId: string;
@@ -75,39 +70,30 @@ export function SectionWindowSurface({
       styleColor: impl.styleColor,
     };
   }, _.isEqual);
-  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
-  const previewStyleColor = useTemporaryMiscState(
-    (state) => state[styleColorPreviewKey] as string | null | undefined,
-  );
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? styleColor : previewStyleColor;
-  const darkMode = useLocalStorage((state) => state.darkMode);
-  const useMetaControlStyle =
-    sectionTypeName === SectionTypeEnum.MetaControl ||
-    textBlockMetaControlStyle;
-  const sectionStyleTheme =
-    resolvedStyleColor && !useMetaControlStyle
-      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-      : null;
-  const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const sectionStyleVars = sectionStyleTheme
-    ? ({
-        "--setta-section-style-bg": sectionStyleTheme.bg,
-        "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
-        "--setta-section-style-border": sectionStyleTheme.border,
-        "--setta-section-style-outline": sectionStyleTheme.outline,
-        "--setta-section-style-text": sectionStyleTheme.text,
-        "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
-      } as React.CSSProperties)
-    : undefined;
-  const bgColor = useMetaControlStyle
-    ? "bg-transparent"
-    : getBgColor(sectionTypeName);
+  const {
+    bgColor,
+    hasSectionStyleTheme,
+    sectionStyleVars,
+    useMetaControlStyle,
+  } = useSectionChromeAppearance({
+    sectionId,
+    sectionTypeName,
+    styleColor,
+    textBlockMetaControlStyle,
+  });
   const isRoot = getIsRoot(sectionTypeName);
-  const outerShellClassName = getSectionContainerShellClassName({
+  const shellDecorations = resolveSectionChromeShellDecorations({
     isActiveSection,
     isGlobalVariables: sectionTypeName === SectionTypeEnum.GlobalVariables,
     isInOtherProjectConfigs,
+    showAiHighlight: false,
+    isReadScope: false,
+    isWriteScope: false,
+  });
+  const outerShellClassName = getSectionContainerShellClassName({
+    outlineTone: shellDecorations.outlineTone,
+    scopeHighlight: shellDecorations.scopeHighlight,
+    showAiHighlight: shellDecorations.showAiHighlight,
     useMetaControlStyle,
     hasSectionStyleTheme,
     positionAndSizeLocked,
@@ -135,7 +121,6 @@ export function SectionWindowSurface({
       <div className={innerShellClassName}>
         <SectionHeader
           sectionId={sectionId}
-          isActiveSection={isActiveSection}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={false}
@@ -144,7 +129,7 @@ export function SectionWindowSurface({
           showSectionContainerControls={false}
           extraControls={headerActions}
           trackMeasuredHeight={false}
-          headerProps={headerProps}
+          {...(headerProps ? { headerProps } : {})}
         />
         <div
           className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
@@ -157,13 +142,15 @@ export function SectionWindowSurface({
               isMinimized={isMinimized}
               isUserView={false}
               chatHost={chatHost}
-              chatModeOverride={chatModeOverride}
-              projectChatSurfaceId={projectChatSurfaceId}
-              projectChatId={projectChatId}
-              setProjectChatId={setProjectChatId}
-              onProjectChatBlockedErrorCodeChange={
-                onProjectChatBlockedErrorCodeChange
-              }
+              {...(chatModeOverride !== undefined ? { chatModeOverride } : {})}
+              {...(projectChatSurfaceId !== undefined
+                ? { projectChatSurfaceId }
+                : {})}
+              {...(projectChatId !== undefined ? { projectChatId } : {})}
+              {...(setProjectChatId !== undefined ? { setProjectChatId } : {})}
+              {...(onProjectChatBlockedErrorCodeChange !== undefined
+                ? { onProjectChatBlockedErrorCodeChange }
+                : {})}
             />
           )}
         </div>

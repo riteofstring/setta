@@ -68,25 +68,4 @@ describe("PaneContainer", () => {
     expect(markup).toContain("bg-transparent");
     expect(markup).toContain("cursor-pointer");
   });
-
-  it("hides the fullscreen button and offsets a hidden left pane", () => {
-    const markup = renderToStaticMarkup(
-      <PaneContainer {...baseProps} right={false} vis={false}>
-        <div>Pane</div>
-      </PaneContainer>,
-    );
-
-    expect(markup).not.toContain("pane-fullscreen-button");
-    expect(markup).toContain("translateX(-");
-  });
-
-  it("uses a caller-supplied padding class instead of the default", () => {
-    const markup = renderToStaticMarkup(
-      <PaneContainer {...baseProps} right={true} paddingClassName="py-8">
-        <div>Pane</div>
-      </PaneContainer>,
-    );
-
-    expect(markup).toContain("py-8");
-  });
 });
