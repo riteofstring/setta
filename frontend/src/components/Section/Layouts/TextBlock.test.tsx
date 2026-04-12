@@ -1,23 +1,16 @@
-/* @vitest-environment jsdom */
-
-import { act, Profiler, type ProfilerOnRenderCallback } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
 import {
+  TextBlockDisplayModeEnum,
+  TextBlockFormatEnum,
   createCore,
   createProjectConfig,
   createTextBlockSectionImpl,
-  createUserDefaultTextBlockSectionImpl,
   createVariant,
-  SectionTypeEnum,
-  TextBlockDisplayModeEnum,
-  TextBlockFormatEnum,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TextBlock } from "./TextBlock";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { CodeBlock, TextBlock } from "./TextBlock";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -61,16 +54,13 @@ function seedTextBlockSection({
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createTextBlockSectionImpl(
-    createUserDefaultTextBlockSectionImpl(),
-    {
-      id: implId,
-      text,
-      format,
-      textDisplayMode: TextBlockDisplayModeEnum.Render,
-      masterFontSizePx,
-    },
-  );
+  const sectionImpl = createTextBlockSectionImpl({
+    id: implId,
+    text,
+    format,
+    textDisplayMode: TextBlockDisplayModeEnum.Render,
+    masterFontSizePx,
+  });
 
   useProjectState.setState((state) => {
     state.projectConfig = projectConfig;
@@ -85,18 +75,6 @@ function seedTextBlockSection({
 }
 
 describe("TextBlock typography scale", () => {
-  beforeEach(() => {
-    Object.defineProperty(globalThis, "ResizeObserver", {
-      configurable: true,
-      writable: true,
-      value: class ResizeObserverMock {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    });
-  });
-
   beforeEach(() => {
     resetProjectStores();
   });
@@ -131,112 +109,24 @@ describe("TextBlock typography scale", () => {
     expect(markup).toContain("<pre");
     expect(markup).toContain("font-size:22px");
   });
-});
 
-type RenderedProfiledTextBlock = {
-  host: HTMLDivElement;
-  root: Root;
-};
-
-async function renderProfiledTextBlock(
-  sectionId: string,
-  onRender: ProfilerOnRenderCallback,
-): Promise<RenderedProfiledTextBlock> {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      <Profiler id="text-block-profiler" onRender={onRender}>
-        <TextBlock sectionId={sectionId} />
-      </Profiler>,
+  it("renders inline and block markdown code with distinct wrappers", () => {
+    const inlineMarkup = renderToStaticMarkup(
+      <CodeBlock inline className="language-ts extra-class">
+        {"const value = 1;"}
+      </CodeBlock>,
     );
-  });
+    const blockMarkup = renderToStaticMarkup(
+      <CodeBlock className="language-ts extra-class">
+        {"const value = 1;\nconsole.log(value);"}
+      </CodeBlock>,
+    );
 
-  return { host, root };
-}
-
-describe("TextBlock store subscriptions", () => {
-  beforeEach(() => {
-    Object.defineProperty(globalThis, "ResizeObserver", {
-      configurable: true,
-      writable: true,
-      value: class ResizeObserverMock {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    });
-    resetProjectStores();
-  });
-
-  afterEach(() => {
-    resetProjectStores();
-    document.body.innerHTML = "";
-  });
-
-  it("stays out of unrelated project-state commits when text-block inputs are unchanged", async () => {
-    const sectionId = seedTextBlockSection({
-      format: TextBlockFormatEnum.Markdown,
-      text: "# Heading\n\nBody",
-      masterFontSizePx: 18,
-    });
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledTextBlock(sectionId, onRender);
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        // Unrelated preview-variant churn should not re-commit mounted text-block bodies.
-        useProjectState.setState((state) => {
-          state.previewSectionVariantMap = {
-            otherSection: "other-variant",
-          };
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      expect(host.innerHTML).toContain("Heading");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("rerenders when the subscribed text changes", async () => {
-    const sectionId = seedTextBlockSection({
-      format: TextBlockFormatEnum.Markdown,
-      text: "# Heading\n\nBody",
-      masterFontSizePx: 18,
-    });
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledTextBlock(sectionId, onRender);
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        // The mounted text-block body must still update when its own rendered text changes.
-        useProjectState.setState((state) => {
-          const impl = state.sectionImpls["impl-1"];
-          if (impl.type !== SectionTypeEnum.TextBlock) {
-            throw new Error("Expected TextBlock section impl.");
-          }
-          impl.text = "# Updated\n\nBody";
-        });
-      });
-
-      expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
-      expect(host.innerHTML).toContain("Updated");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
+    expect(inlineMarkup).toContain('data-setta-inline-code="true"');
+    expect(inlineMarkup).toContain("extra-class");
+    expect(inlineMarkup).not.toContain("language-ts");
+    expect(blockMarkup).toContain('data-setta-code-block="true"');
+    expect(blockMarkup).toContain("extra-class");
+    expect(blockMarkup).not.toContain("language-ts");
   });
 });

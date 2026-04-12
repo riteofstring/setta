@@ -39,7 +39,9 @@ type MockProjectState = {
   projectConfig: {
     id: string;
     windowSpaces: Record<string, unknown>;
+    windowSpaceIdsBySlug?: Record<string, Array<string>>;
     sectionVariantMap: Record<string, string>;
+    sectionIdsByPathSlug?: Record<string, Array<string>>;
   };
   sections: Record<string, MockSectionCore>;
   sectionVariants: Record<string, MockSectionVariant>;
@@ -67,7 +69,9 @@ const hoisted = vi.hoisted(() => {
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {},
+        windowSpaceIdsBySlug: {},
         sectionVariantMap: {},
+        sectionIdsByPathSlug: {},
       },
       sections: {},
       sectionVariants: {},
@@ -776,7 +780,11 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["chat-window"],
           }),
         },
+        windowSpaceIdsBySlug: {
+          research_board: ["space-1"],
+        },
         sectionVariantMap: {},
+        sectionIdsByPathSlug: {},
       },
       sections: {},
       sectionVariants: {},
@@ -823,8 +831,12 @@ describe("StandaloneProjectSurfacePage", () => {
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {},
+        windowSpaceIdsBySlug: {},
         sectionVariantMap: {
           [scriptableChat.sectionId]: scriptableChat.variantId,
+        },
+        sectionIdsByPathSlug: {
+          scriptable_chat: [scriptableChat.sectionId],
         },
       },
       sections: {
@@ -899,9 +911,13 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["managed-window"],
           }),
         },
+        windowSpaceIdsBySlug: {
+          managed_space: ["space-1"],
+        },
         sectionVariantMap: {
           [managedChat.sectionId]: managedChat.variantId,
         },
+        sectionIdsByPathSlug: {},
       },
       sections: {
         [managedChat.sectionId]: managedChat.core,
@@ -1016,10 +1032,14 @@ describe("StandaloneProjectSurfacePage", () => {
             ],
           }),
         },
+        windowSpaceIdsBySlug: {
+          mixed_space: ["space-1"],
+        },
         sectionVariantMap: {
           [managedChat.sectionId]: managedChat.variantId,
           [scriptableChat.sectionId]: scriptableChat.variantId,
         },
+        sectionIdsByPathSlug: {},
       },
       sections: {
         [managedChat.sectionId]: managedChat.core,
@@ -1117,10 +1137,14 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["graph-window", "scriptable-window"],
           }),
         },
+        windowSpaceIdsBySlug: {
+          scriptable_space: ["space-1"],
+        },
         sectionVariantMap: {
           [scriptableChat.sectionId]: scriptableChat.variantId,
           [textSection.sectionId]: textSection.variantId,
         },
+        sectionIdsByPathSlug: {},
       },
       sections: {
         [scriptableChat.sectionId]: scriptableChat.core,
@@ -1344,7 +1368,11 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["chat-window"],
           }),
         },
+        windowSpaceIdsBySlug: {
+          research_board: ["space-1"],
+        },
         sectionVariantMap: {},
+        sectionIdsByPathSlug: {},
       },
       sections: {},
       sectionVariants: {},
