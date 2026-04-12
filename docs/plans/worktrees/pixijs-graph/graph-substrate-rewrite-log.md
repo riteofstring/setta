@@ -151,6 +151,57 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 04:31 UTC
+
+- item `390` landed one bounded mounted spreadsheet body selector reduction on
+  the live `/settings` canary lane after a local ranking pass:
+  - local ranking/readout for this iteration:
+    - checked the remaining mounted section-body and section-shell owners still
+      using `lodash/isEqual` before taking another product slice
+    - `SpreadsheetArea` was the clearest remaining broad body-entry owner
+      because it subscribes to a seven-field primitive snapshot
+      (`filePath`, `activeSheet`, `readOnly`, `showRowNumbers`, `density`,
+      `autoReloadOnExternalChange`, `isFrozen`)
+    - narrower header/control candidates were left for later passes
+  - product code changed in:
+    - `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx`
+      so the mounted spreadsheet body selector now uses `zustand/shallow`
+      equality instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      to prove mounted spreadsheet bodies stay out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when their
+      subscribed density changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-spreadsheet-area-shallow-selector.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/SpreadsheetArea.tsx src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke before recovery
+      -> failed on a blank root after bootstrap redirect
+    - bounded lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime via
+        `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-015/worktree-ai.log`
+    - fresh-context headless CDP smoke after recovery
+      -> still failed: the bootstrap URL redirected into the frontend, but the
+        rendered viewport stayed blank with an empty `<main id="root">`
+- reading:
+  - the product slice stayed on a broad mounted section-body owner instead of
+    falling back to a tiny control-only cleanup
+  - the subscribed source-of-truth fields stayed unchanged, so the slice only
+    reduced comparator overhead on unrelated project-state writes
+  - the current blocker is worktree/runtime health for live visual smoke, not a
+    failing automated regression on the selector slice itself
+- next:
+  - recover the live worktree `/settings` bootstrap/render path so CDP can show
+    visible Settings chrome again before taking another selector or renderer
+    slice
+
+LOOP_TERMINAL_MARKER: none
+
 LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-13 04:03 UTC

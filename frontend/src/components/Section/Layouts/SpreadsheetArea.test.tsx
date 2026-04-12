@@ -9,8 +9,25 @@ import {
   type ProfilerOnRenderCallback,
 } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useProjectState } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
+import {
+  createCore,
+  createProjectConfig,
+  createSectionSize,
+  createVariant,
+  SectionTypeEnum,
+  SpreadsheetGridDensityEnum,
+  type BaseSectionImplUnion,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("state/hooks/share", () => ({
+  useShareCapabilities: () => ({
+    canEditLayout: true,
+  }),
+}));
 
 vi.mock(
   "components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor",
@@ -44,15 +61,87 @@ vi.mock(
 );
 
 import {
+  SpreadsheetArea,
   SpreadsheetAreaShell,
   SpreadsheetGlideEditor,
 } from "./SpreadsheetArea";
+
+function syncStoreInitialState(store: {
+  getState: () => Record<string, unknown>;
+  getInitialState?: () => Record<string, unknown>;
+}) {
+  if (!store.getInitialState) {
+    return;
+  }
+  const initial = store.getInitialState();
+  Object.assign(initial, store.getState());
+}
+
+function seedSpreadsheetSection() {
+  const sectionId = "section-1";
+  const variantId = "variant-1";
+  const implId = "impl-1";
+  const projectConfig = createProjectConfig({
+    id: "project-1",
+    sectionVariantMap: { [sectionId]: variantId },
+    topLevelSections: {
+      [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+    },
+  });
+  const sectionCore = createCore({
+    id: sectionId,
+    name: "Spreadsheet",
+    variants: [variantId],
+    defaultVariant: variantId,
+  });
+  const sectionVariant = createVariant({
+    id: variantId,
+    name: "Variant",
+    impl: implId,
+    nonPresetImpls: [],
+  });
+  const sectionImpl: BaseSectionImplUnion = {
+    type: SectionTypeEnum.Spreadsheet,
+    id: implId,
+    name: "Spreadsheet",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: createSectionSize({ width: 320, height: 240 }),
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    filePath: "/tmp/example.csv",
+    activeSheet: "Sheet1",
+    readOnly: false,
+    showRowNumbers: true,
+    density: SpreadsheetGridDensityEnum.comfortable,
+    autoReloadOnExternalChange: true,
+  };
+
+  useProjectState.setState((state) => {
+    state.projectConfig = projectConfig;
+    state.sections = { [sectionId]: sectionCore };
+    state.sectionVariants = { [variantId]: sectionVariant };
+    state.sectionImpls = { [implId]: sectionImpl };
+    state.parentSectionMap = { [sectionId]: null };
+    state.previewSectionVariantMap = {};
+  });
+  syncStoreInitialState(useProjectState);
+
+  return { implId, sectionId };
+}
 
 describe("SpreadsheetArea", () => {
   let host: HTMLDivElement;
   let root: Root;
 
   beforeEach(() => {
+    resetProjectStores();
     useReactFlow.setState({
       ...initialReactFlowState,
       transform: [0, 0, 1],
@@ -68,6 +157,7 @@ describe("SpreadsheetArea", () => {
     });
     host.remove();
     document.body.innerHTML = "";
+    resetProjectStores();
     useReactFlow.setState({ ...initialReactFlowState });
   });
 
@@ -134,5 +224,67 @@ describe("SpreadsheetArea", () => {
       expect(editor?.dataset.selectedPath).toBe("/tmp/example.csv");
       expect(editor?.dataset.density).toBe("comfortable");
     });
+  });
+
+  it("stays out of unrelated project-state commits when spreadsheet inputs are unchanged", async () => {
+    const { sectionId } = seedSpreadsheetSection();
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+
+    await act(async () => {
+      root.render(
+        <Profiler id="spreadsheet-area-profiler" onRender={onRender}>
+          <SpreadsheetArea sectionId={sectionId} />
+        </Profiler>,
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      // Unrelated preview-variant churn should not re-commit mounted spreadsheet bodies.
+      useProjectState.setState((state) => {
+        state.previewSectionVariantMap = {
+          otherSection: "other-variant",
+        };
+      });
+    });
+
+    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+    expect(
+      host.querySelector<HTMLElement>('[data-testid="mock-spreadsheet-editor"]')
+        ?.dataset.selectedPath,
+    ).toBe("/tmp/example.csv");
+  });
+
+  it("rerenders when the subscribed spreadsheet density changes", async () => {
+    const { implId, sectionId } = seedSpreadsheetSection();
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+
+    await act(async () => {
+      root.render(
+        <Profiler id="spreadsheet-area-profiler" onRender={onRender}>
+          <SpreadsheetArea sectionId={sectionId} />
+        </Profiler>,
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      // The mounted spreadsheet body must still update when its own grid density changes.
+      useProjectState.setState((state) => {
+        const impl = state.sectionImpls[implId];
+        if (impl.type !== SectionTypeEnum.Spreadsheet) {
+          throw new Error("Expected Spreadsheet section impl.");
+        }
+        impl.density = SpreadsheetGridDensityEnum.compact;
+      });
+    });
+
+    expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
+    expect(
+      host.querySelector<HTMLElement>('[data-testid="mock-spreadsheet-editor"]')
+        ?.dataset.density,
+    ).toBe("compact");
   });
 });

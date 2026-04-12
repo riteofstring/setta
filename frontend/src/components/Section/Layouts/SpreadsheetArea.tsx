@@ -1,5 +1,4 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import type { DragEvent, ReactNode } from "react";
 import { Suspense, lazy, memo, useCallback, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
@@ -21,6 +20,7 @@ import {
 } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { isSpreadsheetPath } from "utils/spreadsheet";
+import { shallow } from "zustand/shallow";
 
 const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
   const module = await import(
@@ -136,7 +136,7 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
       autoReloadOnExternalChange: impl.autoReloadOnExternalChange,
       isFrozen: impl.isFrozen,
     };
-  }, _.isEqual);
+  }, shallow);
   const isDisabled = isFrozen || !canEditLayout;
   const [isDropTargetActive, setIsDropTargetActive] = useState(false);
 
