@@ -333,7 +333,9 @@ Rules:
 - [ ] Refresh the Phase 1 candidate summary at ${deadcode_candidates_file} on every Phase 1 iteration.
 - [ ] Update the Phase 1 dead-code audit at ${deadcode_audit_file} on every Phase 1 iteration.
 - [ ] Review current Go, Python, and TypeScript candidates before deletion instead of trusting raw tool output blindly.
+- [ ] When a symbol is referenced only by tests, treat dead exported visibility or a dead convenience wrapper as the likely cleanup target before assuming the covered behavior itself is dead.
 - [ ] Delete every currently confirmed dead-code candidate and remove dead tests, dead files, and dead compatibility shims instead of leaving transitional stubs.
+- [ ] Preserve or strengthen focused coverage when removing test-only exports or wrappers. Do not delete a test solely because its helper became file-local or non-exported unless equal-or-stronger replacement coverage lands in the same iteration.
 - [ ] Record every remaining retained candidate in ${deadcode_audit_file} with file references and concrete rationale such as dynamic reachability, public/package surface, tooling-only roots, test-only roots, or a temporary override requirement.
 - [ ] Mark Phase 1 complete only after a fresh report and audit find no remaining actionable dead-code deletions under the repo rules.
 
@@ -394,6 +396,9 @@ Execution rules for every iteration:
 - Start with a fresh targeted audit of the active phase.
 - Pick one actionable issue or tightly-related cluster inside the active phase that you can complete confidently in this session.
 - Prefer deleting dead code or duplicated logic over moving it into wrappers, compatibility shims, tiny templates, or helper layers.
+- If a symbol is only referenced by tests, distinguish between a dead exported visibility/wrapper surface and still-live behavior. Prefer making the helper file-local or deleting only the dead wrapper surface before deleting coverage.
+- Never delete a focused test solely because the target helper became non-exported or file-local. Replace it in the same iteration with equal-or-stronger coverage through the owner API, component, runtime path, or an extracted non-exported helper module.
+- If replacement coverage would be materially weaker, more brittle, or much slower in the current iteration, keep the helper/test for now, record the rationale in the audit, and choose a different candidate instead of deleting coverage.
 - Prefer Go-owned logic, metadata, and generation over duplicated Python or TypeScript logic.
 - Regenerate affected downstream artifacts before cleanup when Go-owned contracts, shared types, backend endpoints, or frontend generation inputs change.
 - Run focused verification for the behavior you changed.
@@ -418,7 +423,9 @@ Phase 1 rules:
 - Respect prod, tooling, test, and public/package reachability. Do not treat "not imported in this repo" as sufficient proof that something is dead.
 - Treat dynamic imports, runtime loaders, documented hooks, and external plugin bundles according to ${ROOT_DIR}/docs/notes/repo_dead_code_detection_proposal.md.
 - Keep generated Go files out of dead-code cleanup unless the deletion is a direct consequence of authoritative generator or contract changes.
+- When a helper or method is only test-referenced, treat the exported visibility or convenience wrapper as the likely dead surface by default. Do not assume the underlying behavior or its focused tests are dead.
 - Delete confirmed dead code across Go, Python, and TypeScript, including dead files, dead tests, dead declarations, dead imports, dead routes, and dead compatibility shims that no supported root needs.
+- Only delete a focused test when the behavior itself is confirmed dead or redundant after replacement coverage is already in place in the same iteration.
 - Record every remaining retained candidate in ${deadcode_audit_file} with file references and concrete rationale.
 - Mark Phase 1 complete only after a fresh report and audit find no remaining actionable dead-code deletions under the repo rules.
 
