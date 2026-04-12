@@ -14955,6 +14955,47 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 03:29 UTC
+
+- item `383` landed one bounded mounted section-container shell selector
+  reduction on the live settings canary lane:
+  - changed
+    `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    so the selector for
+    `{ isMinimized, isYouTube, textBlockMetaControlStyle, hasEmbeddedTerminal }`
+    now uses `zustand/shallow` instead of `lodash/isEqual`
+  - added
+    `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    to prove unrelated `previewSectionVariantMap` writes do not re-commit the
+    mounted section container shell while a real minimized-state change still
+    does
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-13_settings-graph-section-container-core-resizable-shallow-selector.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    - passed (`1` file, `2` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    - passed
+  - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+    - passed
+    - the page mounted past the loading shell and resolved to populated
+      settings content with visible section chrome/body text instead of a blank
+      surface
+- Result:
+  - this pass stays on the live canary lane but moves the selector reduction up
+    to a broad section-body shell wrapper rather than another tiny header
+    control
+  - the subscribed fields stayed the same, so behavior remained intact while
+    deep-equality work was removed from a mounted container-level subscription
+- Next:
+  - inspect the next broad mounted section-body/chrome subscriber or shared
+    write fan-out that still accepts unrelated `useProjectState` churn on the
+    live worktree
+  - prefer another section-wide wrapper/body owner over returning to one-off
+    header-button selectors
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 03:18 UTC
 
 - item `382` landed one bounded mounted lock-position button selector

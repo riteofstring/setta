@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 03:18 UTC
+Last updated: 2026-04-13 03:29 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,42 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `383` landed one bounded mounted section-container shell selector
+  reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      so the mounted container-shell selector for
+      `{ isMinimized, isYouTube, textBlockMetaControlStyle, hasEmbeddedTerminal }`
+      now uses `zustand/shallow` equality instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      to prove a mounted `SectionContainerCoreResizable` stays out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when the
+      subscribed minimized state changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-container-core-resizable-shallow-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the page mounted past the loading shell and showed populated settings
+         content with visible section chrome/content rather than a blank root
+  - reading:
+    - this is still a selector-tightening slice, but it moves up from tiny
+      header controls to a broad section-body shell wrapper mounted around each
+      visible section on the settings surface
+    - the selector inputs remained identical, so the product behavior stayed
+      the same while the mounted container path dropped deep-equality work from
+      every project-state write
+  - next default frontier:
+    - identify the next broad mounted section-body/chrome subscriber or shared
+      write fan-out that still accepts unrelated `useProjectState` churn on the
+      live worktree, preferring another section-wide wrapper/body owner over a
+      return to one-off header-button selectors
 
 - item `382` landed one bounded mounted lock-position button selector
   reduction on the live canary lane:

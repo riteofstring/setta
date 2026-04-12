@@ -1,7 +1,6 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
-import _ from "lodash";
 import type { SetStateAction } from "react";
 import React from "react";
 import {
@@ -21,6 +20,7 @@ import {
   type ChatWindowPlacement,
   type SectionType,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { SectionHeader } from "../Header/SectionHeader";
 import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { BrowserArea } from "../Layouts/BrowserArea";
@@ -146,7 +146,7 @@ function _SectionContainerCoreResizable({
       hasEmbeddedTerminal:
         embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
     };
-  }, _.isEqual);
+  }, shallow);
 
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
