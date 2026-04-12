@@ -54,13 +54,16 @@ vi.mock("./settingsGraphSubstrateCanaryBackground", () => ({
 vi.mock("./settingsGraphSubstrateCanarySectionsLayer", () => ({
   SettingsGraphSubstrateCanarySectionsLayer: vi.fn(
     ({
+      mountedSectionBodyIds,
       presentedSceneSections,
       sceneSections,
     }: {
+      mountedSectionBodyIds?: ReadonlySet<string>;
       presentedSceneSections?: Array<{ sectionId: string }>;
       sceneSections: Array<{ sectionId: string }>;
     }) => (
       <div
+        data-mounted-body-count={String(mountedSectionBodyIds?.size ?? 0)}
         data-testid="graph-substrate-canary-sections-layer"
         data-count={String((presentedSceneSections ?? sceneSections).length)}
       />
@@ -133,6 +136,11 @@ describe("SettingsGraphSubstrateCanary", () => {
       host
         .querySelector("[data-testid='graph-substrate-canary-sections-layer']")
         ?.getAttribute("data-count"),
+    ).toBe("1");
+    expect(
+      host
+        .querySelector("[data-testid='graph-substrate-canary-sections-layer']")
+        ?.getAttribute("data-mounted-body-count"),
     ).toBe("1");
     expect(
       host
@@ -214,6 +222,11 @@ describe("SettingsGraphSubstrateCanary", () => {
     ).toBe("1");
     expect(
       host
+        .querySelector("[data-testid='graph-substrate-canary-sections-layer']")
+        ?.getAttribute("data-mounted-body-count"),
+    ).toBe("1");
+    expect(
+      host
         .querySelector(
           "[data-testid='graph-substrate-canary-section-pixi-layer']",
         )
@@ -250,5 +263,14 @@ describe("SettingsGraphSubstrateCanary", () => {
     expect(
       presentedSceneSectionVisibilityFilterEntry.totalDurationMs,
     ).toBeGreaterThan(0);
+    const presentedSceneBodyMountFilterEntry =
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.presentedSceneBodyMountFilter;
+    expect(presentedSceneBodyMountFilterEntry.count).toBe(1);
+    expect(presentedSceneBodyMountFilterEntry.maxDurationMs).toBeGreaterThan(0);
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .mountedSectionBodyCount,
+    ).toBe(1);
   });
 });

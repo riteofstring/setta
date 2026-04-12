@@ -89,7 +89,9 @@ vi.mock("./settingsGraphSubstrateCanaryInstrumentation", () => ({
 function SectionsLayerProbe({
   draggingSectionId,
   hoveredSectionId = null,
+  mountedSectionBodyIds,
   onHoveredSectionChange = () => {},
+  presentedSceneSections,
   sceneSections,
   viewport = DEFAULT_VIEWPORT,
   viewportTick,
@@ -97,7 +99,9 @@ function SectionsLayerProbe({
 }: {
   draggingSectionId: string | null;
   hoveredSectionId?: string | null;
+  mountedSectionBodyIds?: ReadonlySet<string>;
   onHoveredSectionChange?: (sectionId: string | null) => void;
+  presentedSceneSections?: Array<SettingsGraphSubstrateCanarySceneSection>;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   viewport?: GraphViewport | null;
   viewportTick: number;
@@ -110,7 +114,9 @@ function SectionsLayerProbe({
       <SettingsGraphSubstrateCanarySectionsLayer
         draggingSectionId={draggingSectionId}
         hoveredSectionId={hoveredSectionId}
+        mountedSectionBodyIds={mountedSectionBodyIds}
         onHoveredSectionChange={onHoveredSectionChange}
+        presentedSceneSections={presentedSceneSections}
         sceneSections={sceneSections}
         sectionDragController={sectionDragController}
         viewport={viewport}
@@ -169,6 +175,32 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
 
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
     expect(measureMotionAttribution).toHaveBeenCalledWith(
+      "presentedSceneBodyMountFilter",
+      expect.any(Function),
+    );
+  });
+
+  it("uses the precomputed mounted-body ids without rerunning the body filter", async () => {
+    const sceneSections = [createSceneSection()];
+    const mountedSectionBodyIds = new Set(["section-a"]);
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          mountedSectionBodyIds={mountedSectionBodyIds}
+          presentedSceneSections={sceneSections}
+          sceneSections={sceneSections}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="section-content-section-a"]'),
+    ).not.toBeNull();
+    expect(measureMotionAttribution).not.toHaveBeenCalledWith(
       "presentedSceneBodyMountFilter",
       expect.any(Function),
     );

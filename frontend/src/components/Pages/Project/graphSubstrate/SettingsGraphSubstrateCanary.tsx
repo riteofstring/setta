@@ -10,12 +10,16 @@ import { SettingsGraphSubstrateCanaryBackground } from "./settingsGraphSubstrate
 import { useSettingsGraphSubstrateCanaryController } from "./settingsGraphSubstrateCanaryController";
 import {
   createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  measureSettingsGraphSubstrateCanaryMotionAttribution,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
 } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
+  areSettingsGraphSubstrateCanarySectionIdSetsEqual,
+  resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds,
   resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
+  resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect,
 } from "./settingsGraphSubstrateCanarySectionPresentation";
 import { SettingsGraphSubstrateCanarySectionShellPixiLayer } from "./settingsGraphSubstrateCanarySectionShellPixiLayer";
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
@@ -34,11 +38,18 @@ export function SettingsGraphSubstrateCanary() {
   const stablePresentedSceneSectionsRef = useRef<
     Array<SettingsGraphSubstrateCanarySceneSection>
   >([]);
+  const stableMountedSectionBodyIdsRef = useRef<Set<string>>(new Set());
   const handleHoveredSectionChange = useCallback((sectionId: string | null) => {
     setHoveredSectionId((currentSectionId) => {
       return currentSectionId === sectionId ? currentSectionId : sectionId;
     });
   }, []);
+  const visibleViewportWorldRect = useMemo(() => {
+    return resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
+      viewport: controller.resolvedViewport,
+      visibleViewportRect: controller.visibleViewportRect,
+    });
+  }, [controller.resolvedViewport, controller.visibleViewportRect]);
   const presentedSceneSections = useMemo(() => {
     const nextPresentedSceneSections =
       resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
@@ -63,6 +74,36 @@ export function SettingsGraphSubstrateCanary() {
     controller.resolvedViewport,
     controller.visibleViewportRect,
   ]);
+  const mountedSectionBodyIds = useMemo(() => {
+    const nextMountedSectionBodyIds =
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "presentedSceneBodyMountFilter",
+        () =>
+          resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
+            draggingSectionId: controller.draggingSectionId,
+            presentedSceneSections,
+            viewport: controller.resolvedViewport,
+            visibleViewportRect: controller.visibleViewportRect,
+            visibleViewportWorldRect,
+          }),
+      );
+    if (
+      areSettingsGraphSubstrateCanarySectionIdSetsEqual(
+        stableMountedSectionBodyIdsRef.current,
+        nextMountedSectionBodyIds,
+      )
+    ) {
+      return stableMountedSectionBodyIdsRef.current;
+    }
+    stableMountedSectionBodyIdsRef.current = nextMountedSectionBodyIds;
+    return nextMountedSectionBodyIds;
+  }, [
+    controller.draggingSectionId,
+    controller.resolvedViewport,
+    controller.visibleViewportRect,
+    presentedSceneSections,
+    visibleViewportWorldRect,
+  ]);
 
   useEffect(() => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
@@ -74,6 +115,12 @@ export function SettingsGraphSubstrateCanary() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      mountedSectionBodyCount: mountedSectionBodyIds.size,
+    });
+  }, [mountedSectionBodyIds]);
 
   return (
     <div
@@ -126,12 +173,11 @@ export function SettingsGraphSubstrateCanary() {
           <SettingsGraphSubstrateCanarySectionsLayer
             draggingSectionId={controller.draggingSectionId}
             hoveredSectionId={hoveredSectionId}
+            mountedSectionBodyIds={mountedSectionBodyIds}
             onHoveredSectionChange={handleHoveredSectionChange}
             presentedSceneSections={presentedSceneSections}
             sceneSections={controller.sceneSections}
             sectionDragController={controller.sectionDragController}
-            viewport={controller.resolvedViewport}
-            visibleViewportRect={controller.visibleViewportRect}
           />
         ) : (
           <div

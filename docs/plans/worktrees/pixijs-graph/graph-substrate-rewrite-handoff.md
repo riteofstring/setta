@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 15:22 UTC
+Last updated: 2026-04-12 15:39 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,46 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+  - item `320` landed one bounded product render-isolation slice on the
+    canonical `rotaryParamCodeObjDefault` lane instead of reopening another
+    reference-readiness probe:
+    - product code changed in the canary DOM body path:
+      - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+        now resolves the mounted section-body id set once at the canary root,
+        reuses a stable `Set<string>` when the mounted body membership is
+        unchanged, and updates `mountedSectionBodyCount` instrumentation there
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+        now accepts an optional precomputed mounted-body id set and skips the
+        per-render `presentedSceneBodyMountFilter` fallback when that set is
+        supplied
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+        now exposes shared helpers to resolve mounted-body ids and compare
+        section-id sets
+    - focused tests updated in:
+      - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+    - focused verification:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+        -> passed (`3` files, `27` tests)
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+        -> passed
+      - fresh-context CDP visual smoke on worktree `3075` and read-only
+        `main` `3087`
+        -> both `/settings` surfaces mounted cleanly with the expected graph
+        tabs, section list, and canvas controls; no obvious new visual drift
+        from this slice
+        -> note: the provided `/__setta__/bootstrap` tokens were rejected on
+        this runtime, so the smoke used the direct app origins instead
+    - reading:
+      - this slice removes one avoidable render invalidation path from the
+        canary DOM layer by letting viewport-wrapper transform updates move the
+        already-mounted section subtree without re-running the body-mount
+        filter in the child layer when membership is unchanged
+      - the next bounded frontier should rerun the canonical
+        main-reference performance probe on a fresh runtime pair to see
+        whether this isolation slice changed the worktree-side frame cost and
+        what owner remains after the current reference startup inflation
   - item `319` landed one bounded reference-readiness classification slice on
     the canonical `rotaryParamCodeObjDefault` lane instead of repeating another
     opaque rerun of `reference: open settings`:

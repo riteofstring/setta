@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
+  areSettingsGraphSubstrateCanarySectionIdSetsEqual,
+  resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds,
   resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
   shouldMountSettingsGraphSubstrateCanarySectionBody,
   shouldPresentSettingsGraphSubstrateCanarySectionShell,
@@ -139,6 +141,41 @@ describe("settingsGraphSubstrateCanarySectionPresentation", () => {
         visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
       }),
     ).toBe(true);
+  });
+
+  it("resolves a stable mounted-body id set from the presented subset", () => {
+    const visibleSection = createSceneSection({
+      sectionId: "visible-section",
+    });
+    const tinyVisibleSection = createSceneSection({
+      position: { x: 301, y: 80 },
+      renderedPosition: { x: 301, y: 80 },
+      sectionId: "tiny-visible-section",
+    });
+
+    expect(
+      resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
+        draggingSectionId: null,
+        presentedSceneSections: [visibleSection, tinyVisibleSection],
+        viewport: { x: 0, y: 0, zoom: 2 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      }),
+    ).toEqual(new Set(["visible-section"]));
+  });
+
+  it("treats section id sets with the same members as equal", () => {
+    expect(
+      areSettingsGraphSubstrateCanarySectionIdSetsEqual(
+        new Set(["section-a", "section-b"]),
+        new Set(["section-b", "section-a"]),
+      ),
+    ).toBe(true);
+    expect(
+      areSettingsGraphSubstrateCanarySectionIdSetsEqual(
+        new Set(["section-a"]),
+        new Set(["section-b"]),
+      ),
+    ).toBe(false);
   });
 });
 

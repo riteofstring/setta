@@ -185,6 +185,40 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
   );
 }
 
+export function resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
+  draggingSectionId,
+  presentedSceneSections,
+  viewport,
+  visibleViewportRect,
+  visibleViewportWorldRect,
+}: {
+  draggingSectionId: string | null;
+  presentedSceneSections: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>;
+  viewport: GraphViewport | null;
+  visibleViewportRect: GraphRect | null;
+  visibleViewportWorldRect?: GraphRect | null;
+}): Set<string> {
+  const resolvedVisibleViewportWorldRect =
+    visibleViewportWorldRect ??
+    resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
+      viewport,
+      visibleViewportRect,
+    });
+  return new Set(
+    presentedSceneSections
+      .filter((section) =>
+        shouldMountSettingsGraphSubstrateCanarySectionBody({
+          draggingSectionId,
+          section,
+          viewport,
+          visibleViewportRect,
+          visibleViewportWorldRect: resolvedVisibleViewportWorldRect,
+        }),
+      )
+      .map((section) => section.sectionId),
+  );
+}
+
 export function areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
   left: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
   right: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
@@ -197,6 +231,24 @@ export function areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
   }
   for (let index = 0; index < left.length; index += 1) {
     if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function areSettingsGraphSubstrateCanarySectionIdSetsEqual(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const sectionId of left) {
+    if (!right.has(sectionId)) {
       return false;
     }
   }

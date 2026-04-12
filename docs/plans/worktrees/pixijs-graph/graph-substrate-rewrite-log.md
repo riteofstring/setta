@@ -12308,6 +12308,44 @@ LOOP_TERMINAL_MARKER: none
       that recurring reference-side regression before choosing another canary
       motion-cost hypothesis
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 15:39 UTC | item 320 | precompute mounted canary body ids at the root
+  - Picked one bounded product render-isolation slice on the canonical
+    `rotaryParamCodeObjDefault` lane instead of spending a third consecutive
+    pass on reference/probe work.
+  - Product code changed in the canary DOM body path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      now resolves mounted section-body ids once at the canary root, reuses a
+      stable `Set<string>` when membership is unchanged, and updates
+      `mountedSectionBodyCount` instrumentation there
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now accepts an optional precomputed mounted-body id set and skips the
+      fallback `presentedSceneBodyMountFilter` work when that set is supplied
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+      now exports mounted-body resolution and section-id-set equality helpers
+  - Updated focused tests in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+      -> passed (`3` files, `27` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+      -> passed
+    - fresh-context CDP visual smoke on worktree `3075` and read-only main
+      `3087`
+      -> both `/settings` surfaces mounted cleanly with the expected graph
+      tabs, section list, and canvas controls; no obvious new visual drift
+      from this slice
+      -> note: the provided `/__setta__/bootstrap` tokens were rejected on
+      this runtime, so the smoke used the direct app origins instead
+  - Reading:
+    - this removes one avoidable child-layer invalidation path from the canary
+      DOM subtree during viewport-wrapper motion when the mounted body
+      membership is unchanged
+    - the next bounded frontier should rerun the canonical main-reference
+      performance probe on a fresh runtime pair and use the resulting owner
+      attribution to choose the next product slice
+- LOOP_TERMINAL_MARKER: none
 - 2026-04-12 14:57 UTC | item 316 | viewport-layer promotion on canonical `rotaryParamCodeObjDefault`
   - Picked one bounded product slice against the current motion-cost lane instead of another support-only rerun: promote the canary viewport transform layer itself so pan/zoom runs on a compositor-friendly path.
   - Product code changed in the canary surface:

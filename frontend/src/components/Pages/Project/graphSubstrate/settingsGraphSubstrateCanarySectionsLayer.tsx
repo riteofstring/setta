@@ -19,9 +19,8 @@ import {
 import type { SettingsGraphSubstrateCanarySectionDragController } from "./settingsGraphSubstrateCanarySectionDragController";
 import {
   areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
+  resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds,
   resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
-  resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect,
-  shouldMountSettingsGraphSubstrateCanarySectionBody,
 } from "./settingsGraphSubstrateCanarySectionPresentation";
 import { SettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionShell";
 import type { GraphRect, GraphViewport } from "./viewportTransform";
@@ -29,6 +28,7 @@ import type { GraphRect, GraphViewport } from "./viewportTransform";
 type SettingsGraphSubstrateCanarySectionsLayerProps = {
   draggingSectionId: string | null;
   hoveredSectionId: string | null;
+  mountedSectionBodyIds?: ReadonlySet<string>;
   onHoveredSectionChange: (sectionId: string | null) => void;
   presentedSceneSections?: Array<SettingsGraphSubstrateCanarySceneSection>;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
@@ -89,6 +89,7 @@ const SettingsGraphSubstrateCanarySectionEntry = React.memo(
 function _SettingsGraphSubstrateCanarySectionsLayer({
   draggingSectionId,
   hoveredSectionId,
+  mountedSectionBodyIds,
   onHoveredSectionChange,
   presentedSceneSections,
   sceneSections,
@@ -143,44 +144,33 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     }
   }, [hoveredSectionId, onHoveredSectionChange, presentedSectionIds]);
 
-  const visibleViewportWorldRect = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
-      viewport,
-      visibleViewportRect,
-    });
-  }, [viewport, visibleViewportRect]);
-
-  const mountedSectionBodyIds = useMemo(() => {
+  const resolvedMountedSectionBodyIds = useMemo(() => {
+    if (mountedSectionBodyIds) {
+      return mountedSectionBodyIds;
+    }
     return measureSettingsGraphSubstrateCanaryMotionAttribution(
       "presentedSceneBodyMountFilter",
       () =>
-        new Set(
-          resolvedPresentedSceneSections
-            .filter((section) =>
-              shouldMountSettingsGraphSubstrateCanarySectionBody({
-                draggingSectionId,
-                section,
-                viewport,
-                visibleViewportRect,
-                visibleViewportWorldRect,
-              }),
-            )
-            .map((section) => section.sectionId),
-        ),
+        resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
+          draggingSectionId,
+          presentedSceneSections: resolvedPresentedSceneSections,
+          viewport,
+          visibleViewportRect,
+        }),
     );
   }, [
     draggingSectionId,
+    mountedSectionBodyIds,
     resolvedPresentedSceneSections,
     viewport,
     visibleViewportRect,
-    visibleViewportWorldRect,
   ]);
 
   useEffect(() => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
-      mountedSectionBodyCount: mountedSectionBodyIds.size,
+      mountedSectionBodyCount: resolvedMountedSectionBodyIds.size,
     });
-  }, [mountedSectionBodyIds]);
+  }, [resolvedMountedSectionBodyIds]);
 
   const sectionBodiesById = useMemo(() => {
     return new Map(
@@ -258,7 +248,9 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   return (
     <>
       {resolvedPresentedSceneSections.map((section) => {
-        const shouldMountBody = mountedSectionBodyIds.has(section.sectionId);
+        const shouldMountBody = resolvedMountedSectionBodyIds.has(
+          section.sectionId,
+        );
         const sectionBody = sectionBodiesById.get(section.sectionId);
         if (!sectionBody) {
           throw new Error(
