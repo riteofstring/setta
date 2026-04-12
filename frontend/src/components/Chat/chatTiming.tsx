@@ -20,7 +20,6 @@ function formatElapsedDuration(totalSeconds: number): string {
 }
 
 export function resolveDurationLabel({
-  elapsedMs: _elapsedMs,
   elapsedSeconds,
   hasKnownDuration,
   isRunning,
@@ -150,10 +149,26 @@ type RunTimerSnapshot = {
   hasBeenActive: boolean;
 };
 
+type RunElapsedDuration = {
+  elapsedSeconds: number;
+  elapsedMs: number;
+  hasKnownDuration: boolean;
+};
+
 const RUN_TIMER_STORAGE_KEY_PREFIX = "setta.chat.runTimer.v1";
 const RUN_TIMER_MEMORY_FALLBACK = new Map<string, string>();
 const RUN_TIMER_STORAGE_PROBE_KEY = `${RUN_TIMER_STORAGE_KEY_PREFIX}.__probe__`;
 let cachedRunTimerStorageAdapter: RunTimerStorageAdapter | null | undefined;
+const UNKNOWN_RUN_DURATION: RunElapsedDuration = {
+  elapsedSeconds: 0,
+  elapsedMs: 0,
+  hasKnownDuration: false,
+};
+const ZERO_KNOWN_RUN_DURATION: RunElapsedDuration = {
+  elapsedSeconds: 0,
+  elapsedMs: 0,
+  hasKnownDuration: true,
+};
 
 function getRunTimerStorageAdapter(): RunTimerStorageAdapter | null {
   if (cachedRunTimerStorageAdapter !== undefined) {
@@ -192,6 +207,10 @@ function getRunTimerStorageAdapter(): RunTimerStorageAdapter | null {
 
 function getRunTimerStorageKey(runKey: string): string {
   return `${RUN_TIMER_STORAGE_KEY_PREFIX}.${runKey}`;
+}
+
+function normalizeRunTimerMs(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function readRunTimerSnapshot(runKey: string): RunTimerSnapshot | null {
@@ -240,6 +259,150 @@ function writeRunTimerSnapshot(
   }
 }
 
+function resolveRunTimerStartMs({
+  active,
+  localStartMs,
+  startedAtMs,
+}: {
+  active: boolean;
+  localStartMs: number | null;
+  startedAtMs: number | null;
+}): number | null {
+  return startedAtMs ?? localStartMs ?? (active ? Date.now() : null);
+}
+
+function resolveRunElapsedDuration({
+  active,
+  completedAtMs,
+  finalizedEndMs,
+  hasBeenActive,
+  localStartMs,
+  runKey,
+  startedAtMs,
+}: {
+  active: boolean;
+  completedAtMs: number | null;
+  finalizedEndMs: number | null;
+  hasBeenActive: boolean;
+  localStartMs: number | null;
+  runKey?: string;
+  startedAtMs: number | null;
+}): RunElapsedDuration {
+  if (!runKey) {
+    return UNKNOWN_RUN_DURATION;
+  }
+  const startMs = resolveRunTimerStartMs({
+    active,
+    localStartMs,
+    startedAtMs,
+  });
+  if (startMs === null) {
+    return UNKNOWN_RUN_DURATION;
+  }
+  if (active) {
+    const elapsedMs = Math.max(0, Date.now() - startMs);
+    return {
+      elapsedSeconds: Math.floor(elapsedMs / 1000),
+      elapsedMs,
+      hasKnownDuration: true,
+    };
+  }
+  const endMs = completedAtMs ?? finalizedEndMs;
+  if (endMs === null) {
+    return hasBeenActive ? ZERO_KNOWN_RUN_DURATION : UNKNOWN_RUN_DURATION;
+  }
+  const elapsedMs = Math.max(0, endMs - startMs);
+  return {
+    elapsedSeconds: Math.floor(elapsedMs / 1000),
+    elapsedMs,
+    hasKnownDuration: true,
+  };
+}
+
+function restoreRunTimerState({
+  runKey,
+  setStorageAvailable,
+  setState,
+}: {
+  runKey?: string;
+  setStorageAvailable: (available: boolean) => void;
+  setState: (snapshot: RunTimerSnapshot) => void;
+}): void {
+  const storageAvailable = getRunTimerStorageAdapter() !== null;
+  setStorageAvailable(storageAvailable);
+  if (!storageAvailable || !runKey) {
+    setState({ startMs: null, endMs: null, hasBeenActive: false });
+    return;
+  }
+  setState(
+    readRunTimerSnapshot(runKey) ?? {
+      startMs: null,
+      endMs: null,
+      hasBeenActive: false,
+    },
+  );
+}
+
+function maybeUpdateRunTimerStart({
+  currentStartMs,
+  startedAtMs,
+  setState,
+}: {
+  currentStartMs: number | null;
+  startedAtMs: number | null;
+  setState: (snapshot: Partial<RunTimerSnapshot>) => void;
+}): boolean {
+  if (startedAtMs === null) {
+    return false;
+  }
+  if (currentStartMs !== null && startedAtMs >= currentStartMs) {
+    return false;
+  }
+  setState({ startMs: startedAtMs });
+  return true;
+}
+
+function beginActiveRun({
+  currentStartMs,
+  onTick,
+  startedAtMs,
+  setState,
+}: {
+  currentStartMs: number | null;
+  onTick: () => void;
+  startedAtMs: number | null;
+  setState: (snapshot: Partial<RunTimerSnapshot>) => void;
+}): number {
+  setState({
+    startMs: currentStartMs ?? startedAtMs ?? Date.now(),
+    endMs: null,
+    hasBeenActive: true,
+  });
+  return window.setInterval(() => {
+    onTick();
+  }, 1000);
+}
+
+function finishInactiveRun({
+  completedAtMs,
+  finalizedEndMs,
+  hasBeenActive,
+  setState,
+}: {
+  completedAtMs: number | null;
+  finalizedEndMs: number | null;
+  hasBeenActive: boolean;
+  setState: (snapshot: Partial<RunTimerSnapshot>) => void;
+}): void {
+  if (completedAtMs !== null) {
+    setState({ endMs: completedAtMs });
+    return;
+  }
+  if (hasBeenActive && finalizedEndMs === null) {
+    setState({ endMs: Date.now() });
+  }
+}
+
 export function useRunElapsedDuration({
   active,
   startedAtMs,
@@ -250,7 +413,7 @@ export function useRunElapsedDuration({
   startedAtMs?: number | null;
   completedAtMs?: number | null;
   runKey?: string;
-}): { elapsedSeconds: number; elapsedMs: number; hasKnownDuration: boolean } {
+}): RunElapsedDuration {
   const [, setTick] = useState(0);
   const localStartMsRef = useRef<number | null>(null);
   const finalizedEndMsRef = useRef<number | null>(null);
@@ -258,6 +421,23 @@ export function useRunElapsedDuration({
   const storageAvailableRef = useRef<boolean>(
     getRunTimerStorageAdapter() !== null,
   );
+  const setRunTimerState = useCallback(
+    (snapshot: Partial<RunTimerSnapshot> | RunTimerSnapshot) => {
+      if ("startMs" in snapshot) {
+        localStartMsRef.current = snapshot.startMs;
+      }
+      if ("endMs" in snapshot) {
+        finalizedEndMsRef.current = snapshot.endMs;
+      }
+      if ("hasBeenActive" in snapshot) {
+        hasBeenActiveRef.current = snapshot.hasBeenActive;
+      }
+    },
+    [],
+  );
+  const bumpTick = useCallback(() => {
+    setTick((current) => current + 1);
+  }, []);
 
   const persistSnapshot = useCallback(() => {
     if (!storageAvailableRef.current || !runKey) {
@@ -271,117 +451,70 @@ export function useRunElapsedDuration({
   }, [runKey]);
 
   useEffect(() => {
-    const nextRunKey = runKey ?? null;
-    localStartMsRef.current = null;
-    finalizedEndMsRef.current = null;
-    hasBeenActiveRef.current = false;
-    storageAvailableRef.current = getRunTimerStorageAdapter() !== null;
-    if (storageAvailableRef.current && nextRunKey) {
-      const persisted = readRunTimerSnapshot(nextRunKey);
-      if (persisted) {
-        localStartMsRef.current = persisted.startMs;
-        finalizedEndMsRef.current = persisted.endMs;
-        hasBeenActiveRef.current = persisted.hasBeenActive;
-      }
-    }
-    setTick((current) => current + 1);
-  }, [runKey]);
+    restoreRunTimerState({
+      runKey,
+      setStorageAvailable: (available) => {
+        storageAvailableRef.current = available;
+      },
+      setState: setRunTimerState,
+    });
+    bumpTick();
+  }, [bumpTick, runKey, setRunTimerState]);
 
   useEffect(() => {
-    if (typeof startedAtMs !== "number" || !Number.isFinite(startedAtMs)) {
+    if (
+      !maybeUpdateRunTimerStart({
+        currentStartMs: localStartMsRef.current,
+        startedAtMs: normalizeRunTimerMs(startedAtMs),
+        setState: setRunTimerState,
+      })
+    ) {
       return;
     }
-    if (
-      localStartMsRef.current === null ||
-      startedAtMs < localStartMsRef.current
-    ) {
-      localStartMsRef.current = startedAtMs;
-      persistSnapshot();
-      setTick((current) => current + 1);
-    }
-  }, [persistSnapshot, startedAtMs]);
+    persistSnapshot();
+    bumpTick();
+  }, [bumpTick, persistSnapshot, setRunTimerState, startedAtMs]);
 
   useEffect(() => {
     if (!active) {
       return undefined;
     }
-    hasBeenActiveRef.current = true;
-    if (localStartMsRef.current === null) {
-      localStartMsRef.current =
-        typeof startedAtMs === "number" && Number.isFinite(startedAtMs)
-          ? startedAtMs
-          : Date.now();
-    }
-    finalizedEndMsRef.current = null;
+    const timer = beginActiveRun({
+      currentStartMs: localStartMsRef.current,
+      onTick: bumpTick,
+      startedAtMs: normalizeRunTimerMs(startedAtMs),
+      setState: setRunTimerState,
+    });
     persistSnapshot();
-    setTick((current) => current + 1);
-    const timer = window.setInterval(() => {
-      setTick((current) => current + 1);
-    }, 1000);
+    bumpTick();
     return () => window.clearInterval(timer);
-  }, [active, persistSnapshot, startedAtMs]);
+  }, [active, bumpTick, persistSnapshot, setRunTimerState, startedAtMs]);
 
   useEffect(() => {
     if (active) {
       return;
     }
-    const normalizedCompletedAtMs =
-      typeof completedAtMs === "number" && Number.isFinite(completedAtMs)
-        ? completedAtMs
-        : null;
-    if (normalizedCompletedAtMs !== null) {
-      finalizedEndMsRef.current = normalizedCompletedAtMs;
-      persistSnapshot();
-      setTick((current) => current + 1);
+    const previousEndMs = finalizedEndMsRef.current;
+    finishInactiveRun({
+      completedAtMs: normalizeRunTimerMs(completedAtMs),
+      finalizedEndMs: previousEndMs,
+      hasBeenActive: hasBeenActiveRef.current,
+      setState: setRunTimerState,
+    });
+    if (finalizedEndMsRef.current === previousEndMs) {
       return;
     }
-    if (hasBeenActiveRef.current && finalizedEndMsRef.current === null) {
-      finalizedEndMsRef.current = Date.now();
-      persistSnapshot();
-      setTick((current) => current + 1);
-    }
-  }, [active, completedAtMs, persistSnapshot]);
+    persistSnapshot();
+    bumpTick();
+  }, [active, bumpTick, completedAtMs, persistSnapshot, setRunTimerState]);
 
-  if (!runKey) {
-    return { elapsedSeconds: 0, elapsedMs: 0, hasKnownDuration: false };
-  }
-
-  const normalizedStartedAtMs =
-    typeof startedAtMs === "number" && Number.isFinite(startedAtMs)
-      ? startedAtMs
-      : null;
-  const startMs =
-    normalizedStartedAtMs ??
-    localStartMsRef.current ??
-    (active ? Date.now() : null);
-  if (startMs === null) {
-    return { elapsedSeconds: 0, elapsedMs: 0, hasKnownDuration: false };
-  }
-  if (active) {
-    const elapsedMs = Math.max(0, Date.now() - startMs);
-    const elapsedSeconds = Math.floor(elapsedMs / 1000);
-    return {
-      elapsedSeconds: Math.max(0, elapsedSeconds),
-      elapsedMs,
-      hasKnownDuration: true,
-    };
-  }
-  const normalizedCompletedAtMs =
-    typeof completedAtMs === "number" && Number.isFinite(completedAtMs)
-      ? completedAtMs
-      : null;
-  const endMs = normalizedCompletedAtMs ?? finalizedEndMsRef.current;
-  if (endMs === null) {
-    if (!hasBeenActiveRef.current) {
-      return { elapsedSeconds: 0, elapsedMs: 0, hasKnownDuration: false };
-    }
-    return { elapsedSeconds: 0, elapsedMs: 0, hasKnownDuration: true };
-  }
-  const elapsedMs = Math.max(0, endMs - startMs);
-  const elapsedSeconds = Math.floor(elapsedMs / 1000);
-  return {
-    elapsedSeconds: Math.max(0, elapsedSeconds),
-    elapsedMs,
-    hasKnownDuration: true,
-  };
+  return resolveRunElapsedDuration({
+    active,
+    completedAtMs: normalizeRunTimerMs(completedAtMs),
+    finalizedEndMs: finalizedEndMsRef.current,
+    hasBeenActive: hasBeenActiveRef.current,
+    localStartMs: localStartMsRef.current,
+    runKey,
+    startedAtMs: normalizeRunTimerMs(startedAtMs),
+  });
 }
