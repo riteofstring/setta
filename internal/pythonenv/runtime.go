@@ -202,7 +202,74 @@ func (r *Runtime) InstalledPackages(ctx context.Context) ([]string, error) {
 		return nil, ErrRuntimeRequired
 	}
 
-	command := exec.CommandContext(ctx, r.interpreter, "-c", installedPackagesCmd)
+	stdout, err := r.runJSONCommand(ctx, "inspect installed packages", installedPackagesCmd)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		Packages []string `json:"packages"`
+	}
+	if err := json.Unmarshal(stdout, &payload); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidPackagesOutput, err)
+	}
+
+	packages := trimNonEmptyStrings(payload.Packages)
+	sortCaseInsensitiveStrings(packages)
+	return packages, nil
+}
+
+func (r *Runtime) PluginDistributions(ctx context.Context, searchPaths []string) ([]PluginDistribution, error) {
+	if r == nil {
+		return nil, ErrRuntimeRequired
+	}
+
+	encodedSearchPaths, err := encodePluginDistributionSearchPaths(searchPaths)
+	if err != nil {
+		return nil, err
+	}
+
+	stdout, err := r.runJSONCommand(ctx, "inspect plugin distributions", pluginDistributionsCmd, string(encodedSearchPaths))
+	if err != nil {
+		return nil, err
+	}
+
+	return decodePluginDistributions(stdout)
+}
+
+func encodePluginDistributionSearchPaths(searchPaths []string) ([]byte, error) {
+	if len(searchPaths) == 0 {
+		return []byte("null"), nil
+	}
+	encodedSearchPaths, err := json.Marshal(trimNonEmptyStrings(searchPaths))
+	if err != nil {
+		return nil, fmt.Errorf("pythonenv: encode plugin distribution search paths: %w", err)
+	}
+	return encodedSearchPaths, nil
+}
+
+func decodePluginDistributions(stdout []byte) ([]PluginDistribution, error) {
+	var payload struct {
+		Distributions []PluginDistribution `json:"distributions"`
+	}
+	if err := json.Unmarshal(stdout, &payload); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidPackagesOutput, err)
+	}
+
+	distributions := make([]PluginDistribution, 0, len(payload.Distributions))
+	for _, distribution := range payload.Distributions {
+		distributions = append(distributions, PluginDistribution{
+			Name:          strings.TrimSpace(distribution.Name),
+			Version:       strings.TrimSpace(distribution.Version),
+			ManifestPaths: trimNonEmptyStrings(distribution.ManifestPaths),
+		})
+	}
+	return distributions, nil
+}
+
+func (r *Runtime) runJSONCommand(ctx context.Context, action string, script string, args ...string) ([]byte, error) {
+	commandArgs := append([]string{"-c", script}, args...)
+	command := exec.CommandContext(r.interpreterCommandContext(ctx), r.interpreter, commandArgs...)
 	if r.environ != nil {
 		command.Env = append([]string(nil), r.environ()...)
 	}
@@ -212,29 +279,33 @@ func (r *Runtime) InstalledPackages(ctx context.Context) ([]string, error) {
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 	if err := command.Run(); err != nil {
-		stderrOutput := strings.TrimSpace(stderr.String())
-		if stderrOutput != "" {
-			return nil, fmt.Errorf("pythonenv: inspect installed packages: %w: %s", err, stderrOutput)
-		}
-		return nil, fmt.Errorf("pythonenv: inspect installed packages: %w", err)
+		return nil, formatPythonCommandError(action, err, stderr.String())
 	}
+	return stdout.Bytes(), nil
+}
 
-	var payload struct {
-		Packages []string `json:"packages"`
+func formatPythonCommandError(action string, err error, stderrOutput string) error {
+	trimmedStderr := strings.TrimSpace(stderrOutput)
+	if trimmedStderr != "" {
+		return fmt.Errorf("pythonenv: %s: %w: %s", action, err, trimmedStderr)
 	}
-	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidPackagesOutput, err)
-	}
+	return fmt.Errorf("pythonenv: %s: %w", action, err)
+}
 
-	packages := make([]string, 0, len(payload.Packages))
-	for _, entry := range payload.Packages {
-		trimmed := strings.TrimSpace(entry)
+func trimNonEmptyStrings(values []string) []string {
+	trimmedValues := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
 		if trimmed == "" {
 			continue
 		}
-		packages = append(packages, trimmed)
+		trimmedValues = append(trimmedValues, trimmed)
 	}
-	slices.SortStableFunc(packages, func(left string, right string) int {
+	return trimmedValues
+}
+
+func sortCaseInsensitiveStrings(values []string) {
+	slices.SortStableFunc(values, func(left string, right string) int {
 		leftLower := strings.ToLower(left)
 		rightLower := strings.ToLower(right)
 		switch {
@@ -246,74 +317,6 @@ func (r *Runtime) InstalledPackages(ctx context.Context) ([]string, error) {
 			return 0
 		}
 	})
-	return packages, nil
-}
-
-func (r *Runtime) PluginDistributions(ctx context.Context, searchPaths []string) ([]PluginDistribution, error) {
-	if r == nil {
-		return nil, ErrRuntimeRequired
-	}
-
-	var encodedSearchPaths []byte
-	var err error
-	if len(searchPaths) == 0 {
-		encodedSearchPaths = []byte("null")
-	} else {
-		normalizedSearchPaths := make([]string, 0, len(searchPaths))
-		for _, entry := range searchPaths {
-			trimmed := strings.TrimSpace(entry)
-			if trimmed == "" {
-				continue
-			}
-			normalizedSearchPaths = append(normalizedSearchPaths, trimmed)
-		}
-		encodedSearchPaths, err = json.Marshal(normalizedSearchPaths)
-		if err != nil {
-			return nil, fmt.Errorf("pythonenv: encode plugin distribution search paths: %w", err)
-		}
-	}
-
-	command := exec.CommandContext(r.interpreterCommandContext(ctx), r.interpreter, "-c", pluginDistributionsCmd, string(encodedSearchPaths))
-	if r.environ != nil {
-		command.Env = append([]string(nil), r.environ()...)
-	}
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	command.Stdout = &stdout
-	command.Stderr = &stderr
-	if err := command.Run(); err != nil {
-		stderrOutput := strings.TrimSpace(stderr.String())
-		if stderrOutput != "" {
-			return nil, fmt.Errorf("pythonenv: inspect plugin distributions: %w: %s", err, stderrOutput)
-		}
-		return nil, fmt.Errorf("pythonenv: inspect plugin distributions: %w", err)
-	}
-
-	var payload struct {
-		Distributions []PluginDistribution `json:"distributions"`
-	}
-	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidPackagesOutput, err)
-	}
-
-	distributions := make([]PluginDistribution, 0, len(payload.Distributions))
-	for _, distribution := range payload.Distributions {
-		trimmedManifestPaths := make([]string, 0, len(distribution.ManifestPaths))
-		for _, manifestPath := range distribution.ManifestPaths {
-			trimmed := strings.TrimSpace(manifestPath)
-			if trimmed == "" {
-				continue
-			}
-			trimmedManifestPaths = append(trimmedManifestPaths, trimmed)
-		}
-		distributions = append(distributions, PluginDistribution{
-			Name:          strings.TrimSpace(distribution.Name),
-			Version:       strings.TrimSpace(distribution.Version),
-			ManifestPaths: trimmedManifestPaths,
-		})
-	}
-	return distributions, nil
 }
 
 func (r *Runtime) interpreterCommandContext(ctx context.Context) context.Context {
