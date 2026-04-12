@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createPendingWorkspaceLaunchFromIntent,
+  createWorkspaceLaunchRequestFromFormState,
   WorkspaceSwitcherModal,
 } from "./WorkspaceSwitcherModal";
 
@@ -123,6 +124,45 @@ describe("WorkspaceSwitcherModal", () => {
         sshTarget: null,
         settaFilesLocation: "auto",
       },
+    });
+  });
+
+  it("builds launch requests from trimmed form data", () => {
+    const result = createWorkspaceLaunchRequestFromFormState({
+      workspaceRoot: "  /tmp/workspace  ",
+      sshTarget: " user@example.com ",
+      settaFilesLocation: "global",
+      sshArgs: " -i ~/.ssh/id_ed25519 ",
+      remoteCmd: " source ~/.profile && setta ",
+      localPort: " 61000 ",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      request: {
+        workspaceRoot: "/tmp/workspace",
+        sshTarget: "user@example.com",
+        settaFilesLocation: "global",
+        sshArgs: "-i ~/.ssh/id_ed25519",
+        remoteCmd: "source ~/.profile && setta",
+        localPort: 61000,
+      },
+    });
+  });
+
+  it("rejects invalid local tunnel ports before launch", () => {
+    const result = createWorkspaceLaunchRequestFromFormState({
+      workspaceRoot: "/tmp/workspace",
+      sshTarget: "user@example.com",
+      settaFilesLocation: "auto",
+      sshArgs: "",
+      remoteCmd: "",
+      localPort: "12.5",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Local port must be a whole number.",
     });
   });
 
