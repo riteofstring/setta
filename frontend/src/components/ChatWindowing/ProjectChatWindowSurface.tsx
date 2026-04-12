@@ -265,6 +265,44 @@ type ProjectChatWindowSurfaceProps = {
   children: ReactNode;
 };
 
+type ProjectChatWindowHeaderLayoutProps = Pick<
+  ProjectChatWindowHeaderProps,
+  | "actions"
+  | "onTitleCommit"
+  | "headerClassName"
+  | "dragHandleTestId"
+  | "onTitlePointerDown"
+  | "onTitlePointerMove"
+  | "onTitlePointerUp"
+>;
+
+function getProjectChatWindowHeaderLayoutProps({
+  allowLayoutMutations,
+  actions,
+  onTitleCommit,
+  headerClassName,
+  dragHandleTestId,
+  onTitlePointerDown,
+  onTitlePointerMove,
+  onTitlePointerUp,
+}: ProjectChatWindowHeaderLayoutProps & {
+  allowLayoutMutations: boolean;
+}): ProjectChatWindowHeaderLayoutProps {
+  if (!allowLayoutMutations) {
+    return { actions: [] };
+  }
+
+  return {
+    actions,
+    onTitleCommit,
+    headerClassName,
+    dragHandleTestId,
+    onTitlePointerDown,
+    onTitlePointerMove,
+    onTitlePointerUp,
+  };
+}
+
 export function ProjectChatWindowSurface({
   title,
   mode = ChatWindowModeEnum.project_ai_mode,
@@ -283,23 +321,16 @@ export function ProjectChatWindowSurface({
   children,
 }: ProjectChatWindowSurfaceProps) {
   const bgColor = getBgColor(SectionTypeEnum.Chat);
-  const visibleActions = allowLayoutMutations ? actions : [];
-  const editableTitleCommit = allowLayoutMutations ? onTitleCommit : undefined;
-  const draggableHeaderClassName = allowLayoutMutations
-    ? headerClassName
-    : undefined;
-  const effectiveDragHandleTestId = allowLayoutMutations
-    ? dragHandleTestId
-    : undefined;
-  const onTitleDragPointerDown = allowLayoutMutations
-    ? onTitlePointerDown
-    : undefined;
-  const onTitleDragPointerMove = allowLayoutMutations
-    ? onTitlePointerMove
-    : undefined;
-  const onTitleDragPointerUp = allowLayoutMutations
-    ? onTitlePointerUp
-    : undefined;
+  const headerLayoutProps = getProjectChatWindowHeaderLayoutProps({
+    allowLayoutMutations,
+    actions,
+    onTitleCommit,
+    headerClassName,
+    dragHandleTestId,
+    onTitlePointerDown,
+    onTitlePointerMove,
+    onTitlePointerUp,
+  });
   const outerShellClassName = getSectionContainerShellClassName({
     isActiveSection: false,
     isGlobalVariables: false,
@@ -330,14 +361,8 @@ export function ProjectChatWindowSurface({
             title={title}
             mode={mode}
             instanceId={instanceId}
-            actions={visibleActions}
             onTitleClick={onTitleClick}
-            onTitleCommit={editableTitleCommit}
-            headerClassName={draggableHeaderClassName}
-            dragHandleTestId={effectiveDragHandleTestId}
-            onTitlePointerDown={onTitleDragPointerDown}
-            onTitlePointerMove={onTitleDragPointerMove}
-            onTitlePointerUp={onTitleDragPointerUp}
+            {...headerLayoutProps}
           />
         ) : null}
         <div
