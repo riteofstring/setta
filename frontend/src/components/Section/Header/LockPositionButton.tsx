@@ -1,5 +1,4 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import _ from "lodash";
 import type { ReactNode } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -11,6 +10,7 @@ import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { route_toggle_position_locks } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 
 type LockPositionButtonRenderState = {
   isGroup: boolean;
@@ -37,7 +37,7 @@ export function LockPositionButton({
       isGroup: impl.type === SectionTypeEnum.Group,
       positionAndSizeLocked: impl.positionAndSizeLocked,
     };
-  }, _.isEqual);
+  }, shallow);
   const { canEditLayout } = useShareCapabilities();
 
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";

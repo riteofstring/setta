@@ -14955,6 +14955,45 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 03:18 UTC
+
+- item `382` landed one bounded mounted lock-position button selector
+  reduction on the live settings canary lane:
+  - changed `frontend/src/components/Section/Header/LockPositionButton.tsx`
+    so the selector for `{ isGroup, positionAndSizeLocked }` now uses
+    `zustand/shallow` instead of `lodash/isEqual`
+  - added
+    `frontend/src/components/Section/Header/LockPositionButton.test.tsx`
+    to prove unrelated `previewSectionVariantMap` writes do not re-commit the
+    mounted lock button while a real lock-state change still does
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-13_settings-graph-lock-position-button-shallow-selector.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Header/LockPositionButton.test.tsx`
+    - passed (`1` file, `2` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Header/LockPositionButton.tsx src/components/Section/Header/LockPositionButton.test.tsx`
+    - passed
+  - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+    - deferred after two bounded DevTools failures
+    - attempt 1 timed out awaiting `chrome-devtools__take_snapshot`
+      and the screenshot call was later aborted
+    - attempt 2 aborted after another headless DevTools timeout before
+      visual confirmation completed
+- Result:
+  - the mounted lock-position header control now keeps the same subscribed
+    fields and behavior while dropping `lodash/isEqual` from a tiny composite
+    selector on a hot mounted path
+  - the code slice is complete and narrowly verified
+  - the required live visual gate remains explicit tooling debt on this runtime;
+    do not treat this pass as new visual evidence for `/settings`
+- Next:
+  - continue with the next bounded mounted section-body/chrome subscriber or
+    shared write fan-out reduction on the live worktree
+  - retry only one minimal `/settings` CDP smoke inside that next product slice
+    instead of spending a standalone iteration on browser-tool recovery
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 21:01 UTC
 
 - item `350` landed one bounded Playwright global-setup stable-home landing

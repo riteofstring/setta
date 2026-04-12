@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 03:08 UTC
+Last updated: 2026-04-13 03:18 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,43 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `382` landed one bounded mounted lock-position button selector
+  reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Header/LockPositionButton.tsx`
+      so the selector for `{ isGroup, positionAndSizeLocked }` now uses
+      `zustand/shallow` equality instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Header/LockPositionButton.test.tsx`
+      to prove a mounted `LockPositionButton` stays out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when the
+      subscribed section lock state changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-lock-position-button-shallow-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/LockPositionButton.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/LockPositionButton.tsx src/components/Section/Header/LockPositionButton.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> not completed
+      -> attempt 1 hit a DevTools timeout while awaiting snapshot/screenshot
+      -> attempt 2 aborted after another headless DevTools timeout
+  - reading:
+    - this is a real mounted section-header chrome selector reduction on the
+      live canary, not a harness-only pass
+    - the previous selector already avoided unrelated re-renders, but it still
+      paid `lodash/isEqual` on every project-state write for a tiny two-field
+      header-control subscription
+    - keep the CDP gate explicit as tooling debt for the next pass; this slice
+      does not provide new live visual evidence beyond the focused tests
+  - next default frontier:
+    - stay on the earliest product-facing canary gate and identify the next
+      mounted section-body/chrome subscriber or shared write fan-out that still
+      accepts unrelated `useProjectState` churn on the live worktree, while
+      re-trying a minimal `/settings` CDP smoke only as bounded verification
+      inside that next product slice
 
 - item `381` landed one bounded mounted section-title selector reduction on the
   live canary lane:
