@@ -14,7 +14,10 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
+import {
+  getFileBrowserDragPayload,
+  type FileBrowserDragPayload,
+} from "utils/fileBrowserDragPayload";
 import {
   NotificationTypeEnum,
   SectionTypeEnum,
@@ -33,6 +36,62 @@ function getFileNameFromPath(path: string): string {
   const parts = normalized.split("/").filter((part) => part.length > 0);
   return parts.length > 0 ? parts[parts.length - 1] : path;
 }
+
+const INVALID_SPREADSHEET_DROP_MESSAGE =
+  "Spreadsheet sections accept only CSV, TSV, XLS, or XLSX files.";
+
+type SpreadsheetDropTarget =
+  | {
+      kind: "workspace";
+      name: string;
+      path: string;
+    }
+  | {
+      kind: "native";
+      file: File;
+    };
+
+export function resolveSpreadsheetDropTarget(
+  payload: FileBrowserDragPayload | null,
+  nativeFile: File | null,
+): SpreadsheetDropTarget | null {
+  if (payload?.type === "file") {
+    return {
+      kind: "workspace",
+      name: payload.name,
+      path: payload.fullPath,
+    };
+  }
+  return nativeFile ? { kind: "native", file: nativeFile } : null;
+}
+
+export function isSupportedSpreadsheetDropTarget(
+  target: SpreadsheetDropTarget,
+): boolean {
+  return target.kind === "workspace"
+    ? isSpreadsheetPath(target.name) || isSpreadsheetPath(target.path)
+    : isSpreadsheetPath(target.file.name);
+}
+
+function notifyInvalidSpreadsheetDrop() {
+  addTemporaryNotification(
+    INVALID_SPREADSHEET_DROP_MESSAGE,
+    NotificationTypeEnum.warning,
+  );
+}
+
+async function persistImportedSpreadsheetFile(
+  file: File,
+  persistPath: (nextPath: string) => void,
+) {
+  const importResult = await importNativeFileToWorkspace(file);
+  if (importResult.status !== "ok") {
+    addTemporaryNotification(importResult.error, NotificationTypeEnum.error);
+    return;
+  }
+  persistPath(importResult.filePath);
+}
+
 export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
   const flowZoom = useReactFlow((state) => state.transform[2]);
   const { canEditLayout } = useShareCapabilities();
@@ -106,9 +165,11 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
       if (isDisabled) {
         return;
       }
-      const payload = getFileBrowserDragPayload(event.dataTransfer);
-      const hasNativeFiles = event.dataTransfer.files.length > 0;
-      if ((!payload || payload.type !== "file") && !hasNativeFiles) {
+      const dropTarget = resolveSpreadsheetDropTarget(
+        getFileBrowserDragPayload(event.dataTransfer),
+        event.dataTransfer.files.item(0),
+      );
+      if (!dropTarget) {
         return;
       }
       event.preventDefault();
@@ -120,53 +181,25 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
   );
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      const payload = getFileBrowserDragPayload(event.dataTransfer);
-      const nativeFile = event.dataTransfer.files.item(0);
+      const dropTarget = resolveSpreadsheetDropTarget(
+        getFileBrowserDragPayload(event.dataTransfer),
+        event.dataTransfer.files.item(0),
+      );
       setIsDropTargetActive(false);
-      if (isDisabled) {
-        return;
-      }
-      if ((!payload || payload.type !== "file") && !nativeFile) {
+      if (isDisabled || !dropTarget) {
         return;
       }
       event.preventDefault();
       event.stopPropagation();
-      if (payload && payload.type === "file") {
-        if (
-          !isSpreadsheetPath(payload.name) &&
-          !isSpreadsheetPath(payload.fullPath)
-        ) {
-          addTemporaryNotification(
-            "Spreadsheet sections accept only CSV, TSV, XLS, or XLSX files.",
-            NotificationTypeEnum.warning,
-          );
-          return;
-        }
-        persistPath(payload.fullPath);
+      if (!isSupportedSpreadsheetDropTarget(dropTarget)) {
+        notifyInvalidSpreadsheetDrop();
         return;
       }
-      if (!nativeFile) {
+      if (dropTarget.kind === "workspace") {
+        persistPath(dropTarget.path);
         return;
       }
-      if (!isSpreadsheetPath(nativeFile.name)) {
-        addTemporaryNotification(
-          "Spreadsheet sections accept only CSV, TSV, XLS, or XLSX files.",
-          NotificationTypeEnum.warning,
-        );
-        return;
-      }
-      const loadNativeFile = async () => {
-        const importResult = await importNativeFileToWorkspace(nativeFile);
-        if (importResult.status !== "ok") {
-          addTemporaryNotification(
-            importResult.error,
-            NotificationTypeEnum.error,
-          );
-          return;
-        }
-        persistPath(importResult.filePath);
-      };
-      void loadNativeFile();
+      void persistImportedSpreadsheetFile(dropTarget.file, persistPath);
     },
     [isDisabled, persistPath],
   );
