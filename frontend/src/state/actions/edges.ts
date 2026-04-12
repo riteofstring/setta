@@ -1,18 +1,17 @@
 import type { Connection } from "forks/xyflow/core/types";
-import {
-  createEdge,
-  deleteEdges,
-  reconnectEdge,
-  setEdges,
-  updateEdge,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import {
   useEdgeHandleRegistry,
   useProjectState,
   useShareSession,
 } from "state/definitions";
+import {
+  route_create_edge,
+  route_delete_edges,
+  route_reconnect_edge,
+  route_set_edges,
+  route_update_edge,
+} from "utils/generatedEndpoints";
 import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -20,29 +19,13 @@ import {
 } from "./sectionInfos";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "./stateMachineEdges";
 
-type EdgeConnectionBody = Pick<
-  NonNullable<Parameters<typeof createEdge>[0]["body"]>,
-  | "projectConfigId"
-  | "sourceSectionId"
-  | "sourceVariantId"
-  | "sourcePortId"
-  | "targetSectionId"
-  | "targetVariantId"
-  | "targetPortId"
->;
-type CompleteEdgeConnection = Connection & {
-  source: string;
-  target: string;
-  sourceHandle: string;
-  targetHandle: string;
-};
-
 const nonDataHandleIds = new Set<string>([
   AGENTIC_EDGE_HANDLE_IDS.source,
   AGENTIC_EDGE_HANDLE_IDS.target,
   STATE_MACHINE_EDGE_HANDLE_IDS.source,
   STATE_MACHINE_EDGE_HANDLE_IDS.target,
 ]);
+
 export function isValidDataEdgeConnection(connection: Connection): boolean {
   if (!connection.sourceHandle || !connection.targetHandle) {
     return false;
@@ -55,6 +38,7 @@ export function isValidDataEdgeConnection(connection: Connection): boolean {
   }
   return true;
 }
+
 export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
@@ -75,28 +59,21 @@ export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
         if (!edge) {
           return;
         }
-        return callOpenAPI(
-          updateEdge({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              edge,
-              frontendOpId,
-            },
-          } as Parameters<typeof updateEdge>[0]),
-        );
+        return route_update_edge({
+          projectConfigId: getCurrProjectConfigId(),
+          edge,
+          frontendOpId,
+        });
       }
-      return callOpenAPI(
-        setEdges({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edges: useProjectState.getState().projectConfig.edges,
-            frontendOpId,
-          },
-        } as Parameters<typeof setEdges>[0]),
-      );
+      return route_set_edges({
+        projectConfigId: getCurrProjectConfigId(),
+        edges: useProjectState.getState().projectConfig.edges,
+        frontendOpId,
+      });
     },
   });
 }
+
 export function deleteSelectedEdges() {
   if (useShareSession.getState().isDeploymentMode) {
     return false;
@@ -105,9 +82,11 @@ export function deleteSelectedEdges() {
   const selectedIds = state.projectConfig.edges
     .filter((edge) => edge.selected)
     .map((edge) => edge.id);
+
   if (selectedIds.length === 0) {
     return false;
   }
+
   dispatchOptimisticProjectStateUpdate({
     apply: (draft) => {
       draft.projectConfig.edges = draft.projectConfig.edges.filter(
@@ -115,75 +94,40 @@ export function deleteSelectedEdges() {
       );
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        deleteEdges({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edgeIds: selectedIds,
-            frontendOpId,
-          },
-        } as Parameters<typeof deleteEdges>[0]),
-      ),
+      route_delete_edges({
+        projectConfigId: getCurrProjectConfigId(),
+        edgeIds: selectedIds,
+        frontendOpId,
+      }),
   });
+
   return true;
 }
 
-function resolveEdgeConnectionBody(
-  connection: Connection,
-): EdgeConnectionBody | null {
-  if (!hasCompleteEdgeConnection(connection)) {
-    return null;
+export function createEdgeFromConnection(connection: Connection) {
+  if (
+    !connection.source ||
+    !connection.target ||
+    !connection.sourceHandle ||
+    !connection.targetHandle
+  ) {
+    return;
   }
-  if (useShareSession.getState().isDeploymentMode) {
-    return null;
+
+  const isDeploymentMode = useShareSession.getState().isDeploymentMode;
+  if (isDeploymentMode) {
+    return;
   }
+
   const state = useProjectState.getState();
-  const variantIds = resolveEdgeConnectionVariantIds(connection, state);
-  if (!variantIds) {
-    return null;
-  }
-  if (!hasRegisteredEdgeConnection(connection)) {
-    return null;
-  }
-  return {
-    projectConfigId: getCurrProjectConfigId(),
-    sourceSectionId: connection.source,
-    sourceVariantId: variantIds.sourceVariantId,
-    sourcePortId: connection.sourceHandle,
-    targetSectionId: connection.target,
-    targetVariantId: variantIds.targetVariantId,
-    targetPortId: connection.targetHandle,
-  };
-}
-
-function hasCompleteEdgeConnection(
-  connection: Connection,
-): connection is CompleteEdgeConnection {
-  return Boolean(
-    connection.source &&
-      connection.target &&
-      connection.sourceHandle &&
-      connection.targetHandle,
-  );
-}
-
-function resolveEdgeConnectionVariantIds(
-  connection: CompleteEdgeConnection,
-  state: ReturnType<typeof useProjectState.getState>,
-): { sourceVariantId: string; targetVariantId: string } | null {
   const sourceVariantId =
     state.projectConfig.sectionVariantMap[connection.source];
   const targetVariantId =
     state.projectConfig.sectionVariantMap[connection.target];
   if (!sourceVariantId || !targetVariantId) {
-    return null;
+    return;
   }
-  return { sourceVariantId, targetVariantId };
-}
 
-function hasRegisteredEdgeConnection(
-  connection: CompleteEdgeConnection,
-): boolean {
   const registryPositions = useEdgeHandleRegistry.getState().positions;
   const sourceKey = makeEdgeHandleKey(
     connection.source,
@@ -195,31 +139,72 @@ function hasRegisteredEdgeConnection(
     connection.targetHandle,
     "target",
   );
-  return Boolean(registryPositions[sourceKey] && registryPositions[targetKey]);
-}
-
-export function createEdgeFromConnection(connection: Connection) {
-  const body = resolveEdgeConnectionBody(connection);
-  if (!body) {
+  if (!registryPositions[sourceKey] || !registryPositions[targetKey]) {
     return;
   }
-  void callOpenAPI(
-    createEdge({
-      body: { ...body, type: "default" },
-    } as Parameters<typeof createEdge>[0]),
-  );
+
+  void route_create_edge({
+    projectConfigId: getCurrProjectConfigId(),
+    sourceSectionId: connection.source,
+    sourceVariantId,
+    sourcePortId: connection.sourceHandle,
+    targetSectionId: connection.target,
+    targetVariantId,
+    targetPortId: connection.targetHandle,
+    type: "default",
+  });
 }
+
 export function reconnectEdgeFromConnection(
   edgeId: string,
   connection: Connection,
 ) {
-  const body = resolveEdgeConnectionBody(connection);
-  if (!body) {
+  if (
+    !connection.source ||
+    !connection.target ||
+    !connection.sourceHandle ||
+    !connection.targetHandle
+  ) {
     return;
   }
-  void callOpenAPI(
-    reconnectEdge({
-      body: { ...body, edgeId },
-    } as Parameters<typeof reconnectEdge>[0]),
+
+  const isDeploymentMode = useShareSession.getState().isDeploymentMode;
+  if (isDeploymentMode) {
+    return;
+  }
+
+  const state = useProjectState.getState();
+  const sourceVariantId =
+    state.projectConfig.sectionVariantMap[connection.source];
+  const targetVariantId =
+    state.projectConfig.sectionVariantMap[connection.target];
+  if (!sourceVariantId || !targetVariantId) {
+    return;
+  }
+
+  const registryPositions = useEdgeHandleRegistry.getState().positions;
+  const sourceKey = makeEdgeHandleKey(
+    connection.source,
+    connection.sourceHandle,
+    "source",
   );
+  const targetKey = makeEdgeHandleKey(
+    connection.target,
+    connection.targetHandle,
+    "target",
+  );
+  if (!registryPositions[sourceKey] || !registryPositions[targetKey]) {
+    return;
+  }
+
+  void route_reconnect_edge({
+    projectConfigId: getCurrProjectConfigId(),
+    edgeId,
+    sourceSectionId: connection.source,
+    sourceVariantId,
+    sourcePortId: connection.sourceHandle,
+    targetSectionId: connection.target,
+    targetVariantId,
+    targetPortId: connection.targetHandle,
+  });
 }
