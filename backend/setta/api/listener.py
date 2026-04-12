@@ -106,8 +106,6 @@ from .local_core import LocalCoreClient
 from .scheduling import ListenerCallbackScheduler
 
 if TYPE_CHECKING:
-    from websockets import ClientConnection
-
     from setta.types.id import ID
 
     from .hot_reload import ListenerHotReloader
@@ -656,7 +654,7 @@ class SettaListener:
         self._dependency_cache: dict[str, Any] = {}
         self._last_realtime_sequence: int | None = None
         self._scheduler = ListenerCallbackScheduler()
-        self._websocket: "ClientConnection | None" = None
+        self._websocket: websockets.ClientConnection | None = None
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
         self._latest_dependency_metadata: ListenerDependencyMetadata | None = None
@@ -1108,7 +1106,9 @@ class SettaListener:
                 finally:
                     self._handle_connection_closed()
 
-    async def _consume_websocket_messages(self, websocket: "ClientConnection") -> None:
+    async def _consume_websocket_messages(
+        self, websocket: websockets.ClientConnection
+    ) -> None:
         async for payload in websocket:
             if self._stop_event.is_set():
                 break
