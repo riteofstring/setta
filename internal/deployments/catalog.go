@@ -84,13 +84,6 @@ func NormalizeDeploymentName(name string) (string, error) {
 	return normalized, nil
 }
 
-func (c *Catalog) Root() string {
-	if c == nil {
-		return ""
-	}
-	return c.root
-}
-
 func (c *Catalog) Allocate(deploymentName string) (Allocation, error) {
 	if c == nil {
 		return Allocation{}, ErrCatalogRequired
