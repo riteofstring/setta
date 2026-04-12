@@ -3,7 +3,10 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { FaPlug } from "react-icons/fa6";
 import { useWebsocketConnectionList } from "state/definitions";
-import { Connection, ConnectionTypeEnum } from "utils/generatedTypes";
+import {
+  WebsocketConnectionInfo,
+  WebsocketConnectionTypeEnum,
+} from "utils/generatedTypes";
 
 export function WebsocketConnections() {
   const connections = useWebsocketConnectionList((x) => {
@@ -11,8 +14,9 @@ export function WebsocketConnections() {
   }, _.isEqual);
 
   const noServerConnections =
-    connections.filter((x) => x.connectionType === ConnectionTypeEnum.SERVER)
-      .length === 0;
+    connections.filter(
+      (x) => x.connectionType === WebsocketConnectionTypeEnum.SERVER,
+    ).length === 0;
 
   const triggerClassName = `nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-md py-1 px-2 text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 ${noServerConnections ? "bg-red-800 dark:hover:bg-red-800" : "dark:hover:bg-setta-800"}`;
 
@@ -27,7 +31,7 @@ export function WebsocketConnections() {
 }
 
 type ComponentConnectionListType = {
-  connections: Array<Connection>;
+  connections: Array<WebsocketConnectionInfo>;
 };
 
 function ConnectionList({ connections }: ComponentConnectionListType) {
@@ -39,12 +43,12 @@ function ConnectionList({ connections }: ComponentConnectionListType) {
 }
 
 type ComponentConnectionItemType = {
-  info: Connection;
+  info: WebsocketConnectionInfo;
 };
 
 function ConnectionItem({ info }: ComponentConnectionItemType) {
   const colors =
-    info.connectionType === ConnectionTypeEnum.SERVER
+    info.connectionType === WebsocketConnectionTypeEnum.SERVER
       ? "bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100"
       : "bg-grey-100 dark:bg-grey-800 text-grey-800 dark:text-grey-100";
 
@@ -60,16 +64,20 @@ function ConnectionItem({ info }: ComponentConnectionItemType) {
   );
 }
 
-function sortByConnectionType(list: Array<Connection>) {
+function sortByConnectionType(list: Array<WebsocketConnectionInfo>) {
+  // Define the order of connection types
   const order = {
-    [ConnectionTypeEnum.SERVER]: 1,
-    [ConnectionTypeEnum.frontend]: 2,
-    [ConnectionTypeEnum.listener]: 3,
-    [ConnectionTypeEnum.terminal]: 4,
+    [WebsocketConnectionTypeEnum.SERVER]: 1,
+    [WebsocketConnectionTypeEnum.CLI]: 2,
+    [WebsocketConnectionTypeEnum.PYTHON_LOGGER]: 3,
+    [WebsocketConnectionTypeEnum.PYTHON_SCRIPT]: 4,
+    [WebsocketConnectionTypeEnum.FRONTEND]: 5,
   };
 
+  // Default value for any connectionType not in the order map
   const defaultOrder = 999;
 
+  // Sort the list based on the connectionType
   return list.sort((a, b) => {
     const orderA = order[a.connectionType] || defaultOrder;
     const orderB = order[b.connectionType] || defaultOrder;
