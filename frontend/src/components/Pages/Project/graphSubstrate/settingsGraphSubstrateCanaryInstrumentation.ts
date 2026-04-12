@@ -4,6 +4,7 @@ export const SETTINGS_GRAPH_SUBSTRATE_CANARY_MOTION_ATTRIBUTION_OWNERS = [
   "pixiDrawableModelResolve",
   "pixiViewportPresent",
   "presentedSceneBodyMountFilter",
+  "presentedSceneSectionEntriesResolve",
   "presentedSceneSectionVisibilityFilter",
   "presentedSceneVisibleViewportWorldRectResolve",
   "reactFlowTransformFollowerCallback",

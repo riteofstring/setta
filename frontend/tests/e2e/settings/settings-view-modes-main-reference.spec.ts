@@ -12749,6 +12749,7 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
       "pixiDrawableModelResolve",
       "pixiViewportPresent",
       "presentedSceneBodyMountFilter",
+      "presentedSceneSectionEntriesResolve",
       "presentedSceneSectionVisibilityFilter",
       "presentedSceneVisibleViewportWorldRectResolve",
     ] as const;

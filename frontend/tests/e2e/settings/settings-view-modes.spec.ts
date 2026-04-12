@@ -558,6 +558,7 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
       "pixiDrawableModelResolve",
       "pixiViewportPresent",
       "presentedSceneBodyMountFilter",
+      "presentedSceneSectionEntriesResolve",
       "presentedSceneSectionVisibilityFilter",
       "presentedSceneVisibleViewportWorldRectResolve",
     ] as const;

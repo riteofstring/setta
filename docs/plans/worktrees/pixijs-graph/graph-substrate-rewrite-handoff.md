@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 06:44 UTC
+Last updated: 2026-04-13 06:43 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,71 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `400` landed one bounded production-side pan path reduction on the
+  canonical `rotaryParamCodeObjDefault` canary lane, but the live Playwright
+  probe remains blocked by a repeated preflight hang:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and avoided a third harness-only
+      pass on the same lane
+    - chose the narrowest production path that could either reduce or name
+      pan-time work directly: the sections-layer entry fan-out that still
+      rebuilds React entries during viewport-driven rerenders
+    - kept the slice bounded to one sections-layer owner instead of reopening
+      visibility-filter or viewport seam work
+  - product/test code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      to stabilize computed mounted-body id sets across viewport-only motion
+      and memoize section-entry construction behind one measured owner
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with the new owner
+      `presentedSceneSectionEntriesResolve`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      to cover the new owner and the viewport-only memoization path
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      and
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the shared perf lane accepts the new residual owner if it appears in
+      the capture
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`3` files, `22` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - first live worktree probe attempt on run `025`
+      -> failed after `180000ms`
+      -> timeout site:
+         `getLocalPaneState(...)` in
+         `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+         while awaiting `page.evaluate(() => window.localStorage.getItem("setta_data"))`
+    - bounded lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime facts via
+        `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-025/worktree-ai.log`
+    - retried the same live worktree probe once on the refreshed runtime
+      -> failed in the same place with the same `180000ms` timeout
+      -> classify this as a repeated probe-preflight blocker, not renderer
+        drift
+    - fresh-context headless CDP smoke after recovery
+      -> passed
+      -> `/settings` reached visible Settings chrome and `All Settings`
+         content after a brief loading state, so the runtime itself was not
+         stuck
+  - reading:
+    - this pass did land real production code on the canonical lane instead of
+      extending the oracle/harness family again
+    - the remaining blocker is now narrower than generic runtime health:
+      Playwright hangs in `getLocalPaneState(...)` preflight even while CDP can
+      reach the same refreshed runtime and render `All Settings`
+    - the next pass should treat that Playwright preflight hang as the active
+      blocker before drawing conclusions from the live perf lane
+  - next default frontier:
+    - debug or harden the `getLocalPaneState(...)` / compare-preflight path on
+      the canonical worktree probe so the newly landed
+      `presentedSceneSectionEntriesResolve` owner can be measured on live pan
+      traffic
 
 - item `399` closed the repeated runtime-health blocker on the canonical
   `rotaryParamCodeObjDefault` worktree-only probe lane by rerunning the fresh

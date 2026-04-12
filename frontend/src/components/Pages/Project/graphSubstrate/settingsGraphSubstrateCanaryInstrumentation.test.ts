@@ -104,10 +104,16 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       .mockReturnValueOnce(20)
       .mockReturnValueOnce(21)
       .mockReturnValueOnce(30)
-      .mockReturnValueOnce(32.5);
+      .mockReturnValueOnce(32.5)
+      .mockReturnValueOnce(40)
+      .mockReturnValueOnce(44);
 
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "presentedSceneBodyMountFilter",
+      () => {},
+    );
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "presentedSceneSectionEntriesResolve",
       () => {},
     );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
@@ -125,10 +131,15 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       maxDurationMs: 1,
       totalDurationMs: 1,
     });
-    expect(motionAttribution.pixiDrawableModelResolve).toEqual({
+    expect(motionAttribution.presentedSceneSectionEntriesResolve).toEqual({
       count: 1,
       maxDurationMs: 2.5,
       totalDurationMs: 2.5,
+    });
+    expect(motionAttribution.pixiDrawableModelResolve).toEqual({
+      count: 1,
+      maxDurationMs: 4,
+      totalDurationMs: 4,
     });
   });
 });

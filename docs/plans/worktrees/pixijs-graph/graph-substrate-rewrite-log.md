@@ -151,6 +151,57 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 06:43 UTC
+
+- Item: Reduce one production pan-time fan-out path on the canonical
+  `rotaryParamCodeObjDefault` lane by stabilizing sections-layer entry work,
+  then rerun the live worktree probe once.
+- Status: `blocked`
+- Details:
+  - Re-read the current plan/handoff first and did not take a third harness-only
+    pass on the same named lane.
+  - Chose one bounded production slice inside
+    `SettingsGraphSubstrateCanarySectionsLayer`:
+    stabilize computed mounted-body id sets across viewport-only motion and
+    memoize section-entry construction under the new measured owner
+    `presentedSceneSectionEntriesResolve`.
+  - Changed:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - Narrow verification passed:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`3` files, `22` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+  - Live verification blocker:
+    - initial worktree probe on run `025`:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-025/worktree-ai.log`
+      -> failed (`180000ms` timeout)
+      -> timeout site:
+         `getLocalPaneState(...)` in
+         `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+         while awaiting `page.evaluate(() => window.localStorage.getItem("setta_data"))`
+    - used the one allowed bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-025/worktree-ai.log`
+    - retried the same live worktree probe once
+      -> failed again in the same preflight call/site with the same timeout
+    - fresh-context headless CDP smoke after recovery passed:
+      the runtime reached visible Settings chrome and `All Settings` content,
+      so treat this as a repeated Playwright preflight blocker rather than a
+      generic runtime outage or renderer regression
+- Next action:
+  - fix or bypass the repeated `getLocalPaneState(...)` preflight hang on the
+    canonical worktree probe so the next live run can measure whether
+    `presentedSceneSectionEntriesResolve` materially changed pan-phase cost
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 06:44 UTC
 
 - Item: Close the repeated `worktree_unhealthy` blocker on the

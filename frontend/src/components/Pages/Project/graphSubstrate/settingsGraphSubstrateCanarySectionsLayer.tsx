@@ -19,6 +19,7 @@ import {
 import type { SettingsGraphSubstrateCanarySectionDragController } from "./settingsGraphSubstrateCanarySectionDragController";
 import {
   areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
+  areSettingsGraphSubstrateCanarySectionIdSetsEqual,
   resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds,
   resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
 } from "./settingsGraphSubstrateCanarySectionPresentation";
@@ -100,6 +101,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   const stablePresentedSceneSectionsRef = useRef<
     Array<SettingsGraphSubstrateCanarySceneSection>
   >([]);
+  const stableMountedSectionBodyIdsRef = useRef<ReadonlySet<string>>(new Set());
   const resolvedPresentedSceneSections = useMemo(() => {
     if (presentedSceneSections) {
       return presentedSceneSections;
@@ -146,18 +148,30 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
 
   const resolvedMountedSectionBodyIds = useMemo(() => {
     if (mountedSectionBodyIds) {
+      stableMountedSectionBodyIdsRef.current = mountedSectionBodyIds;
       return mountedSectionBodyIds;
     }
-    return measureSettingsGraphSubstrateCanaryMotionAttribution(
-      "presentedSceneBodyMountFilter",
-      () =>
-        resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
-          draggingSectionId,
-          presentedSceneSections: resolvedPresentedSceneSections,
-          viewport,
-          visibleViewportRect,
-        }),
-    );
+    const nextMountedSectionBodyIds =
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "presentedSceneBodyMountFilter",
+        () =>
+          resolveSettingsGraphSubstrateCanaryMountedSectionBodyIds({
+            draggingSectionId,
+            presentedSceneSections: resolvedPresentedSceneSections,
+            viewport,
+            visibleViewportRect,
+          }),
+      );
+    if (
+      areSettingsGraphSubstrateCanarySectionIdSetsEqual(
+        stableMountedSectionBodyIdsRef.current,
+        nextMountedSectionBodyIds,
+      )
+    ) {
+      return stableMountedSectionBodyIdsRef.current;
+    }
+    stableMountedSectionBodyIdsRef.current = nextMountedSectionBodyIds;
+    return nextMountedSectionBodyIds;
   }, [
     draggingSectionId,
     mountedSectionBodyIds,
@@ -244,35 +258,47 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     },
     [sectionDragController],
   );
-
-  return (
-    <>
-      {resolvedPresentedSceneSections.map((section) => {
-        const shouldMountBody = resolvedMountedSectionBodyIds.has(
-          section.sectionId,
-        );
-        const sectionBody = sectionBodiesById.get(section.sectionId);
-        if (!sectionBody) {
-          throw new Error(
-            `Missing graph substrate section body for ${section.sectionId}.`,
+  const sectionEntries = useMemo(() => {
+    return measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "presentedSceneSectionEntriesResolve",
+      () =>
+        resolvedPresentedSceneSections.map((section) => {
+          const shouldMountBody = resolvedMountedSectionBodyIds.has(
+            section.sectionId,
           );
-        }
-        return (
-          <SettingsGraphSubstrateCanarySectionEntry
-            key={section.sectionId}
-            draggingSectionId={draggingSectionId}
-            finishSectionDrag={finishSectionDrag}
-            handleSectionPointerDown={handleSectionPointerDown}
-            handleSectionPointerMove={handleSectionPointerMove}
-            onHoveredSectionChange={onHoveredSectionChange}
-            section={section}
-            sectionBody={sectionBody}
-            shouldMountBody={shouldMountBody}
-          />
-        );
-      })}
-    </>
-  );
+          const sectionBody = sectionBodiesById.get(section.sectionId);
+          if (!sectionBody) {
+            throw new Error(
+              `Missing graph substrate section body for ${section.sectionId}.`,
+            );
+          }
+          return (
+            <SettingsGraphSubstrateCanarySectionEntry
+              key={section.sectionId}
+              draggingSectionId={draggingSectionId}
+              finishSectionDrag={finishSectionDrag}
+              handleSectionPointerDown={handleSectionPointerDown}
+              handleSectionPointerMove={handleSectionPointerMove}
+              onHoveredSectionChange={onHoveredSectionChange}
+              section={section}
+              sectionBody={sectionBody}
+              shouldMountBody={shouldMountBody}
+            />
+          );
+        }),
+    );
+  }, [
+    draggingSectionId,
+    finishSectionDrag,
+    handleSectionPointerDown,
+    handleSectionPointerMove,
+    onHoveredSectionChange,
+    resolvedMountedSectionBodyIds,
+    resolvedPresentedSceneSections,
+    sectionBodiesById,
+  ]);
+
+  return <>{sectionEntries}</>;
 }
 
 export const SettingsGraphSubstrateCanarySectionsLayer = React.memo(

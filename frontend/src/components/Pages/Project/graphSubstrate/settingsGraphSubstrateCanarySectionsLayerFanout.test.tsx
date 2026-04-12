@@ -46,6 +46,9 @@ const { mockResolveSectionBody, mockSectionBodyDomAdapter, mockSectionShell } =
       ),
     ),
   }));
+const { measureMotionAttribution } = vi.hoisted(() => ({
+  measureMotionAttribution: vi.fn((_owner: string, fn: () => unknown) => fn()),
+}));
 
 vi.mock("./settingsGraphSubstrateCanarySectionBodyAdapter", () => ({
   resolveSettingsGraphSubstrateCanarySectionBody: mockResolveSectionBody,
@@ -54,6 +57,11 @@ vi.mock("./settingsGraphSubstrateCanarySectionBodyAdapter", () => ({
 
 vi.mock("./settingsGraphSubstrateCanarySectionShell", () => ({
   SettingsGraphSubstrateCanarySectionShell: mockSectionShell,
+}));
+vi.mock("./settingsGraphSubstrateCanaryInstrumentation", () => ({
+  measureSettingsGraphSubstrateCanaryMotionAttribution:
+    measureMotionAttribution,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot: vi.fn(),
 }));
 
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
@@ -93,6 +101,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
   let root: Root;
 
   beforeEach(() => {
+    measureMotionAttribution.mockClear();
     mockResolveSectionBody.mockClear();
     mockSectionBodyDomAdapter.mockClear();
     mockSectionShell.mockClear();
@@ -125,6 +134,10 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
     expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+    expect(measureMotionAttribution).toHaveBeenCalledWith(
+      "presentedSceneSectionEntriesResolve",
+      expect.any(Function),
+    );
 
     await act(async () => {
       root.render(
@@ -139,6 +152,11 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
     expect(mockSectionShell).toHaveBeenCalledTimes(1);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+    expect(
+      measureMotionAttribution.mock.calls.filter(
+        ([owner]) => owner === "presentedSceneSectionEntriesResolve",
+      ),
+    ).toHaveLength(1);
   });
 
   it("rerenders only the affected section entry when the body mount gate changes", async () => {
