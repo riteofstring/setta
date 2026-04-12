@@ -1,4 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   createNodesMapFromProjectConfigChildren,
@@ -32,6 +33,7 @@ import {
   createDictSectionImpl,
   createListRootSectionImpl,
   createMessageTextContent,
+  createProjectChatWindowingState,
   createProjectConfig,
   createSectionSize,
   createSettingsState,
@@ -2088,6 +2090,110 @@ describe("processProjectStateUpdateFromBackend", () => {
     } finally {
       projectStateSetSpy.mockRestore();
       nodeInternalsSetSpy.mockRestore();
+    }
+  });
+
+  it("skips the full normalized deep compare when the backend changes the active view mode viewport", () => {
+    const sectionId = "section-1";
+    const initialViewModeId = "view-initial";
+    const nextViewModeId = "view-next";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+
+    const initialProjectConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: { [sectionId]: { ...layout } },
+      viewModes: {
+        [initialViewModeId]: {
+          id: initialViewModeId,
+          name: "Initial View",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: { [sectionId]: true },
+          viewport: { x: 10, y: 20, zoom: 1.2 },
+          viewportInitialized: true,
+          topLevelSections: { [sectionId]: { ...layout } },
+        },
+        [nextViewModeId]: {
+          id: nextViewModeId,
+          name: "All Settings",
+          sortIndex: 1,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: { [sectionId]: true },
+          viewport: null,
+          viewportInitialized: false,
+          topLevelSections: { [sectionId]: { ...layout } },
+        },
+      },
+      activeViewModeId: initialViewModeId,
+      viewport: { x: 10, y: 20, zoom: 1.2 },
+      viewportInitialized: true,
+    });
+
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+    useReactFlow.setState({
+      transform: [10, 20, 1.2],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+
+    const isEqualSpy = vi.spyOn(_, "isEqual");
+
+    try {
+      processProjectStateUpdateFromBackend({
+        projectState: {
+          projectConfig: {
+            ...initialProjectConfig,
+            activeViewModeId: nextViewModeId,
+            viewport: null,
+            viewportInitialized: false,
+          },
+          sections: {},
+          sectionImpls: {},
+          sectionVariants: {},
+          codeObjs: {},
+          codeObjImpls: {},
+          codeObjVariants: {},
+          artifactGroups: {},
+          singletonSections: createSingletonSections(),
+          parentSectionMap: {},
+          shownParamIds: {},
+          requiredDecodedImages: [],
+          genCodeBinding: null,
+          projectChatWindowing: createProjectChatWindowingState(),
+        },
+        completedOpIds: [],
+        pendingOpIds: [],
+      });
+
+      expect(useProjectState.getState().projectConfig.activeViewModeId).toBe(
+        nextViewModeId,
+      );
+      expect(useProjectState.getState().projectConfig.viewport).toBeNull();
+      expect(useProjectState.getState().projectConfig.viewportInitialized).toBe(
+        false,
+      );
+      expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+      expect(isEqualSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      isEqualSpy.mockRestore();
     }
   });
 });

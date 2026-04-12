@@ -20341,6 +20341,50 @@ LOOP_TERMINAL_MARKER: none
       lane after `surface_ready`
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 09:22 UTC | item `485` | completed authoritative project-config fast path for the canonical post-`surface_ready` sync lane
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/state/actions/sectionInfos.ts`
+      `processProjectStateUpdateFromBackend(...)` now short-circuits the
+      expensive whole-state normalized deep compare when the backend snapshot
+      already changed `activeViewModeId`, `viewport`, or
+      `viewportInitialized`
+    - `frontend/src/state/actions/sectionInfos.test.ts`
+      now covers the `All Settings` + `viewport=null` authoritative update path
+      and asserts the full normalized deep compare is skipped while the
+      React Flow fit-view state still updates
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts`
+      -> passed (`1` file, `29` tests)
+    - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts`
+      -> passed
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-016/worktree-ai.log`
+      -> passed; refreshed bootstrap token for session `4f4449`
+    - live canonical lane rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> reached
+         `app_router_loading -> app_shell_without_surface -> settings_loading -> project_loading -> surface_ready`
+      -> no longer emitted the previous explicit
+         `Worktree unhealthy: timed out after 5000ms while reading the frontend project config store`
+      -> still stalled after `surface_ready` until the outer `timeout 180s`
+         killed the process; treat the live lane as still unproven, but with
+         the old explicit store-read timeout no longer reproduced
+    - fresh-context CDP checks:
+      -> first sub-agent reached bootstrap but reported rejected/stale auth
+         before `/settings` mounted
+      -> second sub-agent reported no usable `chrome-devtools-mcp` server in
+         that tool session
+      -> required CDP visual confirmation therefore remains blocked by live
+         bootstrap / tool-session availability, not by a completed visual proof
+  - reading:
+    - this lands a production synchronization cut directly on the boundary
+      named in the handoff instead of extending probe/helper churn
+    - the next pass should first re-run the same canonical probe with fresh
+      auth + working CDP; if it still stalls after `surface_ready`, attribute
+      that next owner precisely rather than revisiting the old store-read wait
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-14 14:08 UTC | item `472` | completed unpinned-area attribution split and hardened probe pane-state setup
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:

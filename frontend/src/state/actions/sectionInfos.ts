@@ -1012,6 +1012,19 @@ function getComparableProjectState(
   });
 }
 
+function hasAuthoritativeProjectConfigDelta(
+  currentProjectConfig: ProjectStateSingleConfig["projectConfig"],
+  nextProjectConfig: ProjectStateSingleConfig["projectConfig"],
+): boolean {
+  return (
+    currentProjectConfig.activeViewModeId !==
+      nextProjectConfig.activeViewModeId ||
+    currentProjectConfig.viewportInitialized !==
+      nextProjectConfig.viewportInitialized ||
+    !_.isEqual(currentProjectConfig.viewport, nextProjectConfig.viewport)
+  );
+}
+
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1054,10 +1067,15 @@ export function processProjectStateUpdateFromBackend(
     Object.keys(x.projectState.sections),
   );
   const sanitizedProjectState = getComparableProjectState(x.projectState);
-  const projectStateChanged = !_.isEqual(
-    getComparableProjectState(currentState),
-    sanitizedProjectState,
-  );
+  const projectStateChanged = hasAuthoritativeProjectConfigDelta(
+    currentState.projectConfig,
+    sanitizedProjectState.projectConfig,
+  )
+    ? true
+    : !_.isEqual(
+        getComparableProjectState(currentState),
+        sanitizedProjectState,
+      );
 
   if (!projectStateChanged) {
     unstable_batchedUpdates(() => {

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 09:05 UTC
+Last updated: 2026-04-15 09:22 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,54 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `485` narrowed the frontend `surface_ready` synchronization path on the
+  canonical `rotaryParamCodeObjDefault` lane by removing the full normalized
+  project-state deep compare from the authoritative
+  `activeViewModeId` / `viewport` update path:
+  - code/test changes:
+    - `frontend/src/state/actions/sectionInfos.ts`
+      `processProjectStateUpdateFromBackend(...)` now treats a backend
+      `projectConfig` delta in `activeViewModeId`, `viewport`, or
+      `viewportInitialized` as authoritative proof of change and skips the
+      expensive whole-state `_.isEqual(...)` short-circuit on that path
+    - `frontend/src/state/actions/sectionInfos.test.ts`
+      now covers the canonical `activeViewMode -> All Settings` plus
+      `viewport -> null` transition and asserts the full normalized deep
+      compare is skipped while the React Flow fit-view state is still updated
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts`
+      -> passed (`1` file, `29` tests)
+    - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts`
+      -> passed
+    - live canonical lane rerun with runtime-refreshed bootstrap token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> reached
+         `app_router_loading -> app_shell_without_surface -> settings_loading -> project_loading -> surface_ready`
+      -> did not reproduce the prior explicit
+         `timed out after 5000ms while reading the frontend project config store`
+         failure
+      -> still did not finish within the outer `timeout 180s`; the process was
+         killed after stalling past `surface_ready`, so the canonical live lane
+         remains unproven
+    - fresh-context CDP checks:
+      -> attempted twice via sub-agents, but not completed
+      -> first attempt reached the bootstrap page and reported rejected/stale
+         auth before `/settings` mounted
+      -> second attempt reported no usable `chrome-devtools-mcp` server in that
+         tool session
+  - reading:
+    - this is a real production-side cut on the frontend receive/apply path,
+      not another helper-only probe pass
+    - the exact old `waitForFrontendProjectConfigState(...)` 5s read timeout no
+      longer reproduced on the same live rerun, which suggests the ownership
+      boundary moved forward
+    - the lane is still blocked on trustworthy live verification: rerun the
+      same canonical Playwright probe with a fresh bootstrap token and a
+      working CDP sub-agent before taking another code slice
+    - if the rerun still stalls after `surface_ready`, capture the next live
+      owner at that post-`surface_ready` boundary instead of returning to
+      helper normalization work
 
 - item `484` landed the missing backend viewport broadcast on the canonical
   `rotaryParamCodeObjDefault` lane, but the live blocker remains in frontend
