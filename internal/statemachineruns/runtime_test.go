@@ -13,6 +13,7 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/externalagents"
 	"setta/internal/managedchat"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
@@ -291,6 +292,47 @@ func TestRuntimeStartRunResetThreadClearsChatAndStopsRunningRun(t *testing.T) {
 	}
 	if got := outputMap(run, outputKeyOwnedChatBindings); len(got) != 0 {
 		t.Fatalf("expected no owned chat binding after reset_thread, got %#v", got)
+	}
+}
+
+func TestRuntimeStopChatIfRunningStopsLatestRunningManagedRun(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRuntimeFixture(t)
+
+	olderRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-managed",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+	}, testNow().Add(-2*time.Minute))
+	olderRun.ID = "existing-chat-run-older"
+	olderRun.Status = agentruns.RunStatusRunning
+	if err := fixture.runs.Save(olderRun); err != nil {
+		t.Fatalf("save older running chat run: %v", err)
+	}
+
+	newerRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-managed",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+	}, testNow().Add(-1*time.Minute))
+	newerRun.ID = "existing-chat-run-newer"
+	newerRun.Status = agentruns.RunStatusRunning
+	if err := fixture.runs.Save(newerRun); err != nil {
+		t.Fatalf("save newer running chat run: %v", err)
+	}
+
+	stopped := fixture.runtime.stopChatIfRunning("chat-managed", "project-alpha")
+	if stopped == nil {
+		t.Fatal("expected latest running chat run to be stopped")
+	}
+	if stopped.ID != "existing-chat-run-newer" {
+		t.Fatalf("expected newer run to stop, got %#v", stopped)
+	}
+	if got := fixture.managedStopper.stopped; !slices.Equal(got, []string{"existing-chat-run-newer"}) {
+		t.Fatalf("expected newest running managed run to be stopped, got %#v", got)
 	}
 }
 
@@ -1443,6 +1485,41 @@ func TestRuntimeStopRunCancelsRunningChildRuns(t *testing.T) {
 	}
 }
 
+func TestRuntimeStopRunningChildRunsStopsExternalAndMissingChildren(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRuntimeFixture(t)
+
+	externalChildRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         externalagents.RunTypeExternalAgent,
+		"projectConfigId": "project-alpha",
+	}, testNow())
+	externalChildRun.ID = "external-child-run"
+	externalChildRun.Status = agentruns.RunStatusRunning
+	if err := fixture.runs.Save(externalChildRun); err != nil {
+		t.Fatalf("save external child run: %v", err)
+	}
+
+	parentRun := agentruns.NewRun(nil, nil, testNow())
+	parentRun.Outputs = map[string]any{
+		outputKeyActiveChildRunIDs: []any{"missing-child-run", "external-child-run"},
+	}
+
+	stoppedRunIDs, err := fixture.runtime.stopRunningChildRuns(parentRun)
+	if err != nil {
+		t.Fatalf("stopRunningChildRuns returned error: %v", err)
+	}
+	if got := stoppedRunIDs; !slices.Equal(got, []string{"missing-child-run", "external-child-run"}) {
+		t.Fatalf("expected missing and external child run ids to be reported, got %#v", got)
+	}
+	if got := fixture.externalStopper.stopped; !slices.Equal(got, []string{"external-child-run"}) {
+		t.Fatalf("expected external stopper to stop external child run, got %#v", got)
+	}
+	if got := fixture.managedStopper.stopped; len(got) != 0 {
+		t.Fatalf("expected no managed child-run stop calls, got %#v", got)
+	}
+}
+
 func TestRuntimeResetMachineClearsOwnedChatBinding(t *testing.T) {
 	t.Parallel()
 
@@ -1829,6 +1906,7 @@ type runtimeFixture struct {
 	runs            *agentruns.RunStore
 	managedStarter  *recordingManagedChatStarter
 	managedStopper  *recordingRunStopper
+	externalStopper *recordingRunStopper
 	parallelStarter *blockingManagedChatStarter
 }
 
@@ -1874,6 +1952,7 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 		runs:    runs,
 	}
 	managedStopper := &recordingRunStopper{}
+	externalStopper := &recordingRunStopper{}
 	runtime, err := NewRuntime(RuntimeOptions{
 		Runs:     runs,
 		Engines:  engines,
@@ -1886,6 +1965,7 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 		},
 		ManagedChats: managedStarter,
 		ManagedRuns:  managedStopper,
+		ExternalRuns: externalStopper,
 		TimeNow:      testNow,
 	})
 	if err != nil {
@@ -1893,11 +1973,12 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 	}
 
 	return runtimeFixture{
-		runtime:        runtime,
-		projectRuntime: projectRuntime,
-		runs:           runs,
-		managedStarter: managedStarter,
-		managedStopper: managedStopper,
+		runtime:         runtime,
+		projectRuntime:  projectRuntime,
+		runs:            runs,
+		managedStarter:  managedStarter,
+		managedStopper:  managedStopper,
+		externalStopper: externalStopper,
 	}
 }
 
@@ -1938,6 +2019,7 @@ func newParallelStartRuntimeFixture(t *testing.T) runtimeFixture {
 	profiles := newTestAgentProfileStore(t, nil)
 
 	parallelStarter := newBlockingManagedChatStarter()
+	externalStopper := &recordingRunStopper{}
 	runtime, err := NewRuntime(RuntimeOptions{
 		Runs:     runs,
 		Engines:  engines,
@@ -1950,6 +2032,7 @@ func newParallelStartRuntimeFixture(t *testing.T) runtimeFixture {
 		},
 		ManagedChats: parallelStarter,
 		ManagedRuns:  &recordingRunStopper{},
+		ExternalRuns: externalStopper,
 		TimeNow:      testNow,
 	})
 	if err != nil {
@@ -1960,6 +2043,7 @@ func newParallelStartRuntimeFixture(t *testing.T) runtimeFixture {
 		runtime:         runtime,
 		projectRuntime:  projectRuntime,
 		runs:            runs,
+		externalStopper: externalStopper,
 		parallelStarter: parallelStarter,
 	}
 }
@@ -2057,6 +2141,7 @@ func newSignalRuntimeFixtureForProjectWithProfiles(
 		runs:    runs,
 	}
 	managedStopper := &recordingRunStopper{}
+	externalStopper := &recordingRunStopper{}
 	runtime, err := NewRuntime(RuntimeOptions{
 		Runs:     runs,
 		Engines:  engines,
@@ -2069,6 +2154,7 @@ func newSignalRuntimeFixtureForProjectWithProfiles(
 		},
 		ManagedChats: managedStarter,
 		ManagedRuns:  managedStopper,
+		ExternalRuns: externalStopper,
 		TimeNow:      testNow,
 	})
 	if err != nil {
@@ -2076,11 +2162,12 @@ func newSignalRuntimeFixtureForProjectWithProfiles(
 	}
 
 	return runtimeFixture{
-		runtime:        runtime,
-		projectRuntime: projectRuntime,
-		runs:           runs,
-		managedStarter: managedStarter,
-		managedStopper: managedStopper,
+		runtime:         runtime,
+		projectRuntime:  projectRuntime,
+		runs:            runs,
+		managedStarter:  managedStarter,
+		managedStopper:  managedStopper,
+		externalStopper: externalStopper,
 	}
 }
 

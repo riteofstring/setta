@@ -1852,87 +1852,99 @@ func (r *Runtime) stopRunningChildRuns(parentRun agentruns.Run) ([]string, error
 	activeChildRunIDs := outputStringList(parentRun, outputKeyActiveChildRunIDs)
 	stoppedRunIDs := make([]string, 0, len(activeChildRunIDs))
 	for _, childRunID := range activeChildRunIDs {
-		childRun, err := r.runs.Load(childRunID)
+		stoppedRunID, err := r.stopActiveChildRun(childRunID)
 		if err != nil {
-			if errors.Is(err, agentruns.ErrRunNotFound) {
-				stoppedRunIDs = append(stoppedRunIDs, childRunID)
-				continue
-			}
 			return nil, err
 		}
-		if childRun.Status == agentruns.RunStatusRunning {
-			switch runInputString(childRun, "runType") {
-			case externalagents.RunTypeExternalAgent:
-				if r.externalRuns == nil {
-					stoppedRunIDs = append(stoppedRunIDs, childRunID)
-					continue
-				}
-				if _, err := r.externalRuns.StopRun(childRun.ID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
-					return nil, err
-				}
-			default:
-				if r.managedRuns == nil {
-					stoppedRunIDs = append(stoppedRunIDs, childRunID)
-					continue
-				}
-				if _, err := r.managedRuns.StopRun(childRun.ID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
-					return nil, err
-				}
-			}
-		}
-		stoppedRunIDs = append(stoppedRunIDs, childRun.ID)
+		stoppedRunIDs = append(stoppedRunIDs, stoppedRunID)
 	}
 	return stoppedRunIDs, nil
 }
 
+func (r *Runtime) stopActiveChildRun(childRunID string) (string, error) {
+	childRun, err := r.runs.Load(childRunID)
+	if err != nil {
+		if errors.Is(err, agentruns.ErrRunNotFound) {
+			return childRunID, nil
+		}
+		return "", err
+	}
+	if _, err := r.stopRunWithConfiguredStopper(childRun, true); err != nil {
+		return "", err
+	}
+	return childRun.ID, nil
+}
+
 func (r *Runtime) stopChatIfRunning(chatID string, projectConfigID string) *agentruns.Run {
+	latest, err := r.latestRunningChatRun(chatID, projectConfigID)
+	if err != nil || latest == nil {
+		return nil
+	}
+	stopped, err := r.stopRunWithConfiguredStopper(*latest, false)
+	if err != nil {
+		return nil
+	}
+	return stopped
+}
+
+func (r *Runtime) latestRunningChatRun(chatID string, projectConfigID string) (*agentruns.Run, error) {
 	runs, err := r.runs.ListByMetadata(agentruns.RunFilter{
 		ChatID:          stringPointer(chatID),
 		ProjectConfigID: stringPointer(projectConfigID),
 	})
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	runningRuns := make([]agentruns.Run, 0)
-	for _, run := range runs {
-		if run.Status == agentruns.RunStatusRunning {
-			runningRuns = append(runningRuns, run)
+	latestIndex := -1
+	for index := range runs {
+		if runs[index].Status != agentruns.RunStatusRunning {
+			continue
+		}
+		if latestIndex == -1 || runSortsAfter(runs[index], runs[latestIndex]) {
+			latestIndex = index
 		}
 	}
-	if len(runningRuns) == 0 {
-		return nil
+	if latestIndex == -1 {
+		return nil, nil
 	}
-	slices.SortFunc(runningRuns, func(left, right agentruns.Run) int {
-		switch {
-		case runLastUpdated(left).Before(runLastUpdated(right)):
-			return 1
-		case runLastUpdated(left).After(runLastUpdated(right)):
-			return -1
-		default:
-			return strings.Compare(right.ID, left.ID)
+	latest := runs[latestIndex]
+	return &latest, nil
+}
+
+func (r *Runtime) stopRunWithConfiguredStopper(run agentruns.Run, ignoreMissing bool) (*agentruns.Run, error) {
+	if run.Status != agentruns.RunStatusRunning {
+		return nil, nil
+	}
+	stopper := r.runStopper(run)
+	if stopper == nil {
+		return nil, nil
+	}
+	stopped, err := stopper.StopRun(run.ID)
+	if err != nil {
+		if ignoreMissing && errors.Is(err, agentruns.ErrRunNotFound) {
+			return nil, nil
 		}
-	})
-	latest := runningRuns[0]
-	switch runInputString(latest, "runType") {
+		return nil, err
+	}
+	return &stopped, nil
+}
+
+func (r *Runtime) runStopper(run agentruns.Run) RunStopper {
+	switch runInputString(run, "runType") {
 	case externalagents.RunTypeExternalAgent:
-		if r.externalRuns == nil {
-			return nil
-		}
-		stopped, err := r.externalRuns.StopRun(latest.ID)
-		if err != nil {
-			return nil
-		}
-		return &stopped
+		return r.externalRuns
 	default:
-		if r.managedRuns == nil {
-			return nil
-		}
-		stopped, err := r.managedRuns.StopRun(latest.ID)
-		if err != nil {
-			return nil
-		}
-		return &stopped
+		return r.managedRuns
 	}
+}
+
+func runSortsAfter(left agentruns.Run, right agentruns.Run) bool {
+	leftUpdated := runLastUpdated(left)
+	rightUpdated := runLastUpdated(right)
+	if !leftUpdated.Equal(rightUpdated) {
+		return leftUpdated.After(rightUpdated)
+	}
+	return strings.Compare(left.ID, right.ID) > 0
 }
 
 func (r *Runtime) listChildRuns(parentRun agentruns.Run, projectConfigID string) ([]agentruns.Run, error) {
