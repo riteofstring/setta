@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 01:36 UTC
+Last updated: 2026-04-13 02:17 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,43 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `376` landed one bounded mounted section-header diagnostics-info
+  selector reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+      so the code-header diagnostics config selector now uses `shallow`
+      equality for its `{ ignoreState, language }` result instead of
+      returning a fresh object on every project-state update
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+      to prove a mounted code header does not re-commit on an unrelated
+      project-state write when its diagnostics config is unchanged
+    - the profiled test host now renders only the action strip so this lane
+      measures the diagnostics selector path instead of unrelated title
+      subtree subscriptions
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-header-diagnostics-info-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed (`1` file, `21` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> settings shell and visible section cards/chrome rendered normally
+         with no obvious blank-screen or missing-header regression
+  - reading:
+    - this is another real mounted section-header chrome selector reduction on
+      the live canary, not a harness-only pass
+    - the old selector rebuilt a fresh `{ ignoreState, language }` object for
+      every project-state write, so unchanged diagnostics config could still
+      fan unrelated project-state churn across mounted code headers
+  - next default frontier:
+    - stay on the earliest product-facing canary gate and identify the next
+      larger mounted section-body/chrome subscriber or shared write fan-out
+      on the live worktree, using the existing normalized lane only as
+      regression coverage rather than reopening backend warm-load work
 
 - item `375` landed one bounded mounted section-header diagnostics selector
   reduction on the live canary lane:

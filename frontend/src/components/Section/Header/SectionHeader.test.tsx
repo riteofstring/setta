@@ -84,13 +84,7 @@ async function renderProfiledHeader({
           controlsRenderer={({ isFollowSelected }) => (
             <div data-follow-selected={isFollowSelected ? "true" : "false"} />
           )}
-          layoutRenderer={({ actions, leadingControls, title }) => (
-            <div>
-              {leadingControls}
-              {title}
-              {actions}
-            </div>
-          )}
+          layoutRenderer={({ actions }) => <div>{actions}</div>}
         />
       </Profiler>,
     );
@@ -717,6 +711,39 @@ describe("SectionHeader diagnostics subscriptions", () => {
                 uri: "file:///tmp/other.py",
               },
             ],
+          };
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      const followIndicator = host.querySelector("[data-follow-selected]");
+      expect(followIndicator).not.toBeNull();
+      expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
+        "false",
+      );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps code headers out of unrelated project-state commits when diagnostics config is unchanged", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledHeader({
+      onRender,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Code,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          state.previewSectionVariantMap = {
+            "other-section": "other-variant",
           };
         });
       });

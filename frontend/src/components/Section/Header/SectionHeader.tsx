@@ -31,6 +31,7 @@ import {
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import {
   getSectionChromeTitleDomAdapter,
   resolveSectionChromeTitleDecorations,
@@ -204,7 +205,7 @@ function _SectionHeader({
       ignoreState: impl.diagnosticsIgnoreState,
       language: impl.codeLanguage,
     };
-  });
+  }, shallow);
   const codeDiagnosticsIgnoreState = codeDiagnosticsInfo?.ignoreState ?? null;
   const codeDiagnosticsMuted = codeDiagnosticsIgnoreState?.muted ?? false;
   const suppressedCodes = codeDiagnosticsIgnoreState?.suppressedCodes ?? [];

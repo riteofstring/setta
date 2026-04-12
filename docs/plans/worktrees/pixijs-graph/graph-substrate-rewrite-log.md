@@ -75,6 +75,53 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+# 2026-04-13 - Item 376
+
+- Item: land one bounded section-header diagnostics-info selector reduction so
+  mounted code headers stop re-committing on unrelated project-state writes
+  when diagnostics config is unchanged.
+- Why this slice:
+  - the last completed iteration already reduced one mounted header
+    diagnostics-store fan-out path, so the next pass stayed on the same live
+    product owner instead of reopening the closed probe lane
+  - `SectionHeader` still returned a fresh `{ ignoreState, language }` object
+    from `useProjectState(...)` for code sections, which invalidated the
+    selector on every project-state write even when the diagnostics config for
+    that header had not changed
+- Changed:
+  - updated `frontend/src/components/Section/Header/SectionHeader.tsx` so the
+    diagnostics-info selector now uses `shallow` equality for its
+    `{ ignoreState, language }` result
+  - added focused profiler coverage in
+    `frontend/src/components/Section/Header/SectionHeader.test.tsx` to prove a
+    mounted code header does not re-commit on an unrelated project-state write
+    when its diagnostics config is unchanged
+  - narrowed the profiled test host to the action strip so the regression
+    measures the diagnostics selector path rather than unrelated title subtree
+    subscriptions
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-13_settings-graph-section-header-diagnostics-info-selector.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+    - passed (`1` file, `21` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+    - passed
+  - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+    - passed
+    - settings shell and visible section cards/chrome rendered normally with
+      no obvious blank-screen or missing-header regression
+- Result:
+  - mounted code headers no longer invalidate their diagnostics-config
+    selector on every unrelated project-state write
+  - the focused regression now locks the header-action path to unchanged
+    diagnostics config rather than broader title subtree subscriptions
+- Next:
+  - stay on the earliest product-facing canary gate and identify the next
+    larger mounted section-body/chrome subscriber or shared write fan-out on
+    the live worktree, using the normalized lane only as regression coverage
+
+LOOP_TERMINAL_MARKER: none
+
 # 2026-04-13 - Item 375
 
 - Item: land one bounded mounted section-header diagnostics selector
