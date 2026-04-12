@@ -62,32 +62,58 @@ func defaultSessionRegistryFactory(runtimeRoot string) (sessionRegistryDeleter, 
 }
 
 func stopLocalSessionProcess(sessionID string, pid int, pidCreateTime float64) error {
-	if pid <= 0 || !isPIDRunning(pid) {
+	if !isPIDRunning(pid) {
 		return nil
 	}
-	if !pidMatchesCreateTime(pid, pidCreateTime) {
-		return fmt.Errorf("Process identity mismatch for session process %d during rollback of %s.", pid, sessionID)
+	if err := requireRollbackPIDCreateTime(
+		pid,
+		pidCreateTime,
+		sessionID,
+		"Process identity mismatch for session process %d during rollback of %s.",
+	); err != nil {
+		return err
 	}
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil
 	}
-	if err := proc.Terminate(); err != nil && isPIDRunning(pid) {
+	exited, err := sendRollbackProcessSignal(proc.Terminate, pid, localRollbackTerminateTimeout)
+	if err != nil {
 		return fmt.Errorf("Failed terminating session process %d for %s during rollback.", pid, sessionID)
 	}
-	if waitForPIDExit(pid, localRollbackTerminateTimeout) {
+	if exited {
 		return nil
 	}
-	if !pidMatchesCreateTime(pid, pidCreateTime) {
-		return fmt.Errorf("Process identity changed for session process %d during rollback of %s.", pid, sessionID)
+	if err := requireRollbackPIDCreateTime(
+		pid,
+		pidCreateTime,
+		sessionID,
+		"Process identity changed for session process %d during rollback of %s.",
+	); err != nil {
+		return err
 	}
-	if err := proc.Kill(); err != nil && isPIDRunning(pid) {
+	exited, err = sendRollbackProcessSignal(proc.Kill, pid, localRollbackKillTimeout)
+	if err != nil {
 		return fmt.Errorf("Failed killing session process %d for %s during rollback.", pid, sessionID)
 	}
-	if waitForPIDExit(pid, localRollbackKillTimeout) {
+	if exited {
 		return nil
 	}
 	return fmt.Errorf("Session process %d for %s did not exit during rollback.", pid, sessionID)
+}
+
+func requireRollbackPIDCreateTime(pid int, expectedCreateTime float64, sessionID string, message string) error {
+	if pidMatchesCreateTime(pid, expectedCreateTime) {
+		return nil
+	}
+	return fmt.Errorf(message, pid, sessionID)
+}
+
+func sendRollbackProcessSignal(signal func() error, pid int, timeout time.Duration) (bool, error) {
+	if err := signal(); err != nil && isPIDRunning(pid) {
+		return false, err
+	}
+	return waitForPIDExit(pid, timeout), nil
 }
 
 func waitForPIDExit(pid int, timeout time.Duration) bool {
