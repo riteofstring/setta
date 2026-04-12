@@ -1,6 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { saveSettings } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { closeModal, useModalData } from "state/actions/modal";
@@ -10,14 +8,18 @@ import {
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
 import { useSettings } from "state/definitions";
+import { route_save_settings } from "utils/generatedEndpoints";
 import {
   RenameRefactorMode,
   RenameRefactorModeEnum,
 } from "utils/generatedTypes";
 import { ModalTypeEnum } from "../types";
+
 export function RenameReferencesModal() {
   const modalData = useModalData(ModalTypeEnum.RENAME_REFERENCES);
+
   const [doNotAsk, setDoNotAsk] = useState(false);
+
   const persistRenamePreference = (mode: RenameRefactorMode) => {
     if (!doNotAsk) {
       return;
@@ -28,12 +30,9 @@ export function RenameReferencesModal() {
         renameRefactorMode: mode,
       },
     }));
-    void callOpenAPI(
-      saveSettings({
-        body: { settings: useSettings.getState() },
-      } as Parameters<typeof saveSettings>[0]),
-    );
+    route_save_settings({ settings: useSettings.getState() });
   };
+
   const handleCancel = async () => {
     closeModal();
     await declineRenameRefactor(
@@ -43,6 +42,7 @@ export function RenameReferencesModal() {
     persistRenamePreference(RenameRefactorModeEnum.NEVER_RENAME);
     maybeOpenNextRenamePrompt();
   };
+
   const handleConfirm = async () => {
     persistRenamePreference(RenameRefactorModeEnum.ALWAYS_RENAME);
     await acceptRenameRefactor(
@@ -52,6 +52,7 @@ export function RenameReferencesModal() {
     closeModal();
     maybeOpenNextRenamePrompt();
   };
+
   return (
     <div className="mx-auto flex h-full w-full flex-col items-center">
       <header className="flex flex-col gap-2 self-start">
@@ -68,21 +69,21 @@ export function RenameReferencesModal() {
       </header>
       {/* Scrollable content section */}
       {/* <div className="mb-6 w-full flex-grow overflow-auto rounded-lg bg-setta-50 p-4 dark:bg-setta-900">
-          <h4 className="mb-2 text-sm font-medium text-setta-700 dark:text-setta-300">
-            References to be updated:
-          </h4>
-          <ul className="space-y-2">
-            {referencesToBeUpdated.map((r) => (
-              <li
-                key={r}
-                className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400"
-              >
-                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
-                <span>{r}</span>
-              </li>
-            ))}
-          </ul>
-        </div> */}
+        <h4 className="mb-2 text-sm font-medium text-setta-700 dark:text-setta-300">
+          References to be updated:
+        </h4>
+        <ul className="space-y-2">
+          {referencesToBeUpdated.map((r) => (
+            <li
+              key={r}
+              className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400"
+            >
+              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
+              <span>{r}</span>
+            </li>
+          ))}
+        </ul>
+      </div> */}
       {/* Fixed footer section */}
       <div className="flex w-full flex-col space-y-3 border-t border-setta-200 pt-4 dark:border-setta-700">
         <label className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400">

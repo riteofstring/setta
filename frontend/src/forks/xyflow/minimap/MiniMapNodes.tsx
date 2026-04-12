@@ -1,4 +1,8 @@
-import { memo } from "react";
+import type { SettingsGraphSubstrateCanarySceneSection } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot";
+import { useSettingsGraphSubstrateCanarySceneStore } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore";
+import type { SettingsGraphSubstrateCanarySectionSeedNodes } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes";
+import _ from "lodash";
+import { memo, useMemo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
@@ -6,7 +10,6 @@ import {
   useNodeInternals,
   useProjectState,
   useTemporaryMiscState,
-  type ZustandNodeInternalsState,
   type ZustandProjectState,
 } from "state/definitions";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
@@ -16,8 +19,9 @@ import type { Node } from "../core/types";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
-const selectorNodes = (s: ZustandNodeInternalsState) =>
-  getNodes(s).filter((node) => node.width && node.height);
+function isMiniMapNodeRenderable(node: Node) {
+  return !!(node.width && node.height);
+}
 
 function areNodeStylesEqual(left: Node["style"], right: Node["style"]) {
   if (left === right) {
@@ -211,6 +215,63 @@ function mergeMiniMapNodesWithVisuals(
   });
 }
 
+export function resolveMiniMapRenderableNodes(
+  nodes: Node[],
+  canarySections: Array<SettingsGraphSubstrateCanarySceneSection>,
+  sectionSeedNodes: SettingsGraphSubstrateCanarySectionSeedNodes,
+): Node[] {
+  if (canarySections.length === 0) {
+    return nodes.filter(isMiniMapNodeRenderable);
+  }
+
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const renderableNodes: Node[] = [];
+
+  for (const canarySection of canarySections) {
+    const sourceNode = nodesById.get(canarySection.sectionId);
+    const sectionSeedNode = sectionSeedNodes.get(canarySection.sectionId);
+    const width = canarySection.width ?? sectionSeedNode?.width;
+    const height = canarySection.height ?? sectionSeedNode?.height;
+    if (!width || !height) {
+      continue;
+    }
+    renderableNodes.push({
+      ...(sourceNode ?? {}),
+      id: canarySection.sectionId,
+      position: canarySection.renderedPosition,
+      width,
+      height,
+      zIndex: canarySection.zIndex,
+      tempZIndex: canarySection.tempZIndex,
+    });
+  }
+
+  return renderableNodes;
+}
+
+export function useMiniMapRenderableNodes() {
+  const nodes = useNodeInternals(
+    getNodes,
+    areMiniMapNodesRenderableInputsEqual,
+  );
+  const { canarySections, sectionSeedNodes } =
+    useSettingsGraphSubstrateCanarySceneStore(
+      (state) => ({
+        canarySections: state.sceneSnapshot.sections,
+        sectionSeedNodes: state.sectionSeedNodes,
+      }),
+      _.isEqual,
+    );
+
+  return useMemo(() => {
+    return resolveMiniMapRenderableNodes(
+      nodes,
+      canarySections,
+      sectionSeedNodes,
+    );
+  }, [canarySections, nodes, sectionSeedNodes]);
+}
+
 const getAttrFunction = (
   func: string | GetMiniMapNodeAttribute,
 ): GetMiniMapNodeAttribute => (typeof func === "function" ? func : () => func);
@@ -218,10 +279,7 @@ const getAttrFunction = (
 function _MiniMapNodesReactive(props: MiniMapNodesType) {
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const darkMode = useLocalStorage((state) => state.darkMode);
-  const nodes = useNodeInternals(
-    selectorNodes,
-    areMiniMapNodesRenderableInputsEqual,
-  );
+  const nodes = useMiniMapRenderableNodes();
   const previewStyleColors = useTemporaryMiscState(
     getMiniMapPreviewStyleColors,
     areMiniMapPreviewStyleColorsEqual,
