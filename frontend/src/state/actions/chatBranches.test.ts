@@ -200,4 +200,77 @@ describe("chatBranches", () => {
       },
     ]);
   });
+
+  it("creates a root branch when the chat has no branch state yet", () => {
+    const sourceMessages = [
+      {
+        id: "user-1",
+        role: ChatRoleEnum.user,
+        content: [createMessageTextContent({ text: "Seed message" })],
+        attachments: [],
+      },
+    ];
+
+    const result = ensureChatBranchState({
+      messages: sourceMessages,
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+    });
+
+    expect(result.didInitialize).toBe(true);
+    const branchIds = Object.keys(result.nextState.branches ?? {});
+    expect(branchIds).toHaveLength(1);
+    expect(result.nextState.activeBranchId).toBe(branchIds[0]);
+    expect(result.nextState.messages).toEqual(sourceMessages);
+    expect(result.nextState.branches?.[branchIds[0]]).toEqual({
+      messages: sourceMessages,
+      createdAt: expect.any(Number),
+      parentBranchId: null,
+      branchFromMessageId: null,
+    });
+  });
+
+  it("falls back to the oldest branch when the active branch id is missing", () => {
+    const oldestBranchMessage = {
+      id: "assistant-oldest",
+      role: ChatRoleEnum.assistant,
+      content: [createMessageTextContent({ text: "Oldest branch" })],
+      attachments: [],
+      tool_calls: null,
+    };
+    const newestBranchMessage = {
+      id: "assistant-newest",
+      role: ChatRoleEnum.assistant,
+      content: [createMessageTextContent({ text: "Newest branch" })],
+      attachments: [],
+      tool_calls: null,
+    };
+
+    const result = ensureChatBranchState({
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: "missing",
+      branches: {
+        newest: {
+          messages: [newestBranchMessage],
+          createdAt: 20,
+          parentBranchId: null,
+          branchFromMessageId: null,
+        },
+        oldest: {
+          messages: [oldestBranchMessage],
+          createdAt: 10,
+          parentBranchId: null,
+          branchFromMessageId: null,
+        },
+      },
+    });
+
+    expect(result.didInitialize).toBe(true);
+    expect(result.nextState.activeBranchId).toBe("oldest");
+    expect(result.nextState.messages).toEqual([oldestBranchMessage]);
+  });
 });
