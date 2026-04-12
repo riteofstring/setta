@@ -1,9 +1,4 @@
 import {
-  setListRootViewMode,
-  setParentDefaultChildSectionType,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
@@ -12,23 +7,37 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  ChildDefaultsUIConfig,
+  route_set_list_root_view_mode,
+  route_set_parent_default_child_section_type,
+} from "utils/generatedEndpoints";
+import {
   ListRootViewMode,
+  ListRootViewModeEnum,
   SectionType,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+
 const DISALLOWED_CHILD_DEFAULTS = new Set<SectionType>([
   SectionTypeEnum.GlobalVariables,
   SectionTypeEnum.GenPythonCode,
   SectionTypeEnum.GenPythonMetadata,
 ]);
+
 const CHILD_SECTION_TYPE_OPTIONS = (
   Object.values(SectionTypeEnum) as Array<SectionType>
 )
   .filter((type) => !DISALLOWED_CHILD_DEFAULTS.has(type))
   .map((type) => ({ value: type, label: type }));
-const LIST_ROOT_VIEW_MODE_OPTIONS =
-  ChildDefaultsUIConfig.listRootViewModeOptions;
+
+const LIST_ROOT_VIEW_MODE_OPTIONS: Array<{
+  value: ListRootViewMode;
+  label: string;
+}> = [
+  { value: ListRootViewModeEnum.default, label: "Default Stack" },
+  { value: ListRootViewModeEnum.task_list, label: "Task List" },
+  { value: ListRootViewModeEnum.kanban, label: "Kanban Board" },
+];
+
 export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
   const { sectionType, defaultChildSectionType, listRootViewMode, isFrozen } =
@@ -50,6 +59,7 @@ export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
         isFrozen: impl.isFrozen,
       };
     });
+
   function onChangeDefaultChildSectionType(nextType: SectionType) {
     if (!canEditStructure) {
       return;
@@ -71,18 +81,15 @@ export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
         });
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setParentDefaultChildSectionType({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              defaultChildSectionType: nextType,
-              frontendOpId,
-            },
-          } as Parameters<typeof setParentDefaultChildSectionType>[0]),
-        ),
+        route_set_parent_default_child_section_type({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          defaultChildSectionType: nextType,
+          frontendOpId,
+        }),
     });
   }
+
   function onChangeListRootViewMode(nextViewMode: ListRootViewMode) {
     if (!canEditStructure || sectionType !== SectionTypeEnum.ListRoot) {
       return;
@@ -94,18 +101,15 @@ export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
         });
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setListRootViewMode({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              viewMode: nextViewMode,
-              frontendOpId,
-            },
-          } as Parameters<typeof setListRootViewMode>[0]),
-        ),
+        route_set_list_root_view_mode({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          viewMode: nextViewMode,
+          frontendOpId,
+        }),
     });
   }
+
   return (
     <div className="flex w-full flex-col gap-2 rounded-md border border-setta-200/60 p-2 dark:border-setta-700/60">
       <p className="text-xs font-bold text-setta-700 dark:text-setta-300">

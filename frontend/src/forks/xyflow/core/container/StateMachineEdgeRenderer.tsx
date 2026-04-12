@@ -3,8 +3,8 @@ import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  StateMachineUIConfig,
-  type SingleConfig,
+  SectionTypeEnum,
+  type ProjectStateSingleConfig,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -14,15 +14,58 @@ import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
-type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
-type TopLevelSections = SingleConfig["projectConfig"]["topLevelSections"];
+type WorkflowEdge =
+  ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
 
-const sourceActivationCountOperatorLabelByValue = new Map(
-  StateMachineUIConfig.sourceActivationCountOperatorOptions.map((option) => [
-    option.value,
-    option.label,
-  ]),
-);
+function areNodeGeometryMapsEqual(
+  left: Map<string, Node>,
+  right: Map<string, Node>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const [sectionId, leftNode] of left) {
+    const rightNode = right.get(sectionId);
+    if (!rightNode) {
+      return false;
+    }
+    if (
+      leftNode.position.x !== rightNode.position.x ||
+      leftNode.position.y !== rightNode.position.y ||
+      leftNode.width !== rightNode.width ||
+      leftNode.height !== rightNode.height
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function getSectionTypeById(
+  state: ProjectStateSingleConfig,
+  sectionId: string,
+): SectionTypeEnum | null {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  return impl.type ?? null;
+}
+
+function getWorkflowAnchorFactor(sectionType: SectionTypeEnum | null): number {
+  return 0.5;
+}
 
 function getNodeCenterX(
   node: Node | undefined,
@@ -38,10 +81,12 @@ function getNodeCenterX(
   return node.position.x + width / 2;
 }
 
-function getNodeDimensions(
+function resolveNodeAnchor(
   node: Node | undefined,
   fallbackLayout: TopLevelSectionLayout | undefined,
-): { width: number; height: number } | null {
+  side: NodeAnchorSide,
+  sectionType: SectionTypeEnum | null,
+): NodeCenter | null {
   if (!node) {
     return null;
   }
@@ -50,21 +95,9 @@ function getNodeDimensions(
   if (!width || !height) {
     return null;
   }
-  return { width, height };
-}
-
-function resolveNodeAnchor(
-  node: Node | undefined,
-  fallbackLayout: TopLevelSectionLayout | undefined,
-  side: NodeAnchorSide,
-): NodeCenter | null {
-  const dimensions = getNodeDimensions(node, fallbackLayout);
-  if (!node || !dimensions) {
-    return null;
-  }
   return {
-    x: side === "left" ? node.position.x : node.position.x + dimensions.width,
-    y: node.position.y + dimensions.height * 0.5,
+    x: side === "left" ? node.position.x : node.position.x + width,
+    y: node.position.y + height * getWorkflowAnchorFactor(sectionType),
   };
 }
 
@@ -81,9 +114,15 @@ function getSourceActivationCountLabel(edge: WorkflowEdge): string | null {
   if (!condition) {
     return null;
   }
+  const operatorLabelById: Record<string, string> = {
+    lt: "<",
+    lte: "<=",
+    eq: "=",
+    gte: ">=",
+    gt: ">",
+  };
   const operatorLabel =
-    sourceActivationCountOperatorLabelByValue.get(condition.operator) ??
-    condition.operator;
+    operatorLabelById[condition.operator] ?? condition.operator;
   return `src count ${operatorLabel} ${condition.value}`;
 }
 
@@ -113,220 +152,41 @@ function resolveRelativeAnchorSides(
   };
 }
 
-function getEdgePath(
-  sourceCenter: NodeCenter,
-  targetCenter: NodeCenter,
-): string {
-  const [path] = getBezierPath({
-    sourceX: sourceCenter.x,
-    sourceY: sourceCenter.y,
-    sourcePosition: HandlePosition.Right,
-    targetX: targetCenter.x,
-    targetY: targetCenter.y,
-    targetPosition: HandlePosition.Left,
-  });
-  return path;
-}
-
-function getPromptSectionId(edge: WorkflowEdge): string | null {
-  if (edge.targetAction?.type !== "send_prompt") {
-    return null;
-  }
-  return edge.targetAction.promptSectionId ?? null;
-}
-
-function getPromptLinkPath({
-  edge,
-  nodes,
-  targetNode,
-  topLevelSections,
-}: {
-  edge: WorkflowEdge;
-  nodes: Map<string, Node>;
-  targetNode: Node | undefined;
-  topLevelSections: TopLevelSections;
-}): string | null {
-  const promptSectionId = getPromptSectionId(edge);
-  if (!promptSectionId) {
-    return null;
-  }
-  const promptNode = nodes.get(promptSectionId);
-  const promptLayout = topLevelSections[promptSectionId];
-  const targetLayout = topLevelSections[edge.targetSectionId];
-  const { sourceSide, targetSide } = resolveRelativeAnchorSides(
-    promptNode,
-    promptLayout,
-    targetNode,
-    targetLayout,
-  );
-  const promptSourceCenter = resolveNodeAnchor(
-    promptNode,
-    promptLayout,
-    sourceSide,
-  );
-  const promptTargetCenter = resolveNodeAnchor(
-    targetNode,
-    targetLayout,
-    targetSide,
-  );
-  if (!promptSourceCenter || !promptTargetCenter) {
-    return null;
-  }
-  const promptSourcePosition =
-    sourceSide === "right" ? HandlePosition.Right : HandlePosition.Left;
-  const promptTargetPosition =
-    targetSide === "left" ? HandlePosition.Left : HandlePosition.Right;
-  const [path] = getBezierPath({
-    sourceX: promptSourceCenter.x,
-    sourceY: promptSourceCenter.y,
-    sourcePosition: promptSourcePosition,
-    targetX: promptTargetCenter.x,
-    targetY: promptTargetCenter.y,
-    targetPosition: promptTargetPosition,
-  });
-  return path;
-}
-
-function getSourceActivationCountLabelLayout(
-  sourceCenter: NodeCenter,
-  targetCenter: NodeCenter,
-  label: string | null,
-): { x: number; y: number; width: number } | null {
-  if (!label) {
-    return null;
-  }
-  return {
-    x: (sourceCenter.x + targetCenter.x) / 2,
-    y: (sourceCenter.y + targetCenter.y) / 2,
-    width: Math.max(80, label.length * 6 + 12),
-  };
-}
-
-function renderWorkflowEdge({
-  edge,
-  canEditStructure,
-  multiSelectionActive,
-  nodes,
-  topLevelSections,
-}: {
-  edge: WorkflowEdge;
-  canEditStructure: boolean;
-  multiSelectionActive: boolean;
-  nodes: Map<string, Node>;
-  topLevelSections: TopLevelSections;
-}): JSX.Element | null {
-  if (edge.hidden) {
-    return null;
-  }
-  const targetNode = nodes.get(edge.targetSectionId);
-  const sourceCenter = resolveNodeAnchor(
-    nodes.get(edge.sourceSectionId),
-    topLevelSections[edge.sourceSectionId],
-    "right",
-  );
-  const targetCenter = resolveNodeAnchor(
-    targetNode,
-    topLevelSections[edge.targetSectionId],
-    "left",
-  );
-  if (!sourceCenter || !targetCenter) {
-    return null;
-  }
-  const path = getEdgePath(sourceCenter, targetCenter);
-  const sourceActivationCountLabel = getSourceActivationCountLabel(edge);
-  const sourceActivationCountLabelLayout = getSourceActivationCountLabelLayout(
-    sourceCenter,
-    targetCenter,
-    sourceActivationCountLabel,
-  );
-  const promptLinkPath = getPromptLinkPath({
-    edge,
-    nodes,
-    targetNode,
-    topLevelSections,
-  });
-  const onClick = (event: MouseEvent<SVGGElement>) => {
-    if (!canEditStructure) {
-      return;
-    }
-    event.stopPropagation();
-    toggleStateMachineEdgeSelection(edge.id, multiSelectionActive);
-  };
-
-  return (
-    <g
-      key={edge.id}
-      className="react-flow__state-machine-edge"
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      data-edgeid={edge.id}
-      data-testid={`workflow-edge-${edge.id}`}
-    >
-      {promptLinkPath ? (
-        <path
-          d={promptLinkPath}
-          className="react-flow__state-machine-prompt-link-path"
-          data-testid={`workflow-prompt-link-${edge.id}`}
-          fill="none"
-        />
-      ) : null}
-      <path
-        d={path}
-        className={getEdgeClassNames(edge)}
-        style={edge.style ? (edge.style as CSSProperties) : undefined}
-        fill="none"
-      />
-      <path
-        d={path}
-        className="react-flow__state-machine-edge-interaction"
-        data-testid={`workflow-edge-hitbox-${edge.id}`}
-        fill="none"
-        strokeOpacity={0}
-        strokeWidth={18}
-      />
-      {sourceActivationCountLabel && sourceActivationCountLabelLayout ? (
-        <g
-          className="react-flow__state-machine-edge-label"
-          data-testid={`workflow-edge-source-activation-badge-${edge.id}`}
-          transform={`translate(${sourceActivationCountLabelLayout.x - sourceActivationCountLabelLayout.width / 2} ${sourceActivationCountLabelLayout.y - 10})`}
-        >
-          <rect
-            className="react-flow__state-machine-edge-label-bg"
-            width={sourceActivationCountLabelLayout.width}
-            height={20}
-            rx={10}
-            ry={10}
-          />
-          <text
-            className="react-flow__state-machine-edge-label-text"
-            x={sourceActivationCountLabelLayout.width / 2}
-            y={13}
-            textAnchor="middle"
-          >
-            {sourceActivationCountLabel}
-          </text>
-        </g>
-      ) : null}
-    </g>
-  );
-}
-
 const StateMachineEdgeRenderer = () => {
-  const { width, height, multiSelectionActive } = useReactFlow((state) => ({
-    width: state.width,
-    height: state.height,
-    multiSelectionActive: state.multiSelectionActive,
-  }));
-  const { stateMachineEdges, topLevelSections } = useProjectState(
+  const { width, height } = useReactFlow(
     (state) => ({
-      stateMachineEdges: state.projectConfig.stateMachineEdges,
-      topLevelSections: state.projectConfig.topLevelSections,
+      width: state.width,
+      height: state.height,
     }),
     shallow,
   );
-  const nodes = useNodeInternals((state) => state.x);
+  const {
+    stateMachineEdges,
+    topLevelSections,
+    sectionVariantMap,
+    sectionVariants,
+    sectionImpls,
+  } = useProjectState(
+    (state) => ({
+      stateMachineEdges: state.projectConfig.stateMachineEdges,
+      topLevelSections: state.projectConfig.topLevelSections,
+      sectionVariantMap: state.projectConfig.sectionVariantMap,
+      sectionVariants: state.sectionVariants,
+      sectionImpls: state.sectionImpls,
+    }),
+    shallow,
+  );
+  const nodes = useNodeInternals((state) => state.x, areNodeGeometryMapsEqual);
   const { canEditStructure } = useShareCapabilities();
+
+  const sectionTypesById = useMemo(() => {
+    const state = useProjectState.getState();
+    const entries = Object.keys(sectionVariantMap).map((sectionId) => [
+      sectionId,
+      getSectionTypeById(state, sectionId),
+    ]);
+    return new Map<string, SectionTypeEnum | null>(entries);
+  }, [sectionImpls, sectionVariantMap, sectionVariants]);
 
   const sortedEdges = useMemo(
     () =>
@@ -345,15 +205,158 @@ const StateMachineEdgeRenderer = () => {
       className="react-flow__state-machine-edges react-flow__container"
     >
       <g>
-        {sortedEdges.map((edge) =>
-          renderWorkflowEdge({
-            edge,
-            canEditStructure,
-            multiSelectionActive,
-            nodes,
-            topLevelSections,
-          }),
-        )}
+        {sortedEdges.map((edge) => {
+          if (edge.hidden) {
+            return null;
+          }
+          const sourceType = sectionTypesById.get(edge.sourceSectionId) ?? null;
+          const targetType = sectionTypesById.get(edge.targetSectionId) ?? null;
+          const targetNode = nodes.get(edge.targetSectionId);
+          const sourceCenter = resolveNodeAnchor(
+            nodes.get(edge.sourceSectionId),
+            topLevelSections[edge.sourceSectionId],
+            "right",
+            sourceType,
+          );
+          const targetCenter = resolveNodeAnchor(
+            targetNode,
+            topLevelSections[edge.targetSectionId],
+            "left",
+            targetType,
+          );
+          if (!sourceCenter || !targetCenter) {
+            return null;
+          }
+          const [path] = getBezierPath({
+            sourceX: sourceCenter.x,
+            sourceY: sourceCenter.y,
+            sourcePosition: HandlePosition.Right,
+            targetX: targetCenter.x,
+            targetY: targetCenter.y,
+            targetPosition: HandlePosition.Left,
+          });
+          const sourceActivationCountLabel =
+            getSourceActivationCountLabel(edge);
+          const edgeLabelX = (sourceCenter.x + targetCenter.x) / 2;
+          const edgeLabelY = (sourceCenter.y + targetCenter.y) / 2;
+          const edgeLabelWidth = sourceActivationCountLabel
+            ? Math.max(80, sourceActivationCountLabel.length * 6 + 12)
+            : 0;
+          const onClick = (event: MouseEvent<SVGGElement>) => {
+            if (!canEditStructure) {
+              return;
+            }
+            event.stopPropagation();
+            toggleStateMachineEdgeSelection(
+              edge.id,
+              useReactFlow.getState().multiSelectionActive,
+            );
+          };
+          const promptSectionId =
+            edge.targetAction?.type === "send_prompt"
+              ? edge.targetAction.promptSectionId ?? null
+              : null;
+          const promptSectionType = promptSectionId
+            ? sectionTypesById.get(promptSectionId) ?? null
+            : null;
+          let promptLinkPath: string | null = null;
+          if (promptSectionId) {
+            const promptNode = nodes.get(promptSectionId);
+            const promptLayout = topLevelSections[promptSectionId];
+            const targetLayout = topLevelSections[edge.targetSectionId];
+            const { sourceSide, targetSide } = resolveRelativeAnchorSides(
+              promptNode,
+              promptLayout,
+              targetNode,
+              targetLayout,
+            );
+            const promptSourceCenter = resolveNodeAnchor(
+              promptNode,
+              promptLayout,
+              sourceSide,
+              promptSectionType,
+            );
+            const promptTargetCenter = resolveNodeAnchor(
+              targetNode,
+              targetLayout,
+              targetSide,
+              targetType,
+            );
+            if (promptSourceCenter && promptTargetCenter) {
+              [promptLinkPath] = getBezierPath({
+                sourceX: promptSourceCenter.x,
+                sourceY: promptSourceCenter.y,
+                sourcePosition:
+                  sourceSide === "right"
+                    ? HandlePosition.Right
+                    : HandlePosition.Left,
+                targetX: promptTargetCenter.x,
+                targetY: promptTargetCenter.y,
+                targetPosition:
+                  targetSide === "left"
+                    ? HandlePosition.Left
+                    : HandlePosition.Right,
+              });
+            }
+          }
+          return (
+            <g
+              key={edge.id}
+              className="react-flow__state-machine-edge"
+              onClick={onClick}
+              role="button"
+              tabIndex={0}
+              data-edgeid={edge.id}
+              data-testid={`workflow-edge-${edge.id}`}
+            >
+              {promptLinkPath ? (
+                <path
+                  d={promptLinkPath}
+                  className="react-flow__state-machine-prompt-link-path"
+                  data-testid={`workflow-prompt-link-${edge.id}`}
+                  fill="none"
+                />
+              ) : null}
+              <path
+                d={path}
+                className={getEdgeClassNames(edge)}
+                style={edge.style ? (edge.style as CSSProperties) : undefined}
+                fill="none"
+              />
+              <path
+                d={path}
+                className="react-flow__state-machine-edge-interaction"
+                data-testid={`workflow-edge-hitbox-${edge.id}`}
+                fill="none"
+                strokeOpacity={0}
+                strokeWidth={18}
+              />
+              {sourceActivationCountLabel ? (
+                <g
+                  className="react-flow__state-machine-edge-label"
+                  data-testid={`workflow-edge-source-activation-badge-${edge.id}`}
+                  transform={`translate(${edgeLabelX - edgeLabelWidth / 2} ${edgeLabelY - 10})`}
+                >
+                  <rect
+                    className="react-flow__state-machine-edge-label-bg"
+                    width={edgeLabelWidth}
+                    height={20}
+                    rx={10}
+                    ry={10}
+                  />
+                  <text
+                    className="react-flow__state-machine-edge-label-text"
+                    x={edgeLabelWidth / 2}
+                    y={13}
+                    textAnchor="middle"
+                  >
+                    {sourceActivationCountLabel}
+                  </text>
+                </g>
+              ) : null}
+            </g>
+          );
+        })}
       </g>
     </svg>
   );

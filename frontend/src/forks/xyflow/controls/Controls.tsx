@@ -68,10 +68,56 @@ export function shouldShowWatchCodePortalControl(args: {
   return !args.isDeploymentMode;
 }
 
+const ControlsZoomButtons = memo(function ControlsZoomButtons() {
+  const { minZoomReached, maxZoomReached } = useZoomReached();
+  const onZoomInHandler = useCallback(() => {
+    zoomIn();
+  }, []);
+  const onZoomOutHandler = useCallback(() => {
+    zoomOut();
+  }, []);
+
+  return (
+    <>
+      <button
+        onClick={onZoomInHandler}
+        className="react-flow__controls-zoomin cursor-pointer items-center justify-center overflow-clip rounded-md p-1 text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
+        aria-label="zoom in"
+        disabled={maxZoomReached}
+        {...getFloatingBoxHandlers({ content: "Zoom in" })}
+      >
+        <FaPlus size={15} />
+      </button>
+      <button
+        onClick={onZoomOutHandler}
+        className="react-flow__controls-zoomout cursor-pointer items-center justify-center overflow-clip rounded-md p-1 text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
+        aria-label="zoom out"
+        disabled={minZoomReached}
+        {...getFloatingBoxHandlers({ content: "Zoom out" })}
+      >
+        <FaMinus size={15} />
+      </button>
+    </>
+  );
+});
+
+const ControlsFitViewButton = memo(function ControlsFitViewButton() {
+  const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
+
+  return (
+    <button
+      className={`react-flow__controls-fitview cursor-pointer items-center justify-center overflow-clip rounded-md p-1  hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500  dark:hover:text-setta-500 ${fitViewOnInit ? "bg-blue-500 text-white dark:bg-transparent dark:text-blue-600" : "text-setta-400 dark:text-setta-600"}`}
+      onClick={onFitViewHandler}
+      aria-label="fit view"
+      {...getFloatingBoxHandlers({ content: "Fit view" })}
+    >
+      <TbArrowAutofitWidth size={15} />
+    </button>
+  );
+});
+
 const Controls = () => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
-  const { minZoomReached, maxZoomReached } = useZoomReached();
-  const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
@@ -286,14 +332,6 @@ const Controls = () => {
     return null;
   }
 
-  const onZoomInHandler = () => {
-    zoomIn();
-  };
-
-  const onZoomOutHandler = () => {
-    zoomOut();
-  };
-
   return (
     <div
       className="mt-auto flex w-8 flex-col items-center gap-1 overflow-hidden rounded-md border px-0.5 pb-2 pt-1.5 dark:border-setta-800"
@@ -359,32 +397,8 @@ const Controls = () => {
           <div className="my-0.5 h-px w-full bg-setta-200/70 dark:bg-setta-800/70" />
         </>
       ) : null}
-      <button
-        onClick={onZoomInHandler}
-        className="react-flow__controls-zoomin cursor-pointer items-center justify-center overflow-clip rounded-md p-1 text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
-        aria-label="zoom in"
-        disabled={maxZoomReached}
-        {...getFloatingBoxHandlers({ content: "Zoom in" })}
-      >
-        <FaPlus size={15} />
-      </button>
-      <button
-        onClick={onZoomOutHandler}
-        className="react-flow__controls-zoomout cursor-pointer items-center justify-center overflow-clip rounded-md p-1 text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
-        aria-label="zoom out"
-        disabled={minZoomReached}
-        {...getFloatingBoxHandlers({ content: "Zoom out" })}
-      >
-        <FaMinus size={15} />
-      </button>
-      <button
-        className={`react-flow__controls-fitview cursor-pointer items-center justify-center overflow-clip rounded-md p-1  hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500  dark:hover:text-setta-500 ${fitViewOnInit ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
-        onClick={onFitViewHandler}
-        aria-label="fit view"
-        {...getFloatingBoxHandlers({ content: "Fit view" })}
-      >
-        <TbArrowAutofitWidth size={15} />
-      </button>
+      <ControlsZoomButtons />
+      <ControlsFitViewButton />
       <button
         onClick={toggleSnapToGrid}
         className={`cursor-pointer items-center justify-center overflow-clip rounded-md  p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${snapToGrid ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
@@ -488,6 +502,7 @@ const Controls = () => {
   );
 };
 
+ControlsZoomButtons.displayName = "ControlsZoomButtons";
 Controls.displayName = "Controls";
 
 export default memo(Controls);
