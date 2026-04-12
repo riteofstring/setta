@@ -66,14 +66,15 @@ const { mockSectionContainer } = vi.hoisted(() => ({
   ),
 }));
 
-const { measureMotionAttribution, updateInstrumentationSnapshot } = vi.hoisted(
-  () => ({
-    measureMotionAttribution: vi.fn((_owner: string, fn: () => unknown) =>
-      fn(),
-    ),
-    updateInstrumentationSnapshot: vi.fn(),
-  }),
-);
+const {
+  measureMotionAttribution,
+  recordMotionAttributionDuration,
+  updateInstrumentationSnapshot,
+} = vi.hoisted(() => ({
+  measureMotionAttribution: vi.fn((_owner: string, fn: () => unknown) => fn()),
+  recordMotionAttributionDuration: vi.fn(),
+  updateInstrumentationSnapshot: vi.fn(),
+}));
 
 vi.mock("components/Section/Container/SectionContainer", () => ({
   SectionContainer: mockSectionContainer,
@@ -82,6 +83,8 @@ vi.mock("components/Section/Container/SectionContainer", () => ({
 vi.mock("./settingsGraphSubstrateCanaryInstrumentation", () => ({
   measureSettingsGraphSubstrateCanaryMotionAttribution:
     measureMotionAttribution,
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration:
+    recordMotionAttributionDuration,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot:
     updateInstrumentationSnapshot,
 }));

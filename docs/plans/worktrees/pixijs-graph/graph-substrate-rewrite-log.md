@@ -151,6 +151,56 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 10:36 UTC
+
+- re-read the active plan/handoff first, then reran the canonical live
+  worktree probe before choosing a slice so the repeated item `414` runtime
+  blocker would not send the loop into another lifecycle-only pass
+- the canonical `rotaryParamCodeObjDefault` worktree probe was healthy again on
+  authenticated `/settings`, so I chose one bounded attribution seam inside the
+  still-dominant `presentedSceneSectionSubtreeReactRender` owner instead of
+  another wrapper/prop cut
+- added one new motion-attribution owner
+  `presentedSceneSectionBodySubtreeReactRender` in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+- wrapped mounted canary bodies with a dedicated React `Profiler` in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  so body-subtree render time is now separated from the broader
+  presented-sections subtree bucket
+- updated the shared unit-test mocks and the live worktree perf probe contract:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    -> pass (`4` files, `32` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-040/worktree-ai.log`
+    -> pass (`1` Playwright test, `1.7m`)
+    -> canonical readout:
+       `longTaskCount` `5`, `longTaskTotalDurationMs` `1016ms`,
+       `longTaskMaxDurationMs` `363ms`, `averageFrameDurationMs` `38.76ms`
+    -> owner split:
+       `presentedSceneSectionSubtreeReactRender` `793.9ms` total,
+       `222.7ms` max, `30` commits
+       `presentedSceneSectionBodySubtreeReactRender` `770.1ms` total,
+       `111.4ms` max, `32` commits
+  - headless CDP visual check:
+    -> fresh bootstrap-page attempts failed on `Token rejected`
+    -> final fresh-context direct `/settings` check passed because the
+       existing debug profile was already authenticated
+    -> visible populated `All Settings` canary surface rendered
+- reading:
+  - the mounted DOM body subtree now accounts for nearly all of the broader
+    presented-sections render bucket on the canonical lane
+  - this closes the shell-vs-body ambiguity; the next product slice should
+    target `SectionContainer` / body-area fanout inside the mounted canary body
+    subtree instead of another top-level presented-sections seam
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 10:18 UTC
 
 - re-read the active plan/handoff and stayed on the named

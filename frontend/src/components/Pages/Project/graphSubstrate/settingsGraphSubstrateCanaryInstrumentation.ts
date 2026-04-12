@@ -6,6 +6,7 @@ export const SETTINGS_GRAPH_SUBSTRATE_CANARY_MOTION_ATTRIBUTION_OWNERS = [
   "pixiDrawableReuseCheck",
   "pixiViewportPresent",
   "presentedSceneSectionArrayReuseCheck",
+  "presentedSceneSectionBodySubtreeReactRender",
   "presentedSceneBodyMountFilter",
   "presentedSceneSectionEntriesResolve",
   "presentedSceneSectionSubtreeReactRender",

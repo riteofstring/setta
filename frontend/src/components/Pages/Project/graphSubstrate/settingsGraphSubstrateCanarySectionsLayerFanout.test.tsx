@@ -44,9 +44,13 @@ const { mockResolveSectionBody, mockSectionBodyDomAdapter, mockSectionShell } =
       ),
     ),
   }));
-const { measureMotionAttribution } = vi.hoisted(() => ({
-  measureMotionAttribution: vi.fn((_owner: string, fn: () => unknown) => fn()),
-}));
+const { measureMotionAttribution, recordMotionAttributionDuration } =
+  vi.hoisted(() => ({
+    measureMotionAttribution: vi.fn((_owner: string, fn: () => unknown) =>
+      fn(),
+    ),
+    recordMotionAttributionDuration: vi.fn(),
+  }));
 
 vi.mock("./settingsGraphSubstrateCanarySectionBodyAdapter", () => ({
   resolveSettingsGraphSubstrateCanarySectionBody: mockResolveSectionBody,
@@ -59,6 +63,8 @@ vi.mock("./settingsGraphSubstrateCanarySectionShell", () => ({
 vi.mock("./settingsGraphSubstrateCanaryInstrumentation", () => ({
   measureSettingsGraphSubstrateCanaryMotionAttribution:
     measureMotionAttribution,
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration:
+    recordMotionAttributionDuration,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot: vi.fn(),
 }));
 

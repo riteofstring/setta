@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 10:18 UTC
+Last updated: 2026-04-13 10:36 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,68 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `415` landed one bounded attribution seam inside the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane so the next product cut can
+  target the mounted DOM body subtree directly:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and reran the canonical worktree
+      probe before choosing the slice; the live `/settings` lane was healthy
+      again, so the repeated item `414` runtime blocker did not justify another
+      lifecycle-only pass
+    - chose one narrow profiler split inside the mounted body subtree because
+      `presentedSceneSectionSubtreeReactRender` was still the named dominant
+      owner and the next useful question was shell-versus-body ownership
+    - kept the slice read-only with respect to renderer behavior: one new
+      attribution bucket, matching test-contract updates, and one fresh live
+      probe/report append
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with a new owner
+      `presentedSceneSectionBodySubtreeReactRender`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      so mounted canary bodies record body-subtree render duration separately
+      from the broader presented-sections subtree bucket
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      -> passed (`4` files, `32` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-040/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.7m`)
+      -> fresh canonical readout:
+         `longTaskCount` `5`, `longTaskTotalDurationMs` `1016ms`,
+         `longTaskMaxDurationMs` `363ms`, `averageFrameDurationMs` `38.76ms`
+      -> dominant owner remained
+         `presentedSceneSectionSubtreeReactRender`
+         (`793.9ms` total, `222.7ms` max, `30` commits)
+      -> new body-subtree owner:
+         `presentedSceneSectionBodySubtreeReactRender`
+         (`770.1ms` total, `111.4ms` max, `32` commits)
+    - headless CDP visual check:
+      -> fresh bootstrap-page attempts failed on `Token rejected`
+      -> final fresh-context retry on direct
+         `http://127.0.0.1:3075/settings` passed because the existing debug
+         profile was already authenticated
+      -> visible populated `All Settings` canary surface rendered on `/settings`
+  - reading:
+    - the mounted DOM body subtree now accounts for nearly all of the broader
+      presented-sections render bucket on the canonical lane
+    - this closes the shell-vs-body ambiguity; the next product slice should
+      target `SectionContainer` / `SectionContainerCore` /
+      `SectionContainerCoreResizable` or the mounted area subtree instead of
+      another top-level presented-sections contract tweak
+    - keep using canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - land one bounded production reduction inside the mounted canary body
+      subtree on `rotaryParamCodeObjDefault`, preferably by carving out one
+      broad `SectionContainer` / body-area owner that still rerenders through
+      the normalized pan/zoom lane
 
 - item `414` landed one bounded production reduction inside the canonical
   `presentedSceneSectionSubtreeReactRender` lane, but the live worktree canary

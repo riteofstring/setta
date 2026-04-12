@@ -1,4 +1,5 @@
 import React, {
+  Profiler,
   useCallback,
   useEffect,
   useMemo,
@@ -8,6 +9,7 @@ import React, {
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   measureSettingsGraphSubstrateCanaryMotionAttribution,
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
 } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
@@ -75,6 +77,17 @@ type SettingsGraphSubstrateCanarySectionEntryProps = {
   shouldMountBody: boolean;
 };
 
+function handleSettingsGraphSubstrateCanarySectionBodyRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionBodySubtreeReactRender",
+    actualDuration,
+  );
+}
+
 function _SettingsGraphSubstrateCanarySectionEntry({
   finishSectionDrag,
   handleSectionPointerDown,
@@ -95,9 +108,14 @@ function _SettingsGraphSubstrateCanarySectionEntry({
       section={section}
     >
       {shouldMountBody ? (
-        <SettingsGraphSubstrateCanarySectionBodyDomAdapter
-          sectionBody={sectionBody}
-        />
+        <Profiler
+          id={`settings-graph-substrate-canary-section-body:${section.sectionId}`}
+          onRender={handleSettingsGraphSubstrateCanarySectionBodyRender}
+        >
+          <SettingsGraphSubstrateCanarySectionBodyDomAdapter
+            sectionBody={sectionBody}
+          />
+        </Profiler>
       ) : null}
     </SettingsGraphSubstrateCanarySectionShell>
   );

@@ -560,6 +560,7 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
       "pixiDrawableReuseCheck",
       "pixiViewportPresent",
       "presentedSceneSectionArrayReuseCheck",
+      "presentedSceneSectionBodySubtreeReactRender",
       "presentedSceneBodyMountFilter",
       "presentedSceneSectionEntriesResolve",
       "presentedSceneSectionSubtreeReactRender",

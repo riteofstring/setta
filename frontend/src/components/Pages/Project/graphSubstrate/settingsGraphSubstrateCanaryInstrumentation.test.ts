@@ -164,6 +164,10 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       "presentedSceneSectionSubtreeReactRender",
       2.25,
     );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionBodySubtreeReactRender",
+      6.5,
+    );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "pixiDrawableReuseCheck",
       () => {},
@@ -202,6 +206,13 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 2.25,
       totalDurationMs: 2.25,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionBodySubtreeReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 6.5,
+      totalDurationMs: 6.5,
     });
     expect(motionAttribution.pixiDrawableReuseCheck).toEqual({
       count: 1,

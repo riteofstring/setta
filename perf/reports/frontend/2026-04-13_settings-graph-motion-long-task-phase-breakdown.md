@@ -844,3 +844,77 @@ aggregate long-task totals.
   product candidate should target remaining visible-section subtree churn such
   as shell/body composition or another visible-entry prop that still commits
   during the normalized motion burst
+
+## 2026-04-13 Mounted Section-Body Profiler Split
+
+### What changed
+
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  to add one new motion-attribution owner:
+  `presentedSceneSectionBodySubtreeReactRender`
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  so each mounted canary body is wrapped in a dedicated React `Profiler`
+  that records body-subtree render duration separately from the existing
+  whole presented-sections subtree bucket
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  and
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer*.test.tsx`
+  so the new shared attribution owner is covered by unit tests and mocked
+  instrumentation contracts
+- changed
+  `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  so the live worktree probe treats the new attribution owner as an expected
+  canary owner rather than failing on the additional readout
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  - passed (`4` files, `32` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  - passed
+- live worktree probe on run `040`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-040/worktree-ai.log`
+  - passed (`1` Playwright test, `1.7m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state held steady before and after the motion
+  sequence:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-change motion breakdown:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1016ms`
+  - `longTaskMaxDurationMs`: `363ms`
+  - `measurementWindowMs`: `1691.7ms`
+  - `averageFrameDurationMs`: `38.76ms`
+  - `panForward`: `2` tasks, `334ms` total, `205ms` max
+  - `panReturn`: `1` task, `363ms` total, `363ms` max
+  - `zoomIn`: `1` task, `135ms` total, `135ms` max
+  - `zoomOut`: `1` task, `184ms` total, `184ms` max
+- dominant named canary owners on the same run:
+  - `presentedSceneSectionSubtreeReactRender`: `793.9ms` total,
+    `222.7ms` max, `30` commits
+  - `presentedSceneSectionBodySubtreeReactRender`: `770.1ms` total,
+    `111.4ms` max, `32` commits
+- smaller owners stayed small on the same run:
+  - `presentedSceneSectionEntriesResolve`: `8.0ms` total
+  - `presentedSceneBodyMountFilter`: `0.4ms` total
+  - `pixiDrawableModelResolve`: `0.9ms` total
+
+### Updated Reading
+
+- the new profiler seam shows the mounted section body is the real hot owner:
+  almost all of `presentedSceneSectionSubtreeReactRender` now sits inside
+  `presentedSceneSectionBodySubtreeReactRender`
+- this closes the ambiguity about whether the next product slice should target
+  shell wrappers or the DOM body subtree; the next bounded cut should stay
+  inside the mounted body path instead of reopening another top-level
+  presented-sections contract tweak
