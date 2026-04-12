@@ -58,6 +58,161 @@ function terminalContainsFocusedInput(
   );
 }
 
+function getTerminalMountSession({
+  terminalRef,
+  projectConfigId,
+  sectionId,
+  shareSessionId,
+  isDeploymentMode,
+}: {
+  terminalRef: RefObject<HTMLDivElement | null>;
+  projectConfigId: string | null;
+  sectionId: string;
+  shareSessionId: string | null;
+  isDeploymentMode: boolean;
+}): {
+  container: HTMLDivElement;
+  sessionKey: string;
+  session: TerminalSession;
+} | null {
+  const container = terminalRef.current;
+  if (!container) {
+    return null;
+  }
+  if (isDeploymentMode && !shareSessionId) {
+    clearPendingSectionTextFocus(sectionId);
+    return null;
+  }
+  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    clearPendingSectionTextFocus(sectionId);
+    return null;
+  }
+
+  const sessionKey = getTerminalSessionKey({
+    projectConfigId,
+    sectionId,
+    shareSessionId,
+  });
+  return {
+    container,
+    sessionKey,
+    session: acquireTerminalSession({
+      sessionKey,
+      projectConfigId,
+      sectionId,
+      shareSessionId,
+      isDeploymentMode,
+      container,
+    }),
+  };
+}
+
+function createTerminalFocusRequester({
+  isDeploymentMode,
+  sectionId,
+  terminal,
+  terminalRef,
+  terminalReadyRef,
+}: {
+  isDeploymentMode: boolean;
+  sectionId: string;
+  terminal: Terminal;
+  terminalRef: RefObject<HTMLDivElement | null>;
+  terminalReadyRef: RefObject<boolean>;
+}): () => void {
+  const focusTerminalInput = (attempt = 0) => {
+    if (!isPendingSectionTextFocus(sectionId)) {
+      return;
+    }
+    const focusTarget = terminalRef.current?.querySelector?.(
+      ".xterm-helper-textarea, .xterm textarea",
+    );
+    if (focusTarget instanceof HTMLElement) {
+      focusTarget.focus({ preventScroll: true });
+      terminal.focus();
+      if (terminalContainsFocusedInput(terminalRef, terminalReadyRef)) {
+        clearPendingSectionTextFocus(sectionId);
+        return;
+      }
+    }
+    terminal.focus();
+    if (attempt >= 240) {
+      clearPendingSectionTextFocus(sectionId);
+      return;
+    }
+    requestAnimationFrame(() => focusTerminalInput(attempt + 1));
+  };
+
+  return () => {
+    if (isDeploymentMode || !isPendingSectionTextFocus(sectionId)) {
+      return;
+    }
+    requestAnimationFrame(() => focusTerminalInput());
+  };
+}
+
+function markTerminalReady({
+  terminalReadyRef,
+  requestTerminalFocus,
+}: {
+  terminalReadyRef: RefObject<boolean>;
+  requestTerminalFocus: () => void;
+}): void {
+  terminalReadyRef.current = true;
+  requestTerminalFocus();
+}
+
+function attachTerminalReadyListener({
+  session,
+  ws,
+  terminalReadyRef,
+  requestTerminalFocus,
+}: {
+  session: TerminalSession;
+  ws: WebSocket;
+  terminalReadyRef: RefObject<boolean>;
+  requestTerminalFocus: () => void;
+}): () => void {
+  if (session.isReady) {
+    markTerminalReady({
+      terminalReadyRef,
+      requestTerminalFocus,
+    });
+    return () => {};
+  }
+
+  let onReady: ((message: MessageEvent) => void) | null = (message) => {
+    if (message.data !== C.SETTA_TERMINAL_READY) {
+      return;
+    }
+    markTerminalReady({
+      terminalReadyRef,
+      requestTerminalFocus,
+    });
+    detachReadyListener();
+  };
+
+  const detachReadyListener = () => {
+    if (!onReady) {
+      return;
+    }
+    ws.removeEventListener("message", onReady);
+    onReady = null;
+  };
+
+  ws.addEventListener("message", onReady);
+  // Handle the (rare) race where the session becomes ready between our first
+  // `session.isReady` check and registering the listener.
+  if (session.isReady) {
+    markTerminalReady({
+      terminalReadyRef,
+      requestTerminalFocus,
+    });
+    detachReadyListener();
+  }
+  return detachReadyListener;
+}
+
 export function useTerminal({
   sectionId,
   setHasScrollbar,
@@ -73,31 +228,17 @@ export function useTerminal({
 
   useLayoutEffect(() => {
     terminalReadyRef.current = false;
-    const container = terminalRef.current;
-    if (!container) {
-      return;
-    }
-    if (isDeploymentMode && !shareSessionId) {
-      clearPendingSectionTextFocus(sectionId);
-      return;
-    }
-    if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
-      clearPendingSectionTextFocus(sectionId);
-      return;
-    }
-    const sessionKey = getTerminalSessionKey({
-      projectConfigId,
-      sectionId,
-      shareSessionId,
-    });
-    const session = acquireTerminalSession({
-      sessionKey,
+    const mountSession = getTerminalMountSession({
+      terminalRef,
       projectConfigId,
       sectionId,
       shareSessionId,
       isDeploymentMode,
-      container,
     });
+    if (!mountSession) {
+      return;
+    }
+    const { container, sessionKey, session } = mountSession;
     const { terminal, ws, fitAddon } = session;
 
     const syncTerminalSize = () => {
@@ -117,71 +258,27 @@ export function useTerminal({
     });
     resizeObserver.observe(container);
 
-    const focusTerminalInput = (attempt = 0) => {
-      if (!isPendingSectionTextFocus(sectionId)) {
-        return;
-      }
-      const focusTarget = terminalRef.current?.querySelector?.(
-        ".xterm-helper-textarea, .xterm textarea",
-      );
-      if (focusTarget instanceof HTMLElement) {
-        focusTarget.focus({ preventScroll: true });
-        terminal.focus();
-        if (terminalContainsFocusedInput(terminalRef, terminalReadyRef)) {
-          clearPendingSectionTextFocus(sectionId);
-          return;
-        }
-      }
-      terminal.focus();
-      if (attempt < 240) {
-        requestAnimationFrame(() => focusTerminalInput(attempt + 1));
-      } else {
-        clearPendingSectionTextFocus(sectionId);
-      }
-    };
+    const requestTerminalFocus = createTerminalFocusRequester({
+      isDeploymentMode,
+      sectionId,
+      terminal,
+      terminalRef,
+      terminalReadyRef,
+    });
+    requestTerminalFocus();
 
-    if (!isDeploymentMode && isPendingSectionTextFocus(sectionId)) {
-      requestAnimationFrame(() => focusTerminalInput());
-    }
-
-    let onReady: ((message: MessageEvent) => void) | null = null;
-    const markReady = () => {
-      terminalReadyRef.current = true;
-      if (!isDeploymentMode && isPendingSectionTextFocus(sectionId)) {
-        requestAnimationFrame(() => focusTerminalInput());
-      }
-    };
-
-    if (session.isReady) {
-      markReady();
-    } else {
-      onReady = (message: MessageEvent) => {
-        if (message.data === C.SETTA_TERMINAL_READY) {
-          markReady();
-          const readyListener = onReady;
-          onReady = null;
-          if (readyListener) {
-            ws.removeEventListener("message", readyListener);
-          }
-        }
-      };
-      ws.addEventListener("message", onReady);
-      // Handle the (rare) race where the session becomes ready between our first
-      // `session.isReady` check and registering the listener.
-      if (session.isReady) {
-        markReady();
-        ws.removeEventListener("message", onReady);
-        onReady = null;
-      }
-    }
+    const detachReadyListener = attachTerminalReadyListener({
+      session,
+      ws,
+      terminalReadyRef,
+      requestTerminalFocus,
+    });
 
     const unsub = scrollSensitivityUpdater(terminal, setHasScrollbar);
 
     return () => {
       clearPendingSectionTextFocus(sectionId);
-      if (onReady) {
-        ws.removeEventListener("message", onReady);
-      }
+      detachReadyListener();
       resizeObserver.disconnect();
       unsub();
       releaseTerminalSession(sessionKey);
@@ -295,12 +392,10 @@ function acquireTerminalSession({
   // Terminal -> backend resize (debounced, keep only the latest).
   session.resizeDisposable.dispose();
   session.resizeDisposable = terminal.onResize((size) => {
-    const message = JSON.stringify({
-      messageType: C.WS_TERMINAL_RESIZE,
-      cols: size.cols,
-      rows: size.rows,
-    });
-    queueTerminalResize(sessionKey, message);
+    queueTerminalResize(
+      sessionKey,
+      buildTerminalResizeMessage(size.cols, size.rows),
+    );
   });
 
   ws.addEventListener("open", () => {
@@ -352,6 +447,73 @@ function acquireTerminalSession({
   return session;
 }
 
+function buildTerminalResizeMessage(cols: number, rows: number): string {
+  return JSON.stringify({
+    messageType: C.WS_TERMINAL_RESIZE,
+    cols,
+    rows,
+  });
+}
+
+function shouldSkipQueuedTerminalResize(
+  session: TerminalSession,
+  message: string,
+): boolean {
+  return (
+    session.lastSentResizeMessage === message && !session.pendingResizeMessage
+  );
+}
+
+function canFlushTerminalResizeNow(
+  session: TerminalSession,
+  now: number,
+): boolean {
+  const lastSent = session.lastSentResizeTs;
+  return (
+    session.ws.readyState === 1 &&
+    (lastSent === null || now - lastSent >= TERMINAL_RESIZE_THROTTLE_MS)
+  );
+}
+
+function clearPendingTerminalResizeTimeout(session: TerminalSession): void {
+  if (session.pendingResizeTimeoutId === null) {
+    return;
+  }
+  window.clearTimeout(session.pendingResizeTimeoutId);
+  session.pendingResizeTimeoutId = null;
+}
+
+function getQueuedTerminalResizeDelay(
+  lastSent: number | null,
+  now: number,
+): number {
+  if (lastSent === null) {
+    return TERMINAL_RESIZE_THROTTLE_MS;
+  }
+  return Math.max(TERMINAL_RESIZE_THROTTLE_MS - (now - lastSent), 0);
+}
+
+function scheduleTerminalResizeFlush(
+  sessionKey: string,
+  session: TerminalSession,
+  now: number,
+): void {
+  if (session.pendingResizeTimeoutId !== null) {
+    return;
+  }
+  session.pendingResizeTimeoutId = window.setTimeout(
+    () => {
+      const latest = TERMINAL_SESSIONS[sessionKey];
+      if (!latest) {
+        return;
+      }
+      latest.pendingResizeTimeoutId = null;
+      flushTerminalResize(sessionKey);
+    },
+    getQueuedTerminalResizeDelay(session.lastSentResizeTs, now),
+  );
+}
+
 // const fontFamily = {
 //   fontFamily:
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
@@ -359,49 +521,19 @@ function acquireTerminalSession({
 
 function queueTerminalResize(sessionKey: string, message: string) {
   const session = TERMINAL_SESSIONS[sessionKey];
-  if (!session) {
-    return;
-  }
-  if (
-    session.lastSentResizeMessage === message &&
-    !session.pendingResizeMessage
-  ) {
+  if (!session || shouldSkipQueuedTerminalResize(session, message)) {
     return;
   }
 
   session.pendingResizeMessage = message;
 
   const now = Date.now();
-  const lastSent = session.lastSentResizeTs;
-  const canSendNow =
-    session.ws.readyState === 1 &&
-    (lastSent === null || now - lastSent >= TERMINAL_RESIZE_THROTTLE_MS);
-
-  if (canSendNow) {
-    if (session.pendingResizeTimeoutId !== null) {
-      window.clearTimeout(session.pendingResizeTimeoutId);
-      session.pendingResizeTimeoutId = null;
-    }
+  if (canFlushTerminalResizeNow(session, now)) {
+    clearPendingTerminalResizeTimeout(session);
     flushTerminalResize(sessionKey);
     return;
   }
-
-  if (session.pendingResizeTimeoutId !== null) {
-    return;
-  }
-
-  const delay =
-    lastSent === null
-      ? TERMINAL_RESIZE_THROTTLE_MS
-      : Math.max(TERMINAL_RESIZE_THROTTLE_MS - (now - lastSent), 0);
-  session.pendingResizeTimeoutId = window.setTimeout(() => {
-    const latest = TERMINAL_SESSIONS[sessionKey];
-    if (!latest) {
-      return;
-    }
-    latest.pendingResizeTimeoutId = null;
-    flushTerminalResize(sessionKey);
-  }, delay);
+  scheduleTerminalResizeFlush(sessionKey, session, now);
 }
 
 function queueTerminalResizeFromCurrentSize(
@@ -417,11 +549,7 @@ function queueTerminalResizeFromCurrentSize(
   }
   queueTerminalResize(
     sessionKey,
-    JSON.stringify({
-      messageType: C.WS_TERMINAL_RESIZE,
-      cols: terminal.cols,
-      rows: terminal.rows,
-    }),
+    buildTerminalResizeMessage(terminal.cols, terminal.rows),
   );
 }
 
@@ -449,8 +577,7 @@ function disposeTerminalSession(sessionKey: string, session: TerminalSession) {
     session.closeTimeoutId = null;
   }
   if (session.pendingResizeTimeoutId !== null) {
-    window.clearTimeout(session.pendingResizeTimeoutId);
-    session.pendingResizeTimeoutId = null;
+    clearPendingTerminalResizeTimeout(session);
   }
   session.pendingResizeMessage = null;
   session.lastSentResizeMessage = null;
