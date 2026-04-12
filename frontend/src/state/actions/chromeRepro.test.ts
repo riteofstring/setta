@@ -2,10 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  postChromeReproEvent,
-  SETTA_CHROME_REPRO_MESSAGE_SOURCE,
-} from "./chromeRepro";
+import { postChromeReproEvent } from "./chromeRepro";
 
 declare global {
   interface Window {
@@ -39,7 +36,7 @@ describe("chromeRepro", () => {
     expect(postSpy).toHaveBeenCalledTimes(1);
     expect(postSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        source: SETTA_CHROME_REPRO_MESSAGE_SOURCE,
+        source: "setta.chrome-repro-recorder/app-state",
         type: "app-state",
         kind: "lsp-diagnostics",
         payload: {

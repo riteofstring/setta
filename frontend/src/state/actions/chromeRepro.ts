@@ -1,4 +1,4 @@
-export const SETTA_CHROME_REPRO_MESSAGE_SOURCE =
+const SETTA_CHROME_REPRO_MESSAGE_SOURCE =
   "setta.chrome-repro-recorder/app-state";
 
 declare global {
