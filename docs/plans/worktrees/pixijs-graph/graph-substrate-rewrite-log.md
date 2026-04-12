@@ -75,6 +75,51 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 05:20 UTC
+
+- item `370` landed one bounded content-validator breakdown slice for the
+  direct `/settings` backend lane:
+  - changed `backend/setta/types/helpers_lvl3.py` so
+    `ConvertBackendToSingleConfigTiming` now carries the existing
+    `ProjectStateSingleConfig(...)` content-validator step timings out to the
+    caller
+  - changed `backend/setta/project_state/base_project_manager.py` so
+    `load_project_config(...)` now logs:
+    - `convert_project_state_singleton_sections_ms`
+    - `convert_project_state_active_ids_ms`
+    - `convert_project_state_parent_section_map_ms`
+    - `convert_project_state_shown_param_ids_ms`
+    - `convert_project_state_required_decoded_images_ms`
+    - `convert_project_state_code_file_bindings_ms`
+  - updated `tests/project_state/test_load_project_config_timing.py` so the
+    timing regression file proves:
+    - the detailed content-validator buckets stay present on the timing log
+    - their sum stays bounded by
+      `convert_project_state_content_validation_ms`
+    - the parent constructor bucket still bounds
+      overhead + content-validation + layout-validation
+  - recorded the fixture readout in
+    `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-content-validator-breakdown.md`
+  - verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`7` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - the current warm settings fixture is explicitly dominated by
+      `validate_shown_param_ids(...)` (`~110.5ms` of `~186.6ms`
+      content-validation time)
+    - `code_file_bindings` (`~22.2ms`), `required_decoded_images`
+      (`~20.1ms`), `parent_section_map` (`~17.2ms`), and
+      `singleton_sections` (`~16.5ms`) are secondary
+    - `active_ids` is negligible (`~0.007ms`)
+  - next:
+    - isolate the dominant `validate_shown_param_ids(...)` bucket by splitting
+      effective-section lookup cost from `get_param_ids_to_show(...)` work on
+      the warm direct `/settings` path
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 02:07 UTC
 
 - item `369` landed one bounded final `ProjectStateSingleConfig(...)`

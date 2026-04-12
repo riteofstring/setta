@@ -1843,6 +1843,12 @@ class BaseProjectManager(ABC):
             "convert_slice_state_ms=%.1f convert_project_state_ms=%.1f "
             "convert_project_state_model_overhead_ms=%.1f "
             "convert_project_state_content_validation_ms=%.1f "
+            "convert_project_state_singleton_sections_ms=%.1f "
+            "convert_project_state_active_ids_ms=%.1f "
+            "convert_project_state_parent_section_map_ms=%.1f "
+            "convert_project_state_shown_param_ids_ms=%.1f "
+            "convert_project_state_required_decoded_images_ms=%.1f "
+            "convert_project_state_code_file_bindings_ms=%.1f "
             "convert_project_state_layout_validation_ms=%.1f "
             "init_ms=%.1f init_update_ms=%.1f "
             "validation_cache_hit=%s validation_resolve_ms=%.1f "
@@ -1856,6 +1862,12 @@ class BaseProjectManager(ABC):
             convert_timing.project_state_ms,
             convert_timing.project_state_model_overhead_ms,
             convert_timing.project_state_content_validation_ms,
+            convert_timing.project_state_singleton_sections_ms,
+            convert_timing.project_state_active_ids_ms,
+            convert_timing.project_state_parent_section_map_ms,
+            convert_timing.project_state_shown_param_ids_ms,
+            convert_timing.project_state_required_decoded_images_ms,
+            convert_timing.project_state_code_file_bindings_ms,
             convert_timing.project_state_layout_validation_ms,
             init_ms,
             init_timing.update_ms,

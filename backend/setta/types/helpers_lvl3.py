@@ -84,6 +84,12 @@ class ConvertBackendToSingleConfigTiming:
     project_state_ms: float
     project_state_model_overhead_ms: float
     project_state_content_validation_ms: float
+    project_state_singleton_sections_ms: float
+    project_state_active_ids_ms: float
+    project_state_parent_section_map_ms: float
+    project_state_shown_param_ids_ms: float
+    project_state_required_decoded_images_ms: float
+    project_state_code_file_bindings_ms: float
     project_state_layout_validation_ms: float
 
 
@@ -294,6 +300,12 @@ def convert_backend_to_single_config_with_timing(
         project_state_ms=project_state_ms,
         project_state_model_overhead_ms=project_state_model_overhead_ms,
         project_state_content_validation_ms=project_state_content_validation_ms,
+        project_state_singleton_sections_ms=validation_timing.singleton_sections_ms,
+        project_state_active_ids_ms=validation_timing.active_ids_ms,
+        project_state_parent_section_map_ms=validation_timing.parent_section_map_ms,
+        project_state_shown_param_ids_ms=validation_timing.shown_param_ids_ms,
+        project_state_required_decoded_images_ms=validation_timing.required_decoded_images_ms,
+        project_state_code_file_bindings_ms=validation_timing.code_file_bindings_ms,
         project_state_layout_validation_ms=project_state_layout_validation_ms,
     )
 

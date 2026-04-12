@@ -45,10 +45,16 @@ class TestLoadProjectConfigTiming:
         assert args[7] >= 0
         assert args[8] >= 0
         assert args[9] >= 0
-        assert args[12] is False
+        assert args[10] >= 0
+        assert args[11] >= 0
+        assert args[12] >= 0
         assert args[13] >= 0
         assert args[14] >= 0
         assert args[15] >= 0
+        assert args[18] is False
+        assert args[19] >= 0
+        assert args[20] >= 0
+        assert args[21] >= 0
 
     async def test_settings_load_logs_convert_breakdown_on_warm_load(self) -> None:
         await self.manager.load_project_config(self.project_config_id)
@@ -65,13 +71,28 @@ class TestLoadProjectConfigTiming:
         assert args[7] >= 0
         assert args[8] >= 0
         assert args[9] >= 0
+        assert args[10] >= 0
+        assert args[11] >= 0
+        assert args[12] >= 0
+        assert args[13] >= 0
+        assert args[14] >= 0
+        assert args[15] >= 0
         assert args[3] >= args[4]
         assert args[3] >= args[5]
         assert args[3] >= args[6]
         assert args[6] >= args[7]
         assert args[6] >= args[8]
-        assert args[6] >= args[9]
-        assert args[6] + 1e-6 >= (args[7] + args[8] + args[9])
+        assert args[6] >= args[15]
+        assert args[8] >= args[9]
+        assert args[8] >= args[10]
+        assert args[8] >= args[11]
+        assert args[8] >= args[12]
+        assert args[8] >= args[13]
+        assert args[8] >= args[14]
+        assert args[8] + 1e-6 >= (
+            args[9] + args[10] + args[11] + args[12] + args[13] + args[14]
+        )
+        assert args[6] + 1e-6 >= (args[7] + args[8] + args[15])
 
     async def test_settings_load_skips_init_after_first_warm_load(self) -> None:
         await self.manager.load_project_config(self.project_config_id)
@@ -84,8 +105,8 @@ class TestLoadProjectConfigTiming:
         assert "load_project_config_timing" in message
         assert args[0] == self.project_config_id
         assert args[1] is False
-        assert args[11] == 0.0
-        assert args[12] is True
+        assert args[17] == 0.0
+        assert args[18] is True
 
     async def test_logs_when_subsequent_project_load_skips_init(self) -> None:
         async with AsyncExitStack() as exit_stack:
@@ -105,8 +126,8 @@ class TestLoadProjectConfigTiming:
         assert "load_project_config_timing" in message
         assert args[0] == project_config_id
         assert args[1] is False
-        assert args[11] == 0.0
-        assert args[12] is True
+        assert args[17] == 0.0
+        assert args[18] is True
 
     async def test_settings_warm_load_logs_validation_split_as_cache_hit(
         self,
@@ -118,10 +139,10 @@ class TestLoadProjectConfigTiming:
 
         assert info_mock.call_count == 1
         _message, *args = info_mock.call_args.args
-        assert args[12] is True
-        assert args[13] >= 0
-        assert args[14] >= 0
-        assert args[15] >= 0
+        assert args[18] is True
+        assert args[19] >= 0
+        assert args[20] >= 0
+        assert args[21] >= 0
 
     async def test_settings_warm_load_reuses_cached_name_validation_errors(
         self,

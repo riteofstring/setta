@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 02:35 UTC
+Last updated: 2026-04-13 05:20 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,56 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `370` landed one bounded content-validator breakdown slice for the
+  direct `/settings` backend lane:
+
+  - product code changed in:
+    - `backend/setta/types/helpers_lvl3.py`
+      so `ConvertBackendToSingleConfigTiming` now carries the existing
+      `ProjectStateSingleConfig(...)` content-validator step timings through to
+      the load timing caller
+    - `backend/setta/project_state/base_project_manager.py`
+      so `load_project_config(...)` now logs the detailed content-validation
+      buckets:
+      - `convert_project_state_singleton_sections_ms`
+      - `convert_project_state_active_ids_ms`
+      - `convert_project_state_parent_section_map_ms`
+      - `convert_project_state_shown_param_ids_ms`
+      - `convert_project_state_required_decoded_images_ms`
+      - `convert_project_state_code_file_bindings_ms`
+    - `tests/project_state/test_load_project_config_timing.py`
+      so the timing regression file now proves:
+      - the detailed content-validator buckets stay present on the timing log
+      - their sum stays bounded by
+        `convert_project_state_content_validation_ms`
+      - the parent constructor bucket still bounds
+        overhead + content-validation + layout-validation
+  - recorded the fixture readout in:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-content-validator-breakdown.md`
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`7` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - on the current settings warm-load fixture, content validation is now
+      explicitly dominated by `validate_shown_param_ids(...)` rather than by
+      layout or project/chat-windowing attachment:
+      - `convert_project_state_shown_param_ids_ms` is about `110.5ms`
+      - `convert_project_state_code_file_bindings_ms` is about `22.2ms`
+      - `convert_project_state_required_decoded_images_ms` is about `20.1ms`
+      - `convert_project_state_parent_section_map_ms` is about `17.2ms`
+      - `convert_project_state_singleton_sections_ms` is about `16.5ms`
+      - `convert_project_state_active_ids_ms` is about `0.007ms`
+    - this closes the bounded "which content validator dominates?" question
+      for the current direct `/settings` warm-load fixture
+    - the next backend owner to isolate is now explicit:
+      the work inside `validate_shown_param_ids(...)`
+  - next default frontier:
+    - split `validate_shown_param_ids(...)` into one bounded internal
+      breakdown, starting with effective-section lookup versus
+      `get_param_ids_to_show(...)` work on the warm direct `/settings` path
 
 - item `369` landed one bounded final `ProjectStateSingleConfig(...)`
   validation-breakdown slice for the direct `/settings` backend lane:
