@@ -38,6 +38,7 @@ export function QuestionCard({
     hasSummary,
     helperText,
     isSummaryTab,
+    lastTabIndex,
     otherValues,
     pending,
     questionCompletion,
@@ -469,7 +470,6 @@ function QuestionCardFooter({
           hasSummary={hasSummary}
           isSummaryTab={isSummaryTab}
           activeIndex={activeIndex}
-          lastTabIndex={lastTabIndex}
           questionCount={questionCount}
           showSubmit={showSubmit}
           canSubmit={canSubmit}

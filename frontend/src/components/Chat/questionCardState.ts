@@ -36,6 +36,7 @@ type UseQuestionCardStateResult = {
   answered: boolean;
   canSubmit: boolean;
   error: string | null;
+  lastTabIndex: number;
   handleOtherChange: (questionKey: QuestionKey, value: string) => void;
   handleSubmit: () => Promise<void>;
   handleToggle: (
@@ -78,28 +79,99 @@ export function useQuestionCardState({
     setSubmittedAnswers,
   );
 
-  const displayedAnswers = resolvedAnswers ?? submittedAnswers;
-  const answered = Boolean(
-    displayedAnswers && Object.keys(displayedAnswers).length,
+  const { displayedAnswers, answered } = resolveAnswerDisplayState(
+    resolvedAnswers,
+    submittedAnswers,
   );
+  const viewState = buildQuestionCardViewState({
+    questions,
+    selections,
+    otherValues,
+    displayedAnswers,
+    answered,
+    activeIndex,
+  });
+
+  useQuestionCardLifecycle({
+    answered,
+    hasSummary: viewState.hasSummary,
+    questionCount: viewState.questionCount,
+    activeIndex,
+    lastTabIndex: viewState.lastTabIndex,
+    setActiveIndex,
+    setPending,
+    setError,
+  });
+
+  return {
+    activeIndex,
+    activeQuestion: viewState.activeQuestion,
+    activeQuestionKey: viewState.activeQuestionKey,
+    answered,
+    canSubmit: viewState.canSubmit,
+    error,
+    lastTabIndex: viewState.lastTabIndex,
+    handleOtherChange: createOtherChangeHandler(answered, setOtherValues),
+    handleSubmit: createSubmitHandler({
+      toolCallId,
+      questions,
+      selections,
+      otherValues,
+      canSubmit: viewState.canSubmit,
+      pending,
+      setPending,
+      setError,
+      setSubmittedAnswers,
+    }),
+    handleToggle: createToggleHandler(answered, setSelections),
+    hasSummary: viewState.hasSummary,
+    helperText: viewState.helperText,
+    isSummaryTab: viewState.isSummaryTab,
+    pending,
+    questionCompletion: viewState.questionCompletion,
+    questionCount: viewState.questionCount,
+    setActiveIndex,
+    showSubmit: viewState.showSubmit,
+    summaryItems: viewState.summaryItems,
+    displayedAnswers,
+    otherValues,
+    selections,
+  };
+}
+
+function resolveAnswerDisplayState(
+  resolvedAnswers: ResolvedAnswers,
+  submittedAnswers: ResolvedAnswers,
+) {
+  const displayedAnswers = resolvedAnswers ?? submittedAnswers;
+  return {
+    displayedAnswers,
+    answered:
+      displayedAnswers !== null && Object.keys(displayedAnswers).length > 0,
+  };
+}
+
+function buildQuestionCardViewState({
+  questions,
+  selections,
+  otherValues,
+  displayedAnswers,
+  answered,
+  activeIndex,
+}: {
+  questions: AskUserQuestionPrompt[];
+  selections: QuestionSelections;
+  otherValues: QuestionOtherValues;
+  displayedAnswers: ResolvedAnswers;
+  answered: boolean;
+  activeIndex: number;
+}) {
   const questionCount = questions.length;
   const hasSummary = questionCount > 1;
   const lastTabIndex = hasSummary
     ? questionCount
     : Math.max(questionCount - 1, 0);
   const isSummaryTab = hasSummary && activeIndex === questionCount;
-
-  useQuestionCardLifecycle({
-    answered,
-    hasSummary,
-    questionCount,
-    activeIndex,
-    lastTabIndex,
-    setActiveIndex,
-    setPending,
-    setError,
-  });
-
   const canSubmit =
     !answered && canSubmitQuestions(questions, selections, otherValues);
   const hasMissingOtherValue = hasMissingOtherValues(
@@ -107,61 +179,37 @@ export function useQuestionCardState({
     selections,
     otherValues,
   );
-  const questionCompletion = buildQuestionCompletion(
-    questions,
-    selections,
-    otherValues,
-  );
-  const summaryItems = buildQuestionSummaryItems(
-    questions,
-    selections,
-    otherValues,
-    displayedAnswers,
-  );
   const activeQuestion = questions[activeIndex] ?? null;
   const activeQuestionKey = activeQuestion
     ? buildQuestionKey(activeIndex)
     : null;
-  const showSubmit = !answered && (!hasSummary || isSummaryTab);
-  const helperText = resolveQuestionCardHelperText({
-    hasSummary,
-    isSummaryTab,
-    canSubmit,
-    hasMissingOtherValue,
-  });
 
   return {
-    activeIndex,
     activeQuestion,
     activeQuestionKey,
-    answered,
     canSubmit,
-    error,
-    handleOtherChange: createOtherChangeHandler(answered, setOtherValues),
-    handleSubmit: createSubmitHandler({
-      toolCallId,
+    hasSummary,
+    helperText: resolveQuestionCardHelperText({
+      hasSummary,
+      isSummaryTab,
+      canSubmit,
+      hasMissingOtherValue,
+    }),
+    isSummaryTab,
+    lastTabIndex,
+    questionCompletion: buildQuestionCompletion(
       questions,
       selections,
       otherValues,
-      canSubmit,
-      pending,
-      setPending,
-      setError,
-      setSubmittedAnswers,
-    }),
-    handleToggle: createToggleHandler(answered, setSelections),
-    hasSummary,
-    helperText,
-    isSummaryTab,
-    pending,
-    questionCompletion,
+    ),
     questionCount,
-    setActiveIndex,
-    showSubmit,
-    summaryItems,
-    displayedAnswers,
-    otherValues,
-    selections,
+    showSubmit: !answered && (!hasSummary || isSummaryTab),
+    summaryItems: buildQuestionSummaryItems(
+      questions,
+      selections,
+      otherValues,
+      displayedAnswers,
+    ),
   };
 }
 
