@@ -10,12 +10,15 @@ Exit the configured completion code only after the latest Codex response emits a
 configured stop sentinel, the worktree is clean, and no new commit was created
 in that stop iteration.
 
-Any non-stop iteration must advance HEAD and leave the repo clean.
+Any non-stop iteration must either advance HEAD or explicitly advance an
+allowed state/progress file while leaving the repo clean.
 
 Options:
   --complete-exit-code N    Exit code used when the stop sentinel is observed.
   --sentinel TEXT           Exact stop sentinel line to detect in last-message.txt.
                             Repeat to allow multiple clean stop conditions.
+  --progress-file PATH      File whose content may advance between iterations to
+                            represent clean non-commit progress. Repeatable.
   --allow-clean-failures N  Tolerate up to N consecutive clean Codex failures
                             that leave HEAD unchanged and the worktree clean.
 EOF
@@ -26,6 +29,7 @@ output_dir=""
 state_dir=""
 complete_exit_code="42"
 sentinels=()
+progress_files=()
 allow_clean_failures="0"
 
 while [[ $# -gt 0 ]]; do
@@ -48,6 +52,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sentinel)
       sentinels+=("${2:-}")
+      shift 2
+      ;;
+    --progress-file)
+      progress_files+=("${2:-}")
       shift 2
       ;;
     --allow-clean-failures)
@@ -107,6 +115,66 @@ reset_failure_state() {
   rm -f "${failure_count_file}" "${failure_run_file}"
 }
 
+progress_snapshot_file() {
+  local index="$1"
+  printf '%s/progress-file-%s.sha256\n' "${state_dir}" "${index}"
+}
+
+hash_progress_file() {
+  local path="$1"
+
+  if [[ ! -f "${path}" ]]; then
+    printf '__missing__\n'
+    return
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "${path}" | awk '{print $1}'
+    return
+  fi
+
+  sha256sum "${path}" | awk '{print $1}'
+}
+
+update_progress_snapshots() {
+  local index=""
+  local path=""
+  local snapshot_path=""
+  local hash_value=""
+
+  for index in "${!progress_files[@]}"; do
+    path="${progress_files[${index}]}"
+    snapshot_path="$(progress_snapshot_file "${index}")"
+    hash_value="$(hash_progress_file "${path}")"
+    printf '%s\n' "${hash_value}" > "${snapshot_path}"
+  done
+}
+
+progress_files_advanced() {
+  local index=""
+  local path=""
+  local snapshot_path=""
+  local previous_hash=""
+  local current_hash=""
+
+  [[ "${#progress_files[@]}" -gt 0 ]] || return 1
+
+  for index in "${!progress_files[@]}"; do
+    path="${progress_files[${index}]}"
+    snapshot_path="$(progress_snapshot_file "${index}")"
+    previous_hash=""
+    if [[ -f "${snapshot_path}" ]]; then
+      previous_hash="$(<"${snapshot_path}")"
+    fi
+    current_hash="$(hash_progress_file "${path}")"
+    if [[ "${current_hash}" != "${previous_hash}" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 repo_is_clean() {
   if ! git -C "${root_dir}" diff --quiet --no-ext-diff --exit-code --; then
     return 1
@@ -142,6 +210,7 @@ find_matching_sentinel() {
 if [[ ! -f "${head_file}" ]]; then
   printf '%s\n' "${current_head}" > "${head_file}"
   printf '%s\n' "pending" > "${status_file}"
+  update_progress_snapshots
   reset_failure_state
   echo "Recorded initial HEAD."
   exit 0
@@ -191,6 +260,7 @@ if matched_sentinel="$(find_matching_sentinel "${response_file}")"; then
   fi
 
   printf '%s\n' "complete:${matched_sentinel}" > "${status_file}"
+  update_progress_snapshots
   reset_failure_state
   echo "Stop sentinel detected with a clean repo and no new commit: ${matched_sentinel}"
   exit "${complete_exit_code}"
@@ -237,8 +307,16 @@ if [[ "${latest_run_status}" == failure:* ]]; then
 fi
 
 if [[ "${current_head}" == "${previous_head}" ]]; then
+  if [[ "${latest_run_status}" == "success" ]] && progress_files_advanced; then
+    printf '%s\n' "state-advanced" > "${status_file}"
+    update_progress_snapshots
+    reset_failure_state
+    echo "Detected clean non-commit progress via configured state files."
+    exit 0
+  fi
+
   printf '%s\n' "error:no-new-commit" > "${status_file}"
-  echo "Latest iteration finished without a new commit and without the stop sentinel." >&2
+  echo "Latest iteration finished without a new commit, without the stop sentinel, and without recognized state-file progress." >&2
   exit 1
 fi
 
@@ -250,6 +328,7 @@ fi
 
 printf '%s\n' "${current_head}" > "${head_file}"
 printf '%s\n' "advanced:${current_head}" > "${status_file}"
+update_progress_snapshots
 reset_failure_state
 echo "Detected a new clean commit from the latest iteration."
 exit 0

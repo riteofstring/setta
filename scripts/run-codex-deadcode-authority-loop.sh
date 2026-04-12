@@ -17,8 +17,8 @@ Defaults:
 - Reasoning effort: `high`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Stop when Codex explicitly reports audited completion or low-leverage review
-- Require every non-stop iteration to leave a clean worktree and advance HEAD
+- Stop only when Codex explicitly reports audited completion of all three phases
+- Require every non-stop iteration to leave a clean worktree and either advance HEAD or advance the checklist to the next phase
 
 Options:
   --iterations N         Maximum loop iterations. Default: 1000
@@ -57,7 +57,6 @@ inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
 complete_exit_code="42"
 complete_stop_sentinel="CODEX_LOOP_STOP: DEADCODE_ALIAS_AUTHORITY_AUDITED_STOP"
-low_leverage_stop_sentinel="CODEX_LOOP_STOP: DEADCODE_LOW_LEVERAGE_REVIEW_NEEDED"
 codex_extra_args=()
 default_codex_extra_args=(
   --config
@@ -409,8 +408,7 @@ Execution rules for every iteration:
 - Never delete a focused test solely because the target helper became non-exported or file-local. Replace it in the same iteration with equal-or-stronger coverage through the owner API, component, runtime path, or an extracted non-exported helper module.
 - If replacement coverage would be materially weaker, more brittle, or much slower in the current iteration, keep the helper/test for now, record the rationale in the audit, and choose a different candidate instead of deleting coverage.
 - Do not make a large extraction mainly so tests can import internals directly. If removing one or two findings would require moving more than roughly 300 lines of production code, creating a new helper/internal module over roughly 200 lines, or broadening an internal boundary mainly for tests, treat that work as low leverage unless it also clearly improves the production ownership boundary for multiple live callers.
-- If a fresh audit shows only low-leverage remaining work under that rule, stop cleanly without repo changes, explain that review is needed, and end your final response with:
-  ${low_leverage_stop_sentinel}
+- Low leverage by itself is not a loop stop condition. If a fresh audit shows the current phase has no remaining actionable work under the repo rules, update the relevant audit file, mark that phase complete in the checklist, leave the repo clean, and let the next iteration continue with the next phase.
 - Prefer Go-owned logic, metadata, and generation over duplicated Python or TypeScript logic.
 - Regenerate affected downstream artifacts before cleanup when Go-owned contracts, shared types, backend endpoints, or frontend generation inputs change.
 - Run focused verification for the behavior you changed.
@@ -472,11 +470,8 @@ Phase 3 rules:
 If a fresh audit shows all three phases are complete under these rules, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
   ${complete_stop_sentinel}
 
-If a fresh audit shows the remaining work is real but low leverage under the execution rules, make no repo changes, leave the worktree clean, state that the stop reason is low leverage review needed, and end your final response with this exact line:
-  ${low_leverage_stop_sentinel}
-
 Completion discipline:
-- Any session that does not emit a configured stop sentinel must produce a new clean commit.
+- Any session that does not emit the final stop sentinel must either produce a new clean commit or leave the repo unchanged while advancing the checklist and audit state needed for the next phase.
 - Never end the session with uncommitted, unstaged, or untracked repo changes.
 EOF
 
@@ -496,7 +491,7 @@ pre_iteration_command="$(
     --state-dir "${state_dir}" \
     --complete-exit-code "${complete_exit_code}" \
     --sentinel "${complete_stop_sentinel}" \
-    --sentinel "${low_leverage_stop_sentinel}" \
+    --progress-file "${checklist_file}" \
     --allow-clean-failures "3"
 )"
 
