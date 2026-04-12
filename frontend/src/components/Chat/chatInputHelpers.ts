@@ -404,6 +404,15 @@ export function enqueueQueuedDraft(
   return prioritize ? [draft, ...queue] : [...queue, draft];
 }
 
+function resolveWrappedQueueIndex(
+  currentIndex: number,
+  length: number,
+  direction: "next" | "prev",
+): number {
+  const delta = direction === "next" ? 1 : -1;
+  return (currentIndex + delta + length) % length;
+}
+
 export function cycleQueuedDraftSelection(
   queue: QueuedChatDraft[],
   selectedId: string | null,
@@ -413,15 +422,11 @@ export function cycleQueuedDraftSelection(
     return null;
   }
   const currentIndex = queue.findIndex((item) => item.id === selectedId);
-  if (currentIndex < 0) {
-    return queue[0]?.id ?? null;
-  }
-  if (direction === "next") {
-    const nextIndex = (currentIndex + 1) % queue.length;
-    return queue[nextIndex]?.id ?? null;
-  }
-  const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-  return queue[prevIndex]?.id ?? null;
+  const nextIndex =
+    currentIndex < 0
+      ? 0
+      : resolveWrappedQueueIndex(currentIndex, queue.length, direction);
+  return queue[nextIndex]?.id ?? null;
 }
 
 export function cycleSubmittedMessageHistorySelection(

@@ -329,6 +329,71 @@ type ResolvedActionButtonState = {
   isRunAction: boolean;
   resolvedLabel: string;
 };
+type ActionButtonKind = "default" | "download" | "externalLink" | "run";
+
+function resolveActionButtonKind(
+  actionName: string,
+  actionType: string | null,
+): ActionButtonKind {
+  if (actionName === "run" || actionType === "run") {
+    return "run";
+  }
+  if (actionType === "downloadArtifact" || actionType === "downloadBinary") {
+    return "download";
+  }
+  if (actionType === "openExternalLink") {
+    return "externalLink";
+  }
+  return "default";
+}
+
+function resolveActionButtonAvailability(args: {
+  allowDownloads: boolean;
+  allowLinks: boolean;
+  canRun: boolean;
+  isRunning: boolean;
+  kind: ActionButtonKind;
+  runDisabledReason: string | null;
+}): Pick<
+  ResolvedActionButtonState,
+  "disabledReason" | "isDisabled" | "isRunAction"
+> {
+  switch (args.kind) {
+    case "run": {
+      const isDisabled = !args.canRun || args.isRunning;
+      return {
+        disabledReason: isDisabled
+          ? args.runDisabledReason ?? "Run disabled"
+          : null,
+        isDisabled,
+        isRunAction: true,
+      };
+    }
+    case "download":
+      return {
+        disabledReason: args.allowDownloads
+          ? null
+          : "File downloads are disabled by policy.",
+        isDisabled: !args.allowDownloads,
+        isRunAction: false,
+      };
+    case "externalLink":
+      return {
+        disabledReason: args.allowLinks
+          ? null
+          : "External links are disabled by policy.",
+        isDisabled: !args.allowLinks,
+        isRunAction: false,
+      };
+    default:
+      return {
+        disabledReason: null,
+        isDisabled: false,
+        isRunAction: false,
+      };
+  }
+}
+
 function resolveActionButtonState(args: {
   action: string | null;
   actionDefinition: unknown;
@@ -354,24 +419,15 @@ function resolveActionButtonState(args: {
     actionName,
     actionDefinition ?? undefined,
   );
-  const isRunAction = actionName === "run" || actionType === "run";
-  const isDownloadAction =
-    actionType === "downloadArtifact" || actionType === "downloadBinary";
-  const isExternalLink = actionType === "openExternalLink";
-  const isDisabled = isRunAction
-    ? !canRun || isRunning
-    : isDownloadAction
-      ? !allowDownloads
-      : isExternalLink
-        ? !allowLinks
-        : false;
-  const disabledReason = resolveActionDisabledReason({
-    isDisabled,
-    isDownloadAction,
-    isExternalLink,
-    isRunAction,
-    runDisabledReason,
-  });
+  const { disabledReason, isDisabled, isRunAction } =
+    resolveActionButtonAvailability({
+      allowDownloads,
+      allowLinks,
+      canRun,
+      isRunning,
+      kind: resolveActionButtonKind(actionName, actionType),
+      runDisabledReason,
+    });
   return {
     actionName,
     actionType,
@@ -380,31 +436,6 @@ function resolveActionButtonState(args: {
     isRunAction,
     resolvedLabel: label ?? "Run",
   };
-}
-function resolveActionDisabledReason(args: {
-  isDisabled: boolean;
-  isDownloadAction: boolean;
-  isExternalLink: boolean;
-  isRunAction: boolean;
-  runDisabledReason: string | null;
-}): string | null {
-  const {
-    isDisabled,
-    isDownloadAction,
-    isExternalLink,
-    isRunAction,
-    runDisabledReason,
-  } = args;
-  if (isRunAction && isDisabled) {
-    return runDisabledReason ?? "Run disabled";
-  }
-  if (isDownloadAction && isDisabled) {
-    return "File downloads are disabled by policy.";
-  }
-  if (isExternalLink && isDisabled) {
-    return "External links are disabled by policy.";
-  }
-  return null;
 }
 function buildActionParams(
   resolvedConfigId: string | null,
@@ -605,6 +636,23 @@ function resolveParamInputRuntimeContext(
     defaultConfigId: runtime?.defaultConfigId ?? null,
   };
 }
+function useAppConfigLoadState(
+  resolvedConfigId: string | null,
+  configState: AppConfigState | null,
+) {
+  const serverMode = useServerMode((x) => x.mode);
+  const modeResolved = useServerMode((x) => x.modeResolved);
+  React.useEffect(() => {
+    if (!resolvedConfigId) {
+      return;
+    }
+    if (!modeResolved || serverMode !== "app" || configState) {
+      return;
+    }
+    void ensureAppProjectConfigLoaded(resolvedConfigId);
+  }, [configState, modeResolved, resolvedConfigId, serverMode]);
+  return { modeResolved, serverMode };
+}
 type ResolvedParamInputBindingResult = ResolvedParamBindingState & {
   statusMessage: string | null;
 };
@@ -652,16 +700,55 @@ function resolveParamInputLabel(
 ): string {
   return label ?? displayName ?? paramId;
 }
+function resolveCodeParamBlocked(args: {
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  modeResolved: boolean;
+  serverMode: string | null | undefined;
+}): boolean {
+  return (
+    args.modeResolved &&
+    args.serverMode === "app" &&
+    args.codeObjImpl.type === CodeObjTypeEnum.CodeParam
+  );
+}
+function resolveHeadingTheme(
+  runtime: ReturnType<typeof useAppRuntime>,
+  headingSizeKey: keyof AppThemeHeadingSizes,
+) {
+  const theme = runtime?.theme;
+  if (!theme) {
+    return {
+      headingFont: undefined,
+      headingLineHeight: undefined,
+      headingSize: undefined,
+    };
+  }
+  const typography = theme.typography;
+  return {
+    headingFont: theme.fonts?.heading ?? undefined,
+    headingLineHeight: typography?.headingLineHeight,
+    headingSize: typography?.headingSizes?.[headingSizeKey],
+  };
+}
 function resolveActionButtonRuntimeContext(
   runtime: ReturnType<typeof useAppRuntime>,
   actionName: string,
 ) {
+  if (!runtime) {
+    return {
+      actionDefinition: null,
+      allowDownloads: false,
+      allowLinks: false,
+      dataBindings: undefined,
+      defaultConfigId: null,
+    };
+  }
   return {
-    actionDefinition: runtime?.actions[actionName] ?? null,
-    allowDownloads: runtime?.allowFileDownloads ?? false,
-    allowLinks: runtime?.allowExternalLinks ?? false,
-    dataBindings: runtime?.dataBindings,
-    defaultConfigId: runtime?.defaultConfigId ?? null,
+    actionDefinition: runtime.actions[actionName] ?? null,
+    allowDownloads: runtime.allowFileDownloads,
+    allowLinks: runtime.allowExternalLinks,
+    dataBindings: runtime.dataBindings,
+    defaultConfigId: runtime.defaultConfigId ?? null,
   };
 }
 function resolveActionButtonPresentation(args: {
@@ -982,17 +1069,17 @@ function Heading({ element }: AppComponentProps) {
   const text = resolveStringProp(props.text);
   const level = resolveHeadingLevel(props.level);
   const className = resolveStringProp(props.className);
-  const headingFont = runtime?.theme?.fonts?.heading;
-  const typography = runtime?.theme?.typography;
-  const headingSizes = typography?.headingSizes;
   const { clampedLevel, headingSizeKey, sizeClass } =
     resolveHeadingPresentation(level);
-  const headingSize = headingSizes?.[headingSizeKey];
+  const { headingFont, headingLineHeight, headingSize } = resolveHeadingTheme(
+    runtime,
+    headingSizeKey,
+  );
   const HeadingTag = `h${clampedLevel}` as "h1" | "h2" | "h3" | "h4";
   const style = buildTypographyStyle({
     fontFamily: headingFont ?? undefined,
     fontSize: headingSize,
-    lineHeight: typography?.headingLineHeight,
+    lineHeight: headingLineHeight,
   });
   return (
     <HeadingTag
@@ -1025,6 +1112,78 @@ function Text({ element }: AppComponentProps) {
     </p>
   );
 }
+type ParamInputBlockContentProps = {
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  description: string | null;
+  displayName: string | null;
+  editabilityMessage: string | null;
+  effectiveCanEditParams: boolean;
+  label: string | null;
+  paramId: string;
+  resolvedConfigId: string;
+  sectionId: string;
+  sectionImpl: BaseSectionImplUnion;
+};
+type ResolvedParamInputBlockState = {
+  contentProps: ParamInputBlockContentProps | null;
+  message: string | null;
+};
+
+function resolveParamInputBlockState(args: {
+  canEditParams: boolean;
+  codeObjImpl: BaseChildlessCodeObjImplUnion | null;
+  description: string | null;
+  displayName: string | null;
+  label: string | null;
+  modeResolved: boolean;
+  paramId: string | null;
+  resolvedConfigId: string | null;
+  sectionId: string | null;
+  sectionImpl: BaseSectionImplUnion | null;
+  serverMode: string | null | undefined;
+  statusMessage: string | null;
+}): ResolvedParamInputBlockState {
+  if (args.statusMessage) {
+    return { contentProps: null, message: args.statusMessage };
+  }
+  if (
+    !args.codeObjImpl ||
+    !args.paramId ||
+    !args.resolvedConfigId ||
+    !args.sectionId ||
+    !args.sectionImpl
+  ) {
+    return {
+      contentProps: null,
+      message: "Missing param binding.",
+    };
+  }
+  const codeParamBlocked = resolveCodeParamBlocked({
+    codeObjImpl: args.codeObjImpl,
+    modeResolved: args.modeResolved,
+    serverMode: args.serverMode,
+  });
+  const effectiveCanEditParams = args.canEditParams && !codeParamBlocked;
+  return {
+    contentProps: {
+      codeObjImpl: args.codeObjImpl,
+      description: args.description,
+      displayName: args.displayName,
+      editabilityMessage: resolveParamEditabilityMessage({
+        canEditParams: args.canEditParams,
+        codeParamBlocked,
+      }),
+      effectiveCanEditParams,
+      label: args.label,
+      paramId: args.paramId,
+      resolvedConfigId: args.resolvedConfigId,
+      sectionId: args.sectionId,
+      sectionImpl: args.sectionImpl,
+    },
+    message: null,
+  };
+}
+
 function ParamInputBlock({ element }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -1045,20 +1204,11 @@ function ParamInputBlock({ element }: AppComponentProps) {
   const configState = useAppConfigs((state) =>
     resolvedConfigId ? state.configs[resolvedConfigId] ?? null : null,
   );
-  const serverMode = useServerMode((x) => x.mode);
-  const modeResolved = useServerMode((x) => x.modeResolved);
+  const { modeResolved, serverMode } = useAppConfigLoadState(
+    resolvedConfigId,
+    configState,
+  );
   const { canEditParams } = runtimeContext;
-  React.useEffect(() => {
-    if (!resolvedConfigId) {
-      return;
-    }
-    if (!modeResolved || serverMode !== "app") {
-      return;
-    }
-    if (!configState) {
-      void ensureAppProjectConfigLoaded(resolvedConfigId);
-    }
-  }, [configState, modeResolved, resolvedConfigId, serverMode]);
   const { codeObjImpl, displayName, sectionImpl, statusMessage } =
     resolveParamInputBindingResult({
       configState,
@@ -1066,41 +1216,24 @@ function ParamInputBlock({ element }: AppComponentProps) {
       resolvedConfigId,
       sectionId,
     });
-  if (statusMessage) {
-    return renderAppBindingMessage(statusMessage);
-  }
-  if (
-    !codeObjImpl ||
-    !paramId ||
-    !resolvedConfigId ||
-    !sectionId ||
-    !sectionImpl
-  ) {
-    return renderAppBindingMessage("Missing param binding.");
-  }
-  const codeParamBlocked =
-    modeResolved &&
-    serverMode === "app" &&
-    codeObjImpl.type === CodeObjTypeEnum.CodeParam;
-  const effectiveCanEditParams = canEditParams && !codeParamBlocked;
-  const editabilityMessage = resolveParamEditabilityMessage({
+  const { contentProps, message } = resolveParamInputBlockState({
     canEditParams,
-    codeParamBlocked,
+    codeObjImpl,
+    description,
+    displayName,
+    label,
+    modeResolved,
+    paramId,
+    resolvedConfigId,
+    sectionId,
+    sectionImpl,
+    serverMode,
+    statusMessage,
   });
-  return (
-    <ParamInputBlockContent
-      codeObjImpl={codeObjImpl}
-      description={description}
-      displayName={displayName}
-      editabilityMessage={editabilityMessage}
-      effectiveCanEditParams={effectiveCanEditParams}
-      label={label}
-      paramId={paramId}
-      resolvedConfigId={resolvedConfigId}
-      sectionId={sectionId}
-      sectionImpl={sectionImpl}
-    />
-  );
+  if (!contentProps) {
+    return renderAppBindingMessage(message ?? "Missing param binding.");
+  }
+  return <ParamInputBlockContent {...contentProps} />;
 }
 type AppParamInputProps = {
   configId: string;
@@ -1331,6 +1464,43 @@ function resolveParamConfigLanguage(
     ? ConfigLanguageEnum.json
     : ConfigLanguageEnum.python;
 }
+function resolveParamDefaultValue(
+  codeObjImpl: BaseChildlessCodeObjImplUnion,
+): string | number | boolean | null {
+  return "defaultVal" in codeObjImpl ? codeObjImpl.defaultVal : null;
+}
+
+function isParamSectionFrozen(sectionImpl: BaseSectionImplUnion): boolean {
+  return isBaseSectionWithParamsImpl(sectionImpl)
+    ? sectionImpl.isFrozen
+    : false;
+}
+
+function resolvePasswordParamState(args: {
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  stringValue: string;
+}) {
+  if (args.codeObjImpl.type !== CodeObjTypeEnum.PasswordParam) {
+    return {
+      passwordPlaceholder: undefined,
+      showPasswordReveal: false,
+    };
+  }
+  const hasSecret =
+    "hasSecret" in args.codeObjImpl &&
+    typeof args.codeObjImpl.hasSecret === "boolean"
+      ? args.codeObjImpl.hasSecret
+      : false;
+  return {
+    passwordPlaceholder:
+      hasSecret && args.stringValue === "" ? "Saved" : undefined,
+    showPasswordReveal: shouldShowPasswordReveal({
+      value: args.stringValue,
+      hasSecret,
+    }),
+  };
+}
+
 function resolveParamRenderContext(
   props: AppParamUIProps,
 ): AppParamRenderContext {
@@ -1346,37 +1516,27 @@ function resolveParamRenderContext(
     sectionImpl,
     value,
   } = props;
-  const isFrozen = isBaseSectionWithParamsImpl(sectionImpl)
-    ? sectionImpl.isFrozen
-    : false;
-  const defaultVal =
-    "defaultVal" in codeObjImpl ? codeObjImpl.defaultVal : null;
-  const isPasswordParam = codeObjImpl.type === CodeObjTypeEnum.PasswordParam;
-  const passwordHasSecret =
-    isPasswordParam &&
-    "hasSecret" in codeObjImpl &&
-    typeof codeObjImpl.hasSecret === "boolean"
-      ? codeObjImpl.hasSecret
-      : false;
   const stringValue = _.toString(value ?? "");
+  const { passwordPlaceholder, showPasswordReveal } = resolvePasswordParamState(
+    {
+      codeObjImpl,
+      stringValue,
+    },
+  );
   return {
     codeObjImpl,
     configLanguage: resolveParamConfigLanguage(sectionImpl),
-    defaultVal,
-    isDisabled: !canEditParams || isFrozen,
+    defaultVal: resolveParamDefaultValue(codeObjImpl),
+    isDisabled: !canEditParams || isParamSectionFrozen(sectionImpl),
     isPasswordRevealPending: Boolean(isPasswordRevealPending),
     onChange,
     onDropzoneStateless,
     onEscape: noopAppParamEscape,
     onRevealPassword,
     paramInfoId,
-    passwordPlaceholder:
-      passwordHasSecret && stringValue === "" ? "Saved" : undefined,
+    passwordPlaceholder,
     sectionId,
-    showPasswordReveal: shouldShowPasswordReveal({
-      value: stringValue,
-      hasSecret: passwordHasSecret,
-    }),
+    showPasswordReveal,
     stringValue,
     value,
   };
@@ -1834,80 +1994,65 @@ function ActionButton({ element, onAction }: AppComponentProps) {
     </button>
   );
 }
-function TextOutput({ element }: AppComponentProps) {
-  const props = element.props ?? {};
-  const runtime = useAppRuntime();
-  const scope = useAppConfigScope();
-  const { configId, sectionId, label } = resolveTextOutputBinding(
-    props,
-    runtime?.dataBindings,
-  );
-  const resolvedConfigId = resolveConfigId(
-    configId,
-    runtime?.defaultConfigId ?? null,
-    scope.configId,
-  );
-  const configState = useAppConfigs((state) =>
-    resolvedConfigId ? state.configs[resolvedConfigId] : null,
-  );
-  const serverMode = useServerMode((x) => x.mode);
-  const modeResolved = useServerMode((x) => x.modeResolved);
-  React.useEffect(() => {
-    if (!resolvedConfigId) {
-      return;
-    }
-    if (!modeResolved || serverMode !== "app") {
-      return;
-    }
-    if (!configState) {
-      void ensureAppProjectConfigLoaded(resolvedConfigId);
-    }
-  }, [configState, modeResolved, resolvedConfigId, serverMode]);
-  const textData = React.useMemo(() => {
-    if (!resolvedConfigId || !sectionId || !configState) {
-      return null;
-    }
-    const variantId =
-      configState.previewSectionVariantMap[sectionId] ??
-      configState.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return null;
-    }
-    const variant = configState.sectionVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = configState.sectionImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    const core = configState.sections[sectionId];
-    if (!core) {
-      return null;
-    }
-    const effectiveImpl: BaseSectionImplUnion = {
-      ...impl,
-      ...core.sharedModifier,
-      ...variant.modifier,
-    };
-    if (effectiveImpl.type !== SectionTypeEnum.TextBlock) {
-      return null;
-    }
+function resolveTextOutputRuntimeContext(
+  runtime: ReturnType<typeof useAppRuntime>,
+) {
+  if (!runtime) {
     return {
-      text: effectiveImpl.text,
-      format: effectiveImpl.format,
-      masterFontSizePx: effectiveImpl.masterFontSizePx,
+      dataBindings: undefined,
+      defaultConfigId: null,
     };
-  }, [configState, resolvedConfigId, sectionId]);
-  if (!resolvedConfigId || !sectionId || !textData) {
-    return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        Missing text output.
-      </div>
-    );
   }
-  const { text, format, masterFontSizePx } = textData;
-  const typography = buildTextBlockTypographyScale(masterFontSizePx);
+  return {
+    dataBindings: runtime.dataBindings,
+    defaultConfigId: runtime.defaultConfigId ?? null,
+  };
+}
+
+function resolveTextOutputData(
+  configState: AppConfigState | null,
+  sectionId: string | null,
+) {
+  if (!configState || !sectionId) {
+    return null;
+  }
+  const variantId =
+    configState.previewSectionVariantMap[sectionId] ??
+    configState.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = configState.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = configState.sectionImpls[variant.impl];
+  const core = configState.sections[sectionId];
+  if (!impl || !core) {
+    return null;
+  }
+  const effectiveImpl: BaseSectionImplUnion = {
+    ...impl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  };
+  if (effectiveImpl.type !== SectionTypeEnum.TextBlock) {
+    return null;
+  }
+  return {
+    format: effectiveImpl.format,
+    masterFontSizePx: effectiveImpl.masterFontSizePx,
+    text: effectiveImpl.text,
+  };
+}
+
+function TextOutputContent(props: {
+  format: TextBlockFormatValue;
+  label: string | null;
+  masterFontSizePx: number;
+  text: string;
+}) {
+  const typography = buildTextBlockTypographyScale(props.masterFontSizePx);
   const markdownTypographyStyle: React.CSSProperties = {
     "--setta-textblock-body-size": `${typography.bodyPx}px`,
     "--setta-textblock-code-size": `${typography.codePx}px`,
@@ -1920,12 +2065,12 @@ function TextOutput({ element }: AppComponentProps) {
   };
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
-      {label && (
+      {props.label && (
         <div className="font-semibold uppercase tracking-wide text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-          {label}
+          {props.label}
         </div>
       )}
-      {format === TextBlockFormatEnum.Markdown ? (
+      {props.format === TextBlockFormatEnum.Markdown ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
@@ -1933,18 +2078,46 @@ function TextOutput({ element }: AppComponentProps) {
           style={markdownTypographyStyle}
           components={{ code: CodeBlock }}
         >
-          {text}
+          {props.text}
         </ReactMarkdown>
       ) : (
         <pre
           className="whitespace-pre-wrap text-[color:var(--app-text)]"
           style={{ fontSize: `${typography.bodyPx}px` }}
         >
-          {text}
+          {props.text}
         </pre>
       )}
     </div>
   );
+}
+
+function TextOutput({ element }: AppComponentProps) {
+  const props = element.props ?? {};
+  const runtime = useAppRuntime();
+  const scope = useAppConfigScope();
+  const runtimeContext = resolveTextOutputRuntimeContext(runtime);
+  const { configId, sectionId, label } = resolveTextOutputBinding(
+    props,
+    runtimeContext.dataBindings,
+  );
+  const resolvedConfigId = resolveConfigId(
+    configId,
+    runtimeContext.defaultConfigId,
+    scope.configId,
+  );
+  const configState = useAppConfigs((state) =>
+    resolvedConfigId ? state.configs[resolvedConfigId] : null,
+  );
+  useAppConfigLoadState(resolvedConfigId, configState);
+  const textData = React.useMemo(
+    () => resolveTextOutputData(configState, sectionId),
+    [configState, sectionId],
+  );
+  if (!resolvedConfigId || !sectionId || !textData) {
+    return renderAppBindingMessage("Missing text output.");
+  }
+  return <TextOutputContent {...textData} label={label} />;
 }
 async function loadCachedImagesById(paths: Array<string>) {
   if (paths.length === 0) {

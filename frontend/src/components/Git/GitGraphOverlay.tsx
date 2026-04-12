@@ -248,35 +248,36 @@ export function collectRemoteDecorationPrefixes(
     if (!text || text.startsWith("tag: ")) {
       continue;
     }
-
-    if (text.startsWith("origin/")) {
-      remotePrefixes.add("origin");
-      continue;
-    }
-    if (text.startsWith("upstream/")) {
-      remotePrefixes.add("upstream");
-      continue;
-    }
-
-    const arrowIdx = text.indexOf(" -> ");
-    if (arrowIdx === -1) {
-      continue;
-    }
-    const left = text.slice(0, arrowIdx).trim();
-    const right = text.slice(arrowIdx + " -> ".length).trim();
-    if (!left.endsWith("/HEAD")) {
-      continue;
-    }
-    const prefix = left.slice(0, -"/HEAD".length).trim();
-    if (!prefix) {
-      continue;
-    }
-    if (right.startsWith(`${prefix}/`)) {
+    const prefix = resolveRemoteDecorationPrefix(text);
+    if (prefix) {
       remotePrefixes.add(prefix);
     }
   }
 
   return remotePrefixes;
+}
+
+function resolveRemoteDecorationPrefix(text: string): string | null {
+  if (text.startsWith("origin/")) {
+    return "origin";
+  }
+  if (text.startsWith("upstream/")) {
+    return "upstream";
+  }
+  const arrowIdx = text.indexOf(" -> ");
+  if (arrowIdx === -1) {
+    return null;
+  }
+  const left = text.slice(0, arrowIdx).trim();
+  const right = text.slice(arrowIdx + " -> ".length).trim();
+  if (!left.endsWith("/HEAD")) {
+    return null;
+  }
+  const prefix = left.slice(0, -"/HEAD".length).trim();
+  if (!prefix || !right.startsWith(`${prefix}/`)) {
+    return null;
+  }
+  return prefix;
 }
 
 function parseDecorationChip(

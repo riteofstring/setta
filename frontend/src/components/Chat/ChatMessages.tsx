@@ -686,6 +686,33 @@ function assignScrollRef(
   scrollRef.current = nextNode;
 }
 
+function clearActiveSearchHighlightTargets(scrollContainer: HTMLDivElement) {
+  const highlights = scrollContainer.querySelectorAll<HTMLElement>(
+    'mark[data-chat-search-highlight="true"]',
+  );
+  highlights.forEach((highlight) => {
+    highlight.removeAttribute("data-chat-search-highlight-target");
+  });
+  return highlights;
+}
+
+function resolveSearchMatchCount(args: {
+  conversationSearchTerms: Array<string>;
+  highlights: NodeListOf<HTMLElement>;
+}): number {
+  return args.conversationSearchTerms.length === 0 ? 0 : args.highlights.length;
+}
+
+function resolveActiveSearchMessageId(
+  activeHighlight: HTMLElement | null,
+): string | null {
+  return (
+    activeHighlight
+      ?.closest<HTMLElement>("[data-message-id]")
+      ?.getAttribute("data-message-id") ?? null
+  );
+}
+
 function syncActiveSearchHighlight({
   scrollContainer,
   conversationSearchTerms,
@@ -701,14 +728,11 @@ function syncActiveSearchHighlight({
   onConversationSearchMatchCountChange?: (count: number) => void;
   setActiveSearchMessageId: Dispatch<SetStateAction<string | null>>;
 }) {
-  const highlights = scrollContainer.querySelectorAll<HTMLElement>(
-    'mark[data-chat-search-highlight="true"]',
-  );
-  highlights.forEach((highlight) => {
-    highlight.removeAttribute("data-chat-search-highlight-target");
+  const highlights = clearActiveSearchHighlightTargets(scrollContainer);
+  const searchMatchCount = resolveSearchMatchCount({
+    conversationSearchTerms,
+    highlights,
   });
-  const searchMatchCount =
-    conversationSearchTerms.length === 0 ? 0 : highlights.length;
   onConversationSearchMatchCountChange?.(searchMatchCount);
   if (searchMatchCount === 0 || activeSearchMatchIndex === null) {
     previousActiveSearchTargetRef.current = null;
@@ -721,10 +745,7 @@ function syncActiveSearchHighlight({
   );
   const activeHighlight = highlights[resolvedOccurrenceIndex] ?? null;
   activeHighlight?.setAttribute("data-chat-search-highlight-target", "true");
-  const nextMessageId =
-    activeHighlight
-      ?.closest<HTMLElement>("[data-message-id]")
-      ?.getAttribute("data-message-id") ?? null;
+  const nextMessageId = resolveActiveSearchMessageId(activeHighlight);
   setActiveSearchMessageId((current) =>
     current === nextMessageId ? current : nextMessageId,
   );
@@ -1550,21 +1571,35 @@ function resolveCompactionSummaryText(
     if (!entry) {
       continue;
     }
-    const toolResult = toolResultsById[entry.toolCall.id];
-    const resultDisplay = resolveToolResultDisplay(
-      formatToolResult(toolResult),
-    );
-    if (resultDisplay) {
-      return resultDisplay;
+    const summaryText = resolveCompactionSummaryEntryText({
+      entry,
+      toolResultsById,
+      toolCallArguments,
+    });
+    if (summaryText) {
+      return summaryText;
     }
-    const argsFromMessage = entry.toolCall.function?.arguments;
-    const pendingArgs = toolCallArguments?.[entry.toolCall.id];
-    if (isRecord(argsFromMessage) && Object.keys(argsFromMessage).length > 0) {
-      return formatToolArgs(argsFromMessage);
-    }
-    if (pendingArgs && pendingArgs.trim().length > 0) {
-      return pendingArgs;
-    }
+  }
+  return null;
+}
+
+function resolveCompactionSummaryEntryText(args: {
+  entry: ToolCallRenderEntry;
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): string | null {
+  const toolResult = args.toolResultsById[args.entry.toolCall.id];
+  const resultDisplay = resolveToolResultDisplay(formatToolResult(toolResult));
+  if (resultDisplay) {
+    return resultDisplay;
+  }
+  const argsFromMessage = args.entry.toolCall.function?.arguments;
+  if (isRecord(argsFromMessage) && Object.keys(argsFromMessage).length > 0) {
+    return formatToolArgs(argsFromMessage);
+  }
+  const pendingArgs = args.toolCallArguments[args.entry.toolCall.id];
+  if (pendingArgs && pendingArgs.trim().length > 0) {
+    return pendingArgs;
   }
   return null;
 }
@@ -2966,6 +3001,35 @@ type ThinkingBoxBaseState = {
   shouldMeasureSummaryOverflow: boolean;
 };
 
+function resolveThinkingSummaryHeadlineText(args: {
+  content: string;
+  isStreaming: boolean;
+  summary: string | null | undefined;
+  suppressCollapsedSummary: boolean;
+}): string {
+  if (args.suppressCollapsedSummary) {
+    return resolveCollapsedThinkingActivityLabel({
+      isStreaming: args.isStreaming,
+    });
+  }
+  return resolveThinkingSummaryHeadline({
+    content: args.content,
+    summary: args.summary,
+    isStreaming: args.isStreaming,
+  });
+}
+
+function resolveCollapsedSummaryWithHint(args: {
+  activityHint?: string | null;
+  hasThinkingText: boolean;
+  summaryHeadlineText: string;
+}): string {
+  if (args.activityHint && !args.hasThinkingText) {
+    return `${args.summaryHeadlineText} - ${args.activityHint}`;
+  }
+  return args.summaryHeadlineText;
+}
+
 function resolveThinkingBoxBaseState({
   content,
   summary,
@@ -2981,20 +3045,19 @@ function resolveThinkingBoxBaseState({
 }): ThinkingBoxBaseState {
   const summaryText = summary?.trim() ?? "";
   const hasThinkingText = content.trim().length > 0;
-  const summaryHeadlineText = suppressCollapsedSummary
-    ? resolveCollapsedThinkingActivityLabel({ isStreaming })
-    : resolveThinkingSummaryHeadline({
-        content,
-        summary,
-        isStreaming,
-      });
-  const collapsedSummaryWithHint =
-    activityHint && !hasThinkingText
-      ? `${summaryHeadlineText} - ${activityHint}`
-      : summaryHeadlineText;
-  const shouldRenderPlainSummaryWithHint = Boolean(
-    !suppressCollapsedSummary && activityHint && !hasThinkingText,
-  );
+  const summaryHeadlineText = resolveThinkingSummaryHeadlineText({
+    content,
+    isStreaming,
+    summary,
+    suppressCollapsedSummary,
+  });
+  const collapsedSummaryWithHint = resolveCollapsedSummaryWithHint({
+    activityHint,
+    hasThinkingText,
+    summaryHeadlineText,
+  });
+  const shouldRenderPlainSummaryWithHint =
+    !suppressCollapsedSummary && Boolean(activityHint) && !hasThinkingText;
   const shouldMeasureSummaryOverflow =
     !suppressCollapsedSummary &&
     !hasThinkingText &&

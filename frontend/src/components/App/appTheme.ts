@@ -398,6 +398,18 @@ function resolveThemeClassName(theme: AppThemeConfig | null): string | null {
   return typeof theme?.className === "string" ? theme.className : null;
 }
 
+function resolveThemeColorSource(
+  raw: Record<string, unknown>,
+  mode: "light" | "dark",
+): unknown {
+  const hasLightVariant = "light" in raw || raw.light !== undefined;
+  const hasDarkVariant = "dark" in raw || raw.dark !== undefined;
+  if (!hasLightVariant && !hasDarkVariant) {
+    return raw;
+  }
+  return mode === "dark" ? raw.dark ?? raw.light : raw.light ?? raw.dark;
+}
+
 function resolveThemeColors(
   raw: AppThemeConfig["colors"],
   mode: "light" | "dark",
@@ -405,17 +417,7 @@ function resolveThemeColors(
   if (!raw || !isRecord(raw)) {
     return {};
   }
-  const hasVariants =
-    "light" in raw ||
-    "dark" in raw ||
-    Boolean((raw as { light?: unknown }).light) ||
-    Boolean((raw as { dark?: unknown }).dark);
-  if (hasVariants) {
-    const variant =
-      mode === "dark" ? raw.dark ?? raw.light : raw.light ?? raw.dark;
-    return extractStringMap<AppThemeColors>(variant);
-  }
-  return extractStringMap<AppThemeColors>(raw);
+  return extractStringMap<AppThemeColors>(resolveThemeColorSource(raw, mode));
 }
 
 function resolveThemeColorsWithDefaults(

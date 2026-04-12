@@ -54,6 +54,22 @@ type HandlerDependencies = {
   ) => void;
   handleOpenExternalLink: (url?: string | null) => void;
 };
+type RunHandlerArgs = {
+  fallbackConfigId: string | null;
+  allowRun: boolean;
+  allowParamChanges: boolean;
+  allowVariantChanges: boolean;
+  allowMultipleRuns: boolean;
+  effectiveRunCount: number;
+  deploymentMode: boolean;
+  isRunning: boolean;
+  setIsRunning: Dispatch<SetStateAction<boolean>>;
+  setLocalRunCount: Dispatch<SetStateAction<number>>;
+};
+type PreparedRunExecution = {
+  runParams: PreparedRunParams;
+  executionSectionId: string;
+};
 
 export function resolveAppRunState(args: {
   allowRun: boolean;
@@ -120,6 +136,16 @@ function resolveParamString(
 
 function resolveDefinitionString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function resolveActionParamString(
+  params: Record<string, unknown> | undefined,
+  key: string,
+  definitionValue: unknown,
+): string | null {
+  return (
+    resolveParamString(params, key) ?? resolveDefinitionString(definitionValue)
+  );
 }
 
 function normalizeOverrideMap(
@@ -285,64 +311,73 @@ function resolveRunStartCheck(args: {
   return { notification: null, shouldContinue: true };
 }
 
-function createRunHandler(args: {
-  fallbackConfigId: string | null;
-  allowRun: boolean;
-  allowParamChanges: boolean;
-  allowVariantChanges: boolean;
-  allowMultipleRuns: boolean;
-  effectiveRunCount: number;
-  deploymentMode: boolean;
-  isRunning: boolean;
-  setIsRunning: Dispatch<SetStateAction<boolean>>;
-  setLocalRunCount: Dispatch<SetStateAction<number>>;
-}): AppActionHandler {
-  return async (params) => {
-    const runStartCheck = resolveRunStartCheck(args);
-    if (!runStartCheck.shouldContinue) {
-      if (runStartCheck.notification) {
-        addTemporaryNotification(runStartCheck.notification);
-      }
-      return;
-    }
-    const preparedRun = prepareRunParams(params, args.fallbackConfigId);
-    if (!preparedRun.value) {
-      addTemporaryNotification(preparedRun.error ?? "Run is unavailable.");
-      return;
-    }
-    const policyError = resolveRunPolicyError(
-      preparedRun.value,
-      args.allowParamChanges,
-      args.allowVariantChanges,
-    );
-    if (policyError) {
-      addTemporaryNotification(policyError);
-      return;
-    }
-    const configState = await loadConfigState(preparedRun.value.configId);
-    if (!configState) {
-      addTemporaryNotification("Failed to load project config.");
-      return;
-    }
-    const runRequest = resolveRunRequest(
-      configState,
-      preparedRun.value.requestedSectionId,
-    );
-    if (!runRequest.canRun) {
-      addTemporaryNotification(
-        runRequest.disabledReason ?? "Run is unavailable.",
-      );
-      return;
-    }
-    const didRun = await runWithProgress(args.setIsRunning, () =>
-      submitRunRequest(preparedRun.value, runRequest.executionSectionId),
-    );
-    if (!didRun) {
-      addTemporaryNotification("Run failed.");
-      return;
-    }
-    recordSuccessfulRun(args.deploymentMode, args.setLocalRunCount);
+function notifyRunUnavailable(message?: string | null): null {
+  addTemporaryNotification(message ?? "Run is unavailable.");
+  return null;
+}
+
+async function prepareRunExecution(
+  params: Record<string, unknown> | undefined,
+  args: RunHandlerArgs,
+): Promise<PreparedRunExecution | null> {
+  const preparedRun = prepareRunParams(params, args.fallbackConfigId);
+  if (!preparedRun.value) {
+    return notifyRunUnavailable(preparedRun.error);
+  }
+  const policyError = resolveRunPolicyError(
+    preparedRun.value,
+    args.allowParamChanges,
+    args.allowVariantChanges,
+  );
+  if (policyError) {
+    addTemporaryNotification(policyError);
+    return null;
+  }
+  const configState = await loadConfigState(preparedRun.value.configId);
+  if (!configState) {
+    addTemporaryNotification("Failed to load project config.");
+    return null;
+  }
+  const runRequest = resolveRunRequest(
+    configState,
+    preparedRun.value.requestedSectionId,
+  );
+  if (!runRequest.canRun) {
+    return notifyRunUnavailable(runRequest.disabledReason);
+  }
+  return {
+    runParams: preparedRun.value,
+    executionSectionId: runRequest.executionSectionId,
   };
+}
+
+async function executeRunHandler(
+  params: Record<string, unknown> | undefined,
+  args: RunHandlerArgs,
+): Promise<void> {
+  const runStartCheck = resolveRunStartCheck(args);
+  if (!runStartCheck.shouldContinue) {
+    if (runStartCheck.notification) {
+      addTemporaryNotification(runStartCheck.notification);
+    }
+    return;
+  }
+  const preparedRun = await prepareRunExecution(params, args);
+  if (!preparedRun) {
+    return;
+  }
+  const didRun = await runWithProgress(args.setIsRunning, () =>
+    submitRunRequest(preparedRun.runParams, preparedRun.executionSectionId),
+  );
+  if (!didRun) {
+    addTemporaryNotification("Run failed.");
+    return;
+  }
+  recordSuccessfulRun(args.deploymentMode, args.setLocalRunCount);
+}
+
+function createRunHandler(args: RunHandlerArgs): AppActionHandler {
+  return (params) => executeRunHandler(params, args);
 }
 
 function triggerDownload(url: string, filename?: string) {
@@ -464,23 +499,21 @@ function buildRunActionParams(
   definition: AppActionDefinition,
   fallbackConfigId: string | null,
 ): Record<string, unknown> {
-  const resolvedSectionId =
-    resolveParamString(params, "sectionId") ??
-    resolveDefinitionString(definition.sectionId);
+  const sectionId = resolveActionParamString(
+    params,
+    "sectionId",
+    definition.sectionId,
+  );
   const configId =
-    resolveParamString(params, "configId") ??
-    resolveDefinitionString(definition.configId) ??
+    resolveActionParamString(params, "configId", definition.configId) ??
     fallbackConfigId;
-  const output: Record<string, unknown> = {
+  return {
     configId: configId ?? undefined,
     paramOverrides: params?.paramOverrides ?? definition.paramOverrides,
     sectionVariantOverrides:
       params?.sectionVariantOverrides ?? definition.sectionVariantOverrides,
+    ...(sectionId ? { sectionId } : {}),
   };
-  if (resolvedSectionId) {
-    output.sectionId = resolvedSectionId;
-  }
-  return output;
 }
 
 function buildDownloadArtifactActionHandler(

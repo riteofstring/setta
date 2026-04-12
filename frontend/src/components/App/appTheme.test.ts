@@ -79,6 +79,43 @@ describe("resolveAppTheme vars", () => {
     expect(resolved.typography.headingSizes?.h2).toBe("2.25rem");
   });
 
+  it("uses mode-specific colors and falls back across missing variants", () => {
+    const lightResolved = resolveAppTheme({
+      mode: "light",
+      colors: {
+        light: {
+          surface: "#f5f1ea",
+        },
+        dark: {
+          surface: "#120f0b",
+        },
+      },
+    });
+    const darkResolved = resolveAppTheme({
+      mode: "dark",
+      colors: {
+        light: {
+          surface: "#f5f1ea",
+        },
+        dark: {
+          surface: "#120f0b",
+        },
+      },
+    });
+    const darkFallback = resolveAppTheme({
+      mode: "dark",
+      colors: {
+        light: {
+          surface: "#f5f1ea",
+        },
+      },
+    });
+
+    expect(lightResolved.colors.surface).toBe("#f5f1ea");
+    expect(darkResolved.colors.surface).toBe("#120f0b");
+    expect(darkFallback.colors.surface).toBe("#f5f1ea");
+  });
+
   it("sets a default typography scale and supports overrides", () => {
     const resolvedDefault = resolveAppTheme(null);
     expect(resolvedDefault.style["--app-text-xs"]).toBe("0.75rem");

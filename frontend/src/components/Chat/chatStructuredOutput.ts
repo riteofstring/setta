@@ -413,6 +413,40 @@ function resolveStringStructuredOutputPayload({
   });
 }
 
+function resolveDefaultStructuredOutputPayload(args: {
+  value: unknown;
+  pathHint: string | null;
+  resolvedLanguage: ResolvedLanguageHint;
+}): StructuredOutputPayload | null {
+  if (typeof args.value === "string") {
+    return resolveStringStructuredOutputPayload({
+      value: args.value,
+      pathHint: args.pathHint,
+      resolvedLanguage: args.resolvedLanguage,
+    });
+  }
+  if (typeof args.value === "number" || typeof args.value === "boolean") {
+    return createStructuredOutputPayload({
+      text: String(args.value),
+      kind: "plain",
+      pathHint: args.pathHint,
+    });
+  }
+  if (Array.isArray(args.value) || isRecord(args.value)) {
+    return createStructuredOutputPayload({
+      text: formatStructuredOutputValue(args.value),
+      kind: "code",
+      language: CodeLanguageEnum.json,
+      pathHint: args.pathHint,
+    });
+  }
+  return createStructuredOutputPayload({
+    text: String(args.value),
+    kind: "plain",
+    pathHint: args.pathHint,
+  });
+}
+
 export function resolveStructuredOutputPayload({
   value,
   toolName,
@@ -441,36 +475,10 @@ export function resolveStructuredOutputPayload({
   if (specialToolPayload) {
     return specialToolPayload;
   }
-
-  if (typeof value === "string") {
-    return resolveStringStructuredOutputPayload({
-      value,
-      pathHint,
-      resolvedLanguage,
-    });
-  }
-
-  if (typeof value === "number" || typeof value === "boolean") {
-    return createStructuredOutputPayload({
-      text: String(value),
-      kind: "plain",
-      pathHint,
-    });
-  }
-
-  if (Array.isArray(value) || isRecord(value)) {
-    return createStructuredOutputPayload({
-      text: formatStructuredOutputValue(value),
-      kind: "code",
-      language: CodeLanguageEnum.json,
-      pathHint,
-    });
-  }
-
-  return createStructuredOutputPayload({
-    text: String(value),
-    kind: "plain",
+  return resolveDefaultStructuredOutputPayload({
+    value,
     pathHint,
+    resolvedLanguage,
   });
 }
 

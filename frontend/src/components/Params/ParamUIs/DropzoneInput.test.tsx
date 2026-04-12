@@ -89,6 +89,38 @@ describe("DropzoneInput attachment display", () => {
     expect(markup).toContain("1 KB");
   });
 
+  it("rejects invalid stored file metadata when parsing saved values", () => {
+    expect(
+      parseDropzoneValue(
+        JSON.stringify({
+          attachments: [
+            {
+              kind: "file",
+              id: "artifacts/test.txt",
+              name: "test.txt",
+              mimeType: 42,
+            },
+          ],
+        }),
+      ),
+    ).toBeNull();
+
+    expect(
+      parseDropzoneValue(
+        JSON.stringify({
+          attachments: [
+            {
+              kind: "file",
+              id: "artifacts/test.txt",
+              name: "test.txt",
+              size: Number.NaN,
+            },
+          ],
+        }),
+      ),
+    ).toBeNull();
+  });
+
   it("uploads local files through the Go binary route before updating artifacts", async () => {
     vi.mocked(uploadBinary).mockResolvedValue({
       data: createContentRef({

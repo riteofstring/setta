@@ -199,29 +199,53 @@ const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
   },
 };
 
+function appendSlashCommandIfEnabled(
+  commands: ChatSlashCommandDefinition[],
+  enabled: boolean,
+  command: ChatSlashCommandDefinition,
+) {
+  if (enabled) {
+    commands.push(command);
+  }
+}
+
+function appendSlashCommandsIfEnabled(
+  commands: ChatSlashCommandDefinition[],
+  enabled: boolean,
+  nextCommands: ChatSlashCommandDefinition[],
+) {
+  if (enabled) {
+    commands.push(...nextCommands);
+  }
+}
+
 export function buildChatSlashCommands(
   capabilities: ChatSlashCommandCapabilities = {},
 ): ChatSlashCommandDefinition[] {
-  const includeModel = capabilities.model ?? true;
-  const includePermissions = capabilities.permissions ?? true;
-  const includeSearch = capabilities.search ?? true;
-  const includeAppGenerationModes = capabilities.appGenerationModes ?? false;
   const commands: ChatSlashCommandDefinition[] = [
     CHAT_SLASH_COMMAND_DEFINITIONS.new,
     CHAT_SLASH_COMMAND_DEFINITIONS.resume,
   ];
-  if (includeAppGenerationModes) {
-    commands.push(...buildAppGenerationSlashCommandDefinitions());
-  }
-  if (includeModel) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.model);
-  }
-  if (includePermissions) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.permissions);
-  }
-  if (includeSearch) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.search);
-  }
+  appendSlashCommandsIfEnabled(
+    commands,
+    capabilities.appGenerationModes ?? false,
+    buildAppGenerationSlashCommandDefinitions(),
+  );
+  appendSlashCommandIfEnabled(
+    commands,
+    capabilities.model ?? true,
+    CHAT_SLASH_COMMAND_DEFINITIONS.model,
+  );
+  appendSlashCommandIfEnabled(
+    commands,
+    capabilities.permissions ?? true,
+    CHAT_SLASH_COMMAND_DEFINITIONS.permissions,
+  );
+  appendSlashCommandIfEnabled(
+    commands,
+    capabilities.search ?? true,
+    CHAT_SLASH_COMMAND_DEFINITIONS.search,
+  );
   commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.help);
   return commands;
 }
