@@ -214,54 +214,81 @@ func (s *Service) List() ([]SkillEntry, error) {
 
 	rows := make([]SkillEntry, 0)
 	for _, root := range roots {
-		info, err := os.Stat(root.Path)
-		if err != nil {
-			continue
-		}
-		if !info.IsDir() {
-			continue
-		}
-
-		skillDocs, err := iterSkillDocs(root.Path)
-		if err != nil {
-			continue
-		}
-		for _, skillDocPath := range skillDocs {
-			skillDir := filepath.Dir(skillDocPath)
-			relativePath, err := filepath.Rel(root.Path, skillDir)
-			if err != nil {
-				continue
-			}
-			relativePath = filepath.ToSlash(relativePath)
-			if relativePath == "." || relativePath == "" {
-				relativePath = "."
-			}
-			isEditable, editabilityReason := resolveSkillEditability(root.ID, relativePath, skillDocPath)
-			rows = append(rows, SkillEntry{
-				SkillID:           fmt.Sprintf("%s::%s", root.ID, relativePath),
-				Name:              filepath.Base(skillDir),
-				RootLabel:         root.Label,
-				RootPath:          root.Path,
-				RelativePath:      relativePath,
-				IsEditable:        isEditable,
-				EditabilityReason: stringPointerIfPresent(editabilityReason),
-				Description:       extractSkillDescription(skillDocPath),
-			})
-		}
+		rows = append(rows, listSkillEntriesForRoot(root)...)
 	}
 
-	sort.Slice(rows, func(i, j int) bool {
-		left := rows[i]
-		right := rows[j]
-		if diff := strings.Compare(strings.ToLower(left.RootLabel), strings.ToLower(right.RootLabel)); diff != 0 {
-			return diff < 0
-		}
-		if diff := strings.Compare(strings.ToLower(left.RelativePath), strings.ToLower(right.RelativePath)); diff != 0 {
-			return diff < 0
-		}
-		return strings.ToLower(left.Name) < strings.ToLower(right.Name)
-	})
+	sortSkillEntries(rows)
 	return rows, nil
+}
+
+func listSkillEntriesForRoot(root skillRoot) []SkillEntry {
+	info, err := os.Stat(root.Path)
+	if err != nil || !info.IsDir() {
+		return nil
+	}
+
+	skillDocs, err := iterSkillDocs(root.Path)
+	if err != nil {
+		return nil
+	}
+
+	rows := make([]SkillEntry, 0, len(skillDocs))
+	for _, skillDocPath := range skillDocs {
+		row, ok := buildSkillEntry(root, skillDocPath)
+		if ok {
+			rows = append(rows, row)
+		}
+	}
+	return rows
+}
+
+func buildSkillEntry(root skillRoot, skillDocPath string) (SkillEntry, bool) {
+	skillDir := filepath.Dir(skillDocPath)
+	relativePath, err := filepath.Rel(root.Path, skillDir)
+	if err != nil {
+		return SkillEntry{}, false
+	}
+
+	relativePath = normalizeListedSkillRelativePath(relativePath)
+	isEditable, editabilityReason := resolveSkillEditability(root.ID, relativePath, skillDocPath)
+	return SkillEntry{
+		SkillID:           fmt.Sprintf("%s::%s", root.ID, relativePath),
+		Name:              filepath.Base(skillDir),
+		RootLabel:         root.Label,
+		RootPath:          root.Path,
+		RelativePath:      relativePath,
+		IsEditable:        isEditable,
+		EditabilityReason: stringPointerIfPresent(editabilityReason),
+		Description:       extractSkillDescription(skillDocPath),
+	}, true
+}
+
+func normalizeListedSkillRelativePath(relativePath string) string {
+	normalized := filepath.ToSlash(relativePath)
+	if normalized == "." || normalized == "" {
+		return "."
+	}
+	return normalized
+}
+
+func sortSkillEntries(rows []SkillEntry) {
+	sort.Slice(rows, func(i, j int) bool {
+		return compareSkillEntries(rows[i], rows[j]) < 0
+	})
+}
+
+func compareSkillEntries(left SkillEntry, right SkillEntry) int {
+	if diff := compareCaseInsensitive(left.RootLabel, right.RootLabel); diff != 0 {
+		return diff
+	}
+	if diff := compareCaseInsensitive(left.RelativePath, right.RelativePath); diff != 0 {
+		return diff
+	}
+	return compareCaseInsensitive(left.Name, right.Name)
+}
+
+func compareCaseInsensitive(left string, right string) int {
+	return strings.Compare(strings.ToLower(left), strings.ToLower(right))
 }
 
 func (s *Service) ReadContent(skillID string) (SkillContent, error) {
@@ -330,9 +357,9 @@ func (s *Service) UpsertCustomSkill(skillID string, relativePath string, content
 
 func (s *Service) skillRoots() ([]skillRoot, error) {
 	candidates := []skillRoot{
-		{ID: "workspace_agents_skills", Label: "Workspace .agents/skills", Path: filepath.Join(s.workspaceRoot, ".agents", "skills")},
+		workspaceAgentsSkillRoot(s.workspaceRoot),
 		{ID: "workspace_claude_skills", Label: "Workspace .claude/skills", Path: filepath.Join(s.workspaceRoot, ".claude", "skills")},
-		{ID: "user_agents_skills", Label: "User ~/.agents/skills", Path: filepath.Join(s.homeDir, ".agents", "skills")},
+		defaultUserAgentsSkillRoot(s.homeDir),
 		{ID: "user_claude_skills", Label: "User ~/.claude/skills", Path: filepath.Join(s.homeDir, ".claude", "skills")},
 		{ID: "admin_codex_skills", Label: "Admin /etc/codex/skills", Path: "/etc/codex/skills"},
 	}
@@ -345,39 +372,16 @@ func (s *Service) skillRoots() ([]skillRoot, error) {
 		{ID: "agents_home_skills", Label: "AGENTS_HOME skills", Env: "AGENTS_HOME"},
 		{ID: "codex_home_skills", Label: "CODEX_HOME skills", Env: "CODEX_HOME"},
 	} {
-		raw, ok := s.lookupEnv(envCandidate.Env)
-		if !ok || strings.TrimSpace(raw) == "" {
-			continue
-		}
-		path, err := normalizePath(raw, "", s.lookupEnv, s.homeDir)
+		root, ok, err := resolveOptionalEnvSkillRoot(envCandidate.Env, envCandidate.ID, envCandidate.Label, s.lookupEnv, s.homeDir)
 		if err != nil {
 			return nil, err
 		}
-		if filepath.Base(path) != "skills" {
-			path = filepath.Join(path, "skills")
+		if ok {
+			candidates = append(candidates, root)
 		}
-		candidates = append(candidates, skillRoot{
-			ID:    envCandidate.ID,
-			Label: envCandidate.Label,
-			Path:  path,
-		})
 	}
 
-	roots := make([]skillRoot, 0, len(candidates))
-	seen := map[string]struct{}{}
-	for _, candidate := range candidates {
-		path, err := normalizePath(candidate.Path, "", s.lookupEnv, s.homeDir)
-		if err != nil {
-			return nil, err
-		}
-		if _, ok := seen[path]; ok {
-			continue
-		}
-		seen[path] = struct{}{}
-		candidate.Path = path
-		roots = append(roots, candidate)
-	}
-	return roots, nil
+	return normalizeUniqueSkillRoots(candidates, s.lookupEnv, s.homeDir)
 }
 
 func (s *Service) resolveSkillDocPathFromID(skillID string) (resolvedSkillDoc, error) {
@@ -425,29 +429,66 @@ func (s *Service) resolveSkillDocPathFromID(skillID string) (resolvedSkillDoc, e
 
 func (s *Service) iterPrioritizedCustomSkillRoots() ([]skillRoot, error) {
 	candidates := make([]skillRoot, 0, 3)
-	if raw, ok := s.lookupEnv("AGENTS_HOME"); ok && strings.TrimSpace(raw) != "" {
-		path, err := normalizePath(raw, "", s.lookupEnv, s.homeDir)
-		if err != nil {
-			return nil, err
-		}
-		if filepath.Base(path) != "skills" {
-			path = filepath.Join(path, "skills")
-		}
-		candidates = append(candidates, skillRoot{
-			ID:    "agents_home_skills",
-			Label: "AGENTS_HOME skills",
-			Path:  path,
-		})
+	agentsHomeRoot, ok, err := resolveOptionalEnvSkillRoot("AGENTS_HOME", "agents_home_skills", "AGENTS_HOME skills", s.lookupEnv, s.homeDir)
+	if err != nil {
+		return nil, err
 	}
-	candidates = append(candidates,
-		skillRoot{ID: "user_agents_skills", Label: "User ~/.agents/skills", Path: filepath.Join(s.homeDir, ".agents", "skills")},
-		skillRoot{ID: "workspace_agents_skills", Label: "Workspace .agents/skills", Path: filepath.Join(s.workspaceRoot, ".agents", "skills")},
-	)
+	if ok {
+		candidates = append(candidates, agentsHomeRoot)
+	}
+	candidates = append(candidates, defaultUserAgentsSkillRoot(s.homeDir), workspaceAgentsSkillRoot(s.workspaceRoot))
 
-	deduped := make([]skillRoot, 0, len(candidates))
+	roots, err := normalizeUniqueSkillRoots(candidates, s.lookupEnv, s.homeDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(roots) > 0 {
+		return roots, nil
+	}
+	return []skillRoot{defaultUserAgentsSkillRoot(s.homeDir)}, nil
+}
+
+func resolveOptionalEnvSkillRoot(envKey string, rootID string, rootLabel string, lookupEnv func(string) (string, bool), homeDir string) (skillRoot, bool, error) {
+	if lookupEnv == nil {
+		return skillRoot{}, false, nil
+	}
+	raw, ok := lookupEnv(envKey)
+	if !ok || strings.TrimSpace(raw) == "" {
+		return skillRoot{}, false, nil
+	}
+
+	path, err := normalizePath(raw, "", lookupEnv, homeDir)
+	if err != nil {
+		return skillRoot{}, false, err
+	}
+	if filepath.Base(path) != "skills" {
+		path = filepath.Join(path, "skills")
+	}
+
+	return skillRoot{ID: rootID, Label: rootLabel, Path: path}, true, nil
+}
+
+func defaultUserAgentsSkillRoot(homeDir string) skillRoot {
+	return skillRoot{
+		ID:    "user_agents_skills",
+		Label: "User ~/.agents/skills",
+		Path:  filepath.Join(homeDir, ".agents", "skills"),
+	}
+}
+
+func workspaceAgentsSkillRoot(workspaceRoot string) skillRoot {
+	return skillRoot{
+		ID:    "workspace_agents_skills",
+		Label: "Workspace .agents/skills",
+		Path:  filepath.Join(workspaceRoot, ".agents", "skills"),
+	}
+}
+
+func normalizeUniqueSkillRoots(candidates []skillRoot, lookupEnv func(string) (string, bool), homeDir string) ([]skillRoot, error) {
+	roots := make([]skillRoot, 0, len(candidates))
 	seen := map[string]struct{}{}
 	for _, candidate := range candidates {
-		path, err := normalizePath(candidate.Path, "", s.lookupEnv, s.homeDir)
+		path, err := normalizePath(candidate.Path, "", lookupEnv, homeDir)
 		if err != nil {
 			return nil, err
 		}
@@ -456,27 +497,9 @@ func (s *Service) iterPrioritizedCustomSkillRoots() ([]skillRoot, error) {
 		}
 		seen[path] = struct{}{}
 		candidate.Path = path
-		deduped = append(deduped, candidate)
+		roots = append(roots, candidate)
 	}
-
-	roots := make([]skillRoot, 0, len(customSkillRootPriority))
-	for _, rootID := range customSkillRootPriority {
-		for _, candidate := range deduped {
-			if candidate.ID != rootID {
-				continue
-			}
-			roots = append(roots, candidate)
-			break
-		}
-	}
-	if len(roots) > 0 {
-		return roots, nil
-	}
-	return []skillRoot{{
-		ID:    "user_agents_skills",
-		Label: "User ~/.agents/skills",
-		Path:  filepath.Join(s.homeDir, ".agents", "skills"),
-	}}, nil
+	return roots, nil
 }
 
 func (s *Service) resolveCustomSkillCreateRoot() (customSkillRoot, error) {
@@ -1023,35 +1046,73 @@ func decodeSkillPreview(preview []byte, truncated bool) (string, error) {
 }
 
 func normalizePath(raw string, base string, lookupEnv func(string) (string, bool), homeDir string) (string, error) {
+	value, err := prepareNormalizedPath(raw, lookupEnv, homeDir)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(base) != "" && !filepath.IsAbs(value) {
+		value = filepath.Join(base, value)
+	}
+	return resolveAbsolutePath(raw, value)
+}
+
+func prepareNormalizedPath(raw string, lookupEnv func(string) (string, bool), homeDir string) (string, error) {
 	value := strings.TrimSpace(raw)
 	if value == "" {
 		return "", fmt.Errorf("missing path")
 	}
-	value = os.Expand(value, func(key string) string {
-		if lookupEnv == nil {
-			return ""
-		}
+
+	value = expandNormalizedPathEnv(value, lookupEnv)
+	if !hasNormalizedPathHomePrefix(value) {
+		return value, nil
+	}
+	return expandNormalizedPathHome(value, homeDir)
+}
+
+func expandNormalizedPathEnv(value string, lookupEnv func(string) (string, bool)) string {
+	if lookupEnv == nil {
+		return value
+	}
+	return os.Expand(value, func(key string) string {
 		if resolved, ok := lookupEnv(key); ok {
 			return resolved
 		}
 		return ""
 	})
-	if value == "~" || strings.HasPrefix(value, "~/") || strings.HasPrefix(value, "~\\") {
-		resolvedHome := strings.TrimSpace(homeDir)
-		if resolvedHome == "" {
-			var err error
-			resolvedHome, err = os.UserHomeDir()
-			if err != nil {
-				return "", fmt.Errorf("resolve user home: %w", err)
-			}
-		}
-		suffix := strings.TrimPrefix(strings.TrimPrefix(value, "~"), string(os.PathSeparator))
-		suffix = strings.TrimPrefix(strings.TrimPrefix(suffix, "/"), "\\")
-		value = filepath.Join(resolvedHome, suffix)
+}
+
+func hasNormalizedPathHomePrefix(value string) bool {
+	return value == "~" || strings.HasPrefix(value, "~/") || strings.HasPrefix(value, "~\\")
+}
+
+func expandNormalizedPathHome(value string, homeDir string) (string, error) {
+	resolvedHome, err := resolveNormalizedPathHomeDir(homeDir)
+	if err != nil {
+		return "", err
 	}
-	if strings.TrimSpace(base) != "" && !filepath.IsAbs(value) {
-		value = filepath.Join(base, value)
+	return filepath.Join(resolvedHome, trimNormalizedPathHomePrefix(value)), nil
+}
+
+func resolveNormalizedPathHomeDir(homeDir string) (string, error) {
+	resolvedHome := strings.TrimSpace(homeDir)
+	if resolvedHome != "" {
+		return resolvedHome, nil
 	}
+
+	resolvedHome, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve user home: %w", err)
+	}
+	return resolvedHome, nil
+}
+
+func trimNormalizedPathHomePrefix(value string) string {
+	suffix := strings.TrimPrefix(strings.TrimPrefix(value, "~"), string(os.PathSeparator))
+	suffix = strings.TrimPrefix(strings.TrimPrefix(suffix, "/"), "\\")
+	return suffix
+}
+
+func resolveAbsolutePath(raw string, value string) (string, error) {
 	absoluteValue, err := filepath.Abs(value)
 	if err != nil {
 		return "", fmt.Errorf("resolve path %q: %w", raw, err)

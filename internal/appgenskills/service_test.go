@@ -917,6 +917,59 @@ func TestWriteExistingCustomSkillDocReturnsMissingWhenTargetDisappearsBeforeOpen
 	}
 }
 
+func TestNormalizePathExpandsEnvHomeAndRelativeBase(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	for _, path := range []string{workspaceRoot, homeDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	for _, testCase := range []struct {
+		name     string
+		raw      string
+		base     string
+		homeDir  string
+		lookup   testEnv
+		expected string
+	}{
+		{
+			name:     "env expansion",
+			raw:      "${SKILL_ROOT}/generated",
+			lookup:   testEnv{"SKILL_ROOT": filepath.Join(root, "env-root")},
+			homeDir:  homeDir,
+			expected: filepath.Join(root, "env-root", "generated"),
+		},
+		{
+			name:     "home expansion",
+			raw:      "~/skills/custom",
+			lookup:   testEnv{},
+			homeDir:  homeDir,
+			expected: filepath.Join(homeDir, "skills", "custom"),
+		},
+		{
+			name:     "relative base",
+			raw:      "nested/skill",
+			base:     workspaceRoot,
+			lookup:   testEnv{},
+			homeDir:  homeDir,
+			expected: filepath.Join(workspaceRoot, "nested", "skill"),
+		},
+	} {
+		resolved, err := normalizePath(testCase.raw, testCase.base, testCase.lookup.lookup, testCase.homeDir)
+		if err != nil {
+			t.Fatalf("%s: normalize path: %v", testCase.name, err)
+		}
+		if resolved != filepath.Clean(testCase.expected) {
+			t.Fatalf("%s: expected %q, got %q", testCase.name, filepath.Clean(testCase.expected), resolved)
+		}
+	}
+}
+
 func newTestService(t *testing.T, workspaceRoot string, homeDir string, env testEnv) *Service {
 	t.Helper()
 
