@@ -199,6 +199,66 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 14:20 UTC
+
+- reread the plan and handoff first, then stopped the recent pattern of
+  attribution-only passes on the same `rotaryParamCodeObjDefault` lane
+- picked one bounded production hypothesis directly on the row-render handoff:
+  remove the broad project-state subscription from the common unfiltered
+  `GetParamSwitch` path instead of taking another instrumentation-only step
+- changed `frontend/src/components/Params/GetParamSwitch.tsx` so the no-filter
+  path only subscribes to `paramFilter` and only pays the heavier
+  display-name/filter selector cost when filtering is actually active
+- added `frontend/src/components/Params/GetParamSwitch.test.tsx` with two
+  focused regressions:
+  - the unfiltered row list does not rerender on unrelated project-state writes
+  - active filtering still narrows rows by display name
+- added
+  `perf/reports/frontend/2026-04-13_settings-graph-get-param-switch-unfiltered-fast-path.md`
+  with the canonical lane readout
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/GetParamSwitch.test.tsx src/components/Params/ParamSwitch.test.tsx src/components/Params/GroupContainer.test.tsx`
+    -> pass (`3` files, `9` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/GetParamSwitch.tsx src/components/Params/GetParamSwitch.test.tsx`
+    -> pass
+  - first
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-001/worktree-ai.log`
+    -> reached `surface_ready`, then timed out during preflight
+       `page.evaluate`
+  - bounded retry of the same probe command
+    -> pass (`1` Playwright test, `54.4s`)
+    -> direct-open phase sequence:
+       `73ms app_router_loading` -> `2321ms settings_loading` ->
+       `3867ms backend_loading` -> `4393ms app_shell_without_surface` ->
+       `8244ms project_loading` -> `23726ms surface_ready`
+    -> canonical target stayed `rotaryParamCodeObjDefault`
+    -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+    -> lane readout:
+       `presentedSceneSectionParamDndListRowsReactRender`
+       `440.5ms` total / `68.7ms` max,
+       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+       `469.8ms` total / `70.9ms` max
+  - fresh-context headless CDP smoke check:
+    - first bootstrap URL attempt -> rejected token on the bootstrap card
+    - refreshed runtime via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-001/worktree-ai.log`
+    - second fresh-token bootstrap URL attempt -> pass
+      -> `All Settings` loaded, the settings graph canary mounted, the visible
+         graph surface looked intact, and the sub-agent reported no console
+         errors
+- reading:
+  - this was a closed non-winning hotspot hypothesis: the no-filter fast path
+    is a sound cleanup with regression coverage, but it did not reduce the live
+    row-handoff hotspot on the canonical lane
+  - do not spend another default pass on `GetParamSwitch` filtering unless
+    fresh evidence points back there
+  - keep canonical target section `rotaryParamCodeObjDefault`
+- next:
+  - take one bounded production or attribution slice inside `ParamSwitch` row
+    rendering or one immediate row sub-owner on the same canonical lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 13:52 UTC
 
 - item `431` landed one bounded attribution slice on the canonical

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 13:52 UTC
+Last updated: 2026-04-13 14:20 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,71 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `432` landed one bounded production slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by removing the broad project-state
+  subscription from the common unfiltered `GetParamSwitch` path:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stopped the recent pattern of
+      attribution-only passes on the same lane
+    - chose one production hypothesis directly on the row-render handoff that
+      item `431` had isolated, instead of opening another oracle or harness
+      lane
+    - kept the slice bounded to one component split, one focused regression
+      file, one live worktree probe rerun, one perf note, and one fresh-token
+      headless CDP smoke check
+  - code changed in:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+      so the default no-filter path now subscribes only to `paramFilter` and
+      skips the broad project-state selector until filtering is actually active
+    - `frontend/src/components/Params/GetParamSwitch.test.tsx`
+      with focused coverage for the new fast path and for active display-name
+      filtering behavior
+    - `perf/reports/frontend/2026-04-13_settings-graph-get-param-switch-unfiltered-fast-path.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GetParamSwitch.test.tsx src/components/Params/ParamSwitch.test.tsx src/components/Params/GroupContainer.test.tsx`
+      -> passed (`3` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GetParamSwitch.tsx src/components/Params/GetParamSwitch.test.tsx`
+      -> passed
+    - first
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-001/worktree-ai.log`
+      -> reached `surface_ready`, then timed out during a preflight
+         `page.evaluate`
+    - bounded retry of the same probe command
+      -> passed (`1` Playwright test, `54.4s`)
+      -> direct-open phase sequence on the worktree:
+         `73ms app_router_loading` -> `2321ms settings_loading` ->
+         `3867ms backend_loading` -> `4393ms app_shell_without_surface` ->
+         `8244ms project_loading` -> `23726ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+      -> lane readout on the successful retry:
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `440.5ms` total / `68.7ms` max,
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `469.8ms` total / `70.9ms` max
+    - fresh-context headless CDP smoke check on the authenticated bootstrap URL
+      refreshed through `./scripts/dev-runtime-info.sh`
+      -> passed
+      -> `All Settings` loaded, the settings graph canary mounted, the visible
+         graph surface looked intact, and the sub-agent reported no console
+         errors
+  - reading:
+    - this production hypothesis did not produce a live hotspot win on the
+      canonical lane; the row-handoff owner stayed dominant and measured higher
+      on the successful retry than the prior attribution run
+    - the no-filter fast path is still worth keeping because it removes a broad
+      subscription from the common path and now has focused regression coverage
+    - treat `GetParamSwitch` filtering as a closed non-winning hotspot
+      hypothesis until fresh evidence points back to it
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - take one bounded production or attribution slice inside `ParamSwitch`
+      row rendering or one immediate row sub-owner on the same canonical lane;
+      do not spend another default pass on `GetParamSwitch` filtering,
+      duplicate-index work, DnD tree work, or oracle-only setup unless fresh
+      evidence points back there
 
 - item `431` landed one bounded attribution slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by splitting the remaining
