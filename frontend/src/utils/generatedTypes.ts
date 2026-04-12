@@ -4007,14 +4007,6 @@ export const SpreadsheetGridDensityEnum = {
   comfortable: "comfortable",
 } as const;
 export type SpreadsheetGridDensity = gt.SpreadsheetGridDensity;
-
-export const StateMachineCountOperatorEnum = {
-  lt: "lt",
-  lte: "lte",
-  eq: "eq",
-  gte: "gte",
-  gt: "gt",
-} as const;
 export type StateMachineCountOperator = gt.StateMachineCountOperator;
 
 export const StateMachineGateTypeEnum = {
@@ -4783,6 +4775,44 @@ export const SettaFilesLocationPolicyConfig = {
   requested: ["auto", "local", "global"],
   resolved: ["local", "global"],
 } satisfies gt.SettaFilesLocationPolicy;
+
+export const StateMachineUIConfig = {
+  defaultGateType: "AND",
+  defaultSourceActivationCountOperator: "eq",
+  defaultSourceFilterType: "run_completed",
+  defaultTargetActionType: "reset_thread",
+  defaultThreadStrategy: "continue_current_thread",
+  gateTypeOptions: [
+    { label: "AND", value: "AND" },
+    { label: "OR", value: "OR" },
+    { label: "XOR", value: "XOR" },
+  ],
+  permissionModeOptions: [
+    { label: "Minimal", value: "minimal" },
+    { label: "Yolo", value: "yolo" },
+    { label: "Config TOML Custom", value: "config_toml_custom" },
+  ],
+  sourceActivationCountOperatorOptions: [
+    { label: "<", value: "lt" },
+    { label: "<=", value: "lte" },
+    { label: "=", value: "eq" },
+    { label: ">=", value: "gte" },
+    { label: ">", value: "gt" },
+  ],
+  sourceFilterOptions: [
+    { label: "Run Completed", value: "run_completed" },
+    { label: "Run Failed", value: "run_failed" },
+    { label: "Structured Signal", value: "signal" },
+  ],
+  targetActionOptions: [
+    { label: "Reset Thread", value: "reset_thread" },
+    { label: "Send Prompt", value: "send_prompt" },
+  ],
+  threadStrategyOptions: [
+    { label: "Continue Current Thread", value: "continue_current_thread" },
+    { label: "New Thread Before Send", value: "new_thread_before_send" },
+  ],
+} satisfies gt.StateMachineUIConfigValue;
 
 export const TaskBoardUIConfig = {
   monthOptions: [

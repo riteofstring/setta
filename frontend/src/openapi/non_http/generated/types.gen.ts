@@ -5753,6 +5753,14 @@ export type SpreadsheetSectionImpl = {
 export type StateMachineCountOperator = "lt" | "lte" | "eq" | "gte" | "gt";
 
 /**
+ * StateMachineCountOperatorOption
+ */
+type StateMachineCountOperatorOption = {
+  label: string;
+  value: StateMachineCountOperator;
+};
+
+/**
  * StateMachineEdge
  */
 type StateMachineEdge = {
@@ -5839,10 +5847,26 @@ type StateMachineGateSectionImpl = {
 export type StateMachineGateType = "AND" | "OR" | "XOR";
 
 /**
+ * StateMachineGateTypeOption
+ */
+type StateMachineGateTypeOption = {
+  label: string;
+  value: StateMachineGateType;
+};
+
+/**
  * StateMachineGateUIState
  */
 type StateMachineGateUIState = {
   showDetails: boolean;
+};
+
+/**
+ * StateMachinePermissionModeOption
+ */
+type StateMachinePermissionModeOption = {
+  label: string;
+  value: ChatPermissionMode;
 };
 
 /**
@@ -5876,6 +5900,14 @@ type StateMachineSourceFilter = {
  * StateMachineSourceFilterType
  */
 type StateMachineSourceFilterType = "run_completed" | "run_failed" | "signal";
+
+/**
+ * StateMachineSourceFilterTypeOption
+ */
+type StateMachineSourceFilterTypeOption = {
+  label: string;
+  value: StateMachineSourceFilterType;
+};
 
 /**
  * StateMachineStartSectionImpl
@@ -5933,11 +5965,44 @@ type StateMachineTargetAction = {
 type StateMachineTargetActionType = "send_prompt" | "reset_thread";
 
 /**
+ * StateMachineTargetActionTypeOption
+ */
+type StateMachineTargetActionTypeOption = {
+  label: string;
+  value: StateMachineTargetActionType;
+};
+
+/**
  * StateMachineThreadStrategy
  */
 type StateMachineThreadStrategy =
   | "continue_current_thread"
   | "new_thread_before_send";
+
+/**
+ * StateMachineThreadStrategyOption
+ */
+type StateMachineThreadStrategyOption = {
+  label: string;
+  value: StateMachineThreadStrategy;
+};
+
+/**
+ * StateMachineUIConfigValue
+ */
+export type StateMachineUIConfigValue = {
+  defaultGateType: StateMachineGateType;
+  defaultSourceActivationCountOperator: StateMachineCountOperator;
+  defaultSourceFilterType: StateMachineSourceFilterType;
+  defaultTargetActionType: StateMachineTargetActionType;
+  defaultThreadStrategy: StateMachineThreadStrategy;
+  gateTypeOptions: null | Array<StateMachineGateTypeOption>;
+  permissionModeOptions: null | Array<StateMachinePermissionModeOption>;
+  sourceActivationCountOperatorOptions: null | Array<StateMachineCountOperatorOption>;
+  sourceFilterOptions: null | Array<StateMachineSourceFilterTypeOption>;
+  targetActionOptions: null | Array<StateMachineTargetActionTypeOption>;
+  threadStrategyOptions: null | Array<StateMachineThreadStrategyOption>;
+};
 
 /**
  * StatusTransportRoutes

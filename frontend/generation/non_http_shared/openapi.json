@@ -13931,6 +13931,20 @@
         "title": "StateMachineCountOperator",
         "type": "string"
       },
+      "StateMachineCountOperatorOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/StateMachineCountOperator"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "StateMachineCountOperatorOption",
+        "type": "object"
+      },
       "StateMachineEdge": {
         "additionalProperties": false,
         "properties": {
@@ -14228,6 +14242,20 @@
         "title": "StateMachineGateType",
         "type": "string"
       },
+      "StateMachineGateTypeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/StateMachineGateType"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "StateMachineGateTypeOption",
+        "type": "object"
+      },
       "StateMachineGateUIState": {
         "additionalProperties": false,
         "properties": {
@@ -14237,6 +14265,20 @@
         },
         "required": ["showDetails"],
         "title": "StateMachineGateUIState",
+        "type": "object"
+      },
+      "StateMachinePermissionModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/ChatPermissionMode"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "StateMachinePermissionModeOption",
         "type": "object"
       },
       "StateMachineSectionSettings": {
@@ -14301,6 +14343,20 @@
         "enum": ["run_completed", "run_failed", "signal"],
         "title": "StateMachineSourceFilterType",
         "type": "string"
+      },
+      "StateMachineSourceFilterTypeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/StateMachineSourceFilterType"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "StateMachineSourceFilterTypeOption",
+        "type": "object"
       },
       "StateMachineStartSectionImpl": {
         "additionalProperties": false,
@@ -14455,10 +14511,109 @@
         "title": "StateMachineTargetActionType",
         "type": "string"
       },
+      "StateMachineTargetActionTypeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/StateMachineTargetActionType"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "StateMachineTargetActionTypeOption",
+        "type": "object"
+      },
       "StateMachineThreadStrategy": {
         "enum": ["continue_current_thread", "new_thread_before_send"],
         "title": "StateMachineThreadStrategy",
         "type": "string"
+      },
+      "StateMachineThreadStrategyOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/StateMachineThreadStrategy"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "StateMachineThreadStrategyOption",
+        "type": "object"
+      },
+      "StateMachineUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "defaultGateType": {
+            "$ref": "#/components/schemas/StateMachineGateType"
+          },
+          "defaultSourceActivationCountOperator": {
+            "$ref": "#/components/schemas/StateMachineCountOperator"
+          },
+          "defaultSourceFilterType": {
+            "$ref": "#/components/schemas/StateMachineSourceFilterType"
+          },
+          "defaultTargetActionType": {
+            "$ref": "#/components/schemas/StateMachineTargetActionType"
+          },
+          "defaultThreadStrategy": {
+            "$ref": "#/components/schemas/StateMachineThreadStrategy"
+          },
+          "gateTypeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/StateMachineGateTypeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "permissionModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/StateMachinePermissionModeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "sourceActivationCountOperatorOptions": {
+            "items": {
+              "$ref": "#/components/schemas/StateMachineCountOperatorOption"
+            },
+            "type": ["null", "array"]
+          },
+          "sourceFilterOptions": {
+            "items": {
+              "$ref": "#/components/schemas/StateMachineSourceFilterTypeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "targetActionOptions": {
+            "items": {
+              "$ref": "#/components/schemas/StateMachineTargetActionTypeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "threadStrategyOptions": {
+            "items": {
+              "$ref": "#/components/schemas/StateMachineThreadStrategyOption"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "defaultGateType",
+          "defaultSourceFilterType",
+          "defaultTargetActionType",
+          "defaultThreadStrategy",
+          "defaultSourceActivationCountOperator",
+          "gateTypeOptions",
+          "sourceFilterOptions",
+          "targetActionOptions",
+          "threadStrategyOptions",
+          "sourceActivationCountOperatorOptions",
+          "permissionModeOptions"
+        ],
+        "title": "StateMachineUIConfigValue",
+        "type": "object"
       },
       "StatusTransportRoutes": {
         "additionalProperties": false,

@@ -1,4 +1,5 @@
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
+import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
@@ -10,9 +11,8 @@ import { useAIStore, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  ChatPermissionModeEnum,
   SectionTypeEnum,
-  StateMachineCountOperatorEnum,
+  StateMachineUIConfig,
   type StateMachineCountOperator,
 } from "utils/generatedTypes";
 
@@ -49,6 +49,10 @@ type WorkflowOptionGroups = Array<{
   group: string;
   items: Array<{ id: string; name: string }>;
 }>;
+type WorkflowConfigOption<T extends string> = {
+  value: T;
+  label: string;
+};
 type WorkflowDraftState = {
   draftEdge: WorkflowEdge | null;
   promptSourceType: WorkflowPromptSourceType;
@@ -82,36 +86,44 @@ type WorkflowFooterProps = {
   onReset: () => void;
 };
 
-const DEFAULT_SOURCE_FILTER_TYPE: WorkflowSourceFilterType = "run_completed";
+const DEFAULT_SOURCE_FILTER_TYPE: WorkflowSourceFilterType =
+  StateMachineUIConfig.defaultSourceFilterType as WorkflowSourceFilterType;
 const SIGNAL_SOURCE_FILTER_TYPE: WorkflowSourceFilterType = "signal";
 const SEND_PROMPT_ACTION_TYPE: WorkflowTargetActionType = "send_prompt";
-const RESET_THREAD_ACTION_TYPE: WorkflowTargetActionType = "reset_thread";
+const RESET_THREAD_ACTION_TYPE: WorkflowTargetActionType =
+  StateMachineUIConfig.defaultTargetActionType as WorkflowTargetActionType;
 const DEFAULT_THREAD_STRATEGY: WorkflowThreadStrategy =
-  "continue_current_thread";
+  StateMachineUIConfig.defaultThreadStrategy as WorkflowThreadStrategy;
+const DEFAULT_SOURCE_ACTIVATION_COUNT_OPERATOR: WorkflowCountOperator =
+  StateMachineUIConfig.defaultSourceActivationCountOperator as WorkflowCountOperator;
 const INLINE_PROMPT_SOURCE: WorkflowPromptSourceType = "inline_prompt";
 const PROMPT_TEMPLATE_SOURCE: WorkflowPromptSourceType = "prompt_template";
 const PROMPT_SECTION_SOURCE: WorkflowPromptSourceType = "prompt_section";
 
-const SOURCE_FILTER_OPTIONS = [
-  {
-    group: "Chat Triggers",
-    items: [
-      { id: "run_completed", name: "Run Completed" },
-      { id: "run_failed", name: "Run Failed" },
-      { id: "signal", name: "Structured Signal" },
-    ],
-  },
-];
+function buildComboboxItems<T extends string>(
+  group: string,
+  options: ReadonlyArray<WorkflowConfigOption<T>>,
+): AllItemsType<T> {
+  return [
+    {
+      group,
+      items: options.map((option) => ({
+        id: option.value,
+        name: option.label,
+      })),
+    },
+  ];
+}
 
-const TARGET_ACTION_OPTIONS = [
-  {
-    group: "Chat Actions",
-    items: [
-      { id: "reset_thread", name: "Reset Thread" },
-      { id: "send_prompt", name: "Send Prompt" },
-    ],
-  },
-];
+const SOURCE_FILTER_OPTIONS = buildComboboxItems(
+  "Chat Triggers",
+  StateMachineUIConfig.sourceFilterOptions,
+);
+
+const TARGET_ACTION_OPTIONS = buildComboboxItems(
+  "Chat Actions",
+  StateMachineUIConfig.targetActionOptions,
+);
 
 const PROMPT_SOURCE_OPTIONS = [
   {
@@ -126,48 +138,20 @@ const PROMPT_SOURCE_OPTIONS = [
 
 const PROMPT_INPUTS_PLACEHOLDER = '{\n  "name": "Kevin"\n}';
 
-const THREAD_STRATEGY_OPTIONS = [
-  {
-    group: "Thread Strategy",
-    items: [
-      {
-        id: "continue_current_thread",
-        name: "Continue Current Thread",
-      },
-      {
-        id: "new_thread_before_send",
-        name: "New Thread Before Send",
-      },
-    ],
-  },
-];
+const THREAD_STRATEGY_OPTIONS = buildComboboxItems(
+  "Thread Strategy",
+  StateMachineUIConfig.threadStrategyOptions,
+);
 
-const SOURCE_ACTIVATION_COUNT_OPERATOR_OPTIONS = [
-  {
-    group: "Count Operators",
-    items: [
-      { id: StateMachineCountOperatorEnum.lt, name: "<" },
-      { id: StateMachineCountOperatorEnum.lte, name: "<=" },
-      { id: StateMachineCountOperatorEnum.eq, name: "=" },
-      { id: StateMachineCountOperatorEnum.gte, name: ">=" },
-      { id: StateMachineCountOperatorEnum.gt, name: ">" },
-    ],
-  },
-];
+const SOURCE_ACTIVATION_COUNT_OPERATOR_OPTIONS = buildComboboxItems(
+  "Count Operators",
+  StateMachineUIConfig.sourceActivationCountOperatorOptions,
+);
 
-const PERMISSION_MODE_OPTIONS = [
-  {
-    group: "Permissions",
-    items: [
-      { id: ChatPermissionModeEnum.minimal, name: "Minimal" },
-      { id: ChatPermissionModeEnum.yolo, name: "Yolo" },
-      {
-        id: ChatPermissionModeEnum.config_toml_custom,
-        name: "Config TOML Custom",
-      },
-    ],
-  },
-];
+const PERMISSION_MODE_OPTIONS = buildComboboxItems(
+  "Permissions",
+  StateMachineUIConfig.permissionModeOptions,
+);
 
 function cloneWorkflowEdge(edge: WorkflowEdge): WorkflowEdge {
   return {
@@ -642,7 +626,7 @@ function WorkflowConditionSection({
                 ...current,
                 sourceActivationCountCondition: event.target.checked
                   ? {
-                      operator: StateMachineCountOperatorEnum.eq,
+                      operator: DEFAULT_SOURCE_ACTIVATION_COUNT_OPERATOR,
                       value: 0,
                     }
                   : null,
@@ -691,7 +675,7 @@ function WorkflowConditionSection({
                       buildSourceActivationCountCondition(
                         current.sourceActivationCountCondition,
                         current.sourceActivationCountCondition?.operator ??
-                          StateMachineCountOperatorEnum.eq,
+                          DEFAULT_SOURCE_ACTIVATION_COUNT_OPERATOR,
                         normalizeSourceActivationValue(event.target.value),
                       ),
                   }))

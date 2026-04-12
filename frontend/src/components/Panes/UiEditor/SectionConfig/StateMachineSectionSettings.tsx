@@ -15,7 +15,7 @@ import {
   BaseSectionImplUnion,
   SectionTypeEnum,
   StateMachineGateType,
-  StateMachineGateTypeEnum,
+  StateMachineUIConfig,
 } from "utils/generatedTypes";
 type StateMachineSectionSettingsProps = {
   sectionId: string;
@@ -42,11 +42,10 @@ type StateMachineSectionImpl = Extract<
 const GATE_TYPE_OPTIONS = [
   {
     group: "Gate Types",
-    items: [
-      { id: StateMachineGateTypeEnum.AND, name: "AND" },
-      { id: StateMachineGateTypeEnum.OR, name: "OR" },
-      { id: StateMachineGateTypeEnum.XOR, name: "XOR" },
-    ],
+    items: StateMachineUIConfig.gateTypeOptions.map((option) => ({
+      id: option.value,
+      name: option.label,
+    })),
   },
 ];
 function getStateMachineSectionState(
@@ -154,7 +153,7 @@ export function StateMachineSectionSettings({
           {
             machineGroupId,
             label,
-            gateType: next.gateType ?? StateMachineGateTypeEnum.AND,
+            gateType: next.gateType ?? StateMachineUIConfig.defaultGateType,
           },
         );
       },
