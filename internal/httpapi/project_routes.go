@@ -2494,65 +2494,114 @@ func setCodeSectionAttachedTerminalHandler(deps ProjectRouteDependencies) http.H
 	}
 }
 
+type deleteSectionVariantOrAskRequestState struct {
+	projectID string
+	sectionID string
+	variantID string
+	runtime   *projectstate.Runtime
+}
+
 func deleteSectionVariantOrAskHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[DeleteSectionVariantOrAskRequest](r)
-		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+		requestState, ok := buildDeleteSectionVariantOrAskRequestState(w, r, deps)
+		if !ok {
+			return
+		}
+		resolvedPromptPath, ok := resolveDeleteSectionVariantPromptPath(w, r, deps.WorkspaceRoot, requestState)
+		if !ok {
+			return
+		}
+		if resolvedPromptPath != nil {
+			writeJSON(w, http.StatusOK, *resolvedPromptPath)
 			return
 		}
 
-		projectID := strings.TrimSpace(payload.ProjectID)
-		if projectID == "" {
-			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
-			return
-		}
-		sectionID := strings.TrimSpace(payload.SectionID)
-		if sectionID == "" {
-			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
-			return
-		}
-		variantID := strings.TrimSpace(payload.VariantID)
-		if variantID == "" {
-			writeError(w, r, http.StatusBadRequest, "variant_id_required", "Variant id is required.")
-			return
-		}
-		if deps.ProjectState == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-		runtime, err := projectRuntimeForRequest(deps, r)
-		if err != nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-
-		promptPath, requiresPrompt, err := runtime.DeleteSectionVariantPromptPath(r.Context(), projectID, sectionID, variantID)
+		snapshot, err := requestState.runtime.DeleteSectionVariant(
+			r.Context(),
+			requestState.projectID,
+			requestState.sectionID,
+			requestState.variantID,
+		)
 		if err != nil {
 			writeDeleteSectionVariantError(w, r, err)
 			return
 		}
-		if requiresPrompt {
-			resolvedPath, err := statefs.ResolveWithinRoot(deps.WorkspaceRoot, promptPath, "File path")
-			if err != nil {
-				writeError(w, r, http.StatusForbidden, "filepath_forbidden", "File path must be within the project root.")
-				return
-			}
-			writeJSON(w, http.StatusOK, resolvedPath)
-			return
-		}
-
-		snapshot, err := runtime.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID)
-		if err != nil {
-			writeDeleteSectionVariantError(w, r, err)
-			return
-		}
-		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+		if err := broadcastProjectRouteStateUpdate(r, deps, requestState.runtime, snapshot, requestState.projectID); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func buildDeleteSectionVariantOrAskRequestState(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps ProjectRouteDependencies,
+) (deleteSectionVariantOrAskRequestState, bool) {
+	payload, err := decodeJSONBody[DeleteSectionVariantOrAskRequest](r)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+		return deleteSectionVariantOrAskRequestState{}, false
+	}
+
+	projectID := strings.TrimSpace(payload.ProjectID)
+	if projectID == "" {
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+		return deleteSectionVariantOrAskRequestState{}, false
+	}
+	sectionID := strings.TrimSpace(payload.SectionID)
+	if sectionID == "" {
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+		return deleteSectionVariantOrAskRequestState{}, false
+	}
+	variantID := strings.TrimSpace(payload.VariantID)
+	if variantID == "" {
+		writeError(w, r, http.StatusBadRequest, "variant_id_required", "Variant id is required.")
+		return deleteSectionVariantOrAskRequestState{}, false
+	}
+	if deps.ProjectState == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return deleteSectionVariantOrAskRequestState{}, false
+	}
+	runtime, err := projectRuntimeForRequest(deps, r)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return deleteSectionVariantOrAskRequestState{}, false
+	}
+	return deleteSectionVariantOrAskRequestState{
+		projectID: projectID,
+		sectionID: sectionID,
+		variantID: variantID,
+		runtime:   runtime,
+	}, true
+}
+
+func resolveDeleteSectionVariantPromptPath(
+	w http.ResponseWriter,
+	r *http.Request,
+	workspaceRoot string,
+	requestState deleteSectionVariantOrAskRequestState,
+) (*string, bool) {
+	promptPath, requiresPrompt, err := requestState.runtime.DeleteSectionVariantPromptPath(
+		r.Context(),
+		requestState.projectID,
+		requestState.sectionID,
+		requestState.variantID,
+	)
+	if err != nil {
+		writeDeleteSectionVariantError(w, r, err)
+		return nil, false
+	}
+	if !requiresPrompt {
+		return nil, true
+	}
+	resolvedPath, err := statefs.ResolveWithinRoot(workspaceRoot, promptPath, "File path")
+	if err != nil {
+		writeError(w, r, http.StatusForbidden, "filepath_forbidden", "File path must be within the project root.")
+		return nil, false
+	}
+	return &resolvedPath, true
 }
 
 func createNewSectionVariantHandler(deps ProjectRouteDependencies) http.HandlerFunc {

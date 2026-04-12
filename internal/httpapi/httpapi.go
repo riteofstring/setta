@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
 	"setta/internal/config"
@@ -124,12 +125,62 @@ func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	)
 }
 
-func NewHandler(deps Dependencies) (http.Handler, error) {
+func validateHandlerDependencies(deps Dependencies) error {
 	if deps.Logger == nil {
-		return nil, fmt.Errorf("logger is required")
+		return fmt.Errorf("logger is required")
 	}
 	if deps.Info == nil {
-		return nil, fmt.Errorf("info service is required")
+		return fmt.Errorf("info service is required")
+	}
+	return nil
+}
+
+func handlerAuthEnabled(authService *auth.Service) bool {
+	return authService != nil && authService.Enabled()
+}
+
+func registerBootstrapRoutes(router chi.Router, deps Dependencies) {
+	if !handlerAuthEnabled(deps.Auth) {
+		return
+	}
+	router.Get(bootstrapPagePath+"/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, bootstrapPagePath, http.StatusTemporaryRedirect)
+	})
+	router.Get(bootstrapPagePath, bootstrapPageHandler())
+	router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth, deps.TrustedOrigins))
+}
+
+func registerAuthenticatedRootRoutes(openAPIRouter chi.Router, deps Dependencies) {
+	if deps.RegisterAuthenticatedRoot == nil {
+		return
+	}
+	if !handlerAuthEnabled(deps.Auth) {
+		deps.RegisterAuthenticatedRoot(openAPIRouter)
+		return
+	}
+	openAPIRouter.Group(func(r chi.Router) {
+		r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
+		deps.RegisterAuthenticatedRoot(r)
+	})
+}
+
+func registerAPIRoutes(openAPIRouter chi.Router, openAPIDocument *huma.OpenAPI, deps Dependencies) {
+	openAPIRouter.Route(apiPrefix, func(r chi.Router) {
+		if handlerAuthEnabled(deps.Auth) {
+			r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
+		}
+		apiRouter := wrapRouterWithOpenAPI(r, openAPIDocument)
+		registerCoreRuntimeOpenAPIRoutes(apiRouter, deps.Info)
+		apiRouter.Get("/openapi.json", openAPIDocumentHandler(openAPIDocument))
+		if deps.Register != nil {
+			deps.Register(apiRouter)
+		}
+	})
+}
+
+func NewHandler(deps Dependencies) (http.Handler, error) {
+	if err := validateHandlerDependencies(deps); err != nil {
+		return nil, err
 	}
 
 	router := chi.NewRouter()
@@ -155,36 +206,9 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	if deps.RegisterRoot != nil {
 		deps.RegisterRoot(openAPIRouter)
 	}
-
-	if deps.Auth != nil && deps.Auth.Enabled() {
-		router.Get(bootstrapPagePath+"/", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, bootstrapPagePath, http.StatusTemporaryRedirect)
-		})
-		router.Get(bootstrapPagePath, bootstrapPageHandler())
-		router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth, deps.TrustedOrigins))
-	}
-	if deps.RegisterAuthenticatedRoot != nil {
-		if deps.Auth != nil && deps.Auth.Enabled() {
-			openAPIRouter.Group(func(r chi.Router) {
-				r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
-				deps.RegisterAuthenticatedRoot(r)
-			})
-		} else {
-			deps.RegisterAuthenticatedRoot(openAPIRouter)
-		}
-	}
-
-	openAPIRouter.Route(apiPrefix, func(r chi.Router) {
-		if deps.Auth != nil && deps.Auth.Enabled() {
-			r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
-		}
-		apiRouter := wrapRouterWithOpenAPI(r, openAPIDocument)
-		registerCoreRuntimeOpenAPIRoutes(apiRouter, deps.Info)
-		apiRouter.Get("/openapi.json", openAPIDocumentHandler(openAPIDocument))
-		if deps.Register != nil {
-			deps.Register(apiRouter)
-		}
-	})
+	registerBootstrapRoutes(router, deps)
+	registerAuthenticatedRootRoutes(openAPIRouter, deps)
+	registerAPIRoutes(openAPIRouter, openAPIDocument, deps)
 
 	return router, nil
 }

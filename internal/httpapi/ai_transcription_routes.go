@@ -84,47 +84,12 @@ func (e *transcriptionRouteError) Error() string {
 
 func startTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeStrictJSONBody[startTranscriptionSessionPayload](r)
-		if err != nil {
-			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
-			return
-		}
-		if deps.TranscriptionProfiles == nil || deps.TranscriptionSessions == nil || deps.Sessions == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-		if !ensureTranscriptionRoutesAllowed(w, r, deps) {
-			return
-		}
-
-		profileID, ok := requireTranscriptionStringField(w, payload.TranscriptionProfileID, "transcriptionProfileId")
+		startRequest, ok := buildStartTranscriptionSessionRequest(w, r, deps)
 		if !ok {
 			return
 		}
-		scopeID, routeErr := currentTranscriptionScopeID(deps)
-		if routeErr != nil {
-			writeError(w, r, routeErr.status, routeErr.code, routeErr.message)
-			return
-		}
-
-		resolved, err := deps.TranscriptionProfiles.Resolve(profileID)
-		if err != nil {
-			if writeTranscriptionServiceError(w, r, err) {
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-		started, err := deps.TranscriptionSessions.StartSession(r.Context(), transcriptionsessions.StartRequest{
-			ScopeID:         scopeID,
-			ResolvedProfile: resolved,
-			Language:        payload.Language,
-		})
-		if err != nil {
-			if writeTranscriptionServiceError(w, r, err) {
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		started, err := deps.TranscriptionSessions.StartSession(r.Context(), startRequest)
+		if writeTranscriptionServiceOrInternalError(w, r, err) {
 			return
 		}
 		writeJSON(w, http.StatusOK, StartTranscriptionSessionResponse{
@@ -133,6 +98,64 @@ func startTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc
 			ChunkMs:               started.ChunkMs,
 		})
 	}
+}
+
+func buildStartTranscriptionSessionRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps AIRouteDependencies,
+) (transcriptionsessions.StartRequest, bool) {
+	payload, ok := decodeStartTranscriptionSessionPayload(w, r)
+	if !ok {
+		return transcriptionsessions.StartRequest{}, false
+	}
+	if !ensureStartTranscriptionSessionAllowed(w, r, deps) {
+		return transcriptionsessions.StartRequest{}, false
+	}
+
+	profileID, ok := requireTranscriptionStringField(w, payload.TranscriptionProfileID, "transcriptionProfileId")
+	if !ok {
+		return transcriptionsessions.StartRequest{}, false
+	}
+	scopeID, routeErr := currentTranscriptionScopeID(deps)
+	if routeErr != nil {
+		writeError(w, r, routeErr.status, routeErr.code, routeErr.message)
+		return transcriptionsessions.StartRequest{}, false
+	}
+
+	resolved, err := deps.TranscriptionProfiles.Resolve(profileID)
+	if writeTranscriptionServiceOrInternalError(w, r, err) {
+		return transcriptionsessions.StartRequest{}, false
+	}
+	return transcriptionsessions.StartRequest{
+		ScopeID:         scopeID,
+		ResolvedProfile: resolved,
+		Language:        payload.Language,
+	}, true
+}
+
+func decodeStartTranscriptionSessionPayload(
+	w http.ResponseWriter,
+	r *http.Request,
+) (startTranscriptionSessionPayload, bool) {
+	payload, err := decodeStrictJSONBody[startTranscriptionSessionPayload](r)
+	if err != nil {
+		writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
+		return startTranscriptionSessionPayload{}, false
+	}
+	return payload, true
+}
+
+func ensureStartTranscriptionSessionAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps AIRouteDependencies,
+) bool {
+	if deps.TranscriptionProfiles == nil || deps.TranscriptionSessions == nil || deps.Sessions == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	return ensureTranscriptionRoutesAllowed(w, r, deps)
 }
 
 func appendTranscriptionAudioHandler(deps AIRouteDependencies) http.HandlerFunc {
@@ -149,11 +172,7 @@ func appendTranscriptionAudioHandler(deps AIRouteDependencies) http.HandlerFunc 
 			return
 		}
 		delta, err := deps.TranscriptionSessions.AppendAudio(r.Context(), appendRequest)
-		if err != nil {
-			if writeTranscriptionServiceError(w, r, err) {
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		if writeTranscriptionServiceOrInternalError(w, r, err) {
 			return
 		}
 		writeJSON(w, http.StatusOK, delta)
@@ -273,11 +292,7 @@ func stopTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc 
 			ScopeID:   scopeID,
 			SessionID: sessionID,
 		})
-		if err != nil {
-			if writeTranscriptionServiceError(w, r, err) {
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		if writeTranscriptionServiceOrInternalError(w, r, err) {
 			return
 		}
 		writeJSON(w, http.StatusOK, delta)
@@ -394,6 +409,17 @@ func currentTranscriptionScopeID(deps AIRouteDependencies) (string, *transcripti
 		}
 	}
 	return scopeID, nil
+}
+
+func writeTranscriptionServiceOrInternalError(w http.ResponseWriter, r *http.Request, err error) bool {
+	if err == nil {
+		return false
+	}
+	if writeTranscriptionServiceError(w, r, err) {
+		return true
+	}
+	writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	return true
 }
 
 func decodePCM16Payload(audioPCM16Base64 string) ([]byte, *transcriptionRouteError) {
