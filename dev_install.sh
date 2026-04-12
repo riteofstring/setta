@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "${SCRIPT_DIR}/scripts/lib/node_tooling.sh"
-
-run_pnpm() {
-  setta_run_pnpm "${SCRIPT_DIR}" "$@"
-}
-
-. ./init_env.sh
-cd frontend
-run_pnpm install --frozen-lockfile
-cd ..
-./scripts/install_sidecars.sh
+if ! ./scripts/go.sh version >/dev/null 2>&1; then
+  ./scripts/install_go_toolchain.sh && ./scripts/go.sh version >/dev/null 2>&1
+fi && \
+cd frontend && \
+pnpm install --frozen-lockfile && \
+cd .. && \
+./scripts/install_sidecars.sh && \
 ./cleanup.sh
