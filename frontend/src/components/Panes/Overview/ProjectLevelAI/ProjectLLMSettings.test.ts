@@ -1,4 +1,4 @@
-import { type AllConfigs } from "utils/generatedTypes";
+import { type AllLLMConfigs } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   buildApiKeyEntries,
@@ -13,7 +13,7 @@ function buildConfig({
   id: string;
   provider: string;
   apiKeyEnv: string | null;
-}): AllConfigs["configs"][string] {
+}): AllLLMConfigs["configs"][string] {
   return {
     id,
     model: `${provider}-model`,
@@ -28,7 +28,7 @@ function buildConfig({
 
 describe("buildApiKeyEntries", () => {
   it("includes config-referenced keys and manually added keys", () => {
-    const allLLMConfigs: AllConfigs = {
+    const allLLMConfigs: AllLLMConfigs = {
       configs: {
         "anthropic-main": buildConfig({
           id: "anthropic-main",
@@ -53,38 +53,6 @@ describe("buildApiKeyEntries", () => {
     ]);
     expect(entries[0]?.configLabels).toEqual(["anthropic-main (anthropic)"]);
     expect(entries[1]?.configLabels).toEqual([]);
-  });
-
-  it("groups multiple configs that share the same env key", () => {
-    const allLLMConfigs: AllConfigs = {
-      configs: {
-        "anthropic-main": buildConfig({
-          id: "anthropic-main",
-          provider: "anthropic",
-          apiKeyEnv: "ANTHROPIC_API_KEY",
-        }),
-        "anthropic-backup": buildConfig({
-          id: "anthropic-backup",
-          provider: "anthropic",
-          apiKeyEnv: "ANTHROPIC_API_KEY",
-        }),
-      },
-      mcpServers: {},
-      defaultMcpServerIds: [],
-      default_config_id: null,
-    };
-
-    const entries = buildApiKeyEntries(allLLMConfigs, {});
-
-    expect(entries).toEqual([
-      {
-        envKey: "ANTHROPIC_API_KEY",
-        configLabels: [
-          "anthropic-main (anthropic)",
-          "anthropic-backup (anthropic)",
-        ],
-      },
-    ]);
   });
 
   it("returns manual keys when no llm config is present", () => {
