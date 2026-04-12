@@ -105,6 +105,16 @@ type LauncherListDirectoryRouteResponse =
   ResponseDataAndStatus<LauncherListDirectoryResponse>;
 type LauncherOpenWorkspaceRouteResponse =
   ResponseDataAndStatus<LauncherOpenWorkspacePayload>;
+
+type DirectoryListingLoadResult =
+  | {
+      ok: true;
+      payload: LauncherListDirectoryResponse;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
 const launcherPanelClassName =
   "flex min-h-0 flex-col gap-3 rounded-xl border border-setta-200 bg-white/80 p-3 dark:border-setta-700 dark:bg-setta-900/40";
 const launcherSecondaryButtonClassName =
@@ -148,6 +158,28 @@ export function applyDirectoryListingPage({
     error: null,
   };
 }
+
+export function resolveDirectoryListingLoadResult(
+  response: LauncherListDirectoryRouteResponse,
+): DirectoryListingLoadResult {
+  if (!res200(response) || !response.data) {
+    return {
+      ok: false,
+      error: "Failed to load launcher directory listing.",
+    };
+  }
+  if (!response.data.ok) {
+    return {
+      ok: false,
+      error: response.data.error?.message ?? "Directory listing failed.",
+    };
+  }
+  return {
+    ok: true,
+    payload: response.data,
+  };
+}
+
 type LauncherHomeHeaderProps = {
   launcherBusy: boolean;
   recentActionInFlight: RecentActionInFlight;
@@ -666,35 +698,29 @@ export function LauncherHomePage() {
     latestDirectoryRequestIdRef.current = requestId;
     setDirectoryActionInFlight(append ? "load-more" : "navigate");
     try {
-      const response = (await callOpenAPI(
-        listLauncherDirectory({
-          body: request,
-        } as Parameters<typeof listLauncherDirectory>[0]),
-      )) as LauncherListDirectoryRouteResponse;
+      const result = resolveDirectoryListingLoadResult(
+        (await callOpenAPI(
+          listLauncherDirectory({
+            body: request,
+          } as Parameters<typeof listLauncherDirectory>[0]),
+        )) as LauncherListDirectoryRouteResponse,
+      );
       if (requestId !== latestDirectoryRequestIdRef.current) {
         return;
       }
-      if (!res200(response) || !response.data) {
+      if (!result.ok) {
         setDirectoryListing((previousState) => ({
           ...previousState,
-          error: "Failed to load launcher directory listing.",
+          error: result.error,
         }));
         return;
       }
-      const payload = response.data;
-      if (!payload.ok) {
-        setDirectoryListing((previousState) => ({
-          ...previousState,
-          error: payload.error?.message ?? "Directory listing failed.",
-        }));
-        return;
-      }
-      setCurrentPath(payload.currentPath);
-      setParentPath(payload.parentPath);
+      setCurrentPath(result.payload.currentPath);
+      setParentPath(result.payload.parentPath);
       setDirectoryListing((previousState) =>
         applyDirectoryListingPage({
           previousEntries: previousState.entries,
-          payload,
+          payload: result.payload,
           append,
         }),
       );
