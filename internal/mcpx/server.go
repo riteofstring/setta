@@ -859,51 +859,26 @@ func (s *Server) loadProjectView(projectConfigID string) (projectview.SingleConf
 
 func (s *Server) newSetAgenticContextHandler() tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		args, err := readSetAgenticContextArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		chatID, err := readOptionalStringArgument(arguments, "chatId")
+		sessionKey, err := resolveToolInvocationSessionKey(ctx)
 		if err != nil {
 			return nil, err
 		}
-		runID, err := readOptionalStringArgument(arguments, "runId")
-		if err != nil {
-			return nil, err
-		}
-		sectionID, err := readOptionalStringArgument(arguments, "sectionId")
-		if err != nil {
-			return nil, err
-		}
-		shareSessionID, err := readOptionalStringArgument(arguments, "shareSessionId")
-		if err != nil {
-			return nil, err
-		}
-		frontendAffinityToken, err := readOptionalNonBlankStringArgument(arguments, "frontendAffinityToken")
-		if err != nil {
-			return nil, err
-		}
-		allowUnscoped, err := readOptionalBoolArgument(arguments, "allowUnscoped")
-		if err != nil {
-			return nil, err
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || strings.TrimSpace(invocation.SessionKey) == "" {
-			return nil, newToolError("internal_error", "Unable to resolve MCP session for agentic context.")
-		}
-		if sectionID == "" && !allowUnscoped {
+		if args.sectionID == "" && !args.allowUnscoped {
 			return nil, buildScopeViolationError("set_agentic_context", "missing_section_id", nil, nil, nil, nil)
 		}
 
-		s.setSessionAgenticContext(invocation.SessionKey, AgenticContext{
-			ProjectConfigID:       projectConfigID,
-			ShareSessionID:        shareSessionID,
-			ChatID:                chatID,
-			RunID:                 runID,
-			SectionID:             sectionID,
-			FrontendAffinityToken: frontendAffinityToken,
-			AllowUnscoped:         allowUnscoped,
+		s.setSessionAgenticContext(sessionKey, AgenticContext{
+			ProjectConfigID:       args.projectConfigID,
+			ShareSessionID:        args.shareSessionID,
+			ChatID:                args.chatID,
+			RunID:                 args.runID,
+			SectionID:             args.sectionID,
+			FrontendAffinityToken: args.frontendAffinityToken,
+			AllowUnscoped:         args.allowUnscoped,
 		})
 		return statusResult{Status: "ok"}, nil
 	}
@@ -1027,44 +1002,25 @@ func newCreateChildSectionsViaIncrementerHandler(projectState projectStateProvid
 
 func newSetCodeSectionAttachedTerminalHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		args, err := readSetCodeSectionAttachedTerminalArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		terminalSectionID, err := readOptionalNullableStringPointerArgument(arguments, "terminalSectionId")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural attached-terminal invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		settings, err := resolveStructuralMutationSettings(settingsState)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-
-		if _, err := projectState.SetCodeSectionAttachedTerminal(ctx, projectConfigID, sectionID, terminalSectionID, settings); err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedStructuralMutation(
+			ctx,
+			args.projectConfigID,
+			"Structural attached-terminal invocation context is unavailable.",
+			settingsState,
+			func(settings projectstate.StructuralMutationSettings) (any, error) {
+				if _, err := projectState.SetCodeSectionAttachedTerminal(ctx, args.projectConfigID, args.sectionID, args.terminalSectionID, settings); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
@@ -1107,46 +1063,22 @@ func newDeleteSectionsHandler(projectState projectStateProvider) tools.Handler {
 
 func newDeleteChildSectionsViaDecrementerHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		args, err := readDeleteChildSectionsViaDecrementerArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		calledBy, err := readRequiredStringArgument(arguments, "calledBy")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		numChildren, err := readOptionalNonNegativeIntArgument(arguments, "numChildren")
-		if err != nil {
-			return nil, err
-		}
-		if numChildren == nil {
-			return nil, newToolError("invalid_arguments", "numChildren is required")
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural decrementer child-deletion invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		_, result, err := projectState.DeleteChildSectionsViaDecrementer(ctx, projectConfigID, projectstate.DeleteChildSectionsViaDecrementerInput{
-			CalledBy:    calledBy,
-			NumChildren: *numChildren,
-		})
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
+		return executeScopedProjectStateOperation(
+			ctx,
+			args.projectConfigID,
+			"Structural decrementer child-deletion invocation context is unavailable.",
+			func() (any, error) {
+				_, result, err := projectState.DeleteChildSectionsViaDecrementer(ctx, args.projectConfigID, args.input)
+				return result, err
+			},
+		)
 	}
 }
 
@@ -1303,51 +1235,29 @@ func newSetSectionVariantSortOrderHandler(projectState projectStateProvider) too
 
 func newSetCallableHandler(projectState projectStateProvider, callableSignatures projectstate.CallableSignatureResolver) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		args, err := readSetCallableArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
-		if err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
-		callableName, err := readRequiredRawStringArgument(arguments, "callableName")
-		if err != nil {
-			return nil, err
-		}
-		refetchParams, err := readRequiredBoolArgument(arguments, "refetchParams")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Scoped callable invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		_, result, err := projectState.SetCallable(
+		return executeScopedProjectStateOperation(
 			ctx,
-			projectConfigID,
-			sectionID,
-			callableName,
-			refetchParams,
-			callableSignatures,
+			args.projectConfigID,
+			"Scoped callable invocation context is unavailable.",
+			func() (any, error) {
+				_, result, err := projectState.SetCallable(
+					ctx,
+					args.projectConfigID,
+					args.sectionID,
+					args.callableName,
+					args.refetchParams,
+					callableSignatures,
+				)
+				return result, err
+			},
 		)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
 	}
 }
 
@@ -1606,42 +1516,25 @@ func newSetGroupOverflowModeHandler(projectState projectStateProvider) tools.Han
 
 func newAutoLayoutTopLevelSectionsHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		args, err := readAutoLayoutTopLevelSectionsArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		margin := 50
-		if resolvedMargin, err := readOptionalIntArgument(arguments, "margin"); err != nil {
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
-		} else if resolvedMargin != nil {
-			margin = *resolvedMargin
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural auto-layout invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		settings, err := resolveStructuralMutationSettings(settingsState)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-
-		if _, err := projectState.AutoLayoutTopLevelSections(ctx, projectConfigID, settings, margin); err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return statusResult{Status: "ok"}, nil
+		return executeScopedStructuralMutation(
+			ctx,
+			args.projectConfigID,
+			"Structural auto-layout invocation context is unavailable.",
+			settingsState,
+			func(settings projectstate.StructuralMutationSettings) (any, error) {
+				if _, err := projectState.AutoLayoutTopLevelSections(ctx, args.projectConfigID, settings, args.margin); err != nil {
+					return nil, err
+				}
+				return statusResult{Status: "ok"}, nil
+			},
+		)
 	}
 }
 
@@ -6760,6 +6653,39 @@ type createChildSectionsViaIncrementerArgs struct {
 	input           projectstate.CreateChildSectionsViaIncrementerInput
 }
 
+type setAgenticContextArgs struct {
+	projectConfigID       string
+	chatID                string
+	runID                 string
+	sectionID             string
+	shareSessionID        string
+	frontendAffinityToken string
+	allowUnscoped         bool
+}
+
+type setCodeSectionAttachedTerminalArgs struct {
+	projectConfigID   string
+	sectionID         string
+	terminalSectionID *string
+}
+
+type deleteChildSectionsViaDecrementerArgs struct {
+	projectConfigID string
+	input           projectstate.DeleteChildSectionsViaDecrementerInput
+}
+
+type setCallableArgs struct {
+	projectConfigID string
+	sectionID       string
+	callableName    string
+	refetchParams   bool
+}
+
+type autoLayoutTopLevelSectionsArgs struct {
+	projectConfigID string
+	margin          int
+}
+
 type appDefinitionMutationFields struct {
 	appSpec        map[string]any
 	appSpecVersion *string
@@ -6858,6 +6784,135 @@ func readCreateChildSectionsViaIncrementerArgs(arguments map[string]any) (create
 			ImplType:    implType,
 			NumChildren: numChildren,
 		},
+	}, nil
+}
+
+func readSetAgenticContextArgs(arguments map[string]any) (setAgenticContextArgs, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return setAgenticContextArgs{}, err
+	}
+	chatID, err := readOptionalStringArgument(arguments, "chatId")
+	if err != nil {
+		return setAgenticContextArgs{}, err
+	}
+	runID, err := readOptionalStringArgument(arguments, "runId")
+	if err != nil {
+		return setAgenticContextArgs{}, err
+	}
+	sectionID, err := readOptionalStringArgument(arguments, "sectionId")
+	if err != nil {
+		return setAgenticContextArgs{}, err
+	}
+	shareSessionID, err := readOptionalStringArgument(arguments, "shareSessionId")
+	if err != nil {
+		return setAgenticContextArgs{}, err
+	}
+	frontendAffinityToken, err := readOptionalNonBlankStringArgument(arguments, "frontendAffinityToken")
+	if err != nil {
+		return setAgenticContextArgs{}, err
+	}
+	allowUnscoped, err := readOptionalBoolArgument(arguments, "allowUnscoped")
+	if err != nil {
+		return setAgenticContextArgs{}, err
+	}
+	return setAgenticContextArgs{
+		projectConfigID:       projectConfigID,
+		chatID:                chatID,
+		runID:                 runID,
+		sectionID:             sectionID,
+		shareSessionID:        shareSessionID,
+		frontendAffinityToken: frontendAffinityToken,
+		allowUnscoped:         allowUnscoped,
+	}, nil
+}
+
+func readSetCodeSectionAttachedTerminalArgs(arguments map[string]any) (setCodeSectionAttachedTerminalArgs, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return setCodeSectionAttachedTerminalArgs{}, err
+	}
+	sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+	if err != nil {
+		return setCodeSectionAttachedTerminalArgs{}, err
+	}
+	terminalSectionID, err := readOptionalNullableStringPointerArgument(arguments, "terminalSectionId")
+	if err != nil {
+		return setCodeSectionAttachedTerminalArgs{}, err
+	}
+	return setCodeSectionAttachedTerminalArgs{
+		projectConfigID:   projectConfigID,
+		sectionID:         sectionID,
+		terminalSectionID: terminalSectionID,
+	}, nil
+}
+
+func readDeleteChildSectionsViaDecrementerArgs(arguments map[string]any) (deleteChildSectionsViaDecrementerArgs, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return deleteChildSectionsViaDecrementerArgs{}, err
+	}
+	calledBy, err := readRequiredStringArgument(arguments, "calledBy")
+	if err != nil {
+		return deleteChildSectionsViaDecrementerArgs{}, err
+	}
+	numChildren, err := readOptionalNonNegativeIntArgument(arguments, "numChildren")
+	if err != nil {
+		return deleteChildSectionsViaDecrementerArgs{}, err
+	}
+	if numChildren == nil {
+		return deleteChildSectionsViaDecrementerArgs{}, newToolError("invalid_arguments", "numChildren is required")
+	}
+	return deleteChildSectionsViaDecrementerArgs{
+		projectConfigID: projectConfigID,
+		input: projectstate.DeleteChildSectionsViaDecrementerInput{
+			CalledBy:    calledBy,
+			NumChildren: *numChildren,
+		},
+	}, nil
+}
+
+func readSetCallableArgs(arguments map[string]any) (setCallableArgs, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return setCallableArgs{}, err
+	}
+	sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+	if err != nil {
+		return setCallableArgs{}, err
+	}
+	callableName, err := readRequiredRawStringArgument(arguments, "callableName")
+	if err != nil {
+		return setCallableArgs{}, err
+	}
+	refetchParams, err := readRequiredBoolArgument(arguments, "refetchParams")
+	if err != nil {
+		return setCallableArgs{}, err
+	}
+	return setCallableArgs{
+		projectConfigID: projectConfigID,
+		sectionID:       sectionID,
+		callableName:    callableName,
+		refetchParams:   refetchParams,
+	}, nil
+}
+
+func readAutoLayoutTopLevelSectionsArgs(arguments map[string]any) (autoLayoutTopLevelSectionsArgs, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return autoLayoutTopLevelSectionsArgs{}, err
+	}
+	margin := 50
+	resolvedMargin, err := readOptionalIntArgument(arguments, "margin")
+	if err != nil {
+		return autoLayoutTopLevelSectionsArgs{}, err
+	}
+	if resolvedMargin != nil {
+		margin = *resolvedMargin
+	}
+	return autoLayoutTopLevelSectionsArgs{
+		projectConfigID: projectConfigID,
+		margin:          margin,
 	}, nil
 }
 
@@ -7606,6 +7661,14 @@ func requireCodeSectionDiagnosticsRuntime(projectState projectStateProvider, dia
 		return nil
 	}
 	return newToolError("internal_error", "LSP diagnostics mutation runtime is unavailable.")
+}
+
+func resolveToolInvocationSessionKey(ctx context.Context) (string, error) {
+	invocation, ok := ToolInvocationFromContext(ctx)
+	if !ok || strings.TrimSpace(invocation.SessionKey) == "" {
+		return "", newToolError("internal_error", "Unable to resolve MCP session for agentic context.")
+	}
+	return invocation.SessionKey, nil
 }
 
 func requireScopedProjectInvocation(ctx context.Context, projectConfigID string, missingContextMessage string) error {
