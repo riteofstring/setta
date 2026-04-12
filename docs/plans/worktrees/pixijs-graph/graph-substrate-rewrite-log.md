@@ -151,6 +151,41 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 11:23 UTC
+
+- item `418` landed one bounded verifier-hardening slice on the repeated direct
+  `/settings` runtime-health blocker after rereading the plan/handoff:
+  - chose the narrowest support change that directly addresses the current
+    blocker instead of reopening mounted-body production work
+  - added shared page-lifecycle closure helpers in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.ts`
+    and regression coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+  - wrapped compare-pane state writes in
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` with a lifecycle
+    guard so the probe reports explicit `worktree_unhealthy` page/context/browser
+    closure diagnostics
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+    -> passed (`2` files, `9` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.ts src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-043/worktree-ai.log`
+    -> failed, but now with explicit blocker detail:
+       `Worktree unhealthy: page already closed before writing normalized compare pane state. {"browserConnected":true,"openPageCount":0,"pageClosed":true,"pageUrl":"http://127.0.0.1:3075/settings"}`
+  - fresh-context headless CDP visual check on direct
+    `http://127.0.0.1:3075/settings`
+    -> showed the loading screen, not a mounted graph surface
+    -> visible text: `Loading Setta...` / `Preparing the app surface.`
+- reading:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - the lane remains `worktree_unhealthy`; this is still not renderer drift
+  - next pass should start with bounded worktree lifecycle recovery, then rerun
+    the authenticated direct `/settings` health check to see whether the failure
+    remains page-lifecycle collapse or reaches stable `project_loading`
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 11:09 UTC
 
 - Item: Land one bounded verifier slice so the repeated direct `/settings`

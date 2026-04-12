@@ -13,6 +13,11 @@ import {
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
 } from "components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState";
+import {
+  formatSettingsGraphPageLifecycleDiagnostic,
+  isSettingsGraphPageLifecycleClosureError,
+  type SettingsGraphPageLifecycleDiagnostic,
+} from "components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle";
 import type {
   SettingsGraphSubstrateCanaryInstrumentationSnapshot,
   SettingsGraphSubstrateCanaryMotionAttribution,
@@ -182,6 +187,106 @@ type SettingsGraphMotionPerfCaptureState = {
   startTimestamp: number;
   visibilityLossCount: number;
 };
+
+function readSettingsGraphPageLifecycleDiagnostic(
+  page: Page,
+): SettingsGraphPageLifecycleDiagnostic {
+  const context = page.context();
+  const browser = context.browser();
+  return {
+    browserConnected: browser ? browser.isConnected() : null,
+    openPageCount: context.pages().length,
+    pageClosed: page.isClosed(),
+    pageUrl: page.url(),
+  };
+}
+
+async function runWithSettingsGraphPageLifecycleGuard<T>(
+  page: Page,
+  description: string,
+  action: () => Promise<T>,
+): Promise<T> {
+  if (page.isClosed()) {
+    throw new Error(
+      `Worktree unhealthy: page already closed before ${description}. ${formatSettingsGraphPageLifecycleDiagnostic(
+        readSettingsGraphPageLifecycleDiagnostic(page),
+      )}`,
+    );
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const context = page.context();
+    const browser = context.browser();
+    let settled = false;
+
+    const cleanup = () => {
+      page.off("close", onPageClose);
+      context.off("close", onContextClose);
+      browser?.off("disconnected", onBrowserDisconnected);
+    };
+
+    const rejectLifecycleFailure = (reason: string, error?: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+
+      const detail = formatSettingsGraphPageLifecycleDiagnostic(
+        readSettingsGraphPageLifecycleDiagnostic(page),
+      );
+      const suffix =
+        error instanceof Error ? ` Original error: ${error.message}` : "";
+      reject(
+        new Error(
+          `Worktree unhealthy: ${reason} while ${description}. ${detail}${suffix}`,
+        ),
+      );
+    };
+
+    const onPageClose = () => {
+      rejectLifecycleFailure("page closed");
+    };
+
+    const onContextClose = () => {
+      rejectLifecycleFailure("browser context closed");
+    };
+
+    const onBrowserDisconnected = () => {
+      rejectLifecycleFailure("browser disconnected");
+    };
+
+    page.on("close", onPageClose);
+    context.on("close", onContextClose);
+    browser?.on("disconnected", onBrowserDisconnected);
+
+    action().then(
+      (value) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        if (
+          page.isClosed() ||
+          isSettingsGraphPageLifecycleClosureError(error)
+        ) {
+          rejectLifecycleFailure("page lifecycle ended", error);
+          return;
+        }
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        reject(error);
+      },
+    );
+  });
+}
 
 export async function readSettingsGraphCanaryInstrumentationSnapshot(
   page: Page,
@@ -648,17 +753,23 @@ export async function setLocalPaneState(
     rawPersistedState: null,
   });
 
-  await page.evaluate(
-    ({ key, value }: { key: string; value: string }) => {
-      window.localStorage.setItem(key, value);
-    },
-    {
-      key: "setta_data",
-      value: nextPersistedPaneState,
+  await runWithSettingsGraphPageLifecycleGuard(
+    page,
+    "writing normalized compare pane state",
+    async () => {
+      await page.evaluate(
+        ({ key, value }: { key: string; value: string }) => {
+          window.localStorage.setItem(key, value);
+        },
+        {
+          key: "setta_data",
+          value: nextPersistedPaneState,
+        },
+      );
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForSettingsGraphAppReady(page);
     },
   );
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForSettingsGraphAppReady(page);
 }
 
 export async function normalizeSettingsGraphComparePaneState(

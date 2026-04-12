@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 11:09 UTC
+Last updated: 2026-04-13 11:23 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,58 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `418` landed one bounded verifier-hardening slice for the repeated
+  direct `/settings` `worktree_unhealthy` blocker on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the current runtime
+      blocker instead of reopening mounted-body production work
+    - chose one narrow support change that is directly justified by the active
+      blocker: when the worktree page/context/browser dies before compare-pane
+      normalization can run, the shared parity helper should fail with explicit
+      lifecycle diagnostics instead of only surfacing an opaque Playwright page
+      closure inside the outer 180s probe timeout
+    - kept the slice bounded to shared probe helpers plus focused pure-function
+      tests; no production renderer behavior changed
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.ts`
+      with reusable page-lifecycle closure classification and compact runtime
+      diagnostic formatting
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+      with regression coverage for closure classification and diagnostic output
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so compare-pane writes now run behind a lifecycle guard that reports
+      `page already closed`, `browser context closed`, or `browser disconnected`
+      with runtime details
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+      -> passed (`2` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.ts src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live worktree probe retry:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-043/worktree-ai.log`
+      -> still failed overall on the 180s Playwright timeout, but the probe now
+         reports the repeated blocker explicitly:
+         `Worktree unhealthy: page already closed before writing normalized compare pane state. {"browserConnected":true,"openPageCount":0,"pageClosed":true,"pageUrl":"http://127.0.0.1:3075/settings"}`
+      -> keep classifying the lane as `worktree_unhealthy`, not renderer drift
+    - fresh-context headless CDP visual check on direct
+      `http://127.0.0.1:3075/settings`
+      -> the page still showed a loading screen rather than the graph surface
+      -> visible text: `Loading Setta...` / `Preparing the app surface.`
+  - reading:
+    - the verifier now distinguishes a page-lifecycle collapse during
+      compare-pane normalization from renderer drift and from the earlier
+      `project_loading`-surface classification seam
+    - this iteration still did not yield a trustworthy authenticated `/settings`
+      canary because the worktree session died before the shared pane-state
+      normalization step could act
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - recover the live worktree runtime first, then rerun the authenticated
+      direct `/settings` health check so the next pass can determine whether
+      the blocker remains page-lifecycle collapse or progresses to a stable
+      `project_loading` / mounted-surface classification
 
 - item `417` landed one bounded verifier hardening slice for the repeated direct
   `/settings` runtime-health blocker on the canonical `rotaryParamCodeObjDefault`
