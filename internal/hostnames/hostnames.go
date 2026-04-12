@@ -59,25 +59,6 @@ func FormatHostForURL(host string) string {
 	return normalized
 }
 
-func CanonicalSessionMatchHost(host string) string {
-	normalized := normalizeHostKey(host)
-	if rewritten, ok := sessionMatchHostRewrites[normalized]; ok {
-		return rewritten
-	}
-	return normalized
-}
-
-func IsLoopbackHost(host string) bool {
-	return isLoopbackKey(normalizeHostKey(host))
-}
-
-func HostsEquivalent(left string, right string) bool {
-	normalizedLeft := normalizeHostKey(left)
-	normalizedRight := normalizeHostKey(right)
-	return normalizedLeft == normalizedRight ||
-		(isLoopbackKey(normalizedLeft) && isLoopbackKey(normalizedRight))
-}
-
 func trimHost(host string) string {
 	trimmed := strings.TrimSpace(host)
 	if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
@@ -88,13 +69,4 @@ func trimHost(host string) string {
 
 func normalizeHostKey(host string) string {
 	return strings.ToLower(trimHost(host))
-}
-
-func isLoopbackKey(host string) bool {
-	switch host {
-	case LoopbackIPv4, LoopbackName, LoopbackIPv6:
-		return true
-	default:
-		return false
-	}
 }

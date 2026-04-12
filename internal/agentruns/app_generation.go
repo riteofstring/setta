@@ -20,15 +20,6 @@ const (
 	ChatAppGenerationMessageModeMCPServer           ChatAppGenerationMessageMode = ChatAppGenerationMessageMode(AppGenerationModeMCPServer)
 )
 
-func AppGenerationModes() []string {
-	return []string{
-		string(AppGenerationModeJSONRender),
-		string(AppGenerationModeJSONRenderWithImage),
-		string(AppGenerationModePromptBuilder),
-		string(AppGenerationModeMCPServer),
-	}
-}
-
 func ParseAppGenerationMode(raw string) (string, bool) {
 	trimmed := strings.TrimSpace(raw)
 	switch trimmed {
