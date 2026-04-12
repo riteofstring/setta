@@ -51,6 +51,8 @@ type HandleGroupConfig = {
   handles: HandleRenderConfig[];
 };
 
+type ProjectStateSnapshot = ReturnType<typeof useProjectState.getState>;
+
 const EMPTY_CONNECTION_VISIBILITY: ConnectionVisibility = {
   hasIncoming: false,
   hasOutgoing: false,
@@ -88,35 +90,42 @@ const HANDLE_LAYOUT_BY_SECTION_TYPE: Partial<
 
 function getConnectionVisibility(
   sectionId: string,
-  state: ReturnType<typeof useProjectState.getState>,
+  state: ProjectStateSnapshot,
 ): ConnectionVisibility {
+  const sectionType = getSectionType(sectionId, state);
+  if (sectionType === null) {
+    return EMPTY_CONNECTION_VISIBILITY;
+  }
+  const { hasIncoming, hasOutgoing } = getEdgeVisibility(
+    sectionId,
+    state.projectConfig.stateMachineEdges,
+  );
+  return {
+    hasIncoming,
+    hasOutgoing,
+    sectionType,
+  };
+}
+
+function getSectionType(
+  sectionId: string,
+  state: ProjectStateSnapshot,
+): SectionTypeEnum | null {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return {
-      hasIncoming: false,
-      hasOutgoing: false,
-      sectionType: null,
-    };
-  }
-  const variant = state.sectionVariants[variantId];
+  const variant = variantId ? state.sectionVariants[variantId] : null;
   if (!variant) {
-    return {
-      hasIncoming: false,
-      hasOutgoing: false,
-      sectionType: null,
-    };
+    return null;
   }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return {
-      hasIncoming: false,
-      hasOutgoing: false,
-      sectionType: null,
-    };
-  }
+  return state.sectionImpls[variant.impl]?.type ?? null;
+}
+
+function getEdgeVisibility(
+  sectionId: string,
+  edges: ProjectStateSnapshot["projectConfig"]["stateMachineEdges"],
+): Pick<ConnectionVisibility, "hasIncoming" | "hasOutgoing"> {
   let hasIncoming = false;
   let hasOutgoing = false;
-  for (const edge of state.projectConfig.stateMachineEdges) {
+  for (const edge of edges) {
     if (edge.targetSectionId === sectionId) {
       hasIncoming = true;
     }
@@ -130,7 +139,6 @@ function getConnectionVisibility(
   return {
     hasIncoming,
     hasOutgoing,
-    sectionType: impl.type ?? null,
   };
 }
 

@@ -86,6 +86,47 @@ function seedWorkflowSection({
   syncStoreInitialState(useProjectState);
 }
 
+function seedWorkflowSectionWithoutImpl({
+  sectionId,
+  variantId,
+  implId,
+  edges = [],
+}: {
+  sectionId: string;
+  variantId: string;
+  implId: string;
+  edges?: WorkflowEdge[];
+}): void {
+  useProjectState.setState((state) => {
+    state.projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {
+        [sectionId]: variantId,
+      },
+      stateMachineEdges: edges,
+    });
+    state.sections = {
+      [sectionId]: createCore({
+        id: sectionId,
+        name: "Missing Impl Node",
+        variants: [variantId],
+        defaultVariant: variantId,
+      }),
+    };
+    state.sectionVariants = {
+      [variantId]: createVariant({
+        id: variantId,
+        name: `${sectionId} Variant`,
+        impl: implId,
+        nonPresetImpls: [],
+      }),
+    };
+    state.sectionImpls = {};
+    state.previewSectionVariantMap = {};
+  });
+  syncStoreInitialState(useProjectState);
+}
+
 function renderEdgeHandles(
   sectionId: string,
   isUserView: boolean = false,
@@ -239,6 +280,34 @@ describe("StateMachineEdgeHandles", () => {
     });
 
     const markup = renderEdgeHandles("section-gate", true);
+
+    expect(markup).toBe("");
+  });
+
+  it("suppresses workflow handles when the section implementation is missing", () => {
+    seedWorkflowSectionWithoutImpl({
+      sectionId: "section-missing-impl",
+      variantId: "variant-missing-impl",
+      implId: "impl-missing-impl",
+      edges: [
+        {
+          id: "edge-outgoing",
+          machineGroupId: "workflow-main",
+          sourceSectionId: "section-missing-impl",
+          sourcePortId: "workflow-source",
+          targetSectionId: "section-next",
+          targetPortId: "workflow-target",
+          sourceFilter: null,
+          targetAction: null,
+          style: null,
+          hidden: false,
+          zIndex: 0,
+          selected: false,
+        },
+      ],
+    });
+
+    const markup = renderEdgeHandles("section-missing-impl");
 
     expect(markup).toBe("");
   });
