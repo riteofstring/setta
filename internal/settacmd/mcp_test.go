@@ -204,6 +204,42 @@ func TestConsumeMCPBridgeBootstrapTokenRejectsBaseCookieWithoutSessionSuffix(t *
 	}
 }
 
+func TestConsumeMCPBridgeBootstrapTokenRejectsMultipleSessionScopedCookies(t *testing.T) {
+	t.Parallel()
+
+	firstCookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "bridge-session-a")
+	if err != nil {
+		t.Fatalf("resolve first session-scoped auth cookie name: %v", err)
+	}
+	secondCookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "bridge-session-b")
+	if err != nil {
+		t.Fatalf("resolve second session-scoped auth cookie name: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:  firstCookieName,
+			Value: "session-cookie-a",
+			Path:  "/",
+		})
+		http.SetCookie(w, &http.Cookie{
+			Name:  secondCookieName,
+			Value: "session-cookie-b",
+			Path:  "/",
+		})
+		_, _ = io.WriteString(w, `{"status":"ok"}`)
+	}))
+	defer server.Close()
+
+	_, err = consumeMCPBridgeBootstrapToken(server.URL+"/mcp", "bootstrap-token")
+	if err == nil {
+		t.Fatal("expected multiple session-scoped auth cookies to be rejected")
+	}
+	if !strings.Contains(err.Error(), "multiple possible auth cookies") {
+		t.Fatalf("expected duplicate session-cookie rejection, got %v", err)
+	}
+}
+
 func TestConsumeMCPBridgeBootstrapTokenRejectsMissingAuthCookie(t *testing.T) {
 	t.Parallel()
 

@@ -165,6 +165,25 @@ func consumeMCPBridgeBootstrapToken(backendURL string, token string) (http.Heade
 }
 
 func selectMCPBridgeAuthCookie(cookies []*http.Cookie) (*http.Cookie, error) {
+	usable := filterUsableMCPBridgeCookies(cookies)
+	if len(usable) == 0 {
+		return nil, fmt.Errorf("bootstrap response did not include auth cookie")
+	}
+
+	sessionScoped, multipleMatches := findSessionScopedMCPBridgeAuthCookie(usable)
+	if multipleMatches {
+		return nil, fmt.Errorf("bootstrap response included multiple possible auth cookies")
+	}
+	if sessionScoped != nil {
+		return sessionScoped, nil
+	}
+	if len(usable) == 1 && isBaseMCPBridgeAuthCookie(usable[0]) {
+		return nil, fmt.Errorf("bootstrap response included only base auth cookie without session suffix")
+	}
+	return nil, fmt.Errorf("bootstrap response did not include a unique session-scoped auth cookie")
+}
+
+func filterUsableMCPBridgeCookies(cookies []*http.Cookie) []*http.Cookie {
 	usable := make([]*http.Cookie, 0, len(cookies))
 	for _, cookie := range cookies {
 		if cookie == nil || strings.TrimSpace(cookie.Name) == "" || strings.TrimSpace(cookie.Value) == "" {
@@ -172,27 +191,30 @@ func selectMCPBridgeAuthCookie(cookies []*http.Cookie) (*http.Cookie, error) {
 		}
 		usable = append(usable, cookie)
 	}
-	if len(usable) == 0 {
-		return nil, fmt.Errorf("bootstrap response did not include auth cookie")
-	}
+	return usable
+}
 
+func findSessionScopedMCPBridgeAuthCookie(cookies []*http.Cookie) (*http.Cookie, bool) {
 	expectedPrefix := auth.NormalizeCookieBaseName(auth.DefaultAuthCookieName) + "_"
+
 	var matched *http.Cookie
-	for _, cookie := range usable {
-		if strings.HasPrefix(cookie.Name, expectedPrefix) {
-			if matched != nil {
-				return nil, fmt.Errorf("bootstrap response included multiple possible auth cookies")
-			}
-			matched = cookie
+	for _, cookie := range cookies {
+		if !strings.HasPrefix(cookie.Name, expectedPrefix) {
+			continue
 		}
+		if matched != nil {
+			return nil, true
+		}
+		matched = cookie
 	}
-	if matched != nil {
-		return matched, nil
+	return matched, false
+}
+
+func isBaseMCPBridgeAuthCookie(cookie *http.Cookie) bool {
+	if cookie == nil {
+		return false
 	}
-	if len(usable) == 1 && auth.NormalizeCookieBaseName(usable[0].Name) == auth.NormalizeCookieBaseName(auth.DefaultAuthCookieName) {
-		return nil, fmt.Errorf("bootstrap response included only base auth cookie without session suffix")
-	}
-	return nil, fmt.Errorf("bootstrap response did not include a unique session-scoped auth cookie")
+	return auth.NormalizeCookieBaseName(cookie.Name) == auth.NormalizeCookieBaseName(auth.DefaultAuthCookieName)
 }
 
 func resolveCurrentSessionMCPBridgeHeaders(
