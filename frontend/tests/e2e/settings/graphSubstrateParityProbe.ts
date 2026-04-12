@@ -8,8 +8,7 @@ import {
 } from "components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases";
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
-  readBrowserStorageStateLocalStorageEntry,
-  readPersistedSettingsGraphLocalPaneState,
+  writePersistedSettingsGraphLocalPaneState,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
 } from "components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState";
@@ -507,64 +506,15 @@ export function findSharedVisibleSettingsGraphSection(
   return sharedSections[0];
 }
 
-async function getRawPersistedPaneStateFromBrowserContext(
-  page: Page,
-): Promise<string | null> {
-  const pageUrl = page.url();
-  if (!pageUrl) {
-    return null;
-  }
-
-  let origin: string;
-  try {
-    origin = new URL(pageUrl).origin;
-  } catch {
-    return null;
-  }
-
-  const storageState = await page.context().storageState();
-  return readBrowserStorageStateLocalStorageEntry({
-    key: "setta_data",
-    origin,
-    origins: storageState.origins,
-  });
-}
-
 export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
-  const rawPersistedPaneState =
-    await getRawPersistedPaneStateFromBrowserContext(page);
-  const persistedPaneState = readPersistedSettingsGraphLocalPaneState(
-    rawPersistedPaneState,
-  );
-  if (persistedPaneState) {
-    return persistedPaneState;
-  }
-
   const paneStateReadResult = await page.evaluate(
-    async ({
-      rawPersistedState,
-      timeoutMs,
-    }: {
-      rawPersistedState: string | null;
-      timeoutMs: number;
-    }) => {
+    async ({ timeoutMs }: { timeoutMs: number }) => {
       const collectDiagnostic = (): SettingsGraphPaneStateReadDiagnostic => {
         const articleElements = Array.from(
           document.querySelectorAll("article"),
         );
-        const persistedPaneStateParseable =
-          rawPersistedState === null
-            ? false
-            : (() => {
-                try {
-                  JSON.parse(rawPersistedState);
-                  return true;
-                } catch {
-                  return false;
-                }
-              })();
 
         return {
           appShellMounted:
@@ -577,8 +527,8 @@ export async function getLocalPaneState(
               null,
           headerNotificationVisible:
             document.querySelector(".header-notification-fade") !== null,
-          persistedPaneStateParseable,
-          persistedPaneStatePresent: rawPersistedState !== null,
+          persistedPaneStateParseable: false,
+          persistedPaneStatePresent: false,
           settingsContentMounted: articleElements.some((element) => {
             const htmlElement =
               element instanceof HTMLElement ? element : element.parentElement;
@@ -626,7 +576,6 @@ export async function getLocalPaneState(
       }
     },
     {
-      rawPersistedState: rawPersistedPaneState,
       timeoutMs: LOCAL_PANE_STATE_STORE_READ_TIMEOUT_MS,
     },
   );
@@ -654,38 +603,22 @@ export async function setLocalPaneState(
   page: Page,
   paneState: SettingsGraphLocalPaneState,
 ): Promise<void> {
-  const settledPaneState = await page.evaluate(
-    async (nextPaneState: SettingsGraphLocalPaneState) => {
-      const waitForAnimationFrame = async () =>
-        new Promise<void>((resolve) => {
-          window.requestAnimationFrame(() => resolve());
-        });
-
-      const { useLocalStorage } = await import("/src/state/definitions.ts");
-      useLocalStorage.setState({
-        overviewVis: nextPaneState.overviewVisible,
-        overviewTrueWidth: nextPaneState.overviewTrueWidth,
-        snapToGrid: nextPaneState.snapToGrid,
-        uiEditorVis: nextPaneState.uiEditorVisible,
-        uiEditorTrueWidth: nextPaneState.uiEditorTrueWidth,
-      });
-
-      await waitForAnimationFrame();
-      await waitForAnimationFrame();
-
-      const state = useLocalStorage.getState();
-      return {
-        overviewVisible: state.overviewVis,
-        overviewTrueWidth: state.overviewTrueWidth,
-        snapToGrid: state.snapToGrid,
-        uiEditorVisible: state.uiEditorVis,
-        uiEditorTrueWidth: state.uiEditorTrueWidth,
-      };
-    },
+  const nextPersistedPaneState = writePersistedSettingsGraphLocalPaneState({
     paneState,
-  );
+    rawPersistedState: null,
+  });
 
-  expect(settledPaneState).toEqual(paneState);
+  await page.evaluate(
+    ({ key, value }: { key: string; value: string }) => {
+      window.localStorage.setItem(key, value);
+    },
+    {
+      key: "setta_data",
+      value: nextPersistedPaneState,
+    },
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForSettingsGraphAppReady(page);
 }
 
 export async function normalizeSettingsGraphComparePaneState(
@@ -712,27 +645,13 @@ export async function fitGraphViewportToSection(
 export async function getSettingsGraphSurfaceKind(
   page: Page,
 ): Promise<SettingsGraphSurfaceKind | null> {
-  return page.evaluate(
-    ({
-      canaryRootSelector,
-      legacyRootSelector,
-    }: {
-      canaryRootSelector: string;
-      legacyRootSelector: string;
-    }) => {
-      if (document.querySelector(canaryRootSelector)) {
-        return "canary";
-      }
-      if (document.querySelector(legacyRootSelector)) {
-        return "legacy";
-      }
-      return null;
-    },
-    {
-      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
-      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
-    },
-  );
+  if ((await page.locator(CANARY_SETTINGS_GRAPH_ROOT_SELECTOR).count()) > 0) {
+    return "canary";
+  }
+  if ((await page.locator(LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR).count()) > 0) {
+    return "legacy";
+  }
+  return null;
 }
 
 export async function getSettingsGraphSectionBoundingBox(
@@ -1394,9 +1313,25 @@ async function waitForSettingsGraphComparePaneChrome(
   );
 }
 
+async function waitForSettingsGraphAppReady(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        (await page.locator(".setta-titlebar-offset").count()) > 0 &&
+        ((await page.locator(".react-flow__pane").count()) > 0 ||
+          (await page
+            .locator('[data-testid="graph-substrate-canary"]')
+            .count()) > 0 ||
+          (await page.locator("article").count()) > 0),
+      { timeout: 30000 },
+    )
+    .toBe(true);
+}
+
 async function waitForSettingsGraphCompareTransientChrome(
   page: Page,
 ): Promise<void> {
+  await waitForSettingsGraphAppReady(page);
   await page.evaluate(() => {
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLElement) {

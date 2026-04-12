@@ -151,6 +151,56 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 07:43 UTC
+
+- item `403` resolved the repeated compare-pane normalization blocker on the
+  canonical `rotaryParamCodeObjDefault` worktree perf lane:
+  - re-read the active plan/handoff first and kept the slice bounded to the
+    named blocker instead of adding another attribution owner without a live
+    readout
+  - added
+    `writePersistedSettingsGraphLocalPaneState(...)` in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+    plus matching unit coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  - updated
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so compare-pane
+    normalization writes the target pane state into persisted storage, reloads
+    once, waits for the settings app shell to remount, reads pane state through
+    the bounded in-page store path, and detects graph surface kind via locators
+  - appended the passing post-recovery canonical readout to
+    `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+    -> passed (`1` file, `8` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> passed
+  - live worktree probe on run `028`
+    -> pre-recovery reruns still timed out during normalization
+    -> bounded recovery:
+       `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+       fresh worktree session `3073af`
+    -> retry after recovery passed (`1` Playwright test, `2.4m`)
+    -> fresh readout:
+       `longTaskTotalDurationMs` `1066ms`
+       `longTaskMaxDurationMs` `391ms`
+       `averageFrameDurationMs` `39.92ms`
+       `panForward` `340ms`
+       `panReturn` `391ms`
+       `zoomIn` `186ms`
+       `zoomOut` `149ms`
+       dominant named canary owner `presentedSceneSectionEntriesResolve`
+       `8.3ms` total
+- reading:
+  - the compare-pane normalization blocker is closed for default sequencing on
+    this lane after one bounded lifecycle recovery
+  - the reuse-check owners stayed effectively zero on the passing run, so that
+    hypothesis is now measured and closed
+  - the next real frontier is another bounded pan-phase attribution seam
+    outside the current canary owner set rather than more normalization work
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 07:11 UTC
 
 - item `402` added one bounded pan-phase attribution seam on the canonical

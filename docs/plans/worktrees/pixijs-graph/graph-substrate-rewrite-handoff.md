@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 07:11 UTC
+Last updated: 2026-04-13 07:43 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,66 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `403` resolved the repeated compare-pane normalization blocker on the
+  canonical `rotaryParamCodeObjDefault` worktree perf lane:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and kept the slice bounded to the
+      named blocker instead of adding another attribution owner without a live
+      readout
+    - replaced compare-pane normalization's dependence on the live in-page
+      store mutation path with persisted pane-state rewrites plus one reload
+      and an explicit app-ready wait
+    - moved graph-surface-kind reads off page-side eval and onto locator-based
+      checks so preflight no longer burns time there
+  - product/support code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      with `writePersistedSettingsGraphLocalPaneState(...)`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      for persisted-payload rewrite coverage
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so normalization writes the compare pane state into persisted storage,
+      reloads once, waits for the settings app shell to remount, reads pane
+      state from the bounded in-page store path, and detects surface kind via
+      locators
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the passing post-recovery readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live worktree probe on run `028`
+      - command:
+        `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-028/worktree-ai.log`
+      - several pre-recovery reruns still timed out in normalization while the
+        page closed or stalled
+      - bounded lifecycle recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - fresh worktree session: `3073af`
+      - retry after recovery:
+        -> passed (`1` Playwright test, `2.4m`)
+      - fresh canonical readout:
+        - `longTaskCount`: `5`
+        - `longTaskTotalDurationMs`: `1066ms`
+        - `longTaskMaxDurationMs`: `391ms`
+        - `averageFrameDurationMs`: `39.92ms`
+        - phase split:
+          `panForward` `340ms`, `panReturn` `391ms`, `zoomIn` `186ms`,
+          `zoomOut` `149ms`
+        - dominant named canary owner:
+          `presentedSceneSectionEntriesResolve` `8.3ms` total
+  - reading:
+    - the compare-pane normalization blocker is closed for default sequencing
+      on this lane; the probe is healthy again after one bounded recovery
+    - the new reuse-check owners stayed effectively zero on the passing run, so
+      that hypothesis should be treated as measured and closed
+    - the remaining dominant synchronous cost still clusters in
+      `panForward` / `panReturn` outside the current canary owner set
+  - next default frontier:
+    - add one bounded attribution seam on the canonical
+      `rotaryParamCodeObjDefault` worktree lane that names the next
+      synchronous pan-phase owner outside the current canary instrumentation set
 
 - item `402` landed one bounded pan-phase attribution seam for the canonical
   `rotaryParamCodeObjDefault` worktree lane, but the live worktree probe is now

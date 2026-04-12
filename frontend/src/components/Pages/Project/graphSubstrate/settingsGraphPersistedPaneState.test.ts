@@ -3,6 +3,7 @@ import {
   formatSettingsGraphPaneStateReadDiagnostic,
   readBrowserStorageStateLocalStorageEntry,
   readPersistedSettingsGraphLocalPaneState,
+  writePersistedSettingsGraphLocalPaneState,
 } from "./settingsGraphPersistedPaneState";
 
 describe("readPersistedSettingsGraphLocalPaneState", () => {
@@ -98,6 +99,69 @@ describe("readPersistedSettingsGraphLocalPaneState", () => {
         ],
       }),
     ).toBeNull();
+  });
+
+  it("writes pane state into the persisted wrapper while preserving other keys", () => {
+    expect(
+      writePersistedSettingsGraphLocalPaneState({
+        paneState: {
+          overviewVisible: false,
+          overviewTrueWidth: 420,
+          snapToGrid: false,
+          uiEditorVisible: false,
+          uiEditorTrueWidth: 260,
+        },
+        rawPersistedState: JSON.stringify({
+          state: {
+            darkMode: true,
+            overviewVis: true,
+            overviewTrueWidth: 512,
+            snapToGrid: true,
+            uiEditorVis: true,
+            uiEditorTrueWidth: 420,
+          },
+          version: 3,
+        }),
+      }),
+    ).toBe(
+      JSON.stringify({
+        state: {
+          darkMode: true,
+          overviewVis: false,
+          overviewTrueWidth: 420,
+          snapToGrid: false,
+          uiEditorVis: false,
+          uiEditorTrueWidth: 260,
+        },
+        version: 3,
+      }),
+    );
+  });
+
+  it("starts a fresh persisted payload when the existing value is malformed", () => {
+    expect(
+      writePersistedSettingsGraphLocalPaneState({
+        paneState: {
+          overviewVisible: true,
+          overviewTrueWidth: 500,
+          snapToGrid: true,
+          uiEditorVisible: true,
+          uiEditorTrueWidth: 425,
+        },
+        rawPersistedState: "{bad json",
+      }),
+    ).toBe(
+      JSON.stringify({
+        state: {
+          overviewVis: true,
+          overviewTrueWidth: 500,
+          snapToGrid: true,
+          uiEditorVis: true,
+          uiEditorTrueWidth: 425,
+        },
+        version: 0,
+      }),
+    );
   });
 
   it("formats pane-state read diagnostics as stable json", () => {

@@ -159,3 +159,77 @@ aggregate long-task totals.
 - after one bounded lifecycle recovery, the active blocker is repeated
   compare-preflight timeout on the worktree probe rather than missing
   instrumentation
+
+## 2026-04-13 Compare-Pane Normalization Hardening
+
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+  so the probe can synthesize a persisted `setta_data` payload for the compare
+  pane state without needing the live page store
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  to cover payload rewriting that preserves unrelated persisted keys and the
+  malformed-input reset path
+- updated
+  `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so compare-pane
+  normalization:
+  - writes the expected pane state into persisted local storage
+  - reloads once and waits for the settings app shell to remount
+  - reads preflight pane state from the bounded in-page store path instead of
+    fragile persisted-state reads
+  - detects graph surface kind through locators rather than page-side eval
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  - passed (`1` file, `8` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+  - passed
+- live worktree probe on run `028`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-028/worktree-ai.log`
+  - before recovery:
+    - multiple reruns still timed out inside compare-pane normalization while
+      the page closed or stalled during persisted-state or page-eval reads
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - fresh worktree session: `3073af`
+    - frontend/backend stayed on `http://127.0.0.1:3075/` and
+      `http://127.0.0.1:8075`
+  - retry after recovery:
+    - passed (`1` Playwright test, `2.4m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state now held steady before and after the motion
+  sequence:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-recovery motion breakdown:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1066ms`
+  - `longTaskMaxDurationMs`: `391ms`
+  - `measurementWindowMs`: `1741.5ms`
+  - `averageFrameDurationMs`: `39.92ms`
+  - `panForward`: `2` tasks, `340ms` total, `221ms` max
+  - `panReturn`: `1` task, `391ms` total, `391ms` max
+  - `zoomIn`: `1` task, `186ms` total, `186ms` max
+  - `zoomOut`: `1` task, `149ms` total, `149ms` max
+- dominant named canary owner on the same run:
+  - `presentedSceneSectionEntriesResolve`: `8.3ms` total, `2.2ms` max
+- reuse-check owners stayed effectively zero on the passing run:
+  - `presentedSceneSectionArrayReuseCheck`: `0ms`
+  - `mountedSectionBodyIdSetReuseCheck`: `0ms`
+  - `pixiDrawableReuseCheck`: `0.1ms`
+
+### Updated Reading
+
+- the compare-pane normalization lane is healthy again after the restart; the
+  blocker is no longer `setLocalPaneState(...)` or `getSettingsGraphSurfaceKind(...)`
+- the fresh readout confirms the new reuse-check owners are not the missing
+  pan-time consumer
+- the next attribution slice should target synchronous work outside the current
+  canary owner set that still dominates `panForward` and `panReturn`

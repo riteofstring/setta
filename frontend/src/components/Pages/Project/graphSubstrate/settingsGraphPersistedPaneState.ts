@@ -25,6 +25,11 @@ export type SettingsGraphBrowserStorageStateOrigin = {
   origin: string;
 };
 
+type SettingsGraphPersistedStatePayload = {
+  state: Record<string, unknown>;
+  version: number;
+};
+
 export function readBrowserStorageStateLocalStorageEntry(args: {
   key: string;
   origin: string;
@@ -42,9 +47,9 @@ export function readBrowserStorageStateLocalStorageEntry(args: {
   );
 }
 
-export function readPersistedSettingsGraphLocalPaneState(
+function readPersistedSettingsGraphStatePayload(
   rawPersistedState: string | null,
-): SettingsGraphLocalPaneState | null {
+): SettingsGraphPersistedStatePayload | null {
   if (!rawPersistedState) {
     return null;
   }
@@ -64,17 +69,31 @@ export function readPersistedSettingsGraphLocalPaneState(
     return null;
   }
 
-  const persistedContainer = parsedPersistedState as {
+  const parsedRecord = parsedPersistedState as {
     state?: unknown;
+    version?: unknown;
   };
-  const persistedState =
-    persistedContainer.state &&
-    typeof persistedContainer.state === "object" &&
-    !Array.isArray(persistedContainer.state)
-      ? persistedContainer.state
-      : parsedPersistedState;
 
-  const paneState = persistedState as Record<string, unknown>;
+  return {
+    state:
+      parsedRecord.state &&
+      typeof parsedRecord.state === "object" &&
+      !Array.isArray(parsedRecord.state)
+        ? { ...(parsedRecord.state as Record<string, unknown>) }
+        : { ...(parsedPersistedState as Record<string, unknown>) },
+    version:
+      typeof parsedRecord.version === "number" ? parsedRecord.version : 0,
+  };
+}
+
+export function readPersistedSettingsGraphLocalPaneState(
+  rawPersistedState: string | null,
+): SettingsGraphLocalPaneState | null {
+  const payload = readPersistedSettingsGraphStatePayload(rawPersistedState);
+  if (!payload) {
+    return null;
+  }
+  const paneState = payload.state;
   if (
     typeof paneState.overviewVis !== "boolean" ||
     typeof paneState.overviewTrueWidth !== "number" ||
@@ -92,6 +111,27 @@ export function readPersistedSettingsGraphLocalPaneState(
     uiEditorVisible: paneState.uiEditorVis,
     uiEditorTrueWidth: paneState.uiEditorTrueWidth,
   };
+}
+
+export function writePersistedSettingsGraphLocalPaneState(args: {
+  paneState: SettingsGraphLocalPaneState;
+  rawPersistedState: string | null;
+}): string {
+  const existingPayload = readPersistedSettingsGraphStatePayload(
+    args.rawPersistedState,
+  );
+  const nextPayload: SettingsGraphPersistedStatePayload = {
+    state: {
+      ...(existingPayload?.state ?? {}),
+      overviewVis: args.paneState.overviewVisible,
+      overviewTrueWidth: args.paneState.overviewTrueWidth,
+      snapToGrid: args.paneState.snapToGrid,
+      uiEditorVis: args.paneState.uiEditorVisible,
+      uiEditorTrueWidth: args.paneState.uiEditorTrueWidth,
+    },
+    version: existingPayload?.version ?? 0,
+  };
+  return JSON.stringify(nextPayload);
 }
 
 export function formatSettingsGraphPaneStateReadDiagnostic(
