@@ -8,6 +8,14 @@ from setta.logging.tasks import spawn_background_task
 CallbackExecutor = Callable[[dict[str, Any], list[Any]], Awaitable[None] | None]
 
 
+def _normalize_ms(value: int | None) -> float | None:
+    if value is None:
+        return None
+    if value <= 0:
+        return None
+    return value / 1000.0
+
+
 @dataclass(slots=True)
 class _CallbackEntry:
     callback_id: str
@@ -20,14 +28,6 @@ class _CallbackEntry:
     next_scheduled_time: float | None = None
     last_invoked: float | None = None
     is_running: bool = False
-
-
-@dataclass(slots=True)
-class _PendingCallbackExecution:
-    entry: _CallbackEntry
-    loop: asyncio.AbstractEventLoop
-    payload: dict[str, Any]
-    events: list[Any]
 
 
 class ListenerCallbackScheduler:
@@ -50,16 +50,8 @@ class ListenerCallbackScheduler:
         entry = _CallbackEntry(
             callback_id=callback_id,
             executor=executor,
-            debounce_seconds=(
-                None
-                if debounce_ms is None or debounce_ms <= 0
-                else debounce_ms / 1000.0
-            ),
-            throttle_seconds=(
-                None
-                if throttle_ms is None or throttle_ms <= 0
-                else throttle_ms / 1000.0
-            ),
+            debounce_seconds=_normalize_ms(debounce_ms),
+            throttle_seconds=_normalize_ms(throttle_ms),
         )
         self._callbacks[callback_id] = entry
 
@@ -172,51 +164,30 @@ class ListenerCallbackScheduler:
         )
 
     async def _execute_callback(self, callback_id: str) -> None:
-        execution = self._claim_pending_execution(callback_id)
-        if execution is None:
-            return
-        try:
-            await self._run_pending_execution(execution)
-        finally:
-            self._finish_pending_execution(execution)
-
-    def _claim_pending_execution(
-        self, callback_id: str
-    ) -> _PendingCallbackExecution | None:
         entry = self._callbacks.get(callback_id)
         if entry is None:
-            return None
+            return
         if entry.is_running:
-            return None
+            return
         if not entry.pending_payload and not entry.pending_events:
-            return None
+            return
         loop = self._get_loop()
         entry.is_running = True
-        execution = _PendingCallbackExecution(
-            entry=entry,
-            loop=loop,
-            payload=dict(entry.pending_payload),
-            events=list(entry.pending_events),
-        )
+        payload = dict(entry.pending_payload)
+        events = list(entry.pending_events)
         entry.pending_payload.clear()
         entry.pending_events.clear()
-        return execution
-
-    async def _run_pending_execution(
-        self, execution: _PendingCallbackExecution
-    ) -> None:
-        result = execution.entry.executor(execution.payload, execution.events)
-        if inspect.isawaitable(result):
-            await result
-
-    def _finish_pending_execution(self, execution: _PendingCallbackExecution) -> None:
-        entry = execution.entry
-        entry.is_running = False
-        entry.timer_handle = None
-        entry.next_scheduled_time = None
-        entry.last_invoked = execution.loop.time()
-        if entry.pending_payload or entry.pending_events:
-            self._plan_execution(entry, entry.last_invoked)
+        try:
+            result = entry.executor(payload, events)
+            if inspect.isawaitable(result):
+                await result
+        finally:
+            entry.is_running = False
+            entry.timer_handle = None
+            entry.next_scheduled_time = None
+            entry.last_invoked = loop.time()
+            if entry.pending_payload or entry.pending_events:
+                self._plan_execution(entry, entry.last_invoked)
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         loop = self._loop
