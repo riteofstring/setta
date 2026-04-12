@@ -39,18 +39,37 @@ export function resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
   return measureSettingsGraphSubstrateCanaryMotionAttribution(
     "presentedSceneSectionVisibilityFilter",
     () => {
+      const viewportRightEdge =
+        visibleViewportWorldRect.x + visibleViewportWorldRect.width;
+      const viewportBottomEdge =
+        visibleViewportWorldRect.y + visibleViewportWorldRect.height;
       const presentedSceneSections: Array<SettingsGraphSubstrateCanarySceneSection> =
         [];
       for (const section of sceneSections) {
+        if (section.sectionId === draggingSectionId) {
+          presentedSceneSections.push(section);
+          continue;
+        }
+        if (section.isActiveSection === true) {
+          presentedSceneSections.push(section);
+          continue;
+        }
+
+        const sectionBoundsSize = section.sceneBoundsSize;
+        if (!sectionBoundsSize) {
+          presentedSceneSections.push(section);
+          continue;
+        }
+
+        const sectionX = section.renderedPosition.x;
+        const sectionY = section.renderedPosition.y;
+        const sectionRightEdge = sectionX + sectionBoundsSize.width;
+        const sectionBottomEdge = sectionY + sectionBoundsSize.height;
         if (
-          shouldAlwaysPresentSettingsGraphSubstrateCanarySection({
-            draggingSectionId,
-            section,
-          }) ||
-          isSettingsGraphSubstrateCanarySectionVisibleInWorldRect({
-            section,
-            visibleViewportWorldRect,
-          })
+          sectionX < viewportRightEdge &&
+          sectionRightEdge > visibleViewportWorldRect.x &&
+          sectionY < viewportBottomEdge &&
+          sectionBottomEdge > visibleViewportWorldRect.y
         ) {
           presentedSceneSections.push(section);
         }

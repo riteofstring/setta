@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 05:31 UTC
+Last updated: 2026-04-13 05:45 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,69 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `397` landed one bounded live canary reduction inside
+  `presentedSceneSectionVisibilityFilter` on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - local ranking/readout for this iteration:
+    - re-read the closed 2026-04-08 overlap-fast-path report before choosing
+      the slice so the pass would not repeat the same refactor shape
+    - selected the remaining direct production path inside the owner:
+      tighten the visibility-filter loop itself instead of adding more harness
+      work or another already-closed overlap micro-optimization
+    - first live worktree probe attempt failed after the page/browser closed
+      during pane-state normalization, so the iteration used its one allowed
+      bounded lifecycle recovery before retrying
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+      to precompute viewport edges once per pass and inline the dragged /
+      active / unbounded early-continue branches inside the presented-section
+      visibility loop
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+      for an offscreen dragged section staying in the presented subset
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-presented-scene-visibility-loop-tightening.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      -> passed (`2` files, `14` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+      -> passed
+    - first live worktree probe attempt on run `022`
+      -> failed after the browser/page closed during pane-state normalization
+    - bounded lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime info via
+        `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-022/worktree-ai.log`
+    - retried live worktree probe after recovery
+      -> passed (`1` Playwright test, `1.8m`)
+      -> `presentedSceneSectionVisibilityFilter`: `40` calls, `0.7ms` total,
+         `0.1ms` max
+      -> `pixiDrawableModelResolve`: `36` calls, `0.6ms` total
+      -> `presentedSceneBodyMountFilter`: `40` calls, `0.2ms` total
+      -> `interactionMiscStateSync`: `0` calls, `0ms`
+      -> note: broader capture window still had `5` long tasks,
+         `1174ms` total, `413ms` max
+    - fresh-context headless CDP route smoke after recovery
+      -> reached `http://127.0.0.1:3075/settings`
+      -> visible text included `Settings`, `pixijs-graph`,
+         `Loading project...`, and `Waiting for project data to load.`
+      -> the route check stayed in the loading state and did not reach the
+         full settings graph surface, so treat the live canary visual gate as
+         only partially trustworthy on this runtime
+  - reading:
+    - this slice materially reduced the targeted visibility-filter owner on
+      the canonical live lane instead of repeating the closed overlap-fast-path
+      hypothesis
+    - the named owner still ranks first inside motion attribution, but it is
+      now close to the other instrumented owners rather than dominating the
+      lane
+    - the remaining user-facing cost is now more likely in broader long-task
+      work than in another visibility-loop micro-optimization
+  - next default frontier:
+    - attribute the remaining long-task cost on the canonical live
+      `rotaryParamCodeObjDefault` lane after pane normalization so the next
+      product slice names a real owner beyond the now-small visibility filter
 
 - progress-review override at 2026-04-13 05:13 UTC:
   - the last ten runs were still worthwhile overall, but the default lane has

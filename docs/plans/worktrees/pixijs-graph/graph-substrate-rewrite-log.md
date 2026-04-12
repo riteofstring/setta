@@ -15687,6 +15687,62 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 05:45 UTC
+
+- item `397` landed one bounded reduction inside
+  `presentedSceneSectionVisibilityFilter` on the canonical live
+  `rotaryParamCodeObjDefault` lane
+- re-read the closed 2026-04-08 overlap-fast-path report first so this pass
+  would not repeat the same refactor shape; picked the loop-tightening slice
+  instead of another already-closed overlap micro-optimization
+- updated
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+  to precompute viewport edges once per pass and inline the dragged / active /
+  unbounded early-continue branches inside the presented-section visibility
+  loop
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+  with a regression for an offscreen dragged section staying in the presented
+  subset
+- recorded the slice in
+  `perf/reports/frontend/2026-04-13_settings-graph-presented-scene-visibility-loop-tightening.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    -> passed (`2` files, `14` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+    -> passed
+  - first live worktree probe attempt on run `022`
+    -> failed after the browser/page closed during pane-state normalization
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime info via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-022/worktree-ai.log`
+  - retried live worktree probe after recovery
+    -> passed (`1` Playwright test, `1.8m`)
+    -> `presentedSceneSectionVisibilityFilter`: `40` calls, `0.7ms` total,
+       `0.1ms` max
+    -> `pixiDrawableModelResolve`: `36` calls, `0.6ms` total
+    -> `presentedSceneBodyMountFilter`: `40` calls, `0.2ms` total
+    -> `interactionMiscStateSync`: `0` calls, `0ms`
+    -> measurement window still had `5` long tasks, `1174ms` total,
+       `413ms` max
+  - fresh-context headless CDP route smoke after recovery
+    -> success for route verification only
+    -> final URL `http://127.0.0.1:3075/settings`
+    -> visible text: `Settings`, `pixijs-graph`, `Loading project...`,
+       `Waiting for project data to load.`
+    -> note: the page stayed in the loading state instead of reaching the full
+       settings graph surface
+- reading:
+  - this slice materially reduced the targeted visibility-filter owner on the
+    canonical live canary lane
+  - the owner still ranks first inside motion attribution, but it is now close
+    to the other named owners rather than dominating the lane
+  - the next frontier should shift to attributing the broader long-task cost
+    after pane normalization instead of reopening the visibility-loop lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 04:18 UTC
 
 - item `389` landed one bounded mounted text-block body selector reduction on

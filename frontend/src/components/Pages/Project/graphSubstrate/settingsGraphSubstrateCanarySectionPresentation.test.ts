@@ -57,6 +57,30 @@ describe("settingsGraphSubstrateCanarySectionPresentation", () => {
     ]);
   });
 
+  it("keeps the dragged offscreen section in the presented subset", () => {
+    const visibleSection = createSceneSection({
+      sectionId: "visible-section",
+    });
+    const draggedOffscreenSection = createSceneSection({
+      position: { x: 1480, y: 80 },
+      renderedPosition: { x: 1480, y: 80 },
+      sectionId: "dragged-offscreen-section",
+    });
+
+    const presentedSceneSections =
+      resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
+        draggingSectionId: "dragged-offscreen-section",
+        sceneSections: [visibleSection, draggedOffscreenSection],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      });
+
+    expect(presentedSceneSections).toEqual([
+      visibleSection,
+      draggedOffscreenSection,
+    ]);
+  });
+
   it("keeps sections without authoritative bounds in the presented subset", () => {
     const visibleSection = createSceneSection({
       sectionId: "visible-section",
