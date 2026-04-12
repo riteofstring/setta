@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { __resetAppSpecPatchStreamsForTests } from "state/appSpecPatchStreaming";
+import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
 import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -13,14 +13,14 @@ import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 describe("ai app spec patch preview streaming", () => {
   beforeEach(() => {
     resetProjectStores();
-    __resetAppSpecPatchStreamsForTests();
+    clearAllAppSpecPatchStreams();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
   });
 
   afterEach(() => {
-    __resetAppSpecPatchStreamsForTests();
+    clearAllAppSpecPatchStreams();
     resetProjectStores();
   });
 

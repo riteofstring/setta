@@ -13,13 +13,8 @@ type StreamState = {
 };
 
 const streamByToolCallId = new Map<string, StreamState>();
-let nextBaseSpec: Spec | null = null;
 
 const STREAM_TTL_MS = 10 * 60 * 1000;
-
-function cloneSpec(spec: Spec): Spec {
-  return structuredClone(spec) as Spec;
-}
 
 function cleanupStaleStreams(nowMs: number): void {
   for (const [toolCallId, stream] of streamByToolCallId.entries()) {
@@ -45,10 +40,9 @@ export function applyAppSpecPatchPreviewDelta({
     (() => {
       const created: StreamState = {
         remainder: "",
-        spec: nextBaseSpec ? cloneSpec(nextBaseSpec) : createEmptySpec(),
+        spec: createEmptySpec(),
         lastUpdatedMs: nowMs,
       };
-      nextBaseSpec = null;
       streamByToolCallId.set(toolCallId, created);
       return created;
     })();
@@ -92,21 +86,4 @@ export function clearAppSpecPatchStream(toolCallId: string): void {
 
 export function clearAllAppSpecPatchStreams(): void {
   streamByToolCallId.clear();
-}
-
-export function setNextAppSpecPatchStreamBase(spec: Spec): void {
-  nextBaseSpec = cloneSpec(spec);
-}
-
-function clearNextAppSpecPatchStreamBase(): void {
-  nextBaseSpec = null;
-}
-
-export function __resetAppSpecPatchStreamsForTests(): void {
-  clearAllAppSpecPatchStreams();
-  clearNextAppSpecPatchStreamBase();
-}
-
-function __getAppSpecPatchStreamCountForTests(): number {
-  return streamByToolCallId.size;
 }
