@@ -5,11 +5,11 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   memo,
   useEffect,
+  useMemo,
   useRef,
   type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from "react";
-import { getNodes } from "state/actions/nodeInternals";
 import {
   useActiveSectionUI,
   useLocalStorage,
@@ -26,9 +26,9 @@ import type {
 import { getBoundsOfRects, getWheelDelta } from "../core/utils";
 import { getNodesBounds, getPaneRect } from "../core/utils/graph";
 import {
-  areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
   MiniMapNodesReactive,
+  useMiniMapRenderableNodes,
 } from "./MiniMapNodes";
 import type { MiniMapNodesType, MiniMapProps } from "./types";
 
@@ -39,6 +39,11 @@ type MiniMapSelector = {
   viewBB: Rect;
   boundingRect: Rect;
 };
+
+type MiniMapViewportState = Pick<
+  ReactFlowState,
+  "height" | "transform" | "width"
+>;
 
 type XYWidthHeightParams = {
   boundingRect: Rect;
@@ -59,15 +64,12 @@ type XYWidthHeightResult = {
 type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   elementWidth: number;
   elementHeight: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  viewBox: string;
   svgRef?: RefObject<SVGSVGElement>;
+  maskPathRef?: RefObject<SVGPathElement>;
   onSvgClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
   onSvgNodeClick?: MiniMapNodesType["onClick"];
-  offset: number;
-  viewBB: Rect;
+  maskPath: string | null;
   maskColor: string;
   maskStrokeColor: string;
   maskStrokeWidth: number;
@@ -106,24 +108,6 @@ export function syncSelectedMiniMapNodes(
   }
 }
 
-function getSelector(
-  nodes: Node[],
-  overviewWidth: number,
-  uiEditorWidth: number,
-) {
-  return (s: ReactFlowState): MiniMapSelector => {
-    const viewBB: Rect = getPaneRect(s, overviewWidth, uiEditorWidth);
-
-    return {
-      viewBB,
-      boundingRect:
-        nodes.length > 0
-          ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
-          : viewBB,
-    };
-  };
-}
-
 export function getXYWidthHeight({
   boundingRect,
   elementHeight,
@@ -141,6 +125,89 @@ export function getXYWidthHeight({
   const width = viewWidth + offset * 2;
   const height = viewHeight + offset * 2;
   return { x, y, width, height, viewScale, offset };
+}
+
+function getMiniMapSelector(
+  nodes: Node[],
+  overviewWidth: number,
+  uiEditorWidth: number,
+) {
+  return (s: MiniMapViewportState): MiniMapSelector => {
+    const viewBB: Rect = getPaneRect(
+      s as ReactFlowState,
+      overviewWidth,
+      uiEditorWidth,
+    );
+
+    return {
+      viewBB,
+      boundingRect:
+        nodes.length > 0
+          ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
+          : viewBB,
+    };
+  };
+}
+
+type MiniMapViewportMetricsArgs = {
+  elementHeight: number;
+  elementWidth: number;
+  nodes: Node[];
+  offsetScale: number;
+  overviewWidth: number;
+  reactFlowState: MiniMapViewportState;
+  uiEditorWidth: number;
+};
+
+type MiniMapViewportMetrics = XYWidthHeightResult & {
+  boundingRect: Rect;
+  viewBB: Rect;
+};
+
+export function getMiniMapViewportMetrics({
+  elementHeight,
+  elementWidth,
+  nodes,
+  offsetScale,
+  overviewWidth,
+  reactFlowState,
+  uiEditorWidth,
+}: MiniMapViewportMetricsArgs): MiniMapViewportMetrics {
+  const { boundingRect, viewBB } = getMiniMapSelector(
+    nodes,
+    overviewWidth,
+    uiEditorWidth,
+  )(reactFlowState);
+  return {
+    boundingRect,
+    viewBB,
+    ...getXYWidthHeight({
+      boundingRect,
+      elementHeight,
+      elementWidth,
+      offsetScale,
+    }),
+  };
+}
+
+export function getMiniMapViewBox(metrics: XYWidthHeightResult) {
+  return `${metrics.x} ${metrics.y} ${metrics.width} ${metrics.height}`;
+}
+
+export function getMiniMapMaskPath(args: {
+  height: number;
+  maskRect: Rect | null;
+  offset: number;
+  width: number;
+  x: number;
+  y: number;
+}) {
+  const { height, maskRect, offset, width, x, y } = args;
+  if (!maskRect) {
+    return null;
+  }
+  return `M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
+M${maskRect.x},${maskRect.y}h${maskRect.width}v${maskRect.height}h${-maskRect.width}z`;
 }
 
 function MiniMap({
@@ -167,30 +234,83 @@ function MiniMap({
   offsetScale = 5,
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodes = useNodeInternals(
-    getNodes,
-    areMiniMapNodesRenderableInputsEqual,
-  );
+  const nodes = useMiniMapRenderableNodes();
+  const nodesById = useMemo(() => {
+    return new Map(nodes.map((node) => [node.id, node]));
+  }, [nodes]);
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
-  const { boundingRect, viewBB } = useReactFlow(
-    getSelector(nodes, overviewWidth, uiEditorWidth),
+  const { width: paneWidth, height: paneHeight } = useReactFlow(
+    (state) => ({
+      width: state.width,
+      height: state.height,
+    }),
     shallow,
   );
   const elementWidth =
     typeof style?.width === "number" ? style.width : defaultWidth;
   const elementHeight =
     typeof style?.height === "number" ? style.height : defaultHeight;
-
-  const { x, y, width, height, viewScale, offset } = getXYWidthHeight({
-    boundingRect,
+  const maskPathRef = useRef<SVGPathElement>(null);
+  const viewportMetrics = getMiniMapViewportMetrics({
     elementHeight,
     elementWidth,
+    nodes,
     offsetScale,
+    overviewWidth,
+    reactFlowState: {
+      height: paneHeight,
+      transform: useReactFlow.getState().transform,
+      width: paneWidth,
+    },
+    uiEditorWidth,
   });
   const viewScaleRef = useRef<number>(0);
 
-  viewScaleRef.current = viewScale;
+  viewScaleRef.current = viewportMetrics.viewScale;
+
+  useEffect(() => {
+    const syncViewport = (transform: [number, number, number]) => {
+      const nextMetrics = getMiniMapViewportMetrics({
+        elementHeight,
+        elementWidth,
+        nodes,
+        offsetScale,
+        overviewWidth,
+        reactFlowState: {
+          height: useReactFlow.getState().height,
+          transform,
+          width: useReactFlow.getState().width,
+        },
+        uiEditorWidth,
+      });
+      viewScaleRef.current = nextMetrics.viewScale;
+      svgRef.current?.setAttribute("viewBox", getMiniMapViewBox(nextMetrics));
+      const nextMaskPath = getMiniMapMaskPath({
+        height: nextMetrics.height,
+        maskRect: nextMetrics.viewBB,
+        offset: nextMetrics.offset,
+        width: nextMetrics.width,
+        x: nextMetrics.x,
+        y: nextMetrics.y,
+      });
+      if (!maskPathRef.current || nextMaskPath === null) {
+        return;
+      }
+      maskPathRef.current.setAttribute("d", nextMaskPath);
+    };
+
+    syncViewport(useReactFlow.getState().transform);
+
+    return useReactFlow.subscribe((state) => state.transform, syncViewport);
+  }, [
+    elementHeight,
+    elementWidth,
+    nodes,
+    offsetScale,
+    overviewWidth,
+    uiEditorWidth,
+  ]);
 
   useEffect(() => {
     if (!svgRef.current) {
@@ -280,7 +400,11 @@ function MiniMap({
 
   const onSvgNodeClick = onNodeClick
     ? (event: ReactMouseEvent, nodeId: string) => {
-        const node = useNodeInternals.getState().x.get(nodeId)!;
+        const node =
+          nodesById.get(nodeId) ?? useNodeInternals.getState().x.get(nodeId);
+        if (!node) {
+          return;
+        }
         onNodeClick(event, node);
       }
     : undefined;
@@ -295,11 +419,9 @@ function MiniMap({
       <MinimapSvg
         elementWidth={elementWidth}
         elementHeight={elementHeight}
-        x={x}
-        y={y}
-        width={width}
-        height={height}
+        viewBox={getMiniMapViewBox(viewportMetrics)}
         svgRef={svgRef}
+        maskPathRef={maskPathRef}
         onSvgClick={onSvgClick}
         onSvgNodeClick={onSvgNodeClick}
         nodeColor={nodeColor}
@@ -308,12 +430,18 @@ function MiniMap({
         nodeClassName={nodeClassName}
         nodeStrokeWidth={nodeStrokeWidth}
         nodeComponent={nodeComponent}
-        offset={offset}
-        viewBB={viewBB}
+        maskPath={getMiniMapMaskPath({
+          height: viewportMetrics.height,
+          maskRect: viewportMetrics.viewBB,
+          offset: viewportMetrics.offset,
+          width: viewportMetrics.width,
+          x: viewportMetrics.x,
+          y: viewportMetrics.y,
+        })}
         maskColor={maskColor}
         maskStrokeColor={maskStrokeColor}
         maskStrokeWidth={maskStrokeWidth}
-        nodes={null}
+        nodes={nodes}
         enableSelectionSync
       />
     </Panel>
@@ -371,11 +499,9 @@ function MiniMapSelectionSync({
 export function MinimapSvg({
   elementWidth,
   elementHeight,
-  x,
-  y,
-  width,
-  height,
+  viewBox,
   svgRef,
+  maskPathRef,
   onSvgClick,
   onSvgNodeClick,
   nodeColor,
@@ -384,8 +510,7 @@ export function MinimapSvg({
   nodeClassName,
   nodeStrokeWidth,
   nodeComponent,
-  offset,
-  viewBB,
+  maskPath,
   maskColor,
   maskStrokeColor,
   maskStrokeWidth,
@@ -406,7 +531,7 @@ export function MinimapSvg({
     <svg
       width={elementWidth}
       height={elementHeight}
-      viewBox={`${x} ${y} ${width} ${height}`}
+      viewBox={viewBox}
       role="img"
       ref={svgRef}
       onClick={onSvgClick}
@@ -417,18 +542,18 @@ export function MinimapSvg({
         <MiniMapNodesReactive {...minimapNodesProps} />
       )}
       {enableSelectionSync ? <MiniMapSelectionSync svgRef={svgRef} /> : null}
-      {viewBB && (
+      {maskPath ? (
         <path
+          ref={maskPathRef}
           className="react-flow__minimap-mask"
-          d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
-M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
+          d={maskPath}
           fill={maskColor}
           fillRule="evenodd"
           stroke={maskStrokeColor}
           strokeWidth={maskStrokeWidth}
           pointerEvents="none"
         />
-      )}
+      ) : null}
     </svg>
   );
 }

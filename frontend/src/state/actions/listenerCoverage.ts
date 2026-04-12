@@ -1,18 +1,16 @@
-import { getListenerCoverage } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   NULL_PROJECT_CONFIG_ID,
   useListenerCoverage,
   type ListenerCoverageRecord,
 } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
+import { route_get_listener_coverage } from "utils/generatedEndpoints";
 import {
   BaseDependencyKeyUnion,
   DependencyKeyTypeEnum,
   ListenerCoverageSnapshot,
 } from "utils/generatedTypes";
-type ListenerCoverageRouteResponse =
-  ResponseDataAndStatus<ListenerCoverageSnapshot>;
+
 function serializeListenerDependencyKey(key: BaseDependencyKeyUnion): string {
   switch (key.type) {
     case DependencyKeyTypeEnum.Section:
@@ -23,6 +21,7 @@ function serializeListenerDependencyKey(key: BaseDependencyKeyUnion): string {
       return key satisfies never;
   }
 }
+
 function buildDependencyLookup(
   dependencies: Array<BaseDependencyKeyUnion>,
 ): Record<string, BaseDependencyKeyUnion> {
@@ -32,6 +31,7 @@ function buildDependencyLookup(
   }
   return lookup;
 }
+
 export function applyListenerCoverageSnapshot(
   snapshot: ListenerCoverageSnapshot,
 ): void {
@@ -44,11 +44,13 @@ export function applyListenerCoverageSnapshot(
     };
   });
 }
+
 export function getListenerCoverageRecord(
   projectConfigId: string,
 ): ListenerCoverageRecord | undefined {
   return useListenerCoverage.getState().byProjectId[projectConfigId];
 }
+
 export function dependencyKeyCovered(
   projectConfigId: string,
   dependency: BaseDependencyKeyUnion,
@@ -63,19 +65,18 @@ export function dependencyKeyCovered(
   const lookupKey = serializeListenerDependencyKey(dependency);
   return record.dependenciesByKey[lookupKey] !== undefined;
 }
+
+function serializeCoverageKey(dependency: BaseDependencyKeyUnion): string {
+  return serializeListenerDependencyKey(dependency);
+}
+
 export async function fetchListenerCoverageSnapshot(
   projectConfigId: string,
 ): Promise<void> {
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  const res = (await callOpenAPI(
-    getListenerCoverage({
-      body: {
-        projectConfigId,
-      },
-    } as Parameters<typeof getListenerCoverage>[0]),
-  )) as ListenerCoverageRouteResponse;
+  const res = await route_get_listener_coverage({ projectConfigId });
   if (!res200(res)) {
     return;
   }
