@@ -5,6 +5,11 @@ import {
 } from "components/Chat/sharePolicyChatAccess";
 import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
 import {
+  collectStripItemLayoutAnimations,
+  resolveFloatingDragMove,
+  resolveSingleDockResizeMetrics,
+} from "components/ChatWindowing/projectChatBottomDockInteractions";
+import {
   resolveDockStripReservedWidthPx,
   resolveDockWindowWidthsToFit,
   resolveMaxVisibleDockWindowCount,
@@ -23,7 +28,6 @@ import {
   buildFloatingSnapResizeBounds,
   buildFloatingSnapResizeHandles,
   resolveFloatingSnapPresetFromBounds,
-  resolveFloatingSnapPresetFromPointer,
   type FloatingSnapPreset,
   type FloatingSnapResizeHandle,
   type FloatingWindowBoundaryInsets,
@@ -775,54 +779,22 @@ function MinimizedPillStrip({
   }, []);
 
   useLayoutEffect(() => {
-    const nextRects: Record<string, DOMRect> = {};
-    const animations: Array<{
-      itemKey: string;
-      node: HTMLElement;
-      startingTransform: string;
-      startingOpacity: string;
-    }> = [];
+    const { nextRectsByItemKey, animations } = collectStripItemLayoutAnimations(
+      {
+        renderedStripItemKeys,
+        nodesByItemKey: stripItemNodesRef.current,
+        previousRectsByItemKey: previousStripItemRectsRef.current,
+        hasMounted: hasStripMountedRef.current,
+      },
+    );
+    previousStripItemRectsRef.current = nextRectsByItemKey;
 
-    for (const itemKey of renderedStripItemKeys) {
-      const node = stripItemNodesRef.current[itemKey];
-      if (!node) {
-        continue;
-      }
-      const nextRect = node.getBoundingClientRect();
-      nextRects[itemKey] = nextRect;
-      const previousRect = previousStripItemRectsRef.current[itemKey];
-      if (previousRect) {
-        const deltaX = previousRect.left - nextRect.left;
-        const deltaY = previousRect.top - nextRect.top;
-        if (Math.abs(deltaX) <= 0.5 && Math.abs(deltaY) <= 0.5) {
-          continue;
-        }
-        clearStripItemAnimation(itemKey);
-        node.dataset.chatPillLayoutAnimation = "active";
-        node.style.transition = "none";
-        node.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-        animations.push({
-          itemKey,
-          node,
-          startingTransform: "translate(0px, 0px)",
-        });
-        continue;
-      }
-      if (!hasStripMountedRef.current) {
-        continue;
-      }
-      clearStripItemAnimation(itemKey);
-      node.dataset.chatPillLayoutAnimation = "active";
-      node.style.transition = "none";
-      node.style.transform = "translateY(8px) scale(0.96)";
-      animations.push({
-        itemKey,
-        node,
-        startingTransform: "translateY(0px) scale(1)",
-      });
+    for (const animation of animations) {
+      clearStripItemAnimation(animation.itemKey);
+      animation.node.dataset.chatPillLayoutAnimation = "active";
+      animation.node.style.transition = "none";
+      animation.node.style.transform = animation.initialTransform;
     }
-
-    previousStripItemRectsRef.current = nextRects;
 
     if (!hasStripMountedRef.current) {
       hasStripMountedRef.current = true;
@@ -837,9 +809,9 @@ function MinimizedPillStrip({
     stripItemAnimationFrameRef.current = window.requestAnimationFrame(() => {
       stripItemAnimationFrameRef.current = null;
       for (const animation of animations) {
-        const { itemKey, node, startingTransform } = animation;
+        const { itemKey, node, finalTransform } = animation;
         node.style.transition = `transform ${CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS}ms cubic-bezier(0.16,1,0.3,1)`;
-        node.style.transform = startingTransform;
+        node.style.transform = finalTransform;
         const activeTimeoutId = stripItemAnimationTimeoutsRef.current[itemKey];
         if (activeTimeoutId !== undefined) {
           window.clearTimeout(activeTimeoutId);
@@ -4469,53 +4441,25 @@ export function ProjectChatBottomDock() {
       if (!activeDrag || activeDrag.pointerId !== event.pointerId) {
         return;
       }
-      const deltaX = event.clientX - activeDrag.startX;
-      const deltaY = event.clientY - activeDrag.startY;
-      const dragDistance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
-      if (
-        activeDrag.restoreBoundsOnUnsnap &&
-        !activeDrag.hasActivatedUnsnap &&
-        dragDistance >= FLOATING_UNSNAP_DRAG_THRESHOLD_PX
-      ) {
-        activeDrag.hasActivatedUnsnap = true;
-      }
-      const dragBoundsStart = activeDrag.hasActivatedUnsnap
-        ? activeDrag.dragBoundsStart
-        : activeDrag.startBounds;
-      const nextBounds = clampFloatingBoundsForCurrentViewport({
-        ...dragBoundsStart,
-        x: dragBoundsStart.x + deltaX,
-        y: dragBoundsStart.y + deltaY,
-      });
       const viewport = getViewportDimensions();
-      if (viewport) {
-        const snapPreset = resolveFloatingSnapPresetFromPointer({
-          pointerX: event.clientX,
-          pointerY: event.clientY,
-          viewportWidthPx: viewport.width,
-          viewportHeightPx: viewport.height,
-          insets: floatingWindowBoundaryInsets,
-        });
-        if (snapPreset) {
-          updateActiveFloatingSnapPreview({
-            instanceId: activeDrag.instanceId,
-            preset: snapPreset,
-            bounds: buildFloatingSnapBounds(
-              snapPreset,
-              viewport.width,
-              viewport.height,
-              floatingWindowBoundaryInsets,
-            ),
-          });
-        } else {
-          updateActiveFloatingSnapPreview(null);
-        }
-      } else {
-        updateActiveFloatingSnapPreview(null);
-      }
-      activeDrag.lastBounds = nextBounds;
-      if (activeDrag.hasActivatedUnsnap) {
-        handleFloatingBoundsPreview(activeDrag.instanceId, nextBounds);
+      const nextDragState = resolveFloatingDragMove({
+        activeDrag,
+        pointerX: event.clientX,
+        pointerY: event.clientY,
+        unsnapThresholdPx: FLOATING_UNSNAP_DRAG_THRESHOLD_PX,
+        viewportWidthPx: viewport?.width ?? null,
+        viewportHeightPx: viewport?.height ?? null,
+        insets: floatingWindowBoundaryInsets,
+        clampBounds: clampFloatingBoundsForCurrentViewport,
+      });
+      activeDrag.hasActivatedUnsnap = nextDragState.hasActivatedUnsnap;
+      activeDrag.lastBounds = nextDragState.nextBounds;
+      updateActiveFloatingSnapPreview(nextDragState.nextSnapPreview);
+      if (nextDragState.hasActivatedUnsnap) {
+        handleFloatingBoundsPreview(
+          activeDrag.instanceId,
+          nextDragState.nextBounds,
+        );
       }
     },
     [
@@ -4836,18 +4780,20 @@ export function ProjectChatBottomDock() {
         `[data-chat-window-instance-id="${pill.instanceId}"]`,
       );
       const panelBounds = panelNode?.getBoundingClientRect();
-      const startWidthPx =
-        panelBounds?.width ??
-        resolvedDockWindowWidthsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_WIDTH_PX;
-      const startHeightPx =
-        panelBounds?.height ??
-        resolvedDockWindowHeightsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_HEIGHT_PX;
       const viewport = getViewportDimensions();
-      const maxHeightFromViewport = viewport
-        ? viewport.height - workspaceTopInsetPx - dockBottomOffsetPx
-        : dockAvailableHeightPx;
+      const { startWidthPx, startHeightPx, maxHeightPx } =
+        resolveSingleDockResizeMetrics({
+          panelBounds,
+          resolvedWidthPx: resolvedDockWindowWidthsById[pill.instanceId],
+          resolvedHeightPx: resolvedDockWindowHeightsById[pill.instanceId],
+          viewportHeightPx: viewport?.height ?? null,
+          workspaceTopInsetPx,
+          dockBottomOffsetPx,
+          dockAvailableHeightPx,
+          defaultWidthPx: DOCK_WINDOW_DEFAULT_WIDTH_PX,
+          defaultHeightPx: DOCK_WINDOW_DEFAULT_HEIGHT_PX,
+          minHeightPx: MIN_DOCK_CHAT_HEIGHT_PX,
+        });
       activeSingleDockResizeRef.current = {
         pointerId: event.pointerId,
         instanceId: pill.instanceId,
@@ -4861,11 +4807,7 @@ export function ProjectChatBottomDock() {
         minWidthPx: MIN_DOCK_CHAT_WIDTH_PX,
         maxWidthPx: DOCK_SURFACE_MAX_WIDTH_PX,
         minHeightPx: MIN_DOCK_CHAT_HEIGHT_PX,
-        maxHeightPx: clampNumber(
-          maxHeightFromViewport,
-          MIN_DOCK_CHAT_HEIGHT_PX,
-          dockAvailableHeightPx,
-        ),
+        maxHeightPx,
       };
       setDockPreviewWidthsById((current) => ({
         ...current,
