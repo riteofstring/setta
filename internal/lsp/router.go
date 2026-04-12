@@ -234,40 +234,9 @@ func (r *Router) SyncDocuments(ctx context.Context, desired map[string]SyncedDoc
 		return nil
 	}
 
-	desiredByLanguage := map[string]map[string]SyncedDocument{}
-	for path, document := range desired {
-		languageID := normalizeLanguageID(document.LanguageID)
-		if languageID == "" || !r.hasLanguage(languageID) {
-			continue
-		}
-		document.LanguageID = languageID
-		if desiredByLanguage[languageID] == nil {
-			desiredByLanguage[languageID] = map[string]SyncedDocument{}
-		}
-		desiredByLanguage[languageID][path] = document
-	}
-
-	languages := r.serviceLanguages()
-	for languageID := range desiredByLanguage {
-		if !slices.Contains(languages, languageID) {
-			languages = append(languages, languageID)
-		}
-	}
-	slices.Sort(languages)
-
-	for _, languageID := range languages {
-		service, ok, err := r.serviceForLanguage(languageID)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			continue
-		}
-		documents := desiredByLanguage[languageID]
-		if documents == nil {
-			documents = map[string]SyncedDocument{}
-		}
-		if err := service.SyncDocuments(ctx, documents); err != nil {
+	desiredByLanguage := r.documentsByLanguage(desired)
+	for _, languageID := range r.syncDocumentLanguages(desiredByLanguage) {
+		if err := r.syncLanguageDocuments(ctx, languageID, desiredByLanguage[languageID]); err != nil {
 			return err
 		}
 	}
@@ -279,34 +248,9 @@ func (r *Router) RefreshDocuments(ctx context.Context, documents map[string]Sync
 		return nil
 	}
 
-	desiredByLanguage := map[string]map[string]SyncedDocument{}
-	for path, document := range documents {
-		languageID := normalizeLanguageID(document.LanguageID)
-		if languageID == "" || !r.hasLanguage(languageID) {
-			continue
-		}
-		document.LanguageID = languageID
-		if desiredByLanguage[languageID] == nil {
-			desiredByLanguage[languageID] = map[string]SyncedDocument{}
-		}
-		desiredByLanguage[languageID][path] = document
-	}
-
-	languages := make([]string, 0, len(desiredByLanguage))
-	for languageID := range desiredByLanguage {
-		languages = append(languages, languageID)
-	}
-	slices.Sort(languages)
-
-	for _, languageID := range languages {
-		service, ok, err := r.serviceForLanguage(languageID)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			continue
-		}
-		if err := service.RefreshDocuments(ctx, desiredByLanguage[languageID]); err != nil {
+	documentsByLanguage := r.documentsByLanguage(documents)
+	for _, languageID := range sortedLanguageIDs(documentsByLanguage) {
+		if err := r.refreshLanguageDocuments(ctx, languageID, documentsByLanguage[languageID]); err != nil {
 			return err
 		}
 	}
@@ -383,6 +327,30 @@ func (r *Router) hasLanguage(languageID string) bool {
 	return ok
 }
 
+func (r *Router) documentsByLanguage(documents map[string]SyncedDocument) map[string]map[string]SyncedDocument {
+	grouped := map[string]map[string]SyncedDocument{}
+	for path, document := range documents {
+		languageID, ok := r.configuredLanguageID(document.LanguageID)
+		if !ok {
+			continue
+		}
+		document.LanguageID = languageID
+		if grouped[languageID] == nil {
+			grouped[languageID] = map[string]SyncedDocument{}
+		}
+		grouped[languageID][path] = document
+	}
+	return grouped
+}
+
+func (r *Router) configuredLanguageID(languageID string) (string, bool) {
+	normalized := normalizeLanguageID(languageID)
+	if normalized == "" || !r.hasLanguage(normalized) {
+		return "", false
+	}
+	return normalized, true
+}
+
 func (r *Router) serviceLanguages() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -392,6 +360,51 @@ func (r *Router) serviceLanguages() []string {
 		languages = append(languages, languageID)
 	}
 	return languages
+}
+
+func (r *Router) syncDocumentLanguages(documentsByLanguage map[string]map[string]SyncedDocument) []string {
+	languages := r.serviceLanguages()
+	for languageID := range documentsByLanguage {
+		if !slices.Contains(languages, languageID) {
+			languages = append(languages, languageID)
+		}
+	}
+	slices.Sort(languages)
+	return languages
+}
+
+func sortedLanguageIDs(documentsByLanguage map[string]map[string]SyncedDocument) []string {
+	languages := make([]string, 0, len(documentsByLanguage))
+	for languageID := range documentsByLanguage {
+		languages = append(languages, languageID)
+	}
+	slices.Sort(languages)
+	return languages
+}
+
+func (r *Router) syncLanguageDocuments(ctx context.Context, languageID string, documents map[string]SyncedDocument) error {
+	service, ok, err := r.serviceForLanguage(languageID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	if documents == nil {
+		documents = map[string]SyncedDocument{}
+	}
+	return service.SyncDocuments(ctx, documents)
+}
+
+func (r *Router) refreshLanguageDocuments(ctx context.Context, languageID string, documents map[string]SyncedDocument) error {
+	service, ok, err := r.serviceForLanguage(languageID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	return service.RefreshDocuments(ctx, documents)
 }
 
 func (r *Router) serviceForLanguage(languageID string) (*Service, bool, error) {
