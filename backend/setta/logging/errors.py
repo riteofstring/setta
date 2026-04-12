@@ -18,10 +18,6 @@ _HANDLED_FAILURE_MESSAGE = "Handled failure in %s"
 _HANDLED_TRACEBACK_ENV = "SETTA_HANDLED_TRACEBACKS"
 
 
-class _RunSafelyInputError(TypeError):
-    """Raised when run_safely() receives an invalid awaitable target."""
-
-
 def log_failure(
     exc: BaseException,
     label: str,
@@ -84,13 +80,11 @@ async def run_safely(
     """
 
     try:
-        return await _resolve_coroutine(coroutine_or_factory)
-    except _RunSafelyInputError:
-        raise
-    except asyncio.CancelledError:
+        coroutine = _resolve_coroutine(coroutine_or_factory)
+    except TypeError:
         raise
     except Exception as exc:  # noqa: PERF203 - explicit structured logging path
-        _log_run_safely_failure(
+        log_failure(
             exc,
             label=label,
             logger=logger,
@@ -100,23 +94,21 @@ async def run_safely(
         if re_raise:
             raise
         return None
-
-
-def _log_run_safely_failure(
-    exc: BaseException,
-    *,
-    label: str,
-    logger: logging.Logger | None,
-    handled: bool,
-    context: Mapping[str, LoggingContextInput] | None,
-) -> None:
-    log_failure(
-        exc,
-        label=label,
-        logger=logger,
-        handled=handled,
-        context=context,
-    )
+    try:
+        return await coroutine
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: PERF203 - explicit structured logging path
+        log_failure(
+            exc,
+            label=label,
+            logger=logger,
+            handled=handled,
+            context=context,
+        )
+        if re_raise:
+            raise
+        return None
 
 
 def _resolve_coroutine(
@@ -129,6 +121,6 @@ def _resolve_coroutine(
         if inspect.isawaitable(result):
             return result
         message = "run_safely callable must return an awaitable"
-        raise _RunSafelyInputError(message)
+        raise TypeError(message)
     message = "run_safely requires an awaitable or zero-arg callable"
-    raise _RunSafelyInputError(message)
+    raise TypeError(message)

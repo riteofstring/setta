@@ -1,5 +1,5 @@
 import { useNotifications, useProjectState } from "state/definitions";
-import { NotificationTypeEnum } from "utils/generatedTypes";
+import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addPersistentNotification,
@@ -28,7 +28,7 @@ describe("notification actions", () => {
     // External engine failures should persist in the notifications area.
     const notificationId = addPersistentNotification(
       "External engine unavailable",
-      NotificationTypeEnum.warning,
+      SettaNotificationTypeEnum.warning,
     );
 
     const initial = useNotifications
@@ -49,11 +49,11 @@ describe("notification actions", () => {
     // Repeated checks for the same engine issue should not spam the notifications area.
     const firstId = addPersistentNotification(
       "External engine unavailable",
-      NotificationTypeEnum.warning,
+      SettaNotificationTypeEnum.warning,
     );
     const secondId = addPersistentNotification(
       "External engine unavailable",
-      NotificationTypeEnum.warning,
+      SettaNotificationTypeEnum.warning,
     );
 
     expect(secondId).toBe(firstId);
