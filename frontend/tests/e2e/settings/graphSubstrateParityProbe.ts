@@ -540,11 +540,17 @@ export async function waitForFrontendProjectConfigState(args: {
       "reading the frontend project config store",
       async () =>
         args.page.evaluate(async () => {
+          const { resolveSettingsGraphSharedProjectViewport } = await import(
+            "/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts"
+          );
           const { useProjectState } = await import("/src/state/definitions.ts");
           const projectConfig = useProjectState.getState().projectConfig;
           return {
             activeViewModeId: projectConfig.activeViewModeId,
-            viewport: projectConfig.viewport ?? null,
+            viewport: resolveSettingsGraphSharedProjectViewport({
+              viewport: projectConfig.viewport ?? null,
+              viewportInitialized: projectConfig.viewportInitialized,
+            }),
             viewportInitialized: projectConfig.viewportInitialized,
           };
         }),

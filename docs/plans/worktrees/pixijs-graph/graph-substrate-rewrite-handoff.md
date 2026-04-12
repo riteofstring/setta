@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 09:55 UTC
+Last updated: 2026-04-15 10:14 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,56 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `488` normalized the canonical
+  `waitForFrontendProjectConfigState(...)` lane-health oracle so it no longer
+  waits for an impossible raw `projectConfig.viewport=null` shape when the
+  frontend schema default object exists but `viewportInitialized=false`:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts`
+      now exports `resolveSettingsGraphSharedProjectViewport(...)`, the shared
+      rule that only treats the project viewport as authoritative when
+      `viewportInitialized` is true
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      now consumes that helper instead of duplicating the viewport gate inline
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      `waitForFrontendProjectConfigState(...)` now reads the same normalized
+      shared-project viewport shape from the frontend store before comparing it
+      with the backend-driven expectation
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      now covers the exact schema-default case:
+      `viewport={x:0,y:0,zoom:1}` with `viewportInitialized=false` resolves to
+      `null`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      -> passed (`1` file, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-019/worktree-ai.log`
+      -> passed; refreshed bootstrap token for session `9ecac6`
+    - live canonical lane rerun with fresh token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> no longer failed on the old impossible post-`surface_ready`
+         viewport-shape assumption because the run never reached that boundary
+      -> instead failed earlier at initial readiness with
+         `phase: "bootstrap_shell_loading"` and no app shell mounted after 30s
+    - fresh-context CDP check:
+      -> done via sub-agent
+      -> `http://127.0.0.1:3053/settings` remained on
+         `Loading project...` / `Waiting for project data to load.`
+         and did not advance while observed
+  - reading:
+    - this closes one concrete oracle bug on the canonical lane: the frontend
+      schema's default viewport object is no longer mistaken for authoritative
+      `viewportInitialized=true` state
+    - the remaining live blocker has moved outward to worktree runtime/bootstrap
+      health before the lane reaches compare-pane normalization or
+      post-`surface_ready` store sync
+    - next: inspect why the current worktree settings route is stalling in
+      bootstrap/project loading (`bootstrap_shell_loading` / `Loading project`)
+      before taking another renderer or store-sync slice
 
 - item `487` dropped stale optimistic viewport-persistence replays when the
   backend authoritatively switches the canonical `rotaryParamCodeObjDefault`

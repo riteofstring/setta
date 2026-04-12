@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isSettingsGraphAppReady,
   isSettingsGraphProjectSurfaceLoading,
+  resolveSettingsGraphSharedProjectViewport,
   resolveSettingsGraphSurfaceKind,
   shouldContinueWaitingForSettingsGraphAppReady,
 } from "./settingsGraphSurfaceState";
@@ -103,5 +104,27 @@ describe("settingsGraphSurfaceState", () => {
         },
       }),
     ).toBe(true);
+  });
+
+  it("treats an uninitialized project viewport as absent even when the schema default object exists", () => {
+    expect(
+      resolveSettingsGraphSharedProjectViewport({
+        viewport: { x: 0, y: 0, zoom: 1 },
+        viewportInitialized: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("returns the project viewport once initialization is authoritative", () => {
+    expect(
+      resolveSettingsGraphSharedProjectViewport({
+        viewport: { x: 12, y: -8, zoom: 1.25 },
+        viewportInitialized: true,
+      }),
+    ).toEqual({
+      x: 12,
+      y: -8,
+      zoom: 1.25,
+    });
   });
 });

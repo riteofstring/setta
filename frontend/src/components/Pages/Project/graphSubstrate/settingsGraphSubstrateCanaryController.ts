@@ -25,6 +25,7 @@ import {
   useSettingsGraphSubstrateCanarySurfaceRuntime,
   type SettingsGraphSubstrateCanarySurfaceRuntime,
 } from "./settingsGraphSubstrateCanarySurfaceRuntime";
+import { resolveSettingsGraphSharedProjectViewport } from "./settingsGraphSurfaceState";
 import type { GraphRect, GraphViewport } from "./viewportTransform";
 
 export type SettingsGraphSubstrateCanaryController = {
@@ -76,15 +77,10 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     _.isEqual,
   );
   const sharedProjectViewport = useProjectState((state) => {
-    const { viewport, viewportInitialized } = state.projectConfig;
-    if (!viewportInitialized || !viewport) {
-      return null;
-    }
-    return {
-      x: viewport.x,
-      y: viewport.y,
-      zoom: viewport.zoom,
-    };
+    return resolveSettingsGraphSharedProjectViewport({
+      viewport: state.projectConfig.viewport,
+      viewportInitialized: state.projectConfig.viewportInitialized,
+    });
   }, _.isEqual);
   const zoomActivationKeyPressed = useReactFlow(
     (state) => state.zoomActivationKeyPressed,

@@ -1,5 +1,11 @@
 export type SettingsGraphSurfaceKind = "canary" | "legacy";
 
+export type SettingsGraphProjectViewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 export type SettingsGraphSurfacePresenceSnapshot = {
   appShellMounted: boolean;
   canaryRootMounted: boolean;
@@ -54,4 +60,14 @@ export function shouldContinueWaitingForSettingsGraphAppReady(args: {
   return (
     !isSettingsGraphAppReady(args.snapshot) && args.nowMs < args.deadlineMs
   );
+}
+
+export function resolveSettingsGraphSharedProjectViewport(args: {
+  viewport: SettingsGraphProjectViewport | null;
+  viewportInitialized: boolean;
+}): SettingsGraphProjectViewport | null {
+  if (!args.viewportInitialized || !args.viewport) {
+    return null;
+  }
+  return args.viewport;
 }

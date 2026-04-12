@@ -285,6 +285,51 @@ LOOP_TERMINAL_MARKER: none
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-15 iteration 019 - normalize uninitialized viewport oracle on canonical lane
+
+- item `488` normalized the canonical
+  `waitForFrontendProjectConfigState(...)` lane-health oracle so it no longer
+  waits for an impossible raw `projectConfig.viewport=null` shape when the
+  frontend schema default object exists but `viewportInitialized=false`
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts`
+      now exports `resolveSettingsGraphSharedProjectViewport(...)`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      now uses that helper for the canary's shared-project viewport gate
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now normalizes the frontend project-config viewport through the same
+      helper before waiting on backend-driven state
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      now covers the schema-default viewport object with
+      `viewportInitialized=false`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      -> passed (`1` file, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-019/worktree-ai.log`
+      -> passed; refreshed bootstrap token for session `9ecac6`
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> failed earlier at initial readiness with
+         `phase: "bootstrap_shell_loading"` and no app shell mounted after 30s
+      -> this no longer gives evidence for the old post-`surface_ready`
+         viewport-shape blocker
+    - fresh-context CDP check:
+      -> done via sub-agent
+      -> `http://127.0.0.1:3053/settings` stayed on
+         `Loading project...` / `Waiting for project data to load.`
+  - reading:
+    - this closes one concrete oracle bug on the canonical lane and makes the
+      viewport expectation consistent with production's own shared-project
+      viewport authority
+    - the remaining live blocker is now earlier runtime/bootstrap health on
+      the worktree settings route, not the normalized viewport oracle
+    - next: inspect why the current worktree stalls in
+      `bootstrap_shell_loading` / project loading before it mounts the app
+      shell
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-15 09:55 UTC | item `487` | dropped stale viewport-persistence replay over authoritative backend view-mode normalization
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:
