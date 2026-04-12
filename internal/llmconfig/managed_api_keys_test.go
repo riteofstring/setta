@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-func TestReadManagedAPIKeysWithStatusReturnsEmptySnapshotWhenDotEnvMissing(t *testing.T) {
+func TestReadManagedAPIKeysReturnsEmptySnapshotWhenDotEnvMissing(t *testing.T) {
 	t.Parallel()
 
-	result := ReadManagedAPIKeysWithStatus(filepath.Join(t.TempDir(), ".env"))
+	result := ReadManagedAPIKeysWithStatusInLockRoot(filepath.Join(t.TempDir(), ".env"), "")
 
 	if result.Corrupt {
 		t.Fatalf("expected non-corrupt result, got %#v", result)
@@ -26,7 +26,7 @@ func TestReadManagedAPIKeysWithStatusReturnsEmptySnapshotWhenDotEnvMissing(t *te
 	}
 }
 
-func TestReadManagedAPIKeysWithStatusReadsOnlyIndexedKeys(t *testing.T) {
+func TestReadManagedAPIKeysReadsOnlyIndexedKeys(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -41,7 +41,7 @@ func TestReadManagedAPIKeysWithStatusReadsOnlyIndexedKeys(t *testing.T) {
 		t.Fatalf("write .env: %v", err)
 	}
 
-	result := ReadManagedAPIKeysWithStatus(path)
+	result := ReadManagedAPIKeysWithStatusInLockRoot(path, "")
 
 	if result.Corrupt || result.ErrorCode != "" {
 		t.Fatalf("expected successful read, got %#v", result)
@@ -57,7 +57,7 @@ func TestReadManagedAPIKeysWithStatusReadsOnlyIndexedKeys(t *testing.T) {
 	}
 }
 
-func TestReadManagedAPIKeysWithStatusReportsCorruptIndex(t *testing.T) {
+func TestReadManagedAPIKeysReportsCorruptIndex(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -71,7 +71,7 @@ func TestReadManagedAPIKeysWithStatusReportsCorruptIndex(t *testing.T) {
 		t.Fatalf("write .env: %v", err)
 	}
 
-	result := ReadManagedAPIKeysWithStatus(path)
+	result := ReadManagedAPIKeysWithStatusInLockRoot(path, "")
 
 	if !result.Corrupt {
 		t.Fatalf("expected corrupt result, got %#v", result)
@@ -84,22 +84,22 @@ func TestReadManagedAPIKeysWithStatusReportsCorruptIndex(t *testing.T) {
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionRejectsStaleRevision(t *testing.T) {
+func TestManagedAPIKeysWriteRejectsStaleRevision(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
 	path := ManagedAPIKeysPath(root)
 
-	first := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	first := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "existing",
-	}, 0, nil)
+	}, 0, nil, "")
 	if first.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected first write success, got %#v", first)
 	}
 
-	second := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	second := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "next",
-	}, 0, nil)
+	}, 0, nil, "")
 
 	if second.Status != ManagedAPIKeysWriteStatusRevisionConflict {
 		t.Fatalf("expected revision conflict, got %#v", second)
@@ -115,7 +115,7 @@ func TestWriteManagedAPIKeysWithExpectedRevisionRejectsStaleRevision(t *testing.
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionPreservesUnrelatedValues(t *testing.T) {
+func TestManagedAPIKeysWritePreservesUnrelatedValues(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -125,9 +125,9 @@ func TestWriteManagedAPIKeysWithExpectedRevisionPreservesUnrelatedValues(t *test
 		t.Fatalf("write initial .env: %v", err)
 	}
 
-	result := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "saved-secret",
-	}, 0, nil)
+	}, 0, nil, "")
 	if result.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected write success, got %#v", result)
 	}
@@ -147,7 +147,7 @@ func TestWriteManagedAPIKeysWithExpectedRevisionPreservesUnrelatedValues(t *test
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionPreservesQuotedUnrelatedValues(t *testing.T) {
+func TestManagedAPIKeysWritePreservesQuotedUnrelatedValues(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -157,9 +157,9 @@ func TestWriteManagedAPIKeysWithExpectedRevisionPreservesQuotedUnrelatedValues(t
 		t.Fatalf("write initial .env: %v", err)
 	}
 
-	result := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "saved-secret",
-	}, 0, nil)
+	}, 0, nil, "")
 	if result.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected write success, got %#v", result)
 	}
@@ -184,18 +184,18 @@ func TestWriteManagedAPIKeysWithExpectedRevisionPreservesQuotedUnrelatedValues(t
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionPreservesLiteralInterpolationTokens(t *testing.T) {
+func TestManagedAPIKeysWritePreservesLiteralInterpolationTokens(t *testing.T) {
 	t.Parallel()
 
 	path := ManagedAPIKeysPath(t.TempDir())
-	result := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "tok_${HOME}_x",
-	}, 0, nil)
+	}, 0, nil, "")
 	if result.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected write success, got %#v", result)
 	}
 
-	readResult := ReadManagedAPIKeysWithStatus(path)
+	readResult := ReadManagedAPIKeysWithStatusInLockRoot(path, "")
 	if readResult.ErrorCode != "" {
 		t.Fatalf("expected successful read, got %#v", readResult)
 	}
@@ -204,18 +204,18 @@ func TestWriteManagedAPIKeysWithExpectedRevisionPreservesLiteralInterpolationTok
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionPreservesUnsetVariableTokens(t *testing.T) {
+func TestManagedAPIKeysWritePreservesUnsetVariableTokens(t *testing.T) {
 	t.Parallel()
 
 	path := ManagedAPIKeysPath(t.TempDir())
-	result := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "tok_${UNSET_VAR}_x",
-	}, 0, nil)
+	}, 0, nil, "")
 	if result.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected write success, got %#v", result)
 	}
 
-	readResult := ReadManagedAPIKeysWithStatus(path)
+	readResult := ReadManagedAPIKeysWithStatusInLockRoot(path, "")
 	if readResult.ErrorCode != "" {
 		t.Fatalf("expected successful read, got %#v", readResult)
 	}
@@ -224,7 +224,7 @@ func TestWriteManagedAPIKeysWithExpectedRevisionPreservesUnsetVariableTokens(t *
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionRepairsCorruptIndexAndPurgesConfiguredKeys(t *testing.T) {
+func TestManagedAPIKeysWriteRepairsCorruptIndexAndPurgesConfiguredKeys(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -239,7 +239,7 @@ func TestWriteManagedAPIKeysWithExpectedRevisionRepairsCorruptIndexAndPurgesConf
 		t.Fatalf("write corrupt .env: %v", err)
 	}
 
-	result := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{}, 0, []string{"OPENAI_API_KEY"})
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{}, 0, []string{"OPENAI_API_KEY"}, "")
 	if result.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected repair write success, got %#v", result)
 	}
@@ -259,20 +259,20 @@ func TestWriteManagedAPIKeysWithExpectedRevisionRepairsCorruptIndexAndPurgesConf
 	}
 }
 
-func TestReadManagedAPIKeysWithStatusIsStableAcrossRepeatedReads(t *testing.T) {
+func TestReadManagedAPIKeysAreStableAcrossRepeatedReads(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
 	path := ManagedAPIKeysPath(root)
-	result := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "tok_${HOME}_x",
-	}, 0, nil)
+	}, 0, nil, "")
 	if result.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected write success, got %#v", result)
 	}
 
-	first := ReadManagedAPIKeysWithStatus(path)
-	second := ReadManagedAPIKeysWithStatus(path)
+	first := ReadManagedAPIKeysWithStatusInLockRoot(path, "")
+	second := ReadManagedAPIKeysWithStatusInLockRoot(path, "")
 	if first.ErrorCode != "" || second.ErrorCode != "" {
 		t.Fatalf("expected stable successful reads, got first=%#v second=%#v", first, second)
 	}
@@ -284,7 +284,7 @@ func TestReadManagedAPIKeysWithStatusIsStableAcrossRepeatedReads(t *testing.T) {
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionRepairsCorruptIndexWhenRevisionZero(t *testing.T) {
+func TestManagedAPIKeysWriteRepairsCorruptIndexWhenRevisionZero(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -298,9 +298,9 @@ func TestWriteManagedAPIKeysWithExpectedRevisionRepairsCorruptIndexWhenRevisionZ
 		t.Fatalf("write corrupt .env: %v", err)
 	}
 
-	result := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "repaired-secret",
-	}, 0, nil)
+	}, 0, nil, "")
 	if result.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected repair write success, got %#v", result)
 	}
@@ -320,7 +320,7 @@ func TestWriteManagedAPIKeysWithExpectedRevisionRepairsCorruptIndexWhenRevisionZ
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionReportsCorruptIndex(t *testing.T) {
+func TestManagedAPIKeysWriteReportsCorruptIndex(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -334,9 +334,9 @@ func TestWriteManagedAPIKeysWithExpectedRevisionReportsCorruptIndex(t *testing.T
 		t.Fatalf("write corrupt .env: %v", err)
 	}
 
-	result := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "next-secret",
-	}, 1, nil)
+	}, 1, nil, "")
 	if result.Status != ManagedAPIKeysWriteStatusCorruptStore {
 		t.Fatalf("expected corrupt store status, got %#v", result)
 	}
@@ -348,7 +348,7 @@ func TestWriteManagedAPIKeysWithExpectedRevisionReportsCorruptIndex(t *testing.T
 	}
 }
 
-func TestReadManagedAPIKeysWithStatusReportsUnavailableStore(t *testing.T) {
+func TestReadManagedAPIKeysReportUnavailableStore(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -357,7 +357,7 @@ func TestReadManagedAPIKeysWithStatusReportsUnavailableStore(t *testing.T) {
 		t.Fatalf("make env path directory: %v", err)
 	}
 
-	result := ReadManagedAPIKeysWithStatus(path)
+	result := ReadManagedAPIKeysWithStatusInLockRoot(path, "")
 	if result.Corrupt {
 		t.Fatalf("expected unavailable result to stay non-corrupt, got %#v", result)
 	}
@@ -375,7 +375,7 @@ func TestReadManagedAPIKeysWithStatusReportsUnavailableStore(t *testing.T) {
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionReportsUnavailableStoreWhenWriteFails(t *testing.T) {
+func TestManagedAPIKeysWriteReportsUnavailableStoreWhenWriteFails(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -392,7 +392,7 @@ func TestWriteManagedAPIKeysWithExpectedRevisionReportsUnavailableStoreWhenWrite
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write initial .env: %v", err)
 	}
-	current := ReadManagedAPIKeysWithStatus(path)
+	current := ReadManagedAPIKeysWithStatusInLockRoot(path, "")
 	if current.ErrorCode != "" {
 		t.Fatalf("expected readable initial store, got %#v", current)
 	}
@@ -422,22 +422,22 @@ func TestWriteManagedAPIKeysWithExpectedRevisionReportsUnavailableStoreWhenWrite
 	}
 }
 
-func TestWriteManagedAPIKeysWithExpectedRevisionRemovesManagedKey(t *testing.T) {
+func TestManagedAPIKeysWriteRemovesManagedKey(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
 	path := ManagedAPIKeysPath(root)
-	first := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	first := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY":    "openai-secret",
 		"ANTHROPIC_API_KEY": "anthropic-secret",
-	}, 0, nil)
+	}, 0, nil, "")
 	if first.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected initial write success, got %#v", first)
 	}
 
-	second := WriteManagedAPIKeysWithExpectedRevision(path, map[string]string{
+	second := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
 		"OPENAI_API_KEY": "openai-secret",
-	}, first.Revision, nil)
+	}, first.Revision, nil, "")
 	if second.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected removal write success, got %#v", second)
 	}
@@ -503,9 +503,9 @@ func TestManagedAPIKeysPathAnchorsWorkspaceRootDotEnv(t *testing.T) {
 		t.Fatalf("expected workspace-root .env path %q, got %q", expectedPath, envPath)
 	}
 
-	result := WriteManagedAPIKeysWithExpectedRevision(envPath, map[string]string{
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(envPath, map[string]string{
 		"SETTA_TEST_KEY": "value",
-	}, 0, nil)
+	}, 0, nil, "")
 	if result.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("expected managed api key write success, got %#v", result)
 	}

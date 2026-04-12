@@ -113,9 +113,9 @@ func TestServiceSaveConfigRefreshesRuntimeKeysFromManagedStore(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	write := WriteManagedAPIKeysWithExpectedRevision(ManagedAPIKeysPath(root), map[string]string{
+	write := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(ManagedAPIKeysPath(root), map[string]string{
 		"ANTHROPIC_API_KEY": "managed-secret",
-	}, 0, nil)
+	}, 0, nil, "")
 	if write.Status != ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("seed managed api keys: %#v", write)
 	}

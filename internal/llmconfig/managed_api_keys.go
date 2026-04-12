@@ -140,10 +140,6 @@ func BuildManagedAPIKeysSnapshot(result ManagedAPIKeysReadResult, apiKeys map[st
 	}
 }
 
-func ReadManagedAPIKeysWithStatus(path string) ManagedAPIKeysReadResult {
-	return ReadManagedAPIKeysWithStatusInLockRoot(path, "")
-}
-
 func WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path string, payload map[string]string, expectedRevision int, configuredProviderKeyNames []string, lockRoot string) ManagedAPIKeysWriteAttempt {
 	paths, err := resolveManagedAPIKeysPaths(path, lockRoot)
 	if err != nil {
@@ -176,10 +172,6 @@ func WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path string, payload map[
 		return attempt
 	}
 	return managedAPIKeysWriteAttemptFromError(err)
-}
-
-func WriteManagedAPIKeysWithExpectedRevision(path string, payload map[string]string, expectedRevision int, configuredProviderKeyNames []string) ManagedAPIKeysWriteAttempt {
-	return WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, payload, expectedRevision, configuredProviderKeyNames, "")
 }
 
 func withManagedAPIKeysLock[T any](path string, lockRoot string, fn func() (T, error)) (T, error) {

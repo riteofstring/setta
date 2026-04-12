@@ -198,11 +198,12 @@ func TestSystemCheckerReadsWhitelistedEnvVarsFromProcessAndManagedStore(t *testi
 
 	workspaceRoot := t.TempDir()
 	commandPath := writeExecutableFixture(t, "codex")
-	write := llmconfig.WriteManagedAPIKeysWithExpectedRevision(
+	write := llmconfig.WriteManagedAPIKeysWithExpectedRevisionInLockRoot(
 		llmconfig.ManagedAPIKeysPath(workspaceRoot),
 		map[string]string{"MANAGED_KEY": "managed-secret"},
 		0,
 		nil,
+		"",
 	)
 	if write.Status != llmconfig.ManagedAPIKeysWriteStatusSuccess {
 		t.Fatalf("seed managed api keys: %#v", write)
