@@ -19051,3 +19051,29 @@ LOOP_TERMINAL_MARKER: none
     container/body subtree and either add a new attribution split there or take
     a different production boundary inside that subtree
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-14 10:20 UTC
+
+- item `460` stabilized the canonical `rotaryParamCodeObjDefault` lane-health
+  probe by carrying the recovered Playwright page through normalization and
+  cleanup instead of continuing on a stale page handle
+- changed `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts` to
+  keep `activePage` across normalization, state updates, capture, and restore
+- changed `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` to fail
+  fast with a worktree-lifecycle diagnostic when page recovery is attempted
+  after the entire browser context has already closed
+- verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 SETTA_BACKEND_ORIGIN='http://127.0.0.1:8075' SETTA_BOOTSTRAP_TOKEN='<fresh runtime token>' PLAYWRIGHT_BASE_URL='http://127.0.0.1:3075/' pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+    -> pass (`1` test, `49.0s`)
+    -> lane snapshot: `classification=healthy`, `surfaceKind=canary`,
+       `legacyPaneMounted=false`, `targetSectionVisible=true`
+  - fresh-context CDP sub-agent on debug port `9297`
+    -> pass; `All Settings` showed `rotaryParamCodeObjDefault` visible and
+       attached with no obvious mixed-surface or blank-surface regression
+- reading:
+  - canonical lane health is restored; the prior mixed-surface call was not a
+    current product bug on the live canary
+  - close the lane-health support lane here and move the next iteration back to
+    measured product work on the hot subtree above the already-closed row
+    micro-cuts

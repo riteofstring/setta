@@ -60,37 +60,44 @@ test("settings graph worktree lane health captures the normalized rotaryParamCod
 }) => {
   test.setTimeout(180000);
 
-  await ensureAppReady(page);
-  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await waitForInitialSettingsGraphReady(page);
+  let activePage = page;
 
-  const projectConfigId = await getProjectConfigIdFromBackend(page);
-  const initialState = await getLatestProjectState(page, projectConfigId);
+  await ensureAppReady(activePage);
+  await activePage.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await waitForInitialSettingsGraphReady(activePage);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(activePage);
+  const initialState = await getLatestProjectState(activePage, projectConfigId);
   const initialActiveViewModeId =
     initialState.projectState.projectConfig.activeViewModeId;
   const initialViewport = initialState.projectState.projectConfig.viewport;
-  const initialPaneState = await getLocalPaneState(page).catch(() => null);
+  const initialPaneState = await getLocalPaneState(activePage).catch(
+    () => null,
+  );
   const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
   const targetSectionName = "rotaryParamCodeObjDefault";
   const targetSectionId = findSectionIdByName(initialState, targetSectionName);
 
   try {
-    await normalizeSettingsGraphComparePaneState(page);
-    await postBackend(page, "/setActiveViewMode", {
+    activePage = await normalizeSettingsGraphComparePaneState(activePage);
+    await postBackend(activePage, "/setActiveViewMode", {
       projectConfigId,
       activeViewModeId: allSettingsViewModeId,
     });
-    await postBackend(page, "/setViewport", {
+    await postBackend(activePage, "/setViewport", {
       projectConfigId,
       viewport: null,
     });
-    const normalizedState = await getLatestProjectState(page, projectConfigId);
-    await applyProjectStateUpdate(page, normalizedState);
+    const normalizedState = await getLatestProjectState(
+      activePage,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(activePage, normalizedState);
 
     const laneHealth = await captureSettingsGraphLaneHealthSnapshot({
       expectedSurfaceKind: "canary",
       expectedViewModeName: "All Settings",
-      page,
+      page: activePage,
       projectConfigId,
       requireFitView: true,
       side: "worktree",
@@ -127,14 +134,16 @@ test("settings graph worktree lane health captures the normalized rotaryParamCod
     ).toBeGreaterThan(0);
   } finally {
     if (initialPaneState) {
-      await setLocalPaneState(page, initialPaneState).catch(() => {});
+      activePage = await setLocalPaneState(activePage, initialPaneState).catch(
+        () => activePage,
+      );
     }
-    await postBackend(page, "/setViewport", {
+    await postBackend(activePage, "/setViewport", {
       projectConfigId,
       viewport: initialViewport,
     }).catch(() => {});
     if (initialActiveViewModeId) {
-      await postBackend(page, "/setActiveViewMode", {
+      await postBackend(activePage, "/setActiveViewMode", {
         projectConfigId,
         activeViewModeId: initialActiveViewModeId,
       }).catch(() => {});

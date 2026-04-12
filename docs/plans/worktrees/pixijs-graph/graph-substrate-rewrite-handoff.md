@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 09:58 UTC
+Last updated: 2026-04-14 10:20 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,48 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `460` stabilized the dedicated lane-health probe on the canonical
+  `rotaryParamCodeObjDefault` lane so it now carries any recovered Playwright
+  page forward instead of falling back to a stale page handle during
+  normalization/cleanup:
+  - code/test changes kept in the tree:
+    - `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      now keeps an `activePage` variable through normalization, probe capture,
+      and cleanup, matching the shared helper contract that the compare-pane
+      normalization step may return a replacement page
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now fails fast with a worktree-lifecycle diagnostic when the page is
+      closed and the entire browser context is already gone, instead of
+      blindly retrying `context.newPage()` on an unrecoverable closed context
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 SETTA_BACKEND_ORIGIN='http://127.0.0.1:8075' SETTA_BOOTSTRAP_TOKEN='<fresh runtime token>' PLAYWRIGHT_BASE_URL='http://127.0.0.1:3075/' pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+      -> passed (`1` test, `49.0s`)
+      -> captured lane-health snapshot:
+         `classification: healthy`
+         `preflight.status: ok`
+         `surfacePresence.canaryRootMounted: true`
+         `surfacePresence.legacyPaneMounted: false`
+         `targetSectionName: rotaryParamCodeObjDefault`
+         `targetSectionVisible: true`
+         `instrumentation.mountedSceneSectionCount: 46`
+         `instrumentation.mountedSectionBodyCount: 1`
+         `instrumentation.pixiDrawableCount: 1`
+    - required CDP visual confirmation:
+      -> fresh-context sub-agent succeeded on live worktree `http://127.0.0.1:3075/`
+      -> `All Settings` showed `rotaryParamCodeObjDefault` visible and attached
+         at normal zoom with no obvious mixed-surface, blank, or detached-body
+         regression
+  - reading:
+    - the earlier mixed-surface classification was oracle/test-lifecycle noise,
+      not a current product regression on the canonical lane
+    - the lane-health support lane is now clean enough to stop spending default
+      iterations on it
+    - the next real frontier should return to product work on the canonical
+      hot subtree using this healthy lane as regression coverage, starting at a
+      larger ownership boundary above the already-closed row micro-cuts
 
 - item `459` landed one bounded oracle-normalization fix for the canonical
   `rotaryParamCodeObjDefault` lane so the lane-health probe stops treating the

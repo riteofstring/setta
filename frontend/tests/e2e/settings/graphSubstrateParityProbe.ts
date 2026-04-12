@@ -233,6 +233,21 @@ async function reopenSettingsGraphPageIfRecoverable(page: Page): Promise<Page> {
     return page;
   }
 
+  try {
+    await page.context().storageState();
+  } catch (error) {
+    if (isSettingsGraphPageLifecycleClosureError(error)) {
+      throw new Error(
+        `Worktree unhealthy: browser context closed before page recovery. ${formatSettingsGraphPageLifecycleDiagnostic(
+          diagnostic,
+        )} Original error: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    throw error;
+  }
+
   const replacementPage = await page.context().newPage();
   await replacementPage.goto(diagnostic.pageUrl, {
     waitUntil: "domcontentloaded",
