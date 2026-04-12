@@ -6,6 +6,11 @@ import { StrictMode, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const openAPI = vi.hoisted(() => ({
+  getFileBrowserRoot: vi.fn(),
+  getWorkspacePythonSignal: vi.fn(),
+}));
+
 vi.mock("components/Chat/ChatInput", () => ({
   ChatInput: () => <div data-testid="mock-chat-input" />,
   resolveSlashCommandRequest: vi.fn(),
@@ -15,22 +20,22 @@ vi.mock("components/Chat/ChatMessages", () => ({
   ChatMessageList: () => <div data-testid="mock-chat-message-list" />,
 }));
 
-vi.mock("utils/generatedEndpoints", async () => {
+vi.mock("openapi/http", async () => {
   const actual =
-    await vi.importActual<typeof import("utils/generatedEndpoints")>(
-      "utils/generatedEndpoints",
-    );
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_file_browser_root: vi.fn(),
-    route_get_folder_contents: vi.fn(),
+    getFileBrowserRoot: openAPI.getFileBrowserRoot,
+    getWorkspacePythonSignal: openAPI.getWorkspacePythonSignal,
   };
 });
 
-import {
-  route_get_file_browser_root,
-  route_get_folder_contents,
-} from "utils/generatedEndpoints";
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
 import {
   useAIStore,
   useLocalStorage,
@@ -39,6 +44,20 @@ import {
 import { resetProjectStores } from "state/utils";
 import { EngineTypeEnum, createProjectConfig } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
+
+function buildWorkspacePythonSignalResponse(
+  folderPath: string,
+  hasPython: boolean,
+) {
+  return {
+    data: {
+      folderPath,
+      hasPython,
+    },
+    status: 200,
+    hasResponse: true,
+  };
+}
 
 describe("ProjectChatCore workspace root scans", () => {
   let host: HTMLDivElement;
@@ -84,8 +103,9 @@ describe("ProjectChatCore workspace root scans", () => {
 
   beforeEach(() => {
     resetProjectStores();
-    vi.clearAllMocks();
     vi.useFakeTimers();
+    openAPI.getFileBrowserRoot.mockReset();
+    openAPI.getWorkspacePythonSignal.mockReset();
 
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -114,7 +134,7 @@ describe("ProjectChatCore workspace root scans", () => {
       pendingProjectChatPrompt: null,
     });
 
-    vi.mocked(route_get_file_browser_root).mockResolvedValue({
+    openAPI.getFileBrowserRoot.mockResolvedValue({
       data: {
         rootPath: "/workspace",
         pathSeparator: "/",
@@ -135,13 +155,18 @@ describe("ProjectChatCore workspace root scans", () => {
   });
 
   it("does not start a second workspace root scan while the first scan is still in flight", async () => {
-    let resolveFolderScan: ((value: {
-      data: Array<{ name: string; type: string; fullPath: string }>;
-      status: number;
-      hasResponse: boolean;
-    }) => void) | null = null;
+    let resolveFolderScan:
+      | ((value: {
+          data: {
+            folderPath: string;
+            hasPython: boolean;
+          };
+          status: number;
+          hasResponse: boolean;
+        }) => void)
+      | null = null;
 
-    vi.mocked(route_get_folder_contents).mockImplementation(
+    openAPI.getWorkspacePythonSignal.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveFolderScan = resolve;
@@ -151,50 +176,43 @@ describe("ProjectChatCore workspace root scans", () => {
     await renderProjectChatCore();
 
     await vi.waitFor(() => {
-      expect(route_get_folder_contents).toHaveBeenCalledTimes(1);
+      expect(openAPI.getWorkspacePythonSignal).toHaveBeenCalledTimes(1);
     });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(6200);
     });
 
-    expect(route_get_folder_contents).toHaveBeenCalledTimes(1);
+    expect(openAPI.getWorkspacePythonSignal).toHaveBeenCalledTimes(1);
 
     if (!resolveFolderScan) {
-      throw new Error("Expected the initial workspace root scan to be pending.");
+      throw new Error(
+        "Expected the initial workspace root scan to be pending.",
+      );
     }
     resolveFolderScan({
-      data: [],
-      status: 200,
-      hasResponse: true,
+      ...buildWorkspacePythonSignalResponse("/workspace", false),
     });
   });
 
-  it("backs off stable root polling under StrictMode after repeated identical roots", async () => {
-    vi.mocked(route_get_folder_contents).mockResolvedValue({
-      data: [],
-      status: 200,
-      hasResponse: true,
-    });
+  it("does not schedule repeated workspace root fetches after the initial resolution", async () => {
+    openAPI.getWorkspacePythonSignal.mockResolvedValue(
+      buildWorkspacePythonSignalResponse("/workspace", false),
+    );
 
     await renderProjectChatCore({ strictMode: true });
 
     await vi.waitFor(() => {
-      expect(route_get_file_browser_root).toHaveBeenCalled();
+      expect(openAPI.getFileBrowserRoot).toHaveBeenCalled();
     });
+    const initialRootFetchCount = openAPI.getFileBrowserRoot.mock.calls.length;
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(16200);
-    });
-    const postBackoffTransitionCalls =
-      vi.mocked(route_get_file_browser_root).mock.calls.length;
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(6200);
+      await vi.advanceTimersByTimeAsync(20000);
     });
 
-    expect(vi.mocked(route_get_file_browser_root).mock.calls.length).toBe(
-      postBackoffTransitionCalls,
+    expect(openAPI.getFileBrowserRoot.mock.calls.length).toBe(
+      initialRootFetchCount,
     );
   });
 });
