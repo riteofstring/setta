@@ -1,4 +1,6 @@
 import _ from "lodash";
+import { setActiveIds } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   clearScheduledActiveSectionBackendSync,
   disableActiveSectionUIBackendHydration,
@@ -17,7 +19,6 @@ import {
   useServerMode,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_set_active_ids } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -26,16 +27,25 @@ import {
   getTopLevelSectionIdsForDisplay,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
-
 let pendingProjectActiveIdsAnimationFrame: number | null = null;
-
 type SetActiveSectionIdsSyncMode = "auto" | "ui-only" | "immediate";
-
 export type SetActiveSectionIdsOptions = {
   syncMode?: SetActiveSectionIdsSyncMode;
   forceDurableSync?: boolean;
 };
 
+type ActiveSectionSyncPlan =
+  | { kind: "ui-only" }
+  | { kind: "skip" }
+  | {
+      kind: "immediate";
+      projectConfigId: string | null | undefined;
+      generation: number;
+    }
+  | {
+      kind: "deferred";
+      projectConfigId: string;
+    };
 function sendProjectActiveSectionIdsToBackend(
   projectConfigId: string | null | undefined,
   ids: Array<string>,
@@ -47,19 +57,21 @@ function sendProjectActiveSectionIdsToBackend(
       return;
     }
     console.warn(
-      `Skipping route_set_active_ids because projectConfigId is ${String(
-        projectConfigId,
-      )}.`,
+      `Skipping route_set_active_ids because projectConfigId is ${String(projectConfigId)}.`,
     );
     return;
   }
   const frontendOpId = createNewId();
   markPendingActiveSectionBackendSyncOp(frontendOpId, generation);
-  void route_set_active_ids({
-    projectConfigId,
-    activeIds: ids,
-    frontendOpId,
-  })
+  void callOpenAPI(
+    setActiveIds({
+      body: {
+        projectConfigId,
+        activeIds: ids,
+        frontendOpId,
+      },
+    } as Parameters<typeof setActiveIds>[0]),
+  )
     .then((res) => {
       if (res200(res)) {
         return;
@@ -70,7 +82,6 @@ function sendProjectActiveSectionIdsToBackend(
       failPendingActiveSectionBackendSyncOp(frontendOpId);
     });
 }
-
 function shouldDeferProjectActiveSectionIdsSync() {
   if (typeof window === "undefined") {
     return false;
@@ -82,7 +93,6 @@ function shouldDeferProjectActiveSectionIdsSync() {
     projectConfigId !== NULL_PROJECT_CONFIG_ID
   );
 }
-
 function cancelPendingProjectActiveIdsSync() {
   if (
     pendingProjectActiveIdsAnimationFrame !== null &&
@@ -93,18 +103,15 @@ function cancelPendingProjectActiveIdsSync() {
   pendingProjectActiveIdsAnimationFrame = null;
   clearScheduledActiveSectionBackendSync();
 }
-
 export function cancelPendingActiveSectionIdsSync() {
   cancelPendingProjectActiveIdsSync();
 }
-
 export function restoreBackendAuthoritativeActiveSectionIds(
   ids: Array<string>,
 ) {
   cancelPendingProjectActiveIdsSync();
   restoreBackendAuthoritativeActiveSectionUIIds(ids);
 }
-
 function flushPendingProjectActiveIdsSync() {
   const scheduledSync = getScheduledActiveSectionBackendSync();
   pendingProjectActiveIdsAnimationFrame = null;
@@ -123,7 +130,6 @@ function flushPendingProjectActiveIdsSync() {
     scheduledSync.generation,
   );
 }
-
 function scheduleProjectActiveSectionIdsSync(
   projectConfigId: string,
   ids: Array<string>,
@@ -145,6 +151,58 @@ function scheduleProjectActiveSectionIdsSync(
   });
 }
 
+function resolveActiveSectionSyncPlan(
+  uiChanged: boolean,
+  syncMode: SetActiveSectionIdsSyncMode,
+  forceDurableSync: boolean,
+): ActiveSectionSyncPlan {
+  if (syncMode === "ui-only") {
+    return { kind: "ui-only" };
+  }
+  if (!uiChanged && !forceDurableSync) {
+    return { kind: "skip" };
+  }
+  const projectConfigId = getCurrProjectConfigId();
+  if (syncMode === "immediate" || !shouldDeferProjectActiveSectionIdsSync()) {
+    return {
+      kind: "immediate",
+      projectConfigId,
+      generation: getActiveSectionUISelectionGeneration(),
+    };
+  }
+  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    throw new Error("Deferred active-section sync requires a real project id.");
+  }
+  return { kind: "deferred", projectConfigId };
+}
+
+function runActiveSectionSyncPlan(
+  plan: ActiveSectionSyncPlan,
+  ids: Array<string>,
+) {
+  switch (plan.kind) {
+    case "ui-only":
+      cancelPendingProjectActiveIdsSync();
+      disableActiveSectionUIBackendHydration();
+      return;
+    case "skip":
+      return;
+    case "immediate":
+      cancelPendingProjectActiveIdsSync();
+      disableActiveSectionUIBackendHydration();
+      sendProjectActiveSectionIdsToBackend(
+        plan.projectConfigId,
+        ids,
+        plan.generation,
+      );
+      return;
+    case "deferred":
+      disableActiveSectionUIBackendHydration();
+      scheduleProjectActiveSectionIdsSync(plan.projectConfigId, ids);
+      return;
+  }
+}
+
 export function setActiveSectionIds(
   ids: Array<string>,
   options: SetActiveSectionIdsOptions = {},
@@ -152,47 +210,16 @@ export function setActiveSectionIds(
   const { syncMode = "auto", forceDurableSync = false } = options;
   const currentUIActiveIds = getActiveSectionUIIds();
   const uiChanged = !_.isEqual(currentUIActiveIds, ids);
-
   if (uiChanged) {
     setActiveSectionUIIds(ids);
   }
-
-  if (syncMode === "ui-only") {
-    cancelPendingProjectActiveIdsSync();
-    disableActiveSectionUIBackendHydration();
-    return;
-  }
-
-  if (!uiChanged && !forceDurableSync) {
-    return;
-  }
-
-  const resolvedSyncMode =
-    syncMode === "immediate"
-      ? "immediate"
-      : shouldDeferProjectActiveSectionIdsSync()
-        ? "deferred"
-        : "immediate";
-
-  if (resolvedSyncMode === "immediate") {
-    const projectConfigId = getCurrProjectConfigId();
-    cancelPendingProjectActiveIdsSync();
-    disableActiveSectionUIBackendHydration();
-    sendProjectActiveSectionIdsToBackend(
-      projectConfigId,
-      ids,
-      getActiveSectionUISelectionGeneration(),
-    );
-    return;
-  }
-  const projectConfigId = getCurrProjectConfigId();
-  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    throw new Error("Deferred active-section sync requires a real project id.");
-  }
-  disableActiveSectionUIBackendHydration();
-  scheduleProjectActiveSectionIdsSync(projectConfigId, ids);
+  const plan = resolveActiveSectionSyncPlan(
+    uiChanged,
+    syncMode,
+    forceDurableSync,
+  );
+  runActiveSectionSyncPlan(plan, ids);
 }
-
 export function pruneActiveSectionIdsForViewMode(
   viewModeId: string | null | undefined,
   isEditingViewMode: boolean,
@@ -220,17 +247,14 @@ export function pruneActiveSectionIdsForViewMode(
   });
   setActiveSectionIds(nextIds);
 }
-
 export function clearActiveSectionIds() {
   if (getActiveSectionUIIds().length === 0) {
     return;
   }
   setActiveSectionIds([]);
 }
-
 export function selectAll() {
   const currActiveSections = getActiveSectionUIIds();
-
   // select all params within single active section
   if (currActiveSections.length === 1) {
     useProjectState.setState((state) => {
@@ -246,7 +270,6 @@ export function selectAll() {
     setActiveSectionIds(Object.keys(useProjectState.getState().sections));
   }
 }
-
 export function setTopLevelNonGroupSectionsAsActive() {
   const p = useProjectState.getState();
   const nonGroup: Array<string> = [];
