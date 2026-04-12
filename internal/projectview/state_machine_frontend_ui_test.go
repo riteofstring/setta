@@ -28,6 +28,25 @@ func TestFrontendValueStateMachineUIConfigUsesGoOwnedWorkflowMetadata(t *testing
 	if got, want := config.DefaultSourceActivationCountOp, projectstate.StateMachineCountOperatorEQ; got != want {
 		t.Fatalf("unexpected default source activation operator: %q", got)
 	}
+	if got, want := config.ConnectionSourceTypes, []projectstate.FrontendSectionType{
+		projectstate.FrontendSectionTypeChat,
+		projectstate.FrontendSectionTypeStateMachineStart,
+		projectstate.FrontendSectionTypeStateMachineGate,
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected connection source types: %#v", got)
+	}
+	if got, want := config.ConnectionTargetTypes, []projectstate.FrontendSectionType{
+		projectstate.FrontendSectionTypeChat,
+		projectstate.FrontendSectionTypeStateMachineGate,
+		projectstate.FrontendSectionTypeStateMachineEnd,
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected connection target types: %#v", got)
+	}
+	if got, want := config.SelfLoopSectionTypes, []projectstate.FrontendSectionType{
+		projectstate.FrontendSectionTypeChat,
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected self-loop section types: %#v", got)
+	}
 
 	if got, want := config.GateTypeOptions, []StateMachineGateTypeOption{
 		{Value: projectstate.StateMachineGateTypeAND, Label: "AND"},

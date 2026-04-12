@@ -20,6 +20,20 @@ var (
 	ErrStateMachineEdgeDuplicateID = errors.New("state machine edge id already exists in project")
 	ErrStateMachineSectionRequired = errors.New("section must resolve to a state machine section")
 	ErrStateMachineGateTypeInvalid = errors.New("state machine gate type is invalid")
+
+	stateMachineConnectionSourceTypes = []FrontendSectionType{
+		FrontendSectionTypeChat,
+		FrontendSectionTypeStateMachineStart,
+		FrontendSectionTypeStateMachineGate,
+	}
+	stateMachineConnectionTargetTypes = []FrontendSectionType{
+		FrontendSectionTypeChat,
+		FrontendSectionTypeStateMachineGate,
+		FrontendSectionTypeStateMachineEnd,
+	}
+	stateMachineSelfLoopSectionTypes = []FrontendSectionType{
+		FrontendSectionTypeChat,
+	}
 )
 
 type StateMachineGateType string
@@ -830,7 +844,7 @@ func validateStateMachineEdgeSectionTypes(edge StateMachineEdge, sourceType stri
 	if !isAllowedStateMachineTargetType(targetType) {
 		return stateMachineEdgeInvalidf("State machine edge %s has unsupported target type %s.", edge.ID, targetType)
 	}
-	if edge.SourceSectionID == edge.TargetSectionID && !strings.EqualFold(sourceType, "Chat") {
+	if edge.SourceSectionID == edge.TargetSectionID && !isAllowedStateMachineSelfLoopType(sourceType) {
 		return stateMachineEdgeInvalidf("State machine edge %s only supports self-loops on Chat sections.", edge.ID)
 	}
 	return nil
@@ -1181,21 +1195,36 @@ func (p *Project) resolveStateMachineSectionMachineGroupID(
 }
 
 func isAllowedStateMachineSourceType(sectionType string) bool {
-	switch sectionType {
-	case "Chat", "StateMachineStart", "StateMachineGate":
-		return true
-	default:
-		return false
-	}
+	return hasFrontendSectionType(stateMachineConnectionSourceTypes, sectionType)
 }
 
 func isAllowedStateMachineTargetType(sectionType string) bool {
-	switch sectionType {
-	case "Chat", "StateMachineGate", "StateMachineEnd":
-		return true
-	default:
-		return false
+	return hasFrontendSectionType(stateMachineConnectionTargetTypes, sectionType)
+}
+
+func isAllowedStateMachineSelfLoopType(sectionType string) bool {
+	return hasFrontendSectionType(stateMachineSelfLoopSectionTypes, sectionType)
+}
+
+func hasFrontendSectionType(types []FrontendSectionType, sectionType string) bool {
+	for _, allowedType := range types {
+		if strings.EqualFold(string(allowedType), sectionType) {
+			return true
+		}
 	}
+	return false
+}
+
+func FrontendStateMachineConnectionSourceTypes() []FrontendSectionType {
+	return append([]FrontendSectionType(nil), stateMachineConnectionSourceTypes...)
+}
+
+func FrontendStateMachineConnectionTargetTypes() []FrontendSectionType {
+	return append([]FrontendSectionType(nil), stateMachineConnectionTargetTypes...)
+}
+
+func FrontendStateMachineSelfLoopSectionTypes() []FrontendSectionType {
+	return append([]FrontendSectionType(nil), stateMachineSelfLoopSectionTypes...)
 }
 
 func (p *Project) uniqueConnectedStateMachineGroupID(sectionID string) *string {

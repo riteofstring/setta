@@ -4901,6 +4901,8 @@ export const SettaFilesLocationPolicyConfig = {
 } satisfies gt.SettaFilesLocationPolicy;
 
 export const StateMachineUIConfig = {
+  connectionSourceTypes: ["Chat", "StateMachineStart", "StateMachineGate"],
+  connectionTargetTypes: ["Chat", "StateMachineGate", "StateMachineEnd"],
   defaultGateType: "AND",
   defaultPromptSourceType: "inline_prompt",
   defaultSourceActivationCountOperator: "eq",
@@ -4927,6 +4929,7 @@ export const StateMachineUIConfig = {
     promptSection: "prompt_section",
     promptTemplate: "prompt_template",
   },
+  selfLoopSectionTypes: ["Chat"],
   sourceActivationCountOperatorOptions: [
     { label: "<", value: "lt" },
     { label: "<=", value: "lte" },

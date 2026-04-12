@@ -17590,6 +17590,33 @@
         "defaultSourceActivationCountOperator": {
           "$ref": "#/$defs/StateMachineCountOperator"
         },
+        "connectionSourceTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SectionType"
+          }
+        },
+        "connectionTargetTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SectionType"
+          }
+        },
+        "selfLoopSectionTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SectionType"
+          }
+        },
         "gateTypeOptions": {
           "type": [
             "null",
@@ -17665,6 +17692,9 @@
         "defaultTargetActionType",
         "defaultThreadStrategy",
         "defaultSourceActivationCountOperator",
+        "connectionSourceTypes",
+        "connectionTargetTypes",
+        "selfLoopSectionTypes",
         "gateTypeOptions",
         "promptSourceTypes",
         "promptSourceOptions",

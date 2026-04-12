@@ -9,7 +9,11 @@ import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState, useShareSession } from "state/definitions";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
-import { SectionTypeEnum, type SingleConfig } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  StateMachineUIConfig,
+  type SingleConfig,
+} from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { clearActiveSectionIds } from "./activeSections";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
@@ -45,6 +49,61 @@ type WorkflowMachineGroupMergeSnapshot = {
   sectionMachineGroupById: Record<string, string>;
 };
 type WorkflowEdgeMutationResponse = ResponseDataAndStatus<null>;
+const WORKFLOW_CONNECTION_SOURCE_TYPES = new Set(
+  StateMachineUIConfig.connectionSourceTypes,
+);
+const WORKFLOW_CONNECTION_TARGET_TYPES = new Set(
+  StateMachineUIConfig.connectionTargetTypes,
+);
+const WORKFLOW_SELF_LOOP_SECTION_TYPES = new Set(
+  StateMachineUIConfig.selfLoopSectionTypes,
+);
+
+function getWorkflowSectionMachineGroupId(
+  state: SingleConfig,
+  sectionId: string,
+): string | null {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  switch (impl.type) {
+    case SectionTypeEnum.StateMachineStart:
+    case SectionTypeEnum.StateMachineGate:
+    case SectionTypeEnum.StateMachineEnd:
+      return impl.machineGroupId;
+    default:
+      return null;
+  }
+}
+
+function setWorkflowSectionMachineGroup(
+  state: SingleConfig,
+  sectionId: string,
+  machineGroupId: string,
+): void {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  switch (impl.type) {
+    case SectionTypeEnum.StateMachineStart:
+      setCurrEffectiveSectionImplValue<"StateMachineStartSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      return;
+    case SectionTypeEnum.StateMachineGate:
+      setCurrEffectiveSectionImplValue<"StateMachineGateSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      return;
+    case SectionTypeEnum.StateMachineEnd:
+      setCurrEffectiveSectionImplValue<"StateMachineEndSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      return;
+  }
+}
 
 function getWorkflowSectionInfo(
   state: SingleConfig,
@@ -233,14 +292,15 @@ function captureWorkflowMachineGroupMergeSnapshot(
   }
   const sectionMachineGroupById: Record<string, string> = {};
   for (const sectionId of Object.keys(state.projectConfig.sectionVariantMap)) {
-    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    const currentMachineGroupId = getWorkflowSectionMachineGroupId(
+      state,
+      sectionId,
+    );
     if (
-      (impl.type === SectionTypeEnum.StateMachineStart ||
-        impl.type === SectionTypeEnum.StateMachineGate ||
-        impl.type === SectionTypeEnum.StateMachineEnd) &&
-      mergedMachineGroupIdSet.has(impl.machineGroupId)
+      currentMachineGroupId &&
+      mergedMachineGroupIdSet.has(currentMachineGroupId)
     ) {
-      sectionMachineGroupById[sectionId] = impl.machineGroupId;
+      sectionMachineGroupById[sectionId] = currentMachineGroupId;
     }
   }
   return {
@@ -258,38 +318,15 @@ function applyWorkflowMachineGroupMerge(
   }
   const mergedMachineGroupIdSet = new Set(mergedMachineGroupIds);
   for (const sectionId of Object.keys(state.projectConfig.sectionVariantMap)) {
-    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    const currentMachineGroupId = getWorkflowSectionMachineGroupId(
+      state,
+      sectionId,
+    );
     if (
-      impl.type === SectionTypeEnum.StateMachineStart &&
-      mergedMachineGroupIdSet.has(impl.machineGroupId)
+      currentMachineGroupId &&
+      mergedMachineGroupIdSet.has(currentMachineGroupId)
     ) {
-      setCurrEffectiveSectionImplValue<"StateMachineStartSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
-      continue;
-    }
-    if (
-      impl.type === SectionTypeEnum.StateMachineGate &&
-      mergedMachineGroupIdSet.has(impl.machineGroupId)
-    ) {
-      setCurrEffectiveSectionImplValue<"StateMachineGateSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
-      continue;
-    }
-    if (
-      impl.type === SectionTypeEnum.StateMachineEnd &&
-      mergedMachineGroupIdSet.has(impl.machineGroupId)
-    ) {
-      setCurrEffectiveSectionImplValue<"StateMachineEndSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
+      setWorkflowSectionMachineGroup(state, sectionId, machineGroupId);
     }
   }
   for (const edge of state.projectConfig.stateMachineEdges) {
@@ -305,30 +342,7 @@ function restoreWorkflowMachineGroupMergeSnapshot(
   for (const [sectionId, machineGroupId] of Object.entries(
     snapshot.sectionMachineGroupById,
   )) {
-    const impl = getCurrEffectiveSectionImpl(state, sectionId);
-    if (impl.type === SectionTypeEnum.StateMachineStart) {
-      setCurrEffectiveSectionImplValue<"StateMachineStartSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
-      continue;
-    }
-    if (impl.type === SectionTypeEnum.StateMachineGate) {
-      setCurrEffectiveSectionImplValue<"StateMachineGateSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
-      continue;
-    }
-    if (impl.type === SectionTypeEnum.StateMachineEnd) {
-      setCurrEffectiveSectionImplValue<"StateMachineEndSection">(
-        state,
-        sectionId,
-        { machineGroupId },
-      );
-    }
+    setWorkflowSectionMachineGroup(state, sectionId, machineGroupId);
   }
   for (const edge of state.projectConfig.stateMachineEdges) {
     const machineGroupId = snapshot.edgeMachineGroupById[edge.id];
@@ -346,28 +360,15 @@ function isAllowedStateMachineConnection(
   if (!sourceType || !targetType) {
     return false;
   }
-  const sourceAllowed = new Set<SectionTypeEnum>([
-    SectionTypeEnum.Chat,
-    SectionTypeEnum.StateMachineStart,
-    SectionTypeEnum.StateMachineGate,
-  ]);
-  const targetAllowed = new Set<SectionTypeEnum>([
-    SectionTypeEnum.Chat,
-    SectionTypeEnum.StateMachineGate,
-    SectionTypeEnum.StateMachineEnd,
-  ]);
-  if (!sourceAllowed.has(sourceType) || !targetAllowed.has(targetType)) {
-    return false;
-  }
-  if (sourceType === SectionTypeEnum.StateMachineEnd) {
-    return false;
-  }
-  if (targetType === SectionTypeEnum.StateMachineStart) {
+  if (
+    !WORKFLOW_CONNECTION_SOURCE_TYPES.has(sourceType) ||
+    !WORKFLOW_CONNECTION_TARGET_TYPES.has(targetType)
+  ) {
     return false;
   }
   if (
     sourceSectionId === targetSectionId &&
-    sourceType !== SectionTypeEnum.Chat
+    !WORKFLOW_SELF_LOOP_SECTION_TYPES.has(sourceType)
   ) {
     return false;
   }

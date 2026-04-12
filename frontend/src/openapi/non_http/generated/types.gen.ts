@@ -6164,6 +6164,8 @@ type StateMachineThreadStrategyOption = {
  * StateMachineUIConfigValue
  */
 export type StateMachineUIConfigValue = {
+  connectionSourceTypes: null | Array<SectionType>;
+  connectionTargetTypes: null | Array<SectionType>;
   defaultGateType: StateMachineGateType;
   defaultPromptSourceType: StateMachinePromptSourceType;
   defaultSourceActivationCountOperator: StateMachineCountOperator;
@@ -6174,6 +6176,7 @@ export type StateMachineUIConfigValue = {
   permissionModeOptions: null | Array<StateMachinePermissionModeOption>;
   promptSourceOptions: null | Array<StateMachinePromptSourceOption>;
   promptSourceTypes: StateMachinePromptSourceTypesValue;
+  selfLoopSectionTypes: null | Array<SectionType>;
   sourceActivationCountOperatorOptions: null | Array<StateMachineCountOperatorOption>;
   sourceFilterOptions: null | Array<StateMachineSourceFilterTypeOption>;
   targetActionOptions: null | Array<StateMachineTargetActionTypeOption>;

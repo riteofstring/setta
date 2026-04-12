@@ -2,8 +2,9 @@ package projectview
 
 import "setta/internal/projectstate"
 
-// Keep state-machine editor option ordering, defaults, and labels Go-owned so
-// the frontend does not hand-maintain workflow enum metadata.
+// Keep state-machine editor option ordering, defaults, labels, and connection
+// eligibility metadata Go-owned so the frontend does not hand-maintain
+// workflow validation rules.
 var (
 	frontendStateMachineGateTypeOptions = []StateMachineGateTypeOption{
 		{Value: projectstate.StateMachineGateTypeAND, Label: "AND"},
@@ -96,6 +97,9 @@ type StateMachineUIConfigValue struct {
 	DefaultTargetActionType           projectstate.StateMachineTargetActionType `json:"defaultTargetActionType"`
 	DefaultThreadStrategy             projectstate.StateMachineThreadStrategy   `json:"defaultThreadStrategy"`
 	DefaultSourceActivationCountOp    projectstate.StateMachineCountOperator    `json:"defaultSourceActivationCountOperator"`
+	ConnectionSourceTypes             []projectstate.FrontendSectionType        `json:"connectionSourceTypes"`
+	ConnectionTargetTypes             []projectstate.FrontendSectionType        `json:"connectionTargetTypes"`
+	SelfLoopSectionTypes              []projectstate.FrontendSectionType        `json:"selfLoopSectionTypes"`
 	GateTypeOptions                   []StateMachineGateTypeOption              `json:"gateTypeOptions"`
 	PromptSourceTypes                 StateMachinePromptSourceTypesValue        `json:"promptSourceTypes"`
 	PromptSourceOptions               []StateMachinePromptSourceOption          `json:"promptSourceOptions"`
@@ -114,6 +118,9 @@ func FrontendValueStateMachineUIConfig() StateMachineUIConfigValue {
 		DefaultTargetActionType:        projectstate.StateMachineTargetActionTypeResetThread,
 		DefaultThreadStrategy:          projectstate.StateMachineThreadStrategyContinueCurrentThread,
 		DefaultSourceActivationCountOp: projectstate.StateMachineCountOperatorEQ,
+		ConnectionSourceTypes:          projectstate.FrontendStateMachineConnectionSourceTypes(),
+		ConnectionTargetTypes:          projectstate.FrontendStateMachineConnectionTargetTypes(),
+		SelfLoopSectionTypes:           projectstate.FrontendStateMachineSelfLoopSectionTypes(),
 		GateTypeOptions: append(
 			[]StateMachineGateTypeOption(nil),
 			frontendStateMachineGateTypeOptions...,

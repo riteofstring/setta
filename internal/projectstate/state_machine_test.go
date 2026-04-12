@@ -11,6 +11,69 @@ import (
 	"setta/internal/prompttemplates"
 )
 
+func TestStateMachineConnectionContractsStayAligned(t *testing.T) {
+	t.Parallel()
+
+	if got, want := FrontendStateMachineConnectionSourceTypes(), []FrontendSectionType{
+		FrontendSectionTypeChat,
+		FrontendSectionTypeStateMachineStart,
+		FrontendSectionTypeStateMachineGate,
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected workflow source types: %#v", got)
+	}
+	if got, want := FrontendStateMachineConnectionTargetTypes(), []FrontendSectionType{
+		FrontendSectionTypeChat,
+		FrontendSectionTypeStateMachineGate,
+		FrontendSectionTypeStateMachineEnd,
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected workflow target types: %#v", got)
+	}
+	if got, want := FrontendStateMachineSelfLoopSectionTypes(), []FrontendSectionType{
+		FrontendSectionTypeChat,
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected workflow self-loop types: %#v", got)
+	}
+
+	validEdge := StateMachineEdge{
+		ID:              "edge-valid",
+		SourceSectionID: "start-section",
+		TargetSectionID: "chat-section",
+	}
+	if err := validateStateMachineEdgeSectionTypes(
+		validEdge,
+		string(FrontendSectionTypeStateMachineStart),
+		string(FrontendSectionTypeChat),
+	); err != nil {
+		t.Fatalf("expected start->chat workflow edge to be valid, got %v", err)
+	}
+
+	invalidSourceEdge := StateMachineEdge{
+		ID:              "edge-invalid-source",
+		SourceSectionID: "end-section",
+		TargetSectionID: "chat-section",
+	}
+	if err := validateStateMachineEdgeSectionTypes(
+		invalidSourceEdge,
+		string(FrontendSectionTypeStateMachineEnd),
+		string(FrontendSectionTypeChat),
+	); err == nil {
+		t.Fatal("expected end->chat workflow edge to be rejected")
+	}
+
+	invalidSelfLoopEdge := StateMachineEdge{
+		ID:              "edge-invalid-self-loop",
+		SourceSectionID: "gate-section",
+		TargetSectionID: "gate-section",
+	}
+	if err := validateStateMachineEdgeSectionTypes(
+		invalidSelfLoopEdge,
+		string(FrontendSectionTypeStateMachineGate),
+		string(FrontendSectionTypeStateMachineGate),
+	); err == nil {
+		t.Fatal("expected non-chat workflow self-loop to be rejected")
+	}
+}
+
 func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T) {
 	t.Parallel()
 

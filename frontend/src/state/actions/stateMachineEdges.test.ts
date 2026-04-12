@@ -488,6 +488,16 @@ describe("state machine edge creation", () => {
         createConnection(chatSectionId, chatSectionId),
       ),
     ).toBe(false);
+    expect(
+      isValidStateMachineEdgeConnection(
+        createConnection(startSectionId, startSectionId),
+      ),
+    ).toBe(false);
+    expect(
+      isValidStateMachineEdgeConnection(
+        createConnection(endSectionId, chatSectionId),
+      ),
+    ).toBe(false);
   });
 });
 
