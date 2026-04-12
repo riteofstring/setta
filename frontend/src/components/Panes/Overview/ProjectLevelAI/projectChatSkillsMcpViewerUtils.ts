@@ -108,6 +108,15 @@ type SkillStatusContext = {
   messages: BaseChatMessageUnion[] | null;
 };
 
+type SkillStatusResolutionContext = {
+  activeSkillSourcesBySkillId: Map<string, string>;
+  ambiguousSkillIds: Set<string>;
+  applicableRootIdSet: Set<string>;
+  engineLabel: string;
+  hasStructuredMetadata: boolean;
+  requiresStructuredMetadata: boolean;
+};
+
 function getSkillRootId(skillId: string): string {
   const separatorIndex = skillId.indexOf("::");
   if (separatorIndex < 0) {
@@ -438,19 +447,13 @@ function mapActiveSkillNamesToSkillIds({
   };
 }
 
-export function buildSkillStatusBySkillId({
+function buildSkillStatusResolutionContext({
   skills,
   engineType,
   externalAgentToolType,
   messages,
-}: SkillStatusContext): Record<string, SkillStatus> {
-  const statusesBySkillId: Record<string, SkillStatus> = {};
+}: SkillStatusContext): SkillStatusResolutionContext {
   const applicableRootIds = getApplicableRootIds({
-    engineType,
-    externalAgentToolType,
-  });
-  const applicableRootIdSet = new Set(applicableRootIds);
-  const engineLabel = getEngineLabel({
     engineType,
     externalAgentToolType,
   });
@@ -469,25 +472,87 @@ export function buildSkillStatusBySkillId({
       skills,
       activeSkillNames,
     });
-  for (const skill of skills) {
-    const rootId = getSkillRootId(skill.skillId);
-    const isApplicable = applicableRootIdSet.has(rootId);
-    const activeSource = activeSkillSourcesBySkillId.get(skill.skillId) ?? null;
-    const activityState: SkillActivityState = activeSource
-      ? "active"
-      : ambiguousSkillIds.has(skill.skillId)
-        ? "unknown"
-        : isApplicable && requiresStructuredMetadata && !hasStructuredMetadata
-          ? "unknown"
-          : "inactive";
-    statusesBySkillId[skill.skillId] = {
+  return {
+    activeSkillSourcesBySkillId,
+    ambiguousSkillIds,
+    applicableRootIdSet: new Set(applicableRootIds),
+    engineLabel: getEngineLabel({
+      engineType,
+      externalAgentToolType,
+    }),
+    hasStructuredMetadata,
+    requiresStructuredMetadata,
+  };
+}
+
+function resolveSkillActivityState({
+  skillId,
+  isApplicable,
+  activeSource,
+  resolutionContext,
+}: {
+  skillId: string;
+  isApplicable: boolean;
+  activeSource: string | null;
+  resolutionContext: SkillStatusResolutionContext;
+}): SkillActivityState {
+  if (activeSource) {
+    return "active";
+  }
+  if (resolutionContext.ambiguousSkillIds.has(skillId)) {
+    return "unknown";
+  }
+  if (
+    isApplicable &&
+    resolutionContext.requiresStructuredMetadata &&
+    !resolutionContext.hasStructuredMetadata
+  ) {
+    return "unknown";
+  }
+  return "inactive";
+}
+
+function buildSkillStatusEntry(
+  skill: SkillEntry,
+  resolutionContext: SkillStatusResolutionContext,
+): SkillStatus {
+  const rootId = getSkillRootId(skill.skillId);
+  const isApplicable = resolutionContext.applicableRootIdSet.has(rootId);
+  const activeSource =
+    resolutionContext.activeSkillSourcesBySkillId.get(skill.skillId) ?? null;
+  return {
+    isApplicable,
+    applicabilityReason: isApplicable
+      ? `Applicable for ${resolutionContext.engineLabel}.`
+      : `Not applicable for ${resolutionContext.engineLabel}.`,
+    activityState: resolveSkillActivityState({
+      skillId: skill.skillId,
       isApplicable,
-      applicabilityReason: isApplicable
-        ? `Applicable for ${engineLabel}.`
-        : `Not applicable for ${engineLabel}.`,
-      activityState,
-      activitySource: activeSource,
-    };
+      activeSource,
+      resolutionContext,
+    }),
+    activitySource: activeSource,
+  };
+}
+
+export function buildSkillStatusBySkillId({
+  skills,
+  engineType,
+  externalAgentToolType,
+  messages,
+}: SkillStatusContext): Record<string, SkillStatus> {
+  const statusesBySkillId: Record<string, SkillStatus> = {};
+  const resolutionContext = buildSkillStatusResolutionContext({
+    skills,
+    engineType,
+    externalAgentToolType,
+    messages,
+  });
+  for (const skill of skills) {
+    statusesBySkillId[skill.skillId] = buildSkillStatusEntry(
+      skill,
+      resolutionContext,
+    );
   }
   return statusesBySkillId;
 }
@@ -556,6 +621,15 @@ export type McpRuntimeServerStatus = {
   registeredToolCount: number;
   issue: string | null;
   missingEnvVar: string | null;
+};
+
+const RUNTIME_SERVER_STATE_LABELS: Record<McpRuntimeServerState, string> = {
+  connected: "Connected",
+  connecting: "Connecting",
+  retrying: "Retrying",
+  error: "Error",
+  disabled: "Disabled",
+  unknown: "Unknown",
 };
 
 type SlashCommandsByEngine = {
@@ -931,6 +1005,24 @@ function normalizeRuntimeServerQuickInfo({
   if (quickInfo) {
     return quickInfo;
   }
+  return `${RUNTIME_SERVER_STATE_LABELS[state]}: ${buildRuntimeServerQuickInfoDetails(
+    {
+      issue,
+      missingEnvVar,
+      registeredToolCount,
+    },
+  )}`;
+}
+
+function buildRuntimeServerQuickInfoDetails({
+  issue,
+  missingEnvVar,
+  registeredToolCount,
+}: {
+  issue: string | null;
+  missingEnvVar: string | null;
+  registeredToolCount: number;
+}): string {
   const details: string[] = [];
   if (missingEnvVar) {
     details.push(`missing env var ${missingEnvVar}`);
@@ -941,23 +1033,7 @@ function normalizeRuntimeServerQuickInfo({
   details.push(
     `${registeredToolCount} tool${registeredToolCount === 1 ? "" : "s"}`,
   );
-  const detailSuffix = details.join(" | ");
-  if (state === "connected") {
-    return `Connected: ${detailSuffix}`;
-  }
-  if (state === "connecting") {
-    return `Connecting: ${detailSuffix}`;
-  }
-  if (state === "retrying") {
-    return `Retrying: ${detailSuffix}`;
-  }
-  if (state === "error") {
-    return `Error: ${detailSuffix}`;
-  }
-  if (state === "disabled") {
-    return `Disabled: ${detailSuffix}`;
-  }
-  return `Unknown: ${detailSuffix}`;
+  return details.join(" | ");
 }
 
 type RuntimeStatusInput = {

@@ -592,6 +592,27 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     );
   });
 
+  it("synthesizes runtime quick info from issue details when the backend omits it", () => {
+    const runtimeStatuses = toRuntimeStatusByServerId([
+      {
+        serverId: "disabled-server",
+        state: "disabled",
+        lastError: "disabled by config",
+        missingEnvVar: "OPENAI_API_KEY",
+        toolCount: 0,
+      },
+    ]);
+
+    expect(runtimeStatuses["disabled-server"]).toEqual({
+      state: "disabled",
+      quickInfo:
+        "Disabled: missing env var OPENAI_API_KEY | disabled by config | 0 tools",
+      registeredToolCount: 0,
+      issue: "disabled by config",
+      missingEnvVar: "OPENAI_API_KEY",
+    });
+  });
+
   it("uses backend-resolved rows directly for shared server ids", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
