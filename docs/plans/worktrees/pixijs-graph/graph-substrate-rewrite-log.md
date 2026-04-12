@@ -151,6 +151,48 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 04:03 UTC
+
+- item `387` landed one bounded mounted text-block header title-mode selector
+  reduction on the live `/settings` canary lane:
+  - local ranking/readout for this iteration:
+    - checked the remaining broad mounted section-shell/body owners before
+      taking another selector slice
+    - `SectionHeader` was the clearest remaining broad owner still paying
+      `lodash/isEqual` on a two-field text-block title-mode selector mounted on
+      every visible section header
+  - product code changed in:
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+      so `TextBlockCardTitle` now uses `zustand/shallow` for the subscribed
+      `{ headingAsSectionName, format }` snapshot instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+      to prove mounted text-block headers stay out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when this
+      section's `headingAsSectionName` state changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-header-text-title-selector.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed (`1` file, `23` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the page mounted past the loading shell into visible settings chrome,
+         settings nav, and section tabs rather than a blank root
+  - reading:
+    - this stayed on a broad mounted section-header owner rather than another
+      tiny control-only selector
+    - the subscribed fields stayed unchanged, so the slice only reduces
+      comparator overhead on unrelated project-state writes
+  - next frontier:
+    - rank the remaining broad mounted section-body, section-shell, or shared
+      write-fan-out owners on the live `/settings` worktree and only take the
+      next product slice if the next candidate is still broad
+
+LOOP_TERMINAL_MARKER: none
+
 - item `381` landed one bounded mounted section-title selector reduction on the
   live canary lane:
   - changed `frontend/src/components/Section/Header/SectionTitle.tsx` so

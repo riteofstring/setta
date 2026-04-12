@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 03:56 UTC
+Last updated: 2026-04-13 04:03 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `387` landed one bounded mounted text-block header title-mode selector
+  reduction on the live canary lane after a local ranking pass:
+  - local ranking/readout for this iteration:
+    - checked the remaining broad mounted section-shell/body owners instead of
+      taking another narrow control-only selector
+    - `SectionHeader` was the clearest remaining broad owner still paying
+      `lodash/isEqual` on a two-field text-block title-mode snapshot mounted on
+      every visible section header
+    - smaller menu/control candidates were left for later passes
+  - product code changed in:
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+      so the mounted `TextBlockCardTitle` selector for
+      `{ headingAsSectionName, format }` now uses `zustand/shallow` equality
+      instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+      to prove mounted text-block headers stay out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when this
+      section's `headingAsSectionName` state changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-header-text-title-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed (`1` file, `23` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the page moved from the loading shell to visible settings chrome,
+         settings nav, and section tabs rather than a blank root
+  - reading:
+    - this stayed on a broad mounted section-header owner rather than falling
+      back to another tiny menu-button cleanup
+    - the subscribed source-of-truth fields stayed the same, so the slice only
+      reduced comparator overhead on unrelated project-state writes
+  - next default frontier:
+    - identify the next remaining broad mounted section-body, section-shell, or
+      shared write-fan-out owner on the live `/settings` worktree, preferring a
+      wrapper/body/shell path over control-only churn and stopping for replan if
+      the next ranked candidate is no longer broad
 
 - item `386` landed one bounded mounted meta-control body selector reduction
   on the live canary lane after a local attribution/ranking pass:

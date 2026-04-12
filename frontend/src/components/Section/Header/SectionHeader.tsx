@@ -746,7 +746,7 @@ function TextBlockCardTitle({
       headingAsSectionName: impl.headingAsSectionName,
       format: impl.format,
     };
-  }, _.isEqual);
+  }, shallow);
   const [hasMarkdownHeading, setHasMarkdownHeading] = React.useState(false);
 
   React.useEffect(() => {

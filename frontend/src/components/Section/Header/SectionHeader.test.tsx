@@ -14,12 +14,15 @@ import "testUtils/reactRefreshPreamble";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
+  TextBlockFormatEnum,
   createChatSectionImpl,
   createCodeSectionImpl,
   createCore,
   createProjectConfig,
+  createTextBlockSectionImpl,
   createUserDefaultChatSectionImpl,
   createUserDefaultCodeSectionImpl,
+  createUserDefaultTextBlockSectionImpl,
   createVariant,
   type Core,
   type SettaLspDiagnostic,
@@ -84,7 +87,12 @@ async function renderProfiledHeader({
           controlsRenderer={({ isFollowSelected }) => (
             <div data-follow-selected={isFollowSelected ? "true" : "false"} />
           )}
-          layoutRenderer={({ actions }) => <div>{actions}</div>}
+          layoutRenderer={({ actions, title }) => (
+            <div>
+              {title}
+              {actions}
+            </div>
+          )}
         />
       </Profiler>,
     );
@@ -754,6 +762,125 @@ describe("SectionHeader diagnostics subscriptions", () => {
       expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
         "false",
       );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+});
+
+describe("SectionHeader text block title subscriptions", () => {
+  const sectionId = "section-text";
+  const variantId = "variant-text";
+  const implId = "impl-text";
+
+  beforeEach(() => {
+    const projectConfig = createProjectConfig({
+      id: "project-text",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    resetProjectStores();
+    useShareSession.setState({ isDeploymentMode: false });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {
+        [sectionId]: createCore({
+          id: sectionId,
+          name: "Text section",
+          variants: [variantId],
+          defaultVariant: variantId,
+        }),
+      };
+      state.sectionVariants = {
+        [variantId]: createVariant({
+          id: variantId,
+          name: "Variant",
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      };
+      state.sectionImpls = {
+        [implId]: createTextBlockSectionImpl(
+          createUserDefaultTextBlockSectionImpl(),
+          {
+            id: implId,
+            format: TextBlockFormatEnum.Plaintext,
+            headingAsSectionName: false,
+            text: "Plain text body",
+          },
+        ),
+      };
+      state.previewSectionVariantMap = {};
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useShareSession);
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+    document.body.innerHTML = "";
+  });
+
+  it("keeps text block headers out of unrelated project-state commits when title mode inputs are unchanged", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledHeader({
+      onRender,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.TextBlock,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          state.previewSectionVariantMap = {
+            "other-section": "other-variant",
+          };
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      expect(host.textContent).toContain("Text section");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("rerenders text block headers when heading-as-section-name changes", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledHeader({
+      onRender,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.TextBlock,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          state.sectionImpls[implId] = createTextBlockSectionImpl(
+            createUserDefaultTextBlockSectionImpl(),
+            {
+              ...state.sectionImpls[implId],
+              headingAsSectionName: true,
+            },
+          );
+        });
+      });
+
+      expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
+      expect(host.textContent).not.toContain("Text section");
     } finally {
       await act(async () => {
         root.unmount();
