@@ -475,41 +475,50 @@ func extractZipArtifact(artifactPath string, extractRoot string) error {
 	}
 	defer archive.Close()
 
+	artifactName := filepath.Base(artifactPath)
 	for _, file := range archive.File {
-		if file.Mode()&os.ModeSymlink != 0 {
-			return newServiceError(
-				ServiceErrorCodeSourceArchiveTraversal,
-				"Plugin archive contains symbolic link entries which are not allowed: %q",
-				file.Name,
-			)
-		}
-		targetPath, skip, err := resolveArchiveMemberPath(extractRoot, file.Name, filepath.Base(artifactPath))
-		if err != nil {
+		if err := extractZipArchiveMember(file, extractRoot, artifactName); err != nil {
 			return err
 		}
-		if skip {
-			continue
+	}
+	return nil
+}
+
+func extractZipArchiveMember(file *zip.File, extractRoot string, artifactName string) error {
+	if file.Mode()&os.ModeSymlink != 0 {
+		return newServiceError(
+			ServiceErrorCodeSourceArchiveTraversal,
+			"Plugin archive contains symbolic link entries which are not allowed: %q",
+			file.Name,
+		)
+	}
+	targetPath, skip, err := resolveArchiveMemberPath(extractRoot, file.Name, artifactName)
+	if err != nil || skip {
+		return err
+	}
+	if file.FileInfo().IsDir() {
+		if err := os.MkdirAll(targetPath, 0o755); err != nil {
+			return fmt.Errorf("create extracted directory %s: %w", targetPath, err)
 		}
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(targetPath, 0o755); err != nil {
-				return fmt.Errorf("create extracted directory %s: %w", targetPath, err)
-			}
-			continue
-		}
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			return fmt.Errorf("create extracted parent directory %s: %w", filepath.Dir(targetPath), err)
-		}
-		reader, err := file.Open()
-		if err != nil {
-			return fmt.Errorf("open zip member %s: %w", file.Name, err)
-		}
-		if err := writeArchiveRegularFile(targetPath, reader); err != nil {
-			reader.Close()
-			return err
-		}
-		if err := reader.Close(); err != nil {
-			return fmt.Errorf("close zip member %s: %w", file.Name, err)
-		}
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		return fmt.Errorf("create extracted parent directory %s: %w", filepath.Dir(targetPath), err)
+	}
+	return writeZipArchiveFile(targetPath, file)
+}
+
+func writeZipArchiveFile(targetPath string, file *zip.File) error {
+	reader, err := file.Open()
+	if err != nil {
+		return fmt.Errorf("open zip member %s: %w", file.Name, err)
+	}
+	if err := writeArchiveRegularFile(targetPath, reader); err != nil {
+		_ = reader.Close()
+		return err
+	}
+	if err := reader.Close(); err != nil {
+		return fmt.Errorf("close zip member %s: %w", file.Name, err)
 	}
 	return nil
 }

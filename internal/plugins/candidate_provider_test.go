@@ -428,6 +428,49 @@ func TestExtractPluginArtifactRejectsZipTraversal(t *testing.T) {
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceArchiveTraversal)
 }
 
+func TestExtractPluginArtifactExtractsZipMembers(t *testing.T) {
+	t.Parallel()
+
+	artifactPath := filepath.Join(t.TempDir(), "plugin.whl")
+	file, err := os.Create(artifactPath)
+	if err != nil {
+		t.Fatalf("create archive: %v", err)
+	}
+	archive := zip.NewWriter(file)
+	directory, err := archive.Create("plugin/data/")
+	if err != nil {
+		t.Fatalf("create directory member: %v", err)
+	}
+	if _, err := directory.Write(nil); err != nil {
+		t.Fatalf("write directory member: %v", err)
+	}
+	payload, err := archive.Create("plugin/data/config.json")
+	if err != nil {
+		t.Fatalf("create payload member: %v", err)
+	}
+	if _, err := payload.Write([]byte(`{"enabled":true}`)); err != nil {
+		t.Fatalf("write payload member: %v", err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatalf("close archive: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close archive file: %v", err)
+	}
+
+	extractRoot := filepath.Join(t.TempDir(), "extract")
+	if err := extractPluginArtifact(artifactPath, extractRoot); err != nil {
+		t.Fatalf("extract plugin artifact: %v", err)
+	}
+	extractedPayload, err := os.ReadFile(filepath.Join(extractRoot, "plugin", "data", "config.json"))
+	if err != nil {
+		t.Fatalf("read extracted payload: %v", err)
+	}
+	if string(extractedPayload) != `{"enabled":true}` {
+		t.Fatalf("unexpected extracted payload %q", string(extractedPayload))
+	}
+}
+
 // Artifact extraction should reject tar symlink and hardlink members deterministically.
 func TestExtractPluginArtifactRejectsTarSymlinkEntries(t *testing.T) {
 	t.Parallel()
