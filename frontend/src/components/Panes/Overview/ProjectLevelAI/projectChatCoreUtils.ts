@@ -352,7 +352,7 @@ export type ProjectChatHydrationRetryEntry = {
 
 const PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS = 1000;
 const PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS = 30000;
-export const PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS = 6;
+const PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS = 6;
 const PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES = 300;
 
 type ProjectChatHydrationRetryDecision =
@@ -368,9 +368,7 @@ type ProjectChatHydrationRetryDecision =
       nextAttempt: number;
     };
 
-export function resolveProjectChatHydrationRetryDelayMs(
-  attempt: number,
-): number {
+function resolveProjectChatHydrationRetryDelayMs(attempt: number): number {
   const normalizedAttempt = Math.max(1, attempt);
   const exponentialDelayMs =
     PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS * 2 ** (normalizedAttempt - 1);

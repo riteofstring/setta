@@ -17,13 +17,11 @@ import {
   clearProjectChatHydrationCacheEntriesForChat,
   getDefaultProjectChatPermissionMode,
   getProjectChatBlockedReasonMessage,
-  PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
   resolveProjectChatComposerExecutableNativeSlashCommandTokens,
   resolveProjectChatComposerNativeSlashCommandTokens,
   resolveProjectChatComposerSlashCommandSets,
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
-  resolveProjectChatHydrationRetryDelayMs,
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRuntimeActivityDetails,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
@@ -796,19 +794,6 @@ describe("shouldSkipProjectChatHydration", () => {
   });
 });
 
-describe("resolveProjectChatHydrationRetryDelayMs", () => {
-  it("uses exponential backoff from the base delay", () => {
-    expect(resolveProjectChatHydrationRetryDelayMs(1)).toBe(1000);
-    expect(resolveProjectChatHydrationRetryDelayMs(2)).toBe(2000);
-    expect(resolveProjectChatHydrationRetryDelayMs(3)).toBe(4000);
-  });
-
-  it("caps delay at the configured max", () => {
-    expect(resolveProjectChatHydrationRetryDelayMs(6)).toBe(30000);
-    expect(resolveProjectChatHydrationRetryDelayMs(10)).toBe(30000);
-  });
-});
-
 describe("resolveProjectChatHydrationRetryDecision", () => {
   it("returns terminal failure for terminal outcomes", () => {
     expect(
@@ -821,7 +806,7 @@ describe("resolveProjectChatHydrationRetryDecision", () => {
     });
   });
 
-  it("schedules transient retries with incremented attempt metadata", () => {
+  it("schedules transient retries with exponential backoff", () => {
     expect(
       resolveProjectChatHydrationRetryDecision({
         outcomeType: "transient_failure",
@@ -832,17 +817,41 @@ describe("resolveProjectChatHydrationRetryDecision", () => {
       nextAttempt: 1,
       delayMs: 1000,
     });
+
+    expect(
+      resolveProjectChatHydrationRetryDecision({
+        outcomeType: "transient_failure",
+        attempt: 2,
+      }),
+    ).toEqual({
+      type: "transient_retry",
+      nextAttempt: 3,
+      delayMs: 4000,
+    });
+  });
+
+  it("caps transient retry delay at the configured maximum", () => {
+    expect(
+      resolveProjectChatHydrationRetryDecision({
+        outcomeType: "transient_failure",
+        attempt: 5,
+      }),
+    ).toEqual({
+      type: "transient_retry",
+      nextAttempt: 6,
+      delayMs: 30000,
+    });
   });
 
   it("stops retrying after the max-attempt guard", () => {
     expect(
       resolveProjectChatHydrationRetryDecision({
         outcomeType: "transient_failure",
-        attempt: PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
+        attempt: 6,
       }),
     ).toEqual({
       type: "transient_exhausted",
-      nextAttempt: PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS + 1,
+      nextAttempt: 7,
     });
   });
 
