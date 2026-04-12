@@ -1,4 +1,4 @@
-import {
+import React, {
   Profiler,
   useCallback,
   useEffect,
@@ -33,6 +33,64 @@ const ROOT_STYLE: CSSProperties = {
   userSelect: "none",
   overflowAnchor: "none",
 };
+
+type SettingsGraphSubstrateCanaryPresentedSectionsProps = {
+  draggingSectionId: string | null;
+  hoveredSectionId: string | null;
+  mountedSectionBodyIds: ReadonlySet<string>;
+  onHoveredSectionChange: (sectionId: string | null) => void;
+  onSectionsLayerRender: (
+    id: string,
+    phase: "mount" | "nested-update" | "update",
+    actualDuration: number,
+  ) => void;
+  presentedSceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
+  sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
+  sectionDragController: ReturnType<
+    typeof useSettingsGraphSubstrateCanaryController
+  >["sectionDragController"];
+};
+
+function _SettingsGraphSubstrateCanaryPresentedSections({
+  draggingSectionId,
+  hoveredSectionId,
+  mountedSectionBodyIds,
+  onHoveredSectionChange,
+  onSectionsLayerRender,
+  presentedSceneSections,
+  sceneSections,
+  sectionDragController,
+}: SettingsGraphSubstrateCanaryPresentedSectionsProps) {
+  return (
+    <Profiler
+      id="settings-graph-substrate-canary-sections-layer"
+      onRender={onSectionsLayerRender}
+    >
+      <SettingsGraphSubstrateCanarySectionsLayer
+        draggingSectionId={draggingSectionId}
+        hoveredSectionId={hoveredSectionId}
+        mountedSectionBodyIds={mountedSectionBodyIds}
+        onHoveredSectionChange={onHoveredSectionChange}
+        presentedSceneSections={presentedSceneSections}
+        sceneSections={sceneSections}
+        sectionDragController={sectionDragController}
+      />
+    </Profiler>
+  );
+}
+
+const SettingsGraphSubstrateCanaryPresentedSections = React.memo(
+  _SettingsGraphSubstrateCanaryPresentedSections,
+  (previousProps, nextProps) =>
+    previousProps.draggingSectionId === nextProps.draggingSectionId &&
+    previousProps.hoveredSectionId === nextProps.hoveredSectionId &&
+    previousProps.mountedSectionBodyIds === nextProps.mountedSectionBodyIds &&
+    previousProps.onHoveredSectionChange === nextProps.onHoveredSectionChange &&
+    previousProps.onSectionsLayerRender === nextProps.onSectionsLayerRender &&
+    previousProps.presentedSceneSections === nextProps.presentedSceneSections &&
+    previousProps.sceneSections === nextProps.sceneSections &&
+    previousProps.sectionDragController === nextProps.sectionDragController,
+);
 
 export function SettingsGraphSubstrateCanary() {
   const controller = useSettingsGraphSubstrateCanaryController();
@@ -193,20 +251,16 @@ export function SettingsGraphSubstrateCanary() {
         }}
       >
         {controller.sceneSections.length > 0 ? (
-          <Profiler
-            id="settings-graph-substrate-canary-sections-layer"
-            onRender={handleSectionsLayerRender}
-          >
-            <SettingsGraphSubstrateCanarySectionsLayer
-              draggingSectionId={controller.draggingSectionId}
-              hoveredSectionId={hoveredSectionId}
-              mountedSectionBodyIds={mountedSectionBodyIds}
-              onHoveredSectionChange={handleHoveredSectionChange}
-              presentedSceneSections={presentedSceneSections}
-              sceneSections={controller.sceneSections}
-              sectionDragController={controller.sectionDragController}
-            />
-          </Profiler>
+          <SettingsGraphSubstrateCanaryPresentedSections
+            draggingSectionId={controller.draggingSectionId}
+            hoveredSectionId={hoveredSectionId}
+            mountedSectionBodyIds={mountedSectionBodyIds}
+            onHoveredSectionChange={handleHoveredSectionChange}
+            onSectionsLayerRender={handleSectionsLayerRender}
+            presentedSceneSections={presentedSceneSections}
+            sceneSections={controller.sceneSections}
+            sectionDragController={controller.sectionDragController}
+          />
         ) : (
           <div
             className="flex h-full items-center justify-center text-xs text-setta-500 dark:text-setta-400"

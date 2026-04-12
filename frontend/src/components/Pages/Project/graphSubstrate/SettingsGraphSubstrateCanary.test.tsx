@@ -234,6 +234,31 @@ describe("SettingsGraphSubstrateCanary", () => {
     ).toBe("1");
   });
 
+  it("keeps the profiled sections subtree stable across viewport-only updates", async () => {
+    await act(async () => {
+      root.render(<SettingsGraphSubstrateCanary />);
+    });
+
+    const mockedSectionsLayer = vi.mocked(
+      (await import("./settingsGraphSubstrateCanarySectionsLayer"))
+        .SettingsGraphSubstrateCanarySectionsLayer,
+    );
+    const initialSectionsLayerCallCount = mockedSectionsLayer.mock.calls.length;
+    expect(initialSectionsLayerCallCount).toBeGreaterThan(0);
+
+    hoisted.controller.resolvedViewport = { x: 160, y: -44, zoom: 1.25 };
+    hoisted.controller.viewportTransform =
+      "translate3d(160px, -44px, 0) scale(1.25)";
+
+    await act(async () => {
+      root.render(<SettingsGraphSubstrateCanary />);
+    });
+
+    expect(mockedSectionsLayer.mock.calls.length).toBe(
+      initialSectionsLayerCallCount,
+    );
+  });
+
   it("records the presented-scene-section visibility split during active motion capture", async () => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
       motionAttributionActive: true,

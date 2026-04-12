@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 08:33 UTC
+Last updated: 2026-04-13 08:48 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,54 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `407` landed one bounded production reduction against the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane by isolating the profiled DOM
+  sections subtree from viewport-transform-only parent rerenders:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the named owner
+      `presentedSceneSectionSubtreeReactRender` instead of reopening probe work
+    - chose the narrowest product slice on that owner chain:
+      memoize the profiled presented-sections subtree so `SettingsGraphSubstrateCanary`
+      viewport transform churn does not re-invoke the sections layer when the
+      presented section inputs are unchanged
+    - kept the change bounded to the canary composition boundary; no new seam
+      lifting or harness plumbing
+  - product/support code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      with a memoized `SettingsGraphSubstrateCanaryPresentedSections`
+      wrapper that keeps the `Profiler` + `SettingsGraphSubstrateCanarySectionsLayer`
+      subtree stable across viewport-only parent updates
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      with a regression proving the mocked sections layer call count does not
+      increase across a pure viewport transform update
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      -> passed (`2` files, `19` tests)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-032/worktree-ai.log`
+      -> failed twice after one bounded lifecycle recovery
+      -> both attempts timed out at
+         `getSettingsGraphSurfaceKind(...)` inside
+         `runSettingsGraphComparePreflight(...)`
+    - bounded lifecycle recovery used once:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - headless CDP visual check:
+      -> not trustworthy on this run
+      -> first fresh-context sub-agent hit a stale bootstrap token, then only
+         reached the loading shell
+      -> second fresh-context sub-agent using the new token timed out at the
+         DevTools transport layer before bootstrap navigation completed
+  - reading:
+    - the code slice is in and focused unit coverage is green
+    - the live canary gate for run `032` is blocked by runtime/tooling health,
+      not by a new named renderer defect on the canonical lane
+    - treat this slice as `deferred_visual_gate` for sequencing; do not claim a
+      measured live perf win yet
+  - next default frontier:
+    - once the live worktree runtime is trustworthy again, rerun the canonical
+      `rotaryParamCodeObjDefault` worktree probe and CDP smoke on the same code
+      so the lane can confirm whether the sections-subtree isolation reduced
+      `presentedSceneSectionSubtreeReactRender`
 
 - item `406` resolved the repeated `getLocalPaneState(...)` verifier blocker
   on the canonical `rotaryParamCodeObjDefault` worktree perf lane strongly

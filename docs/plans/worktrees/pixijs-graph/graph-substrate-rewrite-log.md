@@ -534,6 +534,61 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 08:48 UTC
+
+- re-read the active plan and handoff first, then stayed on the canonical
+  `rotaryParamCodeObjDefault` lane because the next named owner was still
+  `presentedSceneSectionSubtreeReactRender`
+- chose one bounded production slice instead of another verifier/harness pass:
+  isolate the profiled DOM sections subtree from viewport-transform-only parent
+  rerenders in `SettingsGraphSubstrateCanary`
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  to render the `Profiler` + `SettingsGraphSubstrateCanarySectionsLayer`
+  through a memoized `SettingsGraphSubstrateCanaryPresentedSections` wrapper
+  keyed only by actual presented-sections inputs
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  with a regression that re-renders the canary on a viewport-only transform
+  update and asserts the mocked sections layer call count does not increase
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    -> pass (`2` files, `19` tests)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-032/worktree-ai.log`
+    -> first attempt timed out after `180000ms`
+    -> timeout site:
+       `getSettingsGraphSurfaceKind(...)` inside
+       `runSettingsGraphComparePreflight(...)`
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - frontend recovered at `http://127.0.0.1:3075/`
+    - backend recovered at `http://127.0.0.1:8075`
+    - fresh session printed by the restart: `b20ea1`
+  - probe retry after recovery:
+    -> failed with the same `180000ms` timeout at
+       `getSettingsGraphSurfaceKind(...)`
+  - headless CDP sub-agent smoke attempts:
+    - attempt 1:
+      stale bootstrap token rejected; after switching to a fresh token the app
+      only showed `Loading Setta... / Preparing the app surface.`
+    - attempt 2:
+      fresh token used from the restart output, but DevTools MCP transport
+      timed out at `list_pages` before bootstrap navigation finished
+- reading:
+  - the product slice is complete and focused tests pass
+  - the live worktree visual/perf gate for this run is not trustworthy because
+    both the Playwright preflight and CDP smoke were blocked by runtime/tooling
+    health after the allowed recovery
+  - keep this slice as `deferred_visual_gate`; do not claim a measured live win
+    yet
+- next frontier:
+  - when the runtime is trustworthy again, rerun the canonical worktree probe
+    and CDP smoke on the same `rotaryParamCodeObjDefault` lane to confirm
+    whether the subtree isolation reduces
+    `presentedSceneSectionSubtreeReactRender`
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 05:13 UTC
 
 - progress review for loop `001` runs `011` through `020`:
