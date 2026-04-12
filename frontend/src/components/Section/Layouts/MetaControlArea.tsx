@@ -49,6 +49,7 @@ import {
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
 import { buildSettaApiPayload } from "utils/settaApiPresets";
+import { shallow } from "zustand/shallow";
 
 type ButtonRequestConfig = Pick<
   ButtonParamCodeObjImpl,
@@ -71,7 +72,7 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
       controlParamId: impl.metaControlParamId,
       showSectionTitle: impl.showSectionTitle ?? false,
     };
-  }, _.isEqual);
+  }, shallow);
 
   if (!controlParamId) {
     return null;

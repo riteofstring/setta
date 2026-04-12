@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 03:46 UTC
+Last updated: 2026-04-13 03:56 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,75 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `386` landed one bounded mounted meta-control body selector reduction
+  on the live canary lane after a local attribution/ranking pass:
+  - local ranking/readout for this iteration:
+    - checked the remaining mounted section-body/chrome entry points instead
+      of taking another arbitrary tiny control
+    - `MetaControlArea` was the clearest remaining broad body-entry owner still
+      using `lodash/isEqual` on a two-field mounted selector
+      (`controlParamId`, `showSectionTitle`) at the section-body switch inside
+      `SectionContainerCoreResizabe`
+    - narrower or more specialized candidates (for example
+      `StateMachineNodeArea`) were left for later passes
+  - product code changed in:
+    - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
+      so the mounted meta-control body selector for
+      `{ controlParamId, showSectionTitle }` now uses `zustand/shallow`
+      equality instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/MetaControlArea.test.tsx`
+      to prove a mounted `MetaControlArea` stays out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when this
+      section's `showSectionTitle` state changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-meta-control-area-shallow-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/MetaControlArea.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/MetaControlArea.tsx src/components/Section/Layouts/MetaControlArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the page moved from the loading shell to visible settings chrome,
+         overview/editor content, and settings tabs rather than a blank root
+  - reading:
+    - this satisfies the handoff requirement to do one bounded local
+      attribution/ranking pass before taking another selector slice
+    - the landed product change stayed on a section-body entry boundary rather
+      than falling back to another one-off header control
+  - next default frontier:
+    - identify the next remaining broad mounted section-body/chrome subscriber
+      or shared write fan-out on the live `/settings` worktree, preferring
+      another section-body entry/wrapper owner over narrow control-only churn
+      and stopping for replan if the next ranked candidate is no longer broad
+
+- progress-review checkpoint (`2026-04-13 03:49 UTC`):
+  - the last ten successful loop runs were still worthwhile overall:
+    - they landed real product-side selector/subscription reductions on the
+      live `/settings` canary with focused tests
+    - they mostly kept the required direct `/settings` CDP smoke green
+    - they included some broader owners (`SectionContainerCoreResizabe`,
+      `MinimizedDataEdgeHandles`, `PromptArea`), not only tiny controls
+  - but the lane is now at real risk of diminishing returns from repeated
+    selector micro-fixes:
+    - too many recent passes chose the next target by local inspection rather
+      than first re-ranking the remaining mounted owners
+    - `LockPositionButton` is the clearest example of a too-small slice for
+      default sequencing on this lane
+  - next default frontier:
+    - do not take another arbitrary `shallow`/comparator cleanup as the first
+      action of the next iteration
+    - start with one bounded local attribution/ranking pass on the live
+      `/settings` worktree to identify the largest remaining mounted
+      section-body, section-shell, or shared write-fan-out owner
+    - use existing profiler/render-count/store instrumentation and the already
+      landed focused tests rather than reopening the closed cross-worktree
+      probe lane
+    - only land a new product slice in that same pass if the evidence points
+      to a broad owner; otherwise stop for human replan instead of continuing
+      tiny selector churn
 
 - item `385` landed one bounded mounted prompt-section body selector
   reduction on the live canary lane:

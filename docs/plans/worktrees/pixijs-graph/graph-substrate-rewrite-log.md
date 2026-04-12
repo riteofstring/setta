@@ -73,6 +73,45 @@ Record:
 - Next action:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
+## 2026-04-13 03:49 UTC
+
+- Item: Progress review checkpoint after loop `001` run `010`.
+- Status: `done`
+- Details:
+  - reviewed:
+    - `RALPH.md`
+    - the durable plan and handoff
+    - recent loop runs `001` through `010`
+  - conclusion:
+    - the stretch still shows meaningful forward progress
+    - ten successive successful iterations landed real product-side changes on
+      the live `/settings` canary instead of falling back into the older
+      cross-worktree probe/readiness rabbit hole
+    - the best recent slices were the broader mounted owners:
+      - `SectionContainerCoreResizabe`
+      - `MinimizedDataEdgeHandles`
+      - `PromptArea`
+  - real red herring / diminishing-return pattern:
+    - the loop is now too willing to pick another residual selector cleanup by
+      inspection alone
+    - tiny control-level selector fixes are no longer a good default frontier
+      unless attribution first proves they are still dominant
+    - `LockPositionButton` was the clearest low-yield example in this stretch,
+      especially with the visual gate deferred
+  - durable direction change recorded in the plan/handoff:
+    - the next autonomous pass must begin with one bounded local
+      attribution/ranking step on the live `/settings` worktree
+    - the goal is to name the largest remaining mounted section-body,
+      section-shell, or shared write-fan-out owner before taking another code
+      slice
+    - if that pass cannot name a broader owner and only more tiny selector
+      churn remains, the loop should stop for human replan instead of
+      continuing
+- Next action:
+  - keep the loop going, but only under the sharpened plan:
+    start with local attribution/ranking on the live canary, then take at most
+    one evidence-backed broad owner reduction in the same pass
+
 ## 2026-04-13 03:08 UTC
 
 ## 2026-04-13 03:46 UTC
@@ -15107,6 +15146,53 @@ LOOP_TERMINAL_MARKER: none
   - inspect the next broad mounted section-body/chrome subscriber or shared
     write fan-out that still accepts unrelated `useProjectState` churn on the
     live settings canary
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 03:56 UTC
+
+- item `386` landed one bounded mounted meta-control body selector reduction
+  on the live `/settings` canary lane after a local attribution/ranking pass:
+  - local ranking/readout:
+    - reviewed the remaining mounted section-body/chrome entry points instead
+      of taking another arbitrary tiny selector cleanup
+    - `MetaControlArea` was the clearest remaining broad body-entry owner still
+      using `lodash/isEqual` on a two-field mounted selector
+      (`controlParamId`, `showSectionTitle`) at the section-body switch inside
+      `SectionContainerCoreResizabe`
+    - narrower or more specialized candidates (for example
+      `StateMachineNodeArea`) were left for later passes
+  - product code changed in:
+    - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
+      so the mounted meta-control body selector for
+      `{ controlParamId, showSectionTitle }` now uses `zustand/shallow`
+      equality instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/MetaControlArea.test.tsx`
+      to prove a mounted `MetaControlArea` stays out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when this
+      section's `showSectionTitle` state changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-meta-control-area-shallow-selector.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/MetaControlArea.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/MetaControlArea.tsx src/components/Section/Layouts/MetaControlArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the page moved from the loading shell to visible settings chrome,
+         overview/editor content, and settings tabs rather than a blank root
+  - reading:
+    - this pass satisfied the handoff requirement to re-rank the next mounted
+      owner before landing another selector slice
+    - the landed product change stayed on a section-body entry boundary rather
+      than falling back to another one-off header control
+  - next frontier:
+    - identify the next remaining broad mounted section-body/chrome subscriber
+      or shared write fan-out on the live `/settings` worktree, preferring
+      another section-body entry/wrapper owner over narrow control-only churn
+      and stopping for replan if the next ranked candidate is no longer broad
 
 LOOP_TERMINAL_MARKER: none
 
