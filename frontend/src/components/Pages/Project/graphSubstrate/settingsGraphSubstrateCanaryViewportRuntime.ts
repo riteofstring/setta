@@ -66,12 +66,16 @@ export type SettingsGraphSubstrateCanaryViewportRuntime = {
 };
 
 function shouldPublishReactFlowViewportTransform(args: {
+  fitViewOnInit: boolean;
+  fitViewOnInitDone: boolean;
   currentTransform: [number, number, number];
   hasPublishedTransform: boolean;
   resolvedViewport: GraphViewport;
   viewportOwnership: SettingsGraphSubstrateCanaryViewportOwnership | null;
 }) {
   const {
+    fitViewOnInit,
+    fitViewOnInitDone,
     currentTransform,
     hasPublishedTransform,
     resolvedViewport,
@@ -79,7 +83,13 @@ function shouldPublishReactFlowViewportTransform(args: {
   } = args;
 
   if (!hasPublishedTransform) {
-    return true;
+    return (
+      fitViewOnInit ||
+      !fitViewOnInitDone ||
+      currentTransform[0] !== resolvedViewport.x ||
+      currentTransform[1] !== resolvedViewport.y ||
+      currentTransform[2] !== resolvedViewport.zoom
+    );
   }
   if (currentTransform[2] !== resolvedViewport.zoom) {
     return true;
@@ -507,6 +517,8 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       return;
     }
     const shouldPublishTransform = shouldPublishReactFlowViewportTransform({
+      fitViewOnInit: currentReactFlowState.fitViewOnInit,
+      fitViewOnInitDone: currentReactFlowState.fitViewOnInitDone,
       currentTransform: currentReactFlowState.transform,
       hasPublishedTransform: hasPublishedReactFlowTransformRef.current,
       resolvedViewport,

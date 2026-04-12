@@ -20994,6 +20994,37 @@ LOOP_TERMINAL_MARKER: none
     owner again with an already-trusted live probe path that does not reopen
     direct-runner repair
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 12:47 UTC
+
+- item `502` reduced the no-op initial shared transform publish on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    now skips the first `reactFlowViewportPublish` when React Flow is already
+    at the authoritative shared transform and the fit-view bootstrap flags are
+    already settled
+  - updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    to prove mount-time shared viewport sync does not emit a
+    `reactFlowViewportPublish` measurement or a transform write when the store
+    already matches
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`2` files, `21` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> settings route showed the initial spinner, then the graph surface
+       mounted normally
+    -> no obvious blank-card or detached-body artifact was visible on the
+       canary surface
+- reading:
+  - this is another production cut on the active
+    `reactFlowViewportPublish` owner rather than another oracle-only pass
+  - the next frontier remains product-side: either rank the remaining publish
+    sources with an already-trusted live probe path or cut the next bounded
+    no-op publish source on the same canonical lane
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-15 12:25 UTC
 
 - item `499` reduced no-op section-entry imperative flushes on the canonical
