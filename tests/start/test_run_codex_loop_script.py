@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -246,6 +247,362 @@ exit 0
     assert captured_env.get("CHROME_BIN") == str(
         output_dir / "run-001" / "ralph-headless-chrome.sh"
     )
+
+
+def test_run_codex_loop_uses_python3_when_python_is_missing(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "run-codex-loop.sh"
+
+    worktree_root = tmp_path / "worktree"
+    stub_dir = tmp_path / "bin"
+    output_dir = tmp_path / "output"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    python3_args_path = tmp_path / "python3-args.txt"
+    python_args_path = tmp_path / "python-args.txt"
+
+    prompt_path = tmp_path / "prompt.md"
+    prompt_path.write_text("Test prompt body.\n", encoding="utf-8")
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+    handoff_path = tmp_path / "handoff.md"
+    handoff_path.write_text("# Handoff\n", encoding="utf-8")
+    history_path = tmp_path / "history.md"
+    history_path.write_text("# History\n", encoding="utf-8")
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "plan_path: plan.md",
+                "handoff_path: handoff.md",
+                "history_path: history.md",
+                "prompt_file: prompt.md",
+                "workdir: .",
+                "iterations: 1",
+                "new_session_every: 1",
+                "codex_inactivity_timeout_seconds: 1",
+                "yolo: false",
+                "worktree_lifecycle: none",
+                "main_lifecycle: none",
+                "terminal_mode: background",
+                "---",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  cat <<'EOF'
+worktree {worktree_root}
+HEAD 1111111111111111111111111111111111111111
+branch refs/heads/feature
+EOF
+  exit 0
+fi
+if [[ "$*" == *"rev-parse HEAD"* ]]; then
+  printf '%s\\n' 1111111111111111111111111111111111111111
+  exit 0
+fi
+exit 0
+""",
+    )
+    _write_executable(
+        stub_dir / "setta",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"--list-sessions --json"* ]]; then
+  /usr/bin/env python3 - <<'PY'
+import base64
+import json
+
+payload = {"sessions": [{"sessionId": "demo"}]}
+encoded = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
+print(f"__SETTA_JSON_B64__{encoded}")
+PY
+  exit 0
+fi
+exit 1
+""",
+    )
+    _write_executable(
+        stub_dir / "python",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{python_args_path}"
+exit 127
+""",
+    )
+    _write_executable(
+        stub_dir / "python3",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{python3_args_path}"
+exec "{sys.executable}" "$@"
+""",
+    )
+    _write_executable(
+        stub_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '\\n## Latest iteration\\n- Status: blocked\\n' >> "{handoff_path}"
+printf '\\n- python3 fallback\\n' >> "{history_path}"
+cat <<'EOF'
+LOOP_STATUS: BLOCKED
+LOOP_SUMMARY: python3 fallback worked
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: blocked
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+EOF
+exit 0
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:/usr/bin:/bin:/usr/sbin:/sbin"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--config-file",
+            str(config_path),
+            "--prompt-file",
+            str(prompt_path),
+            "--followup-prompt-file",
+            str(prompt_path),
+            "--plan-file",
+            str(plan_path),
+            "--handoff-file",
+            str(handoff_path),
+            "--history-file",
+            str(history_path),
+            "--workdir",
+            str(worktree_root),
+            "--output-dir",
+            str(output_dir),
+            "--iterations",
+            "1",
+            "--worktree-lifecycle",
+            "none",
+            "--main-lifecycle",
+            "none",
+            "--terminal-mode",
+            "background",
+            "--no-yolo",
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert python3_args_path.read_text(encoding="utf-8").startswith("- ")
+    assert not python_args_path.exists()
+
+
+def test_run_codex_loop_discovers_main_reference_from_sibling_repo_checkout(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "run-codex-loop.sh"
+
+    worktree_root = tmp_path / "dev" / "setta.pixijs-graph"
+    main_root = tmp_path / "dev" / "setta"
+    stub_dir = tmp_path / "bin"
+    output_dir = tmp_path / "output"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    (main_root / "backend" / "setta").mkdir(parents=True, exist_ok=True)
+    (main_root / "scripts").mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    main_env_path = tmp_path / "main_env.txt"
+
+    prompt_path = tmp_path / "prompt.md"
+    prompt_path.write_text("Test prompt body.\n", encoding="utf-8")
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+    handoff_path = tmp_path / "handoff.md"
+    handoff_path.write_text("# Handoff\n", encoding="utf-8")
+    history_path = tmp_path / "history.md"
+    history_path.write_text("# History\n", encoding="utf-8")
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "plan_path: plan.md",
+                "handoff_path: handoff.md",
+                "history_path: history.md",
+                "prompt_file: prompt.md",
+                "workdir: .",
+                "iterations: 1",
+                "new_session_every: 1",
+                "codex_inactivity_timeout_seconds: 1",
+                "yolo: false",
+                "worktree_lifecycle: none",
+                "main_lifecycle: ai",
+                "terminal_mode: background",
+                "---",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    _write_executable(
+        main_root / "ai.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+env | sort > "{main_env_path}"
+cat <<'EOF'
+Starting Chrome with remote debugging on port 9309
+Ready: http://127.0.0.1:8087
+Local: http://127.0.0.1:3087/
+Bootstrap URL (recommended):
+http://127.0.0.1:8087/__setta__/bootstrap#token=test-main-token
+EOF
+sleep 4
+""",
+    )
+    _write_executable(
+        main_root / "scripts" / "dev-runtime-info.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+{"frontendUrl":"http://127.0.0.1:3087/","backendUrl":"http://127.0.0.1:8087","bootstrapUrl":"http://127.0.0.1:8087/__setta__/bootstrap#token=test-main-token","debugPort":9309}
+EOF
+""",
+    )
+    _write_executable(
+        stub_dir / "curl",
+        """#!/usr/bin/env bash
+set -euo pipefail
+url="${@: -1}"
+if [[ "$url" == "http://127.0.0.1:3087/" ]]; then
+  exit 0
+fi
+exit 7
+""",
+    )
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  cat <<'EOF'
+worktree {worktree_root}
+HEAD 1111111111111111111111111111111111111111
+branch refs/heads/pixijs-rewrite
+EOF
+  exit 0
+fi
+if [[ "$*" == *"config --get remote.origin.url"* ]]; then
+  printf '%s\\n' git@github.com:riteofstring/setta.git
+  exit 0
+fi
+if [[ "$*" == *"rev-parse --is-inside-work-tree"* ]]; then
+  printf '%s\\n' true
+  exit 0
+fi
+if [[ "$*" == *"symbolic-ref --quiet --short HEAD"* ]]; then
+  if [[ "$*" == *"{main_root}"* ]]; then
+    printf '%s\\n' main
+  else
+    printf '%s\\n' pixijs-rewrite
+  fi
+  exit 0
+fi
+if [[ "$*" == *"rev-parse HEAD"* ]]; then
+  if [[ "$*" == *"{main_root}"* ]]; then
+    printf '%s\\n' 2222222222222222222222222222222222222222
+  else
+    printf '%s\\n' 1111111111111111111111111111111111111111
+  fi
+  exit 0
+fi
+echo "unsupported git args: $*" >&2
+exit 1
+""",
+    )
+    _write_executable(
+        stub_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '\\n## Latest iteration\\n- Status: blocked\\n' >> "{handoff_path}"
+printf '\\n- sibling main repo fallback\\n' >> "{history_path}"
+cat <<'EOF'
+LOOP_STATUS: BLOCKED
+LOOP_SUMMARY: sibling main repo fallback worked
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: blocked
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+EOF
+exit 0
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+    env.pop("CHROME_BIN", None)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--config-file",
+            str(config_path),
+            "--prompt-file",
+            str(prompt_path),
+            "--followup-prompt-file",
+            str(prompt_path),
+            "--plan-file",
+            str(plan_path),
+            "--handoff-file",
+            str(handoff_path),
+            "--history-file",
+            str(history_path),
+            "--workdir",
+            str(worktree_root),
+            "--output-dir",
+            str(output_dir),
+            "--iterations",
+            "1",
+            "--worktree-lifecycle",
+            "none",
+            "--main-lifecycle",
+            "ai",
+            "--terminal-mode",
+            "background",
+            "--no-yolo",
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    rendered_prompt = (
+        output_dir / "run-001" / "rendered-start-prompt.txt"
+    ).read_text(encoding="utf-8")
+    assert f"- current main reference worktree: {main_root}" in rendered_prompt
+    assert f"Main worktree root: {main_root}" in result.stdout
 
 
 def test_run_codex_loop_generic_repo_adapter_omits_setta_runtime_guidance(

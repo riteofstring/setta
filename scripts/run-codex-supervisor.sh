@@ -183,10 +183,49 @@ latest_activity_epoch() {
 
 discover_main_worktree_root() {
   local repo_root="$1"
-  git -C "${repo_root}" worktree list --porcelain 2>/dev/null | awk '
+  local discovered_root=""
+  local repo_root_real=""
+  local sibling_parent=""
+  local current_origin_url=""
+  local candidate_root=""
+  local candidate_root_real=""
+  local candidate_origin_url=""
+  local candidate_branch=""
+
+  discovered_root="$(git -C "${repo_root}" worktree list --porcelain 2>/dev/null | awk '
     $1 == "worktree" { current = $2; next }
     $1 == "branch" && $2 == "refs/heads/main" { print current; exit }
-  '
+  ')"
+  if [[ -n "${discovered_root}" ]]; then
+    printf '%s\n' "${discovered_root}"
+    return 0
+  fi
+
+  repo_root_real="$(cd "${repo_root}" && pwd -P 2>/dev/null || printf '%s' "${repo_root}")"
+  sibling_parent="$(dirname "${repo_root_real}")"
+  current_origin_url="$(git -C "${repo_root_real}" config --get remote.origin.url 2>/dev/null || true)"
+  [[ -d "${sibling_parent}" ]] || return 1
+
+  for candidate_root in "${sibling_parent}"/*; do
+    [[ -d "${candidate_root}" ]] || continue
+    candidate_root_real="$(cd "${candidate_root}" && pwd -P 2>/dev/null || printf '%s' "${candidate_root}")"
+    [[ "${candidate_root_real}" == "${repo_root_real}" ]] && continue
+    [[ -d "${candidate_root_real}/backend/setta" ]] || continue
+    [[ -x "${candidate_root_real}/scripts/dev-runtime-info.sh" ]] || continue
+    if ! git -C "${candidate_root_real}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      continue
+    fi
+    candidate_branch="$(git -C "${candidate_root_real}" symbolic-ref --quiet --short HEAD 2>/dev/null || git -C "${candidate_root_real}" branch --show-current 2>/dev/null || true)"
+    [[ "${candidate_branch}" == "main" ]] || continue
+    if [[ -n "${current_origin_url}" ]]; then
+      candidate_origin_url="$(git -C "${candidate_root_real}" config --get remote.origin.url 2>/dev/null || true)"
+      [[ "${candidate_origin_url}" == "${current_origin_url}" ]] || continue
+    fi
+    printf '%s\n' "${candidate_root_real}"
+    return 0
+  done
+
+  return 1
 }
 
 terminate_process_tree() {
