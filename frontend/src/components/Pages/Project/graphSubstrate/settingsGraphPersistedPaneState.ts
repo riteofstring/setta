@@ -6,6 +6,16 @@ export type SettingsGraphLocalPaneState = {
   uiEditorTrueWidth: number;
 };
 
+export type SettingsGraphLocalPaneStateStorePatch = {
+  overviewVis: boolean;
+  overviewWidth: number;
+  overviewTrueWidth: number;
+  snapToGrid: boolean;
+  uiEditorVis: boolean;
+  uiEditorWidth: number;
+  uiEditorTrueWidth: number;
+};
+
 export type SettingsGraphPaneStateReadDiagnostic = {
   appShellMounted: boolean;
   currentUrl: string;
@@ -142,6 +152,20 @@ export function writePersistedSettingsGraphLocalPaneState(args: {
     version: existingPayload?.version ?? 0,
   };
   return JSON.stringify(nextPayload);
+}
+
+export function resolveSettingsGraphLocalPaneStateStorePatch(
+  paneState: SettingsGraphLocalPaneState,
+): SettingsGraphLocalPaneStateStorePatch {
+  return {
+    overviewVis: paneState.overviewVisible,
+    overviewWidth: paneState.overviewTrueWidth,
+    overviewTrueWidth: paneState.overviewTrueWidth,
+    snapToGrid: paneState.snapToGrid,
+    uiEditorVis: paneState.uiEditorVisible,
+    uiEditorWidth: paneState.uiEditorTrueWidth,
+    uiEditorTrueWidth: paneState.uiEditorTrueWidth,
+  };
 }
 
 export function formatSettingsGraphPaneStateReadDiagnostic(

@@ -9,6 +9,7 @@ import {
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
+  resolveSettingsGraphLocalPaneStateStorePatch,
   writePersistedSettingsGraphLocalPaneState,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
@@ -752,24 +753,39 @@ export async function setLocalPaneState(
     paneState,
     rawPersistedState: null,
   });
+  const nextPaneStatePatch =
+    resolveSettingsGraphLocalPaneStateStorePatch(paneState);
 
   await runWithSettingsGraphPageLifecycleGuard(
     page,
     "writing normalized compare pane state",
     async () => {
       await page.evaluate(
-        ({ key, value }: { key: string; value: string }) => {
+        async ({
+          key,
+          paneStatePatch,
+          value,
+        }: {
+          key: string;
+          paneStatePatch: ReturnType<
+            typeof resolveSettingsGraphLocalPaneStateStorePatch
+          >;
+          value: string;
+        }) => {
+          const { useLocalStorage } = await import("/src/state/definitions.ts");
           window.localStorage.setItem(key, value);
+          useLocalStorage.setState(paneStatePatch);
         },
         {
           key: "setta_data",
+          paneStatePatch: nextPaneStatePatch,
           value: nextPersistedPaneState,
         },
       );
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await waitForSettingsGraphAppReady(page);
     },
   );
+
+  await waitForSettingsGraphAppReady(page);
 }
 
 export async function normalizeSettingsGraphComparePaneState(

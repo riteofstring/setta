@@ -4,6 +4,7 @@ import {
   readBrowserStorageStateLocalStorageEntry,
   readPersistedSettingsGraphLocalPaneState,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
+  resolveSettingsGraphLocalPaneStateStorePatch,
   writePersistedSettingsGraphLocalPaneState,
 } from "./settingsGraphPersistedPaneState";
 
@@ -212,6 +213,26 @@ describe("readPersistedSettingsGraphLocalPaneState", () => {
         version: 0,
       }),
     );
+  });
+
+  it("maps compare pane state into the live zustand pane store shape", () => {
+    expect(
+      resolveSettingsGraphLocalPaneStateStorePatch({
+        overviewVisible: false,
+        overviewTrueWidth: 420,
+        snapToGrid: false,
+        uiEditorVisible: false,
+        uiEditorTrueWidth: 260,
+      }),
+    ).toEqual({
+      overviewVis: false,
+      overviewWidth: 420,
+      overviewTrueWidth: 420,
+      snapToGrid: false,
+      uiEditorVis: false,
+      uiEditorWidth: 260,
+      uiEditorTrueWidth: 260,
+    });
   });
 
   it("formats pane-state read diagnostics as stable json", () => {

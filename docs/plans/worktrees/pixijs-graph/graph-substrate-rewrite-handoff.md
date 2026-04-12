@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 11:23 UTC
+Last updated: 2026-04-13 11:34 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,64 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `419` landed one bounded normalization step on the repeated direct
+  `/settings` `worktree_unhealthy` lane, then used fresh CDP to close the
+  current pane-normalization family as the active frontier:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and did not continue the recent
+      mounted-body or generic verifier-hardening shape after items `417` and
+      `418`
+    - chose one narrow normalization change that was directly justified by the
+      current blocker: stop forcing a page reload just to write the compare
+      pane state, and instead drive the persisted `useLocalStorage` pane store
+      in-page while keeping localStorage in sync
+    - kept the slice bounded to shared pane-state helpers plus focused
+      pure-function coverage; no production renderer behavior changed
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      with a reusable live-store patch mapper for compare pane state
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      with regression coverage for that mapper
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so `setLocalPaneState(...)` updates the live persisted pane store without
+      reloading the page
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `11` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live worktree probe retry:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-044/worktree-ai.log`
+      -> still failed overall on the 180s Playwright timeout with the same
+         early classification:
+         `Worktree unhealthy: page already closed before writing normalized compare pane state. {"browserConnected":true,"openPageCount":0,"pageClosed":true,"pageUrl":"http://127.0.0.1:3075/settings"}`
+      -> the reload removal did not clear the page-lifecycle collapse inside
+         the live probe, so stop spending default iterations on more
+         pane-normalization churn
+    - fresh-context headless CDP visual check on direct
+      `http://127.0.0.1:3075/settings`
+      -> the page showed a settings-specific loading surface, not a blank root
+         and not app-router fallback
+      -> visible text: `PREPARING SETTA` / `Loading settings..` /
+         `Backend: Starting backend services`
+      -> classify the current live blocker as persistent
+         `project-surface loading` on direct `/settings`
+  - reading:
+    - this iteration materially narrows the diagnosis: the current worktree is
+      not stuck on the app-router shell anymore, and the probe is not blocked
+      by the compare-pane reload path alone
+    - keep canonical target section `rotaryParamCodeObjDefault`, but treat the
+      section lane as unopened until direct `/settings` progresses past the
+      project-loading surface
+    - the current support lane is complete; more pane-state/oracle churn would
+      be a third pass on the same family without a new renderer question
+  - next default frontier:
+    - debug the direct `/settings` `project-surface loading` owner on the live
+      worktree/backend path, then rerun the authenticated health check only
+      after that blocker changes
+    - do not spend the next default iteration on more compare-pane helper
+      cleanup unless fresh evidence shows a new deterministic pane-state bug
 
 - item `418` landed one bounded verifier-hardening slice for the repeated
   direct `/settings` `worktree_unhealthy` blocker on the canonical

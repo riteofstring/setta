@@ -151,6 +151,46 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 11:34 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: stop forcing a
+  page reload during compare-pane normalization and use the live persisted pane
+  store instead, because the repeated blocker was still dying before the lane
+  ever reached renderer preflight
+- added a reusable compare-pane live-store patch mapper in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+  and covered it in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+- updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so
+  `setLocalPaneState(...)` writes localStorage and updates the in-page
+  `useLocalStorage` store directly instead of reloading `/settings`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+    -> pass (`1` file, `11` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-044/worktree-ai.log`
+    -> fail after timeout with the same early health classification:
+       `Worktree unhealthy: page already closed before writing normalized compare pane state. {"browserConnected":true,"openPageCount":0,"pageClosed":true,"pageUrl":"http://127.0.0.1:3075/settings"}`
+  - fresh-context headless CDP check on direct `http://127.0.0.1:3075/settings`
+    -> page showed a settings-specific loading surface, not blank root and not
+       app-router fallback
+    -> visible text: `PREPARING SETTA`, `Loading settings..`,
+       `Backend: Starting backend services`
+- reading:
+  - removing the probe reload path did not clear the live page-closure failure,
+    so this closes the current pane-normalization family as the default lane
+  - direct `/settings` now has concrete visual evidence for the next frontier:
+    persistent project-surface loading on backend startup, before the graph
+    surface mounts
+  - keep canonical target section `rotaryParamCodeObjDefault`, but treat the
+    named section as pending until the page gets past the direct loading surface
+- next:
+  - debug the direct `/settings` project-loading/backend-startup owner instead
+    of spending another pass on compare-pane helper churn
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 11:23 UTC
 
 - item `418` landed one bounded verifier-hardening slice on the repeated direct
