@@ -11,7 +11,7 @@ import {
 } from "forks/dnd-kit/paramDndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import React, { useCallback } from "react";
+import React, { memo, useCallback } from "react";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -44,6 +44,18 @@ type ParamSwitchProps = {
   hasSectionStyleTheme: boolean;
 };
 
+type TempParamPlaceholderShellProps = {
+  dndAttributes: Record<string, unknown>;
+  dndListeners: Record<string, unknown>;
+  dndRef: (node: HTMLElement | null) => void;
+  rowStyle: React.CSSProperties;
+};
+
+type TempParamPlaceholderRowProps = TempParamPlaceholderShellProps & {
+  placeholderHeight: number | null;
+  placeholderWidth: number | null;
+};
+
 function _ParamSwitch(props: ParamSwitchProps) {
   if (isTempParam(props.paramInfoId)) {
     return <TempParamSwitch {...props} />;
@@ -51,7 +63,58 @@ function _ParamSwitch(props: ParamSwitchProps) {
   return <RealParamSwitch {...props} />;
 }
 
-function TempParamSwitch({
+export const TempParamPlaceholderRow = memo(function TempParamPlaceholderRow({
+  dndAttributes,
+  dndListeners,
+  dndRef,
+  rowStyle,
+  placeholderHeight,
+  placeholderWidth,
+}: TempParamPlaceholderRowProps) {
+  const zoom = useReactFlow((state) => state.transform[2]);
+  const safeZoom = zoom > 0 ? zoom : 1;
+  const normalizedWidth =
+    placeholderWidth !== null ? placeholderWidth / safeZoom : null;
+  const normalizedHeight =
+    placeholderHeight !== null ? placeholderHeight / safeZoom : null;
+  const columnWidth = "var(--param-column-width, 200px)";
+
+  return (
+    <TempParamPlaceholderShell
+      dndAttributes={dndAttributes}
+      dndListeners={dndListeners}
+      dndRef={dndRef}
+      rowStyle={{
+        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+        ...rowStyle,
+        height: normalizedHeight ?? undefined,
+        width: normalizedWidth ?? undefined,
+      }}
+    />
+  );
+});
+
+export const TempParamPlaceholderShell = memo(
+  function TempParamPlaceholderShell({
+    dndAttributes,
+    dndListeners,
+    dndRef,
+    rowStyle,
+  }: TempParamPlaceholderShellProps) {
+    return (
+      <article
+        className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
+        style={rowStyle}
+        data-param-row="true"
+        ref={dndRef}
+        {...dndAttributes}
+        {...dndListeners}
+      />
+    );
+  },
+);
+
+export function TempParamSwitch({
   sectionId,
   paramInfoId,
   listKey,
@@ -66,12 +129,6 @@ function TempParamSwitch({
     }),
     _.isEqual,
   );
-  const zoom = useReactFlow((state) => state.transform[2]);
-  const safeZoom = zoom > 0 ? zoom : 1;
-  const normalizedWidth =
-    placeholderWidth !== null ? placeholderWidth / safeZoom : null;
-  const normalizedHeight =
-    placeholderHeight !== null ? placeholderHeight / safeZoom : null;
 
   if (!activeListKey) {
     return null;
@@ -105,22 +162,16 @@ function TempParamSwitch({
     transform: transformToString(scaledTransform),
     transition,
     zIndex: isDragging ? 1000 : undefined,
-    height: normalizedHeight ?? undefined,
-    width: normalizedWidth ?? undefined,
   };
-  const columnWidth = "var(--param-column-width, 200px)";
 
   return (
-    <article
-      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
-      style={{
-        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
-      data-param-row="true"
-      ref={setNodeRef}
-      {...(restAttributes ?? {})}
-      {...(listeners ?? {})}
+    <TempParamPlaceholderRow
+      dndAttributes={restAttributes ?? {}}
+      dndListeners={listeners ?? {}}
+      dndRef={setNodeRef}
+      rowStyle={dndStyle}
+      placeholderHeight={placeholderHeight}
+      placeholderWidth={placeholderWidth}
     />
   );
 }

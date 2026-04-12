@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 18:04 UTC
+Last updated: 2026-04-12 18:15 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -84,6 +84,46 @@ This section overrides older "next frontier" notes below when choosing the next 
   - only reopen the canonical main-reference probe before those two
     product-side passes if the next slice directly changes the pane-state
     capture path or another explicit health signal changes that lane
+
+- item `334` landed one bounded product-side perf slice inside the measured
+  dominant motion owner `interactionReactFlowStateSync` on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the temp param placeholder path:
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+      now scopes the React Flow `transform[2]` subscription to a memoized
+      `TempParamPlaceholderRow` child instead of subscribing the full temp
+      placeholder DnD wrapper to zoom updates
+    - the outer temp placeholder wrapper keeps the DnD state while the
+      zoom-driven width/height normalization moved into the memoized row child
+  - focused regression coverage added in:
+    - `frontend/src/components/Params/ParamSwitch.test.tsx`
+      to assert the placeholder shell does not commit when React Flow zoom
+      changes and the row still updates its normalized dimensions
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-temp-param-placeholder-zoom-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on the worktree `/settings` session
+      -> bootstrap handoff succeeded
+      -> `/settings` mounted successfully
+      -> visible settings chrome/section/param area showed no obvious layout
+         regression from this slice
+  - reading:
+    - this keeps zoom-driven temp placeholder dimension updates localized to
+      the row that needs normalized sizing instead of re-rendering the outer
+      DnD wrapper on every zoom tick
+    - the remaining worktree-side frontier inside
+      `interactionReactFlowStateSync` should now move past the last direct
+      component-side `transform[2]` subscriber in `frontend/src/components`
+      and isolate the next selector/write fan-out still visible on the
+      canonical lane
+    - good next candidates are mounted param/body/chrome surfaces or shared
+      selectors that still re-render during pan/zoom even after the direct
+      zoom-subscriber splits
 
 - item `333` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named

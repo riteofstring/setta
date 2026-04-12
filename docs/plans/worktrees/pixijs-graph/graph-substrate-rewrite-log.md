@@ -12925,3 +12925,36 @@ settings graph probe phase: worktree: capture initial pane state.`
     instead of reopening the same cross-worktree probe stall
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 18:15 UTC
+
+- item `334` removed one more motion-heavy React Flow zoom subscription from
+  the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/components/Params/ParamSwitch.tsx` so temp param
+    placeholder rows render through a memoized `TempParamPlaceholderRow` child
+    that owns the `transform[2]` subscription instead of subscribing the full
+    temp placeholder DnD wrapper
+  - added focused render-boundary regression coverage in
+    `frontend/src/components/Params/ParamSwitch.test.tsx` to prove:
+    - the placeholder shell does not commit when React Flow zoom changes
+    - the row still updates its normalized placeholder width and height
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-temp-param-placeholder-zoom-split.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> bootstrap handoff succeeded
+      -> `/settings` mounted successfully
+      -> no obvious broken layout in the visible settings chrome/section/param
+         area from this slice
+  - result:
+    - this closes the last direct component-side `transform[2]` subscriber
+      found under `frontend/src/components` after the spreadsheet split
+    - next bounded frontier: stay inside `interactionReactFlowStateSync` but
+      pivot from direct zoom-subscriber splits to the next mounted
+      selector/write fan-out still visible on the canonical lane
+
+LOOP_TERMINAL_MARKER: none
