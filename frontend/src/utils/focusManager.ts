@@ -77,27 +77,12 @@ function performTabNavigation({
   allowInputTarget = false,
 }: TabNavigationOptions): boolean {
   const normalizedTarget = normalizeFocusableElement(target);
-  if (normalizedTarget.closest("[data-tab-native]")) {
+  if (shouldUseNativeTabNavigation(normalizedTarget, allowInputTarget)) {
     return false;
   }
 
   const orderedScopes = getOrderedScopes();
-  if (orderedScopes.length === 0) {
-    return false;
-  }
-
-  const currentScope = getScopeForElement(normalizedTarget);
-  const isInputTarget = isNativeInput(normalizedTarget);
-  if (
-    !allowInputTarget &&
-    isInputTarget &&
-    currentScope?.behavior !== "canvas"
-  ) {
-    return false;
-  }
-
-  const startScope =
-    currentScope ?? getFirstScopeWithFocusable(orderedScopes, direction > 0);
+  const startScope = getStartScope(orderedScopes, normalizedTarget, direction);
   if (!startScope) {
     return false;
   }
@@ -112,11 +97,7 @@ function performTabNavigation({
     return false;
   }
 
-  focusResult.element.focus({ preventScroll: true });
-  if (focusResult.scope.behavior === "canvas") {
-    movePaneToIncludeElement(focusResult.element);
-  }
-  return true;
+  return applyFocusResult(focusResult);
 }
 
 export function handleTabNavigation(event: KeyboardEvent): boolean {
@@ -180,36 +161,13 @@ export function focusAdjacentTopLevelSection({
   focusOnFirstElement?: boolean;
   setActive?: boolean;
 }): boolean {
-  const activeElement =
-    document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-  if (!isElementInScope(activeElement, "canvas")) {
-    return false;
-  }
   const orderedSectionIds = getOrderedTopLevelSectionIds();
-  if (orderedSectionIds.length === 0) {
-    return false;
-  }
-  const currentId = getCurrentTopLevelSectionId(
+  const activeElement = getActiveCanvasElement();
+  const targetId = getAdjacentTopLevelSectionId(
     activeElement,
     orderedSectionIds,
+    direction,
   );
-  let nextIndex: number;
-  if (!currentId) {
-    nextIndex = direction > 0 ? 0 : orderedSectionIds.length - 1;
-  } else {
-    const currentIndex = orderedSectionIds.indexOf(currentId);
-    if (currentIndex === -1) {
-      nextIndex = direction > 0 ? 0 : orderedSectionIds.length - 1;
-    } else {
-      nextIndex = currentIndex + direction;
-      if (nextIndex < 0 || nextIndex >= orderedSectionIds.length) {
-        return false;
-      }
-    }
-  }
-  const targetId = orderedSectionIds[nextIndex];
   if (!targetId) {
     return false;
   }
@@ -258,11 +216,6 @@ export function focusOnSection(
   }
   sectionRef.focus({ preventScroll: true });
   movePaneToIncludeElement(sectionRef);
-}
-
-function focusOnSectionSearch(sectionId: string) {
-  const element = document.getElementById(`${sectionId}-search`);
-  element?.focus({ preventScroll: true });
 }
 
 function resolveNextFocusable({
@@ -333,6 +286,92 @@ function getCurrentTopLevelSectionId(
     return null;
   }
   return sectionId;
+}
+
+function shouldUseNativeTabNavigation(
+  target: HTMLElement,
+  allowInputTarget: boolean,
+): boolean {
+  if (target.closest("[data-tab-native]")) {
+    return true;
+  }
+  if (allowInputTarget || !isNativeInput(target)) {
+    return false;
+  }
+  return getScopeForElement(target)?.behavior !== "canvas";
+}
+
+function getStartScope(
+  orderedScopes: TabScopeRegistration[],
+  target: HTMLElement,
+  direction: 1 | -1,
+): TabScopeRegistration | null {
+  if (orderedScopes.length === 0) {
+    return null;
+  }
+  return (
+    getScopeForElement(target) ??
+    getFirstScopeWithFocusable(orderedScopes, direction > 0)
+  );
+}
+
+function applyFocusResult(
+  focusResult: { element: HTMLElement; scope: TabScopeRegistration } | null,
+): boolean {
+  if (!focusResult) {
+    return false;
+  }
+  focusResult.element.focus({ preventScroll: true });
+  if (focusResult.scope.behavior === "canvas") {
+    movePaneToIncludeElement(focusResult.element);
+  }
+  return true;
+}
+
+function getActiveCanvasElement(): HTMLElement | null {
+  const activeElement =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  return isElementInScope(activeElement, "canvas") ? activeElement : null;
+}
+
+function getAdjacentTopLevelSectionId(
+  activeElement: HTMLElement | null,
+  orderedSectionIds: string[],
+  direction: 1 | -1,
+): string | null {
+  if (orderedSectionIds.length === 0) {
+    return null;
+  }
+  const currentId = getCurrentTopLevelSectionId(
+    activeElement,
+    orderedSectionIds,
+  );
+  if (!currentId) {
+    return getBoundarySectionId(orderedSectionIds, direction);
+  }
+  const currentIndex = orderedSectionIds.indexOf(currentId);
+  if (currentIndex === -1) {
+    return getBoundarySectionId(orderedSectionIds, direction);
+  }
+  const nextIndex = currentIndex + direction;
+  if (nextIndex < 0 || nextIndex >= orderedSectionIds.length) {
+    return null;
+  }
+  return orderedSectionIds[nextIndex] ?? null;
+}
+
+function getBoundarySectionId(
+  orderedSectionIds: string[],
+  direction: 1 | -1,
+): string | null {
+  if (orderedSectionIds.length === 0) {
+    return null;
+  }
+  return direction > 0
+    ? orderedSectionIds[0] ?? null
+    : orderedSectionIds[orderedSectionIds.length - 1] ?? null;
 }
 
 function isElementInScope(
