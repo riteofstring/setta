@@ -1,6 +1,7 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
 import {
   createStateMachineEdgeFromConnection,
@@ -76,6 +77,9 @@ export function StateMachineEdgeHandles({
 }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
+  const isSelectingEdge = useReactFlow(
+    (state) => state.connectionStartHandle !== null,
+  );
   const connectionVisibility = useProjectState(
     (state) => {
       if (!sectionId) {
@@ -126,7 +130,7 @@ export function StateMachineEdgeHandles({
             id={STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart}
             type="source"
             position={HandlePosition.Left}
-            className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics workflow-handle-metrics workflow-handle-scope${chatOffsetClassName} agentic-handle workflow-handle workflow-handle--target agentic-handle--reverse-start${connectionVisibility.hasIncoming ? " agentic-handle--connected workflow-handle--connected" : ""}${alwaysVisibleClassName}`}
+            className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics workflow-handle-metrics workflow-handle-scope${chatOffsetClassName} agentic-handle workflow-handle workflow-handle--target agentic-handle--reverse-start${connectionVisibility.hasIncoming ? " agentic-handle--connected workflow-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}${alwaysVisibleClassName}`}
             data-testid={`workflow-reverse-start-handle-${sectionId}`}
             data-reverse-start="true"
             aria-hidden="true"
@@ -142,7 +146,7 @@ export function StateMachineEdgeHandles({
             id={STATE_MACHINE_EDGE_HANDLE_IDS.target}
             type="target"
             position={HandlePosition.Left}
-            className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics workflow-handle-metrics workflow-handle-scope${chatOffsetClassName} agentic-handle workflow-handle workflow-handle--target${connectionVisibility.hasIncoming ? " agentic-handle--connected workflow-handle--connected" : ""}${alwaysVisibleClassName}`}
+            className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics workflow-handle-metrics workflow-handle-scope${chatOffsetClassName} agentic-handle workflow-handle workflow-handle--target${connectionVisibility.hasIncoming ? " agentic-handle--connected workflow-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}${alwaysVisibleClassName}`}
             data-testid={`workflow-target-handle-${sectionId}`}
             isConnectable={canEditStructure}
             isConnectableStart={false}
@@ -166,7 +170,7 @@ export function StateMachineEdgeHandles({
             id={STATE_MACHINE_EDGE_HANDLE_IDS.source}
             type="source"
             position={HandlePosition.Right}
-            className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics workflow-handle-metrics workflow-handle-scope${chatOffsetClassName} agentic-handle workflow-handle workflow-handle--source${connectionVisibility.hasOutgoing ? " agentic-handle--connected workflow-handle--connected" : ""}${alwaysVisibleClassName}`}
+            className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics workflow-handle-metrics workflow-handle-scope${chatOffsetClassName} agentic-handle workflow-handle workflow-handle--source${connectionVisibility.hasOutgoing ? " agentic-handle--connected workflow-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}${alwaysVisibleClassName}`}
             data-testid={`workflow-source-handle-${sectionId}`}
             isConnectable={canEditStructure}
             isConnectableStart={canEditStructure}
