@@ -275,6 +275,44 @@ func validateReasoningRequest(request agentruns.ExecutionRequest) error {
 	}
 }
 
+func appendConversationMessages(
+	transcript *[]map[string]any,
+	executionTranscript *[]map[string]any,
+	messages ...map[string]any,
+) {
+	for _, message := range messages {
+		*transcript = append(*transcript, cloneMessage(message))
+		*executionTranscript = append(*executionTranscript, cloneMessage(message))
+	}
+}
+
+func appendPersistedAssistantTurn(
+	transcript *[]map[string]any,
+	executionTranscript *[]map[string]any,
+	assistantMessage map[string]any,
+) ([]map[string]any, bool) {
+	if !shouldPersistMessage(assistantMessage) {
+		return nil, false
+	}
+	appendConversationMessages(transcript, executionTranscript, assistantMessage)
+	return assistantToolCalls(assistantMessage), true
+}
+
+func appendAssistantProviderPayload(
+	providerMessages *[]map[string]any,
+	provider string,
+	assistantMessage map[string]any,
+) error {
+	providerPayload, include, err := providerPayloadForMessage(provider, assistantMessage)
+	if err != nil {
+		return err
+	}
+	if include {
+		*providerMessages = append(*providerMessages, providerPayload)
+	}
+	return nil
+}
+
 func (e *Executor) executeConversation(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest) (agentruns.ExecutionResult, error) {
 	transcript := cloneMessageSlice(prepared.transcript)
 	executionTranscript := cloneMessageSlice(prepared.executionTranscript)
@@ -288,15 +326,15 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 		if turnUsage != nil {
 			usage = turnUsage
 		}
+		assistantTurnToolCalls, persisted := appendPersistedAssistantTurn(
+			&transcript,
+			&executionTranscript,
+			assistantMessage,
+		)
+		if len(assistantTurnToolCalls) > 0 {
+			toolCalls = append(toolCalls, cloneToolCallMaps(assistantTurnToolCalls)...)
+		}
 		if err != nil {
-			if shouldPersistMessage(assistantMessage) {
-				transcript = append(transcript, cloneMessage(assistantMessage))
-				executionTranscript = append(executionTranscript, cloneMessage(assistantMessage))
-				assistantTurnToolCalls := assistantToolCalls(assistantMessage)
-				if len(assistantTurnToolCalls) > 0 {
-					toolCalls = append(toolCalls, cloneToolCallMaps(assistantTurnToolCalls)...)
-				}
-			}
 			result := e.buildResult(transcript, toolCalls, usage)
 			if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 				return result, context.Canceled
@@ -304,32 +342,21 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 			return result, err
 		}
 
-		if shouldPersistMessage(assistantMessage) {
-			transcript = append(transcript, cloneMessage(assistantMessage))
-			executionTranscript = append(executionTranscript, cloneMessage(assistantMessage))
-			providerPayload, include, payloadErr := providerPayloadForMessage(prepared.provider, assistantMessage)
-			if payloadErr != nil {
-				return e.buildResult(transcript, toolCalls, usage), payloadErr
-			}
-			if include {
-				providerMessages = append(providerMessages, providerPayload)
+		if persisted {
+			if err := appendAssistantProviderPayload(&providerMessages, prepared.provider, assistantMessage); err != nil {
+				return e.buildResult(transcript, toolCalls, usage), err
 			}
 		}
 
-		assistantTurnToolCalls := assistantToolCalls(assistantMessage)
 		if len(assistantTurnToolCalls) == 0 {
 			return e.buildResult(transcript, toolCalls, usage), nil
 		}
-		toolCalls = append(toolCalls, cloneToolCallMaps(assistantTurnToolCalls)...)
 
 		toolMessages, providerToolMessages, toolErr := e.executeToolCalls(ctx, prepared, request, assistantTurnToolCalls)
 		if toolErr != nil {
 			return e.buildResult(transcript, toolCalls, usage), toolErr
 		}
-		for _, toolMessage := range toolMessages {
-			transcript = append(transcript, cloneMessage(toolMessage))
-			executionTranscript = append(executionTranscript, cloneMessage(toolMessage))
-		}
+		appendConversationMessages(&transcript, &executionTranscript, toolMessages...)
 		providerMessages = append(providerMessages, providerToolMessages...)
 	}
 
@@ -1294,59 +1321,7 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 	itemID string,
 	part responses.ResponseContentPartDoneEventPartUnion,
 ) error {
-	switch typed := part.AsAny().(type) {
-	case responses.ResponseOutputText:
-		if strings.TrimSpace(typed.Text) == "" {
-			return nil
-		}
-		setAssistantProviderMessageID(assistantMessage, itemID)
-		setAssistantProviderMessageContentType(assistantMessage, "output_text")
-		if streamState != nil {
-			streamState.bufferedText.Reset()
-		}
-		textIndex := openAIResponseTextIndex(assistantMessage, streamState)
-		textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Text)
-		setAssistantTextAtIndex(assistantMessage, textIndex, typed.Text)
-		if textDelta == "" {
-			return nil
-		}
-		return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
-	case responses.ResponseOutputRefusal:
-		if strings.TrimSpace(typed.Refusal) == "" {
-			return nil
-		}
-		setAssistantProviderMessageID(assistantMessage, itemID)
-		setAssistantProviderMessageContentType(assistantMessage, "refusal")
-		if streamState != nil {
-			streamState.bufferedText.Reset()
-		}
-		textIndex := openAIResponseTextIndex(assistantMessage, streamState)
-		textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Refusal)
-		setAssistantTextAtIndex(assistantMessage, textIndex, typed.Refusal)
-		if textDelta == "" {
-			return nil
-		}
-		return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
-	case responses.ResponseContentPartDoneEventPartReasoningText:
-		if strings.TrimSpace(typed.Text) == "" {
-			return nil
-		}
-		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
-		if streamState != nil {
-			streamState.reasoningSeen = true
-			streamState.reasoningEmitted = true
-		}
-		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
-		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
-		if thinkingDelta != "" {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil, nil); err != nil {
-				return err
-			}
-		}
-		return e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false)
-	default:
-		return nil
-	}
+	return e.applyOpenAIResponseContentPart(ctx, prepared, assistantMessage, streamState, itemID, part.AsAny())
 }
 
 func (e *Executor) applyOpenAIResponseContentPartAdded(
@@ -1357,56 +1332,98 @@ func (e *Executor) applyOpenAIResponseContentPartAdded(
 	itemID string,
 	part responses.ResponseContentPartAddedEventPartUnion,
 ) error {
-	switch typed := part.AsAny().(type) {
+	return e.applyOpenAIResponseContentPart(ctx, prepared, assistantMessage, streamState, itemID, part.AsAny())
+}
+
+func resetOpenAIResponseBufferedText(streamState *openAIResponseStreamState) {
+	if streamState == nil {
+		return
+	}
+	streamState.bufferedText.Reset()
+}
+
+func (e *Executor) applyOpenAIResponseAuthoritativeTextPart(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	itemID string,
+	contentType string,
+	text string,
+) error {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	setAssistantProviderMessageID(assistantMessage, itemID)
+	setAssistantProviderMessageContentType(assistantMessage, contentType)
+	resetOpenAIResponseBufferedText(streamState)
+	textIndex := openAIResponseTextIndex(assistantMessage, streamState)
+	textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), text)
+	setAssistantTextAtIndex(assistantMessage, textIndex, text)
+	if textDelta == "" {
+		return nil
+	}
+	return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
+}
+
+func (e *Executor) applyOpenAIResponseAuthoritativeReasoningPart(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	text string,
+) error {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	prepareAssistantForOpenAIResponseReasoning(assistantMessage)
+	if streamState != nil {
+		streamState.reasoningSeen = true
+		streamState.reasoningEmitted = true
+	}
+	thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), text)
+	setAssistantThinkingTextAtIndex(assistantMessage, 0, text)
+	if thinkingDelta != "" {
+		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil, nil); err != nil {
+			return err
+		}
+	}
+	return e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false)
+}
+
+func (e *Executor) applyOpenAIResponseContentPart(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	itemID string,
+	part any,
+) error {
+	switch typed := part.(type) {
 	case responses.ResponseOutputText:
-		if strings.TrimSpace(typed.Text) == "" {
-			return nil
-		}
-		setAssistantProviderMessageID(assistantMessage, itemID)
-		setAssistantProviderMessageContentType(assistantMessage, "output_text")
-		if streamState != nil {
-			streamState.bufferedText.Reset()
-		}
-		textIndex := openAIResponseTextIndex(assistantMessage, streamState)
-		textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Text)
-		setAssistantTextAtIndex(assistantMessage, textIndex, typed.Text)
-		if textDelta == "" {
-			return nil
-		}
-		return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
+		return e.applyOpenAIResponseAuthoritativeTextPart(
+			ctx,
+			prepared,
+			assistantMessage,
+			streamState,
+			itemID,
+			"output_text",
+			typed.Text,
+		)
 	case responses.ResponseOutputRefusal:
-		if strings.TrimSpace(typed.Refusal) == "" {
-			return nil
-		}
-		setAssistantProviderMessageID(assistantMessage, itemID)
-		setAssistantProviderMessageContentType(assistantMessage, "refusal")
-		if streamState != nil {
-			streamState.bufferedText.Reset()
-		}
-		textIndex := openAIResponseTextIndex(assistantMessage, streamState)
-		textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Refusal)
-		setAssistantTextAtIndex(assistantMessage, textIndex, typed.Refusal)
-		if textDelta == "" {
-			return nil
-		}
-		return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
+		return e.applyOpenAIResponseAuthoritativeTextPart(
+			ctx,
+			prepared,
+			assistantMessage,
+			streamState,
+			itemID,
+			"refusal",
+			typed.Refusal,
+		)
+	case responses.ResponseContentPartDoneEventPartReasoningText:
+		return e.applyOpenAIResponseAuthoritativeReasoningPart(ctx, prepared, assistantMessage, streamState, typed.Text)
 	case responses.ResponseContentPartAddedEventPartReasoningText:
-		if strings.TrimSpace(typed.Text) == "" {
-			return nil
-		}
-		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
-		if streamState != nil {
-			streamState.reasoningSeen = true
-			streamState.reasoningEmitted = true
-		}
-		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
-		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
-		if thinkingDelta != "" {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil, nil); err != nil {
-				return err
-			}
-		}
-		return e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false)
+		return e.applyOpenAIResponseAuthoritativeReasoningPart(ctx, prepared, assistantMessage, streamState, typed.Text)
 	default:
 		return nil
 	}
@@ -1910,56 +1927,78 @@ func finalizeAssistantToolCallsBestEffort(message map[string]any, accumulator *t
 	_ = finalizeAssistantToolCalls(message, accumulator)
 }
 
+func toolCallInputs(toolCall map[string]any) (string, string, map[string]any) {
+	toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
+	function, _ := toolCall["function"].(map[string]any)
+	toolName := strings.TrimSpace(stringValue(function["name"]))
+	arguments, _ := function["arguments"].(map[string]any)
+	if arguments == nil {
+		arguments = map[string]any{}
+	}
+	return toolCallID, toolName, arguments
+}
+
+func (e *Executor) resolveToolCallResult(
+	ctx context.Context,
+	prepared preparedExecution,
+	request agentruns.ExecutionRequest,
+	toolName string,
+	arguments map[string]any,
+) (mcpx.ToolDescriptor, mcpx.ToolCallResult, error) {
+	if toolName == "" {
+		return mcpx.ToolDescriptor{}, buildMissingToolResult(toolName), nil
+	}
+	if prepared.availableTools == nil {
+		return mcpx.ToolDescriptor{}, buildDisallowedToolResult(toolName), nil
+	}
+	descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(toolName)]
+	if !ok {
+		return mcpx.ToolDescriptor{}, buildMissingToolResult(toolName), nil
+	}
+	if !isToolAllowed(toolName, prepared.toolAllowlist, request.CompletionGuardEnabled) {
+		return descriptor, buildDisallowedToolResult(toolName), nil
+	}
+	if e.tools == nil {
+		return mcpx.ToolDescriptor{}, mcpx.ToolCallResult{}, fmt.Errorf("%w: MCP tool client is unavailable", ErrToolsUnsupported)
+	}
+	result, err := e.tools.CallToolWithMeta(ctx, toolName, cloneAnyMap(arguments), buildToolRequestMeta(request, toolName))
+	if err != nil {
+		return mcpx.ToolDescriptor{}, mcpx.ToolCallResult{}, fmt.Errorf("execute managed MCP tool %q: %w", toolName, err)
+	}
+	return descriptor, result, nil
+}
+
+func (e *Executor) emitToolResultMessage(
+	ctx context.Context,
+	prepared preparedExecution,
+	toolMessage map[string]any,
+	descriptor mcpx.ToolDescriptor,
+	result mcpx.ToolCallResult,
+) error {
+	if prepared.emitStream {
+		if err := e.applyChunk(ctx, prepared, realtime.ToolResultEvent{
+			Type:   realtime.StreamingEventTypeToolResult,
+			Result: cloneMessage(toolMessage),
+		}); err != nil {
+			return err
+		}
+	}
+	return e.emitToolResultFollow(ctx, prepared, descriptor, result)
+}
+
 func (e *Executor) executeToolCalls(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest, toolCalls []map[string]any) ([]map[string]any, []map[string]any, error) {
 	toolMessages := make([]map[string]any, 0, len(toolCalls))
 	providerMessages := make([]map[string]any, 0, len(toolCalls))
 	for _, toolCall := range toolCalls {
-		toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
-		function, _ := toolCall["function"].(map[string]any)
-		toolName := strings.TrimSpace(stringValue(function["name"]))
-		arguments, _ := function["arguments"].(map[string]any)
-		if arguments == nil {
-			arguments = map[string]any{}
-		}
-
-		var descriptor mcpx.ToolDescriptor
-		var result mcpx.ToolCallResult
-		if toolName == "" {
-			result = buildMissingToolResult(toolName)
-		} else if prepared.availableTools != nil {
-			normalizedToolName := mcpx.NormalizeToolName(toolName)
-			nextDescriptor, ok := prepared.availableTools[normalizedToolName]
-			if !ok {
-				result = buildMissingToolResult(toolName)
-			} else if !isToolAllowed(toolName, prepared.toolAllowlist, request.CompletionGuardEnabled) {
-				descriptor = nextDescriptor
-				result = buildDisallowedToolResult(toolName)
-			} else {
-				descriptor = nextDescriptor
-				if e.tools == nil {
-					return nil, nil, fmt.Errorf("%w: MCP tool client is unavailable", ErrToolsUnsupported)
-				}
-				resultValue, err := e.tools.CallToolWithMeta(ctx, toolName, cloneAnyMap(arguments), buildToolRequestMeta(request, toolName))
-				if err != nil {
-					return nil, nil, fmt.Errorf("execute managed MCP tool %q: %w", toolName, err)
-				}
-				result = resultValue
-			}
-		} else {
-			result = buildDisallowedToolResult(toolName)
+		toolCallID, toolName, arguments := toolCallInputs(toolCall)
+		descriptor, result, err := e.resolveToolCallResult(ctx, prepared, request, toolName, arguments)
+		if err != nil {
+			return nil, nil, err
 		}
 
 		toolMessage := buildToolResultMessage(toolCallID, toolName, arguments, result)
 		toolMessages = append(toolMessages, toolMessage)
-		if prepared.emitStream {
-			if err := e.applyChunk(ctx, prepared, realtime.ToolResultEvent{
-				Type:   realtime.StreamingEventTypeToolResult,
-				Result: cloneMessage(toolMessage),
-			}); err != nil {
-				return nil, nil, err
-			}
-		}
-		if err := e.emitToolResultFollow(ctx, prepared, descriptor, result); err != nil {
+		if err := e.emitToolResultMessage(ctx, prepared, toolMessage, descriptor, result); err != nil {
 			return nil, nil, err
 		}
 
