@@ -2,7 +2,7 @@ import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import {
-  getCurrEffectiveCodeObjImplIfPresent,
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
   getSectionType,
@@ -61,14 +61,11 @@ function getMetaControlSizingPolicyEntry({
     return null;
   }
 
-  const controlImpl = getCurrEffectiveCodeObjImplIfPresent(
+  const controlImpl = getCurrEffectiveCodeObjImpl(
     projectState,
     sectionId,
     controlParamId,
   );
-  if (!controlImpl) {
-    return null;
-  }
   const policyByType = sizingPolicy.metaControlByType;
   const entry = policyByType[controlImpl.type as keyof typeof policyByType];
   return entry ?? null;
