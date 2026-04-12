@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 12:15 UTC
+Last updated: 2026-04-14 12:29 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,52 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `467` completed one bounded product cut inside the canonical
+  `rotaryParamCodeObjDefault` unpinned branch by caching the param
+  duplicate-name index on its real immutable inputs:
+  - code/test changes kept in the tree:
+    - `frontend/src/state/actions/params/paramDuplicateIndex.ts`
+      now caches `buildParamDuplicateIndex(...)` by effective section impl plus
+      the `codeObjs`, `codeObjVariants`, and `codeObjImpls` map identities so
+      unrelated project-state churn can reuse the previous duplicate index
+    - `frontend/src/state/actions/params/paramDuplicateIndex.test.ts`
+      now proves unrelated project-state updates reuse the cache while real
+      param-name edits invalidate it
+    - perf note:
+      `perf/reports/frontend/2026-04-14_settings-graph-duplicate-index-cache.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/actions/params/paramDuplicateIndex.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`2` files, `8` tests)
+    - `pnpm -C frontend exec prettier --write src/state/actions/params/paramDuplicateIndex.ts src/state/actions/params/paramDuplicateIndex.test.ts`
+      -> passed
+    - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-027/worktree-ai.log`
+      -> refreshed runtime facts before live verification
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-027/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.6m`)
+      -> canonical live readout stayed
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+      -> duplicate-index residual work dropped to
+         `presentedSceneSectionParamDndListDuplicateIndexResolve.totalDurationMs = 0`
+      -> compared with item `466`, this slice was non-winning on the live lane:
+         `averageFrameDurationMs 39.02 -> 43.02`,
+         `longTaskTotalDurationMs 1099 -> 1221`,
+         `ParamGroupContainer 487.3ms -> 521.5ms`,
+         `ParamGroupUnpinnedParams 429.2ms -> 459.2ms`,
+         `UnpinnedParamDndListRows 411.1ms -> 444.9ms`
+    - required fresh-context CDP check:
+      -> passed
+      -> `/settings` loaded cleanly with `All Settings` active,
+         `rotaryParamCodeObjDefault` visible, and no obvious blank-card,
+         detached-body, or severe rendering artifact on the canary surface
+  - reading:
+    - this closes the duplicate-index cache hypothesis as a non-winning product
+      cut even though the targeted residual bucket itself dropped to zero
+    - do not keep stacking nearby cache/memo work by proximity
+    - the next slice should return to the larger dominant owners that still
+      move the canonical lane:
+      `ParamGroupContainer`, `ParamGroupUnpinnedParams`, or a first scene-owned
+      static body cut if fresh evidence justifies it
 
 - item `466` landed one bounded product cut above the canonical
   `rotaryParamCodeObjDefault` unpinned-row seam by removing the redundant

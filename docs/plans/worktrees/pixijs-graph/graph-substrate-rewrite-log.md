@@ -19360,3 +19360,37 @@ LOOP_TERMINAL_MARKER: none
   - next frontier: stay above the row seam and target the remaining
     `ParamGroupContainer` / `ParamGroupUnpinnedParams` cost or take the first
     scene-owned static body slice if fresh evidence justifies it
+## 2026-04-14 12:29 UTC
+
+- item `467` closed one bounded product hypothesis on the canonical
+  `rotaryParamCodeObjDefault` lane by caching
+  `buildParamDuplicateIndex(...)` on the effective section impl plus the
+  `codeObjs`, `codeObjVariants`, and `codeObjImpls` identities
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/state/actions/params/paramDuplicateIndex.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`2` files, `8` tests)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-027/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.6m`)
+  - fresh-context CDP check
+    -> passed; `/settings` loaded cleanly, `All Settings` stayed active,
+       `rotaryParamCodeObjDefault` was visible, and the canary surface showed
+       no obvious blank-card or detached-body regression
+- canonical live readout versus item `466`:
+  - `averageFrameDurationMs` `39.02 -> 43.02`
+  - `longTaskTotalDurationMs` `1099 -> 1221`
+  - `presentedSceneSectionParamGroupContainerReactRender`
+    `487.3ms -> 521.5ms`
+  - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+    `429.2ms -> 459.2ms`
+  - `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+    `411.1ms -> 444.9ms`
+  - `presentedSceneSectionParamDndListDuplicateIndexResolve`
+    `16 calls / 0ms total` on this run
+- reading:
+  - targeted duplicate-index work dropped to zero, but the canonical lane
+    regressed overall, so this cache cut is non-winning and should not be
+    extended into more adjacent cache/memo churn
+  - next frontier stays with the larger dominant owners:
+    `ParamGroupContainer`, `ParamGroupUnpinnedParams`, or the first bounded
+    scene-owned static body cut
+LOOP_TERMINAL_MARKER: none
