@@ -53,6 +53,7 @@ function _SectionContainer({
   isTopLevel = false,
   bodySurfaceOverride,
   forceTransparentBackground = false,
+  shellChromeOwner = "section-body",
   headerRenderer,
   dragListeners,
   forceHideOutline = false,
@@ -62,6 +63,7 @@ function _SectionContainer({
 }: {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   forceTransparentBackground?: boolean;
+  shellChromeOwner?: "section-body" | "shell-layer";
   headerRenderer?:
     | React.ComponentType<SectionContainerHeaderRenderProps>
     | undefined;
@@ -168,6 +170,7 @@ function _SectionContainer({
               <SectionContainerCore
                 bodySurfaceOverride={bodySurfaceOverride}
                 forceTransparentBackground={forceTransparentBackground}
+                shellChromeOwner={shellChromeOwner}
                 headerRenderer={headerRenderer}
                 sectionId={sectionId}
                 isUserView={isUserView}
@@ -193,6 +196,7 @@ function _SectionContainer({
                 <SectionContainerCore
                   bodySurfaceOverride={bodySurfaceOverride}
                   forceTransparentBackground={forceTransparentBackground}
+                  shellChromeOwner={shellChromeOwner}
                   headerRenderer={headerRenderer}
                   sectionId={sectionId}
                   isUserView={isUserView}
@@ -232,6 +236,7 @@ export const SectionContainer = React.memo(
     ) &&
     previousProps.forceTransparentBackground ===
       nextProps.forceTransparentBackground &&
+    previousProps.shellChromeOwner === nextProps.shellChromeOwner &&
     previousProps.headerRenderer === nextProps.headerRenderer &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&
     previousProps.forceHideFrameBorder === nextProps.forceHideFrameBorder &&

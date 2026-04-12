@@ -29,6 +29,7 @@ import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 type SectionContainerCoreProps = {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   forceTransparentBackground?: boolean;
+  shellChromeOwner?: "section-body" | "shell-layer";
   headerRenderer?:
     | React.ComponentType<SectionContainerHeaderRenderProps>
     | undefined;
@@ -43,7 +44,77 @@ type SectionContainerCoreProps = {
   joinedCorners?: "none" | "code-terminal-parent";
 };
 
-function _SectionContainerCore({
+function SectionContainerCoreShellLayer({
+  bodySurfaceOverride,
+  forceTransparentBackground = false,
+  headerRenderer,
+  sectionId,
+  isUserView,
+  forceHideFrameBorder = false,
+  forceHideTopDragHandle = false,
+}: SectionContainerCoreProps) {
+  const {
+    sectionTypeName,
+    isInOtherProjectConfigs,
+    positionAndSizeLocked,
+    textBlockMetaControlStyle,
+    isAttachedTerminalChild,
+    styleColor,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    const isAttachedTerminalChild =
+      getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null;
+    return {
+      sectionTypeName: impl.type,
+      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      textBlockMetaControlStyle:
+        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
+      isAttachedTerminalChild,
+      styleColor: impl.styleColor,
+    };
+  }, shallow);
+  const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
+  const { hasSectionStyleTheme, sectionStyleVars } = useSectionChromeAppearance(
+    {
+      sectionId,
+      sectionTypeName,
+      styleColor,
+      textBlockMetaControlStyle,
+    },
+  );
+
+  return (
+    <section
+      className="z-10"
+      onClick={getOnSectionClick(sectionId)}
+      ref={refForPosition}
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+      data-section-active="false"
+      data-shell-chrome-owner="shell-layer"
+      data-setta-viewport-interaction-shell="true"
+      style={sectionStyleVars}
+    >
+      <SectionContainerCoreResizable
+        bodySurfaceOverride={bodySurfaceOverride}
+        forceTransparentBackground={forceTransparentBackground}
+        headerRenderer={headerRenderer}
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        isUserView={isUserView}
+        positionAndSizeLocked={positionAndSizeLocked}
+        hideHeader={isAttachedTerminalChild}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        forceHideFrameBorder={forceHideFrameBorder}
+        forceHideTopDragHandle={forceHideTopDragHandle}
+      />
+    </section>
+  );
+}
+
+function SectionContainerCoreSectionBody({
   bodySurfaceOverride,
   forceTransparentBackground = false,
   headerRenderer,
@@ -129,7 +200,6 @@ function _SectionContainerCore({
     isJoinedAttachedTerminalChild,
     omitAgenticHandleScopeClass,
   });
-  const sectionShellStyle = sectionStyleVars;
   const shouldRenderSharedChatHandles =
     !hideAgenticEdgeHandles && !isAttachedTerminalChild;
   const isWorkflowOnlyNodeSection =
@@ -153,8 +223,9 @@ function _SectionContainerCore({
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
+      data-shell-chrome-owner="section-body"
       data-setta-viewport-interaction-shell="true"
-      style={sectionShellStyle}
+      style={sectionStyleVars}
     >
       {shouldRenderChatSharedHandles ? (
         <ChatSharedEdgeHandles isUserView={isUserView} />
@@ -183,12 +254,35 @@ function _SectionContainerCore({
     </section>
   );
 }
+
+function _SectionContainerCore({
+  shellChromeOwner = "section-body",
+  ...props
+}: SectionContainerCoreProps) {
+  if (shellChromeOwner === "shell-layer") {
+    return (
+      <SectionContainerCoreShellLayer
+        {...props}
+        shellChromeOwner={shellChromeOwner}
+      />
+    );
+  }
+
+  return (
+    <SectionContainerCoreSectionBody
+      {...props}
+      shellChromeOwner={shellChromeOwner}
+    />
+  );
+}
+
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
   (previousProps, nextProps) =>
     previousProps.bodySurfaceOverride === nextProps.bodySurfaceOverride &&
     previousProps.forceTransparentBackground ===
       nextProps.forceTransparentBackground &&
+    previousProps.shellChromeOwner === nextProps.shellChromeOwner &&
     previousProps.headerRenderer === nextProps.headerRenderer &&
     previousProps.sectionId === nextProps.sectionId &&
     previousProps.isUserView === nextProps.isUserView &&

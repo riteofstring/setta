@@ -24,6 +24,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       forceHideTopDragHandle,
       headerRenderer,
       isTopLevel,
+      shellChromeOwner,
     }: {
       bodySurfaceOverride?: {
         bgColor: string;
@@ -39,6 +40,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       forceTransparentBorder?: boolean;
       headerRenderer?: unknown;
       isTopLevel?: boolean;
+      shellChromeOwner?: string;
       sectionId: string;
     }) => (
       <div
@@ -54,6 +56,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
           forceTransparentBackground ? "true" : "false"
         }
         data-is-top-level={isTopLevel ? "true" : "false"}
+        data-shell-chrome-owner={shellChromeOwner ?? ""}
         data-surface-bg-color={bodySurfaceOverride?.bgColor ?? ""}
         data-surface-layout={
           bodySurfaceOverride?.surfaceDecorations.layout ?? ""
@@ -150,6 +153,7 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
       forceTransparentBorder: true,
       isTopLevel: true,
       headerRenderer: SettingsGraphSubstrateCanarySectionHeaderDomAdapter,
+      shellChromeOwner: "shell-layer",
       sectionId: "section-a",
     });
   });
@@ -174,6 +178,7 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
 
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       isTopLevel: true,
+      shellChromeOwner: "section-body",
       sectionId: "section-b",
     });
     expect(mockSectionContainer.mock.calls[0]?.[0]).not.toHaveProperty(

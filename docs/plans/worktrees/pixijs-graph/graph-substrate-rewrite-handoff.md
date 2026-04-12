@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 10:36 UTC
+Last updated: 2026-04-13 10:56 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,66 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `416` landed one bounded production reduction inside the canonical
+  mounted body subtree by giving shell-owned canary bodies a narrower shared
+  section-container path:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and did not continue the recent
+      instrumentation-only pattern; the handoff already named
+      `SectionContainer` / `SectionContainerCore` / mounted body as the next
+      real production frontier after item `415`
+    - chose one bounded shared-component cut: when the Pixi shell already owns
+      section chrome, the mounted canary body should keep the DOM editor/body
+      path but skip the extra shell-level edge-handle / shell-chrome wrapper
+      work inside `SectionContainerCore`
+    - kept the slice inside the existing production canary path rather than
+      opening another oracle or attribution lane
+  - product code changed in:
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+      to pass a new `shellChromeOwner` contract into the shared core
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      with a shell-layer fast path that keeps the mounted DOM body/resizable
+      surface but skips the extra shell-level chrome/handle stack
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+      so shell-owned canary bodies opt into that shared fast path
+    - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      -> passed (`5` files, `32` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      -> passed
+    - first live probe attempt:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-041/worktree-ai.log`
+      -> failed after timeout in
+         `normalizeSettingsGraphComparePaneState(...)` while writing local pane
+         state; page/browser closed underneath Playwright
+    - bounded self-recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded and restarted the worktree runtime on the same frontend /
+         backend ports
+    - retry after recovery:
+      -> failed after timeout in
+         `runSettingsGraphComparePreflight(...)` while reading
+         `getSettingsGraphSurfaceKind(...)`
+      -> classify the live lane as `worktree_unhealthy`, not renderer drift
+    - fresh-context headless CDP visual check on direct
+      `http://127.0.0.1:3075/settings`
+      -> page stayed on a loading surface with spinner text
+         `Loading project...` / `Waiting for project data to load.`
+      -> no populated `All Settings` canary surface was visible after recovery
+  - reading:
+    - the shared shell-layer fast path is landed and covered, so the production
+      slice itself should be treated as complete for sequencing
+    - this iteration did not produce a trustworthy live canary readout after
+      the allowed recovery attempt; the blocker is runtime health on direct
+      `/settings`, not a fresh claim about the new body-path change
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - start the next iteration with a fresh authenticated `/settings` health
+      check and recover the live worktree canary before spending another pass
+      inside `SectionContainerCoreResizable` or the mounted area subtree
 
 - item `415` landed one bounded attribution seam inside the canonical
   `rotaryParamCodeObjDefault` worktree perf lane so the next product cut can

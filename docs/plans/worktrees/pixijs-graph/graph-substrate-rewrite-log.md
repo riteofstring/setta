@@ -151,6 +151,55 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 10:56 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: land a real
+  production reduction inside the mounted canary body subtree instead of
+  repeating the recent attribution-only pattern; item `415` had already closed
+  the shell-vs-body ambiguity and named `SectionContainer` /
+  `SectionContainerCore` as the next useful frontier
+- added a shared `shellChromeOwner` contract so shell-owned canary bodies can
+  keep the DOM editor/body path while bypassing the extra shell-level chrome
+  stack in `SectionContainerCore`
+- changed:
+  - `frontend/src/components/Section/Container/SectionContainer.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    -> pass (`5` files, `32` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    -> pass
+  - live canonical probe before recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-041/worktree-ai.log`
+    -> fail after timeout in
+       `normalizeSettingsGraphComparePaneState(...)`; page/context/browser
+       closed during local-storage pane-state write
+  - bounded self-recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> pass; worktree runtime restarted
+  - live canonical probe after recovery:
+    same command
+    -> fail after timeout in `runSettingsGraphComparePreflight(...)` while
+       reading `getSettingsGraphSurfaceKind(...)`
+  - fresh-context headless CDP check on direct `http://127.0.0.1:3075/settings`
+    -> loading surface only
+    -> visible text: `Loading project...` / `Waiting for project data to load.`
+    -> no populated `All Settings` graph surface
+- reading:
+  - the production slice is landed and covered, but the live worktree canary is
+    still `worktree_unhealthy` after the one allowed recovery attempt
+  - do not treat this iteration as renderer drift evidence on
+    `rotaryParamCodeObjDefault`; the current blocker is direct `/settings`
+    runtime health
+- next:
+  - start with a fresh authenticated `/settings` readiness/health check and
+    recover the live worktree lane before another mounted-body reduction
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 10:36 UTC
 
 - re-read the active plan/handoff first, then reran the canonical live

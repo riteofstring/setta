@@ -1,6 +1,11 @@
 /* @vitest-environment jsdom */
 
-import { act, Profiler, type ProfilerOnRenderCallback } from "react";
+import {
+  act,
+  Profiler,
+  type ComponentProps,
+  type ProfilerOnRenderCallback,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -136,6 +141,7 @@ function syncStoreInitialState(store: {
 
 async function renderSectionContainerCore(
   onRender: ProfilerOnRenderCallback,
+  props?: Partial<ComponentProps<typeof SectionContainerCore>>,
 ): Promise<RenderedSectionContainerCore> {
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -144,7 +150,11 @@ async function renderSectionContainerCore(
   await act(async () => {
     root.render(
       <Profiler id="section-container-core-profiler" onRender={onRender}>
-        <SectionContainerCore sectionId="section-a" isUserView={false} />
+        <SectionContainerCore
+          sectionId="section-a"
+          isUserView={false}
+          {...props}
+        />
       </Profiler>,
     );
   });
@@ -286,6 +296,50 @@ describe("SectionContainerCore", () => {
       expect(shell).not.toBeNull();
       expect(shell?.className).toContain("write");
       expect(shell?.className).not.toContain("read");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("skips shell-level chrome subscriptions when the shell layer owns the visuals", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderSectionContainerCore(onRender, {
+      shellChromeOwner: "shell-layer",
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useAgenticScopeHighlights.setState({
+          readSectionIdsByProjectConfigId: {
+            "project-1": {
+              "section-a": true,
+            },
+          },
+          writeSectionIdsByProjectConfigId: {
+            "project-1": {
+              "section-a": true,
+            },
+          },
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      expect(
+        host.querySelector('[data-testid="mock-agentic-edge-handles"]'),
+      ).toBeNull();
+      expect(
+        host.querySelector('[data-testid="mock-minimized-data-edge-handles"]'),
+      ).toBeNull();
+      const shell = host.querySelector<HTMLElement>(
+        "[data-section-id='section-a']",
+      );
+      expect(shell?.dataset.shellChromeOwner).toBe("shell-layer");
+      expect(shell?.className).toContain("z-10");
     } finally {
       await act(async () => {
         root.unmount();

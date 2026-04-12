@@ -133,6 +133,7 @@ function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
       headerRenderer={SettingsGraphSubstrateCanarySectionHeaderDomAdapter}
       sectionId={sectionBody.sectionId}
       isTopLevel={true}
+      shellChromeOwner={sectionBody.shellChromeOwner}
       {...getSectionContainerChromeSuppression(sectionBody.shellChromeOwner)}
     />
   );
