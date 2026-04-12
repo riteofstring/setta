@@ -9,12 +9,14 @@ import {
   resolveProjectChatMessagesForSurface,
   resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad,
   resolveProjectChatSelectedLLMUnavailableReason,
-  resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
   resolveProjectChatThreadVisibilityFromResize,
   resolveProjectChatWaitingForResponseForSurface,
   shouldProjectChatSkipEngineSyncForContinuation,
 } from "./ProjectChat";
-import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
+import {
+  resolveProjectChatHydrationAuthority,
+  resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
+} from "./projectChatHydrationAuthority";
 
 describe("resolveProjectChatThreadVisibilityFromResize", () => {
   it("defaults to chat-only on initial narrow layouts", () => {
