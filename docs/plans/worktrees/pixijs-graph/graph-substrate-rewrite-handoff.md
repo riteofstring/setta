@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 16:41 UTC
+Last updated: 2026-04-13 16:51 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,66 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `441` closed one bounded product hypothesis on the canonical
+  `rotaryParamCodeObjDefault` canary lane by testing, then reverting, semantic
+  DOM section-entry reuse inside
+  `settingsGraphSubstrateCanarySectionsLayer.tsx`:
+  - local ranking/readout for this iteration:
+    - reread the active plan/handoff first and stayed on the current
+      `presentedSceneSectionSubtreeReactRender` frontier instead of opening a
+      new seam-lift or harness lane
+    - chose one bounded product hypothesis above the body-mount boundary by
+      allowing a cached section entry to survive `sceneSection` identity churn
+      when the shell/body-facing inputs still matched
+    - required the live canonical probe to justify keeping the product patch;
+      when the probe regressed, reverted the code and recorded the result as a
+      closed negative hypothesis
+  - code/doc changes kept in the tree:
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-entry-semantic-reuse-negative-result.md`
+      records the hypothesis, live probe numbers, and why the change was
+      reverted
+  - focused verification:
+    - hypothesis guardrails while the patch was in place:
+      `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      -> passed
+    - formatting while the patch was in place:
+      `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - live canonical rerun with the hypothesis patch:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-010/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`) but regressed versus the last
+         accepted baseline:
+         `presentedSceneSectionEntriesResolve`
+         `1.6ms total` / `0.7ms max`
+         `presentedSceneSectionSubtreeReactRender`
+         `855.8ms total` / `279.9ms max`
+         `averageFrameDurationMs 39.53`, `maxFrameDurationMs 433.30`,
+         `longTaskTotalDurationMs 1073`
+    - reverted the local patch and reran the focused suites:
+      `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      -> passed (`2` files, `19` tests)
+      `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - fresh-context CDP smoke via sub-agent on the current runtime:
+      -> `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+      -> after one bounded `fit view`, the graph-substrate canary was mounted
+         and `rotaryParamCodeObjDefault` was visibly readable at normal zoom
+      -> runtime health looked normal aside from an unrelated missing
+         `ANTHROPIC_API_KEY` warning for `Claude Code (SDK)`
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - close this semantic-entry-reuse idea unless fresh owner evidence shows
+      repeated section identity churn above the current subtree cost
+    - the live CDP gate is trustworthy again on the current runtime, so the
+      next iteration can return to product work instead of spending another
+      pass on smoke recovery
+  - next default frontier:
+    - keep the canonical lane and take a different bounded product or
+      attribution cut on the remaining
+      `presentedSceneSectionSubtreeReactRender` owner
+    - do not reopen either closed section-entry reuse hypothesis without fresh
+      trace evidence pointing back to them
 
 - item `440` landed one bounded production cut on the canonical
   `rotaryParamCodeObjDefault` canary lane by reusing unchanged rendered section
