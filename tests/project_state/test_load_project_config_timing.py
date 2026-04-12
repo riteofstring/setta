@@ -4,43 +4,12 @@ from unittest.mock import patch
 import pytest
 import pytest_asyncio
 
+from tests.project_state.load_project_config_timing_capture import (
+    TIMING_LOG_LABELS,
+    capture_fixture_load_project_config_timings,
+    get_timing_log_values,
+)
 from tests.utils.manager_fixture import real_project_manager, real_settings_manager
-
-
-TIMING_LOG_LABELS = [
-    "project_config_id",
-    "did_init",
-    "section_count",
-    "convert_ms",
-    "convert_collect_ids_ms",
-    "convert_slice_state_ms",
-    "convert_project_state_ms",
-    "convert_project_state_model_overhead_ms",
-    "convert_project_state_content_validation_ms",
-    "convert_project_state_singleton_sections_ms",
-    "convert_project_state_active_ids_ms",
-    "convert_project_state_parent_section_map_ms",
-    "convert_project_state_shown_param_ids_ms",
-    "convert_project_state_shown_param_ids_effective_section_lookup_ms",
-    "convert_project_state_shown_param_ids_get_param_ids_to_show_ms",
-    "convert_project_state_shown_param_ids_traverse_hierarchy_ms",
-    "convert_project_state_shown_param_ids_filter_for_ui_display_ms",
-    "convert_project_state_required_decoded_images_ms",
-    "convert_project_state_code_file_bindings_ms",
-    "convert_project_state_layout_validation_ms",
-    "init_ms",
-    "init_update_ms",
-    "validation_cache_hit",
-    "validation_resolve_ms",
-    "validation_broadcast_ms",
-    "validation_ms",
-    "total_ms",
-]
-
-
-def get_timing_log_values(info_mock) -> dict[str, object]:
-    _message, *args = info_mock.call_args.args
-    return dict(zip(TIMING_LOG_LABELS, args, strict=True))
 
 
 @pytest.mark.asyncio
@@ -295,3 +264,17 @@ class TestLoadProjectConfigTiming:
             await self.manager.load_project_config(self.project_config_id)
 
         assert conflicts_mock.call_count == 1
+
+    async def test_capture_fixture_load_project_config_timings_returns_true_warm_samples(
+        self,
+    ) -> None:
+        samples = await capture_fixture_load_project_config_timings(
+            real_settings_manager,
+            sample_count=2,
+        )
+
+        assert len(samples) == 2
+        for sample in samples:
+            assert sample["did_init"] is False
+            assert sample["validation_cache_hit"] is True
+            assert sample["total_ms"] >= sample["convert_ms"]

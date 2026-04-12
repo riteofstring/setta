@@ -75,6 +75,48 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 01:27 UTC
+
+- item `374` landed one bounded warm-load readout seam for the direct
+  `/settings` backend lane:
+  - added shared timing capture support in
+    `tests/project_state/load_project_config_timing_capture.py`
+    so the timing labels plus warm-load capture logic are reusable instead of
+    repeated in one-off report snippets
+  - added
+    `scripts/capture_direct_settings_load_project_config_timing.py`
+    so the repo can regenerate a fresh markdown readout for the current
+    settings/project warm-load fixtures
+  - updated
+    `tests/project_state/test_load_project_config_timing.py`
+    with one focused regression that locks the helper to true warm-load
+    samples (`did_init=False`, cached validation hits)
+  - recorded the fresh readout in
+    `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-warm-readout.md`
+- Verification:
+  - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+    - passed (`8` tests)
+  - `source activate.sh && python -m compileall tests/project_state/load_project_config_timing_capture.py scripts/capture_direct_settings_load_project_config_timing.py tests/project_state/test_load_project_config_timing.py`
+    - passed
+  - `source activate.sh && python scripts/capture_direct_settings_load_project_config_timing.py --sample-count 3 --output perf/reports/frontend/2026-04-13_direct-settings-load-project-config-warm-readout.md`
+    - passed
+- Result:
+  - fresh settings-fixture warm loads now average about `231.3ms` total with
+    `did_init=False` and `validation_cache_hit=True` across all captured
+    samples
+  - the remaining measured backend owner is still the shown-param path
+    (`shown_param_ids_ms ~71.8ms`, `get_param_ids_to_show_ms ~52.9ms`,
+    `traverse_hierarchy_ms ~44.3ms`), but this lane is no longer a
+    multi-second blocker on the current fixture
+  - this closes the "take a fresh readout before more backend micro-work"
+    requirement from item `373`
+- Next:
+  - pivot the next default iteration back to the earliest product-facing
+    renderer/perf gate on the live canary instead of taking another backend
+    shown-param split
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 01:17 UTC
 
 - item `373` landed one bounded `traverse_hierarchy(...)` reduction on the

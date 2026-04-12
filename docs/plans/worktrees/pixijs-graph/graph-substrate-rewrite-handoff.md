@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 01:17 UTC
+Last updated: 2026-04-13 01:27 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,55 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `374` landed one bounded warm-load readout seam for the direct
+  `/settings` backend lane and used it to close the "is backend still a
+  multi-second blocker?" question on the current fixture:
+  - product/support code changed in:
+    - `tests/project_state/load_project_config_timing_capture.py`
+      so the backend timing labels plus warm-load capture logic now live in
+      one shared helper instead of repeated one-off report snippets
+    - `scripts/capture_direct_settings_load_project_config_timing.py`
+      so the repo can regenerate one fresh markdown readout for the current
+      settings/project warm-load fixtures without retyping an ad hoc inline
+      Python command
+    - `tests/project_state/test_load_project_config_timing.py`
+      so the new shared capture helper is regression-tested and locked to true
+      warm-load behavior (`did_init=False`, cached validation hits)
+  - recorded the fresh readout in:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-warm-readout.md`
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`8` tests)
+    - `source activate.sh && python -m compileall tests/project_state/load_project_config_timing_capture.py scripts/capture_direct_settings_load_project_config_timing.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+    - `source activate.sh && python scripts/capture_direct_settings_load_project_config_timing.py --sample-count 3 --output perf/reports/frontend/2026-04-13_direct-settings-load-project-config-warm-readout.md`
+      -> passed
+  - reading:
+    - the current settings-fixture warm load averages about `231.3ms` total
+      with:
+      - `convert_ms ~231.2ms`
+      - `shown_param_ids_ms ~71.8ms`
+      - `get_param_ids_to_show_ms ~52.9ms`
+      - `traverse_hierarchy_ms ~44.3ms`
+    - all captured settings samples are true warm loads on this fixture:
+      - `did_init=False`
+      - `validation_cache_hit=True`
+      - `init_ms` and `validation_ms` are effectively noise-floor work
+    - this closes the fresh-readout requirement from item `373`:
+      backend warm-load is no longer a multi-second blocker on the current
+      direct `/settings` fixture, so another default backend-only
+      `traverse_hierarchy(...)` pass would now be churn unless fresh live
+      evidence points back to it
+  - next default frontier:
+    - pivot back to the earliest product-facing rewrite gate on the live
+      canary instead of continuing backend shown-param micro-work
+    - use the existing normalized `rotaryParamCodeObjDefault` lane only as
+      regression coverage while the next product slice identifies the current
+      user-facing renderer/perf blocker
+    - if live direct `/settings` still feels materially slow, reconnect that
+      symptom to fresh live evidence before reopening the backend warm-load
+      lane
 
 - item `373` landed one bounded `traverse_hierarchy(...)` reduction on the
   direct `/settings` warm-load backend lane:
