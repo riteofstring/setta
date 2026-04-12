@@ -151,6 +151,69 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 12:25 UTC
+
+- item `423` landed one bounded mounted-body production slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by moving default `SectionHeader`
+  control subscriptions behind type-specific boundaries
+- re-read the active plan/handoff first and did not reopen the startup
+  attribution or pane-normalization families after item `422`
+- chose one real product cut inside the mounted body subtree instead of
+  another harness or startup pass: ordinary mounted headers should not
+  subscribe to chat follow-selection or generated-code diagnostics when those
+  controls can never render for the current section type
+- updated `frontend/src/components/Section/Header/SectionHeader.tsx` so the
+  default control path now reads chat follow-selection and generated-code
+  diagnostics only inside type-specific child controls, while custom
+  `controlsRenderer` callers keep the richer control prop contract through a
+  separate subscription boundary
+- extended `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+  with regressions proving default non-chat code headers stay out of unrelated
+  follow-selection commits and unrelated unmapped generated-code diagnostics
+  commits
+- recorded the slice in
+  `perf/reports/frontend/2026-04-13_settings-graph-section-header-selective-control-subscriptions.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+    -> passed (`25` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-048/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.9m`)
+    -> direct-open phase sequence on the worktree:
+       `96ms app_router_loading` -> `2026ms settings_loading` ->
+       `4203ms app_shell_without_surface` -> `7683ms project_loading` ->
+       `23976ms surface_ready`
+    -> canonical target stayed `rotaryParamCodeObjDefault`
+    -> worktree canary still reached `surfaceKind: "canary"`
+    -> dominant owners stayed:
+       `presentedSceneSectionSubtreeReactRender` `1263.6ms` total /
+       `383.5ms` max and
+       `presentedSceneSectionBodySubtreeReactRender` `1239.2ms` total /
+       `162ms` max
+  - fresh-context headless CDP visual check on direct
+    `http://127.0.0.1:3075/settings`
+    -> final URL stayed `http://127.0.0.1:3075/settings`
+    -> visible UI showed the top bar plus a centered loading shell
+    -> visible text included `Loading Setta...` and
+       `Preparing the app surface.`
+- reading:
+  - this removed two broad default-header subscriptions from ordinary mounted
+    sections, but this run did not move the dominant canary owner
+  - treat it as one bounded non-winning product hypothesis on the mounted body
+    owner chain rather than a measured perf win
+  - keep canonical target section `rotaryParamCodeObjDefault`
+- next:
+  - stay on the mounted body owner chain for at most one more bounded product
+    cut; if that next cut also fails to move the dominant owner, add fresh
+    attribution that names the next inner body owner before taking a third
+    hypothesis
+  - do not reopen direct `/settings` startup classification unless the phase
+    sequence changes or the authenticated Playwright lane stops reaching the
+    canary
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 12:08 UTC
 
 - re-read the active plan/handoff first and did not reopen the finished

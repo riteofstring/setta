@@ -77,6 +77,7 @@ export type SectionHeaderControlsRenderProps = {
   inlineSuppressionHint: string | null;
   isDeploymentMode: boolean;
   isFollowSelected: boolean;
+  projectConfigId: string;
   isRoot: boolean;
   isSeriesElement: boolean;
   isUserView: boolean;
@@ -182,16 +183,10 @@ function _SectionHeader({
     projectConfigHasPythonCodegen(x.projectConfig),
   );
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
-  const isFollowSelected = useAIFollow((state) =>
-    (state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? []).includes(
-      sectionId,
-    ),
-  );
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
     return diagnostics ?? EMPTY_SECTION_DIAGNOSTICS;
   });
-  const genCodeDiagnostics = useLspDiagnostics((x) => x.unmappedGenCode);
   const codeDiagnosticsInfo = useProjectState((x) => {
     if (sectionTypeName !== SectionTypeEnum.Code) {
       return null;
@@ -231,8 +226,6 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   const headerClassName = headerProps?.className ?? "";
-  const ControlsRenderer =
-    controlsRenderer ?? DefaultSectionHeaderControlsDomAdapter;
   const LayoutRenderer = layoutRenderer ?? DefaultSectionHeaderLayoutDomAdapter;
   const LeadingControlsRenderer =
     leadingControlsRenderer ?? DefaultSectionHeaderLeadingControlsDomAdapter;
@@ -253,48 +246,60 @@ function _SectionHeader({
       hasSectionStyleTheme={hasSectionStyleTheme}
     />
   );
-  const actions = (
-    <ControlsRenderer
-      codeDiagnosticsLabel={codeDiagnosticsLabel}
-      codeDiagnosticsMuted={codeDiagnosticsMuted}
-      codeSectionDiagnostics={codeSectionDiagnostics}
-      extraControls={extraControls}
-      genCodeDiagnostics={genCodeDiagnostics}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-      inlineSuppressionHint={inlineSuppressionHint}
-      isDeploymentMode={isDeploymentMode}
-      isFollowSelected={isFollowSelected}
-      isRoot={isRoot}
-      isSeriesElement={isSeriesElement}
-      isUserView={isUserView}
-      onSetSuppressedCode={(code, suppress) => {
-        void setCodeSectionDiagnosticCodeSuppression(sectionId, code, suppress);
-      }}
-      onToggleCodeDiagnosticsMuted={() => {
-        void setCodeSectionDiagnosticsMuted(sectionId, !codeDiagnosticsMuted);
-      }}
-      onToggleFollowSelection={() => {
-        useAIFollow.setState((state) => {
-          const selected =
-            state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
-            (state.selectedSectionIdsByProjectConfigId[projectConfigId] = []);
-          const existingIndex = selected.indexOf(sectionId);
-          if (existingIndex === -1) {
-            selected.push(sectionId);
-          } else {
-            selected.splice(existingIndex, 1);
-          }
-          if (state.mode !== "selected") {
-            state.mode = "selected";
-          }
-        });
-      }}
-      pythonCodegenEnabled={pythonCodegenEnabled}
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-      showCodeDiagnosticsPopover={showCodeDiagnosticsPopover}
-      showSectionContainerControls={showSectionContainerControls}
-      suppressedCodes={suppressedCodes}
+  const sharedControlsProps = {
+    codeDiagnosticsLabel,
+    codeDiagnosticsMuted,
+    codeSectionDiagnostics,
+    extraControls,
+    hasSectionStyleTheme,
+    inlineSuppressionHint,
+    isDeploymentMode,
+    isRoot,
+    isSeriesElement,
+    isUserView,
+    onSetSuppressedCode: (
+      code: NonNullable<SettaLspDiagnostic["code"]>,
+      suppress: boolean,
+    ) => {
+      void setCodeSectionDiagnosticCodeSuppression(sectionId, code, suppress);
+    },
+    onToggleCodeDiagnosticsMuted: () => {
+      void setCodeSectionDiagnosticsMuted(sectionId, !codeDiagnosticsMuted);
+    },
+    onToggleFollowSelection: () => {
+      useAIFollow.setState((state) => {
+        const selected =
+          state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
+          (state.selectedSectionIdsByProjectConfigId[projectConfigId] = []);
+        const existingIndex = selected.indexOf(sectionId);
+        if (existingIndex === -1) {
+          selected.push(sectionId);
+        } else {
+          selected.splice(existingIndex, 1);
+        }
+        if (state.mode !== "selected") {
+          state.mode = "selected";
+        }
+      });
+    },
+    projectConfigId,
+    pythonCodegenEnabled,
+    sectionId,
+    sectionTypeName,
+    showCodeDiagnosticsPopover,
+    showSectionContainerControls,
+    suppressedCodes,
+  };
+  const actions = controlsRenderer ? (
+    <SectionHeaderCustomControls
+      controlsRenderer={controlsRenderer}
+      {...sharedControlsProps}
+    />
+  ) : (
+    <DefaultSectionHeaderControlsDomAdapter
+      genCodeDiagnostics={EMPTY_SECTION_DIAGNOSTICS}
+      isFollowSelected={false}
+      {...sharedControlsProps}
     />
   );
 
@@ -368,17 +373,16 @@ export function DefaultSectionHeaderControlsDomAdapter({
   codeDiagnosticsMuted,
   codeSectionDiagnostics,
   extraControls,
-  genCodeDiagnostics,
   hasSectionStyleTheme,
   inlineSuppressionHint,
   isDeploymentMode,
-  isFollowSelected,
   isRoot,
   isSeriesElement,
   isUserView,
   onSetSuppressedCode,
   onToggleCodeDiagnosticsMuted,
   onToggleFollowSelection,
+  projectConfigId,
   pythonCodegenEnabled,
   sectionId,
   sectionTypeName,
@@ -386,14 +390,6 @@ export function DefaultSectionHeaderControlsDomAdapter({
   showSectionContainerControls,
   suppressedCodes,
 }: SectionHeaderControlsRenderProps) {
-  let followButtonClassName =
-    "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition focus-visible:ring-2";
-  if (isFollowSelected) {
-    followButtonClassName = `${followButtonClassName} bg-blue-100 text-blue-600 shadow-sm dark:bg-blue-950/60 dark:text-blue-300`;
-  } else {
-    followButtonClassName = `${followButtonClassName} text-setta-500 hover:bg-blue-100 hover:text-blue-600 dark:text-setta-500 dark:hover:bg-blue-950/60 dark:hover:text-blue-300`;
-  }
-
   return (
     <>
       {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Code && (
@@ -424,13 +420,8 @@ export function DefaultSectionHeaderControlsDomAdapter({
         />
       )}
       {!isDeploymentMode &&
-        sectionTypeName === SectionTypeEnum.GenPythonCode &&
-        genCodeDiagnostics.length > 0 && (
-          <DiagnosticsPopover
-            diagnostics={genCodeDiagnostics}
-            label={`Issues ${genCodeDiagnostics.length}`}
-            title="Generated code issues"
-          />
+        sectionTypeName === SectionTypeEnum.GenPythonCode && (
+          <GenPythonDiagnosticsPopover />
         )}
       {isSeriesElement && (
         <StandardPopover
@@ -466,19 +457,11 @@ export function DefaultSectionHeaderControlsDomAdapter({
         <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
       )}
       {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Chat && (
-        <button
-          aria-label={isFollowSelected ? "Stop following chat" : "Follow chat"}
-          aria-pressed={isFollowSelected}
-          className={followButtonClassName}
-          onClick={onToggleFollowSelection}
-          title={isFollowSelected ? "Stop following chat" : "Follow chat"}
-          type="button"
-          {...getFloatingBoxHandlers({
-            content: isFollowSelected ? "Stop following chat" : "Follow chat",
-          })}
-        >
-          <RiFocus2Line className="text-[12px]" />
-        </button>
+        <ChatFollowSelectionButton
+          onToggleFollowSelection={onToggleFollowSelection}
+          projectConfigId={projectConfigId}
+          sectionId={sectionId}
+        />
       )}
       {extraControls}
       {!isUserView && showSectionContainerControls && (
@@ -500,6 +483,92 @@ export function DefaultSectionHeaderControlsDomAdapter({
         />
       )}
     </>
+  );
+}
+
+function GenPythonDiagnosticsPopover() {
+  const genCodeDiagnostics = useLspDiagnostics(
+    (state) => state.unmappedGenCode,
+  );
+  if (genCodeDiagnostics.length === 0) {
+    return null;
+  }
+
+  return (
+    <DiagnosticsPopover
+      diagnostics={genCodeDiagnostics}
+      label={`Issues ${genCodeDiagnostics.length}`}
+      title="Generated code issues"
+    />
+  );
+}
+
+function ChatFollowSelectionButton({
+  onToggleFollowSelection,
+  projectConfigId,
+  sectionId,
+}: Pick<SectionHeaderControlsRenderProps, "onToggleFollowSelection"> & {
+  projectConfigId: string;
+  sectionId: string;
+}) {
+  const isFollowSelected = useAIFollow((state) =>
+    (state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? []).includes(
+      sectionId,
+    ),
+  );
+  let followButtonClassName =
+    "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition focus-visible:ring-2";
+  if (isFollowSelected) {
+    followButtonClassName = `${followButtonClassName} bg-blue-100 text-blue-600 shadow-sm dark:bg-blue-950/60 dark:text-blue-300`;
+  } else {
+    followButtonClassName = `${followButtonClassName} text-setta-500 hover:bg-blue-100 hover:text-blue-600 dark:text-setta-500 dark:hover:bg-blue-950/60 dark:hover:text-blue-300`;
+  }
+
+  return (
+    <button
+      aria-label={isFollowSelected ? "Stop following chat" : "Follow chat"}
+      aria-pressed={isFollowSelected}
+      className={followButtonClassName}
+      onClick={onToggleFollowSelection}
+      title={isFollowSelected ? "Stop following chat" : "Follow chat"}
+      type="button"
+      {...getFloatingBoxHandlers({
+        content: isFollowSelected ? "Stop following chat" : "Follow chat",
+      })}
+    >
+      <RiFocus2Line className="text-[12px]" />
+    </button>
+  );
+}
+
+function SectionHeaderCustomControls({
+  controlsRenderer: ControlsRenderer,
+  projectConfigId,
+  sectionId,
+  ...props
+}: Omit<
+  SectionHeaderControlsRenderProps,
+  "genCodeDiagnostics" | "isFollowSelected"
+> & {
+  controlsRenderer: SectionHeaderControlsRenderer;
+  projectConfigId: string;
+}) {
+  const isFollowSelected = useAIFollow((state) =>
+    (state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? []).includes(
+      sectionId,
+    ),
+  );
+  const genCodeDiagnostics = useLspDiagnostics(
+    (state) => state.unmappedGenCode,
+  );
+
+  return (
+    <ControlsRenderer
+      genCodeDiagnostics={genCodeDiagnostics}
+      isFollowSelected={isFollowSelected}
+      sectionId={sectionId}
+      {...props}
+    />
   );
 }
 

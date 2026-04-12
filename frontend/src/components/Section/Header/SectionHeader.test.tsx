@@ -64,10 +64,12 @@ async function renderProfiledHeader({
   onRender,
   sectionId,
   sectionTypeName,
+  useDefaultControls = false,
 }: {
   onRender: ProfilerOnRenderCallback;
   sectionId: string;
   sectionTypeName: SectionTypeEnum;
+  useDefaultControls?: boolean;
 }): Promise<RenderedProfiledHeader> {
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -84,9 +86,15 @@ async function renderProfiledHeader({
           isRoot={false}
           hasSectionStyleTheme={false}
           trackMeasuredHeight={false}
-          controlsRenderer={({ isFollowSelected }) => (
-            <div data-follow-selected={isFollowSelected ? "true" : "false"} />
-          )}
+          controlsRenderer={
+            useDefaultControls
+              ? undefined
+              : ({ isFollowSelected }) => (
+                  <div
+                    data-follow-selected={isFollowSelected ? "true" : "false"}
+                  />
+                )
+          }
           layoutRenderer={({ actions, title }) => (
             <div>
               {title}
@@ -762,6 +770,77 @@ describe("SectionHeader diagnostics subscriptions", () => {
       expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
         "false",
       );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps default non-chat headers out of follow-selection commits", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledHeader({
+      onRender,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Code,
+      useDefaultControls: true,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useAIFollow.setState((state) => {
+          state.selectedSectionIdsByProjectConfigId["project-code"] = [
+            "section-other",
+          ];
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      expect(host.textContent).toContain("Code");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps default non-generated-code headers out of unmapped generated diagnostics commits", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledHeader({
+      onRender,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Code,
+      useDefaultControls: true,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useLspDiagnostics.setState({
+          codeSections: {},
+          unmappedGenCode: [
+            {
+              message: "Generated issue",
+              severity: 1,
+              code: "reportGenerated",
+              source: "pyright",
+              range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 1 },
+              },
+              uri: "file:///tmp/generated.py",
+            },
+          ],
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      expect(host.textContent).toContain("Code");
     } finally {
       await act(async () => {
         root.unmount();
