@@ -2,6 +2,12 @@ import {
   PaneAccordion,
   type PaneAccordionItem,
 } from "components/Panes/Common/PaneAccordion";
+import {
+  getAppDefinition,
+  setAppDefinition,
+  validateAppDefinition,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -11,11 +17,6 @@ import {
   useProjectState,
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import {
-  route_get_app_definition,
-  route_set_app_definition,
-  route_validate_app_definition,
-} from "utils/generatedEndpoints";
 import { type AppDefinition } from "utils/generatedTypes";
 import {
   parseDraftAppAssets,
@@ -23,9 +24,7 @@ import {
   parseDraftAppTheme,
   type AppThemeMode,
 } from "./appDraftPreview";
-
 type AppSpecPayload = Record<string, unknown>;
-
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
 const DEFAULT_THEME_MODE: AppThemeMode = "auto";
@@ -33,11 +32,9 @@ const ADVANCED_ACCORDION_TRIGGER_ENABLED_CLASSES =
   "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.app-config-advanced-chevron]:rotate-180";
 const ADVANCED_ACCORDION_TRIGGER_DISABLED_CLASSES =
   "group box-border flex w-full cursor-not-allowed items-start justify-between gap-3 px-3 py-2 text-left opacity-60";
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-
 function resolveThemeMode(theme: unknown): AppThemeMode {
   if (isRecord(theme)) {
     const mode = theme.mode;
@@ -47,7 +44,6 @@ function resolveThemeMode(theme: unknown): AppThemeMode {
   }
   return DEFAULT_THEME_MODE;
 }
-
 function buildDefaultSpec(): AppSpecPayload {
   const root: AppSpecPayload = {
     key: "app-root",
@@ -119,7 +115,6 @@ function buildDefaultSpec(): AppSpecPayload {
     elements: buildElementIndex(root as AppSpecPayload),
   };
 }
-
 function buildElementIndex(
   root: AppSpecPayload,
 ): Record<string, AppSpecPayload> {
@@ -146,7 +141,6 @@ function buildElementIndex(
   }
   return elements;
 }
-
 function parseThemePayloadForRequest({
   draftTheme,
   themeMode,
@@ -182,10 +176,15 @@ function parseThemePayloadForRequest({
     },
   };
 }
-
-function parseAssetsPayloadForRequest(
-  draftAssets: string,
-): { ok: true; value: unknown[] } | { ok: false; error: string } {
+function parseAssetsPayloadForRequest(draftAssets: string):
+  | {
+      ok: true;
+      value: unknown[];
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
   if (draftAssets.trim().length === 0) {
     return { ok: true, value: [] };
   }
@@ -200,10 +199,15 @@ function parseAssetsPayloadForRequest(
   }
   return { ok: true, value: rawAssets };
 }
-
-function parseSpecPayloadForRequest(
-  draftSpec: string,
-): { ok: true; value: AppSpecPayload } | { ok: false; error: string } {
+function parseSpecPayloadForRequest(draftSpec: string):
+  | {
+      ok: true;
+      value: AppSpecPayload;
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(draftSpec) as unknown;
@@ -215,7 +219,6 @@ function parseSpecPayloadForRequest(
   }
   return { ok: true, value: parsed };
 }
-
 export function AppConfigPane() {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const appSpec = useAppDefinition((state) => state.appSpec);
@@ -237,8 +240,13 @@ export function AppConfigPane() {
   const [validating, setValidating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<{
-    errors: Array<{ message: string }>;
-    warnings: Array<{ message: string; elementKey?: string | null }>;
+    errors: Array<{
+      message: string;
+    }>;
+    warnings: Array<{
+      message: string;
+      elementKey?: string | null;
+    }>;
     capabilities: {
       catalogId: string;
       catalogVersion: string;
@@ -248,7 +256,6 @@ export function AppConfigPane() {
     };
   } | null>(null);
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
-
   const hydrateSavedAppDefinition = useCallback(
     ({
       savedSpec,
@@ -281,10 +288,8 @@ export function AppConfigPane() {
     },
     [],
   );
-
   useEffect(() => {
     let isMounted = true;
-
     async function load() {
       if (!projectConfigId) {
         return;
@@ -300,7 +305,11 @@ export function AppConfigPane() {
       setDraftAssetsError(null);
       setLoading(true);
       setErrorMessage(null);
-      const response = await route_get_app_definition({});
+      const response = await callOpenAPI(
+        getAppDefinition({ body: {} } as Parameters<
+          typeof getAppDefinition
+        >[0]),
+      );
       setLoading(false);
       if (!res200(response)) {
         if (isMounted) {
@@ -332,13 +341,11 @@ export function AppConfigPane() {
       );
       setThemeMode(resolveThemeMode(theme));
     }
-
     void load();
     return () => {
       isMounted = false;
     };
   }, [projectConfigId]);
-
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (draftSpec.trim().length === 0) {
@@ -354,12 +361,10 @@ export function AppConfigPane() {
       }
       setDraftSpecError(parsed.error);
     }, 300);
-
     return () => {
       clearTimeout(timeoutId);
     };
   }, [draftSpec]);
-
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       const parsed = parseDraftAppTheme(draftTheme, themeMode);
@@ -376,12 +381,10 @@ export function AppConfigPane() {
           : { mode: themeMode },
       });
     }, 300);
-
     return () => {
       clearTimeout(timeoutId);
     };
   }, [draftTheme, themeMode]);
-
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       const parsed = parseDraftAppAssets(draftAssets);
@@ -392,12 +395,10 @@ export function AppConfigPane() {
       }
       setDraftAssetsError(parsed.error);
     }, 300);
-
     return () => {
       clearTimeout(timeoutId);
     };
   }, [draftAssets]);
-
   const saveAndHydrateAppDefinition = useCallback(
     async ({
       appSpec: nextSpec,
@@ -424,14 +425,18 @@ export function AppConfigPane() {
       if (withLoading) {
         setLoading(true);
       }
-      const response = await route_set_app_definition({
-        appSpec: nextSpec,
-        appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
-        appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-        catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-        theme: themePayload.value,
-        assets: assetsPayload.value,
-      });
+      const response = await callOpenAPI(
+        setAppDefinition({
+          body: {
+            appSpec: nextSpec,
+            appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
+            appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+            catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+            theme: themePayload.value,
+            assets: assetsPayload.value,
+          },
+        } as Parameters<typeof setAppDefinition>[0]),
+      );
       if (withLoading) {
         setLoading(false);
       }
@@ -456,7 +461,6 @@ export function AppConfigPane() {
       themeMode,
     ],
   );
-
   function handleCreateDefault() {
     const spec = buildDefaultSpec();
     setDraftSpec(JSON.stringify(spec, null, 2));
@@ -464,7 +468,6 @@ export function AppConfigPane() {
       setAppSpecPath("app_specs/app.json");
     }
   }
-
   async function handleSave() {
     setErrorMessage(null);
     const specPayload = parseSpecPayloadForRequest(draftSpec);
@@ -482,7 +485,6 @@ export function AppConfigPane() {
     }
     addTemporaryNotification("App spec saved.");
   }
-
   async function handleValidate() {
     setErrorMessage(null);
     setValidationResult(null);
@@ -504,15 +506,18 @@ export function AppConfigPane() {
       setErrorMessage(assetsPayload.error);
       return;
     }
-
     setValidating(true);
-    const response = await route_validate_app_definition({
-      appSpec: specPayload.value,
-      appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-      catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-      theme: themePayload.value,
-      assets: assetsPayload.value,
-    });
+    const response = await callOpenAPI(
+      validateAppDefinition({
+        body: {
+          appSpec: specPayload.value,
+          appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+          catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+          theme: themePayload.value,
+          assets: assetsPayload.value,
+        },
+      } as Parameters<typeof validateAppDefinition>[0]),
+    );
     setValidating(false);
     if (!res200(response)) {
       const detail = getErrorDetail(response.data);
@@ -528,7 +533,6 @@ export function AppConfigPane() {
       );
     }
   }
-
   return (
     <section className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-4 pb-4 text-sm text-setta-600 dark:text-setta-300">
       <header className="flex justify-end">

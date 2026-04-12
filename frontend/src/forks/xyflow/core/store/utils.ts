@@ -8,7 +8,6 @@ import {
   getD3Transition,
   getNodesBounds,
   getViewportForBounds,
-  hasActiveD3ViewportTarget,
 } from "../utils/graph";
 
 type InternalFitViewOptions = {
@@ -37,18 +36,9 @@ export function fitView(options: InternalFitViewOptions = {}) {
 
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
-  const d3initialized =
-    d3Zoom &&
-    d3Selection &&
-    hasActiveD3ViewportTarget(d3Selection, useReactFlow.getState().domNode);
+  const d3initialized = d3Zoom && d3Selection;
 
-  if (!d3initialized) {
-    return (
-      useReactFlow.getState().viewportController?.fitView(options) ?? false
-    );
-  }
-
-  if (isInitialFitView || !options.initial) {
+  if (d3initialized && (isInitialFitView || !options.initial)) {
     const nodes = getNodes().filter((n) => {
       if (options.nodes?.length) {
         return options.nodes.some((optionNode) => optionNode.id === n.id);
@@ -90,15 +80,11 @@ export function fitView(options: InternalFitViewOptions = {}) {
 }
 
 export function onFitViewHandler() {
-  const { fitViewOnInit, viewportController } = useReactFlow.getState();
-  if (fitViewOnInit && !viewportController) {
+  if (useReactFlow.getState().fitViewOnInit) {
     return;
   }
   const duration = useSettings.getState().gui.transitionDuration;
-  const didFit = fitView({ duration });
-  if (!didFit) {
-    return;
-  }
+  fitView({ duration });
   // Hack to set fitViewOnInit after transform is done.
   // If it gets set before the transform is done, then the
   // reactFitViewOnInitSubscriptionFn subscription will get

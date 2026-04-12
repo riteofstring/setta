@@ -3,7 +3,19 @@ import {
   gitFileStatusCategoryFromCommitFile,
   gitFileStatusVisuals,
 } from "components/Git/gitFileStatusVisuals";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type {
+  GitreadCommit as Commit,
+  GitreadCommitChangedFile as CommitChangedFile,
+  GitreadCommitDetailsResponse as CommitDetailsResponse,
+} from "openapi/http";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   List,
   useDynamicRowHeight,
@@ -22,11 +34,6 @@ import {
 } from "state/actions/git";
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
-import type {
-  GetGitCommitDetailsResponse,
-  GitCommit,
-  GitCommitChangedFile,
-} from "utils/generatedTypes";
 import type { GitGraphRow } from "utils/gitGraph";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -224,8 +231,10 @@ const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
 };
 const EMPTY_REMOTE_DECORATION_PREFIXES: ReadonlySet<string> = new Set();
 
-export function buildGitCommitSearchBlob(commit: GitCommit): string {
-  const normalizedDecorations = commit.decorations.join(" ").toLowerCase();
+export function buildGitCommitSearchBlob(commit: Commit): string {
+  const normalizedDecorations = (commit.decorations ?? [])
+    .join(" ")
+    .toLowerCase();
   return `${commit.hash} ${commit.subject} ${commit.authorName} ${normalizedDecorations}`.toLowerCase();
 }
 
@@ -278,39 +287,63 @@ function parseDecorationChip(
   if (!text) {
     return null;
   }
-  if (text.startsWith("HEAD -> ")) {
-    const branch = text.slice("HEAD -> ".length).trim();
-    if (!branch) {
-      return null;
+  return (
+    parseHeadDecorationChip(text) ??
+    parseTagDecorationChip(text) ??
+    parseSymbolicDecorationChip(text) ??
+    parseRemoteDecorationChip(text, remoteDecorationPrefixes) ?? {
+      label: text,
+      kind: "branch",
     }
-    return { label: branch, kind: "head" };
+  );
+}
+
+function parseHeadDecorationChip(text: string): DecorationChip | null {
+  if (!text.startsWith("HEAD -> ")) {
+    return null;
   }
-  if (text.startsWith("tag: ")) {
-    const tag = text.slice("tag: ".length).trim();
-    if (!tag) {
-      return null;
-    }
-    return { label: tag, kind: "tag" };
+  const branch = text.slice("HEAD -> ".length).trim();
+  if (!branch) {
+    return null;
   }
+  return { label: branch, kind: "head" };
+}
+
+function parseTagDecorationChip(text: string): DecorationChip | null {
+  if (!text.startsWith("tag: ")) {
+    return null;
+  }
+  const tag = text.slice("tag: ".length).trim();
+  if (!tag) {
+    return null;
+  }
+  return { label: tag, kind: "tag" };
+}
+
+function parseSymbolicDecorationChip(text: string): DecorationChip | null {
   const arrowIdx = text.indexOf(" -> ");
-  if (arrowIdx !== -1) {
-    const left = text.slice(0, arrowIdx).trim();
-    if (!left) {
-      return null;
-    }
-    return { label: left, kind: "symbolic" };
+  if (arrowIdx === -1) {
+    return null;
   }
+  const left = text.slice(0, arrowIdx).trim();
+  if (!left) {
+    return null;
+  }
+  return { label: left, kind: "symbolic" };
+}
+
+function parseRemoteDecorationChip(
+  text: string,
+  remoteDecorationPrefixes: ReadonlySet<string>,
+): DecorationChip | null {
   const slashIdx = text.indexOf("/");
-  if (slashIdx > 0) {
-    const prefix = text.slice(0, slashIdx);
-    if (remoteDecorationPrefixes.has(prefix)) {
-      return { label: text, kind: "remote" };
-    }
+  if (slashIdx > 0 && remoteDecorationPrefixes.has(text.slice(0, slashIdx))) {
+    return { label: text, kind: "remote" };
   }
   if (text.startsWith("origin/") || text.startsWith("upstream/")) {
     return { label: text, kind: "remote" };
   }
-  return { label: text, kind: "branch" };
+  return null;
 }
 
 export function summarizeDecorationChips(
@@ -334,11 +367,11 @@ export function summarizeDecorationChips(
 }
 
 function buildDecorationChipSummaryByHash(
-  commits: readonly GitCommit[],
+  commits: readonly Commit[],
 ): Map<string, DecorationChipSummary> {
   const allDecorations: string[] = [];
   for (const commit of commits) {
-    allDecorations.push(...commit.decorations);
+    allDecorations.push(...(commit.decorations ?? []));
   }
   const remoteDecorationPrefixes =
     collectRemoteDecorationPrefixes(allDecorations);
@@ -347,16 +380,19 @@ function buildDecorationChipSummaryByHash(
   for (const commit of commits) {
     chipSummaryByHash.set(
       commit.hash,
-      summarizeDecorationChips(commit.decorations, remoteDecorationPrefixes),
+      summarizeDecorationChips(
+        commit.decorations ?? [],
+        remoteDecorationPrefixes,
+      ),
     );
   }
   return chipSummaryByHash;
 }
 
 export function buildGitCommitLookupByHash(
-  commits: readonly GitCommit[],
-): Map<string, GitCommit> {
-  const commitsByHash = new Map<string, GitCommit>();
+  commits: readonly Commit[],
+): Map<string, Commit> {
+  const commitsByHash = new Map<string, Commit>();
   for (const commit of commits) {
     commitsByHash.set(commit.hash, commit);
   }
@@ -377,9 +413,7 @@ export function buildGitGraphRowHeightCacheKey({
   return `${commitDigest}:${refMode}:${normalizedFilter}`;
 }
 
-export function buildGitGraphCommitDigest(
-  commits: readonly GitCommit[],
-): string {
+export function buildGitGraphCommitDigest(commits: readonly Commit[]): string {
   if (commits.length === 0) {
     return "0";
   }
@@ -395,46 +429,736 @@ export function buildGitGraphCommitDigest(
   return `${commits.length}:${digest.toString(16)}`;
 }
 
-export function GitGraphOverlay({
-  embedded = false,
-  showCloseButton = true,
-  extraHeaderActions = null,
-  leftSidebar = null,
-}: {
+type GitGraphOverlayState = NonNullable<
+  ReturnType<typeof useGitStore.getState>["graph"]
+>;
+
+type GitGraphOverlayProps = {
   embedded?: boolean;
   showCloseButton?: boolean;
   extraHeaderActions?: ReactNode;
   leftSidebar?: ReactNode;
-}) {
-  const graphState = useGitStore((x) => x.graph);
-  const {
-    darkMode,
-    splitPct,
-    graphColWidthPx,
-    authorColWidthPx,
-    dateColWidthPx,
-    hashColWidthPx,
-  } = useLocalStorage((x) => ({
-    darkMode: x.darkMode,
-    splitPct: x.gitGraphSplitPct,
-    graphColWidthPx: x.gitGraphColWidthPx,
-    authorColWidthPx: x.gitGraphAuthorWidthPx,
-    dateColWidthPx: x.gitGraphDateWidthPx,
-    hashColWidthPx: x.gitGraphHashWidthPx,
-  }));
+};
 
-  const listRef = useListRef(null);
-  const overlayRef = useRef<HTMLElement | null>(null);
-  const panesWrapperRef = useRef<HTMLDivElement | null>(null);
-  const commitHeaderRef = useRef<HTMLDivElement | null>(null);
-  const listWrapperRef = useRef<HTMLDivElement | null>(null);
-  const activeDragCleanupsRef = useRef(new Set<() => void>());
-  const [listSize, setListSize] = useState({ height: 320, width: 320 });
-  const [liveGraphColWidthPx, setLiveGraphColWidthPx] = useState<number | null>(
-    null,
+type GitGraphOverlayListSize = {
+  height: number;
+  width: number;
+};
+
+type GitGraphColumnKey = "graph" | "author" | "date" | "hash";
+type GitGraphColumnBoundary =
+  | "graphMessage"
+  | "messageAuthor"
+  | "authorDate"
+  | "dateHash";
+type GitGraphColumnWidths = Record<GitGraphColumnKey, number>;
+type GitGraphColumnWidthPatch = Partial<GitGraphColumnWidths>;
+
+const GIT_GRAPH_COLUMN_CSS_VAR_BY_KEY: Record<GitGraphColumnKey, string> = {
+  graph: CSS_VAR_GIT_GRAPH_COL_GRAPH,
+  author: CSS_VAR_GIT_GRAPH_COL_AUTHOR,
+  date: CSS_VAR_GIT_GRAPH_COL_DATE,
+  hash: CSS_VAR_GIT_GRAPH_COL_HASH,
+};
+
+const GIT_GRAPH_COLUMN_DEFAULT_PX_BY_KEY: GitGraphColumnWidths = {
+  graph: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
+  author: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
+  date: DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
+  hash: DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
+};
+
+const GIT_GRAPH_COLUMN_MIN_PX_BY_KEY: GitGraphColumnWidths = {
+  graph: GRAPH_COL_MIN_WIDTH_PX,
+  author: AUTHOR_COL_MIN_WIDTH_PX,
+  date: DATE_COL_MIN_WIDTH_PX,
+  hash: HASH_COL_MIN_WIDTH_PX,
+};
+
+const GIT_GRAPH_COLUMN_MAX_PX_BY_KEY: GitGraphColumnWidths = {
+  graph: GRAPH_COL_MAX_WIDTH_PX,
+  author: AUTHOR_COL_MAX_WIDTH_PX,
+  date: DATE_COL_MAX_WIDTH_PX,
+  hash: HASH_COL_MAX_WIDTH_PX,
+};
+
+const GIT_GRAPH_COLUMN_KEYS_BY_BOUNDARY = {
+  graphMessage: ["graph"],
+  messageAuthor: ["author"],
+  authorDate: ["author", "date"],
+  dateHash: ["date", "hash"],
+} as const satisfies Record<
+  GitGraphColumnBoundary,
+  readonly GitGraphColumnKey[]
+>;
+
+type GitGraphDragRegistration = (cleanup: () => void) => () => void;
+type GitGraphPersistRequest = (persist: () => void) => void;
+
+type GitGraphPaneSplitDragArgs = {
+  overlayRef: RefObject<HTMLElement | null>;
+  panesWrapperRef: RefObject<HTMLDivElement | null>;
+  splitPct: number;
+  registerDragCleanup: GitGraphDragRegistration;
+  requestPersistIfConnected: GitGraphPersistRequest;
+};
+
+type GitGraphPaneSplitDragSession = {
+  root: HTMLElement;
+  wrapperWidth: number;
+  minLeft: number;
+  maxLeft: number;
+  startX: number;
+  startLeftPx: number;
+  pointerId: number;
+  latestPct: number;
+};
+
+type GitGraphColumnResizeDragArgs = {
+  overlayRef: RefObject<HTMLElement | null>;
+  commitHeaderRef: RefObject<HTMLDivElement | null>;
+  fallbackWidths: GitGraphColumnWidths;
+  registerDragCleanup: GitGraphDragRegistration;
+  requestPersistIfConnected: GitGraphPersistRequest;
+  setLiveGraphColWidthPx: (value: number | null) => void;
+};
+
+type GitGraphColumnResizeDragSession = {
+  boundary: GitGraphColumnBoundary;
+  root: HTMLElement;
+  contentWidth: number;
+  start: GitGraphColumnWidths;
+  pointerId: number;
+  startX: number;
+};
+
+type GitGraphLoadMoreGuardState = Pick<
+  GitGraphOverlayState,
+  "isLoading" | "isLoadingMore" | "loadMoreError" | "nextOffset" | "hasMore"
+>;
+
+export function shouldLoadMoreGitGraphCommits({
+  graphState,
+  filteredRowCount,
+  stopIndex,
+  isFilterActive,
+}: {
+  graphState: GitGraphLoadMoreGuardState;
+  filteredRowCount: number;
+  stopIndex: number;
+  isFilterActive: boolean;
+}): boolean {
+  if (
+    graphState.isLoading ||
+    graphState.isLoadingMore ||
+    graphState.loadMoreError !== null ||
+    graphState.nextOffset === null ||
+    !graphState.hasMore ||
+    isFilterActive
+  ) {
+    return false;
+  }
+  return filteredRowCount - 1 - stopIndex <= LOAD_MORE_THRESHOLD_ROWS;
+}
+
+function readGitGraphHeaderContentWidth(header: HTMLDivElement): number {
+  const headerStyle = window.getComputedStyle(header);
+  const paddingLeft = Number.parseFloat(headerStyle.paddingLeft) || 0;
+  const paddingRight = Number.parseFloat(headerStyle.paddingRight) || 0;
+  const gridGap = Number.parseFloat(headerStyle.columnGap) || 0;
+  const totalGapWidth = gridGap * 4;
+  return Math.max(
+    1,
+    header.clientWidth - paddingLeft - paddingRight - totalGapWidth,
   );
+}
 
-  function registerDragCleanup(cleanup: () => void): () => void {
+function readGitGraphColumnWidth(
+  root: HTMLElement,
+  key: GitGraphColumnKey,
+  fallbackWidth: number,
+): number {
+  const raw = window
+    .getComputedStyle(root)
+    .getPropertyValue(GIT_GRAPH_COLUMN_CSS_VAR_BY_KEY[key])
+    .trim();
+  const parsed = Number.parseFloat(raw);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return fallbackWidth;
+}
+
+function readGitGraphColumnWidths(
+  root: HTMLElement,
+  fallbackWidths: GitGraphColumnWidths,
+): GitGraphColumnWidths {
+  return {
+    graph: readGitGraphColumnWidth(root, "graph", fallbackWidths.graph),
+    author: readGitGraphColumnWidth(root, "author", fallbackWidths.author),
+    date: readGitGraphColumnWidth(root, "date", fallbackWidths.date),
+    hash: readGitGraphColumnWidth(root, "hash", fallbackWidths.hash),
+  };
+}
+
+function applyGitGraphColumnWidths(
+  root: HTMLElement,
+  next: GitGraphColumnWidthPatch,
+): void {
+  if (next.graph !== undefined) {
+    root.style.setProperty(
+      GIT_GRAPH_COLUMN_CSS_VAR_BY_KEY.graph,
+      `${next.graph}px`,
+    );
+  }
+  if (next.author !== undefined) {
+    root.style.setProperty(
+      GIT_GRAPH_COLUMN_CSS_VAR_BY_KEY.author,
+      `${next.author}px`,
+    );
+  }
+  if (next.date !== undefined) {
+    root.style.setProperty(
+      GIT_GRAPH_COLUMN_CSS_VAR_BY_KEY.date,
+      `${next.date}px`,
+    );
+  }
+  if (next.hash !== undefined) {
+    root.style.setProperty(
+      GIT_GRAPH_COLUMN_CSS_VAR_BY_KEY.hash,
+      `${next.hash}px`,
+    );
+  }
+}
+
+function persistGitGraphColumnWidths(next: GitGraphColumnWidthPatch): void {
+  const patch: Partial<{
+    gitGraphColWidthPx: number;
+    gitGraphAuthorWidthPx: number;
+    gitGraphDateWidthPx: number;
+    gitGraphHashWidthPx: number;
+  }> = {};
+  if (next.graph !== undefined) {
+    patch.gitGraphColWidthPx = next.graph;
+  }
+  if (next.author !== undefined) {
+    patch.gitGraphAuthorWidthPx = next.author;
+  }
+  if (next.date !== undefined) {
+    patch.gitGraphDateWidthPx = next.date;
+  }
+  if (next.hash !== undefined) {
+    patch.gitGraphHashWidthPx = next.hash;
+  }
+  if (Object.keys(patch).length > 0) {
+    useLocalStorage.setState(patch);
+  }
+}
+
+function clampGitGraphSingleColumnWidth(
+  key: GitGraphColumnKey,
+  requestedWidth: number,
+  start: GitGraphColumnWidths,
+  contentWidth: number,
+): number {
+  const minPx = GIT_GRAPH_COLUMN_MIN_PX_BY_KEY[key];
+  const maxPxConstant = GIT_GRAPH_COLUMN_MAX_PX_BY_KEY[key];
+  const otherSum =
+    start.graph + start.author + start.date + start.hash - start[key];
+  const maxFit = Math.max(
+    minPx,
+    contentWidth - otherSum - MESSAGE_COL_MIN_WIDTH_PX,
+  );
+  const maxPx = Math.min(maxPxConstant, maxFit);
+  return clamp(requestedWidth, minPx, maxPx);
+}
+
+function clampGitGraphBoundaryDelta(
+  leftKey: GitGraphColumnKey,
+  rightKey: GitGraphColumnKey,
+  delta: number,
+  start: GitGraphColumnWidths,
+): number {
+  const lower = Math.max(
+    GIT_GRAPH_COLUMN_MIN_PX_BY_KEY[leftKey] - start[leftKey],
+    start[rightKey] - GIT_GRAPH_COLUMN_MAX_PX_BY_KEY[rightKey],
+  );
+  const upper = Math.min(
+    GIT_GRAPH_COLUMN_MAX_PX_BY_KEY[leftKey] - start[leftKey],
+    start[rightKey] - GIT_GRAPH_COLUMN_MIN_PX_BY_KEY[rightKey],
+  );
+  if (lower > upper) {
+    return 0;
+  }
+  return clamp(delta, lower, upper);
+}
+
+export function computeGitGraphColumnWidthPatch({
+  boundary,
+  deltaX,
+  start,
+  contentWidth,
+}: {
+  boundary: GitGraphColumnBoundary;
+  deltaX: number;
+  start: GitGraphColumnWidths;
+  contentWidth: number;
+}): GitGraphColumnWidthPatch {
+  switch (boundary) {
+    case "graphMessage":
+      return {
+        graph: clampGitGraphSingleColumnWidth(
+          "graph",
+          start.graph + deltaX,
+          start,
+          contentWidth,
+        ),
+      };
+    case "messageAuthor":
+      return {
+        author: clampGitGraphSingleColumnWidth(
+          "author",
+          start.author - deltaX,
+          start,
+          contentWidth,
+        ),
+      };
+    case "authorDate": {
+      const clampedDelta = clampGitGraphBoundaryDelta(
+        "author",
+        "date",
+        deltaX,
+        start,
+      );
+      return {
+        author: start.author + clampedDelta,
+        date: start.date - clampedDelta,
+      };
+    }
+    case "dateHash": {
+      const clampedDelta = clampGitGraphBoundaryDelta(
+        "date",
+        "hash",
+        deltaX,
+        start,
+      );
+      return {
+        date: start.date + clampedDelta,
+        hash: start.hash - clampedDelta,
+      };
+    }
+  }
+}
+
+export function computeGitGraphColumnDoubleClickPatch({
+  boundary,
+  start,
+  contentWidth,
+}: {
+  boundary: GitGraphColumnBoundary;
+  start: GitGraphColumnWidths;
+  contentWidth: number;
+}): GitGraphColumnWidthPatch {
+  switch (boundary) {
+    case "graphMessage":
+      return {
+        graph: clampGitGraphSingleColumnWidth(
+          "graph",
+          GIT_GRAPH_COLUMN_DEFAULT_PX_BY_KEY.graph,
+          start,
+          contentWidth,
+        ),
+      };
+    case "messageAuthor":
+      return {
+        author: clampGitGraphSingleColumnWidth(
+          "author",
+          GIT_GRAPH_COLUMN_DEFAULT_PX_BY_KEY.author,
+          start,
+          contentWidth,
+        ),
+      };
+    case "authorDate": {
+      const clampedDelta = clampGitGraphBoundaryDelta(
+        "author",
+        "date",
+        GIT_GRAPH_COLUMN_DEFAULT_PX_BY_KEY.author - start.author,
+        start,
+      );
+      return {
+        author: start.author + clampedDelta,
+        date: start.date - clampedDelta,
+      };
+    }
+    case "dateHash": {
+      const clampedDelta = clampGitGraphBoundaryDelta(
+        "date",
+        "hash",
+        GIT_GRAPH_COLUMN_DEFAULT_PX_BY_KEY.date - start.date,
+        start,
+      );
+      return {
+        date: start.date + clampedDelta,
+        hash: start.hash - clampedDelta,
+      };
+    }
+  }
+}
+
+function clampGitGraphPersistedWidths(
+  boundary: GitGraphColumnBoundary,
+  latestWidths: GitGraphColumnWidths,
+): GitGraphColumnWidthPatch {
+  const persisted: GitGraphColumnWidthPatch = {};
+  for (const key of GIT_GRAPH_COLUMN_KEYS_BY_BOUNDARY[boundary]) {
+    persisted[key] = clamp(
+      latestWidths[key],
+      GIT_GRAPH_COLUMN_MIN_PX_BY_KEY[key],
+      GIT_GRAPH_COLUMN_MAX_PX_BY_KEY[key],
+    );
+  }
+  return persisted;
+}
+
+function createGitGraphPaneSplitDragSession(
+  event: React.PointerEvent<HTMLDivElement>,
+  {
+    overlayRef,
+    panesWrapperRef,
+    splitPct,
+  }: Pick<
+    GitGraphPaneSplitDragArgs,
+    "overlayRef" | "panesWrapperRef" | "splitPct"
+  >,
+): GitGraphPaneSplitDragSession | null {
+  const root = overlayRef.current;
+  const wrapper = panesWrapperRef.current;
+  if (!root || !wrapper) {
+    return null;
+  }
+
+  const wrapperWidth = wrapper.clientWidth;
+  if (!wrapperWidth) {
+    return null;
+  }
+
+  const handleWidth = event.currentTarget.getBoundingClientRect().width;
+  const minLeft = GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX;
+  const maxLeft = Math.max(
+    minLeft,
+    wrapperWidth - handleWidth - GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX,
+  );
+  return {
+    root,
+    wrapperWidth,
+    minLeft,
+    maxLeft,
+    startX: event.clientX,
+    startLeftPx: (wrapperWidth * clamp(splitPct, 0, 100)) / 100,
+    pointerId: event.pointerId,
+    latestPct: clamp(splitPct, 0, 100),
+  };
+}
+
+function startGitGraphPaneSplitDrag(
+  session: GitGraphPaneSplitDragSession,
+  {
+    registerDragCleanup,
+    requestPersistIfConnected,
+  }: Pick<
+    GitGraphPaneSplitDragArgs,
+    "registerDragCleanup" | "requestPersistIfConnected"
+  >,
+): void {
+  let rafId: number | null = null;
+  const setPct = (pct: number) => {
+    session.root.style.setProperty(CSS_VAR_GIT_GRAPH_SPLIT_PCT, pct.toString());
+  };
+
+  const handleMove = (moveEvent: PointerEvent) => {
+    if (moveEvent.pointerId !== session.pointerId) {
+      return;
+    }
+    const deltaX = moveEvent.clientX - session.startX;
+    const nextLeftPx = clamp(
+      session.startLeftPx + deltaX,
+      session.minLeft,
+      session.maxLeft,
+    );
+    session.latestPct = clamp(
+      (nextLeftPx / session.wrapperWidth) * 100,
+      0,
+      100,
+    );
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+    }
+    rafId = requestAnimationFrame(() => {
+      setPct(session.latestPct);
+      rafId = null;
+    });
+  };
+
+  const handleUp = (upEvent: PointerEvent) => {
+    if (upEvent.pointerId !== session.pointerId) {
+      return;
+    }
+    const persisted = clamp(session.latestPct, 0, 100);
+    if (session.root.isConnected) {
+      setPct(persisted);
+    }
+    teardownDrag();
+    requestPersistIfConnected(() => {
+      useLocalStorage.setState({ gitGraphSplitPct: persisted });
+    });
+  };
+
+  const teardownDrag = registerDragCleanup(() => {
+    window.removeEventListener("pointermove", handleMove);
+    window.removeEventListener("pointerup", handleUp);
+    window.removeEventListener("pointercancel", handleUp);
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  });
+
+  window.addEventListener("pointermove", handleMove);
+  window.addEventListener("pointerup", handleUp);
+  window.addEventListener("pointercancel", handleUp);
+}
+
+function beginGitGraphPaneSplitDrag(
+  event: React.PointerEvent<HTMLDivElement>,
+  args: GitGraphPaneSplitDragArgs,
+): void {
+  event.preventDefault();
+  event.stopPropagation();
+  const session = createGitGraphPaneSplitDragSession(event, args);
+  if (!session) {
+    return;
+  }
+
+  if (event.detail === 2) {
+    const nextPct = clamp(DEFAULT_GIT_GRAPH_SPLIT_PCT, 0, 100);
+    session.root.style.setProperty(
+      CSS_VAR_GIT_GRAPH_SPLIT_PCT,
+      nextPct.toString(),
+    );
+    useLocalStorage.setState({ gitGraphSplitPct: nextPct });
+    return;
+  }
+
+  startGitGraphPaneSplitDrag(session, args);
+}
+
+function createGitGraphColumnResizeDragSession(
+  boundary: GitGraphColumnBoundary,
+  event: React.PointerEvent<HTMLDivElement>,
+  {
+    overlayRef,
+    commitHeaderRef,
+    fallbackWidths,
+  }: Pick<
+    GitGraphColumnResizeDragArgs,
+    "overlayRef" | "commitHeaderRef" | "fallbackWidths"
+  >,
+): GitGraphColumnResizeDragSession | null {
+  const root = overlayRef.current;
+  const header = commitHeaderRef.current;
+  if (!root || !header) {
+    return null;
+  }
+
+  return {
+    boundary,
+    root,
+    contentWidth: readGitGraphHeaderContentWidth(header),
+    start: readGitGraphColumnWidths(root, fallbackWidths),
+    pointerId: event.pointerId,
+    startX: event.clientX,
+  };
+}
+
+function handleGitGraphColumnResizeDoubleClick(
+  session: GitGraphColumnResizeDragSession,
+  setLiveGraphColWidthPx: (value: number | null) => void,
+): void {
+  const next = computeGitGraphColumnDoubleClickPatch({
+    boundary: session.boundary,
+    start: session.start,
+    contentWidth: session.contentWidth,
+  });
+  applyGitGraphColumnWidths(session.root, next);
+  if (session.boundary === "graphMessage" && next.graph !== undefined) {
+    setLiveGraphColWidthPx(next.graph);
+  }
+  persistGitGraphColumnWidths(next);
+}
+
+function startGitGraphColumnResizeDrag(
+  session: GitGraphColumnResizeDragSession,
+  {
+    registerDragCleanup,
+    requestPersistIfConnected,
+    setLiveGraphColWidthPx,
+  }: Pick<
+    GitGraphColumnResizeDragArgs,
+    | "registerDragCleanup"
+    | "requestPersistIfConnected"
+    | "setLiveGraphColWidthPx"
+  >,
+): void {
+  let rafId: number | null = null;
+  let latestWidths = { ...session.start };
+
+  const handleMove = (moveEvent: PointerEvent) => {
+    if (moveEvent.pointerId !== session.pointerId) {
+      return;
+    }
+    const next = computeGitGraphColumnWidthPatch({
+      boundary: session.boundary,
+      deltaX: moveEvent.clientX - session.startX,
+      start: session.start,
+      contentWidth: session.contentWidth,
+    });
+    latestWidths = { ...latestWidths, ...next };
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+    }
+    rafId = requestAnimationFrame(() => {
+      applyGitGraphColumnWidths(session.root, next);
+      if (session.boundary === "graphMessage" && next.graph !== undefined) {
+        setLiveGraphColWidthPx(next.graph);
+      }
+      rafId = null;
+    });
+  };
+
+  const handleUp = (upEvent: PointerEvent) => {
+    if (upEvent.pointerId !== session.pointerId) {
+      return;
+    }
+    const persisted = clampGitGraphPersistedWidths(
+      session.boundary,
+      latestWidths,
+    );
+    if (session.root.isConnected) {
+      if (session.boundary === "graphMessage") {
+        setLiveGraphColWidthPx(persisted.graph ?? session.start.graph);
+      }
+      applyGitGraphColumnWidths(session.root, persisted);
+    }
+    teardownDrag();
+    requestPersistIfConnected(() => {
+      persistGitGraphColumnWidths(persisted);
+    });
+  };
+
+  const teardownDrag = registerDragCleanup(() => {
+    window.removeEventListener("pointermove", handleMove);
+    window.removeEventListener("pointerup", handleUp);
+    window.removeEventListener("pointercancel", handleUp);
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  });
+
+  window.addEventListener("pointermove", handleMove);
+  window.addEventListener("pointerup", handleUp);
+  window.addEventListener("pointercancel", handleUp);
+}
+
+function beginGitGraphColumnResizeDrag(
+  boundary: GitGraphColumnBoundary,
+  event: React.PointerEvent<HTMLDivElement>,
+  args: GitGraphColumnResizeDragArgs,
+): void {
+  event.preventDefault();
+  event.stopPropagation();
+  const session = createGitGraphColumnResizeDragSession(boundary, event, args);
+  if (!session) {
+    return;
+  }
+
+  if (event.detail === 2) {
+    handleGitGraphColumnResizeDoubleClick(session, args.setLiveGraphColWidthPx);
+    return;
+  }
+
+  startGitGraphColumnResizeDrag(session, args);
+}
+
+function buildGitGraphCommitSearchBlobByHash(
+  commits: readonly Commit[],
+): Map<string, string> {
+  const byHash = new Map<string, string>();
+  for (const commit of commits) {
+    byHash.set(commit.hash, buildGitCommitSearchBlob(commit));
+  }
+  return byHash;
+}
+
+function buildFilteredGitGraphRows(
+  rows: GitGraphRow[],
+  filterText: string,
+  commitSearchBlobByHash: ReadonlyMap<string, string>,
+): GitGraphRow[] {
+  const query = filterText.trim().toLowerCase();
+  if (!query) {
+    return rows;
+  }
+  return rows.filter((row) => {
+    const blob =
+      commitSearchBlobByHash.get(row.commit.hash) ??
+      buildGitCommitSearchBlob(row.commit);
+    return blob.includes(query);
+  });
+}
+
+function calculateGitGraphMaxLaneCount(rows: readonly GitGraphRow[]): number {
+  return rows.reduce(
+    (maxCount, row) => Math.max(maxCount, row.laneColorIds.length),
+    1,
+  );
+}
+
+function getSelectedGitGraphCommit(
+  selectedCommitHash: string | null,
+  commitsByHash: ReadonlyMap<string, Commit>,
+): Commit | null {
+  if (!selectedCommitHash) {
+    return null;
+  }
+  return commitsByHash.get(selectedCommitHash) ?? null;
+}
+
+function useGitGraphOverlayStorage() {
+  return useLocalStorage((state) => ({
+    darkMode: state.darkMode,
+    splitPct: state.gitGraphSplitPct,
+    graphColWidthPx: state.gitGraphColWidthPx,
+    authorColWidthPx: state.gitGraphAuthorWidthPx,
+    dateColWidthPx: state.gitGraphDateWidthPx,
+    hashColWidthPx: state.gitGraphHashWidthPx,
+  }));
+}
+
+function useGitGraphDragCleanupRegistry(): GitGraphDragRegistration {
+  const activeDragCleanupsRef = useRef(new Set<() => void>());
+
+  useEffect(() => {
+    return () => {
+      const pendingCleanups = Array.from(activeDragCleanupsRef.current);
+      activeDragCleanupsRef.current.clear();
+      for (const cleanup of pendingCleanups) {
+        cleanup();
+      }
+    };
+  }, []);
+
+  return (cleanup) => {
     let isCleanedUp = false;
     const wrappedCleanup = () => {
       if (isCleanedUp) {
@@ -446,9 +1170,13 @@ export function GitGraphOverlay({
     };
     activeDragCleanupsRef.current.add(wrappedCleanup);
     return wrappedCleanup;
-  }
+  };
+}
 
-  function requestPersistIfConnected(persist: () => void): void {
+function createGitGraphPersistRequest(
+  overlayRef: RefObject<HTMLElement | null>,
+): GitGraphPersistRequest {
+  return (persist) => {
     requestAnimationFrame(() => {
       const root = overlayRef.current;
       if (!root?.isConnected) {
@@ -456,7 +1184,16 @@ export function GitGraphOverlay({
       }
       persist();
     });
-  }
+  };
+}
+
+function useGitGraphListSize(
+  listWrapperRef: RefObject<HTMLDivElement | null>,
+): GitGraphOverlayListSize {
+  const [listSize, setListSize] = useState<GitGraphOverlayListSize>({
+    height: 320,
+    width: 320,
+  });
 
   useEffect(() => {
     const wrapper = listWrapperRef.current;
@@ -476,18 +1213,50 @@ export function GitGraphOverlay({
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [listWrapperRef]);
+
+  return listSize;
+}
+
+function useGitGraphLiveGraphColumnWidth(
+  graphColWidthPx: number,
+): [number | null, (value: number | null) => void] {
+  const [liveGraphColWidthPx, setLiveGraphColWidthPx] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
-    const el = overlayRef.current;
-    if (!el) {
+    setLiveGraphColWidthPx(null);
+  }, [graphColWidthPx]);
+
+  return [liveGraphColWidthPx, setLiveGraphColWidthPx];
+}
+
+function useGitGraphOverlayStyleSync({
+  overlayRef,
+  splitPct,
+  graphColWidthPx,
+  authorColWidthPx,
+  dateColWidthPx,
+  hashColWidthPx,
+}: {
+  overlayRef: RefObject<HTMLElement | null>;
+  splitPct: number;
+  graphColWidthPx: number;
+  authorColWidthPx: number;
+  dateColWidthPx: number;
+  hashColWidthPx: number;
+}): void {
+  useEffect(() => {
+    const root = overlayRef.current;
+    if (!root) {
       return;
     }
-    el.style.setProperty(
+    root.style.setProperty(
       CSS_VAR_GIT_GRAPH_SPLIT_PCT,
       clamp(splitPct, 0, 100).toString(),
     );
-    el.style.setProperty(
+    root.style.setProperty(
       CSS_VAR_GIT_GRAPH_COL_GRAPH,
       `${clamp(
         graphColWidthPx,
@@ -495,7 +1264,7 @@ export function GitGraphOverlay({
         GRAPH_COL_MAX_WIDTH_PX,
       )}px`,
     );
-    el.style.setProperty(
+    root.style.setProperty(
       CSS_VAR_GIT_GRAPH_COL_AUTHOR,
       `${clamp(
         authorColWidthPx,
@@ -503,7 +1272,7 @@ export function GitGraphOverlay({
         AUTHOR_COL_MAX_WIDTH_PX,
       )}px`,
     );
-    el.style.setProperty(
+    root.style.setProperty(
       CSS_VAR_GIT_GRAPH_COL_DATE,
       `${clamp(
         dateColWidthPx,
@@ -511,99 +1280,153 @@ export function GitGraphOverlay({
         DATE_COL_MAX_WIDTH_PX,
       )}px`,
     );
-    el.style.setProperty(
+    root.style.setProperty(
       CSS_VAR_GIT_GRAPH_COL_HASH,
       `${clamp(hashColWidthPx, HASH_COL_MIN_WIDTH_PX, HASH_COL_MAX_WIDTH_PX)}px`,
     );
   }, [
+    overlayRef,
     authorColWidthPx,
     dateColWidthPx,
     graphColWidthPx,
     hashColWidthPx,
     splitPct,
   ]);
+}
 
-  useEffect(() => {
-    // When persisted width changes, drop any temporary drag-time override.
-    setLiveGraphColWidthPx(null);
-  }, [graphColWidthPx]);
+type GitGraphOverlayModel = {
+  graphState: GitGraphOverlayState;
+  repoRoot: string | null;
+  headBranch: string | null;
+  filterText: string;
+  allRefs: boolean;
+  overlayRef: RefObject<HTMLElement | null>;
+  panesWrapperRef: RefObject<HTMLDivElement | null>;
+  commitHeaderRef: RefObject<HTMLDivElement | null>;
+  listWrapperRef: RefObject<HTMLDivElement | null>;
+  listRef: ReturnType<typeof useListRef>;
+  dynamicRowHeight: ReturnType<typeof useDynamicRowHeight>;
+  commitRowProps: GitCommitRowDataProps;
+  listSize: GitGraphOverlayListSize;
+  isFilterActive: boolean;
+  loadedCommitCount: number;
+  selectedCommit: Commit | null;
+  paneSplitDragArgs: GitGraphPaneSplitDragArgs;
+  columnResizeDragArgs: GitGraphColumnResizeDragArgs;
+};
 
-  useEffect(() => {
-    return () => {
-      const pendingCleanups = Array.from(activeDragCleanupsRef.current);
-      activeDragCleanupsRef.current.clear();
-      for (const cleanup of pendingCleanups) {
-        cleanup();
-      }
+type GitGraphOverlayStateSlice = {
+  rows: GitGraphRow[];
+  commits: Commit[];
+  filterText: string;
+  selectedHash: string | null;
+  allRefs: boolean;
+  repoRoot: string | null;
+  headBranch: string | null;
+};
+
+type GitGraphOverlayComputedData = {
+  dynamicRowHeight: ReturnType<typeof useDynamicRowHeight>;
+  commitRowProps: GitCommitRowDataProps;
+  selectedCommit: Commit | null;
+  isFilterActive: boolean;
+  loadedCommitCount: number;
+};
+
+function getGitGraphOverlayStateSlice(
+  graphState: GitGraphOverlayState | null,
+): GitGraphOverlayStateSlice {
+  if (!graphState) {
+    return {
+      rows: [],
+      commits: [],
+      filterText: "",
+      selectedHash: null,
+      allRefs: false,
+      repoRoot: null,
+      headBranch: null,
     };
-  }, []);
+  }
 
-  const rows = graphState?.rows ?? [];
-  const commits = graphState?.response?.commits ?? [];
-  const filterText = graphState?.filterText ?? "";
-  const commitsByHash = useMemo(() => {
-    return buildGitCommitLookupByHash(commits);
-  }, [commits]);
-  const commitSearchBlobByHash = useMemo(() => {
-    const byHash = new Map<string, string>();
-    for (const commit of commits) {
-      byHash.set(commit.hash, buildGitCommitSearchBlob(commit));
-    }
-    return byHash;
-  }, [commits]);
-  const selectedCommit = graphState?.selectedCommitHash
-    ? commitsByHash.get(graphState.selectedCommitHash) ?? null
-    : null;
-  const commitDigest = useMemo(() => {
-    return buildGitGraphCommitDigest(commits);
-  }, [commits]);
-  const dynamicRowHeightCacheKey = useMemo(() => {
-    return buildGitGraphRowHeightCacheKey({
-      commitDigest,
-      allRefs: graphState?.allRefs ?? false,
-      filterText,
-    });
-  }, [commitDigest, filterText, graphState?.allRefs]);
+  return {
+    rows: graphState.rows,
+    commits: graphState.response?.commits ?? [],
+    filterText: graphState.filterText,
+    selectedHash: graphState.selectedCommitHash,
+    allRefs: graphState.allRefs,
+    repoRoot: graphState.response?.repoRoot ?? null,
+    headBranch: graphState.response?.headBranch ?? null,
+  };
+}
+
+function useGitGraphOverlayComputedData({
+  rows,
+  commits,
+  filterText,
+  selectedHash,
+  allRefs,
+  darkMode,
+  graphColWidthPx,
+  liveGraphColWidthPx,
+}: GitGraphOverlayStateSlice & {
+  darkMode: boolean;
+  graphColWidthPx: number;
+  liveGraphColWidthPx: number | null;
+}): GitGraphOverlayComputedData {
+  const commitsByHash = useMemo(
+    () => buildGitCommitLookupByHash(commits),
+    [commits],
+  );
+  const commitSearchBlobByHash = useMemo(
+    () => buildGitGraphCommitSearchBlobByHash(commits),
+    [commits],
+  );
+  const selectedCommit = useMemo(
+    () => getSelectedGitGraphCommit(selectedHash, commitsByHash),
+    [commitsByHash, selectedHash],
+  );
+  const commitDigest = useMemo(
+    () => buildGitGraphCommitDigest(commits),
+    [commits],
+  );
+  const dynamicRowHeightCacheKey = useMemo(
+    () =>
+      buildGitGraphRowHeightCacheKey({
+        commitDigest,
+        allRefs,
+        filterText,
+      }),
+    [allRefs, commitDigest, filterText],
+  );
   const dynamicRowHeight = useDynamicRowHeight({
     defaultRowHeight: ROW_HEIGHT,
     key: dynamicRowHeightCacheKey,
   });
-
-  const filteredRows = useMemo(() => {
-    const q = filterText.trim().toLowerCase();
-    if (!q) {
-      return rows;
-    }
-    return rows.filter((row) => {
-      const blob =
-        commitSearchBlobByHash.get(row.commit.hash) ??
-        buildGitCommitSearchBlob(row.commit);
-      return blob.includes(q);
-    });
-  }, [commitSearchBlobByHash, rows, filterText]);
-  const decorationChipSummaryByHash = useMemo(() => {
-    return buildDecorationChipSummaryByHash(commits);
-  }, [commits]);
-
-  const maxLaneCount = useMemo(() => {
-    return rows.reduce(
-      (maxCount, row) => Math.max(maxCount, row.laneColorIds.length),
-      1,
-    );
-  }, [rows]);
-  const graphViewBoxWidth = useMemo(() => {
-    // Keep the SVG coordinate width synchronized with the rendered graph
-    // column width so lane geometry does not scale non-uniformly.
-    return Math.max(1, liveGraphColWidthPx ?? graphColWidthPx);
-  }, [graphColWidthPx, liveGraphColWidthPx]);
-  const laneWidth = useMemo(() => {
-    return graphViewBoxWidth / Math.max(1, maxLaneCount);
-  }, [graphViewBoxWidth, maxLaneCount]);
+  const filteredRows = useMemo(
+    () => buildFilteredGitGraphRows(rows, filterText, commitSearchBlobByHash),
+    [commitSearchBlobByHash, rows, filterText],
+  );
+  const decorationChipSummaryByHash = useMemo(
+    () => buildDecorationChipSummaryByHash(commits),
+    [commits],
+  );
+  const maxLaneCount = useMemo(
+    () => calculateGitGraphMaxLaneCount(rows),
+    [rows],
+  );
+  const graphViewBoxWidth = useMemo(
+    () => Math.max(1, liveGraphColWidthPx ?? graphColWidthPx),
+    [graphColWidthPx, liveGraphColWidthPx],
+  );
+  const laneWidth = useMemo(
+    () => graphViewBoxWidth / Math.max(1, maxLaneCount),
+    [graphViewBoxWidth, maxLaneCount],
+  );
   const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
   const commitRowProps = useMemo<GitCommitRowDataProps>(
     () => ({
       rows: filteredRows,
-      selectedHash: graphState?.selectedCommitHash ?? null,
+      selectedHash,
       palette,
       darkMode,
       graphViewBoxWidth,
@@ -616,396 +1439,176 @@ export function GitGraphOverlay({
       darkMode,
       dynamicRowHeight,
       filteredRows,
-      graphState?.selectedCommitHash,
       graphViewBoxWidth,
       laneWidth,
       palette,
+      selectedHash,
     ],
   );
+
+  return {
+    dynamicRowHeight,
+    commitRowProps,
+    selectedCommit,
+    isFilterActive: filterText.trim().length > 0,
+    loadedCommitCount: commits.length,
+  };
+}
+
+function buildGitGraphFallbackColumnWidths({
+  graphColWidthPx,
+  authorColWidthPx,
+  dateColWidthPx,
+  hashColWidthPx,
+}: {
+  graphColWidthPx: number;
+  authorColWidthPx: number;
+  dateColWidthPx: number;
+  hashColWidthPx: number;
+}): GitGraphColumnWidths {
+  return {
+    graph: graphColWidthPx,
+    author: authorColWidthPx,
+    date: dateColWidthPx,
+    hash: hashColWidthPx,
+  };
+}
+
+function useGitGraphOverlayModel(): GitGraphOverlayModel | null {
+  const graphState = useGitStore((x) => x.graph);
+  const {
+    darkMode,
+    splitPct,
+    graphColWidthPx,
+    authorColWidthPx,
+    dateColWidthPx,
+    hashColWidthPx,
+  } = useGitGraphOverlayStorage();
+
+  const listRef = useListRef(null);
+  const overlayRef = useRef<HTMLElement | null>(null);
+  const panesWrapperRef = useRef<HTMLDivElement | null>(null);
+  const commitHeaderRef = useRef<HTMLDivElement | null>(null);
+  const listWrapperRef = useRef<HTMLDivElement | null>(null);
+  const registerDragCleanup = useGitGraphDragCleanupRegistry();
+  const requestPersistIfConnected = createGitGraphPersistRequest(overlayRef);
+  const listSize = useGitGraphListSize(listWrapperRef);
+  const [liveGraphColWidthPx, setLiveGraphColWidthPx] =
+    useGitGraphLiveGraphColumnWidth(graphColWidthPx);
+  useGitGraphOverlayStyleSync({
+    overlayRef,
+    splitPct,
+    graphColWidthPx,
+    authorColWidthPx,
+    dateColWidthPx,
+    hashColWidthPx,
+  });
+  const stateSlice = getGitGraphOverlayStateSlice(graphState);
+  const { filterText, allRefs, repoRoot, headBranch } = stateSlice;
+  const {
+    dynamicRowHeight,
+    commitRowProps,
+    selectedCommit,
+    isFilterActive,
+    loadedCommitCount,
+  } = useGitGraphOverlayComputedData({
+    ...stateSlice,
+    darkMode,
+    graphColWidthPx,
+    liveGraphColWidthPx,
+  });
 
   if (!graphState) {
     return null;
   }
+  const fallbackWidths = buildGitGraphFallbackColumnWidths({
+    graphColWidthPx,
+    authorColWidthPx,
+    dateColWidthPx,
+    hashColWidthPx,
+  });
+  const paneSplitDragArgs: GitGraphPaneSplitDragArgs = {
+    overlayRef,
+    panesWrapperRef,
+    splitPct,
+    registerDragCleanup,
+    requestPersistIfConnected,
+  };
+  const columnResizeDragArgs: GitGraphColumnResizeDragArgs = {
+    overlayRef,
+    commitHeaderRef,
+    fallbackWidths,
+    registerDragCleanup,
+    requestPersistIfConnected,
+    setLiveGraphColWidthPx,
+  };
+  return {
+    graphState,
+    repoRoot,
+    headBranch,
+    filterText,
+    allRefs,
+    overlayRef,
+    panesWrapperRef,
+    commitHeaderRef,
+    listWrapperRef,
+    listRef,
+    dynamicRowHeight,
+    commitRowProps,
+    listSize,
+    isFilterActive,
+    loadedCommitCount,
+    selectedCommit,
+    paneSplitDragArgs,
+    columnResizeDragArgs,
+  };
+}
 
-  const repoRoot = graphState.response?.repoRoot ?? null;
-  const headBranch = graphState.response?.headBranch ?? null;
-
-  const isFilterActive = filterText.trim().length > 0;
-  const loadedCommitCount = commits.length;
-
-  function beginPaneSplitDrag(event: React.PointerEvent<HTMLDivElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    const wrapper = panesWrapperRef.current;
-    if (!wrapper) {
-      return;
-    }
-    const wrapperWidth = wrapper.clientWidth;
-    if (!wrapperWidth) {
-      return;
-    }
-    const handleWidth = event.currentTarget.getBoundingClientRect().width;
-    const minLeft = GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX;
-    const maxLeft = Math.max(
-      minLeft,
-      wrapperWidth - handleWidth - GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX,
-    );
-
-    if (event.detail === 2) {
-      const nextPct = clamp(DEFAULT_GIT_GRAPH_SPLIT_PCT, 0, 100);
-      overlayRef.current?.style.setProperty(
-        CSS_VAR_GIT_GRAPH_SPLIT_PCT,
-        nextPct.toString(),
-      );
-      useLocalStorage.setState({ gitGraphSplitPct: nextPct });
-      return;
-    }
-
-    const startX = event.clientX;
-    const startLeftPx = (wrapperWidth * clamp(splitPct, 0, 100)) / 100;
-    const pointerId = event.pointerId;
-    const root = overlayRef.current;
-    if (!root) {
-      return;
-    }
-
-    let rafId: number | null = null;
-    let latestPct = clamp(splitPct, 0, 100);
-    const setPct = (pct: number) => {
-      root.style.setProperty(CSS_VAR_GIT_GRAPH_SPLIT_PCT, pct.toString());
-    };
-
-    const handleMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) {
-        return;
-      }
-      const deltaX = moveEvent.clientX - startX;
-      const nextLeftPx = clamp(startLeftPx + deltaX, minLeft, maxLeft);
-      const nextPct = clamp((nextLeftPx / wrapperWidth) * 100, 0, 100);
-      latestPct = nextPct;
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-      rafId = requestAnimationFrame(() => {
-        setPct(latestPct);
-        rafId = null;
-      });
-    };
-
-    const handleUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) {
-        return;
-      }
-      const persisted = clamp(latestPct, 0, 100);
-      if (root.isConnected) {
-        setPct(persisted);
-      }
-      teardownDrag();
-      requestPersistIfConnected(() => {
-        useLocalStorage.setState({ gitGraphSplitPct: persisted });
-      });
-    };
-
-    const teardownDrag = registerDragCleanup(() => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      window.removeEventListener("pointercancel", handleUp);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-    });
-
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-    window.addEventListener("pointercancel", handleUp);
+export function GitGraphOverlay({
+  embedded = false,
+  showCloseButton = true,
+  extraHeaderActions = null,
+  leftSidebar = null,
+}: GitGraphOverlayProps) {
+  const model = useGitGraphOverlayModel();
+  if (!model) {
+    return null;
   }
+  return (
+    <GitGraphOverlayView
+      embedded={embedded}
+      showCloseButton={showCloseButton}
+      extraHeaderActions={extraHeaderActions}
+      leftSidebar={leftSidebar}
+      {...model}
+    />
+  );
+}
 
-  function beginColumnResizeDrag(
-    boundary: "graphMessage" | "messageAuthor" | "authorDate" | "dateHash",
-    event: React.PointerEvent<HTMLDivElement>,
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const root = overlayRef.current;
-    const header = commitHeaderRef.current;
-    if (!root || !header) {
-      return;
-    }
-
-    const headerStyle = window.getComputedStyle(header);
-    const paddingLeft = Number.parseFloat(headerStyle.paddingLeft) || 0;
-    const paddingRight = Number.parseFloat(headerStyle.paddingRight) || 0;
-    const gridGap = Number.parseFloat(headerStyle.columnGap) || 0;
-    const totalGapWidth = gridGap * 4;
-    const contentWidth = Math.max(
-      1,
-      header.clientWidth - paddingLeft - paddingRight - totalGapWidth,
-    );
-
-    const cssVarByKey = {
-      graph: CSS_VAR_GIT_GRAPH_COL_GRAPH,
-      author: CSS_VAR_GIT_GRAPH_COL_AUTHOR,
-      date: CSS_VAR_GIT_GRAPH_COL_DATE,
-      hash: CSS_VAR_GIT_GRAPH_COL_HASH,
-    } as const;
-    const defaultPxByKey = {
-      graph: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
-      author: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
-      date: DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
-      hash: DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
-    } as const;
-    const minPxByKey = {
-      graph: GRAPH_COL_MIN_WIDTH_PX,
-      author: AUTHOR_COL_MIN_WIDTH_PX,
-      date: DATE_COL_MIN_WIDTH_PX,
-      hash: HASH_COL_MIN_WIDTH_PX,
-    } as const;
-    const maxPxByKey = {
-      graph: GRAPH_COL_MAX_WIDTH_PX,
-      author: AUTHOR_COL_MAX_WIDTH_PX,
-      date: DATE_COL_MAX_WIDTH_PX,
-      hash: HASH_COL_MAX_WIDTH_PX,
-    } as const;
-
-    const readCssPx = (cssVar: string, fallbackPx: number): number => {
-      const raw = window.getComputedStyle(root).getPropertyValue(cssVar).trim();
-      const parsed = Number.parseFloat(raw);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        return parsed;
-      }
-      return fallbackPx;
-    };
-
-    const graphPx = readCssPx(CSS_VAR_GIT_GRAPH_COL_GRAPH, graphColWidthPx);
-    const authorPx = readCssPx(CSS_VAR_GIT_GRAPH_COL_AUTHOR, authorColWidthPx);
-    const datePx = readCssPx(CSS_VAR_GIT_GRAPH_COL_DATE, dateColWidthPx);
-    const hashPx = readCssPx(CSS_VAR_GIT_GRAPH_COL_HASH, hashColWidthPx);
-    const start = {
-      graph: graphPx,
-      author: authorPx,
-      date: datePx,
-      hash: hashPx,
-    };
-
-    const applyWidths = (next: Partial<typeof start>) => {
-      if (next.graph !== undefined) {
-        root.style.setProperty(cssVarByKey.graph, `${next.graph}px`);
-      }
-      if (next.author !== undefined) {
-        root.style.setProperty(cssVarByKey.author, `${next.author}px`);
-      }
-      if (next.date !== undefined) {
-        root.style.setProperty(cssVarByKey.date, `${next.date}px`);
-      }
-      if (next.hash !== undefined) {
-        root.style.setProperty(cssVarByKey.hash, `${next.hash}px`);
-      }
-    };
-
-    const persistWidths = (next: Partial<typeof start>) => {
-      const patch: Partial<{
-        gitGraphColWidthPx: number;
-        gitGraphAuthorWidthPx: number;
-        gitGraphDateWidthPx: number;
-        gitGraphHashWidthPx: number;
-      }> = {};
-      if (next.graph !== undefined) {
-        patch.gitGraphColWidthPx = next.graph;
-      }
-      if (next.author !== undefined) {
-        patch.gitGraphAuthorWidthPx = next.author;
-      }
-      if (next.date !== undefined) {
-        patch.gitGraphDateWidthPx = next.date;
-      }
-      if (next.hash !== undefined) {
-        patch.gitGraphHashWidthPx = next.hash;
-      }
-      if (Object.keys(patch).length > 0) {
-        useLocalStorage.setState(patch);
-      }
-    };
-
-    const clampSingleWidth = (
-      key: keyof typeof start,
-      requestedWidth: number,
-    ): number => {
-      const minPx = minPxByKey[key];
-      const maxPxConstant = maxPxByKey[key];
-      const otherSum =
-        start.graph + start.author + start.date + start.hash - start[key];
-      const maxFit = Math.max(
-        minPx,
-        contentWidth - otherSum - MESSAGE_COL_MIN_WIDTH_PX,
-      );
-      const maxPx = Math.min(maxPxConstant, maxFit);
-      return clamp(requestedWidth, minPx, maxPx);
-    };
-
-    const clampAuthorDateDelta = (delta: number): number => {
-      const lower = Math.max(
-        minPxByKey.author - start.author,
-        start.date - maxPxByKey.date,
-      );
-      const upper = Math.min(
-        maxPxByKey.author - start.author,
-        start.date - minPxByKey.date,
-      );
-      if (lower > upper) {
-        return 0;
-      }
-      return clamp(delta, lower, upper);
-    };
-
-    const clampDateHashDelta = (delta: number): number => {
-      const lower = Math.max(
-        minPxByKey.date - start.date,
-        start.hash - maxPxByKey.hash,
-      );
-      const upper = Math.min(
-        maxPxByKey.date - start.date,
-        start.hash - minPxByKey.hash,
-      );
-      if (lower > upper) {
-        return 0;
-      }
-      return clamp(delta, lower, upper);
-    };
-
-    const computeNextFromDelta = (deltaX: number): Partial<typeof start> => {
-      if (boundary === "graphMessage") {
-        return {
-          graph: clampSingleWidth("graph", start.graph + deltaX),
-        };
-      }
-      if (boundary === "messageAuthor") {
-        return {
-          author: clampSingleWidth("author", start.author - deltaX),
-        };
-      }
-      if (boundary === "authorDate") {
-        const clampedDelta = clampAuthorDateDelta(deltaX);
-        return {
-          author: start.author + clampedDelta,
-          date: start.date - clampedDelta,
-        };
-      }
-      const clampedDelta = clampDateHashDelta(deltaX);
-      return {
-        date: start.date + clampedDelta,
-        hash: start.hash - clampedDelta,
-      };
-    };
-
-    const changedKeysByBoundary = {
-      graphMessage: ["graph"],
-      messageAuthor: ["author"],
-      authorDate: ["author", "date"],
-      dateHash: ["date", "hash"],
-    } as const;
-
-    if (event.detail === 2) {
-      if (boundary === "graphMessage") {
-        const next = {
-          graph: clampSingleWidth("graph", defaultPxByKey.graph),
-        };
-        applyWidths(next);
-        setLiveGraphColWidthPx(next.graph);
-        persistWidths(next);
-      } else if (boundary === "messageAuthor") {
-        const next = {
-          author: clampSingleWidth("author", defaultPxByKey.author),
-        };
-        applyWidths(next);
-        persistWidths(next);
-      } else if (boundary === "authorDate") {
-        const targetDelta = defaultPxByKey.author - start.author;
-        const clampedDelta = clampAuthorDateDelta(targetDelta);
-        const next = {
-          author: start.author + clampedDelta,
-          date: start.date - clampedDelta,
-        };
-        applyWidths(next);
-        persistWidths(next);
-      } else {
-        const targetDelta = defaultPxByKey.date - start.date;
-        const clampedDelta = clampDateHashDelta(targetDelta);
-        const next = {
-          date: start.date + clampedDelta,
-          hash: start.hash - clampedDelta,
-        };
-        applyWidths(next);
-        persistWidths(next);
-      }
-      return;
-    }
-
-    const startX = event.clientX;
-    const pointerId = event.pointerId;
-
-    let rafId: number | null = null;
-    let latestWidths = { ...start };
-
-    const handleMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) {
-        return;
-      }
-      const deltaX = moveEvent.clientX - startX;
-      const next = computeNextFromDelta(deltaX);
-      latestWidths = { ...latestWidths, ...next };
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-      rafId = requestAnimationFrame(() => {
-        applyWidths(next);
-        if (boundary === "graphMessage" && next.graph !== undefined) {
-          setLiveGraphColWidthPx(next.graph);
-        }
-        rafId = null;
-      });
-    };
-
-    const handleUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) {
-        return;
-      }
-      const keys = changedKeysByBoundary[boundary];
-      const persisted: Partial<typeof start> = {};
-      for (const key of keys) {
-        const value = latestWidths[key];
-        const minPx = minPxByKey[key];
-        const maxPx = maxPxByKey[key];
-        persisted[key] = clamp(value, minPx, maxPx);
-      }
-      if (root.isConnected) {
-        if (boundary === "graphMessage") {
-          setLiveGraphColWidthPx(persisted.graph ?? start.graph);
-        }
-        applyWidths(persisted);
-      }
-      teardownDrag();
-      requestPersistIfConnected(() => {
-        persistWidths(persisted);
-      });
-    };
-
-    const teardownDrag = registerDragCleanup(() => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      window.removeEventListener("pointercancel", handleUp);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-    });
-
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-    window.addEventListener("pointercancel", handleUp);
-  }
-
+function GitGraphOverlayView({
+  embedded,
+  showCloseButton,
+  extraHeaderActions,
+  leftSidebar,
+  graphState,
+  repoRoot,
+  headBranch,
+  filterText,
+  allRefs,
+  overlayRef,
+  panesWrapperRef,
+  commitHeaderRef,
+  listWrapperRef,
+  listRef,
+  dynamicRowHeight,
+  commitRowProps,
+  listSize,
+  isFilterActive,
+  loadedCommitCount,
+  selectedCommit,
+  paneSplitDragArgs,
+  columnResizeDragArgs,
+}: GitGraphOverlayProps & GitGraphOverlayModel) {
   return (
     <section
       ref={overlayRef}
@@ -1016,342 +1619,538 @@ export function GitGraphOverlay({
           : "border border-setta-200 shadow-sm dark:border-setta-800"
       }`}
     >
-      <header className="flex items-center gap-2 border-b border-setta-200/80 bg-white/80 px-3 py-2 backdrop-blur dark:border-setta-800/80 dark:bg-setta-950/70">
-        <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-setta-400 dark:text-setta-500">
-            Git Graph
-          </div>
-          <div className="truncate text-xs text-setta-700 dark:text-setta-200">
-            {repoRoot ? repoRoot : "Repo unavailable"}
-            {headBranch ? ` · ${headBranch}` : ""}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {extraHeaderActions}
-          <input
-            className="w-56 rounded-md border border-setta-200 bg-white px-2 py-1 text-xs text-setta-900 placeholder:text-setta-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-50 dark:placeholder:text-setta-500"
-            placeholder="Filter commits…"
-            value={filterText}
-            onChange={(e) => setGitGraphFilterText(e.target.value)}
-          />
-          <button
-            type="button"
-            className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-            onClick={() => void toggleGitGraphAllRefs()}
-            aria-label={
-              graphState.allRefs ? "Show current branch only" : "Show all refs"
-            }
-          >
-            {graphState.allRefs ? "All refs" : "Branch"}
-          </button>
-          <button
-            type="button"
-            className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-            onClick={() => void refreshGitGraphOverlay()}
-          >
-            Refresh
-          </button>
-          {showCloseButton ? (
-            <button
-              type="button"
-              className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-              onClick={closeGitOverlay}
-            >
-              Close
-            </button>
-          ) : null}
-        </div>
-      </header>
+      <GitGraphOverlayHeader
+        repoRoot={repoRoot}
+        headBranch={headBranch}
+        filterText={filterText}
+        allRefs={allRefs}
+        extraHeaderActions={extraHeaderActions}
+        showCloseButton={showCloseButton}
+      />
 
-      {graphState.error && (
+      {graphState.error ? (
         <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
           {graphState.error}
         </div>
-      )}
+      ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1">
         {leftSidebar ? (
-          <aside
-            data-testid="git-graph-left-sidebar"
-            className="flex min-h-0 shrink-0 flex-col border-r border-setta-200 bg-setta-50/40 dark:border-setta-800 dark:bg-setta-900/30"
-            style={{ width: "clamp(15rem, 24%, 20rem)" }}
-          >
-            {leftSidebar}
-          </aside>
+          <GitGraphOverlaySidebar>{leftSidebar}</GitGraphOverlaySidebar>
         ) : null}
 
         <div ref={panesWrapperRef} className="flex min-h-0 min-w-0 flex-1">
-          <section
-            data-testid="git-graph-history-pane"
-            className="flex min-h-0 flex-col overflow-hidden"
-            style={{
-              minWidth: `${GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX}px`,
-              width: `calc(var(${CSS_VAR_GIT_GRAPH_SPLIT_PCT}, ${DEFAULT_GIT_GRAPH_SPLIT_PCT}) * 1%)`,
+          <GitGraphHistoryPane
+            graphState={graphState}
+            filteredRows={commitRowProps.rows}
+            listRef={listRef}
+            dynamicRowHeight={dynamicRowHeight}
+            commitRowProps={commitRowProps}
+            listSize={listSize}
+            listWrapperRef={listWrapperRef}
+            commitHeaderRef={commitHeaderRef}
+            isFilterActive={isFilterActive}
+            loadedCommitCount={loadedCommitCount}
+            onColumnResizePointerDown={(boundary, event) => {
+              beginGitGraphColumnResizeDrag(
+                boundary,
+                event,
+                columnResizeDragArgs,
+              );
             }}
-          >
-            <div
-              ref={commitHeaderRef}
-              className="grid gap-2 overflow-hidden border-b border-setta-200/70 bg-setta-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-800/70 dark:bg-setta-900 dark:text-setta-500"
-              style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
-            >
-              <div
-                data-testid="git-graph-header-graph"
-                className="relative min-w-0 truncate pr-2"
-              >
-                <span>Graph</span>
-                <ColumnResizeHandle
-                  dataTestId="git-graph-col-resize-graph-message"
-                  label="Resize graph and message boundary"
-                  edge="right"
-                  onPointerDown={(event) =>
-                    beginColumnResizeDrag("graphMessage", event)
-                  }
-                />
-              </div>
-              <div
-                data-testid="git-graph-header-message"
-                className="min-w-0 truncate pl-2"
-              >
-                Message
-              </div>
-              <div
-                data-testid="git-graph-header-author"
-                className="relative min-w-0 truncate pl-2"
-              >
-                <ColumnResizeHandle
-                  dataTestId="git-graph-col-resize-message-author"
-                  label="Resize message and author boundary"
-                  edge="left"
-                  onPointerDown={(event) =>
-                    beginColumnResizeDrag("messageAuthor", event)
-                  }
-                />
-                <span>Author</span>
-              </div>
-              <div
-                data-testid="git-graph-header-date"
-                className="relative min-w-0 truncate pl-2"
-              >
-                <ColumnResizeHandle
-                  dataTestId="git-graph-col-resize-author-date"
-                  label="Resize author and date boundary"
-                  edge="left"
-                  onPointerDown={(event) =>
-                    beginColumnResizeDrag("authorDate", event)
-                  }
-                />
-                <span>Date</span>
-              </div>
-              <div
-                data-testid="git-graph-header-hash"
-                className="relative min-w-0 truncate pl-2"
-              >
-                <ColumnResizeHandle
-                  dataTestId="git-graph-col-resize-date-hash"
-                  label="Resize date and hash boundary"
-                  edge="left"
-                  onPointerDown={(event) =>
-                    beginColumnResizeDrag("dateHash", event)
-                  }
-                />
-                <span>Hash</span>
-              </div>
-            </div>
-            <div
-              data-testid="git-graph-commit-list-wrapper"
-              className="min-h-0 min-w-0 flex-1 overflow-hidden"
-              ref={listWrapperRef}
-            >
-              {graphState.isLoading ? (
-                <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
-                  Loading commits…
-                </div>
-              ) : (
-                <List
-                  listRef={listRef}
-                  rowComponent={GitCommitRow}
-                  rowCount={filteredRows.length}
-                  rowHeight={dynamicRowHeight}
-                  className="nodrag"
-                  onRowsRendered={(visibleRows) => {
-                    if (
-                      graphState.isLoading ||
-                      graphState.isLoadingMore ||
-                      graphState.loadMoreError !== null ||
-                      graphState.nextOffset === null ||
-                      !graphState.hasMore ||
-                      isFilterActive
-                    ) {
-                      return;
-                    }
-                    const remaining =
-                      filteredRows.length - 1 - visibleRows.stopIndex;
-                    if (remaining <= LOAD_MORE_THRESHOLD_ROWS) {
-                      void loadMoreGitGraphCommits();
-                    }
-                  }}
-                  rowProps={commitRowProps}
-                  style={{
-                    height: listSize.height,
-                    width: listSize.width,
-                    overflowX: "hidden",
-                  }}
-                />
-              )}
-            </div>
-            {!graphState.isLoading && (
-              <div
-                data-testid="git-graph-load-more-status"
-                className="min-h-[24px] border-t border-setta-200/70 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800/70 dark:text-setta-400"
-              >
-                {graphState.loadMoreError ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate">{graphState.loadMoreError}</span>
-                    <button
-                      type="button"
-                      data-testid="git-graph-load-more-retry"
-                      className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-                      onClick={() =>
-                        void loadMoreGitGraphCommits({ force: true })
-                      }
-                    >
-                      Retry
-                    </button>
-                  </div>
-                ) : graphState.isLoadingMore ? (
-                  <span>Loading more commits…</span>
-                ) : isFilterActive ? (
-                  <span>Filtering loaded commits only.</span>
-                ) : loadedCommitCount === 0 && !graphState.error ? (
-                  <span>No commits yet on this ref.</span>
-                ) : graphState.isCapped ? (
-                  <span>
-                    Showing first {loadedCommitCount.toLocaleString()} commits
-                    (cap reached).
-                  </span>
-                ) : !graphState.hasMore && loadedCommitCount > 0 ? (
-                  <span>Start of history reached.</span>
-                ) : (
-                  <span className="opacity-0">.</span>
-                )}
-              </div>
-            )}
-          </section>
+          />
 
-          <div
-            data-testid="git-graph-pane-splitter"
-            role="separator"
-            aria-label="Resize git graph panes"
-            className="group/resize relative w-3 cursor-col-resize bg-transparent"
-            onPointerDown={beginPaneSplitDrag}
-          >
-            <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
-          </div>
+          <GitGraphPaneSplitter
+            onPointerDown={(event) => {
+              beginGitGraphPaneSplitDrag(event, paneSplitDragArgs);
+            }}
+          />
 
-          <section
-            data-testid="git-graph-diff-pane"
-            className="flex min-h-0 min-w-0 flex-1 flex-col"
-            style={{ minWidth: `${GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX}px` }}
-          >
-            <div className="border-b border-setta-200/70 px-3 py-2 dark:border-setta-800/70">
-              {selectedCommit ? (
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-setta-900 dark:text-setta-50">
-                        {selectedCommit.subject}
-                      </div>
-                      <div className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                        {selectedCommit.authorName} ·{" "}
-                        {DATE_FORMATTER.format(
-                          new Date(selectedCommit.authorTimeMs),
-                        )}{" "}
-                        · {selectedCommit.hash.slice(0, 8)}
-                      </div>
-                      {graphState.selectedCommitFilePath && (
-                        <div className="truncate font-mono text-[12px] text-setta-700 dark:text-setta-200">
-                          {graphState.selectedCommitFilePath}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-                      onClick={() => void selectGitCommit(selectedCommit.hash)}
-                    >
-                      Reload
-                    </button>
-                  </div>
-                  {selectedCommit.decorations.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedCommit.decorations.slice(0, 6).map((d) => (
-                        <span
-                          key={d}
-                          className="rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300"
-                        >
-                          {d}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-xs text-setta-500 dark:text-setta-300">
-                  Select a commit to view details.
-                </div>
-              )}
-            </div>
-
-            {selectedCommit &&
-              graphState.selectedCommitFileDiffResponse?.isTruncated && (
-                <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-                  Diff output truncated for performance.
-                </div>
-              )}
-
-            {selectedCommit &&
-              graphState.selectedCommitDetails?.isTruncated && (
-                <div
-                  data-testid="git-graph-commit-details-truncated-warning"
-                  className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
-                >
-                  Commit details were truncated. The changed-file list may be
-                  incomplete.
-                </div>
-              )}
-
-            {selectedCommit && graphState.selectedCommitFileDiffError && (
-              <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
-                {graphState.selectedCommitFileDiffError}
-              </div>
-            )}
-
-            <div className="min-h-0 flex-1 overflow-hidden">
-              {!selectedCommit ? (
-                <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
-                  Select a commit to view details.
-                </div>
-              ) : graphState.selectedCommitFileDiffIsLoading ? (
-                <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
-                  Loading file diff…
-                </div>
-              ) : graphState.selectedCommitFileDiffResponse?.diff ? (
-                <GitDiffCodeMirror
-                  value={graphState.selectedCommitFileDiffResponse.diff}
-                  filePathForLanguage={graphState.selectedCommitFilePath}
-                  height="100%"
-                  className="h-full min-h-0 w-full min-w-0 [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px] [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
-                />
-              ) : (
-                <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
-                  Select a file to view its diff.
-                </div>
-              )}
-            </div>
-          </section>
+          <GitGraphDiffPane
+            graphState={graphState}
+            selectedCommit={selectedCommit}
+          />
         </div>
       </div>
     </section>
+  );
+}
+
+function GitGraphOverlayHeader({
+  repoRoot,
+  headBranch,
+  filterText,
+  allRefs,
+  extraHeaderActions,
+  showCloseButton,
+}: {
+  repoRoot: string | null;
+  headBranch: string | null;
+  filterText: string;
+  allRefs: boolean;
+  extraHeaderActions: ReactNode;
+  showCloseButton: boolean;
+}) {
+  return (
+    <header className="flex items-center gap-2 border-b border-setta-200/80 bg-white/80 px-3 py-2 backdrop-blur dark:border-setta-800/80 dark:bg-setta-950/70">
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-setta-400 dark:text-setta-500">
+          Git Graph
+        </div>
+        <div className="truncate text-xs text-setta-700 dark:text-setta-200">
+          {repoRoot ? repoRoot : "Repo unavailable"}
+          {headBranch ? ` · ${headBranch}` : ""}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {extraHeaderActions}
+        <input
+          className="w-56 rounded-md border border-setta-200 bg-white px-2 py-1 text-xs text-setta-900 placeholder:text-setta-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-50 dark:placeholder:text-setta-500"
+          placeholder="Filter commits…"
+          value={filterText}
+          onChange={(e) => setGitGraphFilterText(e.target.value)}
+        />
+        <button
+          type="button"
+          className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+          onClick={() => void toggleGitGraphAllRefs()}
+          aria-label={allRefs ? "Show current branch only" : "Show all refs"}
+        >
+          {allRefs ? "All refs" : "Branch"}
+        </button>
+        <button
+          type="button"
+          className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+          onClick={() => void refreshGitGraphOverlay()}
+        >
+          Refresh
+        </button>
+        {showCloseButton ? (
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+            onClick={closeGitOverlay}
+          >
+            Close
+          </button>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+function GitGraphOverlaySidebar({ children }: { children: ReactNode }) {
+  return (
+    <aside
+      data-testid="git-graph-left-sidebar"
+      className="flex min-h-0 shrink-0 flex-col border-r border-setta-200 bg-setta-50/40 dark:border-setta-800 dark:bg-setta-900/30"
+      style={{ width: "clamp(15rem, 24%, 20rem)" }}
+    >
+      {children}
+    </aside>
+  );
+}
+
+function GitGraphHistoryPane({
+  graphState,
+  filteredRows,
+  listRef,
+  dynamicRowHeight,
+  commitRowProps,
+  listSize,
+  listWrapperRef,
+  commitHeaderRef,
+  isFilterActive,
+  loadedCommitCount,
+  onColumnResizePointerDown,
+}: {
+  graphState: GitGraphOverlayState;
+  filteredRows: GitGraphRow[];
+  listRef: ReturnType<typeof useListRef>;
+  dynamicRowHeight: ReturnType<typeof useDynamicRowHeight>;
+  commitRowProps: GitCommitRowDataProps;
+  listSize: GitGraphOverlayListSize;
+  listWrapperRef: RefObject<HTMLDivElement | null>;
+  commitHeaderRef: RefObject<HTMLDivElement | null>;
+  isFilterActive: boolean;
+  loadedCommitCount: number;
+  onColumnResizePointerDown: (
+    boundary: GitGraphColumnBoundary,
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => void;
+}) {
+  return (
+    <section
+      data-testid="git-graph-history-pane"
+      className="flex min-h-0 flex-col overflow-hidden"
+      style={{
+        minWidth: `${GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX}px`,
+        width: `calc(var(${CSS_VAR_GIT_GRAPH_SPLIT_PCT}, ${DEFAULT_GIT_GRAPH_SPLIT_PCT}) * 1%)`,
+      }}
+    >
+      <div
+        ref={commitHeaderRef}
+        className="grid gap-2 overflow-hidden border-b border-setta-200/70 bg-setta-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-800/70 dark:bg-setta-900 dark:text-setta-500"
+        style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
+      >
+        <div
+          data-testid="git-graph-header-graph"
+          className="relative min-w-0 truncate pr-2"
+        >
+          <span>Graph</span>
+          <ColumnResizeHandle
+            dataTestId="git-graph-col-resize-graph-message"
+            label="Resize graph and message boundary"
+            edge="right"
+            onPointerDown={(event) =>
+              onColumnResizePointerDown("graphMessage", event)
+            }
+          />
+        </div>
+        <div
+          data-testid="git-graph-header-message"
+          className="min-w-0 truncate pl-2"
+        >
+          Message
+        </div>
+        <div
+          data-testid="git-graph-header-author"
+          className="relative min-w-0 truncate pl-2"
+        >
+          <ColumnResizeHandle
+            dataTestId="git-graph-col-resize-message-author"
+            label="Resize message and author boundary"
+            edge="left"
+            onPointerDown={(event) =>
+              onColumnResizePointerDown("messageAuthor", event)
+            }
+          />
+          <span>Author</span>
+        </div>
+        <div
+          data-testid="git-graph-header-date"
+          className="relative min-w-0 truncate pl-2"
+        >
+          <ColumnResizeHandle
+            dataTestId="git-graph-col-resize-author-date"
+            label="Resize author and date boundary"
+            edge="left"
+            onPointerDown={(event) =>
+              onColumnResizePointerDown("authorDate", event)
+            }
+          />
+          <span>Date</span>
+        </div>
+        <div
+          data-testid="git-graph-header-hash"
+          className="relative min-w-0 truncate pl-2"
+        >
+          <ColumnResizeHandle
+            dataTestId="git-graph-col-resize-date-hash"
+            label="Resize date and hash boundary"
+            edge="left"
+            onPointerDown={(event) =>
+              onColumnResizePointerDown("dateHash", event)
+            }
+          />
+          <span>Hash</span>
+        </div>
+      </div>
+      <div
+        data-testid="git-graph-commit-list-wrapper"
+        className="min-h-0 min-w-0 flex-1 overflow-hidden"
+        ref={listWrapperRef}
+      >
+        {graphState.isLoading ? (
+          <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
+            Loading commits…
+          </div>
+        ) : (
+          <List
+            listRef={listRef}
+            rowComponent={GitCommitRow}
+            rowCount={filteredRows.length}
+            rowHeight={dynamicRowHeight}
+            className="nodrag"
+            onRowsRendered={(visibleRows) => {
+              if (
+                !shouldLoadMoreGitGraphCommits({
+                  graphState,
+                  filteredRowCount: filteredRows.length,
+                  stopIndex: visibleRows.stopIndex,
+                  isFilterActive,
+                })
+              ) {
+                return;
+              }
+              void loadMoreGitGraphCommits();
+            }}
+            rowProps={commitRowProps}
+            style={{
+              height: listSize.height,
+              width: listSize.width,
+              overflowX: "hidden",
+            }}
+          />
+        )}
+      </div>
+      {!graphState.isLoading && (
+        <div
+          data-testid="git-graph-load-more-status"
+          className="min-h-[24px] border-t border-setta-200/70 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800/70 dark:text-setta-400"
+        >
+          <GitGraphLoadMoreStatus
+            graphState={graphState}
+            isFilterActive={isFilterActive}
+            loadedCommitCount={loadedCommitCount}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GitGraphLoadMoreStatus({
+  graphState,
+  isFilterActive,
+  loadedCommitCount,
+}: {
+  graphState: GitGraphOverlayState;
+  isFilterActive: boolean;
+  loadedCommitCount: number;
+}) {
+  if (graphState.loadMoreError) {
+    return (
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate">{graphState.loadMoreError}</span>
+        <button
+          type="button"
+          data-testid="git-graph-load-more-retry"
+          className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+          onClick={() => void loadMoreGitGraphCommits({ force: true })}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+  if (graphState.isLoadingMore) {
+    return <span>Loading more commits…</span>;
+  }
+  if (isFilterActive) {
+    return <span>Filtering loaded commits only.</span>;
+  }
+  if (loadedCommitCount === 0 && !graphState.error) {
+    return <span>No commits yet on this ref.</span>;
+  }
+  if (graphState.isCapped) {
+    return (
+      <span>
+        Showing first {loadedCommitCount.toLocaleString()} commits (cap
+        reached).
+      </span>
+    );
+  }
+  if (!graphState.hasMore && loadedCommitCount > 0) {
+    return <span>Start of history reached.</span>;
+  }
+  return <span className="opacity-0">.</span>;
+}
+
+function GitGraphPaneSplitter({
+  onPointerDown,
+}: {
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      data-testid="git-graph-pane-splitter"
+      role="separator"
+      aria-label="Resize git graph panes"
+      className="group/resize relative w-3 cursor-col-resize bg-transparent"
+      onPointerDown={onPointerDown}
+    >
+      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
+    </div>
+  );
+}
+
+function GitGraphDiffPane({
+  graphState,
+  selectedCommit,
+}: {
+  graphState: GitGraphOverlayState;
+  selectedCommit: Commit | null;
+}) {
+  return (
+    <section
+      data-testid="git-graph-diff-pane"
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
+      style={{ minWidth: `${GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX}px` }}
+    >
+      <div className="border-b border-setta-200/70 px-3 py-2 dark:border-setta-800/70">
+        <GitGraphDiffPaneHeader
+          selectedCommit={selectedCommit}
+          selectedCommitFilePath={graphState.selectedCommitFilePath}
+        />
+      </div>
+
+      <GitGraphDiffPaneWarnings
+        graphState={graphState}
+        selectedCommit={selectedCommit}
+      />
+
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <GitGraphDiffPaneBody
+          graphState={graphState}
+          selectedCommit={selectedCommit}
+        />
+      </div>
+    </section>
+  );
+}
+
+function GitGraphDiffPaneHeader({
+  selectedCommit,
+  selectedCommitFilePath,
+}: {
+  selectedCommit: Commit | null;
+  selectedCommitFilePath: string | null;
+}) {
+  if (!selectedCommit) {
+    return (
+      <div className="text-xs text-setta-500 dark:text-setta-300">
+        Select a commit to view details.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold text-setta-900 dark:text-setta-50">
+            {selectedCommit.subject}
+          </div>
+          <div className="truncate text-[11px] text-setta-500 dark:text-setta-400">
+            {selectedCommit.authorName} ·{" "}
+            {DATE_FORMATTER.format(new Date(selectedCommit.authorTimeMs))} ·{" "}
+            {selectedCommit.hash.slice(0, 8)}
+          </div>
+          {selectedCommitFilePath ? (
+            <div className="truncate font-mono text-[12px] text-setta-700 dark:text-setta-200">
+              {selectedCommitFilePath}
+            </div>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+          onClick={() => void selectGitCommit(selectedCommit.hash)}
+        >
+          Reload
+        </button>
+      </div>
+      <GitGraphSelectedCommitDecorations
+        decorations={selectedCommit.decorations ?? []}
+      />
+    </div>
+  );
+}
+
+function GitGraphSelectedCommitDecorations({
+  decorations,
+}: {
+  decorations: readonly string[];
+}) {
+  if (decorations.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {decorations.slice(0, 6).map((decoration) => (
+        <span
+          key={decoration}
+          className="rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300"
+        >
+          {decoration}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function GitGraphDiffPaneWarnings({
+  graphState,
+  selectedCommit,
+}: {
+  graphState: GitGraphOverlayState;
+  selectedCommit: Commit | null;
+}) {
+  return (
+    <>
+      {selectedCommit &&
+      graphState.selectedCommitFileDiffResponse?.isTruncated ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+          Diff output truncated for performance.
+        </div>
+      ) : null}
+
+      {selectedCommit && graphState.selectedCommitDetails?.isTruncated ? (
+        <div
+          data-testid="git-graph-commit-details-truncated-warning"
+          className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          Commit details were truncated. The changed-file list may be
+          incomplete.
+        </div>
+      ) : null}
+
+      {selectedCommit && graphState.selectedCommitFileDiffError ? (
+        <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+          {graphState.selectedCommitFileDiffError}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function GitGraphDiffPaneBody({
+  graphState,
+  selectedCommit,
+}: {
+  graphState: GitGraphOverlayState;
+  selectedCommit: Commit | null;
+}) {
+  if (!selectedCommit) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
+        Select a commit to view details.
+      </div>
+    );
+  }
+  if (graphState.selectedCommitFileDiffIsLoading) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
+        Loading file diff…
+      </div>
+    );
+  }
+  if (graphState.selectedCommitFileDiffResponse?.diff) {
+    return (
+      <GitDiffCodeMirror
+        value={graphState.selectedCommitFileDiffResponse.diff}
+        filePathForLanguage={graphState.selectedCommitFilePath}
+        height="100%"
+        className="h-full min-h-0 w-full min-w-0 [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px] [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
+      />
+    );
+  }
+  return (
+    <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
+      Select a file to view its diff.
+    </div>
   );
 }
 
@@ -1406,7 +2205,7 @@ function GitCommitRow({
 
   const decorationSummary =
     decorationChipSummaryByHash.get(commit.hash) ??
-    summarizeDecorationChips(commit.decorations);
+    summarizeDecorationChips(commit.decorations ?? []);
   const chips = decorationSummary.chips;
   const extraChipCount = decorationSummary.extraChipCount;
 
@@ -1611,10 +2410,12 @@ function ExpandedCommitRow({
   details,
   selectedFilePath,
 }: {
-  details: GetGitCommitDetailsResponse;
+  details: CommitDetailsResponse;
   selectedFilePath: string | null;
 }) {
-  const parentsLabel = details.parents.map((p) => p.slice(0, 8)).join(" ");
+  const parents = details.parents ?? [];
+  const files = details.files ?? [];
+  const parentsLabel = parents.map((p) => p.slice(0, 8)).join(" ");
   const authorDate = DATE_FORMATTER.format(new Date(details.authorTimeMs));
   const committerDate = DATE_FORMATTER.format(
     new Date(details.committerTimeMs),
@@ -1679,11 +2480,11 @@ function ExpandedCommitRow({
             Files changed
           </div>
           <div className="text-[11px] text-setta-400 dark:text-setta-500">
-            {details.files.length}
+            {files.length}
           </div>
         </div>
 
-        {details.files.length === 0 ? (
+        {files.length === 0 ? (
           <div className="rounded-md border border-setta-200 bg-white px-2 py-2 text-[11px] text-setta-500 dark:border-setta-800 dark:bg-setta-950 dark:text-setta-400">
             None
           </div>
@@ -1692,7 +2493,7 @@ function ExpandedCommitRow({
             data-testid="git-graph-files-list"
             className="max-h-56 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
           >
-            {details.files.map((file) => (
+            {files.map((file) => (
               <li key={`${file.status}-${file.oldPath ?? ""}-${file.path}`}>
                 <CommitFileRow
                   file={file}
@@ -1711,7 +2512,7 @@ function CommitFileRow({
   file,
   isSelected,
 }: {
-  file: GitCommitChangedFile;
+  file: CommitChangedFile;
   isSelected: boolean;
 }) {
   const additions =
