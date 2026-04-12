@@ -6,18 +6,18 @@ import {
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { autoLayoutTopLevelSections } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useNodeInternals,
   useSettings,
   useShareSession,
 } from "state/definitions";
+import { route_auto_layout_top_level_sections } from "utils/generatedEndpoints";
 import { applyActiveSectionChange } from "../activeSectionController";
 import {
   debounced_route_set_top_level_section_layout,
   getCurrProjectConfigId,
 } from "../sectionInfos";
+
 export function setZIndices(
   sectionIds: Array<string>,
   incrementVersion: boolean = false,
@@ -26,13 +26,16 @@ export function setZIndices(
   const newValues = shouldNormalizeZIndices(nodeInternals, incrementVersion)
     ? normalizeNodeZIndices(nodeInternals, sectionIds)
     : raiseNodeZIndices(nodeInternals, sectionIds);
+
   if (newValues !== nodeInternals) {
     useNodeInternals.setState({ x: newValues });
   }
+
   if (incrementVersion) {
     debounced_route_set_top_level_section_layout();
   }
 }
+
 function shouldNormalizeZIndices(
   nodeInternals: typeof useNodeInternals.getState extends () => infer T
     ? T["x"]
@@ -48,6 +51,7 @@ function shouldNormalizeZIndices(
   }
   return maxZIndex > nodeInternals.size * 4;
 }
+
 function normalizeNodeZIndices(
   nodeInternals: typeof useNodeInternals.getState extends () => infer T
     ? T["x"]
@@ -57,7 +61,9 @@ function normalizeNodeZIndices(
   const excludingInputIds = Array.from(nodeInternals.values()).filter(
     (x) => !sectionIds.includes(x.id),
   );
+
   excludingInputIds.sort((a, b) => a.zIndex - b.zIndex);
+
   const newValues = _.cloneDeep(nodeInternals);
   for (let i = 0; i < excludingInputIds.length; i++) {
     const curr = newValues.get(excludingInputIds[i].id);
@@ -74,6 +80,7 @@ function normalizeNodeZIndices(
   }
   return newValues;
 }
+
 function raiseNodeZIndices(
   nodeInternals: typeof useNodeInternals.getState extends () => infer T
     ? T["x"]
@@ -84,6 +91,7 @@ function raiseNodeZIndices(
   for (const node of nodeInternals.values()) {
     maxZIndex = Math.max(maxZIndex, node.zIndex);
   }
+
   let nextZIndex = maxZIndex;
   let changed = false;
   const newValues = new Map(nodeInternals);
@@ -103,8 +111,10 @@ function raiseNodeZIndices(
     });
     changed = true;
   }
+
   return changed ? newValues : nodeInternals;
 }
+
 export function goToSection(sectionId: string) {
   const rfStore = useReactFlow.getState();
   const rect = getSectionRect(sectionId);
@@ -126,14 +136,17 @@ export function goToSection(sectionId: string) {
     0.1,
     true,
   );
+
   const duration = useSettings.getState().gui.transitionDuration;
   const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
   rfStore.d3Zoom.transform(
     getD3Transition(rfStore.d3Selection, duration),
     nextTransform,
   );
+
   applyActiveSectionChange({ interaction: "go-to", sectionId });
 }
+
 export function autoLayout() {
   const shareSession = useShareSession.getState();
   if (
@@ -142,11 +155,7 @@ export function autoLayout() {
   ) {
     return;
   }
-  callOpenAPI(
-    autoLayoutTopLevelSections({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-      },
-    } as Parameters<typeof autoLayoutTopLevelSections>[0]),
-  );
+  route_auto_layout_top_level_sections({
+    projectConfigId: getCurrProjectConfigId(),
+  });
 }

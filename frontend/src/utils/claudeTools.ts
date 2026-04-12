@@ -2,14 +2,12 @@ import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   ToolCall,
-  ToolNameNormalizationConfig,
 } from "utils/generatedTypes";
-import { normalizeGeneratedToolName } from "./bindingRuntime";
 
-export const TODO_TOOL_NAME = ToolNameNormalizationConfig.todoWriteToolName;
-export const QUESTION_TOOL_NAME =
-  ToolNameNormalizationConfig.askUserQuestionToolName;
-export const APPROVAL_TOOL_NAME = ToolNameNormalizationConfig.approvalToolName;
+export const APPROVAL_TOOL_NAME = "setta.approval";
+export const TODO_TOOL_NAME = "TodoWrite";
+export const QUESTION_TOOL_NAME = "AskUserQuestion";
+const OPENCODE_QUESTION_TOOL_NAME = "question";
 
 export type TodoStatus = "pending" | "in_progress" | "completed";
 
@@ -48,51 +46,28 @@ export type ApprovalPayload = {
   input?: unknown;
 };
 
-type ToolInteractionIndex = {
-  lastAssistantIndex: number;
-  toolResultIndexById: Map<string, number>;
-};
-
 export function normalizeToolName(
   name: string | null | undefined,
 ): string | null {
-  if (typeof name !== "string") {
+  if (!name) {
     return null;
   }
   const trimmed = name.trim();
   if (!trimmed) {
     return null;
   }
+  const hasMcpPrefix = trimmed.startsWith("mcp__");
   let normalized = trimmed;
-  const {
-    mcpPrefix,
-    singlePrefix,
-    doublePrefix,
-    askUserQuestionToolAlias,
-    askUserQuestionToolName,
-  } = ToolNameNormalizationConfig;
-  const loweredAlias = askUserQuestionToolAlias.toLowerCase();
-  if (normalized.startsWith(mcpPrefix)) {
-    normalized = normalized.slice(mcpPrefix.length);
+  if (hasMcpPrefix) {
+    normalized = trimmed.slice("mcp__".length);
   }
   if (
-    trimmed.startsWith(mcpPrefix) &&
-    normalized.toLowerCase() === loweredAlias
+    !hasMcpPrefix &&
+    normalized.toLowerCase() === OPENCODE_QUESTION_TOOL_NAME
   ) {
-    return normalized;
+    return QUESTION_TOOL_NAME;
   }
-  if (
-    !trimmed.startsWith(mcpPrefix) &&
-    normalized.toLowerCase() === loweredAlias
-  ) {
-    return askUserQuestionToolName;
-  }
-  return normalizeGeneratedToolName(
-    normalized,
-    singlePrefix,
-    doublePrefix,
-    askUserQuestionToolName,
-  );
+  return normalized;
 }
 
 export function resolveToolCallArguments(
@@ -149,13 +124,72 @@ export function parseAskUserQuestionPayload(
   if (!isRecord(value)) {
     return null;
   }
-  const questionEntries = resolveAskUserQuestionEntries(value);
+  const questionsValue = value.questions;
+  const fallbackQuestion =
+    typeof value.question === "string" ? value : undefined;
+  const questionEntries = Array.isArray(questionsValue)
+    ? questionsValue
+    : fallbackQuestion
+      ? [fallbackQuestion]
+      : null;
   if (!questionEntries) {
     return null;
   }
-  const questions = questionEntries
-    .map(parseAskUserQuestionPrompt)
-    .filter(isPresent);
+  const questions: AskUserQuestionPrompt[] = [];
+  for (const entry of questionEntries) {
+    if (!isRecord(entry)) {
+      continue;
+    }
+    const question = typeof entry.question === "string" ? entry.question : "";
+    if (!question) {
+      continue;
+    }
+    const header = typeof entry.header === "string" ? entry.header : "";
+    const multiSelect =
+      typeof entry.multiSelect === "boolean"
+        ? entry.multiSelect
+        : Boolean(entry.multiple);
+    const optionsValue = entry.options;
+    const options: AskUserQuestionOption[] = [];
+    if (Array.isArray(optionsValue)) {
+      for (const optionEntry of optionsValue) {
+        if (typeof optionEntry === "string") {
+          const label = optionEntry.trim();
+          if (label) {
+            options.push({ label });
+          }
+          continue;
+        }
+        if (!isRecord(optionEntry)) {
+          continue;
+        }
+        const label =
+          typeof optionEntry.label === "string"
+            ? optionEntry.label
+            : typeof optionEntry.value === "string"
+              ? optionEntry.value
+              : "";
+        if (!label) {
+          continue;
+        }
+        const description =
+          typeof optionEntry.description === "string"
+            ? optionEntry.description
+            : undefined;
+        const option: AskUserQuestionOption = { label };
+        if (description) {
+          option.description = description;
+        }
+        options.push(option);
+      }
+    }
+    questions.push({
+      header,
+      question,
+      multiSelect,
+      options,
+    });
+  }
   const answers = parseAnswers(value.answers);
   return {
     questions,
@@ -167,28 +201,20 @@ export function parseApprovalPayload(value: unknown): ApprovalPayload | null {
   if (!isRecord(value)) {
     return null;
   }
-  const approvalId = readOptionalString(value.approvalId);
+  const approvalId =
+    typeof value.approvalId === "string" ? value.approvalId : undefined;
   const toolName = extractToolName(value);
-  const toolType = readOptionalString(value.toolType);
+  const toolType =
+    typeof value.toolType === "string" ? value.toolType : undefined;
   const input = "input" in value ? value.input : undefined;
   const tool = "tool" in value ? value.tool : undefined;
-  const payload: ApprovalPayload = {};
-  if (approvalId) {
-    payload.approvalId = approvalId;
-  }
-  if (toolName) {
-    payload.toolName = toolName;
-  }
-  if (toolType) {
-    payload.toolType = toolType;
-  }
-  if (tool !== undefined) {
-    payload.tool = tool;
-  }
-  if (input !== undefined) {
-    payload.input = input;
-  }
-  return payload;
+  return {
+    ...(approvalId ? { approvalId } : {}),
+    ...(toolName ? { toolName } : {}),
+    ...(toolType ? { toolType } : {}),
+    ...(tool !== undefined ? { tool } : {}),
+    ...(input !== undefined ? { input } : {}),
+  };
 }
 
 export function parseAnswers(value: unknown): Record<string, string> | null {
@@ -211,81 +237,9 @@ export function hasPendingToolInteraction(
   if (messages.length === 0) {
     return false;
   }
-  const toolInteractionIndex = buildToolInteractionIndex(messages);
-  for (const message of messages) {
-    if (message.role !== ChatRoleEnum.assistant) {
-      continue;
-    }
-    for (const toolCall of message.tool_calls ?? []) {
-      if (isPendingToolInteraction(toolCall, toolInteractionIndex)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-function resolveAskUserQuestionEntries(
-  value: Record<string, unknown>,
-): Array<unknown> | null {
-  if (Array.isArray(value.questions)) {
-    return value.questions;
-  }
-  return readOptionalString(value.question) ? [value] : null;
-}
-
-function parseAskUserQuestionPrompt(
-  entry: unknown,
-): AskUserQuestionPrompt | null {
-  if (!isRecord(entry)) {
-    return null;
-  }
-  const question = readOptionalString(entry.question);
-  if (!question) {
-    return null;
-  }
-  return {
-    header: readOptionalString(entry.header) ?? "",
-    question,
-    multiSelect: readBooleanWithFallback(entry.multiSelect, entry.multiple),
-    options: parseAskUserQuestionOptions(entry.options),
-  };
-}
-
-function parseAskUserQuestionOptions(
-  value: unknown,
-): Array<AskUserQuestionOption> {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.map(parseAskUserQuestionOption).filter(isPresent);
-}
-
-function parseAskUserQuestionOption(
-  entry: unknown,
-): AskUserQuestionOption | null {
-  if (typeof entry === "string") {
-    const label = entry.trim();
-    return label ? { label } : null;
-  }
-  if (!isRecord(entry)) {
-    return null;
-  }
-  const label =
-    readOptionalString(entry.label) ?? readOptionalString(entry.value);
-  if (!label) {
-    return null;
-  }
-  const description = readOptionalString(entry.description);
-  return description ? { label, description } : { label };
-}
-
-function buildToolInteractionIndex(
-  messages: Array<BaseChatMessageUnion>,
-): ToolInteractionIndex {
-  const toolResultIndexById = new Map<string, number>();
   let lastAssistantIndex = -1;
+  const toolResultIndexById = new Map<string, number>();
+
   for (let i = 0; i < messages.length; i += 1) {
     const message = messages[i];
     if (message.role === ChatRoleEnum.assistant) {
@@ -295,39 +249,42 @@ function buildToolInteractionIndex(
       toolResultIndexById.set(message.tool_call_id, i);
     }
   }
-  return { lastAssistantIndex, toolResultIndexById };
-}
 
-function isPendingToolInteraction(
-  toolCall: ToolCall,
-  toolInteractionIndex: ToolInteractionIndex,
-): boolean {
-  if (!isToolInteractionName(normalizeToolName(toolCall.function?.name))) {
-    return false;
+  for (const message of messages) {
+    if (message.role !== ChatRoleEnum.assistant) {
+      continue;
+    }
+    const toolCalls = message.tool_calls ?? [];
+    for (const toolCall of toolCalls) {
+      const normalizedName = normalizeToolName(toolCall.function?.name);
+      if (
+        normalizedName !== QUESTION_TOOL_NAME &&
+        normalizedName !== APPROVAL_TOOL_NAME
+      ) {
+        continue;
+      }
+      const toolResultIndex = toolResultIndexById.get(toolCall.id);
+      if (toolResultIndex === undefined) {
+        return true;
+      }
+      if (toolResultIndex > lastAssistantIndex) {
+        return true;
+      }
+    }
   }
-  const toolResultIndex = toolInteractionIndex.toolResultIndexById.get(
-    toolCall.id,
-  );
-  if (toolResultIndex === undefined) {
-    return true;
-  }
-  return toolResultIndex > toolInteractionIndex.lastAssistantIndex;
-}
 
-function isToolInteractionName(value: string | null): boolean {
-  return value === QUESTION_TOOL_NAME || value === APPROVAL_TOOL_NAME;
+  return false;
 }
 
 function extractToolName(value: Record<string, unknown>): string | undefined {
-  const toolName = readOptionalString(value.toolName);
-  if (toolName) {
-    return toolName;
+  if (typeof value.toolName === "string" && value.toolName) {
+    return value.toolName;
   }
   const tool = value.tool;
-  if (!isRecord(tool)) {
-    return undefined;
+  if (isRecord(tool) && typeof tool.name === "string" && tool.name) {
+    return tool.name;
   }
-  return readOptionalString(tool.name);
+  return undefined;
 }
 
 function parseTodoStatus(value: unknown): TodoStatus | null {
@@ -366,24 +323,6 @@ function parseToolCallArguments(value: string): unknown | null {
     }
   }
   return null;
-}
-
-function readOptionalString(value: unknown): string | undefined {
-  if (typeof value !== "string" || value === "") {
-    return undefined;
-  }
-  return value;
-}
-
-function readBooleanWithFallback(primary: unknown, fallback: unknown): boolean {
-  if (typeof primary === "boolean") {
-    return primary;
-  }
-  return Boolean(fallback);
-}
-
-function isPresent<T>(value: T | null): value is T {
-  return value !== null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
