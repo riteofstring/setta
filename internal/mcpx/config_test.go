@@ -1,6 +1,7 @@
 package mcpx
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -117,5 +118,97 @@ func TestBuildSettaServerURLFormatsIPv6LiteralHosts(t *testing.T) {
 
 	if got := BuildSettaServerURL("2001:db8::1", 61234); got != "http://[2001:db8::1]:61234/mcp" {
 		t.Fatalf("expected ipv6 literal formatting, got %q", got)
+	}
+}
+
+func TestServerConfigNormalize(t *testing.T) {
+	t.Parallel()
+
+	t.Run("trims and defaults fields", func(t *testing.T) {
+		t.Parallel()
+
+		config, err := (ServerConfig{
+			Transport: TransportSSE,
+			URL:       "  http://127.0.0.1:8000/mcp  ",
+			CWD:       "  /tmp/workspace  ",
+		}).normalize("setta")
+		if err != nil {
+			t.Fatalf("normalize config: %v", err)
+		}
+		if config.URL != "http://127.0.0.1:8000/mcp" {
+			t.Fatalf("expected trimmed url, got %q", config.URL)
+		}
+		if config.CWD != "/tmp/workspace" {
+			t.Fatalf("expected trimmed cwd, got %q", config.CWD)
+		}
+		if config.Encoding != "utf-8" {
+			t.Fatalf("expected default encoding, got %q", config.Encoding)
+		}
+		if config.EncodingErrorHandler != "strict" {
+			t.Fatalf("expected default encoding handler, got %q", config.EncodingErrorHandler)
+		}
+	})
+
+	testCases := []struct {
+		name   string
+		config ServerConfig
+		target error
+	}{
+		{
+			name:   "transport required",
+			config: ServerConfig{},
+			target: ErrTransportRequired,
+		},
+		{
+			name: "http transport requires url",
+			config: ServerConfig{
+				Transport: TransportSSE,
+			},
+			target: ErrServerURLRequired,
+		},
+		{
+			name: "stdio transport requires command",
+			config: ServerConfig{
+				Transport: TransportStdio,
+			},
+			target: ErrServerCommandRequired,
+		},
+		{
+			name: "stdio transport rejects headers",
+			config: ServerConfig{
+				Transport:   TransportStdio,
+				Command:     "node",
+				HTTPHeaders: map[string]string{"Authorization": "Bearer token"},
+			},
+			target: ErrServerHTTPHeadersInvalid,
+		},
+		{
+			name: "stdio transport rejects unsupported encoding",
+			config: ServerConfig{
+				Transport: TransportStdio,
+				Command:   "node",
+				Encoding:  "utf-16",
+			},
+			target: ErrServerEncodingUnsupported,
+		},
+		{
+			name: "invalid transport keeps raw token in error",
+			config: ServerConfig{
+				Transport: " HTTPS ",
+			},
+			target: ErrTransportInvalid,
+		},
+	}
+
+	for _, tt := range testCases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := tt.config.normalize("github")
+			if !errors.Is(err, tt.target) {
+				t.Fatalf("expected %v, got %v", tt.target, err)
+			}
+		})
 	}
 }

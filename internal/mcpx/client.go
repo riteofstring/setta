@@ -575,54 +575,74 @@ func (c *Client) lookupToolLocked(name string) (ToolDescriptor, bool) {
 
 func (c *Client) resolveServerConfig(config ServerConfig) (ServerConfig, error) {
 	resolved := config
-
-	var err error
-	resolved.URL, err = c.resolvePlaceholders(resolved.URL)
-	if err != nil {
+	if err := c.resolveStringFields(
+		resolvedField{source: config.URL, target: &resolved.URL},
+		resolvedField{source: config.Command, target: &resolved.Command},
+		resolvedField{source: config.CWD, target: &resolved.CWD},
+	); err != nil {
 		return ServerConfig{}, err
 	}
-	resolved.Command, err = c.resolvePlaceholders(resolved.Command)
-	if err != nil {
-		return ServerConfig{}, err
-	}
-	resolved.CWD, err = c.resolvePlaceholders(resolved.CWD)
-	if err != nil {
-		return ServerConfig{}, err
-	}
-
-	if len(resolved.Args) > 0 {
-		resolved.Args = make([]string, 0, len(config.Args))
-		for _, value := range config.Args {
-			resolvedValue, err := c.resolvePlaceholders(value)
-			if err != nil {
-				return ServerConfig{}, err
-			}
-			resolved.Args = append(resolved.Args, resolvedValue)
+	if len(config.Args) > 0 {
+		args, err := c.resolveStringSlice(config.Args)
+		if err != nil {
+			return ServerConfig{}, err
 		}
+		resolved.Args = args
 	}
-
 	if len(config.Env) > 0 {
-		resolved.Env = make(map[string]string, len(config.Env))
-		for key, value := range config.Env {
-			resolvedValue, err := c.resolvePlaceholders(value)
-			if err != nil {
-				return ServerConfig{}, err
-			}
-			resolved.Env[key] = resolvedValue
+		env, err := c.resolveStringMap(config.Env)
+		if err != nil {
+			return ServerConfig{}, err
 		}
+		resolved.Env = env
 	}
-
 	if len(config.HTTPHeaders) > 0 {
-		resolved.HTTPHeaders = make(map[string]string, len(config.HTTPHeaders))
-		for key, value := range config.HTTPHeaders {
-			resolvedValue, err := c.resolvePlaceholders(value)
-			if err != nil {
-				return ServerConfig{}, err
-			}
-			resolved.HTTPHeaders[key] = resolvedValue
+		headers, err := c.resolveStringMap(config.HTTPHeaders)
+		if err != nil {
+			return ServerConfig{}, err
 		}
+		resolved.HTTPHeaders = headers
 	}
+	return resolved, nil
+}
 
+type resolvedField struct {
+	source string
+	target *string
+}
+
+func (c *Client) resolveStringFields(fields ...resolvedField) error {
+	for _, field := range fields {
+		resolved, err := c.resolvePlaceholders(field.source)
+		if err != nil {
+			return err
+		}
+		*field.target = resolved
+	}
+	return nil
+}
+
+func (c *Client) resolveStringSlice(values []string) ([]string, error) {
+	resolved := make([]string, 0, len(values))
+	for _, value := range values {
+		item, err := c.resolvePlaceholders(value)
+		if err != nil {
+			return nil, err
+		}
+		resolved = append(resolved, item)
+	}
+	return resolved, nil
+}
+
+func (c *Client) resolveStringMap(values map[string]string) (map[string]string, error) {
+	resolved := make(map[string]string, len(values))
+	for key, value := range values {
+		item, err := c.resolvePlaceholders(value)
+		if err != nil {
+			return nil, err
+		}
+		resolved[key] = item
+	}
 	return resolved, nil
 }
 

@@ -161,7 +161,16 @@ func normalizeServerConfigs(raw map[string]ServerConfig, opts LoadServerConfigsO
 }
 
 func (c ServerConfig) normalize(serverID string) (ServerConfig, error) {
-	normalized := ServerConfig{
+	normalized := c.trimmedCopy()
+	normalized.applyEncodingDefaults()
+	if err := validateServerTransport(serverID, normalized, c.Transport); err != nil {
+		return ServerConfig{}, err
+	}
+	return normalized, nil
+}
+
+func (c ServerConfig) trimmedCopy() ServerConfig {
+	return ServerConfig{
 		Transport:            Transport(strings.ToLower(strings.TrimSpace(string(c.Transport)))),
 		URL:                  strings.TrimSpace(c.URL),
 		Command:              strings.TrimSpace(c.Command),
@@ -172,42 +181,58 @@ func (c ServerConfig) normalize(serverID string) (ServerConfig, error) {
 		Encoding:             strings.ToLower(strings.TrimSpace(c.Encoding)),
 		EncodingErrorHandler: strings.ToLower(strings.TrimSpace(c.EncodingErrorHandler)),
 	}
+}
 
-	if normalized.Encoding == "" {
-		normalized.Encoding = "utf-8"
+func (c *ServerConfig) applyEncodingDefaults() {
+	if c.Encoding == "" {
+		c.Encoding = "utf-8"
 	}
-	if normalized.EncodingErrorHandler == "" {
-		normalized.EncodingErrorHandler = "strict"
+	if c.EncodingErrorHandler == "" {
+		c.EncodingErrorHandler = "strict"
 	}
+}
 
-	switch normalized.Transport {
+func validateServerTransport(serverID string, config ServerConfig, rawTransport Transport) error {
+	switch config.Transport {
 	case "":
-		return ServerConfig{}, fmt.Errorf("%w for server %q", ErrTransportRequired, serverID)
+		return fmt.Errorf("%w for server %q", ErrTransportRequired, serverID)
 	case TransportSSE, TransportStreamableHTTP:
-		if normalized.URL == "" {
-			return ServerConfig{}, fmt.Errorf("%w for server %q", ErrServerURLRequired, serverID)
-		}
-		if normalized.Command != "" {
-			return ServerConfig{}, fmt.Errorf("mcpx: HTTP transport cannot declare command for server %q", serverID)
-		}
+		return validateHTTPServerConfig(serverID, config)
 	case TransportStdio:
-		if normalized.Command == "" {
-			return ServerConfig{}, fmt.Errorf("%w for server %q", ErrServerCommandRequired, serverID)
-		}
-		if normalized.URL != "" {
-			return ServerConfig{}, fmt.Errorf("mcpx: stdio transport cannot declare url for server %q", serverID)
-		}
-		if len(normalized.HTTPHeaders) > 0 {
-			return ServerConfig{}, fmt.Errorf("%w for server %q", ErrServerHTTPHeadersInvalid, serverID)
-		}
-		if normalized.Encoding != "utf-8" || normalized.EncodingErrorHandler != "strict" {
-			return ServerConfig{}, fmt.Errorf("%w for server %q", ErrServerEncodingUnsupported, serverID)
-		}
+		return validateStdioServerConfig(serverID, config)
 	default:
-		return ServerConfig{}, fmt.Errorf("%w: %q", ErrTransportInvalid, c.Transport)
+		return fmt.Errorf("%w: %q", ErrTransportInvalid, rawTransport)
 	}
+}
 
-	return normalized, nil
+func validateHTTPServerConfig(serverID string, config ServerConfig) error {
+	if config.URL == "" {
+		return fmt.Errorf("%w for server %q", ErrServerURLRequired, serverID)
+	}
+	if config.Command != "" {
+		return fmt.Errorf("mcpx: HTTP transport cannot declare command for server %q", serverID)
+	}
+	return nil
+}
+
+func validateStdioServerConfig(serverID string, config ServerConfig) error {
+	if config.Command == "" {
+		return fmt.Errorf("%w for server %q", ErrServerCommandRequired, serverID)
+	}
+	if config.URL != "" {
+		return fmt.Errorf("mcpx: stdio transport cannot declare url for server %q", serverID)
+	}
+	if len(config.HTTPHeaders) > 0 {
+		return fmt.Errorf("%w for server %q", ErrServerHTTPHeadersInvalid, serverID)
+	}
+	if config.usesUnsupportedEncoding() {
+		return fmt.Errorf("%w for server %q", ErrServerEncodingUnsupported, serverID)
+	}
+	return nil
+}
+
+func (c ServerConfig) usesUnsupportedEncoding() bool {
+	return c.Encoding != "utf-8" || c.EncodingErrorHandler != "strict"
 }
 
 func cloneRuntimeStatus(status ServerRuntimeStatus) ServerRuntimeStatus {

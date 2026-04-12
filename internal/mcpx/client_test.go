@@ -470,6 +470,84 @@ func TestClientRuntimeStatusTransitionsResetFailureMetadata(t *testing.T) {
 	}
 }
 
+func TestClientResolveServerConfigResolvesAllPlaceholderFields(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(ClientOptions{
+		EnvLookup: func(key string) (string, bool) {
+			switch key {
+			case "MCP_URL":
+				return "http://127.0.0.1:9000/mcp", true
+			case "MCP_BIN":
+				return "node", true
+			case "WORKSPACE":
+				return "/tmp/workspace", true
+			case "CONFIG_FILE":
+				return "server.js", true
+			case "TOKEN":
+				return "secret-token", true
+			default:
+				return "", false
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	resolved, err := client.resolveServerConfig(ServerConfig{
+		Transport:   TransportStreamableHTTP,
+		URL:         "${MCP_URL}",
+		Command:     "${MCP_BIN}",
+		Args:        []string{"${CONFIG_FILE}", "--root=${WORKSPACE}"},
+		Env:         map[string]string{"TOKEN": "${TOKEN}"},
+		HTTPHeaders: map[string]string{"Authorization": "Bearer ${TOKEN}"},
+		CWD:         "${WORKSPACE}",
+	})
+	if err != nil {
+		t.Fatalf("resolve server config: %v", err)
+	}
+	if resolved.URL != "http://127.0.0.1:9000/mcp" {
+		t.Fatalf("expected resolved url, got %q", resolved.URL)
+	}
+	if resolved.Command != "node" {
+		t.Fatalf("expected resolved command, got %q", resolved.Command)
+	}
+	if len(resolved.Args) != 2 || resolved.Args[0] != "server.js" || resolved.Args[1] != "--root=/tmp/workspace" {
+		t.Fatalf("expected resolved args, got %#v", resolved.Args)
+	}
+	if got := resolved.Env["TOKEN"]; got != "secret-token" {
+		t.Fatalf("expected resolved env token, got %q", got)
+	}
+	if got := resolved.HTTPHeaders["Authorization"]; got != "Bearer secret-token" {
+		t.Fatalf("expected resolved auth header, got %q", got)
+	}
+	if resolved.CWD != "/tmp/workspace" {
+		t.Fatalf("expected resolved cwd, got %q", resolved.CWD)
+	}
+}
+
+func TestClientResolveServerConfigReturnsMissingEnvVar(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(ClientOptions{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = client.resolveServerConfig(ServerConfig{
+		Transport: TransportStdio,
+		Command:   "${MCP_BIN}",
+	})
+	var missing *MissingEnvVarError
+	if !errors.As(err, &missing) {
+		t.Fatalf("expected missing env var error, got %v", err)
+	}
+	if missing.VarName != "MCP_BIN" {
+		t.Fatalf("expected MCP_BIN missing var, got %q", missing.VarName)
+	}
+}
+
 func TestParseToolMetadataIncludesToolArgumentPreview(t *testing.T) {
 	t.Parallel()
 
