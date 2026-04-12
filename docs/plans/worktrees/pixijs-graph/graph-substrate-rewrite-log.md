@@ -235,6 +235,47 @@ LOOP_TERMINAL_MARKER: none
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-14 14:40 UTC | item `474` | blocked direct-child fixed-height mutation scope on canonical `rotaryParamCodeObjDefault`
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - intent:
+    - keep nested row churn from rescheduling `ParamGroupContainer` fixed-height
+      work by narrowing the fixed-height `MutationObserver` from subtree scope
+      to direct child changes only; fixed-element `ResizeObserver`s remain the
+      source of truth for actual fixed-height size changes
+  - code/test changes left uncommitted in the worktree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now observes only `{ childList: true }` for fixed-height mutations
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now verifies the fixed-height observer scope stays on direct child
+      mutations only
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+  - live verification blocker:
+    - first probe attempt on the inherited runtime:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-035/worktree-ai.log`
+      -> failed with a preflight timeout in
+         `fitGraphViewportToSection(...)`
+    - one allowed bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+    - runtime refresh after recovery:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-035/worktree-ai.log`
+      -> passed; worktree session advanced to `044d7a`
+    - retrying the same probe after recovery:
+      -> failed again with
+         `Worktree unhealthy: timed out after 5000ms while reading local pane state from in-page storage/store`
+    - CDP visual check:
+      -> not run; no trustworthy post-probe state
+  - reading:
+    - do not treat this as renderer drift; the blocker is worktree probe
+      preflight health on the fresh runtime
+    - next: inspect the repeated in-page local-pane-state / targeted-fit-view
+      preflight path before taking another broader `ParamGroupContainer` cut
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-14 14:22 UTC | item `473` | completed inactive top-level param DnD provider bypass on canonical `rotaryParamCodeObjDefault`
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:
@@ -19787,6 +19828,48 @@ LOOP_TERMINAL_MARKER: none
       `readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState(...)`
       on the recovered worktree runtime, then rerun this same live probe before
       taking another product cut
+- LOOP_TERMINAL_MARKER: none
+
+- 2026-04-14 15:00 UTC | item `475` | narrowed the live pane-state preflight blocker back to the longer perf-lane normalize path
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now reads normalized pane state from page `localStorage` first, then
+      browser-context storage snapshots, and only then the in-page zustand
+      store
+  - focused verification:
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> passed; worktree session advanced to `4278f2`
+    - refreshed session/bootstrap info:
+      `source activate.sh && env SETTA_FILES_ROOT=/home/ubuntu/dev/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /home/ubuntu/dev/setta.pixijs-graph/.`
+      -> passed; yielded fresh bootstrap tokens for reruns
+    - live lane-health probe:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --grep 'settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state' --reporter=line --timeout=180000`
+      -> passed (`1` Playwright test, `1.9m`)
+      -> lane classified `healthy`; preflight returned `ok` with canary mounted
+         and pane state `{ overviewVisible: false, overviewTrueWidth: 420,
+         snapToGrid: false, uiEditorVisible: false, uiEditorTrueWidth: 260 }`
+    - canonical live perf probe retry:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary' --reporter=line --timeout=180000`
+      -> first retry failed with
+         `Worktree unhealthy: timed out after 5000ms while reading browser storage state for persisted local pane state`
+      -> after the direct-page-localStorage read landed, the next retry moved
+         past that blocker and later timed out with
+         `browser context closed before page recovery` while
+         `normalizeSettingsGraphComparePaneState(...)` was still active
+    - fresh-context CDP check:
+      -> passed
+      -> `/settings` loaded through bootstrap into the full settings UI and the
+         graph surface mounted; no auth or obvious runtime boot blocker
+  - reading:
+    - this iteration resolved the specific repeated pane-state preflight stall
+      enough to reclassify the worktree as healthy on the canonical lane
+    - the remaining blocker on item `474` is now the longer perf-lane
+      normalize/page-lifecycle path, not the original pane-state import/read
+    - next: inspect why the perf probe loses the page/context during
+      `normalizeSettingsGraphComparePaneState(...)` on the fresh runtime before
+      taking another owner reduction
 - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-14 14:08 UTC | item `472` | completed unpinned-area attribution split and hardened probe pane-state setup

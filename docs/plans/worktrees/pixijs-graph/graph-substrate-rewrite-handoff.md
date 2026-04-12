@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 14:22 UTC
+Last updated: 2026-04-14 15:00 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,90 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `475` completed one bounded live-probe hardening pass on the canonical
+  `rotaryParamCodeObjDefault` lane so pane-state preflight can classify the
+  live worktree again without depending on the slow in-page module import:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes left uncommitted in the worktree:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now reads normalized pane state from page `localStorage` first, then
+      falls back to browser-context storage snapshots, and only then touches
+      the in-page zustand store
+  - focused verification:
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; worktree session advanced to `4278f2`
+    - refreshed bootstrap/session info:
+      `source activate.sh && env SETTA_FILES_ROOT=/home/ubuntu/dev/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /home/ubuntu/dev/setta.pixijs-graph/.`
+      -> passed; issued fresh bootstrap tokens for reruns
+    - live lane-health probe on the fresh runtime:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --grep 'settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state' --reporter=line --timeout=180000`
+      -> passed (`1` Playwright test, `1.9m`)
+      -> lane classified `healthy`; preflight returned `ok` with no issues,
+         canary mounted, and normalized pane state matched expected values
+    - canonical live perf probe retry on the same runtime:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary' --reporter=line --timeout=180000`
+      -> still failed, but the failure moved:
+         first retry timed out in `reading browser storage state for persisted local pane state`
+         after the direct-page-localStorage read landed, the next retry no
+         longer failed there and instead hit the outer test timeout with page
+         closure during `normalizeSettingsGraphComparePaneState(...)`
+    - required fresh-context CDP check:
+      -> passed
+      -> `/settings` progressed from bootstrap/loading into the full settings
+         UI with the graph surface mounted; no auth or runtime boot blocker was
+         visible in the live CDP session
+  - reading:
+    - the repeated pane-state preflight blocker is narrowed: the live worktree
+      can now reach a healthy normalized lane-health snapshot again
+    - item `474` is still not verified on the canonical perf probe; the next
+      blocker is longer-lived page/context loss during the perf-lane normalize
+      path, not the original pane-state read/import timeout
+    - next: debug why the canonical perf probe loses the page/context during
+      `normalizeSettingsGraphComparePaneState(...)` on the fresh runtime before
+      taking another product cut
+
+- item `474` is currently blocked on live verification after landing one
+  bounded broader `ParamGroupContainer` observer-scope reduction on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes left uncommitted in the worktree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now scopes the fixed-height `MutationObserver` to direct `outer` child
+      changes only; nested row churn remains covered by the existing
+      fixed-element `ResizeObserver`s and no longer reschedules fixed-height
+      work through subtree mutations
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves the fixed-height observer watches `{ childList: true }`
+      rather than subtree mutations
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+  - live verification blocker:
+    - first probe attempt on the inherited runtime:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-035/worktree-ai.log`
+      -> failed with a preflight timeout in
+         `fitGraphViewportToSection(...)`
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; runtime refreshed with
+         `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-035/worktree-ai.log`
+      -> current session advanced to `044d7a`
+    - retrying the same probe on the restarted runtime:
+      -> failed again with
+         `Worktree unhealthy: timed out after 5000ms while reading local pane state from in-page storage/store`
+    - CDP visual check:
+      -> not run; the primary live probe never reached a trustworthy post-state
+  - reading:
+    - this slice is product code, not another forwarding or oracle-only pass,
+      but it is not yet verified on the canonical lane
+    - treat the current result as `worktree_unhealthy`, not renderer drift
+    - next: debug the repeated in-page local-pane-state / targeted-fit-view
+      preflight blocker on the fresh worktree runtime before taking another
+      `ParamGroupContainer` / `ParamGroupUnpinnedParams` product cut
 
 - item `473` completed one bounded broader owner reduction on the canonical
   `rotaryParamCodeObjDefault` lane by bypassing the top-level inactive param

@@ -742,6 +742,81 @@ export function findSharedVisibleSettingsGraphSection(
 export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
+  const persistedPaneState = await runWithSettingsGraphPageLifecycleGuard(
+    page,
+    "reading persisted local pane state from page local storage",
+    () =>
+      page.evaluate(() => {
+        const persistedPaneStateRaw = window.localStorage.getItem("setta_data");
+        if (!persistedPaneStateRaw) {
+          return null;
+        }
+
+        try {
+          const parsedPersistedState = JSON.parse(persistedPaneStateRaw) as {
+            overviewTrueWidth?: unknown;
+            overviewVis?: unknown;
+            snapToGrid?: unknown;
+            state?: {
+              overviewTrueWidth?: unknown;
+              overviewVis?: unknown;
+              snapToGrid?: unknown;
+              uiEditorTrueWidth?: unknown;
+              uiEditorVis?: unknown;
+            };
+            uiEditorTrueWidth?: unknown;
+            uiEditorVis?: unknown;
+          };
+          const paneState =
+            parsedPersistedState.state &&
+            typeof parsedPersistedState.state === "object" &&
+            !Array.isArray(parsedPersistedState.state)
+              ? parsedPersistedState.state
+              : parsedPersistedState;
+          if (
+            typeof paneState.overviewVis !== "boolean" ||
+            typeof paneState.overviewTrueWidth !== "number" ||
+            typeof paneState.snapToGrid !== "boolean" ||
+            typeof paneState.uiEditorVis !== "boolean" ||
+            typeof paneState.uiEditorTrueWidth !== "number"
+          ) {
+            return null;
+          }
+
+          return {
+            overviewVisible: paneState.overviewVis,
+            overviewTrueWidth: paneState.overviewTrueWidth,
+            snapToGrid: paneState.snapToGrid,
+            uiEditorVisible: paneState.uiEditorVis,
+            uiEditorTrueWidth: paneState.uiEditorTrueWidth,
+          };
+        } catch {
+          return null;
+        }
+      }),
+    2000,
+  );
+  if (persistedPaneState) {
+    return persistedPaneState;
+  }
+
+  const pageOrigin = new URL(page.url()).origin;
+  const storageState = await runWithSettingsGraphPageLifecycleGuard(
+    page,
+    "reading browser storage state for persisted local pane state",
+    () => page.context().storageState(),
+    5000,
+  );
+  const browserContextPersistedPaneState =
+    readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
+      key: "setta_data",
+      origin: pageOrigin,
+      origins: storageState.origins,
+    });
+  if (browserContextPersistedPaneState) {
+    return browserContextPersistedPaneState;
+  }
+
   const paneStateReadResult = await runWithSettingsGraphPageLifecycleGuard(
     page,
     "reading local pane state from in-page storage/store",
@@ -790,68 +865,7 @@ export async function getLocalPaneState(
               };
             };
 
-          const readPersistedPaneState =
-            (): SettingsGraphLocalPaneState | null => {
-              const persistedPaneStateRaw =
-                window.localStorage.getItem("setta_data");
-              if (!persistedPaneStateRaw) {
-                return null;
-              }
-
-              try {
-                const parsedPersistedState = JSON.parse(
-                  persistedPaneStateRaw,
-                ) as {
-                  overviewTrueWidth?: unknown;
-                  overviewVis?: unknown;
-                  snapToGrid?: unknown;
-                  state?: {
-                    overviewTrueWidth?: unknown;
-                    overviewVis?: unknown;
-                    snapToGrid?: unknown;
-                    uiEditorTrueWidth?: unknown;
-                    uiEditorVis?: unknown;
-                  };
-                  uiEditorTrueWidth?: unknown;
-                  uiEditorVis?: unknown;
-                };
-                const persistedPaneState =
-                  parsedPersistedState.state &&
-                  typeof parsedPersistedState.state === "object" &&
-                  !Array.isArray(parsedPersistedState.state)
-                    ? parsedPersistedState.state
-                    : parsedPersistedState;
-                if (
-                  typeof persistedPaneState.overviewVis !== "boolean" ||
-                  typeof persistedPaneState.overviewTrueWidth !== "number" ||
-                  typeof persistedPaneState.snapToGrid !== "boolean" ||
-                  typeof persistedPaneState.uiEditorVis !== "boolean" ||
-                  typeof persistedPaneState.uiEditorTrueWidth !== "number"
-                ) {
-                  return null;
-                }
-
-                return {
-                  overviewVisible: persistedPaneState.overviewVis,
-                  overviewTrueWidth: persistedPaneState.overviewTrueWidth,
-                  snapToGrid: persistedPaneState.snapToGrid,
-                  uiEditorVisible: persistedPaneState.uiEditorVis,
-                  uiEditorTrueWidth: persistedPaneState.uiEditorTrueWidth,
-                };
-              } catch {
-                return null;
-              }
-            };
-
           try {
-            const persistedPaneState = readPersistedPaneState();
-            if (persistedPaneState) {
-              return {
-                kind: "success" as const,
-                paneState: persistedPaneState,
-              };
-            }
-
             return await Promise.race([
               (async () => {
                 const { useLocalStorage } = await import(
@@ -899,23 +913,6 @@ export async function getLocalPaneState(
 
   if (paneStateReadResult.kind === "success") {
     return paneStateReadResult.paneState;
-  }
-
-  const pageOrigin = new URL(page.url()).origin;
-  const storageState = await runWithSettingsGraphPageLifecycleGuard(
-    page,
-    "reading browser storage state after in-page pane state fallback",
-    () => page.context().storageState(),
-    5000,
-  );
-  const browserContextPersistedPaneState =
-    readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
-      key: "setta_data",
-      origin: pageOrigin,
-      origins: storageState.origins,
-    });
-  if (browserContextPersistedPaneState) {
-    return browserContextPersistedPaneState;
   }
 
   if (paneStateReadResult.kind === "timeout") {
