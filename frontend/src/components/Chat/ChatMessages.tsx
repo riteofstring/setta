@@ -6119,6 +6119,52 @@ type ChatMessageProps = {
   onBranchSwitch?: (nextChatId: string) => void;
 };
 
+type ResolvedChatMessageProps = ChatMessageProps & {
+  isSearchMatchActive: boolean;
+  suppressActivityThoughtScroll: boolean;
+  suppressActivitySection: boolean;
+  isEditing: boolean;
+  activityAccordionOpenByDefault: boolean;
+  activityChildrenOpenByDefault: boolean;
+  conversationSearchTerms: Array<string>;
+  canEdit: boolean;
+  editDisabledReason: string | null;
+};
+
+const EMPTY_CONVERSATION_SEARCH_TERMS: Array<string> = [];
+
+const DEFAULT_CHAT_MESSAGE_OPTIONAL_PROPS: Pick<
+  ResolvedChatMessageProps,
+  | "isSearchMatchActive"
+  | "suppressActivityThoughtScroll"
+  | "suppressActivitySection"
+  | "isEditing"
+  | "activityAccordionOpenByDefault"
+  | "activityChildrenOpenByDefault"
+  | "conversationSearchTerms"
+  | "canEdit"
+  | "editDisabledReason"
+> = {
+  isSearchMatchActive: false,
+  suppressActivityThoughtScroll: false,
+  suppressActivitySection: false,
+  isEditing: false,
+  activityAccordionOpenByDefault: false,
+  activityChildrenOpenByDefault: false,
+  conversationSearchTerms: EMPTY_CONVERSATION_SEARCH_TERMS,
+  canEdit: false,
+  editDisabledReason: null,
+};
+
+function resolveChatMessageProps(
+  props: ChatMessageProps,
+): ResolvedChatMessageProps {
+  return {
+    ...DEFAULT_CHAT_MESSAGE_OPTIONAL_PROPS,
+    ...props,
+  };
+}
+
 type ChatMessageActionBarProps = {
   message: BaseChatMessageUnion;
   toolResultsById: Record<string, ToolChatMessage>;
@@ -6822,31 +6868,32 @@ function renderResolvedChatMessage({
   );
 }
 
-const ChatMessage = memo(function ChatMessage({
-  message,
-  toolResultsById,
-  toolCallArguments,
-  isStreaming,
-  isSearchMatchActive = false,
-  suppressActivityThoughtScroll = false,
-  suppressActivitySection = false,
-  onRedoMessage,
-  attachmentUrlMap,
-  requestAttachmentUrls,
-  isEditing = false,
-  editingBubbleWidthPx,
-  interrupted,
-  activityAccordionOpenByDefault = false,
-  activityChildrenOpenByDefault = false,
-  conversationSearchTerms = [],
-  canEdit = false,
-  editDisabledReason = null,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  branchInfo,
-  onBranchSwitch,
-}: ChatMessageProps) {
+const ChatMessage = memo(function ChatMessage(props: ChatMessageProps) {
+  const {
+    message,
+    toolResultsById,
+    toolCallArguments,
+    isStreaming,
+    isSearchMatchActive,
+    suppressActivityThoughtScroll,
+    suppressActivitySection,
+    onRedoMessage,
+    attachmentUrlMap,
+    requestAttachmentUrls,
+    isEditing,
+    editingBubbleWidthPx,
+    interrupted,
+    activityAccordionOpenByDefault,
+    activityChildrenOpenByDefault,
+    conversationSearchTerms,
+    canEdit,
+    editDisabledReason,
+    onStartEdit,
+    onCancelEdit,
+    onSaveEdit,
+    branchInfo,
+    onBranchSwitch,
+  } = resolveChatMessageProps(props);
   const attachments = resolveMessageAttachments(message);
   const actionBar = useChatMessageActionBar({
     message,
@@ -7758,23 +7805,34 @@ function formatToolResult(
   return toolResult.result;
 }
 
+function formatResourceToolResultContentEntry(
+  entry: Extract<ToolResultContentEntry, { type: "resource" }>,
+): string {
+  const uri = entry.resource?.uri;
+  const mimeType = entry.resource?.mimeType;
+  if (!uri) {
+    return mimeType ? `Resource (${mimeType})` : "Resource";
+  }
+  return mimeType ? `Resource: ${uri} (${mimeType})` : `Resource: ${uri}`;
+}
+
+function formatImageToolResultContentEntry(
+  entry: Extract<ToolResultContentEntry, { type: "image" }>,
+): string {
+  return entry.mimeType ? `Image (${entry.mimeType})` : "Image";
+}
+
 function formatToolResultContentEntry(entry: ToolResultContentEntry): string {
-  if (entry.type === "text") {
-    return entry.text;
+  switch (entry.type) {
+    case "text":
+      return entry.text;
+    case "tool_reference":
+      return `Tool reference: ${entry.tool_name}`;
+    case "resource":
+      return formatResourceToolResultContentEntry(entry);
+    case "image":
+      return formatImageToolResultContentEntry(entry);
+    default:
+      return JSON.stringify(entry, null, 2);
   }
-  if (entry.type === "tool_reference") {
-    return `Tool reference: ${entry.tool_name}`;
-  }
-  if (entry.type === "resource") {
-    const label = entry.resource?.uri
-      ? `Resource: ${entry.resource.uri}`
-      : "Resource";
-    return entry.resource?.mimeType
-      ? `${label} (${entry.resource.mimeType})`
-      : label;
-  }
-  if (entry.type === "image") {
-    return entry.mimeType ? `Image (${entry.mimeType})` : "Image";
-  }
-  return JSON.stringify(entry, null, 2);
 }
