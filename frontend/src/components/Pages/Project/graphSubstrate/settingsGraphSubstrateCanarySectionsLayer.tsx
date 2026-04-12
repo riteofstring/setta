@@ -44,6 +44,14 @@ type StableSectionBodyEntry = {
   sectionBody: SettingsGraphSubstrateCanarySectionBody;
 };
 
+type StableSectionEntryElement = {
+  element: React.ReactElement;
+  isDragging: boolean;
+  section: SettingsGraphSubstrateCanarySceneSection;
+  sectionBody: SettingsGraphSubstrateCanarySectionBody;
+  shouldMountBody: boolean;
+};
+
 function doSettingsGraphSubstrateCanarySectionBodyInputsMatchSceneSection(
   sectionBody: SettingsGraphSubstrateCanarySectionBody,
   sceneSection: SettingsGraphSubstrateCanarySceneSection,
@@ -144,6 +152,10 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   const stableSectionBodiesByIdRef = useRef<
     Map<string, StableSectionBodyEntry>
   >(new Map());
+  const stableSectionEntryElementsByIdRef = useRef<
+    Map<string, StableSectionEntryElement>
+  >(new Map());
+  const stableSectionEntriesRef = useRef<Array<React.ReactElement>>([]);
   const resolvedPresentedSceneSections = useMemo(() => {
     if (presentedSceneSections) {
       return presentedSceneSections;
@@ -336,10 +348,21 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     [sectionDragController],
   );
   const sectionEntries = useMemo(() => {
+    const previousSectionEntryElementsById =
+      stableSectionEntryElementsByIdRef.current;
+    const nextSectionEntryElementsById = new Map<
+      string,
+      StableSectionEntryElement
+    >();
+    const nextSectionEntries: Array<React.ReactElement> = [];
+    let canReuseSectionEntriesArray =
+      stableSectionEntriesRef.current.length ===
+      resolvedPresentedSceneSections.length;
+
     return measureSettingsGraphSubstrateCanaryMotionAttribution(
       "presentedSceneSectionEntriesResolve",
-      () =>
-        resolvedPresentedSceneSections.map((section) => {
+      () => {
+        resolvedPresentedSceneSections.forEach((section, index) => {
           const shouldMountBody = resolvedMountedSectionBodyIds.has(
             section.sectionId,
           );
@@ -352,20 +375,58 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
             );
           }
           const sectionBody = stableSectionBodyEntry.sectionBody;
-          return (
-            <SettingsGraphSubstrateCanarySectionEntry
-              key={section.sectionId}
-              finishSectionDrag={finishSectionDrag}
-              handleSectionPointerDown={handleSectionPointerDown}
-              handleSectionPointerMove={handleSectionPointerMove}
-              isDragging={draggingSectionId === section.sectionId}
-              onHoveredSectionChange={onHoveredSectionChange}
-              section={section}
-              sectionBody={sectionBody}
-              shouldMountBody={shouldMountBody}
-            />
+          const isDragging = draggingSectionId === section.sectionId;
+          const previousSectionEntryElement =
+            previousSectionEntryElementsById.get(section.sectionId);
+          const canReuseSectionEntryElement =
+            previousSectionEntryElement !== undefined &&
+            previousSectionEntryElement.isDragging === isDragging &&
+            previousSectionEntryElement.section === section &&
+            previousSectionEntryElement.sectionBody === sectionBody &&
+            previousSectionEntryElement.shouldMountBody === shouldMountBody;
+          const nextSectionEntryElement = canReuseSectionEntryElement
+            ? previousSectionEntryElement
+            : {
+                element: (
+                  <SettingsGraphSubstrateCanarySectionEntry
+                    key={section.sectionId}
+                    finishSectionDrag={finishSectionDrag}
+                    handleSectionPointerDown={handleSectionPointerDown}
+                    handleSectionPointerMove={handleSectionPointerMove}
+                    isDragging={isDragging}
+                    onHoveredSectionChange={onHoveredSectionChange}
+                    section={section}
+                    sectionBody={sectionBody}
+                    shouldMountBody={shouldMountBody}
+                  />
+                ),
+                isDragging,
+                section,
+                sectionBody,
+                shouldMountBody,
+              };
+          nextSectionEntryElementsById.set(
+            section.sectionId,
+            nextSectionEntryElement,
           );
-        }),
+          nextSectionEntries.push(nextSectionEntryElement.element);
+          if (
+            canReuseSectionEntriesArray &&
+            stableSectionEntriesRef.current[index] !==
+              nextSectionEntryElement.element
+          ) {
+            canReuseSectionEntriesArray = false;
+          }
+        });
+
+        stableSectionEntryElementsByIdRef.current =
+          nextSectionEntryElementsById;
+        if (canReuseSectionEntriesArray) {
+          return stableSectionEntriesRef.current;
+        }
+        stableSectionEntriesRef.current = nextSectionEntries;
+        return nextSectionEntries;
+      },
     );
   }, [
     draggingSectionId,

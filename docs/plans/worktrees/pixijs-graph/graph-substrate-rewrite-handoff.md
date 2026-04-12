@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 16:31 UTC
+Last updated: 2026-04-13 16:41 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,73 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `440` landed one bounded production cut on the canonical
+  `rotaryParamCodeObjDefault` canary lane by reusing unchanged rendered section
+  entries inside `settingsGraphSubstrateCanarySectionsLayer.tsx` instead of
+  rebuilding the full entry element array on every single-section motion/state
+  update:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and did not reopen the rejected
+      body-mount isolation lane from item `439`
+    - chose one bounded product cut above that boundary by caching
+      `<SettingsGraphSubstrateCanarySectionEntry />` elements per `sectionId`
+      and reusing the ordered entry array when the section ref, body model,
+      drag state, and mount gate stayed unchanged
+    - kept the slice bounded to the section-entry assembly path, focused jsdom
+      verification, one canonical live probe rerun, one append-only perf note,
+      and the required fresh-context CDP check
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now caches stable section-entry elements and reuses the prior ordered
+      entry array when every section-level input is unchanged
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-entry-element-reuse.md`
+      records the before/after probe data for this slice
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      -> passed (`2` files, `19` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-009/worktree-ai.log`
+      -> passed (`1` Playwright test, `55.0s`)
+      -> before/after readout on the same runtime:
+         `presentedSceneSectionEntriesResolve`
+         `4.3ms total` / `0.5ms max` -> `2.5ms total` / `0.8ms max`
+         `presentedSceneSectionSubtreeReactRender`
+         `820.2ms total` / `216.9ms max` -> `818.2ms total` / `197.8ms max`
+         `averageFrameDurationMs`
+         `39.14` -> `37.50`
+         `maxFrameDurationMs`
+         `350.10` -> `316.60`
+         `longTaskTotalDurationMs`
+         `1030` -> `1016`
+    - fresh-context CDP checks via sub-agents:
+      -> both reached `settings` / `All Settings`, but the live CDP route did
+         not produce a trustworthy canary surface
+      -> first check reported the graph body stayed blank after one `fit view`
+         attempt and could not visually confirm `rotaryParamCodeObjDefault`
+      -> second check found `All Settings` but no mounted graph-substrate
+         canary and no target section DOM node
+      -> console noise stayed limited to expected favicon/auth, React Router,
+         and a11y warnings; no new runtime JS errors
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - keep this section-entry reuse change; the deterministic canary lane
+      improved modestly and the focused suites stayed green
+    - treat the CDP result as an untrustworthy live visual gate on this
+      runtime, not as renderer drift evidence yet, because the canonical
+      Playwright probe on the same worktree still passed immediately before the
+      CDP retries
+  - next default frontier:
+    - start the next iteration by rechecking live CDP/canary health on the
+      canonical lane before taking another subtree reduction
+    - if the live visual gate becomes trustworthy again, keep working above the
+      body-mount boundary on the remaining
+      `presentedSceneSectionSubtreeReactRender` owner
+    - if CDP still cannot mount the canary while the deterministic probe stays
+      green, keep the visual gate deferred and move to the next bounded product
+      cut instead of spending a third pass on this same smoke path
 
 - item `439` closed one bounded product hypothesis on the canonical
   `rotaryParamCodeObjDefault` canary lane by testing, then reverting, a

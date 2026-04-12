@@ -18114,3 +18114,66 @@ LOOP_TERMINAL_MARKER: none
   - the next cut should stay above the body-mount boundary and target the
     remaining `presentedSceneSectionSubtreeReactRender` owner
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 16:41 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
+- selected one bounded canonical-lane subtask:
+  reuse unchanged rendered section entries in
+  `settingsGraphSubstrateCanarySectionsLayer.tsx` so the canary stops
+  rebuilding the full section-entry element array when only one section's
+  motion/state changes
+- baseline on the current runtime before editing:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-009/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.4m`)
+    -> baseline readout:
+       `presentedSceneSectionEntriesResolve`
+       `4.3ms total` / `0.5ms max`
+       `presentedSceneSectionSubtreeReactRender`
+       `820.2ms total` / `216.9ms max`
+       `averageFrameDurationMs 39.14`, `maxFrameDurationMs 350.10`,
+       `longTaskTotalDurationMs 1030`
+- landed the product change in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`:
+  - cached `<SettingsGraphSubstrateCanarySectionEntry />` elements by
+    `sectionId`
+  - reused the previous element when section ref, cached body model, drag
+    state, and body-mount gate were unchanged
+  - reused the full ordered entry array when every entry in the pass was
+    unchanged
+- append-only perf note added:
+  - `perf/reports/frontend/2026-04-13_settings-graph-section-entry-element-reuse.md`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    -> passed (`2` files, `19` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    -> passed
+  - canonical live rerun:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-009/worktree-ai.log`
+    -> passed (`1` Playwright test, `55.0s`)
+    -> after readout:
+       `presentedSceneSectionEntriesResolve`
+       `2.5ms total` / `0.8ms max`
+       `presentedSceneSectionSubtreeReactRender`
+       `818.2ms total` / `197.8ms max`
+       `averageFrameDurationMs 37.50`, `maxFrameDurationMs 316.60`,
+       `longTaskTotalDurationMs 1016`
+- fresh-context CDP verification via sub-agents:
+  - first sub-agent reached `settings` / `All Settings`, but after one bounded
+    `fit view` attempt the viewport still appeared blank and it could not
+    visually confirm `rotaryParamCodeObjDefault`
+  - second fresh sub-agent also reached `All Settings` but reported no mounted
+    graph substrate canary and no target section DOM node for
+    `39fc96e4-39a3-4e7b-a1f6-34ffc310e889`
+  - both checks only saw expected favicon/auth, React Router, and a11y warning
+    noise; no new runtime JS errors
+- interpretation:
+  - keep this product change; the deterministic canonical lane improved and the
+    focused suites stayed green
+  - treat the CDP result as `deferred_visual_gate` on this runtime rather than
+    fresh renderer drift evidence, because the same worktree immediately passed
+    the canonical Playwright probe before the CDP retries
+  - the next cut should stay above the body-mount boundary on the remaining
+    `presentedSceneSectionSubtreeReactRender` owner once the live CDP gate is
+    trustworthy again or explicitly deferred
+- LOOP_TERMINAL_MARKER: none
