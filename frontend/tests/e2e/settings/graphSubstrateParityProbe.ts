@@ -96,12 +96,16 @@ export type SettingsGraphMotionPerfCapture = {
   averageFrameDurationMs: number;
   dominantCanaryMotionAttributionOwner: SettingsGraphSubstrateCanaryMotionAttributionOwner | null;
   editableControlCount: number;
+  endedVisible: boolean;
+  focusLossCount: number;
+  hiddenDurationMs: number;
   longTaskCount: number;
   longTaskMaxDurationMs: number;
   longTaskTotalDurationMs: number;
   maxFrameDurationMs: number;
   measurementWindowMs: number;
   motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution | null;
+  pageHiddenDuringCapture: boolean;
   rootDomNodeCount: number;
   sampleCount: number;
   sectionDomNodeCount: number | null;
@@ -110,6 +114,7 @@ export type SettingsGraphMotionPerfCapture = {
   slowFramesOver50Ms: number;
   surfaceKind: SettingsGraphSurfaceKind | null;
   transform: SettingsGraphViewportTransform | null;
+  visibilityLossCount: number;
   visibleSectionCount: number;
 };
 
@@ -147,11 +152,18 @@ const LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR = ".react-flow__viewport";
 type SettingsGraphMotionPerfCaptureState = {
   canaryMotionAttributionBaseline: SettingsGraphSubstrateCanaryMotionAttribution | null;
   frameDurations: Array<number>;
+  focusLossCount: number;
+  hiddenDurationMs: number;
+  hiddenStartTimestamp: number | null;
   lastFrameTimestamp: number | null;
   longTaskDurations: Array<number>;
   observer: PerformanceObserver | null;
+  onBlur: (() => void) | null;
+  onVisibilityChange: (() => void) | null;
+  pageHiddenDuringCapture: boolean;
   rafHandle: number;
   startTimestamp: number;
+  visibilityLossCount: number;
 };
 
 export async function readSettingsGraphCanaryInstrumentationSnapshot(
@@ -805,11 +817,19 @@ export async function startSettingsGraphMotionPerfCapture(
         ? cloneMotionAttribution(existingSnapshot.motionAttribution)
         : null,
       frameDurations: [],
+      focusLossCount: 0,
+      hiddenDurationMs: 0,
+      hiddenStartTimestamp:
+        document.visibilityState === "hidden" ? performance.now() : null,
       lastFrameTimestamp: null,
       longTaskDurations: [],
       observer: null,
+      onBlur: null,
+      onVisibilityChange: null,
+      pageHiddenDuringCapture: document.visibilityState === "hidden",
       rafHandle: 0,
       startTimestamp: performance.now(),
+      visibilityLossCount: document.visibilityState === "hidden" ? 1 : 0,
     };
     if (existingSnapshot) {
       existingSnapshot.motionAttributionActive = true;
@@ -834,6 +854,29 @@ export async function startSettingsGraphMotionPerfCapture(
       });
       capture.observer.observe({ entryTypes: ["longtask"] });
     }
+
+    capture.onBlur = () => {
+      capture.focusLossCount += 1;
+    };
+    capture.onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        capture.pageHiddenDuringCapture = true;
+        capture.visibilityLossCount += 1;
+        if (capture.hiddenStartTimestamp === null) {
+          capture.hiddenStartTimestamp = performance.now();
+        }
+        return;
+      }
+
+      if (capture.hiddenStartTimestamp !== null) {
+        capture.hiddenDurationMs +=
+          performance.now() - capture.hiddenStartTimestamp;
+        capture.hiddenStartTimestamp = null;
+      }
+    };
+
+    window.addEventListener("blur", capture.onBlur);
+    document.addEventListener("visibilitychange", capture.onVisibilityChange);
 
     capture.rafHandle = window.requestAnimationFrame(onFrame);
     windowRef.__settaSettingsGraphMotionPerfCapture = capture;
@@ -944,6 +987,20 @@ export async function stopSettingsGraphMotionPerfCapture(
 
       cancelAnimationFrame(capture.rafHandle);
       capture.observer?.disconnect();
+      if (capture.onBlur) {
+        window.removeEventListener("blur", capture.onBlur);
+      }
+      if (capture.onVisibilityChange) {
+        document.removeEventListener(
+          "visibilitychange",
+          capture.onVisibilityChange,
+        );
+      }
+      if (capture.hiddenStartTimestamp !== null) {
+        capture.hiddenDurationMs +=
+          performance.now() - capture.hiddenStartTimestamp;
+        capture.hiddenStartTimestamp = null;
+      }
       delete windowRef.__settaSettingsGraphMotionPerfCapture;
 
       const canaryInstrumentation =
@@ -1095,11 +1152,14 @@ export async function stopSettingsGraphMotionPerfCapture(
             ? frameDurationTotal / frameDurations.length
             : 0,
         dominantCanaryMotionAttributionOwner,
+        endedVisible: document.visibilityState === "visible",
         editableControlCount: root
           ? root.querySelectorAll(
               'input, textarea, select, [contenteditable="true"]',
             ).length
           : 0,
+        focusLossCount: capture.focusLossCount,
+        hiddenDurationMs: capture.hiddenDurationMs,
         longTaskCount: longTaskDurations.length,
         longTaskMaxDurationMs,
         longTaskTotalDurationMs,
@@ -1107,6 +1167,7 @@ export async function stopSettingsGraphMotionPerfCapture(
           frameDurations.length > 0 ? Math.max(...frameDurations) : 0,
         measurementWindowMs: performance.now() - capture.startTimestamp,
         motionAttribution,
+        pageHiddenDuringCapture: capture.pageHiddenDuringCapture,
         rootDomNodeCount: root ? root.querySelectorAll("*").length + 1 : 0,
         sampleCount: frameDurations.length,
         sectionDomNodeCount: section
@@ -1122,6 +1183,7 @@ export async function stopSettingsGraphMotionPerfCapture(
           .length,
         surfaceKind,
         transform,
+        visibilityLossCount: capture.visibilityLossCount,
         visibleSectionCount:
           root && sectionSelector
             ? root.querySelectorAll(sectionSelector).length

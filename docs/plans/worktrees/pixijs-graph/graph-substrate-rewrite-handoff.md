@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 14:33 UTC
+Last updated: 2026-04-12 14:42 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,51 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `315` landed one bounded capture-health normalization slice on the
+    canonical `rotaryParamCodeObjDefault` lane so the main-reference motion
+    probe can separate hidden-tab throttling from real perf regressions:
+    - no product renderer code changed on this pass
+    - extended `SettingsGraphMotionPerfCapture` in
+      `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` with:
+      - `pageHiddenDuringCapture`
+      - `visibilityLossCount`
+      - `hiddenDurationMs`
+      - `focusLossCount`
+      - `endedVisible`
+    - the shared capture now tracks `blur` / `visibilitychange` during the
+      measurement window and cleans those listeners up on stop
+    - updated the canonical probe assertions in
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so capture-health drift fails before the frame-budget assertions
+    - recorded the bounded result in
+      `perf/reports/frontend/2026-04-12_settings-graph-motion-perf-capture-health-normalization.md`
+    - focused verification:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+        -> passed
+      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-004/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-004/main-ai.log`
+        -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
+        `/usr/bin/google-chrome`, advanced through both reference and
+        worktree motion-capture phases, and printed clean capture-health
+        metrics on both sides:
+        - reference: `pageHiddenDuringCapture=false`,
+          `visibilityLossCount=0`, `hiddenDurationMs=0`,
+          `focusLossCount=0`, `endedVisible=true`
+        - worktree: `pageHiddenDuringCapture=false`,
+          `visibilityLossCount=0`, `hiddenDurationMs=0`,
+          `focusLossCount=0`, `endedVisible=true`
+        -> legacy reference now averaged `39.01ms` and no longer failed first
+        -> the canonical lane still failed on the real worktree canary
+          threshold:
+          `expect(worktreeResult.perf.averageFrameDurationMs).toBeLessThan(40)`
+          because worktree averaged `52.71ms` with max `499.9ms`
+    - reading:
+      - the previous `295.17ms` legacy-reference result is not explained by
+        hidden-tab or focus-loss throttling on the fresh `run-004` runtime
+      - the read-only `main` bootstrap blocker is still closed and the
+        reference side is currently back under the average threshold
+      - the active frontier has moved again: the next bounded product slice
+        should target real worktree canary motion cost on this lane rather
+        than more probe-health normalization
   - item `314` landed one bounded probe-bootstrap unblocker on the canonical
     `rotaryParamCodeObjDefault` lane instead of repeating another support-only
     rerun against the same `reference: open settings` timeout:

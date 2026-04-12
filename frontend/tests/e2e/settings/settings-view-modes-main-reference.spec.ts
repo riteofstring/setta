@@ -12639,6 +12639,16 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     expect(worktreeResult.perf.surfaceKind).toBe("canary");
     expect(referenceResult.perf.sampleCount).toBeGreaterThanOrEqual(20);
     expect(worktreeResult.perf.sampleCount).toBeGreaterThanOrEqual(20);
+    expect(referenceResult.perf.pageHiddenDuringCapture).toBe(false);
+    expect(worktreeResult.perf.pageHiddenDuringCapture).toBe(false);
+    expect(referenceResult.perf.visibilityLossCount).toBe(0);
+    expect(worktreeResult.perf.visibilityLossCount).toBe(0);
+    expect(referenceResult.perf.hiddenDurationMs).toBe(0);
+    expect(worktreeResult.perf.hiddenDurationMs).toBe(0);
+    expect(referenceResult.perf.focusLossCount).toBe(0);
+    expect(worktreeResult.perf.focusLossCount).toBe(0);
+    expect(referenceResult.perf.endedVisible).toBe(true);
+    expect(worktreeResult.perf.endedVisible).toBe(true);
     expect(referenceResult.perf.motionAttribution).toBeNull();
     expect(worktreeResult.perf.motionAttribution).not.toBeNull();
     const allowedResidualCanaryMotionOwners = [

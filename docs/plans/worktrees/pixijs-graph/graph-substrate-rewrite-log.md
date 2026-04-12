@@ -12192,3 +12192,60 @@ LOOP_TERMINAL_MARKER: none
     get a usable CDP session, escalate to tooling replan instead of spending
     another recovery-only iteration
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-12 14:42 UTC - Ralph item 315
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded blocker-resolution subtask forced by item `314`: add one
+  capture-health normalization seam to the canonical main-reference motion
+  probe so hidden-tab throttling can be ruled in or out before another
+  renderer hypothesis.
+- Landed:
+  - no product renderer code changed on this pass
+  - extended `SettingsGraphMotionPerfCapture` in
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` with:
+    - `pageHiddenDuringCapture`
+    - `visibilityLossCount`
+    - `hiddenDurationMs`
+    - `focusLossCount`
+    - `endedVisible`
+  - the shared motion-perf capture now listens for `blur` and
+    `visibilitychange`, records any hidden overlap with the capture window, and
+    removes those listeners on stop
+  - updated the canonical probe assertions in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so capture-health drift fails before the frame-budget assertions
+  - recorded the bounded result in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-motion-perf-capture-health-normalization.md`
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - passed
+  - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-004/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-004/main-ai.log`
+    - resolved fresh worktree `3075/8075`, main `3087/8087`, and
+      `/usr/bin/google-chrome`
+    - advanced through both reference and worktree motion-capture phases on
+      the canonical lane
+    - printed clean capture-health metrics on both sides:
+      - reference: `pageHiddenDuringCapture=false`,
+        `visibilityLossCount=0`, `hiddenDurationMs=0`, `focusLossCount=0`,
+        `endedVisible=true`
+      - worktree: `pageHiddenDuringCapture=false`,
+        `visibilityLossCount=0`, `hiddenDurationMs=0`, `focusLossCount=0`,
+        `endedVisible=true`
+    - measured perf payload:
+      - legacy reference: average `39.01ms`, max `250ms`, `44` samples,
+        `16` long tasks totaling `1222ms`
+      - worktree canary: average `52.71ms`, max `499.9ms`, `43` samples,
+        `7` long tasks totaling `1481ms`
+    - failed on the existing canary perf assertion:
+      - `expect(worktreeResult.perf.averageFrameDurationMs).toBeLessThan(40)`
+- Result:
+  - the previously suspicious `295.17ms` legacy-reference reading is not
+    explained by hidden-tab or focus-loss throttling on the fresh `run-004`
+    runtime pair
+  - the read-only `main` bootstrap blocker remains closed and the reference
+    side is back under the average threshold on this fresh pass
+  - the active measured blocker is now the worktree canary itself on the
+    canonical lane, so the next bounded slice should target product-side canary
+    motion cost rather than more probe-health normalization
+- LOOP_TERMINAL_MARKER: none
