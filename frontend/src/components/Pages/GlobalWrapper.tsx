@@ -216,12 +216,36 @@ type LoadingScreenProps = {
   settingsLoaded: boolean;
 };
 
-function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
+type LoadingScreenViewModel = {
+  errorMessage: string | null | undefined;
+  history: NonNullable<BackendInitStatusResponse["events"]>;
+  statusLines: string[];
+};
+
+function buildLoadingScreenViewModel(
+  initStatus: BackendInitStatusResponse | null,
+  settingsLoaded: boolean,
+): LoadingScreenViewModel {
   const events = initStatus?.events ?? [];
-  const lastEvent = events.length > 0 ? events[events.length - 1] : undefined;
-  const backendMessage = lastEvent?.message ?? "Starting backend services";
-  const errorMessage = initStatus?.error;
-  const history = useMemo(() => events.slice(-3).reverse(), [events]);
+  const lastEvent = events.at(-1);
+  const statusLines = [
+    `Backend: ${lastEvent?.message ?? "Starting backend services"}`,
+  ];
+  if (!settingsLoaded) {
+    statusLines.unshift("Loading settings…");
+  }
+  return {
+    errorMessage: initStatus?.error,
+    history: events.slice(-3).reverse(),
+    statusLines,
+  };
+}
+
+function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
+  const { errorMessage, history, statusLines } = useMemo(
+    () => buildLoadingScreenViewModel(initStatus, settingsLoaded),
+    [initStatus, settingsLoaded],
+  );
 
   return (
     <section className="flex flex-col items-center justify-center gap-4 text-setta-600 dark:text-setta-100">
@@ -230,8 +254,9 @@ function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
         Preparing setta
       </div>
       <div className="space-y-1 text-center text-xs text-setta-500 dark:text-setta-200">
-        {!settingsLoaded && <p>Loading settings…</p>}
-        <p>Backend: {backendMessage}</p>
+        {statusLines.map((line) => (
+          <p key={line}>{line}</p>
+        ))}
       </div>
       {errorMessage && (
         <p className="text-xs text-red-500">Backend error: {errorMessage}</p>

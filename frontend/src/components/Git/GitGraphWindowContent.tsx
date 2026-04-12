@@ -12,6 +12,11 @@ type GitGraphWindowContentProps = {
   onEmbeddedGitPaneVisibleChange?: (visible: boolean) => void;
 };
 
+type EmbeddedGitPaneVisibility = {
+  isControlled: boolean;
+  isVisible: boolean;
+};
+
 function resolveEmbeddedGitPaneKey(
   projectConfigId: string,
   instanceId: string | null,
@@ -53,6 +58,70 @@ function toggleStoredEmbeddedGitPane(embeddedGitPaneKey: string): void {
   });
 }
 
+function resolveEmbeddedGitPaneVisibility({
+  embeddedGitPaneVisible,
+  onEmbeddedGitPaneVisibleChange,
+  storedEmbeddedGitPaneVisible,
+}: {
+  embeddedGitPaneVisible: boolean | undefined;
+  onEmbeddedGitPaneVisibleChange: ((visible: boolean) => void) | undefined;
+  storedEmbeddedGitPaneVisible: boolean;
+}): EmbeddedGitPaneVisibility {
+  const isControlled =
+    embeddedGitPaneVisible !== undefined &&
+    onEmbeddedGitPaneVisibleChange !== undefined;
+  return {
+    isControlled,
+    isVisible: embeddedGitPaneVisible ?? storedEmbeddedGitPaneVisible,
+  };
+}
+
+function toggleEmbeddedGitPaneVisibility({
+  embeddedGitPaneKey,
+  visibility,
+  onEmbeddedGitPaneVisibleChange,
+}: {
+  embeddedGitPaneKey: string | null;
+  visibility: EmbeddedGitPaneVisibility;
+  onEmbeddedGitPaneVisibleChange: ((visible: boolean) => void) | undefined;
+}): void {
+  if (visibility.isControlled) {
+    onEmbeddedGitPaneVisibleChange?.(!visibility.isVisible);
+    return;
+  }
+  if (embeddedGitPaneKey) {
+    toggleStoredEmbeddedGitPane(embeddedGitPaneKey);
+  }
+}
+
+function EmbeddedGitPaneToggleButton({
+  isVisible,
+  onToggle,
+}: {
+  isVisible: boolean;
+  onToggle: () => void;
+}) {
+  const accessibilityLabel = isVisible
+    ? "Hide git pane sidebar"
+    : "Show git pane sidebar";
+  const buttonClasses = isVisible
+    ? "bg-setta-100 text-setta-900 dark:bg-setta-800 dark:text-setta-50"
+    : "text-setta-600 hover:bg-setta-100 hover:text-setta-900 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50";
+
+  return (
+    <button
+      type="button"
+      data-testid="git-graph-toggle-embedded-git-pane"
+      aria-label={accessibilityLabel}
+      aria-pressed={isVisible}
+      className={`rounded-md px-2 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 ${buttonClasses}`}
+      onClick={onToggle}
+    >
+      Git pane
+    </button>
+  );
+}
+
 export function GitGraphWindowContent({
   instanceId = null,
   showEmbeddedGitPaneToggle = false,
@@ -75,51 +144,35 @@ export function GitGraphWindowContent({
       embeddedGitPaneKey,
     ),
   );
-  const isControlledEmbeddedGitPane =
-    embeddedGitPaneVisible !== undefined &&
-    onEmbeddedGitPaneVisibleChange !== undefined;
-  const isEmbeddedGitPaneVisible =
-    embeddedGitPaneVisible ?? storedEmbeddedGitPaneVisible;
-
-  function toggleEmbeddedGitPane(): void {
-    if (!embeddedGitPaneKey) {
-      return;
-    }
-    if (isControlledEmbeddedGitPane) {
-      onEmbeddedGitPaneVisibleChange?.(!isEmbeddedGitPaneVisible);
-      return;
-    }
-    toggleStoredEmbeddedGitPane(embeddedGitPaneKey);
-  }
+  const embeddedGitPaneVisibility = resolveEmbeddedGitPaneVisibility({
+    embeddedGitPaneVisible,
+    onEmbeddedGitPaneVisibleChange,
+    storedEmbeddedGitPaneVisible,
+  });
+  const shouldShowEmbeddedGitPaneToggle =
+    showEmbeddedGitPaneToggle && Boolean(instanceId);
+  const handleEmbeddedGitPaneToggle = () => {
+    toggleEmbeddedGitPaneVisibility({
+      embeddedGitPaneKey,
+      visibility: embeddedGitPaneVisibility,
+      onEmbeddedGitPaneVisibleChange,
+    });
+  };
 
   return (
     <GitGraphOverlay
       embedded
       showCloseButton={false}
       extraHeaderActions={
-        showEmbeddedGitPaneToggle && instanceId ? (
-          <button
-            type="button"
-            data-testid="git-graph-toggle-embedded-git-pane"
-            aria-label={
-              isEmbeddedGitPaneVisible
-                ? "Hide git pane sidebar"
-                : "Show git pane sidebar"
-            }
-            aria-pressed={isEmbeddedGitPaneVisible}
-            className={`rounded-md px-2 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 ${
-              isEmbeddedGitPaneVisible
-                ? "bg-setta-100 text-setta-900 dark:bg-setta-800 dark:text-setta-50"
-                : "text-setta-600 hover:bg-setta-100 hover:text-setta-900 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-            }`}
-            onClick={toggleEmbeddedGitPane}
-          >
-            Git pane
-          </button>
+        shouldShowEmbeddedGitPaneToggle ? (
+          <EmbeddedGitPaneToggleButton
+            isVisible={embeddedGitPaneVisibility.isVisible}
+            onToggle={handleEmbeddedGitPaneToggle}
+          />
         ) : null
       }
       leftSidebar={
-        isEmbeddedGitPaneVisible ? (
+        embeddedGitPaneVisibility.isVisible ? (
           <div className="min-h-0 flex-1 p-3">
             <GitPane showGraphButton={false} />
           </div>

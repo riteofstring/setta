@@ -177,28 +177,36 @@ function resolveStandaloneDocumentTitle(
   if (!projectConfigName) {
     return "setta.dev";
   }
-  if (target.kind === "project_chat") {
+  const targetTitle = resolveStandaloneTargetTitle(
+    target,
+    projectChatThreadTitle,
+  );
+  if (targetTitle === null) {
     return `${projectConfigName} Chat`;
   }
-  if (target.kind === "project_chat_thread") {
-    if (projectChatThreadTitle) {
-      return `${projectConfigName} · ${projectChatThreadTitle}`;
-    }
-    return `${projectConfigName} Chat`;
+  return `${projectConfigName} · ${targetTitle}`;
+}
+
+function resolveStandaloneTargetTitle(
+  target: StandaloneSurfaceTarget,
+  projectChatThreadTitle: string | null,
+): string | null {
+  switch (target.kind) {
+    case "project_chat":
+      return null;
+    case "project_chat_thread":
+      return projectChatThreadTitle ?? "Chat";
+    case "project_chat_thread_not_found":
+      return "Thread Not Found";
+    case "section":
+      return target.sectionName;
+    case "window_space":
+      return target.windowSpaceName;
+    case "window_space_not_found":
+      return "Window Space Not Found";
+    case "section_not_found":
+      return "Section Not Found";
   }
-  if (target.kind === "project_chat_thread_not_found") {
-    return `${projectConfigName} · Thread Not Found`;
-  }
-  if (target.kind === "section") {
-    return `${projectConfigName} · ${target.sectionName}`;
-  }
-  if (target.kind === "window_space") {
-    return `${projectConfigName} · ${target.windowSpaceName}`;
-  }
-  if (target.kind === "window_space_not_found") {
-    return `${projectConfigName} · Window Space Not Found`;
-  }
-  return `${projectConfigName} · Section Not Found`;
 }
 
 function normalizeStandaloneSurfaceErrorCode(
