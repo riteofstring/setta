@@ -668,6 +668,49 @@ func TestRuntimeMoveSectionsMoveToPaneAssignsFreshMonotonicZIndices(t *testing.T
 	}
 }
 
+func TestRuntimeMoveSectionsMoveToPaneKeepsExistingTopLevelZIndex(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": sectionStructureSelectionTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.MoveSections(
+		context.Background(),
+		"project-alpha",
+		MoveSectionsInput{
+			SectionIDs: []string{"beta-section"},
+			PositionsByID: map[string]Position{
+				"beta-section": {X: 150, Y: 90},
+			},
+		},
+		DefaultStructuralMutationSettings(),
+	); err != nil {
+		t.Fatalf("move beta-section within pane: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	layout, ok := project.TopLevelSections["beta-section"]
+	if !ok {
+		t.Fatalf("expected beta-section layout after pane move, got %#v", project.TopLevelSections)
+	}
+	if layout.X != 150 || layout.Y != 90 || layout.ZIndex != 2 {
+		t.Fatalf("expected beta-section layout {150 90 2}, got %#v", layout)
+	}
+}
+
 func TestRuntimeMoveSectionsRejectsDescendantParent(t *testing.T) {
 	t.Parallel()
 

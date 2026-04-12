@@ -242,42 +242,76 @@ func (p *Project) moveSectionsToPane(sectionIDs []string, positionsByID map[stri
 
 	nextZIndex := p.nextCreateTopLevelSectionZIndex()
 	for _, sectionID := range sectionIDs {
-		position, ok := positionsByID[sectionID]
-		if !ok {
-			return fmt.Errorf("%w: section=%q", ErrMoveSectionsPositionMissing, sectionID)
-		}
-		if !isFinitePosition(position) {
-			return fmt.Errorf("%w: section=%q", ErrMoveSectionsPositionInvalid, sectionID)
-		}
-
-		section, _, _, err := p.ResolveSection(sectionID)
+		position, err := validateMoveSectionsPanePosition(sectionID, positionsByID)
 		if err != nil {
 			return err
 		}
-
-		wasTopLevel := strings.TrimSpace(section.ParentSectionID) == ""
-		if !wasTopLevel {
-			if err := p.removeChildFromParent(section.ParentSectionID, sectionID); err != nil {
-				return err
-			}
-		}
-		if err := p.setSectionParent(sectionID, ""); err != nil {
+		nextZIndex, err = p.moveSectionToPane(sectionID, position, nextZIndex)
+		if err != nil {
 			return err
 		}
-
-		layout, ok := p.existingTopLevelSectionLayout(sectionID)
-		if !ok {
-			layout = TopLevelSectionLayout{ZIndex: nextZIndex}
-			nextZIndex += 1
-		} else if !wasTopLevel {
-			layout.ZIndex = nextZIndex
-			nextZIndex += 1
-		}
-		layout.X = position.X
-		layout.Y = position.Y
-		p.addTopLevelSectionViewState(sectionID, layout)
 	}
 	return nil
+}
+
+func validateMoveSectionsPanePosition(sectionID string, positionsByID map[string]Position) (Position, error) {
+	position, ok := positionsByID[sectionID]
+	if !ok {
+		return Position{}, fmt.Errorf("%w: section=%q", ErrMoveSectionsPositionMissing, sectionID)
+	}
+	if !isFinitePosition(position) {
+		return Position{}, fmt.Errorf("%w: section=%q", ErrMoveSectionsPositionInvalid, sectionID)
+	}
+	return position, nil
+}
+
+func (p *Project) moveSectionToPane(sectionID string, position Position, nextZIndex int) (int, error) {
+	section, _, _, err := p.ResolveSection(sectionID)
+	if err != nil {
+		return nextZIndex, err
+	}
+
+	wasTopLevel, err := p.detachSectionForPaneMove(section)
+	if err != nil {
+		return nextZIndex, err
+	}
+
+	layout, nextZIndex := p.layoutForPaneMove(sectionID, position, wasTopLevel, nextZIndex)
+	p.addTopLevelSectionViewState(sectionID, layout)
+	return nextZIndex, nil
+}
+
+func (p *Project) detachSectionForPaneMove(section Section) (bool, error) {
+	wasTopLevel := strings.TrimSpace(section.ParentSectionID) == ""
+	if !wasTopLevel {
+		if err := p.removeChildFromParent(section.ParentSectionID, section.ID); err != nil {
+			return false, err
+		}
+	}
+	if err := p.setSectionParent(section.ID, ""); err != nil {
+		return false, err
+	}
+	return wasTopLevel, nil
+}
+
+func (p *Project) layoutForPaneMove(
+	sectionID string,
+	position Position,
+	wasTopLevel bool,
+	nextZIndex int,
+) (TopLevelSectionLayout, int) {
+	layout, ok := p.existingTopLevelSectionLayout(sectionID)
+	switch {
+	case !ok:
+		layout = TopLevelSectionLayout{ZIndex: nextZIndex}
+		nextZIndex += 1
+	case !wasTopLevel:
+		layout.ZIndex = nextZIndex
+		nextZIndex += 1
+	}
+	layout.X = position.X
+	layout.Y = position.Y
+	return layout, nextZIndex
 }
 
 func (p *Project) moveSectionsToParent(
