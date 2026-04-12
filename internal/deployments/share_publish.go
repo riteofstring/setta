@@ -335,54 +335,110 @@ func (p *SharePublisher) rewriteProjectForDeployment(
 	pathMaps publishPathMaps,
 ) (map[string]map[string]any, error) {
 	structuredDataPayloads := map[string]map[string]any{}
-	seenVariants := map[string]struct{}{}
-
 	if err := p.rewriteProjectGeneratedCodeBinding(project, deploymentRoot, pathMaps.code); err != nil {
 		return nil, err
 	}
 
+	seenVariants := map[string]struct{}{}
+	for _, target := range orderedProjectSectionVariants(project) {
+		if !markProjectVariantSeen(seenVariants, target.variantID) {
+			continue
+		}
+
+		relativePath, sourcePayload, err := p.rewriteProjectVariantForDeployment(
+			project,
+			target.sectionID,
+			target.variantID,
+			deploymentRoot,
+			pathMaps,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if relativePath == "" {
+			continue
+		}
+		structuredDataPayloads[relativePath] = mergeJSONObject(structuredDataPayloads[relativePath], sourcePayload)
+	}
+
+	return structuredDataPayloads, nil
+}
+
+type projectSectionVariantTarget struct {
+	sectionID string
+	variantID string
+}
+
+func orderedProjectSectionVariants(project *projectstate.Project) []projectSectionVariantTarget {
 	sectionIDs := make([]string, 0, len(project.Sections))
 	for sectionID := range project.Sections {
 		sectionIDs = append(sectionIDs, sectionID)
 	}
 	sort.Strings(sectionIDs)
 
+	targets := make([]projectSectionVariantTarget, 0, len(sectionIDs))
 	for _, sectionID := range sectionIDs {
-		section := project.Sections[sectionID]
-		for _, variantID := range section.VariantIDs {
-			if _, ok := seenVariants[variantID]; ok {
-				continue
-			}
-			seenVariants[variantID] = struct{}{}
-
-			payload, err := project.EffectiveSectionPayload(sectionID, variantID)
-			if err != nil {
-				return nil, err
-			}
-			if err := p.rewriteSectionPayload(project, sectionID, variantID, payload, deploymentRoot, pathMaps); err != nil {
-				return nil, err
-			}
-
-			if stringField(payload, "type") != "Dict" || !boolField(payload, "isJsonSource") {
-				continue
-			}
-
-			variant := project.SectionVariants[variantID]
-			if strings.TrimSpace(variant.Name) == "" {
-				continue
-			}
-			sourcePayload, err := buildJSONSourcePayload(*project, payload)
-			if err != nil {
-				return nil, err
-			}
-			structuredDataPayloads[filepath.ToSlash(variant.Name)] = mergeJSONObject(
-				structuredDataPayloads[filepath.ToSlash(variant.Name)],
-				sourcePayload,
-			)
+		for _, variantID := range project.Sections[sectionID].VariantIDs {
+			targets = append(targets, projectSectionVariantTarget{
+				sectionID: sectionID,
+				variantID: variantID,
+			})
 		}
 	}
+	return targets
+}
 
-	return structuredDataPayloads, nil
+func markProjectVariantSeen(seenVariants map[string]struct{}, variantID string) bool {
+	if _, ok := seenVariants[variantID]; ok {
+		return false
+	}
+	seenVariants[variantID] = struct{}{}
+	return true
+}
+
+func (p *SharePublisher) rewriteProjectVariantForDeployment(
+	project *projectstate.Project,
+	sectionID string,
+	variantID string,
+	deploymentRoot string,
+	pathMaps publishPathMaps,
+) (string, map[string]any, error) {
+	payload, err := project.EffectiveSectionPayload(sectionID, variantID)
+	if err != nil {
+		return "", nil, err
+	}
+	if err := p.rewriteSectionPayload(project, sectionID, variantID, payload, deploymentRoot, pathMaps); err != nil {
+		return "", nil, err
+	}
+	return p.buildStructuredDataPayloadForVariant(project, variantID, payload)
+}
+
+func (p *SharePublisher) buildStructuredDataPayloadForVariant(
+	project *projectstate.Project,
+	variantID string,
+	payload map[string]any,
+) (string, map[string]any, error) {
+	if stringField(payload, "type") != "Dict" || !boolField(payload, "isJsonSource") {
+		return "", nil, nil
+	}
+
+	relativePath := structuredDataVariantPath(*project, variantID)
+	if relativePath == "" {
+		return "", nil, nil
+	}
+	sourcePayload, err := buildJSONSourcePayload(*project, payload)
+	if err != nil {
+		return "", nil, err
+	}
+	return relativePath, sourcePayload, nil
+}
+
+func structuredDataVariantPath(project projectstate.Project, variantID string) string {
+	variant := project.SectionVariants[variantID]
+	if strings.TrimSpace(variant.Name) == "" {
+		return ""
+	}
+	return filepath.ToSlash(variant.Name)
 }
 
 func (p *SharePublisher) rewriteSectionPayload(
@@ -776,61 +832,140 @@ func rawAttachmentList(value any) []any {
 }
 
 func (p *SharePublisher) rewriteDrawLayers(payload map[string]any, deploymentRoot string, pathMap map[string]string) ([]any, bool, error) {
-	rawLayers, ok := payload["layers"]
+	layers, ok := rawDrawLayerList(payload["layers"])
 	if !ok {
 		return nil, false, nil
 	}
-	layers, ok := rawLayers.([]any)
+
+	return p.rewriteDrawLayerList(layers, deploymentRoot, pathMap)
+}
+
+func rawDrawLayerList(value any) ([]any, bool) {
+	layers, ok := value.([]any)
+	return layers, ok
+}
+
+func (p *SharePublisher) rewriteDrawLayerList(
+	layers []any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) ([]any, bool, error) {
+	changed := false
+	updatedLayers := make([]any, len(layers))
+	for layerIndex, rawLayer := range layers {
+		updatedLayer, layerChanged, err := p.rewriteDrawLayer(rawLayer, deploymentRoot, pathMap)
+		if err != nil {
+			return nil, false, err
+		}
+		updatedLayers[layerIndex] = updatedLayer
+		if layerChanged {
+			changed = true
+		}
+	}
+
+	return updatedLayers, changed, nil
+}
+
+func (p *SharePublisher) rewriteDrawLayer(
+	rawLayer any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) (any, bool, error) {
+	layerObject, ok := rawLayer.(map[string]any)
+	if !ok {
+		return rawLayer, false, nil
+	}
+
+	nextLayer := cloneJSONObject(layerObject)
+	updatedElements, changed, err := p.rewriteDrawElements(nextLayer["elements"], deploymentRoot, pathMap)
+	if err != nil {
+		return nil, false, err
+	}
+	if updatedElements != nil {
+		nextLayer["elements"] = updatedElements
+	}
+	return nextLayer, changed, nil
+}
+
+func (p *SharePublisher) rewriteDrawElements(
+	rawElements any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) ([]any, bool, error) {
+	elements, ok := rawElements.([]any)
 	if !ok {
 		return nil, false, nil
 	}
 
 	changed := false
-	updatedLayers := make([]any, len(layers))
-	for layerIndex, rawLayer := range layers {
-		layerObject, ok := rawLayer.(map[string]any)
-		if !ok {
-			updatedLayers[layerIndex] = rawLayer
-			continue
+	updatedElements := make([]any, len(elements))
+	for elementIndex, rawElement := range elements {
+		updatedElement, elementChanged, err := p.rewriteDrawElement(rawElement, deploymentRoot, pathMap)
+		if err != nil {
+			return nil, false, err
 		}
-		nextLayer := cloneJSONObject(layerObject)
-		rawElements, ok := nextLayer["elements"].([]any)
-		if !ok {
-			updatedLayers[layerIndex] = nextLayer
-			continue
+		updatedElements[elementIndex] = updatedElement
+		if elementChanged {
+			changed = true
 		}
+	}
+	return updatedElements, changed, nil
+}
 
-		updatedElements := make([]any, len(rawElements))
-		for elementIndex, rawElement := range rawElements {
-			elementObject, ok := rawElement.(map[string]any)
-			if !ok {
-				updatedElements[elementIndex] = rawElement
-				continue
-			}
-			nextElement := cloneJSONObject(elementObject)
-			if dataPath := stringField(nextElement, "dataPath"); dataPath != "" {
-				rebased, err := p.copyArtifactPath(dataPath, deploymentRoot, pathMap)
-				if err != nil {
-					return nil, false, err
-				}
-				nextElement["dataPath"] = rebased
-				changed = true
-			}
-			if transformID := stringField(nextElement, "transformId"); transformID != "" {
-				rebased, err := p.copyArtifactPath(transformID, deploymentRoot, pathMap)
-				if err != nil {
-					return nil, false, err
-				}
-				nextElement["transformId"] = rebased
-				changed = true
-			}
-			updatedElements[elementIndex] = nextElement
-		}
-		nextLayer["elements"] = updatedElements
-		updatedLayers[layerIndex] = nextLayer
+func (p *SharePublisher) rewriteDrawElement(
+	rawElement any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) (any, bool, error) {
+	elementObject, ok := rawElement.(map[string]any)
+	if !ok {
+		return rawElement, false, nil
 	}
 
-	return updatedLayers, changed, nil
+	nextElement := cloneJSONObject(elementObject)
+	changed, err := p.rewriteArtifactObjectFields(nextElement, deploymentRoot, pathMap, "dataPath", "transformId")
+	if err != nil {
+		return nil, false, err
+	}
+	return nextElement, changed, nil
+}
+
+func (p *SharePublisher) rewriteArtifactObjectFields(
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+	fieldNames ...string,
+) (bool, error) {
+	changed := false
+	for _, fieldName := range fieldNames {
+		fieldChanged, err := p.rewriteArtifactObjectField(payload, fieldName, deploymentRoot, pathMap)
+		if err != nil {
+			return false, err
+		}
+		if fieldChanged {
+			changed = true
+		}
+	}
+	return changed, nil
+}
+
+func (p *SharePublisher) rewriteArtifactObjectField(
+	payload map[string]any,
+	fieldName string,
+	deploymentRoot string,
+	pathMap map[string]string,
+) (bool, error) {
+	sourcePath := stringField(payload, fieldName)
+	if sourcePath == "" {
+		return false, nil
+	}
+
+	rebased, err := p.copyArtifactPath(sourcePath, deploymentRoot, pathMap)
+	if err != nil {
+		return false, err
+	}
+	payload[fieldName] = rebased
+	return true, nil
 }
 
 func buildJSONSourcePayload(project projectstate.Project, sectionPayload map[string]any) (map[string]any, error) {

@@ -816,6 +816,55 @@ func TestOpenFailsClosedWhenEnabledDeploymentListenerEntrypointMissing(t *testin
 	}
 }
 
+func TestResolveDeploymentListenerLauncherPathUsesExplicitEnv(t *testing.T) {
+	launcherPath := filepath.Join(t.TempDir(), "deployment_listener_process.py")
+	writeTextFile(t, launcherPath, "print('listener')\n")
+	t.Setenv(deploymentListenerLauncherEnv, launcherPath)
+
+	resolved, err := resolveDeploymentListenerLauncherPath()
+	if err != nil {
+		t.Fatalf("resolve deployment listener launcher from env: %v", err)
+	}
+	assertSameResolvedPath(t, launcherPath, resolved)
+}
+
+func TestResolveDeploymentListenerLauncherPathSearchesWorkingDirectoryAncestors(t *testing.T) {
+	root := t.TempDir()
+	launcherPath := deploymentListenerLauncherPath(root)
+	writeTextFile(t, launcherPath, "print('listener')\n")
+	nestedDir := filepath.Join(root, "tmp", "nested", "workspace")
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("mkdir nested workspace: %v", err)
+	}
+	t.Setenv(deploymentListenerLauncherEnv, "")
+
+	withWorkingDirectory(t, nestedDir, func() {
+		resolved, err := resolveDeploymentListenerLauncherPath()
+		if err != nil {
+			t.Fatalf("resolve deployment listener launcher from ancestors: %v", err)
+		}
+		assertSameResolvedPath(t, launcherPath, resolved)
+	})
+}
+
+func TestResolveDeploymentListenerLauncherPathFallsBackToRepoRoot(t *testing.T) {
+	t.Setenv(deploymentListenerLauncherEnv, "")
+
+	_, file, _, ok := goruntime.Caller(0)
+	if !ok {
+		t.Fatal("resolve deployment runtime test file")
+	}
+	expected := deploymentListenerLauncherPath(filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..")))
+
+	withWorkingDirectory(t, t.TempDir(), func() {
+		resolved, err := resolveDeploymentListenerLauncherPath()
+		if err != nil {
+			t.Fatalf("resolve deployment listener launcher from repo root: %v", err)
+		}
+		assertSameResolvedPath(t, expected, resolved)
+	})
+}
+
 func TestRuntimeEnsureListenerForSessionRequiresSessionID(t *testing.T) {
 	t.Parallel()
 
@@ -1038,6 +1087,45 @@ func deploymentTestPython(t *testing.T) string {
 
 	t.Fatalf("python interpreter not found under %s/.venv", repoRoot)
 	return ""
+}
+
+func assertSameResolvedPath(t *testing.T, expected string, actual string) {
+	t.Helper()
+
+	expectedResolved := resolveTestPath(t, expected)
+	actualResolved := resolveTestPath(t, actual)
+	if expectedResolved != actualResolved {
+		t.Fatalf("expected resolved path %q, got %q (raw expected=%q actual=%q)", expectedResolved, actualResolved, expected, actual)
+	}
+}
+
+func resolveTestPath(t *testing.T, path string) string {
+	t.Helper()
+
+	resolved, err := filepath.EvalSymlinks(path)
+	if err == nil {
+		return filepath.Clean(resolved)
+	}
+	return filepath.Clean(path)
+}
+
+func withWorkingDirectory(t *testing.T, dir string, fn func()) {
+	t.Helper()
+
+	original, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working directory: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("change working directory to %s: %v", dir, err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(original); err != nil {
+			t.Fatalf("restore working directory to %s: %v", original, err)
+		}
+	})
+
+	fn()
 }
 
 func singleProjectDocument(projectID string, name string) projectstate.Document {

@@ -100,35 +100,73 @@ func newDeploymentListenerRuntime(deploymentRoot string, runtimeRoot string, opt
 }
 
 func resolveDeploymentListenerLauncherPath() (string, error) {
-	if explicit := strings.TrimSpace(os.Getenv(deploymentListenerLauncherEnv)); explicit != "" {
-		if info, err := os.Stat(explicit); err == nil && !info.IsDir() {
-			return explicit, nil
-		}
-		return "", fmt.Errorf("%w: %s", ErrDeploymentListenerLauncherUnavailable, explicit)
+	if explicit, ok, err := resolveExplicitDeploymentListenerLauncherPath(); ok || err != nil {
+		return explicit, err
 	}
 
-	if cwd, err := os.Getwd(); err == nil {
-		for current := cwd; ; current = filepath.Dir(current) {
-			candidate := filepath.Join(current, "backend", "setta", "share", "deployment_listener_process.py")
-			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-				return candidate, nil
-			}
-			parent := filepath.Dir(current)
-			if parent == current {
-				break
-			}
-		}
+	if launcherPath, ok := findDeploymentListenerLauncherFromWorkingDirectory(); ok {
+		return launcherPath, nil
 	}
 
-	if _, file, _, ok := goruntime.Caller(0); ok {
-		repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-		candidate := filepath.Join(repoRoot, "backend", "setta", "share", "deployment_listener_process.py")
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return candidate, nil
-		}
+	if launcherPath, ok := findDeploymentListenerLauncherFromCaller(); ok {
+		return launcherPath, nil
 	}
 
 	return "", ErrDeploymentListenerLauncherUnavailable
+}
+
+func resolveExplicitDeploymentListenerLauncherPath() (string, bool, error) {
+	explicit := strings.TrimSpace(os.Getenv(deploymentListenerLauncherEnv))
+	if explicit == "" {
+		return "", false, nil
+	}
+
+	if launcherPath, ok := existingDeploymentListenerLauncherPath(explicit); ok {
+		return launcherPath, true, nil
+	}
+	return "", true, fmt.Errorf("%w: %s", ErrDeploymentListenerLauncherUnavailable, explicit)
+}
+
+func findDeploymentListenerLauncherFromWorkingDirectory() (string, bool) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", false
+	}
+	return findDeploymentListenerLauncherInAncestors(cwd)
+}
+
+func findDeploymentListenerLauncherInAncestors(start string) (string, bool) {
+	for current := start; ; current = filepath.Dir(current) {
+		if launcherPath, ok := existingDeploymentListenerLauncherPath(deploymentListenerLauncherPath(current)); ok {
+			return launcherPath, true
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", false
+		}
+	}
+}
+
+func findDeploymentListenerLauncherFromCaller() (string, bool) {
+	_, file, _, ok := goruntime.Caller(0)
+	if !ok {
+		return "", false
+	}
+
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	return existingDeploymentListenerLauncherPath(deploymentListenerLauncherPath(repoRoot))
+}
+
+func deploymentListenerLauncherPath(root string) string {
+	return filepath.Join(root, "backend", "setta", "share", "deployment_listener_process.py")
+}
+
+func existingDeploymentListenerLauncherPath(candidate string) (string, bool) {
+	info, err := os.Stat(candidate)
+	if err != nil || info.IsDir() {
+		return "", false
+	}
+	return candidate, true
 }
 
 func normalizeDeploymentListenerHost(host string) string {
