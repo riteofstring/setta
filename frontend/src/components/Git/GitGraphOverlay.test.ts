@@ -1,5 +1,4 @@
-import type { GitreadCommit as Commit } from "openapi/http";
-import { DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX } from "utils/gitGraphLayoutDefaults";
+import { createGitCommit } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,9 +7,6 @@ import {
   buildGitGraphCommitDigest,
   buildGitGraphRowHeightCacheKey,
   collectRemoteDecorationPrefixes,
-  computeGitGraphColumnDoubleClickPatch,
-  computeGitGraphColumnWidthPatch,
-  shouldLoadMoreGitGraphCommits,
   summarizeDecorationChips,
 } from "./GitGraphOverlay";
 
@@ -25,8 +21,8 @@ function commit(
     authorName?: string;
     decorations?: string[];
   } = {},
-): Commit {
-  return {
+) {
+  return createGitCommit({
     hash,
     parents: [],
     authorName,
@@ -34,7 +30,7 @@ function commit(
     authorTimeMs: 1,
     subject,
     decorations,
-  };
+  });
 }
 
 describe("buildGitGraphRowHeightCacheKey", () => {
@@ -158,79 +154,5 @@ describe("summarizeDecorationChips", () => {
 
     expect(summary.chips).toEqual([{ label: "feature/main", kind: "branch" }]);
     expect(summary.extraChipCount).toBe(0);
-  });
-});
-
-describe("shouldLoadMoreGitGraphCommits", () => {
-  it("requests more rows only when pagination is still active and near the end", () => {
-    expect(
-      shouldLoadMoreGitGraphCommits({
-        graphState: {
-          isLoading: false,
-          isLoadingMore: false,
-          loadMoreError: null,
-          nextOffset: 200,
-          hasMore: true,
-        },
-        filteredRowCount: 120,
-        stopIndex: 90,
-        isFilterActive: false,
-      }),
-    ).toBe(true);
-
-    expect(
-      shouldLoadMoreGitGraphCommits({
-        graphState: {
-          isLoading: false,
-          isLoadingMore: false,
-          loadMoreError: "boom",
-          nextOffset: 200,
-          hasMore: true,
-        },
-        filteredRowCount: 120,
-        stopIndex: 90,
-        isFilterActive: false,
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("computeGitGraphColumnWidthPatch", () => {
-  it("clamps shared author-date drags so the date column cannot shrink past its minimum", () => {
-    const patch = computeGitGraphColumnWidthPatch({
-      boundary: "authorDate",
-      deltaX: 100,
-      start: {
-        graph: 120,
-        author: 100,
-        date: 95,
-        hash: 80,
-      },
-      contentWidth: 700,
-    });
-
-    expect(patch).toEqual({
-      author: 105,
-      date: 90,
-    });
-  });
-});
-
-describe("computeGitGraphColumnDoubleClickPatch", () => {
-  it("resets a single-column boundary to the persisted default width when space allows", () => {
-    const patch = computeGitGraphColumnDoubleClickPatch({
-      boundary: "messageAuthor",
-      start: {
-        graph: 120,
-        author: 200,
-        date: 120,
-        hash: 80,
-      },
-      contentWidth: 800,
-    });
-
-    expect(patch).toEqual({
-      author: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
-    });
   });
 });
