@@ -2196,4 +2196,115 @@ describe("processProjectStateUpdateFromBackend", () => {
       isEqualSpy.mockRestore();
     }
   });
+
+  it("drops stale pending viewport persistence when the backend authoritatively clears the viewport during a view-mode switch", () => {
+    const sectionId = "section-1";
+    const initialViewModeId = "view-initial";
+    const nextViewModeId = "view-next";
+    const staleViewport = { x: 320, y: -180, zoom: 1.75 };
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+
+    const initialProjectConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: { [sectionId]: { ...layout } },
+      viewModes: {
+        [initialViewModeId]: {
+          id: initialViewModeId,
+          name: "Initial View",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: { [sectionId]: true },
+          viewport: staleViewport,
+          viewportInitialized: true,
+          topLevelSections: { [sectionId]: { ...layout } },
+        },
+        [nextViewModeId]: {
+          id: nextViewModeId,
+          name: "All Settings",
+          sortIndex: 1,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: { [sectionId]: true },
+          viewport: null,
+          viewportInitialized: false,
+          topLevelSections: { [sectionId]: { ...layout } },
+        },
+      },
+      activeViewModeId: initialViewModeId,
+      viewport: staleViewport,
+      viewportInitialized: true,
+    });
+
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({
+      pending: [
+        {
+          acknowledged: false,
+          apply: (state) => {
+            state.projectConfig.viewport = staleViewport;
+            state.projectConfig.viewportInitialized = true;
+          },
+          kind: "viewportPersistence",
+          opId: "stale-viewport-op",
+        },
+      ],
+    });
+    useNodeInternals.setState({ x: new Map() });
+    useReactFlow.setState({
+      transform: [staleViewport.x, staleViewport.y, staleViewport.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+
+    processProjectStateUpdateFromBackend({
+      projectState: {
+        projectConfig: {
+          ...initialProjectConfig,
+          activeViewModeId: nextViewModeId,
+          viewport: null,
+          viewportInitialized: false,
+        },
+        sections: {},
+        sectionImpls: {},
+        sectionVariants: {},
+        codeObjs: {},
+        codeObjImpls: {},
+        codeObjVariants: {},
+        artifactGroups: {},
+        singletonSections: createSingletonSections(),
+        parentSectionMap: {},
+        shownParamIds: {},
+        requiredDecodedImages: [],
+        genCodeBinding: null,
+        projectChatWindowing: createProjectChatWindowingState(),
+      },
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(useProjectState.getState().projectConfig.activeViewModeId).toBe(
+      nextViewModeId,
+    );
+    expect(useProjectState.getState().projectConfig.viewport).toBeNull();
+    expect(useProjectState.getState().projectConfig.viewportInitialized).toBe(
+      false,
+    );
+    expect(usePendingOperations.getState().pending).toEqual([]);
+    expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+  });
 });

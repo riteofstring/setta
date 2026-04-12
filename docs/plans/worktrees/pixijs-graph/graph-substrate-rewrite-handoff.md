@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 09:43 UTC
+Last updated: 2026-04-15 09:55 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,52 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `487` dropped stale optimistic viewport-persistence replays when the
+  backend authoritatively switches the canonical `rotaryParamCodeObjDefault`
+  lane to `All Settings` with `viewport=null`:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/state/definitions.ts`
+      `PendingOperation` now allows a narrow `kind` tag so authoritative
+      backend reconciliation can distinguish viewport-persistence ops from
+      other optimistic updates
+    - `frontend/src/state/actions/sectionInfos.ts`
+      `processProjectStateUpdateFromBackend(...)` now removes pending
+      `viewportPersistence` ops before replay when the backend sends an
+      authoritative `activeViewModeId` / `viewport` / `viewportInitialized`
+      delta, and `dispatchViewportUpdate(...)` marks its optimistic op with
+      that kind
+    - `frontend/src/state/actions/sectionInfos.test.ts`
+      now covers the exact stale-op shape where a pending viewport persistence
+      would otherwise overwrite a backend `All Settings` + `viewport=null`
+      switch
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts`
+      -> passed (`1` file, `30` tests)
+    - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/state/definitions.ts`
+      -> passed
+    - live canonical lane rerun with the current loop runtime values:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<loop bootstrap token> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> still hit the outer `timeout 180s`
+      -> emitted direct-open progress only through
+         `app_router_loading -> settings_loading -> app_shell_without_surface`
+         before the timeout, so this rerun did not yet produce a trustworthy
+         post-`surface_ready` verdict
+    - fresh-context CDP check:
+      -> not run
+      -> attempted via sub-agent per repo policy, but that tool session did
+         not expose a usable Chrome DevTools MCP endpoint
+  - reading:
+    - this is a real production-side cut on the exact frontend store path that
+      could replay stale local viewport state over an authoritative backend
+      `All Settings` normalization
+    - it removes one concrete candidate owner for the
+      `waitForFrontendProjectConfigState(...)` stall, but the canonical live
+      lane is still not proven end-to-end
+    - next: instrument the first post-backend apply boundary on the live lane
+      so the next rerun can state whether the store now reaches the expected
+      config shape and, if not, which owner still delays or overwrites it
 
 - item `486` removed a false timeout from the canonical
   `rotaryParamCodeObjDefault` lane-health helper so the live probe no longer

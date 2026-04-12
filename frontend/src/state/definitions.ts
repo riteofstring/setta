@@ -274,6 +274,7 @@ export type PendingOperation = {
   opId: string;
   apply: (x: ZustandProjectState) => void;
   acknowledged: boolean;
+  kind?: "viewportPersistence";
 };
 
 type ZustandPendingOperations = {

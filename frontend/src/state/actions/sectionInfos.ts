@@ -1025,6 +1025,22 @@ function hasAuthoritativeProjectConfigDelta(
   );
 }
 
+function reconcileAuthoritativeViewportPendingOperations(
+  pendingOperations: PendingOperation[],
+  currentProjectConfig: ProjectStateSingleConfig["projectConfig"],
+  nextProjectConfig: ProjectStateSingleConfig["projectConfig"],
+): PendingOperation[] {
+  if (
+    !hasAuthoritativeProjectConfigDelta(currentProjectConfig, nextProjectConfig)
+  ) {
+    return pendingOperations;
+  }
+
+  return pendingOperations.filter(
+    (operation) => operation.kind !== "viewportPersistence",
+  );
+}
+
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1056,8 +1072,18 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  reconcilePendingTopLevelLayout(nextPending, backendPendingIds, completedIds);
-  for (const opInfo of nextPending) {
+  const nextPendingAfterViewportReconcile =
+    reconcileAuthoritativeViewportPendingOperations(
+      nextPending,
+      currentState.projectConfig,
+      x.projectState.projectConfig,
+    );
+  reconcilePendingTopLevelLayout(
+    nextPendingAfterViewportReconcile,
+    backendPendingIds,
+    completedIds,
+  );
+  for (const opInfo of nextPendingAfterViewportReconcile) {
     opInfo.apply(x.projectState);
   }
   const nextActiveSectionUIState = getReconciledActiveSectionUIStateFromBackend(
@@ -1079,7 +1105,9 @@ export function processProjectStateUpdateFromBackend(
 
   if (!projectStateChanged) {
     unstable_batchedUpdates(() => {
-      usePendingOperations.setState({ pending: nextPending });
+      usePendingOperations.setState({
+        pending: nextPendingAfterViewportReconcile,
+      });
       if (nextActiveSectionUIState !== null) {
         useActiveSectionUI.setState(nextActiveSectionUIState);
       }
@@ -1107,7 +1135,9 @@ export function processProjectStateUpdateFromBackend(
     },
     () => {
       unstable_batchedUpdates(() => {
-        usePendingOperations.setState({ pending: nextPending });
+        usePendingOperations.setState({
+          pending: nextPendingAfterViewportReconcile,
+        });
         useNodeInternals.setState({ x: nextNodesMap });
         useProjectState.setState(() => sanitizedProjectState);
         if (nextActiveSectionUIState !== null) {
@@ -1889,10 +1919,13 @@ export async function ungroupActiveGroups() {
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
-function addPendingOp(apply: (x: ZustandProjectState) => void) {
+function addPendingOp(
+  apply: (x: ZustandProjectState) => void,
+  kind?: PendingOperation["kind"],
+) {
   const opId = createNewId();
   usePendingOperations.setState((state) => ({
-    pending: [...state.pending, { apply, opId, acknowledged: false }],
+    pending: [...state.pending, { apply, opId, acknowledged: false, kind }],
   }));
   return opId;
 }
@@ -1984,12 +2017,14 @@ export function dispatchOptimisticProjectStateUpdate({
   rollback,
   reapply,
   projectConfigId,
+  kind,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
   rollback?: (state: ZustandProjectState) => void;
   reapply?: (state: ZustandProjectState) => void;
   projectConfigId?: string;
+  kind?: PendingOperation["kind"];
 }) {
   const applyWithProjectGuard = (state: ZustandProjectState) =>
     applyOptimisticProjectStateUpdateIfProjectMatches(
@@ -2014,7 +2049,7 @@ export function dispatchOptimisticProjectStateUpdate({
           );
 
   useProjectState.setState(applyWithProjectGuard);
-  const opId = addPendingOp(reapplyWithProjectGuard);
+  const opId = addPendingOp(reapplyWithProjectGuard, kind);
   const result = send(opId);
   if (result instanceof Promise) {
     void result
@@ -2145,6 +2180,7 @@ function dispatchViewportUpdate(viewport: Viewport | null) {
           state.projectConfig.viewport = viewport;
           state.projectConfig.viewportInitialized = viewport !== null;
         },
+        kind: "viewportPersistence",
         send: (frontendOpId) =>
           route_set_viewport({
             projectConfigId,
