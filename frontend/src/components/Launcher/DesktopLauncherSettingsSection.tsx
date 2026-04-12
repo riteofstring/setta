@@ -56,7 +56,7 @@ type DesktopLauncherSettingsSectionProps = {
   requireSettaHome?: boolean;
   missingSettaHomeMessage?: string;
 };
-export function normalizeLauncherScopeSettaHome(
+function normalizeLauncherScopeSettaHome(
   settaHome: string | null | undefined,
 ): string | null {
   if (settaHome === null || settaHome === undefined) {
@@ -73,7 +73,7 @@ function buildLauncherRequestBase(
 ): LauncherRequestBase {
   return { settaHome };
 }
-export function buildSetupLauncherRequest(
+function buildSetupLauncherRequest(
   settaHome: string | null,
   launcherStatus: LauncherStatusResponse | null,
 ): SetupLauncherRequest {
@@ -137,7 +137,7 @@ function detectOperatingSystem(
   }
   return "linux";
 }
-export function resolveInstallerInstructionsForUserAgent(
+function resolveInstallerInstructionsForUserAgent(
   userAgentOverride?: string | null,
 ): Array<string> {
   const os = detectOperatingSystem(userAgentOverride);
@@ -161,7 +161,7 @@ export function resolveInstallerInstructionsForUserAgent(
     "Launch Setta again from your desktop entry.",
   ];
 }
-export function deriveLauncherControlsState({
+function deriveLauncherControlsState({
   launcherStatus,
   launcherActionInFlight,
 }: {
@@ -189,7 +189,7 @@ export function deriveLauncherControlsState({
     launcherSetupButtonLabel,
   };
 }
-export function resolveUpdateProgressLabel(
+function resolveUpdateProgressLabel(
   updateStage: LauncherUpdateStage,
 ): string | null {
   if (updateStage === "checking") {
@@ -209,7 +209,7 @@ export function resolveUpdateProgressLabel(
   }
   return null;
 }
-export function resolveLauncherUpdatePreflight(
+function resolveLauncherUpdatePreflight(
   launcherStatus: LauncherStatusResponse,
 ): LauncherUpdatePreflightResult {
   if (!launcherStatus.ok) {
