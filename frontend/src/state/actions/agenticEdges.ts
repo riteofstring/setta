@@ -1,12 +1,11 @@
 import type { Connection } from "forks/xyflow/core/types";
-import {
-  createAgenticEdge,
-  deleteAgenticEdges,
-  setAgenticEdges,
-  updateAgenticEdge,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useProjectState, useShareSession } from "state/definitions";
+import {
+  route_create_agentic_edge,
+  route_delete_agentic_edges,
+  route_set_agentic_edges,
+  route_update_agentic_edge,
+} from "utils/generatedEndpoints";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
@@ -19,20 +18,12 @@ import {
   getCurrProjectConfigId,
 } from "./sectionInfos";
 import { isWorkflowHandleId } from "./stateMachineEdges";
+
 export const AGENTIC_EDGE_HANDLE_IDS = {
   source: "agentic-edge-source",
   target: "agentic-edge-target",
   reverseStart: "agentic-edge-reverse-start",
 } as const;
-type ConnectionSectionTypes = {
-  sourceType: SectionTypeEnum | null;
-  targetType: SectionTypeEnum | null;
-};
-const STATE_MACHINE_SECTION_TYPES = new Set<SectionTypeEnum>([
-  SectionTypeEnum.StateMachineStart,
-  SectionTypeEnum.StateMachineGate,
-  SectionTypeEnum.StateMachineEnd,
-]);
 
 function getSectionTypeById(
   state: ReturnType<typeof useProjectState.getState>,
@@ -52,37 +43,36 @@ function getSectionTypeById(
   }
   return impl.type ?? null;
 }
-function isStateMachineSectionType(sectionType: SectionTypeEnum): boolean {
-  return STATE_MACHINE_SECTION_TYPES.has(sectionType);
-}
-
-function isChatSectionType(sectionType: SectionTypeEnum): boolean {
-  return sectionType === SectionTypeEnum.Chat;
-}
 
 function resolveAgenticEdgeKind(
   sourceType: SectionTypeEnum,
   targetType: SectionTypeEnum,
 ): AgenticEdgeKindEnum | null {
   if (
-    isStateMachineSectionType(sourceType) ||
-    isStateMachineSectionType(targetType)
+    sourceType === SectionTypeEnum.StateMachineStart ||
+    sourceType === SectionTypeEnum.StateMachineGate ||
+    sourceType === SectionTypeEnum.StateMachineEnd ||
+    targetType === SectionTypeEnum.StateMachineStart ||
+    targetType === SectionTypeEnum.StateMachineGate ||
+    targetType === SectionTypeEnum.StateMachineEnd
   ) {
     return null;
   }
-  const sourceIsChat = isChatSectionType(sourceType);
-  const targetIsChat = isChatSectionType(targetType);
-  if (sourceIsChat && targetIsChat) {
+  if (
+    sourceType === SectionTypeEnum.Chat &&
+    targetType === SectionTypeEnum.Chat
+  ) {
     return AgenticEdgeKindEnum.chat_chat;
   }
-  if (sourceIsChat) {
+  if (sourceType === SectionTypeEnum.Chat) {
     return AgenticEdgeKindEnum.chat_section;
   }
-  if (targetIsChat) {
+  if (targetType === SectionTypeEnum.Chat) {
     return AgenticEdgeKindEnum.section_chat;
   }
   return null;
 }
+
 function resolveAgenticKindForConnection(
   connection: Connection,
   state?: ReturnType<typeof useProjectState.getState>,
@@ -93,6 +83,7 @@ function resolveAgenticKindForConnection(
   }
   return resolveAgenticEdgeKind(types.sourceType, types.targetType);
 }
+
 function normalizeReverseStartedAgenticConnection(
   connection: Connection,
 ): Connection {
@@ -106,6 +97,7 @@ function normalizeReverseStartedAgenticConnection(
     targetHandle: AGENTIC_EDGE_HANDLE_IDS.target,
   };
 }
+
 export function normalizeAgenticConnectionHandles(
   connection: Connection,
 ): Connection {
@@ -125,6 +117,7 @@ export function normalizeAgenticConnectionHandles(
           : normalizedReverseConnection.targetHandle,
   };
 }
+
 function usesSharedChatHandleOnNormalizedSource(
   connection: Connection,
   normalizedConnection: Connection,
@@ -136,6 +129,7 @@ function usesSharedChatHandleOnNormalizedSource(
       normalizedConnection.source === connection.target)
   );
 }
+
 function usesSharedChatHandleOnNormalizedTarget(
   connection: Connection,
   normalizedConnection: Connection,
@@ -148,100 +142,50 @@ function usesSharedChatHandleOnNormalizedTarget(
   );
 }
 
-function hasConnectionEndpoints(
-  connection: Connection,
-): connection is Connection & { source: string; target: string } {
-  return Boolean(connection.source && connection.target);
-}
-
-function usesWorkflowHandle(connection: Connection): boolean {
-  return (
-    isWorkflowHandleId(connection.sourceHandle) ||
-    isWorkflowHandleId(connection.targetHandle)
-  );
-}
-
-function hasKnownConnectionSectionTypes(
-  types: ConnectionSectionTypes | null,
-): types is {
-  sourceType: SectionTypeEnum;
-  targetType: SectionTypeEnum;
-} {
-  return Boolean(types?.sourceType && types.targetType);
-}
-
-function usesInvalidSharedChatHandleTypes(
-  connection: Connection,
-  normalizedConnection: Connection,
-  types: {
-    sourceType: SectionTypeEnum;
-    targetType: SectionTypeEnum;
-  },
-): boolean {
-  const sourceUsesSharedChatHandle = usesSharedChatHandleOnNormalizedSource(
-    connection,
-    normalizedConnection,
-  );
-  if (sourceUsesSharedChatHandle && !isChatSectionType(types.sourceType)) {
-    return true;
-  }
-  const targetUsesSharedChatHandle = usesSharedChatHandleOnNormalizedTarget(
-    connection,
-    normalizedConnection,
-  );
-  return targetUsesSharedChatHandle && !isChatSectionType(types.targetType);
-}
-
-function hasInvalidSharedChatHandleTypesForConnection(
-  connection: Connection,
-  normalizedConnection: Connection,
-  state: ReturnType<
-    typeof useProjectState.getState
-  > = useProjectState.getState(),
-): boolean {
-  const types = getConnectionSectionTypes(normalizedConnection, state);
-  if (!hasKnownConnectionSectionTypes(types)) {
-    return false;
-  }
-  return usesInvalidSharedChatHandleTypes(
-    connection,
-    normalizedConnection,
-    types,
-  );
-}
-
 export function isValidAgenticEdgeConnection(connection: Connection): boolean {
   const normalizedConnection = normalizeAgenticConnectionHandles(connection);
+  if (!normalizedConnection.source || !normalizedConnection.target) {
+    return false;
+  }
   if (
-    !hasConnectionEndpoints(normalizedConnection) ||
-    usesWorkflowHandle(normalizedConnection) ||
-    normalizedConnection.source === normalizedConnection.target ||
-    useShareSession.getState().isDeploymentMode
+    isWorkflowHandleId(normalizedConnection.sourceHandle) ||
+    isWorkflowHandleId(normalizedConnection.targetHandle)
   ) {
     return false;
   }
+  if (normalizedConnection.source === normalizedConnection.target) {
+    return false;
+  }
+  if (useShareSession.getState().isDeploymentMode) {
+    return false;
+  }
   const types = getConnectionSectionTypes(normalizedConnection);
-  if (!hasKnownConnectionSectionTypes(types)) {
+  if (!types || !types.sourceType || !types.targetType) {
     return true;
   }
   if (
-    usesInvalidSharedChatHandleTypes(connection, normalizedConnection, types)
+    usesSharedChatHandleOnNormalizedSource(connection, normalizedConnection) &&
+    types.sourceType !== SectionTypeEnum.Chat
+  ) {
+    return false;
+  }
+  if (
+    usesSharedChatHandleOnNormalizedTarget(connection, normalizedConnection) &&
+    types.targetType !== SectionTypeEnum.Chat
   ) {
     return false;
   }
   return resolveAgenticEdgeKind(types.sourceType, types.targetType) !== null;
 }
+
 export function createAgenticEdgeFromConnection(connection: Connection): void {
   const normalizedConnection = normalizeAgenticConnectionHandles(connection);
   if (!normalizedConnection.source || !normalizedConnection.target) {
     return;
   }
   if (
-    usesWorkflowHandle(normalizedConnection) ||
-    hasInvalidSharedChatHandleTypesForConnection(
-      connection,
-      normalizedConnection,
-    )
+    isWorkflowHandleId(normalizedConnection.sourceHandle) ||
+    isWorkflowHandleId(normalizedConnection.targetHandle)
   ) {
     return;
   }
@@ -255,22 +199,30 @@ export function createAgenticEdgeFromConnection(connection: Connection): void {
     kind,
   });
 }
+
 function getConnectionSectionTypes(
   connection: Connection,
   state: ReturnType<
     typeof useProjectState.getState
   > = useProjectState.getState(),
-): ConnectionSectionTypes | null {
-  if (!hasConnectionEndpoints(connection)) {
+): {
+  sourceType: SectionTypeEnum | null;
+  targetType: SectionTypeEnum | null;
+} | null {
+  if (!connection.source || !connection.target) {
     return null;
   }
   return getConnectionSectionTypesFromState(connection, state);
 }
+
 function getConnectionSectionTypesFromState(
   connection: Connection,
   state: ReturnType<typeof useProjectState.getState>,
-): ConnectionSectionTypes | null {
-  if (!hasConnectionEndpoints(connection)) {
+): {
+  sourceType: SectionTypeEnum | null;
+  targetType: SectionTypeEnum | null;
+} | null {
+  if (!connection.source || !connection.target) {
     return null;
   }
   return {
@@ -278,6 +230,7 @@ function getConnectionSectionTypesFromState(
     targetType: getSectionTypeById(state, connection.target),
   };
 }
+
 export function toggleAgenticEdgeSelection(
   edgeId: string,
   multiSelect: boolean,
@@ -303,28 +256,21 @@ export function toggleAgenticEdgeSelection(
         if (!edge) {
           return;
         }
-        return callOpenAPI(
-          updateAgenticEdge({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              edge,
-              frontendOpId,
-            },
-          } as Parameters<typeof updateAgenticEdge>[0]),
-        );
+        return route_update_agentic_edge({
+          projectConfigId: getCurrProjectConfigId(),
+          edge,
+          frontendOpId,
+        });
       }
-      return callOpenAPI(
-        setAgenticEdges({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edges: useProjectState.getState().projectConfig.agenticEdges,
-            frontendOpId,
-          },
-        } as Parameters<typeof setAgenticEdges>[0]),
-      );
+      return route_set_agentic_edges({
+        projectConfigId: getCurrProjectConfigId(),
+        edges: useProjectState.getState().projectConfig.agenticEdges,
+        frontendOpId,
+      });
     },
   });
 }
+
 export function deleteSelectedAgenticEdges(): boolean {
   if (useShareSession.getState().isDeploymentMode) {
     return false;
@@ -333,9 +279,11 @@ export function deleteSelectedAgenticEdges(): boolean {
   const selectedIds = state.projectConfig.agenticEdges
     .filter((edge) => edge.selected)
     .map((edge) => edge.id);
+
   if (selectedIds.length === 0) {
     return false;
   }
+
   dispatchOptimisticProjectStateUpdate({
     apply: (draft) => {
       draft.projectConfig.agenticEdges =
@@ -344,18 +292,16 @@ export function deleteSelectedAgenticEdges(): boolean {
         );
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        deleteAgenticEdges({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edgeIds: selectedIds,
-            frontendOpId,
-          },
-        } as Parameters<typeof deleteAgenticEdges>[0]),
-      ),
+      route_delete_agentic_edges({
+        projectConfigId: getCurrProjectConfigId(),
+        edgeIds: selectedIds,
+        frontendOpId,
+      }),
   });
+
   return true;
 }
+
 export function deleteAgenticEdgesById(edgeIds: string[]): void {
   if (useShareSession.getState().isDeploymentMode) {
     return;
@@ -371,17 +317,14 @@ export function deleteAgenticEdgesById(edgeIds: string[]): void {
         );
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        deleteAgenticEdges({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edgeIds,
-            frontendOpId,
-          },
-        } as Parameters<typeof deleteAgenticEdges>[0]),
-      ),
+      route_delete_agentic_edges({
+        projectConfigId: getCurrProjectConfigId(),
+        edgeIds,
+        frontendOpId,
+      }),
   });
 }
+
 export function updateAgenticEdgeContextMode(
   edgeId: string,
   contextMode: AgenticEdgeContextModeEnum,
@@ -408,18 +351,15 @@ export function updateAgenticEdgeContextMode(
       if (!edge) {
         return;
       }
-      return callOpenAPI(
-        updateAgenticEdge({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            edge,
-            frontendOpId,
-          },
-        } as Parameters<typeof updateAgenticEdge>[0]),
-      );
+      return route_update_agentic_edge({
+        projectConfigId: getCurrProjectConfigId(),
+        edge,
+        frontendOpId,
+      });
     },
   });
 }
+
 export function createAgenticEdgeFromSections({
   sourceSectionId,
   targetSectionId,
@@ -467,6 +407,7 @@ export function createAgenticEdgeFromSections({
   if (matchingEdge) {
     return;
   }
+
   const edgeId = createNewId();
   const nextEdge = {
     id: edgeId,
@@ -479,6 +420,7 @@ export function createAgenticEdgeFromSections({
     zIndex: 0,
     selected: false,
   };
+
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       const edges = state.projectConfig.agenticEdges;
@@ -492,21 +434,17 @@ export function createAgenticEdgeFromSections({
         state.projectConfig.agenticEdges.filter((edge) => edge.id !== edgeId);
     },
     send: (frontendOpId) =>
-      callOpenAPI(
-        createAgenticEdge({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            id: edgeId,
-            sourceSectionId,
-            targetSectionId,
-            kind,
-            contextMode,
-            style: null,
-            hidden: false,
-            zIndex: 0,
-            frontendOpId,
-          },
-        } as Parameters<typeof createAgenticEdge>[0]),
-      ),
+      route_create_agentic_edge({
+        projectConfigId: getCurrProjectConfigId(),
+        id: edgeId,
+        sourceSectionId,
+        targetSectionId,
+        kind,
+        contextMode,
+        style: null,
+        hidden: false,
+        zIndex: 0,
+        frontendOpId,
+      }),
   });
 }
