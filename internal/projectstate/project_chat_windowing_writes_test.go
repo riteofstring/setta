@@ -729,6 +729,38 @@ func TestRuntimeSetWindowSpaceNameMatchesDocumentedFormatRules(t *testing.T) {
 	}
 }
 
+func TestValidateWindowSpaceNameIgnoresCurrentWindowSpaceSlugAndRejectsOtherConflicts(t *testing.T) {
+	t.Parallel()
+
+	project := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		WindowSpaces: map[string]WindowSpaceConfig{
+			"space-a": {
+				ID:   "space-a",
+				Name: "Primary",
+			},
+			"space-b": {
+				ID:   "space-b",
+				Name: "Secondary Layout",
+			},
+		},
+	}
+
+	normalized, err := validateWindowSpaceName(project, " space-a ", " primary ")
+	if err != nil {
+		t.Fatalf("expected current window space slug to remain valid, got %v", err)
+	}
+	if normalized != "primary" {
+		t.Fatalf("expected normalized name primary, got %q", normalized)
+	}
+
+	_, err = validateWindowSpaceName(project, "space-a", "secondary layout")
+	if !IsInvalidWindowSpaceNameError(err) {
+		t.Fatalf("expected InvalidWindowSpaceNameError, got %v", err)
+	}
+}
+
 func TestRuntimeWindowSpaceNameSortAndDeleteMutations(t *testing.T) {
 	t.Parallel()
 

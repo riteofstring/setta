@@ -722,47 +722,65 @@ func validateWindowSpaceWindowOwner(
 
 func validateWindowSpaceName(project Project, windowSpaceID string, name string) (string, error) {
 	trimmedWindowSpaceID := strings.TrimSpace(windowSpaceID)
-	normalized := strings.TrimSpace(name)
-	if normalized == "" {
-		return "", &InvalidWindowSpaceNameError{Message: "Window space name cannot be empty."}
+	normalized, slug, err := normalizeWindowSpaceNameForValidation(name)
+	if err != nil {
+		return "", err
 	}
-	if containsControlChars(normalized) {
-		return "", &InvalidWindowSpaceNameError{Message: "Window space name cannot include control characters."}
-	}
-	if strings.Contains(normalized, "/") || strings.Contains(normalized, "\\") {
-		return "", &InvalidWindowSpaceNameError{Message: "Window space name cannot include path separators."}
-	}
-	if strings.Contains(normalized, "..") {
-		return "", &InvalidWindowSpaceNameError{Message: "Window space name cannot include '..' path segments."}
-	}
-	for _, char := range normalized {
-		if !isAllowedSimpleNameChar(char) {
-			return "", &InvalidWindowSpaceNameError{Message: "Window space name can only contain letters, numbers, spaces, '_' and '-'."}
-		}
-	}
-
-	slug := sanitizeProjectSlug(normalized)
-	if slug == "" {
-		return "", &InvalidWindowSpaceNameError{Message: "Window space name is invalid after sanitization."}
-	}
-
-	for existingID, windowSpace := range project.WindowSpaces {
-		if strings.TrimSpace(existingID) == trimmedWindowSpaceID {
-			continue
-		}
-		if sanitizeProjectSlug(windowSpace.Name) != slug {
-			continue
-		}
+	if conflictingName, ok := findConflictingWindowSpaceName(project.WindowSpaces, trimmedWindowSpaceID, slug); ok {
 		return "", &InvalidWindowSpaceNameError{
 			Message: fmt.Sprintf(
 				"Window space name '%s' conflicts with existing window space '%s'.",
 				normalized,
-				windowSpace.Name,
+				conflictingName,
 			),
 		}
 	}
 
 	return normalized, nil
+}
+
+func normalizeWindowSpaceNameForValidation(name string) (string, string, error) {
+	normalized := strings.TrimSpace(name)
+	if err := validateWindowSpaceNameCharacters(normalized); err != nil {
+		return "", "", err
+	}
+	slug := sanitizeProjectSlug(normalized)
+	if slug == "" {
+		return "", "", &InvalidWindowSpaceNameError{Message: "Window space name is invalid after sanitization."}
+	}
+	return normalized, slug, nil
+}
+
+func validateWindowSpaceNameCharacters(normalized string) error {
+	switch {
+	case normalized == "":
+		return &InvalidWindowSpaceNameError{Message: "Window space name cannot be empty."}
+	case containsControlChars(normalized):
+		return &InvalidWindowSpaceNameError{Message: "Window space name cannot include control characters."}
+	case strings.ContainsAny(normalized, "/\\"):
+		return &InvalidWindowSpaceNameError{Message: "Window space name cannot include path separators."}
+	case strings.Contains(normalized, ".."):
+		return &InvalidWindowSpaceNameError{Message: "Window space name cannot include '..' path segments."}
+	}
+	for _, char := range normalized {
+		if isAllowedSimpleNameChar(char) {
+			continue
+		}
+		return &InvalidWindowSpaceNameError{Message: "Window space name can only contain letters, numbers, spaces, '_' and '-'."}
+	}
+	return nil
+}
+
+func findConflictingWindowSpaceName(windowSpaces map[string]WindowSpaceConfig, excludedID string, slug string) (string, bool) {
+	for existingID, windowSpace := range windowSpaces {
+		if strings.TrimSpace(existingID) == excludedID {
+			continue
+		}
+		if sanitizeProjectSlug(windowSpace.Name) == slug {
+			return windowSpace.Name, true
+		}
+	}
+	return "", false
 }
 
 func sortedWindowSpaceIDs(windowSpaces map[string]WindowSpaceConfig) []string {
