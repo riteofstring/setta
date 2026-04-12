@@ -1,8 +1,5 @@
-import {
-  EngineConfig,
-  EngineTypeEnum,
-  ExternalAgentPreflightStatus,
-} from "utils/generatedTypes";
+import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
+import { EngineConfig, EngineTypeEnum } from "utils/generatedTypes";
 
 type IdNameItem = { id: string; name: string };
 
@@ -48,7 +45,7 @@ export function buildEngineGroups(
 
 export function getExternalEngineStatus(
   engineConfig: EngineConfig | null,
-  health: Array<ExternalAgentPreflightStatus>,
+  health: Array<HttpapiExternalAgentPreflightStatus>,
   healthLoaded: boolean,
 ): ExternalEngineStatus | null {
   if (
@@ -128,4 +125,29 @@ export function getChatPlaceholderText(
     return "Select an LLM";
   }
   return "Type a message...";
+}
+
+export function supportsThinkingExecutionControl(
+  engineConfig: EngineConfig | null,
+): boolean {
+  if (!engineConfig) {
+    return false;
+  }
+  if (engineConfig.engineType === EngineTypeEnum.external_agent) {
+    return true;
+  }
+  return Boolean(engineConfig.runtimeSupport?.thinking);
+}
+
+export function resolveEffectiveThinking({
+  engineConfig,
+  requestedThinking,
+}: {
+  engineConfig: EngineConfig | null;
+  requestedThinking: boolean;
+}): boolean {
+  if (!supportsThinkingExecutionControl(engineConfig)) {
+    return false;
+  }
+  return requestedThinking;
 }
