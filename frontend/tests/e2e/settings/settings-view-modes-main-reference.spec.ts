@@ -12757,6 +12757,8 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
       "presentedSceneSectionCanvasSectionBodyReactRender",
       "presentedSceneBodyMountFilter",
       "presentedSceneSectionHeaderReactRender",
+      "presentedSceneSectionKwargsControlsReactRender",
+      "presentedSceneSectionParamGroupContainerReactRender",
       "presentedSceneSectionEntriesResolve",
       "presentedSceneSectionSubtreeReactRender",
       "presentedSceneSectionVisibilityFilter",

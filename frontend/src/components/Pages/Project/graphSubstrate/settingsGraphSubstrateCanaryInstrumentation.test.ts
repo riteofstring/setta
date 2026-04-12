@@ -192,6 +192,14 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       "presentedSceneSectionAreaSwitchReactRender",
       3.5,
     );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionKwargsControlsReactRender",
+      1.5,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionParamGroupContainerReactRender",
+      2.75,
+    );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "pixiDrawableReuseCheck",
       () => {},
@@ -268,6 +276,20 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 3.5,
       totalDurationMs: 3.5,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionKwargsControlsReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 1.5,
+      totalDurationMs: 1.5,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionParamGroupContainerReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 2.75,
+      totalDurationMs: 2.75,
     });
     expect(motionAttribution.pixiDrawableReuseCheck).toEqual({
       count: 1,

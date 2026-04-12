@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 13:17 UTC
+Last updated: 2026-04-13 13:30 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,90 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `429` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting the live `DictArea`
+  branch selected by `AreaSwitch`:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stopped treating the canonical
+      settings section as a `CodeArea` lane once the prior `0`-count result was
+      checked against the actual section type
+    - verified the canonical section is a `DictSectionImpl`, so the live body
+      path is `AreaSwitch -> DictArea` rather than `AreaSwitch -> CodeArea`
+    - chose one bounded Dict-path attribution seam that splits
+      `KwargsControls` from `ParamGroupContainer` instead of reopening editor
+      or shell plumbing
+    - kept the slice bounded to one instrumentation seam, one focused new
+      component regression, one live worktree probe rerun, one perf note, and
+      fresh headless CDP smoke checks; no new oracle lane opened
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with two new motion owners:
+      `presentedSceneSectionKwargsControlsReactRender` and
+      `presentedSceneSectionParamGroupContainerReactRender`
+    - `frontend/src/components/Section/Layouts/DictArea.tsx` so the mounted
+      `DictArea` branch records `React.Profiler` durations separately for
+      `KwargsControls` and `ParamGroupContainer`
+    - `frontend/src/components/Section/Layouts/DictArea.instrumentation.test.tsx`
+      plus
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      with focused regression coverage
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the existing perf probe allowlist accepts the new named attribution
+      owners
+    - `perf/reports/frontend/2026-04-13_settings-graph-dict-area-attribution.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Layouts/DictArea.instrumentation.test.tsx src/components/Section/Layouts/DictArea.test.tsx`
+      -> passed (`3` files, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Layouts/DictArea.tsx src/components/Section/Layouts/DictArea.instrumentation.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - first
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-054/worktree-ai.log`
+      -> reached `surface_ready`, then failed in cleanup with
+         `Worktree unhealthy: page already closed before writing normalized compare pane state`
+    - bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      then
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-054/worktree-ai.log`
+      -> refreshed session `9c61e6`, frontend `http://127.0.0.1:3075/`,
+         backend `http://127.0.0.1:8075`, debug port `9297`
+    - probe rerun with refreshed runtime -> passed (`1` Playwright test,
+      `1.7m`)
+      -> direct-open phase sequence on the recovered worktree:
+         `69ms app_router_loading` -> `2354ms settings_loading` ->
+         `3414ms app_shell_without_surface` -> `6942ms project_loading` ->
+         `12585ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+      -> new Dict-path split on this motion lane:
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `481.0ms` total / `59.0ms` max,
+         `presentedSceneSectionKwargsControlsReactRender`
+         `32.4ms` total / `5.1ms` max
+    - fresh-context headless CDP smoke check on direct
+      `http://127.0.0.1:3075/settings`
+      -> still observed the loading shell rather than a mounted settings graph
+         surface
+      -> visible text included `Loading Setta...` and
+         `Preparing the app surface.`
+      -> keep treating that direct unauthenticated `/settings` CDP state as a
+         smoke-only signal while the authenticated Playwright probe still
+         reaches the mounted canary on the same recovered runtime
+  - reading:
+    - the earlier `CodeArea` split was a dead branch for this canonical lane;
+      do not reopen it without fresh contrary evidence
+    - the newly isolated Dict-path cost sits almost entirely in
+      `ParamGroupContainer`
+    - `KwargsControls` is present but too small to justify a default
+      optimization pass
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - take the next bounded attribution or production slice one level deeper
+      inside the `ParamGroupContainer` subtree on the same canonical lane;
+      do not reopen `CodeArea` or spend the next default pass on
+      `KwargsControls` unless fresh evidence points back there
 
 - item `428` landed one bounded attribution slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by splitting the remaining mounted

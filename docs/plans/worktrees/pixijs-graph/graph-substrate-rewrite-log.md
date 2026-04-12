@@ -151,6 +151,61 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 13:30 UTC
+
+- reread the active plan/handoff first and closed the mistaken `CodeArea`
+  hypothesis for the canonical `rotaryParamCodeObjDefault` lane after checking
+  the real section type: this settings section is a `DictSectionImpl`, so the
+  live `AreaSwitch` branch is `DictArea`
+- landed one bounded Dict-path attribution seam in
+  `frontend/src/components/Section/Layouts/DictArea.tsx` with new canary
+  motion owners
+  `presentedSceneSectionKwargsControlsReactRender` and
+  `presentedSceneSectionParamGroupContainerReactRender`
+- added focused coverage in
+  `frontend/src/components/Section/Layouts/DictArea.instrumentation.test.tsx`
+  and
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`;
+  updated the perf probe owner allowlists in
+  `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+  `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Layouts/DictArea.instrumentation.test.tsx src/components/Section/Layouts/DictArea.test.tsx`
+    -> pass (`3` files, `8` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Layouts/DictArea.tsx src/components/Section/Layouts/DictArea.instrumentation.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> pass
+  - first
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-054/worktree-ai.log`
+    -> reached `surface_ready` then failed only because the worktree page
+       closed during cleanup (`worktree_unhealthy`)
+  - bounded recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    then
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-054/worktree-ai.log`
+  - probe rerun after recovery
+    -> pass (`1` Playwright test, `1.7m`)
+    -> direct-open phase sequence:
+       `69ms app_router_loading` -> `2354ms settings_loading` ->
+       `3414ms app_shell_without_surface` -> `6942ms project_loading` ->
+       `12585ms surface_ready`
+    -> new split on canonical target `rotaryParamCodeObjDefault`:
+       `presentedSceneSectionParamGroupContainerReactRender`
+       `481.0ms` total / `59.0ms` max,
+       `presentedSceneSectionKwargsControlsReactRender`
+       `32.4ms` total / `5.1ms` max
+  - fresh-context headless CDP on direct `http://127.0.0.1:3075/settings`
+    -> loading shell still visible with `Loading Setta...` and
+       `Preparing the app surface.`
+    -> keep treating this as a smoke-only state while the authenticated
+       Playwright canary still reaches the mounted graph surface
+- reading:
+  - the live Dict-path cost is concentrated in `ParamGroupContainer`, not
+    `KwargsControls`
+  - the next bounded frontier should go one level deeper inside
+    `ParamGroupContainer`; do not reopen `CodeArea` on this canonical lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 13:05 UTC
 
 - picked one bounded subtask after rereading the plan/handoff: follow item
