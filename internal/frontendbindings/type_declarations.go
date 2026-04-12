@@ -51,10 +51,6 @@ func unionAliasExpr(members ...string) string {
 	return builder.String()
 }
 
-func aliasUnionDeclaration(name string, members ...string) TypeDeclaration {
-	return aliasDeclaration(name, unionAliasExpr(members...))
-}
-
 func aliasDeclaration(name string, alias string) TypeDeclaration {
 	return TypeDeclaration{
 		Name:  name,

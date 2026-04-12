@@ -4,7 +4,6 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 	"text/template"
@@ -315,42 +314,6 @@ func validateTSObjectLiteralPropertyName(context string, name string) error {
 		return fmt.Errorf("%s cannot be %q in generated object literals", context, name)
 	}
 	return nil
-}
-
-func frontendTypeName(t reflect.Type) string {
-	if t == nil {
-		return ""
-	}
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	if t == nil || t.Name() == "" || t.PkgPath() == "" {
-		return ""
-	}
-	return frontendBindingTypeName(t)
-}
-
-func tsTypeReference(t reflect.Type) string {
-	if t == nil {
-		return "null"
-	}
-	nullable := false
-	for t.Kind() == reflect.Pointer {
-		nullable = true
-		t = t.Elem()
-	}
-	t = canonicalFrontendBindingType(t)
-	if t == nil {
-		return "null"
-	}
-	ref := "null"
-	if t.PkgPath() != "" && t.Name() != "" {
-		ref = "gt." + frontendBindingTypeName(t)
-	}
-	if nullable && ref != "null" {
-		return ref + " | null"
-	}
-	return ref
 }
 
 func renderTemplate(source string, data any) (string, error) {
