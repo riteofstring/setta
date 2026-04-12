@@ -1,14 +1,50 @@
 import { describe, expect, it } from "vitest";
 
 import { matchRoutes } from "react-router-dom";
+import {
+  HOME_ROUTER_PATH,
+  INDEX_ROUTER_PATH,
+  PROJECT_CHAT_STANDALONE_ROUTER_PATH,
+  PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
+  PROJECT_CONFIG_ROUTER_PATH,
+  SECTION_STANDALONE_ROUTER_PATH,
+  VIEW_MODE_ROUTER_PATH,
+  WINDOW_SPACE_STANDALONE_ROUTER_PATH,
+  WORKSPACE_LAUNCH_ROUTER_PATH,
+} from "utils/constants";
 import { resolveWorkspaceLaunchRouteKind } from "utils/serverModeBoundaryPolicy";
 import type { ServerModeValue } from "utils/serverModeTypes";
 import { resolveModeElementForServerMode } from "./modeRouteResolver";
-import { APP_ROUTE_IDS, APP_ROUTE_PATTERNS } from "./routeConfig";
+import { APP_ROUTE_IDS } from "./routeConfig";
 
 function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {
   return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
 }
+
+const TEST_ROUTE_PATTERNS = [
+  { id: APP_ROUTE_IDS.index, path: INDEX_ROUTER_PATH },
+  { id: APP_ROUTE_IDS.home, path: HOME_ROUTER_PATH },
+  { id: APP_ROUTE_IDS.workspaceLaunch, path: WORKSPACE_LAUNCH_ROUTER_PATH },
+  {
+    id: APP_ROUTE_IDS.projectChatThreadStandalone,
+    path: PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
+  },
+  {
+    id: APP_ROUTE_IDS.projectChatStandalone,
+    path: PROJECT_CHAT_STANDALONE_ROUTER_PATH,
+  },
+  {
+    id: APP_ROUTE_IDS.windowSpaceStandalone,
+    path: WINDOW_SPACE_STANDALONE_ROUTER_PATH,
+  },
+  { id: APP_ROUTE_IDS.viewMode, path: VIEW_MODE_ROUTER_PATH },
+  {
+    id: APP_ROUTE_IDS.sectionStandalone,
+    path: SECTION_STANDALONE_ROUTER_PATH,
+  },
+  { id: APP_ROUTE_IDS.project, path: PROJECT_CONFIG_ROUTER_PATH },
+  { id: APP_ROUTE_IDS.catchAll, path: "*" },
+] as const;
 
 describe("resolveModeElementForServerMode", () => {
   const modeRoutes = {
@@ -61,7 +97,7 @@ describe("resolveModeElementForServerMode", () => {
 
 describe("appRoutes", () => {
   function getMatchedRouteId(pathname: string): string | undefined {
-    return matchRoutes(APP_ROUTE_PATTERNS, pathname)?.at(-1)?.route.id;
+    return matchRoutes(TEST_ROUTE_PATTERNS, pathname)?.at(-1)?.route.id;
   }
 
   it("matches standalone project chat before the generic project route", () => {
