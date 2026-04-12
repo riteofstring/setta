@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 12:41 UTC
+Last updated: 2026-04-13 12:58 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,76 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `426` landed one bounded mounted-body-content production slice on the
+  canonical `rotaryParamCodeObjDefault` canary lane by memoizing the body
+  branch behind the section shell:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the named
+      `presentedSceneSectionBodyContentReactRender` owner instead of reopening
+      another header cleanup or another probe-only pass
+    - chose one body-content cut that removes a broad parent-to-body rerender
+      path: keep mounted section body content out of parent shell rerenders
+      when the body props are unchanged
+    - kept the slice bounded to one production boundary change, one focused
+      regression update, one live worktree probe rerun, and one fresh
+      headless CDP smoke check; no new oracle lane opened
+  - code changed in:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      so `AreaSwitch` and `CanvasSectionBody` are memoized
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      with a regression proving a parent-only rerender does not re-render the
+      mounted `CodeArea` body when body props stay stable
+    - `perf/reports/frontend/2026-04-13_settings-graph-mounted-body-content-memo-boundary.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed (`4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed
+    - first
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-051/worktree-ai.log`
+      -> failed with `Worktree unhealthy: page already closed before writing normalized compare pane state`
+    - bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      then
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-051/worktree-ai.log`
+    - probe rerun with the refreshed runtime -> passed (`1` Playwright test,
+      `1.8m`)
+      -> direct-open phase sequence on the recovered worktree:
+         `72ms app_router_loading` -> `2328ms settings_loading` ->
+         `3368ms app_shell_without_surface` -> `6667ms project_loading` ->
+         `12594ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> worktree canary reached `surfaceKind: "canary"` and still kept the
+         same dominant outer owner family:
+         `presentedSceneSectionSubtreeReactRender`
+      -> mounted body-content split after this change:
+         `presentedSceneSectionBodyContentReactRender` `583.0ms` total /
+         `85.0ms` max,
+         `presentedSceneSectionHeaderReactRender` `216.1ms` total /
+         `34.2ms` max
+    - fresh-context headless CDP visual check on direct
+      `http://127.0.0.1:3075/settings`
+      -> observed the loading shell rather than the mounted graph surface
+      -> visible text included `PREPARING SETTA`, `Loading settings…`,
+         `Backend: Starting backend services`, and `Connected to server`
+  - reading:
+    - this is a real mounted body-content production cut, not a harness-only
+      pass
+    - the focused regression proves the memo boundary works for parent-only
+      rerenders with stable body props
+    - the live canonical probe did not move the dominant owner family and the
+      measured body-content totals were slightly worse than the prior split
+      run, so treat this as one bounded non-winning hypothesis on the mounted
+      body-content lane
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - add one more inner attribution seam inside the mounted code/body-content
+      branch before taking another production hypothesis on that lane
+    - do not reopen header-only cleanup or direct `/settings` startup
+      classification unless fresh evidence changes the ranked owner or the
+      authenticated Playwright lane stops reaching the canary
 
 - item `425` landed one bounded attribution slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by splitting the mounted body

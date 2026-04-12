@@ -151,6 +151,71 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 12:58 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: stay on the
+  named mounted body-content owner from item `425` and stop the section body
+  branch from re-rendering just because the section shell re-rendered with the
+  same body props
+- updated
+  `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  so `AreaSwitch` and `CanvasSectionBody` are memoized
+- extended
+  `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+  with a regression proving a parent-only rerender (`hasSectionStyleTheme`
+  change) does not re-render the mounted `CodeArea` body when body props stay
+  stable
+- wrote
+  `perf/reports/frontend/2026-04-13_settings-graph-mounted-body-content-memo-boundary.md`
+  with the live readout and the recovery note
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    -> pass (`4` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    -> pass
+  - first
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-051/worktree-ai.log`
+    -> fail
+    -> `Worktree unhealthy: page already closed before writing normalized compare pane state`
+  - bounded lifecycle recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    then
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-051/worktree-ai.log`
+  - probe rerun with refreshed runtime facts
+    -> pass (`1` Playwright test, `1.8m`)
+    -> direct-open phase sequence:
+       `72ms app_router_loading` -> `2328ms settings_loading` ->
+       `3368ms app_shell_without_surface` -> `6667ms project_loading` ->
+       `12594ms surface_ready`
+    -> canonical target stayed `rotaryParamCodeObjDefault`
+    -> worktree canary reached `surfaceKind: "canary"`
+    -> dominant owner still `presentedSceneSectionSubtreeReactRender`
+    -> body-content split after this change:
+       `presentedSceneSectionBodyContentReactRender` `583.0ms` total /
+       `85.0ms` max,
+       `presentedSceneSectionHeaderReactRender` `216.1ms` total /
+       `34.2ms` max
+  - fresh-context headless CDP visual check on direct
+    `http://127.0.0.1:3075/settings`
+    -> pass as a smoke gate
+    -> still showed the loading shell rather than the mounted graph surface
+    -> visible text: `PREPARING SETTA`, `Loading settings…`,
+       `Backend: Starting backend services`, `Connected to server`
+- reading:
+  - this is a real mounted body-content production cut with focused regression
+    coverage, not a harness-only pass
+  - the memo boundary worked for the targeted parent-only rerender shape, but
+    the live canonical probe did not move the dominant owner family and the
+    measured body-content totals were slightly worse than the prior split run
+  - treat this as one bounded non-winning body-content hypothesis; do not
+    repeat this memo-boundary shape next
+- next:
+  - add one more inner attribution seam inside the mounted code/body-content
+    branch before taking another production hypothesis on the canonical
+    `rotaryParamCodeObjDefault` lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 12:41 UTC
 
 - picked one bounded subtask after rereading the plan/handoff: stop repeating

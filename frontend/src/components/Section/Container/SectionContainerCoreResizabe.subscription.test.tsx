@@ -26,6 +26,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
+const { mockCodeArea } = vi.hoisted(() => ({
+  mockCodeArea: vi.fn(({ sectionId }: { sectionId: string }) => (
+    <div data-testid="mock-code-area">code:{sectionId}</div>
+  )),
+}));
+
 vi.mock("components/Utils/Resizable/CustomResizable", () => ({
   CustomResizable: ({ children }: { children: ReactNode }) => (
     <section data-testid="mock-custom-resizable">{children}</section>
@@ -59,9 +65,7 @@ vi.mock("../Layouts/ChartArea/ChartArea", () => ({
 }));
 
 vi.mock("../Layouts/CodeArea", () => ({
-  CodeArea: ({ sectionId }: { sectionId: string }) => (
-    <div data-testid="mock-code-area">code:{sectionId}</div>
-  ),
+  CodeArea: mockCodeArea,
   GenPythonCodeArea: () => <div data-testid="mock-gen-python-code-area" />,
   GenPythonMetadataArea: () => (
     <div data-testid="mock-gen-python-metadata-area" />
@@ -192,6 +196,7 @@ describe("SectionContainerCoreResizable store subscriptions", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    mockCodeArea.mockClear();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({
         id: "project-1",
@@ -290,6 +295,52 @@ describe("SectionContainerCoreResizable store subscriptions", () => {
 
       expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
       expect(host.querySelector('[data-testid="mock-code-area"]')).toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps mounted body content out of parent-only rerenders when body props stay stable", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    try {
+      await act(async () => {
+        root.render(
+          <SectionContainerCoreResizable
+            sectionId="section-1"
+            sectionTypeName={SectionTypeEnum.Code}
+            isInOtherProjectConfigs={false}
+            isUserView={false}
+            positionAndSizeLocked={false}
+            hasSectionStyleTheme={false}
+          />,
+        );
+      });
+
+      const initialCodeAreaRenderCount = mockCodeArea.mock.calls.length;
+
+      await act(async () => {
+        root.render(
+          <SectionContainerCoreResizable
+            sectionId="section-1"
+            sectionTypeName={SectionTypeEnum.Code}
+            isInOtherProjectConfigs={false}
+            isUserView={false}
+            positionAndSizeLocked={false}
+            hasSectionStyleTheme={true}
+          />,
+        );
+      });
+
+      expect(mockCodeArea).toHaveBeenCalledTimes(initialCodeAreaRenderCount);
+      expect(
+        host.querySelector('[data-testid="mock-code-area"]')?.textContent,
+      ).toBe("code:section-1");
     } finally {
       await act(async () => {
         root.unmount();

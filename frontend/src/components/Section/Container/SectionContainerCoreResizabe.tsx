@@ -278,7 +278,7 @@ export const SectionContainerCoreResizable = React.memo(
   _SectionContainerCoreResizable,
 );
 
-export function AreaSwitch({
+export const AreaSwitch = React.memo(function AreaSwitch({
   sectionId,
   sectionTypeName,
   bgColor,
@@ -379,9 +379,9 @@ export function AreaSwitch({
     default:
       return sectionTypeName satisfies never;
   }
-}
+});
 
-function CanvasSectionBody({
+const CanvasSectionBody = React.memo(function CanvasSectionBody({
   sectionId,
   sectionTypeName,
   bgColor,
@@ -428,7 +428,7 @@ function CanvasSectionBody({
       isUserView={isUserView}
     />
   );
-}
+});
 
 function ChatSectionArea({
   sectionId,
