@@ -105,35 +105,14 @@ func NormalizeOrigin(rawOrigin string) string {
 }
 
 func ResolveRequestOrigin(r *http.Request, allowClientOriginHeader bool) string {
-	if r == nil {
-		return ""
+	if normalized := requestClientOrigin(r, allowClientOriginHeader); normalized != "" {
+		return normalized
 	}
-	if allowClientOriginHeader {
-		if normalized := NormalizeOrigin(r.Header.Get("Origin")); normalized != "" {
-			return normalized
-		}
-	}
-	host := strings.TrimSpace(r.Host)
-	if host == "" && r.URL != nil {
-		host = strings.TrimSpace(r.URL.Host)
-	}
+	host := requestOriginHost(r)
 	if host == "" {
 		return ""
 	}
-	scheme := "http"
-	if r.URL != nil && strings.TrimSpace(r.URL.Scheme) != "" {
-		scheme = strings.TrimSpace(r.URL.Scheme)
-	} else if r.TLS != nil {
-		scheme = "https"
-	}
-	originHost := host
-	if parsedHost, parsedPort, err := net.SplitHostPort(host); err == nil {
-		originHost = formatOriginHost(parsedHost)
-		if parsedPort != "" {
-			originHost += ":" + parsedPort
-		}
-	}
-	return scheme + "://" + originHost
+	return requestOriginScheme(r) + "://" + requestOriginHostForURL(host)
 }
 
 func (s *Service) TrustOrigin(origin string, sessionID string, exp int64) (string, error) {
@@ -257,6 +236,50 @@ func normalizeSessionID(sessionID string) string {
 	return strings.TrimSpace(sessionID)
 }
 
+func requestClientOrigin(r *http.Request, allowClientOriginHeader bool) string {
+	if r == nil || !allowClientOriginHeader {
+		return ""
+	}
+	return NormalizeOrigin(r.Header.Get("Origin"))
+}
+
+func requestOriginHost(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if host := strings.TrimSpace(r.Host); host != "" {
+		return host
+	}
+	if r.URL == nil {
+		return ""
+	}
+	return strings.TrimSpace(r.URL.Host)
+}
+
+func requestOriginScheme(r *http.Request) string {
+	if r != nil && r.URL != nil {
+		if scheme := strings.TrimSpace(r.URL.Scheme); scheme != "" {
+			return scheme
+		}
+	}
+	if r != nil && r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+func requestOriginHostForURL(host string) string {
+	parsedHost, parsedPort, err := net.SplitHostPort(host)
+	if err != nil {
+		return host
+	}
+	originHost := formatOriginHost(parsedHost)
+	if parsedPort == "" {
+		return originHost
+	}
+	return originHost + ":" + parsedPort
+}
+
 func (s *store) trust(sessionID string, origin string, exp int64, now int64) error {
 	return s.update(func(record storeRecord) (storeRecord, error) {
 		pruneStore(record.SessionIDToOrigins, now)
@@ -331,17 +354,28 @@ func (s *store) update(apply func(storeRecord) (storeRecord, error)) error {
 func (s *store) read() (storeRecord, error) {
 	content, err := os.ReadFile(s.path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return storeRecord{SessionIDToOrigins: map[string]map[string]int64{}}, nil
-		}
-		return storeRecord{}, &StoreUnavailableError{
-			Message: fmt.Sprintf("Failed reading trusted frontend origins store: %s", s.path),
-		}
+		return readMissingStoreRecord(err, s.path)
 	}
 	if len(strings.TrimSpace(string(content))) == 0 {
-		return storeRecord{SessionIDToOrigins: map[string]map[string]int64{}}, nil
+		return emptyStoreRecord(), nil
 	}
+	return decodeStoreRecord(content)
+}
 
+func readMissingStoreRecord(err error, path string) (storeRecord, error) {
+	if errors.Is(err, os.ErrNotExist) {
+		return emptyStoreRecord(), nil
+	}
+	return storeRecord{}, &StoreUnavailableError{
+		Message: fmt.Sprintf("Failed reading trusted frontend origins store: %s", path),
+	}
+}
+
+func emptyStoreRecord() storeRecord {
+	return storeRecord{SessionIDToOrigins: map[string]map[string]int64{}}
+}
+
+func decodeStoreRecord(content []byte) (storeRecord, error) {
 	var raw any
 	if err := json.Unmarshal(content, &raw); err != nil {
 		return storeRecord{}, &StoreStateError{Message: "Trusted frontend origins store contains invalid JSON."}
@@ -351,31 +385,47 @@ func (s *store) read() (storeRecord, error) {
 		return storeRecord{}, &StoreStateError{Message: "Trusted frontend origins store must be an object."}
 	}
 
-	record := storeRecord{SessionIDToOrigins: map[string]map[string]int64{}}
+	record := emptyStoreRecord()
 	for rawSessionID, rawOrigins := range topLevel {
-		sessionID := normalizeSessionID(rawSessionID)
-		if sessionID == "" {
-			return storeRecord{}, &StoreStateError{Message: "Trusted frontend origin session keys must be strings."}
-		}
-		originMapRaw, ok := rawOrigins.(map[string]any)
-		if !ok {
-			return storeRecord{}, &StoreStateError{Message: "Trusted frontend origin session entries must be objects."}
-		}
-		originMap := map[string]int64{}
-		for rawOrigin, rawExp := range originMapRaw {
-			normalizedOrigin := NormalizeOrigin(rawOrigin)
-			if normalizedOrigin == "" {
-				return storeRecord{}, &StoreStateError{Message: "Trusted frontend origin keys must be strings."}
-			}
-			exp, ok := normalizeJSONInteger(rawExp)
-			if !ok {
-				return storeRecord{}, &StoreStateError{Message: "Trusted frontend origin expiry values must be integers."}
-			}
-			originMap[normalizedOrigin] = exp
+		sessionID, originMap, err := decodeStoreSessionOrigins(rawSessionID, rawOrigins)
+		if err != nil {
+			return storeRecord{}, err
 		}
 		record.SessionIDToOrigins[sessionID] = originMap
 	}
 	return record, nil
+}
+
+func decodeStoreSessionOrigins(rawSessionID string, rawOrigins any) (string, map[string]int64, error) {
+	sessionID := normalizeSessionID(rawSessionID)
+	if sessionID == "" {
+		return "", nil, &StoreStateError{Message: "Trusted frontend origin session keys must be strings."}
+	}
+	originMapRaw, ok := rawOrigins.(map[string]any)
+	if !ok {
+		return "", nil, &StoreStateError{Message: "Trusted frontend origin session entries must be objects."}
+	}
+	originMap, err := decodeStoreOriginMap(originMapRaw)
+	if err != nil {
+		return "", nil, err
+	}
+	return sessionID, originMap, nil
+}
+
+func decodeStoreOriginMap(originMapRaw map[string]any) (map[string]int64, error) {
+	originMap := map[string]int64{}
+	for rawOrigin, rawExp := range originMapRaw {
+		normalizedOrigin := NormalizeOrigin(rawOrigin)
+		if normalizedOrigin == "" {
+			return nil, &StoreStateError{Message: "Trusted frontend origin keys must be strings."}
+		}
+		exp, ok := normalizeJSONInteger(rawExp)
+		if !ok {
+			return nil, &StoreStateError{Message: "Trusted frontend origin expiry values must be integers."}
+		}
+		originMap[normalizedOrigin] = exp
+	}
+	return originMap, nil
 }
 
 func (s *store) write(record storeRecord) error {

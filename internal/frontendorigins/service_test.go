@@ -1,6 +1,7 @@
 package frontendorigins
 
 import (
+	"crypto/tls"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -165,6 +166,18 @@ func TestResolveRequestOriginPrefersClientOriginHeaderWhenAllowed(t *testing.T) 
 	}
 }
 
+func TestResolveRequestOriginFallsBackToURLHostAndTLS(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "https://example.com/api/runtimeInfo", nil)
+	request.Host = ""
+	request.TLS = &tls.ConnectionState{}
+
+	if got := ResolveRequestOrigin(request, false); got != "https://example.com" {
+		t.Fatalf("expected https origin fallback from url host, got %q", got)
+	}
+}
+
 func TestNormalizeOriginAcceptsHTTPAndHTTPSOrigins(t *testing.T) {
 	t.Parallel()
 
@@ -228,5 +241,34 @@ func TestAppendLauncherOriginHandoffToBootstrapURLPreservesTokenAndAppendsSigned
 	}
 	if hashParams.Get("lop") != "signed-proof" {
 		t.Fatalf("expected launcher origin proof, got %q", hashParams.Get("lop"))
+	}
+}
+
+func TestStoreReadRejectsInvalidExpiryValues(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(Options{
+		RuntimeRoot: filepath.Join(t.TempDir(), "runtime"),
+	})
+	if err != nil {
+		t.Fatalf("new trusted frontend origin service: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(service.store.path), 0o755); err != nil {
+		t.Fatalf("mkdir store dir: %v", err)
+	}
+	if err := os.WriteFile(service.store.path, []byte(`{"session-1":{"http://127.0.0.1:9001":"bad"}}`), 0o600); err != nil {
+		t.Fatalf("write invalid store: %v", err)
+	}
+
+	_, err = service.store.read()
+	if err == nil {
+		t.Fatal("expected store state error")
+	}
+	var stateErr *StoreStateError
+	if !errors.As(err, &stateErr) {
+		t.Fatalf("expected store state error, got %T", err)
+	}
+	if stateErr.Error() != "Trusted frontend origin expiry values must be integers." {
+		t.Fatalf("unexpected store state error %q", stateErr.Error())
 	}
 }

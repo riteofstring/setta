@@ -58,49 +58,19 @@ func AllowedWebsocketOriginPatternsForRequest(r *http.Request, trustedOrigins *S
 }
 
 func configuredFrontendOriginsForRequest(r *http.Request) []string {
-	seen := map[string]struct{}{}
-	origins := make([]string, 0, 4)
-	addOrigin := func(rawOrigin string) {
-		normalizedOrigin := NormalizeOrigin(rawOrigin)
-		if normalizedOrigin == "" {
-			return
-		}
-		if _, ok := seen[normalizedOrigin]; ok {
-			return
-		}
-		seen[normalizedOrigin] = struct{}{}
-		origins = append(origins, normalizedOrigin)
-	}
-
+	collector := newOriginCollector(4)
 	if devFrontendPort := strings.TrimSpace(os.Getenv(devFrontendPortEnv)); devFrontendPort != "" {
-		scheme := strings.TrimSpace(strings.ToLower(os.Getenv(devFrontendSchemeEnv)))
-		if scheme == "" {
-			scheme = defaultDevFrontendScheme
-		}
-		if scheme != "http" && scheme != "https" {
-			scheme = defaultDevFrontendScheme
-		}
-
-		requestOrigin := ResolveRequestOrigin(r, false)
-		host := "127.0.0.1"
-		if requestOrigin != "" {
-			if parsedRequestOrigin, err := url.Parse(requestOrigin); err == nil && parsedRequestOrigin.Hostname() != "" {
-				host = parsedRequestOrigin.Hostname()
-			}
-		}
-
-		addOrigin(scheme + "://" + formatOriginHost(host) + ":" + devFrontendPort)
-		if host == "127.0.0.1" {
-			addOrigin(scheme + "://localhost:" + devFrontendPort)
+		for _, rawOrigin := range configuredDevFrontendOrigins(r, devFrontendPort) {
+			collector.add(rawOrigin)
 		}
 	} else {
-		addOrigin(ResolveRequestOrigin(r, false))
+		collector.add(ResolveRequestOrigin(r, false))
 	}
 
 	for _, rawOrigin := range strings.Split(os.Getenv(extraFrontendOriginsEnv), ",") {
-		addOrigin(rawOrigin)
+		collector.add(rawOrigin)
 	}
-	return origins
+	return collector.origins
 }
 
 func isTrustedFrontendOriginForRequest(r *http.Request, rawOrigin string, trustedOrigins *Service, sessionID string) bool {
@@ -126,4 +96,58 @@ func refererOrigin(rawReferer string) string {
 		return ""
 	}
 	return NormalizeOrigin(parsedReferer.Scheme + "://" + parsedReferer.Host)
+}
+
+type originCollector struct {
+	seen    map[string]struct{}
+	origins []string
+}
+
+func newOriginCollector(capacity int) *originCollector {
+	return &originCollector{
+		seen:    map[string]struct{}{},
+		origins: make([]string, 0, capacity),
+	}
+}
+
+func (c *originCollector) add(rawOrigin string) {
+	normalizedOrigin := NormalizeOrigin(rawOrigin)
+	if normalizedOrigin == "" {
+		return
+	}
+	if _, ok := c.seen[normalizedOrigin]; ok {
+		return
+	}
+	c.seen[normalizedOrigin] = struct{}{}
+	c.origins = append(c.origins, normalizedOrigin)
+}
+
+func configuredDevFrontendOrigins(r *http.Request, port string) []string {
+	scheme := configuredDevFrontendScheme()
+	host := configuredDevFrontendHost(r)
+	origins := []string{scheme + "://" + formatOriginHost(host) + ":" + port}
+	if host == "127.0.0.1" {
+		origins = append(origins, scheme+"://localhost:"+port)
+	}
+	return origins
+}
+
+func configuredDevFrontendScheme() string {
+	scheme := strings.TrimSpace(strings.ToLower(os.Getenv(devFrontendSchemeEnv)))
+	if scheme == "http" || scheme == "https" {
+		return scheme
+	}
+	return defaultDevFrontendScheme
+}
+
+func configuredDevFrontendHost(r *http.Request) string {
+	requestOrigin := ResolveRequestOrigin(r, false)
+	if requestOrigin == "" {
+		return "127.0.0.1"
+	}
+	parsedRequestOrigin, err := url.Parse(requestOrigin)
+	if err != nil || parsedRequestOrigin.Hostname() == "" {
+		return "127.0.0.1"
+	}
+	return parsedRequestOrigin.Hostname()
 }
