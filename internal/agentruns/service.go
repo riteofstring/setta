@@ -169,11 +169,8 @@ func (s *Service) RunSubAgent(ctx context.Context, profile agentprofiles.Profile
 }
 
 func (s *Service) prepareRun(profile agentprofiles.Profile, inputs map[string]any) (runContext, error) {
-	if s == nil {
-		return runContext{}, ErrManagedExecutorUnavailable
-	}
-	if s.executor == nil {
-		return runContext{}, ErrManagedExecutorUnavailable
+	if err := s.requireExecutor(); err != nil {
+		return runContext{}, err
 	}
 	prepared, err := s.buildContext(profile, inputs)
 	if err != nil {
@@ -209,41 +206,65 @@ func (s *Service) prepareRun(profile agentprofiles.Profile, inputs map[string]an
 }
 
 func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, error) {
-	if s == nil {
-		return Run{}, ErrManagedExecutorUnavailable
-	}
-	if s.executor == nil {
-		return Run{}, ErrManagedExecutorUnavailable
+	if err := s.requireExecutor(); err != nil {
+		return Run{}, err
 	}
 
-	request := ExecutionRequest{}
-	if runContext.request != nil {
-		request = cloneExecutionRequest(*runContext.request)
-	} else {
-		var err error
-		request, err = s.buildExecutionRequest(runContext)
-		if err != nil {
-			return s.failRun(runContext, err)
-		}
+	request, err := s.executionRequest(runContext)
+	if err != nil {
+		return s.failRun(runContext, err)
 	}
 	result, execErr := s.executor.Execute(ctx, request)
 
 	s.runStateMu.Lock()
 	defer s.runStateMu.Unlock()
 
-	if persistedRun, err := s.runs.Load(runContext.run.ID); err == nil {
-		runContext.run = persistedRun
-	}
-	if ctx.Err() != nil || errors.Is(execErr, context.Canceled) || runContext.run.Status == RunStatusCancelled {
-		if err := s.persistExecutionResult(&runContext.run, runContext, result); err != nil {
-			return Run{}, err
-		}
-		return s.cancelRunLocked(runContext.run.ID)
+	s.reloadPersistedRun(&runContext)
+	if executionWasCancelled(ctx, execErr, runContext.run.Status) {
+		return s.persistCancelledRunLocked(runContext, result)
 	}
 	if execErr != nil {
 		return s.failRunLocked(runContext, execErr)
 	}
+	return s.completeRunLocked(runContext, result)
+}
 
+func (s *Service) requireExecutor() error {
+	if s == nil || s.executor == nil {
+		return ErrManagedExecutorUnavailable
+	}
+	return nil
+}
+
+func (s *Service) executionRequest(runContext runContext) (ExecutionRequest, error) {
+	if runContext.request != nil {
+		return cloneExecutionRequest(*runContext.request), nil
+	}
+	return s.buildExecutionRequest(runContext)
+}
+
+func (s *Service) reloadPersistedRun(runContext *runContext) {
+	if s == nil || runContext == nil {
+		return
+	}
+	persistedRun, err := s.runs.Load(runContext.run.ID)
+	if err == nil {
+		runContext.run = persistedRun
+	}
+}
+
+func executionWasCancelled(ctx context.Context, execErr error, status RunStatus) bool {
+	return ctx.Err() != nil || errors.Is(execErr, context.Canceled) || status == RunStatusCancelled
+}
+
+func (s *Service) persistCancelledRunLocked(runContext runContext, result ExecutionResult) (Run, error) {
+	if err := s.persistExecutionResult(&runContext.run, runContext, result); err != nil {
+		return Run{}, err
+	}
+	return s.cancelRunLocked(runContext.run.ID)
+}
+
+func (s *Service) completeRunLocked(runContext runContext, result ExecutionResult) (Run, error) {
 	runContext.run.ToolCalls = cloneToolCalls(result.ToolCalls)
 	runContext.run.Cost = cloneFloat64Ptr(result.Cost)
 	runContext.run.Outputs = buildOutputs(result.Outputs, s.buildRunMetadata(runContext), result.Cost)

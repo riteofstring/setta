@@ -336,20 +336,36 @@ func (s *RunStore) ListByMetadata(filter RunFilter) ([]Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	runIDs := make([]string, 0, len(index.Runs))
-	for runID, entry := range index.Runs {
-		if filter.RunType != nil && !stringPtrEqual(entry.RunType, *filter.RunType) {
-			continue
-		}
-		if filter.ChatID != nil && !stringPtrEqual(entry.ChatID, *filter.ChatID) {
-			continue
-		}
-		if filter.ProjectConfigID != nil && !stringPtrEqual(entry.ProjectConfigID, *filter.ProjectConfigID) {
+	runIDs := matchingRunIDs(index.Runs, filter)
+	return s.loadRunsByID(runIDs)
+}
+
+func matchingRunIDs(indexRuns map[string]RunIndexEntry, filter RunFilter) []string {
+	runIDs := make([]string, 0, len(indexRuns))
+	for runID, entry := range indexRuns {
+		if !runIndexEntryMatchesFilter(entry, filter) {
 			continue
 		}
 		runIDs = append(runIDs, runID)
 	}
 	slices.Sort(runIDs)
+	return runIDs
+}
+
+func runIndexEntryMatchesFilter(entry RunIndexEntry, filter RunFilter) bool {
+	return matchesOptionalStringFilter(entry.RunType, filter.RunType) &&
+		matchesOptionalStringFilter(entry.ChatID, filter.ChatID) &&
+		matchesOptionalStringFilter(entry.ProjectConfigID, filter.ProjectConfigID)
+}
+
+func matchesOptionalStringFilter(actual *string, expected *string) bool {
+	if expected == nil {
+		return true
+	}
+	return stringPtrEqual(actual, *expected)
+}
+
+func (s *RunStore) loadRunsByID(runIDs []string) ([]Run, error) {
 	runs := make([]Run, 0, len(runIDs))
 	for _, runID := range runIDs {
 		run, err := s.Load(runID)
