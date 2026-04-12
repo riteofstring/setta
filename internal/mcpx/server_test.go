@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9799,6 +9800,65 @@ func TestServerToolCatalogIncludesTerminalSectionDescription(t *testing.T) {
 	sectionSchema := mustStructuredMap(t, properties["sectionId"])
 	if sectionSchema["description"] != "Top-level terminal section id whose buffered output should be returned." {
 		t.Fatalf("unexpected getTerminalOutput sectionId description %#v", sectionSchema["description"])
+	}
+}
+
+func TestReadRequiredFiniteNumberFieldAcceptsSupportedNumericTypes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		value any
+		want  float64
+	}{
+		{name: "float64", value: 1.5, want: 1.5},
+		{name: "float32", value: float32(2.5), want: 2.5},
+		{name: "int", value: 3, want: 3},
+		{name: "int16", value: int16(4), want: 4},
+		{name: "int64", value: int64(5), want: 5},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			value, err := readRequiredFiniteNumberField(map[string]any{"value": tc.value}, "layout", "value")
+			if err != nil {
+				t.Fatalf("read required number: %v", err)
+			}
+			if value != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, value)
+			}
+		})
+	}
+}
+
+func TestReadRequiredFiniteNumberFieldRejectsInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		value       any
+		wantMessage string
+	}{
+		{name: "bool", value: true, wantMessage: "layout.value must be a number"},
+		{name: "inf", value: math.Inf(1), wantMessage: "layout.value must be a finite number"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := readRequiredFiniteNumberField(map[string]any{"value": tc.value}, "layout", "value")
+			if err == nil {
+				t.Fatal("expected number read to fail")
+			}
+			if !strings.Contains(err.Error(), tc.wantMessage) {
+				t.Fatalf("expected error containing %q, got %v", tc.wantMessage, err)
+			}
+		})
 	}
 }
 

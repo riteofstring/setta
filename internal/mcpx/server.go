@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -7189,29 +7190,29 @@ func readRequiredFiniteNumberField(object map[string]any, parentKey string, fiel
 		return 0, newToolError("invalid_arguments", "%s.%s is required", parentKey, field)
 	}
 
-	var value float64
-	switch typed := rawValue.(type) {
-	case float64:
-		value = typed
-	case float32:
-		value = float64(typed)
-	case int:
-		value = float64(typed)
-	case int8:
-		value = float64(typed)
-	case int16:
-		value = float64(typed)
-	case int32:
-		value = float64(typed)
-	case int64:
-		value = float64(typed)
-	default:
+	value, ok := readSupportedNumberValue(rawValue)
+	if !ok {
 		return 0, newToolError("invalid_arguments", "%s.%s must be a number", parentKey, field)
 	}
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		return 0, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
 	}
 	return value, nil
+}
+
+func readSupportedNumberValue(rawValue any) (float64, bool) {
+	switch typed := rawValue.(type) {
+	case float64:
+		return typed, true
+	case float32:
+		return float64(typed), true
+	}
+	switch value := reflect.ValueOf(rawValue); value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(value.Int()), true
+	default:
+		return 0, false
+	}
 }
 
 func readOptionalFiniteNumberField(object map[string]any, parentKey string, field string) (*float64, error) {
