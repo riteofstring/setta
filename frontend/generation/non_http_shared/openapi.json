@@ -15056,10 +15056,176 @@
         "title": "TextParamCodeObjImpl",
         "type": "object"
       },
+      "TextParamDateCalendarWeekStartOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/DateCalendarWeekStart"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TextParamDateCalendarWeekStartOption",
+        "type": "object"
+      },
+      "TextParamDateControlModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/DateControlMode"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TextParamDateControlModeOption",
+        "type": "object"
+      },
+      "TextParamDateDisplayFormatOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/DateDisplayFormat"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TextParamDateDisplayFormatOption",
+        "type": "object"
+      },
+      "TextParamDateSelectionModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/DateSelectionMode"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TextParamDateSelectionModeOption",
+        "type": "object"
+      },
       "TextParamInputUIType": {
         "enum": ["plain", "time", "date"],
         "title": "TextParamInputUIType",
         "type": "string"
+      },
+      "TextParamTimeControlModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/TimeControlMode"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TextParamTimeControlModeOption",
+        "type": "object"
+      },
+      "TextParamTimeDisplayFontOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/TimeDisplayFont"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TextParamTimeDisplayFontOption",
+        "type": "object"
+      },
+      "TextParamTimeDisplayFormatOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/TimeDisplayFormat"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TextParamTimeDisplayFormatOption",
+        "type": "object"
+      },
+      "TextParamUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "calendarWeekdayLabelsByWeekStart": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": ["null", "array"]
+            },
+            "type": "object"
+          },
+          "dateCalendarWeekStartOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TextParamDateCalendarWeekStartOption"
+            },
+            "type": ["null", "array"]
+          },
+          "dateControlModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TextParamDateControlModeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "dateDisplayFormatOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TextParamDateDisplayFormatOption"
+            },
+            "type": ["null", "array"]
+          },
+          "dateSelectionModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TextParamDateSelectionModeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "timeControlModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TextParamTimeControlModeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "timeDisplayFontOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TextParamTimeDisplayFontOption"
+            },
+            "type": ["null", "array"]
+          },
+          "timeDisplayFormatOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TextParamTimeDisplayFormatOption"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "timeDisplayFormatOptions",
+          "timeControlModeOptions",
+          "timeDisplayFontOptions",
+          "dateDisplayFormatOptions",
+          "dateControlModeOptions",
+          "dateSelectionModeOptions",
+          "dateCalendarWeekStartOptions",
+          "calendarWeekdayLabelsByWeekStart"
+        ],
+        "title": "TextParamUIConfigValue",
+        "type": "object"
       },
       "TimeControlMode": {
         "enum": ["input", "display"],

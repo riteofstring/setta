@@ -21,7 +21,6 @@ import {
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStart,
-  DateCalendarWeekStartEnum,
   DateControlMode,
   DateControlModeEnum,
   DateDisplayFormat,
@@ -31,12 +30,12 @@ import {
   DateSelectionModeEnum,
   TextParamInputUIType,
   TextParamInputUITypeEnum,
+  TextParamUIConfig,
   TimeControlMode,
   TimeControlModeEnum,
   TimeDisplayFont,
   TimeDisplayFontEnum,
   TimeDisplayFormat,
-  TimeDisplayFormatEnum,
   TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
@@ -58,70 +57,26 @@ const LABEL_CLASS_NAME =
   "flex-1 font-sans text-xs font-semibold text-setta-600 dark:text-setta-400";
 const SELECT_CLASS_NAME =
   "nodrag font-code cursor-pointer border-0 border-b border-solid border-setta-300 bg-transparent text-xs focus:border-blue-400 focus:outline-none focus-visible:border-blue-400 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-700 dark:text-setta-300";
-const TIME_FORMAT_OPTIONS: Array<{
-  value: TimeDisplayFormat;
-  label: string;
-}> = [
-  { value: TimeDisplayFormatEnum.twenty_four_hour, label: "24-hour" },
-  { value: TimeDisplayFormatEnum.twelve_hour, label: "12-hour" },
-];
-const TIME_CONTROL_MODE_OPTIONS: Array<{
-  value: TimeControlMode;
-  label: string;
-}> = [
-  { value: TimeControlModeEnum.display, label: "Display" },
-  { value: TimeControlModeEnum.input, label: "Input" },
-];
-const TIME_DISPLAY_FONT_OPTIONS: Array<{
-  value: TimeDisplayFont;
-  label: string;
-}> = [
-  { value: TimeDisplayFontEnum.clock, label: "Clock" },
-  { value: TimeDisplayFontEnum.monospace, label: "Monospace" },
-  { value: TimeDisplayFontEnum.system, label: "System" },
-];
+const TIME_FORMAT_OPTIONS = TextParamUIConfig.timeDisplayFormatOptions;
+const TIME_CONTROL_MODE_OPTIONS = TextParamUIConfig.timeControlModeOptions;
+const TIME_DISPLAY_FONT_OPTIONS = TextParamUIConfig.timeDisplayFontOptions;
 const TIME_DISPLAY_SCALE_MIN = 0.5;
 const TIME_DISPLAY_SCALE_MAX = 3.0;
 const TIME_DISPLAY_SCALE_STEP = 0.1;
-const DATE_FORMAT_OPTIONS: Array<{
-  value: DateDisplayFormat;
-  label: string;
-}> = [
-  { value: DateDisplayFormatEnum.iso, label: "ISO (YYYY-MM-DD)" },
-  { value: DateDisplayFormatEnum.us, label: "US (MM/DD/YYYY)" },
-  { value: DateDisplayFormatEnum.eu, label: "EU (DD/MM/YYYY)" },
-  { value: DateDisplayFormatEnum.long, label: "Long (Month D, YYYY)" },
-];
-const DATE_CONTROL_MODE_OPTIONS: Array<{
-  value: DateControlMode;
-  label: string;
-}> = [
-  { value: DateControlModeEnum.input, label: "Date input" },
-  { value: DateControlModeEnum.calendar, label: "Calendar" },
-];
-const DATE_SELECTION_MODE_OPTIONS: Array<{
-  value: DateSelectionMode;
-  label: string;
-}> = [
-  { value: DateSelectionModeEnum.single, label: "Single date" },
-  { value: DateSelectionModeEnum.multiple, label: "Multiple dates" },
-];
-const DATE_WEEK_START_OPTIONS: Array<{
-  value: DateCalendarWeekStart;
-  label: string;
-}> = [
-  { value: DateCalendarWeekStartEnum.sunday, label: "Sunday" },
-  { value: DateCalendarWeekStartEnum.monday, label: "Monday" },
-];
-const SUNDAY_WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONDAY_WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DATE_FORMAT_OPTIONS = TextParamUIConfig.dateDisplayFormatOptions;
+const DATE_CONTROL_MODE_OPTIONS = TextParamUIConfig.dateControlModeOptions;
+const DATE_SELECTION_MODE_OPTIONS = TextParamUIConfig.dateSelectionModeOptions;
+const DATE_WEEK_START_OPTIONS = TextParamUIConfig.dateCalendarWeekStartOptions;
+const WEEKDAY_LABELS_BY_WEEK_START =
+  TextParamUIConfig.calendarWeekdayLabelsByWeekStart;
 function getWeekdayLabels(
   weekStart: DateCalendarWeekStart,
 ): ReadonlyArray<string> {
-  if (weekStart === DateCalendarWeekStartEnum.monday) {
-    return MONDAY_WEEKDAY_LABELS;
+  const labels = WEEKDAY_LABELS_BY_WEEK_START[weekStart];
+  if (!labels) {
+    throw new Error(`Missing weekday labels for week start ${weekStart}`);
   }
-  return SUNDAY_WEEKDAY_LABELS;
+  return labels;
 }
 function clampTimeDisplayScale(rawScale: number): number {
   if (!Number.isFinite(rawScale)) {

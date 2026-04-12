@@ -51,6 +51,7 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 		{typ: reflect.TypeOf(ProjectCodegenPythonTarget{}), field: "Language", tagName: "ts_type", tagValue: "typeof ProjectCodegenLanguageEnum.python"},
 		{typ: reflect.TypeOf(PythonCodegenPolicyUIConfigValue{}), field: "SectionRepresentationOptionsByType", tagName: "ts_type", tagValue: "Record<SectionType, SectionRepresentationMode[]>"},
 		{typ: reflect.TypeOf(PythonCodegenPolicyUIConfigValue{}), field: "CodeObjRepresentationOptionsByType", tagName: "ts_type", tagValue: "Record<CodeObjType, CodeObjValueRepresentationMode[]>"},
+		{typ: reflect.TypeOf(TextParamUIConfigValue{}), field: "CalendarWeekdayLabelsByWeekStart", tagName: "ts_type", tagValue: "Record<DateCalendarWeekStart, string[]>"},
 	}
 
 	for _, expectation := range expectations {

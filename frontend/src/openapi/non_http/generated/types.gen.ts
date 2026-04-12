@@ -6159,9 +6159,81 @@ export type TextParamCodeObjImpl = {
 };
 
 /**
+ * TextParamDateCalendarWeekStartOption
+ */
+type TextParamDateCalendarWeekStartOption = {
+  label: string;
+  value: DateCalendarWeekStart;
+};
+
+/**
+ * TextParamDateControlModeOption
+ */
+type TextParamDateControlModeOption = {
+  label: string;
+  value: DateControlMode;
+};
+
+/**
+ * TextParamDateDisplayFormatOption
+ */
+type TextParamDateDisplayFormatOption = {
+  label: string;
+  value: DateDisplayFormat;
+};
+
+/**
+ * TextParamDateSelectionModeOption
+ */
+type TextParamDateSelectionModeOption = {
+  label: string;
+  value: DateSelectionMode;
+};
+
+/**
  * TextParamInputUIType
  */
 export type TextParamInputUIType = "plain" | "time" | "date";
+
+/**
+ * TextParamTimeControlModeOption
+ */
+type TextParamTimeControlModeOption = {
+  label: string;
+  value: TimeControlMode;
+};
+
+/**
+ * TextParamTimeDisplayFontOption
+ */
+type TextParamTimeDisplayFontOption = {
+  label: string;
+  value: TimeDisplayFont;
+};
+
+/**
+ * TextParamTimeDisplayFormatOption
+ */
+type TextParamTimeDisplayFormatOption = {
+  label: string;
+  value: TimeDisplayFormat;
+};
+
+/**
+ * TextParamUIConfigValue
+ */
+export type TextParamUIConfigValue = {
+  calendarWeekdayLabelsByWeekStart: {
+    [key: string]: null | Array<string>;
+  };
+  dateCalendarWeekStartOptions: null | Array<TextParamDateCalendarWeekStartOption>;
+  dateControlModeOptions: null | Array<TextParamDateControlModeOption>;
+  dateDisplayFormatOptions: null | Array<TextParamDateDisplayFormatOption>;
+  dateSelectionModeOptions: null | Array<TextParamDateSelectionModeOption>;
+  timeControlModeOptions: null | Array<TextParamTimeControlModeOption>;
+  timeDisplayFontOptions: null | Array<TextParamTimeDisplayFontOption>;
+  timeDisplayFormatOptions: null | Array<TextParamTimeDisplayFormatOption>;
+};
 
 /**
  * TimeControlMode

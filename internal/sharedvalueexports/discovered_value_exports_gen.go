@@ -105,6 +105,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "TextParamUIConfig",
+			Type: reflect.TypeOf(projectview.FrontendValueTextParamUIConfig()),
+			Value: func() any {
+				return projectview.FrontendValueTextParamUIConfig()
+			},
+		},
+		{
 			Name: "ToolNameNormalizationConfig",
 			Type: reflect.TypeOf(httpapi.FrontendValueToolNameNormalizationConfig()),
 			Value: func() any {

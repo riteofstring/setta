@@ -4752,6 +4752,44 @@ export const SettaFilesLocationPolicyConfig = {
   resolved: ["local", "global"],
 } satisfies gt.SettaFilesLocationPolicy;
 
+export const TextParamUIConfig = {
+  calendarWeekdayLabelsByWeekStart: {
+    monday: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    sunday: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  },
+  dateCalendarWeekStartOptions: [
+    { label: "Sunday", value: "sunday" },
+    { label: "Monday", value: "monday" },
+  ],
+  dateControlModeOptions: [
+    { label: "Date input", value: "input" },
+    { label: "Calendar", value: "calendar" },
+  ],
+  dateDisplayFormatOptions: [
+    { label: "ISO (YYYY-MM-DD)", value: "iso" },
+    { label: "US (MM/DD/YYYY)", value: "us" },
+    { label: "EU (DD/MM/YYYY)", value: "eu" },
+    { label: "Long (Month D, YYYY)", value: "long" },
+  ],
+  dateSelectionModeOptions: [
+    { label: "Single date", value: "single" },
+    { label: "Multiple dates", value: "multiple" },
+  ],
+  timeControlModeOptions: [
+    { label: "Display", value: "display" },
+    { label: "Input", value: "input" },
+  ],
+  timeDisplayFontOptions: [
+    { label: "Clock", value: "clock" },
+    { label: "Monospace", value: "monospace" },
+    { label: "System", value: "system" },
+  ],
+  timeDisplayFormatOptions: [
+    { label: "24-hour", value: "twenty_four_hour" },
+    { label: "12-hour", value: "twelve_hour" },
+  ],
+} satisfies gt.TextParamUIConfigValue;
+
 export const ToolNameNormalizationConfig = {
   approvalToolName: "setta.approval",
   askUserQuestionToolAlias: "question",

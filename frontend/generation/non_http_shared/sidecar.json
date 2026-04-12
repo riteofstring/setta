@@ -5608,6 +5608,26 @@
       "schemaRef": "#/$defs/TextParamCodeObjImpl"
     },
     {
+      "name": "TextParamDateCalendarWeekStartOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TextParamDateCalendarWeekStartOption"
+    },
+    {
+      "name": "TextParamDateControlModeOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TextParamDateControlModeOption"
+    },
+    {
+      "name": "TextParamDateDisplayFormatOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TextParamDateDisplayFormatOption"
+    },
+    {
+      "name": "TextParamDateSelectionModeOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TextParamDateSelectionModeOption"
+    },
+    {
       "name": "TextParamInputUIType",
       "kind": "enum",
       "schemaRef": "#/$defs/TextParamInputUIType",
@@ -5625,6 +5645,26 @@
           "value": "date"
         }
       ]
+    },
+    {
+      "name": "TextParamTimeControlModeOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TextParamTimeControlModeOption"
+    },
+    {
+      "name": "TextParamTimeDisplayFontOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TextParamTimeDisplayFontOption"
+    },
+    {
+      "name": "TextParamTimeDisplayFormatOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TextParamTimeDisplayFormatOption"
+    },
+    {
+      "name": "TextParamUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/TextParamUIConfigValue"
     },
     {
       "name": "TimeControlMode",
@@ -10970,6 +11010,114 @@
         "resolved": [
           "local",
           "global"
+        ]
+      }
+    },
+    {
+      "name": "TextParamUIConfig",
+      "type": "TextParamUIConfigValue",
+      "value": {
+        "calendarWeekdayLabelsByWeekStart": {
+          "monday": [
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat",
+            "Sun"
+          ],
+          "sunday": [
+            "Sun",
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat"
+          ]
+        },
+        "dateCalendarWeekStartOptions": [
+          {
+            "label": "Sunday",
+            "value": "sunday"
+          },
+          {
+            "label": "Monday",
+            "value": "monday"
+          }
+        ],
+        "dateControlModeOptions": [
+          {
+            "label": "Date input",
+            "value": "input"
+          },
+          {
+            "label": "Calendar",
+            "value": "calendar"
+          }
+        ],
+        "dateDisplayFormatOptions": [
+          {
+            "label": "ISO (YYYY-MM-DD)",
+            "value": "iso"
+          },
+          {
+            "label": "US (MM/DD/YYYY)",
+            "value": "us"
+          },
+          {
+            "label": "EU (DD/MM/YYYY)",
+            "value": "eu"
+          },
+          {
+            "label": "Long (Month D, YYYY)",
+            "value": "long"
+          }
+        ],
+        "dateSelectionModeOptions": [
+          {
+            "label": "Single date",
+            "value": "single"
+          },
+          {
+            "label": "Multiple dates",
+            "value": "multiple"
+          }
+        ],
+        "timeControlModeOptions": [
+          {
+            "label": "Display",
+            "value": "display"
+          },
+          {
+            "label": "Input",
+            "value": "input"
+          }
+        ],
+        "timeDisplayFontOptions": [
+          {
+            "label": "Clock",
+            "value": "clock"
+          },
+          {
+            "label": "Monospace",
+            "value": "monospace"
+          },
+          {
+            "label": "System",
+            "value": "system"
+          }
+        ],
+        "timeDisplayFormatOptions": [
+          {
+            "label": "24-hour",
+            "value": "twenty_four_hour"
+          },
+          {
+            "label": "12-hour",
+            "value": "twelve_hour"
+          }
         ]
       }
     },
