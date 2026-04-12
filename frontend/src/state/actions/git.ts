@@ -131,6 +131,148 @@ function createInitialGitGraphState({
 function getGitGraphState() {
   return useGitStore.getState().graph;
 }
+type GitGraphState = NonNullable<ReturnType<typeof getGitGraphState>>;
+type GitLogCommit = NonNullable<LogResponse["commits"]>[number];
+
+function canLoadMoreGitGraphCommits(
+  graph: GitGraphState | null,
+  force: boolean,
+): graph is GitGraphState & { response: LogResponse } {
+  if (!graph || !graph.response) {
+    return false;
+  }
+  if (graph.isLoading || graph.isLoadingMore) {
+    return false;
+  }
+  if (graph.nextOffset === null || !graph.hasMore) {
+    return false;
+  }
+  if (!force && graph.loadMoreError) {
+    return false;
+  }
+  return graph.filterText.trim() === "";
+}
+
+function setGitGraphLoadingMore(): void {
+  useGitStore.setState((state) => {
+    if (!state.graph) {
+      return state;
+    }
+    return {
+      ...state,
+      graph: {
+        ...state.graph,
+        isLoadingMore: true,
+        loadMoreError: null,
+      },
+    };
+  });
+}
+
+function collectNewGitGraphCommits(
+  seenCommitHashes: ReadonlySet<string>,
+  commits: readonly GitLogCommit[],
+) {
+  const nextSeenCommitHashes = new Set(seenCommitHashes);
+  const appendedCommits: GitLogCommit[] = [];
+  for (const commit of commits) {
+    if (nextSeenCommitHashes.has(commit.hash)) {
+      continue;
+    }
+    nextSeenCommitHashes.add(commit.hash);
+    appendedCommits.push(commit);
+  }
+  return {
+    nextSeenCommitHashes,
+    appendedCommits,
+  };
+}
+
+function buildAppendedGitGraphRows(
+  graph: GitGraphState,
+  commits: readonly GitLogCommit[],
+) {
+  if (commits.length === 0) {
+    return {
+      rows: [] as GitGraphState["rows"],
+      rowComputationState: graph.rowComputationState,
+    };
+  }
+  return appendGitGraphRows(commits, graph.rowComputationState);
+}
+
+function applyGitGraphLoadMoreSuccess(
+  requestProjectConfigId: string | null,
+  nextPage: LogResponse,
+): void {
+  useGitStore.setState((state) => {
+    if (
+      !state.graph ||
+      state.graph.projectConfigId !== requestProjectConfigId ||
+      !state.graph.response
+    ) {
+      return state;
+    }
+    const nextCommits = nextPage.commits ?? [];
+    const { nextSeenCommitHashes, appendedCommits } = collectNewGitGraphCommits(
+      state.graph.seenCommitHashes,
+      nextCommits,
+    );
+    const appendedResult = buildAppendedGitGraphRows(
+      state.graph,
+      appendedCommits,
+    );
+    const mergedResponse = {
+      ...state.graph.response,
+      commits: (state.graph.response.commits ?? []).concat(appendedCommits),
+      offset: 0,
+      pageSize: nextPage.pageSize,
+      nextOffset: nextPage.nextOffset,
+      hasMore: nextPage.hasMore,
+      isCapped: nextPage.isCapped,
+    };
+    return {
+      ...state,
+      graph: {
+        ...state.graph,
+        projectConfigId: requestProjectConfigId,
+        response: mergedResponse,
+        seenCommitHashes: nextSeenCommitHashes,
+        rows: state.graph.rows.concat(appendedResult.rows),
+        rowComputationState: appendedResult.rowComputationState,
+        isLoadingMore: false,
+        loadMoreError: null,
+        hasMore: nextPage.hasMore,
+        nextOffset: nextPage.nextOffset,
+        pageSize: nextPage.pageSize,
+        isCapped: nextPage.isCapped,
+      },
+    };
+  });
+}
+
+function applyGitGraphLoadMoreError(
+  requestProjectConfigId: string | null,
+  detail: string,
+): void {
+  useGitStore.setState((state) => {
+    if (
+      !state.graph ||
+      state.graph.projectConfigId !== requestProjectConfigId
+    ) {
+      return state;
+    }
+    return {
+      ...state,
+      graph: {
+        ...state.graph,
+        isLoadingMore: false,
+        loadMoreError: detail,
+      },
+    };
+  });
+}
+
 export async function refreshGitStatus(): Promise<void> {
   const requestId = (statusRequestId += 1);
   useGitStore.setState((state) => ({
@@ -440,21 +582,7 @@ export async function loadMoreGitGraphCommits({
   force?: boolean;
 } = {}): Promise<void> {
   const graph = getGitGraphState();
-  if (!graph) {
-    return;
-  }
-  if (
-    graph.isLoading ||
-    graph.isLoadingMore ||
-    graph.nextOffset === null ||
-    !graph.hasMore
-  ) {
-    return;
-  }
-  if (!force && graph.loadMoreError) {
-    return;
-  }
-  if (graph.filterText.trim()) {
+  if (!canLoadMoreGitGraphCommits(graph, force)) {
     return;
   }
   const requestId = (logRequestId += 1);
@@ -462,19 +590,7 @@ export async function loadMoreGitGraphCommits({
   const pageSize = graph.pageSize;
   const allRefs = graph.allRefs;
   const requestProjectConfigId = graph.projectConfigId;
-  useGitStore.setState((state) => {
-    if (!state.graph) {
-      return state;
-    }
-    return {
-      ...state,
-      graph: {
-        ...state.graph,
-        isLoadingMore: true,
-        loadMoreError: null,
-      },
-    };
-  });
+  setGitGraphLoadingMore();
   const res = (await callOpenAPI(
     getGitLog({
       body: {
@@ -492,108 +608,13 @@ export async function loadMoreGitGraphCommits({
     return;
   }
   if (res200(res)) {
-    const nextPage = res.data;
-    useGitStore.setState((state) => {
-      if (!state.graph) {
-        return state;
-      }
-      if (state.graph.projectConfigId !== requestProjectConfigId) {
-        return state;
-      }
-      const existingResponse = state.graph.response;
-      if (!existingResponse) {
-        const nextCommits = nextPage.commits ?? [];
-        const initialSeenCommitHashes = new Set(
-          nextCommits.map((commit) => commit.hash),
-        );
-        const initialRows = computeGitGraphRowsWithState(nextCommits);
-        return {
-          ...state,
-          graph: {
-            ...state.graph,
-            projectConfigId: requestProjectConfigId,
-            response: nextPage,
-            seenCommitHashes: initialSeenCommitHashes,
-            rows: initialRows.rows,
-            rowComputationState: initialRows.rowComputationState,
-            isLoadingMore: false,
-            loadMoreError: null,
-            hasMore: nextPage.hasMore,
-            nextOffset: nextPage.nextOffset,
-            pageSize: nextPage.pageSize,
-            isCapped: nextPage.isCapped,
-          },
-        };
-      }
-      const nextSeenCommitHashes = new Set(state.graph.seenCommitHashes);
-      const nextCommits = nextPage.commits ?? [];
-      const appendedCommits: typeof nextCommits = [];
-      for (const commit of nextCommits) {
-        if (nextSeenCommitHashes.has(commit.hash)) {
-          continue;
-        }
-        nextSeenCommitHashes.add(commit.hash);
-        appendedCommits.push(commit);
-      }
-      const mergedCommits = (existingResponse.commits ?? []).concat(
-        appendedCommits,
-      );
-      let appendedRows: typeof state.graph.rows = [];
-      let nextRowComputationState = state.graph.rowComputationState;
-      if (appendedCommits.length > 0) {
-        const appendedResult = appendGitGraphRows(
-          appendedCommits,
-          state.graph.rowComputationState,
-        );
-        appendedRows = appendedResult.rows;
-        nextRowComputationState = appendedResult.rowComputationState;
-      }
-      const mergedResponse = {
-        ...existingResponse,
-        commits: mergedCommits,
-        offset: 0,
-        pageSize: nextPage.pageSize,
-        nextOffset: nextPage.nextOffset,
-        hasMore: nextPage.hasMore,
-        isCapped: nextPage.isCapped,
-      };
-      return {
-        ...state,
-        graph: {
-          ...state.graph,
-          projectConfigId: requestProjectConfigId,
-          response: mergedResponse,
-          seenCommitHashes: nextSeenCommitHashes,
-          rows: state.graph.rows.concat(appendedRows),
-          rowComputationState: nextRowComputationState,
-          isLoadingMore: false,
-          loadMoreError: null,
-          hasMore: nextPage.hasMore,
-          nextOffset: nextPage.nextOffset,
-          pageSize: nextPage.pageSize,
-          isCapped: nextPage.isCapped,
-        },
-      };
-    });
+    applyGitGraphLoadMoreSuccess(requestProjectConfigId, res.data);
     return;
   }
-  useGitStore.setState((state) => {
-    if (!state.graph) {
-      return state;
-    }
-    if (state.graph.projectConfigId !== requestProjectConfigId) {
-      return state;
-    }
-    return {
-      ...state,
-      graph: {
-        ...state.graph,
-        isLoadingMore: false,
-        loadMoreError:
-          getErrorDetail(res.data) ?? "Failed to load more commits.",
-      },
-    };
-  });
+  applyGitGraphLoadMoreError(
+    requestProjectConfigId,
+    getErrorDetail(res.data) ?? "Failed to load more commits.",
+  );
 }
 export async function ensureGitGraphStateLoaded(): Promise<void> {
   const projectConfigId = getCurrentGitGraphProjectConfigId();

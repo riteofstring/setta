@@ -284,6 +284,53 @@ describe("git graph actions", () => {
     expect(graph.loadMoreError).toBeNull();
   });
 
+  it("keeps git-graph rows stable when a later page only repeats seen commits", async () => {
+    const c1 = commit("c1", []);
+    const c2 = commit("c2", ["c1"]);
+    const c3 = commit("c3", ["c2"]);
+    const initialResponse = createLogResponse({
+      commits: [c3, c2, c1],
+      offset: 0,
+      pageSize: 3,
+      nextOffset: 3,
+      hasMore: true,
+      isCapped: false,
+    });
+    setGraphOverlayState({ response: initialResponse });
+    const initialGraph = getGraphState();
+
+    vi.mocked(getGitLog).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createLogResponse({
+        commits: [c2, c1],
+        offset: 3,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+
+    await loadMoreGitGraphCommits();
+
+    const graph = getGraphState();
+    expect(graph.response?.commits.map((entry) => entry.hash)).toEqual([
+      "c3",
+      "c2",
+      "c1",
+    ]);
+    expect(graph.rows).toEqual(initialGraph.rows);
+    expect(graph.rowComputationState).toEqual(initialGraph.rowComputationState);
+    expect(Array.from(graph.seenCommitHashes).sort()).toEqual([
+      "c1",
+      "c2",
+      "c3",
+    ]);
+    expect(graph.hasMore).toBe(false);
+    expect(graph.nextOffset).toBeNull();
+  });
+
   it("does not request another page while a graph filter is active", async () => {
     // Filtering is limited to already loaded commits, so pagination must be paused.
     const c1 = commit("c1", []);
