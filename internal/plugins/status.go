@@ -306,14 +306,6 @@ func clonePluginErrorsOrEmpty(values []PluginErrorInfo) []PluginErrorInfo {
 	return append([]PluginErrorInfo{}, values...)
 }
 
-func mergePluginErrorSlices(primary []PluginErrorInfo, secondary []PluginErrorInfo) []PluginErrorInfo {
-	if len(primary) == 0 && len(secondary) == 0 {
-		return []PluginErrorInfo{}
-	}
-	merged := clonePluginErrorsOrEmpty(primary)
-	return append(merged, secondary...)
-}
-
 func (s *Service) restartCapability() PluginRestartCapability {
 	command := optionalStringPointer(defaultRestartCommand(s.restartCommand))
 	switch s.serverMode() {

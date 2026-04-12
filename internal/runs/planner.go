@@ -770,12 +770,3 @@ func shellQuote(value string) string {
 	}
 	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
 }
-
-func containsString(values []string, expected string) bool {
-	for _, value := range values {
-		if value == expected {
-			return true
-		}
-	}
-	return false
-}

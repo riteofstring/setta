@@ -486,29 +486,3 @@ func restoreFileSnapshot(path string, snapshot fileSnapshot) {
 	_ = os.MkdirAll(filepath.Dir(path), 0o755)
 	_ = statefs.AtomicWriteFile(path, snapshot.content, defaultFileMode)
 }
-
-type serviceError struct {
-	cause   error
-	message string
-}
-
-func (e *serviceError) Error() string {
-	if e == nil {
-		return ""
-	}
-	return e.message
-}
-
-func (e *serviceError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.cause
-}
-
-func newServiceError(cause error, message string) error {
-	return &serviceError{
-		cause:   cause,
-		message: message,
-	}
-}
