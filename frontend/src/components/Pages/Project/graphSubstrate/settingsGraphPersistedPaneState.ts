@@ -1,3 +1,5 @@
+import { CLOSED_PANE_WIDTH, INITIAL_OVERVIEW_WIDTH } from "utils/constants";
+
 export type SettingsGraphLocalPaneState = {
   overviewVisible: boolean;
   overviewTrueWidth: number;
@@ -39,6 +41,15 @@ type SettingsGraphPersistedStatePayload = {
   state: Record<string, unknown>;
   version: number;
 };
+
+export const DEFAULT_SETTINGS_GRAPH_LOCAL_PANE_STATE: SettingsGraphLocalPaneState =
+  {
+    overviewVisible: true,
+    overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
+    snapToGrid: true,
+    uiEditorVisible: false,
+    uiEditorTrueWidth: CLOSED_PANE_WIDTH,
+  };
 
 export function readBrowserStorageStateLocalStorageEntry(args: {
   key: string;
@@ -178,6 +189,19 @@ export function resolveSettingsGraphLocalPaneStateStorePatch(
     uiEditorWidth: paneState.uiEditorTrueWidth,
     uiEditorTrueWidth: paneState.uiEditorTrueWidth,
   };
+}
+
+export function shouldUseDefaultSettingsGraphLocalPaneState(args: {
+  browserContextPersistedPaneState: SettingsGraphLocalPaneState | null;
+  diagnostic: SettingsGraphPaneStateReadDiagnostic;
+}): boolean {
+  if (args.browserContextPersistedPaneState) {
+    return false;
+  }
+  return (
+    args.diagnostic.persistedPaneStatePresent === false &&
+    args.diagnostic.persistedPaneStateParseable === false
+  );
 }
 
 export function formatSettingsGraphPaneStateReadDiagnostic(

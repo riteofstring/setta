@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_SETTINGS_GRAPH_LOCAL_PANE_STATE,
   formatSettingsGraphPaneStateReadDiagnostic,
   readBrowserStorageStateLocalStorageEntry,
   readPersistedSettingsGraphLocalPaneState,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
   resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState,
   resolveSettingsGraphLocalPaneStateStorePatch,
+  shouldUseDefaultSettingsGraphLocalPaneState,
   writePersistedSettingsGraphLocalPaneState,
 } from "./settingsGraphPersistedPaneState";
 
@@ -285,6 +287,62 @@ describe("readPersistedSettingsGraphLocalPaneState", () => {
       uiEditorWidth: 260,
       uiEditorTrueWidth: 260,
     });
+  });
+
+  it("matches the canonical local-store defaults when persisted pane state is absent", () => {
+    expect(DEFAULT_SETTINGS_GRAPH_LOCAL_PANE_STATE).toEqual({
+      overviewVisible: true,
+      overviewTrueWidth: 335,
+      snapToGrid: true,
+      uiEditorVisible: false,
+      uiEditorTrueWidth: 40,
+    });
+  });
+
+  it("uses the canonical defaults only when persisted pane state is absent everywhere", () => {
+    const diagnostic = {
+      appShellMounted: true,
+      currentUrl: "http://127.0.0.1:3075/settings",
+      documentReadyState: "complete",
+      graphSurfaceMounted: true,
+      headerNotificationVisible: false,
+      persistedPaneStateParseable: false,
+      persistedPaneStatePresent: false,
+      settingsContentMounted: true,
+    } satisfies Parameters<
+      typeof shouldUseDefaultSettingsGraphLocalPaneState
+    >[0]["diagnostic"];
+
+    expect(
+      shouldUseDefaultSettingsGraphLocalPaneState({
+        browserContextPersistedPaneState: null,
+        diagnostic,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldUseDefaultSettingsGraphLocalPaneState({
+        browserContextPersistedPaneState: {
+          overviewVisible: false,
+          overviewTrueWidth: 420,
+          snapToGrid: false,
+          uiEditorVisible: true,
+          uiEditorTrueWidth: 320,
+        },
+        diagnostic,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldUseDefaultSettingsGraphLocalPaneState({
+        browserContextPersistedPaneState: null,
+        diagnostic: {
+          ...diagnostic,
+          persistedPaneStatePresent: true,
+          persistedPaneStateParseable: true,
+        },
+      }),
+    ).toBe(false);
   });
 
   it("formats pane-state read diagnostics as stable json", () => {

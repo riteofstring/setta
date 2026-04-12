@@ -18,10 +18,12 @@ import {
   type SettingsGraphMotionPerfLongTaskRecord,
 } from "components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases";
 import {
+  DEFAULT_SETTINGS_GRAPH_LOCAL_PANE_STATE,
   formatSettingsGraphPaneStateReadDiagnostic,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
   resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState,
   resolveSettingsGraphLocalPaneStateStorePatch,
+  shouldUseDefaultSettingsGraphLocalPaneState,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
 } from "components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState";
@@ -1023,6 +1025,14 @@ export async function getLocalPaneState(
     });
   if (browserContextPersistedPaneState) {
     return browserContextPersistedPaneState;
+  }
+  if (
+    shouldUseDefaultSettingsGraphLocalPaneState({
+      browserContextPersistedPaneState,
+      diagnostic: paneStateReadResult.diagnostic,
+    })
+  ) {
+    return DEFAULT_SETTINGS_GRAPH_LOCAL_PANE_STATE;
   }
 
   if (paneStateReadResult.kind === "timeout") {

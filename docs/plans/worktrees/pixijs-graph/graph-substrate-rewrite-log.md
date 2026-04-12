@@ -284,6 +284,46 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+- item `492` made the canonical pane-state probe fall back to the real
+  `useLocalStorage` defaults when no persisted `setta_data` exists yet:
+  - timestamp: `2026-04-15 11:16:33 UTC`
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      now exports `DEFAULT_SETTINGS_GRAPH_LOCAL_PANE_STATE` and
+      `shouldUseDefaultSettingsGraphLocalPaneState(...)`
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now returns the canonical default pane state when the in-page read times
+      out and neither page localStorage nor browser-context storage contains a
+      persisted pane payload yet
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      now covers the default-pane constant and fallback predicate directly
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `14` tests)
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - attempted canonical cross-worktree rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh bootstrap url> timeout 420s pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane' --reporter=line --timeout=60000`
+      -> direct Playwright runner failed before test execution with unrelated
+         Node loader drift:
+         `section_ui_editor_tab_compatibility.json needs an import attribute of type "json"`
+    - fresh-context CDP smoke via sub-agent:
+      -> initial direct `/settings` open only showed the loading scaffold
+      -> retry with a refreshed bootstrap URL redirected into the app origin,
+         but still only showed `Loading Setta...` / `Preparing the app surface.`
+         and did not mount the settings shell/graph surface during the smoke
+  - reading:
+    - this closes the specific empty-persisted-state hole exposed by item
+      `491` using the authoritative frontend pane defaults rather than another
+      heuristic
+    - live gate is still deferred by runtime/launcher health, not by another
+      unresolved pane-state contract
+    - next: rerun the same normalized cross-worktree
+      `rotaryParamCodeObjDefault` probe through a trusted Playwright entrypoint
+      and capture the next exact failing phase if the worktree still goes
+      unhealthy
+- LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-15 iteration 019 - normalize uninitialized viewport oracle on canonical lane
 

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 11:04 UTC
+Last updated: 2026-04-15 11:18 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,51 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `492` made the canonical pane-state probe return the real
+  `useLocalStorage` defaults when no persisted `setta_data` exists yet,
+  instead of classifying that empty-first-read case as a worktree-health
+  failure:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      now exports `DEFAULT_SETTINGS_GRAPH_LOCAL_PANE_STATE` plus
+      `shouldUseDefaultSettingsGraphLocalPaneState(...)`, both anchored to the
+      same pane defaults as the frontend `useLocalStorage` store
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now returns that canonical default pane state when the in-page read
+      times out and neither page localStorage nor browser-context storage has a
+      persisted pane payload yet
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      now covers the default-pane constant and the exact fallback predicate so
+      the empty-persisted-state case stays deterministic
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `14` tests)
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - attempted live canonical rerun with fresh runtime tokens:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh bootstrap url> timeout 420s pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane' --reporter=line --timeout=60000`
+      -> did not reach the test body in this session because the direct
+         Playwright runner hit an unrelated Node JSON-import loader failure:
+         `section_ui_editor_tab_compatibility.json needs an import attribute of type "json"`
+      -> treat that as launcher/tooling drift, not evidence against this code
+         slice
+    - fresh-context CDP smoke via sub-agent with a refreshed bootstrap token:
+      -> bootstrap redirected to the worktree app origin successfully
+      -> the page still only showed the loading scaffold
+         `Loading Setta...` / `Preparing the app surface.` and did not mount
+         the settings shell or graph surface during the smoke check
+  - reading:
+    - this slice closes the exact empty-persisted-state hole exposed by item
+      `491` without adding another heuristic; it uses the canonical frontend
+      pane defaults as the authoritative fallback
+    - the remaining verification debt is now live-runner health, not another
+      unresolved pane-state contract question
+    - next: rerun the same normalized cross-worktree `rotaryParamCodeObjDefault`
+      probe through a trusted Playwright entrypoint; if the worktree still
+      fails after the pane-default fallback is active, capture the next exact
+      failing phase instead of reopening helper work
 
 - item `491` narrowed the normalized compare-pane helper so cross-worktree
   parity setup can update live pane state in place instead of always paying a
