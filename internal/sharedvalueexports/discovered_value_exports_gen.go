@@ -5,6 +5,7 @@ package sharedvalueexports
 import (
 	"reflect"
 	deployments "setta/internal/deployments"
+	externalagentconfigs "setta/internal/externalagentconfigs"
 	httpapi "setta/internal/httpapi"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
@@ -67,6 +68,13 @@ func DiscoveredValueExports() []ValueExport {
 			Type: reflect.TypeOf(httpapi.FrontendValueEndpointOriginPolicyByRoute()),
 			Value: func() any {
 				return httpapi.FrontendValueEndpointOriginPolicyByRoute()
+			},
+		},
+		{
+			Name: "ExternalAgentUIConfig",
+			Type: reflect.TypeOf(externalagentconfigs.FrontendValueExternalAgentUIConfig()),
+			Value: func() any {
+				return externalagentconfigs.FrontendValueExternalAgentUIConfig()
 			},
 		},
 		{

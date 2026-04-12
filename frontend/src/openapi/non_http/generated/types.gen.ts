@@ -2063,6 +2063,14 @@ type ErrorKind =
   | "mime_not_allowed";
 
 /**
+ * ExternalAgentApprovalPolicyOption
+ */
+type ExternalAgentApprovalPolicyOption = {
+  label: string;
+  value: string;
+};
+
+/**
  * ExternalAgentConfig
  */
 export type ExternalAgentConfig = {
@@ -2119,6 +2127,15 @@ type ExternalAgentStatus = {
   supported: boolean;
   toolType: ToolType;
   workingDir?: null | string;
+};
+
+/**
+ * ExternalAgentUIConfigValue
+ */
+export type ExternalAgentUIConfigValue = {
+  claudeApprovalPolicyOptions: null | Array<ExternalAgentApprovalPolicyOption>;
+  defaultClaudeAskRules: null | Array<string>;
+  defaultClaudeSettingsSources: null | Array<ClaudeSettingsSource>;
 };
 
 /**

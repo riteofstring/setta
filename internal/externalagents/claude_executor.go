@@ -917,7 +917,12 @@ func resolveClaudeSettingSources(config externalagentconfigs.Config) []string {
 		}
 		return sources
 	}
-	return []string{"project", "local"}
+	defaults := externalagentconfigs.DefaultClaudeSettingsSources()
+	sources := make([]string, 0, len(defaults))
+	for _, value := range defaults {
+		sources = append(sources, string(value))
+	}
+	return sources
 }
 
 func resolveClaudeApprovalPolicy(request StartRequest) string {
@@ -935,22 +940,7 @@ func resolveClaudeSandboxPolicy(request StartRequest) string {
 }
 
 func resolveClaudePermissionMode(policy string) string {
-	normalized := strings.TrimSpace(policy)
-	if normalized == "" {
-		return ""
-	}
-	switch normalized {
-	case "default", "acceptEdits", "plan", "bypassPermissions":
-		return normalized
-	}
-	switch strings.ToLower(normalized) {
-	case "allow", "auto", "bypass":
-		return "bypassPermissions"
-	case "ask", "deny", "block":
-		return "default"
-	default:
-		return ""
-	}
+	return externalagentconfigs.NormalizeClaudeApprovalPolicy(policy)
 }
 
 func resolveClaudeDecisionPolicy(policy string) string {

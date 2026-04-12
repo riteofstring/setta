@@ -1,6 +1,7 @@
 import {
   ClaudeSettingsSourceEnum,
   type ExternalAgentConfig,
+  ExternalAgentUIConfig,
   RunModeEnum,
   SettingsModeEnum,
   ToolTypeEnum,
@@ -40,33 +41,14 @@ export type ExternalAgentConfigDraft = {
   claudeDenyText: string;
 };
 
-export const DEFAULT_CLAUDE_ASK_RULES = [
-  "Bash(rm:*)",
-  "Bash(sudo:*)",
-  "Bash(chmod:*)",
-  "Bash(chown:*)",
-  "Bash(git push:*)",
-  "Bash(git reset:*)",
-  "Bash(git clean:*)",
-  "Bash(dd:*)",
-  "Bash(mkfs:*)",
-  "Bash(diskutil:*)",
-  "Bash(shutdown:*)",
-  "Bash(reboot:*)",
-] as const;
+export const DEFAULT_CLAUDE_ASK_RULES =
+  ExternalAgentUIConfig.defaultClaudeAskRules;
 
-export const CLAUDE_APPROVAL_POLICY_OPTIONS = [
-  { value: "", label: "Use settings file / chat override" },
-  { value: "default", label: "Default" },
-  { value: "acceptEdits", label: "Accept edits" },
-  { value: "plan", label: "Plan" },
-  { value: "bypassPermissions", label: "YOLO (bypassPermissions)" },
-] as const;
+export const CLAUDE_APPROVAL_POLICY_OPTIONS =
+  ExternalAgentUIConfig.claudeApprovalPolicyOptions;
 
-const DEFAULT_CLAUDE_SETTINGS_SOURCES: Array<ClaudeSettingsSourceValue> = [
-  ClaudeSettingsSourceEnum.project,
-  ClaudeSettingsSourceEnum.local,
-];
+const DEFAULT_CLAUDE_SETTINGS_SOURCES: Array<ClaudeSettingsSourceValue> =
+  ExternalAgentUIConfig.defaultClaudeSettingsSources;
 
 type ExternalAgentConfigSavePayload = {
   name: string;

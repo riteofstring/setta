@@ -95,6 +95,8 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(detachedruns.Status("")),
 		reflect.TypeOf(detachedruns.Run{}),
 		reflect.TypeOf(externalagentconfigs.EnvVarStatus{}),
+		reflect.TypeOf(externalagentconfigs.ExternalAgentApprovalPolicyOption{}),
+		reflect.TypeOf(externalagentconfigs.ExternalAgentUIConfigValue{}),
 		reflect.TypeOf(externalagentconfigs.Status{}),
 		reflect.TypeOf(externalagentconfigs.ClaudeSettingsSource("")),
 		reflect.TypeOf(externalagentconfigs.ClaudeSettingsPermissions{}),

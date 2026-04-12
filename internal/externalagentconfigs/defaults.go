@@ -40,7 +40,7 @@ func defaultConfigs() []Config {
 			RunMode:                 RunModeSDK,
 			DefaultModel:            &claudeModel,
 			SettingsMode:            SettingsModeManagedLocal,
-			SettingsSources:         []ClaudeSettingsSource{ClaudeSettingsSourceProject, ClaudeSettingsSourceLocal},
+			SettingsSources:         DefaultClaudeSettingsSources(),
 			SettingsAllowSettaEdits: true,
 			SettingsManagedBlock:    buildDefaultClaudeSettingsBlock(),
 			EnvVarWhitelist:         []string{"ANTHROPIC_API_KEY"},

@@ -5783,6 +5783,23 @@
         "mime_not_allowed"
       ]
     },
+    "ExternalAgentApprovalPolicyOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ExternalAgentApprovalPolicyOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
     "ExternalAgentConfig": {
       "type": "object",
       "properties": {
@@ -6011,6 +6028,45 @@
         "available",
         "issues",
         "envVars"
+      ],
+      "additionalProperties": false
+    },
+    "ExternalAgentUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "defaultClaudeAskRules": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "defaultClaudeSettingsSources": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ClaudeSettingsSource"
+          }
+        },
+        "claudeApprovalPolicyOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ExternalAgentApprovalPolicyOption"
+          }
+        }
+      },
+      "title": "ExternalAgentUIConfigValue",
+      "required": [
+        "defaultClaudeAskRules",
+        "defaultClaudeSettingsSources",
+        "claudeApprovalPolicyOptions"
       ],
       "additionalProperties": false
     },

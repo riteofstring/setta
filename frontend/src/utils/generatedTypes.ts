@@ -4345,6 +4345,31 @@ export const EndpointOriginPolicyByRoute = {
   "/settaHomeInfo": "backend",
 } satisfies gt.EndpointOriginPolicy;
 
+export const ExternalAgentUIConfig = {
+  claudeApprovalPolicyOptions: [
+    { label: "Use settings file / chat override", value: "" },
+    { label: "Default", value: "default" },
+    { label: "Accept edits", value: "acceptEdits" },
+    { label: "Plan", value: "plan" },
+    { label: "YOLO (bypassPermissions)", value: "bypassPermissions" },
+  ],
+  defaultClaudeAskRules: [
+    "Bash(rm:*)",
+    "Bash(sudo:*)",
+    "Bash(chmod:*)",
+    "Bash(chown:*)",
+    "Bash(git push:*)",
+    "Bash(git reset:*)",
+    "Bash(git clean:*)",
+    "Bash(dd:*)",
+    "Bash(mkfs:*)",
+    "Bash(diskutil:*)",
+    "Bash(shutdown:*)",
+    "Bash(reboot:*)",
+  ],
+  defaultClaudeSettingsSources: ["project", "local"],
+} satisfies gt.ExternalAgentUIConfigValue;
+
 export const LocalHostnamePolicyConfig = {
   loopbackHosts: ["127.0.0.1", "localhost", "::1"],
 } satisfies gt.LocalHostnamePolicy;

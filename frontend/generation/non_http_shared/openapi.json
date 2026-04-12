@@ -4898,6 +4898,20 @@
         "title": "ErrorKind",
         "type": "string"
       },
+      "ExternalAgentApprovalPolicyOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "ExternalAgentApprovalPolicyOption",
+        "type": "object"
+      },
       "ExternalAgentConfig": {
         "additionalProperties": false,
         "properties": {
@@ -5071,6 +5085,36 @@
           "envVars"
         ],
         "title": "ExternalAgentStatus",
+        "type": "object"
+      },
+      "ExternalAgentUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "claudeApprovalPolicyOptions": {
+            "items": {
+              "$ref": "#/components/schemas/ExternalAgentApprovalPolicyOption"
+            },
+            "type": ["null", "array"]
+          },
+          "defaultClaudeAskRules": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "defaultClaudeSettingsSources": {
+            "items": {
+              "$ref": "#/components/schemas/ClaudeSettingsSource"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "defaultClaudeAskRules",
+          "defaultClaudeSettingsSources",
+          "claudeApprovalPolicyOptions"
+        ],
+        "title": "ExternalAgentUIConfigValue",
         "type": "object"
       },
       "FileArtifact": {
