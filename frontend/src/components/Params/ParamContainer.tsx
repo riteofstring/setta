@@ -8,12 +8,24 @@ import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
 
 const NESTED_CHILD_ROWS_CLASS_NAME =
   "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
+
+function handleParamInputRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionParamInputReactRender",
+    actualDuration,
+  );
+}
 
 function _ParamContainer({
   sectionId,
@@ -120,11 +132,16 @@ function _ParamContainer({
         ) : (
           children
         )}
-        <ParamInput
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          maybeErrorMessage={errorMessage}
-        />
+        <React.Profiler
+          id={`param-input:${sectionId}:${paramInfoId}`}
+          onRender={handleParamInputRender}
+        >
+          <ParamInput
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            maybeErrorMessage={errorMessage}
+          />
+        </React.Profiler>
         <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         {hasError && (
           <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
@@ -161,11 +178,16 @@ function _ParamContainer({
       ) : (
         <>{children}</>
       )}
-      <ParamInput
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        maybeErrorMessage={errorMessage}
-      />
+      <React.Profiler
+        id={`param-input:${sectionId}:${paramInfoId}`}
+        onRender={handleParamInputRender}
+      >
+        <ParamInput
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          maybeErrorMessage={errorMessage}
+        />
+      </React.Profiler>
       <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
       {hasError && (
         <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />

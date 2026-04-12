@@ -199,6 +199,59 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 14:50 UTC
+
+- reread the active rewrite plan/handoff first and chose one bounded
+  attribution slice on the same canonical `rotaryParamCodeObjDefault` lane
+  instead of another wrapper-level product guess
+- added three new row-child canary attribution owners:
+  - `presentedSceneSectionParamTextLabelReactRender`
+  - `presentedSceneSectionParamNameInputReactRender`
+  - `presentedSceneSectionParamInputReactRender`
+- wired those owners into the live row path:
+  - `ParamSwitch` now profiles the kwarg name-input and text-label branches
+  - `ParamContainer` now profiles the mounted `ParamInput` branch
+- extended focused coverage:
+  - `ParamSwitch.test.tsx` now proves the text-label/input path and kwarg
+    name-input path record profiler durations when canary attribution is active
+  - the shared instrumentation snapshot test now asserts the new owners are
+    preserved in the global motion-attribution schema
+  - the worktree/reference probe allowlists now accept the new named owners
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> pass (`2` files, `12` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamSwitch.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> pass
+  - first canonical worktree probe on the existing runtime
+    -> fail
+    -> `Worktree unhealthy: page already closed before writing normalized compare pane state`
+  - allowed bounded recovery:
+    - ran
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime info to session `38a12e` on `3075` / `8075` /
+      bootstrap token ending `...ReI4jrUXZu0la1Af92WulqpKqQ7EXSKh8iRoH7Q4sXU`
+  - second canonical worktree probe on the refreshed runtime
+    -> fail after `surface_ready`
+    -> direct-open phases:
+       `90ms app_router_loading` -> `2397ms settings_loading` ->
+       `3034ms app_shell_without_surface` -> `6509ms project_loading` ->
+       `12262ms surface_ready`
+    -> then `page.evaluate` timed out in
+       `readSettingsGraphSurfacePresenceSnapshot(...)` during
+       `runSettingsGraphComparePreflight(...)`
+  - fresh-context CDP smoke sub-agent
+    -> not run
+    -> reported Chrome DevTools MCP was not reachable in that session
+- reading:
+  - this lands the row-child attribution seam and focused tests, but it does
+    not produce a trustworthy live owner ranking yet
+  - after the one allowed lifecycle recovery, the canonical worktree probe is
+    still a runtime-health blocker, not renderer evidence
+  - next iteration should start from a fresh outer-loop bootstrap and retry the
+    same canonical probe before taking another product slice inside the row
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 14:20 UTC
 
 - reread the plan and handoff first, then stopped the recent pattern of

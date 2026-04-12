@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 14:30 UTC
+Last updated: 2026-04-13 14:50 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,81 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `434` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting the remaining
+  row-render handoff into row-child owners:
+  - local ranking/readout for this iteration:
+    - reread the active plan/handoff first and avoided another pure
+      parent-level selector guess now that the recent row wrapper hypotheses
+      were already closed
+    - chose one bounded attribution cut directly inside the row so the next
+      product pass can rank `ParamTextLabel`, `ParamNameInput`, and
+      `ParamInput` instead of guessing across them
+    - kept the slice bounded to profiler-backed instrumentation hooks, focused
+      unit coverage, one worktree probe rerun with the allowed lifecycle
+      recovery, one perf note, and one fresh-context CDP smoke attempt
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with three new motion owners:
+      `presentedSceneSectionParamTextLabelReactRender`,
+      `presentedSceneSectionParamNameInputReactRender`, and
+      `presentedSceneSectionParamInputReactRender`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+      so kwarg-name and text-label rendering now record their own profiler
+      durations
+    - `frontend/src/components/Params/ParamContainer.tsx`
+      so the mounted value-input path records its own profiler durations
+    - `frontend/src/components/Params/ParamSwitch.test.tsx` and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      with focused regression coverage
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the probe allowlists accept the new named owners
+    - `perf/reports/frontend/2026-04-13_settings-graph-param-row-child-attribution.md`
+      with the blocked live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`2` files, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamSwitch.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - first
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-003/worktree-ai.log`
+      -> failed before compare setup
+      -> `Worktree unhealthy: page already closed before writing normalized compare pane state`
+    - allowed recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree to session `38a12e` on `3075` / `8075`
+    - second probe retry on the refreshed runtime
+      -> failed after reaching `surface_ready`
+      -> direct-open phases:
+         `90ms app_router_loading` -> `2397ms settings_loading` ->
+         `3034ms app_shell_without_surface` -> `6509ms project_loading` ->
+         `12262ms surface_ready`
+      -> then timed out in
+         `readSettingsGraphSurfacePresenceSnapshot(...)` during
+         `runSettingsGraphComparePreflight(...)`
+    - fresh-context headless CDP smoke check
+      -> not run
+      -> the required Chrome DevTools MCP sub-agent reported the browser tools
+         were not reachable in this session
+  - reading:
+    - the row-child attribution seam is landed and should be kept
+    - this iteration did not yield a trustworthy live owner ranking because
+      the canonical worktree probe remained `worktree_unhealthy` after the one
+      allowed lifecycle recovery
+    - do not guess the next product cut from parent-level intuition; use the
+      new row-child owners only after the same canonical lane preflight runs
+      cleanly on a fresh loop bootstrap
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - start the next iteration with a fresh outer-loop bootstrap and rerun the
+      same canonical worktree probe on `rotaryParamCodeObjDefault`
+    - if preflight stabilizes, use the new row-child owners to choose one
+      bounded product cut inside the hottest child
+    - if the same preflight timeout repeats again from a fresh runtime, treat
+      the probe health itself as the blocker and resolve that instead of
+      continuing row-level product guesses
 
 - item `433` landed one bounded production slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by narrowing `ParamSwitch` row and

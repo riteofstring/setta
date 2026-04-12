@@ -213,6 +213,18 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       2.5,
     );
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionParamInputReactRender",
+      1.5,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionParamNameInputReactRender",
+      1.75,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionParamTextLabelReactRender",
+      2.25,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
       "presentedSceneSectionParamGroupUnpinnedParamsReactRender",
       3,
     );
@@ -335,6 +347,27 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 2.5,
       totalDurationMs: 2.5,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionParamInputReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 1.5,
+      totalDurationMs: 1.5,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionParamNameInputReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 1.75,
+      totalDurationMs: 1.75,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionParamTextLabelReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 2.25,
+      totalDurationMs: 2.25,
     });
     expect(
       motionAttribution.presentedSceneSectionParamDndListDuplicateIndexResolve,

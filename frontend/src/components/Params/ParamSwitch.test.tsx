@@ -24,6 +24,11 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 
 vi.mock("forks/dnd-kit/adapter", () => ({
   useSortable: () => ({
@@ -53,7 +58,11 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-function seedParamSwitchState() {
+function seedParamSwitchState({
+  isKwarg = false,
+}: {
+  isKwarg?: boolean;
+} = {}) {
   const sectionId = "section-1";
   const variantId = "variant-1";
   const implId = "impl-1";
@@ -145,7 +154,7 @@ function seedParamSwitchState() {
     description: "",
     isPreset: false,
     coreNameType: ParamNameTypeEnum.TEXT,
-    coreNameEditable: false,
+    coreNameEditable: isKwarg,
     passingStyle: ParameterPassingStyleEnum.DEFAULT,
     defaultVal: "",
     value: "",
@@ -201,6 +210,7 @@ describe("TempParamPlaceholderRow", () => {
     host.remove();
     document.body.innerHTML = "";
     resetProjectStores();
+    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     useReactFlow.setState({ ...initialReactFlowState });
   });
 
@@ -326,5 +336,64 @@ describe("TempParamPlaceholderRow", () => {
       host.querySelector<HTMLElement>(`#ParamContainer-${sectionId}-${paramId}`)
         ?.className,
     ).toContain("!bg-blue-700");
+  });
+
+  it("records text-label and input profiler durations when attribution is active", async () => {
+    const { paramId, sectionId } = seedParamSwitchState();
+
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamSwitch
+          sectionId={sectionId}
+          paramInfoId={paramId}
+          requiredParamIdsToPaths={{ [paramId]: [paramId] }}
+          onResizeStart={vi.fn()}
+          isTopLevelWithPad={false}
+          listKey="unpinned"
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    const motionAttribution =
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution;
+    expect(
+      motionAttribution.presentedSceneSectionParamTextLabelReactRender.count,
+    ).toBeGreaterThan(0);
+    expect(
+      motionAttribution.presentedSceneSectionParamInputReactRender.count,
+    ).toBeGreaterThan(0);
+  });
+
+  it("records kwarg name-input profiler durations when attribution is active", async () => {
+    const { paramId, sectionId } = seedParamSwitchState({ isKwarg: true });
+
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamSwitch
+          sectionId={sectionId}
+          paramInfoId={paramId}
+          requiredParamIdsToPaths={{ [paramId]: [paramId] }}
+          onResizeStart={vi.fn()}
+          isTopLevelWithPad={false}
+          listKey="unpinned"
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.presentedSceneSectionParamNameInputReactRender.count,
+    ).toBeGreaterThan(0);
   });
 });

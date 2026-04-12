@@ -30,6 +30,7 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
@@ -58,6 +59,28 @@ type TempParamPlaceholderRowProps = TempParamPlaceholderShellProps & {
 };
 
 const EMPTY_PARAM_CHILDREN: string[] = [];
+
+function handleParamNameInputRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionParamNameInputReactRender",
+    actualDuration,
+  );
+}
+
+function handleParamTextLabelRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionParamTextLabelReactRender",
+    actualDuration,
+  );
+}
 
 function _ParamSwitch(props: ParamSwitchProps) {
   if (isTempParam(props.paramInfoId)) {
@@ -266,21 +289,31 @@ function RealParamSwitch(props: ParamSwitchProps) {
   }
 
   const label = isKwarg ? (
-    <ParamNameInput
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      hasChildren={hasChildren}
-      onMouseDown={onMouseDownConditional}
-      border={hasChildren ? border : ""}
-      bg={hasChildren ? bg : ""}
-    />
+    <React.Profiler
+      id={`param-name-input:${sectionId}:${paramInfoId}`}
+      onRender={handleParamNameInputRender}
+    >
+      <ParamNameInput
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        hasChildren={hasChildren}
+        onMouseDown={onMouseDownConditional}
+        border={hasChildren ? border : ""}
+        bg={hasChildren ? bg : ""}
+      />
+    </React.Profiler>
   ) : (
-    <ParamTextLabel
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      onMouseDown={onMouseDownConditional}
-      bg={hasChildren ? bg : ""}
-    />
+    <React.Profiler
+      id={`param-text-label:${sectionId}:${paramInfoId}`}
+      onRender={handleParamTextLabelRender}
+    >
+      <ParamTextLabel
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        onMouseDown={onMouseDownConditional}
+        bg={hasChildren ? bg : ""}
+      />
+    </React.Profiler>
   );
 
   const sharedProps = {
