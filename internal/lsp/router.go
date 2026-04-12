@@ -460,41 +460,57 @@ func resolveLanguageServerSettings(settings map[string]any, settingsKey *string)
 		return cloneLanguageServerSettingsMap(settings)
 	}
 
-	key := strings.TrimSpace(*settingsKey)
-	if key == "" {
-		return nil
-	}
-
-	segments := make([]string, 0)
-	for _, segment := range strings.Split(key, ".") {
-		trimmed := strings.TrimSpace(segment)
-		if trimmed != "" {
-			segments = append(segments, trimmed)
-		}
-	}
+	segments := parseLanguageServerSettingsKey(*settingsKey)
 	if len(segments) == 0 {
 		return nil
 	}
 
-	var current any = settings
+	currentMap := resolveLanguageServerSettingsBranch(settings, segments)
+	if currentMap == nil {
+		return nil
+	}
+
+	return wrapLanguageServerSettingsBranch(segments, currentMap)
+}
+
+func parseLanguageServerSettingsKey(key string) []string {
+	segments := strings.Split(strings.TrimSpace(key), ".")
+	filtered := make([]string, 0, len(segments))
 	for _, segment := range segments {
-		currentMap, ok := current.(map[string]any)
+		trimmed := strings.TrimSpace(segment)
+		if trimmed == "" {
+			continue
+		}
+		filtered = append(filtered, trimmed)
+	}
+	return filtered
+}
+
+func resolveLanguageServerSettingsBranch(settings map[string]any, segments []string) map[string]any {
+	current := settings
+	for index, segment := range segments {
+		value, ok := current[segment]
 		if !ok {
 			return nil
 		}
-		next, ok := currentMap[segment]
+		if index == len(segments)-1 {
+			currentMap, ok := value.(map[string]any)
+			if !ok {
+				return nil
+			}
+			return currentMap
+		}
+		next, ok := value.(map[string]any)
 		if !ok {
 			return nil
 		}
 		current = next
 	}
+	return nil
+}
 
-	currentMap, ok := current.(map[string]any)
-	if !ok {
-		return nil
-	}
-
-	wrapped := cloneLanguageServerSettingsMap(currentMap)
+func wrapLanguageServerSettingsBranch(segments []string, settings map[string]any) map[string]any {
+	wrapped := cloneLanguageServerSettingsMap(settings)
 	for index := len(segments) - 1; index >= 0; index-- {
 		wrapped = map[string]any{segments[index]: wrapped}
 	}

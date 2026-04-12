@@ -264,9 +264,102 @@ func TestRouterPluginLanguageStartupFailureDoesNotBreakPythonService(t *testing.
 	}
 }
 
-func TestResolveLanguageServerSettingsWrapsNestedKey(t *testing.T) {
+func TestResolveLanguageServerSettings(t *testing.T) {
 	t.Parallel()
 
+	baseSettings := map[string]any{
+		"settings": map[string]any{
+			"fixtureDslLanguageServer": map[string]any{
+				"analysis": map[string]any{
+					"emitDiagnostics": true,
+				},
+			},
+		},
+		"topLevel": map[string]any{
+			"enabled": true,
+		},
+	}
+	testCases := []struct {
+		name        string
+		settings    map[string]any
+		settingsKey *string
+		expected    map[string]any
+	}{
+		{
+			name:        "wraps nested key",
+			settings:    baseSettings,
+			settingsKey: stringPtr("settings.fixtureDslLanguageServer"),
+			expected: map[string]any{
+				"settings": map[string]any{
+					"fixtureDslLanguageServer": map[string]any{
+						"analysis": map[string]any{
+							"emitDiagnostics": true,
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "returns full clone when key is nil",
+			settings:    baseSettings,
+			settingsKey: nil,
+			expected:    baseSettings,
+		},
+		{
+			name:        "drops blank segments around nested key",
+			settings:    baseSettings,
+			settingsKey: stringPtr(" settings..fixtureDslLanguageServer "),
+			expected: map[string]any{
+				"settings": map[string]any{
+					"fixtureDslLanguageServer": map[string]any{
+						"analysis": map[string]any{
+							"emitDiagnostics": true,
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "returns nil for missing branch",
+			settings:    baseSettings,
+			settingsKey: stringPtr("settings.missing"),
+			expected:    nil,
+		},
+		{
+			name: "returns nil for non map leaf",
+			settings: map[string]any{
+				"settings": map[string]any{
+					"enabled": true,
+				},
+			},
+			settingsKey: stringPtr("settings.enabled"),
+			expected:    nil,
+		},
+		{
+			name:        "returns nil for blank key",
+			settings:    baseSettings,
+			settingsKey: stringPtr("  .  "),
+			expected:    nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			resolved := resolveLanguageServerSettings(tc.settings, tc.settingsKey)
+			if !settingsMapsEqual(resolved, tc.expected) {
+				t.Fatalf("unexpected resolved settings %#v", resolved)
+			}
+		})
+	}
+}
+
+func TestResolveLanguageServerSettingsClonesReturnedMap(t *testing.T) {
+	t.Parallel()
+
+	settingsKey := "settings.fixtureDslLanguageServer"
 	settings := map[string]any{
 		"settings": map[string]any{
 			"fixtureDslLanguageServer": map[string]any{
@@ -276,20 +369,14 @@ func TestResolveLanguageServerSettingsWrapsNestedKey(t *testing.T) {
 			},
 		},
 	}
-	settingsKey := "settings.fixtureDslLanguageServer"
 
 	resolved := resolveLanguageServerSettings(settings, &settingsKey)
-	expected := map[string]any{
-		"settings": map[string]any{
-			"fixtureDslLanguageServer": map[string]any{
-				"analysis": map[string]any{
-					"emitDiagnostics": true,
-				},
-			},
-		},
-	}
-	if !settingsMapsEqual(resolved, expected) {
-		t.Fatalf("unexpected resolved settings %#v", resolved)
+	analysis := resolved["settings"].(map[string]any)["fixtureDslLanguageServer"].(map[string]any)["analysis"].(map[string]any)
+	analysis["emitDiagnostics"] = false
+
+	original := settings["settings"].(map[string]any)["fixtureDslLanguageServer"].(map[string]any)["analysis"].(map[string]any)
+	if original["emitDiagnostics"] != true {
+		t.Fatalf("expected original settings to remain unchanged, got %#v", original)
 	}
 }
 
@@ -924,6 +1011,10 @@ func TestRouterCurrentProcessPythonPublishesGeneratedCallDiagnosticsWithWorkspac
 
 func settingsMapsEqual(left map[string]any, right map[string]any) bool {
 	return reflect.DeepEqual(left, right)
+}
+
+func stringPtr(value string) *string {
+	return &value
 }
 
 func diagnosticsContainRule(diagnostics []Diagnostic, rule string) bool {
