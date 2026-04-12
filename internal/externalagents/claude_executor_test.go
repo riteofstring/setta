@@ -1631,17 +1631,22 @@ func TestBuildClaudeStartPayloadAllowedToolsPrefersExplicitInputThenProfileAllow
 
 	testCases := []struct {
 		name       string
-		inputTools []any
+		inputTools any
 		profile    *agentprofiles.Profile
 		want       []string
 	}{
 		{
 			name:       "explicit input wins",
-			inputTools: []any{"tool.explicit", " tool.trimmed "},
+			inputTools: []any{"tool.explicit", " tool.trimmed ", 123, ""},
 			profile: &agentprofiles.Profile{
 				ToolAllowlist: []string{"tool.profile"},
 			},
 			want: []string{"tool.explicit", "tool.trimmed"},
+		},
+		{
+			name:       "string slices are trimmed",
+			inputTools: []string{" tool.slice ", "", "tool.second"},
+			want:       []string{"tool.slice", "tool.second"},
 		},
 		{
 			name: "profile allowlist is fallback",
@@ -1684,6 +1689,92 @@ func TestBuildClaudeStartPayloadAllowedToolsPrefersExplicitInputThenProfileAllow
 			}
 			if strings.Join(rawAllowedTools, ",") != strings.Join(testCase.want, ",") {
 				t.Fatalf("expected allowedTools %v, got %#v", testCase.want, rawAllowedTools)
+			}
+		})
+	}
+}
+
+func TestBuildClaudeStartPayloadThinkingBudgetBranches(t *testing.T) {
+	t.Parallel()
+
+	newRequest := func(inputs map[string]any) StartRequest {
+		return StartRequest{
+			Run: agentruns.NewRun(nil, map[string]any{
+				"messages": []any{
+					map[string]any{
+						"id":   "user-1",
+						"role": "user",
+						"content": []any{
+							map[string]any{"type": "text", "text": "Hello"},
+						},
+					},
+				},
+			}, time.Date(2026, 3, 9, 13, 30, 0, 0, time.UTC)),
+			ExternalConfig: externalagentconfigs.Config{
+				ToolType: externalagentconfigs.ToolTypeClaudeCode,
+				RunMode:  externalagentconfigs.RunModeSDK,
+			},
+			Inputs: inputs,
+		}
+	}
+
+	testCases := []struct {
+		name    string
+		inputs  map[string]any
+		want    int
+		wantSet bool
+	}{
+		{
+			name:    "boolean thinking enables the default budget",
+			inputs:  map[string]any{"thinking": true},
+			want:    claudeDefaultThinkingBudget,
+			wantSet: true,
+		},
+		{
+			name:    "explicit false suppresses top level fallback",
+			inputs:  map[string]any{"thinking": false, "thinkingBudgetTokens": 2048},
+			wantSet: false,
+		},
+		{
+			name:    "thinking map budget wins",
+			inputs:  map[string]any{"thinking": map[string]any{"budget_tokens": "1536"}, "thinkingBudgetTokens": 2048},
+			want:    1536,
+			wantSet: true,
+		},
+		{
+			name:    "enabled thinking map uses the default budget",
+			inputs:  map[string]any{"thinking": map[string]any{"type": "enabled"}},
+			want:    claudeDefaultThinkingBudget,
+			wantSet: true,
+		},
+		{
+			name:    "unrecognized thinking map falls back to top level budget",
+			inputs:  map[string]any{"thinking": map[string]any{"type": "custom"}, "thinkingBudgetTokens": 2048},
+			want:    2048,
+			wantSet: true,
+		},
+		{
+			name:    "disabled thinking string suppresses fallback",
+			inputs:  map[string]any{"thinking": "disabled", "thinking_budget_tokens": 2048},
+			wantSet: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			payload := buildClaudeStartPayload(newRequest(testCase.inputs), "/tmp/workspace", map[string]string{})
+			rawValue, ok := payload["maxThinkingTokens"]
+			if !testCase.wantSet {
+				if ok {
+					t.Fatalf("expected maxThinkingTokens to be omitted, got %#v", rawValue)
+				}
+				return
+			}
+			if !ok {
+				t.Fatalf("expected maxThinkingTokens to be set, payload=%#v", payload)
+			}
+			if got, ok := rawValue.(int); !ok || got != testCase.want {
+				t.Fatalf("expected maxThinkingTokens=%d, got %#v", testCase.want, rawValue)
 			}
 		})
 	}

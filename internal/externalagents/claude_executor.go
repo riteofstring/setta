@@ -22,10 +22,11 @@ import (
 )
 
 const (
-	claudeSidecarFileName  = "claude_sdk_runner.py"
-	claudeMCPConfigName    = ".mcp.json"
-	claudeMaxStderrLines   = 200
-	claudeStdoutBufferSize = 1024 * 1024
+	claudeSidecarFileName       = "claude_sdk_runner.py"
+	claudeMCPConfigName         = ".mcp.json"
+	claudeDefaultThinkingBudget = 1024
+	claudeMaxStderrLines        = 200
+	claudeStdoutBufferSize      = 1024 * 1024
 )
 
 var (
@@ -827,41 +828,56 @@ func buildClaudeStartPayload(request StartRequest, workingDir string, envMap map
 		"cwd":    workingDir,
 		"env":    cloneStringAnyMapToStringMap(envMap),
 	}
-	if cliPath := strings.TrimSpace(derefOptionalString(request.ExternalConfig.CommandPath)); cliPath != "" {
-		payload["cliPath"] = cliPath
-	}
-	if systemPrompt := strings.TrimSpace(stringValue(request.Inputs["systemPrompt"])); systemPrompt != "" {
-		payload["systemPrompt"] = systemPrompt
-	}
-	if model := resolveClaudeModel(request); model != "" {
-		payload["model"] = model
-	}
-	if resume := strings.TrimSpace(stringValue(request.Inputs["sessionId"])); resume != "" {
-		payload["resume"] = resume
-	}
-	if settingSources := resolveClaudeSettingSources(request.ExternalConfig); len(settingSources) > 0 {
-		payload["settingSources"] = append([]string(nil), settingSources...)
-	}
-	if permissionMode := resolveClaudePermissionMode(resolveClaudeApprovalPolicy(request)); permissionMode != "" {
-		payload["permissionMode"] = permissionMode
-	}
-	payload["decisionPolicy"] = resolveClaudeDecisionPolicy(resolveClaudeApprovalPolicy(request))
-	if allowedTools := extractClaudeAllowedTools(request); len(allowedTools) > 0 {
-		payload["allowedTools"] = append([]string(nil), allowedTools...)
-	}
-	if maxTurns := resolveClaudeMaxTurns(request.Inputs); maxTurns != nil {
-		payload["maxTurns"] = *maxTurns
-	}
-	if maxThinkingTokens := resolveClaudeThinkingBudget(request.Inputs); maxThinkingTokens != nil {
-		payload["maxThinkingTokens"] = *maxThinkingTokens
-	}
-	if sandbox := buildClaudeSandboxSettings(resolveClaudeSandboxPolicy(request)); sandbox != nil {
-		payload["sandbox"] = sandbox
-	}
-	if mcpConfigPath := strings.TrimSpace(stringValue(request.Inputs["mcpConfig"])); mcpConfigPath != "" {
-		payload["mcpConfigPath"] = mcpConfigPath
-	}
+	populateClaudeStartPayload(payload, request)
 	return payload
+}
+
+func populateClaudeStartPayload(payload map[string]any, request StartRequest) {
+	setOptionalStringPayloadField(payload, "cliPath", strings.TrimSpace(derefOptionalString(request.ExternalConfig.CommandPath)))
+	setOptionalStringPayloadField(payload, "systemPrompt", strings.TrimSpace(stringValue(request.Inputs["systemPrompt"])))
+	setOptionalStringPayloadField(payload, "model", resolveClaudeModel(request))
+	setOptionalStringPayloadField(payload, "resume", strings.TrimSpace(stringValue(request.Inputs["sessionId"])))
+	setOptionalStringSlicePayloadField(payload, "settingSources", resolveClaudeSettingSources(request.ExternalConfig))
+	setOptionalClaudePolicyFields(payload, request)
+	setOptionalStringSlicePayloadField(payload, "allowedTools", extractClaudeAllowedTools(request))
+	setOptionalIntPayloadField(payload, "maxTurns", resolveClaudeMaxTurns(request.Inputs))
+	setOptionalIntPayloadField(payload, "maxThinkingTokens", resolveClaudeThinkingBudget(request.Inputs))
+	setOptionalMapPayloadField(payload, "sandbox", buildClaudeSandboxSettings(resolveClaudeSandboxPolicy(request)))
+	setOptionalStringPayloadField(payload, "mcpConfigPath", strings.TrimSpace(stringValue(request.Inputs["mcpConfig"])))
+}
+
+func setOptionalClaudePolicyFields(payload map[string]any, request StartRequest) {
+	policy := resolveClaudeApprovalPolicy(request)
+	setOptionalStringPayloadField(payload, "permissionMode", resolveClaudePermissionMode(policy))
+	payload["decisionPolicy"] = resolveClaudeDecisionPolicy(policy)
+}
+
+func setOptionalStringPayloadField(payload map[string]any, key string, value string) {
+	if value == "" {
+		return
+	}
+	payload[key] = value
+}
+
+func setOptionalStringSlicePayloadField(payload map[string]any, key string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+	payload[key] = append([]string(nil), values...)
+}
+
+func setOptionalIntPayloadField(payload map[string]any, key string, value *int) {
+	if value == nil {
+		return
+	}
+	payload[key] = *value
+}
+
+func setOptionalMapPayloadField(payload map[string]any, key string, value map[string]any) {
+	if value == nil {
+		return
+	}
+	payload[key] = value
 }
 
 func buildClaudePrompt(inputs map[string]any) string {
@@ -959,40 +975,47 @@ func resolveClaudeDecisionPolicy(policy string) string {
 }
 
 func extractClaudeAllowedTools(request StartRequest) []string {
-	if rawTools, ok := request.Inputs["allowedTools"].([]string); ok {
-		tools := make([]string, 0, len(rawTools))
-		for _, value := range rawTools {
-			trimmed := strings.TrimSpace(value)
-			if trimmed == "" {
-				continue
-			}
-			tools = append(tools, trimmed)
-		}
-		if len(tools) > 0 {
-			return tools
-		}
-	}
-	if rawTools, ok := request.Inputs["allowedTools"].([]any); ok {
-		tools := make([]string, 0, len(rawTools))
-		for _, raw := range rawTools {
-			value, ok := raw.(string)
-			if !ok {
-				continue
-			}
-			trimmed := strings.TrimSpace(value)
-			if trimmed == "" {
-				continue
-			}
-			tools = append(tools, trimmed)
-		}
-		if len(tools) > 0 {
-			return tools
-		}
+	if tools := trimmedStringSlice(request.Inputs["allowedTools"]); len(tools) > 0 {
+		return tools
 	}
 	if request.Profile != nil && len(request.Profile.ToolAllowlist) > 0 {
 		return append([]string(nil), request.Profile.ToolAllowlist...)
 	}
 	return nil
+}
+
+func trimmedStringSlice(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return appendTrimmedStrings(make([]string, 0, len(typed)), typed)
+	case []any:
+		tools := make([]string, 0, len(typed))
+		for _, raw := range typed {
+			value, ok := raw.(string)
+			if !ok {
+				continue
+			}
+			tools = appendTrimmedString(tools, value)
+		}
+		return tools
+	default:
+		return nil
+	}
+}
+
+func appendTrimmedStrings(dst []string, values []string) []string {
+	for _, value := range values {
+		dst = appendTrimmedString(dst, value)
+	}
+	return dst
+}
+
+func appendTrimmedString(dst []string, value string) []string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return dst
+	}
+	return append(dst, trimmed)
 }
 
 func resolveClaudeMaxTurns(inputs map[string]any) *int {
@@ -1017,36 +1040,47 @@ func resolveClaudeThinkingBudget(inputs map[string]any) *int {
 	if inputs == nil {
 		return nil
 	}
-	thinkingPayload, ok := inputs["thinking"]
-	if ok {
-		switch value := thinkingPayload.(type) {
-		case bool:
-			if value {
-				defaultBudget := 1024
-				return &defaultBudget
-			}
-			return nil
-		case map[string]any:
-			if budget := parseOptionalNonNegativeInt(value["budget_tokens"]); budget != nil {
-				return budget
-			}
-			if budget := parseOptionalNonNegativeInt(value["budgetTokens"]); budget != nil {
-				return budget
-			}
-			if strings.EqualFold(strings.TrimSpace(stringValue(value["type"])), "enabled") {
-				defaultBudget := 1024
-				return &defaultBudget
-			}
-		case string:
-			if strings.EqualFold(strings.TrimSpace(value), "disabled") {
-				return nil
-			}
-		}
+	if budget, resolved := resolveClaudeThinkingPayload(inputs["thinking"]); resolved {
+		return budget
 	}
 	if budget := parseOptionalNonNegativeInt(inputs["thinkingBudgetTokens"]); budget != nil {
 		return budget
 	}
 	return parseOptionalNonNegativeInt(inputs["thinking_budget_tokens"])
+}
+
+func resolveClaudeThinkingPayload(value any) (*int, bool) {
+	switch typed := value.(type) {
+	case bool:
+		if typed {
+			return claudeDefaultThinkingBudgetValue(), true
+		}
+		return nil, true
+	case map[string]any:
+		return resolveClaudeThinkingBudgetFromMap(typed)
+	case string:
+		if strings.EqualFold(strings.TrimSpace(typed), "disabled") {
+			return nil, true
+		}
+	}
+	return nil, false
+}
+
+func resolveClaudeThinkingBudgetFromMap(payload map[string]any) (*int, bool) {
+	for _, key := range []string{"budget_tokens", "budgetTokens"} {
+		if budget := parseOptionalNonNegativeInt(payload[key]); budget != nil {
+			return budget, true
+		}
+	}
+	if strings.EqualFold(strings.TrimSpace(stringValue(payload["type"])), "enabled") {
+		return claudeDefaultThinkingBudgetValue(), true
+	}
+	return nil, false
+}
+
+func claudeDefaultThinkingBudgetValue() *int {
+	value := claudeDefaultThinkingBudget
+	return &value
 }
 
 func parseOptionalNonNegativeInt(value any) *int {
@@ -1508,37 +1542,61 @@ func (p *claudeEventParser) handleAssistantMessageEntry(
 	if !ok {
 		return nil
 	}
+	return p.applyAssistantMessageEntry(messageID, entry, state)
+}
+
+func (p *claudeEventParser) applyAssistantMessageEntry(
+	messageID string,
+	entry map[string]any,
+	state *ChatState,
+) error {
 	switch strings.TrimSpace(stringValue(entry["type"])) {
 	case "text":
-		text := strings.TrimSpace(stringValue(entry["text"]))
-		if text != "" {
-			appendAssistantDelta(state, messageID, text)
-		}
+		p.applyAssistantTextEntry(messageID, entry, state)
 		return nil
 	case "thinking":
-		thinking := strings.TrimSpace(stringValue(entry["thinking"]))
-		summary := optionalStringValue(entry, "summary")
-		signature := optionalStringValue(entry, "signature")
-		if thinking != "" || summary != nil || signature != nil {
-			appendAssistantThinkingUpdate(state, messageID, thinking, summary, signature)
-		}
+		p.applyAssistantThinkingEntry(messageID, entry, state)
 		return nil
 	case "tool_use":
-		toolCallID, toolName, arguments := toolUsePayload(entry)
-		if toolCallID == "" {
-			return nil
-		}
-		setToolCallArguments(state, toolCallID, arguments)
-		upsertAssistantToolCall(state, messageID, toolCallID, toolName, arguments)
-		return p.registerQuestion(toolCallID, toolName)
+		return p.applyAssistantToolUseEntry(messageID, entry, state)
 	case "tool_result":
-		metadata := buildClaudeToolResultFromContentBlock(state, entry)
-		if metadata != nil {
-			p.pendingToolResults = append(p.pendingToolResults, *metadata)
-		}
+		p.applyAssistantToolResultEntry(entry, state)
 		return nil
 	default:
 		return nil
+	}
+}
+
+func (p *claudeEventParser) applyAssistantTextEntry(messageID string, entry map[string]any, state *ChatState) {
+	text := strings.TrimSpace(stringValue(entry["text"]))
+	if text != "" {
+		appendAssistantDelta(state, messageID, text)
+	}
+}
+
+func (p *claudeEventParser) applyAssistantThinkingEntry(messageID string, entry map[string]any, state *ChatState) {
+	thinking := strings.TrimSpace(stringValue(entry["thinking"]))
+	summary := optionalStringValue(entry, "summary")
+	signature := optionalStringValue(entry, "signature")
+	if thinking != "" || summary != nil || signature != nil {
+		appendAssistantThinkingUpdate(state, messageID, thinking, summary, signature)
+	}
+}
+
+func (p *claudeEventParser) applyAssistantToolUseEntry(messageID string, entry map[string]any, state *ChatState) error {
+	toolCallID, toolName, arguments := toolUsePayload(entry)
+	if toolCallID == "" {
+		return nil
+	}
+	setToolCallArguments(state, toolCallID, arguments)
+	upsertAssistantToolCall(state, messageID, toolCallID, toolName, arguments)
+	return p.registerQuestion(toolCallID, toolName)
+}
+
+func (p *claudeEventParser) applyAssistantToolResultEntry(entry map[string]any, state *ChatState) {
+	metadata := buildClaudeToolResultFromContentBlock(state, entry)
+	if metadata != nil {
+		p.pendingToolResults = append(p.pendingToolResults, *metadata)
 	}
 }
 
