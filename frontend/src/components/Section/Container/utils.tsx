@@ -11,27 +11,23 @@ import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";
 
+const DEFAULT_SECTION_BG_COLOR = "bg-setta-50 dark:bg-setta-860";
+
+const SECTION_BG_COLOR_BY_TYPE: Partial<Record<SectionTypeEnum, string>> = {
+  [SectionTypeEnum.Code]: "bg-white dark:bg-setta-900",
+  [SectionTypeEnum.GenPythonCode]: "bg-white dark:bg-setta-900",
+  [SectionTypeEnum.GenPythonMetadata]: "bg-white dark:bg-setta-900",
+  [SectionTypeEnum.Terminal]: "bg-setta-950 overflow-clip",
+  [SectionTypeEnum.Browser]: "@container/multipane",
+  [SectionTypeEnum.GlobalVariables]: "bg-white dark:bg-black",
+  [SectionTypeEnum.StateMachineStart]: "bg-stone-100 dark:bg-[#171717]",
+  [SectionTypeEnum.StateMachineGate]: "bg-stone-100 dark:bg-[#171717]",
+  [SectionTypeEnum.StateMachineEnd]: "bg-stone-100 dark:bg-[#171717]",
+  [SectionTypeEnum.MetaControl]: "bg-transparent",
+};
+
 export function getBgColor(sectionTypeName: SectionTypeEnum) {
-  switch (sectionTypeName) {
-    case SectionTypeEnum.Code:
-    case SectionTypeEnum.GenPythonCode:
-    case SectionTypeEnum.GenPythonMetadata:
-      return "bg-white dark:bg-setta-900";
-    case SectionTypeEnum.Terminal:
-      return "bg-setta-950 overflow-clip";
-    case SectionTypeEnum.Browser:
-      return "@container/multipane";
-    case SectionTypeEnum.GlobalVariables:
-      return "bg-white dark:bg-black";
-    case SectionTypeEnum.StateMachineStart:
-    case SectionTypeEnum.StateMachineGate:
-    case SectionTypeEnum.StateMachineEnd:
-      return "bg-stone-100 dark:bg-[#171717]";
-    case SectionTypeEnum.MetaControl:
-      return "bg-transparent";
-    default:
-      return "bg-setta-50 dark:bg-setta-860";
-  }
+  return SECTION_BG_COLOR_BY_TYPE[sectionTypeName] ?? DEFAULT_SECTION_BG_COLOR;
 }
 
 export function getOutlineColor({
