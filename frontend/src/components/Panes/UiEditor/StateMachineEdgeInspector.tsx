@@ -30,6 +30,10 @@ type WorkflowThreadStrategy =
 type WorkflowCountOperator = StateMachineCountOperator;
 type WorkflowPromptSourceType =
   (typeof StateMachineUIConfig.promptSourceTypes)[keyof typeof StateMachineUIConfig.promptSourceTypes];
+type WorkflowSignalSourceFilterField = Exclude<
+  keyof NonNullable<WorkflowEdge["sourceFilter"]>,
+  "type"
+>;
 
 type WorkflowEdgeInspectorProps = {
   edgeId: string;
@@ -431,17 +435,12 @@ function buildSelectedSourceFilter(
 
 function updateSignalSourceFilterField(
   sourceFilter: WorkflowEdge["sourceFilter"],
-  field: "signalName" | "payloadField" | "equals",
+  field: WorkflowSignalSourceFilterField,
   value: string,
 ): NonNullable<WorkflowEdge["sourceFilter"]> {
-  return {
-    type: SIGNAL_SOURCE_FILTER_TYPE,
-    signalName:
-      field === "signalName" ? value : sourceFilter?.signalName ?? null,
-    payloadField:
-      field === "payloadField" ? value : sourceFilter?.payloadField ?? null,
-    equals: field === "equals" ? value : sourceFilter?.equals ?? null,
-  };
+  const nextSourceFilter = createSignalSourceFilter(sourceFilter);
+  nextSourceFilter[field] = value;
+  return nextSourceFilter;
 }
 
 function normalizeSourceActivationValue(value: string): number {

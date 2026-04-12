@@ -19,6 +19,24 @@ import {
   getCurrProjectConfigId,
 } from "./sectionInfos";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "./stateMachineEdges";
+
+type EdgeConnectionBody = Pick<
+  NonNullable<Parameters<typeof createEdge>[0]["body"]>,
+  | "projectConfigId"
+  | "sourceSectionId"
+  | "sourceVariantId"
+  | "sourcePortId"
+  | "targetSectionId"
+  | "targetVariantId"
+  | "targetPortId"
+>;
+type CompleteEdgeConnection = Connection & {
+  source: string;
+  target: string;
+  sourceHandle: string;
+  targetHandle: string;
+};
+
 const nonDataHandleIds = new Set<string>([
   AGENTIC_EDGE_HANDLE_IDS.source,
   AGENTIC_EDGE_HANDLE_IDS.target,
@@ -109,27 +127,63 @@ export function deleteSelectedEdges() {
   });
   return true;
 }
-export function createEdgeFromConnection(connection: Connection) {
-  if (
-    !connection.source ||
-    !connection.target ||
-    !connection.sourceHandle ||
-    !connection.targetHandle
-  ) {
-    return;
+
+function resolveEdgeConnectionBody(
+  connection: Connection,
+): EdgeConnectionBody | null {
+  if (!hasCompleteEdgeConnection(connection)) {
+    return null;
   }
-  const isDeploymentMode = useShareSession.getState().isDeploymentMode;
-  if (isDeploymentMode) {
-    return;
+  if (useShareSession.getState().isDeploymentMode) {
+    return null;
   }
   const state = useProjectState.getState();
+  const variantIds = resolveEdgeConnectionVariantIds(connection, state);
+  if (!variantIds) {
+    return null;
+  }
+  if (!hasRegisteredEdgeConnection(connection)) {
+    return null;
+  }
+  return {
+    projectConfigId: getCurrProjectConfigId(),
+    sourceSectionId: connection.source,
+    sourceVariantId: variantIds.sourceVariantId,
+    sourcePortId: connection.sourceHandle,
+    targetSectionId: connection.target,
+    targetVariantId: variantIds.targetVariantId,
+    targetPortId: connection.targetHandle,
+  };
+}
+
+function hasCompleteEdgeConnection(
+  connection: Connection,
+): connection is CompleteEdgeConnection {
+  return Boolean(
+    connection.source &&
+      connection.target &&
+      connection.sourceHandle &&
+      connection.targetHandle,
+  );
+}
+
+function resolveEdgeConnectionVariantIds(
+  connection: CompleteEdgeConnection,
+  state: ReturnType<typeof useProjectState.getState>,
+): { sourceVariantId: string; targetVariantId: string } | null {
   const sourceVariantId =
     state.projectConfig.sectionVariantMap[connection.source];
   const targetVariantId =
     state.projectConfig.sectionVariantMap[connection.target];
   if (!sourceVariantId || !targetVariantId) {
-    return;
+    return null;
   }
+  return { sourceVariantId, targetVariantId };
+}
+
+function hasRegisteredEdgeConnection(
+  connection: CompleteEdgeConnection,
+): boolean {
   const registryPositions = useEdgeHandleRegistry.getState().positions;
   const sourceKey = makeEdgeHandleKey(
     connection.source,
@@ -141,21 +195,17 @@ export function createEdgeFromConnection(connection: Connection) {
     connection.targetHandle,
     "target",
   );
-  if (!registryPositions[sourceKey] || !registryPositions[targetKey]) {
+  return Boolean(registryPositions[sourceKey] && registryPositions[targetKey]);
+}
+
+export function createEdgeFromConnection(connection: Connection) {
+  const body = resolveEdgeConnectionBody(connection);
+  if (!body) {
     return;
   }
   void callOpenAPI(
     createEdge({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-        sourceSectionId: connection.source,
-        sourceVariantId,
-        sourcePortId: connection.sourceHandle,
-        targetSectionId: connection.target,
-        targetVariantId,
-        targetPortId: connection.targetHandle,
-        type: "default",
-      },
+      body: { ...body, type: "default" },
     } as Parameters<typeof createEdge>[0]),
   );
 }
@@ -163,52 +213,13 @@ export function reconnectEdgeFromConnection(
   edgeId: string,
   connection: Connection,
 ) {
-  if (
-    !connection.source ||
-    !connection.target ||
-    !connection.sourceHandle ||
-    !connection.targetHandle
-  ) {
-    return;
-  }
-  const isDeploymentMode = useShareSession.getState().isDeploymentMode;
-  if (isDeploymentMode) {
-    return;
-  }
-  const state = useProjectState.getState();
-  const sourceVariantId =
-    state.projectConfig.sectionVariantMap[connection.source];
-  const targetVariantId =
-    state.projectConfig.sectionVariantMap[connection.target];
-  if (!sourceVariantId || !targetVariantId) {
-    return;
-  }
-  const registryPositions = useEdgeHandleRegistry.getState().positions;
-  const sourceKey = makeEdgeHandleKey(
-    connection.source,
-    connection.sourceHandle,
-    "source",
-  );
-  const targetKey = makeEdgeHandleKey(
-    connection.target,
-    connection.targetHandle,
-    "target",
-  );
-  if (!registryPositions[sourceKey] || !registryPositions[targetKey]) {
+  const body = resolveEdgeConnectionBody(connection);
+  if (!body) {
     return;
   }
   void callOpenAPI(
     reconnectEdge({
-      body: {
-        projectConfigId: getCurrProjectConfigId(),
-        edgeId,
-        sourceSectionId: connection.source,
-        sourceVariantId,
-        sourcePortId: connection.sourceHandle,
-        targetSectionId: connection.target,
-        targetVariantId,
-        targetPortId: connection.targetHandle,
-      },
+      body: { ...body, edgeId },
     } as Parameters<typeof reconnectEdge>[0]),
   );
 }

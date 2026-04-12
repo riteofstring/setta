@@ -111,6 +111,29 @@ type ZoomFilterParams = {
   zoomOnScroll: boolean;
 };
 
+const defaultZoomPaneProps = {
+  zoomOnScroll: true,
+  zoomOnPinch: true,
+  panOnScroll: false,
+  panOnScrollSpeed: 0.5,
+  panOnScrollMode: PanOnScrollModeEnum.free,
+  zoomOnDoubleClick: true,
+  panOnDrag: true,
+  translateExtent: infiniteExtent,
+  preventScrolling: true,
+} satisfies Pick<
+  ZoomPaneProps,
+  | "zoomOnScroll"
+  | "zoomOnPinch"
+  | "panOnScroll"
+  | "panOnScrollSpeed"
+  | "panOnScrollMode"
+  | "zoomOnDoubleClick"
+  | "panOnDrag"
+  | "translateExtent"
+  | "preventScrolling"
+>;
+
 const isWrappedWithClass = (event: Event, className?: string): boolean => {
   if (!className) {
     return false;
@@ -999,20 +1022,25 @@ function useFitViewInitialization({
   ]);
 }
 
-const ZoomPane = ({
-  zoomOnScroll = true,
-  zoomOnPinch = true,
-  panOnScroll = false,
-  panOnScrollSpeed = 0.5,
-  panOnScrollMode = PanOnScrollModeEnum.free,
-  zoomOnDoubleClick = true,
-  panOnDrag = true,
-  zoomActivationKeyPressed,
-  translateExtent = infiniteExtent,
-  preventScrolling = true,
-  children,
-  wrapperDimensions,
-}: ZoomPaneProps) => {
+function resolveZoomPaneProps(props: ZoomPaneProps): ZoomPaneProps {
+  return { ...defaultZoomPaneProps, ...props };
+}
+
+const ZoomPane = (props: ZoomPaneProps) => {
+  const {
+    zoomOnScroll,
+    zoomOnPinch,
+    panOnScroll,
+    panOnScrollSpeed,
+    panOnScrollMode,
+    zoomOnDoubleClick,
+    panOnDrag,
+    zoomActivationKeyPressed,
+    translateExtent,
+    preventScrolling,
+    children,
+    wrapperDimensions,
+  } = resolveZoomPaneProps(props);
   const isZoomingOrPanning = useRef(false);
   const zoomPane = useRef<HTMLDivElement>(null);
   const {

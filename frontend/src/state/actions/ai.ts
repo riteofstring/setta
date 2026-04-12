@@ -460,11 +460,11 @@ function float32ToInt16(input: Float32Array): Int16Array {
   }
   return output;
 }
-export function resampleMonoPcm16ToSampleRate(
-  input: Int16Array,
+
+function validateTranscriptionSampleRates(
   sourceSampleRateHz: number,
   targetSampleRateHz: number,
-): Int16Array {
+): void {
   if (sourceSampleRateHz <= 0 || targetSampleRateHz <= 0) {
     throw new Error("Provider transcription requires a positive sample rate.");
   }
@@ -474,6 +474,32 @@ export function resampleMonoPcm16ToSampleRate(
   ) {
     throw new Error("Provider transcription requires a finite sample rate.");
   }
+}
+
+function interpolateResampledMonoPcm16Sample(
+  input: Int16Array,
+  outputIndex: number,
+  sourceSampleRateHz: number,
+  targetSampleRateHz: number,
+): number {
+  const sourcePosition =
+    (outputIndex * sourceSampleRateHz) / targetSampleRateHz;
+  const sourceIndex = Math.floor(sourcePosition);
+  const nextSourceIndex = Math.min(sourceIndex + 1, input.length - 1);
+  const lerpWeight = sourcePosition - sourceIndex;
+  const leftSample = input[sourceIndex] ?? 0;
+  const rightSample = input[nextSourceIndex] ?? leftSample;
+  const interpolatedSample =
+    leftSample * (1 - lerpWeight) + rightSample * lerpWeight;
+  return Math.max(-0x8000, Math.min(0x7fff, Math.round(interpolatedSample)));
+}
+
+export function resampleMonoPcm16ToSampleRate(
+  input: Int16Array,
+  sourceSampleRateHz: number,
+  targetSampleRateHz: number,
+): Int16Array {
+  validateTranscriptionSampleRates(sourceSampleRateHz, targetSampleRateHz);
   if (input.length === 0 || sourceSampleRateHz === targetSampleRateHz) {
     return input;
   }
@@ -483,20 +509,12 @@ export function resampleMonoPcm16ToSampleRate(
   );
   const output = new Int16Array(outputLength);
   for (let outputIndex = 0; outputIndex < outputLength; outputIndex += 1) {
-    const sourcePosition =
-      (outputIndex * sourceSampleRateHz) / targetSampleRateHz;
-    const sourceIndex = Math.floor(sourcePosition);
-    const nextSourceIndex = Math.min(sourceIndex + 1, input.length - 1);
-    const lerpWeight = sourcePosition - sourceIndex;
-    const leftSample = input[sourceIndex] ?? 0;
-    const rightSample = input[nextSourceIndex] ?? leftSample;
-    const interpolatedSample =
-      leftSample * (1 - lerpWeight) + rightSample * lerpWeight;
-    const clamped = Math.max(
-      -0x8000,
-      Math.min(0x7fff, Math.round(interpolatedSample)),
+    output[outputIndex] = interpolateResampledMonoPcm16Sample(
+      input,
+      outputIndex,
+      sourceSampleRateHz,
+      targetSampleRateHz,
     );
-    output[outputIndex] = clamped;
   }
   return output;
 }
@@ -1773,6 +1791,38 @@ type StopChatResponseSnapshot = {
   followProjectConfigId: string | null;
   followToolArgumentIdsByType: AIFollowIdsByType | null;
 };
+type StopChatResponseLocalOptions = {
+  markInterruptedOptimistically?: boolean;
+  pendingSurfaceId?: string | null;
+  followProjectConfigId?: string | null;
+};
+type ResolvedStopChatResponseLocalOptions = {
+  markInterruptedOptimistically: boolean;
+  pendingSurfaceId: string | null;
+  followProjectConfigId: string | null;
+};
+type StopChatResponseRequest = {
+  chatId: string | null | undefined;
+  isExternalEngine: boolean;
+  pendingSurfaceId?: string | null;
+  failureMessage: string;
+  projectConfigId: string | null;
+  sectionId?: string;
+};
+type InternalChatStopFailureParams = {
+  chatId: string;
+  failureMessage: string;
+  localSnapshot: StopChatResponseSnapshot;
+  pendingSurfaceId?: string | null;
+  sectionId?: string;
+};
+
+const DEFAULT_STOP_CHAT_RESPONSE_LOCAL_OPTIONS = {
+  markInterruptedOptimistically: true,
+  pendingSurfaceId: null,
+  followProjectConfigId: null,
+} satisfies ResolvedStopChatResponseLocalOptions;
+
 function getStopChatSnapshotDetails(
   state: AIStateSnapshot,
   chatId: string | null | undefined,
@@ -1982,18 +2032,54 @@ function restoreStoppedChatFollowState(
     idsByType: snapshot.followToolArgumentIdsByType,
   });
 }
+
+function resolveStopChatResponseLocalOptions(
+  options: StopChatResponseLocalOptions | undefined,
+): ResolvedStopChatResponseLocalOptions {
+  return {
+    ...DEFAULT_STOP_CHAT_RESPONSE_LOCAL_OPTIONS,
+    ...options,
+  };
+}
+
+function stopKnownChatResponseLocally({
+  chatId,
+  followProjectConfigId,
+  markInterruptedOptimistically,
+  snapshot,
+  stopDetails,
+}: {
+  chatId: string;
+  followProjectConfigId: string | null;
+  markInterruptedOptimistically: boolean;
+  snapshot: StopChatResponseSnapshot;
+  stopDetails: (details: ChatDetails) => ChatDetails;
+}) {
+  updateChatDetails(chatId, stopDetails);
+  if (
+    markInterruptedOptimistically &&
+    snapshot.waitingForResponse &&
+    snapshot.stopEligibleAssistantMessageId
+  ) {
+    markInterruptedAssistantMessage(
+      chatId,
+      snapshot.stopEligibleAssistantMessageId,
+    );
+  }
+  if (followProjectConfigId) {
+    clearAIFollowToolArgumentsForChat(followProjectConfigId, chatId);
+  }
+}
+
 function stopChatResponseLocally(
   chatId: string | null | undefined,
-  options: {
-    markInterruptedOptimistically?: boolean;
-    pendingSurfaceId?: string | null;
-    followProjectConfigId?: string | null;
-  } = {},
+  options?: StopChatResponseLocalOptions,
 ): StopChatResponseSnapshot {
-  const markInterruptedOptimistically =
-    options.markInterruptedOptimistically ?? true;
-  const pendingSurfaceId = options.pendingSurfaceId ?? null;
-  const followProjectConfigId = options.followProjectConfigId ?? null;
+  const {
+    markInterruptedOptimistically,
+    pendingSurfaceId,
+    followProjectConfigId,
+  } = resolveStopChatResponseLocalOptions(options);
   const snapshot = getStopChatResponseSnapshot(
     chatId,
     pendingSurfaceId,
@@ -2004,20 +2090,13 @@ function stopChatResponseLocally(
     waitingForResponse: false,
   });
   if (typeof chatId === "string") {
-    updateChatDetails(chatId, stopDetails);
-    if (
-      markInterruptedOptimistically &&
-      snapshot.waitingForResponse &&
-      snapshot.stopEligibleAssistantMessageId
-    ) {
-      markInterruptedAssistantMessage(
-        chatId,
-        snapshot.stopEligibleAssistantMessageId,
-      );
-    }
-    if (followProjectConfigId) {
-      clearAIFollowToolArgumentsForChat(followProjectConfigId, chatId);
-    }
+    stopKnownChatResponseLocally({
+      chatId,
+      followProjectConfigId,
+      markInterruptedOptimistically,
+      snapshot,
+      stopDetails,
+    });
   } else {
     updatePendingChatDetails(stopDetails, pendingSurfaceId);
   }
@@ -2036,6 +2115,19 @@ function applyConfirmedExternalStopInterruption(
   }
   markInterruptedAssistantMessage(chatId, stoppedMessageId);
 }
+
+function shouldRestoreInterruptedSnapshotForStop({
+  alreadyStopped,
+  localStoppedMessageId,
+  stoppedMessageId,
+}: {
+  alreadyStopped: boolean;
+  localStoppedMessageId: string;
+  stoppedMessageId: string;
+}): boolean {
+  return alreadyStopped || !stoppedMessageId || !localStoppedMessageId;
+}
+
 async function resolveLatestRunningExternalRunIdWithRefresh(
   chatId: string,
   projectConfigId: string | null,
@@ -2161,18 +2253,16 @@ function reconcileStoppedLLMChatOutcome({
   if (!stopOutcome) {
     return;
   }
-  if (stopOutcome.alreadyStopped) {
-    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-    return;
-  }
   const stoppedMessageId = stopOutcome.stoppedMessageId?.trim() ?? "";
-  if (!stoppedMessageId) {
-    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-    return;
-  }
   const localStoppedMessageId =
     localSnapshot.stopEligibleAssistantMessageId?.trim() ?? "";
-  if (!localStoppedMessageId) {
+  if (
+    shouldRestoreInterruptedSnapshotForStop({
+      alreadyStopped: stopOutcome.alreadyStopped,
+      localStoppedMessageId,
+      stoppedMessageId,
+    })
+  ) {
     restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
     return;
   }
@@ -2182,98 +2272,14 @@ function reconcileStoppedLLMChatOutcome({
   restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   markInterruptedAssistantMessage(chatId, stoppedMessageId);
 }
-export async function stopProjectChatResponse(
-  chatId: string | null | undefined,
-  isExternalEngine: boolean,
-  pendingSurfaceId: string | null | undefined = null,
-): Promise<boolean> {
-  const followProjectConfigId =
-    typeof chatId === "string" ? getCurrProjectConfigId() : null;
-  const localSnapshot = stopChatResponseLocally(chatId, {
-    markInterruptedOptimistically: !isExternalEngine,
-    pendingSurfaceId,
-    followProjectConfigId,
-  });
-  if (typeof chatId !== "string") {
-    return true;
-  }
-  if (isExternalEngine) {
-    return stopExternalChatResponse({
-      chatId,
-      projectConfigId: followProjectConfigId,
-      failureMessage: "Failed to stop project chat.",
-      localSnapshot,
-    });
-  }
-  const response = await callOpenAPI(
-    apiStopLlmChat({
-      body: { chatId },
-    } as Parameters<typeof apiStopLlmChat>[0]),
-  );
-  if (res200(response)) {
-    reconcileStoppedLLMChatOutcome({
-      chatId,
-      localSnapshot,
-      stopOutcome: response.data,
-    });
-    return true;
-  }
-  const hydrationOutcome = await getLLMChatHydrationOutcome(chatId);
-  const waitingForResponse = Boolean(
-    useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
-  );
-  const hydrated = hydrationOutcome.outcome === "success";
-  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-  if (hydrated && waitingForResponse) {
-    restoreStoppedChatFollowState(chatId, localSnapshot);
-  }
-  if (!hydrated) {
-    restoreStoppedChatResponseLocally(chatId, localSnapshot, pendingSurfaceId);
-    restoreStoppedChatFollowState(chatId, localSnapshot);
-  }
-  addTemporaryNotification(
-    "Failed to stop project chat.",
-    NotificationTypeEnum.warning,
-  );
-  return false;
-}
-export async function stopManagedSectionChatResponse(
-  chatId: string | null | undefined,
-  isExternalEngine: boolean,
-  projectConfigId: string,
-  sectionId: string,
-  pendingSurfaceId: string | null | undefined = null,
-): Promise<boolean> {
-  const localSnapshot = stopChatResponseLocally(chatId, {
-    markInterruptedOptimistically: !isExternalEngine,
-    pendingSurfaceId,
-    followProjectConfigId: projectConfigId,
-  });
-  if (typeof chatId !== "string") {
-    return true;
-  }
-  if (isExternalEngine) {
-    return stopExternalChatResponse({
-      chatId,
-      projectConfigId,
-      sectionId,
-      failureMessage: "Failed to stop section chat.",
-      localSnapshot,
-    });
-  }
-  const response = await callOpenAPI(
-    apiStopLlmChat({
-      body: { chatId },
-    } as Parameters<typeof apiStopLlmChat>[0]),
-  );
-  if (res200(response)) {
-    reconcileStoppedLLMChatOutcome({
-      chatId,
-      localSnapshot,
-      stopOutcome: response.data,
-    });
-    return true;
-  }
+
+async function finalizeInternalChatStopFailure({
+  chatId,
+  failureMessage,
+  localSnapshot,
+  pendingSurfaceId,
+  sectionId,
+}: InternalChatStopFailureParams): Promise<boolean> {
   const hydrationOutcome = await getLLMChatHydrationOutcome(chatId, sectionId);
   const waitingForResponse = Boolean(
     useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
@@ -2287,11 +2293,102 @@ export async function stopManagedSectionChatResponse(
     restoreStoppedChatResponseLocally(chatId, localSnapshot, pendingSurfaceId);
     restoreStoppedChatFollowState(chatId, localSnapshot);
   }
-  addTemporaryNotification(
-    "Failed to stop section chat.",
-    NotificationTypeEnum.warning,
-  );
+  addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
   return false;
+}
+
+async function stopInternalChatResponse({
+  chatId,
+  failureMessage,
+  localSnapshot,
+  pendingSurfaceId,
+  sectionId,
+}: InternalChatStopFailureParams): Promise<boolean> {
+  const response = await callOpenAPI(
+    apiStopLlmChat({
+      body: { chatId },
+    } as Parameters<typeof apiStopLlmChat>[0]),
+  );
+  if (res200(response)) {
+    reconcileStoppedLLMChatOutcome({
+      chatId,
+      localSnapshot,
+      stopOutcome: response.data,
+    });
+    return true;
+  }
+  return finalizeInternalChatStopFailure({
+    chatId,
+    failureMessage,
+    localSnapshot,
+    pendingSurfaceId,
+    sectionId,
+  });
+}
+
+async function stopChatResponse({
+  chatId,
+  isExternalEngine,
+  pendingSurfaceId = null,
+  failureMessage,
+  projectConfigId,
+  sectionId,
+}: StopChatResponseRequest): Promise<boolean> {
+  const localSnapshot = stopChatResponseLocally(chatId, {
+    markInterruptedOptimistically: !isExternalEngine,
+    pendingSurfaceId,
+    followProjectConfigId: projectConfigId,
+  });
+  if (typeof chatId !== "string") {
+    return true;
+  }
+  if (isExternalEngine) {
+    return stopExternalChatResponse({
+      chatId,
+      projectConfigId,
+      sectionId,
+      failureMessage,
+      localSnapshot,
+    });
+  }
+  return stopInternalChatResponse({
+    chatId,
+    failureMessage,
+    localSnapshot,
+    pendingSurfaceId,
+    sectionId,
+  });
+}
+
+export async function stopProjectChatResponse(
+  chatId: string | null | undefined,
+  isExternalEngine: boolean,
+  pendingSurfaceId: string | null | undefined = null,
+): Promise<boolean> {
+  return stopChatResponse({
+    chatId,
+    isExternalEngine,
+    pendingSurfaceId,
+    failureMessage: "Failed to stop project chat.",
+    projectConfigId:
+      typeof chatId === "string" ? getCurrProjectConfigId() : null,
+  });
+}
+export async function stopManagedSectionChatResponse(
+  chatId: string | null | undefined,
+  isExternalEngine: boolean,
+  projectConfigId: string,
+  sectionId: string,
+  pendingSurfaceId: string | null | undefined = null,
+): Promise<boolean> {
+  return stopChatResponse({
+    chatId,
+    isExternalEngine,
+    pendingSurfaceId,
+    failureMessage: "Failed to stop section chat.",
+    projectConfigId,
+    sectionId,
+  });
 }
 export function initializePendingChatDetails(surfaceId: string) {
   useAIStore.setState((state) => ({
@@ -3055,33 +3152,34 @@ async function findLatestRunningExternalRunId(
   if (!agentRunsInitialLoadComplete) {
     return null;
   }
-  const runs = agentRuns.filter((run) => {
-    if (run.status !== RunStatusEnum.running) {
-      return false;
-    }
-    const inputs = run.inputs ?? {};
-    const runType = typeof inputs.runType === "string" ? inputs.runType : null;
-    if (runType !== "external_agent") {
-      return false;
-    }
-    const runChatId = typeof inputs.chatId === "string" ? inputs.chatId : null;
-    if (runChatId !== chatId) {
-      return false;
-    }
-    const runProjectConfigId =
-      typeof inputs.projectConfigId === "string"
-        ? inputs.projectConfigId
-        : null;
-    if (projectConfigId && runProjectConfigId !== projectConfigId) {
-      return false;
-    }
-    return true;
-  });
+  const runs = agentRuns.filter((run) =>
+    isMatchingRunningExternalRun(run, chatId, projectConfigId),
+  );
   if (runs.length === 0) {
     return null;
   }
   runs.sort((a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a));
   return runs[0]?.id ?? null;
+}
+
+function isMatchingRunningExternalRun(
+  run: AgentRun,
+  chatId: string,
+  projectConfigId: string | null,
+): boolean {
+  if (run.status !== RunStatusEnum.running) {
+    return false;
+  }
+  if (getRunInputString(run, "runType") !== "external_agent") {
+    return false;
+  }
+  if (getRunInputString(run, "chatId") !== chatId) {
+    return false;
+  }
+  if (!projectConfigId) {
+    return true;
+  }
+  return getRunInputString(run, "projectConfigId") === projectConfigId;
 }
 function applyStreamingChunkToSection(
   sectionId: string,
@@ -3187,22 +3285,13 @@ function handleLLMResponseChatDetailsChunk(
       handleToolCallDelta(chatId, chunk);
       return;
     case StreamingEventTypeEnum.tool_argument_preview_delta:
-      if (sectionId) {
-        applyStreamingChunkToChatDetails(chatId, chunk);
-        return;
-      }
-      handleToolArgumentPreviewDelta(chatId, chunk, projectConfigId);
-      return;
     case StreamingEventTypeEnum.tool_result:
-      if (sectionId) {
-        applyStreamingChunkToChatDetails(chatId, chunk);
-        clearToolArgumentPreviewByToolCallId(
-          projectConfigId,
-          chunk.result.tool_call_id,
-        );
-        return;
-      }
-      handleToolResult(chatId, chunk, projectConfigId);
+      handleSectionAwareChatDetailsChunk({
+        chatId,
+        chunk,
+        sectionId,
+        projectConfigId,
+      });
       return;
     case StreamingEventTypeEnum.message_stop:
       handleMessageStop(chatId, projectConfigId);
@@ -3494,6 +3583,33 @@ function handleToolArgumentPreviewDelta(
   }
   applyStreamingChunkToChatDetails(chatId, chunk);
   applyToolArgumentPreviewDeltaToPreviewStore(chunk, projectConfigId);
+}
+function handleSectionAwareChatDetailsChunk({
+  chatId,
+  chunk,
+  sectionId,
+  projectConfigId,
+}: {
+  chatId: string;
+  chunk: ToolArgumentPreviewDeltaEvent | ToolResultEvent;
+  sectionId: string | undefined;
+  projectConfigId: string;
+}) {
+  if (sectionId) {
+    applyStreamingChunkToChatDetails(chatId, chunk);
+    if (chunk.type === StreamingEventTypeEnum.tool_result) {
+      clearToolArgumentPreviewByToolCallId(
+        projectConfigId,
+        chunk.result.tool_call_id,
+      );
+    }
+    return;
+  }
+  if (chunk.type === StreamingEventTypeEnum.tool_argument_preview_delta) {
+    handleToolArgumentPreviewDelta(chatId, chunk, projectConfigId);
+    return;
+  }
+  handleToolResult(chatId, chunk, projectConfigId);
 }
 function applyStreamingChunkToChatDetails(
   chatId: string,

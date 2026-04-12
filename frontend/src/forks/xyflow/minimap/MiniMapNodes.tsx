@@ -102,6 +102,23 @@ type MiniMapNodeVisual = {
   type: string | null | undefined;
 };
 
+const defaultMiniMapNodesProps = {
+  nodeStrokeColor: "transparent",
+  nodeColor: "#e2e2e2",
+  nodeClassName: "",
+  nodeBorderRadius: 5,
+  nodeStrokeWidth: 2,
+  nodeComponent: MiniMapNode,
+} satisfies Pick<
+  MiniMapNodesType,
+  | "nodeStrokeColor"
+  | "nodeColor"
+  | "nodeClassName"
+  | "nodeBorderRadius"
+  | "nodeStrokeWidth"
+  | "nodeComponent"
+>;
+
 const SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX = "section-style-preview-color-";
 
 type MiniMapPreviewStyleColors = Record<string, string | null>;
@@ -292,16 +309,21 @@ function _MiniMapNodesReactive(props: MiniMapNodesType) {
 
 export const MiniMapNodesReactive = memo(_MiniMapNodesReactive);
 
-function _MiniMapNodes({
-  nodes,
-  nodeStrokeColor = "transparent",
-  nodeColor = "#e2e2e2",
-  nodeClassName = "",
-  nodeBorderRadius = 5,
-  nodeStrokeWidth = 2,
-  nodeComponent: NodeComponent = MiniMapNode,
-  onClick,
-}: MiniMapNodesType & { nodes: Node[] }) {
+function resolveMiniMapNodesProps(props: MiniMapNodesType & { nodes: Node[] }) {
+  return { ...defaultMiniMapNodesProps, ...props };
+}
+
+function _MiniMapNodes(props: MiniMapNodesType & { nodes: Node[] }) {
+  const {
+    nodes,
+    nodeStrokeColor,
+    nodeColor,
+    nodeClassName,
+    nodeBorderRadius,
+    nodeStrokeWidth,
+    nodeComponent: NodeComponent,
+    onClick,
+  } = resolveMiniMapNodesProps(props);
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
