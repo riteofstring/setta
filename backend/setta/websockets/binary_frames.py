@@ -1,31 +1,33 @@
 import json
 
-HEADER_LENGTH_BYTES = 4
+from setta.types.generated.go_shared_constants import HEADER_LENGTH_BYTES
 
 
-def encode_binary_frame(header: dict[str, object], payload: bytes) -> bytes:
-    header_bytes = json.dumps(header, separators=(",", ":"), ensure_ascii=False).encode(
-        "utf-8"
-    )
-    header_len = len(header_bytes)
-    return header_len.to_bytes(HEADER_LENGTH_BYTES, "big") + header_bytes + payload
-
-
-def decode_binary_frame(data: bytes) -> tuple[dict[str, object], bytes]:
+def _decode_header_length(data: bytes) -> int:
     if len(data) < HEADER_LENGTH_BYTES:
         raise ValueError("Binary frame too short to include header length.")
-    header_len = int.from_bytes(data[:HEADER_LENGTH_BYTES], "big")
-    if header_len < 0:
-        raise ValueError("Binary frame header length is invalid.")
+    return int.from_bytes(data[:HEADER_LENGTH_BYTES], "big")
+
+
+def _split_header_bytes(data: bytes, header_len: int) -> tuple[bytes, bytes]:
     header_end = HEADER_LENGTH_BYTES + header_len
-    if len(data) < header_end:
-        raise ValueError("Binary frame header is incomplete.")
     header_bytes = data[HEADER_LENGTH_BYTES:header_end]
+    if len(header_bytes) != header_len:
+        raise ValueError("Binary frame header is incomplete.")
+    return header_bytes, data[header_end:]
+
+
+def _decode_header_object(header_bytes: bytes) -> dict[str, object]:
     try:
         header = json.loads(header_bytes.decode("utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError("Binary frame header is not valid JSON.") from exc
     if not isinstance(header, dict):
         raise ValueError("Binary frame header must be a JSON object.")
-    payload = data[header_end:]
-    return header, payload
+    return header
+
+
+def decode_binary_frame(data: bytes) -> tuple[dict[str, object], bytes]:
+    header_len = _decode_header_length(data)
+    header_bytes, payload = _split_header_bytes(data, header_len)
+    return _decode_header_object(header_bytes), payload

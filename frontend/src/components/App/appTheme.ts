@@ -273,12 +273,93 @@ const COMPONENT_PAGE_VAR_MAP: Record<keyof AppThemePageTokens, string> = {
   bgImage: "--app-page-bg-image",
 };
 
+type AppThemeStyleDefault =
+  | {
+      cssVar: string;
+      colorKeys: ReadonlyArray<keyof AppThemeColors>;
+    }
+  | {
+      cssVar: string;
+      value: string;
+    };
+
+const COMPONENT_TOKEN_VAR_ENTRIES = [
+  ["button", COMPONENT_BUTTON_VAR_MAP],
+  ["input", COMPONENT_INPUT_VAR_MAP],
+  ["dropdown", COMPONENT_DROPDOWN_VAR_MAP],
+  ["card", COMPONENT_CARD_VAR_MAP],
+  ["page", COMPONENT_PAGE_VAR_MAP],
+] as const;
+
+const DEFAULT_COMPONENT_STYLE_VALUES: ReadonlyArray<AppThemeStyleDefault> = [
+  { cssVar: "--app-button-bg", colorKeys: ["accent"] },
+  { cssVar: "--app-button-bg-hover", colorKeys: ["accentHover", "accent"] },
+  { cssVar: "--app-button-text", colorKeys: ["accentText", "text"] },
+  { cssVar: "--app-button-ring", colorKeys: ["accent"] },
+  {
+    cssVar: "--app-button-disabled-bg",
+    colorKeys: ["surfaceAlt", "surface"],
+  },
+  { cssVar: "--app-button-disabled-text", colorKeys: ["muted", "text"] },
+  { cssVar: "--app-input-bg", colorKeys: ["surface"] },
+  { cssVar: "--app-input-bg-hover", colorKeys: ["surfaceAlt", "surface"] },
+  { cssVar: "--app-input-border", colorKeys: ["border"] },
+  { cssVar: "--app-input-text", colorKeys: ["text"] },
+  { cssVar: "--app-input-placeholder", colorKeys: ["muted"] },
+  { cssVar: "--app-input-focus-border", colorKeys: ["accent"] },
+  { cssVar: "--app-input-ring", colorKeys: ["accent"] },
+  { cssVar: "--app-dropdown-bg", colorKeys: ["surface"] },
+  { cssVar: "--app-dropdown-border", colorKeys: ["border"] },
+  { cssVar: "--app-dropdown-text", colorKeys: ["text"] },
+  { cssVar: "--app-dropdown-muted", colorKeys: ["muted"] },
+  {
+    cssVar: "--app-card-shadow",
+    value: "var(--app-shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))",
+  },
+  {
+    cssVar: "--app-dropdown-shadow",
+    value:
+      "var(--app-shadow-lg, 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1))",
+  },
+  {
+    cssVar: "--app-page-bg-image",
+    value:
+      "radial-gradient(circle at top, color-mix(in srgb, var(--app-accent) 10%, transparent), transparent 45%), linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 70%, transparent), color-mix(in srgb, var(--app-surface-alt) 60%, transparent))",
+  },
+];
+
 const DEFAULT_MOTION: ResolvedAppMotion = {
   durationMs: 220,
   delayMs: 0,
   staggerMs: 70,
   easing: "cubic-bezier(0.16, 1, 0.3, 1)",
 };
+
+const TYPOGRAPHY_VALUE_KEYS = [
+  "bodySize",
+  "bodyLineHeight",
+  "headingLineHeight",
+] as const satisfies ReadonlyArray<keyof AppThemeTypography>;
+
+const HEADING_SIZE_KEYS = [
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+] as const satisfies ReadonlyArray<keyof AppThemeHeadingSizes>;
+
+const TEXT_SCALE_KEYS = [
+  "xs",
+  "sm",
+  "base",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+] as const satisfies ReadonlyArray<keyof AppThemeTextScale>;
+
+type ThemeScalarRecord = Record<string, number | string | undefined>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -313,6 +394,10 @@ function resolveThemeMode(
   return systemPrefersDark ? "dark" : "light";
 }
 
+function resolveThemeClassName(theme: AppThemeConfig | null): string | null {
+  return typeof theme?.className === "string" ? theme.className : null;
+}
+
 function resolveThemeColors(
   raw: AppThemeConfig["colors"],
   mode: "light" | "dark",
@@ -333,8 +418,35 @@ function resolveThemeColors(
   return extractStringMap<AppThemeColors>(raw);
 }
 
+function resolveThemeColorsWithDefaults(
+  raw: AppThemeConfig["colors"],
+  mode: "light" | "dark",
+): AppThemeColors {
+  return {
+    ...DEFAULT_COLORS_BY_MODE[mode],
+    ...resolveThemeColors(raw, mode),
+  };
+}
+
 function resolveThemeFonts(raw: AppThemeConfig["fonts"]): AppThemeFonts {
   return extractStringMap<AppThemeFonts>(raw);
+}
+
+function resolveThemeScalarValues<T extends ThemeScalarRecord>(
+  raw: unknown,
+  keys: ReadonlyArray<keyof T>,
+): Partial<T> {
+  if (!raw || !isRecord(raw)) {
+    return {};
+  }
+  const output: Partial<T> = {};
+  for (const key of keys) {
+    const value = raw[key as string];
+    if (typeof value === "number" || typeof value === "string") {
+      output[key] = value as T[keyof T];
+    }
+  }
+  return output;
 }
 
 function resolveThemeTypography(
@@ -344,75 +456,30 @@ function resolveThemeTypography(
     return {};
   }
 
-  const output: AppThemeTypography = {};
-  if (typeof raw.bodySize === "number" || typeof raw.bodySize === "string") {
-    output.bodySize = raw.bodySize;
+  const output: AppThemeTypography =
+    resolveThemeScalarValues<AppThemeTypography>(raw, TYPOGRAPHY_VALUE_KEYS);
+  const headingSizes = resolveThemeScalarValues<AppThemeHeadingSizes>(
+    raw.headingSizes,
+    HEADING_SIZE_KEYS,
+  );
+  const scale = resolveThemeScalarValues<AppThemeTextScale>(
+    raw.scale,
+    TEXT_SCALE_KEYS,
+  );
+  if (Object.keys(headingSizes).length > 0) {
+    output.headingSizes = headingSizes;
   }
-  if (
-    typeof raw.bodyLineHeight === "number" ||
-    typeof raw.bodyLineHeight === "string"
-  ) {
-    output.bodyLineHeight = raw.bodyLineHeight;
+  if (Object.keys(scale).length > 0) {
+    output.scale = scale;
   }
-  if (
-    typeof raw.headingLineHeight === "number" ||
-    typeof raw.headingLineHeight === "string"
-  ) {
-    output.headingLineHeight = raw.headingLineHeight;
-  }
-
-  const headingSizes = raw.headingSizes;
-  if (headingSizes && isRecord(headingSizes)) {
-    const resolvedHeadingSizes: AppThemeHeadingSizes = {};
-    for (const key of ["h1", "h2", "h3", "h4"]) {
-      const value = headingSizes[key];
-      if (typeof value === "number" || typeof value === "string") {
-        resolvedHeadingSizes[key] = value;
-      }
-    }
-    if (Object.keys(resolvedHeadingSizes).length > 0) {
-      output.headingSizes = resolvedHeadingSizes;
-    }
-  }
-
-  const scale = raw.scale;
-  if (scale && isRecord(scale)) {
-    const resolvedScale: AppThemeTextScale = {};
-    for (const key of [
-      "xs",
-      "sm",
-      "base",
-      "lg",
-      "xl",
-      "2xl",
-      "3xl",
-      "4xl",
-    ] as const) {
-      const value = scale[key];
-      if (typeof value === "number" || typeof value === "string") {
-        resolvedScale[key] = value;
-      }
-    }
-    if (Object.keys(resolvedScale).length > 0) {
-      output.scale = resolvedScale;
-    }
-  }
-
   return output;
 }
 
 function resolveThemeSpacing(raw: AppThemeConfig["spacing"]): AppThemeSpacing {
-  if (!raw || !isRecord(raw)) {
-    return {};
-  }
-  const output: AppThemeSpacing = {};
-  for (const key of Object.keys(SPACING_VAR_MAP)) {
-    const value = raw[key];
-    if (typeof value === "number" || typeof value === "string") {
-      output[key as keyof AppThemeSpacing] = value;
-    }
-  }
-  return output;
+  return resolveThemeScalarValues<AppThemeSpacing>(
+    raw,
+    Object.keys(SPACING_VAR_MAP) as ReadonlyArray<keyof AppThemeSpacing>,
+  );
 }
 
 function resolveThemeMotion(
@@ -569,17 +636,83 @@ function applyTextScaleVars(
   }
 }
 
-export function resolveAppTheme(
-  theme: unknown,
-  options: { prefersDark?: boolean } = {},
-): ResolvedAppTheme {
-  const themeConfig = isRecord(theme) ? (theme as AppThemeConfig) : null;
-  const mode = resolveThemeMode(themeConfig, options.prefersDark);
-  const overrideColors = resolveThemeColors(themeConfig?.colors, mode);
-  const colors: AppThemeColors = {
-    ...DEFAULT_COLORS_BY_MODE[mode],
-    ...overrideColors,
-  };
+function resolveFirstThemeColor(
+  colors: AppThemeColors,
+  keys: ReadonlyArray<keyof AppThemeColors>,
+): string {
+  for (const key of keys) {
+    const value = colors[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function applyDefaultComponentStyleValues(
+  style: Record<string, string | number>,
+  colors: AppThemeColors,
+): void {
+  for (const entry of DEFAULT_COMPONENT_STYLE_VALUES) {
+    style[entry.cssVar] =
+      "value" in entry
+        ? entry.value
+        : resolveFirstThemeColor(colors, entry.colorKeys);
+  }
+}
+
+function applyComponentTokenVars(
+  style: Record<string, string | number>,
+  components: AppThemeComponents,
+): void {
+  for (const [componentKey, map] of COMPONENT_TOKEN_VAR_ENTRIES) {
+    const tokens = components[componentKey];
+    if (tokens) {
+      applyVars(style, map, tokens as Record<string, string | undefined>);
+    }
+  }
+}
+
+type ThemeStyleInputs = {
+  colors: AppThemeColors;
+  fonts: AppThemeFonts;
+  typography: AppThemeTypography;
+  spacing: AppThemeSpacing;
+  shadows: AppThemeShadows;
+  components: AppThemeComponents;
+  vars: AppThemeConfig["vars"];
+};
+
+function buildThemeStyle(
+  inputs: ThemeStyleInputs,
+): Record<string, string | number> {
+  const { colors, fonts, typography, spacing, shadows, components, vars } =
+    inputs;
+  const style: Record<string, string | number> = {};
+  applyVars(style, COLOR_VAR_MAP, colors);
+  applyVars(style, FONT_VAR_MAP, fonts);
+  applyVars(style, SPACING_VAR_MAP, spacing);
+  applyVars(style, SHADOW_VAR_MAP, shadows);
+  applyTextScaleVars(style, typography);
+  applyDefaultComponentStyleValues(style, colors);
+  applyComponentTokenVars(style, components);
+  applyAppVars(style, vars);
+
+  const resolvedBodyFontVar = style["--app-font-body"];
+  if (typeof resolvedBodyFontVar === "string" && resolvedBodyFontVar.trim()) {
+    style.fontFamily = resolvedBodyFontVar;
+  }
+
+  return style;
+}
+
+type ResolvedThemeParts = Omit<ResolvedAppTheme, "className" | "mode">;
+
+function resolveThemeParts(
+  themeConfig: AppThemeConfig | null,
+  mode: "light" | "dark",
+): ResolvedThemeParts {
+  const colors = resolveThemeColorsWithDefaults(themeConfig?.colors, mode);
   const fonts = resolveThemeFonts(themeConfig?.fonts);
   const typography = resolveThemeTypography(themeConfig?.typography);
   const spacing = resolveThemeSpacing(themeConfig?.spacing);
@@ -589,72 +722,17 @@ export function resolveAppTheme(
   };
   const shadows = resolveThemeShadows(themeConfig?.shadows);
   const components = resolveThemeComponents(themeConfig?.components);
-  const className =
-    themeConfig && typeof themeConfig.className === "string"
-      ? themeConfig.className
-      : null;
-
-  const style: Record<string, string | number> = {};
-  applyVars(style, COLOR_VAR_MAP, colors);
-  applyVars(style, FONT_VAR_MAP, fonts);
-  applyVars(style, SPACING_VAR_MAP, spacing);
-  applyVars(style, SHADOW_VAR_MAP, shadows);
-  applyTextScaleVars(style, typography);
-
-  // Component-role tokens: stable override points beyond semantic colors.
-  style["--app-button-bg"] = colors.accent ?? "";
-  style["--app-button-bg-hover"] = colors.accentHover ?? colors.accent ?? "";
-  style["--app-button-text"] = colors.accentText ?? colors.text ?? "";
-  style["--app-button-ring"] = colors.accent ?? "";
-  style["--app-button-disabled-bg"] = colors.surfaceAlt ?? colors.surface ?? "";
-  style["--app-button-disabled-text"] = colors.muted ?? colors.text ?? "";
-
-  style["--app-input-bg"] = colors.surface ?? "";
-  style["--app-input-bg-hover"] = colors.surfaceAlt ?? colors.surface ?? "";
-  style["--app-input-border"] = colors.border ?? "";
-  style["--app-input-text"] = colors.text ?? "";
-  style["--app-input-placeholder"] = colors.muted ?? "";
-  style["--app-input-focus-border"] = colors.accent ?? "";
-  style["--app-input-ring"] = colors.accent ?? "";
-
-  style["--app-dropdown-bg"] = colors.surface ?? "";
-  style["--app-dropdown-border"] = colors.border ?? "";
-  style["--app-dropdown-text"] = colors.text ?? "";
-  style["--app-dropdown-muted"] = colors.muted ?? "";
-
-  style["--app-card-shadow"] =
-    "var(--app-shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))";
-  style["--app-dropdown-shadow"] =
-    "var(--app-shadow-lg, 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1))";
-  style["--app-page-bg-image"] =
-    "radial-gradient(circle at top, color-mix(in srgb, var(--app-accent) 10%, transparent), transparent 45%), linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 70%, transparent), color-mix(in srgb, var(--app-surface-alt) 60%, transparent))";
-
-  if (components.button) {
-    applyVars(style, COMPONENT_BUTTON_VAR_MAP, components.button);
-  }
-  if (components.input) {
-    applyVars(style, COMPONENT_INPUT_VAR_MAP, components.input);
-  }
-  if (components.dropdown) {
-    applyVars(style, COMPONENT_DROPDOWN_VAR_MAP, components.dropdown);
-  }
-  if (components.card) {
-    applyVars(style, COMPONENT_CARD_VAR_MAP, components.card);
-  }
-  if (components.page) {
-    applyVars(style, COMPONENT_PAGE_VAR_MAP, components.page);
-  }
-
-  applyAppVars(style, themeConfig?.vars);
-
-  const resolvedBodyFontVar = style["--app-font-body"];
-  if (typeof resolvedBodyFontVar === "string" && resolvedBodyFontVar.trim()) {
-    style.fontFamily = resolvedBodyFontVar;
-  }
+  const style = buildThemeStyle({
+    colors,
+    fonts,
+    typography,
+    spacing,
+    shadows,
+    components,
+    vars: themeConfig?.vars,
+  });
 
   return {
-    className,
-    mode,
     colors,
     fonts,
     typography,
@@ -665,12 +743,19 @@ export function resolveAppTheme(
   };
 }
 
-function getThemeSpacingValue(
-  value: number | string | undefined,
-  fallback: number,
-): number | string {
-  if (typeof value === "number" || typeof value === "string") {
-    return value;
-  }
-  return fallback;
+function resolveThemeConfig(theme: unknown): AppThemeConfig | null {
+  return isRecord(theme) ? (theme as AppThemeConfig) : null;
+}
+
+export function resolveAppTheme(
+  theme: unknown,
+  options: { prefersDark?: boolean } = {},
+): ResolvedAppTheme {
+  const themeConfig = resolveThemeConfig(theme);
+  const mode = resolveThemeMode(themeConfig, options.prefersDark);
+  return {
+    className: resolveThemeClassName(themeConfig),
+    mode,
+    ...resolveThemeParts(themeConfig, mode),
+  };
 }
