@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getStateMachineDraftWarning } from "state/actions/stateMachineDraftValidation";
 import {
-  loadStateMachineRuns,
   resetStateMachineRun,
   startStateMachineRun,
   stopStateMachineRun,
+  subscribeStateMachineRunPolling,
 } from "state/actions/stateMachineRuns";
 import {
   useAIStore,
@@ -18,6 +18,7 @@ import {
   SectionTypeEnum,
   StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { getStateMachineNodePresentation } from "./stateMachineNodePresentation";
 
 type StateMachineNodeAreaProps = {
@@ -92,7 +93,7 @@ function getNodeThemeClasses(type: StateMachineNodeSnapshot["type"]): string {
 }
 
 export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
-  const snapshot = useProjectState(() => getNodeSnapshot(sectionId), _.isEqual);
+  const snapshot = useProjectState(() => getNodeSnapshot(sectionId), shallow);
   const draftWarning = useProjectState(
     (state) => getStateMachineDraftWarning(state, snapshot.machineGroupId),
     _.isEqual,
@@ -127,7 +128,7 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
     if (!showMachineStatus || machineGroupId === "") {
       return;
     }
-    loadStateMachineRuns();
+    return subscribeStateMachineRunPolling();
   }, [machineGroupId, showMachineStatus]);
 
   async function handleStartClick(): Promise<void> {

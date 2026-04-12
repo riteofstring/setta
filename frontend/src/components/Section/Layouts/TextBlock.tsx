@@ -2,7 +2,6 @@ import { MarkdownEditorInSection } from "components/Panes/UiEditor/MarkdownEdito
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import "katex/dist/katex.min.css"; // `rehype-katex` does not import the CSS for you
-import _ from "lodash";
 import React from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi"; // Heroicons
 import ReactMarkdown from "react-markdown";
@@ -22,6 +21,7 @@ import {
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
 import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
+import { shallow } from "zustand/shallow";
 
 const INLINE_CODE_CLASS_NAME =
   "rounded-sm bg-setta-200/70 px-1 py-[1px] font-mono text-[0.92em] text-setta-800 dark:bg-setta-700 dark:text-setta-100";
@@ -117,7 +117,7 @@ function _TextBlock({ sectionId }) {
 function _Markdown({ sectionId }) {
   const { format, text, metaControlStyle, masterFontSizePx } = useProjectState(
     (x) => getTextBlockText(sectionId, x),
-    _.isEqual,
+    shallow,
   );
   const typography = React.useMemo(
     () => buildTextBlockTypographyScale(masterFontSizePx),
