@@ -19691,3 +19691,114 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` / unpinned row ownership, or take the first
     bounded scene-owned static body slice if fresh evidence can justify it
 - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-14 13:45 UTC | item `472` | blocked unpinned-area attribution split on canonical `rotaryParamCodeObjDefault`
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - intent:
+    - split the remaining `ParamGroupUnpinnedParams` wrapper cost by adding a
+      dedicated `presentedSceneSectionParamGroupUnpinnedAreaReactRender`
+      owner around `UnpinnedParamsArea(...)` so the next product cut can target
+      either the scroll-shell DOM or the row subtree with evidence
+  - code/test changes left uncommitted in the worktree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+    - `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+      -> passed (`3` files, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+  - live verification blocker:
+    - runtime refresh before verification:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-032/worktree-ai.log`
+      -> passed
+    - first probe attempt:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-032/worktree-ai.log`
+      -> failed with
+         `Worktree unhealthy: timed out after 5000ms while reading browser storage state for local pane state`
+    - one allowed recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+    - runtime refresh after recovery:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-032/worktree-ai.log`
+      -> passed; worktree session advanced from `765a64` to `cad930`
+    - retrying the same probe after recovery:
+      -> failed again with the same
+         `Worktree unhealthy: timed out after 5000ms while reading browser storage state for local pane state`
+    - CDP visual check:
+      -> not run; the primary live probe never reached a trustworthy post-state
+  - reading:
+    - the instrumentation seam itself is in place, but the slice is blocked
+      until the worktree probe can get past the repeated local-pane-state read
+    - do not treat this as renderer drift and do not choose a new adjacent
+      `ParamGroupContainer` / `ParamGroupUnpinnedParams` hypothesis next
+    - next: inspect or narrow
+      `readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState(...)`
+      on the recovered worktree runtime, then rerun this same live probe before
+      taking another product cut
+- LOOP_TERMINAL_MARKER: none
+
+- 2026-04-14 14:08 UTC | item `472` | completed unpinned-area attribution split and hardened probe pane-state setup
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      wraps `UnpinnedParamsArea(...)` in a dedicated `React.Profiler`
+      recorded as `presentedSceneSectionParamGroupUnpinnedAreaReactRender`
+    - allowlists / instrumentation tests updated in:
+      `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now prefers page-local persisted/store reads for pane state and retries
+      normalized pane-state writes once after recoverable page closure before
+      falling back to browser-context storage snapshots
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+      -> passed (`3` files, `10` tests)
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `11` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - first live probe attempt on run `033`:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-033/worktree-ai.log`
+      -> failed with
+         `Worktree unhealthy: browser context closed before page recovery`
+    - one allowed worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+    - rerunning the same probe after recovery:
+      -> initially failed with
+         `Worktree unhealthy: timed out after 5000ms while reading local pane state from in-page storage/store`
+      -> after removing the in-page parser import from the probe helper,
+         rerunning the same probe passed (`1` Playwright test, `58.5s`)
+      -> live lane stayed dominated by
+         `presentedSceneSectionSubtreeReactRender`
+      -> compared with item `471`, this slice is diagnostic rather than
+         winning:
+         `averageFrameDurationMs 42.04 -> 43.56`,
+         `longTaskTotalDurationMs 1200 -> 1297`
+      -> the new narrow owner split on the live lane is:
+         `ParamGroupContainer 577.5ms`,
+         `ParamGroupUnpinnedParams 507.2ms`,
+         `ParamGroupUnpinnedArea 498.9ms`,
+         `UnpinnedParamDndListRows 486.1ms`
+    - fresh-context CDP check:
+      -> passed
+      -> `/settings` showed `All Settings` with the graph substrate canary
+         mounted and `rotaryParamCodeObjDefault` visible; no obvious blank-card,
+         detached-body, or severe rendering artifact
+  - reading:
+    - the repeated blocker was probe/runtime pane-state setup, not renderer
+      drift
+    - this closes the instrumentation seam as verified: the new
+      `ParamGroupUnpinnedArea` owner is now live and measurable
+    - next: choose one broader product reduction at the
+      `UnpinnedParamsArea(...)` / scroll-shell boundary or another larger owner
+      above the row seam; do not spend the next pass on more pane-state helper
+      churn
+- LOOP_TERMINAL_MARKER: none

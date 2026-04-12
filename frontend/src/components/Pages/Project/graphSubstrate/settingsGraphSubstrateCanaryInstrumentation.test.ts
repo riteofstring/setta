@@ -240,6 +240,10 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       "presentedSceneSectionParamGroupUnpinnedParamsReactRender",
       3,
     );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionParamGroupUnpinnedAreaReactRender",
+      2.5,
+    );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "presentedSceneSectionParamDndListDuplicateIndexResolve",
       () => {},
@@ -422,6 +426,13 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 3,
       totalDurationMs: 3,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionParamGroupUnpinnedAreaReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 2.5,
+      totalDurationMs: 2.5,
     });
     expect(motionAttribution.pixiDrawableReuseCheck).toEqual({
       count: 1,

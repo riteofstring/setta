@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 13:30 UTC
+Last updated: 2026-04-14 14:08 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,66 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `472` completed one bounded unpinned-wrapper attribution split on the
+  canonical `rotaryParamCodeObjDefault` lane by adding a dedicated
+  `presentedSceneSectionParamGroupUnpinnedAreaReactRender` owner around
+  `UnpinnedParamsArea(...)` and by hardening the live probe's local-pane-state
+  setup path:
+  - code/test changes:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now wraps `UnpinnedParamsArea(...)` in a dedicated `React.Profiler`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      now registers
+      `presentedSceneSectionParamGroupUnpinnedAreaReactRender`
+    - focused tests / allowlists updated in:
+      `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now reads pane state from in-page local storage / zustand before falling
+      back to browser-context storage snapshots, and retries normalized pane
+      state writes once on recoverable page closure
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+      -> passed (`3` files, `10` tests)
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `11` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded after the first post-change probe still hit runtime closure
+    - live probe after the helper hardening / recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-033/worktree-ai.log`
+      -> passed (`1` Playwright test, `58.5s`)
+      -> canonical live readout stayed
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+      -> the new split showed
+         `ParamGroupContainer 577.5ms`,
+         `ParamGroupUnpinnedParams 507.2ms`,
+         `ParamGroupUnpinnedArea 498.9ms`,
+         `UnpinnedParamDndListRows 486.1ms`
+      -> compared with item `471`, this attribution seam is diagnostic rather
+         than a perf win:
+         `averageFrameDurationMs 42.04 -> 43.56`,
+         `longTaskTotalDurationMs 1200 -> 1297`
+    - required fresh-context CDP check:
+      -> passed
+      -> `/settings` loaded cleanly with `All Settings` active, the graph
+         substrate canary was mounted, `rotaryParamCodeObjDefault` was visible,
+         and there was no obvious blank-card, detached-body, or severe
+         rendering artifact
+  - reading:
+    - the blocker was probe/runtime setup, not renderer drift; the hardened
+      pane-state path now lets the lane produce live attribution again
+    - the new owner split says the remaining unpinned-area wrapper cost is
+      nearly as large as the row list itself, so the next product cut should
+      target the broader `UnpinnedParamsArea(...)` / scroll-shell ownership
+      boundary instead of another nearby row-local or forwarding-only trim
+    - do not reopen this lane for more probe hygiene unless the same pane-state
+      setup path regresses again
 
 - item `471` completed one bounded non-drag row-path reduction on the
   canonical `rotaryParamCodeObjDefault` lane by bypassing dormant DnD child

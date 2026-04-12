@@ -255,6 +255,43 @@ async function reopenSettingsGraphPageIfRecoverable(page: Page): Promise<Page> {
   return replacementPage;
 }
 
+async function runWithRecoverableSettingsGraphPageAction<T>(args: {
+  action: (page: Page) => Promise<T>;
+  description: string;
+  page: Page;
+  timeoutMs?: number;
+}): Promise<{ page: Page; value: T }> {
+  const activePage = await reopenSettingsGraphPageIfRecoverable(args.page);
+
+  try {
+    return {
+      page: activePage,
+      value: await runWithSettingsGraphPageLifecycleGuard(
+        activePage,
+        args.description,
+        () => args.action(activePage),
+        args.timeoutMs,
+      ),
+    };
+  } catch (error) {
+    const recoveredPage =
+      await reopenSettingsGraphPageIfRecoverable(activePage);
+    if (recoveredPage === activePage) {
+      throw error;
+    }
+
+    return {
+      page: recoveredPage,
+      value: await runWithSettingsGraphPageLifecycleGuard(
+        recoveredPage,
+        `${args.description} after page recovery`,
+        () => args.action(recoveredPage),
+        args.timeoutMs,
+      ),
+    };
+  }
+}
+
 async function runWithSettingsGraphPageLifecycleGuard<T>(
   page: Page,
   description: string,
@@ -705,26 +742,9 @@ export function findSharedVisibleSettingsGraphSection(
 export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
-  const pageOrigin = new URL(page.url()).origin;
-  const initialStorageState = await runWithSettingsGraphPageLifecycleGuard(
-    page,
-    "reading browser storage state for local pane state",
-    () => page.context().storageState(),
-    5000,
-  );
-  const initialBrowserContextPersistedPaneState =
-    readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
-      key: "setta_data",
-      origin: pageOrigin,
-      origins: initialStorageState.origins,
-    });
-  if (initialBrowserContextPersistedPaneState) {
-    return initialBrowserContextPersistedPaneState;
-  }
-
   const paneStateReadResult = await runWithSettingsGraphPageLifecycleGuard(
     page,
-    "reading local pane state from in-page store",
+    "reading local pane state from in-page storage/store",
     () =>
       page.evaluate(
         async ({ timeoutMs }: { timeoutMs: number }) => {
@@ -770,7 +790,68 @@ export async function getLocalPaneState(
               };
             };
 
+          const readPersistedPaneState =
+            (): SettingsGraphLocalPaneState | null => {
+              const persistedPaneStateRaw =
+                window.localStorage.getItem("setta_data");
+              if (!persistedPaneStateRaw) {
+                return null;
+              }
+
+              try {
+                const parsedPersistedState = JSON.parse(
+                  persistedPaneStateRaw,
+                ) as {
+                  overviewTrueWidth?: unknown;
+                  overviewVis?: unknown;
+                  snapToGrid?: unknown;
+                  state?: {
+                    overviewTrueWidth?: unknown;
+                    overviewVis?: unknown;
+                    snapToGrid?: unknown;
+                    uiEditorTrueWidth?: unknown;
+                    uiEditorVis?: unknown;
+                  };
+                  uiEditorTrueWidth?: unknown;
+                  uiEditorVis?: unknown;
+                };
+                const persistedPaneState =
+                  parsedPersistedState.state &&
+                  typeof parsedPersistedState.state === "object" &&
+                  !Array.isArray(parsedPersistedState.state)
+                    ? parsedPersistedState.state
+                    : parsedPersistedState;
+                if (
+                  typeof persistedPaneState.overviewVis !== "boolean" ||
+                  typeof persistedPaneState.overviewTrueWidth !== "number" ||
+                  typeof persistedPaneState.snapToGrid !== "boolean" ||
+                  typeof persistedPaneState.uiEditorVis !== "boolean" ||
+                  typeof persistedPaneState.uiEditorTrueWidth !== "number"
+                ) {
+                  return null;
+                }
+
+                return {
+                  overviewVisible: persistedPaneState.overviewVis,
+                  overviewTrueWidth: persistedPaneState.overviewTrueWidth,
+                  snapToGrid: persistedPaneState.snapToGrid,
+                  uiEditorVisible: persistedPaneState.uiEditorVis,
+                  uiEditorTrueWidth: persistedPaneState.uiEditorTrueWidth,
+                };
+              } catch {
+                return null;
+              }
+            };
+
           try {
+            const persistedPaneState = readPersistedPaneState();
+            if (persistedPaneState) {
+              return {
+                kind: "success" as const,
+                paneState: persistedPaneState,
+              };
+            }
+
             return await Promise.race([
               (async () => {
                 const { useLocalStorage } = await import(
@@ -820,6 +901,7 @@ export async function getLocalPaneState(
     return paneStateReadResult.paneState;
   }
 
+  const pageOrigin = new URL(page.url()).origin;
   const storageState = await runWithSettingsGraphPageLifecycleGuard(
     page,
     "reading browser storage state after in-page pane state fallback",
@@ -855,7 +937,6 @@ export async function setLocalPaneState(
   page: Page,
   paneState: SettingsGraphLocalPaneState,
 ): Promise<Page> {
-  const activePage = await reopenSettingsGraphPageIfRecoverable(page);
   const nextPersistedPaneState = writePersistedSettingsGraphLocalPaneState({
     paneState,
     rawPersistedState: null,
@@ -863,11 +944,11 @@ export async function setLocalPaneState(
   const nextPaneStatePatch =
     resolveSettingsGraphLocalPaneStateStorePatch(paneState);
 
-  await runWithSettingsGraphPageLifecycleGuard(
-    activePage,
-    "writing normalized compare pane state",
-    async () => {
-      await activePage.evaluate(
+  const { page: activePage } = await runWithRecoverableSettingsGraphPageAction({
+    description: "writing normalized compare pane state",
+    page,
+    action: async (targetPage) => {
+      await targetPage.evaluate(
         async ({
           key,
           paneStatePatch,
@@ -890,7 +971,7 @@ export async function setLocalPaneState(
         },
       );
     },
-  );
+  });
 
   await waitForSettingsGraphAppReady(activePage);
   return activePage;

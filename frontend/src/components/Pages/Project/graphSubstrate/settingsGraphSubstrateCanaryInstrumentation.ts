@@ -25,6 +25,7 @@ export const SETTINGS_GRAPH_SUBSTRATE_CANARY_MOTION_ATTRIBUTION_OWNERS = [
   "presentedSceneSectionParamTextLabelReactRender",
   "presentedSceneSectionParamDndListTreeResolve",
   "presentedSceneSectionParamGroupUnpinnedParamsReactRender",
+  "presentedSceneSectionParamGroupUnpinnedAreaReactRender",
   "presentedSceneSectionUnpinnedParamDndListRowsReactRender",
   "presentedSceneBodyMountFilter",
   "presentedSceneSectionEntriesResolve",

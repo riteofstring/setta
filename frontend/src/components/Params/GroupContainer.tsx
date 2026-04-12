@@ -85,6 +85,17 @@ function handleUnpinnedParamsRender(
   );
 }
 
+function handleUnpinnedAreaRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionParamGroupUnpinnedAreaReactRender",
+    actualDuration,
+  );
+}
+
 function _ParamGroupContainer({
   sectionId,
   bgColor,
@@ -916,26 +927,31 @@ function UnpinnedParamsArea({
   );
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div
-        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
-          isScrollable ? "nowheel" : ""
-        }`}
-        ref={setContainerRef}
-        style={
-          shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
-        }
-      >
-        <MemoizedUnpinnedParamsRows
-          sectionId={sectionId}
-          hideUnpinnedParams={hideUnpinnedParams}
-          topLevelParamIds={topLevelParamIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          handleColumnResizeStart={handleColumnResizeStart}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
+    <React.Profiler
+      id={`param-group-unpinned-area:${sectionId}`}
+      onRender={handleUnpinnedAreaRender}
+    >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div
+          className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+            isScrollable ? "nowheel" : ""
+          }`}
+          ref={setContainerRef}
+          style={
+            shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
+          }
+        >
+          <MemoizedUnpinnedParamsRows
+            sectionId={sectionId}
+            hideUnpinnedParams={hideUnpinnedParams}
+            topLevelParamIds={topLevelParamIds}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            handleColumnResizeStart={handleColumnResizeStart}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        </div>
       </div>
-    </div>
+    </React.Profiler>
   );
 }
 

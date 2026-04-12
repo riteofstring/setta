@@ -12770,6 +12770,7 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
       "presentedSceneSectionParamGroupPinnedParamsReactRender",
       "presentedSceneSectionParamGroupContainerReactRender",
       "presentedSceneSectionParamGroupUnpinnedParamsReactRender",
+      "presentedSceneSectionParamGroupUnpinnedAreaReactRender",
       "presentedSceneSectionUnpinnedParamDndListRowsReactRender",
       "presentedSceneSectionEntriesResolve",
       "presentedSceneSectionSubtreeReactRender",

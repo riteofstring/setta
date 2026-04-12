@@ -289,6 +289,10 @@ describe("ParamGroupContainer instrumentation", () => {
         motionAttribution
           .presentedSceneSectionParamGroupUnpinnedParamsReactRender.count,
       ).toBeGreaterThan(0);
+      expect(
+        motionAttribution.presentedSceneSectionParamGroupUnpinnedAreaReactRender
+          .count,
+      ).toBeGreaterThan(0);
     } finally {
       await act(async () => {
         root.unmount();
