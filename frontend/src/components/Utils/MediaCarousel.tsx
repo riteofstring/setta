@@ -133,6 +133,11 @@ type MediaCarouselSelectionState<T> = {
   selectedItem: MediaCarouselItem<T> | null;
 };
 
+type MediaCarouselSelectionSync = {
+  nextInternalSelectedId?: string | null;
+  nextSelectedIdToNotify?: string;
+};
+
 type MediaCarouselThumbnailRowState = {
   handleThumbnailRowResizePointerDown: (
     event: React.PointerEvent<HTMLDivElement>,
@@ -370,6 +375,50 @@ function renderOptionalNode(node: ReactNode | undefined) {
 
 function getSelectedItemId<T>(selectedItem: MediaCarouselItem<T> | null) {
   return selectedItem?.id ?? null;
+}
+
+function hasResolvedMediaCarouselSelection<T>(
+  items: Array<MediaCarouselItem<T>>,
+  resolvedSelectedId: string | null,
+) {
+  return (
+    resolvedSelectedId !== null &&
+    items.some((item) => item.id === resolvedSelectedId)
+  );
+}
+
+function getPreferredMediaCarouselItem<T>(items: Array<MediaCarouselItem<T>>) {
+  return items.find((item) => item.imageUrl || item.thumbnailUrl) ?? items[0];
+}
+
+function resolveMediaCarouselSelectionSync<T>({
+  hasExternalSelection,
+  items,
+  resolvedSelectedId,
+}: {
+  hasExternalSelection: boolean;
+  items: Array<MediaCarouselItem<T>>;
+  resolvedSelectedId: string | null;
+}): MediaCarouselSelectionSync {
+  if (items.length === 0) {
+    return hasExternalSelection ? {} : { nextInternalSelectedId: null };
+  }
+  if (hasResolvedMediaCarouselSelection(items, resolvedSelectedId)) {
+    return {};
+  }
+  const preferredItem = getPreferredMediaCarouselItem(items);
+  if (!preferredItem) {
+    return {};
+  }
+  if (hasExternalSelection) {
+    return {
+      nextSelectedIdToNotify: preferredItem.id,
+    };
+  }
+  return {
+    nextInternalSelectedId: preferredItem.id,
+    nextSelectedIdToNotify: preferredItem.id,
+  };
 }
 
 function MediaCarouselNavButton({
@@ -771,37 +820,24 @@ function useMediaCarouselSelectionState<T>({
     }
     return items.findIndex((item) => item.id === selectedItem.id);
   }, [items, selectedItem]);
+  const selectionSync = useMemo(
+    () =>
+      resolveMediaCarouselSelectionSync({
+        hasExternalSelection,
+        items,
+        resolvedSelectedId,
+      }),
+    [hasExternalSelection, items, resolvedSelectedId],
+  );
 
   useEffect(() => {
-    if (items.length === 0) {
-      if (!hasExternalSelection) {
-        setInternalSelectedId(null);
-      }
-      return;
+    if (selectionSync.nextInternalSelectedId !== undefined) {
+      setInternalSelectedId(selectionSync.nextInternalSelectedId);
     }
-
-    const isValid =
-      resolvedSelectedId &&
-      items.some((item) => item.id === resolvedSelectedId);
-    if (isValid) {
-      return;
+    if (selectionSync.nextSelectedIdToNotify) {
+      onSelect?.(selectionSync.nextSelectedIdToNotify);
     }
-    const preferred =
-      items.find((item) => item.imageUrl || item.thumbnailUrl) ?? items[0];
-    if (!preferred) {
-      return;
-    }
-    if (hasExternalSelection) {
-      if (onSelect) {
-        onSelect(preferred.id);
-      }
-      return;
-    }
-    setInternalSelectedId(preferred.id);
-    if (onSelect) {
-      onSelect(preferred.id);
-    }
-  }, [hasExternalSelection, items, onSelect, resolvedSelectedId]);
+  }, [onSelect, selectionSync]);
 
   const handleSelect = useCallback(
     (id: string) => {
