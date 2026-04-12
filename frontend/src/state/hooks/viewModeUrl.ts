@@ -10,9 +10,93 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { VIEW_MODE_ROUTER_PATH } from "utils/constants";
+import type { ViewMode } from "utils/generatedTypes";
+
 type ViewModeUrlSyncOptions = {
   enabled: boolean;
 };
+
+type ViewModeMap = Record<string, ViewMode>;
+
+function findViewModeIdByName(
+  requestedViewModeName: string | null,
+  viewModes: ViewModeMap,
+): string | null {
+  if (!requestedViewModeName) {
+    return null;
+  }
+  for (const viewMode of Object.values(viewModes)) {
+    if (viewMode.name === requestedViewModeName) {
+      return viewMode.id;
+    }
+  }
+  return null;
+}
+
+function shouldWaitForRequestedViewMode({
+  requestedViewModeId,
+  activeViewModeId,
+  canEditVariants,
+  isUrlDriven,
+}: {
+  requestedViewModeId: string | null;
+  activeViewModeId: string | null;
+  canEditVariants: boolean;
+  isUrlDriven: boolean;
+}) {
+  return (
+    requestedViewModeId !== null &&
+    requestedViewModeId !== activeViewModeId &&
+    canEditVariants &&
+    isUrlDriven
+  );
+}
+
+function buildViewModePath(
+  projectConfigName: string,
+  viewModeName: string,
+): string {
+  return `/${encodeURIComponent(projectConfigName)}/view/${encodeURIComponent(viewModeName)}`;
+}
+
+function resolveSyncedViewModePath({
+  enabled,
+  isViewRoute,
+  projectConfigName,
+  activeViewModeId,
+  requestedViewModeId,
+  canEditVariants,
+  isUrlDriven,
+  viewModes,
+}: {
+  enabled: boolean;
+  isViewRoute: boolean;
+  projectConfigName?: string;
+  activeViewModeId: string | null;
+  requestedViewModeId: string | null;
+  canEditVariants: boolean;
+  isUrlDriven: boolean;
+  viewModes: ViewModeMap;
+}): string | null {
+  if (!enabled || !isViewRoute || !projectConfigName || !activeViewModeId) {
+    return null;
+  }
+  if (
+    shouldWaitForRequestedViewMode({
+      requestedViewModeId,
+      activeViewModeId,
+      canEditVariants,
+      isUrlDriven,
+    })
+  ) {
+    return null;
+  }
+  const activeViewModeName = viewModes[activeViewModeId]?.name;
+  return activeViewModeName
+    ? buildViewModePath(projectConfigName, activeViewModeName)
+    : null;
+}
+
 export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
   const { projectConfigName } = useParams();
   const viewMatch = useMatch(VIEW_MODE_ROUTER_PATH);
@@ -34,17 +118,10 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     }),
   );
   const isViewRoute = Boolean(viewMatch);
-  const requestedViewModeId = useMemo(() => {
-    if (!requestedViewModeName) {
-      return null;
-    }
-    for (const viewMode of Object.values(viewModes)) {
-      if (viewMode.name === requestedViewModeName) {
-        return viewMode.id;
-      }
-    }
-    return null;
-  }, [requestedViewModeName, viewModes]);
+  const requestedViewModeId = useMemo(
+    () => findViewModeIdByName(requestedViewModeName, viewModes),
+    [requestedViewModeName, viewModes],
+  );
   useEffect(() => {
     if (!enabled || !isViewRoute) {
       isUrlDrivenRef.current = false;
@@ -117,25 +194,17 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     }
   }, [activeViewModeId, enabled, isViewRoute]);
   useEffect(() => {
-    if (!enabled || !viewMatch || !projectConfigName || !activeViewModeId) {
-      return;
-    }
-    if (
-      requestedViewModeId &&
-      requestedViewModeId !== activeViewModeId &&
-      canEditVariants &&
-      isUrlDrivenRef.current
-    ) {
-      return;
-    }
-    const activeViewMode = viewModes[activeViewModeId];
-    const activeViewModeName = activeViewMode?.name;
-    if (!activeViewModeName) {
-      return;
-    }
-    const encodedProjectConfigName = encodeURIComponent(projectConfigName);
-    const nextPath = `/${encodedProjectConfigName}/view/${encodeURIComponent(activeViewModeName)}`;
-    if (location.pathname === nextPath) {
+    const nextPath = resolveSyncedViewModePath({
+      enabled,
+      isViewRoute,
+      projectConfigName,
+      activeViewModeId,
+      requestedViewModeId,
+      canEditVariants,
+      isUrlDriven: isUrlDrivenRef.current,
+      viewModes,
+    });
+    if (!nextPath || location.pathname === nextPath) {
       return;
     }
     lastSyncedPathRef.current = nextPath;
@@ -144,12 +213,12 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     activeViewModeId,
     canEditVariants,
     enabled,
+    isViewRoute,
     location.pathname,
     location.state,
     navigate,
     projectConfigName,
     requestedViewModeId,
-    viewMatch,
     viewModes,
   ]);
 }
