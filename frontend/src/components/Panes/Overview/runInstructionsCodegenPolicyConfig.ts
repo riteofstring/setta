@@ -15,12 +15,6 @@ export const RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES =
 export const RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES =
   PythonCodegenPolicyUIConfig.codeObjTypes;
 
-export const RUN_INSTRUCTIONS_CODEGEN_SECTION_MODE_OPTIONS =
-  PythonCodegenPolicyUIConfig.sectionModeOptions.map((value) => ({
-    value,
-    label: value,
-  }));
-
 const sectionRepresentationOptionsByType = new Map<
   SectionType,
   readonly SectionRepresentationMode[]

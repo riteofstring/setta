@@ -41,8 +41,7 @@ export type ExternalAgentConfigDraft = {
   claudeDenyText: string;
 };
 
-export const DEFAULT_CLAUDE_ASK_RULES =
-  ExternalAgentUIConfig.defaultClaudeAskRules;
+const DEFAULT_CLAUDE_ASK_RULES = ExternalAgentUIConfig.defaultClaudeAskRules;
 
 export const CLAUDE_APPROVAL_POLICY_OPTIONS =
   ExternalAgentUIConfig.claudeApprovalPolicyOptions;

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER,
-  normalizeProjectAISettingsAccordionOpenValues,
-} from "./projectAISettingsAccordionState";
+import { normalizeProjectAISettingsAccordionOpenValues } from "./projectAISettingsAccordionState";
 
 describe("projectAISettingsAccordionState", () => {
   it("keeps a stable accordion order while dropping unknown values", () => {
@@ -35,10 +32,5 @@ describe("projectAISettingsAccordionState", () => {
       "project-ai-settings-prompt-templates",
     ]);
     expect(normalized).toHaveLength(2);
-    expect(
-      normalized.every((value) =>
-        PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER.includes(value),
-      ),
-    ).toBe(true);
   });
 });

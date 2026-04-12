@@ -1,14 +1,14 @@
 import {
   ClaudeSettingsSourceEnum,
-  type ExternalAgentConfig,
+  ExternalAgentUIConfig,
   RunModeEnum,
   SettingsModeEnum,
   ToolTypeEnum,
   WorkingDirStrategyEnum,
+  type ExternalAgentConfig,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_CLAUDE_ASK_RULES,
   buildExternalAgentConfigDraft,
   buildExternalAgentConfigSavePayload,
   createExternalAgentConfigDraft,
@@ -24,7 +24,9 @@ describe("projectAISettingsExternalAgents", () => {
       ClaudeSettingsSourceEnum.project,
       ClaudeSettingsSourceEnum.local,
     ]);
-    expect(draft.claudeAskText).toBe(DEFAULT_CLAUDE_ASK_RULES.join("\n"));
+    expect(draft.claudeAskText).toBe(
+      ExternalAgentUIConfig.defaultClaudeAskRules.join("\n"),
+    );
   });
 
   it("builds Claude drafts from config data without restating fallback defaults", () => {

@@ -9,7 +9,6 @@ import {
 import {
   RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES,
   RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES,
-  RUN_INSTRUCTIONS_CODEGEN_SECTION_MODE_OPTIONS,
   RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES,
   getRunInstructionsCodeObjRepresentationOptions,
   getRunInstructionsSectionRepresentationOptions,
@@ -59,14 +58,6 @@ describe("runInstructionsCodegenPolicyConfig", () => {
       { type: "ColorPickerParam", label: "Color Picker" },
       { type: "ButtonParam", label: "Button" },
       { type: "DropzoneParam", label: "Dropzone" },
-    ]);
-  });
-
-  it("preserves Go-owned section mode ordering", () => {
-    expect(RUN_INSTRUCTIONS_CODEGEN_SECTION_MODE_OPTIONS).toEqual([
-      { value: "inherit", label: "inherit" },
-      { value: "include", label: "include" },
-      { value: "exclude", label: "exclude" },
     ]);
   });
 
