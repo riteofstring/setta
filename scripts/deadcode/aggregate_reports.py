@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections import Counter
+from collections import Counter, deque
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
@@ -24,6 +24,15 @@ SCHEMA_VERSION = 1
 GO_GENERATED_FALLBACK_GLOBS = ["**/*_gen.go"]
 FRONTEND_TEST_MARKERS = (".test.", ".spec.", ".stories.")
 FRONTEND_TEST_PATH_PARTS = ("/testUtils/", "/tests/", "/__tests__/")
+FRONTEND_CODE_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts")
+FRONTEND_STATIC_IMPORT_RE = re.compile(
+    r"""(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?["'](?P<module>[^"']+)["']""",
+    re.MULTILINE,
+)
+FRONTEND_DYNAMIC_IMPORT_RE = re.compile(
+    r"""import\(\s*(?:/\*.*?\*/\s*)?["'](?P<module>[^"']+)["']\s*\)""",
+    re.MULTILINE | re.DOTALL,
+)
 PYTHON_UNUSED_RULES = [
     "F401",
     "F822",
@@ -135,19 +144,20 @@ def build_go_reports(
     deadcode_version = go_config.get("deadcode_version", "v0.44.0")
     staticcheck_version = go_config.get("staticcheck_version", "2025.1.1")
     build_matrix = resolve_go_build_matrix(go_config.get("build_matrix"))
-    production_mains = set(go_config.get("production_mains", ["./cmd/setta", "./cmd/setta-server"]))
+    production_mains, production_root_sources, production_warnings = discover_go_production_mains(go_config)
     discovered_mains = discover_go_main_packages()
-    tooling_mains = sorted(pkg for pkg in discovered_mains if pkg not in production_mains)
+    production_mains_set = set(production_mains)
+    tooling_mains = sorted(pkg for pkg in discovered_mains if pkg not in production_mains_set)
     generated_globs = list(go_config.get("generated_globs", GO_GENERATED_FALLBACK_GLOBS))
 
-    warnings: list[str] = []
+    warnings: list[str] = list(production_warnings)
     limitations: list[str] = []
     report_paths: list[dict[str, str]] = []
     raw_prod_findings: list[dict[str, Any]] = []
     raw_test_findings: list[dict[str, Any]] = []
     raw_tooling_findings: list[dict[str, Any]] = []
 
-    unknown_prod = sorted(pkg for pkg in production_mains if pkg not in discovered_mains)
+    unknown_prod = sorted(pkg for pkg in production_mains_set if pkg not in discovered_mains)
     if unknown_prod:
         warnings.append(
             "Configured Go production mains were not discovered under cmd/: "
@@ -266,6 +276,7 @@ def build_go_reports(
             "reachability": "ok",
             "lint_unused": "ok",
             "production_mains": sorted(production_mains),
+            "production_root_sources": production_root_sources,
             "tooling_mains": tooling_mains,
             "build_matrix": build_matrix,
         },
@@ -307,6 +318,47 @@ def discover_go_main_packages() -> list[str]:
     for path in sorted((ROOT_DIR / "cmd").glob("*/main.go")):
         mains.append(f"./{path.parent.relative_to(ROOT_DIR).as_posix()}")
     return mains
+
+
+def discover_go_production_mains(
+    go_config: dict[str, Any],
+) -> tuple[list[str], dict[str, list[str]], list[str]]:
+    configured = go_config.get("production_mains")
+    if isinstance(configured, list) and configured:
+        normalized = sorted({str(item) for item in configured})
+        return normalized, {"config_override": normalized}, []
+
+    source_paths = {
+        "packaged_binaries": ROOT_DIR / "scripts" / "build_packaged_go_binaries.sh",
+        "python_entrypoint": ROOT_DIR / "backend" / "setta" / "entrypoint.py",
+        "source_server_wrapper": ROOT_DIR / "scripts" / "run_setta_server.sh",
+    }
+    discovered_by_source: dict[str, list[str]] = {}
+    discovered_union: set[str] = set()
+    warnings: list[str] = []
+
+    for source_name, path in source_paths.items():
+        if not path.exists():
+            warnings.append(f"Go production-root source file was not found: {relative_path(path)}")
+            continue
+        mains = discover_go_cmd_packages_in_text(path.read_text(encoding="utf-8"))
+        if mains:
+            discovered_by_source[source_name] = mains
+            discovered_union.update(mains)
+
+    if discovered_union:
+        return sorted(discovered_union), discovered_by_source, warnings
+
+    fallback = ["./cmd/setta", "./cmd/setta-server"]
+    warnings.append(
+        "Fell back to default Go production mains because authoritative packaging/launcher sources did not yield any cmd roots."
+    )
+    return fallback, {"fallback": fallback}, warnings
+
+
+def discover_go_cmd_packages_in_text(text: str) -> list[str]:
+    matches = sorted(set(re.findall(r"\./cmd/[A-Za-z0-9._-]+", text)))
+    return matches
 
 
 def normalize_go_deadcode_findings(
@@ -495,6 +547,7 @@ def build_python_reports(
     coverage_version = installed_python_package_version("coverage")
     generated_globs = list(python_config.get("generated_globs", []))
     public_modules = list(python_config.get("public_modules", []))
+    smoke_package_roots = list(python_config.get("smoke_package_roots", []))
     vulture_min_confidence = int(python_config.get("vulture_min_confidence", 80))
     vulture_version = installed_python_package_version("vulture")
     command = [
@@ -530,8 +583,13 @@ def build_python_reports(
     write_json(lint_path, lint_report)
 
     public_import_modules, public_module_warnings = resolve_python_public_import_modules(public_modules)
+    smoke_import_modules, smoke_module_warnings = resolve_python_smoke_import_modules(
+        smoke_package_roots,
+        generated_globs,
+    )
+    smoke_modules = sorted(dict.fromkeys(public_import_modules + smoke_import_modules))
     coverage_payload, coverage_commands = collect_python_smoke_coverage(
-        public_import_modules=public_import_modules,
+        smoke_import_modules=smoke_modules,
         generated_globs=generated_globs,
     )
     vulture_command = [
@@ -564,7 +622,9 @@ def build_python_reports(
         "vulture_min_confidence": vulture_min_confidence,
         "public_modules": public_modules,
         "public_import_modules": public_import_modules,
-        "warnings": public_module_warnings,
+        "smoke_package_roots": smoke_package_roots,
+        "smoke_import_modules": smoke_modules,
+        "warnings": sorted(dict.fromkeys(public_module_warnings + smoke_module_warnings)),
         "limitations": reachability_limitations,
         "coverage_summary": coverage_payload["summary"],
         "findings": reachability_findings,
@@ -574,7 +634,7 @@ def build_python_reports(
 
     return {
         "findings": dedupe_findings(lint_findings + reachability_findings),
-        "warnings": public_module_warnings,
+        "warnings": sorted(dict.fromkeys(public_module_warnings + smoke_module_warnings)),
         "limitations": reachability_limitations,
         "report_paths": [
             {"language": "python", "path": relative_path(lint_path)},
@@ -585,6 +645,8 @@ def build_python_reports(
             "reachability": "ok",
             "public_modules": public_modules,
             "public_import_modules": public_import_modules,
+            "smoke_package_roots": smoke_package_roots,
+            "smoke_import_modules": smoke_modules,
             "coverage_version": coverage_version,
             "vulture_version": vulture_version,
         },
@@ -630,6 +692,28 @@ def resolve_python_public_import_modules(public_modules: list[str]) -> tuple[lis
     return sorted(dict.fromkeys(import_modules)), sorted(dict.fromkeys(warnings))
 
 
+def resolve_python_smoke_import_modules(
+    smoke_package_roots: list[str],
+    generated_globs: list[str],
+) -> tuple[list[str], list[str]]:
+    modules: list[str] = []
+    warnings: list[str] = []
+    for package_root in smoke_package_roots:
+        root_path = ROOT_DIR / package_root
+        if not root_path.exists() or not root_path.is_dir():
+            warnings.append(f"Python smoke package root was not found: {package_root}")
+            continue
+        for path in sorted(root_path.rglob("*.py")):
+            relative = relative_path(path)
+            if matches_any_glob(relative, generated_globs) or path.name == "__main__.py":
+                continue
+            try:
+                modules.append(python_module_name_from_path(relative))
+            except ValueError as exc:
+                warnings.append(str(exc))
+    return sorted(dict.fromkeys(modules)), sorted(dict.fromkeys(warnings))
+
+
 def python_module_name_from_path(path: str) -> str:
     module_path = Path(path)
     parts = module_path.parts
@@ -645,7 +729,7 @@ def python_module_name_from_path(path: str) -> str:
 
 def collect_python_smoke_coverage(
     *,
-    public_import_modules: list[str],
+    smoke_import_modules: list[str],
     generated_globs: list[str],
 ) -> tuple[dict[str, Any], list[str]]:
     coverage_base = [sys.executable, "-m", "coverage"]
@@ -655,15 +739,16 @@ def collect_python_smoke_coverage(
         temp_dir_path = Path(temp_dir)
         coverage_env = {**os.environ, "COVERAGE_FILE": str(temp_dir_path / ".coverage")}
         coverage_json_path = temp_dir_path / "coverage.json"
-        import_smoke_path = temp_dir_path / "public_import_smoke.py"
+        import_smoke_path = temp_dir_path / "python_import_smoke.py"
         import_smoke_path.write_text(
-            "".join(f"import {module_name}\n" for module_name in public_import_modules),
+            "".join(f"import {module_name}\n" for module_name in smoke_import_modules),
             encoding="utf-8",
         )
 
         commands = [
             [*coverage_base, "erase"],
             [*coverage_base, "run", "--append", "-m", "setta", "--help"],
+            [*coverage_base, "run", "--append", "-m", "setta", "version"],
             [*coverage_base, "run", "--append", str(import_smoke_path)],
             [
                 *coverage_base,
@@ -697,8 +782,8 @@ def collect_python_smoke_coverage(
         {
             "files": files,
             "summary": {
-                "smoke_root_count": 2,
-                "public_import_module_count": len(public_import_modules),
+                "smoke_root_count": 3,
+                "smoke_import_module_count": len(smoke_import_modules),
                 "covered_file_count": len(files),
                 "executed_file_count": executed_file_count,
             },
@@ -714,7 +799,7 @@ def display_python_coverage_command(
     coverage_json_path: Path,
 ) -> str:
     replacements = {
-        str(import_smoke_path): "<temp-public-import-smoke.py>",
+        str(import_smoke_path): "<temp-python-import-smoke.py>",
         str(coverage_json_path): "<temp-coverage.json>",
     }
     return command_display([replacements.get(part, part) for part in command])
@@ -810,6 +895,7 @@ def build_frontend_reports(
     frontend_config = config.get("frontend", {})
     app_roots = list(frontend_config.get("app_roots", ["frontend/src/index.tsx"]))
     generated_globs = list(frontend_config.get("generated_globs", []))
+    frontend_scope_support = build_frontend_scope_support(app_roots)
     warnings = [
         f"Configured frontend app root was not found: {root}"
         for root in app_roots
@@ -847,6 +933,7 @@ def build_frontend_reports(
         "warnings": warnings,
         "limitations": [
             "Frontend production reachability excludes known test-only paths and compares against Knip's full graph for non-production evidence.",
+            "Frontend test/tooling classification uses a repo-local import graph as supporting evidence for internal files.",
         ],
         "findings": knip_prod_findings,
     }
@@ -882,7 +969,7 @@ def build_frontend_reports(
         "app_roots": app_roots,
         "warnings": warnings,
         "limitations": [
-            "Frontend full-graph reachability reflects Knip's non-production roots collectively; this first pass does not split test-only from other non-production roots.",
+            "Frontend full-graph reachability reflects Knip's non-production roots collectively; package.json and dependency findings may still remain combined non-production evidence.",
         ],
         "findings": knip_full_findings,
     }
@@ -928,6 +1015,7 @@ def build_frontend_reports(
     reachability_findings = aggregate_frontend_findings(
         prod_findings=knip_prod_findings,
         full_findings=knip_full_findings,
+        scope_support=frontend_scope_support,
     )
     findings = dedupe_findings(reachability_findings + eslint_findings)
     limitations = (
@@ -948,6 +1036,10 @@ def build_frontend_reports(
             "reachability": "ok",
             "lint_unused": "ok",
             "app_roots": app_roots,
+            "test_roots": frontend_scope_support["test_roots"],
+            "tooling_roots": frontend_scope_support["tooling_roots"],
+            "test_reachable_file_count": len(frontend_scope_support["reachable_files"]["test"]),
+            "tooling_reachable_file_count": len(frontend_scope_support["reachable_files"]["tooling"]),
         },
     }
 
@@ -1019,17 +1111,27 @@ def aggregate_frontend_findings(
     *,
     prod_findings: list[dict[str, Any]],
     full_findings: list[dict[str, Any]],
+    scope_support: dict[str, Any],
 ) -> list[dict[str, Any]]:
     aggregated: list[dict[str, Any]] = []
     full_keys = {frontend_reachability_identity(finding) for finding in full_findings}
+    test_reachable = scope_support["reachable_files"]["test"]
+    tooling_reachable = scope_support["reachable_files"]["tooling"]
 
     for finding in prod_findings:
         identity = frontend_reachability_identity(finding)
         reachable_from: list[str] = []
         evidence = ["dead in production frontend roots"]
         if identity not in full_keys:
-            reachable_from.append("non-prod")
-            evidence.append("reachable when frontend non-production roots are included")
+            if finding["path"] in test_reachable:
+                reachable_from.append("test")
+                evidence.append("reachable from frontend test roots")
+            if finding["path"] in tooling_reachable:
+                reachable_from.append("tooling")
+                evidence.append("reachable from frontend tooling roots")
+            if not reachable_from:
+                reachable_from.append("non-prod")
+                evidence.append("reachable when frontend non-production roots are included")
         else:
             evidence.append("dead when frontend non-production roots are included")
 
@@ -1063,6 +1165,143 @@ def frontend_reachability_identity(finding: dict[str, Any]) -> tuple[Any, ...]:
         finding.get("symbol"),
         finding.get("issue_type"),
     )
+
+
+def build_frontend_scope_support(app_roots: list[str]) -> dict[str, Any]:
+    graph = build_frontend_import_graph()
+    test_roots = discover_frontend_test_roots()
+    tooling_roots = discover_frontend_tooling_roots()
+    return {
+        "app_roots": sorted(dict.fromkeys(app_roots)),
+        "test_roots": test_roots,
+        "tooling_roots": tooling_roots,
+        "reachable_files": {
+            "test": walk_frontend_graph(graph, test_roots),
+            "tooling": walk_frontend_graph(graph, tooling_roots),
+        },
+    }
+
+
+def build_frontend_import_graph() -> dict[str, set[str]]:
+    graph: dict[str, set[str]] = {}
+    for path in iter_frontend_code_files():
+        relative = relative_path(path)
+        graph[relative] = resolve_frontend_imports_for_file(path)
+    return graph
+
+
+def iter_frontend_code_files() -> list[Path]:
+    files: list[Path] = []
+    frontend_root = ROOT_DIR / "frontend"
+    for path in frontend_root.rglob("*"):
+        if not path.is_file():
+            continue
+        if any(part in {"node_modules", "dist"} for part in path.parts):
+            continue
+        if path.suffix not in FRONTEND_CODE_EXTENSIONS:
+            continue
+        files.append(path)
+    return sorted(files)
+
+
+def discover_frontend_test_roots() -> list[str]:
+    roots: list[str] = []
+    for path in iter_frontend_code_files():
+        relative = relative_path(path)
+        if relative == "frontend/playwright.config.ts" or is_frontend_test_path(relative):
+            roots.append(relative)
+    return sorted(dict.fromkeys(roots))
+
+
+def discover_frontend_tooling_roots() -> list[str]:
+    roots: list[str] = []
+    for path in iter_frontend_code_files():
+        relative = relative_path(path)
+        if relative == "frontend/vite.config.ts" or relative.startswith("frontend/scripts/") or relative.startswith(
+            "frontend/generation/"
+        ):
+            roots.append(relative)
+    return sorted(dict.fromkeys(roots))
+
+
+def walk_frontend_graph(graph: dict[str, set[str]], roots: list[str]) -> set[str]:
+    visited: set[str] = set()
+    queue: deque[str] = deque(root for root in roots if root in graph)
+    while queue:
+        current = queue.popleft()
+        if current in visited:
+            continue
+        visited.add(current)
+        for dependency in graph.get(current, set()):
+            if dependency not in visited:
+                queue.append(dependency)
+    return visited
+
+
+def resolve_frontend_imports_for_file(path: Path) -> set[str]:
+    text = path.read_text(encoding="utf-8")
+    modules = {
+        match.group("module")
+        for match in FRONTEND_STATIC_IMPORT_RE.finditer(text)
+        if match.group("module")
+    }
+    modules.update(
+        match.group("module")
+        for match in FRONTEND_DYNAMIC_IMPORT_RE.finditer(text)
+        if match.group("module")
+    )
+    resolved: set[str] = set()
+    for module in modules:
+        target = resolve_frontend_module_specifier(path, module)
+        if target:
+            resolved.add(target)
+    return resolved
+
+
+def resolve_frontend_module_specifier(source_path: Path, module_specifier: str) -> str | None:
+    if not module_specifier or module_specifier.startswith("node:"):
+        return None
+
+    if module_specifier.startswith("/src/"):
+        base = ROOT_DIR / "frontend" / module_specifier.lstrip("/")
+    elif module_specifier.startswith("./") or module_specifier.startswith("../"):
+        base = (source_path.parent / module_specifier).resolve(strict=False)
+    else:
+        base = ROOT_DIR / "frontend" / "src" / module_specifier
+
+    resolved = resolve_frontend_internal_module_path(base)
+    if resolved is None:
+        return None
+    return relative_path(resolved)
+
+
+def resolve_frontend_internal_module_path(base: Path) -> Path | None:
+    candidates: list[Path] = []
+    if base.suffix in FRONTEND_CODE_EXTENSIONS:
+        candidates.append(base)
+        for suffix in FRONTEND_CODE_EXTENSIONS:
+            candidates.append(base.with_suffix(suffix))
+    elif base.suffix:
+        candidates.append(base)
+        for suffix in FRONTEND_CODE_EXTENSIONS:
+            candidates.append(base.with_suffix(suffix))
+    else:
+        candidates.append(base)
+        for suffix in FRONTEND_CODE_EXTENSIONS:
+            candidates.append(base.with_suffix(suffix))
+            candidates.append(base / f"index{suffix}")
+
+    for candidate in candidates:
+        if not candidate.exists() or not candidate.is_file():
+            continue
+        if candidate.suffix not in FRONTEND_CODE_EXTENSIONS:
+            continue
+        try:
+            candidate.relative_to(ROOT_DIR / "frontend")
+        except ValueError:
+            continue
+        return candidate
+    return None
 
 
 def normalize_frontend_eslint_findings(

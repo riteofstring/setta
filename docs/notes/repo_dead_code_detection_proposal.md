@@ -61,10 +61,12 @@ The current first-pass reports include:
 Current first-pass caveats:
 
 - Python reachability is advisory and comes from `vulture` filtered by smoke
-  coverage gathered through repo-managed dev dependencies.
+  coverage gathered through repo-managed dev dependencies plus repo-owned smoke
+  import roots.
 - Frontend reachability compares Knip `--production` against Knip's full graph,
-  so it can distinguish `dead` from `prod-dead`, but it does not yet split
-  test-only from other non-production roots.
+  then uses a repo-local import graph to classify many `prod-dead` findings as
+  `test`-live or `tooling`-live. Some package/dependency findings still remain
+  generic non-production evidence.
 
 ## Non-Goals
 

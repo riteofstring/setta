@@ -7,9 +7,6 @@ go:
     - goos: env
       goarch: env
       tags: []
-  production_mains:
-    - ./cmd/setta
-    - ./cmd/setta-server
   generated_globs:
     - "**/*_gen.go"
 
@@ -17,6 +14,12 @@ python:
   public_modules:
     - backend/setta/api/__init__.py
     - backend/setta/llm/chat_toolkit/__init__.py
+  smoke_package_roots:
+    - backend/setta/api
+    - backend/setta/auth
+    - backend/setta/logging
+    - backend/setta/sessions
+    - backend/setta/websockets
   generated_globs:
     - backend/setta/types/generated/**
     - backend/setta/sdk_contracts/generated.py
