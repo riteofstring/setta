@@ -7,7 +7,7 @@ import { createWithEqualityFn } from "zustand/traditional";
 import type { Disabled } from "./adapter";
 import { BehaviorDropType } from "./dropTypes";
 
-type ZustandDndState = {
+export type ZustandDndState = {
   activeId: string | null;
   activeIsTopLevel: boolean;
   overId: string | null;
@@ -39,7 +39,7 @@ type ZustandDndState = {
   width: number | null;
   height: number | null;
   behaviorDropType: BehaviorDropType | null;
-  times: Record<string, number>;
+  times: {};
 };
 
 export const useDndState = withProjectState(

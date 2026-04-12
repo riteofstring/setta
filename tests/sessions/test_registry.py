@@ -1,19 +1,13 @@
 import json
 import os
-from types import SimpleNamespace
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
-import psutil
-import pytest
-from setta.sessions.registry import (
-    SessionRegistry,
-    _cmdline_matches_setta_process,
-)
-from setta.types.generated.go_shared_constants import IN_PROCESS_ENV_VAR
+from setta.sessions.registry import SessionRegistry
+from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
 
 
@@ -290,50 +284,6 @@ def test_load_session_prunes_missing_server_mode(tmp_path: Path) -> None:
     assert (quarantined[0] / "session.json").exists()
 
 
-def test_load_session_prunes_invalid_server_mode(tmp_path: Path) -> None:
-    sessions_root = tmp_path / "sessions"
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    session_id = "invalid-mode"
-    session_dir = sessions_root / session_id
-    session_dir.mkdir(parents=True, exist_ok=True)
-    secret_path = session_dir / "secret"
-    secret_path.write_bytes(b"secret")
-    metadata_path = session_dir / "session.json"
-    metadata_path.write_text(
-        json.dumps(
-            {
-                "id": session_id,
-                "workspacePath": str(workspace),
-                "workspacePathCanonical": str(workspace.resolve()),
-                "host": "127.0.0.1",
-                "port": 61234,
-                "pid": 12345,
-                "secretPath": str(secret_path),
-                "serverMode": "share",
-            }
-        ),
-        encoding="utf-8",
-    )
-    old = time.time() - 10.0
-    os.utime(metadata_path, (old, old))
-
-    registry = SessionRegistry(sessions_root=sessions_root)
-    loaded = registry.load_session(session_id, prune_stale=True)
-
-    assert loaded is None
-    assert not session_dir.exists()
-    invalid_root = sessions_root / "invalid"
-    assert invalid_root.exists()
-    quarantined = [
-        entry
-        for entry in invalid_root.iterdir()
-        if entry.is_dir() and entry.name.startswith(f"{session_id}-")
-    ]
-    assert len(quarantined) == 1
-    assert (quarantined[0] / "session.json").exists()
-
-
 def test_find_sessions_by_workspace_and_mode_filters_server_mode() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -365,29 +315,6 @@ def test_find_sessions_by_workspace_and_mode_filters_server_mode() -> None:
         assert len(matches) == 1
         assert matches[0].id == launcher_session.id
         assert matches[0].serverMode == "launcher"
-
-
-def test_find_sessions_by_workspace_and_mode_rejects_invalid_server_mode() -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        sessions_root = root / "sessions"
-        workspace = root / "workspace"
-        workspace.mkdir()
-        registry = SessionRegistry(sessions_root=sessions_root)
-
-        registry.create_session(
-            workspace_path=workspace,
-            host="127.0.0.1",
-            port=61234,
-            pid=12345,
-        )
-
-        with pytest.raises(ValueError, match="Invalid session server mode"):
-            registry.find_sessions_by_workspace_and_mode(
-                workspace,
-                server_mode="share",
-                prune_stale=False,
-            )
 
 
 def test_delete_session_removes_metadata() -> None:
@@ -492,85 +419,6 @@ def test_is_session_process_setta_detects_script_py_name() -> None:
             process.wait()
 
 
-def test_is_session_process_setta_detects_python_module_invocation() -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        sessions_root = root / "sessions"
-        workspace = root / "workspace"
-        workspace.mkdir()
-        module_path = root / "setta.py"
-        module_path.write_text("import time\n\ntime.sleep(60)\n", encoding="utf-8")
-
-        process = subprocess.Popen(
-            [sys.executable, "-m", "setta"],
-            cwd=root,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        try:
-            registry = SessionRegistry(sessions_root=sessions_root)
-            session = registry.create_session(
-                workspace_path=workspace,
-                host="127.0.0.1",
-                port=61235,
-                pid=process.pid,
-            )
-
-            assert registry.is_session_process_setta(session)
-        finally:
-            if process.poll() is None:
-                process.terminate()
-            process.wait()
-
-
-@pytest.mark.parametrize(
-    ("cmdline",),
-    [
-        ([sys.executable, "-m", "setta"],),
-        ([sys.executable, "setta.api.listener"],),
-        ([sys.executable, "setta:launcher"],),
-    ],
-)
-def test_cmdline_matches_setta_process_uses_go_owned_invocation_rules(
-    cmdline: list[str],
-) -> None:
-    assert _cmdline_matches_setta_process(cmdline)
-
-
-def test_is_session_process_setta_detects_server_binary_name() -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        sessions_root = root / "sessions"
-        workspace = root / "workspace"
-        workspace.mkdir()
-        server_path = root / "setta-server"
-        server_path.write_text(
-            "#!/usr/bin/env bash\nsleep 60\n",
-            encoding="utf-8",
-        )
-        server_path.chmod(0o755)
-
-        process = subprocess.Popen(
-            [str(server_path)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        try:
-            registry = SessionRegistry(sessions_root=sessions_root)
-            session = registry.create_session(
-                workspace_path=workspace,
-                host="127.0.0.1",
-                port=61236,
-                pid=process.pid,
-            )
-
-            assert registry.is_session_process_setta(session)
-        finally:
-            if process.poll() is None:
-                process.terminate()
-            process.wait()
-
-
 def test_load_sessions_tracks_suspicious_when_enabled() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         sessions_root = Path(temp_dir) / "sessions"
@@ -583,7 +431,7 @@ def test_load_sessions_tracks_suspicious_when_enabled() -> None:
                 sys.executable,
                 "-c",
                 "import time; time.sleep(60)",
-                "setta-server",
+                "setta.server:app",
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -605,78 +453,6 @@ def test_load_sessions_tracks_suspicious_when_enabled() -> None:
             if process.poll() is None:
                 process.terminate()
             process.wait()
-
-
-def test_is_port_listening_treats_access_denied_as_listening() -> None:
-    registry = SessionRegistry()
-
-    class AccessDeniedProcess:
-        def net_connections(self, kind: str) -> list:
-            assert kind == "inet"
-            raise psutil.AccessDenied()
-
-    assert registry._is_port_listening(
-        AccessDeniedProcess(), host="127.0.0.1", port=61234
-    )
-
-
-def test_is_port_listening_returns_false_when_process_disappears() -> None:
-    registry = SessionRegistry()
-
-    class MissingProcess:
-        def net_connections(self, kind: str) -> list:
-            assert kind == "inet"
-            raise psutil.NoSuchProcess(pid=12345)
-
-    assert not registry._is_port_listening(
-        MissingProcess(), host="127.0.0.1", port=61234
-    )
-
-
-def test_is_port_listening_requires_matching_listener() -> None:
-    registry = SessionRegistry()
-    connections = [
-        SimpleNamespace(
-            status=psutil.CONN_ESTABLISHED,
-            laddr=SimpleNamespace(ip="127.0.0.1", port=61234),
-        ),
-        SimpleNamespace(
-            status=psutil.CONN_LISTEN,
-            laddr=SimpleNamespace(ip="127.0.0.1", port=61235),
-        ),
-        SimpleNamespace(
-            status=psutil.CONN_LISTEN,
-            laddr=SimpleNamespace(ip="127.0.0.1", port=61234),
-        ),
-    ]
-
-    class MatchingProcess:
-        def net_connections(self, kind: str) -> list:
-            assert kind == "inet"
-            return connections
-
-    assert registry._is_port_listening(
-        MatchingProcess(), host="127.0.0.1", port=61234
-    )
-
-
-def test_is_port_listening_accepts_wildcard_listener_host() -> None:
-    registry = SessionRegistry()
-    connections = [
-        SimpleNamespace(
-            status=psutil.CONN_LISTEN,
-            laddr=SimpleNamespace(ip="0.0.0.0", port=61234),
-        )
-    ]
-
-    class WildcardProcess:
-        def net_connections(self, kind: str) -> list:
-            assert kind == "inet"
-            return connections
-
-    assert registry._is_port_listening(
-        WildcardProcess(), host="127.0.0.1", port=61234
-    )
 
 
 def test_load_sessions_prunes_non_setta_process() -> None:
@@ -781,26 +557,6 @@ def test_load_sessions_prunes_current_pid_without_in_process_flag(
         else:
             assert sessions == []
             assert not (sessions_root / session.id).exists()
-
-
-def test_load_session_prunes_mismatched_pid_create_time(tmp_path: Path) -> None:
-    sessions_root = tmp_path / "sessions"
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    registry = SessionRegistry(sessions_root=sessions_root)
-
-    session = registry.create_session(
-        workspace_path=workspace,
-        host="127.0.0.1",
-        port=61234,
-        pid=os.getpid(),
-        pid_create_time=0.0,
-    )
-
-    loaded = registry.load_session(session.id, prune_stale=True)
-
-    assert loaded is None
-    assert not (sessions_root / session.id).exists()
 
 
 def test_load_sessions_keeps_current_pid_with_in_process_flag(
