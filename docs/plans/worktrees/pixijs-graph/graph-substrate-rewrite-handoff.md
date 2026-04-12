@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 08:12 UTC
+Last updated: 2026-04-13 08:33 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,110 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+- item `406` resolved the repeated `getLocalPaneState(...)` verifier blocker
+  on the canonical `rotaryParamCodeObjDefault` worktree perf lane strongly
+  enough to recover one trustworthy live readout after the run-`030` product
+  slice:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and confirmed one bounded verifier
+      pass was still allowed because the missing post-run-`030` readout was the
+      only remaining unresolved question on the same lane
+    - avoided another product slice and kept the pass tightly scoped to the
+      failing compare-preflight read
+    - replaced the fragile page-side pane-state read with a persisted
+      browser-storage-state read first, then left the in-page store path as a
+      fallback
+  - product/support code changed in:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so `getLocalPaneState(...)` now prefers the current origin's persisted
+      `setta_data` pane-state payload from Playwright browser storage before it
+      falls back to the in-page store import path
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      with the pure browser-storage helper
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      for focused helper coverage
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the recovered run-`031` live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live worktree probe on run `031`
+      - command:
+        `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-031/worktree-ai.log`
+      - first attempt:
+        -> failed after `180000ms`
+        -> timeout site moved off the old pane-state read and into
+           `setLocalPaneState(...)` during compare-pane normalization because
+           the target page/context closed
+      - bounded lifecycle recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - refreshed runtime facts via
+          `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-031/worktree-ai.log`
+        - fresh worktree session: `b8640c`
+      - retry after recovery:
+        -> passed (`1` Playwright test, `2.5m`)
+      - fresh canonical readout:
+        - `longTaskCount`: `5`
+        - `longTaskTotalDurationMs`: `1247ms`
+        - `longTaskMaxDurationMs`: `447ms`
+        - `averageFrameDurationMs`: `44.57ms`
+        - phase split:
+          `panForward` `454ms`, `panReturn` `447ms`, `zoomIn` `166ms`,
+          `zoomOut` `180ms`
+        - dominant named canary owner:
+          `presentedSceneSectionSubtreeReactRender` `959.4ms` total,
+          `280.3ms` max, `39` commits
+        - `reactFlowViewportPublish`: `0ms`
+    - headless CDP visual check on the authenticated worktree bootstrap URL
+      -> passed
+      -> `/settings` showed the populated All Settings canary surface, not a
+         blank graph shell
+      -> note: `rotaryParamCodeObjDefault` was not in the visible viewport for
+         this visual smoke, so treat the CDP result as a surface-health check
+         rather than a target-section parity assertion
+  - reading:
+    - the repeated verifier blocker is no longer the old
+      `getLocalPaneState(...)` preflight timeout; the lane has a trustworthy
+      post-run-`030` readout now
+    - that readout does not show a measurable motion win from the deferred
+      local zoom publish reduction
+    - the named product frontier stays
+      `presentedSceneSectionSubtreeReactRender`; do not spend the next default
+      iteration on more generic verifier repair
+  - next default frontier:
+    - land one bounded production reduction against
+      `presentedSceneSectionSubtreeReactRender` on the same
+      `rotaryParamCodeObjDefault` lane, starting with broad mounted
+      section-subtree rerender fan-out instead of more probe plumbing
+
+- progress-review checkpoint for runs `021` through `030`:
+  - keep the loop on the canonical `rotaryParamCodeObjDefault` lane; the
+    recent stretch still produced real measured progress
+  - the important forward moves were:
+    - closing several previously dominant micro-owners with fresh live probe
+      evidence
+    - naming `presentedSceneSectionSubtreeReactRender` as the dominant
+      remaining measured pan-phase owner on run `029`
+    - landing one bounded production reduction on that owner chain in run
+      `030` by deferring intermediate local zoom publishes during active
+      interaction
+  - the current rabbit hole is verifier instability, not lack of product
+    direction:
+    repeated `getLocalPaneState(...)` compare-preflight timeouts have now
+    reappeared after two different hardening slices, so do not let the next
+    passes drift into open-ended probe-health churn
+  - next-iteration rule:
+    - allow one bounded verifier pass only if it is directly aimed at getting
+      a trustworthy live readout for the run-`030` product slice on the same
+      canonical lane
+    - if that pass still fails without naming a new concrete owner, stop the
+      verifier lane for default sequencing and return to product work on
+      `presentedSceneSectionSubtreeReactRender` using run `029` as the last
+      trustworthy baseline while keeping the missing post-item-`405` readout
+      explicit in handoff/history
+
 - item `405` landed one bounded production reduction on the canonical
   `rotaryParamCodeObjDefault` worktree perf lane by deferring local zoom
   transform publishes while canary interaction stays local:
@@ -116,11 +220,18 @@ This section overrides older "next frontier" notes below when choosing the next 
       `getLocalPaneState(...)` compare-preflight path, not CDP access and not
       a new renderer regression
     - do not claim a measured motion win from this slice yet
+    - do not spend more than one additional default iteration trying to repair
+      this same generic timeout path; after one bounded retry, either produce a
+      fresh readout or treat the missing readout as explicit tooling debt and
+      return to the named product owner
   - next default frontier:
-    - resolve or narrowly bypass the repeated
+    - first choice: resolve or narrowly bypass the repeated
       `getLocalPaneState(...)` compare-preflight timeout on the canonical
-      worktree probe so the next product pass can return a trustworthy live
+      worktree probe so the run-`030` product slice gets one trustworthy live
       readout on the same `rotaryParamCodeObjDefault` lane
+    - if one bounded retry still fails without naming a new concrete owner:
+      stop defaulting to probe repair and take the next product reduction pass
+      against `presentedSceneSectionSubtreeReactRender` instead
 
 - item `404` landed one bounded React-render attribution seam on the canonical
   `rotaryParamCodeObjDefault` worktree perf lane and converted the remaining

@@ -151,6 +151,39 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 08:40 UTC
+
+- progress review for loop `001` runs `021` through `030`:
+  - decision: keep the loop running, but only after tightening the durable
+    direction around the verifier lane
+  - worthwhile progress in this stretch:
+    - several measured micro-owners on the canonical
+      `rotaryParamCodeObjDefault` lane were reduced and then effectively
+      closed with fresh probe evidence
+    - item `404` named the first convincing remaining pan-phase owner with a
+      trustworthy live readout:
+      `presentedSceneSectionSubtreeReactRender`
+    - item `405` then landed a real product reduction on that owner chain by
+      deferring intermediate local zoom publishes during active interaction
+  - diminishing-return / rabbit-hole signals:
+    - the repeated blocker across the most recent passes is again generic
+      `getLocalPaneState(...)` compare-preflight instability rather than a new
+      renderer or product regression
+    - two separate hardening slices already recovered that path temporarily, so
+      another open-ended probe-health loop would now be churn
+  - durable replan applied:
+    - allow at most one additional default iteration whose sole purpose is to
+      produce a trustworthy post-item-`405` live readout on the same canonical
+      lane
+    - if that bounded retry still fails without naming a new concrete owner,
+      stop defaulting to verifier repair
+    - after that, return to product work on
+      `presentedSceneSectionSubtreeReactRender` using run `029` as the last
+      trustworthy live baseline and keep the missing post-item-`405` readout
+      explicit as tooling debt in handoff/history
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 08:12 UTC
 
 - reread `RALPH.md`, the rewrite plan, and the handoff first; avoided another
@@ -16087,6 +16120,69 @@ LOOP_TERMINAL_MARKER: none
     `router.tsx` initialization path after the page-entry splits, starting
     with which synchronous wrapper/import family still dominates after
     `AppRouterProvider` resolves
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 08:33 UTC
+
+- item `406` landed one bounded verifier repair on the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane
+- re-read the plan/handoff first and used the one remaining allowed verifier
+  pass to recover the missing post-run-`030` readout instead of starting
+  another product slice or extending generic probe churn
+- updated
+  `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so
+  `getLocalPaneState(...)` first reads the current origin's persisted
+  `setta_data` pane state from Playwright browser-context storage, then falls
+  back to the existing in-page store import path only when persisted state is
+  unavailable
+- added
+  `readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState(...)` in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+  and extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  with valid/malformed browser-storage coverage
+- appended the recovered live readout to
+  `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+    -> passed (`1` file, `10` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> passed
+  - first live worktree probe attempt on run `031`
+    -> failed after `180000ms`
+    -> timeout site moved earlier to
+       `setLocalPaneState(...)` during compare-pane normalization because the
+       target page/context closed
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-031/worktree-ai.log`
+    - fresh worktree session: `b8640c`
+  - retry after recovery:
+    -> passed (`1` Playwright test, `2.5m`)
+    -> `longTaskCount`: `5`
+    -> `longTaskTotalDurationMs`: `1247ms`
+    -> `longTaskMaxDurationMs`: `447ms`
+    -> `averageFrameDurationMs`: `44.57ms`
+    -> dominant named owner:
+       `presentedSceneSectionSubtreeReactRender` `959.4ms` total,
+       `280.3ms` max, `39` commits
+    -> `reactFlowViewportPublish`: `0ms`
+  - fresh-context headless CDP check on the authenticated bootstrap URL
+    -> passed as a surface-health visual check
+    -> `/settings` showed the populated All Settings canary surface, not a
+       blank graph shell
+    -> `rotaryParamCodeObjDefault` was not in the visible viewport during this
+       smoke, so this CDP result should not be treated as a target-section
+       parity claim
+- reading:
+  - the old repeated `getLocalPaneState(...)` preflight timeout is no longer
+    the active verifier blocker on this lane
+  - the recovered run-`031` readout does not show a measurable motion win from
+    the deferred local zoom publish reduction
+  - default sequencing should return to product work on
+    `presentedSceneSectionSubtreeReactRender` rather than spending another
+    iteration on generic verifier repair
 
 LOOP_TERMINAL_MARKER: none
 

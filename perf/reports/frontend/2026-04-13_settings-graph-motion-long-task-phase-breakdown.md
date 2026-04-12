@@ -357,3 +357,79 @@ aggregate long-task totals.
   `getLocalPaneState(...)` preflight path on run `030`, so the next iteration
   should resolve or narrow that runtime blocker before drawing new perf
   conclusions from this lane
+
+## 2026-04-13 Persisted Pane-State Read Fallback
+
+### What changed
+
+- changed
+  `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+  so `getLocalPaneState(...)` first reads the normalized compare pane state
+  from Playwright browser-context storage for the current origin before it
+  falls back to the slower in-page store import path
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+  with a pure helper that reads persisted pane state directly from browser
+  storage-state snapshots
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  with focused coverage for the browser-storage helper on valid and malformed
+  persisted payloads
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  - passed (`1` file, `10` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+  - passed
+- live worktree probe on run `031`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-031/worktree-ai.log`
+  - first attempt:
+    - failed after `180000ms`
+    - timeout site moved off the old pane-state read and into
+      `setLocalPaneState(...)` during compare-pane normalization because the
+      target page/context closed
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-031/worktree-ai.log`
+    - fresh worktree session: `b8640c`
+  - retry after recovery:
+    - passed (`1` Playwright test, `2.5m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state held steady before and after the motion
+  sequence:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-change motion breakdown:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1247ms`
+  - `longTaskMaxDurationMs`: `447ms`
+  - `measurementWindowMs`: `1941.3ms`
+  - `averageFrameDurationMs`: `44.57ms`
+  - `panForward`: `2` tasks, `454ms` total, `264ms` max
+  - `panReturn`: `1` task, `447ms` total, `447ms` max
+  - `zoomIn`: `1` task, `166ms` total, `166ms` max
+  - `zoomOut`: `1` task, `180ms` total, `180ms` max
+- dominant named canary owner on the same run:
+  - `presentedSceneSectionSubtreeReactRender`: `959.4ms` total, `280.3ms`
+    max, `39` commits
+- the deferred local zoom publish owner stayed at zero on the same run:
+  - `reactFlowViewportPublish`: `0ms`
+
+### Updated Reading
+
+- this verifier slice resolved the repeated `getLocalPaneState(...)`
+  preflight timeout strongly enough to recover a trustworthy live readout on
+  the same canonical lane
+- the run-`031` readout does not show a measurable win from the deferred local
+  zoom publish reduction; the dominant owner remains
+  `presentedSceneSectionSubtreeReactRender`
+- default sequencing should stop on verifier repair here and return to product
+  work that reduces section-subtree rerender fan-out on the same lane

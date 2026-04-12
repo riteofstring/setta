@@ -8,6 +8,7 @@ import {
 } from "components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases";
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
+  readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
   writePersistedSettingsGraphLocalPaneState,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
@@ -509,12 +510,35 @@ export function findSharedVisibleSettingsGraphSection(
 export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
+  const pageOrigin = new URL(page.url()).origin;
+  const storageState = await page.context().storageState();
+  const persistedPaneState =
+    readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
+      key: "setta_data",
+      origin: pageOrigin,
+      origins: storageState.origins,
+    });
+  if (persistedPaneState) {
+    return persistedPaneState;
+  }
+
   const paneStateReadResult = await page.evaluate(
     async ({ timeoutMs }: { timeoutMs: number }) => {
       const collectDiagnostic = (): SettingsGraphPaneStateReadDiagnostic => {
         const articleElements = Array.from(
           document.querySelectorAll("article"),
         );
+        const persistedPaneStateRaw = window.localStorage.getItem("setta_data");
+        const persistedPaneStatePresent = persistedPaneStateRaw !== null;
+        let persistedPaneStateParseable = false;
+        if (persistedPaneStatePresent) {
+          try {
+            JSON.parse(persistedPaneStateRaw);
+            persistedPaneStateParseable = true;
+          } catch {
+            persistedPaneStateParseable = false;
+          }
+        }
 
         return {
           appShellMounted:
@@ -527,8 +551,8 @@ export async function getLocalPaneState(
               null,
           headerNotificationVisible:
             document.querySelector(".header-notification-fade") !== null,
-          persistedPaneStateParseable: false,
-          persistedPaneStatePresent: false,
+          persistedPaneStateParseable,
+          persistedPaneStatePresent,
           settingsContentMounted: articleElements.some((element) => {
             const htmlElement =
               element instanceof HTMLElement ? element : element.parentElement;

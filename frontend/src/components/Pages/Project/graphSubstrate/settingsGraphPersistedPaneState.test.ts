@@ -3,6 +3,7 @@ import {
   formatSettingsGraphPaneStateReadDiagnostic,
   readBrowserStorageStateLocalStorageEntry,
   readPersistedSettingsGraphLocalPaneState,
+  readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
   writePersistedSettingsGraphLocalPaneState,
 } from "./settingsGraphPersistedPaneState";
 
@@ -94,6 +95,55 @@ describe("readPersistedSettingsGraphLocalPaneState", () => {
         origins: [
           {
             localStorage: [{ name: "other_key", value: "ignored" }],
+            origin: "http://127.0.0.1:3075",
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("reads persisted pane state from browser-context storage state", () => {
+    expect(
+      readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
+        key: "setta_data",
+        origin: "http://127.0.0.1:3075",
+        origins: [
+          {
+            localStorage: [
+              {
+                name: "setta_data",
+                value: JSON.stringify({
+                  state: {
+                    overviewVis: false,
+                    overviewTrueWidth: 420,
+                    snapToGrid: false,
+                    uiEditorVis: true,
+                    uiEditorTrueWidth: 320,
+                  },
+                }),
+              },
+            ],
+            origin: "http://127.0.0.1:3075",
+          },
+        ],
+      }),
+    ).toEqual({
+      overviewVisible: false,
+      overviewTrueWidth: 420,
+      snapToGrid: false,
+      uiEditorVisible: true,
+      uiEditorTrueWidth: 320,
+    });
+  });
+
+  it("returns null when browser-context storage state is malformed", () => {
+    expect(
+      readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
+        key: "setta_data",
+        origin: "http://127.0.0.1:3075",
+        origins: [
+          {
+            localStorage: [{ name: "setta_data", value: "{bad json" }],
             origin: "http://127.0.0.1:3075",
           },
         ],
