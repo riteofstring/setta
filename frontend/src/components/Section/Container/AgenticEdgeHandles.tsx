@@ -1,7 +1,9 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
+import { useMemo } from "react";
 import {
   AGENTIC_EDGE_HANDLE_IDS,
   createAgenticEdgeFromConnection,
@@ -14,50 +16,35 @@ import {
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 
-type AgenticConnectionVisibility = {
-  hasIncoming: boolean;
-  hasOutgoing: boolean;
-};
-
-function getAgenticConnectionVisibility(
-  sectionId: string,
-  state: ReturnType<typeof useProjectState.getState>,
-): AgenticConnectionVisibility {
-  let hasIncoming = false;
-  let hasOutgoing = false;
-  for (const edge of state.projectConfig.agenticEdges) {
-    if (edge.targetSectionId === sectionId) {
-      hasIncoming = true;
-    }
-    if (edge.sourceSectionId === sectionId) {
-      hasOutgoing = true;
-    }
-    if (hasIncoming && hasOutgoing) {
-      return { hasIncoming, hasOutgoing };
-    }
-  }
-  return { hasIncoming, hasOutgoing };
-}
-
 export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
-  const connectionVisibility = useProjectState(
-    (state) => {
-      if (!sectionId) {
-        return {
-          hasIncoming: false,
-          hasOutgoing: false,
-        };
-      }
-      return getAgenticConnectionVisibility(sectionId, state);
-    },
-    (left, right) =>
-      left.hasIncoming === right.hasIncoming &&
-      left.hasOutgoing === right.hasOutgoing,
+  const isSelectingEdge = useReactFlow(
+    (state) => state.connectionStartHandle !== null,
   );
-  const hasIncomingAgenticEdge = connectionVisibility.hasIncoming;
-  const hasOutgoingAgenticEdge = connectionVisibility.hasOutgoing;
+  const agenticEdges = useProjectState(
+    (state) => state.projectConfig.agenticEdges,
+  );
+  const connectionMask = useMemo(() => {
+    if (!sectionId) {
+      return 0;
+    }
+    let mask = 0;
+    for (const edge of agenticEdges) {
+      if (edge.targetSectionId === sectionId) {
+        mask |= 1;
+      }
+      if (edge.sourceSectionId === sectionId) {
+        mask |= 2;
+      }
+      if (mask === 3) {
+        break;
+      }
+    }
+    return mask;
+  }, [agenticEdges, sectionId]);
+  const hasIncomingAgenticEdge = (connectionMask & 1) !== 0;
+  const hasOutgoingAgenticEdge = (connectionMask & 2) !== 0;
 
   if (isUserView) {
     return null;
@@ -73,7 +60,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         id={AGENTIC_EDGE_HANDLE_IDS.reverseStart}
         type="source"
         position={HandlePosition.Left}
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--target agentic-handle--reverse-start${hasIncomingAgenticEdge ? " agentic-handle--connected" : ""}`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--target agentic-handle--reverse-start${hasIncomingAgenticEdge ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         data-testid={`agentic-reverse-start-handle-${sectionId}`}
         data-reverse-start="true"
         aria-hidden="true"
@@ -89,7 +76,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         id={AGENTIC_EDGE_HANDLE_IDS.target}
         type="target"
         position={HandlePosition.Left}
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--target${hasIncomingAgenticEdge ? " agentic-handle--connected" : ""}`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--target${hasIncomingAgenticEdge ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
@@ -108,7 +95,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         id={AGENTIC_EDGE_HANDLE_IDS.source}
         type="source"
         position={HandlePosition.Right}
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--source${hasOutgoingAgenticEdge ? " agentic-handle--connected" : ""}`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--source${hasOutgoingAgenticEdge ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         isConnectable={canEditStructure}
         isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
