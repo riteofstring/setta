@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -21,8 +22,8 @@ func TestRegisterAgenticSummaryCacheRoutesReturnsStatus(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := newAgenticSummaryCacheRouteRuntime(t, agenticSummaryCacheRouteTestDocument())
-	service := newAgenticSummaryCacheRouteService(t)
-	writeAgenticSummaryCacheRouteTestEntries(t, service.Path(), map[string]any{})
+	service, root := newAgenticSummaryCacheRouteService(t)
+	writeAgenticSummaryCacheRouteTestEntries(t, filepath.Join(root, agenticsummarycache.FileName), map[string]any{})
 	handler := newAgenticSummaryCacheRouteHandler(t, config.ModeIDE, projectRuntime, service)
 
 	requestBody := []byte(`{"projectConfigId":"project-alpha","chatSectionId":"chat-section"}`)
@@ -53,7 +54,7 @@ func TestRegisterAgenticSummaryCacheRoutesReturnsProjectNotFound(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := newAgenticSummaryCacheRouteRuntime(t, agenticSummaryCacheRouteTestDocument())
-	service := newAgenticSummaryCacheRouteService(t)
+	service, _ := newAgenticSummaryCacheRouteService(t)
 	handler := newAgenticSummaryCacheRouteHandler(t, config.ModeIDE, projectRuntime, service)
 
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAgenticSummaryCacheStatus, bytes.NewReader([]byte(`{"projectConfigId":"missing","chatSectionId":"chat-section"}`)))
@@ -77,7 +78,7 @@ func TestRegisterAgenticSummaryCacheRoutesReturnsChatNotFound(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := newAgenticSummaryCacheRouteRuntime(t, agenticSummaryCacheRouteTestDocument())
-	service := newAgenticSummaryCacheRouteService(t)
+	service, _ := newAgenticSummaryCacheRouteService(t)
 	handler := newAgenticSummaryCacheRouteHandler(t, config.ModeIDE, projectRuntime, service)
 
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAgenticSummaryCacheStatus, bytes.NewReader([]byte(`{"projectConfigId":"project-alpha","chatSectionId":"missing-chat"}`)))
@@ -101,7 +102,7 @@ func TestRegisterAgenticSummaryCacheRoutesBlocksShareMode(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := newAgenticSummaryCacheRouteRuntime(t, agenticSummaryCacheRouteTestDocument())
-	service := newAgenticSummaryCacheRouteService(t)
+	service, _ := newAgenticSummaryCacheRouteService(t)
 	handler := newAgenticSummaryCacheRouteHandler(t, config.ModeShare, projectRuntime, service)
 
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAgenticSummaryCacheStatus, bytes.NewReader([]byte(`{"projectConfigId":"project-alpha","chatSectionId":"chat-section"}`)))
@@ -157,14 +158,15 @@ func newAgenticSummaryCacheRouteRuntime(t *testing.T, document projectstate.Docu
 	return runtime
 }
 
-func newAgenticSummaryCacheRouteService(t *testing.T) *agenticsummarycache.Service {
+func newAgenticSummaryCacheRouteService(t *testing.T) (*agenticsummarycache.Service, string) {
 	t.Helper()
 
-	service, err := agenticsummarycache.NewService(t.TempDir())
+	root := t.TempDir()
+	service, err := agenticsummarycache.NewService(root)
 	if err != nil {
 		t.Fatalf("new summary cache service: %v", err)
 	}
-	return service
+	return service, root
 }
 
 func writeAgenticSummaryCacheRouteTestEntries(t *testing.T, path string, entries map[string]any) {

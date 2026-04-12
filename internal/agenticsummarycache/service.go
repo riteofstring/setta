@@ -69,13 +69,6 @@ func NewService(settaFilesRoot string) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) Path() string {
-	if s == nil {
-		return ""
-	}
-	return s.path
-}
-
 func (s *Service) BuildStatusForChat(project projectstate.Project, chatSectionID string) (AgenticSummaryCacheStatus, error) {
 	status := newAgenticSummaryCacheStatus()
 	normalizedChatSectionID, err := validateChatStatusRequest(s, project, chatSectionID)

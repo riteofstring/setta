@@ -79,7 +79,7 @@ func TestServiceBuildStatusForChatReportsCachedAndEmptySources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build cached source: %v", err)
 	}
-	writeSummaryCacheTestEntries(t, service.Path(), map[string]any{
+	writeSummaryCacheTestEntries(t, service.path, map[string]any{
 		buildCacheKey(project.ID, "cached-section", cachedSource.VariantID, cachedSource.ContentHash): map[string]any{
 			"summary":     "- cached",
 			"createdAtMs": 0,
