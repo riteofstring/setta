@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 22:19 UTC
+Last updated: 2026-04-12 22:22 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,32 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `356` closed the canonical `rotaryParamCodeObjDefault` main-reference
+  probe lane as unstable for default sequencing after one fresh post-reduction
+  rerun:
+
+  - no product code changed in this slice
+  - recorded the rerun and closure in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-main-reference-probe-rerun-unstable-closure.md`
+  - focused verification:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-045/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-045/main-ai.log`
+      -> resolved current runtime facts for both worktree and read-only `main`
+      -> still failed before the canonical spec body in Playwright global
+      setup
+      -> blocker remained `page.waitForURL(...)` after bootstrap, with the page
+      parked at
+      `http://127.0.0.1:3075/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+  - reading:
+    - this was the allowed fresh attribution rerun after the recent
+      `interactionReactFlowStateSync` reductions
+    - because it still could not produce a numeric verdict, the
+      cross-worktree probe lane is now explicitly closed as unstable for
+      default sequencing on the current runtime
+    - the next default frontier is back on worktree-side product attribution:
+      choose either a worktree-only measurement path that bypasses the unstable
+      cross-worktree bootstrap/global-setup route or the next measured mounted
+      subscriber inside `interactionReactFlowStateSync`
 
 - item `355` landed one bounded minimap shared transform subscription
   reduction on the canonical `rotaryParamCodeObjDefault` lane inside the

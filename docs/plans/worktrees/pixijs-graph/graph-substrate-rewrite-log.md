@@ -75,6 +75,32 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 22:22 UTC
+
+- item `356` closed the canonical `rotaryParamCodeObjDefault` main-reference
+  probe lane as unstable for default sequencing after one fresh post-reduction
+  rerun:
+  - recorded the result in
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-probe-rerun-unstable-closure.md`
+  - verification:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-045/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-045/main-ai.log`
+      -> resolved current runtime facts for both worktree and read-only `main`
+      -> still failed before the canonical spec body in Playwright global
+      setup with `page.waitForURL(...)` timing out after bootstrap
+      -> current URL at failure:
+      `http://127.0.0.1:3075/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+  - reading:
+    - this was the allowed fresh rerun after the recent product-side
+      `interactionReactFlowStateSync` reductions
+    - because it still did not produce numeric attribution, the
+      cross-worktree probe lane is now closed as unstable for default
+      sequencing on the current runtime
+    - next frontier: return to worktree-side product attribution with either a
+      worktree-only measurement path or the next measured mounted subscriber
+      inside `interactionReactFlowStateSync`
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 22:19 UTC
 
 - item `355` landed one bounded minimap transform-subscription reduction on
