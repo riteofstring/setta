@@ -106,6 +106,28 @@ function handleSectionContainerBodyContentRender(
   );
 }
 
+function handleCanvasSectionBodyRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionCanvasSectionBodyReactRender",
+    actualDuration,
+  );
+}
+
+function handleAreaSwitchRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionAreaSwitchReactRender",
+    actualDuration,
+  );
+}
+
 function DefaultSectionContainerHeaderDomAdapter({
   hasSectionStyleTheme,
   isInOtherProjectConfigs,
@@ -420,13 +442,23 @@ const CanvasSectionBody = React.memo(function CanvasSectionBody({
   }
 
   return (
-    <AreaSwitch
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-      bgColor={bgColor}
-      isMinimized={isMinimized}
-      isUserView={isUserView}
-    />
+    <React.Profiler
+      id={`canvas-section-body:${sectionId}`}
+      onRender={handleCanvasSectionBodyRender}
+    >
+      <React.Profiler
+        id={`section-area-switch:${sectionId}`}
+        onRender={handleAreaSwitchRender}
+      >
+        <AreaSwitch
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+          isUserView={isUserView}
+        />
+      </React.Profiler>
+    </React.Profiler>
   );
 });
 

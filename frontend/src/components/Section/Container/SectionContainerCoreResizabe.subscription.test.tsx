@@ -368,6 +368,13 @@ describe("SectionContainerCoreResizable store subscriptions", () => {
         motionAttribution.presentedSceneSectionBodyContentReactRender.count,
       ).toBeGreaterThan(0);
       expect(
+        motionAttribution.presentedSceneSectionCanvasSectionBodyReactRender
+          .count,
+      ).toBeGreaterThan(0);
+      expect(
+        motionAttribution.presentedSceneSectionAreaSwitchReactRender.count,
+      ).toBeGreaterThan(0);
+      expect(
         host.querySelector('[data-testid="mock-section-header"]'),
       ).not.toBeNull();
       expect(

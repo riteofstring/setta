@@ -142,7 +142,11 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       .mockReturnValueOnce(60)
       .mockReturnValueOnce(63.75)
       .mockReturnValueOnce(70)
-      .mockReturnValueOnce(75);
+      .mockReturnValueOnce(75)
+      .mockReturnValueOnce(80)
+      .mockReturnValueOnce(82)
+      .mockReturnValueOnce(90)
+      .mockReturnValueOnce(93.5);
 
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "presentedSceneBodyMountFilter",
@@ -179,6 +183,14 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
       "presentedSceneSectionBodyContentReactRender",
       4.25,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionCanvasSectionBodyReactRender",
+      2,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionAreaSwitchReactRender",
+      3.5,
     );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "pixiDrawableReuseCheck",
@@ -242,6 +254,20 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 4.25,
       totalDurationMs: 4.25,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionCanvasSectionBodyReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 2,
+      totalDurationMs: 2,
+    });
+    expect(
+      motionAttribution.presentedSceneSectionAreaSwitchReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 3.5,
+      totalDurationMs: 3.5,
     });
     expect(motionAttribution.pixiDrawableReuseCheck).toEqual({
       count: 1,

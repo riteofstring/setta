@@ -208,6 +208,72 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 13:17 UTC
+
+- picked one bounded subtask after rereading the plan/handoff: stay on the
+  named mounted body-content lane and split `CanvasSectionBody` from its
+  `AreaSwitch` subtree instead of taking another blind production cut above a
+  now-closed `CodeArea` lane
+- added canary motion owners
+  `presentedSceneSectionCanvasSectionBodyReactRender` and
+  `presentedSceneSectionAreaSwitchReactRender` in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  and wrapped the mounted code-section body path with nested `React.Profiler`
+  boundaries in
+  `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+- updated focused regression coverage in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  and
+  `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+  so the new owners are tracked in the shared snapshot and exercised on the
+  mounted code-section path
+- updated the existing worktree/main-reference perf probe allowlists in
+  `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+  `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  so the new attribution owners are treated as expected instrumentation on the
+  canonical lane
+- wrote
+  `perf/reports/frontend/2026-04-13_settings-graph-canvas-section-body-area-switch-attribution.md`
+  with the live readout
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    -> pass (`2` files, `10` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> pass
+  - first
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-053/worktree-ai.log`
+    -> live payload emitted, then failed only because the residual-owner
+       allowlist had not yet been updated for the two new attribution owners
+    -> direct-open phase sequence:
+       `55ms app_router_loading` -> `1744ms settings_loading` ->
+       `3294ms app_shell_without_surface` -> `7285ms project_loading` ->
+       `12426ms surface_ready`
+    -> canonical target stayed `rotaryParamCodeObjDefault`
+    -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+       while the new split showed:
+       `presentedSceneSectionAreaSwitchReactRender` `542.7ms` total /
+       `74.4ms` max,
+       `presentedSceneSectionCanvasSectionBodyReactRender` `542.7ms` total /
+       `74.4ms` max,
+       `presentedSceneSectionBodyContentReactRender` `547.6ms` total /
+       `75.1ms` max,
+       `presentedSceneSectionCodeAreaReactRender` `0` count / `0ms`
+  - second probe rerun after the allowlist update reached `surface_ready`
+    again but the wrapper stopped emitting output after capture; no final
+    pass/fail line was produced before cleanup
+  - fresh-context headless CDP smoke check on the bootstrap URL
+    -> still showed only the loading shell, not a mounted graph surface
+    -> visible text: `PREPARING SETTA`, `Loading settings…`,
+       `Backend: Starting backend services`
+- reading:
+  - this closes the immediate "is the remaining body-content motion cost still
+    in `CanvasSectionBody` plumbing?" question on the canonical lane with live
+    evidence: no
+  - the next real frontier is deeper in the code-section body path chosen by
+    `AreaSwitch`, not the outer mounted body wrapper
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 12:58 UTC
 
 - picked one bounded subtask after rereading the plan/handoff: stay on the

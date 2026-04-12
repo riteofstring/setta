@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 13:05 UTC
+Last updated: 2026-04-13 13:17 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,86 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `428` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting the remaining mounted
+  body-content owner one level above `CodeArea` inside `CanvasSectionBody`:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the named mounted
+      body subtree lane instead of reopening the already-closed inner
+      `CodeArea` path
+    - chose one deeper attribution seam above the editor so the canary can now
+      distinguish the outer mounted body shell from the `AreaSwitch` subtree it
+      renders for the canonical code section
+    - kept the slice bounded to one instrumentation seam, one focused
+      regression update, one live worktree probe rerun, one perf note, and one
+      fresh headless CDP smoke check; no new oracle lane opened
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with two new motion owners:
+      `presentedSceneSectionCanvasSectionBodyReactRender` and
+      `presentedSceneSectionAreaSwitchReactRender`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      so `CanvasSectionBody` and its `AreaSwitch` subtree each record
+      `React.Profiler` durations into the shared canary snapshot
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      and
+      `frontend/src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      with focused regression coverage
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the existing perf probe allowlist accepts the new named attribution
+      owners
+    - `perf/reports/frontend/2026-04-13_settings-graph-canvas-section-body-area-switch-attribution.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed (`2` files, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - first
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-053/worktree-ai.log`
+      -> emitted the live canary payload, then failed only because the probe's
+         residual-owner allowlist did not yet include the two new attribution
+         owners
+      -> direct-open phase sequence on the worktree:
+         `55ms app_router_loading` -> `1744ms settings_loading` ->
+         `3294ms app_shell_without_surface` -> `7285ms project_loading` ->
+         `12426ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+      -> new split on this motion lane:
+         `presentedSceneSectionAreaSwitchReactRender` `542.7ms` total /
+         `74.4ms` max,
+         `presentedSceneSectionCanvasSectionBodyReactRender` `542.7ms` total /
+         `74.4ms` max,
+         `presentedSceneSectionBodyContentReactRender` `547.6ms` total /
+         `75.1ms` max,
+         `presentedSceneSectionCodeAreaReactRender` `0` count / `0ms` total /
+         `0ms` max
+    - second probe rerun after the allowlist update reached `surface_ready`
+      again but the wrapper stopped emitting output after capture and did not
+      provide a final pass/fail line before manual cleanup
+    - fresh-context headless CDP visual check on the bootstrap URL
+      `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
+      -> still observed only the loading shell rather than a mounted graph
+         surface
+      -> visible text included `PREPARING SETTA`, `Loading settings…`, and
+         `Backend: Starting backend services`
+  - reading:
+    - this is a real attribution pass on the active mounted body-content lane,
+      not another speculative optimization cut
+    - the remaining mounted body-content motion cost is not coming from the
+      outer `CanvasSectionBody` windowing/minimize shell on the canonical code
+      section
+    - the new split shows nearly all remaining measured cost is already inside
+      the `AreaSwitch` subtree selected for that section
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - take the next bounded attribution or product slice inside the code-body
+      path selected by `AreaSwitch` for the canonical section; do not spend the
+      next iteration on more `CanvasSectionBody` plumbing unless fresh evidence
+      points back there
 
 - item `427` landed one bounded attribution slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by splitting mounted body-content
