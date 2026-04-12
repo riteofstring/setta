@@ -4,12 +4,26 @@ import {
   windowSurfaceRequiresManagedChat,
 } from "components/Chat/sharePolicyChatAccess";
 import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
-import { resolveDockStripReservedWidthPx } from "components/ChatWindowing/projectChatBottomDockLayout";
+import {
+  resolveDockStripReservedWidthPx,
+  resolveDockWindowWidthsToFit,
+  resolveMaxVisibleDockWindowCount,
+  resolveNextPillDisplayMode,
+  type PillDisplayMode,
+} from "components/ChatWindowing/projectChatBottomDockLayout";
+import {
+  getNormalizedEventCode,
+  isShortcutPressed,
+  parseShortcut,
+  resolveChatWindowingShortcuts,
+  type ParsedShortcut,
+} from "components/ChatWindowing/projectChatKeyboardShortcuts";
 import {
   buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
   buildFloatingSnapResizeHandles,
   resolveFloatingSnapPresetFromBounds,
+  resolveFloatingSnapPresetFromPointer,
   type FloatingSnapPreset,
   type FloatingSnapResizeHandle,
   type FloatingWindowBoundaryInsets,
@@ -113,8 +127,6 @@ type ResolvedWindowPill = {
   chatId: string | null;
 };
 
-type PillDisplayMode = "full" | "compact" | "cycle" | "menu";
-
 type WindowResizeDirection =
   | "left"
   | "right"
@@ -206,20 +218,15 @@ const SIDE_RAIL_WIDTH_PX = PROJECT_CHAT_SIDE_RAIL_WIDTH_PX;
 const FALLBACK_WORKSPACE_TOP_INSET_PX =
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
 const DOCK_SURFACE_MAX_WIDTH_PX = 1160;
-const DOCK_SURFACE_MIN_WIDTH_PX = 420;
 const DOCK_SURFACE_HORIZONTAL_MARGIN_PX = 20;
 const DOCK_WINDOW_DEFAULT_WIDTH_PX = 460;
 const DOCK_WINDOW_DEFAULT_HEIGHT_PX = 520;
 const DOCK_WINDOW_GAP_PX = 12;
-const DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX = 4;
 const MIN_DOCK_CHAT_WIDTH_PX = 280;
 const MIN_DOCK_CHAT_HEIGHT_PX = 220;
 const COMPACT_PILL_WIDTH_PX = 28;
 const CYCLE_CONTROL_BUTTON_WIDTH_PX = 24;
 const PILL_GAP_PX = 4;
-const MENU_MODE_TRIGGER_WIDTH_PX = 28;
-const PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX =
-  MENU_MODE_TRIGGER_WIDTH_PX + PILL_GAP_PX;
 const CHAT_WINDOW_LAYER_Z_INDEX = 24;
 const TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX = 31;
 const CHAT_WINDOW_CHROME_LAYER_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
@@ -231,19 +238,10 @@ const CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS = 110;
 const CHAT_WINDOW_PILL_EXIT_DURATION_MS = 72;
 const FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX = 8;
 const FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
-const MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX = 16;
-const DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX =
-  MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX +
-  CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
-  COMPACT_PILL_WIDTH_PX * 2 +
-  PILL_GAP_PX * 3 +
-  DOCK_WINDOW_GAP_PX;
-const NARROW_CHAT_MENU_BREAKPOINT_PX = 520;
 const FLOATING_WINDOW_MIN_WIDTH_PX = 380;
 const FLOATING_WINDOW_MIN_HEIGHT_PX = 240;
 const FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX = 32;
 const FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX = 120;
-const FLOATING_SNAP_EDGE_THRESHOLD_PX = 84;
 const FLOATING_UNSNAP_DRAG_THRESHOLD_PX = 6;
 const CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS = 115;
 const CHAT_WINDOW_CLOSE_EXIT_DURATION_MS = 125;
@@ -251,14 +249,6 @@ const SNAP_TOP_LEFT_SHORTCUT = "Mod + Alt + Shift + Q";
 const SNAP_TOP_RIGHT_SHORTCUT = "Mod + Alt + Shift + W";
 const SNAP_BOTTOM_LEFT_SHORTCUT = "Mod + Alt + Shift + A";
 const SNAP_BOTTOM_RIGHT_SHORTCUT = "Mod + Alt + Shift + S";
-
-type ParsedShortcut = {
-  mod: boolean;
-  ctrl: boolean;
-  shift: boolean;
-  alt: boolean;
-  keys: Set<string>;
-};
 
 type ResizeHandleConfig = {
   direction: WindowResizeDirection;
@@ -335,126 +325,6 @@ const FLOATING_WINDOW_RESIZE_HANDLES: Array<ResizeHandleConfig> = [
   },
 ];
 
-const SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE: Record<string, string> = {
-  ".": "Period",
-  ",": "Comma",
-  "/": "Slash",
-  "\\": "Backslash",
-  "'": "Quote",
-  ";": "Semicolon",
-  "[": "BracketLeft",
-  "]": "BracketRight",
-  "-": "Minus",
-  "=": "Equal",
-  "`": "Backquote",
-  arrowright: "ArrowRight",
-  arrowleft: "ArrowLeft",
-  arrowup: "ArrowUp",
-  arrowdown: "ArrowDown",
-  esc: "Escape",
-};
-
-function parseShortcut(shortcut: string): ParsedShortcut {
-  const parts = shortcut
-    .split("+")
-    .map((x) => x.trim().toLowerCase())
-    .filter((x) => x.length > 0);
-  const keys = new Set(
-    parts
-      .filter((x) => !["ctrl", "shift", "alt", "mod"].includes(x))
-      .map((part) => {
-        if (/^[a-z]$/.test(part)) {
-          return `Key${part.toUpperCase()}`;
-        }
-        if (/^[0-9]$/.test(part)) {
-          return `Digit${part}`;
-        }
-        const special = SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE[part];
-        if (special) {
-          return special;
-        }
-        return part[0].toUpperCase() + part.slice(1);
-      }),
-  );
-  return {
-    mod: parts.includes("mod"),
-    ctrl: parts.includes("ctrl"),
-    shift: parts.includes("shift"),
-    alt: parts.includes("alt"),
-    keys,
-  };
-}
-
-function getNormalizedEventCode(event: KeyboardEvent): string | null {
-  if (event.code && event.code !== "Unidentified") {
-    return event.code;
-  }
-  if (!event.key) {
-    return null;
-  }
-  if (event.key === " ") {
-    return "Space";
-  }
-  if (event.key === "Shift") {
-    return "ShiftLeft";
-  }
-  if (event.key === "Control") {
-    return "ControlLeft";
-  }
-  if (event.key === "Alt") {
-    return "AltLeft";
-  }
-  if (event.key === "Meta") {
-    return "MetaLeft";
-  }
-  const lower = event.key.toLowerCase();
-  const special = SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE[lower];
-  if (special) {
-    return special;
-  }
-  if (/^[a-z]$/i.test(event.key)) {
-    return `Key${event.key.toUpperCase()}`;
-  }
-  if (/^[0-9]$/.test(event.key)) {
-    return `Digit${event.key}`;
-  }
-  if (event.key.length > 1) {
-    return event.key[0].toUpperCase() + event.key.slice(1);
-  }
-  return event.key;
-}
-
-function isShortcutPressed(
-  event: KeyboardEvent,
-  eventCode: string | null,
-  parsedShortcut: ParsedShortcut,
-  macOs: boolean,
-): boolean {
-  if (macOs) {
-    if (
-      event.metaKey !== parsedShortcut.mod ||
-      event.ctrlKey !== parsedShortcut.ctrl ||
-      event.shiftKey !== parsedShortcut.shift ||
-      event.altKey !== parsedShortcut.alt
-    ) {
-      return false;
-    }
-  } else if (
-    event.ctrlKey !== (parsedShortcut.ctrl || parsedShortcut.mod) ||
-    event.shiftKey !== parsedShortcut.shift ||
-    event.altKey !== parsedShortcut.alt
-  ) {
-    return false;
-  }
-  if (parsedShortcut.keys.size === 0) {
-    return true;
-  }
-  if (!eventCode || parsedShortcut.keys.size !== 1) {
-    return false;
-  }
-  return parsedShortcut.keys.has(eventCode);
-}
-
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
     return false;
@@ -495,119 +365,6 @@ function clampNumber(
     return maxValue;
   }
   return value;
-}
-
-function resolveMaxVisibleDockWindowCount(
-  totalWindowCount: number,
-  availableWidthPx: number,
-): number {
-  for (let count = totalWindowCount; count >= 1; count -= 1) {
-    const minimumWidthPx =
-      count * MIN_DOCK_CHAT_WIDTH_PX +
-      Math.max(0, count - 1) * DOCK_WINDOW_GAP_PX +
-      DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2;
-    if (minimumWidthPx <= availableWidthPx + 0.5) {
-      return count;
-    }
-  }
-  return 0;
-}
-
-function resolveDockWindowWidthsToFit(
-  dockedPills: ResolvedWindowPill[],
-  desiredWidthsById: Record<string, number>,
-  availableWidthPx: number,
-): Record<string, number> {
-  if (dockedPills.length === 0) {
-    return {};
-  }
-  const gapWidthPx = Math.max(0, dockedPills.length - 1) * DOCK_WINDOW_GAP_PX;
-  const availablePanelWidthPx =
-    availableWidthPx - DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2 - gapWidthPx;
-  if (availablePanelWidthPx <= 0) {
-    return {};
-  }
-  const nextWidthsById: Record<string, number> = {};
-  const resolvedWidths = dockedPills.map((pill) =>
-    clampNumber(
-      desiredWidthsById[pill.instanceId] ?? DOCK_WINDOW_DEFAULT_WIDTH_PX,
-      MIN_DOCK_CHAT_WIDTH_PX,
-      DOCK_SURFACE_MAX_WIDTH_PX,
-    ),
-  );
-  const totalDesiredWidthPx = resolvedWidths.reduce(
-    (sum, widthPx) => sum + widthPx,
-    0,
-  );
-  if (totalDesiredWidthPx <= availablePanelWidthPx + 0.5) {
-    dockedPills.forEach((pill, index) => {
-      nextWidthsById[pill.instanceId] =
-        resolvedWidths[index] ?? MIN_DOCK_CHAT_WIDTH_PX;
-    });
-    return nextWidthsById;
-  }
-  const minTotalWidthPx = dockedPills.length * MIN_DOCK_CHAT_WIDTH_PX;
-  if (minTotalWidthPx >= availablePanelWidthPx - 0.5) {
-    dockedPills.forEach((pill) => {
-      nextWidthsById[pill.instanceId] = MIN_DOCK_CHAT_WIDTH_PX;
-    });
-    return nextWidthsById;
-  }
-  const shrinkableEntries = resolvedWidths.map((widthPx, index) => ({
-    index,
-    widthPx,
-  }));
-  let remainingReductionPx = totalDesiredWidthPx - availablePanelWidthPx;
-  while (remainingReductionPx > 0.5) {
-    const shrinkableIndices = shrinkableEntries
-      .map((entry) => entry.index)
-      .filter(
-        (index) =>
-          (shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX) >
-          MIN_DOCK_CHAT_WIDTH_PX + 0.5,
-      );
-    if (shrinkableIndices.length === 0) {
-      break;
-    }
-    const totalShrinkCapacityPx = shrinkableIndices.reduce((sum, index) => {
-      return (
-        sum +
-        ((shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX) -
-          MIN_DOCK_CHAT_WIDTH_PX)
-      );
-    }, 0);
-    if (totalShrinkCapacityPx <= 0.5) {
-      break;
-    }
-    let appliedReductionPx = 0;
-    for (const index of shrinkableIndices) {
-      const entry = shrinkableEntries[index];
-      if (!entry) {
-        continue;
-      }
-      const capacityPx = entry.widthPx - MIN_DOCK_CHAT_WIDTH_PX;
-      const proportionalReductionPx =
-        remainingReductionPx * (capacityPx / totalShrinkCapacityPx);
-      const nextWidthPx = Math.max(
-        MIN_DOCK_CHAT_WIDTH_PX,
-        entry.widthPx - proportionalReductionPx,
-      );
-      appliedReductionPx += entry.widthPx - nextWidthPx;
-      entry.widthPx = nextWidthPx;
-    }
-    if (appliedReductionPx <= 0.5) {
-      break;
-    }
-    remainingReductionPx = Math.max(
-      0,
-      remainingReductionPx - appliedReductionPx,
-    );
-  }
-  dockedPills.forEach((pill, index) => {
-    nextWidthsById[pill.instanceId] =
-      shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX;
-  });
-  return nextWidthsById;
 }
 
 function resizeDirectionIncludesAxis(
@@ -690,61 +447,163 @@ function clampFloatingBoundsToViewport(
   };
 }
 
-function resolveFloatingSnapPresetFromPointer(
-  pointerX: number,
-  pointerY: number,
-  viewportWidthPx: number,
-  viewportHeightPx: number,
-  insets: FloatingWindowBoundaryInsets,
-): FloatingSnapPreset | null {
-  const minXBoundary = Math.max(0, insets.left);
-  const maxXBoundary = Math.max(
-    minXBoundary + 1,
-    viewportWidthPx - Math.max(0, insets.right),
-  );
-  const minYBoundary = Math.max(0, insets.top);
-  const maxYBoundary = Math.max(
-    minYBoundary + 1,
-    viewportHeightPx - Math.max(0, insets.bottom),
-  );
-  const nearLeft = pointerX <= minXBoundary + FLOATING_SNAP_EDGE_THRESHOLD_PX;
-  const nearRight = pointerX >= maxXBoundary - FLOATING_SNAP_EDGE_THRESHOLD_PX;
-  const nearTop = pointerY <= minYBoundary + FLOATING_SNAP_EDGE_THRESHOLD_PX;
-  const nearBottom = pointerY >= maxYBoundary - FLOATING_SNAP_EDGE_THRESHOLD_PX;
-
-  if (nearTop && nearLeft) {
-    return "top_left";
-  }
-  if (nearTop && nearRight) {
-    return "top_right";
-  }
-  if (nearBottom && nearLeft) {
-    return "bottom_left";
-  }
-  if (nearBottom && nearRight) {
-    return "bottom_right";
-  }
-  if (nearLeft) {
-    return "left";
-  }
-  if (nearRight) {
-    return "right";
-  }
-  if (nearTop) {
-    return "top";
-  }
-  if (nearBottom) {
-    return "bottom";
-  }
-  return null;
-}
-
 function buildPillBaseClass(isActive: boolean): string {
   if (isActive) {
     return "border-setta-400 bg-white text-setta-900 dark:border-setta-500 dark:bg-setta-900 dark:text-setta-100";
   }
   return "border-setta-300 bg-setta-100 text-setta-700 hover:bg-setta-200 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
 }
+
+function isVisibleCanvasWindow(pill: ResolvedWindowPill): boolean {
+  return (
+    !pill.isClosed &&
+    !pill.isMinimized &&
+    (pill.placement === ChatWindowPlacementEnum.bottom_docked ||
+      pill.placement === ChatWindowPlacementEnum.floating ||
+      pill.placement === ChatWindowPlacementEnum.maximized)
+  );
+}
+
+function resolveTopZIndexWindow(
+  pills: readonly ResolvedWindowPill[],
+): ResolvedWindowPill | null {
+  let activeWindow: ResolvedWindowPill | null = null;
+  for (const pill of pills) {
+    if (!activeWindow || pill.zIndex > activeWindow.zIndex) {
+      activeWindow = pill;
+    }
+  }
+  return activeWindow;
+}
+
+function resolveTopZIndexWindowId(
+  pills: readonly ResolvedWindowPill[],
+): string | null {
+  return resolveTopZIndexWindow(pills)?.instanceId ?? null;
+}
+
+function resolveActiveVisibleWindowId(
+  orderedPills: readonly ResolvedWindowPill[],
+  isCanvasVisibilitySuppressed: boolean,
+): string | null {
+  if (isCanvasVisibilitySuppressed) {
+    return null;
+  }
+  const visibleWindows = orderedPills.filter(isVisibleCanvasWindow);
+  return resolveTopZIndexWindowId(visibleWindows);
+}
+
+function resolveDockCycleOffsetForWindowOpen({
+  instanceId,
+  isMinimized,
+  orderedPills,
+  dockVisibleStartIndex,
+  maxVisibleDockedCount,
+  openDockedCount,
+}: {
+  instanceId: string;
+  isMinimized: boolean;
+  orderedPills: readonly ResolvedWindowPill[];
+  dockVisibleStartIndex: number;
+  maxVisibleDockedCount: number;
+  openDockedCount: number;
+}): number | null {
+  if (maxVisibleDockedCount <= 0) {
+    return null;
+  }
+  const shouldSkipDockCycleCandidate = (pill: ResolvedWindowPill) =>
+    pill.isClosed ||
+    pill.placement !== ChatWindowPlacementEnum.bottom_docked ||
+    (pill.isMinimized && pill.instanceId !== instanceId);
+  let targetDockIndex = 0;
+  let foundTarget = false;
+  for (const pill of orderedPills) {
+    if (shouldSkipDockCycleCandidate(pill)) {
+      continue;
+    }
+    if (pill.instanceId === instanceId) {
+      foundTarget = true;
+      break;
+    }
+    targetDockIndex += 1;
+  }
+  if (!foundTarget) {
+    return null;
+  }
+  const currentEndIndex = dockVisibleStartIndex + maxVisibleDockedCount;
+  let nextStartIndex = dockVisibleStartIndex;
+  if (targetDockIndex < dockVisibleStartIndex) {
+    nextStartIndex = targetDockIndex;
+  } else if (targetDockIndex >= currentEndIndex) {
+    nextStartIndex = targetDockIndex - maxVisibleDockedCount + 1;
+  }
+  const nextTotalDockCount = openDockedCount + (isMinimized ? 1 : 0);
+  const nextMaxStartIndex = Math.max(
+    0,
+    nextTotalDockCount - maxVisibleDockedCount,
+  );
+  return nextMaxStartIndex - clampNumber(nextStartIndex, 0, nextMaxStartIndex);
+}
+
+function shouldIgnoreFloatingDragPointerDown(
+  event: PointerEvent<HTMLButtonElement>,
+): boolean {
+  return (
+    event.button !== 0 ||
+    (event.detail > 1 &&
+      event.target instanceof HTMLElement &&
+      event.target.closest("[data-project-chat-window-title='true']") !== null)
+  );
+}
+
+function buildFloatingDragState({
+  pointerId,
+  instanceId,
+  pointerX,
+  pointerY,
+  currentBounds,
+  restoreBoundsOnUnsnap,
+  positionFloatingBoundsForUnsnap,
+}: {
+  pointerId: number;
+  instanceId: string;
+  pointerX: number;
+  pointerY: number;
+  currentBounds: ChatWindowBounds;
+  restoreBoundsOnUnsnap: ChatWindowBounds | null;
+  positionFloatingBoundsForUnsnap: (args: {
+    currentBounds: ChatWindowBounds;
+    restoreBounds: ChatWindowBounds;
+    pointerX: number;
+    pointerY: number;
+  }) => ChatWindowBounds;
+}): ActiveFloatingDrag {
+  const dragBoundsStart = restoreBoundsOnUnsnap
+    ? positionFloatingBoundsForUnsnap({
+        currentBounds,
+        restoreBounds: restoreBoundsOnUnsnap,
+        pointerX,
+        pointerY,
+      })
+    : currentBounds;
+  const clonedCurrentBounds = { ...currentBounds };
+  return {
+    pointerId,
+    instanceId,
+    startX: pointerX,
+    startY: pointerY,
+    startBounds: clonedCurrentBounds,
+    dragBoundsStart: { ...dragBoundsStart },
+    lastBounds: clonedCurrentBounds,
+    restoreBoundsOnUnsnap,
+    hasActivatedUnsnap: restoreBoundsOnUnsnap === null,
+  };
+}
+
+type ShortcutCommand = {
+  shortcut: ParsedShortcut;
+  run: () => void;
+};
 
 const DOCKED_CHAT_WINDOW_SHADOW_CLASS =
   "shadow-[0_-1px_6px_rgba(15,23,42,0.08)] dark:shadow-[0_-1px_6px_rgba(0,0,0,0.18)]";
@@ -1222,6 +1081,1833 @@ function MinimizedPillStrip({
   );
 }
 
+type ProjectChatWindowContentProps = {
+  pill: ResolvedWindowPill;
+  projectConfigId: string;
+  host: ResolvedWindowPill["placement"];
+  showEmbeddedGitPaneToggle?: boolean;
+};
+
+function ProjectChatWindowContent({
+  pill,
+  projectConfigId,
+  host,
+  showEmbeddedGitPaneToggle = true,
+}: ProjectChatWindowContentProps) {
+  if (pill.mode === ChatWindowModeEnum.git_graph_mode) {
+    return (
+      <GitGraphWindowContent
+        instanceId={pill.instanceId}
+        showEmbeddedGitPaneToggle={showEmbeddedGitPaneToggle}
+      />
+    );
+  }
+  return (
+    <UnifiedChatSurface
+      mode={pill.mode}
+      host={host}
+      surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+        projectConfigId,
+        pill.instanceId,
+      )}
+      projectChatId={pill.chatId}
+      setProjectChatId={(next) => {
+        const resolvedChatId =
+          typeof next === "function" ? next(pill.chatId ?? undefined) : next;
+        setProjectChatWindowChatId(pill.instanceId, resolvedChatId);
+      }}
+    />
+  );
+}
+
+type DockedWindowResizeHandlesProps = {
+  pill: ResolvedWindowPill;
+  onPointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    pill: ResolvedWindowPill,
+    direction: WindowResizeDirection,
+  ) => void;
+  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+};
+
+function DockedWindowResizeHandles({
+  pill,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: DockedWindowResizeHandlesProps) {
+  return DOCK_WINDOW_RESIZE_HANDLES.map((handle) => (
+    <div
+      key={`${pill.instanceId}-${handle.direction}`}
+      role="separator"
+      aria-orientation={
+        handle.direction === "top" || handle.direction === "bottom"
+          ? "horizontal"
+          : "vertical"
+      }
+      className={`group/resize absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
+      data-testid="project-chat-bottom-dock-resize-handle"
+      data-resize-direction={handle.direction}
+      onPointerDown={(event) => {
+        onPointerDown(event, pill, handle.direction);
+      }}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
+      {handle.indicatorClassName ? (
+        <div className={handle.indicatorClassName} />
+      ) : null}
+    </div>
+  ));
+}
+
+type FloatingWindowResizeHandlesProps = {
+  pill: ResolvedWindowPill;
+  onPointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    pill: ResolvedWindowPill,
+    direction: WindowResizeDirection,
+  ) => void;
+  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+};
+
+function FloatingWindowResizeHandles({
+  pill,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: FloatingWindowResizeHandlesProps) {
+  return FLOATING_WINDOW_RESIZE_HANDLES.map((handle) => (
+    <div
+      key={`${pill.instanceId}-floating-${handle.direction}`}
+      role="separator"
+      aria-orientation={
+        handle.direction === "top" || handle.direction === "bottom"
+          ? "horizontal"
+          : "vertical"
+      }
+      className={`absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
+      onPointerDown={(event) => {
+        onPointerDown(event, pill, handle.direction);
+      }}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      data-testid="project-chat-floating-window-resize-handle"
+      data-resize-direction={handle.direction}
+      data-chat-window-instance-id={pill.instanceId}
+    >
+      {handle.indicatorClassName ? (
+        <div className={handle.indicatorClassName} />
+      ) : null}
+    </div>
+  ));
+}
+
+type DockedWindowPanelProps = {
+  pill: ResolvedWindowPill;
+  projectConfigId: string;
+  canEditLayout: boolean;
+  dockAvailableHeightPx: number;
+  resolvedWindowWidthPx: number;
+  resolvedWindowHeightPx: number;
+  dockedExitAnimation: ChatWindowExitAnimationKind | null;
+  dockedEnterAnimation: ChatWindowEnterAnimationKind | null;
+  dockedEnterAnimationPrime: ChatWindowEnterAnimationKind | null;
+  showDockHeaderCycleControls: boolean;
+  canCycleDockBackward: boolean;
+  canCycleDockForward: boolean;
+  onCycleDockBackward: () => void;
+  onCycleDockForward: () => void;
+  onFocusWindow: (instanceId: string) => void;
+  onShowInCanvas: (instanceId: string) => void;
+  onUndockWindow: (instanceId: string) => void;
+  onMaximizeWindow: (instanceId: string) => void;
+  onMinimizeWindow: (instanceId: string) => void;
+  onCloseWindow: (instanceId: string) => void;
+  onSetWindowTitle: (instanceId: string, nextTitle: string) => void;
+  onSingleDockResizePointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    pill: ResolvedWindowPill,
+    direction: WindowResizeDirection,
+  ) => void;
+  onSingleDockResizePointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onSingleDockResizePointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+};
+
+function DockedWindowPanel({
+  pill,
+  projectConfigId,
+  canEditLayout,
+  dockAvailableHeightPx,
+  resolvedWindowWidthPx,
+  resolvedWindowHeightPx,
+  dockedExitAnimation,
+  dockedEnterAnimation,
+  dockedEnterAnimationPrime,
+  showDockHeaderCycleControls,
+  canCycleDockBackward,
+  canCycleDockForward,
+  onCycleDockBackward,
+  onCycleDockForward,
+  onFocusWindow,
+  onShowInCanvas,
+  onUndockWindow,
+  onMaximizeWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+  onSetWindowTitle,
+  onSingleDockResizePointerDown,
+  onSingleDockResizePointerMove,
+  onSingleDockResizePointerUp,
+}: DockedWindowPanelProps) {
+  const canShowCanvasAction = canMoveProjectChatWindowToCanvas(pill.mode);
+  const titleCommit =
+    pill.mode === ChatWindowModeEnum.git_graph_mode
+      ? undefined
+      : (nextTitle: string) => {
+          onSetWindowTitle(pill.instanceId, nextTitle);
+        };
+
+  return (
+    <article
+      key={pill.instanceId}
+      className={`pointer-events-auto relative flex min-h-0 min-w-[16rem] shrink-0 flex-col overflow-hidden bg-transparent ${DOCKED_CHAT_WINDOW_SHADOW_CLASS} ${getChatWindowExitAnimationClass(
+        dockedExitAnimation,
+        ChatWindowPlacementEnum.bottom_docked,
+      )} ${getChatWindowEnterAnimationClass(
+        dockedEnterAnimationPrime,
+        ChatWindowPlacementEnum.bottom_docked,
+      )}`}
+      style={{
+        width: resolvedWindowWidthPx,
+        height: resolvedWindowHeightPx,
+        minWidth: MIN_DOCK_CHAT_WIDTH_PX,
+        maxWidth: DOCK_SURFACE_MAX_WIDTH_PX,
+        minHeight: MIN_DOCK_CHAT_HEIGHT_PX,
+        maxHeight: dockAvailableHeightPx,
+      }}
+      data-testid="project-chat-bottom-dock-window-panel"
+      data-chat-window-instance-id={pill.instanceId}
+      data-chat-window-exit-animation={dockedExitAnimation ?? undefined}
+      data-chat-window-enter-animation={dockedEnterAnimation ?? undefined}
+      onPointerDown={() => {
+        onFocusWindow(pill.instanceId);
+      }}
+    >
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {pill.sectionId ? (
+          <SectionWindowSurface
+            sectionId={pill.sectionId}
+            roundedClassName={DOCKED_WINDOWED_CHAT_ROUNDED_CLASS}
+            chatHost={ChatWindowPlacementEnum.bottom_docked}
+            chatModeOverride={pill.mode}
+            headerActions={
+              <>
+                {showDockHeaderCycleControls ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
+                      onClick={onCycleDockBackward}
+                      disabled={!canCycleDockBackward}
+                      aria-label={getWindowControlQuickInfoText({
+                        action: "show_previous_docked_chat",
+                      })}
+                      data-testid="project-chat-window-cycle-left"
+                      data-chat-window-instance-id={pill.instanceId}
+                      {...getWindowControlQuickInfoHandlers({
+                        action: "show_previous_docked_chat",
+                      })}
+                    >
+                      <MdChevronLeft size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
+                      onClick={onCycleDockForward}
+                      disabled={!canCycleDockForward}
+                      aria-label={getWindowControlQuickInfoText({
+                        action: "show_next_docked_chat",
+                      })}
+                      data-testid="project-chat-window-cycle-right"
+                      data-chat-window-instance-id={pill.instanceId}
+                      {...getWindowControlQuickInfoHandlers({
+                        action: "show_next_docked_chat",
+                      })}
+                    >
+                      <MdChevronRight size={12} />
+                    </button>
+                  </>
+                ) : null}
+                {canShowCanvasAction ? (
+                  <button
+                    type="button"
+                    className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                    onClick={() => {
+                      onShowInCanvas(pill.instanceId);
+                    }}
+                    aria-label={getWindowControlQuickInfoText({
+                      action: "show_in_canvas",
+                      title: pill.title,
+                    })}
+                    data-testid="project-chat-window-show-in-canvas"
+                    data-chat-window-instance-id={pill.instanceId}
+                    {...getWindowControlQuickInfoHandlers({
+                      action: "show_in_canvas",
+                      title: pill.title,
+                    })}
+                  >
+                    <MdFlipToFront size={12} />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                  onClick={() => {
+                    onUndockWindow(pill.instanceId);
+                  }}
+                  aria-label={getWindowControlQuickInfoText({
+                    action: "undock_window",
+                    title: pill.title,
+                  })}
+                  data-testid="project-chat-window-undock"
+                  data-chat-window-instance-id={pill.instanceId}
+                  {...getWindowControlQuickInfoHandlers({
+                    action: "undock_window",
+                    title: pill.title,
+                  })}
+                >
+                  <MdOpenInNew size={12} />
+                </button>
+                <button
+                  type="button"
+                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                  onClick={() => {
+                    onMaximizeWindow(pill.instanceId);
+                  }}
+                  aria-label={getWindowControlQuickInfoText({
+                    action: "maximize_window",
+                    title: pill.title,
+                  })}
+                  data-testid="project-chat-window-maximize"
+                  data-chat-window-instance-id={pill.instanceId}
+                  {...getWindowControlQuickInfoHandlers({
+                    action: "maximize_window",
+                    title: pill.title,
+                  })}
+                >
+                  {WINDOW_MAXIMIZE_ICON}
+                </button>
+                <button
+                  type="button"
+                  className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
+                  onClick={() => {
+                    onMinimizeWindow(pill.instanceId);
+                  }}
+                  aria-label={getWindowControlQuickInfoText({
+                    action: "minimize_window",
+                    title: pill.title,
+                  })}
+                  data-testid="project-chat-window-minimize"
+                  data-chat-window-instance-id={pill.instanceId}
+                  {...getWindowControlQuickInfoHandlers({
+                    action: "minimize_window",
+                    title: pill.title,
+                  })}
+                >
+                  <i className="gg-math-minus" />
+                </button>
+                <button
+                  type="button"
+                  className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
+                  onClick={() => {
+                    onCloseWindow(pill.instanceId);
+                  }}
+                  aria-label={getWindowControlQuickInfoText({
+                    action: "close_window",
+                    title: pill.title,
+                  })}
+                  data-testid="project-chat-window-close"
+                  data-chat-window-instance-id={pill.instanceId}
+                  {...getWindowControlQuickInfoHandlers({
+                    action: "close_window",
+                    title: pill.title,
+                  })}
+                >
+                  <i className="gg-close" />
+                </button>
+              </>
+            }
+          />
+        ) : (
+          <ProjectChatWindowSurface
+            title={pill.title}
+            mode={pill.mode}
+            instanceId={pill.instanceId}
+            allowLayoutMutations={canEditLayout}
+            roundedClassName={DOCKED_WINDOWED_CHAT_ROUNDED_CLASS}
+            onTitleClick={() => {
+              onFocusWindow(pill.instanceId);
+            }}
+            onTitleCommit={titleCommit}
+            actions={[
+              ...(showDockHeaderCycleControls
+                ? [
+                    {
+                      key: "cycle_left",
+                      label: "Show previous docked chat",
+                      testId: "project-chat-window-cycle-left",
+                      instanceId: pill.instanceId,
+                      icon: <MdChevronLeft size={12} />,
+                      className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
+                      disabled: !canCycleDockBackward,
+                      onClick: onCycleDockBackward,
+                    },
+                    {
+                      key: "cycle_right",
+                      label: "Show next docked chat",
+                      testId: "project-chat-window-cycle-right",
+                      instanceId: pill.instanceId,
+                      icon: <MdChevronRight size={12} />,
+                      className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
+                      disabled: !canCycleDockForward,
+                      onClick: onCycleDockForward,
+                    },
+                  ]
+                : []),
+              ...(canShowCanvasAction
+                ? [
+                    {
+                      key: "show_in_canvas",
+                      label: `Show ${pill.title} in canvas`,
+                      testId: "project-chat-window-show-in-canvas",
+                      instanceId: pill.instanceId,
+                      icon: <MdFlipToFront size={12} />,
+                      onClick: () => {
+                        onShowInCanvas(pill.instanceId);
+                      },
+                    },
+                  ]
+                : []),
+              {
+                key: "undock",
+                label: `Undock ${pill.title}`,
+                testId: "project-chat-window-undock",
+                instanceId: pill.instanceId,
+                icon: <MdOpenInNew size={12} />,
+                onClick: () => {
+                  onUndockWindow(pill.instanceId);
+                },
+              },
+              {
+                key: "maximize",
+                label: `Maximize ${pill.title}`,
+                testId: "project-chat-window-maximize",
+                instanceId: pill.instanceId,
+                icon: WINDOW_MAXIMIZE_ICON,
+                onClick: () => {
+                  onMaximizeWindow(pill.instanceId);
+                },
+              },
+              {
+                key: "minimize",
+                label: `Minimize ${pill.title}`,
+                testId: "project-chat-window-minimize",
+                instanceId: pill.instanceId,
+                className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
+                icon: <i className="gg-math-minus" />,
+                onClick: () => {
+                  onMinimizeWindow(pill.instanceId);
+                },
+              },
+              {
+                key: "close",
+                label: `Close ${pill.title}`,
+                testId: "project-chat-window-close",
+                instanceId: pill.instanceId,
+                className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
+                icon: <i className="gg-close" />,
+                onClick: () => {
+                  onCloseWindow(pill.instanceId);
+                },
+              },
+            ]}
+          >
+            <ProjectChatWindowContent
+              pill={pill}
+              projectConfigId={projectConfigId}
+              host={ChatWindowPlacementEnum.bottom_docked}
+            />
+          </ProjectChatWindowSurface>
+        )}
+        {canEditLayout ? (
+          <DockedWindowResizeHandles
+            pill={pill}
+            onPointerDown={onSingleDockResizePointerDown}
+            onPointerMove={onSingleDockResizePointerMove}
+            onPointerUp={onSingleDockResizePointerUp}
+          />
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+type DockedChatSurfaceLayerProps = {
+  visibleDockedPills: ResolvedWindowPill[];
+  projectConfigId: string;
+  canEditLayout: boolean;
+  dockAvailableHeightPx: number;
+  dockSurfaceWidthCss: string;
+  dockSurfaceHeightCss: string;
+  resolvedVisibleDockWindowWidthsById: Record<string, number>;
+  resolvedDockWindowHeightsById: Record<string, number>;
+  windowExitAnimationsById: Record<string, ChatWindowExitAnimationKind>;
+  windowEnterAnimationsById: Record<string, ChatWindowEnterAnimationKind>;
+  windowEnterAnimationPrimesById: Record<string, ChatWindowEnterAnimationKind>;
+  showDockHeaderCycleControls: boolean;
+  canCycleDockBackward: boolean;
+  canCycleDockForward: boolean;
+  onCycleDockBackward: () => void;
+  onCycleDockForward: () => void;
+  onFocusWindow: (instanceId: string) => void;
+  onShowInCanvas: (instanceId: string) => void;
+  onUndockWindow: (instanceId: string) => void;
+  onMaximizeWindow: (instanceId: string) => void;
+  onMinimizeWindow: (instanceId: string) => void;
+  onCloseWindow: (instanceId: string) => void;
+  onSetWindowTitle: (instanceId: string, nextTitle: string) => void;
+  onSingleDockResizePointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    pill: ResolvedWindowPill,
+    direction: WindowResizeDirection,
+  ) => void;
+  onSingleDockResizePointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onSingleDockResizePointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+};
+
+function DockedChatSurfaceLayer({
+  visibleDockedPills,
+  projectConfigId,
+  canEditLayout,
+  dockAvailableHeightPx,
+  dockSurfaceWidthCss,
+  dockSurfaceHeightCss,
+  resolvedVisibleDockWindowWidthsById,
+  resolvedDockWindowHeightsById,
+  windowExitAnimationsById,
+  windowEnterAnimationsById,
+  windowEnterAnimationPrimesById,
+  showDockHeaderCycleControls,
+  canCycleDockBackward,
+  canCycleDockForward,
+  onCycleDockBackward,
+  onCycleDockForward,
+  onFocusWindow,
+  onShowInCanvas,
+  onUndockWindow,
+  onMaximizeWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+  onSetWindowTitle,
+  onSingleDockResizePointerDown,
+  onSingleDockResizePointerMove,
+  onSingleDockResizePointerUp,
+}: DockedChatSurfaceLayerProps) {
+  return (
+    <section
+      className="pointer-events-none"
+      style={{
+        width: dockSurfaceWidthCss,
+        height: dockSurfaceHeightCss,
+      }}
+      data-testid="project-chat-bottom-dock-window"
+    >
+      <div
+        className="flex h-full min-h-0 items-end justify-end gap-3 overflow-x-hidden overflow-y-hidden px-1"
+        data-testid="project-chat-bottom-dock-window-grid"
+      >
+        {visibleDockedPills.map((pill) => (
+          <DockedWindowPanel
+            key={pill.instanceId}
+            pill={pill}
+            projectConfigId={projectConfigId}
+            canEditLayout={canEditLayout}
+            dockAvailableHeightPx={dockAvailableHeightPx}
+            resolvedWindowWidthPx={
+              resolvedVisibleDockWindowWidthsById[pill.instanceId] ??
+              DOCK_WINDOW_DEFAULT_WIDTH_PX
+            }
+            resolvedWindowHeightPx={
+              resolvedDockWindowHeightsById[pill.instanceId] ??
+              DOCK_WINDOW_DEFAULT_HEIGHT_PX
+            }
+            dockedExitAnimation={
+              windowExitAnimationsById[pill.instanceId] ?? null
+            }
+            dockedEnterAnimation={
+              windowEnterAnimationsById[pill.instanceId] ?? null
+            }
+            dockedEnterAnimationPrime={
+              windowEnterAnimationPrimesById[pill.instanceId] ?? null
+            }
+            showDockHeaderCycleControls={showDockHeaderCycleControls}
+            canCycleDockBackward={canCycleDockBackward}
+            canCycleDockForward={canCycleDockForward}
+            onCycleDockBackward={onCycleDockBackward}
+            onCycleDockForward={onCycleDockForward}
+            onFocusWindow={onFocusWindow}
+            onShowInCanvas={onShowInCanvas}
+            onUndockWindow={onUndockWindow}
+            onMaximizeWindow={onMaximizeWindow}
+            onMinimizeWindow={onMinimizeWindow}
+            onCloseWindow={onCloseWindow}
+            onSetWindowTitle={onSetWindowTitle}
+            onSingleDockResizePointerDown={onSingleDockResizePointerDown}
+            onSingleDockResizePointerMove={onSingleDockResizePointerMove}
+            onSingleDockResizePointerUp={onSingleDockResizePointerUp}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+type FloatingWindowPanelProps = {
+  pill: ResolvedWindowPill;
+  projectConfigId: string;
+  canEditLayout: boolean;
+  bounds: ChatWindowBounds;
+  floatingSnapPreset: FloatingSnapPreset | null;
+  floatingExitAnimation: ChatWindowExitAnimationKind | null;
+  floatingEnterAnimation: ChatWindowEnterAnimationKind | null;
+  floatingEnterAnimationPrime: ChatWindowEnterAnimationKind | null;
+  onFocusWindow: (instanceId: string) => void;
+  onShowInCanvas: (instanceId: string) => void;
+  onDockWindow: (instanceId: string) => void;
+  onMaximizeWindow: (instanceId: string) => void;
+  onMinimizeWindow: (instanceId: string) => void;
+  onCloseWindow: (instanceId: string) => void;
+  onSetWindowTitle: (instanceId: string, nextTitle: string) => void;
+  onFloatingDragPointerDown: (
+    event: PointerEvent<HTMLButtonElement>,
+    pill: ResolvedWindowPill,
+  ) => void;
+  onFloatingDragPointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
+  onFloatingDragPointerUp: (event: PointerEvent<HTMLButtonElement>) => void;
+  onFloatingResizePointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    pill: ResolvedWindowPill,
+    direction: WindowResizeDirection,
+  ) => void;
+  onFloatingResizePointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onFloatingResizePointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+};
+
+type FloatingWindowSurfaceProps = Omit<
+  FloatingWindowPanelProps,
+  | "bounds"
+  | "floatingSnapPreset"
+  | "floatingExitAnimation"
+  | "floatingEnterAnimation"
+  | "floatingEnterAnimationPrime"
+> & {
+  roundedClassName: string;
+};
+
+function FloatingSectionWindowSurface({
+  pill,
+  canEditLayout,
+  roundedClassName,
+  onShowInCanvas,
+  onDockWindow,
+  onMaximizeWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+  onFloatingDragPointerDown,
+  onFloatingDragPointerMove,
+  onFloatingDragPointerUp,
+}: FloatingWindowSurfaceProps) {
+  const canShowCanvasAction = canMoveProjectChatWindowToCanvas(pill.mode);
+
+  return (
+    <SectionWindowSurface
+      sectionId={pill.sectionId}
+      roundedClassName={roundedClassName}
+      chatHost={ChatWindowPlacementEnum.floating}
+      chatModeOverride={pill.mode}
+      headerActions={
+        canEditLayout ? (
+          <>
+            {canShowCanvasAction ? (
+              <button
+                type="button"
+                className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                onClick={() => {
+                  onShowInCanvas(pill.instanceId);
+                }}
+                aria-label={getWindowControlQuickInfoText({
+                  action: "show_in_canvas",
+                  title: pill.title,
+                })}
+                data-testid="project-chat-window-show-in-canvas"
+                data-chat-window-instance-id={pill.instanceId}
+                {...getWindowControlQuickInfoHandlers({
+                  action: "show_in_canvas",
+                  title: pill.title,
+                })}
+              >
+                <MdFlipToFront size={12} />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+              onClick={() => {
+                onDockWindow(pill.instanceId);
+              }}
+              aria-label={getWindowControlQuickInfoText({
+                action: "dock_window",
+                title: pill.title,
+              })}
+              data-testid="project-chat-window-dock"
+              data-chat-window-instance-id={pill.instanceId}
+              {...getWindowControlQuickInfoHandlers({
+                action: "dock_window",
+                title: pill.title,
+              })}
+            >
+              <MdVerticalAlignBottom size={12} />
+            </button>
+            <button
+              type="button"
+              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+              onClick={() => {
+                onMaximizeWindow(pill.instanceId);
+              }}
+              aria-label={getWindowControlQuickInfoText({
+                action: "maximize_window",
+                title: pill.title,
+              })}
+              data-testid="project-chat-window-maximize"
+              data-chat-window-instance-id={pill.instanceId}
+              {...getWindowControlQuickInfoHandlers({
+                action: "maximize_window",
+                title: pill.title,
+              })}
+            >
+              {WINDOW_MAXIMIZE_ICON}
+            </button>
+            <button
+              type="button"
+              className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
+              onClick={() => {
+                onMinimizeWindow(pill.instanceId);
+              }}
+              aria-label={getWindowControlQuickInfoText({
+                action: "minimize_window",
+                title: pill.title,
+              })}
+              data-testid="project-chat-window-minimize"
+              data-chat-window-instance-id={pill.instanceId}
+              {...getWindowControlQuickInfoHandlers({
+                action: "minimize_window",
+                title: pill.title,
+              })}
+            >
+              <i className="gg-math-minus" />
+            </button>
+            <button
+              type="button"
+              className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
+              onClick={() => {
+                onCloseWindow(pill.instanceId);
+              }}
+              aria-label={getWindowControlQuickInfoText({
+                action: "close_window",
+                title: pill.title,
+              })}
+              data-testid="project-chat-window-close"
+              data-chat-window-instance-id={pill.instanceId}
+              {...getWindowControlQuickInfoHandlers({
+                action: "close_window",
+                title: pill.title,
+              })}
+            >
+              <i className="gg-close" />
+            </button>
+          </>
+        ) : null
+      }
+      headerProps={
+        canEditLayout
+          ? {
+              "data-testid": "project-chat-floating-window-drag-handle",
+              className: "cursor-move",
+              onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+                if (isInteractiveWindowHeaderTarget(event.target)) {
+                  return;
+                }
+                onFloatingDragPointerDown(event, pill);
+              },
+              onPointerMove: onFloatingDragPointerMove,
+              onPointerUp: onFloatingDragPointerUp,
+            }
+          : undefined
+      }
+    />
+  );
+}
+
+function FloatingProjectWindowSurface({
+  pill,
+  projectConfigId,
+  canEditLayout,
+  roundedClassName,
+  onFocusWindow,
+  onShowInCanvas,
+  onDockWindow,
+  onMaximizeWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+  onSetWindowTitle,
+  onFloatingDragPointerDown,
+  onFloatingDragPointerMove,
+  onFloatingDragPointerUp,
+}: FloatingWindowSurfaceProps) {
+  const canShowCanvasAction = canMoveProjectChatWindowToCanvas(pill.mode);
+  const titleCommit =
+    pill.mode === ChatWindowModeEnum.git_graph_mode
+      ? undefined
+      : (nextTitle: string) => {
+          onSetWindowTitle(pill.instanceId, nextTitle);
+        };
+
+  return (
+    <ProjectChatWindowSurface
+      title={pill.title}
+      mode={pill.mode}
+      instanceId={pill.instanceId}
+      allowLayoutMutations={canEditLayout}
+      roundedClassName={roundedClassName}
+      headerClassName="cursor-move"
+      onTitleClick={() => {
+        onFocusWindow(pill.instanceId);
+      }}
+      onTitleCommit={titleCommit}
+      dragHandleTestId="project-chat-floating-window-drag-handle"
+      onTitlePointerDown={(event) => {
+        onFloatingDragPointerDown(event, pill);
+      }}
+      onTitlePointerMove={onFloatingDragPointerMove}
+      onTitlePointerUp={onFloatingDragPointerUp}
+      actions={[
+        ...(canShowCanvasAction
+          ? [
+              {
+                key: "show_in_canvas",
+                label: `Show ${pill.title} in canvas`,
+                testId: "project-chat-window-show-in-canvas",
+                instanceId: pill.instanceId,
+                icon: <MdFlipToFront size={12} />,
+                onClick: () => {
+                  onShowInCanvas(pill.instanceId);
+                },
+              },
+            ]
+          : []),
+        {
+          key: "dock",
+          label: `Dock ${pill.title}`,
+          testId: "project-chat-window-dock",
+          instanceId: pill.instanceId,
+          icon: <MdVerticalAlignBottom size={12} />,
+          onClick: () => {
+            onDockWindow(pill.instanceId);
+          },
+        },
+        {
+          key: "maximize",
+          label: `Maximize ${pill.title}`,
+          testId: "project-chat-window-maximize",
+          instanceId: pill.instanceId,
+          icon: WINDOW_MAXIMIZE_ICON,
+          onClick: () => {
+            onMaximizeWindow(pill.instanceId);
+          },
+        },
+        {
+          key: "minimize",
+          label: `Minimize ${pill.title}`,
+          testId: "project-chat-window-minimize",
+          instanceId: pill.instanceId,
+          className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
+          icon: <i className="gg-math-minus" />,
+          onClick: () => {
+            onMinimizeWindow(pill.instanceId);
+          },
+        },
+        {
+          key: "close",
+          label: `Close ${pill.title}`,
+          testId: "project-chat-window-close",
+          instanceId: pill.instanceId,
+          className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
+          icon: <i className="gg-close" />,
+          onClick: () => {
+            onCloseWindow(pill.instanceId);
+          },
+        },
+      ]}
+    >
+      <ProjectChatWindowContent
+        pill={pill}
+        projectConfigId={projectConfigId}
+        host={ChatWindowPlacementEnum.floating}
+      />
+    </ProjectChatWindowSurface>
+  );
+}
+
+function FloatingWindowPanel({
+  pill,
+  projectConfigId,
+  canEditLayout,
+  bounds,
+  floatingSnapPreset,
+  floatingExitAnimation,
+  floatingEnterAnimation,
+  floatingEnterAnimationPrime,
+  onFocusWindow,
+  onShowInCanvas,
+  onDockWindow,
+  onMaximizeWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+  onSetWindowTitle,
+  onFloatingDragPointerDown,
+  onFloatingDragPointerMove,
+  onFloatingDragPointerUp,
+  onFloatingResizePointerDown,
+  onFloatingResizePointerMove,
+  onFloatingResizePointerUp,
+}: FloatingWindowPanelProps) {
+  const roundedClassName = floatingSnapPreset
+    ? "rounded-none"
+    : WINDOWED_CHAT_ROUNDED_CLASS;
+
+  return (
+    <article
+      key={pill.instanceId}
+      className={`pointer-events-auto absolute flex min-h-0 min-w-0 flex-col overflow-hidden ${
+        floatingSnapPreset
+          ? "rounded-none shadow-none"
+          : `${WINDOWED_CHAT_ROUNDED_CLASS} ${FLOATING_CHAT_WINDOW_SHADOW_CLASS}`
+      } ${getChatWindowExitAnimationClass(
+        floatingExitAnimation,
+        ChatWindowPlacementEnum.floating,
+      )} ${getChatWindowEnterAnimationClass(
+        floatingEnterAnimationPrime,
+        ChatWindowPlacementEnum.floating,
+      )}`}
+      style={{
+        left: bounds.x,
+        top: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        zIndex: pill.zIndex,
+      }}
+      data-testid="project-chat-floating-window"
+      data-chat-window-instance-id={pill.instanceId}
+      data-chat-window-snap-preset={floatingSnapPreset ?? undefined}
+      data-chat-window-exit-animation={floatingExitAnimation ?? undefined}
+      data-chat-window-enter-animation={floatingEnterAnimation ?? undefined}
+      onPointerDown={() => {
+        onFocusWindow(pill.instanceId);
+      }}
+    >
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {pill.sectionId ? (
+          <FloatingSectionWindowSurface
+            pill={pill}
+            projectConfigId={projectConfigId}
+            canEditLayout={canEditLayout}
+            roundedClassName={roundedClassName}
+            onFocusWindow={onFocusWindow}
+            onShowInCanvas={onShowInCanvas}
+            onDockWindow={onDockWindow}
+            onMaximizeWindow={onMaximizeWindow}
+            onMinimizeWindow={onMinimizeWindow}
+            onCloseWindow={onCloseWindow}
+            onSetWindowTitle={onSetWindowTitle}
+            onFloatingDragPointerDown={onFloatingDragPointerDown}
+            onFloatingDragPointerMove={onFloatingDragPointerMove}
+            onFloatingDragPointerUp={onFloatingDragPointerUp}
+            onFloatingResizePointerDown={onFloatingResizePointerDown}
+            onFloatingResizePointerMove={onFloatingResizePointerMove}
+            onFloatingResizePointerUp={onFloatingResizePointerUp}
+          />
+        ) : (
+          <FloatingProjectWindowSurface
+            pill={pill}
+            projectConfigId={projectConfigId}
+            canEditLayout={canEditLayout}
+            roundedClassName={roundedClassName}
+            onFocusWindow={onFocusWindow}
+            onShowInCanvas={onShowInCanvas}
+            onDockWindow={onDockWindow}
+            onMaximizeWindow={onMaximizeWindow}
+            onMinimizeWindow={onMinimizeWindow}
+            onCloseWindow={onCloseWindow}
+            onSetWindowTitle={onSetWindowTitle}
+            onFloatingDragPointerDown={onFloatingDragPointerDown}
+            onFloatingDragPointerMove={onFloatingDragPointerMove}
+            onFloatingDragPointerUp={onFloatingDragPointerUp}
+            onFloatingResizePointerDown={onFloatingResizePointerDown}
+            onFloatingResizePointerMove={onFloatingResizePointerMove}
+            onFloatingResizePointerUp={onFloatingResizePointerUp}
+          />
+        )}
+        {floatingSnapPreset || !canEditLayout ? null : (
+          <FloatingWindowResizeHandles
+            pill={pill}
+            onPointerDown={onFloatingResizePointerDown}
+            onPointerMove={onFloatingResizePointerMove}
+            onPointerUp={onFloatingResizePointerUp}
+          />
+        )}
+      </div>
+    </article>
+  );
+}
+
+type FloatingWindowsLayerProps = {
+  openFloatingPills: ResolvedWindowPill[];
+  projectConfigId: string;
+  canEditLayout: boolean;
+  floatingBoundsById: Record<string, ChatWindowBounds>;
+  floatingSnapPresetById: Record<string, FloatingSnapPreset>;
+  windowExitAnimationsById: Record<string, ChatWindowExitAnimationKind>;
+  windowEnterAnimationsById: Record<string, ChatWindowEnterAnimationKind>;
+  windowEnterAnimationPrimesById: Record<string, ChatWindowEnterAnimationKind>;
+  onFocusWindow: (instanceId: string) => void;
+  onShowInCanvas: (instanceId: string) => void;
+  onDockWindow: (instanceId: string) => void;
+  onMaximizeWindow: (instanceId: string) => void;
+  onMinimizeWindow: (instanceId: string) => void;
+  onCloseWindow: (instanceId: string) => void;
+  onSetWindowTitle: (instanceId: string, nextTitle: string) => void;
+  onFloatingDragPointerDown: (
+    event: PointerEvent<HTMLButtonElement>,
+    pill: ResolvedWindowPill,
+  ) => void;
+  onFloatingDragPointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
+  onFloatingDragPointerUp: (event: PointerEvent<HTMLButtonElement>) => void;
+  onFloatingResizePointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    pill: ResolvedWindowPill,
+    direction: WindowResizeDirection,
+  ) => void;
+  onFloatingResizePointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onFloatingResizePointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+};
+
+function FloatingWindowsLayer({
+  openFloatingPills,
+  projectConfigId,
+  canEditLayout,
+  floatingBoundsById,
+  floatingSnapPresetById,
+  windowExitAnimationsById,
+  windowEnterAnimationsById,
+  windowEnterAnimationPrimesById,
+  onFocusWindow,
+  onShowInCanvas,
+  onDockWindow,
+  onMaximizeWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+  onSetWindowTitle,
+  onFloatingDragPointerDown,
+  onFloatingDragPointerMove,
+  onFloatingDragPointerUp,
+  onFloatingResizePointerDown,
+  onFloatingResizePointerMove,
+  onFloatingResizePointerUp,
+}: FloatingWindowsLayerProps) {
+  return (
+    <div
+      className="pointer-events-none fixed inset-0"
+      style={{ zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX }}
+    >
+      {openFloatingPills.map((pill) => (
+        <FloatingWindowPanel
+          key={pill.instanceId}
+          pill={pill}
+          projectConfigId={projectConfigId}
+          canEditLayout={canEditLayout}
+          bounds={floatingBoundsById[pill.instanceId] ?? pill.bounds}
+          floatingSnapPreset={floatingSnapPresetById[pill.instanceId] ?? null}
+          floatingExitAnimation={
+            windowExitAnimationsById[pill.instanceId] ?? null
+          }
+          floatingEnterAnimation={
+            windowEnterAnimationsById[pill.instanceId] ?? null
+          }
+          floatingEnterAnimationPrime={
+            windowEnterAnimationPrimesById[pill.instanceId] ?? null
+          }
+          onFocusWindow={onFocusWindow}
+          onShowInCanvas={onShowInCanvas}
+          onDockWindow={onDockWindow}
+          onMaximizeWindow={onMaximizeWindow}
+          onMinimizeWindow={onMinimizeWindow}
+          onCloseWindow={onCloseWindow}
+          onSetWindowTitle={onSetWindowTitle}
+          onFloatingDragPointerDown={onFloatingDragPointerDown}
+          onFloatingDragPointerMove={onFloatingDragPointerMove}
+          onFloatingDragPointerUp={onFloatingDragPointerUp}
+          onFloatingResizePointerDown={onFloatingResizePointerDown}
+          onFloatingResizePointerMove={onFloatingResizePointerMove}
+          onFloatingResizePointerUp={onFloatingResizePointerUp}
+        />
+      ))}
+    </div>
+  );
+}
+
+type FloatingSnapResizeOverlayProps = {
+  handles: FloatingSnapResizeHandle[];
+  onPointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    handle: FloatingSnapResizeHandle,
+  ) => void;
+  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+};
+
+function FloatingSnapResizeOverlay({
+  handles,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: FloatingSnapResizeOverlayProps) {
+  return (
+    <div
+      className="pointer-events-none fixed inset-0"
+      style={{ zIndex: CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX }}
+    >
+      {handles.map((handle) => {
+        const handleLengthPx = Math.max(
+          0,
+          handle.end - handle.start - FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+        );
+        return (
+          <div
+            key={`${handle.axis}-${handle.leadingInstanceIds.join("|")}-${handle.trailingInstanceIds.join("|")}`}
+            role="separator"
+            aria-orientation={
+              handle.axis === "vertical" ? "vertical" : "horizontal"
+            }
+            className={`pointer-events-auto absolute flex items-center justify-center ${
+              handle.axis === "vertical"
+                ? "cursor-col-resize"
+                : "cursor-row-resize"
+            }`}
+            style={
+              handle.axis === "vertical"
+                ? {
+                    left:
+                      handle.coordinate -
+                      FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX / 2,
+                    top: handle.start,
+                    width: FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                    height: Math.max(
+                      FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                      handleLengthPx + FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                    ),
+                  }
+                : {
+                    left: handle.start,
+                    top:
+                      handle.coordinate -
+                      FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX / 2,
+                    width: Math.max(
+                      FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                      handleLengthPx + FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                    ),
+                    height: FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                  }
+            }
+            onPointerDown={(event) => {
+              onPointerDown(event, handle);
+            }}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            data-testid="project-chat-floating-snap-resize-handle"
+            data-resize-axis={handle.axis}
+          >
+            <div
+              className="rounded-full bg-setta-300/80 transition-colors hover:bg-blue-500 dark:bg-setta-600/80 dark:hover:bg-blue-400"
+              style={
+                handle.axis === "vertical"
+                  ? {
+                      width: FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX,
+                      height: Math.max(24, handle.end - handle.start - 8),
+                    }
+                  : {
+                      width: Math.max(24, handle.end - handle.start - 8),
+                      height: FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX,
+                    }
+              }
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type MaximizedWindowLayerProps = {
+  openMaximizedWindow: ResolvedWindowPill;
+  projectConfigId: string;
+  canEditLayout: boolean;
+  maximizedExitAnimation: ChatWindowExitAnimationKind | null;
+  maximizedEnterAnimation: ChatWindowEnterAnimationKind | null;
+  maximizedEnterAnimationPrime: ChatWindowEnterAnimationKind | null;
+  isPaneTrackedMaximizedGitGraphWindow: boolean;
+  trackedGitPaneGraphRect: PaneTrackedRect | null;
+  workspaceTopInsetPx: number;
+  dockBottomOffsetPx: number;
+  onFocusWindow: (instanceId: string) => void;
+  onShowInCanvas: (instanceId: string) => void;
+  onRestoreWindow: (instanceId: string) => void;
+  onDockWindow: (instanceId: string) => void;
+  onMinimizeWindow: (instanceId: string) => void;
+  onCloseWindow: (instanceId: string) => void;
+  onSetWindowTitle: (instanceId: string, nextTitle: string) => void;
+};
+
+type MaximizedWindowSurfaceProps = Omit<
+  MaximizedWindowLayerProps,
+  | "maximizedExitAnimation"
+  | "maximizedEnterAnimation"
+  | "maximizedEnterAnimationPrime"
+  | "isPaneTrackedMaximizedGitGraphWindow"
+  | "trackedGitPaneGraphRect"
+  | "workspaceTopInsetPx"
+  | "dockBottomOffsetPx"
+>;
+
+function MaximizedSectionWindowSurface({
+  openMaximizedWindow,
+  canEditLayout,
+  onShowInCanvas,
+  onRestoreWindow,
+  onDockWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+}: MaximizedWindowSurfaceProps) {
+  const canShowCanvasAction = canMoveProjectChatWindowToCanvas(
+    openMaximizedWindow.mode,
+  );
+
+  return (
+    <SectionWindowSurface
+      sectionId={openMaximizedWindow.sectionId}
+      roundedClassName="rounded-none"
+      chatHost={ChatWindowPlacementEnum.maximized}
+      chatModeOverride={openMaximizedWindow.mode}
+      headerActions={
+        canEditLayout ? (
+          <>
+            {canShowCanvasAction ? (
+              <button
+                type="button"
+                className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                onClick={() => {
+                  onShowInCanvas(openMaximizedWindow.instanceId);
+                }}
+                aria-label={getWindowControlQuickInfoText({
+                  action: "show_in_canvas",
+                  title: openMaximizedWindow.title,
+                })}
+                data-testid="project-chat-window-show-in-canvas"
+                data-chat-window-instance-id={openMaximizedWindow.instanceId}
+                {...getWindowControlQuickInfoHandlers({
+                  action: "show_in_canvas",
+                  title: openMaximizedWindow.title,
+                })}
+              >
+                <MdFlipToFront size={12} />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+              onClick={() => {
+                onRestoreWindow(openMaximizedWindow.instanceId);
+              }}
+              aria-label={getWindowControlQuickInfoText({
+                action: "restore_window",
+                title: openMaximizedWindow.title,
+              })}
+              data-testid="project-chat-window-restore"
+              data-chat-window-instance-id={openMaximizedWindow.instanceId}
+              {...getWindowControlQuickInfoHandlers({
+                action: "restore_window",
+                title: openMaximizedWindow.title,
+              })}
+            >
+              <MdFlipToFront size={12} />
+            </button>
+            <button
+              type="button"
+              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+              onClick={() => {
+                onDockWindow(openMaximizedWindow.instanceId);
+              }}
+              aria-label={getWindowControlQuickInfoText({
+                action: "dock_window",
+                title: openMaximizedWindow.title,
+              })}
+              data-testid="project-chat-window-dock"
+              data-chat-window-instance-id={openMaximizedWindow.instanceId}
+              {...getWindowControlQuickInfoHandlers({
+                action: "dock_window",
+                title: openMaximizedWindow.title,
+              })}
+            >
+              <MdVerticalAlignBottom size={12} />
+            </button>
+            <button
+              type="button"
+              className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
+              onClick={() => {
+                onMinimizeWindow(openMaximizedWindow.instanceId);
+              }}
+              aria-label={getWindowControlQuickInfoText({
+                action: "minimize_window",
+                title: openMaximizedWindow.title,
+              })}
+              data-testid="project-chat-window-minimize"
+              data-chat-window-instance-id={openMaximizedWindow.instanceId}
+              {...getWindowControlQuickInfoHandlers({
+                action: "minimize_window",
+                title: openMaximizedWindow.title,
+              })}
+            >
+              <i className="gg-math-minus" />
+            </button>
+            <button
+              type="button"
+              className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
+              onClick={() => {
+                onCloseWindow(openMaximizedWindow.instanceId);
+              }}
+              aria-label={getWindowControlQuickInfoText({
+                action: "close_window",
+                title: openMaximizedWindow.title,
+              })}
+              data-testid="project-chat-window-close"
+              data-chat-window-instance-id={openMaximizedWindow.instanceId}
+              {...getWindowControlQuickInfoHandlers({
+                action: "close_window",
+                title: openMaximizedWindow.title,
+              })}
+            >
+              <i className="gg-close" />
+            </button>
+          </>
+        ) : null
+      }
+    />
+  );
+}
+
+function MaximizedProjectWindowSurface({
+  openMaximizedWindow,
+  projectConfigId,
+  canEditLayout,
+  isPaneTrackedMaximizedGitGraphWindow,
+  onFocusWindow,
+  onShowInCanvas,
+  onRestoreWindow,
+  onDockWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+  onSetWindowTitle,
+}: MaximizedWindowSurfaceProps) {
+  const canShowCanvasAction = canMoveProjectChatWindowToCanvas(
+    openMaximizedWindow.mode,
+  );
+  const titleCommit =
+    openMaximizedWindow.mode === ChatWindowModeEnum.git_graph_mode
+      ? undefined
+      : (nextTitle: string) => {
+          onSetWindowTitle(openMaximizedWindow.instanceId, nextTitle);
+        };
+
+  return (
+    <ProjectChatWindowSurface
+      title={openMaximizedWindow.title}
+      mode={openMaximizedWindow.mode}
+      instanceId={openMaximizedWindow.instanceId}
+      allowLayoutMutations={canEditLayout}
+      roundedClassName="rounded-none"
+      onTitleClick={() => {
+        onFocusWindow(openMaximizedWindow.instanceId);
+      }}
+      onTitleCommit={titleCommit}
+      actions={[
+        ...(canShowCanvasAction
+          ? [
+              {
+                key: "show_in_canvas",
+                label: `Show ${openMaximizedWindow.title} in canvas`,
+                testId: "project-chat-window-show-in-canvas",
+                instanceId: openMaximizedWindow.instanceId,
+                icon: <MdFlipToFront size={12} />,
+                onClick: () => {
+                  onShowInCanvas(openMaximizedWindow.instanceId);
+                },
+              },
+            ]
+          : []),
+        {
+          key: "restore",
+          label: `Restore ${openMaximizedWindow.title}`,
+          testId: "project-chat-window-restore",
+          instanceId: openMaximizedWindow.instanceId,
+          icon: <MdFlipToFront size={12} />,
+          onClick: () => {
+            onRestoreWindow(openMaximizedWindow.instanceId);
+          },
+        },
+        {
+          key: "dock",
+          label: `Dock ${openMaximizedWindow.title}`,
+          testId: "project-chat-window-dock",
+          instanceId: openMaximizedWindow.instanceId,
+          icon: <MdVerticalAlignBottom size={12} />,
+          onClick: () => {
+            onDockWindow(openMaximizedWindow.instanceId);
+          },
+        },
+        {
+          key: "minimize",
+          label: `Minimize ${openMaximizedWindow.title}`,
+          testId: "project-chat-window-minimize",
+          instanceId: openMaximizedWindow.instanceId,
+          className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
+          icon: <i className="gg-math-minus" />,
+          onClick: () => {
+            onMinimizeWindow(openMaximizedWindow.instanceId);
+          },
+        },
+        {
+          key: "close",
+          label: `Close ${openMaximizedWindow.title}`,
+          testId: "project-chat-window-close",
+          instanceId: openMaximizedWindow.instanceId,
+          className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
+          icon: <i className="gg-close" />,
+          onClick: () => {
+            onCloseWindow(openMaximizedWindow.instanceId);
+          },
+        },
+      ]}
+    >
+      <ProjectChatWindowContent
+        pill={openMaximizedWindow}
+        projectConfigId={projectConfigId}
+        host={ChatWindowPlacementEnum.maximized}
+        showEmbeddedGitPaneToggle={!isPaneTrackedMaximizedGitGraphWindow}
+      />
+    </ProjectChatWindowSurface>
+  );
+}
+
+function MaximizedWindowLayer({
+  openMaximizedWindow,
+  projectConfigId,
+  canEditLayout,
+  maximizedExitAnimation,
+  maximizedEnterAnimation,
+  maximizedEnterAnimationPrime,
+  isPaneTrackedMaximizedGitGraphWindow,
+  trackedGitPaneGraphRect,
+  workspaceTopInsetPx,
+  dockBottomOffsetPx,
+  onFocusWindow,
+  onShowInCanvas,
+  onRestoreWindow,
+  onDockWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+  onSetWindowTitle,
+}: MaximizedWindowLayerProps) {
+  return (
+    <section
+      className={`border-setta-250 fixed overflow-hidden rounded-none border bg-setta-50 shadow-none dark:border-setta-800 dark:bg-setta-900 ${getChatWindowExitAnimationClass(
+        maximizedExitAnimation,
+        ChatWindowPlacementEnum.maximized,
+      )} ${getChatWindowEnterAnimationClass(
+        maximizedEnterAnimationPrime,
+        ChatWindowPlacementEnum.maximized,
+      )}`}
+      style={{
+        zIndex: isPaneTrackedMaximizedGitGraphWindow
+          ? TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX
+          : CHAT_WINDOW_LAYER_Z_INDEX,
+        ...(isPaneTrackedMaximizedGitGraphWindow && trackedGitPaneGraphRect
+          ? {
+              left: trackedGitPaneGraphRect.left,
+              top: trackedGitPaneGraphRect.top,
+              width: trackedGitPaneGraphRect.width,
+              height: trackedGitPaneGraphRect.height,
+            }
+          : {
+              left: SIDE_RAIL_WIDTH_PX,
+              right: SIDE_RAIL_WIDTH_PX,
+              top: workspaceTopInsetPx,
+              bottom: dockBottomOffsetPx,
+            }),
+      }}
+      data-testid="project-chat-maximized-window"
+      data-chat-window-instance-id={openMaximizedWindow.instanceId}
+      data-chat-window-tracked-pane-target={
+        isPaneTrackedMaximizedGitGraphWindow ? "git_overview" : undefined
+      }
+      data-chat-window-exit-animation={maximizedExitAnimation ?? undefined}
+      data-chat-window-enter-animation={maximizedEnterAnimation ?? undefined}
+    >
+      <article className="flex h-full min-h-0 flex-col overflow-hidden">
+        {openMaximizedWindow.sectionId ? (
+          <MaximizedSectionWindowSurface
+            openMaximizedWindow={openMaximizedWindow}
+            projectConfigId={projectConfigId}
+            canEditLayout={canEditLayout}
+            isPaneTrackedMaximizedGitGraphWindow={
+              isPaneTrackedMaximizedGitGraphWindow
+            }
+            trackedGitPaneGraphRect={trackedGitPaneGraphRect}
+            workspaceTopInsetPx={workspaceTopInsetPx}
+            dockBottomOffsetPx={dockBottomOffsetPx}
+            onFocusWindow={onFocusWindow}
+            onShowInCanvas={onShowInCanvas}
+            onRestoreWindow={onRestoreWindow}
+            onDockWindow={onDockWindow}
+            onMinimizeWindow={onMinimizeWindow}
+            onCloseWindow={onCloseWindow}
+            onSetWindowTitle={onSetWindowTitle}
+          />
+        ) : (
+          <MaximizedProjectWindowSurface
+            openMaximizedWindow={openMaximizedWindow}
+            projectConfigId={projectConfigId}
+            canEditLayout={canEditLayout}
+            isPaneTrackedMaximizedGitGraphWindow={
+              isPaneTrackedMaximizedGitGraphWindow
+            }
+            trackedGitPaneGraphRect={trackedGitPaneGraphRect}
+            workspaceTopInsetPx={workspaceTopInsetPx}
+            dockBottomOffsetPx={dockBottomOffsetPx}
+            onFocusWindow={onFocusWindow}
+            onShowInCanvas={onShowInCanvas}
+            onRestoreWindow={onRestoreWindow}
+            onDockWindow={onDockWindow}
+            onMinimizeWindow={onMinimizeWindow}
+            onCloseWindow={onCloseWindow}
+            onSetWindowTitle={onSetWindowTitle}
+          />
+        )}
+      </article>
+    </section>
+  );
+}
+
+function useProjectChatWindowAnimationState({
+  instancesById,
+  orderedPills,
+  projectConfigId,
+}: {
+  instancesById: Record<string, unknown>;
+  orderedPills: ResolvedWindowPill[];
+  projectConfigId: string;
+}) {
+  const [windowExitAnimationsById, setWindowExitAnimationsById] = useState<
+    Record<string, ChatWindowExitAnimationKind>
+  >({});
+  const [windowEnterAnimationsById, setWindowEnterAnimationsById] = useState<
+    Record<string, ChatWindowEnterAnimationKind>
+  >({});
+  const [pillExitAnimationsById, setPillExitAnimationsById] = useState<
+    Record<string, ChatWindowPillExitAnimationKind>
+  >({});
+  const [windowEnterAnimationPrimesById, setWindowEnterAnimationPrimesById] =
+    useState<Record<string, ChatWindowEnterAnimationKind>>({});
+  const windowExitTimeoutsRef = useRef<Record<string, number>>({});
+  const pillExitTimeoutsRef = useRef<Record<string, number>>({});
+  const windowEnterPrimeTimeoutsRef = useRef<Record<string, number>>({});
+  const windowEnterAnimationTimeoutsRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    return () => {
+      for (const timeoutId of Object.values(windowExitTimeoutsRef.current)) {
+        window.clearTimeout(timeoutId);
+      }
+      windowExitTimeoutsRef.current = {};
+      for (const timeoutId of Object.values(pillExitTimeoutsRef.current)) {
+        window.clearTimeout(timeoutId);
+      }
+      pillExitTimeoutsRef.current = {};
+      for (const timeoutId of Object.values(
+        windowEnterPrimeTimeoutsRef.current,
+      )) {
+        window.clearTimeout(timeoutId);
+      }
+      windowEnterPrimeTimeoutsRef.current = {};
+      for (const timeoutId of Object.values(
+        windowEnterAnimationTimeoutsRef.current,
+      )) {
+        window.clearTimeout(timeoutId);
+      }
+      windowEnterAnimationTimeoutsRef.current = {};
+    };
+  }, []);
+
+  const clearWindowExitAnimation = useCallback((instanceId: string) => {
+    const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
+    if (activeTimeoutId !== undefined) {
+      window.clearTimeout(activeTimeoutId);
+      delete windowExitTimeoutsRef.current[instanceId];
+    }
+    setWindowExitAnimationsById((current) => {
+      if (!(instanceId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+  }, []);
+
+  const clearWindowEnterAnimation = useCallback((instanceId: string) => {
+    const activePrimeTimeoutId =
+      windowEnterPrimeTimeoutsRef.current[instanceId];
+    if (activePrimeTimeoutId !== undefined) {
+      window.clearTimeout(activePrimeTimeoutId);
+      delete windowEnterPrimeTimeoutsRef.current[instanceId];
+    }
+    const activeAnimationTimeoutId =
+      windowEnterAnimationTimeoutsRef.current[instanceId];
+    if (activeAnimationTimeoutId !== undefined) {
+      window.clearTimeout(activeAnimationTimeoutId);
+      delete windowEnterAnimationTimeoutsRef.current[instanceId];
+    }
+    setWindowEnterAnimationPrimesById((current) => {
+      if (!(instanceId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+    setWindowEnterAnimationsById((current) => {
+      if (!(instanceId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+  }, []);
+
+  const clearPillExitAnimation = useCallback((instanceId: string) => {
+    const activeTimeoutId = pillExitTimeoutsRef.current[instanceId];
+    if (activeTimeoutId !== undefined) {
+      window.clearTimeout(activeTimeoutId);
+      delete pillExitTimeoutsRef.current[instanceId];
+    }
+    setPillExitAnimationsById((current) => {
+      if (!(instanceId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+  }, []);
+
+  const startWindowEnterAnimation = useCallback(
+    (instanceId: string, kind: ChatWindowEnterAnimationKind) => {
+      clearWindowEnterAnimation(instanceId);
+      setWindowEnterAnimationPrimesById((current) => {
+        if (current[instanceId] === kind) {
+          return current;
+        }
+        return {
+          ...current,
+          [instanceId]: kind,
+        };
+      });
+      windowEnterPrimeTimeoutsRef.current[instanceId] = window.setTimeout(
+        () => {
+          delete windowEnterPrimeTimeoutsRef.current[instanceId];
+          setWindowEnterAnimationsById((current) => {
+            if (current[instanceId] === kind) {
+              return current;
+            }
+            return {
+              ...current,
+              [instanceId]: kind,
+            };
+          });
+          setWindowEnterAnimationPrimesById((current) => {
+            if (!(instanceId in current)) {
+              return current;
+            }
+            const next = { ...current };
+            delete next[instanceId];
+            return next;
+          });
+        },
+        CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS,
+      );
+      windowEnterAnimationTimeoutsRef.current[instanceId] = window.setTimeout(
+        () => {
+          delete windowEnterAnimationTimeoutsRef.current[instanceId];
+          setWindowEnterAnimationsById((current) => {
+            if (!(instanceId in current)) {
+              return current;
+            }
+            const next = { ...current };
+            delete next[instanceId];
+            return next;
+          });
+        },
+        CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS +
+          CHAT_WINDOW_ENTER_DURATION_MS,
+      );
+    },
+    [clearWindowEnterAnimation],
+  );
+
+  const startPillExitAnimation = useCallback(
+    (
+      instanceId: string,
+      kind: ChatWindowPillExitAnimationKind,
+      onComplete: () => void,
+    ) => {
+      clearPillExitAnimation(instanceId);
+      setPillExitAnimationsById((current) => {
+        if (current[instanceId] === kind) {
+          return current;
+        }
+        return {
+          ...current,
+          [instanceId]: kind,
+        };
+      });
+      pillExitTimeoutsRef.current[instanceId] = window.setTimeout(() => {
+        delete pillExitTimeoutsRef.current[instanceId];
+        setPillExitAnimationsById((current) => {
+          if (!(instanceId in current)) {
+            return current;
+          }
+          const next = { ...current };
+          delete next[instanceId];
+          return next;
+        });
+        onComplete();
+      }, CHAT_WINDOW_PILL_EXIT_DURATION_MS);
+    },
+    [clearPillExitAnimation],
+  );
+
+  const startWindowExitAnimation = useCallback(
+    (
+      instanceId: string,
+      kind: ChatWindowExitAnimationKind,
+      { focusAfterClose = false }: { focusAfterClose?: boolean } = {},
+    ) => {
+      if (!instancesById[instanceId]) {
+        return;
+      }
+      clearWindowEnterAnimation(instanceId);
+      clearWindowExitAnimation(instanceId);
+      setWindowExitAnimationsById((current) => {
+        if (current[instanceId] === kind) {
+          return current;
+        }
+        return {
+          ...current,
+          [instanceId]: kind,
+        };
+      });
+      const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
+      if (activeTimeoutId !== undefined) {
+        window.clearTimeout(activeTimeoutId);
+      }
+      const durationMs =
+        kind === "minimize"
+          ? CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS
+          : CHAT_WINDOW_CLOSE_EXIT_DURATION_MS;
+      windowExitTimeoutsRef.current[instanceId] = window.setTimeout(() => {
+        delete windowExitTimeoutsRef.current[instanceId];
+        if (kind === "minimize") {
+          minimizeProjectChatWindow(instanceId);
+        } else {
+          clearTrackedGitPaneGraphWindowIfMatches(projectConfigId, instanceId);
+          closeProjectChatWindow(instanceId);
+        }
+        setWindowExitAnimationsById((current) => {
+          if (!(instanceId in current)) {
+            return current;
+          }
+          const next = { ...current };
+          delete next[instanceId];
+          return next;
+        });
+        if (focusAfterClose) {
+          const nextVisibleWindowId = orderedPills.find(
+            (candidatePill) =>
+              candidatePill.instanceId !== instanceId &&
+              !candidatePill.isClosed &&
+              !candidatePill.isMinimized,
+          );
+          if (nextVisibleWindowId) {
+            focusProjectChatWindow(nextVisibleWindowId.instanceId);
+          }
+        }
+      }, durationMs);
+    },
+    [
+      clearWindowEnterAnimation,
+      clearWindowExitAnimation,
+      instancesById,
+      orderedPills,
+      projectConfigId,
+    ],
+  );
+
+  return {
+    windowExitAnimationsById,
+    windowEnterAnimationsById,
+    pillExitAnimationsById,
+    windowEnterAnimationPrimesById,
+    clearWindowExitAnimation,
+    clearWindowEnterAnimation,
+    clearPillExitAnimation,
+    startWindowEnterAnimation,
+    startPillExitAnimation,
+    startWindowExitAnimation,
+  };
+}
+
 export function ProjectChatBottomDock() {
   const hasViewModeTabs = useHasViewModeTabs();
   const { canEditLayout } = useShareCapabilities();
@@ -1241,22 +2927,7 @@ export function ProjectChatBottomDock() {
     (state) => state.chatWindowing?.autoCreateInitialChat ?? true,
   );
   const chatWindowingShortcuts = useSettings(
-    (state) => ({
-      canvasToggle:
-        state.chatWindowing?.shortcuts?.canvasToggle ?? "Shift + Esc",
-      maximizeFocused:
-        state.chatWindowing?.shortcuts?.maximizeFocused ??
-        "Mod + Shift + Enter",
-      minimizeFocused:
-        state.chatWindowing?.shortcuts?.minimizeFocused ?? "Mod + Shift + M",
-      snapLeft:
-        state.chatWindowing?.shortcuts?.snapLeft ?? "Mod + Alt + ArrowLeft",
-      snapRight:
-        state.chatWindowing?.shortcuts?.snapRight ?? "Mod + Alt + ArrowRight",
-      snapTop: state.chatWindowing?.shortcuts?.snapTop ?? "Mod + Alt + ArrowUp",
-      snapBottom:
-        state.chatWindowing?.shortcuts?.snapBottom ?? "Mod + Alt + ArrowDown",
-    }),
+    (state) => resolveChatWindowingShortcuts(state.chatWindowing?.shortcuts),
     _.isEqual,
   );
   const {
@@ -1342,17 +3013,6 @@ export function ProjectChatBottomDock() {
   const [dockPreviewHeightsById, setDockPreviewHeightsById] = useState<
     Record<string, number>
   >({});
-  const [windowExitAnimationsById, setWindowExitAnimationsById] = useState<
-    Record<string, ChatWindowExitAnimationKind>
-  >({});
-  const [windowEnterAnimationsById, setWindowEnterAnimationsById] = useState<
-    Record<string, ChatWindowEnterAnimationKind>
-  >({});
-  const [pillExitAnimationsById, setPillExitAnimationsById] = useState<
-    Record<string, ChatWindowPillExitAnimationKind>
-  >({});
-  const [windowEnterAnimationPrimesById, setWindowEnterAnimationPrimesById] =
-    useState<Record<string, ChatWindowEnterAnimationKind>>({});
   const [trackedGitPaneGraphRect, setTrackedGitPaneGraphRect] =
     useState<PaneTrackedRect | null>(null);
   const dockBottomOffsetPx = hasViewModeTabs ? VIEW_MODE_TABS_HEIGHT_PX : 0;
@@ -1370,10 +3030,6 @@ export function ProjectChatBottomDock() {
   const activeFloatingSnapPreviewRef = useRef<ActiveFloatingSnapPreview | null>(
     null,
   );
-  const windowExitTimeoutsRef = useRef<Record<string, number>>({});
-  const pillExitTimeoutsRef = useRef<Record<string, number>>({});
-  const windowEnterPrimeTimeoutsRef = useRef<Record<string, number>>({});
-  const windowEnterAnimationTimeoutsRef = useRef<Record<string, number>>({});
   const floatingPreviewBoundsRef = useRef<Record<string, ChatWindowBounds>>({});
   const queuedFloatingPreviewBoundsRef = useRef<Record<
     string,
@@ -1383,7 +3039,6 @@ export function ProjectChatBottomDock() {
   const floatingRestoreBoundsByIdRef = useRef<Record<string, ChatWindowBounds>>(
     {},
   );
-
   useEffect(() => {
     if (!canUseManagedChat) {
       return;
@@ -1521,26 +3176,6 @@ export function ProjectChatBottomDock() {
       }
       floatingPreviewAnimationFrameRef.current = null;
       queuedFloatingPreviewBoundsRef.current = null;
-      for (const timeoutId of Object.values(windowExitTimeoutsRef.current)) {
-        window.clearTimeout(timeoutId);
-      }
-      windowExitTimeoutsRef.current = {};
-      for (const timeoutId of Object.values(pillExitTimeoutsRef.current)) {
-        window.clearTimeout(timeoutId);
-      }
-      pillExitTimeoutsRef.current = {};
-      for (const timeoutId of Object.values(
-        windowEnterPrimeTimeoutsRef.current,
-      )) {
-        window.clearTimeout(timeoutId);
-      }
-      windowEnterPrimeTimeoutsRef.current = {};
-      for (const timeoutId of Object.values(
-        windowEnterAnimationTimeoutsRef.current,
-      )) {
-        window.clearTimeout(timeoutId);
-      }
-      windowEnterAnimationTimeoutsRef.current = {};
     };
   }, []);
 
@@ -1612,6 +3247,22 @@ export function ProjectChatBottomDock() {
     order,
     sectionNamesById,
   ]);
+  const {
+    windowExitAnimationsById,
+    windowEnterAnimationsById,
+    pillExitAnimationsById,
+    windowEnterAnimationPrimesById,
+    clearWindowExitAnimation,
+    clearWindowEnterAnimation,
+    clearPillExitAnimation,
+    startWindowEnterAnimation,
+    startPillExitAnimation,
+    startWindowExitAnimation,
+  } = useProjectChatWindowAnimationState({
+    instancesById,
+    orderedPills,
+    projectConfigId,
+  });
 
   const openDockedPills = useMemo(
     () =>
@@ -1621,10 +3272,6 @@ export function ProjectChatBottomDock() {
           !pill.isMinimized &&
           pill.placement === ChatWindowPlacementEnum.bottom_docked,
       ),
-    [orderedPills],
-  );
-  const minimizedPills = useMemo(
-    () => orderedPills.filter((pill) => pill.isMinimized),
     [orderedPills],
   );
   const nonClosedPills = useMemo(
@@ -1662,52 +3309,24 @@ export function ProjectChatBottomDock() {
     return activeWindow;
   }, [orderedPills]);
 
-  const hasOverlayWindows =
-    openDockedPills.length > 0 ||
-    openFloatingPills.length > 0 ||
-    openMaximizedWindow !== null;
+  const hasOverlayWindows = useMemo(
+    () =>
+      openDockedPills.length > 0 ||
+      openFloatingPills.length > 0 ||
+      openMaximizedWindow !== null,
+    [openDockedPills.length, openFloatingPills.length, openMaximizedWindow],
+  );
 
-  const activeVisibleWindowId = useMemo(() => {
-    if (isCanvasVisibilitySuppressed) {
-      return null;
-    }
-    let activeWindow: ResolvedWindowPill | null = null;
-    for (const pill of orderedPills) {
-      if (
-        pill.isClosed ||
-        pill.isMinimized ||
-        (pill.placement !== ChatWindowPlacementEnum.bottom_docked &&
-          pill.placement !== ChatWindowPlacementEnum.floating &&
-          pill.placement !== ChatWindowPlacementEnum.maximized)
-      ) {
-        continue;
-      }
-      if (!activeWindow || pill.zIndex > activeWindow.zIndex) {
-        activeWindow = pill;
-      }
-    }
-    return activeWindow?.instanceId ?? null;
-  }, [isCanvasVisibilitySuppressed, orderedPills]);
+  const activeVisibleWindowId = useMemo(
+    () =>
+      resolveActiveVisibleWindowId(orderedPills, isCanvasVisibilitySuppressed),
+    [isCanvasVisibilitySuppressed, orderedPills],
+  );
 
-  const activeDockedWindowId = useMemo(() => {
-    let activeWindow: ResolvedWindowPill | null = null;
-    for (const pill of openDockedPills) {
-      if (!activeWindow || pill.zIndex > activeWindow.zIndex) {
-        activeWindow = pill;
-      }
-    }
-    return activeWindow?.instanceId ?? null;
-  }, [openDockedPills]);
-
-  const activeFloatingWindowId = useMemo(() => {
-    let activeWindow: ResolvedWindowPill | null = null;
-    for (const pill of openFloatingPills) {
-      if (!activeWindow || pill.zIndex > activeWindow.zIndex) {
-        activeWindow = pill;
-      }
-    }
-    return activeWindow?.instanceId ?? null;
-  }, [openFloatingPills]);
+  const activeFloatingWindowId = useMemo(
+    () => resolveTopZIndexWindowId(openFloatingPills),
+    [openFloatingPills],
+  );
 
   const floatingWindowBoundaryInsets = useMemo(
     () =>
@@ -1791,8 +3410,10 @@ export function ProjectChatBottomDock() {
   );
   const dockSurfaceRightPx =
     SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
-  const showDockManagerMenu =
-    canCreateManagedChatWindow || orderedPills.length > 0;
+  const showDockManagerMenu = useMemo(
+    () => canCreateManagedChatWindow || orderedPills.length > 0,
+    [canCreateManagedChatWindow, orderedPills.length],
+  );
   const dockStripReservedWidthPx = resolveDockStripReservedWidthPx({
     nonClosedChatCount: nonClosedPills.length,
     showManagerMenu: showDockManagerMenu,
@@ -1906,23 +3527,28 @@ export function ProjectChatBottomDock() {
       ),
     [dockSurfaceAvailableWidthPx, openDockedPills.length],
   );
-  const maxDockCycleOffset = Math.max(
-    0,
-    openDockedPills.length - maxVisibleDockedCount,
-  );
-  const dockVisibleStartIndex =
-    maxVisibleDockedCount === 0
-      ? openDockedPills.length
-      : Math.max(0, maxDockCycleOffset - dockCycleOffsetFromEnd);
-  const visibleDockedPills = useMemo(() => {
-    if (maxVisibleDockedCount === 0) {
-      return [] as ResolvedWindowPill[];
-    }
-    return openDockedPills.slice(
-      dockVisibleStartIndex,
-      dockVisibleStartIndex + maxVisibleDockedCount,
-    );
-  }, [dockVisibleStartIndex, maxVisibleDockedCount, openDockedPills]);
+  const { maxDockCycleOffset, dockVisibleStartIndex, visibleDockedPills } =
+    useMemo(() => {
+      const nextMaxDockCycleOffset = Math.max(
+        0,
+        openDockedPills.length - maxVisibleDockedCount,
+      );
+      const nextDockVisibleStartIndex =
+        maxVisibleDockedCount === 0
+          ? openDockedPills.length
+          : Math.max(0, nextMaxDockCycleOffset - dockCycleOffsetFromEnd);
+      return {
+        maxDockCycleOffset: nextMaxDockCycleOffset,
+        dockVisibleStartIndex: nextDockVisibleStartIndex,
+        visibleDockedPills:
+          maxVisibleDockedCount === 0
+            ? ([] as ResolvedWindowPill[])
+            : openDockedPills.slice(
+                nextDockVisibleStartIndex,
+                nextDockVisibleStartIndex + maxVisibleDockedCount,
+              ),
+      };
+    }, [dockCycleOffsetFromEnd, maxVisibleDockedCount, openDockedPills]);
   const responsiveHiddenDockedIds = useMemo(() => {
     const visibleIds = new Set(
       visibleDockedPills.map((pill) => pill.instanceId),
@@ -2034,8 +3660,24 @@ export function ProjectChatBottomDock() {
     setIsCanvasVisibilitySuppressed(false);
   }, [hasOverlayWindows]);
 
-  const showDockedChatSurface =
-    visibleDockedPills.length > 0 && !isCanvasVisibilitySuppressed;
+  const {
+    showDockedChatSurface,
+    showCanvasVisibilityToggle,
+    showStandaloneMinimizedPills,
+  } = useMemo(() => {
+    const nextShowDockedChatSurface =
+      visibleDockedPills.length > 0 && !isCanvasVisibilitySuppressed;
+    return {
+      showDockedChatSurface: nextShowDockedChatSurface,
+      showCanvasVisibilityToggle:
+        isCanvasVisibilitySuppressed || openMaximizedWindow !== null,
+      showStandaloneMinimizedPills: !nextShowDockedChatSurface,
+    };
+  }, [
+    isCanvasVisibilitySuppressed,
+    openMaximizedWindow,
+    visibleDockedPills.length,
+  ]);
   const dockSurfaceTargetWidthPx = useMemo(() => {
     if (visibleDockedPills.length === 0) {
       return 0;
@@ -2088,9 +3730,6 @@ export function ProjectChatBottomDock() {
     const topBottomReservedPx = workspaceTopInsetPx + dockBottomOffsetPx;
     return `min(${dockSurfaceTargetHeightPx}px, calc(100vh - ${topBottomReservedPx}px))`;
   }, [dockBottomOffsetPx, dockSurfaceTargetHeightPx, workspaceTopInsetPx]);
-  const showCanvasVisibilityToggle =
-    isCanvasVisibilitySuppressed || openMaximizedWindow !== null;
-  const showStandaloneMinimizedPills = !showDockedChatSurface;
 
   const handleCreate = useCallback(() => {
     if (!canCreateManagedChatWindow) {
@@ -2104,272 +3743,25 @@ export function ProjectChatBottomDock() {
     setIsCanvasVisibilitySuppressed(false);
   }, [canCreateManagedChatWindow]);
 
-  const clearWindowExitAnimation = useCallback((instanceId: string) => {
-    const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
-    if (activeTimeoutId !== undefined) {
-      window.clearTimeout(activeTimeoutId);
-      delete windowExitTimeoutsRef.current[instanceId];
-    }
-    setWindowExitAnimationsById((current) => {
-      if (!(instanceId in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-  }, []);
-
-  const clearWindowEnterAnimation = useCallback((instanceId: string) => {
-    const activePrimeTimeoutId =
-      windowEnterPrimeTimeoutsRef.current[instanceId];
-    if (activePrimeTimeoutId !== undefined) {
-      window.clearTimeout(activePrimeTimeoutId);
-      delete windowEnterPrimeTimeoutsRef.current[instanceId];
-    }
-    const activeAnimationTimeoutId =
-      windowEnterAnimationTimeoutsRef.current[instanceId];
-    if (activeAnimationTimeoutId !== undefined) {
-      window.clearTimeout(activeAnimationTimeoutId);
-      delete windowEnterAnimationTimeoutsRef.current[instanceId];
-    }
-    setWindowEnterAnimationsById((current) => {
-      if (!(instanceId in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-    setWindowEnterAnimationPrimesById((current) => {
-      if (!(instanceId in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-  }, []);
-
-  const clearPillExitAnimation = useCallback((instanceId: string) => {
-    const activeTimeoutId = pillExitTimeoutsRef.current[instanceId];
-    if (activeTimeoutId !== undefined) {
-      window.clearTimeout(activeTimeoutId);
-      delete pillExitTimeoutsRef.current[instanceId];
-    }
-    setPillExitAnimationsById((current) => {
-      if (!(instanceId in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-  }, []);
-
-  const startWindowEnterAnimation = useCallback(
-    (instanceId: string, kind: ChatWindowEnterAnimationKind) => {
-      setWindowEnterAnimationsById((current) => {
-        if (current[instanceId] === kind) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: kind,
-        };
-      });
-      setWindowEnterAnimationPrimesById((current) => {
-        if (current[instanceId] === kind) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: kind,
-        };
-      });
-      const activePrimeTimeoutId =
-        windowEnterPrimeTimeoutsRef.current[instanceId];
-      if (activePrimeTimeoutId !== undefined) {
-        window.clearTimeout(activePrimeTimeoutId);
-      }
-      const activeAnimationTimeoutId =
-        windowEnterAnimationTimeoutsRef.current[instanceId];
-      if (activeAnimationTimeoutId !== undefined) {
-        window.clearTimeout(activeAnimationTimeoutId);
-      }
-      windowEnterPrimeTimeoutsRef.current[instanceId] = window.setTimeout(
-        () => {
-          delete windowEnterPrimeTimeoutsRef.current[instanceId];
-          setWindowEnterAnimationPrimesById((current) => {
-            if (!(instanceId in current)) {
-              return current;
-            }
-            const next = { ...current };
-            delete next[instanceId];
-            return next;
-          });
-        },
-        CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS,
-      );
-      windowEnterAnimationTimeoutsRef.current[instanceId] = window.setTimeout(
-        () => {
-          delete windowEnterAnimationTimeoutsRef.current[instanceId];
-          setWindowEnterAnimationsById((current) => {
-            if (!(instanceId in current)) {
-              return current;
-            }
-            const next = { ...current };
-            delete next[instanceId];
-            return next;
-          });
-        },
-        CHAT_WINDOW_ENTER_DURATION_MS,
-      );
-    },
-    [],
-  );
-
-  const startPillExitAnimation = useCallback(
-    (
-      instanceId: string,
-      kind: ChatWindowPillExitAnimationKind,
-      onComplete: () => void,
-    ) => {
-      setPillExitAnimationsById((current) => {
-        if (current[instanceId] === kind) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: kind,
-        };
-      });
-      const activeTimeoutId = pillExitTimeoutsRef.current[instanceId];
-      if (activeTimeoutId !== undefined) {
-        window.clearTimeout(activeTimeoutId);
-      }
-      pillExitTimeoutsRef.current[instanceId] = window.setTimeout(() => {
-        delete pillExitTimeoutsRef.current[instanceId];
-        setPillExitAnimationsById((current) => {
-          if (!(instanceId in current)) {
-            return current;
-          }
-          const next = { ...current };
-          delete next[instanceId];
-          return next;
-        });
-        onComplete();
-      }, CHAT_WINDOW_PILL_EXIT_DURATION_MS);
-    },
-    [],
-  );
-
-  const startWindowExitAnimation = useCallback(
-    (
-      instanceId: string,
-      kind: ChatWindowExitAnimationKind,
-      { focusAfterClose = false }: { focusAfterClose?: boolean } = {},
-    ) => {
-      if (!instancesById[instanceId]) {
-        return;
-      }
-      clearTrackedGitPaneGraphWindowIfMatches(projectConfigId, instanceId);
-      clearWindowEnterAnimation(instanceId);
-      setWindowExitAnimationsById((current) => {
-        if (current[instanceId] === kind) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: kind,
-        };
-      });
-      const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
-      if (activeTimeoutId !== undefined) {
-        window.clearTimeout(activeTimeoutId);
-      }
-      const durationMs =
-        kind === "minimize"
-          ? CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS
-          : CHAT_WINDOW_CLOSE_EXIT_DURATION_MS;
-      windowExitTimeoutsRef.current[instanceId] = window.setTimeout(() => {
-        delete windowExitTimeoutsRef.current[instanceId];
-        if (kind === "minimize") {
-          minimizeProjectChatWindow(instanceId);
-        } else {
-          closeProjectChatWindow(instanceId);
-        }
-        setWindowExitAnimationsById((current) => {
-          if (!(instanceId in current)) {
-            return current;
-          }
-          const next = { ...current };
-          delete next[instanceId];
-          return next;
-        });
-        if (focusAfterClose) {
-          const nextVisibleWindowId = orderedPills.find(
-            (candidatePill) =>
-              candidatePill.instanceId !== instanceId &&
-              !candidatePill.isClosed &&
-              !candidatePill.isMinimized,
-          );
-          if (nextVisibleWindowId) {
-            focusProjectChatWindow(nextVisibleWindowId.instanceId);
-          }
-        }
-      }, durationMs);
-    },
-    [clearWindowEnterAnimation, instancesById, orderedPills, projectConfigId],
-  );
-
   const handleOpenWindow = useCallback(
     (instanceId: string, source: "pill" | "menu") => {
       const instance = instancesById[instanceId];
       if (!instance) {
         return;
       }
+      const nextDockCycleOffset = resolveDockCycleOffsetForWindowOpen({
+        instanceId,
+        isMinimized: instance.isMinimized,
+        orderedPills,
+        dockVisibleStartIndex,
+        maxVisibleDockedCount,
+        openDockedCount: openDockedPills.length,
+      });
       if (
         instance.placement === ChatWindowPlacementEnum.bottom_docked &&
-        maxVisibleDockedCount > 0
+        nextDockCycleOffset !== null
       ) {
-        let targetDockIndex = 0;
-        let foundTarget = false;
-        for (const pill of orderedPills) {
-          if (
-            pill.isClosed ||
-            pill.placement !== ChatWindowPlacementEnum.bottom_docked
-          ) {
-            continue;
-          }
-          if (pill.isMinimized && pill.instanceId !== instanceId) {
-            continue;
-          }
-          if (pill.instanceId === instanceId) {
-            foundTarget = true;
-            break;
-          }
-          targetDockIndex += 1;
-        }
-        if (foundTarget) {
-          const currentEndIndex = dockVisibleStartIndex + maxVisibleDockedCount;
-          let nextStartIndex = dockVisibleStartIndex;
-          if (targetDockIndex < dockVisibleStartIndex) {
-            nextStartIndex = targetDockIndex;
-          } else if (targetDockIndex >= currentEndIndex) {
-            nextStartIndex = targetDockIndex - maxVisibleDockedCount + 1;
-          }
-          const nextTotalDockCount =
-            openDockedPills.length + (instance.isMinimized ? 1 : 0);
-          const nextMaxStartIndex = Math.max(
-            0,
-            nextTotalDockCount - maxVisibleDockedCount,
-          );
-          setDockCycleOffsetFromEnd(
-            nextMaxStartIndex -
-              clampNumber(nextStartIndex, 0, nextMaxStartIndex),
-          );
-        }
+        setDockCycleOffsetFromEnd(nextDockCycleOffset);
       }
       clearWindowExitAnimation(instanceId);
       clearWindowEnterAnimation(instanceId);
@@ -2513,6 +3905,10 @@ export function ProjectChatBottomDock() {
     },
     [clearWindowExitAnimation],
   );
+
+  const handleShowWindowInCanvas = useCallback((instanceId: string) => {
+    void bootProjectChatWindowToCanvasSection(instanceId);
+  }, []);
 
   const clampFloatingBoundsForCurrentViewport = useCallback(
     (bounds: ChatWindowBounds): ChatWindowBounds => {
@@ -2723,6 +4119,86 @@ export function ProjectChatBottomDock() {
     const parsedSnapBottomLeft = parseShortcut(SNAP_BOTTOM_LEFT_SHORTCUT);
     const parsedSnapBottomRight = parseShortcut(SNAP_BOTTOM_RIGHT_SHORTCUT);
     const macOs = isMacOs();
+    const shortcutCommands: ShortcutCommand[] = [
+      ...(hasOverlayWindows
+        ? [
+            {
+              shortcut: parsedCanvasToggle,
+              run: () => {
+                setIsCanvasVisibilitySuppressed((current) => !current);
+              },
+            },
+          ]
+        : []),
+      ...(activeVisibleWindowId
+        ? [
+            {
+              shortcut: parsedMaximizeFocused,
+              run: () => {
+                maximizeProjectChatWindow(activeVisibleWindowId);
+                focusProjectChatWindow(activeVisibleWindowId);
+                setIsCanvasVisibilitySuppressed(false);
+              },
+            },
+            {
+              shortcut: parsedMinimizeFocused,
+              run: () => {
+                startWindowExitAnimation(activeVisibleWindowId, "minimize", {
+                  focusAfterClose: true,
+                });
+              },
+            },
+          ]
+        : []),
+      {
+        shortcut: parsedSnapLeft,
+        run: () => {
+          snapWindowTargetByPreset("left");
+        },
+      },
+      {
+        shortcut: parsedSnapRight,
+        run: () => {
+          snapWindowTargetByPreset("right");
+        },
+      },
+      {
+        shortcut: parsedSnapTop,
+        run: () => {
+          snapWindowTargetByPreset("top");
+        },
+      },
+      {
+        shortcut: parsedSnapBottom,
+        run: () => {
+          snapWindowTargetByPreset("bottom");
+        },
+      },
+      {
+        shortcut: parsedSnapTopLeft,
+        run: () => {
+          snapWindowTargetByPreset("top_left");
+        },
+      },
+      {
+        shortcut: parsedSnapTopRight,
+        run: () => {
+          snapWindowTargetByPreset("top_right");
+        },
+      },
+      {
+        shortcut: parsedSnapBottomLeft,
+        run: () => {
+          snapWindowTargetByPreset("bottom_left");
+        },
+      },
+      {
+        shortcut: parsedSnapBottomRight,
+        run: () => {
+          snapWindowTargetByPreset("bottom_right");
+        },
+      },
+    ];
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (
@@ -2733,95 +4209,15 @@ export function ProjectChatBottomDock() {
         return;
       }
       const eventCode = getNormalizedEventCode(event);
-
-      if (
-        hasOverlayWindows &&
-        isShortcutPressed(event, eventCode, parsedCanvasToggle, macOs)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        setIsCanvasVisibilitySuppressed((current) => !current);
+      const matchingCommand = shortcutCommands.find(({ shortcut }) =>
+        isShortcutPressed(event, eventCode, shortcut, macOs),
+      );
+      if (!matchingCommand) {
         return;
       }
-
-      if (
-        activeVisibleWindowId &&
-        isShortcutPressed(event, eventCode, parsedMaximizeFocused, macOs)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        maximizeProjectChatWindow(activeVisibleWindowId);
-        focusProjectChatWindow(activeVisibleWindowId);
-        setIsCanvasVisibilitySuppressed(false);
-        return;
-      }
-
-      if (
-        activeVisibleWindowId &&
-        isShortcutPressed(event, eventCode, parsedMinimizeFocused, macOs)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        startWindowExitAnimation(activeVisibleWindowId, "minimize", {
-          focusAfterClose: true,
-        });
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapLeft, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("left");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapRight, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("right");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapTop, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("top");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapBottom, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("bottom");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapTopLeft, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("top_left");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapTopRight, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("top_right");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapBottomLeft, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("bottom_left");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapBottomRight, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("bottom_right");
-      }
+      event.preventDefault();
+      event.stopPropagation();
+      matchingCommand.run();
     };
 
     document.addEventListener("keydown", onKeyDown, true);
@@ -3046,14 +4442,7 @@ export function ProjectChatBottomDock() {
 
   const handleFloatingDragPointerDown = useCallback(
     (event: PointerEvent<HTMLButtonElement>, pill: ResolvedWindowPill) => {
-      if (event.button !== 0) {
-        return;
-      }
-      if (
-        event.detail > 1 &&
-        event.target instanceof HTMLElement &&
-        event.target.closest("[data-project-chat-window-title='true']")
-      ) {
+      if (shouldIgnoreFloatingDragPointerDown(event)) {
         return;
       }
       const previewBounds = floatingPreviewBoundsById[pill.instanceId];
@@ -3073,27 +4462,15 @@ export function ProjectChatBottomDock() {
           [pill.instanceId]: { ...restoreBoundsOnUnsnap },
         };
       }
-      const dragBoundsStart = restoreBoundsOnUnsnap
-        ? positionFloatingBoundsForUnsnap({
-            currentBounds,
-            restoreBounds: restoreBoundsOnUnsnap,
-            pointerX: event.clientX,
-            pointerY: event.clientY,
-          })
-        : currentBounds;
-      const clonedCurrentBounds = { ...currentBounds };
-      const clonedDragBoundsStart = { ...dragBoundsStart };
-      activeFloatingDragRef.current = {
+      activeFloatingDragRef.current = buildFloatingDragState({
         pointerId: event.pointerId,
         instanceId: pill.instanceId,
-        startX: event.clientX,
-        startY: event.clientY,
-        startBounds: clonedCurrentBounds,
-        dragBoundsStart: clonedDragBoundsStart,
-        lastBounds: clonedCurrentBounds,
+        pointerX: event.clientX,
+        pointerY: event.clientY,
+        currentBounds,
         restoreBoundsOnUnsnap,
-        hasActivatedUnsnap: restoreBoundsOnUnsnap === null,
-      };
+        positionFloatingBoundsForUnsnap,
+      });
       updateActiveFloatingSnapPreview(null);
       handleFocusWindow(pill.instanceId);
       event.preventDefault();
@@ -3136,13 +4513,13 @@ export function ProjectChatBottomDock() {
       });
       const viewport = getViewportDimensions();
       if (viewport) {
-        const snapPreset = resolveFloatingSnapPresetFromPointer(
-          event.clientX,
-          event.clientY,
-          viewport.width,
-          viewport.height,
-          floatingWindowBoundaryInsets,
-        );
+        const snapPreset = resolveFloatingSnapPresetFromPointer({
+          pointerX: event.clientX,
+          pointerY: event.clientY,
+          viewportWidthPx: viewport.width,
+          viewportHeightPx: viewport.height,
+          insets: floatingWindowBoundaryInsets,
+        });
         if (snapPreset) {
           updateActiveFloatingSnapPreview({
             instanceId: activeDrag.instanceId,
@@ -3656,26 +5033,14 @@ export function ProjectChatBottomDock() {
     }
     const fullWidthPx = fullMeasureNode.scrollWidth;
     const compactWidthPx = compactMeasureNode.scrollWidth;
-    const minimumCycleWidthPx =
-      CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
-      COMPACT_PILL_WIDTH_PX * 2 +
-      PILL_GAP_PX * 3;
-    let nextMode: PillDisplayMode = "full";
-    if (
-      stripPills.length > 1 &&
-      viewportWidthPx > 0 &&
-      viewportWidthPx <= NARROW_CHAT_MENU_BREAKPOINT_PX
-    ) {
-      nextMode = "menu";
-    } else if (fullWidthPx > availableWidthPx + 1) {
-      if (compactWidthPx <= availableWidthPx + 1) {
-        nextMode = "compact";
-      } else if (availableWidthPx <= minimumCycleWidthPx + 1) {
-        nextMode = "menu";
-      } else {
-        nextMode = "cycle";
-      }
-    }
+    const nextMode = resolveNextPillDisplayMode({
+      currentMode: pillDisplayMode,
+      stripPillCount: stripPills.length,
+      viewportWidthPx,
+      availableWidthPx,
+      fullWidthPx,
+      compactWidthPx,
+    });
     if (nextMode !== pillDisplayMode) {
       setPillDisplayMode(nextMode);
     }
@@ -3721,30 +5086,442 @@ export function ProjectChatBottomDock() {
     );
   }, [cycleVisibleCount, pillCycleStartIndex, pillDisplayMode, stripPills]);
 
-  const maxCycleStartIndex = Math.max(0, stripPills.length - cycleVisibleCount);
-  const canCycleBackward =
-    pillDisplayMode === "cycle" && pillCycleStartIndex > 0;
-  const canCycleForward =
-    pillDisplayMode === "cycle" && pillCycleStartIndex < maxCycleStartIndex;
-  const useCompactPills =
-    pillDisplayMode === "compact" || pillDisplayMode === "cycle";
-  const showDockHeaderCycleControls =
-    openDockedPills.length > visibleDockedPills.length &&
-    visibleDockedPills.length > 0;
-  const canCycleDockBackward = dockVisibleStartIndex > 0;
-  const canCycleDockForward = dockCycleOffsetFromEnd > 0;
-  const maximizedExitAnimation = openMaximizedWindow
-    ? windowExitAnimationsById[openMaximizedWindow.instanceId] ?? null
-    : null;
-  const maximizedEnterAnimation = openMaximizedWindow
-    ? windowEnterAnimationsById[openMaximizedWindow.instanceId] ?? null
-    : null;
-  const maximizedEnterAnimationPrime = openMaximizedWindow
-    ? windowEnterAnimationPrimesById[openMaximizedWindow.instanceId] ?? null
-    : null;
-  const isPaneTrackedMaximizedGitGraphWindow =
-    openMaximizedWindow?.mode === ChatWindowModeEnum.git_graph_mode &&
-    openMaximizedWindow?.instanceId === trackedGitPaneGraphWindowInstanceId;
+  const {
+    maxCycleStartIndex,
+    canCycleBackward,
+    canCycleForward,
+    useCompactPills,
+    showDockHeaderCycleControls,
+    canCycleDockBackward,
+    canCycleDockForward,
+  } = useMemo(() => {
+    const nextMaxCycleStartIndex = Math.max(
+      0,
+      stripPills.length - cycleVisibleCount,
+    );
+    return {
+      maxCycleStartIndex: nextMaxCycleStartIndex,
+      canCycleBackward: pillDisplayMode === "cycle" && pillCycleStartIndex > 0,
+      canCycleForward:
+        pillDisplayMode === "cycle" &&
+        pillCycleStartIndex < nextMaxCycleStartIndex,
+      useCompactPills:
+        pillDisplayMode === "compact" || pillDisplayMode === "cycle",
+      showDockHeaderCycleControls:
+        openDockedPills.length > visibleDockedPills.length &&
+        visibleDockedPills.length > 0,
+      canCycleDockBackward: dockVisibleStartIndex > 0,
+      canCycleDockForward: dockCycleOffsetFromEnd > 0,
+    };
+  }, [
+    cycleVisibleCount,
+    dockCycleOffsetFromEnd,
+    dockVisibleStartIndex,
+    openDockedPills.length,
+    pillCycleStartIndex,
+    pillDisplayMode,
+    stripPills.length,
+    visibleDockedPills.length,
+  ]);
+  const handlePillCycleBackward = useCallback(() => {
+    setPillCycleStartIndex((current) => Math.max(0, current - 1));
+  }, []);
+  const handlePillCycleForward = useCallback(() => {
+    setPillCycleStartIndex((current) =>
+      Math.min(maxCycleStartIndex, current + 1),
+    );
+  }, [maxCycleStartIndex]);
+  const handleToggleCanvasVisibility = useCallback(() => {
+    setIsCanvasVisibilitySuppressed((current) => !current);
+  }, []);
+  const {
+    maximizedExitAnimation,
+    maximizedEnterAnimation,
+    maximizedEnterAnimationPrime,
+    isPaneTrackedMaximizedGitGraphWindow,
+  } = useMemo(
+    () => ({
+      maximizedExitAnimation: openMaximizedWindow
+        ? windowExitAnimationsById[openMaximizedWindow.instanceId] ?? null
+        : null,
+      maximizedEnterAnimation: openMaximizedWindow
+        ? windowEnterAnimationsById[openMaximizedWindow.instanceId] ?? null
+        : null,
+      maximizedEnterAnimationPrime: openMaximizedWindow
+        ? windowEnterAnimationPrimesById[openMaximizedWindow.instanceId] ?? null
+        : null,
+      isPaneTrackedMaximizedGitGraphWindow:
+        openMaximizedWindow?.mode === ChatWindowModeEnum.git_graph_mode &&
+        openMaximizedWindow?.instanceId === trackedGitPaneGraphWindowInstanceId,
+    }),
+    [
+      openMaximizedWindow,
+      trackedGitPaneGraphWindowInstanceId,
+      windowEnterAnimationPrimesById,
+      windowEnterAnimationsById,
+      windowExitAnimationsById,
+    ],
+  );
+  const dockedChatSurfaceElement = useMemo(() => {
+    if (!showDockedChatSurface) {
+      return null;
+    }
+    return (
+      <div
+        className="pointer-events-none fixed"
+        style={{
+          zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
+          left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
+          right: dockSurfaceRightPx,
+          bottom: dockBottomOffsetPx,
+        }}
+      >
+        <div className="flex min-w-0 items-end justify-end gap-3">
+          <div className="pointer-events-auto flex min-w-0 max-w-[28rem] items-end justify-end">
+            <MinimizedPillStrip
+              pills={stripPills}
+              visiblePills={visiblePills}
+              pillExitAnimationsById={pillExitAnimationsById}
+              useCompactPills={useCompactPills}
+              canCreateWindow={canCreateManagedChatWindow}
+              showManagerMenu={showDockManagerMenu}
+              canCycleBackward={canCycleBackward}
+              canCycleForward={canCycleForward}
+              maxCycleStartIndex={maxCycleStartIndex}
+              pillDisplayMode={pillDisplayMode}
+              pillViewportRef={pillViewportRef}
+              fullMeasureRowRef={fullMeasureRowRef}
+              compactMeasureRowRef={compactMeasureRowRef}
+              onCycleBackward={handlePillCycleBackward}
+              onCycleForward={handlePillCycleForward}
+              onOpenWindow={handleOpenWindow}
+              onCreateWindow={handleCreate}
+            />
+          </div>
+          <DockedChatSurfaceLayer
+            visibleDockedPills={visibleDockedPills}
+            projectConfigId={projectConfigId}
+            canEditLayout={canEditLayout}
+            dockAvailableHeightPx={dockAvailableHeightPx}
+            dockSurfaceWidthCss={dockSurfaceWidthCss}
+            dockSurfaceHeightCss={dockSurfaceHeightCss}
+            resolvedVisibleDockWindowWidthsById={
+              resolvedVisibleDockWindowWidthsById
+            }
+            resolvedDockWindowHeightsById={resolvedDockWindowHeightsById}
+            windowExitAnimationsById={windowExitAnimationsById}
+            windowEnterAnimationsById={windowEnterAnimationsById}
+            windowEnterAnimationPrimesById={windowEnterAnimationPrimesById}
+            showDockHeaderCycleControls={showDockHeaderCycleControls}
+            canCycleDockBackward={canCycleDockBackward}
+            canCycleDockForward={canCycleDockForward}
+            onCycleDockBackward={handleCycleDockWindowsBackward}
+            onCycleDockForward={handleCycleDockWindowsForward}
+            onFocusWindow={handleFocusWindow}
+            onShowInCanvas={handleShowWindowInCanvas}
+            onUndockWindow={handleUndockWindow}
+            onMaximizeWindow={handleMaximizeWindow}
+            onMinimizeWindow={handleMinimizeWindow}
+            onCloseWindow={handleCloseWindow}
+            onSetWindowTitle={handleSetWindowTitle}
+            onSingleDockResizePointerDown={handleSingleDockResizePointerDown}
+            onSingleDockResizePointerMove={handleSingleDockResizePointerMove}
+            onSingleDockResizePointerUp={handleSingleDockResizePointerUp}
+          />
+        </div>
+      </div>
+    );
+  }, [
+    canCreateManagedChatWindow,
+    canCycleBackward,
+    canCycleDockBackward,
+    canCycleDockForward,
+    canCycleForward,
+    canEditLayout,
+    dockAvailableHeightPx,
+    dockBottomOffsetPx,
+    dockSurfaceHeightCss,
+    dockSurfaceRightPx,
+    dockSurfaceWidthCss,
+    handleCloseWindow,
+    handleCreate,
+    handleCycleDockWindowsBackward,
+    handleCycleDockWindowsForward,
+    handleFocusWindow,
+    handleMaximizeWindow,
+    handleMinimizeWindow,
+    handleOpenWindow,
+    handlePillCycleBackward,
+    handlePillCycleForward,
+    handleSetWindowTitle,
+    handleShowWindowInCanvas,
+    handleSingleDockResizePointerDown,
+    handleSingleDockResizePointerMove,
+    handleSingleDockResizePointerUp,
+    handleUndockWindow,
+    maxCycleStartIndex,
+    pillDisplayMode,
+    pillExitAnimationsById,
+    projectConfigId,
+    resolvedDockWindowHeightsById,
+    resolvedVisibleDockWindowWidthsById,
+    showDockHeaderCycleControls,
+    showDockManagerMenu,
+    showDockedChatSurface,
+    stripPills,
+    useCompactPills,
+    visibleDockedPills,
+    visiblePills,
+    windowEnterAnimationPrimesById,
+    windowEnterAnimationsById,
+    windowExitAnimationsById,
+  ]);
+  const floatingSnapPreviewElement = useMemo(() => {
+    if (
+      isCanvasVisibilitySuppressed ||
+      !canEditLayout ||
+      !activeFloatingSnapPreview
+    ) {
+      return null;
+    }
+    return (
+      <div
+        className="pointer-events-none fixed rounded-none border-2 border-setta-400/80 bg-setta-300/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)] dark:border-setta-500/90 dark:bg-setta-500/25 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
+        style={{
+          zIndex: CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX,
+          left: activeFloatingSnapPreview.bounds.x,
+          top: activeFloatingSnapPreview.bounds.y,
+          width: activeFloatingSnapPreview.bounds.width,
+          height: activeFloatingSnapPreview.bounds.height,
+        }}
+        data-testid="project-chat-floating-snap-ghost-zone"
+        data-chat-window-snap-preset={activeFloatingSnapPreview.preset}
+      />
+    );
+  }, [activeFloatingSnapPreview, canEditLayout, isCanvasVisibilitySuppressed]);
+  const floatingSnapResizeElement = useMemo(() => {
+    if (
+      isCanvasVisibilitySuppressed ||
+      !canEditLayout ||
+      floatingSnapResizeHandles.length === 0
+    ) {
+      return null;
+    }
+    return (
+      <FloatingSnapResizeOverlay
+        handles={floatingSnapResizeHandles}
+        onPointerDown={handleFloatingSnapResizePointerDown}
+        onPointerMove={handleFloatingSnapResizePointerMove}
+        onPointerUp={handleFloatingSnapResizePointerUp}
+      />
+    );
+  }, [
+    canEditLayout,
+    floatingSnapResizeHandles,
+    handleFloatingSnapResizePointerDown,
+    handleFloatingSnapResizePointerMove,
+    handleFloatingSnapResizePointerUp,
+    isCanvasVisibilitySuppressed,
+  ]);
+  const floatingWindowsElement = useMemo(() => {
+    if (isCanvasVisibilitySuppressed) {
+      return null;
+    }
+    return (
+      <FloatingWindowsLayer
+        openFloatingPills={openFloatingPills}
+        projectConfigId={projectConfigId}
+        canEditLayout={canEditLayout}
+        floatingBoundsById={floatingBoundsById}
+        floatingSnapPresetById={floatingSnapPresetById}
+        windowExitAnimationsById={windowExitAnimationsById}
+        windowEnterAnimationsById={windowEnterAnimationsById}
+        windowEnterAnimationPrimesById={windowEnterAnimationPrimesById}
+        onFocusWindow={handleFocusWindow}
+        onShowInCanvas={handleShowWindowInCanvas}
+        onDockWindow={handleDockWindow}
+        onMaximizeWindow={handleMaximizeWindow}
+        onMinimizeWindow={handleMinimizeWindow}
+        onCloseWindow={handleCloseWindow}
+        onSetWindowTitle={handleSetWindowTitle}
+        onFloatingDragPointerDown={handleFloatingDragPointerDown}
+        onFloatingDragPointerMove={handleFloatingDragPointerMove}
+        onFloatingDragPointerUp={handleFloatingDragPointerUp}
+        onFloatingResizePointerDown={handleFloatingResizePointerDown}
+        onFloatingResizePointerMove={handleFloatingResizePointerMove}
+        onFloatingResizePointerUp={handleFloatingResizePointerUp}
+      />
+    );
+  }, [
+    canEditLayout,
+    floatingBoundsById,
+    floatingSnapPresetById,
+    handleCloseWindow,
+    handleDockWindow,
+    handleFloatingDragPointerDown,
+    handleFloatingDragPointerMove,
+    handleFloatingDragPointerUp,
+    handleFloatingResizePointerDown,
+    handleFloatingResizePointerMove,
+    handleFloatingResizePointerUp,
+    handleFocusWindow,
+    handleMaximizeWindow,
+    handleMinimizeWindow,
+    handleSetWindowTitle,
+    handleShowWindowInCanvas,
+    isCanvasVisibilitySuppressed,
+    openFloatingPills,
+    projectConfigId,
+    windowEnterAnimationPrimesById,
+    windowEnterAnimationsById,
+    windowExitAnimationsById,
+  ]);
+  const maximizedWindowElement = useMemo(() => {
+    if (isCanvasVisibilitySuppressed || !openMaximizedWindow) {
+      return null;
+    }
+    return (
+      <MaximizedWindowLayer
+        openMaximizedWindow={openMaximizedWindow}
+        projectConfigId={projectConfigId}
+        canEditLayout={canEditLayout}
+        maximizedExitAnimation={maximizedExitAnimation}
+        maximizedEnterAnimation={maximizedEnterAnimation}
+        maximizedEnterAnimationPrime={maximizedEnterAnimationPrime}
+        isPaneTrackedMaximizedGitGraphWindow={
+          isPaneTrackedMaximizedGitGraphWindow
+        }
+        trackedGitPaneGraphRect={trackedGitPaneGraphRect}
+        workspaceTopInsetPx={workspaceTopInsetPx}
+        dockBottomOffsetPx={dockBottomOffsetPx}
+        onFocusWindow={handleFocusWindow}
+        onShowInCanvas={handleShowWindowInCanvas}
+        onRestoreWindow={handleRestoreWindow}
+        onDockWindow={handleDockWindow}
+        onMinimizeWindow={handleMinimizeWindow}
+        onCloseWindow={handleCloseWindow}
+        onSetWindowTitle={handleSetWindowTitle}
+      />
+    );
+  }, [
+    canEditLayout,
+    dockBottomOffsetPx,
+    handleCloseWindow,
+    handleDockWindow,
+    handleFocusWindow,
+    handleMinimizeWindow,
+    handleRestoreWindow,
+    handleSetWindowTitle,
+    handleShowWindowInCanvas,
+    isCanvasVisibilitySuppressed,
+    isPaneTrackedMaximizedGitGraphWindow,
+    maximizedEnterAnimation,
+    maximizedEnterAnimationPrime,
+    maximizedExitAnimation,
+    openMaximizedWindow,
+    projectConfigId,
+    trackedGitPaneGraphRect,
+    workspaceTopInsetPx,
+  ]);
+  const standaloneMinimizedPillsElement = useMemo(() => {
+    if (!showStandaloneMinimizedPills) {
+      return null;
+    }
+    return (
+      <div
+        className="pointer-events-none fixed"
+        style={{
+          zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
+          left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
+          right: dockSurfaceRightPx,
+          bottom: dockBottomOffsetPx,
+        }}
+      >
+        <MinimizedPillStrip
+          pills={stripPills}
+          visiblePills={visiblePills}
+          pillExitAnimationsById={pillExitAnimationsById}
+          useCompactPills={useCompactPills}
+          canCreateWindow={canCreateManagedChatWindow}
+          showManagerMenu={showDockManagerMenu}
+          canCycleBackward={canCycleBackward}
+          canCycleForward={canCycleForward}
+          maxCycleStartIndex={maxCycleStartIndex}
+          pillDisplayMode={pillDisplayMode}
+          pillViewportRef={pillViewportRef}
+          fullMeasureRowRef={fullMeasureRowRef}
+          compactMeasureRowRef={compactMeasureRowRef}
+          onCycleBackward={handlePillCycleBackward}
+          onCycleForward={handlePillCycleForward}
+          onOpenWindow={handleOpenWindow}
+          onCreateWindow={handleCreate}
+        />
+      </div>
+    );
+  }, [
+    canCreateManagedChatWindow,
+    canCycleBackward,
+    canCycleForward,
+    dockBottomOffsetPx,
+    dockSurfaceRightPx,
+    handleCreate,
+    handleOpenWindow,
+    handlePillCycleBackward,
+    handlePillCycleForward,
+    maxCycleStartIndex,
+    pillDisplayMode,
+    pillExitAnimationsById,
+    showDockManagerMenu,
+    showStandaloneMinimizedPills,
+    stripPills,
+    useCompactPills,
+    visiblePills,
+  ]);
+  const canvasVisibilityToggleElement = useMemo(() => {
+    if (!showCanvasVisibilityToggle) {
+      return null;
+    }
+    const toggleAction = isCanvasVisibilitySuppressed
+      ? "show_chats"
+      : "show_canvas";
+    const toggleLabel = getWindowControlQuickInfoText({
+      action: toggleAction,
+    });
+    return (
+      <button
+        type="button"
+        className={`${CANVAS_VISIBILITY_TOGGLE_BUTTON_CLASS} ${
+          isCanvasVisibilitySuppressed
+            ? CANVAS_VISIBILITY_TOGGLE_BUTTON_ACTIVE_CLASS
+            : ""
+        }`}
+        style={{
+          zIndex: CHAT_WINDOW_TOGGLE_Z_INDEX,
+          left: 6,
+          bottom: dockBottomOffsetPx + 136,
+        }}
+        onClick={handleToggleCanvasVisibility}
+        aria-label={toggleLabel}
+        aria-pressed={isCanvasVisibilitySuppressed}
+        data-testid="project-chat-canvas-visibility-toggle"
+        title={toggleLabel}
+        {...getWindowControlQuickInfoHandlers({
+          action: toggleAction,
+        })}
+      >
+        {isCanvasVisibilitySuppressed ? (
+          <BiShow size={18} />
+        ) : (
+          <BiHide size={18} />
+        )}
+      </button>
+    );
+  }, [
+    dockBottomOffsetPx,
+    handleToggleCanvasVisibility,
+    isCanvasVisibilitySuppressed,
+    showCanvasVisibilityToggle,
+  ]);
 
   if (!canUseManagedChat && orderedPills.length === 0) {
     return null;
@@ -3752,1192 +5529,12 @@ export function ProjectChatBottomDock() {
 
   return (
     <>
-      {showDockedChatSurface ? (
-        <div
-          className="pointer-events-none fixed"
-          style={{
-            zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
-            left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
-            right: dockSurfaceRightPx,
-            bottom: dockBottomOffsetPx,
-          }}
-        >
-          <div className="flex min-w-0 items-end justify-end gap-3">
-            <div className="pointer-events-auto flex min-w-0 max-w-[28rem] items-end justify-end">
-              <MinimizedPillStrip
-                pills={stripPills}
-                visiblePills={visiblePills}
-                pillExitAnimationsById={pillExitAnimationsById}
-                useCompactPills={useCompactPills}
-                canCreateWindow={canCreateManagedChatWindow}
-                showManagerMenu={showDockManagerMenu}
-                canCycleBackward={canCycleBackward}
-                canCycleForward={canCycleForward}
-                maxCycleStartIndex={maxCycleStartIndex}
-                pillDisplayMode={pillDisplayMode}
-                pillViewportRef={pillViewportRef}
-                fullMeasureRowRef={fullMeasureRowRef}
-                compactMeasureRowRef={compactMeasureRowRef}
-                onCycleBackward={() => {
-                  setPillCycleStartIndex((current) => Math.max(0, current - 1));
-                }}
-                onCycleForward={() => {
-                  setPillCycleStartIndex((current) =>
-                    Math.min(maxCycleStartIndex, current + 1),
-                  );
-                }}
-                onOpenWindow={handleOpenWindow}
-                onCreateWindow={handleCreate}
-              />
-            </div>
-            <section
-              className="pointer-events-none"
-              style={{
-                width: dockSurfaceWidthCss,
-                height: dockSurfaceHeightCss,
-              }}
-              data-testid="project-chat-bottom-dock-window"
-            >
-              <div
-                className="flex h-full min-h-0 items-end justify-end gap-3 overflow-x-hidden overflow-y-hidden px-1"
-                data-testid="project-chat-bottom-dock-window-grid"
-              >
-                {visibleDockedPills.map((pill) => {
-                  const resolvedWindowWidthPx =
-                    resolvedVisibleDockWindowWidthsById[pill.instanceId] ??
-                    DOCK_WINDOW_DEFAULT_WIDTH_PX;
-                  const resolvedWindowHeightPx =
-                    resolvedDockWindowHeightsById[pill.instanceId] ??
-                    DOCK_WINDOW_DEFAULT_HEIGHT_PX;
-                  const dockedExitAnimation =
-                    windowExitAnimationsById[pill.instanceId] ?? null;
-                  const dockedEnterAnimation =
-                    windowEnterAnimationsById[pill.instanceId] ?? null;
-                  const dockedEnterAnimationPrime =
-                    windowEnterAnimationPrimesById[pill.instanceId] ?? null;
-                  return (
-                    <article
-                      key={pill.instanceId}
-                      className={`pointer-events-auto relative flex min-h-0 min-w-[16rem] shrink-0 flex-col overflow-hidden bg-transparent ${DOCKED_CHAT_WINDOW_SHADOW_CLASS} ${getChatWindowExitAnimationClass(
-                        dockedExitAnimation,
-                        ChatWindowPlacementEnum.bottom_docked,
-                      )} ${getChatWindowEnterAnimationClass(
-                        dockedEnterAnimationPrime,
-                        ChatWindowPlacementEnum.bottom_docked,
-                      )}`}
-                      style={{
-                        width: resolvedWindowWidthPx,
-                        height: resolvedWindowHeightPx,
-                        minWidth: MIN_DOCK_CHAT_WIDTH_PX,
-                        maxWidth: DOCK_SURFACE_MAX_WIDTH_PX,
-                        minHeight: MIN_DOCK_CHAT_HEIGHT_PX,
-                        maxHeight: dockAvailableHeightPx,
-                      }}
-                      data-testid="project-chat-bottom-dock-window-panel"
-                      data-chat-window-instance-id={pill.instanceId}
-                      data-chat-window-exit-animation={
-                        dockedExitAnimation ?? undefined
-                      }
-                      data-chat-window-enter-animation={
-                        dockedEnterAnimation ?? undefined
-                      }
-                      onPointerDown={() => {
-                        handleFocusWindow(pill.instanceId);
-                      }}
-                    >
-                      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                        {pill.sectionId ? (
-                          <SectionWindowSurface
-                            sectionId={pill.sectionId}
-                            roundedClassName={
-                              DOCKED_WINDOWED_CHAT_ROUNDED_CLASS
-                            }
-                            chatHost={ChatWindowPlacementEnum.bottom_docked}
-                            chatModeOverride={pill.mode}
-                            headerActions={
-                              <>
-                                {showDockHeaderCycleControls ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
-                                      onClick={handleCycleDockWindowsBackward}
-                                      disabled={!canCycleDockBackward}
-                                      aria-label={getWindowControlQuickInfoText(
-                                        {
-                                          action: "show_previous_docked_chat",
-                                        },
-                                      )}
-                                      data-testid="project-chat-window-cycle-left"
-                                      data-chat-window-instance-id={
-                                        pill.instanceId
-                                      }
-                                      {...getWindowControlQuickInfoHandlers({
-                                        action: "show_previous_docked_chat",
-                                      })}
-                                    >
-                                      <MdChevronLeft size={12} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
-                                      onClick={handleCycleDockWindowsForward}
-                                      disabled={!canCycleDockForward}
-                                      aria-label={getWindowControlQuickInfoText(
-                                        {
-                                          action: "show_next_docked_chat",
-                                        },
-                                      )}
-                                      data-testid="project-chat-window-cycle-right"
-                                      data-chat-window-instance-id={
-                                        pill.instanceId
-                                      }
-                                      {...getWindowControlQuickInfoHandlers({
-                                        action: "show_next_docked_chat",
-                                      })}
-                                    >
-                                      <MdChevronRight size={12} />
-                                    </button>
-                                  </>
-                                ) : null}
-                                {canMoveProjectChatWindowToCanvas(pill.mode) ? (
-                                  <button
-                                    type="button"
-                                    className={
-                                      SECTION_WINDOW_ACTION_BUTTON_CLASS
-                                    }
-                                    onClick={() => {
-                                      void bootProjectChatWindowToCanvasSection(
-                                        pill.instanceId,
-                                      );
-                                    }}
-                                    aria-label={getWindowControlQuickInfoText({
-                                      action: "show_in_canvas",
-                                      title: pill.title,
-                                    })}
-                                    data-testid="project-chat-window-show-in-canvas"
-                                    data-chat-window-instance-id={
-                                      pill.instanceId
-                                    }
-                                    {...getWindowControlQuickInfoHandlers({
-                                      action: "show_in_canvas",
-                                      title: pill.title,
-                                    })}
-                                  >
-                                    <MdFlipToFront size={12} />
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                                  onClick={() => {
-                                    handleUndockWindow(pill.instanceId);
-                                  }}
-                                  aria-label={getWindowControlQuickInfoText({
-                                    action: "undock_window",
-                                    title: pill.title,
-                                  })}
-                                  data-testid="project-chat-window-undock"
-                                  data-chat-window-instance-id={pill.instanceId}
-                                  {...getWindowControlQuickInfoHandlers({
-                                    action: "undock_window",
-                                    title: pill.title,
-                                  })}
-                                >
-                                  <MdOpenInNew size={12} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                                  onClick={() => {
-                                    handleMaximizeWindow(pill.instanceId);
-                                  }}
-                                  aria-label={getWindowControlQuickInfoText({
-                                    action: "maximize_window",
-                                    title: pill.title,
-                                  })}
-                                  data-testid="project-chat-window-maximize"
-                                  data-chat-window-instance-id={pill.instanceId}
-                                  {...getWindowControlQuickInfoHandlers({
-                                    action: "maximize_window",
-                                    title: pill.title,
-                                  })}
-                                >
-                                  {WINDOW_MAXIMIZE_ICON}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={
-                                    SECTION_WINDOW_MINIMIZE_BUTTON_CLASS
-                                  }
-                                  onClick={() => {
-                                    handleMinimizeWindow(pill.instanceId);
-                                  }}
-                                  aria-label={getWindowControlQuickInfoText({
-                                    action: "minimize_window",
-                                    title: pill.title,
-                                  })}
-                                  data-testid="project-chat-window-minimize"
-                                  data-chat-window-instance-id={pill.instanceId}
-                                  {...getWindowControlQuickInfoHandlers({
-                                    action: "minimize_window",
-                                    title: pill.title,
-                                  })}
-                                >
-                                  <i className="gg-math-minus" />
-                                </button>
-                                <button
-                                  type="button"
-                                  className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
-                                  onClick={() => {
-                                    handleCloseWindow(pill.instanceId);
-                                  }}
-                                  aria-label={getWindowControlQuickInfoText({
-                                    action: "close_window",
-                                    title: pill.title,
-                                  })}
-                                  data-testid="project-chat-window-close"
-                                  data-chat-window-instance-id={pill.instanceId}
-                                  {...getWindowControlQuickInfoHandlers({
-                                    action: "close_window",
-                                    title: pill.title,
-                                  })}
-                                >
-                                  <i className="gg-close" />
-                                </button>
-                              </>
-                            }
-                          />
-                        ) : (
-                          <ProjectChatWindowSurface
-                            title={pill.title}
-                            mode={pill.mode}
-                            instanceId={pill.instanceId}
-                            allowLayoutMutations={canEditLayout}
-                            roundedClassName={
-                              DOCKED_WINDOWED_CHAT_ROUNDED_CLASS
-                            }
-                            onTitleClick={() => {
-                              handleFocusWindow(pill.instanceId);
-                            }}
-                            onTitleCommit={
-                              pill.mode === ChatWindowModeEnum.git_graph_mode
-                                ? undefined
-                                : (nextTitle) => {
-                                    handleSetWindowTitle(
-                                      pill.instanceId,
-                                      nextTitle,
-                                    );
-                                  }
-                            }
-                            actions={[
-                              ...(showDockHeaderCycleControls
-                                ? [
-                                    {
-                                      key: "cycle_left",
-                                      label: "Show previous docked chat",
-                                      testId: "project-chat-window-cycle-left",
-                                      instanceId: pill.instanceId,
-                                      icon: <MdChevronLeft size={12} />,
-                                      className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
-                                      disabled: !canCycleDockBackward,
-                                      onClick: () => {
-                                        handleCycleDockWindowsBackward();
-                                      },
-                                    },
-                                    {
-                                      key: "cycle_right",
-                                      label: "Show next docked chat",
-                                      testId: "project-chat-window-cycle-right",
-                                      instanceId: pill.instanceId,
-                                      icon: <MdChevronRight size={12} />,
-                                      className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
-                                      disabled: !canCycleDockForward,
-                                      onClick: () => {
-                                        handleCycleDockWindowsForward();
-                                      },
-                                    },
-                                  ]
-                                : []),
-                              ...(canMoveProjectChatWindowToCanvas(pill.mode)
-                                ? [
-                                    {
-                                      key: "show_in_canvas",
-                                      label: `Show ${pill.title} in canvas`,
-                                      testId:
-                                        "project-chat-window-show-in-canvas",
-                                      instanceId: pill.instanceId,
-                                      icon: <MdFlipToFront size={12} />,
-                                      onClick: () => {
-                                        void bootProjectChatWindowToCanvasSection(
-                                          pill.instanceId,
-                                        );
-                                      },
-                                    },
-                                  ]
-                                : []),
-                              {
-                                key: "undock",
-                                label: `Undock ${pill.title}`,
-                                testId: "project-chat-window-undock",
-                                instanceId: pill.instanceId,
-                                icon: <MdOpenInNew size={12} />,
-                                onClick: () => {
-                                  handleUndockWindow(pill.instanceId);
-                                },
-                              },
-                              {
-                                key: "maximize",
-                                label: `Maximize ${pill.title}`,
-                                testId: "project-chat-window-maximize",
-                                instanceId: pill.instanceId,
-                                icon: WINDOW_MAXIMIZE_ICON,
-                                onClick: () => {
-                                  handleMaximizeWindow(pill.instanceId);
-                                },
-                              },
-                              {
-                                key: "minimize",
-                                label: `Minimize ${pill.title}`,
-                                testId: "project-chat-window-minimize",
-                                instanceId: pill.instanceId,
-                                className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
-                                icon: <i className="gg-math-minus" />,
-                                onClick: () => {
-                                  handleMinimizeWindow(pill.instanceId);
-                                },
-                              },
-                              {
-                                key: "close",
-                                label: `Close ${pill.title}`,
-                                testId: "project-chat-window-close",
-                                instanceId: pill.instanceId,
-                                className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
-                                icon: <i className="gg-close" />,
-                                onClick: () => {
-                                  handleCloseWindow(pill.instanceId);
-                                },
-                              },
-                            ]}
-                          >
-                            {pill.mode === ChatWindowModeEnum.git_graph_mode ? (
-                              <GitGraphWindowContent
-                                instanceId={pill.instanceId}
-                                showEmbeddedGitPaneToggle
-                              />
-                            ) : (
-                              <UnifiedChatSurface
-                                mode={pill.mode}
-                                host={ChatWindowPlacementEnum.bottom_docked}
-                                surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
-                                  projectConfigId,
-                                  pill.instanceId,
-                                )}
-                                projectChatId={pill.chatId}
-                                setProjectChatId={(next) => {
-                                  const resolvedChatId =
-                                    typeof next === "function"
-                                      ? next(pill.chatId ?? undefined)
-                                      : next;
-                                  setProjectChatWindowChatId(
-                                    pill.instanceId,
-                                    resolvedChatId,
-                                  );
-                                }}
-                              />
-                            )}
-                          </ProjectChatWindowSurface>
-                        )}
-                        {canEditLayout
-                          ? DOCK_WINDOW_RESIZE_HANDLES.map((handle) => (
-                              <div
-                                key={`${pill.instanceId}-${handle.direction}`}
-                                role="separator"
-                                aria-orientation={
-                                  handle.direction === "top" ||
-                                  handle.direction === "bottom"
-                                    ? "horizontal"
-                                    : "vertical"
-                                }
-                                className={`group/resize absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
-                                data-testid="project-chat-bottom-dock-resize-handle"
-                                data-resize-direction={handle.direction}
-                                onPointerDown={(event) => {
-                                  handleSingleDockResizePointerDown(
-                                    event,
-                                    pill,
-                                    handle.direction,
-                                  );
-                                }}
-                                onPointerMove={
-                                  handleSingleDockResizePointerMove
-                                }
-                                onPointerUp={handleSingleDockResizePointerUp}
-                              >
-                                {handle.indicatorClassName ? (
-                                  <div className={handle.indicatorClassName} />
-                                ) : null}
-                              </div>
-                            ))
-                          : null}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-        </div>
-      ) : null}
-      {!isCanvasVisibilitySuppressed &&
-      canEditLayout &&
-      activeFloatingSnapPreview ? (
-        <div
-          className="pointer-events-none fixed rounded-none border-2 border-setta-400/80 bg-setta-300/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)] dark:border-setta-500/90 dark:bg-setta-500/25 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
-          style={{
-            zIndex: CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX,
-            left: activeFloatingSnapPreview.bounds.x,
-            top: activeFloatingSnapPreview.bounds.y,
-            width: activeFloatingSnapPreview.bounds.width,
-            height: activeFloatingSnapPreview.bounds.height,
-          }}
-          data-testid="project-chat-floating-snap-ghost-zone"
-          data-chat-window-snap-preset={activeFloatingSnapPreview.preset}
-        />
-      ) : null}
-      {!isCanvasVisibilitySuppressed &&
-      canEditLayout &&
-      floatingSnapResizeHandles.length > 0 ? (
-        <div
-          className="pointer-events-none fixed inset-0"
-          style={{ zIndex: CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX }}
-        >
-          {floatingSnapResizeHandles.map((handle) => {
-            const handleLengthPx = Math.max(
-              0,
-              handle.end -
-                handle.start -
-                FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
-            );
-            return (
-              <div
-                key={`${handle.axis}-${handle.leadingInstanceIds.join("|")}-${handle.trailingInstanceIds.join("|")}`}
-                role="separator"
-                aria-orientation={
-                  handle.axis === "vertical" ? "vertical" : "horizontal"
-                }
-                className={`pointer-events-auto absolute flex items-center justify-center ${
-                  handle.axis === "vertical"
-                    ? "cursor-col-resize"
-                    : "cursor-row-resize"
-                }`}
-                style={
-                  handle.axis === "vertical"
-                    ? {
-                        left:
-                          handle.coordinate -
-                          FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX / 2,
-                        top: handle.start,
-                        width: FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
-                        height: Math.max(
-                          FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
-                          handleLengthPx +
-                            FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
-                        ),
-                      }
-                    : {
-                        left: handle.start,
-                        top:
-                          handle.coordinate -
-                          FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX / 2,
-                        width: Math.max(
-                          FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
-                          handleLengthPx +
-                            FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
-                        ),
-                        height: FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
-                      }
-                }
-                onPointerDown={(event) => {
-                  handleFloatingSnapResizePointerDown(event, handle);
-                }}
-                onPointerMove={handleFloatingSnapResizePointerMove}
-                onPointerUp={handleFloatingSnapResizePointerUp}
-                data-testid="project-chat-floating-snap-resize-handle"
-                data-resize-axis={handle.axis}
-              >
-                <div
-                  className="rounded-full bg-setta-300/80 transition-colors hover:bg-blue-500 dark:bg-setta-600/80 dark:hover:bg-blue-400"
-                  style={
-                    handle.axis === "vertical"
-                      ? {
-                          width: FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX,
-                          height: Math.max(24, handle.end - handle.start - 8),
-                        }
-                      : {
-                          width: Math.max(24, handle.end - handle.start - 8),
-                          height: FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX,
-                        }
-                  }
-                />
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-      {isCanvasVisibilitySuppressed ? null : (
-        <div
-          className="pointer-events-none fixed inset-0"
-          style={{ zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX }}
-        >
-          {openFloatingPills.map((pill) => {
-            const bounds = floatingBoundsById[pill.instanceId] ?? pill.bounds;
-            const floatingExitAnimation =
-              windowExitAnimationsById[pill.instanceId] ?? null;
-            const floatingEnterAnimation =
-              windowEnterAnimationsById[pill.instanceId] ?? null;
-            const floatingEnterAnimationPrime =
-              windowEnterAnimationPrimesById[pill.instanceId] ?? null;
-            const floatingSnapPreset =
-              floatingSnapPresetById[pill.instanceId] ?? null;
-            return (
-              <article
-                key={pill.instanceId}
-                className={`pointer-events-auto absolute flex min-h-0 min-w-0 flex-col overflow-hidden ${
-                  floatingSnapPreset
-                    ? "rounded-none shadow-none"
-                    : `${WINDOWED_CHAT_ROUNDED_CLASS} ${FLOATING_CHAT_WINDOW_SHADOW_CLASS}`
-                } ${getChatWindowExitAnimationClass(
-                  floatingExitAnimation,
-                  ChatWindowPlacementEnum.floating,
-                )} ${getChatWindowEnterAnimationClass(
-                  floatingEnterAnimationPrime,
-                  ChatWindowPlacementEnum.floating,
-                )}`}
-                style={{
-                  left: bounds.x,
-                  top: bounds.y,
-                  width: bounds.width,
-                  height: bounds.height,
-                  zIndex: pill.zIndex,
-                }}
-                data-testid="project-chat-floating-window"
-                data-chat-window-instance-id={pill.instanceId}
-                data-chat-window-snap-preset={floatingSnapPreset ?? undefined}
-                data-chat-window-exit-animation={
-                  floatingExitAnimation ?? undefined
-                }
-                data-chat-window-enter-animation={
-                  floatingEnterAnimation ?? undefined
-                }
-                onPointerDown={() => {
-                  handleFocusWindow(pill.instanceId);
-                }}
-              >
-                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                  {pill.sectionId ? (
-                    <SectionWindowSurface
-                      sectionId={pill.sectionId}
-                      roundedClassName={
-                        floatingSnapPreset
-                          ? "rounded-none"
-                          : WINDOWED_CHAT_ROUNDED_CLASS
-                      }
-                      chatHost={ChatWindowPlacementEnum.floating}
-                      chatModeOverride={pill.mode}
-                      headerActions={
-                        canEditLayout ? (
-                          <>
-                            {canMoveProjectChatWindowToCanvas(pill.mode) ? (
-                              <button
-                                type="button"
-                                className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                                onClick={() => {
-                                  void bootProjectChatWindowToCanvasSection(
-                                    pill.instanceId,
-                                  );
-                                }}
-                                aria-label={getWindowControlQuickInfoText({
-                                  action: "show_in_canvas",
-                                  title: pill.title,
-                                })}
-                                data-testid="project-chat-window-show-in-canvas"
-                                data-chat-window-instance-id={pill.instanceId}
-                                {...getWindowControlQuickInfoHandlers({
-                                  action: "show_in_canvas",
-                                  title: pill.title,
-                                })}
-                              >
-                                <MdFlipToFront size={12} />
-                              </button>
-                            ) : null}
-                            <button
-                              type="button"
-                              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                              onClick={() => {
-                                handleDockWindow(pill.instanceId);
-                              }}
-                              aria-label={getWindowControlQuickInfoText({
-                                action: "dock_window",
-                                title: pill.title,
-                              })}
-                              data-testid="project-chat-window-dock"
-                              data-chat-window-instance-id={pill.instanceId}
-                              {...getWindowControlQuickInfoHandlers({
-                                action: "dock_window",
-                                title: pill.title,
-                              })}
-                            >
-                              <MdVerticalAlignBottom size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                              onClick={() => {
-                                handleMaximizeWindow(pill.instanceId);
-                              }}
-                              aria-label={getWindowControlQuickInfoText({
-                                action: "maximize_window",
-                                title: pill.title,
-                              })}
-                              data-testid="project-chat-window-maximize"
-                              data-chat-window-instance-id={pill.instanceId}
-                              {...getWindowControlQuickInfoHandlers({
-                                action: "maximize_window",
-                                title: pill.title,
-                              })}
-                            >
-                              {WINDOW_MAXIMIZE_ICON}
-                            </button>
-                            <button
-                              type="button"
-                              className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
-                              onClick={() => {
-                                handleMinimizeWindow(pill.instanceId);
-                              }}
-                              aria-label={getWindowControlQuickInfoText({
-                                action: "minimize_window",
-                                title: pill.title,
-                              })}
-                              data-testid="project-chat-window-minimize"
-                              data-chat-window-instance-id={pill.instanceId}
-                              {...getWindowControlQuickInfoHandlers({
-                                action: "minimize_window",
-                                title: pill.title,
-                              })}
-                            >
-                              <i className="gg-math-minus" />
-                            </button>
-                            <button
-                              type="button"
-                              className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
-                              onClick={() => {
-                                handleCloseWindow(pill.instanceId);
-                              }}
-                              aria-label={getWindowControlQuickInfoText({
-                                action: "close_window",
-                                title: pill.title,
-                              })}
-                              data-testid="project-chat-window-close"
-                              data-chat-window-instance-id={pill.instanceId}
-                              {...getWindowControlQuickInfoHandlers({
-                                action: "close_window",
-                                title: pill.title,
-                              })}
-                            >
-                              <i className="gg-close" />
-                            </button>
-                          </>
-                        ) : null
-                      }
-                      headerProps={
-                        canEditLayout
-                          ? {
-                              "data-testid":
-                                "project-chat-floating-window-drag-handle",
-                              className: "cursor-move",
-                              onPointerDown: (event) => {
-                                if (
-                                  isInteractiveWindowHeaderTarget(event.target)
-                                ) {
-                                  return;
-                                }
-                                handleFloatingDragPointerDown(event, pill);
-                              },
-                              onPointerMove: handleFloatingDragPointerMove,
-                              onPointerUp: handleFloatingDragPointerUp,
-                            }
-                          : undefined
-                      }
-                    />
-                  ) : (
-                    <ProjectChatWindowSurface
-                      title={pill.title}
-                      mode={pill.mode}
-                      instanceId={pill.instanceId}
-                      allowLayoutMutations={canEditLayout}
-                      roundedClassName={
-                        floatingSnapPreset
-                          ? "rounded-none"
-                          : WINDOWED_CHAT_ROUNDED_CLASS
-                      }
-                      headerClassName="cursor-move"
-                      onTitleClick={() => {
-                        handleFocusWindow(pill.instanceId);
-                      }}
-                      onTitleCommit={
-                        pill.mode === ChatWindowModeEnum.git_graph_mode
-                          ? undefined
-                          : (nextTitle) => {
-                              handleSetWindowTitle(pill.instanceId, nextTitle);
-                            }
-                      }
-                      dragHandleTestId="project-chat-floating-window-drag-handle"
-                      onTitlePointerDown={(event) => {
-                        handleFloatingDragPointerDown(event, pill);
-                      }}
-                      onTitlePointerMove={handleFloatingDragPointerMove}
-                      onTitlePointerUp={handleFloatingDragPointerUp}
-                      actions={[
-                        ...(canMoveProjectChatWindowToCanvas(pill.mode)
-                          ? [
-                              {
-                                key: "show_in_canvas",
-                                label: `Show ${pill.title} in canvas`,
-                                testId: "project-chat-window-show-in-canvas",
-                                instanceId: pill.instanceId,
-                                icon: <MdFlipToFront size={12} />,
-                                onClick: () => {
-                                  void bootProjectChatWindowToCanvasSection(
-                                    pill.instanceId,
-                                  );
-                                },
-                              },
-                            ]
-                          : []),
-                        {
-                          key: "dock",
-                          label: `Dock ${pill.title}`,
-                          testId: "project-chat-window-dock",
-                          instanceId: pill.instanceId,
-                          icon: <MdVerticalAlignBottom size={12} />,
-                          onClick: () => {
-                            handleDockWindow(pill.instanceId);
-                          },
-                        },
-                        {
-                          key: "maximize",
-                          label: `Maximize ${pill.title}`,
-                          testId: "project-chat-window-maximize",
-                          instanceId: pill.instanceId,
-                          icon: WINDOW_MAXIMIZE_ICON,
-                          onClick: () => {
-                            handleMaximizeWindow(pill.instanceId);
-                          },
-                        },
-                        {
-                          key: "minimize",
-                          label: `Minimize ${pill.title}`,
-                          testId: "project-chat-window-minimize",
-                          instanceId: pill.instanceId,
-                          className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
-                          icon: <i className="gg-math-minus" />,
-                          onClick: () => {
-                            handleMinimizeWindow(pill.instanceId);
-                          },
-                        },
-                        {
-                          key: "close",
-                          label: `Close ${pill.title}`,
-                          testId: "project-chat-window-close",
-                          instanceId: pill.instanceId,
-                          className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
-                          icon: <i className="gg-close" />,
-                          onClick: () => {
-                            handleCloseWindow(pill.instanceId);
-                          },
-                        },
-                      ]}
-                    >
-                      {pill.mode === ChatWindowModeEnum.git_graph_mode ? (
-                        <GitGraphWindowContent
-                          instanceId={pill.instanceId}
-                          showEmbeddedGitPaneToggle
-                        />
-                      ) : (
-                        <UnifiedChatSurface
-                          mode={pill.mode}
-                          host={ChatWindowPlacementEnum.floating}
-                          surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
-                            projectConfigId,
-                            pill.instanceId,
-                          )}
-                          projectChatId={pill.chatId}
-                          setProjectChatId={(next) => {
-                            const resolvedChatId =
-                              typeof next === "function"
-                                ? next(pill.chatId ?? undefined)
-                                : next;
-                            setProjectChatWindowChatId(
-                              pill.instanceId,
-                              resolvedChatId,
-                            );
-                          }}
-                        />
-                      )}
-                    </ProjectChatWindowSurface>
-                  )}
-                  {floatingSnapPreset || !canEditLayout
-                    ? null
-                    : FLOATING_WINDOW_RESIZE_HANDLES.map((handle) => (
-                        <div
-                          key={`${pill.instanceId}-floating-${handle.direction}`}
-                          role="separator"
-                          aria-orientation={
-                            handle.direction === "top" ||
-                            handle.direction === "bottom"
-                              ? "horizontal"
-                              : "vertical"
-                          }
-                          className={`absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
-                          onPointerDown={(event) => {
-                            handleFloatingResizePointerDown(
-                              event,
-                              pill,
-                              handle.direction,
-                            );
-                          }}
-                          onPointerMove={handleFloatingResizePointerMove}
-                          onPointerUp={handleFloatingResizePointerUp}
-                          data-testid="project-chat-floating-window-resize-handle"
-                          data-resize-direction={handle.direction}
-                          data-chat-window-instance-id={pill.instanceId}
-                        >
-                          {handle.indicatorClassName ? (
-                            <div className={handle.indicatorClassName} />
-                          ) : null}
-                        </div>
-                      ))}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-      {!isCanvasVisibilitySuppressed && openMaximizedWindow ? (
-        <section
-          className={`border-setta-250 fixed overflow-hidden rounded-none border bg-setta-50 shadow-none dark:border-setta-800 dark:bg-setta-900 ${getChatWindowExitAnimationClass(
-            maximizedExitAnimation,
-            ChatWindowPlacementEnum.maximized,
-          )} ${getChatWindowEnterAnimationClass(
-            maximizedEnterAnimationPrime,
-            ChatWindowPlacementEnum.maximized,
-          )}`}
-          style={{
-            zIndex: isPaneTrackedMaximizedGitGraphWindow
-              ? TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX
-              : CHAT_WINDOW_LAYER_Z_INDEX,
-            ...(isPaneTrackedMaximizedGitGraphWindow && trackedGitPaneGraphRect
-              ? {
-                  left: trackedGitPaneGraphRect.left,
-                  top: trackedGitPaneGraphRect.top,
-                  width: trackedGitPaneGraphRect.width,
-                  height: trackedGitPaneGraphRect.height,
-                }
-              : {
-                  left: SIDE_RAIL_WIDTH_PX,
-                  right: SIDE_RAIL_WIDTH_PX,
-                  top: workspaceTopInsetPx,
-                  bottom: dockBottomOffsetPx,
-                }),
-          }}
-          data-testid="project-chat-maximized-window"
-          data-chat-window-instance-id={openMaximizedWindow.instanceId}
-          data-chat-window-tracked-pane-target={
-            isPaneTrackedMaximizedGitGraphWindow ? "git_overview" : undefined
-          }
-          data-chat-window-exit-animation={maximizedExitAnimation ?? undefined}
-          data-chat-window-enter-animation={
-            maximizedEnterAnimation ?? undefined
-          }
-        >
-          <article className="flex h-full min-h-0 flex-col overflow-hidden">
-            {openMaximizedWindow.sectionId ? (
-              <SectionWindowSurface
-                sectionId={openMaximizedWindow.sectionId}
-                roundedClassName="rounded-none"
-                chatHost={ChatWindowPlacementEnum.maximized}
-                chatModeOverride={openMaximizedWindow.mode}
-                headerActions={
-                  canEditLayout ? (
-                    <>
-                      {canMoveProjectChatWindowToCanvas(
-                        openMaximizedWindow.mode,
-                      ) ? (
-                        <button
-                          type="button"
-                          className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                          onClick={() => {
-                            void bootProjectChatWindowToCanvasSection(
-                              openMaximizedWindow.instanceId,
-                            );
-                          }}
-                          aria-label={getWindowControlQuickInfoText({
-                            action: "show_in_canvas",
-                            title: openMaximizedWindow.title,
-                          })}
-                          data-testid="project-chat-window-show-in-canvas"
-                          data-chat-window-instance-id={
-                            openMaximizedWindow.instanceId
-                          }
-                          {...getWindowControlQuickInfoHandlers({
-                            action: "show_in_canvas",
-                            title: openMaximizedWindow.title,
-                          })}
-                        >
-                          <MdFlipToFront size={12} />
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                        onClick={() => {
-                          handleRestoreWindow(openMaximizedWindow.instanceId);
-                        }}
-                        aria-label={getWindowControlQuickInfoText({
-                          action: "restore_window",
-                          title: openMaximizedWindow.title,
-                        })}
-                        data-testid="project-chat-window-restore"
-                        data-chat-window-instance-id={
-                          openMaximizedWindow.instanceId
-                        }
-                        {...getWindowControlQuickInfoHandlers({
-                          action: "restore_window",
-                          title: openMaximizedWindow.title,
-                        })}
-                      >
-                        <MdFlipToFront size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                        onClick={() => {
-                          handleDockWindow(openMaximizedWindow.instanceId);
-                        }}
-                        aria-label={getWindowControlQuickInfoText({
-                          action: "dock_window",
-                          title: openMaximizedWindow.title,
-                        })}
-                        data-testid="project-chat-window-dock"
-                        data-chat-window-instance-id={
-                          openMaximizedWindow.instanceId
-                        }
-                        {...getWindowControlQuickInfoHandlers({
-                          action: "dock_window",
-                          title: openMaximizedWindow.title,
-                        })}
-                      >
-                        <MdVerticalAlignBottom size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
-                        onClick={() => {
-                          handleMinimizeWindow(openMaximizedWindow.instanceId);
-                        }}
-                        aria-label={getWindowControlQuickInfoText({
-                          action: "minimize_window",
-                          title: openMaximizedWindow.title,
-                        })}
-                        data-testid="project-chat-window-minimize"
-                        data-chat-window-instance-id={
-                          openMaximizedWindow.instanceId
-                        }
-                        {...getWindowControlQuickInfoHandlers({
-                          action: "minimize_window",
-                          title: openMaximizedWindow.title,
-                        })}
-                      >
-                        <i className="gg-math-minus" />
-                      </button>
-                      <button
-                        type="button"
-                        className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
-                        onClick={() => {
-                          handleCloseWindow(openMaximizedWindow.instanceId);
-                        }}
-                        aria-label={getWindowControlQuickInfoText({
-                          action: "close_window",
-                          title: openMaximizedWindow.title,
-                        })}
-                        data-testid="project-chat-window-close"
-                        data-chat-window-instance-id={
-                          openMaximizedWindow.instanceId
-                        }
-                        {...getWindowControlQuickInfoHandlers({
-                          action: "close_window",
-                          title: openMaximizedWindow.title,
-                        })}
-                      >
-                        <i className="gg-close" />
-                      </button>
-                    </>
-                  ) : null
-                }
-              />
-            ) : (
-              <ProjectChatWindowSurface
-                title={openMaximizedWindow.title}
-                mode={openMaximizedWindow.mode}
-                instanceId={openMaximizedWindow.instanceId}
-                allowLayoutMutations={canEditLayout}
-                roundedClassName="rounded-none"
-                onTitleClick={() => {
-                  handleFocusWindow(openMaximizedWindow.instanceId);
-                }}
-                onTitleCommit={
-                  openMaximizedWindow.mode === ChatWindowModeEnum.git_graph_mode
-                    ? undefined
-                    : (nextTitle) => {
-                        handleSetWindowTitle(
-                          openMaximizedWindow.instanceId,
-                          nextTitle,
-                        );
-                      }
-                }
-                actions={[
-                  ...(canMoveProjectChatWindowToCanvas(openMaximizedWindow.mode)
-                    ? [
-                        {
-                          key: "show_in_canvas",
-                          label: `Show ${openMaximizedWindow.title} in canvas`,
-                          testId: "project-chat-window-show-in-canvas",
-                          instanceId: openMaximizedWindow.instanceId,
-                          icon: <MdFlipToFront size={12} />,
-                          onClick: () => {
-                            void bootProjectChatWindowToCanvasSection(
-                              openMaximizedWindow.instanceId,
-                            );
-                          },
-                        },
-                      ]
-                    : []),
-                  {
-                    key: "restore",
-                    label: `Restore ${openMaximizedWindow.title}`,
-                    testId: "project-chat-window-restore",
-                    instanceId: openMaximizedWindow.instanceId,
-                    icon: <MdFlipToFront size={12} />,
-                    onClick: () => {
-                      handleRestoreWindow(openMaximizedWindow.instanceId);
-                    },
-                  },
-                  {
-                    key: "dock",
-                    label: `Dock ${openMaximizedWindow.title}`,
-                    testId: "project-chat-window-dock",
-                    instanceId: openMaximizedWindow.instanceId,
-                    icon: <MdVerticalAlignBottom size={12} />,
-                    onClick: () => {
-                      handleDockWindow(openMaximizedWindow.instanceId);
-                    },
-                  },
-                  {
-                    key: "minimize",
-                    label: `Minimize ${openMaximizedWindow.title}`,
-                    testId: "project-chat-window-minimize",
-                    instanceId: openMaximizedWindow.instanceId,
-                    className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
-                    icon: <i className="gg-math-minus" />,
-                    onClick: () => {
-                      handleMinimizeWindow(openMaximizedWindow.instanceId);
-                    },
-                  },
-                  {
-                    key: "close",
-                    label: `Close ${openMaximizedWindow.title}`,
-                    testId: "project-chat-window-close",
-                    instanceId: openMaximizedWindow.instanceId,
-                    className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
-                    icon: <i className="gg-close" />,
-                    onClick: () => {
-                      handleCloseWindow(openMaximizedWindow.instanceId);
-                    },
-                  },
-                ]}
-              >
-                {openMaximizedWindow.mode ===
-                ChatWindowModeEnum.git_graph_mode ? (
-                  <GitGraphWindowContent
-                    instanceId={openMaximizedWindow.instanceId}
-                    showEmbeddedGitPaneToggle={
-                      !isPaneTrackedMaximizedGitGraphWindow
-                    }
-                  />
-                ) : (
-                  <UnifiedChatSurface
-                    mode={openMaximizedWindow.mode}
-                    host={ChatWindowPlacementEnum.maximized}
-                    surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
-                      projectConfigId,
-                      openMaximizedWindow.instanceId,
-                    )}
-                    projectChatId={openMaximizedWindow.chatId}
-                    setProjectChatId={(next) => {
-                      const resolvedChatId =
-                        typeof next === "function"
-                          ? next(openMaximizedWindow.chatId ?? undefined)
-                          : next;
-                      setProjectChatWindowChatId(
-                        openMaximizedWindow.instanceId,
-                        resolvedChatId,
-                      );
-                    }}
-                  />
-                )}
-              </ProjectChatWindowSurface>
-            )}
-          </article>
-        </section>
-      ) : null}
-      {showStandaloneMinimizedPills ? (
-        <div
-          className="pointer-events-none fixed"
-          style={{
-            zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
-            left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
-            right: dockSurfaceRightPx,
-            bottom: dockBottomOffsetPx,
-          }}
-        >
-          <MinimizedPillStrip
-            pills={stripPills}
-            visiblePills={visiblePills}
-            pillExitAnimationsById={pillExitAnimationsById}
-            useCompactPills={useCompactPills}
-            canCreateWindow={canCreateManagedChatWindow}
-            showManagerMenu={showDockManagerMenu}
-            canCycleBackward={canCycleBackward}
-            canCycleForward={canCycleForward}
-            maxCycleStartIndex={maxCycleStartIndex}
-            pillDisplayMode={pillDisplayMode}
-            pillViewportRef={pillViewportRef}
-            fullMeasureRowRef={fullMeasureRowRef}
-            compactMeasureRowRef={compactMeasureRowRef}
-            onCycleBackward={() => {
-              setPillCycleStartIndex((current) => Math.max(0, current - 1));
-            }}
-            onCycleForward={() => {
-              setPillCycleStartIndex((current) =>
-                Math.min(maxCycleStartIndex, current + 1),
-              );
-            }}
-            onOpenWindow={handleOpenWindow}
-            onCreateWindow={handleCreate}
-          />
-        </div>
-      ) : null}
+      {dockedChatSurfaceElement}
+      {floatingSnapPreviewElement}
+      {floatingSnapResizeElement}
+      {floatingWindowsElement}
+      {maximizedWindowElement}
+      {standaloneMinimizedPillsElement}
       <nav
         className="pointer-events-none fixed"
         style={{
@@ -4949,41 +5546,7 @@ export function ProjectChatBottomDock() {
         }}
         data-testid="project-chat-bottom-dock-strip"
       />
-      {showCanvasVisibilityToggle ? (
-        <button
-          type="button"
-          className={`${CANVAS_VISIBILITY_TOGGLE_BUTTON_CLASS} ${
-            isCanvasVisibilitySuppressed
-              ? CANVAS_VISIBILITY_TOGGLE_BUTTON_ACTIVE_CLASS
-              : ""
-          }`}
-          style={{
-            zIndex: CHAT_WINDOW_TOGGLE_Z_INDEX,
-            left: 6,
-            bottom: dockBottomOffsetPx + 136,
-          }}
-          onClick={() => {
-            setIsCanvasVisibilitySuppressed((current) => !current);
-          }}
-          aria-label={getWindowControlQuickInfoText({
-            action: isCanvasVisibilitySuppressed ? "show_chats" : "show_canvas",
-          })}
-          aria-pressed={isCanvasVisibilitySuppressed}
-          data-testid="project-chat-canvas-visibility-toggle"
-          title={getWindowControlQuickInfoText({
-            action: isCanvasVisibilitySuppressed ? "show_chats" : "show_canvas",
-          })}
-          {...getWindowControlQuickInfoHandlers({
-            action: isCanvasVisibilitySuppressed ? "show_chats" : "show_canvas",
-          })}
-        >
-          {isCanvasVisibilitySuppressed ? (
-            <BiShow size={18} />
-          ) : (
-            <BiHide size={18} />
-          )}
-        </button>
-      ) : null}
+      {canvasVisibilityToggleElement}
     </>
   );
 }
