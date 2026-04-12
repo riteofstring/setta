@@ -455,7 +455,7 @@ function EdgeOutputPortRow({
   );
 }
 
-export function resolveUnpinnedParamsAreaMinHeight(
+function resolveUnpinnedParamsAreaMinHeight(
   sizingPolicy: SectionSizingPolicy,
   hasPinnedParams: boolean,
 ) {
@@ -681,7 +681,7 @@ function _ParamGroupContainer({
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-export function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
+function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
   if (sectionTypeName === SectionTypeEnum.Callable) {
     return "bg-white dark:bg-blue-950/30";
   }
