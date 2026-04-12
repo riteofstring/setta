@@ -6,7 +6,6 @@ import { WorkspaceLaunchPage } from "components/Pages/Launch/WorkspaceLaunchPage
 import { LauncherHomePage } from "components/Pages/Launcher/LauncherHomePage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
-import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useEffect } from "react";
@@ -28,20 +27,22 @@ import {
   WINDOW_SPACE_STANDALONE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
+import type { ProjectConfig } from "utils/generatedTypes";
 import {
   resolveWorkspaceLaunchRouteKind,
   type WorkspaceLaunchRouteKind,
 } from "utils/serverModeBoundaryPolicy";
-import type { ResolvedServerMode } from "utils/serverModeTypes";
-import { resolveDefaultProjectConfigName } from "./defaultProjectRouting";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
-import { MainContainer } from "./Project/MainContainer";
+import {
+  ProjectRouteSurface,
+  ShareProjectRouteSurface,
+  StandaloneProjectRouteSurface,
+} from "./Project/ProjectRouteSurfaces";
 import { ShareStandaloneProjectSurfacePage } from "./Project/ShareStandaloneProjectSurfacePage";
-import { StandaloneProjectSurfacePage } from "./Project/StandaloneProjectSurfacePage";
 import { APP_ROUTE_IDS } from "./routeConfig";
 
 const LazyAppWrapper = lazy(async () => {
@@ -78,6 +79,21 @@ function resolveShareHomeContent(doneLoading: boolean, is404: boolean) {
     return <NotFound />;
   }
   return <HomePage />;
+}
+
+function resolveDefaultProjectConfigName(
+  defaultProjectConfigId: string | null,
+  projectMetadata: Array<ProjectConfig>,
+): string | null {
+  if (!defaultProjectConfigId) {
+    return null;
+  }
+  for (const config of projectMetadata) {
+    if (config.id === defaultProjectConfigId) {
+      return config.name;
+    }
+  }
+  return null;
 }
 
 function ShareIndexRedirect() {
@@ -193,7 +209,7 @@ const ideProjectRouteElement = (
     <ModalContainer>
       <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
       <GridContainer>
-        <MainContainer />
+        <ProjectRouteSurface />
       </GridContainer>
     </ModalContainer>
   </GlobalWrapper>
@@ -202,7 +218,7 @@ const ideProjectRouteElement = (
 const ideStandaloneProjectRouteElement = (
   <GlobalWrapper>
     <ModalContainer>
-      <StandaloneProjectSurfacePage />
+      <StandaloneProjectRouteSurface />
     </ModalContainer>
   </GlobalWrapper>
 );
@@ -240,7 +256,7 @@ const shareProjectRouteElement = (
       <ModalContainer>
         <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
         <GridContainer>
-          <ShareMainContainer doneLoading={doneLoading} is404={is404} />
+          <ShareProjectRouteSurface doneLoading={doneLoading} is404={is404} />
         </GridContainer>
       </ModalContainer>
     )}
@@ -438,7 +454,9 @@ const workspaceLaunchRouteElementsByKind: Record<
   blocked: workspaceLaunchBlockedRouteElement,
 };
 
-function resolveWorkspaceLaunchRouteElement(mode: ResolvedServerMode) {
+function resolveWorkspaceLaunchRouteElement(
+  mode: "ide" | "share" | "app" | "launcher",
+) {
   return workspaceLaunchRouteElementsByKind[
     resolveWorkspaceLaunchRouteKind(mode)
   ];
