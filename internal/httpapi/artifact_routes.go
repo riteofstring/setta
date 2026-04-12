@@ -47,6 +47,49 @@ type ShareArtifactService interface {
 	Delete(ctx context.Context, sessionID string, request artifacts.DeleteRequest) ([]string, error)
 }
 
+var artifactRouteErrorDescriptors = map[artifacts.ErrorKind]routeErrorDescriptor{
+	artifacts.ErrorInvalidRequest: {
+		status: http.StatusBadRequest,
+		code:   "invalid_request",
+	},
+	artifacts.ErrorPolicyDenied: {
+		status: http.StatusForbidden,
+		code:   "artifact_policy_denied",
+	},
+	artifacts.ErrorPathForbidden: {
+		status: http.StatusForbidden,
+		code:   "artifact_path_forbidden",
+	},
+	artifacts.ErrorPathNotFound: {
+		status: http.StatusNotFound,
+		code:   "artifact_path_not_found",
+	},
+	artifacts.ErrorPathNotFile: {
+		status: http.StatusBadRequest,
+		code:   "artifact_path_not_file",
+	},
+	artifacts.ErrorBinaryPayloadInvalid: {
+		status: http.StatusBadRequest,
+		code:   "invalid_binary_content_id",
+	},
+	artifacts.ErrorBinaryPayloadNotFound: {
+		status: http.StatusNotFound,
+		code:   "binary_payload_not_found",
+	},
+	artifacts.ErrorArtifactTypeUnsupported: {
+		status: http.StatusBadRequest,
+		code:   "unsupported_artifact_type",
+	},
+	artifacts.ErrorTooLarge: {
+		status: http.StatusRequestEntityTooLarge,
+		code:   "artifact_payload_too_large",
+	},
+	artifacts.ErrorMimeNotAllowed: {
+		status: http.StatusUnsupportedMediaType,
+		code:   "artifact_mime_not_allowed",
+	},
+}
+
 type UpdateArtifactsRequest struct {
 	Artifacts        []artifacts.RawArtifact         `json:"artifacts" ts_type:"Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>"`
 	ConflictStrategy *artifacts.SaveConflictStrategy `json:"conflictStrategy,omitempty"`
@@ -507,32 +550,14 @@ func artifactShareSessionID(r *http.Request) (string, bool) {
 
 func writeArtifactRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	var artifactErr *artifacts.Error
-	if errors.As(err, &artifactErr) {
-		switch artifactErr.Kind {
-		case artifacts.ErrorInvalidRequest:
-			writeError(w, r, http.StatusBadRequest, "invalid_request", artifactErr.Message)
-		case artifacts.ErrorPolicyDenied:
-			writeError(w, r, http.StatusForbidden, "artifact_policy_denied", artifactErr.Message)
-		case artifacts.ErrorPathForbidden:
-			writeError(w, r, http.StatusForbidden, "artifact_path_forbidden", artifactErr.Message)
-		case artifacts.ErrorPathNotFound:
-			writeError(w, r, http.StatusNotFound, "artifact_path_not_found", artifactErr.Message)
-		case artifacts.ErrorPathNotFile:
-			writeError(w, r, http.StatusBadRequest, "artifact_path_not_file", artifactErr.Message)
-		case artifacts.ErrorBinaryPayloadInvalid:
-			writeError(w, r, http.StatusBadRequest, "invalid_binary_content_id", artifactErr.Message)
-		case artifacts.ErrorBinaryPayloadNotFound:
-			writeError(w, r, http.StatusNotFound, "binary_payload_not_found", artifactErr.Message)
-		case artifacts.ErrorArtifactTypeUnsupported:
-			writeError(w, r, http.StatusBadRequest, "unsupported_artifact_type", artifactErr.Message)
-		case artifacts.ErrorTooLarge:
-			writeError(w, r, http.StatusRequestEntityTooLarge, "artifact_payload_too_large", artifactErr.Message)
-		case artifacts.ErrorMimeNotAllowed:
-			writeError(w, r, http.StatusUnsupportedMediaType, "artifact_mime_not_allowed", artifactErr.Message)
-		default:
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-		}
+	if !errors.As(err, &artifactErr) {
+		writeInternalRouteError(w, r)
 		return
 	}
-	writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	descriptor, ok := artifactRouteErrorDescriptors[artifactErr.Kind]
+	if !ok {
+		writeInternalRouteError(w, r)
+		return
+	}
+	writeMappedRouteError(w, r, descriptor, artifactErr.Message)
 }

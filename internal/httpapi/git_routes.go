@@ -32,6 +32,49 @@ type GitReadService interface {
 	CommitFileDiff(ctx context.Context, request gitread.CommitFileDiffRequest) (gitread.CommitFileDiffResponse, error)
 }
 
+var gitRouteErrorDescriptors = map[gitread.ErrorKind]routeErrorDescriptor{
+	gitread.ErrorInvalidRequest: {
+		status: http.StatusBadRequest,
+		code:   "invalid_request",
+	},
+	gitread.ErrorInvalidRevision: {
+		status: http.StatusBadRequest,
+		code:   "invalid_revision",
+	},
+	gitread.ErrorInvalidCommit: {
+		status: http.StatusBadRequest,
+		code:   "invalid_commit_hash",
+	},
+	gitread.ErrorNotFound: {
+		status: http.StatusNotFound,
+		code:   "git_not_found",
+	},
+	gitread.ErrorNotGitRepo: {
+		status: http.StatusBadRequest,
+		code:   "git_repo_required",
+	},
+	gitread.ErrorPathNotFile: {
+		status: http.StatusBadRequest,
+		code:   "path_not_file",
+	},
+	gitread.ErrorPathForbidden: {
+		status: http.StatusForbidden,
+		code:   "path_forbidden",
+	},
+	gitread.ErrorPathNotFound: {
+		status: http.StatusNotFound,
+		code:   "path_not_found",
+	},
+	gitread.ErrorTimedOut: {
+		status: http.StatusGatewayTimeout,
+		code:   "git_timeout",
+	},
+	gitread.ErrorCommandFailed: {
+		status: http.StatusInternalServerError,
+		code:   "git_command_failed",
+	},
+}
+
 func RegisterGitRoutes(router chi.Router, deps GitRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -195,39 +238,14 @@ func getGitCommitFileDiffHandler(deps GitRouteDependencies) http.HandlerFunc {
 
 func writeGitRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	var gitErr *gitread.Error
-	if errors.As(err, &gitErr) {
-		switch gitErr.Kind {
-		case gitread.ErrorInvalidRequest:
-			writeError(w, r, http.StatusBadRequest, "invalid_request", gitErr.Message)
-			return
-		case gitread.ErrorInvalidRevision:
-			writeError(w, r, http.StatusBadRequest, "invalid_revision", gitErr.Message)
-			return
-		case gitread.ErrorInvalidCommit:
-			writeError(w, r, http.StatusBadRequest, "invalid_commit_hash", gitErr.Message)
-			return
-		case gitread.ErrorNotFound:
-			writeError(w, r, http.StatusNotFound, "git_not_found", gitErr.Message)
-			return
-		case gitread.ErrorNotGitRepo:
-			writeError(w, r, http.StatusBadRequest, "git_repo_required", gitErr.Message)
-			return
-		case gitread.ErrorPathNotFile:
-			writeError(w, r, http.StatusBadRequest, "path_not_file", gitErr.Message)
-			return
-		case gitread.ErrorPathForbidden:
-			writeError(w, r, http.StatusForbidden, "path_forbidden", gitErr.Message)
-			return
-		case gitread.ErrorPathNotFound:
-			writeError(w, r, http.StatusNotFound, "path_not_found", gitErr.Message)
-			return
-		case gitread.ErrorTimedOut:
-			writeError(w, r, http.StatusGatewayTimeout, "git_timeout", gitErr.Message)
-			return
-		case gitread.ErrorCommandFailed:
-			writeError(w, r, http.StatusInternalServerError, "git_command_failed", gitErr.Message)
-			return
-		}
+	if !errors.As(err, &gitErr) {
+		writeInternalRouteError(w, r)
+		return
 	}
-	writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	descriptor, ok := gitRouteErrorDescriptors[gitErr.Kind]
+	if !ok {
+		writeInternalRouteError(w, r)
+		return
+	}
+	writeMappedRouteError(w, r, descriptor, gitErr.Message)
 }
