@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 16:51 UTC
+Last updated: 2026-04-13 19:16 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,87 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `442` closed one bounded live attribution pass on the canonical
+  `rotaryParamCodeObjDefault` lane by reading the already-landed
+  `ParamGroupContainer` split instead of reopening nearby
+  `settingsGraphSubstrateCanarySectionsLayer.tsx` hypotheses:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and followed the redirect away from
+      another section-entry or body-mount memoization pass
+    - chose one bounded attribution slice under `DictArea` to answer whether
+      the remaining `ParamGroupContainer` cost lived in pinned params,
+      unpinned params, or fixed chrome
+    - kept the slice bounded to one canonical live probe, one append-only perf
+      note, and one fresh-context CDP smoke via sub-agent
+  - code/doc changes kept in the tree:
+    - `perf/reports/frontend/2026-04-13_settings-graph-param-group-live-split.md`
+      records the live `ParamGroupContainer` split on the current runtime
+  - focused verification:
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-011/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> live readout:
+         `presentedSceneSectionSubtreeReactRender`
+         `989.3ms total` / `257.3ms max`
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `579.3ms total` / `91.0ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `517.1ms total` / `88.8ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `485.9ms total` / `85.5ms max`
+         `presentedSceneSectionParamGroupPinnedParamsReactRender`
+         `1.1ms total` / `0.3ms max`
+         `presentedSceneSectionParamGroupEdgesStripReactRender`
+         `2.3ms total` / `0.3ms max`
+    - fresh-context CDP smoke via sub-agent on the current runtime:
+      -> `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+      -> after one bounded normalization, the graph-substrate canary was
+         mounted and `rotaryParamCodeObjDefault` was visibly readable
+      -> an unrelated runtime error also appeared:
+         `TypeError: Cannot read properties of null (reading 'transform')`
+         from `sectionPositions.ts:142` via `SectionListItems.tsx`
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - pinned params and edge-strip chrome are now effectively closed as the
+      default motion frontier on this lane
+    - the next meaningful owner is the unpinned params / `ParamDndList` rows
+      path under `ParamGroupContainer`
+    - the current live CDP gate is trustworthy enough again for this lane, but
+      note the separate `SectionListItems` null-transform error as non-lane
+      runtime noise until it proves user-visible on the graph surface
+  - next default frontier:
+    - stay on the canonical lane and take one bounded product or attribution
+      cut inside the unpinned `ParamDndList` / row path
+    - do not spend the next default pass on pinned params, edge-strip chrome,
+      or another adjacent `settingsGraphSubstrateCanarySectionsLayer.tsx`
+      reuse experiment without fresh contrary evidence
+
+- progress-review redirect after loop `001` item `010`:
+  - the current trajectory is still worthwhile because the loop kept landing
+    bounded product-side work on the canonical
+    `rotaryParamCodeObjDefault` lane and closed multiple hypotheses with live
+    evidence instead of drifting back into generic verifier churn
+  - the current red-herring risk is another adjacent
+    `settingsGraphSubstrateCanarySectionsLayer.tsx` experiment by proximity:
+    body-mount isolation and semantic section-entry reuse are now closed
+    negative hypotheses, and stable entry-element reuse is already the one
+    accepted win on that seam
+  - next-pass rule:
+    - do not open another default section-entry / body-mount memoization
+      experiment unless fresh attribution explicitly points back to that seam
+    - the next iteration should either:
+      - add one bounded attribution split below
+        `presentedSceneSectionSubtreeReactRender` that resolves a concrete
+        owner under `AreaSwitch` or the mounted body branch, or
+      - take one larger product cut that removes DOM work from that branch
+        without first reopening nearby section-entry hypotheses
+  - escalation rule:
+    - if one more bounded attribution pass still cannot name a broader owner
+      than the already-closed section-entry/body-mount seams, stop doing
+      micro-splits and escalate to a larger architectural reduction on the
+      mounted body branch
+  - canonical target remains `rotaryParamCodeObjDefault`
 
 - item `441` closed one bounded product hypothesis on the canonical
   `rotaryParamCodeObjDefault` canary lane by testing, then reverting, semantic

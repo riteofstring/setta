@@ -18161,6 +18161,85 @@ LOOP_TERMINAL_MARKER: none
     product or attribution cut instead of reopening closed entry-reuse ideas
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 16:54 UTC
+
+- progress review for loop `/tmp/codex-supervisor.wUe785/loop-001` after
+  successful iteration `010`
+- verdict:
+  - keep the automation running, but not on the current adjacent
+    section-entry hypothesis shape
+- evidence for continuing:
+  - the loop stayed on the canonical live `rotaryParamCodeObjDefault` lane
+    and kept producing trustworthy Playwright readouts instead of falling back
+    into generic verifier repair
+  - one real product win landed in this stretch
+    (`section-entry-element-reuse`), and two nearby hypotheses were closed
+    with measured regressions (`body-mount-isolation`,
+    `section-entry-semantic-reuse`)
+  - the dominant remaining owner is still explicit:
+    `presentedSceneSectionSubtreeReactRender`
+- diminishing-return signal:
+  - runs `008` through `010` clustered around nearby
+    `settingsGraphSubstrateCanarySectionsLayer.tsx` entry/body memoization
+    ideas, so another default pass on that same seam would likely be churn
+- durable redirect applied:
+  - do not spend the next default iteration on another section-entry identity,
+    entry-array, or body-mount reuse experiment unless fresh attribution
+    points back there
+  - the next iteration should either isolate one concrete owner below
+    `presentedSceneSectionSubtreeReactRender` under `AreaSwitch` / the mounted
+    body branch, or take one larger DOM-work reduction on that branch
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 19:16 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
+- selected one bounded canonical-lane subtask:
+  use the existing `ParamGroupContainer` motion split to decide whether the
+  remaining live Dict-path cost is in pinned params, unpinned params, or fixed
+  chrome around them
+- kept the slice attribution-only on purpose instead of reopening another
+  nearby `settingsGraphSubstrateCanarySectionsLayer.tsx` hypothesis; the
+  active redirect already closed the adjacent entry/body memoization ideas
+- append-only perf note added:
+  - `perf/reports/frontend/2026-04-13_settings-graph-param-group-live-split.md`
+- canonical live verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-011/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.3m`)
+    -> live readout:
+       `presentedSceneSectionSubtreeReactRender`
+       `989.3ms total` / `257.3ms max`
+       `presentedSceneSectionParamGroupContainerReactRender`
+       `579.3ms total` / `91.0ms max`
+       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+       `517.1ms total` / `88.8ms max`
+       `presentedSceneSectionParamDndListRowsReactRender`
+       `485.9ms total` / `85.5ms max`
+       `presentedSceneSectionParamInputReactRender`
+       `254.9ms total` / `10.4ms max`
+       `presentedSceneSectionParamGroupPinnedParamsReactRender`
+       `1.1ms total` / `0.3ms max`
+       `presentedSceneSectionParamGroupEdgesStripReactRender`
+       `2.3ms total` / `0.3ms max`
+- fresh-context CDP smoke via sub-agent on the same runtime:
+  - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+  - after one bounded normalization, the graph-substrate canary was mounted
+    and `rotaryParamCodeObjDefault` was visibly readable
+  - the sub-agent also saw an uncaught
+    `TypeError: Cannot read properties of null (reading 'transform')` from
+    `sectionPositions.ts:142` via `SectionListItems.tsx`; treated as separate
+    runtime noise for now because it did not block the graph-surface canary
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - pinned params and edge-strip chrome are effectively closed on the current
+    motion lane
+  - the next meaningful owner is the unpinned params /
+    `ParamDndList` rows path under `ParamGroupContainer`
+  - the live CDP gate is trustworthy again for this lane, with the
+    `SectionListItems` null-transform error logged separately for follow-up if
+    it becomes user-visible
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 16:41 UTC
 
 - reread `RALPH.md`, the rewrite plan, and the handoff before picking work
