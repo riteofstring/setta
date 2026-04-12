@@ -99,6 +99,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "OverviewTabUIConfig",
+			Type: reflect.TypeOf(uisettings.FrontendValueOverviewTabUIConfig()),
+			Value: func() any {
+				return uisettings.FrontendValueOverviewTabUIConfig()
+			},
+		},
+		{
 			Name: "ProjectChatUIConfig",
 			Type: reflect.TypeOf(projectview.FrontendValueProjectChatUIConfig()),
 			Value: func() any {
@@ -187,6 +194,13 @@ func DiscoveredValueExports() []ValueExport {
 			Type: reflect.TypeOf(httpapi.FrontendValueTransportRouteConstants()),
 			Value: func() any {
 				return httpapi.FrontendValueTransportRouteConstants()
+			},
+		},
+		{
+			Name: "UIEditorTabUIConfig",
+			Type: reflect.TypeOf(uisettings.FrontendValueUIEditorTabUIConfig()),
+			Value: func() any {
+				return uisettings.FrontendValueUIEditorTabUIConfig()
 			},
 		},
 	}

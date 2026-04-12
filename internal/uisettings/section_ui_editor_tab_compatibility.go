@@ -36,6 +36,9 @@ func mustLoadRequiredUIEditorTabsBySectionTypeOrdered() map[string][]string {
 			if tabName == "" {
 				panic(fmt.Sprintf("uisettings: section UI editor tab compatibility contains an empty tab name for %s", sectionType))
 			}
+			if !isValidUIEditorTabName(tabName) {
+				panic(fmt.Sprintf("uisettings: section UI editor tab compatibility contains unknown tab name %q for %s", tabName, sectionType))
+			}
 			tabNames = append(tabNames, tabName)
 		}
 		compatibility[sectionType] = tabNames

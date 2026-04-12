@@ -1518,7 +1518,7 @@ func pluginHasRegisterPaneCapability(capabilities []string) bool {
 }
 
 func buildPluginPaneOverviewTabKey(pluginID string, paneID string) string {
-	return "PluginPane:" + encodeURIComponent(pluginID) + ":" + encodeURIComponent(paneID)
+	return string(PluginOverviewTabPrefixValue) + ":" + encodeURIComponent(pluginID) + ":" + encodeURIComponent(paneID)
 }
 
 func encodeURIComponent(raw string) string {

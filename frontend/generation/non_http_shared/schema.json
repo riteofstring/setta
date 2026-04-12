@@ -9741,6 +9741,141 @@
       "type": "integer",
       "title": "OpenAIRealtimeTranscriptionStreamMode"
     },
+    "OverviewTabName": {
+      "type": "string",
+      "title": "OverviewTabName",
+      "enum": [
+        "Overview",
+        "Plugins",
+        "FileBrowser",
+        "Git",
+        "App",
+        "RunInstructions",
+        "ViewModes",
+        "Notifications",
+        "ProjectAIChat",
+        "ProjectAISettings"
+      ]
+    },
+    "OverviewTabNamesValue": {
+      "type": "object",
+      "properties": {
+        "Overview": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "Plugins": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "FileBrowser": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "Git": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "App": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "RunInstructions": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "ViewModes": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "Notifications": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "ProjectAIChat": {
+          "$ref": "#/$defs/OverviewTabName"
+        },
+        "ProjectAISettings": {
+          "$ref": "#/$defs/OverviewTabName"
+        }
+      },
+      "title": "OverviewTabNamesValue",
+      "required": [
+        "Overview",
+        "Plugins",
+        "FileBrowser",
+        "Git",
+        "App",
+        "RunInstructions",
+        "ViewModes",
+        "Notifications",
+        "ProjectAIChat",
+        "ProjectAISettings"
+      ],
+      "additionalProperties": false
+    },
+    "OverviewTabTitlesValue": {
+      "type": "object",
+      "properties": {
+        "Overview": {
+          "type": "string"
+        },
+        "Plugins": {
+          "type": "string"
+        },
+        "FileBrowser": {
+          "type": "string"
+        },
+        "Git": {
+          "type": "string"
+        },
+        "App": {
+          "type": "string"
+        },
+        "RunInstructions": {
+          "type": "string"
+        },
+        "ViewModes": {
+          "type": "string"
+        },
+        "Notifications": {
+          "type": "string"
+        },
+        "ProjectAIChat": {
+          "type": "string"
+        },
+        "ProjectAISettings": {
+          "type": "string"
+        }
+      },
+      "title": "OverviewTabTitlesValue",
+      "required": [
+        "Overview",
+        "Plugins",
+        "FileBrowser",
+        "Git",
+        "App",
+        "RunInstructions",
+        "ViewModes",
+        "Notifications",
+        "ProjectAIChat",
+        "ProjectAISettings"
+      ],
+      "additionalProperties": false
+    },
+    "OverviewTabUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "names": {
+          "$ref": "#/$defs/OverviewTabNamesValue"
+        },
+        "titles": {
+          "$ref": "#/$defs/OverviewTabTitlesValue"
+        },
+        "pluginPanePrefix": {
+          "$ref": "#/$defs/PluginOverviewTabPrefix"
+        }
+      },
+      "title": "OverviewTabUIConfigValue",
+      "required": [
+        "names",
+        "titles",
+        "pluginPanePrefix"
+      ],
+      "additionalProperties": false
+    },
     "PanOnScrollMode": {
       "type": "string",
       "title": "PanOnScrollMode",
@@ -10636,6 +10771,13 @@
         "capabilities"
       ],
       "additionalProperties": false
+    },
+    "PluginOverviewTabPrefix": {
+      "type": "string",
+      "title": "PluginOverviewTabPrefix",
+      "enum": [
+        "PluginPane"
+      ]
     },
     "PluginRegisteredBackendRoute": {
       "type": "object",
@@ -19381,6 +19523,92 @@
       "required": [
         "callable",
         "params"
+      ],
+      "additionalProperties": false
+    },
+    "UIEditorTabName": {
+      "type": "string",
+      "title": "UIEditorTabName",
+      "enum": [
+        "SectionConfig",
+        "QuickInfoConfig",
+        "UIConfig",
+        "InfoConfig",
+        "SectionVariantsConfig"
+      ]
+    },
+    "UIEditorTabNamesValue": {
+      "type": "object",
+      "properties": {
+        "SectionConfig": {
+          "$ref": "#/$defs/UIEditorTabName"
+        },
+        "QuickInfoConfig": {
+          "$ref": "#/$defs/UIEditorTabName"
+        },
+        "UIConfig": {
+          "$ref": "#/$defs/UIEditorTabName"
+        },
+        "InfoConfig": {
+          "$ref": "#/$defs/UIEditorTabName"
+        },
+        "SectionVariantsConfig": {
+          "$ref": "#/$defs/UIEditorTabName"
+        }
+      },
+      "title": "UIEditorTabNamesValue",
+      "required": [
+        "SectionConfig",
+        "QuickInfoConfig",
+        "UIConfig",
+        "InfoConfig",
+        "SectionVariantsConfig"
+      ],
+      "additionalProperties": false
+    },
+    "UIEditorTabTitlesValue": {
+      "type": "object",
+      "properties": {
+        "SectionConfig": {
+          "type": "string"
+        },
+        "QuickInfoConfig": {
+          "type": "string"
+        },
+        "UIConfig": {
+          "type": "string"
+        },
+        "InfoConfig": {
+          "type": "string"
+        },
+        "SectionVariantsConfig": {
+          "type": "string"
+        }
+      },
+      "title": "UIEditorTabTitlesValue",
+      "required": [
+        "SectionConfig",
+        "QuickInfoConfig",
+        "UIConfig",
+        "InfoConfig",
+        "SectionVariantsConfig"
+      ],
+      "additionalProperties": false
+    },
+    "UIEditorTabUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "names": {
+          "$ref": "#/$defs/UIEditorTabNamesValue"
+        },
+        "titles": {
+          "$ref": "#/$defs/UIEditorTabTitlesValue"
+        }
+      },
+      "title": "UIEditorTabUIConfigValue",
+      "required": [
+        "names",
+        "titles"
       ],
       "additionalProperties": false
     },

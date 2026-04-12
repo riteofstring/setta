@@ -154,10 +154,11 @@ func TestScopedRegistryIncludesRequiredRevealActivationMetadata(t *testing.T) {
 		if !found {
 			t.Fatalf("expected reveal activation step %#v for %s, got %#v", expected, settingID, entry.Metadata.RevealActivationSteps)
 		}
-		if settingID == "core.run_instructions.python_codegen_enabled" && entry.Metadata.Location.OverviewTabKey != "RunInstructions" {
+		if settingID == "core.run_instructions.python_codegen_enabled" && entry.Metadata.Location.OverviewTabKey != string(OverviewTabNameRunInstructions) {
 			t.Fatalf(
-				"expected %s overview tab RunInstructions, got %q",
+				"expected %s overview tab %s, got %q",
 				settingID,
+				OverviewTabNameRunInstructions,
 				entry.Metadata.Location.OverviewTabKey,
 			)
 		}
@@ -579,8 +580,8 @@ func TestScopedRegistryProjectAISettingsExposeReadOnlyCountEntries(t *testing.T)
 		if entry.Metadata.Mutability != MutabilityReadOnly {
 			t.Fatalf("expected %s to be read-only, got %q", settingID, entry.Metadata.Mutability)
 		}
-		if entry.Metadata.Location.OverviewTabKey != "ProjectAISettings" {
-			t.Fatalf("expected %s overview tab ProjectAISettings, got %q", settingID, entry.Metadata.Location.OverviewTabKey)
+		if entry.Metadata.Location.OverviewTabKey != string(OverviewTabNameProjectAISettings) {
+			t.Fatalf("expected %s overview tab %s, got %q", settingID, OverviewTabNameProjectAISettings, entry.Metadata.Location.OverviewTabKey)
 		}
 		if entry.Metadata.Highlight.AnchorID != settingID {
 			t.Fatalf("expected %s anchor id %s, got %q", settingID, settingID, entry.Metadata.Highlight.AnchorID)

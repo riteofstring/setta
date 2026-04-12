@@ -13,7 +13,7 @@ func TestBuildPluginPaneOverviewTabKeyMatchesEncodeURIComponentRules(t *testing.
 		"plugin!~*'() /",
 		"pane!~*'() :?",
 	)
-	const want = "PluginPane:plugin!~*'()%20%2F:pane!~*'()%20%3A%3F"
+	const want = string(PluginOverviewTabPrefixValue) + ":plugin!~*'()%20%2F:pane!~*'()%20%3A%3F"
 	if got != want {
 		t.Fatalf("expected plugin pane overview tab key %q, got %q", want, got)
 	}

@@ -3881,6 +3881,7 @@ export const NotificationTypeEnum = {
   save: "save",
 } as const;
 export type NotificationType = gt.NotificationType;
+export type OverviewTabName = gt.OverviewTabName;
 
 export const PanOnScrollModeEnum = {
   free: "free",
@@ -3907,6 +3908,7 @@ export const PluginInstallerBackendEnum = {
   uv: "uv",
 } as const;
 export type PluginInstallerBackend = gt.PluginInstallerBackend;
+export type PluginOverviewTabPrefix = gt.PluginOverviewTabPrefix;
 
 export const PluginRuntimeStateEnum = {
   active: "active",
@@ -4084,6 +4086,7 @@ export const ToolTypeEnum = {
   claude_code: "claude_code",
   codex: "codex",
 } as const;
+export type UIEditorTabName = gt.UIEditorTabName;
 
 export const WebsocketMessageTypeEnum = {
   Notification: "Notification",
@@ -4611,6 +4614,34 @@ export const NameValidationRules = {
   slugReplacementChars: ["[", "]", '"', "'", " "],
 } satisfies gt.NameValidationContract;
 
+export const OverviewTabUIConfig = {
+  names: {
+    App: "App",
+    FileBrowser: "FileBrowser",
+    Git: "Git",
+    Notifications: "Notifications",
+    Overview: "Overview",
+    Plugins: "Plugins",
+    ProjectAIChat: "ProjectAIChat",
+    ProjectAISettings: "ProjectAISettings",
+    RunInstructions: "RunInstructions",
+    ViewModes: "ViewModes",
+  },
+  pluginPanePrefix: "PluginPane",
+  titles: {
+    App: "JSON Render",
+    FileBrowser: "Explorer",
+    Git: "Git",
+    Notifications: "Notifications",
+    Overview: "Overview",
+    Plugins: "Plugins",
+    ProjectAIChat: "Project AI Chat",
+    ProjectAISettings: "Project AI Settings",
+    RunInstructions: "Custom Runs",
+    ViewModes: "View Modes",
+  },
+} satisfies gt.OverviewTabUIConfigValue;
+
 export const ProjectChatUIConfig = {
   agenticEdgeContextModeOptions: [
     { label: "Reference only", value: "reference_only" },
@@ -5062,3 +5093,20 @@ export const TransportRouteConstants = {
     terminalBySection: "/ws/terminals/{projectID}/{sectionID}",
   },
 } satisfies gt.TransportRoutes;
+
+export const UIEditorTabUIConfig = {
+  names: {
+    InfoConfig: "InfoConfig",
+    QuickInfoConfig: "QuickInfoConfig",
+    SectionConfig: "SectionConfig",
+    SectionVariantsConfig: "SectionVariantsConfig",
+    UIConfig: "UIConfig",
+  },
+  titles: {
+    InfoConfig: "Text Editor",
+    QuickInfoConfig: "Quick Info",
+    SectionConfig: "Section",
+    SectionVariantsConfig: "Variants",
+    UIConfig: "Params",
+  },
+} satisfies gt.UIEditorTabUIConfigValue;

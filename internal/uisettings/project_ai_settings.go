@@ -66,7 +66,7 @@ func buildProjectAISettingEntry(
 			Description: description,
 			Location: Location{
 				Side:           SideLeft,
-				OverviewTabKey: "ProjectAISettings",
+				OverviewTabKey: string(OverviewTabNameProjectAISettings),
 			},
 			Highlight: Highlight{
 				Strategy: HighlightStrategyDOMAnchor,

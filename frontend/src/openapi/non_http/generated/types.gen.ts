@@ -3476,6 +3476,62 @@ export type NotificationType = "error" | "warning" | "info" | "save";
 type OpenAIRealtimeTranscriptionStreamMode = number;
 
 /**
+ * OverviewTabName
+ */
+export type OverviewTabName =
+  | "Overview"
+  | "Plugins"
+  | "FileBrowser"
+  | "Git"
+  | "App"
+  | "RunInstructions"
+  | "ViewModes"
+  | "Notifications"
+  | "ProjectAIChat"
+  | "ProjectAISettings";
+
+/**
+ * OverviewTabNamesValue
+ */
+type OverviewTabNamesValue = {
+  App: OverviewTabName;
+  FileBrowser: OverviewTabName;
+  Git: OverviewTabName;
+  Notifications: OverviewTabName;
+  Overview: OverviewTabName;
+  Plugins: OverviewTabName;
+  ProjectAIChat: OverviewTabName;
+  ProjectAISettings: OverviewTabName;
+  RunInstructions: OverviewTabName;
+  ViewModes: OverviewTabName;
+};
+
+/**
+ * OverviewTabTitlesValue
+ */
+type OverviewTabTitlesValue = {
+  App: string;
+  FileBrowser: string;
+  Git: string;
+  Notifications: string;
+  Overview: string;
+  Plugins: string;
+  ProjectAIChat: string;
+  ProjectAISettings: string;
+  RunInstructions: string;
+  ViewModes: string;
+};
+
+/**
+ * OverviewTabUIConfigValue
+ */
+export type OverviewTabUIConfigValue = {
+  names: OverviewTabNamesValue;
+  pluginPanePrefix: PluginOverviewTabPrefix;
+  titles: OverviewTabTitlesValue;
+};
+
+/**
  * PanOnScrollMode
  */
 type PanOnScrollMode = "free" | "vertical" | "horizontal";
@@ -3795,6 +3851,11 @@ type PluginManifest = {
   settaVersionRange: string;
   version: string;
 };
+
+/**
+ * PluginOverviewTabPrefix
+ */
+export type PluginOverviewTabPrefix = "PluginPane";
 
 /**
  * PluginRegisteredBackendRoute
@@ -6781,6 +6842,46 @@ export type TypeErrorIgnoreState = {
   params: {
     [key: string]: boolean;
   };
+};
+
+/**
+ * UIEditorTabName
+ */
+export type UIEditorTabName =
+  | "SectionConfig"
+  | "QuickInfoConfig"
+  | "UIConfig"
+  | "InfoConfig"
+  | "SectionVariantsConfig";
+
+/**
+ * UIEditorTabNamesValue
+ */
+type UIEditorTabNamesValue = {
+  InfoConfig: UIEditorTabName;
+  QuickInfoConfig: UIEditorTabName;
+  SectionConfig: UIEditorTabName;
+  SectionVariantsConfig: UIEditorTabName;
+  UIConfig: UIEditorTabName;
+};
+
+/**
+ * UIEditorTabTitlesValue
+ */
+type UIEditorTabTitlesValue = {
+  InfoConfig: string;
+  QuickInfoConfig: string;
+  SectionConfig: string;
+  SectionVariantsConfig: string;
+  UIConfig: string;
+};
+
+/**
+ * UIEditorTabUIConfigValue
+ */
+export type UIEditorTabUIConfigValue = {
+  names: UIEditorTabNamesValue;
+  titles: UIEditorTabTitlesValue;
 };
 
 /**

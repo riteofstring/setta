@@ -8151,6 +8151,137 @@
         "title": "OpenAIRealtimeTranscriptionStreamMode",
         "type": "integer"
       },
+      "OverviewTabName": {
+        "enum": [
+          "Overview",
+          "Plugins",
+          "FileBrowser",
+          "Git",
+          "App",
+          "RunInstructions",
+          "ViewModes",
+          "Notifications",
+          "ProjectAIChat",
+          "ProjectAISettings"
+        ],
+        "title": "OverviewTabName",
+        "type": "string"
+      },
+      "OverviewTabNamesValue": {
+        "additionalProperties": false,
+        "properties": {
+          "App": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "FileBrowser": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "Git": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "Notifications": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "Overview": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "Plugins": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "ProjectAIChat": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "ProjectAISettings": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "RunInstructions": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          },
+          "ViewModes": {
+            "$ref": "#/components/schemas/OverviewTabName"
+          }
+        },
+        "required": [
+          "Overview",
+          "Plugins",
+          "FileBrowser",
+          "Git",
+          "App",
+          "RunInstructions",
+          "ViewModes",
+          "Notifications",
+          "ProjectAIChat",
+          "ProjectAISettings"
+        ],
+        "title": "OverviewTabNamesValue",
+        "type": "object"
+      },
+      "OverviewTabTitlesValue": {
+        "additionalProperties": false,
+        "properties": {
+          "App": {
+            "type": "string"
+          },
+          "FileBrowser": {
+            "type": "string"
+          },
+          "Git": {
+            "type": "string"
+          },
+          "Notifications": {
+            "type": "string"
+          },
+          "Overview": {
+            "type": "string"
+          },
+          "Plugins": {
+            "type": "string"
+          },
+          "ProjectAIChat": {
+            "type": "string"
+          },
+          "ProjectAISettings": {
+            "type": "string"
+          },
+          "RunInstructions": {
+            "type": "string"
+          },
+          "ViewModes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "Overview",
+          "Plugins",
+          "FileBrowser",
+          "Git",
+          "App",
+          "RunInstructions",
+          "ViewModes",
+          "Notifications",
+          "ProjectAIChat",
+          "ProjectAISettings"
+        ],
+        "title": "OverviewTabTitlesValue",
+        "type": "object"
+      },
+      "OverviewTabUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "names": {
+            "$ref": "#/components/schemas/OverviewTabNamesValue"
+          },
+          "pluginPanePrefix": {
+            "$ref": "#/components/schemas/PluginOverviewTabPrefix"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/OverviewTabTitlesValue"
+          }
+        },
+        "required": ["names", "titles", "pluginPanePrefix"],
+        "title": "OverviewTabUIConfigValue",
+        "type": "object"
+      },
       "PanOnScrollMode": {
         "enum": ["free", "vertical", "horizontal"],
         "title": "PanOnScrollMode",
@@ -8928,6 +9059,11 @@
         ],
         "title": "PluginManifest",
         "type": "object"
+      },
+      "PluginOverviewTabPrefix": {
+        "enum": ["PluginPane"],
+        "title": "PluginOverviewTabPrefix",
+        "type": "string"
       },
       "PluginRegisteredBackendRoute": {
         "additionalProperties": false,
@@ -16461,6 +16597,89 @@
         },
         "required": ["callable", "params"],
         "title": "TypeErrorIgnoreState",
+        "type": "object"
+      },
+      "UIEditorTabName": {
+        "enum": [
+          "SectionConfig",
+          "QuickInfoConfig",
+          "UIConfig",
+          "InfoConfig",
+          "SectionVariantsConfig"
+        ],
+        "title": "UIEditorTabName",
+        "type": "string"
+      },
+      "UIEditorTabNamesValue": {
+        "additionalProperties": false,
+        "properties": {
+          "InfoConfig": {
+            "$ref": "#/components/schemas/UIEditorTabName"
+          },
+          "QuickInfoConfig": {
+            "$ref": "#/components/schemas/UIEditorTabName"
+          },
+          "SectionConfig": {
+            "$ref": "#/components/schemas/UIEditorTabName"
+          },
+          "SectionVariantsConfig": {
+            "$ref": "#/components/schemas/UIEditorTabName"
+          },
+          "UIConfig": {
+            "$ref": "#/components/schemas/UIEditorTabName"
+          }
+        },
+        "required": [
+          "SectionConfig",
+          "QuickInfoConfig",
+          "UIConfig",
+          "InfoConfig",
+          "SectionVariantsConfig"
+        ],
+        "title": "UIEditorTabNamesValue",
+        "type": "object"
+      },
+      "UIEditorTabTitlesValue": {
+        "additionalProperties": false,
+        "properties": {
+          "InfoConfig": {
+            "type": "string"
+          },
+          "QuickInfoConfig": {
+            "type": "string"
+          },
+          "SectionConfig": {
+            "type": "string"
+          },
+          "SectionVariantsConfig": {
+            "type": "string"
+          },
+          "UIConfig": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "SectionConfig",
+          "QuickInfoConfig",
+          "UIConfig",
+          "InfoConfig",
+          "SectionVariantsConfig"
+        ],
+        "title": "UIEditorTabTitlesValue",
+        "type": "object"
+      },
+      "UIEditorTabUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "names": {
+            "$ref": "#/components/schemas/UIEditorTabNamesValue"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/UIEditorTabTitlesValue"
+          }
+        },
+        "required": ["names", "titles"],
+        "title": "UIEditorTabUIConfigValue",
         "type": "object"
       },
       "UISettingRevealActivationStep": {

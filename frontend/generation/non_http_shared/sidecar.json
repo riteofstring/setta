@@ -2401,6 +2401,68 @@
       "schemaRef": "#/$defs/OpenAIRealtimeTranscriptionStreamMode"
     },
     {
+      "name": "OverviewTabName",
+      "kind": "enum",
+      "schemaRef": "#/$defs/OverviewTabName",
+      "enumValues": [
+        {
+          "name": "Overview",
+          "value": "Overview"
+        },
+        {
+          "name": "Plugins",
+          "value": "Plugins"
+        },
+        {
+          "name": "FileBrowser",
+          "value": "FileBrowser"
+        },
+        {
+          "name": "Git",
+          "value": "Git"
+        },
+        {
+          "name": "App",
+          "value": "App"
+        },
+        {
+          "name": "RunInstructions",
+          "value": "RunInstructions"
+        },
+        {
+          "name": "ViewModes",
+          "value": "ViewModes"
+        },
+        {
+          "name": "Notifications",
+          "value": "Notifications"
+        },
+        {
+          "name": "ProjectAIChat",
+          "value": "ProjectAIChat"
+        },
+        {
+          "name": "ProjectAISettings",
+          "value": "ProjectAISettings"
+        }
+      ]
+    },
+    {
+      "name": "OverviewTabNamesValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/OverviewTabNamesValue"
+    },
+    {
+      "name": "OverviewTabTitlesValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/OverviewTabTitlesValue"
+    },
+    {
+      "name": "OverviewTabUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/OverviewTabUIConfigValue"
+    },
+    {
       "name": "PanOnScrollMode",
       "kind": "enum",
       "schemaRef": "#/$defs/PanOnScrollMode",
@@ -2646,6 +2708,17 @@
       "name": "PluginManifest",
       "kind": "model",
       "schemaRef": "#/$defs/PluginManifest"
+    },
+    {
+      "name": "PluginOverviewTabPrefix",
+      "kind": "enum",
+      "schemaRef": "#/$defs/PluginOverviewTabPrefix",
+      "enumValues": [
+        {
+          "name": "PluginPane",
+          "value": "PluginPane"
+        }
+      ]
     },
     {
       "name": "PluginRegisteredBackendRoute",
@@ -6061,6 +6134,48 @@
       "name": "TypeErrorIgnoreState",
       "kind": "model",
       "schemaRef": "#/$defs/TypeErrorIgnoreState"
+    },
+    {
+      "name": "UIEditorTabName",
+      "kind": "enum",
+      "schemaRef": "#/$defs/UIEditorTabName",
+      "enumValues": [
+        {
+          "name": "SectionConfig",
+          "value": "SectionConfig"
+        },
+        {
+          "name": "QuickInfoConfig",
+          "value": "QuickInfoConfig"
+        },
+        {
+          "name": "UIConfig",
+          "value": "UIConfig"
+        },
+        {
+          "name": "InfoConfig",
+          "value": "InfoConfig"
+        },
+        {
+          "name": "SectionVariantsConfig",
+          "value": "SectionVariantsConfig"
+        }
+      ]
+    },
+    {
+      "name": "UIEditorTabNamesValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/UIEditorTabNamesValue"
+    },
+    {
+      "name": "UIEditorTabTitlesValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/UIEditorTabTitlesValue"
+    },
+    {
+      "name": "UIEditorTabUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/UIEditorTabUIConfigValue"
     },
     {
       "name": "UISettingRevealActivationStep",
@@ -10954,6 +11069,37 @@
       }
     },
     {
+      "name": "OverviewTabUIConfig",
+      "type": "OverviewTabUIConfigValue",
+      "value": {
+        "names": {
+          "App": "App",
+          "FileBrowser": "FileBrowser",
+          "Git": "Git",
+          "Notifications": "Notifications",
+          "Overview": "Overview",
+          "Plugins": "Plugins",
+          "ProjectAIChat": "ProjectAIChat",
+          "ProjectAISettings": "ProjectAISettings",
+          "RunInstructions": "RunInstructions",
+          "ViewModes": "ViewModes"
+        },
+        "pluginPanePrefix": "PluginPane",
+        "titles": {
+          "App": "JSON Render",
+          "FileBrowser": "Explorer",
+          "Git": "Git",
+          "Notifications": "Notifications",
+          "Overview": "Overview",
+          "Plugins": "Plugins",
+          "ProjectAIChat": "Project AI Chat",
+          "ProjectAISettings": "Project AI Settings",
+          "RunInstructions": "Custom Runs",
+          "ViewModes": "View Modes"
+        }
+      }
+    },
+    {
       "name": "ProjectChatUIConfig",
       "type": "ProjectChatUIConfigValue",
       "value": {
@@ -11932,6 +12078,26 @@
           "frontend": "/ws/frontend",
           "listenerById": "/ws/listeners/{listenerID}",
           "terminalBySection": "/ws/terminals/{projectID}/{sectionID}"
+        }
+      }
+    },
+    {
+      "name": "UIEditorTabUIConfig",
+      "type": "UIEditorTabUIConfigValue",
+      "value": {
+        "names": {
+          "InfoConfig": "InfoConfig",
+          "QuickInfoConfig": "QuickInfoConfig",
+          "SectionConfig": "SectionConfig",
+          "SectionVariantsConfig": "SectionVariantsConfig",
+          "UIConfig": "UIConfig"
+        },
+        "titles": {
+          "InfoConfig": "Text Editor",
+          "QuickInfoConfig": "Quick Info",
+          "SectionConfig": "Section",
+          "SectionVariantsConfig": "Variants",
+          "UIConfig": "Params"
         }
       }
     }
