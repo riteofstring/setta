@@ -27,6 +27,7 @@ import {
 import { route_set_prompt_template } from "utils/generatedEndpoints";
 import { PromptFormatEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { resolvePromptSectionSource } from "utils/promptSectionSource";
+import { shallow } from "zustand/shallow";
 
 type PromptViewMode = "template" | "preview";
 
@@ -55,7 +56,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
       renderedText: impl.renderedText,
       renderError: impl.renderError,
     };
-  }, _.isEqual);
+  }, shallow);
   const { promptTemplates, promptTemplatesInitialLoadComplete } = useAIStore(
     (state) => ({
       promptTemplates: state.promptTemplates,

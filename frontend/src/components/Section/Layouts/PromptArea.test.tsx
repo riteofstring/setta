@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act } from "react";
+import { act, Profiler, type ProfilerOnRenderCallback } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
@@ -11,12 +11,12 @@ import {
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
-  PromptFormatEnum,
-  SectionTypeEnum,
   createCore,
   createProjectConfig,
   createSectionSize,
   createVariant,
+  PromptFormatEnum,
+  SectionTypeEnum,
   type BaseSectionImplUnion,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -268,5 +268,67 @@ describe("PromptArea", () => {
 
     expect(host.textContent).toContain("Missing variables: name");
     expect(host.textContent).toContain("No prompt rendered yet.");
+  });
+
+  it("stays out of unrelated project-state commits when prompt inputs are unchanged", async () => {
+    const sectionId = seedPromptSection({
+      template: "Hi {{ name }}",
+      renderedText: "Hi Ada",
+    });
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+
+    await act(async () => {
+      root.render(
+        <Profiler id="prompt-area-profiler" onRender={onRender}>
+          <PromptArea sectionId={sectionId} />
+        </Profiler>,
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      // Unrelated preview-variant writes should not fan into every mounted prompt body.
+      useProjectState.setState((state) => {
+        state.previewSectionVariantMap = {
+          otherSection: "other-variant",
+        };
+      });
+    });
+
+    expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+    expect(lastCodeMirrorProps?.value).toBe("Hi {{ name }}");
+  });
+
+  it("rerenders when the subscribed prompt template text changes", async () => {
+    const sectionId = seedPromptSection({
+      template: "Hi {{ name }}",
+      renderedText: "Hi Ada",
+    });
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+
+    await act(async () => {
+      root.render(
+        <Profiler id="prompt-area-profiler" onRender={onRender}>
+          <PromptArea sectionId={sectionId} />
+        </Profiler>,
+      );
+    });
+
+    const initialCommitCount = onRender.mock.calls.length;
+
+    await act(async () => {
+      // Actual prompt text changes should still update the mounted editor value.
+      useProjectState.setState((state) => {
+        const implId =
+          state.sectionVariants[
+            state.projectConfig.sectionVariantMap[sectionId]
+          ].impl;
+        state.sectionImpls[implId].template = "Hello {{ name }}";
+      });
+    });
+
+    expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
+    expect(lastCodeMirrorProps?.value).toBe("Hello {{ name }}");
   });
 });

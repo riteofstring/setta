@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 03:39 UTC
+Last updated: 2026-04-13 03:46 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,41 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `385` landed one bounded mounted prompt-section body selector
+  reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Layouts/PromptArea.tsx`
+      so the mounted prompt-body selector for
+      `{ projectConfigId, promptTemplateId, template, format, isFrozen, renderedText, renderError }`
+      now uses `zustand/shallow` equality instead of `lodash/isEqual`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/PromptArea.test.tsx`
+      to prove a mounted `PromptArea` stays out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when this
+      section's prompt template text changes
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-prompt-area-shallow-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/PromptArea.test.tsx`
+      -> passed (`1` file, `6` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/PromptArea.tsx src/components/Section/Layouts/PromptArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the page moved from the loading shell to populated settings chrome,
+         overview/settings content, and visible tabs rather than a blank root
+  - reading:
+    - this is another real mounted section-body selector reduction on the live
+      canary, not a harness-only pass
+    - the previous selector paid generic deep equality across prompt body
+      inputs on every project-state write even when the mounted prompt section
+      fields were unchanged
+  - next default frontier:
+    - identify the next broad mounted section-body/chrome subscriber or shared
+      write fan-out that still accepts unrelated `useProjectState` churn on
+      the live worktree, preferring another section-wide wrapper/body owner
+      over returning to one-off header controls
 
 - item `384` landed one bounded mounted minimized-edge-handle selector
   reduction on the live canary lane:

@@ -75,6 +75,43 @@ Record:
 
 ## 2026-04-13 03:08 UTC
 
+## 2026-04-13 03:46 UTC
+
+- item `385` landed one bounded mounted prompt-section body selector
+  reduction on the live canary lane:
+  - changed `frontend/src/components/Section/Layouts/PromptArea.tsx` so the
+    mounted prompt-body selector now uses `zustand/shallow` for
+    `{ projectConfigId, promptTemplateId, template, format, isFrozen, renderedText, renderError }`
+    instead of `lodash/isEqual`
+  - added `frontend/src/components/Section/Layouts/PromptArea.test.tsx`
+    coverage to prove unrelated `previewSectionVariantMap` writes do not
+    re-commit a mounted prompt body while a real prompt template text change
+    still does
+  - added
+    `perf/reports/frontend/2026-04-13_settings-graph-prompt-area-shallow-selector.md`
+    to record the slice
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/PromptArea.test.tsx`
+      -> passed (`1` file, `6` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/PromptArea.tsx src/components/Section/Layouts/PromptArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> the page advanced from the loading shell to visible Settings chrome,
+         overview/settings content, and tabs rather than a blank root
+- reading:
+  - `PromptArea` is a mounted section-body owner on the settings surface, so
+    this removes generic deep-equality work from a broad prompt-body
+    subscription on the live canary
+  - keep the selector-tightening lane focused on section-wide body/chrome
+    owners rather than returning to tiny control-level subscriptions
+- next:
+  - identify the next broad mounted section-body/chrome subscriber or shared
+    write fan-out that still accepts unrelated `useProjectState` churn on the
+    live worktree, preferring another section-wide wrapper/body owner
+
+LOOP_TERMINAL_MARKER: none
+
 - item `381` landed one bounded mounted section-title selector reduction on the
   live canary lane:
   - changed `frontend/src/components/Section/Header/SectionTitle.tsx` so
