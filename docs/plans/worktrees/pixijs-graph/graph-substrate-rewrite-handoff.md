@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 17:53 UTC
+Last updated: 2026-04-12 18:04 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -84,6 +84,51 @@ This section overrides older "next frontier" notes below when choosing the next 
   - only reopen the canonical main-reference probe before those two
     product-side passes if the next slice directly changes the pane-state
     capture path or another explicit health signal changes that lane
+
+- item `333` landed one bounded product-side perf slice inside the measured
+  dominant motion owner `interactionReactFlowStateSync` on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the DOM-backed spreadsheet section body path:
+    - `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx`
+      now scopes the React Flow `transform[2]` subscription to a memoized
+      `SpreadsheetGlideEditor` child instead of subscribing the full
+      spreadsheet section shell to zoom updates
+    - the drag/drop wrapper and drop-target chrome now live in a separate
+      memoized `SpreadsheetAreaShell` boundary that stays off the motion-heavy
+      React Flow zoom path
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      to assert the shell does not commit when React Flow zoom changes and the
+      inner glide editor still receives the updated `flowZoom` value
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-spreadsheet-zoom-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/SpreadsheetArea.tsx src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      -> passed
+    - one allowed lifecycle recovery was used for the required CDP gate:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime facts then restored the worktree session on
+        frontend `3075`, backend `8075`, session `bcf0ea`, debug port `9297`
+    - fresh-context headless CDP smoke on the restarted worktree `/settings`
+      session
+      -> `/settings` mounted successfully
+      -> no spreadsheet surface was visible in the current bootstrap state
+      -> no obvious global `/settings` layout regression was observed for this
+         slice
+  - reading:
+    - this keeps zoom-driven spreadsheet editor updates localized to the glide
+      editor instead of re-rendering the outer spreadsheet body shell on every
+      zoom tick
+    - the next bounded frontier should stay inside
+      `interactionReactFlowStateSync` and isolate the next mounted DOM-backed
+      body or chrome surface that still subscribes to motion-heavy React Flow
+      state on the canonical lane
+    - good next candidates are other DOM-heavy section bodies that still read
+      `transform[2]` directly such as temporary param rows or spreadsheet-like
+      layout surfaces, not another controls-only split or another probe rerun
 
 - item `332` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named

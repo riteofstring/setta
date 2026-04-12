@@ -74,6 +74,47 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 18:04 UTC
+
+- item `333` removed one motion-heavy React Flow zoom subscription from the
+  DOM-backed spreadsheet section body on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx` so
+    the outer spreadsheet section shell no longer subscribes to
+    `transform[2]`
+  - added a memoized `SpreadsheetGlideEditor` child that owns the
+    `useReactFlow((state) => state.transform[2])` subscription and a separate
+    memoized `SpreadsheetAreaShell` boundary for drag/drop chrome
+  - added focused render-boundary coverage in
+    `frontend/src/components/Section/Layouts/SpreadsheetArea.test.tsx` to
+    prove the shell stays out of zoom commits while the glide editor still
+    receives the updated `flowZoom`
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-spreadsheet-zoom-split.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/SpreadsheetArea.tsx src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      -> passed
+    - required CDP gate initially failed because the fresh verification
+      sub-agent could not use `chrome-devtools-mcp` on the pre-restart session
+    - used the one allowed lifecycle recovery for this automated iteration:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime info to session `bcf0ea`, frontend `3075`, backend
+        `8075`, debug port `9297`
+    - fresh-context headless CDP retry after the restart:
+      - `/settings` mounted successfully
+      - no spreadsheet section/editor was visible in the current bootstrap
+        state
+      - no obvious global `/settings` layout regression was observed
+  - result:
+    - this keeps spreadsheet zoom-density updates local to the glide editor
+      instead of re-rendering the full spreadsheet shell on every zoom tick
+    - next bounded frontier: stay inside `interactionReactFlowStateSync` and
+      isolate the next mounted DOM-backed body or chrome surface that still
+      subscribes to motion-heavy React Flow state on the canonical lane
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 17:53 UTC
 
 - item `332` narrowed one controls-toolbar fit-view subscription on the

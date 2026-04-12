@@ -1,7 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import type { DragEvent } from "react";
-import { Suspense, lazy, useCallback, useMemo, useState } from "react";
+import type { DragEvent, ReactNode } from "react";
+import { Suspense, lazy, memo, useCallback, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -35,8 +35,83 @@ function getFileNameFromPath(path: string): string {
   return parts.length > 0 ? parts[parts.length - 1] : path;
 }
 
-export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
+type SpreadsheetSelectedFile = {
+  name: string;
+  fullPath: string;
+};
+
+type SpreadsheetGlideEditorProps = {
+  autoReloadOnExternalChange: boolean;
+  density: "compact" | "comfortable";
+  readOnly: boolean;
+  selectedFile: SpreadsheetSelectedFile | null;
+  showRowNumbers: boolean;
+};
+
+type SpreadsheetAreaShellProps = {
+  children: ReactNode;
+  isDropTargetActive: boolean;
+  onDragLeave: (event: DragEvent<HTMLDivElement>) => void;
+  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
+  onDrop: (event: DragEvent<HTMLDivElement>) => void;
+};
+
+function SpreadsheetAreaLoadingFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center rounded-md border border-setta-200 bg-white/70 text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
+      Loading spreadsheet...
+    </div>
+  );
+}
+
+export const SpreadsheetGlideEditor = memo(function SpreadsheetGlideEditor({
+  autoReloadOnExternalChange,
+  density,
+  readOnly,
+  selectedFile,
+  showRowNumbers,
+}: SpreadsheetGlideEditorProps) {
   const flowZoom = useReactFlow((state) => state.transform[2]);
+
+  return (
+    <Suspense fallback={<SpreadsheetAreaLoadingFallback />}>
+      <LazyFileBrowserSpreadsheetEditor
+        selectedFile={selectedFile}
+        gridMode="glide"
+        flowZoom={flowZoom}
+        readOnly={readOnly}
+        showRowNumbers={showRowNumbers}
+        density={density}
+        autoReloadOnExternalChange={autoReloadOnExternalChange}
+      />
+    </Suspense>
+  );
+});
+
+export const SpreadsheetAreaShell = memo(function SpreadsheetAreaShell({
+  children,
+  isDropTargetActive,
+  onDragLeave,
+  onDragOver,
+  onDrop,
+}: SpreadsheetAreaShellProps) {
+  return (
+    <div
+      className={`section-main section-main-full-w mx-1 mb-2 mt-1 flex min-h-[240px] min-w-[360px] flex-col gap-2 rounded-md transition-colors ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag ${
+        isDropTargetActive
+          ? "border border-blue-400/70 bg-blue-50/30 dark:border-blue-500/60 dark:bg-blue-950/20"
+          : ""
+      }`}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragLeave={onDragLeave}
+    >
+      <div className="min-h-0 flex-1">{children}</div>
+    </div>
+  );
+});
+
+export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
   const { canEditLayout } = useShareCapabilities();
   const {
     filePath,
@@ -180,39 +255,23 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
   }, []);
 
   return (
-    <div
-      className={`section-main section-main-full-w mx-1 mb-2 mt-1 flex min-h-[240px] min-w-[360px] flex-col gap-2 rounded-md transition-colors ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag ${
-        isDropTargetActive
-          ? "border border-blue-400/70 bg-blue-50/30 dark:border-blue-500/60 dark:bg-blue-950/20"
-          : ""
-      }`}
+    <SpreadsheetAreaShell
+      isDropTargetActive={isDropTargetActive}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}
     >
-      <div className="min-h-0 flex-1">
-        <Suspense
-          fallback={
-            <div className="flex h-full w-full items-center justify-center rounded-md border border-setta-200 bg-white/70 text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
-              Loading spreadsheet...
-            </div>
-          }
-        >
-          <LazyFileBrowserSpreadsheetEditor
-            selectedFile={selectedFile}
-            gridMode="glide"
-            flowZoom={flowZoom}
-            readOnly={readOnly}
-            showRowNumbers={showRowNumbers}
-            density={
-              density === SpreadsheetGridDensityEnum.comfortable
-                ? "comfortable"
-                : "compact"
-            }
-            autoReloadOnExternalChange={autoReloadOnExternalChange}
-          />
-        </Suspense>
-      </div>
-    </div>
+      <SpreadsheetGlideEditor
+        selectedFile={selectedFile}
+        readOnly={readOnly}
+        showRowNumbers={showRowNumbers}
+        density={
+          density === SpreadsheetGridDensityEnum.comfortable
+            ? "comfortable"
+            : "compact"
+        }
+        autoReloadOnExternalChange={autoReloadOnExternalChange}
+      />
+    </SpreadsheetAreaShell>
   );
 }
