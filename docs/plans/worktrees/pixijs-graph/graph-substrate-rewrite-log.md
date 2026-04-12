@@ -74,6 +74,54 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+# 2026-04-12 - Item 353
+
+- Item: land one bounded shared viewport transform subscription removal so the
+  always-mounted React Flow viewport shell stops re-committing on pan/zoom
+  transform updates.
+- Why this slice:
+  - the handoff closed the unstable cross-worktree probe lane for default
+    sequencing and sent the loop back to product-side work inside the measured
+    `interactionReactFlowStateSync` owner
+  - `Viewport.tsx` was still a wide motion-path render subscriber because it
+    bound the whole viewport shell directly to `transform`
+- Changed:
+  - updated `frontend/src/forks/xyflow/core/container/Viewport.tsx` so the
+    component:
+    - renders with the current transform once
+    - synchronizes later `transform` changes through
+      `useReactFlow.subscribe(...)`
+      instead of a render-path hook subscription
+  - added focused profiler coverage in
+    `frontend/src/forks/xyflow/core/container/Viewport.test.tsx`
+    to assert:
+    - transform-only updates do not re-commit the mounted viewport shell
+    - the DOM `style.transform` still updates to the new viewport
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-viewport-transform-subscription-removal.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/Viewport.test.tsx`
+    - passed (`1` file, `1` test)
+  - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/Viewport.tsx src/forks/xyflow/core/container/Viewport.test.tsx`
+    - passed
+  - fresh-context headless CDP smoke on worktree `/settings`
+    - reached `http://127.0.0.1:3075/settings` after bootstrap
+    - settings graph surface mounted with the settings header, section list,
+      and bottom tabs visible
+    - no obvious blank graph region, layout collapse, or viewport transform
+      regression was observed
+- Result:
+  - the always-mounted viewport shell is no longer on the React render path for
+    transform-only pan/zoom motion
+  - the same visible viewport movement is preserved through the imperative DOM
+    transform sync
+- Next:
+  - stay on product-side attribution and isolate the next mounted
+    motion-surface subscriber or write fan-out inside
+    `interactionReactFlowStateSync`, or rerun the canonical perf lane once the
+    default probe family is trustworthy again
+
+LOOP_TERMINAL_MARKER: none
 # 2026-04-12 - Progress review after loop iteration 40
 
 - Decision: `replan_and_continue`

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 21:36 UTC
+Last updated: 2026-04-12 21:39 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,38 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `353` landed one bounded product-side shared viewport subscription
+  reduction on the canonical `rotaryParamCodeObjDefault` lane inside the
+  measured `interactionReactFlowStateSync` owner:
+
+  - product code changed in:
+    - `frontend/src/forks/xyflow/core/container/Viewport.tsx`
+      so the mounted React Flow viewport shell no longer subscribes through the
+      React render path to `transform`
+    - the component now keeps `style.transform` synchronized imperatively via
+      `useReactFlow.subscribe(...)`
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/Viewport.test.tsx`
+      to prove transform-only updates do not re-commit the mounted viewport
+      shell while the DOM transform still updates
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-viewport-transform-subscription-removal.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/Viewport.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/Viewport.tsx src/forks/xyflow/core/container/Viewport.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> reached `http://127.0.0.1:3075/settings` after bootstrap
+      -> settings graph surface mounted with no obvious blank graph region,
+         layout collapse, or viewport transform regression
+  - reading:
+    - this is a real product-side motion-surface reduction on the
+      always-mounted viewport shell, not another harness pass
+    - the next bounded frontier should stay attribution-led on mounted
+      motion-path surfaces with similarly wide fan-out or rerun the canonical
+      measurement lane once the probe family is trustworthy again
 
 - item `352` landed one bounded worktree pane-state read diagnostics slice on
   the canonical `rotaryParamCodeObjDefault` main-reference perf lane:
