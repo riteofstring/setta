@@ -98,15 +98,6 @@ const MIME_TYPE_SUFFIX_LANGUAGE_HINTS = [
 ] as const satisfies ReadonlyArray<
   readonly [suffix: string, hint: ResolvedLanguageHint]
 >;
-const DIFF_META_PREFIXES = [
-  "index ",
-  "new file mode ",
-  "deleted file mode ",
-  "similarity index ",
-  "rename from ",
-  "rename to ",
-  "\\ No newline at end of file",
-] as const;
 const DIFF_FILE_PREFIXES = ["+++ ", "--- "] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -232,31 +223,7 @@ function lineStartsWithAny(line: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => line.startsWith(prefix));
 }
 
-export function classifyDiffLineForChat(
-  line: string,
-): "add" | "del" | "hunk" | "file" | "meta" | "context" {
-  if (line.startsWith("@@")) {
-    return "hunk";
-  }
-  if (
-    line.startsWith("diff --git") ||
-    lineStartsWithAny(line, DIFF_META_PREFIXES)
-  ) {
-    return "meta";
-  }
-  if (lineStartsWithAny(line, DIFF_FILE_PREFIXES)) {
-    return "file";
-  }
-  if (line.startsWith("+")) {
-    return "add";
-  }
-  if (line.startsWith("-")) {
-    return "del";
-  }
-  return "context";
-}
-
-export function isUnifiedDiffText(text: string): boolean {
+function isUnifiedDiffText(text: string): boolean {
   const lines = text.split(/\r?\n/u);
   const hasDiffHeader = lines.some((line) => line.startsWith("diff --git "));
   const hasFileHeader = lines.some((line) =>

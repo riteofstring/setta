@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  classifyDiffLineForChat,
-  isUnifiedDiffText,
-  resolveStructuredOutputPayload,
-} from "./chatStructuredOutput";
+import { resolveStructuredOutputPayload } from "./chatStructuredOutput";
 
 describe("chatStructuredOutput", () => {
   it("classifies object payloads as json code output", () => {
@@ -21,7 +17,7 @@ describe("chatStructuredOutput", () => {
     expect(payload?.text).toContain('"items": [');
   });
 
-  it("classifies unified diff payloads and line kinds deterministically", () => {
+  it("classifies unified diff payloads deterministically", () => {
     const diff = [
       "diff --git a/src/app.ts b/src/app.ts",
       "--- a/src/app.ts",
@@ -38,15 +34,9 @@ describe("chatStructuredOutput", () => {
       contextValue: { path: "src/app.ts" },
     });
 
-    expect(isUnifiedDiffText(diff)).toBe(true);
     expect(payload).not.toBeNull();
     expect(payload?.kind).toBe("diff");
-    expect(classifyDiffLineForChat("diff --git a/x b/x")).toBe("meta");
-    expect(classifyDiffLineForChat("--- a/x")).toBe("file");
-    expect(classifyDiffLineForChat("@@ -1 +1 @@")).toBe("hunk");
-    expect(classifyDiffLineForChat("-a")).toBe("del");
-    expect(classifyDiffLineForChat("+b")).toBe("add");
-    expect(classifyDiffLineForChat(" context")).toBe("context");
+    expect(payload?.text).toBe(diff);
   });
 
   it("uses path hints to classify text output language as yaml", () => {
