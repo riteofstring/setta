@@ -6,10 +6,13 @@ import {
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
+import { setTextBlockText } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React, { useCallback, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -17,12 +20,9 @@ import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { route_set_text_block_text } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
-
 export function MarkdownEditorInPane({ sectionId }) {
   const wrapperRef = useRef(); // used by onTabOnEnterKeyHandlers
-
   return (
     <MarkdownEditorCore
       sectionId={sectionId}
@@ -31,11 +31,9 @@ export function MarkdownEditorInPane({ sectionId }) {
     />
   );
 }
-
 export function MarkdownEditorInSection({ sectionId }) {
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
-
   return (
     <MarkdownEditorCore
       sectionId={sectionId}
@@ -46,7 +44,6 @@ export function MarkdownEditorInSection({ sectionId }) {
     />
   );
 }
-
 function _MarkdownEditorCore({
   sectionId,
   maxHeight,
@@ -55,9 +52,11 @@ function _MarkdownEditorCore({
   ref,
 }) {
   const { format, text, isFrozen } = useTextBlockTextAndEditability(sectionId);
+  const sectionVariantId = useProjectState((state) =>
+    getCurrSectionVariantId(state, sectionId),
+  );
   const { canEditParams } = useShareCapabilities();
   const isReadOnly = isFrozen || !canEditParams;
-
   const [value, setPendingValue] = useLocalPendingValue(
     text,
     (pendingValue) => {
@@ -67,8 +66,8 @@ function _MarkdownEditorCore({
         });
       });
     },
+    sectionVariantId,
   );
-
   const debouncedSetText = useCallback(
     _.debounce((sectionId, v) => {
       dispatchOptimisticProjectStateUpdate({
@@ -82,17 +81,20 @@ function _MarkdownEditorCore({
           );
         },
         send: (frontendOpId) =>
-          route_set_text_block_text({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            text: v,
-            frontendOpId,
-          }),
+          callOpenAPI(
+            setTextBlockText({
+              body: {
+                projectConfigId: getCurrProjectConfigId(),
+                sectionId,
+                text: v,
+                frontendOpId,
+              },
+            } as Parameters<typeof setTextBlockText>[0]),
+          ),
       });
     }, 50),
     [],
   );
-
   function onChange(v: string) {
     if (isReadOnly) {
       return;
@@ -100,12 +102,9 @@ function _MarkdownEditorCore({
     setPendingValue(v);
     debouncedSetText(sectionId, v);
   }
-
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(ref);
-
   const theme = useCodeMirrorStyle();
-
   const extensions = getExtensions({
     language: format === TextBlockFormatEnum.Markdown ? "markdown" : null,
     tabToAutocomplete: true,
@@ -113,7 +112,6 @@ function _MarkdownEditorCore({
     isDisabled: isReadOnly,
     onEscape: onEscapeFocusOnArticleDiv,
   });
-
   return (
     <article
       ref={ref}
@@ -135,5 +133,4 @@ function _MarkdownEditorCore({
     </article>
   );
 }
-
 const MarkdownEditorCore = React.memo(_MarkdownEditorCore);

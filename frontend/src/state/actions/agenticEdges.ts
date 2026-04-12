@@ -1,11 +1,12 @@
 import type { Connection } from "forks/xyflow/core/types";
-import { useProjectState, useShareSession } from "state/definitions";
 import {
-  route_create_agentic_edge,
-  route_delete_agentic_edges,
-  route_set_agentic_edges,
-  route_update_agentic_edge,
-} from "utils/generatedEndpoints";
+  createAgenticEdge,
+  deleteAgenticEdges,
+  setAgenticEdges,
+  updateAgenticEdge,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import { useProjectState, useShareSession } from "state/definitions";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
@@ -18,13 +19,11 @@ import {
   getCurrProjectConfigId,
 } from "./sectionInfos";
 import { isWorkflowHandleId } from "./stateMachineEdges";
-
 export const AGENTIC_EDGE_HANDLE_IDS = {
   source: "agentic-edge-source",
   target: "agentic-edge-target",
   reverseStart: "agentic-edge-reverse-start",
 } as const;
-
 function getSectionTypeById(
   state: ReturnType<typeof useProjectState.getState>,
   sectionId: string,
@@ -43,7 +42,6 @@ function getSectionTypeById(
   }
   return impl.type ?? null;
 }
-
 function resolveAgenticEdgeKind(
   sourceType: SectionTypeEnum,
   targetType: SectionTypeEnum,
@@ -72,7 +70,6 @@ function resolveAgenticEdgeKind(
   }
   return null;
 }
-
 function resolveAgenticKindForConnection(
   connection: Connection,
   state?: ReturnType<typeof useProjectState.getState>,
@@ -83,7 +80,6 @@ function resolveAgenticKindForConnection(
   }
   return resolveAgenticEdgeKind(types.sourceType, types.targetType);
 }
-
 function normalizeReverseStartedAgenticConnection(
   connection: Connection,
 ): Connection {
@@ -97,7 +93,6 @@ function normalizeReverseStartedAgenticConnection(
     targetHandle: AGENTIC_EDGE_HANDLE_IDS.target,
   };
 }
-
 export function normalizeAgenticConnectionHandles(
   connection: Connection,
 ): Connection {
@@ -117,7 +112,6 @@ export function normalizeAgenticConnectionHandles(
           : normalizedReverseConnection.targetHandle,
   };
 }
-
 function usesSharedChatHandleOnNormalizedSource(
   connection: Connection,
   normalizedConnection: Connection,
@@ -129,7 +123,6 @@ function usesSharedChatHandleOnNormalizedSource(
       normalizedConnection.source === connection.target)
   );
 }
-
 function usesSharedChatHandleOnNormalizedTarget(
   connection: Connection,
   normalizedConnection: Connection,
@@ -141,7 +134,6 @@ function usesSharedChatHandleOnNormalizedTarget(
       normalizedConnection.target === connection.target)
   );
 }
-
 export function isValidAgenticEdgeConnection(connection: Connection): boolean {
   const normalizedConnection = normalizeAgenticConnectionHandles(connection);
   if (!normalizedConnection.source || !normalizedConnection.target) {
@@ -177,7 +169,6 @@ export function isValidAgenticEdgeConnection(connection: Connection): boolean {
   }
   return resolveAgenticEdgeKind(types.sourceType, types.targetType) !== null;
 }
-
 export function createAgenticEdgeFromConnection(connection: Connection): void {
   const normalizedConnection = normalizeAgenticConnectionHandles(connection);
   if (!normalizedConnection.source || !normalizedConnection.target) {
@@ -199,7 +190,6 @@ export function createAgenticEdgeFromConnection(connection: Connection): void {
     kind,
   });
 }
-
 function getConnectionSectionTypes(
   connection: Connection,
   state: ReturnType<
@@ -214,7 +204,6 @@ function getConnectionSectionTypes(
   }
   return getConnectionSectionTypesFromState(connection, state);
 }
-
 function getConnectionSectionTypesFromState(
   connection: Connection,
   state: ReturnType<typeof useProjectState.getState>,
@@ -230,7 +219,6 @@ function getConnectionSectionTypesFromState(
     targetType: getSectionTypeById(state, connection.target),
   };
 }
-
 export function toggleAgenticEdgeSelection(
   edgeId: string,
   multiSelect: boolean,
@@ -256,21 +244,28 @@ export function toggleAgenticEdgeSelection(
         if (!edge) {
           return;
         }
-        return route_update_agentic_edge({
-          projectConfigId: getCurrProjectConfigId(),
-          edge,
-          frontendOpId,
-        });
+        return callOpenAPI(
+          updateAgenticEdge({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              edge,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateAgenticEdge>[0]),
+        );
       }
-      return route_set_agentic_edges({
-        projectConfigId: getCurrProjectConfigId(),
-        edges: useProjectState.getState().projectConfig.agenticEdges,
-        frontendOpId,
-      });
+      return callOpenAPI(
+        setAgenticEdges({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            edges: useProjectState.getState().projectConfig.agenticEdges,
+            frontendOpId,
+          },
+        } as Parameters<typeof setAgenticEdges>[0]),
+      );
     },
   });
 }
-
 export function deleteSelectedAgenticEdges(): boolean {
   if (useShareSession.getState().isDeploymentMode) {
     return false;
@@ -279,11 +274,9 @@ export function deleteSelectedAgenticEdges(): boolean {
   const selectedIds = state.projectConfig.agenticEdges
     .filter((edge) => edge.selected)
     .map((edge) => edge.id);
-
   if (selectedIds.length === 0) {
     return false;
   }
-
   dispatchOptimisticProjectStateUpdate({
     apply: (draft) => {
       draft.projectConfig.agenticEdges =
@@ -292,16 +285,18 @@ export function deleteSelectedAgenticEdges(): boolean {
         );
     },
     send: (frontendOpId) =>
-      route_delete_agentic_edges({
-        projectConfigId: getCurrProjectConfigId(),
-        edgeIds: selectedIds,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        deleteAgenticEdges({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            edgeIds: selectedIds,
+            frontendOpId,
+          },
+        } as Parameters<typeof deleteAgenticEdges>[0]),
+      ),
   });
-
   return true;
 }
-
 export function deleteAgenticEdgesById(edgeIds: string[]): void {
   if (useShareSession.getState().isDeploymentMode) {
     return;
@@ -317,14 +312,17 @@ export function deleteAgenticEdgesById(edgeIds: string[]): void {
         );
     },
     send: (frontendOpId) =>
-      route_delete_agentic_edges({
-        projectConfigId: getCurrProjectConfigId(),
-        edgeIds,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        deleteAgenticEdges({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            edgeIds,
+            frontendOpId,
+          },
+        } as Parameters<typeof deleteAgenticEdges>[0]),
+      ),
   });
 }
-
 export function updateAgenticEdgeContextMode(
   edgeId: string,
   contextMode: AgenticEdgeContextModeEnum,
@@ -351,15 +349,18 @@ export function updateAgenticEdgeContextMode(
       if (!edge) {
         return;
       }
-      return route_update_agentic_edge({
-        projectConfigId: getCurrProjectConfigId(),
-        edge,
-        frontendOpId,
-      });
+      return callOpenAPI(
+        updateAgenticEdge({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            edge,
+            frontendOpId,
+          },
+        } as Parameters<typeof updateAgenticEdge>[0]),
+      );
     },
   });
 }
-
 export function createAgenticEdgeFromSections({
   sourceSectionId,
   targetSectionId,
@@ -407,7 +408,6 @@ export function createAgenticEdgeFromSections({
   if (matchingEdge) {
     return;
   }
-
   const edgeId = createNewId();
   const nextEdge = {
     id: edgeId,
@@ -420,7 +420,6 @@ export function createAgenticEdgeFromSections({
     zIndex: 0,
     selected: false,
   };
-
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       const edges = state.projectConfig.agenticEdges;
@@ -434,17 +433,21 @@ export function createAgenticEdgeFromSections({
         state.projectConfig.agenticEdges.filter((edge) => edge.id !== edgeId);
     },
     send: (frontendOpId) =>
-      route_create_agentic_edge({
-        projectConfigId: getCurrProjectConfigId(),
-        id: edgeId,
-        sourceSectionId,
-        targetSectionId,
-        kind,
-        contextMode,
-        style: null,
-        hidden: false,
-        zIndex: 0,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        createAgenticEdge({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            id: edgeId,
+            sourceSectionId,
+            targetSectionId,
+            kind,
+            contextMode,
+            style: null,
+            hidden: false,
+            zIndex: 0,
+            frontendOpId,
+          },
+        } as Parameters<typeof createAgenticEdge>[0]),
+      ),
   });
 }
