@@ -397,7 +397,12 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
   function commitLocalViewport(nextViewport: GraphViewport) {
     viewportOwnershipRef.current = "local";
     toolbarZoomViewportBaseRef.current = nextViewport;
-    setViewport(nextViewport);
+    setViewport((currentViewport) => {
+      if (areGraphViewportsEqual(currentViewport, nextViewport)) {
+        return currentViewport;
+      }
+      return nextViewport;
+    });
   }
 
   function getResolvedViewport() {

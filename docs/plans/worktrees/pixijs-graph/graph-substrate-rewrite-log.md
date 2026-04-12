@@ -284,6 +284,37 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 13:01 UTC
+
+- item `504` deduplicated identical imperative local viewport commits on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    now keeps local viewport ownership and the toolbar zoom base current while
+    reusing the existing viewport state object when
+    `commitLocalViewport(...)` repeats the same `x` / `y` / `zoom` values
+  - updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    to prove an identical imperative local commit does not trigger another
+    viewport-runtime render
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`2` files, `23` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> the settings route loaded past the initial loading shell
+    -> `All Settings` stayed active and the graph substrate mounted with the
+       overview, node surface, minimap, and controls visible
+    -> no obvious blank-card or detached-body artifact was visible on the
+       canary surface
+- reading:
+  - this stays on the active viewport-runtime frontier with a real product-side
+    reduction instead of reopening runner or oracle repair
+  - the next real frontier is still product-side: either rank the remaining
+    real publish sources on `rotaryParamCodeObjDefault` with an already-trusted
+    live probe, or cut the next directly inspectable no-op viewport write in
+    the same runtime path
+- LOOP_TERMINAL_MARKER: none
 - 2026-04-15 11:36 UTC | item `495` | reduce viewport-edge body mount churn on the canonical canary lane
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:

@@ -860,6 +860,49 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     expect(renderSpy).not.toHaveBeenCalled();
   });
 
+  it("skips identical imperative local viewport commits", async () => {
+    const localViewport = { x: -140, y: 88, zoom: 1.6 };
+    const renderSpy = vi.fn();
+    let latestRuntime: ReturnType<
+      typeof useSettingsGraphSubstrateCanaryViewportRuntime
+    > | null = null;
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={localViewport}
+          onRender={renderSpy}
+          onRuntime={(runtime) => {
+            latestRuntime = runtime;
+          }}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(localViewport);
+      expect(latestRuntime).not.toBeNull();
+    });
+    renderSpy.mockClear();
+
+    await act(async () => {
+      latestRuntime?.commitLocalViewport({ ...localViewport });
+    });
+
+    expect(readResolvedViewport(host)).toEqual(localViewport);
+    expect(renderSpy).not.toHaveBeenCalled();
+  });
+
   it("keeps pan-only canary motion authoritative without republishing the React Flow transform", async () => {
     const initialViewport = { x: 40, y: -20, zoom: 1.25 };
     const panOnlyViewport = { x: 180, y: 60, zoom: 1.25 };

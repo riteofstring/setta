@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 12:52 UTC
+Last updated: 2026-04-15 13:01 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,38 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `504` deduplicated identical imperative local viewport commits on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      now keeps the local viewport owner and toolbar zoom base up to date but
+      reuses the current viewport state object when an imperative
+      `commitLocalViewport(...)` call repeats the same `x` / `y` / `zoom`
+      values
+    - focused regression:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      now proves an identical imperative local commit does not trigger another
+      viewport-runtime render
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`2` files, `23` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+      -> the settings route loaded past the initial loading shell
+      -> `All Settings` stayed active and the graph substrate mounted with the
+         overview, node surface, minimap, and controls visible
+      -> no obvious blank-card or detached-body artifact was visible on the
+         canary surface
+  - reading:
+    - this is another bounded production cut in the viewport-runtime lane, not
+      another runner/probe repair pass
+    - the next pass should stay on product-side viewport ownership and either
+      rank the remaining real publish sources on the canonical lane with an
+      already-trusted live probe, or cut the next directly inspectable no-op
+      viewport write in the same runtime path
 
 - item `503` removed the fit-view-init no-op transform publish on the
   canonical `rotaryParamCodeObjDefault` lane:
