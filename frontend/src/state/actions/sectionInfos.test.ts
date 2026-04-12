@@ -1284,6 +1284,40 @@ describe("createTopLevelSectionLayoutDict", () => {
     });
     expect(result[sectionHidden]).toEqual(existingLayouts[sectionHidden]);
   });
+
+  it("keeps existing size and z-index when node measurements are missing", () => {
+    const sectionId = "section-visible";
+    const sections = {
+      [sectionId]: { id: sectionId },
+    } as SingleConfig["sections"];
+    const nodeInternals = new Map([
+      [
+        sectionId,
+        {
+          id: sectionId,
+          position: { x: 25, y: 35 },
+          tempZIndex: 0,
+        },
+      ],
+    ]);
+    const existingLayouts = {
+      [sectionId]: { x: 0, y: 0, zIndex: 4, w: 320, h: 180 },
+    };
+
+    const result = createTopLevelSectionLayoutDict(
+      sections,
+      nodeInternals,
+      existingLayouts,
+    );
+
+    expect(result[sectionId]).toEqual({
+      x: 25,
+      y: 35,
+      zIndex: 4,
+      w: 320,
+      h: 180,
+    });
+  });
 });
 
 describe("processProjectStateUpdateFromBackend", () => {

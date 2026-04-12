@@ -355,10 +355,61 @@ export function isBaseCodeSectionType(sectionType: SectionType): boolean {
     sectionType === SectionTypeEnum.GenPythonMetadata
   );
 }
+type BaseCodeSectionImpl = Extract<
+  BaseSectionImplUnion,
+  {
+    attachedTerminalSectionId?: string | null;
+  }
+>;
+type TerminalSectionImpl = Extract<
+  BaseSectionImplUnion,
+  {
+    type: SectionTypeEnum.Terminal;
+  }
+>;
 type EmbeddedAttachedTerminalInfo = {
   attachedTerminalId: string;
   isTerminalMinimized: boolean;
 };
+type CodeSectionAttachment = {
+  attachedTerminalId: string;
+  codeImpl: BaseCodeSectionImpl;
+};
+function isBaseCodeSectionImpl(
+  impl: BaseSectionImplUnion,
+): impl is BaseCodeSectionImpl {
+  return isBaseCodeSectionType(impl.type);
+}
+function getTerminalSectionImplIfPresent(
+  state: SingleConfig,
+  terminalSectionId: string,
+): TerminalSectionImpl | null {
+  const terminalImpl = getEffectiveSectionImplIfPresent(
+    state,
+    terminalSectionId,
+  );
+  if (!terminalImpl || terminalImpl.type !== SectionTypeEnum.Terminal) {
+    return null;
+  }
+  return terminalImpl;
+}
+function getCodeSectionAttachmentIfPresent(
+  state: ZustandProjectState,
+  sectionId: string,
+): CodeSectionAttachment | null {
+  const impl = getEffectiveSectionImplIfPresent(state, sectionId);
+  if (!impl || !isBaseCodeSectionImpl(impl)) {
+    return null;
+  }
+  const attachedTerminalId = impl.attachedTerminalSectionId ?? null;
+  if (!attachedTerminalId || !(attachedTerminalId in state.sections)) {
+    return null;
+  }
+  return {
+    attachedTerminalId,
+    codeImpl: impl,
+  };
+}
 function isEmbeddedAttachedTerminalChild(
   childIds: string[],
   attachedTerminalId: string,
@@ -380,28 +431,18 @@ export function getAttachedTerminalParentIdForTerminalSection(
   state: ZustandProjectState,
   terminalSectionId: string,
 ): string | null {
-  const terminalImpl = getEffectiveSectionImplIfPresent(
-    state,
-    terminalSectionId,
-  );
-  if (!terminalImpl) {
-    return null;
-  }
-  if (terminalImpl.type !== SectionTypeEnum.Terminal) {
+  if (!getTerminalSectionImplIfPresent(state, terminalSectionId)) {
     return null;
   }
   const parentId = state.parentSectionMap[terminalSectionId] ?? null;
   if (!parentId) {
     return null;
   }
-  const parentImpl = getEffectiveSectionImplIfPresent(state, parentId);
-  if (!parentImpl) {
-    return null;
-  }
-  if (!isBaseCodeSectionType(parentImpl.type)) {
-    return null;
-  }
-  if (parentImpl.attachedTerminalSectionId !== terminalSectionId) {
+  const parentAttachment = getCodeSectionAttachmentIfPresent(state, parentId);
+  if (
+    !parentAttachment ||
+    parentAttachment.attachedTerminalId !== terminalSectionId
+  ) {
     return null;
   }
   return parentId;
@@ -436,44 +477,36 @@ export function getEmbeddedAttachedTerminalForCodeSection(
   sectionId: string,
   childIdsOverride?: string[],
 ): EmbeddedAttachedTerminalInfo | null {
-  const impl = getEffectiveSectionImplIfPresent(state, sectionId);
-  if (!impl) {
-    return null;
-  }
-  if (!isBaseCodeSectionType(impl.type)) {
-    return null;
-  }
-  const attachedTerminalId = impl.attachedTerminalSectionId ?? null;
-  if (!attachedTerminalId || !(attachedTerminalId in state.sections)) {
+  const attachment = getCodeSectionAttachmentIfPresent(state, sectionId);
+  if (!attachment) {
     return null;
   }
   const parentId = getAttachedTerminalParentIdForTerminalSection(
     state,
-    attachedTerminalId,
+    attachment.attachedTerminalId,
   );
   if (parentId !== sectionId) {
     return null;
   }
   const childIds = getAttachedTerminalChildIds(
-    impl,
-    attachedTerminalId,
+    attachment.codeImpl,
+    attachment.attachedTerminalId,
     childIdsOverride,
   );
-  if (!isEmbeddedAttachedTerminalChild(childIds, attachedTerminalId)) {
+  if (
+    !isEmbeddedAttachedTerminalChild(childIds, attachment.attachedTerminalId)
+  ) {
     return null;
   }
-  const terminalImpl = getEffectiveSectionImplIfPresent(
+  const terminalImpl = getTerminalSectionImplIfPresent(
     state,
-    attachedTerminalId,
+    attachment.attachedTerminalId,
   );
   if (!terminalImpl) {
     return null;
   }
-  if (terminalImpl.type !== SectionTypeEnum.Terminal) {
-    return null;
-  }
   return {
-    attachedTerminalId,
+    attachedTerminalId: attachment.attachedTerminalId,
     isTerminalMinimized: terminalImpl.isMinimized,
   };
 }
@@ -1773,17 +1806,34 @@ function copyExistingTopLevelSectionLayouts(
   }
   return nextLayouts;
 }
+function createDefaultTopLevelSectionLayout(node: Node): TopLevelSectionLayout {
+  return {
+    x: node.position.x,
+    y: node.position.y,
+    zIndex: 0,
+    w: null,
+    h: null,
+  };
+}
 function buildTopLevelSectionLayout(
   node: Node,
   existingLayout?: TopLevelSectionLayout,
 ): TopLevelSectionLayout {
-  return {
-    x: node.position.x,
-    y: node.position.y,
-    zIndex: node.zIndex ?? existingLayout?.zIndex ?? 0,
-    w: node.width ?? existingLayout?.w ?? null,
-    h: node.height ?? existingLayout?.h ?? null,
-  };
+  const nextLayout = existingLayout
+    ? { ...existingLayout }
+    : createDefaultTopLevelSectionLayout(node);
+  nextLayout.x = node.position.x;
+  nextLayout.y = node.position.y;
+  if (node.zIndex !== undefined) {
+    nextLayout.zIndex = node.zIndex;
+  }
+  if (node.width !== undefined) {
+    nextLayout.w = node.width;
+  }
+  if (node.height !== undefined) {
+    nextLayout.h = node.height;
+  }
+  return nextLayout;
 }
 type PendingViewportState = Viewport | null;
 const pendingViewportRef: {
