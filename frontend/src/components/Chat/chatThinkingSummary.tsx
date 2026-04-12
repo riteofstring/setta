@@ -5,6 +5,11 @@ type ThinkingSummaryItem = {
   summary?: string | null;
 };
 
+type ThinkingSummaryContent = {
+  content: string;
+  summary: string | null | undefined;
+};
+
 export function deriveThinkingHeadlineFromContent(
   content: string,
 ): string | null {
@@ -43,73 +48,73 @@ export function deriveThinkingHeadlineFromContent(
   return `${collapsed.slice(0, maxLength).trimEnd()}...`;
 }
 
+function normalizeThinkingSummaryText(text: string): string {
+  return text.replace(/\s+/gu, " ").trim();
+}
+
+function resolveDistinctSummaryHeadline({
+  content,
+  summary,
+}: ThinkingSummaryContent): string | null {
+  const summaryText = summary?.trim() ?? "";
+  const summaryHeadline = (summaryText.split(/\r?\n/u)[0] ?? "").trim();
+  if (summaryHeadline.length === 0) {
+    return null;
+  }
+  const normalizedSummaryText = normalizeThinkingSummaryText(summaryText);
+  const normalizedThinkingText = normalizeThinkingSummaryText(content);
+  if (
+    normalizedSummaryText.length > 0 &&
+    normalizedThinkingText.length > 0 &&
+    normalizedSummaryText === normalizedThinkingText
+  ) {
+    return null;
+  }
+  return summaryHeadline;
+}
+
+function resolveCompletedThinkingSummaryMeta({
+  content,
+  summary,
+}: ThinkingSummaryContent): { headline: string; hasTitle: boolean } {
+  const summaryHeadline = resolveDistinctSummaryHeadline({ content, summary });
+  if (summaryHeadline) {
+    return { headline: summaryHeadline, hasTitle: true };
+  }
+  if (content.trim().length === 0) {
+    return { headline: "Reasoning complete.", hasTitle: false };
+  }
+  const derivedHeadline = deriveThinkingHeadlineFromContent(content);
+  if (derivedHeadline) {
+    return { headline: derivedHeadline, hasTitle: true };
+  }
+  return {
+    headline: "Summary unavailable. Expand to view full reasoning.",
+    hasTitle: false,
+  };
+}
+
 export function resolveThinkingSummaryMeta({
   content,
   summary,
   isStreaming,
-}: {
-  content: string;
-  summary: string | null | undefined;
+}: ThinkingSummaryContent & {
   isStreaming: boolean;
 }): { headline: string; hasTitle: boolean } {
   if (isStreaming) {
     return { headline: "Thinking...", hasTitle: false };
   }
-  const summaryText = summary?.trim() ?? "";
-  const hasThinkingText = content.trim().length > 0;
-  const summaryHeadlineSourceText = (
-    summaryText.split(/\r?\n/u)[0] ?? ""
-  ).trim();
-  const normalizedSummaryText = summaryText.replace(/\s+/gu, " ").trim();
-  const normalizedThinkingText = content.replace(/\s+/gu, " ").trim();
-  const summaryLooksLikeThinking =
-    normalizedSummaryText.length > 0 &&
-    normalizedThinkingText.length > 0 &&
-    normalizedSummaryText === normalizedThinkingText;
-  const collapsedSummaryText =
-    summaryLooksLikeThinking || summaryHeadlineSourceText.length === 0
-      ? ""
-      : summaryHeadlineSourceText;
-  if (collapsedSummaryText) {
-    return { headline: collapsedSummaryText, hasTitle: true };
-  }
-  if (hasThinkingText) {
-    const derivedHeadline = deriveThinkingHeadlineFromContent(content);
-    if (derivedHeadline) {
-      return { headline: derivedHeadline, hasTitle: true };
-    }
-    return {
-      headline: "Summary unavailable. Expand to view full reasoning.",
-      hasTitle: false,
-    };
-  }
-  return {
-    headline: isStreaming ? "Thinking..." : "Reasoning complete.",
-    hasTitle: false,
-  };
+  return resolveCompletedThinkingSummaryMeta({ content, summary });
 }
 
 export function resolveStreamingThinkingHeadline({
   content,
   summary,
-}: {
-  content: string;
-  summary: string | null | undefined;
-}): string | null {
-  const summaryText = summary?.trim() ?? "";
-  const summaryHeadlineSourceText = (
-    summaryText.split(/\r?\n/u)[0] ?? ""
-  ).trim();
-  const normalizedSummaryText = summaryText.replace(/\s+/gu, " ").trim();
-  const normalizedThinkingText = content.replace(/\s+/gu, " ").trim();
-  const summaryLooksLikeThinking =
-    normalizedSummaryText.length > 0 &&
-    normalizedThinkingText.length > 0 &&
-    normalizedSummaryText === normalizedThinkingText;
-  if (summaryHeadlineSourceText.length > 0 && !summaryLooksLikeThinking) {
-    return summaryHeadlineSourceText;
-  }
-  return deriveThinkingHeadlineFromContent(content);
+}: ThinkingSummaryContent): string | null {
+  return (
+    resolveDistinctSummaryHeadline({ content, summary }) ??
+    deriveThinkingHeadlineFromContent(content)
+  );
 }
 
 export function resolveThinkingSummaryHeadline({
