@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 08:48 UTC
+Last updated: 2026-04-13 09:04 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,63 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `408` landed one bounded verifier hardening slice on the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane and immediately reran the same
+  live lane to close the repeated post-bootstrap `getSettingsGraphSurfaceKind(...)`
+  blocker:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and confirmed the last completed
+      pass was real product code (`item 407`), so one narrow verifier fix was
+      still allowed because the only open blocker was the same compare-preflight
+      stall on the same canonical lane
+    - kept the scope on the exact failing seam instead of reopening broader
+      probe plumbing or moving to a new parity lane
+    - replaced repeated locator-count RPCs during post-reload readiness and
+      surface-kind detection with one DOM snapshot per poll/read
+  - product/support code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts`
+      with pure helpers for app-readiness and surface-kind classification
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      for focused coverage
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so `waitForSettingsGraphAppReady(...)` and
+      `getSettingsGraphSurfaceKind(...)` both read one DOM snapshot instead of
+      issuing repeated locator RPCs across the post-bootstrap loading window
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the recovered run-`033` live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      -> completed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-033/worktree-ai.log`
+      -> passed (`1` Playwright test, `2.2m`)
+      -> the repeated `getSettingsGraphSurfaceKind(...)` preflight stall did not
+         reproduce on this runtime
+      -> fresh canonical readout:
+         `longTaskCount` `5`, `longTaskTotalDurationMs` `1450ms`,
+         `longTaskMaxDurationMs` `532ms`, `averageFrameDurationMs` `48.86ms`
+      -> dominant named canary owner stayed
+         `presentedSceneSectionSubtreeReactRender`
+         (`1128.5ms` total, `327.8ms` max, `30` commits)
+    - headless CDP visual check on the authenticated worktree bootstrap URL
+      -> passed in a fresh-context sub-agent
+      -> after bootstrap and opening `/settings`, the populated All Settings
+         canary surface was visible rather than a blank/loading shell
+  - reading:
+    - the current blocker is no longer compare-preflight surface detection on
+      the canonical worktree lane
+    - this was a support slice only; it did not improve the named dominant owner
+    - the live readout still points at
+      `presentedSceneSectionSubtreeReactRender`, so default sequencing should
+      return to one bounded production reduction on that owner chain
+  - next default frontier:
+    - land one production slice against
+      `presentedSceneSectionSubtreeReactRender` on the same
+      `rotaryParamCodeObjDefault` lane, starting with the broad mounted
+      sections subtree that still commits during motion rather than more probe
+      hardening
 
 - item `407` landed one bounded production reduction against the canonical
   `rotaryParamCodeObjDefault` worktree perf lane by isolating the profiled DOM

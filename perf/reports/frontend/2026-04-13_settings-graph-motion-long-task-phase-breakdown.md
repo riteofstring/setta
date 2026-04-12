@@ -258,6 +258,66 @@ aggregate long-task totals.
 ### Verification
 
 - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+
+## 2026-04-13 Surface-Readiness Hardening
+
+### What changed
+
+- added
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts`
+  with pure helpers that classify the current graph surface kind and the
+  app-ready state from one DOM snapshot
+- added
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+  to cover canary-vs-legacy resolution plus the app-ready gate
+- updated
+  `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+  so:
+  - `getSettingsGraphSurfaceKind(...)` reads one DOM snapshot via
+    `page.evaluate(...)` instead of issuing repeated locator count RPCs during
+    compare preflight
+  - `waitForSettingsGraphAppReady(...)` polls the same snapshot shape instead
+    of composing multiple locator queries across the post-reload loading window
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+  - passed (`1` file, `4` tests)
+- `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+  - completed
+- live worktree probe on run `033`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-033/worktree-ai.log`
+  - result:
+    - passed (`1` Playwright test, `2.2m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- probe preflight no longer stalled at `getSettingsGraphSurfaceKind(...)`; the
+  lane completed on the first run of the current runtime
+- post-change motion breakdown:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1450ms`
+  - `longTaskMaxDurationMs`: `532ms`
+  - `measurementWindowMs`: `2176.4ms`
+  - `averageFrameDurationMs`: `48.86ms`
+  - `panForward`: `2` tasks, `499ms` total, `312ms` max
+  - `panReturn`: `1` task, `532ms` total, `532ms` max
+  - `zoomIn`: `1` task, `193ms` total, `193ms` max
+  - `zoomOut`: `1` task, `226ms` total, `226ms` max
+- dominant named canary owner on the same run:
+  - `presentedSceneSectionSubtreeReactRender`: `1128.5ms` total,
+    `327.8ms` max, `30` commits
+
+### Updated Reading
+
+- this support slice removed the current probe-health blocker on the canonical
+  worktree lane without opening a new oracle family
+- the live readout still names
+  `presentedSceneSectionSubtreeReactRender` as the dominant remaining owner, so
+  the next product slice should stay on that owner chain rather than returning
+  to compare-preflight hardening
   - passed (`2` files, `10` tests)
 - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
   - passed

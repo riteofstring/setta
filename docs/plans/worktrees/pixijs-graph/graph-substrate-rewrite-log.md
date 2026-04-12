@@ -151,6 +151,60 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 09:04 UTC
+
+- item `408` chose one bounded verifier-hardening subtask after rereading the
+  plan and handoff:
+  - the last completed pass (`item 407`) was real product code on the canonical
+    `rotaryParamCodeObjDefault` lane
+  - the only open blocker was the same repeated
+    `getSettingsGraphSurfaceKind(...)` timeout immediately after compare
+    preflight bootstrap on that same lane
+  - this iteration stayed on that exact blocker instead of reopening broader
+    probe plumbing or moving to a different parity lane
+- support code changed in:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts`
+    with pure helpers for app-readiness and graph-surface-kind classification
+    from one DOM snapshot
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+    with focused coverage for canary/legacy resolution and the app-ready gate
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    so `waitForSettingsGraphAppReady(...)` and
+    `getSettingsGraphSurfaceKind(...)` both use one `page.evaluate(...)`
+    snapshot instead of repeated locator count RPCs during the post-reload
+    loading window
+  - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+    with the successful run-`033` live readout
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+    -> passed (`1` file, `4` tests)
+  - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+    -> completed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-033/worktree-ai.log`
+    -> passed (`1` Playwright test, `2.2m`)
+    -> the repeated `getSettingsGraphSurfaceKind(...)` compare-preflight stall
+       did not reproduce on this runtime
+    -> fresh canonical readout:
+       `longTaskCount` `5`, `longTaskTotalDurationMs` `1450ms`,
+       `longTaskMaxDurationMs` `532ms`, `averageFrameDurationMs` `48.86ms`
+    -> dominant named canary owner remained
+       `presentedSceneSectionSubtreeReactRender`
+       (`1128.5ms` total, `327.8ms` max, `30` commits)
+  - fresh-context headless CDP sub-agent on the authenticated bootstrap URL
+    -> passed
+    -> after bootstrap and opening `/settings`, the populated All Settings
+       canary surface was visible rather than a blank/loading shell
+- reading:
+  - the active blocker is no longer post-bootstrap surface detection on the
+    canonical worktree lane
+  - this was intentionally a support slice only; it did not change the dominant
+    motion owner
+  - default sequencing should return to product work on
+    `presentedSceneSectionSubtreeReactRender`, not more verifier hardening,
+    unless a fresh runtime reintroduces a new concrete blocker
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 08:40 UTC
 
 - progress review for loop `001` runs `021` through `030`:

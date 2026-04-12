@@ -18,6 +18,10 @@ import type {
   SettingsGraphSubstrateCanaryMotionAttribution,
   SettingsGraphSubstrateCanaryMotionAttributionOwner,
 } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
+import {
+  isSettingsGraphAppReady,
+  resolveSettingsGraphSurfaceKind,
+} from "components/Pages/Project/graphSubstrate/settingsGraphSurfaceState";
 import { postBackend } from "../helpers";
 
 export type SettingsGraphViewportTransform = {
@@ -669,13 +673,24 @@ export async function fitGraphViewportToSection(
 export async function getSettingsGraphSurfaceKind(
   page: Page,
 ): Promise<SettingsGraphSurfaceKind | null> {
-  if ((await page.locator(CANARY_SETTINGS_GRAPH_ROOT_SELECTOR).count()) > 0) {
-    return "canary";
-  }
-  if ((await page.locator(LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR).count()) > 0) {
-    return "legacy";
-  }
-  return null;
+  const snapshot = await page.evaluate(
+    ({
+      canaryRootSelector,
+      legacyRootSelector,
+    }: {
+      canaryRootSelector: string;
+      legacyRootSelector: string;
+    }) => ({
+      canaryRootMounted: document.querySelector(canaryRootSelector) !== null,
+      legacyPaneMounted: document.querySelector(legacyRootSelector) !== null,
+    }),
+    {
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+    },
+  );
+
+  return resolveSettingsGraphSurfaceKind(snapshot);
 }
 
 export async function getSettingsGraphSectionBoundingBox(
@@ -1341,12 +1356,40 @@ async function waitForSettingsGraphAppReady(page: Page): Promise<void> {
   await expect
     .poll(
       async () =>
-        (await page.locator(".setta-titlebar-offset").count()) > 0 &&
-        ((await page.locator(".react-flow__pane").count()) > 0 ||
-          (await page
-            .locator('[data-testid="graph-substrate-canary"]')
-            .count()) > 0 ||
-          (await page.locator("article").count()) > 0),
+        isSettingsGraphAppReady(
+          await page.evaluate(
+            ({
+              canaryRootSelector,
+              legacyRootSelector,
+            }: {
+              canaryRootSelector: string;
+              legacyRootSelector: string;
+            }) => {
+              const articleElements = Array.from(
+                document.querySelectorAll("article"),
+              );
+              return {
+                appShellMounted:
+                  document.querySelector(".setta-titlebar-offset") !== null,
+                canaryRootMounted:
+                  document.querySelector(canaryRootSelector) !== null,
+                legacyPaneMounted:
+                  document.querySelector(legacyRootSelector) !== null,
+                settingsContentMounted: articleElements.some((element) => {
+                  const htmlElement =
+                    element instanceof HTMLElement
+                      ? element
+                      : element.parentElement;
+                  return htmlElement?.offsetParent !== null;
+                }),
+              };
+            },
+            {
+              canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+              legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+            },
+          ),
+        ),
       { timeout: 30000 },
     )
     .toBe(true);
