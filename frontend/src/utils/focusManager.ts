@@ -2,7 +2,6 @@ import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { useEffect, type RefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
-  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
@@ -14,7 +13,7 @@ type TabScopeBehavior = "default" | "canvas";
 type TabScopeRegistration = {
   scopeId: string;
   order: number;
-  rootRef: RefObject<HTMLElement | null>;
+  rootRef: RefObject<HTMLElement>;
   behavior?: TabScopeBehavior;
 };
 
@@ -502,11 +501,10 @@ function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
 function getOrderedTopLevelSectionIds(): string[] {
   const state = useProjectState.getState();
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
-  const activeTopLevelSections = getActiveViewModeTopLevelSections(state);
   const topLevelSections = topLevelSectionIds
     .map((sectionId) => ({
       sectionId,
-      layout: activeTopLevelSections[sectionId],
+      layout: state.projectConfig.topLevelSections[sectionId],
     }))
     .filter((entry) => entry.layout);
 
