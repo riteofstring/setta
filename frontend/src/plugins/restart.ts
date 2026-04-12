@@ -105,7 +105,7 @@ export function buildPluginRestartActionPlan(
   }
 }
 
-export function mapPluginRestartResponse(
+function mapPluginRestartResponse(
   response: ResponseDataAndStatus<PluginRestartResponse>,
 ): PluginRestartRequestResult {
   if (!res200(response) || !response.data) {
