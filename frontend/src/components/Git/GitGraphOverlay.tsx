@@ -231,14 +231,14 @@ const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
 };
 const EMPTY_REMOTE_DECORATION_PREFIXES: ReadonlySet<string> = new Set();
 
-export function buildGitCommitSearchBlob(commit: Commit): string {
+function buildGitCommitSearchBlob(commit: Commit): string {
   const normalizedDecorations = (commit.decorations ?? [])
     .join(" ")
     .toLowerCase();
   return `${commit.hash} ${commit.subject} ${commit.authorName} ${normalizedDecorations}`.toLowerCase();
 }
 
-export function collectRemoteDecorationPrefixes(
+function collectRemoteDecorationPrefixes(
   decorations: readonly string[],
 ): Set<string> {
   const remotePrefixes = new Set<string>();
@@ -347,7 +347,7 @@ function parseRemoteDecorationChip(
   return null;
 }
 
-export function summarizeDecorationChips(
+function summarizeDecorationChips(
   decorations: readonly string[],
   remoteDecorationPrefixes: ReadonlySet<string> = EMPTY_REMOTE_DECORATION_PREFIXES,
 ): DecorationChipSummary {
@@ -390,7 +390,7 @@ function buildDecorationChipSummaryByHash(
   return chipSummaryByHash;
 }
 
-export function buildGitCommitLookupByHash(
+function buildGitCommitLookupByHash(
   commits: readonly Commit[],
 ): Map<string, Commit> {
   const commitsByHash = new Map<string, Commit>();
@@ -400,7 +400,7 @@ export function buildGitCommitLookupByHash(
   return commitsByHash;
 }
 
-export function buildGitGraphRowHeightCacheKey({
+function buildGitGraphRowHeightCacheKey({
   commitDigest,
   allRefs,
   filterText,
@@ -414,7 +414,7 @@ export function buildGitGraphRowHeightCacheKey({
   return `${commitDigest}:${refMode}:${normalizedFilter}`;
 }
 
-export function buildGitGraphCommitDigest(commits: readonly Commit[]): string {
+function buildGitGraphCommitDigest(commits: readonly Commit[]): string {
   if (commits.length === 0) {
     return "0";
   }
@@ -538,7 +538,7 @@ type GitGraphLoadMoreGuardState = Pick<
   "isLoading" | "isLoadingMore" | "loadMoreError" | "nextOffset" | "hasMore"
 >;
 
-export function shouldLoadMoreGitGraphCommits({
+function shouldLoadMoreGitGraphCommits({
   graphState,
   filteredRowCount,
   stopIndex,
@@ -694,7 +694,7 @@ function clampGitGraphBoundaryDelta(
   return clamp(delta, lower, upper);
 }
 
-export function computeGitGraphColumnWidthPatch({
+function computeGitGraphColumnWidthPatch({
   boundary,
   deltaX,
   start,
@@ -751,7 +751,7 @@ export function computeGitGraphColumnWidthPatch({
   }
 }
 
-export function computeGitGraphColumnDoubleClickPatch({
+function computeGitGraphColumnDoubleClickPatch({
   boundary,
   start,
   contentWidth,
