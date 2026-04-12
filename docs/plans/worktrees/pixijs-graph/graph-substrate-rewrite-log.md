@@ -74,6 +74,50 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-12 21:58 UTC
+
+- item `354` landed one bounded background transform subscription removal
+  slice on the canonical `rotaryParamCodeObjDefault` lane inside the measured
+  `interactionReactFlowStateSync` owner:
+  - changed `frontend/src/forks/xyflow/background/Background.tsx` so
+    `BackgroundCore` no longer reads `transform` through the React selector
+    path and instead keeps the SVG pattern attributes synchronized
+    imperatively via `useReactFlow.subscribe(...)`
+  - changed `frontend/src/forks/xyflow/background/Patterns.tsx` so the dot and
+    line primitives expose refs for imperative attribute updates
+  - added focused profiler coverage in
+    `frontend/src/forks/xyflow/background/Background.test.tsx`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-background-transform-subscription-removal.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/background/Background.test.tsx`
+    - passed (`1` file, `1` test)
+  - `pnpm -C frontend exec prettier --check src/forks/xyflow/background/Background.tsx src/forks/xyflow/background/Patterns.tsx src/forks/xyflow/background/Background.test.tsx`
+    - passed
+  - fresh-context headless CDP smoke:
+    - initial bootstrap-url attempt failed because the refreshed token was
+      rejected in the DevTools profile
+    - one bounded worktree lifecycle recovery succeeded:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime info then pointed the retry at direct
+      `http://127.0.0.1:3075/settings`
+    - the authenticated profile loaded the settings surface with app chrome and
+      a centered loading indicator visible
+    - no obvious blank white screen, background/grid disappearance, or layout
+      collapse was observed during that smoke check
+- Result:
+  - the always-mounted background layer no longer needs React render commits on
+    transform-only motion to keep its pattern synchronized
+  - this keeps the loop on a real product-side reduction inside the measured
+    owner instead of reopening the unstable cross-worktree probe family
+- Next:
+  - rerun attribution once the canonical probe family is trustworthy again, or
+    take the next similarly wide mounted motion-path subscriber on the live
+    `interactionReactFlowStateSync` lane
+
+LOOP_TERMINAL_MARKER: none
+
 # 2026-04-12 - Item 353
 
 - Item: land one bounded shared viewport transform subscription removal so the
@@ -122,6 +166,7 @@ LOOP_TERMINAL_MARKER: none
     default probe family is trustworthy again
 
 LOOP_TERMINAL_MARKER: none
+
 # 2026-04-12 - Progress review after loop iteration 40
 
 - Decision: `replan_and_continue`
@@ -160,6 +205,7 @@ LOOP_TERMINAL_MARKER: none
     fixes or generic probe-helper churn on this lane
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 20:11 UTC
 
 - item `345` landed one bounded section-header follow-selection selector split
@@ -184,13 +230,13 @@ LOOP_TERMINAL_MARKER: none
       -> passed
     - fresh-context headless CDP smoke on worktree `/settings`
       -> first attempt hit runtime health only: `/settings` stayed on
-         `PREPARING SETTA` / `Loading settings…`
+      `PREPARING SETTA` / `Loading settings…`
       -> one allowed lifecycle recovery succeeded:
-         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
       -> retry after restart mounted `/settings` successfully
       -> settings surface rendered with section list and bottom tabs intact
       -> no obvious layout collapse, blank graph region, or broken
-         section-header chrome was observed
+      section-header chrome was observed
   - reading:
     - this is a wider mounted section-chrome boundary than another
       handle-specific selector split, even though it sits outside the narrow
@@ -231,7 +277,7 @@ LOOP_TERMINAL_MARKER: none
       -> bootstrap handoff succeeded
       -> `/settings` mounted successfully
       -> no obvious layout collapse, missing graph surface, or broken edge
-         area was observed
+      area was observed
   - result:
     - this removes another mounted shared-surface invalidation from
       `interactionReactFlowStateSync`
@@ -240,6 +286,7 @@ LOOP_TERMINAL_MARKER: none
       state instead of reopening the cross-worktree probe by default
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 18:55 UTC
 
 - item `338` removed one mounted workflow-edge React Flow subscription from
@@ -268,8 +315,8 @@ LOOP_TERMINAL_MARKER: none
       -> provided bootstrap token was rejected
       -> navigating through the live app shell still mounted `/settings`
       -> visible settings graph surface, section cards, tab strip, and
-         workflow/state-machine edge area showed no obvious layout collapse or
-         regression from this slice
+      workflow/state-machine edge area showed no obvious layout collapse or
+      regression from this slice
   - result:
     - this removes one mounted shared-surface invalidation from
       `interactionReactFlowStateSync` while keeping workflow-edge additive
@@ -279,6 +326,7 @@ LOOP_TERMINAL_MARKER: none
       subscription in `AgenticEdgeRenderer`
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 18:43 UTC
 
 - item `337` removed one more shared-surface React Flow modifier subscription
@@ -307,7 +355,7 @@ LOOP_TERMINAL_MARKER: none
       -> bootstrap handoff succeeded
       -> `/settings` mounted successfully
       -> visible settings graph surface, top controls, and section cards
-         showed no obvious layout regression from this slice
+      showed no obvious layout regression from this slice
   - result:
     - this removes one more always-mounted flow-shell commit source from the
       measured `interactionReactFlowStateSync` owner while preserving the same
@@ -318,6 +366,7 @@ LOOP_TERMINAL_MARKER: none
       default
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 18:35 UTC
 
 - item `336` removed the mounted-node list subscription to the hand-pan
@@ -346,7 +395,7 @@ LOOP_TERMINAL_MARKER: none
     - fresh-context headless CDP smoke on worktree `/settings`
       -> `/settings` mounted successfully
       -> top-level settings cards, graph shell, and side controls looked
-         structurally normal
+      structurally normal
       -> no obvious visual regression observed for this slice
   - result:
     - this removes one whole-list `NodeRenderer` commit from the
@@ -357,6 +406,7 @@ LOOP_TERMINAL_MARKER: none
       fan-out on the canonical lane
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 18:24 UTC
 
 - item `335` narrowed one more shared renderer subscription on the canonical
@@ -396,6 +446,7 @@ LOOP_TERMINAL_MARKER: none
       worktree lane instead of reopening the unstable cross-worktree probe
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 18:04 UTC
 
 - item `333` removed one motion-heavy React Flow zoom subscription from the
@@ -437,6 +488,7 @@ LOOP_TERMINAL_MARKER: none
       isolate the next mounted DOM-backed body or chrome surface that still
       subscribes to motion-heavy React Flow state on the canonical lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 19:26 UTC
 
 - item `341` removed one mounted connection-start subscription fan-out from
@@ -468,7 +520,7 @@ LOOP_TERMINAL_MARKER: none
       -> bootstrap handoff succeeded
       -> `/settings` mounted successfully
       -> no obvious layout collapse or missing edge-handle chrome in the
-         visible graph surface
+      visible graph surface
   - result:
     - this removes another mounted section-chrome subscriber inside the
       measured `interactionReactFlowStateSync` owner by relying on the already
@@ -477,6 +529,7 @@ LOOP_TERMINAL_MARKER: none
       isolate the next mounted section-body/chrome selector or write fan-out
       still visible on the canonical lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 19:13 UTC
 
 - item `340` narrowed the workflow-edge node-internals subscription on the
@@ -514,6 +567,7 @@ LOOP_TERMINAL_MARKER: none
       CDP smoke for item `340`, and only continue to the next
       `interactionReactFlowStateSync` reduction after `/settings` mounts again
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 17:53 UTC
 
 - item `332` narrowed one controls-toolbar fit-view subscription on the
@@ -3873,7 +3927,7 @@ LOOP_TERMINAL_MARKER: none
       worktree canary
       -> moved past the previous worktree `capture initial pane state` stall
       -> emitted numeric perf payload before failing on the existing perf
-        assertions with:
+      assertions with:
       - reference average frame duration `319.14ms`
       - worktree average frame duration `46.37ms`
       - worktree max frame duration `400ms`
@@ -13008,17 +13062,14 @@ LOOP_TERMINAL_MARKER: none
   - Added
     `perf/reports/frontend/2026-04-12_settings-graph-pixi-drawable-cache-reuse.md`
     to record the slice and current runtime reading.
-  - Verification:
-    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
-      -> passed (`3` files, `18` tests)
-    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/main-ai.log`
-      -> progressed through read-only `main` bootstrap/open-settings and both
-      sides' project-config/project-state/view-mode/target-section resolution
-      -> failed before numeric perf output with `Timed out after 30000ms during
-settings graph probe phase: worktree: capture initial pane state.`
-    - Chrome DevTools MCP smoke on worktree `3075` and read-only `main` `3087`
-      -> both `/settings` surfaces mounted without blanking or obvious visual
-      drift in the inspected graph substrate area
+  - Verification: - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`3` files, `18` tests) - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/main-ai.log`
+    -> progressed through read-only `main` bootstrap/open-settings and both
+    sides' project-config/project-state/view-mode/target-section resolution
+    -> failed before numeric perf output with `Timed out after 30000ms during
+settings graph probe phase: worktree: capture initial pane state.` - Chrome DevTools MCP smoke on worktree `3075` and read-only `main` `3087`
+    -> both `/settings` surfaces mounted without blanking or obvious visual
+    drift in the inspected graph substrate area
   - Result:
     - this slice removes avoidable Pixi shell model rebuild work for unchanged
       sections, but it does not claim a measured frame win yet because the
@@ -13138,6 +13189,7 @@ settings graph probe phase: worktree: capture initial pane state.`
       probe and see whether the dominant owner or average motion cost moved
       after this resolver reuse path landed
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 17:13 UTC
 
 - item `329` removed the remaining canary-owned React Flow interaction-flag
@@ -13170,6 +13222,7 @@ settings graph probe phase: worktree: capture initial pane state.`
       healthy lifecycle and verify whether `interactionReactFlowStateSync`
       drops out after the item `328` + `329` reductions
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 17:18 UTC
 
 - item `330` reran the canonical main-reference perf lane after the two
@@ -13195,6 +13248,7 @@ settings graph probe phase: worktree: capture initial pane state.`
       `interactionReactFlowStateSync` instead of opening another probe-only
       rerun on the same stall shape
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 17:39 UTC
 
 - item `331` narrowed one controls-toolbar zoom subscription on the canonical
@@ -13214,11 +13268,11 @@ settings graph probe phase: worktree: capture initial pane state.`
       -> passed
     - headless CDP smoke on worktree `/settings`
       -> first two sub-agent attempts exposed local CDP/session issues
-         (`evaluate_script` interruption, then `Network.enable timed out`)
+      (`evaluate_script` interruption, then `Network.enable timed out`)
       -> one bounded worktree lifecycle self-recovery was performed with
-         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
       -> post-restart CDP retry passed: controls toolbar visible, `zoom in`
-         and `zoom out` present, no obvious overlap or broken toolbar layout
+      and `zoom out` present, no obvious overlap or broken toolbar layout
   - result:
     - this keeps zoom-driven React Flow render churn scoped to the two zoom
       controls instead of the whole toolbar chrome
@@ -13226,6 +13280,7 @@ settings graph probe phase: worktree: capture initial pane state.`
       isolate the next mounted controls/body surface on the canonical lane
       that still subscribes to motion-heavy React Flow state
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 16:59 UTC
 
 - item `327` landed one bounded probe-helper slice on the canonical
@@ -13255,6 +13310,7 @@ settings graph probe phase: worktree: capture initial pane state.`
       `interactionReactFlowStateSync` instead of spending another iteration on
       this same pane-state capture shape
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 17:05 UTC
 
 - item `328` removed one unused legacy pane subscription from the canonical
@@ -13285,6 +13341,7 @@ settings graph probe phase: worktree: capture initial pane state.`
       or rerun the canonical perf lane from a fresh healthy lifecycle if the
       runtime stall clears
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 17:41 UTC
 
 - Item: progress review checkpoint after runs `011` through `020`.
@@ -13324,6 +13381,7 @@ settings graph probe phase: worktree: capture initial pane state.`
     instead of reopening the same cross-worktree probe stall
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 18:15 UTC
 
 - item `334` removed one more motion-heavy React Flow zoom subscription from
@@ -13348,7 +13406,7 @@ LOOP_TERMINAL_MARKER: none
       -> bootstrap handoff succeeded
       -> `/settings` mounted successfully
       -> no obvious broken layout in the visible settings chrome/section/param
-         area from this slice
+      area from this slice
   - result:
     - this closes the last direct component-side `transform[2]` subscriber
       found under `frontend/src/components` after the spreadsheet split
@@ -13357,10 +13415,12 @@ LOOP_TERMINAL_MARKER: none
       selector/write fan-out still visible on the canonical lane
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 19:42 UTC
 
 - item `343` landed one bounded agentic-edge-handle visibility selector split
   inside the canonical `rotaryParamCodeObjDefault` lane:
+
   - changed
     `frontend/src/components/Section/Container/AgenticEdgeHandles.tsx` so the
     mounted agentic handle surface subscribes through a derived per-section
@@ -13401,10 +13461,12 @@ LOOP_TERMINAL_MARKER: none
       the canonical lane before another reduction slice
 
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 19:36 UTC
 
 - item `342` landed one bounded node-wrapper node-internals selector split
   inside the canonical `rotaryParamCodeObjDefault` lane:
+
   - changed `frontend/src/forks/xyflow/core/components/wrapNode.tsx` so
     `NodeWrapper` subscribes only to `{ position, tempZIndex }` from
     `useNodeInternals(...)` instead of the full node entry
@@ -13423,9 +13485,9 @@ LOOP_TERMINAL_MARKER: none
       -> passed
     - fresh-context headless CDP smoke on worktree `/settings`
       -> bootstrap token was rejected, but the live frontend session at
-         `http://127.0.0.1:3075/settings` was healthy
+      `http://127.0.0.1:3075/settings` was healthy
       -> page title `Settings`, visible settings section area `780x457`,
-         `svgCount=96`, `canvasCount=0`, largest graph surface SVG `5000x5000`
+      `svgCount=96`, `canvasCount=0`, largest graph surface SVG `5000x5000`
       -> no obvious layout collapse/regression observed on the graph surface
   - reading:
     - this moves the worktree-side reduction into the mounted top-level
@@ -13437,6 +13499,7 @@ LOOP_TERMINAL_MARKER: none
       reduction slice
 
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 21:05 UTC
 
 - Item: progress review checkpoint after runs `021` through `030`.
@@ -13480,6 +13543,7 @@ LOOP_TERMINAL_MARKER: none
     opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 20:29 UTC
 
 - item `347` landed one bounded managed-chat agentic-scope selector split
@@ -13511,7 +13575,7 @@ LOOP_TERMINAL_MARKER: none
       -> settings graph surface mounted with populated sections and controls
       -> chat surface was present (`Chat Window 1`)
       -> no obvious blank graph region, layout collapse, or missing chat
-         section surface was observed
+      section surface was observed
   - reading:
     - this lands a wider mounted section-body subscriber reduction than
       another edge/control micro-split because unrelated agentic-edge writes
@@ -13522,6 +13586,7 @@ LOOP_TERMINAL_MARKER: none
       opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 20:22 UTC
 
 - item `346` landed one bounded section-shell scope-highlight selector split
@@ -13551,7 +13616,7 @@ LOOP_TERMINAL_MARKER: none
       -> `/settings` loaded successfully
       -> settings graph surface rendered with populated section shells
       -> no obvious blank graph region, layout collapse, or missing shell
-         surface was observed
+      surface was observed
   - reading:
     - this lands a mounted section-shell subscriber reduction with wider reach
       than another leaf handle/control split
@@ -13561,6 +13626,7 @@ LOOP_TERMINAL_MARKER: none
       opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 19:52 UTC
 
 - item `344` landed one bounded ReactFlow-root connecting-attribute
@@ -13589,7 +13655,7 @@ LOOP_TERMINAL_MARKER: none
       -> `/settings` loaded successfully
       -> visible settings graph surface mounted with readable content
       -> no obvious layout collapse, blank graph region, or zero-height
-         surface regression observed
+      surface regression observed
   - reading:
     - this removes one whole-root render-path fan-out from the measured
       `interactionReactFlowStateSync` owner instead of another leaf-only
@@ -13600,6 +13666,7 @@ LOOP_TERMINAL_MARKER: none
       payoff than another opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none
+
 # 2026-04-12 - Item 349
 
 - Item: land one bounded Playwright global-setup bootstrap-url fallback so the
@@ -13636,6 +13703,7 @@ LOOP_TERMINAL_MARKER: none
     surface/state regression before taking another selector/perf slice
 
 LOOP_TERMINAL_MARKER: none
+
 # 2026-04-12 - Item 351
 
 - Item: land one bounded worktree transient-chrome normalization fix so the
@@ -13688,6 +13756,7 @@ LOOP_TERMINAL_MARKER: none
     pane-state read itself is hanging
 
 LOOP_TERMINAL_MARKER: none
+
 # 2026-04-12 - Item 348
 
 - Item: land one bounded section-shell AI-follow highlight selected-chat
@@ -13737,6 +13806,7 @@ LOOP_TERMINAL_MARKER: none
     plus focused profiler/render-count evidence to name the next larger
     mounted section-body/chrome subscriber or shared write fan-out before
     another reduction slice
+
 ## 2026-04-12 21:01 UTC
 
 - item `350` landed one bounded Playwright global-setup stable-home landing
@@ -13756,7 +13826,7 @@ LOOP_TERMINAL_MARKER: none
       -> passed global setup and reached the canonical probe body
       -> reference bootstrap plus the reference motion capture completed
       -> failed later at
-         `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
+      `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
   - reading:
     - this re-closes bootstrap churn on the current runtime and restores the
       intended blocker

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 21:39 UTC
+Last updated: 2026-04-12 21:58 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,48 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+- item `354` landed one bounded background-layer shared transform subscription
+  reduction on the canonical `rotaryParamCodeObjDefault` lane inside the
+  measured `interactionReactFlowStateSync` owner:
+
+  - product code changed in:
+    - `frontend/src/forks/xyflow/background/Background.tsx`
+      so `BackgroundCore` no longer subscribes through the React render path to
+      `transform`
+    - the mounted SVG pattern now keeps its transform-derived attributes in sync
+      imperatively via `useReactFlow.subscribe(...)`
+    - `frontend/src/forks/xyflow/background/Patterns.tsx`
+      now exposes refs so the background dot/line primitives can be updated
+      without re-committing the subtree
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/background/Background.test.tsx`
+      to prove transform-only updates do not re-commit the mounted background
+      while the SVG pattern attributes still update
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-background-transform-subscription-removal.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/background/Background.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/background/Background.tsx src/forks/xyflow/background/Patterns.tsx src/forks/xyflow/background/Background.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke:
+      -> first bootstrap-url attempt failed because the refreshed bootstrap
+      token was rejected in the DevTools profile
+      -> one bounded self-recovery restarted the current worktree lifecycle
+      with the loop headless env
+      -> retry against direct `http://127.0.0.1:3075/settings` succeeded in the
+      authenticated profile
+      -> settings surface mounted with a centered loading indicator and no
+      obvious blank white screen, background/grid disappearance, or layout
+      collapse
+  - reading:
+    - this is a real product-side motion-surface reduction on another
+      always-mounted transform subscriber, not another probe pass
+    - the next bounded frontier should either rerun attribution once the probe
+      family is trustworthy again or keep pruning another similarly wide
+      mounted motion-path subscriber rather than reopening the unstable
+      cross-worktree bootstrap lane
+
 - item `353` landed one bounded product-side shared viewport subscription
   reduction on the canonical `rotaryParamCodeObjDefault` lane inside the
   measured `interactionReactFlowStateSync` owner:
@@ -85,7 +127,7 @@ This section overrides older "next frontier" notes below when choosing the next 
     - fresh-context headless CDP smoke on worktree `/settings`
       -> reached `http://127.0.0.1:3075/settings` after bootstrap
       -> settings graph surface mounted with no obvious blank graph region,
-         layout collapse, or viewport transform regression
+      layout collapse, or viewport transform regression
   - reading:
     - this is a real product-side motion-surface reduction on the
       always-mounted viewport shell, not another harness pass
@@ -117,13 +159,13 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> passed
     - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-041/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-041/main-ai.log`
       -> still failed before the spec body in Playwright global setup on this
-         runtime
+      runtime
       -> blocker was `page.waitForURL(...)` after bootstrap, not the
-         `capture initial pane state` helper
+      `capture initial pane state` helper
     - direct headless Playwright bootstrap + `/settings` check against the live
       worktree runtime
       -> succeeded in reading pane state:
-         `{overviewVisible:true, overviewTrueWidth:335, snapToGrid:true, uiEditorVisible:false, uiEditorTrueWidth:40}`
+      `{overviewVisible:true, overviewTrueWidth:335, snapToGrid:true, uiEditorVisible:false, uiEditorTrueWidth:40}`
     - fresh-context headless CDP smoke on the worktree bootstrap URL
       -> bootstrap consume returned `401 Unauthorized`
       -> UI stayed on the bootstrap screen with `Token rejected. Request a new token and try again.`
@@ -139,6 +181,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       canary instrumentation
 
 - progress review checkpoint after loop iteration `40`:
+
   - runs `031` through `037` were still worthwhile:
     - each landed one bounded product-side reduction inside the measured
       `interactionReactFlowStateSync` owner
@@ -194,13 +237,13 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> passed
     - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-040/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-040/main-ai.log`
       -> progressed past the prior
-         `worktree: normalize compare pane state` blocker
+      `worktree: normalize compare pane state` blocker
       -> current blocker moved to
-         `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+      `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
     - fresh-context headless CDP smoke on worktree `/settings`
       -> shell mounted, but the viewport stayed on a loading spinner / dark
-         empty area and the graph surface did not become visible during the
-         check
+      empty area and the graph surface did not become visible during the
+      check
   - reading:
     - the previous blocker was caused by over-waiting on a stale worktree
       `projectIsLoading` flag after `/settings` was already visibly mounted
@@ -225,11 +268,11 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> passed
     - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-039/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-039/main-ai.log`
       -> passed Playwright global setup and reached the canonical probe spec
-         body on the current runtime
+      body on the current runtime
       -> reference bootstrap, `open settings`, and the reference motion lane
-         completed
+      completed
       -> current blocker stayed at
-         `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
+      `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
   - reading:
     - this closes the current runtime's root-to-home bootstrap race instead of
       reopening generic auth/bootstrap work
@@ -254,10 +297,10 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> passed
     - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-038/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-038/main-ai.log`
       -> passed Playwright global setup and reached the canonical probe spec
-         body
+      body
       -> reference bootstrap plus `open settings` completed
       -> current blocker moved to
-         `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
+      `Timed out after 30000ms during settings graph probe phase: worktree: normalize compare pane state.`
   - reading:
     - this closes the repeated auth/bootstrap wait churn that was failing
       before the canonical perf lane even started
@@ -296,13 +339,13 @@ This section overrides older "next frontier" notes below when choosing the next 
     - attempted narrow Playwright `/settings` smoke on the live runtime
       -> failed in Playwright global setup before the spec body
       -> bootstrap reached the frontend shell URL, but `page.waitForURL(...)`
-         timed out before the post-bootstrap route completed
+      timed out before the post-bootstrap route completed
     - fresh-context headless CDP smoke on worktree `/settings`
       -> `/settings` mounted successfully
       -> the settings surface filled the viewport with the overview header,
-         section list, section editor area, and bottom view-mode tabs visible
+      section list, section editor area, and bottom view-mode tabs visible
       -> no obvious blank graph region, layout collapse, or missing section
-         shell surface was observed
+      shell surface was observed
   - reading:
     - this is a wider mounted section-shell boundary than another edge/control
       micro-split because every shell previously subscribed the AI-follow
@@ -342,7 +385,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> settings graph surface mounted with populated sections and controls
       -> chat surface was present (`Chat Window 1`)
       -> no obvious blank graph region, layout collapse, or missing chat
-         section surface was observed
+      section surface was observed
   - reading:
     - this lands a wider mounted section-body subscriber reduction than
       another edge/control micro-split because unrelated agentic-edge writes
@@ -380,7 +423,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> `/settings` mounted successfully
       -> settings graph surface rendered with populated section shells
       -> no obvious blank graph region, layout collapse, or missing shell
-         surface was observed
+      surface was observed
   - reading:
     - this is a wider mounted section-shell boundary than another
       edge/control-only split, even though it is not a direct pan/zoom state
@@ -415,15 +458,15 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> passed
     - fresh-context headless CDP smoke on worktree `/settings`
       -> initial smoke failed at runtime health only: `/settings` stayed on
-         `PREPARING SETTA` / `Loading settings…`
+      `PREPARING SETTA` / `Loading settings…`
       -> one allowed lifecycle recovery succeeded:
-         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
       -> restarted session `5b4f96` restored frontend `3075`, backend `8075`,
-         debug port `9297`
+      debug port `9297`
       -> retry after restart mounted `/settings` successfully
       -> settings surface rendered with section list and bottom tabs intact
       -> no obvious layout collapse, blank graph region, or broken
-         section-header chrome was observed
+      section-header chrome was observed
   - reading:
     - this is a section-chrome boundary with wider mounted reach than another
       edge-handle micro-split, even though it is outside the narrow
@@ -464,7 +507,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> `/settings` mounted successfully
       -> visible settings graph surface was present with readable content
       -> no obvious layout collapse, blank graph region, or zero-height
-         surface regression was observed
+      surface regression was observed
   - reading:
     - this removes a root-level render-path fan-out from
       `interactionReactFlowStateSync`, which is a better payoff than another
@@ -539,7 +582,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> passed
     - fresh-context headless CDP smoke on worktree `/settings`
       -> the provided bootstrap token was rejected, but the live frontend at
-         `3075` was already healthy
+      `3075` was already healthy
       -> `/settings` loaded successfully with title `Settings`
       -> visible settings section area measured `780x457`
       -> `svgCount=96`, `canvasCount=0`, largest graph surface SVG `5000x5000`
@@ -663,7 +706,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> `/settings` mounted successfully
       -> checked the visible settings graph surface and edge area
       -> no obvious layout collapse or broken agentic/workflow edge area was
-         observed for this slice
+      observed for this slice
   - reading:
     - this removes another mounted shared-surface invalidation from the edge
       layer inside `interactionReactFlowStateSync` while keeping additive
@@ -674,6 +717,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       state rather than reopening the cross-worktree probe by default
 
 - progress review checkpoint for runs `011` through `020`:
+
   - keep the loop going, but do not spend the next default pass on another
     cross-worktree probe-only rerun or another helper tweak for
     `worktree: capture initial pane state`
@@ -698,6 +742,7 @@ This section overrides older "next frontier" notes below when choosing the next 
     capture path or another explicit health signal changes that lane
 
 - progress review checkpoint for runs `021` through `030`:
+
   - keep the loop going, but tighten target selection inside
     `interactionReactFlowStateSync`
   - this stretch still landed real product progress on the named
@@ -753,9 +798,9 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> passed
     - fresh-context headless CDP smoke on the worktree `/settings` session
       -> the provided bootstrap token was rejected, but navigating through the
-         live app shell still mounted `/settings`
+      live app shell still mounted `/settings`
       -> checked the visible settings graph surface, section cards, tab strip,
-         and workflow/state-machine edge area
+      and workflow/state-machine edge area
       -> no obvious layout collapse or regression was observed for this slice
   - reading:
     - this removes one mounted shared-surface invalidation from the workflow
@@ -792,7 +837,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> bootstrap handoff succeeded
       -> `/settings` mounted successfully
       -> visible settings chrome/section/param area showed no obvious layout
-         regression from this slice
+      regression from this slice
   - reading:
     - this keeps zoom-driven temp placeholder dimension updates localized to
       the row that needs normalized sizing instead of re-rendering the outer
@@ -838,8 +883,8 @@ This section overrides older "next frontier" notes below when choosing the next 
       session
       -> `/settings` mounted successfully
       -> checked the visible settings graph/controls area including the left
-         settings list, top control strip, bottom view-mode tabs, and graph
-         section cards
+      settings list, top control strip, bottom view-mode tabs, and graph
+      section cards
       -> no obvious layout regression was observed for this slice
   - reading:
     - this keeps selection-key churn localized to the pane-selection surface
@@ -886,9 +931,9 @@ This section overrides older "next frontier" notes below when choosing the next 
     - fresh-context headless CDP smoke on the worktree `/settings` session
       -> `/settings` mounted successfully
       -> visible settings graph surface and top-level node cards looked
-         structurally normal
+      structurally normal
       -> no obvious layout collapse, clipping, or lost interaction affordance
-         was observed for this slice
+      was observed for this slice
   - reading:
     - this removes one whole-list mounted-node commit from the hand-pan
       modifier path while preserving:
@@ -931,7 +976,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> bootstrap handoff succeeded
       -> `/settings` mounted successfully
       -> visible settings graph surface, top controls, and section cards
-         showed no obvious layout regression from this slice
+      showed no obvious layout regression from this slice
   - reading:
     - this keeps zoom-modifier churn off the always-mounted flow shell while
       `ZoomPane` still resolves the same wheel intent from live store state at
@@ -974,7 +1019,7 @@ This section overrides older "next frontier" notes below when choosing the next 
       -> `/settings` mounted successfully
       -> no spreadsheet surface was visible in the current bootstrap state
       -> no obvious global `/settings` layout regression was observed for this
-         slice
+      slice
   - reading:
     - this keeps zoom-driven spreadsheet editor updates localized to the glide
       editor instead of re-rendering the outer spreadsheet body shell on every
@@ -1300,21 +1345,18 @@ This section overrides older "next frontier" notes below when choosing the next 
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
   - recorded the slice in
     `perf/reports/frontend/2026-04-12_settings-graph-pixi-drawable-cache-reuse.md`
-  - focused verification:
-    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
-      -> passed (`3` files, `18` tests)
-    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/main-ai.log`
-      -> progressed through read-only `main` bootstrap/open-settings and both
-      sides' project-config/project-state/view-mode/target-section
-      resolution
-      -> failed before numeric perf output with `Timed out after 30000ms
+  - focused verification: - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`3` files, `18` tests) - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/main-ai.log`
+    -> progressed through read-only `main` bootstrap/open-settings and both
+    sides' project-config/project-state/view-mode/target-section
+    resolution
+    -> failed before numeric perf output with `Timed out after 30000ms
 during settings graph probe phase: worktree: capture initial pane
-state.`
-    - fresh-context CDP visual smoke on worktree `3075` and read-only
-      `main` `3087`
-      -> both `/settings` surfaces mounted with the expected settings shell
-      and graph substrate area visible
-      -> no obvious new visual drift from this slice in the inspected view
+state.` - fresh-context CDP visual smoke on worktree `3075` and read-only
+    `main` `3087`
+    -> both `/settings` surfaces mounted with the expected settings shell
+    and graph substrate area visible
+    -> no obvious new visual drift from this slice in the inspected view
   - reading:
     - this slice removes avoidable Pixi shell model rebuild work when motion
       keeps a section's drawable inputs unchanged across frames
@@ -1538,13 +1580,11 @@ state.`
       had to be terminated with the read-only `main` renderer still busy, so
       the canonical verification remains blocked by reference runtime
       readiness rather than by the stale nested `30000ms` poll cap
-  - reading:
-    - the old timeout mismatch is now closed in code, so future runs will no
-      longer fail early on a healthy-but-slow `main` startup
-    - the active blocker is still live reference readiness on `main`; the
-      next bounded slice should instrument or classify where `reference: open
+  - reading: - the old timeout mismatch is now closed in code, so future runs will no
+    longer fail early on a healthy-but-slow `main` startup - the active blocker is still live reference readiness on `main`; the
+    next bounded slice should instrument or classify where `reference: open
 settings` is burning time on the current runtime rather than reopening
-      canary-side perf work
+    canary-side perf work
 - item `317` landed one bounded probe-diagnostics slice on the canonical
   `rotaryParamCodeObjDefault` lane instead of guessing at the opaque
   `worktree: normalize surface` timeout:
