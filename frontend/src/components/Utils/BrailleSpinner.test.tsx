@@ -3,12 +3,13 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
+import spinners from "unicode-animations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  BRAILLE_SPINNER_FRAMES,
-  BRAILLE_SPINNER_INTERVAL_MS,
-  BrailleSpinner,
-} from "./BrailleSpinner";
+import { BrailleSpinner } from "./BrailleSpinner";
+
+const BRAILLE_SPINNER = spinners.braille;
+const BRAILLE_SPINNER_FRAMES = [...BRAILLE_SPINNER.frames];
+const BRAILLE_SPINNER_INTERVAL_MS = BRAILLE_SPINNER.interval;
 
 describe("BrailleSpinner", () => {
   let host: HTMLDivElement;
