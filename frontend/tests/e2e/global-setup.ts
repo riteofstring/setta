@@ -5,6 +5,8 @@ const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const PLAYWRIGHT_EXECUTABLE_PATH =
+  process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined;
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
   (process.env.SETTA_PROJECT_PATH
@@ -18,11 +20,17 @@ async function globalSetup(config: FullConfig) {
     );
   }
   await waitForBackend(BACKEND_ORIGIN, 60000);
-  const storagePath = config.projects[0]?.use?.storageState as string | undefined;
+  const storagePath = config.projects[0]?.use?.storageState as
+    | string
+    | undefined;
   if (!storagePath) {
     throw new Error("storageState path missing in Playwright config.");
   }
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(
+    PLAYWRIGHT_EXECUTABLE_PATH
+      ? { executablePath: PLAYWRIGHT_EXECUTABLE_PATH }
+      : undefined,
+  );
   const context = await browser.newContext();
   const page = await context.newPage();
   const pageErrors: string[] = [];
@@ -85,7 +93,10 @@ async function globalSetup(config: FullConfig) {
 
 export default globalSetup;
 
-async function waitForBackend(origin: string, timeoutMs: number): Promise<void> {
+async function waitForBackend(
+  origin: string,
+  timeoutMs: number,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown = null;
   while (Date.now() < deadline) {
