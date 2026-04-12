@@ -49,32 +49,34 @@ function normalizeNullablePathLike(value: unknown): string | null {
   return trimmed || null;
 }
 
+function normalizePortNumber(value: number): number | null {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  const port = Math.trunc(value);
+  if (port < 1 || port > 65535) {
+    return null;
+  }
+  return port;
+}
+
+function normalizeStringPort(value: string): number | null {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    return null;
+  }
+  return normalizePortNumber(parsed);
+}
+
 function normalizeNullablePort(value: unknown): number | null {
   if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      return null;
-    }
-    const port = Math.trunc(value);
-    if (port < 1 || port > 65535) {
-      return null;
-    }
-    return port;
+    return normalizePortNumber(value);
   }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const parsed = Number(trimmed);
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-      return null;
-    }
-    if (parsed < 1 || parsed > 65535) {
-      return null;
-    }
-    return parsed;
+  const trimmed = normalizeNullableString(value);
+  if (trimmed === null) {
+    return null;
   }
-  return null;
+  return normalizeStringPort(trimmed);
 }
 
 function buildEntryKey(entry: {
@@ -254,39 +256,31 @@ export function consumeWorkspaceHistoryHandoff(): void {
   saveWorkspaceHistory(merged);
 }
 
-export function applyWorkspaceHistoryHandoffFromUrl(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  let url: URL;
+function getWorkspaceHistoryHandoffUrl(): URL | null {
   try {
-    url = new URL(window.location.href);
+    return new URL(window.location.href);
   } catch {
+    return null;
+  }
+}
+
+function persistWorkspaceHistoryHandoff(rawHandoff: string): void {
+  const trimmed = rawHandoff.trim();
+  if (!trimmed || trimmed.length > HISTORY_HANDOFF_MAX_LENGTH) {
     return;
   }
-
-  const rawHandoff = url.searchParams.get(HISTORY_HANDOFF_QUERY_PARAM);
-  if (rawHandoff) {
-    const trimmed = rawHandoff.trim();
-    if (trimmed && trimmed.length <= HISTORY_HANDOFF_MAX_LENGTH) {
-      const storage = safeLocalStorage();
-      if (storage) {
-        try {
-          storage.setItem(HISTORY_HANDOFF_KEY, trimmed);
-        } catch {
-          // Ignore storage failures.
-        }
-      }
-    }
-    url.searchParams.delete(HISTORY_HANDOFF_QUERY_PARAM);
-  }
-
-  if (!rawHandoff) {
+  const storage = safeLocalStorage();
+  if (!storage) {
     return;
   }
+  try {
+    storage.setItem(HISTORY_HANDOFF_KEY, trimmed);
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
-  const nextUrl = url.toString();
+function cleanWorkspaceHistoryHandoffUrl(nextUrl: string): void {
   try {
     window.history.replaceState(window.history.state, "", nextUrl);
     return;
@@ -304,6 +298,25 @@ export function applyWorkspaceHistoryHandoffFromUrl(): void {
       // ignore
     }
   }
+}
+
+export function applyWorkspaceHistoryHandoffFromUrl(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = getWorkspaceHistoryHandoffUrl();
+  if (!url) {
+    return;
+  }
+
+  const rawHandoff = url.searchParams.get(HISTORY_HANDOFF_QUERY_PARAM);
+  if (!rawHandoff) {
+    return;
+  }
+  persistWorkspaceHistoryHandoff(rawHandoff);
+  url.searchParams.delete(HISTORY_HANDOFF_QUERY_PARAM);
+  cleanWorkspaceHistoryHandoffUrl(url.toString());
 }
 
 export function appendWorkspaceHistoryToBootstrapUrlFragment(
