@@ -5,12 +5,15 @@ import os from "os";
 import path from "path";
 import {
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
   setOverviewTab,
 } from "../../helpers";
+
+type CreateTopLevelSectionResponse = {
+  sectionId?: string;
+};
 
 test("frontend-error fixture surfaces runtime error diagnostics and section fallback", async ({
   page,
@@ -64,19 +67,23 @@ test("frontend-error fixture surfaces runtime error diagnostics and section fall
       throw new Error("Unable to resolve viewport bounds for plugin section.");
     }
 
-    const created = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId: projectContext.projectConfigId,
-      implType: "Plugin",
-      implOverrides: {
-        type: "Plugin",
-        pluginId: "setta-fixture-frontend-errors",
-        kind: "fixture-unavailable",
-        data: {
-          text: "expect fallback",
+    const created = await postBackend<CreateTopLevelSectionResponse>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId: projectContext.projectConfigId,
+        implType: "Plugin",
+        implOverrides: {
+          type: "Plugin",
+          pluginId: "setta-fixture-frontend-errors",
+          kind: "fixture-unavailable",
+          data: {
+            text: "expect fallback",
+          },
         },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     expect(created?.sectionId).toBeTruthy();
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
@@ -122,19 +129,23 @@ test("plugin fallback card actions open plugins, copy JSON, and delete section",
       throw new Error("Unable to resolve viewport bounds for plugin section.");
     }
 
-    const created = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId: projectContext.projectConfigId,
-      implType: "Plugin",
-      implOverrides: {
-        type: "Plugin",
-        pluginId: "setta-fixture-frontend-errors",
-        kind: "fixture-unavailable",
-        data: {
-          text: "fallback actions",
+    const created = await postBackend<CreateTopLevelSectionResponse>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId: projectContext.projectConfigId,
+        implType: "Plugin",
+        implOverrides: {
+          type: "Plugin",
+          pluginId: "setta-fixture-frontend-errors",
+          kind: "fixture-unavailable",
+          data: {
+            text: "fallback actions",
+          },
         },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     expect(created?.sectionId).toBeTruthy();
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
@@ -151,15 +162,11 @@ test("plugin fallback card actions open plugins, copy JSON, and delete section",
             if (!raw) {
               return null;
             }
-            const parsed = JSON.parse(raw) as {
-              state?: Record<string, unknown>;
-            };
+            const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
             const state = parsed.state ?? {};
             return {
               overviewTab:
-                typeof state.overviewTab === "string"
-                  ? state.overviewTab
-                  : null,
+                typeof state.overviewTab === "string" ? state.overviewTab : null,
             };
           }),
         { timeout: 10000 },
