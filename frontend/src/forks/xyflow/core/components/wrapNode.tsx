@@ -19,11 +19,9 @@ export const arrowKeyDiffs: Record<string, Position> = {
 
 const _NodeWrapper = ({
   id,
-  isDraggable: _isDraggable,
   resizeObserver,
   visibility,
 }: Pick<Node, "id"> & {
-  isDraggable: boolean;
   resizeObserver: ResizeObserver | null;
   visibility: CSSProperties["visibility"];
 }) => {
@@ -33,7 +31,6 @@ const _NodeWrapper = ({
     const impl = getCurrEffectiveSectionImpl(x, id);
     return impl.positionAndSizeLocked;
   });
-  const isDraggable = _isDraggable && !positionAndSizeLocked;
 
   useEffect(() => {
     if (nodeRef.current) {
@@ -46,7 +43,7 @@ const _NodeWrapper = ({
 
   useDrag({
     nodeRef,
-    disabled: !isDraggable,
+    disabled: positionAndSizeLocked,
     nodeId: id,
   });
 
@@ -56,7 +53,7 @@ const _NodeWrapper = ({
         "react-flow__node",
         {
           // this is overwritable by passing `nopan` as a class name
-          [NO_PAN_CLASS_NAME]: isDraggable,
+          [NO_PAN_CLASS_NAME]: !positionAndSizeLocked,
         },
       ])}
       ref={nodeRef}

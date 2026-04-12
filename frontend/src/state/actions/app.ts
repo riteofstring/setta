@@ -1,12 +1,4 @@
 import {
-  getAppDeploymentCurrentSession,
-  getAppDeploymentProjectConfig,
-  getAppDeploymentState,
-  type GetAppDeploymentCurrentSessionResponses,
-  type GetAppDeploymentStateResponses,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import {
   useAllProjectMetadata,
   useAppConfigs,
   useAppDefinition,
@@ -15,52 +7,34 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { res200 } from "utils/endpointUtils";
 import {
-  getErrorCode,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
-import type { SingleConfig } from "utils/generatedTypes";
-
-type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
-type AppDeploymentState = GetAppDeploymentStateResponses[200];
+  route_create_app_session_current,
+  route_get_app_deployment_state,
+  route_load_app_project_config,
+} from "utils/generatedEndpoints";
+import type {
+  AppDeploymentSessionResponse,
+  ProjectStateSingleConfig,
+} from "utils/generatedTypes";
 
 const APP_SESSION_STORAGE_KEY = "settaAppSession";
+
 type AppSessionOptions = {
   forceNewSession?: boolean;
 };
-type AppDeploymentSessionRouteResponse =
-  ResponseDataAndStatus<AppDeploymentSession>;
-type AppDeploymentStateRouteResponse =
-  ResponseDataAndStatus<AppDeploymentState>;
-function normalizeAppSessionResponse(
-  session: AppDeploymentSession,
-): AppDeploymentSession {
-  return {
-    ...session,
-    manifest: session.manifest ?? null,
-    projectMetadata: session.projectMetadata ?? [],
-  };
-}
-function normalizeAppDeploymentStateResponse(
-  response: AppDeploymentState,
-): AppDeploymentState {
-  return {
-    ...response,
-    appDefinition: response.appDefinition ?? null,
-    appSpec: response.appSpec ?? null,
-    projectState: response.projectState as SingleConfig,
-  };
-}
+
 function clearAppSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
 }
+
 function clearAppSessionStorage() {
   if (typeof window === "undefined") {
     return;
   }
   window.sessionStorage.removeItem(APP_SESSION_STORAGE_KEY);
 }
+
 export function resetAppSessionState() {
   clearAppSessionCookie();
   clearAppSessionStorage();
@@ -69,7 +43,10 @@ export function resetAppSessionState() {
   useAppDefinition.getState().reset?.();
   useAppConfigs.getState().reset?.();
 }
-function isAppSessionResponse(value: unknown): value is AppDeploymentSession {
+
+function isAppSessionResponse(
+  value: unknown,
+): value is AppDeploymentSessionResponse {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -94,7 +71,8 @@ function isAppSessionResponse(value: unknown): value is AppDeploymentSession {
   }
   return true;
 }
-function readAppSessionFromStorage(): AppDeploymentSession | null {
+
+function readAppSessionFromStorage(): AppDeploymentSessionResponse | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -113,7 +91,8 @@ function readAppSessionFromStorage(): AppDeploymentSession | null {
     return null;
   }
 }
-function storeAppSession(session: AppDeploymentSession): void {
+
+function storeAppSession(session: AppDeploymentSessionResponse): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -126,7 +105,8 @@ function storeAppSession(session: AppDeploymentSession): void {
     console.warn("Failed to persist app session:", error);
   }
 }
-function hydrateAppSessionFromStorage(): AppDeploymentSession | null {
+
+function hydrateAppSessionFromStorage(): AppDeploymentSessionResponse | null {
   const stored = readAppSessionFromStorage();
   if (!stored) {
     return null;
@@ -134,7 +114,8 @@ function hydrateAppSessionFromStorage(): AppDeploymentSession | null {
   setAppSessionFromResponse(stored);
   return stored;
 }
-function getCachedAppSession(): AppDeploymentSession | null {
+
+function getCachedAppSession(): AppDeploymentSessionResponse | null {
   const shareSession = useShareSession.getState();
   const metadata = useAllProjectMetadata.getState();
   if (!shareSession.isDeploymentMode || shareSession.deploymentMode !== "app") {
@@ -162,7 +143,8 @@ function getCachedAppSession(): AppDeploymentSession | null {
     manifest: null,
   };
 }
-function setAppSessionFromResponse(session: AppDeploymentSession) {
+
+function setAppSessionFromResponse(session: AppDeploymentSessionResponse) {
   clearAppSessionCookie();
   storeAppSession(session);
   useShareSession.setState({
@@ -181,9 +163,10 @@ function setAppSessionFromResponse(session: AppDeploymentSession) {
   });
   useAllProjectMetadata.setState({
     defaultProjectConfigId: session.defaultProjectConfigId,
-    projectMetadata: session.projectMetadata ?? [],
+    projectMetadata: session.projectMetadata,
   });
 }
+
 export function incrementAppSessionRunCount(): void {
   const shareSession = useShareSession.getState();
   if (!shareSession.isDeploymentMode || shareSession.deploymentMode !== "app") {
@@ -196,9 +179,10 @@ export function incrementAppSessionRunCount(): void {
     storeAppSession({ ...stored, sessionRunCount: nextCount });
   }
 }
+
 export async function ensureAppSessionFromCurrentDeployment(
   options: AppSessionOptions = {},
-): Promise<AppDeploymentSession | null> {
+): Promise<AppDeploymentSessionResponse | null> {
   const forceNewSession = options.forceNewSession ?? false;
   if (forceNewSession) {
     resetAppSessionState();
@@ -215,16 +199,15 @@ export async function ensureAppSessionFromCurrentDeployment(
       }
     }
   }
-  const sessionRes = (await callOpenAPI(
-    getAppDeploymentCurrentSession(),
-  )) as AppDeploymentSessionRouteResponse;
+  const sessionRes = await route_create_app_session_current();
   if (!res200(sessionRes)) {
     return null;
   }
-  const session = normalizeAppSessionResponse(sessionRes.data);
+  const session = sessionRes.data;
   setAppSessionFromResponse(session);
   return session;
 }
+
 export async function initializeAppSessionFromCurrentDeployment(
   options: AppSessionOptions = {},
 ): Promise<boolean> {
@@ -252,12 +235,11 @@ export async function initializeAppSessionFromCurrentDeployment(
   resetAppSessionState();
   return false;
 }
+
 export async function loadAppDeploymentState({
   projectConfigId,
-  allowRetry = true,
 }: {
   projectConfigId?: string;
-  allowRetry?: boolean;
 } = {}): Promise<boolean> {
   const shareSession = useShareSession.getState();
   if (
@@ -268,60 +250,30 @@ export async function loadAppDeploymentState({
   ) {
     return false;
   }
-  const res = (
-    projectConfigId
-      ? await callOpenAPI(
-          getAppDeploymentProjectConfig({
-            path: {
-              deploymentName: shareSession.shareDeploymentName,
-              version: shareSession.shareDeploymentVersion,
-            },
-            body: {
-              projectConfigId,
-            },
-          } as Parameters<typeof getAppDeploymentProjectConfig>[0]),
-        )
-      : await callOpenAPI(
-          getAppDeploymentState({
-            path: {
-              deploymentName: shareSession.shareDeploymentName,
-              version: shareSession.shareDeploymentVersion,
-            },
-          } as Parameters<typeof getAppDeploymentState>[0]),
-        )
-  ) as AppDeploymentStateRouteResponse;
+
+  const res = projectConfigId
+    ? await route_load_app_project_config(
+        shareSession.shareDeploymentName,
+        shareSession.shareDeploymentVersion,
+        { projectConfigId },
+      )
+    : await route_get_app_deployment_state(
+        shareSession.shareDeploymentName,
+        shareSession.shareDeploymentVersion,
+      );
   if (!res200(res)) {
-    const errorCode = getErrorCode(res.data);
-    if (
-      allowRetry &&
-      (errorCode === "missing_share_session" ||
-        errorCode === "unknown_share_session")
-    ) {
-      const session = await ensureAppSessionFromCurrentDeployment({
-        forceNewSession: true,
-      });
-      if (session) {
-        if (projectConfigId) {
-          return await loadAppDeploymentState({
-            projectConfigId,
-            allowRetry: false,
-          });
-        }
-        return await loadAppDeploymentState({ allowRetry: false });
-      }
-    }
     return false;
   }
-  const normalizedResponse = normalizeAppDeploymentStateResponse(res.data);
-  if (normalizedResponse.appDefinition || normalizedResponse.appSpec) {
+  if (res.data.appDefinition || res.data.appSpec) {
     useAppDefinition.setState({
-      appDefinition: normalizedResponse.appDefinition ?? null,
-      appSpec: normalizedResponse.appSpec ?? null,
+      appDefinition: res.data.appDefinition ?? null,
+      appSpec: res.data.appSpec ?? null,
     });
   }
-  storeAppConfigState(normalizedResponse.projectState);
+  storeAppConfigState(res.data.projectState);
   return true;
 }
+
 export async function resetAppDeployment(): Promise<boolean> {
   useProjectLoading.setState({
     projectIsLoading: true,
@@ -345,6 +297,7 @@ export async function resetAppDeployment(): Promise<boolean> {
   });
   return loaded;
 }
+
 export async function ensureAppProjectConfigLoaded(
   projectConfigId: string,
 ): Promise<boolean> {
@@ -353,7 +306,8 @@ export async function ensureAppProjectConfigLoaded(
   }
   return await loadAppDeploymentState({ projectConfigId });
 }
-function storeAppConfigState(projectState: SingleConfig) {
+
+function storeAppConfigState(projectState: ProjectStateSingleConfig) {
   useAppConfigs.setState((state) => ({
     configs: {
       ...state.configs,
