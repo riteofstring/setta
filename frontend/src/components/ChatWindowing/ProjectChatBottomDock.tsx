@@ -601,6 +601,16 @@ function buildFloatingDragState({
   };
 }
 
+function getValueByInstanceId<T>(
+  instanceId: string | null,
+  valuesById: Record<string, T>,
+): T | null {
+  if (!instanceId) {
+    return null;
+  }
+  return valuesById[instanceId] ?? null;
+}
+
 type ShortcutCommand = {
   shortcut: ParsedShortcut;
   run: () => void;
@@ -5100,34 +5110,22 @@ export function ProjectChatBottomDock() {
   const handleToggleCanvasVisibility = useCallback(() => {
     setIsCanvasVisibilitySuppressed((current) => !current);
   }, []);
-  const {
-    maximizedExitAnimation,
-    maximizedEnterAnimation,
-    maximizedEnterAnimationPrime,
-    isPaneTrackedMaximizedGitGraphWindow,
-  } = useMemo(
-    () => ({
-      maximizedExitAnimation: openMaximizedWindow
-        ? windowExitAnimationsById[openMaximizedWindow.instanceId] ?? null
-        : null,
-      maximizedEnterAnimation: openMaximizedWindow
-        ? windowEnterAnimationsById[openMaximizedWindow.instanceId] ?? null
-        : null,
-      maximizedEnterAnimationPrime: openMaximizedWindow
-        ? windowEnterAnimationPrimesById[openMaximizedWindow.instanceId] ?? null
-        : null,
-      isPaneTrackedMaximizedGitGraphWindow:
-        openMaximizedWindow?.mode === ChatWindowModeEnum.git_graph_mode &&
-        openMaximizedWindow?.instanceId === trackedGitPaneGraphWindowInstanceId,
-    }),
-    [
-      openMaximizedWindow,
-      trackedGitPaneGraphWindowInstanceId,
-      windowEnterAnimationPrimesById,
-      windowEnterAnimationsById,
-      windowExitAnimationsById,
-    ],
+  const maximizedWindowInstanceId = openMaximizedWindow?.instanceId ?? null;
+  const maximizedExitAnimation = getValueByInstanceId(
+    maximizedWindowInstanceId,
+    windowExitAnimationsById,
   );
+  const maximizedEnterAnimation = getValueByInstanceId(
+    maximizedWindowInstanceId,
+    windowEnterAnimationsById,
+  );
+  const maximizedEnterAnimationPrime = getValueByInstanceId(
+    maximizedWindowInstanceId,
+    windowEnterAnimationPrimesById,
+  );
+  const isPaneTrackedMaximizedGitGraphWindow =
+    openMaximizedWindow?.mode === ChatWindowModeEnum.git_graph_mode &&
+    maximizedWindowInstanceId === trackedGitPaneGraphWindowInstanceId;
   const dockedChatSurfaceElement = useMemo(() => {
     if (!showDockedChatSurface) {
       return null;
