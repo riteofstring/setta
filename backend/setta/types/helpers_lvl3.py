@@ -1,5 +1,7 @@
 import copy
 import logging
+import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from setta.database.utils import create_new_id, remap_ids, rename_keys
@@ -67,6 +69,19 @@ T = TypeVar("T", bound=BaseSectionImplUnion | BaseCodeObjImplUnion)
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class PrepareSectionsForCopyTiming:
+    collect_ids_ms: float
+    slice_state_ms: float
+
+
+@dataclass(frozen=True)
+class ConvertBackendToSingleConfigTiming:
+    collect_ids_ms: float
+    slice_state_ms: float
+    project_state_ms: float
+
+
 def remove_singleton_sections_if_already_present(
     p: ProjectStateSingleConfig, data: ProjectStateCoreWithSectionVariantMap
 ):
@@ -119,9 +134,9 @@ def merge_single_config_into_backend(
     )
 
 
-def prepare_sections_for_copy(
+def prepare_sections_for_copy_with_timing(
     p: ProjectStateCore, sections_to_process: set[ID]
-) -> ProjectStateCore:
+) -> tuple[ProjectStateCore, PrepareSectionsForCopyTiming]:
     # Collectors for all the IDs we need
     section_ids: set[ID] = set()
     section_impl_ids: set[ID] = set()
@@ -132,6 +147,8 @@ def prepare_sections_for_copy(
 
     sections_to_process = copy.deepcopy(sections_to_process)
     code_objs_to_process: set[ID] = set()
+
+    collect_start = time.perf_counter()
 
     # Process sections recursively
     while sections_to_process:
@@ -183,6 +200,9 @@ def prepare_sections_for_copy(
             if isinstance(effective_impl, BaseParentCodeObjImpl):
                 code_objs_to_process.update(effective_impl.children)
 
+    collect_ids_ms = (time.perf_counter() - collect_start) * 1000
+
+    slice_start = time.perf_counter()
     # Build the sliced state
     sections = {x: p.sections[x] for x in section_ids}
     sectionImpls = {x: p.sectionImpls[x] for x in section_impl_ids}
@@ -190,7 +210,7 @@ def prepare_sections_for_copy(
     codeObjs = {x: p.codeObjs[x] for x in code_obj_ids}
     codeObjImpls = {x: p.codeObjImpls[x] for x in code_obj_impl_ids}
     codeObjVariants = {x: p.codeObjVariants[x] for x in code_obj_variant_ids}
-    return ProjectStateCore(
+    project_state_core = ProjectStateCore(
         sections=sections,
         sectionImpls=sectionImpls,
         sectionVariants=sectionVariants,
@@ -198,9 +218,25 @@ def prepare_sections_for_copy(
         codeObjImpls=codeObjImpls,
         codeObjVariants=codeObjVariants,
     )
+    slice_state_ms = (time.perf_counter() - slice_start) * 1000
+    return project_state_core, PrepareSectionsForCopyTiming(
+        collect_ids_ms=collect_ids_ms,
+        slice_state_ms=slice_state_ms,
+    )
 
 
-def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID):
+def prepare_sections_for_copy(
+    p: ProjectStateCore, sections_to_process: set[ID]
+) -> ProjectStateCore:
+    project_state_core, _ = prepare_sections_for_copy_with_timing(
+        p, sections_to_process
+    )
+    return project_state_core
+
+
+def convert_backend_to_single_config_with_timing(
+    p: ProjectStateBackend, projectConfigId: ID
+) -> tuple[ProjectStateSingleConfig, ConvertBackendToSingleConfigTiming]:
     if projectConfigId not in p.projectConfigs:
         logger.error(
             "convert_backend_to_single_config unknown project_config_id=%s available_ids=%s",
@@ -214,12 +250,13 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
             f"project config {projectConfigId}."
         )
     project_config = p.projectConfigs[projectConfigId]
-    project_state_core = prepare_sections_for_copy(
+    project_state_core, prepare_timing = prepare_sections_for_copy_with_timing(
         p, set(project_config.sectionVariantMap.keys())
     )
 
+    project_state_start = time.perf_counter()
     # Build the sliced state
-    return ProjectStateSingleConfig(
+    project_state = ProjectStateSingleConfig(
         sections=project_state_core.sections,
         sectionImpls=project_state_core.sectionImpls,
         sectionVariants=project_state_core.sectionVariants,
@@ -229,6 +266,17 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
         projectConfig=project_config,
         projectChatWindowing=p.projectChatWindowingByProjectConfigId[projectConfigId],
     )
+    project_state_ms = (time.perf_counter() - project_state_start) * 1000
+    return project_state, ConvertBackendToSingleConfigTiming(
+        collect_ids_ms=prepare_timing.collect_ids_ms,
+        slice_state_ms=prepare_timing.slice_state_ms,
+        project_state_ms=project_state_ms,
+    )
+
+
+def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID):
+    project_state, _ = convert_backend_to_single_config_with_timing(p, projectConfigId)
+    return project_state
 
 
 def build_project_state_summary(

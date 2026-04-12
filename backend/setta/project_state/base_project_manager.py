@@ -408,6 +408,7 @@ from setta.types.helpers_lvl2 import (
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
     convert_backend_to_single_config,
+    convert_backend_to_single_config_with_timing,
     merge_single_config_into_backend,
     paste_sections,
     prepare_sections_for_copy,
@@ -1821,7 +1822,7 @@ class BaseProjectManager(ABC):
         total_start = time.perf_counter()
 
         convert_start = time.perf_counter()
-        projectState = convert_backend_to_single_config(
+        projectState, convert_timing = convert_backend_to_single_config_with_timing(
             self.project_state_backend, projectConfigId
         )
         convert_ms = (time.perf_counter() - convert_start) * 1000
@@ -1838,13 +1839,18 @@ class BaseProjectManager(ABC):
         total_ms = (time.perf_counter() - total_start) * 1000
         logger.info(
             "load_project_config_timing project_config_id=%s did_init=%s "
-            "section_count=%s convert_ms=%.1f init_ms=%.1f init_update_ms=%.1f "
+            "section_count=%s convert_ms=%.1f convert_collect_ids_ms=%.1f "
+            "convert_slice_state_ms=%.1f convert_project_state_ms=%.1f "
+            "init_ms=%.1f init_update_ms=%.1f "
             "validation_cache_hit=%s validation_resolve_ms=%.1f "
             "validation_broadcast_ms=%.1f validation_ms=%.1f total_ms=%.1f",
             projectConfigId,
             init_timing.did_init,
             len(project_state.sections),
             convert_ms,
+            convert_timing.collect_ids_ms,
+            convert_timing.slice_state_ms,
+            convert_timing.project_state_ms,
             init_ms,
             init_timing.update_ms,
             validation_timing.cache_hit,

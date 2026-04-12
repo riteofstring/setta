@@ -39,10 +39,29 @@ class TestLoadProjectConfigTiming:
         assert args[0] == project_config_id
         assert args[1] is True
         assert args[3] >= 0
-        assert args[6] is False
-        assert args[7] >= 0
-        assert args[8] >= 0
-        assert args[9] >= 0
+        assert args[4] >= 0
+        assert args[5] >= 0
+        assert args[6] >= 0
+        assert args[9] is False
+        assert args[10] >= 0
+        assert args[11] >= 0
+        assert args[12] >= 0
+
+    async def test_settings_load_logs_convert_breakdown_on_warm_load(self) -> None:
+        await self.manager.load_project_config(self.project_config_id)
+
+        with patch("setta.project_state.base_project_manager.logger.info") as info_mock:
+            await self.manager.load_project_config(self.project_config_id)
+
+        assert info_mock.call_count == 1
+        _message, *args = info_mock.call_args.args
+        assert args[3] >= 0
+        assert args[4] >= 0
+        assert args[5] >= 0
+        assert args[6] >= 0
+        assert args[3] >= args[4]
+        assert args[3] >= args[5]
+        assert args[3] >= args[6]
 
     async def test_settings_load_skips_init_after_first_warm_load(self) -> None:
         await self.manager.load_project_config(self.project_config_id)
@@ -55,8 +74,8 @@ class TestLoadProjectConfigTiming:
         assert "load_project_config_timing" in message
         assert args[0] == self.project_config_id
         assert args[1] is False
-        assert args[5] == 0.0
-        assert args[6] is True
+        assert args[8] == 0.0
+        assert args[9] is True
 
     async def test_logs_when_subsequent_project_load_skips_init(self) -> None:
         async with AsyncExitStack() as exit_stack:
@@ -76,8 +95,8 @@ class TestLoadProjectConfigTiming:
         assert "load_project_config_timing" in message
         assert args[0] == project_config_id
         assert args[1] is False
-        assert args[5] == 0.0
-        assert args[6] is True
+        assert args[8] == 0.0
+        assert args[9] is True
 
     async def test_settings_warm_load_logs_validation_split_as_cache_hit(
         self,
@@ -89,10 +108,10 @@ class TestLoadProjectConfigTiming:
 
         assert info_mock.call_count == 1
         _message, *args = info_mock.call_args.args
-        assert args[6] is True
-        assert args[7] >= 0
-        assert args[8] >= 0
-        assert args[9] >= 0
+        assert args[9] is True
+        assert args[10] >= 0
+        assert args[11] >= 0
+        assert args[12] >= 0
 
     async def test_settings_warm_load_reuses_cached_name_validation_errors(
         self,

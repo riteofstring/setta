@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 00:27 UTC
+Last updated: 2026-04-13 02:07 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,52 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `368` landed one bounded direct `/settings`
+  `convert_backend_to_single_config(...)` timing split slice for the backend
+  lane:
+
+  - product code changed in:
+    - `backend/setta/types/helpers_lvl3.py`
+      so the conversion path now has timed helper variants for:
+      - recursive section/code-object id collection
+      - sliced-state dictionary materialization
+      - final `ProjectStateSingleConfig(...)` construction
+    - `backend/setta/project_state/base_project_manager.py`
+      so `load_project_config(...)` logs
+      `convert_collect_ids_ms`, `convert_slice_state_ms`, and
+      `convert_project_state_ms` in the existing timing line
+  - focused regression coverage added in:
+    - `tests/project_state/test_load_project_config_timing.py`
+      to prove:
+      - the new convert breakdown fields are present on the timing log
+      - warm-load init/cache-hit assertions still hold after the new fields
+        were inserted
+  - recorded the fixture readout in:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-convert-breakdown.md`
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`7` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - on the current settings warm-load fixture, `convert_backend_to_single_config(...)`
+      is dominated by final single-config model construction rather than by
+      recursive graph traversal:
+      - `convert_collect_ids_ms` is about `87ms`
+      - `convert_slice_state_ms` is about `5ms`
+      - `convert_project_state_ms` is about `201ms`
+      - total `convert_ms` is about `295ms`
+    - this closes the generic "which part of convert is expensive?" question
+      for the direct `/settings` path on the current fixture
+    - the next backend owner to isolate is now explicit:
+      `ProjectStateSingleConfig(...)` / pydantic model construction on the
+      warm settings load
+  - next default frontier:
+    - isolate why final `ProjectStateSingleConfig(...)` construction costs most
+      of the remaining direct `/settings` warm-load time, starting with one
+      bounded breakdown between model validation/copy work and the project
+      config/chat-windowing attachment path
 
 - item `367` landed one bounded validation-timing split slice for the direct
   `/settings` backend lane:

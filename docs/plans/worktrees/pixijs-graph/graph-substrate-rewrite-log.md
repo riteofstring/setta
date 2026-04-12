@@ -75,6 +75,45 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 02:07 UTC
+
+- item `368` landed one bounded direct `/settings`
+  `convert_backend_to_single_config(...)` timing split slice on the backend
+  attribution lane:
+  - changed `backend/setta/types/helpers_lvl3.py` so the backend conversion path
+    now exposes timed helper variants for recursive id collection, sliced-state
+    dictionary materialization, and final `ProjectStateSingleConfig(...)`
+    construction while keeping the existing public helpers compatible for other
+    callers
+  - changed `backend/setta/project_state/base_project_manager.py` so
+    `load_project_config(...)` logs
+    `convert_collect_ids_ms`, `convert_slice_state_ms`, and
+    `convert_project_state_ms` alongside the existing load timing fields
+  - extended `tests/project_state/test_load_project_config_timing.py` to lock
+    down the new convert breakdown fields and the shifted warm-load/cache-hit
+    argument positions
+  - recorded the measured warm-load fixture readout in
+    `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-convert-breakdown.md`
+- Verification:
+  - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+    - passed (`7` tests)
+  - `source activate.sh && python -m compileall backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+    - passed
+  - warm-load fixture capture:
+    - `convert_ms≈295`
+    - `convert_collect_ids_ms≈87`
+    - `convert_slice_state_ms≈5`
+    - `convert_project_state_ms≈201`
+    - `validation_ms≈0.03`
+- Reading:
+  - the remaining warm direct `/settings` conversion owner is now explicitly
+    final `ProjectStateSingleConfig(...)` construction, not recursive traversal
+    or sliced-state dict assembly
+  - next frontier: isolate the expensive final model-construction step itself
+    instead of reopening validation or generic conversion timing work
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 00:19 UTC
 
 - item `366` landed one bounded backend name-validation cache slice on the
