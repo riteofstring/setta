@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { matchRoutes } from "react-router-dom";
 import { resolveWorkspaceLaunchRouteKind } from "utils/serverModeBoundaryPolicy";
-import {
-  resolveModeElementForServerMode,
-  type ServerModeValue,
-} from "./modeRouteResolver";
+import type { ServerModeValue } from "utils/serverModeTypes";
+import { resolveModeElementForServerMode } from "./modeRouteResolver";
 import { APP_ROUTE_IDS, APP_ROUTE_PATTERNS } from "./routeConfig";
 
 function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {

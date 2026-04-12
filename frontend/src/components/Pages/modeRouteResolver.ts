@@ -8,8 +8,6 @@ export type ModeRouteElements = {
   launcher: ReactNode;
 };
 
-export type { ServerModeValue } from "utils/serverModeTypes";
-
 export function resolveModeElementForServerMode(
   mode: ServerModeValue,
   routes: ModeRouteElements,
