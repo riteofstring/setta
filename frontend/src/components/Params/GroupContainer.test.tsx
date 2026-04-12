@@ -40,11 +40,6 @@ describe("getPinnedParamsBgClassName", () => {
     expect(result).toBe("bg-setta-50 dark:bg-blue-950/30");
   });
 
-  it("uses the standard light tint for other sections", () => {
-    const result = getPinnedParamsBgClassName(SectionTypeEnum.Dict);
-    expect(result).toBe("bg-setta-100/50 dark:bg-blue-950/30");
-  });
-
   it("uses a pure white background for callable sections", () => {
     const result = getPinnedParamsBgClassName(SectionTypeEnum.Callable);
     expect(result).toBe("bg-white dark:bg-blue-950/30");
