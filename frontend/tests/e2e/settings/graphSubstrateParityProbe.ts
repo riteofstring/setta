@@ -1,6 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 import { isSettingsGraphCompareTransientChromeSettled } from "components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome";
 import {
+  resolveDominantMotionAttributionOwner,
+  resolveTopMotionAttributionOwners,
+  type SettingsGraphMotionPerfTopOwner,
+} from "components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking";
+import {
   summarizeSettingsGraphMotionPerfLongTaskBreakdown,
   type SettingsGraphMotionPerfLongTaskBreakdown,
   type SettingsGraphMotionPerfLongTaskPhase,
@@ -134,6 +139,7 @@ export type SettingsGraphMotionPerfCapture = {
   slowFramesOver33_3Ms: number;
   slowFramesOver50Ms: number;
   surfaceKind: SettingsGraphSurfaceKind | null;
+  topCanaryMotionAttributionOwners: Array<SettingsGraphMotionPerfTopOwner>;
   transform: SettingsGraphViewportTransform | null;
   visibilityLossCount: number;
   visibleSectionCount: number;
@@ -1320,29 +1326,6 @@ export async function stopSettingsGraphMotionPerfCapture(
           ]),
         ) as SettingsGraphSubstrateCanaryMotionAttribution;
       };
-      const resolveDominantMotionAttributionOwner = (
-        motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution,
-      ): SettingsGraphSubstrateCanaryMotionAttributionOwner | null => {
-        let dominantOwner: SettingsGraphSubstrateCanaryMotionAttributionOwner | null =
-          null;
-        let dominantTotalDurationMs = 0;
-
-        for (const [owner, entry] of Object.entries(motionAttribution) as Array<
-          [
-            SettingsGraphSubstrateCanaryMotionAttributionOwner,
-            SettingsGraphSubstrateCanaryMotionAttribution[keyof SettingsGraphSubstrateCanaryMotionAttribution],
-          ]
-        >) {
-          if (entry.totalDurationMs <= dominantTotalDurationMs) {
-            continue;
-          }
-          dominantOwner = owner;
-          dominantTotalDurationMs = entry.totalDurationMs;
-        }
-
-        return dominantOwner;
-      };
-
       const surfaceKind = document.querySelector(canaryRootSelector)
         ? "canary"
         : document.querySelector(legacyRootSelector)
@@ -1407,9 +1390,6 @@ export async function stopSettingsGraphMotionPerfCapture(
           : canaryInstrumentation?.motionAttribution
             ? cloneMotionAttribution(canaryInstrumentation.motionAttribution)
             : null;
-      const dominantCanaryMotionAttributionOwner = motionAttribution
-        ? resolveDominantMotionAttributionOwner(motionAttribution)
-        : null;
       const transform = !viewport
         ? null
         : (() => {
@@ -1432,7 +1412,7 @@ export async function stopSettingsGraphMotionPerfCapture(
           frameDurations.length > 0
             ? frameDurationTotal / frameDurations.length
             : 0,
-        dominantCanaryMotionAttributionOwner,
+        dominantCanaryMotionAttributionOwner: null,
         endedVisible: document.visibilityState === "visible",
         editableControlCount: root
           ? root.querySelectorAll(
@@ -1486,14 +1466,25 @@ export async function stopSettingsGraphMotionPerfCapture(
   const {
     longTaskRecords,
     ...capture
-  }: Omit<SettingsGraphMotionPerfCapture, "longTaskBreakdownByPhase"> & {
+  }: Omit<
+    SettingsGraphMotionPerfCapture,
+    "longTaskBreakdownByPhase" | "topCanaryMotionAttributionOwners"
+  > & {
     longTaskRecords: Array<SettingsGraphMotionPerfLongTaskRecord>;
   } = rawCapture;
+
+  const topCanaryMotionAttributionOwners = capture.motionAttribution
+    ? resolveTopMotionAttributionOwners(capture.motionAttribution)
+    : [];
 
   return {
     ...capture,
     longTaskBreakdownByPhase:
       summarizeSettingsGraphMotionPerfLongTaskBreakdown(longTaskRecords),
+    dominantCanaryMotionAttributionOwner: capture.motionAttribution
+      ? resolveDominantMotionAttributionOwner(capture.motionAttribution)
+      : null,
+    topCanaryMotionAttributionOwners,
   };
 }
 

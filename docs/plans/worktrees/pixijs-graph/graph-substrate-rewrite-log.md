@@ -18212,3 +18212,73 @@ LOOP_TERMINAL_MARKER: none
     `presentedSceneSectionSubtreeReactRender` owner into the next concrete
     product boundary before another memoization hypothesis
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 - item 449 - Top-owner attribution ranking
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent run pattern before choosing the next slice:
+  - the last two completed iterations were one real product cut (`448`) and
+    one support recovery (`447`), so the right next move was a bounded
+    attribution readout on the same canonical lane, not another seam-lift or a
+    third harness-only pass
+  - the production subtree already had several profiler splits, so this pass
+    focused on surfacing the actual live owner order from the canonical probe
+    before taking another memoization guess
+- selected one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - add shared ranking helpers for canary motion attribution and extend the
+    worktree probe to return `topCanaryMotionAttributionOwners`
+- code/doc changes kept in tree:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.ts`
+    - exports shared ranking helpers for motion attribution
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+    - proves the helper sorts by total duration and handles non-positive limits
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - now returns `topCanaryMotionAttributionOwners` from the canonical live
+      probe
+  - `perf/reports/frontend/2026-04-14_settings-graph-top-owner-ranking-attribution.md`
+    - records the ranked live readout and lane interpretation
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+    -> passed (`1` file, `2` tests)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+    -> passed
+- canonical live probe:
+  - first rerun:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-003/worktree-ai.log`
+    -> failed because `page.evaluate(...)` still referenced the removed
+       in-page `resolveDominantMotionAttributionOwner(...)`
+    -> classified as a local instrumentation regression, fixed in the same
+       slice before retrying
+  - rerun after the fix:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-003/worktree-ai.log`
+    -> passed (`1` Playwright test, `56.7s`)
+    -> fresh ranked readout:
+      - `presentedSceneSectionSubtreeReactRender`
+        `887.2ms total` / `249.8ms max` / `30` samples
+      - `presentedSceneSectionBodySubtreeReactRender`
+        `874.4ms total` / `115.0ms max` / `32` samples
+      - `presentedSceneSectionContainerReactRender`
+        `861.4ms total` / `113.9ms max` / `32` samples
+      - `presentedSceneSectionCoreShellLayerReactRender`
+        `856.2ms total` / `113.4ms max` / `32` samples
+      - `presentedSceneSectionBodyContentReactRender`
+        `568.9ms total` / `87.5ms max` / `24` samples
+      - `longTaskTotalDurationMs`
+        `1162`
+      - `averageFrameDurationMs`
+        `41.47`
+- fresh-context CDP verification via sub-agent:
+  - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+    at normal zoom with chat chrome minimized
+  - graph substrate canary was mounted and visible; the
+    `rotaryParamCodeObjDefault` lane was visible on the surface
+  - no error-level runtime console messages; only the existing React Router
+    future flag warning and WebGL software fallback deprecation warning
+- interpretation:
+  - this closes the current attribution-readout gap on the canonical lane
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - the next pass should take one product cut at the section container/body
+    boundary named by this ranking instead of reopening another row/list memo
+    or another support-only probe pass
+- LOOP_TERMINAL_MARKER: none

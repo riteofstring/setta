@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 05:10 UTC
+Last updated: 2026-04-14 05:22 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,70 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `449` landed one bounded attribution-readout slice on the canonical
+  `rotaryParamCodeObjDefault` lane by extending the shared motion probe with a
+  ranked top-owner summary:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and checked the recent run pattern before
+      choosing the next slice; the last two completed iterations were one real
+      product cut (`448`) and one support recovery (`447`), so this pass stayed
+      on the same canonical lane and took the narrowest attribution step that
+      directly informs the next product boundary
+    - avoided another pure memo guess because the production subtree already had
+      several profiler splits; the missing piece was a first-class live ranking
+      that surfaced the next concrete owner order from the canonical probe
+    - kept the slice bounded to one shared ranking helper, one focused unit
+      test, one canonical live probe rerun, one append-only perf report, and
+      one fresh-context CDP check
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.ts`
+      now exports shared ranking helpers for canary motion attribution
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+      proves the helper sorts by total duration and handles non-positive limits
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now returns `topCanaryMotionAttributionOwners` from the shared live probe
+    - `perf/reports/frontend/2026-04-14_settings-graph-top-owner-ranking-attribution.md`
+      records the canonical readout and next-boundary interpretation
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-003/worktree-ai.log`
+      -> passed (`1` Playwright test, `56.7s`)
+      -> fresh ranked readout:
+         `presentedSceneSectionSubtreeReactRender`
+         `887.2ms total` / `249.8ms max` / `30` samples
+         `presentedSceneSectionBodySubtreeReactRender`
+         `874.4ms total` / `115.0ms max` / `32` samples
+         `presentedSceneSectionContainerReactRender`
+         `861.4ms total` / `113.9ms max` / `32` samples
+         `presentedSceneSectionCoreShellLayerReactRender`
+         `856.2ms total` / `113.4ms max` / `32` samples
+         `presentedSceneSectionBodyContentReactRender`
+         `568.9ms total` / `87.5ms max` / `24` samples
+         `longTaskTotalDurationMs`
+         `1162`
+         `averageFrameDurationMs`
+         `41.47`
+    - fresh-context CDP verification via sub-agent:
+      -> `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+         at normal zoom with chat chrome minimized
+      -> graph substrate canary was mounted and visible; the
+         `rotaryParamCodeObjDefault` lane was visible on the surface
+      -> no obvious visual corruption and no error-level runtime console
+         messages; only non-blocking warnings for a React Router future flag
+         and the WebGL software fallback deprecation
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this closes the current attribution-readout gap; do not spend the next
+      pass on more probe-polish for this lane unless fresh product work needs
+      a new split
+    - the remaining hotspot order is now explicit, and the next pass should
+      take a product cut at the section container/body boundary named by this
+      ranking instead of reopening the row/list memo lane
 
 - item `448` landed one bounded product cut on the canonical
   `rotaryParamCodeObjDefault` lane by memoizing the `ParamDndList` boundary so
