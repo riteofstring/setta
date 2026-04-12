@@ -109,6 +109,50 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 00:27 UTC
+
+- item `367` landed one bounded validation-timing split slice on the direct
+  `/settings` backend lane:
+  - changed `backend/setta/project_state/base_project_manager.py` so
+    `load_project_config(...)` now logs:
+    - `validation_cache_hit`
+    - `validation_resolve_ms`
+    - `validation_broadcast_ms`
+    - the original combined `validation_ms`
+  - changed `_broadcast_name_validation_errors(...)` to return structured
+    timing data so payload resolution time and websocket send time are
+    measured separately instead of being hidden in one opaque bucket
+  - extended `tests/project_state/test_load_project_config_timing.py` to
+    prove:
+    - first-load timing still reports a validation cache miss
+    - warm loads report `validation_cache_hit=True`
+    - the split timing fields are present on the warm-load path
+  - appended the captured fixture readout to:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-backend-breakdown.md`
+  - verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      - passed (`6` tests)
+    - `source activate.sh && python -m compileall backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      - passed
+  - reading:
+    - on the current settings fixture, validation is now a warm-cache hit and
+      effectively free:
+      - `validation_resolve_ms` is about `0.003ms` to `0.007ms`
+      - `validation_broadcast_ms` is about `0.028ms` to `0.056ms`
+      - combined `validation_ms` is about `0.03ms` to `0.06ms`
+    - that closes name-validation broadcast as the default steady-state owner
+      on this backend lane
+    - the remaining steady-state settings owner in this fixture is now
+      `convert_backend_to_single_config(...)` / project-state materialization
+      at about `314ms` to `337ms`
+  - next:
+    - isolate the dominant settings
+      `convert_backend_to_single_config(...)` cost on the direct `/settings`
+      path by splitting section/body materialization work from the rest of the
+      conversion path
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 00:13 UTC
 
 - item `365` landed one bounded settings warm-load init-sentinel fix on the

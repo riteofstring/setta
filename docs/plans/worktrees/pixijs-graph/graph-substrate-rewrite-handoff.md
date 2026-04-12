@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 00:19 UTC
+Last updated: 2026-04-13 00:27 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `367` landed one bounded validation-timing split slice for the direct
+  `/settings` backend lane:
+
+  - product code changed in:
+    - `backend/setta/project_state/base_project_manager.py`
+      so `load_project_config(...)` now logs whether
+      name-validation payload resolution was a cache hit plus separate
+      `validation_resolve_ms` and `validation_broadcast_ms` fields
+    - `_broadcast_name_validation_errors(...)` now returns structured timing
+      data instead of folding payload resolution and websocket send time into
+      one opaque bucket
+  - focused regression coverage added in:
+    - `tests/project_state/test_load_project_config_timing.py`
+      to prove:
+      - first-load timing logs still report a cache miss
+      - warm loads log `validation_cache_hit=True`
+      - the split timing fields stay present on the warm-load path
+  - recorded the fixture readout in:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-backend-breakdown.md`
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`6` tests)
+    - `source activate.sh && python -m compileall backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - on the current settings fixture, name-validation is no longer the
+      dominant steady-state owner:
+      - `validation_resolve_ms` is about `0.003ms` to `0.007ms`
+      - `validation_broadcast_ms` is about `0.028ms` to `0.056ms`
+      - combined `validation_ms` is about `0.03ms` to `0.06ms`
+    - the old multi-second `validation_ms` bucket is therefore closed as the
+      default backend suspect on the warm direct `/settings` path
+    - the remaining steady-state settings owner in this fixture is now
+      `convert_backend_to_single_config(...)` / project-state materialization
+      (`~314ms` to `~337ms`)
+  - next default frontier:
+    - isolate the dominant settings `convert_backend_to_single_config(...)`
+      cost on the direct `/settings` path, starting by splitting section/body
+      materialization work from other conversion steps so the next backend
+      owner is explicit
 
 - item `366` landed one bounded backend name-validation cache slice for the
   direct `/settings` load path:

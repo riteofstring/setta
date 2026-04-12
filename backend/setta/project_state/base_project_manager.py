@@ -495,6 +495,13 @@ class LoadProjectConfigTiming:
     update_ms: float
 
 
+@dataclass(slots=True)
+class NameValidationBroadcastTiming:
+    cache_hit: bool
+    resolve_ms: float
+    broadcast_ms: float
+
+
 def _assert_ui_setting_expected_old_value_matches(
     *,
     setting_id: str,
@@ -1823,21 +1830,26 @@ class BaseProjectManager(ABC):
         project_state, init_timing = await self.maybe_init_project_config(projectState)
         init_ms = (time.perf_counter() - init_start) * 1000
 
-        validation_start = time.perf_counter()
-        await self._broadcast_name_validation_errors(project_state)
-        validation_ms = (time.perf_counter() - validation_start) * 1000
+        validation_timing = await self._broadcast_name_validation_errors(project_state)
+        validation_ms = (
+            validation_timing.resolve_ms + validation_timing.broadcast_ms
+        )
 
         total_ms = (time.perf_counter() - total_start) * 1000
         logger.info(
             "load_project_config_timing project_config_id=%s did_init=%s "
             "section_count=%s convert_ms=%.1f init_ms=%.1f init_update_ms=%.1f "
-            "validation_ms=%.1f total_ms=%.1f",
+            "validation_cache_hit=%s validation_resolve_ms=%.1f "
+            "validation_broadcast_ms=%.1f validation_ms=%.1f total_ms=%.1f",
             projectConfigId,
             init_timing.did_init,
             len(project_state.sections),
             convert_ms,
             init_ms,
             init_timing.update_ms,
+            validation_timing.cache_hit,
+            validation_timing.resolve_ms,
+            validation_timing.broadcast_ms,
             validation_ms,
             total_ms,
         )
@@ -5780,21 +5792,31 @@ class BaseProjectManager(ABC):
     async def _broadcast_name_validation_errors(
         self,
         project_state: ProjectStateSingleConfig,
-    ) -> None:
-        content = self._resolve_name_validation_errors(project_state)
+    ) -> NameValidationBroadcastTiming:
+        resolve_start = time.perf_counter()
+        content, cache_hit = self._resolve_name_validation_errors(project_state)
+        resolve_ms = (time.perf_counter() - resolve_start) * 1000
+
+        broadcast_start = time.perf_counter()
         await self.websocket_msg_handler.broadcast_name_validation_errors(content)
+        broadcast_ms = (time.perf_counter() - broadcast_start) * 1000
+        return NameValidationBroadcastTiming(
+            cache_hit=cache_hit,
+            resolve_ms=resolve_ms,
+            broadcast_ms=broadcast_ms,
+        )
 
     def _resolve_name_validation_errors(
         self,
         project_state: ProjectStateSingleConfig,
-    ) -> SettaProjectNameValidationErrors:
+    ) -> tuple[SettaProjectNameValidationErrors, bool]:
         project_config_id = project_state.projectConfig.id
         history_revision = self.history.revision
         cached_errors = self._name_validation_errors_by_project_config_revision.get(
             project_config_id
         )
         if cached_errors is not None and cached_errors[0] == history_revision:
-            return cached_errors[1]
+            return cached_errors[1], True
 
         section_errors = collect_section_name_conflicts(project_state)
         param_errors, param_format_errors = collect_param_name_errors(project_state)
@@ -5817,7 +5839,7 @@ class BaseProjectManager(ABC):
             history_revision,
             content,
         )
-        return content
+        return content, False
 
     def get_all_project_metadata(self):
         defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
