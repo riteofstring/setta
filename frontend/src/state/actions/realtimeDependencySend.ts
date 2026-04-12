@@ -20,6 +20,8 @@ type FrontendOutboundMessage =
   | RealtimeUIChangeMessage
   | RealtimeDependencyEventMessage;
 
+type CoverageRequirement = "optional" | "required";
+
 type RealtimeDependencySenders = {
   sendBinaryMessage: (
     message: FrontendOutboundMessage,
@@ -41,21 +43,60 @@ export function registerRealtimeDependencySenders(
   realtimeDependencySenders = senders;
 }
 
-function emitRealtimeDependencyValue(
-  dependencyKey: BaseDependencyKeyUnion,
-  value: BaseDependencyValueUnion,
-  binaryPayload?: ArrayBuffer,
+function resolveProjectConfigId(
   projectConfigIdOverride?: string | null,
-): void {
+): string | null {
   const projectConfigId = projectConfigIdOverride ?? getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
+    return null;
   }
-  const coverage = getListenerCoverageRecord(projectConfigId);
-  if (!coverage || !dependencyKeyCovered(projectConfigId, dependencyKey)) {
-    return;
-  }
+  return projectConfigId;
+}
 
+function dependencyKeyIsSendable(
+  projectConfigId: string,
+  dependencyKey: BaseDependencyKeyUnion,
+  coverageRequirement: CoverageRequirement,
+): boolean {
+  const coverage = getListenerCoverageRecord(projectConfigId);
+  if (!coverage) {
+    return coverageRequirement === "optional";
+  }
+  return dependencyKeyCovered(projectConfigId, dependencyKey);
+}
+
+function dispatchRealtimeMessage(
+  message: FrontendOutboundMessage,
+  payloadType: DependencyValueTypeEnum | undefined,
+  binaryPayload?: ArrayBuffer,
+): void {
+  if (payloadType === DependencyValueTypeEnum.Binary && binaryPayload) {
+    realtimeDependencySenders.sendBinaryMessage(message, binaryPayload);
+    return;
+  }
+  realtimeDependencySenders.sendMessage(message);
+}
+
+type RealtimeDependencyValueInput = {
+  binaryPayload?: ArrayBuffer;
+  dependencyKey: BaseDependencyKeyUnion;
+  projectConfigIdOverride?: string | null;
+  value: BaseDependencyValueUnion;
+};
+
+export function sendRealtimeDependencyValue({
+  dependencyKey,
+  value,
+  binaryPayload,
+  projectConfigIdOverride,
+}: RealtimeDependencyValueInput): void {
+  const projectConfigId = resolveProjectConfigId(projectConfigIdOverride);
+  if (
+    !projectConfigId ||
+    !dependencyKeyIsSendable(projectConfigId, dependencyKey, "required")
+  ) {
+    return;
+  }
   const message: RealtimeUIChangeMessage = {
     id: null,
     messageType: MessageTypeEnum.RealtimeUIChange,
@@ -65,11 +106,7 @@ function emitRealtimeDependencyValue(
       value,
     },
   };
-  if (value.type === DependencyValueTypeEnum.Binary && binaryPayload) {
-    realtimeDependencySenders.sendBinaryMessage(message, binaryPayload);
-    return;
-  }
-  realtimeDependencySenders.sendMessage(message);
+  dispatchRealtimeMessage(message, value.type, binaryPayload);
 }
 
 type DependencyEventInput = {
@@ -83,12 +120,11 @@ export function sendRealtimeDependencyEvent(
   event: DependencyEventInput,
   projectConfigIdOverride?: string | null,
 ): void {
-  const projectConfigId = projectConfigIdOverride ?? getCurrProjectConfigId();
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-  const coverage = getListenerCoverageRecord(projectConfigId);
-  if (coverage && !dependencyKeyCovered(projectConfigId, event.dependencyKey)) {
+  const projectConfigId = resolveProjectConfigId(projectConfigIdOverride);
+  if (
+    !projectConfigId ||
+    !dependencyKeyIsSendable(projectConfigId, event.dependencyKey, "optional")
+  ) {
     return;
   }
 
@@ -105,14 +141,11 @@ export function sendRealtimeDependencyEvent(
       dependencyEvent,
     },
   };
-  if (
-    dependencyEvent.payload?.type === DependencyValueTypeEnum.Binary &&
-    event.binaryPayload
-  ) {
-    realtimeDependencySenders.sendBinaryMessage(message, event.binaryPayload);
-    return;
-  }
-  realtimeDependencySenders.sendMessage(message);
+  dispatchRealtimeMessage(
+    message,
+    dependencyEvent.payload?.type,
+    event.binaryPayload,
+  );
 }
 
 export function sendRealtimeSectionParamLiteral(
@@ -126,15 +159,14 @@ export function sendRealtimeSectionParamLiteral(
     sectionId,
     type: DependencyKeyTypeEnum.SectionParam,
   };
-  emitRealtimeDependencyValue(
+  sendRealtimeDependencyValue({
     dependencyKey,
-    {
+    value: {
       payload,
       type: DependencyValueTypeEnum.Literal,
     },
-    undefined,
     projectConfigIdOverride,
-  );
+  });
 }
 
 export function sendRealtimeSectionLiteral(
@@ -146,13 +178,12 @@ export function sendRealtimeSectionLiteral(
     sectionId,
     type: DependencyKeyTypeEnum.Section,
   };
-  emitRealtimeDependencyValue(
+  sendRealtimeDependencyValue({
     dependencyKey,
-    {
+    value: {
       payload,
       type: DependencyValueTypeEnum.Literal,
     },
-    undefined,
     projectConfigIdOverride,
-  );
+  });
 }

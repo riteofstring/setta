@@ -22,7 +22,10 @@ import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
-import { registerRealtimeDependencySenders } from "state/actions/realtimeDependencySend";
+import {
+  registerRealtimeDependencySenders,
+  sendRealtimeDependencyValue,
+} from "state/actions/realtimeDependencySend";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
@@ -42,23 +45,16 @@ import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  BaseDependencyKeyUnion,
-  BaseDependencyValueUnion,
   BinaryDependencyValue,
   ConnectionTypeEnum,
   createConnection,
   createCurrentAddressUpdateMessage,
   CurrentAddressUpdateMessage,
-  DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
-  LiteralDependencyValue,
   MessageTypeEnum,
   NotificationTypeEnum,
-  RealtimeDependencyEventMessage,
-  RealtimeUIChangeMessage,
   SectionDependencyKey,
-  SectionParamDependencyKey,
   UISettingRevealContent,
   UISettingRevealResultMessage,
   UISettingRevealResultStatus,
@@ -94,7 +90,6 @@ import {
   applyListenerCoverageSnapshot,
   dependencyKeyCovered,
   fetchListenerCoverageSnapshot,
-  getListenerCoverageRecord,
 } from "./listenerCoverage";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
@@ -112,6 +107,13 @@ import {
   receiveUISettingReveal,
   type UISettingRevealExecutionContext,
 } from "./uiSettingReveal";
+
+export {
+  sendRealtimeDependencyEvent,
+  sendRealtimeSectionLiteral,
+  sendRealtimeSectionParamLiteral,
+} from "state/actions/realtimeDependencySend";
+
 let wss: WebSocket | null = null;
 let wasOpen = false;
 let authLost = false;
@@ -963,117 +965,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function sendCurrentAddress(currentAddress: string) {
   sendMessage(createCurrentAddressUpdateMessage({ content: currentAddress }));
 }
-function emitRealtimeDependencyValue(
-  dependencyKey: BaseDependencyKeyUnion,
-  value: BaseDependencyValueUnion,
-  binaryPayload?: ArrayBuffer,
-  projectConfigIdOverride?: string | null,
-) {
-  const projectConfigId = projectConfigIdOverride ?? getCurrProjectConfigId();
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-  const coverage = getListenerCoverageRecord(projectConfigId);
-  if (!coverage || !dependencyKeyCovered(projectConfigId, dependencyKey)) {
-    return;
-  }
-  const message: RealtimeUIChangeMessage = {
-    id: null,
-    messageType: MessageTypeEnum.RealtimeUIChange,
-    content: {
-      projectConfigId,
-      dependencyKey,
-      value,
-    },
-  };
-  if (value.type === DependencyValueTypeEnum.Binary && binaryPayload) {
-    sendBinaryMessage(message, binaryPayload);
-    return;
-  }
-  sendMessage(message);
-}
-type DependencyEventInput = {
-  dependencyKey: BaseDependencyKeyUnion;
-  payload?: BaseDependencyValueUnion | null;
-  binaryPayload?: ArrayBuffer;
-  timestampMs?: number;
-};
-export function sendRealtimeDependencyEvent(
-  event: DependencyEventInput,
-  projectConfigIdOverride?: string | null,
-): void {
-  const projectConfigId = projectConfigIdOverride ?? getCurrProjectConfigId();
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-  const coverage = getListenerCoverageRecord(projectConfigId);
-  if (coverage && !dependencyKeyCovered(projectConfigId, event.dependencyKey)) {
-    return;
-  }
-  const dependencyEvent: DependencyEvent = {
-    dependencyKey: event.dependencyKey,
-    payload: event.payload ?? null,
-    timestampMs: event.timestampMs ?? Date.now(),
-  };
-  const message: RealtimeDependencyEventMessage = {
-    id: null,
-    messageType: MessageTypeEnum.RealtimeDependencyEvent,
-    content: {
-      projectConfigId,
-      dependencyEvent,
-    },
-  };
-  if (
-    dependencyEvent.payload?.type === DependencyValueTypeEnum.Binary &&
-    event.binaryPayload
-  ) {
-    sendBinaryMessage(message, event.binaryPayload);
-    return;
-  }
-  sendMessage(message);
-}
-export function sendRealtimeSectionParamLiteral(
-  sectionId: string,
-  codeObjId: string,
-  value: string,
-  projectConfigIdOverride?: string | null,
-) {
-  const dependencyKey: SectionParamDependencyKey = {
-    type: DependencyKeyTypeEnum.SectionParam,
-    sectionId,
-    codeObjId,
-  };
-  const dependencyValue: LiteralDependencyValue = {
-    payload: value,
-    type: DependencyValueTypeEnum.Literal,
-  };
-  emitRealtimeDependencyValue(
-    dependencyKey,
-    dependencyValue,
-    undefined,
-    projectConfigIdOverride,
-  );
-}
-export function sendRealtimeSectionLiteral(
-  sectionId: string,
-  value: string,
-  projectConfigIdOverride?: string | null,
-) {
-  const dependencyKey: SectionDependencyKey = {
-    type: DependencyKeyTypeEnum.Section,
-    sectionId,
-  };
-  const dependencyValue: LiteralDependencyValue = {
-    payload: value,
-    type: DependencyValueTypeEnum.Literal,
-  };
-  emitRealtimeDependencyValue(
-    dependencyKey,
-    dependencyValue,
-    undefined,
-    projectConfigIdOverride,
-  );
-}
 export function sendRealtimeSectionBinary(
   sectionId: string,
   payload: ArrayBuffer,
@@ -1099,12 +990,12 @@ export function sendRealtimeSectionBinary(
     },
     type: DependencyValueTypeEnum.Binary,
   };
-  emitRealtimeDependencyValue(
+  sendRealtimeDependencyValue({
+    binaryPayload: payload,
     dependencyKey,
-    dependencyValue,
-    payload,
     projectConfigIdOverride,
-  );
+    value: dependencyValue,
+  });
 }
 function sendMessage(message: FrontendOutboundMessage) {
   if (wssReady(wss)) {
@@ -1192,5 +1083,9 @@ async function sendRealtimeSectionBinaryViaUpload(
     payload: ref,
     type: DependencyValueTypeEnum.Binary,
   };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
+  sendRealtimeDependencyValue({
+    dependencyKey,
+    projectConfigIdOverride: projectConfigId,
+    value: dependencyValue,
+  });
 }

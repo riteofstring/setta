@@ -1855,8 +1855,6 @@ export function createSectionCodegenPolicy(
 
 export type SectionDependencyKey = gt.SectionDependencyKey;
 
-export type SectionParamDependencyKey = gt.SectionParamDependencyKey;
-
 export type SectionSize = gt.SectionSize;
 
 export function createSectionSize(

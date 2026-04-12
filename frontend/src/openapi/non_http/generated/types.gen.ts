@@ -5156,7 +5156,7 @@ type SectionKind = "code" | "terminal" | "draw" | "generated";
 /**
  * SectionParamDependencyKey
  */
-export type SectionParamDependencyKey = {
+type SectionParamDependencyKey = {
   codeObjId: string;
   sectionId: string;
   type: DependencyKeyType;
