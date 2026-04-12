@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 17:40 UTC
+Last updated: 2026-04-13 17:58 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,81 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `446` landed one bounded product cut on the canonical
+  `rotaryParamCodeObjDefault` lane by memoizing the row-level `ParamSwitch`
+  boundary so unchanged row props bail out before rebuilding the row shell /
+  nested subtree:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and stayed on the active unpinned
+      `ParamDndList` / row frontier instead of reopening another closed
+      `ParamSwitch` sortable split or another probe-only slice
+    - chose one bounded product seam immediately under the earlier
+      `GetParamSwitch` memo boundary: stop the row wrapper itself from
+      rematerializing when parent churn does not change row props
+    - kept the slice bounded to one row-boundary memo, one direct
+      render-stability test, one canonical live probe, one append-only perf
+      report, and one fresh-context CDP confirmation
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+      now exports `ParamSwitch` through a memo boundary with deep prop
+      equality
+    - `frontend/src/components/Params/ParamSwitch.render-stability.test.tsx`
+      mocks `ParamContainer` and proves a parent-only rerender does not
+      rematerialize the row boundary
+    - `perf/reports/frontend/2026-04-13_settings-graph-param-switch-row-memo-boundary.md`
+      records the probe recovery, before/after metrics, and lane reading
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
+      -> passed (`4` files, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx`
+      -> passed
+    - first canonical live rerun on the existing worktree session:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-015/worktree-ai.log`
+      -> failed at shared preflight with Playwright timing out inside
+         `fitGraphViewportToSection(...)`
+      -> treated as `worktree_unhealthy`, not renderer drift
+    - bounded lifecycle recovery used this iteration:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      then
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-015/worktree-ai.log`
+      -> refreshed runtime to session `0b4c67`, frontend `http://127.0.0.1:3075/`,
+         backend `http://127.0.0.1:8075`, debug port `9297`
+    - canonical live rerun after recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-015/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.6m`)
+      -> before/after readout on the same canonical lane:
+         `presentedSceneSectionSubtreeReactRender`
+         `903.9ms total` / `230.7ms max` -> `620.7ms total` / `174.0ms max`
+         `presentedSceneSectionBodySubtreeReactRender`
+         `884.5ms total` / `132.5ms max` -> `611.0ms total` / `69.9ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `426.4ms total` / `69.8ms max` -> `301.6ms total` / `38.6ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `454.6ms total` / `72.0ms max` -> `321.7ms total` / `39.7ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `239.3ms total` / `8.8ms max` -> `169.0ms total` / `4.7ms max`
+         `longTaskTotalDurationMs`
+         `1173` -> `787`
+         `averageFrameDurationMs`
+         `not recorded in item 445` -> `31.78`
+    - fresh-context CDP verification via sub-agent:
+      -> `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+         at normal zoom (`1x`)
+      -> graph substrate canary was mounted and visible; the
+         `rotaryParamCodeObjDefault` lane was visible in the All Settings list
+         and `Rotary Param` content was present
+      -> no error-level runtime console messages
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this is another real live win on the active unpinned row/body lane
+    - the remaining dominant owner is still the broader
+      `presentedSceneSectionSubtreeReactRender`, so the next pass should stay
+      on this canonical lane and either:
+      - take one more bounded product cut inside the remaining row/body
+        subtree, or
+      - add one attribution seam that resolves the remaining subtree owner
+        into the next concrete product boundary before another hypothesis
 
 - item `445` landed one bounded probe-normalization recovery on the canonical
   `rotaryParamCodeObjDefault` lane after the worktree-only performance probe

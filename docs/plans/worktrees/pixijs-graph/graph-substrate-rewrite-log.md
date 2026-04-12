@@ -18029,456 +18029,70 @@ LOOP_TERMINAL_MARKER: none
   - canonical rerun:
     `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-006/worktree-ai.log`
     -> passed (`1` Playwright test, `1.3m`)
-    -> lane readout on the passing run:
-       `presentedSceneSectionSubtreeReactRender`
-       `843.0ms total` / `215.4ms max`
-       `presentedSceneSectionContainerReactRender`
-       `815.0ms total` / `109.7ms max`
-       `presentedSceneSectionCoreShellLayerReactRender`
-       `796.0ms total` / `107.2ms max`
-       `presentedSceneSectionBodySubtreeReactRender`
-       `825.2ms total` / `111.2ms max`
-  - first fresh-context CDP smoke attempt via sub-agent:
-    -> blocked
-    -> browser MCP bridge unavailable in that fresh session
-  - bounded recovery:
-    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
-    -> restarted to session `7b7c7f`
-  - refreshed runtime facts with
-    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-006/worktree-ai.log`
-  - second fresh-context CDP smoke attempt via sub-agent:
-    -> passed
-    -> authenticated bootstrap loaded, `Settings` -> `All Settings` rendered,
-       the settings graph canary mounted, and `rotaryParamCodeObjDefault` was
-       present at normal zoom
-    -> console noise limited to two favicon `404`s plus one React Router
-       future-flag warning
-- reading:
-  - this slice improved the live shell-layer/container totals but the hottest
-    remaining owner is still the broader section subtree path
-  - keep the canonical target section `rotaryParamCodeObjDefault`
-  - next pass should stay above `AreaSwitch` and explain the remaining
-    `~215ms` max commit instead of reopening param-row leaves
+   
+## 2026-04-13 - item 446 - ParamSwitch row memo boundary
 
-LOOP_TERMINAL_MARKER: none
-## 2026-04-13 16:10 UTC
-
-- reread `RALPH.md`, the rewrite plan, and the active handoff before choosing
-  the next slice; did not continue the recent attribution-only pattern because
-  the remaining hot path was still the section subtree / container lane above
-  `AreaSwitch`
-- landed one bounded production cut on the canonical
-  `rotaryParamCodeObjDefault` lane in
-  `frontend/src/components/Section/Container/SectionContainer.tsx` by treating
-  the top-level shell-layer canary path as already-normalized `All Settings`
-  state:
-  - skipped duplicate `getSectionViewModeVisibility(...)` /
-    `getActiveViewModeConfig(...)` work on that path
-  - bypassed `ContainerSwitch` and the generic top-level wrapper stack for the
-    canary shell-layer route while leaving the default section-body path alone
-- added focused regression coverage in
-  `frontend/src/components/Section/Container/SectionContainer.test.tsx` proving
-  the shell-layer canary path no longer enters `ContainerSwitch` or rerenders
-  on view-mode visibility churn
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then stayed on
+  the canonical `rotaryParamCodeObjDefault` lane instead of reopening another
+  closed `ParamSwitch` sortable split or spending a third support-only pass on
+  probe hygiene
+- selected one bounded product cut directly under the already-landed
+  `GetParamSwitch` memo boundary:
+  - wrap `ParamSwitch` itself in a memo boundary so unchanged row props bail
+    out before rebuilding the row shell / nested subtree
+- code/doc changes kept in tree:
+  - `frontend/src/components/Params/ParamSwitch.tsx`
+    - exports `ParamSwitch` through a memo boundary with deep prop equality
+  - `frontend/src/components/Params/ParamSwitch.render-stability.test.tsx`
+    - mocks `ParamContainer` and proves a parent-only rerender does not
+      rematerialize the row boundary
+  - `perf/reports/frontend/2026-04-13_settings-graph-param-switch-row-memo-boundary.md`
+    - records the before/after probe data plus the one bounded lifecycle
+      recovery that was needed to rerun the canonical lane
 - focused verification:
-  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
-    -> passed (`2` files, `6` tests)
-  - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainer.test.tsx`
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
+    -> passed (`4` files, `10` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx`
     -> passed
-  - canonical probe first attempt:
-    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-007/worktree-ai.log`
-    -> failed with `Worktree unhealthy: page already closed before writing normalized compare pane state`
-  - allowed recovery:
-    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
-    -> restarted to session `13a928`
-  - refreshed runtime:
-    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-007/worktree-ai.log`
-  - canonical probe retry:
-    same command as above
-    -> failed again on preflight evaluation timeout in
-       `readSettingsGraphSurfacePresenceSnapshot(...)`
-  - fresh-context CDP smoke via sub-agent:
-    transport attached and opened `http://127.0.0.1:3075/settings`, but
-    `wait_for("All Settings")` timed out after `120s`, so the visual gate
-    remained untrusted
-- interpretation:
-  - product code slice is complete and unit-covered
-  - live Playwright/CDP verification is currently blocked by runtime/tooling
-    instability on the recovered worktree session rather than fresh renderer
-    drift evidence
-- next action:
-  - recheck worktree runtime health on the canonical lane before the next
-    product cut; if the live canary becomes trustworthy again, rerun the
-    canonical probe and CDP smoke before continuing deeper on the remaining
-    section-subtree/container owner
-
-## 2026-04-13 16:31 UTC
-
-- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
-- selected one bounded canonical-lane subtask:
-  test whether isolating the mounted body subtree from shell-only motion inside
-  `settingsGraphSubstrateCanarySectionsLayer.tsx` reduces the dominant
-  `presentedSceneSectionSubtreeReactRender` owner for
-  `rotaryParamCodeObjDefault`
-- pre-change canonical health check:
-  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-008/worktree-ai.log`
-    -> passed (`1` Playwright test, `1.3m`)
-    -> lane baseline on the healthy pre-change run:
-       `presentedSceneSectionSubtreeReactRender`
-       `815.0ms total` / `237.9ms max`
-       `presentedSceneSectionContainerReactRender`
-       `790.8ms total` / `99.0ms max`
-       `presentedSceneSectionBodySubtreeReactRender`
-       `798.4ms total` / `99.9ms max`
-       `averageFrameDurationMs 37.98`, `longTaskTotalDurationMs 1003`
-- local hypothesis work:
-  - tried a bounded body-mount memo split in
-    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
-    with matching fan-out test updates
-  - focused jsdom verification while that patch was present:
-    `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
-    -> passed
-- first post-change live rerun:
-  - same canonical probe command as above
-    -> failed with recurring lifecycle closure:
-       `Worktree unhealthy: page already closed before writing normalized compare pane state`
-- allowed recovery:
-  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
-    -> restarted to session `dbd377` on `3075` / `8075`
-  - refreshed runtime:
-    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-008/worktree-ai.log`
-- healthy post-recovery live rerun with the hypothesis patch still present:
-  - same canonical probe command as above
-    -> passed (`1` Playwright test, `1.9m`) but regressed instead of improving:
-       `presentedSceneSectionSubtreeReactRender`
-       `901.3ms total` / `255.8ms max`
-       `presentedSceneSectionContainerReactRender`
-       `869.9ms total` / `116.6ms max`
-       `presentedSceneSectionBodySubtreeReactRender`
-       `880.0ms total` / `117.8ms max`
-       `averageFrameDurationMs 43.02`, `longTaskTotalDurationMs 1187`
-- decision:
-  - closed the hypothesis as a no-win and reverted the local product patch in
-    the same iteration
-  - kept only the append-only perf note:
-    `perf/reports/frontend/2026-04-13_settings-graph-section-body-mount-isolation-negative-result.md`
-- post-revert verification:
-  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
-    -> passed (`2` files, `9` tests)
-  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
-    -> passed
-  - fresh-context CDP smoke via sub-agent on the recovered runtime:
-    -> bootstrap `POST /consume` returned `401`, so the check verified
-       `http://127.0.0.1:3075/settings` directly
-    -> `Settings -> All Settings` was visible, the canary modules loaded,
-       `rotaryParamCodeObjDefault` existed in the live config, and normal zoom
-       was restored
-    -> console noise was limited to bootstrap/favicon `401`s, Vite / React
-       DevTools info, one React Router future-flag warning, and a11y warnings;
-       no new runtime JS errors
-- interpretation:
-  - keep canonical target section `rotaryParamCodeObjDefault`
-  - do not reopen this exact body-mount isolation idea without fresh owner
-    evidence
-  - the next cut should stay above the body-mount boundary and target the
-    remaining `presentedSceneSectionSubtreeReactRender` owner
-- LOOP_TERMINAL_MARKER: none
-
-## 2026-04-13 16:51 UTC
-
-- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
-- selected one bounded canonical-lane subtask:
-  test whether `settingsGraphSubstrateCanarySectionsLayer.tsx` can keep a
-  cached DOM section entry alive across `sceneSection` identity churn when the
-  shell/body-facing inputs still match
-- hypothesis verification while the patch was in place:
-  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
-    -> passed
-  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
-    -> passed
-- live canonical probe with the hypothesis patch:
-  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-010/worktree-ai.log`
-    -> passed (`1` Playwright test, `1.3m`) but regressed versus the last
-       accepted baseline:
-       `presentedSceneSectionEntriesResolve`
-       `1.6ms total` / `0.7ms max`
-       `presentedSceneSectionSubtreeReactRender`
-       `855.8ms total` / `279.9ms max`
-       `averageFrameDurationMs 39.53`, `maxFrameDurationMs 433.30`,
-       `longTaskTotalDurationMs 1073`
-- reverted the product patch and its focused regression in the same iteration;
-  kept only the append-only perf note:
-  - `perf/reports/frontend/2026-04-13_settings-graph-section-entry-semantic-reuse-negative-result.md`
-- post-revert verification:
-  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
-    -> passed (`2` files, `19` tests)
-  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
-    -> passed
-- fresh-context CDP smoke via sub-agent on the current runtime:
-  - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
-  - after one bounded `fit view`, the graph-substrate canary was mounted and
-    `rotaryParamCodeObjDefault` was visibly readable at normal zoom
-  - this counted as a trustworthy visual smoke for the reverted slice; runtime
-    health looked normal aside from an unrelated missing `ANTHROPIC_API_KEY`
-    warning for `Claude Code (SDK)`
-- interpretation:
-  - keep canonical target section `rotaryParamCodeObjDefault`
-  - close this semantic-entry-reuse idea unless fresh owner evidence points
-    back to repeated section identity churn
-  - the next iteration should stay on the remaining
-    `presentedSceneSectionSubtreeReactRender` owner, but choose a different
-    product or attribution cut instead of reopening closed entry-reuse ideas
-- LOOP_TERMINAL_MARKER: none
-
-## 2026-04-13 16:54 UTC
-
-- progress review for loop `/tmp/codex-supervisor.wUe785/loop-001` after
-  successful iteration `010`
-- verdict:
-  - keep the automation running, but not on the current adjacent
-    section-entry hypothesis shape
-- evidence for continuing:
-  - the loop stayed on the canonical live `rotaryParamCodeObjDefault` lane
-    and kept producing trustworthy Playwright readouts instead of falling back
-    into generic verifier repair
-  - one real product win landed in this stretch
-    (`section-entry-element-reuse`), and two nearby hypotheses were closed
-    with measured regressions (`body-mount-isolation`,
-    `section-entry-semantic-reuse`)
-  - the dominant remaining owner is still explicit:
-    `presentedSceneSectionSubtreeReactRender`
-- diminishing-return signal:
-  - runs `008` through `010` clustered around nearby
-    `settingsGraphSubstrateCanarySectionsLayer.tsx` entry/body memoization
-    ideas, so another default pass on that same seam would likely be churn
-- durable redirect applied:
-  - do not spend the next default iteration on another section-entry identity,
-    entry-array, or body-mount reuse experiment unless fresh attribution
-    points back there
-  - the next iteration should either isolate one concrete owner below
-    `presentedSceneSectionSubtreeReactRender` under `AreaSwitch` / the mounted
-    body branch, or take one larger DOM-work reduction on that branch
-- LOOP_TERMINAL_MARKER: none
-
-## 2026-04-13 19:16 UTC
-
-- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
-- selected one bounded canonical-lane subtask:
-  use the existing `ParamGroupContainer` motion split to decide whether the
-  remaining live Dict-path cost is in pinned params, unpinned params, or fixed
-  chrome around them
-- kept the slice attribution-only on purpose instead of reopening another
-  nearby `settingsGraphSubstrateCanarySectionsLayer.tsx` hypothesis; the
-  active redirect already closed the adjacent entry/body memoization ideas
-- append-only perf note added:
-  - `perf/reports/frontend/2026-04-13_settings-graph-param-group-live-split.md`
-- canonical live verification:
-  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-011/worktree-ai.log`
-    -> passed (`1` Playwright test, `1.3m`)
-    -> live readout:
-       `presentedSceneSectionSubtreeReactRender`
-       `989.3ms total` / `257.3ms max`
-       `presentedSceneSectionParamGroupContainerReactRender`
-       `579.3ms total` / `91.0ms max`
-       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
-       `517.1ms total` / `88.8ms max`
-       `presentedSceneSectionParamDndListRowsReactRender`
-       `485.9ms total` / `85.5ms max`
-       `presentedSceneSectionParamInputReactRender`
-       `254.9ms total` / `10.4ms max`
-       `presentedSceneSectionParamGroupPinnedParamsReactRender`
-       `1.1ms total` / `0.3ms max`
-       `presentedSceneSectionParamGroupEdgesStripReactRender`
-       `2.3ms total` / `0.3ms max`
-- fresh-context CDP smoke via sub-agent on the same runtime:
-  - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
-  - after one bounded normalization, the graph-substrate canary was mounted
-    and `rotaryParamCodeObjDefault` was visibly readable
-  - the sub-agent also saw an uncaught
-    `TypeError: Cannot read properties of null (reading 'transform')` from
-    `sectionPositions.ts:142` via `SectionListItems.tsx`; treated as separate
-    runtime noise for now because it did not block the graph-surface canary
-- interpretation:
-  - keep canonical target section `rotaryParamCodeObjDefault`
-  - pinned params and edge-strip chrome are effectively closed on the current
-    motion lane
-  - the next meaningful owner is the unpinned params /
-    `ParamDndList` rows path under `ParamGroupContainer`
-  - the live CDP gate is trustworthy again for this lane, with the
-    `SectionListItems` null-transform error logged separately for follow-up if
-    it becomes user-visible
-- LOOP_TERMINAL_MARKER: none
-
-## 2026-04-13 17:16 UTC
-
-- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
-- selected one bounded canonical-lane subtask:
-  memoize `GetParamSwitch` so unchanged row-list props stop rematerializing the
-  unpinned `ParamSwitch` subtree during parent churn on
-  `rotaryParamCodeObjDefault`
-- landed the product change in
-  `frontend/src/components/Params/GetParamSwitch.tsx`:
-  - wrapped `GetParamSwitch` in `React.memo(..., _.isEqual)`
-  - kept the change scoped to the unpinned row-list seam instead of reopening
-    the already-closed section-entry or pinned-param lanes
-- added focused regression coverage:
-  - `frontend/src/components/Params/GetParamSwitch.render-stability.test.tsx`
-    proves unchanged parent rerenders do not rematerialize the row list
-- append-only perf note added:
-  - `perf/reports/frontend/2026-04-13_settings-graph-get-param-switch-memo-boundary.md`
-- focused verification:
-  - `pnpm -C frontend exec vitest run src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/ParamSwitch.test.tsx`
-    -> passed (`3` files, `9` tests)
-  - `pnpm -C frontend exec prettier --write src/components/Params/GetParamSwitch.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
-    -> passed
-  - canonical live rerun:
-    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-012/worktree-ai.log`
-    -> passed (`1` Playwright test, `1.3m`)
-    -> before/after readout:
-       `presentedSceneSectionParamGroupContainerReactRender`
-       `579.3ms total` / `91.0ms max` -> `463.8ms total` / `65.0ms max`
-       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
-       `517.1ms total` / `88.8ms max` -> `406.0ms total` / `61.0ms max`
-       `presentedSceneSectionParamDndListRowsReactRender`
-       `485.9ms total` / `85.5ms max` -> `381.1ms total` / `59.3ms max`
-       `presentedSceneSectionParamInputReactRender`
-       `254.9ms total` / `10.4ms max` -> `212.5ms total` / `7.9ms max`
-       `presentedSceneSectionSubtreeReactRender`
-       `989.3ms total` / `257.3ms max` -> `802.5ms total` / `228.0ms max`
-       `averageFrameDurationMs 43.56 -> 37.59`
-       `maxFrameDurationMs 466.6 -> 366.7`
-       `longTaskTotalDurationMs 1279 -> 1020`
-  - fresh-context CDP verification via sub-agent:
-    - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
-    - after one bounded `fit view` normalization, the graph-substrate canary
-      was mounted and `rotaryParamCodeObjDefault` was visibly readable at
-      normal zoom
-    - no runtime console errors were present; only React Router future-flag,
-      a11y, and WebGL software fallback warnings appeared
-- interpretation:
-  - keep canonical target section `rotaryParamCodeObjDefault`
-  - this memo boundary is a real live win on the active unpinned row path
-  - the remaining default frontier is still the unpinned `ParamDndList` / row
-    subtree beneath this new boundary
-  - do not reopen section-entry, pinned-param, or edge-strip work without
-    fresh contrary evidence
-- LOOP_TERMINAL_MARKER: none
-
-## 2026-04-13 16:41 UTC
-
-- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
-- selected one bounded canonical-lane subtask:
-  reuse unchanged rendered section entries in
-  `settingsGraphSubstrateCanarySectionsLayer.tsx` so the canary stops
-  rebuilding the full section-entry element array when only one section's
-  motion/state changes
-- baseline on the current runtime before editing:
-  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-009/worktree-ai.log`
-    -> passed (`1` Playwright test, `1.4m`)
-    -> baseline readout:
-       `presentedSceneSectionEntriesResolve`
-       `4.3ms total` / `0.5ms max`
-       `presentedSceneSectionSubtreeReactRender`
-       `820.2ms total` / `216.9ms max`
-       `averageFrameDurationMs 39.14`, `maxFrameDurationMs 350.10`,
-       `longTaskTotalDurationMs 1030`
-- landed the product change in
-  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`:
-  - cached `<SettingsGraphSubstrateCanarySectionEntry />` elements by
-    `sectionId`
-  - reused the previous element when section ref, cached body model, drag
-    state, and body-mount gate were unchanged
-  - reused the full ordered entry array when every entry in the pass was
-    unchanged
-- append-only perf note added:
-  - `perf/reports/frontend/2026-04-13_settings-graph-section-entry-element-reuse.md`
-- focused verification:
-  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
-    -> passed (`2` files, `19` tests)
-  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
-    -> passed
-  - canonical live rerun:
-    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-009/worktree-ai.log`
-    -> passed (`1` Playwright test, `55.0s`)
-    -> after readout:
-       `presentedSceneSectionEntriesResolve`
-       `2.5ms total` / `0.8ms max`
-       `presentedSceneSectionSubtreeReactRender`
-       `818.2ms total` / `197.8ms max`
-       `averageFrameDurationMs 37.50`, `maxFrameDurationMs 316.60`,
-       `longTaskTotalDurationMs 1016`
-- fresh-context CDP verification via sub-agents:
-  - first sub-agent reached `settings` / `All Settings`, but after one bounded
-    `fit view` attempt the viewport still appeared blank and it could not
-    visually confirm `rotaryParamCodeObjDefault`
-  - second fresh sub-agent also reached `All Settings` but reported no mounted
-    graph substrate canary and no target section DOM node for
-    `39fc96e4-39a3-4e7b-a1f6-34ffc310e889`
-  - both checks only saw expected favicon/auth, React Router, and a11y warning
-    noise; no new runtime JS errors
-- interpretation:
-  - keep this product change; the deterministic canonical lane improved and the
-    focused suites stayed green
-  - treat the CDP result as `deferred_visual_gate` on this runtime rather than
-    fresh renderer drift evidence, because the same worktree immediately passed
-    the canonical Playwright probe before the CDP retries
-  - the next cut should stay above the body-mount boundary on the remaining
-    `presentedSceneSectionSubtreeReactRender` owner once the live CDP gate is
-    trustworthy again or explicitly deferred
-- LOOP_TERMINAL_MARKER: none
-
-## 2026-04-13 17:25 UTC
-
-- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
-- checked the last few completed slices before choosing the next task:
-  - recent accepted work was already inside the unpinned `ParamDndList` / row
-    frontier (`GetParamSwitch` memo boundary)
-  - avoided reopening section-entry, pinned-param, or harness-only lanes
-- selected one bounded canonical-lane subtask:
-  test whether the common non-selection path can skip `useSortable(...)` for
-  real `ParamSwitch` rows, then keep the patch only if the canonical lane
-  improves
-- hypothesis patch while it was in place:
-  - split real param rows into static and sortable branches inside
-    `frontend/src/components/Params/ParamSwitch.tsx`
-  - added focused branch-coverage assertions in
-    `frontend/src/components/Params/ParamSwitch.test.tsx`
-- hypothesis guardrails while the patch was in place:
-  - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
-    -> passed (`3` files, `11` tests)
-  - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.test.tsx`
-    -> passed
-- canonical live rerun with the hypothesis patch:
-  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-013/worktree-ai.log`
-    -> passed (`1` Playwright test, `1.3m`)
-    -> live readout versus the latest accepted baseline on the same lane:
-       `presentedSceneSectionParamDndListRowsReactRender`
-       `381.1ms total` / `59.3ms max` -> `411.7ms total` / `69.2ms max`
-       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
-       `406.0ms total` / `61.0ms max` -> `440.8ms total` / `72.2ms max`
-       `presentedSceneSectionParamGroupContainerReactRender`
-       `463.8ms total` / `65.0ms max` -> `499.1ms total` / `76.9ms max`
-       `presentedSceneSectionSubtreeReactRender`
-       `802.5ms total` / `228.0ms max` -> `877.4ms total` / `199.2ms max`
-       `averageFrameDurationMs 37.59 -> 39.53`
-       `longTaskTotalDurationMs 1020 -> 1093`
+- canonical live probe:
+  - first attempt:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-015/worktree-ai.log`
+    - failed at shared preflight when Playwright timed out inside
+      `fitGraphViewportToSection(...)`
+    - classified as `worktree_unhealthy`, not renderer drift
+  - one bounded recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-015/worktree-ai.log`
+    - refreshed runtime to session `0b4c67`, frontend `http://127.0.0.1:3075/`,
+      backend `http://127.0.0.1:8075`, debug port `9297`
+  - rerun after recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-015/worktree-ai.log`
+    - passed (`1` Playwright test, `1.6m`)
+    - fresh readout versus item `445`:
+      - `presentedSceneSectionSubtreeReactRender`
+        `903.9ms total` / `230.7ms max` -> `620.7ms total` / `174.0ms max`
+      - `presentedSceneSectionBodySubtreeReactRender`
+        `884.5ms total` / `132.5ms max` -> `611.0ms total` / `69.9ms max`
+      - `presentedSceneSectionParamDndListRowsReactRender`
+        `426.4ms total` / `69.8ms max` -> `301.6ms total` / `38.6ms max`
+      - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+        `454.6ms total` / `72.0ms max` -> `321.7ms total` / `39.7ms max`
+      - `presentedSceneSectionParamInputReactRender`
+        `239.3ms total` / `8.8ms max` -> `169.0ms total` / `4.7ms max`
+      - `longTaskTotalDurationMs`
+        `1173` -> `787`
 - fresh-context CDP verification via sub-agent:
   - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
-  - graph-substrate canary was mounted and `rotaryParamCodeObjDefault` was
-    visibly readable at normal zoom
-  - console stayed free of runtime errors; only React Router future-flag
-    warnings plus ordinary Vite/React DevTools notices appeared
+    at normal zoom (`1x`)
+  - graph substrate canary was mounted and visible; the
+    `rotaryParamCodeObjDefault` lane was visible in the All Settings list and
+    `Rotary Param` content was present
+  - no error-level runtime console messages
 - interpretation:
-  - this hypothesis did not produce a trustworthy win on the canonical lane
-  - reverted the `ParamSwitch` branch split and its temporary test additions so
-    the worktree does not carry extra product complexity forward without a win
-  - recorded the closed hypothesis in
-    `perf/reports/frontend/2026-04-13_settings-graph-param-switch-non-sortable-row-negative-result.md`
+  - this is a real live win on the active unpinned row/body lane
   - keep canonical target section `rotaryParamCodeObjDefault`
-  - next pass should stay on the active unpinned row frontier but choose a
-    different attribution or product cut instead of reopening this sortable
-    branch split without fresh evidence
-- reverted-tree verification after removing the patch:
-  - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx`
-    -> passed (`1` file, `6` tests)
+  - the next pass should stay on this lane and either take one more bounded
+    product cut inside the remaining row/body subtree or add one attribution
+    seam that resolves the remaining dominant
+    `presentedSceneSectionSubtreeReactRender` owner before another hypothesis
 - LOOP_TERMINAL_MARKER: none

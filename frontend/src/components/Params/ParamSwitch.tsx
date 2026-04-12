@@ -89,6 +89,13 @@ function _ParamSwitch(props: ParamSwitchProps) {
   return <RealParamSwitch {...props} />;
 }
 
+function areParamSwitchPropsEqual(
+  prevProps: ParamSwitchProps,
+  nextProps: ParamSwitchProps,
+) {
+  return _.isEqual(prevProps, nextProps);
+}
+
 export const TempParamPlaceholderRow = memo(function TempParamPlaceholderRow({
   dndAttributes,
   dndListeners,
@@ -202,6 +209,7 @@ export function TempParamSwitch({
   );
 }
 
+export const ParamSwitch = memo(_ParamSwitch, areParamSwitchPropsEqual);
 function RealParamSwitch(props: ParamSwitchProps) {
   const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
 
@@ -332,9 +340,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
 
   return <SortableRealParamSwitchRow {...sharedProps} />;
 }
-
-export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
-
 function SortableRealParamSwitchRow({
   sectionId,
   paramInfoId,
