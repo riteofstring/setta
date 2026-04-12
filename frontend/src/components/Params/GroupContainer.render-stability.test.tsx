@@ -27,12 +27,19 @@ vi.mock("./ParamDndList", () => ({
   ParamDndList: vi.fn(() => <div data-testid="param-dnd-list" />),
 }));
 
+const resizeObserverCallbacks = new Set<ResizeObserverCallback>();
+
 vi.stubGlobal(
   "ResizeObserver",
   class {
+    constructor(callback: ResizeObserverCallback) {
+      resizeObserverCallbacks.add(callback);
+    }
     observe() {}
     unobserve() {}
-    disconnect() {}
+    disconnect() {
+      resizeObserverCallbacks.clear();
+    }
   },
 );
 
@@ -231,6 +238,7 @@ describe("ParamGroupContainer render stability", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    resizeObserverCallbacks.clear();
     useSettings.setState(createSettingsState());
     syncStoreInitialState(useSettings);
     syncStoreInitialState(useWaitingForLSPResult);
@@ -298,6 +306,50 @@ describe("ParamGroupContainer render stability", () => {
       useWaitingForLSPResult.setState((state) => {
         state.parametersRequest[sectionId] = true;
       });
+    });
+
+    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not rematerialize param rows when scrollability observers update", async () => {
+    const sectionId = seedParamGroupContainerState();
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+
+    const scrollContainer = host.querySelector<HTMLDivElement>(
+      ".section-args-nested",
+    );
+    expect(scrollContainer).not.toBeNull();
+
+    Object.defineProperties(scrollContainer!, {
+      clientHeight: { configurable: true, value: 120 },
+      clientWidth: { configurable: true, value: 120 },
+      scrollHeight: { configurable: true, value: 240 },
+      scrollWidth: { configurable: true, value: 120 },
+    });
+
+    await act(async () => {
+      for (const callback of resizeObserverCallbacks) {
+        callback(
+          [
+            {
+              borderBoxSize: [{ inlineSize: 120 }],
+              contentRect: { width: 120, height: 240 },
+            } as ResizeObserverEntry,
+          ],
+          {} as ResizeObserver,
+        );
+      }
     });
 
     expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);

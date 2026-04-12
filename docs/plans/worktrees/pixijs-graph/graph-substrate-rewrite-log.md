@@ -18590,6 +18590,72 @@ LOOP_TERMINAL_MARKER: none
     of reusing the stale token from loop context
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 - item 455 - Unpinned scrollability row boundary
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent lane pattern before choosing the next slice:
+  - the last two completed iterations (`453`, `454`) were both real
+    `GroupContainer` product cuts, so this pass stayed on the same canonical
+    `rotaryParamCodeObjDefault` lane but avoided another harness-only or
+    forwarding-only hop
+  - chose the unpinned scrollability split because `GetUnpinnedParams` still
+    mixed `useIsScrollable()` observer churn with the mounted
+    `ParamDndList` subtree, leaving one more local observer path that could
+    re-enter the row branch
+- selected one bounded product slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - move the unpinned scrollability observer state behind its own memoized
+    wrapper so scrollability flips no longer rematerialize the mounted row
+    subtree
+- code/doc changes kept in tree:
+  - `frontend/src/components/Params/GroupContainer.tsx`
+    - now renders the unpinned branch through memoized
+      `UnpinnedParamsArea` + `UnpinnedParamsRows` boundaries so
+      `useIsScrollable()` state stays outside the mounted `ParamDndList`
+      subtree
+  - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+    - now proves scrollability observer updates do not rematerialize the
+      mounted `ParamDndList` subtree
+  - `perf/reports/frontend/2026-04-14_settings-graph-unpinned-scrollability-row-boundary.md`
+    - records the canonical readout and marks this as a stability/isolation
+      step rather than a fresh live win
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    -> passed (`2` files, `4` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+    -> passed
+- canonical live probe:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-015/worktree-ai.log`
+    -> passed (`1` Playwright test, `52.1s`)
+    -> fresh readout versus item `454`:
+      - `presentedSceneSectionParamGroupContainerReactRender`
+        `464.9ms total` / `58.1ms max` -> `470.1ms total` / `60.2ms max`
+      - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+        `413.9ms total` / `55.0ms max` -> `415.2ms total` / `56.6ms max`
+      - `presentedSceneSectionParamDndListRowsReactRender`
+        `399.8ms total` / `53.4ms max` -> `397.6ms total` / `54.2ms max`
+      - `presentedSceneSectionParamInputReactRender`
+        `226.3ms total` / `8.6ms max` -> `223.3ms total` / `8.2ms max`
+      - `averageFrameDurationMs`
+        `38.15` -> `38.37`
+      - `longTaskTotalDurationMs`
+        `1074` -> `1062`
+- CDP verification:
+  - fresh-context sub-agent checked `http://127.0.0.1:3075/settings`
+    directly in DevTools MCP headless mode
+  - confirmed `All Settings`, visible target section
+    `rotaryParamCodeObjDefault`, no obvious graph-surface corruption, and no
+    error-level console output
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - this slice lands a real production isolation boundary plus regression
+    coverage, but the live performance result is effectively flat
+  - do not spend the next iteration on another nearly-identical memo/isolation
+    split by default; the next bounded pass should either add fresh
+    attribution inside `presentedSceneSectionParamGroupContainerReactRender`
+    or choose a meaningfully different production seam in that hotspot
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-14 - item 450 - Section entry body memo boundary
 
 - reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 07:58 UTC
+Last updated: 2026-04-14 08:13 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,72 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `455` landed one bounded product cut on the canonical
+  `rotaryParamCodeObjDefault` lane by isolating unpinned scrollability observer
+  churn from the mounted param row subtree:
+  - local ranking/readout for this iteration:
+    - reread `RALPH.md`, the plan, and the handoff first, then checked the
+      recent lane pattern before choosing the next slice; the latest two
+      completed passes (`453`, `454`) were both real `GroupContainer` wins, so
+      this iteration stayed on the same lane but avoided another pure
+      forwarding hop or attribution-only pass
+    - chose the unpinned scrollability boundary because `GetUnpinnedParams`
+      still mixed observer-driven `useIsScrollable()` state with the mounted
+      `ParamDndList` subtree, which meant local scrollability flips could still
+      re-enter the row branch even after the earlier memo boundaries landed
+    - kept the slice bounded to one production split in `GroupContainer`, one
+      focused render-stability regression, one canonical live probe rerun, one
+      append-only perf report, and one fresh-context CDP smoke on direct
+      `/settings`
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now renders the unpinned branch through a memoized
+      `UnpinnedParamsArea` + `UnpinnedParamsRows` split so
+      `useIsScrollable()` observer state lives outside the mounted
+      `ParamDndList` row subtree
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves scrollability observer updates do not rematerialize the
+      mounted `ParamDndList` subtree
+    - `perf/reports/frontend/2026-04-14_settings-graph-unpinned-scrollability-row-boundary.md`
+      records the canonical readout and marks this slice as a stability win
+      rather than a fresh live performance win
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-015/worktree-ai.log`
+      -> passed (`1` Playwright test, `52.1s`)
+      -> fresh readout versus item `454`:
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `464.9ms total` / `58.1ms max` -> `470.1ms total` / `60.2ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `413.9ms total` / `55.0ms max` -> `415.2ms total` / `56.6ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `399.8ms total` / `53.4ms max` -> `397.6ms total` / `54.2ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `226.3ms total` / `8.6ms max` -> `223.3ms total` / `8.2ms max`
+         `averageFrameDurationMs`
+         `38.15` -> `38.37`
+         `longTaskTotalDurationMs`
+         `1074` -> `1062`
+  - CDP verification:
+    - fresh-context sub-agent checked `http://127.0.0.1:3075/settings`
+      directly in headless DevTools MCP
+    - confirmed the settings graph surface loaded on `All Settings`,
+      `rotaryParamCodeObjDefault` was visible at normal zoom, and there were
+      no error-level console messages or obvious graph-surface corruption
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this slice lands a real production isolation boundary and regression
+      coverage, but the live performance result is effectively flat rather than
+      another measurable win
+    - the next bounded pass should not keep stacking similar memo/isolation
+      cuts by default; either add fresh attribution inside
+      `presentedSceneSectionParamGroupContainerReactRender` or pick a different
+      production seam in that remaining hotspot
 
 - item `454` landed one bounded product cut on the canonical
   `rotaryParamCodeObjDefault` lane by memoizing the pinned/unpinned param

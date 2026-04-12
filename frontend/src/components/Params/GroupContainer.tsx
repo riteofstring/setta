@@ -757,6 +757,26 @@ type GetUnpinnedParamsProps = {
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
 };
 
+type UnpinnedParamsAreaProps = {
+  sectionId: string;
+  hideUnpinnedParams: boolean;
+  topLevelParamIds: Array<string>;
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  hasSectionStyleTheme: boolean;
+  shouldApplyMinHeight: boolean;
+  resolvedMinHeight: number;
+};
+
+type UnpinnedParamsRowsProps = {
+  sectionId: string;
+  hideUnpinnedParams: boolean;
+  topLevelParamIds: Array<string>;
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  hasSectionStyleTheme: boolean;
+};
+
 function GetPinnedParams({
   sectionId,
   handleColumnResizeStart,
@@ -1012,6 +1032,44 @@ function GetUnpinnedParams({
   }, [maxNestedDepth]);
 
   return (
+    <MemoizedUnpinnedParamsArea
+      sectionId={sectionId}
+      hideUnpinnedParams={hideUnpinnedParams}
+      topLevelParamIds={topLevelParamIds}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      handleColumnResizeStart={handleColumnResizeStart}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      shouldApplyMinHeight={shouldApplyMinHeight}
+      resolvedMinHeight={resolvedMinHeight}
+    />
+  );
+}
+
+const MemoizedGetUnpinnedParams = React.memo(GetUnpinnedParams);
+
+function UnpinnedParamsArea({
+  sectionId,
+  hideUnpinnedParams,
+  topLevelParamIds,
+  requiredParamIdsToPaths,
+  handleColumnResizeStart,
+  hasSectionStyleTheme,
+  shouldApplyMinHeight,
+  resolvedMinHeight,
+}: UnpinnedParamsAreaProps) {
+  const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const { ref: scrollRef, isScrollable } = useIsScrollable();
+
+  const setContainerRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      containerRef.current = node;
+      scrollRef.current = node;
+    },
+    [scrollRef],
+  );
+
+  return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <ParamAreaMinHeightObserver
         sectionId={sectionId}
@@ -1029,23 +1087,47 @@ function GetUnpinnedParams({
           shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
         }
       >
-        {!hideUnpinnedParams && (
-          <ParamDndList
-            sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={handleColumnResizeStart}
-            isTopLevel={true}
-            listKey="unpinned"
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
+        <MemoizedUnpinnedParamsRows
+          sectionId={sectionId}
+          hideUnpinnedParams={hideUnpinnedParams}
+          topLevelParamIds={topLevelParamIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          handleColumnResizeStart={handleColumnResizeStart}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
       </div>
     </div>
   );
 }
 
-const MemoizedGetUnpinnedParams = React.memo(GetUnpinnedParams);
+const MemoizedUnpinnedParamsArea = React.memo(UnpinnedParamsArea);
+
+function UnpinnedParamsRows({
+  sectionId,
+  hideUnpinnedParams,
+  topLevelParamIds,
+  requiredParamIdsToPaths,
+  handleColumnResizeStart,
+  hasSectionStyleTheme,
+}: UnpinnedParamsRowsProps) {
+  if (hideUnpinnedParams) {
+    return null;
+  }
+
+  return (
+    <ParamDndList
+      sectionId={sectionId}
+      paramIds={topLevelParamIds}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      onResizeStart={handleColumnResizeStart}
+      isTopLevel={true}
+      listKey="unpinned"
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    />
+  );
+}
+
+const MemoizedUnpinnedParamsRows = React.memo(UnpinnedParamsRows);
 
 function getLongestListLength(obj: Record<string, Array<string>>) {
   return Object.values(obj).reduce(
