@@ -109,7 +109,7 @@ export function isTextAttachment(attachment: ChatFileAttachment): boolean {
   return hasExtension(attachment, TEXT_EXTENSIONS);
 }
 
-function isPdfAttachment(attachment: ChatFileAttachment): boolean {
+export function isPdfAttachment(attachment: ChatFileAttachment): boolean {
   const mimeType = normalizeAttachmentMime(attachment);
   if (mimeType === "application/pdf") {
     return true;
@@ -120,7 +120,7 @@ function isPdfAttachment(attachment: ChatFileAttachment): boolean {
   return hasExtension(attachment, PDF_EXTENSIONS);
 }
 
-function isAudioAttachment(attachment: ChatFileAttachment): boolean {
+export function isAudioAttachment(attachment: ChatFileAttachment): boolean {
   const mimeType = normalizeAttachmentMime(attachment);
   if (mimeType.startsWith("audio/")) {
     return true;
@@ -131,7 +131,7 @@ function isAudioAttachment(attachment: ChatFileAttachment): boolean {
   return hasExtension(attachment, AUDIO_EXTENSIONS);
 }
 
-function isVideoAttachment(attachment: ChatFileAttachment): boolean {
+export function isVideoAttachment(attachment: ChatFileAttachment): boolean {
   const mimeType = normalizeAttachmentMime(attachment);
   if (mimeType.startsWith("video/")) {
     return true;
@@ -142,7 +142,7 @@ function isVideoAttachment(attachment: ChatFileAttachment): boolean {
   return hasExtension(attachment, VIDEO_EXTENSIONS);
 }
 
-function isArchiveAttachment(attachment: ChatFileAttachment): boolean {
+export function isArchiveAttachment(attachment: ChatFileAttachment): boolean {
   const mimeType = normalizeAttachmentMime(attachment);
   if (ARCHIVE_MIME_TYPES.has(mimeType)) {
     return true;

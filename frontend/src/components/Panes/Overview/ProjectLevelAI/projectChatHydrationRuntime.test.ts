@@ -16,7 +16,7 @@ import {
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
 } from "state/actions/ai";
-import { hydrateProjectChatFromRuntime } from "./projectChatCoreUtils";
+import { hydrateProjectChatFromRuntime } from "./ProjectChatCore";
 
 describe("hydrateProjectChatFromRuntime", () => {
   beforeEach(() => {

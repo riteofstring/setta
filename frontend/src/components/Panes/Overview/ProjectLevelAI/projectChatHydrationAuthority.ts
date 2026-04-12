@@ -21,11 +21,6 @@ type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
   engineConfigsAuthoritative: boolean;
 };
 
-type ReadySelectedScopedChatProvenance = Extract<
-  SelectedScopedChatProvenance,
-  { status: "ready" }
->;
-
 export type ProjectChatThreadBlockedErrorCode =
   | "chat_provenance_missing"
   | "engine_config_missing"
@@ -55,17 +50,6 @@ export type ProjectChatHydrationAuthority =
       blockedErrorCode: null;
     };
 
-type SelectedChatRequirement =
-  | {
-      status: "ready";
-      provenance: ReadySelectedScopedChatProvenance["provenance"];
-      requiredEngineConfigId: string;
-    }
-  | {
-      status: "resolved";
-      compatibility: ProjectChatThreadCompatibilityResult;
-    };
-
 function isSelectedChatRunTypeCompatibleWithEngineType({
   runType,
   engineType,
@@ -82,53 +66,6 @@ function isSelectedChatRunTypeCompatibleWithEngineType({
   return false;
 }
 
-function resolveCompatibilityFromAuthoritativeState(
-  authoritative: boolean,
-  errorCode: ProjectChatThreadBlockedErrorCode,
-): ProjectChatThreadCompatibilityResult {
-  return authoritative
-    ? {
-        status: "warning",
-        errorCode,
-      }
-    : {
-        status: "unknown",
-      };
-}
-
-function resolveSelectedChatRequirement({
-  selectedScopedChatProvenance,
-  chatProvenanceAuthoritative,
-}: Pick<
-  ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput,
-  "selectedScopedChatProvenance" | "chatProvenanceAuthoritative"
->): SelectedChatRequirement {
-  if (selectedScopedChatProvenance.status !== "ready") {
-    return {
-      status: "resolved",
-      compatibility: resolveCompatibilityFromAuthoritativeState(
-        chatProvenanceAuthoritative,
-        "chat_provenance_missing",
-      ),
-    };
-  }
-  const { provenance } = selectedScopedChatProvenance;
-  if (!provenance.engineConfigId) {
-    return {
-      status: "resolved",
-      compatibility: resolveCompatibilityFromAuthoritativeState(
-        chatProvenanceAuthoritative,
-        "chat_provenance_missing",
-      ),
-    };
-  }
-  return {
-    status: "ready",
-    provenance,
-    requiredEngineConfigId: provenance.engineConfigId,
-  };
-}
-
 export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   chatId,
   selectedScopedChatProvenance,
@@ -140,20 +77,38 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   if (!resolvedChatId) {
     return { status: "compatible" };
   }
-  const selectedChatRequirement = resolveSelectedChatRequirement({
-    selectedScopedChatProvenance,
-    chatProvenanceAuthoritative,
-  });
-  if (selectedChatRequirement.status !== "ready") {
-    return selectedChatRequirement.compatibility;
+  if (
+    selectedScopedChatProvenance.status === "missing" ||
+    selectedScopedChatProvenance.status === "ambiguous"
+  ) {
+    if (!chatProvenanceAuthoritative) {
+      return { status: "unknown" };
+    }
+    return {
+      status: "warning",
+      errorCode: "chat_provenance_missing",
+    };
   }
-  const { provenance, requiredEngineConfigId } = selectedChatRequirement;
+  const provenance = selectedScopedChatProvenance.provenance;
+  const requiredEngineConfigId = provenance.engineConfigId;
+  if (!requiredEngineConfigId) {
+    if (!chatProvenanceAuthoritative) {
+      return { status: "unknown" };
+    }
+    return {
+      status: "warning",
+      errorCode: "chat_provenance_missing",
+    };
+  }
   const requiredEngine = engineConfigById.get(requiredEngineConfigId);
   if (!requiredEngine) {
-    return resolveCompatibilityFromAuthoritativeState(
-      engineConfigsAuthoritative,
-      "engine_config_missing",
-    );
+    if (!engineConfigsAuthoritative) {
+      return { status: "unknown" };
+    }
+    return {
+      status: "warning",
+      errorCode: "engine_config_missing",
+    };
   }
   if (
     !isSelectedChatRunTypeCompatibleWithEngineType({
