@@ -62,4 +62,11 @@ describe("endpointUtils", () => {
     expect(getErrorDetail(binaryJson)).toBe("Project config not found.");
     expect(getErrorCode(binaryJson)).toBe("project_config_not_found");
   });
+
+  it("falls back to decoded binary text when no structured detail exists", () => {
+    const binaryText = new TextEncoder().encode("Plain text failure");
+
+    expect(getErrorDetail(binaryText)).toBe("Plain text failure");
+    expect(getErrorCode(binaryText)).toBeNull();
+  });
 });
