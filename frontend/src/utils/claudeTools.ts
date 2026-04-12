@@ -6,22 +6,9 @@ import {
 } from "utils/generatedTypes";
 import { normalizeGeneratedToolName } from "./bindingRuntime";
 
-export const TODO_TOOL_NAME = ToolNameNormalizationConfig.todoWriteToolName;
 export const QUESTION_TOOL_NAME =
   ToolNameNormalizationConfig.askUserQuestionToolName;
 export const APPROVAL_TOOL_NAME = ToolNameNormalizationConfig.approvalToolName;
-
-export type TodoStatus = "pending" | "in_progress" | "completed";
-
-export type TodoItem = {
-  content: string;
-  status: TodoStatus;
-  activeForm?: string;
-};
-
-export type TodoListPayload = {
-  todos: TodoItem[];
-};
 
 type AskUserQuestionOption = {
   label: string;
@@ -40,7 +27,7 @@ export type AskUserQuestionPayload = {
   answers?: Record<string, string>;
 };
 
-export type ApprovalPayload = {
+type ApprovalPayload = {
   approvalId?: string;
   toolName?: string;
   toolType?: string;
@@ -112,35 +99,6 @@ export function resolveToolCallArguments(
     return null;
   }
   return parsed;
-}
-
-export function parseTodoPayload(value: unknown): TodoListPayload | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-  const todosValue = value.todos;
-  if (!Array.isArray(todosValue)) {
-    return null;
-  }
-  const todos: TodoItem[] = [];
-  for (const entry of todosValue) {
-    if (!isRecord(entry)) {
-      continue;
-    }
-    const content = typeof entry.content === "string" ? entry.content : "";
-    const status = parseTodoStatus(entry.status);
-    if (!content || !status) {
-      continue;
-    }
-    const activeForm =
-      typeof entry.activeForm === "string" ? entry.activeForm : undefined;
-    const todo: TodoItem = { content, status };
-    if (activeForm) {
-      todo.activeForm = activeForm;
-    }
-    todos.push(todo);
-  }
-  return { todos };
 }
 
 export function parseAskUserQuestionPayload(
@@ -328,13 +286,6 @@ function extractToolName(value: Record<string, unknown>): string | undefined {
     return undefined;
   }
   return readOptionalString(tool.name);
-}
-
-function parseTodoStatus(value: unknown): TodoStatus | null {
-  if (value === "pending" || value === "in_progress" || value === "completed") {
-    return value;
-  }
-  return null;
 }
 
 function safeJsonParse(value: string): unknown | null {
