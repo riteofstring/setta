@@ -257,37 +257,59 @@ function resolveTaskBoardOverId({
   overId: UniqueIdentifier | null;
   collisions: DragOverEvent["collisions"] | DragEndEvent["collisions"];
 }): UniqueIdentifier | null {
-  const candidateIds: UniqueIdentifier[] = [];
-  if (overId !== null) {
-    candidateIds.push(overId);
-  }
+  const candidateIds = collectTaskBoardCandidateIds(overId, collisions);
+  return (
+    findTaskBoardCandidateId(candidateIds, (candidateId) =>
+      isTaskBoardTaskDropCandidate(candidateId, sourceTaskId),
+    ) ??
+    findTaskBoardCandidateId(candidateIds, isTaskBoardColumnDropCandidate) ??
+    findTaskBoardCandidateId(candidateIds, isTaskBoardListDropCandidate) ??
+    overId
+  );
+}
+
+function collectTaskBoardCandidateIds(
+  overId: UniqueIdentifier | null,
+  collisions: DragOverEvent["collisions"] | DragEndEvent["collisions"],
+): UniqueIdentifier[] {
+  const candidateIds: UniqueIdentifier[] = overId !== null ? [overId] : [];
   collisions?.forEach((collision) => {
+    const collisionIdText = String(collision.id);
     if (
       candidateIds.some(
-        (candidateId) => String(candidateId) === String(collision.id),
+        (candidateId) => String(candidateId) === collisionIdText,
       )
     ) {
       return;
     }
     candidateIds.push(collision.id);
   });
-  for (const candidateId of candidateIds) {
-    const candidateTaskId = getTaskIdFromDndIdentifier(candidateId);
-    if (candidateTaskId && candidateTaskId !== sourceTaskId) {
-      return candidateId;
-    }
-  }
-  for (const candidateId of candidateIds) {
-    if (getColumnIdFromDndIdentifier(candidateId)) {
-      return candidateId;
-    }
-  }
-  for (const candidateId of candidateIds) {
-    if (String(candidateId) === TASK_BOARD_LIST_DROP_ID) {
-      return candidateId;
-    }
-  }
-  return overId;
+  return candidateIds;
+}
+
+function findTaskBoardCandidateId(
+  candidateIds: UniqueIdentifier[],
+  predicate: (candidateId: UniqueIdentifier) => boolean,
+): UniqueIdentifier | null {
+  return candidateIds.find(predicate) ?? null;
+}
+
+function isTaskBoardTaskDropCandidate(
+  candidateId: UniqueIdentifier,
+  sourceTaskId: string,
+): boolean {
+  const candidateTaskId = getTaskIdFromDndIdentifier(candidateId);
+  return candidateTaskId !== null && candidateTaskId !== sourceTaskId;
+}
+
+function isTaskBoardColumnDropCandidate(
+  candidateId: UniqueIdentifier,
+): boolean {
+  return getColumnIdFromDndIdentifier(candidateId) !== null;
+}
+
+function isTaskBoardListDropCandidate(candidateId: UniqueIdentifier): boolean {
+  return String(candidateId) === TASK_BOARD_LIST_DROP_ID;
 }
 function resolveTaskBoardDropTarget({
   sourceTaskId,
