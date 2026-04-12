@@ -70,7 +70,7 @@ export function setActiveFrontendWebsocketAffinityGeneration(
   notifyAffinityWaiters();
 }
 
-export function getFrontendAffinityToken(): string | null {
+function getFrontendAffinityToken(): string | null {
   if (frontendAffinityTokenGeneration !== activeFrontendWebsocketGeneration) {
     return null;
   }

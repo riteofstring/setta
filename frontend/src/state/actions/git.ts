@@ -60,9 +60,7 @@ function createClearedGitGraphSelectionState() {
     selectedCommitFileDiffError: null,
   };
 }
-export function buildGitDiffAvailabilityByPath(
-  entries: readonly StatusEntry[],
-): Map<
+function buildGitDiffAvailabilityByPath(entries: readonly StatusEntry[]): Map<
   string,
   {
     hasStaged: boolean;

@@ -15,7 +15,6 @@ import { useGitStore } from "state/git";
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildGitDiffAvailabilityByPath,
   clearGitGraphSelectedCommit,
   ensureGitGraphStateLoaded,
   loadMoreGitGraphCommits,
@@ -182,7 +181,7 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
-function setGitStatusResponse(
+async function setGitStatusResponse(
   entries: Array<{
     path: string;
     oldPath: string | null;
@@ -190,22 +189,13 @@ function setGitStatusResponse(
     worktreeStatus: string;
     kind: "conflict" | "staged" | "unstaged" | "untracked";
   }>,
-): void {
-  const diffAvailabilityByPath = buildGitDiffAvailabilityByPath(
-    entries.map((entry) => ({
-      ...entry,
-      oldPath: entry.oldPath ?? undefined,
-    })),
-  );
-  useGitStore.setState((state) => ({
-    ...state,
-    status: {
-      response: createStatusResponse(entries),
-      diffAvailabilityByPath,
-      isLoading: false,
-      error: null,
-    },
-  }));
+): Promise<void> {
+  vi.mocked(getGitStatus).mockResolvedValue({
+    status: 200,
+    hasResponse: true,
+    data: createStatusResponse(entries),
+  });
+  await refreshGitStatus();
 }
 
 describe("git graph actions", () => {
@@ -466,7 +456,7 @@ describe("git graph actions", () => {
   });
 
   it("preserves oldPath when requesting diffs across mode toggles", async () => {
-    setGitStatusResponse([
+    await setGitStatusResponse([
       {
         path: "renamed.py",
         oldPath: "legacy.py",
@@ -483,7 +473,10 @@ describe("git graph actions", () => {
       },
     ]);
     vi.mocked(getGitDiff).mockImplementation(async ({ body }) => {
-      const { path, mode } = body!;
+      if (!body) {
+        throw new Error("Expected git diff request body.");
+      }
+      const { path, mode } = body;
       return {
         status: 200,
         hasResponse: true,
@@ -530,7 +523,7 @@ describe("git graph actions", () => {
   });
 
   it("does not duplicate preload state writes when opening git diff overlay", async () => {
-    setGitStatusResponse([
+    await setGitStatusResponse([
       {
         path: "tracked.py",
         oldPath: null,
@@ -562,30 +555,39 @@ describe("git graph actions", () => {
     setStateSpy.mockRestore();
   });
 
-  it("builds a path-indexed staged/unstaged availability map", () => {
-    const availabilityByPath = buildGitDiffAvailabilityByPath([
-      {
-        path: "tracked.py",
-        oldPath: undefined,
-        indexStatus: "M",
-        worktreeStatus: " ",
-        kind: "staged",
-      },
-      {
-        path: "tracked.py",
-        oldPath: undefined,
-        indexStatus: " ",
-        worktreeStatus: "M",
-        kind: "unstaged",
-      },
-      {
-        path: "new.py",
-        oldPath: undefined,
-        indexStatus: "?",
-        worktreeStatus: "?",
-        kind: "untracked",
-      },
-    ]);
+  it("builds a path-indexed staged/unstaged availability map", async () => {
+    vi.mocked(getGitStatus).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createStatusResponse([
+        {
+          path: "tracked.py",
+          oldPath: null,
+          indexStatus: "M",
+          worktreeStatus: " ",
+          kind: "staged",
+        },
+        {
+          path: "tracked.py",
+          oldPath: null,
+          indexStatus: " ",
+          worktreeStatus: "M",
+          kind: "unstaged",
+        },
+        {
+          path: "new.py",
+          oldPath: null,
+          indexStatus: "?",
+          worktreeStatus: "?",
+          kind: "untracked",
+        },
+      ]),
+    });
+
+    await refreshGitStatus();
+
+    const availabilityByPath =
+      useGitStore.getState().status.diffAvailabilityByPath;
 
     expect(availabilityByPath.get("tracked.py")).toEqual({
       hasStaged: true,
@@ -597,23 +599,32 @@ describe("git graph actions", () => {
     });
   });
 
-  it("treats prototype-like file names as normal keys in diff availability map", () => {
-    const availabilityByPath = buildGitDiffAvailabilityByPath([
-      {
-        path: "toString",
-        oldPath: undefined,
-        indexStatus: "M",
-        worktreeStatus: " ",
-        kind: "staged",
-      },
-      {
-        path: "__proto__",
-        oldPath: undefined,
-        indexStatus: " ",
-        worktreeStatus: "M",
-        kind: "unstaged",
-      },
-    ]);
+  it("treats prototype-like file names as normal keys in diff availability map", async () => {
+    vi.mocked(getGitStatus).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createStatusResponse([
+        {
+          path: "toString",
+          oldPath: null,
+          indexStatus: "M",
+          worktreeStatus: " ",
+          kind: "staged",
+        },
+        {
+          path: "__proto__",
+          oldPath: null,
+          indexStatus: " ",
+          worktreeStatus: "M",
+          kind: "unstaged",
+        },
+      ]),
+    });
+
+    await refreshGitStatus();
+
+    const availabilityByPath =
+      useGitStore.getState().status.diffAvailabilityByPath;
 
     expect(availabilityByPath.get("toString")).toEqual({
       hasStaged: true,
@@ -626,7 +637,7 @@ describe("git graph actions", () => {
   });
 
   it("clears stale git status payload when a refresh fails", async () => {
-    setGitStatusResponse([
+    await setGitStatusResponse([
       {
         path: "tracked.py",
         oldPath: null,
@@ -664,7 +675,10 @@ describe("git graph actions", () => {
     });
 
     vi.mocked(getGitCommitDetails).mockImplementation(async ({ body }) => {
-      const { commitHash } = body!;
+      if (!body) {
+        throw new Error("Expected commit details request body.");
+      }
+      const { commitHash } = body;
       if (commitHash === "a1b2c3") {
         return {
           status: 200,
@@ -777,7 +791,10 @@ describe("git graph actions", () => {
       }),
     });
     vi.mocked(getGitCommitDetails).mockImplementation(({ body }) => {
-      const { commitHash } = body!;
+      if (!body) {
+        throw new Error("Expected commit details request body.");
+      }
+      const { commitHash } = body;
       if (commitHash !== "a1b2c3") {
         throw new Error("Unexpected commit details request.");
       }

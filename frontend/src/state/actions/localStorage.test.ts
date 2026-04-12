@@ -6,7 +6,6 @@ import {
 } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  setChatSharedEdgeMode,
   setColorModePreference,
   setOverviewProjectConfigOrder,
   toggleChatSharedEdgeMode,
@@ -39,12 +38,6 @@ describe("setColorModePreference", () => {
 describe("shared chat edge mode", () => {
   beforeEach(() => {
     useLocalStorage.setState({ chatSharedEdgeMode: "agentic" });
-  });
-
-  it("sets the shared chat edge mode explicitly", () => {
-    setChatSharedEdgeMode("workflow");
-
-    expect(useLocalStorage.getState().chatSharedEdgeMode).toBe("workflow");
   });
 
   it("toggles between agentic and workflow", () => {

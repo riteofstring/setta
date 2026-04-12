@@ -35,7 +35,7 @@ export function normalizeSettaFilesLocation(
   return defaultSettaFilesLocation;
 }
 
-export function normalizeResolvedSettaFilesLocation(
+function normalizeResolvedSettaFilesLocation(
   value: unknown,
 ): ResolvedSettaFilesLocation | null {
   if (typeof value !== "string") {

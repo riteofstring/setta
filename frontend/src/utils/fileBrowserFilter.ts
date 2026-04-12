@@ -38,10 +38,7 @@ export function parseFileBrowserFilterText(
   return { kind: "name", needle: normalized };
 }
 
-export function fuzzySubsequenceMatch(
-  needle: string,
-  haystack: string,
-): boolean {
+function fuzzySubsequenceMatch(needle: string, haystack: string): boolean {
   if (!needle) {
     return true;
   }
