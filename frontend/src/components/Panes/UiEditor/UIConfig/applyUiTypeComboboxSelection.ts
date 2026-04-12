@@ -1,21 +1,18 @@
-import { changeParamImpl, updateParamImplConfig } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+  route_change_param_impl,
+  route_update_param_impl_config,
+} from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
-  NotificationTypeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { CALENDAR_PRESET_ID, CodeObjTypeFilterKey } from "./UITypeCombobox";
-type ChangeParamImplRouteResponse = ResponseDataAndStatus<null>;
-type UpdateParamImplConfigRouteResponse = ResponseDataAndStatus<null>;
+
 export async function applyUiTypeComboboxSelection(args: {
   projectConfigId: string;
   sectionId: string;
@@ -31,61 +28,49 @@ export async function applyUiTypeComboboxSelection(args: {
         "Calendar preset selection is only valid for control params.",
       );
     }
-    const changeRes = (await callOpenAPI(
-      changeParamImpl({
-        body: {
-          projectConfigId,
-          sectionId,
-          paramInfoId,
-          selectedId: CodeObjTypeEnum.DateParam,
-        },
-      } as Parameters<typeof changeParamImpl>[0]),
-    )) as ChangeParamImplRouteResponse;
+    const changeRes = await route_change_param_impl({
+      projectConfigId,
+      sectionId,
+      paramInfoId,
+      selectedId: CodeObjTypeEnum.DateParam,
+    });
     if (!res200(changeRes)) {
       addTemporaryNotification(
         getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",
-        NotificationTypeEnum.error,
+        SettaNotificationTypeEnum.error,
       );
       return;
     }
-    const configRes = (await callOpenAPI(
-      updateParamImplConfig({
-        body: {
-          projectConfigId,
-          sectionId,
-          paramInfoId,
-          newConfig: {
-            dateControlMode: DateControlModeEnum.calendar,
-            dateSelectionMode: DateSelectionModeEnum.multiple,
-            dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-          },
-        },
-      } as Parameters<typeof updateParamImplConfig>[0]),
-    )) as UpdateParamImplConfigRouteResponse;
+    const configRes = await route_update_param_impl_config({
+      projectConfigId,
+      sectionId,
+      paramInfoId,
+      newConfig: {
+        dateControlMode: DateControlModeEnum.calendar,
+        dateSelectionMode: DateSelectionModeEnum.multiple,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+      },
+    });
     if (!res200(configRes)) {
       addTemporaryNotification(
         getErrorDetail(configRes.data) ??
           "Failed to apply calendar preset configuration.",
-        NotificationTypeEnum.error,
+        SettaNotificationTypeEnum.error,
       );
       return;
     }
     return;
   }
-  const changeRes = (await callOpenAPI(
-    changeParamImpl({
-      body: {
-        projectConfigId,
-        sectionId,
-        paramInfoId,
-        selectedId,
-      },
-    } as Parameters<typeof changeParamImpl>[0]),
-  )) as ChangeParamImplRouteResponse;
+  const changeRes = await route_change_param_impl({
+    projectConfigId,
+    sectionId,
+    paramInfoId,
+    selectedId,
+  });
   if (!res200(changeRes)) {
     addTemporaryNotification(
       getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",
-      NotificationTypeEnum.error,
+      SettaNotificationTypeEnum.error,
     );
   }
 }
