@@ -31,14 +31,10 @@ function _Container({
 }) {
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
 
-  function totalRef(element: HTMLDivElement | null) {
-    refForPosition.current = element;
-    if (droppableRef) {
-      droppableRef(element);
-    }
-    if (draggableRef) {
-      draggableRef(element);
-    }
+  function totalRef(e) {
+    refForPosition.current = e;
+    droppableRef && droppableRef(e);
+    draggableRef && draggableRef(e);
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
@@ -47,6 +43,7 @@ function _Container({
     <ContainerGroup
       sectionId={sectionId}
       commonProps={commonProps}
+      refForPosition={refForPosition}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
       className={className}
@@ -71,6 +68,7 @@ export const Container = React.memo(_Container, _.isEqual);
 function ContainerGroup({
   sectionId,
   commonProps,
+  refForPosition,
   isEditingViewMode,
   isUserView,
   className,
@@ -97,164 +95,80 @@ function ContainerGroup({
   const disablePointerEvents = useShouldDisablePointerEvents();
   const { ref: overflowRef, isScrollable } = useIsScrollable();
 
+  // Apply this only to the group title.
+  // For sections, this is applied in SectionContainerCore.
+  // We want to apply this lower down in the component tree, because dnd needs onPointerDown to work.
+  const pointerSelectCSS = disablePointerEvents
+    ? "pointer-events-none select-none"
+    : "";
+
   const outlineColor = getOutlineColor({
     isActiveSection,
     isInOtherProjectConfigs,
   });
-  const pointerSelectClassName =
-    getPointerSelectClassName(disablePointerEvents);
-  const groupStyle = getGroupStyle(style, overflowMode, size);
-  const contentClassName = getContentClassName(overflowMode, isScrollable);
-  const rootClassName = getGroupRootClassName(overflowMode, className);
-  const outlineClassName = getGroupOutlineClassName(
-    positionAndSizeLocked,
-    outlineColor,
-  );
+
+  const groupStyle = { ...(style ?? {}) };
+  if (overflowMode && size.width !== "auto") {
+    groupStyle.width = size.width;
+  }
+  if (overflowMode && size.height !== "auto") {
+    groupStyle.height = size.height;
+  }
+
+  let contentClassName = "z-10";
+  if (overflowMode) {
+    contentClassName =
+      "z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
+    if (isScrollable) {
+      contentClassName = `${contentClassName} ${NO_WHEEL_CLASS_NAME}`;
+    }
+  }
 
   return (
     <div
-      className={rootClassName}
+      className={`group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${
+        overflowMode ? "min-h-0 min-w-0" : ""
+      } ${className}`}
       {...commonProps}
       onClick={getOnSectionClick(sectionId)}
       tabIndex={-1} // keeps section focusable for programmatic focus
       style={groupStyle}
     >
-      <div className={outlineClassName} />
-      <GroupHeader
-        sectionId={sectionId}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        pointerSelectClassName={pointerSelectClassName}
-        isUserView={isUserView}
-        isEditingViewMode={isEditingViewMode}
+      <div
+        className={`outline outline-4 ${outlineColor} transition-radius absolute left-0 right-0 top-0 z-0 h-full w-full ${positionAndSizeLocked ? "rounded-sm border-setta-400/90 dark:border-setta-975/35" : "rounded-3xl border-setta-50/50 dark:border-setta-700"}  border border-solid  bg-setta-100/40 outline outline-2 outline-transparent   dark:bg-setta-860/50`}
       />
+      <div className="z-10 flex min-h-10 w-full items-center">
+        <MenuButton
+          sectionId={sectionId}
+          sectionTypeName={SectionTypeEnum.Group}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+          hasSectionStyleTheme={false}
+        />
+        <div
+          className={`${pointerSelectCSS} relative my-auto mr-2 flex min-h-10 w-full items-center overflow-hidden`}
+        >
+          <GroupSectionTitle sectionId={sectionId} />
+        </div>
+        {!isUserView && (
+          <div className="z-10 ml-auto flex items-center">
+            <ChangeOrientationButton sectionId={sectionId} />
+            <LockPositionButton sectionId={sectionId} />
+            <DeleteOrHideButton
+              sectionId={sectionId}
+              size={`min-w-4 h-4 ${isEditingViewMode ? "scale-120" : "scale-150"}  `}
+            />
+          </div>
+        )}
+      </div>
 
       <div className={contentClassName} ref={overflowRef}>
-        <EmptyGroupDropHint hasNested={hasNested} />
+        {!hasNested && (
+          <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500">
+            Drop A Section Here.
+          </div>
+        )}
         {children}
       </div>
-    </div>
-  );
-}
-
-function getPointerSelectClassName(disablePointerEvents: boolean) {
-  // Apply this only to the group title.
-  // For sections, this is applied in SectionContainerCore.
-  // We want to apply this lower down in the component tree, because dnd needs onPointerDown to work.
-  return disablePointerEvents ? "pointer-events-none select-none" : "";
-}
-
-function getGroupStyle(
-  style: React.CSSProperties | undefined,
-  overflowMode: boolean,
-  size: { width: string | number; height: string | number },
-) {
-  const groupStyle = { ...(style ?? {}) };
-  if (!overflowMode) {
-    return groupStyle;
-  }
-  if (size.width !== "auto") {
-    groupStyle.width = size.width;
-  }
-  if (size.height !== "auto") {
-    groupStyle.height = size.height;
-  }
-  return groupStyle;
-}
-
-function getContentClassName(overflowMode: boolean, isScrollable: boolean) {
-  if (!overflowMode) {
-    return "z-10";
-  }
-  const className =
-    "z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
-  return isScrollable ? `${className} ${NO_WHEEL_CLASS_NAME}` : className;
-}
-
-function getGroupRootClassName(
-  overflowMode: boolean,
-  className: string | undefined,
-) {
-  return `group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${
-    overflowMode ? "min-h-0 min-w-0" : ""
-  } ${className ?? ""}`;
-}
-
-function getGroupOutlineClassName(
-  positionAndSizeLocked: boolean,
-  outlineColor: string,
-) {
-  const lockClassName = positionAndSizeLocked
-    ? "rounded-sm border-setta-400/90 dark:border-setta-975/35"
-    : "rounded-3xl border-setta-50/50 dark:border-setta-700";
-  return `outline outline-4 ${outlineColor} transition-radius absolute left-0 right-0 top-0 z-0 h-full w-full ${lockClassName}  border border-solid  bg-setta-100/40 outline outline-2 outline-transparent   dark:bg-setta-860/50`;
-}
-
-function GroupHeader({
-  sectionId,
-  isInOtherProjectConfigs,
-  pointerSelectClassName,
-  isUserView,
-  isEditingViewMode,
-}: {
-  sectionId: string;
-  isInOtherProjectConfigs: boolean;
-  pointerSelectClassName: string;
-  isUserView: boolean;
-  isEditingViewMode: boolean;
-}) {
-  return (
-    <div className="z-10 flex min-h-10 w-full items-center">
-      <MenuButton
-        sectionId={sectionId}
-        sectionTypeName={SectionTypeEnum.Group}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        hasSectionStyleTheme={false}
-      />
-      <div
-        className={`${pointerSelectClassName} relative my-auto mr-2 flex min-h-10 w-full items-center overflow-hidden`}
-      >
-        <GroupSectionTitle sectionId={sectionId} />
-      </div>
-      <GroupHeaderActions
-        sectionId={sectionId}
-        isUserView={isUserView}
-        isEditingViewMode={isEditingViewMode}
-      />
-    </div>
-  );
-}
-
-function GroupHeaderActions({
-  sectionId,
-  isUserView,
-  isEditingViewMode,
-}: {
-  sectionId: string;
-  isUserView: boolean;
-  isEditingViewMode: boolean;
-}) {
-  if (isUserView) {
-    return null;
-  }
-  return (
-    <div className="z-10 ml-auto flex items-center">
-      <ChangeOrientationButton sectionId={sectionId} />
-      <LockPositionButton sectionId={sectionId} />
-      <DeleteOrHideButton
-        sectionId={sectionId}
-        size={`min-w-4 h-4 ${isEditingViewMode ? "scale-120" : "scale-150"}  `}
-      />
-    </div>
-  );
-}
-
-function EmptyGroupDropHint({ hasNested }: { hasNested: boolean }) {
-  if (hasNested) {
-    return null;
-  }
-  return (
-    <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500">
-      Drop A Section Here.
     </div>
   );
 }
