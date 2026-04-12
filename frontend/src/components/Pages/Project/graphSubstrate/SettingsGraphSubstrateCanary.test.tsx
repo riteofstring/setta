@@ -263,6 +263,16 @@ describe("SettingsGraphSubstrateCanary", () => {
     expect(
       presentedSceneSectionVisibilityFilterEntry.totalDurationMs,
     ).toBeGreaterThan(0);
+    const presentedSceneSectionSubtreeReactRenderEntry =
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.presentedSceneSectionSubtreeReactRender;
+    expect(presentedSceneSectionSubtreeReactRenderEntry.count).toBe(1);
+    expect(
+      presentedSceneSectionSubtreeReactRenderEntry.maxDurationMs,
+    ).toBeGreaterThan(0);
+    expect(
+      presentedSceneSectionSubtreeReactRenderEntry.totalDurationMs,
+    ).toBeGreaterThan(0);
     const presentedSceneBodyMountFilterEntry =
       readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
         .motionAttribution.presentedSceneBodyMountFilter;

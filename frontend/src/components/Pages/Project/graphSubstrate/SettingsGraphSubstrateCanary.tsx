@@ -1,4 +1,5 @@
 import {
+  Profiler,
   useCallback,
   useEffect,
   useMemo,
@@ -11,6 +12,7 @@ import { useSettingsGraphSubstrateCanaryController } from "./settingsGraphSubstr
 import {
   createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
   measureSettingsGraphSubstrateCanaryMotionAttribution,
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
 } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
@@ -44,6 +46,19 @@ export function SettingsGraphSubstrateCanary() {
       return currentSectionId === sectionId ? currentSectionId : sectionId;
     });
   }, []);
+  const handleSectionsLayerRender = useCallback(
+    (
+      _id: string,
+      _phase: "mount" | "nested-update" | "update",
+      actualDuration: number,
+    ) => {
+      recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+        "presentedSceneSectionSubtreeReactRender",
+        actualDuration,
+      );
+    },
+    [],
+  );
   const visibleViewportWorldRect = useMemo(() => {
     return resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
       viewport: controller.resolvedViewport,
@@ -178,15 +193,20 @@ export function SettingsGraphSubstrateCanary() {
         }}
       >
         {controller.sceneSections.length > 0 ? (
-          <SettingsGraphSubstrateCanarySectionsLayer
-            draggingSectionId={controller.draggingSectionId}
-            hoveredSectionId={hoveredSectionId}
-            mountedSectionBodyIds={mountedSectionBodyIds}
-            onHoveredSectionChange={handleHoveredSectionChange}
-            presentedSceneSections={presentedSceneSections}
-            sceneSections={controller.sceneSections}
-            sectionDragController={controller.sectionDragController}
-          />
+          <Profiler
+            id="settings-graph-substrate-canary-sections-layer"
+            onRender={handleSectionsLayerRender}
+          >
+            <SettingsGraphSubstrateCanarySectionsLayer
+              draggingSectionId={controller.draggingSectionId}
+              hoveredSectionId={hoveredSectionId}
+              mountedSectionBodyIds={mountedSectionBodyIds}
+              onHoveredSectionChange={handleHoveredSectionChange}
+              presentedSceneSections={presentedSceneSections}
+              sceneSections={controller.sceneSections}
+              sectionDragController={controller.sectionDragController}
+            />
+          </Profiler>
         ) : (
           <div
             className="flex h-full items-center justify-center text-xs text-setta-500 dark:text-setta-400"

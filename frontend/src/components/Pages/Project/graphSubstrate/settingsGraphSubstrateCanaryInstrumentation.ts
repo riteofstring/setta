@@ -8,6 +8,7 @@ export const SETTINGS_GRAPH_SUBSTRATE_CANARY_MOTION_ATTRIBUTION_OWNERS = [
   "presentedSceneSectionArrayReuseCheck",
   "presentedSceneBodyMountFilter",
   "presentedSceneSectionEntriesResolve",
+  "presentedSceneSectionSubtreeReactRender",
   "presentedSceneSectionVisibilityFilter",
   "presentedSceneVisibleViewportWorldRectResolve",
   "reactFlowTransformFollowerCallback",
@@ -104,14 +105,28 @@ export function measureSettingsGraphSubstrateCanaryMotionAttribution<T>(
 
   const startTimestamp = performance.now();
   const result = fn();
-  const durationMs = performance.now() - startTimestamp;
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    owner,
+    performance.now() - startTimestamp,
+  );
+  return result;
+}
+
+export function recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+  owner: SettingsGraphSubstrateCanaryMotionAttributionOwner,
+  durationMs: number,
+) {
+  const scope = getSettingsGraphSubstrateCanaryInstrumentationScope();
+  const snapshot = scope.__settaSettingsGraphSubstrateCanaryInstrumentation;
+  if (!snapshot?.motionAttributionActive) {
+    return;
+  }
   const currentEntry = snapshot.motionAttribution[owner];
   snapshot.motionAttribution[owner] = {
     count: currentEntry.count + 1,
     maxDurationMs: Math.max(currentEntry.maxDurationMs, durationMs),
     totalDurationMs: currentEntry.totalDurationMs + durationMs,
   };
-  return result;
 }
 
 function getSettingsGraphSubstrateCanaryInstrumentationScope(): SettingsGraphSubstrateCanaryInstrumentationScope {

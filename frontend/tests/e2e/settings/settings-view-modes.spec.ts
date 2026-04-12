@@ -562,6 +562,7 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
       "presentedSceneSectionArrayReuseCheck",
       "presentedSceneBodyMountFilter",
       "presentedSceneSectionEntriesResolve",
+      "presentedSceneSectionSubtreeReactRender",
       "presentedSceneSectionVisibilityFilter",
       "presentedSceneVisibleViewportWorldRectResolve",
     ] as const;

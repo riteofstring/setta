@@ -233,3 +233,73 @@ aggregate long-task totals.
   pan-time consumer
 - the next attribution slice should target synchronous work outside the current
   canary owner set that still dominates `panForward` and `panReturn`
+
+## 2026-04-13 Sections-Subtree React Render Attribution
+
+### What changed
+
+- added one profiler-backed canary motion owner:
+  `presentedSceneSectionSubtreeReactRender`
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  with direct-duration recording so React profiler callbacks can write into the
+  shared motion snapshot without manufacturing a wrapper timer
+- wrapped the DOM sections subtree in
+  `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  with a React `Profiler` so the probe can measure actual subtree render
+  duration during pan/zoom motion
+- extended focused coverage in:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+- updated the worktree/reference motion probes to accept the new owner in:
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  - passed (`2` files, `10` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - passed
+- live worktree probe on run `029`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-029/worktree-ai.log`
+  - passed (`1` Playwright test, `2.0m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state held steady before and after the motion
+  sequence:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-change motion breakdown:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1130ms`
+  - `longTaskMaxDurationMs`: `434ms`
+  - `measurementWindowMs`: `1763.9ms`
+  - `averageFrameDurationMs`: `40.70ms`
+  - `panForward`: `2` tasks, `397ms` total, `260ms` max
+  - `panReturn`: `1` task, `434ms` total, `434ms` max
+  - `zoomIn`: `1` task, `170ms` total, `170ms` max
+  - `zoomOut`: `1` task, `129ms` total, `129ms` max
+- dominant named canary owner on the same run:
+  - `presentedSceneSectionSubtreeReactRender`: `869.9ms` total, `246.0ms`
+    max, `38` commits
+- previously measured pure-function owners stayed small on the passing run:
+  - `presentedSceneSectionEntriesResolve`: `6.7ms` total
+  - `presentedSceneBodyMountFilter`: `2.0ms` total
+  - `pixiDrawableModelResolve`: `0.7ms` total
+
+### Updated Reading
+
+- this slice closed the “missing owner” question for the canonical lane: the
+  remaining measured pan cost is now primarily React render/commit work in the
+  presented sections subtree rather than the already-instrumented visibility,
+  mount-filter, or Pixi drawable resolution helpers
+- the next product slice should target why that sections subtree still commits
+  `38` times during the normalized motion burst, starting with broad mounted
+  section-body / shell rerender fan-out rather than another attribution-only
+  pass

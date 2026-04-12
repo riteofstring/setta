@@ -5,6 +5,7 @@ import {
   createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
   measureSettingsGraphSubstrateCanaryMotionAttribution,
   readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration,
   resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
 } from "./settingsGraphSubstrateCanaryInstrumentation";
@@ -94,6 +95,35 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
     });
   });
 
+  it("records direct motion attribution durations for profiler-driven owners", () => {
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionSubtreeReactRender",
+      9,
+    );
+
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionSubtreeReactRender",
+      4.5,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionSubtreeReactRender",
+      7.25,
+    );
+
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.presentedSceneSectionSubtreeReactRender,
+    ).toEqual({
+      count: 2,
+      maxDurationMs: 7.25,
+      totalDurationMs: 11.75,
+    });
+  });
+
   it("tracks newly added motion attribution owners in the shared snapshot", () => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
       motionAttributionActive: true,
@@ -130,6 +160,10 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       "presentedSceneSectionEntriesResolve",
       () => {},
     );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionSubtreeReactRender",
+      2.25,
+    );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "pixiDrawableReuseCheck",
       () => {},
@@ -163,6 +197,11 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 1.25,
       totalDurationMs: 1.25,
+    });
+    expect(motionAttribution.presentedSceneSectionSubtreeReactRender).toEqual({
+      count: 1,
+      maxDurationMs: 2.25,
+      totalDurationMs: 2.25,
     });
     expect(motionAttribution.pixiDrawableReuseCheck).toEqual({
       count: 1,

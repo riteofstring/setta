@@ -151,6 +151,55 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 07:54 UTC
+
+- item `404` picked one bounded attribution slice after rereading the
+  plan/handoff: measure actual React subtree render time on the canonical
+  `rotaryParamCodeObjDefault` motion lane instead of adding another
+  already-closed helper timer
+- added one profiler-backed motion owner,
+  `presentedSceneSectionSubtreeReactRender`, in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  plus a direct-duration recorder for profiler callbacks
+- wrapped the DOM sections subtree in
+  `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  with a React `Profiler` so the live motion probe measures actual subtree
+  render duration during pan/zoom
+- extended focused coverage in:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+- updated the worktree/reference motion probe expectations in:
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+- appended the live readout to:
+  - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    -> passed (`2` files, `10` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-029/worktree-ai.log`
+    -> passed (`1` Playwright test, `2.0m`)
+    -> dominant owner `presentedSceneSectionSubtreeReactRender`
+       with `869.9ms` total, `246.0ms` max, `38` commits
+    -> phase split stayed led by `panForward` / `panReturn`
+       (`397ms` / `434ms`)
+  - headless CDP visual check
+    -> passed
+    -> `http://127.0.0.1:3075/settings`
+    -> `All Settings` canary visible with section cards present
+- reading:
+  - this closes the current missing-owner question on the canonical lane:
+    the measured hotspot is React render/commit work in the presented sections
+    subtree, not the previously instrumented visibility, body-mount, or Pixi
+    helper paths
+  - no lifecycle recovery was needed on this run; the worktree probe stayed
+    healthy on the current runtime facts
+  - the next pass should be a bounded product reduction on the subtree render
+    fan-out rather than another attribution-only seam on the same lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 07:43 UTC
 
 - item `403` resolved the repeated compare-pane normalization blocker on the

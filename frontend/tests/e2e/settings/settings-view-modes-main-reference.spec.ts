@@ -12753,6 +12753,7 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
       "presentedSceneSectionArrayReuseCheck",
       "presentedSceneBodyMountFilter",
       "presentedSceneSectionEntriesResolve",
+      "presentedSceneSectionSubtreeReactRender",
       "presentedSceneSectionVisibilityFilter",
       "presentedSceneVisibleViewportWorldRectResolve",
     ] as const;
