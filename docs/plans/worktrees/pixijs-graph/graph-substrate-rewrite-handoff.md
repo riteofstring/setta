@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 05:45 UTC
+Last updated: 2026-04-13 06:11 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,61 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `398` landed one bounded attribution seam for the remaining live canary
+  long-task cost on the canonical `rotaryParamCodeObjDefault` lane:
+  - local ranking/readout for this iteration:
+    - re-read the current handoff/history and avoided reopening the already
+      reduced `presentedSceneSectionVisibilityFilter` micro-optimization lane
+    - captured one fresh unchanged worktree baseline first:
+      `5` long tasks, `1247ms` total, `411ms` max, while named canary motion
+      owners stayed tiny (`pixiDrawableModelResolve` `1.6ms` total,
+      `presentedSceneSectionVisibilityFilter` `1.2ms` total)
+    - selected the narrow instrumentation slice that splits those long tasks by
+      motion phase instead of guessing another product owner by inspection
+  - product/support code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.ts`
+      with the shared long-task phase names plus a pure summarizer
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so motion perf capture records long-task records with explicit phase
+      labels and summarizes them after `page.evaluate` returns
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      to assert the phase breakdown still sums back to the total long-task
+      count and duration
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.test.ts`
+      for empty-bucket and grouped-duration coverage
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.test.ts`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      -> passed
+    - bounded lifecycle recovery before live reruns:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime info via
+        `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-023/worktree-ai.log`
+    - first post-change live probe rerun:
+      - exposed a real harness bug from trying to call the phase summarizer
+        inside `page.evaluate`
+      - fixed in the same iteration by moving summarization back to the Node
+        side after `page.evaluate` returns
+    - second post-fix live probe rerun on the same runtime:
+      - failed because the target page/browser closed during compare-pane
+        normalization before the probe could finish
+      - treat this as `worktree_unhealthy`, not as renderer drift
+  - reading:
+    - the baseline now clearly says the remaining canonical-lane cost is in
+      broad long tasks rather than any named canary motion owner
+    - the phase-attribution seam is now in place, so the next fresh-runtime
+      probe can tell whether the remaining long tasks cluster in warmup, pan,
+      zoom, or post-sequence settle
+    - the open blocker is runtime health during the live probe, not missing
+      instrumentation
+  - next default frontier:
+    - rerun the canonical live worktree probe on a fresh runtime and record the
+      new per-phase long-task breakdown before picking the next product owner
 
 - item `397` landed one bounded live canary reduction inside
   `presentedSceneSectionVisibilityFilter` on the canonical

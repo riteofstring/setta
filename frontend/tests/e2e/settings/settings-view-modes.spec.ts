@@ -584,6 +584,21 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
       perf.motionAttribution?.reactFlowTransformFollowerCallback.count ?? 0,
     ).toBe(0);
     expect(unexpectedCanaryMotionOwners).toEqual([]);
+    const longTaskBreakdownEntries = Object.values(
+      perf.longTaskBreakdownByPhase,
+    );
+    const longTaskBreakdownCount = longTaskBreakdownEntries.reduce(
+      (total, entry) => total + entry.count,
+      0,
+    );
+    const longTaskBreakdownTotalDurationMs = longTaskBreakdownEntries.reduce(
+      (total, entry) => total + entry.totalDurationMs,
+      0,
+    );
+    expect(longTaskBreakdownCount).toBe(perf.longTaskCount);
+    expect(
+      Math.abs(longTaskBreakdownTotalDurationMs - perf.longTaskTotalDurationMs),
+    ).toBeLessThan(0.01);
     expect([null, ...allowedResidualCanaryMotionOwners]).toContain(
       perf.dominantCanaryMotionAttributionOwner,
     );

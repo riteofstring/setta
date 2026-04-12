@@ -15641,6 +15641,59 @@ LOOP_TERMINAL_MARKER: none
 - item `393` landed one bounded startup-path reduction on the live worktree
   runtime by deferring the remaining route-entry pages that `router.tsx` still
   imported eagerly after the project-surface split:
+## 2026-04-13 06:11 UTC
+
+- item `398` landed one bounded attribution seam for the remaining live
+  canary long-task cost on the canonical `rotaryParamCodeObjDefault` lane
+- captured one fresh unchanged baseline first:
+  - `averageFrameDurationMs`: `44.57ms`
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1247ms`
+  - `longTaskMaxDurationMs`: `411ms`
+  - instrumented canary motion owners stayed tiny
+- added
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.ts`
+  plus
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.test.ts`
+  so the probe can summarize long tasks by
+  `captureWarmup` / `panForward` / `panReturn` / `zoomIn` / `zoomOut` /
+  `postSequenceSettle`
+- updated
+  `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+  to record per-long-task phase labels during motion capture and summarize the
+  breakdown after `page.evaluate` returns
+- updated
+  `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  to assert the per-phase breakdown totals still match the overall long-task
+  count and duration
+- recorded the slice in
+  `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.test.ts`
+    -> passed (`1` file, `2` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    -> passed
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime info via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-023/worktree-ai.log`
+  - first post-change live worktree probe rerun:
+    -> failed because the phase summarizer was incorrectly referenced inside
+       `page.evaluate`
+    -> fixed in the same iteration
+  - second post-fix live worktree probe rerun:
+    -> failed because the target page/browser closed during compare-pane
+       normalization
+    -> classify as `worktree_unhealthy`
+- reading:
+  - the baseline now says the remaining measured cost is broader long-task
+    work, not a named canary motion owner
+  - the phase-attribution seam is now ready for the next fresh-runtime probe
+  - next iteration should start with a fresh worktree lifecycle and rerun the
+    canonical live probe to collect the per-phase breakdown
+
+LOOP_TERMINAL_MARKER: none
+
   - local ranking/readout for this iteration:
     - stayed on the startup lane instead of reopening the closed
       shallow-selector pattern

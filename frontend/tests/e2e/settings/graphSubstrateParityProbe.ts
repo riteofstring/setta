@@ -1,6 +1,12 @@
 import { expect, type Page } from "@playwright/test";
 import { isSettingsGraphCompareTransientChromeSettled } from "components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome";
 import {
+  summarizeSettingsGraphMotionPerfLongTaskBreakdown,
+  type SettingsGraphMotionPerfLongTaskBreakdown,
+  type SettingsGraphMotionPerfLongTaskPhase,
+  type SettingsGraphMotionPerfLongTaskRecord,
+} from "components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases";
+import {
   formatSettingsGraphPaneStateReadDiagnostic,
   readPersistedSettingsGraphLocalPaneState,
   type SettingsGraphLocalPaneState,
@@ -98,6 +104,7 @@ export type SettingsGraphMotionPerfCapture = {
   endedVisible: boolean;
   focusLossCount: number;
   hiddenDurationMs: number;
+  longTaskBreakdownByPhase: SettingsGraphMotionPerfLongTaskBreakdown;
   longTaskCount: number;
   longTaskMaxDurationMs: number;
   longTaskTotalDurationMs: number;
@@ -151,12 +158,13 @@ const LOCAL_PANE_STATE_STORE_READ_TIMEOUT_MS = 2000;
 
 type SettingsGraphMotionPerfCaptureState = {
   canaryMotionAttributionBaseline: SettingsGraphSubstrateCanaryMotionAttribution | null;
+  currentLongTaskPhase: SettingsGraphMotionPerfLongTaskPhase;
   frameDurations: Array<number>;
   focusLossCount: number;
   hiddenDurationMs: number;
   hiddenStartTimestamp: number | null;
   lastFrameTimestamp: number | null;
-  longTaskDurations: Array<number>;
+  longTaskRecords: Array<SettingsGraphMotionPerfLongTaskRecord>;
   observer: PerformanceObserver | null;
   onBlur: (() => void) | null;
   onVisibilityChange: (() => void) | null;
@@ -921,13 +929,14 @@ export async function startSettingsGraphMotionPerfCapture(
       canaryMotionAttributionBaseline: existingSnapshot?.motionAttribution
         ? cloneMotionAttribution(existingSnapshot.motionAttribution)
         : null,
+      currentLongTaskPhase: "captureWarmup",
       frameDurations: [],
       focusLossCount: 0,
       hiddenDurationMs: 0,
       hiddenStartTimestamp:
         document.visibilityState === "hidden" ? performance.now() : null,
       lastFrameTimestamp: null,
-      longTaskDurations: [],
+      longTaskRecords: [],
       observer: null,
       onBlur: null,
       onVisibilityChange: null,
@@ -954,7 +963,10 @@ export async function startSettingsGraphMotionPerfCapture(
     ) {
       capture.observer = new PerformanceObserver((entryList) => {
         for (const entry of entryList.getEntries()) {
-          capture.longTaskDurations.push(entry.duration);
+          capture.longTaskRecords.push({
+            durationMs: entry.duration,
+            phase: capture.currentLongTaskPhase,
+          });
         }
       });
       capture.observer.observe({ entryTypes: ["longtask"] });
@@ -1015,6 +1027,19 @@ export async function runSettingsGraphMotionPerfSequence(
           });
         }
       };
+      const setLongTaskPhase = (
+        phase: SettingsGraphMotionPerfLongTaskPhase,
+      ) => {
+        type SettingsGraphMotionPerfWindow = Window & {
+          __settaSettingsGraphMotionPerfCapture?: SettingsGraphMotionPerfCaptureState;
+        };
+
+        const capture = (window as SettingsGraphMotionPerfWindow)
+          .__settaSettingsGraphMotionPerfCapture;
+        if (capture) {
+          capture.currentLongTaskPhase = phase;
+        }
+      };
 
       const resolveWheelTarget = (): Element => {
         const pointTarget = document.elementFromPoint(point.x, point.y);
@@ -1031,9 +1056,19 @@ export async function runSettingsGraphMotionPerfSequence(
         return root;
       };
 
+      setLongTaskPhase("captureWarmup");
       await waitForAnimationFrames(2);
 
-      for (const step of steps) {
+      for (const [stepIndex, step] of steps.entries()) {
+        const phase =
+          step.modified && step.deltaY < 0
+            ? "zoomIn"
+            : step.modified && step.deltaY > 0
+              ? "zoomOut"
+              : stepIndex === 0
+                ? "panForward"
+                : "panReturn";
+        setLongTaskPhase(phase);
         for (let repeatIndex = 0; repeatIndex < step.repeat; repeatIndex += 1) {
           resolveWheelTarget().dispatchEvent(
             new WheelEvent("wheel", {
@@ -1052,6 +1087,7 @@ export async function runSettingsGraphMotionPerfSequence(
         }
       }
 
+      setLongTaskPhase("postSequenceSettle");
       await waitForAnimationFrames(2);
     },
     {
@@ -1069,7 +1105,7 @@ export async function stopSettingsGraphMotionPerfCapture(
   page: Page,
   sectionId?: string,
 ): Promise<SettingsGraphMotionPerfCapture> {
-  return page.evaluate(
+  const rawCapture = await page.evaluate(
     ({
       canaryRootSelector,
       canarySectionSelector,
@@ -1210,7 +1246,10 @@ export async function stopSettingsGraphMotionPerfCapture(
         : null;
 
       const frameDurations = capture.frameDurations;
-      const longTaskDurations = capture.longTaskDurations;
+      const longTaskRecords = capture.longTaskRecords;
+      const longTaskDurations = longTaskRecords.map(
+        (entry) => entry.durationMs,
+      );
       const frameDurationTotal = frameDurations.reduce(
         (total, duration) => total + duration,
         0,
@@ -1267,6 +1306,7 @@ export async function stopSettingsGraphMotionPerfCapture(
         hiddenDurationMs: capture.hiddenDurationMs,
         longTaskCount: longTaskDurations.length,
         longTaskMaxDurationMs,
+        longTaskRecords,
         longTaskTotalDurationMs,
         maxFrameDurationMs:
           frameDurations.length > 0 ? Math.max(...frameDurations) : 0,
@@ -1305,6 +1345,19 @@ export async function stopSettingsGraphMotionPerfCapture(
       targetSectionId: sectionId ?? null,
     },
   );
+
+  const {
+    longTaskRecords,
+    ...capture
+  }: Omit<SettingsGraphMotionPerfCapture, "longTaskBreakdownByPhase"> & {
+    longTaskRecords: Array<SettingsGraphMotionPerfLongTaskRecord>;
+  } = rawCapture;
+
+  return {
+    ...capture,
+    longTaskBreakdownByPhase:
+      summarizeSettingsGraphMotionPerfLongTaskBreakdown(longTaskRecords),
+  };
 }
 
 async function waitForSettingsGraphComparePaneChrome(
