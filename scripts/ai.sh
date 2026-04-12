@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
 . "${SCRIPT_DIR}/lib/setta_path_flags.sh"
 . "${SCRIPT_DIR}/lib/setta_port_selection.sh"
+. "${SCRIPT_DIR}/lib/node_tooling.sh"
 if [[ -n "${HOME:-}" ]]; then
   DEFAULT_SETTA_HOME="${HOME}/.setta-development"
 else
@@ -181,56 +182,8 @@ export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
 export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
 setta_path_flags_apply_env
 
-read_required_node_version() {
-  local version_file="${ROOT_DIR}/scripts/node_version.txt"
-  if [[ -f "${version_file}" ]]; then
-    tr -d '[:space:]' < "${version_file}"
-  fi
-}
-
-ensure_node_tooling_on_path() {
-  if command -v pnpm >/dev/null 2>&1 || command -v corepack >/dev/null 2>&1; then
-    return
-  fi
-
-  if [[ -n "${HOME:-}" ]] && [[ -d "${HOME}/.local/share/pnpm" ]]; then
-    export PATH="${HOME}/.local/share/pnpm:${PATH}"
-  fi
-  if command -v pnpm >/dev/null 2>&1 || command -v corepack >/dev/null 2>&1; then
-    return
-  fi
-
-  if [[ -n "${HOME:-}" ]] && [[ -d "${HOME}/.nvm/versions/node" ]]; then
-    local required_node_version=""
-    local nvm_bin_dir=""
-    required_node_version="$(read_required_node_version)"
-    if [[ -n "${required_node_version}" ]] && [[ -d "${HOME}/.nvm/versions/node/v${required_node_version}/bin" ]]; then
-      export PATH="${HOME}/.nvm/versions/node/v${required_node_version}/bin:${PATH}"
-      if command -v pnpm >/dev/null 2>&1 || command -v corepack >/dev/null 2>&1; then
-        return
-      fi
-    fi
-    while IFS= read -r nvm_bin_dir; do
-      export PATH="${nvm_bin_dir}:${PATH}"
-    done < <(find "${HOME}/.nvm/versions/node" -mindepth 2 -maxdepth 2 -type d -name bin 2>/dev/null | sort -V)
-  fi
-}
-
 run_pnpm() {
-  ensure_node_tooling_on_path
-
-  if command -v pnpm >/dev/null 2>&1; then
-    pnpm "$@"
-    return
-  fi
-
-  if command -v corepack >/dev/null 2>&1; then
-    corepack pnpm "$@"
-    return
-  fi
-
-  echo "Could not find pnpm or corepack on PATH." >&2
-  return 1
+  setta_run_pnpm "${ROOT_DIR}" "$@"
 }
 
 NEEDS_DEV_INSTALL=0

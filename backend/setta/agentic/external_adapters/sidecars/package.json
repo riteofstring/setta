@@ -1,6 +1,7 @@
 {
   "name": "setta-external-agent-sidecars",
   "private": true,
+  "packageManager": "pnpm@10.5.2",
   "type": "module",
   "engines": {
     "node": ">=18"

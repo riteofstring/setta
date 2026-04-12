@@ -2,7 +2,12 @@ import os
 import subprocess
 from pathlib import Path
 
-from tests.start.dev_script_wiring_helpers import repo_root, write_stub_executable
+from tests.start.dev_script_wiring_helpers import (
+    parse_env_snapshot,
+    repo_root,
+    without_path_dirs_containing,
+    write_stub_executable,
+)
 
 
 def _copy_repo_file(*, sandbox_root: Path, relative_path: str) -> Path:
@@ -16,7 +21,10 @@ def _copy_repo_file(*, sandbox_root: Path, relative_path: str) -> Path:
 
 def _sandbox_env(sandbox_root: Path) -> dict[str, str]:
     env = os.environ.copy()
-    env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
+    env.pop("NVM_DIR", None)
+    filtered_path = without_path_dirs_containing("corepack", env.get("PATH", ""))
+    filtered_path = without_path_dirs_containing("pnpm", filtered_path)
+    env["PATH"] = f"{sandbox_root / 'bin'}:{filtered_path}"
     return env
 
 
@@ -194,8 +202,12 @@ def test_dev_install_runs_python_bootstrap_before_frozen_frontend_and_sidecars(
     scripts_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
     command_log = sandbox_root / "command-log.txt"
+    pnpm_env = sandbox_root / "pnpm-env.txt"
 
     _copy_repo_file(sandbox_root=sandbox_root, relative_path="dev_install.sh")
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/lib/node_tooling.sh"
+    )
     write_stub_executable(
         sandbox_root / "init_env.sh",
         f"""#!/usr/bin/env bash
@@ -222,6 +234,7 @@ echo cleanup >> "{command_log}"
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "pnpm $*" >> "{command_log}"
+env | sort > "{pnpm_env}"
 """,
     )
 
@@ -241,3 +254,86 @@ echo "pnpm $*" >> "{command_log}"
         "install-sidecars",
         "cleanup",
     ]
+    assert parse_env_snapshot(pnpm_env.read_text(encoding="utf-8")).get(
+        "COREPACK_ENABLE_AUTO_PIN"
+    ) == "0"
+
+
+def test_dev_install_prefers_corepack_and_disables_auto_pin(tmp_path: Path) -> None:
+    # When corepack is available, dev_install.sh should use the repo-pinned pnpm
+    # entrypoint instead of a plain pnpm executable from PATH.
+    sandbox_root = tmp_path / "dev_install_corepack_sandbox"
+    frontend_dir = sandbox_root / "frontend"
+    scripts_dir = sandbox_root / "scripts"
+    bin_dir = sandbox_root / "bin"
+    frontend_dir.mkdir(parents=True, exist_ok=True)
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    command_log = sandbox_root / "command-log.txt"
+    corepack_cmd = sandbox_root / "corepack-cmd.txt"
+    corepack_env = sandbox_root / "corepack-env.txt"
+    pnpm_cmd = sandbox_root / "pnpm-cmd.txt"
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="dev_install.sh")
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/lib/node_tooling.sh"
+    )
+    write_stub_executable(
+        sandbox_root / "init_env.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo init-env >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        scripts_dir / "install_sidecars.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo install-sidecars >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "cleanup.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo cleanup >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "corepack",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{corepack_cmd}"
+env | sort > "{corepack_env}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{pnpm_cmd}"
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "dev_install.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "init-env",
+        "install-sidecars",
+        "cleanup",
+    ]
+    assert corepack_cmd.read_text(encoding="utf-8").strip() == (
+        "pnpm install --frozen-lockfile"
+    )
+    assert parse_env_snapshot(corepack_env.read_text(encoding="utf-8")).get(
+        "COREPACK_ENABLE_AUTO_PIN"
+    ) == "0"
+    assert not pnpm_cmd.exists()

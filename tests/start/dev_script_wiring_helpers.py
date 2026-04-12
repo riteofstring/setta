@@ -22,6 +22,18 @@ def write_stub_executable(path: Path, body: str) -> None:
     path.chmod(0o755)
 
 
+def without_path_dirs_containing(executable_name: str, path_value: str) -> str:
+    filtered_parts: list[str] = []
+    for raw_part in path_value.split(os.pathsep):
+        if not raw_part:
+            continue
+        candidate = Path(raw_part) / executable_name
+        if candidate.exists():
+            continue
+        filtered_parts.append(raw_part)
+    return os.pathsep.join(filtered_parts)
+
+
 def copy_script_libs(scripts_dir: Path, *lib_names: str) -> None:
     root = repo_root()
     lib_dir = scripts_dir / "lib"
@@ -40,6 +52,7 @@ def build_aireset_sandbox(tmp_path: Path) -> Path:
     scripts_dir.mkdir(parents=True, exist_ok=True)
     copy_script_libs(
         scripts_dir,
+        "node_tooling.sh",
         "setta_path_flags.sh",
         "setta_port_selection.sh",
     )
@@ -130,6 +143,7 @@ def build_ai_sandbox(tmp_path: Path) -> Path:
         dst.chmod(0o755)
     copy_script_libs(
         scripts_dir,
+        "node_tooling.sh",
         "setta_path_flags.sh",
         "setta_port_selection.sh",
     )
@@ -137,6 +151,10 @@ def build_ai_sandbox(tmp_path: Path) -> Path:
     activate = sandbox_root / ".venv" / "bin" / "activate"
     activate.parent.mkdir(parents=True, exist_ok=True)
     activate.write_text("export VIRTUAL_ENV='sandbox-venv'\n", encoding="utf-8")
+    (frontend_dir / "package.json").write_text(
+        (root / "frontend" / "package.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
 
     return sandbox_root
@@ -145,6 +163,7 @@ def build_ai_sandbox(tmp_path: Path) -> Path:
 def script_env(stub_dir: Path, home_dir: Path) -> dict[str, str]:
     env = os.environ.copy()
     for key in (
+        "NVM_DIR",
         "SETTA_HOME",
         "SETTA_PROFILE_LOOKUP_HOME",
         "SETTA_PROFILE",
@@ -153,7 +172,9 @@ def script_env(stub_dir: Path, home_dir: Path) -> dict[str, str]:
         "SETTA_RUNTIME_ROOT",
     ):
         env.pop(key, None)
-    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+    filtered_path = without_path_dirs_containing("corepack", env.get("PATH", ""))
+    filtered_path = without_path_dirs_containing("pnpm", filtered_path)
+    env["PATH"] = f"{stub_dir}:{filtered_path}"
     env["HOME"] = str(home_dir)
     return env
 

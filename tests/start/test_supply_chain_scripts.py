@@ -6,7 +6,12 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from tests.start.dev_script_wiring_helpers import repo_root, write_stub_executable
+from tests.start.dev_script_wiring_helpers import (
+    parse_env_snapshot,
+    repo_root,
+    without_path_dirs_containing,
+    write_stub_executable,
+)
 
 
 def _copy_repo_file(*, sandbox_root: Path, relative_path: str) -> Path:
@@ -20,7 +25,10 @@ def _copy_repo_file(*, sandbox_root: Path, relative_path: str) -> Path:
 
 def _sandbox_env(sandbox_root: Path) -> dict[str, str]:
     env = os.environ.copy()
-    env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
+    env.pop("NVM_DIR", None)
+    filtered_path = without_path_dirs_containing("corepack", env.get("PATH", ""))
+    filtered_path = without_path_dirs_containing("pnpm", filtered_path)
+    env["PATH"] = f"{sandbox_root / 'bin'}:{filtered_path}"
     return env
 
 
@@ -498,15 +506,20 @@ def test_install_sidecars_uses_frozen_lockfile(tmp_path: Path) -> None:
     sidecar_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
     command_log = sandbox_root / "command-log.txt"
+    pnpm_env = sandbox_root / "pnpm-env.txt"
 
     _copy_repo_file(
         sandbox_root=sandbox_root, relative_path="scripts/install_sidecars.sh"
+    )
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/lib/node_tooling.sh"
     )
     write_stub_executable(
         bin_dir / "pnpm",
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "pnpm $*" >> "{command_log}"
+env | sort > "{pnpm_env}"
 """,
     )
 
@@ -523,6 +536,71 @@ echo "pnpm $*" >> "{command_log}"
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "pnpm install --frozen-lockfile --prefer-offline",
     ]
+    assert parse_env_snapshot(pnpm_env.read_text(encoding="utf-8")).get(
+        "COREPACK_ENABLE_AUTO_PIN"
+    ) == "0"
+
+
+def test_install_sidecars_prefers_corepack_and_disables_auto_pin(
+    tmp_path: Path,
+) -> None:
+    # Sidecar installs should use corepack when it is available so the repo's
+    # pinned pnpm version is honored on the devbox too.
+    sandbox_root = tmp_path / "install_sidecars_corepack"
+    sidecar_dir = (
+        sandbox_root
+        / "backend"
+        / "setta"
+        / "agentic"
+        / "external_adapters"
+        / "sidecars"
+    )
+    bin_dir = sandbox_root / "bin"
+    sidecar_dir.mkdir(parents=True, exist_ok=True)
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    corepack_cmd = sandbox_root / "corepack-cmd.txt"
+    corepack_env = sandbox_root / "corepack-env.txt"
+    pnpm_cmd = sandbox_root / "pnpm-cmd.txt"
+
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/install_sidecars.sh"
+    )
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/lib/node_tooling.sh"
+    )
+    write_stub_executable(
+        bin_dir / "corepack",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{corepack_cmd}"
+env | sort > "{corepack_env}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{pnpm_cmd}"
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "scripts" / "install_sidecars.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert corepack_cmd.read_text(encoding="utf-8").strip() == (
+        "pnpm install --frozen-lockfile --prefer-offline"
+    )
+    assert parse_env_snapshot(corepack_env.read_text(encoding="utf-8")).get(
+        "COREPACK_ENABLE_AUTO_PIN"
+    ) == "0"
+    assert not pnpm_cmd.exists()
 
 
 def test_update_dependencies_refreshes_python_and_pnpm_lockfiles(
