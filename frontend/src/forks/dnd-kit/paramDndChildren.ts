@@ -14,12 +14,6 @@ type ParamDndChildrenState = {
   y: Record<string, string>;
 };
 
-type TempParamReplacementContext = {
-  parentId: string;
-  tempId: string;
-  paramSet: Set<string>;
-};
-
 export const useParamDndChildren = withProjectState(
   createWithEqualityFn(
     immer(
@@ -30,53 +24,6 @@ export const useParamDndChildren = withProjectState(
     ),
   ),
 );
-
-function getTempParamReplacementContext(
-  state: ParamDndChildrenState,
-  activeId: string,
-  listKey: ParamListKey | null,
-  paramIds: string[],
-): TempParamReplacementContext | null {
-  if (!listKey || paramIds.length === 0) {
-    return null;
-  }
-  const parentId = state.y[paramIds[0]];
-  if (!parentId) {
-    return null;
-  }
-
-  return {
-    parentId,
-    tempId: getTempParamDndId(getParamDndItemId(activeId, listKey)),
-    paramSet: new Set(paramIds),
-  };
-}
-
-function clearTempParamChildren(state: ParamDndChildrenState) {
-  for (const [parentId, children] of Object.entries(state.x)) {
-    const nextChildren = children.filter((childId) => !isTempParam(childId));
-    if (nextChildren.length !== children.length) {
-      state.x[parentId] = nextChildren;
-    }
-  }
-}
-
-function clearTempParamParents(state: ParamDndChildrenState) {
-  for (const childId of Object.keys(state.y)) {
-    if (isTempParam(childId)) {
-      delete state.y[childId];
-    }
-  }
-}
-
-function findFirstParamIndex(children: string[], paramSet: Set<string>) {
-  for (const [index, childId] of children.entries()) {
-    if (paramSet.has(childId)) {
-      return index;
-    }
-  }
-  return children.length;
-}
 
 export function addParamChild(
   oldParentId: string | null,
@@ -104,29 +51,41 @@ export function replaceParamsWithTemp(
   paramIds: string[],
 ) {
   useParamDndChildren.setState((state) => {
-    const context = getTempParamReplacementContext(
-      state,
-      activeId,
-      listKey,
-      paramIds,
-    );
-    if (!context) {
+    if (!listKey) {
       return;
     }
+    if (paramIds.length === 0) {
+      return;
+    }
+    const parentId = state.y[paramIds[0]];
+    if (!parentId) {
+      return;
+    }
+    const tempId = getTempParamDndId(getParamDndItemId(activeId, listKey));
 
-    clearTempParamChildren(state);
-    clearTempParamParents(state);
+    for (const [key, children] of Object.entries(state.x)) {
+      const nextChildren = children.filter((childId) => !isTempParam(childId));
+      if (nextChildren.length !== children.length) {
+        state.x[key] = nextChildren;
+      }
+    }
+    for (const childId of Object.keys(state.y)) {
+      if (isTempParam(childId)) {
+        delete state.y[childId];
+      }
+    }
 
-    const currChildren = state.x[context.parentId] ?? [];
-    const insertIndex = findFirstParamIndex(currChildren, context.paramSet);
-    const nextChildren = currChildren.filter((id) => !context.paramSet.has(id));
+    const paramSet = new Set(paramIds);
+    const currChildren = state.x[parentId] ?? [];
+    const indices = paramIds
+      .map((paramId) => currChildren.indexOf(paramId))
+      .filter((idx) => idx >= 0);
+    const nextChildren = currChildren.filter((id) => !paramSet.has(id));
+    const insertIndex =
+      indices.length > 0 ? Math.min(...indices) : nextChildren.length;
 
-    state.x[context.parentId] = insertIntoArray(
-      nextChildren,
-      insertIndex,
-      context.tempId,
-    );
-    state.y[context.tempId] = context.parentId;
+    state.x[parentId] = insertIntoArray(nextChildren, insertIndex, tempId);
+    state.y[tempId] = parentId;
     for (const paramId of paramIds) {
       delete state.y[paramId];
     }

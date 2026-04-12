@@ -3,25 +3,20 @@ import type React from "react";
 import type { SetStateAction } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import {
-  useLocalStorage,
-  useProjectState,
-  useTemporaryMiscState,
-} from "state/definitions";
-import { getSectionStylePreviewColorKey } from "utils/constants";
+import { useProjectState } from "state/definitions";
 import {
   SectionTypeEnum,
   type ChatWindowMode,
   type ChatWindowPlacement,
 } from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { SectionHeader } from "../Header/SectionHeader";
 import { AreaSwitch } from "./SectionContainerCoreResizabe";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
+  resolveSectionChromeShellDecorations,
 } from "./sectionChrome";
-import { getBgColor } from "./utils";
+import { useSectionChromeAppearance } from "./sectionChromeAppearance";
 
 type SectionWindowSurfaceProps = {
   sectionId: string;
@@ -39,71 +34,6 @@ type SectionWindowSurfaceProps = {
     "children" | "ref"
   >;
 };
-
-type SectionWindowSurfaceAppearanceOptions = {
-  sectionTypeName: SectionTypeEnum;
-  textBlockMetaControlStyle: boolean;
-  styleColor: string | null;
-  previewStyleColor: string | null | undefined;
-  darkMode: boolean;
-};
-
-function getSectionWindowSurfaceCornerClassName(
-  isStandalonePage: boolean,
-  roundedClassName: string,
-) {
-  return isStandalonePage ? "rounded-none" : roundedClassName;
-}
-
-function getSectionWindowSurfaceAppearance({
-  sectionTypeName,
-  textBlockMetaControlStyle,
-  styleColor,
-  previewStyleColor,
-  darkMode,
-}: SectionWindowSurfaceAppearanceOptions) {
-  const defaultBgColor = getBgColor(sectionTypeName);
-  const useMetaControlStyle =
-    sectionTypeName === SectionTypeEnum.MetaControl ||
-    textBlockMetaControlStyle;
-  if (useMetaControlStyle) {
-    return {
-      bgColor: "bg-transparent",
-      useMetaControlStyle,
-      hasSectionStyleTheme: false,
-      sectionStyleVars: undefined,
-    };
-  }
-
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? styleColor : previewStyleColor;
-  if (!resolvedStyleColor) {
-    return {
-      bgColor: defaultBgColor,
-      useMetaControlStyle,
-      hasSectionStyleTheme: false,
-      sectionStyleVars: undefined,
-    };
-  }
-
-  const sectionStyleTheme = deriveSectionStyleTheme(
-    resolvedStyleColor,
-    darkMode,
-  );
-  return {
-    bgColor: defaultBgColor,
-    useMetaControlStyle,
-    hasSectionStyleTheme: true,
-    sectionStyleVars: {
-      "--setta-section-style-bg": sectionStyleTheme.bg,
-      "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
-      "--setta-section-style-border": sectionStyleTheme.border,
-      "--setta-section-style-outline": sectionStyleTheme.outline,
-      "--setta-section-style-text": sectionStyleTheme.text,
-      "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
-    } as React.CSSProperties,
-  };
-}
 
 export function SectionWindowSurface({
   sectionId,
@@ -140,45 +70,43 @@ export function SectionWindowSurface({
       styleColor: impl.styleColor,
     };
   }, _.isEqual);
-  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
-  const previewStyleColor = useTemporaryMiscState(
-    (state) => state[styleColorPreviewKey] as string | null | undefined,
-  );
-  const darkMode = useLocalStorage((state) => state.darkMode);
-  const surfaceCornerClassName = getSectionWindowSurfaceCornerClassName(
-    isStandalonePage,
-    roundedClassName,
-  );
   const {
     bgColor,
-    useMetaControlStyle,
     hasSectionStyleTheme,
     sectionStyleVars,
-  } = getSectionWindowSurfaceAppearance({
+    useMetaControlStyle,
+  } = useSectionChromeAppearance({
+    sectionId,
     sectionTypeName,
-    textBlockMetaControlStyle,
     styleColor,
-    previewStyleColor,
-    darkMode,
+    textBlockMetaControlStyle,
   });
   const isRoot = getIsRoot(sectionTypeName);
-  const outerShellClassName = getSectionContainerShellClassName({
+  const shellDecorations = resolveSectionChromeShellDecorations({
     isActiveSection,
     isGlobalVariables: sectionTypeName === SectionTypeEnum.GlobalVariables,
     isInOtherProjectConfigs,
+    showAiHighlight: false,
+    isReadScope: false,
+    isWriteScope: false,
+  });
+  const outerShellClassName = getSectionContainerShellClassName({
+    outlineTone: shellDecorations.outlineTone,
+    scopeHighlight: shellDecorations.scopeHighlight,
+    showAiHighlight: shellDecorations.showAiHighlight,
     useMetaControlStyle,
     hasSectionStyleTheme,
     positionAndSizeLocked,
     forceHideOutline: true,
     hideBorder: isStandalonePage,
     sizeClassName: "h-full w-full",
-    cornerClassName: surfaceCornerClassName,
+    cornerClassName: isStandalonePage ? "rounded-none" : roundedClassName,
   });
   const innerShellClassName = getSectionSurfaceClassName({
     bgColor,
     hasSectionStyleTheme,
     positionAndSizeLocked,
-    cornerClassName: surfaceCornerClassName,
+    cornerClassName: isStandalonePage ? "rounded-none" : roundedClassName,
     hideFrameBorder: isStandalonePage,
   });
 
@@ -193,7 +121,6 @@ export function SectionWindowSurface({
       <div className={innerShellClassName}>
         <SectionHeader
           sectionId={sectionId}
-          isActiveSection={isActiveSection}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={false}
@@ -202,7 +129,7 @@ export function SectionWindowSurface({
           showSectionContainerControls={false}
           extraControls={headerActions}
           trackMeasuredHeight={false}
-          headerProps={headerProps}
+          {...(headerProps ? { headerProps } : {})}
         />
         <div
           className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
@@ -215,13 +142,15 @@ export function SectionWindowSurface({
               isMinimized={isMinimized}
               isUserView={false}
               chatHost={chatHost}
-              chatModeOverride={chatModeOverride}
-              projectChatSurfaceId={projectChatSurfaceId}
-              projectChatId={projectChatId}
-              setProjectChatId={setProjectChatId}
-              onProjectChatBlockedErrorCodeChange={
-                onProjectChatBlockedErrorCodeChange
-              }
+              {...(chatModeOverride !== undefined ? { chatModeOverride } : {})}
+              {...(projectChatSurfaceId !== undefined
+                ? { projectChatSurfaceId }
+                : {})}
+              {...(projectChatId !== undefined ? { projectChatId } : {})}
+              {...(setProjectChatId !== undefined ? { setProjectChatId } : {})}
+              {...(onProjectChatBlockedErrorCodeChange !== undefined
+                ? { onProjectChatBlockedErrorCodeChange }
+                : {})}
             />
           )}
         </div>
