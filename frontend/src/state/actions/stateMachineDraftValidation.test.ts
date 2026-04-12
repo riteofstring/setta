@@ -7,7 +7,6 @@ import {
   createProjectConfig,
   createSectionSize,
   createStateMachineStartSectionImpl,
-  createUserDefaultChatSectionImpl,
   createVariant,
   SectionTypeEnum,
   StateMachineGateTypeEnum,
@@ -89,7 +88,7 @@ function createChatWorkflowImpl({
   implId: string;
   name: string;
 }) {
-  return createChatSectionImpl(createUserDefaultChatSectionImpl(), {
+  return createChatSectionImpl({
     id: implId,
     name,
   });
@@ -205,28 +204,22 @@ describe("state machine draft validation", () => {
         {
           sectionId: "start-a",
           variantId: "variant-start-a",
-          impl: createStateMachineStartSectionImpl(
-            {},
-            {
-              id: "impl-start-a",
-              name: "Start A",
-              machineGroupId: "workflow-main",
-              label: "Start A",
-            },
-          ),
+          impl: createStateMachineStartSectionImpl({
+            id: "impl-start-a",
+            name: "Start A",
+            machineGroupId: "workflow-main",
+            label: "Start A",
+          }),
         },
         {
           sectionId: "start-b",
           variantId: "variant-start-b",
-          impl: createStateMachineStartSectionImpl(
-            {},
-            {
-              id: "impl-start-b",
-              name: "Start B",
-              machineGroupId: "workflow-main",
-              label: "Start B",
-            },
-          ),
+          impl: createStateMachineStartSectionImpl({
+            id: "impl-start-b",
+            name: "Start B",
+            machineGroupId: "workflow-main",
+            label: "Start B",
+          }),
         },
         {
           sectionId: "end-a",
@@ -257,15 +250,12 @@ describe("state machine draft validation", () => {
         {
           sectionId: "start-a",
           variantId: "variant-start-a",
-          impl: createStateMachineStartSectionImpl(
-            {},
-            {
-              id: "impl-start-a",
-              name: "Start A",
-              machineGroupId: "workflow-main",
-              label: "Start A",
-            },
-          ),
+          impl: createStateMachineStartSectionImpl({
+            id: "impl-start-a",
+            name: "Start A",
+            machineGroupId: "workflow-main",
+            label: "Start A",
+          }),
         },
         {
           sectionId: "end-a",
@@ -297,15 +287,12 @@ describe("state machine draft validation", () => {
         {
           sectionId: "start-a",
           variantId: "variant-start-a",
-          impl: createStateMachineStartSectionImpl(
-            {},
-            {
-              id: "impl-start-a",
-              name: "Start A",
-              machineGroupId: "workflow-main",
-              label: "Start A",
-            },
-          ),
+          impl: createStateMachineStartSectionImpl({
+            id: "impl-start-a",
+            name: "Start A",
+            machineGroupId: "workflow-main",
+            label: "Start A",
+          }),
         },
         {
           sectionId: "gate-a",
@@ -351,15 +338,12 @@ describe("state machine draft validation", () => {
         {
           sectionId: "start-a",
           variantId: "variant-start-a",
-          impl: createStateMachineStartSectionImpl(
-            {},
-            {
-              id: "impl-start-a",
-              name: "Start A",
-              machineGroupId: "workflow-main",
-              label: "Start A",
-            },
-          ),
+          impl: createStateMachineStartSectionImpl({
+            id: "impl-start-a",
+            name: "Start A",
+            machineGroupId: "workflow-main",
+            label: "Start A",
+          }),
         },
         {
           sectionId: "chat-a",
@@ -434,15 +418,12 @@ describe("state machine draft validation", () => {
         {
           sectionId: "start-a",
           variantId: "variant-start-a",
-          impl: createStateMachineStartSectionImpl(
-            {},
-            {
-              id: "impl-start-a",
-              name: "Start A",
-              machineGroupId: "workflow-main",
-              label: "Start A",
-            },
-          ),
+          impl: createStateMachineStartSectionImpl({
+            id: "impl-start-a",
+            name: "Start A",
+            machineGroupId: "workflow-main",
+            label: "Start A",
+          }),
         },
         {
           sectionId: "end-a",
@@ -477,15 +458,12 @@ describe("state machine draft validation", () => {
         {
           sectionId: "start-a",
           variantId: "variant-start-a",
-          impl: createStateMachineStartSectionImpl(
-            {},
-            {
-              id: "impl-start-a",
-              name: "Start A",
-              machineGroupId: "workflow-main",
-              label: "Start A",
-            },
-          ),
+          impl: createStateMachineStartSectionImpl({
+            id: "impl-start-a",
+            name: "Start A",
+            machineGroupId: "workflow-main",
+            label: "Start A",
+          }),
         },
         {
           sectionId: "chat-a",
