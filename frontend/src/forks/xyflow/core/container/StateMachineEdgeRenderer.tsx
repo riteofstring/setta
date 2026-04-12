@@ -13,6 +13,7 @@ import { useReactFlow } from "../store";
 import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
+type NodeFrame = { height: number; width: number; x: number; y: number };
 type NodeAnchorSide = "left" | "right";
 type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
 type TopLevelSections = SingleConfig["projectConfig"]["topLevelSections"];
@@ -24,47 +25,56 @@ const sourceActivationCountOperatorLabelByValue = new Map(
   ]),
 );
 
-function getNodeCenterX(
-  node: Node | undefined,
-  fallbackLayout: TopLevelSectionLayout | undefined,
+function resolveNodeSize(
+  measuredSize: number | null | undefined,
+  fallbackSize: number | null | undefined,
 ): number | null {
-  if (!node) {
-    return null;
+  if (measuredSize) {
+    return measuredSize;
   }
-  const width = node.width ?? fallbackLayout?.w ?? null;
-  if (!width) {
-    return null;
+  if (fallbackSize) {
+    return fallbackSize;
   }
-  return node.position.x + width / 2;
+  return null;
 }
 
-function getNodeDimensions(
+function getNodeFrame(
   node: Node | undefined,
   fallbackLayout: TopLevelSectionLayout | undefined,
-): { width: number; height: number } | null {
+): NodeFrame | null {
   if (!node) {
     return null;
   }
-  const width = node.width ?? fallbackLayout?.w ?? null;
-  const height = node.height ?? fallbackLayout?.h ?? null;
+  const width = resolveNodeSize(node.width, fallbackLayout?.w);
+  const height = resolveNodeSize(node.height, fallbackLayout?.h);
   if (!width || !height) {
     return null;
   }
-  return { width, height };
+  return {
+    height,
+    width,
+    x: node.position.x,
+    y: node.position.y,
+  };
+}
+
+function getNodeCenterX(frame: NodeFrame | null): number | null {
+  if (!frame) {
+    return null;
+  }
+  return frame.x + frame.width / 2;
 }
 
 function resolveNodeAnchor(
-  node: Node | undefined,
-  fallbackLayout: TopLevelSectionLayout | undefined,
+  frame: NodeFrame | null,
   side: NodeAnchorSide,
 ): NodeCenter | null {
-  const dimensions = getNodeDimensions(node, fallbackLayout);
-  if (!node || !dimensions) {
+  if (!frame) {
     return null;
   }
   return {
-    x: side === "left" ? node.position.x : node.position.x + dimensions.width,
-    y: node.position.y + dimensions.height * 0.5,
+    x: side === "left" ? frame.x : frame.x + frame.width,
+    y: frame.y + frame.height * 0.5,
   };
 }
 
@@ -88,13 +98,11 @@ function getSourceActivationCountLabel(edge: WorkflowEdge): string | null {
 }
 
 function resolveRelativeAnchorSides(
-  sourceNode: Node | undefined,
-  sourceLayout: TopLevelSectionLayout | undefined,
-  targetNode: Node | undefined,
-  targetLayout: TopLevelSectionLayout | undefined,
+  sourceFrame: NodeFrame | null,
+  targetFrame: NodeFrame | null,
 ): { sourceSide: NodeAnchorSide; targetSide: NodeAnchorSide } {
-  const sourceCenterX = getNodeCenterX(sourceNode, sourceLayout);
-  const targetCenterX = getNodeCenterX(targetNode, targetLayout);
+  const sourceCenterX = getNodeCenterX(sourceFrame);
+  const targetCenterX = getNodeCenterX(targetFrame);
   if (sourceCenterX === null || targetCenterX === null) {
     return {
       sourceSide: "right",
@@ -153,22 +161,14 @@ function getPromptLinkPath({
   const promptNode = nodes.get(promptSectionId);
   const promptLayout = topLevelSections[promptSectionId];
   const targetLayout = topLevelSections[edge.targetSectionId];
+  const promptFrame = getNodeFrame(promptNode, promptLayout);
+  const targetFrame = getNodeFrame(targetNode, targetLayout);
   const { sourceSide, targetSide } = resolveRelativeAnchorSides(
-    promptNode,
-    promptLayout,
-    targetNode,
-    targetLayout,
+    promptFrame,
+    targetFrame,
   );
-  const promptSourceCenter = resolveNodeAnchor(
-    promptNode,
-    promptLayout,
-    sourceSide,
-  );
-  const promptTargetCenter = resolveNodeAnchor(
-    targetNode,
-    targetLayout,
-    targetSide,
-  );
+  const promptSourceCenter = resolveNodeAnchor(promptFrame, sourceSide);
+  const promptTargetCenter = resolveNodeAnchor(targetFrame, targetSide);
   if (!promptSourceCenter || !promptTargetCenter) {
     return null;
   }
@@ -219,16 +219,16 @@ function renderWorkflowEdge({
     return null;
   }
   const targetNode = nodes.get(edge.targetSectionId);
-  const sourceCenter = resolveNodeAnchor(
+  const sourceFrame = getNodeFrame(
     nodes.get(edge.sourceSectionId),
     topLevelSections[edge.sourceSectionId],
-    "right",
   );
-  const targetCenter = resolveNodeAnchor(
+  const targetFrame = getNodeFrame(
     targetNode,
     topLevelSections[edge.targetSectionId],
-    "left",
   );
+  const sourceCenter = resolveNodeAnchor(sourceFrame, "right");
+  const targetCenter = resolveNodeAnchor(targetFrame, "left");
   if (!sourceCenter || !targetCenter) {
     return null;
   }

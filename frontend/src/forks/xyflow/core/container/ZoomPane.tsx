@@ -593,18 +593,53 @@ function shouldBlockZoomFilterByTarget({
   zoomOnScroll: boolean;
 }): boolean {
   const pinchZoom = zoomOnPinch && event.ctrlKey;
-  if (blocksNoWheelTarget({ event, zoomActivationKeyPressed, zoomOnPinch })) {
-    return true;
-  }
-  if (blocksNoPanTarget({ event, panOnScroll, zoomActivationKeyPressed })) {
-    return true;
-  }
-  if (!zoomOnPinch && event.ctrlKey && isWheelEventType(event.type)) {
-    return true;
-  }
   return (
-    isWheelEventType(event.type) && !zoomOnScroll && !panOnScroll && !pinchZoom
+    blocksNoWheelTarget({ event, zoomActivationKeyPressed, zoomOnPinch }) ||
+    blocksNoPanTarget({ event, panOnScroll, zoomActivationKeyPressed }) ||
+    shouldBlockCtrlWheelWithoutPinch({ event, zoomOnPinch }) ||
+    shouldBlockWheelViewportGesture({
+      event,
+      panOnScroll,
+      pinchZoom,
+      zoomOnScroll,
+    })
   );
+}
+
+function shouldBlockCtrlWheelWithoutPinch({
+  event,
+  zoomOnPinch,
+}: {
+  event: ZoomFilterEvent;
+  zoomOnPinch: boolean;
+}): boolean {
+  if (!isWheelEventType(event.type)) {
+    return false;
+  }
+  if (!event.ctrlKey) {
+    return false;
+  }
+  return !zoomOnPinch;
+}
+
+function shouldBlockWheelViewportGesture({
+  event,
+  panOnScroll,
+  pinchZoom,
+  zoomOnScroll,
+}: {
+  event: ZoomFilterEvent;
+  panOnScroll: boolean;
+  pinchZoom: boolean;
+  zoomOnScroll: boolean;
+}): boolean {
+  if (!isWheelEventType(event.type)) {
+    return false;
+  }
+  if (zoomOnScroll || panOnScroll) {
+    return false;
+  }
+  return !pinchZoom;
 }
 
 function isAllowedViewportButton({
@@ -666,6 +701,304 @@ export function shouldAllowZoomFilterEvent({
   );
 }
 
+function useViewportInteractionCleanup({
+  isPanScrolling,
+  isWheelZooming,
+  isZoomingOrPanning,
+  panScrollTimeout,
+  wheelZoomTimeout,
+}: ViewportInteractionCleanupRefs) {
+  useEffect(() => {
+    return () => {
+      resetViewportInteractionState({
+        isPanScrolling,
+        isWheelZooming,
+        isZoomingOrPanning,
+        panScrollTimeout,
+        wheelZoomTimeout,
+      });
+    };
+  }, [
+    isPanScrolling,
+    isWheelZooming,
+    isZoomingOrPanning,
+    panScrollTimeout,
+    wheelZoomTimeout,
+  ]);
+}
+
+function useZoomWheelBehavior({
+  d3Selection,
+  d3Zoom,
+  d3ZoomHandler,
+  interactionRefs,
+  panOnScroll,
+  panOnScrollMode,
+  panOnScrollSpeed,
+  preventScrolling,
+  userSelectionActive,
+  zoomActivationKeyPressed,
+  zoomOnPinch,
+}: {
+  d3Selection: ReactFlowState["d3Selection"];
+  d3Zoom: ReactFlowState["d3Zoom"];
+  d3ZoomHandler: ReactFlowState["d3ZoomHandler"];
+  interactionRefs: ViewportInteractionCleanupRefs;
+  panOnScroll: boolean;
+  panOnScrollMode: PanOnScrollModeEnum;
+  panOnScrollSpeed: number;
+  preventScrolling: boolean;
+  userSelectionActive: boolean;
+  zoomActivationKeyPressed?: boolean;
+  zoomOnPinch: boolean;
+}) {
+  const {
+    isPanScrolling,
+    isWheelZooming,
+    isZoomingOrPanning,
+    panScrollTimeout,
+    wheelZoomTimeout,
+  } = interactionRefs;
+
+  useEffect(() => {
+    if (!d3Selection || !d3Zoom) {
+      return;
+    }
+
+    const wheelInteractionRefs: ViewportInteractionCleanupRefs = {
+      isPanScrolling,
+      isWheelZooming,
+      isZoomingOrPanning,
+      panScrollTimeout,
+      wheelZoomTimeout,
+    };
+    const scaleTo = d3Zoom.scaleTo as unknown as ScaleToFn;
+    const translateBy = d3Zoom.translateBy as unknown as TranslateByFn;
+
+    if (panOnScroll && !zoomActivationKeyPressed && !userSelectionActive) {
+      d3Selection.on(
+        "wheel.zoom",
+        createPanOnScrollWheelHandler({
+          d3Selection,
+          interactionRefs: wheelInteractionRefs,
+          panOnScrollMode,
+          panOnScrollSpeed,
+          scaleTo,
+          translateBy,
+          zoomActivationKeyPressed,
+          zoomOnPinch,
+        }),
+        { passive: false },
+      );
+      return;
+    }
+
+    if (typeof d3ZoomHandler === "undefined") {
+      return;
+    }
+
+    d3Selection.on(
+      "wheel.zoom",
+      createDefaultWheelHandler({
+        d3ZoomHandler,
+        interactionRefs: wheelInteractionRefs,
+        preventScrolling,
+        zoomActivationKeyPressed,
+        zoomOnPinch,
+      }),
+      { passive: false },
+    );
+  }, [
+    d3Selection,
+    d3Zoom,
+    d3ZoomHandler,
+    isPanScrolling,
+    isWheelZooming,
+    isZoomingOrPanning,
+    panScrollTimeout,
+    wheelZoomTimeout,
+    panOnScroll,
+    panOnScrollMode,
+    panOnScrollSpeed,
+    preventScrolling,
+    userSelectionActive,
+    zoomActivationKeyPressed,
+    zoomOnPinch,
+  ]);
+}
+
+function useZoomLifecycleHandlers({
+  d3Zoom,
+  isPanScrolling,
+  isWheelZooming,
+  isZoomingOrPanning,
+  userSelectionActive,
+}: {
+  d3Zoom: ReactFlowState["d3Zoom"];
+  isPanScrolling: ViewportInteractionRefs["isPanScrolling"];
+  isWheelZooming: ViewportInteractionRefs["isWheelZooming"];
+  isZoomingOrPanning: ViewportInteractionRefs["isZoomingOrPanning"];
+  userSelectionActive: boolean;
+}) {
+  useEffect(() => {
+    if (!d3Zoom) {
+      return;
+    }
+
+    d3Zoom.on("start", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
+      const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
+      if (!sourceEvent || sourceEvent.internal) {
+        return;
+      }
+      isZoomingOrPanning.current = true;
+      syncViewportInteractionActive({
+        isPanScrolling,
+        isWheelZooming,
+        isZoomingOrPanning,
+      });
+
+      if (sourceEvent.type === "mousedown") {
+        useReactFlow.setState({ paneDragging: true });
+      }
+
+      closeAllContextMenus();
+    });
+  }, [d3Zoom, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
+
+  useEffect(() => {
+    if (!d3Zoom) {
+      return;
+    }
+    if (userSelectionActive && !isZoomingOrPanning.current) {
+      d3Zoom.on("zoom", null);
+      return;
+    }
+    if (userSelectionActive) {
+      return;
+    }
+
+    d3Zoom.on("zoom", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
+      if (useAIFollow.getState().isFollowTransitioning && event.sourceEvent) {
+        return;
+      }
+      useReactFlow.setState({
+        transform: [event.transform.x, event.transform.y, event.transform.k],
+      });
+    });
+  }, [d3Zoom, isZoomingOrPanning, userSelectionActive]);
+
+  useEffect(() => {
+    if (!d3Zoom) {
+      return;
+    }
+
+    d3Zoom.on("end", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
+      const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
+      if (!sourceEvent || sourceEvent.internal) {
+        return;
+      }
+      isZoomingOrPanning.current = false;
+      syncViewportInteractionActive({
+        isPanScrolling,
+        isWheelZooming,
+        isZoomingOrPanning,
+      });
+      useReactFlow.setState({ paneDragging: false });
+      if (sourceEvent.type === "wheel") {
+        return;
+      }
+      syncViewportInteractionActive({
+        isPanScrolling,
+        isWheelZooming,
+        isZoomingOrPanning,
+      });
+    });
+  }, [d3Zoom, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
+}
+
+function useZoomFilterBinding({
+  d3Zoom,
+  panOnDrag,
+  panOnScroll,
+  userSelectionActive,
+  zoomActivationKeyPressed,
+  zoomOnDoubleClick,
+  zoomOnPinch,
+  zoomOnScroll,
+}: {
+  d3Zoom: ReactFlowState["d3Zoom"];
+  panOnDrag: boolean | number[];
+  panOnScroll: boolean;
+  userSelectionActive: boolean;
+  zoomActivationKeyPressed?: boolean;
+  zoomOnDoubleClick: boolean;
+  zoomOnPinch: boolean;
+  zoomOnScroll: boolean;
+}) {
+  useEffect(() => {
+    if (!d3Zoom) {
+      return;
+    }
+    d3Zoom.filter((event: ZoomFilterEvent) =>
+      shouldAllowZoomFilterEvent({
+        event,
+        panOnDrag,
+        panOnScroll,
+        userSelectionActive,
+        zoomActivationKeyPressed,
+        zoomOnDoubleClick,
+        zoomOnPinch,
+        zoomOnScroll,
+      }),
+    );
+  }, [
+    d3Zoom,
+    panOnDrag,
+    panOnScroll,
+    userSelectionActive,
+    zoomActivationKeyPressed,
+    zoomOnDoubleClick,
+    zoomOnPinch,
+    zoomOnScroll,
+  ]);
+}
+
+function useFitViewInitialization({
+  d3Selection,
+  d3Zoom,
+  fitViewOnInit,
+  fitViewOnInitDone,
+  fitViewOnInitOptions,
+}: {
+  d3Selection: ReactFlowState["d3Selection"];
+  d3Zoom: ReactFlowState["d3Zoom"];
+  fitViewOnInit: boolean;
+  fitViewOnInitDone: boolean;
+  fitViewOnInitOptions: ReactFlowState["fitViewOnInitOptions"];
+}) {
+  useEffect(() => {
+    if (!d3Zoom || !d3Selection || !fitViewOnInit || fitViewOnInitDone) {
+      return;
+    }
+    const didCompleteInitialFit = fitView({
+      initial: true,
+      ...fitViewOnInitOptions,
+    });
+    if (didCompleteInitialFit) {
+      useReactFlow.setState({
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+      });
+    }
+  }, [
+    d3Selection,
+    d3Zoom,
+    fitViewOnInit,
+    fitViewOnInitDone,
+    fitViewOnInitOptions,
+  ]);
+}
+
 const ZoomPane = ({
   zoomOnScroll = true,
   zoomOnPinch = true,
@@ -703,197 +1036,44 @@ const ZoomPane = ({
     wheelZoomTimeout,
   };
   useZoomPaneInit(zoomPane, translateExtent);
-
-  useEffect(() => {
-    return () => {
-      resetViewportInteractionState({
-        isPanScrolling,
-        isWheelZooming,
-        isZoomingOrPanning,
-        panScrollTimeout,
-        wheelZoomTimeout,
-      });
-    };
-  }, []);
-
-  useEffect(() => {
-    if (d3Selection && d3Zoom) {
-      const scaleTo = d3Zoom.scaleTo as unknown as (
-        selection: D3Selection<Element, unknown, null, undefined>,
-        zoomLevel: number,
-        point?: [number, number],
-        event?: WheelEvent,
-      ) => void;
-      const translateBy = d3Zoom.translateBy as unknown as (
-        selection: D3Selection<Element, unknown, null, undefined>,
-        deltaX: number,
-        deltaY: number,
-        event?: InternalWheelEvent,
-      ) => void;
-
-      if (panOnScroll && !zoomActivationKeyPressed && !userSelectionActive) {
-        d3Selection.on(
-          "wheel.zoom",
-          createPanOnScrollWheelHandler({
-            d3Selection,
-            interactionRefs,
-            panOnScrollMode,
-            panOnScrollSpeed,
-            scaleTo,
-            translateBy,
-            zoomActivationKeyPressed,
-            zoomOnPinch,
-          }),
-          { passive: false },
-        );
-      } else if (typeof d3ZoomHandler !== "undefined") {
-        d3Selection.on(
-          "wheel.zoom",
-          createDefaultWheelHandler({
-            d3ZoomHandler,
-            interactionRefs,
-            preventScrolling,
-            zoomActivationKeyPressed,
-            zoomOnPinch,
-          }),
-          { passive: false },
-        );
-      }
-    }
-  }, [
-    userSelectionActive,
-    panOnScroll,
-    panOnScrollSpeed,
-    panOnScrollMode,
+  useViewportInteractionCleanup(interactionRefs);
+  useZoomWheelBehavior({
     d3Selection,
     d3Zoom,
     d3ZoomHandler,
-    zoomActivationKeyPressed,
-    zoomOnPinch,
-    preventScrolling,
-  ]);
-
-  useEffect(() => {
-    if (d3Zoom) {
-      d3Zoom.on("start", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
-        const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
-        if (!sourceEvent || sourceEvent.internal) {
-          return;
-        }
-        isZoomingOrPanning.current = true;
-        syncViewportInteractionActive({
-          isPanScrolling,
-          isWheelZooming,
-          isZoomingOrPanning,
-        });
-
-        if (sourceEvent.type === "mousedown") {
-          useReactFlow.setState({ paneDragging: true });
-        }
-
-        closeAllContextMenus();
-      });
-    }
-  }, [d3Zoom]);
-
-  useEffect(() => {
-    if (d3Zoom) {
-      if (userSelectionActive && !isZoomingOrPanning.current) {
-        d3Zoom.on("zoom", null);
-      } else if (!userSelectionActive) {
-        d3Zoom.on("zoom", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
-          if (
-            useAIFollow.getState().isFollowTransitioning &&
-            event.sourceEvent
-          ) {
-            return;
-          }
-          useReactFlow.setState({
-            transform: [
-              event.transform.x,
-              event.transform.y,
-              event.transform.k,
-            ],
-          });
-        });
-      }
-    }
-  }, [userSelectionActive, d3Zoom]);
-
-  useEffect(() => {
-    if (d3Zoom) {
-      d3Zoom.on("end", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
-        const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
-        if (!sourceEvent || sourceEvent.internal) {
-          return;
-        }
-        isZoomingOrPanning.current = false;
-        syncViewportInteractionActive({
-          isPanScrolling,
-          isWheelZooming,
-          isZoomingOrPanning,
-        });
-        if (sourceEvent.type === "wheel") {
-          useReactFlow.setState({ paneDragging: false });
-          return;
-        }
-        useReactFlow.setState({ paneDragging: false });
-        syncViewportInteractionActive({
-          isPanScrolling,
-          isWheelZooming,
-          isZoomingOrPanning,
-        });
-      });
-    }
-  }, [d3Zoom]);
-
-  useEffect(() => {
-    if (d3Zoom) {
-      d3Zoom.filter((event: ZoomFilterEvent) =>
-        shouldAllowZoomFilterEvent({
-          event,
-          panOnDrag,
-          panOnScroll,
-          userSelectionActive,
-          zoomActivationKeyPressed,
-          zoomOnDoubleClick,
-          zoomOnPinch,
-          zoomOnScroll,
-        }),
-      );
-    }
-  }, [
-    userSelectionActive,
-    d3Zoom,
-    zoomOnScroll,
-    zoomOnPinch,
+    interactionRefs,
     panOnScroll,
-    zoomOnDoubleClick,
-    panOnDrag,
+    panOnScrollMode,
+    panOnScrollSpeed,
+    preventScrolling,
+    userSelectionActive,
     zoomActivationKeyPressed,
-  ]);
-
-  useEffect(() => {
-    if (!d3Zoom || !d3Selection || !fitViewOnInit || fitViewOnInitDone) {
-      return;
-    }
-    const didCompleteInitialFit = fitView({
-      initial: true,
-      ...fitViewOnInitOptions,
-    });
-    if (didCompleteInitialFit) {
-      useReactFlow.setState({
-        fitViewOnInit: false,
-        fitViewOnInitDone: true,
-      });
-    }
-  }, [
+    zoomOnPinch,
+  });
+  useZoomLifecycleHandlers({
+    d3Zoom,
+    isPanScrolling,
+    isWheelZooming,
+    isZoomingOrPanning,
+    userSelectionActive,
+  });
+  useZoomFilterBinding({
+    d3Zoom,
+    panOnDrag,
+    panOnScroll,
+    userSelectionActive,
+    zoomActivationKeyPressed,
+    zoomOnDoubleClick,
+    zoomOnPinch,
+    zoomOnScroll,
+  });
+  useFitViewInitialization({
     d3Selection,
     d3Zoom,
     fitViewOnInit,
     fitViewOnInitDone,
     fitViewOnInitOptions,
-  ]);
+  });
 
   return (
     <div
