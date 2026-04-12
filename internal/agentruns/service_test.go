@@ -657,6 +657,106 @@ func TestBuildContextRejectsInvalidInputTypesAndMismatchedEngineConfig(t *testin
 	}
 }
 
+func TestParseRunInputsTrimsValuesAndAppliesDefaults(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                   string
+		inputs                 map[string]any
+		defaultProjectConfigID string
+		wantProjectConfigID    string
+		wantChatID             string
+		wantSectionID          *string
+		wantAllowUnscoped      bool
+		wantThinking           bool
+	}{
+		{
+			name:                   "defaults project config when omitted",
+			inputs:                 map[string]any{"allowUnscoped": true},
+			defaultProjectConfigID: "project-default",
+			wantProjectConfigID:    "project-default",
+			wantAllowUnscoped:      true,
+		},
+		{
+			name: "trims explicit overrides",
+			inputs: map[string]any{
+				"projectConfigId": " project-beta ",
+				"chatId":          " chat-1 ",
+				"sectionId":       " section-1 ",
+				"thinking":        true,
+			},
+			defaultProjectConfigID: "project-default",
+			wantProjectConfigID:    "project-beta",
+			wantChatID:             "chat-1",
+			wantSectionID:          stringPtr("section-1"),
+			wantThinking:           true,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			parsed, err := parseRunInputs(test.inputs, test.defaultProjectConfigID)
+			if err != nil {
+				t.Fatalf("parse run inputs: %v", err)
+			}
+			if parsed.projectConfigID != test.wantProjectConfigID {
+				t.Fatalf("expected project config %q, got %q", test.wantProjectConfigID, parsed.projectConfigID)
+			}
+			if parsed.chatID != test.wantChatID {
+				t.Fatalf("expected chat id %q, got %q", test.wantChatID, parsed.chatID)
+			}
+			if !reflect.DeepEqual(parsed.sectionID, test.wantSectionID) {
+				t.Fatalf("expected section id %#v, got %#v", test.wantSectionID, parsed.sectionID)
+			}
+			if parsed.allowUnscoped != test.wantAllowUnscoped {
+				t.Fatalf("expected allowUnscoped=%v, got %v", test.wantAllowUnscoped, parsed.allowUnscoped)
+			}
+			if parsed.thinking != test.wantThinking {
+				t.Fatalf("expected thinking=%v, got %v", test.wantThinking, parsed.thinking)
+			}
+		})
+	}
+}
+
+func TestParseRunInputsRejectsSectionRequirementConflicts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		inputs      map[string]any
+		wantMessage string
+	}{
+		{
+			name:        "section id required when unscoped is false",
+			inputs:      map[string]any{},
+			wantMessage: "sectionId is required unless allowUnscoped is true.",
+		},
+		{
+			name: "allow unscoped requires omitted section id",
+			inputs: map[string]any{
+				"sectionId":     "section-1",
+				"allowUnscoped": true,
+			},
+			wantMessage: "allowUnscoped requires sectionId to be omitted.",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := parseRunInputs(test.inputs, "project-default")
+			if err == nil || !strings.Contains(err.Error(), test.wantMessage) {
+				t.Fatalf("expected error containing %q, got %v", test.wantMessage, err)
+			}
+		})
+	}
+}
+
 func TestBuildSystemPromptUsesTemporaryProjectID(t *testing.T) {
 	t.Parallel()
 

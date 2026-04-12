@@ -512,6 +512,42 @@ func parseOptionalBoolInput(inputs map[string]any, fieldName string) (bool, bool
 	return value, true, nil
 }
 
+type optionalTrimmedStringField struct {
+	fieldName string
+	target    *string
+}
+
+func applyOptionalTrimmedStringFields(inputs map[string]any, fields []optionalTrimmedStringField) error {
+	for _, field := range fields {
+		value, ok, err := parseOptionalTrimmedStringInput(inputs, field.fieldName)
+		if err != nil {
+			return err
+		}
+		if ok {
+			*field.target = value
+		}
+	}
+	return nil
+}
+
+type optionalBoolField struct {
+	fieldName string
+	target    *bool
+}
+
+func applyOptionalBoolFields(inputs map[string]any, fields []optionalBoolField) error {
+	for _, field := range fields {
+		value, ok, err := parseOptionalBoolInput(inputs, field.fieldName)
+		if err != nil {
+			return err
+		}
+		if ok {
+			*field.target = value
+		}
+	}
+	return nil
+}
+
 func validateRunPayloadInputs(inputs map[string]any) error {
 	if _, _, err := parseOptionalTrimmedStringInput(inputs, "prompt"); err != nil {
 		return err
@@ -528,30 +564,22 @@ func parseRunInputs(inputs map[string]any, defaultProjectConfigID string) (parse
 	parsed := parsedRunInputs{
 		projectConfigID: defaultProjectConfigID,
 	}
-	if value, ok, err := parseOptionalTrimmedStringInput(inputs, "projectConfigId"); err != nil {
+	if err := applyOptionalTrimmedStringFields(inputs, []optionalTrimmedStringField{
+		{fieldName: "projectConfigId", target: &parsed.projectConfigID},
+		{fieldName: "chatId", target: &parsed.chatID},
+	}); err != nil {
 		return parsedRunInputs{}, err
-	} else if ok {
-		parsed.projectConfigID = value
-	}
-	if value, ok, err := parseOptionalTrimmedStringInput(inputs, "chatId"); err != nil {
-		return parsedRunInputs{}, err
-	} else if ok {
-		parsed.chatID = value
 	}
 	sectionID, err := parseOptionalTrimmedStringPtrInput(inputs, "sectionId")
 	if err != nil {
 		return parsedRunInputs{}, err
 	}
 	parsed.sectionID = sectionID
-	if value, ok, err := parseOptionalBoolInput(inputs, "allowUnscoped"); err != nil {
+	if err := applyOptionalBoolFields(inputs, []optionalBoolField{
+		{fieldName: "allowUnscoped", target: &parsed.allowUnscoped},
+		{fieldName: "thinking", target: &parsed.thinking},
+	}); err != nil {
 		return parsedRunInputs{}, err
-	} else if ok {
-		parsed.allowUnscoped = value
-	}
-	if value, ok, err := parseOptionalBoolInput(inputs, "thinking"); err != nil {
-		return parsedRunInputs{}, err
-	} else if ok {
-		parsed.thinking = value
 	}
 	if err := validateRunPayloadInputs(inputs); err != nil {
 		return parsedRunInputs{}, err
