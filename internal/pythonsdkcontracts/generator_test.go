@@ -35,7 +35,7 @@ func TestBuildDeduplicatesCustomImportsAndExportsGeneratedModels(t *testing.T) {
 	output := generated.PythonModule
 	for _, importLine := range []string{
 		"from setta.types.generated.go_shared_types import BaseArtifactUnion",
-		"from setta.types.generated.go_shared_types import BaseDependencyKeyUnion",
+		"from setta.types.protocol import BaseDependencyKeyUnion",
 		"from setta.types.generated.go_shared_types import BaseDependencyValueUnion",
 	} {
 		if count := strings.Count(output, importLine); count != 1 {

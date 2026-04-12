@@ -34,10 +34,10 @@ type RunnerSummarySnapshot struct {
 }
 
 type ListenerDependencyCatalogEntry struct {
-	DependencyKey              string   `json:"dependencyKey" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.generated.go_shared_types import BaseDependencyKeyUnion"`
+	DependencyKey              string   `json:"dependencyKey" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.protocol import BaseDependencyKeyUnion"`
 	Name                       string   `json:"name"`
 	FullPathName               string   `json:"fullPathName"`
-	Dependencies               []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnion]" py_import:"from setta.types.generated.go_shared_types import BaseDependencyKeyUnion" py_default:"factory:list"`
+	Dependencies               []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnion]" py_import:"from setta.types.protocol import BaseDependencyKeyUnion" py_default:"factory:list"`
 	IncludeInCodegen           bool     `json:"includeInCodegen" py_default:"True"`
 	SectionType                *string  `json:"sectionType,omitempty"`
 	CodeObjType                *string  `json:"codeObjType,omitempty"`
@@ -54,7 +54,7 @@ type ListenerDependencyCatalog struct {
 }
 
 type ListenerRenderedDependencyValue struct {
-	DependencyKey string `json:"dependencyKey" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.generated.go_shared_types import BaseDependencyKeyUnion"`
+	DependencyKey string `json:"dependencyKey" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.protocol import BaseDependencyKeyUnion"`
 	RenderedValue string `json:"renderedValue"`
 }
 
@@ -83,7 +83,7 @@ type ListenerInitRequest struct {
 }
 
 type ListenerRegisterCallbackSpec struct {
-	Dependencies   []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnion]" py_import:"from setta.types.generated.go_shared_types import BaseDependencyKeyUnion" py_default:"factory:list"`
+	Dependencies   []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnion]" py_import:"from setta.types.protocol import BaseDependencyKeyUnion" py_default:"factory:list"`
 	DependencyMode string   `json:"dependencyMode" py_type:"Literal[\"refresh_only\", \"realtime_only\", \"always\"]"`
 	DebounceMS     *int     `json:"debounceMs,omitempty"`
 	ThrottleMS     *int     `json:"throttleMs,omitempty"`
@@ -134,7 +134,7 @@ type ListenerRouterEndpointResult struct {
 }
 
 type ListenerRealtimeDelta struct {
-	Dependency string          `json:"dependency" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.generated.go_shared_types import BaseDependencyKeyUnion"`
+	Dependency string          `json:"dependency" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.protocol import BaseDependencyKeyUnion"`
 	Value      json.RawMessage `json:"value" py_type:"BaseDependencyValueUnion" py_import:"from setta.types.generated.go_shared_types import BaseDependencyValueUnion"`
 }
 
@@ -147,7 +147,7 @@ type ListenerRealtimeEvent struct {
 }
 
 type ListenerDependencyEventEntry struct {
-	DependencyKey string          `json:"dependencyKey" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.generated.go_shared_types import BaseDependencyKeyUnion"`
+	DependencyKey string          `json:"dependencyKey" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.protocol import BaseDependencyKeyUnion"`
 	Payload       json.RawMessage `json:"payload,omitempty" py_type:"BaseDependencyValueUnion | None" py_import:"from setta.types.generated.go_shared_types import BaseDependencyValueUnion" py_default:"None"`
 	TimestampMS   int64           `json:"timestampMs"`
 }
@@ -187,7 +187,7 @@ type LocalCoreResultEnvelope struct {
 }
 
 type LocalCoreListenerRealtimeDelta struct {
-	Dependency          string          `json:"dependency" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.generated.go_shared_types import BaseDependencyKeyUnion"`
+	Dependency          string          `json:"dependency" py_type:"BaseDependencyKeyUnion" py_import:"from setta.types.protocol import BaseDependencyKeyUnion"`
 	Value               json.RawMessage `json:"value" py_type:"BaseDependencyValueUnion" py_import:"from setta.types.generated.go_shared_types import BaseDependencyValueUnion"`
 	BinaryPayloadBase64 *string         `json:"binaryPayloadBase64,omitempty"`
 }

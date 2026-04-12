@@ -18,6 +18,8 @@ from setta.types.generated.go_shared_types import (
 from setta.types.id import ID
 
 
+# Keep the public SDK models frozen/strict at the Python boundary while the
+# field shape and discriminator semantics remain generated from Go.
 class SectionDependencyKey(GoSectionDependencyKey):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

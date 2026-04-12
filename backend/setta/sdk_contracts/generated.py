@@ -5,9 +5,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from setta.types.generated.go_shared_types import (
     BaseArtifactUnion,
-    BaseDependencyKeyUnion,
     BaseDependencyValueUnion,
 )
+from setta.types.protocol import BaseDependencyKeyUnion
 
 SETTA_SDK_CONTRACT_VERSION = 2
 
