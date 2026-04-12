@@ -27,6 +27,76 @@ function getPathLabel(path: string): string {
   return segments[segments.length - 1] ?? path;
 }
 
+function createBreadcrumb(path: string): FileBrowserBreadcrumb {
+  return {
+    label: getPathLabel(path),
+    path,
+  };
+}
+
+function buildBreadcrumbRange(args: {
+  root: string;
+  segments: string[];
+  startCount: number;
+}): FileBrowserBreadcrumb[] {
+  const breadcrumbs: FileBrowserBreadcrumb[] = [];
+  for (
+    let segmentCount = args.startCount;
+    segmentCount <= args.segments.length;
+    segmentCount += 1
+  ) {
+    const path = joinBrowserPath(
+      args.root,
+      args.segments.slice(0, segmentCount),
+    );
+    breadcrumbs.push(createBreadcrumb(path));
+  }
+  return breadcrumbs;
+}
+
+function buildRootScopedBreadcrumbs(args: {
+  normalizedRoot: string;
+  currentRoot: string;
+  currentSegments: string[];
+}): FileBrowserBreadcrumb[] {
+  const breadcrumbs = [createBreadcrumb(args.normalizedRoot)];
+  if (
+    joinBrowserPath(args.currentRoot, args.currentSegments) ===
+    args.normalizedRoot
+  ) {
+    return breadcrumbs;
+  }
+  const rootSegments = splitBrowserPath(args.normalizedRoot).segments;
+  breadcrumbs.push(
+    ...buildBreadcrumbRange({
+      root: args.currentRoot,
+      segments: args.currentSegments,
+      startCount: rootSegments.length + 1,
+    }),
+  );
+  return breadcrumbs;
+}
+
+function buildAbsoluteBreadcrumbs(args: {
+  normalizedCurrent: string;
+  currentRoot: string;
+  currentSegments: string[];
+}): FileBrowserBreadcrumb[] {
+  const breadcrumbs =
+    args.currentRoot.length > 0 ? [createBreadcrumb(args.currentRoot)] : [];
+  breadcrumbs.push(
+    ...buildBreadcrumbRange({
+      root: args.currentRoot,
+      segments: args.currentSegments,
+      startCount: 1,
+    }),
+  );
+  if (breadcrumbs.length > 0) {
+    return breadcrumbs;
+  }
+  return [createBreadcrumb(args.normalizedCurrent)];
+}
+
 export function buildFileBrowserBreadcrumbs(args: {
   rootPath: string | null;
   currentPath: string;
@@ -42,72 +112,23 @@ export function buildFileBrowserBreadcrumbs(args: {
     ? normalizeFileBrowserPathForComparison(args.rootPath)
     : null;
   const currentPathParts = splitBrowserPath(normalizedCurrent);
-  const currentSegments = currentPathParts.segments;
-  const shouldIncludeAbsoluteRootCrumb =
-    normalizedRoot === null && currentPathParts.root.length > 0;
 
   if (
     normalizedRoot &&
     isSameOrDescendantBrowserPath(normalizedCurrent, normalizedRoot)
   ) {
-    const breadcrumbs: FileBrowserBreadcrumb[] = [
-      {
-        label: getPathLabel(normalizedRoot),
-        path: normalizedRoot,
-      },
-    ];
-    if (normalizedCurrent === normalizedRoot) {
-      return breadcrumbs;
-    }
-
-    const rootSegments = splitBrowserPath(normalizedRoot).segments;
-    for (
-      let segmentCount = rootSegments.length + 1;
-      segmentCount <= currentSegments.length;
-      segmentCount += 1
-    ) {
-      const path = joinBrowserPath(
-        currentPathParts.root,
-        currentSegments.slice(0, segmentCount),
-      );
-      breadcrumbs.push({
-        label: getPathLabel(path),
-        path,
-      });
-    }
-    return breadcrumbs;
-  }
-
-  const breadcrumbs: FileBrowserBreadcrumb[] = [];
-  if (shouldIncludeAbsoluteRootCrumb) {
-    breadcrumbs.push({
-      label: currentPathParts.root,
-      path: currentPathParts.root,
+    return buildRootScopedBreadcrumbs({
+      normalizedRoot,
+      currentRoot: currentPathParts.root,
+      currentSegments: currentPathParts.segments,
     });
   }
-  for (
-    let segmentCount = 1;
-    segmentCount <= currentSegments.length;
-    segmentCount += 1
-  ) {
-    const path = joinBrowserPath(
-      currentPathParts.root,
-      currentSegments.slice(0, segmentCount),
-    );
-    breadcrumbs.push({
-      label: getPathLabel(path),
-      path,
-    });
-  }
-  if (breadcrumbs.length > 0) {
-    return breadcrumbs;
-  }
-  return [
-    {
-      label: normalizedCurrent,
-      path: normalizedCurrent,
-    },
-  ];
+
+  return buildAbsoluteBreadcrumbs({
+    normalizedCurrent,
+    currentRoot: currentPathParts.root,
+    currentSegments: currentPathParts.segments,
+  });
 }
 
 export function getFileBrowserParentPath(args: {

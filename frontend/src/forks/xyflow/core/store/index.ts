@@ -3,10 +3,7 @@ import { Position } from "utils/generatedTypes";
 import { subscribeWithSelector } from "zustand/middleware";
 import { createWithEqualityFn } from "zustand/traditional";
 import type { CoordinateExtent, ReactFlowState } from "../types";
-import {
-  getActiveSectionsBounds,
-  hasActiveD3ViewportTarget,
-} from "../utils/graph";
+import { getActiveSectionsBounds } from "../utils/graph";
 import initialState from "./initialState";
 
 export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
@@ -32,30 +29,10 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
       set({ translateExtent });
     },
     panBy: (delta: Position): boolean => {
-      const {
-        transform,
-        width,
-        height,
-        d3Zoom,
-        d3Selection,
-        domNode,
-        translateExtent,
-        viewportController,
-      } = get();
+      const { transform, width, height, d3Zoom, d3Selection, translateExtent } =
+        get();
 
-      if (!delta.x && !delta.y) {
-        return false;
-      }
-
-      if (
-        !d3Zoom ||
-        !d3Selection ||
-        !hasActiveD3ViewportTarget(d3Selection, domNode)
-      ) {
-        return viewportController?.panBy(delta) ?? false;
-      }
-
-      if (!d3Zoom || !d3Selection) {
+      if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
         return false;
       }
 

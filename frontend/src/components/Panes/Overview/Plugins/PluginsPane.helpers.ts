@@ -1,29 +1,10 @@
-import type {
-  PluginBlockedCapability,
-  PluginInstallResponse,
-  PluginListEntry,
-  PluginStatusEntry,
+import { getErrorDetail } from "utils/endpointUtils";
+import {
+  type PluginBlockedCapability,
+  type PluginInstallResponse,
+  type PluginListEntry,
+  type PluginStatusEntry,
 } from "utils/generatedTypes";
-
-type PluginRegisteredLanguageServer =
-  PluginStatusEntry["registeredLanguageServers"][number];
-type PluginRegisteredExternalAgentAdapter =
-  PluginStatusEntry["registeredExternalAgentAdapters"][number];
-type PluginRegisteredCodegenTarget =
-  PluginStatusEntry["registeredCodegenTargets"][number];
-
-const cachedLanguageServersByStatus = new WeakMap<
-  PluginStatusEntry,
-  PluginRegisteredLanguageServer[]
->();
-const cachedExternalAgentAdaptersByStatus = new WeakMap<
-  PluginStatusEntry,
-  PluginRegisteredExternalAgentAdapter[]
->();
-const cachedCodegenTargetsByStatus = new WeakMap<
-  PluginStatusEntry,
-  PluginRegisteredCodegenTarget[]
->();
 
 type PluginCapabilityStatus =
   | "effective"
@@ -34,6 +15,18 @@ type PluginCapabilityStatus =
 type PluginCapabilityStatusIndex = {
   capabilityStatusByCapability: Map<string, PluginCapabilityStatus>;
   blockedReasonByCapability: Map<string, string>;
+};
+
+export type PluginConfigFieldDefinition = {
+  key: string;
+  required: boolean;
+  schema: Record<string, unknown>;
+};
+
+type PluginConfigFieldPresentation = {
+  value: unknown;
+  displayLabelText: string;
+  descriptionText: string | null;
 };
 
 export function buildCapabilityStatusIndex({
@@ -79,79 +72,6 @@ export function buildCapabilityStatusIndex({
     capabilityStatusByCapability,
     blockedReasonByCapability,
   };
-}
-
-export function getRegisteredLanguageServers(
-  pluginStatus: PluginStatusEntry | null,
-): PluginRegisteredLanguageServer[] {
-  return getCachedSortedRegistrations(
-    pluginStatus,
-    cachedLanguageServersByStatus,
-    (entry) => entry.registeredLanguageServers,
-    (a, b) => {
-      const byLanguage = a.language.localeCompare(b.language);
-      if (byLanguage !== 0) {
-        return byLanguage;
-      }
-      return a.name.localeCompare(b.name);
-    },
-  );
-}
-
-export function getRegisteredExternalAgentAdapters(
-  pluginStatus: PluginStatusEntry | null,
-): PluginRegisteredExternalAgentAdapter[] {
-  return getCachedSortedRegistrations(
-    pluginStatus,
-    cachedExternalAgentAdaptersByStatus,
-    (entry) => entry.registeredExternalAgentAdapters,
-    (a, b) => {
-      const byName = a.name.localeCompare(b.name);
-      if (byName !== 0) {
-        return byName;
-      }
-      return a.adapterId.localeCompare(b.adapterId);
-    },
-  );
-}
-
-export function getRegisteredCodegenTargets(
-  pluginStatus: PluginStatusEntry | null,
-): PluginRegisteredCodegenTarget[] {
-  return getCachedSortedRegistrations(
-    pluginStatus,
-    cachedCodegenTargetsByStatus,
-    (entry) => entry.registeredCodegenTargets,
-    (a, b) => {
-      const byName = a.name.localeCompare(b.name);
-      if (byName !== 0) {
-        return byName;
-      }
-      return a.targetId.localeCompare(b.targetId);
-    },
-  );
-}
-
-function getCachedSortedRegistrations<TRegistration>(
-  pluginStatus: PluginStatusEntry | null,
-  cache: WeakMap<PluginStatusEntry, TRegistration[]>,
-  getRawRegistrations: (pluginStatus: PluginStatusEntry) => unknown,
-  compare: (a: TRegistration, b: TRegistration) => number,
-): TRegistration[] {
-  if (pluginStatus === null) {
-    return [];
-  }
-  const cached = cache.get(pluginStatus);
-  if (cached) {
-    return cached;
-  }
-  const rawRegistrations = getRawRegistrations(pluginStatus);
-  const registrations = Array.isArray(rawRegistrations)
-    ? ([...rawRegistrations] as TRegistration[])
-    : [];
-  registrations.sort(compare);
-  cache.set(pluginStatus, registrations);
-  return registrations;
 }
 
 function parseJsonObjectDraft(
@@ -205,74 +125,39 @@ export function formatPluginConfigDraft(value: unknown): string {
   return formatJsonObjectDraft(value);
 }
 
-export function parseLanguageServerSettingsDraft(rawValue: string): {
-  value: Record<string, unknown>;
-  error: string | null;
-} {
-  return parseJsonObjectDraft(
-    rawValue,
-    "Language server settings must be a JSON object.",
-    "Language server settings JSON is invalid.",
-  );
-}
-
-export function formatLanguageServerSettingsDraft(value: unknown): string {
-  return formatJsonObjectDraft(value);
-}
-
-export function getLanguageServerSettingsValue(
-  settings: Record<string, unknown>,
-  settingsKey: string,
-): unknown {
-  const path = settingsKey
-    .split(".")
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
-  if (path.length === 0) {
-    return {};
-  }
-  let current: unknown = settings;
-  for (const segment of path) {
-    if (!isPlainObject(current)) {
-      return {};
-    }
-    current = current[segment];
-  }
-  return current ?? {};
-}
-
-export function setLanguageServerSettingsValue(
-  settings: Record<string, unknown>,
-  settingsKey: string,
-  value: Record<string, unknown>,
-): Record<string, unknown> {
-  const path = settingsKey
-    .split(".")
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
-  if (path.length === 0) {
-    return { ...settings };
-  }
-  const [head, ...tail] = path;
-  if (!head) {
-    return { ...settings };
-  }
-  if (tail.length === 0) {
-    return {
-      ...settings,
-      [head]: { ...value },
-    };
-  }
-  const existing = settings[head];
-  const nextChild = setLanguageServerSettingsValue(
-    isPlainObject(existing) ? existing : {},
-    tail.join("."),
-    value,
-  );
+export function resolvePluginConfigFieldPresentation(
+  field: PluginConfigFieldDefinition,
+  config: Record<string, unknown>,
+): PluginConfigFieldPresentation {
+  const configuredValue = config[field.key];
+  const labelText =
+    normalizeOptionalSchemaText(field.schema.title) ?? field.key;
   return {
-    ...settings,
-    [head]: nextChild,
+    value:
+      configuredValue === undefined ? field.schema.default : configuredValue,
+    displayLabelText: field.required ? `${labelText} *` : labelText,
+    descriptionText: normalizeOptionalSchemaText(field.schema.description),
   };
+}
+
+export function getPluginActionErrorDetail(data: unknown): string | null {
+  const detailMessage = getErrorDetail(data);
+  if (detailMessage) {
+    return detailMessage;
+  }
+  if (!isPlainObject(data)) {
+    return null;
+  }
+  const detailValue = data.detail;
+  if (!isPlainObject(detailValue)) {
+    return null;
+  }
+  const code = detailValue.code;
+  const message = detailValue.message;
+  if (typeof code !== "string" || typeof message !== "string") {
+    return null;
+  }
+  return `${code} - ${message}`;
 }
 
 export function getPluginCapabilityStatus(
@@ -336,36 +221,6 @@ export function buildCapabilityUnavailableMessage({
     return `${capability} is effective.`;
   }
   return `${capability} is not requested by this plugin.`;
-}
-
-export function validateInstallSourceSpec(
-  sourceSpecRaw: string,
-): string | null {
-  const sourceSpec = sourceSpecRaw.trim();
-  if (!sourceSpec) {
-    return "Source spec is required.";
-  }
-
-  if (sourceSpec.startsWith("github:")) {
-    const value = sourceSpec.slice("github:".length).trim();
-    if (!value || !value.includes("/")) {
-      return (
-        "Invalid github source spec. Expected github:owner/repo[#ref] " +
-        "or github:owner/repo@ref."
-      );
-    }
-    return null;
-  }
-
-  if (sourceSpec.startsWith("pypi:")) {
-    const value = sourceSpec.slice("pypi:".length).trim();
-    if (!value) {
-      return "Invalid pypi source spec. Expected pypi:package or pypi:package==version.";
-    }
-    return null;
-  }
-
-  return "Unsupported source spec. Use github: or pypi:.";
 }
 
 export function buildInstallTrustSummaryMessage(
@@ -438,4 +293,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return false;
   }
   return true;
+}
+
+function normalizeOptionalSchemaText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
 }

@@ -24,14 +24,8 @@ const PROJECT_URL =
     : BASE_URL);
 const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 const READY_SELECTOR = ".react-flow__pane";
-const CANARY_READY_SELECTOR = '[data-testid="graph-substrate-canary"]';
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
-export type AppReadySnapshot = {
-  canaryRootMounted: boolean;
-  legacyPaneMounted: boolean;
-  projectIsLoading: boolean | null;
-};
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
 type AllowedApiError = {
   path: string;
@@ -98,6 +92,10 @@ type AllLLMConfigs = {
   default_config_id?: string | null;
 };
 type CreateSectionResponse = { sectionId?: string };
+type FrontendHydratableOpenAPIOperation = {
+  operationName: string;
+  body: Record<string, unknown>;
+};
 type IsolatedProjectContext = {
   projectConfigId: string;
   defaultProjectConfigId: string | null;
@@ -121,7 +119,7 @@ type ProjectStateSectionCore = {
   sharedModifier?: { size?: ProjectStateSectionSize };
 };
 type ProjectStateViewport = { x: number; y: number; zoom: number };
-export type ProjectStateSingleConfigResponse = {
+export type SingleConfigResponse = {
   projectConfig: {
     sectionVariantMap: Record<string, string>;
     viewport?: ProjectStateViewport | null;
@@ -129,6 +127,9 @@ export type ProjectStateSingleConfigResponse = {
   sectionVariants: Record<string, ProjectStateVariant>;
   sectionImpls: Record<string, ProjectStateSectionImpl>;
   sections: Record<string, ProjectStateSectionCore>;
+  singletonSections: {
+    GenPythonCode?: string | null;
+  };
 };
 
 export async function ensureAppReady(page: Page): Promise<void> {
@@ -183,9 +184,9 @@ export async function ensureAppReady(page: Page): Promise<void> {
     }
 
     if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
-      const defaultConfig = await getDefaultConfigNameResult(page);
-      if (defaultConfig.name) {
-        const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
+      const defaultProjectName = await resolveDefaultProjectName(page, false);
+      if (defaultProjectName) {
+        const defaultUrl = new URL(defaultProjectName, BASE_URL).toString();
         await page.goto(withBackendOriginOverride(defaultUrl), {
           waitUntil: "domcontentloaded",
         });
@@ -197,11 +198,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
 
     const debugLines: string[] = [];
     debugLines.push(`Current URL: ${page.url()}`);
-    debugLines.push("");
-    debugLines.push("Ready snapshot:");
-    debugLines.push(
-      JSON.stringify(await captureAppReadySnapshot(page), null, 2),
-    );
     if (pageErrors.length) {
       debugLines.push("");
       debugLines.push("Page errors:");
@@ -345,7 +341,8 @@ export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
       .isVisible()
       .catch(() => false)
   ) {
-    return;
+    await page.keyboard.press("Escape");
+    await expect(accordionTrigger.first()).not.toBeVisible();
   }
   const projectChatSurface = await getVisibleProjectChatSurface(page);
   await clickDom(
@@ -464,29 +461,59 @@ export async function openIsolatedProject(
 ): Promise<IsolatedProjectContext> {
   installUnexpectedApiErrorGuard(page);
   throwIfUnexpectedApiError(page);
-
-  const metadata = await postBackend<ProjectMetadataResponse>(
-    page,
-    "/loadAllProjectMetadata",
-    {},
-  );
-  if (!metadata) {
-    throw new Error("Missing project metadata response.");
-  }
-  const name = await postBackend<string>(page, "/createProjectConfig", {
-    previewImgColor: "bg-blue-500/60",
-  });
-  if (!name) {
-    throw new Error("Missing project config name.");
-  }
-  const url = new URL(name, BASE_URL).toString();
-  await page.goto(url, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  return {
-    projectConfigId,
-    defaultProjectConfigId: metadata.defaultProjectConfigId ?? null,
+  const pageErrors: string[] = [];
+  const consoleErrors: string[] = [];
+  const onPageError = (err: Error) => {
+    const message = err?.stack || err?.message || String(err);
+    if (message && !pageErrors.includes(message)) {
+      pageErrors.push(message);
+    }
   };
+  const onConsole = (msg: ConsoleMessage) => {
+    if (msg.type() !== "error") {
+      return;
+    }
+    const message = msg.text();
+    if (message && !consoleErrors.includes(message)) {
+      consoleErrors.push(message);
+    }
+  };
+  page.on("pageerror", onPageError);
+  page.on("console", onConsole);
+
+  try {
+    const metadata = await postBackend<ProjectMetadataResponse>(
+      page,
+      "/loadAllProjectMetadata",
+      {},
+    );
+    if (!metadata) {
+      throw new Error("Missing project metadata response.");
+    }
+    const name = await postBackend<string>(page, "/createProjectConfig", {
+      previewImgColor: "bg-blue-500/60",
+    });
+    if (!name) {
+      throw new Error("Missing project config name.");
+    }
+    const url = new URL(name, BASE_URL).toString();
+    await page.goto(withBackendOriginOverride(url), {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForReadySurface(page, {
+      context: "Isolated project did not become ready.",
+      pageErrors,
+      consoleErrors,
+    });
+    const projectConfigId = await getCurrentProjectConfigId(page);
+    return {
+      projectConfigId,
+      defaultProjectConfigId: metadata.defaultProjectConfigId ?? null,
+    };
+  } finally {
+    page.off("pageerror", onPageError);
+    page.off("console", onConsole);
+  }
 }
 
 export async function cleanupIsolatedProject(
@@ -499,6 +526,16 @@ export async function cleanupIsolatedProject(
   // Isolated configs are created for tests only; deleting the config is enough
   // and avoids an extra metadata write call that has proven flaky under CI load.
   try {
+    if (!page.isClosed()) {
+      // Leave the app surface before deleting the backing project so debounced
+      // frontend writes do not race cleanup with stale project IDs.
+      await page
+        .goto("about:blank", {
+          waitUntil: "domcontentloaded",
+          timeout: 2000,
+        })
+        .catch(() => null);
+    }
     await page.request.post(`${BACKEND_ORIGIN}/api/deleteProjectConfigs`, {
       data: { ids: [context.projectConfigId] },
       headers: BACKEND_HELPER_REQUEST_HEADERS,
@@ -650,22 +687,14 @@ export async function createChatSection(
   baseName: string,
 ): Promise<{ sectionId: string; sectionName: string }> {
   const sectionName = `${baseName}-${Date.now()}`;
-  const created = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Chat",
-    },
-  );
+  const created = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Chat",
+    name: sectionName,
+  });
   if (!created?.sectionId) {
     throw new Error("Missing sectionId when creating chat section.");
   }
-  await postBackend(page, "/setSectionName", {
-    projectConfigId,
-    sectionId: created.sectionId,
-    name: sectionName,
-  });
   return { sectionId: created.sectionId, sectionName };
 }
 
@@ -675,22 +704,14 @@ export async function createTextBlockSection(
   baseName: string,
 ): Promise<{ sectionId: string; sectionName: string }> {
   const sectionName = `${baseName}-${Date.now()}`;
-  const created = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "TextBlock",
-    },
-  );
+  const created = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "TextBlock",
+    name: sectionName,
+  });
   if (!created?.sectionId) {
     throw new Error("Missing sectionId when creating text block section.");
   }
-  await postBackend(page, "/setSectionName", {
-    projectConfigId,
-    sectionId: created.sectionId,
-    name: sectionName,
-  });
   return { sectionId: created.sectionId, sectionName };
 }
 
@@ -702,7 +723,83 @@ export async function setChatSectionState(
     state: Record<string, unknown>;
   },
 ): Promise<void> {
-  await postBackend(page, "/setChatSectionState", payload);
+  await page.evaluate(async (input) => {
+    const {
+      getLatestProjectState,
+      setChatSectionState: setChatSectionStateRequest,
+    } = await import("/src/openapi/http");
+    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const {
+      getCurrProjectConfigId,
+      processProjectStateUpdateFromBackend,
+      setCurrEffectiveSectionImplValue,
+    } = await import("/src/state/actions/sectionInfos");
+    const { useProjectState } = await import("/src/state/definitions");
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while setting chat section state: expected ${input.projectConfigId}.`,
+      );
+    }
+    const hasSection =
+      useProjectState.getState().projectConfig.sectionVariantMap[
+        input.sectionId
+      ] !== undefined;
+    if (hasSection) {
+      useProjectState.setState((state) => {
+        const nextStatePatch: Record<string, unknown> = {};
+        for (const key of [
+          "messages",
+          "inputText",
+          "waitingForResponse",
+          "toolCallArguments",
+          "activeBranchId",
+          "branches",
+        ]) {
+          if (key in input.state) {
+            nextStatePatch[key] = input.state[key];
+          }
+        }
+        setCurrEffectiveSectionImplValue<"ChatSection">(
+          state,
+          input.sectionId,
+          nextStatePatch as never,
+        );
+      });
+    }
+    const response = await callOpenAPI(
+      setChatSectionStateRequest({
+        body: {
+          projectConfigId: input.projectConfigId,
+          sectionId: input.sectionId,
+          state: input.state,
+          frontendOpId: null,
+        },
+      } as Parameters<typeof setChatSectionStateRequest>[0]),
+    );
+    if (response.status !== 200) {
+      throw new Error(
+        `Failed to persist chat section state for ${input.sectionId}: ${response.status}`,
+      );
+    }
+    if (!hasSection) {
+      const latestProjectStateResponse = await callOpenAPI(
+        getLatestProjectState({
+          body: {
+            projectConfigId: input.projectConfigId,
+          },
+        } as Parameters<typeof getLatestProjectState>[0]),
+      );
+      if (
+        latestProjectStateResponse.status !== 200 ||
+        !latestProjectStateResponse.data
+      ) {
+        throw new Error(
+          `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+        );
+      }
+      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    }
+  }, payload);
 }
 
 export async function stopLatestProjectChat(
@@ -769,9 +866,9 @@ async function getCurrentProjectConfigName(page: Page): Promise<string> {
 
 export async function loadProjectConfig(
   page: Page,
-): Promise<ProjectStateSingleConfigResponse> {
+): Promise<SingleConfigResponse> {
   const projectConfigName = await getCurrentProjectConfigName(page);
-  const response = await postBackend<ProjectStateSingleConfigResponse>(
+  const response = await postBackend<SingleConfigResponse>(
     page,
     "/loadProjectConfig",
     { projectConfigName },
@@ -786,23 +883,605 @@ export async function createCallableSection(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
-  const viewportBounds = await getViewportBoundsForPlacement(page);
-  if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for section placement.");
-  }
-  const response = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Callable",
-      viewportBounds,
-    },
-  );
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Callable",
+  });
   if (!response?.sectionId) {
     throw new Error("Missing sectionId when creating callable section.");
   }
   return response.sectionId;
+}
+
+export async function applyProjectMutationsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    operations: FrontendHydratableOpenAPIOperation[];
+  },
+): Promise<Array<unknown | null>> {
+  return await page.evaluate(async (input) => {
+    const { res200 } = await import("/src/utils/endpointUtils");
+    const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
+      await import("/src/state/actions/sectionInfos");
+    const openAPI = await import("/src/openapi/http");
+    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const { getLatestProjectState } = openAPI;
+
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while applying test mutations: expected ${input.projectConfigId}.`,
+      );
+    }
+
+    type RouteResponse = {
+      status: number;
+      data?: unknown | null;
+    };
+
+    const results: Array<unknown | null> = [];
+    for (const operation of input.operations) {
+      const openAPIOperation =
+        openAPI[operation.operationName as keyof typeof openAPI];
+      if (typeof openAPIOperation !== "function") {
+        throw new Error(
+          `Missing OpenAPI operation ${operation.operationName} for ${input.projectConfigId}.`,
+        );
+      }
+      const response = (await callOpenAPI(
+        (
+          openAPIOperation as (options: {
+            body: Record<string, unknown>;
+          }) => Promise<unknown>
+        )({
+          body: {
+            projectConfigId: input.projectConfigId,
+            ...operation.body,
+          },
+        }) as Parameters<typeof callOpenAPI>[0],
+      )) as RouteResponse;
+      if (!res200(response)) {
+        throw new Error(
+          `Failed frontend test mutation ${operation.operationName} for ${input.projectConfigId}: ${response.status}`,
+        );
+      }
+      results.push((response.data as unknown | null) ?? null);
+    }
+
+    const latestProjectStateResponse = (await callOpenAPI(
+      getLatestProjectState({
+        body: {
+          projectConfigId: input.projectConfigId,
+        },
+      } as Parameters<typeof getLatestProjectState>[0]),
+    )) as RouteResponse;
+    if (!res200(latestProjectStateResponse)) {
+      throw new Error(
+        `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+      );
+    }
+    processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    return results;
+  }, payload);
+}
+
+export async function createTopLevelSectionFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    implType: string;
+    controlCodeObjType?: string | null;
+    implOverrides?: Record<string, unknown> | null;
+    position?: { x: number; y: number } | null;
+    name?: string | null;
+    topLevelSections?: Record<string, unknown> | null;
+    viewportBounds?: { x: number; y: number; w: number; h: number } | null;
+  },
+): Promise<CreateSectionResponse | null> {
+  const [created] = await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "createTopLevelSection",
+        body: {
+          implType: payload.implType,
+          controlCodeObjType: payload.controlCodeObjType ?? null,
+          implOverrides: payload.implOverrides ?? null,
+          position: payload.position ?? null,
+          name: payload.name ?? null,
+          topLevelSections: payload.topLevelSections ?? null,
+          viewportBounds: payload.viewportBounds ?? null,
+        },
+      },
+    ],
+  });
+  return (created as CreateSectionResponse | null) ?? null;
+}
+
+export async function setCallableFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    callableName: string;
+    refetchParams: boolean;
+  },
+): Promise<Record<string, unknown> | null> {
+  const [response] = await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setCallable",
+        body: {
+          sectionId: payload.sectionId,
+          callableName: payload.callableName,
+          refetchParams: payload.refetchParams,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+  return (response as Record<string, unknown> | null) ?? null;
+}
+
+export async function moveSectionsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionIds: string[];
+    newParentId: string | null;
+    newIndex: number | null;
+    positionsById: Record<string, { x: number; y: number }> | null;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "moveSections",
+        body: {
+          sectionIds: payload.sectionIds,
+          newParentId: payload.newParentId,
+          newIndex: payload.newIndex,
+          positionsById: payload.positionsById,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function createChildSectionsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    parentId: string;
+    implType: string;
+    numChildren: number;
+    startIdx?: number | null;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "createChildSections",
+        body: {
+          parentId: payload.parentId,
+          implType: payload.implType,
+          numChildren: payload.numChildren,
+          startIdx: payload.startIdx ?? null,
+        },
+      },
+    ],
+  });
+}
+
+export async function addKwargFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "addKwarg",
+        body: {
+          sectionId: payload.sectionId,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionPinnedParamsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    pinnedParams: string[];
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setSectionPinnedParams",
+        body: {
+          sectionId: payload.sectionId,
+          pinnedParams: payload.pinnedParams,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionEdgeInputsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    edgeInputParams: string[];
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setSectionEdgeInputs",
+        body: {
+          sectionId: payload.sectionId,
+          edgeInputParams: payload.edgeInputParams,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+async function setSectionEdgeOutputsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    edgeOutputPorts: Array<Record<string, unknown>>;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setSectionEdgeOutputs",
+        body: {
+          sectionId: payload.sectionId,
+          edgeOutputPorts: payload.edgeOutputPorts,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionSizesFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionSizes: Record<
+      string,
+      { height?: number | "auto"; width?: number | "auto" }
+    >;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setSectionSizes",
+        body: {
+          sectionSizes: payload.sectionSizes,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function toggleMinimizedFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "toggleMinimized",
+        body: {
+          sectionId: payload.sectionId,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setCodeObjNameFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    codeObjId: string;
+    name: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setCodeObjName",
+        body: {
+          codeObjId: payload.codeObjId,
+          name: payload.name,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionNameFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    name: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setSectionName",
+        body: {
+          sectionId: payload.sectionId,
+          name: payload.name,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setImageAreaImagePathFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    imagePath: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setImageAreaImagePath",
+        body: {
+          sectionId: payload.sectionId,
+          imagePath: payload.imagePath,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function changeParamImplFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    paramInfoId: string;
+    selectedId: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "changeParamImpl",
+        body: {
+          sectionId: payload.sectionId,
+          paramInfoId: payload.paramInfoId,
+          selectedId: payload.selectedId,
+        },
+      },
+    ],
+  });
+}
+
+export async function setParamEnteredValueFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    paramInfoId: string;
+    value: string;
+  },
+): Promise<void> {
+  const sectionVariantId = await page.evaluate(
+    ({ projectConfigId, sectionId }) => {
+      return import("/src/state/actions/sectionInfos").then(
+        ({ getCurrProjectConfigId }) => {
+          if (getCurrProjectConfigId() !== projectConfigId) {
+            throw new Error(
+              `Active project mismatch while resolving section variant: expected ${projectConfigId}.`,
+            );
+          }
+          return import("/src/state/definitions").then(
+            ({ useProjectState }) => {
+              return (
+                useProjectState.getState().projectConfig.sectionVariantMap[
+                  sectionId
+                ] ?? null
+              );
+            },
+          );
+        },
+      );
+    },
+    {
+      projectConfigId: payload.projectConfigId,
+      sectionId: payload.sectionId,
+    },
+  );
+  if (!sectionVariantId) {
+    throw new Error(
+      `No active section variant found for ${payload.sectionId} in ${payload.projectConfigId}.`,
+    );
+  }
+
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setParamEnteredValue",
+        body: {
+          sectionId: payload.sectionId,
+          sectionVariantId,
+          paramInfoId: payload.paramInfoId,
+          value: payload.value,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function updateParamImplConfigFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    paramInfoId: string;
+    newConfig: Record<string, unknown>;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "updateParamImplConfig",
+        body: {
+          sectionId: payload.sectionId,
+          paramInfoId: payload.paramInfoId,
+          newConfig: payload.newConfig,
+        },
+      },
+    ],
+  });
+}
+
+export async function setCodeFileBindingFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    binding: Record<string, unknown>;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        operationName: "setCodeFileBinding",
+        body: {
+          sectionId: payload.sectionId,
+          binding: payload.binding,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setChatSectionChatId(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    chatId: string | null;
+  },
+): Promise<void> {
+  await page.evaluate(async (input) => {
+    const {
+      getLatestProjectState,
+      setChatSectionChatId: setChatSectionChatIdRequest,
+    } = await import("/src/openapi/http");
+    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const {
+      getCurrProjectConfigId,
+      processProjectStateUpdateFromBackend,
+      setCurrEffectiveSectionImplValue,
+    } = await import("/src/state/actions/sectionInfos");
+    const { useProjectState } = await import("/src/state/definitions");
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while setting chat id: expected ${input.projectConfigId}.`,
+      );
+    }
+    const hasSection =
+      useProjectState.getState().projectConfig.sectionVariantMap[
+        input.sectionId
+      ] !== undefined;
+    if (hasSection) {
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"ChatSection">(
+          state,
+          input.sectionId,
+          {
+            chatId: input.chatId,
+          },
+        );
+      });
+    }
+    const response = await callOpenAPI(
+      setChatSectionChatIdRequest({
+        body: {
+          projectConfigId: input.projectConfigId,
+          sectionId: input.sectionId,
+          chatId: input.chatId,
+        },
+      } as Parameters<typeof setChatSectionChatIdRequest>[0]),
+    );
+    if (response.status !== 200) {
+      throw new Error(
+        `Failed to persist chat id for ${input.sectionId}: ${response.status}`,
+      );
+    }
+    if (!hasSection) {
+      const latestProjectStateResponse = await callOpenAPI(
+        getLatestProjectState({
+          body: {
+            projectConfigId: input.projectConfigId,
+          },
+        } as Parameters<typeof getLatestProjectState>[0]),
+      );
+      if (
+        latestProjectStateResponse.status !== 200 ||
+        !latestProjectStateResponse.data
+      ) {
+        throw new Error(
+          `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+        );
+      }
+      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    }
+  }, payload);
 }
 
 export async function getViewportBoundsForPlacement(page: Page): Promise<{
@@ -930,6 +1609,51 @@ export async function postBackend<T>(
     return null;
   }
   return JSON.parse(text) as T;
+}
+
+export async function emitChatStreamDelta(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId?: string;
+    chatId: string;
+    chunk: unknown;
+  },
+): Promise<void> {
+  await page.evaluate(async (message) => {
+    const { receiveLLMResponseChunk } = await import(
+      "/src/state/actions/ai.ts"
+    );
+    receiveLLMResponseChunk(message);
+  }, payload);
+}
+
+async function refreshProjectStateFromBackend(
+  page: Page,
+  projectConfigId: string,
+): Promise<void> {
+  // Test-only escape hatch for deliberate out-of-band backend mutations.
+  // Prefer browser-side frontend actions or pre-navigation seeding instead.
+  await page.evaluate(async (targetProjectConfigId) => {
+    const { getLatestProjectState } = await import("/src/openapi/http");
+    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const { processProjectStateUpdateFromBackend } = await import(
+      "/src/state/actions/sectionInfos.ts"
+    );
+    const response = await callOpenAPI(
+      getLatestProjectState({
+        body: {
+          projectConfigId: targetProjectConfigId,
+        },
+      } as Parameters<typeof getLatestProjectState>[0]),
+    );
+    if (response.status !== 200 || !response.data) {
+      throw new Error(
+        `Failed to refresh project state for ${targetProjectConfigId}: ${response.status}`,
+      );
+    }
+    processProjectStateUpdateFromBackend(response.data);
+  }, projectConfigId);
 }
 
 async function getBackend<T>(page: Page, path: string): Promise<T | null> {
@@ -1140,69 +1864,112 @@ function getRunTimestamp(run: AgentRun): number {
 }
 
 async function isAppReady(page: Page): Promise<boolean> {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if (isAppReadySnapshot(await captureAppReadySnapshot(page))) {
-      return true;
-    }
-    await page.waitForTimeout(250);
+  try {
+    await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
+    return true;
+  } catch {
+    return false;
   }
-  return false;
 }
 
-export function isAppReadySnapshot(snapshot: AppReadySnapshot): boolean {
-  const graphSurfaceMounted =
-    snapshot.legacyPaneMounted || snapshot.canaryRootMounted;
-  return graphSurfaceMounted && snapshot.projectIsLoading === false;
+async function waitForReadySurface(
+  page: Page,
+  options: {
+    context: string;
+    pageErrors?: string[];
+    consoleErrors?: string[];
+  },
+): Promise<void> {
+  try {
+    await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
+  } catch (error) {
+    const debugLines = await buildReadinessDebugLines(
+      page,
+      options.pageErrors ?? [],
+      options.consoleErrors ?? [],
+    );
+    throw new Error(
+      `${options.context}\n${debugLines.join("\n")}\nOriginal error: ${String(
+        error,
+      )}`,
+    );
+  }
 }
 
-async function captureAppReadySnapshot(page: Page): Promise<AppReadySnapshot> {
-  return page.evaluate(
-    async ({ canarySelector, readySelector }) => {
-      let projectIsLoading: boolean | null = null;
-      try {
-        const { useProjectLoading } = await import("/src/state/definitions.ts");
-        projectIsLoading = useProjectLoading.getState().projectIsLoading;
-      } catch {
-        projectIsLoading = null;
-      }
-      return {
-        canaryRootMounted: document.querySelector(canarySelector) !== null,
-        legacyPaneMounted: document.querySelector(readySelector) !== null,
-        projectIsLoading,
+async function buildReadinessDebugLines(
+  page: Page,
+  pageErrors: string[],
+  consoleErrors: string[],
+): Promise<string[]> {
+  const debugLines: string[] = [];
+  debugLines.push(`Current URL: ${page.url()}`);
+
+  if (pageErrors.length) {
+    debugLines.push("");
+    debugLines.push("Page errors:");
+    debugLines.push(...pageErrors.slice(0, 5));
+  }
+  if (consoleErrors.length) {
+    debugLines.push("");
+    debugLines.push("Console errors:");
+    debugLines.push(...consoleErrors.slice(0, 10));
+  }
+
+  const unexpectedApiError = unexpectedApiErrorGuards.get(page)?.firstError;
+  if (unexpectedApiError) {
+    debugLines.push("");
+    debugLines.push("Unexpected API error:");
+    debugLines.push(unexpectedApiError);
+  }
+
+  try {
+    const runtimeSnapshot = await page.evaluate(async () => {
+      const collectText = (selector: string) => {
+        const node = document.querySelector(selector);
+        return node instanceof HTMLElement ? node.innerText : null;
       };
-    },
-    {
-      canarySelector: CANARY_READY_SELECTOR,
-      readySelector: READY_SELECTOR,
-    },
-  );
+      const bodyText = document.body.innerText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 40);
+
+      let storeSnapshot: Record<string, unknown> | null = null;
+      try {
+        const definitions = await import("/src/state/definitions.ts");
+        storeSnapshot = {
+          serverMode: definitions.useServerMode.getState(),
+          projectLoading: definitions.useProjectLoading.getState(),
+          projectConfig: definitions.useProjectState.getState().projectConfig,
+        };
+      } catch (error) {
+        storeSnapshot = { error: String(error) };
+      }
+
+      return {
+        title: document.title,
+        hasReadySelector: Boolean(document.querySelector(".react-flow__pane")),
+        hasViewport: Boolean(document.querySelector(".react-flow__viewport")),
+        hasSpinner: Boolean(document.querySelector(".animate-spin")),
+        appShellText: collectText(".app-shell"),
+        bodyText,
+        storeSnapshot,
+      };
+    });
+    debugLines.push("");
+    debugLines.push("Runtime snapshot:");
+    debugLines.push(JSON.stringify(runtimeSnapshot, null, 2));
+  } catch (error) {
+    debugLines.push("");
+    debugLines.push(`Runtime snapshot failed: ${String(error)}`);
+  }
+
+  return debugLines;
 }
 
 async function navigateToDefaultProject(page: Page): Promise<void> {
   try {
-    const metadata = await postBackend<ProjectMetadataResponse>(
-      page,
-      "/loadAllProjectMetadata",
-      {},
-    );
-    if (!metadata) {
-      return;
-    }
-
-    // Prefer the configured default; otherwise fall back to the first project.
-    let targetName =
-      metadata.projectMetadata.find(
-        (entry) => entry.id === metadata.defaultProjectConfigId,
-      )?.name ?? metadata.projectMetadata[0]?.name;
-
-    // If the workspace has no projects (possible if a prior test deleted them),
-    // create one so IDE-mode tests can proceed.
-    if (!targetName) {
-      targetName = await postBackend<string>(page, "/createProjectConfig", {
-        previewImgColor: "bg-blue-500/60",
-      });
-    }
+    const targetName = await resolveDefaultProjectName(page, true);
 
     if (!targetName) {
       return;
@@ -1236,28 +2003,35 @@ async function hasAuthCookie(page: Page): Promise<boolean> {
   );
 }
 
-async function getDefaultConfigNameResult(page: Page): Promise<{
-  name: string | null;
-  status: number;
-}> {
-  const response = await page.request.post(
-    `${BACKEND_ORIGIN}/api/getDefaultConfigName`,
-    {
-      data: {},
-      headers: BACKEND_HELPER_REQUEST_HEADERS,
-    },
+async function resolveDefaultProjectName(
+  page: Page,
+  allowCreate: boolean,
+): Promise<string | null> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
   );
-  const status = response.status();
-  if (!response.ok()) {
-    return { name: null, status };
+  if (!metadata) {
+    return null;
   }
-  const text = await response.text();
-  if (!text) {
-    return { name: null, status };
+
+  const configuredDefaultProjectName =
+    metadata.projectMetadata.find(
+      (entry) => entry.id === metadata.defaultProjectConfigId,
+    )?.name ?? null;
+  if (configuredDefaultProjectName) {
+    return configuredDefaultProjectName;
   }
-  const payload = JSON.parse(text) as unknown;
-  if (typeof payload !== "string" || !payload.trim()) {
-    return { name: null, status };
+
+  const firstProjectName = metadata.projectMetadata[0]?.name ?? null;
+  if (firstProjectName || !allowCreate) {
+    return firstProjectName;
   }
-  return { name: payload, status };
+
+  // If the workspace has no projects (possible if a prior test deleted them),
+  // create one so IDE-mode tests can proceed.
+  return await postBackend<string>(page, "/createProjectConfig", {
+    previewImgColor: "bg-blue-500/60",
+  });
 }
