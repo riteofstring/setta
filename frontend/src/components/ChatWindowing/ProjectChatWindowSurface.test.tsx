@@ -16,27 +16,17 @@ vi.mock("components/ChatWindowing/ProjectChatWindowIcon", () => ({
 vi.mock("components/Section/Container/sectionChrome", () => ({
   getSectionContainerShellClassName: () => "mock-section-container-shell",
   getSectionSurfaceClassName: () => "mock-section-surface",
-  getSectionChromeTitleDomAdapter: () => ({
-    editing: "mock-title-editing",
-    notEditing: "mock-title-not-editing",
-    fixed: "mock-title-fixed",
-  }),
-  resolveSectionChromeShellDecorations: () => ({
-    outlineTone: "inactive",
-    scopeHighlight: "none",
-    showAiHighlight: false,
-    zIndexClassName: "z-10",
-  }),
-  resolveSectionChromeTitleDecorations: () => ({
-    useThemeTextColor: false,
-    notEditingTone: "default",
-    textCase: "normal",
-    fixedStyle: "subdued-italic",
-  }),
 }));
 
 vi.mock("components/Section/Container/utils", () => ({
   getBgColor: () => "bg-setta-50",
+}));
+
+vi.mock("components/Section/Header/SectionHeader", () => ({
+  getTitleStyles: () => ({
+    editing: "mock-title-editing",
+    notEditing: "mock-title-not-editing",
+  }),
 }));
 
 vi.mock("components/Utils/FloatingBox", () => ({
