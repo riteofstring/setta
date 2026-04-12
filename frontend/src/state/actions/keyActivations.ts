@@ -171,41 +171,6 @@ const modifierKeyCodes = new Set([
   "ShiftRight",
 ]);
 
-const namedEventKeyToCode = {
-  " ": "Space",
-  Shift: "ShiftLeft",
-  Control: "ControlLeft",
-  Alt: "AltLeft",
-  Meta: "MetaLeft",
-};
-
-type ParsedShortcut = {
-  mod: boolean;
-  ctrl: boolean;
-  shift: boolean;
-  alt: boolean;
-  keys: Set<string>;
-};
-
-type ShortcutPatternMode =
-  | "no-modifiers"
-  | "shift-only"
-  | "mod-only"
-  | "ctrl-only"
-  | "alt-only"
-  | "alt-shift"
-  | "mod-shift"
-  | "mod-ctrl"
-  | "mod-or-ctrl"
-  | "mod-or-ctrl-shift";
-
-type ShortcutPattern = {
-  mode: ShortcutPatternMode;
-  keys?: string[];
-};
-
-type ShortcutModifiers = Omit<ParsedShortcut, "keys">;
-
 function getNormalizedEventCode(event: KeyboardEvent): string | null {
   if (event.code && event.code !== "Unidentified") {
     return event.code;
@@ -216,9 +181,20 @@ function getNormalizedEventCode(event: KeyboardEvent): string | null {
     return null;
   }
 
-  const normalizedNamedKey = namedEventKeyToCode[key];
-  if (normalizedNamedKey) {
-    return normalizedNamedKey;
+  if (key === " ") {
+    return "Space";
+  }
+  if (key === "Shift") {
+    return "ShiftLeft";
+  }
+  if (key === "Control") {
+    return "ControlLeft";
+  }
+  if (key === "Alt") {
+    return "AltLeft";
+  }
+  if (key === "Meta") {
+    return "MetaLeft";
   }
 
   const lowerKey = key.toLowerCase();
@@ -228,10 +204,6 @@ function getNormalizedEventCode(event: KeyboardEvent): string | null {
     return special;
   }
 
-  return getNormalizedAlphaNumericEventCode(key);
-}
-
-function getNormalizedAlphaNumericEventCode(key: string) {
   if (/^[a-zA-Z]$/.test(key)) {
     return `Key${key.toUpperCase()}`;
   }
@@ -247,7 +219,7 @@ function getNormalizedAlphaNumericEventCode(key: string) {
 }
 
 // shortcutString is a lowercase string.
-export function parseShortcut(shortcutString): ParsedShortcut {
+function parseShortcut(shortcutString) {
   const parts = shortcutString.split("+").map((x) => x.trim());
 
   let keys = parts.filter((x) => !["ctrl", "shift", "alt", "mod"].includes(x));
@@ -320,204 +292,56 @@ function isShortcutPressed(e, parsedShortcut, _isMacOs) {
   }
 }
 
-function keysMatch(keys, targetKeyList = []) {
+function keysMatch(keys, targetKeyList) {
   return _.isEqual(keys, new Set(targetKeyList));
 }
 
-function matchesModifierState(
-  parsedShortcut: ParsedShortcut,
-  expected: ShortcutModifiers,
-) {
-  return (
-    parsedShortcut.mod === expected.mod &&
-    parsedShortcut.ctrl === expected.ctrl &&
-    parsedShortcut.shift === expected.shift &&
-    parsedShortcut.alt === expected.alt
-  );
+function isModOrCtrlPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return (ctrl || mod) && !shift && !alt && keysMatch(keys, targetKeyList);
 }
 
-const shortcutModeMatchers: Record<
-  ShortcutPatternMode,
-  (parsedShortcut: ParsedShortcut) => boolean
-> = {
-  "no-modifiers": (parsedShortcut) =>
-    !parsedShortcut.mod &&
-    !parsedShortcut.ctrl &&
-    !parsedShortcut.shift &&
-    !parsedShortcut.alt,
-  "shift-only": (parsedShortcut) =>
-    matchesModifierState(parsedShortcut, {
-      mod: false,
-      ctrl: false,
-      shift: true,
-      alt: false,
-    }),
-  "mod-only": (parsedShortcut) =>
-    matchesModifierState(parsedShortcut, {
-      mod: true,
-      ctrl: false,
-      shift: false,
-      alt: false,
-    }),
-  "ctrl-only": (parsedShortcut) =>
-    matchesModifierState(parsedShortcut, {
-      mod: false,
-      ctrl: true,
-      shift: false,
-      alt: false,
-    }),
-  "alt-only": (parsedShortcut) =>
-    matchesModifierState(parsedShortcut, {
-      mod: false,
-      ctrl: false,
-      shift: false,
-      alt: true,
-    }),
-  "alt-shift": (parsedShortcut) =>
-    matchesModifierState(parsedShortcut, {
-      mod: false,
-      ctrl: false,
-      shift: true,
-      alt: true,
-    }),
-  "mod-shift": (parsedShortcut) =>
-    matchesModifierState(parsedShortcut, {
-      mod: true,
-      ctrl: false,
-      shift: true,
-      alt: false,
-    }),
-  "mod-ctrl": (parsedShortcut) =>
-    matchesModifierState(parsedShortcut, {
-      mod: true,
-      ctrl: true,
-      shift: false,
-      alt: false,
-    }),
-  "mod-or-ctrl": (parsedShortcut) =>
-    (parsedShortcut.mod || parsedShortcut.ctrl) &&
-    !parsedShortcut.shift &&
-    !parsedShortcut.alt,
-  "mod-or-ctrl-shift": (parsedShortcut) =>
-    (parsedShortcut.mod || parsedShortcut.ctrl) &&
-    parsedShortcut.shift &&
-    !parsedShortcut.alt,
-};
-
-function matchesShortcutPattern(
-  parsedShortcut: ParsedShortcut,
-  pattern: ShortcutPattern,
-) {
-  if (!shortcutModeMatchers[pattern.mode](parsedShortcut)) {
-    return false;
-  }
-  if (pattern.mode === "no-modifiers") {
-    return true;
-  }
-  return keysMatch(parsedShortcut.keys, pattern.keys);
+function isModOrCtrlShiftPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return (ctrl || mod) && shift && !alt && keysMatch(keys, targetKeyList);
 }
 
-function matchesAnyShortcutPattern(
-  parsedShortcut: ParsedShortcut,
-  patterns: ShortcutPattern[],
-) {
-  return patterns.some((pattern) =>
-    matchesShortcutPattern(parsedShortcut, pattern),
-  );
+function isCtrlPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return ctrl && !mod && !shift && !alt && keysMatch(keys, targetKeyList);
 }
 
-const preventDefaultAllowedShortcuts: ShortcutPattern[] = [
-  { mode: "mod-or-ctrl", keys: ["KeyC"] },
-  { mode: "mod-or-ctrl", keys: ["KeyV"] },
-];
+function isModPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return mod && !ctrl && !shift && !alt && keysMatch(keys, targetKeyList);
+}
 
-const sharedInputFieldIgnoredShortcuts: ShortcutPattern[] = [
-  { mode: "no-modifiers" },
-  { mode: "shift-only", keys: [] },
-  { mode: "mod-only", keys: [] },
-];
+function isModShiftPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return mod && shift && !ctrl && !alt && keysMatch(keys, targetKeyList);
+}
 
-const macosInputFieldIgnoredShortcuts: ShortcutPattern[] = [
-  ...sharedInputFieldIgnoredShortcuts,
-  { mode: "mod-only", keys: ["KeyC"] },
-  { mode: "mod-only", keys: ["KeyV"] },
-  { mode: "mod-only", keys: ["KeyX"] },
-  { mode: "mod-only", keys: ["KeyZ"] },
-  { mode: "mod-shift", keys: ["KeyZ"] },
-  { mode: "mod-only", keys: ["KeyA"] },
-  { mode: "mod-only", keys: ["ArrowLeft"] },
-  { mode: "mod-only", keys: ["ArrowRight"] },
-  { mode: "alt-only", keys: ["ArrowLeft"] },
-  { mode: "alt-only", keys: ["ArrowRight"] },
-  { mode: "shift-only", keys: ["ArrowLeft"] },
-  { mode: "shift-only", keys: ["ArrowRight"] },
-  { mode: "shift-only", keys: ["ArrowUp"] },
-  { mode: "shift-only", keys: ["ArrowDown"] },
-  { mode: "alt-shift", keys: ["ArrowLeft"] },
-  { mode: "alt-shift", keys: ["ArrowRight"] },
-  { mode: "mod-shift", keys: ["ArrowLeft"] },
-  { mode: "mod-shift", keys: ["ArrowRight"] },
-  { mode: "alt-only", keys: ["Backspace"] },
-  { mode: "mod-only", keys: ["Backspace"] },
-  { mode: "ctrl-only", keys: ["KeyA"] },
-  { mode: "ctrl-only", keys: ["KeyE"] },
-  { mode: "ctrl-only", keys: ["KeyF"] },
-  { mode: "ctrl-only", keys: ["KeyB"] },
-  { mode: "ctrl-only", keys: ["KeyN"] },
-  { mode: "ctrl-only", keys: ["KeyP"] },
-  { mode: "ctrl-only", keys: ["KeyD"] },
-  { mode: "ctrl-only", keys: ["KeyH"] },
-  { mode: "ctrl-only", keys: ["KeyT"] },
-  { mode: "mod-ctrl", keys: ["Space"] },
-  { mode: "mod-shift", keys: ["KeyV"] },
-  { mode: "mod-only", keys: ["ArrowUp"] },
-  { mode: "mod-only", keys: ["ArrowDown"] },
-  { mode: "mod-shift", keys: ["ArrowUp"] },
-  { mode: "mod-shift", keys: ["ArrowDown"] },
-  { mode: "mod-only", keys: ["KeyY"] },
-  { mode: "mod-only", keys: ["KeyB"] },
-  { mode: "mod-only", keys: ["KeyI"] },
-];
+function isOptionPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return alt && !shift && !ctrl && !mod && keysMatch(keys, targetKeyList);
+}
 
-const windowsInputFieldIgnoredShortcuts: ShortcutPattern[] = [
-  ...sharedInputFieldIgnoredShortcuts,
-  { mode: "mod-or-ctrl", keys: ["KeyA"] },
-  { mode: "mod-or-ctrl", keys: ["KeyC"] },
-  { mode: "mod-or-ctrl", keys: ["KeyV"] },
-  { mode: "mod-or-ctrl", keys: ["KeyX"] },
-  { mode: "mod-or-ctrl", keys: ["KeyZ"] },
-  { mode: "mod-or-ctrl", keys: ["KeyY"] },
-  { mode: "mod-or-ctrl", keys: ["ArrowLeft"] },
-  { mode: "mod-or-ctrl", keys: ["ArrowRight"] },
-  { mode: "shift-only", keys: ["ArrowLeft"] },
-  { mode: "shift-only", keys: ["ArrowRight"] },
-  { mode: "mod-or-ctrl-shift", keys: ["ArrowLeft"] },
-  { mode: "mod-or-ctrl-shift", keys: ["ArrowRight"] },
-  { mode: "mod-or-ctrl", keys: ["ArrowUp"] },
-  { mode: "mod-or-ctrl", keys: ["ArrowDown"] },
-  { mode: "mod-or-ctrl-shift", keys: ["ArrowUp"] },
-  { mode: "mod-or-ctrl-shift", keys: ["ArrowDown"] },
-  { mode: "shift-only", keys: ["ArrowUp"] },
-  { mode: "shift-only", keys: ["ArrowDown"] },
-  { mode: "alt-only", keys: ["ArrowLeft"] },
-  { mode: "alt-only", keys: ["ArrowRight"] },
-  { mode: "mod-or-ctrl", keys: ["KeyK"] },
-  { mode: "shift-only", keys: ["Home"] },
-  { mode: "shift-only", keys: ["End"] },
-  { mode: "mod-or-ctrl", keys: ["Home"] },
-  { mode: "mod-or-ctrl", keys: ["End"] },
-  { mode: "mod-or-ctrl-shift", keys: ["Home"] },
-  { mode: "mod-or-ctrl-shift", keys: ["End"] },
-  { mode: "mod-or-ctrl", keys: ["Backspace"] },
-  { mode: "mod-or-ctrl", keys: ["Delete"] },
-  { mode: "shift-only", keys: ["Enter"] },
-  { mode: "mod-or-ctrl-shift", keys: ["KeyV"] },
-  { mode: "mod-or-ctrl", keys: ["KeyB"] },
-  { mode: "mod-or-ctrl", keys: ["KeyI"] },
-  { mode: "mod-or-ctrl", keys: ["KeyU"] },
-];
+function isOptionShiftPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return alt && shift && !ctrl && !mod && keysMatch(keys, targetKeyList);
+}
 
-export function getShouldPreventDefault(parsedShortcut: ParsedShortcut) {
+function isShiftPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return shift && !alt && !ctrl && !mod && keysMatch(keys, targetKeyList);
+}
+
+function isModCtrlPlus(parsedShortcut, targetKeyList) {
+  const { mod, ctrl, shift, alt, keys } = parsedShortcut;
+  return mod && ctrl && !alt && !shift && keysMatch(keys, targetKeyList);
+}
+
+function getShouldPreventDefault(parsedShortcut) {
   const { mod, ctrl, shift, alt, keys } = parsedShortcut;
 
   // case for shortcuts that don't contain modifiers
@@ -534,8 +358,10 @@ export function getShouldPreventDefault(parsedShortcut: ParsedShortcut) {
     return false;
   }
 
+  // special shortcuts
   if (
-    matchesAnyShortcutPattern(parsedShortcut, preventDefaultAllowedShortcuts)
+    isModOrCtrlPlus(parsedShortcut, ["KeyC"]) ||
+    isModOrCtrlPlus(parsedShortcut, "KeyV")
   ) {
     return false;
   }
@@ -562,80 +388,106 @@ function runParamShortcut(action, event) {
   }
 }
 
-export function getIgnoreWhenInInputField(
-  parsedShortcut: ParsedShortcut,
-  _isMacOs,
-) {
+function getMacosIgnoreWhenInInputField(parsedShortcut) {
+  const { mod, shift, ctrl, alt } = parsedShortcut;
+  return (
+    (!mod && !shift && !ctrl && !alt) ||
+    isShiftPlus(parsedShortcut, []) ||
+    isModPlus(parsedShortcut, []) ||
+    isModPlus(parsedShortcut, ["KeyC"]) || // Copy selected text.
+    isModPlus(parsedShortcut, ["KeyV"]) || // Paste text from the clipboard.
+    isModPlus(parsedShortcut, ["KeyX"]) || // Cut selected text.
+    isModPlus(parsedShortcut, ["KeyZ"]) || // Undo the last action.
+    isModShiftPlus(parsedShortcut, ["KeyZ"]) || // Redo the last undone action.
+    isModPlus(parsedShortcut, ["KeyA"]) || // Select all text in the field.
+    isModPlus(parsedShortcut, ["ArrowLeft"]) || // Move cursor to the beginning of the line.
+    isModPlus(parsedShortcut, ["ArrowRight"]) || // Move cursor to the end of the line.
+    isOptionPlus(parsedShortcut, ["ArrowLeft"]) || // Move cursor to the previous word.
+    isOptionPlus(parsedShortcut, ["ArrowRight"]) || // Move cursor to the next word.
+    isShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Extend selection one character to the left.
+    isShiftPlus(parsedShortcut, ["ArrowRight"]) || // Extend selection one character to the right.
+    isShiftPlus(parsedShortcut, ["ArrowUp"]) || // Extend selection one line up.
+    isShiftPlus(parsedShortcut, ["ArrowDown"]) || // Extend selection one line down.
+    isOptionShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Extend selection to the previous word.
+    isOptionShiftPlus(parsedShortcut, ["ArrowRight"]) || // Extend selection to the next word.
+    isModShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Extend selection to the beginning of the line.
+    isModShiftPlus(parsedShortcut, ["ArrowRight"]) || // Extend selection to the end of the line.
+    isOptionPlus(parsedShortcut, ["Backspace"]) || // Delete the word to the left of the cursor.
+    isModPlus(parsedShortcut, ["Backspace"]) || // Delete from the cursor to the beginning of the line.
+    isCtrlPlus(parsedShortcut, ["KeyA"]) || // Move cursor to the beginning of the line.
+    isCtrlPlus(parsedShortcut, ["KeyE"]) || // Move cursor to the end of the line.
+    isCtrlPlus(parsedShortcut, ["KeyF"]) || // Move cursor forward one character.
+    isCtrlPlus(parsedShortcut, ["KeyB"]) || // Move cursor backward one character.
+    isCtrlPlus(parsedShortcut, ["KeyN"]) || // Move cursor down one line.
+    isCtrlPlus(parsedShortcut, ["KeyP"]) || // Move cursor up one line.
+    isCtrlPlus(parsedShortcut, ["KeyD"]) || // Delete the character ahead of the cursor.
+    isCtrlPlus(parsedShortcut, ["KeyH"]) || // Delete the character behind the cursor.
+    isCtrlPlus(parsedShortcut, ["KeyT"]) || // Transpose the characters on either side of the cursor.
+    isModCtrlPlus(parsedShortcut, ["Space"]) || // Open the Emoji & Symbols palette.
+    isModShiftPlus(parsedShortcut, ["KeyV"]) || // Paste and match style (paste without formatting).
+    isModPlus(parsedShortcut, ["ArrowUp"]) || // Move cursor to document start
+    isModPlus(parsedShortcut, ["ArrowDown"]) || // Move cursor to document end
+    isModShiftPlus(parsedShortcut, ["ArrowUp"]) || // Extend selection to document start
+    isModShiftPlus(parsedShortcut, ["ArrowDown"]) || // Extend selection to document end
+    isModPlus(parsedShortcut, ["KeyY"]) || // Redo (alternative to Cmd+Shift+Z)
+    isModPlus(parsedShortcut, ["KeyB"]) || // Bold text
+    isModPlus(parsedShortcut, ["KeyI"]) // Italic text
+  );
+}
+
+function getWindowsIgnoreWhenInInputField(parsedShortcut) {
+  const { mod, shift, ctrl, alt } = parsedShortcut;
+  return (
+    (!mod && !shift && !ctrl && !alt) ||
+    isShiftPlus(parsedShortcut, []) ||
+    isModPlus(parsedShortcut, []) ||
+    isModOrCtrlPlus(parsedShortcut, ["KeyA"]) || // Select all text
+    isModOrCtrlPlus(parsedShortcut, ["KeyC"]) || // Copy selected text
+    isModOrCtrlPlus(parsedShortcut, ["KeyV"]) || // Paste text from the clipboard
+    isModOrCtrlPlus(parsedShortcut, ["KeyX"]) || // Cut selected text
+    isModOrCtrlPlus(parsedShortcut, ["KeyZ"]) || // Undo the last action
+    isModOrCtrlPlus(parsedShortcut, ["KeyY"]) || // Redo the last undone action
+    isModOrCtrlPlus(parsedShortcut, ["ArrowLeft"]) || // Move the cursor to the beginning of the previous word
+    isModOrCtrlPlus(parsedShortcut, ["ArrowRight"]) || // Move the cursor to the beginning of the next word
+    isShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Extend selection one character to the left
+    isShiftPlus(parsedShortcut, ["ArrowRight"]) || // Extend selection one character to the right
+    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowLeft"]) || // Extend selection to include the previous word
+    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowRight"]) || // Extend selection to include the next word
+    isModOrCtrlPlus(parsedShortcut, ["ArrowUp"]) || // Move cursor to beginning of paragraph/section
+    isModOrCtrlPlus(parsedShortcut, ["ArrowDown"]) || // Move cursor to end of paragraph/section
+    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowUp"]) || // Extend selection to beginning of paragraph
+    isModOrCtrlShiftPlus(parsedShortcut, ["ArrowDown"]) || // Extend selection to end of paragraph
+    isShiftPlus(parsedShortcut, ["ArrowUp"]) || // Extend selection one line up
+    isShiftPlus(parsedShortcut, ["ArrowDown"]) || // Extend selection one line down
+    isOptionPlus(parsedShortcut, ["ArrowLeft"]) || // Move cursor one word left (alternative to Ctrl+Left)
+    isOptionPlus(parsedShortcut, ["ArrowRight"]) || // Move cursor one word right (alternative to Ctrl+Right)
+    isModOrCtrlPlus(parsedShortcut, ["KeyK"]) || // Create/follow link (in rich text editors)
+    isShiftPlus(parsedShortcut, ["Home"]) || // Select text from the cursor to the beginning of the line
+    isShiftPlus(parsedShortcut, ["End"]) || // Select text from the cursor to the end of the line
+    isModOrCtrlPlus(parsedShortcut, ["Home"]) || // Move the cursor to the beginning of the text field
+    isModOrCtrlPlus(parsedShortcut, ["End"]) || // Move the cursor to the end of the text field
+    isModOrCtrlShiftPlus(parsedShortcut, ["Home"]) || // Select text from the cursor to the beginning of the text field
+    isModOrCtrlShiftPlus(parsedShortcut, ["End"]) || // Select text from the cursor to the end of the text field
+    isModOrCtrlPlus(parsedShortcut, ["Backspace"]) || // Delete the word before the cursor
+    isModOrCtrlPlus(parsedShortcut, ["Delete"]) || // Delete the word after the cursor
+    isShiftPlus(parsedShortcut, ["Enter"]) || // Insert a new line without submitting
+    isModOrCtrlShiftPlus(parsedShortcut, ["KeyV"]) || // Paste without formatting
+    isModOrCtrlPlus(parsedShortcut, ["KeyB"]) || // Bold text (in rich text editors)
+    isModOrCtrlPlus(parsedShortcut, ["KeyI"]) || // Italicize text (in rich text editors)
+    isModOrCtrlPlus(parsedShortcut, ["KeyU"]) // Underline text (in rich text editors)
+  );
+}
+
+function getIgnoreWhenInInputField(parsedShortcut, _isMacOs) {
   if (isParsedTabShortcut(parsedShortcut)) {
     return false;
   }
   if (parsedShortcut.keys.has("Escape")) {
     return false;
   }
-  return matchesAnyShortcutPattern(
-    parsedShortcut,
-    _isMacOs
-      ? macosInputFieldIgnoredShortcuts
-      : windowsInputFieldIgnoredShortcuts,
-  );
-}
-
-function syncPressedKeysFromKeyDown(event: KeyboardEvent) {
-  // keyup does not trigger on mac when cmd is held down, so stale keys need
-  // pruning before the next keydown is processed.
-  if (aModShortcutWasPressed) {
-    clearStaleKeys();
-  }
-  aModShortcutWasPressed = false;
-  const eventCode = getNormalizedEventCode(event);
-  if (eventCode && !modifierKeyCodes.has(eventCode)) {
-    addKeyPressed(eventCode);
-  }
-}
-
-function runShortcutKeyDownAction(
-  event: KeyboardEvent,
-  shortcut,
-  isMac,
-  isInput,
-) {
-  if (!isShortcutPressed(event, shortcut.parsedShortcut, isMac)) {
-    return false;
-  }
-  if (shortcut.ignoreWhenInInputField && isInput) {
-    return true;
-  }
-  if (shortcut.shouldPreventDefault) {
-    event.preventDefault();
-  }
-  if (event.repeat && !shortcut.allowRepeat) {
-    return true;
-  }
-  shortcut.keyDownAction(event);
-  shortcut.wasPressed = true;
-  if (shortcut.parsedShortcut.mod) {
-    aModShortcutWasPressed = true;
-  }
-  return true;
-}
-
-function releaseShortcutIfNeeded(event: KeyboardEvent, shortcut) {
-  if (!shortcut.wasPressed || shortcut.keepKeyDownCondition?.(event)) {
-    return;
-  }
-  shortcut.keyUpAction?.(event);
-  shortcut.wasPressed = false;
-}
-
-function handleShortcutKeyDownEvent(event: KeyboardEvent, shortcutInfo, isMac) {
-  syncPressedKeysFromKeyDown(event);
-  const isInput = getIsInput(event);
-  for (const shortcut of shortcutInfo) {
-    if (runShortcutKeyDownAction(event, shortcut, isMac, isInput)) {
-      continue;
-    }
-    releaseShortcutIfNeeded(event, shortcut);
-  }
+  return _isMacOs
+    ? getMacosIgnoreWhenInInputField(parsedShortcut)
+    : getWindowsIgnoreWhenInInputField(parsedShortcut);
 }
 
 function keyUpLoop(e, shortcutInfo) {
@@ -866,9 +718,40 @@ export function attachKeyEventListeners() {
 
   addKeepKeyDownConditions(shortcutsNeededForExtraProcessing, _isMacOs);
 
-  let cleanup = attachKeyDownListener((e) =>
-    handleShortcutKeyDownEvent(e, shortcutInfo, _isMacOs),
-  );
+  let cleanup = attachKeyDownListener((e) => {
+    // need to clear keys by timestamp because keyup does not trigger on mac when cmd key is held down
+    if (aModShortcutWasPressed) {
+      clearStaleKeys();
+    }
+    aModShortcutWasPressed = false;
+    const eventCode = getNormalizedEventCode(e);
+    if (eventCode && !modifierKeyCodes.has(eventCode)) {
+      addKeyPressed(eventCode);
+    }
+    const isInput = getIsInput(e);
+
+    for (const x of shortcutInfo) {
+      if (isShortcutPressed(e, x.parsedShortcut, _isMacOs)) {
+        if (x.ignoreWhenInInputField && isInput) {
+          continue;
+        }
+        if (x.shouldPreventDefault) {
+          e.preventDefault();
+        }
+        if (e.repeat && !x.allowRepeat) {
+          continue;
+        }
+        x.keyDownAction(e);
+        x.wasPressed = true;
+        if (x.parsedShortcut.mod) {
+          aModShortcutWasPressed = true;
+        }
+      } else if (x.wasPressed && !x.keepKeyDownCondition?.(e)) {
+        x.keyUpAction?.(e);
+        x.wasPressed = false;
+      }
+    }
+  });
   cleanup_functions.push(cleanup);
 
   cleanup = attachKeyUpListener((e) => {
@@ -933,63 +816,49 @@ function specialModTabCase(shortcutInfo) {
   }
 }
 
-function getEventSectionNode(event: KeyboardEvent) {
-  const target = event.target instanceof HTMLElement ? event.target : null;
-  return target?.closest(".react-flow__node");
-}
-
-function getDocumentActiveElement() {
-  return document.activeElement instanceof HTMLElement
-    ? document.activeElement
-    : null;
-}
-
-function isRootDocumentElement(element: HTMLElement | null) {
-  return (
-    !element ||
-    element === document.body ||
-    element === document.documentElement
-  );
-}
-
-function blurDocumentActiveElement() {
-  const activeElement = getDocumentActiveElement();
-  if (!isRootDocumentElement(activeElement)) {
-    activeElement.blur();
-  }
-}
-
-function ensureDocumentFallbackFocus() {
-  if (isRootDocumentElement(getDocumentActiveElement())) {
-    return;
-  }
-  document.body.focus({ preventScroll: true });
-  if (isRootDocumentElement(getDocumentActiveElement())) {
-    return;
-  }
-  document.documentElement.focus({ preventScroll: true });
-}
-
-function clearActiveSectionSelectionIfNeeded(sectionNode: Element) {
-  const sectionId = sectionNode.getAttribute("data-id");
-  if (!sectionId || !getActiveSectionUIIds().includes(sectionId)) {
-    return;
-  }
-  clearActiveSectionIds();
-  blurDocumentActiveElement();
-  ensureDocumentFallbackFocus();
-}
-
 function onEscapeKey(event: KeyboardEvent) {
   removeFrozenFloatingBox();
-  const sectionNode = getEventSectionNode(event);
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  const sectionNode = target?.closest(".react-flow__node");
   if (getIsInput(event) && !sectionNode) {
     return;
   }
-  if (unselectAllParams() || !sectionNode) {
-    return;
+  const didUnselectSomeParams = unselectAllParams();
+  if (!didUnselectSomeParams && sectionNode) {
+    const sectionId = sectionNode.getAttribute("data-id");
+    const activeIds = getActiveSectionUIIds();
+    if (sectionId && activeIds.includes(sectionId)) {
+      clearActiveSectionIds();
+      const activeElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      if (
+        activeElement &&
+        activeElement !== document.body &&
+        activeElement !== document.documentElement
+      ) {
+        activeElement.blur();
+      }
+      const postBlurActive =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      if (
+        postBlurActive &&
+        postBlurActive !== document.body &&
+        postBlurActive !== document.documentElement
+      ) {
+        document.body.focus({ preventScroll: true });
+        if (
+          document.activeElement !== document.body &&
+          document.activeElement !== document.documentElement
+        ) {
+          document.documentElement.focus({ preventScroll: true });
+        }
+      }
+    }
   }
-  clearActiveSectionSelectionIfNeeded(sectionNode);
 }
 
 function handleTabKeyDown(event: KeyboardEvent) {
