@@ -13550,6 +13550,58 @@ LOOP_TERMINAL_MARKER: none
     surface/state regression before taking another selector/perf slice
 
 LOOP_TERMINAL_MARKER: none
+# 2026-04-12 - Item 351
+
+- Item: land one bounded worktree transient-chrome normalization fix so the
+  canonical `rotaryParamCodeObjDefault` main-reference probe stops blocking on
+  the stale worktree loading bit during `normalize compare pane state`.
+- Why this slice:
+  - items `349` and `350` were both harness-only passes on the same canonical
+    lane, so the next oracle pass had to directly unblock the concrete
+    worktree-side normalization failure instead of reopening bootstrap churn
+  - a focused live worktree `/settings` inspection showed the pane chrome was
+    already normalized while `useProjectLoading.getState().projectIsLoading`
+    stayed `true`
+- Changed:
+  - added
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.ts`
+    with the shared transient-chrome settled predicate
+  - added focused unit coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.test.ts`
+  - updated
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so
+    `waitForSettingsGraphCompareTransientChrome(...)` now waits for:
+    - graph surface mounted
+    - visible settings content mounted
+    - header notification gone
+  - removed the previous dependency on
+    `projectIsLoading === false` for this normalization phase
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-worktree-transient-chrome-loading-flag-normalization.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.test.ts`
+    - passed (`1` file, `4` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.ts src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-040/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-040/main-ai.log`
+    - passed the previous `worktree: normalize compare pane state` blocker
+    - failed later at
+      `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+  - fresh-context headless CDP smoke on worktree `/settings`
+    - CDP was available
+    - shell mounted, but the viewport stayed on a loading spinner / dark empty
+      area and the graph surface did not become visible during the check
+- Result:
+  - the canonical probe no longer stalls on the stale worktree loading bit in
+    compare-pane normalization
+  - the active blocker moved forward to the next worktree-side phase:
+    `capture initial pane state`
+- Next:
+  - inspect the worktree-side `capture initial pane state` call path directly
+    and classify whether the live runtime is unhealthy again or whether the
+    pane-state read itself is hanging
+
+LOOP_TERMINAL_MARKER: none
 # 2026-04-12 - Item 348
 
 - Item: land one bounded section-shell AI-follow highlight selected-chat

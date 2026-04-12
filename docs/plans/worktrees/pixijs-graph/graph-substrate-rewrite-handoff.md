@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 21:01 UTC
+Last updated: 2026-04-12 21:21 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `351` landed one bounded worktree transient-chrome normalization fix on
+  the canonical `rotaryParamCodeObjDefault` main-reference perf lane:
+
+  - harness code changed in:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now treats compare-pane normalization as settled when the graph surface
+      is mounted, visible settings content is mounted, and the transient header
+      notification is gone
+    - it no longer blocks on `useProjectLoading.getState().projectIsLoading`
+      becoming `false` for this phase
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.ts`
+      now holds the shared settled-state predicate
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.test.ts`
+      to lock the intended semantics:
+      mounted surface + visible settings content + no header notification is
+      settled even if the loading flag lingers
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-worktree-transient-chrome-loading-flag-normalization.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.test.ts`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.ts src/components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-040/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-040/main-ai.log`
+      -> progressed past the prior
+         `worktree: normalize compare pane state` blocker
+      -> current blocker moved to
+         `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> shell mounted, but the viewport stayed on a loading spinner / dark
+         empty area and the graph surface did not become visible during the
+         check
+  - reading:
+    - the previous blocker was caused by over-waiting on a stale worktree
+      `projectIsLoading` flag after `/settings` was already visibly mounted
+    - the next bounded frontier should inspect why worktree
+      `capture initial pane state` does not return on the live runtime and
+      classify whether that is another worktree-health issue or a narrower
+      pane-state read path problem
 
 - item `350` landed one bounded Playwright global-setup stable-home landing
   fallback on the canonical `rotaryParamCodeObjDefault` main-reference perf

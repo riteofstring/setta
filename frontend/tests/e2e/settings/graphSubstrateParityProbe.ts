@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { isSettingsGraphCompareTransientChromeSettled } from "components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome";
 import type {
   SettingsGraphSubstrateCanaryInstrumentationSnapshot,
   SettingsGraphSubstrateCanaryMotionAttribution,
@@ -1286,19 +1287,31 @@ async function waitForSettingsGraphCompareTransientChrome(
 
   await expect
     .poll(async () => {
-      return page.evaluate(async () => {
+      const snapshot = await page.evaluate(async () => {
         const { useProjectLoading } = await import("/src/state/definitions.ts");
+        const legacyPaneCount =
+          document.querySelectorAll(".react-flow__pane").length;
+        const canaryRootCount = document.querySelectorAll(
+          '[data-testid="graph-substrate-canary"]',
+        ).length;
+        const articleElements = Array.from(
+          document.querySelectorAll("article"),
+        );
         return {
+          graphSurfaceMounted: legacyPaneCount > 0 || canaryRootCount > 0,
           headerNotificationVisible:
             document.querySelector(".header-notification-fade") !== null,
           projectIsLoading: useProjectLoading.getState().projectIsLoading,
+          settingsContentMounted: articleElements.some((element) => {
+            const htmlElement =
+              element instanceof HTMLElement ? element : element.parentElement;
+            return htmlElement?.offsetParent !== null;
+          }),
         };
       });
+      return isSettingsGraphCompareTransientChromeSettled(snapshot);
     })
-    .toEqual({
-      headerNotificationVisible: false,
-      projectIsLoading: false,
-    });
+    .toBe(true);
 }
 
 export async function findSettingsGraphPanePoint(
