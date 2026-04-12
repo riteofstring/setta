@@ -1,8 +1,6 @@
-import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import _ from "lodash";
-import { updateParamImplConfig } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -13,11 +11,10 @@ import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import {
-  type ColorPickerParamCodeObjImpl,
-  CodeObjTypeEnum,
-} from "utils/generatedTypes";
+import { route_update_param_impl_config } from "utils/generatedEndpoints";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { tryParseJSON } from "utils/utils";
+
 export function ColorPickerInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -31,6 +28,7 @@ export function ColorPickerInputConfigForParam({
     paramInfoId,
     CodeObjTypeEnum.ColorPickerParam,
   );
+
   function onChange(newConfig: ColorPickerConfigForFrontend) {
     if (!canEditStructure) {
       return;
@@ -38,7 +36,7 @@ export function ColorPickerInputConfigForParam({
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<ColorPickerParamCodeObjImpl>(
+        setCurrEffectiveCodeObjImplValue<"ColorPickerParamCodeObj">(
           state,
           sectionId,
           paramInfoId,
@@ -46,19 +44,16 @@ export function ColorPickerInputConfigForParam({
         );
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          updateParamImplConfig({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              paramInfoId,
-              newConfig: configClone,
-              frontendOpId,
-            },
-          } as Parameters<typeof updateParamImplConfig>[0]),
-        ),
+        route_update_param_impl_config({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          newConfig: configClone,
+          frontendOpId,
+        }),
     });
   }
+
   return (
     <ColorPickerInputConfig
       config={config}
@@ -67,6 +62,7 @@ export function ColorPickerInputConfigForParam({
     />
   );
 }
+
 function ColorPickerInputConfig({
   onChange,
   config,
@@ -84,6 +80,7 @@ function ColorPickerInputConfig({
       ],
     });
   };
+
   const removeColor = (removeIdx: number) => {
     onChange({
       colorChoices: config.colorChoices.filter(
@@ -91,6 +88,7 @@ function ColorPickerInputConfig({
       ),
     });
   };
+
   const updateColor = (updateIdx: number, newColor: string) => {
     onChange({
       colorChoices: config.colorChoices.map((choice, idx) =>
@@ -103,6 +101,7 @@ function ColorPickerInputConfig({
       ),
     });
   };
+
   const updateDescription = (updateIdx: number, description: string) => {
     onChange({
       colorChoices: config.colorChoices.map((choice, idx) =>
@@ -110,6 +109,7 @@ function ColorPickerInputConfig({
       ),
     });
   };
+
   return (
     <AvailableColors
       colorChoices={config.colorChoices}
@@ -121,6 +121,7 @@ function ColorPickerInputConfig({
     />
   );
 }
+
 export const AvailableColors = ({
   colorChoices,
   addColor,
@@ -182,6 +183,7 @@ export const AvailableColors = ({
     </>
   );
 };
+
 export function ColorPickerInput({
   colorChoices,
   value,
@@ -219,6 +221,7 @@ export function ColorPickerInput({
     </div>
   );
 }
+
 type ColorPickerInputTheme = {
   inputBorderClassName?: string;
   triggerBorderClassName?: string;
@@ -226,17 +229,7 @@ type ColorPickerInputTheme = {
   menuItemClassName?: string;
   menuItemTextClassName?: string;
 };
-type ResolvedColorPickerInputTheme = Required<ColorPickerInputTheme>;
-const DEFAULT_COLOR_PICKER_THEME: ResolvedColorPickerInputTheme = {
-  inputBorderClassName: "!border-setta-500/20 dark:!border-setta-500/40",
-  triggerBorderClassName: "!border-setta-500/20 dark:!border-setta-500/40",
-  menuContentClassName:
-    "z-50 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800",
-  menuItemClassName:
-    "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700",
-  menuItemTextClassName:
-    "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300",
-};
+
 type ColorPickerProps = {
   colorChoices: ColorPickerConfigForFrontend["colorChoices"];
   value: string;
@@ -247,79 +240,6 @@ type ColorPickerProps = {
   isDisabled: boolean;
   theme?: ColorPickerInputTheme;
 };
-
-function resolveThemeClassName(
-  themeClassName: string | undefined,
-  fallback: string,
-): string {
-  return themeClassName ?? fallback;
-}
-
-function resolveColorPickerTheme(
-  theme?: ColorPickerInputTheme,
-): ResolvedColorPickerInputTheme {
-  return {
-    inputBorderClassName: resolveThemeClassName(
-      theme?.inputBorderClassName,
-      DEFAULT_COLOR_PICKER_THEME.inputBorderClassName,
-    ),
-    triggerBorderClassName: resolveThemeClassName(
-      theme?.triggerBorderClassName,
-      DEFAULT_COLOR_PICKER_THEME.triggerBorderClassName,
-    ),
-    menuContentClassName: resolveThemeClassName(
-      theme?.menuContentClassName,
-      DEFAULT_COLOR_PICKER_THEME.menuContentClassName,
-    ),
-    menuItemClassName: resolveThemeClassName(
-      theme?.menuItemClassName,
-      DEFAULT_COLOR_PICKER_THEME.menuItemClassName,
-    ),
-    menuItemTextClassName: resolveThemeClassName(
-      theme?.menuItemTextClassName,
-      DEFAULT_COLOR_PICKER_THEME.menuItemTextClassName,
-    ),
-  };
-}
-
-function resolveSelectedColorChoice(
-  colorChoices: ColorPickerConfigForFrontend["colorChoices"],
-  color: string,
-) {
-  return (
-    colorChoices.find((choice) => choice.color === color) ?? colorChoices[0]
-  );
-}
-
-function ColorPickerChoiceOption({
-  item,
-  isSelected,
-  menuItemClassName,
-  menuItemTextClassName,
-  onSelect,
-}: {
-  item: ColorPickerConfigForFrontend["colorChoices"][number];
-  isSelected: boolean;
-  menuItemClassName: string;
-  menuItemTextClassName: string;
-  onSelect: (color: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={isSelected}
-      className={menuItemClassName}
-      onClick={() => onSelect(item.color)}
-    >
-      <div
-        className="mr-2 h-4 w-4 rounded-full"
-        style={{ backgroundColor: item.color }}
-      />
-      <p className={menuItemTextClassName}>{item.description}</p>
-    </button>
-  );
-}
 
 function ColorPicker({
   colorChoices,
@@ -332,6 +252,7 @@ function ColorPicker({
   theme,
 }: ColorPickerProps) {
   const nativeInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     if (!onCommit) {
       return;
@@ -352,7 +273,7 @@ function ColorPicker({
       input.removeEventListener("change", handleNativeChange);
     };
   }, [onCommit]);
-  const resolvedTheme = resolveColorPickerTheme(theme);
+
   const style = {
     // from https://codepen.io/devongovett/pen/QwLbRrW
     "--bg": value,
@@ -368,7 +289,7 @@ function ColorPicker({
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
       onEscape={onEscape}
-      theme={resolvedTheme}
+      theme={theme}
     />
   ) : (
     <>
@@ -377,10 +298,13 @@ function ColorPicker({
         style={style}
       />
       {/*
-            Keep layout/interaction classes stable and make only the styling pieces overridable.
-            App mode uses `theme.*` to be token-driven without perturbing IDE rendering.
-          */}
+        Keep layout/interaction classes stable and make only the styling pieces overridable.
+        App mode uses `theme.*` to be token-driven without perturbing IDE rendering.
+      */}
       {(() => {
+        const inputBorderClassName =
+          theme?.inputBorderClassName ??
+          "!border-setta-500/20 dark:!border-setta-500/40";
         return (
           <input
             ref={nativeInputRef}
@@ -397,7 +321,7 @@ function ColorPicker({
                 onChange(nextColor);
               }
             }}
-            className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${resolvedTheme.inputBorderClassName}`}
+            className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`}
             disabled={isDisabled}
             onKeyDown={(e) => {
               if (e.code === "Escape") {
@@ -410,6 +334,7 @@ function ColorPicker({
     </>
   );
 }
+
 type ColorPickerFromColorChoicesProps = {
   color: string;
   setColor: (newColor: string) => void;
@@ -418,8 +343,9 @@ type ColorPickerFromColorChoicesProps = {
   colorPickerChoicesClasses: string;
   isDisabled: boolean;
   onEscape?: () => void;
-  theme: ResolvedColorPickerInputTheme;
+  theme?: ColorPickerInputTheme;
 };
+
 function ColorPickerFromColorChoices({
   color,
   setColor,
@@ -430,80 +356,81 @@ function ColorPickerFromColorChoices({
   onEscape,
   theme,
 }: ColorPickerFromColorChoicesProps) {
-  const selectedItem = resolveSelectedColorChoice(colorChoices, color);
+  let selectedItem = colorChoices.find((c) => c.color === color);
+  if (!selectedItem) {
+    selectedItem = colorChoices[0];
+  }
+
   const style = {
     "--bg": selectedItem.color,
     background: "var(--bg)",
     color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
   };
-  const [isOpen, setIsOpen] = useState(false);
-  const selectColor = (nextColor: string) => {
-    setColor(nextColor);
-    onCommit?.(nextColor);
-    setIsOpen(false);
-  };
+
+  const triggerBorderClassName =
+    theme?.triggerBorderClassName ??
+    "!border-setta-500/20 dark:!border-setta-500/40";
+  const menuContentClassName =
+    theme?.menuContentClassName ??
+    "z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800";
+  const menuItemClassName =
+    theme?.menuItemClassName ??
+    "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700";
+  const menuItemTextClassName =
+    theme?.menuItemTextClassName ??
+    "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
+
   return (
-    <StandardPopover
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      repositionOnCanvasTransform={true}
-      contentClasses={theme.menuContentClassName}
-      contentProps={{
-        align: "start",
-        sideOffset: 6,
-        style: { minWidth: "var(--radix-popover-trigger-width)" },
-        onEscapeKeyDown: (event) => {
-          event.stopPropagation();
-          onEscape?.();
-        },
-      }}
-      trigger={
-        <button
-          type="button"
-          className={colorPickerChoicesClasses}
-          disabled={isDisabled}
-          aria-expanded={isOpen}
-          aria-haspopup="listbox"
-          onKeyDown={(e) => {
-            if (e.code === "Escape") {
-              // have to stop propagation to prevent section from becoming unselected
-              e.stopPropagation();
-              onEscape?.();
-            }
-          }}
-        >
-          <div
-            className={`single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid ${theme.triggerBorderClassName}`}
-            style={{ backgroundColor: selectedItem.color }}
-          />
-          <div className="single-cell-child flex items-center justify-between overflow-hidden">
-            <p
-              className="ml-[2px] truncate pl-2.5 text-xs font-semibold @[90px]:inline-block"
-              style={style}
-            >
-              {selectedItem.description}
-            </p>
-            <i className="gg-chevron-down px-2" style={style} />
-          </div>
-        </button>
-      }
-    >
-      <div
-        role="listbox"
-        aria-label="Available colors"
-        className="flex flex-col"
+    <DropdownMenu.Root modal={false}>
+      <DropdownMenu.Trigger
+        className={colorPickerChoicesClasses}
+        disabled={isDisabled}
+        onKeyDown={(e) => {
+          if (e.code === "Escape") {
+            // have to stop propagation to prevent section from becoming unselected
+            e.stopPropagation();
+            onEscape?.();
+          }
+        }}
       >
-        {colorChoices.map((item, index) => (
-          <ColorPickerChoiceOption
-            key={index}
-            item={item}
-            isSelected={item.color === color}
-            menuItemClassName={theme.menuItemClassName}
-            menuItemTextClassName={theme.menuItemTextClassName}
-            onSelect={selectColor}
-          />
-        ))}
-      </div>
-    </StandardPopover>
+        <div
+          className={`single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid ${triggerBorderClassName}`}
+          style={{ backgroundColor: selectedItem.color }}
+        />
+        <div className="single-cell-child flex items-center justify-between overflow-hidden">
+          <p
+            className="ml-[2px] truncate pl-2.5 text-xs font-semibold @[90px]:inline-block"
+            style={style}
+          >
+            {selectedItem.description}
+          </p>
+          <i className="gg-chevron-down px-2" style={style} />
+        </div>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className={menuContentClassName}
+          align="start"
+          style={{ minWidth: "var(--radix-dropdown-menu-trigger-width)" }}
+        >
+          {colorChoices.map((item, index) => (
+            <DropdownMenu.Item
+              key={index}
+              className={menuItemClassName}
+              onSelect={() => {
+                setColor(item.color);
+                onCommit?.(item.color);
+              }}
+            >
+              <div
+                className="mr-2 h-4 w-4 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+              <p className={menuItemTextClassName}>{item.description}</p>
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }

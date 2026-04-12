@@ -1,20 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  APP_GENERATION_SLASH_COMMANDS,
   buildAppGenerationSlashCommandDefinitions,
-  getAppGenerationSlashCommandByAction,
   resolveAppGenerationModeForSlashAction,
 } from "./appGenerationSlashCommands";
 
 describe("appGenerationSlashCommands", () => {
   it("defines fixed built-in app generation slash commands with unique tokens", () => {
-    const definitions = buildAppGenerationSlashCommandDefinitions();
-
     expect(
-      definitions.map(({ command, action }) => ({
+      APP_GENERATION_SLASH_COMMANDS.map(({ command, action, mode }) => ({
         command,
         action,
-        mode: resolveAppGenerationModeForSlashAction(action),
+        mode,
       })),
     ).toEqual([
       {
@@ -38,37 +36,33 @@ describe("appGenerationSlashCommands", () => {
         mode: "mcp_server",
       },
     ]);
-    expect(new Set(definitions.map((entry) => entry.command)).size).toBe(
-      definitions.length,
-    );
-    for (const entry of definitions) {
+    expect(
+      new Set(APP_GENERATION_SLASH_COMMANDS.map((entry) => entry.command)).size,
+    ).toBe(APP_GENERATION_SLASH_COMMANDS.length);
+    for (const entry of APP_GENERATION_SLASH_COMMANDS) {
       expect(entry.promptTemplate.trim().length).toBeGreaterThan(0);
       expect(entry.summary.trim().length).toBeGreaterThan(0);
     }
   });
 
-  it("resolves built-in slash commands by action", () => {
+  it("builds chat slash command definitions with fixed prompt templates", () => {
     const definitions = buildAppGenerationSlashCommandDefinitions();
 
     expect(
-      definitions.map(({ command, action, summary, promptTemplate }) => ({
+      definitions.map(({ command, action, promptTemplate }) => ({
         command,
         action,
-        summary,
         promptTemplate,
       })),
     ).toEqual(
-      definitions.map(({ action }) => {
-        const entry = getAppGenerationSlashCommandByAction(action);
-        return {
-          command: entry?.command,
-          action: entry?.action,
-          summary: entry?.summary,
-          promptTemplate: entry?.promptTemplate,
-        };
-      }),
+      APP_GENERATION_SLASH_COMMANDS.map(
+        ({ command, action, promptTemplate }) => ({
+          command,
+          action,
+          promptTemplate,
+        }),
+      ),
     );
-    expect(getAppGenerationSlashCommandByAction("help")).toBeNull();
   });
 
   it("maps built-in app generation slash actions back to explicit app modes", () => {

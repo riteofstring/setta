@@ -4,13 +4,6 @@ import {
 } from "components/ChatWindowing/projectChatSnapLayout";
 import { resolveProjectChatFloatingViewport } from "components/ChatWindowing/projectChatViewport";
 import {
-  createWindowSpace,
-  deleteWindowSpace as deleteWindowSpaceRequest,
-  setWindowSpaceName as setWindowSpaceNameRequest,
-  setWindowSpaceSortOrder,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import {
   flushPendingProjectChatWindowingWrites,
   normalizeProjectChatWindowingState,
   replaceProjectChatWindowingState,
@@ -18,9 +11,8 @@ import {
   syncProjectChatWindowingState,
 } from "state/actions/projectChatWindowing";
 import { getAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
-import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
 import {
-  dispatchOptimisticProjectStateUpdateWithResult,
+  dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import {
@@ -28,19 +20,20 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+  route_create_window_space,
+  route_delete_window_space,
+  route_set_window_space_name,
+  route_set_window_space_sort_order,
+} from "utils/generatedEndpoints";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
-  NotificationTypeEnum,
+  SettaNotificationTypeEnum,
   WindowSpaceSurfaceKindEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
-  createProjectConfig,
   createWindowSpaceState,
   createWindowSpaceWindow,
   type ProjectChatWindowInstance,
@@ -48,8 +41,11 @@ import {
   type WindowSpaceConfig,
   type WindowSpaceState,
 } from "utils/generatedTypes";
+import { createRandomName } from "utils/idNameCreation";
+import { sanitizeNameForSlug } from "utils/nameValidation";
 import { addTemporaryNotification } from "./notifications";
 import { isProjectChatGitGraphEmbeddedPaneVisible } from "./projectChatWindowingEphemeral";
+
 type AuthoringFloatingViewport = {
   viewportWidthPx: number;
   viewportHeightPx: number;
@@ -60,6 +56,7 @@ type AuthoringFloatingViewport = {
     bottom: number;
   };
 };
+
 type WindowSpaceSnapshotState = Pick<
   ZustandProjectState,
   | "projectChatWindowing"
@@ -68,28 +65,11 @@ type WindowSpaceSnapshotState = Pick<
   | "sectionImpls"
   | "sectionVariants"
 >;
-type ProjectConfigMutationPayload = {
-  projectConfig: ZustandProjectState["projectConfig"];
-};
-type WindowSpaceMutationPayload = ProjectConfigMutationPayload & {
-  windowSpaceId?: string | null;
-};
-type CreateWindowSpaceRouteResponse =
-  ResponseDataAndStatus<WindowSpaceMutationPayload>;
-type ProjectConfigMutationRouteResponse =
-  ResponseDataAndStatus<ProjectConfigMutationPayload>;
-function applyAcknowledgedWindowSpaceProjectConfig(
-  state: ZustandProjectState,
-  acknowledgedProjectConfig: ZustandProjectState["projectConfig"],
-): void {
-  const snapshot = createProjectConfig(acknowledgedProjectConfig);
-  state.projectConfig.windowSpaces = snapshot.windowSpaces;
-  state.projectConfig.windowSpaceSlugsById = snapshot.windowSpaceSlugsById;
-  state.projectConfig.windowSpaceIdsBySlug = snapshot.windowSpaceIdsBySlug;
-}
+
 function resolveAuthoringFloatingViewport(): AuthoringFloatingViewport {
   return resolveProjectChatFloatingViewport();
 }
+
 export function sortWindowSpaces(
   windowSpaces: Array<WindowSpaceConfig>,
 ): Array<WindowSpaceConfig> {
@@ -106,11 +86,13 @@ export function sortWindowSpaces(
     return a.id.localeCompare(b.id);
   });
 }
+
 export function getProjectWindowSpaces(
   projectConfig: Pick<ZustandProjectState["projectConfig"], "windowSpaces">,
 ): Record<string, WindowSpaceConfig> {
   return projectConfig.windowSpaces;
 }
+
 function cloneWindowSpaces(
   windowSpaces: Record<string, WindowSpaceConfig>,
 ): Record<string, WindowSpaceConfig> {
@@ -129,6 +111,7 @@ function cloneWindowSpaces(
     ]),
   );
 }
+
 function canMutateWindowSpaceLayout(): boolean {
   const shareSession = useShareSession.getState();
   return (
@@ -136,6 +119,7 @@ function canMutateWindowSpaceLayout(): boolean {
     shareSession.sharePolicy?.allowLayoutChanges !== false
   );
 }
+
 function dispatchOptimisticWindowSpaceMutation({
   apply,
   projectConfigId,
@@ -146,81 +130,112 @@ function dispatchOptimisticWindowSpaceMutation({
   send: (args: {
     frontendOpId: string;
     projectConfigId: string;
-  }) =>
-    | ProjectConfigMutationRouteResponse
-    | Promise<ProjectConfigMutationRouteResponse>;
+  }) => void | Promise<unknown>;
 }) {
   if (!canMutateWindowSpaceLayout()) {
-    return Promise.resolve(undefined);
+    return;
   }
   const previousWindowSpaces = cloneWindowSpaces(
     getProjectWindowSpaces(useProjectState.getState().projectConfig),
   );
-  let acknowledgedProjectConfig: ZustandProjectState["projectConfig"] | null =
-    null;
-  const { result } = dispatchOptimisticProjectStateUpdateWithResult({
+  dispatchOptimisticProjectStateUpdate({
     projectConfigId,
     apply,
-    reapply: (state) => {
-      if (acknowledgedProjectConfig) {
-        applyAcknowledgedWindowSpaceProjectConfig(
-          state,
-          acknowledgedProjectConfig,
-        );
-        return;
-      }
-      apply(state);
-    },
     rollback: (state) => {
       state.projectConfig.windowSpaces =
         cloneWindowSpaces(previousWindowSpaces);
     },
-    send: async (frontendOpId) => {
-      const response = await send({
+    send: (frontendOpId) =>
+      send({
         frontendOpId,
         projectConfigId,
-      });
-      if (res200(response)) {
-        acknowledgedProjectConfig = createProjectConfig(
-          response.data.projectConfig,
-        );
-        publishProjectConfigSnapshot(
-          projectConfigId,
-          createProjectConfig(acknowledgedProjectConfig),
-        );
-      }
-      return response;
-    },
+      }),
   });
-  return result;
 }
+
+function resolveNextWindowSpaceName(
+  windowSpaces: Record<string, WindowSpaceConfig>,
+): string {
+  const existingSlugs = new Set(
+    Object.values(windowSpaces).map((windowSpace) =>
+      sanitizeNameForSlug(windowSpace.name),
+    ),
+  );
+  let nextName = createRandomName();
+  while (existingSlugs.has(sanitizeNameForSlug(nextName))) {
+    nextName = createRandomName();
+  }
+  return nextName;
+}
+
+export function applyWindowSpaceSortOrder(
+  state: ZustandProjectState,
+  orderedWindowSpaceIds: Array<string>,
+): void {
+  const windowSpaces = state.projectConfig.windowSpaces;
+  if (orderedWindowSpaceIds.length !== Object.keys(windowSpaces).length) {
+    throw new Error(
+      "orderedWindowSpaceIds must include every window space exactly once.",
+    );
+  }
+
+  const seen = new Set<string>();
+  for (const windowSpaceId of orderedWindowSpaceIds) {
+    if (!(windowSpaceId in windowSpaces)) {
+      throw new Error(`Window space ${windowSpaceId} not found.`);
+    }
+    if (seen.has(windowSpaceId)) {
+      throw new Error("orderedWindowSpaceIds contains duplicates.");
+    }
+    seen.add(windowSpaceId);
+  }
+
+  orderedWindowSpaceIds.forEach((windowSpaceId, index) => {
+    const windowSpace = windowSpaces[windowSpaceId];
+    if (!windowSpace) {
+      throw new Error(`Window space ${windowSpaceId} not found.`);
+    }
+    windowSpace.sortIndex = index;
+  });
+}
+
+function compactWindowSpaceSortIndices(
+  windowSpaces: Record<string, WindowSpaceConfig>,
+): void {
+  const sortedWindowSpaces = sortWindowSpaces(Object.values(windowSpaces));
+  for (let index = 0; index < sortedWindowSpaces.length; index += 1) {
+    const sortedWindowSpace = sortedWindowSpaces[index];
+    if (!sortedWindowSpace) {
+      continue;
+    }
+    sortedWindowSpace.sortIndex = index;
+  }
+}
+
 export function persistWindowSpaceSortOrder(
   projectConfigId: string,
   orderedWindowSpaceIds: Array<string>,
-): Promise<ProjectConfigMutationRouteResponse | undefined> {
-  return dispatchOptimisticWindowSpaceMutation({
-    apply: () => {},
-    projectConfigId,
-    send: async ({ frontendOpId, projectConfigId: nextProjectConfigId }) => {
-      const response = (await callOpenAPI(
-        setWindowSpaceSortOrder({
-          body: {
-            projectConfigId: nextProjectConfigId,
-            orderedWindowSpaceIds,
-            frontendOpId,
-          },
-        } as Parameters<typeof setWindowSpaceSortOrder>[0]),
-      )) as ProjectConfigMutationRouteResponse;
-      return response;
+): void {
+  dispatchOptimisticWindowSpaceMutation({
+    apply: (state) => {
+      applyWindowSpaceSortOrder(state, orderedWindowSpaceIds);
     },
+    projectConfigId,
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
+      route_set_window_space_sort_order({
+        projectConfigId: nextProjectConfigId,
+        orderedWindowSpaceIds,
+        frontendOpId,
+      }),
   });
 }
+
 export function setWindowSpaceName(
   projectConfigId: string,
   windowSpaceId: string,
   name: string,
-): Promise<ProjectConfigMutationRouteResponse | undefined> {
-  return dispatchOptimisticWindowSpaceMutation({
+): void {
+  dispatchOptimisticWindowSpaceMutation({
     apply: (state) => {
       const windowSpaces = getProjectWindowSpaces(state.projectConfig);
       if (!(windowSpaceId in windowSpaces)) {
@@ -229,121 +244,222 @@ export function setWindowSpaceName(
       windowSpaces[windowSpaceId].name = name;
     },
     projectConfigId,
-    send: async ({ frontendOpId, projectConfigId: nextProjectConfigId }) => {
-      const response = (await callOpenAPI(
-        setWindowSpaceNameRequest({
-          body: {
-            projectConfigId: nextProjectConfigId,
-            windowSpaceId,
-            name,
-            frontendOpId,
-          },
-        } as Parameters<typeof setWindowSpaceNameRequest>[0]),
-      )) as ProjectConfigMutationRouteResponse;
-      return response;
-    },
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
+      route_set_window_space_name({
+        projectConfigId: nextProjectConfigId,
+        windowSpaceId,
+        name,
+        frontendOpId,
+      }),
   });
 }
+
 export function deleteWindowSpace(
   projectConfigId: string,
   windowSpaceId: string,
-): Promise<ProjectConfigMutationRouteResponse | undefined> {
-  return dispatchOptimisticWindowSpaceMutation({
-    apply: () => {},
-    projectConfigId,
-    send: async ({ frontendOpId, projectConfigId: nextProjectConfigId }) => {
-      const response = (await callOpenAPI(
-        deleteWindowSpaceRequest({
-          body: {
-            projectConfigId: nextProjectConfigId,
-            windowSpaceId,
-            frontendOpId,
-          },
-        } as Parameters<typeof deleteWindowSpaceRequest>[0]),
-      )) as ProjectConfigMutationRouteResponse;
-      return response;
+): void {
+  dispatchOptimisticWindowSpaceMutation({
+    apply: (state) => {
+      const windowSpaces = getProjectWindowSpaces(state.projectConfig);
+      if (!(windowSpaceId in windowSpaces)) {
+        throw new Error(`Window space ${windowSpaceId} not found`);
+      }
+      delete windowSpaces[windowSpaceId];
+      compactWindowSpaceSortIndices(windowSpaces);
     },
+    projectConfigId,
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
+      route_delete_window_space({
+        projectConfigId: nextProjectConfigId,
+        windowSpaceId,
+        frontendOpId,
+      }),
   });
 }
+
 export function snapshotFloatingWindowsForWindowSpace(
   state: WindowSpaceSnapshotState,
   viewport: AuthoringFloatingViewport = resolveAuthoringFloatingViewport(),
 ): WindowSpaceState {
   const snapshotWindowsById: WindowSpaceState["windowsById"] = {};
   const snapshotOrder: string[] = [];
-  for (const instanceId of buildOrderedProjectChatWindowInstanceIds(
-    state.projectChatWindowing,
-  )) {
+  const seen = new Set<string>();
+  const orderedInstanceIds = [
+    ...state.projectChatWindowing.order,
+    ...Object.keys(state.projectChatWindowing.instancesById),
+  ];
+
+  for (const instanceId of orderedInstanceIds) {
+    if (seen.has(instanceId)) {
+      continue;
+    }
+    seen.add(instanceId);
     const instance = state.projectChatWindowing.instancesById[instanceId];
+    if (!instance) {
+      continue;
+    }
+    if (instance.placement !== ChatWindowPlacementEnum.floating) {
+      continue;
+    }
+    if (instance.isClosed || instance.isMinimized || instance.isMaximized) {
+      continue;
+    }
     if (
-      !instance ||
-      !isSnapshotEligibleFloatingWindow(instance, state.sections)
+      instance.sectionIdOrNull &&
+      !Object.hasOwn(state.sections, instance.sectionIdOrNull)
     ) {
       continue;
     }
-    snapshotWindowsById[instanceId] = buildWindowSpaceSnapshotWindow(
-      instanceId,
-      instance,
-      state.projectConfig.id,
-      viewport,
-    );
+    snapshotWindowsById[instanceId] = createWindowSpaceWindow({
+      surfaceKind: instance.sectionIdOrNull
+        ? WindowSpaceSurfaceKindEnum.section
+        : WindowSpaceSurfaceKindEnum.project_chat,
+      sectionIdOrNull: instance.sectionIdOrNull,
+      mode: instance.mode,
+      title: instance.sectionIdOrNull ? null : instance.title,
+      chatId: resolveWindowSpaceSnapshotChatId(instance),
+      embeddedGitPaneVisible:
+        instance.mode === ChatWindowModeEnum.git_graph_mode &&
+        instance.sectionIdOrNull === null
+          ? isProjectChatGitGraphEmbeddedPaneVisible(
+              state.projectConfig.id,
+              instanceId,
+            )
+          : false,
+      zIndex: instance.zIndex,
+      normalizedBounds: normalizeFloatingBounds(
+        instance.bounds,
+        viewport.viewportWidthPx,
+        viewport.viewportHeightPx,
+        viewport.insets,
+      ),
+    });
     snapshotOrder.push(instanceId);
   }
+
+  return dedupeWindowSpaceSectionBindings(
+    createWindowSpaceState({
+      windowsById: snapshotWindowsById,
+      order: snapshotOrder,
+    }),
+  );
+}
+
+function buildOrderedWindowSpaceInstanceIds(
+  state: WindowSpaceState,
+): Array<string> {
+  const seen = new Set<string>();
+  const orderedInstanceIds: Array<string> = [];
+  for (const instanceId of state.order) {
+    if (!state.windowsById[instanceId] || seen.has(instanceId)) {
+      continue;
+    }
+    seen.add(instanceId);
+    orderedInstanceIds.push(instanceId);
+  }
+  for (const instanceId of Object.keys(state.windowsById)) {
+    if (seen.has(instanceId)) {
+      continue;
+    }
+    seen.add(instanceId);
+    orderedInstanceIds.push(instanceId);
+  }
+  return orderedInstanceIds;
+}
+
+function shouldPreferWindowSpaceSectionBinding(
+  candidateInstanceId: string,
+  candidate: NonNullable<WindowSpaceState["windowsById"][string]>,
+  currentBestInstanceId: string | null,
+  currentBest: NonNullable<WindowSpaceState["windowsById"][string]> | null,
+): boolean {
+  if (!currentBest || currentBestInstanceId === null) {
+    return true;
+  }
+  if (candidate.zIndex !== currentBest.zIndex) {
+    return candidate.zIndex > currentBest.zIndex;
+  }
+  return candidateInstanceId.localeCompare(currentBestInstanceId) > 0;
+}
+
+function dedupeWindowSpaceSectionBindings(
+  state: WindowSpaceState,
+): WindowSpaceState {
+  const orderedInstanceIds = buildOrderedWindowSpaceInstanceIds(state);
+  const winningInstanceIdBySectionId = new Map<string, string>();
+
+  for (const instanceId of orderedInstanceIds) {
+    const window = state.windowsById[instanceId];
+    const sectionId = window?.sectionIdOrNull ?? null;
+    if (!window || !sectionId) {
+      continue;
+    }
+    const currentBestInstanceId = winningInstanceIdBySectionId.get(sectionId);
+    const currentBest =
+      currentBestInstanceId === undefined
+        ? null
+        : state.windowsById[currentBestInstanceId] ?? null;
+    if (
+      !shouldPreferWindowSpaceSectionBinding(
+        instanceId,
+        window,
+        currentBestInstanceId ?? null,
+        currentBest,
+      )
+    ) {
+      continue;
+    }
+    winningInstanceIdBySectionId.set(sectionId, instanceId);
+  }
+
+  let changed = false;
+  const nextWindowsById: WindowSpaceState["windowsById"] = {};
+  for (const [instanceId, window] of Object.entries(state.windowsById)) {
+    const sectionId = window.sectionIdOrNull ?? null;
+    if (
+      sectionId &&
+      winningInstanceIdBySectionId.get(sectionId) !== instanceId
+    ) {
+      changed = true;
+      continue;
+    }
+    nextWindowsById[instanceId] = window;
+  }
+  if (!changed) {
+    return state;
+  }
   return createWindowSpaceState({
-    windowsById: snapshotWindowsById,
-    order: snapshotOrder,
+    windowsById: nextWindowsById,
+    order: orderedInstanceIds.filter(
+      (instanceId) => nextWindowsById[instanceId],
+    ),
   });
 }
+
 function normalizeWindowSpaceForPersistence(
   state: WindowSpaceSnapshotState,
   viewport: AuthoringFloatingViewport = resolveAuthoringFloatingViewport(),
 ): WindowSpaceState {
   return snapshotFloatingWindowsForWindowSpace(state, viewport);
 }
-function normalizeNullableString(
-  value: string | null | undefined,
-): string | null {
-  return value ?? null;
-}
-function resolveProjectChatWindowSectionId(
-  instance: Pick<ProjectChatWindowInstance, "sectionIdOrNull">,
-): string | null {
-  return normalizeNullableString(instance.sectionIdOrNull);
-}
-function resolveProjectChatWindowChatId(
-  instance: Pick<ProjectChatWindowInstance, "chatId">,
-): string | null {
-  return normalizeNullableString(instance.chatId);
-}
-function resolveProjectChatWindowMode(
-  instance: Pick<ProjectChatWindowInstance, "mode">,
-): NonNullable<ProjectChatWindowInstance["mode"]> {
-  return instance.mode ?? ChatWindowModeEnum.project_ai_mode;
-}
-function resolveWindowSpaceWindowMode(
-  window: Pick<NonNullable<WindowSpaceState["windowsById"][string]>, "mode">,
-): NonNullable<NonNullable<WindowSpaceState["windowsById"][string]>["mode"]> {
-  return window.mode ?? ChatWindowModeEnum.project_ai_mode;
-}
+
 function resolveWindowSpaceSnapshotChatId(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (
-    resolveProjectChatWindowMode(instance) !==
-    ChatWindowModeEnum.project_ai_mode
-  ) {
+  if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
     return null;
   }
-  return resolveProjectChatWindowChatId(instance);
+  return instance.chatId ?? null;
 }
+
 function resolveRestoredWorkspaceWindowChatId(
   window: NonNullable<WindowSpaceState["windowsById"][string]>,
 ): string | null | undefined {
-  return resolveWindowSpaceWindowMode(window) ===
-    ChatWindowModeEnum.project_ai_mode
-    ? normalizeNullableString(window.chatId)
+  return window.mode === ChatWindowModeEnum.project_ai_mode
+    ? window.chatId
     : null;
 }
+
 function resolveNextProjectChatWindowInstanceNumber(
   instanceIds: Array<string>,
 ): number {
@@ -361,6 +477,7 @@ function resolveNextProjectChatWindowInstanceNumber(
   }
   return nextInstanceNumber;
 }
+
 function allocateFreshProjectChatWindowInstanceId(
   usedInstanceIds: Set<string>,
   nextInstanceNumber: number,
@@ -380,6 +497,7 @@ function allocateFreshProjectChatWindowInstanceId(
     nextInstanceNumber: candidateNumber + 1,
   };
 }
+
 function mergeProjectChatWindowSpaceOrder(
   preservedOrder: Array<string>,
   restoredOrder: Array<string>,
@@ -405,6 +523,7 @@ function mergeProjectChatWindowSpaceOrder(
   }
   return nextOrder;
 }
+
 function buildOrderedProjectChatWindowInstanceIds(
   state: ProjectChatWindowingState,
 ): Array<string> {
@@ -426,109 +545,82 @@ function buildOrderedProjectChatWindowInstanceIds(
   }
   return orderedInstanceIds;
 }
-function buildOrderedWindowSpaceWindowIds(
-  windowSpace: Pick<WindowSpaceConfig, "order" | "windowsById">,
-): Array<string> {
-  const seen = new Set<string>();
-  const orderedInstanceIds: Array<string> = [];
-  for (const instanceId of windowSpace.order) {
-    if (!windowSpace.windowsById[instanceId] || seen.has(instanceId)) {
+
+function shouldPreferRestoredSectionWindow(
+  candidateInstanceId: string,
+  candidate: NonNullable<ProjectChatWindowingState["instancesById"][string]>,
+  currentBestInstanceId: string | null,
+  currentBest: NonNullable<
+    ProjectChatWindowingState["instancesById"][string]
+  > | null,
+): boolean {
+  if (!currentBest || currentBestInstanceId === null) {
+    return true;
+  }
+  if (candidate.zIndex !== currentBest.zIndex) {
+    return candidate.zIndex > currentBest.zIndex;
+  }
+  if (candidate.lastFocusedAt !== currentBest.lastFocusedAt) {
+    return candidate.lastFocusedAt > currentBest.lastFocusedAt;
+  }
+  return candidateInstanceId.localeCompare(currentBestInstanceId) > 0;
+}
+
+function dedupeRestoredSectionBindings(
+  state: ProjectChatWindowingState,
+): ProjectChatWindowingState {
+  const orderedInstanceIds = buildOrderedProjectChatWindowInstanceIds(state);
+  const winningInstanceIdBySectionId = new Map<string, string>();
+
+  for (const instanceId of orderedInstanceIds) {
+    const instance = state.instancesById[instanceId];
+    const sectionId = instance?.sectionIdOrNull ?? null;
+    if (!instance || !sectionId) {
       continue;
     }
-    seen.add(instanceId);
-    orderedInstanceIds.push(instanceId);
-  }
-  for (const instanceId of Object.keys(windowSpace.windowsById)) {
-    if (seen.has(instanceId)) {
-      continue;
-    }
-    seen.add(instanceId);
-    orderedInstanceIds.push(instanceId);
-  }
-  return orderedInstanceIds;
-}
-function isSnapshotEligibleFloatingWindow(
-  instance: ProjectChatWindowInstance,
-  sections: ZustandProjectState["sections"],
-): boolean {
-  const sectionId = resolveProjectChatWindowSectionId(instance);
-  if (instance.placement !== ChatWindowPlacementEnum.floating) {
-    return false;
-  }
-  if (instance.isClosed || instance.isMinimized || instance.isMaximized) {
-    return false;
-  }
-  return sectionId === null || Object.hasOwn(sections, sectionId);
-}
-function buildWindowSpaceSnapshotWindow(
-  instanceId: string,
-  instance: ProjectChatWindowInstance,
-  projectConfigId: string,
-  viewport: AuthoringFloatingViewport,
-): NonNullable<WindowSpaceState["windowsById"][string]> {
-  const mode = resolveProjectChatWindowMode(instance);
-  const sectionId = resolveProjectChatWindowSectionId(instance);
-  return createWindowSpaceWindow({
-    surfaceKind:
-      sectionId === null
-        ? WindowSpaceSurfaceKindEnum.project_chat
-        : WindowSpaceSurfaceKindEnum.section,
-    sectionIdOrNull: instance.sectionIdOrNull,
-    mode,
-    title: sectionId === null ? instance.title : null,
-    chatId: resolveWindowSpaceSnapshotChatId(instance),
-    embeddedGitPaneVisible:
-      mode === ChatWindowModeEnum.git_graph_mode && sectionId === null
-        ? isProjectChatGitGraphEmbeddedPaneVisible(projectConfigId, instanceId)
-        : false,
-    zIndex: instance.zIndex,
-    normalizedBounds: normalizeFloatingBounds(
-      instance.bounds,
-      viewport.viewportWidthPx,
-      viewport.viewportHeightPx,
-      viewport.insets,
-    ),
-  });
-}
-function shouldRestoreWindowSpaceWindow(
-  window: NonNullable<WindowSpaceState["windowsById"][string]>,
-  sections: ZustandProjectState["sections"],
-): boolean {
-  return (
-    window.surfaceKind !== WindowSpaceSurfaceKindEnum.section ||
-    (window.sectionIdOrNull !== null &&
-      Object.hasOwn(sections, window.sectionIdOrNull))
-  );
-}
-function buildProjectChatWindowInstanceFromWindowSpaceWindow(
-  instanceId: string,
-  window: NonNullable<WindowSpaceState["windowsById"][string]>,
-  viewport: AuthoringFloatingViewport,
-): ProjectChatWindowInstance {
-  return createProjectChatWindowInstance({
-    instanceId,
-    placement: ChatWindowPlacementEnum.floating,
-    mode: resolveWindowSpaceWindowMode(window),
-    sectionIdOrNull: window.sectionIdOrNull,
-    title:
-      window.surfaceKind === WindowSpaceSurfaceKindEnum.section
+    const currentBestInstanceId = winningInstanceIdBySectionId.get(sectionId);
+    const currentBest =
+      currentBestInstanceId === undefined
         ? null
-        : window.title,
-    chatId: resolveRestoredWorkspaceWindowChatId(window),
-    isClosed: false,
-    isMinimized: false,
-    isMaximized: false,
-    lastPlacementBeforeMaximize: null,
-    zIndex: window.zIndex,
-    lastFocusedAt: window.zIndex,
-    bounds: denormalizeFloatingBounds(
-      window.normalizedBounds,
-      viewport.viewportWidthPx,
-      viewport.viewportHeightPx,
-      viewport.insets,
+        : state.instancesById[currentBestInstanceId] ?? null;
+    if (
+      !shouldPreferRestoredSectionWindow(
+        instanceId,
+        instance,
+        currentBestInstanceId ?? null,
+        currentBest,
+      )
+    ) {
+      continue;
+    }
+    winningInstanceIdBySectionId.set(sectionId, instanceId);
+  }
+
+  let changed = false;
+  const nextInstancesById: ProjectChatWindowingState["instancesById"] = {};
+  for (const [instanceId, instance] of Object.entries(state.instancesById)) {
+    const sectionId = instance.sectionIdOrNull ?? null;
+    if (
+      sectionId &&
+      winningInstanceIdBySectionId.get(sectionId) !== instanceId
+    ) {
+      changed = true;
+      continue;
+    }
+    nextInstancesById[instanceId] = instance;
+  }
+  if (!changed) {
+    return state;
+  }
+  return createProjectChatWindowingState({
+    ...state,
+    instancesById: nextInstancesById,
+    order: orderedInstanceIds.filter(
+      (instanceId) => nextInstancesById[instanceId],
     ),
   });
 }
+
 export function createProjectChatWindowingStateFromWindowSpace(
   windowSpace: WindowSpaceConfig,
   { sections }: Pick<ZustandProjectState, "sections">,
@@ -536,27 +628,65 @@ export function createProjectChatWindowingStateFromWindowSpace(
 ): ProjectChatWindowingState {
   const instancesById: ProjectChatWindowingState["instancesById"] = {};
   const order: Array<string> = [];
-  for (const instanceId of buildOrderedWindowSpaceWindowIds(windowSpace)) {
-    const window = windowSpace.windowsById[instanceId];
-    if (!window || !shouldRestoreWindowSpaceWindow(window, sections)) {
+  const seen = new Set<string>();
+  const orderedInstanceIds = [
+    ...windowSpace.order,
+    ...Object.keys(windowSpace.windowsById),
+  ];
+
+  for (const instanceId of orderedInstanceIds) {
+    if (seen.has(instanceId)) {
       continue;
     }
-    instancesById[instanceId] =
-      buildProjectChatWindowInstanceFromWindowSpaceWindow(
-        instanceId,
-        window,
-        viewport,
-      );
+    seen.add(instanceId);
+    const window = windowSpace.windowsById[instanceId];
+    if (!window) {
+      continue;
+    }
+    if (
+      window.surfaceKind === WindowSpaceSurfaceKindEnum.section &&
+      (!window.sectionIdOrNull ||
+        !Object.hasOwn(sections, window.sectionIdOrNull))
+    ) {
+      continue;
+    }
+    instancesById[instanceId] = createProjectChatWindowInstance({
+      instanceId,
+      placement: ChatWindowPlacementEnum.floating,
+      mode: window.mode,
+      sectionIdOrNull: window.sectionIdOrNull,
+      title:
+        window.surfaceKind === WindowSpaceSurfaceKindEnum.section
+          ? null
+          : window.title,
+      chatId: resolveRestoredWorkspaceWindowChatId(window),
+      isClosed: false,
+      isMinimized: false,
+      isMaximized: false,
+      lastPlacementBeforeMaximize: null,
+      zIndex: window.zIndex,
+      lastFocusedAt: window.zIndex,
+      bounds: denormalizeFloatingBounds(
+        window.normalizedBounds,
+        viewport.viewportWidthPx,
+        viewport.viewportHeightPx,
+        viewport.insets,
+      ),
+    });
     order.push(instanceId);
   }
-  return normalizeProjectChatWindowingState(
-    createProjectChatWindowingState({
-      instancesById,
-      order,
-      nextInstanceNumber: resolveNextProjectChatWindowInstanceNumber(order),
-    }),
+
+  return dedupeRestoredSectionBindings(
+    normalizeProjectChatWindowingState(
+      createProjectChatWindowingState({
+        instancesById,
+        order,
+        nextInstanceNumber: resolveNextProjectChatWindowInstanceNumber(order),
+      }),
+    ),
   );
 }
+
 function remapRestoredWindowSpaceInstanceIdsForWorkspace(
   restoredFloatingWindowing: ProjectChatWindowingState,
   currentWindowing: ProjectChatWindowingState,
@@ -579,6 +709,7 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
     currentWindowing.nextInstanceNumber,
     restoredFloatingWindowing.nextInstanceNumber,
   );
+
   for (const instanceId of restoredFloatingWindowing.order) {
     const instance = restoredFloatingWindowing.instancesById[instanceId];
     if (!instance) {
@@ -607,6 +738,7 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
           };
     remappedOrder.push(nextInstanceId);
   }
+
   for (const [instanceId, instance] of Object.entries(
     restoredFloatingWindowing.instancesById,
   )) {
@@ -632,6 +764,7 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
     remappedInstancesById[instanceId] = instance;
     remappedOrder.push(instanceId);
   }
+
   return {
     windowing: normalizeProjectChatWindowingState(
       createProjectChatWindowingState({
@@ -644,143 +777,96 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
     remappedInstanceIdByOriginalId,
   };
 }
-function collectProjectChatWindowInstances(
-  windowing: ProjectChatWindowingState,
-  shouldKeep: (
-    instanceId: string,
-    instance: ProjectChatWindowInstance,
-  ) => boolean,
-): {
-  instancesById: ProjectChatWindowingState["instancesById"];
-  order: Array<string>;
-} {
-  const instancesById: ProjectChatWindowingState["instancesById"] = {};
-  const order: Array<string> = [];
-  for (const instanceId of windowing.order) {
-    const instance = windowing.instancesById[instanceId];
-    if (!instance || !shouldKeep(instanceId, instance)) {
-      continue;
-    }
-    instancesById[instanceId] = instance;
-    order.push(instanceId);
-  }
-  for (const [instanceId, instance] of Object.entries(
-    windowing.instancesById,
-  )) {
-    if (
-      Object.hasOwn(instancesById, instanceId) ||
-      !shouldKeep(instanceId, instance)
-    ) {
-      continue;
-    }
-    instancesById[instanceId] = instance;
-  }
-  return {
-    instancesById,
-    order,
-  };
-}
-function createCollectedProjectChatWindowingState(
-  windowing: ProjectChatWindowingState,
-  shouldKeep: (
-    instanceId: string,
-    instance: ProjectChatWindowInstance,
-  ) => boolean,
-): ProjectChatWindowingState {
-  const { instancesById, order } = collectProjectChatWindowInstances(
-    windowing,
-    shouldKeep,
-  );
-  return normalizeProjectChatWindowingState(
-    createProjectChatWindowingState({
-      ...windowing,
-      instancesById,
-      order,
-    }),
-  );
-}
-function buildNonFloatingWorkspaceHostSectionIds(
-  currentWindowing: ProjectChatWindowingState,
-): Set<string> {
-  const authoritativeSectionIds = new Set<string>();
-  for (const instance of Object.values(currentWindowing.instancesById)) {
-    const sectionId = resolveProjectChatWindowSectionId(instance);
-    if (
-      instance.placement === ChatWindowPlacementEnum.floating ||
-      sectionId === null
-    ) {
-      continue;
-    }
-    authoritativeSectionIds.add(sectionId);
-  }
-  return authoritativeSectionIds;
-}
-function isRestoredSectionWindowOwnedByNonFloatingWorkspaceHost(
-  instance: ProjectChatWindowInstance,
-  authoritativeSectionIds: Set<string>,
-): boolean {
-  const sectionId = resolveProjectChatWindowSectionId(instance);
-  return sectionId !== null && authoritativeSectionIds.has(sectionId);
-}
+
 function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   restoredFloatingWindowing: ProjectChatWindowingState,
   currentWindowing: ProjectChatWindowingState,
 ): ProjectChatWindowingState {
-  const authoritativeSectionIds =
-    buildNonFloatingWorkspaceHostSectionIds(currentWindowing);
+  const authoritativeSectionIds = new Set(
+    Object.values(currentWindowing.instancesById)
+      .map((instance) => {
+        if (
+          instance.placement === ChatWindowPlacementEnum.floating ||
+          instance.sectionIdOrNull === null
+        ) {
+          return null;
+        }
+        return instance.sectionIdOrNull;
+      })
+      .filter((sectionId): sectionId is string => sectionId !== null),
+  );
   if (authoritativeSectionIds.size === 0) {
     return restoredFloatingWindowing;
   }
-  return createCollectedProjectChatWindowingState(
-    restoredFloatingWindowing,
-    (_instanceId, instance) =>
-      !isRestoredSectionWindowOwnedByNonFloatingWorkspaceHost(
-        instance,
-        authoritativeSectionIds,
-      ),
+
+  const nextInstancesById: ProjectChatWindowingState["instancesById"] = {};
+  const nextOrder: string[] = [];
+  for (const instanceId of restoredFloatingWindowing.order) {
+    const instance = restoredFloatingWindowing.instancesById[instanceId];
+    if (
+      !instance ||
+      (instance.sectionIdOrNull !== null &&
+        authoritativeSectionIds.has(instance.sectionIdOrNull))
+    ) {
+      continue;
+    }
+    nextInstancesById[instanceId] = instance;
+    nextOrder.push(instanceId);
+  }
+  for (const [instanceId, instance] of Object.entries(
+    restoredFloatingWindowing.instancesById,
+  )) {
+    if (
+      instanceId in nextInstancesById ||
+      (instance.sectionIdOrNull !== null &&
+        authoritativeSectionIds.has(instance.sectionIdOrNull))
+    ) {
+      continue;
+    }
+    nextInstancesById[instanceId] = instance;
+  }
+  return normalizeProjectChatWindowingState(
+    createProjectChatWindowingState({
+      ...restoredFloatingWindowing,
+      instancesById: nextInstancesById,
+      order: nextOrder,
+    }),
   );
 }
+
 function resolveFloatingWindowRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  const sectionId = resolveProjectChatWindowSectionId(instance);
-  if (sectionId !== null) {
-    return `section:${sectionId}`;
+  if (instance.sectionIdOrNull !== null) {
+    return `section:${instance.sectionIdOrNull}`;
   }
-  if (
-    resolveProjectChatWindowMode(instance) === ChatWindowModeEnum.git_graph_mode
-  ) {
+  if (instance.mode === ChatWindowModeEnum.git_graph_mode) {
     return "git-graph";
   }
-  const chatId = resolveProjectChatWindowChatId(instance);
   if (
-    resolveProjectChatWindowMode(instance) ===
-      ChatWindowModeEnum.project_ai_mode &&
-    chatId !== null
+    instance.mode === ChatWindowModeEnum.project_ai_mode &&
+    instance.chatId !== null
   ) {
-    return `project-chat:${chatId}`;
+    return `project-chat:${instance.chatId}`;
   }
   return null;
 }
+
 function resolveBoundWorkspaceRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (
-    resolveProjectChatWindowMode(instance) !==
-    ChatWindowModeEnum.project_ai_mode
-  ) {
+  if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
     return null;
   }
-  const sectionId = resolveProjectChatWindowSectionId(instance);
-  if (sectionId !== null) {
-    return `section:${sectionId}`;
+  if (instance.sectionIdOrNull !== null) {
+    return `section:${instance.sectionIdOrNull}`;
   }
-  const chatId = resolveProjectChatWindowChatId(instance);
-  if (chatId !== null) {
-    return `project-chat:${chatId}`;
+  if (instance.chatId !== null) {
+    return `project-chat:${instance.chatId}`;
   }
   return null;
 }
+
 function resolveReusableWorkspaceRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
@@ -789,30 +875,30 @@ function resolveReusableWorkspaceRestoreOwnerKey(
   }
   return resolveBoundWorkspaceRestoreOwnerKey(instance);
 }
-function buildOrderedRestoreOwnerKeyMap(
-  windowing: ProjectChatWindowingState,
-  resolveOwnerKey: (instance: ProjectChatWindowInstance) => string | null,
-): Map<string, string> {
-  const instanceIdByOwnerKey = new Map<string, string>();
+
+function buildPreferredRestoredInstanceIdByOriginalId(
+  restoredFloatingWindowing: ProjectChatWindowingState,
+  currentWindowing: ProjectChatWindowingState,
+): Record<string, string> {
+  const reusableInstanceIdByOwnerKey = new Map<string, string>();
   for (const instanceId of buildOrderedProjectChatWindowInstanceIds(
-    windowing,
+    currentWindowing,
   )) {
-    const instance = windowing.instancesById[instanceId];
+    const instance = currentWindowing.instancesById[instanceId];
     if (!instance) {
       continue;
     }
-    const ownerKey = resolveOwnerKey(instance);
-    if (ownerKey === null || instanceIdByOwnerKey.has(ownerKey)) {
+    const ownerKey = resolveReusableWorkspaceRestoreOwnerKey(instance);
+    if (ownerKey === null || reusableInstanceIdByOwnerKey.has(ownerKey)) {
       continue;
     }
-    instanceIdByOwnerKey.set(ownerKey, instanceId);
+    reusableInstanceIdByOwnerKey.set(ownerKey, instanceId);
   }
-  return instanceIdByOwnerKey;
-}
-function claimPreferredRestoredInstanceIds(
-  restoredFloatingWindowing: ProjectChatWindowingState,
-  reusableInstanceIdByOwnerKey: Map<string, string>,
-): Record<string, string> {
+
+  if (reusableInstanceIdByOwnerKey.size === 0) {
+    return {};
+  }
+
   const preferredInstanceIdByOriginalId: Record<string, string> = {};
   const claimedLiveInstanceIds = new Set<string>();
   for (const instanceId of buildOrderedProjectChatWindowInstanceIds(
@@ -836,24 +922,10 @@ function claimPreferredRestoredInstanceIds(
     preferredInstanceIdByOriginalId[instanceId] = preferredInstanceId;
     claimedLiveInstanceIds.add(preferredInstanceId);
   }
+
   return preferredInstanceIdByOriginalId;
 }
-function buildPreferredRestoredInstanceIdByOriginalId(
-  restoredFloatingWindowing: ProjectChatWindowingState,
-  currentWindowing: ProjectChatWindowingState,
-): Record<string, string> {
-  const reusableInstanceIdByOwnerKey = buildOrderedRestoreOwnerKeyMap(
-    currentWindowing,
-    resolveReusableWorkspaceRestoreOwnerKey,
-  );
-  if (reusableInstanceIdByOwnerKey.size === 0) {
-    return {};
-  }
-  return claimPreferredRestoredInstanceIds(
-    restoredFloatingWindowing,
-    reusableInstanceIdByOwnerKey,
-  );
-}
+
 function resolveWorkspaceFloatingWindowsSupersededByRestore(
   restoredFloatingWindowing: ProjectChatWindowingState,
   currentWindowing: ProjectChatWindowingState,
@@ -864,6 +936,7 @@ function resolveWorkspaceFloatingWindowsSupersededByRestore(
       .filter((ownerKey): ownerKey is string => ownerKey !== null),
   );
   const supersededFloatingInstanceIds = new Set<string>();
+
   for (const [instanceId, instance] of Object.entries(
     currentWindowing.instancesById,
   )) {
@@ -875,8 +948,10 @@ function resolveWorkspaceFloatingWindowsSupersededByRestore(
       supersededFloatingInstanceIds.add(instanceId);
     }
   }
+
   return supersededFloatingInstanceIds;
 }
+
 function buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
   windowSpace: WindowSpaceConfig,
   remappedInstanceIdByOriginalId: Record<string, string>,
@@ -901,11 +976,13 @@ function buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
   }
   return visibleInstanceIds;
 }
+
 type RestoredProjectChatThreadBinding = {
   instanceId: string;
   chatId: string | null;
   sectionIdOrNull: string | null;
 };
+
 function getBlockedWindowSpaceRestoreMessage(
   threadBindings: Array<RestoredProjectChatThreadBinding>,
 ): string | null {
@@ -921,18 +998,16 @@ function getBlockedWindowSpaceRestoreMessage(
   }
   return "Cannot restore this window space because deployment policy disallows restoring saved chat threads.";
 }
+
 function resolveProjectChatThreadBindingChatId(
   instance: ProjectChatWindowInstance | undefined,
 ): string | null {
-  if (
-    !instance ||
-    resolveProjectChatWindowMode(instance) !==
-      ChatWindowModeEnum.project_ai_mode
-  ) {
+  if (!instance || instance.mode !== ChatWindowModeEnum.project_ai_mode) {
     return null;
   }
-  return resolveProjectChatWindowChatId(instance);
+  return instance.chatId ?? null;
 }
+
 function buildWorkspaceRestoreLayoutState(
   currentWindowing: ProjectChatWindowingState,
   restoredWindowing: ProjectChatWindowingState,
@@ -942,17 +1017,16 @@ function buildWorkspaceRestoreLayoutState(
 } {
   const threadBindings: Array<RestoredProjectChatThreadBinding> = [];
   const layoutInstancesById: ProjectChatWindowingState["instancesById"] = {};
+
   for (const [instanceId, instance] of Object.entries(
     restoredWindowing.instancesById,
   )) {
-    if (
-      resolveProjectChatWindowMode(instance) !==
-      ChatWindowModeEnum.project_ai_mode
-    ) {
+    if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
       layoutInstancesById[instanceId] =
         instance.chatId === null ? instance : { ...instance, chatId: null };
       continue;
     }
+
     const desiredChatId = instance.chatId ?? null;
     const currentChatId = resolveProjectChatThreadBindingChatId(
       currentWindowing.instancesById[instanceId],
@@ -972,6 +1046,7 @@ function buildWorkspaceRestoreLayoutState(
             chatId: currentChatId,
           };
   }
+
   return {
     layoutWindowing: createProjectChatWindowingState({
       ...restoredWindowing,
@@ -980,22 +1055,23 @@ function buildWorkspaceRestoreLayoutState(
     threadBindings,
   };
 }
+
 async function settleWorkspaceRestoreLayoutWrites(): Promise<void> {
   await flushPendingProjectChatWindowingWrites();
   // Let optimistic rollback handlers update the store before phase 2 inspects it.
   await Promise.resolve();
 }
+
 function isRestoredProjectChatThreadBindingTarget(
   instance: ProjectChatWindowInstance | undefined,
   threadBinding: RestoredProjectChatThreadBinding,
 ): boolean {
   return (
-    !!instance &&
-    resolveProjectChatWindowMode(instance) ===
-      ChatWindowModeEnum.project_ai_mode &&
+    instance?.mode === ChatWindowModeEnum.project_ai_mode &&
     (instance.sectionIdOrNull ?? null) === threadBinding.sectionIdOrNull
   );
 }
+
 function hasRestoredProjectChatThreadBinding(
   instance: ProjectChatWindowInstance | undefined,
   threadBinding: RestoredProjectChatThreadBinding,
@@ -1005,60 +1081,7 @@ function hasRestoredProjectChatThreadBinding(
     (instance.chatId ?? null) === threadBinding.chatId
   );
 }
-function isActiveWindowSpaceProjectConfig(projectConfigId: string): boolean {
-  return useProjectState.getState().projectConfig.id === projectConfigId;
-}
-function getCurrentProjectChatWindowingForProjectConfig(
-  projectConfigId: string,
-): ProjectChatWindowingState {
-  return (
-    getAuthoritativeProjectChatWindowingState(projectConfigId) ??
-    useProjectState.getState().projectChatWindowing
-  );
-}
-function shouldRestoreProjectChatThreadBinding(
-  instance: ProjectChatWindowInstance | undefined,
-  threadBinding: RestoredProjectChatThreadBinding,
-): boolean {
-  return (
-    !!instance &&
-    resolveProjectChatWindowMode(instance) ===
-      ChatWindowModeEnum.project_ai_mode &&
-    (instance.sectionIdOrNull ?? null) === threadBinding.sectionIdOrNull &&
-    (instance.chatId ?? null) !== threadBinding.chatId
-  );
-}
-type RestoreProjectChatThreadBindingResult =
-  | "restored"
-  | "skipped"
-  | "aborted"
-  | "failed";
-async function restoreSingleWorkspaceProjectChatThreadBinding(
-  projectConfigId: string,
-  threadBinding: RestoredProjectChatThreadBinding,
-): Promise<RestoreProjectChatThreadBindingResult> {
-  if (!isActiveWindowSpaceProjectConfig(projectConfigId)) {
-    return "aborted";
-  }
-  const currentInstance =
-    getCurrentProjectChatWindowingForProjectConfig(projectConfigId)
-      .instancesById[threadBinding.instanceId];
-  if (!shouldRestoreProjectChatThreadBinding(currentInstance, threadBinding)) {
-    return "skipped";
-  }
-  setProjectChatWindowChatId(threadBinding.instanceId, threadBinding.chatId);
-  await flushPendingProjectChatWindowingWrites();
-  if (!isActiveWindowSpaceProjectConfig(projectConfigId)) {
-    return "aborted";
-  }
-  return hasRestoredProjectChatThreadBinding(
-    getCurrentProjectChatWindowingForProjectConfig(projectConfigId)
-      .instancesById[threadBinding.instanceId],
-    threadBinding,
-  )
-    ? "restored"
-    : "failed";
-}
+
 async function restoreWorkspaceProjectChatThreadBindings(
   projectConfigId: string,
   threadBindings: Array<RestoredProjectChatThreadBinding>,
@@ -1067,11 +1090,13 @@ async function restoreWorkspaceProjectChatThreadBindings(
   if (threadBindings.length === 0) {
     return;
   }
-  if (!isActiveWindowSpaceProjectConfig(projectConfigId)) {
+  if (useProjectState.getState().projectConfig.id !== projectConfigId) {
     return;
   }
+
   const layoutWindowing =
-    getCurrentProjectChatWindowingForProjectConfig(projectConfigId);
+    getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+    useProjectState.getState().projectChatWindowing;
   if (
     threadBindings.some(
       (threadBinding) =>
@@ -1083,120 +1108,149 @@ async function restoreWorkspaceProjectChatThreadBindings(
   ) {
     addTemporaryNotification(
       "Failed to restore saved chat threads.",
-      NotificationTypeEnum.error,
+      SettaNotificationTypeEnum.error,
     );
     return;
   }
+
   let encounteredFailure = false;
   for (const threadBinding of threadBindings) {
-    const restoreResult = await restoreSingleWorkspaceProjectChatThreadBinding(
-      projectConfigId,
-      threadBinding,
-    );
-    if (restoreResult === "aborted") {
+    if (useProjectState.getState().projectConfig.id !== projectConfigId) {
       return;
     }
-    if (restoreResult !== "failed") {
+
+    const authoritativeWindowing =
+      getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+      useProjectState.getState().projectChatWindowing;
+    const currentInstance =
+      authoritativeWindowing.instancesById[threadBinding.instanceId];
+    if (
+      !currentInstance ||
+      currentInstance.mode !== ChatWindowModeEnum.project_ai_mode ||
+      (currentInstance.sectionIdOrNull ?? null) !==
+        threadBinding.sectionIdOrNull ||
+      (currentInstance.chatId ?? null) === threadBinding.chatId
+    ) {
       continue;
     }
-    encounteredFailure = true;
+
+    setProjectChatWindowChatId(threadBinding.instanceId, threadBinding.chatId);
+    await flushPendingProjectChatWindowingWrites();
+    if (useProjectState.getState().projectConfig.id !== projectConfigId) {
+      return;
+    }
+
+    const reboundWindowing =
+      getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+      useProjectState.getState().projectChatWindowing;
+    if (
+      hasRestoredProjectChatThreadBinding(
+        reboundWindowing.instancesById[threadBinding.instanceId],
+        threadBinding,
+      )
+    ) {
+      continue;
+    }
+
+    if (!encounteredFailure) {
+      encounteredFailure = true;
+    }
     console.error("Failed to restore saved project chat thread binding.", {
       projectConfigId,
       instanceId: threadBinding.instanceId,
       chatId: threadBinding.chatId,
     });
   }
+
   if (encounteredFailure) {
     addTemporaryNotification(
       "Failed to restore one or more saved chat threads.",
-      NotificationTypeEnum.error,
+      SettaNotificationTypeEnum.error,
     );
   }
 }
-function getWindowSpaceOrThrow(
-  state: Pick<ZustandProjectState, "projectConfig">,
+
+export async function restoreWindowSpaceInWorkspace(
   windowSpaceId: string,
-): WindowSpaceConfig {
-  const windowSpace = getProjectWindowSpaces(state.projectConfig)[
-    windowSpaceId
-  ];
+): Promise<void> {
+  if (!canMutateWindowSpaceLayout()) {
+    return;
+  }
+  const state = useProjectState.getState();
+  const windowSpaces = getProjectWindowSpaces(state.projectConfig);
+  if (!(windowSpaceId in windowSpaces)) {
+    throw new Error(`Window space ${windowSpaceId} not found.`);
+  }
+  const windowSpace = windowSpaces[windowSpaceId];
   if (!windowSpace) {
     throw new Error(`Window space ${windowSpaceId} not found.`);
   }
-  return windowSpace;
-}
-type PreparedWorkspaceRestore = {
-  remappedRestoredFloatingWindowing: ProjectChatWindowingState;
-  remappedInstanceIdByOriginalId: Record<string, string>;
-  supersededFloatingInstanceIds: Set<string>;
-};
-function prepareWorkspaceRestore(
-  windowSpace: WindowSpaceConfig,
-  state: WindowSpaceSnapshotState,
-): PreparedWorkspaceRestore {
-  const currentWindowing = state.projectChatWindowing;
   const restoredFloatingWindowing =
     createProjectChatWindowingStateFromWindowSpace(windowSpace, state);
-  const collisionFreeRestoredFloatingWindowing =
+  const currentWindowing = state.projectChatWindowing;
+  const restoredFloatingWindowingWithoutNonFloatingSectionCollisions =
     dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
       restoredFloatingWindowing,
       currentWindowing,
     );
   const preferredRestoredInstanceIdByOriginalId =
     buildPreferredRestoredInstanceIdByOriginalId(
-      collisionFreeRestoredFloatingWindowing,
+      restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
       currentWindowing,
     );
   const supersededFloatingInstanceIds =
     resolveWorkspaceFloatingWindowsSupersededByRestore(
-      collisionFreeRestoredFloatingWindowing,
+      restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
       currentWindowing,
     );
-  const remappedRestoreResult = remapRestoredWindowSpaceInstanceIdsForWorkspace(
-    collisionFreeRestoredFloatingWindowing,
-    currentWindowing,
-    supersededFloatingInstanceIds,
-    preferredRestoredInstanceIdByOriginalId,
+  const remappedRestoredFloatingWindowingResult =
+    remapRestoredWindowSpaceInstanceIdsForWorkspace(
+      restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
+      currentWindowing,
+      supersededFloatingInstanceIds,
+      preferredRestoredInstanceIdByOriginalId,
+    );
+  const remappedRestoredFloatingWindowing = dedupeRestoredSectionBindings(
+    remappedRestoredFloatingWindowingResult.windowing,
   );
-  return {
-    remappedRestoredFloatingWindowing: remappedRestoreResult.windowing,
-    remappedInstanceIdByOriginalId:
-      remappedRestoreResult.remappedInstanceIdByOriginalId,
-    supersededFloatingInstanceIds,
-  };
-}
-function collectPreservedWorkspaceWindowing(
-  currentWindowing: ProjectChatWindowingState,
-  supersededFloatingInstanceIds: Set<string>,
-  remappedRestoredFloatingWindowing: ProjectChatWindowingState,
-): {
-  instancesById: ProjectChatWindowingState["instancesById"];
-  order: Array<string>;
-} {
-  return collectProjectChatWindowInstances(
-    currentWindowing,
-    (instanceId) =>
-      !supersededFloatingInstanceIds.has(instanceId) &&
-      !remappedRestoredFloatingWindowing.instancesById[instanceId],
-  );
-}
-function buildNextWorkspaceRestoreWindowing(
-  currentWindowing: ProjectChatWindowingState,
-  remappedRestoredFloatingWindowing: ProjectChatWindowingState,
-  preservedWorkspaceWindowing: {
-    instancesById: ProjectChatWindowingState["instancesById"];
-    order: Array<string>;
-  },
-): ProjectChatWindowingState {
+  const preservedInstancesById: ProjectChatWindowingState["instancesById"] = {};
+  const preservedOrder: Array<string> = [];
+
+  for (const instanceId of currentWindowing.order) {
+    const instance = currentWindowing.instancesById[instanceId];
+    if (
+      !instance ||
+      supersededFloatingInstanceIds.has(instanceId) ||
+      remappedRestoredFloatingWindowing.instancesById[instanceId]
+    ) {
+      continue;
+    }
+    preservedInstancesById[instanceId] = instance;
+    preservedOrder.push(instanceId);
+  }
+
+  for (const [instanceId, instance] of Object.entries(
+    currentWindowing.instancesById,
+  )) {
+    if (
+      supersededFloatingInstanceIds.has(instanceId) ||
+      remappedRestoredFloatingWindowing.instancesById[instanceId] ||
+      preservedInstancesById[instanceId]
+    ) {
+      continue;
+    }
+    preservedInstancesById[instanceId] = instance;
+  }
+
   const instancesById = {
-    ...preservedWorkspaceWindowing.instancesById,
+    ...preservedInstancesById,
     ...remappedRestoredFloatingWindowing.instancesById,
   };
-  return normalizeProjectChatWindowingState(
+  const nextWindowing = normalizeProjectChatWindowingState(
     createProjectChatWindowingState({
       instancesById,
       order: mergeProjectChatWindowSpaceOrder(
-        preservedWorkspaceWindowing.order,
+        preservedOrder,
         remappedRestoredFloatingWindowing.order,
         instancesById,
       ),
@@ -1206,13 +1260,15 @@ function buildNextWorkspaceRestoreWindowing(
       ),
     }),
   );
-}
-function buildNextGitPaneVisibleInstanceIds(
-  projectConfigId: string,
-  nextWindowing: ProjectChatWindowingState,
-  restoredInstanceIds: Set<string>,
-  restoredGitPaneVisibleInstanceIds: Set<string>,
-): Array<string> {
+  const restoredGitPaneVisibleInstanceIds =
+    buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
+      windowSpace,
+      remappedRestoredFloatingWindowingResult.remappedInstanceIdByOriginalId,
+      remappedRestoredFloatingWindowing,
+    );
+  const restoredInstanceIds = new Set(
+    Object.keys(remappedRestoredFloatingWindowing.instancesById),
+  );
   const nextGitPaneVisibleInstanceIds: Array<string> = [];
   for (const instance of Object.values(nextWindowing.instancesById)) {
     if (
@@ -1229,52 +1285,13 @@ function buildNextGitPaneVisibleInstanceIds(
     }
     if (
       isProjectChatGitGraphEmbeddedPaneVisible(
-        projectConfigId,
+        state.projectConfig.id,
         instance.instanceId,
       )
     ) {
       nextGitPaneVisibleInstanceIds.push(instance.instanceId);
     }
   }
-  return nextGitPaneVisibleInstanceIds;
-}
-export async function restoreWindowSpaceInWorkspace(
-  windowSpaceId: string,
-): Promise<void> {
-  if (!canMutateWindowSpaceLayout()) {
-    return;
-  }
-  const state = useProjectState.getState();
-  const currentWindowing = state.projectChatWindowing;
-  const windowSpace = getWindowSpaceOrThrow(state, windowSpaceId);
-  const workspaceRestore = prepareWorkspaceRestore(windowSpace, state);
-  const preservedWorkspaceWindowing = collectPreservedWorkspaceWindowing(
-    currentWindowing,
-    workspaceRestore.supersededFloatingInstanceIds,
-    workspaceRestore.remappedRestoredFloatingWindowing,
-  );
-  const nextWindowing = buildNextWorkspaceRestoreWindowing(
-    currentWindowing,
-    workspaceRestore.remappedRestoredFloatingWindowing,
-    preservedWorkspaceWindowing,
-  );
-  const restoredGitPaneVisibleInstanceIds =
-    buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
-      windowSpace,
-      workspaceRestore.remappedInstanceIdByOriginalId,
-      workspaceRestore.remappedRestoredFloatingWindowing,
-    );
-  const restoredInstanceIds = new Set(
-    Object.keys(
-      workspaceRestore.remappedRestoredFloatingWindowing.instancesById,
-    ),
-  );
-  const nextGitPaneVisibleInstanceIds = buildNextGitPaneVisibleInstanceIds(
-    state.projectConfig.id,
-    nextWindowing,
-    restoredInstanceIds,
-    restoredGitPaneVisibleInstanceIds,
-  );
   const { layoutWindowing, threadBindings } = buildWorkspaceRestoreLayoutState(
     currentWindowing,
     nextWindowing,
@@ -1282,7 +1299,10 @@ export async function restoreWindowSpaceInWorkspace(
   const blockedRestoreMessage =
     getBlockedWindowSpaceRestoreMessage(threadBindings);
   if (blockedRestoreMessage) {
-    addTemporaryNotification(blockedRestoreMessage, NotificationTypeEnum.error);
+    addTemporaryNotification(
+      blockedRestoreMessage,
+      SettaNotificationTypeEnum.error,
+    );
     return;
   }
   replaceProjectChatWindowingState(layoutWindowing, {
@@ -1301,133 +1321,11 @@ export async function restoreWindowSpaceInWorkspace(
     });
     addTemporaryNotification(
       "Failed to restore saved chat threads.",
-      NotificationTypeEnum.error,
+      SettaNotificationTypeEnum.error,
     );
   }
 }
-type WindowSpaceSaveContext = {
-  projectConfigId: string;
-  projectConfigSnapshot: WindowSpaceSnapshotState["projectConfig"];
-  sectionSnapshot: WindowSpaceSnapshotState["sections"];
-  sectionImplSnapshot: WindowSpaceSnapshotState["sectionImpls"];
-  sectionVariantSnapshot: WindowSpaceSnapshotState["sectionVariants"];
-};
-type SyncProjectChatWindowingResponse = NonNullable<
-  Awaited<ReturnType<typeof syncProjectChatWindowingState>>
->;
-function buildRouteErrorSuffix(
-  status: number | null | undefined,
-  detail: string | null,
-): string {
-  const statusSuffix = typeof status === "number" ? ` (${status})` : "";
-  const detailSuffix = detail ? `: ${detail}` : ".";
-  return `${statusSuffix}${detailSuffix}`;
-}
-function buildWindowSpaceSaveContext(
-  state: WindowSpaceSnapshotState,
-  projectConfigId: string,
-): WindowSpaceSaveContext | null {
-  const snapshot = normalizeWindowSpaceForPersistence(state);
-  if (Object.keys(snapshot.windowsById).length === 0) {
-    return null;
-  }
-  return {
-    projectConfigId,
-    projectConfigSnapshot: state.projectConfig,
-    sectionSnapshot: state.sections,
-    sectionImplSnapshot: state.sectionImpls,
-    sectionVariantSnapshot: state.sectionVariants,
-  };
-}
-function notifyWindowSpaceSyncFailure(
-  projectConfigId: string,
-  syncResponse: Awaited<ReturnType<typeof syncProjectChatWindowingState>>,
-): void {
-  const detail = syncResponse ? getErrorDetail(syncResponse.data) : null;
-  console.error("Failed to sync project chat windowing before saving.", {
-    status: syncResponse?.status ?? null,
-    detail,
-    projectConfigId,
-  });
-  addTemporaryNotification(
-    `Failed to sync window layout before saving${buildRouteErrorSuffix(
-      syncResponse?.status,
-      detail,
-    )}`,
-    NotificationTypeEnum.error,
-  );
-}
-function resolveSyncedWindowingForWindowSpaceSave(
-  projectConfigId: string,
-  syncResponse: SyncProjectChatWindowingResponse,
-): ProjectChatWindowingState {
-  const latestState = useProjectState.getState();
-  return latestState.projectConfig.id === projectConfigId
-    ? getAuthoritativeProjectChatWindowingState(projectConfigId) ??
-        latestState.projectChatWindowing
-    : getAuthoritativeProjectChatWindowingState(projectConfigId) ??
-        syncResponse.data;
-}
-async function buildAuthoritativeWindowSpaceSnapshot(
-  context: WindowSpaceSaveContext,
-): Promise<WindowSpaceState | null> {
-  const syncResponse = await syncProjectChatWindowingState();
-  if (!syncResponse || !res200(syncResponse)) {
-    notifyWindowSpaceSyncFailure(context.projectConfigId, syncResponse);
-    return null;
-  }
-  await flushPendingProjectChatWindowingWrites();
-  const authoritativeSnapshot = snapshotFloatingWindowsForWindowSpace({
-    projectChatWindowing: resolveSyncedWindowingForWindowSpaceSave(
-      context.projectConfigId,
-      syncResponse,
-    ),
-    projectConfig: context.projectConfigSnapshot,
-    sections: context.sectionSnapshot,
-    sectionImpls: context.sectionImplSnapshot,
-    sectionVariants: context.sectionVariantSnapshot,
-  });
-  return Object.keys(authoritativeSnapshot.windowsById).length === 0
-    ? null
-    : authoritativeSnapshot;
-}
-function notifyWindowSpaceSaveFailure(
-  projectConfigId: string,
-  response: CreateWindowSpaceRouteResponse,
-): void {
-  const detail = getErrorDetail(response.data);
-  console.error("Failed to save window space.", {
-    status: response.status,
-    detail,
-    projectConfigId,
-  });
-  addTemporaryNotification(
-    `Failed to save window space${buildRouteErrorSuffix(
-      response.status,
-      detail,
-    )}`,
-    NotificationTypeEnum.error,
-  );
-}
-async function saveWindowSpaceSnapshot(
-  projectConfigId: string,
-  authoritativeSnapshot: WindowSpaceState,
-): Promise<string | null> {
-  const response = (await callOpenAPI(
-    createWindowSpace({
-      body: {
-        projectConfigId,
-        state: authoritativeSnapshot,
-      },
-    } as Parameters<typeof createWindowSpace>[0]),
-  )) as CreateWindowSpaceRouteResponse;
-  if (!res200(response)) {
-    notifyWindowSpaceSaveFailure(projectConfigId, response);
-    return null;
-  }
-  publishProjectConfigSnapshot(projectConfigId, response.data.projectConfig);
-  return response.data.windowSpaceId ?? null;
-}
+
 export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   string | null
 > {
@@ -1440,14 +1338,85 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   if (!projectConfigId) {
     return null;
   }
-  const saveContext = buildWindowSpaceSaveContext(state, projectConfigId);
-  if (!saveContext) {
+  const snapshot = normalizeWindowSpaceForPersistence(state);
+  if (Object.keys(snapshot.windowsById).length === 0) {
     return null;
   }
-  const authoritativeSnapshot =
-    await buildAuthoritativeWindowSpaceSnapshot(saveContext);
-  if (!authoritativeSnapshot) {
+  const projectConfigSnapshot = state.projectConfig;
+  const sectionSnapshot = state.sections;
+  const sectionImplSnapshot = state.sectionImpls;
+  const sectionVariantSnapshot = state.sectionVariants;
+  const syncResponse = await syncProjectChatWindowingState();
+  if (!syncResponse || !res200(syncResponse)) {
+    const detail = syncResponse ? getErrorDetail(syncResponse.data) : null;
+    const statusSuffix =
+      syncResponse && typeof syncResponse.status === "number"
+        ? ` (${syncResponse.status})`
+        : "";
+    const detailSuffix = detail ? `: ${detail}` : ".";
+    console.error("Failed to sync project chat windowing before saving.", {
+      status: syncResponse?.status ?? null,
+      detail,
+      projectConfigId,
+    });
+    addTemporaryNotification(
+      `Failed to sync window layout before saving${statusSuffix}${detailSuffix}`,
+      SettaNotificationTypeEnum.error,
+    );
     return null;
   }
-  return saveWindowSpaceSnapshot(projectConfigId, authoritativeSnapshot);
+  await flushPendingProjectChatWindowingWrites();
+  const latestState = useProjectState.getState();
+  const syncedWindowing =
+    latestState.projectConfig.id === projectConfigId
+      ? getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+        latestState.projectChatWindowing
+      : getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+        syncResponse.data;
+  const authoritativeSnapshot = snapshotFloatingWindowsForWindowSpace({
+    projectChatWindowing: syncedWindowing,
+    projectConfig: projectConfigSnapshot,
+    sections: sectionSnapshot,
+    sectionImpls: sectionImplSnapshot,
+    sectionVariants: sectionVariantSnapshot,
+  });
+  if (Object.keys(authoritativeSnapshot.windowsById).length === 0) {
+    return null;
+  }
+  const nextWindowSpaceName = resolveNextWindowSpaceName(
+    getProjectWindowSpaces(projectConfigSnapshot),
+  );
+  const response = await route_create_window_space({
+    projectConfigId,
+    state: authoritativeSnapshot,
+    name: nextWindowSpaceName,
+  });
+  if (!res200(response)) {
+    const detail = getErrorDetail(response.data);
+    const statusSuffix =
+      typeof response.status === "number" ? ` (${response.status})` : "";
+    const detailSuffix = detail ? `: ${detail}` : ".";
+    console.error("Failed to save window space.", {
+      status: response.status,
+      detail,
+      name: nextWindowSpaceName,
+      projectConfigId,
+    });
+    addTemporaryNotification(
+      `Failed to save window space${statusSuffix}${detailSuffix}`,
+      SettaNotificationTypeEnum.error,
+    );
+    return null;
+  }
+  useProjectState.setState((currentState) => {
+    if (currentState.projectConfig.id !== projectConfigId) {
+      return;
+    }
+    const windowSpaces = currentState.projectConfig.windowSpaces;
+    if (windowSpaces[response.data.id]) {
+      return;
+    }
+    windowSpaces[response.data.id] = response.data;
+  });
+  return response.data.id;
 }

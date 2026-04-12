@@ -1,11 +1,4 @@
 import {
-  getLatestProjectState,
-  interruptTerminalProcesses,
-  runCode,
-  type GetLatestProjectStateResponse,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import {
   useLocalStorage,
   useProjectState,
   useRunControl,
@@ -13,9 +6,13 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import { ContentRef, SectionTypeEnum } from "utils/generatedTypes";
-import { resolveRunRequest } from "utils/runCapabilities";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
+import { isRunnableCodeLanguage } from "utils/codeLanguage";
+import {
+  route_kill_subprocesses,
+  route_run_code,
+} from "utils/generatedEndpoints";
+import { BinaryContentRef, SectionTypeEnum } from "utils/generatedTypes";
 import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
@@ -23,22 +20,55 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   isBaseCodeSectionType,
-  processProjectStateUpdateFromBackend,
 } from "./sectionInfos";
-type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<GetLatestProjectStateResponse>;
-type RunCodeRouteResponse = ResponseDataAndStatus<null>;
+
 export async function runCodeBlock(sectionId: string | null) {
-  const state = useProjectState.getState();
-  const { projectConfig } = state;
-  const runRequest = resolveRunRequest(state, sectionId);
-  if (!runRequest.canRun) {
-    addTemporaryNotification(
-      runRequest.disabledReason ?? "Run is unavailable.",
+  const { projectConfig, singletonSections } = useProjectState.getState();
+  if (sectionId) {
+    const impl = getCurrEffectiveSectionImpl(
+      useProjectState.getState(),
+      sectionId,
     );
-    return;
+    if (
+      impl.type === SectionTypeEnum.Code &&
+      !isRunnableCodeLanguage(impl.codeLanguage)
+    ) {
+      addTemporaryNotification("Run is only available for Python and Bash.");
+      return;
+    }
+  } else if (projectConfig.entryCodeBlockId) {
+    const entryImpl = getCurrEffectiveSectionImpl(
+      useProjectState.getState(),
+      projectConfig.entryCodeBlockId,
+    );
+    if (
+      entryImpl.type === SectionTypeEnum.Code &&
+      !isRunnableCodeLanguage(entryImpl.codeLanguage)
+    ) {
+      addTemporaryNotification("Run is only available for Python and Bash.");
+      return;
+    }
   }
-  const executionSectionId = runRequest.executionSectionId;
+
+  const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
+  if (!pythonCodegenEnabled) {
+    const gen_section_id = singletonSections.GenPythonCode;
+    if (sectionId !== null && sectionId === gen_section_id) {
+      addTemporaryNotification("Select a manual code section to run.");
+      return;
+    }
+    if (
+      sectionId === null &&
+      (!projectConfig.entryCodeBlockId ||
+        projectConfig.entryCodeBlockId === gen_section_id)
+    ) {
+      addTemporaryNotification("Select a manual entry code block to run.");
+      return;
+    }
+  }
+  if (pythonCodegenEnabled && sectionId === singletonSections.GenPythonCode) {
+    sectionId = null;
+  }
   const shareSession = useShareSession.getState();
   let runSnapshotMode = null;
   if (!shareSession.isDeploymentMode) {
@@ -51,42 +81,25 @@ export async function runCodeBlock(sectionId: string | null) {
       runSnapshotMode = useSettings.getState().backend.runSnapshotMode;
     }
   }
-  const terminalSectionId =
-    await ensureAttachedTerminalForRun(executionSectionId);
-  const shouldRefreshProjectState =
-    terminalSectionId === null &&
-    shouldRefreshProjectStateAfterRun(executionSectionId);
+  const terminalSectionId = await ensureAttachedTerminalForRun({
+    sectionId,
+    projectConfig,
+  });
   const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
-  const runResponse = (await callOpenAPI(
-    runCode({
-      body: {
-        projectConfigId: projectConfig.id,
-        sectionId: executionSectionId,
-        terminalSectionId,
-        cliId: null,
-        runSnapshotMode,
-        drawSnapshotsBySectionId,
-      },
-    } as Parameters<typeof runCode>[0]),
-  )) as RunCodeRouteResponse;
-  if (!shouldRefreshProjectState || !res200(runResponse)) {
-    return;
-  }
-  const latestProjectStateResponse = (await callOpenAPI(
-    getLatestProjectState({
-      body: {
-        projectConfigId: projectConfig.id,
-      },
-    } as Parameters<typeof getLatestProjectState>[0]),
-  )) as LatestProjectStateRouteResponse;
-  if (!res200(latestProjectStateResponse)) {
-    return;
-  }
-  processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+  await route_run_code({
+    projectConfigId: projectConfig.id,
+    sectionId,
+    terminalSectionId,
+    cliId: null,
+    runSnapshotMode,
+    drawSnapshotsBySectionId,
+  });
 }
+
 export async function runEntryCodeBlock() {
   await runCodeBlock(null);
 }
+
 export async function runFromMainRunButton(): Promise<void> {
   const { runMode, continuousRunStarted } = useRunControl.getState();
   if (runMode === "continuous") {
@@ -97,6 +110,7 @@ export async function runFromMainRunButton(): Promise<void> {
       });
       return;
     }
+
     useRunControl.setState({
       continuousRunStarted: true,
       continuousRunCustomRunId: null,
@@ -104,25 +118,24 @@ export async function runFromMainRunButton(): Promise<void> {
     await triggerListenerForceRefresh();
     return;
   }
+
   useRunControl.setState({
     continuousRunStarted: false,
     continuousRunCustomRunId: null,
   });
   await runEntryCodeBlock();
 }
+
 export async function stopCode() {
   addTemporaryNotification("Stopping subprocesses");
-  void callOpenAPI(
-    interruptTerminalProcesses({
-      body: {
-        projectId: getCurrProjectConfigId(),
-      },
-    } as Parameters<typeof interruptTerminalProcesses>[0]),
-  );
+  route_kill_subprocesses({
+    projectConfigId: getCurrProjectConfigId(),
+  });
 }
+
 async function collectDrawSnapshotsForRun(): Promise<Record<
   string,
-  ContentRef
+  BinaryContentRef
 > | null> {
   const state = useProjectState.getState();
   const sectionIds = Object.keys(state.projectConfig.sectionVariantMap);
@@ -136,33 +149,49 @@ async function collectDrawSnapshotsForRun(): Promise<Record<
   }
   return await collectDrawSnapshotPayloads(drawSectionIds);
 }
-async function ensureAttachedTerminalForRun(
-  sectionId: string | null,
-): Promise<string | null> {
-  if (!sectionId) {
+
+async function ensureAttachedTerminalForRun({
+  sectionId,
+  projectConfig,
+}: {
+  sectionId: string | null;
+  projectConfig: ZustandProjectState["projectConfig"];
+}): Promise<string | null> {
+  const resolvedSectionId = resolveAttachmentSectionId(
+    sectionId,
+    projectConfig,
+  );
+  if (!resolvedSectionId) {
     return null;
   }
   const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
   if (!isBaseCodeSectionType(impl.type)) {
     return null;
   }
-  const existingTerminalId = resolveAttachedTerminalId(state, sectionId);
+  const existingTerminalId = resolveAttachedTerminalId(
+    state,
+    resolvedSectionId,
+  );
   if (existingTerminalId) {
     return existingTerminalId;
   }
   return null;
 }
-function shouldRefreshProjectStateAfterRun(
-  executionSectionId: string | null,
-): boolean {
-  if (executionSectionId === null) {
-    return true;
+
+function resolveAttachmentSectionId(
+  sectionId: string | null,
+  projectConfig: ZustandProjectState["projectConfig"],
+): string | null {
+  if (sectionId) {
+    return sectionId;
   }
-  const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, executionSectionId);
-  return isBaseCodeSectionType(impl.type);
+  if (!projectConfig.entryCodeBlockId) {
+    return null;
+  }
+  return projectConfig.entryCodeBlockId;
 }
+
 function resolveAttachedTerminalId(
   state: ZustandProjectState,
   sectionId: string,
