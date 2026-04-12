@@ -18240,6 +18240,61 @@ LOOP_TERMINAL_MARKER: none
     it becomes user-visible
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 17:16 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
+- selected one bounded canonical-lane subtask:
+  memoize `GetParamSwitch` so unchanged row-list props stop rematerializing the
+  unpinned `ParamSwitch` subtree during parent churn on
+  `rotaryParamCodeObjDefault`
+- landed the product change in
+  `frontend/src/components/Params/GetParamSwitch.tsx`:
+  - wrapped `GetParamSwitch` in `React.memo(..., _.isEqual)`
+  - kept the change scoped to the unpinned row-list seam instead of reopening
+    the already-closed section-entry or pinned-param lanes
+- added focused regression coverage:
+  - `frontend/src/components/Params/GetParamSwitch.render-stability.test.tsx`
+    proves unchanged parent rerenders do not rematerialize the row list
+- append-only perf note added:
+  - `perf/reports/frontend/2026-04-13_settings-graph-get-param-switch-memo-boundary.md`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/ParamSwitch.test.tsx`
+    -> passed (`3` files, `9` tests)
+  - `pnpm -C frontend exec prettier --write src/components/Params/GetParamSwitch.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
+    -> passed
+  - canonical live rerun:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-012/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.3m`)
+    -> before/after readout:
+       `presentedSceneSectionParamGroupContainerReactRender`
+       `579.3ms total` / `91.0ms max` -> `463.8ms total` / `65.0ms max`
+       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+       `517.1ms total` / `88.8ms max` -> `406.0ms total` / `61.0ms max`
+       `presentedSceneSectionParamDndListRowsReactRender`
+       `485.9ms total` / `85.5ms max` -> `381.1ms total` / `59.3ms max`
+       `presentedSceneSectionParamInputReactRender`
+       `254.9ms total` / `10.4ms max` -> `212.5ms total` / `7.9ms max`
+       `presentedSceneSectionSubtreeReactRender`
+       `989.3ms total` / `257.3ms max` -> `802.5ms total` / `228.0ms max`
+       `averageFrameDurationMs 43.56 -> 37.59`
+       `maxFrameDurationMs 466.6 -> 366.7`
+       `longTaskTotalDurationMs 1279 -> 1020`
+  - fresh-context CDP verification via sub-agent:
+    - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+    - after one bounded `fit view` normalization, the graph-substrate canary
+      was mounted and `rotaryParamCodeObjDefault` was visibly readable at
+      normal zoom
+    - no runtime console errors were present; only React Router future-flag,
+      a11y, and WebGL software fallback warnings appeared
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - this memo boundary is a real live win on the active unpinned row path
+  - the remaining default frontier is still the unpinned `ParamDndList` / row
+    subtree beneath this new boundary
+  - do not reopen section-entry, pinned-param, or edge-strip work without
+    fresh contrary evidence
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 16:41 UTC
 
 - reread `RALPH.md`, the rewrite plan, and the handoff before picking work

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 19:16 UTC
+Last updated: 2026-04-13 17:16 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,72 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `443` landed one bounded production cut on the canonical
+  `rotaryParamCodeObjDefault` lane by memoizing `GetParamSwitch` so unchanged
+  row-list props stop rematerializing the unpinned `ParamSwitch` subtree during
+  parent churn:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and stayed on the active unpinned
+      `ParamDndList` / row frontier instead of reopening closed section-entry
+      or pinned-param lanes
+    - chose one bounded product seam directly on the row boundary by wrapping
+      `GetParamSwitch` in `React.memo(..., _.isEqual)`
+    - kept the slice bounded to one hot-path memo boundary, focused render
+      stability coverage, one canonical live probe, one append-only perf note,
+      and one fresh-context CDP confirmation
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+      now memoizes `GetParamSwitch` with deep prop equality
+    - `frontend/src/components/Params/GetParamSwitch.render-stability.test.tsx`
+      proves unchanged parent rerenders do not rematerialize row entries
+    - `perf/reports/frontend/2026-04-13_settings-graph-get-param-switch-memo-boundary.md`
+      records the canonical before/after probe data for this slice
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/ParamSwitch.test.tsx`
+      -> passed (`3` files, `9` tests)
+    - `pnpm -C frontend exec prettier --write src/components/Params/GetParamSwitch.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-012/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> before/after readout on the same canonical lane:
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `579.3ms total` / `91.0ms max` -> `463.8ms total` / `65.0ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `517.1ms total` / `88.8ms max` -> `406.0ms total` / `61.0ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `485.9ms total` / `85.5ms max` -> `381.1ms total` / `59.3ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `254.9ms total` / `10.4ms max` -> `212.5ms total` / `7.9ms max`
+         `presentedSceneSectionSubtreeReactRender`
+         `989.3ms total` / `257.3ms max` -> `802.5ms total` / `228.0ms max`
+         `averageFrameDurationMs`
+         `43.56` -> `37.59`
+         `maxFrameDurationMs`
+         `466.6` -> `366.7`
+         `longTaskTotalDurationMs`
+         `1279` -> `1020`
+    - fresh-context CDP verification via sub-agent:
+      -> `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+      -> after one bounded `fit view` normalization, the graph-substrate
+         canary was mounted and `rotaryParamCodeObjDefault` was visibly
+         readable at normal zoom
+      -> no runtime console errors were present; only React Router future-flag,
+         a11y, and WebGL software fallback warnings appeared
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this is a real live win on the current unpinned row path, not another
+      adjacent section-entry/body-mount experiment
+    - the unpinned `ParamDndList` / row subtree remains the active owner, but
+      the next cut should now resolve the remaining row-subtree cost instead of
+      reopening already-closed lanes
+  - next default frontier:
+    - stay on the canonical lane and take one bounded attribution or product
+      cut inside the remaining unpinned row subtree beneath this new
+      `GetParamSwitch` memo boundary
+    - do not reopen section-entry, pinned-param, or edge-strip work without
+      fresh trace evidence
 
 - item `442` closed one bounded live attribution pass on the canonical
   `rotaryParamCodeObjDefault` lane by reading the already-landed

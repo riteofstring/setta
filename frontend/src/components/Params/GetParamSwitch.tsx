@@ -1,5 +1,7 @@
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
+import _ from "lodash";
 import { matchSorter } from "match-sorter";
+import React from "react";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getParamDisplayName,
@@ -9,15 +11,7 @@ import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ParamSwitch } from "./ParamSwitch";
 
-export function GetParamSwitch({
-  sectionId,
-  paramIds,
-  requiredParamIdsToPaths,
-  onResizeStart,
-  isTopLevel = false,
-  listKey,
-  hasSectionStyleTheme,
-}: {
+type GetParamSwitchProps = {
   sectionId: string;
   paramIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
@@ -25,7 +19,18 @@ export function GetParamSwitch({
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
-}) {
+};
+
+function _GetParamSwitch(props: GetParamSwitchProps) {
+  const {
+    sectionId,
+    paramIds,
+    requiredParamIdsToPaths,
+    onResizeStart,
+    isTopLevel = false,
+    listKey,
+    hasSectionStyleTheme,
+  } = props;
   const paramFilter = useProjectState(
     (state) =>
       getCurrEffectiveSectionImplWithTypeGuard(
@@ -63,6 +68,8 @@ export function GetParamSwitch({
     />
   );
 }
+
+export const GetParamSwitch = React.memo(_GetParamSwitch, _.isEqual);
 
 function ParamSwitchRows({
   sectionId,
