@@ -82,6 +82,30 @@ describe("TextParamDateTimeInput", () => {
     expect(markup).toContain("No date selected");
   });
 
+  it("renders calendar weekday headers using the configured week-start order", () => {
+    const markup = renderToStaticMarkup(
+      <TextParamDateTimeInput
+        value=""
+        onChange={vi.fn()}
+        isDisabled={false}
+        uiType={TextParamInputUITypeEnum.date}
+        timeControlMode={TimeControlModeEnum.display}
+        timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+        dateDisplayFormat={DateDisplayFormatEnum.iso}
+        dateControlMode={DateControlModeEnum.calendar}
+        dateSelectionMode={DateSelectionModeEnum.single}
+        dateCalendarWeekStart={DateCalendarWeekStartEnum.monday}
+        dateIncludesTime={false}
+      />,
+    );
+
+    const mondayIndex = markup.indexOf(">Mon<");
+    const sundayIndex = markup.indexOf(">Sun<");
+    expect(mondayIndex).toBeGreaterThanOrEqual(0);
+    expect(sundayIndex).toBeGreaterThanOrEqual(0);
+    expect(mondayIndex).toBeLessThan(sundayIndex);
+  });
+
   it("renders display-only time text when time mode is display", () => {
     const markup = renderToStaticMarkup(
       <TextParamDateTimeInput

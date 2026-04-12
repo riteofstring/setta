@@ -12,7 +12,7 @@ import {
   resolveSkillMarkdownRawDraftBySkillIdReplace,
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
   resolveSkillPreviewContent,
-  shouldPollSlashCommandAgentRuns,
+  shouldLoadSlashCommandAgentRuns,
   upsertAppGenSkillEntry,
 } from "./ProjectChatSkillsMcpViewer";
 import {
@@ -346,34 +346,34 @@ describe("areAgentNativeSlashCommandMapsEqual", () => {
   });
 });
 
-describe("shouldPollSlashCommandAgentRuns", () => {
-  it("enables polling for slash commands whenever the project has any external-agent engine", () => {
+describe("shouldLoadSlashCommandAgentRuns", () => {
+  it("loads slash command agent runs whenever the project has any external-agent engine", () => {
     expect(
-      shouldPollSlashCommandAgentRuns({
+      shouldLoadSlashCommandAgentRuns({
         viewMode: "slash_commands",
         hasExternalAgentEngine: true,
       }),
     ).toBe(true);
   });
 
-  it("disables polling outside slash commands view", () => {
+  it("skips slash command run hydration outside the slash commands view", () => {
     expect(
-      shouldPollSlashCommandAgentRuns({
+      shouldLoadSlashCommandAgentRuns({
         viewMode: "skills",
         hasExternalAgentEngine: true,
       }),
     ).toBe(false);
     expect(
-      shouldPollSlashCommandAgentRuns({
+      shouldLoadSlashCommandAgentRuns({
         viewMode: "mcp",
         hasExternalAgentEngine: true,
       }),
     ).toBe(false);
   });
 
-  it("disables polling when no external-agent engine is configured", () => {
+  it("skips slash command run hydration when no external-agent engine is configured", () => {
     expect(
-      shouldPollSlashCommandAgentRuns({
+      shouldLoadSlashCommandAgentRuns({
         viewMode: "slash_commands",
         hasExternalAgentEngine: false,
       }),

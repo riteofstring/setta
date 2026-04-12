@@ -1,21 +1,51 @@
+import { updateEngineConfig as apiUpdateEngineConfig } from "openapi/http";
 import { resetProjectStores } from "state/utils";
-import { route_update_engine_config } from "utils/generatedEndpoints";
 import { createEngineConfig, EngineTypeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAIStore } from "../definitions";
 import { updateEngineConfig } from "./ai";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_update_engine_config: vi.fn(),
+    updateEngineConfig: vi.fn(),
   };
 });
 
-const mockedRouteUpdateEngineConfig = vi.mocked(route_update_engine_config);
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: async function <TData, TError>(
+    promise: Promise<{
+      data?: TData;
+      error?: TError;
+      response: Response;
+    }>,
+  ) {
+    const result = await promise;
+    return {
+      data: (result.data ?? result.error) as TData | undefined,
+      status: result.response.status,
+      hasResponse: true,
+    };
+  },
+}));
+
+const mockedUpdateEngineConfig = vi.mocked(apiUpdateEngineConfig);
+
+function mockOpenAPISuccess(
+  data: unknown,
+): Awaited<ReturnType<typeof apiUpdateEngineConfig>> {
+  return {
+    data,
+    error: undefined,
+    request: new Request("http://localhost/updateEngineConfig"),
+    response: new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }),
+  } as Awaited<ReturnType<typeof apiUpdateEngineConfig>>;
+}
 
 describe("updateEngineConfig", () => {
   afterEach(() => {
@@ -29,12 +59,12 @@ describe("updateEngineConfig", () => {
       name: "Primary Engine",
       engineType: EngineTypeEnum.setta_llm,
       settaLlmConfigId: "claude-3-7",
+      defaults: { thinking: null },
+      runtimeSupport: { thinking: false },
     });
-    mockedRouteUpdateEngineConfig.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: updatedConfig,
-    });
+    mockedUpdateEngineConfig.mockResolvedValue(
+      mockOpenAPISuccess(updatedConfig),
+    );
 
     const result = await updateEngineConfig({ config: updatedConfig });
 
