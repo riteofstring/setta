@@ -1115,45 +1115,63 @@ func formatGetLLMResponseValidationMessage(err error) string {
 }
 
 func validateGetLLMResponseMessage(raw json.RawMessage) error {
+	fields, err := decodeGetLLMResponseMessageFields(raw)
+	if err != nil {
+		return err
+	}
+
+	role, err := resolveGetLLMResponseMessageRole(fields)
+	if err != nil {
+		return err
+	}
+	if role != "tool" {
+		return nil
+	}
+	return validateGetLLMResponseToolMessage(fields)
+}
+
+func decodeGetLLMResponseMessageFields(raw json.RawMessage) (map[string]json.RawMessage, error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
-		return &llmResponseValidationError{
+		return nil, &llmResponseValidationError{
 			message: "message: Input should be a valid dictionary",
 		}
 	}
 
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(trimmed, &fields); err != nil {
-		return &llmResponseValidationError{
+		return nil, &llmResponseValidationError{
 			message: "message: Input should be a valid dictionary",
 		}
 	}
+	return fields, nil
+}
 
+func resolveGetLLMResponseMessageRole(fields map[string]json.RawMessage) (string, error) {
 	roleRaw, ok := fields["role"]
 	if !ok {
-		return &llmResponseValidationError{
+		return "", &llmResponseValidationError{
 			message: "message: Unable to extract tag using discriminator 'role'",
 		}
 	}
 
 	var roleValue any
 	if err := json.Unmarshal(roleRaw, &roleValue); err != nil {
-		return &llmResponseValidationError{message: "message: Unable to extract tag using discriminator 'role'"}
+		return "", &llmResponseValidationError{message: "message: Unable to extract tag using discriminator 'role'"}
 	}
 
 	role, ok := roleValue.(string)
 	if !ok {
-		return invalidGetLLMResponseMessageRoleError(roleValue)
+		return "", invalidGetLLMResponseMessageRoleError(roleValue)
 	}
 
 	if _, ok := getLLMResponseMessageRoles[role]; !ok {
-		return invalidGetLLMResponseMessageRoleError(role)
+		return "", invalidGetLLMResponseMessageRoleError(role)
 	}
+	return role, nil
+}
 
-	if role != "tool" {
-		return nil
-	}
-
+func validateGetLLMResponseToolMessage(fields map[string]json.RawMessage) error {
 	toolCallIDRaw, ok := fields["tool_call_id"]
 	if !ok {
 		return &llmResponseValidationError{
