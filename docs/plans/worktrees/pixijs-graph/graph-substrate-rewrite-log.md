@@ -33,6 +33,47 @@ Record:
 - drag/pan/zoom regressions
 - DOM overlay ownership decisions
 
+## 2026-04-15 13:20 UTC
+
+- Item: Progress review checkpoint after loop `001` run `034`.
+- Status: `done`
+- Details:
+  - reviewed:
+    - `RALPH.md`
+    - the durable rewrite plan and handoff
+    - recent runs `025` through `034`
+  - conclusion:
+    - the stretch still shows meaningful forward progress
+    - unlike the earlier probe/normalization rabbit holes, these ten runs were
+      mostly real production cuts with focused regressions and repeated live
+      CDP smoke confirmation that `/settings` still mounts cleanly
+    - strongest evidence of worthwhile movement:
+      - `025` through `030` reduced section-entry / body-subtree churn on the
+        canonical `rotaryParamCodeObjDefault` lane
+      - `031` through `034` removed multiple directly inspectable no-op paths
+        inside the measured `reactFlowViewportPublish` owner
+  - diminishing-return risk:
+    - the last four runs all stayed in
+      `settingsGraphSubstrateCanaryViewportRuntime.ts`
+    - each removed one more no-op publish/write path, which is still
+      productive, but now risks turning into another speculative micro-cut
+      loop unless the owner is re-ranked
+  - durable direction change recorded in the plan/handoff:
+    - the next autonomous pass must first produce either:
+      - one trusted live attribution readout that names the remaining dominant
+        `reactFlowViewportPublish` source on the canonical lane, or
+      - one bounded read-only ownership map of the remaining
+        `reactFlowViewportPublish` write sites with explicit closure status
+    - only after that evidence is recorded should another viewport-runtime cut
+      be taken
+    - if that evidence cannot be produced within one iteration, the loop should
+      stop for human review instead of continuing more viewport-runtime
+      micro-cuts
+- Next action:
+  - continue the loop under the sharpened plan: re-rank or fully map the
+    remaining `reactFlowViewportPublish` owner first, then take at most one
+    evidence-backed follow-up cut
+
 ## 2026-04-03 053
 
 - Item: Run one bounded normalized wide-card pan compare on `groupSectionDefault` and decide whether a concrete worktree-only pan-time motion artifact still remains.
@@ -21153,4 +21194,46 @@ LOOP_TERMINAL_MARKER: none
   - the next real frontier stays in the viewport-runtime lane: either rank the
     remaining real publish sources with an already-trusted live probe, or cut
     the next directly inspectable no-op publish path in the same owner
+- LOOP_TERMINAL_MARKER: none
+## 2026-04-15 13:10 UTC
+
+- item `505` recorded the remaining `reactFlowViewportPublish` write map on
+  the canonical `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    now exposes `resolveReactFlowViewportPublishReason(...)` so the remaining
+    viewport-runtime publish branches are explicit and inspectable
+  - updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    with an ownership-map regression that proves which branches are still real
+    versus already closed
+  - added
+    `perf/reports/frontend/2026-04-15_settings-graph-reactflow-viewport-publish-write-map.md`
+    to record the explicit open/closed branch status for the lane
+- ownership-map verdict:
+  - remaining real publish reasons:
+    - `initialTransformDiff`
+    - `zoomDiff`
+    - `nonLocalPanDiff`
+  - closed publish reasons:
+    - local pan-only drift with unchanged zoom
+    - already-synced shared rerender
+    - already-synced first mount
+    - fit-view bootstrap flag settling without a transform diff
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`2` files, `24` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> settings route loaded successfully
+    -> `All Settings` graph surface and section cards were visible
+    -> no obvious blank-card or detached-body artifact was visible
+- reading:
+  - this pass satisfies the handoff's mandatory "fresh attribution or closed
+    write map" requirement without spending another iteration on a speculative
+    viewport-runtime bailout
+  - the next real frontier is now concrete: either use a trusted live probe to
+    rank `initialTransformDiff` vs `zoomDiff` vs `nonLocalPanDiff`, or take
+    one bounded product cut against exactly one of those remaining real
+    branches
 - LOOP_TERMINAL_MARKER: none

@@ -65,12 +65,17 @@ export type SettingsGraphSubstrateCanaryViewportRuntime = {
   visibleViewportRect: GraphRect | null;
 };
 
-function shouldPublishReactFlowViewportTransform(args: {
+export type SettingsGraphSubstrateCanaryReactFlowViewportPublishReason =
+  | "initialTransformDiff"
+  | "nonLocalPanDiff"
+  | "zoomDiff";
+
+export function resolveReactFlowViewportPublishReason(args: {
   currentTransform: [number, number, number];
   hasPublishedTransform: boolean;
   resolvedViewport: GraphViewport;
   viewportOwnership: SettingsGraphSubstrateCanaryViewportOwnership | null;
-}) {
+}): SettingsGraphSubstrateCanaryReactFlowViewportPublishReason | null {
   const {
     currentTransform,
     hasPublishedTransform,
@@ -79,22 +84,28 @@ function shouldPublishReactFlowViewportTransform(args: {
   } = args;
 
   if (!hasPublishedTransform) {
-    return (
+    if (
       currentTransform[0] !== resolvedViewport.x ||
       currentTransform[1] !== resolvedViewport.y ||
       currentTransform[2] !== resolvedViewport.zoom
-    );
+    ) {
+      return "initialTransformDiff";
+    }
+    return null;
   }
   if (currentTransform[2] !== resolvedViewport.zoom) {
-    return true;
+    return "zoomDiff";
   }
   if (viewportOwnership === "local") {
-    return false;
+    return null;
   }
-  return (
+  if (
     currentTransform[0] !== resolvedViewport.x ||
     currentTransform[1] !== resolvedViewport.y
-  );
+  ) {
+    return "nonLocalPanDiff";
+  }
+  return null;
 }
 
 function shouldSyncReactFlowFitViewState(args: {
@@ -522,12 +533,13 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     ) {
       return;
     }
-    const shouldPublishTransform = shouldPublishReactFlowViewportTransform({
+    const publishReason = resolveReactFlowViewportPublishReason({
       currentTransform: currentReactFlowState.transform,
       hasPublishedTransform: hasPublishedReactFlowTransformRef.current,
       resolvedViewport,
       viewportOwnership: viewportOwnershipRef.current,
     });
+    const shouldPublishTransform = publishReason !== null;
     const shouldSyncFitViewState = shouldSyncReactFlowFitViewState({
       fitViewOnInit: currentReactFlowState.fitViewOnInit,
       fitViewOnInitDone: currentReactFlowState.fitViewOnInitDone,

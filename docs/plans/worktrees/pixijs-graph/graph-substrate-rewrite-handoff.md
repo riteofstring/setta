@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 13:01 UTC
+Last updated: 2026-04-15 13:10 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,68 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `505` recorded the remaining `reactFlowViewportPublish` write map on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      now exposes `resolveReactFlowViewportPublishReason(...)` so the remaining
+      publish reasons are explicit instead of inferred from booleans
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      now enumerates the remaining real branches versus the already-closed
+      branches in one ownership-map regression
+    - `perf/reports/frontend/2026-04-15_settings-graph-reactflow-viewport-publish-write-map.md`
+      records the explicit open/closed status for the viewport-runtime publish
+      lane
+  - verified remaining real publish reasons:
+    - `initialTransformDiff`
+    - `zoomDiff`
+    - `nonLocalPanDiff`
+  - verified closed publish reasons:
+    - local pan-only drift with unchanged zoom
+    - already-synced shared rerender
+    - already-synced first mount
+    - fit-view bootstrap flag settling without a transform diff
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`2` files, `24` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+      -> settings route loaded successfully
+      -> `All Settings` graph surface and section cards were visible
+      -> no obvious blank-card or detached-body artifact was visible
+  - reading:
+    - this pass satisfies the handoff's mandatory attribution requirement
+      without taking another speculative viewport-runtime micro-cut
+    - the next pass may now either rank the three still-real reasons on the
+      canonical lane with a trusted live attribution readout, or take one
+      bounded product cut against exactly one of those remaining reasons
+
+- progress review checkpoint after `run-034`:
+  - the last ten runs still show meaningful forward progress rather than
+    runner-only churn
+  - `run-025` through `run-030` reduced real section-entry / body-subtree work
+    on the canonical `rotaryParamCodeObjDefault` lane
+  - `run-031` through `run-034` stayed on production code and removed several
+    directly inspectable no-op paths inside `reactFlowViewportPublish`
+  - real risk:
+    - the lane is now close to another diminishing-return pattern where each
+      pass lands one more viewport-runtime bailout without re-ranking the owner
+  - mandatory next-pass constraint:
+    - do not take another speculative viewport-runtime micro-cut by inspection
+      alone
+    - the next pass must first produce one of:
+      - a trusted live attribution readout that names the remaining dominant
+        `reactFlowViewportPublish` source on `rotaryParamCodeObjDefault`, or
+      - a bounded read-only ownership map of the remaining
+        `reactFlowViewportPublish` write sites with explicit closure status for
+        each candidate path
+    - only after that evidence is recorded should another viewport-runtime cut
+      be allowed
+    - if the next pass cannot produce that evidence within one iteration, stop
+      the loop for human review instead of continuing more no-op publish cuts
 
 - item `504` deduplicated identical imperative local viewport commits on the
   canonical `rotaryParamCodeObjDefault` lane:

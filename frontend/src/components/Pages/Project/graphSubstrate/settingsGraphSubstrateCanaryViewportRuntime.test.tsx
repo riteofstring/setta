@@ -24,7 +24,11 @@ import {
   resolveSettingsGraphSubstrateCanaryEffectivePaneWidths,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
 } from "./settingsGraphSubstrateCanaryViewport";
-import { useSettingsGraphSubstrateCanaryViewportRuntime } from "./settingsGraphSubstrateCanaryViewportRuntime";
+import {
+  resolveReactFlowViewportPublishReason,
+  type SettingsGraphSubstrateCanaryReactFlowViewportPublishReason,
+  useSettingsGraphSubstrateCanaryViewportRuntime,
+} from "./settingsGraphSubstrateCanaryViewportRuntime";
 import type { GraphViewport } from "./viewportTransform";
 
 type ResizeObserverController = {
@@ -145,6 +149,94 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     useReactFlow.setState({ ...initialReactFlowState });
     vi.unstubAllGlobals();
+  });
+
+  it("maps the remaining React Flow viewport publish branches explicitly", () => {
+    const cases: Array<{
+      expectedReason: SettingsGraphSubstrateCanaryReactFlowViewportPublishReason | null;
+      hasPublishedTransform: boolean;
+      name: string;
+      resolvedViewport: GraphViewport;
+      transform: [number, number, number];
+      viewportOwnership: "auto-fit" | "local" | "shared" | null;
+    }> = [
+      {
+        expectedReason: "initialTransformDiff",
+        hasPublishedTransform: false,
+        name: "initial unsynced mount still publishes once",
+        resolvedViewport: { x: 320, y: -180, zoom: 0.42 },
+        transform: [0, 0, 1],
+        viewportOwnership: "shared",
+      },
+      {
+        expectedReason: "zoomDiff",
+        hasPublishedTransform: true,
+        name: "local zoom changes still publish the new transform",
+        resolvedViewport: { x: 180, y: 60, zoom: 1.6 },
+        transform: [180, 60, 1.25],
+        viewportOwnership: "local",
+      },
+      {
+        expectedReason: "nonLocalPanDiff",
+        hasPublishedTransform: true,
+        name: "shared pan changes still publish the moved transform",
+        resolvedViewport: { x: 260, y: -90, zoom: 1.25 },
+        transform: [180, -90, 1.25],
+        viewportOwnership: "shared",
+      },
+      {
+        expectedReason: null,
+        hasPublishedTransform: true,
+        name: "local pan-only motion stays local",
+        resolvedViewport: { x: 260, y: -90, zoom: 1.25 },
+        transform: [180, -90, 1.25],
+        viewportOwnership: "local",
+      },
+      {
+        expectedReason: null,
+        hasPublishedTransform: true,
+        name: "shared rerenders that stay aligned are closed",
+        resolvedViewport: { x: 320, y: -180, zoom: 0.42 },
+        transform: [320, -180, 0.42],
+        viewportOwnership: "shared",
+      },
+      {
+        expectedReason: null,
+        hasPublishedTransform: false,
+        name: "already-synced first mounts are closed",
+        resolvedViewport: { x: 320, y: -180, zoom: 0.42 },
+        transform: [320, -180, 0.42],
+        viewportOwnership: "shared",
+      },
+    ];
+
+    expect(
+      cases.map(
+        ({
+          expectedReason,
+          hasPublishedTransform,
+          name,
+          resolvedViewport,
+          transform,
+          viewportOwnership,
+        }) => ({
+          expectedReason,
+          name,
+          reason: resolveReactFlowViewportPublishReason({
+            currentTransform: transform,
+            hasPublishedTransform,
+            resolvedViewport,
+            viewportOwnership,
+          }),
+        }),
+      ),
+    ).toEqual(
+      cases.map(({ expectedReason, name }) => ({
+        expectedReason,
+        name,
+        reason: expectedReason,
+      })),
+    );
   });
 
   it("auto-fits the authoritative scene snapshot and syncs the shared viewport controller", async () => {
