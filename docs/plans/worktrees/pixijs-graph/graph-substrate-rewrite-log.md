@@ -75,6 +75,38 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 00:13 UTC
+
+- item `365` landed one bounded settings warm-load init-sentinel fix on the
+  direct `/settings` backend lane:
+  - changed `backend/setta/project_state/base_project_manager.py` so
+    `maybe_init_project_config(...)` tracks initialization by project-config
+    id instead of by `self.gen_code`
+  - successful `update(...)` calls now mark the project config initialized,
+    and `delete_project_configs(...)` clears that marker
+  - added coverage in `tests/project_state/test_load_project_config_timing.py`
+    to prove:
+    - a generic project still reports `did_init=True` on first load
+    - a settings project skips the expensive init branch on warm load even
+      with `codegenTargets=[]`
+    - a generic project still skips init on later loads
+  - verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`3` tests)
+    - `source activate.sh && python -m compileall backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - the warm-load miss from item `364` was real product code, not just a
+      timing artifact: settings configs never populated `self.gen_code`, so
+      the old sentinel forced repeated init/update work
+    - with that fixed, the remaining direct `/settings` latency owner to
+      chase is `_broadcast_name_validation_errors(...)`
+  - next frontier:
+    - measure and narrow the name-validation broadcast path on unchanged
+      direct `/settings` loads
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 00:08 UTC
 
 - item `364` landed one bounded backend `load_project_config(...)` timing

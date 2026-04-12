@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 00:08 UTC
+Last updated: 2026-04-13 00:13 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,42 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `365` landed one bounded settings warm-load init-sentinel fix for the
+  direct `/settings` backend lane:
+
+  - product code changed in:
+    - `backend/setta/project_state/base_project_manager.py`
+      so initialization tracking is now keyed by project-config id rather than
+      by `self.gen_code`, which previously misclassified settings configs with
+      `codegenTargets=[]` as forever uninitialized
+    - successful `update(...)` calls now mark the project config initialized,
+      and `delete_project_configs(...)` clears that marker
+  - focused regression coverage added in:
+    - `tests/project_state/test_load_project_config_timing.py`
+      to prove:
+      - a generic project still reports `did_init=True` on its first load
+      - a settings project skips the expensive init path on a warm load even
+        though it has no Python codegen target
+      - a generic project still skips init on subsequent loads
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`3` tests)
+    - `source activate.sh && python -m compileall backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - the previous `self.gen_code` sentinel was the concrete reason settings
+      configs re-entered `maybe_init_project_config(...)` on warm loads
+    - settings configs can become fully initialized without ever populating
+      `self.gen_code`, so init ownership must live at the project-config level
+      instead of the Python-codegen level
+    - this closes the warm-load init bug named in item `364`; the remaining
+      direct `/settings` latency owner from that breakdown is now the
+      name-validation broadcast path rather than repeated init/update
+  - next default frontier:
+    - trace and narrow `_broadcast_name_validation_errors(...)` on the direct
+      `/settings` load path, starting by measuring whether unchanged settings
+      loads can reuse or skip the expensive validation broadcast
 
 - item `364` landed one bounded backend `load_project_config(...)` timing
   breakdown slice for the direct `/settings` canary:

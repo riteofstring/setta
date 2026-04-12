@@ -685,6 +685,7 @@ class BaseProjectManager(ABC):
             watch_loop = None
         self.watch_code_manager = WatchCodeManager(self, loop=watch_loop)
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
+        self._initialized_project_config_ids: set[ID] = set()
         self.code_dict: dict[
             str,
             dict[
@@ -1843,7 +1844,10 @@ class BaseProjectManager(ABC):
         self, projectState: ProjectStateSingleConfig
     ) -> tuple[ProjectStateSingleConfig, LoadProjectConfigTiming]:
         async with self._project_state_lock.read_lock():
-            needs_init = projectState.projectConfig.id not in self.gen_code
+            needs_init = (
+                projectState.projectConfig.id
+                not in self._initialized_project_config_ids
+            )
         if not needs_init:
             return (
                 projectState,
@@ -2137,6 +2141,7 @@ class BaseProjectManager(ABC):
                 projectState,
                 updateFileWatcher=updateFileWatcher,
             )
+            self._initialized_project_config_ids.add(projectState.projectConfig.id)
 
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: ID):
@@ -4283,6 +4288,7 @@ class BaseProjectManager(ABC):
             gen_code = self.gen_code.pop(project_config_id, None)
             if gen_code is not None:
                 gen_code.callback_cleanup()
+            self._initialized_project_config_ids.discard(project_config_id)
             code_entries = self.code_dict.pop(project_config_id, None)
             if code_entries:
                 for code_entry in code_entries.values():
