@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 08:15 UTC
+Last updated: 2026-04-15 08:29 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,62 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `482` hardened compare-pane normalization on the canonical
+  `rotaryParamCodeObjDefault` lane so `setLocalPaneState(...)` now writes the
+  persisted pane state through browser storage context and reloads the page
+  instead of depending on an in-page `useLocalStorage.setState(...)` patch
+  during the unstable live worktree lane:
+  - code/test changes:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      now exports
+      `resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState(...)`
+      so the probe can preserve unrelated persisted keys while deriving the
+      next `setta_data` payload from browser-context storage
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      now covers that browser-storage-derived write path
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now reads browser storage state before compare-pane normalization,
+      writes only the persisted `setta_data` payload in-page, and reloads the
+      active page before waiting for app readiness instead of importing the
+      live Zustand store during `setLocalPaneState(...)`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - canonical live worktree perf probe on run-013 before recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-013/worktree-ai.log --reporter=line`
+      -> still failed before compare-pane normalization became relevant
+      -> timed out on the initial `getLatestProjectState(...)`
+         `page.request.post(...)` request in
+         `settings-view-modes.spec.ts`; treat this runtime as
+         `worktree_unhealthy`
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; worktree restarted on frontend `3053`, backend `8053`,
+         debug port `9275`, session `6c4e56`
+    - narrower post-recovery lane-health retry:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<session 6c4e56 token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+      -> still failed before the new `setLocalPaneState(...)` path was proven
+      -> `waitForInitialSettingsGraphReady(...)` never observed a mounted graph
+         root / non-loading project state within the test timeout
+      -> classify the current live runtime as `worktree_unhealthy`, not
+         renderer drift and not another confirmed pane-state-normalization
+         regression
+    - fresh-context CDP check:
+      -> not run; the live worktree never reached a trustworthy normalized
+         compare state after the allowed recovery attempt
+  - reading:
+    - this lands the intended helper pivot: compare-pane normalization no
+      longer depends on importing and mutating the live local-storage store
+      inside an already unstable page
+    - live proof of the new path is still blocked by an earlier runtime-health
+      failure on the restarted worktree; the lane currently dies before the
+      new normalization code becomes the active boundary
+    - next: restore a healthy live worktree `/settings` load on the current
+      session and rerun the same lane-health probe before taking another
+      probe-helper or product attribution slice
 
 - item `481` hardened the frontend project-config store wait on the canonical
   `rotaryParamCodeObjDefault` lane so the probe no longer relies on an

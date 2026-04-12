@@ -133,6 +133,18 @@ export function readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState(
   );
 }
 
+export function resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState(args: {
+  key: string;
+  origin: string;
+  origins: Array<SettingsGraphBrowserStorageStateOrigin>;
+  paneState: SettingsGraphLocalPaneState;
+}): string {
+  return writePersistedSettingsGraphLocalPaneState({
+    paneState: args.paneState,
+    rawPersistedState: readBrowserStorageStateLocalStorageEntry(args),
+  });
+}
+
 export function writePersistedSettingsGraphLocalPaneState(args: {
   paneState: SettingsGraphLocalPaneState;
   rawPersistedState: string | null;

@@ -4,6 +4,7 @@ import {
   readBrowserStorageStateLocalStorageEntry,
   readPersistedSettingsGraphLocalPaneState,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
+  resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState,
   resolveSettingsGraphLocalPaneStateStorePatch,
   writePersistedSettingsGraphLocalPaneState,
 } from "./settingsGraphPersistedPaneState";
@@ -135,6 +136,57 @@ describe("readPersistedSettingsGraphLocalPaneState", () => {
       uiEditorVisible: true,
       uiEditorTrueWidth: 320,
     });
+  });
+
+  it("writes pane state into browser-context storage while preserving other keys", () => {
+    expect(
+      resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState(
+        {
+          key: "setta_data",
+          origin: "http://127.0.0.1:3075",
+          origins: [
+            {
+              localStorage: [
+                {
+                  name: "setta_data",
+                  value: JSON.stringify({
+                    state: {
+                      darkMode: true,
+                      overviewVis: true,
+                      overviewTrueWidth: 512,
+                      snapToGrid: true,
+                      uiEditorVis: true,
+                      uiEditorTrueWidth: 420,
+                    },
+                    version: 3,
+                  }),
+                },
+              ],
+              origin: "http://127.0.0.1:3075",
+            },
+          ],
+          paneState: {
+            overviewVisible: false,
+            overviewTrueWidth: 420,
+            snapToGrid: false,
+            uiEditorVisible: false,
+            uiEditorTrueWidth: 260,
+          },
+        },
+      ),
+    ).toBe(
+      JSON.stringify({
+        state: {
+          darkMode: true,
+          overviewVis: false,
+          overviewTrueWidth: 420,
+          snapToGrid: false,
+          uiEditorVis: false,
+          uiEditorTrueWidth: 260,
+        },
+        version: 3,
+      }),
+    );
   });
 
   it("returns null when browser-context storage state is malformed", () => {

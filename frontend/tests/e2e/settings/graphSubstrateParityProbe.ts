@@ -20,8 +20,7 @@ import {
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
-  resolveSettingsGraphLocalPaneStateStorePatch,
-  writePersistedSettingsGraphLocalPaneState,
+  resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
 } from "components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState";
@@ -1018,39 +1017,39 @@ export async function setLocalPaneState(
   page: Page,
   paneState: SettingsGraphLocalPaneState,
 ): Promise<Page> {
-  const nextPersistedPaneState = writePersistedSettingsGraphLocalPaneState({
-    paneState,
-    rawPersistedState: null,
-  });
-  const nextPaneStatePatch =
-    resolveSettingsGraphLocalPaneStateStorePatch(paneState);
+  const pageOrigin = new URL(page.url()).origin;
+  const storageState = await runWithSettingsGraphPageLifecycleGuard(
+    page,
+    "reading browser storage state before writing normalized compare pane state",
+    () => page.context().storageState(),
+    5000,
+  );
+  const nextPersistedPaneState =
+    resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState(
+      {
+        key: "setta_data",
+        origin: pageOrigin,
+        origins: storageState.origins,
+        paneState,
+      },
+    );
 
   const { page: activePage } = await runWithRecoverableSettingsGraphPageAction({
     description: "writing normalized compare pane state",
     page,
     action: async (targetPage) => {
       await targetPage.evaluate(
-        async ({
-          key,
-          paneStatePatch,
-          value,
-        }: {
-          key: string;
-          paneStatePatch: ReturnType<
-            typeof resolveSettingsGraphLocalPaneStateStorePatch
-          >;
-          value: string;
-        }) => {
-          const { useLocalStorage } = await import("/src/state/definitions.ts");
+        ({ key, value }: { key: string; value: string }) => {
           window.localStorage.setItem(key, value);
-          useLocalStorage.setState(paneStatePatch);
         },
         {
           key: "setta_data",
-          paneStatePatch: nextPaneStatePatch,
           value: nextPersistedPaneState,
         },
       );
+      await targetPage.reload({
+        waitUntil: "domcontentloaded",
+      });
     },
   });
 

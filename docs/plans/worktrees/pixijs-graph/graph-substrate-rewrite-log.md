@@ -285,6 +285,61 @@ LOOP_TERMINAL_MARKER: none
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 08:29 UTC | item `482` | completed persisted-pane-state normalization reload path; live proof blocked by unhealthy worktree runtime
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - intent:
+    - stop compare-pane normalization from depending on an in-page
+      `useLocalStorage.setState(...)` mutation during the unstable live
+      worktree lane by switching `setLocalPaneState(...)` to a persisted
+      browser-storage write plus reload path
+  - code/test changes:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      now exports
+      `resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState(...)`
+      so the probe can derive the next persisted `setta_data` value from the
+      current browser-context storage snapshot while preserving unrelated keys
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      now proves that browser-storage-derived write path preserves unrelated
+      persisted keys while updating the compare pane state
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now reads browser storage state before compare-pane normalization,
+      writes the next persisted pane-state payload to `localStorage`, reloads
+      the page, and waits for app readiness instead of importing the live
+      Zustand store during `setLocalPaneState(...)`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - canonical live worktree perf probe on run-013 before recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-013/worktree-ai.log --reporter=line`
+      -> failed before compare-pane normalization became relevant
+      -> timed out on the initial `getLatestProjectState(...)`
+         `page.request.post(...)` request in
+         `settings-view-modes.spec.ts`; classify as `worktree_unhealthy`
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; worktree restarted on frontend `3053`, backend `8053`,
+         debug port `9275`, session `6c4e56`
+    - narrower post-recovery lane-health retry:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<session 6c4e56 token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+      -> still failed before the new normalization code was proven
+      -> `waitForInitialSettingsGraphReady(...)` never observed a mounted graph
+         root / non-loading project state within the test timeout
+      -> classify the restarted runtime as `worktree_unhealthy`, not renderer
+         drift and not a repro of the earlier `setLocalPaneState(...)`
+         closure boundary
+    - fresh-context CDP check:
+      -> not run; the live worktree never reached a trustworthy normalized
+         compare state after the allowed recovery attempt
+  - reading:
+    - this lands the intended helper pivot and closes another oracle-only pass
+      on the repeated `setLocalPaneState(...)` shape
+    - the active blocker is now earlier worktree readiness on the restarted
+      runtime, so the next iteration should recover or diagnose `/settings`
+      load health before spending more time on probe-helper churn
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-15 08:15 UTC | item `481` | bounded the frontend project-config store wait so the canonical probe cannot hang forever inside an unbounded store read
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:
