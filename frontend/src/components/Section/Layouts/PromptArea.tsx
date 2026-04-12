@@ -28,7 +28,10 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { FormatEnum, SectionTypeEnum } from "utils/generatedTypes";
-import { resolvePromptSectionSource } from "utils/promptSectionSource";
+import {
+  resolvePromptAreaUiState,
+  resolvePromptSectionSource,
+} from "utils/promptSectionSource";
 type PromptViewMode = "template" | "preview";
 export function PromptArea({ sectionId }: { sectionId: string }) {
   useHydrateAgenticState();
@@ -92,46 +95,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
       ),
     [format, promptTemplateId, promptTemplates, template],
   );
-  const isReadOnly =
-    resolvedSource.isLinked || isFrozen || (isDeploymentMode && !canEditParams);
-  const editorValue = resolvedSource.isLinked
-    ? resolvedSource.templateText
-    : value;
-  const linkedTemplateName =
-    resolvedSource.linkedTemplate?.name || promptTemplateId || "";
-  const errorText = useMemo(() => {
-    if (
-      resolvedSource.linkedTemplateMissing &&
-      promptTemplatesInitialLoadComplete
-    ) {
-      return "Linked prompt template could not be found.";
-    }
-    return renderError ?? "";
-  }, [
-    promptTemplatesInitialLoadComplete,
-    renderError,
-    resolvedSource.linkedTemplateMissing,
-  ]);
-  const linkedTemplateInfo = useMemo(() => {
-    if (!resolvedSource.isLinked) {
-      return "";
-    }
-    if (
-      resolvedSource.linkedTemplateMissing &&
-      !promptTemplatesInitialLoadComplete
-    ) {
-      return "Loading linked prompt template...";
-    }
-    if (resolvedSource.linkedTemplateMissing) {
-      return "This section is linked to a prompt template that could not be loaded. Choose a different prompt template in section settings.";
-    }
-    return `Linked to prompt template "${linkedTemplateName}". Edit it in Project AI Settings or make a local copy in section settings.`;
-  }, [
-    linkedTemplateName,
-    promptTemplatesInitialLoadComplete,
-    resolvedSource.isLinked,
-    resolvedSource.linkedTemplateMissing,
-  ]);
   useEffect(() => {
     setViewMode("template");
   }, [sectionId]);
@@ -139,12 +102,39 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     useCodeAreaHeight({ sectionId });
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
+  const promptUiState = useMemo(
+    () =>
+      resolvePromptAreaUiState({
+        canEditParams,
+        isDeploymentMode,
+        isFrozen,
+        maxHeight,
+        promptTemplateId,
+        promptTemplatesInitialLoadComplete,
+        renderError,
+        resolvedSource,
+        templateValue: value,
+        viewMode,
+      }),
+    [
+      canEditParams,
+      isDeploymentMode,
+      isFrozen,
+      maxHeight,
+      promptTemplateId,
+      promptTemplatesInitialLoadComplete,
+      renderError,
+      resolvedSource,
+      value,
+      viewMode,
+    ],
+  );
   const theme = useCodeMirrorStyle();
   const extensions = getExtensions({
     language: resolvedSource.format === FormatEnum.Jinja ? "markdown" : null,
     tabToAutocomplete: true,
     indentWithTab: true,
-    isDisabled: isReadOnly,
+    isDisabled: promptUiState.isReadOnly,
     onEscape: onEscapeFocusOnArticleDiv,
   });
   const debouncedSetTemplate = useCallback(
@@ -172,16 +162,12 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     [projectConfigId, sectionId],
   );
   function onChange(nextValue: string) {
-    if (isReadOnly) {
+    if (promptUiState.isReadOnly) {
       return;
     }
     setPendingValue(nextValue);
     debouncedSetTemplate(nextValue);
   }
-  const editorMaxHeight =
-    viewMode === "template" && maxHeight
-      ? `calc(${maxHeight} - 32px)`
-      : maxHeight;
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
@@ -213,17 +199,17 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
           onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
           tabIndex={0}
         >
-          {linkedTemplateInfo ? (
+          {promptUiState.linkedTemplateInfo ? (
             <div
               data-testid={`prompt-linked-template-note-${sectionId}`}
               className="mx-2 mt-2 rounded-md border border-blue-200/80 bg-blue-50/80 px-2 py-1 text-[11px] text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-200"
             >
-              {linkedTemplateInfo}
+              {promptUiState.linkedTemplateInfo}
             </div>
           ) : null}
           <CodeMirror
-            maxHeight={editorMaxHeight}
-            value={editorValue}
+            maxHeight={promptUiState.editorMaxHeight}
+            value={promptUiState.editorValue}
             theme={theme}
             extensions={extensions}
             onChange={onChange}
@@ -236,7 +222,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
         <PromptPreview
           sectionId={sectionId}
           previewText={renderedText}
-          errorText={errorText}
+          errorText={promptUiState.errorText}
         />
       )}
     </div>

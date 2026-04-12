@@ -21,7 +21,10 @@ import {
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { FormatEnum, SectionTypeEnum } from "utils/generatedTypes";
-import { resolvePromptSectionSource } from "utils/promptSectionSource";
+import {
+  resolvePromptSectionSource,
+  resolvePromptSettingsUiState,
+} from "utils/promptSectionSource";
 type PromptSettingsProps = {
   sectionId: string;
 };
@@ -30,7 +33,6 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
   const projectConfigId = getCurrProjectConfigId();
   const { canEditParams } = useShareCapabilities();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
-  const canEdit = !isDeploymentMode || canEditParams;
   const { promptTemplateId, template, format, isFrozen } = useProjectState(
     (state) => {
       const impl = getCurrEffectiveSectionImplOfType(
@@ -67,14 +69,29 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
       ),
     [format, promptTemplateId, promptTemplates, template],
   );
-  const isLinked = resolvedSource.isLinked;
-  const isDisabled = isFrozen || !canEdit;
-  const linkedTemplateDescription =
-    resolvedSource.linkedTemplate?.description ?? "";
   const [templateText, setTemplateText] = useState(resolvedSource.templateText);
   useEffect(() => {
     setTemplateText(resolvedSource.templateText);
   }, [resolvedSource.templateText]);
+  const promptUiState = useMemo(
+    () =>
+      resolvePromptSettingsUiState({
+        canEditParams,
+        isDeploymentMode,
+        isFrozen,
+        promptTemplateId,
+        promptTemplatesInitialLoadComplete,
+        resolvedSource,
+      }),
+    [
+      canEditParams,
+      isDeploymentMode,
+      isFrozen,
+      promptTemplateId,
+      promptTemplatesInitialLoadComplete,
+      resolvedSource,
+    ],
+  );
   const promptFormatOptions = useMemo(() => Object.values(FormatEnum), []);
   const templateGroups = useMemo(
     () => [
@@ -174,68 +191,45 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
   );
   const handleTemplateLinkChange = useCallback(
     (nextPromptTemplateId: string | null) => {
-      if (isDisabled) {
+      if (promptUiState.isDisabled) {
         return;
       }
       updatePromptTemplateLink(nextPromptTemplateId);
     },
-    [isDisabled, updatePromptTemplateLink],
+    [promptUiState.isDisabled, updatePromptTemplateLink],
   );
   const handleTemplateChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const nextTemplate = event.target.value;
       setTemplateText(nextTemplate);
-      if (isDisabled || isLinked) {
+      if (promptUiState.templateInputDisabled) {
         return;
       }
       updatePromptTemplate(nextTemplate);
     },
-    [isDisabled, isLinked, updatePromptTemplate],
+    [promptUiState.templateInputDisabled, updatePromptTemplate],
   );
   const handleFormatChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       const nextFormat = event.target.value as FormatEnum;
-      if (isDisabled || isLinked || nextFormat === format) {
+      if (promptUiState.templateInputDisabled || nextFormat === format) {
         return;
       }
       updatePromptFormat(nextFormat);
     },
-    [format, isDisabled, isLinked, updatePromptFormat],
+    [format, promptUiState.templateInputDisabled, updatePromptFormat],
   );
   const handleMakeLocalCopy = useCallback(() => {
-    if (isDisabled || !resolvedSource.linkedTemplate) {
+    if (!promptUiState.showLocalCopyButton || promptUiState.isDisabled) {
       return;
     }
     setTemplateText(resolvedSource.templateText);
     updatePromptTemplateLink(null);
   }, [
-    isDisabled,
-    resolvedSource.linkedTemplate,
+    promptUiState.isDisabled,
+    promptUiState.showLocalCopyButton,
     resolvedSource.templateText,
     updatePromptTemplateLink,
-  ]);
-  const linkedTemplateInfo = useMemo(() => {
-    if (!isLinked) {
-      return "";
-    }
-    if (
-      resolvedSource.linkedTemplateMissing &&
-      !promptTemplatesInitialLoadComplete
-    ) {
-      return "Loading linked prompt template...";
-    }
-    if (resolvedSource.linkedTemplateMissing) {
-      return "This section is linked by id to a prompt template that could not be loaded. Choose a new template to repair the link.";
-    }
-    const linkedTemplateName =
-      resolvedSource.linkedTemplate?.name || promptTemplateId || "";
-    return `This section is linked by id to prompt template "${linkedTemplateName}". Edit the template in Project AI Settings, or make a local copy to edit here.`;
-  }, [
-    isLinked,
-    promptTemplateId,
-    promptTemplatesInitialLoadComplete,
-    resolvedSource.linkedTemplate,
-    resolvedSource.linkedTemplateMissing,
   ]);
   return (
     <div className="flex w-full flex-col gap-3">
@@ -250,24 +244,24 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
           onSelectedItemChange={handleTemplateLinkChange}
           placeholder="Link a prompt template (optional)"
           outerDivClasses="justify-center"
-          isDisabled={isDisabled}
+          isDisabled={promptUiState.isDisabled}
           selectedItemCanBeNull
         />
-        {linkedTemplateDescription ? (
+        {promptUiState.linkedTemplateDescription ? (
           <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            {linkedTemplateDescription}
+            {promptUiState.linkedTemplateDescription}
           </p>
         ) : null}
-        {linkedTemplateInfo ? (
+        {promptUiState.linkedTemplateInfo ? (
           <div className="rounded-md border border-blue-200/80 bg-blue-50/80 px-3 py-2 text-[11px] text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-200">
-            {linkedTemplateInfo}
+            {promptUiState.linkedTemplateInfo}
           </div>
         ) : null}
-        {isLinked && resolvedSource.linkedTemplate ? (
+        {promptUiState.showLocalCopyButton ? (
           <button
             type="button"
             className="self-start rounded-md border border-setta-200 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-            disabled={isDisabled}
+            disabled={promptUiState.isDisabled}
             onClick={handleMakeLocalCopy}
           >
             Make Local Copy
@@ -286,7 +280,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
           value={templateText}
           onChange={handleTemplateChange}
           spellCheck="false"
-          disabled={isDisabled || isLinked}
+          disabled={promptUiState.templateInputDisabled}
           className="min-h-[120px] w-full resize-y rounded-md border border-solid border-setta-200 bg-white/80 p-3 font-mono text-xs text-setta-800 placeholder-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:placeholder-setta-600"
           placeholder="Write a Jinja-style prompt..."
         />
@@ -299,7 +293,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
         <select
           value={resolvedSource.format}
           onChange={handleFormatChange}
-          disabled={isDisabled || isLinked}
+          disabled={promptUiState.templateInputDisabled}
           className="h-8 rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300"
         >
           {promptFormatOptions.map((entry) => (
@@ -308,7 +302,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
             </option>
           ))}
         </select>
-        {isLinked ? (
+        {promptUiState.showLinkedFormatNote ? (
           <p className="text-[11px] text-setta-500 dark:text-setta-400">
             Linked prompt templates control the format.
           </p>
