@@ -7,6 +7,7 @@ export type Node = {
   position: Position;
   width: number | null;
   height: number | null;
+  sizeAuthority?: "layout" | "none" | "sectionModel" | "sharedNode";
   zIndex: number;
   tempZIndex: number;
   type?: string;
