@@ -120,6 +120,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "RunSnapshotModeUIConfig",
+			Type: reflect.TypeOf(deployments.FrontendValueRunSnapshotModeUIConfig()),
+			Value: func() any {
+				return deployments.FrontendValueRunSnapshotModeUIConfig()
+			},
+		},
+		{
 			Name: "ServerModeBoundaryPolicyByMode",
 			Type: reflect.TypeOf(httpapi.FrontendValueServerModeBoundaryPolicyByMode()),
 			Value: func() any {

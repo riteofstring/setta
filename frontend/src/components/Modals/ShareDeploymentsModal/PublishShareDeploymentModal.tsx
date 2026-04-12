@@ -2,10 +2,10 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import {
   checkIfFileExists,
-  type HttpapiDeploymentMetadataResponse,
-  type HttpapiPublishShareDeploymentRequest,
   listShareDeployments,
   publishShareDeployment,
+  type HttpapiDeploymentMetadataResponse,
+  type HttpapiPublishShareDeploymentRequest,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
@@ -16,12 +16,21 @@ import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { buildSharePath } from "utils/constants";
 import { createDefaultSharePolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import type { Policy, RunSnapshotMode } from "utils/generatedTypes";
+import {
+  RunSnapshotModeUIConfig,
+  type Policy,
+  type RunSnapshotMode,
+} from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
 type SharePolicyOverridesInput = Policy;
 type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
+const DEPLOYMENT_RUN_SNAPSHOT_MODE_OPTIONS: Array<{
+  value: RunSnapshotMode;
+  label: string;
+}> = RunSnapshotModeUIConfig.deploymentOptions;
+
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
   return `share-${baseName.split("_").join("-")}`;
@@ -255,10 +264,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             label="Run snapshot mode"
             description="How run output should be stored."
             value={policyOverrides.runSnapshotMode}
-            options={[
-              { value: "ephemeral", label: "ephemeral" },
-              { value: "always", label: "always" },
-            ]}
+            options={DEPLOYMENT_RUN_SNAPSHOT_MODE_OPTIONS}
             onChange={setPolicyRunSnapshotMode}
             disabled={!policyOverrides.allowRun}
           />

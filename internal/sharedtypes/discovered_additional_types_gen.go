@@ -423,6 +423,8 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(deployments.AppPolicyOverrides{}),
 		reflect.TypeOf(deployments.Metadata{}),
 		reflect.TypeOf(deployments.Allocation{}),
+		reflect.TypeOf(deployments.RunSnapshotModeOption{}),
+		reflect.TypeOf(deployments.RunSnapshotModeUIConfigValue{}),
 		reflect.TypeOf(deployments.Type("")),
 		reflect.TypeOf(deployments.ListenerConfig{}),
 		reflect.TypeOf(deployments.Manifest{}),

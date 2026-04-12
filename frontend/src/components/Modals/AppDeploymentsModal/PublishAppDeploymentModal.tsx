@@ -7,10 +7,10 @@ import {
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import {
   checkIfFileExists,
-  type HttpapiDeploymentMetadataResponse,
-  type HttpapiPublishAppDeploymentRequest,
   listAppDeployments,
   publishAppDeployment,
+  type HttpapiDeploymentMetadataResponse,
+  type HttpapiPublishAppDeploymentRequest,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
@@ -24,12 +24,21 @@ import {
 } from "state/definitions";
 import { createDefaultAppPolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import type { Policy, RunSnapshotMode } from "utils/generatedTypes";
+import {
+  RunSnapshotModeUIConfig,
+  type Policy,
+  type RunSnapshotMode,
+} from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
 type AppPolicyOverridesInput = Policy;
 type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
+const DEPLOYMENT_RUN_SNAPSHOT_MODE_OPTIONS: Array<{
+  value: RunSnapshotMode;
+  label: string;
+}> = RunSnapshotModeUIConfig.deploymentOptions;
+
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
   return `app-${baseName.split("_").join("-")}`;
@@ -58,6 +67,110 @@ function listActionButtons(appSpec: unknown): Array<Record<string, unknown>> {
   }
   return output;
 }
+type RunActionBindingStatus = "bound" | "missing-section" | "not-run";
+
+function normalizeActionBindingsSource(
+  dataBindingsSource: unknown,
+): Record<string, unknown> | null {
+  return isRecord(dataBindingsSource) ? dataBindingsSource : null;
+}
+
+function normalizeActionDefinitionsSource(
+  actionsSource: unknown,
+): ReturnType<typeof normalizeActionDefinitions> {
+  return normalizeActionDefinitions(
+    isRecord(actionsSource) ? actionsSource : null,
+  );
+}
+
+function isRunActionBinding(
+  action: string,
+  definition: Record<string, unknown> | null,
+): boolean {
+  return action === "run" || resolveActionType(action, definition) === "run";
+}
+
+function resolveDefinitionSectionId(
+  definition: Record<string, unknown> | null,
+): string | null {
+  return definition && typeof definition.sectionId === "string"
+    ? definition.sectionId
+    : null;
+}
+
+function resolveActionButtonRunBindingStatus(
+  props: Record<string, unknown>,
+  dataBindingsSource: unknown,
+  actionsSource: unknown,
+): RunActionBindingStatus {
+  const dataBindings = normalizeActionBindingsSource(dataBindingsSource);
+  const actions = normalizeActionDefinitionsSource(actionsSource);
+  const { action, sectionId } = resolveActionBinding(props, dataBindings);
+  if (!action) {
+    return "not-run";
+  }
+  const definition = actions[action] ?? null;
+  if (!isRunActionBinding(action, definition)) {
+    return "not-run";
+  }
+  const fallbackSectionId = resolveDefinitionSectionId(definition);
+  return sectionId ?? fallbackSectionId ? "bound" : "missing-section";
+}
+
+function resolveAppSpecRunBindingStatus(
+  appSpec: unknown,
+  dataBindingsSource: unknown,
+  actionsSource: unknown,
+): RunActionBindingStatus {
+  let sawRun = false;
+  for (const props of listActionButtons(appSpec)) {
+    const status = resolveActionButtonRunBindingStatus(
+      props,
+      dataBindingsSource,
+      actionsSource,
+    );
+    if (status === "bound") {
+      return "bound";
+    }
+    if (status === "missing-section") {
+      sawRun = true;
+    }
+  }
+  return sawRun ? "missing-section" : "not-run";
+}
+
+function getRunBindingWarning(params: {
+  allowRun: boolean;
+  entryCodeBlockId: string | null | undefined;
+  appSpec: unknown;
+  actionsSource: unknown;
+  dataBindingsSource: unknown;
+}): string | null {
+  if (!params.allowRun || params.entryCodeBlockId) {
+    return null;
+  }
+  if (!params.appSpec) {
+    return "No app spec loaded. Save an app spec before publishing (or disable runs in policy).";
+  }
+  if (listActionButtons(params.appSpec).length === 0) {
+    return "App spec has no ActionButton. Add a Run button (or disable runs in policy).";
+  }
+  switch (
+    resolveAppSpecRunBindingStatus(
+      params.appSpec,
+      params.dataBindingsSource,
+      params.actionsSource,
+    )
+  ) {
+    case "bound":
+      return null;
+    case "not-run":
+      return "App spec has no Run ActionButton.";
+    default:
+      return "Run ActionButton is missing sectionId and this config has no entry code block.";
+  }
+}
+
 const LISTENER_ENTRYPOINT_STORAGE_KEY =
   "setta.publishAppDeployment.listenerEntrypoint";
 const DEFAULT_LISTENER_ENTRYPOINT = "listener/app.py";
@@ -194,51 +307,13 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
   const publishDisabled =
     isPublishing || projectConfig.id === NULL_PROJECT_CONFIG_ID;
   const runBindingWarning = useMemo(() => {
-    if (!policyOverrides.allowRun) {
-      return null;
-    }
-    if (projectConfig.entryCodeBlockId) {
-      return null;
-    }
-    if (!appSpec) {
-      return "No app spec loaded. Save an app spec before publishing (or disable runs in policy).";
-    }
-    const actionButtons = listActionButtons(appSpec);
-    if (actionButtons.length === 0) {
-      return "App spec has no ActionButton. Add a Run button (or disable runs in policy).";
-    }
-    const dataBindings = isRecord(appDefinition?.dataBindings)
-      ? appDefinition.dataBindings
-      : null;
-    const actions = normalizeActionDefinitions(
-      isRecord(appDefinition?.actions) ? appDefinition.actions : null,
-    );
-    let sawRun = false;
-    for (const props of actionButtons) {
-      const { action, sectionId } = resolveActionBinding(props, dataBindings);
-      if (!action) {
-        continue;
-      }
-      const definition = actions[action] ?? null;
-      const actionType = resolveActionType(action, definition);
-      const isRunAction = action === "run" || actionType === "run";
-      if (!isRunAction) {
-        continue;
-      }
-      sawRun = true;
-      const fallbackSectionId =
-        definition && typeof definition.sectionId === "string"
-          ? definition.sectionId
-          : null;
-      const resolvedSectionId = sectionId ?? fallbackSectionId;
-      if (resolvedSectionId) {
-        return null;
-      }
-    }
-    if (!sawRun) {
-      return "App spec has no Run ActionButton.";
-    }
-    return "Run ActionButton is missing sectionId and this config has no entry code block.";
+    return getRunBindingWarning({
+      allowRun: policyOverrides.allowRun,
+      entryCodeBlockId: projectConfig.entryCodeBlockId,
+      appSpec,
+      actionsSource: appDefinition?.actions,
+      dataBindingsSource: appDefinition?.dataBindings,
+    });
   }, [
     appDefinition?.actions,
     appDefinition?.dataBindings,
@@ -329,10 +404,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
             label="Run snapshot mode"
             description="How run output should be stored."
             value={policyOverrides.runSnapshotMode}
-            options={[
-              { value: "ephemeral", label: "ephemeral" },
-              { value: "always", label: "always" },
-            ]}
+            options={DEPLOYMENT_RUN_SNAPSHOT_MODE_OPTIONS}
             onChange={setPolicyRunSnapshotMode}
             disabled={!policyOverrides.allowRun}
           />

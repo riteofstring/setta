@@ -4449,6 +4449,16 @@
       ]
     },
     {
+      "name": "RunSnapshotModeOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/RunSnapshotModeOption"
+    },
+    {
+      "name": "RunSnapshotModeUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/RunSnapshotModeUIConfigValue"
+    },
+    {
       "name": "RunStatus",
       "kind": "enum",
       "schemaRef": "#/$defs/RunStatus",
@@ -11333,6 +11343,41 @@
           "SectionConfig",
           "InfoConfig",
           "SectionVariantsConfig"
+        ]
+      }
+    },
+    {
+      "name": "RunSnapshotModeUIConfig",
+      "type": "RunSnapshotModeUIConfigValue",
+      "value": {
+        "deploymentOptions": [
+          {
+            "description": "Snapshot per run, cleaned up automatically.",
+            "label": "Ephemeral",
+            "value": "ephemeral"
+          },
+          {
+            "description": "Snapshot per run, stored under code history.",
+            "label": "Always",
+            "value": "always"
+          }
+        ],
+        "options": [
+          {
+            "description": "Snapshot per run, cleaned up automatically.",
+            "label": "Ephemeral",
+            "value": "ephemeral"
+          },
+          {
+            "description": "Snapshot per run, stored under code history.",
+            "label": "Always",
+            "value": "always"
+          },
+          {
+            "description": "Run from canonical files without a snapshot.",
+            "label": "Never",
+            "value": "never"
+          }
         ]
       }
     },

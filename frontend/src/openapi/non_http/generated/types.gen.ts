@@ -4904,6 +4904,23 @@ type RunMode = "mcp" | "server" | "sdk" | "app_server";
 export type RunSnapshotMode = "ephemeral" | "always" | "never";
 
 /**
+ * RunSnapshotModeOption
+ */
+type RunSnapshotModeOption = {
+  description: string;
+  label: string;
+  value: RunSnapshotMode;
+};
+
+/**
+ * RunSnapshotModeUIConfigValue
+ */
+export type RunSnapshotModeUIConfigValue = {
+  deploymentOptions: null | Array<RunSnapshotModeOption>;
+  options: null | Array<RunSnapshotModeOption>;
+};
+
+/**
  * RunStatus
  */
 type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";

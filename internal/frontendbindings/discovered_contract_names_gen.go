@@ -449,6 +449,8 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(agentruns.RunIndexEntry{}):                                           "RunIndexEntry",
 	reflect.TypeOf(externalagentconfigs.RunMode("")):                                    "RunMode",
 	reflect.TypeOf(deployments.RunSnapshotMode("")):                                     "RunSnapshotMode",
+	reflect.TypeOf(deployments.RunSnapshotModeOption{}):                                 "RunSnapshotModeOption",
+	reflect.TypeOf(deployments.RunSnapshotModeUIConfigValue{}):                          "RunSnapshotModeUIConfigValue",
 	reflect.TypeOf(agentruns.RunStatus("")):                                             "RunStatus",
 	reflect.TypeOf(projectstate.RunTargetKind("")):                                      "RunTargetKind",
 	reflect.TypeOf(scriptablechat.RunToolsRequest{}):                                    "RunToolsRequest",

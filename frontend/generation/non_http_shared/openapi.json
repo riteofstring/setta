@@ -11847,6 +11847,43 @@
         "title": "RunSnapshotMode",
         "type": "string"
       },
+      "RunSnapshotModeOption": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/RunSnapshotMode"
+          }
+        },
+        "required": ["value", "label", "description"],
+        "title": "RunSnapshotModeOption",
+        "type": "object"
+      },
+      "RunSnapshotModeUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "deploymentOptions": {
+            "items": {
+              "$ref": "#/components/schemas/RunSnapshotModeOption"
+            },
+            "type": ["null", "array"]
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/RunSnapshotModeOption"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["options", "deploymentOptions"],
+        "title": "RunSnapshotModeUIConfigValue",
+        "type": "object"
+      },
       "RunStatus": {
         "enum": ["queued", "running", "completed", "failed", "cancelled"],
         "title": "RunStatus",

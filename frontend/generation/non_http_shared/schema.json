@@ -13994,6 +13994,56 @@
         "never"
       ]
     },
+    "RunSnapshotModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/RunSnapshotMode"
+        },
+        "label": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "title": "RunSnapshotModeOption",
+      "required": [
+        "value",
+        "label",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "RunSnapshotModeUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "options": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/RunSnapshotModeOption"
+          }
+        },
+        "deploymentOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/RunSnapshotModeOption"
+          }
+        }
+      },
+      "title": "RunSnapshotModeUIConfigValue",
+      "required": [
+        "options",
+        "deploymentOptions"
+      ],
+      "additionalProperties": false
+    },
     "RunStatus": {
       "type": "string",
       "title": "RunStatus",

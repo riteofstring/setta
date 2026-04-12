@@ -4782,6 +4782,38 @@ export const RequiredUIEditorTabs = {
   TextBlock: ["SectionConfig", "InfoConfig", "SectionVariantsConfig"],
 } satisfies gt.RequiredUIEditorTabMap;
 
+export const RunSnapshotModeUIConfig = {
+  deploymentOptions: [
+    {
+      description: "Snapshot per run, cleaned up automatically.",
+      label: "Ephemeral",
+      value: "ephemeral",
+    },
+    {
+      description: "Snapshot per run, stored under code history.",
+      label: "Always",
+      value: "always",
+    },
+  ],
+  options: [
+    {
+      description: "Snapshot per run, cleaned up automatically.",
+      label: "Ephemeral",
+      value: "ephemeral",
+    },
+    {
+      description: "Snapshot per run, stored under code history.",
+      label: "Always",
+      value: "always",
+    },
+    {
+      description: "Run from canonical files without a snapshot.",
+      label: "Never",
+      value: "never",
+    },
+  ],
+} satisfies gt.RunSnapshotModeUIConfigValue;
+
 export const ServerModeBoundaryPolicyByMode = {
   app: {
     capabilities: { canManageDesktopLauncher: false },

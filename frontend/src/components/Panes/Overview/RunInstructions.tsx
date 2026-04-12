@@ -52,6 +52,7 @@ import {
   createSectionCodegenPolicy,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
+  RunSnapshotModeUIConfig,
   SectionTypeEnum,
   type BaseSectionImplUnion,
   type Core,
@@ -132,23 +133,7 @@ const RUN_SNAPSHOT_MODE_OPTIONS: Array<{
   value: RunSnapshotMode;
   label: string;
   description: string;
-}> = [
-  {
-    value: "ephemeral",
-    label: "Ephemeral",
-    description: "Snapshot per run, cleaned up automatically.",
-  },
-  {
-    value: "always",
-    label: "Always",
-    description: "Snapshot per run, stored under code history.",
-  },
-  {
-    value: "never",
-    label: "Never",
-    description: "Run from canonical files without a snapshot.",
-  },
-];
+}> = RunSnapshotModeUIConfig.options;
 const RUN_SNAPSHOT_MODE_CHOICES: Array<{
   value: RunSnapshotModeChoice;
   label: string;
