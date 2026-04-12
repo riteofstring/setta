@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 06:10 UTC
+Last updated: 2026-04-15 06:28 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `476` completed one bounded readiness-helper fix on the canonical
+  `rotaryParamCodeObjDefault` lane so the shared Playwright bootstrap path now
+  recognizes the canary graph surface instead of waiting only on the legacy
+  `.react-flow__pane`:
+  - code/test changes:
+    - `frontend/tests/e2e/helpers.ts`
+      now treats either the legacy pane or
+      `[data-testid="graph-substrate-canary"]` plus
+      `useProjectLoading.getState().projectIsLoading === false` as the shared
+      ready condition, and includes an app-ready snapshot in failure output
+    - `frontend/src/tests/e2eHelpersReady.test.ts`
+      now proves the shared readiness predicate accepts both legacy and canary
+      graph surfaces and stays false while project loading is still active
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/tests/e2eHelpersReady.test.ts`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts src/tests/e2eHelpersReady.test.ts`
+      -> passed
+    - canonical live probe rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-007/worktree-ai.log`
+      -> no longer fails in `ensureAppReady(...)`
+      -> reached normalized canary direct-open progress through
+         `surface_ready`
+      -> now times out later in
+         `applyProjectStateUpdate(...)` at
+         `frontend/tests/e2e/settings/settings-view-modes.spec.ts:6485`
+    - required fresh-context CDP check:
+      -> not run in this Codex session because Chrome DevTools MCP tools were
+         not exposed here; `list_mcp_resources` / `list_mcp_resource_templates`
+         both returned empty and no callable browser-MCP tool path was
+         available to the agent
+  - reading:
+    - this closes the repeated readiness/boot-auth misclassification on the
+      canonical probe and moves the blocker forward into a concrete later-stage
+      state-application timeout
+    - do not spend another pass on bootstrap-token or auth-cookie theories for
+      this lane unless the new failure boundary regresses
+    - next: inspect why `applyProjectStateUpdate(...)` stalls after the page is
+      already `surface_ready`, likely around page responsiveness, large state
+      payload application, or a closed-page/lifecycle guard on the live probe
 
 - item `475` completed one bounded live-runtime recovery slice on the canonical
   `rotaryParamCodeObjDefault` lane by removing two non-product blockers from

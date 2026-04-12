@@ -24,8 +24,14 @@ const PROJECT_URL =
     : BASE_URL);
 const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 const READY_SELECTOR = ".react-flow__pane";
+const CANARY_READY_SELECTOR = '[data-testid="graph-substrate-canary"]';
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
+export type AppReadySnapshot = {
+  canaryRootMounted: boolean;
+  legacyPaneMounted: boolean;
+  projectIsLoading: boolean | null;
+};
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
 type AllowedApiError = {
   path: string;
@@ -191,6 +197,11 @@ export async function ensureAppReady(page: Page): Promise<void> {
 
     const debugLines: string[] = [];
     debugLines.push(`Current URL: ${page.url()}`);
+    debugLines.push("");
+    debugLines.push("Ready snapshot:");
+    debugLines.push(
+      JSON.stringify(await captureAppReadySnapshot(page), null, 2),
+    );
     if (pageErrors.length) {
       debugLines.push("");
       debugLines.push("Page errors:");
@@ -342,7 +353,9 @@ export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   );
   await clickDom(
     page
-      .locator('[data-testid="project-chat-settings-open-project-settings"]:visible')
+      .locator(
+        '[data-testid="project-chat-settings-open-project-settings"]:visible',
+      )
       .first(),
   );
 }
@@ -1127,12 +1140,43 @@ function getRunTimestamp(run: AgentRun): number {
 }
 
 async function isAppReady(page: Page): Promise<boolean> {
-  try {
-    await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
-    return true;
-  } catch {
-    return false;
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (isAppReadySnapshot(await captureAppReadySnapshot(page))) {
+      return true;
+    }
+    await page.waitForTimeout(250);
   }
+  return false;
+}
+
+export function isAppReadySnapshot(snapshot: AppReadySnapshot): boolean {
+  const graphSurfaceMounted =
+    snapshot.legacyPaneMounted || snapshot.canaryRootMounted;
+  return graphSurfaceMounted && snapshot.projectIsLoading === false;
+}
+
+async function captureAppReadySnapshot(page: Page): Promise<AppReadySnapshot> {
+  return page.evaluate(
+    async ({ canarySelector, readySelector }) => {
+      let projectIsLoading: boolean | null = null;
+      try {
+        const { useProjectLoading } = await import("/src/state/definitions.ts");
+        projectIsLoading = useProjectLoading.getState().projectIsLoading;
+      } catch {
+        projectIsLoading = null;
+      }
+      return {
+        canaryRootMounted: document.querySelector(canarySelector) !== null,
+        legacyPaneMounted: document.querySelector(readySelector) !== null,
+        projectIsLoading,
+      };
+    },
+    {
+      canarySelector: CANARY_READY_SELECTOR,
+      readySelector: READY_SELECTOR,
+    },
+  );
 }
 
 async function navigateToDefaultProject(page: Page): Promise<void> {

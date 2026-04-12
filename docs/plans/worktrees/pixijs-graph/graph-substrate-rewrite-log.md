@@ -218,6 +218,56 @@ LOOP_TERMINAL_MARKER: none
 - canonical live readout versus item `467`:
   - `averageFrameDurationMs` `43.02 -> 41.29`
   - `longTaskTotalDurationMs` `1221 -> 1162`
+
+## 2026-04-15 06:28 UTC
+
+- Item: Fix the shared Playwright readiness helper so the canonical live
+  worktree probe recognizes the canary graph surface instead of stalling on
+  legacy-pane-only readiness.
+- Status: `done`
+- Details:
+  - Re-read `RALPH.md`, the rewrite plan, and the durable handoff before
+    selecting the next slice.
+  - The last two iterations had already spent their budget on runtime/probe
+    recovery, so this pass pivoted directly into the repeated blocker instead
+    of taking another product perf hypothesis.
+  - Updated `frontend/tests/e2e/helpers.ts` so `ensureAppReady(...)` no longer
+    waits only on `.react-flow__pane`; it now treats either the legacy pane or
+    `[data-testid="graph-substrate-canary"]` with
+    `projectIsLoading === false` as ready, and it logs that snapshot when the
+    helper still fails.
+  - Added `frontend/src/tests/e2eHelpersReady.test.ts` to lock the readiness
+    predicate across four cases:
+    legacy ready, canary ready, loading still active, and no surface mounted.
+  - The canonical live probe moved forward materially:
+    - before this change, the probe failed inside `ensureAppReady(...)` while
+      sitting on `/trout_fair`
+    - after this change, the same probe reached normalized direct-open
+      progress through `surface_ready`
+    - the next failure boundary is now later in
+      `applyProjectStateUpdate(...)` at
+      `frontend/tests/e2e/settings/settings-view-modes.spec.ts:6485`
+  - CDP visual gate:
+    - not run in this session because no callable Chrome DevTools MCP tool path
+      was exposed to the agent; `list_mcp_resources` and
+      `list_mcp_resource_templates` were both empty here
+- Verification:
+  - `pnpm -C frontend exec vitest run src/tests/e2eHelpersReady.test.ts`
+    - result: passed (`1` file, `4` tests)
+  - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts src/tests/e2eHelpersReady.test.ts`
+    - result: passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-007/worktree-ai.log`
+    - result: failed later than before
+    - note:
+      - `ensureAppReady(...)` no longer failed
+      - direct-open progress reached `surface_ready`
+      - timeout moved to `applyProjectStateUpdate(...)`
+- Next action:
+  - inspect the new `applyProjectStateUpdate(...)` timeout on the canonical
+    `rotaryParamCodeObjDefault` lane now that the readiness/auth misread is
+    closed, and keep the next slice tightly scoped to that later-stage blocker.
+
+LOOP_TERMINAL_MARKER: none
   - `presentedSceneSectionParamGroupContainerReactRender`
     `521.5ms -> 530.0ms`
   - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
