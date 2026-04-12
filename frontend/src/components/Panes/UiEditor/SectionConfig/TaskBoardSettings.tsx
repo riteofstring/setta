@@ -1,6 +1,4 @@
 import _ from "lodash";
-import { setTaskBoardSectionState } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useMemo } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -10,13 +8,19 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { route_set_task_board_section_state } from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
-  TaskBoardUIConfig,
   TaskBoardViewMode,
+  TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
 import { normalizeTaskBoardState } from "utils/taskBoard";
-const VIEW_MODE_OPTIONS = TaskBoardUIConfig.viewModeOptions;
+
+const VIEW_MODE_OPTIONS: Array<{ value: TaskBoardViewMode; label: string }> = [
+  { value: TaskBoardViewModeEnum.task_list, label: "Task List" },
+  { value: TaskBoardViewModeEnum.kanban, label: "Kanban" },
+];
+
 export function TaskBoardSettings({ sectionId }: { sectionId: string }) {
   const { canEditLayout } = useShareCapabilities();
   const { viewMode, columns, tasks, isFrozen } = useProjectState((state) => {
@@ -32,11 +36,13 @@ export function TaskBoardSettings({ sectionId }: { sectionId: string }) {
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
+
   const isDisabled = isFrozen || !canEditLayout;
   const normalized = useMemo(
     () => normalizeTaskBoardState({ viewMode, columns, tasks }),
     [viewMode, columns, tasks],
   );
+
   function persist(nextViewMode: TaskBoardViewMode) {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -47,20 +53,17 @@ export function TaskBoardSettings({ sectionId }: { sectionId: string }) {
         });
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setTaskBoardSectionState({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              viewMode: nextViewMode,
-              columns: normalized.columns,
-              tasks: normalized.tasks,
-              frontendOpId,
-            },
-          } as Parameters<typeof setTaskBoardSectionState>[0]),
-        ),
+        route_set_task_board_section_state({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          viewMode: nextViewMode,
+          columns: normalized.columns,
+          tasks: normalized.tasks,
+          frontendOpId,
+        }),
     });
   }
+
   return (
     <div className="flex flex-col gap-2 rounded-md border border-setta-200/70 p-2 dark:border-setta-700/70">
       <p className="text-xs font-bold text-setta-700 dark:text-setta-300">

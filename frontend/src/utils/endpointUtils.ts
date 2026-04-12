@@ -1,108 +1,285 @@
-import type { ResponseDataAndStatus } from "./requestTransport";
+import { useServerMode, useShareSession } from "state/definitions";
+import { C_ADDRESSES } from "./c_addresses";
+import {
+  ENDPOINT_ORIGIN_POLICY,
+  resolveEndpointOriginForMode,
+  type EndpointOriginPolicy,
+} from "./serverModeBoundaryPolicy";
 
-export type { ResponseDataAndStatus } from "./requestTransport";
+export { ENDPOINT_ORIGIN_POLICY };
+
+export type ResponseDataAndStatus<T> = {
+  data: T | undefined;
+  status: number | undefined;
+  hasResponse: boolean;
+};
+
 export function res200<T>(
   res: ResponseDataAndStatus<T>,
 ): res is ResponseDataAndStatus<T> & { data: T; status: number } {
   return res.status === 200;
 }
 
-const ERROR_DETAIL_PATHS = [
-  ["message"],
-  ["detail"],
-  ["detail", "message"],
-  ["detail", "detail"],
-  ["error", "message"],
-  ["error", "detail"],
-] as const;
-
-const ERROR_CODE_PATHS = [
-  ["errorCode"],
-  ["error", "code"],
-  ["error", "errorCode"],
-  ["detail", "errorCode"],
-] as const;
-
-type NormalizedErrorPayload = {
-  payload: unknown;
-  decodedText: string | null;
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object";
-}
-
-function normalizeErrorPayload(value: unknown): NormalizedErrorPayload {
+export function getErrorDetail(value: unknown): string | null {
   if (!value) {
-    return { payload: null, decodedText: null };
+    return null;
   }
-  if (!(value instanceof Uint8Array)) {
-    return { payload: value, decodedText: null };
-  }
-
-  const decodedText = new TextDecoder().decode(value).trim();
-  if (decodedText.length === 0) {
-    return { payload: null, decodedText: null };
-  }
-  try {
-    return { payload: JSON.parse(decodedText) as unknown, decodedText };
-  } catch {
-    return { payload: null, decodedText };
-  }
-}
-
-function getValueAtPath(
-  value: unknown,
-  path: readonly string[],
-): unknown | null {
-  let current: unknown = value;
-  for (const segment of path) {
-    if (!isRecord(current)) {
+  if (value instanceof Uint8Array) {
+    const decoded = new TextDecoder().decode(value).trim();
+    if (decoded.length === 0) {
       return null;
     }
-    current = current[segment];
+    try {
+      const parsed = JSON.parse(decoded) as unknown;
+      return getErrorDetail(parsed) ?? decoded;
+    } catch {
+      return decoded;
+    }
   }
-  return current;
-}
-
-function getStringAtPath(
-  value: unknown,
-  path: readonly string[],
-  requireNonEmpty: boolean,
-): string | null {
-  const candidate = getValueAtPath(value, path);
-  if (typeof candidate !== "string") {
-    return null;
+  if (typeof value === "string") {
+    return value;
   }
-  if (requireNonEmpty && candidate.trim().length === 0) {
-    return null;
-  }
-  return candidate;
-}
-
-function findStringAtPaths(
-  value: unknown,
-  paths: readonly (readonly string[])[],
-  requireNonEmpty: boolean,
-): string | null {
-  for (const path of paths) {
-    const candidate = getStringAtPath(value, path, requireNonEmpty);
-    if (candidate !== null) {
-      return candidate;
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const message = record.message;
+    if (typeof message === "string") {
+      return message;
+    }
+    const detail = record.detail;
+    if (typeof detail === "string") {
+      return detail;
+    }
+    if (detail && typeof detail === "object") {
+      const nested = detail as Record<string, unknown>;
+      const nestedMessage = nested.message;
+      if (typeof nestedMessage === "string") {
+        return nestedMessage;
+      }
+      const nestedDetail = nested.detail;
+      if (typeof nestedDetail === "string") {
+        return nestedDetail;
+      }
     }
   }
   return null;
 }
 
-export function getErrorDetail(value: unknown): string | null {
-  const { payload, decodedText } = normalizeErrorPayload(value);
-  if (typeof payload === "string") {
-    return payload;
+export function getErrorCode(value: unknown): string | null {
+  if (!value) {
+    return null;
   }
-  return findStringAtPaths(payload, ERROR_DETAIL_PATHS, false) ?? decodedText;
+  if (value instanceof Uint8Array) {
+    const decoded = new TextDecoder().decode(value).trim();
+    if (decoded.length === 0) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(decoded) as unknown;
+      return getErrorCode(parsed);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const errorCode = record.errorCode;
+    if (typeof errorCode === "string" && errorCode.trim().length > 0) {
+      return errorCode;
+    }
+    const detail = record.detail;
+    if (detail && typeof detail === "object") {
+      const nested = detail as Record<string, unknown>;
+      const nestedErrorCode = nested.errorCode;
+      if (
+        typeof nestedErrorCode === "string" &&
+        nestedErrorCode.trim().length > 0
+      ) {
+        return nestedErrorCode;
+      }
+    }
+  }
+  return null;
 }
 
-export function getErrorCode(value: unknown): string | null {
-  const { payload } = normalizeErrorPayload(value);
-  return findStringAtPaths(payload, ERROR_CODE_PATHS, true);
+export function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
+  return resolveEndpointOriginForMode(address, useServerMode.getState().mode);
+}
+
+function resolveBackendUrl(address: string): string {
+  const originPolicy = resolveEndpointOrigin(address);
+  if (originPolicy === "backend-origin") {
+    return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
+  }
+  if (originPolicy === "launcher") {
+    return `${C_ADDRESSES.LAUNCHER}${address}`;
+  }
+  return `${C_ADDRESSES.BACKEND}${address}`;
+}
+
+function buildShareSessionHeaders(): Record<string, string> {
+  const shareSession = useShareSession.getState();
+  if (!shareSession.isDeploymentMode || !shareSession.shareSessionId) {
+    return {};
+  }
+  return { "X-Share-Session-Id": shareSession.shareSessionId };
+}
+
+async function parseResponse<T>(response: Response): Promise<T | undefined> {
+  if (response.status === 204) {
+    return undefined;
+  }
+  const contentType = response.headers.get("content-type") ?? "";
+  const isJson =
+    contentType.includes("application/json") || contentType.includes("+json");
+  if (isJson) {
+    return (await response.json()) as T;
+  }
+  const isText =
+    contentType.startsWith("text/") || contentType.includes("charset=");
+  if (!contentType || isText) {
+    return (await response.text()) as T;
+  }
+  return new Uint8Array(await response.arrayBuffer()) as T;
+}
+
+async function parseBinaryResponse(
+  response: Response,
+): Promise<unknown | undefined> {
+  if (response.status === 204) {
+    return undefined;
+  }
+  if (response.ok) {
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  return await parseResponse<unknown>(response);
+}
+
+export function replaceAddressParams(
+  address: string,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): string {
+  if (!addressParams) return address;
+
+  let output = address;
+  for (const [key, value] of Object.entries(addressParams)) {
+    const regex = new RegExp(`\\{${key}\\}`, "g");
+    output = output.replace(regex, String(value));
+  }
+  return output;
+}
+
+function buildAddressWithParams(
+  address: string,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): string {
+  if (!addressParams) {
+    return address;
+  }
+
+  const pathParamMatches = Array.from(address.matchAll(/\{([^}]+)\}/g));
+  const pathParamKeys = new Set(pathParamMatches.map((match) => match[1]));
+  const pathParams: Record<
+    string,
+    string | number | boolean | null | undefined
+  > = {};
+  const queryParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(addressParams)) {
+    if (pathParamKeys.has(key)) {
+      pathParams[key] = value;
+      continue;
+    }
+    if (value === null || value === undefined) {
+      continue;
+    }
+    queryParams.append(key, String(value));
+  }
+
+  const pathAddress = replaceAddressParams(address, pathParams);
+  const encodedQuery = queryParams.toString();
+  if (encodedQuery.length === 0) {
+    return pathAddress;
+  }
+  const joiner = pathAddress.includes("?") ? "&" : "?";
+  return `${pathAddress}${joiner}${encodedQuery}`;
+}
+
+export async function get<T>(
+  address: string,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): Promise<ResponseDataAndStatus<T>> {
+  const fullAddress = buildAddressWithParams(address, addressParams);
+  try {
+    const shareHeaders = buildShareSessionHeaders();
+    const response = await fetch(resolveBackendUrl(fullAddress), {
+      credentials: "include",
+      headers: shareHeaders,
+    });
+    return {
+      data: await parseResponse<T>(response),
+      status: response.status,
+      hasResponse: true,
+    };
+  } catch (error) {
+    console.error("GET error:", error);
+    return { data: undefined, status: undefined, hasResponse: false };
+  }
+}
+
+export async function getBinary(
+  address: string,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): Promise<ResponseDataAndStatus<Uint8Array>> {
+  const fullAddress = buildAddressWithParams(address, addressParams);
+  try {
+    const shareHeaders = buildShareSessionHeaders();
+    const response = await fetch(resolveBackendUrl(fullAddress), {
+      credentials: "include",
+      headers: shareHeaders,
+    });
+    const parsed = await parseBinaryResponse(response);
+    return {
+      data: parsed as Uint8Array | undefined,
+      status: response.status,
+      hasResponse: true,
+    };
+  } catch (error) {
+    console.error("GET error:", error);
+    return { data: undefined, status: undefined, hasResponse: false };
+  }
+}
+
+export async function post<T>(
+  address: string,
+  body: unknown | null = null,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): Promise<ResponseDataAndStatus<T>> {
+  const fullAddress = buildAddressWithParams(address, addressParams);
+  try {
+    const shareHeaders = buildShareSessionHeaders();
+    const isFormData = body instanceof FormData;
+    let requestBody: BodyInit | null = null;
+    if (body !== null) {
+      requestBody = isFormData ? body : JSON.stringify(body);
+    }
+    const response = await fetch(resolveBackendUrl(fullAddress), {
+      method: "POST",
+      credentials: "include",
+      headers: isFormData
+        ? shareHeaders
+        : {
+            "Content-Type": "application/json",
+            ...shareHeaders,
+          },
+      body: requestBody,
+    });
+    return {
+      data: await parseResponse<T>(response),
+      status: response.status,
+      hasResponse: true,
+    };
+  } catch (error) {
+    console.error("POST error:", error);
+    return { data: undefined, status: undefined, hasResponse: false };
+  }
 }
