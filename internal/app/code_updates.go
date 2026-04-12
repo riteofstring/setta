@@ -63,41 +63,96 @@ func (s *codeUpdateService) SetCode(ctx context.Context, projectID string, secti
 	}
 
 	signatureObserver := newWatchCodeSignatureObserver(s.callableSignatures)
+	snapshot, needsProjectTypeCheck, err := s.setCodeSnapshot(
+		ctx,
+		projectID,
+		sectionID,
+		code,
+		signatureObserver,
+	)
+	if err != nil {
+		return err
+	}
+	return s.finishCodeUpdate(
+		ctx,
+		snapshot,
+		projectID,
+		needsProjectTypeCheck,
+		signatureObserver.Attempts(),
+	)
+}
+
+func (s *codeUpdateService) setCodeSnapshot(
+	ctx context.Context,
+	projectID string,
+	sectionID string,
+	code string,
+	signatureObserver *watchCodeSignatureObserver,
+) (projectstate.Snapshot, bool, error) {
 	needsProjectTypeCheck := false
 	snapshot, err := s.projectState.MutateAndSaveReconcilePythonGeneratedSections(
 		ctx,
 		[]string{projectID},
 		func(document projectstate.Document) (projectstate.Document, error) {
-			if err := document.SetCode(projectID, sectionID, code); err != nil {
-				return document, err
-			}
-
-			boundSection, ok, err := document.ResolveWatchCodeBoundSection(projectID, sectionID, s.workspaceRoot)
-			if err != nil || !ok {
-				return document, err
-			}
-
-			if s.lspSync != nil {
-				if err := s.lspSync.SyncWatchCodeBoundSection(ctx, boundSection); err != nil {
-					return document, err
-				}
-			}
-			if _, err := document.ApplyWatchCodeBoundSectionUpdate(
+			updatedDocument, updatedNeedsTypeCheck, err := s.applySetCodeUpdate(
 				ctx,
+				document,
 				projectID,
 				sectionID,
-				s.workspaceRoot,
+				code,
 				signatureObserver,
-			); err != nil {
+			)
+			if err != nil {
 				return document, err
 			}
-			needsProjectTypeCheck = true
-			return document, nil
+			needsProjectTypeCheck = updatedNeedsTypeCheck
+			return updatedDocument, nil
 		},
 	)
 	if err != nil {
-		return err
+		return projectstate.Snapshot{}, false, err
 	}
+	return snapshot, needsProjectTypeCheck, nil
+}
+
+func (s *codeUpdateService) applySetCodeUpdate(
+	ctx context.Context,
+	document projectstate.Document,
+	projectID string,
+	sectionID string,
+	code string,
+	signatureObserver *watchCodeSignatureObserver,
+) (projectstate.Document, bool, error) {
+	if err := document.SetCode(projectID, sectionID, code); err != nil {
+		return document, false, err
+	}
+
+	boundSection, ok, err := document.ResolveWatchCodeBoundSection(projectID, sectionID, s.workspaceRoot)
+	if err != nil || !ok {
+		return document, false, err
+	}
+	if err := s.syncBoundCodeSection(ctx, boundSection); err != nil {
+		return document, false, err
+	}
+	if _, err := document.ApplyWatchCodeBoundSectionUpdate(
+		ctx,
+		projectID,
+		sectionID,
+		s.workspaceRoot,
+		signatureObserver,
+	); err != nil {
+		return document, false, err
+	}
+	return document, true, nil
+}
+
+func (s *codeUpdateService) finishCodeUpdate(
+	ctx context.Context,
+	snapshot projectstate.Snapshot,
+	projectID string,
+	needsProjectTypeCheck bool,
+	attempts map[string]projectstate.SignatureHelpStatus,
+) error {
 	if needsProjectTypeCheck {
 		if err := s.typeCheckProjects(ctx, snapshot.Document, []string{projectID}); err != nil {
 			return err
@@ -106,8 +161,7 @@ func (s *codeUpdateService) SetCode(ctx context.Context, projectID string, secti
 	if err := s.broadcastProjectStateUpdates(ctx, snapshot, []string{projectID}); err != nil {
 		return err
 	}
-
-	return s.broadcastWatchCodeWarnings(ctx, snapshot.Document, []string{projectID}, signatureObserver.Attempts())
+	return s.broadcastWatchCodeWarnings(ctx, snapshot.Document, []string{projectID}, attempts)
 }
 
 func (s *codeUpdateService) FormatCode(ctx context.Context, projectID string, sectionID string) error {

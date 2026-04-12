@@ -32,23 +32,44 @@ type pluginBackendMCPRuntimeOptions struct {
 }
 
 func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRuntimeOptions) (*pluginBackendMCPRuntime, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
 	runtime := &pluginBackendMCPRuntime{
 		serverIDs:     map[string]struct{}{},
 		registrations: []mcpx.ToolRegistration{},
 		toolNames:     []string{},
 	}
+	serverConfigs, err := runtime.buildServerConfigs(
+		options.Snapshot,
+		filepath.Join(strings.TrimSpace(options.RuntimeRoot), pluginBackendBuildRootName),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(serverConfigs) == 0 {
+		return runtime, nil
+	}
 
+	client, registrations, toolNames, err := startPluginBackendMCPClient(
+		pluginBackendMCPContext(ctx),
+		options.Logger,
+		serverConfigs,
+		runtime.serverIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	runtime.client = client
+	runtime.registrations = registrations
+	runtime.toolNames = toolNames
+	return runtime, nil
+}
+
+func (r *pluginBackendMCPRuntime) buildServerConfigs(
+	snapshot plugins.DiscoverySnapshot,
+	buildRoot string,
+) (map[string]mcpx.ServerConfig, error) {
 	serverConfigs := map[string]mcpx.ServerConfig{}
-	buildRoot := filepath.Join(strings.TrimSpace(options.RuntimeRoot), pluginBackendBuildRootName)
-	for _, entry := range options.Snapshot.Plugins {
-		if entry.State != plugins.PluginRuntimeStateActive || !entry.HasBackend() || entry.Manifest == nil {
-			continue
-		}
-		if !containsPluginCapability(entry.EffectiveCapabilities, "registerMcpTools") {
+	for _, entry := range snapshot.Plugins {
+		if !pluginBackendEntryRegistersTools(entry) {
 			continue
 		}
 
@@ -62,14 +83,19 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 			Command:   executablePath,
 			CWD:       entry.SourcePath,
 		}
-		runtime.serverIDs[serverID] = struct{}{}
+		r.serverIDs[serverID] = struct{}{}
 	}
-	if len(serverConfigs) == 0 {
-		return runtime, nil
-	}
+	return serverConfigs, nil
+}
 
+func startPluginBackendMCPClient(
+	ctx context.Context,
+	logger *slog.Logger,
+	serverConfigs map[string]mcpx.ServerConfig,
+	serverIDs map[string]struct{},
+) (*mcpx.Client, []mcpx.ToolRegistration, []string, error) {
 	client, err := mcpx.NewClient(mcpx.ClientOptions{
-		Logger:            options.Logger,
+		Logger:            logger,
 		Servers:           serverConfigs,
 		RetryDelay:        50 * time.Millisecond,
 		ReconnectWait:     250 * time.Millisecond,
@@ -77,27 +103,49 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 		HTTPConnectWait:   time.Second,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	runtime.client = client
 	client.Start(ctx)
-
 	waitCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := waitForPluginBackendMCPServers(waitCtx, client, runtime.serverIDs); err != nil {
-		_ = client.Close(context.Background())
-		return nil, err
-	}
 
-	descriptors := client.ToolDescriptorsForServers(runtime.serverIDs)
-	registrations, toolNames, err := buildPluginBackendMCPRegistrations(client, descriptors)
+	registrations, toolNames, err := initializePluginBackendMCPClient(waitCtx, client, serverIDs)
 	if err != nil {
 		_ = client.Close(context.Background())
-		return nil, err
+		return nil, nil, nil, err
 	}
-	runtime.registrations = registrations
-	runtime.toolNames = toolNames
-	return runtime, nil
+	return client, registrations, toolNames, nil
+}
+
+func initializePluginBackendMCPClient(
+	ctx context.Context,
+	client *mcpx.Client,
+	serverIDs map[string]struct{},
+) ([]mcpx.ToolRegistration, []string, error) {
+	if err := waitForPluginBackendMCPServers(ctx, client, serverIDs); err != nil {
+		return nil, nil, err
+	}
+
+	descriptors := client.ToolDescriptorsForServers(serverIDs)
+	registrations, toolNames, err := buildPluginBackendMCPRegistrations(client, descriptors)
+	if err != nil {
+		return nil, nil, err
+	}
+	return registrations, toolNames, nil
+}
+
+func pluginBackendMCPContext(ctx context.Context) context.Context {
+	if ctx != nil {
+		return ctx
+	}
+	return context.Background()
+}
+
+func pluginBackendEntryRegistersTools(entry plugins.DiscoveredPlugin) bool {
+	if entry.State != plugins.PluginRuntimeStateActive || !entry.HasBackend() || entry.Manifest == nil {
+		return false
+	}
+	return containsPluginCapability(entry.EffectiveCapabilities, "registerMcpTools")
 }
 
 func (r *pluginBackendMCPRuntime) Close(ctx context.Context) error {
