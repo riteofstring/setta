@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 14:20 UTC
+Last updated: 2026-04-13 14:30 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,78 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `433` landed one bounded production slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by narrowing `ParamSwitch` row and
+  `ParamContainer` selector subscriptions to the fields those layers actually
+  render:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and kept the work on the same
+      named lane instead of opening another oracle-only or harness-only pass
+    - chose one row-level production hypothesis by removing full section/param
+      impl subscriptions from `ParamSwitch` and `ParamContainer`, since item
+      `432` had already closed `GetParamSwitch` as a non-winning row-adjacent
+      hypothesis
+    - kept the slice bounded to two component selector narrowings, one focused
+      profiler regression file, one live worktree probe rerun, one perf note,
+      and one fresh-context headless CDP smoke check
+  - code changed in:
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+      so `RealParamSwitch` now subscribes through one shallow snapshot of
+      `selectedParams.includes(paramInfoId)`, `coreNameEditable`, and nested
+      child ids instead of subscribing to the full section impl and full param
+      impl
+    - `frontend/src/components/Params/ParamContainer.tsx`
+      so tooltip/name state now subscribes to shallow primitive outputs
+      (`description`, resolved label text) instead of the full param core and
+      full param impl
+    - `frontend/src/components/Params/ParamSwitch.test.tsx`
+      with focused profiler coverage proving a mounted param row stays out of
+      unrelated section/code-object commits while still rerendering on actual
+      selection-state changes
+    - `perf/reports/frontend/2026-04-13_settings-graph-param-switch-row-selector-narrowing.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Params/GetParamSwitch.test.tsx`
+      -> passed (`2` files, `6` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamSwitch.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-002/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.5m`)
+      -> direct-open phase sequence on the worktree:
+         `92ms app_router_loading` -> `2267ms settings_loading` ->
+         `3394ms app_shell_without_surface` -> `6195ms project_loading` ->
+         `18265ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+      -> lane readout on this run:
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `519.2ms` total / `67.9ms` max,
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `555.2ms` total / `69.4ms` max,
+         `presentedSceneSectionParamDndListDuplicateIndexResolve`
+         `3.6ms` total / `0.6ms` max
+    - fresh-context headless CDP smoke check on the authenticated bootstrap URL
+      -> passed
+      -> `All Settings` loaded, the settings graph canary mounted, the visible
+         graph surface looked intact, the `rotaryParamCodeObjDefault` row was
+         selected, and the sub-agent reported no console errors beyond one
+         software-WebGL deprecation warning
+  - reading:
+    - this was another non-winning production hypothesis on the canonical lane;
+      the immediate row owner stayed `presentedSceneSectionParamDndListRowsReactRender`
+    - keep the selector narrowing because the mounted row now avoids unrelated
+      section/code-object commits under focused regression coverage
+    - close `ParamSwitch` / `ParamContainer` broad-selector narrowing as the
+      current hotspot answer until fresh owner traces point back here
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - take one bounded production or attribution slice inside one immediate
+      row sub-owner on the same canonical lane, likely `ParamNameInput`,
+      `ParamTextLabel`, `ParamInput`, or another direct child of
+      `ParamSwitch`; do not spend another default pass on `GetParamSwitch` or
+      `ParamSwitch` / `ParamContainer` broad-selector cleanup unless fresh
+      evidence points back there
 
 - item `432` landed one bounded production slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by removing the broad project-state

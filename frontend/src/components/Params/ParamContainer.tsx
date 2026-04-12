@@ -7,6 +7,7 @@ import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
@@ -37,32 +38,24 @@ function _ParamContainer({
   dndClassName,
   listKey,
 }) {
-  const codeObjImpl = useProjectState((x) =>
-    getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId),
-  );
-  const paramCore = useProjectState((x) => x.codeObjs[paramInfoId]);
-  const showParamDisplayNames = useProjectState(
-    (x) => x.projectConfig.showParamDisplayNames,
-  );
-  const paramDescription = codeObjImpl.description;
-  const paramName = React.useMemo(() => {
-    if (!showParamDisplayNames) {
-      return paramCore.name;
-    }
-    if (isBaseParamCodeObjImpl(codeObjImpl) && codeObjImpl.coreNameEditable) {
-      return paramCore.name;
-    }
+  const { paramDescription, paramName } = useProjectState((state) => {
+    const codeObjImpl = getCurrEffectiveCodeObjImpl(
+      state,
+      sectionId,
+      paramInfoId,
+    );
+    const paramCore = state.codeObjs[paramInfoId];
     const trimmedDisplayName = paramCore.displayName.trim();
-    if (trimmedDisplayName.length > 0) {
-      return paramCore.displayName;
-    }
-    return paramCore.name;
-  }, [
-    codeObjImpl,
-    paramCore.displayName,
-    paramCore.name,
-    showParamDisplayNames,
-  ]);
+    const useDisplayName =
+      state.projectConfig.showParamDisplayNames &&
+      !(isBaseParamCodeObjImpl(codeObjImpl) && codeObjImpl.coreNameEditable) &&
+      trimmedDisplayName.length > 0;
+
+    return {
+      paramDescription: codeObjImpl.description,
+      paramName: useDisplayName ? paramCore.displayName : paramCore.name,
+    };
+  }, shallow);
 
   const columnWidth = "var(--param-column-width, 200px)";
 

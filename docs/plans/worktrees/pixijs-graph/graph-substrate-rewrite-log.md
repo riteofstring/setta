@@ -1900,6 +1900,46 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 14:30 UTC
+
+- Ralph item `433` completed one bounded production slice on the canonical
+  `rotaryParamCodeObjDefault` lane by narrowing `ParamSwitch` row and
+  `ParamContainer` subscriptions to the concrete fields those layers render
+- code changed in:
+  - `frontend/src/components/Params/ParamSwitch.tsx`
+  - `frontend/src/components/Params/ParamContainer.tsx`
+  - `frontend/src/components/Params/ParamSwitch.test.tsx`
+  - `perf/reports/frontend/2026-04-13_settings-graph-param-switch-row-selector-narrowing.md`
+  - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Params/GetParamSwitch.test.tsx`
+    -> pass (`2` files, `6` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamSwitch.test.tsx`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-002/worktree-ai.log`
+    -> pass (`1` Playwright test, `1.5m`)
+    -> direct-open phases: `92ms app_router_loading` -> `2267ms settings_loading` -> `3394ms app_shell_without_surface` -> `6195ms project_loading` -> `18265ms surface_ready`
+    -> canonical target `rotaryParamCodeObjDefault`
+    -> dominant owner still `presentedSceneSectionSubtreeReactRender`
+    -> row lane readout:
+       `presentedSceneSectionParamDndListRowsReactRender` `519.2ms` total / `67.9ms` max
+       `presentedSceneSectionParamGroupUnpinnedParamsReactRender` `555.2ms` total / `69.4ms` max
+       `presentedSceneSectionParamDndListDuplicateIndexResolve` `3.6ms` total / `0.6ms` max
+  - fresh-context headless CDP smoke check on the authenticated bootstrap URL
+    -> pass
+    -> `All Settings` mounted with the graph canary visible, the
+       `rotaryParamCodeObjDefault` row selected, and no console errors beyond
+       one software-WebGL deprecation warning
+- reading:
+  - the row/container selector narrowing is another non-winning hotspot
+    hypothesis on this lane; keep it for correctness and narrower rerender
+    scope, but close it as the current hotspot answer
+  - next frontier is one bounded production or attribution slice inside an
+    immediate row sub-owner such as `ParamNameInput`, `ParamTextLabel`, or
+    `ParamInput`
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 05:13 UTC
 
 - progress review for loop `001` runs `011` through `020`:

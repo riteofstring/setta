@@ -29,6 +29,7 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
@@ -55,6 +56,8 @@ type TempParamPlaceholderRowProps = TempParamPlaceholderShellProps & {
   placeholderHeight: number | null;
   placeholderWidth: number | null;
 };
+
+const EMPTY_PARAM_CHILDREN: string[] = [];
 
 function _ParamSwitch(props: ParamSwitchProps) {
   if (isTempParam(props.paramInfoId)) {
@@ -196,25 +199,29 @@ function RealParamSwitch(props: ParamSwitchProps) {
     };
   }, _.isEqual);
 
-  const paramsImpl = useProjectState((x) =>
-    getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    ),
-  );
-  const codeObjImpl = useProjectState((x) =>
-    getCurrEffectiveCodeObjImplWithTypeGuard(
-      x,
-      sectionId,
-      paramInfoId,
-      isBaseParamCodeObjImpl,
-    ),
-  );
-  const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
-  const paramIsSelected = paramsImpl.selectedParams.includes(paramInfoId);
-  const isKwarg = codeObjImpl.coreNameEditable;
-  const paramChildren = isNestedParam ? codeObjImpl.children : [];
+  const { isNestedParam, paramChildren, paramIsSelected, isKwarg } =
+    useProjectState((state) => {
+      const paramsImpl = getCurrEffectiveSectionImplWithTypeGuard(
+        state,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+        state,
+        sectionId,
+        paramInfoId,
+        isBaseParamCodeObjImpl,
+      );
+      const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
+      return {
+        isNestedParam,
+        paramChildren: isNestedParam
+          ? codeObjImpl.children
+          : EMPTY_PARAM_CHILDREN,
+        paramIsSelected: paramsImpl.selectedParams.includes(paramInfoId),
+        isKwarg: codeObjImpl.coreNameEditable,
+      };
+    }, shallow);
 
   const hasChildren = paramChildren.length > 0;
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
