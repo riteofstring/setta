@@ -63,3 +63,4 @@ backend/setta/vendor/node/
 .claude
 tmp/
 /.gocache/
+/reports/deadcode/

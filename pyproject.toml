@@ -39,6 +39,7 @@ source = [
 dev = [
     # Repo-only test, release, and auxiliary script tooling.
     "build==1.0.3",
+    "coverage==7.10.6",
     "pip-audit==2.9.0",
     "pyyaml==6.0.2",
     "pytest==8.3.3",
@@ -46,6 +47,7 @@ dev = [
     "python-dotenv==1.1.0",
     "twine==6.1.0",
     "ty==0.0.26",
+    "vulture==2.14",
     "watchdog==6.0.0",
 ]
 
