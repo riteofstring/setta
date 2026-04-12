@@ -19,7 +19,7 @@ export function buildParamAreaMeasureKey({
   return `${paramIds.join("|")}::${widthKey}::${columnKey}`;
 }
 
-export function getRepresentativeRowHeight(rowHeights: number[]): number {
+function getRepresentativeRowHeight(rowHeights: number[]): number {
   const valid = rowHeights
     .filter((height) => Number.isFinite(height) && height > 0)
     .sort((a, b) => a - b);
