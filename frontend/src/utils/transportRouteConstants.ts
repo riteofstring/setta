@@ -10,25 +10,7 @@ export const WEBSOCKET_TRANSPORT_ROUTES = Object.freeze(
   TRANSPORT_ROUTES.websocket,
 );
 
-export const SERVER_MODE_BOUNDARY_ROUTES = Object.freeze(
-  TRANSPORT_ROUTES.serverModeBoundary,
-);
-
-export const STATUS_TRANSPORT_ROUTES = Object.freeze(TRANSPORT_ROUTES.status);
-
-export const LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES = Object.freeze(
-  TRANSPORT_ROUTES.launcherManagement,
-);
-
-export const FILE_BROWSER_TRANSPORT_ROUTES = Object.freeze(
-  TRANSPORT_ROUTES.fileBrowser,
-);
-
-export const BINARY_TRANSPORT_ROUTES = Object.freeze(TRANSPORT_ROUTES.binary);
-
-export const SETTA_API_PRESET_ROUTES = Object.freeze(
-  TRANSPORT_ROUTES.settaApiPresets,
-);
+const BINARY_TRANSPORT_ROUTES = Object.freeze(TRANSPORT_ROUTES.binary);
 
 function replaceTransportRoutePathParams(
   routePath: string,

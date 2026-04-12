@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { useServerMode } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
+import { TransportRouteConstants } from "./generatedTypes";
 import {
   ROOT_TRANSPORT_ROUTES,
-  SERVER_MODE_BOUNDARY_ROUTES,
   WEBSOCKET_TRANSPORT_ROUTES,
 } from "./transportRouteConstants";
 import {
@@ -29,7 +29,9 @@ describe("transportUrlCore", () => {
     });
 
     const url = new URL(
-      buildBackendURL(SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces),
+      buildBackendURL(
+        TransportRouteConstants.serverModeBoundary.getLauncherRecentWorkspaces,
+      ),
     );
 
     expect(url.origin).toBe(new URL(C_ADDRESSES.LAUNCHER).origin);

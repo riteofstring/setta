@@ -2,14 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useServerMode } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
+import { TransportRouteConstants } from "./generatedTypes";
 import { post } from "./requestTransport";
-import {
-  BINARY_TRANSPORT_ROUTES,
-  LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES,
-  ROOT_TRANSPORT_ROUTES,
-  SERVER_MODE_BOUNDARY_ROUTES,
-  STATUS_TRANSPORT_ROUTES,
-} from "./transportRouteConstants";
 
 describe("requestTransport post URL routing", () => {
   const fetchMock = vi.fn();
@@ -38,31 +32,31 @@ describe("requestTransport post URL routing", () => {
   });
 
   it("routes revealPathInOsFileExplorer via backend origin", async () => {
-    await post(STATUS_TRANSPORT_ROUTES.revealPathInOsFileExplorer, {
+    await post(TransportRouteConstants.status.revealPathInOsFileExplorer, {
       path: "/tmp/example",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${STATUS_TRANSPORT_ROUTES.revealPathInOsFileExplorer}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.status.revealPathInOsFileExplorer}`,
     );
   });
 
   it("routes launcher repair/update/remove via backend origin", async () => {
-    await post(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.repairLauncher, {});
-    await post(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.updateLauncher, {
+    await post(TransportRouteConstants.launcherManagement.repairLauncher, {});
+    await post(TransportRouteConstants.launcherManagement.updateLauncher, {
       packageSpec: "setta",
     });
-    await post(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.removeLauncher, {});
+    await post(TransportRouteConstants.launcherManagement.removeLauncher, {});
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.repairLauncher}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.launcherManagement.repairLauncher}`,
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.updateLauncher}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.launcherManagement.updateLauncher}`,
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.removeLauncher}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.launcherManagement.removeLauncher}`,
     );
   });
 
@@ -72,20 +66,26 @@ describe("requestTransport post URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(SERVER_MODE_BOUNDARY_ROUTES.listLauncherDirectory, {
-      path: null,
-    });
-    await post(SERVER_MODE_BOUNDARY_ROUTES.openLauncherWorkspace, {
-      workspaceRoot: "/tmp/example",
-      createIfMissing: false,
-    });
+    await post(
+      TransportRouteConstants.serverModeBoundary.listLauncherDirectory,
+      {
+        path: null,
+      },
+    );
+    await post(
+      TransportRouteConstants.serverModeBoundary.openLauncherWorkspace,
+      {
+        workspaceRoot: "/tmp/example",
+        createIfMissing: false,
+      },
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.listLauncherDirectory}`,
+      `${C_ADDRESSES.LAUNCHER}${TransportRouteConstants.serverModeBoundary.listLauncherDirectory}`,
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.openLauncherWorkspace}`,
+      `${C_ADDRESSES.LAUNCHER}${TransportRouteConstants.serverModeBoundary.openLauncherWorkspace}`,
     );
   });
 
@@ -95,13 +95,13 @@ describe("requestTransport post URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(SERVER_MODE_BOUNDARY_ROUTES.launch, {
+    await post(TransportRouteConstants.serverModeBoundary.launch, {
       workspaceRoot: "/tmp/workspace",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.serverModeBoundary.launch}`,
     );
   });
 
@@ -111,13 +111,13 @@ describe("requestTransport post URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(SERVER_MODE_BOUNDARY_ROUTES.launch, {
+    await post(TransportRouteConstants.serverModeBoundary.launch, {
       workspaceRoot: "/tmp/workspace",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
+      `${C_ADDRESSES.LAUNCHER}${TransportRouteConstants.serverModeBoundary.launch}`,
     );
   });
 
@@ -127,13 +127,13 @@ describe("requestTransport post URL routing", () => {
       modeResolved: false,
       modeError: null,
     });
-    await post(SERVER_MODE_BOUNDARY_ROUTES.launch, {
+    await post(TransportRouteConstants.serverModeBoundary.launch, {
       workspaceRoot: "/tmp/workspace",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.serverModeBoundary.launch}`,
     );
   });
 
@@ -143,14 +143,17 @@ describe("requestTransport post URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent, {
-      launchRequest: { workspaceRoot: "/tmp/workspace" },
-      returnUrl: "http://localhost/home",
-    });
+    await post(
+      TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent,
+      {
+        launchRequest: { workspaceRoot: "/tmp/workspace" },
+        returnUrl: "http://localhost/home",
+      },
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent}`,
     );
   });
 
@@ -160,14 +163,17 @@ describe("requestTransport post URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent, {
-      launchRequest: { workspaceRoot: "/tmp/workspace" },
-      returnUrl: "http://localhost/home",
-    });
+    await post(
+      TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent,
+      {
+        launchRequest: { workspaceRoot: "/tmp/workspace" },
+        returnUrl: "http://localhost/home",
+      },
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent}`,
+      `${C_ADDRESSES.LAUNCHER}${TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent}`,
     );
   });
 
@@ -179,46 +185,49 @@ describe("requestTransport post URL routing", () => {
         modeResolved: true,
         modeError: null,
       });
-      await post(SERVER_MODE_BOUNDARY_ROUTES.launch, {
+      await post(TransportRouteConstants.serverModeBoundary.launch, {
         launchIntentToken: "intent-token",
       });
-      await post(SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent, {
-        launchRequest: { workspaceRoot: "/tmp/workspace" },
-        returnUrl: "http://localhost/home",
-      });
+      await post(
+        TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent,
+        {
+          launchRequest: { workspaceRoot: "/tmp/workspace" },
+          returnUrl: "http://localhost/home",
+        },
+      );
     }
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.serverModeBoundary.launch}`,
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent}`,
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.serverModeBoundary.launch}`,
     );
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent}`,
     );
   });
 
   it("routes tools call via backend origin without /api prefix", async () => {
-    await post(ROOT_TRANSPORT_ROUTES.toolsCall, {
+    await post(TransportRouteConstants.root.toolsCall, {
       tool: "list_mcp_tools",
       arguments: {},
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND_ORIGIN}${ROOT_TRANSPORT_ROUTES.toolsCall}`,
+      `${C_ADDRESSES.BACKEND_ORIGIN}${TransportRouteConstants.root.toolsCall}`,
     );
   });
 
   it("keeps binary upload on backend origin", async () => {
-    await post(BINARY_TRANSPORT_ROUTES.upload, new FormData());
+    await post(TransportRouteConstants.binary.upload, new FormData());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${BINARY_TRANSPORT_ROUTES.upload}`,
+      `${C_ADDRESSES.BACKEND}${TransportRouteConstants.binary.upload}`,
     );
   });
 });

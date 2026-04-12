@@ -11,8 +11,7 @@ vi.mock("state/actions/sections/createSections", () => ({
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { getEmptySpacePosition } from "state/actions/sections/createSections";
 
-import { SETTA_API_PRESET_ROUTES } from "./backendTransport";
-import { SectionTypeEnum } from "./generatedTypes";
+import { SectionTypeEnum, TransportRouteConstants } from "./generatedTypes";
 import { buildSettaApiPayload, formatSettaApiBody } from "./settaApiPresets";
 
 describe("settaApiPresets", () => {
@@ -24,7 +23,9 @@ describe("settaApiPresets", () => {
   it("formats preset request bodies from live project state helpers", () => {
     expect(
       JSON.parse(
-        formatSettaApiBody(SETTA_API_PRESET_ROUTES.createTopLevelSection),
+        formatSettaApiBody(
+          TransportRouteConstants.settaApiPresets.createTopLevelSection,
+        ),
       ),
     ).toEqual({
       projectConfigId: "project-alpha",
@@ -41,7 +42,7 @@ describe("settaApiPresets", () => {
   it("merges preset defaults with user-provided overrides", () => {
     expect(
       buildSettaApiPayload(
-        SETTA_API_PRESET_ROUTES.saveProject,
+        TransportRouteConstants.settaApiPresets.saveProject,
         JSON.stringify({
           projectConfigId: "project-override",
           extra: "value",

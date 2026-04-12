@@ -4,12 +4,9 @@ import type {
   FilebrowserWriteFileContentResponse,
 } from "openapi/http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TransportRouteConstants } from "./generatedTypes";
 import { importNativeFileToWorkspace } from "./nativeFileImport";
-import {
-  API_ROUTE_PREFIX,
-  BINARY_TRANSPORT_ROUTES,
-  FILE_BROWSER_TRANSPORT_ROUTES,
-} from "./transportRouteConstants";
+import { API_ROUTE_PREFIX } from "./transportRouteConstants";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -119,7 +116,7 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.getFileBrowserRoot,
+          TransportRouteConstants.fileBrowser.getFileBrowserRoot,
         )
       ) {
         return jsonResponse(
@@ -133,12 +130,12 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.getFolderContents,
+          TransportRouteConstants.fileBrowser.getFolderContents,
         )
       ) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(input, BINARY_TRANSPORT_ROUTES.upload)) {
+      if (matchesGoHTTPRoute(input, TransportRouteConstants.binary.upload)) {
         await getRequestFormData(input, init);
         return jsonResponse({
           contentId: "content-abc",
@@ -150,7 +147,7 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.writeFileBrowserContent,
+          TransportRouteConstants.fileBrowser.writeFileBrowserContent,
         )
       ) {
         writeCallCount += 1;
@@ -189,7 +186,7 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.getFileBrowserRoot,
+          TransportRouteConstants.fileBrowser.getFileBrowserRoot,
         )
       ) {
         return jsonResponse(
@@ -203,18 +200,18 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.getFolderContents,
+          TransportRouteConstants.fileBrowser.getFolderContents,
         )
       ) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(input, BINARY_TRANSPORT_ROUTES.upload)) {
+      if (matchesGoHTTPRoute(input, TransportRouteConstants.binary.upload)) {
         return jsonResponse({ detail: "Upload denied." }, 400);
       }
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.writeFileBrowserContent,
+          TransportRouteConstants.fileBrowser.writeFileBrowserContent,
         )
       ) {
         writeCalled = true;
@@ -239,7 +236,7 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.getFileBrowserRoot,
+          TransportRouteConstants.fileBrowser.getFileBrowserRoot,
         )
       ) {
         return jsonResponse(
@@ -253,7 +250,7 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.getFolderContents,
+          TransportRouteConstants.fileBrowser.getFolderContents,
         )
       ) {
         return jsonResponse(
@@ -266,7 +263,7 @@ describe("importNativeFileToWorkspace", () => {
           ]),
         );
       }
-      if (matchesGoHTTPRoute(input, BINARY_TRANSPORT_ROUTES.upload)) {
+      if (matchesGoHTTPRoute(input, TransportRouteConstants.binary.upload)) {
         return jsonResponse({
           contentId: "content-abc",
           byteLength: 11,
@@ -277,7 +274,7 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.writeFileBrowserContent,
+          TransportRouteConstants.fileBrowser.writeFileBrowserContent,
         )
       ) {
         const payload = await getRequestJSONBody(input, init);
@@ -325,7 +322,7 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.getFileBrowserRoot,
+          TransportRouteConstants.fileBrowser.getFileBrowserRoot,
         )
       ) {
         return jsonResponse(
@@ -339,12 +336,12 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.getFolderContents,
+          TransportRouteConstants.fileBrowser.getFolderContents,
         )
       ) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(input, BINARY_TRANSPORT_ROUTES.upload)) {
+      if (matchesGoHTTPRoute(input, TransportRouteConstants.binary.upload)) {
         return jsonResponse({
           contentId: "content-abc",
           byteLength: 11,
@@ -355,7 +352,7 @@ describe("importNativeFileToWorkspace", () => {
       if (
         matchesGoHTTPRoute(
           input,
-          FILE_BROWSER_TRANSPORT_ROUTES.writeFileBrowserContent,
+          TransportRouteConstants.fileBrowser.writeFileBrowserContent,
         )
       ) {
         const payload = await getRequestJSONBody(input, init);

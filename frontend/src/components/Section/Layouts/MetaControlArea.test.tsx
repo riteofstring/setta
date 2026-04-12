@@ -6,8 +6,8 @@ import {
   ButtonActionModeEnum,
   HTTPRequestMethodEnum,
   SectionTypeEnum,
+  TransportRouteConstants,
 } from "utils/generatedTypes";
-import { SETTA_API_PRESET_ROUTES } from "utils/transportRouteConstants";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MetaControlArea } from "./MetaControlArea";
 const mocked = vi.hoisted(() => ({
@@ -158,7 +158,7 @@ describe("MetaControlArea Setta API button actions", () => {
   });
   it("merges preset defaults before posting Setta API actions", async () => {
     mocked.currentButtonConfig.requestUrl =
-      SETTA_API_PRESET_ROUTES.createTopLevelSection;
+      TransportRouteConstants.settaApiPresets.createTopLevelSection;
     mocked.currentButtonConfig.requestBody = "";
     const { host, root } = await renderMetaControlArea();
     try {
@@ -172,7 +172,7 @@ describe("MetaControlArea Setta API button actions", () => {
         actionButton.click();
       });
       expect(mocked.post).toHaveBeenCalledWith(
-        SETTA_API_PRESET_ROUTES.createTopLevelSection,
+        TransportRouteConstants.settaApiPresets.createTopLevelSection,
         {
           projectConfigId: "project-alpha",
           implType: SectionTypeEnum.TextBlock,

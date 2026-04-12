@@ -1,16 +1,14 @@
 import type { ServerModeValue } from "utils/serverModeTypes";
 import { describe, expect, it } from "vitest";
 
+import { TransportRouteConstants } from "./generatedTypes";
 import {
   ENDPOINT_ORIGIN_POLICY,
   resolveEndpointOriginForMode,
   resolveServerModeCapabilities,
   resolveWorkspaceLaunchRouteKind,
 } from "./serverModeBoundaryPolicy";
-import {
-  ROOT_TRANSPORT_ROUTES,
-  SERVER_MODE_BOUNDARY_ROUTES,
-} from "./transportRouteConstants";
+import { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
 
 function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {
   return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
@@ -40,27 +38,33 @@ describe("serverModeBoundaryPolicy", () => {
 
   it("keeps launch and launch-intent endpoint origin mode-scoped", () => {
     expect(
-      resolveEndpointOriginForMode(SERVER_MODE_BOUNDARY_ROUTES.launch, "ide"),
+      resolveEndpointOriginForMode(
+        TransportRouteConstants.serverModeBoundary.launch,
+        "ide",
+      ),
     ).toBe("backend");
     expect(
       resolveEndpointOriginForMode(
-        SERVER_MODE_BOUNDARY_ROUTES.launch,
+        TransportRouteConstants.serverModeBoundary.launch,
         "launcher",
       ),
     ).toBe("launcher");
     expect(
-      resolveEndpointOriginForMode(SERVER_MODE_BOUNDARY_ROUTES.launch, null),
+      resolveEndpointOriginForMode(
+        TransportRouteConstants.serverModeBoundary.launch,
+        null,
+      ),
     ).toBe("backend");
 
     expect(
       resolveEndpointOriginForMode(
-        SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent,
+        TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent,
         "app",
       ),
     ).toBe("backend");
     expect(
       resolveEndpointOriginForMode(
-        SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent,
+        TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent,
         "launcher",
       ),
     ).toBe("launcher");
@@ -69,19 +73,19 @@ describe("serverModeBoundaryPolicy", () => {
   it("keeps settaHomeInfo on backend across all modes", () => {
     expect(
       resolveEndpointOriginForMode(
-        SERVER_MODE_BOUNDARY_ROUTES.getSettaHomeInfo,
+        TransportRouteConstants.serverModeBoundary.getSettaHomeInfo,
         "ide",
       ),
     ).toBe("backend");
     expect(
       resolveEndpointOriginForMode(
-        SERVER_MODE_BOUNDARY_ROUTES.getSettaHomeInfo,
+        TransportRouteConstants.serverModeBoundary.getSettaHomeInfo,
         "launcher",
       ),
     ).toBe("backend");
     expect(
       resolveEndpointOriginForMode(
-        SERVER_MODE_BOUNDARY_ROUTES.getSettaHomeInfo,
+        TransportRouteConstants.serverModeBoundary.getSettaHomeInfo,
         null,
       ),
     ).toBe("backend");
@@ -90,7 +94,7 @@ describe("serverModeBoundaryPolicy", () => {
   it("keeps launcher-home endpoints on launcher origin and bootstrap on backend origin", () => {
     expect(
       resolveEndpointOriginForMode(
-        `${SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces}?setta_home=/tmp/home#x`,
+        `${TransportRouteConstants.serverModeBoundary.getLauncherRecentWorkspaces}?setta_home=/tmp/home#x`,
         "ide",
       ),
     ).toBe("launcher");
