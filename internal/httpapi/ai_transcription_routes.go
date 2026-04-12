@@ -75,13 +75,6 @@ type cancelTranscriptionSessionPayload struct {
 	SessionID *string `json:"sessionId"`
 }
 
-func (e *transcriptionRouteError) Error() string {
-	if e == nil {
-		return ""
-	}
-	return e.message
-}
-
 func startTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		startRequest, ok := buildStartTranscriptionSessionRequest(w, r, deps)

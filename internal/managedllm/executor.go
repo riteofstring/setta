@@ -2569,10 +2569,6 @@ func currentAssistantThinkingSignatureAtIndex(message map[string]any, index int)
 	return currentAssistantBlockStringAtIndex(message, index, "thinking", "signature")
 }
 
-func currentAssistantThinkingProviderItemIDAtIndex(message map[string]any, index int) string {
-	return currentAssistantBlockStringAtIndex(message, index, "thinking", "provider_item_id")
-}
-
 func currentAssistantBlockStringAtIndex(message map[string]any, index int, blockType string, field string) string {
 	content, _ := message["content"].([]any)
 	if index < 0 || index >= len(content) {

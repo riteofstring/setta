@@ -348,32 +348,6 @@ func emptyLSPDiagnosticsPayload(projectID string) LSPDiagnosticsPayload {
 	}
 }
 
-func cloneProjectConfigDiagnostics(input ProjectConfigDiagnostics) ProjectConfigDiagnostics {
-	cloned := ProjectConfigDiagnostics{
-		ProjectID: strings.TrimSpace(input.ProjectID),
-		Errors:    map[string]SectionTypeErrors{},
-		IsGenCode: input.IsGenCode,
-	}
-	for sectionID, errors := range input.Errors {
-		cloned.setSectionTypeErrors(sectionID, errors)
-	}
-	return cloned
-}
-
-func (p *ProjectConfigDiagnostics) setSectionTypeErrors(sectionID string, errors SectionTypeErrors) {
-	if p.Errors == nil {
-		p.Errors = map[string]SectionTypeErrors{}
-	}
-	cloned := SectionTypeErrors{
-		Callable: append([]string(nil), errors.Callable...),
-		Params:   map[string][]string{},
-	}
-	for paramID, messages := range errors.Params {
-		cloned.Params[paramID] = append([]string(nil), messages...)
-	}
-	p.Errors[sectionID] = cloned
-}
-
 func cloneCodeSectionDiagnosticsMap(input map[string][]LSPDiagnostic) map[string][]LSPDiagnostic {
 	cloned := make(map[string][]LSPDiagnostic, len(input))
 	for sectionID, diagnostics := range input {

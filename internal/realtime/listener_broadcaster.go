@@ -490,21 +490,6 @@ func cloneDependencyEvents(events []ListenerDependencyEvent) []ListenerDependenc
 	return cloned
 }
 
-func cloneListenerDependencyCatalog(catalog *ListenerDependencyCatalog) *ListenerDependencyCatalog {
-	if catalog == nil {
-		return nil
-	}
-	clonedEntries := make([]ListenerDependencyCatalogEntry, 0, len(catalog.Entries))
-	for _, entry := range catalog.Entries {
-		clonedEntry := entry
-		if len(entry.Dependencies) > 0 {
-			clonedEntry.Dependencies = append([]string(nil), entry.Dependencies...)
-		}
-		clonedEntries = append(clonedEntries, clonedEntry)
-	}
-	return &ListenerDependencyCatalog{Entries: clonedEntries}
-}
-
 func cloneListenerRenderedDependencyValues(values *ListenerRenderedDependencyValues) *ListenerRenderedDependencyValues {
 	if values == nil {
 		return nil
