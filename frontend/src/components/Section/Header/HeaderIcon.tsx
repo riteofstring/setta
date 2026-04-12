@@ -235,6 +235,25 @@ const headerIconRenderers = {
   ),
 } satisfies Partial<Record<SectionType, HeaderIconRenderer>>;
 
+const codeLanguageIconComponents = {
+  [CodeLanguageEnum.python]: SiPython,
+  [CodeLanguageEnum.bash]: SiGnubash,
+  [CodeLanguageEnum.javascript]: SiJavascript,
+  [CodeLanguageEnum.typescript]: SiTypescript,
+  [CodeLanguageEnum.json]: SiJson,
+  [CodeLanguageEnum.yaml]: SiYaml,
+  [CodeLanguageEnum.toml]: SiToml,
+  [CodeLanguageEnum.markdown]: SiMarkdown,
+  [CodeLanguageEnum.plaintext]: PiTextTFill,
+} satisfies Partial<
+  Record<
+    CodeLanguageEnum,
+    ComponentType<{
+      className?: string;
+    }>
+  >
+>;
+
 function resolveHeaderIconClassName(
   themedIconClassName: string | null,
   defaultClassName: string,
@@ -356,7 +375,13 @@ function SocialIcon({
   }
 }
 
-function CodeLanguageIcon({ sectionId, classes }) {
+function CodeLanguageIcon({
+  sectionId,
+  classes,
+}: {
+  sectionId: string;
+  classes: string;
+}) {
   const language = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type === SectionTypeEnum.Code) {
@@ -367,28 +392,8 @@ function CodeLanguageIcon({ sectionId, classes }) {
       throw new Error();
     }
   });
-  switch (language) {
-    case CodeLanguageEnum.python:
-      return <SiPython className={classes} />;
-    case CodeLanguageEnum.bash:
-      return <SiGnubash className={classes} />;
-    case CodeLanguageEnum.javascript:
-      return <SiJavascript className={classes} />;
-    case CodeLanguageEnum.typescript:
-      return <SiTypescript className={classes} />;
-    case CodeLanguageEnum.json:
-      return <SiJson className={classes} />;
-    case CodeLanguageEnum.yaml:
-      return <SiYaml className={classes} />;
-    case CodeLanguageEnum.toml:
-      return <SiToml className={classes} />;
-    case CodeLanguageEnum.markdown:
-      return <SiMarkdown className={classes} />;
-    case CodeLanguageEnum.plaintext:
-      return <PiTextTFill className={classes} />;
-    default:
-      return <PiTextTFill className={classes} />;
-  }
+  const Icon = codeLanguageIconComponents[language] ?? PiTextTFill;
+  return <Icon className={classes} />;
 }
 
 function ListElementIcon({

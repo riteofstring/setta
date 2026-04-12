@@ -57,6 +57,59 @@ type SectionHeaderProps = {
   >;
 };
 
+type TitleStyleOptions = Pick<
+  SectionHeaderProps,
+  "isInOtherProjectConfigs" | "sectionTypeName" | "hasSectionStyleTheme"
+> & {
+  isActiveSection: boolean;
+};
+
+type SectionHeaderFrameProps = {
+  headerRef: React.RefObject<HTMLElement | null>;
+  headerProps?: SectionHeaderProps["headerProps"];
+  hasSectionStyleTheme: boolean;
+  children: React.ReactNode;
+};
+
+type SectionHeaderLeadingProps = Pick<
+  SectionHeaderProps,
+  | "sectionId"
+  | "isInOtherProjectConfigs"
+  | "sectionTypeName"
+  | "hasSectionStyleTheme"
+> & {
+  tagColor: string | null;
+};
+
+type SectionHeaderTrailingProps = Pick<
+  SectionHeaderProps,
+  | "sectionId"
+  | "sectionTypeName"
+  | "isRoot"
+  | "isUserView"
+  | "hasSectionStyleTheme"
+  | "showSectionContainerControls"
+  | "extraControls"
+> & {
+  projectConfigId: string;
+};
+
+const sectionHeaderBaseClassName =
+  "section-title mx-2 flex flex-row items-center";
+const editingTitleBaseClassName =
+  "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight";
+const editingTitleDefaultClassName = `${editingTitleBaseClassName} dark:text-white`;
+const fixedTitleBaseClassName =
+  "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5";
+const fixedTitleDefaultClassName = `${fixedTitleBaseClassName} text-setta-400`;
+const notEditingTitleBaseClassName =
+  "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
+const fixedTitleSectionTypes = new Set<SectionType>([
+  SectionTypeEnum.GlobalVariables,
+  SectionTypeEnum.GenPythonCode,
+  SectionTypeEnum.GenPythonMetadata,
+]);
+
 function _SectionHeader({
   sectionId,
   sectionTypeName,
@@ -78,79 +131,167 @@ function _SectionHeader({
   });
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const tagColor = useProjectState((x) => {
+  const tagColor = useSectionHeaderTagColor(sectionId);
+
+  return (
+    <SectionHeaderFrame
+      headerRef={headerRef}
+      headerProps={headerProps}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    >
+      <SectionHeaderLeading
+        sectionId={sectionId}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        sectionTypeName={sectionTypeName}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        tagColor={tagColor}
+      />
+      <SectionHeaderTrailing
+        projectConfigId={projectConfigId}
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isRoot={isRoot}
+        isUserView={isUserView}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        extraControls={extraControls}
+        showSectionContainerControls={showSectionContainerControls}
+      />
+    </SectionHeaderFrame>
+  );
+}
+
+export const SectionHeader = React.memo(_SectionHeader);
+
+function useSectionHeaderTagColor(sectionId: string) {
+  return useProjectState((x) => {
     if (!x.sections[sectionId]) {
       return null;
     }
     return getCurrEffectiveSectionImpl(x, sectionId).tagColor ?? null;
   });
+}
 
-  // DOM: maybe get rid of the extra div under header?
-
-  const headerClassName = headerProps?.className ?? "";
-  const headerStyle = hasSectionStyleTheme
-    ? {
-        color: "var(--setta-section-style-text)",
-        ...headerProps?.style,
-      }
-    : headerProps?.style;
-
+function SectionHeaderFrame({
+  headerRef,
+  headerProps,
+  hasSectionStyleTheme,
+  children,
+}: SectionHeaderFrameProps) {
   return (
     <header
       {...headerProps}
-      className={`section-title mx-2 flex flex-row items-center ${headerClassName}`}
+      className={getSectionHeaderClassName(headerProps?.className)}
       ref={headerRef}
-      style={headerStyle}
+      style={getSectionHeaderStyle({
+        hasSectionStyleTheme,
+        style: headerProps?.style,
+      })}
     >
+      {children}
+    </header>
+  );
+}
+
+function getSectionHeaderClassName(className: string | undefined) {
+  return className
+    ? `${sectionHeaderBaseClassName} ${className}`
+    : sectionHeaderBaseClassName;
+}
+
+function getSectionHeaderStyle({
+  hasSectionStyleTheme,
+  style,
+}: {
+  hasSectionStyleTheme: boolean;
+  style: React.CSSProperties | undefined;
+}) {
+  if (!hasSectionStyleTheme) {
+    return style;
+  }
+  return {
+    color: "var(--setta-section-style-text)",
+    ...style,
+  };
+}
+
+function SectionHeaderLeading({
+  sectionId,
+  isInOtherProjectConfigs,
+  sectionTypeName,
+  hasSectionStyleTheme,
+  tagColor,
+}: SectionHeaderLeadingProps) {
+  return (
+    <>
       <MenuButton
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         hasSectionStyleTheme={hasSectionStyleTheme}
       />
-      {tagColor && (
-        <span
-          className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
-          style={{ backgroundColor: tagColor }}
-          title={`Color tag: ${tagColor}`}
-        />
-      )}
+      <SectionTagColorIndicator tagColor={tagColor} />
       <MaybeCardTitle
         sectionId={sectionId}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         sectionTypeName={sectionTypeName}
         hasSectionStyleTheme={hasSectionStyleTheme}
       />
-      <div className="z-10 ml-auto flex items-center">
-        <SectionHeaderDiagnostics
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-        />
-        <SectionTypeControls
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isRoot={isRoot}
-          isUserView={isUserView}
-        />
-        <ChatFollowButton
-          projectConfigId={projectConfigId}
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-        />
-        {extraControls}
-        <SectionContainerControls
-          sectionId={sectionId}
-          showSectionContainerControls={showSectionContainerControls}
-          isUserView={isUserView}
-          isRoot={isRoot}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-      </div>
-    </header>
+    </>
   );
 }
 
-export const SectionHeader = React.memo(_SectionHeader);
+function SectionTagColorIndicator({ tagColor }: { tagColor: string | null }) {
+  if (!tagColor) {
+    return null;
+  }
+
+  return (
+    <span
+      className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
+      style={{ backgroundColor: tagColor }}
+      title={`Color tag: ${tagColor}`}
+    />
+  );
+}
+
+function SectionHeaderTrailing({
+  projectConfigId,
+  sectionId,
+  sectionTypeName,
+  isRoot,
+  isUserView,
+  hasSectionStyleTheme,
+  extraControls,
+  showSectionContainerControls,
+}: SectionHeaderTrailingProps) {
+  return (
+    <div className="z-10 ml-auto flex items-center">
+      <SectionHeaderDiagnostics
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+      />
+      <SectionTypeControls
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isRoot={isRoot}
+        isUserView={isUserView}
+      />
+      <ChatFollowButton
+        projectConfigId={projectConfigId}
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+      />
+      {extraControls}
+      <SectionContainerControls
+        sectionId={sectionId}
+        showSectionContainerControls={showSectionContainerControls}
+        isUserView={isUserView}
+        isRoot={isRoot}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    </div>
+  );
+}
 
 function useTrackMeasuredHeaderHeight({
   headerRef,
@@ -827,31 +968,40 @@ export function getTitleStyles({
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
-}) {
-  const editing = hasSectionStyleTheme
-    ? "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight"
-    : "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
-
-  const notEditing = getNotEditingStyle({
+}: TitleStyleOptions) {
+  const titleStyleOptions = {
     isActiveSection,
     isInOtherProjectConfigs,
     sectionTypeName,
     hasSectionStyleTheme,
-  });
+  };
+  const notEditing = getNotEditingStyle(titleStyleOptions);
 
-  if (
-    sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
-  ) {
+  if (isFixedTitleSection(sectionTypeName)) {
     return { fixed: notEditing };
   }
 
-  const fixed = hasSectionStyleTheme
-    ? "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5"
-    : "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
+  return {
+    editing: getEditingTitleClassName(hasSectionStyleTheme),
+    notEditing,
+    fixed: getFixedTitleClassName(hasSectionStyleTheme),
+  };
+}
 
-  return { editing, notEditing, fixed };
+function getEditingTitleClassName(hasSectionStyleTheme: boolean) {
+  return hasSectionStyleTheme
+    ? editingTitleBaseClassName
+    : editingTitleDefaultClassName;
+}
+
+function getFixedTitleClassName(hasSectionStyleTheme: boolean) {
+  return hasSectionStyleTheme
+    ? fixedTitleBaseClassName
+    : fixedTitleDefaultClassName;
+}
+
+function isFixedTitleSection(sectionTypeName: SectionType) {
+  return fixedTitleSectionTypes.has(sectionTypeName);
 }
 
 function getNotEditingStyle({
@@ -859,43 +1009,48 @@ function getNotEditingStyle({
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
-}) {
-  let textColorClass = "";
-  let fontClass = "font-bold";
+}: TitleStyleOptions) {
+  return [
+    notEditingTitleBaseClassName,
+    getNotEditingTextColorClass({
+      isActiveSection,
+      isInOtherProjectConfigs,
+      sectionTypeName,
+      hasSectionStyleTheme,
+    }),
+    getNotEditingFontClass(sectionTypeName),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
-  // Handle text color based on conditions
-  if (!hasSectionStyleTheme) {
-    if (isActiveSection) {
-      if (isInOtherProjectConfigs) {
-        textColorClass = "text-purple-800 dark:text-purple-200";
-      } else if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
-        textColorClass = "text-green-800 dark:text-green-200";
-      } else if (sectionTypeName === SectionTypeEnum.Terminal) {
-        textColorClass = "text-blue-400";
-      } else {
-        textColorClass = "text-blue-600 dark:text-blue-400";
-      }
-    } else {
-      if (sectionTypeName === SectionTypeEnum.Terminal) {
-        textColorClass = "text-setta-300";
-      } else {
-        textColorClass = "text-setta-700 dark:text-setta-300";
-      }
-    }
+function getNotEditingTextColorClass({
+  isActiveSection,
+  isInOtherProjectConfigs,
+  sectionTypeName,
+  hasSectionStyleTheme,
+}: TitleStyleOptions) {
+  if (hasSectionStyleTheme) {
+    return "";
   }
-
-  // Handle text case for global variables
-  if (
-    sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
-  ) {
-    fontClass = "uppercase font-bold";
+  if (!isActiveSection) {
+    return sectionTypeName === SectionTypeEnum.Terminal
+      ? "text-setta-300"
+      : "text-setta-700 dark:text-setta-300";
   }
+  if (isInOtherProjectConfigs) {
+    return "text-purple-800 dark:text-purple-200";
+  }
+  if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
+    return "text-green-800 dark:text-green-200";
+  }
+  return sectionTypeName === SectionTypeEnum.Terminal
+    ? "text-blue-400"
+    : "text-blue-600 dark:text-blue-400";
+}
 
-  // Combine all the classes
-  const baseClasses =
-    "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
-
-  return `${baseClasses} ${textColorClass} ${fontClass}`;
+function getNotEditingFontClass(sectionTypeName: SectionType) {
+  return isFixedTitleSection(sectionTypeName)
+    ? "uppercase font-bold"
+    : "font-bold";
 }
