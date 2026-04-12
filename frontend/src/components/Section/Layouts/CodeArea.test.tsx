@@ -1,4 +1,8 @@
+/* @vitest-environment jsdom */
+
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
+import { act, Profiler, type ProfilerOnRenderCallback } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useLspDiagnostics,
@@ -6,6 +10,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   CodeLanguageEnum,
   createProjectConfig,
@@ -29,6 +34,11 @@ function syncStoreInitialState(store: {
 }
 
 let lastCodeMirrorProps: Record<string, unknown> | null = null;
+
+type RenderedProfiledCodeArea = {
+  host: HTMLDivElement;
+  root: Root;
+};
 
 vi.mock("@uiw/react-codemirror", async () => {
   const React = await import("react");
@@ -61,6 +71,24 @@ vi.mock("state/hooks/sectionSizes", () => ({
   useSectionMinMaxDims: () => ({ maxHeight: 600, maxWidth: 800 }),
   getMinSectionHeight: () => 120,
 }));
+
+async function renderProfiledCodeArea(
+  onRender: ProfilerOnRenderCallback,
+): Promise<RenderedProfiledCodeArea> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+
+  await act(async () => {
+    root.render(
+      <Profiler id="code-area-profiler" onRender={onRender}>
+        <CodeArea sectionId="section-1" />
+      </Profiler>,
+    );
+  });
+
+  return { host, root };
+}
 
 describe("CodeArea LSP diagnostics wiring", () => {
   const sectionId = "section-1";
@@ -192,5 +220,30 @@ describe("CodeArea LSP diagnostics wiring", () => {
       ? props?.extensions
       : [];
     expect(extensions.length).toBe(1);
+  });
+
+  it("keeps code areas without diagnostics out of unrelated diagnostics commits", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledCodeArea(onRender);
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useLspDiagnostics.setState({
+          codeSections: {
+            "other-section": [baseDiagnostic],
+          },
+          unmappedGenCode: [],
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 });

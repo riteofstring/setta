@@ -59,7 +59,11 @@ import {
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
 } from "utils/generatedEndpoints";
-import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  CodeLanguageEnum,
+  SectionTypeEnum,
+  type SettaLspDiagnostic,
+} from "utils/generatedTypes";
 
 type GenPythonDocParts = {
   isValid: boolean;
@@ -205,6 +209,7 @@ const INVALID_GEN_PYTHON_DOC_PARTS: GenPythonDocParts = {
   suffix: "",
   suffixBoundaryLength: 0,
 };
+const EMPTY_CODE_SECTION_DIAGNOSTICS: Array<SettaLspDiagnostic> = [];
 
 function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
   if (!generated) {
@@ -656,7 +661,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   const isDisabled = variantIsFrozen || isShareReadOnly;
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
-    return diagnostics ?? [];
+    return diagnostics ?? EMPTY_CODE_SECTION_DIAGNOSTICS;
   });
   const useJsx = useMemo(() => {
     if (!bindingPath) {

@@ -14775,6 +14775,43 @@ LOOP_TERMINAL_MARKER: none
     mounted section-body/chrome subscriber or shared write fan-out before
     another reduction slice
 
+## 2026-04-13 02:23 UTC
+
+- item `377` landed one bounded mounted code-area diagnostics selector
+  reduction on the live canary lane:
+  - changed `frontend/src/components/Section/Layouts/CodeArea.tsx` so code
+    sections with no diagnostics now reuse one shared empty diagnostics array
+    instead of allocating a fresh `[]` on every `useLspDiagnostics` store
+    update
+  - added focused regression coverage in
+    `frontend/src/components/Section/Layouts/CodeArea.test.tsx` to prove a
+    mounted `CodeArea` with no diagnostics does not re-commit when another
+    section receives diagnostics
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-13_settings-graph-code-area-empty-diagnostics-selector.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/CodeArea.tsx src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> settings overview, visible section chrome/cards, and bottom settings
+         tabs rendered normally with no obvious blank-screen or missing
+         code-editor regression
+- reading:
+  - this is a real mounted section-body selector reduction on the live canary,
+    not a harness-only pass
+  - the old selector returned a fresh empty diagnostics array for sections
+    without diagnostics, so unrelated diagnostics churn could still fan into
+    mounted code editor bodies
+- next:
+  - identify the next larger mounted section-body/chrome subscriber or shared
+    write fan-out on the live worktree and keep the existing normalized lane as
+    regression coverage only
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 21:01 UTC
 
 - item `350` landed one bounded Playwright global-setup stable-home landing
