@@ -19232,3 +19232,47 @@ LOOP_TERMINAL_MARKER: none
     canonical `rotaryParamCodeObjDefault` lane before taking another product
     cut, then return to the restored body/subtree owner hotspot
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 11:45 UTC
+
+- item `464` fixed one bounded verifier blocker on the canonical
+  `rotaryParamCodeObjDefault` lane by making local-pane-state reads prefer
+  browser-context storage and fail fast under the existing page-lifecycle guard
+  instead of hanging until the full Playwright spec timeout
+- changed `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so
+  `runWithSettingsGraphPageLifecycleGuard(...)` accepts an optional bounded
+  action timeout
+- changed `getLocalPaneState(...)` to read browser-context storage state before
+  any page-script localStorage access, then run the in-page store read through
+  the bounded lifecycle guard
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+    -> pass (`1` file, `4` tests)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> pass
+  - refreshed runtime facts with
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-024/worktree-ai.log`
+    after the restarted session's earlier bootstrap token expired and started
+    returning `401 Unauthorized` during Playwright global setup
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 SETTA_BACKEND_ORIGIN='http://127.0.0.1:8075' SETTA_BOOTSTRAP_TOKEN='<fresh runtime token>' PLAYWRIGHT_BASE_URL='http://127.0.0.1:3075/' pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+    -> pass (`1` test, `59.5s`)
+    -> lane snapshot stayed `classification=healthy`,
+       `surfaceKind=canary`,
+       `targetSectionName=rotaryParamCodeObjDefault`,
+       `targetSectionVisible=true`
+  - fresh-context CDP sub-agent on the restarted worktree
+    -> DevTools MCP connected
+    -> reliable snapshot showed `/settings`, `All Settings`, and
+       `rotaryParamCodeObjDefault` visible
+    -> screenshot capture still timed out, so this iteration used CDP as a
+       live health classification read instead of a trustworthy screenshot
+       oracle
+- reading:
+  - this iteration's post-restart stall was probe-path debt, not fresh
+    renderer drift on the canonical lane
+  - the canonical lane is healthy again, so the next iteration should resume
+    measured product work on the current dominant owner trace rather than
+    another pane-state recovery pass
+  - when reusing a restarted live session for Playwright, refresh the runtime
+    bootstrap token immediately before the run
+- LOOP_TERMINAL_MARKER: none

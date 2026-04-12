@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 11:14 UTC
+Last updated: 2026-04-14 11:45 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,49 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `464` tightened the canonical `rotaryParamCodeObjDefault` lane-health
+  verifier so local-pane-state reads fail fast and prefer browser-context
+  storage before page-script evaluation, which removed this iteration's
+  restarted-session preflight hang:
+  - code/test changes kept in the tree:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now lets `runWithSettingsGraphPageLifecycleGuard(...)` enforce an
+      optional bounded action timeout
+    - `getLocalPaneState(...)` now reads browser-context storage state first,
+      then runs the in-page store read under that bounded lifecycle guard
+      instead of starting with an unbounded `page.evaluate(localStorage...)`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - refreshed runtime values with
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-024/worktree-ai.log`
+      after the restarted session's earlier bootstrap token expired
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 SETTA_BACKEND_ORIGIN='http://127.0.0.1:8075' SETTA_BOOTSTRAP_TOKEN='<fresh runtime token>' PLAYWRIGHT_BASE_URL='http://127.0.0.1:3075/' pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+      -> passed (`1` test, `59.5s`)
+      -> lane snapshot stayed `classification: healthy`,
+         `surfaceKind: canary`,
+         `targetSectionName: rotaryParamCodeObjDefault`,
+         `targetSectionVisible: true`
+    - required fresh-context CDP check:
+      -> DevTools MCP connected on the restarted worktree
+      -> reliable snapshot showed `/settings`, `All Settings`, and
+         `rotaryParamCodeObjDefault` visible
+      -> screenshot capture still timed out, so treat this as a successful live
+         health classification rather than a fully trustworthy screenshot-based
+         visual oracle
+  - reading:
+    - the repeated restarted-session verifier stall was probe-path debt, not
+      fresh renderer drift on the canonical lane
+    - the canonical worktree lane is healthy again after the helper patch, so
+      the next iteration should return to measured product work on the current
+      dominant owner trace instead of spending another pass on pane-state probe
+      recovery
+    - when reusing the live session for Playwright, refresh the bootstrap token
+      first; the restarted session's earlier token expired fast enough to 401
+      global setup mid-iteration
 
 - item `463` closed the repeated canonical worktree probe blocker by making the
   shared compare-pane readiness waits fail under the existing page-lifecycle
