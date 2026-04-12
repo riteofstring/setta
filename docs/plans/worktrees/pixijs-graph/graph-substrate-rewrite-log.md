@@ -75,6 +75,53 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 312
+
+- Item: land one bounded helper for the canonical `rotaryParamCodeObjDefault`
+  main-reference probe so the lane always refreshes fresh runtime facts before
+  launch and can fall back to system Chrome when Playwright's bundled browser
+  is unavailable.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not change product renderer code.
+  - Added `scripts/run-settings-graph-main-reference-probe.sh` to:
+    - refresh current worktree and read-only `main` runtime facts through
+      `./scripts/dev-runtime-info.sh`
+    - extract the current worktree bootstrap token from the live bootstrap URL
+    - pass the fresh main bootstrap URL through unchanged
+    - run the canonical
+      `settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary`
+      Playwright test from one repo command instead of manual env assembly
+  - Added opt-in `PLAYWRIGHT_EXECUTABLE_PATH` support in:
+    - `frontend/playwright.config.ts`
+    - `frontend/tests/e2e/global-setup.ts`
+  - The helper resolves `/usr/bin/google-chrome` automatically when the
+    bundled Playwright headless-shell is missing, which avoids a disallowed
+    browser-install step in this environment.
+  - Live verification on the current `run-001` pair showed the helper is
+    wiring the right runtime and browser facts:
+    - resolved worktree `3075/8075`
+    - resolved main `3087/8087`
+    - resolved Playwright executable `/usr/bin/google-chrome`
+  - The canonical probe still failed on this runtime pair, but the failure is
+    now narrowed to the product/test lane itself:
+    - `Timed out after 30000ms during settings graph probe phase: reference: open settings.`
+- Verification:
+  - `bash -n scripts/run-settings-graph-main-reference-probe.sh`
+    - result: passed
+  - `pnpm -C frontend exec prettier --check playwright.config.ts tests/e2e/global-setup.ts`
+    - result: passed
+  - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-001/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-001/main-ai.log`
+    - result: failed at `reference: open settings` after resolving the fresh
+      runtime pair and system Chrome fallback
+- Next action:
+  - reuse `scripts/run-settings-graph-main-reference-probe.sh` as the single
+    entrypoint for the canonical lane, then debug why the read-only `main`
+    side stalls in `reference: open settings` on the current fresh runtime
+    instead of spending another pass rebuilding env vars by hand
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-07 239
 
 - Item: rerun item `236` acceptance on the fresh outer-loop runtime and decide whether the blocker is still missing worktree state or has shifted to the sanctioned verification lanes.

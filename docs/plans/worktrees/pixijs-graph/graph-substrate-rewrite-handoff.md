@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 10:27 EDT
+Last updated: 2026-04-12 14:05 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,42 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `312` landed one bounded probe-runner support slice for the canonical
+    `rotaryParamCodeObjDefault` lane instead of repeating another stale-runtime
+    rerun by hand:
+    - no product renderer code changed on this pass
+    - added
+      `scripts/run-settings-graph-main-reference-probe.sh`
+      so the canonical
+      `settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary`
+      test now refreshes both the current worktree and read-only `main`
+      runtime facts via `./scripts/dev-runtime-info.sh` before launching
+    - the new helper extracts the current worktree bootstrap token from the
+      live bootstrap URL, passes the fresh main bootstrap URL through, and
+      logs the resolved frontend/backend pair before the test starts
+    - added opt-in `PLAYWRIGHT_EXECUTABLE_PATH` support in:
+      - `frontend/playwright.config.ts`
+      - `frontend/tests/e2e/global-setup.ts`
+    - the helper resolves `/usr/bin/google-chrome` automatically when the
+      bundled Playwright headless-shell is unavailable, so this lane can run
+      without installing browsers
+    - focused verification on the current `run-001` runtime pair:
+      - `bash -n scripts/run-settings-graph-main-reference-probe.sh`
+        -> passed
+      - `pnpm -C frontend exec prettier --check playwright.config.ts tests/e2e/global-setup.ts`
+        -> passed after formatting `tests/e2e/global-setup.ts`
+      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-001/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-001/main-ai.log`
+        -> resolved worktree `3075/8075`, main `3087/8087`, and
+        `/usr/bin/google-chrome`, then failed in the canonical Playwright lane
+        at `Timed out after 30000ms during settings graph probe phase: reference: open settings.`
+    - reading:
+      - the stale-runtime-input failure mode is now encoded away behind one
+        repo command instead of manual env assembly
+      - the missing Playwright bundled-browser issue is also removed for this
+        lane when system Chrome is present
+      - the remaining blocker on the fresh `run-001` pair is the live
+        reference-side `open settings` timeout inside the canonical probe, not
+        stale runtime facts or missing browser binaries
   - item `311` spent the next fresh pass exactly where item `310` left it:
     re-close item `308`'s pending visual gate on the fresh `run-028` runtime
     pair, then stop for tooling replan if CDP was still not trustworthy.
