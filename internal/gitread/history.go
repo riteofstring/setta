@@ -20,6 +20,7 @@ const (
 	decorateAtomPrefix       = "%(decorate:prefix=,suffix=,separator="
 	logMetadataFieldCount    = 7
 	commitMetadataFieldCount = 10
+	commitDetailsFormat      = "%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%s%x00%b%x00"
 )
 
 type Commit struct {
@@ -373,81 +374,12 @@ func (s *Service) CommitDetails(ctx context.Context, request CommitDetailsReques
 		return CommitDetailsResponse{}, err
 	}
 
-	format := "%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%s%x00%b%x00"
-	result, err := s.runGit(
-		ctx,
-		repoRoot,
-		[]string{
-			"show",
-			"--no-color",
-			fmt.Sprintf("--pretty=format:%s", format),
-			"--no-ext-diff",
-			"--no-textconv",
-			"--raw",
-			"--numstat",
-			"-z",
-			commitHash,
-			"--",
-		},
-		showTimeout,
-		maxShowBytes,
-		maxCommandErrBytes,
-	)
+	metadata, files, isTruncated, err := s.loadCommitDetails(ctx, repoRoot, commitHash)
 	if err != nil {
 		return CommitDetailsResponse{}, err
 	}
-	if result.timedOut {
-		return CommitDetailsResponse{}, &Error{Kind: ErrorTimedOut, Message: "Timed out loading commit details."}
-	}
-	if result.returnCode != 0 && !result.stdoutTruncated {
-		return CommitDetailsResponse{}, &Error{Kind: ErrorNotFound, Message: notFoundMessage(result.stderr, "Unknown commit hash.")}
-	}
 
-	metadata, diffPayload, parsed := parseCommitMetadataParts(result.stdout)
-	if !parsed && result.stdoutTruncated {
-		fallback, fallbackErr := s.loadCommitMetadataWithoutDiff(ctx, repoRoot, commitHash, format)
-		if fallbackErr != nil {
-			return CommitDetailsResponse{}, fallbackErr
-		}
-		metadata = fallback
-		diffPayload = ""
-		parsed = true
-	}
-	if !parsed {
-		return CommitDetailsResponse{}, fmt.Errorf("failed to parse commit metadata")
-	}
-
-	rawChangedFiles, statsByPath := parseGitShowRawAndNumstat(diffPayload)
-	files := make([]CommitChangedFile, 0, len(rawChangedFiles))
-	for _, file := range rawChangedFiles {
-		stats := statsByPath[file.newPath]
-		files = append(files, CommitChangedFile{
-			Path:      file.newPath,
-			OldPath:   file.oldPath,
-			Status:    file.statusCode,
-			Additions: stats.additions,
-			Deletions: stats.deletions,
-		})
-	}
-	sort.Slice(files, func(left int, right int) bool {
-		return files[left].Path < files[right].Path
-	})
-
-	return CommitDetailsResponse{
-		RepoRoot:        repoRoot,
-		CommitHash:      commitHash,
-		Parents:         splitParents(metadata.parentsRaw),
-		AuthorName:      metadata.authorName,
-		AuthorEmail:     metadata.authorEmail,
-		AuthorTimeMS:    parseUnixMillis(metadata.authorTimeRaw),
-		CommitterName:   metadata.committerName,
-		CommitterEmail:  metadata.committerEmail,
-		CommitterTimeMS: parseUnixMillis(metadata.committerTimeRaw),
-		Subject:         metadata.subject,
-		Body:            strings.TrimRight(metadata.body, "\n"),
-		Files:           files,
-		IsTruncated:     result.stdoutTruncated,
-	}, nil
+	return buildCommitDetailsResponse(repoRoot, commitHash, metadata, files, isTruncated), nil
 }
 
 func (s *Service) CommitFileDiff(ctx context.Context, request CommitFileDiffRequest) (CommitFileDiffResponse, error) {
@@ -655,14 +587,118 @@ func (s *Service) resolveCommitHash(ctx context.Context, repoRoot string, rawCom
 	return resolved, nil
 }
 
-func (s *Service) loadCommitMetadataWithoutDiff(ctx context.Context, repoRoot string, commitHash string, format string) (commitMetadata, error) {
+func (s *Service) loadCommitDetails(
+	ctx context.Context,
+	repoRoot string,
+	commitHash string,
+) (commitMetadata, []CommitChangedFile, bool, error) {
 	result, err := s.runGit(
 		ctx,
 		repoRoot,
 		[]string{
 			"show",
 			"--no-color",
-			fmt.Sprintf("--pretty=format:%s", format),
+			fmt.Sprintf("--pretty=format:%s", commitDetailsFormat),
+			"--no-ext-diff",
+			"--no-textconv",
+			"--raw",
+			"--numstat",
+			"-z",
+			commitHash,
+			"--",
+		},
+		showTimeout,
+		maxShowBytes,
+		maxCommandErrBytes,
+	)
+	if err != nil {
+		return commitMetadata{}, nil, false, err
+	}
+	if result.timedOut {
+		return commitMetadata{}, nil, false, &Error{Kind: ErrorTimedOut, Message: "Timed out loading commit details."}
+	}
+	if result.returnCode != 0 && !result.stdoutTruncated {
+		return commitMetadata{}, nil, false, &Error{Kind: ErrorNotFound, Message: notFoundMessage(result.stderr, "Unknown commit hash.")}
+	}
+
+	metadata, diffPayload, err := s.parseCommitDetailsOutput(ctx, repoRoot, commitHash, result)
+	if err != nil {
+		return commitMetadata{}, nil, false, err
+	}
+	return metadata, buildCommitChangedFiles(diffPayload), result.stdoutTruncated, nil
+}
+
+func (s *Service) parseCommitDetailsOutput(
+	ctx context.Context,
+	repoRoot string,
+	commitHash string,
+	result commandResult,
+) (commitMetadata, string, error) {
+	metadata, diffPayload, parsed := parseCommitMetadataParts(result.stdout)
+	if parsed {
+		return metadata, diffPayload, nil
+	}
+	if !result.stdoutTruncated {
+		return commitMetadata{}, "", fmt.Errorf("failed to parse commit metadata")
+	}
+	fallback, err := s.loadCommitMetadataWithoutDiff(ctx, repoRoot, commitHash)
+	if err != nil {
+		return commitMetadata{}, "", err
+	}
+	return fallback, "", nil
+}
+
+func buildCommitChangedFiles(diffPayload string) []CommitChangedFile {
+	rawChangedFiles, statsByPath := parseGitShowRawAndNumstat(diffPayload)
+	files := make([]CommitChangedFile, 0, len(rawChangedFiles))
+	for _, file := range rawChangedFiles {
+		stats := statsByPath[file.newPath]
+		files = append(files, CommitChangedFile{
+			Path:      file.newPath,
+			OldPath:   file.oldPath,
+			Status:    file.statusCode,
+			Additions: stats.additions,
+			Deletions: stats.deletions,
+		})
+	}
+	sort.Slice(files, func(left int, right int) bool {
+		return files[left].Path < files[right].Path
+	})
+	return files
+}
+
+func buildCommitDetailsResponse(
+	repoRoot string,
+	commitHash string,
+	metadata commitMetadata,
+	files []CommitChangedFile,
+	isTruncated bool,
+) CommitDetailsResponse {
+	return CommitDetailsResponse{
+		RepoRoot:        repoRoot,
+		CommitHash:      commitHash,
+		Parents:         splitParents(metadata.parentsRaw),
+		AuthorName:      metadata.authorName,
+		AuthorEmail:     metadata.authorEmail,
+		AuthorTimeMS:    parseUnixMillis(metadata.authorTimeRaw),
+		CommitterName:   metadata.committerName,
+		CommitterEmail:  metadata.committerEmail,
+		CommitterTimeMS: parseUnixMillis(metadata.committerTimeRaw),
+		Subject:         metadata.subject,
+		Body:            strings.TrimRight(metadata.body, "\n"),
+		Files:           files,
+		IsTruncated:     isTruncated,
+	}
+}
+
+func (s *Service) loadCommitMetadataWithoutDiff(ctx context.Context, repoRoot string, commitHash string) (commitMetadata, error) {
+	result, err := s.runGit(
+		ctx,
+		repoRoot,
+		[]string{
+			"show",
+			"--no-color",
+			fmt.Sprintf("--pretty=format:%s", commitDetailsFormat),
 			"--no-ext-diff",
 			"--no-textconv",
 			"--no-patch",
