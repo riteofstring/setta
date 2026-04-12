@@ -23,10 +23,25 @@ type NativeFileImportResult =
       status: "failed";
       error: string;
     };
+type NativeFileImportFailure = Extract<
+  NativeFileImportResult,
+  { status: "failed" }
+>;
 type GetFileBrowserRootRouteResponse = ResponseDataAndStatus<RootResponse>;
 type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
 type WriteFileBrowserFileContentRouteResponse =
   ResponseDataAndStatus<WriteFileContentResponse>;
+type NativeFileImportTarget = {
+  filePath: string;
+  fileName: string;
+};
+type NativeFileImportContext = {
+  rootPath: string;
+  pathSeparator: string;
+  safeName: string;
+  existingNames: Set<string>;
+  target: NativeFileImportTarget;
+};
 const MAX_UNIQUE_NAME_PROBES = 10000;
 const MAX_WRITE_FILE_CONFLICT_RETRIES = 1000;
 function sanitizeDroppedFileName(fileName: string): string {
@@ -62,10 +77,7 @@ function resolveUniqueWorkspacePath(
   pathSeparator: string,
   existingNames: Set<string>,
   fileName: string,
-): {
-  filePath: string;
-  fileName: string;
-} {
+): NativeFileImportTarget {
   const { stem, extension } = splitFileNameExtension(fileName);
   for (let index = 0; index < MAX_UNIQUE_NAME_PROBES; index += 1) {
     const candidateName =
@@ -83,27 +95,29 @@ function resolveUniqueWorkspacePath(
     fileName: fallbackName,
   };
 }
-export async function importNativeFileToWorkspace(
-  file: File,
-): Promise<NativeFileImportResult> {
+function failNativeFileImport(error: string): NativeFileImportFailure {
+  return {
+    status: "failed",
+    error,
+  };
+}
+async function loadWorkspaceImportContext(
+  fileName: string,
+): Promise<NativeFileImportContext | NativeFileImportFailure> {
   const rootRes = (await callOpenAPI(
     getFileBrowserRoot(),
   )) as GetFileBrowserRootRouteResponse;
   if (!res200(rootRes)) {
-    return {
-      status: "failed",
-      error:
-        getErrorDetail(rootRes.data) ?? "Failed to resolve workspace root.",
-    };
+    return failNativeFileImport(
+      getErrorDetail(rootRes.data) ?? "Failed to resolve workspace root.",
+    );
   }
-  const rootPath = rootRes.data.rootPath;
-  const pathSeparator = rootRes.data.pathSeparator;
-  const safeName = sanitizeDroppedFileName(file.name);
+  const safeName = sanitizeDroppedFileName(fileName);
   const existingNames = new Set<string>();
   const folderRes = (await callOpenAPI(
     getFolderContents({
       body: {
-        folderPath: rootPath,
+        folderPath: rootRes.data.rootPath,
         ignorePatterns: rootRes.data.ignorePatterns,
         includeHidden: true,
         includeMtime: false,
@@ -118,20 +132,28 @@ export async function importNativeFileToWorkspace(
       existingNames.add(item.name);
     }
   }
-  let target = resolveUniqueWorkspacePath(
-    rootPath,
-    pathSeparator,
-    existingNames,
+  return {
+    rootPath: rootRes.data.rootPath,
+    pathSeparator: rootRes.data.pathSeparator,
     safeName,
-  );
+    existingNames,
+    target: resolveUniqueWorkspacePath(
+      rootRes.data.rootPath,
+      rootRes.data.pathSeparator,
+      existingNames,
+      safeName,
+    ),
+  };
+}
+async function uploadNativeFileContent(
+  file: File,
+  safeName: string,
+): Promise<{ contentId: string } | NativeFileImportFailure> {
   let bytes: Uint8Array;
   try {
     bytes = new Uint8Array(await file.arrayBuffer());
   } catch {
-    return {
-      status: "failed",
-      error: "Failed to read dropped file data.",
-    };
+    return failNativeFileImport("Failed to read dropped file data.");
   }
   const uploadResult = await uploadBinaryPayload({
     bytes,
@@ -139,11 +161,17 @@ export async function importNativeFileToWorkspace(
     mimeType: file.type || null,
   });
   if (uploadResult.status === "failed") {
-    return {
-      status: "failed",
-      error: uploadResult.error,
-    };
+    return failNativeFileImport(uploadResult.error);
   }
+  return {
+    contentId: uploadResult.contentId,
+  };
+}
+async function writeUploadedFileToWorkspace(
+  context: NativeFileImportContext,
+  contentId: string,
+): Promise<NativeFileImportResult> {
+  let target = context.target;
   for (
     let attempt = 0;
     attempt < MAX_WRITE_FILE_CONFLICT_RETRIES;
@@ -153,7 +181,7 @@ export async function importNativeFileToWorkspace(
       writeFileBrowserFileContent({
         body: {
           path: target.filePath,
-          contentId: uploadResult.contentId,
+          contentId,
           expectedMtimeNs: null,
         },
       } as Parameters<typeof writeFileBrowserFileContent>[0]),
@@ -165,24 +193,33 @@ export async function importNativeFileToWorkspace(
         fileName: target.fileName,
       };
     }
-    if (writeRes.status === 409) {
-      existingNames.add(target.fileName);
-      target = resolveUniqueWorkspacePath(
-        rootPath,
-        pathSeparator,
-        existingNames,
-        safeName,
+    if (writeRes.status !== 409) {
+      return failNativeFileImport(
+        getErrorDetail(writeRes.data) ?? "Failed to import dropped file.",
       );
-      continue;
     }
-    return {
-      status: "failed",
-      error: getErrorDetail(writeRes.data) ?? "Failed to import dropped file.",
-    };
+    context.existingNames.add(target.fileName);
+    target = resolveUniqueWorkspacePath(
+      context.rootPath,
+      context.pathSeparator,
+      context.existingNames,
+      context.safeName,
+    );
   }
-  return {
-    status: "failed",
-    error:
-      "Failed to allocate a unique file path for the dropped file after repeated conflicts.",
-  };
+  return failNativeFileImport(
+    "Failed to allocate a unique file path for the dropped file after repeated conflicts.",
+  );
+}
+export async function importNativeFileToWorkspace(
+  file: File,
+): Promise<NativeFileImportResult> {
+  const context = await loadWorkspaceImportContext(file.name);
+  if ("status" in context) {
+    return context;
+  }
+  const uploadResult = await uploadNativeFileContent(file, context.safeName);
+  if ("status" in uploadResult) {
+    return uploadResult;
+  }
+  return writeUploadedFileToWorkspace(context, uploadResult.contentId);
 }
