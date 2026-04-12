@@ -109,6 +109,16 @@ type ResolvedProjectChatWindowIdentity = {
   instanceId: string;
   nextInstanceNumber: number;
 };
+type ResolvedCreateProjectChatWindowInstanceOptions = {
+  instanceId?: string;
+  placement: ChatWindowPlacement;
+  mode: ChatWindowMode;
+  sectionIdOrNull: string | null;
+  title: string | null;
+  chatId: string | null;
+  bounds: ChatWindowBounds | null;
+  nowMs: number;
+};
 type ChatWindowBoundsFieldConfig = {
   key: keyof ChatWindowBounds;
   requirePositive: boolean;
@@ -127,6 +137,17 @@ const DEFAULT_FLOATING_CHAT_MIN_WIDTH_PX = 380;
 const DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX = 240;
 const DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
 const DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX = 220;
+const DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS = {
+  placement: ChatWindowPlacementEnum.bottom_docked,
+  mode: ChatWindowModeEnum.project_ai_mode,
+  sectionIdOrNull: null,
+  title: null,
+  chatId: null,
+  bounds: null,
+} satisfies Omit<
+  ResolvedCreateProjectChatWindowInstanceOptions,
+  "instanceId" | "nowMs"
+>;
 const pendingProjectChatWindowingWrites = new Set<Promise<unknown>>();
 const pendingProjectChatWindowingMutationsByProjectId = new Map<
   string,
@@ -772,6 +793,31 @@ function resolveProjectChatWindowInitialBounds(
     ? resolveDefaultFloatingChatBoundsFromRuntime()
     : null;
 }
+function resolveCreateProjectChatWindowInstanceOptions(
+  options: CreateProjectChatWindowInstanceOptions = {},
+): ResolvedCreateProjectChatWindowInstanceOptions {
+  return {
+    instanceId: options.instanceId,
+    placement:
+      options.placement ??
+      DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS.placement,
+    mode:
+      options.mode ?? DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS.mode,
+    sectionIdOrNull:
+      options.sectionIdOrNull ??
+      DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS.sectionIdOrNull,
+    title:
+      options.title ??
+      DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS.title,
+    chatId:
+      options.chatId ??
+      DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS.chatId,
+    bounds:
+      options.bounds ??
+      DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS.bounds,
+    nowMs: options.nowMs ?? Date.now(),
+  };
+}
 function buildNextWindowInstances(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -810,20 +856,21 @@ function withUpdatedWindow(
 }
 export function addProjectChatWindowInstanceInState(
   state: ProjectChatWindowingState,
-  {
-    instanceId: explicitInstanceId,
-    placement = ChatWindowPlacementEnum.bottom_docked,
-    mode = ChatWindowModeEnum.project_ai_mode,
-    sectionIdOrNull = null,
-    title = null,
-    chatId = null,
-    bounds = null,
-    nowMs = Date.now(),
-  }: CreateProjectChatWindowInstanceOptions = {},
+  options: CreateProjectChatWindowInstanceOptions = {},
 ): {
   state: ProjectChatWindowingState;
   instanceId: string;
 } {
+  const {
+    instanceId: explicitInstanceId,
+    placement,
+    mode,
+    sectionIdOrNull,
+    title,
+    chatId,
+    bounds,
+    nowMs,
+  } = resolveCreateProjectChatWindowInstanceOptions(options);
   const normalized = normalizeProjectChatWindowingOrder(state).state;
   const { instanceId, nextInstanceNumber } =
     resolveProjectChatWindowInstanceIdentity(normalized, explicitInstanceId);

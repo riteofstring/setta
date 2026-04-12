@@ -123,6 +123,36 @@ describe("project chat windowing reducer helpers", () => {
     expect(created.isMinimized).toBe(false);
     expect(state.order).toEqual([instanceId]);
   });
+  it("keeps an explicit numeric instance id and advances the next instance number", () => {
+    const initial = createProjectChatWindowingState({
+      nextInstanceNumber: 2,
+    });
+    const { state, instanceId } = addProjectChatWindowInstanceInState(initial, {
+      instanceId: "project-chat-window-8",
+      nowMs: 1234,
+    });
+    expect(instanceId).toBe("project-chat-window-8");
+    expect(state.nextInstanceNumber).toBe(9);
+    expect(state.instancesById[instanceId]).toMatchObject({
+      instanceId,
+      lastFocusedAt: 1234,
+    });
+  });
+  it("resolves default bounds when creating a floating window without explicit bounds", () => {
+    const { state, instanceId } = addProjectChatWindowInstanceInState(
+      createProjectChatWindowingState(),
+      {
+        placement: ChatWindowPlacementEnum.floating,
+        nowMs: 5678,
+      },
+    );
+    expect(state.instancesById[instanceId]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      isMaximized: false,
+      lastFocusedAt: 5678,
+    });
+    expect(state.instancesById[instanceId]?.bounds).not.toBeNull();
+  });
   it("resolves default docked chat height from the viewport height", () => {
     // Default docked windows should take seventy percent of the viewport, clamped to the dock space.
     expect(
