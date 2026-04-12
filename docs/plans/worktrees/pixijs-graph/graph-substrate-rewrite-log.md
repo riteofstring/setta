@@ -18457,6 +18457,83 @@ LOOP_TERMINAL_MARKER: none
     immediate row/input descendants
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 - item 453 - Param area measurement observer split
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent lane pattern before choosing the next slice:
+  - the latest completed pass (`452`) was attribution-only and named the
+    param-group path as the next real frontier, so the next bounded move was a
+    production cut inside `GroupContainer`, not another shell/container guess
+  - chose the param-area measurement boundary because
+    `useMeasuredParamAreaMinHeight(...)` still lived inside the mounted
+    pinned/unpinned row components, which meant section-local `resizeEvent`
+    churn could re-enter the same subtree that the earlier row memo wins were
+    trying to keep stable
+- selected one bounded product slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - move resize-driven param-area min-height measurement into a tiny observer
+    child so `resizeEvent` updates no longer rematerialize the mounted
+    `ParamDndList` path
+- code/doc changes kept in tree:
+  - `frontend/src/components/Params/GroupContainer.tsx`
+    - now renders the param-area min-height logic through a
+      `ParamAreaMinHeightObserver` child instead of running that hook inside
+      `GetPinnedParams` / `GetUnpinnedParams`
+  - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+    - now proves `resizeEvent` updates do not rematerialize the mounted
+      `ParamDndList` subtree
+  - `perf/reports/frontend/2026-04-14_settings-graph-param-area-measurement-observer-split.md`
+    - records the canonical readout and keeps the next frontier inside the same
+      param-group path
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    -> passed (`2` files, `2` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+    -> passed
+- canonical live probe:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-013/worktree-ai.log`
+    -> passed (`1` Playwright test, `2.4m`)
+    -> fresh readout versus item `452`:
+      - `presentedSceneSectionParamGroupContainerReactRender`
+        `1034.6ms total` / `134.6ms max` / `24` samples -> `966.5ms total` /
+        `216.6ms max` / `24` samples
+      - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+        `921.8ms total` / `127.8ms max` / `24` samples -> `862.6ms total` /
+        `204.9ms max` / `24` samples
+      - `presentedSceneSectionParamDndListRowsReactRender`
+        `863.1ms total` / `119.4ms max` / `24` samples -> `819.9ms total` /
+        `201.0ms max` / `24` samples
+      - `presentedSceneSectionParamInputReactRender`
+        `510.1ms total` / `24.1ms max` / `82` samples -> `429.6ms total` /
+        `23.2ms max` / `82` samples
+      - `averageFrameDurationMs`
+        `73.19` -> `66.66`
+      - `longTaskTotalDurationMs`
+        `2467` -> `2241`
+- CDP verification:
+  - first fresh-context sub-agent attempt proved DevTools transport was live on
+    port `9297` but was interrupted while waiting for the authenticated
+    bootstrap page to finish settling
+  - second attempt initially failed because the original bootstrap token had
+    expired and the bootstrap page showed `PREPARING SETTA` /
+    `Token rejected. Request a new token and try again.` with `401
+    Unauthorized` console errors
+  - refreshed runtime connect info with
+    `source activate.sh && env SETTA_FILES_ROOT=/home/ubuntu/dev/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /home/ubuntu/dev/setta.pixijs-graph/.`
+    to obtain a fresh authenticated bootstrap URL, then retried CDP
+  - bootstrap succeeded after manual `CONNECT`, but the post-bootstrap app page
+    still did not settle to `All Settings` within the bounded wait window; the
+    last confirmed snapshot remained `RootWebArea busy`, so this iteration
+    leaves the visual/CDP gate deferred rather than claimed
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - this is a modest live win on the active param-group lane; the next bounded
+    product cut should stay inside the same `GroupContainer` / unpinned list
+    path
+  - refresh the authenticated bootstrap URL before the next CDP attempt instead
+    of reusing the stale token from loop context
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-14 - item 450 - Section entry body memo boundary
 
 - reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the

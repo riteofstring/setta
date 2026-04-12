@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 07:01 UTC
+Last updated: 2026-04-14 07:37 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,88 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `453` landed one bounded product cut on the canonical
+  `rotaryParamCodeObjDefault` lane by moving resize-driven param-area
+  measurement churn out of the mounted pinned/unpinned row subtree:
+  - local ranking/readout for this iteration:
+    - reread `RALPH.md`, the plan, and the handoff first, then checked the
+      recent lane pattern before choosing the next slice; the latest completed
+      pass (`452`) was attribution-only and named the param-group path as the
+      next real frontier, so this iteration took the nearest product boundary
+      inside `GroupContainer` instead of reopening shell/container guesses
+    - chose the param-area measurement boundary because
+      `useMeasuredParamAreaMinHeight(...)` still lived inside the mounted
+      pinned/unpinned row components, which meant section-local `resizeEvent`
+      churn could re-enter the same subtree that the earlier row memo wins were
+      trying to keep stable
+    - kept the slice bounded to one production refactor in
+      `GroupContainer`, one focused render-stability regression, one canonical
+      live probe rerun, one append-only perf report, and one fresh-context CDP
+      attempt
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now renders the param-area min-height logic through a tiny
+      `ParamAreaMinHeightObserver` child instead of running that resize-driven
+      hook inside `GetPinnedParams` / `GetUnpinnedParams`
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves `resizeEvent` updates do not rematerialize the mounted
+      `ParamDndList` subtree
+    - `perf/reports/frontend/2026-04-14_settings-graph-param-area-measurement-observer-split.md`
+      records the canonical readout and keeps the next frontier inside the same
+      param-group path
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-013/worktree-ai.log`
+      -> passed (`1` Playwright test, `2.4m`)
+      -> fresh readout versus item `452`:
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `1034.6ms total` / `134.6ms max` / `24` samples -> `966.5ms total` /
+         `216.6ms max` / `24` samples
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `921.8ms total` / `127.8ms max` / `24` samples -> `862.6ms total` /
+         `204.9ms max` / `24` samples
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `863.1ms total` / `119.4ms max` / `24` samples -> `819.9ms total` /
+         `201.0ms max` / `24` samples
+         `presentedSceneSectionParamInputReactRender`
+         `510.1ms total` / `24.1ms max` / `82` samples -> `429.6ms total` /
+         `23.2ms max` / `82` samples
+         `averageFrameDurationMs`
+         `73.19` -> `66.66`
+         `longTaskTotalDurationMs`
+         `2467` -> `2241`
+  - CDP verification:
+    - first fresh-context sub-agent attempt proved DevTools transport was live
+      on port `9297` but was interrupted while waiting for the authenticated
+      bootstrap page to finish settling
+    - second fresh-context attempt initially failed because the original
+      bootstrap token had expired and the bootstrap page showed
+      `PREPARING SETTA` / `Token rejected. Request a new token and try again.`
+      with `401 Unauthorized` console errors
+    - refreshed runtime connect info with
+      `source activate.sh && env SETTA_FILES_ROOT=/home/ubuntu/dev/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /home/ubuntu/dev/setta.pixijs-graph/.`
+      to obtain a fresh authenticated bootstrap URL, then retried CDP on that
+      fresh token
+    - bootstrap succeeded after manual `CONNECT`, but the post-bootstrap app
+      page still did not settle to `All Settings` within the bounded wait
+      window; the last confirmed snapshot remained `RootWebArea busy`, so treat
+      this iteration's visual/CDP gate as deferred instead of claiming a
+      completed visual verification
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this is a modest live win on the active param-group lane, not a
+      harness-only cleanup
+    - the remaining dominant narrow owner is still
+      `presentedSceneSectionParamGroupContainerReactRender`, so the next
+      bounded product cut should stay inside the same `GroupContainer` /
+      unpinned list path
+    - before the next visual check, refresh the authenticated bootstrap URL
+      first instead of reusing the stale token from loop context
 
 - item `452` landed one bounded attribution readout on the canonical
   `rotaryParamCodeObjDefault` lane by extending the shared motion probe with a

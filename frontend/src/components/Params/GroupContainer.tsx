@@ -408,6 +408,33 @@ function useMeasuredParamAreaMinHeight({
   }, [heightKey]);
 }
 
+function ParamAreaMinHeightObserver({
+  sectionId,
+  heightKey,
+  paramIds,
+  contentRef,
+  headerRef,
+  rowsRef,
+}: {
+  sectionId: string;
+  heightKey: string;
+  paramIds: Array<string>;
+  contentRef: React.RefObject<HTMLElement>;
+  headerRef?: React.RefObject<HTMLElement>;
+  rowsRef: React.RefObject<HTMLElement>;
+}) {
+  useMeasuredParamAreaMinHeight({
+    sectionId,
+    heightKey,
+    paramIds,
+    contentRef,
+    headerRef,
+    rowsRef,
+  });
+
+  return null;
+}
+
 function EdgesStrip({
   sectionId,
   bgColor,
@@ -792,15 +819,6 @@ function GetPinnedParams({
     setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
   }, [maxNestedDepth]);
 
-  useMeasuredParamAreaMinHeight({
-    sectionId,
-    heightKey,
-    paramIds: topLevelParamIds,
-    contentRef,
-    headerRef,
-    rowsRef,
-  });
-
   return (
     topLevelParamIds.length > 0 && (
       <PinnedParamsArea
@@ -857,6 +875,14 @@ function PinnedParamsArea({
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
     >
+      <ParamAreaMinHeightObserver
+        sectionId={sectionId}
+        heightKey={getPinnedParamsAreaHeightKey(sectionId)}
+        paramIds={topLevelParamIds}
+        contentRef={contentRef}
+        headerRef={headerRef}
+        rowsRef={rowsRef}
+      />
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
         ref={contentRef}
@@ -981,16 +1007,15 @@ function GetUnpinnedParams({
     setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
   }, [maxNestedDepth]);
 
-  useMeasuredParamAreaMinHeight({
-    sectionId,
-    heightKey,
-    paramIds: hideUnpinnedParams ? [] : topLevelParamIds,
-    contentRef: containerRef,
-    rowsRef: containerRef,
-  });
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <ParamAreaMinHeightObserver
+        sectionId={sectionId}
+        heightKey={heightKey}
+        paramIds={hideUnpinnedParams ? [] : topLevelParamIds}
+        contentRef={containerRef}
+        rowsRef={containerRef}
+      />
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
           isScrollable ? "nowheel" : ""
