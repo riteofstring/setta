@@ -75,6 +75,60 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 00:08 UTC
+
+- item `364` landed one bounded backend `load_project_config(...)` timing
+  breakdown slice for the direct `/settings` canary:
+  - changed `backend/setta/project_state/base_project_manager.py` so
+    `load_project_config(...)` now logs one structured timing line with
+    `did_init`, `section_count`, `convert_ms`, `init_ms`,
+    `init_update_ms`, `validation_ms`, and `total_ms`
+  - changed `maybe_init_project_config(...)` to return whether it actually
+    entered `update(...)` plus the measured update duration so the route log
+    can separate clone time from repeated init work
+  - added `tests/project_state/test_load_project_config_timing.py`
+    to prove the timing log fires on the first settings load and that the
+    warm-load skip-init branch still logs correctly on a real project config
+  - added
+    `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-backend-breakdown.md`
+    to record the captured breakdown and the resulting owner read
+  - verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`2` tests)
+    - `source activate.sh && python -m compileall backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+    - fixture capture for the new timing line:
+      - settings first load:
+        `convert_ms≈319`, `init_update_ms≈4149`,
+        `validation_ms≈3647`, `total_ms≈8115`
+      - settings second load:
+        `convert_ms≈285`, `init_update_ms≈4048`,
+        `validation_ms≈3533`, `total_ms≈7866`
+      - generic project second load:
+        `did_init=False`, `total_ms≈0.52`
+    - fresh-context headless CDP spot-check on the live worktree direct
+      `/settings` path:
+      -> settled on `http://127.0.0.1:3075/settings`
+      -> `Loading project...` no longer present
+      -> `[data-testid="graph-substrate-canary"]` present and visible
+  - reading:
+    - the current settings-config latency is dominated by backend-side
+      repeated init/update work plus name-validation broadcast, not by route
+      lookup or `convert_backend_to_single_config(...)`
+    - the settings-config path still misses the cheap warm steady-state path
+      that a generic project config reaches on its second load
+    - the live worktree page mounted successfully in CDP, so this pass closes
+      the question of whether the current direct `/settings` delay is another
+      blank-shell frontend route miss
+  - next:
+    - trace why the settings config keeps re-entering the expensive
+      `maybe_init_project_config(...)` / `update(...)` lane on warm loads,
+      starting with the `self.gen_code` / codegen-language gate
+    - then inspect whether `_broadcast_name_validation_errors(...)` can be
+      narrowed or skipped for unchanged route loads
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 23:49 UTC
 
 - item `363` landed one bounded direct-`/settings` loading-state surfacing

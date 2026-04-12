@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 23:49 UTC
+Last updated: 2026-04-13 00:08 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,63 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `364` landed one bounded backend `load_project_config(...)` timing
+  breakdown slice for the direct `/settings` canary:
+
+  - product code changed in:
+    - `backend/setta/project_state/base_project_manager.py`
+      so `load_project_config(...)` now logs one structured timing line with
+      `did_init`, `section_count`, `convert_ms`, `init_ms`,
+      `init_update_ms`, `validation_ms`, and `total_ms`
+    - `maybe_init_project_config(...)` now returns whether it actually entered
+      the expensive `update(...)` path plus that update duration
+  - focused regression coverage added in:
+    - `tests/project_state/test_load_project_config_timing.py`
+      to prove the timing log fires on the first settings load and that the
+      warm-load skip-init branch still logs correctly on a real project config
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-backend-breakdown.md`
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`2` tests)
+    - `source activate.sh && python -m compileall backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+    - reproducible fixture capture recorded in the new perf report:
+      - settings first load:
+        `convert_ms≈319`, `init_update_ms≈4149`,
+        `validation_ms≈3647`, `total_ms≈8115`
+      - settings second load:
+        `convert_ms≈285`, `init_update_ms≈4048`,
+        `validation_ms≈3533`, `total_ms≈7866`
+      - generic project second load:
+        `did_init=False`, `total_ms≈0.52`
+    - fresh-context headless CDP check on the live worktree direct `/settings`
+      path
+      -> page settled on `http://127.0.0.1:3075/settings`
+      -> body no longer contained `Loading project...`
+      -> `[data-testid="graph-substrate-canary"]` existed and the settings
+         surface was visibly mounted
+  - reading:
+    - the dominant backend owners on the settings-config load path are now
+      named:
+      - `maybe_init_project_config(...)` / `update(...)` at about `4.0s`
+      - `_broadcast_name_validation_errors(...)` at about `3.5s`
+    - `convert_backend_to_single_config(...)` is comparatively small
+      (`~0.3s`) and is not the primary owner of the direct `/settings`
+      latency
+    - the settings-config path is still re-entering the expensive init/update
+      lane on warm loads instead of reaching the cheap steady-state path that
+      a generic project config hits
+    - the live worktree direct `/settings` path was healthy enough for the
+      CDP spot-check, but the long-latency owner remains backend-side rather
+      than another blank-shell frontend route miss
+  - next default frontier:
+    - trace why the settings config keeps failing the warm-load
+      `did_init=False` path, starting with the `self.gen_code` ownership /
+      codegen-language gate inside `maybe_init_project_config(...)`
+    - after that, inspect whether name-validation broadcast can be narrowed or
+      skipped when the loaded state is unchanged on this route
 
 - item `363` landed one bounded direct-`/settings` loading-state surfacing
   slice on the canonical `rotaryParamCodeObjDefault` lane:

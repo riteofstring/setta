@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import shutil
+import time
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -486,6 +487,12 @@ if TYPE_CHECKING:
     from setta.plugins.manager import PluginManager
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class LoadProjectConfigTiming:
+    did_init: bool
+    update_ms: float
 
 
 def _assert_ui_setting_expected_old_value_matches(
@@ -1800,19 +1807,56 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
+        total_start = time.perf_counter()
+
+        convert_start = time.perf_counter()
         projectState = convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
         )
-        project_state = await self.maybe_init_project_config(projectState)
+        convert_ms = (time.perf_counter() - convert_start) * 1000
+
+        init_start = time.perf_counter()
+        project_state, init_timing = await self.maybe_init_project_config(projectState)
+        init_ms = (time.perf_counter() - init_start) * 1000
+
+        validation_start = time.perf_counter()
         await self._broadcast_name_validation_errors(project_state)
+        validation_ms = (time.perf_counter() - validation_start) * 1000
+
+        total_ms = (time.perf_counter() - total_start) * 1000
+        logger.info(
+            "load_project_config_timing project_config_id=%s did_init=%s "
+            "section_count=%s convert_ms=%.1f init_ms=%.1f init_update_ms=%.1f "
+            "validation_ms=%.1f total_ms=%.1f",
+            projectConfigId,
+            init_timing.did_init,
+            len(project_state.sections),
+            convert_ms,
+            init_ms,
+            init_timing.update_ms,
+            validation_ms,
+            total_ms,
+        )
         return project_state
 
-    async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
+    async def maybe_init_project_config(
+        self, projectState: ProjectStateSingleConfig
+    ) -> tuple[ProjectStateSingleConfig, LoadProjectConfigTiming]:
         async with self._project_state_lock.read_lock():
             needs_init = projectState.projectConfig.id not in self.gen_code
-        if needs_init:
-            await self.update(projectState)
-        return projectState
+        if not needs_init:
+            return (
+                projectState,
+                LoadProjectConfigTiming(did_init=False, update_ms=0.0),
+            )
+
+        update_start = time.perf_counter()
+        await self.update(projectState)
+        update_ms = (time.perf_counter() - update_start) * 1000
+        return (
+            projectState,
+            LoadProjectConfigTiming(did_init=True, update_ms=update_ms),
+        )
 
     @enqueue_method
     @project_state_tool(
