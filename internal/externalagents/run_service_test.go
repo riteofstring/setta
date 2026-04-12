@@ -479,6 +479,32 @@ func TestRunServiceValidateRunReturnsPreflightUnavailable(t *testing.T) {
 	}
 }
 
+func TestRunServiceValidateRunRejectsNonExternalAgentEngine(t *testing.T) {
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	profile, err := fixture.profiles.Get("profile-alpha")
+	if err != nil {
+		t.Fatalf("get profile: %v", err)
+	}
+	engineConfig, err := fixture.service.engines.Get(fixture.engineID)
+	if err != nil {
+		t.Fatalf("get engine config: %v", err)
+	}
+	engineConfig.EngineType = agentruns.EngineTypeSettaLLM
+	engineConfig.ExternalAgentConfigID = nil
+	if _, err := fixture.service.engines.Update(engineConfig); err != nil {
+		t.Fatalf("update engine config: %v", err)
+	}
+	service, _ := newAsyncRunServiceForTest(t, fixture, nil)
+
+	err = service.ValidateRun(profile, map[string]any{
+		"projectConfigId": "project-alpha",
+		"allowUnscoped":   true,
+	})
+	if !errors.Is(err, ErrExternalAgentEngineRequired) {
+		t.Fatalf("expected external-agent engine error, got %v", err)
+	}
+}
+
 func newAsyncRunServiceForTest(
 	t *testing.T,
 	fixture sendServiceFixture,

@@ -1958,6 +1958,41 @@ func TestApplyCodexResponseItemPreservesReasoningAndText(t *testing.T) {
 	}
 }
 
+func TestApplyCodexResponseItemUsesPayloadTextWithoutContentArray(t *testing.T) {
+	t.Parallel()
+
+	state := &ChatState{
+		Messages:           []map[string]any{},
+		ToolCallArguments:  map[string]string{},
+		WaitingForResponse: true,
+	}
+	applied, toolResult, err := applyCodexResponseItem(state, map[string]any{
+		"payload": map[string]any{
+			"id":   "msg-text-fallback",
+			"type": "message",
+			"role": "assistant",
+			"text": "Fallback assistant text.",
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply text fallback response item: %v", err)
+	}
+	if !applied || toolResult != nil {
+		t.Fatalf("unexpected text fallback result applied=%v toolResult=%#v", applied, toolResult)
+	}
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected one assistant message, got %#v", state.Messages)
+	}
+	content, ok := state.Messages[0]["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected one text content entry, got %#v", state.Messages[0])
+	}
+	entry, ok := content[0].(map[string]any)
+	if !ok || stringValue(entry["type"]) != "text" || stringValue(entry["text"]) != "Fallback assistant text." {
+		t.Fatalf("unexpected text payload %#v", content[0])
+	}
+}
+
 func TestCodexExecutorPersistsRichResponseItemsAndMCPStatusSnapshot(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "rich")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{

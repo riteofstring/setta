@@ -113,49 +113,62 @@ func applyCodexResponseFunctionCallOutput(state *ChatState, payload map[string]a
 }
 
 func buildCodexAssistantContent(payload map[string]any) []any {
-	payloadType := strings.TrimSpace(stringValue(payload["type"]))
-	switch payloadType {
+	switch strings.TrimSpace(stringValue(payload["type"])) {
 	case "reasoning":
 		return buildCodexReasoningContent(payload)
 	case "message":
-		rawContent, ok := payload["content"].([]any)
-		if !ok {
-			if text := strings.TrimSpace(stringValue(payload["text"])); text != "" {
-				return []any{map[string]any{"type": "text", "text": text}}
-			}
-			return []any{}
-		}
-		content := make([]any, 0, len(rawContent))
-		for _, rawEntry := range rawContent {
-			entry, ok := rawEntry.(map[string]any)
-			if !ok {
-				continue
-			}
-			switch strings.TrimSpace(stringValue(entry["type"])) {
-			case "reasoning":
-				content = append(content, buildCodexReasoningContent(entry)...)
-			case "", "text", "output_text":
-				text := strings.TrimSpace(stringValue(entry["text"]))
-				if text == "" {
-					continue
-				}
-				content = append(content, map[string]any{"type": "text", "text": text})
-			}
-		}
-		if len(content) == 0 {
-			if text := extractCodexResponseItemText(payload); text != "" {
-				content = append(content, map[string]any{"type": "text", "text": text})
-			}
-		}
-		return content
+		return buildCodexMessageContent(payload)
 	default:
 		return []any{}
 	}
 }
 
+func buildCodexMessageContent(payload map[string]any) []any {
+	rawContent, ok := payload["content"].([]any)
+	if !ok {
+		return buildCodexTextContent(strings.TrimSpace(stringValue(payload["text"])))
+	}
+	content := collectCodexMessageContent(rawContent)
+	if len(content) != 0 {
+		return content
+	}
+	return buildCodexTextContent(extractCodexResponseItemText(payload))
+}
+
+func collectCodexMessageContent(rawContent []any) []any {
+	content := make([]any, 0, len(rawContent))
+	for _, rawEntry := range rawContent {
+		entry, ok := rawEntry.(map[string]any)
+		if !ok {
+			continue
+		}
+		content = append(content, buildCodexMessageEntryContent(entry)...)
+	}
+	return content
+}
+
+func buildCodexMessageEntryContent(entry map[string]any) []any {
+	switch strings.TrimSpace(stringValue(entry["type"])) {
+	case "reasoning":
+		return buildCodexReasoningContent(entry)
+	case "", "text", "output_text":
+		return buildCodexTextContent(stringValue(entry["text"]))
+	default:
+		return nil
+	}
+}
+
+func buildCodexTextContent(raw string) []any {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return []any{}
+	}
+	return []any{map[string]any{"type": "text", "text": text}}
+}
+
 func buildCodexReasoningContent(payload map[string]any) []any {
-	thinking := strings.TrimSpace(extractCodexThinkingText(payload["content"]))
-	summary := strings.TrimSpace(extractCodexSummaryText(payload["summary"]))
+	thinking := extractCodexTextParts(payload["content"])
+	summary := extractCodexTextParts(payload["summary"])
 	if thinking == "" && summary == "" {
 		return []any{}
 	}
@@ -168,29 +181,7 @@ func buildCodexReasoningContent(payload map[string]any) []any {
 	}
 }
 
-func extractCodexThinkingText(raw any) string {
-	switch typed := raw.(type) {
-	case []any:
-		parts := make([]string, 0, len(typed))
-		for _, rawEntry := range typed {
-			entry, ok := rawEntry.(map[string]any)
-			if !ok {
-				continue
-			}
-			text := strings.TrimSpace(stringValue(entry["text"]))
-			if text != "" {
-				parts = append(parts, text)
-			}
-		}
-		return strings.Join(parts, "\n")
-	case string:
-		return strings.TrimSpace(typed)
-	default:
-		return ""
-	}
-}
-
-func extractCodexSummaryText(raw any) string {
+func extractCodexTextParts(raw any) string {
 	switch typed := raw.(type) {
 	case []any:
 		parts := make([]string, 0, len(typed))

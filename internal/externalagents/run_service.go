@@ -265,40 +265,73 @@ func (s *RunService) prepareRun(profile agentprofiles.Profile, rawInputs map[str
 }
 
 func (s *RunService) resolveRunConfig(profile agentprofiles.Profile) (agentruns.EngineConfig, externalagentconfigs.Config, error) {
-	if s == nil || s.executor == nil {
-		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, ErrExecutorUnavailable
+	if err := s.validateRunConfigDependencies(); err != nil {
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, err
 	}
-	if s.preflight == nil {
-		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, ErrRunServicePreflightRequired
-	}
-
-	engineConfigID := strings.TrimSpace(derefOptionalString(profile.EngineConfigID))
-	if engineConfigID == "" {
-		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, agentruns.ErrProfileEngineConfigRequired
-	}
-	engineConfig, err := s.engines.Get(engineConfigID)
+	engineConfigID, err := resolveProfileEngineConfigID(profile)
 	if err != nil {
 		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, err
 	}
-	if engineConfig.EngineType != agentruns.EngineTypeExternalAgent {
-		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, ErrExternalAgentEngineRequired
-	}
-	if engineConfig.ExternalAgentConfigID == nil || strings.TrimSpace(*engineConfig.ExternalAgentConfigID) == "" {
-		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, ErrExternalAgentConfigIDRequired
-	}
-
-	externalConfig, err := s.configs.Get(strings.TrimSpace(*engineConfig.ExternalAgentConfigID))
+	engineConfig, err := s.loadExternalRunEngine(engineConfigID)
 	if err != nil {
 		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, err
 	}
-	preflightStatus, err := s.preflight.Check(externalConfig)
+	externalConfig, err := s.loadExternalRunConfig(engineConfig)
 	if err != nil {
 		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, err
 	}
-	if !preflightStatus.Available {
-		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, &PreflightUnavailableError{Status: preflightStatus}
+	if err := s.ensureExternalRunAvailable(externalConfig); err != nil {
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, err
 	}
 	return engineConfig, externalConfig, nil
+}
+
+func (s *RunService) validateRunConfigDependencies() error {
+	if s == nil || s.executor == nil {
+		return ErrExecutorUnavailable
+	}
+	if s.preflight == nil {
+		return ErrRunServicePreflightRequired
+	}
+	return nil
+}
+
+func resolveProfileEngineConfigID(profile agentprofiles.Profile) (string, error) {
+	engineConfigID := strings.TrimSpace(derefOptionalString(profile.EngineConfigID))
+	if engineConfigID == "" {
+		return "", agentruns.ErrProfileEngineConfigRequired
+	}
+	return engineConfigID, nil
+}
+
+func (s *RunService) loadExternalRunEngine(engineConfigID string) (agentruns.EngineConfig, error) {
+	engineConfig, err := s.engines.Get(engineConfigID)
+	if err != nil {
+		return agentruns.EngineConfig{}, err
+	}
+	if engineConfig.EngineType != agentruns.EngineTypeExternalAgent {
+		return agentruns.EngineConfig{}, ErrExternalAgentEngineRequired
+	}
+	return engineConfig, nil
+}
+
+func (s *RunService) loadExternalRunConfig(engineConfig agentruns.EngineConfig) (externalagentconfigs.Config, error) {
+	externalConfigID := strings.TrimSpace(derefOptionalString(engineConfig.ExternalAgentConfigID))
+	if externalConfigID == "" {
+		return externalagentconfigs.Config{}, ErrExternalAgentConfigIDRequired
+	}
+	return s.configs.Get(externalConfigID)
+}
+
+func (s *RunService) ensureExternalRunAvailable(externalConfig externalagentconfigs.Config) error {
+	preflightStatus, err := s.preflight.Check(externalConfig)
+	if err != nil {
+		return err
+	}
+	if !preflightStatus.Available {
+		return &PreflightUnavailableError{Status: preflightStatus}
+	}
+	return nil
 }
 
 func (s *RunService) normalizePreparedRunInputs(
