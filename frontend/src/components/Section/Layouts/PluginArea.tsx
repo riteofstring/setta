@@ -1,4 +1,6 @@
 import { onOverviewTabClick } from "components/Panes/paneFns";
+import { deleteSections, getLatestProjectState } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   usePluginRuntimeStore,
   usePluginSectionFallbackReason,
@@ -16,18 +18,16 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  processProjectStateUpdateFromBackend,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import { route_delete_sections } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
-
 type PluginAreaProps = {
   sectionId: string;
   isUserView: boolean;
 };
-
 type PluginSectionRendererHostProps = {
   sectionId: string;
   pluginId: string;
@@ -36,9 +36,7 @@ type PluginSectionRendererHostProps = {
   isUserView: boolean;
   pluginSectionKind: RegisteredPluginSectionKind;
 };
-
 const EMPTY_PLUGIN_CAPABILITIES: readonly string[] = [];
-
 export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
   const pluginImpl = useProjectState(
     (state) => getPluginSectionImplForRender(state, sectionId),
@@ -74,7 +72,6 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
   if (runtimeStatus === "idle" || runtimeStatus === "loading") {
     return <PluginSectionLoadingCard pluginId={pluginId} kind={kind} />;
   }
-
   return (
     <PluginSectionFallbackCard
       sectionId={sectionId}
@@ -86,7 +83,6 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
     />
   );
 }
-
 function getPluginSectionImplForRender(
   state: ReturnType<typeof useProjectState.getState>,
   sectionId: string,
@@ -97,7 +93,6 @@ function getPluginSectionImplForRender(
     SectionTypeEnum.Plugin,
   );
 }
-
 function pluginSectionImplEqual(
   left: ReturnType<typeof getPluginSectionImplForRender>,
   right: ReturnType<typeof getPluginSectionImplForRender>,
@@ -116,7 +111,6 @@ function pluginSectionImplEqual(
   }
   return left.data === right.data;
 }
-
 function PluginSectionRendererHost({
   sectionId,
   pluginId,
@@ -156,7 +150,6 @@ function PluginSectionRendererHost({
       sectionId,
     ],
   );
-
   useEffect(() => {
     const mountElement = mountRef.current;
     if (!mountElement || !pluginSectionKind) {
@@ -171,7 +164,6 @@ function PluginSectionRendererHost({
       pluginSectionKind.renderer.unmount?.(mountElement);
     };
   }, [pluginSectionKind]);
-
   useEffect(() => {
     if (!pluginSectionKind) {
       return;
@@ -192,7 +184,6 @@ function PluginSectionRendererHost({
     pluginSectionKind.renderer.unmount?.(mountElement);
     pluginSectionKind.renderer.mount(mountElement, sectionProps);
   }, [pluginSectionKind, sectionProps]);
-
   return (
     <section
       className="section-main-full-w section-main relative h-full min-h-0 overflow-hidden"
@@ -203,7 +194,6 @@ function PluginSectionRendererHost({
     </section>
   );
 }
-
 type PluginSectionFallbackCardProps = {
   sectionId: string;
   pluginId: string;
@@ -212,18 +202,15 @@ type PluginSectionFallbackCardProps = {
   schemaVersion: number | null;
   isUserView: boolean;
 };
-
 type PluginSectionLoadingCardProps = {
   pluginId: string;
   kind: string;
 };
-
 type PluginSectionRuntimeErrorCardProps = {
   pluginId: string;
   kind: string;
   runtimeStatusMessage: string | null;
 };
-
 function PluginSectionLoadingCard({
   pluginId,
   kind,
@@ -258,7 +245,6 @@ function PluginSectionLoadingCard({
     </section>
   );
 }
-
 function PluginSectionRuntimeErrorCard({
   pluginId,
   kind,
@@ -268,7 +254,6 @@ function PluginSectionRuntimeErrorCard({
     runtimeStatusMessage && runtimeStatusMessage.trim().length > 0
       ? runtimeStatusMessage
       : "Plugin runtime failed to initialize.";
-
   return (
     <section className="section-main-full-w flex h-full min-h-0 items-center justify-center p-3">
       <div className="w-full max-w-[520px] rounded-md border border-red-300 bg-red-50/80 p-3 text-xs text-red-800 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-200">
@@ -308,7 +293,6 @@ function PluginSectionRuntimeErrorCard({
     </section>
   );
 }
-
 function PluginSectionFallbackCard({
   sectionId,
   pluginId,
@@ -321,7 +305,6 @@ function PluginSectionFallbackCard({
   const reason = usePluginSectionFallbackReason(pluginId, kind);
   const reasonLabel = fallbackReasonLabel(reason);
   const dataPreview = useMemo(() => buildPluginDataPreview(data), [data]);
-
   async function onDeleteSection(event: ReactMouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
@@ -329,18 +312,32 @@ function PluginSectionFallbackCard({
       return;
     }
     setIsDeleting(true);
-    const response = await route_delete_sections({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionIds: [sectionId],
-    });
+    const projectConfigId = getCurrProjectConfigId();
+    const response = await callOpenAPI(
+      deleteSections({
+        body: {
+          projectConfigId,
+          sectionIds: [sectionId],
+        },
+      } as Parameters<typeof deleteSections>[0]),
+    );
     setIsDeleting(false);
     if (!res200(response)) {
       addTemporaryNotification("Failed to delete plugin section.", "error");
       return;
     }
+    const latestProjectStateResponse = await callOpenAPI(
+      getLatestProjectState({
+        body: {
+          projectConfigId,
+        },
+      } as Parameters<typeof getLatestProjectState>[0]),
+    );
+    if (res200(latestProjectStateResponse)) {
+      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    }
     addTemporaryNotification("Plugin section deleted.", "info");
   }
-
   async function onCopySectionJson(event: ReactMouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
@@ -362,13 +359,11 @@ function PluginSectionFallbackCard({
       addTemporaryNotification("Failed to copy plugin section JSON.", "error");
     }
   }
-
   async function onOpenPlugins(event: ReactMouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
     onOverviewTabClick(OverviewTabNameEnum.Plugins);
   }
-
   return (
     <section className="section-main-full-w flex h-full min-h-0 items-center justify-center p-3">
       <div className="w-full max-w-[520px] rounded-md border border-dashed border-setta-300 bg-setta-50/80 p-3 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-900/70 dark:text-setta-200">
@@ -428,7 +423,6 @@ function PluginSectionFallbackCard({
     </section>
   );
 }
-
 function buildPluginDataPreview(data: Record<string, unknown>): string {
   try {
     return JSON.stringify(data, null, 2);
@@ -436,7 +430,6 @@ function buildPluginDataPreview(data: Record<string, unknown>): string {
     return '{"error":"Failed to stringify data"}';
   }
 }
-
 function fallbackReasonLabel(reason: string | null): string {
   if (reason === null) {
     return "Plugin runtime state is inconsistent for this section.";
