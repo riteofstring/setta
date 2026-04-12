@@ -6,6 +6,7 @@ import {
   denormalizeFloatingBounds,
   normalizeFloatingBounds,
   resolveFloatingSnapPresetFromBounds,
+  resolveFloatingSnapPresetFromPointer,
   type FloatingSnapPreset,
   type FloatingWindowBoundaryInsets,
 } from "./projectChatSnapLayout";
@@ -71,6 +72,28 @@ describe("project chat snap layout helpers", () => {
         TEST_INSETS,
       ),
     ).toBe("bottom_right");
+  });
+
+  it("detects snap presets from pointer edges in the same priority order as the drag overlay", () => {
+    expect(
+      resolveFloatingSnapPresetFromPointer({
+        pointerX: 60,
+        pointerY: 60,
+        viewportWidthPx: 1440,
+        viewportHeightPx: 900,
+        insets: TEST_INSETS,
+      }),
+    ).toBe("top_left");
+
+    expect(
+      resolveFloatingSnapPresetFromPointer({
+        pointerX: 1385,
+        pointerY: 460,
+        viewportWidthPx: 1440,
+        viewportHeightPx: 900,
+        insets: TEST_INSETS,
+      }),
+    ).toBe("right");
   });
 
   it("builds shared vertical and horizontal resize handles for a quad snap layout", () => {

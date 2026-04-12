@@ -88,6 +88,43 @@ const FLOATING_SNAP_PRESET_ORDER = [
   "bottom_left",
   "bottom_right",
 ] as const satisfies readonly FloatingSnapPreset[];
+const FLOATING_SNAP_POINTER_PRESET_ORDER = [
+  {
+    preset: "top_left",
+    requiredEdges: ["top", "left"],
+  },
+  {
+    preset: "top_right",
+    requiredEdges: ["top", "right"],
+  },
+  {
+    preset: "bottom_left",
+    requiredEdges: ["bottom", "left"],
+  },
+  {
+    preset: "bottom_right",
+    requiredEdges: ["bottom", "right"],
+  },
+  {
+    preset: "left",
+    requiredEdges: ["left"],
+  },
+  {
+    preset: "right",
+    requiredEdges: ["right"],
+  },
+  {
+    preset: "top",
+    requiredEdges: ["top"],
+  },
+  {
+    preset: "bottom",
+    requiredEdges: ["bottom"],
+  },
+] as const satisfies ReadonlyArray<{
+  preset: FloatingSnapPreset;
+  requiredEdges: readonly BoundaryEdge[];
+}>;
 const FLOATING_SNAP_PRESET_DESCRIPTORS = {
   left: {
     xStartFraction: 0,
@@ -216,6 +253,20 @@ function resolveBoundaryEdgeState(
     right: areClose(bounds.x + bounds.width, rect.maxX),
     top: areClose(bounds.y, rect.minY),
     bottom: areClose(bounds.y + bounds.height, rect.maxY),
+  };
+}
+
+function resolvePointerBoundaryEdgeState(
+  pointerX: number,
+  pointerY: number,
+  rect: BoundaryRect,
+  thresholdPx: number,
+): BoundaryEdgeState {
+  return {
+    left: pointerX <= rect.minX + thresholdPx,
+    right: pointerX >= rect.maxX - thresholdPx,
+    top: pointerY <= rect.minY + thresholdPx,
+    bottom: pointerY >= rect.maxY - thresholdPx,
   };
 }
 
@@ -468,6 +519,33 @@ export function buildFloatingSnapBounds(
     width: availableWidthPx * descriptor.widthFraction,
     height: availableHeightPx * descriptor.heightFraction,
   };
+}
+
+export function resolveFloatingSnapPresetFromPointer({
+  pointerX,
+  pointerY,
+  viewportWidthPx,
+  viewportHeightPx,
+  insets,
+  thresholdPx = 84,
+}: {
+  pointerX: number;
+  pointerY: number;
+  viewportWidthPx: number;
+  viewportHeightPx: number;
+  insets: FloatingWindowBoundaryInsets;
+  thresholdPx?: number;
+}): FloatingSnapPreset | null {
+  const edgeState = resolvePointerBoundaryEdgeState(
+    pointerX,
+    pointerY,
+    getBoundaryRect(viewportWidthPx, viewportHeightPx, insets),
+    thresholdPx,
+  );
+  const matchingPreset = FLOATING_SNAP_POINTER_PRESET_ORDER.find(
+    ({ requiredEdges }) => requiredEdges.every((edge) => edgeState[edge]),
+  );
+  return matchingPreset?.preset ?? null;
 }
 
 export function normalizeFloatingBounds(
