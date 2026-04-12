@@ -198,5 +198,5 @@ export function resolveSettingsGraphSubstrateCanaryViewportTransform(
   if (!viewport) {
     return undefined;
   }
-  return `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
+  return `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.zoom})`;
 }

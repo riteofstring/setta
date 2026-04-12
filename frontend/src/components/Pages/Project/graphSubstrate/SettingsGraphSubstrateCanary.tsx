@@ -111,11 +111,14 @@ export function SettingsGraphSubstrateCanary() {
         className="react-flow__viewport"
         data-testid="graph-substrate-canary-viewport"
         style={{
+          backfaceVisibility: "hidden",
+          contain: "layout paint style",
           inset: 0,
           pointerEvents: "none",
           position: "absolute",
           transform: controller.viewportTransform,
           transformOrigin: "0 0",
+          willChange: "transform",
           zIndex: 2,
         }}
       >

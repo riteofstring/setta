@@ -12249,3 +12249,33 @@ LOOP_TERMINAL_MARKER: none
     canonical lane, so the next bounded slice should target product-side canary
     motion cost rather than more probe-health normalization
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 14:57 UTC | item 316 | viewport-layer promotion on canonical `rotaryParamCodeObjDefault`
+  - Picked one bounded product slice against the current motion-cost lane instead of another support-only rerun: promote the canary viewport transform layer itself so pan/zoom runs on a compositor-friendly path.
+  - Product code changed in the canary surface:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      now returns `translate3d(..., 0) scale(...)` from
+      `resolveSettingsGraphSubstrateCanaryViewportTransform(...)`
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      now applies `will-change: transform`, `backface-visibility: hidden`, and
+      `contain: layout paint style` on the moving viewport wrapper
+    - updated focused tests in:
+      - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+      -> passed (`2` files, `11` tests)
+    - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-005/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-005/main-ai.log`
+      -> reached numeric perf output on both sides, then failed on the
+      reference threshold because legacy `main` averaged `142.04ms`
+      while the worktree canary averaged `38.64ms`
+    - fresh-context CDP visual check on worktree `3075` against reference
+      `3087`
+      -> `All Settings` mounted cleanly; no obvious new viewport-layer drift,
+      clipping, or layout artifact from this slice
+  - Reading:
+    - the product slice improved the worktree side on this runtime without
+      opening a new visible regression
+    - the blocker is again reference-side perf/state inflation, not the canary:
+      reference root DOM rose to `9527` and editable controls to `129`
+    - next frontier: explain or normalize the recurring reference-side motion
+      probe inflation before another canary-side product reduction

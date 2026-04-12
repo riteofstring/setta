@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 14:42 UTC
+Last updated: 2026-04-12 14:57 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+  - item `316` landed one bounded product slice on the canonical
+    `rotaryParamCodeObjDefault` lane instead of reopening another already-closed
+    JS-attribution seam:
+    - product code changed in the canary viewport path:
+      - `resolveSettingsGraphSubstrateCanaryViewportTransform(...)` now emits a
+        promoted `translate3d(..., 0) scale(...)` transform in
+        `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      - the viewport wrapper in
+        `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+        now opts into `will-change: transform`,
+        `backface-visibility: hidden`, and
+        `contain: layout paint style`
+      - updated focused tests in:
+        - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+        - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+    - recorded the bounded result in
+      `perf/reports/frontend/2026-04-12_settings-graph-substrate-canary-viewport-layer-promotion.md`
+    - focused verification:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+        -> passed (`2` files, `11` tests)
+      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-005/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-005/main-ai.log`
+        -> reached numeric perf output on both sides, then failed on the
+        reference threshold:
+        `expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40)`
+        because reference averaged `142.04ms`
+      - fresh-context CDP visual check on worktree `3075` and reference `3087`
+        -> `All Settings` mounted on both sides and showed no obvious new
+        viewport-layer drift, clipping, or layout regression from this slice
+    - reading:
+      - the worktree canary side improved on this runtime and came in below the
+        existing threshold:
+        - average `38.64ms`
+        - root DOM `135`
+        - visible sections `1`
+      - the repeated blocker moved back to the read-only `main` reference, not
+        the canary:
+        - reference root DOM inflated to `9527` and editable controls to `129`
+          instead of the usual `~7628` / `99` baseline on this lane
+      - do not reopen the viewport-promotion slice by default; the next bounded
+        pass should explain or normalize the recurring reference-side perf/state
+        inflation before another product reduction on this lane
   - Current live verification state:
   - item `315` landed one bounded capture-health normalization slice on the
     canonical `rotaryParamCodeObjDefault` lane so the main-reference motion

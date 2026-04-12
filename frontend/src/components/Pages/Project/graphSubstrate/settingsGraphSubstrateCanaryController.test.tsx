@@ -274,7 +274,7 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     expect(scopeArgs?.rootRef).toBe(runtimeArgs?.rootRef);
     expect(readProbe(host).dataset.cursor).toBe("grabbing");
     expect(readProbe(host).dataset.transform).toBe(
-      "translate(120px, -44px) scale(1.4)",
+      "translate3d(120px, -44px, 0) scale(1.4)",
     );
   });
 
@@ -394,6 +394,16 @@ describe("resolveSettingsGraphSubstrateCanaryViewportTransform", () => {
     expect(
       resolveSettingsGraphSubstrateCanaryViewportTransform(null),
     ).toBeUndefined();
+  });
+
+  it("returns a promoted 3d transform for resolved viewports", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanaryViewportTransform({
+        x: 120,
+        y: -44,
+        zoom: 1.4,
+      }),
+    ).toBe("translate3d(120px, -44px, 0) scale(1.4)");
   });
 });
 

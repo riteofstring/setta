@@ -32,7 +32,7 @@ const hoisted = vi.hoisted(() => ({
     },
     shouldShowGridLines: true,
     visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
-    viewportTransform: "translate(120px, -80px) scale(1.25)",
+    viewportTransform: "translate3d(120px, -80px, 0) scale(1.25)",
   },
 }));
 
@@ -103,7 +103,7 @@ describe("SettingsGraphSubstrateCanary", () => {
       height: 480,
     };
     hoisted.controller.viewportTransform =
-      "translate(120px, -80px) scale(1.25)";
+      "translate3d(120px, -80px, 0) scale(1.25)";
 
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -153,7 +153,11 @@ describe("SettingsGraphSubstrateCanary", () => {
       "[data-testid='graph-substrate-canary-viewport']",
     );
     expect(viewport?.getAttribute("style")).toContain(
-      "translate(120px, -80px) scale(1.25)",
+      "translate3d(120px, -80px, 0) scale(1.25)",
+    );
+    expect(viewport?.getAttribute("style")).toContain("will-change: transform");
+    expect(viewport?.getAttribute("style")).toContain(
+      "contain: layout paint style",
     );
   });
 
@@ -197,7 +201,7 @@ describe("SettingsGraphSubstrateCanary", () => {
         sectionId: "offscreen-section",
       },
     ];
-    hoisted.controller.viewportTransform = "translate(0px, 0px) scale(1)";
+    hoisted.controller.viewportTransform = "translate3d(0px, 0px, 0) scale(1)";
 
     await act(async () => {
       root.render(<SettingsGraphSubstrateCanary />);
