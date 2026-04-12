@@ -264,7 +264,7 @@ func runAppManagedChatLiveProviderTest(t *testing.T, testCase appManagedLiveProv
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	completedRun, err := app.ManagedAgentRuntime().WaitForRun(waitCtx, completedRunID)
+	completedRun, err := app.agentRuntime.WaitForRun(waitCtx, completedRunID)
 	if err != nil {
 		t.Fatalf("wait for managed runtime completion: %v", err)
 	}
@@ -573,7 +573,7 @@ func runAppManagedChatLiveProviderToolCallTest(t *testing.T, testCase appManaged
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	completedRun, err := app.ManagedAgentRuntime().WaitForRun(waitCtx, completedRunID)
+	completedRun, err := app.agentRuntime.WaitForRun(waitCtx, completedRunID)
 	if err != nil {
 		t.Fatalf("wait for managed runtime completion: %v", err)
 	}

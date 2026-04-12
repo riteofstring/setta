@@ -2897,18 +2897,6 @@ func (a *App) SettingsState() *settingsstate.Runtime {
 	return a.settingsState
 }
 
-func (a *App) DeploymentRuntime() *deployments.Runtime {
-	return a.deployment
-}
-
-func (a *App) ShareSessions() modes.ShareSessionStore {
-	return a.shareSessions
-}
-
-func (a *App) MCPClient() *mcpx.Client {
-	return a.mcpClient
-}
-
 func newAppNotificationID() (string, error) {
 	buffer := make([]byte, 8)
 	if _, err := rand.Read(buffer); err != nil {
@@ -2919,34 +2907,6 @@ func newAppNotificationID() (string, error) {
 
 func (a *App) Terminals() *terminals.Service {
 	return a.terminals
-}
-
-func (a *App) BinaryStore() *binarypayload.Store {
-	return a.binaryStore
-}
-
-func (a *App) RunCode() *runs.Service {
-	return a.runCode
-}
-
-func (a *App) AgentRuns() *agentruns.Service {
-	return a.agentRuns
-}
-
-func (a *App) ManagedAgentRuntime() *agentruns.Runtime {
-	return a.agentRuntime
-}
-
-func (a *App) RunChainRuntime() *runchains.Runtime {
-	return a.runChains
-}
-
-func (a *App) WebsocketHub() *realtime.WebsocketHub {
-	return a.websocketHub
-}
-
-func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
-	return a.listeners
 }
 
 func (a *App) Shutdown(ctx context.Context) error {

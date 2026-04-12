@@ -252,7 +252,7 @@ func runAppManagedChatLiveProviderStopTest(t *testing.T, testCase appManagedLive
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	stoppedRun, err := app.ManagedAgentRuntime().WaitForRun(waitCtx, *stopPayload.StoppedRunID)
+	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
 	if err != nil {
 		t.Fatalf("wait for stopped managed runtime: %v", err)
 	}

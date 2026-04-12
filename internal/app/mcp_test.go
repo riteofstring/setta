@@ -11886,7 +11886,7 @@ func waitForAppMCPClientState(t *testing.T, app *App, want mcpx.RuntimeState) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		client := app.MCPClient()
+		client := app.mcpClient
 		if client != nil {
 			statuses := client.RuntimeStatuses()
 			if len(statuses) == 1 && statuses[0].State == want {
@@ -11896,7 +11896,7 @@ func waitForAppMCPClientState(t *testing.T, app *App, want mcpx.RuntimeState) {
 		time.Sleep(25 * time.Millisecond)
 	}
 
-	client := app.MCPClient()
+	client := app.mcpClient
 	if client == nil {
 		t.Fatal("expected app MCP client")
 	}

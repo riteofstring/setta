@@ -758,7 +758,7 @@ func TestAppStopsLiveManagedChatThroughStopRoute(t *testing.T) {
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	stoppedRun, err := app.ManagedAgentRuntime().WaitForRun(waitCtx, *stopPayload.StoppedRunID)
+	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
 	if err != nil {
 		t.Fatalf("wait for stopped managed runtime: %v", err)
 	}
@@ -1056,7 +1056,7 @@ func TestAppStopsLiveManagedAzureChatThroughStopRoute(t *testing.T) {
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	stoppedRun, err := app.ManagedAgentRuntime().WaitForRun(waitCtx, *stopPayload.StoppedRunID)
+	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
 	if err != nil {
 		t.Fatalf("wait for stopped managed azure runtime: %v", err)
 	}
@@ -1360,7 +1360,7 @@ func TestAppStopsLiveManagedAnthropicChatThroughStopRoute(t *testing.T) {
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	stoppedRun, err := app.ManagedAgentRuntime().WaitForRun(waitCtx, *stopPayload.StoppedRunID)
+	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
 	if err != nil {
 		t.Fatalf("wait for stopped managed anthropic runtime: %v", err)
 	}
@@ -1653,7 +1653,7 @@ func TestAppStopsLiveManagedGeminiChatThroughStopRoute(t *testing.T) {
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	stoppedRun, err := app.ManagedAgentRuntime().WaitForRun(waitCtx, *stopPayload.StoppedRunID)
+	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
 	if err != nil {
 		t.Fatalf("wait for stopped managed gemini runtime: %v", err)
 	}
@@ -1901,7 +1901,7 @@ func TestAppServesManagedChatSendThroughManagedExecutor(t *testing.T) {
 	if strings.TrimSpace(completedRunID) == "" {
 		t.Fatal("expected completed managed run id")
 	}
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
 		t.Fatalf("wait for managed runtime completion: %v", err)
 	}
 
@@ -2307,7 +2307,7 @@ func TestAppManagedChatFailsClosedWhenCompletionReportToolMissing(t *testing.T) 
 	if strings.TrimSpace(failedRunID) == "" {
 		t.Fatal("expected failed managed run id")
 	}
-	failedRun, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), failedRunID)
+	failedRun, err := app.agentRuntime.WaitForRun(context.Background(), failedRunID)
 	if err != nil {
 		t.Fatalf("wait for managed runtime failure: %v", err)
 	}
@@ -2829,7 +2829,7 @@ func TestAppServesManagedChatSendWithAttachmentsThroughManagedExecutor(t *testin
 	if strings.TrimSpace(completedRunID) == "" {
 		t.Fatal("expected completed managed run id")
 	}
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
 		t.Fatalf("wait for managed runtime completion: %v", err)
 	}
 
@@ -3123,7 +3123,7 @@ func TestAppServesManagedChatSendWithAttachmentsThroughAnthropicExecutor(t *test
 	if strings.TrimSpace(completedRunID) == "" {
 		t.Fatal("expected completed managed anthropic attachment run id")
 	}
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
 		t.Fatalf("wait for managed anthropic attachment runtime completion: %v", err)
 	}
 
@@ -3432,7 +3432,7 @@ func TestAppServesManagedChatSendWithAttachmentsThroughAzureOpenAIExecutor(t *te
 	if strings.TrimSpace(completedRunID) == "" {
 		t.Fatal("expected completed managed azure attachment run id")
 	}
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
 		t.Fatalf("wait for managed azure attachment runtime completion: %v", err)
 	}
 
@@ -3688,7 +3688,7 @@ func TestAppServesManagedChatSendThroughAzureOpenAIExecutor(t *testing.T) {
 	if strings.TrimSpace(completedRunID) == "" {
 		t.Fatal("expected completed managed Azure run id")
 	}
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
 		t.Fatalf("wait for managed Azure runtime completion: %v", err)
 	}
 
@@ -3921,7 +3921,7 @@ func TestAppServesManagedChatSendThroughAnthropicExecutor(t *testing.T) {
 	if strings.TrimSpace(completedRunID) == "" {
 		t.Fatal("expected completed managed anthropic run id")
 	}
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
 		t.Fatalf("wait for managed anthropic runtime completion: %v", err)
 	}
 
@@ -4424,7 +4424,7 @@ func TestAppServesManagedChatSendWithAttachmentsThroughGeminiExecutor(t *testing
 	if strings.TrimSpace(completedRunID) == "" {
 		t.Fatal("expected completed managed Gemini attachment run id")
 	}
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
 		t.Fatalf("wait for managed Gemini attachment runtime completion: %v", err)
 	}
 
@@ -4675,7 +4675,7 @@ func TestAppServesManagedChatSendThroughGeminiExecutor(t *testing.T) {
 	if strings.TrimSpace(completedRunID) == "" {
 		t.Fatal("expected completed managed Gemini run id")
 	}
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
 		t.Fatalf("wait for managed Gemini runtime completion: %v", err)
 	}
 
@@ -7968,22 +7968,22 @@ func TestAppWiresManagedAgentRunFoundationInIDEMode(t *testing.T) {
 		}
 	})
 
-	if app.AgentRuns() == nil {
+	if app.agentRuns == nil {
 		t.Fatal("expected managed agent run service")
 	}
-	if app.AgentRuns().Disabled() {
+	if app.agentRuns.Disabled() {
 		t.Fatal("expected managed agent run service to be wired")
 	}
-	if app.ManagedAgentRuntime() == nil {
+	if app.agentRuntime == nil {
 		t.Fatal("expected managed agent run runtime")
 	}
-	if app.ManagedAgentRuntime().Disabled() {
+	if app.agentRuntime.Disabled() {
 		t.Fatal("expected managed agent run runtime to be wired")
 	}
-	if app.RunChainRuntime() == nil {
+	if app.runChains == nil {
 		t.Fatal("expected run-chain runtime")
 	}
-	if app.RunChainRuntime().Disabled() {
+	if app.runChains.Disabled() {
 		t.Fatal("expected run-chain runtime to stay available through the external-agent step boundary")
 	}
 }
@@ -8138,7 +8138,7 @@ func TestAppServesManagedAgentRunRoutesWithManagedExecutor(t *testing.T) {
 		}
 		return loaded.Status == agentruns.RunStatusCompleted
 	})
-	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), started.ID); err != nil {
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), started.ID); err != nil {
 		t.Fatalf("wait for managed runtime completion: %v", err)
 	}
 
@@ -8281,7 +8281,7 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 	if len(childRunIDs) != 1 || strings.TrimSpace(childRunIDs[0]) == "" {
 		t.Fatalf("expected one child run id, got %#v", started.Outputs["childRunIds"])
 	}
-	childRun, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), childRunIDs[0])
+	childRun, err := app.agentRuntime.WaitForRun(context.Background(), childRunIDs[0])
 	if err != nil {
 		t.Fatalf("wait for child run completion: %v", err)
 	}
@@ -8615,7 +8615,7 @@ func TestAppServesRunChainRoutesAndPersistedReadback(t *testing.T) {
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	completed, err := app.RunChainRuntime().WaitForRun(waitCtx, started.ID)
+	completed, err := app.runChains.WaitForRun(waitCtx, started.ID)
 	if err != nil {
 		t.Fatalf("wait for run chain completion: %v", err)
 	}
@@ -10387,7 +10387,7 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 		t.Fatalf("expected rendered image path %q, got %q", drawSnapshotPath, drawImpl.Draw.RenderedImagePath)
 	}
 
-	if _, err := app.BinaryStore().ReadBytes(ref.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
+	if _, err := app.binaryStore.ReadBytes(ref.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
 		t.Fatalf("expected binary payload to be deleted, got %v", err)
 	}
 

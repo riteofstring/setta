@@ -728,7 +728,7 @@ func TestAppArtifactWatcherBroadcastsImageFileChanges(t *testing.T) {
 		t.Fatalf("expected watched image id %q, got %#v", watchedID, imageArtifact)
 	}
 
-	payload, err := app.BinaryStore().ReadBytes(imageArtifact.Value.ContentID)
+	payload, err := app.binaryStore.ReadBytes(imageArtifact.Value.ContentID)
 	if err != nil {
 		t.Fatalf("read watched image bytes from binary store: %v", err)
 	}
@@ -4348,13 +4348,13 @@ func TestAppServesListenerForceRefreshRoute(t *testing.T) {
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		targets := app.ListenerBroadcaster().Registry().BootstrapConnectionIDs("project-alpha", "")
+		targets := app.listeners.Registry().BootstrapConnectionIDs("project-alpha", "")
 		if len(targets) == 1 && targets[0] == "listener-a" {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if targets := app.ListenerBroadcaster().Registry().BootstrapConnectionIDs("project-alpha", ""); len(targets) != 1 || targets[0] != "listener-a" {
+	if targets := app.listeners.Registry().BootstrapConnectionIDs("project-alpha", ""); len(targets) != 1 || targets[0] != "listener-a" {
 		t.Fatalf("expected listener bootstrap for project-alpha, got %#v", targets)
 	}
 
@@ -5469,7 +5469,7 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 		t.Fatalf("expected binary ref %#v, got %#v", ref, value.Payload)
 	}
 
-	if _, err := app.BinaryStore().ReadBytes(ref.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
+	if _, err := app.binaryStore.ReadBytes(ref.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
 		t.Fatalf("expected draw snapshot payload to be deleted after broadcast, got %v", err)
 	}
 }

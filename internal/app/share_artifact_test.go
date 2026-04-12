@@ -35,10 +35,10 @@ func TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates(t *te
 		}
 	})
 
-	if _, err := app.DeploymentRuntime().CreateSessionWithID("share-a"); err != nil {
+	if _, err := app.deployment.CreateSessionWithID("share-a"); err != nil {
 		t.Fatalf("create share-a session: %v", err)
 	}
-	if _, err := app.DeploymentRuntime().CreateSessionWithID("share-b"); err != nil {
+	if _, err := app.deployment.CreateSessionWithID("share-b"); err != nil {
 		t.Fatalf("create share-b session: %v", err)
 	}
 

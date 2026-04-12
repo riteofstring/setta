@@ -50,26 +50,26 @@ func TestAppOpensDeploymentRuntimeForShareMode(t *testing.T) {
 	if app.ProjectStates() != nil {
 		t.Fatal("did not expect IDE project-state registry in share mode")
 	}
-	if app.DeploymentRuntime() == nil {
+	if app.deployment == nil {
 		t.Fatal("expected deployment runtime in share mode")
 	}
-	if app.ShareSessions() == nil {
+	if app.shareSessions == nil {
 		t.Fatal("expected share-session store in share mode")
 	}
-	if app.DeploymentRuntime().Paths().DeploymentRoot != cfg.Paths.DeploymentRoot {
-		t.Fatalf("expected deployment root %q, got %q", cfg.Paths.DeploymentRoot, app.DeploymentRuntime().Paths().DeploymentRoot)
+	if app.deployment.Paths().DeploymentRoot != cfg.Paths.DeploymentRoot {
+		t.Fatalf("expected deployment root %q, got %q", cfg.Paths.DeploymentRoot, app.deployment.Paths().DeploymentRoot)
 	}
-	if app.DeploymentRuntime().Paths().RuntimeRoot != cfg.Paths.RuntimeRoot {
-		t.Fatalf("expected runtime root %q, got %q", cfg.Paths.RuntimeRoot, app.DeploymentRuntime().Paths().RuntimeRoot)
+	if app.deployment.Paths().RuntimeRoot != cfg.Paths.RuntimeRoot {
+		t.Fatalf("expected runtime root %q, got %q", cfg.Paths.RuntimeRoot, app.deployment.Paths().RuntimeRoot)
 	}
-	if app.DeploymentRuntime().Base().Snapshot().Document.DefaultProjectID != "project-alpha" {
-		t.Fatalf("expected manifest default project id project-alpha, got %q", app.DeploymentRuntime().Base().Snapshot().Document.DefaultProjectID)
+	if app.deployment.Base().Snapshot().Document.DefaultProjectID != "project-alpha" {
+		t.Fatalf("expected manifest default project id project-alpha, got %q", app.deployment.Base().Snapshot().Document.DefaultProjectID)
 	}
 
-	if _, err := app.DeploymentRuntime().CreateSessionWithID("share-a"); err != nil {
+	if _, err := app.deployment.CreateSessionWithID("share-a"); err != nil {
 		t.Fatalf("create share session: %v", err)
 	}
-	if !app.ShareSessions().HasSession("share-a") {
+	if !app.shareSessions.HasSession("share-a") {
 		t.Fatal("expected share-session store to expose created deployment session")
 	}
 }
@@ -91,10 +91,10 @@ func TestAppShareModeDoesNotSeedIDEFilesOrStartIDEOnlyClients(t *testing.T) {
 	if app.SettingsState() != nil {
 		t.Fatal("did not expect share mode to start settings state runtime")
 	}
-	if app.MCPClient() != nil {
+	if app.mcpClient != nil {
 		t.Fatal("did not expect share mode to start MCP client")
 	}
-	if app.ManagedAgentRuntime() != nil {
+	if app.agentRuntime != nil {
 		t.Fatal("did not expect share mode to start managed agent runtime")
 	}
 
@@ -179,7 +179,7 @@ func TestAppShareSessionStoreSupportsHTTPMiddleware(t *testing.T) {
 		}
 	})
 
-	session, err := app.DeploymentRuntime().CreateSessionWithID("share-a")
+	session, err := app.deployment.CreateSessionWithID("share-a")
 	if err != nil {
 		t.Fatalf("create share session: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestAppShareSessionStoreSupportsHTTPMiddleware(t *testing.T) {
 	router := chi.NewRouter()
 	router.With(httpapi.RequireShareSession(modes.Resolver{
 		Policy: modes.NewPolicy(cfg.Server.Mode),
-		Store:  app.ShareSessions(),
+		Store:  app.shareSessions,
 	})).Get("/protected", func(w http.ResponseWriter, r *http.Request) {
 		info, ok := modes.RequestInfoFromRequest(r)
 		if !ok {
@@ -208,7 +208,7 @@ func TestAppShareSessionStoreSupportsHTTPMiddleware(t *testing.T) {
 		t.Fatalf("expected 204, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	touched, ok := app.DeploymentRuntime().Session("share-a")
+	touched, ok := app.deployment.Session("share-a")
 	if !ok {
 		t.Fatal("expected share session to remain after middleware request")
 	}
@@ -231,7 +231,7 @@ func TestAppShareModeFrontendWebsocketUsesDeploymentShareSessions(t *testing.T) 
 		}
 	})
 
-	session, err := app.DeploymentRuntime().CreateSessionWithID("share-a")
+	session, err := app.deployment.CreateSessionWithID("share-a")
 	if err != nil {
 		t.Fatalf("create share session: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestAppShareModeFrontendWebsocketUsesDeploymentShareSessions(t *testing.T) 
 		t.Fatal("expected frontend affinity token")
 	}
 
-	touched, ok := app.DeploymentRuntime().Session("share-a")
+	touched, ok := app.deployment.Session("share-a")
 	if !ok {
 		t.Fatal("expected share session after websocket connect")
 	}
@@ -324,7 +324,7 @@ def build_callbacks(listener: SettaListener) -> None:
 		}
 	})
 
-	if _, err := app.DeploymentRuntime().CreateSessionWithID("share-a"); err != nil {
+	if _, err := app.deployment.CreateSessionWithID("share-a"); err != nil {
 		t.Fatalf("create share session: %v", err)
 	}
 
@@ -350,14 +350,14 @@ def build_callbacks(listener: SettaListener) -> None:
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		targets := app.ListenerBroadcaster().Registry().BootstrapConnectionIDs("project-alpha", "share-a")
+		targets := app.listeners.Registry().BootstrapConnectionIDs("project-alpha", "share-a")
 		if len(targets) == 1 {
 			return
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	targets := app.ListenerBroadcaster().Registry().BootstrapConnectionIDs("project-alpha", "share-a")
+	targets := app.listeners.Registry().BootstrapConnectionIDs("project-alpha", "share-a")
 	t.Fatalf("expected autostarted deployment listener bootstrap for share-a/project-alpha, got %#v", targets)
 }
 
@@ -392,7 +392,7 @@ func TestAppShareModeServesCurrentDeploymentSessionRoute(t *testing.T) {
 	if payload.ShareSessionID == "" {
 		t.Fatal("expected non-empty share session id")
 	}
-	if !app.ShareSessions().HasSession(payload.ShareSessionID) {
+	if !app.shareSessions.HasSession(payload.ShareSessionID) {
 		t.Fatal("expected current session route to create a deployment session")
 	}
 }
