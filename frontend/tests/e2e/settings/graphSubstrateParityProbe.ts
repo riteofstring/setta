@@ -20,7 +20,6 @@ import {
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
-  resolveSettingsGraphLocalPaneStateStorePatch,
   writePersistedSettingsGraphLocalPaneState,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
@@ -934,39 +933,29 @@ export async function setLocalPaneState(
   page: Page,
   paneState: SettingsGraphLocalPaneState,
 ): Promise<Page> {
-  const nextPersistedPaneState = writePersistedSettingsGraphLocalPaneState({
-    paneState,
-    rawPersistedState: null,
-  });
-  const nextPaneStatePatch =
-    resolveSettingsGraphLocalPaneStateStorePatch(paneState);
-
   const { page: activePage } = await runWithRecoverableSettingsGraphPageAction({
     description: "writing normalized compare pane state",
     page,
     action: async (targetPage) => {
+      const existingPersistedPaneState = await targetPage.evaluate(() =>
+        window.localStorage.getItem("setta_data"),
+      );
+      const nextPersistedPaneState = writePersistedSettingsGraphLocalPaneState({
+        paneState,
+        rawPersistedState: existingPersistedPaneState,
+      });
+
       await targetPage.evaluate(
-        async ({
-          key,
-          paneStatePatch,
-          value,
-        }: {
-          key: string;
-          paneStatePatch: ReturnType<
-            typeof resolveSettingsGraphLocalPaneStateStorePatch
-          >;
-          value: string;
-        }) => {
-          const { useLocalStorage } = await import("/src/state/definitions.ts");
+        ({ key, value }: { key: string; value: string }) => {
           window.localStorage.setItem(key, value);
-          useLocalStorage.setState(paneStatePatch);
         },
         {
           key: "setta_data",
-          paneStatePatch: nextPaneStatePatch,
           value: nextPersistedPaneState,
         },
       );
+
+      await targetPage.reload({ waitUntil: "domcontentloaded" });
     },
   });
 
@@ -1795,8 +1784,7 @@ async function waitForSettingsGraphCompareTransientChrome(
       });
 
       const deadline = Date.now() + timeoutMs;
-      let lastSnapshot = await page.evaluate(async () => {
-        const { useProjectLoading } = await import("/src/state/definitions.ts");
+      let lastSnapshot = await page.evaluate(() => {
         const legacyPaneCount =
           document.querySelectorAll(".react-flow__pane").length;
         const canaryRootCount = document.querySelectorAll(
@@ -1809,7 +1797,10 @@ async function waitForSettingsGraphCompareTransientChrome(
           graphSurfaceMounted: legacyPaneCount > 0 || canaryRootCount > 0,
           headerNotificationVisible:
             document.querySelector(".header-notification-fade") !== null,
-          projectIsLoading: useProjectLoading.getState().projectIsLoading,
+          projectIsLoading:
+            document.querySelector(
+              '[data-testid="project-surface-loading-state"]',
+            ) !== null,
           settingsContentMounted: articleElements.some((element) => {
             const htmlElement =
               element instanceof HTMLElement ? element : element.parentElement;
@@ -1823,10 +1814,7 @@ async function waitForSettingsGraphCompareTransientChrome(
           return;
         }
         await page.waitForTimeout(pollIntervalMs);
-        lastSnapshot = await page.evaluate(async () => {
-          const { useProjectLoading } = await import(
-            "/src/state/definitions.ts"
-          );
+        lastSnapshot = await page.evaluate(() => {
           const legacyPaneCount =
             document.querySelectorAll(".react-flow__pane").length;
           const canaryRootCount = document.querySelectorAll(
@@ -1839,7 +1827,10 @@ async function waitForSettingsGraphCompareTransientChrome(
             graphSurfaceMounted: legacyPaneCount > 0 || canaryRootCount > 0,
             headerNotificationVisible:
               document.querySelector(".header-notification-fade") !== null,
-            projectIsLoading: useProjectLoading.getState().projectIsLoading,
+            projectIsLoading:
+              document.querySelector(
+                '[data-testid="project-surface-loading-state"]',
+              ) !== null,
             settingsContentMounted: articleElements.some((element) => {
               const htmlElement =
                 element instanceof HTMLElement

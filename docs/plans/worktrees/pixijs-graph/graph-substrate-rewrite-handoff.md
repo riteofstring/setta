@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 15:00 UTC
+Last updated: 2026-04-14 15:15 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,49 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `476` completed one bounded normalize-path hardening pass on the
+  canonical `rotaryParamCodeObjDefault` lane by removing two more fragile
+  in-page module imports from the compare helper:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now writes normalized compare pane state by merging directly into
+      persisted `localStorage` and reloading the page, instead of importing the
+      in-page zustand store just to mirror the same values
+    - the same helper now reads transient compare-chrome readiness from DOM
+      loading markers instead of importing `useProjectLoading` for an unused
+      field
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `11` tests)
+    - live perf probe retry with the inherited runtime:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary' --reporter=line --timeout=180000`
+      -> still failed at the outer test timeout
+      -> the previous `reading browser storage state for persisted local pane state`
+         stall did not recur
+      -> failure moved later to
+         `Worktree unhealthy: browser context closed before page recovery`
+         during `normalizeSettingsGraphComparePaneState(...)`
+    - live lane-health retry on a refreshed bootstrap token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --grep 'settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state' --reporter=line --timeout=180000`
+      -> still failed at the outer test timeout
+      -> failure shape narrowed again to
+         `Worktree unhealthy: page closed while waiting for normalized compare pane chrome`
+    - CDP visual check:
+      -> not run; this slice only changed probe helper code and the live lane
+         never reached a trustworthy normalized post-state
+  - reading:
+    - this support pass removed the earlier browser-storage and transient-store
+      import dependencies from the normalize path, so the blocker is no longer
+      the old pane-state read/import stall
+    - the remaining blocker is later in normalize: after the storage-driven
+      write path, the page never reaches normalized compare pane chrome before
+      the long Playwright timeout tears the context down
+    - next: debug why normalized pane chrome never settles after the
+      storage-driven pane-state write/reload path; do not take another product
+      `ParamGroupContainer` / `ParamGroupUnpinnedParams` cut until the
+      canonical perf lane can complete again
 
 - item `475` completed one bounded live-probe hardening pass on the canonical
   `rotaryParamCodeObjDefault` lane so pane-state preflight can classify the

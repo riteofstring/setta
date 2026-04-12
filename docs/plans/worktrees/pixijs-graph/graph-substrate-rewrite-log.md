@@ -235,6 +235,30 @@ LOOP_TERMINAL_MARKER: none
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 15:15 UTC - Item 476 normalize-path import removal narrows the blocker again
+
+- canonical target section: `rotaryParamCodeObjDefault`
+- summary:
+  - updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` so normalized compare pane state writes merge directly into persisted `localStorage` and reload the page instead of importing the in-page zustand store
+  - removed the transient compare-chrome helper's `useProjectLoading` import and switched that readiness snapshot to DOM-only loading markers
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+    - passed (`1` file, `11` tests)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary' --reporter=line --timeout=180000`
+    - failed at the outer timeout
+    - previous `reading browser storage state for persisted local pane state` stall did not recur
+    - failure moved to `Worktree unhealthy: browser context closed before page recovery` during `normalizeSettingsGraphComparePaneState(...)`
+  - refreshed token with:
+    - `source activate.sh && env SETTA_FILES_ROOT=/home/ubuntu/dev/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /home/ubuntu/dev/setta.pixijs-graph/.`
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --grep 'settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state' --reporter=line --timeout=180000`
+    - failed at the outer timeout
+    - narrowed later to `Worktree unhealthy: page closed while waiting for normalized compare pane chrome`
+- reading:
+  - the normalize path no longer depends on the old browser-storage / transient-store import path that was blocking earlier passes
+  - the active blocker is later: after the storage-driven pane-state write, normalized compare pane chrome does not settle before the Playwright timeout tears the page/context down
+  - next iteration should debug why pane chrome stays open or unstable after that storage-driven write/reload path before taking another product perf cut
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-14 14:40 UTC | item `474` | blocked direct-child fixed-height mutation scope on canonical `rotaryParamCodeObjDefault`
   - canonical target section: `rotaryParamCodeObjDefault`
   - intent:
