@@ -1310,8 +1310,29 @@ func (p *Project) removeWatchCodePythonImport(modulePath string, symbolName stri
 	if !ok || !watchCodeImportPathValid(modulePath, symbolName, referenceName) {
 		return false, nil
 	}
-	importLine := buildWatchCodeImportLine(modulePath, symbolName, referenceName)
-	lines := strings.Split(target.GenCodePrefix, "\n")
+	newPrefix, removed := removeWatchCodeImportLine(
+		target.GenCodePrefix,
+		buildWatchCodeImportLine(modulePath, symbolName, referenceName),
+	)
+	if !removed {
+		return false, nil
+	}
+	target.GenCodePrefix = newPrefix
+	if err := p.SetPythonCodegenTarget(target); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func removeWatchCodeImportLine(prefix string, importLine string) (string, bool) {
+	kept, removed := filterWatchCodeImportLines(strings.Split(prefix, "\n"), importLine)
+	if !removed {
+		return "", false
+	}
+	return normalizeWatchCodeImportPrefix(strings.Join(kept, "\n"), prefix), true
+}
+
+func filterWatchCodeImportLines(lines []string, importLine string) ([]string, bool) {
 	kept := make([]string, 0, len(lines))
 	removed := false
 	for _, line := range lines {
@@ -1321,19 +1342,15 @@ func (p *Project) removeWatchCodePythonImport(modulePath string, symbolName stri
 		}
 		kept = append(kept, line)
 	}
-	if !removed {
-		return false, nil
+	return kept, removed
+}
+
+func normalizeWatchCodeImportPrefix(prefix string, originalPrefix string) string {
+	normalized := strings.TrimSuffix(prefix, "\n\n")
+	if originalPrefix != "" && strings.HasSuffix(originalPrefix, "\n") && normalized != "" && !strings.HasSuffix(normalized, "\n") {
+		normalized += "\n"
 	}
-	newPrefix := strings.Join(kept, "\n")
-	newPrefix = strings.TrimSuffix(newPrefix, "\n\n")
-	if target.GenCodePrefix != "" && strings.HasSuffix(target.GenCodePrefix, "\n") && newPrefix != "" && !strings.HasSuffix(newPrefix, "\n") {
-		newPrefix += "\n"
-	}
-	target.GenCodePrefix = newPrefix
-	if err := p.SetPythonCodegenTarget(target); err != nil {
-		return false, err
-	}
-	return true, nil
+	return normalized
 }
 
 func buildWatchCodeImportLine(modulePath string, symbolName string, referenceName string) string {
