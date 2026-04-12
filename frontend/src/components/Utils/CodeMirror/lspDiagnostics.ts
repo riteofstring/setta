@@ -1,6 +1,6 @@
 import { Diagnostic, linter } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
-import { LSPDiagnostic } from "utils/generatedTypes";
+import { SettaLspDiagnostic } from "utils/generatedTypes";
 
 const LSP_SEVERITY_MAP: Record<number, Diagnostic["severity"]> = {
   1: "error",
@@ -11,7 +11,7 @@ const LSP_SEVERITY_MAP: Record<number, Diagnostic["severity"]> = {
 
 function toCodeMirrorDiagnostics(
   view: EditorView,
-  diagnostics: Array<LSPDiagnostic>,
+  diagnostics: Array<SettaLspDiagnostic>,
 ): Array<Diagnostic> {
   const { doc } = view.state;
   const lastLine = doc.lines;
@@ -55,7 +55,7 @@ function toCodeMirrorDiagnostics(
 }
 
 export function buildLspDiagnosticsExtensions(
-  diagnostics: Array<LSPDiagnostic>,
+  diagnostics: Array<SettaLspDiagnostic>,
 ) {
   if (diagnostics.length === 0) {
     return [];
