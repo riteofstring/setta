@@ -436,10 +436,6 @@ export function canUndoLastProjectChatThreadStorageMutation(
   return false;
 }
 
-export function clearProjectChatThreadStorageUndoStackForTests() {
-  projectChatThreadStorageUndoStack.length = 0;
-}
-
 function areGroupsInSameOrder(
   left: Array<{ id: string }>,
   right: Array<{ id: string }>,

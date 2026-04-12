@@ -3,10 +3,10 @@ import { resetProjectStores } from "state/utils";
 import { createProjectStateBackendUpdate } from "testUtils/projectStateBackendUpdate";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  clearProjectChatThreadStorageUndoStackForTests,
   createProjectChatThreadGroup,
   deleteProjectChatThreadGroup,
   setProjectChatThreadGroupAssignment,
+  undoLastProjectChatThreadStorageMutation,
 } from "./projectChatThreads";
 import { redoProjectState, undoProjectState } from "./undo";
 
@@ -38,10 +38,17 @@ vi.mock("./sectionInfos", () => ({
   processProjectStateUpdateFromBackend: (...args: unknown[]) =>
     processProjectStateUpdateFromBackendMock(...args),
 }));
+
+function drainUndoStack(projectConfigId: string): void {
+  while (undoLastProjectChatThreadStorageMutation(projectConfigId)) {
+    // Drain the test-local undo history through the public mutation API.
+  }
+}
+
 describe("undo actions", () => {
   beforeEach(() => {
     resetProjectStores();
-    clearProjectChatThreadStorageUndoStackForTests();
+    drainUndoStack("project-a");
     routeUndoMock.mockReset();
     routeRedoMock.mockReset();
     callOpenAPIMock.mockClear();

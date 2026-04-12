@@ -3,7 +3,6 @@ import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   canUndoLastProjectChatThreadStorageMutation,
-  clearProjectChatThreadStorageUndoStackForTests,
   createProjectChatThreadGroup,
   deleteProjectChatThread,
   deleteProjectChatThreadGroup,
@@ -18,10 +17,16 @@ import {
   undoLastProjectChatThreadStorageMutation,
 } from "./projectChatThreads";
 
+function drainUndoStack(projectConfigId: string): void {
+  while (undoLastProjectChatThreadStorageMutation(projectConfigId)) {
+    // Drain the test-local undo history through the public mutation API.
+  }
+}
+
 describe("project chat thread storage helpers", () => {
   beforeEach(() => {
     resetProjectStores();
-    clearProjectChatThreadStorageUndoStackForTests();
+    drainUndoStack("project-a");
     useLocalStorage.setState({
       viewedProjectChatThreadIdsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
