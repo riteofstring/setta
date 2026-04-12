@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
-  getAllowedChatIdsForSelection,
+  getAllowedChatIdsForProject,
   hasSectionIdInProject,
 } from "state/aiFollowUtils";
 import { useAIFollow, useMisc, useProjectState } from "state/definitions";
@@ -90,45 +90,24 @@ export function useAiSectionHighlight(
   sectionId: string,
   projectConfigId: string,
 ): boolean {
-  const { mode, selectedChatIds, selectedSectionIds } = useAIFollow(
+  const { sectionVariantMap, sectionVariants, sectionImpls } = useProjectState(
     (state) => ({
-      mode: state.mode,
-      selectedChatIds:
-        state.selectedChatIdsByProjectConfigId[projectConfigId] ?? [],
-      selectedSectionIds:
-        state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
+      sectionVariantMap: state.projectConfig.sectionVariantMap,
+      sectionVariants: state.sectionVariants,
+      sectionImpls: state.sectionImpls,
     }),
     _.isEqual,
   );
-  const selectedSectionChatIds = useProjectState((state) => {
-    const chatIds: string[] = [];
-    for (const selectedSectionId of selectedSectionIds) {
-      const variantId =
-        state.projectConfig.sectionVariantMap[selectedSectionId];
-      if (!variantId) {
-        continue;
-      }
-      const variant = state.sectionVariants[variantId];
-      if (!variant) {
-        continue;
-      }
-      const impl = state.sectionImpls[variant.impl];
-      if (!impl || impl.type !== SectionTypeEnum.Chat) {
-        continue;
-      }
-      const chatId = impl.chatId;
-      if (typeof chatId === "string" && chatId.trim()) {
-        chatIds.push(chatId);
-      }
-    }
-    return chatIds;
-  }, _.isEqual);
   const { isAiWorkingOnSection, isToolResultHighlight } = useAIFollow(
     (state) => {
-      const allowedChatIds = getAllowedChatIdsForSelection(
-        mode,
-        selectedChatIds,
-        selectedSectionChatIds,
+      const allowedChatIds = getAllowedChatIdsForProject(
+        state.mode,
+        state.selectedChatIdsByProjectConfigId,
+        state.selectedSectionIdsByProjectConfigId,
+        projectConfigId,
+        sectionVariantMap,
+        sectionVariants,
+        sectionImpls,
       );
       const isAiWorkingOnSection = hasSectionIdInProject(
         state.toolArgumentsIdsByProjectConfigId,
