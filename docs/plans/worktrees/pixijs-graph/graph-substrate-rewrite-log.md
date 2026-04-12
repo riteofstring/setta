@@ -15500,6 +15500,57 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 04:49 UTC
+
+- item `393` landed one bounded startup-path reduction on the live worktree
+  runtime by deferring the remaining route-entry pages that `router.tsx` still
+  imported eagerly after the project-surface split:
+  - local ranking/readout for this iteration:
+    - stayed on the startup lane instead of reopening the closed
+      shallow-selector pattern
+    - re-read `frontend/src/components/Pages/router.tsx` and ranked the
+      remaining direct page imports by likely startup weight
+    - selected the bounded split that still affects the active bootstrap lane:
+      defer the home, launcher-home, workspace-launch, and
+      share-standalone-project route-entry pages until those routes actually
+      render
+  - product code changed in:
+    - `frontend/src/components/Pages/RouteEntrySurfaces.tsx`
+      to hold the lazy wrappers for `HomePage`, `LauncherHomePage`,
+      `WorkspaceLaunchPage`, and `ShareStandaloneProjectSurfacePage`
+    - `frontend/src/components/Pages/router.tsx`
+      so those routes now mount through the lazy wrappers instead of importing
+      the route-entry pages eagerly during router startup
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/RouteEntrySurfaces.test.tsx`
+      to prove the home route surface shows the loading spinner while its chunk
+      is unresolved and swaps to the resolved surface afterward
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/RouteEntrySurfaces.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/router.tsx src/components/Pages/RouteEntrySurfaces.tsx src/components/Pages/RouteEntrySurfaces.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on the current worktree bootstrap URL
+      -> passed for this slice
+      -> final URL `http://127.0.0.1:3075/`
+      -> visible text `Loading Setta...` and `Preparing the app surface.`
+         rendered with `data-testid="app-router-loading-state"` instead of a
+         blank root
+- reading:
+  - this removes another set of route-entry surfaces from the eager router
+    chunk without changing route behavior
+  - the startup lane still remains on the loading fallback, so the next owner
+    is now whatever still initializes eagerly inside `router.tsx` or the
+    wrappers it must import synchronously (`GlobalWrapper`, `ShareWrapper`,
+    header/modal shell, generated route constants)
+- next:
+  - keep the startup lane active and attribute the remaining eager
+    `router.tsx` initialization path after the page-entry splits, starting
+    with which synchronous wrapper/import family still dominates after
+    `AppRouterProvider` resolves
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 04:18 UTC
 
 - item `389` landed one bounded mounted text-block body selector reduction on

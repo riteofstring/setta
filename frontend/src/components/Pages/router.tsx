@@ -1,9 +1,6 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { AppShell } from "components/Pages/AppShell";
-import { HomePage } from "components/Pages/Home/HomePage";
-import { WorkspaceLaunchPage } from "components/Pages/Launch/WorkspaceLaunchPage";
-import { LauncherHomePage } from "components/Pages/Launcher/LauncherHomePage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
@@ -42,8 +39,13 @@ import {
   ShareProjectRouteSurface,
   StandaloneProjectRouteSurface,
 } from "./Project/ProjectRouteSurfaces";
-import { ShareStandaloneProjectSurfacePage } from "./Project/ShareStandaloneProjectSurfacePage";
 import { APP_ROUTE_IDS } from "./routeConfig";
+import {
+  HomeRouteSurface,
+  LauncherHomeRouteSurface,
+  ShareStandaloneProjectRouteSurface,
+  WorkspaceLaunchRouteSurface,
+} from "./RouteEntrySurfaces";
 
 const LazyAppWrapper = lazy(async () => {
   const mod = await import("components/Pages/App/AppWrapper");
@@ -192,7 +194,7 @@ const ideHomeRouteElement = (
     <ModalContainer>
       <HeaderContainer path={HOME_ROUTER_PATH} />
       <GridContainer>
-        <HomePage />
+        <HomeRouteSurface />
       </GridContainer>
     </ModalContainer>
   </GlobalWrapper>
@@ -224,18 +226,18 @@ const ideStandaloneProjectRouteElement = (
 );
 
 const shareStandaloneProjectRouteElement = (
-  <ShareStandaloneProjectSurfacePage />
+  <ShareStandaloneProjectRouteSurface />
 );
 
 const ideWorkspaceLaunchRouteElement = (
   <GlobalWrapper>
-    <WorkspaceLaunchPage />
+    <WorkspaceLaunchRouteSurface />
   </GlobalWrapper>
 );
 
 const launcherWorkspaceLaunchRouteElement = (
   <AppShell isLoading={false} loadingContent={null}>
-    <WorkspaceLaunchPage />
+    <WorkspaceLaunchRouteSurface />
   </AppShell>
 );
 
@@ -244,7 +246,7 @@ const launcherHomeRouteElement = (
     <ModalContainer>
       <HeaderContainer path={HOME_ROUTER_PATH} />
       <GridContainer>
-        <LauncherHomePage />
+        <LauncherHomeRouteSurface />
       </GridContainer>
     </ModalContainer>
   </AppShell>
