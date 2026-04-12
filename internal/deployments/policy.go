@@ -50,10 +50,6 @@ func DefaultPolicy() Policy {
 	}
 }
 
-func FrontendDefaultPolicy() Policy {
-	return DefaultPolicy()
-}
-
 func DefaultAppPolicy() Policy {
 	return Policy{
 		AllowParamChanges:   true,

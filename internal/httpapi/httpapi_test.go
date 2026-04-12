@@ -1382,9 +1382,9 @@ func TestHandlerInjectsRequestAuthContext(t *testing.T) {
 		Auth:   authService,
 		Register: func(r chi.Router) {
 			r.Get("/authContext", func(w http.ResponseWriter, r *http.Request) {
-				requestInfo, err := auth.RequireRequestInfo(r)
-				if err != nil {
-					t.Fatalf("require request auth: %v", err)
+				requestInfo, ok := auth.RequestInfoFromRequest(r)
+				if !ok {
+					t.Fatal("expected request auth info in context")
 				}
 				writeJSON(w, http.StatusOK, map[string]string{
 					"sessionId": requestInfo.SessionID,

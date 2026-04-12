@@ -40,11 +40,3 @@ func RequestInfoFromRequest(r *http.Request) (RequestInfo, bool) {
 	}
 	return RequestInfoFromContext(r.Context())
 }
-
-func RequireRequestInfo(r *http.Request) (RequestInfo, error) {
-	info, ok := RequestInfoFromRequest(r)
-	if !ok {
-		return RequestInfo{}, ErrMissingRequestInfo
-	}
-	return info, nil
-}

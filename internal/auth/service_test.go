@@ -3,8 +3,6 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -732,16 +730,6 @@ func TestServiceDoesNotRefreshFreshAuthCookie(t *testing.T) {
 	}
 	if service.ShouldRefreshAuthCookie(requestInfo, now) {
 		t.Fatal("expected fresh auth cookie to skip refresh")
-	}
-}
-
-func TestRequireRequestInfoReturnsErrorWhenMissing(t *testing.T) {
-	t.Parallel()
-
-	request := httptest.NewRequest("GET", "/api/test", nil)
-	_, err := RequireRequestInfo(request)
-	if !errors.Is(err, ErrMissingRequestInfo) {
-		t.Fatalf("expected missing request info error, got %v", err)
 	}
 }
 

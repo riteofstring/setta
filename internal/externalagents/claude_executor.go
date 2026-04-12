@@ -724,10 +724,6 @@ func (e *ClaudeExecutor) prepareClaudeSettings(config externalagentconfigs.Confi
 	return externalagentconfigs.PrepareClaudeSettings(e.workspaceRoot, config)
 }
 
-func resolveClaudeSettingsPath(config externalagentconfigs.Config, workspaceRoot string) string {
-	return externalagentconfigs.ResolveClaudeSettingsPath(config, workspaceRoot)
-}
-
 func (e *ClaudeExecutor) ensureClaudeMCPConfig(request *StartRequest) (string, error) {
 	if request == nil {
 		return "", nil

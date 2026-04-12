@@ -65,7 +65,7 @@ func TestClaudeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 		t.Fatalf("expected persisted usage payload, got %#v", persisted.Outputs["usage"])
 	}
 
-	settingsPath := resolveClaudeSettingsPath(fixture.config, fixture.root)
+	settingsPath := externalagentconfigs.ResolveClaudeSettingsPath(fixture.config, fixture.root)
 	content, err := os.ReadFile(settingsPath)
 	if err != nil {
 		t.Fatalf("read claude settings: %v", err)
@@ -1784,7 +1784,7 @@ func TestResolveClaudeSettingsPathUsesManagedModeSpecificFiles(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	localPath := resolveClaudeSettingsPath(externalagentconfigs.Config{
+	localPath := externalagentconfigs.ResolveClaudeSettingsPath(externalagentconfigs.Config{
 		ToolType:     externalagentconfigs.ToolTypeClaudeCode,
 		SettingsMode: externalagentconfigs.SettingsModeManagedLocal,
 	}, root)
@@ -1792,7 +1792,7 @@ func TestResolveClaudeSettingsPathUsesManagedModeSpecificFiles(t *testing.T) {
 		t.Fatalf("expected managed-local settings path %q, got %q", want, localPath)
 	}
 
-	projectPath := resolveClaudeSettingsPath(externalagentconfigs.Config{
+	projectPath := externalagentconfigs.ResolveClaudeSettingsPath(externalagentconfigs.Config{
 		ToolType:     externalagentconfigs.ToolTypeClaudeCode,
 		SettingsMode: externalagentconfigs.SettingsModeManagedProject,
 	}, root)
@@ -1800,7 +1800,7 @@ func TestResolveClaudeSettingsPathUsesManagedModeSpecificFiles(t *testing.T) {
 		t.Fatalf("expected managed-project settings path %q, got %q", want, projectPath)
 	}
 
-	readOnlyPath := resolveClaudeSettingsPath(externalagentconfigs.Config{
+	readOnlyPath := externalagentconfigs.ResolveClaudeSettingsPath(externalagentconfigs.Config{
 		ToolType:     externalagentconfigs.ToolTypeClaudeCode,
 		SettingsMode: externalagentconfigs.SettingsModeReadOnly,
 	}, root)
