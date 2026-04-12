@@ -4,6 +4,7 @@ import {
   RestrictToVerticalAxis,
 } from "@dnd-kit/abstract/modifiers";
 import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
+import type { Coordinates } from "@dnd-kit/geometry";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
@@ -14,23 +15,26 @@ import {
 } from "state/actions/sectionInfos";
 import { useDndProviderContext } from "./DndProviderContext";
 import { Context } from "./SortableContext";
-import { itemsEqual, rectSortingStrategy } from "./sorting";
+import {
+  isValidIndex,
+  itemsEqual,
+  rectSortingStrategy,
+  resolveStrategyResult,
+} from "./sorting";
 import type {
   ClientRect,
   Disabled,
   DndData,
   SettaCollision,
   SortingStrategy,
+  Transform,
 } from "./types";
 import { useCollisionDetector } from "./useCollisionDetector";
-import {
-  DEFAULT_SORTABLE_TRANSITION,
-  buildSortablePresentationState,
-  normalizeLocalDisabled,
-  toClientRect,
-  toTransform,
-  type SortableTransition,
-} from "./useSortableModel";
+
+type SortableTransition = {
+  duration?: number;
+  easing?: string;
+};
 
 type UseSortableArguments = {
   id: UniqueIdentifier;
@@ -42,9 +46,12 @@ type UseSortableArguments = {
   animateLayoutChanges?: () => boolean;
 };
 
+const defaultTransition = {
+  duration: 250,
+  easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+};
+const disabledTransition = "transform 0ms linear";
 const dragDeactivationDelayMs = 50;
-const emptyAttributes = {};
-const emptyListeners = {};
 
 export function useSortable({
   attributes,
@@ -52,7 +59,7 @@ export function useSortable({
   disabled: localDisabled,
   id,
   strategy: localStrategy,
-  transition = DEFAULT_SORTABLE_TRANSITION,
+  transition = defaultTransition,
 }: UseSortableArguments) {
   const {
     items,
@@ -70,15 +77,31 @@ export function useSortable({
   const index = items.indexOf(id);
   const { isSorting: isSortingMode, isMovingFree } = useDndProviderContext();
   const manager = useDragDropManager();
-  const isDragActive = useIsDragActive(manager);
+  const isDragActive = useComputed(() => {
+    if (!manager) {
+      return false;
+    }
+
+    const status = manager.dragOperation.status;
+    return status.dragging || status.initializing;
+  }, [manager]).value;
   const shouldTrackSorting = sortingEnabled && isDragActive;
+  const itemType =
+    typeof customData?.type === "string" ? customData.type : null;
   const sortablePlugins = [SortableKeyboardPlugin];
-  const feedback = getFeedback(sortingEnabled, isMovingFree, customData);
-  const sortableTransition = getSortableTransition(
-    transition,
-    shouldTrackSorting,
-  );
-  const dragModifiers = getDragModifiers(isSortingMode, containerId);
+  const disableFeedback =
+    sortingEnabled || isMovingFree || itemType === "param";
+  const feedback = disableFeedback ? "none" : undefined;
+  const sortableTransition = shouldTrackSorting ? transition : null;
+  let dragModifiers;
+  if (isSortingMode) {
+    const containerIsHorizontal =
+      getSectionInfo(containerId) !== undefined &&
+      getSectionIsHorizontalOrientation(containerId);
+    dragModifiers = [
+      containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
+    ];
+  }
   const data = useMemo(
     () => ({
       sortable: {
@@ -117,108 +140,8 @@ export function useSortable({
     // Optimistic DOM reordering can cause scroll jumps in constrained panes.
     plugins: sortablePlugins,
   });
+  const listeners = {};
   const isOver = isDropTarget;
-  const { activeRect, dragTransform, collisions } = useDragOperationState(
-    manager,
-    shouldTrackSorting,
-  );
-  const itemsHaveChanged = useItemsHaveChanged(items);
-  const wasDragActive = useWasDragActive(isDragActive);
-  const strategy = localStrategy ?? globalStrategy ?? rectSortingStrategy;
-  const presentation = buildSortablePresentationState({
-    activeIndex,
-    activeRect,
-    collisions,
-    disableTransforms,
-    dragTransform,
-    index,
-    isDragging,
-    items,
-    itemsHaveChanged,
-    overIndex,
-    shouldTrackSorting,
-    sortedRects,
-    sortingEnabled,
-    strategy,
-    transition,
-    useDragOverlay,
-    wasDragActive,
-  });
-  useSyncSortableDisabled(sortable, disabled);
-  useSyncSortableTransition(
-    sortable,
-    sortingEnabled,
-    isDragActive,
-    presentation.isDraggingActive,
-    transition,
-  );
-
-  return {
-    attributes: attributes ?? emptyAttributes,
-    listeners: emptyListeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform: presentation.finalTransform,
-    transition: presentation.transitionValue,
-    overIndex: presentation.effectiveOverIndex,
-    items,
-    isOver,
-    isSorting: presentation.isSorting,
-    isDragging: presentation.isDraggingActive,
-  };
-}
-
-function getFeedback(
-  sortingEnabled: boolean,
-  isMovingFree: boolean,
-  customData: Record<string, unknown> | undefined,
-): "none" | undefined {
-  const itemType =
-    typeof customData?.type === "string" ? customData.type : null;
-  return sortingEnabled || isMovingFree || itemType === "param"
-    ? "none"
-    : undefined;
-}
-
-function getSortableTransition(
-  transition: SortableTransition | null | undefined,
-  shouldTrackSorting: boolean,
-): SortableTransition | null {
-  return shouldTrackSorting ? transition ?? null : null;
-}
-
-function getDragModifiers(isSortingMode: boolean, containerId: string) {
-  if (!isSortingMode) {
-    return undefined;
-  }
-
-  const containerIsHorizontal =
-    getSectionInfo(containerId) !== undefined &&
-    getSectionIsHorizontalOrientation(containerId);
-  return [
-    containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
-  ];
-}
-
-function useIsDragActive(manager: ReturnType<typeof useDragDropManager>) {
-  return useComputed(() => {
-    if (!manager) {
-      return false;
-    }
-
-    const status = manager.dragOperation.status;
-    return status.dragging || status.initializing;
-  }, [manager]).value;
-}
-
-function useDragOperationState(
-  manager: ReturnType<typeof useDragDropManager>,
-  shouldTrackSorting: boolean,
-): {
-  activeRect: ClientRect | null;
-  collisions: SettaCollision[] | null;
-  dragTransform: ReturnType<typeof toTransform> | null;
-} {
   const activeRect = useComputed(() => {
     if (!shouldTrackSorting) {
       return null;
@@ -242,28 +165,9 @@ function useDragOperationState(
 
     return manager?.collisionObserver.collisions ?? null;
   }, [manager, shouldTrackSorting]).value as SettaCollision[] | null;
-
-  return {
-    activeRect,
-    collisions,
-    dragTransform,
-  };
-}
-
-function useItemsHaveChanged(items: UniqueIdentifier[]): boolean {
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
-
-  useEffect(() => {
-    previousItemsRef.current = items;
-  }, [items]);
-
-  return itemsHaveChanged;
-}
-
-function useWasDragActive(isDragActive: boolean): boolean {
   const wasDragActiveRef = useRef(false);
-
   useEffect(() => {
     if (isDragActive) {
       wasDragActiveRef.current = true;
@@ -280,27 +184,61 @@ function useWasDragActive(isDragActive: boolean): boolean {
 
     return () => clearTimeout(timeoutId);
   }, [isDragActive]);
+  useEffect(() => {
+    previousItemsRef.current = items;
+  }, [items]);
+  const overIdFromIndex = isValidIndex(overIndex) ? items[overIndex] : null;
+  const relevantCollision = shouldTrackSorting
+    ? getRelevantCollision(collisions, items, overIdFromIndex)
+    : null;
+  const pastHalfway = relevantCollision?.pastHalfway ?? null;
+  const isSorting = shouldTrackSorting && activeIndex !== -1;
+  const isActiveItem = index === activeIndex && activeIndex !== -1;
+  const isDraggingActive = isDragging || (isSorting && isActiveItem);
+  const shouldDisableTransition =
+    sortingEnabled && wasDragActiveRef.current && itemsHaveChanged;
+  const displaceItem =
+    isSorting &&
+    !disableTransforms &&
+    isValidIndex(activeIndex) &&
+    isValidIndex(overIndex);
+  const shouldDisplaceActiveItem =
+    isSorting && !useDragOverlay && isActiveItem && !disableTransforms;
+  const strategy = localStrategy ?? globalStrategy ?? rectSortingStrategy;
 
-  return wasDragActiveRef.current;
-}
+  let finalTransform: Transform | null = null;
+  let effectiveOverIndex = overIndex;
 
-function useSyncSortableDisabled(
-  sortable: ReturnType<typeof useDndKitSortable>["sortable"],
-  disabled: ReturnType<typeof normalizeLocalDisabled>,
-) {
+  if (shouldDisplaceActiveItem) {
+    finalTransform = dragTransform;
+  } else if (displaceItem) {
+    const result = strategy({
+      rects: sortedRects,
+      activeNodeRect: activeRect,
+      activeIndex,
+      overIndex,
+      index,
+      pastHalfway,
+    });
+    const resolved = resolveStrategyResult(result, overIndex);
+    finalTransform = resolved.transform;
+    effectiveOverIndex = resolved.overIndex;
+  }
+
+  const transitionValue = getTransitionValue({
+    transition,
+    isSorting,
+    isDragging: isDraggingActive,
+    useDragOverlay,
+    disableTransforms,
+    forceDisabledTransition: shouldDisableTransition,
+  });
+
   useEffect(() => {
     sortable.draggable.disabled = Boolean(disabled.draggable);
     sortable.droppable.disabled = Boolean(disabled.droppable);
   }, [disabled, sortable]);
-}
 
-function useSyncSortableTransition(
-  sortable: ReturnType<typeof useDndKitSortable>["sortable"],
-  sortingEnabled: boolean,
-  isDragActive: boolean,
-  isDraggingActive: boolean,
-  transition: SortableTransition | null | undefined,
-) {
   useEffect(() => {
     if (sortingEnabled && isDragActive && !isDraggingActive) {
       sortable.transition = transition ?? null;
@@ -309,4 +247,115 @@ function useSyncSortableTransition(
 
     sortable.transition = null;
   }, [sortingEnabled, isDragActive, isDraggingActive, sortable, transition]);
+
+  return {
+    attributes: attributes ?? {},
+    listeners: listeners ?? {},
+    setNodeRef,
+    setActivatorNodeRef,
+    transform: finalTransform,
+    transition: transitionValue,
+    overIndex: effectiveOverIndex,
+    items,
+    isOver,
+    isSorting,
+    isDragging: isDraggingActive,
+  };
+}
+
+function normalizeLocalDisabled(
+  localDisabled: UseSortableArguments["disabled"],
+  globalDisabled: Disabled,
+): Disabled {
+  if (typeof localDisabled === "boolean") {
+    return {
+      draggable: localDisabled,
+      droppable: false,
+    };
+  }
+
+  return {
+    draggable: localDisabled?.draggable ?? globalDisabled.draggable,
+    droppable: localDisabled?.droppable ?? globalDisabled.droppable,
+  };
+}
+
+function toTransform(transform: Coordinates | undefined): Transform {
+  return {
+    x: transform?.x ?? 0,
+    y: transform?.y ?? 0,
+    scaleX: 1,
+    scaleY: 1,
+  };
+}
+
+function getRelevantCollision(
+  collisions: SettaCollision[] | null,
+  items: UniqueIdentifier[],
+  preferredId: UniqueIdentifier | null,
+): SettaCollision | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  if (preferredId) {
+    const preferredCollision = collisions.find(
+      (collision) => collision.id === preferredId,
+    );
+    return preferredCollision ?? null;
+  }
+
+  for (const collision of collisions) {
+    if (items.includes(collision.id)) {
+      return collision;
+    }
+  }
+
+  return collisions[0] ?? null;
+}
+
+function toClientRect(rect: ClientRect): ClientRect {
+  return {
+    top: rect.top,
+    left: rect.left,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function getTransitionValue({
+  transition,
+  isSorting,
+  isDragging,
+  useDragOverlay,
+  disableTransforms,
+  forceDisabledTransition,
+}: {
+  transition: SortableTransition | null | undefined;
+  isSorting: boolean;
+  isDragging: boolean;
+  useDragOverlay: boolean;
+  disableTransforms: boolean;
+  forceDisabledTransition: boolean;
+}): string | undefined {
+  if (forceDisabledTransition) {
+    return disabledTransition;
+  }
+
+  if (!transition || !isSorting || disableTransforms) {
+    return undefined;
+  }
+
+  if (isDragging && !useDragOverlay) {
+    return undefined;
+  }
+
+  const resolvedTransition = {
+    ...defaultTransition,
+    ...transition,
+  };
+
+  return `transform ${resolvedTransition.duration}ms ${resolvedTransition.easing}`;
 }
