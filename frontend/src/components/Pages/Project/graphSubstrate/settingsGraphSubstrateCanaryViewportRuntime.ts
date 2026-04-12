@@ -66,16 +66,12 @@ export type SettingsGraphSubstrateCanaryViewportRuntime = {
 };
 
 function shouldPublishReactFlowViewportTransform(args: {
-  fitViewOnInit: boolean;
-  fitViewOnInitDone: boolean;
   currentTransform: [number, number, number];
   hasPublishedTransform: boolean;
   resolvedViewport: GraphViewport;
   viewportOwnership: SettingsGraphSubstrateCanaryViewportOwnership | null;
 }) {
   const {
-    fitViewOnInit,
-    fitViewOnInitDone,
     currentTransform,
     hasPublishedTransform,
     resolvedViewport,
@@ -84,8 +80,6 @@ function shouldPublishReactFlowViewportTransform(args: {
 
   if (!hasPublishedTransform) {
     return (
-      fitViewOnInit ||
-      !fitViewOnInitDone ||
       currentTransform[0] !== resolvedViewport.x ||
       currentTransform[1] !== resolvedViewport.y ||
       currentTransform[2] !== resolvedViewport.zoom
@@ -101,6 +95,13 @@ function shouldPublishReactFlowViewportTransform(args: {
     currentTransform[0] !== resolvedViewport.x ||
     currentTransform[1] !== resolvedViewport.y
   );
+}
+
+function shouldSyncReactFlowFitViewState(args: {
+  fitViewOnInit: boolean;
+  fitViewOnInitDone: boolean;
+}) {
+  return args.fitViewOnInit || !args.fitViewOnInitDone;
 }
 
 export function useSettingsGraphSubstrateCanaryViewportRuntime({
@@ -517,14 +518,23 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       return;
     }
     const shouldPublishTransform = shouldPublishReactFlowViewportTransform({
-      fitViewOnInit: currentReactFlowState.fitViewOnInit,
-      fitViewOnInitDone: currentReactFlowState.fitViewOnInitDone,
       currentTransform: currentReactFlowState.transform,
       hasPublishedTransform: hasPublishedReactFlowTransformRef.current,
       resolvedViewport,
       viewportOwnership: viewportOwnershipRef.current,
     });
+    const shouldSyncFitViewState = shouldSyncReactFlowFitViewState({
+      fitViewOnInit: currentReactFlowState.fitViewOnInit,
+      fitViewOnInitDone: currentReactFlowState.fitViewOnInitDone,
+    });
+    if (!shouldPublishTransform && !shouldSyncFitViewState) {
+      return;
+    }
     if (!shouldPublishTransform) {
+      useReactFlow.setState({
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+      });
       return;
     }
 

@@ -21094,3 +21094,32 @@ LOOP_TERMINAL_MARKER: none
     visible-body subtree work or use an already-trusted live motion probe that
     does not require reopening the broken direct runner
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 12:52 UTC
+
+- item `503` removed the fit-view-init no-op transform publish on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    now settles legacy `fitViewOnInit` / `fitViewOnInitDone` flags without
+    rewriting React Flow's `transform` when the store is already synced to the
+    resolved shared viewport
+  - updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    to prove that stale fit-view-init flags on an already-synced shared
+    viewport clear without emitting a `reactFlowViewportPublish` attribution
+    event or a `useReactFlow.setState({ transform })` write
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`2` files, `22` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> settings route loaded after the initial loading shell
+    -> settings canvas, section cards, controls, and tabs were visible
+    -> no obvious blank-card or detached-body artifact
+- reading:
+  - this is another direct production reduction inside the measured
+    `reactFlowViewportPublish` owner, not another runner/probe-only pass
+  - the next real frontier stays in the viewport-runtime lane: either rank the
+    remaining real publish sources with an already-trusted live probe, or cut
+    the next directly inspectable no-op publish path in the same owner
+- LOOP_TERMINAL_MARKER: none

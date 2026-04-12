@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 12:47 UTC
+Last updated: 2026-04-15 12:52 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,39 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `503` removed the fit-view-init no-op transform publish on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      now treats legacy `fitViewOnInit` / `fitViewOnInitDone` settling as a
+      separate sync path from `reactFlowViewportPublish`; when React Flow is
+      already at the resolved viewport, the runtime now settles those flags
+      without rewriting the same `transform` array or recording a publish
+    - focused regression:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      now proves an already-synced shared viewport with stale fit-view-init
+      flags clears those flags without emitting a
+      `reactFlowViewportPublish` measurement or a
+      `useReactFlow.setState({ transform })` write
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`2` files, `22` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+      -> settings route loaded after the initial loading shell
+      -> settings canvas, section cards, controls, and tabs were visible
+      -> no obvious blank-card or detached-body artifact was visible on the
+         canary surface
+  - reading:
+    - this closes another bounded no-op path inside the measured
+      `reactFlowViewportPublish` owner rather than reopening runner repair
+    - the next pass should stay on product-side viewport ownership and either
+      rank the remaining real publish sources on the canonical lane with an
+      already-trusted live probe, or cut the next visible no-op publish source
+      if one is directly inspectable from the runtime/tests
 
 - item `502` removed the no-op initial shared transform publish on the
   canonical `rotaryParamCodeObjDefault` lane:

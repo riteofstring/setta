@@ -436,6 +436,59 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     expect(transformPublishCalls).toHaveLength(0);
   });
 
+  it("settles fit-view init flags without rewriting an already-synced transform", async () => {
+    const sharedViewport = { x: 320, y: -180, zoom: 0.42 };
+    useReactFlow.setState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      transform: [sharedViewport.x, sharedViewport.y, sharedViewport.zoom],
+    });
+    const setReactFlowStateSpy = vi.spyOn(useReactFlow, "setState");
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={sharedViewport}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(sharedViewport);
+    });
+
+    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.reactFlowViewportPublish.count,
+    ).toBe(0);
+
+    const transformPublishCalls = setReactFlowStateSpy.mock.calls
+      .map(([patch]) => patch)
+      .filter(
+        (patch) =>
+          typeof patch === "object" &&
+          patch !== null &&
+          "transform" in patch &&
+          Array.isArray(patch.transform),
+      );
+    expect(transformPublishCalls).toHaveLength(0);
+  });
+
   it("mirrors viewport interaction activity onto the canary root attribute", async () => {
     let latestRuntime: ReturnType<
       typeof useSettingsGraphSubstrateCanaryViewportRuntime
