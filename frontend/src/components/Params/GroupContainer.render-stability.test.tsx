@@ -4,7 +4,6 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
   useProjectState,
-  useResizeEvent,
   useSettings,
   useWaitingForLSPResult,
 } from "state/definitions";
@@ -296,30 +295,6 @@ describe("ParamGroupContainer render stability", () => {
     vi.restoreAllMocks();
   });
 
-  it("does not rematerialize param rows when resizeEvent changes", async () => {
-    const sectionId = seedParamGroupContainerState();
-
-    await act(async () => {
-      root.render(
-        <ParamGroupContainer
-          sectionId={sectionId}
-          bgColor="bg-transparent"
-          sectionTypeName={SectionTypeEnum.Dict}
-        />,
-      );
-    });
-
-    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      useResizeEvent.setState((state) => {
-        state.resizeEvent[sectionId] = "start";
-      });
-    });
-
-    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
-  });
-
   it("does not rematerialize param rows when waiting-for-result changes", async () => {
     const sectionId = seedParamGroupContainerState();
 
@@ -402,6 +377,22 @@ describe("ParamGroupContainer render stability", () => {
     });
 
     expect(renderCalls.useIsScrollable).toHaveBeenCalledTimes(1);
+  });
+
+  it("only keeps the live resize observers for column width, fixed-height, and edge-strip measurement", async () => {
+    const sectionId = seedParamGroupContainerState();
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(resizeObserverCallbacks.size).toBe(3);
   });
 
   it("does not mount the unpinned area when it is hidden", async () => {

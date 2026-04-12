@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 12:56 UTC
+Last updated: 2026-04-14 13:15 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,58 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `470` completed one bounded `ParamGroupContainer` observer-fanout
+  cleanup on the canonical `rotaryParamCodeObjDefault` lane by removing the
+  dead pinned/unpinned param-area min-height observer path:
+  - code/test changes kept in the tree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      no longer mounts `ParamAreaMinHeightObserver` for pinned or unpinned
+      areas; only the still-consumed fixed-height path remains
+    - deleted dead helper files:
+      `frontend/src/components/Params/paramAreaMeasurements.ts`,
+      `frontend/src/components/Params/paramAreaObservers.ts`, and their tests
+    - `frontend/src/utils/constants.ts`
+      no longer exports the unused pinned/unpinned area height keys
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves the populated lane keeps only the remaining live resize
+      observers for column width, fixed-height, and edge-strip measurement
+    - perf note:
+      `perf/reports/frontend/2026-04-14_settings-graph-dead-param-area-observer-removal.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `7` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx src/utils/constants.ts`
+      -> passed
+    - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-030/worktree-ai.log`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-030/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.7m`)
+      -> canonical live readout stayed
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+      -> compared with item `469`, this cleanup was non-winning on the live
+         lane:
+         `averageFrameDurationMs 44.44 -> 47.73`,
+         `longTaskTotalDurationMs 1293 -> 1447`,
+         `ParamGroupContainer 513.1ms -> 671.7ms`,
+         `ParamGroupUnpinnedParams 452.8ms -> 586.6ms`,
+         `UnpinnedParamDndListRows 433.4ms -> 565.1ms`
+    - required fresh-context CDP check:
+      -> passed
+      -> `/settings` loaded with `All Settings` active, the graph surface was
+         mounted, `rotaryParamCodeObjDefault` remained visually healthy, and
+         there was no obvious blank-card, detached-body, or severe rendering
+         artifact after closing the non-target chat dock
+      -> minor note: the canary sat clipped against the far-right viewport edge
+         during inspection, but it still rendered normally
+  - reading:
+    - this closes the dead pinned/unpinned area observer cleanup as
+      behavior-preserving but non-winning on the canonical populated lane
+    - do not keep trimming adjacent `ParamGroupContainer` observer plumbing at
+      this same boundary
+    - the next pass should either land a broader visible-lane owner reduction
+      in `ParamGroupUnpinnedParams` / unpinned row ownership, or take the first
+      bounded scene-owned static body slice if fresh evidence can justify it
 
 - item `469` completed one bounded `ParamGroupUnpinnedParams` mount-reduction
   slice on the canonical `rotaryParamCodeObjDefault` lane by skipping the

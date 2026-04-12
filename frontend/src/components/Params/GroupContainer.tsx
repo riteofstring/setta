@@ -24,7 +24,6 @@ import {
   useLocalStorage,
   useMisc,
   useProjectState,
-  useResizeEvent,
   useSettings,
   useTemporaryMiscState,
 } from "state/definitions";
@@ -36,9 +35,7 @@ import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
   getParamsFixedHeightKey,
-  getPinnedParamsAreaHeightKey,
   getSectionStylePreviewColorKey,
-  getUnpinnedParamsAreaHeightKey,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
@@ -49,11 +46,6 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
-import {
-  buildParamAreaMeasureKey,
-  measureParamAreaMinHeight,
-} from "./paramAreaMeasurements";
-import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
@@ -338,149 +330,6 @@ export function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
     return "bg-setta-50 dark:bg-blue-950/30";
   }
   return "bg-setta-100/50 dark:bg-blue-950/30";
-}
-
-function useMeasuredParamAreaMinHeight({
-  sectionId,
-  heightKey,
-  paramIds,
-  contentRef,
-  headerRef,
-  rowsRef,
-}: {
-  sectionId: string;
-  heightKey: string;
-  paramIds: Array<string>;
-  contentRef: React.RefObject<HTMLElement>;
-  headerRef?: React.RefObject<HTMLElement>;
-  rowsRef: React.RefObject<HTMLElement>;
-}) {
-  const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
-  const lastMeasuredHeightRef = useRef<number | null>(null);
-  const { sectionWidth, columnWidth } = useProjectState((state) => {
-    if (!state.sections[sectionId]) {
-      return { sectionWidth: null, columnWidth: null };
-    }
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    return {
-      sectionWidth: impl.size?.width ?? null,
-      columnWidth: impl.columnWidth,
-    };
-  }, _.isEqual);
-  const measureKey = buildParamAreaMeasureKey({
-    paramIds,
-    sectionWidth,
-    columnWidth,
-  });
-
-  useLayoutEffect(() => {
-    let frameId = 0;
-    let cleanupObservers: (() => void) | null = null;
-
-    const updateHeight = (nextHeight: number) => {
-      if (lastMeasuredHeightRef.current === nextHeight) {
-        return;
-      }
-      lastMeasuredHeightRef.current = nextHeight;
-      useTemporaryMiscState.setState({
-        [heightKey]: nextHeight,
-      });
-    };
-
-    if (paramIds.length === 0) {
-      updateHeight(0);
-      return;
-    }
-
-    const content = contentRef.current;
-    const rows = rowsRef.current;
-    if (!content || !rows) {
-      updateHeight(0);
-      return;
-    }
-
-    const measure = () => {
-      const rowElements =
-        rows.querySelectorAll<HTMLElement>("[data-param-row]");
-      if (rowElements.length === 0) {
-        updateHeight(0);
-        return;
-      }
-      const rowHeights = Array.from(rowElements, (row) => row.offsetHeight);
-      const headerHeight = headerRef?.current?.offsetHeight ?? 0;
-      const style = window.getComputedStyle(content);
-      const paddingTop = Number.parseFloat(style.paddingTop) || 0;
-      const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
-      const nextHeight = measureParamAreaMinHeight({
-        rowHeights,
-        headerHeight,
-        paddingTop,
-        paddingBottom,
-      });
-      updateHeight(nextHeight);
-    };
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(measure);
-    };
-
-    scheduleMeasure();
-
-    cleanupObservers = attachParamAreaObservers({
-      rowsElement: rows,
-      headerElement: headerRef?.current ?? null,
-      onMeasure: scheduleMeasure,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      cleanupObservers?.();
-    };
-  }, [heightKey, measureKey, resizeEvent]);
-
-  useEffect(() => {
-    return () => {
-      useTemporaryMiscState.setState({
-        [heightKey]: 0,
-      });
-    };
-  }, [heightKey]);
-}
-
-function ParamAreaMinHeightObserver({
-  sectionId,
-  heightKey,
-  paramIds,
-  contentRef,
-  headerRef,
-  rowsRef,
-}: {
-  sectionId: string;
-  heightKey: string;
-  paramIds: Array<string>;
-  contentRef: React.RefObject<HTMLElement>;
-  headerRef?: React.RefObject<HTMLElement>;
-  rowsRef: React.RefObject<HTMLElement>;
-}) {
-  useMeasuredParamAreaMinHeight({
-    sectionId,
-    heightKey,
-    paramIds,
-    contentRef,
-    headerRef,
-    rowsRef,
-  });
-
-  return null;
 }
 
 function EdgesStrip({
@@ -886,7 +735,6 @@ function GetPinnedParams({
   const contentRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
-  const heightKey = getPinnedParamsAreaHeightKey(sectionId);
 
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
@@ -950,14 +798,6 @@ function PinnedParamsArea({
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
     >
-      <ParamAreaMinHeightObserver
-        sectionId={sectionId}
-        heightKey={getPinnedParamsAreaHeightKey(sectionId)}
-        paramIds={topLevelParamIds}
-        contentRef={contentRef}
-        headerRef={headerRef}
-        rowsRef={rowsRef}
-      />
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
         ref={contentRef}
@@ -1007,7 +847,6 @@ function GetUnpinnedParams({
 }: GetUnpinnedParamsProps) {
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
-  const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const baseUnpinnedMinHeight = Number.isFinite(
     sizingPolicy.globals.unpinnedParamsAreaMinHeight,
   )
@@ -1065,7 +904,6 @@ function UnpinnedParamsArea({
   shouldApplyMinHeight,
   resolvedMinHeight,
 }: UnpinnedParamsAreaProps) {
-  const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { ref: scrollRef, isScrollable } = useIsScrollable();
 
@@ -1079,13 +917,6 @@ function UnpinnedParamsArea({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <ParamAreaMinHeightObserver
-        sectionId={sectionId}
-        heightKey={heightKey}
-        paramIds={hideUnpinnedParams ? [] : topLevelParamIds}
-        contentRef={containerRef}
-        rowsRef={containerRef}
-      />
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
           isScrollable ? "nowheel" : ""
