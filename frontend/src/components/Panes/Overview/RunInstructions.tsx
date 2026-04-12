@@ -17,7 +17,6 @@ import {
 import { applyProjectCodegenTargetsResponse } from "state/actions/project/codegenTargets";
 import {
   getActiveViewModeConfig,
-  getCurrEffectiveCodeObjImplIfPresent,
   getCurrEffectiveSectionImpl,
   getSectionCore,
   getSectionImplChildren,
@@ -46,12 +45,10 @@ import {
 } from "utils/codegenTargets";
 import { res200 } from "utils/endpointUtils";
 import {
-  CodeObjTypeEnum,
   createCodeObjValuePolicy,
   createProjectCodegenPythonTarget,
   createSectionCodegenPolicy,
   isBaseParentSectionImpl,
-  isBaseSectionWithParamsImpl,
   RunSnapshotModeUIConfig,
   SectionTypeEnum,
   type BaseSectionImplUnion,
@@ -74,6 +71,7 @@ import {
   type RunInstructionsCodeObjOption,
   type RunInstructionsSectionOption,
 } from "./RunInstructionsCodegenPolicy";
+import { getRunInstructionsCodeObjOptions } from "./runInstructionsCodeObjOptions";
 import { isRunnableSectionForCustomRun } from "./runInstructionsRunnableCodeBlocks";
 import {
   collectRunInstructionsStateMachineControls,
@@ -129,6 +127,36 @@ const WORKFLOW_CONTROL_BUTTON_CLASSES =
 const WORKFLOW_CONTROL_START_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-emerald-500/50 bg-emerald-500/15 text-emerald-900 hover:bg-emerald-500/25 dark:border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 dark:hover:bg-emerald-500/30`;
 const WORKFLOW_CONTROL_STOP_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-amber-500/50 bg-amber-500/15 text-amber-900 hover:bg-amber-500/25 dark:border-amber-600 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30`;
 const WORKFLOW_CONTROL_RESET_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-slate-500/40 bg-slate-500/10 text-slate-900 hover:bg-slate-500/20 dark:border-slate-600 dark:bg-slate-500/15 dark:text-slate-100 dark:hover:bg-slate-500/25`;
+type WorkflowControlAction = "start" | "stop" | "reset";
+type WorkflowControlPresentation = ReturnType<
+  typeof getStateMachineNodePresentation
+>;
+type WorkflowControlActionConfig = {
+  action: WorkflowControlAction;
+  label: string;
+  className: string;
+  isUnavailable: (machineRun: WorkflowControlPresentation) => boolean;
+};
+const WORKFLOW_CONTROL_ACTIONS: WorkflowControlActionConfig[] = [
+  {
+    action: "start",
+    label: "Start",
+    className: WORKFLOW_CONTROL_START_BUTTON_CLASSES,
+    isUnavailable: (machineRun) => machineRun.isRunning,
+  },
+  {
+    action: "stop",
+    label: "Stop",
+    className: WORKFLOW_CONTROL_STOP_BUTTON_CLASSES,
+    isUnavailable: (machineRun) => !machineRun.isRunning,
+  },
+  {
+    action: "reset",
+    label: "Reset",
+    className: WORKFLOW_CONTROL_RESET_BUTTON_CLASSES,
+    isUnavailable: (machineRun) => !machineRun.hasRun,
+  },
+];
 const RUN_SNAPSHOT_MODE_OPTIONS: Array<{
   value: RunSnapshotMode;
   label: string;
@@ -455,34 +483,16 @@ function WorkflowControlRow({
       }),
     _.isEqual,
   );
-  const [pendingAction, setPendingAction] = React.useState<
-    "start" | "stop" | "reset" | null
-  >(null);
-  const activityLabel =
-    machineRun.failureSummaryLabel ??
-    machineRun.activityItems[0]?.label ??
-    null;
+  const [pendingAction, setPendingAction] =
+    React.useState<WorkflowControlAction | null>(null);
+  const activityLabel = getWorkflowControlActivityLabel(machineRun);
   const controlsDisabled = pendingAction !== null || isDeploymentMode;
-  async function handleStartClick(): Promise<void> {
-    setPendingAction("start");
+  async function handleActionClick(
+    action: WorkflowControlAction,
+  ): Promise<void> {
+    setPendingAction(action);
     try {
-      await startStateMachineRun(workflow.machineGroupId, workflow.sectionId);
-    } finally {
-      setPendingAction(null);
-    }
-  }
-  async function handleStopClick(): Promise<void> {
-    setPendingAction("stop");
-    try {
-      await stopStateMachineRun(workflow.machineGroupId);
-    } finally {
-      setPendingAction(null);
-    }
-  }
-  async function handleResetClick(): Promise<void> {
-    setPendingAction("reset");
-    try {
-      await resetStateMachineRun(workflow.machineGroupId);
+      await runWorkflowControlAction(workflow, action);
     } finally {
       setPendingAction(null);
     }
@@ -510,49 +520,26 @@ function WorkflowControlRow({
       </div>
       {activityLabel ? (
         <p
-          className={`mt-1 truncate text-[10px] ${
-            machineRun.failureSummaryLabel
-              ? "text-rose-700 dark:text-rose-300"
-              : "text-setta-500 dark:text-setta-300"
-          }`}
+          className={`mt-1 truncate text-[10px] ${getWorkflowControlActivityToneClasses(machineRun)}`}
         >
           {activityLabel}
         </p>
       ) : null}
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
-        <button
-          className={WORKFLOW_CONTROL_START_BUTTON_CLASSES}
-          data-testid={`run-instructions-workflow-start-${workflow.sectionId}`}
-          disabled={controlsDisabled || machineRun.isRunning}
-          onClick={() => {
-            void handleStartClick();
-          }}
-          type="button"
-        >
-          Start
-        </button>
-        <button
-          className={WORKFLOW_CONTROL_STOP_BUTTON_CLASSES}
-          data-testid={`run-instructions-workflow-stop-${workflow.sectionId}`}
-          disabled={controlsDisabled || !machineRun.isRunning}
-          onClick={() => {
-            void handleStopClick();
-          }}
-          type="button"
-        >
-          Stop
-        </button>
-        <button
-          className={WORKFLOW_CONTROL_RESET_BUTTON_CLASSES}
-          data-testid={`run-instructions-workflow-reset-${workflow.sectionId}`}
-          disabled={controlsDisabled || !machineRun.hasRun}
-          onClick={() => {
-            void handleResetClick();
-          }}
-          type="button"
-        >
-          Reset
-        </button>
+        {WORKFLOW_CONTROL_ACTIONS.map((action) => (
+          <button
+            key={action.action}
+            className={action.className}
+            data-testid={`run-instructions-workflow-${action.action}-${workflow.sectionId}`}
+            disabled={controlsDisabled || action.isUnavailable(machineRun)}
+            onClick={() => {
+              void handleActionClick(action.action);
+            }}
+            type="button"
+          >
+            {action.label}
+          </button>
+        ))}
       </div>
     </section>
   );
@@ -697,55 +684,7 @@ function useSectionOptions(): RunInstructionsSectionOption[] {
   }, _.isEqual);
 }
 function useCodeObjOptions(): RunInstructionsCodeObjOption[] {
-  return useProjectState((x) => {
-    const outputList: Array<RunInstructionsCodeObjOption> = [];
-    const seen = new Set<string>();
-    for (const [sectionId, section] of Object.entries(x.sections)) {
-      const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
-      const sectionName = section.name;
-      let codeObjIds: string[] = [];
-      if (isBaseSectionWithParamsImpl(sectionImpl)) {
-        codeObjIds = Object.keys(sectionImpl.codeObjVariantMap);
-      } else if (
-        sectionImpl.type === SectionTypeEnum.MetaControl &&
-        sectionImpl.metaControlParamId
-      ) {
-        codeObjIds = [sectionImpl.metaControlParamId];
-      }
-      for (const codeObjId of codeObjIds) {
-        if (seen.has(codeObjId)) {
-          continue;
-        }
-        const codeObjCore = x.codeObjs[codeObjId];
-        if (!codeObjCore) {
-          continue;
-        }
-        const impl = getCurrEffectiveCodeObjImplIfPresent(
-          x,
-          sectionId,
-          codeObjId,
-        );
-        if (!impl) {
-          continue;
-        }
-        if (impl.type === CodeObjTypeEnum.CodeCallable) {
-          continue;
-        }
-        const name = codeObjCore.name;
-        const label = `${sectionName} / ${name}`;
-        outputList.push({
-          id: codeObjId,
-          name,
-          type: impl.type,
-          sectionName,
-          label,
-        });
-        seen.add(codeObjId);
-      }
-    }
-    outputList.sort((a, b) => a.label.localeCompare(b.label));
-    return outputList;
-  }, _.isEqual);
+  return useProjectState(getRunInstructionsCodeObjOptions, _.isEqual);
 }
 
 function getRunnableCodeBlockListingHelper(
@@ -782,6 +721,37 @@ function getRunnableCodeBlockListingHelper(
       );
     }
   }
+}
+
+function getWorkflowControlActivityLabel(
+  machineRun: WorkflowControlPresentation,
+): string | null {
+  return (
+    machineRun.failureSummaryLabel ?? machineRun.activityItems[0]?.label ?? null
+  );
+}
+
+function getWorkflowControlActivityToneClasses(
+  machineRun: WorkflowControlPresentation,
+): string {
+  return machineRun.failureSummaryLabel
+    ? "text-rose-700 dark:text-rose-300"
+    : "text-setta-500 dark:text-setta-300";
+}
+
+async function runWorkflowControlAction(
+  workflow: RunInstructionsStateMachineControl,
+  action: WorkflowControlAction,
+): Promise<void> {
+  if (action === "start") {
+    await startStateMachineRun(workflow.machineGroupId, workflow.sectionId);
+    return;
+  }
+  if (action === "stop") {
+    await stopStateMachineRun(workflow.machineGroupId);
+    return;
+  }
+  await resetStateMachineRun(workflow.machineGroupId);
 }
 
 function useRunSnapshotModeState(projectConfigId: string) {
