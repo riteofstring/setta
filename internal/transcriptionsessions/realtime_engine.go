@@ -101,6 +101,45 @@ type openAIRealtimeErrorValue struct {
 	Message string `json:"message,omitempty"`
 }
 
+func decodeOpenAIRealtimeEvent(payload []byte) (openAIRealtimeEvent, error) {
+	event := openAIRealtimeEvent{}
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return openAIRealtimeEvent{}, newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+	}
+	return event, nil
+}
+
+func isRealtimeStartupReadyType(eventType string) bool {
+	switch eventType {
+	case string(openaiconstant.ValueOf[openaiconstant.SessionUpdated]()),
+		string(openaiconstant.ValueOf[openaiconstant.TranscriptionSessionUpdated]()):
+		return true
+	default:
+		return false
+	}
+}
+
+func isRealtimeProviderErrorType(eventType string) bool {
+	switch eventType {
+	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionFailed]()),
+		string(openaiconstant.ValueOf[openaiconstant.Error]()):
+		return true
+	default:
+		return false
+	}
+}
+
+func realtimeProviderEventError(event openAIRealtimeEvent) error {
+	if !isRealtimeProviderErrorType(event.Type) {
+		return nil
+	}
+	message := defaultRealtimeProviderErrorMessage
+	if event.Error != nil && strings.TrimSpace(event.Error.Message) != "" {
+		message = strings.TrimSpace(event.Error.Message)
+	}
+	return newServiceError(ErrProviderFailure, message)
+}
+
 func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realtimeEngine, error) {
 	model := strings.TrimSpace(opts.LLMConfig.Model)
 	if model == "" {
@@ -384,27 +423,17 @@ func (e *realtimeEngine) handleDrainReadResult(
 }
 
 func (e *realtimeEngine) handleStartupEvent(payload []byte) (bool, error) {
-	event := openAIRealtimeEvent{}
-	if err := json.Unmarshal(payload, &event); err != nil {
-		return false, newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+	event, err := decodeOpenAIRealtimeEvent(payload)
+	if err != nil {
+		return false, err
 	}
 	if e.isDuplicateEvent(event.EventID) {
 		return false, nil
 	}
-	switch event.Type {
-	case string(openaiconstant.ValueOf[openaiconstant.SessionUpdated]()),
-		string(openaiconstant.ValueOf[openaiconstant.TranscriptionSessionUpdated]()):
-		return true, nil
-	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionFailed]()),
-		string(openaiconstant.ValueOf[openaiconstant.Error]()):
-		message := defaultRealtimeProviderErrorMessage
-		if event.Error != nil && strings.TrimSpace(event.Error.Message) != "" {
-			message = strings.TrimSpace(event.Error.Message)
-		}
-		return false, newServiceError(ErrProviderFailure, message)
-	default:
-		return false, nil
+	if err := realtimeProviderEventError(event); err != nil {
+		return false, err
 	}
+	return isRealtimeStartupReadyType(event.Type), nil
 }
 
 func (e *realtimeEngine) readLoop() {
@@ -443,17 +472,32 @@ func (e *realtimeEngine) markClosed() bool {
 }
 
 func (e *realtimeEngine) handleEvent(payload []byte) (string, error) {
-	event := openAIRealtimeEvent{}
-	if err := json.Unmarshal(payload, &event); err != nil {
-		return "", newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+	event, err := decodeOpenAIRealtimeEvent(payload)
+	if err != nil {
+		return "", err
 	}
 	if e.isDuplicateEvent(event.EventID) {
 		return "", nil
 	}
+	if err := realtimeProviderEventError(event); err != nil {
+		return "", err
+	}
+	if appendText, handled := e.handleCommittedEvent(event); handled {
+		return appendText, nil
+	}
+	return e.handleTranscriptEvent(event)
+}
+
+func (e *realtimeEngine) handleCommittedEvent(event openAIRealtimeEvent) (string, bool) {
+	if event.Type != string(openaiconstant.ValueOf[openaiconstant.InputAudioBufferCommitted]()) {
+		return "", false
+	}
+	e.applyCommittedItemOrder(event.ItemID, event.PreviousItemID)
+	return "", true
+}
+
+func (e *realtimeEngine) handleTranscriptEvent(event openAIRealtimeEvent) (string, error) {
 	switch event.Type {
-	case string(openaiconstant.ValueOf[openaiconstant.InputAudioBufferCommitted]()):
-		e.applyCommittedItemOrder(event.ItemID, event.PreviousItemID)
-		return "", nil
 	case string(openaiconstant.ValueOf[openaiconstant.TranscriptTextDelta]()):
 		return e.applyTranscriptTextDelta(event.Delta), nil
 	case string(openaiconstant.ValueOf[openaiconstant.TranscriptTextDone]()):
@@ -465,12 +509,6 @@ func (e *realtimeEngine) handleEvent(payload []byte) (string, error) {
 		return e.applyTranscriptUpdate(event.ItemID, event.Delta, e.deltaMode), nil
 	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionCompleted]()):
 		return e.applyTranscriptUpdate(event.ItemID, event.Transcript, openAIRealtimeDeltaModeSnapshot), nil
-	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionFailed]()), string(openaiconstant.ValueOf[openaiconstant.Error]()):
-		message := defaultRealtimeProviderErrorMessage
-		if event.Error != nil && strings.TrimSpace(event.Error.Message) != "" {
-			message = strings.TrimSpace(event.Error.Message)
-		}
-		return "", newServiceError(ErrProviderFailure, message)
 	default:
 		return "", nil
 	}

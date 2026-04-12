@@ -89,6 +89,12 @@ type StartResult struct {
 	ChunkMs               int
 }
 
+type validatedStartRequest struct {
+	scopeID  string
+	resolved transcriptionprofiles.ResolvedProfile
+	language *string
+}
+
 type AppendRequest struct {
 	ScopeID      string
 	SessionID    string
@@ -198,31 +204,14 @@ func (s *Service) StartSession(ctx context.Context, request StartRequest) (Start
 		ctx = context.Background()
 	}
 
-	scopeID := strings.TrimSpace(request.ScopeID)
-	if scopeID == "" {
-		return StartResult{}, newServiceError(ErrInvalidRequest, "Transcription session scope is required.")
-	}
-
-	profile := request.ResolvedProfile.Profile
-	if profile.ID == "" {
-		return StartResult{}, newServiceError(ErrInvalidRequest, "Transcription profile is required.")
-	}
-	if request.ResolvedProfile.LLMConfig == nil {
-		return StartResult{}, newServiceError(
-			ErrInvalidRequest,
-			"Transcription config is missing or invalid for this transcription profile.",
-		)
-	}
-
-	language := resolveLanguage(request.Language, profile.Language)
-	sessionEngine, resolvedTransportMode, chunkMs, err := s.buildSessionEngine(ctx, request.ResolvedProfile, language)
+	validated, err := validateStartRequest(request)
 	if err != nil {
 		return StartResult{}, err
 	}
-	if profile.TransportMode != transcriptionprofiles.TransportModeAuto &&
-		profile.TransportMode != transcriptionprofiles.TransportModeFile &&
-		profile.TransportMode != transcriptionprofiles.TransportModeRealtime {
-		return StartResult{}, newServiceError(ErrInvalidRequest, "Transcription transport mode is invalid.")
+
+	sessionEngine, resolvedTransportMode, chunkMs, err := s.buildSessionEngine(ctx, validated.resolved, validated.language)
+	if err != nil {
+		return StartResult{}, err
 	}
 
 	if err := s.PruneExpiredSessions(ctx); err != nil {
@@ -236,7 +225,7 @@ func (s *Service) StartSession(ctx context.Context, request StartRequest) (Start
 
 	s.mu.Lock()
 	s.sessions[sessionID] = &activeSession{
-		scopeID:      scopeID,
+		scopeID:      validated.scopeID,
 		engine:       sessionEngine,
 		lastActivity: now,
 	}
@@ -247,6 +236,44 @@ func (s *Service) StartSession(ctx context.Context, request StartRequest) (Start
 		ResolvedTransportMode: resolvedTransportMode,
 		ChunkMs:               chunkMs,
 	}, nil
+}
+
+func validateStartRequest(request StartRequest) (validatedStartRequest, error) {
+	scopeID := strings.TrimSpace(request.ScopeID)
+	if scopeID == "" {
+		return validatedStartRequest{}, newServiceError(ErrInvalidRequest, "Transcription session scope is required.")
+	}
+
+	profile := request.ResolvedProfile.Profile
+	if profile.ID == "" {
+		return validatedStartRequest{}, newServiceError(ErrInvalidRequest, "Transcription profile is required.")
+	}
+	if request.ResolvedProfile.LLMConfig == nil {
+		return validatedStartRequest{}, newServiceError(
+			ErrInvalidRequest,
+			"Transcription config is missing or invalid for this transcription profile.",
+		)
+	}
+	if !isSupportedTransportMode(profile.TransportMode) {
+		return validatedStartRequest{}, newServiceError(ErrInvalidRequest, "Transcription transport mode is invalid.")
+	}
+
+	return validatedStartRequest{
+		scopeID:  scopeID,
+		resolved: request.ResolvedProfile,
+		language: resolveLanguage(request.Language, profile.Language),
+	}, nil
+}
+
+func isSupportedTransportMode(mode transcriptionprofiles.TransportMode) bool {
+	switch mode {
+	case transcriptionprofiles.TransportModeAuto,
+		transcriptionprofiles.TransportModeFile,
+		transcriptionprofiles.TransportModeRealtime:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Service) AppendAudio(ctx context.Context, request AppendRequest) (Delta, error) {
@@ -416,7 +443,6 @@ func (s *Service) buildSessionEngine(
 	resolved transcriptionprofiles.ResolvedProfile,
 	language *string,
 ) (engine, string, int, error) {
-	profile := resolved.Profile
 	if resolved.LLMConfig == nil {
 		return nil, "", 0, newServiceError(
 			ErrInvalidRequest,
@@ -424,66 +450,86 @@ func (s *Service) buildSessionEngine(
 		)
 	}
 
+	profile := resolved.Profile
+	config := *resolved.LLMConfig
+
 	switch profile.TransportMode {
 	case transcriptionprofiles.TransportModeFile:
-		fileRuntime, err := newFileEngine(fileEngineOptions{
-			HTTPClient:         s.httpClient,
-			LLMConfig:          *resolved.LLMConfig,
-			APIKeys:            s.llm.APIKeys(),
-			Language:           language,
-			MaxPendingPCMBytes: s.maxPendingPCMBytes,
-		})
-		if err != nil {
-			return nil, "", 0, err
-		}
-		return fileRuntime, ResolvedTransportModeFile, 0, nil
+		return s.buildFileSessionEngine(config, language)
 	case transcriptionprofiles.TransportModeRealtime:
-		if !profile.SupportsRealtimeTranscription {
-			return nil, "", 0, newServiceError(
-				ErrUnsupportedModel,
-				"Realtime transcription is unavailable for this provider/model.",
-			)
-		}
-		realtimeRuntime, err := newRealtimeEngine(ctx, realtimeEngineOptions{
-			HTTPClient: s.httpClient,
-			LLMConfig:  *resolved.LLMConfig,
-			APIKeys:    s.llm.APIKeys(),
-			Language:   language,
-		})
-		if err != nil {
-			return nil, "", 0, err
-		}
-		return realtimeRuntime, ResolvedTransportModeRealtime, profile.ChunkMs, nil
+		return s.buildRequiredRealtimeSessionEngine(ctx, profile, config, language)
 	case transcriptionprofiles.TransportModeAuto:
-		if profile.SupportsRealtimeTranscription {
-			realtimeRuntime, err := newRealtimeEngine(ctx, realtimeEngineOptions{
-				HTTPClient: s.httpClient,
-				LLMConfig:  *resolved.LLMConfig,
-				APIKeys:    s.llm.APIKeys(),
-				Language:   language,
-			})
-			if err != nil {
-				if !isRealtimeFallbackError(err) {
-					return nil, "", 0, err
-				}
-			} else {
-				return realtimeRuntime, ResolvedTransportModeRealtime, profile.ChunkMs, nil
-			}
-		}
-		fileRuntime, err := newFileEngine(fileEngineOptions{
-			HTTPClient:         s.httpClient,
-			LLMConfig:          *resolved.LLMConfig,
-			APIKeys:            s.llm.APIKeys(),
-			Language:           language,
-			MaxPendingPCMBytes: s.maxPendingPCMBytes,
-		})
-		if err != nil {
-			return nil, "", 0, err
-		}
-		return fileRuntime, ResolvedTransportModeFile, 0, nil
+		return s.buildAutoSessionEngine(ctx, profile, config, language)
 	default:
 		return nil, "", 0, newServiceError(ErrInvalidRequest, "Transcription transport mode is invalid.")
 	}
+}
+
+func (s *Service) buildFileSessionEngine(config llmconfig.Config, language *string) (engine, string, int, error) {
+	fileRuntime, err := newFileEngine(fileEngineOptions{
+		HTTPClient:         s.httpClient,
+		LLMConfig:          config,
+		APIKeys:            s.llm.APIKeys(),
+		Language:           language,
+		MaxPendingPCMBytes: s.maxPendingPCMBytes,
+	})
+	if err != nil {
+		return nil, "", 0, err
+	}
+	return fileRuntime, ResolvedTransportModeFile, 0, nil
+}
+
+func (s *Service) buildRequiredRealtimeSessionEngine(
+	ctx context.Context,
+	profile transcriptionprofiles.Profile,
+	config llmconfig.Config,
+	language *string,
+) (engine, string, int, error) {
+	if !profile.SupportsRealtimeTranscription {
+		return nil, "", 0, newServiceError(
+			ErrUnsupportedModel,
+			"Realtime transcription is unavailable for this provider/model.",
+		)
+	}
+	return s.buildRealtimeSessionEngine(ctx, config, language, profile.ChunkMs)
+}
+
+func (s *Service) buildAutoSessionEngine(
+	ctx context.Context,
+	profile transcriptionprofiles.Profile,
+	config llmconfig.Config,
+	language *string,
+) (engine, string, int, error) {
+	if !profile.SupportsRealtimeTranscription {
+		return s.buildFileSessionEngine(config, language)
+	}
+
+	sessionEngine, resolvedTransportMode, chunkMs, err := s.buildRealtimeSessionEngine(ctx, config, language, profile.ChunkMs)
+	if err == nil {
+		return sessionEngine, resolvedTransportMode, chunkMs, nil
+	}
+	if !isRealtimeFallbackError(err) {
+		return nil, "", 0, err
+	}
+	return s.buildFileSessionEngine(config, language)
+}
+
+func (s *Service) buildRealtimeSessionEngine(
+	ctx context.Context,
+	config llmconfig.Config,
+	language *string,
+	chunkMs int,
+) (engine, string, int, error) {
+	realtimeRuntime, err := newRealtimeEngine(ctx, realtimeEngineOptions{
+		HTTPClient: s.httpClient,
+		LLMConfig:  config,
+		APIKeys:    s.llm.APIKeys(),
+		Language:   language,
+	})
+	if err != nil {
+		return nil, "", 0, err
+	}
+	return realtimeRuntime, ResolvedTransportModeRealtime, chunkMs, nil
 }
 
 func newFileEngine(opts fileEngineOptions) (*fileEngine, error) {
