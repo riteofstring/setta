@@ -1,7 +1,22 @@
+import type { Diagnostic, LintSource } from "@codemirror/lint";
 import { EditorState } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 import { type LSPDiagnostic } from "utils/generatedTypes";
-import { describe, expect, it } from "vitest";
-import { mapLspDiagnosticsToCodeMirrorDiagnostics } from "./lspDiagnostics";
+import { describe, expect, it, vi } from "vitest";
+
+const { mockLinter } = vi.hoisted(() => ({
+  mockLinter: vi.fn((source: LintSource) => ({ __source: source })),
+}));
+
+vi.mock("@codemirror/lint", async (importActual) => {
+  const actual = await importActual<typeof import("@codemirror/lint")>();
+  return {
+    ...actual,
+    linter: mockLinter,
+  };
+});
+
+import { buildLspDiagnosticsExtensions } from "./lspDiagnostics";
 
 function createDiagnostic(
   range: LSPDiagnostic["range"],
@@ -18,10 +33,24 @@ function createDiagnostic(
 }
 
 describe("mapLspDiagnosticsToCodeMirrorDiagnostics", () => {
-  it("skips diagnostics whose start line is outside the document", () => {
-    const doc = EditorState.create({ doc: "alpha\nbeta" }).doc;
+  function collectMappedDiagnostics(
+    doc: string,
+    diagnostics: Array<LSPDiagnostic>,
+  ) {
+    const extensions = buildLspDiagnosticsExtensions(diagnostics) as Array<{
+      __source: (view: Pick<EditorView, "state">) => Array<Diagnostic>;
+    }>;
 
-    const diagnostics = mapLspDiagnosticsToCodeMirrorDiagnostics(doc, [
+    expect(extensions).toHaveLength(1);
+
+    const codeMirrorDoc = EditorState.create({ doc }).doc;
+    return extensions[0].__source({
+      state: { doc: codeMirrorDoc } as EditorView["state"],
+    });
+  }
+
+  it("skips diagnostics whose start line is outside the document", () => {
+    const diagnostics = collectMappedDiagnostics("alpha\nbeta", [
       createDiagnostic({
         start: { line: 4, character: 0 },
         end: { line: 4, character: 2 },
@@ -36,7 +65,7 @@ describe("mapLspDiagnosticsToCodeMirrorDiagnostics", () => {
     const firstLine = doc.line(1);
     const secondLine = doc.line(2);
 
-    const diagnostics = mapLspDiagnosticsToCodeMirrorDiagnostics(doc, [
+    const diagnostics = collectMappedDiagnostics("abc\ndef", [
       createDiagnostic({
         start: { line: 0, character: 20 },
         end: { line: 1, character: 20 },
@@ -59,7 +88,7 @@ describe("mapLspDiagnosticsToCodeMirrorDiagnostics", () => {
     const secondLine = doc.line(2);
     const expectedFrom = secondLine.from + 2;
 
-    const diagnostics = mapLspDiagnosticsToCodeMirrorDiagnostics(doc, [
+    const diagnostics = collectMappedDiagnostics("abc\ndef", [
       createDiagnostic({
         start: { line: 1, character: 2 },
         end: { line: 0, character: 1 },

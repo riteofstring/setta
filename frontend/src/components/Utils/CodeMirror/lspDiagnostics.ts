@@ -49,7 +49,7 @@ function getDiagnosticRange(doc: CodeMirrorDoc, diagnostic: LSPDiagnostic) {
   return { from, to: Math.max(to, from) };
 }
 
-export function mapLspDiagnosticsToCodeMirrorDiagnostics(
+function mapLspDiagnosticsToCodeMirrorDiagnostics(
   doc: CodeMirrorDoc,
   diagnostics: Array<LSPDiagnostic>,
 ): Array<Diagnostic> {
