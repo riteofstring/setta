@@ -91,12 +91,6 @@ vi.mock("./SectionContainerCoreResizabe", () => ({
 vi.mock("./sectionChrome", () => ({
   getSectionContainerShellClassName: () => "mock-section-container-shell",
   getSectionSurfaceClassName: () => "mock-section-surface",
-  resolveSectionChromeShellDecorations: () => ({
-    outlineTone: "active",
-    scopeHighlight: "none",
-    showAiHighlight: false,
-    zIndexClassName: "z-[150]",
-  }),
 }));
 
 vi.mock("./utils", () => ({

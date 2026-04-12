@@ -1,5 +1,7 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
+import { setCallableHideParams } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -7,9 +9,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_set_callable_hide_params } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
-
 export function HideShowParamsButton({ sectionId }) {
   const { hasParams, hideParams } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -19,7 +19,6 @@ export function HideShowParamsButton({ sectionId }) {
     );
     return { hasParams: false, hideParams: impl.hideParams };
   }, _.isEqual);
-
   function onClick() {
     const nextHideParams = !hideParams;
     dispatchOptimisticProjectStateUpdate({
@@ -29,15 +28,18 @@ export function HideShowParamsButton({ sectionId }) {
         });
       },
       send: (frontendOpId) =>
-        route_set_callable_hide_params({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          hideParams: nextHideParams,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setCallableHideParams({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              hideParams: nextHideParams,
+              frontendOpId,
+            },
+          } as Parameters<typeof setCallableHideParams>[0]),
+        ),
     });
   }
-
   return (
     !hasParams && (
       <MenuItem onClick={onClick}>
