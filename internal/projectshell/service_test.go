@@ -284,7 +284,7 @@ func TestServiceSetDefaultProjectConfigPersistsAndRunsMetadataHook(t *testing.T)
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestServiceSetProjectConfigNameRenamesProjectPersistsAndRunsHook(t *testing
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
@@ -495,7 +495,7 @@ func TestServiceSaveProjectPersistsCurrentRuntimeAndRunsHook(t *testing.T) {
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
@@ -557,7 +557,7 @@ func TestServiceCreateProjectConfigSeedsSingleViewModeAndFlushesPersistenceOnRun
 		t.Fatalf("new project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
@@ -655,7 +655,7 @@ func TestServiceSaveAsNewProjectConfigWithRefsSeedsEmptyLiveWindowing(t *testing
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
@@ -741,7 +741,7 @@ func TestServiceSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingLayout(t *te
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
@@ -918,7 +918,7 @@ func TestServiceDeleteProjectConfigsDeletesProjectsRunsHooksAndReconcilesDefault
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}

@@ -2,7 +2,6 @@ package projectstate
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"testing"
 )
@@ -26,17 +25,6 @@ func TestOpenRegistryCreatesMainAndSettingsRuntimes(t *testing.T) {
 	}
 	if paths.Settings != filepath.Join(root, SettingsFileName) {
 		t.Fatalf("expected settings path %q, got %q", filepath.Join(root, SettingsFileName), paths.Settings)
-	}
-}
-
-func TestRegistryRuntimeRejectsUnknownTarget(t *testing.T) {
-	t.Parallel()
-
-	registry := openTestRegistry(t, t.TempDir())
-
-	_, err := registry.Runtime(Target("unknown"))
-	if !errors.Is(err, ErrUnknownTarget) {
-		t.Fatalf("expected unknown target error, got %v", err)
 	}
 }
 
@@ -180,7 +168,7 @@ func TestOpenRegistryWithOptionsRunsMainAfterSaveHookOnlyForMainRuntime(t *testi
 func openTestRegistry(t *testing.T, root string) *Registry {
 	t.Helper()
 
-	registry, err := OpenRegistry(context.Background(), root, StoreOptions{})
+	registry, err := OpenRegistryWithOptions(context.Background(), root, StoreOptions{}, RegistryOptions{})
 	if err != nil {
 		t.Fatalf("open registry: %v", err)
 	}

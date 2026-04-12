@@ -94,10 +94,6 @@ type runtimeState struct {
 	historyIndex int
 }
 
-func OpenRuntime(ctx context.Context, store *Store) (*Runtime, error) {
-	return OpenRuntimeWithOptions(ctx, store, RuntimeOptions{})
-}
-
 func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOptions) (*Runtime, error) {
 	if store == nil {
 		return nil, fmt.Errorf("project store is required")

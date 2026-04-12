@@ -14,8 +14,6 @@ const (
 	SettingsFileName = "setta-settings-project.json"
 )
 
-var ErrUnknownTarget = errors.New("unknown project runtime target")
-
 type Target string
 
 const (
@@ -49,10 +47,6 @@ func ResolvePaths(settaFilesRoot string) (Paths, error) {
 		Main:     filepath.Join(resolvedRoot, MainFileName),
 		Settings: filepath.Join(resolvedRoot, SettingsFileName),
 	}, nil
-}
-
-func OpenRegistry(ctx context.Context, settaFilesRoot string, storeOpts StoreOptions) (*Registry, error) {
-	return OpenRegistryWithOptions(ctx, settaFilesRoot, storeOpts, RegistryOptions{})
 }
 
 func OpenRegistryWithOptions(ctx context.Context, settaFilesRoot string, storeOpts StoreOptions, options RegistryOptions) (*Registry, error) {
@@ -107,21 +101,6 @@ func (r *Registry) Settings() *Runtime {
 		return nil
 	}
 	return r.settings
-}
-
-func (r *Registry) Runtime(target Target) (*Runtime, error) {
-	if r == nil {
-		return nil, ErrUnknownTarget
-	}
-
-	switch target {
-	case TargetMain:
-		return r.main, nil
-	case TargetSettings:
-		return r.settings, nil
-	default:
-		return nil, fmt.Errorf("%w: %q", ErrUnknownTarget, target)
-	}
 }
 
 func (r *Registry) Close() error {

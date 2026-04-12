@@ -849,7 +849,7 @@ func openCoreRegistryPersistedRuntime(t *testing.T, root string) *projectstate.R
 	if err := store.Save(context.Background(), document); err != nil {
 		t.Fatalf("save initial document: %v", err)
 	}
-	runtime, err := projectstate.OpenRuntime(context.Background(), store)
+	runtime, err := projectstate.OpenRuntimeWithOptions(context.Background(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open runtime: %v", err)
 	}

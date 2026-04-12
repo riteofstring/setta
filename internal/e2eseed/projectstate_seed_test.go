@@ -20,7 +20,12 @@ func TestSeedProjectStateWritesLoadableRegistryDocuments(t *testing.T) {
 		t.Fatalf("SeedProjectState returned error: %v", err)
 	}
 
-	registry, err := projectstate.OpenRegistry(context.Background(), root, projectstate.StoreOptions{})
+	registry, err := projectstate.OpenRegistryWithOptions(
+		context.Background(),
+		root,
+		projectstate.StoreOptions{},
+		projectstate.RegistryOptions{},
+	)
 	if err != nil {
 		t.Fatalf("OpenRegistry returned error: %v", err)
 	}
@@ -102,7 +107,12 @@ func TestSeedProjectStateOverwritesLegacyProjectFiles(t *testing.T) {
 		t.Fatalf("SeedProjectState returned error: %v", err)
 	}
 
-	registry, err := projectstate.OpenRegistry(context.Background(), root, projectstate.StoreOptions{})
+	registry, err := projectstate.OpenRegistryWithOptions(
+		context.Background(),
+		root,
+		projectstate.StoreOptions{},
+		projectstate.RegistryOptions{},
+	)
 	if err != nil {
 		t.Fatalf("OpenRegistry returned error: %v", err)
 	}

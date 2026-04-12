@@ -1638,7 +1638,7 @@ func TestRegisterProjectRoutesSetVariantJSONSourceKeysRefreshesLiveTreeWithoutPe
 		t.Fatalf("save initial project document: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(context.Background(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(context.Background(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open persisted runtime: %v", err)
 	}
@@ -1756,7 +1756,7 @@ func TestRegisterProjectRoutesSetVariantJSONSourceKeysReassignsLiveRootWhenCurre
 		t.Fatalf("save initial project document: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(context.Background(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(context.Background(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open persisted runtime: %v", err)
 	}
@@ -1843,7 +1843,7 @@ func TestRegisterProjectRoutesSetVariantJSONSourceKeysKeepsLoadedTreeWhenBacking
 		t.Fatalf("save initial project document: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(context.Background(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(context.Background(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open persisted runtime: %v", err)
 	}

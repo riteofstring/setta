@@ -395,7 +395,7 @@ func TestRegisterProjectShellRoutesSavesProject(t *testing.T) {
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
@@ -455,7 +455,7 @@ func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
@@ -547,7 +547,7 @@ func TestRegisterProjectShellRoutesSaveAsWithoutRefsLoadsCloneWithStableProjectS
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}

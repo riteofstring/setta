@@ -56,7 +56,7 @@ func TestOpenRuntimeRejectsMissingPersistedProjectChatWindowingState(t *testing.
 	})
 	store := newTestStore(t, projectPath)
 
-	_, err := OpenRuntime(context.Background(), store)
+	_, err := OpenRuntimeWithOptions(context.Background(), store, RuntimeOptions{})
 	if !errors.Is(err, ErrProjectChatWindowingRequired) {
 		t.Fatalf("expected missing project chat windowing error, got %v", err)
 	}

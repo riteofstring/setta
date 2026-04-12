@@ -177,7 +177,7 @@ func TestRegisterDeploymentIDERoutesSharePublishUsesLatestRuntimeSnapshot(t *tes
 		t.Fatalf("seed persisted project store: %v", err)
 	}
 
-	persistedRuntime, err := projectstate.OpenRuntime(context.Background(), store)
+	persistedRuntime, err := projectstate.OpenRuntimeWithOptions(context.Background(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open persisted project runtime: %v", err)
 	}

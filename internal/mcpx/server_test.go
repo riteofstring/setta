@@ -8895,7 +8895,7 @@ func openPersistedAppDefinitionTestProjectRuntime(t *testing.T) (string, *projec
 	if err := store.Save(context.Background(), document); err != nil {
 		t.Fatalf("save persisted app-definition document: %v", err)
 	}
-	runtime, err := projectstate.OpenRuntime(context.Background(), store)
+	runtime, err := projectstate.OpenRuntimeWithOptions(context.Background(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open persisted app-definition runtime: %v", err)
 	}

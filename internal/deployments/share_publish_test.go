@@ -687,7 +687,7 @@ func openSharePublishRuntime(t *testing.T, settaFilesRoot string, document proje
 	if err := store.Save(context.Background(), document); err != nil {
 		t.Fatalf("save project store: %v", err)
 	}
-	runtime, err := projectstate.OpenRuntime(context.Background(), store)
+	runtime, err := projectstate.OpenRuntimeWithOptions(context.Background(), store, projectstate.RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
