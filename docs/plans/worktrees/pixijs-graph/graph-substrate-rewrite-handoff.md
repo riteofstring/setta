@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 15:55 UTC
+Last updated: 2026-04-12 16:02 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,92 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+  - review checkpoint, 2026-04-12 16:02 UTC:
+    - item `322` spent the one remaining allowed probe pass on the
+      post-bootstrap setup boundary and it produced the answer needed for
+      sequencing
+    - the canonical `rotaryParamCodeObjDefault` lane no longer stalls between
+      `bootstrapReferenceSettingsPage(referencePage)` and the first
+      `captureNormalizedMotionPerf(...)` phase on the current runtime
+    - the rerun advanced through project-config lookup, project-state fetch,
+      view-mode/section resolution, pane-state capture, and both sides'
+      motion-capture phases, then failed on the existing perf thresholds with:
+      - reference average frame duration `324.43ms`
+      - worktree average frame duration `51.14ms`
+      - worktree dominant motion owner `pixiDrawableModelResolve`
+    - sequencing result:
+      - close the post-bootstrap setup-stall investigation lane
+      - do not spend the next default iteration on more probe-only logging for
+        this boundary
+      - move the next pass back to product-side perf work on the canary using
+        the measured owner above
+
+  - item `322` landed one bounded post-bootstrap setup-isolation slice on the
+    canonical `rotaryParamCodeObjDefault` lane:
+    - no product renderer code changed on this pass
+    - updated
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the canonical perf test now wraps the synchronous setup after
+      `bootstrapReferenceSettingsPage(referencePage)` in explicit probe phases
+      for:
+      - project-config id lookup
+      - latest-project-state fetch
+      - `All Settings` view-mode id resolution
+      - named target-section id resolution
+      - initial compare-pane state capture
+    - recorded the bounded result in
+      `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-bootstrap-setup-phases.md`
+    - focused verification:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+        -> formatted the updated spec
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+        -> passed
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-011/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-011/main-ai.log`
+        -> progressed through the new setup phases plus full reference/worktree
+        motion-capture subphases
+        -> emitted numeric perf payload on both sides instead of stalling after
+        bootstrap
+        -> failed on the existing perf thresholds with reference average
+        `324.43ms` and worktree average `51.14ms`
+    - reading:
+      - the current blocker is no longer an unnamed synchronous setup stall
+        after bootstrap
+      - the next product frontier should target the measured worktree owner
+        `pixiDrawableModelResolve` on the canary motion path rather than
+        adding another probe-only setup note
+
+  - review checkpoint, 2026-04-12 16:20 UTC:
+    - the last 10-loop stretch still shows worthwhile forward motion overall,
+      but the canonical `rotaryParamCodeObjDefault` main-reference lane has
+      started to consume too many probe-only iterations relative to new
+      product evidence
+    - keep going, but with a stricter budget:
+      - the next iteration may do one bounded isolation pass on the
+        post-readiness setup immediately after
+        `bootstrapReferenceSettingsPage(referencePage)` returns
+      - that pass must target concrete synchronous suspects such as
+        project-config id lookup, project-state fetch, or named-section
+        resolution and must either produce numeric perf output or name the
+        exact blocking call site
+      - do not spend another default pass on broad timeout changes, generic
+        probe-phase splitting, or more readiness logging
+    - if that bounded isolation still fails to produce numeric output, close
+      the canonical cross-worktree lane as unstable for default sequencing and
+      pivot the next pass back to product-side canary perf work using the
+      already-landed attribution on the worktree surface
+    - recent real wins worth preserving:
+      - product slice `316` improved the worktree canary on one fresh runtime
+        without opening visible drift
+      - product slice `320` removed redundant mounted-body filter work during
+        viewport motion when membership is unchanged
+      - probe slices `314`, `315`, `319`, and `321` narrowed the reference
+        instability from opaque startup failure to a post-readiness setup
+        boundary
+    - current red-herring warning:
+      - repeated reference-lifecycle or probe-logging churn on this same lane
+        is no longer justified unless the very next pass isolates the exact
+        blocking call
 
   - item `321` landed one bounded stall-classification slice on the canonical
     `rotaryParamCodeObjDefault` lane instead of rerunning the same opaque probe

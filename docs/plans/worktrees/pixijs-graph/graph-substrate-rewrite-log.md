@@ -12346,6 +12346,36 @@ LOOP_TERMINAL_MARKER: none
       performance probe on a fresh runtime pair and use the resulting owner
       attribution to choose the next product slice
 - LOOP_TERMINAL_MARKER: none
+- 2026-04-12 16:20 UTC | progress review checkpoint after loop iteration 10
+  - Decision: `replan_and_continue`
+  - Reading:
+    - runs `001` through `010` show meaningful forward progress overall rather
+      than pure churn:
+      - the canonical main-reference probe is now reproducible from fresh
+        runtime facts instead of hand-built env state
+      - the read-only `main` `reference: open settings` path was narrowed from
+        an opaque timeout to a concrete post-readiness setup boundary
+      - product slice `316` improved worktree canary motion cost on at least
+        one fresh runtime without a visible regression
+      - product slice `320` removed one redundant mounted-body filtering path
+        from viewport motion
+    - the same stretch also hit diminishing returns:
+      - six of the ten passes were probe-only or probe-dominant on the same
+        canonical lane
+      - the last two probe passes still did not restore a stable numeric
+        cross-worktree perf readout
+      - another generic readiness/probe-logging pass would likely be churn
+        under the lane-budget rule
+  - Durable adjustment:
+    - the plan and handoff now require that the next probe-oriented pass be a
+      single bounded isolation of the synchronous work immediately after
+      `bootstrapReferenceSettingsPage(referencePage)` returns
+    - that pass must either produce numeric perf output or identify the exact
+      blocking call site
+    - if it still cannot, the canonical cross-worktree lane should be treated
+      as unstable for default sequencing and the loop should pivot back to
+      product-side canary perf work using the existing worktree attribution
+  - LOOP_TERMINAL_MARKER: none
 - 2026-04-12 15:55 UTC | item 321 | classify canonical probe stall after read-only `main` readiness
   - Picked one bounded blocker-classification slice on the canonical
     `rotaryParamCodeObjDefault` lane instead of rerunning the same opaque
@@ -12419,6 +12449,41 @@ LOOP_TERMINAL_MARKER: none
       reference root DOM rose to `9527` and editable controls to `129`
     - next frontier: explain or normalize the recurring reference-side motion
       probe inflation before another canary-side product reduction
+- LOOP_TERMINAL_MARKER: none
+- 2026-04-12 16:02 UTC | item 322 | isolate post-bootstrap setup phases on canonical probe
+  - Picked the one remaining allowed probe-only pass on the canonical
+    `rotaryParamCodeObjDefault` lane and kept it bounded to the synchronous
+    setup immediately after `bootstrapReferenceSettingsPage(referencePage)`
+    returns.
+  - No product renderer code changed; updated
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so the canonical perf test now emits explicit phases for:
+    - worktree/reference project-config id lookup
+    - worktree/reference latest-project-state fetch
+    - worktree/reference `All Settings` view-mode id resolution
+    - worktree/reference target-section id resolution
+    - worktree/reference initial pane-state capture
+  - Added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-bootstrap-setup-phases.md`
+    to record the slice and the current runtime reading.
+  - Verification:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> formatted the updated spec
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-011/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-011/main-ai.log`
+      -> progressed through `reference: open settings`, all new post-bootstrap
+      setup phases, and both sides' motion-capture subphases
+      -> produced numeric perf payload on both sides instead of stalling after
+      bootstrap
+      -> failed on the existing perf threshold with reference average
+      `324.43ms` and worktree average `51.14ms`
+      -> reported worktree dominant motion owner `pixiDrawableModelResolve`
+  - Result:
+    - this closes the setup-stall investigation lane: the probe no longer
+      hangs between bootstrap and motion capture on the current runtime
+    - the next real frontier is product-side canary perf work against
+      `pixiDrawableModelResolve`, not another setup-phase logging pass
 - LOOP_TERMINAL_MARKER: none
 - 2026-04-12 15:22 UTC | item 319 | classify read-only `main` open-settings readiness
   - Picked one bounded blocker-classification slice on the canonical

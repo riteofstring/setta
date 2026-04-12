@@ -12410,47 +12410,102 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
   const referencePage = await context.newPage();
   await bootstrapReferenceSettingsPage(referencePage);
 
-  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
-    page,
-    WORKTREE_BACKEND_ORIGIN,
-    WORKTREE_BASE_URL,
+  const runSetupPhase = <T>(
+    label: string,
+    operation: () => Promise<T> | T,
+  ): Promise<T> =>
+    withSettingsGraphProbePhaseTimeout({
+      label,
+      operation: async () => operation(),
+    });
+
+  const worktreeProjectConfigId = await runSetupPhase(
+    "worktree: resolve project config id",
+    () => {
+      return getProjectConfigIdFromBackendOrigin(
+        page,
+        WORKTREE_BACKEND_ORIGIN,
+        WORKTREE_BASE_URL,
+      );
+    },
   );
-  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
-    referencePage,
-    MAIN_REFERENCE_BACKEND_ORIGIN,
-    MAIN_REFERENCE_FRONTEND_URL,
+  const referenceProjectConfigId = await runSetupPhase(
+    "reference: resolve project config id",
+    () => {
+      return getProjectConfigIdFromBackendOrigin(
+        referencePage,
+        MAIN_REFERENCE_BACKEND_ORIGIN,
+        MAIN_REFERENCE_FRONTEND_URL,
+      );
+    },
   );
-  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
-    page,
-    WORKTREE_BACKEND_ORIGIN,
-    WORKTREE_BASE_URL,
-    worktreeProjectConfigId,
+  const worktreeInitialState = await runSetupPhase(
+    "worktree: fetch latest project state",
+    () => {
+      return getLatestProjectStateFromBackendOrigin(
+        page,
+        WORKTREE_BACKEND_ORIGIN,
+        WORKTREE_BASE_URL,
+        worktreeProjectConfigId,
+      );
+    },
   );
-  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
-    referencePage,
-    MAIN_REFERENCE_BACKEND_ORIGIN,
-    MAIN_REFERENCE_FRONTEND_URL,
-    referenceProjectConfigId,
+  const referenceInitialState = await runSetupPhase(
+    "reference: fetch latest project state",
+    () => {
+      return getLatestProjectStateFromBackendOrigin(
+        referencePage,
+        MAIN_REFERENCE_BACKEND_ORIGIN,
+        MAIN_REFERENCE_FRONTEND_URL,
+        referenceProjectConfigId,
+      );
+    },
   );
-  const worktreeAllSettingsViewModeId = findViewModeId(
-    worktreeInitialState,
-    "All Settings",
+  const worktreeAllSettingsViewModeId = await runSetupPhase(
+    "worktree: resolve all settings view mode id",
+    () => {
+      return Promise.resolve(
+        findViewModeId(worktreeInitialState, "All Settings"),
+      );
+    },
   );
-  const referenceAllSettingsViewModeId = findViewModeId(
-    referenceInitialState,
-    "All Settings",
+  const referenceAllSettingsViewModeId = await runSetupPhase(
+    "reference: resolve all settings view mode id",
+    () => {
+      return Promise.resolve(
+        findViewModeId(referenceInitialState, "All Settings"),
+      );
+    },
   );
   const targetSectionName = "rotaryParamCodeObjDefault";
-  const worktreeTargetSectionId = findSectionIdByName(
-    worktreeInitialState,
-    targetSectionName,
+  const worktreeTargetSectionId = await runSetupPhase(
+    "worktree: resolve target section id",
+    () => {
+      return Promise.resolve(
+        findSectionIdByName(worktreeInitialState, targetSectionName),
+      );
+    },
   );
-  const referenceTargetSectionId = findSectionIdByName(
-    referenceInitialState,
-    targetSectionName,
+  const referenceTargetSectionId = await runSetupPhase(
+    "reference: resolve target section id",
+    () => {
+      return Promise.resolve(
+        findSectionIdByName(referenceInitialState, targetSectionName),
+      );
+    },
   );
-  const initialWorktreePaneState = await getLocalPaneState(page);
-  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const initialWorktreePaneState = await runSetupPhase(
+    "worktree: capture initial pane state",
+    () => {
+      return getLocalPaneState(page);
+    },
+  );
+  const initialReferencePaneState = await runSetupPhase(
+    "reference: capture initial pane state",
+    () => {
+      return getLocalPaneState(referencePage);
+    },
+  );
 
   async function captureNormalizedMotionPerf(args: {
     activeViewModeId: string;
