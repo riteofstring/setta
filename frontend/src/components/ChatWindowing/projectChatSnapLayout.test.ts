@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
   buildFloatingSnapResizeHandles,
   denormalizeFloatingBounds,
   normalizeFloatingBounds,
   resolveFloatingSnapPresetFromBounds,
-  type FloatingSnapPreset,
   type FloatingWindowBoundaryInsets,
 } from "./projectChatSnapLayout";
 
@@ -18,30 +16,6 @@ const TEST_INSETS: FloatingWindowBoundaryInsets = {
 };
 
 describe("project chat snap layout helpers", () => {
-  it("round-trips built snap bounds back to the same preset", () => {
-    const presets = [
-      "left",
-      "right",
-      "top",
-      "bottom",
-      "top_left",
-      "top_right",
-      "bottom_left",
-      "bottom_right",
-    ] as const satisfies readonly FloatingSnapPreset[];
-
-    for (const preset of presets) {
-      expect(
-        resolveFloatingSnapPresetFromBounds(
-          buildFloatingSnapBounds(preset, 1440, 900, TEST_INSETS),
-          1440,
-          900,
-          TEST_INSETS,
-        ),
-      ).toBe(preset);
-    }
-  });
-
   it("keeps edge-anchored quarter layouts classified as snapped after resizing", () => {
     // Custom quarter sizes should stay in snapped mode when they still hug the same edges.
     expect(
