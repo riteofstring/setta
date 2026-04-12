@@ -1,17 +1,17 @@
 import { useNotifications } from "state/definitions";
 import { C } from "utils/c";
 import {
-  createNotification,
-  Notification,
-  NotificationType,
-  NotificationTypeEnum,
+  createSettaNotification,
+  SettaNotification,
+  SettaNotificationType,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
 
 // Standalone notification actions as separate functions
-const addNotification = (notification: Notification) => {
+const addNotification = (notification: SettaNotification) => {
   useNotifications.setState((state) => ({
     notifications: [notification, ...state.notifications],
   }));
@@ -41,7 +41,9 @@ export const removeNotification = (notificationId: string) => {
   }));
 };
 
-export function addNotificationFromWebsocketMsg(notification: Notification) {
+export function addNotificationFromWebsocketMsg(
+  notification: SettaNotification,
+) {
   if (
     !notification ||
     (notification.projectConfigId !== getCurrProjectConfigId() &&
@@ -63,10 +65,10 @@ function createClientNotification({
 }: {
   projectConfigId: string;
   message: string;
-  type: NotificationType;
+  type: SettaNotificationType;
   temporary: boolean;
-}): Notification {
-  return createNotification({
+}): SettaNotification {
+  return createSettaNotification({
     projectConfigId,
     timestamp: new Date().toISOString(),
     type,
@@ -79,7 +81,7 @@ function createClientNotification({
 
 export const addTemporaryNotification = (
   message: string,
-  type: NotificationType = NotificationTypeEnum.info,
+  type: SettaNotificationType = SettaNotificationTypeEnum.info,
 ) => {
   const projectConfigId = getCurrProjectConfigId();
   const notification = createClientNotification({
@@ -95,7 +97,7 @@ export const addTemporaryNotification = (
 
 export const addPersistentNotification = (
   message: string,
-  type: NotificationType = NotificationTypeEnum.info,
+  type: SettaNotificationType = SettaNotificationTypeEnum.info,
 ) => {
   const projectConfigId = getCurrProjectConfigId();
   const existing = useNotifications
