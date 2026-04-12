@@ -733,6 +733,90 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     ]);
     expect(getViewport()).toEqual(panOnlyViewport);
   });
+
+  it("defers local zoom transform publishes until viewport interaction settles", async () => {
+    const initialViewport = { x: 40, y: -20, zoom: 1.25 };
+    const zoomedViewport = { x: 40, y: -20, zoom: 1.6 };
+    let latestRuntime: ReturnType<
+      typeof useSettingsGraphSubstrateCanaryViewportRuntime
+    > | null = null;
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={initialViewport}
+          onRuntime={(runtime) => {
+            latestRuntime = runtime;
+          }}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(initialViewport);
+    });
+    expect(useReactFlow.getState().transform).toEqual([
+      initialViewport.x,
+      initialViewport.y,
+      initialViewport.zoom,
+    ]);
+
+    await act(async () => {
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: false,
+        isWheelZooming: true,
+      });
+    });
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={zoomedViewport}
+          onRuntime={(runtime) => {
+            latestRuntime = runtime;
+          }}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(zoomedViewport);
+    });
+    expect(useReactFlow.getState().transform).toEqual([
+      initialViewport.x,
+      initialViewport.y,
+      initialViewport.zoom,
+    ]);
+
+    await act(async () => {
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: false,
+        isWheelZooming: false,
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(useReactFlow.getState().transform).toEqual([
+        zoomedViewport.x,
+        zoomedViewport.y,
+        zoomedViewport.zoom,
+      ]);
+    });
+  });
 });
 
 function createSceneSnapshot({

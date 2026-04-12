@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 08:04 UTC
+Last updated: 2026-04-13 08:12 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,67 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `405` landed one bounded production reduction on the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane by deferring local zoom
+  transform publishes while canary interaction stays local:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and avoided another attribution
+      seam now that the remaining named owner was already
+      `presentedSceneSectionSubtreeReactRender`
+    - chose the narrowest product hypothesis on that owner chain:
+      stop streaming local zoom transforms into the legacy React Flow store
+      during active interaction, then flush once interaction settles
+    - this is a real product change, not another harness-only pass
+  - product/support code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      with `isViewportInteractionActive` tracking and deferred
+      `reactFlowViewportPublish` while the viewport owner remains local
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      for focused coverage proving local zoom motion stays authoritative until
+      interaction end, then flushes the final transform once settled
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the blocked live-probe note for this product slice
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed (`1` file, `13` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - live worktree probe on run `030`
+      - command:
+        `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-030/worktree-ai.log`
+      - first attempt:
+        -> failed after `180000ms`
+        -> timeout site:
+           `getLocalPaneState(...)` inside
+           `runSettingsGraphComparePreflight(...)`
+      - bounded lifecycle recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - refreshed runtime facts via
+          `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-030/worktree-ai.log`
+        - fresh worktree session: `b6148a`
+      - retry after recovery:
+        -> failed after `180000ms`
+        -> timeout site stayed the same:
+           `getLocalPaneState(...)` inside
+           `runSettingsGraphComparePreflight(...)`
+    - headless CDP visual check on the refreshed worktree runtime
+      -> passed
+      -> `http://127.0.0.1:3075/settings`
+      -> `All Settings` graph/canary UI visible with sections and controls; not blank
+  - reading:
+    - this lands one real reduction on the owner chain that can drive subtree
+      rerenders, but there is still no trustworthy post-change perf readout on
+      run `030`
+    - the repeated blocker is again the worktree probe’s
+      `getLocalPaneState(...)` compare-preflight path, not CDP access and not
+      a new renderer regression
+    - do not claim a measured motion win from this slice yet
+  - next default frontier:
+    - resolve or narrowly bypass the repeated
+      `getLocalPaneState(...)` compare-preflight timeout on the canonical
+      worktree probe so the next product pass can return a trustworthy live
+      readout on the same `rotaryParamCodeObjDefault` lane
 
 - item `404` landed one bounded React-render attribution seam on the canonical
   `rotaryParamCodeObjDefault` worktree perf lane and converted the remaining

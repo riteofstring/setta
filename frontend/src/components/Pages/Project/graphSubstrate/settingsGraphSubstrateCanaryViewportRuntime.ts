@@ -82,6 +82,8 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
   const toolbarZoomViewportBaseRef = useRef<GraphViewport | null>(null);
   const [viewport, setViewport] = useState<GraphViewport | null>(null);
   const [isViewportPanning, setIsViewportPanning] = useState(false);
+  const [isViewportInteractionActive, setIsViewportInteractionActive] =
+    useState(false);
   const wrapperDimensions = useElementDimensions(rootRef);
   const sharedReactFlowViewportRef = useRef<GraphViewport | null>(
     getCurrentSharedReactFlowViewport(),
@@ -378,6 +380,12 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
   }) {
     const isViewportInteractionActive =
       isViewportPanning || isPanScrolling || isWheelZooming;
+    setIsViewportInteractionActive((currentValue) => {
+      if (currentValue === isViewportInteractionActive) {
+        return currentValue;
+      }
+      return isViewportInteractionActive;
+    });
     rootRef.current?.setAttribute(
       "data-viewport-interaction-active",
       isViewportInteractionActive ? "true" : "false",
@@ -464,6 +472,12 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     }
 
     const currentReactFlowState = useReactFlow.getState();
+    if (
+      viewportOwnershipRef.current === "local" &&
+      isViewportInteractionActive
+    ) {
+      return;
+    }
     const shouldPublishTransform =
       !hasPublishedReactFlowTransformRef.current ||
       currentReactFlowState.transform[2] !== resolvedViewport.zoom ||
@@ -487,7 +501,12 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
         hasPublishedReactFlowTransformRef.current = true;
       },
     );
-  }, [resolvedViewport, wrapperDimensions.height, wrapperDimensions.width]);
+  }, [
+    isViewportInteractionActive,
+    resolvedViewport,
+    wrapperDimensions.height,
+    wrapperDimensions.width,
+  ]);
 
   useEffect(() => {
     if (!resolvedViewport || !shouldPersistResolvedViewport) {

@@ -303,3 +303,57 @@ aggregate long-task totals.
   `38` times during the normalized motion burst, starting with broad mounted
   section-body / shell rerender fan-out rather than another attribution-only
   pass
+
+## 2026-04-13 Deferred Local Zoom Publish Reduction
+
+### What changed
+
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+  so the canary stops mirroring local zoom interaction updates into the legacy
+  React Flow transform store while local viewport interaction is still active
+- the latest local viewport now flushes to the React Flow store once the
+  interaction settles, preserving the last mirrored transform without
+  streaming intermediate zoom churn through legacy subscribers
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+  with focused coverage proving the zoomed local viewport stays authoritative
+  during active interaction and only publishes after the interaction ends
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+  - passed (`1` file, `13` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+  - passed
+- live worktree probe on run `030`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-030/worktree-ai.log`
+  - first attempt:
+    - failed after `180000ms`
+    - timeout site:
+      `getLocalPaneState(...)` inside
+      `runSettingsGraphComparePreflight(...)`
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-030/worktree-ai.log`
+    - fresh worktree session: `b6148a`
+  - retry after recovery:
+    - failed after `180000ms`
+    - timeout site stayed the same:
+      `getLocalPaneState(...)` inside
+      `runSettingsGraphComparePreflight(...)`
+
+### Updated Reading
+
+- this slice landed one real product reduction on the canonical lane, but the
+  live worktree perf probe did not produce a trustworthy post-change readout
+  because compare-preflight timed out twice at the same pane-state read site
+  even after the one allowed lifecycle recovery
+- treat the reduction as code-complete with focused unit coverage; do not claim
+  a measured motion win from this pass
+- the repeated blocker is now the worktree probe’s
+  `getLocalPaneState(...)` preflight path on run `030`, so the next iteration
+  should resolve or narrow that runtime blocker before drawing new perf
+  conclusions from this lane

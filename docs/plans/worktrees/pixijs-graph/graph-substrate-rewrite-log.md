@@ -151,6 +151,49 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 08:12 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first; avoided another
+  attribution-only pass because the canonical lane already named
+  `presentedSceneSectionSubtreeReactRender` as the dominant owner
+- landed one bounded production reduction on that owner chain in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`:
+  local zoom interaction now defers `reactFlowViewportPublish` while the
+  canary viewport owner is local and only flushes the final transform after
+  interaction settles
+- added focused regression coverage in
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+  proving the local zoomed viewport stays authoritative during active
+  interaction and mirrors to the legacy store only after interaction end
+- appended the blocked-live-probe note to
+  `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    -> pass (`1` file, `13` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    -> pass
+  - live worktree probe on run `030`
+    -> failed twice with the same `180000ms` timeout at
+       `getLocalPaneState(...)` inside
+       `runSettingsGraphComparePreflight(...)`
+    -> bounded lifecycle recovery used:
+       `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> refreshed runtime facts with
+       `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-030/worktree-ai.log`
+    -> fresh worktree session: `b6148a`
+  - headless CDP visual check on the refreshed runtime
+    -> pass
+    -> `http://127.0.0.1:3075/settings`
+    -> `All Settings` graph/canary UI visible with sections and controls; not blank
+- reading:
+  - code slice is complete and visually live, but there is still no
+    trustworthy post-change perf readout on the canonical lane
+  - the repeated blocker is the worktree probe’s
+    `getLocalPaneState(...)` compare-preflight path; treat that as the next
+    real frontier instead of opening another product hypothesis first
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 07:54 UTC
 
 - item `404` picked one bounded attribution slice after rereading the
