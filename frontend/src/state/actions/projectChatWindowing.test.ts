@@ -73,6 +73,18 @@ vi.mock("openapi/http", () => ({
   setProjectChatWindowChatId: (...args: unknown[]) =>
     hoistedProjectChatWindowing.routeSetProjectChatWindowChatId(...args),
 }));
+function createOpenAPIDataResponse<TData>(
+  data: TData,
+  status: number = 200,
+): {
+  data: TData;
+  response: Response;
+} {
+  return {
+    data,
+    response: new Response(null, { status }),
+  };
+}
 describe("project chat windowing reducer helpers", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -84,20 +96,17 @@ describe("project chat windowing reducer helpers", () => {
     hoistedProjectChatWindowing.routeSetProjectChatWindowingState.mockReset();
     hoistedProjectChatWindowing.routeSetProjectChatWindowingState.mockImplementation(
       async (request: {
-        state: ReturnType<typeof createProjectChatWindowingState>;
-      }) => ({
-        data: request.state,
-        status: 200,
-        hasResponse: true,
-      }),
+        body: {
+          state: ReturnType<typeof createProjectChatWindowingState>;
+        };
+      }) => createOpenAPIDataResponse(request.body.state),
     );
     hoistedProjectChatWindowing.routeSetProjectChatWindowChatId.mockReset();
     hoistedProjectChatWindowing.routeSetProjectChatWindowChatId.mockImplementation(
-      async () => ({
-        data: useProjectState.getState().projectChatWindowing,
-        status: 200,
-        hasResponse: true,
-      }),
+      async () =>
+        createOpenAPIDataResponse(
+          useProjectState.getState().projectChatWindowing,
+        ),
     );
   });
   it("creates an open bottom-docked chat window instance by default", () => {

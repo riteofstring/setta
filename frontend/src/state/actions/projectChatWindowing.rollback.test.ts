@@ -40,6 +40,30 @@ vi.mock("openapi/http", () => ({
 vi.mock("./sections/createSections", () => ({
   createTopLevelSectionWithResult: vi.fn(),
 }));
+function createOpenAPIDataResponse<TData>(
+  data: TData,
+  status: number = 200,
+): {
+  data: TData;
+  response: Response;
+} {
+  return {
+    data,
+    response: new Response(null, { status }),
+  };
+}
+function createOpenAPIErrorResponse<TError>(
+  error: TError,
+  status: number,
+): {
+  error: TError;
+  response: Response;
+} {
+  return {
+    error,
+    response: new Response(null, { status }),
+  };
+}
 async function flushOptimisticMutation(): Promise<void> {
   for (let index = 0; index < 8; index += 1) {
     await Promise.resolve();
@@ -57,38 +81,35 @@ describe("project chat windowing rollback", () => {
     useAIStore.setState({ activeChatId: undefined });
     routeSetProjectChatWindowingStateMock.mockImplementation(
       async (request: {
-        state: ReturnType<typeof createProjectChatWindowingState>;
-      }) => ({
-        data: request.state,
-        status: 200,
-        hasResponse: true,
-      }),
+        body: {
+          state: ReturnType<typeof createProjectChatWindowingState>;
+        };
+      }) => createOpenAPIDataResponse(request.body.state),
     );
     routeSetProjectChatWindowChatIdMock.mockImplementation(
-      async (request: { chatId: string | null }) => ({
-        data: createProjectChatWindowingState({
-          instancesById: {
-            "project-chat-window-1": createProjectChatWindowInstance({
-              instanceId: "project-chat-window-1",
-              mode: ChatWindowModeEnum.project_ai_mode,
-              sectionIdOrNull: null,
-              chatId: request.chatId,
-              zIndex: 1,
-            }),
-            "project-chat-window-2": createProjectChatWindowInstance({
-              instanceId: "project-chat-window-2",
-              mode: ChatWindowModeEnum.project_ai_mode,
-              sectionIdOrNull: null,
-              chatId: "chat-peer",
-              zIndex: 2,
-            }),
-          },
-          order: ["project-chat-window-1", "project-chat-window-2"],
-          nextInstanceNumber: 3,
-        }),
-        status: 200,
-        hasResponse: true,
-      }),
+      async (request: { body: { chatId: string | null } }) =>
+        createOpenAPIDataResponse(
+          createProjectChatWindowingState({
+            instancesById: {
+              "project-chat-window-1": createProjectChatWindowInstance({
+                instanceId: "project-chat-window-1",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                sectionIdOrNull: null,
+                chatId: request.body.chatId,
+                zIndex: 1,
+              }),
+              "project-chat-window-2": createProjectChatWindowInstance({
+                instanceId: "project-chat-window-2",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                sectionIdOrNull: null,
+                chatId: "chat-peer",
+                zIndex: 2,
+              }),
+            },
+            order: ["project-chat-window-1", "project-chat-window-2"],
+            nextInstanceNumber: 3,
+          }),
+        ),
     );
     useProjectState.setState((state) => {
       const projectWindow = createProjectChatWindowInstance({
@@ -118,11 +139,9 @@ describe("project chat windowing rollback", () => {
   });
   it("rolls back focus and active chat selection when the windowing write has no response", async () => {
     useAIStore.setState({ activeChatId: "chat-peer" });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 0,
-      hasResponse: false,
-    });
+    routeSetProjectChatWindowingStateMock.mockRejectedValue(
+      new Error("network unavailable"),
+    );
     focusProjectChatWindow("project-chat-window-1", 1234);
     await flushOptimisticMutation();
     expect(
@@ -135,11 +154,9 @@ describe("project chat windowing rollback", () => {
   });
   it("rolls back chat assignment and active chat selection on a handled rejection", async () => {
     useAIStore.setState({ activeChatId: "chat-before" });
-    routeSetProjectChatWindowChatIdMock.mockResolvedValue({
-      data: { detail: "Forbidden" },
-      status: 403,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowChatIdMock.mockResolvedValue(
+      createOpenAPIErrorResponse({ detail: "Forbidden" }, 403),
+    );
     setProjectChatWindowChatId("project-chat-window-1", "chat-after");
     await flushOptimisticMutation();
     expect(
@@ -153,15 +170,15 @@ describe("project chat windowing rollback", () => {
   });
   it("replays a later accepted chat-id update after an earlier focus write fails out of order", async () => {
     let resolveFocusWrite:
-      | ((value: {
-          data:
-            | {
-                detail: string;
-              }
-            | ReturnType<typeof createProjectChatWindowingState>;
-          status: number;
-          hasResponse: boolean;
-        }) => void)
+      | ((
+          value:
+            | ReturnType<
+                typeof createOpenAPIDataResponse<
+                  ReturnType<typeof createProjectChatWindowingState>
+                >
+              >
+            | ReturnType<typeof createOpenAPIErrorResponse<{ detail: string }>>,
+        ) => void)
       | null = null;
     routeSetProjectChatWindowingStateMock
       .mockReturnValueOnce(
@@ -171,38 +188,35 @@ describe("project chat windowing rollback", () => {
       )
       .mockImplementationOnce(
         async (request: {
-          state: ReturnType<typeof createProjectChatWindowingState>;
-        }) => ({
-          data: request.state,
-          status: 200,
-          hasResponse: true,
-        }),
+          body: {
+            state: ReturnType<typeof createProjectChatWindowingState>;
+          };
+        }) => createOpenAPIDataResponse(request.body.state),
       );
     routeSetProjectChatWindowChatIdMock.mockImplementation(
-      async (request: { chatId: string | null }) => ({
-        data: createProjectChatWindowingState({
-          instancesById: {
-            "project-chat-window-1": createProjectChatWindowInstance({
-              instanceId: "project-chat-window-1",
-              mode: ChatWindowModeEnum.project_ai_mode,
-              sectionIdOrNull: null,
-              chatId: request.chatId,
-              zIndex: 1,
-            }),
-            "project-chat-window-2": createProjectChatWindowInstance({
-              instanceId: "project-chat-window-2",
-              mode: ChatWindowModeEnum.project_ai_mode,
-              sectionIdOrNull: null,
-              chatId: "chat-peer",
-              zIndex: 2,
-            }),
-          },
-          order: ["project-chat-window-1", "project-chat-window-2"],
-          nextInstanceNumber: 3,
-        }),
-        status: 200,
-        hasResponse: true,
-      }),
+      async (request: { body: { chatId: string | null } }) =>
+        createOpenAPIDataResponse(
+          createProjectChatWindowingState({
+            instancesById: {
+              "project-chat-window-1": createProjectChatWindowInstance({
+                instanceId: "project-chat-window-1",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                sectionIdOrNull: null,
+                chatId: request.body.chatId,
+                zIndex: 1,
+              }),
+              "project-chat-window-2": createProjectChatWindowInstance({
+                instanceId: "project-chat-window-2",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                sectionIdOrNull: null,
+                chatId: "chat-peer",
+                zIndex: 2,
+              }),
+            },
+            order: ["project-chat-window-1", "project-chat-window-2"],
+            nextInstanceNumber: 3,
+          }),
+        ),
     );
     useAIStore.setState({ activeChatId: "chat-peer" });
     focusProjectChatWindow("project-chat-window-1", 1234);
@@ -210,11 +224,9 @@ describe("project chat windowing rollback", () => {
     await flushOptimisticMutation();
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
     expect(routeSetProjectChatWindowChatIdMock).not.toHaveBeenCalled();
-    resolveFocusWrite?.({
-      data: { detail: "Forbidden" },
-      status: 403,
-      hasResponse: true,
-    });
+    resolveFocusWrite?.(
+      createOpenAPIErrorResponse({ detail: "Forbidden" }, 403),
+    );
     await flushOptimisticMutation();
     const windowing = useProjectState.getState().projectChatWindowing;
     expect(windowing.instancesById["project-chat-window-1"]?.chatId).toBe(
@@ -240,11 +252,9 @@ describe("project chat windowing rollback", () => {
       order: ["project-chat-window-9"],
       nextInstanceNumber: 10,
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: { detail: "Forbidden" },
-      status: 403,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue(
+      createOpenAPIErrorResponse({ detail: "Forbidden" }, 403),
+    );
     useAIStore.setState({ activeChatId: "chat-peer" });
     focusProjectChatWindow("project-chat-window-1", 1234);
     useProjectState.setState((state) => {
@@ -262,15 +272,15 @@ describe("project chat windowing rollback", () => {
   });
   it("sends the later windowing write from post-rollback state instead of a stale whole-state snapshot", async () => {
     let resolveFocusWrite:
-      | ((value: {
-          data:
-            | {
-                detail: string;
-              }
-            | ReturnType<typeof createProjectChatWindowingState>;
-          status: number;
-          hasResponse: boolean;
-        }) => void)
+      | ((
+          value:
+            | ReturnType<
+                typeof createOpenAPIDataResponse<
+                  ReturnType<typeof createProjectChatWindowingState>
+                >
+              >
+            | ReturnType<typeof createOpenAPIErrorResponse<{ detail: string }>>,
+        ) => void)
       | null = null;
     routeSetProjectChatWindowingStateMock
       .mockReturnValueOnce(
@@ -280,40 +290,36 @@ describe("project chat windowing rollback", () => {
       )
       .mockImplementationOnce(
         async (request: {
-          state: ReturnType<typeof createProjectChatWindowingState>;
-        }) => ({
-          data: request.state,
-          status: 200,
-          hasResponse: true,
-        }),
+          body: {
+            state: ReturnType<typeof createProjectChatWindowingState>;
+          };
+        }) => createOpenAPIDataResponse(request.body.state),
       );
     focusProjectChatWindow("project-chat-window-1", 1234);
     setProjectChatWindowTitle("project-chat-window-1", "Renamed");
     await flushOptimisticMutation();
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
-    resolveFocusWrite?.({
-      data: { detail: "Forbidden" },
-      status: 403,
-      hasResponse: true,
-    });
+    resolveFocusWrite?.(
+      createOpenAPIErrorResponse({ detail: "Forbidden" }, 403),
+    );
     await flushOptimisticMutation();
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(2);
     const secondRequest =
       routeSetProjectChatWindowingStateMock.mock.calls[1]?.[0];
     expect(
-      secondRequest?.state.instancesById["project-chat-window-1"]?.title,
+      secondRequest?.body.state.instancesById["project-chat-window-1"]?.title,
     ).toBe("Renamed");
     expect(
-      secondRequest?.state.instancesById["project-chat-window-1"]?.zIndex,
+      secondRequest?.body.state.instancesById["project-chat-window-1"]?.zIndex,
     ).toBe(1);
     processProjectStateUpdateFromBackend({
       projectState: createSingleConfig({
         projectConfig: createProjectConfig({
           id: "project-config-1",
         }),
-        projectChatWindowing: secondRequest.state,
+        projectChatWindowing: secondRequest.body.state,
       }),
-      completedOpIds: [secondRequest.frontendOpId],
+      completedOpIds: [secondRequest.body.frontendOpId],
       pendingOpIds: [],
     });
     expect(

@@ -24,23 +24,43 @@ vi.mock("openapi/http", () => ({
   setProjectChatWindowChatId: (...args: unknown[]) =>
     routeSetProjectChatWindowChatIdMock(...args),
 }));
+function createOpenAPIDataResponse<TData>(
+  data: TData,
+  status: number = 200,
+): {
+  data: TData;
+  response: Response;
+} {
+  return {
+    data,
+    response: new Response(null, { status }),
+  };
+}
+function createOpenAPIErrorResponse<TError>(
+  error: TError,
+  status: number,
+): {
+  error: TError;
+  response: Response;
+} {
+  return {
+    error,
+    response: new Response(null, { status }),
+  };
+}
 describe("project chat windowing permissions", () => {
   beforeEach(() => {
     resetProjectStores();
     routeSetProjectChatWindowingStateMock.mockReset();
     routeSetProjectChatWindowChatIdMock.mockReset();
-    routeSetProjectChatWindowingStateMock.mockImplementation(
-      async (request) => ({
-        data: request.state,
-        status: 200,
-        hasResponse: true,
-      }),
+    routeSetProjectChatWindowingStateMock.mockImplementation(async (request) =>
+      createOpenAPIDataResponse(request.body.state),
     );
-    routeSetProjectChatWindowChatIdMock.mockImplementation(async () => ({
-      data: useProjectState.getState().projectChatWindowing,
-      status: 200,
-      hasResponse: true,
-    }));
+    routeSetProjectChatWindowChatIdMock.mockImplementation(async () =>
+      createOpenAPIDataResponse(
+        useProjectState.getState().projectChatWindowing,
+      ),
+    );
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -112,21 +132,21 @@ describe("project chat windowing permissions", () => {
         },
       }),
     });
-    routeSetProjectChatWindowChatIdMock.mockImplementation(async (request) => ({
-      data: createProjectChatWindowingState({
-        order: ["project-chat-window-1"],
-        instancesById: {
-          "project-chat-window-1": createProjectChatWindowInstanceModel({
-            instanceId: "project-chat-window-1",
-            placement: ChatWindowPlacementEnum.bottom_docked,
-            chatId: request.chatId,
-            isMinimized: false,
-          }),
-        },
-      }),
-      status: 200,
-      hasResponse: true,
-    }));
+    routeSetProjectChatWindowChatIdMock.mockImplementation(async (request) =>
+      createOpenAPIDataResponse(
+        createProjectChatWindowingState({
+          order: ["project-chat-window-1"],
+          instancesById: {
+            "project-chat-window-1": createProjectChatWindowInstanceModel({
+              instanceId: "project-chat-window-1",
+              placement: ChatWindowPlacementEnum.bottom_docked,
+              chatId: request.body.chatId,
+              isMinimized: false,
+            }),
+          },
+        }),
+      ),
+    );
     setProjectChatWindowChatId("project-chat-window-1", "chat-after");
     await flushPendingProjectChatWindowingWrites();
     expect(
@@ -137,9 +157,11 @@ describe("project chat windowing permissions", () => {
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
     expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        projectConfigId: "project-id",
-        instanceId: "project-chat-window-1",
-        chatId: "chat-after",
+        body: expect.objectContaining({
+          projectConfigId: "project-id",
+          instanceId: "project-chat-window-1",
+          chatId: "chat-after",
+        }),
       }),
     );
   });
@@ -238,11 +260,12 @@ describe("project chat windowing permissions", () => {
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
   it("rolls back rejected layout writes", async () => {
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: { detail: "Deployment policy disallows layout changes." },
-      status: 403,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue(
+      createOpenAPIErrorResponse(
+        { detail: "Deployment policy disallows layout changes." },
+        403,
+      ),
+    );
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
