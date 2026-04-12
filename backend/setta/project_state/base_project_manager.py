@@ -1841,6 +1841,9 @@ class BaseProjectManager(ABC):
             "load_project_config_timing project_config_id=%s did_init=%s "
             "section_count=%s convert_ms=%.1f convert_collect_ids_ms=%.1f "
             "convert_slice_state_ms=%.1f convert_project_state_ms=%.1f "
+            "convert_project_state_model_overhead_ms=%.1f "
+            "convert_project_state_content_validation_ms=%.1f "
+            "convert_project_state_layout_validation_ms=%.1f "
             "init_ms=%.1f init_update_ms=%.1f "
             "validation_cache_hit=%s validation_resolve_ms=%.1f "
             "validation_broadcast_ms=%.1f validation_ms=%.1f total_ms=%.1f",
@@ -1851,6 +1854,9 @@ class BaseProjectManager(ABC):
             convert_timing.collect_ids_ms,
             convert_timing.slice_state_ms,
             convert_timing.project_state_ms,
+            convert_timing.project_state_model_overhead_ms,
+            convert_timing.project_state_content_validation_ms,
+            convert_timing.project_state_layout_validation_ms,
             init_ms,
             init_timing.update_ms,
             validation_timing.cache_hit,

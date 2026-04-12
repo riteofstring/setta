@@ -77,6 +77,49 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-13 02:07 UTC
 
+- item `369` landed one bounded final `ProjectStateSingleConfig(...)`
+  validation-breakdown slice on the direct `/settings` backend attribution
+  lane:
+  - changed `backend/setta/types/project_state.py` so
+    `ProjectStateSingleConfig` post-build validators now record scoped
+    per-step timing when the converter explicitly enables timing capture
+  - changed `backend/setta/types/helpers_lvl3.py` so
+    `convert_backend_to_single_config_with_timing(...)` now reports:
+    - residual constructor overhead outside explicit validators
+    - content-derived validation time
+    - view-mode/chat-windowing/window-space layout validation time
+  - changed `backend/setta/project_state/base_project_manager.py` so
+    `load_project_config(...)` logs the new project-state sub-buckets on the
+    existing timing line
+  - extended `tests/project_state/test_load_project_config_timing.py` to lock
+    down the new fields and prove the summed sub-buckets stay bounded by
+    `convert_project_state_ms`
+  - recorded the measured warm-load fixture readout in
+    `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-project-state-validation-breakdown.md`
+- Verification:
+  - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+    - passed (`7` tests)
+  - `source activate.sh && python -m compileall backend/setta/types/project_state.py backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+    - passed
+  - warm-load fixture capture:
+    - `convert_project_state_ms≈175`
+    - `convert_project_state_model_overhead_ms≈5`
+    - `convert_project_state_content_validation_ms≈170`
+    - `convert_project_state_layout_validation_ms≈0.17`
+- Reading:
+  - project-config/chat-windowing attachment is not the remaining warm
+    `/settings` owner on this fixture; layout validation is effectively noise
+  - the next backend frontier is now the content-derived validator group
+    inside `ProjectStateSingleConfig(...)`, not the layout/windowing path
+- Next action:
+  - split `convert_project_state_content_validation_ms` into concrete validator
+    owners so the next direct `/settings` backend slice targets the heaviest
+    content-derived validation work directly
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 02:07 UTC
+
 - item `368` landed one bounded direct `/settings`
   `convert_backend_to_single_config(...)` timing split slice on the backend
   attribution lane:

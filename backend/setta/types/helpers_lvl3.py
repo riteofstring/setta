@@ -39,6 +39,8 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
+    begin_project_state_single_config_validation_timing,
+    end_project_state_single_config_validation_timing,
     ProjectChatWindowingState,
     ProjectStateBackend,
     ProjectStateCore,
@@ -80,6 +82,9 @@ class ConvertBackendToSingleConfigTiming:
     collect_ids_ms: float
     slice_state_ms: float
     project_state_ms: float
+    project_state_model_overhead_ms: float
+    project_state_content_validation_ms: float
+    project_state_layout_validation_ms: float
 
 
 def remove_singleton_sections_if_already_present(
@@ -255,22 +260,41 @@ def convert_backend_to_single_config_with_timing(
     )
 
     project_state_start = time.perf_counter()
-    # Build the sliced state
-    project_state = ProjectStateSingleConfig(
-        sections=project_state_core.sections,
-        sectionImpls=project_state_core.sectionImpls,
-        sectionVariants=project_state_core.sectionVariants,
-        codeObjs=project_state_core.codeObjs,
-        codeObjImpls=project_state_core.codeObjImpls,
-        codeObjVariants=project_state_core.codeObjVariants,
-        projectConfig=project_config,
-        projectChatWindowing=p.projectChatWindowingByProjectConfigId[projectConfigId],
+    validation_timing, validation_token = (
+        begin_project_state_single_config_validation_timing()
     )
+    # Build the sliced state
+    try:
+        project_state = ProjectStateSingleConfig(
+            sections=project_state_core.sections,
+            sectionImpls=project_state_core.sectionImpls,
+            sectionVariants=project_state_core.sectionVariants,
+            codeObjs=project_state_core.codeObjs,
+            codeObjImpls=project_state_core.codeObjImpls,
+            codeObjVariants=project_state_core.codeObjVariants,
+            projectConfig=project_config,
+            projectChatWindowing=p.projectChatWindowingByProjectConfigId[projectConfigId],
+        )
+    finally:
+        end_project_state_single_config_validation_timing(validation_token)
     project_state_ms = (time.perf_counter() - project_state_start) * 1000
+    project_state_content_validation_ms = validation_timing.content_validation_ms
+    project_state_layout_validation_ms = validation_timing.layout_validation_ms
+    project_state_model_overhead_ms = max(
+        0.0,
+        project_state_ms
+        - (
+            project_state_content_validation_ms
+            + project_state_layout_validation_ms
+        ),
+    )
     return project_state, ConvertBackendToSingleConfigTiming(
         collect_ids_ms=prepare_timing.collect_ids_ms,
         slice_state_ms=prepare_timing.slice_state_ms,
         project_state_ms=project_state_ms,
+        project_state_model_overhead_ms=project_state_model_overhead_ms,
+        project_state_content_validation_ms=project_state_content_validation_ms,
+        project_state_layout_validation_ms=project_state_layout_validation_ms,
     )
 
 

@@ -1,5 +1,9 @@
 import copy
+import time
+from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from enum import Enum
+from typing import Callable
 
 from pydantic import (
     BaseModel,
@@ -95,6 +99,79 @@ CODE_LANGUAGE_EXTENSIONS = {
 
 RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
 DEFAULT_CODE_LANGUAGE_EXTENSION = "txt"
+
+
+@dataclass
+class ProjectStateSingleConfigValidationTiming:
+    singleton_sections_ms: float = 0.0
+    active_ids_ms: float = 0.0
+    parent_section_map_ms: float = 0.0
+    shown_param_ids_ms: float = 0.0
+    required_decoded_images_ms: float = 0.0
+    code_file_bindings_ms: float = 0.0
+    view_modes_ms: float = 0.0
+    project_chat_windowing_ms: float = 0.0
+    window_spaces_ms: float = 0.0
+
+    @property
+    def content_validation_ms(self) -> float:
+        return (
+            self.singleton_sections_ms
+            + self.active_ids_ms
+            + self.parent_section_map_ms
+            + self.shown_param_ids_ms
+            + self.required_decoded_images_ms
+            + self.code_file_bindings_ms
+        )
+
+    @property
+    def layout_validation_ms(self) -> float:
+        return (
+            self.view_modes_ms
+            + self.project_chat_windowing_ms
+            + self.window_spaces_ms
+        )
+
+    @property
+    def total_validation_ms(self) -> float:
+        return self.content_validation_ms + self.layout_validation_ms
+
+
+_project_state_single_config_validation_timing: ContextVar[
+    ProjectStateSingleConfigValidationTiming | None
+] = ContextVar(
+    "_project_state_single_config_validation_timing",
+    default=None,
+)
+
+
+def begin_project_state_single_config_validation_timing() -> tuple[
+    ProjectStateSingleConfigValidationTiming, Token
+]:
+    timing = ProjectStateSingleConfigValidationTiming()
+    token = _project_state_single_config_validation_timing.set(timing)
+    return timing, token
+
+
+def end_project_state_single_config_validation_timing(token: Token) -> None:
+    _project_state_single_config_validation_timing.reset(token)
+
+
+def _record_project_state_single_config_validation_step(
+    timing_attr: str,
+    validator: Callable[["ProjectStateSingleConfig"], "ProjectStateSingleConfig"],
+):
+    def wrapped(self):
+        timing = _project_state_single_config_validation_timing.get()
+        if timing is None:
+            return validator(self)
+        start = time.perf_counter()
+        try:
+            return validator(self)
+        finally:
+            setattr(timing, timing_attr, (time.perf_counter() - start) * 1000)
+
+    return wrapped
 
 
 def get_code_language_extension(language: CodeLanguageKey) -> str:
@@ -267,39 +344,66 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
 
     @model_validator(mode="after")
     def _validate_singleton_sections(self):
-        return self.validate_singleton_sections()
+        return _record_project_state_single_config_validation_step(
+            "singleton_sections_ms",
+            ProjectStateSingleConfig.validate_singleton_sections,
+        )(self)
 
     @model_validator(mode="after")
     def _validate_active_ids(self):
-        return self.validate_active_ids()
+        return _record_project_state_single_config_validation_step(
+            "active_ids_ms",
+            ProjectStateSingleConfig.validate_active_ids,
+        )(self)
 
     @model_validator(mode="after")
     def _validate_parent_section_map(self):
-        return self.validate_parent_section_map()
+        return _record_project_state_single_config_validation_step(
+            "parent_section_map_ms",
+            ProjectStateSingleConfig.validate_parent_section_map,
+        )(self)
 
     @model_validator(mode="after")
     def _validate_shown_param_ids(self):
-        return self.validate_shown_param_ids()
+        return _record_project_state_single_config_validation_step(
+            "shown_param_ids_ms",
+            ProjectStateSingleConfig.validate_shown_param_ids,
+        )(self)
 
     @model_validator(mode="after")
     def _validate_required_decoded_images(self):
-        return self.validate_required_decoded_images()
+        return _record_project_state_single_config_validation_step(
+            "required_decoded_images_ms",
+            ProjectStateSingleConfig.validate_required_decoded_images,
+        )(self)
 
     @model_validator(mode="after")
     def _validate_code_file_bindings(self):
-        return self.validate_code_file_bindings()
+        return _record_project_state_single_config_validation_step(
+            "code_file_bindings_ms",
+            ProjectStateSingleConfig.validate_code_file_bindings,
+        )(self)
 
     @model_validator(mode="after")
     def _validate_view_modes(self):
-        return self.validate_view_modes()
+        return _record_project_state_single_config_validation_step(
+            "view_modes_ms",
+            ProjectStateSingleConfig.validate_view_modes,
+        )(self)
 
     @model_validator(mode="after")
     def _validate_project_chat_windowing(self):
-        return self.validate_project_chat_windowing()
+        return _record_project_state_single_config_validation_step(
+            "project_chat_windowing_ms",
+            ProjectStateSingleConfig.validate_project_chat_windowing,
+        )(self)
 
     @model_validator(mode="after")
     def _validate_window_spaces(self):
-        return self.validate_window_spaces()
+        return _record_project_state_single_config_validation_step(
+            "window_spaces_ms",
+            ProjectStateSingleConfig.validate_window_spaces,
+        )(self)
 
     def validate_for_update(
         self,

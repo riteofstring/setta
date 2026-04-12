@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 02:07 UTC
+Last updated: 2026-04-13 02:35 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,54 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `369` landed one bounded final `ProjectStateSingleConfig(...)`
+  validation-breakdown slice for the direct `/settings` backend lane:
+
+  - product code changed in:
+    - `backend/setta/types/project_state.py`
+      so `ProjectStateSingleConfig` post-build validators now record optional
+      per-step timing into a scoped contextvar capture without changing normal
+      behavior when timing is disabled
+    - `backend/setta/types/helpers_lvl3.py`
+      so `convert_backend_to_single_config_with_timing(...)` now reports:
+      - residual constructor overhead outside explicit validators
+      - content-derived validation time
+      - view-mode/chat-windowing/window-space layout validation time
+    - `backend/setta/project_state/base_project_manager.py`
+      so `load_project_config(...)` logs those new project-state construction
+      sub-buckets on the existing timing line
+  - focused regression coverage added in:
+    - `tests/project_state/test_load_project_config_timing.py`
+      to prove:
+      - the new project-state sub-buckets stay present on the timing log
+      - the summed sub-buckets stay bounded by the parent
+        `convert_project_state_ms` bucket
+      - warm-load init/cache-hit assertions still hold after the argument
+        positions shifted again
+  - recorded the fixture readout in:
+    - `perf/reports/frontend/2026-04-13_direct-settings-load-project-config-project-state-validation-breakdown.md`
+  - focused verification:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_load_project_config_timing.py`
+      -> passed (`7` tests)
+    - `source activate.sh && python -m compileall backend/setta/types/project_state.py backend/setta/types/helpers_lvl3.py backend/setta/project_state/base_project_manager.py tests/project_state/test_load_project_config_timing.py`
+      -> passed
+  - reading:
+    - on the current settings warm-load fixture, project-config/chat-windowing
+      attachment is not the remaining owner:
+      - `convert_project_state_ms` is about `175ms`
+      - `convert_project_state_model_overhead_ms` is about `5ms`
+      - `convert_project_state_content_validation_ms` is about `170ms`
+      - `convert_project_state_layout_validation_ms` is about `0.17ms`
+    - this closes the bounded "is layout/chat-windowing attachment expensive?"
+      question for the direct `/settings` path on the current fixture
+    - the next backend owner to isolate is now explicit:
+      one or more content-derived validators inside
+      `ProjectStateSingleConfig(...)`
+  - next default frontier:
+    - split `convert_project_state_content_validation_ms` into concrete
+      validator owners, starting with one bounded breakdown across the
+      heaviest content-derived validators on the warm `/settings` path
 
 - item `368` landed one bounded direct `/settings`
   `convert_backend_to_single_config(...)` timing split slice for the backend
