@@ -1,3 +1,5 @@
+import { setImageAreaImagePath } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -6,9 +8,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { route_set_image_area_image_path } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
-
 export function ImageAreaSettings({ sectionId }: { sectionId: string }) {
   const imagePath = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -18,7 +18,6 @@ export function ImageAreaSettings({ sectionId }: { sectionId: string }) {
     );
     return impl.imagePath;
   });
-
   function onSetImagePath(newImagePath: string) {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -27,22 +26,24 @@ export function ImageAreaSettings({ sectionId }: { sectionId: string }) {
         });
       },
       send: (frontendOpId) =>
-        route_set_image_area_image_path({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          imagePath: newImagePath,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setImageAreaImagePath({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              imagePath: newImagePath,
+              frontendOpId,
+            },
+          } as Parameters<typeof setImageAreaImagePath>[0]),
+        ),
     });
   }
-
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
     imagePath,
     onSetImagePath,
     () => true,
     true,
   );
-
   return (
     <div className="flex w-full items-center gap-3">
       <p className="select-none  text-sm font-bold text-setta-400 dark:text-setta-600">
