@@ -57,10 +57,11 @@ gcf.log
 auth.json
 mcp-tools.json
 docs/temporary/
-backend/setta/go_bin/
 backend/setta/vendor/node/
-.tools/
 .claude
 tmp/
-/.gocache/
-/reports/deadcode/
+infra/aws-devbox/terraform/.terraform/
+infra/aws-devbox/terraform/*.tfstate
+infra/aws-devbox/terraform/*.tfstate.*
+infra/aws-devbox/terraform/terraform.tfvars
+infra/aws-devbox/aws-devbox.env

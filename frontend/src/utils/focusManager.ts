@@ -2,6 +2,7 @@ import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { useEffect, type RefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
+  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
@@ -13,7 +14,7 @@ type TabScopeBehavior = "default" | "canvas";
 type TabScopeRegistration = {
   scopeId: string;
   order: number;
-  rootRef: RefObject<HTMLElement>;
+  rootRef: RefObject<HTMLElement | null>;
   behavior?: TabScopeBehavior;
 };
 
@@ -23,42 +24,30 @@ let focusTrackingInitialized = false;
 
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"]):not([role="menubar"])';
-const CODE_MIRROR_ROOT_SELECTORS = [
-  ".cm-editor",
-  "[id^='CodeMirror-']",
-  ".cm-theme",
-] as const;
-const TAB_NAVIGABLE_SELECTOR = "[tabindex]:not([tabindex='-1'])";
-
-function isCodeMirrorContentElement(element: HTMLElement): boolean {
-  return element.classList.contains("cm-content") || element.isContentEditable;
-}
-
-function findClosestTabNavigableAncestor(
-  element: HTMLElement,
-  selectors: readonly string[],
-): HTMLElement | null {
-  for (const selector of selectors) {
-    const candidate = element.closest(selector);
-    if (candidate instanceof HTMLElement && candidate.tabIndex >= 0) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
-function getCodeMirrorFocusableRoot(element: HTMLElement): HTMLElement | null {
-  return (
-    findClosestTabNavigableAncestor(element, CODE_MIRROR_ROOT_SELECTORS) ??
-    findClosestTabNavigableAncestor(element, [TAB_NAVIGABLE_SELECTOR])
-  );
-}
 
 function normalizeFocusableElement(element: HTMLElement): HTMLElement {
-  if (!isCodeMirrorContentElement(element)) {
-    return element;
+  const isCodeMirrorContent =
+    element.classList.contains("cm-content") || element.isContentEditable;
+  if (isCodeMirrorContent) {
+    const cmEditor = element.closest(".cm-editor");
+    if (cmEditor instanceof HTMLElement && cmEditor.tabIndex >= 0) {
+      return cmEditor;
+    }
+    const codeMirrorRoot =
+      element.closest("[id^='CodeMirror-']") ??
+      element.closest(".cm-theme") ??
+      element.closest(".cm-editor");
+    if (codeMirrorRoot instanceof HTMLElement && codeMirrorRoot.tabIndex >= 0) {
+      return codeMirrorRoot;
+    }
+    const focusableAncestor = element.closest(
+      "[tabindex]:not([tabindex='-1'])",
+    );
+    if (focusableAncestor instanceof HTMLElement) {
+      return focusableAncestor;
+    }
   }
-  return getCodeMirrorFocusableRoot(element) ?? element;
+  return element;
 }
 
 export function useTabScope({
@@ -89,12 +78,27 @@ function performTabNavigation({
   allowInputTarget = false,
 }: TabNavigationOptions): boolean {
   const normalizedTarget = normalizeFocusableElement(target);
-  if (shouldUseNativeTabNavigation(normalizedTarget, allowInputTarget)) {
+  if (normalizedTarget.closest("[data-tab-native]")) {
     return false;
   }
 
   const orderedScopes = getOrderedScopes();
-  const startScope = getStartScope(orderedScopes, normalizedTarget, direction);
+  if (orderedScopes.length === 0) {
+    return false;
+  }
+
+  const currentScope = getScopeForElement(normalizedTarget);
+  const isInputTarget = isNativeInput(normalizedTarget);
+  if (
+    !allowInputTarget &&
+    isInputTarget &&
+    currentScope?.behavior !== "canvas"
+  ) {
+    return false;
+  }
+
+  const startScope =
+    currentScope ?? getFirstScopeWithFocusable(orderedScopes, direction > 0);
   if (!startScope) {
     return false;
   }
@@ -109,7 +113,11 @@ function performTabNavigation({
     return false;
   }
 
-  return applyFocusResult(focusResult);
+  focusResult.element.focus({ preventScroll: true });
+  if (focusResult.scope.behavior === "canvas") {
+    movePaneToIncludeElement(focusResult.element);
+  }
+  return true;
 }
 
 export function handleTabNavigation(event: KeyboardEvent): boolean {
@@ -173,13 +181,36 @@ export function focusAdjacentTopLevelSection({
   focusOnFirstElement?: boolean;
   setActive?: boolean;
 }): boolean {
+  const activeElement =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  if (!isElementInScope(activeElement, "canvas")) {
+    return false;
+  }
   const orderedSectionIds = getOrderedTopLevelSectionIds();
-  const activeElement = getActiveCanvasElement();
-  const targetId = getAdjacentTopLevelSectionId(
+  if (orderedSectionIds.length === 0) {
+    return false;
+  }
+  const currentId = getCurrentTopLevelSectionId(
     activeElement,
     orderedSectionIds,
-    direction,
   );
+  let nextIndex: number;
+  if (!currentId) {
+    nextIndex = direction > 0 ? 0 : orderedSectionIds.length - 1;
+  } else {
+    const currentIndex = orderedSectionIds.indexOf(currentId);
+    if (currentIndex === -1) {
+      nextIndex = direction > 0 ? 0 : orderedSectionIds.length - 1;
+    } else {
+      nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= orderedSectionIds.length) {
+        return false;
+      }
+    }
+  }
+  const targetId = orderedSectionIds[nextIndex];
   if (!targetId) {
     return false;
   }
@@ -228,6 +259,11 @@ export function focusOnSection(
   }
   sectionRef.focus({ preventScroll: true });
   movePaneToIncludeElement(sectionRef);
+}
+
+function focusOnSectionSearch(sectionId: string) {
+  const element = document.getElementById(`${sectionId}-search`);
+  element?.focus({ preventScroll: true });
 }
 
 function resolveNextFocusable({
@@ -298,92 +334,6 @@ function getCurrentTopLevelSectionId(
     return null;
   }
   return sectionId;
-}
-
-function shouldUseNativeTabNavigation(
-  target: HTMLElement,
-  allowInputTarget: boolean,
-): boolean {
-  if (target.closest("[data-tab-native]")) {
-    return true;
-  }
-  if (allowInputTarget || !isNativeInput(target)) {
-    return false;
-  }
-  return getScopeForElement(target)?.behavior !== "canvas";
-}
-
-function getStartScope(
-  orderedScopes: TabScopeRegistration[],
-  target: HTMLElement,
-  direction: 1 | -1,
-): TabScopeRegistration | null {
-  if (orderedScopes.length === 0) {
-    return null;
-  }
-  return (
-    getScopeForElement(target) ??
-    getFirstScopeWithFocusable(orderedScopes, direction > 0)
-  );
-}
-
-function applyFocusResult(
-  focusResult: { element: HTMLElement; scope: TabScopeRegistration } | null,
-): boolean {
-  if (!focusResult) {
-    return false;
-  }
-  focusResult.element.focus({ preventScroll: true });
-  if (focusResult.scope.behavior === "canvas") {
-    movePaneToIncludeElement(focusResult.element);
-  }
-  return true;
-}
-
-function getActiveCanvasElement(): HTMLElement | null {
-  const activeElement =
-    document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-  return isElementInScope(activeElement, "canvas") ? activeElement : null;
-}
-
-function getAdjacentTopLevelSectionId(
-  activeElement: HTMLElement | null,
-  orderedSectionIds: string[],
-  direction: 1 | -1,
-): string | null {
-  if (orderedSectionIds.length === 0) {
-    return null;
-  }
-  const currentId = getCurrentTopLevelSectionId(
-    activeElement,
-    orderedSectionIds,
-  );
-  if (!currentId) {
-    return getBoundarySectionId(orderedSectionIds, direction);
-  }
-  const currentIndex = orderedSectionIds.indexOf(currentId);
-  if (currentIndex === -1) {
-    return getBoundarySectionId(orderedSectionIds, direction);
-  }
-  const nextIndex = currentIndex + direction;
-  if (nextIndex < 0 || nextIndex >= orderedSectionIds.length) {
-    return null;
-  }
-  return orderedSectionIds[nextIndex] ?? null;
-}
-
-function getBoundarySectionId(
-  orderedSectionIds: string[],
-  direction: 1 | -1,
-): string | null {
-  if (orderedSectionIds.length === 0) {
-    return null;
-  }
-  return direction > 0
-    ? orderedSectionIds[0] ?? null
-    : orderedSectionIds[orderedSectionIds.length - 1] ?? null;
 }
 
 function isElementInScope(
@@ -552,10 +502,11 @@ function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
 function getOrderedTopLevelSectionIds(): string[] {
   const state = useProjectState.getState();
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
+  const activeTopLevelSections = getActiveViewModeTopLevelSections(state);
   const topLevelSections = topLevelSectionIds
     .map((sectionId) => ({
       sectionId,
-      layout: state.projectConfig.topLevelSections[sectionId],
+      layout: activeTopLevelSections[sectionId],
     }))
     .filter((entry) => entry.layout);
 

@@ -25,6 +25,31 @@ export function ParamDndContext({ children }: { children: ReactNode }) {
   const paramDndActive = useParamDndState(
     (state) => Boolean(state.activeId) || state.pendingReset,
   );
+  const shouldProvideDnd = paramDndEnabled || paramDndActive;
+
+  if (!shouldProvideDnd) {
+    return <>{children}</>;
+  }
+
+  return (
+    <ActiveParamDndContext
+      paramDndEnabled={paramDndEnabled}
+      paramDndActive={paramDndActive}
+    >
+      {children}
+    </ActiveParamDndContext>
+  );
+}
+
+function ActiveParamDndContext({
+  children,
+  paramDndEnabled,
+  paramDndActive,
+}: {
+  children: ReactNode;
+  paramDndEnabled: boolean;
+  paramDndActive: boolean;
+}) {
   const shouldRenderHelpers = paramDndEnabled || paramDndActive;
   const sensors = useParamDndSensors();
   const collisionTracker = useMemo<CollisionTracker>(() => {

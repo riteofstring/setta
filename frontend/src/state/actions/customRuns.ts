@@ -74,6 +74,17 @@ export function deleteCustomRun(projectConfigId: string, runId: string) {
   }
 }
 
+function addCustomRun(
+  projectConfigId: string,
+  customRun: Omit<CustomRunItem, "id">,
+) {
+  const runs = getCustomRunsForProjectConfig(projectConfigId);
+  setCustomRunsForProjectConfig(projectConfigId, [
+    ...runs,
+    { ...customRun, id: createNewId() },
+  ]);
+}
+
 export function ensureDefaultCustomRuns(projectConfigId: string) {
   const runs = getCustomRunsForProjectConfig(projectConfigId);
 
