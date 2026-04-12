@@ -1,7 +1,3 @@
-import {
-  applyWorkspaceHistoryHandoffFromUrl,
-  consumeWorkspaceHistoryHandoff,
-} from "utils/workspaceHistory";
+import { consumeWorkspaceHistoryHandoff } from "utils/workspaceHistory";
 
-applyWorkspaceHistoryHandoffFromUrl();
 consumeWorkspaceHistoryHandoff();
