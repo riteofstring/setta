@@ -1,26 +1,21 @@
-import type { HttpapiBackendInitStatusResponse as BackendInitStatusResponse } from "openapi/http";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { loadAllProjectMetadata } from "state/actions/project/loadProject";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
 import {
-  BackendInitStatusProvider,
-  useBackendInitStatus,
-} from "state/backendInitStatus";
-import {
-  useAllProjectMetadata,
   useLocalStorage,
   useProjectLoading,
   useSettings,
   useShareSession,
 } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
-import { AppShell } from "./AppShell";
+import { res200 } from "utils/endpointUtils";
 import {
-  resolveDefaultProjectConfigName,
-  shouldLoadDefaultProjectMetadata,
-} from "./defaultProjectRouting";
+  route_get_backend_init_status,
+  router_get_default_project_config_name,
+} from "utils/generatedEndpoints";
+import type { BackendInitStatusResponse } from "utils/generatedTypes";
+import { AppShell } from "./AppShell";
 
 const THEME_COLOR_LIGHT = "#dce1ea";
 const THEME_COLOR_DARK = "#0b0e13";
@@ -30,23 +25,6 @@ export function GlobalWrapper({ children }) {
   useSetHTMLTitle();
   useColorModePreference();
   const settingsLoaded = useLoadSettings();
-
-  return (
-    <BackendInitStatusProvider>
-      <GlobalWrapperContent settingsLoaded={settingsLoaded}>
-        {children}
-      </GlobalWrapperContent>
-    </BackendInitStatusProvider>
-  );
-}
-
-function GlobalWrapperContent({
-  children,
-  settingsLoaded,
-}: {
-  children: ReactNode;
-  settingsLoaded: boolean;
-}) {
   const initStatus = useBackendInitStatus();
   const backendReady = initStatus?.isReady ?? false;
   const shouldShowLoading = !settingsLoaded || !backendReady;
@@ -70,14 +48,13 @@ export function IndexRouteComponent() {
   const showDefaultConfigOnLoad = useSettings(
     (x) => x.backend.showDefaultConfigOnLoad,
   );
-  const defaultProjectConfigName = useDefaultProjectConfigName(
-    showDefaultConfigOnLoad,
-  );
-  if (!showDefaultConfigOnLoad || defaultProjectConfigName === null) {
-    return <Navigate to={HOME_ROUTER_PATH} replace />;
-  }
+  const defaultProjectConfigName = useDefaultProjectConfigName();
   if (defaultProjectConfigName === undefined) {
     return null;
+  }
+
+  if (!showDefaultConfigOnLoad || defaultProjectConfigName === null) {
+    return <Navigate to={HOME_ROUTER_PATH} replace />;
   }
 
   return <Navigate to={defaultProjectConfigName} replace />;
@@ -154,61 +131,58 @@ function useOpenCloseWebsocket() {
   }, [location.pathname, shareSessionId]);
 }
 
-function useDefaultProjectConfigName(enabled: boolean) {
-  const defaultProjectConfigId = useAllProjectMetadata(
-    (x) => x.defaultProjectConfigId,
-  );
-  const projectMetadata = useAllProjectMetadata((x) => x.projectMetadata);
+function useDefaultProjectConfigName() {
   const [defaultProjectConfigName, setDefaultProjectConfigName] = useState<
     string | null | undefined
   >(undefined);
-  const [hasAttemptedMetadataLoad, setHasAttemptedMetadataLoad] =
-    useState(false);
+
+  async function fn() {
+    const res = await router_get_default_project_config_name();
+    if (res200(res)) {
+      setDefaultProjectConfigName(res.data);
+    }
+  }
 
   useEffect(() => {
-    const resolvedDefaultProjectConfigName = resolveDefaultProjectConfigName(
-      defaultProjectConfigId,
-      projectMetadata,
-    );
-    if (resolvedDefaultProjectConfigName !== null) {
-      setDefaultProjectConfigName(resolvedDefaultProjectConfigName);
-      return;
-    }
-    if (!enabled || hasAttemptedMetadataLoad || projectMetadata.length > 0) {
-      setDefaultProjectConfigName(null);
-    }
-  }, [
-    defaultProjectConfigId,
-    enabled,
-    hasAttemptedMetadataLoad,
-    projectMetadata,
-  ]);
-
-  useEffect(() => {
-    if (
-      !shouldLoadDefaultProjectMetadata({
-        enabled,
-        hasAttemptedMetadataLoad,
-        projectMetadataCount: projectMetadata.length,
-      })
-    ) {
-      return;
-    }
-
-    let isCancelled = false;
-    void (async () => {
-      await loadAllProjectMetadata();
-      if (!isCancelled) {
-        setHasAttemptedMetadataLoad(true);
-      }
-    })();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [enabled, hasAttemptedMetadataLoad, projectMetadata.length]);
+    fn();
+  }, []);
 
   return defaultProjectConfigName;
+}
+
+function useBackendInitStatus() {
+  const [status, setStatus] = useState<BackendInitStatusResponse | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    let intervalId: number | undefined;
+
+    async function poll() {
+      const res = await route_get_backend_init_status();
+      if (!isMounted || !res200(res)) {
+        return;
+      }
+      setStatus(res.data);
+      if (res.data.isReady && intervalId !== undefined) {
+        clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    }
+
+    poll();
+    intervalId = window.setInterval(() => {
+      void poll();
+    }, 500);
+
+    return () => {
+      isMounted = false;
+      if (intervalId !== undefined) {
+        clearInterval(intervalId);
+      }
+    };
+  }, []);
+
+  return status;
 }
 
 type LoadingScreenProps = {

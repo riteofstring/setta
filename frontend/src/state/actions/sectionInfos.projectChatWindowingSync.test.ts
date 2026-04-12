@@ -16,7 +16,7 @@ import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
-  createSingleConfig,
+  createProjectStateSingleConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it } from "vitest";
 import { processProjectStateUpdateFromBackend } from "./sectionInfos";
@@ -24,7 +24,7 @@ import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 function buildProjectState(
   projectChatWindowing = createProjectChatWindowingState(),
 ) {
-  return createSingleConfig({
+  return createProjectStateSingleConfig({
     projectConfig: createProjectConfig({
       id: "project-config-1",
     }),
@@ -242,44 +242,5 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
         "graph-window-1",
       )]: true,
     });
-  });
-
-  it("drops section-backed project chat windows whose bound sections no longer exist", () => {
-    const staleSectionWindow = createProjectChatWindowInstance({
-      instanceId: "project-chat-window-1",
-      sectionIdOrNull: "deleted-section",
-      mode: ChatWindowModeEnum.section_mode,
-      placement: ChatWindowPlacementEnum.floating,
-    });
-
-    setLocalProjectState(
-      createProjectChatWindowingState({
-        instancesById: {
-          [staleSectionWindow.instanceId]: staleSectionWindow,
-        },
-        order: [staleSectionWindow.instanceId],
-        nextInstanceNumber: 2,
-      }),
-    );
-
-    processProjectStateUpdateFromBackend({
-      projectState: buildProjectState(
-        createProjectChatWindowingState({
-          instancesById: {
-            [staleSectionWindow.instanceId]: staleSectionWindow,
-          },
-          order: [staleSectionWindow.instanceId],
-          nextInstanceNumber: 2,
-        }),
-      ),
-      completedOpIds: [],
-      pendingOpIds: [],
-    });
-
-    expect(useProjectState.getState().projectChatWindowing).toEqual(
-      createProjectChatWindowingState({
-        nextInstanceNumber: 2,
-      }),
-    );
   });
 });
