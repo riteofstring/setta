@@ -64,6 +64,7 @@ import {
   SectionTypeEnum,
   type SettaLspDiagnostic,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 
 type GenPythonDocParts = {
   isValid: boolean;
@@ -375,7 +376,7 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
       prefix: pythonTarget?.genCodePrefix ?? "",
       suffix: pythonTarget?.genCodeSuffix ?? "",
     };
-  });
+  }, shallow);
 
   const combinedDoc = `${prefix}${GEN_CODE_SEPARATOR}${code}${GEN_CODE_SEPARATOR}${suffix}`;
   const [value, setValue] = useState<string>(combinedDoc);

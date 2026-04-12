@@ -13,6 +13,7 @@ import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
   CodeLanguageEnum,
+  createProjectCodegenPythonTarget,
   createProjectConfig,
   SectionTypeEnum,
   type Core,
@@ -20,7 +21,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CodeArea } from "./CodeArea";
+import { CodeArea, GenPythonCodeArea } from "./CodeArea";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -83,6 +84,24 @@ async function renderProfiledCodeArea(
     root.render(
       <Profiler id="code-area-profiler" onRender={onRender}>
         <CodeArea sectionId="section-1" />
+      </Profiler>,
+    );
+  });
+
+  return { host, root };
+}
+
+async function renderProfiledGenPythonCodeArea(
+  onRender: ProfilerOnRenderCallback,
+): Promise<RenderedProfiledCodeArea> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+
+  await act(async () => {
+    root.render(
+      <Profiler id="gen-python-code-area-profiler" onRender={onRender}>
+        <GenPythonCodeArea sectionId="section-1" />
       </Profiler>,
     );
   });
@@ -235,6 +254,69 @@ describe("CodeArea LSP diagnostics wiring", () => {
             "other-section": [baseDiagnostic],
           },
           unmappedGenCode: [],
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps generated code areas out of unrelated project-state commits", async () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      codegenTargets: [
+        createProjectCodegenPythonTarget({
+          genCodePrefix: "# prefix",
+          genCodeSuffix: "# suffix",
+        }),
+      ],
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sectionImpls = {
+        [implId]: {
+          type: SectionTypeEnum.GenPythonCode,
+          id: implId,
+          name: "Generated",
+          isFrozen: false,
+          isInOtherProjectConfigs: false,
+          tagColor: null,
+          size: { width: 500, height: 300 },
+          aspectRatio: false,
+          aspectRatioExtraHeight: 0,
+          aspectRatioExtraWidth: 0,
+          isMinimized: false,
+          positionAndSizeLocked: false,
+          isPreset: false,
+          code: "print('hi')",
+          codeFileBinding: null,
+        },
+      };
+      state.previewSectionVariantMap = {};
+    });
+    syncStoreInitialState(useProjectState);
+
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledGenPythonCodeArea(onRender);
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState({
+          previewSectionVariantMap: {
+            "other-section": "other-variant",
+          },
         });
       });
 

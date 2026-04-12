@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 02:43 UTC
+Last updated: 2026-04-13 02:53 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,43 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `380` landed one bounded mounted generated-code body selector
+  reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Layouts/CodeArea.tsx`
+      so `GenPythonCodeAreaContent` now subscribes to `{ code, prefix, suffix }`
+      behind `zustand/shallow` equality instead of accepting every unrelated
+      `useProjectState` write through a fresh object selector
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/CodeArea.test.tsx`
+      to prove a mounted `GenPythonCodeArea` stays out of unrelated
+      `previewSectionVariantMap` commits while the generated code inputs are
+      unchanged
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-gen-python-code-selector-shallow-guard.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/CodeArea.tsx src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> settings page resolved from the loading shell to the full settings UI
+         with non-zero visible sections/chrome/editors and no obvious blank
+         screen or missing generated-code editor regression
+  - reading:
+    - this is a real mounted section-body selector reduction on the live
+      canary, not a harness-only pass
+    - the previous generated-code selector returned a fresh object with no
+      equality guard, so unrelated project-state churn could still fan into
+      mounted generated-code editors even when `code`, `prefix`, and `suffix`
+      were unchanged
+  - next default frontier:
+    - stay on the earliest product-facing canary gate and identify the next
+      mounted section-body/chrome subscriber or shared write fan-out that still
+      accepts unrelated `useProjectState` churn on the live worktree, rather
+      than reopening probe-only or backend warm-load work
 
 - item `379` landed one bounded mounted kwargs action-strip subscription
   reduction on the live canary lane:

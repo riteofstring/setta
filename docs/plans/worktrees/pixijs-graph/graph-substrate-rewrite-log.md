@@ -14889,6 +14889,42 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 02:53 UTC
+
+- item `380` landed one bounded mounted generated-code body selector
+  reduction on the live canary lane:
+  - changed `frontend/src/components/Section/Layouts/CodeArea.tsx` so
+    `GenPythonCodeAreaContent` now guards its `{ code, prefix, suffix }`
+    project-state selector with `zustand/shallow`
+  - updated `frontend/src/components/Section/Layouts/CodeArea.test.tsx` with a
+    profiler assertion that a mounted `GenPythonCodeArea` does not re-commit on
+    an unrelated `previewSectionVariantMap` write
+  - added
+    `perf/reports/frontend/2026-04-13_settings-graph-gen-python-code-selector-shallow-guard.md`
+    to record the slice
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/CodeArea.tsx src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> passed
+      -> settings page resolved from the loading shell to the full settings UI
+         with non-zero visible sections/chrome/editors and no obvious blank
+         screen or missing generated-code editor regression
+  - reading:
+    - this is a real mounted section-body selector reduction on the live
+      canary, not a harness-only pass
+    - the old selector returned a fresh object with no equality guard, so
+      unrelated project-state churn could still fan into mounted generated-code
+      editors even when `code`, `prefix`, and `suffix` were unchanged
+  - next:
+    - stay on the earliest product-facing canary gate and identify the next
+      mounted section-body/chrome subscriber or shared write fan-out that still
+      accepts unrelated `useProjectState` churn on the live worktree
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 21:01 UTC
 
 - item `350` landed one bounded Playwright global-setup stable-home landing
