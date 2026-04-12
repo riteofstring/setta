@@ -438,8 +438,6 @@ exit 0
     pinned_env = parse_env_snapshot(pinned_env_capture.read_text(encoding="utf-8"))
     assert pinned_env.get("COREPACK_ENABLE_AUTO_PIN") == "0"
     assert not wrong_capture.exists()
-
-
 @pytest.mark.parametrize(
     ("browser_mode", "expected_headless"),
     [("headless", "1"), ("headed", "0")],

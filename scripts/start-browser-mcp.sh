@@ -409,9 +409,12 @@ if not target or not port:
 encoded = urllib.parse.quote(target, safe="")
 endpoint = f"http://127.0.0.1:{port}/json/new?{encoded}"
 payload = None
+
+
 def _request(method, url):
     req = urllib.request.Request(url, method=method)
     return urllib.request.urlopen(req, timeout=2)
+
 
 try:
     request = urllib.request.Request(endpoint, method="PUT")
@@ -496,72 +499,30 @@ except Exception:
 PY
 }
 
-open_url_in_devtools_profile() {
-  local target_url="$1"
-  if [[ -z "$target_url" ]]; then
-    return 1
-  fi
-  if [[ "$DEVTOOLS_OPEN_WITH_CHROME" != "1" ]]; then
+open_bootstrap_in_devtools() {
+  if [[ "${BOOTSTRAP_ENABLED}" != "1" ]]; then
     return 0
   fi
 
-  local app_bundle=""
-  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-    case "$CHROME_BIN" in
-      *.app/Contents/MacOS/*)
-        app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
-        ;;
-    esac
-  fi
-  if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
-    if open -g -n -a "$app_bundle" --args \
-      --user-data-dir="$PROFILE_DIR" \
-      --no-first-run \
-      --no-default-browser-check \
-      "${CHROME_ARGS[@]:-}" \
-      "$target_url" >/dev/null 2>&1; then
-      return 0
-    fi
-  fi
-
-  "$CHROME_BIN" \
-    --user-data-dir="$PROFILE_DIR" \
-    --no-first-run \
-    --no-default-browser-check \
-    "${CHROME_ARGS[@]:-}" \
-    "$target_url" >/dev/null 2>&1 &
-}
-
-open_bootstrap_in_devtools() {
-  if [[ "$BOOTSTRAP_ENABLED" != "1" ]]; then
-    return
-  fi
-
-  if [[ "$BOOTSTRAP_VERBOSE" == "1" ]]; then
-    echo "Waiting for Setta bootstrap URL..."
-  fi
   local elapsed=0
-  while [[ "$elapsed" -lt "$BOOTSTRAP_WAIT_SECONDS" ]]; do
-    local url_candidate=""
-    if url_candidate="$(get_bootstrap_url)"; then
-      if [[ -n "$url_candidate" ]]; then
-        if bootstrap_url_ready "$url_candidate"; then
-          if [[ "$BOOTSTRAP_VERBOSE" == "1" ]]; then
-            echo "Opening Setta bootstrap URL in devtools Chrome."
+  while (( elapsed < BOOTSTRAP_WAIT_SECONDS )); do
+    local url=""
+    if url="$(get_bootstrap_url 2>/dev/null)"; then
+      if [[ -n "$url" ]]; then
+        if bootstrap_url_ready "$url"; then
+          echo "Bootstrap URL (recommended):"
+          echo "$url"
+          open_devtools_tab "$url" >/dev/null 2>&1 || true
+          if [[ "${DEVTOOLS_OPEN_WITH_CHROME}" == "1" ]]; then
+            "$CHROME_BIN" --user-data-dir="$PROFILE_DIR" "$url" >/dev/null 2>&1 &
           fi
-          if open_devtools_tab "$url_candidate"; then
-            return 0
-          fi
-          if [[ "$DEVTOOLS_OPEN_WITH_CHROME" == "1" ]]; then
-            # Fallback for environments where the DevTools JSON endpoint isn't reachable yet.
-            open_url_in_devtools_profile "$url_candidate"
-            return 0
-          fi
-        elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
-          echo "Bootstrap URL not ready yet (backend still starting)."
+          return 0
+        fi
+        if [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
+          echo "Bootstrap URL not yet ready: $url"
         fi
       elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
-        echo "Bootstrap URL not yet available (setta status returned no URL)."
+        echo "Bootstrap URL not yet available (setta status returned empty)."
       fi
     elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
       echo "Bootstrap URL not yet available (setta status failed)."
@@ -675,33 +636,27 @@ if [[ -z "$CHROME_BIN" ]]; then
       CHROME_BIN="/Applications/Chromium.app/Contents/MacOS/Chromium"
     fi
   fi
+fi
 
-  if [[ -z "$CHROME_BIN" ]]; then
-    CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+if [[ -z "$CHROME_BIN" ]]; then
+  if command -v google-chrome >/dev/null 2>&1; then
+    CHROME_BIN="$(command -v google-chrome)"
+  elif command -v chromium-browser >/dev/null 2>&1; then
+    CHROME_BIN="$(command -v chromium-browser)"
+  elif command -v chromium >/dev/null 2>&1; then
+    CHROME_BIN="$(command -v chromium)"
   fi
 fi
 
 if [[ -z "$CHROME_BIN" ]]; then
-  echo "Could not find Chrome/Chromium. Set CHROME_BIN to the binary path." >&2
+  echo "Could not find Chrome/Chromium. Set CHROME_BIN to the browser executable." >&2
   exit 1
 fi
 
 if command -v lsof >/dev/null 2>&1; then
-  if lsof -iTCP:"$DEBUG_PORT" -sTCP:LISTEN -n >/dev/null 2>&1; then
-    original_debug_port="$DEBUG_PORT"
-    for ((i = 1; i <= 200; i++)); do
-      candidate=$((original_debug_port + i))
-      if ! lsof -iTCP:"$candidate" -sTCP:LISTEN -n >/dev/null 2>&1; then
-        DEBUG_PORT="$candidate"
-        break
-      fi
-    done
-
-    if [[ "$DEBUG_PORT" == "$original_debug_port" ]]; then
-      echo "Port $DEBUG_PORT is already in use. Set DEBUG_PORT to a free port." >&2
-      exit 1
-    fi
-    echo "Port ${original_debug_port} is in use; using ${DEBUG_PORT} instead." >&2
+  if lsof -iTCP:"$DEBUG_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "Port $DEBUG_PORT is already in use. Set DEBUG_PORT to a free port." >&2
+    exit 1
   fi
 fi
 

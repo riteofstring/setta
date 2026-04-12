@@ -701,6 +701,35 @@ repo_uses_setta_adapter() {
   [[ "${repo_adapter:-generic}" == "setta" ]]
 }
 
+repo_looks_like_setta() {
+  [[ -d "${ROOT_DIR}/backend/setta" ]] && [[ -x "${ROOT_DIR}/scripts/dev-runtime-info.sh" ]]
+}
+
+resolve_repo_adapter() {
+  local requested_adapter="$1"
+
+  case "${requested_adapter}" in
+    auto|'')
+      if repo_looks_like_setta; then
+        printf 'setta\n'
+      else
+        printf 'generic\n'
+      fi
+      ;;
+    setta|generic)
+      printf '%s\n' "${requested_adapter}"
+      ;;
+    *)
+      echo "Unsupported repo_adapter value: ${requested_adapter}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+repo_uses_setta_adapter() {
+  [[ "${repo_adapter:-generic}" == "setta" ]]
+}
+
 workspace_setta_status_payload() {
   local target_root="$1"
   local status_payload=""

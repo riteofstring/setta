@@ -742,6 +742,7 @@ cat "${{last_message}}"
     assert (output_dir / "loop-001" / "run-001" / "status.txt").exists()
     assert not (output_dir / "loop-002").exists()
     assert not active_run_path.exists()
+<<<<<<< HEAD
 
 
 def test_run_codex_supervisor_counts_progress_review_activity_as_live_loop_activity(
@@ -996,3 +997,5 @@ exit 1
 
     assert result.returncode == 0, result.stderr
     assert "codex CLI not found on PATH" not in result.stderr
+=======
+>>>>>>> origin/main

@@ -3,7 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+<<<<<<< HEAD
 . "${SCRIPT_DIR}/lib/codex_cli.sh"
+=======
+>>>>>>> origin/main
 
 usage() {
   local program_name
@@ -183,6 +186,7 @@ latest_activity_epoch() {
 
 discover_main_worktree_root() {
   local repo_root="$1"
+<<<<<<< HEAD
   local discovered_root=""
   local repo_root_real=""
   local sibling_parent=""
@@ -226,6 +230,12 @@ discover_main_worktree_root() {
   done
 
   return 1
+=======
+  git -C "${repo_root}" worktree list --porcelain 2>/dev/null | awk '
+    $1 == "worktree" { current = $2; next }
+    $1 == "branch" && $2 == "refs/heads/main" { print current; exit }
+  '
+>>>>>>> origin/main
 }
 
 terminate_process_tree() {
@@ -349,10 +359,13 @@ latest_loop_activity_epoch() {
     "${loop_dir}/run-"*/last-message.txt
     "${loop_dir}/run-"*/worktree-*.log
     "${loop_dir}/run-"*/main-*.log
+<<<<<<< HEAD
     "${loop_dir}/progress-review-"*/status.txt
     "${loop_dir}/progress-review-"*/progress-review-transcript.log
     "${loop_dir}/progress-review-"*/progress-review-last-message.txt
     "${loop_dir}/progress-review-"*/progress-review-prompt.txt
+=======
+>>>>>>> origin/main
   )
   shopt -u nullglob
 
@@ -545,11 +558,18 @@ run_codex_repair() {
   local failure_key="$3"
   local latest_run_path="$4"
   local latest_status_file="$5"
+<<<<<<< HEAD
   local codex_bin="${SETTA_CODEX_BIN:-codex}"
   local repair_prompt="${incident_dir}/repair-prompt.txt"
   local repair_last_message="${incident_dir}/repair-last-message.txt"
   local repair_transcript="${incident_dir}/repair-transcript.log"
   local cmd=("${codex_bin}" exec --color never --cd "${workdir}" --output-last-message "${repair_last_message}" --ephemeral)
+=======
+  local repair_prompt="${incident_dir}/repair-prompt.txt"
+  local repair_last_message="${incident_dir}/repair-last-message.txt"
+  local repair_transcript="${incident_dir}/repair-transcript.log"
+  local cmd=(codex exec --color never --cd "${workdir}" --output-last-message "${repair_last_message}" --ephemeral)
+>>>>>>> origin/main
 
   build_repair_prompt "${repair_prompt}" "${incident_reason}" "${failure_key}" "${latest_run_path}" "${latest_status_file}"
 
@@ -928,7 +948,11 @@ if [[ -z "${repair_command}" ]] && [[ -x "${workdir}/aireset.sh" ]]; then
   fi
 fi
 
+<<<<<<< HEAD
 if [[ "${codex_repair_enabled}" == "1" ]] && ! setta_ensure_codex_cli "${ROOT_DIR}"; then
+=======
+if [[ "${codex_repair_enabled}" == "1" ]] && ! command -v codex >/dev/null 2>&1; then
+>>>>>>> origin/main
   echo "codex CLI not found on PATH" >&2
   exit 1
 fi

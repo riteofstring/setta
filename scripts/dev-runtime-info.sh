@@ -5,11 +5,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKSPACE_PATH=""
 RUNTIME_LOG_PATH=""
+<<<<<<< HEAD
 ALLOW_MISSING_CONNECT_INFO="0"
 
 usage() {
   cat <<'EOF'
 Usage: dev-runtime-info.sh [--workspace PATH] [--runtime-log PATH] [--allow-missing-connect-info]
+=======
+
+usage() {
+  cat <<'EOF'
+Usage: dev-runtime-info.sh [--workspace PATH] [--runtime-log PATH]
+>>>>>>> origin/main
 
 Emit a single JSON payload describing the current dev runtime for a worktree.
 The payload merges authoritative Setta session info with the current frontend
@@ -60,6 +67,7 @@ extract_backend_url_from_log() {
   extract_runtime_value_from_log "${log_path}" '.*Ready:[[:space:]]*(http:\/\/[^[:space:]]+).*$' '\1'
 }
 
+<<<<<<< HEAD
 extract_debug_port_from_log() {
   local log_path="$1"
   extract_runtime_value_from_log "${log_path}" '.*Starting Chrome with remote debugging on port ([0-9]+).*$' '\1'
@@ -118,6 +126,8 @@ extract_debug_port_from_runtime_sources() {
   extract_debug_port_from_log "${log_path}"
 }
 
+=======
+>>>>>>> origin/main
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --workspace)
@@ -156,10 +166,13 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
+<<<<<<< HEAD
     --allow-missing-connect-info)
       ALLOW_MISSING_CONNECT_INFO="1"
       shift
       ;;
+=======
+>>>>>>> origin/main
     -h|--help)
       usage
       exit 0
@@ -179,6 +192,7 @@ elif [[ "${RUNTIME_LOG_PATH}" != /* ]]; then
   RUNTIME_LOG_PATH="${WORKTREE_ROOT}/${RUNTIME_LOG_PATH}"
 fi
 
+<<<<<<< HEAD
 RUNTIME_STATE_PATH=""
 if [[ -n "${RUNTIME_LOG_PATH}" ]]; then
   RUNTIME_STATE_PATH="$(runtime_state_path_for_log "${RUNTIME_LOG_PATH}" 2>/dev/null || true)"
@@ -193,6 +207,11 @@ elif [[ -f "${WORKTREE_ROOT}/activate.sh" ]]; then
   cd "${WORKTREE_ROOT}"
   source "${WORKTREE_ROOT}/activate.sh"
   cd "${ORIGINAL_PWD}"
+=======
+if [[ -f "${WORKTREE_ROOT}/activate.sh" ]]; then
+  # shellcheck disable=SC1090
+  source "${WORKTREE_ROOT}/activate.sh"
+>>>>>>> origin/main
 fi
 
 if [[ -z "${SETTA_FILES_ROOT:-}" ]] && [[ -z "${SETTA_FILES_LOCATION:-}" ]]; then
@@ -205,12 +224,17 @@ if ! command -v setta >/dev/null 2>&1; then
 fi
 
 STATUS_PAYLOAD="$(setta status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
+<<<<<<< HEAD
 if [[ "${STATUS_PAYLOAD}" != __SETTA_JSON_B64__* ]] && [[ "${ALLOW_MISSING_CONNECT_INFO}" != "1" ]]; then
+=======
+if [[ "${STATUS_PAYLOAD}" != __SETTA_JSON_B64__* ]]; then
+>>>>>>> origin/main
   echo "Failed to read connect-info JSON for ${WORKTREE_ROOT}." >&2
   exit 1
 fi
 
 CDP_PORT_JSON="$("${SCRIPT_DIR}/cdp-port.sh" --workspace "${WORKTREE_ROOT}" --json)"
+<<<<<<< HEAD
 LOG_BACKEND_URL="$(extract_backend_url_from_runtime_sources "${RUNTIME_LOG_PATH}" 2>/dev/null || true)"
 LOG_DEBUG_PORT="$(extract_debug_port_from_runtime_sources "${RUNTIME_LOG_PATH}" 2>/dev/null || true)"
 
@@ -222,10 +246,22 @@ RUNTIME_LOG_PATH="${RUNTIME_LOG_PATH}" \
 RUNTIME_STATE_PATH="${RUNTIME_STATE_PATH}" \
 WORKTREE_ROOT="${WORKTREE_ROOT}" \
 ALLOW_MISSING_CONNECT_INFO="${ALLOW_MISSING_CONNECT_INFO}" \
+=======
+FRONTEND_URL="$(extract_frontend_url_from_log "${RUNTIME_LOG_PATH}" 2>/dev/null || true)"
+LOG_BACKEND_URL="$(extract_backend_url_from_log "${RUNTIME_LOG_PATH}" 2>/dev/null || true)"
+
+SETTA_STATUS_PAYLOAD="${STATUS_PAYLOAD}" \
+CDP_PORT_JSON="${CDP_PORT_JSON}" \
+FRONTEND_URL="${FRONTEND_URL}" \
+LOG_BACKEND_URL="${LOG_BACKEND_URL}" \
+RUNTIME_LOG_PATH="${RUNTIME_LOG_PATH}" \
+WORKTREE_ROOT="${WORKTREE_ROOT}" \
+>>>>>>> origin/main
 python - <<'PY'
 import base64
 import json
 import os
+<<<<<<< HEAD
 import re
 import sys
 from pathlib import Path
@@ -385,12 +421,21 @@ else:
         raise SystemExit(1)
     status = {}
     session = {}
+=======
+import sys
+
+status_payload = os.environ["SETTA_STATUS_PAYLOAD"]
+cdp_payload = json.loads(os.environ["CDP_PORT_JSON"])
+status = json.loads(base64.b64decode(status_payload[len("__SETTA_JSON_B64__") :]).decode())
+session = status.get("session") or {}
+>>>>>>> origin/main
 
 backend_url = None
 host = session.get("host")
 port = session.get("port")
 if host and port:
     backend_url = f"http://{host}:{port}"
+<<<<<<< HEAD
 backend_url_source = "setta_status"
 if not backend_url:
     backend_url = os.environ.get("LOG_BACKEND_URL") or None
@@ -425,16 +470,29 @@ if debug_port_source == "default":
             debug_port = log_debug_port
             debug_port_source = "runtime_log"
             debug_port_pid = None
+=======
+if not backend_url:
+    backend_url = os.environ.get("LOG_BACKEND_URL") or None
+>>>>>>> origin/main
 
 print(
     json.dumps(
         {
             "workspaceRoot": os.environ["WORKTREE_ROOT"],
+<<<<<<< HEAD
             "connectInfoAvailable": connect_info_available,
             "frontendUrl": frontend_url,
             "frontendUrlSource": frontend_url_source,
             "backendUrl": backend_url,
             "backendUrlSource": backend_url_source,
+=======
+            "frontendUrl": os.environ.get("FRONTEND_URL") or None,
+            "frontendUrlSource": "runtime_log"
+            if os.environ.get("FRONTEND_URL")
+            else None,
+            "backendUrl": backend_url,
+            "backendUrlSource": "setta_status" if host and port else "runtime_log",
+>>>>>>> origin/main
             "bootstrapUrl": status.get("bootstrapUrlFragment")
             or status.get("bootstrapUrlPlain"),
             "runtimeLogPath": os.environ.get("RUNTIME_LOG_PATH") or None,
@@ -442,9 +500,15 @@ print(
             "runtimeRoot": status.get("runtimeRoot"),
             "settaFilesRoot": status.get("settaFilesRoot"),
             "settaHome": status.get("settaHome"),
+<<<<<<< HEAD
             "debugPort": debug_port,
             "debugPortSource": debug_port_source,
             "debugPortPid": debug_port_pid,
+=======
+            "debugPort": cdp_payload.get("debugPort"),
+            "debugPortSource": cdp_payload.get("source"),
+            "debugPortPid": cdp_payload.get("pid"),
+>>>>>>> origin/main
             "profileDir": cdp_payload.get("profileDir"),
             "mcpRunDir": cdp_payload.get("mcpRunDir"),
             "runtimeMetadataPath": cdp_payload.get("runtimeMetadataPath"),

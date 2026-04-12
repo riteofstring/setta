@@ -1,6 +1,9 @@
 import os
 import subprocess
+<<<<<<< HEAD
 import sys
+=======
+>>>>>>> origin/main
 from pathlib import Path
 
 
@@ -249,6 +252,7 @@ exit 0
     )
 
 
+<<<<<<< HEAD
 def test_run_codex_loop_uses_python3_when_python_is_missing(
     tmp_path: Path,
 ) -> None:
@@ -605,6 +609,8 @@ exit 0
     assert f"Main worktree root: {main_root}" in result.stdout
 
 
+=======
+>>>>>>> origin/main
 def test_run_codex_loop_generic_repo_adapter_omits_setta_runtime_guidance(
     tmp_path: Path,
 ) -> None:
@@ -2955,6 +2961,7 @@ cat "${{last_message}}"
     assert "Stop requested. Current iteration completed" in result.stdout
     assert (output_dir / "run-001").exists()
     assert not (output_dir / "run-002").exists()
+<<<<<<< HEAD
 
 
 def test_run_codex_loop_falls_back_to_codex_from_installed_nvm_bin(
@@ -3091,3 +3098,5 @@ exit 0
     assert result.returncode == 0, result.stderr
     assert "[1/1] LOOP_STATUS: BLOCKED" in result.stdout
     assert "codex CLI not found on PATH" not in result.stderr
+=======
+>>>>>>> origin/main
