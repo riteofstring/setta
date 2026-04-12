@@ -171,6 +171,119 @@ function formatMonthTitle(year: number, monthIndex: number): string {
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, monthIndex, 1)));
 }
+
+function resolveCalendarSummaryText({
+  selectedDates,
+  value,
+  selectionMode,
+  includeTime,
+  splitDateTime,
+  dateDisplayFormat,
+  timeDisplayFormat,
+}: {
+  selectedDates: Array<string>;
+  value: string;
+  selectionMode: DateSelectionMode;
+  includeTime: boolean;
+  splitDateTime: ReturnType<typeof splitIsoDateAndTimeParts>;
+  dateDisplayFormat: DateDisplayFormat;
+  timeDisplayFormat: TimeDisplayFormat;
+}): string {
+  if (selectionMode === DateSelectionModeEnum.multiple) {
+    return `${selectedDates.length} selected`;
+  }
+  if (includeTime && splitDateTime) {
+    return formatDateTimeForDisplay({
+      raw: value,
+      dateDisplayFormat,
+      timeDisplayFormat,
+    });
+  }
+  return selectedDates[0] ?? "No date selected";
+}
+
+function resolveCalendarCellClassName({
+  inCurrentMonth,
+  isSelected,
+  isToday,
+}: {
+  inCurrentMonth: boolean;
+  isSelected: boolean;
+  isToday: boolean;
+}): string {
+  const inCurrentMonthClass = inCurrentMonth
+    ? "text-setta-700 dark:text-setta-200"
+    : "text-setta-400 dark:text-setta-500";
+  const selectedClass = isSelected
+    ? "bg-blue-500 text-white hover:bg-blue-500/90 dark:bg-blue-600 dark:text-white"
+    : "hover:bg-setta-200/40 dark:hover:bg-setta-700/60";
+  const todayClass = isToday ? "ring-1 ring-blue-400 dark:ring-blue-500" : "";
+  return `rounded px-1 py-1 text-xs font-medium ${inCurrentMonthClass} ${selectedClass} ${todayClass}`;
+}
+
+function resolveCalendarDateSelectionValue({
+  cellIsoDate,
+  isSelected,
+  selectedDates,
+  selectionMode,
+  includeTime,
+  selectedTimeValue,
+}: {
+  cellIsoDate: string;
+  isSelected: boolean;
+  selectedDates: Array<string>;
+  selectionMode: DateSelectionMode;
+  includeTime: boolean;
+  selectedTimeValue: string;
+}): string {
+  if (selectionMode === DateSelectionModeEnum.multiple) {
+    const nextDates = isSelected
+      ? selectedDates.filter((date) => date !== cellIsoDate)
+      : [...selectedDates, cellIsoDate];
+    return serializeCalendarSelectedDates(nextDates, selectionMode);
+  }
+  if (includeTime) {
+    return combineIsoDateAndTimeParts(cellIsoDate, selectedTimeValue);
+  }
+  return serializeCalendarSelectedDates([cellIsoDate], selectionMode);
+}
+
+function CalendarDateButton({
+  cell,
+  isSelected,
+  isToday,
+  isDisabled,
+  onEscape,
+  onSelect,
+}: {
+  cell: ReturnType<typeof buildCalendarMonthGrid>[number];
+  isSelected: boolean;
+  isToday: boolean;
+  isDisabled: boolean;
+  onEscape?: () => void;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={resolveCalendarCellClassName({
+        inCurrentMonth: cell.inCurrentMonth,
+        isSelected,
+        isToday,
+      })}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.code === "Escape") {
+          onEscape?.();
+        }
+      }}
+      disabled={isDisabled}
+    >
+      {cell.dayOfMonth}
+    </button>
+  );
+}
+
 export function TimeParamInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -531,18 +644,15 @@ function DateCalendarInput({
   );
   const weekdayLabels = useMemo(() => getWeekdayLabels(weekStart), [weekStart]);
   const todayIso = useMemo(() => getLocalTodayIsoDate(), []);
-  let summaryText = "No date selected";
-  if (selectionMode === DateSelectionModeEnum.multiple) {
-    summaryText = `${selectedDates.length} selected`;
-  } else if (includeTime && splitDateTime) {
-    summaryText = formatDateTimeForDisplay({
-      raw: value,
-      dateDisplayFormat,
-      timeDisplayFormat,
-    });
-  } else if (selectedDates.length > 0) {
-    summaryText = selectedDates[0];
-  }
+  const summaryText = resolveCalendarSummaryText({
+    selectedDates,
+    value,
+    selectionMode,
+    includeTime,
+    splitDateTime,
+    dateDisplayFormat,
+    timeDisplayFormat,
+  });
   return (
     <>
       <div className="flex items-center justify-between">
@@ -575,58 +685,30 @@ function DateCalendarInput({
         {monthCells.map((cell) => {
           const isSelected = selectedDateSet.has(cell.isoDate);
           const isToday = cell.isoDate === todayIso;
-          const inCurrentMonthClass = cell.inCurrentMonth
-            ? "text-setta-700 dark:text-setta-200"
-            : "text-setta-400 dark:text-setta-500";
-          const selectedClass = isSelected
-            ? "bg-blue-500 text-white hover:bg-blue-500/90 dark:bg-blue-600 dark:text-white"
-            : "hover:bg-setta-200/40 dark:hover:bg-setta-700/60";
-          const todayClass = isToday
-            ? "ring-1 ring-blue-400 dark:ring-blue-500"
-            : "";
           return (
-            <button
+            <CalendarDateButton
               key={cell.isoDate}
-              type="button"
-              className={`rounded px-1 py-1 text-xs font-medium ${inCurrentMonthClass} ${selectedClass} ${todayClass}`}
-              onClick={() => {
+              cell={cell}
+              isSelected={isSelected}
+              isToday={isToday}
+              isDisabled={isDisabled}
+              onEscape={onEscape}
+              onSelect={() => {
                 if (isDisabled) {
                   return;
                 }
-                if (selectionMode === DateSelectionModeEnum.multiple) {
-                  const nextDates = selectedDates.filter(
-                    (date) => date !== cell.isoDate,
-                  );
-                  if (!isSelected) {
-                    nextDates.push(cell.isoDate);
-                  }
-                  onChange(
-                    serializeCalendarSelectedDates(nextDates, selectionMode),
-                  );
-                  return;
-                }
-                if (includeTime) {
-                  onChange(
-                    combineIsoDateAndTimeParts(cell.isoDate, selectedTimeValue),
-                  );
-                } else {
-                  onChange(
-                    serializeCalendarSelectedDates(
-                      [cell.isoDate],
-                      selectionMode,
-                    ),
-                  );
-                }
+                onChange(
+                  resolveCalendarDateSelectionValue({
+                    cellIsoDate: cell.isoDate,
+                    isSelected,
+                    selectedDates,
+                    selectionMode,
+                    includeTime,
+                    selectedTimeValue,
+                  }),
+                );
               }}
-              onKeyDown={(event) => {
-                if (event.code === "Escape") {
-                  onEscape?.();
-                }
-              }}
-              disabled={isDisabled}
-            >
-              {cell.dayOfMonth}
-            </button>
+            />
           );
         })}
       </div>

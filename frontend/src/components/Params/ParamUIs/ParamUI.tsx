@@ -99,6 +99,7 @@ type ParamUIRenderContext = ParamUIProps & {
   passwordPlaceholder?: string;
   waitingForResult: boolean;
 };
+type ParamUIRenderer = (context: ParamUIRenderContext) => JSX.Element | null;
 
 function createBaseParamUIState({
   codeObjType,
@@ -336,109 +337,168 @@ function renderDateTimeParam({
   );
 }
 
-function renderSpecializedParam(context: ParamUIRenderContext) {
-  const {
-    sectionId,
-    paramInfoId,
-    value,
-    onChange,
-    onDropzoneStateless,
-    onRevealPassword,
-    isPasswordRevealPending,
-    isDisabled,
-    isSelectingParams,
-    onEscape,
-    paramUiState,
-    showPasswordReveal,
-    passwordPlaceholder,
-  } = context;
+function renderSliderParam({
+  sectionId,
+  paramInfoId,
+  value,
+  onChange,
+  onEscape,
+  isDisabled,
+}: ParamUIRenderContext) {
+  return (
+    <SliderParamConfigured
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      onChange={onChange}
+      onEscape={onEscape}
+      isDisabled={isDisabled}
+    />
+  );
+}
 
-  switch (paramUiState.codeObjType) {
-    case CodeObjTypeEnum.SliderParam:
-      return (
-        <SliderParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.RotaryParam:
-      return (
-        <RotaryParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.SwitchParam:
-      return (
-        <SwitchParamConfigured
-          value={value}
-          defaultVal={paramUiState.defaultVal}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.ColorPickerParam:
-      return (
-        <ColorPickerParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.DropdownParam:
-      return (
-        <DropdownParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.PasswordParam: {
-      return (
-        <PasswordParamConfigured
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-          isSelectingParams={isSelectingParams}
-          showReveal={showPasswordReveal}
-          onReveal={onRevealPassword}
-          isRevealing={isPasswordRevealPending ?? false}
-          placeholder={passwordPlaceholder}
-        />
-      );
-    }
-    case CodeObjTypeEnum.DropzoneParam:
-      return (
-        <DropzoneParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onStatelessDrop={onDropzoneStateless}
-          isDisabled={isDisabled}
-          mode={paramUiState.dropzoneMode}
-          maxAttachments={paramUiState.dropzoneMaxAttachments}
-          placeholder={paramUiState.dropzonePlaceholder || undefined}
-        />
-      );
-    default:
-      return null;
-  }
+function renderRotaryParam({
+  sectionId,
+  paramInfoId,
+  value,
+  onChange,
+  onEscape,
+  isDisabled,
+}: ParamUIRenderContext) {
+  return (
+    <RotaryParamConfigured
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      onChange={onChange}
+      onEscape={onEscape}
+      isDisabled={isDisabled}
+    />
+  );
+}
+
+function renderSwitchParam({
+  value,
+  onChange,
+  onEscape,
+  isDisabled,
+  paramUiState,
+}: ParamUIRenderContext) {
+  return (
+    <SwitchParamConfigured
+      value={value}
+      defaultVal={paramUiState.defaultVal}
+      onChange={onChange}
+      onEscape={onEscape}
+      isDisabled={isDisabled}
+    />
+  );
+}
+
+function renderColorPickerParam({
+  sectionId,
+  paramInfoId,
+  value,
+  onChange,
+  onEscape,
+  isDisabled,
+}: ParamUIRenderContext) {
+  return (
+    <ColorPickerParamConfigured
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      onChange={onChange}
+      onEscape={onEscape}
+      isDisabled={isDisabled}
+    />
+  );
+}
+
+function renderDropdownParam({
+  sectionId,
+  paramInfoId,
+  value,
+  onChange,
+  isDisabled,
+}: ParamUIRenderContext) {
+  return (
+    <DropdownParamConfigured
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      onChange={onChange}
+      isDisabled={isDisabled}
+    />
+  );
+}
+
+function renderPasswordParam({
+  value,
+  onChange,
+  onEscape,
+  isDisabled,
+  isSelectingParams,
+  showPasswordReveal,
+  onRevealPassword,
+  isPasswordRevealPending,
+  passwordPlaceholder,
+}: ParamUIRenderContext) {
+  return (
+    <PasswordParamConfigured
+      value={value}
+      onChange={onChange}
+      onEscape={onEscape}
+      isDisabled={isDisabled}
+      isSelectingParams={isSelectingParams}
+      showReveal={showPasswordReveal}
+      onReveal={onRevealPassword}
+      isRevealing={isPasswordRevealPending ?? false}
+      placeholder={passwordPlaceholder}
+    />
+  );
+}
+
+function renderDropzoneParam({
+  sectionId,
+  paramInfoId,
+  value,
+  onChange,
+  onDropzoneStateless,
+  isDisabled,
+  paramUiState,
+}: ParamUIRenderContext) {
+  return (
+    <DropzoneParamConfigured
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      onChange={onChange}
+      onStatelessDrop={onDropzoneStateless}
+      isDisabled={isDisabled}
+      mode={paramUiState.dropzoneMode}
+      maxAttachments={paramUiState.dropzoneMaxAttachments}
+      placeholder={paramUiState.dropzonePlaceholder || undefined}
+    />
+  );
+}
+
+const SPECIALIZED_PARAM_RENDERERS: Partial<
+  Record<CodeObjTypeEnum, ParamUIRenderer>
+> = {
+  [CodeObjTypeEnum.SliderParam]: renderSliderParam,
+  [CodeObjTypeEnum.RotaryParam]: renderRotaryParam,
+  [CodeObjTypeEnum.SwitchParam]: renderSwitchParam,
+  [CodeObjTypeEnum.ColorPickerParam]: renderColorPickerParam,
+  [CodeObjTypeEnum.DropdownParam]: renderDropdownParam,
+  [CodeObjTypeEnum.PasswordParam]: renderPasswordParam,
+  [CodeObjTypeEnum.DropzoneParam]: renderDropzoneParam,
+};
+
+function renderSpecializedParam(context: ParamUIRenderContext) {
+  const renderParam =
+    SPECIALIZED_PARAM_RENDERERS[context.paramUiState.codeObjType];
+  return renderParam?.(context) ?? null;
 }
 
 export function ParamUIConfig({
