@@ -125,6 +125,14 @@ case "${SETTA_AWS_DEVBOX_TMUX_MOUSE:-off}" in
         ;;
 esac
 
+case "${SETTA_AWS_DEVBOX_AUTO_STOP_LOCAL_BROWSER_MCP:-1}" in
+    0|1) ;;
+    *)
+        echo "Invalid value for SETTA_AWS_DEVBOX_AUTO_STOP_LOCAL_BROWSER_MCP: ${SETTA_AWS_DEVBOX_AUTO_STOP_LOCAL_BROWSER_MCP}. Expected 0 or 1." >&2
+        exit 1
+        ;;
+esac
+
 python "${SCRIPT_DIR}/aws_devbox.py" up
 
 status_json=$(python "${SCRIPT_DIR}/aws_devbox.py" status --json)
@@ -158,6 +166,9 @@ browser_app=${SETTA_AWS_DEVBOX_BROWSER_APP:-Google Chrome}
 browser_profile_dir=${SETTA_AWS_DEVBOX_BROWSER_PROFILE_DIR:-${HOME}/.cache/setta-aws-devbox/chrome-profile}
 local_codex_auth_file=${SETTA_AWS_DEVBOX_CODEX_AUTH_FILE:-${HOME}/.codex/auth.json}
 remote_tmux_mouse=${SETTA_AWS_DEVBOX_TMUX_MOUSE:-off}
+remote_runtime_log_max_bytes=${SETTA_AWS_DEVBOX_REMOTE_RUNTIME_LOG_MAX_BYTES:-67108864}
+remote_runtime_log_backup_count=${SETTA_AWS_DEVBOX_REMOTE_RUNTIME_LOG_BACKUP_COUNT:-2}
+auto_stop_local_browser_mcp=${SETTA_AWS_DEVBOX_AUTO_STOP_LOCAL_BROWSER_MCP:-1}
 managed_agent_pid=""
 browser_watch_pid=""
 worktree_name_override=""
@@ -166,6 +177,8 @@ remote_worktree_mode=ensure_origin_branch
 remote_main_reference_branch=${SETTA_AWS_DEVBOX_REMOTE_MAIN_REFERENCE_BRANCH:-main}
 remote_main_reference_root_override=${SETTA_AWS_DEVBOX_REMOTE_MAIN_REFERENCE_ROOT:-}
 remote_main_reference_wait_seconds=${SETTA_AWS_DEVBOX_REMOTE_MAIN_REFERENCE_WAIT_SECONDS:-30}
+local_runtime_info_script_b64=""
+local_runtime_log_tee_b64=""
 
 resolve_ssh_term() {
     if [ -n "${SETTA_AWS_DEVBOX_TERM:-}" ]; then
@@ -409,10 +422,42 @@ EOF
     fi
 }
 
+base64_encode_local_file() {
+    local file_path="$1"
+
+    if [ ! -f "${file_path}" ]; then
+        echo "Missing local helper file: ${file_path}" >&2
+        exit 1
+    fi
+
+    LOCAL_FILE_TO_ENCODE="${file_path}" python3 - <<'PY'
+import base64
+import os
+from pathlib import Path
+
+print(base64.b64encode(Path(os.environ["LOCAL_FILE_TO_ENCODE"]).read_bytes()).decode("ascii"), end="")
+PY
+}
+
+resolve_local_browser_mcp_profile_dir() {
+    local workspace_root="$1"
+    local cdp_port_json=""
+
+    cdp_port_json="$("${SCRIPT_DIR}/cdp-port.sh" --workspace "${workspace_root}" --json 2>/dev/null || true)"
+    if [ -z "${cdp_port_json}" ]; then
+        return 0
+    fi
+
+    printf '%s' "${cdp_port_json}" | jq -r '.profileDir // empty' 2>/dev/null || true
+}
+
 ensure_git_agent
 sync_local_codex_auth
+local_runtime_info_script_b64="$(base64_encode_local_file "${SCRIPT_DIR}/dev-runtime-info.sh")"
+local_runtime_log_tee_b64="$(base64_encode_local_file "${SCRIPT_DIR}/runtime-log-tee.py")"
 
 local_worktree_root="${SETTA_AWS_DEVBOX_REPO_ROOT}"
+local_browser_mcp_profile_dir="$(resolve_local_browser_mcp_profile_dir "${local_worktree_root}")"
 remote_checkout_parent=$(dirname "${remote_repo_root}")
 
 sanitize_tmux_session_name() {
@@ -787,7 +832,10 @@ remote_runtime_log="${SETTA_REMOTE_RUNTIME_LOG}"
 remote_browser_mode="${SETTA_REMOTE_BROWSER_MODE}"
 lifecycle_mode="${SETTA_REMOTE_LIFECYCLE_MODE}"
 remote_tmux_mouse="${SETTA_REMOTE_TMUX_MOUSE}"
-remote_runtime_info_script="${remote_worktree_root}/scripts/dev-runtime-info.sh"
+remote_runtime_log_max_bytes="${SETTA_REMOTE_RUNTIME_LOG_MAX_BYTES}"
+remote_runtime_log_backup_count="${SETTA_REMOTE_RUNTIME_LOG_BACKUP_COUNT}"
+remote_runtime_info_script_b64="${SETTA_REMOTE_RUNTIME_INFO_SCRIPT_B64}"
+remote_runtime_log_tee_b64="${SETTA_REMOTE_RUNTIME_LOG_TEE_B64}"
 remote_main_reference_root="${SETTA_REMOTE_MAIN_REFERENCE_ROOT}"
 remote_main_reference_branch="${SETTA_REMOTE_MAIN_REFERENCE_BRANCH}"
 remote_main_reference_wait_seconds="${SETTA_REMOTE_MAIN_REFERENCE_WAIT_SECONDS}"
@@ -813,6 +861,43 @@ tmux_window_target() {
     session_name="$1"
     window_name="$2"
     printf '=%s:%s\n' "${session_name}" "${window_name}"
+}
+
+staged_runtime_info_script_for_log() {
+    log_path="$1"
+    printf '%s/dev-runtime-info.sh\n' "$(dirname "${log_path}")"
+}
+
+staged_runtime_log_tee_script_for_log() {
+    log_path="$1"
+    printf '%s/runtime-log-tee.py\n' "$(dirname "${log_path}")"
+}
+
+stage_runtime_helper_file() {
+    target_path="$1"
+    helper_b64="$2"
+
+    TARGET_PATH="${target_path}" HELPER_B64="${helper_b64}" python3 - <<'PY'
+import base64
+import os
+from pathlib import Path
+
+target_path = Path(os.environ["TARGET_PATH"])
+target_path.parent.mkdir(parents=True, exist_ok=True)
+target_path.write_bytes(base64.b64decode(os.environ["HELPER_B64"]))
+target_path.chmod(0o755)
+PY
+}
+
+stage_runtime_helpers_for_log() {
+    log_path="$1"
+
+    stage_runtime_helper_file \
+        "$(staged_runtime_info_script_for_log "${log_path}")" \
+        "${remote_runtime_info_script_b64}"
+    stage_runtime_helper_file \
+        "$(staged_runtime_log_tee_script_for_log "${log_path}")" \
+        "${remote_runtime_log_tee_b64}"
 }
 
 ensure_origin_url() {
@@ -1029,14 +1114,20 @@ runtime_window_command() {
     workspace_root="$1"
     runtime_log="$2"
     browser_mode="$3"
+    runtime_state_path="$4"
+    runtime_log_tee_script="$(staged_runtime_log_tee_script_for_log "${runtime_log}")"
     install -d "$(dirname "${runtime_log}")"
-    printf "bash -lc 'mkdir -p %q && : > %q && cd %q && export DEVTOOLS_OPEN_WITH_CHROME=0 && ./%s.sh --browser-mode %q 2>&1 | tee -a %q'" \
+    printf "bash -lc 'mkdir -p %q && rm -f %q && cd %q && export DEVTOOLS_OPEN_WITH_CHROME=0 && ./%s.sh --browser-mode %q 2>&1 | python3 %q --log-path %q --state-path %q --max-bytes %q --backups %q'" \
         "$(dirname "${runtime_log}")" \
-        "${runtime_log}" \
+        "${runtime_state_path}" \
         "${workspace_root}" \
         "${lifecycle_mode}" \
         "${browser_mode}" \
-        "${runtime_log}"
+        "${runtime_log_tee_script}" \
+        "${runtime_log}" \
+        "${runtime_state_path}" \
+        "${remote_runtime_log_max_bytes}" \
+        "${remote_runtime_log_backup_count}"
 }
 
 runtime_info_is_ready() {
@@ -1061,6 +1152,23 @@ extract_runtime_value_from_log() {
     sed -nE "s/${pattern}/${replacement}/p" "${log_path}" | tail -n1
 }
 
+runtime_state_path_for_log() {
+    log_path="$1"
+    printf '%s.runtime.json\n' "${log_path}"
+}
+
+extract_runtime_value_from_state() {
+    log_path="$1"
+    jq_filter="$2"
+    state_path="$(runtime_state_path_for_log "${log_path}")"
+
+    if [ ! -f "${state_path}" ]; then
+        return 1
+    fi
+
+    jq -r "${jq_filter}" "${state_path}" 2>/dev/null || true
+}
+
 extract_frontend_url_from_log() {
     log_path="$1"
     extract_runtime_value_from_log "${log_path}" '.*Local:[[:space:]]*(http:\/\/[^[:space:]]+).*$' '\1'
@@ -1076,13 +1184,43 @@ extract_debug_port_from_log() {
     extract_runtime_value_from_log "${log_path}" '.*Starting Chrome with remote debugging on port ([0-9]+).*$' '\1'
 }
 
+extract_frontend_url_from_runtime_sources() {
+    log_path="$1"
+    frontend_url="$(extract_runtime_value_from_state "${log_path}" '.frontendUrl // empty' | tail -n1)"
+    if [ -n "${frontend_url}" ]; then
+        printf '%s\n' "${frontend_url}"
+        return 0
+    fi
+    extract_frontend_url_from_log "${log_path}"
+}
+
+extract_backend_url_from_runtime_sources() {
+    log_path="$1"
+    backend_url="$(extract_runtime_value_from_state "${log_path}" '.backendUrl // empty' | tail -n1)"
+    if [ -n "${backend_url}" ]; then
+        printf '%s\n' "${backend_url}"
+        return 0
+    fi
+    extract_backend_url_from_log "${log_path}"
+}
+
+extract_debug_port_from_runtime_sources() {
+    log_path="$1"
+    debug_port="$(extract_runtime_value_from_state "${log_path}" 'if (.debugPort // 0) > 0 then (.debugPort | tostring) else "" end' | tail -n1)"
+    if [ -n "${debug_port}" ]; then
+        printf '%s\n' "${debug_port}"
+        return 0
+    fi
+    extract_debug_port_from_log "${log_path}"
+}
+
 runtime_info_from_log_fallback() {
     workspace_root="$1"
     runtime_log="$2"
 
-    frontend_url="$(extract_frontend_url_from_log "${runtime_log}" 2>/dev/null || true)"
-    backend_url="$(extract_backend_url_from_log "${runtime_log}" 2>/dev/null || true)"
-    debug_port="$(extract_debug_port_from_log "${runtime_log}" 2>/dev/null || true)"
+    frontend_url="$(extract_frontend_url_from_runtime_sources "${runtime_log}" 2>/dev/null || true)"
+    backend_url="$(extract_backend_url_from_runtime_sources "${runtime_log}" 2>/dev/null || true)"
+    debug_port="$(extract_debug_port_from_runtime_sources "${runtime_log}" 2>/dev/null || true)"
 
     if [ -z "${frontend_url}" ] || [ -z "${backend_url}" ] || [ -z "${debug_port}" ]; then
         return 1
@@ -1170,6 +1308,7 @@ ensure_tmux_session() {
     runtime_info_script="$5"
     browser_mode="$6"
     allow_missing_connect_info="${7:-0}"
+    runtime_state_path="$(runtime_state_path_for_log "${runtime_log}")"
     session_target="$(tmux_session_target "${session_name}")"
     shell_target="$(tmux_window_target "${session_name}" shell)"
     ai_target="$(tmux_window_target "${session_name}" ai)"
@@ -1198,9 +1337,9 @@ ensure_tmux_session() {
     current_runtime_info="$(read_runtime_info "${runtime_info_script}" "${workspace_root}" "${runtime_log}" "${allow_missing_connect_info}" 2>/dev/null || true)"
     if [ "${lifecycle_mode}" = "aireset" ] || ! runtime_info_is_ready "${current_runtime_info}"; then
         if tmux list-windows -t "${session_target}" -F '#{window_name}' 2>/dev/null | grep -Fxq ai; then
-            tmux respawn-window -k -t "${ai_target}" "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}")"
+            tmux respawn-window -k -t "${ai_target}" "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}" "${runtime_state_path}")"
         else
-            tmux new-window -d -t "${session_target}" -n ai "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}")"
+            tmux new-window -d -t "${session_target}" -n ai "$(runtime_window_command "${workspace_root}" "${runtime_log}" "${browser_mode}" "${runtime_state_path}")"
         fi
     fi
 }
@@ -1245,6 +1384,8 @@ emit_runtime_info() {
 }
 
 ensure_remote_worktree
+stage_runtime_helpers_for_log "${remote_runtime_log}"
+remote_runtime_info_script="$(staged_runtime_info_script_for_log "${remote_runtime_log}")"
 main_reference_root="$(resolve_main_reference_root || true)"
 main_reference_info_json=""
 
@@ -1261,7 +1402,8 @@ selected_runtime_info_json="$(emit_runtime_info "${remote_runtime_info_script}" 
 if [ -n "${main_reference_root}" ] && [ "${main_reference_root}" != "${remote_worktree_root}" ]; then
     ensure_main_reference_checkout "${main_reference_root}"
     main_reference_runtime_log="/home/ubuntu/.cache/setta-aws-devbox/$(basename "${main_reference_root}")/${lifecycle_mode}.log"
-    main_reference_runtime_info_script="${main_reference_root}/scripts/dev-runtime-info.sh"
+    stage_runtime_helpers_for_log "${main_reference_runtime_log}"
+    main_reference_runtime_info_script="$(staged_runtime_info_script_for_log "${main_reference_runtime_log}")"
     main_reference_session_name="$(sanitize_tmux_session_name "$(basename "${main_reference_root}")")"
     main_reference_start_dir="$(start_dir_for_workspace "${main_reference_root}")"
 
@@ -1292,7 +1434,7 @@ fi
 EOF
 )
 
-    printf "SETTA_REMOTE_REPO_ROOT=%q SETTA_REMOTE_WORKTREE_ROOT=%q SETTA_REMOTE_REPO_REMOTE_URL=%q SETTA_REMOTE_REPO_BRANCH=%q SETTA_REMOTE_WORKTREE_MODE=%q SETTA_REMOTE_SESSION_NAME=%q SETTA_REMOTE_START_DIR=%q SETTA_REMOTE_RUNTIME_LOG=%q SETTA_REMOTE_BROWSER_MODE=%q SETTA_REMOTE_LIFECYCLE_MODE=%q SETTA_REMOTE_TMUX_MOUSE=%q SETTA_REMOTE_MAIN_REFERENCE_ROOT=%q SETTA_REMOTE_MAIN_REFERENCE_BRANCH=%q SETTA_REMOTE_MAIN_REFERENCE_WAIT_SECONDS=%q bash -lc %q" \
+    printf "SETTA_REMOTE_REPO_ROOT=%q SETTA_REMOTE_WORKTREE_ROOT=%q SETTA_REMOTE_REPO_REMOTE_URL=%q SETTA_REMOTE_REPO_BRANCH=%q SETTA_REMOTE_WORKTREE_MODE=%q SETTA_REMOTE_SESSION_NAME=%q SETTA_REMOTE_START_DIR=%q SETTA_REMOTE_RUNTIME_LOG=%q SETTA_REMOTE_BROWSER_MODE=%q SETTA_REMOTE_LIFECYCLE_MODE=%q SETTA_REMOTE_TMUX_MOUSE=%q SETTA_REMOTE_RUNTIME_LOG_MAX_BYTES=%q SETTA_REMOTE_RUNTIME_LOG_BACKUP_COUNT=%q SETTA_REMOTE_RUNTIME_INFO_SCRIPT_B64=%q SETTA_REMOTE_RUNTIME_LOG_TEE_B64=%q SETTA_REMOTE_MAIN_REFERENCE_ROOT=%q SETTA_REMOTE_MAIN_REFERENCE_BRANCH=%q SETTA_REMOTE_MAIN_REFERENCE_WAIT_SECONDS=%q bash -lc %q" \
         "${remote_repo_root}" \
         "${remote_worktree_root}" \
         "${repo_remote_url}" \
@@ -1304,6 +1446,10 @@ EOF
         "${remote_browser_mode}" \
         "${lifecycle_mode}" \
         "${remote_tmux_mouse}" \
+        "${remote_runtime_log_max_bytes}" \
+        "${remote_runtime_log_backup_count}" \
+        "${local_runtime_info_script_b64}" \
+        "${local_runtime_log_tee_b64}" \
         "${remote_main_reference_root_override}" \
         "${remote_main_reference_branch}" \
         "${remote_main_reference_wait_seconds}" \
@@ -1383,6 +1529,7 @@ local_main_frontend_port=""
 local_main_backend_port=""
 local_main_cdp_port=""
 local_main_frontend_url=""
+remote_main_reference_session_name=""
 
 if [ -n "${remote_main_frontend_url}" ] && [ -n "${remote_main_backend_url}" ] && [ -n "${remote_main_debug_port}" ]; then
     remote_main_frontend_port=$(extract_port_from_url "${remote_main_frontend_url}")
@@ -1580,11 +1727,132 @@ stop_stale_local_ssh_listener() {
     done
 }
 
+managed_local_browser_mcp_listener_matches_port() {
+    local_port="$1"
+    process_command="$2"
+    process_tty="$3"
+
+    if [ "${auto_stop_local_browser_mcp}" != "1" ] || [ -z "${local_browser_mcp_profile_dir}" ]; then
+        return 1
+    fi
+
+    case "${process_command}" in
+        *"--remote-debugging-port=${local_port}"*|*"--remote-debugging-port ${local_port}"*) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_command}" in
+        *"--user-data-dir=${local_browser_mcp_profile_dir}"*) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_tty:-}" in
+        ""|"?"|"??"|"not a tty") ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+managed_wrapper_attach_listener_matches_port() {
+    local_port="$1"
+    remote_port="$2"
+    expected_session_name="$3"
+    process_command="$4"
+
+    if [ -z "${expected_session_name}" ]; then
+        return 1
+    fi
+
+    case "${process_command}" in
+        ssh\ *|*/ssh\ *) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_command}" in
+        *"${ssh_user}@${instance_id}"*) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_command}" in
+        *"-L ${local_port}:127.0.0.1:${remote_port}"*) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_command}" in
+        *"SETTA_REMOTE_SESSION_NAME=${expected_session_name}"*|*"remote_session_name=${expected_session_name}"*) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "${process_command}" in
+        *"tmux attach-session"*) ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+stop_managed_wrapper_attach_listener() {
+    process_pid="$1"
+    local_port="$2"
+    expected_session_name="$3"
+
+    echo "Closing existing local remote attach process ${process_pid} for session ${expected_session_name} on port ${local_port} before reopening..." >&2
+    kill "${process_pid}" >/dev/null 2>&1 || true
+
+    attempts=0
+    while kill -0 "${process_pid}" >/dev/null 2>&1; do
+        if [ "${attempts}" -ge 50 ]; then
+            kill -9 "${process_pid}" >/dev/null 2>&1 || true
+            break
+        fi
+
+        sleep 0.1
+        attempts=$((attempts + 1))
+    done
+}
+
+stop_managed_local_browser_mcp_listener() {
+    process_pid="$1"
+    local_port="$2"
+
+    echo "Closing local browser MCP process ${process_pid} on port ${local_port} before reopening the remote CDP tunnel..." >&2
+    kill "${process_pid}" >/dev/null 2>&1 || true
+
+    attempts=0
+    while kill -0 "${process_pid}" >/dev/null 2>&1; do
+        if [ "${attempts}" -ge 50 ]; then
+            kill -9 "${process_pid}" >/dev/null 2>&1 || true
+            break
+        fi
+
+        sleep 0.1
+        attempts=$((attempts + 1))
+    done
+}
+
 ensure_local_forward_port_available() {
     local_port="$1"
     remote_port="$2"
     port_label="$3"
     override_hint="${4:-}"
+    expected_session_name="${5:-}"
 
     if ! command -v lsof >/dev/null 2>&1; then
         return 0
@@ -1605,6 +1873,18 @@ ensure_local_forward_port_available() {
 
             if stale_ssh_listener_matches_port "${local_port}" "${remote_port}" "${listener_command}" "${listener_tty}"; then
                 stop_stale_local_ssh_listener "${listener_pid}" "${local_port}"
+                closed_stale_listener=1
+                break
+            fi
+
+            if managed_local_browser_mcp_listener_matches_port "${local_port}" "${listener_command}" "${listener_tty}"; then
+                stop_managed_local_browser_mcp_listener "${listener_pid}" "${local_port}"
+                closed_stale_listener=1
+                break
+            fi
+
+            if managed_wrapper_attach_listener_matches_port "${local_port}" "${remote_port}" "${expected_session_name}" "${listener_command}"; then
+                stop_managed_wrapper_attach_listener "${listener_pid}" "${local_port}" "${expected_session_name}"
                 closed_stale_listener=1
                 break
             fi
@@ -1771,24 +2051,24 @@ elif [ -n "${remote_main_frontend_port}" ] && [ -n "${remote_main_workspace_root
     echo "Main reference runtime is using the same forwarded ports as the selected runtime; skipping duplicate local tunnel setup." >&2
 fi
 
-if ! ensure_local_forward_port_available "${local_frontend_port}" "${remote_frontend_port}" "selected runtime frontend tunnel" "SETTA_AWS_DEVBOX_LOCAL_FRONTEND_PORT"; then
+if ! ensure_local_forward_port_available "${local_frontend_port}" "${remote_frontend_port}" "selected runtime frontend tunnel" "SETTA_AWS_DEVBOX_LOCAL_FRONTEND_PORT" "${remote_session_name}"; then
     exit 1
 fi
-if ! ensure_local_forward_port_available "${local_backend_port}" "${remote_backend_port}" "selected runtime backend tunnel"; then
+if ! ensure_local_forward_port_available "${local_backend_port}" "${remote_backend_port}" "selected runtime backend tunnel" "" "${remote_session_name}"; then
     exit 1
 fi
-if ! ensure_local_forward_port_available "${local_cdp_port}" "${remote_debug_port}" "selected runtime CDP tunnel" "SETTA_AWS_DEVBOX_LOCAL_CDP_PORT"; then
+if ! ensure_local_forward_port_available "${local_cdp_port}" "${remote_debug_port}" "selected runtime CDP tunnel" "SETTA_AWS_DEVBOX_LOCAL_CDP_PORT" "${remote_session_name}"; then
     exit 1
 fi
 
 if [ -n "${remote_main_frontend_port}" ] && [ -n "${remote_main_workspace_root}" ] && [ "${remote_main_workspace_root}" != "${remote_worktree_root}" ]; then
-    if ! ensure_local_forward_port_available "${local_main_frontend_port}" "${remote_main_frontend_port}" "main reference frontend tunnel" "SETTA_AWS_DEVBOX_LOCAL_MAIN_FRONTEND_PORT"; then
+    if ! ensure_local_forward_port_available "${local_main_frontend_port}" "${remote_main_frontend_port}" "main reference frontend tunnel" "SETTA_AWS_DEVBOX_LOCAL_MAIN_FRONTEND_PORT" "${remote_main_reference_session_name}"; then
         exit 1
     fi
-    if ! ensure_local_forward_port_available "${local_main_backend_port}" "${remote_main_backend_port}" "main reference backend tunnel"; then
+    if ! ensure_local_forward_port_available "${local_main_backend_port}" "${remote_main_backend_port}" "main reference backend tunnel" "" "${remote_main_reference_session_name}"; then
         exit 1
     fi
-    if ! ensure_local_forward_port_available "${local_main_cdp_port}" "${remote_main_debug_port}" "main reference CDP tunnel" "SETTA_AWS_DEVBOX_LOCAL_MAIN_CDP_PORT"; then
+    if ! ensure_local_forward_port_available "${local_main_cdp_port}" "${remote_main_debug_port}" "main reference CDP tunnel" "SETTA_AWS_DEVBOX_LOCAL_MAIN_CDP_PORT" "${remote_main_reference_session_name}"; then
         exit 1
     fi
 fi

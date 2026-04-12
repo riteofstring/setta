@@ -15,6 +15,10 @@ def _write_executable(path: Path, body: str) -> None:
     path.chmod(0o755)
 
 
+def _write_runtime_state(path: Path, payload: dict[str, object]) -> None:
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def _status_payload(session_id: str, port: int) -> str:
     payload = {
         "bootstrapUrlFragment": f"http://127.0.0.1:{port}/__setta__/bootstrap#token=test-token",
@@ -358,3 +362,87 @@ exit 1
     assert payload["backendUrlSource"] == "runtime_log"
     assert payload["bootstrapUrl"] is None
     assert payload["session"] == {}
+
+
+def test_dev_runtime_info_uses_runtime_state_when_log_no_longer_has_current_runtime(
+    tmp_path: Path,
+) -> None:
+    # A bounded runtime log may rotate away the startup block for the current
+    # session. The helper should keep using the sidecar runtime state instead
+    # of depending on an ever-growing log file.
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "dev-runtime-info.sh"
+    workspace_root = tmp_path / "worktree"
+    stub_dir = tmp_path / "bin"
+    runtime_log_path = tmp_path / "runtime.log"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    runtime_log_path.write_text(
+        "\n".join(
+            [
+                "Starting Chrome with remote debugging on port 9297",
+                "Local: http://127.0.0.1:3076/",
+                "Ready: http://127.0.0.1:8076",
+                "Setta running (session old-session)",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_runtime_state(
+        runtime_log_path.with_name(f"{runtime_log_path.name}.runtime.json"),
+        {
+            "frontendUrl": "http://127.0.0.1:3075/",
+            "backendUrl": "http://127.0.0.1:8075",
+            "debugPort": 9297,
+            "sessionIds": ["current-session"],
+            "updatedAt": "2026-04-11T12:00:00+00:00",
+        },
+    )
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"rev-parse --show-toplevel"* ]]; then
+  printf '%s\\n' "{workspace_root}"
+  exit 0
+fi
+echo "unsupported git args: $*" >&2
+exit 1
+""",
+    )
+    _write_executable(
+        stub_dir / "setta",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' '{_status_payload("current-session", 8075)}'
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--workspace",
+            str(workspace_root),
+            "--runtime-log",
+            str(runtime_log_path),
+        ],
+        cwd=repo_root,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["frontendUrl"] == "http://127.0.0.1:3075/"
+    assert payload["frontendUrlSource"] == "runtime_state_current_session"
+    assert payload["backendUrl"] == "http://127.0.0.1:8075"
+    assert payload["backendUrlSource"] == "setta_status"
+    assert payload["debugPort"] == 9297
+    assert payload["debugPortSource"] == "runtime_state"

@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import re
 import socket
@@ -43,6 +44,9 @@ def _build_aws_sandbox(
         "scripts/aws-devbox-remote.sh",
         "scripts/aws-devbox-remote-runtime.sh",
         "scripts/aws-devbox-terraform.sh",
+        "scripts/cdp-port.sh",
+        "scripts/dev-runtime-info.sh",
+        "scripts/runtime-log-tee.py",
     ):
         _copy_repo_file(sandbox_root=sandbox_root, relative_path=rel_path)
 
@@ -62,6 +66,23 @@ exit 0
     )
 
     return sandbox_root, bin_dir, env_dir
+
+
+def _sandbox_browser_mcp_profile_dir(sandbox_root: Path) -> str:
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "cdp-port.sh"),
+            "--workspace",
+            str(sandbox_root),
+            "--json",
+        ],
+        cwd=sandbox_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout)["profileDir"]
 
 
 def test_aws_sh_loads_repo_local_env_file_before_execing_operator_script(
@@ -813,13 +834,17 @@ printf '%s\n' "$@" > "{open_args_capture}"
     assert "-T" in ssh_runtime_args
     assert "-tt" not in ssh_runtime_args
     assert "ubuntu@i-devbox" in ssh_runtime_args
-    assert (
-        'remote_runtime_info_script="${remote_worktree_root}/scripts/dev-runtime-info.sh"'
-        in ssh_runtime_args[-1]
-    )
+    assert 'stage_runtime_helpers_for_log() {' in ssh_runtime_args[-1]
+    assert 'remote_runtime_info_script="$(staged_runtime_info_script_for_log "${remote_runtime_log}")"' in ssh_runtime_args[-1]
+    assert "runtime-log-tee.py" in ssh_runtime_args[-1]
+    assert "--state-path" in ssh_runtime_args[-1]
     assert "SETTA_REMOTE_LIFECYCLE_MODE=ai" in ssh_runtime_args[-1]
     assert "SETTA_REMOTE_BROWSER_MODE=headless" in ssh_runtime_args[-1]
     assert "SETTA_REMOTE_TMUX_MOUSE=off" in ssh_runtime_args[-1]
+    assert "SETTA_REMOTE_RUNTIME_LOG_MAX_BYTES=67108864" in ssh_runtime_args[-1]
+    assert "SETTA_REMOTE_RUNTIME_LOG_BACKUP_COUNT=2" in ssh_runtime_args[-1]
+    assert "SETTA_REMOTE_RUNTIME_INFO_SCRIPT_B64=" in ssh_runtime_args[-1]
+    assert "SETTA_REMOTE_RUNTIME_LOG_TEE_B64=" in ssh_runtime_args[-1]
     assert "/home/ubuntu/dev/aws_script_sandbox" in ssh_runtime_args[-1]
 
     assert ssh_attach_env["TERM"] == "xterm-ghostty"
@@ -1280,6 +1305,273 @@ exit 0
     assert "tmux attach-session" in ssh_attach_args[-1]
     assert (
         "Closing stale local SSH forward process 51515 on port 3045 before reopening..."
+        in result.stderr
+    )
+
+
+def test_remote_ai_sh_auto_stops_local_browser_mcp_cdp_conflict_before_attach(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, bin_dir, env_dir = _build_aws_sandbox(
+        tmp_path, sandbox_name="aws_script_sandbox_browser_mcp_conflict"
+    )
+    ssh_runtime_args_capture = sandbox_root / "ssh-runtime-args-browser-mcp-conflict.txt"
+    ssh_attach_args_capture = sandbox_root / "ssh-attach-args-browser-mcp-conflict.txt"
+    lsof_state = sandbox_root / "browser-mcp-conflict-lsof-state.txt"
+    identity_file = sandbox_root / "setta-devbox-login"
+    identity_file.write_text("private-key-placeholder\n", encoding="utf-8")
+    git_identity_file = sandbox_root / "macgitkey"
+    git_identity_file.write_text("git-key-placeholder\n", encoding="utf-8")
+    profile_dir = _sandbox_browser_mcp_profile_dir(sandbox_root)
+
+    (env_dir / "aws-devbox.env").write_text(
+        "\n".join(
+            [
+                "AWS_PROFILE=setta-admin",
+                f"SETTA_AWS_DEVBOX_SSH_IDENTITY_FILE={identity_file}",
+                f"SETTA_AWS_DEVBOX_GIT_IDENTITY_FILE={git_identity_file}",
+                "SETTA_AWS_DEVBOX_OPEN_BROWSER=0",
+                "SETTA_AWS_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git",
+                "SETTA_AWS_DEVBOX_REPO_BRANCH=pixijs-graph",
+                "SETTA_AWS_DEVBOX_REMOTE_BROWSER_MODE=headless",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    working_dir = sandbox_root / "backend" / "setta"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        bin_dir / "python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-" ]; then
+  /usr/bin/env python3 "$@"
+  exit $?
+fi
+if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq 'dev-runtime-info.sh'; then
+  printf '%s\n' "$@" > "{ssh_runtime_args_capture}"
+  printf '%s\n' '{{"frontendUrl":"http://127.0.0.1:3045","backendUrl":"http://127.0.0.1:8045","debugPort":9267}}'
+  exit 0
+fi
+printf '%s\n' "$@" > "{ssh_attach_args_capture}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-agent",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-s" ]; then
+  cat <<'EOF'
+SSH_AUTH_SOCK=/tmp/managed-agent; export SSH_AUTH_SOCK;
+SSH_AGENT_PID=4242; export SSH_AGENT_PID;
+echo Agent pid 4242;
+EOF
+  exit 0
+fi
+if [ "${1:-}" = "-k" ]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-add",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    write_stub_executable(
+        bin_dir / "lsof",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq -- '-iTCP:9267'; then
+  count=0
+  if [ -f "{lsof_state}" ]; then
+    count="$(cat "{lsof_state}")"
+  fi
+  count="$((count + 1))"
+  printf '%s\n' "${{count}}" > "{lsof_state}"
+  if [ "${{count}}" -eq 1 ]; then
+    printf '%s\n' '42424'
+  fi
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ps",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [ "${{4:-}}" = "command=" ]; then
+  printf '%s\n' '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9267 --user-data-dir={profile_dir} --headless about:blank'
+  exit 0
+fi
+if [ "${{4:-}}" = "tty=" ]; then
+  printf '%s\n' '??'
+  exit 0
+fi
+exit 0
+""",
+    )
+
+    home_dir = sandbox_root / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = script_env(bin_dir, home_dir)
+
+    result = run_script(
+        ["sh", str(sandbox_root / "remote.sh"), "local"],
+        cwd=working_dir,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "dev-runtime-info.sh" in ssh_runtime_args_capture.read_text(encoding="utf-8")
+    assert "tmux attach-session" in ssh_attach_args_capture.read_text(encoding="utf-8")
+    assert (
+        "Closing local browser MCP process 42424 on port 9267 before reopening the remote CDP tunnel..."
+        in result.stderr
+    )
+
+
+def test_remote_ai_sh_auto_stops_existing_wrapper_attach_listener_before_attach(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, bin_dir, env_dir = _build_aws_sandbox(
+        tmp_path, sandbox_name="aws_script_sandbox_existing_attach"
+    )
+    ssh_runtime_args_capture = sandbox_root / "ssh-runtime-args-existing-attach.txt"
+    ssh_attach_args_capture = sandbox_root / "ssh-attach-args-existing-attach.txt"
+    lsof_state = sandbox_root / "existing-attach-lsof-state.txt"
+    identity_file = sandbox_root / "setta-devbox-login"
+    identity_file.write_text("private-key-placeholder\n", encoding="utf-8")
+    git_identity_file = sandbox_root / "macgitkey"
+    git_identity_file.write_text("git-key-placeholder\n", encoding="utf-8")
+
+    (env_dir / "aws-devbox.env").write_text(
+        "\n".join(
+            [
+                "AWS_PROFILE=setta-admin",
+                f"SETTA_AWS_DEVBOX_SSH_IDENTITY_FILE={identity_file}",
+                f"SETTA_AWS_DEVBOX_GIT_IDENTITY_FILE={git_identity_file}",
+                "SETTA_AWS_DEVBOX_OPEN_BROWSER=0",
+                "SETTA_AWS_DEVBOX_REPO_REMOTE_URL=git@github.com:riteofstring/setta.git",
+                "SETTA_AWS_DEVBOX_REPO_BRANCH=pixijs-graph",
+                "SETTA_AWS_DEVBOX_REMOTE_BROWSER_MODE=headless",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    working_dir = sandbox_root / "backend" / "setta"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        bin_dir / "python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-" ]; then
+  /usr/bin/env python3 "$@"
+  exit $?
+fi
+if [ "${2:-}" = "status" ] && [ "${3:-}" = "--json" ]; then
+  printf '%s\n' '{"instance_id":"i-devbox","region":"us-east-1","repo_checkout_path":"/home/ubuntu/dev/setta.pixijs-graph","ssm_ping_status":"online","state":"running"}'
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq 'dev-runtime-info.sh'; then
+  printf '%s\n' "$@" > "{ssh_runtime_args_capture}"
+  printf '%s\n' '{{"frontendUrl":"http://127.0.0.1:3045","backendUrl":"http://127.0.0.1:8045","debugPort":9267}}'
+  exit 0
+fi
+printf '%s\n' "$@" > "{ssh_attach_args_capture}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-agent",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "-s" ]; then
+  cat <<'EOF'
+SSH_AUTH_SOCK=/tmp/managed-agent; export SSH_AUTH_SOCK;
+SSH_AGENT_PID=4242; export SSH_AGENT_PID;
+echo Agent pid 4242;
+EOF
+  exit 0
+fi
+if [ "${1:-}" = "-k" ]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ssh-add",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    write_stub_executable(
+        bin_dir / "lsof",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if printf '%s\n' "$@" | grep -Fq -- '-iTCP:3045'; then
+  count=0
+  if [ -f "{lsof_state}" ]; then
+    count="$(cat "{lsof_state}")"
+  fi
+  count="$((count + 1))"
+  printf '%s\n' "${{count}}" > "{lsof_state}"
+  if [ "${{count}}" -eq 1 ]; then
+    printf '%s\n' '51515'
+  fi
+fi
+""",
+    )
+    write_stub_executable(
+        bin_dir / "ps",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [ "${4:-}" = "command=" ]; then
+  printf '%s\n' 'ssh -A -tt -L 3045:127.0.0.1:3045 -L 8045:127.0.0.1:8045 -L 9267:127.0.0.1:9267 ubuntu@i-devbox SETTA_REMOTE_SESSION_NAME=setta-aws_script_sandbox_existing_attach bash -lc exec tmux attach-session -t "${remote_session_target}"'
+  exit 0
+fi
+if [ "${4:-}" = "tty=" ]; then
+  printf '%s\n' 'ttys012'
+  exit 0
+fi
+exit 0
+""",
+    )
+
+    home_dir = sandbox_root / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = script_env(bin_dir, home_dir)
+
+    result = run_script(
+        ["sh", str(sandbox_root / "remote.sh"), "local"],
+        cwd=working_dir,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "dev-runtime-info.sh" in ssh_runtime_args_capture.read_text(encoding="utf-8")
+    assert "tmux attach-session" in ssh_attach_args_capture.read_text(encoding="utf-8")
+    assert (
+        "Closing existing local remote attach process 51515 for session setta-aws_script_sandbox_existing_attach on port 3045 before reopening..."
         in result.stderr
     )
 
@@ -1768,10 +2060,7 @@ exit 0
 
     assert "SETTA_REMOTE_LIFECYCLE_MODE=aireset" in ssh_runtime_args[-1]
     assert "SETTA_REMOTE_BROWSER_MODE=headless" in ssh_runtime_args[-1]
-    assert (
-        'remote_runtime_info_script="${remote_worktree_root}/scripts/dev-runtime-info.sh"'
-        in ssh_runtime_args[-1]
-    )
+    assert 'stage_runtime_helpers_for_log() {' in ssh_runtime_args[-1]
     assert 'deadline_epoch=$(( $(date +%s) + timeout_seconds ))' in ssh_runtime_args[-1]
     assert 'remaining_seconds=$((deadline_epoch - now_epoch))' in ssh_runtime_args[-1]
     assert (
@@ -1878,10 +2167,7 @@ exit 0
     ssh_attach_args = ssh_attach_args_capture.read_text(encoding="utf-8").splitlines()
 
     assert "SETTA_REMOTE_SESSION_NAME=setta-aws-script-sandbox" in ssh_runtime_args[-1]
-    assert (
-        'remote_runtime_info_script="${remote_worktree_root}/scripts/dev-runtime-info.sh"'
-        in ssh_runtime_args[-1]
-    )
+    assert 'stage_runtime_helpers_for_log() {' in ssh_runtime_args[-1]
     assert "SETTA_REMOTE_SESSION_NAME=setta-aws-script-sandbox" in ssh_attach_args[-1]
 
 

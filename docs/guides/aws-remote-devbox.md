@@ -263,6 +263,12 @@ Browser-open defaults:
 - `SETTA_AWS_DEVBOX_REMOTE_MAIN_REFERENCE_WAIT_SECONDS` controls how long
   `remote.sh` waits for the default `main` reference runtime before it continues
   without forwarding the reference ports yet (defaults to `30`)
+- remote runtime logs on the devbox now live under
+  `~/.cache/setta-aws-devbox/<worktree>/` with bounded rotation; use
+  `SETTA_AWS_DEVBOX_REMOTE_RUNTIME_LOG_MAX_BYTES` and
+  `SETTA_AWS_DEVBOX_REMOTE_RUNTIME_LOG_BACKUP_COUNT` to tune retention when needed
+- if a box already filled before those caps were in place, a one-time cleanup is
+  `rm -rf ~/.cache/setta-aws-devbox/*`
 
 Codex auth sync notes:
 
