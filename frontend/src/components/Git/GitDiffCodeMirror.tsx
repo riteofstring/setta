@@ -123,17 +123,13 @@ function analyzeDiffLine(text: string): DiffLineAnalysis {
   };
 }
 
-export function classifyDiffLine(text: string): string | null {
-  return analyzeDiffLine(text).lineClass;
-}
-
-export function parserForPath(
+function parserForPath(
   path: string | null | undefined,
 ): CodeMirrorParserLike | null {
   return getCodeMirrorLanguageParserForPath(path);
 }
 
-export function shouldSyntaxHighlightLine(text: string): boolean {
+function shouldSyntaxHighlightLine(text: string): boolean {
   return analyzeDiffLine(text).shouldSyntaxHighlight;
 }
 

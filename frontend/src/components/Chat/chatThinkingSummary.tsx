@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-type ThinkingSummaryItem = {
-  thinking: string;
-  summary?: string | null;
-};
-
 type ThinkingSummaryContent = {
   content: string;
   summary: string | null | undefined;
 };
 
-export function deriveThinkingHeadlineFromContent(
-  content: string,
-): string | null {
+function deriveThinkingHeadlineFromContent(content: string): string | null {
   const trimmed = content.trim();
   if (trimmed.length === 0) {
     return null;
@@ -140,21 +133,6 @@ export function resolveCollapsedThinkingActivityLabel({
   isStreaming: boolean;
 }): string {
   return isStreaming ? "Thinking" : "Reasoning";
-}
-
-export function resolveLatestThinkingSummary(
-  thinkingItems: ThinkingSummaryItem[],
-  isStreaming: boolean,
-): string {
-  const latestItem = thinkingItems[thinkingItems.length - 1];
-  if (!latestItem) {
-    return "No thoughts yet.";
-  }
-  return resolveThinkingSummaryHeadline({
-    content: latestItem.thinking,
-    summary: latestItem.summary,
-    isStreaming,
-  });
 }
 
 const SCRAMBLE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

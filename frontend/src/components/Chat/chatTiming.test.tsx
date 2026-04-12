@@ -13,8 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ChatMessageTimestampFooter,
   ChatTimestamp,
-  formatChatTimestamp,
-  formatChatTimestampTitle,
   parseIsoTimestampMs,
   resolveActivityTimestampMs,
   resolveDurationLabel,
@@ -76,17 +74,6 @@ describe("chatTiming", () => {
       root.unmount();
     });
     host.remove();
-  });
-
-  it("formats chat timestamps and tooltip titles consistently", () => {
-    const timestampMs = Date.parse("2026-01-01T09:16:00Z");
-
-    expect(formatChatTimestamp(timestampMs)).toBe(
-      formatExpectedChatTimestamp(timestampMs),
-    );
-    expect(formatChatTimestampTitle(timestampMs)).toBe(
-      formatExpectedChatTimestampTitle(timestampMs),
-    );
   });
 
   it("renders timestamp surfaces only when timestamp data is valid", () => {

@@ -58,7 +58,7 @@ export function resolveActivityTimestampMs(
   return resolveTimestampMs(startedAtMs) ?? resolveTimestampMs(completedAtMs);
 }
 
-export function formatChatTimestamp(timestampMs: number | null): string | null {
+function formatChatTimestamp(timestampMs: number | null): string | null {
   const resolvedTimestampMs = resolveTimestampMs(timestampMs);
   if (resolvedTimestampMs === null) {
     return null;
@@ -66,9 +66,7 @@ export function formatChatTimestamp(timestampMs: number | null): string | null {
   return CHAT_TIMESTAMP_FORMATTER.format(resolvedTimestampMs);
 }
 
-export function formatChatTimestampTitle(
-  timestampMs: number | null,
-): string | null {
+function formatChatTimestampTitle(timestampMs: number | null): string | null {
   const resolvedTimestampMs = resolveTimestampMs(timestampMs);
   if (resolvedTimestampMs === null) {
     return null;
