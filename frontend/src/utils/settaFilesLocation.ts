@@ -1,17 +1,38 @@
-export type SettaFilesLocation = "auto" | "local" | "global";
-type ResolvedSettaFilesLocation = "local" | "global";
+import { SettaFilesLocationPolicyConfig } from "utils/generatedTypes";
+
+const requestedSettaFilesLocations = SettaFilesLocationPolicyConfig.requested;
+if (
+  !requestedSettaFilesLocations ||
+  requestedSettaFilesLocations.length === 0
+) {
+  throw new Error(
+    "SettaFilesLocationPolicyConfig.requested must include at least one location.",
+  );
+}
+const resolvedSettaFilesLocations =
+  SettaFilesLocationPolicyConfig.resolved ?? [];
+const requestedSettaFilesLocationSet = new Set<string>(
+  requestedSettaFilesLocations,
+);
+const resolvedSettaFilesLocationSet = new Set<string>(
+  resolvedSettaFilesLocations,
+);
+const defaultSettaFilesLocation = requestedSettaFilesLocations[0];
+
+export type SettaFilesLocation = (typeof requestedSettaFilesLocations)[number];
+type ResolvedSettaFilesLocation = (typeof resolvedSettaFilesLocations)[number];
 
 export function normalizeSettaFilesLocation(
   value: unknown,
 ): SettaFilesLocation {
   if (typeof value !== "string") {
-    return "auto";
+    return defaultSettaFilesLocation;
   }
   const trimmed = value.trim().toLowerCase();
-  if (trimmed === "auto" || trimmed === "local" || trimmed === "global") {
-    return trimmed;
+  if (requestedSettaFilesLocationSet.has(trimmed)) {
+    return trimmed as SettaFilesLocation;
   }
-  return "auto";
+  return defaultSettaFilesLocation;
 }
 
 export function normalizeResolvedSettaFilesLocation(
@@ -21,8 +42,8 @@ export function normalizeResolvedSettaFilesLocation(
     return null;
   }
   const trimmed = value.trim().toLowerCase();
-  if (trimmed === "local" || trimmed === "global") {
-    return trimmed;
+  if (resolvedSettaFilesLocationSet.has(trimmed)) {
+    return trimmed as ResolvedSettaFilesLocation;
   }
   return null;
 }
@@ -32,8 +53,8 @@ export function chooseWorkspaceHistorySettaFilesLocation(params: {
   resolved: unknown;
 }): SettaFilesLocation {
   const requested = normalizeSettaFilesLocation(params.requested);
-  if (requested === "auto") {
-    return "auto";
+  if (requested === defaultSettaFilesLocation) {
+    return defaultSettaFilesLocation;
   }
   const resolved = normalizeResolvedSettaFilesLocation(params.resolved);
   return resolved ?? requested;
