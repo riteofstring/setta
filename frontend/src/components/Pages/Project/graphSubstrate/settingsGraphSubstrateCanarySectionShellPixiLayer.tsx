@@ -106,15 +106,19 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     return next;
   }, _.isEqual);
   const drawables = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
-      activeSectionIds,
-      darkMode,
-      draggingSectionId,
-      hoveredSectionId,
-      previewStyleColors,
-      sceneSections: resolvedPresentedSceneSections,
-      sectionSeedNodes,
-    });
+    return measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "pixiDrawableModelResolve",
+      () =>
+        resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+          activeSectionIds,
+          darkMode,
+          draggingSectionId,
+          hoveredSectionId,
+          previewStyleColors,
+          sceneSections: resolvedPresentedSceneSections,
+          sectionSeedNodes,
+        }),
+    );
   }, [
     activeSectionIds,
     darkMode,

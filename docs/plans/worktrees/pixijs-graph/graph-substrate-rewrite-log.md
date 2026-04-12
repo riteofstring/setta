@@ -3347,6 +3347,53 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 14:23 UTC - Ralph item 313
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded attribution follow-up subtask the plan now calls for:
+  measure remaining canary motion work in the DOM body-mount filter and Pixi
+  drawable-model build instead of reopening another blind reduction against
+  `presentedSceneSectionVisibilityFilter`.
+- Landed:
+  - added `presentedSceneBodyMountFilter` motion attribution around the DOM
+    body-mount decision in
+    `settingsGraphSubstrateCanarySectionsLayer.tsx`
+  - added `pixiDrawableModelResolve` motion attribution around the Pixi
+    drawable-model build in
+    `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+  - updated focused unit tests plus the canonical main-reference Playwright
+    allowlist so the new owners are recognized in motion capture
+  - recorded this attribution seam in
+    `perf/reports/frontend/2026-04-12_settings-graph-substrate-canary-motion-owner-attribution-followup.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+    - result: passed (`3` files, `23` tests)
+  - `cd frontend && pnpm exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-002/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-002/main-ai.log`
+    - resolved worktree `3075/8075`, main `3087/8087`, and
+      `/usr/bin/google-chrome`
+    - result: failed before live motion capture with
+      `Timed out after 30000ms during settings graph probe phase: reference: open settings.`
+  - fresh-context CDP smoke:
+    - result: usable but unhealthy on both sides
+    - worktree `3075/settings` and read-only `main` `3087/settings` each
+      mounted only a partial `Settings` shell with no visible `All Settings`
+      content or `rotaryParamCodeObjDefault`
+    - reading: this supports the same live settings-surface blocker/noise on
+      both sides rather than a new worktree-only canary regression
+- Result:
+  - the attribution seam is now in place for the next fresh canonical run to
+    tell us whether remaining cost lives in DOM body-mount filtering, Pixi
+    drawable-model resolution, or another uninstrumented owner
+  - this iteration does not claim a new live dominant owner because the same
+    read-only `main` blocker still prevents the canonical probe from reaching
+    the motion phase
+  - the next bounded frontier should resolve or narrowly normalize the
+    reference-side `open settings` timeout so the new owners can be observed on
+    the canonical lane
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-08 10:27 EDT - Ralph item 311
 
 - Canonical target section: `rotaryParamCodeObjDefault`

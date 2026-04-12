@@ -12644,7 +12644,9 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     const allowedResidualCanaryMotionOwners = [
       "interactionMiscStateSync",
       "interactionReactFlowStateSync",
+      "pixiDrawableModelResolve",
       "pixiViewportPresent",
+      "presentedSceneBodyMountFilter",
       "presentedSceneSectionVisibilityFilter",
       "presentedSceneVisibleViewportWorldRectResolve",
     ] as const;

@@ -66,8 +66,24 @@ const { mockSectionContainer } = vi.hoisted(() => ({
   ),
 }));
 
+const { measureMotionAttribution, updateInstrumentationSnapshot } = vi.hoisted(
+  () => ({
+    measureMotionAttribution: vi.fn((_owner: string, fn: () => unknown) =>
+      fn(),
+    ),
+    updateInstrumentationSnapshot: vi.fn(),
+  }),
+);
+
 vi.mock("components/Section/Container/SectionContainer", () => ({
   SectionContainer: mockSectionContainer,
+}));
+
+vi.mock("./settingsGraphSubstrateCanaryInstrumentation", () => ({
+  measureSettingsGraphSubstrateCanaryMotionAttribution:
+    measureMotionAttribution,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot:
+    updateInstrumentationSnapshot,
 }));
 
 function SectionsLayerProbe({
@@ -110,6 +126,8 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
 
   beforeEach(() => {
     mockSectionContainer.mockClear();
+    measureMotionAttribution.mockClear();
+    updateInstrumentationSnapshot.mockReset();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -150,6 +168,10 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     });
 
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
+    expect(measureMotionAttribution).toHaveBeenCalledWith(
+      "presentedSceneBodyMountFilter",
+      expect.any(Function),
+    );
   });
 
   it("unmounts offscreen inactive section shells and bodies while keeping visible ones mounted", async () => {

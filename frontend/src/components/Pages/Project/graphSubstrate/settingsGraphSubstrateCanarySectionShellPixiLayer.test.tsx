@@ -197,6 +197,10 @@ describe("SettingsGraphSubstrateCanarySectionShellPixiLayer", () => {
       expect(hoisted.appInstances[0]?.render).toHaveBeenCalledTimes(1);
       expect(hoisted.graphicsInstances[0]?.clear).toHaveBeenCalledTimes(1);
     });
+    expect(hoisted.measureMotionAttribution).toHaveBeenCalledWith(
+      "pixiDrawableModelResolve",
+      expect.any(Function),
+    );
 
     await renderLayer({
       sceneSections: [createSceneSection()],
@@ -264,6 +268,10 @@ describe("SettingsGraphSubstrateCanarySectionShellPixiLayer", () => {
       );
       expect(hoisted.graphicsInstances[0]?.clear).toHaveBeenCalledTimes(1);
     });
+    expect(hoisted.measureMotionAttribution).toHaveBeenCalledWith(
+      "pixiDrawableModelResolve",
+      expect.any(Function),
+    );
   });
 
   it("keeps active offscreen section drawables mounted", async () => {

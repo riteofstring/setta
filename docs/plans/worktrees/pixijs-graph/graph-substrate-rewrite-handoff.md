@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 14:05 UTC
+Last updated: 2026-04-12 14:23 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,42 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `313` landed one bounded motion-attribution follow-up slice on the
+    canonical `rotaryParamCodeObjDefault` lane instead of guessing at another
+    reduction against the now-negligible
+    `presentedSceneSectionVisibilityFilter` path:
+    - product code changed in the canary layers:
+      - added `presentedSceneBodyMountFilter` attribution around the DOM
+        section-body mount decision in
+        `settingsGraphSubstrateCanarySectionsLayer.tsx`
+      - added `pixiDrawableModelResolve` attribution around the Pixi drawable
+        model build in
+        `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+      - extended the canonical Playwright allowlist in
+        `settings-view-modes-main-reference.spec.ts` so the new owners are
+        accepted when they appear in live capture
+    - focused verification:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+        -> passed (`3` files, `23` tests)
+      - `cd frontend && pnpm exec prettier --check ...`
+        -> passed on the touched files
+      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-002/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-002/main-ai.log`
+        -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
+        `/usr/bin/google-chrome`, then failed with
+        `Timed out after 30000ms during settings graph probe phase: reference: open settings.`
+    - reading:
+      - this slice intentionally improves attribution coverage only; it does
+        not claim a new live dominant owner because the canonical read-only
+        `main` probe is still blocked before motion capture starts
+      - the next fresh canonical run can now distinguish DOM body-mount cost
+        from Pixi drawable-model cost on the same lane
+      - the repeated blocker remains reference-side `open settings` on
+        read-only `main`, not a new worktree renderer regression
+      - fresh-context CDP smoke on worktree `3075` and read-only `main` `3087`
+        was usable, but both `/settings` pages only showed a partial
+        `Settings` shell with no visible `All Settings` content or named target
+        section; that points to broader live settings-surface health/noise, not
+        a canary-only visual defect
   - item `312` landed one bounded probe-runner support slice for the canonical
     `rotaryParamCodeObjDefault` lane instead of repeating another stale-runtime
     rerun by hand:

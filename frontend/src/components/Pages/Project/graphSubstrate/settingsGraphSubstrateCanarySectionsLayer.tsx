@@ -6,7 +6,10 @@ import React, {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
+import {
+  measureSettingsGraphSubstrateCanaryMotionAttribution,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   resolveSettingsGraphSubstrateCanarySectionBody,
@@ -148,18 +151,22 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   }, [viewport, visibleViewportRect]);
 
   const mountedSectionBodyIds = useMemo(() => {
-    return new Set(
-      resolvedPresentedSceneSections
-        .filter((section) =>
-          shouldMountSettingsGraphSubstrateCanarySectionBody({
-            draggingSectionId,
-            section,
-            viewport,
-            visibleViewportRect,
-            visibleViewportWorldRect,
-          }),
-        )
-        .map((section) => section.sectionId),
+    return measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "presentedSceneBodyMountFilter",
+      () =>
+        new Set(
+          resolvedPresentedSceneSections
+            .filter((section) =>
+              shouldMountSettingsGraphSubstrateCanarySectionBody({
+                draggingSectionId,
+                section,
+                viewport,
+                visibleViewportRect,
+                visibleViewportWorldRect,
+              }),
+            )
+            .map((section) => section.sectionId),
+        ),
     );
   }, [
     draggingSectionId,

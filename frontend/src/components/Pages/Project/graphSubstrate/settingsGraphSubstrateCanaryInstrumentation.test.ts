@@ -93,4 +93,42 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       totalDurationMs: 3.5,
     });
   });
+
+  it("tracks newly added motion attribution owners in the shared snapshot", () => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    const performanceNowSpy = vi
+      .spyOn(globalThis.performance, "now")
+      .mockReturnValueOnce(20)
+      .mockReturnValueOnce(21)
+      .mockReturnValueOnce(30)
+      .mockReturnValueOnce(32.5);
+
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "presentedSceneBodyMountFilter",
+      () => {},
+    );
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "pixiDrawableModelResolve",
+      () => {},
+    );
+
+    performanceNowSpy.mockRestore();
+
+    const motionAttribution =
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution;
+    expect(motionAttribution.presentedSceneBodyMountFilter).toEqual({
+      count: 1,
+      maxDurationMs: 1,
+      totalDurationMs: 1,
+    });
+    expect(motionAttribution.pixiDrawableModelResolve).toEqual({
+      count: 1,
+      maxDurationMs: 2.5,
+      totalDurationMs: 2.5,
+    });
+  });
 });
