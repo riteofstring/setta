@@ -22,7 +22,9 @@ import {
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
-import { Overview, OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME } from "./Overview";
+import { Overview } from "./Overview";
+
+let latestNavbarMenuDropdownContentClassName: string | undefined;
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
   ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
@@ -33,6 +35,38 @@ vi.mock("components/Pages/Project/ViewModeDnd", () => ({
     style: {},
     isDragging: false,
   }),
+}));
+
+vi.mock("components/Utils/atoms/menubar/menudropdown", () => ({
+  NavbarMenuDropdown: ({
+    children,
+    contentClassName,
+    trigger,
+    triggerClassName,
+  }: {
+    children: unknown;
+    contentClassName?: string;
+    trigger: unknown;
+    triggerClassName?: string;
+  }) => {
+    latestNavbarMenuDropdownContentClassName = contentClassName;
+    return (
+      <div data-testid="navbar-menu-dropdown-mock">
+        <div className={triggerClassName}>{trigger}</div>
+        <div className={contentClassName}>{children}</div>
+      </div>
+    );
+  },
+}));
+
+vi.mock("components/Utils/atoms/menubar/menudropdownitem", () => ({
+  MenuItem: ({
+    children,
+    className,
+  }: {
+    children: unknown;
+    className?: string;
+  }) => <div className={className}>{children}</div>,
 }));
 
 function extractRailStyle(markup: string): string {
@@ -89,6 +123,7 @@ describe("Overview rail offsets", () => {
   beforeEach(() => {
     resetProjectStores();
     resetPluginRuntimeStateForTests();
+    latestNavbarMenuDropdownContentClassName = undefined;
     memoryStorage.reset();
     const viewId = "default-view";
     useProjectState.setState((state) => {
@@ -345,10 +380,16 @@ describe("Overview rail offsets", () => {
   });
 
   it("keeps the more menu on the shared elevated app menu layer", () => {
-    expect(OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME).toContain(
+    renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(latestNavbarMenuDropdownContentClassName).toContain(
       APP_MENU_Z_INDEX_CLASS_NAME,
     );
-    expect(OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME).not.toContain("z-20");
+    expect(latestNavbarMenuDropdownContentClassName).not.toContain("z-20");
   });
 
   it("falls back to Overview when deployment mode hides the selected tab", () => {
