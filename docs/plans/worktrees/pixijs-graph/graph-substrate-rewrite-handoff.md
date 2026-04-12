@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 17:18 UTC
+Last updated: 2026-04-12 17:39 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,39 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `331` landed one bounded product-side perf slice inside the measured
+  dominant motion owner `interactionReactFlowStateSync` on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the shared controls toolbar path:
+    - `frontend/src/forks/xyflow/controls/Controls.tsx`
+      now scopes the `useZoomReached()` React Flow subscription to a memoized
+      `ControlsZoomButtons` child instead of subscribing the entire controls
+      toolbar to `transform[2]`
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/controls/Controls.test.ts`
+      to assert the zoom button disabled state still tracks React Flow zoom
+      bounds after the split
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-controls-zoom-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/controls/Controls.test.ts`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/controls/Controls.tsx src/forks/xyflow/controls/Controls.test.ts`
+      -> passed
+    - headless CDP smoke on the restarted worktree `/settings` session
+      -> controls toolbar visible
+      -> `zoom in` and `zoom out` present in the left control rail
+      -> no obvious overlap or broken layout in the toolbar area
+  - reading:
+    - this keeps zoom-bound React Flow updates localized to the two controls
+      that actually need the disabled-state signal instead of re-rendering the
+      full toolbar chrome on every zoom tick
+    - the next bounded frontier should stay inside
+      `interactionReactFlowStateSync` and look for the next mounted controls
+      or DOM-backed body surface on the canonical lane that still subscribes
+      to motion-heavy React Flow state
 
 - item `330` reran the canonical main-reference perf lane after the two
   product-side `interactionReactFlowStateSync` slices on the named

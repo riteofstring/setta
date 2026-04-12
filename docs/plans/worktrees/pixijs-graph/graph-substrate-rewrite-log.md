@@ -12725,6 +12725,37 @@ settings graph probe phase: worktree: capture initial pane state.`
       `interactionReactFlowStateSync` instead of opening another probe-only
       rerun on the same stall shape
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-12 17:39 UTC
+
+- item `331` narrowed one controls-toolbar zoom subscription on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/controls/Controls.tsx` so the
+    `useZoomReached()` React Flow subscription now lives in a memoized
+    `ControlsZoomButtons` child instead of the full controls toolbar
+  - added focused regression coverage in
+    `frontend/src/forks/xyflow/controls/Controls.test.ts` to assert the zoom
+    button disabled state still follows React Flow zoom bounds after the split
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-controls-zoom-split.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/controls/Controls.test.ts`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/controls/Controls.tsx src/forks/xyflow/controls/Controls.test.ts`
+      -> passed
+    - headless CDP smoke on worktree `/settings`
+      -> first two sub-agent attempts exposed local CDP/session issues
+         (`evaluate_script` interruption, then `Network.enable timed out`)
+      -> one bounded worktree lifecycle self-recovery was performed with
+         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> post-restart CDP retry passed: controls toolbar visible, `zoom in`
+         and `zoom out` present, no obvious overlap or broken toolbar layout
+  - result:
+    - this keeps zoom-driven React Flow render churn scoped to the two zoom
+      controls instead of the whole toolbar chrome
+    - next bounded frontier: stay inside `interactionReactFlowStateSync` and
+      isolate the next mounted controls/body surface on the canonical lane
+      that still subscribes to motion-heavy React Flow state
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 16:59 UTC
 
 - item `327` landed one bounded probe-helper slice on the canonical
