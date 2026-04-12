@@ -76,6 +76,47 @@ export function normalizeGeneratedToolName(
   return normalized;
 }
 
+function hasGeneratedControlCharacters(value: string): boolean {
+  for (const char of value) {
+    const codepoint = char.codePointAt(0);
+    if (codepoint !== undefined && (codepoint < 32 || codepoint === 127)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getGeneratedPathError(value: string, label: string): string | null {
+  if (value.includes("/") || value.includes("\\")) {
+    return label + " cannot include path separators.";
+  }
+  if (value.includes("..")) {
+    return label + " cannot include '..' path segments.";
+  }
+  return null;
+}
+
+function validateGeneratedCommonNameInput(
+  name: string,
+  options: {
+    allowEmpty: boolean;
+    label: string;
+    skipPathChecks?: boolean;
+  },
+): string | null {
+  const normalized = name.trim();
+  if (!normalized) {
+    return options.allowEmpty ? null : options.label + " cannot be empty.";
+  }
+  if (hasGeneratedControlCharacters(normalized)) {
+    return options.label + " cannot include control characters.";
+  }
+  if (options.skipPathChecks ?? false) {
+    return null;
+  }
+  return getGeneratedPathError(normalized, options.label);
+}
+
 export function validateGeneratedSimpleNameInput(
   name: string,
   label: string,
@@ -83,22 +124,14 @@ export function validateGeneratedSimpleNameInput(
   allowedChars: ReadonlySet<string>,
   allowReserved: boolean = false,
 ): string | null {
+  const baseError = validateGeneratedCommonNameInput(name, {
+    allowEmpty: false,
+    label,
+  });
+  if (baseError) {
+    return baseError;
+  }
   const normalized = name.trim();
-  if (!normalized) {
-    return label + " cannot be empty.";
-  }
-  for (const char of normalized) {
-    const codepoint = char.codePointAt(0);
-    if (codepoint !== undefined && (codepoint < 32 || codepoint === 127)) {
-      return label + " cannot include control characters.";
-    }
-  }
-  if (normalized.includes("/") || normalized.includes("\\")) {
-    return label + " cannot include path separators.";
-  }
-  if (normalized.includes("..")) {
-    return label + " cannot include '..' path segments.";
-  }
   for (const char of normalized) {
     if (!allowedChars.has(char)) {
       return label + " can only contain letters, numbers, spaces, '_' and '-'.";
@@ -159,23 +192,17 @@ export function validateGeneratedParamNameInput(
   pythonKeywords: ReadonlySet<string>,
   isPythonIdentifier: (value: string) => boolean,
 ): string | null {
+  const baseError = validateGeneratedCommonNameInput(name, {
+    allowEmpty: options.allowEmpty,
+    label: "Param name",
+    skipPathChecks: options.skipPathChecks,
+  });
+  if (baseError) {
+    return baseError;
+  }
   const normalized = name.trim();
   if (!normalized) {
-    return options.allowEmpty ? null : "Param name cannot be empty.";
-  }
-  for (const char of normalized) {
-    const codepoint = char.codePointAt(0);
-    if (codepoint !== undefined && (codepoint < 32 || codepoint === 127)) {
-      return "Param name cannot include control characters.";
-    }
-  }
-  if (!(options.skipPathChecks ?? false)) {
-    if (normalized.includes("/") || normalized.includes("\\")) {
-      return "Param name cannot include path separators.";
-    }
-    if (normalized.includes("..")) {
-      return "Param name cannot include '..' path segments.";
-    }
+    return null;
   }
   if (options.requirePythonIdentifier) {
     if (!isPythonIdentifier(normalized)) {
