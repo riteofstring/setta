@@ -144,13 +144,11 @@ describe("moveSectionsWithBackend", () => {
     resetProjectStores();
     mockedRouteMoveSections.mockResolvedValue({
       data: null,
-      status: 200,
-      hasResponse: true,
+      response: new Response(null, { status: 200 }),
     });
     mockedRouteSetAttachedTerminal.mockResolvedValue({
       data: null,
-      status: 200,
-      hasResponse: true,
+      response: new Response(null, { status: 200 }),
     });
   });
   afterEach(() => {
@@ -316,8 +314,117 @@ describe("moveSectionsWithBackend", () => {
     expect(mockedRouteMoveSections).toHaveBeenCalledTimes(1);
     expect(mockedRouteSetAttachedTerminal).not.toHaveBeenCalled();
     const call = mockedRouteMoveSections.mock.calls[0]?.[0];
-    expect(call?.sectionIds).toEqual([codeSectionId]);
-    expect(call?.positionsById?.[terminalSectionId]).toBeUndefined();
+    expect(call?.body.sectionIds).toEqual([codeSectionId]);
+    expect(call?.body.positionsById?.[terminalSectionId]).toBeUndefined();
+  });
+  it("clears attached terminal metadata when moving a terminal back to the pane", () => {
+    const codeCore: Core = {
+      id: codeSectionId,
+      name: "Code Section",
+      displayName: "",
+      variants: [codeVariantId],
+      defaultVariant: codeVariantId,
+      sharedModifier: {
+        attachedTerminalSectionId: terminalSectionId,
+        children: [terminalSectionId],
+      },
+      unsharedKeys: [],
+    };
+    const terminalCore: Core = {
+      id: terminalSectionId,
+      name: "Terminal Section",
+      displayName: "",
+      variants: [terminalVariantId],
+      defaultVariant: terminalVariantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+    const codeVariant: Variant = {
+      id: codeVariantId,
+      name: "Code Variant",
+      impl: codeImplId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+    const terminalVariant: Variant = {
+      id: terminalVariantId,
+      name: "Terminal Variant",
+      impl: terminalImplId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: {
+          [codeSectionId]: codeVariantId,
+          [terminalSectionId]: terminalVariantId,
+        },
+        activeViewModeId: viewModeId,
+        viewModes: {
+          [viewModeId]: {
+            id: viewModeId,
+            topLevelSections: {
+              [codeSectionId]: { x: 10, y: 20, zIndex: 1 },
+            },
+          },
+        },
+        topLevelSections: {
+          [codeSectionId]: { x: 10, y: 20, zIndex: 1 },
+        },
+      }),
+      sections: {
+        [codeSectionId]: codeCore,
+        [terminalSectionId]: terminalCore,
+      },
+      sectionVariants: {
+        [codeVariantId]: codeVariant,
+        [terminalVariantId]: terminalVariant,
+      },
+      sectionImpls: {
+        [codeImplId]: createCodeSectionImpl({
+          id: codeImplId,
+          type: SectionTypeEnum.Code,
+        }),
+        [terminalImplId]: createTerminalSectionImpl({
+          id: terminalImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      parentSectionMap: {
+        [codeSectionId]: null,
+        [terminalSectionId]: codeSectionId,
+      },
+    });
+    useNodeInternals.setState({ x: new Map() });
+    moveSectionsWithBackend({
+      sectionIds: [terminalSectionId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [terminalSectionId]: { x: 120, y: 140 },
+      },
+    });
+    const state = useProjectState.getState();
+    const codeEffective = getCurrEffectiveSectionImpl(state, codeSectionId);
+    expect(codeEffective.attachedTerminalSectionId).toBeNull();
+    expect(codeEffective.children).toEqual([]);
+    expect(state.parentSectionMap[terminalSectionId]).toBeNull();
+    expect(
+      state.projectConfig.topLevelSections[terminalSectionId],
+    ).toMatchObject({
+      x: 120,
+      y: 140,
+    });
+    expect(
+      state.projectConfig.viewModes[viewModeId]?.topLevelSections?.[
+        terminalSectionId
+      ],
+    ).toMatchObject({ x: 120, y: 140 });
+    expect(mockedRouteMoveSections).toHaveBeenCalledTimes(1);
+    expect(mockedRouteSetAttachedTerminal).not.toHaveBeenCalled();
   });
   it("attaches terminals under gen python sections", () => {
     const genSectionId = "gen-section";
@@ -439,7 +546,7 @@ describe("moveSectionsWithBackend", () => {
     expect(mockedRouteMoveSections).not.toHaveBeenCalled();
     expect(mockedRouteSetAttachedTerminal).toHaveBeenCalledTimes(1);
     const call = mockedRouteSetAttachedTerminal.mock.calls[0]?.[0];
-    expect(call?.sectionId).toBe(genSectionId);
-    expect(call?.terminalSectionId).toBe(terminalId);
+    expect(call?.body.sectionId).toBe(genSectionId);
+    expect(call?.body.terminalSectionId).toBe(terminalId);
   });
 });
