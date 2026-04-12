@@ -13,10 +13,7 @@ import {
   resolveProjectChatWaitingForResponseForSurface,
   shouldProjectChatSkipEngineSyncForContinuation,
 } from "./ProjectChat";
-import {
-  resolveProjectChatHydrationAuthority,
-  resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
-} from "./projectChatHydrationAuthority";
+import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 
 describe("resolveProjectChatThreadVisibilityFromResize", () => {
   it("defaults to chat-only on initial narrow layouts", () => {
@@ -495,34 +492,43 @@ describe("resolveProjectChatSelectedLLMUnavailableReason", () => {
   });
 });
 
-describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
-  it("returns compatible when no chat is selected", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+describe("resolveProjectChatHydrationAuthority", () => {
+  it("derives the current run type when no chat is selected", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: null,
       selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({ status: "compatible" });
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: "llm_chat",
+      blockedErrorCode: null,
+    });
   });
 
-  it("returns warning when selected chat has missing provenance", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("surfaces missing selected-chat provenance once authoritative metadata is ready", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({
-      status: "warning",
-      errorCode: "chat_provenance_missing",
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: null,
+      blockedErrorCode: "chat_provenance_missing",
     });
   });
 
-  it("returns warning when selected chat has missing engine metadata in provenance", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("keeps the selected run type when provenance exists but lacks engine metadata", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
         status: "ready",
@@ -534,65 +540,69 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({
-      status: "warning",
-      errorCode: "chat_provenance_missing",
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: "llm_chat",
+      blockedErrorCode: "chat_provenance_missing",
     });
   });
 
-  it("returns unknown when selected chat provenance is missing from a non-authoritative run snapshot", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("keeps hydration authority unknown when selected provenance is missing and run metadata is non-authoritative", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: false,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({ status: "unknown" });
+
+    expect(authority).toEqual({
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
+    });
   });
 
-  it("returns unknown when selected chat provenance is ambiguous from a non-authoritative run snapshot", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("keeps hydration authority unknown for ambiguous non-authoritative provenance", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: { status: "ambiguous" },
       chatProvenanceAuthoritative: false,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({ status: "unknown" });
-  });
 
-  it("keeps missing selected-chat provenance as a warning once authoritative metadata is ready, even while waiting", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
-      chatId: "chat-1",
-      selectedScopedChatProvenance: { status: "missing" },
-      chatProvenanceAuthoritative: true,
-      engineConfigById: new Map(),
-      engineConfigsAuthoritative: true,
-    });
-    expect(result).toEqual({
-      status: "warning",
-      errorCode: "chat_provenance_missing",
+    expect(authority).toEqual({
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
     });
   });
 
-  it("returns warning when selected chat provenance is ambiguous", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("surfaces ambiguous provenance after authoritative metadata arrives", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: { status: "ambiguous" },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({
-      status: "warning",
-      errorCode: "chat_provenance_missing",
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: null,
+      blockedErrorCode: "chat_provenance_missing",
     });
   });
 
-  it("returns unknown while engine configs are still non-authoritative", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("stays unknown while engine configs are still non-authoritative", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
         status: "ready",
@@ -604,12 +614,18 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: false,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({ status: "unknown" });
+
+    expect(authority).toEqual({
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
+    });
   });
 
-  it("returns warning when engine configs are authoritative but the persisted engine is missing", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("surfaces missing persisted engines after authoritative engine config load", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
         status: "ready",
@@ -621,15 +637,18 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({
-      status: "warning",
-      errorCode: "engine_config_missing",
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: "llm_chat",
+      blockedErrorCode: "engine_config_missing",
     });
   });
 
-  it("returns warning when selected chat run type mismatches persisted engine type", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("surfaces engine type mismatches while preserving the selected run type", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
         status: "ready",
@@ -652,15 +671,18 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
         ],
       ]),
       engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
     });
-    expect(result).toEqual({
-      status: "warning",
-      errorCode: "engine_type_mismatch",
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: "llm_chat",
+      blockedErrorCode: "engine_type_mismatch",
     });
   });
 
-  it("returns compatible when selected chat provenance is available and compatible", () => {
-    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("returns a ready, unblocked authority when selected chat provenance is compatible", () => {
+    const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
         status: "ready",
@@ -683,25 +705,12 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
         ],
       ]),
       engineConfigsAuthoritative: true,
-    });
-    expect(result).toEqual({ status: "compatible" });
-  });
-});
-
-describe("resolveProjectChatHydrationAuthority", () => {
-  it("keeps hydration authority unknown when selected provenance is missing and run metadata is non-authoritative", () => {
-    const authority = resolveProjectChatHydrationAuthority({
-      chatId: "chat-1",
-      selectedScopedChatProvenance: { status: "missing" },
-      chatProvenanceAuthoritative: false,
-      engineConfigById: new Map(),
-      engineConfigsAuthoritative: true,
       engineType: "setta_llm",
     });
 
     expect(authority).toEqual({
-      status: "unknown",
-      hydrationRunType: null,
+      status: "ready",
+      hydrationRunType: "llm_chat",
       blockedErrorCode: null,
     });
   });

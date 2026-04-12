@@ -129,7 +129,7 @@ function resolveSelectedChatRequirement({
   };
 }
 
-export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   chatId,
   selectedScopedChatProvenance,
   chatProvenanceAuthoritative,
