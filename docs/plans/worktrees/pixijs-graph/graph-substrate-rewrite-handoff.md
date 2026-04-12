@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 17:13 UTC
+Last updated: 2026-04-12 17:18 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,31 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `330` reran the canonical main-reference perf lane after the two
+  product-side `interactionReactFlowStateSync` slices on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - no product renderer code changed on this pass
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-interaction-reactflow-state-sync-rerun-stall.md`
+    to record the fresh-lifecycle rerun result
+  - focused verification:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-019/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-019/main-ai.log`
+      -> resolved fresh runtime facts for both worktree and read-only `main`
+      -> reached the canonical Playwright probe and got past runtime startup
+      -> reference `/settings` mounted after about `30.36s`
+      -> failed again on the same worktree phase:
+      `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+  - reading:
+    - this closes the fresh-lifecycle rerun hypothesis for the default
+      canonical cross-worktree probe on the current runtime
+    - the canonical lane should now be treated as unstable for default
+      iteration sequencing until a concrete product slice changes the pane
+      state capture path or another narrowly justified health signal appears
+    - the next bounded frontier should return to product-side perf work inside
+      `interactionReactFlowStateSync` instead of spending another iteration on
+      this same probe-only stall shape
 
 - item `329` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named

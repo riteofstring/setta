@@ -12700,6 +12700,31 @@ settings graph probe phase: worktree: capture initial pane state.`
       healthy lifecycle and verify whether `interactionReactFlowStateSync`
       drops out after the item `328` + `329` reductions
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-12 17:18 UTC
+
+- item `330` reran the canonical main-reference perf lane after the two
+  product-side `interactionReactFlowStateSync` slices on the named
+  `rotaryParamCodeObjDefault` lane:
+  - no product renderer code changed on this pass
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-interaction-reactflow-state-sync-rerun-stall.md`
+    to record the fresh-lifecycle rerun result
+  - verification:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-019/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-019/main-ai.log`
+      -> resolved fresh runtime facts for both worktree and read-only `main`
+      -> reached the canonical probe and advanced past runtime startup
+      -> reference `/settings` mounted after about `30.36s`
+      -> failed again on the same worktree phase:
+      `Timed out after 30000ms during settings graph probe phase: worktree: capture initial pane state.`
+  - result:
+    - this closes the "fresh lifecycle rerun may clear the stall" hypothesis
+      for the default canonical lane on the current runtime
+    - the canonical cross-worktree lane should be treated as unstable for
+      default sequencing until a concrete product slice changes this path
+    - next bounded frontier: return to product-side perf work inside
+      `interactionReactFlowStateSync` instead of opening another probe-only
+      rerun on the same stall shape
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 16:59 UTC
 
 - item `327` landed one bounded probe-helper slice on the canonical
