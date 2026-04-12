@@ -34,6 +34,9 @@ const ReactFlow = () => {
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const darkMode = useLocalStorage((x) => x.darkMode);
+  const isConnecting = useReactFlow(
+    (state) => state.connectionStartHandle !== null,
+  );
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
   const wireColor = useSettings((x) => {
     // If the backend is running an older build, these fields can be missing.
@@ -63,26 +66,6 @@ const ReactFlow = () => {
     setInitialized(true);
   }, []);
 
-  useEffect(() => {
-    const root = ref.current;
-    if (!root) {
-      return;
-    }
-
-    const syncConnectingAttribute = (isConnecting: boolean) => {
-      root.dataset.connecting = isConnecting ? "true" : "false";
-    };
-
-    syncConnectingAttribute(
-      useReactFlow.getState().connectionStartHandle !== null,
-    );
-
-    return useReactFlow.subscribe(
-      (state) => state.connectionStartHandle !== null,
-      syncConnectingAttribute,
-    );
-  }, []);
-
   const readyToRender =
     wrapperDimensions.height > 0 && wrapperDimensions.width > 0;
 
@@ -100,11 +83,7 @@ const ReactFlow = () => {
       data-tab-scope="canvas"
       data-show-agentic-edges={showAgenticEdges ? "true" : "false"}
       data-show-arg-edges={showArgEdges ? "true" : "false"}
-      data-connecting={
-        useReactFlow.getState().connectionStartHandle !== null
-          ? "true"
-          : "false"
-      }
+      data-connecting={isConnecting ? "true" : "false"}
     >
       {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}
