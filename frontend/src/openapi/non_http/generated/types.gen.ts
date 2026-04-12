@@ -5957,6 +5957,31 @@ type StateMachinePermissionModeOption = {
 };
 
 /**
+ * StateMachinePromptSourceOption
+ */
+type StateMachinePromptSourceOption = {
+  label: string;
+  value: StateMachinePromptSourceType;
+};
+
+/**
+ * StateMachinePromptSourceType
+ */
+type StateMachinePromptSourceType =
+  | "inline_prompt"
+  | "prompt_template"
+  | "prompt_section";
+
+/**
+ * StateMachinePromptSourceTypesValue
+ */
+type StateMachinePromptSourceTypesValue = {
+  inline: StateMachinePromptSourceType;
+  promptSection: StateMachinePromptSourceType;
+  promptTemplate: StateMachinePromptSourceType;
+};
+
+/**
  * StateMachineSectionSettings
  */
 type StateMachineSectionSettings = {
@@ -6079,12 +6104,15 @@ type StateMachineThreadStrategyOption = {
  */
 export type StateMachineUIConfigValue = {
   defaultGateType: StateMachineGateType;
+  defaultPromptSourceType: StateMachinePromptSourceType;
   defaultSourceActivationCountOperator: StateMachineCountOperator;
   defaultSourceFilterType: StateMachineSourceFilterType;
   defaultTargetActionType: StateMachineTargetActionType;
   defaultThreadStrategy: StateMachineThreadStrategy;
   gateTypeOptions: null | Array<StateMachineGateTypeOption>;
   permissionModeOptions: null | Array<StateMachinePermissionModeOption>;
+  promptSourceOptions: null | Array<StateMachinePromptSourceOption>;
+  promptSourceTypes: StateMachinePromptSourceTypesValue;
   sourceActivationCountOperatorOptions: null | Array<StateMachineCountOperatorOption>;
   sourceFilterOptions: null | Array<StateMachineSourceFilterTypeOption>;
   targetActionOptions: null | Array<StateMachineTargetActionTypeOption>;

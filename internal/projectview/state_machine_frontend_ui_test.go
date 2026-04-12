@@ -13,6 +13,9 @@ func TestFrontendValueStateMachineUIConfigUsesGoOwnedWorkflowMetadata(t *testing
 	if got, want := config.DefaultGateType, projectstate.StateMachineGateTypeAND; got != want {
 		t.Fatalf("unexpected default gate type: %q", got)
 	}
+	if got, want := config.DefaultPromptSourceType, projectstate.StateMachinePromptSourceTypeInline; got != want {
+		t.Fatalf("unexpected default prompt source type: %q", got)
+	}
 	if got, want := config.DefaultSourceFilterType, projectstate.StateMachineSourceFilterTypeRunCompleted; got != want {
 		t.Fatalf("unexpected default source filter type: %q", got)
 	}
@@ -32,6 +35,22 @@ func TestFrontendValueStateMachineUIConfigUsesGoOwnedWorkflowMetadata(t *testing
 		{Value: projectstate.StateMachineGateTypeXOR, Label: "XOR"},
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected gate type options: %#v", got)
+	}
+
+	if got, want := config.PromptSourceTypes, (StateMachinePromptSourceTypesValue{
+		Inline:         projectstate.StateMachinePromptSourceTypeInline,
+		PromptTemplate: projectstate.StateMachinePromptSourceTypePromptTemplate,
+		PromptSection:  projectstate.StateMachinePromptSourceTypePromptSection,
+	}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected prompt source types: %#v", got)
+	}
+
+	if got, want := config.PromptSourceOptions, []StateMachinePromptSourceOption{
+		{Value: projectstate.StateMachinePromptSourceTypeInline, Label: "Inline Prompt"},
+		{Value: projectstate.StateMachinePromptSourceTypePromptTemplate, Label: "Prompt Template"},
+		{Value: projectstate.StateMachinePromptSourceTypePromptSection, Label: "Prompt Section"},
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected prompt source options: %#v", got)
 	}
 
 	if got, want := config.SourceFilterOptions, []StateMachineSourceFilterTypeOption{

@@ -5353,6 +5353,35 @@
       "schemaRef": "#/$defs/StateMachinePermissionModeOption"
     },
     {
+      "name": "StateMachinePromptSourceOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/StateMachinePromptSourceOption"
+    },
+    {
+      "name": "StateMachinePromptSourceType",
+      "kind": "enum",
+      "schemaRef": "#/$defs/StateMachinePromptSourceType",
+      "enumValues": [
+        {
+          "name": "inline_prompt",
+          "value": "inline_prompt"
+        },
+        {
+          "name": "prompt_template",
+          "value": "prompt_template"
+        },
+        {
+          "name": "prompt_section",
+          "value": "prompt_section"
+        }
+      ]
+    },
+    {
+      "name": "StateMachinePromptSourceTypesValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/StateMachinePromptSourceTypesValue"
+    },
+    {
       "name": "StateMachineSectionSettings",
       "kind": "model",
       "schemaRef": "#/$defs/StateMachineSectionSettings"
@@ -11471,6 +11500,7 @@
       "type": "StateMachineUIConfigValue",
       "value": {
         "defaultGateType": "AND",
+        "defaultPromptSourceType": "inline_prompt",
         "defaultSourceActivationCountOperator": "eq",
         "defaultSourceFilterType": "run_completed",
         "defaultTargetActionType": "reset_thread",
@@ -11503,6 +11533,25 @@
             "value": "config_toml_custom"
           }
         ],
+        "promptSourceOptions": [
+          {
+            "label": "Inline Prompt",
+            "value": "inline_prompt"
+          },
+          {
+            "label": "Prompt Template",
+            "value": "prompt_template"
+          },
+          {
+            "label": "Prompt Section",
+            "value": "prompt_section"
+          }
+        ],
+        "promptSourceTypes": {
+          "inline": "inline_prompt",
+          "promptSection": "prompt_section",
+          "promptTemplate": "prompt_template"
+        },
         "sourceActivationCountOperatorOptions": [
           {
             "label": "\u003c",

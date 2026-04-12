@@ -62,6 +62,14 @@ const (
 	StateMachineCountOperatorGT  StateMachineCountOperator = "gt"
 )
 
+type StateMachinePromptSourceType string
+
+const (
+	StateMachinePromptSourceTypeInline         StateMachinePromptSourceType = "inline_prompt"
+	StateMachinePromptSourceTypePromptTemplate StateMachinePromptSourceType = "prompt_template"
+	StateMachinePromptSourceTypePromptSection  StateMachinePromptSourceType = "prompt_section"
+)
+
 type StateMachineGateUIState struct {
 	ShowDetails bool `json:"showDetails" ts_optional:"true"`
 }
@@ -123,14 +131,6 @@ type stateMachineEdgeEndpoint struct {
 	sectionType string
 	payload     map[string]any
 }
-
-type stateMachineSendPromptSourceKind string
-
-const (
-	stateMachineSendPromptSourceInline         stateMachineSendPromptSourceKind = "inline"
-	stateMachineSendPromptSourcePromptTemplate stateMachineSendPromptSourceKind = "prompt_template"
-	stateMachineSendPromptSourcePromptSection  stateMachineSendPromptSourceKind = "prompt_section"
-)
 
 func (s StateMachineGateUIState) Clone() StateMachineGateUIState {
 	return s
@@ -924,9 +924,9 @@ func (p *Project) validateStateMachineSendPromptAction(
 		return err
 	}
 	switch sourceKind {
-	case stateMachineSendPromptSourcePromptTemplate:
+	case StateMachinePromptSourceTypePromptTemplate:
 		return validateStateMachinePromptTemplateAction(edgeID, targetAction, templates)
-	case stateMachineSendPromptSourcePromptSection:
+	case StateMachinePromptSourceTypePromptSection:
 		return p.validateStateMachinePromptSectionAction(edgeID, targetAction, templates)
 	default:
 		return nil
@@ -936,16 +936,16 @@ func (p *Project) validateStateMachineSendPromptAction(
 func resolveStateMachineSendPromptSource(
 	edgeID string,
 	targetAction *StateMachineTargetAction,
-) (stateMachineSendPromptSourceKind, error) {
-	sourceKinds := make([]stateMachineSendPromptSourceKind, 0, 3)
+) (StateMachinePromptSourceType, error) {
+	sourceKinds := make([]StateMachinePromptSourceType, 0, 3)
 	if targetAction.PromptTemplateID != nil {
-		sourceKinds = append(sourceKinds, stateMachineSendPromptSourcePromptTemplate)
+		sourceKinds = append(sourceKinds, StateMachinePromptSourceTypePromptTemplate)
 	}
 	if targetAction.PromptSectionID != nil {
-		sourceKinds = append(sourceKinds, stateMachineSendPromptSourcePromptSection)
+		sourceKinds = append(sourceKinds, StateMachinePromptSourceTypePromptSection)
 	}
 	if targetAction.InlinePrompt != nil && strings.TrimSpace(*targetAction.InlinePrompt) != "" {
-		sourceKinds = append(sourceKinds, stateMachineSendPromptSourceInline)
+		sourceKinds = append(sourceKinds, StateMachinePromptSourceTypeInline)
 	}
 	if len(sourceKinds) != 1 {
 		return "", stateMachineEdgeInvalidf(

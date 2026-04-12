@@ -10,6 +10,11 @@ var (
 		{Value: projectstate.StateMachineGateTypeOR, Label: "OR"},
 		{Value: projectstate.StateMachineGateTypeXOR, Label: "XOR"},
 	}
+	frontendStateMachinePromptSourceOptions = []StateMachinePromptSourceOption{
+		{Value: projectstate.StateMachinePromptSourceTypeInline, Label: "Inline Prompt"},
+		{Value: projectstate.StateMachinePromptSourceTypePromptTemplate, Label: "Prompt Template"},
+		{Value: projectstate.StateMachinePromptSourceTypePromptSection, Label: "Prompt Section"},
+	}
 	frontendStateMachineSourceFilterOptions = []StateMachineSourceFilterTypeOption{
 		{Value: projectstate.StateMachineSourceFilterTypeRunCompleted, Label: "Run Completed"},
 		{Value: projectstate.StateMachineSourceFilterTypeRunFailed, Label: "Run Failed"},
@@ -48,6 +53,11 @@ type StateMachineGateTypeOption struct {
 	Label string                            `json:"label"`
 }
 
+type StateMachinePromptSourceOption struct {
+	Value projectstate.StateMachinePromptSourceType `json:"value"`
+	Label string                                    `json:"label"`
+}
+
 type StateMachineSourceFilterTypeOption struct {
 	Value projectstate.StateMachineSourceFilterType `json:"value"`
 	Label string                                    `json:"label"`
@@ -73,13 +83,22 @@ type StateMachinePermissionModeOption struct {
 	Label string                          `json:"label"`
 }
 
+type StateMachinePromptSourceTypesValue struct {
+	Inline         projectstate.StateMachinePromptSourceType `json:"inline"`
+	PromptTemplate projectstate.StateMachinePromptSourceType `json:"promptTemplate"`
+	PromptSection  projectstate.StateMachinePromptSourceType `json:"promptSection"`
+}
+
 type StateMachineUIConfigValue struct {
 	DefaultGateType                   projectstate.StateMachineGateType         `json:"defaultGateType"`
+	DefaultPromptSourceType           projectstate.StateMachinePromptSourceType `json:"defaultPromptSourceType"`
 	DefaultSourceFilterType           projectstate.StateMachineSourceFilterType `json:"defaultSourceFilterType"`
 	DefaultTargetActionType           projectstate.StateMachineTargetActionType `json:"defaultTargetActionType"`
 	DefaultThreadStrategy             projectstate.StateMachineThreadStrategy   `json:"defaultThreadStrategy"`
 	DefaultSourceActivationCountOp    projectstate.StateMachineCountOperator    `json:"defaultSourceActivationCountOperator"`
 	GateTypeOptions                   []StateMachineGateTypeOption              `json:"gateTypeOptions"`
+	PromptSourceTypes                 StateMachinePromptSourceTypesValue        `json:"promptSourceTypes"`
+	PromptSourceOptions               []StateMachinePromptSourceOption          `json:"promptSourceOptions"`
 	SourceFilterOptions               []StateMachineSourceFilterTypeOption      `json:"sourceFilterOptions"`
 	TargetActionOptions               []StateMachineTargetActionTypeOption      `json:"targetActionOptions"`
 	ThreadStrategyOptions             []StateMachineThreadStrategyOption        `json:"threadStrategyOptions"`
@@ -90,6 +109,7 @@ type StateMachineUIConfigValue struct {
 func FrontendValueStateMachineUIConfig() StateMachineUIConfigValue {
 	return StateMachineUIConfigValue{
 		DefaultGateType:                projectstate.StateMachineGateTypeAND,
+		DefaultPromptSourceType:        projectstate.StateMachinePromptSourceTypeInline,
 		DefaultSourceFilterType:        projectstate.StateMachineSourceFilterTypeRunCompleted,
 		DefaultTargetActionType:        projectstate.StateMachineTargetActionTypeResetThread,
 		DefaultThreadStrategy:          projectstate.StateMachineThreadStrategyContinueCurrentThread,
@@ -97,6 +117,15 @@ func FrontendValueStateMachineUIConfig() StateMachineUIConfigValue {
 		GateTypeOptions: append(
 			[]StateMachineGateTypeOption(nil),
 			frontendStateMachineGateTypeOptions...,
+		),
+		PromptSourceTypes: StateMachinePromptSourceTypesValue{
+			Inline:         projectstate.StateMachinePromptSourceTypeInline,
+			PromptTemplate: projectstate.StateMachinePromptSourceTypePromptTemplate,
+			PromptSection:  projectstate.StateMachinePromptSourceTypePromptSection,
+		},
+		PromptSourceOptions: append(
+			[]StateMachinePromptSourceOption(nil),
+			frontendStateMachinePromptSourceOptions...,
 		),
 		SourceFilterOptions: append(
 			[]StateMachineSourceFilterTypeOption(nil),

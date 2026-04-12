@@ -14487,6 +14487,42 @@
         "title": "StateMachinePermissionModeOption",
         "type": "object"
       },
+      "StateMachinePromptSourceOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/StateMachinePromptSourceType"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "StateMachinePromptSourceOption",
+        "type": "object"
+      },
+      "StateMachinePromptSourceType": {
+        "enum": ["inline_prompt", "prompt_template", "prompt_section"],
+        "title": "StateMachinePromptSourceType",
+        "type": "string"
+      },
+      "StateMachinePromptSourceTypesValue": {
+        "additionalProperties": false,
+        "properties": {
+          "inline": {
+            "$ref": "#/components/schemas/StateMachinePromptSourceType"
+          },
+          "promptSection": {
+            "$ref": "#/components/schemas/StateMachinePromptSourceType"
+          },
+          "promptTemplate": {
+            "$ref": "#/components/schemas/StateMachinePromptSourceType"
+          }
+        },
+        "required": ["inline", "promptTemplate", "promptSection"],
+        "title": "StateMachinePromptSourceTypesValue",
+        "type": "object"
+      },
       "StateMachineSectionSettings": {
         "additionalProperties": false,
         "properties": {
@@ -14756,6 +14792,9 @@
           "defaultGateType": {
             "$ref": "#/components/schemas/StateMachineGateType"
           },
+          "defaultPromptSourceType": {
+            "$ref": "#/components/schemas/StateMachinePromptSourceType"
+          },
           "defaultSourceActivationCountOperator": {
             "$ref": "#/components/schemas/StateMachineCountOperator"
           },
@@ -14779,6 +14818,15 @@
               "$ref": "#/components/schemas/StateMachinePermissionModeOption"
             },
             "type": ["null", "array"]
+          },
+          "promptSourceOptions": {
+            "items": {
+              "$ref": "#/components/schemas/StateMachinePromptSourceOption"
+            },
+            "type": ["null", "array"]
+          },
+          "promptSourceTypes": {
+            "$ref": "#/components/schemas/StateMachinePromptSourceTypesValue"
           },
           "sourceActivationCountOperatorOptions": {
             "items": {
@@ -14807,11 +14855,14 @@
         },
         "required": [
           "defaultGateType",
+          "defaultPromptSourceType",
           "defaultSourceFilterType",
           "defaultTargetActionType",
           "defaultThreadStrategy",
           "defaultSourceActivationCountOperator",
           "gateTypeOptions",
+          "promptSourceTypes",
+          "promptSourceOptions",
           "sourceFilterOptions",
           "targetActionOptions",
           "threadStrategyOptions",

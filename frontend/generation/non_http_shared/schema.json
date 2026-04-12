@@ -17039,6 +17039,53 @@
       ],
       "additionalProperties": false
     },
+    "StateMachinePromptSourceOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/StateMachinePromptSourceType"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "StateMachinePromptSourceOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "StateMachinePromptSourceType": {
+      "type": "string",
+      "title": "StateMachinePromptSourceType",
+      "enum": [
+        "inline_prompt",
+        "prompt_template",
+        "prompt_section"
+      ]
+    },
+    "StateMachinePromptSourceTypesValue": {
+      "type": "object",
+      "properties": {
+        "inline": {
+          "$ref": "#/$defs/StateMachinePromptSourceType"
+        },
+        "promptTemplate": {
+          "$ref": "#/$defs/StateMachinePromptSourceType"
+        },
+        "promptSection": {
+          "$ref": "#/$defs/StateMachinePromptSourceType"
+        }
+      },
+      "title": "StateMachinePromptSourceTypesValue",
+      "required": [
+        "inline",
+        "promptTemplate",
+        "promptSection"
+      ],
+      "additionalProperties": false
+    },
     "StateMachineSectionSettings": {
       "type": "object",
       "properties": {
@@ -17386,6 +17433,9 @@
         "defaultGateType": {
           "$ref": "#/$defs/StateMachineGateType"
         },
+        "defaultPromptSourceType": {
+          "$ref": "#/$defs/StateMachinePromptSourceType"
+        },
         "defaultSourceFilterType": {
           "$ref": "#/$defs/StateMachineSourceFilterType"
         },
@@ -17405,6 +17455,18 @@
           ],
           "items": {
             "$ref": "#/$defs/StateMachineGateTypeOption"
+          }
+        },
+        "promptSourceTypes": {
+          "$ref": "#/$defs/StateMachinePromptSourceTypesValue"
+        },
+        "promptSourceOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/StateMachinePromptSourceOption"
           }
         },
         "sourceFilterOptions": {
@@ -17456,11 +17518,14 @@
       "title": "StateMachineUIConfigValue",
       "required": [
         "defaultGateType",
+        "defaultPromptSourceType",
         "defaultSourceFilterType",
         "defaultTargetActionType",
         "defaultThreadStrategy",
         "defaultSourceActivationCountOperator",
         "gateTypeOptions",
+        "promptSourceTypes",
+        "promptSourceOptions",
         "sourceFilterOptions",
         "targetActionOptions",
         "threadStrategyOptions",

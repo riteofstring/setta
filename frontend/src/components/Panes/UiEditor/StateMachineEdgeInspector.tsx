@@ -29,9 +29,7 @@ type WorkflowThreadStrategy =
   | "new_thread_before_send";
 type WorkflowCountOperator = StateMachineCountOperator;
 type WorkflowPromptSourceType =
-  | "inline_prompt"
-  | "prompt_template"
-  | "prompt_section";
+  (typeof StateMachineUIConfig.promptSourceTypes)[keyof typeof StateMachineUIConfig.promptSourceTypes];
 
 type WorkflowEdgeInspectorProps = {
   edgeId: string;
@@ -96,9 +94,14 @@ const DEFAULT_THREAD_STRATEGY: WorkflowThreadStrategy =
   StateMachineUIConfig.defaultThreadStrategy as WorkflowThreadStrategy;
 const DEFAULT_SOURCE_ACTIVATION_COUNT_OPERATOR: WorkflowCountOperator =
   StateMachineUIConfig.defaultSourceActivationCountOperator as WorkflowCountOperator;
-const INLINE_PROMPT_SOURCE: WorkflowPromptSourceType = "inline_prompt";
-const PROMPT_TEMPLATE_SOURCE: WorkflowPromptSourceType = "prompt_template";
-const PROMPT_SECTION_SOURCE: WorkflowPromptSourceType = "prompt_section";
+const DEFAULT_PROMPT_SOURCE_TYPE: WorkflowPromptSourceType =
+  StateMachineUIConfig.defaultPromptSourceType;
+const INLINE_PROMPT_SOURCE: WorkflowPromptSourceType =
+  StateMachineUIConfig.promptSourceTypes.inline;
+const PROMPT_TEMPLATE_SOURCE: WorkflowPromptSourceType =
+  StateMachineUIConfig.promptSourceTypes.promptTemplate;
+const PROMPT_SECTION_SOURCE: WorkflowPromptSourceType =
+  StateMachineUIConfig.promptSourceTypes.promptSection;
 
 function buildComboboxItems<T extends string>(
   group: string,
@@ -125,16 +128,10 @@ const TARGET_ACTION_OPTIONS = buildComboboxItems(
   StateMachineUIConfig.targetActionOptions,
 );
 
-const PROMPT_SOURCE_OPTIONS = [
-  {
-    group: "Prompt Source",
-    items: [
-      { id: "inline_prompt", name: "Inline Prompt" },
-      { id: "prompt_template", name: "Prompt Template" },
-      { id: "prompt_section", name: "Prompt Section" },
-    ],
-  },
-];
+const PROMPT_SOURCE_OPTIONS = buildComboboxItems(
+  "Prompt Source",
+  StateMachineUIConfig.promptSourceOptions,
+);
 
 const PROMPT_INPUTS_PLACEHOLDER = '{\n  "name": "Kevin"\n}';
 
@@ -250,7 +247,7 @@ function getInitialPromptSourceType(
 ): WorkflowPromptSourceType {
   const targetAction = edge?.targetAction;
   if (targetAction?.type !== SEND_PROMPT_ACTION_TYPE) {
-    return INLINE_PROMPT_SOURCE;
+    return DEFAULT_PROMPT_SOURCE_TYPE;
   }
   if (targetAction.promptSectionId) {
     return PROMPT_SECTION_SOURCE;
@@ -258,7 +255,7 @@ function getInitialPromptSourceType(
   if (targetAction.promptTemplateId) {
     return PROMPT_TEMPLATE_SOURCE;
   }
-  return INLINE_PROMPT_SOURCE;
+  return DEFAULT_PROMPT_SOURCE_TYPE;
 }
 
 function formatPromptInputsText(promptInputs: Record<string, string>): string {

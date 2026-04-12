@@ -4870,6 +4870,7 @@ export const SettaFilesLocationPolicyConfig = {
 
 export const StateMachineUIConfig = {
   defaultGateType: "AND",
+  defaultPromptSourceType: "inline_prompt",
   defaultSourceActivationCountOperator: "eq",
   defaultSourceFilterType: "run_completed",
   defaultTargetActionType: "reset_thread",
@@ -4884,6 +4885,16 @@ export const StateMachineUIConfig = {
     { label: "Yolo", value: "yolo" },
     { label: "Config TOML Custom", value: "config_toml_custom" },
   ],
+  promptSourceOptions: [
+    { label: "Inline Prompt", value: "inline_prompt" },
+    { label: "Prompt Template", value: "prompt_template" },
+    { label: "Prompt Section", value: "prompt_section" },
+  ],
+  promptSourceTypes: {
+    inline: "inline_prompt",
+    promptSection: "prompt_section",
+    promptTemplate: "prompt_template",
+  },
   sourceActivationCountOperatorOptions: [
     { label: "<", value: "lt" },
     { label: "<=", value: "lte" },
