@@ -185,64 +185,45 @@ function resolveActionSearchLabel(name: string, args: unknown): string {
   return normalizedName || "Action";
 }
 
-function resolveLatestAssistantToolCallSearchText(
+function pushAssistantActivityPreviewSearchText(
   message: BaseChatMessageUnion,
-): string | null {
+  target: Array<string>,
+): void {
+  if (message.role !== ChatRoleEnum.assistant) {
+    return;
+  }
   const toolCalls = message.tool_calls ?? [];
   const latestToolCall = toolCalls[toolCalls.length - 1] as
     | SearchableToolCall
     | undefined;
   const latestToolCallName = latestToolCall?.function?.name;
-  if (typeof latestToolCallName !== "string") {
-    return null;
+  if (typeof latestToolCallName === "string" && latestToolCallName.trim()) {
+    target.push(
+      resolveActionSearchLabel(
+        latestToolCallName,
+        latestToolCall.function?.arguments,
+      ),
+    );
+    return;
   }
-  const normalizedName = latestToolCallName.trim();
-  if (normalizedName.length === 0) {
-    return null;
-  }
-  return resolveActionSearchLabel(
-    normalizedName,
-    latestToolCall.function?.arguments,
-  );
-}
 
-function findLatestThinkingSearchHeadline(
-  content: BaseChatMessageUnion["content"],
-): string | null {
-  if (!Array.isArray(content)) {
-    return null;
+  if (!Array.isArray(message.content)) {
+    return;
   }
-  for (let index = content.length - 1; index >= 0; index -= 1) {
-    const block = content[index];
+  for (let index = message.content.length - 1; index >= 0; index -= 1) {
+    const block = message.content[index];
     if (!isRecord(block) || block.type !== "thinking") {
       continue;
     }
-    return deriveThinkingSearchHeadline(block.thinking, block.summary);
+    const headline = deriveThinkingSearchHeadline(
+      block.thinking,
+      block.summary,
+    );
+    if (headline) {
+      target.push(headline);
+      return;
+    }
   }
-  return null;
-}
-
-function getAssistantActivityPreviewSearchText(
-  message: BaseChatMessageUnion,
-): string | null {
-  if (message.role !== ChatRoleEnum.assistant) {
-    return null;
-  }
-  return (
-    resolveLatestAssistantToolCallSearchText(message) ??
-    findLatestThinkingSearchHeadline(message.content)
-  );
-}
-
-function pushAssistantActivityPreviewSearchText(
-  message: BaseChatMessageUnion,
-  target: Array<string>,
-): void {
-  const previewText = getAssistantActivityPreviewSearchText(message);
-  if (!previewText) {
-    return;
-  }
-  target.push(previewText);
 }
 
 function collectContentBlockSearchText(
