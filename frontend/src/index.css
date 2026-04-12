@@ -219,14 +219,6 @@
   border-left: 2px solid rgb(251 191 36);
 }
 
-[data-testid="graph-substrate-canary"][data-viewport-interaction-active="true"]
-  [data-setta-viewport-interaction-shell="true"] {
-  will-change: transform;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  isolation: isolate;
-}
-
 .setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnostic.cm-diagnosticInfo,
 .setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnostic.cm-diagnostic-info {
   border-left: 2px solid rgb(56 189 248);

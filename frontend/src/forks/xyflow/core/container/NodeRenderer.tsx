@@ -9,8 +9,14 @@ import { useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { computeReadyToBeVisible } from "../store/utils";
 import { containerStyle } from "../styles";
+import type { ReactFlowState } from "../types";
+
+const selector = (s: ReactFlowState) => ({
+  panActivationKeyPressed: s.panActivationKeyPressed,
+});
 
 const NodeRenderer = () => {
+  const { panActivationKeyPressed } = useReactFlow(selector, shallow);
   // The getNodes selector has to use the "shallow" comparison
   // and not _.isEqual, otherwise it only re-renders every other update,
   // even though the MiniMap component uses the exact same hook and comparison fn
@@ -46,6 +52,7 @@ const NodeRenderer = () => {
         <NodeWrapper
           key={nodeId}
           id={nodeId}
+          isDraggable={!panActivationKeyPressed}
           resizeObserver={resizeObserver}
           visibility={readyToBeVisible ? "visible" : "hidden"}
         />

@@ -16,36 +16,6 @@ import {
   createSettingsState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const hoistedProjectChatWindowing = vi.hoisted(() => ({
-  createTopLevelSectionWithResult: vi.fn(),
-  routeSetProjectChatWindowingState: vi.fn(),
-  routeSetProjectChatWindowChatId: vi.fn(),
-}));
-
-vi.mock("forks/xyflow/core/store", () => ({
-  useReactFlow: {
-    getState: () => ({
-      transform: [0, 0, 1],
-      d3Zoom: null,
-      d3Selection: null,
-      domNode: null,
-    }),
-  },
-}));
-
-vi.mock("./sections/createSections", () => ({
-  createTopLevelSectionWithResult:
-    hoistedProjectChatWindowing.createTopLevelSectionWithResult,
-}));
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_set_project_chat_windowing_state: (...args: unknown[]) =>
-    hoistedProjectChatWindowing.routeSetProjectChatWindowingState(...args),
-  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
-    hoistedProjectChatWindowing.routeSetProjectChatWindowChatId(...args),
-}));
-
 import {
   addProjectChatWindowInstanceInState,
   bootProjectChatWindowToCanvasSection,
@@ -78,7 +48,43 @@ import {
   unmaximizeProjectChatWindow,
   unmaximizeProjectChatWindowInState,
 } from "./projectChatWindowing";
-
+const hoistedProjectChatWindowing = vi.hoisted(() => ({
+  createTopLevelSectionWithResult: vi.fn(),
+  routeSetProjectChatWindowingState: vi.fn(),
+  routeSetProjectChatWindowChatId: vi.fn(),
+}));
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: {
+    getState: () => ({
+      transform: [0, 0, 1],
+      d3Zoom: null,
+      d3Selection: null,
+      domNode: null,
+    }),
+  },
+}));
+vi.mock("./sections/createSections", () => ({
+  createTopLevelSectionWithResult:
+    hoistedProjectChatWindowing.createTopLevelSectionWithResult,
+}));
+vi.mock("openapi/http", () => ({
+  setProjectChatWindowingState: (...args: unknown[]) =>
+    hoistedProjectChatWindowing.routeSetProjectChatWindowingState(...args),
+  setProjectChatWindowChatId: (...args: unknown[]) =>
+    hoistedProjectChatWindowing.routeSetProjectChatWindowChatId(...args),
+}));
+function createOpenAPIDataResponse<TData>(
+  data: TData,
+  status: number = 200,
+): {
+  data: TData;
+  response: Response;
+} {
+  return {
+    data,
+    response: new Response(null, { status }),
+  };
+}
 describe("project chat windowing reducer helpers", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -90,29 +96,23 @@ describe("project chat windowing reducer helpers", () => {
     hoistedProjectChatWindowing.routeSetProjectChatWindowingState.mockReset();
     hoistedProjectChatWindowing.routeSetProjectChatWindowingState.mockImplementation(
       async (request: {
-        state: ReturnType<typeof createProjectChatWindowingState>;
-      }) => ({
-        data: request.state,
-        status: 200,
-        hasResponse: true,
-      }),
+        body: {
+          state: ReturnType<typeof createProjectChatWindowingState>;
+        };
+      }) => createOpenAPIDataResponse(request.body.state),
     );
     hoistedProjectChatWindowing.routeSetProjectChatWindowChatId.mockReset();
     hoistedProjectChatWindowing.routeSetProjectChatWindowChatId.mockImplementation(
-      async () => ({
-        data: useProjectState.getState().projectChatWindowing,
-        status: 200,
-        hasResponse: true,
-      }),
+      async () =>
+        createOpenAPIDataResponse(
+          useProjectState.getState().projectChatWindowing,
+        ),
     );
   });
-
   it("creates an open bottom-docked chat window instance by default", () => {
     // New instances should open docked so the dock owns the initial layout.
     const initial = createProjectChatWindowingState();
-
     const { state, instanceId } = addProjectChatWindowInstanceInState(initial);
-
     expect(instanceId).toBe("project-chat-window-1");
     const created = state.instancesById[instanceId];
     if (!created) {
@@ -123,7 +123,36 @@ describe("project chat windowing reducer helpers", () => {
     expect(created.isMinimized).toBe(false);
     expect(state.order).toEqual([instanceId]);
   });
-
+  it("keeps an explicit numeric instance id and advances the next instance number", () => {
+    const initial = createProjectChatWindowingState({
+      nextInstanceNumber: 2,
+    });
+    const { state, instanceId } = addProjectChatWindowInstanceInState(initial, {
+      instanceId: "project-chat-window-8",
+      nowMs: 1234,
+    });
+    expect(instanceId).toBe("project-chat-window-8");
+    expect(state.nextInstanceNumber).toBe(9);
+    expect(state.instancesById[instanceId]).toMatchObject({
+      instanceId,
+      lastFocusedAt: 1234,
+    });
+  });
+  it("resolves default bounds when creating a floating window without explicit bounds", () => {
+    const { state, instanceId } = addProjectChatWindowInstanceInState(
+      createProjectChatWindowingState(),
+      {
+        placement: ChatWindowPlacementEnum.floating,
+        nowMs: 5678,
+      },
+    );
+    expect(state.instancesById[instanceId]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      isMaximized: false,
+      lastFocusedAt: 5678,
+    });
+    expect(state.instancesById[instanceId]?.bounds).not.toBeNull();
+  });
   it("resolves default docked chat height from the viewport height", () => {
     // Default docked windows should take seventy percent of the viewport, clamped to the dock space.
     expect(
@@ -134,7 +163,6 @@ describe("project chat windowing reducer helpers", () => {
       }),
     ).toBe(630);
   });
-
   it("resolves default floating chat bounds in the center at seventy percent viewport height", () => {
     // Explicit floating windows should open centered within the floating work area.
     const bounds = resolveDefaultFloatingChatBounds({
@@ -143,7 +171,6 @@ describe("project chat windowing reducer helpers", () => {
       workspaceTopInsetPx: 40,
       bottomInsetPx: 0,
     });
-
     expect(bounds).toEqual({
       x: 310,
       y: 155,
@@ -151,7 +178,6 @@ describe("project chat windowing reducer helpers", () => {
       height: 630,
     });
   });
-
   it("maximizes and restores the previous placement", () => {
     // Unmaximize should return the instance to the exact prior placement.
     const baseInstance = createProjectChatWindowInstance({
@@ -169,7 +195,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const maximized = maximizeProjectChatWindowInState(
       initial,
       baseInstance.instanceId,
@@ -183,7 +208,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(maximizedInstance.lastPlacementBeforeMaximize).toBe(
       ChatWindowPlacementEnum.floating,
     );
-
     const restored = unmaximizeProjectChatWindowInState(
       maximized,
       baseInstance.instanceId,
@@ -202,7 +226,6 @@ describe("project chat windowing reducer helpers", () => {
       height: 560,
     });
   });
-
   it("falls back to bottom-docked placement when restorePriorStateOnUnmaximize is disabled", () => {
     const baseInstance = createProjectChatWindowInstance({
       instanceId: "chat-window-a",
@@ -221,13 +244,11 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const restored = unmaximizeProjectChatWindowInState(
       initial,
       baseInstance.instanceId,
       false,
     );
-
     expect(restored.instancesById[baseInstance.instanceId]).toMatchObject({
       isMaximized: false,
       placement: ChatWindowPlacementEnum.bottom_docked,
@@ -240,7 +261,6 @@ describe("project chat windowing reducer helpers", () => {
       },
     });
   });
-
   it("reuses the tracked git pane graph window until it leaves the pane-following state", () => {
     const firstInstanceId = ensureTrackedGitPaneGraphWindow();
     const firstWindowing = useProjectState.getState().projectChatWindowing;
@@ -253,17 +273,14 @@ describe("project chat windowing reducer helpers", () => {
     expect(firstWindowing.instancesById[firstInstanceId]?.placement).toBe(
       ChatWindowPlacementEnum.maximized,
     );
-
     const reusedInstanceId = ensureTrackedGitPaneGraphWindow();
     const reusedWindowing = useProjectState.getState().projectChatWindowing;
     expect(reusedInstanceId).toBe(firstInstanceId);
     expect(Object.keys(reusedWindowing.instancesById)).toHaveLength(1);
-
     unmaximizeProjectChatWindow(firstInstanceId);
     expect(
       useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
     ).toBeNull();
-
     const secondInstanceId = ensureTrackedGitPaneGraphWindow();
     const secondWindowing = useProjectState.getState().projectChatWindowing;
     expect(secondInstanceId).not.toBe(firstInstanceId);
@@ -277,7 +294,6 @@ describe("project chat windowing reducer helpers", () => {
       buildProjectChatEphemeralWindowInstanceKey("project-1", secondInstanceId),
     );
   });
-
   it("treats close as a true close and allows reopen", () => {
     // Close should hide the window without also leaving it in the minimized tray.
     const baseInstance = createProjectChatWindowInstance({
@@ -288,7 +304,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const closed = closeProjectChatWindowInState(
       initial,
       baseInstance.instanceId,
@@ -299,7 +314,6 @@ describe("project chat windowing reducer helpers", () => {
     }
     expect(closedInstance.isClosed).toBe(true);
     expect(closedInstance.isMinimized).toBe(false);
-
     const reopened = reopenProjectChatWindowInState(
       closed,
       baseInstance.instanceId,
@@ -311,7 +325,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(reopenedInstance.isClosed).toBe(false);
     expect(reopenedInstance.isMinimized).toBe(false);
   });
-
   it("clears embedded git-pane visibility when a graph window closes", () => {
     useProjectState.setState({
       projectChatWindowing: createProjectChatWindowingState({
@@ -332,14 +345,11 @@ describe("project chat windowing reducer helpers", () => {
         )]: true,
       },
     });
-
     closeProjectChatWindow("graph-window-1");
-
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
     ).toEqual({});
   });
-
   it("minimizes without closing and allows reopen", () => {
     // Minimize should keep the window in the tray instead of treating it as closed.
     const baseInstance = createProjectChatWindowInstance({
@@ -350,7 +360,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const minimized = minimizeProjectChatWindowInState(
       initial,
       baseInstance.instanceId,
@@ -361,7 +370,6 @@ describe("project chat windowing reducer helpers", () => {
     }
     expect(minimizedInstance.isClosed).toBe(false);
     expect(minimizedInstance.isMinimized).toBe(true);
-
     const reopened = reopenProjectChatWindowInState(
       minimized,
       baseInstance.instanceId,
@@ -373,7 +381,6 @@ describe("project chat windowing reducer helpers", () => {
       false,
     );
   });
-
   it("focuses windows by assigning increasing z-index", () => {
     // Bringing a window to front should bump z-index above all others.
     const first = createProjectChatWindowInstance({
@@ -392,7 +399,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [first.instanceId, second.instanceId],
       nextInstanceNumber: 3,
     });
-
     const focused = focusProjectChatWindowInState(
       initial,
       first.instanceId,
@@ -405,7 +411,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(focusedInstance.zIndex).toBe(3);
     expect(focusedInstance.lastFocusedAt).toBe(1234);
   });
-
   it("refreshes focus time without changing z-index for the unique topmost window", () => {
     const topmost = createProjectChatWindowInstance({
       instanceId: "chat-window-top",
@@ -425,19 +430,16 @@ describe("project chat windowing reducer helpers", () => {
       order: [background.instanceId, topmost.instanceId],
       nextInstanceNumber: 3,
     });
-
     const focused = focusProjectChatWindowInState(
       initial,
       topmost.instanceId,
       2222,
     );
-
     expect(focused.instancesById[topmost.instanceId]).toMatchObject({
       zIndex: 3,
       lastFocusedAt: 2222,
     });
   });
-
   it("breaks top-layer ties before focusing a window", () => {
     const target = createProjectChatWindowInstance({
       instanceId: "chat-window-target",
@@ -457,20 +459,17 @@ describe("project chat windowing reducer helpers", () => {
       order: [target.instanceId, currentWinner.instanceId],
       nextInstanceNumber: 3,
     });
-
     const focused = focusProjectChatWindowInState(
       initial,
       target.instanceId,
       2222,
     );
-
     expect(focused.instancesById[target.instanceId]).toMatchObject({
       zIndex: 3,
       lastFocusedAt: 2222,
     });
     expect(focused.instancesById[currentWinner.instanceId]?.zIndex).toBe(2);
   });
-
   it("updates multiple floating windows in a single reducer pass", () => {
     // Shared snap split drags should commit every affected snapped window together.
     const first = createProjectChatWindowInstance({
@@ -501,7 +500,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [first.instanceId, second.instanceId],
       nextInstanceNumber: 3,
     });
-
     const updated = setProjectChatWindowBoundsByIdInState(initial, {
       [first.instanceId]: {
         width: 560,
@@ -511,12 +509,10 @@ describe("project chat windowing reducer helpers", () => {
         width: 800,
       },
     });
-
     expect(updated.instancesById[first.instanceId]?.bounds.width).toBe(560);
     expect(updated.instancesById[second.instanceId]?.bounds.x).toBe(600);
     expect(updated.instancesById[second.instanceId]?.bounds.width).toBe(800);
   });
-
   it("returns only visible windows in normalized order", () => {
     // Visibility list should ignore closed and minimized windows and normalize duplicate order ids.
     const first = createProjectChatWindowInstance({
@@ -546,15 +542,12 @@ describe("project chat windowing reducer helpers", () => {
       order: [first.instanceId, first.instanceId, second.instanceId],
       nextInstanceNumber: 5,
     });
-
     const visible = getVisibleProjectChatWindowInstances(initial);
-
     expect(visible.map((instance) => instance.instanceId)).toEqual([
       first.instanceId,
       fourth.instanceId,
     ]);
   });
-
   it("tracks previous placement when setting maximized placement directly", () => {
     // Direct placement updates to maximized should still preserve restore target.
     const baseInstance = createProjectChatWindowInstance({
@@ -566,7 +559,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const next = setProjectChatWindowPlacementInState(
       initial,
       baseInstance.instanceId,
@@ -580,7 +572,6 @@ describe("project chat windowing reducer helpers", () => {
       ChatWindowPlacementEnum.canvas_section,
     );
   });
-
   it("stores a custom title for a plain project chat window", () => {
     // Plain project chats need a persisted title so their headers can rename like sections.
     const baseInstance = createProjectChatWindowInstance({
@@ -592,7 +583,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const next = setProjectChatWindowTitleInState(
       initial,
       baseInstance.instanceId,
@@ -604,7 +594,6 @@ describe("project chat windowing reducer helpers", () => {
     }
     expect(updated.title).toBe("Coast Bear");
   });
-
   it("drops custom titles for section-backed windows", () => {
     const baseInstance = createProjectChatWindowInstance({
       instanceId: "chat-window-a",
@@ -616,16 +605,13 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const next = setProjectChatWindowTitleInState(
       initial,
       baseInstance.instanceId,
       "Ignored Title",
     );
-
     expect(next.instancesById[baseInstance.instanceId]?.title).toBeNull();
   });
-
   it("updates dock width fractions and preferred widths for known instances", () => {
     // Resizing dock splits should persist normalized fractions for subsequent renders.
     const first = createProjectChatWindowInstance({
@@ -642,7 +628,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [first.instanceId, second.instanceId],
       nextInstanceNumber: 3,
     });
-
     const next = setProjectChatWindowDockFractionsInState(initial, {
       widthFractionsByInstanceId: {
         [first.instanceId]: 0.6,
@@ -650,7 +635,6 @@ describe("project chat windowing reducer helpers", () => {
       },
       dockContainerWidthPx: 1000,
     });
-
     const nextFirst = next.instancesById[first.instanceId];
     const nextSecond = next.instancesById[second.instanceId];
     if (!nextFirst || !nextSecond) {
@@ -661,7 +645,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(nextFirst.dockMetrics.preferredWidthPx).toBe(600);
     expect(nextSecond.dockMetrics.preferredWidthPx).toBe(400);
   });
-
   it("ignores invalid dock metric updates and returns original state", () => {
     // Invalid fractions and unknown ids must not mutate project chat windowing state.
     const first = createProjectChatWindowInstance({
@@ -674,7 +657,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [first.instanceId],
       nextInstanceNumber: 2,
     });
-
     const next = setProjectChatWindowDockFractionsInState(initial, {
       widthFractionsByInstanceId: {
         "missing-window": 0.4,
@@ -682,10 +664,8 @@ describe("project chat windowing reducer helpers", () => {
       },
       dockContainerWidthPx: 1000,
     });
-
     expect(next).toBe(initial);
   });
-
   it("updates chat window bounds for valid values", () => {
     // Floating drags/resizes should persist in the window manager state.
     const baseInstance = createProjectChatWindowInstance({
@@ -704,7 +684,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const next = setProjectChatWindowBoundsInState(
       initial,
       baseInstance.instanceId,
@@ -726,7 +705,6 @@ describe("project chat windowing reducer helpers", () => {
       height: 610,
     });
   });
-
   it("ignores invalid bounds updates and returns original state", () => {
     // Non-finite numbers and non-positive size values must not mutate bounds.
     const baseInstance = createProjectChatWindowInstance({
@@ -739,7 +717,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [baseInstance.instanceId],
       nextInstanceNumber: 2,
     });
-
     const next = setProjectChatWindowBoundsInState(
       initial,
       baseInstance.instanceId,
@@ -750,10 +727,8 @@ describe("project chat windowing reducer helpers", () => {
         height: -1,
       },
     );
-
     expect(next).toBe(initial);
   });
-
   it("moves a chat window to canvas placement as a section-backed chat and reopens it", () => {
     // Booting to canvas should convert the window to real section mode before binding it.
     const target = createProjectChatWindowInstance({
@@ -776,7 +751,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [target.instanceId, peer.instanceId],
       nextInstanceNumber: 3,
     });
-
     const next = moveProjectChatWindowToCanvasSectionInState(
       initial,
       target.instanceId,
@@ -797,7 +771,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(updated.zIndex).toBe(4);
     expect(updated.lastFocusedAt).toBe(4321);
   });
-
   it("moves a project-ai chat window to canvas without forcing section mode", () => {
     // Plain project chat windows should keep their project-ai surface when moved into a canvas section.
     const target = createProjectChatWindowInstance({
@@ -820,7 +793,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [target.instanceId, peer.instanceId],
       nextInstanceNumber: 3,
     });
-
     const next = moveProjectChatWindowToCanvasSectionInState(
       initial,
       target.instanceId,
@@ -842,7 +814,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(updated.zIndex).toBe(4);
     expect(updated.lastFocusedAt).toBe(6789);
   });
-
   it("keeps git graph windows out of canvas state", () => {
     const target = createProjectChatWindowInstance({
       instanceId: "chat-window-a",
@@ -864,7 +835,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [target.instanceId, peer.instanceId],
       nextInstanceNumber: 3,
     });
-
     const next = moveProjectChatWindowToCanvasSectionInState(
       initial,
       target.instanceId,
@@ -874,14 +844,11 @@ describe("project chat windowing reducer helpers", () => {
         mode: ChatWindowModeEnum.git_graph_mode,
       },
     );
-
     expect(next).toBe(initial);
   });
-
   it("returns original state when moving an unknown window to canvas", () => {
     // Unknown ids must not mutate state.
     const initial = createProjectChatWindowingState();
-
     const next = moveProjectChatWindowToCanvasSectionInState(
       initial,
       "missing-window",
@@ -889,12 +856,10 @@ describe("project chat windowing reducer helpers", () => {
         sectionId: "section-1",
       },
     );
-
     expect(next).toBe(initial);
   });
-
-  it("resolves section chat mode from the preferred section-bound window", () => {
-    // Canvas/floating bindings should win over docked bindings for section render mode.
+  it("resolves section chat mode from the first section-bound window in normalized order", () => {
+    // Invalid duplicate bindings are backend-owned; the frontend should not invent a local winner.
     const docked = createProjectChatWindowInstance({
       instanceId: "chat-window-docked",
       placement: ChatWindowPlacementEnum.bottom_docked,
@@ -917,16 +882,14 @@ describe("project chat windowing reducer helpers", () => {
       order: [docked.instanceId, canvas.instanceId],
       nextInstanceNumber: 3,
     });
-
     expect(
       getProjectChatWindowModeForSectionInState(initial, "section-1"),
-    ).toBe(ChatWindowModeEnum.section_mode);
+    ).toBe(ChatWindowModeEnum.project_ai_mode);
     expect(getProjectChatWindowModeForSectionInState(initial, "missing")).toBe(
       ChatWindowModeEnum.section_mode,
     );
   });
-
-  it("matches backend normalization for exact duplicate section-binding ties", () => {
+  it("does not arbitrate exact duplicate section-binding ties locally", () => {
     const lowerId = createProjectChatWindowInstance({
       instanceId: "project-chat-window-1",
       placement: ChatWindowPlacementEnum.floating,
@@ -953,13 +916,11 @@ describe("project chat windowing reducer helpers", () => {
       order: [lowerId.instanceId, higherId.instanceId],
       nextInstanceNumber: 3,
     });
-
     expect(
       getProjectChatWindowBindingForSectionInState(initial, "section-1")
         ?.instanceId,
-    ).toBe(higherId.instanceId);
+    ).toBe(lowerId.instanceId);
   });
-
   it("updates the bound section window mode when switching chat mode", () => {
     // Mode switches should persist through the section-bound project chat window instance.
     const target = createProjectChatWindowInstance({
@@ -980,7 +941,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [target.instanceId, peer.instanceId],
       nextInstanceNumber: 3,
     });
-
     const next = setProjectChatWindowModeForSectionInState(
       initial,
       "section-1",
@@ -993,16 +953,13 @@ describe("project chat windowing reducer helpers", () => {
       ChatWindowModeEnum.section_mode,
     );
   });
-
   it("creates a canvas binding when switching an unbound section into project-ai mode", () => {
     const initial = createProjectChatWindowingState();
-
     const next = setProjectChatWindowModeForSectionInState(
       initial,
       "section-1",
       ChatWindowModeEnum.project_ai_mode,
     );
-
     expect(next).not.toBe(initial);
     expect(next.order).toHaveLength(1);
     const created = next.instancesById[next.order[0] ?? ""];
@@ -1015,19 +972,15 @@ describe("project chat windowing reducer helpers", () => {
     expect(created.placement).toBe(ChatWindowPlacementEnum.canvas_section);
     expect(created.mode).toBe(ChatWindowModeEnum.project_ai_mode);
   });
-
   it("keeps section mode implicit when no binding exists yet", () => {
     const initial = createProjectChatWindowingState();
-
     const next = setProjectChatWindowModeForSectionInState(
       initial,
       "missing-section",
       ChatWindowModeEnum.section_mode,
     );
-
     expect(next).toBe(initial);
   });
-
   it("clears live window-owned chat ids when a bound section window switches to section mode", () => {
     const sectionWindow = createProjectChatWindowInstance({
       instanceId: "section-window-1",
@@ -1043,19 +996,16 @@ describe("project chat windowing reducer helpers", () => {
       },
       nextInstanceNumber: 2,
     });
-
     const next = setProjectChatWindowModeForSectionInState(
       initial,
       "section-1",
       ChatWindowModeEnum.section_mode,
     );
-
     expect(next.instancesById[sectionWindow.instanceId]).toMatchObject({
       mode: ChatWindowModeEnum.section_mode,
       chatId: null,
     });
   });
-
   it("keeps section-backed project-ai threads out of the global active project chat", () => {
     const sectionWindow = createProjectChatWindowInstance({
       instanceId: "chat-window-section",
@@ -1073,9 +1023,7 @@ describe("project chat windowing reducer helpers", () => {
       });
     });
     useAIStore.setState({ activeChatId: "global-chat" });
-
     setProjectChatWindowChatId(sectionWindow.instanceId, "section-chat");
-
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         sectionWindow.instanceId
@@ -1083,7 +1031,6 @@ describe("project chat windowing reducer helpers", () => {
     ).toBe("section-chat");
     expect(useAIStore.getState().activeChatId).toBe("global-chat");
   });
-
   it("ignores window chat-id writes for section-mode windows", async () => {
     const sectionWindow = createProjectChatWindowInstance({
       instanceId: "chat-window-section-mode",
@@ -1100,10 +1047,8 @@ describe("project chat windowing reducer helpers", () => {
         nextInstanceNumber: 2,
       });
     });
-
     setProjectChatWindowChatId(sectionWindow.instanceId, "section-chat");
     await flushPendingProjectChatWindowingWrites();
-
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         sectionWindow.instanceId
@@ -1113,7 +1058,6 @@ describe("project chat windowing reducer helpers", () => {
       hoistedProjectChatWindowing.routeSetProjectChatWindowChatId,
     ).not.toHaveBeenCalled();
   });
-
   it("ignores window chat-id writes for git-graph windows", async () => {
     const gitGraphWindow = createProjectChatWindowInstance({
       instanceId: "chat-window-git-graph",
@@ -1129,10 +1073,8 @@ describe("project chat windowing reducer helpers", () => {
         nextInstanceNumber: 2,
       });
     });
-
     setProjectChatWindowChatId(gitGraphWindow.instanceId, "git-thread");
     await flushPendingProjectChatWindowingWrites();
-
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         gitGraphWindow.instanceId
@@ -1142,7 +1084,6 @@ describe("project chat windowing reducer helpers", () => {
       hoistedProjectChatWindowing.routeSetProjectChatWindowChatId,
     ).not.toHaveBeenCalled();
   });
-
   it("updates the global active project chat for unscoped project-ai windows", () => {
     const projectWindow = createProjectChatWindowInstance({
       instanceId: "chat-window-project",
@@ -1160,9 +1101,7 @@ describe("project chat windowing reducer helpers", () => {
       });
     });
     useAIStore.setState({ activeChatId: "global-chat" });
-
     setProjectChatWindowChatId(projectWindow.instanceId, "project-chat");
-
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         projectWindow.instanceId
@@ -1170,7 +1109,6 @@ describe("project chat windowing reducer helpers", () => {
     ).toBe("project-chat");
     expect(useAIStore.getState().activeChatId).toBe("project-chat");
   });
-
   it("reads restorePriorStateOnUnmaximize from settings when unmaximizing a live window", async () => {
     const baseInstance = createProjectChatWindowInstance({
       instanceId: "chat-window-settings",
@@ -1198,10 +1136,8 @@ describe("project chat windowing reducer helpers", () => {
         nextInstanceNumber: 2,
       });
     });
-
     unmaximizeProjectChatWindow(baseInstance.instanceId);
     await flushPendingProjectChatWindowingWrites();
-
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         baseInstance.instanceId
@@ -1212,7 +1148,6 @@ describe("project chat windowing reducer helpers", () => {
       lastPlacementBeforeMaximize: null,
     });
   });
-
   it("undocks a canvas-section window back to floating and focuses it", () => {
     // Canvas undock should restore floating placement and keep the section binding.
     const target = createProjectChatWindowInstance({
@@ -1235,7 +1170,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [target.instanceId, peer.instanceId],
       nextInstanceNumber: 3,
     });
-
     const next = undockProjectChatWindowFromCanvasSectionInState(
       initial,
       target.instanceId,
@@ -1254,7 +1188,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(updated.zIndex).toBe(4);
     expect(updated.lastFocusedAt).toBe(9876);
   });
-
   it("finds the visible external section window even when a canvas binding also exists", () => {
     const canvas = createProjectChatWindowInstance({
       instanceId: "chat-window-canvas",
@@ -1276,7 +1209,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [canvas.instanceId, docked.instanceId],
       nextInstanceNumber: 3,
     });
-
     expect(
       getOpenExternalProjectChatWindowInstanceForSectionInState(
         initial,
@@ -1284,7 +1216,6 @@ describe("project chat windowing reducer helpers", () => {
       )?.instanceId,
     ).toBe(docked.instanceId);
   });
-
   it("keeps the non-canvas section binding authoritative even when hidden", () => {
     const hiddenFloating = createProjectChatWindowInstance({
       instanceId: "chat-window-hidden",
@@ -1307,7 +1238,6 @@ describe("project chat windowing reducer helpers", () => {
       order: [canvas.instanceId, hiddenFloating.instanceId],
       nextInstanceNumber: 3,
     });
-
     expect(
       getExternalProjectChatWindowBindingForSectionInState(initial, "section-1")
         ?.instanceId,
@@ -1319,7 +1249,6 @@ describe("project chat windowing reducer helpers", () => {
       ),
     ).toBeNull();
   });
-
   it("shows an existing section binding in a floating window without resetting its mode", () => {
     const canvas = createProjectChatWindowInstance({
       instanceId: "chat-window-canvas",
@@ -1335,9 +1264,7 @@ describe("project chat windowing reducer helpers", () => {
       order: [canvas.instanceId],
       nextInstanceNumber: 2,
     });
-
     const next = showSectionInProjectChatWindowInState(initial, "section-1");
-
     expect(next.instancesById[canvas.instanceId]?.placement).toBe(
       ChatWindowPlacementEnum.floating,
     );
@@ -1347,12 +1274,9 @@ describe("project chat windowing reducer helpers", () => {
     expect(next.instancesById[canvas.instanceId]?.isClosed).toBe(false);
     expect(next.instancesById[canvas.instanceId]?.isMinimized).toBe(false);
   });
-
   it("creates a new floating section window when a section has not been externalized yet", () => {
     const initial = createProjectChatWindowingState();
-
     const next = showSectionInProjectChatWindowInState(initial, "section-7");
-
     const created = next.instancesById["project-chat-window-1"];
     if (!created) {
       throw new Error("Expected a newly created section window.");
@@ -1361,19 +1285,22 @@ describe("project chat windowing reducer helpers", () => {
     expect(created.placement).toBe(ChatWindowPlacementEnum.floating);
     expect(created.mode).toBe(ChatWindowModeEnum.section_mode);
   });
-
   it("rebases canvas boot on the latest windowing state after async section creation", async () => {
-    let resolveCreated: ((value: { sectionId: string } | null) => void) | null =
-      null;
-    const createdPromise = new Promise<{ sectionId: string } | null>(
-      (resolve) => {
-        resolveCreated = resolve;
-      },
-    );
+    let resolveCreated:
+      | ((
+          value: {
+            sectionId: string;
+          } | null,
+        ) => void)
+      | null = null;
+    const createdPromise = new Promise<{
+      sectionId: string;
+    } | null>((resolve) => {
+      resolveCreated = resolve;
+    });
     hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockReturnValue(
       createdPromise,
     );
-
     const target = createProjectChatWindowInstance({
       instanceId: "chat-window-target",
       placement: ChatWindowPlacementEnum.floating,
@@ -1406,18 +1333,13 @@ describe("project chat windowing reducer helpers", () => {
         nextInstanceNumber: 3,
       });
     });
-
     const bootPromise = bootProjectChatWindowToCanvasSection(target.instanceId);
-
     setProjectChatWindowBounds(peer.instanceId, {
       x: 920,
       y: 640,
     });
-
     resolveCreated?.({ sectionId: "section-created" });
-
     await expect(bootPromise).resolves.toBe("section-created");
-
     const finalState = useProjectState.getState().projectChatWindowing;
     expect(finalState.instancesById[target.instanceId]?.placement).toBe(
       ChatWindowPlacementEnum.canvas_section,
@@ -1432,7 +1354,6 @@ describe("project chat windowing reducer helpers", () => {
       height: 360,
     });
   });
-
   it("passes the current window title into atomic canvas boot and clears it after binding", async () => {
     hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockResolvedValue(
       {
@@ -1453,11 +1374,9 @@ describe("project chat windowing reducer helpers", () => {
         nextInstanceNumber: 2,
       });
     });
-
     await expect(
       bootProjectChatWindowToCanvasSection(target.instanceId),
     ).resolves.toBe("section-created");
-
     expect(
       hoistedProjectChatWindowing.createTopLevelSectionWithResult,
     ).toHaveBeenCalledWith(
@@ -1471,7 +1390,6 @@ describe("project chat windowing reducer helpers", () => {
       ]?.title,
     ).toBeNull();
   });
-
   it("does not boot git graph windows into canvas sections", async () => {
     const target = createProjectChatWindowInstance({
       instanceId: "chat-window-target",
@@ -1488,7 +1406,6 @@ describe("project chat windowing reducer helpers", () => {
         nextInstanceNumber: 2,
       });
     });
-
     await expect(
       bootProjectChatWindowToCanvasSection(target.instanceId),
     ).resolves.toBeNull();
