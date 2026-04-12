@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 12:29 UTC
+Last updated: 2026-04-14 12:40 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,66 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `468` completed one bounded `ParamGroupContainer`-boundary cleanup on the
+  canonical `rotaryParamCodeObjDefault` lane by collapsing the repeated
+  pinned/unpinned/edge-strip section-data derivation into one container-level
+  selector:
+  - code/test changes kept in the tree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now derives filtered pinned/unpinned params, edge-strip ports, selected
+      params, and section-style inputs once in
+      `buildParamGroupContainerSectionData(...)`, then passes those slices down
+      to `EdgesStrip`, `GetPinnedParams`, and `GetUnpinnedParams`
+    - perf note:
+      `perf/reports/frontend/2026-04-14_settings-graph-param-group-shared-section-data-derivation.md`
+  - focused verification:
+    - `source activate.sh && pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `5` tests)
+    - `pnpm -C frontend exec prettier --write src/components/Params/GroupContainer.tsx`
+      -> passed
+    - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-028/worktree-ai.log`
+      -> refreshed runtime facts before live verification
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-028/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.5m`)
+      -> canonical live readout stayed
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+      -> compared with item `467`, this cleanup improved overall frame and long
+         task totals but did not reduce the dominant narrow owners:
+         `averageFrameDurationMs 43.02 -> 41.29`,
+         `longTaskTotalDurationMs 1221 -> 1162`,
+         `ParamGroupContainer 521.5ms -> 530.0ms`,
+         `ParamGroupUnpinnedParams 459.2ms -> 466.9ms`,
+         `UnpinnedParamDndListRows 444.9ms -> 447.5ms`
+    - required fresh-context CDP check:
+      -> passed
+      -> `/settings` loaded cleanly with `All Settings` active,
+         `rotaryParamCodeObjDefault` visibly reachable, and no obvious
+         blank-card, detached-body, or severe rendering artifact on the canary
+         surface
+  - reading:
+    - this closes the shared section-data derivation cleanup as
+      behavior-preserving but non-winning on the live hotspot
+    - the next slice should stay on the same canonical lane but make a real
+      owner reduction in `ParamGroupContainer` / `ParamGroupUnpinnedParams` or
+      take the first justified scene-owned static body cut instead of more
+      derivation cleanup at the same boundary
+
+- Progress review checkpoint for loop `001` run `027`:
+  - the loop is still worthwhile because runs `025` through `027` returned to
+    product work on the canonical `rotaryParamCodeObjDefault` lane and item
+    `466` produced a measurable live canary win
+  - the recent drag is that runs `018` through `024` spent too much budget on
+    oracle/lifecycle recovery, and item `467` showed another nearby cache cut
+    can eliminate its own bucket while still making the lane worse overall
+  - sharpened rule for the next autonomous pass:
+    - do not take another adjacent row-local cache/memo/proximity cut
+    - choose exactly one broader slice at the current dominant-owner boundary:
+      `ParamGroupContainer` fanout/mount reduction,
+      `ParamGroupUnpinnedParams` fanout/mount reduction,
+      or the first bounded scene-owned static body cut
+    - if fresh evidence cannot justify one of those broader slices, stop for
+      human replan instead of continuing automatically
 
 - item `467` completed one bounded product cut inside the canonical
   `rotaryParamCodeObjDefault` unpinned branch by caching the param

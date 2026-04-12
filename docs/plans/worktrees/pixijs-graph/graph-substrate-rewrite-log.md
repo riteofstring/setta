@@ -198,6 +198,118 @@ Record:
     live worktree, preferring another section-wide wrapper/body owner
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-14 12:40 UTC
+
+- item `468` completed one bounded `ParamGroupContainer`-boundary cleanup on
+  the canonical `rotaryParamCodeObjDefault` lane by collapsing the repeated
+  pinned/unpinned/edge-strip section-data derivation into one container-level
+  selector in `frontend/src/components/Params/GroupContainer.tsx`
+- focused verification:
+  - `source activate.sh && pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    -> passed (`2` files, `5` tests)
+  - `pnpm -C frontend exec prettier --write src/components/Params/GroupContainer.tsx`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-028/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.5m`)
+  - fresh-context CDP check
+    -> passed; `/settings` rendered cleanly with `All Settings` active,
+       `rotaryParamCodeObjDefault` visibly reachable, and no obvious
+       blank-card, detached-body, or severe rendering artifact
+- canonical live readout versus item `467`:
+  - `averageFrameDurationMs` `43.02 -> 41.29`
+  - `longTaskTotalDurationMs` `1221 -> 1162`
+  - `presentedSceneSectionParamGroupContainerReactRender`
+    `521.5ms -> 530.0ms`
+  - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+    `459.2ms -> 466.9ms`
+  - `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+    `444.9ms -> 447.5ms`
+- reading:
+  - this cleanup kept the lane healthy and slightly improved overall frame/long
+    task totals versus the last non-winning baseline, but it did not reduce the
+    dominant narrow owners
+  - close the shared-derivation cleanup lane here instead of doing more
+    equivalent data-hoisting at the same boundary
+  - next: take one real owner reduction in `ParamGroupContainer` /
+    `ParamGroupUnpinnedParams` or the first justified scene-owned static body
+    cut on the same canonical lane
+- LOOP_TERMINAL_MARKER: none
+## 2026-04-14 12:40 UTC
+
+- item `468` completed one bounded `ParamGroupContainer`-boundary cleanup on
+  the canonical `rotaryParamCodeObjDefault` lane by collapsing the repeated
+  pinned/unpinned/edge-strip section-data derivation into one container-level
+  selector in `frontend/src/components/Params/GroupContainer.tsx`
+- focused verification:
+  - `source activate.sh && pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    -> passed (`2` files, `5` tests)
+  - `pnpm -C frontend exec prettier --write src/components/Params/GroupContainer.tsx`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-028/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.5m`)
+  - fresh-context CDP check
+    -> passed; `/settings` rendered cleanly with `All Settings` active,
+       `rotaryParamCodeObjDefault` visibly reachable, and no obvious
+       blank-card, detached-body, or severe rendering artifact
+- canonical live readout versus item `467`:
+  - `averageFrameDurationMs` `43.02 -> 41.29`
+  - `longTaskTotalDurationMs` `1221 -> 1162`
+  - `presentedSceneSectionParamGroupContainerReactRender`
+    `521.5ms -> 530.0ms`
+  - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+    `459.2ms -> 466.9ms`
+  - `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+    `444.9ms -> 447.5ms`
+- reading:
+  - this cleanup kept the lane healthy and slightly improved overall frame/long
+    task totals versus the last non-winning baseline, but it did not reduce the
+    dominant narrow owners
+  - close the shared-derivation cleanup lane here instead of doing more
+    equivalent data-hoisting at the same boundary
+  - next: take one real owner reduction in `ParamGroupContainer` /
+    `ParamGroupUnpinnedParams` or the first justified scene-owned static body
+    cut on the same canonical lane
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 13:02 UTC
+
+- Item: Progress review checkpoint after loop `001` run `027`.
+- Status: `done`
+- Details:
+  - reviewed:
+    - `RALPH.md`
+    - the durable plan and handoff
+    - recent loop runs `018` through `027`
+  - conclusion:
+    - the stretch still shows meaningful forward progress, so the loop remains
+      worth continuing
+    - real product progress resumed in runs `025` through `027` on the
+      canonical `rotaryParamCodeObjDefault` lane, and item `466` was a clear
+      measured win on the live canary
+    - the main drag in this checkpoint was not product confusion but budget
+      leakage into probe/lifecycle recovery across runs `018` through `024`
+      plus one adjacent non-winning cache cut in item `467`
+  - real red herrings / diminishing returns:
+    - another row-adjacent cache or memo cut by proximity is now the clearest
+      low-yield rabbit hole on this lane
+    - item `467` is the strongest evidence: it removed its targeted
+      duplicate-index bucket entirely while the canonical lane regressed
+      overall
+    - verifier-recovery work was justified to restore the lane, but that
+      support lane is no longer a good default frontier while the canonical
+      Playwright probe is healthy again
+  - durable direction change recorded in the plan/handoff:
+    - the next autonomous pass must choose exactly one broader owner slice:
+      `ParamGroupContainer` fanout/mount reduction,
+      `ParamGroupUnpinnedParams` fanout/mount reduction,
+      or the first bounded scene-owned static body cut
+    - if fresh evidence cannot justify one of those broader slices, the loop
+      should stop for human replan instead of taking another nearby
+      micro-optimization
+- Next action:
+  - continue only under the sharpened plan: take one broader canonical-lane
+    product cut above the row-adjacent memo/cache seam, then judge the result
+    against item `466` before spending more loop budget
 
 ## 2026-04-14 07:58 UTC
 
@@ -19394,3 +19506,39 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupContainer`, `ParamGroupUnpinnedParams`, or the first bounded
     scene-owned static body cut
 LOOP_TERMINAL_MARKER: none
+## 2026-04-14 12:40 UTC
+
+- item `468` completed one bounded `ParamGroupContainer`-boundary cleanup on
+  the canonical `rotaryParamCodeObjDefault` lane by collapsing the repeated
+  pinned/unpinned/edge-strip section-data derivation into one container-level
+  selector in `frontend/src/components/Params/GroupContainer.tsx`
+- focused verification:
+  - `source activate.sh && pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    -> passed (`2` files, `5` tests)
+  - `pnpm -C frontend exec prettier --write src/components/Params/GroupContainer.tsx`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-028/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.5m`)
+  - fresh-context CDP check
+    -> passed; `/settings` rendered cleanly with `All Settings` active,
+       `rotaryParamCodeObjDefault` visibly reachable, and no obvious
+       blank-card, detached-body, or severe rendering artifact
+- canonical live readout versus item `467`:
+  - `averageFrameDurationMs` `43.02 -> 41.29`
+  - `longTaskTotalDurationMs` `1221 -> 1162`
+  - `presentedSceneSectionParamGroupContainerReactRender`
+    `521.5ms -> 530.0ms`
+  - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+    `459.2ms -> 466.9ms`
+  - `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+    `444.9ms -> 447.5ms`
+- reading:
+  - this cleanup kept the lane healthy and slightly improved overall frame/long
+    task totals versus the last non-winning baseline, but it did not reduce the
+    dominant narrow owners
+  - close the shared-derivation cleanup lane here instead of doing more
+    equivalent data-hoisting at the same boundary
+  - next: take one real owner reduction in `ParamGroupContainer` /
+    `ParamGroupUnpinnedParams` or the first justified scene-owned static body
+    cut on the same canonical lane
+- LOOP_TERMINAL_MARKER: none
