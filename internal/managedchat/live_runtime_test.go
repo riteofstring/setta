@@ -337,3 +337,79 @@ func TestLiveRuntimeAIFollowSnapshotClearsOnDeactivate(t *testing.T) {
 		t.Fatalf("expected snapshot to clear on deactivate, got %#v", snapshot)
 	}
 }
+
+func TestApplyToolCallDeltaUpdatesExistingToolCall(t *testing.T) {
+	t.Parallel()
+
+	messages := []map[string]any{
+		userMessage("user-1", "Hello"),
+		{
+			"id":          "assistant-1",
+			"role":        "assistant",
+			"content":     []any{},
+			"attachments": []any{},
+			"tool_calls": []any{
+				map[string]any{
+					"id": "tool-1",
+					"function": map[string]any{
+						"name": "previous",
+					},
+				},
+			},
+		},
+	}
+
+	updated := applyToolCallDelta(messages, " assistant-1 ", " tool-1 ", stringPtr("setta__run_tool"))
+
+	if got := stringValue(messages[1]["tool_calls"].([]any)[0].(map[string]any)["type"]); got != "" {
+		t.Fatalf("expected input tool call to remain unchanged, got type %q", got)
+	}
+	toolCalls := updated[1]["tool_calls"].([]any)
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected one updated tool call, got %#v", toolCalls)
+	}
+	toolCall := toolCalls[0].(map[string]any)
+	if got := stringValue(toolCall["type"]); got != "function" {
+		t.Fatalf("expected missing type to default to function, got %#v", toolCall)
+	}
+	function := toolCall["function"].(map[string]any)
+	if got := stringValue(function["name"]); got != "setta__run_tool" {
+		t.Fatalf("expected tool call name update, got %#v", function)
+	}
+	if _, ok := function["arguments"].(map[string]any); !ok {
+		t.Fatalf("expected tool call arguments object, got %#v", function["arguments"])
+	}
+}
+
+func TestApplyToolCallDeltaCreatesAssistantPlaceholder(t *testing.T) {
+	t.Parallel()
+
+	messages := []map[string]any{
+		userMessage("user-1", "Hello"),
+	}
+
+	updated := applyToolCallDelta(messages, "assistant-1", "tool-1", stringPtr("setta__run_tool"))
+
+	if len(updated) != 2 {
+		t.Fatalf("expected assistant placeholder to be appended, got %#v", updated)
+	}
+	assistant := updated[1]
+	if got := stringValue(assistant["id"]); got != "assistant-1" {
+		t.Fatalf("expected assistant message id, got %#v", assistant)
+	}
+	if got := stringValue(assistant["role"]); got != "assistant" {
+		t.Fatalf("expected assistant role, got %#v", assistant)
+	}
+	toolCalls := assistant["tool_calls"].([]any)
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected one tool call placeholder, got %#v", toolCalls)
+	}
+	toolCall := toolCalls[0].(map[string]any)
+	if got := stringValue(toolCall["id"]); got != "tool-1" {
+		t.Fatalf("expected tool call id tool-1, got %#v", toolCall)
+	}
+	function := toolCall["function"].(map[string]any)
+	if got := stringValue(function["name"]); got != "setta__run_tool" {
+		t.Fatalf("expected tool call name, got %#v", function)
+	}
+}

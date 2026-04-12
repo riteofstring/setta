@@ -490,9 +490,8 @@ func applyThinkingDelta(content []any, delta realtime.MessageThinkingDelta) []an
 }
 
 func applyToolCallDelta(messages []map[string]any, messageID string, toolCallID string, toolName *string) []map[string]any {
-	trimmedMessageID := strings.TrimSpace(messageID)
-	trimmedToolCallID := strings.TrimSpace(toolCallID)
-	if trimmedMessageID == "" || trimmedToolCallID == "" {
+	trimmedMessageID, trimmedToolCallID, ok := normalizeToolCallDeltaIDs(messageID, toolCallID)
+	if !ok {
 		return cloneMessageSlice(messages)
 	}
 	updated := ensureAssistantMessage(messages, trimmedMessageID)
@@ -501,52 +500,81 @@ func applyToolCallDelta(messages []map[string]any, messageID string, toolCallID 
 		return updated
 	}
 	message := cloneAnyMap(updated[index])
-	rawToolCalls, _ := message["tool_calls"].([]any)
-	toolCalls := cloneContentList(rawToolCalls)
-	name := ""
-	if toolName != nil {
-		name = strings.TrimSpace(*toolName)
+	message["tool_calls"] = upsertMessageToolCall(
+		message["tool_calls"],
+		trimmedToolCallID,
+		normalizeToolCallName(toolName),
+	)
+	updated[index] = message
+	return updated
+}
+
+func normalizeToolCallDeltaIDs(messageID string, toolCallID string) (string, string, bool) {
+	trimmedMessageID := strings.TrimSpace(messageID)
+	trimmedToolCallID := strings.TrimSpace(toolCallID)
+	if trimmedMessageID == "" || trimmedToolCallID == "" {
+		return "", "", false
 	}
+	return trimmedMessageID, trimmedToolCallID, true
+}
+
+func normalizeToolCallName(toolName *string) string {
+	if toolName == nil {
+		return ""
+	}
+	return strings.TrimSpace(*toolName)
+}
+
+func upsertMessageToolCall(rawToolCalls any, toolCallID string, toolName string) []any {
+	toolCalls := cloneContentList(rawToolCalls)
 	for entryIndex, rawEntry := range toolCalls {
-		toolCall, ok := rawEntry.(map[string]any)
+		updatedToolCall, ok := updateMessageToolCallEntry(rawEntry, toolCallID, toolName)
 		if !ok {
 			continue
 		}
-		if strings.TrimSpace(stringValue(toolCall["id"])) != trimmedToolCallID {
-			continue
-		}
-		nextToolCall := cloneAnyMap(toolCall)
-		function, _ := nextToolCall["function"].(map[string]any)
-		function = cloneAnyMap(function)
-		if function == nil {
-			function = map[string]any{}
-		}
-		if name != "" {
-			function["name"] = name
-		}
-		if _, ok := function["arguments"]; !ok {
-			function["arguments"] = map[string]any{}
-		}
-		if _, ok := nextToolCall["type"]; !ok {
-			nextToolCall["type"] = "function"
-		}
-		nextToolCall["function"] = function
-		toolCalls[entryIndex] = nextToolCall
-		message["tool_calls"] = toolCalls
-		updated[index] = message
-		return updated
+		toolCalls[entryIndex] = updatedToolCall
+		return toolCalls
 	}
-	toolCalls = append(toolCalls, map[string]any{
-		"id":   trimmedToolCallID,
+	return append(toolCalls, newMessageToolCallEntry(toolCallID, toolName))
+}
+
+func updateMessageToolCallEntry(rawEntry any, toolCallID string, toolName string) (map[string]any, bool) {
+	toolCall, ok := rawEntry.(map[string]any)
+	if !ok || strings.TrimSpace(stringValue(toolCall["id"])) != toolCallID {
+		return nil, false
+	}
+	nextToolCall := cloneAnyMap(toolCall)
+	if _, ok := nextToolCall["type"]; !ok {
+		nextToolCall["type"] = "function"
+	}
+	nextToolCall["function"] = normalizeMessageToolCallFunction(nextToolCall["function"], toolName)
+	return nextToolCall, true
+}
+
+func normalizeMessageToolCallFunction(rawFunction any, toolName string) map[string]any {
+	function, _ := rawFunction.(map[string]any)
+	function = cloneAnyMap(function)
+	if function == nil {
+		function = map[string]any{}
+	}
+	if toolName != "" {
+		function["name"] = toolName
+	}
+	if _, ok := function["arguments"]; !ok {
+		function["arguments"] = map[string]any{}
+	}
+	return function
+}
+
+func newMessageToolCallEntry(toolCallID string, toolName string) map[string]any {
+	return map[string]any{
+		"id":   toolCallID,
 		"type": "function",
 		"function": map[string]any{
-			"name":      name,
+			"name":      toolName,
 			"arguments": map[string]any{},
 		},
-	})
-	message["tool_calls"] = toolCalls
-	updated[index] = message
-	return updated
+	}
 }
 
 func appendToolCallArgumentsDelta(
