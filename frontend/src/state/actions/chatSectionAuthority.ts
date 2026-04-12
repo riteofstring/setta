@@ -2,6 +2,7 @@ import { setChatSectionState } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImplIfPresent,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
@@ -9,47 +10,123 @@ import { useProjectState, type ZustandProjectState } from "state/definitions";
 import {
   BaseChatMessageUnion,
   ChatSectionBranch,
+  ChatSectionImpl,
   ChatSectionState,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";
 import { reconcileHydratedChatMessages } from "./chatMergeUtils";
+
+type HydratedChatIncoming = {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+};
+
+type ChatSectionStateSnapshot = Pick<
+  ChatSectionState,
+  | "messages"
+  | "inputText"
+  | "waitingForResponse"
+  | "toolCallArguments"
+  | "activeBranchId"
+  | "branches"
+>;
+
+function cloneChatBranches(
+  branches: Record<string, ChatSectionBranch> | undefined,
+): Record<string, ChatSectionBranch> {
+  if (!branches) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(branches).map(([branchId, branch]) => [
+      branchId,
+      {
+        ...branch,
+        messages: [...(branch.messages ?? [])],
+      },
+    ]),
+  );
+}
+
+function cloneChatSectionStateSnapshot(
+  state: Partial<ChatSectionStateSnapshot>,
+): ChatSectionState {
+  return {
+    messages: [...(state.messages ?? [])],
+    inputText: state.inputText ?? "",
+    waitingForResponse: Boolean(state.waitingForResponse),
+    toolCallArguments: { ...(state.toolCallArguments ?? {}) },
+    activeBranchId: state.activeBranchId ?? null,
+    branches: cloneChatBranches(state.branches),
+  };
+}
+
+function normalizeHydratedChatIncoming(
+  incoming: HydratedChatIncoming,
+): HydratedChatIncoming {
+  return {
+    messages: [...(incoming.messages ?? [])],
+    waitingForResponse: Boolean(incoming.waitingForResponse),
+    toolCallArguments: { ...(incoming.toolCallArguments ?? {}) },
+  };
+}
+
+function resolveHydratedWaitingForResponse({
+  preserveWaitingForResponse,
+  incomingWaitingForResponse,
+  currentWaitingForResponse,
+}: {
+  preserveWaitingForResponse: boolean;
+  incomingWaitingForResponse: boolean;
+  currentWaitingForResponse: boolean;
+}): boolean {
+  if (!preserveWaitingForResponse) {
+    return incomingWaitingForResponse;
+  }
+  return incomingWaitingForResponse || currentWaitingForResponse;
+}
+
+function isChatSectionImpl(
+  value: ReturnType<typeof getCurrEffectiveSectionImplIfPresent>,
+): value is ChatSectionImpl {
+  return value?.type === SectionTypeEnum.Chat;
+}
+
 function mergeHydratedChatSectionState(
   currentState: ChatSectionState,
-  incoming: {
-    messages: Array<BaseChatMessageUnion>;
-    waitingForResponse: boolean;
-    toolCallArguments: Record<string, string>;
-  },
+  incoming: HydratedChatIncoming,
   preserveWaitingForResponse: boolean,
 ): ChatSectionState {
+  const currentSnapshot = cloneChatSectionStateSnapshot(currentState);
+  const normalizedIncoming = normalizeHydratedChatIncoming(incoming);
   // Section chat state is a projection of backend-authored managed chat
   // messages plus narrow local UI overlays. Hydration replaces message rows
   // authoritatively and preserves only the section draft input plus
   // stream-owned waiting/tool-call overlays while a local stream is active.
   const mergedMessages = reconcileHydratedChatMessages({
-    backendMessages: incoming.messages ?? [],
-    localMessages: currentState.messages ?? [],
-  });
-  const nextWaitingForResponse = preserveWaitingForResponse
-    ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
-    : Boolean(incoming.waitingForResponse);
-  const nextToolCallArguments = resolveHydratedToolCallArguments({
-    backendToolCallArguments: incoming.toolCallArguments ?? {},
-    localToolCallArguments: currentState.toolCallArguments ?? {},
-    preserveLocalOverlay: preserveWaitingForResponse,
+    backendMessages: normalizedIncoming.messages,
+    localMessages: currentSnapshot.messages,
   });
   const nextBranches = syncHydratedActiveBranchMessages({
-    branches: currentState.branches ?? {},
-    activeBranchId: currentState.activeBranchId ?? null,
+    branches: currentSnapshot.branches,
+    activeBranchId: currentSnapshot.activeBranchId,
     messages: mergedMessages,
   });
   return {
+    ...currentSnapshot,
     messages: mergedMessages,
-    inputText: currentState.inputText ?? "",
-    waitingForResponse: nextWaitingForResponse,
-    toolCallArguments: nextToolCallArguments,
-    activeBranchId: currentState.activeBranchId ?? null,
+    waitingForResponse: resolveHydratedWaitingForResponse({
+      preserveWaitingForResponse,
+      incomingWaitingForResponse: normalizedIncoming.waitingForResponse,
+      currentWaitingForResponse: currentSnapshot.waitingForResponse,
+    }),
+    toolCallArguments: resolveHydratedToolCallArguments({
+      backendToolCallArguments: normalizedIncoming.toolCallArguments,
+      localToolCallArguments: currentSnapshot.toolCallArguments,
+      preserveLocalOverlay: preserveWaitingForResponse,
+    }),
     branches: nextBranches,
   };
 }
@@ -158,45 +235,9 @@ export function getChatSectionStateFromStore(
   state: ZustandProjectState,
   sectionId: string,
 ): ChatSectionState | null {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
+  const effective = getCurrEffectiveSectionImplIfPresent(state, sectionId);
+  if (!isChatSectionImpl(effective)) {
     return null;
   }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return null;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return null;
-  }
-  const core = state.sections[sectionId];
-  if (!core) {
-    return null;
-  }
-  const effective = {
-    ...impl,
-    ...core.sharedModifier,
-    ...variant.modifier,
-  };
-  if (effective.type !== SectionTypeEnum.Chat) {
-    return null;
-  }
-  const chatImpl = effective as {
-    type: SectionTypeEnum.Chat;
-    messages: BaseChatMessageUnion[];
-    inputText: string;
-    waitingForResponse: boolean;
-    toolCallArguments: Record<string, string>;
-    activeBranchId?: string | null;
-    branches?: Record<string, ChatSectionBranch>;
-  };
-  return {
-    messages: [...(chatImpl.messages ?? [])],
-    inputText: chatImpl.inputText ?? "",
-    waitingForResponse: Boolean(chatImpl.waitingForResponse),
-    toolCallArguments: { ...(chatImpl.toolCallArguments ?? {}) },
-    activeBranchId: chatImpl.activeBranchId ?? null,
-    branches: { ...(chatImpl.branches ?? {}) },
-  };
+  return cloneChatSectionStateSnapshot(effective);
 }
