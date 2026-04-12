@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { gitOverlayLayerTestApi } from "./GitOverlayLayer";
+
+import { isEditableEscapeTarget } from "./gitOverlayLayerUtils";
 
 type HTMLElementLikeCtor = new (...args: unknown[]) => object;
 
@@ -20,7 +21,7 @@ function setHTMLElementCtor(ctor: HTMLElementLikeCtor | undefined): void {
   });
 }
 
-describe("gitOverlayLayerTestApi.isEditableEscapeTarget", () => {
+describe("isEditableEscapeTarget", () => {
   const originalHTMLElement = (
     globalThis as { HTMLElement?: HTMLElementLikeCtor }
   ).HTMLElement;
@@ -37,37 +38,27 @@ describe("gitOverlayLayerTestApi.isEditableEscapeTarget", () => {
     const target = new FakeHTMLElement();
     target.isContentEditable = true;
 
-    expect(
-      gitOverlayLayerTestApi.isEditableEscapeTarget(
-        target as unknown as EventTarget,
-      ),
-    ).toBe(true);
+    expect(isEditableEscapeTarget(target as unknown as EventTarget)).toBe(true);
   });
 
   it("returns true for targets inside editable form controls", () => {
     const target = new FakeHTMLElement();
     target.closestResult = {};
 
-    expect(
-      gitOverlayLayerTestApi.isEditableEscapeTarget(
-        target as unknown as EventTarget,
-      ),
-    ).toBe(true);
+    expect(isEditableEscapeTarget(target as unknown as EventTarget)).toBe(true);
   });
 
   it("returns false for non-editable targets", () => {
     const target = new FakeHTMLElement();
 
-    expect(
-      gitOverlayLayerTestApi.isEditableEscapeTarget(
-        target as unknown as EventTarget,
-      ),
-    ).toBe(false);
+    expect(isEditableEscapeTarget(target as unknown as EventTarget)).toBe(
+      false,
+    );
   });
 
   it("returns false when HTMLElement is unavailable", () => {
     setHTMLElementCtor(undefined);
 
-    expect(gitOverlayLayerTestApi.isEditableEscapeTarget(null)).toBe(false);
+    expect(isEditableEscapeTarget(null)).toBe(false);
   });
 });

@@ -1,85 +1,53 @@
 import { describe, expect, it } from "vitest";
 
-import { gitDiffCodeMirrorTestApi } from "./GitDiffCodeMirror";
+import {
+  analyzeDiffLine,
+  parserForPath,
+  shouldSyntaxHighlightLine,
+} from "./gitDiffCodeMirrorUtils";
 
-describe("gitDiffCodeMirrorTestApi.classifyDiffLine", () => {
+describe("analyzeDiffLine", () => {
   it("classifies diff structural lines with stable classes", () => {
-    expect(
-      gitDiffCodeMirrorTestApi.classifyDiffLine("diff --git a/a.txt b/a.txt"),
-    ).toBe("cm-gitdiff-meta");
-    expect(
-      gitDiffCodeMirrorTestApi.classifyDiffLine("@@ -1,2 +1,3 @@"),
-    ).toBe("cm-gitdiff-hunk");
-    expect(gitDiffCodeMirrorTestApi.classifyDiffLine("--- a/a.txt")).toBe(
-      "cm-gitdiff-file",
+    expect(analyzeDiffLine("diff --git a/a.txt b/a.txt").lineClass).toBe(
+      "cm-gitdiff-meta",
     );
-    expect(gitDiffCodeMirrorTestApi.classifyDiffLine("+++ b/a.txt")).toBe(
-      "cm-gitdiff-file",
+    expect(analyzeDiffLine("@@ -1,2 +1,3 @@").lineClass).toBe(
+      "cm-gitdiff-hunk",
     );
-    expect(gitDiffCodeMirrorTestApi.classifyDiffLine("+added")).toBe(
-      "cm-gitdiff-add",
-    );
-    expect(gitDiffCodeMirrorTestApi.classifyDiffLine("-removed")).toBe(
-      "cm-gitdiff-del",
-    );
+    expect(analyzeDiffLine("--- a/a.txt").lineClass).toBe("cm-gitdiff-file");
+    expect(analyzeDiffLine("+++ b/a.txt").lineClass).toBe("cm-gitdiff-file");
+    expect(analyzeDiffLine("+added").lineClass).toBe("cm-gitdiff-add");
+    expect(analyzeDiffLine("-removed").lineClass).toBe("cm-gitdiff-del");
   });
 
   it("returns null for non-diff content lines", () => {
-    expect(gitDiffCodeMirrorTestApi.classifyDiffLine(" unchanged")).toBeNull();
-    expect(gitDiffCodeMirrorTestApi.classifyDiffLine("")).toBeNull();
+    expect(analyzeDiffLine(" unchanged").lineClass).toBeNull();
+    expect(analyzeDiffLine("").lineClass).toBeNull();
   });
 });
 
-describe("gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine", () => {
+describe("shouldSyntaxHighlightLine", () => {
   it("highlights only code-bearing context/add/del lines", () => {
-    expect(gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine(" context")).toBe(
-      true,
-    );
-    expect(gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine("+added")).toBe(
-      true,
-    );
-    expect(gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine("-removed")).toBe(
-      true,
-    );
+    expect(shouldSyntaxHighlightLine(" context")).toBe(true);
+    expect(shouldSyntaxHighlightLine("+added")).toBe(true);
+    expect(shouldSyntaxHighlightLine("-removed")).toBe(true);
   });
 
   it("skips syntax highlighting for metadata and hunk headers", () => {
-    expect(
-      gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine("@@ -1 +1 @@"),
-    ).toBe(false);
-    expect(
-      gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine(
-        "diff --git a/a.txt b/a.txt",
-      ),
-    ).toBe(false);
-    expect(
-      gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine(
-        "index 111..222 100644",
-      ),
-    ).toBe(false);
-    expect(
-      gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine("--- a/a.txt"),
-    ).toBe(false);
-    expect(
-      gitDiffCodeMirrorTestApi.shouldSyntaxHighlightLine("+++ b/a.txt"),
-    ).toBe(false);
+    expect(shouldSyntaxHighlightLine("@@ -1 +1 @@")).toBe(false);
+    expect(shouldSyntaxHighlightLine("diff --git a/a.txt b/a.txt")).toBe(false);
+    expect(shouldSyntaxHighlightLine("index 111..222 100644")).toBe(false);
+    expect(shouldSyntaxHighlightLine("--- a/a.txt")).toBe(false);
+    expect(shouldSyntaxHighlightLine("+++ b/a.txt")).toBe(false);
   });
 });
 
-describe("gitDiffCodeMirrorTestApi.parserForPath", () => {
+describe("parserForPath", () => {
   it("resolves JSON, YAML, and TOML parser implementations from file extensions", () => {
-    const jsonParser = gitDiffCodeMirrorTestApi.parserForPath(
-      "configs/app-config.json",
-    );
-    const yamlParser = gitDiffCodeMirrorTestApi.parserForPath(
-      "configs/app-config.yaml",
-    );
-    const ymlParser = gitDiffCodeMirrorTestApi.parserForPath(
-      "configs/app-config.yml",
-    );
-    const tomlParser = gitDiffCodeMirrorTestApi.parserForPath(
-      "configs/app-config.toml",
-    );
+    const jsonParser = parserForPath("configs/app-config.json");
+    const yamlParser = parserForPath("configs/app-config.yaml");
+    const ymlParser = parserForPath("configs/app-config.yml");
+    const tomlParser = parserForPath("configs/app-config.toml");
 
     expect(jsonParser).not.toBeNull();
     expect(yamlParser).not.toBeNull();
@@ -90,8 +58,6 @@ describe("gitDiffCodeMirrorTestApi.parserForPath", () => {
   });
 
   it("returns null for unsupported file extensions", () => {
-    expect(
-      gitDiffCodeMirrorTestApi.parserForPath("configs/app-config.txt"),
-    ).toBeNull();
+    expect(parserForPath("configs/app-config.txt")).toBeNull();
   });
 });
