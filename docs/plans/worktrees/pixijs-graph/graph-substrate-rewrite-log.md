@@ -18357,3 +18357,59 @@ LOOP_TERMINAL_MARKER: none
     `presentedSceneSectionSubtreeReactRender` owner once the live CDP gate is
     trustworthy again or explicitly deferred
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 17:25 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
+- checked the last few completed slices before choosing the next task:
+  - recent accepted work was already inside the unpinned `ParamDndList` / row
+    frontier (`GetParamSwitch` memo boundary)
+  - avoided reopening section-entry, pinned-param, or harness-only lanes
+- selected one bounded canonical-lane subtask:
+  test whether the common non-selection path can skip `useSortable(...)` for
+  real `ParamSwitch` rows, then keep the patch only if the canonical lane
+  improves
+- hypothesis patch while it was in place:
+  - split real param rows into static and sortable branches inside
+    `frontend/src/components/Params/ParamSwitch.tsx`
+  - added focused branch-coverage assertions in
+    `frontend/src/components/Params/ParamSwitch.test.tsx`
+- hypothesis guardrails while the patch was in place:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
+    -> passed (`3` files, `11` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.test.tsx`
+    -> passed
+- canonical live rerun with the hypothesis patch:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-013/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.3m`)
+    -> live readout versus the latest accepted baseline on the same lane:
+       `presentedSceneSectionParamDndListRowsReactRender`
+       `381.1ms total` / `59.3ms max` -> `411.7ms total` / `69.2ms max`
+       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+       `406.0ms total` / `61.0ms max` -> `440.8ms total` / `72.2ms max`
+       `presentedSceneSectionParamGroupContainerReactRender`
+       `463.8ms total` / `65.0ms max` -> `499.1ms total` / `76.9ms max`
+       `presentedSceneSectionSubtreeReactRender`
+       `802.5ms total` / `228.0ms max` -> `877.4ms total` / `199.2ms max`
+       `averageFrameDurationMs 37.59 -> 39.53`
+       `longTaskTotalDurationMs 1020 -> 1093`
+- fresh-context CDP verification via sub-agent:
+  - `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+  - graph-substrate canary was mounted and `rotaryParamCodeObjDefault` was
+    visibly readable at normal zoom
+  - console stayed free of runtime errors; only React Router future-flag
+    warnings plus ordinary Vite/React DevTools notices appeared
+- interpretation:
+  - this hypothesis did not produce a trustworthy win on the canonical lane
+  - reverted the `ParamSwitch` branch split and its temporary test additions so
+    the worktree does not carry extra product complexity forward without a win
+  - recorded the closed hypothesis in
+    `perf/reports/frontend/2026-04-13_settings-graph-param-switch-non-sortable-row-negative-result.md`
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - next pass should stay on the active unpinned row frontier but choose a
+    different attribution or product cut instead of reopening this sortable
+    branch split without fresh evidence
+- reverted-tree verification after removing the patch:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx`
+    -> passed (`1` file, `6` tests)
+- LOOP_TERMINAL_MARKER: none

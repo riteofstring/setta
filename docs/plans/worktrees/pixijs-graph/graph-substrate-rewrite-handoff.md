@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 17:16 UTC
+Last updated: 2026-04-13 17:25 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,63 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `444` closed one bounded negative-result product hypothesis on the
+  canonical `rotaryParamCodeObjDefault` lane by testing, then reverting, a
+  non-sortable `ParamSwitch` row split for the common non-selection path:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and stayed on the active unpinned
+      `ParamDndList` / row frontier instead of reopening section-entry,
+      pinned-param, or harness lanes
+    - chose one bounded product hypothesis inside the remaining row subtree:
+      skip `useSortable(...)` for real param rows when param selection / drag
+      mode is inactive
+    - required the live canonical probe to justify keeping the patch; when the
+      lane did not beat the latest accepted baseline, reverted the code and
+      recorded the result as a closed negative hypothesis
+  - code/doc changes kept in the tree:
+    - `perf/reports/frontend/2026-04-13_settings-graph-param-switch-non-sortable-row-negative-result.md`
+      records the hypothesis, live probe numbers, CDP smoke result, and why
+      the patch was reverted
+  - focused verification:
+    - hypothesis guardrails while the patch was in place:
+      `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx`
+      -> passed (`3` files, `11` tests)
+    - reverted-tree check after removing the patch:
+      `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.test.tsx`
+      -> passed (`1` file, `6` tests)
+    - formatting:
+      `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.test.tsx`
+      -> passed
+    - canonical live rerun with the hypothesis patch:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-013/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`) but did not clear the latest
+         accepted baseline on the same lane:
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `381.1ms total` / `59.3ms max` -> `411.7ms total` / `69.2ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `406.0ms total` / `61.0ms max` -> `440.8ms total` / `72.2ms max`
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `463.8ms total` / `65.0ms max` -> `499.1ms total` / `76.9ms max`
+         `presentedSceneSectionSubtreeReactRender`
+         `802.5ms total` / `228.0ms max` -> `877.4ms total` / `199.2ms max`
+         `averageFrameDurationMs`
+         `37.59` -> `39.53`
+         `longTaskTotalDurationMs`
+         `1020` -> `1093`
+    - fresh-context CDP verification via sub-agent:
+      -> `http://127.0.0.1:3075/settings` settled to `Settings -> All Settings`
+      -> the graph-substrate canary was mounted and
+         `rotaryParamCodeObjDefault` was visibly readable at normal zoom
+      -> no runtime console errors; only React Router future-flag warnings plus
+         routine Vite/React DevTools notices appeared
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - close this non-sortable row split as the current default hypothesis for
+      the remaining unpinned row frontier
+    - the next pass should stay on the same lane but return to attribution or a
+      different bounded product cut inside the unpinned row subtree instead of
+      reopening sortable-branch splitting without fresh evidence
 
 - item `443` landed one bounded production cut on the canonical
   `rotaryParamCodeObjDefault` lane by memoizing `GetParamSwitch` so unchanged
