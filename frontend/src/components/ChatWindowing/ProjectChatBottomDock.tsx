@@ -60,6 +60,7 @@ import {
   useRef,
   useState,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
@@ -1236,6 +1237,170 @@ type DockedWindowPanelProps = {
   onSingleDockResizePointerUp: (event: PointerEvent<HTMLDivElement>) => void;
 };
 
+type DockedWindowActionDefinition = {
+  key: string;
+  testId: string;
+  instanceId: string;
+  icon: ReactNode;
+  onClick: () => void;
+  quickInfo: Parameters<typeof getWindowControlQuickInfoText>[0];
+  className?: string;
+  disabled?: boolean;
+};
+
+function mapDockedWindowActionToSurfaceAction(
+  action: DockedWindowActionDefinition,
+) {
+  return {
+    key: action.key,
+    label: getWindowControlQuickInfoText(action.quickInfo),
+    testId: action.testId,
+    instanceId: action.instanceId,
+    icon: action.icon,
+    className: action.className,
+    disabled: action.disabled,
+    onClick: action.onClick,
+  };
+}
+
+function renderDockedWindowHeaderAction(
+  action: DockedWindowActionDefinition,
+): ReactNode {
+  const label = getWindowControlQuickInfoText(action.quickInfo);
+  return (
+    <button
+      key={`${action.instanceId}-${action.key}`}
+      type="button"
+      className={action.className ?? SECTION_WINDOW_ACTION_BUTTON_CLASS}
+      onClick={action.onClick}
+      disabled={action.disabled}
+      aria-label={label}
+      data-testid={action.testId}
+      data-chat-window-instance-id={action.instanceId}
+      {...getWindowControlQuickInfoHandlers(action.quickInfo)}
+    >
+      {action.icon}
+    </button>
+  );
+}
+
+function buildDockedWindowActions({
+  instanceId,
+  title,
+  showDockHeaderCycleControls,
+  canCycleDockBackward,
+  canCycleDockForward,
+  canShowCanvasAction,
+  onCycleDockBackward,
+  onCycleDockForward,
+  onShowInCanvas,
+  onUndockWindow,
+  onMaximizeWindow,
+  onMinimizeWindow,
+  onCloseWindow,
+}: {
+  instanceId: string;
+  title: string;
+  showDockHeaderCycleControls: boolean;
+  canCycleDockBackward: boolean;
+  canCycleDockForward: boolean;
+  canShowCanvasAction: boolean;
+  onCycleDockBackward: () => void;
+  onCycleDockForward: () => void;
+  onShowInCanvas: (instanceId: string) => void;
+  onUndockWindow: (instanceId: string) => void;
+  onMaximizeWindow: (instanceId: string) => void;
+  onMinimizeWindow: (instanceId: string) => void;
+  onCloseWindow: (instanceId: string) => void;
+}): DockedWindowActionDefinition[] {
+  const actions: DockedWindowActionDefinition[] = [];
+
+  if (showDockHeaderCycleControls) {
+    actions.push(
+      {
+        key: "cycle_left",
+        testId: "project-chat-window-cycle-left",
+        instanceId,
+        icon: <MdChevronLeft size={12} />,
+        onClick: onCycleDockBackward,
+        quickInfo: { action: "show_previous_docked_chat" },
+        className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
+        disabled: !canCycleDockBackward,
+      },
+      {
+        key: "cycle_right",
+        testId: "project-chat-window-cycle-right",
+        instanceId,
+        icon: <MdChevronRight size={12} />,
+        onClick: onCycleDockForward,
+        quickInfo: { action: "show_next_docked_chat" },
+        className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
+        disabled: !canCycleDockForward,
+      },
+    );
+  }
+
+  if (canShowCanvasAction) {
+    actions.push({
+      key: "show_in_canvas",
+      testId: "project-chat-window-show-in-canvas",
+      instanceId,
+      icon: <MdFlipToFront size={12} />,
+      onClick: () => {
+        onShowInCanvas(instanceId);
+      },
+      quickInfo: { action: "show_in_canvas", title },
+    });
+  }
+
+  actions.push(
+    {
+      key: "undock",
+      testId: "project-chat-window-undock",
+      instanceId,
+      icon: <MdOpenInNew size={12} />,
+      onClick: () => {
+        onUndockWindow(instanceId);
+      },
+      quickInfo: { action: "undock_window", title },
+    },
+    {
+      key: "maximize",
+      testId: "project-chat-window-maximize",
+      instanceId,
+      icon: WINDOW_MAXIMIZE_ICON,
+      onClick: () => {
+        onMaximizeWindow(instanceId);
+      },
+      quickInfo: { action: "maximize_window", title },
+    },
+    {
+      key: "minimize",
+      testId: "project-chat-window-minimize",
+      instanceId,
+      icon: <i className="gg-math-minus" />,
+      onClick: () => {
+        onMinimizeWindow(instanceId);
+      },
+      quickInfo: { action: "minimize_window", title },
+      className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
+    },
+    {
+      key: "close",
+      testId: "project-chat-window-close",
+      instanceId,
+      icon: <i className="gg-close" />,
+      onClick: () => {
+        onCloseWindow(instanceId);
+      },
+      quickInfo: { action: "close_window", title },
+      className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
+    },
+  );
+
+  return actions;
+}
+
 function DockedWindowPanel({
   pill,
   projectConfigId,
@@ -1263,12 +1428,30 @@ function DockedWindowPanel({
   onSingleDockResizePointerUp,
 }: DockedWindowPanelProps) {
   const canShowCanvasAction = canMoveProjectChatWindowToCanvas(pill.mode);
+  const focusWindow = () => {
+    onFocusWindow(pill.instanceId);
+  };
   const titleCommit =
     pill.mode === ChatWindowModeEnum.git_graph_mode
       ? undefined
       : (nextTitle: string) => {
           onSetWindowTitle(pill.instanceId, nextTitle);
         };
+  const dockedWindowActions = buildDockedWindowActions({
+    instanceId: pill.instanceId,
+    title: pill.title,
+    showDockHeaderCycleControls,
+    canCycleDockBackward,
+    canCycleDockForward,
+    canShowCanvasAction,
+    onCycleDockBackward,
+    onCycleDockForward,
+    onShowInCanvas,
+    onUndockWindow,
+    onMaximizeWindow,
+    onMinimizeWindow,
+    onCloseWindow,
+  });
 
   return (
     <article
@@ -1292,9 +1475,7 @@ function DockedWindowPanel({
       data-chat-window-instance-id={pill.instanceId}
       data-chat-window-exit-animation={dockedExitAnimation ?? undefined}
       data-chat-window-enter-animation={dockedEnterAnimation ?? undefined}
-      onPointerDown={() => {
-        onFocusWindow(pill.instanceId);
-      }}
+      onPointerDown={focusWindow}
     >
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {pill.sectionId ? (
@@ -1303,143 +1484,9 @@ function DockedWindowPanel({
             roundedClassName={DOCKED_WINDOWED_CHAT_ROUNDED_CLASS}
             chatHost={ChatWindowPlacementEnum.bottom_docked}
             chatModeOverride={pill.mode}
-            headerActions={
-              <>
-                {showDockHeaderCycleControls ? (
-                  <>
-                    <button
-                      type="button"
-                      className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
-                      onClick={onCycleDockBackward}
-                      disabled={!canCycleDockBackward}
-                      aria-label={getWindowControlQuickInfoText({
-                        action: "show_previous_docked_chat",
-                      })}
-                      data-testid="project-chat-window-cycle-left"
-                      data-chat-window-instance-id={pill.instanceId}
-                      {...getWindowControlQuickInfoHandlers({
-                        action: "show_previous_docked_chat",
-                      })}
-                    >
-                      <MdChevronLeft size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
-                      onClick={onCycleDockForward}
-                      disabled={!canCycleDockForward}
-                      aria-label={getWindowControlQuickInfoText({
-                        action: "show_next_docked_chat",
-                      })}
-                      data-testid="project-chat-window-cycle-right"
-                      data-chat-window-instance-id={pill.instanceId}
-                      {...getWindowControlQuickInfoHandlers({
-                        action: "show_next_docked_chat",
-                      })}
-                    >
-                      <MdChevronRight size={12} />
-                    </button>
-                  </>
-                ) : null}
-                {canShowCanvasAction ? (
-                  <button
-                    type="button"
-                    className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                    onClick={() => {
-                      onShowInCanvas(pill.instanceId);
-                    }}
-                    aria-label={getWindowControlQuickInfoText({
-                      action: "show_in_canvas",
-                      title: pill.title,
-                    })}
-                    data-testid="project-chat-window-show-in-canvas"
-                    data-chat-window-instance-id={pill.instanceId}
-                    {...getWindowControlQuickInfoHandlers({
-                      action: "show_in_canvas",
-                      title: pill.title,
-                    })}
-                  >
-                    <MdFlipToFront size={12} />
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                  onClick={() => {
-                    onUndockWindow(pill.instanceId);
-                  }}
-                  aria-label={getWindowControlQuickInfoText({
-                    action: "undock_window",
-                    title: pill.title,
-                  })}
-                  data-testid="project-chat-window-undock"
-                  data-chat-window-instance-id={pill.instanceId}
-                  {...getWindowControlQuickInfoHandlers({
-                    action: "undock_window",
-                    title: pill.title,
-                  })}
-                >
-                  <MdOpenInNew size={12} />
-                </button>
-                <button
-                  type="button"
-                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                  onClick={() => {
-                    onMaximizeWindow(pill.instanceId);
-                  }}
-                  aria-label={getWindowControlQuickInfoText({
-                    action: "maximize_window",
-                    title: pill.title,
-                  })}
-                  data-testid="project-chat-window-maximize"
-                  data-chat-window-instance-id={pill.instanceId}
-                  {...getWindowControlQuickInfoHandlers({
-                    action: "maximize_window",
-                    title: pill.title,
-                  })}
-                >
-                  {WINDOW_MAXIMIZE_ICON}
-                </button>
-                <button
-                  type="button"
-                  className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
-                  onClick={() => {
-                    onMinimizeWindow(pill.instanceId);
-                  }}
-                  aria-label={getWindowControlQuickInfoText({
-                    action: "minimize_window",
-                    title: pill.title,
-                  })}
-                  data-testid="project-chat-window-minimize"
-                  data-chat-window-instance-id={pill.instanceId}
-                  {...getWindowControlQuickInfoHandlers({
-                    action: "minimize_window",
-                    title: pill.title,
-                  })}
-                >
-                  <i className="gg-math-minus" />
-                </button>
-                <button
-                  type="button"
-                  className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
-                  onClick={() => {
-                    onCloseWindow(pill.instanceId);
-                  }}
-                  aria-label={getWindowControlQuickInfoText({
-                    action: "close_window",
-                    title: pill.title,
-                  })}
-                  data-testid="project-chat-window-close"
-                  data-chat-window-instance-id={pill.instanceId}
-                  {...getWindowControlQuickInfoHandlers({
-                    action: "close_window",
-                    title: pill.title,
-                  })}
-                >
-                  <i className="gg-close" />
-                </button>
-              </>
-            }
+            headerActions={dockedWindowActions.map(
+              renderDockedWindowHeaderAction,
+            )}
           />
         ) : (
           <ProjectChatWindowSurface
@@ -1448,92 +1495,11 @@ function DockedWindowPanel({
             instanceId={pill.instanceId}
             allowLayoutMutations={canEditLayout}
             roundedClassName={DOCKED_WINDOWED_CHAT_ROUNDED_CLASS}
-            onTitleClick={() => {
-              onFocusWindow(pill.instanceId);
-            }}
+            onTitleClick={focusWindow}
             onTitleCommit={titleCommit}
-            actions={[
-              ...(showDockHeaderCycleControls
-                ? [
-                    {
-                      key: "cycle_left",
-                      label: "Show previous docked chat",
-                      testId: "project-chat-window-cycle-left",
-                      instanceId: pill.instanceId,
-                      icon: <MdChevronLeft size={12} />,
-                      className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
-                      disabled: !canCycleDockBackward,
-                      onClick: onCycleDockBackward,
-                    },
-                    {
-                      key: "cycle_right",
-                      label: "Show next docked chat",
-                      testId: "project-chat-window-cycle-right",
-                      instanceId: pill.instanceId,
-                      icon: <MdChevronRight size={12} />,
-                      className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
-                      disabled: !canCycleDockForward,
-                      onClick: onCycleDockForward,
-                    },
-                  ]
-                : []),
-              ...(canShowCanvasAction
-                ? [
-                    {
-                      key: "show_in_canvas",
-                      label: `Show ${pill.title} in canvas`,
-                      testId: "project-chat-window-show-in-canvas",
-                      instanceId: pill.instanceId,
-                      icon: <MdFlipToFront size={12} />,
-                      onClick: () => {
-                        onShowInCanvas(pill.instanceId);
-                      },
-                    },
-                  ]
-                : []),
-              {
-                key: "undock",
-                label: `Undock ${pill.title}`,
-                testId: "project-chat-window-undock",
-                instanceId: pill.instanceId,
-                icon: <MdOpenInNew size={12} />,
-                onClick: () => {
-                  onUndockWindow(pill.instanceId);
-                },
-              },
-              {
-                key: "maximize",
-                label: `Maximize ${pill.title}`,
-                testId: "project-chat-window-maximize",
-                instanceId: pill.instanceId,
-                icon: WINDOW_MAXIMIZE_ICON,
-                onClick: () => {
-                  onMaximizeWindow(pill.instanceId);
-                },
-              },
-              {
-                key: "minimize",
-                label: `Minimize ${pill.title}`,
-                testId: "project-chat-window-minimize",
-                instanceId: pill.instanceId,
-                className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
-                icon: <i className="gg-math-minus" />,
-                onClick: () => {
-                  onMinimizeWindow(pill.instanceId);
-                },
-              },
-              {
-                key: "close",
-                label: `Close ${pill.title}`,
-                testId: "project-chat-window-close",
-                instanceId: pill.instanceId,
-                className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
-                icon: <i className="gg-close" />,
-                onClick: () => {
-                  onCloseWindow(pill.instanceId);
-                },
-              },
-            ]}
+            actions={dockedWindowActions.map(
+              mapDockedWindowActionToSurfaceAction,
+            )}
           >
             <ProjectChatWindowContent
               pill={pill}
