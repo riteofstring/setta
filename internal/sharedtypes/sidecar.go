@@ -282,6 +282,7 @@ func buildExportedValueEntries() []ExportedValueEntry {
 
 func buildDiscriminatedFamilyEntries() ([]DiscriminatedFamilyEntry, error) {
 	allTypes := DiscoveredTypes()
+	typeIndex := newDiscriminatedFamilyTypeIndex(allTypes)
 	entries := []DiscriminatedFamilyEntry{}
 	seenBases := map[reflect.Type]struct{}{}
 
@@ -300,17 +301,18 @@ func buildDiscriminatedFamilyEntries() ([]DiscriminatedFamilyEntry, error) {
 		}
 		seenBases[baseType] = struct{}{}
 
-		members, err := discriminatedFamilyMembers(family, allTypes)
+		resolvedMembers, err := resolveDiscriminatedFamilyMembers(family, typeIndex)
 		if err != nil {
 			return nil, err
 		}
+		members := resolvedDiscriminatedFamilyMemberEntries(resolvedMembers)
 		entry := DiscriminatedFamilyEntry{
 			BaseType:           ContractNameForType(baseType),
 			EnumType:           ContractNameForType(family.EnumType),
 			DiscriminatorField: strings.TrimSpace(family.DiscriminatorField),
 			Members:            members,
 		}
-		entry.Traits = discriminatedFamilyTraits(family, members, allTypes)
+		entry.Traits = buildDiscriminatedFamilyTraits(family, resolvedMembers)
 		if family.DefaultValueForDiscriminator != nil {
 			entry.DefaultValuesByDiscriminator = map[string]any{}
 			for _, member := range members {
@@ -405,10 +407,78 @@ func contractKindForType(t reflect.Type) string {
 	}
 }
 
+type discriminatedFamilyTypeIndex struct {
+	byContractName  map[string]reflect.Type
+	byPackageAndKey map[string]reflect.Type
+}
+
+type resolvedDiscriminatedFamilyMember struct {
+	entry DiscriminatedFamilyMemberEntry
+	typ   reflect.Type
+}
+
+func newDiscriminatedFamilyTypeIndex(allTypes []reflect.Type) discriminatedFamilyTypeIndex {
+	index := discriminatedFamilyTypeIndex{
+		byContractName:  make(map[string]reflect.Type, len(allTypes)),
+		byPackageAndKey: make(map[string]reflect.Type, len(allTypes)),
+	}
+	for _, candidate := range allTypes {
+		t := canonicalType(candidate)
+		if t == nil {
+			continue
+		}
+		index.byPackageAndKey[discriminatedFamilyPackageKey(t.PkgPath(), t.Name())] = t
+		if name := strings.TrimSpace(ContractNameForType(t)); name != "" {
+			index.byContractName[name] = t
+		}
+	}
+	return index
+}
+
+func discriminatedFamilyPackageKey(pkgPath string, typeName string) string {
+	return pkgPath + ":" + typeName
+}
+
+func (index discriminatedFamilyTypeIndex) candidateType(
+	baseType reflect.Type,
+	discriminatorValue string,
+	suffix string,
+) reflect.Type {
+	if baseType == nil {
+		return nil
+	}
+	return index.byPackageAndKey[discriminatedFamilyPackageKey(baseType.PkgPath(), "Frontend"+discriminatorValue+suffix)]
+}
+
+func (index discriminatedFamilyTypeIndex) typeByContractName(contractName string) reflect.Type {
+	return index.byContractName[strings.TrimSpace(contractName)]
+}
+
+func resolvedDiscriminatedFamilyMemberEntries(
+	members []resolvedDiscriminatedFamilyMember,
+) []DiscriminatedFamilyMemberEntry {
+	entries := make([]DiscriminatedFamilyMemberEntry, len(members))
+	for index, member := range members {
+		entries[index] = member.entry
+	}
+	return entries
+}
+
 func discriminatedFamilyMembers(
 	family frontendbindingmeta.DiscriminatedObjectFamily,
 	allTypes []reflect.Type,
 ) ([]DiscriminatedFamilyMemberEntry, error) {
+	resolvedMembers, err := resolveDiscriminatedFamilyMembers(family, newDiscriminatedFamilyTypeIndex(allTypes))
+	if err != nil {
+		return nil, err
+	}
+	return resolvedDiscriminatedFamilyMemberEntries(resolvedMembers), nil
+}
+
+func resolveDiscriminatedFamilyMembers(
+	family frontendbindingmeta.DiscriminatedObjectFamily,
+	typeIndex discriminatedFamilyTypeIndex,
+) ([]resolvedDiscriminatedFamilyMember, error) {
 	baseType := canonicalType(family.BaseType)
 	if baseType == nil {
 		return nil, nil
@@ -426,44 +496,50 @@ func discriminatedFamilyMembers(
 		return nil, fmt.Errorf("shared sidecar family %s enum %s has no discovered values", ContractNameForType(baseType), family.EnumType)
 	}
 
-	byPackageAndName := map[string]reflect.Type{}
-	for _, t := range allTypes {
-		t = canonicalType(t)
-		if t == nil {
-			continue
-		}
-		byPackageAndName[t.PkgPath()+":"+t.Name()] = t
-	}
-
-	members := []DiscriminatedFamilyMemberEntry{}
+	members := make([]resolvedDiscriminatedFamilyMember, 0, len(enumValues))
 	for _, enumValue := range enumValues {
-		candidate, ok := byPackageAndName[baseType.PkgPath()+":"+"Frontend"+enumValue.Value+suffix]
-		if !ok {
+		candidate := typeIndex.candidateType(baseType, enumValue.Value, suffix)
+		if candidate == nil {
 			continue
 		}
-		value, ok := family.DiscriminatorValue(candidate)
-		if !ok || value != enumValue.Value {
-			return nil, fmt.Errorf(
-				"shared sidecar family %s member %s does not resolve discriminator %q",
-				ContractNameForType(baseType),
-				candidate,
-				enumValue.Value,
-			)
+		if err := validateDiscriminatedFamilyMember(baseType, family, candidate, enumValue.Value); err != nil {
+			return nil, err
 		}
-		if !frontendbindingmeta.ContractTypeEmbedsAnonymousField(candidate, baseType) {
-			return nil, fmt.Errorf(
-				"shared sidecar family %s member %s does not embed %s",
-				ContractNameForType(baseType),
-				candidate,
-				ContractNameForType(baseType),
-			)
-		}
-		members = append(members, DiscriminatedFamilyMemberEntry{
-			Name:               ContractNameForType(candidate),
-			DiscriminatorValue: enumValue.Value,
+		members = append(members, resolvedDiscriminatedFamilyMember{
+			entry: DiscriminatedFamilyMemberEntry{
+				Name:               ContractNameForType(candidate),
+				DiscriminatorValue: enumValue.Value,
+			},
+			typ: candidate,
 		})
 	}
 	return members, nil
+}
+
+func validateDiscriminatedFamilyMember(
+	baseType reflect.Type,
+	family frontendbindingmeta.DiscriminatedObjectFamily,
+	candidate reflect.Type,
+	discriminatorValue string,
+) error {
+	value, ok := family.DiscriminatorValue(candidate)
+	if !ok || value != discriminatorValue {
+		return fmt.Errorf(
+			"shared sidecar family %s member %s does not resolve discriminator %q",
+			ContractNameForType(baseType),
+			candidate,
+			discriminatorValue,
+		)
+	}
+	if frontendbindingmeta.ContractTypeEmbedsAnonymousField(candidate, baseType) {
+		return nil
+	}
+	return fmt.Errorf(
+		"shared sidecar family %s member %s does not embed %s",
+		ContractNameForType(baseType),
+		candidate,
+		ContractNameForType(baseType),
+	)
 }
 
 func discriminatedFamilyTraits(
@@ -471,52 +547,86 @@ func discriminatedFamilyTraits(
 	members []DiscriminatedFamilyMemberEntry,
 	allTypes []reflect.Type,
 ) []DiscriminatedTraitEntry {
+	return buildDiscriminatedFamilyTraits(
+		family,
+		resolveDiscriminatedFamilyMembersByName(members, newDiscriminatedFamilyTypeIndex(allTypes)),
+	)
+}
+
+func resolveDiscriminatedFamilyMembersByName(
+	members []DiscriminatedFamilyMemberEntry,
+	typeIndex discriminatedFamilyTypeIndex,
+) []resolvedDiscriminatedFamilyMember {
+	resolvedMembers := make([]resolvedDiscriminatedFamilyMember, 0, len(members))
+	for _, member := range members {
+		memberType := typeIndex.typeByContractName(member.Name)
+		if memberType == nil {
+			continue
+		}
+		resolvedMembers = append(resolvedMembers, resolvedDiscriminatedFamilyMember{
+			entry: member,
+			typ:   memberType,
+		})
+	}
+	return resolvedMembers
+}
+
+func buildDiscriminatedFamilyTraits(
+	family frontendbindingmeta.DiscriminatedObjectFamily,
+	members []resolvedDiscriminatedFamilyMember,
+) []DiscriminatedTraitEntry {
 	if len(members) == 0 || len(family.Traits) == 0 {
 		return nil
 	}
 
-	typesByName := map[string]reflect.Type{}
-	for _, t := range allTypes {
-		name := strings.TrimSpace(ContractNameForType(t))
-		if name == "" {
-			continue
-		}
-		typesByName[name] = canonicalType(t)
-	}
-
 	entries := make([]DiscriminatedTraitEntry, 0, len(family.Traits))
 	for _, trait := range family.Traits {
-		unionName := strings.TrimSpace(trait.UnionName)
-		if unionName == "" {
+		entry, ok := buildDiscriminatedTraitEntry(trait, members)
+		if !ok {
 			continue
 		}
-		memberTypes := []string{}
-		for _, member := range members {
-			memberType := typesByName[member.Name]
-			if memberType == nil {
-				continue
-			}
-			if trait.EmbeddedFieldType != nil &&
-				!frontendbindingmeta.ContractTypeEmbedsAnonymousField(memberType, trait.EmbeddedFieldType) {
-				continue
-			}
-			memberTypes = append(memberTypes, member.Name)
-		}
-		if len(memberTypes) == 0 {
-			continue
-		}
-		slices.Sort(memberTypes)
-		entries = append(entries, DiscriminatedTraitEntry{
-			UnionName:   unionName,
-			LocalUnion:  trait.LocalUnion,
-			IncludeBase: trait.IncludeBase,
-			MemberTypes: memberTypes,
-		})
+		entries = append(entries, entry)
 	}
 	sort.Slice(entries, func(i int, j int) bool {
 		return entries[i].UnionName < entries[j].UnionName
 	})
 	return entries
+}
+
+func buildDiscriminatedTraitEntry(
+	trait frontendbindingmeta.DiscriminatedObjectTraitSpec,
+	members []resolvedDiscriminatedFamilyMember,
+) (DiscriminatedTraitEntry, bool) {
+	unionName := strings.TrimSpace(trait.UnionName)
+	if unionName == "" {
+		return DiscriminatedTraitEntry{}, false
+	}
+	memberTypes := discriminatedTraitMemberTypes(trait, members)
+	if len(memberTypes) == 0 {
+		return DiscriminatedTraitEntry{}, false
+	}
+	return DiscriminatedTraitEntry{
+		UnionName:   unionName,
+		LocalUnion:  trait.LocalUnion,
+		IncludeBase: trait.IncludeBase,
+		MemberTypes: memberTypes,
+	}, true
+}
+
+func discriminatedTraitMemberTypes(
+	trait frontendbindingmeta.DiscriminatedObjectTraitSpec,
+	members []resolvedDiscriminatedFamilyMember,
+) []string {
+	memberTypes := make([]string, 0, len(members))
+	for _, member := range members {
+		if trait.EmbeddedFieldType != nil &&
+			!frontendbindingmeta.ContractTypeEmbedsAnonymousField(member.typ, trait.EmbeddedFieldType) {
+			continue
+		}
+		memberTypes = append(memberTypes, member.entry.Name)
+	}
+	slices.Sort(memberTypes)
+	return memberTypes
 }
 
 func routeInventoryName(routeName string) string {
