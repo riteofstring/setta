@@ -34,7 +34,8 @@ func TestPythonGeneratedDiagnosticsMapperFiltersIgnoredParamErrors(t *testing.T)
 		"reportArgumentType",
 	)
 
-	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	errors, unmapped := result.Diagnostics, result.Unmapped
 	if errors.Errors["section-1"].Params["param-1"][0] != "Argument type mismatch" {
 		t.Fatalf("expected mapped param error, got %#v", errors.Errors)
 	}
@@ -60,7 +61,8 @@ func TestPythonGeneratedDiagnosticsMapperFiltersIgnoredParamErrors(t *testing.T)
 		"reportArgumentType",
 	)
 
-	filtered, filteredUnmapped := ignoredMapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{ignoredDiagnostic}, "file:///tmp/setta_gen.py")
+	filteredResult := ignoredMapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{ignoredDiagnostic}, "file:///tmp/setta_gen.py")
+	filtered, filteredUnmapped := filteredResult.Diagnostics, filteredResult.Unmapped
 	if len(filtered.Errors) != 0 {
 		t.Fatalf("expected ignored param errors to be filtered, got %#v", filtered.Errors)
 	}
@@ -94,7 +96,8 @@ func TestPythonGeneratedDiagnosticsMapperUsesRangeIndexForUndefinedSymbol(t *tes
 		"reportUndefinedVariable",
 	)
 
-	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	errors, unmapped := result.Diagnostics, result.Unmapped
 	if errors.Errors["section-1"].Params["param-1"][0] != "unknown_symbol is not defined" {
 		t.Fatalf("expected mapped undefined-symbol error, got %#v", errors.Errors)
 	}
@@ -190,7 +193,8 @@ func TestPythonGeneratedDiagnosticsMapperMapsCallIssueFromAssignmentTarget(t *te
 		"reportCallIssue",
 	)
 
-	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	errors, unmapped := result.Diagnostics, result.Unmapped
 	if errors.Errors["section-1"].Params["param-1"][0] != `Argument missing for parameter "param"` {
 		t.Fatalf("expected missing-parameter mapping, got %#v", errors.Errors)
 	}
@@ -288,7 +292,8 @@ func TestPythonGeneratedDiagnosticsMapperMapsPositionalCallIssueFromLineStart(t 
 		"reportCallIssue",
 	)
 
-	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	errors, unmapped := result.Diagnostics, result.Unmapped
 	if errors.Errors["section-1"].Params["param-1"][0] != `Positional argument missing for parameter "param"` {
 		t.Fatalf("expected positional missing-parameter mapping, got %#v", errors.Errors)
 	}
@@ -346,7 +351,8 @@ func TestPythonGeneratedDiagnosticsMapperFiltersImplicitRelativeImportForWatchCo
 		"reportImplicitRelativeImport",
 	)
 
-	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	errors, unmapped := result.Diagnostics, result.Unmapped
 	if len(errors.Errors) != 0 {
 		t.Fatalf("expected no mapped errors for ignored implicit-relative import, got %#v", errors.Errors)
 	}
@@ -379,7 +385,8 @@ func TestPythonGeneratedDiagnosticsMapperFiltersMissingImportForWatchCodeModule(
 		"reportMissingImports",
 	)
 
-	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	errors, unmapped := result.Diagnostics, result.Unmapped
 	if len(errors.Errors) != 0 {
 		t.Fatalf("expected no mapped errors for ignored missing import, got %#v", errors.Errors)
 	}
@@ -414,7 +421,8 @@ func TestPythonGeneratedDiagnosticsMapperFallsBackToWatchCodeRequiredParamErrors
 		"reportMissingImports",
 	)
 
-	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	errors, unmapped := result.Diagnostics, result.Unmapped
 	if len(unmapped) != 0 {
 		t.Fatalf("expected watch code missing import to stay filtered, got %#v", unmapped)
 	}
@@ -449,7 +457,8 @@ func TestPythonGeneratedDiagnosticsMapperKeepsImplicitRelativeImportForNonWatchC
 		"reportImplicitRelativeImport",
 	)
 
-	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	errors, unmapped := result.Diagnostics, result.Unmapped
 	if len(errors.Errors) != 0 {
 		t.Fatalf("expected no mapped section errors for implicit-relative import, got %#v", errors.Errors)
 	}

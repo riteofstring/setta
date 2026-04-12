@@ -112,14 +112,6 @@ func NewPythonGeneratedDiagnosticsMapper(
 	}, true, nil
 }
 
-func (m *PythonGeneratedDiagnosticsMapper) MapCodeDiagnostics(
-	diagnostics []PythonGeneratedDiagnostic,
-	uri string,
-) (projectstate.ProjectConfigDiagnostics, []projectstate.LSPDiagnostic) {
-	result := m.AnalyzeCodeDiagnostics(diagnostics, uri)
-	return result.Diagnostics, result.Unmapped
-}
-
 func (m *PythonGeneratedDiagnosticsMapper) AnalyzeCodeDiagnostics(
 	diagnostics []PythonGeneratedDiagnostic,
 	uri string,

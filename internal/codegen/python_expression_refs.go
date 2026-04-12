@@ -16,26 +16,6 @@ type pythonSpecialVarExpressionFinder struct {
 	scopeStack   []map[string]struct{}
 }
 
-func findUndefinedPythonSpecialVarExpressions(
-	code string,
-	specialVar string,
-	keepAttrOnly bool,
-) (map[string]struct{}, error) {
-	refsByName, err := findUndefinedPythonSpecialVarExpressionPositions(code, specialVar, keepAttrOnly)
-	if err != nil {
-		return nil, err
-	}
-	if len(refsByName) == 0 {
-		return nil, nil
-	}
-
-	refs := make(map[string]struct{}, len(refsByName))
-	for ref := range refsByName {
-		refs[ref] = struct{}{}
-	}
-	return refs, nil
-}
-
 func findUndefinedPythonSpecialVarExpressionPositions(
 	code string,
 	specialVar string,
