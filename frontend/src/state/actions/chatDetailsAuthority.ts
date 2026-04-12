@@ -18,6 +18,74 @@ function getDefaultHydratedChatDetails(): ChatDetails {
   };
 }
 
+function resolveHydratedWaitingForResponse(
+  waitingForResponse: boolean,
+  existingDetails: ChatDetails | undefined,
+  preserveLocalOverlay: boolean,
+): boolean {
+  if (!preserveLocalOverlay) {
+    return Boolean(waitingForResponse);
+  }
+  return Boolean(waitingForResponse || existingDetails?.waitingForResponse);
+}
+
+function buildHydratedChatDetailsUpdate({
+  existingDetails,
+  messages,
+  waitingForResponse,
+  backendToolCallArguments,
+  llmConfig,
+  contextUsage,
+  serializedAppGenerationByMessageId,
+  preserveLocalOverlay,
+}: {
+  existingDetails: ChatDetails | undefined;
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  backendToolCallArguments: Record<string, string>;
+  llmConfig: ChatDetails["llmConfig"];
+  contextUsage: ChatDetails["contextUsage"];
+  serializedAppGenerationByMessageId: unknown;
+  preserveLocalOverlay: boolean;
+}): {
+  nextAppGenerationDetails: ReturnType<typeof buildChatAppGenerationDetails>;
+  nextChatDetails: ChatDetails;
+  nextWaitingForResponse: boolean;
+} {
+  const nextToolCallArguments = resolveHydratedToolCallArguments({
+    backendToolCallArguments,
+    localToolCallArguments: existingDetails?.toolCallArguments ?? {},
+    preserveLocalOverlay,
+  });
+  const nextWaitingForResponse = resolveHydratedWaitingForResponse(
+    waitingForResponse,
+    existingDetails,
+    preserveLocalOverlay,
+  );
+  const nextMessages = reconcileHydratedChatMessages({
+    backendMessages: messages,
+    localMessages: existingDetails?.messages ?? [],
+  });
+  return {
+    nextAppGenerationDetails: buildChatAppGenerationDetails(
+      nextMessages,
+      deserializeChatAppGenerationByMessageId(
+        serializedAppGenerationByMessageId,
+      ),
+    ),
+    nextChatDetails: {
+      ...getDefaultHydratedChatDetails(),
+      ...(existingDetails ?? {}),
+      messages: nextMessages,
+      waitingForResponse: nextWaitingForResponse,
+      toolCallArguments: nextToolCallArguments,
+      llmConfig,
+      contextUsage: contextUsage ?? null,
+    },
+    nextWaitingForResponse,
+  };
+}
+
 export function applyHydratedChatDetailsToStore({
   chatId,
   messages,
@@ -38,43 +106,32 @@ export function applyHydratedChatDetailsToStore({
   let nextWaitingForResponse = Boolean(waitingForResponse);
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
-    const preserveWaitingForResponse = isChatStreamActive(chatId);
+    const preserveLocalOverlay = isChatStreamActive(chatId);
     // Managed-chat hydration is backend-authoritative for message state.
     // While a local stream is still active, preserve only the explicit UI
     // overlays that the frontend owns: the active waiting flag and any
     // in-flight streamed tool-call arguments. Same-id rows keep local
     // createdAt so UI chronology remains stable, but speculative content does
     // not win over backend payloads.
-    const nextToolCallArguments = resolveHydratedToolCallArguments({
+    const {
+      nextAppGenerationDetails,
+      nextChatDetails,
+      nextWaitingForResponse: resolvedWaitingForResponse,
+    } = buildHydratedChatDetailsUpdate({
+      existingDetails,
+      messages,
+      waitingForResponse,
       backendToolCallArguments,
-      localToolCallArguments: existingDetails?.toolCallArguments ?? {},
-      preserveLocalOverlay: preserveWaitingForResponse,
+      llmConfig,
+      contextUsage,
+      serializedAppGenerationByMessageId,
+      preserveLocalOverlay,
     });
-    nextWaitingForResponse = preserveWaitingForResponse
-      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
-      : Boolean(waitingForResponse);
-    const nextMessages = reconcileHydratedChatMessages({
-      backendMessages: messages,
-      localMessages: existingDetails?.messages ?? [],
-    });
-    const nextAppGenerationDetails = buildChatAppGenerationDetails(
-      nextMessages,
-      deserializeChatAppGenerationByMessageId(
-        serializedAppGenerationByMessageId,
-      ),
-    );
+    nextWaitingForResponse = resolvedWaitingForResponse;
     return {
       chatDetails: {
         ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultHydratedChatDetails(),
-          ...(existingDetails ?? {}),
-          messages: nextMessages,
-          waitingForResponse: nextWaitingForResponse,
-          toolCallArguments: nextToolCallArguments,
-          llmConfig,
-          contextUsage: contextUsage ?? null,
-        },
+        [chatId]: nextChatDetails,
       },
       chatAppGenerationDetailsByChatId: {
         ...state.chatAppGenerationDetailsByChatId,
